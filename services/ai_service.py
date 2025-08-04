@@ -216,93 +216,190 @@ Respond in JSON format:
         try:
             if language == "uz":
                 if section_num == 1:  # Kirish
-                    prompt = f"""O'zbek tilida "{topic}" mavzusidagi "{section_title}" bo'limi uchun mazmun yarating.
+                    prompt = f"""O'zbek tilida "{topic}" mavzusidagi "{section_title}" bo'limi uchun professional akademik mazmun yarating.
 
-Bu kirish bo'limi bo'lib, quyidagilarni o'z ichiga olishi kerak:
-- Mavzuning dolzarbligi
-- Ishning maqsadi va vazifalari
-- Tadqiqot usullari haqida qisqacha
+Bu kirish bo'limi bo'lib, quyidagi talablarga javob berishi kerak:
+- Mavzuning dolzarbligi va zamonaviy ahamiyatini ko'rsatish
+- Ishning maqsadi va vazifalari aniq ta'riflangan bo'lishi
+- Tadqiqot metodologiyasi va yondashuvlari
+- Mavzu bo'yicha mavjud adabiyotlarga qisqacha sharh
 
-Kamida 600 so'z yozing. Matn akademik uslubda bo'lishi kerak."""
+MUHIM TALABLAR:
+- Kamida 800 so'z yozing
+- Har bir paragraf 5-7 ta jumla bo'lsin
+- Matnda bo'sh qatorlar bo'lmasin
+- Professional akademik til ishlatilsin
+- Har bir jumla oldingi jumla bilan mantiqan bog'langan bo'lsin
+- Matnda belgilar yoki simvollar ishlatmang
+- Matn ravon va uzluksiz bo'lishi kerak
+- Har bir fikr to'liq va batafsil bayon etilsin"""
 
                 elif section_num == total_sections:  # Xulosa
-                    prompt = f"""O'zbek tilida "{topic}" mavzusidagi "{section_title}" bo'limi uchun mazmun yarating.
+                    prompt = f"""O'zbek tilida "{topic}" mavzusidagi "{section_title}" bo'limi uchun professional akademik mazmun yarating.
 
-Bu xulosa bo'limi bo'lib, quyidagilarni o'z ichiga olishi kerak:
-- Asosiy xulosalar
-- Tadqiqot natijalari
-- Amaliy tavsiyalar
+Bu xulosa bo'limi bo'lib, quyidagi talablarga javob berishi kerak:
+- Barcha asosiy bo'limlardagi natijalarning umumlashtirilishi
+- Tadqiqotning asosiy xulosalari va natijalari
+- Amaliy tavsiyalar va takliflar
 - Kelajakdagi tadqiqotlar yo'nalishlari
+- Umumiy baholash va yakuniy fikrlar
 
-Kamida 500 so'z yozing. Matn akademik uslubda bo'lishi kerak."""
+MUHIM TALABLAR:
+- Kamida 700 so'z yozing
+- Har bir paragraf 5-7 ta jumla bo'lsin
+- Matnda bo'sh qatorlar bo'lmasin
+- Professional akademik til ishlatilsin
+- Har bir jumla oldingi jumla bilan mantiqan bog'langan bo'lsin
+- Matnda belgilar yoki simvollar ishlatmang
+- Matn ravon va uzluksiz bo'lishi kerak
+- Barcha bo'limlarga havola qilinsin"""
 
                 else:  # Asosiy bo'limlar
-                    prompt = f"""O'zbek tilida "{topic}" mavzusidagi "{section_title}" bo'limi uchun batafsil mazmun yarating.
+                    prompt = f"""O'zbek tilida "{topic}" mavzusidagi "{section_title}" bo'limi uchun chuqur professional akademik mazmun yarating.
 
-Bu asosiy bo'lim bo'lib, mavzuning muhim jihatlarini batafsil yoritishi kerak.
-Nazariy va amaliy ma'lumotlarni kiritish kerak.
+Bu asosiy bo'lim bo'lib, quyidagi talablarga javob berishi kerak:
+- Mavzuning ushbu jihatini batafsil va chuqur yoritish
+- Nazariy asoslar va ilmiy yondashuvlar
+- Amaliy misollar va tadqiqot natijalari
+- Turli mualliflarning fikrlari va tahlillari
+- Muammolar va ularning yechimlari
+- Xorij va mahalliy tajribalar tahlili
 
-Kamida 800 so'z yozing. Matn akademik uslubda, ilmiy faktlar bilan bo'lishi kerak."""
+MUHIM TALABLAR:
+- Kamida 1000 so'z yozing
+- Har bir paragraf 6-8 ta jumla bo'lsin
+- Matnda bo'sh qatorlar bo'lmasin
+- Professional akademik til ishlatilsin
+- Har bir jumla oldingi jumla bilan mantiqan bog'langan bo'lsin
+- Matnda belgilar yoki simvollar ishlatmang
+- Matn ravon va uzluksiz bo'lishi kerak
+- Har bir fikr to'liq dalillangan bo'lsin
+- Bo'lim boshqa bo'limlar bilan bog'langan bo'lsin"""
 
             elif language == "ru":
                 if section_num == 1:  # Введение
-                    prompt = f"""Создайте содержание для раздела "{section_title}" по теме "{topic}" на русском языке.
+                    prompt = f"""Создайте профессиональное академическое содержание для раздела "{section_title}" по теме "{topic}" на русском языке.
 
-Это введение, которое должно включать:
-- Актуальность темы
-- Цели и задачи работы
-- Краткое описание методов исследования
+Это введение должно соответствовать следующим требованиям:
+- Обоснование актуальности и современной значимости темы
+- Четкое определение целей и задач работы
+- Методология исследования и подходы
+- Краткий обзор существующей литературы по теме
 
-Напишите минимум 600 слов. Текст должен быть в академическом стиле."""
+ВАЖНЫЕ ТРЕБОВАНИЯ:
+- Напишите минимум 800 слов
+- Каждый абзац должен содержать 5-7 предложений
+- Текст без пустых строк
+- Используйте профессиональный академический язык
+- Каждое предложение логически связано с предыдущим
+- Не используйте символы или знаки в тексте
+- Текст должен быть плавным и непрерывным
+- Каждая мысль полно и детально изложена"""
 
                 elif section_num == total_sections:  # Заключение
-                    prompt = f"""Создайте содержание для раздела "{section_title}" по теме "{topic}" на русском языке.
+                    prompt = f"""Создайте профессиональное академическое содержание для раздела "{section_title}" по теме "{topic}" на русском языке.
 
-Это заключение, которое должно включать:
-- Основные выводы
-- Результаты исследования
-- Практические рекомендации
+Это заключение должно соответствовать следующим требованиям:
+- Обобщение результатов всех основных разделов
+- Основные выводы и результаты исследования
+- Практические рекомендации и предложения
 - Направления дальнейших исследований
+- Общая оценка и заключительные мысли
 
-Напишите минимум 500 слов. Текст должен быть в академическом стиле."""
+ВАЖНЫЕ ТРЕБОВАНИЯ:
+- Напишите минимум 700 слов
+- Каждый абзац должен содержать 5-7 предложений
+- Текст без пустых строк
+- Используйте профессиональный академический язык
+- Каждое предложение логически связано с предыдущим
+- Не используйте символы или знаки в тексте
+- Текст должен быть плавным и непрерывным
+- Ссылки на все разделы работы"""
 
                 else:  # Основные разделы
-                    prompt = f"""Создайте подробное содержание для раздела "{section_title}" по теме "{topic}" на русском языке.
+                    prompt = f"""Создайте глубокое профессиональное академическое содержание для раздела "{section_title}" по теме "{topic}" на русском языке.
 
-Это основной раздел, который должен подробно раскрывать важные аспекты темы.
-Включите теоретические и практические сведения.
+Этот основной раздел должен соответствовать следующим требованиям:
+- Подробное и глубокое освещение данного аспекта темы
+- Теоретические основы и научные подходы
+- Практические примеры и результаты исследований
+- Мнения и анализы различных авторов
+- Проблемы и их решения
+- Анализ зарубежного и отечественного опыта
 
-Напишите минимум 800 слов. Текст должен быть в академическом стиле с научными фактами."""
+ВАЖНЫЕ ТРЕБОВАНИЯ:
+- Напишите минимум 1000 слов
+- Каждый абзац должен содержать 6-8 предложений
+- Текст без пустых строк
+- Используйте профессиональный академический язык
+- Каждое предложение логически связано с предыдущим
+- Не используйте символы или знаки в тексте
+- Текст должен быть плавным и непрерывным
+- Каждая мысль полностью обоснована
+- Раздел связан с другими разделами"""
 
             else:  # English
                 if section_num == 1:  # Introduction
-                    prompt = f"""Create content for the section "{section_title}" on the topic "{topic}" in English.
+                    prompt = f"""Create professional academic content for the section "{section_title}" on the topic "{topic}" in English.
 
-This is an introduction that should include:
-- Topic relevance
-- Goals and objectives of the work
-- Brief description of research methods
+This introduction must meet the following requirements:
+- Justification of relevance and contemporary significance of the topic
+- Clear definition of goals and objectives of the work
+- Research methodology and approaches
+- Brief review of existing literature on the topic
 
-Write at least 600 words. The text should be in academic style."""
+IMPORTANT REQUIREMENTS:
+- Write at least 800 words
+- Each paragraph should contain 5-7 sentences
+- No empty lines in the text
+- Use professional academic language
+- Each sentence logically connected to the previous one
+- Do not use symbols or signs in the text
+- Text should be smooth and continuous
+- Each idea fully and thoroughly presented"""
 
                 elif section_num == total_sections:  # Conclusion
-                    prompt = f"""Create content for the section "{section_title}" on the topic "{topic}" in English.
+                    prompt = f"""Create professional academic content for the section "{section_title}" on the topic "{topic}" in English.
 
-This is a conclusion that should include:
-- Main conclusions
-- Research results
-- Practical recommendations
+This conclusion must meet the following requirements:
+- Synthesis of results from all main sections
+- Main conclusions and research findings
+- Practical recommendations and suggestions
 - Future research directions
+- Overall assessment and final thoughts
 
-Write at least 500 words. The text should be in academic style."""
+IMPORTANT REQUIREMENTS:
+- Write at least 700 words
+- Each paragraph should contain 5-7 sentences
+- No empty lines in the text
+- Use professional academic language
+- Each sentence logically connected to the previous one
+- Do not use symbols or signs in the text
+- Text should be smooth and continuous
+- References to all sections of the work"""
 
                 else:  # Main sections
-                    prompt = f"""Create detailed content for the section "{section_title}" on the topic "{topic}" in English.
+                    prompt = f"""Create deep professional academic content for the section "{section_title}" on the topic "{topic}" in English.
 
-This is a main section that should thoroughly cover important aspects of the topic.
-Include theoretical and practical information.
+This main section must meet the following requirements:
+- Detailed and thorough coverage of this aspect of the topic
+- Theoretical foundations and scientific approaches
+- Practical examples and research findings
+- Opinions and analyses of various authors
+- Problems and their solutions
+- Analysis of international and domestic experience
 
-Write at least 800 words. The text should be in academic style with scientific facts."""
+IMPORTANT REQUIREMENTS:
+- Write at least 1000 words
+- Each paragraph should contain 6-8 sentences
+- No empty lines in the text
+- Use professional academic language
+- Each sentence logically connected to the previous one
+- Do not use symbols or signs in the text
+- Text should be smooth and continuous
+- Each idea fully substantiated
+- Section connected to other sections"""
+</old_str>
             
             response = self.client.chat.completions.create(
                 model=self.model,
