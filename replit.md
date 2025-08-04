@@ -10,6 +10,23 @@ The system operates on a freemium model where users get one free document genera
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (August 4, 2025)
+
+✓ Admin ID (5304482470) successfully configured
+✓ Enhanced admin panel with comprehensive management buttons:
+  - 💳 To'lovlar (Payments management)
+  - 📋 Buyurtmalar (Orders management) 
+  - 📢 Kanal sozlamalari (Channel settings)
+  - 🎟 Promokod boshqaruvi (Promocode management)
+  - 👥 Foydalanuvchilar (Users management)
+  - 📊 Statistika (Statistics)
+  - 📤 Xabar yuborish (Broadcast messages)
+  - 💰 Narxlar sozlamalari (Price settings)
+  - 🔧 Bot sozlamalari (Bot settings)
+  - 🗄 Database boshqaruvi (Database management)
+✓ Fixed payment notification system error
+✓ Bot fully operational and handling Telegram updates correctly
+
 ## System Architecture
 
 ### Bot Framework

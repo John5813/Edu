@@ -87,17 +87,30 @@ def get_admin_keyboard() -> ReplyKeyboardMarkup:
     """Admin panel keyboard"""
     keyboard = ReplyKeyboardBuilder()
     
+    # To'lovlar va buyurtmalar
+    keyboard.add(KeyboardButton(text="💳 To'lovlar"))
     keyboard.add(KeyboardButton(text="📋 Buyurtmalar"))
+    
+    # Kanallar va promokodlar  
     keyboard.add(KeyboardButton(text="📢 Kanal sozlamalari"))
-    keyboard.add(KeyboardButton(text="💬 Promokod boshqaruvi"))
-    keyboard.add(KeyboardButton(text="💼 Foydalanuvchilar"))
-    keyboard.add(KeyboardButton(text="📈 Statistika"))
-    keyboard.add(KeyboardButton(text="💳 Narxlarni o'zgartirish"))
-    keyboard.add(KeyboardButton(text="📣 Xabar yuborish"))
-    keyboard.add(KeyboardButton(text="⚙️ Til tahriri"))
+    keyboard.add(KeyboardButton(text="🎟 Promokod boshqaruvi"))
+    
+    # Foydalanuvchilar va statistika
+    keyboard.add(KeyboardButton(text="👥 Foydalanuvchilar"))
+    keyboard.add(KeyboardButton(text="📊 Statistika"))
+    
+    # Xabar yuborish va sozlamalar
+    keyboard.add(KeyboardButton(text="📤 Xabar yuborish"))
+    keyboard.add(KeyboardButton(text="💰 Narxlar sozlamalari"))
+    
+    # Bot sozlamalari
+    keyboard.add(KeyboardButton(text="🔧 Bot sozlamalari"))
+    keyboard.add(KeyboardButton(text="🗄 Database boshqaruvi"))
+    
+    # Orqaga qaytish
     keyboard.add(KeyboardButton(text="👤 Foydalanuvchi rejimi"))
     
-    keyboard.adjust(2, 2, 2, 2, 1)
+    keyboard.adjust(2, 2, 2, 2, 2, 1)
     return keyboard.as_markup(resize_keyboard=True)
 
 def get_payment_review_keyboard(payment_id: int) -> InlineKeyboardMarkup:

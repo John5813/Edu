@@ -75,7 +75,7 @@ async def handle_payment_screenshot(message: Message, state: FSMContext, db: Dat
         )
         
         # Notify admins
-        await notify_admins_about_payment(message.bot, user, amount, file_id, payment_id)
+        await notify_admins_about_payment(message.bot, user, amount, message.message_id, payment_id)
         
     except Exception as e:
         logger.error(f"Error processing payment: {e}")
@@ -92,7 +92,7 @@ async def handle_invalid_payment_screenshot(message: Message, user_lang: str):
     """Handle invalid payment screenshot"""
     await message.answer("❌ Iltimos, to'lov chekini rasm yoki fayl sifatida yuboring.")
 
-async def notify_admins_about_payment(bot, user, amount, file_id, payment_id):
+async def notify_admins_about_payment(bot, user, amount, message_id, payment_id):
     """Notify admins about new payment"""
     from bot.keyboards import get_payment_review_keyboard
     
@@ -118,7 +118,7 @@ async def notify_admins_about_payment(bot, user, amount, file_id, payment_id):
             await bot.copy_message(
                 chat_id=admin_id,
                 from_chat_id=user.telegram_id,
-                message_id=file_id
+                message_id=message_id
             )
             
         except Exception as e:
