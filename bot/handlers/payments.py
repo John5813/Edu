@@ -98,27 +98,28 @@ async def notify_admins_about_payment(bot, user, amount, message_id, payment_id)
     
     user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
     
-    text = (
-        f"🧾 Yangi to'lov:\n"
-        f"👤 Foydalanuvchi: {user_link}\n"
-        f"💵 Summasi: {amount:,} so'm\n"
-        f"📎 Chek quyida:"
-    )
-    
     for admin_id in ADMIN_IDS:
         try:
-            # Send payment info
-            await bot.send_message(
-                admin_id,
-                text,
-                reply_markup=get_payment_review_keyboard(payment_id)
-            )
-            
-            # Forward the screenshot
+            # First, forward the screenshot
             await bot.copy_message(
                 chat_id=admin_id,
                 from_chat_id=user.telegram_id,
                 message_id=message_id
+            )
+            
+            # Then send payment info with buttons below the image
+            text = (
+                f"🧾 Yangi to'lov:\n"
+                f"👤 Foydalanuvchi: {user_link}\n"
+                f"💵 Summasi: {amount:,} so'm\n"
+                f"📅 To'lov ID: {payment_id}\n\n"
+                f"⬆️ Yuqoridagi chekni tekshiring va to'lovni tasdiqlang:"
+            )
+            
+            await bot.send_message(
+                admin_id,
+                text,
+                reply_markup=get_payment_review_keyboard(payment_id)
             )
             
         except Exception as e:

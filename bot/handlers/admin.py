@@ -322,26 +322,35 @@ async def handle_payments_list(message: Message, db: Database):
     if not is_admin(message.from_user.id):
         return
     
-    payments = await db.get_pending_payments()
-    
-    if not payments:
-        await message.answer("📝 Kutilayotgan to'lovlar yo'q", reply_markup=get_admin_keyboard())
-        return
-    
-    text = f"💳 Kutilayotgan to'lovlar ({len(payments)} ta):\n\n"
-    
-    for payment in payments:
-        user = await db.get_user_by_id(payment.user_id)
-        username = f"@{user.username}" if user.username else "Username yo'q"
-        first_name = user.first_name or "Ism yo'q"
-        text += (
-            f"🆔 ID: {payment.id}\n"
-            f"👤 {first_name} ({username})\n" 
-            f"💰 {payment.amount:,} so'm\n"
-            f"📅 {payment.created_at}\n\n"
-        )
-    
-    await message.answer(text, reply_markup=get_admin_keyboard())
+    try:
+        payments = await db.get_pending_payments()
+        
+        if not payments:
+            await message.answer("📝 Kutilayotgan to'lovlar yo'q", reply_markup=get_admin_keyboard())
+            return
+        
+        text = f"💳 Kutilayotgan to'lovlar ({len(payments)} ta):\n\n"
+        
+        for payment in payments:
+            try:
+                user = await db.get_user_by_id(payment.user_id)
+                username = f"@{user.username}" if user.username else "Username yo'q"
+                first_name = user.first_name or "Ism yo'q"
+                text += (
+                    f"🆔 ID: {payment.id}\n"
+                    f"👤 {first_name} ({username})\n" 
+                    f"💰 {payment.amount:,} so'm\n"
+                    f"📅 {payment.created_at}\n\n"
+                )
+            except Exception as e:
+                logger.error(f"Error getting user info for payment {payment.id}: {e}")
+                continue
+        
+        await message.answer(text, reply_markup=get_admin_keyboard())
+        
+    except Exception as e:
+        logger.error(f"Error getting pending payments: {e}")
+        await message.answer("❌ To'lovlarni olishda xatolik", reply_markup=get_admin_keyboard())
 
 @router.message(F.text == "👥 Foydalanuvchilar")
 async def handle_users_list(message: Message, db: Database):

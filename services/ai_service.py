@@ -257,23 +257,24 @@ MUHIM TALABLAR:
                 else:  # Asosiy bo'limlar
                     prompt = f"""O'zbek tilida "{topic}" mavzusidagi "{section_title}" bo'limi uchun chuqur professional akademik mazmun yarating.
 
-Bu asosiy bo'lim bo'lib, quyidagi talablarga javob berishi kerak:
-- Mavzuning ushbu jihatini batafsil va chuqur yoritish
-- Nazariy asoslar va ilmiy yondashuvlar
-- Amaliy misollar va tadqiqot natijalari
-- Turli mualliflarning fikrlari va tahlillari
-- Muammolar va ularning yechimlari
-- Xorij va mahalliy tajribalar tahlili
+Quyidagi talablarga qat'iy rioya qiling:
+1. Matnning barcha qismlari o'zaro mantiqiy bog'langan bo'lsin
+2. Paragraflar o'rtasida sekin o'tishlar bo'lsin (misollar, bog'lovchi so'zlar)
+3. Har xil uzunlikdagi jumlalar ishlating (qisqa 5-8 so'z, o'rta 10-15 so'z, uzun 20+ so'z)
+4. Akademik uslubda, lekin quruq emas, balki tushunarli tarzda yozing
+5. Har bir asosiy fikrdan keyin amaliy misol yoki dalil keltiring
+6. Nazariy asoslar va ilmiy yondashuvlar batafsil bayon etilsin
+7. Amaliy misollar va tadqiqot natijalari keltirilsin
+8. Turli mualliflarning fikrlari va tahlillari berilsin
 
-MUHIM TALABLAR:
+USLUB VA FORMAT TALABLARI:
 - Kamida 1000 so'z yozing
-- Har bir paragraf 6-8 ta jumla bo'lsin
+- Har bir paragraf mantiqiy tugallangan bo'lsin
 - Matnda bo'sh qatorlar bo'lmasin
-- Professional akademik til ishlatilsin
-- Har bir jumla oldingi jumla bilan mantiqan bog'langan bo'lsin
+- Professional akademik til, lekin tushunarli bo'lsin
+- Jumlalar orasida ravon o'tishlar bo'lsin
 - Matnda belgilar yoki simvollar ishlatmang
-- Matn ravon va uzluksiz bo'lishi kerak
-- Har bir fikr to'liq dalillangan bo'lsin
+- Har bir fikr to'liq dalillangan va misollar bilan tasdiqlangan bo'lsin
 - Bo'lim boshqa bo'limlar bilan bog'langan bo'lsin"""
 
             elif language == "ru":
@@ -402,8 +403,14 @@ IMPORTANT REQUIREMENTS:
 
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.7
+                messages=[
+                    {"role": "system", "content": "Siz akademik yozuvchi sifatida har xil uzunlikdagi jumlalar, izchil bog'lanish va boy misollar bilan mustaqil ishlar yozasiz"},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.8,  # Ijodkorlikni oshirish
+                frequency_penalty=0.5,  # Takrorlanishlarni kamaytirish
+                presence_penalty=0.4,   # Yangi fikrlarni qo'shish
+                max_tokens=4000
             )
 
             return response.choices[0].message.content.strip()

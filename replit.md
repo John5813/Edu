@@ -10,7 +10,7 @@ The system operates on a freemium model where users get one free document genera
 
 Preferred communication style: Simple, everyday language.
 
-## Recent Changes (August 4, 2025)
+## Recent Changes (August 5, 2025)
 
 ✓ Admin ID (5304482470) successfully configured
 ✓ Enhanced admin panel with comprehensive management buttons:
@@ -24,7 +24,16 @@ Preferred communication style: Simple, everyday language.
   - 💰 Narxlar sozlamalari (Price settings)
   - 🔧 Bot sozlamalari (Bot settings)
   - 🗄 Database boshqaruvi (Database management)
-✓ Fixed payment notification system error
+
+### Latest Fixes (August 5, 2025)
+✓ Fixed payment notification layout - Screenshot now appears first, then user info and buttons below
+✓ Improved AI text generation with enhanced prompts:
+  - Added variety in sentence lengths (5-8, 10-15, 20+ words)
+  - Better paragraph transitions with connecting words
+  - More professional but readable academic style
+  - Practical examples after each main point
+  - Increased creativity parameters (temperature=0.8, frequency_penalty=0.5)
+✓ Enhanced admin button error handling with try-catch blocks
 ✓ Bot fully operational and handling Telegram updates correctly
 
 ## System Architecture
