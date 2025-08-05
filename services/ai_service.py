@@ -452,7 +452,13 @@ IMPORTANT REQUIREMENTS:
                 max_tokens=4000
             )
 
-            return response.choices[0].message.content.strip()
+            matn = response.choices[0].message.content.strip()
+            
+            # Bo'sh qatorlarni tozalash
+            matn = matn.replace('\n\n', ' ')  # ikki bo'sh qatorni bitta bo'shliqqa
+            matn = matn.replace('\n', ' ')    # qolgan bitta bo'sh qatordek ko'rinadiganlarni ham
+            
+            return matn
 
         except Exception as e:
             logger.error(f"Error generating section content: {e}")
