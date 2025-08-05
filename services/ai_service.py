@@ -20,56 +20,95 @@ class AIService:
         try:
             # Create language-specific prompt
             if language == "uz":
-                prompt = f"""O'zbek tilida "{topic}" mavzusida {slide_count} ta slaydli taqdimot yarating.
+                prompt = f"""O'zbek tilida "{topic}" mavzusida {slide_count} ta slaydli professional taqdimot yarating.
 
-Har bir slayd uchun:
-- Sarlavha (qisqa va aniq)
-- Mazmun (kamida 50 ta so'z)
+MUHIM TALABLAR:
+- Har bir slayd uchun kamida 150-200 so'z yozing
+- Slaydlar turli formatda bo'lsin:
+  * Ba'zi slaydlarda nuqtalar ro'yxati (3-5 ta asosiy nuqta)
+  * Ba'zi slaydlarda paragraf shaklida uzluksiz matn
+  * Ba'zi slaydlarda raqamli ro'yxat (1, 2, 3...)
+  * Ba'zi slaydlarda tasnif va kategoriyalar
+- Har bir slaydda chuqur va batafsil ma'lumot bo'lsin
+- Amaliy misollar va faktlar keltiring
+- Professional akademik uslubda yozing
 
-Taqdimot mantiqiy ketma-ketlikda bo'lishi kerak.
+Slayd turlari:
+1. Kirish slaydi - mavzu haqida umumiy ma'lumot
+2-3. Nazariy asoslar - paragraf shaklida
+4-5. Asosiy tushunchalar - nuqtalar ro'yxati
+6-7. Amaliy misollar - raqamli ro'yxat
+8-9. Muammolar va yechimlar - kategoriyalar
+10+. Xulosa va tavsiyalar
 
 JSON formatda javob bering:
 {{
     "slides": [
         {{
             "title": "Slayd sarlavhasi",
-            "content": "Slayd mazmuni..."
+            "content": "Slayd mazmuni (150-200 so'z)..."
         }}
     ]
 }}"""
             elif language == "ru":
-                prompt = f"""Создайте презентацию на тему "{topic}" из {slide_count} слайдов на русском языке.
+                prompt = f"""Создайте профессиональную презентацию на тему "{topic}" из {slide_count} слайдов на русском языке.
 
-Для каждого слайда:
-- Заголовок (краткий и точный)
-- Содержание (минимум 50 слов)
+ВАЖНЫЕ ТРЕБОВАНИЯ:
+- Напишите минимум 150-200 слов для каждого слайда
+- Слайды должны быть в разных форматах:
+  * Некоторые слайды со списком (3-5 основных пунктов)
+  * Некоторые слайды с непрерывным текстом в параграфах
+  * Некоторые слайды с нумерованным списком (1, 2, 3...)
+  * Некоторые слайды с классификацией и категориями
+- Каждый слайд должен содержать глубокую и детальную информацию
+- Приводите практические примеры и факты
+- Используйте профессиональный академический стиль
 
-Презентация должна быть логически последовательной.
+Типы слайдов:
+1. Вводный слайд - общая информация о теме
+2-3. Теоретические основы - в форме параграфов
+4-5. Основные понятия - в виде списка
+6-7. Практические примеры - нумерованный список
+8-9. Проблемы и решения - категории
+10+. Заключение и рекомендации
 
 Ответьте в формате JSON:
 {{
     "slides": [
         {{
             "title": "Заголовок слайда",
-            "content": "Содержание слайда..."
+            "content": "Содержание слайда (150-200 слов)..."
         }}
     ]
 }}"""
             else:  # English
-                prompt = f"""Create a presentation on "{topic}" with {slide_count} slides in English.
+                prompt = f"""Create a professional presentation on "{topic}" with {slide_count} slides in English.
 
-For each slide:
-- Title (short and precise)
-- Content (minimum 50 words)
+IMPORTANT REQUIREMENTS:
+- Write at least 150-200 words for each slide
+- Slides should be in different formats:
+  * Some slides with bullet points (3-5 main points)
+  * Some slides with continuous paragraph text
+  * Some slides with numbered lists (1, 2, 3...)
+  * Some slides with classifications and categories
+- Each slide should contain deep and detailed information
+- Include practical examples and facts
+- Use professional academic style
 
-The presentation should be logically structured.
+Slide types:
+1. Introduction slide - general information about the topic
+2-3. Theoretical foundations - in paragraph form
+4-5. Key concepts - as bullet points
+6-7. Practical examples - numbered list
+8-9. Problems and solutions - categories
+10+. Conclusion and recommendations
 
 Respond in JSON format:
 {{
     "slides": [
         {{
             "title": "Slide title",
-            "content": "Slide content..."
+            "content": "Slide content (150-200 words)..."
         }}
     ]
 }}"""
