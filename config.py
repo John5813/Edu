@@ -12,7 +12,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///bot.db")
 
 # Payment configuration
 PAYMENT_CARD = os.getenv("PAYMENT_CARD", "9860160606136655")
-Javlonbek Moʻydinov")
+PAYMENT_CARD_OWNER = os.getenv("PAYMENT_CARD_OWNER", "Javlonbek Moʻydinov")
 PAYMENT_AMOUNTS = [5000, 10000, 15000, 20000]
 
 # Document pricing (in som)
