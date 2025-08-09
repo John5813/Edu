@@ -162,3 +162,20 @@ def get_broadcast_target_keyboard() -> InlineKeyboardMarkup:
     keyboard.add(InlineKeyboardButton(text="🟢 Faqat faollar", callback_data="broadcast_active"))
     keyboard.adjust(2)
     return keyboard.as_markup()
+
+def get_promocode_option_keyboard(language: str) -> InlineKeyboardMarkup:
+    """Promocode option keyboard"""
+    keyboard = InlineKeyboardBuilder()
+    
+    if language == "uz":
+        keyboard.add(InlineKeyboardButton(text="🎟 Ha, promokod kiritaman", callback_data="use_promocode"))
+        keyboard.add(InlineKeyboardButton(text="❌ Yo'q, davom etaman", callback_data="skip_promocode"))
+    elif language == "ru":
+        keyboard.add(InlineKeyboardButton(text="🎟 Да, введу промокод", callback_data="use_promocode"))
+        keyboard.add(InlineKeyboardButton(text="❌ Нет, продолжить", callback_data="skip_promocode"))
+    else:  # en
+        keyboard.add(InlineKeyboardButton(text="🎟 Yes, enter promocode", callback_data="use_promocode"))
+        keyboard.add(InlineKeyboardButton(text="❌ No, continue", callback_data="skip_promocode"))
+    
+    keyboard.adjust(1)
+    return keyboard.as_markup()

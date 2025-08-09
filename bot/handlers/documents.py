@@ -16,6 +16,48 @@ from config import PRESENTATION_PRICE, INDEPENDENT_WORK_PRICE, REFERAT_PRICE
 router = Router()
 logger = logging.getLogger(__name__)
 
+@router.callback_query(F.data == "use_promocode", DocumentStates.waiting_for_promocode_choice)
+async def handle_use_promocode(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Handle use promocode choice"""
+    await callback.message.edit_text("🎟 Promokodni kiriting:")
+    await state.set_state(DocumentStates.waiting_for_promocode)
+
+@router.callback_query(F.data == "skip_promocode", DocumentStates.waiting_for_promocode_choice)
+async def handle_skip_promocode(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Handle skip promocode choice"""
+    await callback.message.edit_text(get_text(user_lang, "enter_topic"))
+    await state.set_state(DocumentStates.waiting_for_topic)
+
+@router.message(DocumentStates.waiting_for_promocode)
+async def handle_promocode_input(message: Message, state: FSMContext, db: Database, user_lang: str, user):
+    """Handle promocode input"""
+    promocode_text = message.text.strip().upper()
+    
+    # Get promocode from database
+    promocode = await db.get_promocode(promocode_text)
+    
+    if not promocode:
+        await message.answer("❌ Noto'g'ri promokod. Qayta kiriting yoki /cancel buyrug'ini yuboring.")
+        return
+    
+    # Check if promocode is expired
+    from datetime import datetime
+    if promocode.expires_at < datetime.now():
+        await message.answer("❌ Promokodning amal qilish muddati tugagan. Qayta kiriting yoki /cancel buyrug'ini yuboring.")
+        return
+    
+    # Check if user already used this promocode
+    is_used = await db.is_promocode_used(user.id, promocode.id)
+    if is_used:
+        await message.answer("❌ Siz bu promokodni allaqachon ishlatgansiz. Qayta kiriting yoki /cancel buyrug'ini yuboring.")
+        return
+    
+    # Save promocode to state
+    await state.update_data(promocode_id=promocode.id, use_promocode=True)
+    
+    await message.answer("✅ Promokod qabul qilindi! Endi mavzuni kiriting:")
+    await state.set_state(DocumentStates.waiting_for_topic)
+
 # Document type mapping
 DOCUMENT_TYPES = {
     "📊 Taqdimot": "presentation",
@@ -61,8 +103,21 @@ async def handle_document_request(message: Message, state: FSMContext, db: Datab
             await message.answer(get_text(user_lang, "insufficient_balance"))
             return
     
-    await message.answer(get_text(user_lang, "enter_topic"))
-    await state.set_state(DocumentStates.waiting_for_topic)
+    # Check if there are any active promocodes
+    active_promocodes = await db.get_active_promocodes()
+    
+    if active_promocodes:
+        # Show promocode option
+        from bot.keyboards import get_promocode_option_keyboard
+        await message.answer(
+            "🎟 Promokodingiz bormi?",
+            reply_markup=get_promocode_option_keyboard(user_lang)
+        )
+        await state.set_state(DocumentStates.waiting_for_promocode_choice)
+    else:
+        # No promocodes available, proceed directly
+        await message.answer(get_text(user_lang, "enter_topic"))
+        await state.set_state(DocumentStates.waiting_for_topic)
 
 @router.message(DocumentStates.waiting_for_topic)
 async def handle_topic_input(message: Message, state: FSMContext, user_lang: str):
@@ -162,7 +217,15 @@ async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: 
         await db.update_document_order(order_id, "completed", file_path)
         
         # Process payment
-        if use_free_service:
+        data = await state.get_data()
+        use_promocode = data.get('use_promocode', False)
+        promocode_id = data.get('promocode_id')
+        
+        if use_promocode and promocode_id:
+            # Mark promocode as used
+            await db.mark_promocode_used(user.id, promocode_id)
+            await callback.message.edit_text("✅ Promokod ishlatildi! Hujjat tayyor.")
+        elif use_free_service:
             await db.mark_free_service_used(user.telegram_id)
             await callback.message.edit_text(get_text(user_lang, "free_service_used"))
         else:
@@ -231,9 +294,17 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
         await db.update_document_order(order_id, "completed", file_path)
         
         # Process payment
-        await db.update_user_balance(user.telegram_id, -INDEPENDENT_WORK_PRICE)
+        data = await state.get_data()
+        use_promocode = data.get('use_promocode', False)
+        promocode_id = data.get('promocode_id')
         
-        await callback.message.edit_text(get_text(user_lang, "document_ready"))
+        if use_promocode and promocode_id:
+            # Mark promocode as used
+            await db.mark_promocode_used(user.id, promocode_id)
+            await callback.message.edit_text("✅ Promokod ishlatildi! Hujjat tayyor.")
+        else:
+            await db.update_user_balance(user.telegram_id, -INDEPENDENT_WORK_PRICE)
+            await callback.message.edit_text(get_text(user_lang, "document_ready"))
         
         # Send file
         document = FSInputFile(file_path)
@@ -294,9 +365,17 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
         await db.update_document_order(order_id, "completed", file_path)
         
         # Process payment
-        await db.update_user_balance(user.telegram_id, -REFERAT_PRICE)
+        data = await state.get_data()
+        use_promocode = data.get('use_promocode', False)
+        promocode_id = data.get('promocode_id')
         
-        await callback.message.edit_text(get_text(user_lang, "document_ready"))
+        if use_promocode and promocode_id:
+            # Mark promocode as used
+            await db.mark_promocode_used(user.id, promocode_id)
+            await callback.message.edit_text("✅ Promokod ishlatildi! Hujjat tayyor.")
+        else:
+            await db.update_user_balance(user.telegram_id, -REFERAT_PRICE)
+            await callback.message.edit_text(get_text(user_lang, "document_ready"))
         
         # Send file
         document = FSInputFile(file_path)
