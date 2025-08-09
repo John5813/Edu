@@ -23,8 +23,26 @@ async def handle_use_promocode(callback: CallbackQuery, state: FSMContext, user_
     await state.set_state(DocumentStates.waiting_for_promocode)
 
 @router.callback_query(F.data == "skip_promocode", DocumentStates.waiting_for_promocode_choice)
-async def handle_skip_promocode(callback: CallbackQuery, state: FSMContext, user_lang: str):
+async def handle_skip_promocode(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Handle skip promocode choice"""
+    # Check balance when skipping promocode
+    data = await state.get_data()
+    document_type = data['document_type']
+    price = DOCUMENT_PRICES[document_type]
+    
+    if not user.free_service_used:
+        # User can use free service for presentation
+        if document_type == "presentation":
+            await state.update_data(use_free_service=True)
+        else:
+            if user.balance < price:
+                await callback.message.edit_text(get_text(user_lang, "insufficient_balance"))
+                return
+    else:
+        if user.balance < price:
+            await callback.message.edit_text(get_text(user_lang, "insufficient_balance"))
+            return
+    
     await callback.message.edit_text(get_text(user_lang, "enter_topic"))
     await state.set_state(DocumentStates.waiting_for_topic)
 
@@ -87,27 +105,11 @@ async def handle_document_request(message: Message, state: FSMContext, db: Datab
     document_type = DOCUMENT_TYPES[message.text]
     await state.update_data(document_type=document_type)
     
-    # Check if user has enough balance or free service available
-    price = DOCUMENT_PRICES[document_type]
-    
-    if not user.free_service_used:
-        # User can use free service for presentation
-        if document_type == "presentation":
-            await state.update_data(use_free_service=True)
-        else:
-            if user.balance < price:
-                await message.answer(get_text(user_lang, "insufficient_balance"))
-                return
-    else:
-        if user.balance < price:
-            await message.answer(get_text(user_lang, "insufficient_balance"))
-            return
-    
-    # Check if there are any active promocodes
+    # First check if there are any active promocodes
     active_promocodes = await db.get_active_promocodes()
     
     if active_promocodes:
-        # Show promocode option
+        # Show promocode option regardless of balance
         from bot.keyboards import get_promocode_option_keyboard
         await message.answer(
             "🎟 Promokodingiz bormi?",
@@ -115,7 +117,23 @@ async def handle_document_request(message: Message, state: FSMContext, db: Datab
         )
         await state.set_state(DocumentStates.waiting_for_promocode_choice)
     else:
-        # No promocodes available, proceed directly
+        # No promocodes available, check balance and free service
+        price = DOCUMENT_PRICES[document_type]
+        
+        if not user.free_service_used:
+            # User can use free service for presentation
+            if document_type == "presentation":
+                await state.update_data(use_free_service=True)
+            else:
+                if user.balance < price:
+                    await message.answer(get_text(user_lang, "insufficient_balance"))
+                    return
+        else:
+            if user.balance < price:
+                await message.answer(get_text(user_lang, "insufficient_balance"))
+                return
+        
+        # Proceed directly to topic input
         await message.answer(get_text(user_lang, "enter_topic"))
         await state.set_state(DocumentStates.waiting_for_topic)
 
