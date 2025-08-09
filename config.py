@@ -11,7 +11,8 @@ ADMIN_IDS = list(map(int, filter(None, os.getenv("ADMIN_IDS", "5304482470").spli
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///bot.db")
 
 # Payment configuration
-PAYMENT_CARD = os.getenv("PAYMENT_CARD", "9860 1234 5678 9012")
+PAYMENT_CARD = os.getenv("PAYMENT_CARD", "9860160606136655")
+Javlonbek Moʻydinov")
 PAYMENT_AMOUNTS = [5000, 10000, 15000, 20000]
 
 # Document pricing (in som)
