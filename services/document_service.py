@@ -9,10 +9,11 @@ from pptx import Presentation
 from pptx.util import Inches as PptxInches, Pt as PptxPt
 from pptx.enum.text import PP_ALIGN
 from pptx.dml.color import RGBColor
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 import asyncio
 import aiohttp
-from config import DOCUMENTS_DIR, TEMP_DIR
+from config import DOCUMENTS_DIR, TEMP_DIR, PEXELS_API_KEY
+from bot.services.pexels import PexelsService
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,22 @@ class DocumentService:
     def __init__(self):
         self.documents_dir = DOCUMENTS_DIR
         self.temp_dir = TEMP_DIR
+        self.pexels = PexelsService(PEXELS_API_KEY) if PEXELS_API_KEY else None
 
+    async def create_presentation_with_smart_images(self, topic: str, content: Dict, author_name: str) -> str:
+        """Create PowerPoint presentation with AI-generated smart images from Pexels"""
+        try:
+            # First, get smart images for the presentation
+            images = await self._get_smart_images_for_presentation(topic, content)
+            
+            # Then create presentation with images
+            return await self.create_presentation(topic, content, images, author_name)
+        
+        except Exception as e:
+            logger.error(f"Error creating presentation with smart images: {e}")
+            # Fallback to creating presentation without images
+            return await self.create_presentation(topic, content, {}, author_name)
+    
     async def create_presentation(self, topic: str, content: Dict, images: Dict, author_name: str) -> str:
         """Create PowerPoint presentation"""
         try:
