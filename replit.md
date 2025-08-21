@@ -49,11 +49,6 @@ Preferred communication style: Simple, everyday language.
   - Referat: 4000 som
   - Promokod va sozlamalar haqida ma'lumot
 
-✓ **Mavzu Kiritishda Filtr va Bekor Qilish**:
-  - Asosiy tugmalarni mavzu sifatida qabul qilmaydi
-  - /cancel buyrug'i bilan jarayonni bekor qilish
-  - Aniq yo'riqnoma va xato xabarlari
-
 ### Previous Updates
 ✓ **Promokod Tizimi Sozlamalarga Ko'chirildi** (August 21, 2025):
   - Hujjat yaratishda halaqit qilmaydi

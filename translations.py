@@ -15,7 +15,7 @@ TRANSLATIONS = {
             "help": "🆘 Yordam",
             "settings": "⚙️ Sozlamalar"
         },
-        "enter_topic": "📝 Hujjat mavzusini kiriting:",
+        "enter_topic": "📝 Mavzuni kiriting:",
         "select_slide_count": "📊 Slaydlar sonini tanlang:",
         "select_page_count": "📄 Varoqlar sonini tanlang:",
         "generating": "⏳ Yaratilmoqda... Iltimos kuting.",
@@ -49,7 +49,7 @@ TRANSLATIONS = {
             "help": "🆘 Помощь",
             "settings": "⚙️ Настройки"
         },
-        "enter_topic": "📝 Введите тему документа:",
+        "enter_topic": "📝 Введите тему:",
         "select_slide_count": "📊 Выберите количество слайдов:",
         "select_page_count": "📄 Выберите количество страниц:",
         "generating": "⏳ Создается... Пожалуйста, подождите.",
@@ -83,7 +83,7 @@ TRANSLATIONS = {
             "help": "🆘 Help",
             "settings": "⚙️ Settings"
         },
-        "enter_topic": "📝 Enter document topic:",
+        "enter_topic": "📝 Enter topic:",
         "select_slide_count": "📊 Select number of slides:",
         "select_page_count": "📄 Select number of pages:",
         "generating": "⏳ Generating... Please wait.",

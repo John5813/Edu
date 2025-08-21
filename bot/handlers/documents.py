@@ -70,34 +70,13 @@ async def handle_document_request(message: Message, state: FSMContext, db: Datab
             return
 
     # Proceed directly to topic input
-    await message.answer(get_text(user_lang, "enter_topic") + "\n\nBekor qilish uchun /cancel yuboring.")
+    await message.answer(get_text(user_lang, "enter_topic"))
     await state.set_state(DocumentStates.waiting_for_topic)
 
 @router.message(DocumentStates.waiting_for_topic)
 async def handle_topic_input(message: Message, state: FSMContext, user_lang: str):
     """Handle topic input"""
     topic = message.text.strip()
-
-    # Check if user pressed main menu buttons instead of entering topic
-    MAIN_MENU_BUTTONS = [
-        "📊 Taqdimot", "📊 Презентация", "📊 Presentation",
-        "🎓 Mustaqil ish", "🎓 Самостоятельная работа", "🎓 Independent Work", 
-        "📄 Referat", "📄 Реферат", "📄 Research Paper",
-        "💰 Mening hisobim", "💰 Мой счет", "💰 My Account",
-        "💳 To'lov qilish", "💳 Оплата", "💳 Payment",
-        "🆘 Yordam", "🆘 Помощь", "🆘 Help",
-        "⚙️ Sozlamalar", "⚙️ Настройки", "⚙️ Settings"
-    ]
-    
-    if topic in MAIN_MENU_BUTTONS:
-        await message.answer("❌ Iltimos, hujjat mavzusini kiriting, asosiy tugmalarni emas.\n\nBekor qilish uchun /cancel yuboring.")
-        return
-    
-    # Handle cancel command
-    if topic.lower() in ['/cancel', 'cancel', 'bekor qilish']:
-        await state.clear()
-        await message.answer("❌ Hujjat yaratish bekor qilindi.", reply_markup=get_main_keyboard(user_lang))
-        return
 
     if len(topic) < 3:
         await message.answer("❌ Mavzu juda qisqa. Iltimos, to'liqroq kiriting.")
