@@ -248,10 +248,8 @@ async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: 
         
     except Exception as e:
         logger.error(f"Error generating presentation: {e}")
-        await callback.message.edit_text(
-            "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
-            reply_markup=get_main_keyboard(user_lang)
-        )
+        await callback.message.edit_text("❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.")
+        await callback.message.answer("Asosiy menyu:", reply_markup=get_main_keyboard(user_lang))
         # Update order status
         if 'order_id' in locals():
             await db.update_document_order(order_id, "failed")
