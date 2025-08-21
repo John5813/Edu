@@ -36,6 +36,19 @@ Preferred communication style: Simple, everyday language.
   - `services/document_service_new.py` - yangi layout tizimi
   - Xatoliklar va type safety yaxshilandi
 
+### Recent Changes (August 21, 2025)
+
+✓ **Referat va Mustaqil Ish Uchun Bir Xil Sahifa Sonlari**:
+  - Har ikkala hujjat turi uchun 10-15, 15-20, 20-25, 25-30 varoq tanlovlari
+  - Bir xil interface va foydalanuvchi tajribasi
+  - O'zbek tilida "varoq" terminologiyasi
+
+✓ **Narxlar Ma'lumoti Yordam Bo'limida**:
+  - Taqdimot: 3000 som
+  - Mustaqil ish: 5000 som  
+  - Referat: 4000 som
+  - Promokod va sozlamalar haqida ma'lumot
+
 ### Previous Updates
 ✓ **Promokod Tizimi Sozlamalarga Ko'chirildi** (August 21, 2025):
   - Hujjat yaratishda halaqit qilmaydi

@@ -66,15 +66,11 @@ def get_page_count_keyboard(document_type: str) -> InlineKeyboardMarkup:
     """Page count selection keyboard"""
     keyboard = InlineKeyboardBuilder()
 
-    if document_type == "independent_work":
-        keyboard.add(InlineKeyboardButton(text="10-15 листов", callback_data="pages_10_15"))
-        keyboard.add(InlineKeyboardButton(text="15-20 листов", callback_data="pages_15_20"))
-        keyboard.add(InlineKeyboardButton(text="20-25 листов", callback_data="pages_20_25"))
-        keyboard.add(InlineKeyboardButton(text="25-30 листов", callback_data="pages_25_30"))
-    else:  # referat
-        keyboard.add(InlineKeyboardButton(text="8-10 листов", callback_data="pages_8_10"))
-        keyboard.add(InlineKeyboardButton(text="10-12 листов", callback_data="pages_10_12"))
-        keyboard.add(InlineKeyboardButton(text="12-15 листов", callback_data="pages_12_15"))
+    # Both independent_work and referat now have same page options
+    keyboard.add(InlineKeyboardButton(text="10-15 varoq", callback_data="pages_10_15"))
+    keyboard.add(InlineKeyboardButton(text="15-20 varoq", callback_data="pages_15_20"))
+    keyboard.add(InlineKeyboardButton(text="20-25 varoq", callback_data="pages_20_25"))
+    keyboard.add(InlineKeyboardButton(text="25-30 varoq", callback_data="pages_25_30"))
 
     keyboard.adjust(2)
     return keyboard.as_markup()
