@@ -73,19 +73,18 @@ YANGI TIZIM - LAYOUT TALABLARI:
                     elif layout == "text_with_image":
                         prompt += f"Slayd {slide_num}: MATN+DALL-E RASM SLAYD (3,6,9,12...)\n- KAMIDA 100-120 SO'ZLIK uzluksiz paragraf\n- To'liq akademik tushuntirish, misollar bilan\n- Chuqur tahlil va batafsil ma'lumot\n- Professional uslub\n"
                     elif layout == "three_column":
-                        prompt += f"Slayd {slide_num}: 3 USTUNLI SLAYD (4,7,10,13...)\n- 3 ta alohida ustun yarating\n- Har ustun: KALIT SO'Z + 40 SO'ZLIK MATN\n- 1-ustun: Sabablari + 40 so'zlik tushuntirish\n- 2-ustun: Ta'siri + 40 so'zlik tushuntirish\n- 3-ustun: Yechimlar + 40 so'zlik tushuntirish\n- CONTENT da 3 ta ustun mazmunini ||| bilan ajrating\n- Jami 120+ so'z (3 x 40)\n"
+                        prompt += f"Slayd {slide_num}: 3 USTUNLI SLAYD (4,7,10,13...)\n- 3 ta turli xil ustun yarating (bir xil so'zlarni takrorlamang!)\n- Har ustun: ALOHIDA KALIT SO'Z + 80 SO'ZLIK BATAFSIL MATN\n- Mavzuga mos 3 ta kategori (masalan: Texnologiya/Jamiyat/Kelajak)\n- HAR USTUN MUSTAQIL va turli jihatlarni ko'rsatsin\n- CONTENT da: Ustun1sarlavha|||80so'zlikmatn|||Ustun2sarlavha|||80so'zlikmatn|||Ustun3sarlavha|||80so'zlikmatn\n- Jami 240+ so'z (3 x 80)\n"
 
                 prompt += f"""
 QATTIQ QOIDALAR:
 1. BULLET POINT slaydlar: AYNAN 5 nuqta, HAR NUQTADA 35-40 SO'Z (jami 175-200 so'z)
 2. MATN+RASM slaydlar: KAMIDA 100-120 SO'ZLIK uzluksiz matn, to'liq akademik tushuntirish
 3. 3 USTUNLI slaydlar: 
-   - 3 ta alohida ustun: har birida kalit so'z + 40 so'zlik matn  
-   - 1-ustun: "Sabablari" + 40 so'zlik tushuntirish
-   - 2-ustun: "Ta'siri/Oqibatlari" + 40 so'zlik tushuntirish  
-   - 3-ustun: "Yechimlar/Choralar" + 40 so'zlik tushuntirish
-   - CONTENT maydoni: 3 ustun mazmunini ||| bilan ajrating
-   - JAMI 120+ SO'Z (3 x 40)
+   - 3 ta TURLI XIL ustun: har birida alohida kalit so'z + 80 so'zlik batafsil matn  
+   - HAR USTUN mustaqil jihat (bir xil so'zlarni takrorlamang!)
+   - Mavzuga mos kategoriyalar (masalan: Texnologiya, Jamiyat, Kelajak)
+   - CONTENT format: Sarlavha1|||Matn1|||Sarlavha2|||Matn2|||Sarlavha3|||Matn3
+   - JAMI 240+ SO'Z (3 x 80)
 
 MUHIM: Oddiy matn yozing, ortiqcha belgilar va shakllar ishlatmang. Mantiqiy ketma-ketlikni saqlang.
 
@@ -94,7 +93,7 @@ JSON formatda javob bering:
     "slides": [
         {{
             "title": "Slayd sarlavhasi",
-            "content": "3 USTUNLI slayd uchun: Ustun1 kalit so'z va 40 so'zlik tushuntirish ||| Ustun2 kalit so'z va 40 so'zlik tushuntirish ||| Ustun3 kalit so'z va 40 so'zlik tushuntirish",
+            "content": "3 USTUNLI slayd uchun: Sarlavha1|||80so'zlikmatn|||Sarlavha2|||80so'zlikmatn|||Sarlavha3|||80so'zlikmatn",
             "layout_type": "bullet_points/text_with_image/three_column"
         }}
     ]

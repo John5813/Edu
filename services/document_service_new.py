@@ -309,17 +309,20 @@ class DocumentService:
         if '|||' in content_text:
             columns_data = [col.strip() for col in content_text.split('|||')]
             result = []
-            default_titles = ['Sabablari', 'Ta\'siri', 'Yechimlar']
+            default_titles = ['Asosiy Jihat', 'Qo\'shimcha Ma\'lumot', 'Muhim Nuqta']
             
-            for i, col_content in enumerate(columns_data[:3]):
-                # Extract title and text from each column
-                lines = col_content.strip().split('\n', 1)
-                if len(lines) >= 2:
-                    title = lines[0].strip()
-                    text = lines[1].strip()
+            # Parse in pairs: title|||content|||title|||content|||title|||content
+            for i in range(0, min(len(columns_data), 6), 2):  # Process in pairs
+                if i + 1 < len(columns_data):
+                    title = columns_data[i].strip()
+                    text = columns_data[i + 1].strip()
                 else:
-                    title = default_titles[i] if i < len(default_titles) else f'Ustun {i+1}'
-                    text = col_content.strip()
+                    title = default_titles[i // 2] if i // 2 < len(default_titles) else f'Ustun {i // 2 + 1}'
+                    text = columns_data[i].strip() if i < len(columns_data) else f'80 so\'zlik batafsil ma\'lumot kerak.'
+                
+                # Ensure text is long enough (should be 80+ words)
+                if len(text.split()) < 20:  # If less than 20 words, pad it
+                    text += f' Ushbu ustun bo\'yicha qo\'shimcha batafsil ma\'lumotlar va tushuntirishlar kiritilishi kerak. Professional akademik uslubda yozilgan to\'liq mazmun bu yerda bo\'lishi lozim.'
                 
                 result.append({'title': title, 'text': text})
             
@@ -328,7 +331,7 @@ class DocumentService:
                 i = len(result)
                 result.append({
                     'title': default_titles[i] if i < len(default_titles) else f'Ustun {i+1}',
-                    'text': f'Bu ustun uchun qo\'shimcha ma\'lumot kerak. Kamida 40 so\'zlik batafsil tushuntirish bu yerda bo\'lishi kerak.'
+                    'text': f'Bu ustun uchun 80 so\'zlik batafsil ma\'lumot kerak. Professional akademik uslubda yozilgan to\'liq tushuntirish va misollar bilan boyitilgan mazmun bu yerda bo\'lishi lozim. Har qanday qo\'shimcha ma\'lumotlar ham qo\'shilishi mumkin.'
                 })
             
             return result
