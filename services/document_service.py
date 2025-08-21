@@ -1,3 +1,4 @@
+
 import os
 import logging
 from datetime import datetime
@@ -24,21 +25,239 @@ class DocumentService:
         self.pexels = PexelsService(PEXELS_API_KEY) if PEXELS_API_KEY else None
 
     async def create_presentation_with_smart_images(self, topic: str, content: Dict, author_name: str) -> str:
-        """Create PowerPoint presentation with AI-generated smart images from Pexels"""
+        """Create PowerPoint presentation using template with smart images"""
         try:
-            # First, get smart images for the presentation
-            images = await self._get_smart_images_for_presentation(topic, content)
-            
-            # Then create presentation with images
-            return await self.create_presentation(topic, content, images, author_name)
+            # Use template if available
+            template_path = "attached_assets/pptx_template_Modern_Business_Plan_1755805435826.pptx"
+            if os.path.exists(template_path):
+                return await self.create_presentation_from_template(topic, content, author_name, template_path)
+            else:
+                # Fallback to custom creation with images
+                images = await self._get_smart_images_for_presentation(topic, content)
+                return await self.create_presentation(topic, content, images, author_name)
         
         except Exception as e:
             logger.error(f"Error creating presentation with smart images: {e}")
-            # Fallback to creating presentation without images
+            # Final fallback
             return await self.create_presentation(topic, content, {}, author_name)
-    
+
+    async def create_presentation_from_template(self, topic: str, content: Dict, author_name: str, template_path: str) -> str:
+        """Create presentation using existing template and replacing content"""
+        try:
+            # Load template
+            prs = Presentation(template_path)
+            slides_data = content.get('slides', [])
+            
+            # Get images for slides before processing
+            slide_images = await self._get_template_images(topic, slides_data)
+            
+            # Process each slide
+            for slide_idx, slide in enumerate(prs.slides):
+                if slide_idx == 0:
+                    # Title slide - update with topic and author
+                    self._update_title_slide(slide, topic, author_name)
+                elif slide_idx - 1 < len(slides_data):
+                    # Content slides
+                    slide_data = slides_data[slide_idx - 1]
+                    await self._update_content_slide(slide, slide_data, slide_idx, slide_images)
+                
+            # Remove extra slides if template has more slides than needed
+            while len(prs.slides) > len(slides_data) + 1:  # +1 for title slide
+                rId = prs.slides._sldIdLst[-1].rId
+                prs.part.drop_rel(rId)
+                del prs.slides._sldIdLst[-1]
+            
+            # Add more slides if needed
+            for i in range(len(prs.slides) - 1, len(slides_data)):
+                slide_data = slides_data[i]
+                new_slide = self._add_content_slide(prs, slide_data, i + 1, slide_images)
+            
+            # Save presentation
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"presentation_{timestamp}.pptx"
+            file_path = os.path.join(self.documents_dir, filename)
+            
+            prs.save(file_path)
+            logger.info(f"Template-based presentation saved: {file_path}")
+            
+            return file_path
+            
+        except Exception as e:
+            logger.error(f"Error creating presentation from template: {e}")
+            # Fallback to regular creation
+            images = await self._get_smart_images_for_presentation(topic, content)
+            return await self.create_presentation(topic, content, images, author_name)
+
+    def _update_title_slide(self, slide, topic: str, author_name: str):
+        """Update title slide with topic and author"""
+        try:
+            for shape in slide.shapes:
+                if hasattr(shape, "text_frame") and shape.text_frame:
+                    # Check if this might be title or subtitle
+                    if shape.top < PptxInches(3):  # Likely title
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        p.text = topic
+                        p.alignment = PP_ALIGN.CENTER
+                        if p.runs:
+                            p.runs[0].font.bold = True
+                            p.runs[0].font.size = PptxPt(36)
+                    elif shape.top > PptxInches(3):  # Likely subtitle area
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        p.text = f"Muallif: {author_name or 'Noma\'lum'}"
+                        p.alignment = PP_ALIGN.CENTER
+                        if p.runs:
+                            p.runs[0].font.size = PptxPt(20)
+        except Exception as e:
+            logger.error(f"Error updating title slide: {e}")
+
+    async def _update_content_slide(self, slide, slide_data: Dict, slide_num: int, slide_images: Dict):
+        """Update content slide with new text and images"""
+        try:
+            # Update text content
+            for shape in slide.shapes:
+                if hasattr(shape, "text_frame") and shape.text_frame:
+                    # Determine if this is title or content based on position
+                    if shape.top < PptxInches(2):  # Likely title
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        p.text = slide_data.get('title', f"Slayd {slide_num}")
+                        p.alignment = PP_ALIGN.CENTER
+                        if p.runs:
+                            p.runs[0].font.bold = True
+                            p.runs[0].font.size = PptxPt(24)
+                    elif shape.top > PptxInches(2):  # Content area
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        p.text = slide_data.get('content', '')
+                        p.alignment = PP_ALIGN.LEFT
+                        if p.runs:
+                            p.runs[0].font.size = PptxPt(16)
+            
+            # Add or replace images
+            if slide_num in slide_images:
+                await self._add_image_to_slide(slide, slide_images[slide_num])
+                
+        except Exception as e:
+            logger.error(f"Error updating content slide {slide_num}: {e}")
+
+    def _add_content_slide(self, prs, slide_data: Dict, slide_num: int, slide_images: Dict):
+        """Add new content slide to presentation"""
+        try:
+            # Use layout 1 (title and content)
+            slide_layout = prs.slide_layouts[1] if len(prs.slide_layouts) > 1 else prs.slide_layouts[0]
+            slide = prs.slides.add_slide(slide_layout)
+            
+            # Add title
+            if slide.shapes.title:
+                slide.shapes.title.text = slide_data.get('title', f"Slayd {slide_num}")
+                slide.shapes.title.text_frame.paragraphs[0].font.size = PptxPt(24)
+                slide.shapes.title.text_frame.paragraphs[0].font.bold = True
+                slide.shapes.title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
+            
+            # Add content
+            if len(slide.placeholders) > 1:
+                content_placeholder = slide.placeholders[1]
+                content_placeholder.text = slide_data.get('content', '')
+                content_placeholder.text_frame.paragraphs[0].font.size = PptxPt(16)
+            
+            # Add image if available
+            if slide_num in slide_images:
+                asyncio.create_task(self._add_image_to_slide(slide, slide_images[slide_num]))
+            
+            return slide
+            
+        except Exception as e:
+            logger.error(f"Error adding content slide: {e}")
+            return None
+
+    async def _add_image_to_slide(self, slide, image_path: str):
+        """Add image to slide, replacing existing image or adding new one"""
+        try:
+            if not image_path or not os.path.exists(image_path):
+                return
+                
+            # Try to find existing image placeholder or shape
+            image_added = False
+            
+            for shape in slide.shapes:
+                # Check if this is an image placeholder or existing image
+                if hasattr(shape, 'image') or (hasattr(shape, 'shape_type') and shape.shape_type == 13):  # MSO_SHAPE_TYPE.PICTURE
+                    try:
+                        # Remove existing image
+                        sp = shape._element
+                        sp.getparent().remove(sp)
+                        
+                        # Add new image in same position
+                        slide.shapes.add_picture(
+                            image_path,
+                            shape.left, shape.top,
+                            shape.width, shape.height
+                        )
+                        image_added = True
+                        break
+                    except:
+                        continue
+            
+            # If no existing image found, add new one
+            if not image_added:
+                # Add image to right side of slide
+                slide.shapes.add_picture(
+                    image_path,
+                    PptxInches(6.5), PptxInches(2),
+                    PptxInches(5.5), PptxInches(4)
+                )
+                
+        except Exception as e:
+            logger.error(f"Error adding image to slide: {e}")
+
+    async def _get_template_images(self, topic: str, slides_data: List[Dict]) -> Dict[int, str]:
+        """Get images for template slides"""
+        if not self.pexels:
+            logger.warning("Pexels API not configured, skipping images")
+            return {}
+        
+        try:
+            slide_images = {}
+            
+            for idx, slide_data in enumerate(slides_data):
+                slide_num = idx + 1
+                
+                # Extract keywords for image search
+                slide_title = slide_data.get('title', '')
+                slide_content = slide_data.get('content', '')
+                
+                # Get search keywords
+                search_query = self._extract_search_keywords(slide_title, slide_content, topic)
+                
+                if search_query:
+                    # Search for images
+                    photos = await self.pexels.search_images(search_query, per_page=1)
+                    
+                    if photos:
+                        photo = photos[0]
+                        image_url = self.pexels.get_image_url(photo, "medium")
+                        
+                        # Download image
+                        filename = f"template_slide_{slide_num}.jpg"
+                        image_path = await self.pexels.download_image(image_url, filename)
+                        
+                        if image_path:
+                            slide_images[slide_num] = image_path
+                            logger.info(f"Downloaded template image for slide {slide_num}: {search_query}")
+                    
+                    # Small delay to respect rate limits
+                    await asyncio.sleep(0.3)
+            
+            return slide_images
+            
+        except Exception as e:
+            logger.error(f"Error getting template images: {e}")
+            return {}
+
     async def create_presentation(self, topic: str, content: Dict, images: Dict, author_name: str) -> str:
-        """Create PowerPoint presentation"""
+        """Create PowerPoint presentation (fallback method)"""
         try:
             prs = Presentation()
 
@@ -60,17 +279,14 @@ class DocumentService:
                     subtitle = slide.placeholders[1]
 
                     if title:
-                        title.text = "Taqdimot"
+                        title.text = topic
                         title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
-                        # Reduce title font size
                         title.text_frame.paragraphs[0].font.size = PptxPt(36)
 
                     if subtitle:
-                        subtitle.text = f"{topic}\n\n\n{author_name or '__________________'}"
+                        subtitle.text = f"Muallif: {author_name or 'Noma\'lum'}"
                         subtitle.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
-                        # Reduce subtitle font size
                         subtitle.text_frame.paragraphs[0].font.size = PptxPt(20)
-
 
                 elif slide_num in images:
                     # Slide with image (left side) and text (right side)
@@ -89,19 +305,17 @@ class DocumentService:
                     title_para.font.bold = True
                     title_para.alignment = PP_ALIGN.CENTER
 
-                    # Download and add image (left side)
-                    image_url = images[slide_num]
-                    if image_url:
-                        image_path = await self._download_image(image_url, f"slide_{slide_num}.jpg")
-                        if image_path:
-                            try:
-                                slide.shapes.add_picture(
-                                    image_path,
-                                    PptxInches(0.5), PptxInches(2),
-                                    PptxInches(5.5), PptxInches(4)
-                                )
-                            except Exception as e:
-                                logger.error(f"Error adding image to slide: {e}")
+                    # Add image (left side)
+                    image_path = images[slide_num]
+                    if image_path and os.path.exists(image_path):
+                        try:
+                            slide.shapes.add_picture(
+                                image_path,
+                                PptxInches(0.5), PptxInches(2),
+                                PptxInches(5.5), PptxInches(4)
+                            )
+                        except Exception as e:
+                            logger.error(f"Error adding image to slide: {e}")
 
                     # Add text content (right side)
                     text_box = slide.shapes.add_textbox(
@@ -125,15 +339,12 @@ class DocumentService:
 
                     if title:
                         title.text = slide_data['title']
-                        # Make slide titles slightly smaller than the default
                         title.text_frame.paragraphs[0].font.size = PptxPt(20)
                         title.text_frame.paragraphs[0].font.bold = True
                         title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
 
                     if content_placeholder:
                         content_placeholder.text = slide_data['content']
-
-                        # Format content
                         content_frame = content_placeholder.text_frame
                         content_frame.paragraphs[0].font.size = PptxPt(16)
                         content_frame.paragraphs[0].alignment = PP_ALIGN.LEFT
@@ -373,11 +584,14 @@ class DocumentService:
         
         try:
             slides_data = content.get('slides', [])
-            slide_topics = []
             
-            # Extract topics from slides for image search
+            # Get images for each slide topic
+            images_dict = {}
             for idx, slide in enumerate(slides_data):
-                if idx == 0:  # Skip title slide
+                slide_num = idx + 1
+                
+                # Skip title slide
+                if slide_num == 1:
                     continue
                     
                 # Use slide title and extract key words for better search
@@ -386,12 +600,6 @@ class DocumentService:
                 
                 # Create search query from title and key content words
                 search_query = self._extract_search_keywords(slide_title, slide_content, topic)
-                slide_topics.append(search_query)
-            
-            # Get images for each slide topic
-            images_dict = {}
-            for idx, search_query in enumerate(slide_topics):
-                slide_num = idx + 2  # Start from slide 2 (skip title slide)
                 
                 if search_query:
                     # Search for images
@@ -427,10 +635,10 @@ class DocumentService:
             # Remove common words and extract meaningful terms
             title_words = title.lower().split()
             meaningful_words = [word for word in title_words 
-                              if len(word) > 3 and word not in ['uchun', 'haqida', 'asosida', 'davom']]
+                              if len(word) > 3 and word not in ['uchun', 'haqida', 'asosida', 'davom', 'bilan', 'ning', 'dan']]
             search_terms.extend(meaningful_words[:2])  # Take first 2 meaningful words
         
-        # Add main topic
+        # Add main topic words
         if main_topic:
             topic_words = main_topic.lower().split()[:2]  # First 2 words of main topic
             search_terms.extend(topic_words)
@@ -449,12 +657,19 @@ class DocumentService:
             'sport': 'sports',
             'tibbiyot': 'medicine',
             'iqtisod': 'economics',
+            'ekonomika': 'economics',
             'san\'at': 'art',
             'tarix': 'history',
             'geografiya': 'geography',
             'kimyo': 'chemistry',
             'fizika': 'physics',
-            'matematika': 'mathematics'
+            'matematika': 'mathematics',
+            'fan': 'science',
+            'ilm': 'science',
+            'tadqiqot': 'research',
+            'taraqqiyot': 'development',
+            'innovatsiya': 'innovation',
+            'zamonaviy': 'modern'
         }
         
         for uz_term, eng_term in translations.items():
