@@ -10,31 +10,34 @@ The system operates on a freemium model where users get one free document genera
 
 Preferred communication style: Simple, everyday language.
 
-## Recent Changes (August 5, 2025)
+## Recent Changes (August 21, 2025)
 
-✓ Admin ID (5304482470) successfully configured
-✓ Enhanced admin panel with comprehensive management buttons:
-  - 💳 To'lovlar (Payments management)
-  - 📋 Buyurtmalar (Orders management) 
-  - 📢 Kanal sozlamalari (Channel settings)
-  - 🎟 Promokod boshqaruvi (Promocode management)
-  - 👥 Foydalanuvchilar (Users management)
-  - 📊 Statistika (Statistics)
-  - 📤 Xabar yuborish (Broadcast messages)
-  - 💰 Narxlar sozlamalari (Price settings)
-  - 🔧 Bot sozlamalari (Bot settings)
-  - 🗄 Database boshqaruvi (Database management)
+✓ **3 Shablon Tizimi Qo'shildi** - SlidesGPT kabi rotating layout system:
+  - **Shablon 1**: Faqat matn (sarlavha + bullet points/paragraf)
+  - **Shablon 2**: Matn + Rasm (chapda rasm, o'ngda matn)
+  - **Shablon 3**: 3 ustunli format (ma'lumotlar 3 qismga bo'linadi)
+  - Takrorlash tartibi: 1→2→3→1→2→3→1→2→3...
 
-### Latest Fixes (August 5, 2025)
-✓ Fixed payment notification layout - Screenshot now appears first, then user info and buttons below
-✓ Improved AI text generation with enhanced prompts:
-  - Added variety in sentence lengths (5-8, 10-15, 20+ words)
-  - Better paragraph transitions with connecting words
-  - More professional but readable academic style
-  - Practical examples after each main point
-  - Increased creativity parameters (temperature=0.8, frequency_penalty=0.5)
-✓ Enhanced admin button error handling with try-catch blocks
-✓ Bot fully operational and handling Telegram updates correctly
+✓ **Pexels API Integratsiyasi**:
+  - Aqlli rasm qidiruv tizimi
+  - Faqat "matn + rasm" slaydlariga avtomatik rasm qo'shish
+  - O'zbek-ingliz kalit so'z tarjimasi
+  - Bepul 200 so'rov/soat, 20,000 so'rov/oy
+
+✓ **AI Content Moslashtirildi**:
+  - Har shablon uchun alohida content format
+  - 3 ustunli slaydlar uchun matnni 3 qismga bo'lish
+  - Layout tipiga qarab content uzunligi optimallashtirildi
+
+✓ **Document Service Yangilandi**:
+  - `create_presentation_with_layouts()` - asosiy method
+  - Har shablon uchun alohida slide yaratish methodlari
+  - Smart image integration faqat kerakli slaydlar uchun
+
+### Previous Updates
+✓ Admin panel va payment tizimi (August 5, 2025)
+✓ AI text generation yaxshilandi
+✓ Bot to'liq ishlamoqda
 
 ## System Architecture
 

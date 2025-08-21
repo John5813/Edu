@@ -24,16 +24,10 @@ class DocumentService:
         self.pexels = PexelsService(PEXELS_API_KEY) if PEXELS_API_KEY else None
 
     async def create_presentation_with_smart_images(self, topic: str, content: Dict, author_name: str) -> str:
-        """Create PowerPoint presentation using template with smart images"""
+        """Create PowerPoint presentation with 3 layout system and smart images"""
         try:
-            # Use template if available
-            template_path = "attached_assets/pptx_template_Modern_Business_Plan_1755805435826.pptx"
-            if os.path.exists(template_path):
-                return await self.create_presentation_from_template(topic, content, author_name, template_path)
-            else:
-                # Fallback to custom creation with images
-                images = await self._get_smart_images_for_presentation(topic, content)
-                return await self.create_presentation(topic, content, images, author_name)
+            # Create presentation with 3-template rotating system
+            return await self.create_presentation_with_layouts(topic, content, author_name)
 
         except Exception as e:
             logger.error(f"Error creating presentation with smart images: {e}")
@@ -307,7 +301,247 @@ class DocumentService:
                 search_query = search_query.lower().replace(uz_term, eng_term)
 
         return search_query or main_topic  # Fallback to main topic
+    
+    async def _create_title_slide(self, prs, topic: str, author_name: str):
+        """Create title slide"""
+        slide_layout = prs.slide_layouts[0]  # Title slide layout
+        slide = prs.slides.add_slide(slide_layout)
 
+        title = slide.shapes.title
+        subtitle = slide.placeholders[1]
+
+        if title:
+            title.text = "Taqdimot"
+            title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
+            title.text_frame.paragraphs[0].font.size = PptxPt(36)
+
+        if subtitle:
+            subtitle.text = f"{topic}\n\n\n{author_name or '__________________'}"
+            subtitle.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
+            subtitle.text_frame.paragraphs[0].font.size = PptxPt(20)
+
+    async def _create_content_slide_by_layout(self, prs, slide_data: Dict, layout_type: str, slide_num: int, images: Dict):
+        """Create content slide based on layout type"""
+        if layout_type == "text_only":
+            await self._create_text_only_slide(prs, slide_data)
+        elif layout_type == "text_with_image":
+            await self._create_text_with_image_slide(prs, slide_data, slide_num, images)
+        elif layout_type == "three_column":
+            await self._create_three_column_slide(prs, slide_data)
+
+    async def _create_text_only_slide(self, prs, slide_data: Dict):
+        """Create SHABLON 1: Text only slide"""
+        slide_layout = prs.slide_layouts[1]  # Title and content layout
+        slide = prs.slides.add_slide(slide_layout)
+
+        title = slide.shapes.title
+        content_placeholder = slide.placeholders[1]
+
+        if title:
+            title.text = slide_data['title']
+            title.text_frame.paragraphs[0].font.size = PptxPt(24)
+            title.text_frame.paragraphs[0].font.bold = True
+            title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
+
+        if content_placeholder:
+            content_placeholder.text = slide_data['content']
+            content_frame = content_placeholder.text_frame
+            content_frame.paragraphs[0].font.size = PptxPt(16)
+            content_frame.paragraphs[0].alignment = PP_ALIGN.LEFT
+
+    async def _create_text_with_image_slide(self, prs, slide_data: Dict, slide_num: int, images: Dict):
+        """Create SHABLON 2: Text + Image slide"""
+        slide_layout = prs.slide_layouts[6]  # Blank layout
+        slide = prs.slides.add_slide(slide_layout)
+
+        # Add title
+        title_box = slide.shapes.add_textbox(
+            PptxInches(0.5), PptxInches(0.5),
+            PptxInches(12), PptxInches(1)
+        )
+        title_frame = title_box.text_frame
+        title_para = title_frame.paragraphs[0]
+        title_para.text = slide_data['title']
+        title_para.font.size = PptxPt(24)
+        title_para.font.bold = True
+        title_para.alignment = PP_ALIGN.CENTER
+
+        # Add image (left side) if available
+        if slide_num in images:
+            image_path = images[slide_num]
+            if image_path and os.path.exists(image_path):
+                try:
+                    slide.shapes.add_picture(
+                        image_path,
+                        PptxInches(0.5), PptxInches(2),
+                        PptxInches(5.5), PptxInches(4)
+                    )
+                except Exception as e:
+                    logger.error(f"Error adding image to slide: {e}")
+
+        # Add text content (right side)
+        text_box = slide.shapes.add_textbox(
+            PptxInches(6.5), PptxInches(2),
+            PptxInches(6), PptxInches(4.5)
+        )
+        text_frame = text_box.text_frame
+        text_frame.word_wrap = True
+        text_para = text_frame.paragraphs[0]
+        text_para.text = slide_data['content']
+        text_para.font.size = PptxPt(14)
+        text_para.alignment = PP_ALIGN.LEFT
+
+    async def _create_three_column_slide(self, prs, slide_data: Dict):
+        """Create SHABLON 3: Three column slide"""
+        slide_layout = prs.slide_layouts[6]  # Blank layout
+        slide = prs.slides.add_slide(slide_layout)
+
+        # Add title
+        title_box = slide.shapes.add_textbox(
+            PptxInches(0.5), PptxInches(0.5),
+            PptxInches(12), PptxInches(1)
+        )
+        title_frame = title_box.text_frame
+        title_para = title_frame.paragraphs[0]
+        title_para.text = slide_data['title']
+        title_para.font.size = PptxPt(24)
+        title_para.font.bold = True
+        title_para.alignment = PP_ALIGN.CENTER
+
+        # Get columns data
+        columns = slide_data.get('columns', [])
+        if not columns:
+            # Fallback: split content into 3 parts
+            content_lines = slide_data['content'].split('\n')
+            third = len(content_lines) // 3
+            columns = [
+                {"title": "Qism 1", "points": content_lines[:third]},
+                {"title": "Qism 2", "points": content_lines[third:third*2]},
+                {"title": "Qism 3", "points": content_lines[third*2:]}
+            ]
+
+        # Create 3 columns
+        column_width = PptxInches(3.8)
+        column_height = PptxInches(4.5)
+        start_x = PptxInches(0.5)
+        start_y = PptxInches(2)
+
+        for i, column in enumerate(columns[:3]):
+            # Calculate position
+            x_pos = start_x + i * PptxInches(4.2)
+            
+            # Add column textbox
+            col_box = slide.shapes.add_textbox(x_pos, start_y, column_width, column_height)
+            col_frame = col_box.text_frame
+            col_frame.word_wrap = True
+            
+            # Column title
+            col_para = col_frame.paragraphs[0]
+            col_para.text = column.get('title', f'Ustun {i+1}')
+            col_para.font.size = PptxPt(18)
+            col_para.font.bold = True
+            col_para.alignment = PP_ALIGN.CENTER
+            
+            # Column points
+            for point in column.get('points', [])[:3]:  # Max 3 points per column
+                if point.strip():
+                    p = col_frame.add_paragraph()
+                    p.text = f"• {point.strip()}"
+                    p.font.size = PptxPt(12)
+                    p.alignment = PP_ALIGN.LEFT
+
+    async def _get_smart_images_for_layouts(self, topic: str, content: Dict) -> Dict[int, str]:
+        """Get smart images only for 'text_with_image' layout slides"""
+        if not self.pexels:
+            logger.warning("Pexels API not configured, skipping images")
+            return {}
+        
+        try:
+            slides_data = content.get('slides', [])
+            images_dict = {}
+            
+            for idx, slide_data in enumerate(slides_data):
+                slide_num = idx + 2  # Start from slide 2 (skip title slide)
+                
+                # Only get images for 'text_with_image' layout (every 3rd slide starting from 2nd content slide)
+                layout_type = self._get_layout_type(idx + 1)
+                
+                if layout_type == "text_with_image":
+                    slide_title = slide_data.get('title', '')
+                    slide_content = slide_data.get('content', '')
+                    
+                    # Create search query
+                    search_query = self._extract_search_keywords(slide_title, slide_content, topic)
+                    
+                    if search_query:
+                        # Search for images
+                        photos = await self.pexels.search_images(search_query, per_page=1)
+                        
+                        if photos:
+                            photo = photos[0]
+                            image_url = self.pexels.get_image_url(photo, "medium")
+                            
+                            # Download image
+                            filename = f"slide_{slide_num}.jpg"
+                            image_path = await self.pexels.download_image(image_url, filename)
+                            
+                            if image_path:
+                                images_dict[slide_num] = image_path
+                                logger.info(f"Added smart image for slide {slide_num}: {search_query}")
+                        
+                        # Small delay to respect rate limits
+                        await asyncio.sleep(0.2)
+            
+            return images_dict
+            
+        except Exception as e:
+            logger.error(f"Error getting smart images for layouts: {e}")
+            return {}
+
+    async def create_presentation_with_layouts(self, topic: str, content: Dict, author_name: str) -> str:
+        """Create presentation with 3 rotating layout system"""
+        try:
+            prs = Presentation()
+            
+            # Set slide size (16:9)
+            prs.slide_width = PptxInches(13.33)
+            prs.slide_height = PptxInches(7.5)
+            
+            slides_data = content.get('slides', [])
+            
+            # Get smart images for layout 2 slides (text + image)
+            images = await self._get_smart_images_for_layouts(topic, content)
+            
+            for idx, slide_data in enumerate(slides_data):
+                slide_num = idx + 1
+                
+                if slide_num == 1:
+                    # Title slide
+                    await self._create_title_slide(prs, topic, author_name)
+                else:
+                    # Content slides with rotating layouts
+                    layout_type = self._get_layout_type(slide_num - 1)  # -1 because we skip title slide
+                    await self._create_content_slide_by_layout(prs, slide_data, layout_type, slide_num, images)
+            
+            # Save presentation
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"presentation_{timestamp}.pptx"
+            file_path = os.path.join(self.documents_dir, filename)
+            
+            prs.save(file_path)
+            logger.info(f"3-layout presentation saved: {file_path}")
+            
+            return file_path
+            
+        except Exception as e:
+            logger.error(f"Error creating presentation with layouts: {e}")
+            raise
+    
+    def _get_layout_type(self, content_slide_num: int) -> str:
+        """Get layout type based on slide number (1->2->3->1->2->3...)"""
+        layout_cycle = ["text_only", "text_with_image", "three_column"]
+        return layout_cycle[(content_slide_num - 1) % 3]
+    
     async def create_presentation(self, topic: str, content: Dict, images: Dict, author_name: str) -> str:
         """Create PowerPoint presentation (fallback method)"""
         try:

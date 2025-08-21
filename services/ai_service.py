@@ -22,31 +22,36 @@ class AIService:
             if language == "uz":
                 prompt = f"""O'zbek tilida "{topic}" mavzusida {slide_count} ta slaydli professional taqdimot yarating.
 
-MUHIM TALABLAR:
-- Har bir slayd uchun kamida 150-200 so'z yozing
-- Slaydlar turli formatda bo'lsin:
-  * Ba'zi slaydlarda nuqtalar ro'yxati (3-5 ta asosiy nuqta)
-  * Ba'zi slaydlarda paragraf shaklida uzluksiz matn
-  * Ba'zi slaydlarda raqamli ro'yxat (1, 2, 3...)
-  * Ba'zi slaydlarda tasnif va kategoriyalar
-- Har bir slaydda chuqur va batafsil ma'lumot bo'lsin
-- Amaliy misollar va faktlar keltiring
-- Professional akademik uslubda yozing
+3 XIL SHABLON TIZIMI - har 3 slaydda takrorlanadi:
+- Slayd 2,5,8,11,14... = SHABLON 1 (faqat matn)
+- Slayd 3,6,9,12,15... = SHABLON 2 (matn + rasm)  
+- Slayd 4,7,10,13,16... = SHABLON 3 (3 ustunli)
 
-Slayd turlari:
-1. Kirish slaydi - mavzu haqida umumiy ma'lumot
-2-3. Nazariy asoslar - paragraf shaklida
-4-5. Asosiy tushunchalar - nuqtalar ro'yxati
-6-7. Amaliy misollar - raqamli ro'yxat
-8-9. Muammolar va yechimlar - kategoriyalar
-10+. Xulosa va tavsiyalar
+SHABLON 1 - Faqat matn:
+- Sarlavha + 4-5 ta bullet point yoki 2 paragraf
+- 150-200 so'z, batafsil tushuntirish
+
+SHABLON 2 - Matn + rasm:
+- Sarlavha + 3-4 ta qisqa bullet point
+- 100-120 so'z (rasm ham bo'lgani uchun)
+
+SHABLON 3 - 3 ustunli:
+- Sarlavha + matnni 3 qismga bo'lish
+- Har ustun uchun 2-3 bullet point
+- Jami 120-150 so'z
 
 JSON formatda javob bering:
 {{
     "slides": [
         {{
             "title": "Slayd sarlavhasi",
-            "content": "Slayd mazmuni (150-200 so'z)..."
+            "content": "Slayd mazmuni",
+            "layout": "text_only" yoki "text_with_image" yoki "three_column",
+            "columns": [
+                {{"title": "Ustun 1", "points": ["Nuqta 1", "Nuqta 2"]}},
+                {{"title": "Ustun 2", "points": ["Nuqta 1", "Nuqta 2"]}},
+                {{"title": "Ustun 3", "points": ["Nuqta 1", "Nuqta 2"]}}
+            ] (faqat 3 ustunli uchun)
         }}
     ]
 }}"""
