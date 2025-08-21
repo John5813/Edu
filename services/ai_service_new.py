@@ -69,7 +69,7 @@ YANGI TIZIM - LAYOUT TALABLARI:
                     if layout == "title":
                         prompt += f"Slayd {slide_num}: SARLAVHA SLAYDI\n"
                     elif layout == "bullet_points":
-                        prompt += f"Slayd {slide_num}: BULLET POINT SLAYD (2,5,8,11...)\n- AYNAN 5 ta bullet point\n- HAR NUQTADA KAMIDA 35-40 SO'Z (jami 175-200 so'z)\n- Har nuqta to'liq jumla va batafsil tushuntirish\n- Professional akademik uslub\n"
+                        prompt += f"Slayd {slide_num}: BULLET POINT SLAYD (2,5,8,11...)\n- AYNAN 5 ta bullet point\n- HAR NUQTADA 70-80 SO'Z (jami 350-400 so'z)\n- Faqat bullet belgisi (•), raqam va qo'shimcha belgisiz\n- Har nuqta to'liq batafsil paragraf tarzida\n- Professional akademik uslub\n"
                     elif layout == "text_with_image":
                         prompt += f"Slayd {slide_num}: MATN+DALL-E RASM SLAYD (3,6,9,12...)\n- KAMIDA 100-120 SO'ZLIK uzluksiz paragraf\n- To'liq akademik tushuntirish, misollar bilan\n- Chuqur tahlil va batafsil ma'lumot\n- Professional uslub\n"
                     elif layout == "three_column":
@@ -77,7 +77,7 @@ YANGI TIZIM - LAYOUT TALABLARI:
 
                 prompt += f"""
 QATTIQ QOIDALAR:
-1. BULLET POINT slaydlar: AYNAN 5 nuqta, HAR NUQTADA 35-40 SO'Z (jami 175-200 so'z)
+1. BULLET POINT slaydlar: AYNAN 5 nuqta, HAR NUQTADA 70-80 SO'Z (jami 350-400 so'z), faqat • belgisi, raqamsiz
 2. MATN+RASM slaydlar: KAMIDA 100-120 SO'ZLIK uzluksiz matn, to'liq akademik tushuntirish
 3. 3 USTUNLI slaydlar: 
    - 3 ta TURLI XIL ustun: har birida alohida kalit so'z + 80 so'zlik batafsil matn  

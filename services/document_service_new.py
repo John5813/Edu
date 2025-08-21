@@ -183,7 +183,7 @@ class DocumentService:
         text_para = text_frame.paragraphs[0]
         text_para.text = slide_data.get('content', 'Mazmun mavjud emas')
         text_para.font.size = PptxPt(18)  # Large font for main content
-        text_para.alignment = PP_ALIGN.JUSTIFY
+        text_para.alignment = PP_ALIGN.LEFT  # Left alignment - ikki cheti bir tekisni olib tashlash
 
         # Right side: DALL-E image (55% width - butun o'ng tomonni qoplash)
         if slide_num in images:
@@ -260,7 +260,7 @@ class DocumentService:
             p.text = str(column_text).strip()
             p.font.size = PptxPt(12)  # Small font for details
             p.font.name = 'Times New Roman'  # Times New Roman shrift
-            p.alignment = PP_ALIGN.JUSTIFY  # Justify alignment for clean look
+            p.alignment = PP_ALIGN.LEFT  # Left alignment - ikki cheti bir tekisni olib tashlash
             p.level = 0
 
     def _parse_bullet_points(self, content_text: str) -> List[str]:

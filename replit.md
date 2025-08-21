@@ -20,10 +20,11 @@ Preferred communication style: Simple, everyday language.
     - **3,6,9,12... - Matn + DALL-E Rasm**: 100-120 so'zlik uzluksiz matn + o'ng tomonni to'liq qoplagan rasm
     - **4,7,10,13... - 3 Ustunli**: Mantiqli sarlavhalar bilan har ustunda 50+ so'z
 
-✓ **Professional Content Standards**:
-  - Har slayd uchun minimal so'z talablari
-  - Akademik uslub va batafsil tushuntirishlar
-  - Mantiqli sarlavhalar: "Sabablari/Ta'siri/Yechimlar" formatida
+✓ **Professional Content Standards - YANGILANDI**:
+  - **Bullet Points**: 70-80 so'z har nuqta (jami 350-400 so'z)
+  - **3 Ustunli**: 80 so'z har ustun (jami 240+ so'z)
+  - **Turli xil sarlavhalar**: takrorlanmas kategoriyalar
+  - **Left alignment**: ikki cheti bir tekis format olib tashlandi
 
 ✓ **Visual Improvements**:
   - DALL-E rasmlar o'ng tomonni butunlay qoplash (55% width)
