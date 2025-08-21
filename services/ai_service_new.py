@@ -71,7 +71,7 @@ YANGI TIZIM - LAYOUT TALABLARI:
                     elif layout == "bullet_points":
                         prompt += f"Slayd {slide_num}: BULLET POINT SLAYD (2,5,8,11...)\n- AYNAN 5 ta bullet point\n- HAR NUQTADA 70-80 SO'Z (jami 350-400 so'z)\n- Faqat bullet belgisi (•), raqam va qo'shimcha belgisiz\n- Har nuqta to'liq batafsil paragraf tarzida\n- Professional akademik uslub\n"
                     elif layout == "text_with_image":
-                        prompt += f"Slayd {slide_num}: MATN+REALISTIK RASM SLAYD (3,6,9,12...)\n- KAMIDA 100-120 SO'ZLIK uzluksiz paragraf\n- To'liq akademik tushuntirish, misollar bilan\n- Chuqur tahlil va batafsil ma'lumot\n- Professional uslub\n- Rasm uchun haqiqiy hayotiy misol va sodda holat tasvirlanadi\n"
+                        prompt += f"Slayd {slide_num}: MATN+DALL-E RASM SLAYD (3,6,9,12...)\n- KAMIDA 100-120 SO'ZLIK uzluksiz paragraf\n- To'liq akademik tushuntirish, misollar bilan\n- Chuqur tahlil va batafsil ma'lumot\n- Professional uslub\n"
                     elif layout == "three_column":
                         prompt += f"Slayd {slide_num}: 3 USTUNLI SLAYD (4,7,10,13...)\n- 3 ta turli xil ustun yarating (bir xil so'zlarni takrorlamang!)\n- Har ustun: ALOHIDA KALIT SO'Z + 80 SO'ZLIK BATAFSIL MATN\n- Mavzuga mos 3 ta kategori (masalan: Texnologiya/Jamiyat/Kelajak)\n- HAR USTUN MUSTAQIL va turli jihatlarni ko'rsatsin\n- CONTENT da: Ustun1sarlavha|||80so'zlikmatn|||Ustun2sarlavha|||80so'zlikmatn|||Ustun3sarlavha|||80so'zlikmatn\n- Jami 240+ so'z (3 x 80)\n"
 
@@ -178,20 +178,19 @@ Respond in JSON format:
         return layout_cycle[(content_slide_num - 1) % 3]
 
     async def generate_dalle_image(self, prompt: str, slide_title: str) -> str:
-        """Generate realistic, simple image using DALL-E for text+image slides"""
+        """Generate image using DALL-E for text+image slides"""
         try:
-            # Create realistic and simple image prompt
-            image_prompt = f"Realistic, simple photograph showing '{slide_title}'. Real-life scene, natural lighting, clean composition, photorealistic style, no text overlays, professional quality, like a documentary photo. {prompt[:80]}"
+            # Create image generation prompt
+            image_prompt = f"Professional presentation slide illustration for '{slide_title}': {prompt[:100]}. Clean, modern, educational style, suitable for academic presentation."
             
-            logger.info(f"Generating realistic DALL-E image: {image_prompt[:50]}...")
+            logger.info(f"Generating DALL-E image: {image_prompt[:50]}...")
             
             response = self.client.images.generate(
                 model="dall-e-3",
                 prompt=image_prompt,
                 size="1024x1024",
                 quality="standard",
-                n=1,
-                style="natural"  # More realistic style
+                n=1
             )
             
             if response.data and len(response.data) > 0:
