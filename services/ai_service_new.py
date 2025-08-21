@@ -69,17 +69,22 @@ YANGI TIZIM - LAYOUT TALABLARI:
                     if layout == "title":
                         prompt += f"Slayd {slide_num}: SARLAVHA SLAYDI\n"
                     elif layout == "bullet_points":
-                        prompt += f"Slayd {slide_num}: BULLET POINT SLAYD (2,5,8,11...)\n- Aynan 5 ta bullet point\n- Har bullet pointda kamida 30 so'z\n- Jami 150+ so'z\n- Kichik shrift bilan batafsil mazmun\n"
+                        prompt += f"Slayd {slide_num}: BULLET POINT SLAYD (2,5,8,11...)\n- AYNAN 5 ta bullet point\n- HAR NUQTADA KAMIDA 35-40 SO'Z (jami 175-200 so'z)\n- Har nuqta to'liq jumla va batafsil tushuntirish\n- Professional akademik uslub\n"
                     elif layout == "text_with_image":
-                        prompt += f"Slayd {slide_num}: MATN+DALL-E RASM SLAYD (3,6,9,12...)\n- 80+ so'zlik uzluksiz paragraf matn\n- Katta shrift bilan asosiy mazmun\n- O'ng tomonda rasm bo'ladi (50% maydon)\n"
+                        prompt += f"Slayd {slide_num}: MATN+DALL-E RASM SLAYD (3,6,9,12...)\n- KAMIDA 100-120 SO'ZLIK uzluksiz paragraf\n- To'liq akademik tushuntirish, misollar bilan\n- Chuqur tahlil va batafsil ma'lumot\n- Professional uslub\n"
                     elif layout == "three_column":
-                        prompt += f"Slayd {slide_num}: 3 USTUNLI SLAYD (4,7,10,13...)\n- Mantiqli sarlavhalar (Qism 1,2,3 emas!)\n- Har ustunda 2-3 ta nuqta\n- Mavzuga mos kategoriyalar\n"
+                        prompt += f"Slayd {slide_num}: 3 USTUNLI SLAYD (4,7,10,13...)\n- Mantiqli sarlavhalar: 'Sabablari/Ta'siri/Yechimlar' yoki shunga o'xshash\n- HAR USTUNDA 3-4 ta batafsil nuqta\n- HAR NUQTA KAMIDA 15-20 SO'Z (har ustun 50+ so'z)\n- Jami 150+ so'z\n- Professional tahlil va misollar\n"
 
                 prompt += f"""
-MUHIM QOIDALAR:
-1. BULLET POINT slaydlar: Aynan 5 nuqta, har birida 30+ so'z, kichik shrift
-2. MATN+RASM slaydlar: 80+ so'zlik uzluksiz matn, katta shrift, rasm uchun joy
-3. 3 USTUNLI slaydlar: "Qism 1,2,3" emas, mantiqli sarlavhalar (masalan: "Sabablari", "Oqibatlari", "Yechimlar")
+QATTIQ QOIDALAR - BAJARILISHI SHART:
+1. BULLET POINT slaydlar: AYNAN 5 nuqta, HAR NUQTADA 35-40 SO'Z (jami 175-200 so'z)
+2. MATN+RASM slaydlar: KAMIDA 100-120 SO'ZLIK uzluksiz matn, to'liq akademik tushuntirish
+3. 3 USTUNLI slaydlar: 
+   - Mantiqli sarlavhalar: "Sabablari/Ta'siri/Yechimlar" yoki shu kabi
+   - HAR USTUNDA 3-4 BATAFSIL NUQTA
+   - HAR NUQTA 15-20 SO'Z
+   - HAR USTUN 50+ SO'Z
+   - JAMI 150+ SO'Z
 
 Mantiqiy ketma-ketlikni saqlang. Har guruh slaydlar bir-biriga bog'langan bo'lsin.
 
