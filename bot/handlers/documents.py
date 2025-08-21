@@ -338,12 +338,8 @@ async def my_account_handler(message: Message, db: Database, user_lang: str, use
         reply_markup=get_main_keyboard(user_lang)
     )
 
-# Get help text from different language texts
-HELP_BUTTON_TEXTS = [
-    get_text("uz", "main_menu.help"),
-    get_text("ru", "main_menu.help"), 
-    get_text("en", "main_menu.help")
-]
+# Help button texts in different languages
+HELP_BUTTON_TEXTS = ["📞 Yordam", "📞 Помощь", "📞 Help"]
 
 @router.message(F.text.in_(HELP_BUTTON_TEXTS))
 async def help_handler(message: Message, user_lang: str):
