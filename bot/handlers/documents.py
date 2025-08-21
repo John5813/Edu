@@ -338,10 +338,18 @@ async def my_account_handler(message: Message, db: Database, user_lang: str, use
         reply_markup=get_main_keyboard(user_lang)
     )
 
-@router.message(F.text.in_(["📞 Yordam", "📞 Помощь", "📞 Help"]))
+# Get help text from different language texts
+HELP_BUTTON_TEXTS = [
+    get_text("uz", "main_menu.help"),
+    get_text("ru", "main_menu.help"), 
+    get_text("en", "main_menu.help")
+]
+
+@router.message(F.text.in_(HELP_BUTTON_TEXTS))
 async def help_handler(message: Message, user_lang: str):
     """Handles the 'Help' button click."""
-    help_text = """
+    if user_lang == "uz":
+        help_text = """
 🎓 **EduBot.ai - Yordam**
 
 **📊 Hujjat turlari va narxlari:**
@@ -384,6 +392,96 @@ async def help_handler(message: Message, user_lang: str):
 5. Tayyor hujjatni oling
 
 Agar savol bo'lsa, @edubot_support ga murojaat qiling! 😊
+"""
+    elif user_lang == "ru":
+        help_text = """
+🎓 **EduBot.ai - Помощь**
+
+**📊 Типы документов и цены:**
+• Презентация (10-20 слайдов) - 3,000 сум
+• Самостоятельная работа (10-30 страниц) - 5,000 сум  
+• Реферат (10-30 страниц) - 4,000 сум
+
+**🆓 Бесплатная услуга:**
+• Каждый пользователь может получить одну бесплатную презентацию
+
+**💳 Способы оплаты:**
+• Карта: 9860 6006 1234 5678 (Humo)
+• Отправьте скриншот и ждите подтверждения админа
+
+**🎟 Промокод:**
+• Настройки > Ввести промокод
+• Возможность создать бесплатный документ
+
+**📞 Для помощи:**
+• @edubot_support - Техническая поддержка
+• Рабочее время: 9:00-18:00
+
+**🔧 Возможности бота:**
+• Профессиональные документы с помощью AI
+• Современный дизайн и форматирование
+• Быстрый и качественный результат
+• Поддержка нескольких языков
+
+**❓ Часто задаваемые вопросы:**
+• Сколько времени готовится презентация? - 2-5 минут
+• В каком формате документы? - PowerPoint/Word
+• Контент на узбекском? - Да, на нужном языке
+• Можно ли редактировать? - Да, бесплатно
+
+**🔄 Порядок использования:**
+1. Выберите тип документа
+2. Введите тему  
+3. Настройте параметры
+4. Произведите оплату
+5. Получите готовый документ
+
+При вопросах обращайтесь к @edubot_support! 😊
+"""
+    else:  # English
+        help_text = """
+🎓 **EduBot.ai - Help**
+
+**📊 Document types and prices:**
+• Presentation (10-20 slides) - 3,000 som
+• Independent work (10-30 pages) - 5,000 som  
+• Research paper (10-30 pages) - 4,000 som
+
+**🆓 Free service:**
+• Each user can get one free presentation
+
+**💳 Payment methods:**
+• Card: 9860 6006 1234 5678 (Humo)
+• Send screenshot and wait for admin confirmation
+
+**🎟 Promocode:**
+• Settings > Enter promocode
+• Free document creation opportunity
+
+**📞 For help:**
+• @edubot_support - Technical support
+• Working hours: 9:00-18:00
+
+**🔧 Bot capabilities:**
+• AI-powered professional documents
+• Modern design and formatting
+• Fast and quality results
+• Multi-language support
+
+**❓ Frequently asked questions:**
+• How long does presentation take? - 2-5 minutes
+• What format are documents? - PowerPoint/Word
+• Content in Uzbek? - Yes, in required language
+• Can I edit? - Yes, for free
+
+**🔄 Usage process:**
+1. Choose document type
+2. Enter topic  
+3. Configure parameters
+4. Make payment
+5. Get ready document
+
+If you have questions, contact @edubot_support! 😊
 """
     
     await message.answer(
