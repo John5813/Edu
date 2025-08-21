@@ -40,18 +40,26 @@ SHABLON 3 - 3 ustunli:
 - Har ustun uchun 2-3 bullet point
 - Jami 120-150 so'z
 
-JSON formatda javob bering:
+MUHIM: Faqat JSON formatda javob bering. Boshqa matn yo'q!
+
 {{
     "slides": [
         {{
             "title": "Slayd sarlavhasi",
+            "content": "Slayd mazmuni (bullet points yoki paragraf)"
+        }},
+        {{
+            "title": "Slayd sarlavhasi",
+            "content": "Slayd mazmuni (qisqaroq, rasm uchun)"
+        }},
+        {{
+            "title": "Slayd sarlavhasi", 
             "content": "Slayd mazmuni",
-            "layout": "text_only" yoki "text_with_image" yoki "three_column",
             "columns": [
-                {{"title": "Ustun 1", "points": ["Nuqta 1", "Nuqta 2"]}},
-                {{"title": "Ustun 2", "points": ["Nuqta 1", "Nuqta 2"]}},
-                {{"title": "Ustun 3", "points": ["Nuqta 1", "Nuqta 2"]}}
-            ] (faqat 3 ustunli uchun)
+                {{"title": "Ustun 1", "points": ["• Nuqta 1", "• Nuqta 2"]}},
+                {{"title": "Ustun 2", "points": ["• Nuqta 1", "• Nuqta 2"]}},
+                {{"title": "Ustun 3", "points": ["• Nuqta 1", "• Nuqta 2"]}}
+            ]
         }}
     ]
 }}"""

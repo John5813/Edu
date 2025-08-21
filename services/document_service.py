@@ -343,13 +343,13 @@ class DocumentService:
         content_placeholder = slide.placeholders[1]
 
         if title:
-            title.text = slide_data['title']
+            title.text = slide_data.get('title', 'Mavzu')
             title.text_frame.paragraphs[0].font.size = PptxPt(24)
             title.text_frame.paragraphs[0].font.bold = True
             title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
 
         if content_placeholder:
-            content_placeholder.text = slide_data['content']
+            content_placeholder.text = slide_data.get('content', 'Mazmun mavjud emas')
             content_frame = content_placeholder.text_frame
             content_frame.paragraphs[0].font.size = PptxPt(16)
             content_frame.paragraphs[0].alignment = PP_ALIGN.LEFT
@@ -366,7 +366,7 @@ class DocumentService:
         )
         title_frame = title_box.text_frame
         title_para = title_frame.paragraphs[0]
-        title_para.text = slide_data['title']
+        title_para.text = slide_data.get('title', 'Mavzu')
         title_para.font.size = PptxPt(24)
         title_para.font.bold = True
         title_para.alignment = PP_ALIGN.CENTER
@@ -392,7 +392,7 @@ class DocumentService:
         text_frame = text_box.text_frame
         text_frame.word_wrap = True
         text_para = text_frame.paragraphs[0]
-        text_para.text = slide_data['content']
+        text_para.text = slide_data.get('content', 'Mazmun mavjud emas')
         text_para.font.size = PptxPt(14)
         text_para.alignment = PP_ALIGN.LEFT
 
@@ -408,7 +408,7 @@ class DocumentService:
         )
         title_frame = title_box.text_frame
         title_para = title_frame.paragraphs[0]
-        title_para.text = slide_data['title']
+        title_para.text = slide_data.get('title', 'Mavzu')
         title_para.font.size = PptxPt(24)
         title_para.font.bold = True
         title_para.alignment = PP_ALIGN.CENTER
@@ -417,7 +417,7 @@ class DocumentService:
         columns = slide_data.get('columns', [])
         if not columns:
             # Fallback: split content into 3 parts
-            content_lines = slide_data['content'].split('\n')
+            content_lines = slide_data.get('content', 'Mazmun mavjud emas').split('\n')
             third = len(content_lines) // 3
             columns = [
                 {"title": "Qism 1", "points": content_lines[:third]},
@@ -609,7 +609,7 @@ class DocumentService:
                     )
                     title_frame = title_box.text_frame
                     title_para = title_frame.paragraphs[0]
-                    title_para.text = slide_data['title']
+                    title_para.text = slide_data.get('title', 'Mavzu')
                     title_para.font.size = PptxPt(24)
                     title_para.font.bold = True
                     title_para.alignment = PP_ALIGN.CENTER
@@ -634,7 +634,7 @@ class DocumentService:
                     text_frame = text_box.text_frame
                     text_frame.word_wrap = True
                     text_para = text_frame.paragraphs[0]
-                    text_para.text = slide_data['content']
+                    text_para.text = slide_data.get('content', 'Mazmun mavjud emas')
                     text_para.font.size = PptxPt(14)
                     text_para.alignment = PP_ALIGN.LEFT
 
