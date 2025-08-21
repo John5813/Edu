@@ -1,4 +1,3 @@
-
 import os
 import logging
 from datetime import datetime
@@ -35,7 +34,7 @@ class DocumentService:
                 # Fallback to custom creation with images
                 images = await self._get_smart_images_for_presentation(topic, content)
                 return await self.create_presentation(topic, content, images, author_name)
-        
+
         except Exception as e:
             logger.error(f"Error creating presentation with smart images: {e}")
             # Final fallback
@@ -47,10 +46,10 @@ class DocumentService:
             # Load template
             prs = Presentation(template_path)
             slides_data = content.get('slides', [])
-            
+
             # Get images for slides before processing
             slide_images = await self._get_template_images(topic, slides_data)
-            
+
             # Process each slide
             for slide_idx, slide in enumerate(prs.slides):
                 if slide_idx == 0:
@@ -60,28 +59,28 @@ class DocumentService:
                     # Content slides
                     slide_data = slides_data[slide_idx - 1]
                     await self._update_content_slide(slide, slide_data, slide_idx, slide_images)
-                
+
             # Remove extra slides if template has more slides than needed
             while len(prs.slides) > len(slides_data) + 1:  # +1 for title slide
                 rId = prs.slides._sldIdLst[-1].rId
                 prs.part.drop_rel(rId)
                 del prs.slides._sldIdLst[-1]
-            
+
             # Add more slides if needed
             for i in range(len(prs.slides) - 1, len(slides_data)):
                 slide_data = slides_data[i]
                 new_slide = self._add_content_slide(prs, slide_data, i + 1, slide_images)
-            
+
             # Save presentation
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"presentation_{timestamp}.pptx"
             file_path = os.path.join(self.documents_dir, filename)
-            
+
             prs.save(file_path)
             logger.info(f"Template-based presentation saved: {file_path}")
-            
+
             return file_path
-            
+
         except Exception as e:
             logger.error(f"Error creating presentation from template: {e}")
             # Fallback to regular creation
@@ -105,7 +104,8 @@ class DocumentService:
                     elif shape.top > PptxInches(3):  # Likely subtitle area
                         shape.text_frame.clear()
                         p = shape.text_frame.paragraphs[0]
-                        p.text = f"Muallif: {author_name or 'Noma\'lum'}"
+                        default_author = "Noma'lum"
+                        p.text = f"Muallif: {author_name or default_author}"
                         p.alignment = PP_ALIGN.CENTER
                         if p.runs:
                             p.runs[0].font.size = PptxPt(20)
@@ -134,11 +134,11 @@ class DocumentService:
                         p.alignment = PP_ALIGN.LEFT
                         if p.runs:
                             p.runs[0].font.size = PptxPt(16)
-            
+
             # Add or replace images
             if slide_num in slide_images:
                 await self._add_image_to_slide(slide, slide_images[slide_num])
-                
+
         except Exception as e:
             logger.error(f"Error updating content slide {slide_num}: {e}")
 
@@ -148,26 +148,26 @@ class DocumentService:
             # Use layout 1 (title and content)
             slide_layout = prs.slide_layouts[1] if len(prs.slide_layouts) > 1 else prs.slide_layouts[0]
             slide = prs.slides.add_slide(slide_layout)
-            
+
             # Add title
             if slide.shapes.title:
                 slide.shapes.title.text = slide_data.get('title', f"Slayd {slide_num}")
                 slide.shapes.title.text_frame.paragraphs[0].font.size = PptxPt(24)
                 slide.shapes.title.text_frame.paragraphs[0].font.bold = True
                 slide.shapes.title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
-            
+
             # Add content
             if len(slide.placeholders) > 1:
                 content_placeholder = slide.placeholders[1]
                 content_placeholder.text = slide_data.get('content', '')
                 content_placeholder.text_frame.paragraphs[0].font.size = PptxPt(16)
-            
+
             # Add image if available
             if slide_num in slide_images:
                 asyncio.create_task(self._add_image_to_slide(slide, slide_images[slide_num]))
-            
+
             return slide
-            
+
         except Exception as e:
             logger.error(f"Error adding content slide: {e}")
             return None
@@ -177,10 +177,10 @@ class DocumentService:
         try:
             if not image_path or not os.path.exists(image_path):
                 return
-                
+
             # Try to find existing image placeholder or shape
             image_added = False
-            
+
             for shape in slide.shapes:
                 # Check if this is an image placeholder or existing image
                 if hasattr(shape, 'image') or (hasattr(shape, 'shape_type') and shape.shape_type == 13):  # MSO_SHAPE_TYPE.PICTURE
@@ -188,7 +188,7 @@ class DocumentService:
                         # Remove existing image
                         sp = shape._element
                         sp.getparent().remove(sp)
-                        
+
                         # Add new image in same position
                         slide.shapes.add_picture(
                             image_path,
@@ -199,7 +199,7 @@ class DocumentService:
                         break
                     except:
                         continue
-            
+
             # If no existing image found, add new one
             if not image_added:
                 # Add image to right side of slide
@@ -208,7 +208,7 @@ class DocumentService:
                     PptxInches(6.5), PptxInches(2),
                     PptxInches(5.5), PptxInches(4)
                 )
-                
+
         except Exception as e:
             logger.error(f"Error adding image to slide: {e}")
 
@@ -217,44 +217,96 @@ class DocumentService:
         if not self.pexels:
             logger.warning("Pexels API not configured, skipping images")
             return {}
-        
+
         try:
             slide_images = {}
-            
+
             for idx, slide_data in enumerate(slides_data):
                 slide_num = idx + 1
-                
+
                 # Extract keywords for image search
                 slide_title = slide_data.get('title', '')
                 slide_content = slide_data.get('content', '')
-                
+
                 # Get search keywords
                 search_query = self._extract_search_keywords(slide_title, slide_content, topic)
-                
+
                 if search_query:
                     # Search for images
                     photos = await self.pexels.search_images(search_query, per_page=1)
-                    
+
                     if photos:
                         photo = photos[0]
                         image_url = self.pexels.get_image_url(photo, "medium")
-                        
+
                         # Download image
                         filename = f"template_slide_{slide_num}.jpg"
                         image_path = await self.pexels.download_image(image_url, filename)
-                        
+
                         if image_path:
                             slide_images[slide_num] = image_path
                             logger.info(f"Downloaded template image for slide {slide_num}: {search_query}")
-                    
+
                     # Small delay to respect rate limits
                     await asyncio.sleep(0.3)
-            
+
             return slide_images
-            
+
         except Exception as e:
             logger.error(f"Error getting template images: {e}")
             return {}
+
+    def _extract_search_keywords(self, title: str, content: str, main_topic: str) -> str:
+        """Extract search keywords from slide content for better image matching"""
+        # Combine title and main topic for search
+        search_terms = []
+
+        if title:
+            # Remove common words and extract meaningful terms
+            title_words = title.lower().split()
+            meaningful_words = [word for word in title_words 
+                              if len(word) > 3 and word not in ['uchun', 'haqida', 'asosida', 'davom', 'bilan', 'ning', 'dan']]
+            search_terms.extend(meaningful_words[:2])  # Take first 2 meaningful words
+
+        # Add main topic words
+        if main_topic:
+            topic_words = main_topic.lower().split()[:2]  # First 2 words of main topic
+            search_terms.extend(topic_words)
+
+        # Create search query (prefer English terms for better Pexels results)
+        search_query = ' '.join(search_terms[:3])  # Max 3 terms for focused search
+
+        # Translate common Uzbek/Russian terms to English for better results
+        translations = {
+            'ta\'lim': 'education',
+            'texnologiya': 'technology', 
+            'kompyuter': 'computer',
+            'internet': 'internet',
+            'dasturlash': 'programming',
+            'ishbilarmonlik': 'business',
+            'sport': 'sports',
+            'tibbiyot': 'medicine',
+            'iqtisod': 'economics',
+            'ekonomika': 'economics',
+            'san\'at': 'art',
+            'tarix': 'history',
+            'geografiya': 'geography',
+            'kimyo': 'chemistry',
+            'fizika': 'physics',
+            'matematika': 'mathematics',
+            'fan': 'science',
+            'ilm': 'science',
+            'tadqiqot': 'research',
+            'taraqqiyot': 'development',
+            'innovatsiya': 'innovation',
+            'zamonaviy': 'modern'
+        }
+
+        for uz_term, eng_term in translations.items():
+            if uz_term in search_query.lower():
+                search_query = search_query.lower().replace(uz_term, eng_term)
+
+        return search_query or main_topic  # Fallback to main topic
 
     async def create_presentation(self, topic: str, content: Dict, images: Dict, author_name: str) -> str:
         """Create PowerPoint presentation (fallback method)"""
@@ -284,7 +336,8 @@ class DocumentService:
                         title.text_frame.paragraphs[0].font.size = PptxPt(36)
 
                     if subtitle:
-                        subtitle.text = f"Muallif: {author_name or 'Noma\'lum'}"
+                        default_author = "Noma'lum"
+                        subtitle.text = f"Muallif: {author_name or default_author}"
                         subtitle.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
                         subtitle.text_frame.paragraphs[0].font.size = PptxPt(20)
 
@@ -581,99 +634,47 @@ class DocumentService:
         if not self.pexels:
             logger.warning("Pexels API not configured, skipping images")
             return {}
-        
+
         try:
             slides_data = content.get('slides', [])
-            
+
             # Get images for each slide topic
             images_dict = {}
             for idx, slide in enumerate(slides_data):
                 slide_num = idx + 1
-                
+
                 # Skip title slide
                 if slide_num == 1:
                     continue
-                    
+
                 # Use slide title and extract key words for better search
                 slide_title = slide.get('title', '')
                 slide_content = slide.get('content', '')
-                
+
                 # Create search query from title and key content words
                 search_query = self._extract_search_keywords(slide_title, slide_content, topic)
-                
+
                 if search_query:
                     # Search for images
                     photos = await self.pexels.search_images(search_query, per_page=1)
-                    
+
                     if photos:
                         photo = photos[0]
                         image_url = self.pexels.get_image_url(photo, "medium")
-                        
+
                         # Download image
                         filename = f"slide_{slide_num}.jpg"
                         image_path = await self.pexels.download_image(image_url, filename)
-                        
+
                         if image_path:
                             images_dict[slide_num] = image_path
                             logger.info(f"Added smart image for slide {slide_num}: {search_query}")
-                    
+
                     # Small delay to respect rate limits
                     await asyncio.sleep(0.2)
-            
+
             return images_dict
-            
+
         except Exception as e:
             logger.error(f"Error getting smart images: {e}")
             return {}
-
-    def _extract_search_keywords(self, title: str, content: str, main_topic: str) -> str:
-        """Extract search keywords from slide content for better image matching"""
-        # Combine title and main topic for search
-        search_terms = []
-        
-        if title:
-            # Remove common words and extract meaningful terms
-            title_words = title.lower().split()
-            meaningful_words = [word for word in title_words 
-                              if len(word) > 3 and word not in ['uchun', 'haqida', 'asosida', 'davom', 'bilan', 'ning', 'dan']]
-            search_terms.extend(meaningful_words[:2])  # Take first 2 meaningful words
-        
-        # Add main topic words
-        if main_topic:
-            topic_words = main_topic.lower().split()[:2]  # First 2 words of main topic
-            search_terms.extend(topic_words)
-        
-        # Create search query (prefer English terms for better Pexels results)
-        search_query = ' '.join(search_terms[:3])  # Max 3 terms for focused search
-        
-        # Translate common Uzbek/Russian terms to English for better results
-        translations = {
-            'ta\'lim': 'education',
-            'texnologiya': 'technology', 
-            'kompyuter': 'computer',
-            'internet': 'internet',
-            'dasturlash': 'programming',
-            'ishbilarmonlik': 'business',
-            'sport': 'sports',
-            'tibbiyot': 'medicine',
-            'iqtisod': 'economics',
-            'ekonomika': 'economics',
-            'san\'at': 'art',
-            'tarix': 'history',
-            'geografiya': 'geography',
-            'kimyo': 'chemistry',
-            'fizika': 'physics',
-            'matematika': 'mathematics',
-            'fan': 'science',
-            'ilm': 'science',
-            'tadqiqot': 'research',
-            'taraqqiyot': 'development',
-            'innovatsiya': 'innovation',
-            'zamonaviy': 'modern'
-        }
-        
-        for uz_term, eng_term in translations.items():
-            if uz_term in search_query.lower():
-                search_query = search_query.lower().replace(uz_term, eng_term)
-        
-        return search_query or main_topic  # Fallback to main topic
