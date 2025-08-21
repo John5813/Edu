@@ -223,6 +223,10 @@ class DocumentService:
 
         # Parse content into 3 logical columns
         content_text = slide_data.get('content', '')
+        # Handle case where content might be a dict or other type
+        if not isinstance(content_text, str):
+            content_text = str(content_text) if content_text else ''
+        
         columns = self._parse_three_columns_smart(content_text, slide_data.get('title', ''))
         
         # Create 3 columns
@@ -259,7 +263,11 @@ class DocumentService:
 
     def _parse_bullet_points(self, content_text: str) -> List[str]:
         """Parse content into bullet points (aim for 5 points with 30+ words each)"""
-        if not content_text:
+        # Ensure content_text is string
+        if not isinstance(content_text, str):
+            content_text = str(content_text) if content_text else ''
+            
+        if not content_text or content_text.strip() == '':
             return ["Ma'lumot mavjud emas"] * 5
         
         # Try to split by existing bullet points or numbers
@@ -291,7 +299,11 @@ class DocumentService:
 
     def _parse_three_columns_smart(self, content_text: str, slide_title: str) -> List[Dict]:
         """Parse content into 3 logical columns with smart headers"""
-        if not content_text:
+        # Ensure content_text is string
+        if not isinstance(content_text, str):
+            content_text = str(content_text) if content_text else ''
+            
+        if not content_text or content_text.strip() == '':
             return [
                 {'title': 'Asosiy Ma\'lumot', 'points': ['Ma\'lumot mavjud emas']},
                 {'title': 'Tafsilotlar', 'points': ['Ma\'lumot mavjud emas']},
@@ -302,7 +314,7 @@ class DocumentService:
         headers = self._generate_logical_headers(slide_title)
         
         # Split content into 3 parts
-        sentences = [s.strip() for s in content_text.replace('•', '').split('.') if s.strip()]
+        sentences = [s.strip() for s in str(content_text).replace('•', '').split('.') if s.strip()]
         
         if len(sentences) >= 3:
             # Distribute sentences across columns
