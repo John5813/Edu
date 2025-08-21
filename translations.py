@@ -29,7 +29,7 @@ TRANSLATIONS = {
         "payment_rejected": "❌ To'lovingiz rad etildi. Iltimos, qayta urinib ko'ring.",
         "free_service_used": "🎁 Bepul xizmatdan foydalandingiz!",
         "promocode_applied": "🎁 Promokod qo'llandi! Xizmat bepul.",
-        "help_text": "🆘 Yordam\n\n📊 Taqdimot - AI yordamida taqdimot yaratish (3000 som)\n🎓 Mustaqil ish - DOCX formatda mustaqil ish (5000 som)\n📄 Referat - DOCX formatda referat (4000 som)\n💰 Hisobim - balans va bepul xizmatlar\n💳 To'lov - mablag' to'ldirish\n⚙️ Sozlamalar - tilni o'zgartirish va promokod",
+        "help_text": "🆘 Yordam\n\n📊 Taqdimot narxlari:\n• 10 slayd - 5000 som\n• 15 slayd - 7000 som\n• 20 slayd - 10000 som\n\n🎓 Mustaqil ish va 📄 Referat narxlari:\n• 10-15 varoq - 5000 som\n• 15-20 varoq - 7000 som\n• 20-25 varoq - 10000 som\n• 25-30 varoq - 12000 som\n\n💰 Hisobim - balans va bepul xizmatlar\n💳 To'lov - mablag' to'ldirish\n⚙️ Sozlamalar - tilni o'zgartirish va promokod",
         "settings_menu": "⚙️ Sozlamalar\n\nTilni o'zgartirish:",
         "language_changed": "✅ Til o'zgartirildi!",
         "help_message": "📞 Yordam va ma'lumotlar"
@@ -64,7 +64,7 @@ TRANSLATIONS = {
         "payment_rejected": "❌ Ваш платеж отклонен. Пожалуйста, попробуйте снова.",
         "free_service_used": "🎁 Вы воспользовались бесплатной услугой!",
         "promocode_applied": "🎁 Промокод применен! Услуга бесплатна.",
-        "help_text": "🆘 Помощь\n\n📊 Презентация - создание презентации с помощью ИИ (3000 сум)\n🎓 Самостоятельная работа - создание работы в формате DOCX (5000 сум)\n📄 Реферат - создание реферата в формате DOCX (4000 сум)\n💰 Мой счет - баланс и бесплатные услуги\n💳 Оплата - пополнение баланса\n⚙️ Настройки - изменение языка и промокод",
+        "help_text": "🆘 Помощь\n\n📊 Презентация цены:\n• 10 слайдов - 5000 сум\n• 15 слайдов - 7000 сум\n• 20 слайдов - 10000 сум\n\n🎓 Самостоятельная работа и 📄 Реферат цены:\n• 10-15 страниц - 5000 сум\n• 15-20 страниц - 7000 сум\n• 20-25 страниц - 10000 сум\n• 25-30 страниц - 12000 сум\n\n💰 Мой счет - баланс и бесплатные услуги\n💳 Оплата - пополнение баланса\n⚙️ Настройки - изменение языка и промокод",
         "settings_menu": "⚙️ Настройки\n\nИзменить язык:",
         "language_changed": "✅ Язык изменен!",
         "help_message": "📞 Помощь"
@@ -99,7 +99,7 @@ TRANSLATIONS = {
         "payment_rejected": "❌ Your payment was rejected. Please try again.",
         "free_service_used": "🎁 You used the free service!",
         "promocode_applied": "🎁 Promocode applied! Service is free.",
-        "help_text": "🆘 Help\n\n📊 Presentation - create AI-powered presentations (3000 som)\n🎓 Independent Work - create work in DOCX format (5000 som)\n📄 Research Paper - create paper in DOCX format (4000 som)\n💰 My Account - balance and free services\n💳 Payment - top up balance\n⚙️ Settings - change language and promocode",
+        "help_text": "🆘 Help\n\n📊 Presentation prices:\n• 10 slides - 5000 som\n• 15 slides - 7000 som\n• 20 slides - 10000 som\n\n🎓 Independent Work and 📄 Research Paper prices:\n• 10-15 pages - 5000 som\n• 15-20 pages - 7000 som\n• 20-25 pages - 10000 som\n• 25-30 pages - 12000 som\n\n💰 My Account - balance and free services\n💳 Payment - top up balance\n⚙️ Settings - change language and promocode",
         "settings_menu": "⚙️ Settings\n\nChange language:",
         "language_changed": "✅ Language changed!",
         "help_message": "📞 Yordam va ma'lumotlar"

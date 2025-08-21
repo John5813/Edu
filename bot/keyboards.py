@@ -54,25 +54,25 @@ def get_main_keyboard(language: str) -> ReplyKeyboardMarkup:
     return keyboard.as_markup(resize_keyboard=True)
 
 def get_slide_count_keyboard() -> InlineKeyboardMarkup:
-    """Slide count selection keyboard"""
+    """Slide count selection keyboard with prices"""
     keyboard = InlineKeyboardBuilder()
-    keyboard.add(InlineKeyboardButton(text="10 слайдов", callback_data="slides_10"))
-    keyboard.add(InlineKeyboardButton(text="15 слайдов", callback_data="slides_15"))
-    keyboard.add(InlineKeyboardButton(text="20 слайдов", callback_data="slides_20"))
-    keyboard.adjust(3)
+    keyboard.add(InlineKeyboardButton(text="10 slayd - 5000 som", callback_data="slides_10"))
+    keyboard.add(InlineKeyboardButton(text="15 slayd - 7000 som", callback_data="slides_15"))
+    keyboard.add(InlineKeyboardButton(text="20 slayd - 10000 som", callback_data="slides_20"))
+    keyboard.adjust(1)
     return keyboard.as_markup()
 
 def get_page_count_keyboard(document_type: str) -> InlineKeyboardMarkup:
-    """Page count selection keyboard"""
+    """Page count selection keyboard with prices"""
     keyboard = InlineKeyboardBuilder()
 
-    # Both independent_work and referat now have same page options
-    keyboard.add(InlineKeyboardButton(text="10-15 varoq", callback_data="pages_10_15"))
-    keyboard.add(InlineKeyboardButton(text="15-20 varoq", callback_data="pages_15_20"))
-    keyboard.add(InlineKeyboardButton(text="20-25 varoq", callback_data="pages_20_25"))
-    keyboard.add(InlineKeyboardButton(text="25-30 varoq", callback_data="pages_25_30"))
+    # Both independent_work and referat now have same pricing structure
+    keyboard.add(InlineKeyboardButton(text="10-15 varoq - 5000 som", callback_data="pages_10_15"))
+    keyboard.add(InlineKeyboardButton(text="15-20 varoq - 7000 som", callback_data="pages_15_20"))
+    keyboard.add(InlineKeyboardButton(text="20-25 varoq - 10000 som", callback_data="pages_20_25"))
+    keyboard.add(InlineKeyboardButton(text="25-30 varoq - 12000 som", callback_data="pages_25_30"))
 
-    keyboard.adjust(2)
+    keyboard.adjust(1)
     return keyboard.as_markup()
 
 def get_payment_amount_keyboard() -> InlineKeyboardMarkup:

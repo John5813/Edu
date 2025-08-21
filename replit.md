@@ -38,15 +38,20 @@ Preferred communication style: Simple, everyday language.
 
 ### Recent Changes (August 21, 2025)
 
+✓ **YANGI DINAMIK NARX TIZIMI** - Sahifa/Slayd Soniga Qarab:
+  - **Taqdimot narxlari**: 10 slayd (5000 som), 15 slayd (7000 som), 20 slayd (10000 som)
+  - **Mustaqil ish va Referat**: 10-15 varoq (5000 som), 15-20 varoq (7000 som), 20-25 varoq (10000 som), 25-30 varoq (12000 som)
+  - Tugmalarda narxlar ko'rsatiladi: "10 slayd - 5000 som"
+  - Balance check sahifa/slayd tanlashdan keyin
+
 ✓ **Referat va Mustaqil Ish Uchun Bir Xil Sahifa Sonlari**:
   - Har ikkala hujjat turi uchun 10-15, 15-20, 20-25, 25-30 varoq tanlovlari
   - Bir xil interface va foydalanuvchi tajribasi
   - O'zbek tilida "varoq" terminologiyasi
 
-✓ **Narxlar Ma'lumoti Yordam Bo'limida**:
-  - Taqdimot: 3000 som
-  - Mustaqil ish: 5000 som  
-  - Referat: 4000 som
+✓ **Narxlar Ma'lumoti Yordam Bo'limida Yangilandi**:
+  - Barcha tillarda (O'zbek, Rus, Ingliz) yangi narx jadvali
+  - Har bir hujjat turi uchun batafsil narx ko'rsatilgan
   - Promokod va sozlamalar haqida ma'lumot
 
 ### Previous Updates

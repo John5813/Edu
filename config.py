@@ -16,10 +16,19 @@ PAYMENT_CARD = os.getenv("PAYMENT_CARD", "9860160606136655")
 PAYMENT_CARD_OWNER = os.getenv("PAYMENT_CARD_OWNER", "Javlonbek Moʻydinov")
 PAYMENT_AMOUNTS = [5000, 10000, 15000, 20000]
 
-# Document pricing (in som)
-PRESENTATION_PRICE = 3000
-INDEPENDENT_WORK_PRICE = 5000
-REFERAT_PRICE = 4000
+# Dynamic pricing based on slide/page count (in som)
+PRESENTATION_PRICES = {
+    10: 5000,
+    15: 7000,
+    20: 10000
+}
+
+DOCUMENT_PRICES = {
+    "10_15": 5000,
+    "15_20": 7000,
+    "20_25": 10000,
+    "25_30": 12000
+}
 
 # AI configuration
 MAX_TOKENS = 4000

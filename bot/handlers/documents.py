@@ -11,7 +11,7 @@ from database.database import Database
 from services.ai_service_new import AIService
 from services.document_service_new import DocumentService
 from translations import get_text
-from config import PRESENTATION_PRICE, INDEPENDENT_WORK_PRICE, REFERAT_PRICE
+from config import PRESENTATION_PRICES, DOCUMENT_PRICES
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -31,11 +31,17 @@ DOCUMENT_TYPES = {
     "📄 Research Paper": "referat"
 }
 
-DOCUMENT_PRICES = {
-    "presentation": PRESENTATION_PRICE,
-    "independent_work": INDEPENDENT_WORK_PRICE,
-    "referat": REFERAT_PRICE
-}
+# Dynamic pricing helper function
+def get_document_price(document_type: str, count_data: dict) -> int:
+    """Get price based on document type and count"""
+    if document_type == "presentation":
+        slide_count = count_data.get('slide_count', 10)
+        return PRESENTATION_PRICES.get(slide_count, 5000)
+    else:  # independent_work or referat
+        min_pages = count_data.get('min_pages', 10)
+        max_pages = count_data.get('max_pages', 15)
+        page_key = f"{min_pages}_{max_pages}"
+        return DOCUMENT_PRICES.get(page_key, 5000)
 
 @router.message(F.text.in_(DOCUMENT_TYPES.keys()))
 async def handle_document_request(message: Message, state: FSMContext, db: Database, user_lang: str, user):
@@ -47,27 +53,9 @@ async def handle_document_request(message: Message, state: FSMContext, db: Datab
     document_type = DOCUMENT_TYPES[message.text]
     await state.update_data(document_type=document_type)
 
-    # Check balance and free service (no promocode interruption)
-    price = DOCUMENT_PRICES[document_type]
-
-    # Check if user has promocode credits from settings
-    has_promocode_credit = user.promocode_credit > 0 if hasattr(user, 'promocode_credit') else False
-
-    if has_promocode_credit:
-        # User has promocode credit, use it
-        await state.update_data(use_promocode_credit=True)
-    elif not user.free_service_used:
-        # User can use free service for presentation
-        if document_type == "presentation":
-            await state.update_data(use_free_service=True)
-        else:
-            if user.balance < price:
-                await message.answer(get_text(user_lang, "insufficient_balance"))
-                return
-    else:
-        if user.balance < price:
-            await message.answer(get_text(user_lang, "insufficient_balance"))
-            return
+    # Free service check only for presentations, and only if not used yet  
+    if not user.free_service_used and document_type == "presentation":
+        await state.update_data(use_free_service=True)
 
     # Proceed directly to topic input
     await message.answer(get_text(user_lang, "enter_topic"))
@@ -104,6 +92,16 @@ async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Dat
     """Handle slide count selection"""
     slide_count = int(callback.data.split("_")[1])
     await state.update_data(slide_count=slide_count)
+    
+    # Calculate price based on slide count
+    data = await state.get_data()
+    price = get_document_price("presentation", {"slide_count": slide_count})
+    use_free_service = data.get('use_free_service', False)
+    
+    # Check balance if not using free service
+    if not use_free_service and user.balance < price:
+        await callback.message.edit_text(get_text(user_lang, "insufficient_balance"))
+        return
 
     await callback.message.edit_text("⏳ " + get_text(user_lang, "generating"))
 
@@ -118,13 +116,20 @@ async def handle_page_count(callback: CallbackQuery, state: FSMContext, db: Data
     max_pages = int(page_range[1])
 
     await state.update_data(min_pages=min_pages, max_pages=max_pages)
+    
+    # Calculate price based on page count
+    data = await state.get_data()
+    document_type = data['document_type']
+    price = get_document_price(document_type, {"min_pages": min_pages, "max_pages": max_pages})
+    
+    # Check balance
+    if user.balance < price:
+        await callback.message.edit_text(get_text(user_lang, "insufficient_balance"))
+        return
 
     await callback.message.edit_text("⏳ " + get_text(user_lang, "generating"))
 
     # Start document generation
-    data = await state.get_data()
-    document_type = data['document_type']
-
     if document_type == "independent_work":
         asyncio.create_task(generate_independent_work(callback, state, db, user_lang, user))
     else:  # referat
@@ -178,7 +183,8 @@ async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: 
             await db.mark_free_service_used(user.telegram_id)
             await callback.message.edit_text(get_text(user_lang, "free_service_used"))
         else:
-            await db.update_user_balance(user.telegram_id, -PRESENTATION_PRICE)
+            price = get_document_price("presentation", {"slide_count": slide_count})
+            await db.update_user_balance(user.telegram_id, -price)
             await callback.message.edit_text(get_text(user_lang, "document_ready"))
 
         # Send file
@@ -240,8 +246,9 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
         # Update order
         await db.update_document_order(order_id, "completed", file_path)
 
-        # Process payment - no promocode logic needed
-        await db.update_user_balance(user.telegram_id, -INDEPENDENT_WORK_PRICE)
+        # Process payment with dynamic pricing
+        price = get_document_price("independent_work", {"min_pages": min_pages, "max_pages": max_pages})
+        await db.update_user_balance(user.telegram_id, -price)
         await callback.message.edit_text(get_text(user_lang, "document_ready"))
 
         # Send file
@@ -302,8 +309,9 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
         # Update order
         await db.update_document_order(order_id, "completed", file_path)
 
-        # Process payment - no promocode logic needed
-        await db.update_user_balance(user.telegram_id, -REFERAT_PRICE)
+        # Process payment with dynamic pricing
+        price = get_document_price("referat", {"min_pages": min_pages, "max_pages": max_pages})
+        await db.update_user_balance(user.telegram_id, -price)
         await callback.message.edit_text(get_text(user_lang, "document_ready"))
 
         # Send file
