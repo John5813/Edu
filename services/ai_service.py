@@ -133,7 +133,26 @@ Respond in JSON format:
                 temperature=0.7
             )
 
-            content = json.loads(response.choices[0].message.content)
+            content_str = response.choices[0].message.content.strip()
+            logger.info(f"Raw AI response for presentation: {content_str[:200]}...")
+            
+            content = json.loads(content_str)
+            
+            # Validate and fix content
+            if 'slides' not in content:
+                logger.error("No 'slides' key in content")
+                raise ValueError("Content must contain 'slides' key")
+            
+            # Ensure each slide has title and content
+            for idx, slide in enumerate(content['slides']):
+                if 'title' not in slide:
+                    slide['title'] = f"Slayd {idx + 1}"
+                    logger.warning(f"Added missing title to slide {idx + 1}")
+                if 'content' not in slide:
+                    slide['content'] = "Mazmun yaratilmoqda..."
+                    logger.warning(f"Added missing content to slide {idx + 1}")
+                    
+            logger.info(f"Validated presentation with {len(content['slides'])} slides")
             return content
 
         except Exception as e:

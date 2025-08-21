@@ -327,12 +327,17 @@ class DocumentService:
 
     async def _create_content_slide_by_layout(self, prs, slide_data: Dict, layout_type: str, slide_num: int, images: Dict):
         """Create content slide based on layout type"""
+        logger.info(f"Creating slide {slide_num} with layout '{layout_type}', title: '{slide_data.get('title', 'NO TITLE')}', content: '{slide_data.get('content', 'NO CONTENT')[:50]}...'")
+        
         if layout_type == "text_only":
             await self._create_text_only_slide(prs, slide_data)
         elif layout_type == "text_with_image":
             await self._create_text_with_image_slide(prs, slide_data, slide_num, images)
         elif layout_type == "three_column":
             await self._create_three_column_slide(prs, slide_data)
+        else:
+            logger.error(f"Unknown layout type: {layout_type}, using text_only fallback")
+            await self._create_text_only_slide(prs, slide_data)
 
     async def _create_text_only_slide(self, prs, slide_data: Dict):
         """Create SHABLON 1: Text only slide"""
@@ -404,6 +409,8 @@ class DocumentService:
 
     async def _create_three_column_slide(self, prs, slide_data: Dict):
         """Create SHABLON 3: Three column slide"""
+        logger.info(f"Creating three-column slide with data: {slide_data}")
+        
         slide_layout = prs.slide_layouts[6]  # Blank layout
         slide = prs.slides.add_slide(slide_layout)
 
@@ -414,22 +421,63 @@ class DocumentService:
         )
         title_frame = title_box.text_frame
         title_para = title_frame.paragraphs[0]
-        title_para.text = slide_data.get('title', 'Mavzu')
+        title_para.text = slide_data.get('title', 'Uch Ustunli Slayd')
         title_para.font.size = PptxPt(24)
         title_para.font.bold = True
         title_para.alignment = PP_ALIGN.CENTER
 
-        # Get columns data
-        columns = slide_data.get('columns', [])
-        if not columns:
-            # Fallback: split content into 3 parts
-            content_lines = slide_data.get('content', 'Mazmun mavjud emas').split('\n')
-            third = len(content_lines) // 3
+        # Get content and split into 3 columns
+        content_text = slide_data.get('content', '')
+        logger.info(f"Content for 3-column: '{content_text[:100]}...'")
+        
+        if not content_text or content_text.strip() == 'Mazmun mavjud emas':
+            # Create fallback content
             columns = [
-                {"title": "Qism 1", "points": content_lines[:third]},
-                {"title": "Qism 2", "points": content_lines[third:third*2]},
-                {"title": "Qism 3", "points": content_lines[third*2:]}
+                {'title': 'Birinchi Ustun', 'points': ['Asosiy ma\'lumot', 'Muhim nuqtalar']},
+                {'title': 'Ikkinchi Ustun', 'points': ['Qo\'shimcha ma\'lumot', 'Tafsilotlar']},
+                {'title': 'Uchinchi Ustun', 'points': ['Xulosa', 'Natijalar']}
             ]
+        else:
+            # Split content intelligently into 3 columns
+            sentences = [s.strip() for s in content_text.replace('•', '').split('.') if s.strip()]
+            
+            if len(sentences) >= 3:
+                # Distribute sentences across columns
+                per_column = max(1, len(sentences) // 3)
+                columns = []
+                for i in range(3):
+                    start_idx = i * per_column
+                    end_idx = (i + 1) * per_column if i < 2 else len(sentences)
+                    column_sentences = sentences[start_idx:end_idx]
+                    
+                    columns.append({
+                        'title': f'Qism {i+1}',
+                        'points': column_sentences[:3]  # Max 3 points per column
+                    })
+            else:
+                # Split by lines or create word-based columns
+                lines = [line.strip() for line in content_text.split('\n') if line.strip()]
+                if len(lines) >= 3:
+                    columns = [
+                        {'title': f'Nuqta {i+1}', 'points': [lines[i]]} 
+                        for i in range(min(3, len(lines)))
+                    ]
+                else:
+                    # Word-based split for very short content
+                    words = content_text.split()
+                    if len(words) > 9:
+                        third = len(words) // 3
+                        columns = [
+                            {'title': f'Bo\'lim {i+1}', 'points': [' '.join(words[i*third:(i+1)*third]) if i < 2 else ' '.join(words[i*third:])]}
+                            for i in range(3)
+                        ]
+                    else:
+                        # Very short content - just distribute words
+                        columns = [
+                            {'title': 'Boshi', 'points': [' '.join(words[:len(words)//3])]},
+                            {'title': 'O\'rtasi', 'points': [' '.join(words[len(words)//3:2*len(words)//3])]},
+                            {'title': 'Oxiri', 'points': [' '.join(words[2*len(words)//3:])]}
+                        ]
 
         # Create 3 columns
         column_width = PptxInches(3.8)
@@ -454,8 +502,11 @@ class DocumentService:
             col_para.alignment = PP_ALIGN.CENTER
             
             # Column points
-            for point in column.get('points', [])[:3]:  # Max 3 points per column
-                if point.strip():
+            points = column.get('points', [])
+            logger.info(f"Column {i+1} points: {points}")
+            
+            for point in points[:3]:  # Max 3 points per column
+                if point and point.strip():
                     p = col_frame.add_paragraph()
                     p.text = f"• {point.strip()}"
                     p.font.size = PptxPt(12)
