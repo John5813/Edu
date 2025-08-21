@@ -73,18 +73,18 @@ YANGI TIZIM - LAYOUT TALABLARI:
                     elif layout == "text_with_image":
                         prompt += f"Slayd {slide_num}: MATN+DALL-E RASM SLAYD (3,6,9,12...)\n- KAMIDA 100-120 SO'ZLIK uzluksiz paragraf\n- To'liq akademik tushuntirish, misollar bilan\n- Chuqur tahlil va batafsil ma'lumot\n- Professional uslub\n"
                     elif layout == "three_column":
-                        prompt += f"Slayd {slide_num}: 3 USTUNLI SLAYD (4,7,10,13...)\n- Mantiqli sarlavhalar: 'Sabablari/Ta'siri/Yechimlar' yoki shunga o'xshash\n- HAR USTUNDA 3-4 ta batafsil nuqta\n- HAR NUQTA KAMIDA 15-20 SO'Z (har ustun 50+ so'z)\n- Jami 150+ so'z\n- Professional tahlil va misollar\n"
+                        prompt += f"Slayd {slide_num}: 3 USTUNLI SLAYD (4,7,10,13...)\n- Mantiqli kalit so'zlar sarlavha: 'Sabablari/Ta'siri/Yechimlar' yoki shunga o'xshash\n- HAR USTUNDA AYNAN 40 SO'ZLIK uzluksiz matn\n- HECH QANDAY nuqta, nomer, belgisiz - faqat ravon matn\n- HAR USTUN UCHUN alohida kalit so'z + 40 so'zlik batafsil tushuntirish\n- Jami 120+ so'z (3 x 40)\n- Professional akademik uslub\n"
 
                 prompt += f"""
 QATTIQ QOIDALAR:
 1. BULLET POINT slaydlar: AYNAN 5 nuqta, HAR NUQTADA 35-40 SO'Z (jami 175-200 so'z)
 2. MATN+RASM slaydlar: KAMIDA 100-120 SO'ZLIK uzluksiz matn, to'liq akademik tushuntirish
 3. 3 USTUNLI slaydlar: 
-   - Mantiqli sarlavhalar: "Sabablari/Ta'siri/Yechimlar" yoki shu kabi
-   - HAR USTUNDA 3-4 BATAFSIL NUQTA
-   - HAR NUQTA 15-20 SO'Z
-   - HAR USTUN 50+ SO'Z
-   - JAMI 150+ SO'Z
+   - Mantiqli kalit so'z sarlavhalar: "Sabablari", "Ta'siri", "Yechimlar" yoki shu kabi
+   - HAR USTUNDA AYNAN 40 SO'ZLIK uzluksiz matn
+   - HECH QANDAY nuqta, nomer, yoki belgisiz - faqat ravon matn paragraf
+   - HAR USTUN: "Kalit so'z" + "40 so'zlik uzluksiz tushuntirish"
+   - JAMI 120+ SO'Z (3 x 40)
 
 MUHIM: Oddiy matn yozing, ortiqcha belgilar va shakllar ishlatmang. Mantiqiy ketma-ketlikni saqlang.
 

@@ -251,15 +251,15 @@ class DocumentService:
             col_para.font.bold = True
             col_para.alignment = PP_ALIGN.CENTER
             
-            # Column points
-            points = column.get('points', [])
+            # Column continuous text (40 words without bullets or numbers)
+            column_text = column.get('text', column.get('points', ['Ma\'lumot yo\'q'])[0] if column.get('points') else 'Ma\'lumot yo\'q')
             
-            for point in points[:3]:  # Max 3 points per column
-                if point and point.strip():
-                    p = col_frame.add_paragraph()
-                    p.text = f"• {point.strip()}"
-                    p.font.size = PptxPt(12)  # Small font for details
-                    p.alignment = PP_ALIGN.LEFT
+            # Add continuous text paragraph
+            p = col_frame.add_paragraph()
+            p.text = str(column_text).strip()
+            p.font.size = PptxPt(12)  # Small font for details
+            p.alignment = PP_ALIGN.JUSTIFY  # Justify alignment for clean look
+            p.level = 0
 
     def _parse_bullet_points(self, content_text: str) -> List[str]:
         """Parse content into bullet points (aim for 5 points with 30+ words each)"""
@@ -298,60 +298,71 @@ class DocumentService:
         return points[:5]
 
     def _parse_three_columns_smart(self, content_text: str, slide_title: str) -> List[Dict]:
-        """Parse content into 3 logical columns with smart headers"""
+        """Parse content into 3 logical columns with 40-word continuous text per column"""
         # Ensure content_text is string
         if not isinstance(content_text, str):
             content_text = str(content_text) if content_text else ''
             
         if not content_text or content_text.strip() == '':
             return [
-                {'title': 'Asosiy Ma\'lumot', 'points': ['Ma\'lumot mavjud emas']},
-                {'title': 'Tafsilotlar', 'points': ['Ma\'lumot mavjud emas']},
-                {'title': 'Xulosa', 'points': ['Ma\'lumot mavjud emas']}
+                {'title': 'Asosiy Ma\'lumot', 'text': 'Bu ustun haqida batafsil ma\'lumot mavjud emas. Keyinchalik qo\'shimcha ma\'lumotlar bilan to\'ldiriladi va yangi tushunchalar kiritiladi.'},
+                {'title': 'Tafsilotlar', 'text': 'Ushbu bo\'lim bo\'yicha qo\'shimcha tafsilotlar hali tayyor emas. Vaqt o\'tishi bilan muhim nuqtalar va asosiy ma\'lumotlar qo\'shiladi.'},
+                {'title': 'Xulosa', 'text': 'Yakuniy xulosalar va umumlashtiruvchi fikrlar hali shakllantirilmagan. Kelajakda barcha ma\'lumotlar asosida natijalar chiqariladi va tavsiyalar beriladi.'}
             ]
         
         # Generate logical headers based on slide title
         headers = self._generate_logical_headers(slide_title)
         
-        # Split content into 3 parts
-        sentences = [s.strip() for s in str(content_text).replace('•', '').split('.') if s.strip()]
+        # Clean content from any bullets or numbers
+        clean_content = content_text.replace('•', '').replace('-', '').replace('*', '')
+        # Remove numbered lists (1. 2. 3. etc.)
+        import re
+        clean_content = re.sub(r'\d+\.\s*', '', clean_content)
         
-        if len(sentences) >= 3:
-            # Distribute sentences across columns
-            per_column = max(1, len(sentences) // 3)
+        # Split content into 3 equal parts by word count
+        words = clean_content.split()
+        total_words = len(words)
+        
+        if total_words >= 120:  # If we have enough words (3 x 40)
+            # Split into 3 equal parts
+            words_per_column = total_words // 3
             columns = []
             for i in range(3):
-                start_idx = i * per_column
-                end_idx = (i + 1) * per_column if i < 2 else len(sentences)
-                column_sentences = sentences[start_idx:end_idx]
+                start_idx = i * words_per_column
+                if i == 2:  # Last column gets remaining words
+                    end_idx = total_words
+                else:
+                    end_idx = (i + 1) * words_per_column
                 
+                column_text = ' '.join(words[start_idx:end_idx])
                 columns.append({
                     'title': headers[i],
-                    'points': column_sentences[:3]  # Max 3 points per column
+                    'text': column_text
                 })
         else:
-            # Split by lines or words
-            lines = [line.strip() for line in content_text.split('\n') if line.strip()]
-            if len(lines) >= 3:
-                columns = [
-                    {'title': headers[i], 'points': [lines[i]] if i < len(lines) else ['Ma\'lumot yo\'q']} 
-                    for i in range(3)
-                ]
+            # If not enough content, split sentences
+            sentences = [s.strip() for s in clean_content.split('.') if s.strip()]
+            if len(sentences) >= 3:
+                per_column = max(1, len(sentences) // 3)
+                columns = []
+                for i in range(3):
+                    start_idx = i * per_column
+                    end_idx = (i + 1) * per_column if i < 2 else len(sentences)
+                    column_sentences = sentences[start_idx:end_idx]
+                    column_text = '. '.join(column_sentences) + '.'
+                    
+                    columns.append({
+                        'title': headers[i],
+                        'text': column_text
+                    })
             else:
-                # Word-based split
-                words = content_text.split()
-                if len(words) > 9:
-                    third = len(words) // 3
-                    columns = [
-                        {'title': headers[i], 'points': [' '.join(words[i*third:(i+1)*third]) if i < 2 else ' '.join(words[i*third:])]}
-                        for i in range(3)
-                    ]
-                else:
-                    columns = [
-                        {'title': headers[0], 'points': [content_text[:len(content_text)//3]]},
-                        {'title': headers[1], 'points': [content_text[len(content_text)//3:2*len(content_text)//3]]},
-                        {'title': headers[2], 'points': [content_text[2*len(content_text)//3:]]}
-                    ]
+                # Fallback: distribute content evenly
+                third = len(clean_content) // 3
+                columns = [
+                    {'title': headers[0], 'text': clean_content[:third]},
+                    {'title': headers[1], 'text': clean_content[third:2*third]},
+                    {'title': headers[2], 'text': clean_content[2*third:]}
+                ]
         
         return columns
 
