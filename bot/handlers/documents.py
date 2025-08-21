@@ -16,65 +16,11 @@ from config import PRESENTATION_PRICE, INDEPENDENT_WORK_PRICE, REFERAT_PRICE
 router = Router()
 logger = logging.getLogger(__name__)
 
-@router.callback_query(F.data == "use_promocode", DocumentStates.waiting_for_promocode_choice)
-async def handle_use_promocode(callback: CallbackQuery, state: FSMContext, user_lang: str):
-    """Handle use promocode choice"""
-    await callback.message.edit_text("🎟 Promokodni kiriting:")
-    await state.set_state(DocumentStates.waiting_for_promocode)
+# Promokod handlers moved to settings
 
-@router.callback_query(F.data == "skip_promocode", DocumentStates.waiting_for_promocode_choice)
-async def handle_skip_promocode(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
-    """Handle skip promocode choice"""
-    # Check balance when skipping promocode
-    data = await state.get_data()
-    document_type = data['document_type']
-    price = DOCUMENT_PRICES[document_type]
-    
-    if not user.free_service_used:
-        # User can use free service for presentation
-        if document_type == "presentation":
-            await state.update_data(use_free_service=True)
-        else:
-            if user.balance < price:
-                await callback.message.edit_text(get_text(user_lang, "insufficient_balance"))
-                return
-    else:
-        if user.balance < price:
-            await callback.message.edit_text(get_text(user_lang, "insufficient_balance"))
-            return
-    
-    await callback.message.edit_text(get_text(user_lang, "enter_topic"))
-    await state.set_state(DocumentStates.waiting_for_topic)
 
-@router.message(DocumentStates.waiting_for_promocode)
-async def handle_promocode_input(message: Message, state: FSMContext, db: Database, user_lang: str, user):
-    """Handle promocode input"""
-    promocode_text = message.text.strip().upper()
-    
-    # Get promocode from database
-    promocode = await db.get_promocode(promocode_text)
-    
-    if not promocode:
-        await message.answer("❌ Noto'g'ri promokod. Qayta kiriting yoki /cancel buyrug'ini yuboring.")
-        return
-    
-    # Check if promocode is expired
-    from datetime import datetime
-    if promocode.expires_at < datetime.now():
-        await message.answer("❌ Promokodning amal qilish muddati tugagan. Qayta kiriting yoki /cancel buyrug'ini yuboring.")
-        return
-    
-    # Check if user already used this promocode
-    is_used = await db.is_promocode_used(user.id, promocode.id)
-    if is_used:
-        await message.answer("❌ Siz bu promokodni allaqachon ishlatgansiz. Qayta kiriting yoki /cancel buyrug'ini yuboring.")
-        return
-    
-    # Save promocode to state
-    await state.update_data(promocode_id=promocode.id, use_promocode=True)
-    
-    await message.answer("✅ Promokod qabul qilindi! Endi mavzuni kiriting:")
-    await state.set_state(DocumentStates.waiting_for_topic)
+
+
 
 # Document type mapping
 DOCUMENT_TYPES = {
@@ -105,37 +51,31 @@ async def handle_document_request(message: Message, state: FSMContext, db: Datab
     document_type = DOCUMENT_TYPES[message.text]
     await state.update_data(document_type=document_type)
     
-    # First check if there are any active promocodes
-    active_promocodes = await db.get_active_promocodes()
+    # Check balance and free service (no promocode interruption)
+    price = DOCUMENT_PRICES[document_type]
     
-    if active_promocodes:
-        # Show promocode option regardless of balance
-        from bot.keyboards import get_promocode_option_keyboard
-        await message.answer(
-            "🎟 Promokodingiz bormi?",
-            reply_markup=get_promocode_option_keyboard(user_lang)
-        )
-        await state.set_state(DocumentStates.waiting_for_promocode_choice)
-    else:
-        # No promocodes available, check balance and free service
-        price = DOCUMENT_PRICES[document_type]
-        
-        if not user.free_service_used:
-            # User can use free service for presentation
-            if document_type == "presentation":
-                await state.update_data(use_free_service=True)
-            else:
-                if user.balance < price:
-                    await message.answer(get_text(user_lang, "insufficient_balance"))
-                    return
+    # Check if user has promocode credits from settings
+    has_promocode_credit = user.promocode_credit > 0 if hasattr(user, 'promocode_credit') else False
+    
+    if has_promocode_credit:
+        # User has promocode credit, use it
+        await state.update_data(use_promocode_credit=True)
+    elif not user.free_service_used:
+        # User can use free service for presentation
+        if document_type == "presentation":
+            await state.update_data(use_free_service=True)
         else:
             if user.balance < price:
                 await message.answer(get_text(user_lang, "insufficient_balance"))
                 return
-        
-        # Proceed directly to topic input
-        await message.answer(get_text(user_lang, "enter_topic"))
-        await state.set_state(DocumentStates.waiting_for_topic)
+    else:
+        if user.balance < price:
+            await message.answer(get_text(user_lang, "insufficient_balance"))
+            return
+    
+    # Proceed directly to topic input
+    await message.answer(get_text(user_lang, "enter_topic"))
+    await state.set_state(DocumentStates.waiting_for_topic)
 
 @router.message(DocumentStates.waiting_for_topic)
 async def handle_topic_input(message: Message, state: FSMContext, user_lang: str):
@@ -236,14 +176,9 @@ async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: 
         
         # Process payment
         data = await state.get_data()
-        use_promocode = data.get('use_promocode', False)
-        promocode_id = data.get('promocode_id')
+        use_free_service = data.get('use_free_service', False)
         
-        if use_promocode and promocode_id:
-            # Mark promocode as used
-            await db.mark_promocode_used(user.id, promocode_id)
-            await callback.message.edit_text("✅ Promokod ishlatildi! Hujjat tayyor.")
-        elif use_free_service:
+        if use_free_service:
             await db.mark_free_service_used(user.telegram_id)
             await callback.message.edit_text(get_text(user_lang, "free_service_used"))
         else:
@@ -309,18 +244,9 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
         # Update order
         await db.update_document_order(order_id, "completed", file_path)
         
-        # Process payment
-        data = await state.get_data()
-        use_promocode = data.get('use_promocode', False)
-        promocode_id = data.get('promocode_id')
-        
-        if use_promocode and promocode_id:
-            # Mark promocode as used
-            await db.mark_promocode_used(user.id, promocode_id)
-            await callback.message.edit_text("✅ Promokod ishlatildi! Hujjat tayyor.")
-        else:
-            await db.update_user_balance(user.telegram_id, -INDEPENDENT_WORK_PRICE)
-            await callback.message.edit_text(get_text(user_lang, "document_ready"))
+        # Process payment - no promocode logic needed
+        await db.update_user_balance(user.telegram_id, -INDEPENDENT_WORK_PRICE)
+        await callback.message.edit_text(get_text(user_lang, "document_ready"))
         
         # Send file
         document = FSInputFile(file_path)
@@ -380,18 +306,9 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
         # Update order
         await db.update_document_order(order_id, "completed", file_path)
         
-        # Process payment
-        data = await state.get_data()
-        use_promocode = data.get('use_promocode', False)
-        promocode_id = data.get('promocode_id')
-        
-        if use_promocode and promocode_id:
-            # Mark promocode as used
-            await db.mark_promocode_used(user.id, promocode_id)
-            await callback.message.edit_text("✅ Promokod ishlatildi! Hujjat tayyor.")
-        else:
-            await db.update_user_balance(user.telegram_id, -REFERAT_PRICE)
-            await callback.message.edit_text(get_text(user_lang, "document_ready"))
+        # Process payment - no promocode logic needed  
+        await db.update_user_balance(user.telegram_id, -REFERAT_PRICE)
+        await callback.message.edit_text(get_text(user_lang, "document_ready"))
         
         # Send file
         document = FSInputFile(file_path)

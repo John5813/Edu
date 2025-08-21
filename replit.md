@@ -37,8 +37,13 @@ Preferred communication style: Simple, everyday language.
   - Xatoliklar va type safety yaxshilandi
 
 ### Previous Updates
+✓ **Promokod Tizimi Sozlamalarga Ko'chirildi** (August 21, 2025):
+  - Hujjat yaratishda halaqit qilmaydi
+  - Sozlamalar > Promokod kiritish
+  - Bepul hujjat yaratish imkoniyati beradi
+  
 ✓ Admin panel va payment tizimi (August 5, 2025)
-✓ AI text generation yaxshilandi
+✓ AI text generation yaxshilandi  
 ✓ Bot to'liq ishlamoqda
 
 ## System Architecture

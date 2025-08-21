@@ -13,6 +13,24 @@ def get_language_keyboard() -> InlineKeyboardMarkup:
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+def get_settings_keyboard(language: str) -> InlineKeyboardMarkup:
+    """Settings menu keyboard"""
+    keyboard = InlineKeyboardBuilder()
+    
+    # Language change
+    if language == "uz":
+        keyboard.add(InlineKeyboardButton(text="🌍 Tilni o'zgartirish", callback_data="change_language"))
+        keyboard.add(InlineKeyboardButton(text="🎟 Promokod kiritish", callback_data="enter_promocode"))
+    elif language == "ru":
+        keyboard.add(InlineKeyboardButton(text="🌍 Изменить язык", callback_data="change_language"))
+        keyboard.add(InlineKeyboardButton(text="🎟 Ввести промокод", callback_data="enter_promocode"))
+    else:  # en
+        keyboard.add(InlineKeyboardButton(text="🌍 Change language", callback_data="change_language"))
+        keyboard.add(InlineKeyboardButton(text="🎟 Enter promocode", callback_data="enter_promocode"))
+    
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
 def get_main_keyboard(language: str) -> ReplyKeyboardMarkup:
     """Main reply keyboard"""
     keyboard = ReplyKeyboardBuilder()

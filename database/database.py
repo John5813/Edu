@@ -178,6 +178,16 @@ class Database:
             await db.commit()
     
     @staticmethod
+    async def reset_free_service(telegram_id: int):
+        """Reset free service (from promocode)"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            await db.execute(
+                "UPDATE users SET free_service_used = FALSE, updated_at = CURRENT_TIMESTAMP WHERE telegram_id = ?",
+                (telegram_id,)
+            )
+            await db.commit()
+    
+    @staticmethod
     async def create_payment(user_id: int, amount: int, screenshot_file_id: str) -> int:
         """Create payment record"""
         async with aiosqlite.connect(DATABASE_FILE) as db:

@@ -4,12 +4,13 @@ class DocumentStates(StatesGroup):
     waiting_for_topic = State()
     waiting_for_slide_count = State()
     waiting_for_page_count = State()
-    waiting_for_promocode_choice = State()
-    waiting_for_promocode = State()
 
 class PaymentStates(StatesGroup):
     waiting_for_amount = State()
     waiting_for_screenshot = State()
+
+class SettingsStates(StatesGroup):
+    waiting_for_promocode = State()
 
 class AdminStates(StatesGroup):
     # Payment management
