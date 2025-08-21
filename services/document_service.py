@@ -26,6 +26,11 @@ class DocumentService:
     async def create_presentation_with_smart_images(self, topic: str, content: Dict, author_name: str) -> str:
         """Create PowerPoint presentation with 3 layout system and smart images"""
         try:
+            # Validate content structure
+            if not content or 'slides' not in content:
+                logger.error(f"Invalid content structure: {content}")
+                raise ValueError("Content must contain 'slides' key")
+            
             # Create presentation with 3-template rotating system
             return await self.create_presentation_with_layouts(topic, content, author_name)
 
@@ -501,6 +506,11 @@ class DocumentService:
     async def create_presentation_with_layouts(self, topic: str, content: Dict, author_name: str) -> str:
         """Create presentation with 3 rotating layout system"""
         try:
+            # Validate content
+            if not content or 'slides' not in content:
+                logger.error(f"Invalid content for layouts: {content}")
+                raise ValueError("Content must contain 'slides' key")
+            
             prs = Presentation()
             
             # Set slide size (16:9)
@@ -545,6 +555,18 @@ class DocumentService:
     async def create_presentation(self, topic: str, content: Dict, images: Dict, author_name: str) -> str:
         """Create PowerPoint presentation (fallback method)"""
         try:
+            # Validate content and create fallback if needed
+            if not content or 'slides' not in content:
+                logger.warning(f"Invalid content, creating fallback presentation: {content}")
+                content = {
+                    'slides': [
+                        {
+                            'title': topic,
+                            'content': f"Bu taqdimot {topic} mavzusida tayyorlangan."
+                        }
+                    ]
+                }
+            
             prs = Presentation()
 
             # Set slide size (16:9)

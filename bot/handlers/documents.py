@@ -215,6 +215,19 @@ async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: 
         ai_service = AIService()
         content = await ai_service.generate_presentation_content(topic, slide_count, user_lang)
         
+        # Validate AI response
+        if not content or 'slides' not in content:
+            logger.error(f"Invalid AI response: {content}")
+            # Create fallback content
+            content = {
+                'slides': [
+                    {'title': topic, 'content': f"Bu taqdimot {topic} mavzusida tayyorlangan."},
+                    {'title': 'Kirish', 'content': f"{topic} haqida umumiy ma'lumot."},
+                    {'title': 'Asosiy qism', 'content': f"{topic}ning asosiy jihatlari."},
+                    {'title': 'Xulosa', 'content': f"{topic} bo'yicha xulosalar."}
+                ]
+            }
+        
         # Create presentation file with smart images from Pexels
         doc_service = DocumentService()
         file_path = await doc_service.create_presentation_with_smart_images(topic, content, user.first_name or "")
