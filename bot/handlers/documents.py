@@ -288,13 +288,15 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
             specifications=specifications
         )
 
-        # Determine section count (referats are typically shorter)
-        if max_pages <= 10:
-            section_count = 4
-        elif max_pages <= 12:
-            section_count = 5
-        else:
+        # Determine section count based on new page ranges
+        if max_pages <= 15:
             section_count = 6
+        elif max_pages <= 20:
+            section_count = 9
+        elif max_pages <= 25:
+            section_count = 12
+        else:
+            section_count = 15
 
         # Generate content with AI
         ai_service = AIService()
@@ -356,10 +358,16 @@ async def help_handler(message: Message, user_lang: str):
         help_text = """
 🎓 **EduBot.ai - Yordam**
 
-**📊 Hujjat turlari va narxlari:**
-• Taqdimot (10-20 slayd) - 3,000 so'm
-• Mustaqil ish (10-30 varoq) - 5,000 so'm  
-• Referat (10-30 varoq) - 4,000 so'm
+**📊 Taqdimot narxlari:**
+• 10 slayd - 5,000 so'm
+• 15 slayd - 7,000 so'm
+• 20 slayd - 10,000 so'm
+
+**🎓 Mustaqil ish va 📄 Referat narxlari:**
+• 10-15 varoq - 5,000 so'm
+• 15-20 varoq - 7,000 so'm
+• 20-25 varoq - 10,000 so'm
+• 25-30 varoq - 12,000 so'm
 
 **🆓 Bepul xizmat:**
 • Har bir foydalanuvchi bitta bepul taqdimot olishi mumkin
@@ -401,10 +409,16 @@ Agar savol bo'lsa, @edubot_support ga murojaat qiling! 😊
         help_text = """
 🎓 **EduBot.ai - Помощь**
 
-**📊 Типы документов и цены:**
-• Презентация (10-20 слайдов) - 3,000 сум
-• Самостоятельная работа (10-30 страниц) - 5,000 сум  
-• Реферат (10-30 страниц) - 4,000 сум
+**📊 Презентация цены:**
+• 10 слайдов - 5,000 сум
+• 15 слайдов - 7,000 сум
+• 20 слайдов - 10,000 сум
+
+**🎓 Самостоятельная работа и 📄 Реферат цены:**
+• 10-15 страниц - 5,000 сум
+• 15-20 страниц - 7,000 сум
+• 20-25 страниц - 10,000 сум
+• 25-30 страниц - 12,000 сум
 
 **🆓 Бесплатная услуга:**
 • Каждый пользователь может получить одну бесплатную презентацию
@@ -446,10 +460,16 @@ Agar savol bo'lsa, @edubot_support ga murojaat qiling! 😊
         help_text = """
 🎓 **EduBot.ai - Help**
 
-**📊 Document types and prices:**
-• Presentation (10-20 slides) - 3,000 som
-• Independent work (10-30 pages) - 5,000 som  
-• Research paper (10-30 pages) - 4,000 som
+**📊 Presentation prices:**
+• 10 slides - 5,000 som
+• 15 slides - 7,000 som
+• 20 slides - 10,000 som
+
+**🎓 Independent Work and 📄 Research Paper prices:**
+• 10-15 pages - 5,000 som
+• 15-20 pages - 7,000 som
+• 20-25 pages - 10,000 som
+• 25-30 pages - 12,000 som
 
 **🆓 Free service:**
 • Each user can get one free presentation
