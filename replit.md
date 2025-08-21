@@ -26,8 +26,9 @@ Preferred communication style: Simple, everyday language.
   - **Turli xil sarlavhalar**: takrorlanmas kategoriyalar
   - **Left alignment**: ikki cheti bir tekis format olib tashlandi
 
-✓ **Visual Improvements**:
+✓ **Visual Improvements - YANGILANDI (August 21, 2025)**:
   - DALL-E rasmlar o'ng tomonni butunlay qoplash (55% width)
+  - **Realistik va sodda rasmlar**: haqiqiy suratdek, tabiiy yorug'lik, dokumentar uslub
   - Professional taqdimot uchun mos rasm generatsiyasi
   - Matn va rasm o'rtasida optimal balans
 
