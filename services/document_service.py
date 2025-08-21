@@ -374,6 +374,7 @@ class DocumentService:
         # Add image (left side) if available
         if slide_num in images:
             image_path = images[slide_num]
+            logger.info(f"Trying to add image for slide {slide_num}: {image_path}")
             if image_path and os.path.exists(image_path):
                 try:
                     slide.shapes.add_picture(
@@ -381,8 +382,13 @@ class DocumentService:
                         PptxInches(0.5), PptxInches(2),
                         PptxInches(5.5), PptxInches(4)
                     )
+                    logger.info(f"Successfully added image to slide {slide_num}")
                 except Exception as e:
-                    logger.error(f"Error adding image to slide: {e}")
+                    logger.error(f"Error adding image to slide {slide_num}: {e}")
+            else:
+                logger.warning(f"Image not found for slide {slide_num}: {image_path}")
+        else:
+            logger.info(f"No image available for slide {slide_num}")
 
         # Add text content (right side)
         text_box = slide.shapes.add_textbox(
