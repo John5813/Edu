@@ -76,7 +76,7 @@ YANGI TIZIM - LAYOUT TALABLARI:
                         prompt += f"Slayd {slide_num}: 3 USTUNLI SLAYD (4,7,10,13...)\n- Mantiqli sarlavhalar: 'Sabablari/Ta'siri/Yechimlar' yoki shunga o'xshash\n- HAR USTUNDA 3-4 ta batafsil nuqta\n- HAR NUQTA KAMIDA 15-20 SO'Z (har ustun 50+ so'z)\n- Jami 150+ so'z\n- Professional tahlil va misollar\n"
 
                 prompt += f"""
-QATTIQ QOIDALAR - BAJARILISHI SHART:
+QATTIQ QOIDALAR:
 1. BULLET POINT slaydlar: AYNAN 5 nuqta, HAR NUQTADA 35-40 SO'Z (jami 175-200 so'z)
 2. MATN+RASM slaydlar: KAMIDA 100-120 SO'ZLIK uzluksiz matn, to'liq akademik tushuntirish
 3. 3 USTUNLI slaydlar: 
@@ -86,7 +86,7 @@ QATTIQ QOIDALAR - BAJARILISHI SHART:
    - HAR USTUN 50+ SO'Z
    - JAMI 150+ SO'Z
 
-Mantiqiy ketma-ketlikni saqlang. Har guruh slaydlar bir-biriga bog'langan bo'lsin.
+MUHIM: Oddiy matn yozing, ortiqcha belgilar va shakllar ishlatmang. Mantiqiy ketma-ketlikni saqlang.
 
 JSON formatda javob bering:
 {{

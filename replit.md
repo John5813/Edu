@@ -12,27 +12,28 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (August 21, 2025)
 
-✓ **3 Shablon Tizimi Qo'shildi** - SlidesGPT kabi rotating layout system:
-  - **Shablon 1**: Faqat matn (sarlavha + bullet points/paragraf)
-  - **Shablon 2**: Matn + Rasm (chapda rasm, o'ngda matn)
-  - **Shablon 3**: 3 ustunli format (ma'lumotlar 3 qismga bo'linadi)
-  - Takrorlash tartibi: 1→2→3→1→2→3→1→2→3...
+✓ **YANGI TAQDIMOT TIZIMI - To'liq qayta qurildi**:
+  - **Batch AI System**: Har 3 slaydga alohida AI so'rov
+  - **DALL-E Rasm Generatsiyasi**: Pexels o'rniga professional AI rasmlar
+  - **3 Layout Tizimi**:
+    - **2,5,8,11... - Bullet Points**: 5 nuqta, har birida 35-40 so'z (175-200 so'z)
+    - **3,6,9,12... - Matn + DALL-E Rasm**: 100-120 so'zlik uzluksiz matn + o'ng tomonni to'liq qoplagan rasm
+    - **4,7,10,13... - 3 Ustunli**: Mantiqli sarlavhalar bilan har ustunda 50+ so'z
 
-✓ **Pexels API Integratsiyasi**:
-  - Aqlli rasm qidiruv tizimi
-  - Faqat "matn + rasm" slaydlariga avtomatik rasm qo'shish
-  - O'zbek-ingliz kalit so'z tarjimasi
-  - Bepul 200 so'rov/soat, 20,000 so'rov/oy
+✓ **Professional Content Standards**:
+  - Har slayd uchun minimal so'z talablari
+  - Akademik uslub va batafsil tushuntirishlar
+  - Mantiqli sarlavhalar: "Sabablari/Ta'siri/Yechimlar" formatida
 
-✓ **AI Content Moslashtirildi**:
-  - Har shablon uchun alohida content format
-  - 3 ustunli slaydlar uchun matnni 3 qismga bo'lish
-  - Layout tipiga qarab content uzunligi optimallashtirildi
+✓ **Visual Improvements**:
+  - DALL-E rasmlar o'ng tomonni butunlay qoplash (55% width)
+  - Professional taqdimot uchun mos rasm generatsiyasi
+  - Matn va rasm o'rtasida optimal balans
 
-✓ **Document Service Yangilandi**:
-  - `create_presentation_with_layouts()` - asosiy method
-  - Har shablon uchun alohida slide yaratish methodlari
-  - Smart image integration faqat kerakli slaydlar uchun
+✓ **Technical Architecture**:
+  - `services/ai_service_new.py` - batch AI generation
+  - `services/document_service_new.py` - yangi layout tizimi
+  - Xatoliklar va type safety yaxshilandi
 
 ### Previous Updates
 ✓ Admin panel va payment tizimi (August 5, 2025)

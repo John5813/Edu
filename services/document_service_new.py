@@ -173,10 +173,10 @@ class DocumentService:
         title_para.font.bold = True
         title_para.alignment = PP_ALIGN.CENTER
 
-        # Left side: Continuous text (50% width)
+        # Left side: Continuous text (45% width)
         text_box = slide.shapes.add_textbox(
             PptxInches(0.5), PptxInches(2),
-            PptxInches(6), PptxInches(4.5)  # 50% width
+            PptxInches(5.5), PptxInches(4.5)  # 45% width
         )
         text_frame = text_box.text_frame
         text_frame.word_wrap = True
@@ -185,7 +185,7 @@ class DocumentService:
         text_para.font.size = PptxPt(18)  # Large font for main content
         text_para.alignment = PP_ALIGN.JUSTIFY
 
-        # Right side: DALL-E image (50% width)
+        # Right side: DALL-E image (55% width - butun o'ng tomonni qoplash)
         if slide_num in images:
             image_path = images[slide_num]
             logger.info(f"Adding DALL-E image for slide {slide_num}: {image_path}")
@@ -193,8 +193,8 @@ class DocumentService:
                 try:
                     slide.shapes.add_picture(
                         image_path,
-                        PptxInches(7), PptxInches(2),    # Right side position
-                        PptxInches(5.5), PptxInches(4.5)  # 50% width
+                        PptxInches(6.2), PptxInches(2),    # Right side position
+                        PptxInches(6.8), PptxInches(4.5)   # O'ng tomonni butunlay qoplash
                     )
                     logger.info(f"Successfully added DALL-E image to slide {slide_num}")
                 except Exception as e:
