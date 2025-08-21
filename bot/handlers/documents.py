@@ -338,10 +338,56 @@ async def my_account_handler(message: Message, db: Database, user_lang: str, use
         reply_markup=get_main_keyboard(user_lang)
     )
 
-@router.message(F.text == "Yordam")
+@router.message(F.text.in_(["📞 Yordam", "📞 Помощь", "📞 Help"]))
 async def help_handler(message: Message, user_lang: str):
     """Handles the 'Help' button click."""
+    help_text = """
+🎓 **EduBot.ai - Yordam**
+
+**📊 Hujjat turlari va narxlari:**
+• Taqdimot (10-20 slayd) - 3,000 so'm
+• Mustaqil ish (10-30 varoq) - 5,000 so'm  
+• Referat (10-30 varoq) - 4,000 so'm
+
+**🆓 Bepul xizmat:**
+• Har bir foydalanuvchi bitta bepul taqdimot olishi mumkin
+
+**💳 To'lov usullari:**
+• Karta: 9860 6006 1234 5678 (Humo)
+• Skrinshot yuborib, admin tasdiqlashini kuting
+
+**🎟 Promokod:**
+• Sozlamalar > Promokod kiritish
+• Bepul hujjat yaratish imkoniyati
+
+**📞 Yordam uchun:**
+• @edubot_support - Texnik yordam
+• Ish vaqti: 9:00-18:00
+
+**🔧 Bot imkoniyatlari:**
+• AI yordamida professional hujjatlar
+• Zamonaviy dizayn va formatting
+• Tez va sifatli natija
+• Ko'p tillar qo'llab-quvvatlash
+
+**❓ Tez-tez so'raladigan savollar:**
+• Taqdimot necha daqiqada tayyor? - 2-5 daqiqa
+• Hujjatlar qanday formatda? - PowerPoint/Word
+• Mazmun o'zbekchami? - Ha, kerakli tilda
+• Qayta ishlash mumkinmi? - Ha, bepul
+
+**🔄 Foydalanish tartibi:**
+1. Hujjat turini tanlang
+2. Mavzuni kiriting  
+3. Parametrlarni sozlang
+4. To'lovni amalga oshiring
+5. Tayyor hujjatni oling
+
+Agar savol bo'lsa, @edubot_support ga murojaat qiling! 😊
+"""
+    
     await message.answer(
-        get_text(user_lang, "help_message"),
-        reply_markup=get_main_keyboard(user_lang)
+        help_text,
+        reply_markup=get_main_keyboard(user_lang),
+        parse_mode="Markdown"
     )

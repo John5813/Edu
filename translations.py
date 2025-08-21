@@ -12,7 +12,7 @@ TRANSLATIONS = {
             "referat": "📄 Referat",
             "my_account": "💰 Mening hisobim",
             "payment": "💳 To'lov qilish",
-            "help": "🆘 Yordam",
+            "help": "📞 Yordam",
             "settings": "⚙️ Sozlamalar"
         },
         "enter_topic": "📝 Mavzuni kiriting:",
@@ -31,7 +31,8 @@ TRANSLATIONS = {
         "promocode_applied": "🎁 Promokod qo'llandi! Xizmat bepul.",
         "help_text": "🆘 Yordam\n\n📊 Taqdimot - AI yordamida taqdimot yaratish (3000 som)\n🎓 Mustaqil ish - DOCX formatda mustaqil ish (5000 som)\n📄 Referat - DOCX formatda referat (4000 som)\n💰 Hisobim - balans va bepul xizmatlar\n💳 To'lov - mablag' to'ldirish\n⚙️ Sozlamalar - tilni o'zgartirish va promokod",
         "settings_menu": "⚙️ Sozlamalar\n\nTilni o'zgartirish:",
-        "language_changed": "✅ Til o'zgartirildi!"
+        "language_changed": "✅ Til o'zgartirildi!",
+        "help_message": "📞 Yordam va ma'lumotlar"
     },
     "ru": {
         "welcome": "🎓 Добро пожаловать в EduBot.ai!\n\nВыберите язык для создания академических документов:",
@@ -46,7 +47,7 @@ TRANSLATIONS = {
             "referat": "📄 Реферат",
             "my_account": "💰 Мой счет",
             "payment": "💳 Оплата",
-            "help": "🆘 Помощь",
+            "help": "📞 Yordam",
             "settings": "⚙️ Настройки"
         },
         "enter_topic": "📝 Введите тему:",
@@ -65,7 +66,8 @@ TRANSLATIONS = {
         "promocode_applied": "🎁 Промокод применен! Услуга бесплатна.",
         "help_text": "🆘 Помощь\n\n📊 Презентация - создание презентации с помощью ИИ (3000 сум)\n🎓 Самостоятельная работа - создание работы в формате DOCX (5000 сум)\n📄 Реферат - создание реферата в формате DOCX (4000 сум)\n💰 Мой счет - баланс и бесплатные услуги\n💳 Оплата - пополнение баланса\n⚙️ Настройки - изменение языка и промокод",
         "settings_menu": "⚙️ Настройки\n\nИзменить язык:",
-        "language_changed": "✅ Язык изменен!"
+        "language_changed": "✅ Язык изменен!",
+        "help_message": "📞 Yordam va ma'lumotlar"
     },
     "en": {
         "welcome": "🎓 Welcome to EduBot.ai!\n\nSelect language for creating academic documents:",
@@ -80,7 +82,7 @@ TRANSLATIONS = {
             "referat": "📄 Research Paper",
             "my_account": "💰 My Account",
             "payment": "💳 Payment",
-            "help": "🆘 Help",
+            "help": "📞 Yordam",
             "settings": "⚙️ Settings"
         },
         "enter_topic": "📝 Enter topic:",
@@ -99,7 +101,8 @@ TRANSLATIONS = {
         "promocode_applied": "🎁 Promocode applied! Service is free.",
         "help_text": "🆘 Help\n\n📊 Presentation - create AI-powered presentations (3000 som)\n🎓 Independent Work - create work in DOCX format (5000 som)\n📄 Research Paper - create paper in DOCX format (4000 som)\n💰 My Account - balance and free services\n💳 Payment - top up balance\n⚙️ Settings - change language and promocode",
         "settings_menu": "⚙️ Settings\n\nChange language:",
-        "language_changed": "✅ Language changed!"
+        "language_changed": "✅ Language changed!",
+        "help_message": "📞 Yordam va ma'lumotlar"
     }
 }
 
@@ -107,17 +110,17 @@ def get_text(lang: str, key: str, **kwargs) -> str:
     """Get translated text by language and key"""
     keys = key.split('.')
     text = TRANSLATIONS.get(lang, TRANSLATIONS['en'])
-    
+
     for k in keys:
         if isinstance(text, dict):
             text = text.get(k, key)
         else:
             return key
-    
+
     if kwargs:
         try:
             return text.format(**kwargs)
         except:
             return text
-    
+
     return text
