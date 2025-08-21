@@ -215,21 +215,9 @@ async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: 
         ai_service = AIService()
         content = await ai_service.generate_presentation_content(topic, slide_count, user_lang)
         
-        # Generate images for specific slides
-        image_slides = [1, 3, 6, 9, 12, 15, 18]  # 1st, 3rd, 6th, 9th etc.
-        images = {}
-        for slide_num in image_slides:
-            if slide_num <= slide_count:
-                try:
-                    slide_title = content['slides'][slide_num - 1]['title']
-                    image_url = await ai_service.generate_slide_image(slide_title, user_lang)
-                    images[slide_num] = image_url
-                except Exception as e:
-                    logger.error(f"Failed to generate image for slide {slide_num}: {e}")
-        
-        # Create presentation file
+        # Create presentation file with smart images from Pexels
         doc_service = DocumentService()
-        file_path = await doc_service.create_presentation(topic, content, images, user.first_name or "")
+        file_path = await doc_service.create_presentation_with_smart_images(topic, content, user.first_name or "")
         
         # Update order
         await db.update_document_order(order_id, "completed", file_path)

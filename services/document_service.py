@@ -59,16 +59,17 @@ class DocumentService:
                     title = slide.shapes.title
                     subtitle = slide.placeholders[1]
 
-                    title.text = "Taqdimot"
-                    title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
-                    # Reduce title font size
-                    title.text_frame.paragraphs[0].font.size = PptxPt(36)
+                    if title:
+                        title.text = "Taqdimot"
+                        title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
+                        # Reduce title font size
+                        title.text_frame.paragraphs[0].font.size = PptxPt(36)
 
-
-                    subtitle.text = f"{topic}\n\n\n{author_name or '__________________'}"
-                    subtitle.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
-                    # Reduce subtitle font size
-                    subtitle.text_frame.paragraphs[0].font.size = PptxPt(20)
+                    if subtitle:
+                        subtitle.text = f"{topic}\n\n\n{author_name or '__________________'}"
+                        subtitle.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
+                        # Reduce subtitle font size
+                        subtitle.text_frame.paragraphs[0].font.size = PptxPt(20)
 
 
                 elif slide_num in images:
@@ -122,18 +123,20 @@ class DocumentService:
                     title = slide.shapes.title
                     content_placeholder = slide.placeholders[1]
 
-                    title.text = slide_data['title']
-                    # Make slide titles slightly smaller than the default
-                    title.text_frame.paragraphs[0].font.size = PptxPt(20)
-                    title.text_frame.paragraphs[0].font.bold = True
-                    title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
+                    if title:
+                        title.text = slide_data['title']
+                        # Make slide titles slightly smaller than the default
+                        title.text_frame.paragraphs[0].font.size = PptxPt(20)
+                        title.text_frame.paragraphs[0].font.bold = True
+                        title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
 
-                    content_placeholder.text = slide_data['content']
+                    if content_placeholder:
+                        content_placeholder.text = slide_data['content']
 
-                    # Format content
-                    content_frame = content_placeholder.text_frame
-                    content_frame.paragraphs[0].font.size = PptxPt(16)
-                    content_frame.paragraphs[0].alignment = PP_ALIGN.LEFT
+                        # Format content
+                        content_frame = content_placeholder.text_frame
+                        content_frame.paragraphs[0].font.size = PptxPt(16)
+                        content_frame.paragraphs[0].alignment = PP_ALIGN.LEFT
 
             # Save presentation
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -361,3 +364,101 @@ class DocumentService:
         except Exception as e:
             logger.error(f"Error downloading image: {e}")
             return None
+
+    async def _get_smart_images_for_presentation(self, topic: str, content: Dict) -> Dict[int, str]:
+        """Get smart images for presentation slides using Pexels API"""
+        if not self.pexels:
+            logger.warning("Pexels API not configured, skipping images")
+            return {}
+        
+        try:
+            slides_data = content.get('slides', [])
+            slide_topics = []
+            
+            # Extract topics from slides for image search
+            for idx, slide in enumerate(slides_data):
+                if idx == 0:  # Skip title slide
+                    continue
+                    
+                # Use slide title and extract key words for better search
+                slide_title = slide.get('title', '')
+                slide_content = slide.get('content', '')
+                
+                # Create search query from title and key content words
+                search_query = self._extract_search_keywords(slide_title, slide_content, topic)
+                slide_topics.append(search_query)
+            
+            # Get images for each slide topic
+            images_dict = {}
+            for idx, search_query in enumerate(slide_topics):
+                slide_num = idx + 2  # Start from slide 2 (skip title slide)
+                
+                if search_query:
+                    # Search for images
+                    photos = await self.pexels.search_images(search_query, per_page=1)
+                    
+                    if photos:
+                        photo = photos[0]
+                        image_url = self.pexels.get_image_url(photo, "medium")
+                        
+                        # Download image
+                        filename = f"slide_{slide_num}.jpg"
+                        image_path = await self.pexels.download_image(image_url, filename)
+                        
+                        if image_path:
+                            images_dict[slide_num] = image_path
+                            logger.info(f"Added smart image for slide {slide_num}: {search_query}")
+                    
+                    # Small delay to respect rate limits
+                    await asyncio.sleep(0.2)
+            
+            return images_dict
+            
+        except Exception as e:
+            logger.error(f"Error getting smart images: {e}")
+            return {}
+
+    def _extract_search_keywords(self, title: str, content: str, main_topic: str) -> str:
+        """Extract search keywords from slide content for better image matching"""
+        # Combine title and main topic for search
+        search_terms = []
+        
+        if title:
+            # Remove common words and extract meaningful terms
+            title_words = title.lower().split()
+            meaningful_words = [word for word in title_words 
+                              if len(word) > 3 and word not in ['uchun', 'haqida', 'asosida', 'davom']]
+            search_terms.extend(meaningful_words[:2])  # Take first 2 meaningful words
+        
+        # Add main topic
+        if main_topic:
+            topic_words = main_topic.lower().split()[:2]  # First 2 words of main topic
+            search_terms.extend(topic_words)
+        
+        # Create search query (prefer English terms for better Pexels results)
+        search_query = ' '.join(search_terms[:3])  # Max 3 terms for focused search
+        
+        # Translate common Uzbek/Russian terms to English for better results
+        translations = {
+            'ta\'lim': 'education',
+            'texnologiya': 'technology', 
+            'kompyuter': 'computer',
+            'internet': 'internet',
+            'dasturlash': 'programming',
+            'ishbilarmonlik': 'business',
+            'sport': 'sports',
+            'tibbiyot': 'medicine',
+            'iqtisod': 'economics',
+            'san\'at': 'art',
+            'tarix': 'history',
+            'geografiya': 'geography',
+            'kimyo': 'chemistry',
+            'fizika': 'physics',
+            'matematika': 'mathematics'
+        }
+        
+        for uz_term, eng_term in translations.items():
+            if uz_term in search_query.lower():
+                search_query = search_query.lower().replace(uz_term, eng_term)
+        
+        return search_query or main_topic  # Fallback to main topic
