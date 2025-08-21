@@ -73,17 +73,18 @@ YANGI TIZIM - LAYOUT TALABLARI:
                     elif layout == "text_with_image":
                         prompt += f"Slayd {slide_num}: MATN+DALL-E RASM SLAYD (3,6,9,12...)\n- KAMIDA 100-120 SO'ZLIK uzluksiz paragraf\n- To'liq akademik tushuntirish, misollar bilan\n- Chuqur tahlil va batafsil ma'lumot\n- Professional uslub\n"
                     elif layout == "three_column":
-                        prompt += f"Slayd {slide_num}: 3 USTUNLI SLAYD (4,7,10,13...)\n- Mantiqli kalit so'zlar sarlavha: 'Sabablari/Ta'siri/Yechimlar' yoki shunga o'xshash\n- HAR USTUNDA AYNAN 40 SO'ZLIK uzluksiz matn\n- HECH QANDAY nuqta, nomer, belgisiz - faqat ravon matn\n- HAR USTUN UCHUN alohida kalit so'z + 40 so'zlik batafsil tushuntirish\n- Jami 120+ so'z (3 x 40)\n- Professional akademik uslub\n"
+                        prompt += f"Slayd {slide_num}: 3 USTUNLI SLAYD (4,7,10,13...)\n- 3 ta alohida ustun yarating\n- Har ustun: KALIT SO'Z + 40 SO'ZLIK MATN\n- 1-ustun: Sabablari + 40 so'zlik tushuntirish\n- 2-ustun: Ta'siri + 40 so'zlik tushuntirish\n- 3-ustun: Yechimlar + 40 so'zlik tushuntirish\n- CONTENT da 3 ta ustun mazmunini ||| bilan ajrating\n- Jami 120+ so'z (3 x 40)\n"
 
                 prompt += f"""
 QATTIQ QOIDALAR:
 1. BULLET POINT slaydlar: AYNAN 5 nuqta, HAR NUQTADA 35-40 SO'Z (jami 175-200 so'z)
 2. MATN+RASM slaydlar: KAMIDA 100-120 SO'ZLIK uzluksiz matn, to'liq akademik tushuntirish
 3. 3 USTUNLI slaydlar: 
-   - Mantiqli kalit so'z sarlavhalar: "Sabablari", "Ta'siri", "Yechimlar" yoki shu kabi
-   - HAR USTUNDA AYNAN 40 SO'ZLIK uzluksiz matn
-   - HECH QANDAY nuqta, nomer, yoki belgisiz - faqat ravon matn paragraf
-   - HAR USTUN: "Kalit so'z" + "40 so'zlik uzluksiz tushuntirish"
+   - 3 ta alohida ustun: har birida kalit so'z + 40 so'zlik matn  
+   - 1-ustun: "Sabablari" + 40 so'zlik tushuntirish
+   - 2-ustun: "Ta'siri/Oqibatlari" + 40 so'zlik tushuntirish  
+   - 3-ustun: "Yechimlar/Choralar" + 40 so'zlik tushuntirish
+   - CONTENT maydoni: 3 ustun mazmunini ||| bilan ajrating
    - JAMI 120+ SO'Z (3 x 40)
 
 MUHIM: Oddiy matn yozing, ortiqcha belgilar va shakllar ishlatmang. Mantiqiy ketma-ketlikni saqlang.
@@ -93,7 +94,7 @@ JSON formatda javob bering:
     "slides": [
         {{
             "title": "Slayd sarlavhasi",
-            "content": "Slayd mazmuni...",
+            "content": "3 USTUNLI slayd uchun: Ustun1 kalit so'z va 40 so'zlik tushuntirish ||| Ustun2 kalit so'z va 40 so'zlik tushuntirish ||| Ustun3 kalit so'z va 40 so'zlik tushuntirish",
             "layout_type": "bullet_points/text_with_image/three_column"
         }}
     ]

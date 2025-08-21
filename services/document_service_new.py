@@ -249,6 +249,7 @@ class DocumentService:
             col_para.text = column.get('title', f'Ustun {i+1}')
             col_para.font.size = PptxPt(16)  # Medium font for headers
             col_para.font.bold = True
+            col_para.font.name = 'Times New Roman'  # Times New Roman shrift
             col_para.alignment = PP_ALIGN.CENTER
             
             # Column continuous text (40 words without bullets or numbers)
@@ -258,6 +259,7 @@ class DocumentService:
             p = col_frame.add_paragraph()
             p.text = str(column_text).strip()
             p.font.size = PptxPt(12)  # Small font for details
+            p.font.name = 'Times New Roman'  # Times New Roman shrift
             p.alignment = PP_ALIGN.JUSTIFY  # Justify alignment for clean look
             p.level = 0
 
@@ -303,11 +305,39 @@ class DocumentService:
         if not isinstance(content_text, str):
             content_text = str(content_text) if content_text else ''
             
+        # Check if content has ||| separator (new AI format)
+        if '|||' in content_text:
+            columns_data = [col.strip() for col in content_text.split('|||')]
+            result = []
+            default_titles = ['Sabablari', 'Ta\'siri', 'Yechimlar']
+            
+            for i, col_content in enumerate(columns_data[:3]):
+                # Extract title and text from each column
+                lines = col_content.strip().split('\n', 1)
+                if len(lines) >= 2:
+                    title = lines[0].strip()
+                    text = lines[1].strip()
+                else:
+                    title = default_titles[i] if i < len(default_titles) else f'Ustun {i+1}'
+                    text = col_content.strip()
+                
+                result.append({'title': title, 'text': text})
+            
+            # Fill remaining columns if needed
+            while len(result) < 3:
+                i = len(result)
+                result.append({
+                    'title': default_titles[i] if i < len(default_titles) else f'Ustun {i+1}',
+                    'text': f'Bu ustun uchun qo\'shimcha ma\'lumot kerak. Kamida 40 so\'zlik batafsil tushuntirish bu yerda bo\'lishi kerak.'
+                })
+            
+            return result
+            
         if not content_text or content_text.strip() == '':
             return [
-                {'title': 'Asosiy Ma\'lumot', 'text': 'Bu ustun haqida batafsil ma\'lumot mavjud emas. Keyinchalik qo\'shimcha ma\'lumotlar bilan to\'ldiriladi va yangi tushunchalar kiritiladi.'},
-                {'title': 'Tafsilotlar', 'text': 'Ushbu bo\'lim bo\'yicha qo\'shimcha tafsilotlar hali tayyor emas. Vaqt o\'tishi bilan muhim nuqtalar va asosiy ma\'lumotlar qo\'shiladi.'},
-                {'title': 'Xulosa', 'text': 'Yakuniy xulosalar va umumlashtiruvchi fikrlar hali shakllantirilmagan. Kelajakda barcha ma\'lumotlar asosida natijalar chiqariladi va tavsiyalar beriladi.'}
+                {'title': 'Sabablari', 'text': 'Bu ustun haqida batafsil ma\'lumot mavjud emas. Keyinchalik qo\'shimcha ma\'lumotlar bilan to\'ldiriladi va yangi tushunchalar kiritiladi asosiy sabablari haqida ma\'lumotlar.'},
+                {'title': 'Ta\'siri', 'text': 'Ushbu bo\'lim bo\'yicha qo\'shimcha tafsilotlar hali tayyor emas. Vaqt o\'tishi bilan muhim nuqtalar va asosiy ma\'lumotlar qo\'shiladi ta\'sir ko\'rsatuvchi omillar haqida.'},
+                {'title': 'Yechimlar', 'text': 'Yakuniy xulosalar va umumlashtiruvchi fikrlar hali shakllantirilmagan. Kelajakda barcha ma\'lumotlar asosida natijalar chiqariladi va tavsiyalar beriladi yechimlar haqida.'}
             ]
         
         # Generate logical headers based on slide title
