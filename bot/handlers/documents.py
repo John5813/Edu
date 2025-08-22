@@ -16,22 +16,15 @@ from config import PRESENTATION_PRICES, DOCUMENT_PRICES
 router = Router()
 logger = logging.getLogger(__name__)
 
-# WEB APP DATA HANDLER - MUST BE FIRST!
-@router.message()
+# WEB APP DATA HANDLER
+@router.message(F.web_app_data)
 async def handle_web_app_data(message: Message, state: FSMContext, db: Database, user_lang: str, user):
     """Handle data from web app"""
     try:
         import json
         
-        # Log all messages for debugging
-        logger.info(f"📨 Message received: text='{message.text}', web_app_data={message.web_app_data}")
-        
-        # Only process web app data
-        if not message.web_app_data:
-            return  # Skip regular messages
+        logger.info(f"🎯 Web app data received: {message.web_app_data}")
             
-        logger.info(f"🎯 Processing web app data: {message.web_app_data}")
-        
         if not message.web_app_data.data:
             await message.answer("❌ Web app ma'lumoti topilmadi")
             return
