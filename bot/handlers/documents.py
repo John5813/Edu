@@ -233,8 +233,9 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
         else:
             section_count = 15
 
-        # Generate content with AI
-        ai_service = AIService()
+        # Generate content with AI using old professional service
+        from services.ai_service import AIService as OldAIService
+        ai_service = OldAIService()
         content = await ai_service.generate_document_content(
             topic, section_count, "independent_work", user_lang
         )
@@ -299,8 +300,9 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
         else:
             section_count = 15
 
-        # Generate content with AI
-        ai_service = AIService()
+        # Generate content with AI using old professional service
+        from services.ai_service import AIService as OldAIService
+        ai_service = OldAIService()
         content = await ai_service.generate_document_content(
             topic, section_count, "referat", user_lang
         )
