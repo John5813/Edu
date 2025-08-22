@@ -314,9 +314,26 @@
 
     <script>
         // Initialize Telegram Web App
-        const tg = window.Telegram.WebApp;
+        console.log('🔥 Starting Mini App initialization');
+        
+        const tg = window.Telegram ? window.Telegram.WebApp : null;
+        
+        if (!tg) {
+            console.error('❌ Telegram WebApp not available');
+            document.body.innerHTML = '<div style="padding: 40px; text-align: center; color: red; font-size: 16px; background: white;">❌ Telegram WebApp yuklanmadi<br><br>Bu sahifani Telegram bot orqali ochish kerak!</div>';
+            return;
+        }
+        
+        console.log('✅ Telegram WebApp found, version:', tg.version);
         tg.ready();
         tg.expand();
+        
+        // Ensure visibility
+        document.body.style.display = 'block';
+        document.body.style.visibility = 'visible';
+        document.body.style.opacity = '1';
+        
+        console.log('✅ Mini App initialized successfully');
 
         // Set theme colors
         document.documentElement.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color || '#ffffff');
