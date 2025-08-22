@@ -239,8 +239,9 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
             topic, section_count, "independent_work", user_lang
         )
 
-        # Create document file
-        doc_service = DocumentService()
+        # Create document file using new service
+        from services.document_service_new import DocumentService as NewDocumentService
+        doc_service = NewDocumentService()
         file_path = await doc_service.create_independent_work(topic, content)
 
         # Update order
@@ -304,8 +305,9 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
             topic, section_count, "referat", user_lang
         )
 
-        # Create document file
-        doc_service = DocumentService()
+        # Create document file using new service
+        from services.document_service_new import DocumentService as NewDocumentService
+        doc_service = NewDocumentService()
         file_path = await doc_service.create_referat(topic, content)
 
         # Update order
@@ -326,7 +328,7 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
 
     except Exception as e:
         logger.error(f"Error generating referat: {e}")
-        await callback.message.edit_text(
+        await callback.message.answer(
             "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
             reply_markup=get_main_keyboard(user_lang)
         )

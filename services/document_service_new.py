@@ -444,7 +444,206 @@ class DocumentService:
             subtitle.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
             subtitle.text_frame.paragraphs[0].font.size = PptxPt(20)
 
-    # Existing document methods for Word/DOCX generation - placeholder
-    async def create_document(self, topic: str, content: Dict, author_name: str, document_type: str) -> str:
-        """Create Word document - placeholder for existing functionality"""
-        return f"generated_documents/document_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+    async def create_referat(self, topic: str, content: Dict) -> str:
+        """Create referat document"""
+        try:
+            from docx import Document
+            from docx.shared import Pt, Inches
+            from docx.enum.text import WD_ALIGN_PARAGRAPH
+            
+            doc = Document()
+
+            # Set document style
+            style = doc.styles['Normal']
+            font = style.font
+            font.name = 'Times New Roman'
+            font.size = Pt(12)
+
+            # Title page
+            title_para = doc.add_paragraph()
+            title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            title_run = title_para.add_run("REFERAT")
+            title_run.font.size = Pt(16)
+            title_run.font.bold = True
+
+            doc.add_paragraph()  # Empty line
+
+            topic_para = doc.add_paragraph()
+            topic_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            topic_run = topic_para.add_run(topic)
+            topic_run.font.size = Pt(14)
+            topic_run.font.bold = True
+
+            # Add page break
+            doc.add_page_break()
+
+            # Table of contents
+            toc_para = doc.add_paragraph()
+            toc_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            toc_run = toc_para.add_run("REJA")
+            toc_run.font.size = Pt(14)
+            toc_run.font.bold = True
+
+            doc.add_paragraph()  # Empty line
+
+            # Add sections to TOC
+            sections = content.get('sections', [])
+            for idx, section in enumerate(sections, 1):
+                toc_item = doc.add_paragraph()
+                toc_item.paragraph_format.first_line_indent = Inches(0.5)
+                toc_item.add_run(f"{idx}. {section['title']}")
+
+            # Add page break
+            doc.add_page_break()
+
+            # Add sections content
+            for idx, section in enumerate(sections, 1):
+                # Section title
+                section_title = doc.add_paragraph()
+                section_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                section_title_run = section_title.add_run(f"{idx}. {section['title']}")
+                section_title_run.font.bold = True
+                section_title_run.font.size = Pt(14)
+
+                doc.add_paragraph()  # Empty line
+
+                # Section content
+                content_para = doc.add_paragraph(section['content'])
+                content_para.paragraph_format.first_line_indent = Inches(0.5)
+                content_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+
+                doc.add_paragraph()  # Empty line
+
+            # References
+            if content.get('references'):
+                doc.add_page_break()
+
+                ref_title = doc.add_paragraph()
+                ref_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                ref_title_run = ref_title.add_run("FOYDALANILGAN ADABIYOTLAR")
+                ref_title_run.font.bold = True
+                ref_title_run.font.size = Pt(14)
+
+                doc.add_paragraph()  # Empty line
+
+                for idx, ref in enumerate(content['references'], 1):
+                    ref_para = doc.add_paragraph()
+                    ref_para.paragraph_format.first_line_indent = Inches(-0.5)
+                    ref_para.paragraph_format.left_indent = Inches(0.5)
+                    ref_para.add_run(f"{idx}. {ref}")
+
+            # Save document
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"referat_{timestamp}.docx"
+            file_path = os.path.join(self.documents_dir, filename)
+            
+            doc.save(file_path)
+            logger.info(f"Referat saved: {file_path}")
+            
+            return file_path
+            
+        except Exception as e:
+            logger.error(f"Error creating referat: {e}")
+            raise
+
+    async def create_independent_work(self, topic: str, content: Dict) -> str:
+        """Create independent work document"""
+        try:
+            from docx import Document
+            from docx.shared import Pt, Inches
+            from docx.enum.text import WD_ALIGN_PARAGRAPH
+            
+            doc = Document()
+
+            # Set document style
+            style = doc.styles['Normal']
+            font = style.font
+            font.name = 'Times New Roman'
+            font.size = Pt(12)
+
+            # Title page
+            title_para = doc.add_paragraph()
+            title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            title_run = title_para.add_run("MUSTAQIL ISH")
+            title_run.font.size = Pt(16)
+            title_run.font.bold = True
+
+            doc.add_paragraph()  # Empty line
+
+            topic_para = doc.add_paragraph()
+            topic_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            topic_run = topic_para.add_run(topic)
+            topic_run.font.size = Pt(14)
+            topic_run.font.bold = True
+
+            # Add page break
+            doc.add_page_break()
+
+            # Table of contents
+            toc_para = doc.add_paragraph()
+            toc_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            toc_run = toc_para.add_run("REJA")
+            toc_run.font.size = Pt(14)
+            toc_run.font.bold = True
+
+            doc.add_paragraph()  # Empty line
+
+            # Add sections to TOC
+            sections = content.get('sections', [])
+            for idx, section in enumerate(sections, 1):
+                toc_item = doc.add_paragraph()
+                toc_item.paragraph_format.first_line_indent = Inches(0.5)
+                toc_item.add_run(f"{idx}. {section['title']}")
+
+            # Add page break
+            doc.add_page_break()
+
+            # Add sections content
+            for idx, section in enumerate(sections, 1):
+                # Section title
+                section_title = doc.add_paragraph()
+                section_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                section_title_run = section_title.add_run(f"{idx}. {section['title']}")
+                section_title_run.font.bold = True
+                section_title_run.font.size = Pt(14)
+
+                doc.add_paragraph()  # Empty line
+
+                # Section content
+                content_para = doc.add_paragraph(section['content'])
+                content_para.paragraph_format.first_line_indent = Inches(0.5)
+                content_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+
+                doc.add_paragraph()  # Empty line
+
+            # References
+            if content.get('references'):
+                doc.add_page_break()
+
+                ref_title = doc.add_paragraph()
+                ref_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                ref_title_run = ref_title.add_run("FOYDALANILGAN ADABIYOTLAR")
+                ref_title_run.font.bold = True
+                ref_title_run.font.size = Pt(14)
+
+                doc.add_paragraph()  # Empty line
+
+                for idx, ref in enumerate(content['references'], 1):
+                    ref_para = doc.add_paragraph()
+                    ref_para.paragraph_format.first_line_indent = Inches(-0.5)
+                    ref_para.paragraph_format.left_indent = Inches(0.5)
+                    ref_para.add_run(f"{idx}. {ref}")
+
+            # Save document
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"independent_work_{timestamp}.docx"
+            file_path = os.path.join(self.documents_dir, filename)
+            
+            doc.save(file_path)
+            logger.info(f"Independent work saved: {file_path}")
+            
+            return file_path
+            
+        except Exception as e:
+            logger.error(f"Error creating independent work: {e}")
+            raise
