@@ -13,26 +13,23 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
             background: var(--tg-theme-bg-color, #ffffff);
             color: var(--tg-theme-text-color, #000000);
             padding: 20px;
+            line-height: 1.5;
+        }
+
+        .container {
             max-width: 600px;
             margin: 0 auto;
         }
 
-        .container {
-            background: var(--tg-theme-secondary-bg-color, #f5f5f5);
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-
         h1 {
+            text-align: center;
+            margin-bottom: 30px;
             color: var(--tg-theme-text-color, #000000);
             font-size: 24px;
-            margin-bottom: 20px;
-            text-align: center;
         }
 
         .form-group {
@@ -42,24 +39,51 @@
         label {
             display: block;
             margin-bottom: 8px;
-            font-weight: 500;
+            font-weight: 600;
             color: var(--tg-theme-text-color, #000000);
         }
 
-        input[type="text"],
-        select {
+        input, select {
             width: 100%;
             padding: 12px;
-            border: 1px solid var(--tg-theme-hint-color, #999999);
+            border: 2px solid var(--tg-theme-hint-color, #ccc);
             border-radius: 8px;
             font-size: 16px;
             background: var(--tg-theme-bg-color, #ffffff);
             color: var(--tg-theme-text-color, #000000);
         }
 
-        input:focus,
-        select:focus {
+        input:focus, select:focus {
             outline: none;
+            border-color: var(--tg-theme-button-color, #3390ec);
+        }
+
+        .slide-count {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .slide-option {
+            flex: 1;
+            padding: 10px;
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border: 2px solid transparent;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 80px;
+        }
+
+        .slide-option:hover {
+            background: var(--tg-theme-button-color, #3390ec);
+            color: white;
+        }
+
+        .slide-option.selected {
+            background: var(--tg-theme-button-color, #3390ec);
+            color: white;
             border-color: var(--tg-theme-button-color, #3390ec);
         }
 
@@ -114,38 +138,8 @@
             font-weight: 500;
         }
 
-        /* HTML tugma CSS olib tashlandi - faqat Telegram MainButton ishlatiladi */
-
-        .slide-count {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .slide-option {
-            flex: 1;
-            min-width: 80px;
-            padding: 10px;
-            text-align: center;
-            background: var(--tg-theme-bg-color, #ffffff);
-            border: 2px solid var(--tg-theme-hint-color, #999999);
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .slide-option:hover {
-            border-color: var(--tg-theme-button-color, #3390ec);
-        }
-
-        .slide-option.selected {
-            background: var(--tg-theme-button-color, #3390ec);
-            color: var(--tg-theme-button-text-color, #ffffff);
-            border-color: var(--tg-theme-button-color, #3390ec);
-        }
-
         .error-message {
-            color: #dc3545;
+            color: #ff3333;
             font-size: 14px;
             margin-top: 5px;
             display: none;
@@ -154,25 +148,23 @@
         .loading {
             display: none;
             text-align: center;
-            padding: 20px;
-        }
-
-        .loading.active {
-            display: block;
+            padding: 40px;
+            color: var(--tg-theme-hint-color, #999);
         }
 
         .spinner {
-            border: 3px solid rgba(0,0,0,0.1);
-            border-left-color: var(--tg-theme-button-color, #3390ec);
+            border: 3px solid var(--tg-theme-hint-color, #f3f3f3);
+            border-top: 3px solid var(--tg-theme-button-color, #3390ec);
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            width: 30px;
+            height: 30px;
             animation: spin 1s linear infinite;
             margin: 0 auto;
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -215,92 +207,28 @@
         <label>Orqa fon shabloni:</label>
         <div class="template-grid">
             <div class="template-item selected" data-template="classic">
-                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='225'%3E%3Crect width='400' height='225' fill='%23f8f9fa'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23495057' font-family='Arial' font-size='20'%3EKlassik%3C/text%3E%3C/svg%3E" alt="Klassik">
-                <div class="template-name">Klassik</div>
+                <img src="templates/gradient-blue.jpg" alt="Classic">
+                <div class="template-name">Classic</div>
             </div>
-            <div class="template-item" data-template="vintage">
-                <img src="/webapp/templates/vintage.jpg" alt="Vintage">
-                <div class="template-name">Vintage</div>
+            <div class="template-item" data-template="modern">
+                <img src="templates/business-modern.jpg" alt="Modern">
+                <div class="template-name">Modern</div>
             </div>
-            <div class="template-item" data-template="floral">
-                <img src="/webapp/templates/floral.jpg" alt="Gul naqshli">
-                <div class="template-name">Gul naqshli</div>
+            <div class="template-item" data-template="professional">
+                <img src="templates/corporate-gold.jpg" alt="Professional">
+                <div class="template-name">Professional</div>
             </div>
-            <div class="template-item" data-template="gradient-green">
-                <img src="/webapp/templates/gradient-green.jpg" alt="Yashil gradient">
-                <div class="template-name">Yashil gradient</div>
+            <div class="template-item" data-template="tech">
+                <img src="templates/tech-blue.jpg" alt="Tech">
+                <div class="template-name">Tech</div>
             </div>
-            <div class="template-item" data-template="gradient-blue">
-                <img src="/webapp/templates/gradient-blue.jpg" alt="Ko'k gradient">
-                <div class="template-name">Ko'k gradient</div>
+            <div class="template-item" data-template="education">
+                <img src="templates/education-sky.jpg" alt="Education">
+                <div class="template-name">Education</div>
             </div>
-            <div class="template-item" data-template="gradient-purple">
-                <img src="/webapp/templates/gradient-purple.jpg" alt="Binafsha gradient">
-                <div class="template-name">Binafsha gradient</div>
-            </div>
-            <div class="template-item" data-template="poppy">
-                <img src="/webapp/templates/poppy.jpg" alt="Lola gullari">
-                <div class="template-name">Lola gullari</div>
-            </div>
-            <div class="template-item" data-template="tech-blue">
-                <img src="/webapp/templates/tech-blue.jpg" alt="Texnologiya">
-                <div class="template-name">Texnologiya</div>
-            </div>
-            <div class="template-item" data-template="tech-pattern">
-                <img src="/webapp/templates/tech-pattern.jpg" alt="Texno naqsh">
-                <div class="template-name">Texno naqsh</div>
-            </div>
-            <div class="template-item" data-template="circuit-board">
-                <img src="/webapp/templates/circuit-board.jpg" alt="Mikrosxema">
-                <div class="template-name">Mikrosxema</div>
-            </div>
-            <div class="template-item" data-template="education-sky">
-                <img src="/webapp/templates/education-sky.jpg" alt="Ta'lim osmoni">
-                <div class="template-name">Ta'lim osmoni</div>
-            </div>
-            <div class="template-item" data-template="school-supplies">
-                <img src="/webapp/templates/school-supplies.jpg" alt="Maktab buyumlari">
-                <div class="template-name">Maktab buyumlari</div>
-            </div>
-            <div class="template-item" data-template="world-globe">
-                <img src="/webapp/templates/world-globe.jpg" alt="Dunyo globusi">
-                <div class="template-name">Dunyo globusi</div>
-            </div>
-            <div class="template-item" data-template="business-modern">
-                <img src="/webapp/templates/business-modern.jpg" alt="Zamonaviy biznes">
-                <div class="template-name">Zamonaviy biznes</div>
-            </div>
-            <div class="template-item" data-template="geometric-blue">
-                <img src="/webapp/templates/geometric-blue.jpg" alt="Geometrik ko'k">
-                <div class="template-name">Geometrik ko'k</div>
-            </div>
-            <div class="template-item" data-template="corporate-gold">
-                <img src="/webapp/templates/corporate-gold.jpg" alt="Korporativ oltin">
-                <div class="template-name">Korporativ oltin</div>
-            </div>
-            <div class="template-item" data-template="diamond-pattern">
-                <img src="/webapp/templates/diamond-pattern.jpg" alt="Olmossimon naqsh">
-                <div class="template-name">Olmossimon naqsh</div>
-            </div>
-            <div class="template-item" data-template="wave-tech">
-                <img src="/webapp/templates/wave-tech.jpg" alt="To'lqin texno">
-                <div class="template-name">To'lqin texno</div>
-            </div>
-            <div class="template-item" data-template="hexagon-tech">
-                <img src="/webapp/templates/hexagon-tech.jpg" alt="Olti burchak">
-                <div class="template-name">Olti burchak</div>
-            </div>
-            <div class="template-item" data-template="crystal-modern">
-                <img src="/webapp/templates/crystal-modern.jpg" alt="Zamonaviy kristal">
-                <div class="template-name">Zamonaviy kristal</div>
-            </div>
-            <div class="template-item" data-template="smooth-waves">
-                <img src="/webapp/templates/smooth-waves.jpg" alt="Silliq to'lqinlar">
-                <div class="template-name">Silliq to'lqinlar</div>
-            </div>
-            <div class="template-item" data-template="paper-triangles">
-                <img src="/webapp/templates/paper-triangles.jpg" alt="Qog'oz uchburchak">
-                <div class="template-name">Qog'oz uchburchak</div>
+            <div class="template-item" data-template="geometric">
+                <img src="templates/geometric-blue.jpg" alt="Geometric">
+                <div class="template-name">Geometric</div>
             </div>
         </div>
     </div>
@@ -310,178 +238,110 @@
         <p style="margin-top: 15px;">Taqdimot yaratilmoqda...</p>
     </div>
 
-    <!-- Telegram Main Button ishlatiladi, shuning uchun bu tugma olib tashlanadi -->
-
     <script>
         // Initialize Telegram Web App
         console.log('🔥 Starting Mini App initialization');
-        
+
         const tg = window.Telegram ? window.Telegram.WebApp : null;
-        
+
         if (!tg) {
             console.error('❌ Telegram WebApp not available');
-            document.body.innerHTML = '<div style="padding: 40px; text-align: center; color: red; font-size: 16px; background: white;">❌ Telegram WebApp yuklanmadi<br><br>Bu sahifani Telegram bot orqali ochish kerak!</div>';
-            return;
-        }
-        
-        console.log('✅ Telegram WebApp found, version:', tg.version);
-        tg.ready();
-        tg.expand();
-        
-        // Ensure visibility
-        document.body.style.display = 'block';
-        document.body.style.visibility = 'visible';
-        document.body.style.opacity = '1';
-        
-        console.log('✅ Mini App initialized successfully');
+            document.body.innerHTML = '<div style="padding: 40px; text-align: center; color: red; font-size: 16px; background: white;">❌ Telegram WebApp topilmadi. Iltimos, Telegram bot orqali oching.</div>';
+        } else {
+            console.log('✅ Telegram WebApp initialized');
+            tg.ready();
+            tg.expand();
 
-        // Set theme colors
-        document.documentElement.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color || '#ffffff');
-        document.documentElement.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color || '#000000');
-        document.documentElement.style.setProperty('--tg-theme-hint-color', tg.themeParams.hint_color || '#999999');
-        document.documentElement.style.setProperty('--tg-theme-button-color', tg.themeParams.button_color || '#3390ec');
-        document.documentElement.style.setProperty('--tg-theme-button-text-color', tg.themeParams.button_text_color || '#ffffff');
+            // Set theme
+            if (tg.colorScheme === 'dark') {
+                document.body.style.background = '#1a1a1a';
+                document.body.style.color = '#ffffff';
+            }
 
-        let selectedTemplate = 'classic';
-        let selectedSlides = 15;
+            // Setup form interactions
+            let selectedSlides = 15;
+            let selectedTemplate = 'classic';
 
-        // Template selection
-        document.querySelectorAll('.template-item').forEach(item => {
-            item.addEventListener('click', function() {
-                document.querySelectorAll('.template-item').forEach(t => t.classList.remove('selected'));
-                this.classList.add('selected');
-                selectedTemplate = this.dataset.template;
-                updateMainButton();
+            // Slide count selection
+            document.querySelectorAll('.slide-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    document.querySelectorAll('.slide-option').forEach(o => o.classList.remove('selected'));
+                    this.classList.add('selected');
+                    selectedSlides = parseInt(this.dataset.slides);
+                    console.log('Selected slides:', selectedSlides);
+                });
             });
-        });
 
-        // Slide count selection
-        document.querySelectorAll('.slide-option').forEach(option => {
-            option.addEventListener('click', function() {
-                document.querySelectorAll('.slide-option').forEach(o => o.classList.remove('selected'));
-                this.classList.add('selected');
-                selectedSlides = parseInt(this.dataset.slides);
-                updateMainButton();
+            // Template selection
+            document.querySelectorAll('.template-item').forEach(template => {
+                template.addEventListener('click', function() {
+                    document.querySelectorAll('.template-item').forEach(t => t.classList.remove('selected'));
+                    this.classList.add('selected');
+                    selectedTemplate = this.dataset.template;
+                    console.log('Selected template:', selectedTemplate);
+                });
             });
-        });
 
-        function validateForm() {
-            let isValid = true;
-            
-            const topic = document.getElementById('topic').value.trim();
-            const author = document.getElementById('author').value.trim();
-            
-            if (!topic) {
-                document.getElementById('topic-error').style.display = 'block';
-                isValid = false;
-            } else {
-                document.getElementById('topic-error').style.display = 'none';
-            }
-            
-            if (!author) {
-                document.getElementById('author-error').style.display = 'block';
-                isValid = false;
-            } else {
-                document.getElementById('author-error').style.display = 'none';
-            }
-            
-            return isValid;
-        }
+            // Setup main button
+            tg.MainButton.text = "🎯 Taqdimot yaratish";
+            tg.MainButton.show();
 
-        function createPresentation() {
-            console.log('🎯 createPresentation called');
-            
-            if (!validateForm()) {
-                console.log('❌ Form validation failed');
-                return;
-            }
+            // Main button click handler
+            tg.MainButton.onClick(() => {
+                console.log('🎯 Main button clicked');
 
-            const topic = document.getElementById('topic').value.trim();
-            const language = document.getElementById('language').value;
-            const author = document.getElementById('author').value.trim();
+                // Get form data
+                const topic = document.getElementById('topic').value.trim();
+                const language = document.getElementById('language').value;
+                const author = document.getElementById('author').value.trim();
 
-            console.log('📋 Form data:', { topic, language, author, slides: selectedSlides, template: selectedTemplate });
+                // Validate
+                let hasError = false;
 
-            // Show loading
-            document.getElementById('loading').classList.add('active');
+                if (!topic) {
+                    document.getElementById('topic-error').style.display = 'block';
+                    hasError = true;
+                } else {
+                    document.getElementById('topic-error').style.display = 'none';
+                }
 
-            // Send data back to bot
-            const data = {
-                action: 'create_presentation',
-                topic: topic,
-                language: language,
-                author: author,
-                slides: selectedSlides,
-                template: selectedTemplate
-            };
+                if (!author) {
+                    document.getElementById('author-error').style.display = 'block';
+                    hasError = true;
+                } else {
+                    document.getElementById('author-error').style.display = 'none';
+                }
 
-            console.log('📤 Sending data to bot:', data);
-            
-            // Send data to bot and close web app immediately
-            try {
+                if (hasError) {
+                    tg.HapticFeedback.notificationOccurred('error');
+                    return;
+                }
+
+                // Show loading
+                document.querySelector('.container').style.display = 'none';
+                document.querySelector('.template-selector').style.display = 'none';
+                document.getElementById('loading').style.display = 'block';
+
+                // Prepare data
+                const data = {
+                    action: 'create_presentation',
+                    topic: topic,
+                    language: language,
+                    author: author,
+                    slides: selectedSlides,
+                    template: selectedTemplate
+                };
+
+                console.log('📦 Sending data:', data);
+
+                // Send data to bot
                 tg.sendData(JSON.stringify(data));
-                console.log('✅ Data sent successfully');
-                tg.close();
-                console.log('✅ Web app closed');
-            } catch (error) {
-                console.error('❌ Error sending data:', error);
-            }
+
+                tg.HapticFeedback.notificationOccurred('success');
+            });
+
+            console.log('✅ Web App setup complete');
         }
-
-        // Enable main button when form is filled
-        document.getElementById('topic').addEventListener('input', updateMainButton);
-        document.getElementById('author').addEventListener('input', updateMainButton);
-
-        function updateMainButton() {
-            const topic = document.getElementById('topic').value.trim();
-            const author = document.getElementById('author').value.trim();
-            
-            if (topic && author && selectedTemplate && selectedSlides) {
-                tg.MainButton.setText('Taqdimot yaratish');
-                tg.MainButton.show();
-                // Remove previous click handlers first
-                tg.MainButton.offClick(createPresentation);
-                tg.MainButton.onClick(createPresentation);
-            } else {
-                tg.MainButton.hide();
-            }
-        }
-        
-        // Initialize main button on page load
-        updateMainButton();
-
-        // Load template images
-        const templates = {
-            'classic': '',
-            'vintage': '/webapp/templates/vintage.jpg',
-            'floral': '/webapp/templates/floral.jpg',
-            'gradient-green': '/webapp/templates/gradient-green.jpg',
-            'gradient-blue': '/webapp/templates/gradient-blue.jpg',
-            'gradient-purple': '/webapp/templates/gradient-purple.jpg',
-            'poppy': '/webapp/templates/poppy.jpg',
-            'tech-blue': '/webapp/templates/tech-blue.jpg',
-            'tech-pattern': '/webapp/templates/tech-pattern.jpg',
-            'circuit-board': '/webapp/templates/circuit-board.jpg',
-            'education-sky': '/webapp/templates/education-sky.jpg',
-            'school-supplies': '/webapp/templates/school-supplies.jpg',
-            'world-globe': '/webapp/templates/world-globe.jpg',
-            'business-modern': '/webapp/templates/business-modern.jpg',
-            'geometric-blue': '/webapp/templates/geometric-blue.jpg',
-            'corporate-gold': '/webapp/templates/corporate-gold.jpg',
-            'diamond-pattern': '/webapp/templates/diamond-pattern.jpg',
-            'wave-tech': '/webapp/templates/wave-tech.jpg',
-            'hexagon-tech': '/webapp/templates/hexagon-tech.jpg',
-            'crystal-modern': '/webapp/templates/crystal-modern.jpg',
-            'smooth-waves': '/webapp/templates/smooth-waves.jpg',
-            'paper-triangles': '/webapp/templates/paper-triangles.jpg'
-        };
-
-        // Copy uploaded images to template folder
-        async function setupTemplates() {
-            // Templates will be set up from uploaded images
-        }
-
-        setupTemplates();
     </script>
 </body>
 </html>
