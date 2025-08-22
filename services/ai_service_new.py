@@ -260,13 +260,195 @@ Respond in JSON format:
             raise
 
     async def _generate_document_outline(self, topic: str, section_count: int, document_type: str, language: str) -> Dict:
-        """Generate document outline - placeholder for existing functionality"""
-        return {"sections": [f"Section {i+1}" for i in range(section_count)]}
+        """Generate document outline using AI"""
+        try:
+            if language == "uz":
+                prompt = f"""
+"{topic}" mavzusi bo'yicha {document_type} uchun {section_count} ta bo'lim yarating.
+
+QOIDALAR:
+1. Har bo'lim mantiqiy ketma-ketlikda
+2. Akademik yondashuvda yozing  
+3. Mavzuni to'liq qamrab olsin
+4. Bo'limlar bir-biriga bog'liq bo'lsin
+
+{document_type.upper()} UCHUN BO'LIMLAR:
+- Kirish/Asosiy qismlar/Xulosa tartibida
+- Har bo'lim aniq va tushunarli
+- Akademik uslubda
+
+JSON formatda javob bering:
+{{
+    "sections": ["Bo'lim 1 nomi", "Bo'lim 2 nomi", ...]
+}}"""
+            else:
+                prompt = f"""
+Create {section_count} sections for {document_type} on topic "{topic}".
+
+REQUIREMENTS:
+1. Logical sequence
+2. Academic approach
+3. Comprehensive coverage
+4. Interconnected sections
+
+{document_type.upper()} STRUCTURE:
+- Introduction/Main parts/Conclusion format
+- Clear and understandable sections
+- Academic style
+
+Respond in JSON format:
+{{
+    "sections": ["Section 1 title", "Section 2 title", ...]
+}}"""
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"},
+                temperature=0.7
+            )
+
+            content_str = response.choices[0].message.content
+            if content_str:
+                content_str = content_str.strip()
+            else:
+                content_str = '{"sections": []}'
+            
+            content = json.loads(content_str)
+            sections = content.get('sections', [])
+            
+            # Fallback if AI doesn't provide enough sections
+            while len(sections) < section_count:
+                sections.append(f"Bo'lim {len(sections) + 1}")
+            
+            return {"sections": sections[:section_count]}
+            
+        except Exception as e:
+            logger.error(f"Error generating document outline: {e}")
+            # Fallback outline
+            return {"sections": [f"Bo'lim {i+1}" for i in range(section_count)]}
 
     async def _generate_section_content(self, topic: str, section_title: str, section_num: int, total_sections: int, document_type: str, language: str) -> str:
-        """Generate individual section content - placeholder for existing functionality"""  
-        return f"Content for {section_title} about {topic}."
+        """Generate individual section content using AI"""
+        try:
+            if language == "uz":
+                prompt = f"""
+"{topic}" mavzusi bo'yicha "{section_title}" bo'limi uchun batafsil matn yozing.
+
+TALABLAR:
+1. Bu {section_num}-bo'lim {total_sections} ta bo'limdan
+2. {document_type} uchun akademik uslub
+3. Kamida 200-300 so'z
+4. Mantiqli paragraflar
+5. Aniq faktlar va ma'lumotlar
+6. O'zbek tilida to'liq matn
+
+MATN TUZILISHI:
+- Kirish gap
+- Asosiy ma'lumotlar  
+- Misollar yoki dalillar
+- Bo'lim xulosasi
+
+Faqat matnni qaytaring, boshqa formatlar kerak emas."""
+            else:
+                prompt = f"""
+Write detailed content for section "{section_title}" on topic "{topic}".
+
+REQUIREMENTS:
+1. This is section {section_num} of {total_sections} sections
+2. Academic style for {document_type}
+3. Minimum 200-300 words
+4. Logical paragraphs
+5. Clear facts and information
+6. Complete text in {language}
+
+TEXT STRUCTURE:
+- Introduction sentence
+- Main information
+- Examples or evidence
+- Section conclusion
+
+Return only the text content, no other formatting needed."""
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.7
+            )
+
+            content = response.choices[0].message.content
+            if content:
+                return content.strip()
+            else:
+                return f"{section_title} bo'yicha batafsil ma'lumot. {topic} mavzusi doirasida muhim jihatlar ko'rib chiqiladi."
+            
+        except Exception as e:
+            logger.error(f"Error generating section content: {e}")
+            return f"{section_title} bo'yicha batafsil ma'lumot. {topic} mavzusi doirasida muhim jihatlar ko'rib chiqiladi."
 
     async def _generate_references(self, topic: str, language: str) -> List[str]:
-        """Generate references for document - placeholder for existing functionality"""
-        return [f"Reference 1 about {topic}", f"Reference 2 about {topic}"]
+        """Generate academic references using AI"""
+        try:
+            if language == "uz":
+                prompt = f"""
+"{topic}" mavzusi bo'yicha 5-7 ta akademik adabiyot ro'yxati yarating.
+
+TALABLAR:
+1. Haqiqiy ko'rinishdagi manbalar
+2. Kitoblar, maqolalar, veb-saytlar
+3. O'zbek va xorijiy manbalar
+4. Akademik formatda
+5. Turli xil manba turlari
+
+MANBA TURLARI:
+- Ilmiy kitoblar
+- Jurnal maqolalari  
+- Veb-resurslar
+- Dissertatsiyalar
+- Konferentsiya materiallari
+
+Har bir manbani alohida qatorda qaytaring."""
+            else:
+                prompt = f"""
+Create 5-7 academic references for topic "{topic}".
+
+REQUIREMENTS:
+1. Realistic-looking sources
+2. Books, articles, websites
+3. Academic format
+4. Various source types
+5. Mix of local and international sources
+
+SOURCE TYPES:
+- Scientific books
+- Journal articles
+- Web resources
+- Dissertations
+- Conference materials
+
+Return each reference on a separate line."""
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.7
+            )
+
+            content = response.choices[0].message.content
+            if content:
+                references = [ref.strip() for ref in content.split('\n') if ref.strip()]
+                return references[:7]  # Limit to 7 references
+            else:
+                return [
+                    f"{topic} bo'yicha asosiy adabiyot - Akademiya nashriyoti, 2023",
+                    f"{topic} tadqiqotlari - Ilmiy jurnal, 2024",
+                    f"{topic} zamonaviy yondashuvlar - Internet resurs"
+                ]
+            
+        except Exception as e:
+            logger.error(f"Error generating references: {e}")
+            return [
+                f"{topic} bo'yicha asosiy adabiyot - Akademiya nashriyoti, 2023",
+                f"{topic} tadqiqotlari - Ilmiy jurnal, 2024",
+                f"{topic} zamonaviy yondashuvlar - Internet resurs"
+            ]
