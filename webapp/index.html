@@ -356,6 +356,7 @@
                 document.querySelectorAll('.template-item').forEach(t => t.classList.remove('selected'));
                 this.classList.add('selected');
                 selectedTemplate = this.dataset.template;
+                updateMainButton();
             });
         });
 
@@ -365,6 +366,7 @@
                 document.querySelectorAll('.slide-option').forEach(o => o.classList.remove('selected'));
                 this.classList.add('selected');
                 selectedSlides = parseInt(this.dataset.slides);
+                updateMainButton();
             });
         });
 
@@ -414,15 +416,9 @@
                 template: selectedTemplate
             };
 
-            // Send data to bot and close web app
+            // Send data to bot and close web app immediately
             tg.sendData(JSON.stringify(data));
-            
-            // Show success feedback
-            setTimeout(() => {
-                tg.showAlert('Taqdimot yaratish boshlandi! Biroz kuting...', () => {
-                    tg.close();
-                });
-            }, 500);
+            tg.close();
         }
 
         // Enable main button when form is filled
@@ -433,7 +429,7 @@
             const topic = document.getElementById('topic').value.trim();
             const author = document.getElementById('author').value.trim();
             
-            if (topic && author) {
+            if (topic && author && selectedTemplate && selectedSlides) {
                 tg.MainButton.setText('Taqdimot yaratish');
                 tg.MainButton.show();
                 tg.MainButton.onClick(createPresentation);

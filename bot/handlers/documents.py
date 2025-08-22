@@ -403,8 +403,14 @@ async def handle_web_app_data(message: Message, state: FSMContext, db: Database,
             use_free_service = not user.free_service_used
             
             if not use_free_service and user.balance < price:
-                await message.answer(get_text(user_lang, "insufficient_balance"))
+                await message.answer(
+                    get_text(user_lang, "insufficient_balance"),
+                    reply_markup=get_main_keyboard(user_lang)
+                )
                 return
+            
+            # Clear presentation choice state
+            await state.clear()
             
             # Create order record
             specifications = json.dumps({
@@ -419,7 +425,15 @@ async def handle_web_app_data(message: Message, state: FSMContext, db: Database,
                 specifications=specifications
             )
             
-            await message.answer("⏳ Taqdimot yaratilmoqda...")
+            # Show waiting message with main keyboard (no presentation buttons)
+            await message.answer(
+                f"⏳ Taqdimot yaratilmoqda...\n\n"
+                f"📋 Mavzu: {topic}\n"
+                f"👤 Muallif: {author}\n"
+                f"📊 Slaydlar: {slide_count}\n"
+                f"🎨 Shablon: {template}",
+                reply_markup=get_main_keyboard(user_lang)
+            )
             
             # Start document generation asynchronously
             asyncio.create_task(generate_webapp_presentation(
