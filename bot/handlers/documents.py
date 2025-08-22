@@ -145,29 +145,33 @@ async def handle_document_request(message: Message, state: FSMContext, db: Datab
 
     # For presentations, show web app button
     if document_type == "presentation":
-        from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+        from aiogram.types import KeyboardButton, ReplyKeyboardMarkup, WebAppInfo
+        from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
         
-        # Web app URL - using test page first
-        # webapp_url = "https://ff8081b2-d953-40bb-8e2f-f5970fbed535.eval-code.replit.app/webapp/"
-        webapp_url = "https://ff8081b2-d953-40bb-8e2f-f5970fbed535.eval-code.replit.app/test_webapp.html"
+        # Web app URL
+        webapp_url = "https://ff8081b2-d953-40bb-8e2f-f5970fbed535.eval-code.replit.app/webapp/"
         
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(
-                text="🎯 Taqdimot yaratish (yangi usul)",
-                web_app=WebAppInfo(url=webapp_url)
-            )
-        ], [
-            InlineKeyboardButton(
-                text="📝 Oddiy usulda davom etish",
-                callback_data="classic_presentation"
-            )
-        ]])
+        # Reply keyboard with Web App button
+        reply_keyboard = ReplyKeyboardMarkup(
+            keyboard=[[
+                KeyboardButton(
+                    text="🎯 Taqdimot yaratish (yangi usul)",
+                    web_app=WebAppInfo(url=webapp_url)
+                )
+            ], [
+                KeyboardButton(text="📝 Oddiy usulda davom etish")
+            ], [
+                KeyboardButton(text="🔙 Orqaga")
+            ]],
+            resize_keyboard=True,
+            one_time_keyboard=True
+        )
         
         await message.answer(
             "Taqdimot yaratish uchun quyidagi usullardan birini tanlang:\n\n"
             "🎯 **Yangi usul** - shablonlar, ranglar va ko'proq sozlamalar\n"
             "📝 **Oddiy usul** - oddiy matn kiritish orqali",
-            reply_markup=keyboard,
+            reply_markup=reply_keyboard,
             parse_mode="Markdown"
         )
         return
@@ -464,6 +468,22 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
 
     finally:
         await state.clear()
+
+@router.message(F.text == "📝 Oddiy usulda davom etish")
+async def handle_classic_presentation_button(message: Message, state: FSMContext, user_lang: str):
+    """Handle classic presentation button from reply keyboard"""
+    await state.update_data(document_type="presentation")
+    await message.answer(get_text(user_lang, "enter_topic"), reply_markup=get_main_keyboard(user_lang))
+    await state.set_state(DocumentStates.waiting_for_topic)
+
+@router.message(F.text == "🔙 Orqaga")
+async def handle_back_button(message: Message, state: FSMContext, user_lang: str):
+    """Handle back button"""
+    await state.clear()
+    await message.answer(
+        get_text(user_lang, "main_menu_text"),
+        reply_markup=get_main_keyboard(user_lang)
+    )
 
 @router.callback_query(F.data == "classic_presentation")
 async def classic_presentation_handler(callback: CallbackQuery, state: FSMContext, user_lang: str):
