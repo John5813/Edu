@@ -147,8 +147,9 @@ async def handle_document_request(message: Message, state: FSMContext, db: Datab
     if document_type == "presentation":
         from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
         
-        # Web app URL - fixed to the correct deployment URL
-        webapp_url = "https://ff8081b2-d953-40bb-8e2f-f5970fbed535.eval-code.replit.app/webapp/"
+        # Web app URL - using test page first
+        # webapp_url = "https://ff8081b2-d953-40bb-8e2f-f5970fbed535.eval-code.replit.app/webapp/"
+        webapp_url = "https://ff8081b2-d953-40bb-8e2f-f5970fbed535.eval-code.replit.app/test_webapp.html"
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(
