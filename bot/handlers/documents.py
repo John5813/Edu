@@ -384,12 +384,15 @@ async def handle_web_app_data(message: Message, state: FSMContext, db: Database,
     """Handle data from web app"""
     try:
         import json
+        logger.info(f"Received web app data: {message.web_app_data}")
         
         if not message.web_app_data or not message.web_app_data.data:
             await message.answer("❌ Web app ma'lumoti topilmadi")
             return
             
+        logger.info(f"Web app data content: {message.web_app_data.data}")
         data = json.loads(message.web_app_data.data)
+        logger.info(f"Parsed data: {data}")
         
         if data.get('action') == 'create_presentation':
             # Extract data from web app

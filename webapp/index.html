@@ -114,27 +114,7 @@
             font-weight: 500;
         }
 
-        .submit-btn {
-            width: 100%;
-            padding: 14px;
-            background: var(--tg-theme-button-color, #3390ec);
-            color: var(--tg-theme-button-text-color, #ffffff);
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: opacity 0.2s;
-        }
-
-        .submit-btn:hover {
-            opacity: 0.9;
-        }
-
-        .submit-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
+        /* HTML tugma CSS olib tashlandi - faqat Telegram MainButton ishlatiladi */
 
         .slide-count {
             display: flex;
@@ -330,9 +310,7 @@
         <p style="margin-top: 15px;">Taqdimot yaratilmoqda...</p>
     </div>
 
-    <button class="submit-btn" id="submit-btn" onclick="createPresentation()">
-        Taqdimot yaratish
-    </button>
+    <!-- Telegram Main Button ishlatiladi, shuning uchun bu tugma olib tashlanadi -->
 
     <script>
         // Initialize Telegram Web App
@@ -432,11 +410,16 @@
             if (topic && author && selectedTemplate && selectedSlides) {
                 tg.MainButton.setText('Taqdimot yaratish');
                 tg.MainButton.show();
+                // Remove previous click handlers first
+                tg.MainButton.offClick(createPresentation);
                 tg.MainButton.onClick(createPresentation);
             } else {
                 tg.MainButton.hide();
             }
         }
+        
+        // Initialize main button on page load
+        updateMainButton();
 
         // Load template images
         const templates = {
