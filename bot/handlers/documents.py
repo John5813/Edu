@@ -478,19 +478,35 @@ async def generate_webapp_presentation(message, order_id, topic, slide_count, te
                                      user_lang, use_free_service, price, db, user):
     """Generate presentation from web app data"""
     try:
-        # Generate content with template support
+        logger.info(f"Starting webapp presentation generation: {topic}, slides: {slide_count}, template: {template}")
+        
+        # Generate content with NEW AI BATCH SYSTEM
         from services.ai_service_new import AIService as NewAIService
         ai_service = NewAIService()
         content = await ai_service.generate_presentation_in_batches(topic, slide_count, user_lang)
         
-        # Create presentation with template  
-        doc_service = DocumentService()
-        file_path = await doc_service.create_presentation_with_template(
+        # Validate AI response
+        if not content or 'slides' not in content:
+            logger.error(f"Invalid AI response from webapp batch generation: {content}")
+            content = {
+                'slides': [
+                    {'title': topic, 'content': f"Bu taqdimot {topic} mavzusida tayyorlangan.", 'layout_type': 'title', 'slide_number': 1},
+                    {'title': 'Kirish', 'content': f"{topic} haqida batafsil ma'lumot va asosiy nuqtalar.", 'layout_type': 'bullet_points', 'slide_number': 2},
+                    {'title': 'Asosiy qism', 'content': f"{topic}ning asosiy jihatlari va muhim ma'lumotlar.", 'layout_type': 'text_with_image', 'slide_number': 3}
+                ]
+            }
+        
+        # Create presentation with NEW SYSTEM and template support
+        from services.document_service_new import DocumentService as NewDocumentService
+        doc_service = NewDocumentService()
+        file_path = await doc_service.create_new_presentation_with_template(
             topic=topic, 
             content=content, 
             author=author,
             template_name=template
         )
+        
+        logger.info(f"Presentation created at: {file_path}")
         
         # Update order
         await db.update_document_order(order_id, "completed", file_path)
@@ -506,6 +522,16 @@ async def generate_webapp_presentation(message, order_id, topic, slide_count, te
         # Send file
         document = FSInputFile(file_path)
         await message.answer_document(
+            document=document,
+            caption=f"🎨 {topic}\n👤 {author}\n🎭 Shablon: {template}",
+            reply_markup=get_main_keyboard(user_lang)
+        )
+        
+    except Exception as e:
+        logger.error(f"Error in webapp presentation generation: {e}")
+        await db.update_document_order(order_id, "failed")
+        await message.answer("❌ Taqdimot yaratishda xatolik yuz berdi. Iltimos, qayta urinib ko'ring.")
+        await message.answer("Asosiy menyu:", reply_markup=get_main_keyboard(user_lang))
             document=document,
             caption=f"🎯 {topic}\n👤 {author}\n📊 {slide_count} slayd\n🎨 {template} shablon",
             reply_markup=get_main_keyboard(user_lang)
