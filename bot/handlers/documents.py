@@ -384,7 +384,9 @@ async def handle_web_app_data(message: Message, state: FSMContext, db: Database,
     """Handle data from web app"""
     try:
         import json
-        logger.info(f"Received web app data: {message.web_app_data}")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"🎯 Received web app data: {message.web_app_data}")
         
         if not message.web_app_data or not message.web_app_data.data:
             await message.answer("❌ Web app ma'lumoti topilmadi")

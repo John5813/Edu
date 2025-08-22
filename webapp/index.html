@@ -372,7 +372,10 @@
         }
 
         function createPresentation() {
+            console.log('🎯 createPresentation called');
+            
             if (!validateForm()) {
+                console.log('❌ Form validation failed');
                 return;
             }
 
@@ -380,9 +383,10 @@
             const language = document.getElementById('language').value;
             const author = document.getElementById('author').value.trim();
 
+            console.log('📋 Form data:', { topic, language, author, slides: selectedSlides, template: selectedTemplate });
+
             // Show loading
             document.getElementById('loading').classList.add('active');
-            document.getElementById('submit-btn').disabled = true;
 
             // Send data back to bot
             const data = {
@@ -394,9 +398,17 @@
                 template: selectedTemplate
             };
 
+            console.log('📤 Sending data to bot:', data);
+            
             // Send data to bot and close web app immediately
-            tg.sendData(JSON.stringify(data));
-            tg.close();
+            try {
+                tg.sendData(JSON.stringify(data));
+                console.log('✅ Data sent successfully');
+                tg.close();
+                console.log('✅ Web app closed');
+            } catch (error) {
+                console.error('❌ Error sending data:', error);
+            }
         }
 
         // Enable main button when form is filled
