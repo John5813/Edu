@@ -384,6 +384,11 @@ async def handle_web_app_data(message: Message, state: FSMContext, db: Database,
     """Handle data from web app"""
     try:
         import json
+        
+        if not message.web_app_data or not message.web_app_data.data:
+            await message.answer("❌ Web app ma'lumoti topilmadi")
+            return
+            
         data = json.loads(message.web_app_data.data)
         
         if data.get('action') == 'create_presentation':
@@ -453,17 +458,17 @@ async def generate_webapp_presentation(message, order_id, topic, slide_count, te
     """Generate presentation from web app data"""
     try:
         # Generate content with template support
-        ai_service = AIService()
-        content = await ai_service.generate_presentation_content(topic, slide_count, user_lang)
+        from services.ai_service_new import AIService as NewAIService
+        ai_service = NewAIService()
+        content = await ai_service.generate_presentation_in_batches(topic, slide_count, user_lang)
         
-        # Create presentation with template
+        # Create presentation with template  
         doc_service = DocumentService()
-        file_path = await doc_service.create_presentation(
+        file_path = await doc_service.create_presentation_with_template(
             topic=topic, 
             content=content, 
             author=author,
-            template=template,
-            language=user_lang
+            template_name=template
         )
         
         # Update order
