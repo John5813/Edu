@@ -69,8 +69,8 @@
 
         .template-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
             margin-top: 10px;
         }
 
@@ -108,9 +108,10 @@
             right: 0;
             background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
             color: white;
-            padding: 8px;
-            font-size: 12px;
+            padding: 6px;
+            font-size: 10px;
             text-align: center;
+            font-weight: 500;
         }
 
         .submit-btn {
@@ -265,6 +266,62 @@
                 <img src="/webapp/templates/tech-blue.jpg" alt="Texnologiya">
                 <div class="template-name">Texnologiya</div>
             </div>
+            <div class="template-item" data-template="tech-pattern">
+                <img src="/webapp/templates/tech-pattern.jpg" alt="Texno naqsh">
+                <div class="template-name">Texno naqsh</div>
+            </div>
+            <div class="template-item" data-template="circuit-board">
+                <img src="/webapp/templates/circuit-board.jpg" alt="Mikrosxema">
+                <div class="template-name">Mikrosxema</div>
+            </div>
+            <div class="template-item" data-template="education-sky">
+                <img src="/webapp/templates/education-sky.jpg" alt="Ta'lim osmoni">
+                <div class="template-name">Ta'lim osmoni</div>
+            </div>
+            <div class="template-item" data-template="school-supplies">
+                <img src="/webapp/templates/school-supplies.jpg" alt="Maktab buyumlari">
+                <div class="template-name">Maktab buyumlari</div>
+            </div>
+            <div class="template-item" data-template="world-globe">
+                <img src="/webapp/templates/world-globe.jpg" alt="Dunyo globusi">
+                <div class="template-name">Dunyo globusi</div>
+            </div>
+            <div class="template-item" data-template="business-modern">
+                <img src="/webapp/templates/business-modern.jpg" alt="Zamonaviy biznes">
+                <div class="template-name">Zamonaviy biznes</div>
+            </div>
+            <div class="template-item" data-template="geometric-blue">
+                <img src="/webapp/templates/geometric-blue.jpg" alt="Geometrik ko'k">
+                <div class="template-name">Geometrik ko'k</div>
+            </div>
+            <div class="template-item" data-template="corporate-gold">
+                <img src="/webapp/templates/corporate-gold.jpg" alt="Korporativ oltin">
+                <div class="template-name">Korporativ oltin</div>
+            </div>
+            <div class="template-item" data-template="diamond-pattern">
+                <img src="/webapp/templates/diamond-pattern.jpg" alt="Olmossimon naqsh">
+                <div class="template-name">Olmossimon naqsh</div>
+            </div>
+            <div class="template-item" data-template="wave-tech">
+                <img src="/webapp/templates/wave-tech.jpg" alt="To'lqin texno">
+                <div class="template-name">To'lqin texno</div>
+            </div>
+            <div class="template-item" data-template="hexagon-tech">
+                <img src="/webapp/templates/hexagon-tech.jpg" alt="Olti burchak">
+                <div class="template-name">Olti burchak</div>
+            </div>
+            <div class="template-item" data-template="crystal-modern">
+                <img src="/webapp/templates/crystal-modern.jpg" alt="Zamonaviy kristal">
+                <div class="template-name">Zamonaviy kristal</div>
+            </div>
+            <div class="template-item" data-template="smooth-waves">
+                <img src="/webapp/templates/smooth-waves.jpg" alt="Silliq to'lqinlar">
+                <div class="template-name">Silliq to'lqinlar</div>
+            </div>
+            <div class="template-item" data-template="paper-triangles">
+                <img src="/webapp/templates/paper-triangles.jpg" alt="Qog'oz uchburchak">
+                <div class="template-name">Qog'oz uchburchak</div>
+            </div>
         </div>
     </div>
 
@@ -387,13 +444,28 @@
 
         // Load template images
         const templates = {
+            'classic': '',
             'vintage': '/webapp/templates/vintage.jpg',
             'floral': '/webapp/templates/floral.jpg',
             'gradient-green': '/webapp/templates/gradient-green.jpg',
             'gradient-blue': '/webapp/templates/gradient-blue.jpg',
             'gradient-purple': '/webapp/templates/gradient-purple.jpg',
             'poppy': '/webapp/templates/poppy.jpg',
-            'tech-blue': '/webapp/templates/tech-blue.jpg'
+            'tech-blue': '/webapp/templates/tech-blue.jpg',
+            'tech-pattern': '/webapp/templates/tech-pattern.jpg',
+            'circuit-board': '/webapp/templates/circuit-board.jpg',
+            'education-sky': '/webapp/templates/education-sky.jpg',
+            'school-supplies': '/webapp/templates/school-supplies.jpg',
+            'world-globe': '/webapp/templates/world-globe.jpg',
+            'business-modern': '/webapp/templates/business-modern.jpg',
+            'geometric-blue': '/webapp/templates/geometric-blue.jpg',
+            'corporate-gold': '/webapp/templates/corporate-gold.jpg',
+            'diamond-pattern': '/webapp/templates/diamond-pattern.jpg',
+            'wave-tech': '/webapp/templates/wave-tech.jpg',
+            'hexagon-tech': '/webapp/templates/hexagon-tech.jpg',
+            'crystal-modern': '/webapp/templates/crystal-modern.jpg',
+            'smooth-waves': '/webapp/templates/smooth-waves.jpg',
+            'paper-triangles': '/webapp/templates/paper-triangles.jpg'
         };
 
         // Copy uploaded images to template folder

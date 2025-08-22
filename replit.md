@@ -12,18 +12,31 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (August 22, 2025)
 
+✓ **TELEGRAM MINI APP SHABLONLAR KENGAYTIRILDI - 3x3 Grid Layout**:
+  - **22 ta orqa fon shabloni**: Klassik va professional dizaynlar
+  - **3x3 Grid formatida**: Har qatorda 3 ta shablon, 7+ qator
+  - **Yangi shablon turlari**: Texnologik, ta'lim, biznes, geometrik
+  - **Visual browsing**: Har bir shablon rasmli preview bilan
+  - **Mobile responsive**: Telegram Mini App uchun optimallashtirilgan
+
+✓ **Qo'shilgan yangi shablonlar**:
+  - **Texnologik**: tech-pattern, circuit-board, wave-tech, hexagon-tech
+  - **Ta'lim**: education-sky, school-supplies, world-globe  
+  - **Biznes**: business-modern, corporate-gold, crystal-modern
+  - **Geometrik**: geometric-blue, diamond-pattern, smooth-waves, paper-triangles
+
 ✓ **TELEGRAM MINI APP INTEGRATSIYA - Taqdimot uchun yangi usul**:
   - **Web App Interface**: Zamonaviy web interfeys orqali taqdimot parametrlarini kiritish
-  - **Orqa fon shablonlari**: 7 ta professional shablon (vintage, floral, gradient, tech)
-  - **Visual tanlash**: Shablonlarni ko'rish va tanlash imkoniyati
+  - **Orqa fon shablonlari**: 22 ta professional shablon tanlanadi
+  - **Visual tanlash**: Shablonlarni ko'rish va tanlash imkoniyati  
   - **Form validatsiya**: Majburiy maydonlarni tekshirish
   - **Telegram integratsiya**: WebAppData orqali ma'lumotlarni qabul qilish
 
 ✓ **Yangi funksionallik**:
-  - `webapp/index.html` - Telegram Mini App interfeysi
-  - `webapp/templates/` - Orqa fon rasmlari katalogi
+  - `webapp/index.html` - Telegram Mini App interfeysi (yangilandi)
+  - `webapp/templates/` - Orqa fon rasmlari katalogi (22 fayl)
   - `webapp_server.py` - Web app server (port 5000)
-  - `services/presentation_templates.py` - Shablon boshqaruv tizimi
+  - `services/presentation_templates.py` - Shablon boshqaruv tizimi (yangilandi)
   - Template-based presentation yaratish
 
 ## Recent Changes (August 21, 2025)

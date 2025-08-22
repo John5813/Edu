@@ -68,6 +68,90 @@ class PresentationTemplates:
                 'background': 'tech-blue.jpg',
                 'text_color': RGBColor(255, 255, 255),
                 'title_color': RGBColor(0, 204, 255)
+            },
+            'tech-pattern': {
+                'name': 'Texno naqsh',
+                'background': 'tech-pattern.jpg',
+                'text_color': RGBColor(255, 255, 255),
+                'title_color': RGBColor(0, 153, 255)
+            },
+            'circuit-board': {
+                'name': 'Mikrosxema',
+                'background': 'circuit-board.jpg',
+                'text_color': RGBColor(255, 255, 255),
+                'title_color': RGBColor(0, 255, 255)
+            },
+            'education-sky': {
+                'name': "Ta'lim osmoni",
+                'background': 'education-sky.jpg',
+                'text_color': RGBColor(51, 102, 153),
+                'title_color': RGBColor(0, 51, 153)
+            },
+            'school-supplies': {
+                'name': 'Maktab buyumlari',
+                'background': 'school-supplies.jpg',
+                'text_color': RGBColor(51, 51, 51),
+                'title_color': RGBColor(102, 102, 102)
+            },
+            'world-globe': {
+                'name': 'Dunyo globusi',
+                'background': 'world-globe.jpg',
+                'text_color': RGBColor(255, 255, 255),
+                'title_color': RGBColor(200, 200, 255)
+            },
+            'business-modern': {
+                'name': 'Zamonaviy biznes',
+                'background': 'business-modern.jpg',
+                'text_color': RGBColor(255, 255, 255),
+                'title_color': RGBColor(102, 204, 255)
+            },
+            'geometric-blue': {
+                'name': "Geometrik ko'k",
+                'background': 'geometric-blue.jpg',
+                'text_color': RGBColor(255, 255, 255),
+                'title_color': RGBColor(0, 153, 255)
+            },
+            'corporate-gold': {
+                'name': 'Korporativ oltin',
+                'background': 'corporate-gold.jpg',
+                'text_color': RGBColor(51, 51, 51),
+                'title_color': RGBColor(102, 77, 0)
+            },
+            'diamond-pattern': {
+                'name': 'Olmossimon naqsh',
+                'background': 'diamond-pattern.jpg',
+                'text_color': RGBColor(255, 255, 255),
+                'title_color': RGBColor(102, 204, 255)
+            },
+            'wave-tech': {
+                'name': "To'lqin texno",
+                'background': 'wave-tech.jpg',
+                'text_color': RGBColor(255, 255, 255),
+                'title_color': RGBColor(0, 153, 255)
+            },
+            'hexagon-tech': {
+                'name': 'Olti burchak',
+                'background': 'hexagon-tech.jpg',
+                'text_color': RGBColor(255, 255, 255),
+                'title_color': RGBColor(0, 204, 255)
+            },
+            'crystal-modern': {
+                'name': 'Zamonaviy kristal',
+                'background': 'crystal-modern.jpg',
+                'text_color': RGBColor(255, 255, 255),
+                'title_color': RGBColor(153, 204, 255)
+            },
+            'smooth-waves': {
+                'name': "Silliq to'lqinlar",
+                'background': 'smooth-waves.jpg',
+                'text_color': RGBColor(255, 255, 255),
+                'title_color': RGBColor(0, 102, 204)
+            },
+            'paper-triangles': {
+                'name': "Qog'oz uchburchak",
+                'background': 'paper-triangles.jpg',
+                'text_color': RGBColor(255, 255, 255),
+                'title_color': RGBColor(102, 153, 255)
             }
         }
     
