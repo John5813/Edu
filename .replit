@@ -15,10 +15,6 @@ author = "agent"
 task = "workflow.run"
 args = "Bot Server"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Web App Server"
-
 [[workflows.workflow]]
 name = "Bot Server"
 author = "agent"
@@ -26,18 +22,6 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "uv add aiogram aiosqlite python-docx python-pptx aiohttp && python main.py"
-
-[[workflows.workflow]]
-name = "Web App Server"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python webapp_server.py"
-waitForPort = 5000
-
-[workflows.workflow.metadata]
-outputType = "webview"
 
 [[ports]]
 localPort = 5000
