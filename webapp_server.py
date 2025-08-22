@@ -22,6 +22,12 @@ async def test_handler(request):
         html_content = f.read()
     return web.Response(text=html_content, content_type='text/html')
 
+async def simple_test_handler(request):
+    """Serve simple test HTML"""
+    with open('simple_test.html', 'r', encoding='utf-8') as f:
+        html_content = f.read()
+    return web.Response(text=html_content, content_type='text/html')
+
 async def template_handler(request):
     """Serve template images"""
     filename = request.match_info.get('filename')
@@ -145,6 +151,7 @@ def main():
     app.router.add_get('/webapp/templates/{filename}', template_handler)
     app.router.add_post('/webapp/create-presentation', create_presentation_handler)
     app.router.add_get('/test_webapp.html', test_handler)
+    app.router.add_get('/simple_test.html', simple_test_handler)
 
     # Setup CORS for all routes
     for route in list(app.router.routes()):
