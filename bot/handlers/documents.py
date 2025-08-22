@@ -56,7 +56,7 @@ async def handle_document_request(message: Message, state: FSMContext, db: Datab
     # For presentations, show web app button
     if document_type == "presentation":
         from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
-        
+
         keyboard = InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(
                 text="🎯 Taqdimot yaratish (yangi usul)",
@@ -68,7 +68,7 @@ async def handle_document_request(message: Message, state: FSMContext, db: Datab
                 callback_data="classic_presentation"
             )
         ]])
-        
+
         await message.answer(
             "Taqdimot yaratish uchun quyidagi usullardan birini tanlang:\n\n"
             "🎯 **Yangi usul** - shablonlar, ranglar va ko'proq sozlamalar\n"
@@ -117,12 +117,12 @@ async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Dat
     """Handle slide count selection"""
     slide_count = int(callback.data.split("_")[1])
     await state.update_data(slide_count=slide_count)
-    
+
     # Calculate price based on slide count
     data = await state.get_data()
     price = get_document_price("presentation", {"slide_count": slide_count})
     use_free_service = data.get('use_free_service', False)
-    
+
     # Check balance if not using free service
     if not use_free_service and user.balance < price:
         await callback.message.edit_text(get_text(user_lang, "insufficient_balance"))
@@ -141,12 +141,12 @@ async def handle_page_count(callback: CallbackQuery, state: FSMContext, db: Data
     max_pages = int(page_range[1])
 
     await state.update_data(min_pages=min_pages, max_pages=max_pages)
-    
+
     # Calculate price based on page count
     data = await state.get_data()
     document_type = data['document_type']
     price = get_document_price(document_type, {"min_pages": min_pages, "max_pages": max_pages})
-    
+
     # Check balance
     if user.balance < price:
         await callback.message.edit_text(get_text(user_lang, "insufficient_balance"))
@@ -264,7 +264,7 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
         content = await ai_service.generate_document_content(
             topic, section_count, "independent_work", user_lang
         )
-        
+
         # Add language info to content for template
         content['language'] = user_lang
 
@@ -334,7 +334,7 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
         content = await ai_service.generate_document_content(
             topic, section_count, "referat", user_lang
         )
-        
+
         # Add language info to content for template
         content['language'] = user_lang
 
@@ -385,7 +385,7 @@ async def handle_web_app_data(message: Message, state: FSMContext, db: Database,
     try:
         import json
         data = json.loads(message.web_app_data.data)
-        
+
         if data.get('action') == 'create_presentation':
             # Extract data from web app
             topic = data.get('topic')
@@ -393,11 +393,11 @@ async def handle_web_app_data(message: Message, state: FSMContext, db: Database,
             author = data.get('author', user.first_name or '')
             slide_count = data.get('slides', 15)
             template = data.get('template', 'classic')
-            
+
             # Update user language if different
             if language != user_lang:
                 user_lang = language
-            
+
             # Create order record
             specifications = json.dumps({
                 "slide_count": slide_count,
@@ -410,26 +410,26 @@ async def handle_web_app_data(message: Message, state: FSMContext, db: Database,
                 topic=topic,
                 specifications=specifications
             )
-            
+
             await message.answer("⏳ Taqdimot yaratilmoqda...")
-            
+
             # Generate content with template support
             from services.ai_service import AIService
             ai_service = AIService()
             content = await ai_service.generate_presentation_in_batches(topic, slide_count, user_lang)
-            
+
             # Add template info to content
             content['template'] = template
             content['author'] = author
-            
+
             # Create presentation with template
             from services.document_service import DocumentService
             doc_service = DocumentService()
             file_path = await doc_service.create_presentation_with_template(topic, content, author, template)
-            
+
             # Update order
             await db.update_document_order(order_id, "completed", file_path)
-            
+
             # Process payment
             if not user.free_service_used:
                 await db.mark_free_service_used(user.telegram_id)
@@ -438,7 +438,7 @@ async def handle_web_app_data(message: Message, state: FSMContext, db: Database,
                 price = get_document_price("presentation", {"slide_count": slide_count})
                 await db.update_user_balance(user.telegram_id, -price)
                 await message.answer(get_text(user_lang, "document_ready"))
-            
+
             # Send file
             document = FSInputFile(file_path)
             await message.answer_document(
@@ -446,9 +446,9 @@ async def handle_web_app_data(message: Message, state: FSMContext, db: Database,
                 caption=f"🎯 {topic}\n👤 {author}\n📊 {slide_count} slayd\n🎨 {template} shablon",
                 reply_markup=get_main_keyboard(user_lang)
             )
-            
+
             await state.clear()
-            
+
     except Exception as e:
         logger.error(f"Error handling web app data: {e}")
         await message.answer(
@@ -627,7 +627,7 @@ Agar savol bo'lsa, @edubot_support ga murojaat qiling! 😊
 
 If you have questions, contact @edubot_support! 😊
 """
-    
+
     await message.answer(
         help_text,
         reply_markup=get_main_keyboard(user_lang),
