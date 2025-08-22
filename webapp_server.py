@@ -19,11 +19,11 @@ async def template_handler(request):
     """Serve template images"""
     filename = request.match_info.get('filename')
     file_path = os.path.join('webapp/templates', filename)
-    
+
     if os.path.exists(file_path):
         with open(file_path, 'rb') as f:
             content = f.read()
-        
+
         # Determine content type
         if filename.endswith('.jpg') or filename.endswith('.jpeg'):
             content_type = 'image/jpeg'
@@ -31,7 +31,7 @@ async def template_handler(request):
             content_type = 'image/png'
         else:
             content_type = 'application/octet-stream'
-            
+
         return web.Response(body=content, content_type=content_type)
     else:
         return web.Response(status=404)
@@ -39,7 +39,7 @@ async def template_handler(request):
 async def create_webapp():
     """Create and configure web application"""
     app = web.Application()
-    
+
     # Configure CORS
     cors = aiohttp_cors.setup(app, defaults={
         "*": aiohttp_cors.ResourceOptions(
@@ -48,16 +48,16 @@ async def create_webapp():
             allow_headers="*"
         )
     })
-    
+
     # Add routes
     app.router.add_get('/webapp/', index_handler)
     app.router.add_get('/webapp/index.html', index_handler)
     app.router.add_get('/webapp/templates/{filename}', template_handler)
-    
+
     # Setup CORS for all routes
     for route in list(app.router.routes()):
         cors.add(route)
-    
+
     return app
 
 async def start_webapp_server():
@@ -68,7 +68,7 @@ async def start_webapp_server():
 def main():
     """Main function to start server"""
     app = web.Application()
-    
+
     # Configure CORS
     cors = aiohttp_cors.setup(app, defaults={
         "*": aiohttp_cors.ResourceOptions(
@@ -77,16 +77,16 @@ def main():
             allow_headers="*"
         )
     })
-    
+
     # Add routes
     app.router.add_get('/webapp/', index_handler)
     app.router.add_get('/webapp/index.html', index_handler)
     app.router.add_get('/webapp/templates/{filename}', template_handler)
-    
+
     # Setup CORS for all routes
     for route in list(app.router.routes()):
         cors.add(route)
-    
+
     web.run_app(app, host='0.0.0.0', port=5000)
 
 if __name__ == '__main__':
