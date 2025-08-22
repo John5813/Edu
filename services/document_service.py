@@ -1207,6 +1207,146 @@ class DocumentService:
                 'accepted_by': 'Qabul qildi'
             }
 
+    async def create_presentation_with_template(self, topic: str, content: Dict, author: str, template_name: str) -> str:
+        """Create presentation with background template"""
+        try:
+            from services.presentation_templates import template_service
+            
+            prs = Presentation()
+            
+            # Set slide size (16:9)
+            prs.slide_width = PptxInches(13.33)
+            prs.slide_height = PptxInches(7.5)
+            
+            slides_data = content.get('slides', [])
+            
+            for idx, slide_data in enumerate(slides_data):
+                slide_num = idx + 1
+                
+                # Create slide
+                slide_layout = prs.slide_layouts[6]  # Blank layout for full control
+                slide = prs.slides.add_slide(slide_layout)
+                
+                # Apply template background
+                template = template_service.apply_template_to_slide(slide, template_name)
+                colors = template_service.get_template_colors(template_name)
+                
+                if slide_num == 1:
+                    # Title slide with template
+                    await self._create_template_title_slide(slide, topic, author, colors)
+                else:
+                    # Content slides with template
+                    layout_type = self._get_layout_type(slide_num - 1)
+                    await self._create_template_content_slide(slide, slide_data, layout_type, colors)
+            
+            # Save presentation
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"presentation_template_{timestamp}.pptx"
+            file_path = os.path.join(self.documents_dir, filename)
+            
+            prs.save(file_path)
+            logger.info(f"Template presentation saved: {file_path}")
+            
+            return file_path
+            
+        except Exception as e:
+            logger.error(f"Error creating template presentation: {e}")
+            # Fallback to regular presentation
+            return await self.create_new_presentation_system(topic, content, author)
+    
+    async def _create_template_title_slide(self, slide, topic: str, author: str, colors: Dict):
+        """Create title slide with template colors"""
+        # Add title
+        title_box = slide.shapes.add_textbox(
+            PptxInches(1), PptxInches(2.5),
+            PptxInches(11.33), PptxInches(2)
+        )
+        title_frame = title_box.text_frame
+        title_para = title_frame.paragraphs[0]
+        title_para.text = topic
+        title_para.font.size = PptxPt(44)
+        title_para.font.bold = True
+        title_para.font.color.rgb = colors['title']
+        title_para.alignment = PP_ALIGN.CENTER
+        
+        # Add author
+        author_box = slide.shapes.add_textbox(
+            PptxInches(1), PptxInches(5),
+            PptxInches(11.33), PptxInches(1)
+        )
+        author_frame = author_box.text_frame
+        author_para = author_frame.paragraphs[0]
+        author_para.text = f"Muallif: {author}"
+        author_para.font.size = PptxPt(24)
+        author_para.font.color.rgb = colors['text']
+        author_para.alignment = PP_ALIGN.CENTER
+    
+    async def _create_template_content_slide(self, slide, slide_data: Dict, layout_type: str, colors: Dict):
+        """Create content slide with template colors"""
+        # Add title
+        title_box = slide.shapes.add_textbox(
+            PptxInches(0.5), PptxInches(0.5),
+            PptxInches(12.33), PptxInches(1)
+        )
+        title_frame = title_box.text_frame
+        title_para = title_frame.paragraphs[0]
+        title_para.text = slide_data.get('title', 'Mavzu')
+        title_para.font.size = PptxPt(28)
+        title_para.font.bold = True
+        title_para.font.color.rgb = colors['title']
+        title_para.alignment = PP_ALIGN.CENTER
+        
+        # Add content based on layout type
+        if layout_type == "bullet_points":
+            content_box = slide.shapes.add_textbox(
+                PptxInches(1), PptxInches(2),
+                PptxInches(11.33), PptxInches(5)
+            )
+            content_frame = content_box.text_frame
+            content_frame.word_wrap = True
+            
+            # Split content into bullet points
+            content_text = slide_data.get('content', '')
+            points = [p.strip() for p in content_text.split('•') if p.strip()]
+            
+            for point in points[:5]:  # Max 5 points
+                p = content_frame.add_paragraph()
+                p.text = f"• {point}"
+                p.font.size = PptxPt(18)
+                p.font.color.rgb = colors['text']
+                p.level = 0
+                
+        elif layout_type == "text_with_image":
+            # Text on left, space for image on right
+            text_box = slide.shapes.add_textbox(
+                PptxInches(1), PptxInches(2),
+                PptxInches(6), PptxInches(5)
+            )
+            text_frame = text_box.text_frame
+            text_frame.word_wrap = True
+            text_para = text_frame.paragraphs[0]
+            text_para.text = slide_data.get('content', '')
+            text_para.font.size = PptxPt(16)
+            text_para.font.color.rgb = colors['text']
+            
+        else:  # three_column
+            # Create 3 columns
+            for i in range(3):
+                col_box = slide.shapes.add_textbox(
+                    PptxInches(0.5 + i * 4.2), PptxInches(2),
+                    PptxInches(3.8), PptxInches(4.5)
+                )
+                col_frame = col_box.text_frame
+                col_frame.word_wrap = True
+                
+                # Add column content
+                col_para = col_frame.paragraphs[0]
+                col_para.text = f"Bo'lim {i+1}"
+                col_para.font.size = PptxPt(16)
+                col_para.font.bold = True
+                col_para.font.color.rgb = colors['title']
+                col_para.alignment = PP_ALIGN.CENTER
+
     async def _download_image(self, image_url: str, filename: str) -> Optional[str]:
         """Download image from URL for presentation"""
         try:
