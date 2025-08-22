@@ -149,7 +149,7 @@ async def handle_document_request(message: Message, state: FSMContext, db: Datab
         from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
         
         # Web app URL - main presentation creation interface
-        webapp_url = "https://ff8081b2-d953-40bb-8e2f-f5970fbed535.eval-code.replit.app/webapp/"
+        webapp_url = "https://ff8081b2-d953-40bb-8e2f-f5970fbed535.eval-code.replit.app:8080/webapp/"
         
         # Reply keyboard with Web App button
         reply_keyboard = ReplyKeyboardMarkup(
