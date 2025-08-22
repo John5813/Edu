@@ -23,13 +23,15 @@ async def handle_web_app_data(message: Message, state: FSMContext, db: Database,
     try:
         import json
         
-        logger.info(f"🎯 Web app data received: {message.web_app_data}")
+        logger.info(f"🎯 Web app data received from user {message.from_user.id}")
+        logger.info(f"🎯 Raw web app data object: {message.web_app_data}")
+        logger.info(f"🎯 Web app data.data: {message.web_app_data.data if message.web_app_data else 'None'}")
             
-        if not message.web_app_data.data:
+        if not message.web_app_data or not message.web_app_data.data:
             await message.answer("❌ Web app ma'lumoti topilmadi")
             return
             
-        logger.info(f"Web app data content: {message.web_app_data.data}")
+        logger.info(f"📦 Parsing web app data: {message.web_app_data.data}")
         data = json.loads(message.web_app_data.data)
         logger.info(f"Parsed data: {data}")
         
@@ -145,10 +147,8 @@ async def handle_document_request(message: Message, state: FSMContext, db: Datab
     if document_type == "presentation":
         from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
         
-        # Get current Replit URL dynamically
-        import os
-        replit_url = os.getenv('REPLIT_URL', 'https://ff8081b2-d953-40bb-8e2f-f5970fbed535-00-bubtfmmzg3hi.picard.replit.dev')
-        webapp_url = f"{replit_url}/webapp/"
+        # Web app URL - fixed to the correct deployment URL
+        webapp_url = "https://ff8081b2-d953-40bb-8e2f-f5970fbed535.eval-code.replit.app/webapp/"
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(
@@ -532,17 +532,6 @@ async def generate_webapp_presentation(message, order_id, topic, slide_count, te
         await db.update_document_order(order_id, "failed")
         await message.answer("❌ Taqdimot yaratishda xatolik yuz berdi. Iltimos, qayta urinib ko'ring.")
         await message.answer("Asosiy menyu:", reply_markup=get_main_keyboard(user_lang))
-            document=document,
-            caption=f"🎯 {topic}\n👤 {author}\n📊 {slide_count} slayd\n🎨 {template} shablon",
-            reply_markup=get_main_keyboard(user_lang)
-        )
-        
-    except Exception as e:
-        logger.error(f"Error generating webapp presentation: {e}")
-        await message.answer(
-            "❌ Taqdimot yaratishda xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
-            reply_markup=get_main_keyboard(user_lang)
-        )
 
 @router.message(F.text == "Mening hisobim")
 async def my_account_handler(message: Message, db: Database, user_lang: str, user):
