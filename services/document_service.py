@@ -837,20 +837,9 @@ class DocumentService:
             font.name = 'Times New Roman'
             font.size = Pt(12)
 
-            # Title page
-            title_para = doc.add_paragraph()
-            title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            title_run = title_para.add_run("REFERAT")
-            title_run.font.size = Pt(16)
-            title_run.font.bold = True
-
-            doc.add_paragraph()  # Empty line
-
-            topic_para = doc.add_paragraph()
-            topic_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            topic_run = topic_para.add_run(topic)
-            topic_run.font.size = Pt(14)
-            topic_run.font.bold = True
+            # Create custom title page with template design (language-specific)
+            user_lang = content.get('language', 'uzbek')  # Default to uzbek
+            await self._create_referat_title_page(doc, topic, user_lang)
 
             # Add page break
             doc.add_page_break()
@@ -922,6 +911,155 @@ class DocumentService:
         except Exception as e:
             logger.error(f"Error creating referat: {e}")
             raise
+
+    async def _create_referat_title_page(self, doc, topic: str, language: str = 'uzbek'):
+        """Create referat title page with exact template design from user's image, language-specific"""
+        try:
+            # Language-specific texts
+            texts = self._get_referat_template_texts(language)
+            
+            # Set paragraph formats for alignment and spacing
+            
+            # Top section with lines and "fanidan"
+            # Long line
+            para1 = doc.add_paragraph()
+            para1.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run1 = para1.add_run("_" * 50)
+            run1.font.size = Pt(12)
+            run1.font.name = 'Times New Roman'
+            
+            # Short line with "fanidan"  
+            para2 = doc.add_paragraph()  
+            para2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run2 = para2.add_run("_" * 20 + f" {texts['from_subject']}")
+            run2.font.size = Pt(12)
+            run2.font.name = 'Times New Roman'
+            
+            # Add 6 empty lines for spacing
+            for _ in range(6):
+                doc.add_paragraph()
+            
+            # REFERAT title (large and bold)
+            title_para = doc.add_paragraph()
+            title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            title_run = title_para.add_run(f"{texts['referat']}:")
+            title_run.font.size = Pt(36)
+            title_run.font.bold = True
+            title_run.font.name = 'Times New Roman'
+            
+            # Add 5 empty lines for spacing
+            for _ in range(5):
+                doc.add_paragraph()
+                
+            # Topic title (underlined)
+            topic_para = doc.add_paragraph()
+            topic_para.alignment = WD_ALIGN_PARAGRAPH.CENTER  
+            topic_run = topic_para.add_run(f"{texts['topic']}: ")
+            topic_run.font.size = Pt(14)
+            topic_run.font.name = 'Times New Roman'
+            
+            topic_line_run = topic_para.add_run("_" * 30)
+            topic_line_run.font.size = Pt(14)
+            topic_line_run.font.name = 'Times New Roman'
+            
+            # Add the actual topic below the line (on next paragraph)
+            topic_name_para = doc.add_paragraph()
+            topic_name_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            topic_name_run = topic_name_para.add_run(topic)
+            topic_name_run.font.size = Pt(14)
+            topic_name_run.font.name = 'Times New Roman'
+            topic_name_run.font.italic = True
+            
+            # Add 2 empty lines
+            for _ in range(2):
+                doc.add_paragraph()
+            
+            # Bajardi section
+            bajardi_para = doc.add_paragraph()
+            bajardi_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            bajardi_run = bajardi_para.add_run(f"{texts['prepared_by']}: ")
+            bajardi_run.font.size = Pt(12)
+            bajardi_run.font.name = 'Times New Roman'
+            
+            kurs_run = bajardi_para.add_run(f"_____ {texts['course']}")
+            kurs_run.font.size = Pt(12)
+            kurs_run.font.name = 'Times New Roman'
+            
+            # Add new line within same paragraph
+            bajardi_para.add_run("\n")
+            
+            guruh_run = bajardi_para.add_run(f"                                 {texts['group_student']}")
+            guruh_run.font.size = Pt(12)
+            guruh_run.font.name = 'Times New Roman'
+            
+            # Qabul qildi section with line
+            qabul_para = doc.add_paragraph()
+            qabul_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            qabul_run = qabul_para.add_run(f"{texts['accepted_by']}:")
+            qabul_run.font.size = Pt(12)
+            qabul_run.font.name = 'Times New Roman'
+            
+            qabul_line_run = qabul_para.add_run("_" * 20)
+            qabul_line_run.font.size = Pt(12)
+            qabul_line_run.font.name = 'Times New Roman'
+            
+            # Add 4 empty lines for spacing before Toshkent
+            for _ in range(4):
+                doc.add_paragraph()
+            
+            # City at bottom
+            city_para = doc.add_paragraph()
+            city_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            city_run = city_para.add_run(texts['city'])
+            city_run.font.size = Pt(12)
+            city_run.font.name = 'Times New Roman'
+            
+            logger.info("Referat title page created with template design")
+            
+        except Exception as e:
+            logger.error(f"Error creating referat title page: {e}")
+            # Fallback to simple title if template fails
+            title_para = doc.add_paragraph()
+            title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            title_run = title_para.add_run("REFERAT")
+            title_run.font.size = Pt(16)
+            title_run.font.bold = True
+
+    def _get_referat_template_texts(self, language: str) -> Dict[str, str]:
+        """Get language-specific texts for referat template"""
+        if language == 'russian':
+            return {
+                'from_subject': 'по предмету',
+                'referat': 'РЕФЕРАТ',
+                'topic': 'Тема',
+                'prepared_by': 'Выполнил',
+                'course': 'курс',
+                'group_student': '(рус) группы студент',
+                'accepted_by': 'Принял',
+                'city': 'Ташкент'
+            }
+        elif language == 'english':
+            return {
+                'from_subject': 'on the subject',
+                'referat': 'REPORT',
+                'topic': 'Topic',
+                'prepared_by': 'Prepared by',
+                'course': 'course',
+                'group_student': '(eng) group student',
+                'accepted_by': 'Accepted by',
+                'city': 'Tashkent'
+            }
+        else:  # uzbek (default)
+            return {
+                'from_subject': 'fanidan',
+                'referat': 'REFERAT',
+                'topic': 'Mavzu',
+                'prepared_by': 'Bajardi',
+                'course': 'kurs',
+                'group_student': "(o'zb) guruhi talabasi",
+                'accepted_by': 'Qabul qildi',
+                'city': 'Toshkent'
+            }
 
     async def _download_image(self, image_url: str, filename: str) -> Optional[str]:
         """Download image from URL for presentation"""

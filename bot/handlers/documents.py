@@ -306,6 +306,9 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
         content = await ai_service.generate_document_content(
             topic, section_count, "referat", user_lang
         )
+        
+        # Add language info to content for template
+        content['language'] = user_lang
 
         # Create document file using old professional service  
         from services.document_service import DocumentService as OldDocumentService
