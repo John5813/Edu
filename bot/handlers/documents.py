@@ -398,6 +398,14 @@ async def handle_web_app_data(message: Message, state: FSMContext, db: Database,
             if language != user_lang:
                 user_lang = language
             
+            # Check balance first
+            price = get_document_price("presentation", {"slide_count": slide_count})
+            use_free_service = not user.free_service_used
+            
+            if not use_free_service and user.balance < price:
+                await message.answer(get_text(user_lang, "insufficient_balance"))
+                return
+            
             # Create order record
             specifications = json.dumps({
                 "slide_count": slide_count,
@@ -413,46 +421,60 @@ async def handle_web_app_data(message: Message, state: FSMContext, db: Database,
             
             await message.answer("⏳ Taqdimot yaratilmoqda...")
             
-            # Generate content with template support
-            from services.ai_service import AIService
-            ai_service = AIService()
-            content = await ai_service.generate_presentation_in_batches(topic, slide_count, user_lang)
-            
-            # Add template info to content
-            content['template'] = template
-            content['author'] = author
-            
-            # Create presentation with template
-            from services.document_service import DocumentService
-            doc_service = DocumentService()
-            file_path = await doc_service.create_presentation_with_template(topic, content, author, template)
-            
-            # Update order
-            await db.update_document_order(order_id, "completed", file_path)
-            
-            # Process payment
-            if not user.free_service_used:
-                await db.mark_free_service_used(user.telegram_id)
-                await message.answer(get_text(user_lang, "free_service_used"))
-            else:
-                price = get_document_price("presentation", {"slide_count": slide_count})
-                await db.update_user_balance(user.telegram_id, -price)
-                await message.answer(get_text(user_lang, "document_ready"))
-            
-            # Send file
-            document = FSInputFile(file_path)
-            await message.answer_document(
-                document=document,
-                caption=f"🎯 {topic}\n👤 {author}\n📊 {slide_count} slayd\n🎨 {template} shablon",
-                reply_markup=get_main_keyboard(user_lang)
-            )
-            
-            await state.clear()
+            # Start document generation asynchronously
+            asyncio.create_task(generate_webapp_presentation(
+                message, order_id, topic, slide_count, template, author, 
+                user_lang, use_free_service, price, db, user
+            ))
             
     except Exception as e:
         logger.error(f"Error handling web app data: {e}")
         await message.answer(
             "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
+            reply_markup=get_main_keyboard(user_lang)
+        )
+
+async def generate_webapp_presentation(message, order_id, topic, slide_count, template, author, 
+                                     user_lang, use_free_service, price, db, user):
+    """Generate presentation from web app data"""
+    try:
+        # Generate content with template support
+        ai_service = AIService()
+        content = await ai_service.generate_presentation_content(topic, slide_count, user_lang)
+        
+        # Create presentation with template
+        doc_service = DocumentService()
+        file_path = await doc_service.create_presentation(
+            topic=topic, 
+            content=content, 
+            author=author,
+            template=template,
+            language=user_lang
+        )
+        
+        # Update order
+        await db.update_document_order(order_id, "completed", file_path)
+        
+        # Process payment
+        if use_free_service:
+            await db.mark_free_service_used(user.telegram_id)
+            await message.answer(get_text(user_lang, "free_service_used"))
+        else:
+            await db.update_user_balance(user.telegram_id, -price)
+            await message.answer(get_text(user_lang, "document_ready"))
+        
+        # Send file
+        document = FSInputFile(file_path)
+        await message.answer_document(
+            document=document,
+            caption=f"🎯 {topic}\n👤 {author}\n📊 {slide_count} slayd\n🎨 {template} shablon",
+            reply_markup=get_main_keyboard(user_lang)
+        )
+        
+    except Exception as e:
+        logger.error(f"Error generating webapp presentation: {e}")
+        await message.answer(
+            "❌ Taqdimot yaratishda xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
             reply_markup=get_main_keyboard(user_lang)
         )
 
