@@ -16,6 +16,93 @@ from config import PRESENTATION_PRICES, DOCUMENT_PRICES
 router = Router()
 logger = logging.getLogger(__name__)
 
+# WEB APP DATA HANDLER - MUST BE FIRST!
+@router.message(F.web_app_data)
+async def handle_web_app_data(message: Message, state: FSMContext, db: Database, user_lang: str, user):
+    """Handle data from web app"""
+    try:
+        import json
+        logger.info(f"🎯 Received web app data: {message.web_app_data}")
+        
+        if not message.web_app_data.data:
+            await message.answer("❌ Web app ma'lumoti topilmadi")
+            return
+            
+        logger.info(f"Web app data content: {message.web_app_data.data}")
+        data = json.loads(message.web_app_data.data)
+        logger.info(f"Parsed data: {data}")
+        
+        if data.get('action') == 'create_presentation':
+            # Extract data from web app
+            topic = data.get('topic')
+            language = data.get('language', 'uzbek')
+            author = data.get('author', user.first_name or '')
+            slide_count = data.get('slides', 15)
+            template = data.get('template', 'classic')
+            
+            # Update user language if different
+            if language != user_lang:
+                user_lang = language
+            
+            # Check balance first
+            price = get_document_price("presentation", {"slide_count": slide_count})
+            use_free_service = not user.free_service_used
+            
+            if not use_free_service and user.balance < price:
+                await message.answer(
+                    get_text(user_lang, "insufficient_balance"),
+                    reply_markup=get_main_keyboard(user_lang)
+                )
+                return
+            
+            # Clear presentation choice state
+            await state.clear()
+            
+            # Create order record
+            specifications = json.dumps({
+                "slide_count": slide_count,
+                "template": template,
+                "author": author
+            })
+            order_id = await db.create_document_order(
+                user_id=user.id,
+                document_type="presentation",
+                topic=topic,
+                specifications=specifications
+            )
+            
+            # Show waiting message with order info
+            if use_free_service:
+                await message.answer(
+                    f"🎯 Taqdimot yaratilmoqda...\n"
+                    f"📋 Mavzu: {topic}\n"
+                    f"📄 Slaydlar: {slide_count}\n"
+                    f"🎨 Shablon: {template}\n"
+                    f"✍️ Muallif: {author}\n"
+                    f"💝 Bepul xizmat ishlatilmoqda",
+                    reply_markup=get_main_keyboard(user_lang)
+                )
+            else:
+                await message.answer(
+                    f"🎯 Taqdimot yaratilmoqda...\n"
+                    f"📋 Mavzu: {topic}\n"
+                    f"📄 Slaydlar: {slide_count}\n"
+                    f"🎨 Shablon: {template}\n"
+                    f"✍️ Muallif: {author}\n"
+                    f"💰 Narx: {price} so'm",
+                    reply_markup=get_main_keyboard(user_lang)
+                )
+            
+            # Generate presentation asynchronously
+            asyncio.create_task(generate_webapp_presentation(
+                message, order_id, topic, slide_count, template, author,
+                user_lang, use_free_service, price, db, user
+            ))
+            
+    except Exception as e:
+        logger.error(f"Error handling web app data: {e}")
+        await message.answer("❌ Xatolik yuz berdi. Qayta urinib ko'ring.")
+
 # Promokod handlers moved to settings
 
 # Document type mapping
@@ -57,10 +144,15 @@ async def handle_document_request(message: Message, state: FSMContext, db: Datab
     if document_type == "presentation":
         from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
         
+        # Get current Replit URL dynamically
+        import os
+        replit_url = os.getenv('REPLIT_URL', 'https://ff8081b2-d953-40bb-8e2f-f5970fbed535-00-bubtfmmzg3hi.picard.replit.dev')
+        webapp_url = f"{replit_url}/webapp/"
+        
         keyboard = InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(
                 text="🎯 Taqdimot yaratish (yangi usul)",
-                web_app=WebAppInfo(url="https://ff8081b2-d953-40bb-8e2f-f5970fbed535-00-bubtfmmzg3hi.picard.replit.dev/webapp/")
+                web_app=WebAppInfo(url=webapp_url)
             )
         ], [
             InlineKeyboardButton(
@@ -379,89 +471,7 @@ async def classic_presentation_handler(callback: CallbackQuery, state: FSMContex
     await callback.message.answer(get_text(user_lang, "enter_topic"))
     await state.set_state(DocumentStates.waiting_for_topic)
 
-@router.message()
-async def handle_web_app_data(message: Message, state: FSMContext, db: Database, user_lang: str, user):
-    """Handle data from web app"""
-    try:
-        import json
-        import logging
-        logger = logging.getLogger(__name__)
-        
-        # Check if this is web app data
-        if not message.web_app_data:
-            return  # Ignore regular messages
-        
-        logger.info(f"🎯 Received web app data: {message.web_app_data}")
-        
-        if not message.web_app_data.data:
-            await message.answer("❌ Web app ma'lumoti topilmadi")
-            return
-            
-        logger.info(f"Web app data content: {message.web_app_data.data}")
-        data = json.loads(message.web_app_data.data)
-        logger.info(f"Parsed data: {data}")
-        
-        if data.get('action') == 'create_presentation':
-            # Extract data from web app
-            topic = data.get('topic')
-            language = data.get('language', 'uzbek')
-            author = data.get('author', user.first_name or '')
-            slide_count = data.get('slides', 15)
-            template = data.get('template', 'classic')
-            
-            # Update user language if different
-            if language != user_lang:
-                user_lang = language
-            
-            # Check balance first
-            price = get_document_price("presentation", {"slide_count": slide_count})
-            use_free_service = not user.free_service_used
-            
-            if not use_free_service and user.balance < price:
-                await message.answer(
-                    get_text(user_lang, "insufficient_balance"),
-                    reply_markup=get_main_keyboard(user_lang)
-                )
-                return
-            
-            # Clear presentation choice state
-            await state.clear()
-            
-            # Create order record
-            specifications = json.dumps({
-                "slide_count": slide_count,
-                "template": template,
-                "author": author
-            })
-            order_id = await db.create_document_order(
-                user_id=user.id,
-                document_type="presentation",
-                topic=topic,
-                specifications=specifications
-            )
-            
-            # Show waiting message with main keyboard (no presentation buttons)
-            await message.answer(
-                f"⏳ Taqdimot yaratilmoqda...\n\n"
-                f"📋 Mavzu: {topic}\n"
-                f"👤 Muallif: {author}\n"
-                f"📊 Slaydlar: {slide_count}\n"
-                f"🎨 Shablon: {template}",
-                reply_markup=get_main_keyboard(user_lang)
-            )
-            
-            # Start document generation asynchronously
-            asyncio.create_task(generate_webapp_presentation(
-                message, order_id, topic, slide_count, template, author, 
-                user_lang, use_free_service, price, db, user
-            ))
-            
-    except Exception as e:
-        logger.error(f"Error handling web app data: {e}")
-        await message.answer(
-            "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
-            reply_markup=get_main_keyboard(user_lang)
-        )
+# Duplicate handler removed - only first one is kept
 
 async def generate_webapp_presentation(message, order_id, topic, slide_count, template, author, 
                                      user_lang, use_free_service, price, db, user):
