@@ -78,10 +78,22 @@ def main():
         )
     })
 
+    async def handle_root(request):
+        return web.Response(text="Web App Server is running", content_type="text/plain")
+
+    async def handle_webapp(request):
+        """Serve the webapp interface"""
+        try:
+            with open('webapp/index.html', 'r', encoding='utf-8') as f:
+                html_content = f.read()
+            return web.Response(text=html_content, content_type='text/html')
+        except FileNotFoundError:
+            return web.Response(text="Web app file not found", status=404)
+
     # Add routes
-    app.router.add_get('/webapp/', index_handler)
-    app.router.add_get('/webapp/index.html', index_handler)
-    app.router.add_get('/webapp/templates/{filename}', template_handler)
+    app.router.add_get('/', handle_root)
+    app.router.add_get('/webapp/', handle_webapp)
+    app.router.add_get('/webapp', handle_webapp)
 
     # Setup CORS for all routes
     for route in list(app.router.routes()):

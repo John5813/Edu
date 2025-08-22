@@ -60,7 +60,7 @@ async def handle_document_request(message: Message, state: FSMContext, db: Datab
         keyboard = InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(
                 text="🎯 Taqdimot yaratish (yangi usul)",
-                web_app=WebAppInfo(url="https://ff8081b2-d953-40bb-8e2f-f5970fbed535-00-bubtfmmzg3hi.picard.replit.dev:5000/webapp/")
+                web_app=WebAppInfo(url="https://ff8081b2-d953-40bb-8e2f-f5970fbed535-00-bubtfmmzg3hi.picard.replit.dev/webapp/")
             )
         ], [
             InlineKeyboardButton(
