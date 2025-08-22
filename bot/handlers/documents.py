@@ -379,16 +379,21 @@ async def classic_presentation_handler(callback: CallbackQuery, state: FSMContex
     await callback.message.answer(get_text(user_lang, "enter_topic"))
     await state.set_state(DocumentStates.waiting_for_topic)
 
-@router.message(F.web_app_data)
+@router.message()
 async def handle_web_app_data(message: Message, state: FSMContext, db: Database, user_lang: str, user):
     """Handle data from web app"""
     try:
         import json
         import logging
         logger = logging.getLogger(__name__)
+        
+        # Check if this is web app data
+        if not message.web_app_data:
+            return  # Ignore regular messages
+        
         logger.info(f"🎯 Received web app data: {message.web_app_data}")
         
-        if not message.web_app_data or not message.web_app_data.data:
+        if not message.web_app_data.data:
             await message.answer("❌ Web app ma'lumoti topilmadi")
             return
             
