@@ -240,9 +240,9 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
             topic, section_count, "independent_work", user_lang
         )
 
-        # Create document file using new service
-        from services.document_service_new import DocumentService as NewDocumentService
-        doc_service = NewDocumentService()
+        # Create document file using old professional service
+        from services.document_service import DocumentService as OldDocumentService
+        doc_service = OldDocumentService()
         file_path = await doc_service.create_independent_work(topic, content)
 
         # Update order
@@ -307,9 +307,9 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
             topic, section_count, "referat", user_lang
         )
 
-        # Create document file using new service
-        from services.document_service_new import DocumentService as NewDocumentService
-        doc_service = NewDocumentService()
+        # Create document file using old professional service  
+        from services.document_service import DocumentService as OldDocumentService
+        doc_service = OldDocumentService()
         file_path = await doc_service.create_referat(topic, content)
 
         # Update order
