@@ -740,20 +740,9 @@ class DocumentService:
             font.name = 'Times New Roman'
             font.size = Pt(12)
 
-            # Title page
-            title_para = doc.add_paragraph()
-            title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            title_run = title_para.add_run("MUSTAQIL ISH")
-            title_run.font.size = Pt(16)
-            title_run.font.bold = True
-
-            doc.add_paragraph()  # Empty line
-
-            topic_para = doc.add_paragraph()
-            topic_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            topic_run = topic_para.add_run(topic)
-            topic_run.font.size = Pt(14)
-            topic_run.font.bold = True
+            # Create custom title page with template design (language-specific)
+            user_lang = content.get('language', 'uzbek')  # Default to uzbek
+            await self._create_independent_work_title_page(doc, topic, user_lang)
 
             # Add page break
             doc.add_page_break()
@@ -1059,6 +1048,163 @@ class DocumentService:
                 'group_student': "(o'zb) guruhi talabasi",
                 'accepted_by': 'Qabul qildi',
                 'city': 'Toshkent'
+            }
+
+    async def _create_independent_work_title_page(self, doc, topic: str, language: str = 'uzbek'):
+        """Create independent work title page with exact template design from user's image, language-specific"""
+        try:
+            # Language-specific texts
+            texts = self._get_independent_work_template_texts(language)
+            
+            # Add border around the page (simulate with underlines and spacing)
+            # Top border line
+            border_para = doc.add_paragraph()
+            border_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            border_run = border_para.add_run("_" * 80)
+            border_run.font.size = Pt(12)
+            border_run.font.name = 'Times New Roman'
+            
+            # Add some spacing
+            for _ in range(2):
+                doc.add_paragraph()
+            
+            # Faculty line - right aligned
+            faculty_para = doc.add_paragraph()
+            faculty_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            faculty_run = faculty_para.add_run("_" * 30 + f" {texts['faculty']}")
+            faculty_run.font.size = Pt(12)
+            faculty_run.font.name = 'Times New Roman'
+            
+            doc.add_paragraph()  # Empty line
+            
+            # Subject line - right aligned  
+            subject_para = doc.add_paragraph()
+            subject_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            subject_run = subject_para.add_run("_" * 30 + f" {texts['from_subject']}")
+            subject_run.font.size = Pt(12)
+            subject_run.font.name = 'Times New Roman'
+            
+            # Add 4 empty lines for spacing
+            for _ in range(4):
+                doc.add_paragraph()
+            
+            # MUSTAQIL ISH title (large and bold, centered)
+            title_para = doc.add_paragraph()
+            title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            title_run = title_para.add_run(texts['independent_work'])
+            title_run.font.size = Pt(32)
+            title_run.font.bold = True
+            title_run.font.name = 'Times New Roman'
+            
+            # Add 3 empty lines for spacing
+            for _ in range(3):
+                doc.add_paragraph()
+                
+            # Topic with underline (left aligned)
+            topic_para = doc.add_paragraph()
+            topic_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            topic_run = topic_para.add_run(f"{texts['topic']}:")
+            topic_run.font.size = Pt(14)
+            topic_run.font.name = 'Times New Roman'
+            
+            topic_line_run = topic_para.add_run("_" * 45)
+            topic_line_run.font.size = Pt(14)
+            topic_line_run.font.name = 'Times New Roman'
+            
+            # Add second line for topic continuation
+            topic_cont_para = doc.add_paragraph()
+            topic_cont_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            topic_cont_run = topic_cont_para.add_run("_" * 55)
+            topic_cont_run.font.size = Pt(14)
+            topic_cont_run.font.name = 'Times New Roman'
+            
+            # Add the actual topic below the lines (smaller font, left aligned)
+            topic_name_para = doc.add_paragraph()
+            topic_name_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            topic_name_run = topic_name_para.add_run(f'"{topic}"')
+            topic_name_run.font.size = Pt(12)
+            topic_name_run.font.name = 'Times New Roman'
+            topic_name_run.font.italic = True
+            
+            # Add 5 empty lines
+            for _ in range(5):
+                doc.add_paragraph()
+            
+            # Bajardi section (left aligned)
+            bajardi_para = doc.add_paragraph()
+            bajardi_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            bajardi_run = bajardi_para.add_run(f"{texts['prepared_by']}. ")
+            bajardi_run.font.size = Pt(12)
+            bajardi_run.font.name = 'Times New Roman'
+            
+            bajardi_line_run = bajardi_para.add_run("_" * 20)
+            bajardi_line_run.font.size = Pt(12)
+            bajardi_line_run.font.name = 'Times New Roman'
+            
+            # Add new line
+            doc.add_paragraph()
+            
+            # Qabul qildi section (left aligned)
+            qabul_para = doc.add_paragraph()
+            qabul_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            qabul_run = qabul_para.add_run(f"{texts['accepted_by']} ")
+            qabul_run.font.size = Pt(12)
+            qabul_run.font.name = 'Times New Roman'
+            
+            qabul_line_run = qabul_para.add_run("_" * 18)
+            qabul_line_run.font.size = Pt(12)
+            qabul_line_run.font.name = 'Times New Roman'
+            
+            # Add spacing before bottom border
+            for _ in range(6):
+                doc.add_paragraph()
+            
+            # Bottom border line
+            bottom_border_para = doc.add_paragraph()
+            bottom_border_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            bottom_border_run = bottom_border_para.add_run("_" * 80)
+            bottom_border_run.font.size = Pt(12)
+            bottom_border_run.font.name = 'Times New Roman'
+            
+            logger.info("Independent work title page created with template design")
+            
+        except Exception as e:
+            logger.error(f"Error creating independent work title page: {e}")
+            # Fallback to simple title if template fails
+            title_para = doc.add_paragraph()
+            title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            title_run = title_para.add_run("MUSTAQIL ISH")
+            title_run.font.size = Pt(16)
+            title_run.font.bold = True
+
+    def _get_independent_work_template_texts(self, language: str) -> Dict[str, str]:
+        """Get language-specific texts for independent work template"""
+        if language == 'russian':
+            return {
+                'faculty': 'факультети',
+                'from_subject': 'по предмету',
+                'independent_work': 'Самостоятельная работа',
+                'topic': 'Тема',
+                'prepared_by': 'Выполнил',
+                'accepted_by': 'Принял'
+            }
+        elif language == 'english':
+            return {
+                'faculty': 'fakulteti',
+                'from_subject': 'on the subject',
+                'independent_work': 'Independent work',
+                'topic': 'Topic',
+                'prepared_by': 'Prepared by',
+                'accepted_by': 'Accepted by'
+            }
+        else:  # uzbek (default)
+            return {
+                'faculty': 'fakulteti',
+                'from_subject': 'fanidan',
+                'independent_work': 'Mustaqil ish',
+                'topic': 'Mavzu',
+                'prepared_by': 'Bajardi',
+                'accepted_by': 'Qabul qildi'
             }
 
     async def _download_image(self, image_url: str, filename: str) -> Optional[str]:
