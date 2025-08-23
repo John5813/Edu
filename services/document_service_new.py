@@ -5,6 +5,7 @@ from pptx import Presentation
 from pptx.util import Inches as PptxInches, Pt as PptxPt
 from pptx.enum.text import PP_ALIGN
 from pptx.enum.shapes import MSO_SHAPE
+from pptx.dml.color import RGBColor
 from docx import Document
 from docx.shared import Inches as DocxInches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -225,6 +226,7 @@ class DocumentService:
         """Create three column slide with template colors"""
         from pptx.util import Inches as PptxInches, Pt as PptxPt
         from pptx.enum.text import PP_ALIGN
+        from pptx.dml.color import RGBColor
         
         colors = template_service.get_template_colors(template_id)
         
