@@ -170,12 +170,13 @@ class TemplateService:
     def _set_slide_background(self, slide, image_path: str):
         """Set background image for a slide"""
         try:
-            # Get slide dimensions
-            prs = slide.part.presentation
-            slide_width = prs.slide_width
-            slide_height = prs.slide_height
+            from pptx.util import Inches
             
-            # Add image as background
+            # Use standard slide dimensions (16:9)
+            slide_width = Inches(13.33)
+            slide_height = Inches(7.5)
+            
+            # Add background image at position 0,0 filling entire slide
             pic = slide.shapes.add_picture(
                 image_path,
                 0, 0,
@@ -183,12 +184,35 @@ class TemplateService:
                 height=slide_height
             )
             
-            # Send picture to back
-            slide.shapes._spTree.remove(pic._element)
-            slide.shapes._spTree.insert(2, pic._element)
+            # Move background to the very back (behind all content)
+            # Get all shapes in slide
+            shapes_tree = slide.shapes._spTree
+            
+            # Remove the picture element
+            shapes_tree.remove(pic._element)
+            
+            # Insert it at the beginning (after layout elements)
+            # Index 0 and 1 are usually slide layout elements, so insert at 2
+            if len(shapes_tree) >= 2:
+                shapes_tree.insert(2, pic._element)  
+            else:
+                shapes_tree.insert(0, pic._element)
+            
+            logger.info(f"Successfully applied background image: {image_path}")
             
         except Exception as e:
             logger.error(f"Error setting slide background: {e}")
+            # Alternative approach if first method fails
+            try:
+                from pptx.util import Inches
+                slide.shapes.add_picture(
+                    image_path,
+                    0, 0, 
+                    Inches(13.33), Inches(7.5)
+                )
+                logger.info(f"Applied background with alternative method: {image_path}")
+            except Exception as e2:
+                logger.error(f"Alternative background method also failed: {e2}")
     
     def get_template_colors(self, template_id: str) -> Dict:
         """Get color scheme for a template"""
