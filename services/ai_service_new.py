@@ -20,27 +20,27 @@ class AIService:
         try:
             all_slides = []
             batch_size = 3
-            
+
             for batch_start in range(0, slide_count, batch_size):
                 batch_end = min(batch_start + batch_size, slide_count)
                 current_batch_size = batch_end - batch_start
                 batch_number = (batch_start // batch_size) + 1
-                
+
                 logger.info(f"Generating batch {batch_number}: slides {batch_start + 1}-{batch_end}")
-                
+
                 # Generate batch with specific layout instructions
                 batch_slides = await self._generate_slide_batch(
                     topic, batch_start + 1, current_batch_size, batch_number, language
                 )
-                
+
                 all_slides.extend(batch_slides)
-                
+
                 # Small delay between batches
                 await asyncio.sleep(0.5)
-            
+
             logger.info(f"Generated complete presentation with {len(all_slides)} slides")
             return {"slides": all_slides}
-            
+
         except Exception as e:
             logger.error(f"Error generating presentation in batches: {e}")
             raise
@@ -52,13 +52,9 @@ class AIService:
             layouts_info = []
             for i in range(batch_size):
                 slide_num = start_slide_num + i
-                if slide_num == 1:
-                    layouts_info.append("title")
-                else:
-                    content_slide_num = slide_num - 1  # Skip title slide
-                    layout_type = self._get_batch_layout_type(content_slide_num)
-                    layouts_info.append(layout_type)
-            
+                layout_type = self._get_layout_type_for_slide(slide_num)
+                layouts_info.append(layout_type)
+
             if language.lower() == 'uzbek' or language.lower() == 'uz':
                 prompt = f""""{topic}" mavzusi bo'yicha {batch_size} ta slayd yarating. Bu {batch_num}-chi guruh slaydlar ({start_slide_num}-{start_slide_num + batch_size - 1}).
 
@@ -69,11 +65,15 @@ YANGI TIZIM - LAYOUT TALABLARI:
                     if layout == "title":
                         prompt += f"Slayd {slide_num}: SARLAVHA SLAYDI\n"
                     elif layout == "bullet_points":
-                        prompt += f"Slayd {slide_num}: BULLET POINT SLAYD (2,5,8,11...)\n- AYNAN 5 ta bullet point\n- HAR NUQTADA 70-80 SO'Z (jami 350-400 so'z)\n- Faqat bullet belgisi (•), raqam va qo'shimcha belgisiz\n- Har nuqta to'liq batafsil paragraf tarzida\n- Professional akademik uslub\n"
+                        prompt += f"Slayd {slide_num}: BULLET POINT SLAYDI (2,5,8,11...)\n- AYNAN 5 ta bullet point\n- HAR NUQTADA 70-80 SO'Z (jami 350-400 so'z)\n- Faqat bullet belgisi (•), raqam va qo'shimcha belgisiz\n- Har nuqta to'liq batafsil paragraf tarzida\n- Professional akademik uslub\n"
                     elif layout == "text_with_image":
                         prompt += f"Slayd {slide_num}: MATN+DALL-E RASM SLAYD (3,6,9,12...)\n- KAMIDA 100-120 SO'ZLIK uzluksiz paragraf\n- To'liq akademik tushuntirish, misollar bilan\n- Chuqur tahlil va batafsil ma'lumot\n- Professional uslub\n"
                     elif layout == "three_column":
                         prompt += f"Slayd {slide_num}: 3 USTUNLI SLAYD (4,7,10,13...)\n- 3 ta turli xil ustun yarating (bir xil so'zlarni takrorlamang!)\n- Har ustun: ALOHIDA KALIT SO'Z + 80 SO'ZLIK BATAFSIL MATN\n- Mavzuga mos 3 ta kategori (masalan: Texnologiya/Jamiyat/Kelajak)\n- HAR USTUN MUSTAQIL va turli jihatlarni ko'rsatsin\n- CONTENT da: Ustun1sarlavha|||80so'zlikmatn|||Ustun2sarlavha|||80so'zlikmatn|||Ustun3sarlavha|||80so'zlikmatn\n- Jami 240+ so'z (3 x 80)\n"
+                    elif layout == "three_bullets": # Specific layout for slide 5
+                        prompt += f"Slayd {slide_num}: 3 TA NUQTALI SLAYD\n- AYNAN 3 ta bullet point\n- Har nuqtada 70-80 so'z\n- Faqat bullet belgisi (•), raqam va qo'shimcha belgisiz\n- Professional akademik uslub\n"
+                    elif layout == "four_numbered": # Specific layout for slide 8
+                        prompt += f"Slayd {slide_num}: 4 RAQAMLI MATN SLAYD\n- Har raqam bir-biridan o'ng tarafga siljib boradi\n- Har raqam ostida 70-80 so'zlik matn\n- Raqamlar quyidagicha: 1., 2., 3., 4.\n- Professional akademik uslub\n"
 
                 prompt += f"""
 QATTIQ QOIDALAR:
@@ -83,8 +83,10 @@ QATTIQ QOIDALAR:
    - 3 ta TURLI XIL ustun: har birida alohida kalit so'z + 80 so'zlik batafsil matn  
    - HAR USTUN mustaqil jihat (bir xil so'zlarni takrorlamang!)
    - Mavzuga mos kategoriyalar (masalan: Texnologiya, Jamiyat, Kelajak)
-   - CONTENT format: Sarlavha1|||Matn1|||Sarlavha2|||Matn2|||Sarlavha3|||Matn3
-   - JAMI 240+ SO'Z (3 x 80)
+   - CONTENT format: Sarlavha1|||80so'zlikmatn|||Sarlavha2|||80so'zlikmatn|||Sarlavha3|||80so'zlikmatn
+   - Jami 240+ so'z (3 x 80)
+4. 3 TA NUQTALI SLAYD (2,5,8,11...): AYNAN 3 nuqta, har nuqtada 70-80 so'z, faqat • belgisi, raqamsiz.
+5. 4 RAQAMLI MATN SLAYD (8,11,14...): Har raqam bir-biridan o'ng tarafga siljib boradi, har raqam ostida 70-80 so'z. Raqamlar: 1., 2., 3., 4.
 
 MUHIM: Oddiy matn yozing, ortiqcha belgilar va shakllar ishlatmang. Mantiqiy ketma-ketlikni saqlang.
 
@@ -93,8 +95,8 @@ JSON formatda javob bering:
     "slides": [
         {{
             "title": "Slayd sarlavhasi",
-            "content": "3 USTUNLI slayd uchun: Sarlavha1|||80so'zlikmatn|||Sarlavha2|||80so'zlikmatn|||Sarlavha3|||80so'zlikmatn",
-            "layout_type": "bullet_points/text_with_image/three_column"
+            "content": "MATN+RASM slayd uchun: Uzun matn",
+            "layout_type": "bullet_points/text_with_image/three_column/three_bullets/four_numbered"
         }}
     ]
 }}"""
@@ -114,12 +116,19 @@ NEW SYSTEM - LAYOUT REQUIREMENTS:
                         prompt += f"Slide {slide_num}: TEXT+DALL-E IMAGE SLIDE (3,6,9,12...)\n- 80+ words continuous paragraph\n- Large font main content\n- Right side image (50% space)\n"
                     elif layout == "three_column":
                         prompt += f"Slide {slide_num}: 3 COLUMN SLIDE (4,7,10,13...)\n- Logical headers (not Part 1,2,3!)\n- 2-3 points per column\n- Topic-relevant categories\n"
+                    elif layout == "three_bullets": # Specific layout for slide 5
+                        prompt += f"Slide {slide_num}: 3 BULLET POINTS SLIDE\n- Exactly 3 bullet points\n- Minimum 30 words per point\n- Professional academic style\n"
+                    elif layout == "four_numbered": # Specific layout for slide 8
+                        prompt += f"Slide {slide_num}: 4 NUMBERED TEXT SLIDE\n- Each number shifts to the right of the previous one\n- 30+ words per number\n- Professional academic style\n"
+
 
                 prompt += f"""
 IMPORTANT RULES:
 1. BULLET POINT slides: Exactly 5 points, 30+ words each, small font
 2. TEXT+IMAGE slides: 80+ words continuous text, large font, space for image
 3. 3 COLUMN slides: Not "Part 1,2,3", use logical headers (e.g. "Causes", "Effects", "Solutions")
+4. 3 BULLET POINTS SLIDE (2,5,8,11...): Exactly 3 points, 30+ words each, only bullet symbols.
+5. 4 NUMBERED TEXT SLIDE (8,11,14...): Each number shifts to the right of the previous one, 30+ words per number. Numbers: 1., 2., 3., 4.
 
 Maintain logical flow. Each batch should be interconnected.
 
@@ -129,7 +138,7 @@ Respond in JSON format:
         {{
             "title": "Slide title",
             "content": "Slide content...",
-            "layout_type": "bullet_points/text_with_image/three_column"
+            "layout_type": "bullet_points/text_with_image/three_column/three_bullets/four_numbered"
         }}
     ]
 }}"""
@@ -147,33 +156,47 @@ Respond in JSON format:
             else:
                 content_str = '{"slides": []}'
             logger.info(f"Batch {batch_num} AI response length: {len(content_str)}")
-            
+
             content = json.loads(content_str)
             slides = content.get('slides', [])
-            
+
             # Validate each slide
             for idx, slide in enumerate(slides):
                 actual_slide_num = start_slide_num + idx
                 if 'title' not in slide:
-                    slide['title'] = f"Slayd {actual_slide_num}"
+                    slide['title'] = f"Slide {actual_slide_num}"
                 if 'content' not in slide:
-                    slide['content'] = "Mazmun yaratilmoqda..."
+                    slide['content'] = "Content being generated..."
                 if 'layout_type' not in slide:
                     slide['layout_type'] = layouts_info[idx] if idx < len(layouts_info) else "bullet_points"
-                
+
                 # Add slide number for reference
                 slide['slide_number'] = actual_slide_num
-                
+
                 logger.info(f"Slide {actual_slide_num}: {slide['layout_type']} - {slide['title'][:30]}... ({len(slide['content'])} chars)")
-            
+
             return slides
-            
+
         except Exception as e:
             logger.error(f"Error generating slide batch {batch_num}: {e}")
             raise
 
-    def _get_batch_layout_type(self, content_slide_num: int) -> str:
-        """Get layout type for content slides: bullet_points -> text_with_image -> three_column"""
+    def _get_layout_type_for_slide(self, slide_num: int) -> str:
+        """Get layout type based on slide number with new system"""
+        if slide_num == 1:
+            return "title"
+
+        # Special layouts for specific slides
+        if slide_num == 2:
+            return "bullet_points"  # Single continuous text
+        elif slide_num == 5:
+            return "three_bullets"  # 3 bullet points
+        elif slide_num == 8:
+            return "four_numbered"  # 4 numbered with right-shifting
+
+        content_slide_num = slide_num - 1  # Subtract title slide
+
+        # Default 3-layout rotation system for other slides
         layout_cycle = ["bullet_points", "text_with_image", "three_column"]
         return layout_cycle[(content_slide_num - 1) % 3]
 
@@ -183,9 +206,9 @@ Respond in JSON format:
             # Create image generation prompt - FIXED TO AVOID RANDOM CONTENT
             safe_prompt = slide_title.replace("Bialogiya", "Biology").replace("biologik", "biological")
             image_prompt = f"Professional educational illustration about {safe_prompt}, academic style diagram or concept visualization, clean background, no text overlay"
-            
+
             logger.info(f"Generating DALL-E image: {image_prompt[:50]}...")
-            
+
             response = self.client.images.generate(
                 model="dall-e-3",
                 prompt=image_prompt,
@@ -193,7 +216,7 @@ Respond in JSON format:
                 quality="standard",
                 n=1
             )
-            
+
             if response.data and len(response.data) > 0:
                 image_url = response.data[0].url
                 logger.info(f"Generated DALL-E image URL: {image_url[:50]}...")
@@ -201,7 +224,7 @@ Respond in JSON format:
             else:
                 logger.error("No image data received from DALL-E")
                 return None
-            
+
         except Exception as e:
             logger.error(f"Error generating DALL-E image: {e}")
             return None
@@ -213,14 +236,14 @@ Respond in JSON format:
                 async with session.get(image_url) as response:
                     if response.status == 200:
                         content = await response.read()
-                        
+
                         # Ensure temp directory exists
                         os.makedirs("temp", exist_ok=True)
                         filepath = f"temp/{filename}"
-                        
+
                         with open(filepath, "wb") as f:
                             f.write(content)
-                        
+
                         logger.info(f"Downloaded DALL-E image: {filepath}")
                         return filepath
                     else:
@@ -314,16 +337,16 @@ Respond in JSON format:
                 content_str = content_str.strip()
             else:
                 content_str = '{"sections": []}'
-            
+
             content = json.loads(content_str)
             sections = content.get('sections', [])
-            
+
             # Fallback if AI doesn't provide enough sections
             while len(sections) < section_count:
                 sections.append(f"Bo'lim {len(sections) + 1}")
-            
+
             return {"sections": sections[:section_count]}
-            
+
         except Exception as e:
             logger.error(f"Error generating document outline: {e}")
             # Fallback outline
@@ -382,7 +405,7 @@ Return only the text content, no other formatting needed."""
                 return content.strip()
             else:
                 return f"{section_title} bo'yicha batafsil ma'lumot. {topic} mavzusi doirasida muhim jihatlar ko'rib chiqiladi."
-            
+
         except Exception as e:
             logger.error(f"Error generating section content: {e}")
             return f"{section_title} bo'yicha batafsil ma'lumot. {topic} mavzusi doirasida muhim jihatlar ko'rib chiqiladi."
@@ -445,7 +468,7 @@ Return each reference on a separate line."""
                     f"{topic} tadqiqotlari - Ilmiy jurnal, 2024",
                     f"{topic} zamonaviy yondashuvlar - Internet resurs"
                 ]
-            
+
         except Exception as e:
             logger.error(f"Error generating references: {e}")
             return [

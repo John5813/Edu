@@ -375,6 +375,10 @@ class DocumentService:
             await self._create_new_text_with_image_slide(prs, slide_data, slide_num, images)
         elif layout_type == "three_column":
             await self._create_new_three_column_slide(prs, slide_data)
+        elif layout_type == "three_bullets":
+            await self._create_three_bullets_slide(prs, slide_data)
+        elif layout_type == "four_numbered":
+            await self._create_four_numbered_slide(prs, slide_data)
         else:
             logger.error(f"Unknown layout type: {layout_type}, using bullet_points fallback")
             await self._create_new_bullet_points_slide(prs, slide_data)
@@ -394,18 +398,18 @@ class DocumentService:
             title.text_frame.paragraphs[0].font.bold = True
             title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
 
-        # Content - long continuous text for topic explanation
+        # Content - long continuous text for topic explanation (no bullets)
         if content_placeholder:
             content_text = slide_data.get('content', '')
             content_frame = content_placeholder.text_frame
             content_frame.clear()
             content_frame.word_wrap = True
             
-            # Use full content as continuous text
+            # Use full content as single continuous paragraph (no bullets/points)
             p = content_frame.paragraphs[0]
             p.text = content_text
             p.font.size = PptxPt(16)  # Good readable size
-            p.alignment = PP_ALIGN.JUSTIFY  # Justified alignment for better reading
+            p.alignment = PP_ALIGN.LEFT  # Left alignment, not justified
             p.level = 0
 
     async def _create_new_text_with_image_slide(self, prs, slide_data: Dict, slide_num: int, images: Dict):
@@ -732,6 +736,113 @@ class DocumentService:
         
         # Default logical headers
         return ['Asosiy Jihat', 'Muhim Omil', 'Yakuniy Natija']
+
+    async def _create_three_bullets_slide(self, prs, slide_data: Dict):
+        """Create slide with 3 bullet points (for slide 5)"""
+        slide_layout = prs.slide_layouts[1]  # Title and content layout
+        slide = prs.slides.add_slide(slide_layout)
+
+        title = slide.shapes.title
+        content_placeholder = slide.placeholders[1]
+
+        # Title
+        if title:
+            title.text = slide_data.get('title', '3 Asosiy Nuqta')
+            title.text_frame.paragraphs[0].font.size = PptxPt(28)
+            title.text_frame.paragraphs[0].font.bold = True
+            title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
+
+        # Content with 3 bullet points
+        if content_placeholder:
+            content_text = slide_data.get('content', '')
+            content_frame = content_placeholder.text_frame
+            content_frame.clear()
+            content_frame.word_wrap = True
+            
+            # Parse content into 3 bullet points
+            bullet_points = self._parse_content_into_bullets(content_text, 3)
+            
+            for i, point in enumerate(bullet_points):
+                if i == 0:
+                    p = content_frame.paragraphs[0]
+                else:
+                    p = content_frame.add_paragraph()
+                
+                p.text = f"• {point.strip()}"
+                p.font.size = PptxPt(18)
+                p.alignment = PP_ALIGN.LEFT
+                p.level = 0
+
+    async def _create_four_numbered_slide(self, prs, slide_data: Dict):
+        """Create slide with 4 numbered points with right-shifting indentation"""
+        slide_layout = prs.slide_layouts[1]  # Title and content layout
+        slide = prs.slides.add_slide(slide_layout)
+
+        title = slide.shapes.title
+        content_placeholder = slide.placeholders[1]
+
+        # Title
+        if title:
+            title.text = slide_data.get('title', '4 Raqamli Matn')
+            title.text_frame.paragraphs[0].font.size = PptxPt(28)
+            title.text_frame.paragraphs[0].font.bold = True
+            title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
+
+        # Content with 4 numbered points with shifting indentation
+        if content_placeholder:
+            content_text = slide_data.get('content', '')
+            content_frame = content_placeholder.text_frame
+            content_frame.clear()
+            content_frame.word_wrap = True
+            
+            # Parse content into 4 numbered points
+            numbered_points = self._parse_content_into_bullets(content_text, 4)
+            
+            for i, point in enumerate(numbered_points):
+                if i == 0:
+                    p = content_frame.paragraphs[0]
+                else:
+                    p = content_frame.add_paragraph()
+                
+                p.text = f"{i + 1}. {point.strip()}"
+                p.font.size = PptxPt(18)
+                p.alignment = PP_ALIGN.LEFT
+                p.level = i  # Each number shifts right (0, 1, 2, 3 levels)
+
+    def _parse_content_into_bullets(self, content_text: str, num_points: int) -> List[str]:
+        """Parse content into specified number of bullet points"""
+        if not isinstance(content_text, str):
+            content_text = str(content_text) if content_text else ''
+            
+        if not content_text or content_text.strip() == '':
+            return [f"Nuqta {i+1} uchun ma'lumot" for i in range(num_points)]
+        
+        # Try to split by existing bullet points or numbers
+        points = []
+        
+        # Check for existing bullet points
+        if '•' in content_text:
+            points = [p.strip() for p in content_text.split('•') if p.strip()]
+        elif '\n-' in content_text:
+            points = [p.strip() for p in content_text.split('\n-') if p.strip()]
+        elif '\n' in content_text and len(content_text.split('\n')) >= num_points:
+            points = [p.strip() for p in content_text.split('\n') if p.strip()]
+        else:
+            # Split by sentences
+            sentences = [s.strip() for s in content_text.split('.') if s.strip()]
+            if len(sentences) >= num_points:
+                points = sentences[:num_points]
+            else:
+                # Split content into equal chunks
+                words = content_text.split()
+                chunk_size = max(10, len(words) // num_points)
+                points = [' '.join(words[i:i+chunk_size]) for i in range(0, len(words), chunk_size)]
+        
+        # Ensure we have exactly the required number of points
+        while len(points) < num_points:
+            points.append(f"Qo'shimcha ma'lumot {len(points) + 1}")
+        
+        return points[:num_points]
 
     async def _create_title_slide(self, prs, topic: str, author_name: str):
         """Create title slide"""
