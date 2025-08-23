@@ -75,15 +75,15 @@ def get_template_keyboard(group: int, total_groups: int) -> InlineKeyboardMarkup
     current_group = groups[group - 1]
     keyboard = InlineKeyboardBuilder()
     
-    # Add template selection buttons (5 per row)
+    # Add template selection buttons (2 per row for better layout)
     for template in current_group:
         template_num = int(template['id'].split('_')[1])
         keyboard.add(InlineKeyboardButton(
-            text=f"{template_num}. {template['name']}",
+            text=f"{template_num}",
             callback_data=f"template_{template['id']}"
         ))
     
-    keyboard.adjust(1)  # One template per row for better readability
+    keyboard.adjust(2)  # Two templates per row
     
     # Add navigation buttons
     nav_row = []

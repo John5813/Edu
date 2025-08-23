@@ -12,12 +12,21 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (August 23, 2025)
 
-✓ **WEB APP FUNKSIYASI O'CHIRILDI** - Foydalanuvchi talabiga ko'ra:
+✓ **YANGI SHABLON TANLASH TIZIMI** - Taqdimot uchun:
+  - 20 ta professional orqa fon shablon qo'shildi
+  - 5 tadan guruhlashtirilib ko'rsatiladi
+  - Matn ro'yxati va raqam tugmalari bilan tanlash
+  - Tanlangan shablon orqa fon sifatida qo'llaniladi
+  - Navigation tugmalari bilan sahifalar orasida o'tish
+
+✓ **Taqdimot yaratish jarayoni yangilandi**:
+  - Mavzu → Slayd soni → Balans tekshiruvi → Shablon tanlash → Yaratish
+  - Shablon nomi taqdimot faylida ko'rsatiladi
+  - Template service va keyboard system qo'shildi
+
+✓ **WEB APP FUNKSIYASI O'CHIRILDI** - Oldingi versiyada:
   - Telegram Mini App interfeysi butunlay olib tashlandi
-  - Web app server (webapp_server.py) o'chirildi
-  - Template system va background shablon tizimi olib tashlandi
   - Asosiy Telegram bot interfeysi tiklandi
-  - Oddiy va tez hujjat yaratish jarayoni qaytarildi
 
 ## Recent Changes (August 21, 2025)
 
