@@ -1,6 +1,7 @@
 import logging
 import json
 import asyncio
+import os
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.fsm.context import FSMContext
@@ -279,7 +280,7 @@ async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Dat
 
     # Show template selection instead of generating directly
     await callback.answer()
-    await show_template_selection(callback.message, state, user_lang, group=1, edit_message=True)
+    await show_template_selection(callback.message, state, user_lang, group=1, edit_message=False)
     await state.set_state(DocumentStates.waiting_for_template)
 
 @router.callback_query(F.data.startswith("pages_"), DocumentStates.waiting_for_page_count)
