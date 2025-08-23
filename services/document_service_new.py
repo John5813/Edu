@@ -380,7 +380,7 @@ class DocumentService:
             await self._create_new_bullet_points_slide(prs, slide_data)
 
     async def _create_new_bullet_points_slide(self, prs, slide_data: Dict):
-        """Create LAYOUT 1: 5 bullet points with 30+ words each (2,5,8,11...)"""
+        """Create LAYOUT 1: Long continuous text for understanding the topic (2,5,8,11...)"""
         slide_layout = prs.slide_layouts[1]  # Title and content layout
         slide = prs.slides.add_slide(slide_layout)
 
@@ -389,32 +389,24 @@ class DocumentService:
 
         # Title
         if title:
-            title.text = slide_data.get('title', 'Bullet Points Slayd')
+            title.text = slide_data.get('title', 'Mavzu Tushuntirish')
             title.text_frame.paragraphs[0].font.size = PptxPt(28)  # Medium title
             title.text_frame.paragraphs[0].font.bold = True
             title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
 
-        # Content - parse into bullet points
+        # Content - long continuous text for topic explanation
         if content_placeholder:
             content_text = slide_data.get('content', '')
             content_frame = content_placeholder.text_frame
             content_frame.clear()
+            content_frame.word_wrap = True
             
-            # Split content into bullet points
-            bullet_points = self._parse_bullet_points(content_text)
-            
-            for i, point in enumerate(bullet_points[:5]):  # Max 5 points
-                if i == 0:
-                    # First paragraph
-                    p = content_frame.paragraphs[0]
-                else:
-                    # Additional paragraphs
-                    p = content_frame.add_paragraph()
-                
-                p.text = f"• {point.strip()}"
-                p.font.size = PptxPt(16)  # Increased by 2 points (14 -> 16)
-                p.alignment = PP_ALIGN.LEFT
-                p.level = 0
+            # Use full content as continuous text
+            p = content_frame.paragraphs[0]
+            p.text = content_text
+            p.font.size = PptxPt(16)  # Good readable size
+            p.alignment = PP_ALIGN.JUSTIFY  # Justified alignment for better reading
+            p.level = 0
 
     async def _create_new_text_with_image_slide(self, prs, slide_data: Dict, slide_num: int, images: Dict):
         """Create LAYOUT 2: Text + DALL-E image (50/50 split) (3,6,9,12...)"""
