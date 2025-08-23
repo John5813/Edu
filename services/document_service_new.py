@@ -429,11 +429,14 @@ class DocumentService:
         text_frame.word_wrap = True
         text_para = text_frame.paragraphs[0]
         
-        # Use FULL text content - NO MORE REDUCTION!
+        # Reduce text by 30% (show 70% of original) for image slides
         original_content = slide_data.get('content', 'Mazmun mavjud emas')
+        words = original_content.split()
+        reduced_length = int(len(words) * 0.7)  # 30% kam = 70% qoladi
+        reduced_content = ' '.join(words[:reduced_length])
         
-        text_para.text = original_content  # FULL CONTENT
-        text_para.font.size = PptxPt(14)  # Smaller font to fit more text
+        text_para.text = reduced_content  # 30% kam matn
+        text_para.font.size = PptxPt(16)  # Font o'lchamini biroz kattalashtirish
         text_para.font.bold = True  # Bold for better visibility
         text_para.font.color.rgb = RGBColor(0, 0, 0)  # Black text
         text_para.alignment = PP_ALIGN.LEFT  # Left alignment
