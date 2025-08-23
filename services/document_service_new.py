@@ -27,48 +27,33 @@ class DocumentService:
     async def create_presentation_with_template_background(self, topic: str, content: Dict, author_name: str, template_id: str, template_service) -> str:
         """Create presentation with template background applied"""
         try:
+            # First create normal presentation
+            temp_file = await self.create_new_presentation_system(topic, content, author_name)
+            
+            # Now apply template backgrounds to all slides
             from pptx import Presentation
-            from pptx.util import Inches as PptxInches, Pt as PptxPt
-            from pptx.dml.color import RGBColor
-            from pptx.enum.text import PP_ALIGN
+            prs = Presentation(temp_file)
             
-            # Validate content
-            if not content or 'slides' not in content:
-                logger.error(f"Invalid content structure: {content}")
-                raise ValueError("Content must contain 'slides' key")
+            logger.info(f"Applying template {template_id} to {len(prs.slides)} slides")
             
-            prs = Presentation()
+            # Apply template background to each slide
+            for slide in prs.slides:
+                template_service.apply_template_to_slide(slide, template_id)
+                logger.info(f"Applied template background to slide")
             
-            # Set slide size (16:9)
-            prs.slide_width = PptxInches(13.33)
-            prs.slide_height = PptxInches(7.5)
-            
-            slides_data = content.get('slides', [])
-            logger.info(f"Creating template presentation with {len(slides_data)} slides using template {template_id}")
-            
-            # Generate DALL-E images for text+image slides
-            images = await self._generate_dalle_images_for_slides(topic, slides_data)
-            
-            for idx, slide_data in enumerate(slides_data):
-                slide_num = slide_data.get('slide_number', idx + 1)
-                layout_type = slide_data.get('layout_type', 'bullet_points')
-                
-                logger.info(f"Creating slide {slide_num} with layout: {layout_type} and template background")
-                
-                if slide_num == 1 or layout_type == "title":
-                    await self._create_title_slide_with_template(prs, topic, author_name, template_service, template_id)
-                else:
-                    await self._create_content_slide_with_template(prs, slide_data, layout_type, slide_num, images, template_service, template_id)
-            
-            # Save presentation
+            # Save with template name
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             template_name = template_service.templates.get(template_id, {}).get('name', 'standart')
             filename = f"template_{template_name}_{timestamp}.pptx"
             file_path = os.path.join(self.documents_dir, filename)
             
             prs.save(file_path)
-            logger.info(f"Template presentation saved: {file_path}")
             
+            # Remove temporary file
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+            
+            logger.info(f"Template presentation saved: {file_path}")
             return file_path
             
         except Exception as e:

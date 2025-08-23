@@ -21,8 +21,9 @@ Preferred communication style: Simple, everyday language.
 
 ✓ **Taqdimot yaratish jarayoni yangilandi**:
   - Mavzu → Slayd soni → Balans tekshiruvi → Shablon tanlash → Yaratish
-  - Shablon nomi taqdimot faylida ko'rsatiladi
-  - Template service va keyboard system qo'shildi
+  - Template orqa fon har bir slaydga qo'llanadi
+  - Template service background application tizimi yaratildi
+  - Shablon nomi fayl nomida ko'rsatiladi
 
 ✓ **WEB APP FUNKSIYASI O'CHIRILDI** - Oldingi versiyada:
   - Telegram Mini App interfeysi butunlay olib tashlandi
