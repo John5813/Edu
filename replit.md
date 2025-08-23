@@ -19,11 +19,16 @@ Preferred communication style: Simple, everyday language.
   - Foydalanuvchi barcha shablonni bir vaqtda ko'radi
   - Tanlangan shablon taqdimotga orqa fon sifatida qo'llaniladi
 
-✓ **Taqdimot yaratish jarayoni yangilandi**:
-  - Mavzu → Slayd soni → Balans tekshiruvi → Shablon tanlash → Yaratish
-  - Template orqa fon har bir slaydga qo'llanadi
-  - Template service background application tizimi yaratildi
-  - Shablon nomi fayl nomida ko'rsatiladi
+✓ **Taqdimot format yangiliklari** (User requirements):
+  - **Slayd 2**: 40 so'zlik mavzu tushuntirishiga o'zgartirildi
+  - **Slayd 5,8,11...**: 5 bullet nuqta o'rniga 4 raqamli nuqta (numbered points)
+  - **Slayd 3,6,9...**: 70% rasm o'lchami (30% matn, matinni qisqartirmasdan)
+  - **Slayd 8**: Chap tekis format (ikki cheti bir tekis emas)
+  - **Oxirgi slayd**: "Diqqatingiz uchun rahmat" rahmat slaydi qo'shildi
+  - **Isim qo'yish**: Shart emas, olib tashlandi
+  - **Matn ramkalari**: Border ko'rsatilmasin
+
+✓ **Template orqa fon tizimi** va RGBColor import xatosi tuzatildi
 
 ✓ **WEB APP FUNKSIYASI O'CHIRILDI** - Oldingi versiyada:
   - Telegram Mini App interfeysi butunlay olib tashlandi

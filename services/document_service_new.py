@@ -157,15 +157,16 @@ class DocumentService:
         content_frame = content_box.text_frame
         content_frame.word_wrap = True
         
-        # Parse content into bullet points using existing method
+        # Parse content into 4 numbered points (replacing 5 bullet points)
         content_text = slide_data.get('content', '')
-        bullet_points = self._parse_bullet_points(content_text)
+        numbered_points = self._parse_content_into_bullets(content_text, 4)
         
-        for point in bullet_points[:5]:  # Max 5 points
+        for i, point in enumerate(numbered_points[:4]):  # Max 4 numbered points
             p = content_frame.add_paragraph()
-            p.text = f"• {point}"
-            p.font.size = PptxPt(18)  # Increased by 2 points (16 -> 18)
+            p.text = f"{i + 1}. {point}"
+            p.font.size = PptxPt(18)
             p.font.color.rgb = colors.get('text', RGBColor(51, 51, 51))
+            p.alignment = PP_ALIGN.LEFT
             p.level = 0
 
     async def _create_template_text_image_slide(self, slide, slide_data: Dict, slide_num: int, images: Dict, template_service, template_id: str):
@@ -188,27 +189,23 @@ class DocumentService:
         title_para.font.color.rgb = colors.get('title', RGBColor(0, 51, 102))
         title_para.alignment = PP_ALIGN.CENTER
         
-        # Left side: Text (45% width) - 70% of original length
+        # Left side: Text (30% width for text, 70% for image as requested)
         text_box = slide.shapes.add_textbox(
             PptxInches(0.5), PptxInches(2),
-            PptxInches(5.5), PptxInches(4.5)
+            PptxInches(4.2), PptxInches(4.5)  # 30% width for text
         )
         text_frame = text_box.text_frame
         text_frame.word_wrap = True
         text_para = text_frame.paragraphs[0]
         
-        # Reduce text to 70% of original length
+        # Full text content (100-120 words as originally designed)
         original_content = slide_data.get('content', 'Mazmun mavjud emas')
-        words = original_content.split()
-        reduced_length = int(len(words) * 0.7)  # 70% of original
-        reduced_content = ' '.join(words[:reduced_length])
-        
-        text_para.text = reduced_content
+        text_para.text = original_content
         text_para.font.size = PptxPt(18)
         text_para.font.color.rgb = colors.get('text', RGBColor(51, 51, 51))
         text_para.alignment = PP_ALIGN.LEFT
         
-        # Right side: DALL-E image (55% width)
+        # Right side: DALL-E image (70% width as requested)
         if slide_num in images:
             image_path = images[slide_num]
             logger.info(f"Adding DALL-E image for slide {slide_num}: {image_path}")
@@ -216,8 +213,8 @@ class DocumentService:
                 try:
                     slide.shapes.add_picture(
                         image_path,
-                        PptxInches(6.2), PptxInches(2),    # Right side position
-                        PptxInches(6.8), PptxInches(4.5)   # Full right side coverage
+                        PptxInches(5), PptxInches(2),      # Right side position
+                        PptxInches(8), PptxInches(4.5)     # 70% width coverage
                     )
                     logger.info(f"Successfully added DALL-E image to slide {slide_num}")
                 except Exception as e:
@@ -753,6 +750,10 @@ class DocumentService:
                     p = content_frame.add_paragraph()
                 
                 p.text = f"{i + 1}. {point.strip()}"
+                p.font.size = PptxPt(18)
+                p.font.name = 'Times New Roman'
+                p.alignment = PP_ALIGN.LEFT
+                p.level = 0
 
 
     async def _create_thank_you_slide(self, prs):
@@ -771,10 +772,6 @@ class DocumentService:
 
         if subtitle:
             subtitle.text = ""  # Empty subtitle
-
-                p.font.size = PptxPt(18)
-                p.alignment = PP_ALIGN.LEFT
-                p.level = i  # Each number shifts right (0, 1, 2, 3 levels)
 
     def _parse_content_into_bullets(self, content_text: str, num_points: int) -> List[str]:
         """Parse content into specified number of bullet points"""
