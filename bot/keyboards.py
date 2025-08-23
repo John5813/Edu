@@ -62,43 +62,25 @@ def get_slide_count_keyboard() -> InlineKeyboardMarkup:
     keyboard.adjust(1)
     return keyboard.as_markup()
 
-def get_template_keyboard(group: int, total_groups: int) -> InlineKeyboardMarkup:
-    """Template selection keyboard with navigation"""
-    from services.template_service import TemplateService
-    
-    template_service = TemplateService()
-    groups = template_service.get_template_groups()
-    
-    if group < 1 or group > len(groups):
-        group = 1
-    
-    current_group = groups[group - 1]
+def get_all_templates_keyboard() -> InlineKeyboardMarkup:
+    """Create compact keyboard with all 20 template numbers"""
     keyboard = InlineKeyboardBuilder()
     
-    # Add template selection buttons (2 per row for better layout)
-    for template in current_group:
-        template_num = int(template['id'].split('_')[1])
+    # Add all 20 template buttons in compact format
+    for i in range(1, 21):
         keyboard.add(InlineKeyboardButton(
-            text=f"{template_num}",
-            callback_data=f"template_{template['id']}"
+            text=str(i),
+            callback_data=f"template_template_{i}"
         ))
     
-    keyboard.adjust(2)  # Two templates per row
-    
-    # Add navigation buttons
-    nav_row = []
-    if group > 1:
-        nav_row.append(InlineKeyboardButton(text="⬅️ Oldingi", callback_data=f"template_group_{group-1}"))
-    
-    nav_row.append(InlineKeyboardButton(text=f"{group}/{total_groups}", callback_data="template_info"))
-    
-    if group < total_groups:
-        nav_row.append(InlineKeyboardButton(text="Keyingi ➡️", callback_data=f"template_group_{group+1}"))
-    
-    if nav_row:
-        keyboard.row(*nav_row)
+    # Arrange in 4 rows of 5 buttons each for clean layout
+    keyboard.adjust(5)  # 5 buttons per row
     
     return keyboard.as_markup()
+
+def get_template_keyboard(group: int, total_groups: int) -> InlineKeyboardMarkup:
+    """Legacy template keyboard - now uses single overview approach"""
+    return get_all_templates_keyboard()
 
 def get_page_count_keyboard(document_type: str) -> InlineKeyboardMarkup:
     """Page count selection keyboard with prices"""

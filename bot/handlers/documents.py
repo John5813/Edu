@@ -101,54 +101,50 @@ async def handle_topic_input(message: Message, state: FSMContext, user_lang: str
         await state.set_state(DocumentStates.waiting_for_page_count)
 
 async def show_template_selection(message: Message, state: FSMContext, user_lang: str, group: int = 1, edit_message: bool = False):
-    """Show template selection with actual images"""
+    """Show all 20 templates in one overview image with numbered buttons"""
     try:
-        template_service = TemplateService()
-        groups = template_service.get_template_groups()
-        total_groups = len(groups)
-        
-        if group < 1 or group > total_groups:
-            group = 1
-        
-        current_group = groups[group - 1]
-        
-        # Send template images one by one to avoid dimension issues
         from aiogram.types import FSInputFile
-        valid_templates = []
         
-        for template in current_group:
-            template_num = int(template['id'].split('_')[1])
-            image_path = f"attached_assets/{template.get('file', '')}"
+        # Send the overview image showing all 20 templates
+        overview_image_path = "attached_assets/IMG_20250823_093040_1755924327080.jpg"
+        
+        if os.path.exists(overview_image_path):
+            text = """🎨 **BARCHA SHABLONLAR - Bitta rasmda ko'ring**
+
+Yuqoridagi rasmda 20 ta shablon ko'rsatilgan:
+**1-5:** Birinchi qator (chap yuqoridan o'ngga)
+**6-10:** Ikkinchi qator  
+**11-15:** Uchinchi qator
+**16-20:** To'rtinchi qator
+
+👆 **Quyidagi raqamlardan birini bosing:**"""
             
-            # Check if file exists and send individually
-            if os.path.exists(image_path):
-                try:
-                    await message.answer_photo(
-                        photo=FSInputFile(image_path),
-                        caption=f"{template_num}. {template['name']}"
-                    )
-                    valid_templates.append(template)
-                except Exception as img_error:
-                    logger.warning(f"Could not load template image {image_path}: {img_error}")
-                    # Add to valid templates anyway so user can select by number
-                    valid_templates.append(template)
-        
-        # Send selection text and keyboard
-        if valid_templates:
-            text = f"🎨 **Yuqoridagi rasmlardan birini tanlang ({group}/{total_groups}-sahifa):**\n\n"
-            text += "👆 **Raqam tugmasini bosing:**"
+            await message.answer_photo(
+                photo=FSInputFile(overview_image_path),
+                caption=text,
+                parse_mode="Markdown"
+            )
         else:
-            # Fallback text if no images loaded
-            text = f"🎨 **Shablon tanlang ({group}/{total_groups}-sahifa):**\n\n"
-            template_list = []
-            for template in current_group:
-                template_num = int(template['id'].split('_')[1])
-                template_list.append(f"**{template_num}.** {template['name']}")
-            text += "\n".join(template_list)
-            text += "\n\n👆 **Raqam tugmasini bosing:**"
+            # Fallback if overview image not found
+            text = """🎨 **Shablon tanlang:**
+
+20 ta professional shablon mavjud:
+**Ko'k va Geometrik:** 1-5
+**Business va Modern:** 6-10  
+**Academic va Formal:** 11-15
+**Premium va Executive:** 16-20
+
+👆 **Quyidagi raqamlardan birini bosing:**"""
+            
+            await message.answer(text, parse_mode="Markdown")
         
-        keyboard = get_template_keyboard(group, total_groups)
-        await message.answer(text, reply_markup=keyboard, parse_mode="Markdown")
+        # Send compact numbered keyboard with all 20 options
+        from bot.keyboards import get_all_templates_keyboard
+        keyboard = get_all_templates_keyboard()
+        await message.answer(
+            "📋 **Shablon raqamini tanlang:**", 
+            reply_markup=keyboard
+        )
             
     except Exception as e:
         logger.error(f"Error in show_template_selection: {e}")
@@ -170,7 +166,9 @@ async def handle_template_group_navigation(callback: CallbackQuery, state: FSMCo
 async def handle_template_selection(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Handle template selection and start generation"""
     try:
-        template_id = callback.data.replace("template_", "")
+        # Extract template number from callback data (template_template_X)
+        template_num = callback.data.split("_")[-1]
+        template_id = f"template_{template_num}"
         await callback.answer()
         
         # Save selected template

@@ -12,12 +12,12 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (August 23, 2025)
 
-✓ **YANGI SHABLON TANLASH TIZIMI** - Taqdimot uchun:
-  - 20 ta professional orqa fon shablon qo'shildi
-  - 5 tadan guruhlashtirilib ko'rsatiladi
-  - Matn ro'yxati va raqam tugmalari bilan tanlash
-  - Tanlangan shablon orqa fon sifatida qo'llaniladi
-  - Navigation tugmalari bilan sahifalar orasida o'tish
+✓ **YANGI SHABLON TANLASH TIZIMI** - Bitta rasmda barcha shablonlar:
+  - 20 ta professional orqa fon shablon bitta overview rasmda
+  - 4x5 grid formatda ko'rsatilgan (4 qator, 5 ustun)
+  - Kompakt inline keyboard - 20 ta raqam tugmasi
+  - Foydalanuvchi barcha shablonni bir vaqtda ko'radi
+  - Tanlangan shablon taqdimotga orqa fon sifatida qo'llaniladi
 
 ✓ **Taqdimot yaratish jarayoni yangilandi**:
   - Mavzu → Slayd soni → Balans tekshiruvi → Shablon tanlash → Yaratish
