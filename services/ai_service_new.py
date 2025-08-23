@@ -76,7 +76,7 @@ YANGI TIZIM - LAYOUT TALABLARI:
                     elif layout == "three_bullets": # Specific layout for slide 5
                         prompt += f"Slayd {slide_num}: 3 TA NUQTALI SLAYD\n- AYNAN 3 ta bullet point\n- Har nuqtada 70-80 so'z\n- Faqat bullet belgisi (•), raqam va qo'shimcha belgisiz\n- Professional akademik uslub\n"
                     elif layout == "four_numbered": # Specific layout for slide 8
-                        prompt += f"Slayd {slide_num}: 4 RAQAMLI MATN SLAYD\n- Har raqam bir-biridan o'ng tarafga siljib boradi\n- Har raqam ostida 70-80 so'zlik matn\n- Raqamlar quyidagicha: 1., 2., 3., 4.\n- Professional akademik uslub\n"
+                        prompt += f"Slayd {slide_num}: 4 RAQAMLI MATN SLAYD\n- Har raqam bir-biridan o'ng tarafga siljib boradi\n- Har raqam ostida ANIQ 30 SO'ZLIK ixcham matn\n- Raqamlar quyidagicha: 1., 2., 3., 4.\n- Professional akademik uslub\n"
 
                 prompt += f"""
 QATTIQ QOIDALAR:
@@ -89,7 +89,7 @@ QATTIQ QOIDALAR:
    - CONTENT format: Sarlavha1|||80so'zlikmatn|||Sarlavha2|||80so'zlikmatn|||Sarlavha3|||80so'zlikmatn
    - Jami 240+ so'z (3 x 80)
 4. 3 TA NUQTALI SLAYD (2,5,8,11...): AYNAN 3 nuqta, har nuqtada 70-80 so'z, faqat • belgisi, raqamsiz.
-5. 4 RAQAMLI MATN SLAYD (8,11,14...): Har raqam bir-biridan o'ng tarafga siljib boradi, har raqam ostida 70-80 so'z. Raqamlar: 1., 2., 3., 4.
+5. 4 RAQAMLI MATN SLAYD (8,11,14...): Har raqam bir-biridan o'ng tarafga siljib boradi, har raqam ostida ANIQ 30 SO'Z. Raqamlar: 1., 2., 3., 4.
 
 MUHIM: Oddiy matn yozing, ortiqcha belgilar va shakllar ishlatmang. Mantiqiy ketma-ketlikni saqlang.
 
@@ -122,7 +122,7 @@ NEW SYSTEM - LAYOUT REQUIREMENTS:
                     elif layout == "three_bullets": # Specific layout for slide 5
                         prompt += f"Slide {slide_num}: 3 BULLET POINTS SLIDE\n- Exactly 3 bullet points\n- Minimum 30 words per point\n- Professional academic style\n"
                     elif layout == "four_numbered": # Specific layout for slide 8
-                        prompt += f"Slide {slide_num}: 4 NUMBERED TEXT SLIDE\n- Each number shifts to the right of the previous one\n- 30+ words per number\n- Professional academic style\n"
+                        prompt += f"Slide {slide_num}: 4 NUMBERED TEXT SLIDE\n- Each number shifts to the right of the previous one\n- EXACTLY 30 words per number\n- Professional academic style\n"
 
 
                 prompt += f"""
@@ -131,7 +131,7 @@ IMPORTANT RULES:
 2. TEXT+IMAGE slides: 80+ words continuous text, large font, space for image
 3. 3 COLUMN slides: Not "Part 1,2,3", use logical headers (e.g. "Causes", "Effects", "Solutions")
 4. 3 BULLET POINTS SLIDE (2,5,8,11...): Exactly 3 points, 30+ words each, only bullet symbols.
-5. 4 NUMBERED TEXT SLIDE (8,11,14...): Each number shifts to the right of the previous one, 30+ words per number. Numbers: 1., 2., 3., 4.
+5. 4 NUMBERED TEXT SLIDE (8,11,14...): Each number shifts to the right of the previous one, EXACTLY 30 words per number. Numbers: 1., 2., 3., 4.
 
 Maintain logical flow. Each batch should be interconnected.
 
@@ -421,7 +421,7 @@ Return only the text content, no other formatting needed."""
         try:
             if language == "uz":
                 prompt = f"""
-"{topic}" mavzusi bo'yicha 5-7 ta akademik adabiyot ro'yxati yarating.
+"{topic}" mavzusi bo'yicha ANIQ 5 ta akademik adabiyot ro'yxati yarating.
 
 TALABLAR:
 1. Haqiqiy ko'rinishdagi manbalar
@@ -440,7 +440,7 @@ MANBA TURLARI:
 Har bir manbani alohida qatorda qaytaring."""
             else:
                 prompt = f"""
-Create 5-7 academic references for topic "{topic}".
+Create EXACTLY 5 academic references for topic "{topic}".
 
 REQUIREMENTS:
 1. Realistic-looking sources
@@ -467,7 +467,7 @@ Return each reference on a separate line."""
             content = response.choices[0].message.content
             if content:
                 references = [ref.strip() for ref in content.split('\n') if ref.strip()]
-                return references[:7]  # Limit to 7 references
+                return references[:5]  # Limit to EXACTLY 5 references
             else:
                 return [
                     f"{topic} bo'yicha asosiy adabiyot - Akademiya nashriyoti, 2023",
