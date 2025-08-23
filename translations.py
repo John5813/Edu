@@ -102,7 +102,7 @@ TRANSLATIONS = {
         "help_text": "🆘 Help\n\n📊 Presentation prices:\n• 10 slides - 5000 som\n• 15 slides - 7000 som\n• 20 slides - 10000 som\n\n🎓 Independent Work and 📄 Research Paper prices:\n• 10-15 pages - 5000 som\n• 15-20 pages - 7000 som\n• 20-25 pages - 10000 som\n• 25-30 pages - 12000 som\n\n💰 My Account - balance and free services\n💳 Payment - top up balance\n⚙️ Settings - change language and promocode",
         "settings_menu": "⚙️ Settings\n\nChange language:",
         "language_changed": "✅ Language changed!",
-        "help_message": "📞 Yordam va ma'lumotlar"
+        "help_message": "📞 Help and Information"
     }
 }
 
