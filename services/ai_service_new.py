@@ -185,27 +185,25 @@ Respond in JSON format:
             raise
 
     def _get_layout_type_for_slide(self, slide_num: int) -> str:
-        """Get layout type based on slide number with new system"""
+        """Get layout type based on USER's REQUESTED sequence"""
         if slide_num == 1:
-            return "title"
+            return "title"  # 1. Mavzu haqida tushuncha
 
-        # NEW SPECIAL LAYOUTS - Fixed assignments
-        if slide_num == 2:
-            return "bullet_points"  # Uzluksiz matn (bullet pointsiz)
-        elif slide_num == 5:
-            return "three_bullets"  # 3 nuqtali matn  
-        elif slide_num == 8:
-            return "four_numbered"  # 4 raqamli o'ng tomonga siljigan
-
-        # For other slides, use rotation system (NO MORE BULLET_POINTS!)
-        # Map non-special slides to rotation cycle
-        rotation_slides = [3, 4, 6, 7, 9, 10, 11, 12, 13, 14, 15]  # Continue pattern
-        if slide_num in rotation_slides:
-            cycle_position = rotation_slides.index(slide_num) % 2  # Only 2 layouts now
-            layout_cycle = ["text_with_image", "three_column"]  # Removed bullet_points
-            return layout_cycle[cycle_position]
+        # 5-slide repeating pattern after title (2,3,4,5,6 then repeats)
+        cycle_position = (slide_num - 2) % 5  # Start from slide 2
         
-        # Fallback for any other slides - use text_with_image instead of bullet_points
+        if cycle_position == 0:    # Slides 2,7,12,17...
+            return "text_with_image"   # 2. Rasmli varoq
+        elif cycle_position == 1:  # Slides 3,8,13,18...
+            return "three_column"      # 3. Uch ustun
+        elif cycle_position == 2:  # Slides 4,9,14,19...
+            return "three_bullets"     # 4. Uch nuqta
+        elif cycle_position == 3:  # Slides 5,10,15,20...
+            return "text_with_image"   # 5. Rasm
+        elif cycle_position == 4:  # Slides 6,11,16,21...
+            return "four_numbered"     # 6. 4talik zinasimon
+        
+        # Fallback (should never reach here)
         return "text_with_image"
 
     async def generate_dalle_image(self, prompt: str, slide_title: str) -> str | None:
