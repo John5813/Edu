@@ -70,7 +70,7 @@ YANGI TIZIM - LAYOUT TALABLARI:
                         else:
                             prompt += f"Slayd {slide_num}: BULLET POINT SLAYDI\n- AYNAN 5 ta bullet point\n- HAR NUQTADA 70-80 SO'Z (jami 350-400 so'z)\n- Faqat bullet belgisi (•), raqam va qo'shimcha belgisiz\n- Har nuqta to'liq batafsil paragraf tarzida\n- Professional akademik uslub\n"
                     elif layout == "text_with_image":
-                        prompt += f"Slayd {slide_num}: MATN+RASM SLAYD (3,6,9,12...)\n- ANIQ 80 SO'ZLIK batafsil paragraf\n- Faqat mavzu haqida yozing, rasm/DALL-E haqida gap qo'shmang\n- To'liq akademik tushuntirish\n- Professional uslub, mavzuga e'tibor\n"
+                        prompt += f"Slayd {slide_num}: MATN+RASM SLAYD (3,6,9,12...)\n- ANIQ 50 SO'ZLIK batafsil paragraf\n- Faqat mavzu haqida yozing, rasm/DALL-E haqida gap qo'shmang\n- To'liq akademik tushuntirish\n- Professional uslub, mavzuga e'tibor\n"
                     elif layout == "three_column":
                         prompt += f"Slayd {slide_num}: 3 USTUNLI SLAYD (4,7,10,13...)\n- 3 ta turli xil ustun yarating (bir xil so'zlarni takrorlamang!)\n- Har ustun: ALOHIDA KALIT SO'Z + 80 SO'ZLIK BATAFSIL MATN\n- Mavzuga mos 3 ta kategori (masalan: Texnologiya/Jamiyat/Kelajak)\n- HAR USTUN MUSTAQIL va turli jihatlarni ko'rsatsin\n- CONTENT da: Ustun1sarlavha|||80so'zlikmatn|||Ustun2sarlavha|||80so'zlikmatn|||Ustun3sarlavha|||80so'zlikmatn\n- Jami 240+ so'z (3 x 80)\n"
                     elif layout == "three_bullets": # Specific layout for slide 5
@@ -116,7 +116,7 @@ NEW SYSTEM - LAYOUT REQUIREMENTS:
                     elif layout == "bullet_points":
                         prompt += f"Slide {slide_num}: BULLET POINT SLIDE (2,5,8,11...)\n- Exactly 5 bullet points\n- Minimum 30 words per point\n- Total 150+ words\n- Small font detailed content\n"
                     elif layout == "text_with_image":
-                        prompt += f"Slide {slide_num}: TEXT+IMAGE SLIDE (3,6,9,12...)\n- EXACTLY 80 words detailed paragraph\n- Only write about the topic, no mention of images/DALL-E\n- Full academic explanation\n- Professional style, focus on topic\n"
+                        prompt += f"Slide {slide_num}: TEXT+IMAGE SLIDE (3,6,9,12...)\n- EXACTLY 50 words detailed paragraph\n- Only write about the topic, no mention of images/DALL-E\n- Full academic explanation\n- Professional style, focus on topic\n"
                     elif layout == "three_column":
                         prompt += f"Slide {slide_num}: 3 COLUMN SLIDE (4,7,10,13...)\n- Logical headers (not Part 1,2,3!)\n- 2-3 points per column\n- Topic-relevant categories\n"
                     elif layout == "three_bullets": # Specific layout for slide 5
