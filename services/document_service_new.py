@@ -493,7 +493,10 @@ class DocumentService:
         slide_layout = prs.slide_layouts[6]  # Blank layout
         slide = prs.slides.add_slide(slide_layout)
 
-        # Title background for better visibility  
+        # Title background for better visibility
+        from pptx.enum.shapes import MSO_SHAPE
+        from pptx.dml.color import RGBColor
+        
         title_bg = slide.shapes.add_shape(
             MSO_SHAPE.RECTANGLE,
             PptxInches(0.3), PptxInches(0.3),
@@ -546,6 +549,7 @@ class DocumentService:
             col_para.font.size = PptxPt(16)  # Medium font for headers
             col_para.font.bold = True
             col_para.font.name = 'Times New Roman'  # Times New Roman shrift
+            col_para.font.color.rgb = RGBColor(255, 255, 255)  # White text for visibility
             col_para.alignment = PP_ALIGN.CENTER
             
             # Column continuous text (40 words without bullets or numbers)
@@ -556,7 +560,8 @@ class DocumentService:
             p.text = str(column_text).strip()
             p.font.size = PptxPt(12)  # Small font for details
             p.font.name = 'Times New Roman'  # Times New Roman shrift
-            p.alignment = PP_ALIGN.LEFT  # Left alignment - ikki cheti bir tekisni olib tashlash
+            p.font.color.rgb = RGBColor(0, 0, 0)  # Black text
+            p.alignment = PP_ALIGN.LEFT  # Left alignment
             p.level = 0
 
     def _parse_bullet_points(self, content_text: str) -> List[str]:
