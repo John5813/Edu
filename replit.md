@@ -21,12 +21,13 @@ Preferred communication style: Simple, everyday language.
 
 ✓ **Taqdimot format yangiliklari** (User requirements):
   - **Slayd 2**: 40 so'zlik mavzu tushuntirishiga o'zgartirildi
-  - **Slayd 5,8,11...**: 5 bullet nuqta o'rniga 4 raqamli nuqta (numbered points)
-  - **Slayd 3,6,9...**: 70% rasm o'lchami (30% matn, matinni qisqartirmasdan)
+  - **Slayd 5,8,11...**: 4 raqamli nuqta zinapoya formatida (har biri o'ngga siljiydi, p.level = i)
+  - **Slayd 3,6,9...**: 40 so'zli matn + 70% rasm o'lchami (matn qisqartirilmaydi)
   - **Slayd 8**: Chap tekis format (ikki cheti bir tekis emas)
   - **Oxirgi slayd**: "Diqqatingiz uchun rahmat" rahmat slaydi qo'shildi
   - **Isim qo'yish**: Shart emas, olib tashlandi
   - **Matn ramkalari**: Border ko'rsatilmasin
+  - **Textbox kengaytirildi**: Zinapoya formatida matn chiqib ketmasligi uchun
 
 ✓ **Template orqa fon tizimi** va RGBColor import xatosi tuzatildi
 

@@ -149,10 +149,10 @@ class DocumentService:
         title_para.font.color.rgb = colors.get('title', RGBColor(0, 51, 102))
         title_para.alignment = PP_ALIGN.CENTER
         
-        # Content with bullet points using existing logic
+        # Content with numbered points - wider box to prevent text overflow
         content_box = slide.shapes.add_textbox(
             PptxInches(1), PptxInches(2),
-            PptxInches(11.33), PptxInches(5)
+            PptxInches(11.5), PptxInches(5.5)  # Wider and taller to accommodate stair-step
         )
         content_frame = content_box.text_frame
         content_frame.word_wrap = True
@@ -167,7 +167,7 @@ class DocumentService:
             p.font.size = PptxPt(18)
             p.font.color.rgb = colors.get('text', RGBColor(51, 51, 51))
             p.alignment = PP_ALIGN.LEFT
-            p.level = 0
+            p.level = i  # Stair-step effect: 0, 1, 2, 3 levels (zinapoya)
 
     async def _create_template_text_image_slide(self, slide, slide_data: Dict, slide_num: int, images: Dict, template_service, template_id: str):
         """Create text+image slide with template colors"""
@@ -198,9 +198,10 @@ class DocumentService:
         text_frame.word_wrap = True
         text_para = text_frame.paragraphs[0]
         
-        # Full text content (100-120 words as originally designed)
+        # 40 words text content as requested
         original_content = slide_data.get('content', 'Mazmun mavjud emas')
-        text_para.text = original_content
+        words = str(original_content).split()[:40]  # Limit to 40 words
+        text_para.text = ' '.join(words)
         text_para.font.size = PptxPt(18)
         text_para.font.color.rgb = colors.get('text', RGBColor(51, 51, 51))
         text_para.alignment = PP_ALIGN.LEFT
@@ -753,7 +754,7 @@ class DocumentService:
                 p.font.size = PptxPt(18)
                 p.font.name = 'Times New Roman'
                 p.alignment = PP_ALIGN.LEFT
-                p.level = 0
+                p.level = i  # Stair-step effect: 0, 1, 2, 3 levels (zinapoya)
 
 
     async def _create_thank_you_slide(self, prs):
