@@ -174,7 +174,7 @@ class DocumentService:
         for point in bullet_points[:5]:  # Max 5 points
             p = content_frame.add_paragraph()
             p.text = f"• {point}"
-            p.font.size = PptxPt(16)  # Professional small font
+            p.font.size = PptxPt(18)  # Increased by 2 points (16 -> 18)
             p.font.color.rgb = colors.get('text', RGBColor(51, 51, 51))
             p.level = 0
 
@@ -198,7 +198,7 @@ class DocumentService:
         title_para.font.color.rgb = colors.get('title', RGBColor(0, 51, 102))
         title_para.alignment = PP_ALIGN.CENTER
         
-        # Left side: Text (45% width)
+        # Left side: Text (45% width) - 70% of original length
         text_box = slide.shapes.add_textbox(
             PptxInches(0.5), PptxInches(2),
             PptxInches(5.5), PptxInches(4.5)
@@ -206,7 +206,14 @@ class DocumentService:
         text_frame = text_box.text_frame
         text_frame.word_wrap = True
         text_para = text_frame.paragraphs[0]
-        text_para.text = slide_data.get('content', 'Mazmun mavjud emas')
+        
+        # Reduce text to 70% of original length
+        original_content = slide_data.get('content', 'Mazmun mavjud emas')
+        words = original_content.split()
+        reduced_length = int(len(words) * 0.7)  # 70% of original
+        reduced_content = ' '.join(words[:reduced_length])
+        
+        text_para.text = reduced_content
         text_para.font.size = PptxPt(18)
         text_para.font.color.rgb = colors.get('text', RGBColor(51, 51, 51))
         text_para.alignment = PP_ALIGN.LEFT
@@ -261,12 +268,12 @@ class DocumentService:
             col_frame = col_box.text_frame
             col_frame.word_wrap = True
             
-            # Column title with template colors
+            # Column title with template colors (forced black)
             col_para = col_frame.paragraphs[0]
             col_para.text = column.get('title', f'Ustun {i+1}')
             col_para.font.size = PptxPt(16)
             col_para.font.bold = True
-            col_para.font.color.rgb = colors.get('title', RGBColor(0, 51, 102))
+            col_para.font.color.rgb = RGBColor(0, 0, 0)  # Force black color
             col_para.alignment = PP_ALIGN.CENTER
             
             # Column content with template colors
@@ -405,7 +412,7 @@ class DocumentService:
                     p = content_frame.add_paragraph()
                 
                 p.text = f"• {point.strip()}"
-                p.font.size = PptxPt(14)  # Small font for detailed content
+                p.font.size = PptxPt(16)  # Increased by 2 points (14 -> 16)
                 p.alignment = PP_ALIGN.LEFT
                 p.level = 0
 
@@ -455,7 +462,7 @@ class DocumentService:
         text_bg.fill.transparency = 0.2  # 20% transparency
         text_bg.line.fill.background()  # No border
         
-        # Left side: Continuous text (45% width)
+        # Left side: Continuous text (45% width) - 70% of original length
         text_box = slide.shapes.add_textbox(
             PptxInches(0.5), PptxInches(2),
             PptxInches(5.5), PptxInches(4.5)  # 45% width
@@ -463,7 +470,14 @@ class DocumentService:
         text_frame = text_box.text_frame
         text_frame.word_wrap = True
         text_para = text_frame.paragraphs[0]
-        text_para.text = slide_data.get('content', 'Mazmun mavjud emas')
+        
+        # Reduce text to 70% of original length
+        original_content = slide_data.get('content', 'Mazmun mavjud emas')
+        words = original_content.split()
+        reduced_length = int(len(words) * 0.7)  # 70% of original
+        reduced_content = ' '.join(words[:reduced_length])
+        
+        text_para.text = reduced_content
         text_para.font.size = PptxPt(18)  # Large font for main content
         text_para.font.bold = True  # Bold for better visibility
         text_para.font.color.rgb = RGBColor(0, 0, 0)  # Black text
@@ -549,7 +563,7 @@ class DocumentService:
             col_para.font.size = PptxPt(16)  # Medium font for headers
             col_para.font.bold = True
             col_para.font.name = 'Times New Roman'  # Times New Roman shrift
-            col_para.font.color.rgb = RGBColor(255, 255, 255)  # White text for visibility
+            col_para.font.color.rgb = RGBColor(0, 0, 0)  # Black text
             col_para.alignment = PP_ALIGN.CENTER
             
             # Column continuous text (40 words without bullets or numbers)
