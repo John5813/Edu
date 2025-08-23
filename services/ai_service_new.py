@@ -197,13 +197,18 @@ Respond in JSON format:
         elif slide_num == 8:
             return "four_numbered"  # 4 raqamli o'ng tomonga siljigan
 
-        content_slide_num = slide_num - 1  # Subtract title slide
+        # For other slides, use rotation system
+        # Map non-special slides to rotation cycle
+        rotation_slides = [3, 4, 6, 7, 9, 10, 11, 12, 13, 14, 15]  # Continue pattern
+        if slide_num in rotation_slides:
+            cycle_position = rotation_slides.index(slide_num) % 3
+            layout_cycle = ["text_with_image", "three_column", "bullet_points"]
+            return layout_cycle[cycle_position]
+        
+        # Fallback for any other slides
+        return "bullet_points"
 
-        # 3-layout rotation system for other slides (3,4,6,7,9,10...)
-        layout_cycle = ["text_with_image", "three_column", "bullet_points"]
-        return layout_cycle[(content_slide_num - 1) % 3]
-
-    async def generate_dalle_image(self, prompt: str, slide_title: str) -> str:
+    async def generate_dalle_image(self, prompt: str, slide_title: str) -> str | None:
         """Generate image using DALL-E for text+image slides"""
         try:
             # Create image generation prompt - FIXED TO AVOID RANDOM CONTENT
@@ -220,7 +225,7 @@ Respond in JSON format:
                 n=1
             )
 
-            if response.data and len(response.data) > 0:
+            if response.data and len(response.data) > 0 and response.data[0].url:
                 image_url = response.data[0].url
                 logger.info(f"Generated DALL-E image URL: {image_url[:50]}...")
                 return image_url
@@ -232,7 +237,7 @@ Respond in JSON format:
             logger.error(f"Error generating DALL-E image: {e}")
             return None
 
-    async def download_image(self, image_url: str, filename: str) -> str:
+    async def download_image(self, image_url: str, filename: str) -> str | None:
         """Download image from URL and save to temp folder"""
         try:
             async with aiohttp.ClientSession() as session:

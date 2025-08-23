@@ -839,6 +839,7 @@ class DocumentService:
             doc = Document()
 
             # Set document style
+            from docx.shared import RGBColor
             style = doc.styles['Normal']
             font = style.font
             font.name = 'Times New Roman'
@@ -941,6 +942,7 @@ class DocumentService:
             doc = Document()
 
             # Set document style
+            from docx.shared import RGBColor
             style = doc.styles['Normal']
             font = style.font
             font.name = 'Times New Roman'
