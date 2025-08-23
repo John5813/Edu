@@ -111,17 +111,18 @@ async def show_template_selection(message: Message, state: FSMContext, user_lang
         
         current_group = groups[group - 1]
         
-        # Create text list of templates in current group
+        # Create detailed template list with descriptions
         template_list = []
         for template in current_group:
             template_num = int(template['id'].split('_')[1])
-            template_list.append(f"{template_num}. {template['name']}")
+            template_list.append(f"**{template_num}.** {template['name']}")
         
         # Create description text
-        text = f"🎨 **Taqdimot shablonlarini tanlang ({group}/{total_groups}):**\n\n"
-        text += "📋 Mavjud shablonlar:\n"
+        text = f"🎨 **Taqdimot shablonlarini tanlang ({group}/{total_groups}-sahifa):**\n\n"
+        text += "📋 **Mavjud shablonlar:**\n"
         text += "\n".join(template_list)
-        text += "\n\n👆 Quyidagi tugmalardan birini bosing:"
+        text += "\n\n💡 **Qo'llash:** Quyidagi raqam tugmalaridan birini bosing\n"
+        text += "🖼️ **Eslatma:** Har bir shablon turli xil ranglar va dizayn elementlariga ega"
         
         keyboard = get_template_keyboard(group, total_groups)
         
@@ -156,10 +157,8 @@ async def handle_template_selection(callback: CallbackQuery, state: FSMContext, 
         await state.update_data(selected_template=template_id)
         
         # Clear template selection message
-        # Start presentation generation with bot
-        from aiogram import Bot
-        bot = Bot.get_current()
-        await bot.send_message(callback.from_user.id, "⏳ Taqdimot yaratilmoqda...")
+        # Start presentation generation
+        await callback.message.edit_text("⏳ Taqdimot yaratilmoqda...")
         await generate_presentation_with_template(callback, state, db, user_lang, user)
         
     except Exception as e:
@@ -212,16 +211,13 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         await db.update_document_order(order_id, "completed", file_path)
 
         # Process payment
-        from aiogram import Bot
-        bot = Bot.get_current()
-        
         if use_free_service:
             await db.mark_free_service_used(user.telegram_id)
-            await bot.send_message(callback.from_user.id, get_text(user_lang, "free_service_used"))
+            await callback.message.answer(get_text(user_lang, "free_service_used"))
         else:
             price = get_document_price("presentation", {"slide_count": slide_count})
             await db.update_user_balance(user.telegram_id, -price)
-            await bot.send_message(callback.from_user.id, get_text(user_lang, "document_ready"))
+            await callback.message.answer(get_text(user_lang, "document_ready"))
 
         # Get template name for caption
         template_service = TemplateService()
@@ -229,8 +225,7 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
 
         # Send file
         document = FSInputFile(file_path)
-        await bot.send_document(
-            callback.from_user.id,
+        await callback.message.answer_document(
             document=document,
             caption=f"🎯 {topic}\n📊 {slide_count} slayd\n🎨 {template_name} shablon",
             reply_markup=get_main_keyboard(user_lang)
@@ -240,10 +235,7 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
 
     except Exception as e:
         logger.error(f"Error generating presentation with template: {e}")
-        from aiogram import Bot
-        bot = Bot.get_current()
-        await bot.send_message(
-            callback.from_user.id,
+        await callback.message.answer(
             "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
             reply_markup=get_main_keyboard(user_lang)
         )
