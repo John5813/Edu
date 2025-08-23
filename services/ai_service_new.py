@@ -180,8 +180,9 @@ Respond in JSON format:
     async def generate_dalle_image(self, prompt: str, slide_title: str) -> str:
         """Generate image using DALL-E for text+image slides"""
         try:
-            # Create image generation prompt
-            image_prompt = f"Professional presentation slide illustration for '{slide_title}': {prompt[:100]}. Clean, modern, educational style, suitable for academic presentation."
+            # Create image generation prompt - FIXED TO AVOID RANDOM CONTENT
+            safe_prompt = slide_title.replace("Bialogiya", "Biology").replace("biologik", "biological")
+            image_prompt = f"Professional educational illustration about {safe_prompt}, academic style diagram or concept visualization, clean background, no text overlay"
             
             logger.info(f"Generating DALL-E image: {image_prompt[:50]}...")
             

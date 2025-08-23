@@ -100,7 +100,7 @@ async def handle_topic_input(message: Message, state: FSMContext, user_lang: str
         await state.set_state(DocumentStates.waiting_for_page_count)
 
 async def show_template_selection(message: Message, state: FSMContext, user_lang: str, group: int = 1, edit_message: bool = False):
-    """Show template selection with simple text list"""
+    """Show template selection with actual images"""
     try:
         template_service = TemplateService()
         groups = template_service.get_template_groups()
@@ -111,22 +111,35 @@ async def show_template_selection(message: Message, state: FSMContext, user_lang
         
         current_group = groups[group - 1]
         
-        # Create detailed template list with descriptions
-        template_list = []
+        # Send template images first
+        from aiogram.types import InputMediaPhoto, FSInputFile
+        template_images = []
+        
         for template in current_group:
             template_num = int(template['id'].split('_')[1])
-            template_list.append(f"**{template_num}.** {template['name']}")
+            image_path = f"attached_assets/{template.get('file', '')}"
+            
+            # Check if file exists and add to media group
+            if os.path.exists(image_path):
+                try:
+                    template_images.append(InputMediaPhoto(
+                        media=FSInputFile(image_path),
+                        caption=f"{template_num}. {template['name']}"
+                    ))
+                except Exception as img_error:
+                    logger.warning(f"Could not load template image {image_path}: {img_error}")
         
-        # Create description text
-        text = f"🎨 **Taqdimot shablonlarini tanlang ({group}/{total_groups}-sahifa):**\n\n"
-        text += "📋 **Mavjud shablonlar:**\n"
-        text += "\n".join(template_list)
-        text += "\n\n💡 **Qo'llash:** Quyidagi raqam tugmalaridan birini bosing\n"
-        text += "🖼️ **Eslatma:** Har bir shablon turli xil ranglar va dizayn elementlariga ega"
+        # Send images if available
+        if template_images:
+            await message.answer_media_group(template_images)
+        
+        # Send selection text and keyboard
+        text = f"🎨 **Yuqoridagi rasmlardan birini tanlang ({group}/{total_groups}-sahifa):**\n\n"
+        text += "👆 **Raqam tugmasini bosing:**"
         
         keyboard = get_template_keyboard(group, total_groups)
         
-        if edit_message:
+        if edit_message and not template_images:  # Only edit if no images sent
             await message.edit_text(text, reply_markup=keyboard, parse_mode="Markdown")
         else:
             await message.answer(text, reply_markup=keyboard, parse_mode="Markdown")
@@ -200,12 +213,14 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
                 ]
             }
 
-        # Create presentation with template using existing method
+        # Create presentation with selected template background
         doc_service = DocumentService()
-        file_path = await doc_service.create_new_presentation_system(topic, content, user.first_name or "")
+        template_service = TemplateService()
         
-        # TODO: Apply template background to the created presentation
-        # This would require modifying the existing presentation file with the selected template
+        # Apply template to presentation
+        file_path = await doc_service.create_presentation_with_template_background(
+            topic, content, user.first_name or "", template_id, template_service
+        )
 
         # Update order
         await db.update_document_order(order_id, "completed", file_path)

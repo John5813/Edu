@@ -24,6 +24,274 @@ class DocumentService:
         os.makedirs(self.documents_dir, exist_ok=True)
         os.makedirs("temp", exist_ok=True)
 
+    async def create_presentation_with_template_background(self, topic: str, content: Dict, author_name: str, template_id: str, template_service) -> str:
+        """Create presentation with template background applied"""
+        try:
+            from pptx import Presentation
+            from pptx.util import Inches as PptxInches, Pt as PptxPt
+            from pptx.dml.color import RGBColor
+            from pptx.enum.text import PP_ALIGN
+            
+            # Validate content
+            if not content or 'slides' not in content:
+                logger.error(f"Invalid content structure: {content}")
+                raise ValueError("Content must contain 'slides' key")
+            
+            prs = Presentation()
+            
+            # Set slide size (16:9)
+            prs.slide_width = PptxInches(13.33)
+            prs.slide_height = PptxInches(7.5)
+            
+            slides_data = content.get('slides', [])
+            logger.info(f"Creating template presentation with {len(slides_data)} slides using template {template_id}")
+            
+            # Generate DALL-E images for text+image slides
+            images = await self._generate_dalle_images_for_slides(topic, slides_data)
+            
+            for idx, slide_data in enumerate(slides_data):
+                slide_num = slide_data.get('slide_number', idx + 1)
+                layout_type = slide_data.get('layout_type', 'bullet_points')
+                
+                logger.info(f"Creating slide {slide_num} with layout: {layout_type} and template background")
+                
+                if slide_num == 1 or layout_type == "title":
+                    await self._create_title_slide_with_template(prs, topic, author_name, template_service, template_id)
+                else:
+                    await self._create_content_slide_with_template(prs, slide_data, layout_type, slide_num, images, template_service, template_id)
+            
+            # Save presentation
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            template_name = template_service.templates.get(template_id, {}).get('name', 'standart')
+            filename = f"template_{template_name}_{timestamp}.pptx"
+            file_path = os.path.join(self.documents_dir, filename)
+            
+            prs.save(file_path)
+            logger.info(f"Template presentation saved: {file_path}")
+            
+            return file_path
+            
+        except Exception as e:
+            logger.error(f"Error creating template presentation: {e}")
+            # Fallback to regular presentation
+            return await self.create_new_presentation_system(topic, content, author_name)
+
+    async def _apply_template_background(self, slide, template_id: str, template_service):
+        """Apply template background image to slide"""
+        try:
+            template_info = template_service.templates.get(template_id, {})
+            template_file = template_info.get('file')
+            
+            if template_file:
+                image_path = f"attached_assets/{template_file}"
+                if os.path.exists(image_path):
+                    # Add background image to fill entire slide
+                    slide.shapes.add_picture(
+                        image_path,
+                        PptxInches(0), PptxInches(0),
+                        PptxInches(13.33), PptxInches(7.5)
+                    )
+                    # Move background to back of slide
+                    slide.shapes[0]._element.getparent().insert(0, slide.shapes[0]._element)
+                    logger.info(f"Applied template background: {template_file}")
+                    
+        except Exception as e:
+            logger.warning(f"Could not apply template background: {e}")
+
+    async def _create_title_slide_with_template(self, prs, topic: str, author_name: str, template_service, template_id: str):
+        """Create title slide with template background and colors"""
+        from pptx.util import Inches as PptxInches, Pt as PptxPt
+        from pptx.dml.color import RGBColor
+        from pptx.enum.text import PP_ALIGN
+        
+        slide_layout = prs.slide_layouts[6]  # Blank layout
+        slide = prs.slides.add_slide(slide_layout)
+        
+        # Apply template background
+        await self._apply_template_background(slide, template_id, template_service)
+        
+        # Get template colors
+        colors = template_service.get_template_colors(template_id)
+        
+        # Add title with template colors
+        title_box = slide.shapes.add_textbox(
+            PptxInches(1), PptxInches(2.5),
+            PptxInches(11.33), PptxInches(2)
+        )
+        title_frame = title_box.text_frame
+        title_para = title_frame.paragraphs[0]
+        title_para.text = topic
+        title_para.font.size = PptxPt(44)
+        title_para.font.bold = True
+        title_para.font.color.rgb = colors.get('title', RGBColor(0, 51, 102))
+        title_para.alignment = PP_ALIGN.CENTER
+        
+        # Add author
+        author_box = slide.shapes.add_textbox(
+            PptxInches(1), PptxInches(5),
+            PptxInches(11.33), PptxInches(1)
+        )
+        author_frame = author_box.text_frame
+        author_para = author_frame.paragraphs[0]
+        author_para.text = f"Muallif: {author_name}"
+        author_para.font.size = PptxPt(24)
+        author_para.font.color.rgb = colors.get('text', RGBColor(51, 51, 51))
+        author_para.alignment = PP_ALIGN.CENTER
+
+    async def _create_content_slide_with_template(self, prs, slide_data: Dict, layout_type: str, slide_num: int, images: Dict, template_service, template_id: str):
+        """Create content slide with template background"""
+        slide_layout = prs.slide_layouts[6]  # Blank layout
+        slide = prs.slides.add_slide(slide_layout)
+        
+        # Apply template background
+        await self._apply_template_background(slide, template_id, template_service)
+        
+        # Create content based on layout type using existing methods but with template colors
+        if layout_type == "bullet_points":
+            await self._create_template_bullet_slide(slide, slide_data, template_service, template_id)
+        elif layout_type == "text_with_image":
+            await self._create_template_text_image_slide(slide, slide_data, slide_num, images, template_service, template_id)
+        else:  # three_column
+            await self._create_template_three_column_slide(slide, slide_data, template_service, template_id)
+
+    async def _create_template_bullet_slide(self, slide, slide_data: Dict, template_service, template_id: str):
+        """Create bullet points slide with template colors"""
+        from pptx.util import Inches as PptxInches, Pt as PptxPt
+        from pptx.enum.text import PP_ALIGN
+        
+        colors = template_service.get_template_colors(template_id)
+        
+        # Title
+        title_box = slide.shapes.add_textbox(
+            PptxInches(0.5), PptxInches(0.5),
+            PptxInches(12), PptxInches(1)
+        )
+        title_frame = title_box.text_frame
+        title_para = title_frame.paragraphs[0]
+        title_para.text = slide_data.get('title', 'Asosiy Nuqtalar')
+        title_para.font.size = PptxPt(28)
+        title_para.font.bold = True
+        title_para.font.color.rgb = colors.get('title', RGBColor(0, 51, 102))
+        title_para.alignment = PP_ALIGN.CENTER
+        
+        # Content with bullet points using existing logic
+        content_box = slide.shapes.add_textbox(
+            PptxInches(1), PptxInches(2),
+            PptxInches(11.33), PptxInches(5)
+        )
+        content_frame = content_box.text_frame
+        content_frame.word_wrap = True
+        
+        # Parse content into bullet points using existing method
+        content_text = slide_data.get('content', '')
+        bullet_points = self._parse_bullet_points(content_text)
+        
+        for point in bullet_points[:5]:  # Max 5 points
+            p = content_frame.add_paragraph()
+            p.text = f"• {point}"
+            p.font.size = PptxPt(16)  # Professional small font
+            p.font.color.rgb = colors.get('text', RGBColor(51, 51, 51))
+            p.level = 0
+
+    async def _create_template_text_image_slide(self, slide, slide_data: Dict, slide_num: int, images: Dict, template_service, template_id: str):
+        """Create text+image slide with template colors"""
+        from pptx.util import Inches as PptxInches, Pt as PptxPt
+        from pptx.enum.text import PP_ALIGN
+        
+        colors = template_service.get_template_colors(template_id)
+        
+        # Title
+        title_box = slide.shapes.add_textbox(
+            PptxInches(0.5), PptxInches(0.5),
+            PptxInches(12), PptxInches(1)
+        )
+        title_frame = title_box.text_frame
+        title_para = title_frame.paragraphs[0]
+        title_para.text = slide_data.get('title', 'Matn va Rasm')
+        title_para.font.size = PptxPt(28)
+        title_para.font.bold = True
+        title_para.font.color.rgb = colors.get('title', RGBColor(0, 51, 102))
+        title_para.alignment = PP_ALIGN.CENTER
+        
+        # Left side: Text (45% width)
+        text_box = slide.shapes.add_textbox(
+            PptxInches(0.5), PptxInches(2),
+            PptxInches(5.5), PptxInches(4.5)
+        )
+        text_frame = text_box.text_frame
+        text_frame.word_wrap = True
+        text_para = text_frame.paragraphs[0]
+        text_para.text = slide_data.get('content', 'Mazmun mavjud emas')
+        text_para.font.size = PptxPt(18)
+        text_para.font.color.rgb = colors.get('text', RGBColor(51, 51, 51))
+        text_para.alignment = PP_ALIGN.LEFT
+        
+        # Right side: DALL-E image (55% width)
+        if slide_num in images:
+            image_path = images[slide_num]
+            logger.info(f"Adding DALL-E image for slide {slide_num}: {image_path}")
+            if image_path and os.path.exists(image_path):
+                try:
+                    slide.shapes.add_picture(
+                        image_path,
+                        PptxInches(6.2), PptxInches(2),    # Right side position
+                        PptxInches(6.8), PptxInches(4.5)   # Full right side coverage
+                    )
+                    logger.info(f"Successfully added DALL-E image to slide {slide_num}")
+                except Exception as e:
+                    logger.error(f"Error adding DALL-E image to slide {slide_num}: {e}")
+
+    async def _create_template_three_column_slide(self, slide, slide_data: Dict, template_service, template_id: str):
+        """Create three column slide with template colors"""
+        from pptx.util import Inches as PptxInches, Pt as PptxPt
+        from pptx.enum.text import PP_ALIGN
+        
+        colors = template_service.get_template_colors(template_id)
+        
+        # Title
+        title_box = slide.shapes.add_textbox(
+            PptxInches(0.5), PptxInches(0.5),
+            PptxInches(12), PptxInches(1)
+        )
+        title_frame = title_box.text_frame
+        title_para = title_frame.paragraphs[0]
+        title_para.text = slide_data.get('title', 'Uch Ustunli Slayd')
+        title_para.font.size = PptxPt(28)
+        title_para.font.bold = True
+        title_para.font.color.rgb = colors.get('title', RGBColor(0, 51, 102))
+        title_para.alignment = PP_ALIGN.CENTER
+        
+        # Parse content into 3 columns using existing method
+        content_text = slide_data.get('content', '')
+        columns = self._parse_three_columns_smart(content_text, slide_data.get('title', ''))
+        
+        # Create 3 columns with template colors
+        for i, column in enumerate(columns[:3]):
+            x_pos = PptxInches(0.5 + i * 4.2)
+            
+            col_box = slide.shapes.add_textbox(
+                x_pos, PptxInches(2), 
+                PptxInches(3.8), PptxInches(4.5)
+            )
+            col_frame = col_box.text_frame
+            col_frame.word_wrap = True
+            
+            # Column title with template colors
+            col_para = col_frame.paragraphs[0]
+            col_para.text = column.get('title', f'Ustun {i+1}')
+            col_para.font.size = PptxPt(16)
+            col_para.font.bold = True
+            col_para.font.color.rgb = colors.get('title', RGBColor(0, 51, 102))
+            col_para.alignment = PP_ALIGN.CENTER
+            
+            # Column content with template colors
+            column_text = column.get('text', 'Ma\'lumot yo\'q')
+            p = col_frame.add_paragraph()
+            p.text = str(column_text).strip()
+            p.font.size = PptxPt(12)
+            p.font.color.rgb = colors.get('text', RGBColor(51, 51, 51))
+            p.alignment = PP_ALIGN.LEFT
+
     async def create_new_presentation_system(self, topic: str, content: Dict, author_name: str) -> str:
         """Create presentation with new 3-template rotating system and DALL-E images"""
         try:
