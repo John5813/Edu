@@ -197,16 +197,16 @@ Respond in JSON format:
         elif slide_num == 8:
             return "four_numbered"  # 4 raqamli o'ng tomonga siljigan
 
-        # For other slides, use rotation system
+        # For other slides, use rotation system (NO MORE BULLET_POINTS!)
         # Map non-special slides to rotation cycle
         rotation_slides = [3, 4, 6, 7, 9, 10, 11, 12, 13, 14, 15]  # Continue pattern
         if slide_num in rotation_slides:
-            cycle_position = rotation_slides.index(slide_num) % 3
-            layout_cycle = ["text_with_image", "three_column", "bullet_points"]
+            cycle_position = rotation_slides.index(slide_num) % 2  # Only 2 layouts now
+            layout_cycle = ["text_with_image", "three_column"]  # Removed bullet_points
             return layout_cycle[cycle_position]
         
-        # Fallback for any other slides
-        return "bullet_points"
+        # Fallback for any other slides - use text_with_image instead of bullet_points
+        return "text_with_image"
 
     async def generate_dalle_image(self, prompt: str, slide_title: str) -> str | None:
         """Generate image using DALL-E for text+image slides"""
