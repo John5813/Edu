@@ -10,21 +10,14 @@ The system operates on a freemium model where users get one free document genera
 
 Preferred communication style: Simple, everyday language.
 
-## Recent Changes (August 22, 2025)
+## Recent Changes (August 23, 2025)
 
-✓ **TELEGRAM MINI APP INTEGRATSIYA - Taqdimot uchun yangi usul**:
-  - **Web App Interface**: Zamonaviy web interfeys orqali taqdimot parametrlarini kiritish
-  - **Orqa fon shablonlari**: 7 ta professional shablon (vintage, floral, gradient, tech)
-  - **Visual tanlash**: Shablonlarni ko'rish va tanlash imkoniyati
-  - **Form validatsiya**: Majburiy maydonlarni tekshirish
-  - **Telegram integratsiya**: WebAppData orqali ma'lumotlarni qabul qilish
-
-✓ **Yangi funksionallik**:
-  - `webapp/index.html` - Telegram Mini App interfeysi
-  - `webapp/templates/` - Orqa fon rasmlari katalogi
-  - `webapp_server.py` - Web app server (port 5000)
-  - `services/presentation_templates.py` - Shablon boshqaruv tizimi
-  - Template-based presentation yaratish
+✓ **WEB APP FUNKSIYASI O'CHIRILDI** - Foydalanuvchi talabiga ko'ra:
+  - Telegram Mini App interfeysi butunlay olib tashlandi
+  - Web app server (webapp_server.py) o'chirildi
+  - Template system va background shablon tizimi olib tashlandi
+  - Asosiy Telegram bot interfeysi tiklandi
+  - Oddiy va tez hujjat yaratish jarayoni qaytarildi
 
 ## Recent Changes (August 21, 2025)
 

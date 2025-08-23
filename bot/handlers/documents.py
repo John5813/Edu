@@ -53,36 +53,11 @@ async def handle_document_request(message: Message, state: FSMContext, db: Datab
     document_type = DOCUMENT_TYPES[message.text]
     await state.update_data(document_type=document_type)
 
-    # For presentations, show web app button
-    if document_type == "presentation":
-        from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
-
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(
-                text="🎯 Taqdimot yaratish (yangi usul)",
-                web_app=WebAppInfo(url="https://ff8081b2-d953-40bb-8e2f-f5970fbed535-00-bubtfmmzg3hi.picard.replit.dev/webapp/")
-            )
-        ], [
-            InlineKeyboardButton(
-                text="📝 Oddiy usulda davom etish",
-                callback_data="classic_presentation"
-            )
-        ]])
-
-        await message.answer(
-            "Taqdimot yaratish uchun quyidagi usullardan birini tanlang:\n\n"
-            "🎯 **Yangi usul** - shablonlar, ranglar va ko'proq sozlamalar\n"
-            "📝 **Oddiy usul** - oddiy matn kiritish orqali",
-            reply_markup=keyboard,
-            parse_mode="Markdown"
-        )
-        return
-
     # Free service check only for presentations, and only if not used yet  
     if not user.free_service_used and document_type == "presentation":
         await state.update_data(use_free_service=True)
 
-    # Proceed directly to topic input for other document types
+    # Proceed directly to topic input
     await message.answer(get_text(user_lang, "enter_topic"))
     await state.set_state(DocumentStates.waiting_for_topic)
 
@@ -371,90 +346,7 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
     finally:
         await state.clear()
 
-@router.callback_query(F.data == "classic_presentation")
-async def classic_presentation_handler(callback: CallbackQuery, state: FSMContext, user_lang: str):
-    """Handle classic presentation mode"""
-    await callback.answer()
-    await state.update_data(document_type="presentation")
-    await callback.message.answer(get_text(user_lang, "enter_topic"))
-    await state.set_state(DocumentStates.waiting_for_topic)
 
-@router.message(F.web_app_data)
-async def handle_web_app_data(message: Message, state: FSMContext, db: Database, user_lang: str, user):
-    """Handle data from web app"""
-    try:
-        import json
-        data = json.loads(message.web_app_data.data)
-
-        if data.get('action') == 'create_presentation':
-            # Extract data from web app
-            topic = data.get('topic')
-            language = data.get('language', 'uzbek')
-            author = data.get('author', user.first_name or '')
-            slide_count = data.get('slides', 15)
-            template = data.get('template', 'classic')
-
-            # Update user language if different
-            if language != user_lang:
-                user_lang = language
-
-            # Create order record
-            specifications = json.dumps({
-                "slide_count": slide_count,
-                "template": template,
-                "author": author
-            })
-            order_id = await db.create_document_order(
-                user_id=user.id,
-                document_type="presentation",
-                topic=topic,
-                specifications=specifications
-            )
-
-            await message.answer("⏳ Taqdimot yaratilmoqda...")
-
-            # Generate content with template support
-            from services.ai_service import AIService
-            ai_service = AIService()
-            content = await ai_service.generate_presentation_in_batches(topic, slide_count, user_lang)
-
-            # Add template info to content
-            content['template'] = template
-            content['author'] = author
-
-            # Create presentation with template
-            from services.document_service import DocumentService
-            doc_service = DocumentService()
-            file_path = await doc_service.create_presentation_with_template(topic, content, author, template)
-
-            # Update order
-            await db.update_document_order(order_id, "completed", file_path)
-
-            # Process payment
-            if not user.free_service_used:
-                await db.mark_free_service_used(user.telegram_id)
-                await message.answer(get_text(user_lang, "free_service_used"))
-            else:
-                price = get_document_price("presentation", {"slide_count": slide_count})
-                await db.update_user_balance(user.telegram_id, -price)
-                await message.answer(get_text(user_lang, "document_ready"))
-
-            # Send file
-            document = FSInputFile(file_path)
-            await message.answer_document(
-                document=document,
-                caption=f"🎯 {topic}\n👤 {author}\n📊 {slide_count} slayd\n🎨 {template} shablon",
-                reply_markup=get_main_keyboard(user_lang)
-            )
-
-            await state.clear()
-
-    except Exception as e:
-        logger.error(f"Error handling web app data: {e}")
-        await message.answer(
-            "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
-            reply_markup=get_main_keyboard(user_lang)
-        )
 
 @router.message(F.text == "Mening hisobim")
 async def my_account_handler(message: Message, db: Database, user_lang: str, user):
