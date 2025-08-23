@@ -62,6 +62,44 @@ def get_slide_count_keyboard() -> InlineKeyboardMarkup:
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+def get_template_keyboard(group: int, total_groups: int) -> InlineKeyboardMarkup:
+    """Template selection keyboard with navigation"""
+    from services.template_service import TemplateService
+    
+    template_service = TemplateService()
+    groups = template_service.get_template_groups()
+    
+    if group < 1 or group > len(groups):
+        group = 1
+    
+    current_group = groups[group - 1]
+    keyboard = InlineKeyboardBuilder()
+    
+    # Add template selection buttons (5 per row)
+    for template in current_group:
+        template_num = int(template['id'].split('_')[1])
+        keyboard.add(InlineKeyboardButton(
+            text=f"{template_num}. {template['name']}",
+            callback_data=f"template_{template['id']}"
+        ))
+    
+    keyboard.adjust(1)  # One template per row for better readability
+    
+    # Add navigation buttons
+    nav_row = []
+    if group > 1:
+        nav_row.append(InlineKeyboardButton(text="⬅️ Oldingi", callback_data=f"template_group_{group-1}"))
+    
+    nav_row.append(InlineKeyboardButton(text=f"{group}/{total_groups}", callback_data="template_info"))
+    
+    if group < total_groups:
+        nav_row.append(InlineKeyboardButton(text="Keyingi ➡️", callback_data=f"template_group_{group+1}"))
+    
+    if nav_row:
+        keyboard.row(*nav_row)
+    
+    return keyboard.as_markup()
+
 def get_page_count_keyboard(document_type: str) -> InlineKeyboardMarkup:
     """Page count selection keyboard with prices"""
     keyboard = InlineKeyboardBuilder()

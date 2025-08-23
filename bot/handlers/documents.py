@@ -6,10 +6,11 @@ from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.fsm.context import FSMContext
 
 from bot.states import DocumentStates
-from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard
+from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard
 from database.database import Database
 from services.ai_service_new import AIService
 from services.document_service_new import DocumentService
+from services.template_service import TemplateService
 from translations import get_text
 from config import PRESENTATION_PRICES, DOCUMENT_PRICES
 
@@ -75,17 +76,183 @@ async def handle_topic_input(message: Message, state: FSMContext, user_lang: str
     document_type = data['document_type']
 
     if document_type == "presentation":
-        await message.answer(
-            get_text(user_lang, "select_slide_count"),
-            reply_markup=get_slide_count_keyboard()
-        )
-        await state.set_state(DocumentStates.waiting_for_slide_count)
+        # Check balance first before showing slide count options
+        data = await state.get_data()
+        use_free_service = data.get('use_free_service', False)
+        
+        if not use_free_service:
+            # Show slide count selection for paid service
+            await message.answer(
+                get_text(user_lang, "select_slide_count"),
+                reply_markup=get_slide_count_keyboard()
+            )
+            await state.set_state(DocumentStates.waiting_for_slide_count)
+        else:
+            # For free service, directly show templates with 10 slides
+            await state.update_data(slide_count=10)
+            await show_template_selection(message, state, user_lang, group=1)
+            await state.set_state(DocumentStates.waiting_for_template)
     else:
         await message.answer(
             get_text(user_lang, "select_page_count"),
             reply_markup=get_page_count_keyboard(document_type)
         )
         await state.set_state(DocumentStates.waiting_for_page_count)
+
+async def show_template_selection(message: Message, state: FSMContext, user_lang: str, group: int = 1, edit_message: bool = False):
+    """Show template selection with images"""
+    try:
+        template_service = TemplateService()
+        groups = template_service.get_template_groups()
+        total_groups = len(groups)
+        
+        if group < 1 or group > total_groups:
+            group = 1
+        
+        current_group = groups[group - 1]
+        
+        # Send template images
+        template_images = []
+        for template in current_group:
+            if template['file']:
+                try:
+                    file_path = f"attached_assets/{template['file']}"
+                    template_images.append({
+                        'photo': FSInputFile(file_path),
+                        'caption': f"{int(template['id'].split('_')[1])}. {template['name']}"
+                    })
+                except:
+                    continue
+        
+        # Send images as media group if available
+        if template_images:
+            from aiogram.types import InputMediaPhoto
+            media_group = [InputMediaPhoto(media=img['photo'], caption=img['caption']) for img in template_images]
+            await message.answer_media_group(media_group)
+        
+        # Send template selection keyboard
+        text = f"🎨 Taqdimot uchun shablon tanlang ({group}/{total_groups}):\n\nQuyidagi raqamlardan birini bosing:"
+        
+        keyboard = get_template_keyboard(group, total_groups)
+        
+        if edit_message:
+            await message.edit_text(text, reply_markup=keyboard)
+        else:
+            await message.answer(text, reply_markup=keyboard)
+            
+    except Exception as e:
+        logger.error(f"Error in show_template_selection: {e}")
+        await message.answer("❌ Xatolik yuz berdi. Qayta urinib ko'ring.")
+
+@router.callback_query(F.data.startswith("template_group_"))
+async def handle_template_group_navigation(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Handle template group navigation"""
+    try:
+        group = int(callback.data.split('_')[-1])
+        await callback.answer()
+        await show_template_selection(callback.message, state, user_lang, group, edit_message=True)
+    except Exception as e:
+        logger.error(f"Error in template group navigation: {e}")
+        await callback.answer("❌ Xatolik yuz berdi")
+
+@router.callback_query(F.data.startswith("template_template_"))
+async def handle_template_selection(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
+    """Handle template selection and start generation"""
+    try:
+        template_id = callback.data.replace("template_", "")
+        await callback.answer()
+        
+        # Save selected template
+        await state.update_data(selected_template=template_id)
+        
+        # Clear template selection message
+        await callback.message.delete()
+        
+        # Start presentation generation
+        await callback.message.answer("⏳ Taqdimot yaratilmoqda...")
+        await generate_presentation_with_template(callback.message, state, db, user_lang, user)
+        
+    except Exception as e:
+        logger.error(f"Error in template selection: {e}")
+        await callback.message.answer("❌ Xatolik yuz berdi")
+
+async def generate_presentation_with_template(message: Message, state: FSMContext, db: Database, user_lang: str, user):
+    """Generate presentation with selected template"""
+    try:
+        data = await state.get_data()
+        topic = data['topic']
+        slide_count = data['slide_count']
+        template_id = data.get('selected_template', 'template_20')
+        use_free_service = data.get('use_free_service', False)
+
+        # Create order record
+        specifications = json.dumps({
+            "slide_count": slide_count,
+            "template": template_id
+        })
+        order_id = await db.create_document_order(
+            user_id=user.id,
+            document_type="presentation",
+            topic=topic,
+            specifications=specifications
+        )
+
+        # Generate content with NEW AI BATCH SYSTEM
+        ai_service = AIService()
+        content = await ai_service.generate_presentation_in_batches(topic, slide_count, user_lang)
+
+        # Validate AI response
+        if not content or 'slides' not in content:
+            logger.error(f"Invalid AI response from batch generation: {content}")
+            content = {
+                'slides': [
+                    {'title': topic, 'content': f"Bu taqdimot {topic} mavzusida tayyorlangan.", 'layout_type': 'bullet_points', 'slide_number': 1},
+                    {'title': 'Kirish', 'content': f"{topic} haqida batafsil ma'lumot va asosiy nuqtalar.", 'layout_type': 'bullet_points', 'slide_number': 2}
+                ]
+            }
+
+        # Create presentation with template
+        doc_service = DocumentService()
+        template_service = TemplateService()
+        
+        # Apply template to presentation creation
+        file_path = await doc_service.create_presentation_with_template(topic, content, user.first_name or "", template_id, template_service)
+
+        # Update order
+        await db.update_document_order(order_id, "completed", file_path)
+
+        # Process payment
+        if use_free_service:
+            await db.mark_free_service_used(user.telegram_id)
+            await message.answer(get_text(user_lang, "free_service_used"))
+        else:
+            price = get_document_price("presentation", {"slide_count": slide_count})
+            await db.update_user_balance(user.telegram_id, -price)
+            await message.answer(get_text(user_lang, "document_ready"))
+
+        # Get template name for caption
+        template_service = TemplateService()
+        template_name = template_service.templates.get(template_id, {}).get('name', 'Standart')
+
+        # Send file
+        document = FSInputFile(file_path)
+        await message.answer_document(
+            document=document,
+            caption=f"🎯 {topic}\n📊 {slide_count} slayd\n🎨 {template_name} shablon",
+            reply_markup=get_main_keyboard(user_lang)
+        )
+
+        await state.clear()
+
+    except Exception as e:
+        logger.error(f"Error generating presentation with template: {e}")
+        await message.answer(
+            "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
+            reply_markup=get_main_keyboard(user_lang)
+        )
+        if 'order_id' in locals():
+            await db.update_document_order(order_id, "failed")
+        await state.clear()
 
 @router.callback_query(F.data.startswith("slides_"), DocumentStates.waiting_for_slide_count)
 async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
@@ -103,10 +270,10 @@ async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Dat
         await callback.message.edit_text(get_text(user_lang, "insufficient_balance"))
         return
 
-    await callback.message.edit_text("⏳ " + get_text(user_lang, "generating"))
-
-    # Start document generation
-    asyncio.create_task(generate_presentation(callback, state, db, user_lang, user))
+    # Show template selection instead of generating directly
+    await callback.answer()
+    await show_template_selection(callback.message, state, user_lang, group=1, edit_message=True)
+    await state.set_state(DocumentStates.waiting_for_template)
 
 @router.callback_query(F.data.startswith("pages_"), DocumentStates.waiting_for_page_count)
 async def handle_page_count(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
