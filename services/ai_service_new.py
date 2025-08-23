@@ -65,7 +65,10 @@ YANGI TIZIM - LAYOUT TALABLARI:
                     if layout == "title":
                         prompt += f"Slayd {slide_num}: SARLAVHA SLAYDI\n"
                     elif layout == "bullet_points":
-                        prompt += f"Slayd {slide_num}: BULLET POINT SLAYDI (2,5,8,11...)\n- AYNAN 5 ta bullet point\n- HAR NUQTADA 70-80 SO'Z (jami 350-400 so'z)\n- Faqat bullet belgisi (•), raqam va qo'shimcha belgisiz\n- Har nuqta to'liq batafsil paragraf tarzida\n- Professional akademik uslub\n"
+                        if slide_num == 2:
+                            prompt += f"Slayd {slide_num}: UZLUKSIZ MATN SLAYD\n- BITTA UZUN PARAGRAF (bullet pointsiz)\n- 120-150 SO'ZLIK uzluksiz matn\n- Mavzu haqida batafsilroq tushuntirish\n- Professional akademik uslub\n"
+                        else:
+                            prompt += f"Slayd {slide_num}: BULLET POINT SLAYDI\n- AYNAN 5 ta bullet point\n- HAR NUQTADA 70-80 SO'Z (jami 350-400 so'z)\n- Faqat bullet belgisi (•), raqam va qo'shimcha belgisiz\n- Har nuqta to'liq batafsil paragraf tarzida\n- Professional akademik uslub\n"
                     elif layout == "text_with_image":
                         prompt += f"Slayd {slide_num}: MATN+DALL-E RASM SLAYD (3,6,9,12...)\n- KAMIDA 100-120 SO'ZLIK uzluksiz paragraf\n- To'liq akademik tushuntirish, misollar bilan\n- Chuqur tahlil va batafsil ma'lumot\n- Professional uslub\n"
                     elif layout == "three_column":
@@ -186,18 +189,18 @@ Respond in JSON format:
         if slide_num == 1:
             return "title"
 
-        # Special layouts for specific slides
+        # NEW SPECIAL LAYOUTS - Fixed assignments
         if slide_num == 2:
-            return "bullet_points"  # Single continuous text
+            return "bullet_points"  # Uzluksiz matn (bullet pointsiz)
         elif slide_num == 5:
-            return "three_bullets"  # 3 bullet points
+            return "three_bullets"  # 3 nuqtali matn  
         elif slide_num == 8:
-            return "four_numbered"  # 4 numbered with right-shifting
+            return "four_numbered"  # 4 raqamli o'ng tomonga siljigan
 
         content_slide_num = slide_num - 1  # Subtract title slide
 
-        # Default 3-layout rotation system for other slides
-        layout_cycle = ["bullet_points", "text_with_image", "three_column"]
+        # 3-layout rotation system for other slides (3,4,6,7,9,10...)
+        layout_cycle = ["text_with_image", "three_column", "bullet_points"]
         return layout_cycle[(content_slide_num - 1) % 3]
 
     async def generate_dalle_image(self, prompt: str, slide_title: str) -> str:
