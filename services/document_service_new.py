@@ -111,17 +111,7 @@ class DocumentService:
         title_para.font.color.rgb = colors.get('title', RGBColor(0, 51, 102))
         title_para.alignment = PP_ALIGN.CENTER
         
-        # Add author
-        author_box = slide.shapes.add_textbox(
-            PptxInches(1), PptxInches(5),
-            PptxInches(11.33), PptxInches(1)
-        )
-        author_frame = author_box.text_frame
-        author_para = author_frame.paragraphs[0]
-        author_para.text = f"Muallif: {author_name}"
-        author_para.font.size = PptxPt(24)
-        author_para.font.color.rgb = colors.get('text', RGBColor(51, 51, 51))
-        author_para.alignment = PP_ALIGN.CENTER
+        # No author name needed
 
     async def _create_content_slide_with_template(self, prs, slide_data: Dict, layout_type: str, slide_num: int, images: Dict, template_service, template_id: str):
         """Create content slide with template background"""
@@ -417,21 +407,7 @@ class DocumentService:
         slide_layout = prs.slide_layouts[6]  # Blank layout
         slide = prs.slides.add_slide(slide_layout)
 
-        # Title background for better visibility
-        from pptx.enum.shapes import MSO_SHAPE
-        from pptx.dml.color import RGBColor
-        
-        title_bg = slide.shapes.add_shape(
-            MSO_SHAPE.RECTANGLE,
-            PptxInches(0.3), PptxInches(0.3),
-            PptxInches(12.4), PptxInches(1.4)
-        )
-        title_bg.fill.solid()
-        title_bg.fill.fore_color.rgb = RGBColor(0, 0, 0)  # Black background
-        title_bg.fill.transparency = 0.3  # 30% transparency
-        title_bg.line.fill.background()  # No border
-        
-        # Title
+        # Title (no background frame)
         title_box = slide.shapes.add_textbox(
             PptxInches(0.5), PptxInches(0.5),
             PptxInches(12), PptxInches(1)
@@ -441,22 +417,8 @@ class DocumentService:
         title_para.text = slide_data.get('title', 'Matn + Rasm Slayd')
         title_para.font.size = PptxPt(32)  # Larger title
         title_para.font.bold = True
-        title_para.font.color.rgb = RGBColor(255, 255, 255)  # White text
+        title_para.font.color.rgb = RGBColor(0, 0, 0)  # Black text
         title_para.alignment = PP_ALIGN.CENTER
-
-        # Add semi-transparent background for text readability
-        from pptx.enum.shapes import MSO_SHAPE
-        from pptx.dml.color import RGBColor
-        
-        text_bg = slide.shapes.add_shape(
-            MSO_SHAPE.RECTANGLE,
-            PptxInches(0.3), PptxInches(1.8),
-            PptxInches(5.9), PptxInches(4.9)
-        )
-        text_bg.fill.solid()
-        text_bg.fill.fore_color.rgb = RGBColor(255, 255, 255)  # White
-        text_bg.fill.transparency = 0.2  # 20% transparency
-        text_bg.line.fill.background()  # No border
         
         # Left side: Continuous text (45% width) - 70% of original length
         text_box = slide.shapes.add_textbox(
@@ -503,21 +465,7 @@ class DocumentService:
         slide_layout = prs.slide_layouts[6]  # Blank layout
         slide = prs.slides.add_slide(slide_layout)
 
-        # Title background for better visibility
-        from pptx.enum.shapes import MSO_SHAPE
-        from pptx.dml.color import RGBColor
-        
-        title_bg = slide.shapes.add_shape(
-            MSO_SHAPE.RECTANGLE,
-            PptxInches(0.3), PptxInches(0.3),
-            PptxInches(12.4), PptxInches(1.4)
-        )
-        title_bg.fill.solid()
-        title_bg.fill.fore_color.rgb = RGBColor(0, 0, 0)  # Black background
-        title_bg.fill.transparency = 0.3  # 30% transparency
-        title_bg.line.fill.background()  # No border
-        
-        # Title
+        # Title (no background frame)
         title_box = slide.shapes.add_textbox(
             PptxInches(0.5), PptxInches(0.5),
             PptxInches(12), PptxInches(1)
@@ -527,7 +475,7 @@ class DocumentService:
         title_para.text = slide_data.get('title', 'Uch Ustunli Slayd')
         title_para.font.size = PptxPt(32)  # Larger title
         title_para.font.bold = True
-        title_para.font.color.rgb = RGBColor(255, 255, 255)  # White text
+        title_para.font.color.rgb = RGBColor(0, 0, 0)  # Black text
         title_para.alignment = PP_ALIGN.CENTER
 
         # Parse content into 3 logical columns
@@ -805,6 +753,25 @@ class DocumentService:
                     p = content_frame.add_paragraph()
                 
                 p.text = f"{i + 1}. {point.strip()}"
+
+
+    async def _create_thank_you_slide(self, prs):
+        """Create final thank you slide"""
+        slide_layout = prs.slide_layouts[0]  # Title slide layout
+        slide = prs.slides.add_slide(slide_layout)
+
+        title = slide.shapes.title
+        subtitle = slide.placeholders[1]
+
+        if title:
+            title.text = "Diqqatingiz uchun rahmat!"
+            title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
+            title.text_frame.paragraphs[0].font.size = PptxPt(44)
+            title.text_frame.paragraphs[0].font.bold = True
+
+        if subtitle:
+            subtitle.text = ""  # Empty subtitle
+
                 p.font.size = PptxPt(18)
                 p.alignment = PP_ALIGN.LEFT
                 p.level = i  # Each number shifts right (0, 1, 2, 3 levels)
@@ -858,7 +825,7 @@ class DocumentService:
             title.text_frame.paragraphs[0].font.size = PptxPt(36)
 
         if subtitle:
-            subtitle.text = f"{topic}\n\n\n{author_name or '__________________'}"
+            subtitle.text = f"{topic}"
             subtitle.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
             subtitle.text_frame.paragraphs[0].font.size = PptxPt(20)
 
