@@ -420,28 +420,25 @@ class DocumentService:
         title_para.font.color.rgb = RGBColor(0, 0, 0)  # Black text
         title_para.alignment = PP_ALIGN.CENTER
         
-        # Left side: Continuous text (45% width) - 70% of original length
+        # Left side: Continuous text (50% width) - FULL CONTENT
         text_box = slide.shapes.add_textbox(
             PptxInches(0.5), PptxInches(2),
-            PptxInches(5.5), PptxInches(4.5)  # 45% width
+            PptxInches(6), PptxInches(5)  # 50% width, more height
         )
         text_frame = text_box.text_frame
         text_frame.word_wrap = True
         text_para = text_frame.paragraphs[0]
         
-        # Reduce text to 70% of original length
+        # Use FULL text content - NO MORE REDUCTION!
         original_content = slide_data.get('content', 'Mazmun mavjud emas')
-        words = original_content.split()
-        reduced_length = int(len(words) * 0.7)  # 70% of original
-        reduced_content = ' '.join(words[:reduced_length])
         
-        text_para.text = reduced_content
-        text_para.font.size = PptxPt(18)  # Large font for main content
+        text_para.text = original_content  # FULL CONTENT
+        text_para.font.size = PptxPt(14)  # Smaller font to fit more text
         text_para.font.bold = True  # Bold for better visibility
         text_para.font.color.rgb = RGBColor(0, 0, 0)  # Black text
         text_para.alignment = PP_ALIGN.LEFT  # Left alignment
 
-        # Right side: DALL-E image (55% width - butun o'ng tomonni qoplash)
+        # Right side: DALL-E image (50% width - balanced layout)
         if slide_num in images:
             image_path = images[slide_num]
             logger.info(f"Adding DALL-E image for slide {slide_num}: {image_path}")
@@ -449,8 +446,8 @@ class DocumentService:
                 try:
                     slide.shapes.add_picture(
                         image_path,
-                        PptxInches(6.2), PptxInches(2),    # Right side position
-                        PptxInches(6.8), PptxInches(4.5)   # O'ng tomonni butunlay qoplash
+                        PptxInches(6.8), PptxInches(2),    # Right side position
+                        PptxInches(6), PptxInches(5)   # 50% width, more height
                     )
                     logger.info(f"Successfully added DALL-E image to slide {slide_num}")
                 except Exception as e:
