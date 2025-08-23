@@ -50,8 +50,9 @@ async def create_webapp():
     })
 
     # Add routes
-    app.router.add_get('/webapp/', index_handler)
-    app.router.add_get('/webapp/index.html', index_handler)
+    app.router.add_get('/', handle_root)
+    app.router.add_get('/webapp/', handle_webapp)
+    app.router.add_get('/webapp', handle_webapp)
     app.router.add_get('/webapp/templates/{filename}', template_handler)
 
     # Setup CORS for all routes
@@ -94,6 +95,7 @@ def main():
     app.router.add_get('/', handle_root)
     app.router.add_get('/webapp/', handle_webapp)
     app.router.add_get('/webapp', handle_webapp)
+    app.router.add_get('/webapp/templates/{filename}', template_handler)
 
     # Setup CORS for all routes
     for route in list(app.router.routes()):

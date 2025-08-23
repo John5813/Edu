@@ -69,9 +69,15 @@
 
         .template-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            grid-template-columns: repeat(3, 1fr);
             gap: 15px;
             margin-top: 10px;
+        }
+        
+        @media (max-width: 500px) {
+            .template-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
 
         .template-item {
