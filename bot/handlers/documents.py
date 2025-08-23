@@ -112,38 +112,43 @@ async def show_template_selection(message: Message, state: FSMContext, user_lang
         
         current_group = groups[group - 1]
         
-        # Send template images first
-        from aiogram.types import InputMediaPhoto, FSInputFile
-        template_images = []
+        # Send template images one by one to avoid dimension issues
+        from aiogram.types import FSInputFile
+        valid_templates = []
         
         for template in current_group:
             template_num = int(template['id'].split('_')[1])
             image_path = f"attached_assets/{template.get('file', '')}"
             
-            # Check if file exists and add to media group
+            # Check if file exists and send individually
             if os.path.exists(image_path):
                 try:
-                    template_images.append(InputMediaPhoto(
-                        media=FSInputFile(image_path),
+                    await message.answer_photo(
+                        photo=FSInputFile(image_path),
                         caption=f"{template_num}. {template['name']}"
-                    ))
+                    )
+                    valid_templates.append(template)
                 except Exception as img_error:
                     logger.warning(f"Could not load template image {image_path}: {img_error}")
-        
-        # Send images if available
-        if template_images:
-            await message.answer_media_group(template_images)
+                    # Add to valid templates anyway so user can select by number
+                    valid_templates.append(template)
         
         # Send selection text and keyboard
-        text = f"🎨 **Yuqoridagi rasmlardan birini tanlang ({group}/{total_groups}-sahifa):**\n\n"
-        text += "👆 **Raqam tugmasini bosing:**"
+        if valid_templates:
+            text = f"🎨 **Yuqoridagi rasmlardan birini tanlang ({group}/{total_groups}-sahifa):**\n\n"
+            text += "👆 **Raqam tugmasini bosing:**"
+        else:
+            # Fallback text if no images loaded
+            text = f"🎨 **Shablon tanlang ({group}/{total_groups}-sahifa):**\n\n"
+            template_list = []
+            for template in current_group:
+                template_num = int(template['id'].split('_')[1])
+                template_list.append(f"**{template_num}.** {template['name']}")
+            text += "\n".join(template_list)
+            text += "\n\n👆 **Raqam tugmasini bosing:**"
         
         keyboard = get_template_keyboard(group, total_groups)
-        
-        if edit_message and not template_images:  # Only edit if no images sent
-            await message.edit_text(text, reply_markup=keyboard, parse_mode="Markdown")
-        else:
-            await message.answer(text, reply_markup=keyboard, parse_mode="Markdown")
+        await message.answer(text, reply_markup=keyboard, parse_mode="Markdown")
             
     except Exception as e:
         logger.error(f"Error in show_template_selection: {e}")
@@ -155,7 +160,8 @@ async def handle_template_group_navigation(callback: CallbackQuery, state: FSMCo
     try:
         group = int(callback.data.split('_')[-1])
         await callback.answer()
-        await show_template_selection(callback.message, state, user_lang, group, edit_message=True)
+        # Send new template selection as fresh message instead of editing
+        await show_template_selection(callback.message, state, user_lang, group, edit_message=False)
     except Exception as e:
         logger.error(f"Error in template group navigation: {e}")
         await callback.answer("❌ Xatolik yuz berdi")
