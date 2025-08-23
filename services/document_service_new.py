@@ -414,6 +414,20 @@ class DocumentService:
         slide_layout = prs.slide_layouts[6]  # Blank layout
         slide = prs.slides.add_slide(slide_layout)
 
+        # Title background for better visibility
+        from pptx.enum.shapes import MSO_SHAPE
+        from pptx.dml.color import RGBColor
+        
+        title_bg = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE,
+            PptxInches(0.3), PptxInches(0.3),
+            PptxInches(12.4), PptxInches(1.4)
+        )
+        title_bg.fill.solid()
+        title_bg.fill.fore_color.rgb = RGBColor(0, 0, 0)  # Black background
+        title_bg.fill.transparency = 0.3  # 30% transparency
+        title_bg.line.fill.background()  # No border
+        
         # Title
         title_box = slide.shapes.add_textbox(
             PptxInches(0.5), PptxInches(0.5),
@@ -422,10 +436,25 @@ class DocumentService:
         title_frame = title_box.text_frame
         title_para = title_frame.paragraphs[0]
         title_para.text = slide_data.get('title', 'Matn + Rasm Slayd')
-        title_para.font.size = PptxPt(28)  # Medium title
+        title_para.font.size = PptxPt(32)  # Larger title
         title_para.font.bold = True
+        title_para.font.color.rgb = RGBColor(255, 255, 255)  # White text
         title_para.alignment = PP_ALIGN.CENTER
 
+        # Add semi-transparent background for text readability
+        from pptx.enum.shapes import MSO_SHAPE
+        from pptx.dml.color import RGBColor
+        
+        text_bg = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE,
+            PptxInches(0.3), PptxInches(1.8),
+            PptxInches(5.9), PptxInches(4.9)
+        )
+        text_bg.fill.solid()
+        text_bg.fill.fore_color.rgb = RGBColor(255, 255, 255)  # White
+        text_bg.fill.transparency = 0.2  # 20% transparency
+        text_bg.line.fill.background()  # No border
+        
         # Left side: Continuous text (45% width)
         text_box = slide.shapes.add_textbox(
             PptxInches(0.5), PptxInches(2),
@@ -436,7 +465,9 @@ class DocumentService:
         text_para = text_frame.paragraphs[0]
         text_para.text = slide_data.get('content', 'Mazmun mavjud emas')
         text_para.font.size = PptxPt(18)  # Large font for main content
-        text_para.alignment = PP_ALIGN.LEFT  # Left alignment - ikki cheti bir tekisni olib tashlash
+        text_para.font.bold = True  # Bold for better visibility
+        text_para.font.color.rgb = RGBColor(0, 0, 0)  # Black text
+        text_para.alignment = PP_ALIGN.LEFT  # Left alignment
 
         # Right side: DALL-E image (55% width - butun o'ng tomonni qoplash)
         if slide_num in images:
@@ -462,6 +493,17 @@ class DocumentService:
         slide_layout = prs.slide_layouts[6]  # Blank layout
         slide = prs.slides.add_slide(slide_layout)
 
+        # Title background for better visibility  
+        title_bg = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE,
+            PptxInches(0.3), PptxInches(0.3),
+            PptxInches(12.4), PptxInches(1.4)
+        )
+        title_bg.fill.solid()
+        title_bg.fill.fore_color.rgb = RGBColor(0, 0, 0)  # Black background
+        title_bg.fill.transparency = 0.3  # 30% transparency
+        title_bg.line.fill.background()  # No border
+        
         # Title
         title_box = slide.shapes.add_textbox(
             PptxInches(0.5), PptxInches(0.5),
@@ -470,8 +512,9 @@ class DocumentService:
         title_frame = title_box.text_frame
         title_para = title_frame.paragraphs[0]
         title_para.text = slide_data.get('title', 'Uch Ustunli Slayd')
-        title_para.font.size = PptxPt(28)  # Medium title
+        title_para.font.size = PptxPt(32)  # Larger title
         title_para.font.bold = True
+        title_para.font.color.rgb = RGBColor(255, 255, 255)  # White text
         title_para.alignment = PP_ALIGN.CENTER
 
         # Parse content into 3 logical columns
