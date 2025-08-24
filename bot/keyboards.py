@@ -133,8 +133,8 @@ def get_admin_keyboard() -> ReplyKeyboardMarkup:
     keyboard.add(KeyboardButton(text="👥 Foydalanuvchilar"))
     keyboard.add(KeyboardButton(text="📊 Statistika"))
 
-    # Xabar yuborish va sozlamalar
-    keyboard.add(KeyboardButton(text="📤 Xabar yuborish"))
+    # Reklama yuborish va sozlamalar
+    keyboard.add(KeyboardButton(text="📤 Reklama yuborish"))
     keyboard.add(KeyboardButton(text="💰 Narxlar sozlamalari"))
 
     # Bot sozlamalari

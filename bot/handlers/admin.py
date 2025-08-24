@@ -447,28 +447,76 @@ async def handle_database_management(message: Message, db: Database):
     
     await message.answer(text, reply_markup=get_admin_keyboard())
 
-@router.message(F.text == "📤 Xabar yuborish")
+@router.message(F.text == "📤 Reklama yuborish")
 async def handle_broadcast_start(message: Message, state: FSMContext):
-    """Start broadcast message"""
+    """Start advertisement broadcast"""
     if not is_admin(message.from_user.id):
         return
     
     await message.answer(
-        "📣 Xabar yuborish\n\n"
-        "Yubormoqchi bo'lgan xabaringizni kiriting:"
+        "📢 Reklama yuborish\n\n"
+        "Yubormoqchi bo'lgan reklamangizni kiriting:\n\n"
+        "📝 Matn xabar\n"
+        "🖼 Rasm (caption bilan)\n"
+        "🎥 Video (caption bilan)\n"
+        "📄 Fayl/Hujjat\n"
+        "🔗 URL havola\n\n"
+        "Reklama materialingizni yuboring:"
     )
     await state.set_state(AdminStates.waiting_for_broadcast_message)
 
 @router.message(AdminStates.waiting_for_broadcast_message)
 async def handle_broadcast_message(message: Message, state: FSMContext):
-    """Handle broadcast message input"""
-    await state.update_data(
-        message_text=message.text,
-        message_type="text"
-    )
+    """Handle advertisement content input - supports all media types"""
+    
+    # Determine content type and store appropriate data
+    if message.text:
+        await state.update_data(
+            message_text=message.text,
+            message_type="text"
+        )
+    elif message.photo:
+        await state.update_data(
+            photo_id=message.photo[-1].file_id,
+            caption=message.caption or "",
+            message_type="photo"
+        )
+    elif message.video:
+        await state.update_data(
+            video_id=message.video.file_id,
+            caption=message.caption or "",
+            message_type="video"
+        )
+    elif message.document:
+        await state.update_data(
+            document_id=message.document.file_id,
+            caption=message.caption or "",
+            message_type="document"
+        )
+    elif message.animation:
+        await state.update_data(
+            animation_id=message.animation.file_id,
+            caption=message.caption or "",
+            message_type="animation"
+        )
+    elif message.voice:
+        await state.update_data(
+            voice_id=message.voice.file_id,
+            caption=message.caption or "",
+            message_type="voice"
+        )
+    elif message.audio:
+        await state.update_data(
+            audio_id=message.audio.file_id,
+            caption=message.caption or "",
+            message_type="audio"
+        )
+    else:
+        await message.answer("❌ Ushbu turdagi kontent qo'llab-quvvatlanmaydi.")
+        return
     
     await message.answer(
-        "📣 Kimga yuborilsin?",
+        "📢 Kimga reklama yuborilsin?",
         reply_markup=get_broadcast_target_keyboard()
     )
     await state.set_state(AdminStates.waiting_for_broadcast_target)
@@ -492,28 +540,68 @@ async def handle_broadcast_target(callback: CallbackQuery, state: FSMContext, db
         target_users = [user for user in all_users if user.updated_at >= cutoff_date]
     
     await callback.message.edit_text(
-        f"📤 Xabar yuborilmoqda...\n"
+        f"📢 Reklama yuborilmoqda...\n"
         f"Jami: {len(target_users)} ta foydalanuvchi"
     )
     
-    # Send messages
+    # Send advertisements based on type
     sent_count = 0
     failed_count = 0
+    message_type = data.get('message_type', 'text')
     
     for user in target_users:
         try:
-            await callback.bot.send_message(
-                user.telegram_id,
-                data['message_text']
-            )
+            if message_type == "text":
+                await callback.bot.send_message(
+                    user.telegram_id,
+                    data['message_text']
+                )
+            elif message_type == "photo":
+                await callback.bot.send_photo(
+                    user.telegram_id,
+                    photo=data['photo_id'],
+                    caption=data.get('caption')
+                )
+            elif message_type == "video":
+                await callback.bot.send_video(
+                    user.telegram_id,
+                    video=data['video_id'],
+                    caption=data.get('caption')
+                )
+            elif message_type == "document":
+                await callback.bot.send_document(
+                    user.telegram_id,
+                    document=data['document_id'],
+                    caption=data.get('caption')
+                )
+            elif message_type == "animation":
+                await callback.bot.send_animation(
+                    user.telegram_id,
+                    animation=data['animation_id'],
+                    caption=data.get('caption')
+                )
+            elif message_type == "voice":
+                await callback.bot.send_voice(
+                    user.telegram_id,
+                    voice=data['voice_id'],
+                    caption=data.get('caption')
+                )
+            elif message_type == "audio":
+                await callback.bot.send_audio(
+                    user.telegram_id,
+                    audio=data['audio_id'],
+                    caption=data.get('caption')
+                )
+            
             sent_count += 1
         except Exception as e:
-            logger.error(f"Failed to send message to {user.telegram_id}: {e}")
+            logger.error(f"Failed to send {message_type} to {user.telegram_id}: {e}")
             failed_count += 1
     
     # Send result
     await callback.message.edit_text(
-        f"✅ Xabar yuborish yakunlandi:\n\n"
+        f"✅ Reklama yuborish yakunlandi:\n\n"
+        f"📊 Tur: {message_type.title()}\n"
         f"✅ {sent_count} ta yuborildi\n"
         f"❌ {failed_count} ta foydalanuvchiga yetmadi"
     )
