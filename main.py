@@ -1,7 +1,11 @@
 import asyncio
 import logging
 import os
+from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher
+
+# Load environment variables from .env file
+load_dotenv()
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
