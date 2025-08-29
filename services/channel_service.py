@@ -13,14 +13,30 @@ class ChannelService:
     async def check_user_subscription(self, user_id: int, channels: List[Channel]) -> bool:
         """Check if user is subscribed to all required channels"""
         try:
+            accessible_channels = []
+            
+            # First, check which channels are accessible
             for channel in channels:
+                if await self._validate_channel_access(channel.channel_id):
+                    accessible_channels.append(channel)
+                else:
+                    logger.warning(f"Channel {channel.channel_id} is not accessible to bot - skipping subscription check")
+            
+            # If no channels are accessible, allow access (don't block user due to admin error)
+            if not accessible_channels:
+                logger.warning("No accessible channels found - allowing access")
+                return True
+            
+            # Check subscription to accessible channels only
+            for channel in accessible_channels:
                 if not await self._is_user_subscribed(user_id, channel.channel_id):
                     return False
             return True
             
         except Exception as e:
             logger.error(f"Error checking user subscription: {e}")
-            return False
+            # In case of error, allow access (don't block user due to technical issues)
+            return True
     
     async def _is_user_subscribed(self, user_id: int, channel_id: str) -> bool:
         """Check if user is subscribed to a specific channel"""
@@ -36,6 +52,18 @@ class ChannelService:
             return False
         except Exception as e:
             logger.error(f"Error checking subscription for user {user_id} in channel {channel_id}: {e}")
+            return False
+            
+    async def _validate_channel_access(self, channel_id: str) -> bool:
+        """Check if bot has access to the channel"""
+        try:
+            chat = await self.bot.get_chat(chat_id=channel_id)
+            return True
+        except TelegramAPIError as e:
+            logger.warning(f"Bot cannot access channel {channel_id}: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Error validating channel access {channel_id}: {e}")
             return False
     
     async def validate_channel(self, channel_id: str) -> bool:

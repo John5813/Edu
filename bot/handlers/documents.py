@@ -12,6 +12,7 @@ from database.database import Database
 from services.ai_service_new import AIService
 from services.document_service_new import DocumentService
 from services.template_service import TemplateService
+from services.channel_service import ChannelService
 from translations import get_text
 from config import PRESENTATION_PRICES, DOCUMENT_PRICES
 
@@ -45,11 +46,45 @@ def get_document_price(document_type: str, count_data: dict) -> int:
         page_key = f"{min_pages}_{max_pages}"
         return DOCUMENT_PRICES.get(page_key, 5000)
 
+# Subscription check helper function
+async def check_user_subscription_required(message: Message, user, db: Database, user_lang: str) -> bool:
+    """Check if user is subscribed to required channels"""
+    channels = await db.get_active_channels()
+    
+    if not channels:
+        return True  # No channels required
+    
+    channel_service = ChannelService(message.bot)
+    is_subscribed = await channel_service.check_user_subscription(user.telegram_id, channels)
+    
+    if not is_subscribed:
+        # Show subscription requirement
+        from bot.keyboards import get_subscription_check_keyboard
+        
+        if user_lang == "uz":
+            text = "❌ Hujjat yaratish uchun avval kanallarga a'zo bo'lishingiz shart!\n\n👇 Kanalga o'tish uchun tugmani bosing:"
+        elif user_lang == "ru":
+            text = "❌ Для создания документа сначала подпишитесь на каналы!\n\n👇 Нажмите кнопку для перехода в канал:"
+        else:  # en
+            text = "❌ To create document, you must subscribe to channels first!\n\n👇 Click the button to go to the channel:"
+        
+        await message.answer(
+            text,
+            reply_markup=get_subscription_check_keyboard(user_lang, channels)
+        )
+        return False
+    
+    return True
+
 @router.message(F.text.in_(DOCUMENT_TYPES.keys()))
 async def handle_document_request(message: Message, state: FSMContext, db: Database, user_lang: str, user):
     """Handle document creation request"""
     if not user:
         await message.answer("❌ Сначала выполните команду /start")
+        return
+
+    # Check subscription before allowing document creation
+    if not await check_user_subscription_required(message, user, db, user_lang):
         return
 
     document_type = DOCUMENT_TYPES[message.text]
