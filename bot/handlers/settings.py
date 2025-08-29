@@ -16,8 +16,9 @@ logger = logging.getLogger(__name__)
 SETTINGS_TEXTS = ["⚙️ Sozlamalar", "⚙️ Настройки", "⚙️ Settings"]
 
 @router.message(F.text.in_(SETTINGS_TEXTS))
-async def handle_settings_request(message: Message, user_lang: str):
+async def handle_settings_request(message: Message, state: FSMContext, user_lang: str):
     """Handle settings request"""
+    await state.clear()  # Clear any active state
     await message.answer(
         get_text(user_lang, "settings_menu"),
         reply_markup=get_settings_keyboard(user_lang)

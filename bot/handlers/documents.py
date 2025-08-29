@@ -67,7 +67,22 @@ async def handle_document_request(message: Message, state: FSMContext, db: Datab
 async def handle_topic_input(message: Message, state: FSMContext, user_lang: str):
     """Handle topic input"""
     topic = message.text.strip()
-
+    
+    # Ignore system buttons - clear state and return
+    system_buttons = [
+        "⚙️ Sozlamalar", "⚙️ Настройки", "⚙️ Settings",
+        "💳 To'lov qilish", "💳 Оплата", "💳 Payment", 
+        "💰 Mening hisobim", "💰 Мой счет", "💰 My Account",
+        "📞 Yordam", "📞 Помощь", "📞 Help",
+        "📊 Taqdimot", "📊 Презентация", "📊 Presentation",
+        "🎓 Mustaqil ish", "🎓 Самостоятельная работа", "🎓 Independent Work", 
+        "📄 Referat", "📄 Реферат", "📄 Research Paper"
+    ]
+    
+    if topic in system_buttons:
+        await state.clear()
+        return  # Let other handlers process the button
+    
     if len(topic) < 3:
         await message.answer("❌ Mavzu juda qisqa. Iltimos, to'liqroq kiriting.")
         return
@@ -543,8 +558,9 @@ async def my_account_handler(message: Message, db: Database, user_lang: str, use
 HELP_BUTTON_TEXTS = ["📞 Yordam", "📞 Помощь", "📞 Help"]
 
 @router.message(F.text.in_(HELP_BUTTON_TEXTS))
-async def help_handler(message: Message, user_lang: str):
+async def help_handler(message: Message, state: FSMContext, user_lang: str):
     """Handles the 'Help' button click."""
+    await state.clear()  # Clear any active state
     if user_lang == "uz":
         help_text = """
 🎓 **EduBot.ai - Yordam**

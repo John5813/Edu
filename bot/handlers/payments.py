@@ -19,14 +19,16 @@ ACCOUNT_TEXTS = ["💰 Mening hisobim", "💰 Мой счет", "💰 My Account
 @router.message(F.text.in_(PAYMENT_TEXTS))
 async def handle_payment_request(message: Message, state: FSMContext, user_lang: str):
     """Handle payment request"""
+    await state.clear()  # Clear any active state
     await message.answer(
         get_text(user_lang, "select_payment_amount"),
         reply_markup=get_payment_amount_keyboard()
     )
 
 @router.message(F.text.in_(ACCOUNT_TEXTS))
-async def handle_account_info(message: Message, db: Database, user_lang: str, user):
+async def handle_account_info(message: Message, state: FSMContext, db: Database, user_lang: str, user):
     """Show account information"""
+    await state.clear()  # Clear any active state
     if not user:
         await message.answer("❌ Сначала выполните команду /start")
         return
