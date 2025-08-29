@@ -396,28 +396,30 @@ async def handle_daily_statistics(message: Message, db: Database):
     if not is_admin(message.from_user.id):
         return
     
-    # Get today's date
-    today = datetime.now().date()
-    yesterday = today - timedelta(days=1)
-    
-    # Get daily statistics 
-    users_today = await db.get_users_registered_today()
-    users_yesterday = await db.get_users_registered_yesterday()
-    
-    # Simple calculation for today's orders and revenue
-    all_users = await db.get_all_users()
-    orders_today = sum(1 for user in all_users if user.created_at.date() == today)
-    
-    text = (
-        f"📈 Kunlik statistika ({today.strftime('%d.%m.%Y')}):\n\n"
-        f"👥 Bugun yangi foydalanuvchilar: {users_today}\n"
-        f"📊 Kecha yangi foydalanuvchilar: {users_yesterday}\n"
-        f"📋 Bugun buyurtmalar: {orders_today}\n"
-        f"📈 O'sish: {users_today - users_yesterday:+d} foydalanuvchi\n\n"
-        f"📅 Ma'lumot: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
-    )
-    
-    await message.answer(text)
+    try:
+        # Get statistics using existing method
+        stats = await db.get_user_stats()
+        today = datetime.now()
+        
+        # Calculate yesterday's users (simple approximation)
+        users_yesterday = max(0, stats['users_week'] - stats['users_today'])
+        
+        text = (
+            f"📈 Kunlik statistika ({today.strftime('%d.%m.%Y')}):\n\n"
+            f"👥 Bugun yangi foydalanuvchilar: {stats['users_today']}\n"
+            f"📊 Bu hafta yangi foydalanuvchilar: {stats['users_week']}\n"
+            f"📋 Jami buyurtmalar: {stats['total_orders']}\n"
+            f"💰 Jami tushum: {stats['total_revenue']:,} so'm\n"
+            f"📆 Bu oy buyurtmalar: {stats['orders_month']}\n\n"
+            f"📈 Haftalik o'sish: +{stats['users_week']} foydalanuvchi\n"
+            f"📅 Ma'lumot: {today.strftime('%d.%m.%Y %H:%M')}"
+        )
+        
+        await message.answer(text)
+        
+    except Exception as e:
+        logger.error(f"Error in daily statistics: {e}")
+        await message.answer("❌ Kunlik statistikani olishda xatolik yuz berdi.")
 
 @router.message(F.text == "💰 Narxlar sozlamalari") 
 async def handle_price_settings(message: Message):
