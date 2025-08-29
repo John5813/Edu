@@ -68,20 +68,10 @@ async def handle_topic_input(message: Message, state: FSMContext, user_lang: str
     """Handle topic input"""
     topic = message.text.strip()
     
-    # Ignore system buttons - clear state and return
-    system_buttons = [
-        "⚙️ Sozlamalar", "⚙️ Настройки", "⚙️ Settings",
-        "💳 To'lov qilish", "💳 Оплата", "💳 Payment", 
-        "💰 Mening hisobim", "💰 Мой счет", "💰 My Account",
-        "📞 Yordam", "📞 Помощь", "📞 Help",
-        "📊 Taqdimot", "📊 Презентация", "📊 Presentation",
-        "🎓 Mustaqil ish", "🎓 Самостоятельная работа", "🎓 Independent Work", 
-        "📄 Referat", "📄 Реферат", "📄 Research Paper"
-    ]
-    
-    if topic in system_buttons:
-        await state.clear()
-        return  # Let other handlers process the button
+    # Simple check - only handle actual topics (not system buttons)
+    # System buttons will be handled by their specific routers first due to order
+    if topic.startswith(("⚙️", "💳", "💰", "📞", "📊", "🎓", "📄")):
+        return  # Let other handlers process system buttons
     
     if len(topic) < 3:
         await message.answer("❌ Mavzu juda qisqa. Iltimos, to'liqroq kiriting.")
@@ -265,6 +255,20 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
             caption=f"🎯 {topic}\n📊 {slide_count} slayd\n🎨 {template_name} shablon",
             reply_markup=get_main_keyboard(user_lang)
         )
+        
+        # Send gentle reminder about content review
+        reminder_text = """💡 **Muhim eslatma:**
+
+Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi. 
+
+📝 **Iltimos, matnni diqqat bilan o'qib chiqing va:**
+• Ma'lumotlarning to'g'riligini tekshiring
+• Kerakli o'zgarishlar kiriting  
+• O'z fikr va xulosalaringizni qo'shing
+
+🎯 **Eng yaxshi natija uchun:** Tayyor hujjatni o'z bilim va tajribangiz bilan boyiting!"""
+        
+        await callback.message.answer(reminder_text, parse_mode="Markdown")
 
         await state.clear()
 
@@ -388,6 +392,20 @@ async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: 
             caption=f"📊 {topic}",
             reply_markup=get_main_keyboard(user_lang)
         )
+        
+        # Send gentle reminder about content review
+        reminder_text = """💡 **Muhim eslatma:**
+
+Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi. 
+
+📝 **Iltimos, matnni diqqat bilan o'qib chiqing va:**
+• Ma'lumotlarning to'g'riligini tekshiring
+• Kerakli o'zgarishlar kiriting  
+• O'z fikr va xulosalaringizni qo'shing
+
+🎯 **Eng yaxshi natija uchun:** Tayyor hujjatni o'z bilim va tajribangiz bilan boyiting!"""
+        
+        await callback.message.answer(reminder_text, parse_mode="Markdown")
 
     except Exception as e:
         logger.error(f"Error generating presentation: {e}")
@@ -457,6 +475,20 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
             caption=f"🎓 {topic}",
             reply_markup=get_main_keyboard(user_lang)
         )
+        
+        # Send gentle reminder about content review
+        reminder_text = """💡 **Muhim eslatma:**
+
+Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi. 
+
+📝 **Iltimos, matnni diqqat bilan o'qib chiqing va:**
+• Ma'lumotlarning to'g'riligini tekshiring
+• Kerakli o'zgarishlar kiriting  
+• O'z fikr va xulosalaringizni qo'shing
+
+🎯 **Eng yaxshi natija uchun:** Tayyor hujjatni o'z bilim va tajribangiz bilan boyiting!"""
+        
+        await callback.message.answer(reminder_text, parse_mode="Markdown")
 
     except Exception as e:
         logger.error(f"Error generating independent work: {e}")
@@ -527,6 +559,20 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
             caption=f"📄 {topic}",
             reply_markup=get_main_keyboard(user_lang)
         )
+        
+        # Send gentle reminder about content review
+        reminder_text = """💡 **Muhim eslatma:**
+
+Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi. 
+
+📝 **Iltimos, matnni diqqat bilan o'qib chiqing va:**
+• Ma'lumotlarning to'g'riligini tekshiring
+• Kerakli o'zgarishlar kiriting  
+• O'z fikr va xulosalaringizni qo'shing
+
+🎯 **Eng yaxshi natija uchun:** Tayyor hujjatni o'z bilim va tajribangiz bilan boyiting!"""
+        
+        await callback.message.answer(reminder_text, parse_mode="Markdown")
 
     except Exception as e:
         logger.error(f"Error generating referat: {e}")

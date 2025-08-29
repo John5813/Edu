@@ -14,7 +14,14 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///bot.db")
 # Payment configuration
 PAYMENT_CARD = os.getenv("PAYMENT_CARD", "9860160606136655")
 PAYMENT_CARD_OWNER = os.getenv("PAYMENT_CARD_OWNER", "Javlonbek Moʻydinov")
-PAYMENT_AMOUNTS = [5000, 10000, 15000, 20000]
+
+# Payment amounts with descriptions (for reference - actual values in keyboards.py)
+PAYMENT_OPTIONS_REFERENCE = [
+    (15000, "15,000 so'm - 1-2 ta hujjat uchun"),
+    (25000, "25,000 so'm - 3-4 ta hujjat uchun"), 
+    (50000, "50,000 so'm - 7-10 ta hujjat uchun"),
+    (100000, "100,000 so'm - Chegirmali to'plov")
+]
 
 # Dynamic pricing based on slide/page count (in som)
 PRESENTATION_PRICES = {

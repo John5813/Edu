@@ -2,7 +2,7 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 from typing import List
 from translations import get_text
-from config import PAYMENT_AMOUNTS
+# No longer importing PAYMENT_AMOUNTS - now using local values
 
 def get_language_keyboard() -> InlineKeyboardMarkup:
     """Language selection keyboard"""
@@ -96,16 +96,24 @@ def get_page_count_keyboard(document_type: str) -> InlineKeyboardMarkup:
     return keyboard.as_markup()
 
 def get_payment_amount_keyboard() -> InlineKeyboardMarkup:
-    """Payment amount selection keyboard"""
+    """Payment amount selection keyboard with explanations"""
     keyboard = InlineKeyboardBuilder()
 
-    for amount in PAYMENT_AMOUNTS:
+    # Payment amounts with helpful descriptions
+    payment_options = [
+        (15000, "15,000 so'm - 1-2 ta hujjat uchun"),
+        (25000, "25,000 so'm - 3-4 ta hujjat uchun"), 
+        (50000, "50,000 so'm - 7-10 ta hujjat uchun"),
+        (100000, "100,000 so'm - Chegirmali to'plov")
+    ]
+
+    for amount, description in payment_options:
         keyboard.add(InlineKeyboardButton(
-            text=f"{amount:,} сум", 
+            text=description, 
             callback_data=f"pay_{amount}"
         ))
 
-    keyboard.adjust(2)
+    keyboard.adjust(1)
     return keyboard.as_markup()
 
 def get_subscription_check_keyboard(language: str) -> InlineKeyboardMarkup:

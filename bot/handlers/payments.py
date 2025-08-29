@@ -20,9 +20,25 @@ ACCOUNT_TEXTS = ["💰 Mening hisobim", "💰 Мой счет", "💰 My Account
 async def handle_payment_request(message: Message, state: FSMContext, user_lang: str):
     """Handle payment request"""
     await state.clear()  # Clear any active state
+    
+    explanation_text = """💳 **To'lov miqdorini tanlang**
+
+📊 **Narxlar eslatma:**
+• Taqdimot: 5,000-10,000 so'm (slaydlar soni bo'yicha)
+• Mustaqil ish: 5,000-12,000 so'm (sahifalar soni bo'yicha)  
+• Referat: 5,000-12,000 so'm (sahifalar soni bo'yicha)
+
+💰 **To'lov miqdori sizning ehtiyojingizga bog'liq:**
+• Bir nechta hujjat yaratishni rejalashtirgan bo'lsangiz
+• Kelajakda foydalanish uchun balansni to'ldirish
+• Chegirmali to'plov variantlari
+
+👇 **Quyidagi variantlardan birini tanlang:**"""
+    
     await message.answer(
-        get_text(user_lang, "select_payment_amount"),
-        reply_markup=get_payment_amount_keyboard()
+        explanation_text,
+        reply_markup=get_payment_amount_keyboard(),
+        parse_mode="Markdown"
     )
 
 @router.message(F.text.in_(ACCOUNT_TEXTS))

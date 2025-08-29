@@ -91,17 +91,23 @@ def parse_page_range(page_range_str: str) -> tuple:
     except (ValueError, IndexError):
         return 10, 15  # default
 
-def get_document_price(document_type: str) -> int:
-    """Get price for document type"""
-    from config import PRESENTATION_PRICE, INDEPENDENT_WORK_PRICE, REFERAT_PRICE
+def get_document_price(document_type: str, count_data: dict = None) -> int:
+    """Get price for document type and parameters"""
+    from config import PRESENTATION_PRICES, DOCUMENT_PRICES
     
-    prices = {
-        'presentation': PRESENTATION_PRICE,
-        'independent_work': INDEPENDENT_WORK_PRICE,
-        'referat': REFERAT_PRICE
-    }
+    if document_type == "presentation":
+        slide_count = count_data.get('slide_count', 10) if count_data else 10
+        return PRESENTATION_PRICES.get(slide_count, 5000)
+    elif document_type in ["independent_work", "referat"]:
+        if count_data:
+            min_pages = count_data.get('min_pages', 10)
+            max_pages = count_data.get('max_pages', 15)
+            page_key = f"{min_pages}_{max_pages}"
+        else:
+            page_key = "10_15"  # default
+        return DOCUMENT_PRICES.get(page_key, 5000)
     
-    return prices.get(document_type, 0)
+    return 5000  # default price
 
 def is_promocode_expired(expires_at: datetime) -> bool:
     """Check if promocode is expired"""
@@ -126,8 +132,9 @@ async def safe_send_message(bot, chat_id: int, text: str, **kwargs) -> bool:
 
 def validate_payment_amount(amount: int) -> bool:
     """Validate payment amount"""
-    from config import PAYMENT_AMOUNTS
-    return amount in PAYMENT_AMOUNTS
+    # Valid payment amounts based on keyboard options
+    valid_amounts = [15000, 25000, 50000, 100000]
+    return amount in valid_amounts
 
 def get_free_service_status_text(used: bool, language: str) -> str:
     """Get free service status text in specified language"""
