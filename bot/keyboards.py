@@ -122,24 +122,24 @@ def get_payment_amount_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
 
     if language == "uz":
         payment_options = [
-            (15000, "15,000 so'm - 1-2 ta hujjat uchun"),
-            (25000, "25,000 so'm - 3-4 ta hujjat uchun"), 
-            (50000, "50,000 so'm - 7-10 ta hujjat uchun"),
-            (100000, "100,000 so'm - Chegirmali to'plov")
+            (10000, "10,000 so'm"),
+            (15000, "15,000 so'm"),
+            (20000, "20,000 so'm"),
+            (25000, "25,000 so'm")
         ]
     elif language == "ru":
         payment_options = [
-            (15000, "15,000 сум - для 1-2 документов"),
-            (25000, "25,000 сум - для 3-4 документов"), 
-            (50000, "50,000 сум - для 7-10 документов"),
-            (100000, "100,000 сум - Скидочная оплата")
+            (10000, "10,000 сум"),
+            (15000, "15,000 сум"),
+            (20000, "20,000 сум"),
+            (25000, "25,000 сум")
         ]
     else:  # en
         payment_options = [
-            (15000, "15,000 som - for 1-2 documents"),
-            (25000, "25,000 som - for 3-4 documents"), 
-            (50000, "50,000 som - for 7-10 documents"),
-            (100000, "100,000 som - Discount payment")
+            (10000, "10,000 som"),
+            (15000, "15,000 som"),
+            (20000, "20,000 som"),
+            (25000, "25,000 som")
         ]
 
     for amount, description in payment_options:
