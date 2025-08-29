@@ -161,7 +161,7 @@ async def add_channel_id(message: Message, state: FSMContext):
             return
         
         await state.update_data(channel_id=channel_id)
-        await message.answer("📝 Kanal username ini kiriting (@username shaklida):")
+        await message.answer("🔗 Kanal linkini kiriting (https://t.me/channelname shaklida):")
         await state.set_state(AdminStates.waiting_for_channel_username)
         
     except Exception as e:
@@ -170,9 +170,25 @@ async def add_channel_id(message: Message, state: FSMContext):
 
 @router.message(AdminStates.waiting_for_channel_username)
 async def add_channel_username(message: Message, state: FSMContext):
-    """Handle channel username input"""
-    username = message.text.strip().replace("@", "")
-    await state.update_data(channel_username=username)
+    """Handle channel link input"""
+    link = message.text.strip()
+    
+    # Extract username from link
+    if link.startswith("https://t.me/"):
+        username = link.replace("https://t.me/", "")
+    elif link.startswith("t.me/"):
+        username = link.replace("t.me/", "")
+    elif link.startswith("@"):
+        username = link.replace("@", "")
+    else:
+        # If it's just the username without link format
+        username = link
+    
+    # Store both link and username
+    await state.update_data(
+        channel_username=username,
+        channel_link=link if link.startswith(("https://", "t.me/")) else f"https://t.me/{username}"
+    )
     
     await message.answer("📝 Kanal nomini kiriting:")
     await state.set_state(AdminStates.waiting_for_channel_title)
