@@ -118,33 +118,21 @@ def get_subscription_check_keyboard(language: str) -> InlineKeyboardMarkup:
     return keyboard.as_markup()
 
 def get_admin_keyboard() -> ReplyKeyboardMarkup:
-    """Admin panel keyboard"""
+    """Admin panel keyboard - simplified"""
     keyboard = ReplyKeyboardBuilder()
 
-    # To'lovlar va buyurtmalar
-    keyboard.add(KeyboardButton(text="💳 To'lovlar"))
-    keyboard.add(KeyboardButton(text="📋 Buyurtmalar"))
-
-    # Kanallar va promokodlar  
-    keyboard.add(KeyboardButton(text="📢 Kanal sozlamalari"))
-    keyboard.add(KeyboardButton(text="🎟 Promokod boshqaruvi"))
-
-    # Foydalanuvchilar va statistika
-    keyboard.add(KeyboardButton(text="👥 Foydalanuvchilar"))
+    # Statistika va reklama
     keyboard.add(KeyboardButton(text="📊 Statistika"))
-
-    # Reklama yuborish va sozlamalar
     keyboard.add(KeyboardButton(text="📤 Reklama yuborish"))
-    keyboard.add(KeyboardButton(text="💰 Narxlar sozlamalari"))
 
-    # Bot sozlamalari
-    keyboard.add(KeyboardButton(text="🔧 Bot sozlamalari"))
-    keyboard.add(KeyboardButton(text="🗄 Database boshqaruvi"))
+    # Kunlik statistika va to'lovlar
+    keyboard.add(KeyboardButton(text="📈 Kunlik statistika"))
+    keyboard.add(KeyboardButton(text="💳 To'lovlar"))
 
     # Orqaga qaytish
     keyboard.add(KeyboardButton(text="👤 Foydalanuvchi rejimi"))
 
-    keyboard.adjust(2, 2, 2, 2, 2, 1)
+    keyboard.adjust(2, 2, 1)
     return keyboard.as_markup(resize_keyboard=True)
 
 def get_payment_review_keyboard(payment_id: int) -> InlineKeyboardMarkup:
@@ -196,39 +184,6 @@ def get_broadcast_target_keyboard() -> InlineKeyboardMarkup:
     keyboard.add(InlineKeyboardButton(text="🟢 Faqat faollar", callback_data="broadcast_active"))
     keyboard.adjust(2)
     return keyboard.as_markup()
-
-def get_promocode_option_keyboard(language: str = 'en'):
-    """Get promocode option keyboard"""
-    keyboard = InlineKeyboardBuilder()
-
-    keyboard.row(
-        InlineKeyboardButton(text="✅ Ha, promokod ishlataman", callback_data="use_promocode"),
-        InlineKeyboardButton(text="❌ Yo'q, o'tkazib yuboraman", callback_data="skip_promocode")
-    )
-
-    return keyboard.as_markup()
-
-def get_main_keyboard(language: str) -> ReplyKeyboardMarkup:
-    """Main reply keyboard"""
-    keyboard = ReplyKeyboardBuilder()
-
-    # First row
-    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.presentation")))
-    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.independent_work")))
-
-    # Second row
-    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.referat")))
-    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.my_account")))
-
-    # Third row
-    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.payment")))
-    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.help")))
-
-    # Fourth row
-    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.settings")))
-
-    keyboard.adjust(2, 2, 2, 1)
-    return keyboard.as_markup(resize_keyboard=True)
 
 def get_promocode_option_keyboard(language: str) -> InlineKeyboardMarkup:
     """Promocode option keyboard"""

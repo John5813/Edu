@@ -25,7 +25,7 @@ def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
 
 # Admin menu handlers
-@router.message(F.text == "📋 Buyurtmalar")
+@router.message(F.text == "💳 To'lovlar")
 async def handle_orders_request(message: Message, db: Database):
     """Handle orders/payments request"""
     if not is_admin(message.from_user.id):
@@ -386,6 +386,35 @@ async def handle_statistics(message: Message, db: Database):
         f"🆕 Bugun qo'shilganlar: {stats['users_today']}\n"
         f"💰 Jami tushum: {stats['total_revenue']:,} so'm\n"
         f"📄 Jami buyurtmalar: {stats['total_orders']}\n"
+    )
+    
+    await message.answer(text)
+
+@router.message(F.text == "📈 Kunlik statistika")
+async def handle_daily_statistics(message: Message, db: Database):
+    """Handle daily statistics request"""
+    if not is_admin(message.from_user.id):
+        return
+    
+    # Get today's date
+    today = datetime.now().date()
+    yesterday = today - timedelta(days=1)
+    
+    # Get daily statistics 
+    users_today = await db.get_users_registered_today()
+    users_yesterday = await db.get_users_registered_yesterday()
+    
+    # Simple calculation for today's orders and revenue
+    all_users = await db.get_all_users()
+    orders_today = sum(1 for user in all_users if user.created_at.date() == today)
+    
+    text = (
+        f"📈 Kunlik statistika ({today.strftime('%d.%m.%Y')}):\n\n"
+        f"👥 Bugun yangi foydalanuvchilar: {users_today}\n"
+        f"📊 Kecha yangi foydalanuvchilar: {users_yesterday}\n"
+        f"📋 Bugun buyurtmalar: {orders_today}\n"
+        f"📈 O'sish: {users_today - users_yesterday:+d} foydalanuvchi\n\n"
+        f"📅 Ma'lumot: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
     )
     
     await message.answer(text)

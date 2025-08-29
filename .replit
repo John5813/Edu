@@ -26,3 +26,6 @@ args = "uv add aiogram aiosqlite python-docx python-pptx aiohttp && python main.
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[agent]
+expertMode = true
