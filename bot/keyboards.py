@@ -151,13 +151,40 @@ def get_payment_amount_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
     keyboard.adjust(1)
     return keyboard.as_markup()
 
-def get_subscription_check_keyboard(language: str) -> InlineKeyboardMarkup:
-    """Subscription check keyboard"""
+def get_subscription_check_keyboard(language: str, channels=None) -> InlineKeyboardMarkup:
+    """Subscription check keyboard with channel links"""
     keyboard = InlineKeyboardBuilder()
+    
+    # Add buttons for each channel
+    if channels:
+        for channel in channels:
+            # Create channel button text
+            if language == "uz":
+                button_text = f"📢 {channel.title}"
+            elif language == "ru":
+                button_text = f"📢 {channel.title}"
+            else:  # en
+                button_text = f"📢 {channel.title}"
+            
+            # Create channel link
+            if channel.channel_username:
+                channel_url = f"https://t.me/{channel.channel_username}"
+            else:
+                # If no username, try to create a link from channel_id (won't work for private channels)
+                channel_url = f"https://t.me/c/{str(channel.channel_id)[4:]}"
+            
+            keyboard.add(InlineKeyboardButton(
+                text=button_text,
+                url=channel_url
+            ))
+    
+    # Add check subscription button
     keyboard.add(InlineKeyboardButton(
         text=get_text(language, "check_subscription"), 
         callback_data="check_subscription"
     ))
+    
+    keyboard.adjust(1)  # One button per row
     return keyboard.as_markup()
 
 def get_admin_keyboard() -> ReplyKeyboardMarkup:

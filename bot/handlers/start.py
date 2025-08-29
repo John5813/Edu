@@ -70,17 +70,16 @@ async def check_subscription_and_show_menu(message: Message, user, db: Database)
         
         if not is_subscribed:
             # Show subscription requirement
-            channel_links = []
-            for channel in channels:
-                if channel.channel_username:
-                    channel_links.append(f"• @{channel.channel_username}")
-                else:
-                    channel_links.append(f"• {channel.title}")
+            if user.language == "uz":
+                text = "📢 Botdan foydalanish uchun quyidagi kanallarga a'zo bo'lishingiz shart:\n\n👇 Kanalga o'tish uchun tugmani bosing:"
+            elif user.language == "ru":
+                text = "📢 Для использования бота необходимо подписаться на следующие каналы:\n\n👇 Нажмите кнопку для перехода в канал:"
+            else:  # en
+                text = "📢 To use the bot, you must subscribe to the following channels:\n\n👇 Click the button to go to the channel:"
             
-            text = get_text(user.language, "channel_subscription_required") + "\n\n" + "\n".join(channel_links)
             await message.answer(
                 text,
-                reply_markup=get_subscription_check_keyboard(user.language)
+                reply_markup=get_subscription_check_keyboard(user.language, channels)
             )
             return
     
