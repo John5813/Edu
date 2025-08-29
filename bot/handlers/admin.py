@@ -160,6 +160,18 @@ async def add_channel_id(message: Message, state: FSMContext):
             await message.answer("❌ Kanal ID noto'g'ri formatda. -100 bilan boshlanishi kerak.")
             return
         
+        # Validate if bot has access to this channel
+        channel_service = ChannelService(message.bot)
+        if not await channel_service.validate_channel(channel_id):
+            await message.answer(
+                "❌ Bot ushbu kanalga kirish huquqi yo'q!\n\n"
+                "📝 Quyidagi qadamlarni bajaring:\n"
+                "1. Kanalga @Hshjdjbot ni admin sifatida qo'shing\n"
+                "2. Bot uchun 'A'zolarni ko'rish' huquqini bering\n"
+                "3. Qayta urinib ko'ring"
+            )
+            return
+        
         await state.update_data(channel_id=channel_id)
         await message.answer("🔗 Kanal linkini kiriting (https://t.me/channelname shaklida):")
         await state.set_state(AdminStates.waiting_for_channel_username)
