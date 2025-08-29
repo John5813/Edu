@@ -90,7 +90,7 @@ async def handle_topic_input(message: Message, state: FSMContext, user_lang: str
             # Show slide count selection for paid service
             await message.answer(
                 get_text(user_lang, "select_slide_count"),
-                reply_markup=get_slide_count_keyboard()
+                reply_markup=get_slide_count_keyboard(user_lang)
             )
             await state.set_state(DocumentStates.waiting_for_slide_count)
         else:
@@ -101,7 +101,7 @@ async def handle_topic_input(message: Message, state: FSMContext, user_lang: str
     else:
         await message.answer(
             get_text(user_lang, "select_page_count"),
-            reply_markup=get_page_count_keyboard(document_type)
+            reply_markup=get_page_count_keyboard(document_type, user_lang)
         )
         await state.set_state(DocumentStates.waiting_for_page_count)
 
@@ -252,7 +252,11 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         document = FSInputFile(file_path)
         await callback.message.answer_document(
             document=document,
-            caption=f"🎯 {topic}\n📊 {slide_count} slayd\n🎨 {template_name} shablon",
+            caption=get_text(user_lang, "document_ready_caption", {
+                "topic": topic,
+                "slide_count": slide_count,
+                "template": template_name
+            }),
             reply_markup=get_main_keyboard(user_lang)
         )
         
@@ -607,159 +611,9 @@ HELP_BUTTON_TEXTS = ["📞 Yordam", "📞 Помощь", "📞 Help"]
 async def help_handler(message: Message, state: FSMContext, user_lang: str):
     """Handles the 'Help' button click."""
     await state.clear()  # Clear any active state
-    if user_lang == "uz":
-        help_text = """
-🎓 **EduBot.ai - Yordam**
-
-**📊 Taqdimot narxlari:**
-• 10 slayd - 5,000 so'm
-• 15 slayd - 7,000 so'm
-• 20 slayd - 10,000 so'm
-
-**🎓 Mustaqil ish va 📄 Referat narxlari:**
-• 10-15 varoq - 5,000 so'm
-• 15-20 varoq - 7,000 so'm
-• 20-25 varoq - 10,000 so'm
-• 25-30 varoq - 12,000 so'm
-
-**🆓 Bepul xizmat:**
-• Har bir foydalanuvchi bitta bepul taqdimot olishi mumkin
-
-**💳 To'lov usullari:**
-• Karta: 9860 6006 1234 5678 (Humo)
-• Skrinshot yuborib, admin tasdiqlashini kuting
-
-**🎟 Promokod:**
-• Sozlamalar > Promokod kiritish
-• Bepul hujjat yaratish imkoniyati
-
-**📞 Yordam uchun:**
-• @edubot_support - Texnik yordam
-• Ish vaqti: 9:00-18:00
-
-**🔧 Bot imkoniyatlari:**
-• AI yordamida professional hujjatlar
-• Zamonaviy dizayn va formatting
-• Tez va sifatli natija
-• Ko'p tillar qo'llab-quvvatlash
-
-**❓ Tez-tez so'raladigan savollar:**
-• Taqdimot necha daqiqada tayyor? - 2-5 daqiqa
-• Hujjatlar qanday formatda? - PowerPoint/Word
-• Mazmun o'zbekchami? - Ha, kerakli tilda
-• Qayta ishlash mumkinmi? - Ha, bepul
-
-**🔄 Foydalanish tartibi:**
-1. Hujjat turini tanlang
-2. Mavzuni kiriting  
-3. Parametrlarni sozlang
-4. To'lovni amalga oshiring
-5. Tayyor hujjatni oling
-
-Agar savol bo'lsa, @edubot_support ga murojaat qiling! 😊
-"""
-    elif user_lang == "ru":
-        help_text = """
-🎓 **EduBot.ai - Помощь**
-
-**📊 Презентация цены:**
-• 10 слайдов - 5,000 сум
-• 15 слайдов - 7,000 сум
-• 20 слайдов - 10,000 сум
-
-**🎓 Самостоятельная работа и 📄 Реферат цены:**
-• 10-15 страниц - 5,000 сум
-• 15-20 страниц - 7,000 сум
-• 20-25 страниц - 10,000 сум
-• 25-30 страниц - 12,000 сум
-
-**🆓 Бесплатная услуга:**
-• Каждый пользователь может получить одну бесплатную презентацию
-
-**💳 Способы оплаты:**
-• Карта: 9860 6006 1234 5678 (Humo)
-• Отправьте скриншот и ждите подтверждения админа
-
-**🎟 Промокод:**
-• Настройки > Ввести промокод
-• Возможность создать бесплатный документ
-
-**📞 Для помощи:**
-• @edubot_support - Техническая поддержка
-• Рабочее время: 9:00-18:00
-
-**🔧 Возможности бота:**
-• Профессиональные документы с помощью AI
-• Современный дизайн и форматирование
-• Быстрый и качественный результат
-• Поддержка нескольких языков
-
-**❓ Часто задаваемые вопросы:**
-• Сколько времени готовится презентация? - 2-5 минут
-• В каком формате документы? - PowerPoint/Word
-• Контент на узбекском? - Да, на нужном языке
-• Можно ли редактировать? - Да, бесплатно
-
-**🔄 Порядок использования:**
-1. Выберите тип документа
-2. Введите тему  
-3. Настройте параметры
-4. Произведите оплату
-5. Получите готовый документ
-
-При вопросах обращайтесь к @edubot_support! 😊
-"""
-    else:  # English
-        help_text = """
-🎓 **EduBot.ai - Help**
-
-**📊 Presentation prices:**
-• 10 slides - 5,000 som
-• 15 slides - 7,000 som
-• 20 slides - 10,000 som
-
-**🎓 Independent Work and 📄 Research Paper prices:**
-• 10-15 pages - 5,000 som
-• 15-20 pages - 7,000 som
-• 20-25 pages - 10,000 som
-• 25-30 pages - 12,000 som
-
-**🆓 Free service:**
-• Each user can get one free presentation
-
-**💳 Payment methods:**
-• Card: 9860 6006 1234 5678 (Humo)
-• Send screenshot and wait for admin confirmation
-
-**🎟 Promocode:**
-• Settings > Enter promocode
-• Free document creation opportunity
-
-**📞 For help:**
-• @edubot_support - Technical support
-• Working hours: 9:00-18:00
-
-**🔧 Bot capabilities:**
-• AI-powered professional documents
-• Modern design and formatting
-• Fast and quality results
-• Multi-language support
-
-**❓ Frequently asked questions:**
-• How long does presentation take? - 2-5 minutes
-• What format are documents? - PowerPoint/Word
-• Content in Uzbek? - Yes, in required language
-• Can I edit? - Yes, for free
-
-**🔄 Usage process:**
-1. Choose document type
-2. Enter topic  
-3. Configure parameters
-4. Make payment
-5. Get ready document
-
-If you have questions, contact @edubot_support! 😊
-"""
+    
+    # Use translation system for help text
+    help_text = get_text(user_lang, "help_text")
 
     await message.answer(
         help_text,

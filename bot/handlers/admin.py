@@ -126,7 +126,7 @@ async def reject_payment(callback: CallbackQuery, db: Database):
         logger.error(f"Error rejecting payment: {e}")
         await callback.answer("❌ Xatolik yuz berdi.")
 
-@router.message(F.text == "📢 Kanal sozlamalari")
+@router.message(F.text == "📢 Kanallar")
 async def handle_channel_settings(message: Message):
     """Handle channel settings"""
     if not is_admin(message.from_user.id):
@@ -316,41 +316,7 @@ async def create_promocode_finish(message: Message, state: FSMContext, db: Datab
     finally:
         await state.clear()
 
-@router.message(F.text == "💳 To'lovlar")
-async def handle_payments_list(message: Message, db: Database):
-    """Handle payments list request"""
-    if not is_admin(message.from_user.id):
-        return
-    
-    try:
-        payments = await db.get_pending_payments()
-        
-        if not payments:
-            await message.answer("📝 Kutilayotgan to'lovlar yo'q", reply_markup=get_admin_keyboard())
-            return
-        
-        text = f"💳 Kutilayotgan to'lovlar ({len(payments)} ta):\n\n"
-        
-        for payment in payments:
-            try:
-                user = await db.get_user_by_id(payment.user_id)
-                username = f"@{user.username}" if user.username else "Username yo'q"
-                first_name = user.first_name or "Ism yo'q"
-                text += (
-                    f"🆔 ID: {payment.id}\n"
-                    f"👤 {first_name} ({username})\n" 
-                    f"💰 {payment.amount:,} so'm\n"
-                    f"📅 {payment.created_at}\n\n"
-                )
-            except Exception as e:
-                logger.error(f"Error getting user info for payment {payment.id}: {e}")
-                continue
-        
-        await message.answer(text, reply_markup=get_admin_keyboard())
-        
-    except Exception as e:
-        logger.error(f"Error getting pending payments: {e}")
-        await message.answer("❌ To'lovlarni olishda xatolik", reply_markup=get_admin_keyboard())
+# Removed duplicate handler - using the first one defined above
 
 @router.message(F.text == "👥 Foydalanuvchilar")
 async def handle_users_list(message: Message, db: Database):

@@ -53,12 +53,23 @@ def get_main_keyboard(language: str) -> ReplyKeyboardMarkup:
     keyboard.adjust(2, 2, 2, 1)
     return keyboard.as_markup(resize_keyboard=True)
 
-def get_slide_count_keyboard() -> InlineKeyboardMarkup:
-    """Slide count selection keyboard with prices"""
+def get_slide_count_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
+    """Slide count selection keyboard with prices (multilingual)"""
     keyboard = InlineKeyboardBuilder()
-    keyboard.add(InlineKeyboardButton(text="10 slayd - 5000 som", callback_data="slides_10"))
-    keyboard.add(InlineKeyboardButton(text="15 slayd - 7000 som", callback_data="slides_15"))
-    keyboard.add(InlineKeyboardButton(text="20 slayd - 10000 som", callback_data="slides_20"))
+    
+    if language == "uz":
+        keyboard.add(InlineKeyboardButton(text="10 slayd - 5000 so'm", callback_data="slides_10"))
+        keyboard.add(InlineKeyboardButton(text="15 slayd - 7000 so'm", callback_data="slides_15")) 
+        keyboard.add(InlineKeyboardButton(text="20 slayd - 10000 so'm", callback_data="slides_20"))
+    elif language == "ru":
+        keyboard.add(InlineKeyboardButton(text="10 слайдов - 5000 сум", callback_data="slides_10"))
+        keyboard.add(InlineKeyboardButton(text="15 слайдов - 7000 сум", callback_data="slides_15"))
+        keyboard.add(InlineKeyboardButton(text="20 слайдов - 10000 сум", callback_data="slides_20"))
+    else:  # en
+        keyboard.add(InlineKeyboardButton(text="10 slides - 5000 som", callback_data="slides_10"))
+        keyboard.add(InlineKeyboardButton(text="15 slides - 7000 som", callback_data="slides_15"))
+        keyboard.add(InlineKeyboardButton(text="20 slides - 10000 som", callback_data="slides_20"))
+    
     keyboard.adjust(1)
     return keyboard.as_markup()
 
@@ -82,30 +93,54 @@ def get_template_keyboard(group: int, total_groups: int) -> InlineKeyboardMarkup
     """Legacy template keyboard - now uses single overview approach"""
     return get_all_templates_keyboard()
 
-def get_page_count_keyboard(document_type: str) -> InlineKeyboardMarkup:
-    """Page count selection keyboard with prices"""
+def get_page_count_keyboard(document_type: str, language: str = "uz") -> InlineKeyboardMarkup:
+    """Page count selection keyboard with prices (multilingual)"""
     keyboard = InlineKeyboardBuilder()
 
-    # Both independent_work and referat now have same pricing structure
-    keyboard.add(InlineKeyboardButton(text="10-15 varoq - 5000 som", callback_data="pages_10_15"))
-    keyboard.add(InlineKeyboardButton(text="15-20 varoq - 7000 som", callback_data="pages_15_20"))
-    keyboard.add(InlineKeyboardButton(text="20-25 varoq - 10000 som", callback_data="pages_20_25"))
-    keyboard.add(InlineKeyboardButton(text="25-30 varoq - 12000 som", callback_data="pages_25_30"))
+    if language == "uz":
+        keyboard.add(InlineKeyboardButton(text="10-15 varoq - 5000 so'm", callback_data="pages_10_15"))
+        keyboard.add(InlineKeyboardButton(text="15-20 varoq - 7000 so'm", callback_data="pages_15_20"))
+        keyboard.add(InlineKeyboardButton(text="20-25 varoq - 10000 so'm", callback_data="pages_20_25"))
+        keyboard.add(InlineKeyboardButton(text="25-30 varoq - 12000 so'm", callback_data="pages_25_30"))
+    elif language == "ru":
+        keyboard.add(InlineKeyboardButton(text="10-15 страниц - 5000 сум", callback_data="pages_10_15"))
+        keyboard.add(InlineKeyboardButton(text="15-20 страниц - 7000 сум", callback_data="pages_15_20"))
+        keyboard.add(InlineKeyboardButton(text="20-25 страниц - 10000 сум", callback_data="pages_20_25"))
+        keyboard.add(InlineKeyboardButton(text="25-30 страниц - 12000 сум", callback_data="pages_25_30"))
+    else:  # en
+        keyboard.add(InlineKeyboardButton(text="10-15 pages - 5000 som", callback_data="pages_10_15"))
+        keyboard.add(InlineKeyboardButton(text="15-20 pages - 7000 som", callback_data="pages_15_20"))
+        keyboard.add(InlineKeyboardButton(text="20-25 pages - 10000 som", callback_data="pages_20_25"))
+        keyboard.add(InlineKeyboardButton(text="25-30 pages - 12000 som", callback_data="pages_25_30"))
 
     keyboard.adjust(1)
     return keyboard.as_markup()
 
-def get_payment_amount_keyboard() -> InlineKeyboardMarkup:
-    """Payment amount selection keyboard with explanations"""
+def get_payment_amount_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
+    """Payment amount selection keyboard with explanations (multilingual)"""
     keyboard = InlineKeyboardBuilder()
 
-    # Payment amounts with helpful descriptions
-    payment_options = [
-        (15000, "15,000 so'm - 1-2 ta hujjat uchun"),
-        (25000, "25,000 so'm - 3-4 ta hujjat uchun"), 
-        (50000, "50,000 so'm - 7-10 ta hujjat uchun"),
-        (100000, "100,000 so'm - Chegirmali to'plov")
-    ]
+    if language == "uz":
+        payment_options = [
+            (15000, "15,000 so'm - 1-2 ta hujjat uchun"),
+            (25000, "25,000 so'm - 3-4 ta hujjat uchun"), 
+            (50000, "50,000 so'm - 7-10 ta hujjat uchun"),
+            (100000, "100,000 so'm - Chegirmali to'plov")
+        ]
+    elif language == "ru":
+        payment_options = [
+            (15000, "15,000 сум - для 1-2 документов"),
+            (25000, "25,000 сум - для 3-4 документов"), 
+            (50000, "50,000 сум - для 7-10 документов"),
+            (100000, "100,000 сум - Скидочная оплата")
+        ]
+    else:  # en
+        payment_options = [
+            (15000, "15,000 som - for 1-2 documents"),
+            (25000, "25,000 som - for 3-4 documents"), 
+            (50000, "50,000 som - for 7-10 documents"),
+            (100000, "100,000 som - Discount payment")
+        ]
 
     for amount, description in payment_options:
         keyboard.add(InlineKeyboardButton(
@@ -126,7 +161,7 @@ def get_subscription_check_keyboard(language: str) -> InlineKeyboardMarkup:
     return keyboard.as_markup()
 
 def get_admin_keyboard() -> ReplyKeyboardMarkup:
-    """Admin panel keyboard - simplified"""
+    """Admin panel keyboard - with channel management"""
     keyboard = ReplyKeyboardBuilder()
 
     # Statistika va reklama
@@ -137,10 +172,13 @@ def get_admin_keyboard() -> ReplyKeyboardMarkup:
     keyboard.add(KeyboardButton(text="📈 Kunlik statistika"))
     keyboard.add(KeyboardButton(text="💳 To'lovlar"))
 
+    # Kanallar boshqaruvi
+    keyboard.add(KeyboardButton(text="📢 Kanallar"))
+
     # Orqaga qaytish
     keyboard.add(KeyboardButton(text="👤 Foydalanuvchi rejimi"))
 
-    keyboard.adjust(2, 2, 1)
+    keyboard.adjust(2, 2, 1, 1)
     return keyboard.as_markup(resize_keyboard=True)
 
 def get_payment_review_keyboard(payment_id: int) -> InlineKeyboardMarkup:

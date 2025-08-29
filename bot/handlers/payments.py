@@ -21,7 +21,8 @@ async def handle_payment_request(message: Message, state: FSMContext, user_lang:
     """Handle payment request"""
     await state.clear()  # Clear any active state
     
-    explanation_text = """💳 **To'lov miqdorini tanlang**
+    if user_lang == "uz":
+        explanation_text = """💳 **To'lov miqdorini tanlang**
 
 📊 **Narxlar eslatma:**
 • Taqdimot: 5,000-10,000 so'm (slaydlar soni bo'yicha)
@@ -34,10 +35,38 @@ async def handle_payment_request(message: Message, state: FSMContext, user_lang:
 • Chegirmali to'plov variantlari
 
 👇 **Quyidagi variantlardan birini tanlang:**"""
+    elif user_lang == "ru":
+        explanation_text = """💳 **Выберите сумму платежа**
+
+📊 **Справка по ценам:**
+• Презентация: 5,000-10,000 сум (зависит от количества слайдов)
+• Самостоятельная работа: 5,000-12,000 сум (зависит от количества страниц)
+• Реферат: 5,000-12,000 сум (зависит от количества страниц)
+
+💰 **Сумма платежа зависит от ваших потребностей:**
+• Если планируете создавать несколько документов
+• Пополнение баланса для будущего использования
+• Варианты скидочной оплаты
+
+👇 **Выберите один из следующих вариантов:**"""
+    else:  # en
+        explanation_text = """💳 **Select payment amount**
+
+📊 **Price reference:**
+• Presentation: 5,000-10,000 som (depends on number of slides)
+• Independent work: 5,000-12,000 som (depends on number of pages)
+• Research paper: 5,000-12,000 som (depends on number of pages)
+
+💰 **Payment amount depends on your needs:**
+• If you plan to create multiple documents
+• Top up balance for future use
+• Discount payment options
+
+👇 **Choose one of the following options:**"""
     
     await message.answer(
         explanation_text,
-        reply_markup=get_payment_amount_keyboard(),
+        reply_markup=get_payment_amount_keyboard(user_lang),
         parse_mode="Markdown"
     )
 
