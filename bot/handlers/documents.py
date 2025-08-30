@@ -287,11 +287,11 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         document = FSInputFile(file_path)
         await callback.message.answer_document(
             document=document,
-            caption=get_text(user_lang, "document_ready_caption", {
-                "topic": topic,
-                "slide_count": slide_count,
-                "template": template_name
-            }),
+            caption=get_text(user_lang, "document_ready_caption", 
+                topic=topic,
+                slide_count=slide_count,
+                template=template_name
+            ),
             reply_markup=get_main_keyboard(user_lang)
         )
         
@@ -632,7 +632,7 @@ async def my_account_handler(message: Message, db: Database, user_lang: str, use
     """Handles the 'My Account' button click."""
     user_balance = await db.get_user_balance(user.telegram_id)
     await message.answer(
-        get_text(user_lang, "my_account_info").format(
+        get_text(user_lang, "my_account_info", 
             name=user.first_name,
             balance=user_balance
         ),
