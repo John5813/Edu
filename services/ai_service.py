@@ -1,6 +1,6 @@
 import json
 import logging
-from openai import OpenAI
+from openai import AsyncOpenAI
 import os
 import aiohttp
 from typing import Dict, List
@@ -12,7 +12,7 @@ class AIService:
     def __init__(self):
         # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
         # do not change this unless explicitly requested by the user
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = "gpt-4o"
 
     async def generate_presentation_content(self, topic: str, slide_count: int, language: str) -> Dict:
@@ -126,7 +126,7 @@ Respond in JSON format:
     ]
 }}"""
 
-            response = self.client.chat.completions.create(
+            response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
@@ -268,7 +268,7 @@ Respond in JSON format:
     ]
 }}"""
 
-            response = self.client.chat.completions.create(
+            response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
@@ -472,7 +472,7 @@ IMPORTANT REQUIREMENTS:
 - Each idea fully substantiated
 - Section connected to other sections"""
 
-            response = self.client.chat.completions.create(
+            response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": "Siz akademik yozuvchi sifatida har xil uzunlikdagi jumlalar, izchil bog'lanish va boy misollar bilan mustaqil ishlar yozasiz"},
@@ -532,7 +532,7 @@ The reference list should be diverse:
 
 Each source should look realistic and relevant to the topic."""
 
-            response = self.client.chat.completions.create(
+            response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7
@@ -568,7 +568,7 @@ Each source should look realistic and relevant to the topic."""
             else:  # English
                 prompt = f"Professional academic illustration for: {slide_title}. Clean, educational style, high quality."
 
-            response = self.client.images.generate(
+            response = await self.client.images.generate(
                 model="dall-e-3",
                 prompt=prompt,
                 n=1,
