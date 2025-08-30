@@ -320,59 +320,51 @@ class DocumentService:
             raise
 
     async def _generate_dalle_images_for_slides(self, topic: str, slides_data: List[Dict]) -> Dict[int, str]:
-        """Generate DALL-E images for text+image layout slides with timeout handling"""
+        """Generate DALL-E images for text+image layout slides - NO TIME LIMITS"""
         images_dict = {}
         
         try:
-            # Add overall timeout for all image generation (30 seconds max)
-            async def generate_all_images():
-                for slide_data in slides_data:
-                    slide_num = slide_data.get('slide_number', 0)
-                    layout_type = slide_data.get('layout_type', '')
-                    
-                    if layout_type == "text_with_image":
-                        slide_title = slide_data.get('title', '')
-                        slide_content = slide_data.get('content', '')
-                        
-                        try:
-                            # Generate DALL-E image with individual timeout
-                            image_url = await self.ai_service.generate_dalle_image(
-                                slide_content, slide_title
-                            )
-                            
-                            if image_url:
-                                # Download image with timeout
-                                filename = f"dalle_slide_{slide_num}.png"
-                                image_path = await asyncio.wait_for(
-                                    self.ai_service.download_image(image_url, filename),
-                                    timeout=5.0  # 5 second download timeout
-                                )
-                                
-                                if image_path:
-                                    images_dict[slide_num] = image_path
-                                    logger.info(f"Generated DALL-E image for slide {slide_num}: {slide_title}")
-                        
-                        except asyncio.TimeoutError:
-                            logger.warning(f"Timeout generating image for slide {slide_num}: {slide_title}")
-                            continue
-                        except Exception as e:
-                            logger.warning(f"Failed to generate image for slide {slide_num}: {e}")
-                            continue
-                        
-                        # Small delay between generations
-                        await asyncio.sleep(0.5)
+            for slide_data in slides_data:
+                slide_num = slide_data.get('slide_number', 0)
+                layout_type = slide_data.get('layout_type', '')
                 
-                return images_dict
+                if layout_type == "text_with_image":
+                    slide_title = slide_data.get('title', '')
+                    slide_content = slide_data.get('content', '')
+                    
+                    try:
+                        # Generate DALL-E image - NO TIMEOUT
+                        logger.info(f"Starting DALL-E generation for slide {slide_num}: {slide_title}")
+                        image_url = await self.ai_service.generate_dalle_image(
+                            slide_content, slide_title
+                        )
+                        
+                        if image_url:
+                            # Download image - NO TIMEOUT
+                            filename = f"dalle_slide_{slide_num}.png"
+                            image_path = await self.ai_service.download_image(image_url, filename)
+                            
+                            if image_path:
+                                images_dict[slide_num] = image_path
+                                logger.info(f"✅ Successfully generated DALL-E image for slide {slide_num}: {slide_title}")
+                            else:
+                                logger.warning(f"Failed to download image for slide {slide_num}")
+                        else:
+                            logger.warning(f"No image URL received for slide {slide_num}")
+                    
+                    except Exception as e:
+                        logger.warning(f"Failed to generate image for slide {slide_num}: {e}")
+                        continue
+                    
+                    # Small delay between generations (keep for API rate limiting)
+                    await asyncio.sleep(0.5)
             
-            # Overall timeout for all image generation
-            return await generate_all_images()
-            
-        except asyncio.TimeoutError:
-            logger.warning("Overall timeout for DALL-E image generation, continuing without some images")
+            logger.info(f"✅ DALL-E generation completed. Generated {len(images_dict)} images out of {len([s for s in slides_data if s.get('layout_type') == 'text_with_image'])} possible")
             return images_dict
+            
         except Exception as e:
             logger.error(f"Error generating DALL-E images: {e}")
-            return {}
+            return images_dict
 
     async def _create_new_content_slide(self, prs, slide_data: Dict, layout_type: str, slide_num: int, images: Dict):
         """Create content slide with new system layouts"""
