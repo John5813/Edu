@@ -402,6 +402,16 @@ class DocumentService:
         # Content - long continuous text for topic explanation (no bullets)
         if content_placeholder:
             content_text = slide_data.get('content', '')
+            
+            # Handle case where content might be a list (convert to string)
+            if isinstance(content_text, list):
+                # Join list items with ". " to create continuous text
+                content_text = ". ".join(str(item) for item in content_text if item)
+                logger.info(f"Converted list content to string: {len(content_text)} chars")
+            elif not isinstance(content_text, str):
+                content_text = str(content_text) if content_text else ''
+                logger.info(f"Converted non-string content to string: {type(content_text)}")
+            
             content_frame = content_placeholder.text_frame
             content_frame.clear()
             content_frame.word_wrap = True
@@ -442,6 +452,13 @@ class DocumentService:
         
         # Use original content - AI already generates short 40-word text
         original_content = slide_data.get('content', 'Mazmun mavjud emas')
+        
+        # Handle case where content might be a list (convert to string)
+        if isinstance(original_content, list):
+            original_content = ". ".join(str(item) for item in original_content if item)
+            logger.info(f"Converted list content to string in text_with_image: {len(original_content)} chars")
+        elif not isinstance(original_content, str):
+            original_content = str(original_content) if original_content else 'Mazmun mavjud emas'
         
         text_para.text = original_content  # AI dan 40 so'zlik matn
         text_para.font.size = PptxPt(18)  # Kattaroq font, chunki matn qisqa
