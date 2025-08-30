@@ -344,6 +344,101 @@ async def create_promocode_finish(message: Message, state: FSMContext, db: Datab
     finally:
         await state.clear()
 
+@router.callback_query(F.data == "list_promocodes")
+async def list_promocodes(callback: CallbackQuery, db: Database):
+    """List all promocodes"""
+    if not is_admin(callback.from_user.id):
+        return
+    
+    promocodes = await db.get_active_promocodes()
+    
+    if not promocodes:
+        await callback.message.edit_text(
+            "📋 Faol promokodlar yo'q",
+            reply_markup=get_promocode_keyboard()
+        )
+        return
+    
+    text = f"📋 Faol promokodlar ({len(promocodes)} ta):\n\n"
+    
+    for promo in promocodes:
+        expires_str = promo.expires_at.strftime('%d.%m.%Y %H:%M')
+        # Count usage
+        used_count = await db.count_promocode_usage(promo.id)
+        
+        text += f"🎟 **{promo.code}**\n"
+        text += f"📅 Tugaydi: {expires_str}\n"
+        text += f"👥 Ishlatilgan: {used_count} marta\n"
+        text += f"🆔 ID: {promo.id}\n"
+        text += "➖➖➖➖➖➖➖➖\n\n"
+    
+    # Add deactivate keyboard  
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    from aiogram.types import InlineKeyboardButton
+    
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(text="🔴 Promokodni o'chirish", callback_data="deactivate_promocode"))
+    keyboard.add(InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_promocode_menu"))
+    keyboard.adjust(1)
+    
+    await callback.message.edit_text(text, reply_markup=keyboard.as_markup(), parse_mode="Markdown")
+
+@router.callback_query(F.data == "promocode_stats")
+async def promocode_stats(callback: CallbackQuery, db: Database):
+    """Show promocode statistics"""
+    if not is_admin(callback.from_user.id):
+        return
+    
+    # Get all promocodes with usage stats
+    all_promocodes = await db.get_all_promocodes_with_stats()
+    active_count = len(await db.get_active_promocodes())
+    
+    total_created = len(all_promocodes)
+    total_used = sum(promo.get('usage_count', 0) for promo in all_promocodes)
+    
+    text = f"📊 Promokod statistikasi:\n\n"
+    text += f"🎟 Jami yaratilgan: {total_created}\n"
+    text += f"✅ Faol promokodlar: {active_count}\n"
+    text += f"❌ Faolsizlashtirilgan: {total_created - active_count}\n"
+    text += f"👥 Jami foydalanish: {total_used} marta\n\n"
+    
+    # Top used promocodes
+    if all_promocodes:
+        text += "🔥 Eng ko'p ishlatilanlar:\n"
+        sorted_promos = sorted(all_promocodes, key=lambda x: x.get('usage_count', 0), reverse=True)[:5]
+        
+        for i, promo in enumerate(sorted_promos, 1):
+            usage = promo.get('usage_count', 0)
+            text += f"{i}. {promo['code']} - {usage} marta\n"
+    
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_promocode_menu"))
+    
+    await callback.message.edit_text(text, reply_markup=keyboard.as_markup())
+
+@router.callback_query(F.data == "deactivate_promocode")
+async def start_deactivate_promocode(callback: CallbackQuery, state: FSMContext):
+    """Start deactivating promocode"""
+    if not is_admin(callback.from_user.id):
+        return
+    
+    await callback.message.edit_text(
+        "🔴 Promokodni faolsizlashtirish\n\n"
+        "Faolsizlashtirmoqchi bo'lgan promokod ID raqamini kiriting:"
+    )
+    await state.set_state(AdminStates.waiting_for_deactivate_promocode)
+
+@router.callback_query(F.data == "back_to_promocode_menu")
+async def back_to_promocode_menu(callback: CallbackQuery):
+    """Return to promocode management menu"""
+    if not is_admin(callback.from_user.id):
+        return
+    
+    await callback.message.edit_text(
+        "💬 Promokod boshqaruvi",
+        reply_markup=get_promocode_keyboard()
+    )
+
 # Removed duplicate handler - using the first one defined above
 
 @router.message(F.text == "👥 Foydalanuvchilar")

@@ -248,6 +248,9 @@ def get_promocode_keyboard() -> InlineKeyboardMarkup:
     """Promocode management keyboard"""
     keyboard = InlineKeyboardBuilder()
     keyboard.add(InlineKeyboardButton(text="📤 Promokod yaratish", callback_data="create_promocode"))
+    keyboard.add(InlineKeyboardButton(text="📋 Barcha promokodlar", callback_data="list_promocodes"))
+    keyboard.add(InlineKeyboardButton(text="📊 Statistika", callback_data="promocode_stats"))
+    keyboard.adjust(1)
     return keyboard.as_markup()
 
 def get_broadcast_target_keyboard() -> InlineKeyboardMarkup:
