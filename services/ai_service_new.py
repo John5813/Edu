@@ -215,12 +215,16 @@ Respond in JSON format:
 
             logger.info(f"Generating DALL-E image: {image_prompt[:50]}...")
 
-            response = await self.client.images.generate(
-                model="dall-e-3",
-                prompt=image_prompt,
-                size="1024x1024",
-                quality="standard",
-                n=1
+            # Add timeout for DALL-E generation (15 seconds max)
+            response = await asyncio.wait_for(
+                self.client.images.generate(
+                    model="dall-e-3",
+                    prompt=image_prompt,
+                    size="1024x1024",
+                    quality="standard",
+                    n=1
+                ),
+                timeout=15.0  # 15 second timeout
             )
 
             if response.data and len(response.data) > 0 and response.data[0].url:
@@ -231,6 +235,9 @@ Respond in JSON format:
                 logger.error("No image data received from DALL-E")
                 return None
 
+        except asyncio.TimeoutError:
+            logger.warning(f"DALL-E image generation timeout for: {slide_title}")
+            return None
         except Exception as e:
             logger.error(f"Error generating DALL-E image: {e}")
             return None
