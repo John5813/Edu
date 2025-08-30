@@ -1,7 +1,7 @@
 import aiosqlite
 import asyncio
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict
 from .models import User, Payment, Channel, Promocode, UsedPromocode, DocumentOrder, BroadcastMessage
 from config import DATABASE_URL
 
@@ -355,6 +355,37 @@ class Database:
             ) as cursor:
                 rows = await cursor.fetchall()
                 return [Promocode(**dict(row)) for row in rows]
+
+    @staticmethod
+    async def count_promocode_usage(promocode_id: int) -> int:
+        """Count how many times a promocode has been used"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            async with db.execute(
+                "SELECT COUNT(*) FROM used_promocodes WHERE promocode_id = ?",
+                (promocode_id,)
+            ) as cursor:
+                count = await cursor.fetchone()
+                return count[0] if count else 0
+
+    @staticmethod
+    async def get_all_promocodes_with_stats() -> List[Dict]:
+        """Get all promocodes with usage statistics"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute("""
+                SELECT 
+                    p.*,
+                    COALESCE(u.usage_count, 0) as usage_count
+                FROM promocodes p
+                LEFT JOIN (
+                    SELECT promocode_id, COUNT(*) as usage_count 
+                    FROM used_promocodes 
+                    GROUP BY promocode_id
+                ) u ON p.id = u.promocode_id
+                ORDER BY p.created_at DESC
+            """) as cursor:
+                rows = await cursor.fetchall()
+                return [dict(row) for row in rows]
 
     @staticmethod
     async def create_document_order(user_id: int, document_type: str, topic: str, specifications: str) -> int:

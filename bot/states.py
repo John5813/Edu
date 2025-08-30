@@ -24,6 +24,7 @@ class AdminStates(StatesGroup):
     
     # Promocode management
     waiting_for_promocode = State()
+    waiting_for_deactivate_promocode = State()
     
     # Broadcast
     waiting_for_broadcast_message = State()

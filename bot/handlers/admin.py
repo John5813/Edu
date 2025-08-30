@@ -11,6 +11,8 @@ from bot.keyboards import (
     get_channels_list_keyboard, get_promocode_keyboard, get_broadcast_target_keyboard,
     get_main_keyboard
 )
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import InlineKeyboardButton
 from database.database import Database
 from services.channel_service import ChannelService
 from config import ADMIN_IDS
@@ -373,9 +375,6 @@ async def list_promocodes(callback: CallbackQuery, db: Database):
         text += "➖➖➖➖➖➖➖➖\n\n"
     
     # Add deactivate keyboard  
-    from aiogram.utils.keyboard import InlineKeyboardBuilder
-    from aiogram.types import InlineKeyboardButton
-    
     keyboard = InlineKeyboardBuilder()
     keyboard.add(InlineKeyboardButton(text="🔴 Promokodni o'chirish", callback_data="deactivate_promocode"))
     keyboard.add(InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_promocode_menu"))
@@ -427,6 +426,38 @@ async def start_deactivate_promocode(callback: CallbackQuery, state: FSMContext)
         "Faolsizlashtirmoqchi bo'lgan promokod ID raqamini kiriting:"
     )
     await state.set_state(AdminStates.waiting_for_deactivate_promocode)
+
+@router.message(AdminStates.waiting_for_deactivate_promocode)
+async def finish_deactivate_promocode(message: Message, state: FSMContext, db: Database):
+    """Complete promocode deactivation"""
+    try:
+        promocode_id = int(message.text.strip())
+        
+        # Check if promocode exists
+        promocode = await db.get_promocode_by_id(promocode_id)
+        if not promocode:
+            await message.answer("❌ Bunday ID raqam bilan promokod topilmadi. Qayta kiriting:")
+            return
+        
+        # Deactivate promocode
+        await db.deactivate_promocode(promocode_id)
+        
+        await message.answer(
+            f"✅ Promokod faolsizlashtirildi!\n\n"
+            f"🎟 Kod: {promocode.code}\n"
+            f"🆔 ID: {promocode_id}",
+            reply_markup=get_admin_keyboard()
+        )
+        
+    except ValueError:
+        await message.answer("❌ Noto'g'ri format. Faqat raqam kiriting:")
+        return
+    except Exception as e:
+        logger.error(f"Error deactivating promocode: {e}")
+        await message.answer("❌ Xatolik yuz berdi. Qayta urinib ko'ring.")
+    
+    finally:
+        await state.clear()
 
 @router.callback_query(F.data == "back_to_promocode_menu")
 async def back_to_promocode_menu(callback: CallbackQuery):
