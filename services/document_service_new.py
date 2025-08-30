@@ -439,22 +439,10 @@ class DocumentService:
         title_para.font.color.rgb = RGBColor(0, 0, 0)  # Black text
         title_para.alignment = PP_ALIGN.CENTER
         
-        # Check if image will be available
-        has_image = slide_num in images and images[slide_num] and os.path.exists(images.get(slide_num, ''))
-        
-        # Content text box - adjust width based on image availability
-        if has_image:
-            # 50% width when image is available
-            text_width = PptxInches(6)
-            text_x = PptxInches(0.5)
-        else:
-            # Full width when no image
-            text_width = PptxInches(12)
-            text_x = PptxInches(0.5)
-        
+        # Left side: Continuous text (50% width) - FULL CONTENT
         text_box = slide.shapes.add_textbox(
-            text_x, PptxInches(2),
-            text_width, PptxInches(5)
+            PptxInches(0.5), PptxInches(2),
+            PptxInches(6), PptxInches(5)  # 50% width, more height
         )
         text_frame = text_box.text_frame
         text_frame.word_wrap = True
@@ -483,11 +471,10 @@ class DocumentService:
                     logger.info(f"Successfully added DALL-E image to slide {slide_num}")
                 except Exception as e:
                     logger.error(f"Error adding DALL-E image to slide {slide_num}: {e}")
-                    logger.info(f"Continuing without image for slide {slide_num}")
             else:
                 logger.warning(f"DALL-E image not found for slide {slide_num}: {image_path}")
         else:
-            logger.info(f"No DALL-E image available for slide {slide_num}, using text-only layout")
+            logger.info(f"No DALL-E image available for slide {slide_num}")
 
     async def _create_new_three_column_slide(self, prs, slide_data: Dict):
         """Create LAYOUT 3: Smart 3-column layout with logical headers (4,7,10,13...)"""
