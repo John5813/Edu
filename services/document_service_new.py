@@ -592,8 +592,16 @@ class DocumentService:
 
     def _parse_three_columns_smart(self, content_text: str, slide_title: str) -> List[Dict]:
         """Parse content into 3 logical columns with 40-word continuous text per column"""
-        # Ensure content_text is string
-        if not isinstance(content_text, str):
+        # Ensure content_text is string - handle dict, list, etc.
+        if isinstance(content_text, dict):
+            # Extract values from dictionary and join them cleanly
+            content_text = ". ".join(str(value) for value in content_text.values() if value)
+            logger.info(f"Converted dict to string in 3-column: {len(content_text)} chars")
+        elif isinstance(content_text, list):
+            # Join list items cleanly
+            content_text = ". ".join(str(item) for item in content_text if item)
+            logger.info(f"Converted list to string in 3-column: {len(content_text)} chars")
+        elif not isinstance(content_text, str):
             content_text = str(content_text) if content_text else ''
             
         # Check if content has ||| separator (new AI format)
