@@ -364,7 +364,18 @@ async def list_promocodes(callback: CallbackQuery, db: Database):
     text = f"📋 Faol promokodlar ({len(promocodes)} ta):\n\n"
     
     for promo in promocodes:
-        expires_str = promo.expires_at.strftime('%d.%m.%Y %H:%M')
+        # Handle both string and datetime expires_at
+        if hasattr(promo.expires_at, 'strftime'):
+            expires_str = promo.expires_at.strftime('%d.%m.%Y %H:%M')
+        else:
+            # If it's a string, try to parse it
+            try:
+                from datetime import datetime
+                expires_dt = datetime.fromisoformat(str(promo.expires_at).replace('Z', '+00:00'))
+                expires_str = expires_dt.strftime('%d.%m.%Y %H:%M')
+            except:
+                expires_str = str(promo.expires_at)
+        
         # Count usage
         used_count = await db.count_promocode_usage(promo.id)
         
