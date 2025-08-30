@@ -346,6 +346,17 @@ class Database:
             await db.commit()
 
     @staticmethod
+    async def deactivate_promocode_by_code(code: str) -> bool:
+        """Deactivate promocode by code, returns True if found and deactivated"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            async with db.execute(
+                "UPDATE promocodes SET is_active = FALSE WHERE code = ? AND is_active = TRUE",
+                (code.upper(),)
+            ) as cursor:
+                await db.commit()
+                return cursor.rowcount > 0
+
+    @staticmethod
     async def get_active_promocodes() -> List[Promocode]:
         """Get all active promocodes"""
         async with aiosqlite.connect(DATABASE_FILE) as db:

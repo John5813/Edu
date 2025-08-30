@@ -379,10 +379,9 @@ async def list_promocodes(callback: CallbackQuery, db: Database):
         # Count usage
         used_count = await db.count_promocode_usage(promo.id)
         
-        text += f"🎟 **{promo.code}**\n"
+        text += f"🎟 **{promo.code}** ← O'chirish uchun bu nomni kiriting\n"
         text += f"📅 Tugaydi: {expires_str}\n"
         text += f"👥 Ishlatilgan: {used_count} marta\n"
-        text += f"🆔 ID: {promo.id}\n"
         text += "➖➖➖➖➖➖➖➖\n\n"
     
     # Add deactivate keyboard  
@@ -434,7 +433,8 @@ async def start_deactivate_promocode(callback: CallbackQuery, state: FSMContext)
     
     await callback.message.edit_text(
         "🔴 Promokodni faolsizlashtirish\n\n"
-        "Faolsizlashtirmoqchi bo'lgan promokod ID raqamini kiriting:"
+        "Faolsizlashtirmoqchi bo'lgan promokod nomini kiriting:\n"
+        "Masalan: ABC12345"
     )
     await state.set_state(AdminStates.waiting_for_deactivate_promocode)
 
@@ -442,27 +442,27 @@ async def start_deactivate_promocode(callback: CallbackQuery, state: FSMContext)
 async def finish_deactivate_promocode(message: Message, state: FSMContext, db: Database):
     """Complete promocode deactivation"""
     try:
-        promocode_id = int(message.text.strip())
+        promocode_code = message.text.strip().upper()
         
-        # Check if promocode exists
-        promocode = await db.get_promocode_by_id(promocode_id)
+        # Check if promocode exists and is active
+        promocode = await db.get_promocode(promocode_code)
         if not promocode:
-            await message.answer("❌ Bunday ID raqam bilan promokod topilmadi. Qayta kiriting:")
+            await message.answer("❌ Bunday nomli faol promokod topilmadi. Qayta kiriting:")
             return
         
-        # Deactivate promocode
-        await db.deactivate_promocode(promocode_id)
+        # Deactivate promocode by code
+        success = await db.deactivate_promocode_by_code(promocode_code)
         
-        await message.answer(
-            f"✅ Promokod faolsizlashtirildi!\n\n"
-            f"🎟 Kod: {promocode.code}\n"
-            f"🆔 ID: {promocode_id}",
-            reply_markup=get_admin_keyboard()
-        )
+        if success:
+            await message.answer(
+                f"✅ Promokod faolsizlashtirildi!\n\n"
+                f"🎟 Kod: {promocode.code}\n"
+                f"🆔 ID: {promocode.id}",
+                reply_markup=get_admin_keyboard()
+            )
+        else:
+            await message.answer("❌ Promokodni faolsizlashtirishda xatolik. Qayta urinib ko'ring.")
         
-    except ValueError:
-        await message.answer("❌ Noto'g'ri format. Faqat raqam kiriting:")
-        return
     except Exception as e:
         logger.error(f"Error deactivating promocode: {e}")
         await message.answer("❌ Xatolik yuz berdi. Qayta urinib ko'ring.")
