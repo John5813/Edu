@@ -365,7 +365,7 @@ class DocumentService:
                 return images_dict
             
             # Overall timeout for all image generation
-            return await asyncio.wait_for(generate_all_images(), timeout=30.0)
+            return await generate_all_images()
             
         except asyncio.TimeoutError:
             logger.warning("Overall timeout for DALL-E image generation, continuing without some images")
