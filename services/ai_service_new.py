@@ -224,8 +224,7 @@ Respond in JSON format:
                     quality="standard",
                     n=1
                 ),
-                timeout=15.0  # 15 second timeout
-            )
+                )
 
             if response.data and len(response.data) > 0 and response.data[0].url:
                 image_url = response.data[0].url
