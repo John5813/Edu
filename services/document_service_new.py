@@ -403,14 +403,18 @@ class DocumentService:
         if content_placeholder:
             content_text = slide_data.get('content', '')
             
-            # Handle case where content might be a list (convert to string)
+            # Handle case where content might be a list or dict (convert to string)
             if isinstance(content_text, list):
                 # Join list items with ". " to create continuous text
                 content_text = ". ".join(str(item) for item in content_text if item)
                 logger.info(f"Converted list content to string: {len(content_text)} chars")
+            elif isinstance(content_text, dict):
+                # Extract values from dictionary and join them
+                content_text = ". ".join(str(value) for value in content_text.values() if value)
+                logger.info(f"Converted dict content to string: {len(content_text)} chars")
             elif not isinstance(content_text, str):
                 content_text = str(content_text) if content_text else ''
-                logger.info(f"Converted non-string content to string: {type(content_text)}")
+                logger.info(f"Converted {type(content_text)} content to string")
             
             content_frame = content_placeholder.text_frame
             content_frame.clear()
@@ -453,10 +457,13 @@ class DocumentService:
         # Use original content - AI already generates short 40-word text
         original_content = slide_data.get('content', 'Mazmun mavjud emas')
         
-        # Handle case where content might be a list (convert to string)
+        # Handle case where content might be a list or dict (convert to string)
         if isinstance(original_content, list):
             original_content = ". ".join(str(item) for item in original_content if item)
             logger.info(f"Converted list content to string in text_with_image: {len(original_content)} chars")
+        elif isinstance(original_content, dict):
+            original_content = ". ".join(str(value) for value in original_content.values() if value)
+            logger.info(f"Converted dict content to string in text_with_image: {len(original_content)} chars")
         elif not isinstance(original_content, str):
             original_content = str(original_content) if original_content else 'Mazmun mavjud emas'
         
