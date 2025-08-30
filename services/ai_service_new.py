@@ -66,8 +66,10 @@ CRITICAL LAYOUT REQUIREMENTS:
 For each slide, provide:
 - slide_number: {start_slide} to {end_slide}
 - title: Relevant slide title
-- content: Content according to layout type
+- content: ALWAYS STRING TEXT (never array/list). Content according to layout type
 - layout_type: One of [bullet_points, text_with_image, three_column, three_bullets, four_numbered]
+
+CRITICAL: "content" must ALWAYS be a string, NEVER an array or list!
 
 Return valid JSON with "slides" array.
 
@@ -123,13 +125,13 @@ Example format:
             layout = slide_info["layout_type"]
             
             if layout == "bullet_points":
-                descriptions.append(f"Slide {slide_num} (bullet_points): 4-5 bullet points, each 35-40 words explaining key concepts")
+                descriptions.append(f"Slide {slide_num} (bullet_points): Generate as ONE CONTINUOUS STRING TEXT with 150-200 words explaining key concepts. NOT A LIST OR ARRAY!")
             elif layout == "text_with_image":
-                descriptions.append(f"Slide {slide_num} (text_with_image): 40-50 words of continuous text for image generation and understanding")
+                descriptions.append(f"Slide {slide_num} (text_with_image): Generate as ONE CONTINUOUS STRING TEXT with 40-50 words for image generation. NOT A LIST OR ARRAY!")
             elif layout == "three_column":
-                descriptions.append(f"Slide {slide_num} (three_column): Three logical categories with 50+ words each, different aspects/perspectives")
+                descriptions.append(f"Slide {slide_num} (three_column): Generate as ONE CONTINUOUS STRING TEXT with 120+ words, different aspects. NOT A LIST OR ARRAY!")
             elif layout == "three_bullets":
-                descriptions.append(f"Slide {slide_num} (three_bullets): 3 main points, each 35-40 words, comprehensive coverage")
+                descriptions.append(f"Slide {slide_num} (three_bullets): Generate as ONE CONTINUOUS STRING TEXT with 120+ words, comprehensive coverage. NOT A LIST OR ARRAY!")
         
         return "\n".join(descriptions)
 
