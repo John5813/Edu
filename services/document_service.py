@@ -784,11 +784,9 @@ class DocumentService:
 
                 doc.add_paragraph()  # Empty line
 
-            # References - no page break, on same page
+            # References - separate page with only 5 references
             if content.get('references'):
-                # Add 2 empty lines before references
-                doc.add_paragraph()  
-                doc.add_paragraph()  
+                doc.add_page_break()
 
                 ref_title = doc.add_paragraph()
                 ref_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -798,7 +796,8 @@ class DocumentService:
 
                 doc.add_paragraph()  # Empty line
 
-                for idx, ref in enumerate(content['references'], 1):
+                # Only show first 5 references with numbers
+                for idx, ref in enumerate(content['references'][:5], 1):
                     ref_para = doc.add_paragraph()
                     ref_para.paragraph_format.first_line_indent = Inches(0.5)
                     ref_para.add_run(f"{idx}. {ref}")
@@ -872,11 +871,9 @@ class DocumentService:
 
                 doc.add_paragraph()  # Empty line
 
-            # References - no page break, on same page
+            # References - separate page with only 5 references
             if content.get('references'):
-                # Add 2 empty lines before references
-                doc.add_paragraph()  
-                doc.add_paragraph()  
+                doc.add_page_break()
 
                 ref_title = doc.add_paragraph()
                 ref_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -886,7 +883,8 @@ class DocumentService:
 
                 doc.add_paragraph()  # Empty line
 
-                for idx, ref in enumerate(content['references'], 1):
+                # Only show first 5 references with numbers
+                for idx, ref in enumerate(content['references'][:5], 1):
                     ref_para = doc.add_paragraph()
                     ref_para.paragraph_format.first_line_indent = Inches(0.5)
                     ref_para.add_run(f"{idx}. {ref}")

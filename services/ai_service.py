@@ -500,7 +500,7 @@ IMPORTANT REQUIREMENTS:
         """Generate references for the document"""
         try:
             if language == "uz":
-                prompt = f""""{topic}" mavzusi uchun 8 ta adabiyot manbai yarating.
+                prompt = f""""{topic}" mavzusi uchun 5 ta adabiyot manbai yarating.
 
 Har bir adabiyotni alohida qatorda yozing.
 Raqam qo'ymasdan yozing.
@@ -509,13 +509,12 @@ Adabiyotlar ro'yxati turli xil bo'lishi kerak:
 - Kitoblar (muallif, kitob nomi, nashr yili)
 - Ilmiy maqolalar (muallif, maqola nomi, jurnal nomi, yil)
 - Internet manbalari (sayt nomi, URL, foydalanish sanasi)
-- Qonuniy hujjatlar (agar kerak bo'lsa)
 
 Har bir manba haqiqiy va mavzuga mos ko'rinishi kerak.
 Faqat matn yozing, hech qanday raqam va belgisiz."""
 
             elif language == "ru":
-                prompt = f"""Создайте список из 8 литературных источников для темы "{topic}".
+                prompt = f"""Создайте список из 5 литературных источников для темы "{topic}".
 
 Каждый источник пишите на отдельной строке.
 Пишите без номеров.
@@ -524,13 +523,12 @@ Faqat matn yozing, hech qanday raqam va belgisiz."""
 - Книги (автор, название книги, год издания)
 - Научные статьи (автор, название статьи, название журнала, год)
 - Интернет-источники (название сайта, URL, дата обращения)
-- Правовые документы (если необходимо)
 
 Каждый источник должен выглядеть реалистично и соответствовать теме.
 Только текст, без номеров и символов."""
 
             else:  # English
-                prompt = f"""Create a list of 8 references for the topic "{topic}".
+                prompt = f"""Create a list of 5 references for the topic "{topic}".
 
 Write each reference on a separate line.
 Write without numbers.
@@ -539,7 +537,6 @@ The reference list should be diverse:
 - Books (author, book title, publication year)
 - Scientific articles (author, article title, journal name, year)
 - Internet sources (website name, URL, access date)
-- Legal documents (if necessary)
 
 Each source should look realistic and relevant to the topic.
 Only text, no numbers or symbols."""
@@ -554,7 +551,7 @@ Only text, no numbers or symbols."""
             # Split references by line and clean them
             references = [ref.strip() for ref in references_text.split('\n') if ref.strip()]
 
-            return references[:8]  # Ensure we have exactly 8 references
+            return references[:5]  # Ensure we have exactly 5 references
 
         except Exception as e:
             logger.error(f"Error generating references: {e}")
@@ -563,10 +560,7 @@ Only text, no numbers or symbols."""
                 "Ma'lumotnoma 2", 
                 "Ma'lumotnoma 3",
                 "Ma'lumotnoma 4",
-                "Ma'lumotnoma 5",
-                "Ma'lumotnoma 6",
-                "Ma'lumotnoma 7",
-                "Ma'lumotnoma 8"
+                "Ma'lumotnoma 5"
             ]
 
     async def generate_slide_image(self, slide_title: str, language: str) -> str:
