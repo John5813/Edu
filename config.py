@@ -13,7 +13,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///bot.db")
 
 # Payment configuration
 PAYMENT_CARD = os.getenv("PAYMENT_CARD", "9860160606136655")
-PAYMENT_CARD_OWNER = os.getenv("PAYMENT_CARD_OWNER", "Javlonbek Moʻydinov")
+PAYMENT_CARD_OWNER = os.getenv("PAYMENT_CARD_OWNER", "Moʻydinov Javlonbek")
 
 # Payment amounts with descriptions (for reference - actual values in keyboards.py)
 PAYMENT_OPTIONS_REFERENCE = [

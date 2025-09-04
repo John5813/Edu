@@ -784,9 +784,11 @@ class DocumentService:
 
                 doc.add_paragraph()  # Empty line
 
-            # References
+            # References - no page break, on same page
             if content.get('references'):
-                doc.add_page_break()
+                # Add 2 empty lines before references
+                doc.add_paragraph()  
+                doc.add_paragraph()  
 
                 ref_title = doc.add_paragraph()
                 ref_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -870,9 +872,11 @@ class DocumentService:
 
                 doc.add_paragraph()  # Empty line
 
-            # References
+            # References - no page break, on same page
             if content.get('references'):
-                doc.add_page_break()
+                # Add 2 empty lines before references
+                doc.add_paragraph()  
+                doc.add_paragraph()  
 
                 ref_title = doc.add_paragraph()
                 ref_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -963,34 +967,36 @@ class DocumentService:
             for _ in range(2):
                 doc.add_paragraph()
             
-            # Bajardi section
-            bajardi_para = doc.add_paragraph()
-            bajardi_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            bajardi_run = bajardi_para.add_run(f"{texts['prepared_by']}: ")
+            # Bajardi va Qabul qildi sections - yonma-yon
+            signatures_para = doc.add_paragraph()
+            signatures_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            
+            # Bajardi section (left side)
+            bajardi_run = signatures_para.add_run(f"{texts['prepared_by']}: ")
             bajardi_run.font.size = Pt(12)
             bajardi_run.font.name = 'Times New Roman'
             
-            kurs_run = bajardi_para.add_run(f"_____ {texts['course']}")
+            kurs_run = signatures_para.add_run(f"_____ {texts['course']}")
             kurs_run.font.size = Pt(12)
             kurs_run.font.name = 'Times New Roman'
             
-            # Add new line within same paragraph
-            bajardi_para.add_run("\n")
+            # Spacing between signatures
+            signatures_para.add_run("               ")
             
-            guruh_run = bajardi_para.add_run(f"                                 {texts['group_student']}")
-            guruh_run.font.size = Pt(12)
-            guruh_run.font.name = 'Times New Roman'
-            
-            # Qabul qildi section with line
-            qabul_para = doc.add_paragraph()
-            qabul_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            qabul_run = qabul_para.add_run(f"{texts['accepted_by']}:")
+            # Qabul qildi section (right side)
+            qabul_run = signatures_para.add_run(f"{texts['accepted_by']}: ")
             qabul_run.font.size = Pt(12)
             qabul_run.font.name = 'Times New Roman'
             
-            qabul_line_run = qabul_para.add_run("_" * 20)
+            qabul_line_run = signatures_para.add_run("_" * 15)
             qabul_line_run.font.size = Pt(12)
             qabul_line_run.font.name = 'Times New Roman'
+            
+            # Second line for group info under Bajardi
+            signatures_para.add_run("\n")
+            guruh_run = signatures_para.add_run(f"                    {texts['group_student']}")
+            guruh_run.font.size = Pt(12)
+            guruh_run.font.name = 'Times New Roman'
             
             # Add 4 empty lines for spacing before Toshkent
             for _ in range(4):
@@ -1130,28 +1136,28 @@ class DocumentService:
             for _ in range(5):
                 doc.add_paragraph()
             
-            # Bajardi section (left aligned)
-            bajardi_para = doc.add_paragraph()
-            bajardi_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            bajardi_run = bajardi_para.add_run(f"{texts['prepared_by']}. ")
+            # Bajardi va Qabul qildi sections - yonma-yon (left aligned)
+            signatures_para = doc.add_paragraph()
+            signatures_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            
+            # Bajardi section (left side)
+            bajardi_run = signatures_para.add_run(f"{texts['prepared_by']}. ")
             bajardi_run.font.size = Pt(12)
             bajardi_run.font.name = 'Times New Roman'
             
-            bajardi_line_run = bajardi_para.add_run("_" * 20)
+            bajardi_line_run = signatures_para.add_run("_" * 18)
             bajardi_line_run.font.size = Pt(12)
             bajardi_line_run.font.name = 'Times New Roman'
             
-            # Add new line
-            doc.add_paragraph()
+            # Spacing between signatures  
+            signatures_para.add_run("         ")
             
-            # Qabul qildi section (left aligned)
-            qabul_para = doc.add_paragraph()
-            qabul_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            qabul_run = qabul_para.add_run(f"{texts['accepted_by']} ")
+            # Qabul qildi section (right side)
+            qabul_run = signatures_para.add_run(f"{texts['accepted_by']} ")
             qabul_run.font.size = Pt(12)
             qabul_run.font.name = 'Times New Roman'
             
-            qabul_line_run = qabul_para.add_run("_" * 18)
+            qabul_line_run = signatures_para.add_run("_" * 15)
             qabul_line_run.font.size = Pt(12)
             qabul_line_run.font.name = 'Times New Roman'
             
