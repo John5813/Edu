@@ -15,18 +15,84 @@ class AIService:
         self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = "gpt-4o"
 
+    async def generate_slide_titles(self, topic: str, num_slides: int, language: str = "uz") -> List[str]:
+        """Generate slide titles first as foundation for content generation"""
+        logger.info(f"Generating {num_slides} slide titles for topic: {topic}")
+        
+        if language == "uz":
+            prompt = f"""
+            Siz taqdimot yaratish uchun yordamchi bo'lasiz. 
+            Mavzu: "{topic}".
+            Foydalanuvchi {num_slides} ta slayd xohladi. 
+            Har bir slayd uchun alohida sarlavha yozing.
+            E'tibor bering:
+            - Har bir sarlavha mavzudan chetlanmasin.
+            - Sarlavhalar xilma-xil bo'lsin, hammasi mavzu nomi bilan boshlanib ketmasin.
+            - Sarlavhalar qisqa, tushunarli va taqdimot uslubida yozilsin.
+            - Faqat sarlavhalarni ro'yxat ko'rinishida bering, boshqa matn yo'q.
+            """
+        elif language == "ru":
+            prompt = f"""
+            Вы помощник для создания презентаций.
+            Тема: "{topic}".
+            Пользователь хочет {num_slides} слайдов.
+            Напишите отдельный заголовок для каждого слайда.
+            Обратите внимание:
+            - Каждый заголовок должен соответствовать теме.
+            - Заголовки должны быть разнообразными, не все должны начинаться с названия темы.
+            - Заголовки должны быть краткими, понятными и в стиле презентации.
+            - Дайте только заголовки в виде списка, без дополнительного текста.
+            """
+        else:  # English
+            prompt = f"""
+            You are a presentation creation assistant.
+            Topic: "{topic}".
+            User wants {num_slides} slides.
+            Write a separate title for each slide.
+            Note:
+            - Each title should stay on topic.
+            - Titles should be diverse, not all starting with the topic name.
+            - Titles should be short, clear and in presentation style.
+            - Provide only the titles as a list, no additional text.
+            """
+        
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.7
+            )
+            content = response.choices[0].message.content
+            # Parse titles from response (assuming one per line)
+            if content:
+                titles = [title.strip().lstrip('1234567890.-• ') for title in content.split('\n') if title.strip()]
+            else:
+                titles = []
+            return titles[:num_slides]  # Ensure we don't exceed requested count
+            
+        except Exception as e:
+            logger.error(f"Error generating slide titles: {e}")
+            return [f"Slayd {i+1}" for i in range(num_slides)]  # Fallback titles
+
     async def generate_presentation_in_batches(self, topic: str, slide_count: int, language: str) -> Dict:
-        """Generate presentation content using batch method for better results"""
-        logger.info(f"Starting batch presentation generation for '{topic}' with {slide_count} slides in {language}")
+        """Generate presentation content using improved step-by-step method"""
+        logger.info(f"Starting improved batch presentation generation for '{topic}' with {slide_count} slides in {language}")
+        
+        # Step 1: Generate slide titles first
+        slide_titles = await self.generate_slide_titles(topic, slide_count, language)
+        logger.info(f"Generated {len(slide_titles)} slide titles")
         
         all_slides = []
         
-        # Generate in batches of 3 slides
+        # Step 2: Generate content in batches of 3 slides using titles
         for batch_start in range(1, slide_count + 1, 3):
             batch_end = min(batch_start + 2, slide_count)
             logger.info(f"Generating batch: slides {batch_start}-{batch_end}")
             
-            batch_content = await self._generate_slide_batch(topic, batch_start, batch_end, slide_count, language)
+            # Get titles for this batch
+            batch_titles = slide_titles[batch_start-1:batch_end] if batch_start-1 < len(slide_titles) else []
+            
+            batch_content = await self._generate_slide_batch_with_titles(topic, batch_start, batch_end, slide_count, language, batch_titles)
             if batch_content and 'slides' in batch_content:
                 all_slides.extend(batch_content['slides'])
             
@@ -36,6 +102,186 @@ class AIService:
 
         logger.info(f"Generated complete presentation with {len(all_slides)} slides")
         return {"slides": all_slides}
+
+    async def _generate_slide_batch_with_titles(self, topic: str, start_slide: int, end_slide: int, total_slides: int, language: str, titles: List[str]) -> Dict:
+        """Generate a batch of 3 slides using pre-generated titles with improved layouts"""
+        
+        # Create slide layout mapping for this batch
+        slides_info = []
+        for i, slide_num in enumerate(range(start_slide, end_slide + 1)):
+            title = titles[i] if i < len(titles) else f"Slayd {slide_num}"
+            layout_type = self._get_layout_type(slide_num)
+            slides_info.append({
+                "slide_number": slide_num,
+                "title": title,
+                "layout_type": layout_type
+            })
+        
+        language_instructions = {
+            'uzbek': "O'zbek tilida",
+            'russian': "На русском языке", 
+            'english': "In English"
+        }
+        
+        lang_instruction = language_instructions.get(language, "O'zbek tilida")
+        
+        prompt = f"""
+Siz taqdimot yaratish bo'yicha yordamchisiz. 
+Umumiy mavzu: "{topic}".
+{lang_instruction} javob bering.
+
+Quyidagi slaydlar uchun kontent yarating:
+
+{self._get_layout_descriptions(slides_info)}
+
+Har bir slayd uchun 3 qismda natija bering:
+
+1️⃣ 3 ustunli matn (agar kerak bo'lsa):
+- Har bir ustun alohida sarlavha ostida yozilsin.
+- Har bir ustun matni sarlavhaga mos asosiy gap bilan boshlansin.
+- Har bir ustunda 25–30 so'z bo'lsin.
+
+2️⃣ 4 nuqtali matn (agar kerak bo'lsa):
+- Har bir nuqta alohida bullet tarzida yozilsin.
+- Har bir nuqta kamida 20 so'zdan iborat bo'lsin.
+- Fikrlar xilma-xil bo'lsin.
+
+3️⃣ Uzun yahlit matn (agar kerak bo'lsa):
+- 120–150 so'zli matn yozing.
+- Matn bir butun tarzida, sarlavhaga chuqurroq sharh sifatida yozilsin.
+- Bu matnga mos rasm tavsifini ham yozing (AI rasm yaratishi uchun).
+
+JSON formatda javob bering:
+{{
+  "slides": [
+    {{
+      "slide_number": {start_slide},
+      "title": "Berilgan sarlavha",
+      "content": "Layout tipiga mos kontent...",
+      "layout_type": "bullet_points"
+    }}
+  ]
+}}
+"""
+
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"},
+                temperature=0.7
+            )
+            
+            content_text = response.choices[0].message.content
+            import json
+            if content_text:
+                return json.loads(content_text)
+            else:
+                return {"slides": []}
+            
+        except Exception as e:
+            logger.error(f"Error generating batch {start_slide}-{end_slide} with titles: {e}")
+            return {"slides": []}
+
+    async def generate_presentation_page(self, topic: str, title: str, language: str = "uz") -> Dict:
+        """
+        Generate comprehensive content for a single presentation page with 3 layout options
+        """
+        
+        if language == "uz":
+            prompt = f"""
+            Siz taqdimot yaratish bo'yicha yordamchisiz. 
+            Umumiy mavzu: "{topic}".
+            Slayd sarlavhasi: "{title}".
+
+            Uch qismda natija bering:
+
+            1️⃣ 3 ustunli matn:
+            - Har bir ustun alohida sarlavha ostida yozilsin.
+            - Har bir ustun matni sarlavhaga mos asosiy gap bilan boshlansin.
+            - Har bir ustunda 25–30 so'z bo'lsin.
+
+            2️⃣ 4 nuqtali matn:
+            - Har bir nuqta alohida bullet tarzida yozilsin.
+            - Har bir nuqta kamida 20 so'zdan iborat bo'lsin.
+            - Fikrlar xilma-xil bo'lsin.
+
+            3️⃣ Uzun yahlit matn:
+            - 120–150 so'zli matn yozing.
+            - Matn bir butun tarzida, sarlavhaga chuqurroq sharh sifatida yozilsin.
+            - Bu matnga mos rasm tavsifini ham yozing (AI rasm yaratishi uchun).
+            
+            JSON formatda javob bering.
+            """
+        elif language == "ru":
+            prompt = f"""
+            Вы помощник по созданию презентаций.
+            Общая тема: "{topic}".
+            Заголовок слайда: "{title}".
+
+            Дайте результат в трех частях:
+
+            1️⃣ Текст в 3 колонки:
+            - Каждая колонка под отдельным заголовком.
+            - Текст каждой колонки начинается с основного предложения, соответствующего заголовку.
+            - В каждой колонке 25–30 слов.
+
+            2️⃣ Текст в 4 пункта:
+            - Каждый пункт в стиле маркированного списка.
+            - Каждый пункт состоит минимум из 20 слов.
+            - Идеи должны быть разнообразными.
+
+            3️⃣ Длинный связный текст:
+            - Напишите текст 120–150 слов.
+            - Текст как единое целое, как глубокий комментарий к заголовку.
+            - Также напишите описание изображения, соответствующего этому тексту (для создания AI-изображения).
+            
+            Ответьте в формате JSON.
+            """
+        else:  # English
+            prompt = f"""
+            You are a presentation creation assistant.
+            Overall topic: "{topic}".
+            Slide title: "{title}".
+
+            Provide results in three parts:
+
+            1️⃣ 3-column text:
+            - Each column under a separate heading.
+            - Each column's text starts with a main sentence matching the heading.
+            - 25–30 words in each column.
+
+            2️⃣ 4-point text:
+            - Each point in bullet style.
+            - Each point consists of at least 20 words.
+            - Ideas should be diverse.
+
+            3️⃣ Long coherent text:
+            - Write 120–150 words of text.
+            - Text as a whole, as a deep commentary on the title.
+            - Also write an image description matching this text (for AI image creation).
+            
+            Respond in JSON format.
+            """
+
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"},
+                temperature=0.7
+            )
+
+            content_text = response.choices[0].message.content
+            import json
+            if content_text:
+                return json.loads(content_text)
+            else:
+                return {"slides": []}
+            
+        except Exception as e:
+            logger.error(f"Error generating presentation page: {e}")
+            return {"error": str(e)}
 
     async def _generate_slide_batch(self, topic: str, start_slide: int, end_slide: int, total_slides: int, language: str) -> Dict:
         """Generate a batch of 3 slides with proper layout assignment"""
@@ -96,7 +342,10 @@ Example format:
             
             content_text = response.choices[0].message.content
             import json
-            return json.loads(content_text)
+            if content_text:
+                return json.loads(content_text)
+            else:
+                return {"slides": []}
             
         except Exception as e:
             logger.error(f"Error generating batch {start_slide}-{end_slide}: {e}")
@@ -231,7 +480,10 @@ JSON formatida qaytaring:
             
             content_text = response.choices[0].message.content
             import json
-            content = json.loads(content_text)
+            if content_text:
+                content = json.loads(content_text)
+            else:
+                content = {"sections": []}
             
             # Ensure we have enough sections
             sections = content.get('sections', [])
@@ -298,7 +550,10 @@ JSON formatida qaytaring:
             
             content_text = response.choices[0].message.content
             import json
-            content = json.loads(content_text)
+            if content_text:
+                content = json.loads(content_text)
+            else:
+                content = {"sections": []}
             
             sections = content.get('sections', [])
 
