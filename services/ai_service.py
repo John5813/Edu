@@ -502,35 +502,47 @@ IMPORTANT REQUIREMENTS:
             if language == "uz":
                 prompt = f""""{topic}" mavzusi uchun 8 ta adabiyot manbai yarating.
 
+Har bir adabiyotni alohida qatorda yozing.
+Raqam qo'ymasdan yozing.
+
 Adabiyotlar ro'yxati turli xil bo'lishi kerak:
-- Kitoblar
-- Ilmiy maqolalar
-- Internet manbalari
+- Kitoblar (muallif, kitob nomi, nashr yili)
+- Ilmiy maqolalar (muallif, maqola nomi, jurnal nomi, yil)
+- Internet manbalari (sayt nomi, URL, foydalanish sanasi)
 - Qonuniy hujjatlar (agar kerak bo'lsa)
 
-Har bir manba haqiqiy va mavzuga mos ko'rinishi kerak."""
+Har bir manba haqiqiy va mavzuga mos ko'rinishi kerak.
+Faqat matn yozing, hech qanday raqam va belgisiz."""
 
             elif language == "ru":
                 prompt = f"""Создайте список из 8 литературных источников для темы "{topic}".
 
+Каждый источник пишите на отдельной строке.
+Пишите без номеров.
+
 Список литературы должен быть разнообразным:
-- Книги
-- Научные статьи
-- Интернет-источники
+- Книги (автор, название книги, год издания)
+- Научные статьи (автор, название статьи, название журнала, год)
+- Интернет-источники (название сайта, URL, дата обращения)
 - Правовые документы (если необходимо)
 
-Каждый источник должен выглядеть реалистично и соответствовать теме."""
+Каждый источник должен выглядеть реалистично и соответствовать теме.
+Только текст, без номеров и символов."""
 
             else:  # English
                 prompt = f"""Create a list of 8 references for the topic "{topic}".
 
+Write each reference on a separate line.
+Write without numbers.
+
 The reference list should be diverse:
-- Books
-- Scientific articles
-- Internet sources
+- Books (author, book title, publication year)
+- Scientific articles (author, article title, journal name, year)
+- Internet sources (website name, URL, access date)
 - Legal documents (if necessary)
 
-Each source should look realistic and relevant to the topic."""
+Each source should look realistic and relevant to the topic.
+Only text, no numbers or symbols."""
 
             response = await self.client.chat.completions.create(
                 model=self.model,

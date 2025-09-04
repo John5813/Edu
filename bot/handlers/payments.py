@@ -7,7 +7,7 @@ from bot.states import PaymentStates
 from bot.keyboards import get_payment_amount_keyboard, get_main_keyboard
 from database.database import Database
 from translations import get_text
-from config import PAYMENT_CARD, ADMIN_IDS
+from config import PAYMENT_CARD, PAYMENT_CARD_OWNER, ADMIN_IDS
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -94,7 +94,7 @@ async def handle_payment_amount_selection(callback: CallbackQuery, state: FSMCon
     await state.update_data(payment_amount=amount)
     
     await callback.message.edit_text(
-        get_text(user_lang, "payment_instructions", card=PAYMENT_CARD)
+        get_text(user_lang, "payment_instructions", card=PAYMENT_CARD, owner=PAYMENT_CARD_OWNER)
     )
     
     await state.set_state(PaymentStates.waiting_for_screenshot)
