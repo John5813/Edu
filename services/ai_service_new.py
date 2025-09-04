@@ -199,7 +199,7 @@ JSON formatda javob bering:
             1️⃣ 3 ustunli matn:
             - Har bir ustun alohida sarlavha ostida yozilsin.
             - Har bir ustun matni sarlavhaga mos asosiy gap bilan boshlansin.
-            - Har bir ustunda 25–30 so'z bo'lsin.
+            - Har bir ustunda 50–60 so'z bo'lsin.
 
             2️⃣ 4 nuqtali matn:
             - Har bir nuqta alohida bullet tarzida yozilsin.
@@ -207,7 +207,7 @@ JSON formatda javob bering:
             - Fikrlar xilma-xil bo'lsin.
 
             3️⃣ Uzun yahlit matn:
-            - 120–150 so'zli matn yozing.
+            - 200–250 so'zli matn yozing.
             - Matn bir butun tarzida, sarlavhaga chuqurroq sharh sifatida yozilsin.
             - Bu matnga mos rasm tavsifini ham yozing (AI rasm yaratishi uchun).
             
@@ -224,7 +224,7 @@ JSON formatda javob bering:
             1️⃣ Текст в 3 колонки:
             - Каждая колонка под отдельным заголовком.
             - Текст каждой колонки начинается с основного предложения, соответствующего заголовку.
-            - В каждой колонке 25–30 слов.
+            - В каждой колонке 50–60 слов.
 
             2️⃣ Текст в 4 пункта:
             - Каждый пункт в стиле маркированного списка.
@@ -232,7 +232,7 @@ JSON formatda javob bering:
             - Идеи должны быть разнообразными.
 
             3️⃣ Длинный связный текст:
-            - Напишите текст 120–150 слов.
+            - Напишите текст 200–250 слов.
             - Текст как единое целое, как глубокий комментарий к заголовку.
             - Также напишите описание изображения, соответствующего этому тексту (для создания AI-изображения).
             
@@ -249,7 +249,7 @@ JSON formatda javob bering:
             1️⃣ 3-column text:
             - Each column under a separate heading.
             - Each column's text starts with a main sentence matching the heading.
-            - 25–30 words in each column.
+            - 50–60 words in each column.
 
             2️⃣ 4-point text:
             - Each point in bullet style.
@@ -257,7 +257,7 @@ JSON formatda javob bering:
             - Ideas should be diverse.
 
             3️⃣ Long coherent text:
-            - Write 120–150 words of text.
+            - Write 200–250 words of text.
             - Text as a whole, as a deep commentary on the title.
             - Also write an image description matching this text (for AI image creation).
             
@@ -313,7 +313,7 @@ For each slide, provide:
 - slide_number: {start_slide} to {end_slide}
 - title: Relevant slide title
 - content: ALWAYS STRING TEXT (never array/list). Content according to layout type
-- layout_type: One of [bullet_points, text_with_image, three_column, three_bullets, four_numbered]
+- layout_type: One of [bullet_points, text_with_image, three_column]
 
 CRITICAL: "content" must ALWAYS be a string, NEVER an array or list!
 
@@ -352,16 +352,16 @@ Example format:
             return {"slides": []}
 
     def _get_layout_type(self, slide_number: int) -> str:
-        """Determine layout type based on slide number using rotating 4-layout system"""
+        """Determine layout type based on slide number using rotating 3-layout system"""
         if slide_number == 1:
             return "title"
         
         # Calculate position in content slides (excluding title slide)
         content_position = slide_number - 1
         
-        # 4-layout rotation: bullet_points, text_with_image, three_column, three_bullets
-        layout_cycle = ["bullet_points", "text_with_image", "three_column", "three_bullets"]
-        layout_index = (content_position - 1) % 4
+        # 3-layout rotation: bullet_points, text_with_image, three_column
+        layout_cycle = ["bullet_points", "text_with_image", "three_column"]
+        layout_index = (content_position - 1) % 3
         
         return layout_cycle[layout_index]
 
@@ -376,11 +376,9 @@ Example format:
             if layout == "bullet_points":
                 descriptions.append(f"Slide {slide_num} (bullet_points): Generate as ONE CONTINUOUS STRING TEXT with 150-200 words explaining key concepts. NOT A LIST OR ARRAY!")
             elif layout == "text_with_image":
-                descriptions.append(f"Slide {slide_num} (text_with_image): Generate as ONE CONTINUOUS STRING TEXT with 40-50 words for image generation. NOT A LIST OR ARRAY!")
+                descriptions.append(f"Slide {slide_num} (text_with_image): Generate as ONE CONTINUOUS STRING TEXT with 100-120 words for image generation. NOT A LIST OR ARRAY!")
             elif layout == "three_column":
-                descriptions.append(f"Slide {slide_num} (three_column): Generate as ONE CONTINUOUS STRING TEXT with 120+ words, different aspects. NOT A LIST OR ARRAY!")
-            elif layout == "three_bullets":
-                descriptions.append(f"Slide {slide_num} (three_bullets): Generate as ONE CONTINUOUS STRING TEXT with 120+ words, comprehensive coverage. NOT A LIST OR ARRAY!")
+                descriptions.append(f"Slide {slide_num} (three_column): Generate as ONE CONTINUOUS STRING TEXT with 240+ words, different aspects. NOT A LIST OR ARRAY!")
         
         return "\n".join(descriptions)
 
