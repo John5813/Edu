@@ -33,7 +33,17 @@ TRANSLATIONS = {
         "settings_menu": "⚙️ Sozlamalar\n\nTilni o'zgartirish:",
         "language_changed": "✅ Til o'zgartirildi!",
         "help_message": "📞 Yordam va ma'lumotlar",
-        "document_ready_caption": "🎯 {topic}\n📊 {slide_count} slayd\n🎨 {template} shablon"
+        "document_ready_caption": "🎯 {topic}\n📊 {slide_count} slayd\n🎨 {template} shablon",
+        "document_reminder": """💡 **Muhim eslatma:**
+
+Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi. 
+
+📝 **Iltimos, matnni diqqat bilan o'qib chiqing va:**
+• Ma'lumotlarning to'g'riligini tekshiring
+• Kerakli o'zgarishlar kiriting  
+• O'z fikr va xulosalaringizni qo'shing
+
+🎯 **Eng yaxshi natija uchun:** Tayyor hujjatni o'z bilim va tajribangiz bilan boyiting!"""
     },
     "ru": {
         "welcome": "🎓 Добро пожаловать в EduBot.ai!\n\nВыберите язык для создания академических документов:",
@@ -69,7 +79,17 @@ TRANSLATIONS = {
         "settings_menu": "⚙️ Настройки\n\nИзменить язык:",
         "language_changed": "✅ Язык изменен!",
         "help_message": "📞 Помощь",
-        "document_ready_caption": "🎯 {topic}\n📊 {slide_count} слайдов\n🎨 {template} шаблон"
+        "document_ready_caption": "🎯 {topic}\n📊 {slide_count} слайдов\n🎨 {template} шаблон",
+        "document_reminder": """💡 **Важное напоминание:**
+
+Этот документ создан с помощью ИИ и является вашим помощником. 
+
+📝 **Пожалуйста, внимательно прочитайте текст и:**
+• Проверьте правильность информации
+• Внесите необходимые изменения  
+• Добавьте свои мысли и выводы
+
+🎯 **Для лучшего результата:** Дополните готовый документ своими знаниями и опытом!"""
     },
     "en": {
         "welcome": "🎓 Welcome to EduBot.ai!\n\nSelect language for creating academic documents:",
@@ -105,7 +125,17 @@ TRANSLATIONS = {
         "settings_menu": "⚙️ Settings\n\nChange language:",
         "language_changed": "✅ Language changed!",
         "help_message": "📞 Help and Information",
-        "document_ready_caption": "🎯 {topic}\n📊 {slide_count} slides\n🎨 {template} template"
+        "document_ready_caption": "🎯 {topic}\n📊 {slide_count} slides\n🎨 {template} template",
+        "document_reminder": """💡 **Important reminder:**
+
+This document was created with AI assistance and serves as your helper. 
+
+📝 **Please carefully read the text and:**
+• Check the accuracy of information
+• Make necessary changes  
+• Add your own thoughts and conclusions
+
+🎯 **For best results:** Enhance the ready document with your knowledge and experience!"""
     }
 }
 

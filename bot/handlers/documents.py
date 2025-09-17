@@ -296,18 +296,7 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         )
         
         # Send gentle reminder about content review
-        reminder_text = """💡 **Muhim eslatma:**
-
-Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi. 
-
-📝 **Iltimos, matnni diqqat bilan o'qib chiqing va:**
-• Ma'lumotlarning to'g'riligini tekshiring
-• Kerakli o'zgarishlar kiriting  
-• O'z fikr va xulosalaringizni qo'shing
-
-🎯 **Eng yaxshi natija uchun:** Tayyor hujjatni o'z bilim va tajribangiz bilan boyiting!"""
-        
-        await callback.message.answer(reminder_text, parse_mode="Markdown")
+        await callback.message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
 
         await state.clear()
 
@@ -433,18 +422,7 @@ async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: 
         )
         
         # Send gentle reminder about content review
-        reminder_text = """💡 **Muhim eslatma:**
-
-Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi. 
-
-📝 **Iltimos, matnni diqqat bilan o'qib chiqing va:**
-• Ma'lumotlarning to'g'riligini tekshiring
-• Kerakli o'zgarishlar kiriting  
-• O'z fikr va xulosalaringizni qo'shing
-
-🎯 **Eng yaxshi natija uchun:** Tayyor hujjatni o'z bilim va tajribangiz bilan boyiting!"""
-        
-        await callback.message.answer(reminder_text, parse_mode="Markdown")
+        await callback.message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
 
     except Exception as e:
         logger.error(f"Error generating presentation: {e}")
@@ -516,18 +494,7 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
         )
         
         # Send gentle reminder about content review
-        reminder_text = """💡 **Muhim eslatma:**
-
-Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi. 
-
-📝 **Iltimos, matnni diqqat bilan o'qib chiqing va:**
-• Ma'lumotlarning to'g'riligini tekshiring
-• Kerakli o'zgarishlar kiriting  
-• O'z fikr va xulosalaringizni qo'shing
-
-🎯 **Eng yaxshi natija uchun:** Tayyor hujjatni o'z bilim va tajribangiz bilan boyiting!"""
-        
-        await callback.message.answer(reminder_text, parse_mode="Markdown")
+        await callback.message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
 
     except Exception as e:
         logger.error(f"Error generating independent work: {e}")
@@ -600,18 +567,7 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
         )
         
         # Send gentle reminder about content review
-        reminder_text = """💡 **Muhim eslatma:**
-
-Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi. 
-
-📝 **Iltimos, matnni diqqat bilan o'qib chiqing va:**
-• Ma'lumotlarning to'g'riligini tekshiring
-• Kerakli o'zgarishlar kiriting  
-• O'z fikr va xulosalaringizni qo'shing
-
-🎯 **Eng yaxshi natija uchun:** Tayyor hujjatni o'z bilim va tajribangiz bilan boyiting!"""
-        
-        await callback.message.answer(reminder_text, parse_mode="Markdown")
+        await callback.message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
 
     except Exception as e:
         logger.error(f"Error generating referat: {e}")
