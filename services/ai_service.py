@@ -296,7 +296,7 @@ Bu kirish bo'limi bo'lib, quyidagi talablarga javob berishi kerak:
 - Mavzu bo'yicha mavjud adabiyotlarga qisqacha sharh
 
 MUHIM TALABLAR:
-- Kamida 600 so'z yozing
+- Aniq 300-400 so'z yozing, ortiqcha emas
 - Har bir paragraf 5-7 ta jumla bo'lsin
 - Matnda bo'sh qatorlar bo'lmasin
 - Professional akademik til ishlatilsin
@@ -316,7 +316,7 @@ Bu xulosa bo'limi bo'lib, quyidagi talablarga javob berishi kerak:
 - Umumiy baholash va yakuniy fikrlar
 
 MUHIM TALABLAR:
-- Kamida 600 so'z yozing
+- Aniq 300-400 so'z yozing, ortiqcha emas
 - Har bir paragraf 5-7 ta jumla bo'lsin
 - Matnda bo'sh qatorlar bo'lmasin
 - Professional akademik til ishlatilsin
@@ -339,7 +339,7 @@ Quyidagi talablarga qat'iy rioya qiling:
 8. Turli mualliflarning fikrlari va tahlillari berilsin
 
 USLUB VA FORMAT TALABLARI:
-- Kamida 700 so'z yozing
+- Aniq 400-500 so'z yozing, ortiqcha emas
 - Har bir paragraf mantiqiy tugallangan bo'lsin
 - Matnda bo'sh qatorlar bo'lmasin
 - Professional akademik til, lekin tushunarli bo'lsin
@@ -359,7 +359,7 @@ USLUB VA FORMAT TALABLARI:
 - Краткий обзор существующей литературы по теме
 
 ВАЖНЫЕ ТРЕБОВАНИЯ:
-- Напишите минимум 600 слов
+- Напишите точно 300-400 слов, не больше
 - Каждый абзац должен содержать 5-7 предложений
 - Текст без пустых строк
 - Используйте профессиональный академический язык
@@ -379,7 +379,7 @@ USLUB VA FORMAT TALABLARI:
 - Общая оценка и заключительные мысли
 
 ВАЖНЫЕ ТРЕБОВАНИЯ:
-- Напишите минимум 600 слов
+- Напишите точно 300-400 слов, не больше
 - Каждый абзац должен содержать 5-7 предложений
 - Текст без пустых строк
 - Используйте профессиональный академический язык
@@ -400,7 +400,7 @@ USLUB VA FORMAT TALABLARI:
 - Анализ зарубежного и отечественного опыта
 
 ВАЖНЫЕ ТРЕБОВАНИЯ:
-- Напишите минимум 700 слов
+- Напишите точно 400-500 слов, не больше
 - Каждый абзац должен содержать 6-8 предложений
 - Текст без пустых строк
 - Используйте профессиональный академический язык
@@ -421,7 +421,7 @@ This introduction must meet the following requirements:
 - Brief review of existing literature on the topic
 
 IMPORTANT REQUIREMENTS:
-- Write at least 600 words
+- Write exactly 300-400 words, no more
 - Each paragraph should contain 5-7 sentences
 - No empty lines in the text
 - Use professional academic language
@@ -441,7 +441,7 @@ This conclusion must meet the following requirements:
 - Overall assessment and final thoughts
 
 IMPORTANT REQUIREMENTS:
-- Write at least 600 words
+- Write exactly 300-400 words, no more
 - Each paragraph should contain 5-7 sentences
 - No empty lines in the text
 - Use professional academic language
@@ -462,7 +462,7 @@ This main section must meet the following requirements:
 - Analysis of international and domestic experience
 
 IMPORTANT REQUIREMENTS:
-- Write at least 700 words
+- Write exactly 400-500 words, no more
 - Each paragraph should contain 6-8 sentences
 - No empty lines in the text
 - Use professional academic language
