@@ -68,7 +68,8 @@ async def handle_retry_promocode(callback: CallbackQuery, state: FSMContext, use
 async def handle_back_to_main(callback: CallbackQuery, state: FSMContext, user_lang: str):
     """Handle back to main menu from promocode error"""
     await state.clear()
-    await callback.message.edit_text(
+    await callback.message.delete()
+    await callback.message.answer(
         "🎓 Bot ishga tayyor!",
         reply_markup=get_main_keyboard(user_lang)
     )
