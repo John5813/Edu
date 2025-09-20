@@ -145,9 +145,11 @@ async def add_channel_start(callback: CallbackQuery, state: FSMContext):
     if not is_admin(callback.from_user.id):
         return
     
+    from bot.keyboards import get_back_to_channels_keyboard
     await callback.message.edit_text(
         "📢 Yangi kanal qo'shish\n\n"
-        "Kanal ID sini kiriting (masalan: -1001234567890):"
+        "Kanal ID sini kiriting (masalan: -1001234567890):",
+        reply_markup=get_back_to_channels_keyboard()
     )
     await state.set_state(AdminStates.waiting_for_channel_id)
 
@@ -159,18 +161,24 @@ async def add_channel_id(message: Message, state: FSMContext):
         
         # Basic validation
         if not channel_id.startswith("-100"):
-            await message.answer("❌ Kanal ID noto'g'ri formatda. -100 bilan boshlanishi kerak.")
+            from bot.keyboards import get_channel_error_keyboard
+            await message.answer(
+                "❌ Kanal ID noto'g'ri formatda. -100 bilan boshlanishi kerak.",
+                reply_markup=get_channel_error_keyboard()
+            )
             return
         
         # Validate if bot has access to this channel
         channel_service = ChannelService(message.bot)
         if not await channel_service.validate_channel(channel_id):
+            from bot.keyboards import get_channel_error_keyboard
             await message.answer(
                 "❌ Bot ushbu kanalga kirish huquqi yo'q!\n\n"
                 "📝 Quyidagi qadamlarni bajaring:\n"
                 "1. Kanalga @Hshjdjbot ni admin sifatida qo'shing\n"
                 "2. Bot uchun 'A'zolarni ko'rish' huquqini bering\n"
-                "3. Qayta urinib ko'ring"
+                "3. Qayta urinib ko'ring",
+                reply_markup=get_channel_error_keyboard()
             )
             return
         
@@ -480,6 +488,32 @@ async def back_to_promocode_menu(callback: CallbackQuery):
         "💬 Promokod boshqaruvi",
         reply_markup=get_promocode_keyboard()
     )
+
+@router.callback_query(F.data == "back_to_channels")
+async def back_to_channels(callback: CallbackQuery, state: FSMContext):
+    """Return to channel management menu"""
+    if not is_admin(callback.from_user.id):
+        return
+    
+    await state.clear()
+    await callback.message.edit_text(
+        "📢 Kanal sozlamalari",
+        reply_markup=get_channel_management_keyboard()
+    )
+
+@router.callback_query(F.data == "retry_channel_id")
+async def retry_channel_id(callback: CallbackQuery, state: FSMContext):
+    """Retry channel ID input"""
+    if not is_admin(callback.from_user.id):
+        return
+    
+    from bot.keyboards import get_back_to_channels_keyboard
+    await callback.message.edit_text(
+        "📢 Yangi kanal qo'shish\n\n"
+        "Kanal ID sini kiriting (masalan: -1001234567890):",
+        reply_markup=get_back_to_channels_keyboard()
+    )
+    await state.set_state(AdminStates.waiting_for_channel_id)
 
 # Removed duplicate handler - using the first one defined above
 

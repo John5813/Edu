@@ -16,7 +16,7 @@ def get_language_keyboard() -> InlineKeyboardMarkup:
 def get_settings_keyboard(language: str) -> InlineKeyboardMarkup:
     """Settings menu keyboard"""
     keyboard = InlineKeyboardBuilder()
-    
+
     # Language change
     if language == "uz":
         keyboard.add(InlineKeyboardButton(text="🌍 Tilni o'zgartirish", callback_data="change_language"))
@@ -27,7 +27,7 @@ def get_settings_keyboard(language: str) -> InlineKeyboardMarkup:
     else:  # en
         keyboard.add(InlineKeyboardButton(text="🌍 Change language", callback_data="change_language"))
         keyboard.add(InlineKeyboardButton(text="🎟 Enter promocode", callback_data="enter_promocode"))
-    
+
     keyboard.adjust(1)
     return keyboard.as_markup()
 
@@ -56,7 +56,7 @@ def get_main_keyboard(language: str) -> ReplyKeyboardMarkup:
 def get_slide_count_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
     """Slide count selection keyboard with prices (multilingual)"""
     keyboard = InlineKeyboardBuilder()
-    
+
     if language == "uz":
         keyboard.add(InlineKeyboardButton(text="10 slayd - 5000 so'm", callback_data="slides_10"))
         keyboard.add(InlineKeyboardButton(text="15 slayd - 7000 so'm", callback_data="slides_15")) 
@@ -69,24 +69,24 @@ def get_slide_count_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
         keyboard.add(InlineKeyboardButton(text="10 slides - 5000 som", callback_data="slides_10"))
         keyboard.add(InlineKeyboardButton(text="15 slides - 7000 som", callback_data="slides_15"))
         keyboard.add(InlineKeyboardButton(text="20 slides - 10000 som", callback_data="slides_20"))
-    
+
     keyboard.adjust(1)
     return keyboard.as_markup()
 
 def get_all_templates_keyboard() -> InlineKeyboardMarkup:
     """Create compact keyboard with all 20 template numbers"""
     keyboard = InlineKeyboardBuilder()
-    
+
     # Add all 20 template buttons in compact format
     for i in range(1, 21):
         keyboard.add(InlineKeyboardButton(
             text=str(i),
             callback_data=f"template_template_{i}"
         ))
-    
+
     # Arrange in 5 rows of 4 buttons each to match the image layout
     keyboard.adjust(4)  # 4 buttons per row
-    
+
     return keyboard.as_markup()
 
 def get_template_keyboard(group: int, total_groups: int) -> InlineKeyboardMarkup:
@@ -154,7 +154,7 @@ def get_payment_amount_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
 def get_subscription_check_keyboard(language: str, channels=None) -> InlineKeyboardMarkup:
     """Subscription check keyboard with channel links"""
     keyboard = InlineKeyboardBuilder()
-    
+
     # Add buttons for each channel
     if channels:
         for channel in channels:
@@ -165,25 +165,25 @@ def get_subscription_check_keyboard(language: str, channels=None) -> InlineKeybo
                 button_text = f"📢 {channel.title}"
             else:  # en
                 button_text = f"📢 {channel.title}"
-            
+
             # Create channel link
             if channel.channel_username:
                 channel_url = f"https://t.me/{channel.channel_username}"
             else:
                 # If no username, try to create a link from channel_id (won't work for private channels)
                 channel_url = f"https://t.me/c/{str(channel.channel_id)[4:]}"
-            
+
             keyboard.add(InlineKeyboardButton(
                 text=button_text,
                 url=channel_url
             ))
-    
+
     # Add check subscription button
     keyboard.add(InlineKeyboardButton(
         text=get_text(language, "check_subscription"), 
         callback_data="check_subscription"
     ))
-    
+
     keyboard.adjust(1)  # One button per row
     return keyboard.as_markup()
 
@@ -293,5 +293,19 @@ def get_promocode_error_keyboard(language: str) -> InlineKeyboardMarkup:
         keyboard.add(InlineKeyboardButton(text="🔄 Try again", callback_data="retry_promocode"))
         keyboard.add(InlineKeyboardButton(text="🔙 Back", callback_data="back_to_main"))
 
+    keyboard.adjust(2)
+    return keyboard.as_markup()
+
+def get_back_to_channels_keyboard() -> InlineKeyboardMarkup:
+    """Back to channels keyboard"""
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_channels"))
+    return keyboard.as_markup()
+
+def get_channel_error_keyboard() -> InlineKeyboardMarkup:
+    """Channel error keyboard with retry and back options"""
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(text="🔄 Qayta kiritish", callback_data="retry_channel_id"))
+    keyboard.add(InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_channels"))
     keyboard.adjust(2)
     return keyboard.as_markup()
