@@ -278,3 +278,20 @@ def get_promocode_option_keyboard(language: str) -> InlineKeyboardMarkup:
 
     keyboard.adjust(1)
     return keyboard.as_markup()
+
+def get_promocode_error_keyboard(language: str) -> InlineKeyboardMarkup:
+    """Promocode error keyboard with retry and back options"""
+    keyboard = InlineKeyboardBuilder()
+
+    if language == "uz":
+        keyboard.add(InlineKeyboardButton(text="🔄 Qayta kiritish", callback_data="retry_promocode"))
+        keyboard.add(InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_main"))
+    elif language == "ru":
+        keyboard.add(InlineKeyboardButton(text="🔄 Повторить", callback_data="retry_promocode"))
+        keyboard.add(InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main"))
+    else:  # en
+        keyboard.add(InlineKeyboardButton(text="🔄 Try again", callback_data="retry_promocode"))
+        keyboard.add(InlineKeyboardButton(text="🔙 Back", callback_data="back_to_main"))
+
+    keyboard.adjust(2)
+    return keyboard.as_markup()

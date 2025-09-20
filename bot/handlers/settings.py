@@ -58,6 +58,21 @@ async def handle_language_change(callback: CallbackQuery, db: Database):
         reply_markup=get_main_keyboard(new_language)
     )
 
+@router.callback_query(F.data == "retry_promocode")
+async def handle_retry_promocode(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Handle retry promocode input"""
+    await callback.message.edit_text("🎟 Promokodni kiriting:")
+    await state.set_state(SettingsStates.waiting_for_promocode)
+
+@router.callback_query(F.data == "back_to_main")
+async def handle_back_to_main(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Handle back to main menu from promocode error"""
+    await state.clear()
+    await callback.message.edit_text(
+        "🎓 Bot ishga tayyor!",
+        reply_markup=get_main_keyboard(user_lang)
+    )
+
 @router.message(SettingsStates.waiting_for_promocode)
 async def handle_settings_promocode_input(message: Message, state: FSMContext, db: Database, user_lang: str, user):
     """Handle promocode input from settings"""
@@ -67,18 +82,30 @@ async def handle_settings_promocode_input(message: Message, state: FSMContext, d
     promocode = await db.get_promocode(promocode_text)
     
     if not promocode:
-        await message.answer("❌ Noto'g'ri promokod. Qayta kiriting yoki /cancel buyrug'ini yuboring.")
+        from bot.keyboards import get_promocode_error_keyboard
+        await message.answer(
+            "❌ Noto'g'ri promokod.",
+            reply_markup=get_promocode_error_keyboard(user_lang)
+        )
         return
     
     # Check if promocode is expired
     if promocode.expires_at < datetime.now():
-        await message.answer("❌ Promokodning amal qilish muddati tugagan. Qayta kiriting yoki /cancel buyrug'ini yuboring.")
+        from bot.keyboards import get_promocode_error_keyboard
+        await message.answer(
+            "❌ Promokodning amal qilish muddati tugagan.",
+            reply_markup=get_promocode_error_keyboard(user_lang)
+        )
         return
     
     # Check if user already used this promocode
     is_used = await db.is_promocode_used(user.id, promocode.id)
     if is_used:
-        await message.answer("❌ Siz bu promokodni allaqachon ishlatgansiz. Qayta kiriting yoki /cancel buyrug'ini yuboring.")
+        from bot.keyboards import get_promocode_error_keyboard
+        await message.answer(
+            "❌ Siz bu promokodni allaqachon ishlatgansiz.",
+            reply_markup=get_promocode_error_keyboard(user_lang)
+        )
         return
     
     # Apply promocode immediately - give one free document
