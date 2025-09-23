@@ -118,9 +118,9 @@ class AIService:
             })
         
         language_instructions = {
-            'uzbek': "O'zbek tilida",
-            'russian': "На русском языке", 
-            'english': "In English"
+            'uz': "O'zbek tilida",
+            'ru': "На русском языке", 
+            'en': "In English"
         }
         
         lang_instruction = language_instructions.get(language, "O'zbek tilida")
@@ -137,9 +137,10 @@ Quyidagi slaydlar uchun kontent yarating:
 Har bir slayd uchun 3 qismda natija bering:
 
 1️⃣ 3 ustunli matn (agar kerak bo'lsa):
-- Har bir ustun alohida sarlavha ostida yozilsin.
-- Har bir ustun matni sarlavhaga mos asosiy gap bilan boshlansin.
-- Har bir ustunda 25–30 so'z bo'lsin.
+MUHIM: Har bir ustun alohida mavzu bo'lishi kerak, bir matnni 3 ga bo'lish EMAS!
+Format: "COLUMN1: Sarlavha1|Matn1 (80 so'z) COLUMN2: Sarlavha2|Matn2 (80 so'z) COLUMN3: Sarlavha3|Matn3 (80 so'z)"
+- Har ustun uchun boshqa mavzu: masalan, sabablari, ta'siri, yechimlar
+- Har ustunda to'liq 80 so'zli mazmun
 
 2️⃣ 4 nuqtali matn (agar kerak bo'lsa):
 - Har bir nuqta alohida bullet tarzida yozilsin.
@@ -296,9 +297,9 @@ JSON formatda javob bering:
             })
         
         language_instructions = {
-            'uzbek': "O'zbek tilida",
-            'russian': "На русском языке", 
-            'english': "In English"
+            'uz': "O'zbek tilida",
+            'ru': "На русском языке", 
+            'en': "In English"
         }
         
         lang_instruction = language_instructions.get(language, "O'zbek tilida")
@@ -378,7 +379,7 @@ Example format:
             elif layout == "text_with_image":
                 descriptions.append(f"Slide {slide_num} (text_with_image): Generate as ONE CONTINUOUS STRING TEXT with 100-120 words for image generation. NOT A LIST OR ARRAY!")
             elif layout == "three_column":
-                descriptions.append(f"Slide {slide_num} (three_column): Generate as ONE CONTINUOUS STRING TEXT with 240+ words, different aspects. NOT A LIST OR ARRAY!")
+                descriptions.append(f"Slide {slide_num} (three_column): Generate structured content with 3 separate column topics. Use format: 'COLUMN1: Title1|Content1 text (80 words) COLUMN2: Title2|Content2 text (80 words) COLUMN3: Title3|Content3 text (80 words)'. Each column should have its OWN TOPIC related to main theme, NOT split of one text!")
         
         return "\n".join(descriptions)
 
@@ -513,9 +514,9 @@ JSON formatida qaytaring:
     async def generate_referat_sections(self, topic: str, section_count: int, language: str) -> Dict:
         """Generate referat sections"""
         language_instructions = {
-            'uzbek': "O'zbek tilida",
-            'russian': "На русском языке", 
-            'english': "In English"
+            'uz': "O'zbek tilida",
+            'ru': "На русском языке", 
+            'en': "In English"
         }
         
         lang_instruction = language_instructions.get(language, "O'zbek tilida")

@@ -604,7 +604,26 @@ class DocumentService:
         elif not isinstance(content_text, str):
             content_text = str(content_text) if content_text else ''
             
-        # Check if content has ||| separator (new AI format)
+        # Check for NEW STRUCTURED FORMAT: "COLUMN1: Title1|Content1 COLUMN2: Title2|Content2 COLUMN3: Title3|Content3"
+        import re
+        column_pattern = r'(?is)COLUMN\s*(\d+)\s*:\s*([^|]+)\|([\s\S]*?)(?=\s*COLUMNS?\s*\d+\s*:\s*|$)'
+        column_matches = re.findall(column_pattern, content_text)
+        
+        if column_matches and len(column_matches) >= 3:
+            result = []
+            for i, (num, title, content) in enumerate(column_matches[:3]):
+                clean_title = title.strip()
+                clean_content = content.strip()
+                # Ensure content is long enough (should be 80+ words)
+                if len(clean_content.split()) < 20:  # If less than 20 words, pad it
+                    clean_content += f' Ushbu ustun bo\'yicha qo\'shimcha batafsil ma\'lumotlar va tushuntirishlar kiritilishi kerak. Professional akademik uslubda yozilgan to\'liq mazmun bu yerda bo\'lishi lozim.'
+                result.append({
+                    'title': clean_title,
+                    'text': clean_content
+                })
+            return result
+        
+        # Check if content has ||| separator (old AI format)
         if '|||' in content_text:
             columns_data = [col.strip() for col in content_text.split('|||')]
             result = []
