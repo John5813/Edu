@@ -149,15 +149,10 @@ async def show_template_selection(message: Message, state: FSMContext, user_lang
         overview_image_path = "attached_assets/IMG_20250823_093040_1755924327080.jpg"
         
         if os.path.exists(overview_image_path):
-            text = """🎨 **BARCHA SHABLONLAR - Bitta rasmda ko'ring**
-
-Yuqoridagi rasmda 20 ta shablon ko'rsatilgan:
-**1-5:** Birinchi qator (chap yuqoridan o'ngga)
-**6-10:** Ikkinchi qator  
-**11-15:** Uchinchi qator
-**16-20:** To'rtinchi qator
-
-👆 **Quyidagi raqamlardan birini bosing:**"""
+            # Use translated text
+            title_text = get_text(user_lang, "template_selection_title")
+            description_text = get_text(user_lang, "template_selection_description")
+            text = f"{title_text}\n\n{description_text}"
             
             await message.answer_photo(
                 photo=FSInputFile(overview_image_path),
@@ -165,25 +160,17 @@ Yuqoridagi rasmda 20 ta shablon ko'rsatilgan:
                 parse_mode="Markdown"
             )
         else:
-            # Fallback if overview image not found
-            text = """🎨 **Shablon tanlang:**
-
-20 ta professional shablon mavjud:
-**Ko'k va Geometrik:** 1-5
-**Business va Modern:** 6-10  
-**Academic va Formal:** 11-15
-**Premium va Executive:** 16-20
-
-👆 **Quyidagi raqamlardan birini bosing:**"""
-            
+            # Fallback if overview image not found - use translated fallback text
+            text = get_text(user_lang, "template_selection_fallback")
             await message.answer(text, parse_mode="Markdown")
         
         # Send compact numbered keyboard with all 20 options
         from bot.keyboards import get_all_templates_keyboard
         keyboard = get_all_templates_keyboard()
         await message.answer(
-            "📋 **Shablon raqamini tanlang:**", 
-            reply_markup=keyboard
+            get_text(user_lang, "template_select_number"), 
+            reply_markup=keyboard,
+            parse_mode="Markdown"
         )
             
     except Exception as e:

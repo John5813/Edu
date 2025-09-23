@@ -43,7 +43,25 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
 • Kerakli o'zgarishlar kiriting  
 • O'z fikr va xulosalaringizni qo'shing
 
-🎯 **Eng yaxshi natija uchun:** Tayyor hujjatni o'z bilim va tajribangiz bilan boyiting!"""
+🎯 **Eng yaxshi natija uchun:** Tayyor hujjatni o'z bilim va tajribangiz bilan boyiting!""",
+        "template_selection_title": "🎨 **BARCHA SHABLONLAR - Bitta rasmda ko'ring**",
+        "template_selection_description": """Yuqoridagi rasmda 20 ta shablon ko'rsatilgan:
+**1-5:** Birinchi qator (chap yuqoridan o'ngga)
+**6-10:** Ikkinchi qator  
+**11-15:** Uchinchi qator
+**16-20:** To'rtinchi qator
+
+👆 **Quyidagi raqamlardan birini bosing:**""",
+        "template_selection_fallback": """🎨 **Shablon tanlang:**
+
+20 ta professional shablon mavjud:
+**Ko'k va Geometrik:** 1-5
+**Business va Modern:** 6-10  
+**Academic va Formal:** 11-15
+**Premium va Executive:** 16-20
+
+👆 **Quyidagi raqamlardan birini bosing:**""",
+        "template_select_number": "📋 **Shablon raqamini tanlang:**"
     },
     "ru": {
         "welcome": "🎓 Добро пожаловать в EduBot.ai!\n\nВыберите язык для создания академических документов:",
@@ -89,7 +107,25 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
 • Внесите необходимые изменения  
 • Добавьте свои мысли и выводы
 
-🎯 **Для лучшего результата:** Дополните готовый документ своими знаниями и опытом!"""
+🎯 **Для лучшего результата:** Дополните готовый документ своими знаниями и опытом!""",
+        "template_selection_title": "🎨 **ВСЕ ШАБЛОНЫ - Посмотрите на одном изображении**",
+        "template_selection_description": """На изображении выше показано 20 шаблонов:
+**1-5:** Первый ряд (слева вверху направо)
+**6-10:** Второй ряд  
+**11-15:** Третий ряд
+**16-20:** Четвертый ряд
+
+👆 **Нажмите одну из цифр ниже:**""",
+        "template_selection_fallback": """🎨 **Выберите шаблон:**
+
+Доступно 20 профессиональных шаблонов:
+**Синий и Геометрический:** 1-5
+**Бизнес и Современный:** 6-10  
+**Академический и Формальный:** 11-15
+**Премиум и Исполнительный:** 16-20
+
+👆 **Нажмите одну из цифр ниже:**""",
+        "template_select_number": "📋 **Выберите номер шаблона:**"
     },
     "en": {
         "welcome": "🎓 Welcome to EduBot.ai!\n\nSelect language for creating academic documents:",
@@ -135,7 +171,25 @@ This document was created with AI assistance and serves as your helper.
 • Make necessary changes  
 • Add your own thoughts and conclusions
 
-🎯 **For best results:** Enhance the ready document with your knowledge and experience!"""
+🎯 **For best results:** Enhance the ready document with your knowledge and experience!""",
+        "template_selection_title": "🎨 **ALL TEMPLATES - See in one image**",
+        "template_selection_description": """The image above shows 20 templates:
+**1-5:** First row (left to right from top)
+**6-10:** Second row  
+**11-15:** Third row
+**16-20:** Fourth row
+
+👆 **Click one of the numbers below:**""",
+        "template_selection_fallback": """🎨 **Choose a template:**
+
+20 professional templates available:
+**Blue and Geometric:** 1-5
+**Business and Modern:** 6-10  
+**Academic and Formal:** 11-15
+**Premium and Executive:** 16-20
+
+👆 **Click one of the numbers below:**""",
+        "template_select_number": "📋 **Select template number:**"
     }
 }
 
