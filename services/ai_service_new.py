@@ -75,7 +75,7 @@ class AIService:
             return [f"Slayd {i+1}" for i in range(num_slides)]  # Fallback titles
 
     async def generate_presentation_in_batches(self, topic: str, slide_count: int, language: str) -> Dict:
-        """Generate presentation content using improved step-by-step method"""
+        """Generate presentation content using improved step-by-step method with context continuation"""
         logger.info(f"Starting improved batch presentation generation for '{topic}' with {slide_count} slides in {language}")
         
         # Step 1: Generate slide titles first
@@ -83,8 +83,9 @@ class AIService:
         logger.info(f"Generated {len(slide_titles)} slide titles")
         
         all_slides = []
+        previous_context = ""  # Track previous batch content for continuity
         
-        # Step 2: Generate content in batches of 3 slides using titles
+        # Step 2: Generate content in batches of 3 slides using titles with context
         for batch_start in range(1, slide_count + 1, 3):
             batch_end = min(batch_start + 2, slide_count)
             logger.info(f"Generating batch: slides {batch_start}-{batch_end}")
@@ -92,9 +93,19 @@ class AIService:
             # Get titles for this batch
             batch_titles = slide_titles[batch_start-1:batch_end] if batch_start-1 < len(slide_titles) else []
             
-            batch_content = await self._generate_slide_batch_with_titles(topic, batch_start, batch_end, slide_count, language, batch_titles)
+            # Pass previous context for logical continuation
+            batch_content = await self._generate_slide_batch_with_context(
+                topic, batch_start, batch_end, slide_count, language, batch_titles, previous_context
+            )
+            
             if batch_content and 'slides' in batch_content:
                 all_slides.extend(batch_content['slides'])
+                
+                # Update context for next batch - use last slide content as context
+                if batch_content['slides']:
+                    last_slide = batch_content['slides'][-1]
+                    previous_context = f"Oldingi slayd: '{last_slide.get('title', '')}' - {last_slide.get('content', '')[:200]}..."
+                    logger.info(f"Updated context for next batch: {len(previous_context)} chars")
             
             # Small delay between batches
             if batch_end < slide_count:
@@ -103,7 +114,7 @@ class AIService:
         logger.info(f"Generated complete presentation with {len(all_slides)} slides")
         return {"slides": all_slides}
 
-    async def _generate_slide_batch_with_titles(self, topic: str, start_slide: int, end_slide: int, total_slides: int, language: str, titles: List[str]) -> Dict:
+    async def _generate_slide_batch_with_context(self, topic: str, start_slide: int, end_slide: int, total_slides: int, language: str, titles: List[str], previous_context: str = "") -> Dict:
         """Generate a batch of 3 slides using pre-generated titles with improved layouts"""
         
         # Create slide layout mapping for this batch
@@ -129,6 +140,10 @@ class AIService:
 Siz taqdimot yaratish bo'yicha yordamchisiz. 
 Umumiy mavzu: "{topic}".
 {lang_instruction} javob bering.
+
+{"OLDINGI KONTEKST: " + previous_context if previous_context else ""}
+
+MUHIM: Agar oldingi kontekst berilgan bo'lsa, yangi slaydlar mantiqiy davom etishi va takrorlanmasligi kerak.
 
 Quyidagi slaydlar uchun kontent yarating:
 
@@ -383,16 +398,22 @@ Example format:
         
         return "\n".join(descriptions)
 
-    async def generate_dalle_image(self, prompt: str, slide_title: str) -> str | None:
-        """Generate image using DALL-E for text+image slides"""
+    async def generate_dalle_image(self, slide_content: str, slide_title: str) -> str | None:
+        """Generate image using DALL-E for text+image slides with improved prompts"""
         try:
-            # Create image generation prompt - FIXED TO AVOID RANDOM CONTENT
-            safe_prompt = slide_title.replace("Bialogiya", "Biology").replace("biologik", "biological")
-            image_prompt = f"Professional educational illustration about {safe_prompt}, academic style diagram or concept visualization, clean background, no text overlay"
+            # Create better image generation prompt based on content and title
+            safe_title = slide_title.replace("Bialogiya", "Biology").replace("biologik", "biological")
+            
+            # Extract key concepts from slide content for better image generation
+            content_words = str(slide_content).split()[:20]  # First 20 words for context
+            content_context = " ".join(content_words)
+            
+            # Create educational, topic-specific prompt
+            image_prompt = f"Professional educational diagram about {safe_title}. Visual representation of {content_context}. Academic illustration style, clean minimalist design, no text labels, educational infographic style, modern and clear"
 
-            logger.info(f"Generating DALL-E image: {image_prompt[:50]}...")
+            logger.info(f"Generating DALL-E image for '{safe_title}': {image_prompt[:80]}...")
 
-            # NO TIMEOUT - Generate DALL-E image
+            # Generate DALL-E image
             response = await self.client.images.generate(
                 model="dall-e-3",
                 prompt=image_prompt,
@@ -403,14 +424,14 @@ Example format:
 
             if response.data and len(response.data) > 0 and response.data[0].url:
                 image_url = response.data[0].url
-                logger.info(f"Generated DALL-E image URL: {image_url[:50]}...")
+                logger.info(f"✅ Generated DALL-E image successfully for '{safe_title}'")
                 return image_url
             else:
                 logger.error("No image data received from DALL-E")
                 return None
 
         except Exception as e:
-            logger.error(f"Error generating DALL-E image: {e}")
+            logger.error(f"Error generating DALL-E image for '{slide_title}': {e}")
             return None
 
     async def download_image(self, image_url: str, filename: str) -> str | None:

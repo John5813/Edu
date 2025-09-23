@@ -333,7 +333,7 @@ class DocumentService:
                     slide_content = slide_data.get('content', '')
                     
                     try:
-                        # Generate DALL-E image - NO TIMEOUT
+                        # Generate DALL-E image with content context - NO TIMEOUT
                         logger.info(f"Starting DALL-E generation for slide {slide_num}: {slide_title}")
                         image_url = await self.ai_service.generate_dalle_image(
                             slide_content, slide_title
