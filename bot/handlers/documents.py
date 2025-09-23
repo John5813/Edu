@@ -281,7 +281,7 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
 
         # Get template name for caption
         template_service = TemplateService()
-        template_name = template_service.templates.get(template_id, {}).get('name', 'Standart')
+        template_name = template_service.get_template_name(template_id, user_lang)
 
         # Send file
         document = FSInputFile(file_path)
