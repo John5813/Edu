@@ -90,10 +90,6 @@ async def handle_document_request(message: Message, state: FSMContext, db: Datab
     document_type = DOCUMENT_TYPES[message.text]
     await state.update_data(document_type=document_type)
 
-    # Free service check only for presentations, and only if not used yet  
-    if not user.free_service_used and document_type == "presentation":
-        await state.update_data(use_free_service=True)
-
     # Proceed directly to topic input
     await message.answer(get_text(user_lang, "enter_topic"))
     await state.set_state(DocumentStates.waiting_for_topic)
@@ -117,22 +113,12 @@ async def handle_topic_input(message: Message, state: FSMContext, user_lang: str
     document_type = data['document_type']
 
     if document_type == "presentation":
-        # Check balance first before showing slide count options
-        data = await state.get_data()
-        use_free_service = data.get('use_free_service', False)
-        
-        if not use_free_service:
-            # Show slide count selection for paid service
-            await message.answer(
-                get_text(user_lang, "select_slide_count"),
-                reply_markup=get_slide_count_keyboard(user_lang)
-            )
-            await state.set_state(DocumentStates.waiting_for_slide_count)
-        else:
-            # For free service, directly show templates with 10 slides
-            await state.update_data(slide_count=10)
-            await show_template_selection(message, state, user_lang, group=1)
-            await state.set_state(DocumentStates.waiting_for_template)
+        # Show slide count selection for paid service
+        await message.answer(
+            get_text(user_lang, "select_slide_count"),
+            reply_markup=get_slide_count_keyboard(user_lang)
+        )
+        await state.set_state(DocumentStates.waiting_for_slide_count)
     else:
         await message.answer(
             get_text(user_lang, "select_page_count"),
@@ -258,13 +244,9 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         await db.update_document_order(order_id, "completed", file_path)
 
         # Process payment
-        if use_free_service:
-            await db.mark_free_service_used(user.telegram_id)
-            await callback.message.answer(get_text(user_lang, "free_service_used"))
-        else:
-            price = get_document_price("presentation", {"slide_count": slide_count})
-            await db.update_user_balance(user.telegram_id, -price)
-            await callback.message.answer(get_text(user_lang, "document_ready"))
+        price = get_document_price("presentation", {"slide_count": slide_count})
+        await db.update_user_balance(user.telegram_id, -price)
+        await callback.message.answer(get_text(user_lang, "document_ready"))
 
         # Get template name for caption
         template_service = TemplateService()
@@ -307,12 +289,10 @@ async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Dat
     await state.update_data(slide_count=slide_count)
 
     # Calculate price based on slide count
-    data = await state.get_data()
     price = get_document_price("presentation", {"slide_count": slide_count})
-    use_free_service = data.get('use_free_service', False)
 
-    # Check balance if not using free service
-    if not use_free_service and user.balance < price:
+    # Check balance
+    if user.balance < price:
         await callback.message.edit_text(get_text(user_lang, "insufficient_balance"))
         return
 
