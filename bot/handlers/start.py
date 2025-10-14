@@ -50,10 +50,8 @@ async def language_selected(callback: CallbackQuery, state: FSMContext, db: Data
         await db.update_user_language(user_id, language)
         user.language = language
     
-    await callback.message.edit_text(
-        get_text(language, "language_selected"),
-        reply_markup=None
-    )
+    # Delete the language selection message
+    await callback.message.delete()
     
     # Check channel subscription
     await check_subscription_and_show_menu(callback.message, user, db)
@@ -82,10 +80,9 @@ async def check_subscription_and_show_menu(message: Message, user, db: Database)
             )
             return
     
-    # Show main menu
+    # Show main menu with language selected message
     await message.answer(
-        get_text(user.language, "language_selected") if hasattr(message, 'edit_text') else 
-        "✅ " + get_text(user.language, "subscription_verified"),
+        get_text(user.language, "language_selected"),
         reply_markup=get_main_keyboard(user.language)
     )
 
