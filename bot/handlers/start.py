@@ -22,9 +22,8 @@ async def start_command(message: Message, state: FSMContext, db: Database):
     if not user:
         # New user - show language selection
         await message.answer(
-            "🎓 EduBot.ai — Telegramda Akademik Hujjatlar Yaratish Bot\n\n"
-            "🎓 EduBot.ai — Создание академических документов в Telegram\n\n"
-            "🎓 EduBot.ai — Academic Document Creation in Telegram\n\n"
+            "@EDUfail_bot sizga mustaqil ish referat va taqdimotlarni tez va sifatli yaratib beradi.\n"
+            "3 tilda\n\n"
             "Tilni tanlang / Выберите язык / Choose language:",
             reply_markup=get_language_keyboard()
         )
