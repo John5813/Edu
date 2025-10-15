@@ -1,8 +1,10 @@
 import aiosqlite
 import asyncio
+import secrets
+import string
 from datetime import datetime
 from typing import List, Optional, Dict
-from .models import User, Payment, Channel, Promocode, UsedPromocode, DocumentOrder, BroadcastMessage
+from .models import User, Payment, Channel, Promocode, UsedPromocode, DocumentOrder, BroadcastMessage, Referral
 from config import DATABASE_URL
 
 DATABASE_FILE = "bot.db"
@@ -21,6 +23,9 @@ async def init_db():
                 balance INTEGER DEFAULT 0,
                 free_service_used BOOLEAN DEFAULT FALSE,
                 promocode_used TEXT,
+                referral_code TEXT UNIQUE,
+                referred_by INTEGER,
+                referral_earnings INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -106,12 +111,27 @@ async def init_db():
             )
         ''')
 
+        # Referrals table
+        await db.execute('''
+            CREATE TABLE IF NOT EXISTS referrals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                referrer_id INTEGER NOT NULL,
+                referred_id INTEGER NOT NULL,
+                signup_bonus_given BOOLEAN DEFAULT FALSE,
+                payment_bonus_given BOOLEAN DEFAULT FALSE,
+                total_earned INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (referrer_id) REFERENCES users (telegram_id),
+                FOREIGN KEY (referred_id) REFERENCES users (telegram_id)
+            )
+        ''')
+
         await db.commit()
 
 class Database:
     @staticmethod
     async def get_user(telegram_id: int) -> Optional[User]:
-        """Get user by telegram ID"""
+        """Get user by telegram ID with lazy referral code backfill"""
         async with aiosqlite.connect(DATABASE_FILE) as db:
             db.row_factory = aiosqlite.Row
             async with db.execute(
@@ -119,7 +139,26 @@ class Database:
             ) as cursor:
                 row = await cursor.fetchone()
                 if row:
-                    return User(**dict(row))
+                    user_dict = dict(row)
+                    # Lazy backfill: if user doesn't have referral_code, generate one with retry logic
+                    if not user_dict.get('referral_code'):
+                        max_retries = 5
+                        for attempt in range(max_retries):
+                            try:
+                                referral_code = await Database.generate_referral_code()
+                                await db.execute(
+                                    "UPDATE users SET referral_code = ? WHERE telegram_id = ?",
+                                    (referral_code, telegram_id)
+                                )
+                                await db.commit()
+                                user_dict['referral_code'] = referral_code
+                                break
+                            except aiosqlite.IntegrityError:
+                                # UNIQUE constraint failed - code already exists, retry with new code
+                                if attempt == max_retries - 1:
+                                    raise  # Re-raise if all retries exhausted
+                                continue
+                    return User(**user_dict)
                 return None
 
     @staticmethod
@@ -136,16 +175,33 @@ class Database:
                 return None
 
     @staticmethod
-    async def create_user(telegram_id: int, username: str = None, first_name: str = None, language: str = 'en') -> User:
-        """Create new user"""
+    async def generate_referral_code() -> str:
+        """Generate unique referral code"""
+        while True:
+            code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+            async with aiosqlite.connect(DATABASE_FILE) as db:
+                async with db.execute(
+                    "SELECT COUNT(*) FROM users WHERE referral_code = ?", (code,)
+                ) as cursor:
+                    count = (await cursor.fetchone())[0]
+                    if count == 0:
+                        return code
+
+    @staticmethod
+    async def create_user(telegram_id: int, username: Optional[str] = None, first_name: Optional[str] = None, language: str = 'en', referred_by: Optional[int] = None) -> User:
+        """Create new user with referral code"""
+        referral_code = await Database.generate_referral_code()
         async with aiosqlite.connect(DATABASE_FILE) as db:
             await db.execute(
-                """INSERT INTO users (telegram_id, username, first_name, language) 
-                   VALUES (?, ?, ?, ?)""",
-                (telegram_id, username, first_name, language)
+                """INSERT INTO users (telegram_id, username, first_name, language, referral_code, referred_by) 
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (telegram_id, username, first_name, language, referral_code, referred_by)
             )
             await db.commit()
-            return await Database.get_user(telegram_id)
+            user = await Database.get_user(telegram_id)
+            if not user:
+                raise ValueError(f"Failed to create user with telegram_id {telegram_id}")
+            return user
 
     @staticmethod
     async def update_user_language(telegram_id: int, language: str):
@@ -586,3 +642,121 @@ class Database:
             ) as cursor:
                 rows = await cursor.fetchall()
                 return {row[0]: row[1] for row in rows}
+
+    # Referral system methods
+    @staticmethod
+    async def get_user_by_referral_code(referral_code: str) -> Optional[User]:
+        """Get user by referral code"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM users WHERE referral_code = ?", (referral_code,)
+            ) as cursor:
+                row = await cursor.fetchone()
+                if row:
+                    return User(**dict(row))
+                return None
+
+    @staticmethod
+    async def create_referral(referrer_id: int, referred_id: int) -> int:
+        """Create referral record"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            cursor = await db.execute(
+                "INSERT INTO referrals (referrer_id, referred_id) VALUES (?, ?)",
+                (referrer_id, referred_id)
+            )
+            await db.commit()
+            return cursor.lastrowid
+
+    @staticmethod
+    async def get_referral(referrer_id: int, referred_id: int) -> Optional[Referral]:
+        """Get referral record"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM referrals WHERE referrer_id = ? AND referred_id = ?",
+                (referrer_id, referred_id)
+            ) as cursor:
+                row = await cursor.fetchone()
+                if row:
+                    return Referral(**dict(row))
+                return None
+
+    @staticmethod
+    async def update_referral_earnings(referrer_id: int, referred_id: int, amount: int):
+        """Update referral earnings"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            await db.execute(
+                "UPDATE referrals SET total_earned = total_earned + ? WHERE referrer_id = ? AND referred_id = ?",
+                (amount, referrer_id, referred_id)
+            )
+            await db.execute(
+                "UPDATE users SET referral_earnings = referral_earnings + ? WHERE telegram_id = ?",
+                (amount, referrer_id)
+            )
+            await db.commit()
+
+    @staticmethod
+    async def update_signup_bonus(referrer_id: int, referred_id: int, given: bool = True):
+        """Mark signup bonus as given"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            await db.execute(
+                "UPDATE referrals SET signup_bonus_given = ? WHERE referrer_id = ? AND referred_id = ?",
+                (given, referrer_id, referred_id)
+            )
+            await db.commit()
+
+    @staticmethod
+    async def update_payment_bonus(referrer_id: int, referred_id: int, given: bool = True):
+        """Mark payment bonus as given"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            await db.execute(
+                "UPDATE referrals SET payment_bonus_given = ? WHERE referrer_id = ? AND referred_id = ?",
+                (given, referrer_id, referred_id)
+            )
+            await db.commit()
+
+    @staticmethod
+    async def get_referral_stats(telegram_id: int) -> dict:
+        """Get referral statistics for user"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            # Count total referrals
+            async with db.execute(
+                "SELECT COUNT(*) FROM referrals WHERE referrer_id = ?", (telegram_id,)
+            ) as cursor:
+                total_referrals = (await cursor.fetchone())[0]
+
+            # Count referrals who made payments
+            async with db.execute(
+                "SELECT COUNT(*) FROM referrals WHERE referrer_id = ? AND payment_bonus_given = TRUE",
+                (telegram_id,)
+            ) as cursor:
+                paid_referrals = (await cursor.fetchone())[0]
+
+            # Get total earnings from referrals
+            async with db.execute(
+                "SELECT COALESCE(SUM(total_earned), 0) FROM referrals WHERE referrer_id = ?",
+                (telegram_id,)
+            ) as cursor:
+                total_earned = (await cursor.fetchone())[0]
+
+            return {
+                'total_referrals': total_referrals,
+                'paid_referrals': paid_referrals,
+                'total_earned': total_earned
+            }
+
+    @staticmethod
+    async def has_made_payment(telegram_id: int) -> bool:
+        """Check if user has made any approved payment"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            user = await Database.get_user(telegram_id)
+            if not user:
+                return False
+            
+            async with db.execute(
+                "SELECT COUNT(*) FROM payments WHERE user_id = ? AND status = 'approved'",
+                (user.id,)
+            ) as cursor:
+                count = (await cursor.fetchone())[0]
+                return count > 0

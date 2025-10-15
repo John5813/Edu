@@ -12,6 +12,7 @@ TRANSLATIONS = {
             "referat": "📄 Referat",
             "my_account": "💰 Mening hisobim",
             "payment": "💳 To'lov qilish",
+            "referral": "👥 Referral dastur",
             "help": "📞 Yordam",
             "settings": "⚙️ Sozlamalar"
         },
@@ -61,7 +62,8 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
 **Premium va Executive:** 16-20
 
 👆 **Quyidagi raqamlardan birini bosing:**""",
-        "template_select_number": "📋 **Shablon raqamini tanlang:**"
+        "template_select_number": "📋 **Shablon raqamini tanlang:**",
+        "referral_info": "👥 **Referral Dasturi**\n\n💰 Do'stlaringizni taklif qiling va pul ishlang!\n\n📊 **Sizning statistikangiz:**\n• Taklif qilinganlar: {total_referrals} kishi\n• To'lov qilganlar: {paid_referrals} kishi\n• Jami daromad: {total_earned:,} so'm\n\n🔗 **Sizning referral havolangiz:**\n`{referral_link}`\n\n💡 **Qanday ishlaydi?**\n✅ Har bir yangi foydalanuvchi uchun: 1,000 so'm\n✅ Ular birinchi to'lov qilganda: 1,000 so'm\n\n📲 Havolani do'stlaringizga yuboring!"
     },
     "ru": {
         "welcome": "🎓 Добро пожаловать в EduBot.ai!\n\nВыберите язык для создания академических документов:",
@@ -76,6 +78,7 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
             "referat": "📄 Реферат",
             "my_account": "💰 Мой счет",
             "payment": "💳 Оплата",
+            "referral": "👥 Реферальная программа",
             "help": "📞 Помощь",
             "settings": "⚙️ Настройки"
         },
@@ -125,7 +128,8 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
 **Премиум и Исполнительный:** 16-20
 
 👆 **Нажмите одну из цифр ниже:**""",
-        "template_select_number": "📋 **Выберите номер шаблона:**"
+        "template_select_number": "📋 **Выберите номер шаблона:**",
+        "referral_info": "👥 **Реферальная программа**\n\n💰 Приглашайте друзей и зарабатывайте!\n\n📊 **Ваша статистика:**\n• Приглашено: {total_referrals} человек\n• Оплатили: {paid_referrals} человек\n• Всего заработано: {total_earned:,} сум\n\n🔗 **Ваша реферальная ссылка:**\n`{referral_link}`\n\n💡 **Как это работает?**\n✅ За каждого нового пользователя: 1,000 сум\n✅ Когда они сделают первый платеж: 1,000 сум\n\n📲 Отправьте ссылку своим друзьям!"
     },
     "en": {
         "welcome": "🎓 Welcome to EduBot.ai!\n\nSelect language for creating academic documents:",
@@ -140,6 +144,7 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
             "referat": "📄 Research Paper",
             "my_account": "💰 My Account",
             "payment": "💳 Payment",
+            "referral": "👥 Referral Program",
             "help": "📞 Help",
             "settings": "⚙️ Settings"
         },
@@ -189,7 +194,8 @@ This document was created with AI assistance and serves as your helper.
 **Premium and Executive:** 16-20
 
 👆 **Click one of the numbers below:**""",
-        "template_select_number": "📋 **Select template number:**"
+        "template_select_number": "📋 **Select template number:**",
+        "referral_info": "👥 **Referral Program**\n\n💰 Invite friends and earn money!\n\n📊 **Your statistics:**\n• Invited: {total_referrals} people\n• Made payment: {paid_referrals} people\n• Total earned: {total_earned:,} som\n\n🔗 **Your referral link:**\n`{referral_link}`\n\n💡 **How it works?**\n✅ For each new user: 1,000 som\n✅ When they make first payment: 1,000 som\n\n📲 Send the link to your friends!"
     }
 }
 

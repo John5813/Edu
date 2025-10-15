@@ -45,12 +45,13 @@ def get_main_keyboard(language: str) -> ReplyKeyboardMarkup:
 
     # Third row
     keyboard.add(KeyboardButton(text=get_text(language, "main_menu.payment")))
-    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.help")))
+    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.referral")))
 
     # Fourth row
+    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.help")))
     keyboard.add(KeyboardButton(text=get_text(language, "main_menu.settings")))
 
-    keyboard.adjust(2, 2, 2, 1)
+    keyboard.adjust(2, 2, 2, 2)
     return keyboard.as_markup(resize_keyboard=True)
 
 def get_slide_count_keyboard(language: str = "uz") -> InlineKeyboardMarkup:

@@ -133,6 +133,56 @@ async def approve_payment(callback: CallbackQuery, db: Database):
         user = await db.get_user_by_id(payment.user_id)
         await db.update_user_balance(user.telegram_id, payment.amount)
 
+        # Check if this is user's first payment and if they were referred
+        # If yes, give payment bonus to referrer
+        PAYMENT_BONUS = 1000
+        if user.referred_by:
+            # Check if referral exists and payment bonus not given yet
+            referral = await db.get_referral(user.referred_by, user.telegram_id)
+            if referral and not referral.payment_bonus_given:
+                # Check if this is first approved payment
+                is_first_payment = not await db.has_made_payment(user.telegram_id)
+                # Note: has_made_payment checks before this current approval, so we need to check count = 1
+                # Let's recheck: count approved payments for this user
+                # Actually has_made_payment will return False if this is the first, so condition is wrong
+                # We need to check payment count AFTER this approval
+                # Better approach: count approved payments = 1 (this one just approved)
+                # Let's use a different check
+                from database.database import DATABASE_FILE
+                import aiosqlite
+                async with aiosqlite.connect(DATABASE_FILE) as db_conn:
+                    async with db_conn.execute(
+                        "SELECT COUNT(*) FROM payments WHERE user_id = ? AND status = 'approved'",
+                        (user.id,)
+                    ) as cursor:
+                        approved_count = (await cursor.fetchone())[0]
+                
+                # If this is the first approved payment (count = 1 after approval)
+                if approved_count == 1:
+                    try:
+                        # Give payment bonus to referrer
+                        await db.update_user_balance(user.referred_by, PAYMENT_BONUS)
+                        await db.update_referral_earnings(user.referred_by, user.telegram_id, PAYMENT_BONUS)
+                        await db.update_payment_bonus(user.referred_by, user.telegram_id, True)
+                        
+                        # Notify referrer
+                        referrer = await db.get_user(user.referred_by)
+                        if referrer:
+                            bonus_text = {
+                                'uz': f"💰 Sizning tavsiyangiz bo'yicha foydalanuvchi birinchi to'lovni amalga oshirdi!\n💵 +{PAYMENT_BONUS:,} so'm hisobingizga qo'shildi.",
+                                'ru': f"💰 Пользователь по вашей рекомендации совершил первый платеж!\n💵 +{PAYMENT_BONUS:,} сум добавлено на ваш счет.",
+                                'en': f"💰 Your referral made their first payment!\n💵 +{PAYMENT_BONUS:,} som added to your balance."
+                            }
+                            try:
+                                await callback.bot.send_message(
+                                    user.referred_by,
+                                    bonus_text.get(referrer.language, bonus_text['uz'])
+                                )
+                            except Exception as e:
+                                logger.error(f"Failed to notify referrer {user.referred_by}: {e}")
+                    except Exception as e:
+                        logger.error(f"Error processing payment referral bonus: {e}")
+
         # Notify user
         await callback.bot.send_message(
             user.telegram_id,

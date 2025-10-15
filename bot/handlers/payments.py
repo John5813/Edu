@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 # Payment menu items in different languages
 PAYMENT_TEXTS = ["💳 To'lov qilish", "💳 Оплата", "💳 Payment"]
 ACCOUNT_TEXTS = ["💰 Mening hisobim", "💰 Мой счет", "💰 My Account"]
+REFERRAL_TEXTS = ["👥 Referral dastur", "👥 Реферальная программа", "👥 Referral Program"]
 
 @router.message(F.text.in_(PAYMENT_TEXTS))
 async def handle_payment_request(message: Message, state: FSMContext, user_lang: str):
@@ -158,3 +159,42 @@ async def notify_admins_about_payment(bot, user, amount, message_id, payment_id)
             
         except Exception as e:
             logger.error(f"Failed to notify admin {admin_id}: {e}")
+
+@router.message(F.text.in_(REFERRAL_TEXTS))
+async def handle_referral_info(message: Message, db: Database, user_lang: str, user):
+    """Show referral information and statistics"""
+    if not user:
+        await message.answer("❌ Avval /start buyrug'ini bajaring")
+        return
+    
+    try:
+        # Ensure user has referral code (should be handled by get_user, but double-check)
+        if not user.referral_code:
+            # This shouldn't happen due to lazy backfill, but handle it gracefully
+            logger.error(f"User {user.telegram_id} has no referral code after get_user")
+            await message.answer("❌ Xatolik yuz berdi. Iltimos, /start buyrug'ini qayta bajaring.")
+            return
+        
+        # Get referral statistics
+        stats = await db.get_referral_stats(user.telegram_id)
+        
+        # Get bot username for referral link
+        bot_info = await message.bot.get_me()
+        bot_username = bot_info.username
+        
+        # Create referral link
+        referral_link = f"https://t.me/{bot_username}?start=ref_{user.referral_code}"
+        
+        # Send referral info with statistics
+        await message.answer(
+            get_text(user_lang, "referral_info",
+                    total_referrals=stats['total_referrals'],
+                    paid_referrals=stats['paid_referrals'],
+                    total_earned=stats['total_earned'],
+                    referral_link=referral_link),
+            parse_mode="Markdown",
+            reply_markup=get_main_keyboard(user_lang)
+        )
+    except Exception as e:
+        logger.error(f"Error showing referral info: {e}")
+        await message.answer("❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.")

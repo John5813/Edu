@@ -12,6 +12,9 @@ class User:
     balance: int
     free_service_used: bool
     promocode_used: Optional[str]
+    referral_code: Optional[str]
+    referred_by: Optional[int]
+    referral_earnings: int
     created_at: Union[datetime, str]
     updated_at: Union[datetime, str]
 
@@ -72,3 +75,13 @@ class BroadcastMessage:
     failed_count: int
     created_at: datetime
     sent_at: Optional[datetime]
+
+@dataclass
+class Referral:
+    id: int
+    referrer_id: int
+    referred_id: int
+    signup_bonus_given: bool
+    payment_bonus_given: bool
+    total_earned: int
+    created_at: datetime

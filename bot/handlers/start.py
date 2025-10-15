@@ -19,6 +19,14 @@ async def start_command(message: Message, state: FSMContext, db: Database):
     user_id = message.from_user.id
     user = await db.get_user(user_id)
     
+    # Extract referral code from command if present (e.g., /start ref_ABC123)
+    referral_code = None
+    if message.text and len(message.text.split()) > 1:
+        command_args = message.text.split()[1]
+        if command_args.startswith("ref_"):
+            referral_code = command_args[4:]  # Remove "ref_" prefix
+            await state.update_data(referral_code=referral_code)
+    
     if not user:
         # New user - show language selection
         await message.answer(
@@ -40,12 +48,58 @@ async def language_selected(callback: CallbackQuery, state: FSMContext, db: Data
     # Create or update user
     user = await db.get_user(user_id)
     if not user:
+        # Check if there's a referral code in state
+        state_data = await state.get_data()
+        referral_code = state_data.get('referral_code')
+        referred_by_id = None
+        
+        if referral_code:
+            # Get referrer by referral code
+            referrer = await db.get_user_by_referral_code(referral_code)
+            if referrer and referrer.telegram_id != user_id:
+                referred_by_id = referrer.telegram_id
+        
+        # Create new user
         user = await db.create_user(
             telegram_id=user_id,
             username=callback.from_user.username,
             first_name=callback.from_user.first_name,
-            language=language
+            language=language,
+            referred_by=referred_by_id
         )
+        
+        # If referred by someone, create referral record and give bonus
+        if referred_by_id:
+            try:
+                # Create referral record
+                await db.create_referral(referred_by_id, user_id)
+                
+                # Give 1000 som signup bonus to referrer
+                SIGNUP_BONUS = 1000
+                await db.update_user_balance(referred_by_id, SIGNUP_BONUS)
+                await db.update_referral_earnings(referred_by_id, user_id, SIGNUP_BONUS)
+                await db.update_signup_bonus(referred_by_id, user_id, True)
+                
+                # Notify referrer
+                referrer_user = await db.get_user(referred_by_id)
+                if referrer_user:
+                    bonus_text = {
+                        'uz': f"🎉 Yangi foydalanuvchi sizning havolangiz orqali botga qo'shildi!\n💰 +{SIGNUP_BONUS:,} so'm hisobingizga qo'shildi.",
+                        'ru': f"🎉 Новый пользователь присоединился к боту по вашей ссылке!\n💰 +{SIGNUP_BONUS:,} сум добавлено на ваш счет.",
+                        'en': f"🎉 New user joined the bot via your referral link!\n💰 +{SIGNUP_BONUS:,} som added to your balance."
+                    }
+                    try:
+                        await callback.bot.send_message(
+                            referred_by_id,
+                            bonus_text.get(referrer_user.language, bonus_text['uz'])
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to notify referrer {referred_by_id}: {e}")
+                
+                # Clear referral code from state
+                await state.update_data(referral_code=None)
+            except Exception as e:
+                logger.error(f"Error processing referral: {e}")
     else:
         await db.update_user_language(user_id, language)
         user.language = language
