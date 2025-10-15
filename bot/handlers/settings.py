@@ -91,7 +91,14 @@ async def handle_settings_promocode_input(message: Message, state: FSMContext, d
         return
     
     # Check if promocode is expired
-    if promocode.expires_at < datetime.now():
+    # Parse expires_at if it's a string
+    if isinstance(promocode.expires_at, str):
+        from datetime import datetime as dt
+        expires_dt = dt.fromisoformat(promocode.expires_at.replace('Z', '+00:00'))
+    else:
+        expires_dt = promocode.expires_at
+    
+    if expires_dt < datetime.now():
         from bot.keyboards import get_promocode_error_keyboard
         await message.answer(
             "❌ Promokodning amal qilish muddati tugagan.",
