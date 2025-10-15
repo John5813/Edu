@@ -10,6 +10,29 @@ The system operates on a freemium model where users get one free document genera
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (October 15, 2025)
+
+✓ **REFERRAL TIZIMI QO'SHILDI** - Do'stlarni taklif qilib daromad topish:
+  - **Database o'zgarishlari**:
+    - User jadvaliga `referral_code`, `referred_by`, `referral_earnings` ustunlari qo'shildi
+    - Yangi `referrals` jadvali yaratildi (referral tarixi va bonus tracking)
+    - Har bir foydalanuvchi unikal referral kod oladi (masalan: ABC123)
+  
+  - **Referral bonuslari**:
+    - **Ro'yxatdan o'tish bonusi**: Taklif qilingan odam ro'yxatdan o'tganda 1000 som
+    - **To'lov bonusi**: Taklif qilingan odam birinchi to'lov qilganda 1000 som
+    - Jami har bir aktiv taklif uchun 2000 som daromad
+  
+  - **Foydalanuvchi interfeysi**:
+    - Asosiy keyboard'da "💰 Referral orqali daromad" tugmasi
+    - Referral sahifasida: shaxsiy havola, statistika va daromad ko'rsatiladi
+    - 3 tilda tarjima (O'zbek, Rus, Ingliz)
+  
+  - **Technical features**:
+    - Lazy backfill: eski foydalanuvchilar uchun avtomatik kod yaratish
+    - Race-condition safe: concurrent requests uchun retry logikasi (max 5 attempts)
+    - UNIQUE constraint xatolarini oldini olish
+
 ## Recent Changes (August 23, 2025)
 
 ✓ **YANGI SHABLON TANLASH TIZIMI** - Bitta rasmda barcha shablonlar:
