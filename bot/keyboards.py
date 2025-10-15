@@ -150,7 +150,7 @@ def get_payment_amount_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
 
     # Add referral button
     if language == "uz":
-        keyboard.add(InlineKeyboardButton(text="👥 Referral dastur", callback_data="show_referral"))
+        keyboard.add(InlineKeyboardButton(text="💰 Pul ishlab topish", callback_data="show_referral"))
     elif language == "ru":
         keyboard.add(InlineKeyboardButton(text="👥 Реферальная программа", callback_data="show_referral"))
     else:  # en

@@ -12,7 +12,7 @@ TRANSLATIONS = {
             "referat": "📄 Referat",
             "my_account": "💰 Mening hisobim",
             "payment": "💳 To'lov qilish",
-            "referral": "👥 Referral dastur",
+            "referral": "💰 Pul ishlab topish",
             "help": "📞 Yordam",
             "settings": "⚙️ Sozlamalar"
         },
@@ -62,7 +62,7 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
 
 👆 **Quyidagi raqamlardan birini bosing:**""",
         "template_select_number": "📋 **Shablon raqamini tanlang:**",
-        "referral_info": "👥 **Referral Dasturi**\n\n💰 Do'stlaringizni taklif qiling va pul ishlang!\n\n📊 **Sizning statistikangiz:**\n• Taklif qilinganlar: {total_referrals} kishi\n• To'lov qilganlar: {paid_referrals} kishi\n• Jami daromad: {total_earned:,} so'm\n\n🔗 **Sizning referral havolangiz:**\n`{referral_link}`\n\n💡 **Qanday ishlaydi?**\n✅ Har bir yangi foydalanuvchi uchun: 1,000 so'm\n✅ Ular birinchi to'lov qilganda: 1,000 so'm\n\n📲 Havolani do'stlaringizga yuboring!"
+        "referral_info": "💰 **Pul Ishlab Topish**\n\n👥 Do'stlaringizni taklif qiling va daromad oling!\n\n📊 **Sizning statistikangiz:**\n• Taklif qilinganlar: {total_referrals} kishi\n• To'lov qilganlar: {paid_referrals} kishi\n• Jami daromad: {total_earned:,} so'm\n\n🔗 **Sizning havolangiz:**\n`{referral_link}`\n\n💡 **Qanday ishlaydi?**\n✅ Har bir yangi foydalanuvchi uchun: 1,000 so'm\n✅ Ular birinchi to'lov qilganda: 1,000 so'm\n\n📲 Havolani do'stlaringizga yuboring!"
     },
     "ru": {
         "welcome": "🎓 Добро пожаловать в EduBot.ai!\n\nВыберите язык для создания академических документов:",

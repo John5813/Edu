@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # Payment menu items in different languages
 PAYMENT_TEXTS = ["💳 To'lov qilish", "💳 Оплата", "💳 Payment"]
 ACCOUNT_TEXTS = ["💰 Mening hisobim", "💰 Мой счет", "💰 My Account"]
-REFERRAL_TEXTS = ["👥 Referral dastur", "👥 Реферальная программа", "👥 Referral Program"]
+REFERRAL_TEXTS = ["💰 Pul ishlab topish", "👥 Реферальная программа", "👥 Referral Program"]
 
 @router.message(F.text.in_(PAYMENT_TEXTS))
 async def handle_payment_request(message: Message, state: FSMContext, user_lang: str):
