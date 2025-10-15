@@ -392,6 +392,16 @@ class Database:
             await db.commit()
 
     @staticmethod
+    async def reset_free_service(telegram_id: int):
+        """Reset free service flag for user"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            await db.execute(
+                "UPDATE users SET free_service_used = FALSE WHERE telegram_id = ?",
+                (telegram_id,)
+            )
+            await db.commit()
+
+    @staticmethod
     async def deactivate_promocode(promocode_id: int):
         """Deactivate promocode"""
         async with aiosqlite.connect(DATABASE_FILE) as db:

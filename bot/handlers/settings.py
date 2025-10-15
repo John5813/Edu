@@ -112,7 +112,23 @@ async def handle_settings_promocode_input(message: Message, state: FSMContext, d
     # Apply promocode immediately - give one free document
     await db.mark_promocode_used(user.id, promocode.id)
     
-    # Reset free service for this user if already used
+    # Reset free service flag to allow user to use free service again
+    await db.reset_free_service(user.telegram_id)
+    
+    # Clear state
+    await state.clear()
+    
+    # Send success message
+    success_text = {
+        'uz': "✅ Promokod muvaffaqiyatli qo'llandi!\n🎁 Sizga 1 ta bepul xizmat berildi.",
+        'ru': "✅ Промокод успешно применен!\n🎁 Вам предоставлена 1 бесплатная услуга.",
+        'en': "✅ Promocode successfully applied!\n🎁 You have been granted 1 free service."
+    }
+    
+    await message.answer(
+        success_text.get(user_lang, success_text['uz']),
+        reply_markup=get_main_keyboard(user_lang)
+    )e service for this user if already used
     await db.reset_free_service(user.telegram_id)
     
     # Give user one free service of choice
