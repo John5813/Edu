@@ -128,14 +128,4 @@ async def handle_settings_promocode_input(message: Message, state: FSMContext, d
     await message.answer(
         success_text.get(user_lang, success_text['uz']),
         reply_markup=get_main_keyboard(user_lang)
-    )e service for this user if already used
-    await db.reset_free_service(user.telegram_id)
-    
-    # Give user one free service of choice
-    await message.answer(
-        "✅ Promokod qabul qilindi! Sizga bepul bitta hujjat yaratish imkoniyati berildi.\n\n"
-        "Asosiy menyudan kerakli hujjat turini tanlang.",
-        reply_markup=get_main_keyboard(user_lang)
     )
-    
-    await state.clear()
