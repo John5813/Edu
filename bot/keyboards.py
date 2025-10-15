@@ -45,13 +45,12 @@ def get_main_keyboard(language: str) -> ReplyKeyboardMarkup:
 
     # Third row
     keyboard.add(KeyboardButton(text=get_text(language, "main_menu.payment")))
-    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.referral")))
+    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.help")))
 
     # Fourth row
-    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.help")))
     keyboard.add(KeyboardButton(text=get_text(language, "main_menu.settings")))
 
-    keyboard.adjust(2, 2, 2, 2)
+    keyboard.adjust(2, 2, 2, 1)
     return keyboard.as_markup(resize_keyboard=True)
 
 def get_slide_count_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
@@ -148,6 +147,14 @@ def get_payment_amount_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
             text=description, 
             callback_data=f"pay_{amount}"
         ))
+
+    # Add referral button
+    if language == "uz":
+        keyboard.add(InlineKeyboardButton(text="👥 Referral dastur", callback_data="show_referral"))
+    elif language == "ru":
+        keyboard.add(InlineKeyboardButton(text="👥 Реферальная программа", callback_data="show_referral"))
+    else:  # en
+        keyboard.add(InlineKeyboardButton(text="👥 Referral Program", callback_data="show_referral"))
 
     keyboard.adjust(1)
     return keyboard.as_markup()
