@@ -777,33 +777,31 @@ class DocumentService:
             # Get language-specific text for TOC items
             toc_texts = self._get_toc_texts(user_lang)
 
-            # Add "Kirish" (Introduction) - without number, no indent
+            # Get all sections
+            all_sections = content.get('sections', [])
+
+            # Add "Kirish" (Introduction) - birinchi bo'lim, raqamsiz
             toc_item = doc.add_paragraph()
             toc_item.add_run(toc_texts['kirish'])
 
-            # Add numbered sections (excluding Kirish, Xulosa, Adabiyotlar)
-            all_sections = content.get('sections', [])
+            # Add numbered sections (birinchi va oxirgisini tashlab ketamiz)
             numbered_count = 0
-
-            for section in all_sections:
-                title = section['title']
-                title_lower = title.lower()
-
-                # Skip special unnumbered sections
-                if title_lower in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']:
+            for idx, section in enumerate(all_sections):
+                # Birinchi bo'lim (Kirish) va oxirgi bo'lim (Xulosa) ni o'tkazib yuboramiz
+                if idx == 0 or idx == len(all_sections) - 1:
                     continue
 
-                # Add numbered section
+                # Raqamli bo'limlar
                 numbered_count += 1
                 toc_item = doc.add_paragraph()
                 toc_item.paragraph_format.first_line_indent = Inches(0.5)
-                toc_item.add_run(f"{numbered_count}. {title}")
+                toc_item.add_run(f"{numbered_count}. {section['title']}")
 
-            # Add "Xulosa" (Conclusion) - without number, no indent
+            # Add "Xulosa" (Conclusion) - oxirgi bo'lim, raqamsiz
             toc_item = doc.add_paragraph()
             toc_item.add_run(toc_texts['xulosa'])
 
-            # Add "Foydalangan adabiyotlar" (References) - without number, no indent
+            # Add "Foydalangan adabiyotlar" (References) - raqamsiz
             if content.get('references'):
                 toc_item = doc.add_paragraph()
                 toc_item.add_run(toc_texts['adabiyotlar'])
@@ -923,33 +921,31 @@ class DocumentService:
             # Get language-specific text for TOC items
             toc_texts = self._get_toc_texts(user_lang)
 
-            # Add "Kirish" (Introduction) - without number, no indent
+            # Get all sections
+            all_sections = content.get('sections', [])
+
+            # Add "Kirish" (Introduction) - birinchi bo'lim, raqamsiz
             toc_item = doc.add_paragraph()
             toc_item.add_run(toc_texts['kirish'])
 
-            # Add numbered sections (excluding Kirish, Xulosa, Adabiyotlar)
-            all_sections = content.get('sections', [])
+            # Add numbered sections (birinchi va oxirgisini tashlab ketamiz)
             numbered_count = 0
-
-            for section in all_sections:
-                title = section['title']
-                title_lower = title.lower()
-
-                # Skip special unnumbered sections
-                if title_lower in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']:
+            for idx, section in enumerate(all_sections):
+                # Birinchi bo'lim (Kirish) va oxirgi bo'lim (Xulosa) ni o'tkazib yuboramiz
+                if idx == 0 or idx == len(all_sections) - 1:
                     continue
 
-                # Add numbered section
+                # Raqamli bo'limlar
                 numbered_count += 1
                 toc_item = doc.add_paragraph()
                 toc_item.paragraph_format.first_line_indent = Inches(0.5)
-                toc_item.add_run(f"{numbered_count}. {title}")
+                toc_item.add_run(f"{numbered_count}. {section['title']}")
 
-            # Add "Xulosa" (Conclusion) - without number, no indent
+            # Add "Xulosa" (Conclusion) - oxirgi bo'lim, raqamsiz
             toc_item = doc.add_paragraph()
             toc_item.add_run(toc_texts['xulosa'])
 
-            # Add "Foydalangan adabiyotlar" (References) - without number, no indent
+            # Add "Foydalangan adabiyotlar" (References) - raqamsiz
             if content.get('references'):
                 toc_item = doc.add_paragraph()
                 toc_item.add_run(toc_texts['adabiyotlar'])
