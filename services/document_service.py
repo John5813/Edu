@@ -776,39 +776,36 @@ class DocumentService:
 
             # Get language-specific text for TOC items
             toc_texts = self._get_toc_texts(user_lang)
-            
-            # Add "Kirish" (Introduction) - always first, without number
+
+            # Add "Kirish" (Introduction) - without number, no indent
             toc_item = doc.add_paragraph()
-            toc_item.paragraph_format.first_line_indent = Inches(0.5)
             toc_item.add_run(toc_texts['kirish'])
-            
+
             # Add numbered sections (excluding Kirish, Xulosa, Adabiyotlar)
             all_sections = content.get('sections', [])
             numbered_count = 0
-            
+
             for section in all_sections:
                 title = section['title']
                 title_lower = title.lower()
-                
+
                 # Skip special unnumbered sections
                 if title_lower in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']:
                     continue
-                
+
                 # Add numbered section
                 numbered_count += 1
                 toc_item = doc.add_paragraph()
                 toc_item.paragraph_format.first_line_indent = Inches(0.5)
                 toc_item.add_run(f"{numbered_count}. {title}")
-            
-            # Add "Xulosa" (Conclusion) - always after numbered sections, without number
+
+            # Add "Xulosa" (Conclusion) - without number, no indent
             toc_item = doc.add_paragraph()
-            toc_item.paragraph_format.first_line_indent = Inches(0.5)
             toc_item.add_run(toc_texts['xulosa'])
-            
-            # Add "Foydalangan adabiyotlar" (References) - always last, without number
+
+            # Add "Foydalangan adabiyotlar" (References) - without number, no indent
             if content.get('references'):
                 toc_item = doc.add_paragraph()
-                toc_item.paragraph_format.first_line_indent = Inches(0.5)
                 toc_item.add_run(toc_texts['adabiyotlar'])
 
             # Add page break after REJA
@@ -925,39 +922,36 @@ class DocumentService:
 
             # Get language-specific text for TOC items
             toc_texts = self._get_toc_texts(user_lang)
-            
-            # Add "Kirish" (Introduction) - always first, without number
+
+            # Add "Kirish" (Introduction) - without number, no indent
             toc_item = doc.add_paragraph()
-            toc_item.paragraph_format.first_line_indent = Inches(0.5)
             toc_item.add_run(toc_texts['kirish'])
-            
+
             # Add numbered sections (excluding Kirish, Xulosa, Adabiyotlar)
             all_sections = content.get('sections', [])
             numbered_count = 0
-            
+
             for section in all_sections:
                 title = section['title']
                 title_lower = title.lower()
-                
+
                 # Skip special unnumbered sections
                 if title_lower in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']:
                     continue
-                
+
                 # Add numbered section
                 numbered_count += 1
                 toc_item = doc.add_paragraph()
                 toc_item.paragraph_format.first_line_indent = Inches(0.5)
                 toc_item.add_run(f"{numbered_count}. {title}")
-            
-            # Add "Xulosa" (Conclusion) - always after numbered sections, without number
+
+            # Add "Xulosa" (Conclusion) - without number, no indent
             toc_item = doc.add_paragraph()
-            toc_item.paragraph_format.first_line_indent = Inches(0.5)
             toc_item.add_run(toc_texts['xulosa'])
-            
-            # Add "Foydalangan adabiyotlar" (References) - always last, without number
+
+            # Add "Foydalangan adabiyotlar" (References) - without number, no indent
             if content.get('references'):
                 toc_item = doc.add_paragraph()
-                toc_item.paragraph_format.first_line_indent = Inches(0.5)
                 toc_item.add_run(toc_texts['adabiyotlar'])
 
             # Add page break
