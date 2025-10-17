@@ -764,7 +764,10 @@ class DocumentService:
             user_lang = content.get('language', 'uzbek')  # Default to uzbek
             await self._create_independent_work_title_page(doc, topic, user_lang)
 
-            # Table of contents - REJA (without any lines, no page break before it)
+            # Add page break after title page
+            doc.add_page_break()
+
+            # Table of contents - REJA (on separate page 2)
             toc_para = doc.add_paragraph()
             toc_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             toc_run = toc_para.add_run("REJA")
@@ -808,7 +811,7 @@ class DocumentService:
                 toc_item.paragraph_format.first_line_indent = Inches(0.5)
                 toc_item.add_run(toc_texts['adabiyotlar'])
 
-            # Add page break
+            # Add page break after REJA
             doc.add_page_break()
 
             # Add page numbers starting from content pages (not title or TOC)
