@@ -782,16 +782,16 @@ class DocumentService:
                 toc_item.paragraph_format.line_spacing = 1.5
 
                 title = section['title']
-                # Check if this is a special section (Kirish, Xulosa, Adabiyotlar)
-                is_kirish = idx == 0 and title.lower() in ['kirish', 'введение', 'introduction']
-                is_xulosa = idx == len(all_sections) - 1 and title.lower() in ['xulosa', 'заключение', 'conclusion']
-                is_adabiyotlar = title.lower() in ['adabiyotlar', 'литература', 'references']
+                # Check if this is a special section (title ga qarab, index emas)
+                title_lower = title.lower()
+                is_special = title_lower in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']
 
-                if is_kirish or is_xulosa or is_adabiyotlar:
+                if is_special:
                     toc_item.add_run(title)
                 else:
-                    # Count numbered sections before this one
-                    numbered_count = sum(1 for s in all_sections[:idx] if s['title'].lower() not in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references'])
+                    # Count numbered sections before this one (excluding special sections)
+                    numbered_count = sum(1 for s in all_sections[:idx] 
+                                       if s['title'].lower() not in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references'])
                     toc_item.add_run(f"{numbered_count + 1}. {title}")
 
 
@@ -820,16 +820,15 @@ class DocumentService:
                 section_title = doc.add_paragraph()
                 section_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-                # Check if this is Kirish (first) or Xulosa (last) or Adabiyotlar
-                is_kirish = idx == 0 and title.lower() in ['kirish', 'введение', 'introduction']
-                is_xulosa = idx == len(all_sections) - 1 and title.lower() in ['xulosa', 'заключение', 'conclusion']
-                is_adabiyotlar = title.lower() in ['adabiyotlar', 'литература', 'references']
+                # Check if this is special section (title ga qarab, index emas)
+                title_lower = title.lower()
+                is_special = title_lower in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']
 
-                if is_kirish or is_xulosa or is_adabiyotlar:
+                if is_special:
                     # No number - just uppercase title
                     section_title_run = section_title.add_run(title.upper())
                 else:
-                    # Numbered section (middle sections only)
+                    # Numbered section
                     numbered_section_count += 1
                     section_title_run = section_title.add_run(f"{numbered_section_count}. {title}")
 
