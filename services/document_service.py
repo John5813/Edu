@@ -32,7 +32,7 @@ class DocumentService:
             if not content or 'slides' not in content:
                 logger.error(f"Invalid content structure: {content}")
                 raise ValueError("Content must contain 'slides' key")
-            
+
             # Create presentation with 3-template rotating system
             return await self.create_presentation_with_layouts(topic, content, author_name)
 
@@ -265,7 +265,7 @@ class DocumentService:
         if title:
             # Remove common words and extract meaningful terms
             title_words = title.lower().split()
-            meaningful_words = [word for word in title_words 
+            meaningful_words = [word for word in title_words
                               if len(word) > 3 and word not in ['uchun', 'haqida', 'asosida', 'davom', 'bilan', 'ning', 'dan']]
             search_terms.extend(meaningful_words[:2])  # Take first 2 meaningful words
 
@@ -280,7 +280,7 @@ class DocumentService:
         # Translate common Uzbek/Russian terms to English for better results
         translations = {
             'ta\'lim': 'education',
-            'texnologiya': 'technology', 
+            'texnologiya': 'technology',
             'kompyuter': 'computer',
             'internet': 'internet',
             'dasturlash': 'programming',
@@ -308,7 +308,7 @@ class DocumentService:
                 search_query = search_query.lower().replace(uz_term, eng_term)
 
         return search_query or main_topic  # Fallback to main topic
-    
+
     async def _create_title_slide(self, prs, topic: str, author_name: str):
         """Create title slide"""
         slide_layout = prs.slide_layouts[0]  # Title slide layout
@@ -330,7 +330,7 @@ class DocumentService:
     async def _create_content_slide_by_layout(self, prs, slide_data: Dict, layout_type: str, slide_num: int, images: Dict):
         """Create content slide based on layout type"""
         logger.info(f"Creating slide {slide_num} with layout '{layout_type}', title: '{slide_data.get('title', 'NO TITLE')}', content: '{slide_data.get('content', 'NO CONTENT')[:50]}...'")
-        
+
         if layout_type == "text_only":
             await self._create_text_only_slide(prs, slide_data)
         elif layout_type == "text_with_image":
@@ -412,7 +412,7 @@ class DocumentService:
     async def _create_three_column_slide(self, prs, slide_data: Dict):
         """Create SHABLON 3: Three column slide"""
         logger.info(f"Creating three-column slide with data: {slide_data}")
-        
+
         slide_layout = prs.slide_layouts[6]  # Blank layout
         slide = prs.slides.add_slide(slide_layout)
 
@@ -431,7 +431,7 @@ class DocumentService:
         # Get content and split into 3 columns
         content_text = slide_data.get('content', '')
         logger.info(f"Content for 3-column: '{content_text[:100]}...'")
-        
+
         if not content_text or content_text.strip() == 'Mazmun mavjud emas':
             # Create fallback content
             columns = [
@@ -442,7 +442,7 @@ class DocumentService:
         else:
             # Split content intelligently into 3 columns
             sentences = [s.strip() for s in content_text.replace('•', '').split('.') if s.strip()]
-            
+
             if len(sentences) >= 3:
                 # Distribute sentences across columns
                 per_column = max(1, len(sentences) // 3)
@@ -451,7 +451,7 @@ class DocumentService:
                     start_idx = i * per_column
                     end_idx = (i + 1) * per_column if i < 2 else len(sentences)
                     column_sentences = sentences[start_idx:end_idx]
-                    
+
                     columns.append({
                         'title': f'Qism {i+1}',
                         'points': column_sentences[:3]  # Max 3 points per column
@@ -461,7 +461,7 @@ class DocumentService:
                 lines = [line.strip() for line in content_text.split('\n') if line.strip()]
                 if len(lines) >= 3:
                     columns = [
-                        {'title': f'Nuqta {i+1}', 'points': [lines[i]]} 
+                        {'title': f'Nuqta {i+1}', 'points': [lines[i]]}
                         for i in range(min(3, len(lines)))
                     ]
                 else:
@@ -490,23 +490,23 @@ class DocumentService:
         for i, column in enumerate(columns[:3]):
             # Calculate position
             x_pos = start_x + i * PptxInches(4.2)
-            
+
             # Add column textbox
             col_box = slide.shapes.add_textbox(x_pos, start_y, column_width, column_height)
             col_frame = col_box.text_frame
             col_frame.word_wrap = True
-            
+
             # Column title
             col_para = col_frame.paragraphs[0]
             col_para.text = column.get('title', f'Ustun {i+1}')
             col_para.font.size = PptxPt(18)
             col_para.font.bold = True
             col_para.alignment = PP_ALIGN.CENTER
-            
+
             # Column points
             points = column.get('points', [])
             logger.info(f"Column {i+1} points: {points}")
-            
+
             for point in points[:3]:  # Max 3 points per column
                 if point and point.strip():
                     p = col_frame.add_paragraph()
@@ -519,45 +519,45 @@ class DocumentService:
         if not self.pexels:
             logger.warning("Pexels API not configured, skipping images")
             return {}
-        
+
         try:
             slides_data = content.get('slides', [])
             images_dict = {}
-            
+
             for idx, slide_data in enumerate(slides_data):
                 slide_num = idx + 2  # Start from slide 2 (skip title slide)
-                
+
                 # Only get images for 'text_with_image' layout (every 3rd slide starting from 2nd content slide)
                 layout_type = self._get_layout_type(idx + 1)
-                
+
                 if layout_type == "text_with_image":
                     slide_title = slide_data.get('title', '')
                     slide_content = slide_data.get('content', '')
-                    
+
                     # Create search query
                     search_query = self._extract_search_keywords(slide_title, slide_content, topic)
-                    
+
                     if search_query:
                         # Search for images
                         photos = await self.pexels.search_images(search_query, per_page=1)
-                        
+
                         if photos:
                             photo = photos[0]
                             image_url = self.pexels.get_image_url(photo, "medium")
-                            
+
                             # Download image
                             filename = f"slide_{slide_num}.jpg"
                             image_path = await self.pexels.download_image(image_url, filename)
-                            
+
                             if image_path:
                                 images_dict[slide_num] = image_path
                                 logger.info(f"Added smart image for slide {slide_num}: {search_query}")
-                        
+
                         # Small delay to respect rate limits
                         await asyncio.sleep(0.2)
-            
+
             return images_dict
-            
+
         except Exception as e:
             logger.error(f"Error getting smart images for layouts: {e}")
             return {}
@@ -569,21 +569,21 @@ class DocumentService:
             if not content or 'slides' not in content:
                 logger.error(f"Invalid content for layouts: {content}")
                 raise ValueError("Content must contain 'slides' key")
-            
+
             prs = Presentation()
-            
+
             # Set slide size (16:9)
             prs.slide_width = PptxInches(13.33)
             prs.slide_height = PptxInches(7.5)
-            
+
             slides_data = content.get('slides', [])
-            
+
             # Get smart images for layout 2 slides (text + image)
             images = await self._get_smart_images_for_layouts(topic, content)
-            
+
             for idx, slide_data in enumerate(slides_data):
                 slide_num = idx + 1
-                
+
                 if slide_num == 1:
                     # Title slide
                     await self._create_title_slide(prs, topic, author_name)
@@ -591,26 +591,26 @@ class DocumentService:
                     # Content slides with rotating layouts
                     layout_type = self._get_layout_type(slide_num - 1)  # -1 because we skip title slide
                     await self._create_content_slide_by_layout(prs, slide_data, layout_type, slide_num, images)
-            
+
             # Save presentation
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"presentation_{timestamp}.pptx"
             file_path = os.path.join(self.documents_dir, filename)
-            
+
             prs.save(file_path)
             logger.info(f"3-layout presentation saved: {file_path}")
-            
+
             return file_path
-            
+
         except Exception as e:
             logger.error(f"Error creating presentation with layouts: {e}")
             raise
-    
+
     def _get_layout_type(self, content_slide_num: int) -> str:
         """Get layout type based on slide number (1->2->3->1->2->3...)"""
         layout_cycle = ["text_only", "text_with_image", "three_column"]
         return layout_cycle[(content_slide_num - 1) % 3]
-    
+
     async def create_presentation(self, topic: str, content: Dict, images: Dict, author_name: str) -> str:
         """Create PowerPoint presentation (fallback method)"""
         try:
@@ -625,7 +625,7 @@ class DocumentService:
                         }
                     ]
                 }
-            
+
             prs = Presentation()
 
             # Set slide size (16:9)
@@ -741,11 +741,11 @@ class DocumentService:
             font = style.font
             font.name = 'Times New Roman'
             font.size = Pt(14)
-            
+
             # Set line spacing for Normal style
             paragraph_format = style.paragraph_format
             paragraph_format.line_spacing = 1.5
-            
+
             # Set margins (30mm left, 10mm right, 20mm top, 20mm bottom)
             sections = doc.sections
             for idx, section in enumerate(sections):
@@ -753,7 +753,7 @@ class DocumentService:
                 section.bottom_margin = Inches(0.79)  # 20mm
                 section.left_margin = Inches(1.18)  # 30mm
                 section.right_margin = Inches(0.39)  # 10mm
-                
+
                 # Configure page numbering (skip only title page)
                 section.footer.is_linked_to_previous = False
                 # Only set different first page for the very first section (title page)
@@ -780,22 +780,20 @@ class DocumentService:
                 toc_item = doc.add_paragraph()
                 toc_item.paragraph_format.first_line_indent = Inches(0.5)
                 toc_item.paragraph_format.line_spacing = 1.5
-                
+
                 title = section['title']
                 # Check if this is a special section (Kirish, Xulosa, Adabiyotlar)
-                if title.lower() in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']:
+                is_kirish = idx == 0 and title.lower() in ['kirish', 'введение', 'introduction']
+                is_xulosa = idx == len(all_sections) - 1 and title.lower() in ['xulosa', 'заключение', 'conclusion']
+                is_adabiyotlar = title.lower() in ['adabiyotlar', 'литература', 'references']
+
+                if is_kirish or is_xulosa or is_adabiyotlar:
                     toc_item.add_run(title)
                 else:
-                    # Regular numbered section
-                    section_num = idx if idx > 0 and all_sections[0]['title'].lower() in ['kirish', 'введение', 'introduction'] else idx + 1
-                    # Adjust numbering: if first is Kirish, number from 1, otherwise as is
-                    actual_num = section_num if all_sections[0]['title'].lower() in ['kirish', 'введение', 'introduction'] else idx + 1
                     # Count numbered sections before this one
                     numbered_count = sum(1 for s in all_sections[:idx] if s['title'].lower() not in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references'])
-                    if title.lower() not in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']:
-                        toc_item.add_run(f"{numbered_count + 1}. {title}")
-                    else:
-                        toc_item.add_run(title)
+                    toc_item.add_run(f"{numbered_count + 1}. {title}")
+
 
             # Add Adabiyotlar to TOC if references exist and not already in sections
             if content.get('references'):
@@ -807,27 +805,34 @@ class DocumentService:
 
             # Add page break
             doc.add_page_break()
-            
+
             # Add page numbers starting from content pages (not title or TOC)
             for section in doc.sections:
                 self._add_page_number(section)
 
             # Add sections content with proper numbering
+            numbered_section_count = 0  # Counter for numbered sections only
+
             for idx, section in enumerate(all_sections):
                 title = section['title']
-                
+
                 # Section title
                 section_title = doc.add_paragraph()
                 section_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                
-                # Check if special section
-                if title.lower() in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']:
+
+                # Check if this is Kirish (first) or Xulosa (last) or Adabiyotlar
+                is_kirish = idx == 0 and title.lower() in ['kirish', 'введение', 'introduction']
+                is_xulosa = idx == len(all_sections) - 1 and title.lower() in ['xulosa', 'заключение', 'conclusion']
+                is_adabiyotlar = title.lower() in ['adabiyotlar', 'литература', 'references']
+
+                if is_kirish or is_xulosa or is_adabiyotlar:
+                    # No number - just uppercase title
                     section_title_run = section_title.add_run(title.upper())
                 else:
-                    # Number regular sections
-                    numbered_count = sum(1 for s in all_sections[:idx] if s['title'].lower() not in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references'])
-                    section_title_run = section_title.add_run(f"{numbered_count + 1}. {title}")
-                
+                    # Numbered section (middle sections only)
+                    numbered_section_count += 1
+                    section_title_run = section_title.add_run(f"{numbered_section_count}. {title}")
+
                 section_title_run.font.bold = True
                 section_title_run.font.size = Pt(14)
 
@@ -850,7 +855,7 @@ class DocumentService:
                 # Reverse references to show newest first
                 references = content['references'][:5]
                 references_reversed = list(reversed(references))
-                
+
                 for idx, ref in enumerate(references_reversed, 1):
                     ref_para = doc.add_paragraph()
                     ref_para.paragraph_format.first_line_indent = Inches(0.5)
@@ -881,11 +886,11 @@ class DocumentService:
             font = style.font
             font.name = 'Times New Roman'
             font.size = Pt(14)
-            
+
             # Set line spacing for Normal style
             paragraph_format = style.paragraph_format
             paragraph_format.line_spacing = 1.5
-            
+
             # Set margins (30mm left, 10mm right, 20mm top, 20mm bottom)
             sections = doc.sections
             for idx, section in enumerate(sections):
@@ -893,7 +898,7 @@ class DocumentService:
                 section.bottom_margin = Inches(0.79)  # 20mm
                 section.left_margin = Inches(1.18)  # 30mm
                 section.right_margin = Inches(0.39)  # 10mm
-                
+
                 # Configure page numbering (skip only title page)
                 section.footer.is_linked_to_previous = False
                 # Only set different first page for the very first section (title page)
@@ -920,18 +925,19 @@ class DocumentService:
                 toc_item = doc.add_paragraph()
                 toc_item.paragraph_format.first_line_indent = Inches(0.5)
                 toc_item.paragraph_format.line_spacing = 1.5
-                
+
                 title = section['title']
                 # Check if this is a special section (Kirish, Xulosa, Adabiyotlar)
-                if title.lower() in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']:
+                is_kirish = idx == 0 and title.lower() in ['kirish', 'введение', 'introduction']
+                is_xulosa = idx == len(all_sections) - 1 and title.lower() in ['xulosa', 'заключение', 'conclusion']
+                is_adabiyotlar = title.lower() in ['adabiyotlar', 'литература', 'references']
+
+                if is_kirish or is_xulosa or is_adabiyotlar:
                     toc_item.add_run(title)
                 else:
-                    # Regular numbered section
+                    # Count numbered sections before this one
                     numbered_count = sum(1 for s in all_sections[:idx] if s['title'].lower() not in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references'])
-                    if title.lower() not in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']:
-                        toc_item.add_run(f"{numbered_count + 1}. {title}")
-                    else:
-                        toc_item.add_run(title)
+                    toc_item.add_run(f"{numbered_count + 1}. {title}")
 
             # Add Adabiyotlar to TOC if references exist and not already in sections
             if content.get('references'):
@@ -943,27 +949,34 @@ class DocumentService:
 
             # Add page break
             doc.add_page_break()
-            
+
             # Add page numbers starting from content pages (not title or TOC)
             for section in doc.sections:
                 self._add_page_number(section)
 
             # Add sections content with proper numbering
+            numbered_section_count = 0  # Counter for numbered sections only
+
             for idx, section in enumerate(all_sections):
                 title = section['title']
-                
+
                 # Section title
                 section_title = doc.add_paragraph()
                 section_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                
-                # Check if special section
-                if title.lower() in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']:
+
+                # Check if this is Kirish (first) or Xulosa (last) or Adabiyotlar
+                is_kirish = idx == 0 and title.lower() in ['kirish', 'введение', 'introduction']
+                is_xulosa = idx == len(all_sections) - 1 and title.lower() in ['xulosa', 'заключение', 'conclusion']
+                is_adabiyotlar = title.lower() in ['adabiyotlar', 'литература', 'references']
+
+                if is_kirish or is_xulosa or is_adabiyotlar:
+                    # No number - just uppercase title
                     section_title_run = section_title.add_run(title.upper())
                 else:
-                    # Number regular sections
-                    numbered_count = sum(1 for s in all_sections[:idx] if s['title'].lower() not in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references'])
-                    section_title_run = section_title.add_run(f"{numbered_count + 1}. {title}")
-                
+                    # Numbered section (middle sections only)
+                    numbered_section_count += 1
+                    section_title_run = section_title.add_run(f"{numbered_section_count}. {title}")
+
                 section_title_run.font.bold = True
                 section_title_run.font.size = Pt(14)
 
@@ -986,7 +999,7 @@ class DocumentService:
                 # Reverse references to show newest first
                 references = content['references'][:5]
                 references_reversed = list(reversed(references))
-                
+
                 for idx, ref in enumerate(references_reversed, 1):
                     ref_para = doc.add_paragraph()
                     ref_para.paragraph_format.first_line_indent = Inches(0.5)
@@ -1012,9 +1025,9 @@ class DocumentService:
         try:
             # Language-specific texts
             texts = self._get_referat_template_texts(language)
-            
+
             # Set paragraph formats for alignment and spacing
-            
+
             # Top section with lines and "fanidan"
             # Long line
             para1 = doc.add_paragraph()
@@ -1022,18 +1035,18 @@ class DocumentService:
             run1 = para1.add_run("_" * 50)
             run1.font.size = Pt(14)
             run1.font.name = 'Times New Roman'
-            
-            # Short line with "fanidan"  
-            para2 = doc.add_paragraph()  
+
+            # Short line with "fanidan"
+            para2 = doc.add_paragraph()
             para2.alignment = WD_ALIGN_PARAGRAPH.CENTER
             run2 = para2.add_run("_" * 20 + f" {texts['from_subject']}")
             run2.font.size = Pt(14)
             run2.font.name = 'Times New Roman'
-            
+
             # Add 4 empty lines for spacing
             for _ in range(4):
                 doc.add_paragraph()
-            
+
             # REFERAT title (large and bold)
             title_para = doc.add_paragraph()
             title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -1041,66 +1054,66 @@ class DocumentService:
             title_run.font.size = Pt(36)
             title_run.font.bold = True
             title_run.font.name = 'Times New Roman'
-            
+
             # Add 3 empty lines for spacing
             for _ in range(3):
                 doc.add_paragraph()
-                
+
             # Topic (centered)
             topic_para = doc.add_paragraph()
-            topic_para.alignment = WD_ALIGN_PARAGRAPH.CENTER  
+            topic_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             topic_run = topic_para.add_run(f"{texts['topic']}: {topic}")
             topic_run.font.size = Pt(14)
             topic_run.font.name = 'Times New Roman'
-            
+
             # Add 2 empty lines
             for _ in range(2):
                 doc.add_paragraph()
-            
+
             # Bajardi va Qabul qildi sections - yonma-yon
             signatures_para = doc.add_paragraph()
             signatures_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            
+
             # Bajardi section (left side)
             bajardi_run = signatures_para.add_run(f"{texts['prepared_by']}: ")
             bajardi_run.font.size = Pt(14)
             bajardi_run.font.name = 'Times New Roman'
-            
+
             kurs_run = signatures_para.add_run(f"_____ {texts['course']}")
             kurs_run.font.size = Pt(14)
             kurs_run.font.name = 'Times New Roman'
-            
+
             # Spacing between signatures
             signatures_para.add_run("               ")
-            
+
             # Qabul qildi section (right side)
             qabul_run = signatures_para.add_run(f"{texts['accepted_by']}: ")
             qabul_run.font.size = Pt(14)
             qabul_run.font.name = 'Times New Roman'
-            
+
             qabul_line_run = signatures_para.add_run("_" * 15)
             qabul_line_run.font.size = Pt(14)
             qabul_line_run.font.name = 'Times New Roman'
-            
+
             # Second line for group info under Bajardi
             signatures_para.add_run("\n")
             guruh_run = signatures_para.add_run(f"                    {texts['group_student']}")
             guruh_run.font.size = Pt(14)
             guruh_run.font.name = 'Times New Roman'
-            
+
             # Add 3 empty lines for spacing before Toshkent
             for _ in range(3):
                 doc.add_paragraph()
-            
+
             # City at bottom
             city_para = doc.add_paragraph()
             city_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             city_run = city_para.add_run(texts['city'])
             city_run.font.size = Pt(14)
             city_run.font.name = 'Times New Roman'
-            
+
             logger.info("Referat title page created with template design")
-            
+
         except Exception as e:
             logger.error(f"Error creating referat title page: {e}")
             # Fallback to simple title if template fails
@@ -1151,7 +1164,7 @@ class DocumentService:
         try:
             # Language-specific texts
             texts = self._get_independent_work_template_texts(language)
-            
+
             # Add border around the page (simulate with underlines and spacing)
             # Top border line
             border_para = doc.add_paragraph()
@@ -1159,28 +1172,28 @@ class DocumentService:
             border_run = border_para.add_run("_" * 80)
             border_run.font.size = Pt(14)
             border_run.font.name = 'Times New Roman'
-            
+
             # Add some spacing
             doc.add_paragraph()
-            
+
             # Faculty line - right aligned
             faculty_para = doc.add_paragraph()
             faculty_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
             faculty_run = faculty_para.add_run("_" * 30 + f" {texts['faculty']}")
             faculty_run.font.size = Pt(14)
             faculty_run.font.name = 'Times New Roman'
-            
-            # Subject line - right aligned  
+
+            # Subject line - right aligned
             subject_para = doc.add_paragraph()
             subject_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
             subject_run = subject_para.add_run("_" * 30 + f" {texts['from_subject']}")
             subject_run.font.size = Pt(14)
             subject_run.font.name = 'Times New Roman'
-            
+
             # Add 3 empty lines for spacing
             for _ in range(3):
                 doc.add_paragraph()
-            
+
             # MUSTAQIL ISH title (large and bold, centered)
             title_para = doc.add_paragraph()
             title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -1188,60 +1201,60 @@ class DocumentService:
             title_run.font.size = Pt(32)
             title_run.font.bold = True
             title_run.font.name = 'Times New Roman'
-            
+
             # Add 2 empty lines for spacing
             for _ in range(2):
                 doc.add_paragraph()
-                
+
             # Topic with underline (left aligned)
             topic_para = doc.add_paragraph()
             topic_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
             topic_run = topic_para.add_run(f"{texts['topic']}: {topic}")
             topic_run.font.size = Pt(14)
             topic_run.font.name = 'Times New Roman'
-            
+
             # Add 4 empty lines
             for _ in range(4):
                 doc.add_paragraph()
-            
+
             # Bajardi va Qabul qildi sections - yonma-yon (left aligned)
             signatures_para = doc.add_paragraph()
             signatures_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            
+
             # Bajardi section (left side)
             bajardi_run = signatures_para.add_run(f"{texts['prepared_by']}: ")
             bajardi_run.font.size = Pt(14)
             bajardi_run.font.name = 'Times New Roman'
-            
+
             bajardi_line_run = signatures_para.add_run("_" * 18)
             bajardi_line_run.font.size = Pt(14)
             bajardi_line_run.font.name = 'Times New Roman'
-            
-            # Spacing between signatures  
+
+            # Spacing between signatures
             signatures_para.add_run("         ")
-            
+
             # Qabul qildi section (right side)
             qabul_run = signatures_para.add_run(f"{texts['accepted_by']}: ")
             qabul_run.font.size = Pt(14)
             qabul_run.font.name = 'Times New Roman'
-            
+
             qabul_line_run = signatures_para.add_run("_" * 15)
             qabul_line_run.font.size = Pt(14)
             qabul_line_run.font.name = 'Times New Roman'
-            
+
             # Add spacing before bottom border
             for _ in range(4):
                 doc.add_paragraph()
-            
+
             # Bottom border line
             bottom_border_para = doc.add_paragraph()
             bottom_border_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             bottom_border_run = bottom_border_para.add_run("_" * 80)
             bottom_border_run.font.size = Pt(14)
             bottom_border_run.font.name = 'Times New Roman'
-            
+
             logger.info("Independent work title page created with template design")
-            
+
         except Exception as e:
             logger.error(f"Error creating independent work title page: {e}")
             # Fallback to simple title if template fails
@@ -1289,23 +1302,23 @@ class DocumentService:
             footer = section.footer
             paragraph = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
             paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            
+
             # Create page number field
             run = paragraph.add_run()
             fldChar1 = OxmlElement('w:fldChar')
             fldChar1.set(qn('w:fldCharType'), 'begin')
-            
+
             instrText = OxmlElement('w:instrText')
             instrText.set(qn('xml:space'), 'preserve')
             instrText.text = "PAGE"
-            
+
             fldChar2 = OxmlElement('w:fldChar')
             fldChar2.set(qn('w:fldCharType'), 'end')
-            
+
             run._r.append(fldChar1)
             run._r.append(instrText)
             run._r.append(fldChar2)
-            
+
             run.font.size = Pt(14)
             run.font.name = 'Times New Roman'
         except Exception as e:
