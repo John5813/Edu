@@ -5,6 +5,8 @@ from docx import Document
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.style import WD_STYLE_TYPE
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 from pptx import Presentation
 from pptx.util import Inches as PptxInches, Pt as PptxPt
 from pptx.enum.text import PP_ALIGN
@@ -734,11 +736,29 @@ class DocumentService:
         try:
             doc = Document()
 
-            # Set document style
+            # Set document style with proper font size and line spacing
             style = doc.styles['Normal']
             font = style.font
             font.name = 'Times New Roman'
-            font.size = Pt(12)
+            font.size = Pt(14)
+            
+            # Set line spacing for Normal style
+            paragraph_format = style.paragraph_format
+            paragraph_format.line_spacing = 1.5
+            
+            # Set margins (30mm left, 10mm right, 20mm top, 20mm bottom)
+            sections = doc.sections
+            for idx, section in enumerate(sections):
+                section.top_margin = Inches(0.79)  # 20mm
+                section.bottom_margin = Inches(0.79)  # 20mm
+                section.left_margin = Inches(1.18)  # 30mm
+                section.right_margin = Inches(0.39)  # 10mm
+                
+                # Configure page numbering (skip only title page)
+                section.footer.is_linked_to_previous = False
+                # Only set different first page for the very first section (title page)
+                if idx == 0:
+                    section.different_first_page_header_footer = True
 
             # Create custom title page with template design (language-specific)
             user_lang = content.get('language', 'uzbek')  # Default to uzbek
@@ -754,52 +774,87 @@ class DocumentService:
             toc_run.font.size = Pt(14)
             toc_run.font.bold = True
 
-            doc.add_paragraph()  # Empty line
-
-            # Add sections to TOC
-            sections = content.get('sections', [])
-            for idx, section in enumerate(sections, 1):
+            # Add sections to TOC (including Kirish, Xulosa, Adabiyotlar without numbers)
+            all_sections = content.get('sections', [])
+            for idx, section in enumerate(all_sections):
                 toc_item = doc.add_paragraph()
                 toc_item.paragraph_format.first_line_indent = Inches(0.5)
-                toc_item.add_run(f"{idx}. {section['title']}")
+                toc_item.paragraph_format.line_spacing = 1.5
+                
+                title = section['title']
+                # Check if this is a special section (Kirish, Xulosa, Adabiyotlar)
+                if title.lower() in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']:
+                    toc_item.add_run(title)
+                else:
+                    # Regular numbered section
+                    section_num = idx if idx > 0 and all_sections[0]['title'].lower() in ['kirish', 'введение', 'introduction'] else idx + 1
+                    # Adjust numbering: if first is Kirish, number from 1, otherwise as is
+                    actual_num = section_num if all_sections[0]['title'].lower() in ['kirish', 'введение', 'introduction'] else idx + 1
+                    # Count numbered sections before this one
+                    numbered_count = sum(1 for s in all_sections[:idx] if s['title'].lower() not in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references'])
+                    if title.lower() not in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']:
+                        toc_item.add_run(f"{numbered_count + 1}. {title}")
+                    else:
+                        toc_item.add_run(title)
+
+            # Add Adabiyotlar to TOC if references exist and not already in sections
+            if content.get('references'):
+                has_adabiyotlar = any(s['title'].lower() in ['adabiyotlar', 'литература', 'references'] for s in all_sections)
+                if not has_adabiyotlar:
+                    adab_toc = doc.add_paragraph()
+                    adab_toc.paragraph_format.first_line_indent = Inches(0.5)
+                    adab_toc.add_run("Adabiyotlar")
 
             # Add page break
             doc.add_page_break()
+            
+            # Add page numbers starting from content pages (not title or TOC)
+            for section in doc.sections:
+                self._add_page_number(section)
 
-            # Add sections content
-            for idx, section in enumerate(sections, 1):
+            # Add sections content with proper numbering
+            for idx, section in enumerate(all_sections):
+                title = section['title']
+                
                 # Section title
                 section_title = doc.add_paragraph()
                 section_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                section_title_run = section_title.add_run(f"{idx}. {section['title']}")
+                
+                # Check if special section
+                if title.lower() in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']:
+                    section_title_run = section_title.add_run(title.upper())
+                else:
+                    # Number regular sections
+                    numbered_count = sum(1 for s in all_sections[:idx] if s['title'].lower() not in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references'])
+                    section_title_run = section_title.add_run(f"{numbered_count + 1}. {title}")
+                
                 section_title_run.font.bold = True
                 section_title_run.font.size = Pt(14)
-
-                doc.add_paragraph()  # Empty line
 
                 # Section content
                 content_para = doc.add_paragraph(section['content'])
                 content_para.paragraph_format.first_line_indent = Inches(0.5)
-                content_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY  # Justify alignment
+                content_para.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                content_para.paragraph_format.line_spacing = 1.5
 
-                doc.add_paragraph()  # Empty line
-
-            # References - separate page with only 5 references
+            # References - separate page with only 5 references (newest to oldest)
             if content.get('references'):
                 doc.add_page_break()
 
                 ref_title = doc.add_paragraph()
                 ref_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                ref_title_run = ref_title.add_run("FOYDALANILGAN ADABIYOTLAR")
+                ref_title_run = ref_title.add_run("ADABIYOTLAR")
                 ref_title_run.font.bold = True
                 ref_title_run.font.size = Pt(14)
 
-                doc.add_paragraph()  # Empty line
-
-                # Only show first 5 references with numbers
-                for idx, ref in enumerate(content['references'][:5], 1):
+                # Reverse references to show newest first
+                references = content['references'][:5]
+                references_reversed = list(reversed(references))
+                
+                for idx, ref in enumerate(references_reversed, 1):
                     ref_para = doc.add_paragraph()
                     ref_para.paragraph_format.first_line_indent = Inches(0.5)
+                    ref_para.paragraph_format.line_spacing = 1.5
                     ref_para.add_run(f"{idx}. {ref}")
 
             # Save document
@@ -821,11 +876,29 @@ class DocumentService:
         try:
             doc = Document()
 
-            # Set document style
+            # Set document style with proper font size and line spacing
             style = doc.styles['Normal']
             font = style.font
             font.name = 'Times New Roman'
-            font.size = Pt(12)
+            font.size = Pt(14)
+            
+            # Set line spacing for Normal style
+            paragraph_format = style.paragraph_format
+            paragraph_format.line_spacing = 1.5
+            
+            # Set margins (30mm left, 10mm right, 20mm top, 20mm bottom)
+            sections = doc.sections
+            for idx, section in enumerate(sections):
+                section.top_margin = Inches(0.79)  # 20mm
+                section.bottom_margin = Inches(0.79)  # 20mm
+                section.left_margin = Inches(1.18)  # 30mm
+                section.right_margin = Inches(0.39)  # 10mm
+                
+                # Configure page numbering (skip only title page)
+                section.footer.is_linked_to_previous = False
+                # Only set different first page for the very first section (title page)
+                if idx == 0:
+                    section.different_first_page_header_footer = True
 
             # Create custom title page with template design (language-specific)
             user_lang = content.get('language', 'uzbek')  # Default to uzbek
@@ -841,52 +914,83 @@ class DocumentService:
             toc_run.font.size = Pt(14)
             toc_run.font.bold = True
 
-            doc.add_paragraph()  # Empty line
-
-            # Add sections to TOC
-            sections = content.get('sections', [])
-            for idx, section in enumerate(sections, 1):
+            # Add sections to TOC (including Kirish, Xulosa, Adabiyotlar without numbers)
+            all_sections = content.get('sections', [])
+            for idx, section in enumerate(all_sections):
                 toc_item = doc.add_paragraph()
                 toc_item.paragraph_format.first_line_indent = Inches(0.5)
-                toc_item.add_run(f"{idx}. {section['title']}")
+                toc_item.paragraph_format.line_spacing = 1.5
+                
+                title = section['title']
+                # Check if this is a special section (Kirish, Xulosa, Adabiyotlar)
+                if title.lower() in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']:
+                    toc_item.add_run(title)
+                else:
+                    # Regular numbered section
+                    numbered_count = sum(1 for s in all_sections[:idx] if s['title'].lower() not in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references'])
+                    if title.lower() not in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']:
+                        toc_item.add_run(f"{numbered_count + 1}. {title}")
+                    else:
+                        toc_item.add_run(title)
+
+            # Add Adabiyotlar to TOC if references exist and not already in sections
+            if content.get('references'):
+                has_adabiyotlar = any(s['title'].lower() in ['adabiyotlar', 'литература', 'references'] for s in all_sections)
+                if not has_adabiyotlar:
+                    adab_toc = doc.add_paragraph()
+                    adab_toc.paragraph_format.first_line_indent = Inches(0.5)
+                    adab_toc.add_run("Adabiyotlar")
 
             # Add page break
             doc.add_page_break()
+            
+            # Add page numbers starting from content pages (not title or TOC)
+            for section in doc.sections:
+                self._add_page_number(section)
 
-            # Add sections content
-            for idx, section in enumerate(sections, 1):
+            # Add sections content with proper numbering
+            for idx, section in enumerate(all_sections):
+                title = section['title']
+                
                 # Section title
                 section_title = doc.add_paragraph()
                 section_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                section_title_run = section_title.add_run(f"{idx}. {section['title']}")
+                
+                # Check if special section
+                if title.lower() in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']:
+                    section_title_run = section_title.add_run(title.upper())
+                else:
+                    # Number regular sections
+                    numbered_count = sum(1 for s in all_sections[:idx] if s['title'].lower() not in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references'])
+                    section_title_run = section_title.add_run(f"{numbered_count + 1}. {title}")
+                
                 section_title_run.font.bold = True
                 section_title_run.font.size = Pt(14)
-
-                doc.add_paragraph()  # Empty line
 
                 # Section content
                 content_para = doc.add_paragraph(section['content'])
                 content_para.paragraph_format.first_line_indent = Inches(0.5)
-                content_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY  # Justify alignment
+                content_para.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                content_para.paragraph_format.line_spacing = 1.5
 
-                doc.add_paragraph()  # Empty line
-
-            # References - separate page with only 5 references
+            # References - separate page with only 5 references (newest to oldest)
             if content.get('references'):
                 doc.add_page_break()
 
                 ref_title = doc.add_paragraph()
                 ref_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                ref_title_run = ref_title.add_run("FOYDALANILGAN ADABIYOTLAR")
+                ref_title_run = ref_title.add_run("ADABIYOTLAR")
                 ref_title_run.font.bold = True
                 ref_title_run.font.size = Pt(14)
 
-                doc.add_paragraph()  # Empty line
-
-                # Only show first 5 references with numbers
-                for idx, ref in enumerate(content['references'][:5], 1):
+                # Reverse references to show newest first
+                references = content['references'][:5]
+                references_reversed = list(reversed(references))
+                
+                for idx, ref in enumerate(references_reversed, 1):
                     ref_para = doc.add_paragraph()
                     ref_para.paragraph_format.first_line_indent = Inches(0.5)
+                    ref_para.paragraph_format.line_spacing = 1.5
                     ref_para.add_run(f"{idx}. {ref}")
 
             # Save document
@@ -916,18 +1020,18 @@ class DocumentService:
             para1 = doc.add_paragraph()
             para1.alignment = WD_ALIGN_PARAGRAPH.CENTER
             run1 = para1.add_run("_" * 50)
-            run1.font.size = Pt(12)
+            run1.font.size = Pt(14)
             run1.font.name = 'Times New Roman'
             
             # Short line with "fanidan"  
             para2 = doc.add_paragraph()  
             para2.alignment = WD_ALIGN_PARAGRAPH.CENTER
             run2 = para2.add_run("_" * 20 + f" {texts['from_subject']}")
-            run2.font.size = Pt(12)
+            run2.font.size = Pt(14)
             run2.font.name = 'Times New Roman'
             
-            # Add 6 empty lines for spacing
-            for _ in range(6):
+            # Add 4 empty lines for spacing
+            for _ in range(4):
                 doc.add_paragraph()
             
             # REFERAT title (large and bold)
@@ -938,28 +1042,16 @@ class DocumentService:
             title_run.font.bold = True
             title_run.font.name = 'Times New Roman'
             
-            # Add 5 empty lines for spacing
-            for _ in range(5):
+            # Add 3 empty lines for spacing
+            for _ in range(3):
                 doc.add_paragraph()
                 
-            # Topic title (underlined)
+            # Topic (centered)
             topic_para = doc.add_paragraph()
             topic_para.alignment = WD_ALIGN_PARAGRAPH.CENTER  
-            topic_run = topic_para.add_run(f"{texts['topic']}: ")
+            topic_run = topic_para.add_run(f"{texts['topic']}: {topic}")
             topic_run.font.size = Pt(14)
             topic_run.font.name = 'Times New Roman'
-            
-            topic_line_run = topic_para.add_run("_" * 30)
-            topic_line_run.font.size = Pt(14)
-            topic_line_run.font.name = 'Times New Roman'
-            
-            # Add the actual topic below the line (on next paragraph)
-            topic_name_para = doc.add_paragraph()
-            topic_name_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            topic_name_run = topic_name_para.add_run(topic)
-            topic_name_run.font.size = Pt(14)
-            topic_name_run.font.name = 'Times New Roman'
-            topic_name_run.font.italic = True
             
             # Add 2 empty lines
             for _ in range(2):
@@ -971,11 +1063,11 @@ class DocumentService:
             
             # Bajardi section (left side)
             bajardi_run = signatures_para.add_run(f"{texts['prepared_by']}: ")
-            bajardi_run.font.size = Pt(12)
+            bajardi_run.font.size = Pt(14)
             bajardi_run.font.name = 'Times New Roman'
             
             kurs_run = signatures_para.add_run(f"_____ {texts['course']}")
-            kurs_run.font.size = Pt(12)
+            kurs_run.font.size = Pt(14)
             kurs_run.font.name = 'Times New Roman'
             
             # Spacing between signatures
@@ -983,28 +1075,28 @@ class DocumentService:
             
             # Qabul qildi section (right side)
             qabul_run = signatures_para.add_run(f"{texts['accepted_by']}: ")
-            qabul_run.font.size = Pt(12)
+            qabul_run.font.size = Pt(14)
             qabul_run.font.name = 'Times New Roman'
             
             qabul_line_run = signatures_para.add_run("_" * 15)
-            qabul_line_run.font.size = Pt(12)
+            qabul_line_run.font.size = Pt(14)
             qabul_line_run.font.name = 'Times New Roman'
             
             # Second line for group info under Bajardi
             signatures_para.add_run("\n")
             guruh_run = signatures_para.add_run(f"                    {texts['group_student']}")
-            guruh_run.font.size = Pt(12)
+            guruh_run.font.size = Pt(14)
             guruh_run.font.name = 'Times New Roman'
             
-            # Add 4 empty lines for spacing before Toshkent
-            for _ in range(4):
+            # Add 3 empty lines for spacing before Toshkent
+            for _ in range(3):
                 doc.add_paragraph()
             
             # City at bottom
             city_para = doc.add_paragraph()
             city_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             city_run = city_para.add_run(texts['city'])
-            city_run.font.size = Pt(12)
+            city_run.font.size = Pt(14)
             city_run.font.name = 'Times New Roman'
             
             logger.info("Referat title page created with template design")
@@ -1065,31 +1157,28 @@ class DocumentService:
             border_para = doc.add_paragraph()
             border_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             border_run = border_para.add_run("_" * 80)
-            border_run.font.size = Pt(12)
+            border_run.font.size = Pt(14)
             border_run.font.name = 'Times New Roman'
             
             # Add some spacing
-            for _ in range(2):
-                doc.add_paragraph()
+            doc.add_paragraph()
             
             # Faculty line - right aligned
             faculty_para = doc.add_paragraph()
             faculty_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
             faculty_run = faculty_para.add_run("_" * 30 + f" {texts['faculty']}")
-            faculty_run.font.size = Pt(12)
+            faculty_run.font.size = Pt(14)
             faculty_run.font.name = 'Times New Roman'
-            
-            doc.add_paragraph()  # Empty line
             
             # Subject line - right aligned  
             subject_para = doc.add_paragraph()
             subject_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
             subject_run = subject_para.add_run("_" * 30 + f" {texts['from_subject']}")
-            subject_run.font.size = Pt(12)
+            subject_run.font.size = Pt(14)
             subject_run.font.name = 'Times New Roman'
             
-            # Add 4 empty lines for spacing
-            for _ in range(4):
+            # Add 3 empty lines for spacing
+            for _ in range(3):
                 doc.add_paragraph()
             
             # MUSTAQIL ISH title (large and bold, centered)
@@ -1100,38 +1189,19 @@ class DocumentService:
             title_run.font.bold = True
             title_run.font.name = 'Times New Roman'
             
-            # Add 3 empty lines for spacing
-            for _ in range(3):
+            # Add 2 empty lines for spacing
+            for _ in range(2):
                 doc.add_paragraph()
                 
             # Topic with underline (left aligned)
             topic_para = doc.add_paragraph()
             topic_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            topic_run = topic_para.add_run(f"{texts['topic']}:")
+            topic_run = topic_para.add_run(f"{texts['topic']}: {topic}")
             topic_run.font.size = Pt(14)
             topic_run.font.name = 'Times New Roman'
             
-            topic_line_run = topic_para.add_run("_" * 45)
-            topic_line_run.font.size = Pt(14)
-            topic_line_run.font.name = 'Times New Roman'
-            
-            # Add second line for topic continuation
-            topic_cont_para = doc.add_paragraph()
-            topic_cont_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            topic_cont_run = topic_cont_para.add_run("_" * 55)
-            topic_cont_run.font.size = Pt(14)
-            topic_cont_run.font.name = 'Times New Roman'
-            
-            # Add the actual topic below the lines (smaller font, left aligned)
-            topic_name_para = doc.add_paragraph()
-            topic_name_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            topic_name_run = topic_name_para.add_run(f'"{topic}"')
-            topic_name_run.font.size = Pt(12)
-            topic_name_run.font.name = 'Times New Roman'
-            topic_name_run.font.italic = True
-            
-            # Add 5 empty lines
-            for _ in range(5):
+            # Add 4 empty lines
+            for _ in range(4):
                 doc.add_paragraph()
             
             # Bajardi va Qabul qildi sections - yonma-yon (left aligned)
@@ -1139,35 +1209,35 @@ class DocumentService:
             signatures_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
             
             # Bajardi section (left side)
-            bajardi_run = signatures_para.add_run(f"{texts['prepared_by']}. ")
-            bajardi_run.font.size = Pt(12)
+            bajardi_run = signatures_para.add_run(f"{texts['prepared_by']}: ")
+            bajardi_run.font.size = Pt(14)
             bajardi_run.font.name = 'Times New Roman'
             
             bajardi_line_run = signatures_para.add_run("_" * 18)
-            bajardi_line_run.font.size = Pt(12)
+            bajardi_line_run.font.size = Pt(14)
             bajardi_line_run.font.name = 'Times New Roman'
             
             # Spacing between signatures  
             signatures_para.add_run("         ")
             
             # Qabul qildi section (right side)
-            qabul_run = signatures_para.add_run(f"{texts['accepted_by']} ")
-            qabul_run.font.size = Pt(12)
+            qabul_run = signatures_para.add_run(f"{texts['accepted_by']}: ")
+            qabul_run.font.size = Pt(14)
             qabul_run.font.name = 'Times New Roman'
             
             qabul_line_run = signatures_para.add_run("_" * 15)
-            qabul_line_run.font.size = Pt(12)
+            qabul_line_run.font.size = Pt(14)
             qabul_line_run.font.name = 'Times New Roman'
             
             # Add spacing before bottom border
-            for _ in range(6):
+            for _ in range(4):
                 doc.add_paragraph()
             
             # Bottom border line
             bottom_border_para = doc.add_paragraph()
             bottom_border_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             bottom_border_run = bottom_border_para.add_run("_" * 80)
-            bottom_border_run.font.size = Pt(12)
+            bottom_border_run.font.size = Pt(14)
             bottom_border_run.font.name = 'Times New Roman'
             
             logger.info("Independent work title page created with template design")
@@ -1212,6 +1282,34 @@ class DocumentService:
             }
 
 
+
+    def _add_page_number(self, section):
+        """Add page number to footer (bottom center)"""
+        try:
+            footer = section.footer
+            paragraph = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            
+            # Create page number field
+            run = paragraph.add_run()
+            fldChar1 = OxmlElement('w:fldChar')
+            fldChar1.set(qn('w:fldCharType'), 'begin')
+            
+            instrText = OxmlElement('w:instrText')
+            instrText.set(qn('xml:space'), 'preserve')
+            instrText.text = "PAGE"
+            
+            fldChar2 = OxmlElement('w:fldChar')
+            fldChar2.set(qn('w:fldCharType'), 'end')
+            
+            run._r.append(fldChar1)
+            run._r.append(instrText)
+            run._r.append(fldChar2)
+            
+            run.font.size = Pt(14)
+            run.font.name = 'Times New Roman'
+        except Exception as e:
+            logger.error(f"Error adding page number: {e}")
 
     async def _download_image(self, image_url: str, filename: str) -> Optional[str]:
         """Download image from URL for presentation"""
