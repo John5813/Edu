@@ -70,7 +70,7 @@ class DocumentService:
             # Add more slides if needed
             for i in range(len(prs.slides) - 1, len(slides_data)):
                 slide_data = slides_data[i]
-                new_slide = self._add_content_slide(prs, slide_data, i + 1, slide_images)
+                new_slide = self._add_content_slide(slide_data, i + 1, slide_images)
 
             # Save presentation
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -143,7 +143,7 @@ class DocumentService:
         except Exception as e:
             logger.error(f"Error updating content slide {slide_num}: {e}")
 
-    def _add_content_slide(self, prs, slide_data: Dict, slide_num: int, slide_images: Dict):
+    def _add_content_slide(self, slide_data: Dict, slide_num: int, slide_images: Dict):
         """Add new content slide to presentation"""
         try:
             # Use layout 1 (title and content)
@@ -764,10 +764,7 @@ class DocumentService:
             user_lang = content.get('language', 'uzbek')  # Default to uzbek
             await self._create_independent_work_title_page(doc, topic, user_lang)
 
-            # Add page break
-            doc.add_page_break()
-
-            # Table of contents
+            # Table of contents - REJA (without any lines, no page break before it)
             toc_para = doc.add_paragraph()
             toc_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             toc_run = toc_para.add_run("REJA")
@@ -790,7 +787,7 @@ class DocumentService:
                     toc_item.add_run(title)
                 else:
                     # Count numbered sections before this one (excluding special sections)
-                    numbered_count = sum(1 for s in all_sections[:idx] 
+                    numbered_count = sum(1 for s in all_sections[:idx]
                                        if s['title'].lower() not in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references'])
                     toc_item.add_run(f"{numbered_count + 1}. {title}")
 
@@ -908,10 +905,7 @@ class DocumentService:
             user_lang = content.get('language', 'uzbek')  # Default to uzbek
             await self._create_referat_title_page(doc, topic, user_lang)
 
-            # Add page break
-            doc.add_page_break()
-
-            # Table of contents
+            # Table of contents - REJA (without any lines, no page break before it)
             toc_para = doc.add_paragraph()
             toc_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             toc_run = toc_para.add_run("REJA")
