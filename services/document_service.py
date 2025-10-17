@@ -771,34 +771,42 @@ class DocumentService:
             toc_run.font.size = Pt(14)
             toc_run.font.bold = True
 
-            # Add sections to TOC (including Kirish, Xulosa, Adabiyotlar without numbers)
+            # Get language-specific text for TOC items
+            toc_texts = self._get_toc_texts(user_lang)
+            
+            # Add "Kirish" (Introduction) - always first, without number
+            toc_item = doc.add_paragraph()
+            toc_item.paragraph_format.first_line_indent = Inches(0.5)
+            toc_item.add_run(toc_texts['kirish'])
+            
+            # Add numbered sections (excluding Kirish, Xulosa, Adabiyotlar)
             all_sections = content.get('sections', [])
-            for idx, section in enumerate(all_sections):
+            numbered_count = 0
+            
+            for section in all_sections:
+                title = section['title']
+                title_lower = title.lower()
+                
+                # Skip special unnumbered sections
+                if title_lower in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']:
+                    continue
+                
+                # Add numbered section
+                numbered_count += 1
                 toc_item = doc.add_paragraph()
                 toc_item.paragraph_format.first_line_indent = Inches(0.5)
-                toc_item.paragraph_format.line_spacing = 1.5
-
-                title = section['title']
-                # Check if this is a special section (title ga qarab, index emas)
-                title_lower = title.lower()
-                is_special = title_lower in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']
-
-                if is_special:
-                    toc_item.add_run(title)
-                else:
-                    # Count numbered sections before this one (excluding special sections)
-                    numbered_count = sum(1 for s in all_sections[:idx]
-                                       if s['title'].lower() not in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references'])
-                    toc_item.add_run(f"{numbered_count + 1}. {title}")
-
-
-            # Add Adabiyotlar to TOC if references exist and not already in sections
+                toc_item.add_run(f"{numbered_count}. {title}")
+            
+            # Add "Xulosa" (Conclusion) - always after numbered sections, without number
+            toc_item = doc.add_paragraph()
+            toc_item.paragraph_format.first_line_indent = Inches(0.5)
+            toc_item.add_run(toc_texts['xulosa'])
+            
+            # Add "Foydalangan adabiyotlar" (References) - always last, without number
             if content.get('references'):
-                has_adabiyotlar = any(s['title'].lower() in ['adabiyotlar', 'литература', 'references'] for s in all_sections)
-                if not has_adabiyotlar:
-                    adab_toc = doc.add_paragraph()
-                    adab_toc.paragraph_format.first_line_indent = Inches(0.5)
-                    adab_toc.add_run("Adabiyotlar")
+                toc_item = doc.add_paragraph()
+                toc_item.paragraph_format.first_line_indent = Inches(0.5)
+                toc_item.add_run(toc_texts['adabiyotlar'])
 
             # Add page break
             doc.add_page_break()
@@ -912,33 +920,42 @@ class DocumentService:
             toc_run.font.size = Pt(14)
             toc_run.font.bold = True
 
-            # Add sections to TOC (including Kirish, Xulosa, Adabiyotlar without numbers)
+            # Get language-specific text for TOC items
+            toc_texts = self._get_toc_texts(user_lang)
+            
+            # Add "Kirish" (Introduction) - always first, without number
+            toc_item = doc.add_paragraph()
+            toc_item.paragraph_format.first_line_indent = Inches(0.5)
+            toc_item.add_run(toc_texts['kirish'])
+            
+            # Add numbered sections (excluding Kirish, Xulosa, Adabiyotlar)
             all_sections = content.get('sections', [])
-            for idx, section in enumerate(all_sections):
+            numbered_count = 0
+            
+            for section in all_sections:
+                title = section['title']
+                title_lower = title.lower()
+                
+                # Skip special unnumbered sections
+                if title_lower in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']:
+                    continue
+                
+                # Add numbered section
+                numbered_count += 1
                 toc_item = doc.add_paragraph()
                 toc_item.paragraph_format.first_line_indent = Inches(0.5)
-                toc_item.paragraph_format.line_spacing = 1.5
-
-                title = section['title']
-                # Check if this is a special section (Kirish, Xulosa, Adabiyotlar)
-                is_kirish = idx == 0 and title.lower() in ['kirish', 'введение', 'introduction']
-                is_xulosa = idx == len(all_sections) - 1 and title.lower() in ['xulosa', 'заключение', 'conclusion']
-                is_adabiyotlar = title.lower() in ['adabiyotlar', 'литература', 'references']
-
-                if is_kirish or is_xulosa or is_adabiyotlar:
-                    toc_item.add_run(title)
-                else:
-                    # Count numbered sections before this one
-                    numbered_count = sum(1 for s in all_sections[:idx] if s['title'].lower() not in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references'])
-                    toc_item.add_run(f"{numbered_count + 1}. {title}")
-
-            # Add Adabiyotlar to TOC if references exist and not already in sections
+                toc_item.add_run(f"{numbered_count}. {title}")
+            
+            # Add "Xulosa" (Conclusion) - always after numbered sections, without number
+            toc_item = doc.add_paragraph()
+            toc_item.paragraph_format.first_line_indent = Inches(0.5)
+            toc_item.add_run(toc_texts['xulosa'])
+            
+            # Add "Foydalangan adabiyotlar" (References) - always last, without number
             if content.get('references'):
-                has_adabiyotlar = any(s['title'].lower() in ['adabiyotlar', 'литература', 'references'] for s in all_sections)
-                if not has_adabiyotlar:
-                    adab_toc = doc.add_paragraph()
-                    adab_toc.paragraph_format.first_line_indent = Inches(0.5)
-                    adab_toc.add_run("Adabiyotlar")
+                toc_item = doc.add_paragraph()
+                toc_item.paragraph_format.first_line_indent = Inches(0.5)
+                toc_item.add_run(toc_texts['adabiyotlar'])
 
             # Add page break
             doc.add_page_break()
@@ -957,16 +974,15 @@ class DocumentService:
                 section_title = doc.add_paragraph()
                 section_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-                # Check if this is Kirish (first) or Xulosa (last) or Adabiyotlar
-                is_kirish = idx == 0 and title.lower() in ['kirish', 'введение', 'introduction']
-                is_xulosa = idx == len(all_sections) - 1 and title.lower() in ['xulosa', 'заключение', 'conclusion']
-                is_adabiyotlar = title.lower() in ['adabiyotlar', 'литература', 'references']
+                # Check if this is a special section (title ga qarab, index emas)
+                title_lower = title.lower()
+                is_special = title_lower in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']
 
-                if is_kirish or is_xulosa or is_adabiyotlar:
+                if is_special:
                     # No number - just uppercase title
                     section_title_run = section_title.add_run(title.upper())
                 else:
-                    # Numbered section (middle sections only)
+                    # Numbered section
                     numbered_section_count += 1
                     section_title_run = section_title.add_run(f"{numbered_section_count}. {title}")
 
@@ -1265,7 +1281,26 @@ class DocumentService:
                 'accepted_by': 'Qabul qildi'
             }
 
-
+    def _get_toc_texts(self, language: str) -> dict:
+        """Get language-specific texts for table of contents"""
+        if language == 'russian':
+            return {
+                'kirish': 'Введение',
+                'xulosa': 'Заключение',
+                'adabiyotlar': 'Использованная литература'
+            }
+        elif language == 'english':
+            return {
+                'kirish': 'Introduction',
+                'xulosa': 'Conclusion',
+                'adabiyotlar': 'References'
+            }
+        else:  # uzbek (default)
+            return {
+                'kirish': 'Kirish',
+                'xulosa': 'Xulosa',
+                'adabiyotlar': 'Foydalangan adabiyotlar'
+            }
 
     def _add_page_number(self, section):
         """Add page number to footer (bottom center)"""
