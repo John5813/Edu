@@ -823,15 +823,15 @@ class DocumentService:
                 section_title = doc.add_paragraph()
                 section_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-                # Check if this is special section (title ga qarab, index emas)
-                title_lower = title.lower()
-                is_special = title_lower in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']
-
-                if is_special:
-                    # No number - just uppercase title
-                    section_title_run = section_title.add_run(title.upper())
+                # Birinchi va oxirgi bo'limlar uchun til-spetsifik sarlavhalar
+                if idx == 0:
+                    # Kirish - til bo'yicha
+                    section_title_run = section_title.add_run(toc_texts['kirish'].upper())
+                elif idx == len(all_sections) - 1:
+                    # Xulosa - til bo'yicha
+                    section_title_run = section_title.add_run(toc_texts['xulosa'].upper())
                 else:
-                    # Numbered section
+                    # Raqamli bo'limlar
                     numbered_section_count += 1
                     section_title_run = section_title.add_run(f"{numbered_section_count}. {title}")
 
@@ -850,7 +850,7 @@ class DocumentService:
 
                 ref_title = doc.add_paragraph()
                 ref_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                ref_title_run = ref_title.add_run("ADABIYOTLAR")
+                ref_title_run = ref_title.add_run(toc_texts['adabiyotlar'].upper())
                 ref_title_run.font.bold = True
                 ref_title_run.font.size = Pt(14)
 
@@ -967,15 +967,15 @@ class DocumentService:
                 section_title = doc.add_paragraph()
                 section_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-                # Check if this is a special section (title ga qarab, index emas)
-                title_lower = title.lower()
-                is_special = title_lower in ['kirish', 'xulosa', 'adabiyotlar', 'введение', 'заключение', 'литература', 'introduction', 'conclusion', 'references']
-
-                if is_special:
-                    # No number - just uppercase title
-                    section_title_run = section_title.add_run(title.upper())
+                # Birinchi va oxirgi bo'limlar uchun til-spetsifik sarlavhalar
+                if idx == 0:
+                    # Kirish - til bo'yicha
+                    section_title_run = section_title.add_run(toc_texts['kirish'].upper())
+                elif idx == len(all_sections) - 1:
+                    # Xulosa - til bo'yicha
+                    section_title_run = section_title.add_run(toc_texts['xulosa'].upper())
                 else:
-                    # Numbered section
+                    # Raqamli bo'limlar
                     numbered_section_count += 1
                     section_title_run = section_title.add_run(f"{numbered_section_count}. {title}")
 
@@ -994,7 +994,7 @@ class DocumentService:
 
                 ref_title = doc.add_paragraph()
                 ref_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                ref_title_run = ref_title.add_run("ADABIYOTLAR")
+                ref_title_run = ref_title.add_run(toc_texts['adabiyotlar'].upper())
                 ref_title_run.font.bold = True
                 ref_title_run.font.size = Pt(14)
 
