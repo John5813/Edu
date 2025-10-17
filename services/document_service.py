@@ -1158,17 +1158,6 @@ class DocumentService:
             # Language-specific texts
             texts = self._get_independent_work_template_texts(language)
 
-            # Add border around the page (simulate with underlines and spacing)
-            # Top border line
-            border_para = doc.add_paragraph()
-            border_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            border_run = border_para.add_run("_" * 80)
-            border_run.font.size = Pt(14)
-            border_run.font.name = 'Times New Roman'
-
-            # Add some spacing
-            doc.add_paragraph()
-
             # Faculty line - right aligned
             faculty_para = doc.add_paragraph()
             faculty_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
@@ -1199,7 +1188,7 @@ class DocumentService:
             for _ in range(2):
                 doc.add_paragraph()
 
-            # Topic with underline (left aligned)
+            # Topic (left aligned, no underline)
             topic_para = doc.add_paragraph()
             topic_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
             topic_run = topic_para.add_run(f"{texts['topic']}: {topic}")
@@ -1234,17 +1223,6 @@ class DocumentService:
             qabul_line_run = signatures_para.add_run("_" * 15)
             qabul_line_run.font.size = Pt(14)
             qabul_line_run.font.name = 'Times New Roman'
-
-            # Add spacing before bottom border
-            for _ in range(4):
-                doc.add_paragraph()
-
-            # Bottom border line
-            bottom_border_para = doc.add_paragraph()
-            bottom_border_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            bottom_border_run = bottom_border_para.add_run("_" * 80)
-            bottom_border_run.font.size = Pt(14)
-            bottom_border_run.font.name = 'Times New Roman'
 
             logger.info("Independent work title page created with template design")
 
