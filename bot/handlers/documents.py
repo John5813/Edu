@@ -436,8 +436,16 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
             topic, section_count, "independent_work", user_lang
         )
 
+        # Validate content structure
+        if isinstance(content, str):
+            logger.error(f"AI returned string instead of dict: {content[:100]}")
+            content = {'sections': [], 'references': []}
+        
         # Add language info to content for template
-        content['language'] = user_lang
+        if isinstance(content, dict):
+            content['language'] = user_lang
+        else:
+            content = {'language': user_lang, 'sections': [], 'references': []}
 
         # Create document file using old professional service
         from services.document_service import DocumentService as OldDocumentService
@@ -465,7 +473,8 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
 
     except Exception as e:
         logger.error(f"Error generating independent work: {e}")
-        await callback.message.edit_text(
+        # Send new message instead of editing (can't use ReplyKeyboardMarkup with edit_text)
+        await callback.message.answer(
             "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
             reply_markup=get_main_keyboard(user_lang)
         )
@@ -509,8 +518,16 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
             topic, section_count, "referat", user_lang
         )
 
+        # Validate content structure
+        if isinstance(content, str):
+            logger.error(f"AI returned string instead of dict: {content[:100]}")
+            content = {'sections': [], 'references': []}
+        
         # Add language info to content for template
-        content['language'] = user_lang
+        if isinstance(content, dict):
+            content['language'] = user_lang
+        else:
+            content = {'language': user_lang, 'sections': [], 'references': []}
 
         # Create document file using old professional service  
         from services.document_service import DocumentService as OldDocumentService
@@ -538,6 +555,7 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
 
     except Exception as e:
         logger.error(f"Error generating referat: {e}")
+        # Send new message (already using answer, not edit_text)
         await callback.message.answer(
             "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
             reply_markup=get_main_keyboard(user_lang)
