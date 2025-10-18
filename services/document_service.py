@@ -791,10 +791,9 @@ class DocumentService:
                 if idx == 0 or idx == len(all_sections) - 1:
                     continue
 
-                # Raqamli bo'limlar
+                # Raqamli bo'limlar - bir xil chiziqda
                 numbered_count += 1
                 toc_item = doc.add_paragraph()
-                toc_item.paragraph_format.first_line_indent = Inches(0.5)
                 toc_item.add_run(f"{numbered_count}. {section['title']}")
 
             # Add "Xulosa" (Conclusion) - oxirgi bo'lim, raqamsiz
@@ -935,10 +934,9 @@ class DocumentService:
                 if idx == 0 or idx == len(all_sections) - 1:
                     continue
 
-                # Raqamli bo'limlar
+                # Raqamli bo'limlar - bir xil chiziqda
                 numbered_count += 1
                 toc_item = doc.add_paragraph()
-                toc_item.paragraph_format.first_line_indent = Inches(0.5)
                 toc_item.add_run(f"{numbered_count}. {section['title']}")
 
             # Add "Xulosa" (Conclusion) - oxirgi bo'lim, raqamsiz
@@ -1304,7 +1302,7 @@ class DocumentService:
 
             # Create page number field with proper formatting
             run = paragraph.add_run()
-            
+
             # Begin field
             fldChar1 = OxmlElement('w:fldChar')
             fldChar1.set(qn('w:fldCharType'), 'begin')
