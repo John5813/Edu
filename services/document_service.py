@@ -400,121 +400,7 @@ class DocumentService:
         # Add text content (right side)
         text_box = slide.shapes.add_textbox(
             PptxInches(6.5), PptxInches(2),
-            PptxInches(6), PptxInches(4.5)
-        )
-        text_frame = text_box.text_frame
-        text_frame.word_wrap = True
-        text_para = text_frame.paragraphs[0]
-        text_para.text = slide_data.get('content', 'Mazmun mavjud emas')
-        text_para.font.size = PptxPt(14)
-        text_para.alignment = PP_ALIGN.LEFT
-
-    async def _create_three_column_slide(self, prs, slide_data: Dict):
-        """Create SHABLON 3: Three column slide"""
-        logger.info(f"Creating three-column slide with data: {slide_data}")
-
-        slide_layout = prs.slide_layouts[6]  # Blank layout
-        slide = prs.slides.add_slide(slide_layout)
-
-        # Add title
-        title_box = slide.shapes.add_textbox(
-            PptxInches(0.5), PptxInches(0.5),
-            PptxInches(12), PptxInches(1)
-        )
-        title_frame = title_box.text_frame
-        title_para = title_frame.paragraphs[0]
-        title_para.text = slide_data.get('title', 'Uch Ustunli Slayd')
-        title_para.font.size = PptxPt(24)
-        title_para.font.bold = True
-        title_para.alignment = PP_ALIGN.CENTER
-
-        # Get content and split into 3 columns
-        content_text = slide_data.get('content', '')
-        logger.info(f"Content for 3-column: '{content_text[:100]}...'")
-
-        if not content_text or content_text.strip() == 'Mazmun mavjud emas':
-            # Create fallback content
-            columns = [
-                {'title': 'Birinchi Ustun', 'points': ['Asosiy ma\'lumot', 'Muhim nuqtalar']},
-                {'title': 'Ikkinchi Ustun', 'points': ['Qo\'shimcha ma\'lumot', 'Tafsilotlar']},
-                {'title': 'Uchinchi Ustun', 'points': ['Xulosa', 'Natijalar']}
-            ]
-        else:
-            # Split content intelligently into 3 columns
-            sentences = [s.strip() for s in content_text.replace('•', '').split('.') if s.strip()]
-
-            if len(sentences) >= 3:
-                # Distribute sentences across columns
-                per_column = max(1, len(sentences) // 3)
-                columns = []
-                for i in range(3):
-                    start_idx = i * per_column
-                    end_idx = (i + 1) * per_column if i < 2 else len(sentences)
-                    column_sentences = sentences[start_idx:end_idx]
-
-                    columns.append({
-                        'title': f'Qism {i+1}',
-                        'points': column_sentences[:3]  # Max 3 points per column
-                    })
-            else:
-                # Split by lines or create word-based columns
-                lines = [line.strip() for line in content_text.split('\n') if line.strip()]
-                if len(lines) >= 3:
-                    columns = [
-                        {'title': f'Nuqta {i+1}', 'points': [lines[i]]}
-                        for i in range(min(3, len(lines)))
-                    ]
-                else:
-                    # Word-based split for very short content
-                    words = content_text.split()
-                    if len(words) > 9:
-                        third = len(words) // 3
-                        columns = [
-                            {'title': f'Bo\'lim {i+1}', 'points': [' '.join(words[i*third:(i+1)*third]) if i < 2 else ' '.join(words[i*third:])]}
-                            for i in range(3)
-                        ]
-                    else:
-                        # Very short content - just distribute words
-                        columns = [
-                            {'title': 'Boshi', 'points': [' '.join(words[:len(words)//3])]},
-                            {'title': 'O\'rtasi', 'points': [' '.join(words[len(words)//3:2*len(words)//3])]},
-                            {'title': 'Oxiri', 'points': [' '.join(words[2*len(words)//3:])]}
-                        ]
-
-        # Create 3 columns
-        column_width = PptxInches(3.8)
-        column_height = PptxInches(4.5)
-        start_x = PptxInches(0.5)
-        start_y = PptxInches(2)
-
-        for i, column in enumerate(columns[:3]):
-            # Calculate position
-            x_pos = start_x + i * PptxInches(4.2)
-
-            # Add column textbox
-            col_box = slide.shapes.add_textbox(x_pos, start_y, column_width, column_height)
-            col_frame = col_box.text_frame
-            col_frame.word_wrap = True
-
-            # Column title
-            col_para = col_frame.paragraphs[0]
-            col_para.text = column.get('title', f'Ustun {i+1}')
-            col_para.font.size = PptxPt(18)
-            col_para.font.bold = True
-            col_para.alignment = PP_ALIGN.CENTER
-
-            # Column points
-            points = column.get('points', [])
-            logger.info(f"Column {i+1} points: {points}")
-
-            for point in points[:3]:  # Max 3 points per column
-                if point and point.strip():
-                    p = col_frame.add_paragraph()
-                    p.text = f"• {point.strip()}"
-                    p.font.size = PptxPt(12)
-                    p.alignment = PP_ALIGN.LEFT
-
-    async def _get_smart_images_for_layouts(self, topic: str, content: Dict) -> Dict[int, str]:
+            PptxInt.get_smart_images_for_layouts(self, topic: str, content: Dict) -> Dict[int, str]:
         """Get smart images only for 'text_with_image' layout slides"""
         if not self.pexels:
             logger.warning("Pexels API not configured, skipping images")
@@ -853,11 +739,10 @@ class DocumentService:
                 ref_title_run.font.bold = True
                 ref_title_run.font.size = Pt(14)
 
-                # Reverse references to show newest first
+                # Show references from newest to oldest (already in correct order from AI)
                 references = content['references'][:5]
-                references_reversed = list(reversed(references))
 
-                for idx, ref in enumerate(references_reversed, 1):
+                for idx, ref in enumerate(references, 1):
                     ref_para = doc.add_paragraph()
                     ref_para.paragraph_format.first_line_indent = Inches(0.5)
                     ref_para.paragraph_format.line_spacing = 1.5

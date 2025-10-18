@@ -510,6 +510,7 @@ Adabiyotlar ro'yxati turli xil bo'lishi kerak:
 - Ilmiy maqolalar (muallif, maqola nomi, jurnal nomi, yil)
 - Internet manbalari (sayt nomi, URL, foydalanish sanasi)
 
+MUHIM: Adabiyotlarni yangidan eskiga qarab tartiblang (eng yangi nashr birinchi bo'lsin).
 Har bir manba haqiqiy va mavzuga mos ko'rinishi kerak.
 Faqat matn yozing, hech qanday raqam va belgisiz."""
 
