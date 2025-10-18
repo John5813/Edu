@@ -489,13 +489,18 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
         # Process payment with dynamic pricing
         price = get_document_price("independent_work", {"min_pages": min_pages, "max_pages": max_pages})
         await db.update_user_balance(user.telegram_id, -price)
-        await callback.message.edit_text(get_text(user_lang, "document_ready"))
+        
+        # Delete "generating" message
+        try:
+            await callback.message.delete()
+        except:
+            pass
 
-        # Send file
+        # Send file directly
         document = FSInputFile(file_path)
         await callback.message.answer_document(
             document=document,
-            caption=f"🎓 {topic}",
+            caption=f"✅ {get_text(user_lang, 'document_ready')}\n\n🎓 {topic}",
             reply_markup=get_main_keyboard(user_lang)
         )
         
@@ -602,13 +607,18 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
         # Process payment with dynamic pricing
         price = get_document_price("referat", {"min_pages": min_pages, "max_pages": max_pages})
         await db.update_user_balance(user.telegram_id, -price)
-        await callback.message.edit_text(get_text(user_lang, "document_ready"))
+        
+        # Delete "generating" message
+        try:
+            await callback.message.delete()
+        except:
+            pass
 
-        # Send file
+        # Send file directly
         document = FSInputFile(file_path)
         await callback.message.answer_document(
             document=document,
-            caption=f"📄 {topic}",
+            caption=f"✅ {get_text(user_lang, 'document_ready')}\n\n📄 {topic}",
             reply_markup=get_main_keyboard(user_lang)
         )
         
