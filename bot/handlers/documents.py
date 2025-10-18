@@ -440,7 +440,6 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
             
             # Parse if string
             if isinstance(raw_content, str):
-                import json
                 try:
                     content = json.loads(raw_content)
                 except json.JSONDecodeError:
@@ -558,7 +557,6 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
             
             # Parse if string
             if isinstance(raw_content, str):
-                import json
                 try:
                     content = json.loads(raw_content)
                 except json.JSONDecodeError:
