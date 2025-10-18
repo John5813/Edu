@@ -432,41 +432,51 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
         # Generate content with AI using old professional service
         from services.ai_service import AIService as OldAIService
         ai_service = OldAIService()
-        content = await ai_service.generate_document_content(
-            topic, section_count, "independent_work", user_lang
-        )
-
-        # Validate content structure - ensure it's always a dict with required keys
-        if not isinstance(content, dict):
-            logger.error(f"AI returned non-dict content: {type(content)}")
-            content = {'sections': [], 'references': [], 'language': user_lang}
-        elif 'sections' not in content:
-            logger.error("Content missing 'sections' key")
-            content['sections'] = []
-            content['references'] = content.get('references', [])
-            content['language'] = user_lang
-        else:
-            # Ensure language key exists
-            content['language'] = user_lang
-            # Ensure references key exists
-            if 'references' not in content:
-                content['references'] = []
+        
+        try:
+            raw_content = await ai_service.generate_document_content(
+                topic, section_count, "independent_work", user_lang
+            )
             
-            # Validate each section is a dict with title and content
+            # Parse if string
+            if isinstance(raw_content, str):
+                import json
+                try:
+                    content = json.loads(raw_content)
+                except json.JSONDecodeError:
+                    logger.error(f"Failed to parse AI response as JSON: {raw_content[:100]}")
+                    content = {'sections': [], 'references': []}
+            else:
+                content = raw_content
+                
+        except Exception as e:
+            logger.error(f"Error getting AI content: {e}")
+            content = {'sections': [], 'references': []}
+
+        # Ensure content is dict
+        if not isinstance(content, dict):
+            logger.error(f"Content is not dict after parsing: {type(content)}")
+            content = {'sections': [], 'references': []}
+        
+        # Add language
+        content['language'] = user_lang
+        
+        # Validate sections
+        if 'sections' not in content or not content['sections']:
+            logger.error("No sections in content")
+            content['sections'] = []
+        else:
             validated_sections = []
-            for idx, section in enumerate(content.get('sections', [])):
+            for idx, section in enumerate(content['sections']):
                 if isinstance(section, dict) and 'title' in section and 'content' in section:
                     validated_sections.append(section)
-                elif isinstance(section, dict):
-                    # Has dict but missing keys
-                    validated_sections.append({
-                        'title': section.get('title', f'Bo\'lim {idx + 1}'),
-                        'content': section.get('content', '')
-                    })
                 else:
-                    # Not a dict at all, skip it
-                    logger.error(f"Section {idx} is not a dict: {type(section)}")
+                    logger.error(f"Invalid section {idx}: {section}")
             content['sections'] = validated_sections
+        
+        # Ensure references
+        if 'references' not in content:
+            content['references'] = []
 
         # Create document file using old professional service
         from services.document_service import DocumentService as OldDocumentService
@@ -535,41 +545,51 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
         # Generate content with AI using old professional service
         from services.ai_service import AIService as OldAIService
         ai_service = OldAIService()
-        content = await ai_service.generate_document_content(
-            topic, section_count, "referat", user_lang
-        )
-
-        # Validate content structure - ensure it's always a dict with required keys
-        if not isinstance(content, dict):
-            logger.error(f"AI returned non-dict content: {type(content)}")
-            content = {'sections': [], 'references': [], 'language': user_lang}
-        elif 'sections' not in content:
-            logger.error("Content missing 'sections' key")
-            content['sections'] = []
-            content['references'] = content.get('references', [])
-            content['language'] = user_lang
-        else:
-            # Ensure language key exists
-            content['language'] = user_lang
-            # Ensure references key exists
-            if 'references' not in content:
-                content['references'] = []
+        
+        try:
+            raw_content = await ai_service.generate_document_content(
+                topic, section_count, "referat", user_lang
+            )
             
-            # Validate each section is a dict with title and content
+            # Parse if string
+            if isinstance(raw_content, str):
+                import json
+                try:
+                    content = json.loads(raw_content)
+                except json.JSONDecodeError:
+                    logger.error(f"Failed to parse AI response as JSON: {raw_content[:100]}")
+                    content = {'sections': [], 'references': []}
+            else:
+                content = raw_content
+                
+        except Exception as e:
+            logger.error(f"Error getting AI content: {e}")
+            content = {'sections': [], 'references': []}
+
+        # Ensure content is dict
+        if not isinstance(content, dict):
+            logger.error(f"Content is not dict after parsing: {type(content)}")
+            content = {'sections': [], 'references': []}
+        
+        # Add language
+        content['language'] = user_lang
+        
+        # Validate sections
+        if 'sections' not in content or not content['sections']:
+            logger.error("No sections in content")
+            content['sections'] = []
+        else:
             validated_sections = []
-            for idx, section in enumerate(content.get('sections', [])):
+            for idx, section in enumerate(content['sections']):
                 if isinstance(section, dict) and 'title' in section and 'content' in section:
                     validated_sections.append(section)
-                elif isinstance(section, dict):
-                    # Has dict but missing keys
-                    validated_sections.append({
-                        'title': section.get('title', f'Bo\'lim {idx + 1}'),
-                        'content': section.get('content', '')
-                    })
                 else:
-                    # Not a dict at all, skip it
-                    logger.error(f"Section {idx} is not a dict: {type(section)}")
+                    logger.error(f"Invalid section {idx}: {section}")
             content['sections'] = validated_sections
+        
+        # Ensure references
+        if 'references' not in content:
+            content['references'] = []
 
         # Create document file using old professional service  
         from services.document_service import DocumentService as OldDocumentService
