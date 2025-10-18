@@ -436,16 +436,21 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
             topic, section_count, "independent_work", user_lang
         )
 
-        # Validate content structure
-        if isinstance(content, str):
-            logger.error(f"AI returned string instead of dict: {content[:100]}")
-            content = {'sections': [], 'references': []}
-        
-        # Add language info to content for template
-        if isinstance(content, dict):
+        # Validate content structure - ensure it's always a dict with required keys
+        if not isinstance(content, dict):
+            logger.error(f"AI returned non-dict content: {type(content)}")
+            content = {'sections': [], 'references': [], 'language': user_lang}
+        elif 'sections' not in content:
+            logger.error("Content missing 'sections' key")
+            content['sections'] = []
+            content['references'] = content.get('references', [])
             content['language'] = user_lang
         else:
-            content = {'language': user_lang, 'sections': [], 'references': []}
+            # Ensure language key exists
+            content['language'] = user_lang
+            # Ensure references key exists
+            if 'references' not in content:
+                content['references'] = []
 
         # Create document file using old professional service
         from services.document_service import DocumentService as OldDocumentService
@@ -518,16 +523,21 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
             topic, section_count, "referat", user_lang
         )
 
-        # Validate content structure
-        if isinstance(content, str):
-            logger.error(f"AI returned string instead of dict: {content[:100]}")
-            content = {'sections': [], 'references': []}
-        
-        # Add language info to content for template
-        if isinstance(content, dict):
+        # Validate content structure - ensure it's always a dict with required keys
+        if not isinstance(content, dict):
+            logger.error(f"AI returned non-dict content: {type(content)}")
+            content = {'sections': [], 'references': [], 'language': user_lang}
+        elif 'sections' not in content:
+            logger.error("Content missing 'sections' key")
+            content['sections'] = []
+            content['references'] = content.get('references', [])
             content['language'] = user_lang
         else:
-            content = {'language': user_lang, 'sections': [], 'references': []}
+            # Ensure language key exists
+            content['language'] = user_lang
+            # Ensure references key exists
+            if 'references' not in content:
+                content['references'] = []
 
         # Create document file using old professional service  
         from services.document_service import DocumentService as OldDocumentService
