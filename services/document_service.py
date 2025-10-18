@@ -779,37 +779,16 @@ class DocumentService:
 
             # Get all sections
             all_sections = content.get('sections', [])
-            total_sections = len(all_sections)
-
-            # Reja qisqartirish tizimi
-            # 9 bo'lim -> 7 ta ko'rsatamiz (2,5 ni yashiramiz)
-            # 12 bo'lim -> 8 ta ko'rsatamiz (2,4,6,8 ni yashiramiz)
-            # 15 bo'lim -> 10 ta ko'rsatamiz (2,4,6,8,10,12,14 ni yashiramiz)
-
-            hidden_indices = set()
-            if total_sections == 9:
-                # 2-chi va 5-chi bo'limlarni yashiramiz (indices 1 va 4)
-                hidden_indices = {1, 4}
-            elif total_sections == 12:
-                # 2,4,6,8 chi bo'limlarni yashiramiz
-                hidden_indices = {1, 3, 5, 7}
-            elif total_sections == 15:
-                # Har 2-chi bo'limni yashiramiz: 2,4,6,8,10
-                hidden_indices = {1, 3, 5, 7, 9}
 
             # Add "Kirish" (Introduction) - birinchi bo'lim, raqamsiz
             toc_item = doc.add_paragraph()
             toc_item.add_run(toc_texts['kirish'])
 
-            # Add numbered sections (birinchi va oxirgisini tashlab ketamiz, va yashirilganlarni ham)
+            # Add numbered sections (birinchi va oxirgisini tashlab ketamiz)
             numbered_count = 0
             for idx, section in enumerate(all_sections):
                 # Birinchi bo'lim (Kirish) va oxirgi bo'lim (Xulosa) ni o'tkazib yuboramiz
                 if idx == 0 or idx == len(all_sections) - 1:
-                    continue
-
-                # Yashirilgan bo'limlarni o'tkazib yuboramiz
-                if idx in hidden_indices:
                     continue
 
                 # Raqamli bo'limlar
@@ -834,34 +813,13 @@ class DocumentService:
             for section in doc.sections:
                 self._add_page_number(section)
 
-            # Add sections content with proper numbering and merging
+            # Add sections content with proper numbering
             numbered_section_count = 0  # Counter for numbered sections only
-            total_sections = len(all_sections)
-
-            # Reja qisqartirish tizimi
-            hidden_indices = set()
-            if total_sections == 9:
-                hidden_indices = {1, 4}  # 2-chi va 5-chi
-            elif total_sections == 12:
-                hidden_indices = {1, 3, 5, 7}  # 2,4,6,8
-            elif total_sections == 15:
-                hidden_indices = {1, 3, 5, 7, 9}  # 2,4,6,8,10
 
             for idx, section in enumerate(all_sections):
                 title = section['title']
-                content = section['content']
 
-                # Yashirilgan bo'limni oldingi bo'limga qo'shamiz
-                if idx in hidden_indices and idx > 0:
-                    # Oldingi paragrafga abzats sifatida qo'shamiz
-                    doc.add_paragraph()  # Bo'sh qator
-                    content_para = doc.add_paragraph(content)
-                    content_para.paragraph_format.first_line_indent = Inches(0.5)
-                    content_para.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                    content_para.paragraph_format.line_spacing = 1.5
-                    continue  # Sarlavhasiz faqat matn qo'shamiz
-
-                # Oddiy bo'limlar uchun sarlavha + matn
+                # Section title
                 section_title = doc.add_paragraph()
                 section_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
@@ -881,7 +839,7 @@ class DocumentService:
                 section_title_run.font.size = Pt(14)
 
                 # Section content
-                content_para = doc.add_paragraph(content)
+                content_para = doc.add_paragraph(section['content'])
                 content_para.paragraph_format.first_line_indent = Inches(0.5)
                 content_para.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                 content_para.paragraph_format.line_spacing = 1.5
@@ -999,34 +957,13 @@ class DocumentService:
             for section in doc.sections:
                 self._add_page_number(section)
 
-            # Add sections content with proper numbering and merging
+            # Add sections content with proper numbering
             numbered_section_count = 0  # Counter for numbered sections only
-            total_sections = len(all_sections)
-
-            # Reja qisqartirish tizimi (referat uchun ham)
-            hidden_indices = set()
-            if total_sections == 9:
-                hidden_indices = {1, 4}
-            elif total_sections == 12:
-                hidden_indices = {1, 3, 5, 7}
-            elif total_sections == 15:
-                hidden_indices = {1, 3, 5, 7, 9}
 
             for idx, section in enumerate(all_sections):
                 title = section['title']
-                content = section['content']
 
-                # Yashirilgan bo'limni oldingi bo'limga qo'shamiz
-                if idx in hidden_indices and idx > 0:
-                    # Oldingi paragrafga abzats sifatida qo'shamiz
-                    doc.add_paragraph()  # Bo'sh qator
-                    content_para = doc.add_paragraph(content)
-                    content_para.paragraph_format.first_line_indent = Inches(0.5)
-                    content_para.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                    content_para.paragraph_format.line_spacing = 1.5
-                    continue  # Sarlavhasiz faqat matn qo'shamiz
-
-                # Oddiy bo'limlar uchun sarlavha + matn
+                # Section title
                 section_title = doc.add_paragraph()
                 section_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
@@ -1046,7 +983,7 @@ class DocumentService:
                 section_title_run.font.size = Pt(14)
 
                 # Section content
-                content_para = doc.add_paragraph(content)
+                content_para = doc.add_paragraph(section['content'])
                 content_para.paragraph_format.first_line_indent = Inches(0.5)
                 content_para.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                 content_para.paragraph_format.line_spacing = 1.5

@@ -432,50 +432,12 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
         # Generate content with AI using old professional service
         from services.ai_service import AIService as OldAIService
         ai_service = OldAIService()
-        
-        try:
-            raw_content = await ai_service.generate_document_content(
-                topic, section_count, "independent_work", user_lang
-            )
-            
-            # Parse if string
-            if isinstance(raw_content, str):
-                try:
-                    content = json.loads(raw_content)
-                except json.JSONDecodeError:
-                    logger.error(f"Failed to parse AI response as JSON: {raw_content[:100]}")
-                    content = {'sections': [], 'references': []}
-            else:
-                content = raw_content
-                
-        except Exception as e:
-            logger.error(f"Error getting AI content: {e}")
-            content = {'sections': [], 'references': []}
+        content = await ai_service.generate_document_content(
+            topic, section_count, "independent_work", user_lang
+        )
 
-        # Ensure content is dict
-        if not isinstance(content, dict):
-            logger.error(f"Content is not dict after parsing: {type(content)}")
-            content = {'sections': [], 'references': []}
-        
-        # Add language
+        # Add language info to content for template
         content['language'] = user_lang
-        
-        # Validate sections
-        if 'sections' not in content or not content['sections']:
-            logger.error("No sections in content")
-            content['sections'] = []
-        else:
-            validated_sections = []
-            for idx, section in enumerate(content['sections']):
-                if isinstance(section, dict) and 'title' in section and 'content' in section:
-                    validated_sections.append(section)
-                else:
-                    logger.error(f"Invalid section {idx}: {section}")
-            content['sections'] = validated_sections
-        
-        # Ensure references
-        if 'references' not in content:
-            content['references'] = []
 
         # Create document file using old professional service
         from services.document_service import DocumentService as OldDocumentService
@@ -488,18 +450,13 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
         # Process payment with dynamic pricing
         price = get_document_price("independent_work", {"min_pages": min_pages, "max_pages": max_pages})
         await db.update_user_balance(user.telegram_id, -price)
-        
-        # Delete "generating" message
-        try:
-            await callback.message.delete()
-        except:
-            pass
+        await callback.message.edit_text(get_text(user_lang, "document_ready"))
 
-        # Send file directly
+        # Send file
         document = FSInputFile(file_path)
         await callback.message.answer_document(
             document=document,
-            caption=f"✅ {get_text(user_lang, 'document_ready')}\n\n🎓 {topic}",
+            caption=f"🎓 {topic}",
             reply_markup=get_main_keyboard(user_lang)
         )
         
@@ -508,8 +465,7 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
 
     except Exception as e:
         logger.error(f"Error generating independent work: {e}")
-        # Send new message instead of editing (can't use ReplyKeyboardMarkup with edit_text)
-        await callback.message.answer(
+        await callback.message.edit_text(
             "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
             reply_markup=get_main_keyboard(user_lang)
         )
@@ -549,50 +505,12 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
         # Generate content with AI using old professional service
         from services.ai_service import AIService as OldAIService
         ai_service = OldAIService()
-        
-        try:
-            raw_content = await ai_service.generate_document_content(
-                topic, section_count, "referat", user_lang
-            )
-            
-            # Parse if string
-            if isinstance(raw_content, str):
-                try:
-                    content = json.loads(raw_content)
-                except json.JSONDecodeError:
-                    logger.error(f"Failed to parse AI response as JSON: {raw_content[:100]}")
-                    content = {'sections': [], 'references': []}
-            else:
-                content = raw_content
-                
-        except Exception as e:
-            logger.error(f"Error getting AI content: {e}")
-            content = {'sections': [], 'references': []}
+        content = await ai_service.generate_document_content(
+            topic, section_count, "referat", user_lang
+        )
 
-        # Ensure content is dict
-        if not isinstance(content, dict):
-            logger.error(f"Content is not dict after parsing: {type(content)}")
-            content = {'sections': [], 'references': []}
-        
-        # Add language
+        # Add language info to content for template
         content['language'] = user_lang
-        
-        # Validate sections
-        if 'sections' not in content or not content['sections']:
-            logger.error("No sections in content")
-            content['sections'] = []
-        else:
-            validated_sections = []
-            for idx, section in enumerate(content['sections']):
-                if isinstance(section, dict) and 'title' in section and 'content' in section:
-                    validated_sections.append(section)
-                else:
-                    logger.error(f"Invalid section {idx}: {section}")
-            content['sections'] = validated_sections
-        
-        # Ensure references
-        if 'references' not in content:
-            content['references'] = []
 
         # Create document file using old professional service  
         from services.document_service import DocumentService as OldDocumentService
@@ -605,18 +523,13 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
         # Process payment with dynamic pricing
         price = get_document_price("referat", {"min_pages": min_pages, "max_pages": max_pages})
         await db.update_user_balance(user.telegram_id, -price)
-        
-        # Delete "generating" message
-        try:
-            await callback.message.delete()
-        except:
-            pass
+        await callback.message.edit_text(get_text(user_lang, "document_ready"))
 
-        # Send file directly
+        # Send file
         document = FSInputFile(file_path)
         await callback.message.answer_document(
             document=document,
-            caption=f"✅ {get_text(user_lang, 'document_ready')}\n\n📄 {topic}",
+            caption=f"📄 {topic}",
             reply_markup=get_main_keyboard(user_lang)
         )
         
@@ -625,7 +538,6 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
 
     except Exception as e:
         logger.error(f"Error generating referat: {e}")
-        # Send new message (already using answer, not edit_text)
         await callback.message.answer(
             "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
             reply_markup=get_main_keyboard(user_lang)
