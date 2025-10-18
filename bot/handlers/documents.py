@@ -451,6 +451,22 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
             # Ensure references key exists
             if 'references' not in content:
                 content['references'] = []
+            
+            # Validate each section is a dict with title and content
+            validated_sections = []
+            for idx, section in enumerate(content.get('sections', [])):
+                if isinstance(section, dict) and 'title' in section and 'content' in section:
+                    validated_sections.append(section)
+                elif isinstance(section, dict):
+                    # Has dict but missing keys
+                    validated_sections.append({
+                        'title': section.get('title', f'Bo\'lim {idx + 1}'),
+                        'content': section.get('content', '')
+                    })
+                else:
+                    # Not a dict at all, skip it
+                    logger.error(f"Section {idx} is not a dict: {type(section)}")
+            content['sections'] = validated_sections
 
         # Create document file using old professional service
         from services.document_service import DocumentService as OldDocumentService
@@ -538,6 +554,22 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
             # Ensure references key exists
             if 'references' not in content:
                 content['references'] = []
+            
+            # Validate each section is a dict with title and content
+            validated_sections = []
+            for idx, section in enumerate(content.get('sections', [])):
+                if isinstance(section, dict) and 'title' in section and 'content' in section:
+                    validated_sections.append(section)
+                elif isinstance(section, dict):
+                    # Has dict but missing keys
+                    validated_sections.append({
+                        'title': section.get('title', f'Bo\'lim {idx + 1}'),
+                        'content': section.get('content', '')
+                    })
+                else:
+                    # Not a dict at all, skip it
+                    logger.error(f"Section {idx} is not a dict: {type(section)}")
+            content['sections'] = validated_sections
 
         # Create document file using old professional service  
         from services.document_service import DocumentService as OldDocumentService
