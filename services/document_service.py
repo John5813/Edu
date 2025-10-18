@@ -1302,21 +1302,29 @@ class DocumentService:
             paragraph = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
             paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-            # Create page number field
+            # Create page number field with proper formatting
             run = paragraph.add_run()
+            
+            # Begin field
             fldChar1 = OxmlElement('w:fldChar')
             fldChar1.set(qn('w:fldCharType'), 'begin')
+            run._r.append(fldChar1)
 
+            # Field instruction - PAGE for current page number
             instrText = OxmlElement('w:instrText')
             instrText.set(qn('xml:space'), 'preserve')
             instrText.text = "PAGE"
-
-            fldChar2 = OxmlElement('w:fldChar')
-            fldChar2.set(qn('w:fldCharType'), 'end')
-
-            run._r.append(fldChar1)
             run._r.append(instrText)
+
+            # Separate field (this is important for proper page numbering)
+            fldChar2 = OxmlElement('w:fldChar')
+            fldChar2.set(qn('w:fldCharType'), 'separate')
             run._r.append(fldChar2)
+
+            # End field
+            fldChar3 = OxmlElement('w:fldChar')
+            fldChar3.set(qn('w:fldCharType'), 'end')
+            run._r.append(fldChar3)
 
             run.font.size = Pt(14)
             run.font.name = 'Times New Roman'
