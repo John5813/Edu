@@ -144,10 +144,11 @@ class AIService:
         # Layout-specific instructions
         layout_instructions = {
             "bullet_points": f"""
-LAYOUT: 4 nuqtali matn (bullet_points)
-- Har bir nuqta alohida bullet tarzida yozilsin.
-- FAQAT 50-70 so'z (barcha nuqtalar birgalikda)
-- Fikrlar xilma-xil bo'lsin.
+LAYOUT: Uzun uzluksiz matn (bullet_points)
+- AYNAN 40 SO'ZLIK uzluksiz matn yozing
+- Matn sarlavhaga to'liq mos kelishi kerak
+- Umumiy emas, MAVZUGA XOSLIK bo'lishi shart
+- Matn bir butun paragraf ko'rinishida
 """,
             "text_with_image": f"""
 LAYOUT: Uzun yahlit matn (text_with_image)
