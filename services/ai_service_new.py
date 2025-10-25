@@ -24,36 +24,46 @@ class AIService:
             Siz taqdimot yaratish uchun yordamchi bo'lasiz. 
             Mavzu: "{topic}".
             Foydalanuvchi {num_slides} ta slayd xohladi. 
-            Har bir slayd uchun alohida sarlavha yozing.
-            E'tibor bering:
-            - Har bir sarlavha mavzudan chetlanmasin.
-            - Sarlavhalar xilma-xil bo'lsin, hammasi mavzu nomi bilan boshlanib ketmasin.
-            - Sarlavhalar qisqa, tushunarli va taqdimot uslubida yozilsin.
-            - Faqat sarlavhalarni ro'yxat ko'rinishida bering, boshqa matn yo'q.
+            
+            JUDA MUHIM TALABLAR:
+            1. Har bir sarlavha MAVZUNING TURLI JIHATI haqida bo'lsin
+            2. Sarlavhalar bir-birini TAKRORLAMASIN
+            3. Hammasi "{topic}" so'zi bilan boshlanmasin - xilma-xil yozing
+            4. Har bir sarlavha ANIQ VA BOSHQACHA mavzu bo'lsin
+            
+            Masalan, agar mavzu "Iqtisodiy faoliyat" bo'lsa:
+            - ❌ NOTO'G'RI: "Iqtisodiy faoliyat turlari", "Iqtisodiy faoliyat asoslari", "Iqtisodiy faoliyat yo'nalishlari"
+            - ✅ TO'G'RI: "Bozor iqtisodiyoti asoslari", "Moliyaviy tahlil usullari", "Raqobat strategiyalari"
+            
+            Faqat sarlavhalarni ro'yxat ko'rinishida bering (1. 2. 3. ... formatida), boshqa matn yo'q.
             """
         elif language == "ru":
             prompt = f"""
             Вы помощник для создания презентаций.
             Тема: "{topic}".
             Пользователь хочет {num_slides} слайдов.
-            Напишите отдельный заголовок для каждого слайда.
-            Обратите внимание:
-            - Каждый заголовок должен соответствовать теме.
-            - Заголовки должны быть разнообразными, не все должны начинаться с названия темы.
-            - Заголовки должны быть краткими, понятными и в стиле презентации.
-            - Дайте только заголовки в виде списка, без дополнительного текста.
+            
+            ОЧЕНЬ ВАЖНЫЕ ТРЕБОВАНИЯ:
+            1. Каждый заголовок должен быть о РАЗНЫХ АСПЕКТАХ темы
+            2. Заголовки НЕ ДОЛЖНЫ ПОВТОРЯТЬСЯ
+            3. Не все должны начинаться со слов "{topic}" - разнообразьте
+            4. Каждый заголовок должен быть ЧЕТКИМ И УНИКАЛЬНЫМ
+            
+            Дайте только заголовки в виде списка (в формате 1. 2. 3. ...), без дополнительного текста.
             """
         else:  # English
             prompt = f"""
             You are a presentation creation assistant.
             Topic: "{topic}".
             User wants {num_slides} slides.
-            Write a separate title for each slide.
-            Note:
-            - Each title should stay on topic.
-            - Titles should be diverse, not all starting with the topic name.
-            - Titles should be short, clear and in presentation style.
-            - Provide only the titles as a list, no additional text.
+            
+            VERY IMPORTANT REQUIREMENTS:
+            1. Each title should be about DIFFERENT ASPECTS of the topic
+            2. Titles should NOT REPEAT each other
+            3. Don't all start with "{topic}" - diversify
+            4. Each title should be CLEAR AND UNIQUE
+            
+            Provide only the titles as a list (in format 1. 2. 3. ...), no additional text.
             """
         
         try:
@@ -78,41 +88,135 @@ class AIService:
         """Generate presentation content using improved step-by-step method with context continuation"""
         logger.info(f"Starting improved batch presentation generation for '{topic}' with {slide_count} slides in {language}")
         
-        # Step 1: Generate slide titles first
+        # Step 1: Generate slide titles first - BARCHA SLAYDLAR UCHUN
         slide_titles = await self.generate_slide_titles(topic, slide_count, language)
-        logger.info(f"Generated {len(slide_titles)} slide titles")
+        logger.info(f"Generated {len(slide_titles)} slide titles: {slide_titles}")
         
         all_slides = []
-        previous_context = ""  # Track previous batch content for continuity
+        used_topics = set()  # Allaqachon ishlatilgan mavzularni kuzatish
         
-        # Step 2: Generate content in batches of 3 slides using titles with context
-        for batch_start in range(1, slide_count + 1, 3):
-            batch_end = min(batch_start + 2, slide_count)
-            logger.info(f"Generating batch: slides {batch_start}-{batch_end}")
+        # Step 2: Har bir slayd uchun ALOHIDA kontent yaratish (batches emas, individual)
+        for slide_num in range(1, slide_count + 1):
+            logger.info(f"Generating individual slide {slide_num} of {slide_count}")
             
-            # Get titles for this batch
-            batch_titles = slide_titles[batch_start-1:batch_end] if batch_start-1 < len(slide_titles) else []
+            # Get title for this slide
+            slide_title = slide_titles[slide_num-1] if slide_num-1 < len(slide_titles) else f"Slayd {slide_num}"
             
-            # Pass previous context for logical continuation
-            batch_content = await self._generate_slide_batch_with_context(
-                topic, batch_start, batch_end, slide_count, language, batch_titles, previous_context
+            # Get layout type for this slide
+            layout_type = self._get_layout_type(slide_num)
+            
+            # Generate unique content for this specific slide
+            slide_content = await self._generate_single_slide_unique(
+                topic, slide_num, slide_title, layout_type, language, used_topics, slide_titles
             )
             
-            if batch_content and 'slides' in batch_content:
-                all_slides.extend(batch_content['slides'])
-                
-                # Update context for next batch - use last slide content as context
-                if batch_content['slides']:
-                    last_slide = batch_content['slides'][-1]
-                    previous_context = f"Oldingi slayd: '{last_slide.get('title', '')}' - {last_slide.get('content', '')[:200]}..."
-                    logger.info(f"Updated context for next batch: {len(previous_context)} chars")
+            if slide_content:
+                all_slides.append(slide_content)
+                # Track used content to avoid repetition
+                used_topics.add(slide_title)
+                if 'content' in slide_content:
+                    # Add key phrases from content to used topics
+                    content_words = str(slide_content['content']).split()[:10]
+                    used_topics.update(content_words)
             
-            # Small delay between batches
-            if batch_end < slide_count:
-                await asyncio.sleep(0.5)
+            # Small delay between slides
+            if slide_num < slide_count:
+                await asyncio.sleep(0.3)
 
-        logger.info(f"Generated complete presentation with {len(all_slides)} slides")
+        logger.info(f"Generated complete presentation with {len(all_slides)} unique slides")
         return {"slides": all_slides}
+
+    async def _generate_single_slide_unique(self, topic: str, slide_num: int, slide_title: str, layout_type: str, language: str, used_topics: set, all_titles: List[str]) -> Dict:
+        """Generate unique content for a single slide, avoiding repetition"""
+        
+        language_instructions = {
+            'uz': "O'zbek tilida",
+            'ru': "На русском языке", 
+            'en': "In English"
+        }
+        
+        lang_instruction = language_instructions.get(language, "O'zbek tilida")
+        
+        # Create context of what has been covered
+        covered_topics_str = ", ".join(list(used_topics)[:20]) if used_topics else "Hali hech narsa yozilmagan"
+        all_titles_str = "\n".join([f"{i+1}. {t}" for i, t in enumerate(all_titles)])
+        
+        # Layout-specific instructions
+        layout_instructions = {
+            "bullet_points": f"""
+LAYOUT: 4 nuqtali matn (bullet_points)
+- Har bir nuqta alohida bullet tarzida yozilsin.
+- FAQAT 50-70 so'z (barcha nuqtalar birgalikda)
+- Fikrlar xilma-xil bo'lsin.
+""",
+            "text_with_image": f"""
+LAYOUT: Uzun yahlit matn (text_with_image)
+- FAQAT 40-60 so'zli matn yozing.
+- Matn bir butun tarzida, sarlavhaga chuqurroq sharh sifatida yozilsin.
+- MUHIM: RASM HAQIDA YOZMANG! Faqat mavzu haqida ma'lumot yozing.
+""",
+            "three_column": f"""
+LAYOUT: 3 ustunli matn (three_column)
+MUHIM: Har bir ustun alohida mavzu bo'lishi kerak!
+Format: "COLUMN1: Sarlavha1|Matn1 (50-70 so'z) COLUMN2: Sarlavha2|Matn2 (50-70 so'z) COLUMN3: Sarlavha3|Matn3 (50-70 so'z)"
+- Har ustun uchun BOSHQA mavzu: masalan, sabablari, ta'siri, yechimlar
+- Har ustunda to'liq 50-70 so'zli mazmun
+"""
+        }
+        
+        layout_instruction = layout_instructions.get(layout_type, layout_instructions["bullet_points"])
+        
+        prompt = f"""
+Siz taqdimot yaratish bo'yicha yordamchisiz. 
+{lang_instruction} javob bering.
+
+UMUMIY MAVZU: "{topic}"
+SLAYD RAQAMI: {slide_num}
+SLAYD SARLAVHASI: "{slide_title}"
+
+BARCHA SLAYDLAR RO'YXATI (takrorlanmasin):
+{all_titles_str}
+
+ALLAQACHON YOZILGAN MAVZULAR (bularni TAKRORLAMANG):
+{covered_topics_str}
+
+{layout_instruction}
+
+JUDA MUHIM TALABLAR:
+1. "{slide_title}" sarlavhasi uchun FAQAT SHU SARLAVHAGA OID ma'lumot yozing
+2. Oldingi slaydlarda yozilgan ma'lumotlarni TAKRORLAMANG
+3. Har bir slayd BOSHQA JIHAT haqida bo'lsin
+4. Agar 3 ustunli bo'lsa, har ustun ALOHIDA mavzu bo'lsin (bir matnni 3 ga bo'lmang!)
+
+JSON formatda javob bering:
+{{
+  "slide_number": {slide_num},
+  "title": "{slide_title}",
+  "content": "Layout tipiga mos NOYOB kontent...",
+  "layout_type": "{layout_type}"
+}}
+"""
+
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"},
+                temperature=0.8  # Higher temperature for more unique content
+            )
+            
+            content_text = response.choices[0].message.content
+            import json
+            if content_text:
+                slide_data = json.loads(content_text)
+                logger.info(f"Generated unique slide {slide_num}: {slide_title[:50]}")
+                return slide_data
+            else:
+                return None
+            
+        except Exception as e:
+            logger.error(f"Error generating unique slide {slide_num}: {e}")
+            return None
 
     async def _generate_slide_batch_with_context(self, topic: str, start_slide: int, end_slide: int, total_slides: int, language: str, titles: List[str], previous_context: str = "") -> Dict:
         """Generate a batch of 3 slides using pre-generated titles with improved layouts"""
