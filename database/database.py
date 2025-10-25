@@ -278,7 +278,8 @@ class Database:
                 rows = await cursor.fetchall()
                 return [Payment(**dict(row)) for row in rows]
 
-    async def update_payment_amount(self, payment_id: int, new_amount: int):
+    @staticmethod
+    async def update_payment_amount(payment_id: int, new_amount: int):
         """Update payment amount"""
         async with aiosqlite.connect(DATABASE_FILE) as db:
             await db.execute(
@@ -288,7 +289,7 @@ class Database:
             await db.commit()
 
     @staticmethod
-    async def update_payment_status(self, payment_id: int, status: str):
+    async def update_payment_status(payment_id: int, status: str):
         """Update payment status"""
         async with aiosqlite.connect(DATABASE_FILE) as db:
             await db.execute(
