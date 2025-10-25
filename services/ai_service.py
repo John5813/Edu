@@ -22,23 +22,30 @@ class AIService:
             if language == "uz":
                 prompt = f"""O'zbek tilida "{topic}" mavzusida {slide_count} ta slaydli professional taqdimot yarating.
 
+JUDA MUHIM TALABLAR:
+1. HAR BIR SLAYD BOSHQACHA MA'LUMOTGA EGA BO'LISHI KERAK - takrorlanmasin!
+2. Har bir slayd mavzuning TURLI JIHATLARI haqida bo'lsin
+3. Bir xil ma'lumot yoki tushuncha TAKRORLANMASIN
+4. Rasm bo'lgan slaidlarda RASM HAQIDA GAP QILMANG - faqat mavzuga oid ma'lumot bering
+
 3 XIL SHABLON TIZIMI - har 3 slaydda takrorlanadi:
 - Slayd 2,5,8,11,14... = SHABLON 1 (faqat matn)
 - Slayd 3,6,9,12,15... = SHABLON 2 (matn + rasm)  
 - Slayd 4,7,10,13,16... = SHABLON 3 (3 ustunli)
 
 SHABLON 1 - Faqat matn:
-- Sarlavha + 4-5 ta bullet point yoki 2 paragraf
-- 150-200 so'z, batafsil tushuntirish
+- Sarlavha + 3-4 ta bullet point
+- FAQAT 50-70 so'z, qisqa va aniq
 
 SHABLON 2 - Matn + rasm:
-- Sarlavha + 3-4 ta qisqa bullet point
-- 100-120 so'z (rasm ham bo'lgani uchun)
+- Sarlavha + 2-3 ta qisqa bullet point
+- FAQAT 40-60 so'z
+- MUHIM: RASM HAQIDA GAP QILMANG! Faqat mavzu haqida ma'lumot yozing.
 
 SHABLON 3 - 3 ustunli:
 - Sarlavha + matnni 3 qismga bo'lish
 - Har ustun uchun 2-3 bullet point
-- Jami 120-150 so'z
+- Jami 50-70 so'z (barcha ustunlar birgalikda)
 
 MUHIM: Faqat JSON formatda javob bering. Boshqa matn yo'q!
 
@@ -66,62 +73,102 @@ MUHIM: Faqat JSON formatda javob bering. Boshqa matn yo'q!
             elif language == "ru":
                 prompt = f"""Создайте профессиональную презентацию на тему "{topic}" из {slide_count} слайдов на русском языке.
 
-ВАЖНЫЕ ТРЕБОВАНИЯ:
-- Напишите минимум 150-200 слов для каждого слайда
-- Слайды должны быть в разных форматах:
-  * Некоторые слайды со списком (3-5 основных пунктов)
-  * Некоторые слайды с непрерывным текстом в параграфах
-  * Некоторые слайды с нумерованным списком (1, 2, 3...)
-  * Некоторые слайды с классификацией и категориями
-- Каждый слайд должен содержать глубокую и детальную информацию
-- Приводите практические примеры и факты
-- Используйте профессиональный академический стиль
+ОЧЕНЬ ВАЖНЫЕ ТРЕБОВАНИЯ:
+1. КАЖДЫЙ СЛАЙД ДОЛЖЕН СОДЕРЖАТЬ РАЗНУЮ ИНФОРМАЦИЮ - не повторяйте!
+2. Каждый слайд должен освещать РАЗНЫЕ АСПЕКТЫ темы
+3. Одинаковая информация или понятия НЕ ДОЛЖНЫ ПОВТОРЯТЬСЯ
+4. На слайдах с изображениями НЕ ПИШИТЕ ОБ ИЗОБРАЖЕНИИ - только о теме
 
-Типы слайдов:
-1. Вводный слайд - общая информация о теме
-2-3. Теоретические основы - в форме параграфов
-4-5. Основные понятия - в виде списка
-6-7. Практические примеры - нумерованный список
-8-9. Проблемы и решения - категории
-10+. Заключение и рекомендации
+3 ТИПА ШАБЛОНОВ - повторяются каждые 3 слайда:
+- Слайд 2,5,8,11,14... = ШАБЛОН 1 (только текст)
+- Слайд 3,6,9,12,15... = ШАБЛОН 2 (текст + изображение)  
+- Слайд 4,7,10,13,16... = ШАБЛОН 3 (3 колонки)
 
-Ответьте в формате JSON:
+ШАБЛОН 1 - Только текст:
+- Заголовок + 3-4 пункта
+- ТОЛЬКО 50-70 слов, кратко и четко
+
+ШАБЛОН 2 - Текст + изображение:
+- Заголовок + 2-3 кратких пункта
+- ТОЛЬКО 40-60 слов
+- ВАЖНО: НЕ ПИШИТЕ ОБ ИЗОБРАЖЕНИИ! Пишите только информацию о теме.
+
+ШАБЛОН 3 - 3 колонки:
+- Заголовок + разделите текст на 3 части
+- По 2-3 пункта в каждой колонке
+- Всего 50-70 слов (все колонки вместе)
+
+ВАЖНО: Отвечайте только в формате JSON. Никакого другого текста!
+
 {{
     "slides": [
         {{
             "title": "Заголовок слайда",
-            "content": "Содержание слайда (150-200 слов)..."
+            "content": "Содержание слайда (пункты или параграф)"
+        }},
+        {{
+            "title": "Заголовок слайда",
+            "content": "Содержание слайда (короче, для изображения)"
+        }},
+        {{
+            "title": "Заголовок слайда", 
+            "content": "Содержание слайда",
+            "columns": [
+                {{"title": "Колонка 1", "points": ["• Пункт 1", "• Пункт 2"]}},
+                {{"title": "Колонка 2", "points": ["• Пункт 1", "• Пункт 2"]}},
+                {{"title": "Колонка 3", "points": ["• Пункт 1", "• Пункт 2"]}}
+            ]
         }}
     ]
 }}"""
             else:  # English
                 prompt = f"""Create a professional presentation on "{topic}" with {slide_count} slides in English.
 
-IMPORTANT REQUIREMENTS:
-- Write at least 150-200 words for each slide
-- Slides should be in different formats:
-  * Some slides with bullet points (3-5 main points)
-  * Some slides with continuous paragraph text
-  * Some slides with numbered lists (1, 2, 3...)
-  * Some slides with classifications and categories
-- Each slide should contain deep and detailed information
-- Include practical examples and facts
-- Use professional academic style
+VERY IMPORTANT REQUIREMENTS:
+1. EACH SLIDE MUST CONTAIN DIFFERENT INFORMATION - no repetition!
+2. Each slide should cover DIFFERENT ASPECTS of the topic
+3. Same information or concepts MUST NOT BE REPEATED
+4. On slides with images, DO NOT WRITE ABOUT THE IMAGE - only about the topic
 
-Slide types:
-1. Introduction slide - general information about the topic
-2-3. Theoretical foundations - in paragraph form
-4-5. Key concepts - as bullet points
-6-7. Practical examples - numbered list
-8-9. Problems and solutions - categories
-10+. Conclusion and recommendations
+3 TEMPLATE TYPES - repeat every 3 slides:
+- Slide 2,5,8,11,14... = TEMPLATE 1 (text only)
+- Slide 3,6,9,12,15... = TEMPLATE 2 (text + image)  
+- Slide 4,7,10,13,16... = TEMPLATE 3 (3 columns)
 
-Respond in JSON format:
+TEMPLATE 1 - Text only:
+- Title + 3-4 bullet points
+- ONLY 50-70 words, brief and clear
+
+TEMPLATE 2 - Text + image:
+- Title + 2-3 brief bullet points
+- ONLY 40-60 words
+- IMPORTANT: DO NOT WRITE ABOUT THE IMAGE! Write only information about the topic.
+
+TEMPLATE 3 - 3 columns:
+- Title + divide content into 3 parts
+- 2-3 points per column
+- Total 50-70 words (all columns combined)
+
+IMPORTANT: Respond only in JSON format. No other text!
+
 {{
     "slides": [
         {{
             "title": "Slide title",
-            "content": "Slide content (150-200 words)..."
+            "content": "Slide content (bullet points or paragraph)"
+        }},
+        {{
+            "title": "Slide title",
+            "content": "Slide content (shorter, for image)"
+        }},
+        {{
+            "title": "Slide title", 
+            "content": "Slide content",
+            "columns": [
+                {{"title": "Column 1", "points": ["• Point 1", "• Point 2"]}},
+                {{"title": "Column 2", "points": ["• Point 1", "• Point 2"]}},
+                {{"title": "Column 3", "points": ["• Point 1", "• Point 2"]}}
+            ]
         }}
     ]
 }}"""
@@ -567,13 +614,13 @@ Only text, no numbers or symbols."""
     async def generate_slide_image(self, slide_title: str, language: str) -> str:
         """Generate image for slide using DALL-E"""
         try:
-            # Create language-specific prompt for image generation
+            # Create language-specific prompt for image generation - HAQIQIY (REAL) rasmlar uchun
             if language == "uz":
-                prompt = f"Professional academic illustration for: {slide_title}. Clean, educational style, high quality."
+                prompt = f"Photorealistic, high-quality photograph related to: {slide_title}. Real-world scene, professional photography, natural lighting, realistic details, not artificial or illustrated."
             elif language == "ru":
-                prompt = f"Профессиональная академическая иллюстрация для: {slide_title}. Чистый образовательный стиль, высокое качество."
+                prompt = f"Фотореалистичная, высококачественная фотография на тему: {slide_title}. Реальная сцена, профессиональная фотография, естественное освещение, реалистичные детали, не искусственная и не иллюстрированная."
             else:  # English
-                prompt = f"Professional academic illustration for: {slide_title}. Clean, educational style, high quality."
+                prompt = f"Photorealistic, high-quality photograph related to: {slide_title}. Real-world scene, professional photography, natural lighting, realistic details, not artificial or illustrated."
 
             response = await self.client.images.generate(
                 model="dall-e-3",
