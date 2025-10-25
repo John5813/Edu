@@ -388,7 +388,7 @@ class DocumentService:
             await self._create_new_bullet_points_slide(prs, slide_data)
 
     async def _create_new_bullet_points_slide(self, prs, slide_data: Dict):
-        """Create LAYOUT 1: Long continuous text for understanding the topic (2,5,8,11...)"""
+        """Create LAYOUT 1: 40-word continuous text relevant to slide topic (2,5,8,11...)"""
         slide_layout = prs.slide_layouts[1]  # Title and content layout
         slide = prs.slides.add_slide(slide_layout)
 
@@ -402,7 +402,7 @@ class DocumentService:
             title.text_frame.paragraphs[0].font.bold = True
             title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
 
-        # Content - long continuous text for topic explanation (no bullets)
+        # Content - 40-word continuous text for topic explanation
         if content_placeholder:
             content_text = slide_data.get('content', '')
             
@@ -419,15 +419,21 @@ class DocumentService:
                 content_text = str(content_text) if content_text else ''
                 logger.info(f"Converted {type(content_text)} content to string")
             
+            # Limit to 40 words as requested
+            words = content_text.split()
+            if len(words) > 40:
+                content_text = ' '.join(words[:40])
+                logger.info(f"Trimmed content to 40 words")
+            
             content_frame = content_placeholder.text_frame
             content_frame.clear()
             content_frame.word_wrap = True
             
-            # Use full content as single continuous paragraph (no bullets/points)
+            # Use 40-word text as single continuous paragraph (no bullets)
             p = content_frame.paragraphs[0]
             p.text = content_text
-            p.font.size = PptxPt(16)  # Good readable size
-            p.alignment = PP_ALIGN.LEFT  # Left alignment, not justified
+            p.font.size = PptxPt(18)  # Larger font for better readability
+            p.alignment = PP_ALIGN.LEFT  # Left alignment
             p.level = 0
 
     async def _create_new_text_with_image_slide(self, prs, slide_data: Dict, slide_num: int, images: Dict):

@@ -498,7 +498,7 @@ Example format:
             layout = slide_info["layout_type"]
 
             if layout == "bullet_points":
-                descriptions.append(f"Slide {slide_num} (bullet_points): Generate as ONE CONTINUOUS STRING TEXT with 150-200 words explaining key concepts. NOT A LIST OR ARRAY!")
+                descriptions.append(f"Slide {slide_num} (bullet_points): Generate EXACTLY 40 WORDS as ONE CONTINUOUS STRING TEXT that is HIGHLY RELEVANT to the slide title. Must be topic-specific, not generic. NOT A LIST OR ARRAY!")
             elif layout == "text_with_image":
                 descriptions.append(f"Slide {slide_num} (text_with_image): Generate as ONE CONTINUOUS STRING TEXT with 100-120 words for image generation. NOT A LIST OR ARRAY!")
             elif layout == "three_column":
