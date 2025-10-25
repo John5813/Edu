@@ -309,7 +309,30 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
 
         # Process payment
         price = get_document_price("presentation", {"slide_count": slide_count})
-        await db.update_user_balance(user.telegram_id, -price)
+        # Check if user has free service or balance
+        # free_service_used = False means user can use free service
+        if user.free_service_used == False:
+            # User can use free service (includes promocode users)
+            use_free_service = True
+        elif user.balance >= price:
+            # User has sufficient balance
+            use_free_service = False
+        else:
+            # Insufficient balance
+            await callback.message.answer(
+                get_text(user_lang, "insufficient_balance", price=price),
+                reply_markup=get_main_keyboard(user_lang)
+            )
+            await state.clear()
+            return
+
+        # Mark service as used or deduct balance
+        if use_free_service:
+            # Mark free service as used
+            await db.update_user(user.telegram_id, free_service_used=True)
+        else:
+            # Deduct from balance
+            await db.update_user_balance(user.telegram_id, -price)
         await callback.message.answer(get_text(user_lang, "document_ready"))
 
         # Get template name for caption
@@ -355,9 +378,21 @@ async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Dat
     # Calculate price based on slide count
     price = get_document_price("presentation", {"slide_count": slide_count})
 
-    # Check balance
-    if user.balance < price:
-        await callback.message.edit_text(get_text(user_lang, "insufficient_balance"))
+    # Check if user has free service or balance
+    # free_service_used = False means user can use free service
+    if user.free_service_used == False:
+        # User can use free service (includes promocode users)
+        use_free_service = True
+    elif user.balance >= price:
+        # User has sufficient balance
+        use_free_service = False
+    else:
+        # Insufficient balance
+        await callback.message.answer(
+            get_text(user_lang, "insufficient_balance", price=price),
+            reply_markup=get_main_keyboard(user_lang)
+        )
+        await state.clear()
         return
 
     # Show template selection instead of generating directly
@@ -379,9 +414,21 @@ async def handle_page_count(callback: CallbackQuery, state: FSMContext, db: Data
     document_type = data['document_type']
     price = get_document_price(document_type, {"min_pages": min_pages, "max_pages": max_pages})
 
-    # Check balance
-    if user.balance < price:
-        await callback.message.edit_text(get_text(user_lang, "insufficient_balance"))
+    # Check if user has free service or balance
+    # free_service_used = False means user can use free service
+    if user.free_service_used == False:
+        # User can use free service (includes promocode users)
+        use_free_service = True
+    elif user.balance >= price:
+        # User has sufficient balance
+        use_free_service = False
+    else:
+        # Insufficient balance
+        await callback.message.answer(
+            get_text(user_lang, "insufficient_balance", price=price),
+            reply_markup=get_main_keyboard(user_lang)
+        )
+        await state.clear()
         return
 
     await callback.message.edit_text("⏳ " + get_text(user_lang, "generating"))
