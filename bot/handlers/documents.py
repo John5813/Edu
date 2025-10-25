@@ -307,24 +307,10 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         # Update order
         await db.update_document_order(order_id, "completed", file_path)
 
-        # Process payment
+        # Process payment - get payment method from state
+        data = await state.get_data()
+        use_free_service = data.get('use_free_service', False)
         price = get_document_price("presentation", {"slide_count": slide_count})
-        # Check if user has free service or balance
-        # free_service_used = False means user can use free service
-        if user.free_service_used == False:
-            # User can use free service (includes promocode users)
-            use_free_service = True
-        elif user.balance >= price:
-            # User has sufficient balance
-            use_free_service = False
-        else:
-            # Insufficient balance
-            await callback.message.answer(
-                get_text(user_lang, "insufficient_balance", price=price),
-                reply_markup=get_main_keyboard(user_lang)
-            )
-            await state.clear()
-            return
 
         # Mark service as used or deduct balance
         if use_free_service:
@@ -382,10 +368,10 @@ async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Dat
     # free_service_used = False means user can use free service
     if user.free_service_used == False:
         # User can use free service (includes promocode users)
-        use_free_service = True
+        await state.update_data(use_free_service=True)
     elif user.balance >= price:
         # User has sufficient balance
-        use_free_service = False
+        await state.update_data(use_free_service=False)
     else:
         # Insufficient balance
         await callback.message.answer(
@@ -418,10 +404,10 @@ async def handle_page_count(callback: CallbackQuery, state: FSMContext, db: Data
     # free_service_used = False means user can use free service
     if user.free_service_used == False:
         # User can use free service (includes promocode users)
-        use_free_service = True
+        await state.update_data(use_free_service=True)
     elif user.balance >= price:
         # User has sufficient balance
-        use_free_service = False
+        await state.update_data(use_free_service=False)
     else:
         # Insufficient balance
         await callback.message.answer(
@@ -558,9 +544,19 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
         # Update order
         await db.update_document_order(order_id, "completed", file_path)
 
-        # Process payment with dynamic pricing
+        # Process payment - get payment method from state
+        data = await state.get_data()
+        use_free_service = data.get('use_free_service', False)
         price = get_document_price("independent_work", {"min_pages": min_pages, "max_pages": max_pages})
-        await db.update_user_balance(user.telegram_id, -price)
+
+        # Mark service as used or deduct balance
+        if use_free_service:
+            # Mark free service as used
+            await db.update_user(user.telegram_id, free_service_used=True)
+        else:
+            # Deduct from balance
+            await db.update_user_balance(user.telegram_id, -price)
+        
         await callback.message.edit_text(get_text(user_lang, "document_ready"))
 
         # Send file
@@ -631,9 +627,19 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
         # Update order
         await db.update_document_order(order_id, "completed", file_path)
 
-        # Process payment with dynamic pricing
+        # Process payment - get payment method from state
+        data = await state.get_data()
+        use_free_service = data.get('use_free_service', False)
         price = get_document_price("referat", {"min_pages": min_pages, "max_pages": max_pages})
-        await db.update_user_balance(user.telegram_id, -price)
+
+        # Mark service as used or deduct balance
+        if use_free_service:
+            # Mark free service as used
+            await db.update_user(user.telegram_id, free_service_used=True)
+        else:
+            # Deduct from balance
+            await db.update_user_balance(user.telegram_id, -price)
+        
         await callback.message.edit_text(get_text(user_lang, "document_ready"))
 
         # Send file
