@@ -315,7 +315,7 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         # Mark service as used or deduct balance
         if use_free_service:
             # Mark free service as used
-            await db.update_user(user.telegram_id, free_service_used=True)
+            await db.mark_free_service_used(user.telegram_id)
         else:
             # Deduct from balance
             await db.update_user_balance(user.telegram_id, -price)
@@ -552,11 +552,11 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
         # Mark service as used or deduct balance
         if use_free_service:
             # Mark free service as used
-            await db.update_user(user.telegram_id, free_service_used=True)
+            await db.mark_free_service_used(user.telegram_id)
         else:
             # Deduct from balance
             await db.update_user_balance(user.telegram_id, -price)
-        
+
         await callback.message.edit_text(get_text(user_lang, "document_ready"))
 
         # Send file
@@ -635,11 +635,11 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
         # Mark service as used or deduct balance
         if use_free_service:
             # Mark free service as used
-            await db.update_user(user.telegram_id, free_service_used=True)
+            await db.mark_free_service_used(user.telegram_id)
         else:
             # Deduct from balance
             await db.update_user_balance(user.telegram_id, -price)
-        
+
         await callback.message.edit_text(get_text(user_lang, "document_ready"))
 
         # Send file
