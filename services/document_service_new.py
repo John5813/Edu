@@ -402,7 +402,7 @@ class DocumentService:
             title.text_frame.paragraphs[0].font.bold = True
             title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
 
-        # Content - 40-word continuous text for topic explanation
+        # Content - 70-word continuous text for topic explanation (40 + 30 qo'shimcha)
         if content_placeholder:
             content_text = slide_data.get('content', '')
             
@@ -419,20 +419,16 @@ class DocumentService:
                 content_text = str(content_text) if content_text else ''
                 logger.info(f"Converted {type(content_text)} content to string")
             
-            # Limit to 40 words as requested
-            words = content_text.split()
-            if len(words) > 40:
-                content_text = ' '.join(words[:40])
-                logger.info(f"Trimmed content to 40 words")
+            # KESISH YO'Q - matn to'liq ishlatiladi
             
             content_frame = content_placeholder.text_frame
             content_frame.clear()
             content_frame.word_wrap = True
             
-            # Use 40-word text as single continuous paragraph (no bullets)
+            # Use full text as single continuous paragraph (no bullets)
             p = content_frame.paragraphs[0]
             p.text = content_text
-            p.font.size = PptxPt(18)  # Larger font for better readability
+            p.font.size = PptxPt(16)  # Slightly smaller font for more text
             p.alignment = PP_ALIGN.LEFT  # Left alignment
             p.level = 0
 
@@ -463,7 +459,7 @@ class DocumentService:
         text_frame.word_wrap = True
         text_para = text_frame.paragraphs[0]
         
-        # Use original content - AI already generates short 40-word text
+        # Use original content - AI generates 70-word text (40 + 30 qo'shimcha)
         original_content = slide_data.get('content', 'Mazmun mavjud emas')
         
         # Handle case where content might be a list or dict (convert to string)
@@ -476,8 +472,9 @@ class DocumentService:
         elif not isinstance(original_content, str):
             original_content = str(original_content) if original_content else 'Mazmun mavjud emas'
         
-        text_para.text = original_content  # AI dan 40 so'zlik matn
-        text_para.font.size = PptxPt(18)  # Kattaroq font, chunki matn qisqa
+        # KESISH YO'Q - to'liq matn ishlatiladi
+        text_para.text = original_content  # AI dan 70 so'zlik to'liq matn
+        text_para.font.size = PptxPt(16)  # Slightly smaller font for more text
         text_para.font.bold = True  # Bold for better visibility
         text_para.font.color.rgb = RGBColor(0, 0, 0)  # Black text
         text_para.alignment = PP_ALIGN.LEFT  # Left alignment
