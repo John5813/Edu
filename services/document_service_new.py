@@ -291,19 +291,22 @@ class DocumentService:
             slides_data = content.get('slides', [])
             logger.info(f"Creating presentation with {len(slides_data)} slides")
             
+            # 1. ADD SIMPLE TITLE SLIDE - faqat mavzu nomi
+            await self._create_simple_title_slide(prs, topic)
+            
             # Generate DALL-E images for text+image slides
             images = await self._generate_dalle_images_for_slides(topic, slides_data)
             
+            # 2. ADD CONTENT SLIDES
             for idx, slide_data in enumerate(slides_data):
                 slide_num = slide_data.get('slide_number', idx + 1)
                 layout_type = slide_data.get('layout_type', 'bullet_points')
                 
-                logger.info(f"Creating slide {slide_num} with layout: {layout_type}")
-                
-                if slide_num == 1 or layout_type == "title":
-                    await self._create_title_slide(prs, topic, author_name)
-                else:
-                    await self._create_new_content_slide(prs, slide_data, layout_type, slide_num, images)
+                logger.info(f"Creating content slide {slide_num} with layout: {layout_type}")
+                await self._create_new_content_slide(prs, slide_data, layout_type, slide_num, images)
+            
+            # 3. ADD THANK YOU SLIDE - oxirgi slayd
+            await self._create_thank_you_slide(prs)
             
             # Save presentation
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -869,6 +872,42 @@ class DocumentService:
             points.append(f"Qo'shimcha ma'lumot {len(points) + 1}")
         
         return points[:num_points]
+
+    async def _create_simple_title_slide(self, prs, topic: str):
+        """Create simple title slide - faqat mavzu nomi katta yozuvda"""
+        slide_layout = prs.slide_layouts[6]  # Blank layout
+        slide = prs.slides.add_slide(slide_layout)
+
+        # Add topic name in center - katta yozuv
+        title_box = slide.shapes.add_textbox(
+            PptxInches(1), PptxInches(3),
+            PptxInches(11.33), PptxInches(2)
+        )
+        title_frame = title_box.text_frame
+        title_frame.word_wrap = True
+        title_para = title_frame.paragraphs[0]
+        title_para.text = topic
+        title_para.font.size = PptxPt(44)
+        title_para.font.bold = True
+        title_para.alignment = PP_ALIGN.CENTER
+
+    async def _create_thank_you_slide(self, prs):
+        """Create thank you slide - Etiboringiz uchun rahmat"""
+        slide_layout = prs.slide_layouts[6]  # Blank layout
+        slide = prs.slides.add_slide(slide_layout)
+
+        # Add thank you message in center - katta yozuv
+        thanks_box = slide.shapes.add_textbox(
+            PptxInches(1), PptxInches(3),
+            PptxInches(11.33), PptxInches(2)
+        )
+        thanks_frame = thanks_box.text_frame
+        thanks_frame.word_wrap = True
+        thanks_para = thanks_frame.paragraphs[0]
+        thanks_para.text = "E'tiboringiz uchun rahmat!"
+        thanks_para.font.size = PptxPt(44)
+        thanks_para.font.bold = True
+        thanks_para.alignment = PP_ALIGN.CENTER
 
     async def _create_title_slide(self, prs, topic: str, author_name: str):
         """Create title slide"""

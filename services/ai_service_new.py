@@ -143,29 +143,33 @@ Umumiy mavzu: "{topic}".
 
 {"OLDINGI KONTEKST: " + previous_context if previous_context else ""}
 
-MUHIM: Agar oldingi kontekst berilgan bo'lsa, yangi slaydlar mantiqiy davom etishi va takrorlanmasligi kerak.
+JUDA MUHIM TALABLAR:
+1. HAR BIR SLAYD BOSHQACHA MA'LUMOTGA EGA BO'LISHI KERAK - takrorlanmasin!
+2. Har bir slayd mavzuning TURLI JIHATLARI haqida bo'lsin
+3. Bir xil ma'lumot yoki tushuncha TAKRORLANMASIN
+4. Rasm bo'lgan slaidlarda RASM HAQIDA GAP QILMANG - faqat mavzuga oid ma'lumot bering
 
 Quyidagi slaydlar uchun kontent yarating:
 
 {self._get_layout_descriptions(slides_info)}
 
-Har bir slayd uchun 3 qismda natija bering:
+Har bir slayd uchun layout tipiga mos matn yozing:
 
 1️⃣ 3 ustunli matn (agar kerak bo'lsa):
 MUHIM: Har bir ustun alohida mavzu bo'lishi kerak, bir matnni 3 ga bo'lish EMAS!
-Format: "COLUMN1: Sarlavha1|Matn1 (80 so'z) COLUMN2: Sarlavha2|Matn2 (80 so'z) COLUMN3: Sarlavha3|Matn3 (80 so'z)"
+Format: "COLUMN1: Sarlavha1|Matn1 (50-70 so'z) COLUMN2: Sarlavha2|Matn2 (50-70 so'z) COLUMN3: Sarlavha3|Matn3 (50-70 so'z)"
 - Har ustun uchun boshqa mavzu: masalan, sabablari, ta'siri, yechimlar
-- Har ustunda to'liq 80 so'zli mazmun
+- Har ustunda to'liq 50-70 so'zli mazmun
 
 2️⃣ 4 nuqtali matn (agar kerak bo'lsa):
 - Har bir nuqta alohida bullet tarzida yozilsin.
-- Har bir nuqta kamida 20 so'zdan iborat bo'lsin.
+- FAQAT 50-70 so'z (barcha nuqtalar birgalikda)
 - Fikrlar xilma-xil bo'lsin.
 
 3️⃣ Uzun yahlit matn (agar kerak bo'lsa):
-- 120–150 so'zli matn yozing.
+- FAQAT 40-60 so'zli matn yozing.
 - Matn bir butun tarzida, sarlavhaga chuqurroq sharh sifatida yozilsin.
-- Bu matnga mos rasm tavsifini ham yozing (AI rasm yaratishi uchun).
+- MUHIM: RASM HAQIDA YOZMANG! Faqat mavzu haqida ma'lumot yozing.
 
 JSON formatda javob bering:
 {{
@@ -399,7 +403,7 @@ Example format:
         return "\n".join(descriptions)
 
     async def generate_dalle_image(self, slide_content: str, slide_title: str) -> str | None:
-        """Generate image using DALL-E for text+image slides with improved prompts"""
+        """Generate image using DALL-E for text+image slides with photorealistic style"""
         try:
             # Create better image generation prompt based on content and title
             safe_title = slide_title.replace("Bialogiya", "Biology").replace("biologik", "biological")
@@ -408,8 +412,8 @@ Example format:
             content_words = str(slide_content).split()[:20]  # First 20 words for context
             content_context = " ".join(content_words)
             
-            # Create educational, topic-specific prompt
-            image_prompt = f"Professional educational diagram about {safe_title}. Visual representation of {content_context}. Academic illustration style, clean minimalist design, no text labels, educational infographic style, modern and clear"
+            # Create PHOTOREALISTIC prompt - HAQIQIY (REAL) rasmlar uchun
+            image_prompt = f"Photorealistic, high-quality professional photograph related to {safe_title}. Real-world scene showing {content_context}. Professional photography, natural lighting, realistic details, not artificial or illustrated, authentic and genuine appearance, high resolution"
 
             logger.info(f"Generating DALL-E image for '{safe_title}': {image_prompt[:80]}...")
 
