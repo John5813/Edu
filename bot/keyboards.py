@@ -228,7 +228,37 @@ def get_payment_review_keyboard(payment_id: int) -> InlineKeyboardMarkup:
         text="❌ Rad etish", 
         callback_data=f"reject_payment_{payment_id}"
     ))
-    keyboard.adjust(2)
+    keyboard.add(InlineKeyboardButton(
+        text="💰 Summani o'zgartirish",
+        callback_data=f"adjust_amount_{payment_id}"
+    ))
+    keyboard.adjust(2, 1)
+    return keyboard.as_markup()
+
+def get_amount_adjustment_keyboard(payment_id: int, current_amount: int) -> InlineKeyboardMarkup:
+    """Amount adjustment keyboard for admin"""
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(
+        text="➖ -1000", 
+        callback_data=f"decrease_amount_{payment_id}"
+    ))
+    keyboard.add(InlineKeyboardButton(
+        text=f"💵 {current_amount:,} so'm", 
+        callback_data=f"amount_display_{payment_id}"
+    ))
+    keyboard.add(InlineKeyboardButton(
+        text="➕ +1000", 
+        callback_data=f"increase_amount_{payment_id}"
+    ))
+    keyboard.add(InlineKeyboardButton(
+        text="✅ Tasdiqlash (yangi summa bilan)", 
+        callback_data=f"confirm_adjusted_{payment_id}"
+    ))
+    keyboard.add(InlineKeyboardButton(
+        text="🔙 Bekor qilish", 
+        callback_data=f"cancel_adjustment_{payment_id}"
+    ))
+    keyboard.adjust(3, 1, 1)
     return keyboard.as_markup()
 
 def get_channel_management_keyboard() -> InlineKeyboardMarkup:

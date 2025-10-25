@@ -278,8 +278,17 @@ class Database:
                 rows = await cursor.fetchall()
                 return [Payment(**dict(row)) for row in rows]
 
+    async def update_payment_amount(self, payment_id: int, new_amount: int):
+        """Update payment amount"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            await db.execute(
+                "UPDATE payments SET amount = ?, updated_at = ? WHERE id = ?",
+                (new_amount, datetime.now(), payment_id)
+            )
+            await db.commit()
+
     @staticmethod
-    async def update_payment_status(payment_id: int, status: str):
+    async def update_payment_status(self, payment_id: int, status: str):
         """Update payment status"""
         async with aiosqlite.connect(DATABASE_FILE) as db:
             await db.execute(
@@ -763,7 +772,7 @@ class Database:
             user = await Database.get_user(telegram_id)
             if not user:
                 return False
-            
+
             async with db.execute(
                 "SELECT COUNT(*) FROM payments WHERE user_id = ? AND status = 'approved'",
                 (user.id,)

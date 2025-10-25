@@ -106,6 +106,249 @@ async def handle_orders_request(message: Message, db: Database):
             reply_markup=get_payment_review_keyboard(payment.id)
         )
 
+@router.callback_query(F.data.startswith("adjust_amount_"))
+async def adjust_payment_amount(callback: CallbackQuery, db: Database):
+    """Start adjusting payment amount"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    payment_id = int(callback.data.split("_")[2])
+    
+    try:
+        payment = await db.get_payment_by_id(payment_id)
+        if not payment:
+            await callback.answer("❌ To'lov topilmadi.")
+            return
+            
+        if payment.status != "pending":
+            await callback.answer(f"❌ Bu to'lov allaqachon {payment.status} holatida.")
+            return
+
+        user = await db.get_user_by_id(payment.user_id)
+        user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
+        
+        from bot.keyboards import get_amount_adjustment_keyboard
+        
+        text = (
+            f"💰 Summani o'zgartirish\n\n"
+            f"🧾 To'lov #{payment.id}\n"
+            f"👤 Foydalanuvchi: {user_link}\n"
+            f"💵 Bosgan summa: {payment.amount:,} so'm\n\n"
+            f"➖/➕ tugmalar bilan summani sozlang:"
+        )
+        
+        await callback.message.edit_text(
+            text,
+            reply_markup=get_amount_adjustment_keyboard(payment_id, payment.amount)
+        )
+        
+    except Exception as e:
+        logger.error(f"Error starting amount adjustment: {e}")
+        await callback.answer("❌ Xatolik yuz berdi.")
+
+@router.callback_query(F.data.startswith("decrease_amount_"))
+async def decrease_payment_amount(callback: CallbackQuery, db: Database):
+    """Decrease payment amount by 1000"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    payment_id = int(callback.data.split("_")[2])
+    
+    try:
+        payment = await db.get_payment_by_id(payment_id)
+        if not payment:
+            await callback.answer("❌ To'lov topilmadi.")
+            return
+        
+        new_amount = max(1000, payment.amount - 1000)  # Minimum 1000 so'm
+        await db.update_payment_amount(payment_id, new_amount)
+        
+        user = await db.get_user_by_id(payment.user_id)
+        user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
+        
+        from bot.keyboards import get_amount_adjustment_keyboard
+        
+        text = (
+            f"💰 Summani o'zgartirish\n\n"
+            f"🧾 To'lov #{payment.id}\n"
+            f"👤 Foydalanuvchi: {user_link}\n"
+            f"💵 Bosgan summa: {payment.amount:,} so'm\n"
+            f"💵 Yangi summa: {new_amount:,} so'm\n\n"
+            f"➖/➕ tugmalar bilan summani sozlang:"
+        )
+        
+        await callback.message.edit_text(
+            text,
+            reply_markup=get_amount_adjustment_keyboard(payment_id, new_amount)
+        )
+        
+    except Exception as e:
+        logger.error(f"Error decreasing amount: {e}")
+        await callback.answer("❌ Xatolik yuz berdi.")
+
+@router.callback_query(F.data.startswith("increase_amount_"))
+async def increase_payment_amount(callback: CallbackQuery, db: Database):
+    """Increase payment amount by 1000"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    payment_id = int(callback.data.split("_")[2])
+    
+    try:
+        payment = await db.get_payment_by_id(payment_id)
+        if not payment:
+            await callback.answer("❌ To'lov topilmadi.")
+            return
+        
+        new_amount = payment.amount + 1000
+        await db.update_payment_amount(payment_id, new_amount)
+        
+        user = await db.get_user_by_id(payment.user_id)
+        user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
+        
+        from bot.keyboards import get_amount_adjustment_keyboard
+        
+        text = (
+            f"💰 Summani o'zgartirish\n\n"
+            f"🧾 To'lov #{payment.id}\n"
+            f"👤 Foydalanuvchi: {user_link}\n"
+            f"💵 Bosgan summa: {payment.amount:,} so'm\n"
+            f"💵 Yangi summa: {new_amount:,} so'm\n\n"
+            f"➖/➕ tugmalar bilan summani sozlang:"
+        )
+        
+        await callback.message.edit_text(
+            text,
+            reply_markup=get_amount_adjustment_keyboard(payment_id, new_amount)
+        )
+        
+    except Exception as e:
+        logger.error(f"Error increasing amount: {e}")
+        await callback.answer("❌ Xatolik yuz berdi.")
+
+@router.callback_query(F.data.startswith("amount_display_"))
+async def amount_display_handler(callback: CallbackQuery):
+    """Handle amount display button (no action)"""
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("cancel_adjustment_"))
+async def cancel_adjustment(callback: CallbackQuery, db: Database):
+    """Cancel amount adjustment"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    payment_id = int(callback.data.split("_")[2])
+    
+    try:
+        payment = await db.get_payment_by_id(payment_id)
+        if not payment:
+            await callback.answer("❌ To'lov topilmadi.")
+            return
+        
+        user = await db.get_user_by_id(payment.user_id)
+        user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
+        
+        text = (
+            f"🧾 To'lov #{payment.id}\n"
+            f"👤 Foydalanuvchi: {user_link}\n"
+            f"💵 Summasi: {payment.amount:,} so'm\n"
+            f"📅 Sana: {payment.created_at.strftime('%d.%m.%Y %H:%M')}"
+        )
+        
+        await callback.message.edit_text(
+            text,
+            reply_markup=get_payment_review_keyboard(payment_id)
+        )
+        
+    except Exception as e:
+        logger.error(f"Error canceling adjustment: {e}")
+        await callback.answer("❌ Xatolik yuz berdi.")
+
+@router.callback_query(F.data.startswith("confirm_adjusted_"))
+async def confirm_adjusted_payment(callback: CallbackQuery, db: Database):
+    """Confirm payment with adjusted amount"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    payment_id = int(callback.data.split("_")[2])
+
+    try:
+        payment = await db.get_payment_by_id(payment_id)
+        if not payment:
+            await callback.answer("❌ To'lov topilmadi.")
+            return
+            
+        if payment.status != "pending":
+            await callback.answer(f"❌ Bu to'lov allaqachon {payment.status} holatida.")
+            return
+
+        # Update payment status
+        await db.update_payment_status(payment_id, "approved")
+
+        # Add balance to user with the adjusted amount
+        user = await db.get_user_by_id(payment.user_id)
+        await db.update_user_balance(user.telegram_id, payment.amount)
+
+        # Check referral bonus (same as original approve logic)
+        PAYMENT_BONUS = 1000
+        if user.referred_by:
+            referral = await db.get_referral(user.referred_by, user.telegram_id)
+            if referral and not referral.payment_bonus_given:
+                from database.database import DATABASE_FILE
+                import aiosqlite
+                async with aiosqlite.connect(DATABASE_FILE) as db_conn:
+                    async with db_conn.execute(
+                        "SELECT COUNT(*) FROM payments WHERE user_id = ? AND status = 'approved'",
+                        (user.id,)
+                    ) as cursor:
+                        approved_count = (await cursor.fetchone())[0]
+                
+                if approved_count == 1:
+                    try:
+                        await db.update_user_balance(user.referred_by, PAYMENT_BONUS)
+                        await db.update_referral_earnings(user.referred_by, user.telegram_id, PAYMENT_BONUS)
+                        await db.update_payment_bonus(user.referred_by, user.telegram_id, True)
+                        
+                        referrer = await db.get_user(user.referred_by)
+                        if referrer:
+                            bonus_text = {
+                                'uz': f"💰 Sizning tavsiyangiz bo'yicha foydalanuvchi birinchi to'lovni amalga oshirdi!\n💵 +{PAYMENT_BONUS:,} so'm hisobingizga qo'shildi.",
+                                'ru': f"💰 Пользователь по вашей рекомендации совершил первый платеж!\n💵 +{PAYMENT_BONUS:,} сум добавлено на ваш счет.",
+                                'en': f"💰 Your referral made their first payment!\n💵 +{PAYMENT_BONUS:,} som added to your balance."
+                            }
+                            try:
+                                await callback.bot.send_message(
+                                    user.referred_by,
+                                    bonus_text.get(referrer.language, bonus_text['uz'])
+                                )
+                            except Exception as e:
+                                logger.error(f"Failed to notify referrer {user.referred_by}: {e}")
+                    except Exception as e:
+                        logger.error(f"Error processing payment referral bonus: {e}")
+
+        # Notify user
+        await callback.bot.send_message(
+            user.telegram_id,
+            f"✅ To'lovingiz tasdiqlandi! {payment.amount:,} so'm hisobingizga qo'shildi."
+        )
+
+        # Keep the message with payment info
+        user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
+        await callback.message.edit_text(
+            f"✅ To'lov #{payment_id} tasdiqlandi.\n"
+            f"👤 Foydalanuvchi: {user_link}\n"
+            f"💵 {payment.amount:,} so'm foydalanuvchi hisobiga qo'shildi.\n"
+            f"📅 {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+        )
+
+        # Notify other admins
+        admin_name = callback.from_user.username or callback.from_user.full_name
+        await notify_other_admins_about_payment_action(callback.bot, payment_id, "tasdiqlandi", admin_name, payment.amount)
+
+    except Exception as e:
+        logger.error(f"Error confirming adjusted payment: {e}")
+        await callback.answer("❌ Xatolik yuz berdi.")
+
 @router.callback_query(F.data.startswith("approve_payment_"))
 async def approve_payment(callback: CallbackQuery, db: Database):
     """Approve payment"""
@@ -189,9 +432,13 @@ async def approve_payment(callback: CallbackQuery, db: Database):
             f"✅ To'lovingiz tasdiqlandi! {payment.amount:,} so'm hisobingizga qo'shildi."
         )
 
+        # Keep the message with payment info
+        user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
         await callback.message.edit_text(
             f"✅ To'lov #{payment_id} tasdiqlandi.\n"
-            f"💵 {payment.amount:,} so'm foydalanuvchi hisobiga qo'shildi."
+            f"👤 Foydalanuvchi: {user_link}\n"
+            f"💵 {payment.amount:,} so'm foydalanuvchi hisobiga qo'shildi.\n"
+            f"📅 {datetime.now().strftime('%d.%m.%Y %H:%M')}"
         )
 
         # Notify other admins
@@ -232,8 +479,13 @@ async def reject_payment(callback: CallbackQuery, db: Database):
             "❌ To'lovingiz rad etildi. Iltimos, qayta urinib ko'ring."
         )
 
+        # Keep the message with payment info
+        user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
         await callback.message.edit_text(
             f"❌ To'lov #{payment_id} rad etildi.\n"
+            f"👤 Foydalanuvchi: {user_link}\n"
+            f"💵 Summa: {payment.amount:,} so'm\n"
+            f"📅 {datetime.now().strftime('%d.%m.%Y %H:%M')}\n\n"
             f"Foydalanuvchiga xabar yuborildi."
         )
         
