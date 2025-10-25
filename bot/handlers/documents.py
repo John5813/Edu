@@ -31,8 +31,72 @@ DOCUMENT_TYPES = {
     "🎓 Independent Work": "independent_work",
     "📄 Referat": "referat",
     "📄 Реферат": "referat",
-    "📄 Research Paper": "referat"
+    "📄 Referat": "referat"
 }
+
+@router.message(F.text.in_(list(DOCUMENT_TYPES.keys())))
+async def handle_document_type_selection(message: Message, state: FSMContext, user_lang: str, db: Database, user):
+    """Handle document type selection from main menu"""
+    try:
+        # Check channel subscription
+        channels = await db.get_active_channels()
+        if channels:
+            channel_service = ChannelService(message.bot)
+            is_subscribed = await channel_service.check_user_subscription(user.telegram_id, channels)
+
+            if not is_subscribed:
+                from bot.keyboards import get_subscription_check_keyboard
+                await message.answer(
+                    get_text(user_lang, "subscription_required"),
+                    reply_markup=get_subscription_check_keyboard(user_lang, channels)
+                )
+                return
+
+        doc_type = DOCUMENT_TYPES[message.text]
+        await state.update_data(document_type=doc_type)
+
+        # Ask for topic
+        topic_text = get_text(user_lang, "enter_topic")
+        await message.answer(topic_text)
+        await state.set_state(DocumentStates.waiting_for_topic)
+
+    except Exception as e:
+        logger.error(f"Error in document type selection: {e}")
+        await message.answer("❌ Xatolik yuz berdi. Qayta urinib ko'ring.")
+
+@router.message(DocumentStates.waiting_for_topic)
+async def handle_topic_input(message: Message, state: FSMContext, user_lang: str, db: Database, user):
+    """Handle topic input from user"""
+    try:
+        topic = message.text.strip()
+
+        if not topic or len(topic) < 3:
+            await message.answer(get_text(user_lang, "topic_too_short"))
+            return
+
+        await state.update_data(topic=topic)
+
+        # Get document type from state
+        data = await state.get_data()
+        doc_type = data.get('document_type')
+
+        # Ask for slide/page count based on document type
+        if doc_type == "presentation":
+            await message.answer(
+                get_text(user_lang, "select_slide_count"),
+                reply_markup=get_slide_count_keyboard(user_lang)
+            )
+            await state.set_state(DocumentStates.waiting_for_slide_count)
+        else:  # referat or independent_work
+            await message.answer(
+                get_text(user_lang, "select_page_count"),
+                reply_markup=get_page_count_keyboard(user_lang)
+            )
+            await state.set_state(DocumentStates.waiting_for_page_count)
+
+    except Exception as e:
+        logger.error(f"Error handling topic input: {e}")
+        await message.answer("❌ Xatolik yuz berdi. Qayta urinib ko'ring.")
 
 # Dynamic pricing helper function
 def get_document_price(document_type: str, count_data: dict) -> int:
@@ -50,30 +114,30 @@ def get_document_price(document_type: str, count_data: dict) -> int:
 async def check_user_subscription_required(message: Message, user, db: Database, user_lang: str) -> bool:
     """Check if user is subscribed to required channels"""
     channels = await db.get_active_channels()
-    
+
     if not channels:
         return True  # No channels required
-    
+
     channel_service = ChannelService(message.bot)
     is_subscribed = await channel_service.check_user_subscription(user.telegram_id, channels)
-    
+
     if not is_subscribed:
         # Show subscription requirement
         from bot.keyboards import get_subscription_check_keyboard
-        
+
         if user_lang == "uz":
             text = "❌ Hujjat yaratish uchun avval kanallarga a'zo bo'lishingiz shart!\n\n👇 Kanalga o'tish uchun tugmani bosing:"
         elif user_lang == "ru":
             text = "❌ Для создания документа сначала подпишитесь на каналы!\n\n👇 Нажмите кнопку для перехода в канал:"
         else:  # en
             text = "❌ To create document, you must subscribe to channels first!\n\n👇 Click the button to go to the channel:"
-        
+
         await message.answer(
             text,
             reply_markup=get_subscription_check_keyboard(user_lang, channels)
         )
         return False
-    
+
     return True
 
 @router.message(F.text.in_(DOCUMENT_TYPES.keys()))
@@ -98,12 +162,12 @@ async def handle_document_request(message: Message, state: FSMContext, db: Datab
 async def handle_topic_input(message: Message, state: FSMContext, user_lang: str):
     """Handle topic input"""
     topic = message.text.strip()
-    
+
     # Simple check - only handle actual topics (not system buttons)
     # System buttons will be handled by their specific routers first due to order
     if topic.startswith(("⚙️", "💳", "💰", "📞", "📊", "🎓", "📄")):
         return  # Let other handlers process system buttons
-    
+
     if len(topic) < 3:
         await message.answer("❌ Mavzu juda qisqa. Iltimos, to'liqroq kiriting.")
         return
@@ -130,16 +194,16 @@ async def show_template_selection(message: Message, state: FSMContext, user_lang
     """Show all 20 templates in one overview image with numbered buttons"""
     try:
         from aiogram.types import FSInputFile
-        
+
         # Send the overview image showing all 20 templates
         overview_image_path = "attached_assets/IMG_20250823_093040_1755924327080.jpg"
-        
+
         if os.path.exists(overview_image_path):
             # Use translated text
             title_text = get_text(user_lang, "template_selection_title")
             description_text = get_text(user_lang, "template_selection_description")
             text = f"{title_text}\n\n{description_text}"
-            
+
             await message.answer_photo(
                 photo=FSInputFile(overview_image_path),
                 caption=text,
@@ -149,7 +213,7 @@ async def show_template_selection(message: Message, state: FSMContext, user_lang
             # Fallback if overview image not found - use translated fallback text
             text = get_text(user_lang, "template_selection_fallback")
             await message.answer(text, parse_mode="Markdown")
-        
+
         # Send compact numbered keyboard with all 20 options
         from bot.keyboards import get_all_templates_keyboard
         keyboard = get_all_templates_keyboard()
@@ -158,7 +222,7 @@ async def show_template_selection(message: Message, state: FSMContext, user_lang
             reply_markup=keyboard,
             parse_mode="Markdown"
         )
-            
+
     except Exception as e:
         logger.error(f"Error in show_template_selection: {e}")
         await message.answer("❌ Xatolik yuz berdi. Qayta urinib ko'ring.")
@@ -183,15 +247,15 @@ async def handle_template_selection(callback: CallbackQuery, state: FSMContext, 
         template_num = callback.data.split("_")[-1]
         template_id = f"template_{template_num}"
         await callback.answer()
-        
+
         # Save selected template
         await state.update_data(selected_template=template_id)
-        
+
         # Clear template selection message
         # Start presentation generation
         await callback.message.edit_text("⏳ Taqdimot yaratilmoqda...")
         await generate_presentation_with_template(callback, state, db, user_lang, user)
-        
+
     except Exception as e:
         logger.error(f"Error in template selection: {e}")
         await callback.message.answer("❌ Xatolik yuz berdi")
@@ -234,7 +298,7 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         # Create presentation with selected template background
         doc_service = DocumentService()
         template_service = TemplateService()
-        
+
         # Apply template to presentation
         file_path = await doc_service.create_presentation_with_template_background(
             topic, content, user.first_name or "", template_id, template_service
@@ -263,7 +327,7 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
             ),
             reply_markup=get_main_keyboard(user_lang)
         )
-        
+
         # Send gentle reminder about content review
         await callback.message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
 
@@ -387,7 +451,7 @@ async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: 
             caption=f"📊 {topic}",
             reply_markup=get_main_keyboard(user_lang)
         )
-        
+
         # Send gentle reminder about content review
         await callback.message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
 
@@ -459,7 +523,7 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
             caption=f"🎓 {topic}",
             reply_markup=get_main_keyboard(user_lang)
         )
-        
+
         # Send gentle reminder about content review
         await callback.message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
 
@@ -532,7 +596,7 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
             caption=f"📄 {topic}",
             reply_markup=get_main_keyboard(user_lang)
         )
-        
+
         # Send gentle reminder about content review
         await callback.message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
 
@@ -569,7 +633,7 @@ HELP_BUTTON_TEXTS = ["📞 Yordam", "📞 Помощь", "📞 Help"]
 async def help_handler(message: Message, state: FSMContext, user_lang: str):
     """Handles the 'Help' button click."""
     await state.clear()  # Clear any active state
-    
+
     # Use translation system for help text
     help_text = get_text(user_lang, "help_text")
 

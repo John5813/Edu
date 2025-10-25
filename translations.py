@@ -1,4 +1,24 @@
 TRANSLATIONS = {
+    "enter_topic": {
+        "uz": "📝 Mavzuni kiriting:",
+        "ru": "📝 Введите тему:",
+        "en": "📝 Enter the topic:"
+    },
+    "topic_too_short": {
+        "uz": "❌ Mavzu juda qisqa. Iltimos, kamida 3 ta belgi kiriting.",
+        "ru": "❌ Тема слишком короткая. Пожалуйста, введите минимум 3 символа.",
+        "en": "❌ Topic is too short. Please enter at least 3 characters."
+    },
+    "select_slide_count": {
+        "uz": "📊 Slaydlar sonini tanlang:",
+        "ru": "📊 Выберите количество слайдов:",
+        "en": "📊 Select number of slides:"
+    },
+    "select_page_count": {
+        "uz": "📄 Varaqlar sonini tanlang:",
+        "ru": "📄 Выберите количество страниц:",
+        "en": "📄 Select number of pages:"
+    },
     "uz": {
         "welcome": "🎓 EduBot.ai ga xush kelibsiz!\n\nAkademik hujjatlar yaratish uchun tilni tanlang:",
         "language_selected": "📝 Til tanlandi: O'zbek\n\nBot ishga tayyor! Quyidagi tugmalar orqali xizmatlardan foydalaning:",
