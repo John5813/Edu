@@ -21,7 +21,6 @@ async def init_db():
                 first_name TEXT,
                 language TEXT DEFAULT 'en',
                 balance INTEGER DEFAULT 0,
-                free_service_used BOOLEAN DEFAULT FALSE,
                 promocode_used TEXT,
                 referral_code TEXT UNIQUE,
                 referred_by INTEGER,
@@ -140,6 +139,8 @@ class Database:
                 row = await cursor.fetchone()
                 if row:
                     user_dict = dict(row)
+                    # Remove free_service_used field if it exists (old database schema)
+                    user_dict.pop('free_service_used', None)
                     # Lazy backfill: if user doesn't have referral_code, generate one with retry logic
                     if not user_dict.get('referral_code'):
                         max_retries = 5
@@ -171,7 +172,10 @@ class Database:
             ) as cursor:
                 row = await cursor.fetchone()
                 if row:
-                    return User(**dict(row))
+                    user_dict = dict(row)
+                    # Remove free_service_used field if it exists (old database schema)
+                    user_dict.pop('free_service_used', None)
+                    return User(**user_dict)
                 return None
 
     @staticmethod
@@ -223,25 +227,6 @@ class Database:
             )
             await db.commit()
 
-    @staticmethod
-    async def mark_free_service_used(telegram_id: int):
-        """Mark that user has used free service"""
-        async with aiosqlite.connect(DATABASE_FILE) as db:
-            await db.execute(
-                "UPDATE users SET free_service_used = TRUE, updated_at = CURRENT_TIMESTAMP WHERE telegram_id = ?",
-                (telegram_id,)
-            )
-            await db.commit()
-
-    @staticmethod
-    async def reset_free_service(telegram_id: int):
-        """Reset free service (from promocode)"""
-        async with aiosqlite.connect(DATABASE_FILE) as db:
-            await db.execute(
-                "UPDATE users SET free_service_used = FALSE, updated_at = CURRENT_TIMESTAMP WHERE telegram_id = ?",
-                (telegram_id,)
-            )
-            await db.commit()
 
     @staticmethod
     async def create_payment(user_id: int, amount: int, screenshot_file_id: str) -> int:
@@ -401,15 +386,6 @@ class Database:
             )
             await db.commit()
 
-    @staticmethod
-    async def reset_free_service(telegram_id: int):
-        """Reset free service flag for user"""
-        async with aiosqlite.connect(DATABASE_FILE) as db:
-            await db.execute(
-                "UPDATE users SET free_service_used = FALSE WHERE telegram_id = ?",
-                (telegram_id,)
-            )
-            await db.commit()
 
     @staticmethod
     async def deactivate_promocode(promocode_id: int):
@@ -533,7 +509,13 @@ class Database:
             db.row_factory = aiosqlite.Row
             async with db.execute("SELECT * FROM users ORDER BY created_at DESC") as cursor:
                 rows = await cursor.fetchall()
-                return [User(**dict(row)) for row in rows]
+                users = []
+                for row in rows:
+                    user_dict = dict(row)
+                    # Remove free_service_used field if it exists (old database schema)
+                    user_dict.pop('free_service_used', None)
+                    users.append(User(**user_dict))
+                return users
 
     @staticmethod
     async def get_active_users(days: int = 30) -> List[User]:
@@ -544,7 +526,13 @@ class Database:
                 "SELECT * FROM users WHERE updated_at >= datetime('now', '-{} days') ORDER BY updated_at DESC".format(days)
             ) as cursor:
                 rows = await cursor.fetchall()
-                return [User(**dict(row)) for row in rows]
+                users = []
+                for row in rows:
+                    user_dict = dict(row)
+                    # Remove free_service_used field if it exists (old database schema)
+                    user_dict.pop('free_service_used', None)
+                    users.append(User(**user_dict))
+                return users
 
     @staticmethod
     async def get_user_stats() -> dict:

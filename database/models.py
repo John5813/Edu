@@ -10,7 +10,6 @@ class User:
     first_name: Optional[str]
     language: str
     balance: int
-    free_service_used: bool
     promocode_used: Optional[str]
     referral_code: Optional[str]
     referred_by: Optional[int]

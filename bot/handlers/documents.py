@@ -267,7 +267,7 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         topic = data['topic']
         slide_count = data['slide_count']
         template_id = data.get('selected_template', 'template_20')
-        use_free_service = data.get('use_free_service', False)
+        price = data.get('price', 0)
 
         # Create order record
         specifications = json.dumps({
@@ -307,18 +307,8 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         # Update order
         await db.update_document_order(order_id, "completed", file_path)
 
-        # Process payment - get payment method from state
-        data = await state.get_data()
-        use_free_service = data.get('use_free_service', False)
-        price = get_document_price("presentation", {"slide_count": slide_count})
-
-        # Mark service as used or deduct balance
-        if use_free_service:
-            # Mark free service as used
-            await db.mark_free_service_used(user.telegram_id)
-        else:
-            # Deduct from balance
-            await db.update_user_balance(user.telegram_id, -price)
+        # Deduct from balance
+        await db.update_user_balance(user.telegram_id, -price)
         await callback.message.answer(get_text(user_lang, "document_ready"))
 
         # Get template name for caption
@@ -364,14 +354,9 @@ async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Dat
     # Calculate price based on slide count
     price = get_document_price("presentation", {"slide_count": slide_count})
 
-    # Check if user has free service or balance
-    # free_service_used = False means user can use free service
-    if user.free_service_used == False:
-        # User can use free service (includes promocode users)
-        await state.update_data(use_free_service=True)
-    elif user.balance >= price:
-        # User has sufficient balance
-        await state.update_data(use_free_service=False)
+    # Check if user has sufficient balance
+    if user.balance >= price:
+        await state.update_data(price=price)
     else:
         # Insufficient balance
         await callback.message.answer(
@@ -400,14 +385,9 @@ async def handle_page_count(callback: CallbackQuery, state: FSMContext, db: Data
     document_type = data['document_type']
     price = get_document_price(document_type, {"min_pages": min_pages, "max_pages": max_pages})
 
-    # Check if user has free service or balance
-    # free_service_used = False means user can use free service
-    if user.free_service_used == False:
-        # User can use free service (includes promocode users)
-        await state.update_data(use_free_service=True)
-    elif user.balance >= price:
-        # User has sufficient balance
-        await state.update_data(use_free_service=False)
+    # Check if user has sufficient balance
+    if user.balance >= price:
+        await state.update_data(price=price)
     else:
         # Insufficient balance
         await callback.message.answer(
@@ -431,7 +411,7 @@ async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: 
         data = await state.get_data()
         topic = data['topic']
         slide_count = data['slide_count']
-        use_free_service = data.get('use_free_service', False)
+        price = data.get('price', 0)
 
         # Create order record
         specifications = json.dumps({"slide_count": slide_count})
@@ -465,17 +445,9 @@ async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: 
         # Update order
         await db.update_document_order(order_id, "completed", file_path)
 
-        # Process payment
-        data = await state.get_data()
-        use_free_service = data.get('use_free_service', False)
-
-        if use_free_service:
-            await db.mark_free_service_used(user.telegram_id)
-            await callback.message.edit_text(get_text(user_lang, "free_service_used"))
-        else:
-            price = get_document_price("presentation", {"slide_count": slide_count})
-            await db.update_user_balance(user.telegram_id, -price)
-            await callback.message.edit_text(get_text(user_lang, "document_ready"))
+        # Deduct from balance
+        await db.update_user_balance(user.telegram_id, -price)
+        await callback.message.edit_text(get_text(user_lang, "document_ready"))
 
         # Send file
         document = FSInputFile(file_path)
@@ -544,18 +516,9 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
         # Update order
         await db.update_document_order(order_id, "completed", file_path)
 
-        # Process payment - get payment method from state
-        data = await state.get_data()
-        use_free_service = data.get('use_free_service', False)
-        price = get_document_price("independent_work", {"min_pages": min_pages, "max_pages": max_pages})
-
-        # Mark service as used or deduct balance
-        if use_free_service:
-            # Mark free service as used
-            await db.mark_free_service_used(user.telegram_id)
-        else:
-            # Deduct from balance
-            await db.update_user_balance(user.telegram_id, -price)
+        # Deduct from balance
+        price = data.get('price', 0)
+        await db.update_user_balance(user.telegram_id, -price)
 
         await callback.message.edit_text(get_text(user_lang, "document_ready"))
 
@@ -627,18 +590,9 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
         # Update order
         await db.update_document_order(order_id, "completed", file_path)
 
-        # Process payment - get payment method from state
-        data = await state.get_data()
-        use_free_service = data.get('use_free_service', False)
-        price = get_document_price("referat", {"min_pages": min_pages, "max_pages": max_pages})
-
-        # Mark service as used or deduct balance
-        if use_free_service:
-            # Mark free service as used
-            await db.mark_free_service_used(user.telegram_id)
-        else:
-            # Deduct from balance
-            await db.update_user_balance(user.telegram_id, -price)
+        # Deduct from balance
+        price = data.get('price', 0)
+        await db.update_user_balance(user.telegram_id, -price)
 
         await callback.message.edit_text(get_text(user_lang, "document_ready"))
 
@@ -670,11 +624,10 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
 @router.message(F.text == "Mening hisobim")
 async def my_account_handler(message: Message, db: Database, user_lang: str, user):
     """Handles the 'My Account' button click."""
-    user_balance = await db.get_user_balance(user.telegram_id)
     await message.answer(
         get_text(user_lang, "my_account_info", 
             name=user.first_name,
-            balance=user_balance
+            balance=user.balance
         ),
         reply_markup=get_main_keyboard(user_lang)
     )
