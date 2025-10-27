@@ -136,15 +136,6 @@ def validate_payment_amount(amount: int) -> bool:
     valid_amounts = [15000, 25000, 50000, 100000]
     return amount in valid_amounts
 
-def get_free_service_status_text(used: bool, language: str) -> str:
-    """Get free service status text in specified language"""
-    if language == "uz":
-        return "❌ Ishlatilgan" if used else "✅ Mavjud"
-    elif language == "ru":
-        return "❌ Использован" if used else "✅ Доступен"
-    else:  # English
-        return "❌ Used" if used else "✅ Available"
-
 def clean_html_tags(text: str) -> str:
     """Remove HTML tags from text"""
     import re
