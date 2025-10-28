@@ -918,7 +918,7 @@ async def handle_statistics(message: Message, db: Database):
         f"📈 Bot statistikasi:\n\n"
         f"👥 Jami foydalanuvchilar: {stats['total_users']}\n"
         f"🆕 Bugun qo'shilganlar: {stats['users_today']}\n"
-        f"💰 Jami tushum: {stats['total_revenue']:,} so'm\n"
+        f"💰 Bugungi tushum: {stats['revenue_today']:,} so'm\n"
         f"📄 Jami buyurtmalar: {stats['total_orders']}\n"
     )
 

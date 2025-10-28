@@ -560,11 +560,11 @@ class Database:
             ) as cursor:
                 users_month = (await cursor.fetchone())[0]
 
-            # Total revenue
+            # Revenue today
             async with db.execute(
-                "SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved'"
+                "SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved' AND date(created_at) = date('now')"
             ) as cursor:
-                total_revenue = (await cursor.fetchone())[0]
+                revenue_today = (await cursor.fetchone())[0]
 
             # Revenue this month
             async with db.execute(
@@ -593,7 +593,7 @@ class Database:
                 'users_today': users_today,
                 'users_week': users_week,
                 'users_month': users_month,
-                'total_revenue': total_revenue,
+                'revenue_today': revenue_today,
                 'revenue_month': revenue_month,
                 'total_orders': total_orders,
                 'orders_month': orders_month,
