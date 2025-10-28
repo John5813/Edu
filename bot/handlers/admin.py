@@ -908,45 +908,115 @@ async def handle_users_list(message: Message, db: Database):
 
 @router.message(F.text == "📊 Statistika")
 async def handle_statistics(message: Message, db: Database):
-    """Handle statistics request"""
-    if not is_admin(message.from_user.id):
-        return
-
-    stats = await db.get_user_stats()
-
-    text = (
-        f"📈 Bot statistikasi:\n\n"
-        f"👥 Jami foydalanuvchilar: {stats['total_users']}\n"
-        f"🆕 Bugun qo'shilganlar: {stats['users_today']}\n"
-        f"💰 Bugungi tushum: {stats['revenue_today']:,} so'm\n"
-        f"📄 Jami buyurtmalar: {stats['total_orders']}\n"
-    )
-
-    await message.answer(text)
-
-@router.message(F.text == "📈 Kunlik statistika")
-async def handle_daily_statistics(message: Message, db: Database):
-    """Handle daily statistics request"""
+    """Handle statistics request with detailed breakdown"""
     if not is_admin(message.from_user.id):
         return
 
     try:
-        # Get statistics using existing method
-        stats = await db.get_user_stats()
-        today = datetime.now()
-
-        # Calculate yesterday's users (simple approximation)
-        users_yesterday = max(0, stats['users_week'] - stats['users_today'])
+        from database.database import DATABASE_FILE
+        import aiosqlite
+        
+        async with aiosqlite.connect(DATABASE_FILE) as db_conn:
+            # Total users
+            async with db_conn.execute("SELECT COUNT(*) FROM users") as cursor:
+                total_users = (await cursor.fetchone())[0]
+            
+            # Users who joined today
+            async with db_conn.execute(
+                "SELECT COUNT(*) FROM users WHERE date(created_at) = date('now')"
+            ) as cursor:
+                joined_today = (await cursor.fetchone())[0]
+            
+            # Total users who made at least one payment
+            async with db_conn.execute(
+                "SELECT COUNT(DISTINCT user_id) FROM payments WHERE status = 'approved'"
+            ) as cursor:
+                total_paid_users = (await cursor.fetchone())[0]
+            
+            # Today's revenue
+            async with db_conn.execute(
+                "SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved' AND date(created_at) = date('now')"
+            ) as cursor:
+                revenue_today = (await cursor.fetchone())[0]
+            
+            # Total documents
+            async with db_conn.execute(
+                "SELECT COUNT(*) FROM document_orders WHERE status = 'completed'"
+            ) as cursor:
+                total_documents = (await cursor.fetchone())[0]
 
         text = (
-            f"📈 Kunlik statistika ({today.strftime('%d.%m.%Y')}):\n\n"
-            f"👥 Bugun yangi foydalanuvchilar: {stats['users_today']}\n"
-            f"📊 Bu hafta yangi foydalanuvchilar: {stats['users_week']}\n"
-            f"📋 Jami buyurtmalar: {stats['total_orders']}\n"
-            f"💰 Jami tushum: {stats['total_revenue']:,} so'm\n"
-            f"📆 Bu oy buyurtmalar: {stats['orders_month']}\n\n"
-            f"📈 Haftalik o'sish: +{stats['users_week']} foydalanuvchi\n"
-            f"📅 Ma'lumot: {today.strftime('%d.%m.%Y %H:%M')}"
+            f"📈 Bot statistikasi:\n\n"
+            f"👥 Jami foydalanuvchilar: {total_users} ta\n"
+            f"🆕 Bugun qo'shilganlar: {joined_today} ta\n"
+            f"💳 To'lov qilganlar: {total_paid_users} ta\n"
+            f"💰 Bugungi daromad: {revenue_today:,} so'm\n"
+            f"📄 Yaratilgan fayllar: {total_documents} ta\n"
+        )
+
+        await message.answer(text)
+        
+    except Exception as e:
+        logger.error(f"Error in statistics: {e}")
+        await message.answer("❌ Statistikani olishda xatolik yuz berdi.")
+
+@router.message(F.text == "📈 Kunlik statistika")
+async def handle_daily_statistics(message: Message, db: Database):
+    """Handle daily statistics request with detailed breakdown"""
+    if not is_admin(message.from_user.id):
+        return
+
+    try:
+        from database.database import DATABASE_FILE
+        import aiosqlite
+        
+        today = datetime.now()
+        
+        # Get today's detailed statistics
+        async with aiosqlite.connect(DATABASE_FILE) as db_conn:
+            # Total users in database
+            async with db_conn.execute("SELECT COUNT(*) FROM users") as cursor:
+                total_users = (await cursor.fetchone())[0]
+            
+            # Users who started bot today (/start command)
+            async with db_conn.execute(
+                "SELECT COUNT(*) FROM users WHERE date(created_at) = date('now')"
+            ) as cursor:
+                users_started_today = (await cursor.fetchone())[0]
+            
+            # Users who made payment today
+            async with db_conn.execute(
+                "SELECT COUNT(DISTINCT user_id) FROM payments WHERE status = 'approved' AND date(created_at) = date('now')"
+            ) as cursor:
+                users_paid_today = (await cursor.fetchone())[0]
+            
+            # Number of payments today
+            async with db_conn.execute(
+                "SELECT COUNT(*) FROM payments WHERE status = 'approved' AND date(created_at) = date('now')"
+            ) as cursor:
+                payments_count_today = (await cursor.fetchone())[0]
+            
+            # Revenue today
+            async with db_conn.execute(
+                "SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved' AND date(created_at) = date('now')"
+            ) as cursor:
+                revenue_today = (await cursor.fetchone())[0]
+            
+            # Documents created today
+            async with db_conn.execute(
+                "SELECT COUNT(*) FROM document_orders WHERE date(created_at) = date('now')"
+            ) as cursor:
+                documents_today = (await cursor.fetchone())[0]
+
+        text = (
+            f"📈 Kunlik statistika ({today.strftime('%d.%m.%Y')})\n\n"
+            f"👥 Jami foydalanuvchilar: {total_users} ta\n\n"
+            f"🆕 Bugun /start bosganlar: {users_started_today} ta\n"
+            f"💳 Bugun to'lov qilganlar: {users_paid_today} ta\n"
+            f"📊 Bugun to'lovlar soni: {payments_count_today} ta\n"
+            f"💰 Bugungi daromad: {revenue_today:,} so'm\n"
+            f"📄 Bugun yaratilgan fayllar: {documents_today} ta\n\n"
+            f"⏰ Yangilandi: {today.strftime('%d.%m.%Y %H:%M')}"
         )
 
         await message.answer(text)
