@@ -623,7 +623,7 @@ class DocumentService:
             # 2. Add CONTENT SLIDES
             for idx, slide_data in enumerate(slides_data):
                 slide_num = idx + 2  # +2 chunki birinchi slayd mavzu nomi
-                
+
                 # Content slides with rotating layouts
                 layout_type = self._get_layout_type(idx + 1)  # idx+1 for proper rotation
                 await self._create_content_slide_by_layout(prs, slide_data, layout_type, slide_num, images)
@@ -871,7 +871,7 @@ class DocumentService:
                 else:
                     # Raqamli bo'limlar
                     numbered_section_count += 1
-                    section_title_run = section_title.add_run(f"{numbered_section_count}. {title}")
+                    section_title_run = section_title.add_run(f"{numbered_section_count}. {title.upper()}")
 
                 section_title_run.font.bold = True
                 section_title_run.font.size = Pt(14)
