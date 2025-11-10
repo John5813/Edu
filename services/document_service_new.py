@@ -107,7 +107,7 @@ class DocumentService:
         title_frame = title_box.text_frame
         title_para = title_frame.paragraphs[0]
         title_para.text = topic
-        title_para.font.size = PptxPt(44)
+        title_para.font.size = PptxPt(46)
         title_para.font.bold = True
         title_para.font.color.rgb = colors.get('title', RGBColor(0, 51, 102))
         title_para.alignment = PP_ALIGN.CENTER
@@ -145,7 +145,7 @@ class DocumentService:
         title_frame = title_box.text_frame
         title_para = title_frame.paragraphs[0]
         title_para.text = slide_data.get('title', 'Asosiy Nuqtalar')
-        title_para.font.size = PptxPt(28)
+        title_para.font.size = PptxPt(30)
         title_para.font.bold = True
         title_para.font.color.rgb = colors.get('title', RGBColor(0, 51, 102))
         title_para.alignment = PP_ALIGN.CENTER
@@ -165,7 +165,7 @@ class DocumentService:
         for i, point in enumerate(numbered_points[:4]):  # Max 4 numbered points
             p = content_frame.add_paragraph()
             p.text = f"{i + 1}. {point}"
-            p.font.size = PptxPt(18)
+            p.font.size = PptxPt(20)
             p.font.color.rgb = colors.get('text', RGBColor(51, 51, 51))
             p.alignment = PP_ALIGN.LEFT
             p.level = i  # Stair-step effect: 0, 1, 2, 3 levels (zinapoya)
@@ -185,7 +185,7 @@ class DocumentService:
         title_frame = title_box.text_frame
         title_para = title_frame.paragraphs[0]
         title_para.text = slide_data.get('title', 'Matn va Rasm')
-        title_para.font.size = PptxPt(28)
+        title_para.font.size = PptxPt(30)
         title_para.font.bold = True
         title_para.font.color.rgb = colors.get('title', RGBColor(0, 51, 102))
         title_para.alignment = PP_ALIGN.CENTER
@@ -203,7 +203,7 @@ class DocumentService:
         original_content = slide_data.get('content', 'Mazmun mavjud emas')
         words = str(original_content).split()[:40]  # Limit to 40 words
         text_para.text = ' '.join(words)
-        text_para.font.size = PptxPt(18)
+        text_para.font.size = PptxPt(20)
         text_para.font.color.rgb = colors.get('text', RGBColor(51, 51, 51))
         text_para.alignment = PP_ALIGN.LEFT
         
@@ -238,7 +238,7 @@ class DocumentService:
         title_frame = title_box.text_frame
         title_para = title_frame.paragraphs[0]
         title_para.text = slide_data.get('title', 'Uch Ustunli Slayd')
-        title_para.font.size = PptxPt(28)
+        title_para.font.size = PptxPt(30)
         title_para.font.bold = True
         title_para.font.color.rgb = colors.get('title', RGBColor(0, 51, 102))
         title_para.alignment = PP_ALIGN.CENTER
@@ -261,7 +261,7 @@ class DocumentService:
             # Column title with template colors (forced black)
             col_para = col_frame.paragraphs[0]
             col_para.text = column.get('title', f'Ustun {i+1}')
-            col_para.font.size = PptxPt(16)
+            col_para.font.size = PptxPt(18)
             col_para.font.bold = True
             col_para.font.color.rgb = RGBColor(0, 0, 0)  # Force black color
             col_para.alignment = PP_ALIGN.CENTER
@@ -270,7 +270,7 @@ class DocumentService:
             column_text = column.get('text', 'Ma\'lumot yo\'q')
             p = col_frame.add_paragraph()
             p.text = str(column_text).strip()
-            p.font.size = PptxPt(12)
+            p.font.size = PptxPt(14)
             p.font.color.rgb = colors.get('text', RGBColor(51, 51, 51))
             p.alignment = PP_ALIGN.LEFT
 
@@ -398,7 +398,7 @@ class DocumentService:
         # Title
         if title:
             title.text = slide_data.get('title', 'Mavzu Tushuntirish')
-            title.text_frame.paragraphs[0].font.size = PptxPt(28)  # Medium title
+            title.text_frame.paragraphs[0].font.size = PptxPt(30)  # Medium title
             title.text_frame.paragraphs[0].font.bold = True
             title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
 
@@ -428,7 +428,7 @@ class DocumentService:
             # Use full text as single continuous paragraph (no bullets)
             p = content_frame.paragraphs[0]
             p.text = content_text
-            p.font.size = PptxPt(16)  # Slightly smaller font for more text
+            p.font.size = PptxPt(18)  # Slightly smaller font for more text
             p.alignment = PP_ALIGN.LEFT  # Left alignment
             p.level = 0
 
@@ -445,7 +445,7 @@ class DocumentService:
         title_frame = title_box.text_frame
         title_para = title_frame.paragraphs[0]
         title_para.text = slide_data.get('title', 'Matn + Rasm Slayd')
-        title_para.font.size = PptxPt(32)  # Larger title
+        title_para.font.size = PptxPt(34)  # Larger title
         title_para.font.bold = True
         title_para.font.color.rgb = RGBColor(0, 0, 0)  # Black text
         title_para.alignment = PP_ALIGN.CENTER
@@ -474,7 +474,7 @@ class DocumentService:
         
         # KESISH YO'Q - to'liq matn ishlatiladi
         text_para.text = original_content  # AI dan 70 so'zlik to'liq matn
-        text_para.font.size = PptxPt(16)  # Slightly smaller font for more text
+        text_para.font.size = PptxPt(18)  # Slightly smaller font for more text
         text_para.font.bold = True  # Bold for better visibility
         text_para.font.color.rgb = RGBColor(0, 0, 0)  # Black text
         text_para.alignment = PP_ALIGN.LEFT  # Left alignment
@@ -511,7 +511,7 @@ class DocumentService:
         title_frame = title_box.text_frame
         title_para = title_frame.paragraphs[0]
         title_para.text = slide_data.get('title', 'Uch Ustunli Slayd')
-        title_para.font.size = PptxPt(32)  # Larger title
+        title_para.font.size = PptxPt(34)  # Larger title
         title_para.font.bold = True
         title_para.font.color.rgb = RGBColor(0, 0, 0)  # Black text
         title_para.alignment = PP_ALIGN.CENTER
@@ -542,7 +542,7 @@ class DocumentService:
             # Column title (logical header)
             col_para = col_frame.paragraphs[0]
             col_para.text = column.get('title', f'Ustun {i+1}')
-            col_para.font.size = PptxPt(16)  # Medium font for headers
+            col_para.font.size = PptxPt(18)  # Medium font for headers
             col_para.font.bold = True
             col_para.font.name = 'Times New Roman'  # Times New Roman shrift
             col_para.font.color.rgb = RGBColor(0, 0, 0)  # Black text
@@ -554,7 +554,7 @@ class DocumentService:
             # Add continuous text paragraph
             p = col_frame.add_paragraph()
             p.text = str(column_text).strip()
-            p.font.size = PptxPt(12)  # Small font for details
+            p.font.size = PptxPt(14)  # Small font for details
             p.font.name = 'Times New Roman'  # Times New Roman shrift
             p.font.color.rgb = RGBColor(0, 0, 0)  # Black text
             p.alignment = PP_ALIGN.LEFT  # Left alignment
@@ -761,7 +761,7 @@ class DocumentService:
         # Title
         if title:
             title.text = slide_data.get('title', '3 Asosiy Nuqta')
-            title.text_frame.paragraphs[0].font.size = PptxPt(28)
+            title.text_frame.paragraphs[0].font.size = PptxPt(30)
             title.text_frame.paragraphs[0].font.bold = True
             title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
 
@@ -782,7 +782,7 @@ class DocumentService:
                     p = content_frame.add_paragraph()
                 
                 p.text = f"• {point.strip()}"
-                p.font.size = PptxPt(18)
+                p.font.size = PptxPt(20)
                 p.alignment = PP_ALIGN.LEFT
                 p.level = 0
 
@@ -797,7 +797,7 @@ class DocumentService:
         # Title
         if title:
             title.text = slide_data.get('title', '4 Raqamli Matn')
-            title.text_frame.paragraphs[0].font.size = PptxPt(28)
+            title.text_frame.paragraphs[0].font.size = PptxPt(30)
             title.text_frame.paragraphs[0].font.bold = True
             title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
 
@@ -818,7 +818,7 @@ class DocumentService:
                     p = content_frame.add_paragraph()
                 
                 p.text = f"{i + 1}. {point.strip()}"
-                p.font.size = PptxPt(18)
+                p.font.size = PptxPt(20)
                 p.font.name = 'Times New Roman'
                 p.alignment = PP_ALIGN.LEFT
                 p.level = i  # Stair-step effect: 0, 1, 2, 3 levels (zinapoya)
@@ -835,7 +835,7 @@ class DocumentService:
         if title:
             title.text = "Diqqatingiz uchun rahmat!"
             title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
-            title.text_frame.paragraphs[0].font.size = PptxPt(44)
+            title.text_frame.paragraphs[0].font.size = PptxPt(46)
             title.text_frame.paragraphs[0].font.bold = True
 
         if subtitle:
@@ -890,7 +890,7 @@ class DocumentService:
         title_frame.word_wrap = True
         title_para = title_frame.paragraphs[0]
         title_para.text = topic
-        title_para.font.size = PptxPt(44)
+        title_para.font.size = PptxPt(46)
         title_para.font.bold = True
         title_para.alignment = PP_ALIGN.CENTER
 
@@ -908,7 +908,7 @@ class DocumentService:
         thanks_frame.word_wrap = True
         thanks_para = thanks_frame.paragraphs[0]
         thanks_para.text = "E'tiboringiz uchun rahmat!"
-        thanks_para.font.size = PptxPt(44)
+        thanks_para.font.size = PptxPt(46)
         thanks_para.font.bold = True
         thanks_para.alignment = PP_ALIGN.CENTER
 
@@ -923,12 +923,12 @@ class DocumentService:
         if title:
             title.text = "Taqdimot"
             title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
-            title.text_frame.paragraphs[0].font.size = PptxPt(36)
+            title.text_frame.paragraphs[0].font.size = PptxPt(38)
 
         if subtitle:
             subtitle.text = f"{topic}"
             subtitle.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
-            subtitle.text_frame.paragraphs[0].font.size = PptxPt(20)
+            subtitle.text_frame.paragraphs[0].font.size = PptxPt(22)
 
     async def create_referat(self, topic: str, content: Dict) -> str:
         """Create referat document"""
