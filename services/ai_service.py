@@ -426,8 +426,8 @@ USLUB VA FORMAT TALABLARI:
 - Общая оценка и заключительные мысли
 
 ВАЖНЫЕ ТРЕБОВАНИЯ:
-- Напишите точно 300-400 слов, не больше
-- Каждый абзац должен содержать 5-7 предложений
+- Напишите максимум 150 слов, не больше
+- Каждый абзац должен содержать 3-4 предложения
 - Текст без пустых строк
 - Используйте профессиональный академический язык
 - Каждое предложение логически связано с предыдущим
@@ -436,25 +436,22 @@ USLUB VA FORMAT TALABLARI:
 - Ссылки на все разделы работы"""
 
                 else:  # Основные разделы
-                    prompt = f"""Создайте глубокое профессиональное академическое содержание для раздела "{section_title}" по теме "{topic}" на русском языке.
+                    prompt = f"""Создайте профессиональное академическое содержание для раздела "{section_title}" по теме "{topic}" на русском языке.
 
 Этот основной раздел должен соответствовать следующим требованиям:
-- Подробное и глубокое освещение данного аспекта темы
+- Освещение данного аспекта темы
 - Теоретические основы и научные подходы
 - Практические примеры и результаты исследований
 - Мнения и анализы различных авторов
-- Проблемы и их решения
-- Анализ зарубежного и отечественного опыта
 
 ВАЖНЫЕ ТРЕБОВАНИЯ:
-- Напишите точно 400-500 слов, не больше
-- Каждый абзац должен содержать 6-8 предложений
+- Напишите максимум 350 слов, не больше
+- Каждый абзац должен содержать 4-5 предложений
 - Текст без пустых строк
 - Используйте профессиональный академический язык
 - Каждое предложение логически связано с предыдущим
 - Не используйте символы или знаки в тексте
 - Текст должен быть плавным и непрерывным
-- Каждая мысль полностью обоснована
 - Раздел связан с другими разделами"""
 
             else:  # English
@@ -488,8 +485,8 @@ This conclusion must meet the following requirements:
 - Overall assessment and final thoughts
 
 IMPORTANT REQUIREMENTS:
-- Write exactly 300-400 words, no more
-- Each paragraph should contain 5-7 sentences
+- Write maximum 150 words, no more
+- Each paragraph should contain 3-4 sentences
 - No empty lines in the text
 - Use professional academic language
 - Each sentence logically connected to the previous one
@@ -498,25 +495,22 @@ IMPORTANT REQUIREMENTS:
 - References to all sections of the work"""
 
                 else:  # Main sections
-                    prompt = f"""Create deep professional academic content for the section "{section_title}" on the topic "{topic}" in English.
+                    prompt = f"""Create professional academic content for the section "{section_title}" on the topic "{topic}" in English.
 
 This main section must meet the following requirements:
-- Detailed and thorough coverage of this aspect of the topic
+- Coverage of this aspect of the topic
 - Theoretical foundations and scientific approaches
 - Practical examples and research findings
 - Opinions and analyses of various authors
-- Problems and their solutions
-- Analysis of international and domestic experience
 
 IMPORTANT REQUIREMENTS:
-- Write exactly 400-500 words, no more
-- Each paragraph should contain 6-8 sentences
+- Write maximum 350 words, no more
+- Each paragraph should contain 4-5 sentences
 - No empty lines in the text
 - Use professional academic language
 - Each sentence logically connected to the previous one
 - Do not use symbols or signs in the text
 - Text should be smooth and continuous
-- Each idea fully substantiated
 - Section connected to other sections"""
 
             response = await self.client.chat.completions.create(
