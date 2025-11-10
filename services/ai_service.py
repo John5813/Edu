@@ -343,8 +343,8 @@ Bu kirish bo'limi bo'lib, quyidagi talablarga javob berishi kerak:
 - Mavzu bo'yicha mavjud adabiyotlarga qisqacha sharh
 
 MUHIM TALABLAR:
-- Aniq 300-400 so'z yozing, ortiqcha emas
-- Har bir paragraf 5-7 ta jumla bo'lsin
+- Aniq 150-200 so'z yozing, ortiqcha emas
+- Har bir paragraf 3-4 ta jumla bo'lsin
 - Matnda bo'sh qatorlar bo'lmasin
 - Professional akademik til ishlatilsin
 - Har bir jumla oldingi jumla bilan mantiqan bog'langan bo'lsin
@@ -406,8 +406,8 @@ USLUB VA FORMAT TALABLARI:
 - Краткий обзор существующей литературы по теме
 
 ВАЖНЫЕ ТРЕБОВАНИЯ:
-- Напишите точно 300-400 слов, не больше
-- Каждый абзац должен содержать 5-7 предложений
+- Напишите точно 150-200 слов, не больше
+- Каждый абзац должен содержать 3-4 предложения
 - Текст без пустых строк
 - Используйте профессиональный академический язык
 - Каждое предложение логически связано с предыдущим
@@ -468,8 +468,8 @@ This introduction must meet the following requirements:
 - Brief review of existing literature on the topic
 
 IMPORTANT REQUIREMENTS:
-- Write exactly 300-400 words, no more
-- Each paragraph should contain 5-7 sentences
+- Write exactly 150-200 words, no more
+- Each paragraph should contain 3-4 sentences
 - No empty lines in the text
 - Use professional academic language
 - Each sentence logically connected to the previous one
