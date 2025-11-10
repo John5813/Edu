@@ -301,7 +301,7 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
 
         # Apply template to presentation
         file_path = await doc_service.create_presentation_with_template_background(
-            topic, content, user.first_name or "", template_id, template_service
+            topic, content, user.first_name or "", template_id, template_service, user_lang
         )
 
         # Update order
@@ -440,7 +440,7 @@ async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: 
 
         # Create presentation file with NEW SYSTEM (DALL-E + 3 layouts)
         doc_service = DocumentService()
-        file_path = await doc_service.create_new_presentation_system(topic, content, user.first_name or "")
+        file_path = await doc_service.create_new_presentation_system(topic, content, user.first_name or "", user_lang)
 
         # Update order
         await db.update_document_order(order_id, "completed", file_path)

@@ -25,11 +25,11 @@ class DocumentService:
         os.makedirs(self.documents_dir, exist_ok=True)
         os.makedirs("temp", exist_ok=True)
 
-    async def create_presentation_with_template_background(self, topic: str, content: Dict, author_name: str, template_id: str, template_service) -> str:
+    async def create_presentation_with_template_background(self, topic: str, content: Dict, author_name: str, template_id: str, template_service, language: str = "uz") -> str:
         """Create presentation with template background applied"""
         try:
             # First create normal presentation
-            temp_file = await self.create_new_presentation_system(topic, content, author_name)
+            temp_file = await self.create_new_presentation_system(topic, content, author_name, language)
             
             # Now apply template backgrounds to all slides
             from pptx import Presentation
@@ -274,7 +274,7 @@ class DocumentService:
             p.font.color.rgb = colors.get('text', RGBColor(51, 51, 51))
             p.alignment = PP_ALIGN.LEFT
 
-    async def create_new_presentation_system(self, topic: str, content: Dict, author_name: str) -> str:
+    async def create_new_presentation_system(self, topic: str, content: Dict, author_name: str, language: str = "uz") -> str:
         """Create presentation with new 3-template rotating system and DALL-E images"""
         try:
             # Validate content
@@ -306,7 +306,7 @@ class DocumentService:
                 await self._create_new_content_slide(prs, slide_data, layout_type, slide_num, images)
             
             # 3. ADD THANK YOU SLIDE - oxirgi slayd
-            await self._create_thank_you_slide(prs)
+            await self._create_thank_you_slide(prs, language)
             
             # Save presentation
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -824,7 +824,7 @@ class DocumentService:
                 p.level = i  # Stair-step effect: 0, 1, 2, 3 levels (zinapoya)
 
 
-    async def _create_thank_you_slide(self, prs):
+    async def _create_thank_you_slide(self, prs, language: str = "uz"):
         """Create final thank you slide"""
         slide_layout = prs.slide_layouts[0]  # Title slide layout
         slide = prs.slides.add_slide(slide_layout)
@@ -832,8 +832,17 @@ class DocumentService:
         title = slide.shapes.title
         subtitle = slide.placeholders[1]
 
+        # Thank you text in different languages
+        thank_you_texts = {
+            "uz": "E'tiboringiz uchun rahmat!",
+            "ru": "Спасибо за внимание!",
+            "en": "Thank you for your attention!"
+        }
+        
+        thank_you_text = thank_you_texts.get(language, "E'tiboringiz uchun rahmat!")
+
         if title:
-            title.text = "Diqqatingiz uchun rahmat!"
+            title.text = thank_you_text
             title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
             title.text_frame.paragraphs[0].font.size = PptxPt(46)
             title.text_frame.paragraphs[0].font.bold = True
@@ -894,10 +903,19 @@ class DocumentService:
         title_para.font.bold = True
         title_para.alignment = PP_ALIGN.CENTER
 
-    async def _create_thank_you_slide(self, prs):
+    async def _create_thank_you_slide(self, prs, language: str = "uz"):
         """Create thank you slide - Etiboringiz uchun rahmat"""
         slide_layout = prs.slide_layouts[6]  # Blank layout
         slide = prs.slides.add_slide(slide_layout)
+
+        # Thank you text in different languages
+        thank_you_texts = {
+            "uz": "E'tiboringiz uchun rahmat!",
+            "ru": "Спасибо за внимание!",
+            "en": "Thank you for your attention!"
+        }
+        
+        thank_you_text = thank_you_texts.get(language, "E'tiboringiz uchun rahmat!")
 
         # Add thank you message in center - katta yozuv
         thanks_box = slide.shapes.add_textbox(
@@ -907,7 +925,7 @@ class DocumentService:
         thanks_frame = thanks_box.text_frame
         thanks_frame.word_wrap = True
         thanks_para = thanks_frame.paragraphs[0]
-        thanks_para.text = "E'tiboringiz uchun rahmat!"
+        thanks_para.text = thank_you_text
         thanks_para.font.size = PptxPt(46)
         thanks_para.font.bold = True
         thanks_para.alignment = PP_ALIGN.CENTER
