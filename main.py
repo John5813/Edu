@@ -41,12 +41,12 @@ async def main():
     dp.message.middleware(LanguageMiddleware())
     dp.callback_query.middleware(LanguageMiddleware())
     
-    # Register handlers - important order: specific handlers first!
-    dp.include_router(start.router)
-    dp.include_router(settings.router)  # Moved up - handle settings buttons first
-    dp.include_router(payments.router)  # Moved up - handle payment buttons first
+    # Register handlers - important order: specific handlers first, catch-all last!
+    dp.include_router(settings.router)  # Handle settings buttons first
+    dp.include_router(payments.router)  # Handle payment buttons first
     dp.include_router(admin.router)
-    dp.include_router(documents.router)  # Last - handles document creation and topic input
+    dp.include_router(documents.router)  # Handles document creation and topic input
+    dp.include_router(start.router)  # Last - has catch-all handler for unknown messages
     
     # Start polling
     logger.info("Bot started")

@@ -187,3 +187,29 @@ async def admin_command(message: Message):
         )
     else:
         await message.answer("❌ Sizda admin huquqi yo'q.")
+
+@router.message()
+async def handle_unknown_message(message: Message, state: FSMContext, db: Database):
+    """Handle any unrecognized message - catch-all handler"""
+    user_id = message.from_user.id
+    user = await db.get_user(user_id)
+    
+    if not user:
+        await message.answer(
+            "👋 Salom! Botdan foydalanish uchun /start buyrug'ini bosing.\n\n"
+            "👋 Привет! Нажмите /start для использования бота.\n\n"
+            "👋 Hello! Press /start to use the bot."
+        )
+    else:
+        await state.clear()
+        if user.language == "uz":
+            text = "❓ Iltimos, quyidagi tugmalardan birini tanlang:"
+        elif user.language == "ru":
+            text = "❓ Пожалуйста, выберите одну из кнопок ниже:"
+        else:
+            text = "❓ Please select one of the buttons below:"
+        
+        await message.answer(
+            text,
+            reply_markup=get_main_keyboard(user.language)
+        )
