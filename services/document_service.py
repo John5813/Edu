@@ -1282,7 +1282,7 @@ class DocumentService:
 
     def _get_independent_work_template_texts(self, language: str) -> Dict[str, str]:
         """Get language-specific texts for independent work template"""
-        if language == 'russian':
+        if language == 'ru':
             return {
                 'faculty': 'факультети',
                 'from_subject': 'по предмету',
@@ -1291,7 +1291,7 @@ class DocumentService:
                 'prepared_by': 'Выполнил',
                 'accepted_by': 'Принял'
             }
-        elif language == 'english':
+        elif language == 'en':
             return {
                 'faculty': 'fakulteti',
                 'from_subject': 'on the subject',
@@ -1300,7 +1300,7 @@ class DocumentService:
                 'prepared_by': 'Prepared by',
                 'accepted_by': 'Accepted by'
             }
-        else:  # uzbek (default)
+        else:  # uz (default)
             return {
                 'faculty': 'fakulteti',
                 'from_subject': 'fanidan',
@@ -1312,19 +1312,19 @@ class DocumentService:
 
     def _get_toc_texts(self, language: str) -> dict:
         """Get language-specific texts for table of contents"""
-        if language == 'russian':
+        if language == 'ru':
             return {
                 'kirish': 'Введение',
                 'xulosa': 'Заключение',
                 'adabiyotlar': 'Использованная литература'
             }
-        elif language == 'english':
+        elif language == 'en':
             return {
                 'kirish': 'Introduction',
                 'xulosa': 'Conclusion',
                 'adabiyotlar': 'References'
             }
-        else:  # uzbek (default)
+        else:  # uz (default)
             return {
                 'kirish': 'Kirish',
                 'xulosa': 'Xulosa',
