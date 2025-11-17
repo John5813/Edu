@@ -123,17 +123,37 @@ Card owner: {PAYMENT_CARD_OWNER}
     await state.update_data(payment_amount=amount)
 
 @router.message(PaymentStates.waiting_for_screenshot, F.content_type.in_([ContentType.PHOTO, ContentType.DOCUMENT]))
-async def handle_payment_screenshot(message: Message, state: FSMContext, db: Database, user_lang: str, user):
+async def handle_payment_screenshot(message: Message, state: FSMContext, db: Database, user_lang: str, user=None):
     """Handle payment screenshot"""
     try:
+        # Get user from database if not provided by middleware
+        if not user:
+            user = await db.get_user(message.from_user.id)
+            if not user:
+                if user_lang == "uz":
+                    error_text = "❌ Xatolik yuz berdi. Iltimos, /start buyrug'ini bajaring."
+                elif user_lang == "ru":
+                    error_text = "❌ Произошла ошибка. Пожалуйста, выполните команду /start."
+                else:
+                    error_text = "❌ Error occurred. Please execute /start command."
+                
+                await message.answer(error_text, reply_markup=get_main_keyboard(user_lang))
+                await state.clear()
+                return
+        
+        # Get payment amount from state
         data = await state.get_data()
         amount = data.get('payment_amount')
         
         if not amount:
-            await message.answer(
-                "❌ Xatolik yuz berdi. Iltimos, qaytadan boshlang.",
-                reply_markup=get_main_keyboard(user_lang)
-            )
+            if user_lang == "uz":
+                error_text = "❌ To'lov miqdori topilmadi. Iltimos, qaytadan boshlang."
+            elif user_lang == "ru":
+                error_text = "❌ Сумма платежа не найдена. Пожалуйста, начните заново."
+            else:
+                error_text = "❌ Payment amount not found. Please start again."
+            
+            await message.answer(error_text, reply_markup=get_main_keyboard(user_lang))
             await state.clear()
             return
         
@@ -146,6 +166,18 @@ async def handle_payment_screenshot(message: Message, state: FSMContext, db: Dat
         # Create payment record
         payment_id = await db.create_payment(user.id, amount, file_id)
         
+        if not payment_id:
+            if user_lang == "uz":
+                error_text = "❌ To'lovni saqlashda xatolik. Iltimos, qayta urinib ko'ring."
+            elif user_lang == "ru":
+                error_text = "❌ Ошибка при сохранении платежа. Пожалуйста, попробуйте снова."
+            else:
+                error_text = "❌ Error saving payment. Please try again."
+            
+            await message.answer(error_text, reply_markup=get_main_keyboard(user_lang))
+            await state.clear()
+            return
+        
         # Notify user and restore keyboard
         await message.answer(
             get_text(user_lang, "payment_sent_to_admin"),
@@ -155,12 +187,19 @@ async def handle_payment_screenshot(message: Message, state: FSMContext, db: Dat
         # Notify admins
         await notify_admins_about_payment(message.bot, user, amount, message.message_id, payment_id)
         
+        logger.info(f"Payment {payment_id} created successfully for user {user.telegram_id}, amount {amount}")
+        
     except Exception as e:
-        logger.error(f"Error processing payment: {e}")
-        await message.answer(
-            "❌ Xatolik yuz berdi. Qayta urinib ko'ring.",
-            reply_markup=get_main_keyboard(user_lang)
-        )
+        logger.error(f"Error processing payment screenshot for user {message.from_user.id}: {e}", exc_info=True)
+        
+        if user_lang == "uz":
+            error_text = "❌ Xatolik yuz berdi. Iltimos, /start buyrug'ini bajaring va qayta urinib ko'ring."
+        elif user_lang == "ru":
+            error_text = "❌ Произошла ошибка. Пожалуйста, выполните /start и попробуйте снова."
+        else:
+            error_text = "❌ Error occurred. Please execute /start and try again."
+        
+        await message.answer(error_text, reply_markup=get_main_keyboard(user_lang))
     
     finally:
         await state.clear()
@@ -220,16 +259,17 @@ Amount: **{amount:,} som**
     await callback.answer()
 
 @router.message(PaymentStates.waiting_for_screenshot)
-async def handle_invalid_payment_screenshot(message: Message, user_lang: str):
+async def handle_invalid_payment_screenshot(message: Message, state: FSMContext, user_lang: str):
     """Handle invalid payment screenshot"""
     if user_lang == "uz":
-        error_text = "❌ Iltimos, to'lov chekini rasm yoki fayl sifatida yuboring."
+        error_text = "❌ Iltimos, to'lov chekini rasm yoki fayl sifatida yuboring.\n\nAgar to'lovni bekor qilmoqchi bo'lsangiz, /start buyrug'ini bosing."
     elif user_lang == "ru":
-        error_text = "❌ Пожалуйста, отправьте чек об оплате как фото или файл."
+        error_text = "❌ Пожалуйста, отправьте чек об оплате как фото или файл.\n\nЕсли хотите отменить платеж, нажмите /start."
     else:
-        error_text = "❌ Please send payment receipt as photo or file."
+        error_text = "❌ Please send payment receipt as photo or file.\n\nIf you want to cancel payment, press /start."
     
     await message.answer(error_text)
+    logger.warning(f"User {message.from_user.id} sent invalid content type during payment: {message.content_type}")
 
 async def notify_admins_about_payment(bot, user, amount, message_id, payment_id):
     """Notify admins about new payment"""

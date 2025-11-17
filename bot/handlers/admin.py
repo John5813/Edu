@@ -7,9 +7,13 @@ from aiogram.filters import Command
 
 from bot.states import AdminStates
 from bot.keyboards import (
-    get_admin_keyboard, get_payment_review_keyboard, get_channel_management_keyboard,
-    get_channels_list_keyboard, get_promocode_keyboard, get_broadcast_target_keyboard,
-    get_main_keyboard
+    get_admin_keyboard,
+    get_payment_review_keyboard,
+    get_channel_management_keyboard,
+    get_channels_list_keyboard,
+    get_promocode_keyboard,
+    get_broadcast_target_keyboard,
+    get_main_keyboard,
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardButton
@@ -326,10 +330,13 @@ async def confirm_adjusted_payment(callback: CallbackQuery, db: Database):
                         logger.error(f"Error processing payment referral bonus: {e}")
 
         # Notify user
-        await callback.bot.send_message(
-            user.telegram_id,
-            f"✅ To'lovingiz tasdiqlandi! {payment.amount:,} so'm hisobingizga qo'shildi."
-        )
+        try:
+            await callback.bot.send_message(
+                user.telegram_id,
+                f"✅ To'lovingiz tasdiqlandi! {payment.amount:,} so'm hisobingizga qo'shildi."
+            )
+        except Exception as notify_error:
+            logger.error(f"Failed to notify user {user.telegram_id} about payment approval: {notify_error}")
 
         # Keep the message with payment info
         user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
@@ -426,10 +433,13 @@ async def approve_payment(callback: CallbackQuery, db: Database):
                         logger.error(f"Error processing payment referral bonus: {e}")
 
         # Notify user
-        await callback.bot.send_message(
-            user.telegram_id,
-            f"✅ To'lovingiz tasdiqlandi! {payment.amount:,} so'm hisobingizga qo'shildi."
-        )
+        try:
+            await callback.bot.send_message(
+                user.telegram_id,
+                f"✅ To'lovingiz tasdiqlandi! {payment.amount:,} so'm hisobingizga qo'shildi."
+            )
+        except Exception as notify_error:
+            logger.error(f"Failed to notify user {user.telegram_id} about payment approval: {notify_error}")
 
         # Keep the message with payment info
         user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
@@ -760,7 +770,7 @@ async def list_promocodes(callback: CallbackQuery, db: Database):
         text += f"👥 Ishlatilgan: {used_count} marta\n"
         text += "➖➖➖➖➖➖➖➖\n\n"
 
-    # Add deactivate keyboard  
+    # Add deactivate keyboard
     keyboard = InlineKeyboardBuilder()
     keyboard.add(InlineKeyboardButton(text="🔴 Promokodni o'chirish", callback_data="deactivate_promocode"))
     keyboard.add(InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_promocode_menu"))
@@ -1024,7 +1034,7 @@ async def handle_daily_statistics(message: Message, db: Database):
         logger.error(f"Error in daily statistics: {e}")
         await message.answer("❌ Kunlik statistikani olishda xatolik yuz berdi.")
 
-@router.message(F.text == "💰 Narxlar sozlamalari") 
+@router.message(F.text == "💰 Narxlar sozlamalari")
 async def handle_price_settings(message: Message):
     """Handle price settings request"""
     if not is_admin(message.from_user.id):
@@ -1074,7 +1084,7 @@ async def handle_database_management(message: Message, db: Database):
     text = (
         f"🗄 Database ma'lumotlari:\n\n"
         f"👥 Foydalanuvchilar: {users_count}\n"
-        f"📋 Buyurtmalar: {orders_count}\n" 
+        f"📋 Buyurtmalar: {orders_count}\n"
         f"💳 To'lovlar: {payments_count}\n\n"
         f"Database to'liq ishlayapti va barcha ma'lumotlar saqlab qolinmoqda."
     )
