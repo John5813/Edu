@@ -61,35 +61,64 @@ async def handle_account_info(message: Message, state: FSMContext, db: Database,
 @router.callback_query(F.data.startswith("pay_"))
 async def handle_payment_amount_selection(callback: CallbackQuery, state: FSMContext, user_lang: str):
     """Handle payment amount selection"""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    
     amount = int(callback.data.split("_")[1])
     await state.update_data(payment_amount=amount)
     
     if user_lang == "uz":
-        instructions = f"""💳 To'lov qilish uchun:
+        instructions = f"""💳 **To'lov qilish uchun:**
 
-1. Quyidagi karta raqamiga pul o'tkazing:
-{PAYMENT_CARD}
+1️⃣ Quyidagi karta raqamiga pul o'tkazing:
+`{PAYMENT_CARD}`
 Karta egasi: {PAYMENT_CARD_OWNER}
 
-2. Kartaga **{amount:,} so'm** o'tkazing va chek yuboring:"""
-    elif user_lang == "ru":
-        instructions = f"""💳 Для оплаты:
+2️⃣ Kartaga **{amount:,} so'm** o'tkazing
 
-1. Переведите деньги на карту:
-{PAYMENT_CARD}
+3️⃣ To'lov chekini yuboring
+
+⚠️ **DIQQAT:** To'lov chekini faqat haqiqiy to'lov qilganingizdan keyin yuboring. Soxta chek yuborish taqiqlanadi va hisobingiz bloklanishi mumkin!"""
+        copy_button_text = "📋 Karta raqamini nusxalash"
+    elif user_lang == "ru":
+        instructions = f"""💳 **Для оплаты:**
+
+1️⃣ Переведите деньги на карту:
+`{PAYMENT_CARD}`
 Владелец карты: {PAYMENT_CARD_OWNER}
 
-2. Переведите на карту **{amount:,} сум** и отправьте чек:"""
-    else:  # en
-        instructions = f"""💳 To pay:
+2️⃣ Переведите на карту **{amount:,} сум**
 
-1. Transfer money to the card:
-{PAYMENT_CARD}
+3️⃣ Отправьте чек об оплате
+
+⚠️ **ВНИМАНИЕ:** Отправляйте чек только после реального платежа. Отправка поддельных чеков запрещена и может привести к блокировке аккаунта!"""
+        copy_button_text = "📋 Скопировать номер карты"
+    else:  # en
+        instructions = f"""💳 **To pay:**
+
+1️⃣ Transfer money to the card:
+`{PAYMENT_CARD}`
 Card owner: {PAYMENT_CARD_OWNER}
 
-2. Transfer **{amount:,} som** to the card and send receipt:"""
+2️⃣ Transfer **{amount:,} som** to the card
+
+3️⃣ Send payment receipt
+
+⚠️ **WARNING:** Send receipt only after real payment. Sending fake receipts is prohibited and may result in account blocking!"""
+        copy_button_text = "📋 Copy card number"
     
-    await callback.message.edit_text(instructions)
+    # Create inline keyboard with copy button
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(
+        text=copy_button_text,
+        callback_data=f"copy_card_{amount}"
+    ))
+    
+    await callback.message.edit_text(
+        instructions,
+        reply_markup=keyboard.as_markup(),
+        parse_mode="Markdown"
+    )
     
     await state.set_state(PaymentStates.waiting_for_screenshot)
 
@@ -128,10 +157,50 @@ async def handle_payment_screenshot(message: Message, state: FSMContext, db: Dat
     finally:
         await state.clear()
 
+@router.callback_query(F.data.startswith("copy_card_"))
+async def handle_copy_card(callback: CallbackQuery, user_lang: str):
+    """Handle copy card number button"""
+    amount = int(callback.data.split("_")[2])
+    
+    if user_lang == "uz":
+        copied_text = f"""✅ Karta raqami nusxalandi!
+
+Karta: `{PAYMENT_CARD}`
+Summa: **{amount:,} so'm**
+
+📸 Endi to'lov chekini yuboring."""
+    elif user_lang == "ru":
+        copied_text = f"""✅ Номер карты скопирован!
+
+Карта: `{PAYMENT_CARD}`
+Сумма: **{amount:,} сум**
+
+📸 Теперь отправьте чек об оплате."""
+    else:  # en
+        copied_text = f"""✅ Card number copied!
+
+Card: `{PAYMENT_CARD}`
+Amount: **{amount:,} som**
+
+📸 Now send payment receipt."""
+    
+    await callback.message.edit_text(
+        copied_text,
+        parse_mode="Markdown"
+    )
+    await callback.answer("✅ Nusxalandi!" if user_lang == "uz" else "✅ Скопировано!" if user_lang == "ru" else "✅ Copied!")
+
 @router.message(PaymentStates.waiting_for_screenshot)
 async def handle_invalid_payment_screenshot(message: Message, user_lang: str):
     """Handle invalid payment screenshot"""
-    await message.answer("❌ Iltimos, to'lov chekini rasm yoki fayl sifatida yuboring.")
+    if user_lang == "uz":
+        error_text = "❌ Iltimos, to'lov chekini rasm yoki fayl sifatida yuboring."
+    elif user_lang == "ru":
+        error_text = "❌ Пожалуйста, отправьте чек об оплате как фото или файл."
+    else:
+        error_text = "❌ Please send payment receipt as photo or file."
+    
+    await message.answer(error_text)
 
 async def notify_admins_about_payment(bot, user, amount, message_id, payment_id):
     """Notify admins about new payment"""
