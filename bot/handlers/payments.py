@@ -207,7 +207,23 @@ Amount: **{amount:,} som**
         text=cancel_button_text,
         callback_data="cancel_payment"
     ))
-
+    
+    # Edit the message with cancel button
+    await callback.message.edit_text(
+        wait_text,
+        reply_markup=keyboard.as_markup(),
+        parse_mode="Markdown"
+    )
+    
+    # Hide reply keyboard
+    await callback.message.answer(
+        "👇",
+        reply_markup=ReplyKeyboardRemove()
+    )
+    
+    await state.update_data(payment_amount=amount)
+    await state.set_state(PaymentStates.waiting_for_screenshot)
+    await callback.answer()
 
 @router.callback_query(F.data == "cancel_payment")
 async def handle_cancel_payment(callback: CallbackQuery, state: FSMContext, user_lang: str):
@@ -226,24 +242,6 @@ async def handle_cancel_payment(callback: CallbackQuery, state: FSMContext, user
         "🏠",
         reply_markup=get_main_keyboard(user_lang)
     )
-    await callback.answer()
-
-    
-    # Delete the inline keyboard message
-    await callback.message.edit_text(
-        wait_text,
-        reply_markup=keyboard.as_markup(),
-        parse_mode="Markdown"
-    )
-    
-    # Hide reply keyboard
-    await callback.message.answer(
-        "👇",
-        reply_markup=ReplyKeyboardRemove()
-    )
-    
-    await state.update_data(payment_amount=amount)
-    await state.set_state(PaymentStates.waiting_for_screenshot)
     await callback.answer()
 
 @router.message(PaymentStates.waiting_for_screenshot)
