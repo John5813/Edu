@@ -179,7 +179,7 @@ Summa: **{amount:,} so'm**
 
 📤 To'lov chekini rasm yoki fayl shaklida yuboring.
 
-⚠️ **DIQQAT:** Agar to'lov qilmagan bo'lsangiz /start tugmasini bosing!
+⚠️ **DIQQAT:** Agar to'lov qilmagan bo'lsangiz /start tugmasini bosing va doimiy jarayonga qaytasiz!
 
 ❗️ Faqat haqiqiy to'lov chekini yuboring!"""
     elif user_lang == "ru":
@@ -189,7 +189,7 @@ Summa: **{amount:,} so'm**
 
 📤 Отправьте чек как фото или файл.
 
-⚠️ **ВНИМАНИЕ:** Если вы не совершили платеж, нажмите /start!
+⚠️ **ВНИМАНИЕ:** Если вы не совершили платеж, нажмите /start и вернитесь к обычному процессу!
 
 ❗️ Отправляйте только настоящий чек об оплате!"""
     else:  # en
@@ -199,7 +199,7 @@ Amount: **{amount:,} som**
 
 📤 Send receipt as photo or file.
 
-⚠️ **WARNING:** If you haven't made the payment, press /start!
+⚠️ **WARNING:** If you haven't made the payment, press /start to return to normal process!
 
 ❗️ Send only real payment receipt!"""
     

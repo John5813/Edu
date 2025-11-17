@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 @router.message(Command("start"))
 async def start_command(message: Message, state: FSMContext, db: Database):
     """Handle /start command"""
+    # Clear any active state (including payment process)
+    await state.clear()
+    
     user_id = message.from_user.id
     user = await db.get_user(user_id)
 
