@@ -167,8 +167,9 @@ async def handle_payment_screenshot(message: Message, state: FSMContext, db: Dat
 
 @router.callback_query(F.data.startswith("upload_receipt_"))
 async def handle_upload_receipt(callback: CallbackQuery, state: FSMContext, user_lang: str):
-    """Handle upload receipt button - hide reply keyboard and wait for receipt"""
-    from aiogram.types import ReplyKeyboardRemove
+    """Handle upload receipt button - show cancel button and wait for receipt"""
+    from aiogram.types import ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
     
     amount = int(callback.data.split("_")[2])
     
@@ -179,9 +180,8 @@ Summa: **{amount:,} so'm**
 
 📤 To'lov chekini rasm yoki fayl shaklida yuboring.
 
-⚠️ **DIQQAT:** Agar to'lov qilmagan bo'lsangiz /start tugmasini bosing va doimiy jarayonga qaytasiz!
-
 ❗️ Faqat haqiqiy to'lov chekini yuboring!"""
+        cancel_button_text = "❌ Men to'lov qilmadim"
     elif user_lang == "ru":
         wait_text = f"""📸 **Отправьте чек об оплате**
 
@@ -189,9 +189,8 @@ Summa: **{amount:,} so'm**
 
 📤 Отправьте чек как фото или файл.
 
-⚠️ **ВНИМАНИЕ:** Если вы не совершили платеж, нажмите /start и вернитесь к обычному процессу!
-
 ❗️ Отправляйте только настоящий чек об оплате!"""
+        cancel_button_text = "❌ Я не совершил платеж"
     else:  # en
         wait_text = f"""📸 **Send payment receipt**
 
@@ -199,13 +198,41 @@ Amount: **{amount:,} som**
 
 📤 Send receipt as photo or file.
 
-⚠️ **WARNING:** If you haven't made the payment, press /start to return to normal process!
-
 ❗️ Send only real payment receipt!"""
+        cancel_button_text = "❌ I didn't pay"
+    
+    # Create inline keyboard with cancel button
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(
+        text=cancel_button_text,
+        callback_data="cancel_payment"
+    ))
+
+
+@router.callback_query(F.data == "cancel_payment")
+async def handle_cancel_payment(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Handle cancel payment - return to main menu"""
+    await state.clear()
+    
+    if user_lang == "uz":
+        message_text = "❌ To'lov bekor qilindi. Asosiy menyuga qaytdingiz."
+    elif user_lang == "ru":
+        message_text = "❌ Платеж отменен. Вы вернулись в главное меню."
+    else:  # en
+        message_text = "❌ Payment cancelled. You returned to main menu."
+    
+    await callback.message.edit_text(message_text)
+    await callback.message.answer(
+        "🏠",
+        reply_markup=get_main_keyboard(user_lang)
+    )
+    await callback.answer()
+
     
     # Delete the inline keyboard message
     await callback.message.edit_text(
         wait_text,
+        reply_markup=keyboard.as_markup(),
         parse_mode="Markdown"
     )
     
