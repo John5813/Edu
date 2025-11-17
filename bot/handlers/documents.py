@@ -351,13 +351,16 @@ async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Dat
     # Get user from database if middleware didn't provide it
     if not user:
         user = await db.get_user(callback.from_user.id)
-        if not user:
-            await callback.message.answer(
-                "❌ Xatolik yuz berdi. Iltimos, /start buyrug'ini bosing.",
-                reply_markup=get_main_keyboard(user_lang)
-            )
-            await state.clear()
-            return
+    
+    # Final validation - if still None, show error
+    if not user:
+        await callback.message.answer(
+            "❌ Xatolik yuz berdi. Iltimos, /start buyrug'ini bosing.",
+            reply_markup=get_main_keyboard(user_lang)
+        )
+        await state.clear()
+        await callback.answer()
+        return
     
     slide_count = int(callback.data.split("_")[1])
     await state.update_data(slide_count=slide_count)
@@ -365,7 +368,7 @@ async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Dat
     # Calculate price based on slide count
     price = get_document_price("presentation", {"slide_count": slide_count})
 
-    # Check if user has sufficient balance
+    # Check if user has sufficient balance (user is guaranteed to be valid here)
     if user.balance >= price:
         await state.update_data(price=price)
     else:
@@ -385,6 +388,20 @@ async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Dat
 @router.callback_query(F.data.startswith("pages_"), DocumentStates.waiting_for_page_count)
 async def handle_page_count(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Handle page count selection"""
+    # Get user from database if middleware didn't provide it
+    if not user:
+        user = await db.get_user(callback.from_user.id)
+    
+    # Final validation
+    if not user:
+        await callback.message.answer(
+            "❌ Xatolik yuz berdi. Iltimos, /start buyrug'ini bosing.",
+            reply_markup=get_main_keyboard(user_lang)
+        )
+        await state.clear()
+        await callback.answer()
+        return
+    
     page_range = callback.data.split("_")[1:]
     min_pages = int(page_range[0])
     max_pages = int(page_range[1])
