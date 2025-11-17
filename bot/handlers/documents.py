@@ -348,6 +348,17 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
 @router.callback_query(F.data.startswith("slides_"), DocumentStates.waiting_for_slide_count)
 async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Handle slide count selection"""
+    # Get user from database if middleware didn't provide it
+    if not user:
+        user = await db.get_user(callback.from_user.id)
+        if not user:
+            await callback.message.answer(
+                "❌ Xatolik yuz berdi. Iltimos, /start buyrug'ini bosing.",
+                reply_markup=get_main_keyboard(user_lang)
+            )
+            await state.clear()
+            return
+    
     slide_count = int(callback.data.split("_")[1])
     await state.update_data(slide_count=slide_count)
 

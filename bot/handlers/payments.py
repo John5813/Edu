@@ -126,6 +126,17 @@ Card owner: {PAYMENT_CARD_OWNER}
 async def handle_payment_screenshot(message: Message, state: FSMContext, db: Database, user_lang: str, user):
     """Handle payment screenshot"""
     try:
+        # Get user from database if middleware didn't provide it
+        if not user:
+            user = await db.get_user(message.from_user.id)
+            if not user:
+                await message.answer(
+                    "❌ Xatolik yuz berdi. Iltimos, /start buyrug'ini bosing.",
+                    reply_markup=get_main_keyboard(user_lang)
+                )
+                await state.clear()
+                return
+        
         data = await state.get_data()
         amount = data.get('payment_amount')
         
