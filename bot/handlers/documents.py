@@ -38,6 +38,16 @@ DOCUMENT_TYPES = {
 async def handle_document_type_selection(message: Message, state: FSMContext, user_lang: str, db: Database, user):
     """Handle document type selection from main menu"""
     try:
+        # Ensure user exists
+        if not user:
+            user = await db.get_user(message.from_user.id)
+            if not user:
+                await message.answer(
+                    "❌ Xatolik yuz berdi. Iltimos, /start buyrug'ini bosing.",
+                    reply_markup=get_main_keyboard(user_lang)
+                )
+                return
+        
         # Check channel subscription
         channels = await db.get_active_channels()
         if channels:

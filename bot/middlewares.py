@@ -27,12 +27,19 @@ class LanguageMiddleware(BaseMiddleware):
         user_id = event.from_user.id
         db = data.get("db", Database)
         
-        user = await db.get_user(user_id)
-        if user:
-            data["user_lang"] = user.language
-            data["user"] = user
-        else:
-            data["user_lang"] = "en"
+        # Always try to get user from database
+        try:
+            user = await db.get_user(user_id)
+            if user:
+                data["user_lang"] = user.language
+                data["user"] = user
+            else:
+                # If user doesn't exist, set defaults
+                data["user_lang"] = "uz"
+                data["user"] = None
+        except Exception as e:
+            # On any error, set safe defaults
+            data["user_lang"] = "uz"
             data["user"] = None
         
         return await handler(event, data)
