@@ -113,35 +113,35 @@ async def adjust_payment_amount(callback: CallbackQuery, db: Database):
         return
 
     payment_id = int(callback.data.split("_")[2])
-    
+
     try:
         payment = await db.get_payment_by_id(payment_id)
         if not payment:
             await callback.answer("❌ To'lov topilmadi.")
             return
-            
+
         if payment.status != "pending":
             await callback.answer(f"❌ Bu to'lov allaqachon {payment.status} holatida.")
             return
 
         user = await db.get_user_by_id(payment.user_id)
         user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
-        
+
         from bot.keyboards import get_amount_adjustment_keyboard
-        
+
         text = (
             f"💰 Summani o'zgartirish\n\n"
             f"🧾 To'lov #{payment.id}\n"
             f"👤 Foydalanuvchi: {user_link}\n"
-            f"💵 Bosgan summa: {payment.amount:,} so'm\n\n"
+            f"💵 Yangi summa: {payment.amount:,} so'm\n\n"
             f"➖/➕ tugmalar bilan summani sozlang:"
         )
-        
+
         await callback.message.edit_text(
             text,
             reply_markup=get_amount_adjustment_keyboard(payment_id, payment.amount)
         )
-        
+
     except Exception as e:
         logger.error(f"Error starting amount adjustment: {e}")
         await callback.answer("❌ Xatolik yuz berdi.")
@@ -153,35 +153,34 @@ async def decrease_payment_amount(callback: CallbackQuery, db: Database):
         return
 
     payment_id = int(callback.data.split("_")[2])
-    
+
     try:
         payment = await db.get_payment_by_id(payment_id)
         if not payment:
             await callback.answer("❌ To'lov topilmadi.")
             return
-        
+
         new_amount = max(1000, payment.amount - 1000)  # Minimum 1000 so'm
         await db.update_payment_amount(payment_id, new_amount)
-        
+
         user = await db.get_user_by_id(payment.user_id)
         user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
-        
+
         from bot.keyboards import get_amount_adjustment_keyboard
-        
+
         text = (
             f"💰 Summani o'zgartirish\n\n"
             f"🧾 To'lov #{payment.id}\n"
             f"👤 Foydalanuvchi: {user_link}\n"
-            f"💵 Bosgan summa: {payment.amount:,} so'm\n"
             f"💵 Yangi summa: {new_amount:,} so'm\n\n"
             f"➖/➕ tugmalar bilan summani sozlang:"
         )
-        
+
         await callback.message.edit_text(
             text,
             reply_markup=get_amount_adjustment_keyboard(payment_id, new_amount)
         )
-        
+
     except Exception as e:
         logger.error(f"Error decreasing amount: {e}")
         await callback.answer("❌ Xatolik yuz berdi.")
@@ -193,21 +192,21 @@ async def increase_payment_amount(callback: CallbackQuery, db: Database):
         return
 
     payment_id = int(callback.data.split("_")[2])
-    
+
     try:
         payment = await db.get_payment_by_id(payment_id)
         if not payment:
             await callback.answer("❌ To'lov topilmadi.")
             return
-        
+
         new_amount = payment.amount + 1000
         await db.update_payment_amount(payment_id, new_amount)
-        
+
         user = await db.get_user_by_id(payment.user_id)
         user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
-        
+
         from bot.keyboards import get_amount_adjustment_keyboard
-        
+
         text = (
             f"💰 Summani o'zgartirish\n\n"
             f"🧾 To'lov #{payment.id}\n"
@@ -216,12 +215,12 @@ async def increase_payment_amount(callback: CallbackQuery, db: Database):
             f"💵 Yangi summa: {new_amount:,} so'm\n\n"
             f"➖/➕ tugmalar bilan summani sozlang:"
         )
-        
+
         await callback.message.edit_text(
             text,
             reply_markup=get_amount_adjustment_keyboard(payment_id, new_amount)
         )
-        
+
     except Exception as e:
         logger.error(f"Error increasing amount: {e}")
         await callback.answer("❌ Xatolik yuz berdi.")
@@ -238,28 +237,28 @@ async def cancel_adjustment(callback: CallbackQuery, db: Database):
         return
 
     payment_id = int(callback.data.split("_")[2])
-    
+
     try:
         payment = await db.get_payment_by_id(payment_id)
         if not payment:
             await callback.answer("❌ To'lov topilmadi.")
             return
-        
+
         user = await db.get_user_by_id(payment.user_id)
         user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
-        
+
         text = (
             f"🧾 To'lov #{payment.id}\n"
             f"👤 Foydalanuvchi: {user_link}\n"
             f"💵 Summasi: {payment.amount:,} so'm\n"
             f"📅 Sana: {payment.created_at.strftime('%d.%m.%Y %H:%M')}"
         )
-        
+
         await callback.message.edit_text(
             text,
             reply_markup=get_payment_review_keyboard(payment_id)
         )
-        
+
     except Exception as e:
         logger.error(f"Error canceling adjustment: {e}")
         await callback.answer("❌ Xatolik yuz berdi.")
@@ -277,7 +276,7 @@ async def confirm_adjusted_payment(callback: CallbackQuery, db: Database):
         if not payment:
             await callback.answer("❌ To'lov topilmadi.")
             return
-            
+
         if payment.status != "pending":
             await callback.answer(f"❌ Bu to'lov allaqachon {payment.status} holatida.")
             return
@@ -302,13 +301,13 @@ async def confirm_adjusted_payment(callback: CallbackQuery, db: Database):
                         (user.id,)
                     ) as cursor:
                         approved_count = (await cursor.fetchone())[0]
-                
+
                 if approved_count == 1:
                     try:
                         await db.update_user_balance(user.referred_by, PAYMENT_BONUS)
                         await db.update_referral_earnings(user.referred_by, user.telegram_id, PAYMENT_BONUS)
                         await db.update_payment_bonus(user.referred_by, user.telegram_id, True)
-                        
+
                         referrer = await db.get_user(user.referred_by)
                         if referrer:
                             bonus_text = {
@@ -363,7 +362,7 @@ async def approve_payment(callback: CallbackQuery, db: Database):
         if not payment:
             await callback.answer("❌ To'lov topilmadi.")
             return
-            
+
         # Check if payment is already processed
         if payment.status != "pending":
             await callback.answer(f"❌ Bu to'lov allaqachon {payment.status} holatida.")
@@ -399,7 +398,7 @@ async def approve_payment(callback: CallbackQuery, db: Database):
                         (user.id,)
                     ) as cursor:
                         approved_count = (await cursor.fetchone())[0]
-                
+
                 # If this is the first approved payment (count = 1 after approval)
                 if approved_count == 1:
                     try:
@@ -407,7 +406,7 @@ async def approve_payment(callback: CallbackQuery, db: Database):
                         await db.update_user_balance(user.referred_by, PAYMENT_BONUS)
                         await db.update_referral_earnings(user.referred_by, user.telegram_id, PAYMENT_BONUS)
                         await db.update_payment_bonus(user.referred_by, user.telegram_id, True)
-                        
+
                         # Notify referrer
                         referrer = await db.get_user(user.referred_by)
                         if referrer:
@@ -463,7 +462,7 @@ async def reject_payment(callback: CallbackQuery, db: Database):
         if not payment:
             await callback.answer("❌ To'lov topilmadi.")
             return
-            
+
         # Check if payment is already processed
         if payment.status != "pending":
             await callback.answer(f"❌ Bu to'lov allaqachon {payment.status} holatida.")
@@ -488,7 +487,7 @@ async def reject_payment(callback: CallbackQuery, db: Database):
             f"📅 {datetime.now().strftime('%d.%m.%Y %H:%M')}\n\n"
             f"Foydalanuvchiga xabar yuborildi."
         )
-        
+
         # Notify other admins
         admin_name = callback.from_user.username or callback.from_user.full_name
         await notify_other_admins_about_payment_action(callback.bot, payment_id, "rad etildi", admin_name, payment.amount)
@@ -915,30 +914,30 @@ async def handle_statistics(message: Message, db: Database):
     try:
         from database.database import DATABASE_FILE
         import aiosqlite
-        
+
         async with aiosqlite.connect(DATABASE_FILE) as db_conn:
             # Total users
             async with db_conn.execute("SELECT COUNT(*) FROM users") as cursor:
                 total_users = (await cursor.fetchone())[0]
-            
+
             # Users who joined today
             async with db_conn.execute(
                 "SELECT COUNT(*) FROM users WHERE date(created_at) = date('now')"
             ) as cursor:
                 joined_today = (await cursor.fetchone())[0]
-            
+
             # Total users who made at least one payment
             async with db_conn.execute(
                 "SELECT COUNT(DISTINCT user_id) FROM payments WHERE status = 'approved'"
             ) as cursor:
                 total_paid_users = (await cursor.fetchone())[0]
-            
+
             # Today's revenue
             async with db_conn.execute(
                 "SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved' AND date(created_at) = date('now')"
             ) as cursor:
                 revenue_today = (await cursor.fetchone())[0]
-            
+
             # Total documents
             async with db_conn.execute(
                 "SELECT COUNT(*) FROM document_orders WHERE status = 'completed'"
@@ -955,7 +954,7 @@ async def handle_statistics(message: Message, db: Database):
         )
 
         await message.answer(text)
-        
+
     except Exception as e:
         logger.error(f"Error in statistics: {e}")
         await message.answer("❌ Statistikani olishda xatolik yuz berdi.")
@@ -969,39 +968,39 @@ async def handle_daily_statistics(message: Message, db: Database):
     try:
         from database.database import DATABASE_FILE
         import aiosqlite
-        
+
         today = datetime.now()
-        
+
         # Get today's detailed statistics
         async with aiosqlite.connect(DATABASE_FILE) as db_conn:
             # Total users in database
             async with db_conn.execute("SELECT COUNT(*) FROM users") as cursor:
                 total_users = (await cursor.fetchone())[0]
-            
+
             # Users who started bot today (/start command)
             async with db_conn.execute(
                 "SELECT COUNT(*) FROM users WHERE date(created_at) = date('now')"
             ) as cursor:
                 users_started_today = (await cursor.fetchone())[0]
-            
+
             # Users who made payment today
             async with db_conn.execute(
                 "SELECT COUNT(DISTINCT user_id) FROM payments WHERE status = 'approved' AND date(created_at) = date('now')"
             ) as cursor:
                 users_paid_today = (await cursor.fetchone())[0]
-            
+
             # Number of payments today
             async with db_conn.execute(
                 "SELECT COUNT(*) FROM payments WHERE status = 'approved' AND date(created_at) = date('now')"
             ) as cursor:
                 payments_count_today = (await cursor.fetchone())[0]
-            
+
             # Revenue today
             async with db_conn.execute(
                 "SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved' AND date(created_at) = date('now')"
             ) as cursor:
                 revenue_today = (await cursor.fetchone())[0]
-            
+
             # Documents created today
             async with db_conn.execute(
                 "SELECT COUNT(*) FROM document_orders WHERE date(created_at) = date('now')"

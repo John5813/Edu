@@ -177,25 +177,31 @@ async def handle_upload_receipt(callback: CallbackQuery, state: FSMContext, user
 
 Summa: **{amount:,} so'm**
 
-Chekni rasm yoki fayl sifatida yuboring.
+📤 To'lov chekini rasm yoki fayl shaklida yuboring.
 
-⚠️ Faqat haqiqiy to'lov chekini yuboring!"""
+⚠️ **DIQQAT:** Agar to'lov qilmagan bo'lsangiz /start tugmasini bosing!
+
+❗️ Faqat haqiqiy to'lov chekini yuboring!"""
     elif user_lang == "ru":
         wait_text = f"""📸 **Отправьте чек об оплате**
 
 Сумма: **{amount:,} сум**
 
-Отправьте чек как фото или файл.
+📤 Отправьте чек как фото или файл.
 
-⚠️ Отправляйте только настоящий чек об оплате!"""
+⚠️ **ВНИМАНИЕ:** Если вы не совершили платеж, нажмите /start!
+
+❗️ Отправляйте только настоящий чек об оплате!"""
     else:  # en
         wait_text = f"""📸 **Send payment receipt**
 
 Amount: **{amount:,} som**
 
-Send receipt as photo or file.
+📤 Send receipt as photo or file.
 
-⚠️ Send only real payment receipt!"""
+⚠️ **WARNING:** If you haven't made the payment, press /start!
+
+❗️ Send only real payment receipt!"""
     
     # Delete the inline keyboard message
     await callback.message.edit_text(
