@@ -206,8 +206,8 @@ async def handle_payment_screenshot(message: Message, state: FSMContext, db: Dat
 
 @router.callback_query(F.data.startswith("upload_receipt_"))
 async def handle_upload_receipt(callback: CallbackQuery, state: FSMContext, user_lang: str):
-    """Handle upload receipt button - hide reply keyboard and wait for receipt"""
-    from aiogram.types import ReplyKeyboardRemove
+    """Handle upload receipt button - show back button and wait for receipt"""
+    from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
     
     amount = int(callback.data.split("_")[2])
     
@@ -218,9 +218,10 @@ Summa: **{amount:,} so'm**
 
 📤 To'lov chekini rasm yoki fayl shaklida yuboring.
 
-⚠️ **DIQQAT:** Agar to'lov qilmagan bo'lsangiz /start tugmasini bosing!
+⚠️ **DIQQAT:** Agar to'lovni bekor qilmoqchi bo'lsangiz, "🔙 Orqaga qaytish" tugmasini bosing!
 
 ❗️ Faqat haqiqiy to'lov chekini yuboring!"""
+        back_button_text = "🔙 Orqaga qaytish"
     elif user_lang == "ru":
         wait_text = f"""📸 **Отправьте чек об оплате**
 
@@ -228,9 +229,10 @@ Summa: **{amount:,} so'm**
 
 📤 Отправьте чек как фото или файл.
 
-⚠️ **ВНИМАНИЕ:** Если вы не совершили платеж, нажмите /start!
+⚠️ **ВНИМАНИЕ:** Если хотите отменить платеж, нажмите "🔙 Назад"!
 
 ❗️ Отправляйте только настоящий чек об оплате!"""
+        back_button_text = "🔙 Назад"
     else:  # en
         wait_text = f"""📸 **Send payment receipt**
 
@@ -238,9 +240,10 @@ Amount: **{amount:,} som**
 
 📤 Send receipt as photo or file.
 
-⚠️ **WARNING:** If you haven't made the payment, press /start!
+⚠️ **WARNING:** If you want to cancel payment, press "🔙 Back"!
 
 ❗️ Send only real payment receipt!"""
+        back_button_text = "🔙 Back"
     
     # Delete the inline keyboard message
     await callback.message.edit_text(
@@ -248,10 +251,15 @@ Amount: **{amount:,} som**
         parse_mode="Markdown"
     )
     
-    # Hide reply keyboard
+    # Show back button
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text=back_button_text)]],
+        resize_keyboard=True
+    )
+    
     await callback.message.answer(
         "👇",
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=keyboard
     )
     
     await state.update_data(payment_amount=amount)
@@ -260,13 +268,34 @@ Amount: **{amount:,} som**
 
 @router.message(PaymentStates.waiting_for_screenshot)
 async def handle_invalid_payment_screenshot(message: Message, state: FSMContext, user_lang: str):
-    """Handle invalid payment screenshot"""
+    """Handle invalid payment screenshot or back button"""
+    # Check if user pressed back button
+    back_buttons = ["🔙 Orqaga qaytish", "🔙 Назад", "🔙 Back"]
+    
+    if message.text in back_buttons:
+        await state.clear()
+        
+        if user_lang == "uz":
+            cancel_text = "❌ To'lov bekor qilindi."
+        elif user_lang == "ru":
+            cancel_text = "❌ Платеж отменен."
+        else:
+            cancel_text = "❌ Payment cancelled."
+        
+        await message.answer(
+            cancel_text,
+            reply_markup=get_main_keyboard(user_lang)
+        )
+        logger.info(f"User {message.from_user.id} cancelled payment using back button")
+        return
+    
+    # Handle invalid content
     if user_lang == "uz":
-        error_text = "❌ Iltimos, to'lov chekini rasm yoki fayl sifatida yuboring.\n\nAgar to'lovni bekor qilmoqchi bo'lsangiz, /start buyrug'ini bosing."
+        error_text = "❌ Iltimos, to'lov chekini rasm yoki fayl sifatida yuboring.\n\nAgar to'lovni bekor qilmoqchi bo'lsangiz, \"🔙 Orqaga qaytish\" tugmasini bosing."
     elif user_lang == "ru":
-        error_text = "❌ Пожалуйста, отправьте чек об оплате как фото или файл.\n\nЕсли хотите отменить платеж, нажмите /start."
+        error_text = "❌ Пожалуйста, отправьте чек об оплате как фото или файл.\n\nЕсли хотите отменить платеж, нажмите \"🔙 Назад\"."
     else:
-        error_text = "❌ Please send payment receipt as photo or file.\n\nIf you want to cancel payment, press /start."
+        error_text = "❌ Please send payment receipt as photo or file.\n\nIf you want to cancel payment, press \"🔙 Back\"."
     
     await message.answer(error_text)
     logger.warning(f"User {message.from_user.id} sent invalid content type during payment: {message.content_type}")
