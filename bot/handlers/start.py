@@ -18,7 +18,7 @@ async def start_command(message: Message, state: FSMContext, db: Database):
     """Handle /start command"""
     user_id = message.from_user.id
     user = await db.get_user(user_id)
-    
+
     # Extract referral code from command if present (e.g., /start ref_ABC123)
     referral_code = None
     if message.text and len(message.text.split()) > 1:
@@ -26,7 +26,7 @@ async def start_command(message: Message, state: FSMContext, db: Database):
         if command_args.startswith("ref_"):
             referral_code = command_args[4:]  # Remove "ref_" prefix
             await state.update_data(referral_code=referral_code)
-    
+
     if not user:
         # New user - show language selection
         await message.answer(
@@ -44,7 +44,7 @@ async def language_selected(callback: CallbackQuery, state: FSMContext, db: Data
     """Handle language selection"""
     language = callback.data.split("_")[1]
     user_id = callback.from_user.id
-    
+
     # Create or update user
     user = await db.get_user(user_id)
     if not user:
@@ -52,13 +52,13 @@ async def language_selected(callback: CallbackQuery, state: FSMContext, db: Data
         state_data = await state.get_data()
         referral_code = state_data.get('referral_code')
         referred_by_id = None
-        
+
         if referral_code:
             # Get referrer by referral code
             referrer = await db.get_user_by_referral_code(referral_code)
             if referrer and referrer.telegram_id != user_id:
                 referred_by_id = referrer.telegram_id
-        
+
         # Create new user
         user = await db.create_user(
             telegram_id=user_id,
@@ -67,19 +67,19 @@ async def language_selected(callback: CallbackQuery, state: FSMContext, db: Data
             language=language,
             referred_by=referred_by_id
         )
-        
+
         # If referred by someone, create referral record and give bonus
         if referred_by_id:
             try:
                 # Create referral record
                 await db.create_referral(referred_by_id, user_id)
-                
+
                 # Give 1000 som signup bonus to referrer
                 SIGNUP_BONUS = 1000
                 await db.update_user_balance(referred_by_id, SIGNUP_BONUS)
                 await db.update_referral_earnings(referred_by_id, user_id, SIGNUP_BONUS)
                 await db.update_signup_bonus(referred_by_id, user_id, True)
-                
+
                 # Notify referrer
                 referrer_user = await db.get_user(referred_by_id)
                 if referrer_user:
@@ -95,7 +95,7 @@ async def language_selected(callback: CallbackQuery, state: FSMContext, db: Data
                         )
                     except Exception as e:
                         logger.error(f"Failed to notify referrer {referred_by_id}: {e}")
-                
+
                 # Clear referral code from state
                 await state.update_data(referral_code=None)
             except Exception as e:
@@ -103,22 +103,22 @@ async def language_selected(callback: CallbackQuery, state: FSMContext, db: Data
     else:
         await db.update_user_language(user_id, language)
         user.language = language
-    
+
     # Delete the language selection message
     await callback.message.delete()
-    
+
     # Check channel subscription
     await check_subscription_and_show_menu(callback.message, user, db)
 
 async def check_subscription_and_show_menu(message: Message, user, db: Database):
     """Check channel subscription and show main menu"""
     channels = await db.get_active_channels()
-    
+
     if channels:
         # Check subscription to all required channels
         channel_service = ChannelService(message.bot)
         is_subscribed = await channel_service.check_user_subscription(user.telegram_id, channels)
-        
+
         if not is_subscribed:
             # Show subscription requirement
             if user.language == "uz":
@@ -127,13 +127,13 @@ async def check_subscription_and_show_menu(message: Message, user, db: Database)
                 text = "📢 Для использования бота необходимо подписаться на следующие каналы:\n\n👇 Нажмите кнопку для перехода в канал:"
             else:  # en
                 text = "📢 To use the bot, you must subscribe to the following channels:\n\n👇 Click the button to go to the channel:"
-            
+
             await message.answer(
                 text,
                 reply_markup=get_subscription_check_keyboard(user.language, channels)
             )
             return
-    
+
     # Show main menu with language selected message
     await message.answer(
         get_text(user.language, "language_selected"),
@@ -145,11 +145,11 @@ async def check_subscription(callback: CallbackQuery, db: Database, user_lang: s
     """Handle subscription check"""
     user_id = callback.from_user.id
     channels = await db.get_active_channels()
-    
+
     if channels:
         channel_service = ChannelService(callback.message.bot)
         is_subscribed = await channel_service.check_user_subscription(user_id, channels)
-        
+
         if is_subscribed:
             await callback.message.edit_text(
                 get_text(user_lang, "subscription_verified"),
@@ -193,7 +193,7 @@ async def handle_unknown_message(message: Message, state: FSMContext, db: Databa
     """Handle any unrecognized message - catch-all handler"""
     user_id = message.from_user.id
     user = await db.get_user(user_id)
-    
+
     if not user:
         await message.answer(
             "👋 Salom! Botdan foydalanish uchun /start buyrug'ini bosing.\n\n"
@@ -208,7 +208,7 @@ async def handle_unknown_message(message: Message, state: FSMContext, db: Databa
             text = "❓ Пожалуйста, выберите одну из кнопок ниже:"
         else:
             text = "❓ Please select one of the buttons below:"
-        
+
         await message.answer(
             text,
             reply_markup=get_main_keyboard(user.language)

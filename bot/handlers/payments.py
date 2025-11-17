@@ -76,10 +76,10 @@ Karta egasi: {PAYMENT_CARD_OWNER}
 
 2️⃣ Kartaga **{amount:,} so'm** o'tkazing
 
-3️⃣ To'lov chekini yuboring
+3️⃣ "📤 To'lov chekini yuborish" tugmasini bosing va chekni yuboring
 
 ⚠️ **DIQQAT:** To'lov chekini faqat haqiqiy to'lov qilganingizdan keyin yuboring. Soxta chek yuborish taqiqlanadi va hisobingiz bloklanishi mumkin!"""
-        copy_button_text = "📋 Karta raqamini nusxalash"
+        upload_button_text = "📤 To'lov chekini yuborish"
     elif user_lang == "ru":
         instructions = f"""💳 **Для оплаты:**
 
@@ -89,10 +89,10 @@ Karta egasi: {PAYMENT_CARD_OWNER}
 
 2️⃣ Переведите на карту **{amount:,} сум**
 
-3️⃣ Отправьте чек об оплате
+3️⃣ Нажмите "📤 Отправить чек" и отправьте чек
 
 ⚠️ **ВНИМАНИЕ:** Отправляйте чек только после реального платежа. Отправка поддельных чеков запрещена и может привести к блокировке аккаунта!"""
-        copy_button_text = "📋 Скопировать номер карты"
+        upload_button_text = "📤 Отправить чек"
     else:  # en
         instructions = f"""💳 **To pay:**
 
@@ -102,16 +102,16 @@ Card owner: {PAYMENT_CARD_OWNER}
 
 2️⃣ Transfer **{amount:,} som** to the card
 
-3️⃣ Send payment receipt
+3️⃣ Click "📤 Upload receipt" and send receipt
 
 ⚠️ **WARNING:** Send receipt only after real payment. Sending fake receipts is prohibited and may result in account blocking!"""
-        copy_button_text = "📋 Copy card number"
+        upload_button_text = "📤 Upload receipt"
     
-    # Create inline keyboard with copy button
+    # Create inline keyboard with upload button
     keyboard = InlineKeyboardBuilder()
     keyboard.add(InlineKeyboardButton(
-        text=copy_button_text,
-        callback_data=f"copy_card_{amount}"
+        text=upload_button_text,
+        callback_data=f"upload_receipt_{amount}"
     ))
     
     await callback.message.edit_text(
@@ -120,14 +120,22 @@ Card owner: {PAYMENT_CARD_OWNER}
         parse_mode="Markdown"
     )
     
-    await state.set_state(PaymentStates.waiting_for_screenshot)
+    await state.update_data(payment_amount=amount)
 
 @router.message(PaymentStates.waiting_for_screenshot, F.content_type.in_([ContentType.PHOTO, ContentType.DOCUMENT]))
 async def handle_payment_screenshot(message: Message, state: FSMContext, db: Database, user_lang: str, user):
     """Handle payment screenshot"""
     try:
         data = await state.get_data()
-        amount = data['payment_amount']
+        amount = data.get('payment_amount')
+        
+        if not amount:
+            await message.answer(
+                "❌ Xatolik yuz berdi. Iltimos, qaytadan boshlang.",
+                reply_markup=get_main_keyboard(user_lang)
+            )
+            await state.clear()
+            return
         
         # Get file ID
         if message.photo:
@@ -138,7 +146,7 @@ async def handle_payment_screenshot(message: Message, state: FSMContext, db: Dat
         # Create payment record
         payment_id = await db.create_payment(user.id, amount, file_id)
         
-        # Notify user
+        # Notify user and restore keyboard
         await message.answer(
             get_text(user_lang, "payment_sent_to_admin"),
             reply_markup=get_main_keyboard(user_lang)
@@ -157,38 +165,53 @@ async def handle_payment_screenshot(message: Message, state: FSMContext, db: Dat
     finally:
         await state.clear()
 
-@router.callback_query(F.data.startswith("copy_card_"))
-async def handle_copy_card(callback: CallbackQuery, user_lang: str):
-    """Handle copy card number button"""
+@router.callback_query(F.data.startswith("upload_receipt_"))
+async def handle_upload_receipt(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Handle upload receipt button - hide reply keyboard and wait for receipt"""
+    from aiogram.types import ReplyKeyboardRemove
+    
     amount = int(callback.data.split("_")[2])
     
     if user_lang == "uz":
-        copied_text = f"""✅ Karta raqami nusxalandi!
+        wait_text = f"""📸 **To'lov chekini yuboring**
 
-Karta: `{PAYMENT_CARD}`
 Summa: **{amount:,} so'm**
 
-📸 Endi to'lov chekini yuboring."""
-    elif user_lang == "ru":
-        copied_text = f"""✅ Номер карты скопирован!
+Chekni rasm yoki fayl sifatida yuboring.
 
-Карта: `{PAYMENT_CARD}`
+⚠️ Faqat haqiqiy to'lov chekini yuboring!"""
+    elif user_lang == "ru":
+        wait_text = f"""📸 **Отправьте чек об оплате**
+
 Сумма: **{amount:,} сум**
 
-📸 Теперь отправьте чек об оплате."""
-    else:  # en
-        copied_text = f"""✅ Card number copied!
+Отправьте чек как фото или файл.
 
-Card: `{PAYMENT_CARD}`
+⚠️ Отправляйте только настоящий чек об оплате!"""
+    else:  # en
+        wait_text = f"""📸 **Send payment receipt**
+
 Amount: **{amount:,} som**
 
-📸 Now send payment receipt."""
+Send receipt as photo or file.
+
+⚠️ Send only real payment receipt!"""
     
+    # Delete the inline keyboard message
     await callback.message.edit_text(
-        copied_text,
+        wait_text,
         parse_mode="Markdown"
     )
-    await callback.answer("✅ Nusxalandi!" if user_lang == "uz" else "✅ Скопировано!" if user_lang == "ru" else "✅ Copied!")
+    
+    # Hide reply keyboard
+    await callback.message.answer(
+        "👇",
+        reply_markup=ReplyKeyboardRemove()
+    )
+    
+    await state.update_data(payment_amount=amount)
+    await state.set_state(PaymentStates.waiting_for_screenshot)
+    await callback.answer()
 
 @router.message(PaymentStates.waiting_for_screenshot)
 async def handle_invalid_payment_screenshot(message: Message, user_lang: str):
