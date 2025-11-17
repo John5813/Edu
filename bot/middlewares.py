@@ -12,7 +12,7 @@ class DatabaseMiddleware(BaseMiddleware):
         event: Message | CallbackQuery,
         data: Dict[str, Any]
     ) -> Any:
-        data["db"] = Database
+        data["db"] = Database()
         return await handler(event, data)
 
 class LanguageMiddleware(BaseMiddleware):
@@ -25,12 +25,16 @@ class LanguageMiddleware(BaseMiddleware):
         data: Dict[str, Any]
     ) -> Any:
         user_id = event.from_user.id
-        db = data.get("db", Database)
+        db = data.get("db")
         
-        user = await db.get_user(user_id)
-        if user:
-            data["user_lang"] = user.language
-            data["user"] = user
+        if db:
+            user = await db.get_user(user_id)
+            if user:
+                data["user_lang"] = user.language
+                data["user"] = user
+            else:
+                data["user_lang"] = "en"
+                data["user"] = None
         else:
             data["user_lang"] = "en"
             data["user"] = None
