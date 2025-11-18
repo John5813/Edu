@@ -201,11 +201,12 @@ async def show_template_selection(message: Message, state: FSMContext, user_lang
         # Send the overview image showing all 20 templates
         overview_image_path = "attached_assets/IMG_20250823_093040_1755924327080.jpg"
 
+        photo_msg = None
         if os.path.exists(overview_image_path):
             # Use translated text - only title, no description
             title_text = get_text(user_lang, "template_selection_title")
 
-            await message.answer_photo(
+            photo_msg = await message.answer_photo(
                 photo=FSInputFile(overview_image_path),
                 caption=title_text,
                 parse_mode="Markdown"
@@ -213,15 +214,21 @@ async def show_template_selection(message: Message, state: FSMContext, user_lang
         else:
             # Fallback if overview image not found - use translated fallback text
             text = get_text(user_lang, "template_selection_fallback")
-            await message.answer(text, parse_mode="Markdown")
+            photo_msg = await message.answer(text, parse_mode="Markdown")
 
         # Send compact numbered keyboard with all 20 options
         from bot.keyboards import get_all_templates_keyboard
         keyboard = get_all_templates_keyboard()
-        await message.answer(
+        keyboard_msg = await message.answer(
             get_text(user_lang, "template_select_number"), 
             reply_markup=keyboard,
             parse_mode="Markdown"
+        )
+        
+        # Save message IDs to state for later deletion
+        await state.update_data(
+            template_photo_msg_id=photo_msg.message_id if photo_msg else None,
+            template_keyboard_msg_id=keyboard_msg.message_id
         )
 
     except Exception as e:
@@ -252,8 +259,24 @@ async def handle_template_selection(callback: CallbackQuery, state: FSMContext, 
         # Save selected template
         await state.update_data(selected_template=template_id)
 
-        # Clear template selection message
-        await callback.message.edit_reply_markup(reply_markup=None)
+        # Delete template selection messages (photo and keyboard)
+        data = await state.get_data()
+        photo_msg_id = data.get('template_photo_msg_id')
+        keyboard_msg_id = data.get('template_keyboard_msg_id')
+        
+        try:
+            if photo_msg_id:
+                await callback.message.bot.delete_message(
+                    chat_id=callback.message.chat.id,
+                    message_id=photo_msg_id
+                )
+            if keyboard_msg_id:
+                await callback.message.bot.delete_message(
+                    chat_id=callback.message.chat.id,
+                    message_id=keyboard_msg_id
+                )
+        except Exception as del_err:
+            logger.warning(f"Could not delete template messages: {del_err}")
         
         # Ask if user wants to add references
         await callback.message.answer(
