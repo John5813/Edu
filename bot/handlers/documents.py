@@ -293,7 +293,9 @@ async def handle_template_selection(callback: CallbackQuery, state: FSMContext, 
 async def handle_add_references_yes(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Handle user choosing to add references"""
     await callback.answer()
-    await callback.message.edit_reply_markup(reply_markup=None)
+    
+    # Delete references question message
+    await callback.message.delete()
     
     # Save choice
     await state.update_data(add_references=True)
@@ -306,7 +308,9 @@ async def handle_add_references_yes(callback: CallbackQuery, state: FSMContext, 
 async def handle_add_references_no(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Handle user choosing not to add references"""
     await callback.answer()
-    await callback.message.edit_reply_markup(reply_markup=None)
+    
+    # Delete references question message
+    await callback.message.delete()
     
     # Save choice
     await state.update_data(add_references=False)
@@ -429,7 +433,7 @@ async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Dat
         await state.update_data(price=price)
     else:
         # Insufficient balance
-        await callback.message.edit_reply_markup(reply_markup=None)
+        await callback.message.delete()
         await callback.message.answer(
             get_text(user_lang, "insufficient_balance", price=price),
             reply_markup=get_main_keyboard(user_lang)
@@ -437,9 +441,9 @@ async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Dat
         await state.clear()
         return
 
-    # Remove inline keyboard (buttons disappear)
+    # Delete slide count selection message
     await callback.answer()
-    await callback.message.edit_reply_markup(reply_markup=None)
+    await callback.message.delete()
     
     # Show outline choice before template selection
     from bot.keyboards import get_outline_choice_keyboard
@@ -934,7 +938,9 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
 async def handle_outline_auto(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Handle automatic outline generation"""
     await callback.answer()
-    await callback.message.edit_reply_markup(reply_markup=None)
+    
+    # Delete outline choice message
+    await callback.message.delete()
 
     data = await state.get_data()
     document_type = data.get('document_type')
@@ -975,8 +981,8 @@ async def handle_outline_manual(callback: CallbackQuery, state: FSMContext, user
     """Handle manual outline entry"""
     await callback.answer()
     
-    # Remove inline keyboard
-    await callback.message.edit_reply_markup(reply_markup=None)
+    # Delete outline choice message
+    await callback.message.delete()
 
     data = await state.get_data()
     document_type = data.get('document_type')
