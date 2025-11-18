@@ -348,6 +348,50 @@ JSON formatda javob bering:
 
             Дайте результат в трех частях:
 
+            1️⃣ Текст в 3 столбца:
+            - Каждый столбец под отдельным заголовком.
+            - Каждый столбец начинается с основного предложения.
+            - В каждом столбце 50-60 слов.
+
+            2️⃣ Текст из 4 пунктов:
+            - Каждый пункт в виде буллета.
+            - Минимум 20 слов в каждом пункте.
+            - Разнообразные идеи.
+
+            3️⃣ Длинный связный текст:
+            - Текст на 200-250 слов.
+            - Углубленное объяснение заголовка.
+            - Также напишите описание подходящего изображения для AI генерации.
+
+            Ответьте в формате JSON.
+            """
+        else:  # en
+            prompt = f"""
+            You are a presentation creation assistant.
+            Overall topic: "{topic}".
+            Slide title: "{title}".
+
+            Provide result in three parts:
+
+            1️⃣ 3-column text:
+            - Each column under a separate header.
+            - Each column starts with a main sentence.
+            - 50-60 words in each column.
+
+            2️⃣ 4-point text:
+            - Each point as a bullet.
+            - Minimum 20 words per point.
+            - Diverse ideas.
+
+            3️⃣ Long coherent text:
+            - 200-250 word text.
+            - In-depth explanation of the title.
+            - Also write an image description for AI generation.
+
+            Respond in JSON format.
+            """
+        
+        return {}  # Placeholder
 
     async def generate_presentation_with_manual_titles(self, topic: str, slide_titles: List[str], language: str) -> Dict:
         """Generate presentation content using manually provided slide titles"""
