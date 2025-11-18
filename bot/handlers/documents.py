@@ -9,6 +9,7 @@ from aiogram.fsm.context import FSMContext
 from bot.states import DocumentStates
 from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard, get_outline_review_keyboard, get_references_choice_keyboard
 from database.database import Database
+from utils.security import sanitize_user_input, validate_topic_length
 from services.ai_service_new import AIService
 from services.document_service_new import DocumentService
 from services.template_service import TemplateService
@@ -68,9 +69,10 @@ async def handle_document_type_selection(message: Message, state: FSMContext, us
 async def handle_topic_input(message: Message, state: FSMContext, user_lang: str, db: Database, user):
     """Handle topic input from user"""
     try:
-        topic = message.text.strip()
+        # Sanitize user input to prevent injection attacks
+        topic = sanitize_user_input(message.text, max_length=200)
 
-        if not topic or len(topic) < 3:
+        if not validate_topic_length(topic, min_length=3, max_length=200):
             await message.answer(get_text(user_lang, "topic_too_short"))
             return
 
@@ -161,14 +163,15 @@ async def handle_document_request(message: Message, state: FSMContext, db: Datab
 @router.message(DocumentStates.waiting_for_topic)
 async def handle_topic_input(message: Message, state: FSMContext, user_lang: str):
     """Handle topic input"""
-    topic = message.text.strip()
+    # Sanitize user input to prevent injection attacks
+    topic = sanitize_user_input(message.text, max_length=200)
 
     # Simple check - only handle actual topics (not system buttons)
     # System buttons will be handled by their specific routers first due to order
     if topic.startswith(("⚙️", "💳", "💰", "📞", "📊", "🎓", "📄")):
         return  # Let other handlers process system buttons
 
-    if len(topic) < 3:
+    if not validate_topic_length(topic, min_length=3, max_length=200):
         await message.answer("❌ Mavzu juda qisqa. Iltimos, to'liqroq kiriting.")
         return
 
@@ -323,6 +326,11 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
             )
         else:
             content = await ai_service.generate_presentation_in_batches(topic, slide_count, user_lang)
+        
+        # Generate references if requested
+        references = []
+        if add_references:
+            references = await ai_service.generate_references(topic, user_lang)
 
         # Validate AI response
         if not content or 'slides' not in content:
@@ -340,7 +348,7 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
 
         # Apply template to presentation
         file_path = await doc_service.create_presentation_with_template_background(
-            topic, content, user.first_name or "", template_id, template_service, user_lang
+            topic, content, user.first_name or "", template_id, template_service, user_lang, references
         )
 
         # Update order
@@ -1010,8 +1018,15 @@ async def handle_manual_outline_input(message: Message, state: FSMContext, db: D
     total_sections = data.get('total_sections', 1)
     document_type = data.get('document_type')
 
+    # Sanitize and validate outline input
+    outline_text = sanitize_user_input(message.text, max_length=150)
+    
+    if not validate_topic_length(outline_text, min_length=2, max_length=150):
+        await message.answer("❌ Mavzu juda qisqa yoki uzun. 2-150 belgi oralig'ida kiriting.")
+        return
+
     # Add current title to outline
-    manual_outline.append(message.text.strip())
+    manual_outline.append(outline_text)
     current_section += 1
 
     if current_section <= total_sections:

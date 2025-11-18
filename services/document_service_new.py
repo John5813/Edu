@@ -25,11 +25,11 @@ class DocumentService:
         os.makedirs(self.documents_dir, exist_ok=True)
         os.makedirs("temp", exist_ok=True)
 
-    async def create_presentation_with_template_background(self, topic: str, content: Dict, author_name: str, template_id: str, template_service, language: str = "uz") -> str:
+    async def create_presentation_with_template_background(self, topic: str, content: Dict, author_name: str, template_id: str, template_service, language: str = "uz", references: List[str] = None) -> str:
         """Create presentation with template background applied"""
         try:
             # First create normal presentation
-            temp_file = await self.create_new_presentation_system(topic, content, author_name, language)
+            temp_file = await self.create_new_presentation_system(topic, content, author_name, language, references)
 
             # Now apply template backgrounds to all slides
             from pptx import Presentation
@@ -274,7 +274,7 @@ class DocumentService:
             p.font.color.rgb = colors.get('text', RGBColor(51, 51, 51))
             p.alignment = PP_ALIGN.LEFT
 
-    async def create_new_presentation_system(self, topic: str, content: Dict, author_name: str, language: str = "uz") -> str:
+    async def create_new_presentation_system(self, topic: str, content: Dict, author_name: str, language: str = "uz", references: List[str] = None) -> str:
         """Create presentation with new 3-template rotating system and DALL-E images"""
         try:
             # Validate content
@@ -304,6 +304,10 @@ class DocumentService:
 
                 logger.info(f"Creating content slide {slide_num} with layout: {layout_type}")
                 await self._create_new_content_slide(prs, slide_data, layout_type, slide_num, images)
+
+            # 2.5. ADD REFERENCES SLIDE - oxirgi slayddan oldin (agar berilgan bo'lsa)
+            if references and len(references) > 0:
+                await self._create_references_slide(prs, references, language)
 
             # 3. ADD THANK YOU SLIDE - oxirgi slayd
             await self._create_thank_you_slide(prs, language)
@@ -902,6 +906,50 @@ class DocumentService:
         title_para.font.size = PptxPt(46)
         title_para.font.bold = True
         title_para.alignment = PP_ALIGN.CENTER
+
+    async def _create_references_slide(self, prs, references: List[str], language: str = "uz"):
+        """Create references slide with 5 sources - oxirgi slayddan oldin"""
+        slide_layout = prs.slide_layouts[6]  # Blank layout
+        slide = prs.slides.add_slide(slide_layout)
+
+        # References title in different languages
+        title_texts = {
+            "uz": "Adabiyotlar ro'yxati",
+            "ru": "Список литературы",
+            "en": "References"
+        }
+
+        title_text = title_texts.get(language, "Adabiyotlar ro'yxati")
+
+        # Add title
+        title_box = slide.shapes.add_textbox(
+            PptxInches(1), PptxInches(0.5),
+            PptxInches(11.33), PptxInches(1)
+        )
+        title_frame = title_box.text_frame
+        title_para = title_frame.paragraphs[0]
+        title_para.text = title_text
+        title_para.font.size = PptxPt(36)
+        title_para.font.bold = True
+        title_para.alignment = PP_ALIGN.CENTER
+
+        # Add references list - 5 ta manbaa
+        refs_box = slide.shapes.add_textbox(
+            PptxInches(1.5), PptxInches(2),
+            PptxInches(10.33), PptxInches(5)
+        )
+        refs_frame = refs_box.text_frame
+        refs_frame.word_wrap = True
+
+        # Add each reference
+        for i, ref in enumerate(references[:5], 1):
+            if i > 1:
+                refs_frame.add_paragraph()
+            p = refs_frame.paragraphs[i-1] if i > 1 else refs_frame.paragraphs[0]
+            p.text = f"{i}. {ref}"
+            p.font.size = PptxPt(16)
+            p.alignment = PP_ALIGN.LEFT
+            p.space_after = PptxPt(12)
 
     async def _create_thank_you_slide(self, prs, language: str = "uz"):
         """Create thank you slide - Etiboringiz uchun rahmat"""
