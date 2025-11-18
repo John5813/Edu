@@ -525,6 +525,8 @@ async def generate_independent_work_manual(message: Message, state: FSMContext, 
         )
 
         await message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
+        
+        await state.clear()
 
     except Exception as e:
         logger.error(f"Error generating manual independent work: {e}")
@@ -534,7 +536,6 @@ async def generate_independent_work_manual(message: Message, state: FSMContext, 
         )
         if 'order_id' in locals():
             await db.update_document_order(order_id, "failed")
-    finally:
         await state.clear()
 
 async def generate_referat_manual(message: Message, state: FSMContext, db: Database, user_lang: str, user):
@@ -604,6 +605,8 @@ async def generate_referat_manual(message: Message, state: FSMContext, db: Datab
         )
 
         await message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
+        
+        await state.clear()
 
     except Exception as e:
         logger.error(f"Error generating manual referat: {e}")
@@ -613,8 +616,44 @@ async def generate_referat_manual(message: Message, state: FSMContext, db: Datab
         )
         if 'order_id' in locals():
             await db.update_document_order(order_id, "failed")
-    finally:
         await state.clear()
+
+async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
+    """Generate presentation document"""
+    try:
+        data = await state.get_data()
+        topic = data['topic']
+        slide_count = data['slide_count']
+        price = data.get('price', 0)
+
+        # Create order record
+        specifications = json.dumps({"slide_count": slide_count})
+        order_id = await db.create_document_order(
+            user_id=user.id,
+            document_type="presentation",
+            topic=topic,
+            specifications=specifications
+        )
+
+        # Generate content with NEW AI BATCH SYSTEM
+        ai_service = AIService()
+        content = await ai_service.generate_presentation_in_batches(topic, slide_count, user_lang)
+
+        # Validate AI response
+        if not content or 'slides' not in content:
+            logger.error(f"Invalid AI response from batch generation: {content}")
+            # Create fallback content with new layout system
+            content = {
+                'slides': [
+                    {'title': topic, 'content': f"Bu taqdimot {topic} mavzusida tayyorlangan.", 'layout_type': 'bullet_points', 'slide_number': 1},
+                    {'title': 'Kirish', 'content': f"{topic} haqida batafsil ma'lumot va asosiy nuqtalar.", 'layout_type': 'bullet_points', 'slide_number': 2},
+                    {'title': 'Asosiy qism', 'content': f"{topic}ning asosiy jihatlari va muhim ma'lumotlar.", 'layout_type': 'text_with_image', 'slide_number': 3}
+                ]
+            }
+
+        # Create presentation file with NEW SYSTEM (DALL-E + 3 layouts)
+        doc_service = DocumentService()
+        file_path = await doc_service.create_new_presentation_system(topic, content, user.first_name or "", user_lang)
 
         # Update order
         await db.update_document_order(order_id, "completed", file_path)
