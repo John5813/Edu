@@ -391,6 +391,23 @@ def get_outline_review_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+def get_references_choice_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
+    """Keyboard for choosing whether to add references to presentation"""
+    keyboard = InlineKeyboardBuilder()
+    
+    if language == "uz":
+        keyboard.add(InlineKeyboardButton(text="✅ Ha", callback_data="add_references_yes"))
+        keyboard.add(InlineKeyboardButton(text="❌ Yo'q", callback_data="add_references_no"))
+    elif language == "ru":
+        keyboard.add(InlineKeyboardButton(text="✅ Да", callback_data="add_references_yes"))
+        keyboard.add(InlineKeyboardButton(text="❌ Нет", callback_data="add_references_no"))
+    else:  # en
+        keyboard.add(InlineKeyboardButton(text="✅ Yes", callback_data="add_references_yes"))
+        keyboard.add(InlineKeyboardButton(text="❌ No", callback_data="add_references_no"))
+    
+    keyboard.adjust(2)
+    return keyboard.as_markup()
+
 def get_channel_error_keyboard() -> InlineKeyboardMarkup:
     """Channel error keyboard with retry and back options"""
     keyboard = InlineKeyboardBuilder()
