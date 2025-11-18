@@ -285,7 +285,7 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
 
         # Generate content with NEW AI BATCH SYSTEM
         ai_service = AIService()
-        
+
         # If manual outline provided, use it
         if manual_outline:
             content = await ai_service.generate_presentation_with_manual_titles(
@@ -456,7 +456,34 @@ async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: 
         doc_service = DocumentService()
         file_path = await doc_service.create_new_presentation_system(topic, content, user.first_name or "", user_lang)
 
+        # Update order
+        await db.update_document_order(order_id, "completed", file_path)
 
+        # Deduct from balance
+        await db.update_user_balance(user.telegram_id, -price)
+        await callback.message.edit_text(get_text(user_lang, "document_ready"))
+
+        # Send file
+        document = FSInputFile(file_path)
+        await callback.message.answer_document(
+            document=document,
+            caption=f"📊 {topic}",
+            reply_markup=get_main_keyboard(user_lang)
+        )
+
+        # Send gentle reminder about content review
+        await callback.message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
+
+    except Exception as e:
+        logger.error(f"Error generating presentation: {e}")
+        await callback.message.edit_text("❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.")
+        await callback.message.answer("Asosiy menyu:", reply_markup=get_main_keyboard(user_lang))
+        # Update order status
+        if 'order_id' in locals():
+            await db.update_document_order(order_id, "failed")
+
+    finally:
+        await state.clear()
 
 async def generate_independent_work_manual(message: Message, state: FSMContext, db: Database, user_lang: str, user):
     """Generate independent work with manual outline"""
@@ -479,7 +506,7 @@ async def generate_independent_work_manual(message: Message, state: FSMContext, 
         # Use manual outline instead of AI-generated
         from services.ai_service import AIService as OldAIService
         ai_service = OldAIService()
-        
+
         # Generate content for each manually entered section
         sections = []
         for i, section_title in enumerate(manual_outline):
@@ -525,7 +552,7 @@ async def generate_independent_work_manual(message: Message, state: FSMContext, 
         )
 
         await message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
-        
+
         await state.clear()
 
     except Exception as e:
@@ -559,7 +586,7 @@ async def generate_referat_manual(message: Message, state: FSMContext, db: Datab
         # Use manual outline instead of AI-generated
         from services.ai_service import AIService as OldAIService
         ai_service = OldAIService()
-        
+
         # Generate content for each manually entered section
         sections = []
         for i, section_title in enumerate(manual_outline):
@@ -605,7 +632,7 @@ async def generate_referat_manual(message: Message, state: FSMContext, db: Datab
         )
 
         await message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
-        
+
         await state.clear()
 
     except Exception as e:
@@ -838,10 +865,10 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
 async def handle_outline_auto(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Handle automatic outline generation"""
     await callback.answer()
-    
+
     data = await state.get_data()
     document_type = data.get('document_type')
-    
+
     if document_type == "presentation":
         # For presentation, show template selection
         await show_template_selection(callback.message, state, user_lang, group=1, edit_message=False)
@@ -849,7 +876,7 @@ async def handle_outline_auto(callback: CallbackQuery, state: FSMContext, db: Da
     else:
         # For documents, start generation
         await callback.message.answer("⏳ " + get_text(user_lang, "generating"))
-        
+
         if document_type == "independent_work":
             asyncio.create_task(generate_independent_work(callback, state, db, user_lang, user))
         else:  # referat
@@ -859,10 +886,10 @@ async def handle_outline_auto(callback: CallbackQuery, state: FSMContext, db: Da
 async def handle_outline_manual(callback: CallbackQuery, state: FSMContext, user_lang: str):
     """Handle manual outline entry"""
     await callback.answer()
-    
+
     data = await state.get_data()
     document_type = data.get('document_type')
-    
+
     # Calculate how many sections/slides needed
     if document_type == "presentation":
         slide_count = data.get('slide_count', 10)
@@ -881,12 +908,12 @@ async def handle_outline_manual(callback: CallbackQuery, state: FSMContext, user
             section_count = 12
         else:
             section_count = 15
-        
+
         await state.update_data(manual_outline=[], current_section=1, total_sections=section_count)
         await callback.message.answer(
             get_text(user_lang, "enter_section_title", section_num=1)
         )
-    
+
     await state.set_state(DocumentStates.waiting_for_manual_outline)
 
 @router.message(DocumentStates.waiting_for_manual_outline)
@@ -897,15 +924,15 @@ async def handle_manual_outline_input(message: Message, state: FSMContext, db: D
     current_section = data.get('current_section', 1)
     total_sections = data.get('total_sections', 1)
     document_type = data.get('document_type')
-    
+
     # Add current title to outline
     manual_outline.append(message.text.strip())
     current_section += 1
-    
+
     if current_section <= total_sections:
         # Ask for next section/slide
         await state.update_data(manual_outline=manual_outline, current_section=current_section)
-        
+
         if document_type == "presentation":
             await message.answer(
                 get_text(user_lang, "enter_slide_title", slide_num=current_section)
@@ -918,7 +945,7 @@ async def handle_manual_outline_input(message: Message, state: FSMContext, db: D
         # All sections/slides collected
         await state.update_data(manual_outline=manual_outline)
         await message.answer(get_text(user_lang, "outline_complete"))
-        
+
         if document_type == "presentation":
             # Show template selection for presentation
             await show_template_selection(message, state, user_lang, group=1, edit_message=False)
@@ -926,7 +953,7 @@ async def handle_manual_outline_input(message: Message, state: FSMContext, db: D
         else:
             # Start document generation
             await message.answer("⏳ " + get_text(user_lang, "generating"))
-            
+
             if document_type == "independent_work":
                 asyncio.create_task(generate_independent_work_manual(message, state, db, user_lang, user))
             else:  # referat
