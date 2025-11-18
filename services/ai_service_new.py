@@ -426,69 +426,6 @@ JSON formatda javob bering:
         logger.info(f"Generated complete presentation with {len(all_slides)} slides using manual titles")
         return {"slides": all_slides}
 
-
-            1️⃣ Текст в 3 колонки:
-            - Каждая колонка под отдельным заголовком.
-            - Текст каждой колонки начинается с основного предложения, соответствующего заголовку.
-            - В каждой колонке 50–60 слов.
-
-            2️⃣ Текст в 4 пункта:
-            - Каждый пункт в стиле маркированного списка.
-            - Каждый пункт состоит минимум из 20 слов.
-            - Идеи должны быть разнообразными.
-
-            3️⃣ Длинный связный текст:
-            - Напишите текст 200–250 слов.
-            - Текст как единое целое, как глубокий комментарий к заголовку.
-            - Также напишите описание изображения, соответствующего этому тексту (для создания AI-изображения).
-
-            Ответьте в формате JSON.
-            """
-        else:  # English
-            prompt = f"""
-            You are a presentation creation assistant.
-            Overall topic: "{topic}".
-            Slide title: "{title}".
-
-            Provide results in three parts:
-
-            1️⃣ 3-column text:
-            - Each column under a separate heading.
-            - Each column's text starts with a main sentence matching the heading.
-            - 50–60 words in each column.
-
-            2️⃣ 4-point text:
-            - Each point in bullet style.
-            - Each point consists of at least 20 words.
-            - Ideas should be diverse.
-
-            3️⃣ Long coherent text:
-            - Write 200–250 words of text.
-            - Text as a whole, as a deep commentary on the title.
-            - Also write an image description matching this text (for AI image creation).
-
-            Respond in JSON format.
-            """
-
-        try:
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                response_format={"type": "json_object"},
-                temperature=0.7
-            )
-
-            content_text = response.choices[0].message.content
-            import json
-            if content_text:
-                return json.loads(content_text)
-            else:
-                return {"slides": []}
-
-        except Exception as e:
-            logger.error(f"Error generating presentation page: {e}")
-            return {"error": str(e)}
-
     async def _generate_slide_batch(self, topic: str, start_slide: int, end_slide: int, total_slides: int, language: str) -> Dict:
         """Generate a batch of 3 slides with proper layout assignment"""
 
