@@ -374,6 +374,23 @@ def get_manual_input_keyboard(language: str = "uz") -> ReplyKeyboardMarkup:
     keyboard.adjust(1)
     return keyboard.as_markup(resize_keyboard=True)
 
+def get_outline_review_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
+    """Keyboard for outline review - confirm or edit"""
+    keyboard = InlineKeyboardBuilder()
+    
+    if language == "uz":
+        keyboard.add(InlineKeyboardButton(text="✅ Tasdiqlash", callback_data="confirm_outline"))
+        keyboard.add(InlineKeyboardButton(text="✏️ Tahrirlash", callback_data="edit_outline"))
+    elif language == "ru":
+        keyboard.add(InlineKeyboardButton(text="✅ Подтвердить", callback_data="confirm_outline"))
+        keyboard.add(InlineKeyboardButton(text="✏️ Редактировать", callback_data="edit_outline"))
+    else:  # en
+        keyboard.add(InlineKeyboardButton(text="✅ Confirm", callback_data="confirm_outline"))
+        keyboard.add(InlineKeyboardButton(text="✏️ Edit", callback_data="edit_outline"))
+    
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
 def get_channel_error_keyboard() -> InlineKeyboardMarkup:
     """Channel error keyboard with retry and back options"""
     keyboard = InlineKeyboardBuilder()

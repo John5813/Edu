@@ -7,7 +7,7 @@ from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.fsm.context import FSMContext
 
 from bot.states import DocumentStates
-from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard
+from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard, get_outline_review_keyboard
 from database.database import Database
 from services.ai_service_new import AIService
 from services.document_service_new import DocumentService
@@ -999,22 +999,90 @@ async def handle_manual_outline_input(message: Message, state: FSMContext, db: D
                 reply_markup=get_manual_input_keyboard(user_lang)
             )
     else:
-        # All sections/slides collected
+        # All sections/slides collected - show review
         await state.update_data(manual_outline=manual_outline)
-        await message.answer(get_text(user_lang, "outline_complete"), reply_markup=get_main_keyboard(user_lang))
+        
+        # Format outline for display
+        outline_text = ""
+        for i, item in enumerate(manual_outline, 1):
+            outline_text += f"{i}. {item}\n"
+        
+        # Show review with confirm/edit buttons
+        await message.answer(
+            get_text(user_lang, "outline_review", outline_list=outline_text),
+            reply_markup=get_outline_review_keyboard(user_lang),
+            parse_mode="Markdown"
+        )
+        await state.set_state(DocumentStates.waiting_for_outline_confirmation)
 
-        if document_type == "presentation":
-            # Show template selection for presentation
-            await show_template_selection(message, state, user_lang, group=1, edit_message=False)
-            await state.set_state(DocumentStates.waiting_for_template)
+@router.callback_query(F.data == "confirm_outline", DocumentStates.waiting_for_outline_confirmation)
+async def handle_confirm_outline(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
+    """Handle outline confirmation"""
+    await callback.answer()
+    await callback.message.edit_reply_markup(reply_markup=None)
+    
+    data = await state.get_data()
+    document_type = data.get('document_type')
+    
+    await callback.message.answer(get_text(user_lang, "outline_complete"), reply_markup=get_main_keyboard(user_lang))
+    
+    if document_type == "presentation":
+        # Show template selection for presentation
+        await show_template_selection(callback.message, state, user_lang, group=1, edit_message=False)
+        await state.set_state(DocumentStates.waiting_for_template)
+    else:
+        # Start document generation
+        await callback.message.answer("⏳ " + get_text(user_lang, "generating"))
+        
+        if document_type == "independent_work":
+            asyncio.create_task(generate_independent_work_manual(callback, state, db, user_lang, user))
+        else:  # referat
+            asyncio.create_task(generate_referat_manual(callback, state, db, user_lang, user))
+
+@router.callback_query(F.data == "edit_outline", DocumentStates.waiting_for_outline_confirmation)
+async def handle_edit_outline(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Handle outline editing - restart from beginning"""
+    await callback.answer()
+    await callback.message.edit_reply_markup(reply_markup=None)
+    
+    data = await state.get_data()
+    document_type = data.get('document_type')
+    
+    # Reset outline and start over
+    if document_type == "presentation":
+        slide_count = data.get('slide_count', 10)
+        total_sections = slide_count
+        await state.update_data(manual_outline=[], current_section=1, total_sections=total_sections)
+        
+        await callback.message.answer(
+            get_text(user_lang, "manual_outline_instruction_presentation", total_slides=slide_count)
+        )
+        await callback.message.answer(
+            get_text(user_lang, "enter_slide_title", slide_num=1, total_slides=slide_count),
+            reply_markup=get_manual_input_keyboard(user_lang)
+        )
+    else:
+        max_pages = data.get('max_pages', 15)
+        if max_pages <= 15:
+            section_count = 6
+        elif max_pages <= 20:
+            section_count = 9
+        elif max_pages <= 25:
+            section_count = 12
         else:
-            # Start document generation
-            await message.answer("⏳ " + get_text(user_lang, "generating"))
-
-            if document_type == "independent_work":
-                asyncio.create_task(generate_independent_work_manual(message, state, db, user_lang, user))
-            else:  # referat
-                asyncio.create_task(generate_referat_manual(message, state, db, user_lang, user))
+            section_count = 15
+            
+        await state.update_data(manual_outline=[], current_section=1, total_sections=section_count)
+        
+        await callback.message.answer(
+            get_text(user_lang, "manual_outline_instruction_document", total_sections=section_count)
+        )
+        await callback.message.answer(
+            get_text(user_lang, "enter_section_title", section_num=1, total_sections=section_count),
+            reply_markup=get_manual_input_keyboard(user_lang)
+        )
+    
+    await state.set_state(DocumentStates.waiting_for_manual_outline)
 
 @router.message(F.text == "Mening hisobim")
 async def my_account_handler(message: Message, db: Database, user_lang: str, user):

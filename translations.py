@@ -28,6 +28,9 @@ TRANSLATIONS = {
         "manual_outline_instruction_presentation": "📋 Siz {total_slides} ta slayd uchun mavzularni kiritishingiz kerak.\n\n💡 Har bir slayd uchun aniq mavzu kiriting.",
         "manual_outline_instruction_document": "📋 Tanlangan varoq hajmi uchun {total_sections} ta reja sarlavhasi kiritishingiz kerak.\n\n💡 Har bir reja uchun aniq va tushunarli sarlavha kiriting.",
         "outline_complete": "✅ Reja qabul qilindi! Hujjat yaratilmoqda...",
+        "outline_review": "📋 **Kiritilgan reja:**\n\n{outline_list}\n\n✅ Tasdiqlash yoki tahrirlash uchun tugma bosing:",
+        "confirm_outline": "✅ Tasdiqlash",
+        "edit_outline": "✏️ Tahrirlash",
         "channel_subscription_required": "📢 Botdan foydalanish uchun quyidagi kanallarga a'zo bo'lishingiz shart:",
         "check_subscription": "✅ Tekshirish",
         "subscription_verified": "✅ A'zolik tasdiqlandi! Botdan foydalanishingiz mumkin.",
@@ -71,8 +74,9 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
 
 🎯 **Eng yaxshi natija uchun:** Tayyor hujjatni o'z bilim va tajribangiz bilan boyiting!""",
         "template_selection_title": "🎨 **BARCHA SHABLONLAR - Bitta rasmda ko'ring**",
-        "template_selection_description": """Yuqoridagi rasmda 20 ta shablon ko'rsatilgan:
-**1-5:** Birinchi qator (chap yuqoridan o'ngga)
+        "template_selection_description": """Yuqoridagi rasmda 20 ta shablon ko'rsatilgan (4 qator x 5 ustun):
+
+**1-5:** Birinchi qator (chapdan o'ngga)
 **6-10:** Ikkinchi qator  
 **11-15:** Uchinchi qator
 **16-20:** To'rtinchi qator
@@ -99,6 +103,9 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
         "manual_outline_instruction_presentation": "📋 Вам нужно ввести темы для {total_slides} слайдов.\n\n💡 Введите четкую тему для каждого слайда.",
         "manual_outline_instruction_document": "📋 Для выбранного объема страниц вам нужно ввести {total_sections} названий плана.\n\n💡 Введите четкое и понятное название для каждого пункта плана.",
         "outline_complete": "✅ План принят! Создание документа...",
+        "outline_review": "📋 **Введенный план:**\n\n{outline_list}\n\n✅ Нажмите кнопку для подтверждения или редактирования:",
+        "confirm_outline": "✅ Подтвердить",
+        "edit_outline": "✏️ Редактировать",
         "channel_subscription_required": "📢 Для использования бота необходимо подписаться на следующие каналы:",
         "check_subscription": "✅ Проверить",
         "subscription_verified": "✅ Подписка подтверждена! Вы можете использовать бота.",
@@ -142,8 +149,9 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
 
 🎯 **Для лучшего результата:** Дополните готовый документ своими знаниями и опытом!""",
         "template_selection_title": "🎨 **ВСЕ ШАБЛОНЫ - Посмотрите на одном изображении**",
-        "template_selection_description": """На изображении выше показано 20 шаблонов:
-**1-5:** Первый ряд (слева вверху направо)
+        "template_selection_description": """На изображении выше показано 20 шаблонов (4 ряда x 5 столбцов):
+
+**1-5:** Первый ряд (слева направо)
 **6-10:** Второй ряд  
 **11-15:** Третий ряд
 **16-20:** Четвертый ряд
@@ -170,6 +178,9 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
         "manual_outline_instruction_presentation": "📋 You need to enter topics for {total_slides} slides.\n\n💡 Enter a clear topic for each slide.",
         "manual_outline_instruction_document": "📋 For the selected page count, you need to enter {total_sections} outline titles.\n\n💡 Enter a clear and understandable title for each outline item.",
         "outline_complete": "✅ Outline accepted! Creating document...",
+        "outline_review": "📋 **Entered outline:**\n\n{outline_list}\n\n✅ Click button to confirm or edit:",
+        "confirm_outline": "✅ Confirm",
+        "edit_outline": "✏️ Edit",
         "channel_subscription_required": "📢 To use the bot, you must subscribe to the following channels:",
         "check_subscription": "✅ Check",
         "subscription_verified": "✅ Subscription verified! You can use the bot.",
@@ -213,8 +224,9 @@ This document was created with AI assistance and serves as your helper.
 
 🎯 **For best results:** Enhance the ready document with your knowledge and experience!""",
         "template_selection_title": "🎨 **ALL TEMPLATES - See in one image**",
-        "template_selection_description": """The image above shows 20 templates:
-**1-5:** First row (left to right from top)
+        "template_selection_description": """The image above shows 20 templates (4 rows x 5 columns):
+
+**1-5:** First row (left to right)
 **6-10:** Second row  
 **11-15:** Third row
 **16-20:** Fourth row
