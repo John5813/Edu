@@ -340,6 +340,23 @@ def get_back_to_channels_keyboard() -> InlineKeyboardMarkup:
     keyboard.add(InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_channels"))
     return keyboard.as_markup()
 
+def get_outline_choice_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
+    """Outline choice keyboard - manual or automatic"""
+    keyboard = InlineKeyboardBuilder()
+    
+    if language == "uz":
+        keyboard.add(InlineKeyboardButton(text="✍️ Rejani qo'lda kiritish", callback_data="outline_manual"))
+        keyboard.add(InlineKeyboardButton(text="🤖 Reja avtomatik yaratilsin", callback_data="outline_auto"))
+    elif language == "ru":
+        keyboard.add(InlineKeyboardButton(text="✍️ Ввести план вручную", callback_data="outline_manual"))
+        keyboard.add(InlineKeyboardButton(text="🤖 Создать план автоматически", callback_data="outline_auto"))
+    else:  # en
+        keyboard.add(InlineKeyboardButton(text="✍️ Enter outline manually", callback_data="outline_manual"))
+        keyboard.add(InlineKeyboardButton(text="🤖 Create outline automatically", callback_data="outline_auto"))
+    
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
 def get_channel_error_keyboard() -> InlineKeyboardMarkup:
     """Channel error keyboard with retry and back options"""
     keyboard = InlineKeyboardBuilder()

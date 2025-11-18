@@ -348,6 +348,41 @@ JSON formatda javob bering:
 
             Дайте результат в трех частях:
 
+
+    async def generate_presentation_with_manual_titles(self, topic: str, slide_titles: List[str], language: str) -> Dict:
+        """Generate presentation content using manually provided slide titles"""
+        logger.info(f"Starting presentation generation with {len(slide_titles)} manual titles for '{topic}'")
+
+        all_slides = []
+        used_topics = set()
+
+        # Generate content for each manually provided title
+        for slide_num, slide_title in enumerate(slide_titles, start=1):
+            logger.info(f"Generating slide {slide_num} with manual title: {slide_title}")
+
+            # Get layout type for this slide
+            layout_type = self._get_layout_type(slide_num)
+
+            # Generate unique content for this specific slide with manual title
+            slide_content = await self._generate_single_slide_unique(
+                topic, slide_num, slide_title, layout_type, language, used_topics, slide_titles
+            )
+
+            if slide_content:
+                all_slides.append(slide_content)
+                used_topics.add(slide_title)
+                if 'content' in slide_content:
+                    content_words = str(slide_content['content']).split()[:10]
+                    used_topics.update(content_words)
+
+            # Small delay between slides
+            if slide_num < len(slide_titles):
+                await asyncio.sleep(0.3)
+
+        logger.info(f"Generated complete presentation with {len(all_slides)} slides using manual titles")
+        return {"slides": all_slides}
+
+
             1️⃣ Текст в 3 колонки:
             - Каждая колонка под отдельным заголовком.
             - Текст каждой колонки начинается с основного предложения, соответствующего заголовку.

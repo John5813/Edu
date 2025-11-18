@@ -268,11 +268,13 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         slide_count = data['slide_count']
         template_id = data.get('selected_template', 'template_20')
         price = data.get('price', 0)
+        manual_outline = data.get('manual_outline', [])
 
         # Create order record
         specifications = json.dumps({
             "slide_count": slide_count,
-            "template": template_id
+            "template": template_id,
+            "manual_outline": len(manual_outline) > 0
         })
         order_id = await db.create_document_order(
             user_id=user.id,
@@ -283,7 +285,14 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
 
         # Generate content with NEW AI BATCH SYSTEM
         ai_service = AIService()
-        content = await ai_service.generate_presentation_in_batches(topic, slide_count, user_lang)
+        
+        # If manual outline provided, use it
+        if manual_outline:
+            content = await ai_service.generate_presentation_with_manual_titles(
+                topic, manual_outline, user_lang
+            )
+        else:
+            content = await ai_service.generate_presentation_in_batches(topic, slide_count, user_lang)
 
         # Validate AI response
         if not content or 'slides' not in content:
@@ -366,10 +375,14 @@ async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Dat
         await state.clear()
         return
 
-    # Show template selection instead of generating directly
+    # Show outline choice before template selection
     await callback.answer()
-    await show_template_selection(callback.message, state, user_lang, group=1, edit_message=False)
-    await state.set_state(DocumentStates.waiting_for_template)
+    from bot.keyboards import get_outline_choice_keyboard
+    await callback.message.answer(
+        get_text(user_lang, "outline_choice"),
+        reply_markup=get_outline_choice_keyboard(user_lang)
+    )
+    await state.set_state(DocumentStates.waiting_for_outline_choice)
 
 @router.callback_query(F.data.startswith("pages_"), DocumentStates.waiting_for_page_count)
 async def handle_page_count(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
@@ -397,13 +410,14 @@ async def handle_page_count(callback: CallbackQuery, state: FSMContext, db: Data
         await state.clear()
         return
 
-    await callback.message.edit_text("⏳ " + get_text(user_lang, "generating"))
-
-    # Start document generation
-    if document_type == "independent_work":
-        asyncio.create_task(generate_independent_work(callback, state, db, user_lang, user))
-    else:  # referat
-        asyncio.create_task(generate_referat(callback, state, db, user_lang, user))
+    # Show outline choice
+    await callback.answer()
+    from bot.keyboards import get_outline_choice_keyboard
+    await callback.message.answer(
+        get_text(user_lang, "outline_choice"),
+        reply_markup=get_outline_choice_keyboard(user_lang)
+    )
+    await state.set_state(DocumentStates.waiting_for_outline_choice)
 
 async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Generate presentation document"""
@@ -441,6 +455,166 @@ async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: 
         # Create presentation file with NEW SYSTEM (DALL-E + 3 layouts)
         doc_service = DocumentService()
         file_path = await doc_service.create_new_presentation_system(topic, content, user.first_name or "", user_lang)
+
+
+
+async def generate_independent_work_manual(message: Message, state: FSMContext, db: Database, user_lang: str, user):
+    """Generate independent work with manual outline"""
+    try:
+        data = await state.get_data()
+        topic = data['topic']
+        min_pages = data['min_pages']
+        max_pages = data['max_pages']
+        manual_outline = data.get('manual_outline', [])
+
+        # Create order record
+        specifications = json.dumps({"min_pages": min_pages, "max_pages": max_pages, "manual_outline": True})
+        order_id = await db.create_document_order(
+            user_id=user.id,
+            document_type="independent_work",
+            topic=topic,
+            specifications=specifications
+        )
+
+        # Use manual outline instead of AI-generated
+        from services.ai_service import AIService as OldAIService
+        ai_service = OldAIService()
+        
+        # Generate content for each manually entered section
+        sections = []
+        for i, section_title in enumerate(manual_outline):
+            section_content = await ai_service._generate_section_content(
+                topic, section_title, i + 1, len(manual_outline), "independent_work", user_lang
+            )
+            sections.append({
+                "title": section_title,
+                "content": section_content
+            })
+
+        # Generate references
+        references = await ai_service._generate_references(topic, user_lang)
+
+        content = {
+            "title": topic,
+            "sections": sections,
+            "references": references,
+            "language": user_lang
+        }
+
+        # Create document file
+        from services.document_service import DocumentService as OldDocumentService
+        doc_service = OldDocumentService()
+        file_path = await doc_service.create_independent_work(topic, content)
+
+        # Update order
+        await db.update_document_order(order_id, "completed", file_path)
+
+        # Deduct from balance
+        price = data.get('price', 0)
+        await db.update_user_balance(user.telegram_id, -price)
+
+        await message.answer(get_text(user_lang, "document_ready"))
+
+        # Send file
+        from aiogram.types import FSInputFile
+        document = FSInputFile(file_path)
+        await message.answer_document(
+            document=document,
+            caption=f"🎓 {topic}",
+            reply_markup=get_main_keyboard(user_lang)
+        )
+
+        await message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
+
+    except Exception as e:
+        logger.error(f"Error generating manual independent work: {e}")
+        await message.answer(
+            "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
+            reply_markup=get_main_keyboard(user_lang)
+        )
+        if 'order_id' in locals():
+            await db.update_document_order(order_id, "failed")
+    finally:
+        await state.clear()
+
+async def generate_referat_manual(message: Message, state: FSMContext, db: Database, user_lang: str, user):
+    """Generate referat with manual outline"""
+    try:
+        data = await state.get_data()
+        topic = data['topic']
+        min_pages = data['min_pages']
+        max_pages = data['max_pages']
+        manual_outline = data.get('manual_outline', [])
+
+        # Create order record
+        specifications = json.dumps({"min_pages": min_pages, "max_pages": max_pages, "manual_outline": True})
+        order_id = await db.create_document_order(
+            user_id=user.id,
+            document_type="referat",
+            topic=topic,
+            specifications=specifications
+        )
+
+        # Use manual outline instead of AI-generated
+        from services.ai_service import AIService as OldAIService
+        ai_service = OldAIService()
+        
+        # Generate content for each manually entered section
+        sections = []
+        for i, section_title in enumerate(manual_outline):
+            section_content = await ai_service._generate_section_content(
+                topic, section_title, i + 1, len(manual_outline), "referat", user_lang
+            )
+            sections.append({
+                "title": section_title,
+                "content": section_content
+            })
+
+        # Generate references
+        references = await ai_service._generate_references(topic, user_lang)
+
+        content = {
+            "title": topic,
+            "sections": sections,
+            "references": references,
+            "language": user_lang
+        }
+
+        # Create document file
+        from services.document_service import DocumentService as OldDocumentService
+        doc_service = OldDocumentService()
+        file_path = await doc_service.create_referat(topic, content)
+
+        # Update order
+        await db.update_document_order(order_id, "completed", file_path)
+
+        # Deduct from balance
+        price = data.get('price', 0)
+        await db.update_user_balance(user.telegram_id, -price)
+
+        await message.answer(get_text(user_lang, "document_ready"))
+
+        # Send file
+        from aiogram.types import FSInputFile
+        document = FSInputFile(file_path)
+        await message.answer_document(
+            document=document,
+            caption=f"📄 {topic}",
+            reply_markup=get_main_keyboard(user_lang)
+        )
+
+        await message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
+
+    except Exception as e:
+        logger.error(f"Error generating manual referat: {e}")
+        await message.answer(
+            "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
+            reply_markup=get_main_keyboard(user_lang)
+        )
+        if 'order_id' in locals():
+            await db.update_document_order(order_id, "failed")
+    finally:
+        await state.clear()
 
         # Update order
         await db.update_document_order(order_id, "completed", file_path)
@@ -620,6 +794,104 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
         await state.clear()
 
 
+
+@router.callback_query(F.data == "outline_auto", DocumentStates.waiting_for_outline_choice)
+async def handle_outline_auto(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
+    """Handle automatic outline generation"""
+    await callback.answer()
+    
+    data = await state.get_data()
+    document_type = data.get('document_type')
+    
+    if document_type == "presentation":
+        # For presentation, show template selection
+        await show_template_selection(callback.message, state, user_lang, group=1, edit_message=False)
+        await state.set_state(DocumentStates.waiting_for_template)
+    else:
+        # For documents, start generation
+        await callback.message.answer("⏳ " + get_text(user_lang, "generating"))
+        
+        if document_type == "independent_work":
+            asyncio.create_task(generate_independent_work(callback, state, db, user_lang, user))
+        else:  # referat
+            asyncio.create_task(generate_referat(callback, state, db, user_lang, user))
+
+@router.callback_query(F.data == "outline_manual", DocumentStates.waiting_for_outline_choice)
+async def handle_outline_manual(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Handle manual outline entry"""
+    await callback.answer()
+    
+    data = await state.get_data()
+    document_type = data.get('document_type')
+    
+    # Calculate how many sections/slides needed
+    if document_type == "presentation":
+        slide_count = data.get('slide_count', 10)
+        await state.update_data(manual_outline=[], current_section=1, total_sections=slide_count)
+        await callback.message.answer(
+            get_text(user_lang, "enter_slide_title", slide_num=1)
+        )
+    else:
+        # For documents, determine section count based on pages
+        max_pages = data.get('max_pages', 15)
+        if max_pages <= 15:
+            section_count = 6
+        elif max_pages <= 20:
+            section_count = 9
+        elif max_pages <= 25:
+            section_count = 12
+        else:
+            section_count = 15
+        
+        await state.update_data(manual_outline=[], current_section=1, total_sections=section_count)
+        await callback.message.answer(
+            get_text(user_lang, "enter_section_title", section_num=1)
+        )
+    
+    await state.set_state(DocumentStates.waiting_for_manual_outline)
+
+@router.message(DocumentStates.waiting_for_manual_outline)
+async def handle_manual_outline_input(message: Message, state: FSMContext, db: Database, user_lang: str, user):
+    """Handle manual outline section/slide title input"""
+    data = await state.get_data()
+    manual_outline = data.get('manual_outline', [])
+    current_section = data.get('current_section', 1)
+    total_sections = data.get('total_sections', 1)
+    document_type = data.get('document_type')
+    
+    # Add current title to outline
+    manual_outline.append(message.text.strip())
+    current_section += 1
+    
+    if current_section <= total_sections:
+        # Ask for next section/slide
+        await state.update_data(manual_outline=manual_outline, current_section=current_section)
+        
+        if document_type == "presentation":
+            await message.answer(
+                get_text(user_lang, "enter_slide_title", slide_num=current_section)
+            )
+        else:
+            await message.answer(
+                get_text(user_lang, "enter_section_title", section_num=current_section)
+            )
+    else:
+        # All sections/slides collected
+        await state.update_data(manual_outline=manual_outline)
+        await message.answer(get_text(user_lang, "outline_complete"))
+        
+        if document_type == "presentation":
+            # Show template selection for presentation
+            await show_template_selection(message, state, user_lang, group=1, edit_message=False)
+            await state.set_state(DocumentStates.waiting_for_template)
+        else:
+            # Start document generation
+            await message.answer("⏳ " + get_text(user_lang, "generating"))
+            
+            if document_type == "independent_work":
+                asyncio.create_task(generate_independent_work_manual(message, state, db, user_lang, user))
+            else:  # referat
+                asyncio.create_task(generate_referat_manual(message, state, db, user_lang, user))
 
 @router.message(F.text == "Mening hisobim")
 async def my_account_handler(message: Message, db: Database, user_lang: str, user):
