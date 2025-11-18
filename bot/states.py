@@ -8,6 +8,7 @@ class DocumentStates(StatesGroup):
     waiting_for_manual_outline = State()
     waiting_for_outline_confirmation = State()
     waiting_for_template = State()
+    waiting_for_references_choice = State()
 
 class PaymentStates(StatesGroup):
     waiting_for_amount = State()

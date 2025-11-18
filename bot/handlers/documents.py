@@ -7,7 +7,7 @@ from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.fsm.context import FSMContext
 
 from bot.states import DocumentStates
-from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard, get_outline_review_keyboard
+from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard, get_outline_review_keyboard, get_references_choice_keyboard
 from database.database import Database
 from services.ai_service_new import AIService
 from services.document_service_new import DocumentService
@@ -239,7 +239,7 @@ async def handle_template_group_navigation(callback: CallbackQuery, state: FSMCo
 
 @router.callback_query(F.data.startswith("template_template_"))
 async def handle_template_selection(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
-    """Handle template selection and start generation"""
+    """Handle template selection and ask about references"""
     try:
         # Extract template number from callback data (template_template_X)
         template_num = callback.data.split("_")[-1]
@@ -250,13 +250,44 @@ async def handle_template_selection(callback: CallbackQuery, state: FSMContext, 
         await state.update_data(selected_template=template_id)
 
         # Clear template selection message
-        # Start presentation generation
-        await callback.message.edit_text("⏳ Taqdimot yaratilmoqda...")
-        await generate_presentation_with_template(callback, state, db, user_lang, user)
+        await callback.message.edit_reply_markup(reply_markup=None)
+        
+        # Ask if user wants to add references
+        await callback.message.answer(
+            get_text(user_lang, "add_references_question"),
+            reply_markup=get_references_choice_keyboard(user_lang)
+        )
+        await state.set_state(DocumentStates.waiting_for_references_choice)
 
     except Exception as e:
         logger.error(f"Error in template selection: {e}")
         await callback.message.answer("❌ Xatolik yuz berdi")
+
+@router.callback_query(F.data == "add_references_yes", DocumentStates.waiting_for_references_choice)
+async def handle_add_references_yes(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
+    """Handle user choosing to add references"""
+    await callback.answer()
+    await callback.message.edit_reply_markup(reply_markup=None)
+    
+    # Save choice
+    await state.update_data(add_references=True)
+    
+    # Start generation
+    await callback.message.answer("⏳ " + get_text(user_lang, "generating"))
+    await generate_presentation_with_template(callback, state, db, user_lang, user)
+
+@router.callback_query(F.data == "add_references_no", DocumentStates.waiting_for_references_choice)
+async def handle_add_references_no(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
+    """Handle user choosing not to add references"""
+    await callback.answer()
+    await callback.message.edit_reply_markup(reply_markup=None)
+    
+    # Save choice
+    await state.update_data(add_references=False)
+    
+    # Start generation
+    await callback.message.answer("⏳ " + get_text(user_lang, "generating"))
+    await generate_presentation_with_template(callback, state, db, user_lang, user)
 
 async def generate_presentation_with_template(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Generate presentation with selected template"""
@@ -267,6 +298,7 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         template_id = data.get('selected_template', 'template_20')
         price = data.get('price', 0)
         manual_outline = data.get('manual_outline', [])
+        add_references = data.get('add_references', False)
 
         # Create order record
         specifications = json.dumps({
