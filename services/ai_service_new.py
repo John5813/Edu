@@ -2,6 +2,7 @@ import asyncio
 import logging
 import random
 import string
+import json
 from datetime import datetime
 from typing import Dict, List, Optional
 import aiohttp
@@ -425,6 +426,67 @@ JSON formatda javob bering:
 
         logger.info(f"Generated complete presentation with {len(all_slides)} slides using manual titles")
         return {"slides": all_slides}
+
+    async def generate_references(self, topic: str, language: str) -> List[str]:
+        """Generate 5 academic references for the topic"""
+        logger.info(f"Generating references for topic: {topic}")
+
+        language_instructions = {
+            'uz': "O'zbek tilida",
+            'ru': "На русском языке",
+            'en': "In English"
+        }
+
+        lang_instruction = language_instructions.get(language, "O'zbek tilida")
+
+        prompt = f"""
+Generate 5 academic references (sources) for the topic "{topic}". {lang_instruction}.
+
+Requirements:
+- Each reference should look professional and academic
+- Include author names, publication year, title, and publisher
+- Make them relevant to the topic
+- Format properly for academic use
+
+Return as JSON array with 5 strings.
+
+Example format:
+{{
+  "references": [
+    "Author A. (2020). Book Title. Publisher.",
+    "Author B., Author C. (2019). Article Title. Journal Name, 15(2), 123-145.",
+    ...
+  ]
+}}
+"""
+
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"},
+                temperature=0.7
+            )
+
+            result = json.loads(response.choices[0].message.content)
+            references = result.get('references', [])
+            
+            # Ensure exactly 5 references
+            if len(references) < 5:
+                references.extend([f"Academic Source {i+1} on {topic}" for i in range(len(references), 5)])
+            
+            return references[:5]
+
+        except Exception as e:
+            logger.error(f"Error generating references: {e}")
+            # Return fallback references
+            return [
+                f"Academic Source 1 on {topic}",
+                f"Academic Source 2 on {topic}",
+                f"Academic Source 3 on {topic}",
+                f"Academic Source 4 on {topic}",
+                f"Academic Source 5 on {topic}"
+            ]
 
     async def _generate_slide_batch(self, topic: str, start_slide: int, end_slide: int, total_slides: int, language: str) -> Dict:
         """Generate a batch of 3 slides with proper layout assignment"""
