@@ -368,6 +368,7 @@ async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Dat
         await state.update_data(price=price)
     else:
         # Insufficient balance
+        await callback.message.edit_reply_markup(reply_markup=None)
         await callback.message.answer(
             get_text(user_lang, "insufficient_balance", price=price),
             reply_markup=get_main_keyboard(user_lang)
@@ -375,8 +376,11 @@ async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Dat
         await state.clear()
         return
 
-    # Show outline choice before template selection
+    # Remove inline keyboard (buttons disappear)
     await callback.answer()
+    await callback.message.edit_reply_markup(reply_markup=None)
+    
+    # Show outline choice before template selection
     from bot.keyboards import get_outline_choice_keyboard
     await callback.message.answer(
         get_text(user_lang, "outline_choice"),
@@ -403,6 +407,7 @@ async def handle_page_count(callback: CallbackQuery, state: FSMContext, db: Data
         await state.update_data(price=price)
     else:
         # Insufficient balance
+        await callback.message.edit_reply_markup(reply_markup=None)
         await callback.message.answer(
             get_text(user_lang, "insufficient_balance", price=price),
             reply_markup=get_main_keyboard(user_lang)
@@ -410,8 +415,11 @@ async def handle_page_count(callback: CallbackQuery, state: FSMContext, db: Data
         await state.clear()
         return
 
-    # Show outline choice
+    # Remove inline keyboard (buttons disappear)
     await callback.answer()
+    await callback.message.edit_reply_markup(reply_markup=None)
+    
+    # Show outline choice
     from bot.keyboards import get_outline_choice_keyboard
     await callback.message.answer(
         get_text(user_lang, "outline_choice"),
@@ -886,6 +894,9 @@ async def handle_outline_auto(callback: CallbackQuery, state: FSMContext, db: Da
 async def handle_outline_manual(callback: CallbackQuery, state: FSMContext, user_lang: str):
     """Handle manual outline entry"""
     await callback.answer()
+    
+    # Remove inline keyboard
+    await callback.message.edit_reply_markup(reply_markup=None)
 
     data = await state.get_data()
     document_type = data.get('document_type')
@@ -894,8 +905,13 @@ async def handle_outline_manual(callback: CallbackQuery, state: FSMContext, user
     if document_type == "presentation":
         slide_count = data.get('slide_count', 10)
         await state.update_data(manual_outline=[], current_section=1, total_sections=slide_count)
+        
+        # Show instruction with total count
         await callback.message.answer(
-            get_text(user_lang, "enter_slide_title", slide_num=1)
+            get_text(user_lang, "manual_outline_instruction_presentation", total_slides=slide_count)
+        )
+        await callback.message.answer(
+            get_text(user_lang, "enter_slide_title", slide_num=1, total_slides=slide_count)
         )
     else:
         # For documents, determine section count based on pages
@@ -910,8 +926,13 @@ async def handle_outline_manual(callback: CallbackQuery, state: FSMContext, user
             section_count = 15
 
         await state.update_data(manual_outline=[], current_section=1, total_sections=section_count)
+        
+        # Show instruction with total count
         await callback.message.answer(
-            get_text(user_lang, "enter_section_title", section_num=1)
+            get_text(user_lang, "manual_outline_instruction_document", total_sections=section_count)
+        )
+        await callback.message.answer(
+            get_text(user_lang, "enter_section_title", section_num=1, total_sections=section_count)
         )
 
     await state.set_state(DocumentStates.waiting_for_manual_outline)
@@ -935,11 +956,11 @@ async def handle_manual_outline_input(message: Message, state: FSMContext, db: D
 
         if document_type == "presentation":
             await message.answer(
-                get_text(user_lang, "enter_slide_title", slide_num=current_section)
+                get_text(user_lang, "enter_slide_title", slide_num=current_section, total_slides=total_sections)
             )
         else:
             await message.answer(
-                get_text(user_lang, "enter_section_title", section_num=current_section)
+                get_text(user_lang, "enter_section_title", section_num=current_section, total_sections=total_sections)
             )
     else:
         # All sections/slides collected
