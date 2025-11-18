@@ -199,14 +199,12 @@ async def show_template_selection(message: Message, state: FSMContext, user_lang
         overview_image_path = "attached_assets/IMG_20250823_093040_1755924327080.jpg"
 
         if os.path.exists(overview_image_path):
-            # Use translated text
+            # Use translated text - only title, no description
             title_text = get_text(user_lang, "template_selection_title")
-            description_text = get_text(user_lang, "template_selection_description")
-            text = f"{title_text}\n\n{description_text}"
 
             await message.answer_photo(
                 photo=FSInputFile(overview_image_path),
-                caption=text,
+                caption=title_text,
                 parse_mode="Markdown"
             )
         else:
