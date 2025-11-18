@@ -10,6 +10,21 @@ The system operates on a freemium model where users get one free document genera
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (November 18, 2025)
+
+✓ **QO'LDA REJA KIRITISH FUNKSIYASI YAXSHILANDI**:
+  - **"Ortga qaytish" tugmasi qo'shildi**: Reja kiritish jarayonida har doim ko'rinadi
+  - **Aniq ko'rsatmalar**:
+    - Taqdimot: "Siz 10 ta slayd uchun mavzularni kiritishingiz kerak"
+    - Mustaqil ish: "Tanlangan varoq hajmi uchun 6 ta reja sarlavhasi kiritishingiz kerak"
+  - **Progress ko'rsatiladi**: Har bir input uchun "1/10", "2/10" ko'rsatiladi
+  - **Terminologiya to'g'rilandi**:
+    - Taqdimot uchun: "slayd mavzusini kiriting" (kalit so'z emas)
+    - Mustaqil ish uchun: "reja sarlavhasini kiriting" (bo'lim emas)
+  - **"Bekor qilish" tugmasi**: Reja tanlash sahifasida hujjatni bekor qilish imkoniyati
+  - **Tugmalar o'chadi**: Tanlangandan keyin inline tugmalar avtomatik yashiriladi
+  - **3 tilda**: O'zbek, Rus, Ingliz tillarida to'liq tarjima
+
 ## Recent Changes (October 15, 2025)
 
 ✓ **REFERRAL TIZIMI QO'SHILDI** - Do'stlarni taklif qilib daromad topish:

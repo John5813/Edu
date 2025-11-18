@@ -347,15 +347,32 @@ def get_outline_choice_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
     if language == "uz":
         keyboard.add(InlineKeyboardButton(text="✍️ Rejani qo'lda kiritish", callback_data="outline_manual"))
         keyboard.add(InlineKeyboardButton(text="🤖 Reja avtomatik yaratilsin", callback_data="outline_auto"))
+        keyboard.add(InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_document"))
     elif language == "ru":
         keyboard.add(InlineKeyboardButton(text="✍️ Ввести план вручную", callback_data="outline_manual"))
         keyboard.add(InlineKeyboardButton(text="🤖 Создать план автоматически", callback_data="outline_auto"))
+        keyboard.add(InlineKeyboardButton(text="❌ Отменить", callback_data="cancel_document"))
     else:  # en
         keyboard.add(InlineKeyboardButton(text="✍️ Enter outline manually", callback_data="outline_manual"))
         keyboard.add(InlineKeyboardButton(text="🤖 Create outline automatically", callback_data="outline_auto"))
+        keyboard.add(InlineKeyboardButton(text="❌ Cancel", callback_data="cancel_document"))
     
     keyboard.adjust(1)
     return keyboard.as_markup()
+
+def get_manual_input_keyboard(language: str = "uz") -> ReplyKeyboardMarkup:
+    """Keyboard with back button for manual outline input"""
+    keyboard = ReplyKeyboardBuilder()
+    
+    if language == "uz":
+        keyboard.add(KeyboardButton(text="🔙 Ortga qaytish"))
+    elif language == "ru":
+        keyboard.add(KeyboardButton(text="🔙 Назад"))
+    else:  # en
+        keyboard.add(KeyboardButton(text="🔙 Back"))
+    
+    keyboard.adjust(1)
+    return keyboard.as_markup(resize_keyboard=True)
 
 def get_channel_error_keyboard() -> InlineKeyboardMarkup:
     """Channel error keyboard with retry and back options"""

@@ -7,7 +7,7 @@ from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.fsm.context import FSMContext
 
 from bot.states import DocumentStates
-from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard
+from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard
 from database.database import Database
 from services.ai_service_new import AIService
 from services.document_service_new import DocumentService
@@ -873,6 +873,7 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
 async def handle_outline_auto(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Handle automatic outline generation"""
     await callback.answer()
+    await callback.message.edit_reply_markup(reply_markup=None)
 
     data = await state.get_data()
     document_type = data.get('document_type')
@@ -889,6 +890,24 @@ async def handle_outline_auto(callback: CallbackQuery, state: FSMContext, db: Da
             asyncio.create_task(generate_independent_work(callback, state, db, user_lang, user))
         else:  # referat
             asyncio.create_task(generate_referat(callback, state, db, user_lang, user))
+
+@router.callback_query(F.data == "cancel_document")
+async def handle_cancel_document(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Handle document creation cancellation"""
+    await callback.answer()
+    await callback.message.edit_reply_markup(reply_markup=None)
+    
+    cancel_texts = {
+        "uz": "❌ Hujjat yaratish bekor qilindi.",
+        "ru": "❌ Создание документа отменено.",
+        "en": "❌ Document creation cancelled."
+    }
+    
+    await callback.message.answer(
+        cancel_texts.get(user_lang, cancel_texts["uz"]),
+        reply_markup=get_main_keyboard(user_lang)
+    )
+    await state.clear()
 
 @router.callback_query(F.data == "outline_manual", DocumentStates.waiting_for_outline_choice)
 async def handle_outline_manual(callback: CallbackQuery, state: FSMContext, user_lang: str):
@@ -911,7 +930,8 @@ async def handle_outline_manual(callback: CallbackQuery, state: FSMContext, user
             get_text(user_lang, "manual_outline_instruction_presentation", total_slides=slide_count)
         )
         await callback.message.answer(
-            get_text(user_lang, "enter_slide_title", slide_num=1, total_slides=slide_count)
+            get_text(user_lang, "enter_slide_title", slide_num=1, total_slides=slide_count),
+            reply_markup=get_manual_input_keyboard(user_lang)
         )
     else:
         # For documents, determine section count based on pages
@@ -932,7 +952,8 @@ async def handle_outline_manual(callback: CallbackQuery, state: FSMContext, user
             get_text(user_lang, "manual_outline_instruction_document", total_sections=section_count)
         )
         await callback.message.answer(
-            get_text(user_lang, "enter_section_title", section_num=1, total_sections=section_count)
+            get_text(user_lang, "enter_section_title", section_num=1, total_sections=section_count),
+            reply_markup=get_manual_input_keyboard(user_lang)
         )
 
     await state.set_state(DocumentStates.waiting_for_manual_outline)
@@ -940,6 +961,19 @@ async def handle_outline_manual(callback: CallbackQuery, state: FSMContext, user
 @router.message(DocumentStates.waiting_for_manual_outline)
 async def handle_manual_outline_input(message: Message, state: FSMContext, db: Database, user_lang: str, user):
     """Handle manual outline section/slide title input"""
+    
+    # Check if user wants to go back
+    back_texts = ["🔙 Ortga qaytish", "🔙 Назад", "🔙 Back"]
+    if message.text in back_texts:
+        # Go back to outline choice
+        from bot.keyboards import get_outline_choice_keyboard
+        await message.answer(
+            get_text(user_lang, "outline_choice"),
+            reply_markup=get_outline_choice_keyboard(user_lang)
+        )
+        await state.set_state(DocumentStates.waiting_for_outline_choice)
+        return
+    
     data = await state.get_data()
     manual_outline = data.get('manual_outline', [])
     current_section = data.get('current_section', 1)
@@ -956,16 +990,18 @@ async def handle_manual_outline_input(message: Message, state: FSMContext, db: D
 
         if document_type == "presentation":
             await message.answer(
-                get_text(user_lang, "enter_slide_title", slide_num=current_section, total_slides=total_sections)
+                get_text(user_lang, "enter_slide_title", slide_num=current_section, total_slides=total_sections),
+                reply_markup=get_manual_input_keyboard(user_lang)
             )
         else:
             await message.answer(
-                get_text(user_lang, "enter_section_title", section_num=current_section, total_sections=total_sections)
+                get_text(user_lang, "enter_section_title", section_num=current_section, total_sections=total_sections),
+                reply_markup=get_manual_input_keyboard(user_lang)
             )
     else:
         # All sections/slides collected
         await state.update_data(manual_outline=manual_outline)
-        await message.answer(get_text(user_lang, "outline_complete"))
+        await message.answer(get_text(user_lang, "outline_complete"), reply_markup=get_main_keyboard(user_lang))
 
         if document_type == "presentation":
             # Show template selection for presentation
