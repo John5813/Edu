@@ -12,18 +12,35 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 18, 2025)
 
+✓ **ADABIYOTLAR RO'YXATI FUNKSIYASI QO'SHILDI** - Taqdimotga manbaa qo'shish:
+  - **Shablon tanlashdan keyin so'raladi**: "Adabiyotlar ro'yxatini qo'shishni xohlaysizmi?"
+  - **Ha/Yo'q tanlovi**: Foydalanuvchi o'zi qaror qiladi
+  - **5 ta akademik manbaa**: AI tomonidan mavzuga mos yaratiladi
+  - **Oxirgi slayddan oldin**: Adabiyotlar slaydi rahmat slaydidan oldin joylashadi
+  - **3 tilda**: O'zbek, Rus, Ingliz tillarida to'liq tarjima
+  - **Professional formatda**: Muallif, yil, sarlavha, nashriyot ko'rsatiladi
+
+✓ **XAVFSIZLIK CHORALARI QO'SHILDI** - Input sanitization:
+  - **Prompt Injection himoyasi**: Zararli ko'rsatmalarni bloklash
+  - **Input sanitization**: Maxsus belgilarni tozalash va escape qilish
+  - **Uzunlik cheklovi**: 
+    - Mavzu: 3-200 belgi
+    - Reja/slayd sarlavhasi: 2-150 belgi
+  - **Validatsiya**: Barcha kiritilgan matnlar tekshiriladi
+  - **Security utility**: `utils/security.py` moduli yaratildi
+
 ✓ **QO'LDA REJA KIRITISH FUNKSIYASI YAXSHILANDI**:
-  - **"Ortga qaytish" tugmasi qo'shildi**: Reja kiritish jarayonida har doim ko'rinadi
-  - **Aniq ko'rsatmalar**:
-    - Taqdimot: "Siz 10 ta slayd uchun mavzularni kiritishingiz kerak"
-    - Mustaqil ish: "Tanlangan varoq hajmi uchun 6 ta reja sarlavhasi kiritishingiz kerak"
+  - **Kiritilgan rejalarni ko'rsatish**: Barcha mavzular ro'yxat ko'rinishida
+  - **Tasdiqlash/Tahrirlash**: Foydalanuvchi tasdiqlashi yoki qayta kiritishi mumkin
+  - **"Ortga qaytish" tugmasi**: Reja kiritish jarayonida har doim ko'rinadi
   - **Progress ko'rsatiladi**: Har bir input uchun "1/10", "2/10" ko'rsatiladi
-  - **Terminologiya to'g'rilandi**:
-    - Taqdimot uchun: "slayd mavzusini kiriting" (kalit so'z emas)
-    - Mustaqil ish uchun: "reja sarlavhasini kiriting" (bo'lim emas)
-  - **"Bekor qilish" tugmasi**: Reja tanlash sahifasida hujjatni bekor qilish imkoniyati
+  - **Terminologiya to'g'ri**: "slayd mavzusi" va "reja sarlavhasi"
   - **Tugmalar o'chadi**: Tanlangandan keyin inline tugmalar avtomatik yashiriladi
   - **3 tilda**: O'zbek, Rus, Ingliz tillarida to'liq tarjima
+
+✓ **SHABLON RAQAMLARI TO'G'RILANDI**:
+  - **4 qator x 5 ustun** formatda rasm
+  - **Aniq ko'rsatma**: Qaysi raqam qaysi qatorda ekanligi
 
 ## Recent Changes (October 15, 2025)
 
