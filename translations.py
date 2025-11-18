@@ -25,7 +25,7 @@ TRANSLATIONS = {
         "outline_choice": "📋 Reja tanlang:",
         "enter_section_title": "📝 {section_num}-bo'lim sarlavhasini kiriting:",
         "enter_slide_title": "📝 {slide_num}-slayd sarlavhasini kiriting:",
-        "outline_complete": "✅ Reja qabul qilindi! Hujjat yaratilmoqda..."
+        "outline_complete": "✅ Reja qabul qilindi! Hujjat yaratilmoqda...",
         "channel_subscription_required": "📢 Botdan foydalanish uchun quyidagi kanallarga a'zo bo'lishingiz shart:",
         "check_subscription": "✅ Tekshirish",
         "subscription_verified": "✅ A'zolik tasdiqlandi! Botdan foydalanishingiz mumkin.",
@@ -94,7 +94,7 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
         "outline_choice": "📋 Выберите план:",
         "enter_section_title": "📝 Введите заголовок {section_num}-го раздела:",
         "enter_slide_title": "📝 Введите заголовок {slide_num}-го слайда:",
-        "outline_complete": "✅ План принят! Создание документа..."
+        "outline_complete": "✅ План принят! Создание документа...",
         "channel_subscription_required": "📢 Для использования бота необходимо подписаться на следующие каналы:",
         "check_subscription": "✅ Проверить",
         "subscription_verified": "✅ Подписка подтверждена! Вы можете использовать бота.",
@@ -163,7 +163,7 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
         "outline_choice": "📋 Choose outline:",
         "enter_section_title": "📝 Enter title for section {section_num}:",
         "enter_slide_title": "📝 Enter title for slide {slide_num}:",
-        "outline_complete": "✅ Outline accepted! Creating document..."
+        "outline_complete": "✅ Outline accepted! Creating document...",
         "channel_subscription_required": "📢 To use the bot, you must subscribe to the following channels:",
         "check_subscription": "✅ Check",
         "subscription_verified": "✅ Subscription verified! You can use the bot.",
