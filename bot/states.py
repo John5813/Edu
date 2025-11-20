@@ -20,19 +20,23 @@ class SettingsStates(StatesGroup):
 class AdminStates(StatesGroup):
     # Payment management
     reviewing_payment = State()
-    
+
     # Channel management
     waiting_for_channel_id = State()
     waiting_for_channel_username = State()
     waiting_for_channel_title = State()
-    
+
     # Promocode management
     waiting_for_promocode = State()
     waiting_for_deactivate_promocode = State()
-    
+
     # Broadcast
     waiting_for_broadcast_message = State()
     waiting_for_broadcast_target = State()
-    
+
     # Settings
     waiting_for_new_price = State()
+
+class PaymentResubmitStates(StatesGroup):
+    waiting_for_receipt = State()
+    waiting_for_amount = State()

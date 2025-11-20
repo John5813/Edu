@@ -353,6 +353,20 @@ def get_promocode_error_keyboard(language: str) -> InlineKeyboardMarkup:
     keyboard.adjust(2)
     return keyboard.as_markup()
 
+def get_help_keyboard(language: str) -> InlineKeyboardMarkup:
+    """Help keyboard with payment pending option"""
+    keyboard = InlineKeyboardBuilder()
+
+    if language == "uz":
+        keyboard.add(InlineKeyboardButton(text="⏳ To'lov kutilmoqda?", callback_data="payment_pending_help"))
+    elif language == "ru":
+        keyboard.add(InlineKeyboardButton(text="⏳ Платеж ожидается?", callback_data="payment_pending_help"))
+    else:  # en
+        keyboard.add(InlineKeyboardButton(text="⏳ Payment pending?", callback_data="payment_pending_help"))
+
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
 def get_back_to_channels_keyboard() -> InlineKeyboardMarkup:
     """Back to channels keyboard"""
     keyboard = InlineKeyboardBuilder()
