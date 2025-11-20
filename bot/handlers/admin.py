@@ -19,6 +19,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardButton
 from database.database import Database
 from services.channel_service import ChannelService
+from translations import get_text
 from config import ADMIN_IDS
 import string
 import random
@@ -30,11 +31,14 @@ def is_admin(user_id: int) -> bool:
     """Check if user is admin"""
     return user_id in ADMIN_IDS
 
-async def notify_admins_about_payment(bot, user, amount, message_id, payment_id):
+async def notify_admins_about_payment(bot, user, amount, message_id, payment_id, source=""):
     """Notify admins about new payment"""
     from bot.keyboards import get_payment_review_keyboard
 
     user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
+    
+    # Add source indicator if payment is from help section
+    source_label = "📞 Yordam bo'limi orqali" if source == "help" else ""
 
     for admin_id in ADMIN_IDS:
         try:
@@ -50,9 +54,13 @@ async def notify_admins_about_payment(bot, user, amount, message_id, payment_id)
                 f"🧾 Yangi to'lov:\n"
                 f"👤 Foydalanuvchi: {user_link}\n"
                 f"💵 Summasi: {amount:,} so'm\n"
-                f"📅 To'lov ID: {payment_id}\n\n"
-                f"⬆️ Yuqoridagi chekni tekshiring va to'lovni tasdiqlang:"
+                f"📅 To'lov ID: {payment_id}\n"
             )
+            
+            if source_label:
+                text += f"📍 Manba: {source_label}\n"
+                
+            text += "\n⬆️ Yuqoridagi chekni tekshiring va to'lovni tasdiqlang:"
 
             await bot.send_message(
                 admin_id,
@@ -481,11 +489,25 @@ async def reject_payment(callback: CallbackQuery, db: Database):
         # Update payment status
         await db.update_payment_status(payment_id, "rejected")
 
-        # Notify user
+        # Get user details
         user = await db.get_user_by_id(payment.user_id)
+        
+        # Create inline keyboard with retry button
+        from aiogram.utils.keyboard import InlineKeyboardBuilder
+        from aiogram.types import InlineKeyboardButton
+        
+        keyboard = InlineKeyboardBuilder()
+        keyboard.add(InlineKeyboardButton(
+            text=get_text(user.language, "retry_payment_button"),
+            callback_data=f"retry_payment_{payment.amount}"
+        ))
+        
+        # Notify user with retry button
         await callback.bot.send_message(
             user.telegram_id,
-            "❌ To'lovingiz rad etildi. Iltimos, qayta urinib ko'ring."
+            get_text(user.language, "payment_rejected_with_retry"),
+            reply_markup=keyboard.as_markup(),
+            parse_mode="Markdown"
         )
 
         # Keep the message with payment info

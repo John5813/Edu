@@ -96,7 +96,11 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
 
 👆 **Quyidagi raqamlardan birini bosing:**""",
         "template_select_number": "📋 **Shablon raqamini tanlang:**",
-        "referral_info": "💰 **Pul Ishlab Topish**\n\n👥 Do'stlaringizni taklif qiling va daromad oling!\n\n📊 **Sizning statistikangiz:**\n• Taklif qilinganlar: {total_referrals} kishi\n• To'lov qilganlar: {paid_referrals} kishi\n• Jami daromad: {total_earned:,} so'm\n\n🔗 **Sizning havolangiz:**\n`{referral_link}`\n\n💡 **Qanday ishlaydi?**\n✅ Har bir yangi foydalanuvchi uchun: 1,000 so'm\n✅ Ular birinchi to'lov qilganda: 1,000 so'm\n\n📲 Havolani do'stlaringizga yuboring!"
+        "referral_info": "💰 **Pul Ishlab Topish**\n\n👥 Do'stlaringizni taklif qiling va daromad oling!\n\n📊 **Sizning statistikangiz:**\n• Taklif qilinganlar: {total_referrals} kishi\n• To'lov qilganlar: {paid_referrals} kishi\n• Jami daromad: {total_earned:,} so'm\n\n🔗 **Sizning havolangiz:**\n`{referral_link}`\n\n💡 **Qanday ishlaydi?**\n✅ Har bir yangi foydalanuvchi uchun: 1,000 so'm\n✅ Ular birinchi to'lov qilganda: 1,000 so'm\n\n📲 Havolani do'stlaringizga yuboring!",
+        "payment_reminder_daytime": "⏰ **Eslatma:** To'lovlar odatda kunduzgi vaqtda (7:00-22:00) 1 soat ichida ko'rib chiqiladi.",
+        "payment_reminder_nighttime": "🌙 **Eslatma:** Kechqurun (22:00-7:00) yuborilgan to'lovlar ertangi kun ertalab 7:00 dan keyin ko'rib chiqiladi.",
+        "payment_rejected_with_retry": "❌ **To'lovingiz rad etildi**\n\n💡 Agar to'lov haqiqiy bo'lsa, qayta yuboring va yordam bo'limiga murojaat qiling:\nhttps://t.me/Edufail",
+        "retry_payment_button": "🔁 To'lovni qayta yuborish"
     },
     "ru": {
         "welcome": "🎓 Добро пожаловать в EduBot.ai!\n\nВыберите язык для создания академических документов:",
@@ -176,6 +180,10 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
 👆 **Нажмите одну из цифр ниже:**""",
         "template_select_number": "📋 **Выберите номер шаблона:**",
         "referral_info": "👥 **Реферальная программа**\n\n💰 Приглашайте друзей и зарабатывайте!\n\n📊 **Ваша статистика:**\n• Приглашено: {total_referrals} человек\n• Оплатили: {paid_referrals} человек\n• Всего заработано: {total_earned:,} сум\n\n🔗 **Ваша реферальная ссылка:**\n`{referral_link}`\n\n💡 **Как это работает?**\n✅ За каждого нового пользователя: 1,000 сум\n✅ Когда они сделают первый платеж: 1,000 сум\n\n📲 Отправьте ссылку своим друзьям!",
+        "payment_reminder_daytime": "⏰ **Напоминание:** Платежи обычно рассматриваются в течение 1 часа в дневное время (7:00-22:00).",
+        "payment_reminder_nighttime": "🌙 **Напоминание:** Платежи, отправленные вечером (22:00-7:00), будут рассмотрены завтра после 7:00.",
+        "payment_rejected_with_retry": "❌ **Ваш платеж отклонен**\n\n💡 Если платеж настоящий, отправьте его повторно и обратитесь в службу поддержки:\nhttps://t.me/Edufail",
+        "retry_payment_button": "🔁 Отправить платеж повторно",
         "ask_for_payment_check": "📸 Пожалуйста, отправьте мне ваш последний платежный чек сейчас (в виде фото или файла):",
         "enter_amount_only": "💵 Введите сумму из чека только цифрами:",
         "invalid_amount_format": "❌ Неверный формат. Введите только число (например: 15000)",
@@ -259,6 +267,10 @@ This document was created with AI assistance and serves as your helper.
 👆 **Click one of the numbers below:**""",
         "template_select_number": "📋 **Select template number:**",
         "referral_info": "👥 **Referral Program**\n\n💰 Invite friends and earn money!\n\n📊 **Your statistics:**\n• Invited: {total_referrals} people\n• Made payment: {paid_referrals} people\n• Total earned: {total_earned:,} som\n\n🔗 **Your referral link:**\n`{referral_link}`\n\n💡 **How it works?**\n✅ For each new user: 1,000 som\n✅ When they make first payment: 1,000 som\n\n📲 Send the link to your friends!",
+        "payment_reminder_daytime": "⏰ **Reminder:** Payments are usually reviewed within 1 hour during daytime (7:00-22:00).",
+        "payment_reminder_nighttime": "🌙 **Reminder:** Payments sent at night (22:00-7:00) will be reviewed tomorrow after 7:00.",
+        "payment_rejected_with_retry": "❌ **Your payment was rejected**\n\n💡 If the payment is real, resend it and contact support:\nhttps://t.me/Edufail",
+        "retry_payment_button": "🔁 Resend payment",
         "ask_for_payment_check": "📸 Please send me your last payment receipt now (as photo or file):",
         "enter_amount_only": "💵 Enter the amount from the receipt in numbers only:",
         "invalid_amount_format": "❌ Invalid format. Enter only a number (example: 15000)",
@@ -269,7 +281,12 @@ This document was created with AI assistance and serves as your helper.
 def get_text(lang: str, key: str, **kwargs) -> str:
     """Get translated text by language and key"""
     keys = key.split('.')
-    text = TRANSLATIONS.get(lang, TRANSLATIONS['en'])
+    
+    # Use user's language, fallback to Uzbek if not found
+    if lang not in TRANSLATIONS:
+        lang = 'uz'
+    
+    text = TRANSLATIONS[lang]
 
     for k in keys:
         if isinstance(text, dict):

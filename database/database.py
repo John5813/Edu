@@ -245,12 +245,12 @@ class Database:
 
 
     @staticmethod
-    async def create_payment(user_id: int, amount: int, screenshot_file_id: str) -> int:
+    async def create_payment(user_id: int, amount: int, screenshot_file_id: str, source: str = "") -> int:
         """Create payment record"""
         async with aiosqlite.connect(DATABASE_FILE) as db:
             cursor = await db.execute(
-                "INSERT INTO payments (user_id, amount, screenshot_file_id) VALUES (?, ?, ?)",
-                (user_id, amount, screenshot_file_id)
+                "INSERT INTO payments (user_id, amount, screenshot_file_id, source) VALUES (?, ?, ?, ?)",
+                (user_id, amount, screenshot_file_id, source)
             )
             await db.commit()
             return cursor.lastrowid

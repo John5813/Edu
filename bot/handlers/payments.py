@@ -141,9 +141,10 @@ async def handle_payment_screenshot(message: Message, state: FSMContext, db: Dat
                 await state.clear()
                 return
         
-        # Get payment amount from state
+        # Get payment amount and source from state
         data = await state.get_data()
         amount = data.get('payment_amount')
+        source = data.get('payment_source', "")  # Get source if from help section
         
         if not amount:
             if user_lang == "uz":
@@ -163,8 +164,8 @@ async def handle_payment_screenshot(message: Message, state: FSMContext, db: Dat
         else:
             file_id = message.document.file_id
         
-        # Create payment record
-        payment_id = await db.create_payment(user.id, amount, file_id)
+        # Create payment record with source
+        payment_id = await db.create_payment(user.id, amount, file_id, source)
         
         if not payment_id:
             if user_lang == "uz":
@@ -184,10 +185,10 @@ async def handle_payment_screenshot(message: Message, state: FSMContext, db: Dat
             reply_markup=get_main_keyboard(user_lang)
         )
         
-        # Notify admins
-        await notify_admins_about_payment(message.bot, user, amount, message.message_id, payment_id)
+        # Notify admins with source info
+        await notify_admins_about_payment(message.bot, user, amount, message.message_id, payment_id, source)
         
-        logger.info(f"Payment {payment_id} created successfully for user {user.telegram_id}, amount {amount}")
+        logger.info(f"Payment {payment_id} created successfully for user {user.telegram_id}, amount {amount}, source: {source}")
         
     except Exception as e:
         logger.error(f"Error processing payment screenshot for user {message.from_user.id}: {e}", exc_info=True)
@@ -332,6 +333,73 @@ async def notify_admins_about_payment(bot, user, amount, message_id, payment_id)
             
         except Exception as e:
             logger.error(f"Failed to notify admin {admin_id}: {e}")
+
+@router.callback_query(F.data.startswith("retry_payment_"))
+async def handle_retry_payment(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Handle retry payment button from rejected payment"""
+    from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+    from bot.states import PaymentStates
+    
+    amount = int(callback.data.split("_")[2])
+    
+    if user_lang == "uz":
+        wait_text = f"""📸 **To'lovni qayta yuboring**
+
+Summa: **{amount:,} so'm**
+
+📤 To'lov chekini rasm yoki fayl shaklida yuboring.
+
+⚠️ **DIQQAT:** Bu to'lov Yordam bo'limi orqali yuboriladi. Admin "Yordam bo'limi orqali" belg isini ko'radi.
+
+❗️ Faqat haqiqiy to'lov chekini yuboring!"""
+        back_button_text = "🔙 Orqaga qaytish"
+    elif user_lang == "ru":
+        wait_text = f"""📸 **Отправьте платеж повторно**
+
+Сумма: **{amount:,} сум**
+
+📤 Отправьте чек как фото или файл.
+
+⚠️ **ВНИМАНИЕ:** Этот платеж отправляется через раздел помощи. Админ увидит отметку "Через раздел помощи".
+
+❗️ Отправляйте только настоящий чек об оплате!"""
+        back_button_text = "🔙 Назад"
+    else:  # en
+        wait_text = f"""📸 **Resend payment**
+
+Amount: **{amount:,} som**
+
+📤 Send receipt as photo or file.
+
+⚠️ **WARNING:** This payment is sent through help section. Admin will see "Through help section" label.
+
+❗️ Send only real payment receipt!"""
+        back_button_text = "🔙 Back"
+    
+    # Delete the message with retry button
+    await callback.message.delete()
+    
+    # Send instructions
+    await callback.message.answer(
+        wait_text,
+        parse_mode="Markdown"
+    )
+    
+    # Show back button
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text=back_button_text)]],
+        resize_keyboard=True
+    )
+    
+    await callback.message.answer(
+        "👇",
+        reply_markup=keyboard
+    )
+    
+    # Save amount and source in state
+    await state.update_data(payment_amount=amount, payment_source="help")
+    await state.set_state(PaymentStates.waiting_for_screenshot)
+    await callback.answer()
 
 @router.callback_query(F.data == "show_referral")
 async def handle_referral_callback(callback: CallbackQuery, db: Database, user_lang: str, user):

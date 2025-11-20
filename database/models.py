@@ -26,6 +26,7 @@ class Payment:
     screenshot_file_id: Optional[str]
     created_at: datetime
     updated_at: datetime
+    source: str = ""  # empty, "help" for help section resubmission
 
 @dataclass
 class Channel:
