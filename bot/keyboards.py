@@ -57,15 +57,8 @@ def get_main_keyboard(language: str, presentation_enabled: bool = True, independ
     keyboard.add(KeyboardButton(text=get_text(language, "main_menu.help")))
     keyboard.add(KeyboardButton(text=get_text(language, "main_menu.settings")))
     
-    # Adjust layout based on enabled features
-    if len(buttons) == 3:
-        keyboard.adjust(2, 1, 2, 2)  # 2 in first row, 1 in second, etc.
-    elif len(buttons) == 2:
-        keyboard.adjust(2, 2, 2)
-    elif len(buttons) == 1:
-        keyboard.adjust(1, 2, 2)
-    else:
-        keyboard.adjust(2, 2)  # No document buttons
+    # Adjust layout - all layouts use 2 columns
+    keyboard.adjust(2)
     
     return keyboard.as_markup(resize_keyboard=True)
 
