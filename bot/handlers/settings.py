@@ -147,9 +147,9 @@ async def handle_help(message: Message, user_lang: str):
         parse_mode="Markdown"
     )
 
-@router.callback_query(F.data == "resubmit_payment")
-async def handle_resubmit_payment(callback: CallbackQuery, state: FSMContext, user_lang: str):
-    """Handle resubmit payment request"""
+@router.callback_query(F.data == "payment_not_accepted")
+async def handle_payment_not_accepted(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Handle payment not accepted - ask user to resubmit payment"""
     await callback.message.edit_text(
         get_text(user_lang, "ask_for_payment_check"),
         reply_markup=None

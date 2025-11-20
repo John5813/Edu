@@ -137,7 +137,7 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
         "insufficient_balance": "❌ Недостаточно средств на счете. Пополните баланс.",
         "select_payment_amount": "💳 Выберите сумму платежа:",
         "payment_instructions": "💳 Для оплаты:\n\n1. Переведите деньги на карту:\n{card}\nВладелец карты: {owner}\n\n2. Отправьте чек об оплате:",
-        "payment_sent_to_admin": "📤 Запрос на оплату отправлен администратору. После проверки сумма будет добавлена на ваш счет.",
+        "payment_sent_to_admin": "Outgoing payment request sent to admin. After verification, the amount will be added to your account.",
         "payment_approved": "✅ Ваш платеж подтвержден! {amount} сум добавлено на ваш счет.",
         "payment_rejected": "❌ Ваш платеж отклонен. Пожалуйста, попробуйте снова.",
         "promocode_applied": "🎁 Промокод применен! Услуга бесплатна.",
@@ -175,7 +175,11 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
 
 👆 **Нажмите одну из цифр ниже:**""",
         "template_select_number": "📋 **Выберите номер шаблона:**",
-        "referral_info": "👥 **Реферальная программа**\n\n💰 Приглашайте друзей и зарабатывайте!\n\n📊 **Ваша статистика:**\n• Приглашено: {total_referrals} человек\n• Оплатили: {paid_referrals} человек\n• Всего заработано: {total_earned:,} сум\n\n🔗 **Ваша реферальная ссылка:**\n`{referral_link}`\n\n💡 **Как это работает?**\n✅ За каждого нового пользователя: 1,000 сум\n✅ Когда они сделают первый платеж: 1,000 сум\n\n📲 Отправьте ссылку своим друзьям!"
+        "referral_info": "👥 **Реферальная программа**\n\n💰 Приглашайте друзей и зарабатывайте!\n\n📊 **Ваша статистика:**\n• Приглашено: {total_referrals} человек\n• Оплатили: {paid_referrals} человек\n• Всего заработано: {total_earned:,} сум\n\n🔗 **Ваша реферальная ссылка:**\n`{referral_link}`\n\n💡 **Как это работает?**\n✅ За каждого нового пользователя: 1,000 сум\n✅ Когда они сделают первый платеж: 1,000 сум\n\n📲 Отправьте ссылку своим друзьям!",
+        "ask_for_payment_check": "📸 Пожалуйста, отправьте мне ваш последний платежный чек сейчас (в виде фото или файла):",
+        "enter_amount_only": "💵 Введите сумму из чека только цифрами:",
+        "invalid_amount_format": "❌ Неверный формат. Введите только число (например: 15000)",
+        "payment_resubmit_success": "✅ Запрос на оплату отправлен администратору. После подтверждения будет добавлено на ваш счет.\n\n⏰ Напоминание:\n• Днем (7:00-22:00): В течение 1 часа\n• Ночью (22:00-7:00): После 7:00 завтра"
     },
     "en": {
         "welcome": "🎓 Welcome to EduBot.ai!\n\nSelect language for creating academic documents:",
@@ -216,7 +220,7 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
         "insufficient_balance": "❌ Insufficient balance. Please make a payment.",
         "select_payment_amount": "💳 Select payment amount:",
         "payment_instructions": "💳 To pay:\n\n1. Transfer money to the card:\n{card}\nCard owner: {owner}\n\n2. Send payment receipt:",
-        "payment_sent_to_admin": "📤 Payment request sent to admin. After verification, the amount will be added to your account.",
+        "payment_sent_to_admin": "Payment request sent to admin. After verification, the amount will be added to your account.",
         "payment_approved": "✅ Your payment has been approved! {amount} som added to your account.",
         "payment_rejected": "❌ Your payment was rejected. Please try again.",
         "promocode_applied": "🎁 Promocode applied! Service is free.",
@@ -254,7 +258,11 @@ This document was created with AI assistance and serves as your helper.
 
 👆 **Click one of the numbers below:**""",
         "template_select_number": "📋 **Select template number:**",
-        "referral_info": "👥 **Referral Program**\n\n💰 Invite friends and earn money!\n\n📊 **Your statistics:**\n• Invited: {total_referrals} people\n• Made payment: {paid_referrals} people\n• Total earned: {total_earned:,} som\n\n🔗 **Your referral link:**\n`{referral_link}`\n\n💡 **How it works?**\n✅ For each new user: 1,000 som\n✅ When they make first payment: 1,000 som\n\n📲 Send the link to your friends!"
+        "referral_info": "👥 **Referral Program**\n\n💰 Invite friends and earn money!\n\n📊 **Your statistics:**\n• Invited: {total_referrals} people\n• Made payment: {paid_referrals} people\n• Total earned: {total_earned:,} som\n\n🔗 **Your referral link:**\n`{referral_link}`\n\n💡 **How it works?**\n✅ For each new user: 1,000 som\n✅ When they make first payment: 1,000 som\n\n📲 Send the link to your friends!",
+        "ask_for_payment_check": "📸 Please send me your last payment receipt now (as photo or file):",
+        "enter_amount_only": "💵 Enter the amount from the receipt in numbers only:",
+        "invalid_amount_format": "❌ Invalid format. Enter only a number (example: 15000)",
+        "payment_resubmit_success": "✅ Payment request sent to admin. After confirmation it will be added to your account.\n\n⏰ Reminder:\n• Daytime (7:00-22:00): Within 1 hour\n• Nighttime (22:00-7:00): After 7:00 tomorrow"
     }
 }
 

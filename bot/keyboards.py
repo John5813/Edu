@@ -358,11 +358,11 @@ def get_help_keyboard(language: str) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
 
     if language == "uz":
-        keyboard.add(InlineKeyboardButton(text="⏳ To'lov kutilmoqda?", callback_data="payment_pending_help"))
+        keyboard.add(InlineKeyboardButton(text="❌ To'lov qabul qilinmadi", callback_data="payment_not_accepted"))
     elif language == "ru":
-        keyboard.add(InlineKeyboardButton(text="⏳ Платеж ожидается?", callback_data="payment_pending_help"))
+        keyboard.add(InlineKeyboardButton(text="❌ Платеж не принят", callback_data="payment_not_accepted"))
     else:  # en
-        keyboard.add(InlineKeyboardButton(text="⏳ Payment pending?", callback_data="payment_pending_help"))
+        keyboard.add(InlineKeyboardButton(text="❌ Payment not accepted", callback_data="payment_not_accepted"))
 
     keyboard.adjust(1)
     return keyboard.as_markup()
