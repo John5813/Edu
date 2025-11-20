@@ -14,6 +14,7 @@ from bot.keyboards import (
     get_promocode_keyboard,
     get_broadcast_target_keyboard,
     get_main_keyboard,
+    get_feature_management_keyboard,
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardButton
@@ -36,7 +37,7 @@ async def notify_admins_about_payment(bot, user, amount, message_id, payment_id,
     from bot.keyboards import get_payment_review_keyboard
 
     user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
-    
+
     # Add source indicator if payment is from help section
     source_label = "📞 Yordam bo'limi orqali" if source == "help" else ""
 
@@ -56,10 +57,10 @@ async def notify_admins_about_payment(bot, user, amount, message_id, payment_id,
                 f"💵 Summasi: {amount:,} so'm\n"
                 f"📅 To'lov ID: {payment_id}\n"
             )
-            
+
             if source_label:
                 text += f"📍 Manba: {source_label}\n"
-                
+
             text += "\n⬆️ Yuqoridagi chekni tekshiring va to'lovni tasdiqlang:"
 
             await bot.send_message(
@@ -491,7 +492,7 @@ async def reject_payment(callback: CallbackQuery, db: Database):
 
         # Get user details
         user = await db.get_user_by_id(payment.user_id)
-        
+
         # Notify user with simple message (no retry button)
         await callback.bot.send_message(
             user.telegram_id,
@@ -1313,18 +1314,12 @@ async def handle_feature_management(message: Message, db: Database):
 
     # Get current feature statuses
     presentation_enabled = await db.get_feature_status("presentation")
-    independent_work_enabled = await db.get_feature_status("independent_work")
-    referat_enabled = await db.get_feature_status("referat")
+    # Removed independent_work and referat features as per user request
 
-    from bot.keyboards import get_feature_management_keyboard
     await message.answer(
         "🎛 Funksiyalar boshqaruvi\n\n"
-        "Quyidagi tugmalarni bosib funksiyalarni yoqing yoki o'chiring:",
-        reply_markup=get_feature_management_keyboard(
-            presentation_enabled,
-            independent_work_enabled,
-            referat_enabled
-        )
+        "Quyidagi tugmani bosib Taqdimot funksiyasini yoqing yoki o'chiring:",
+        reply_markup=get_feature_management_keyboard(presentation_enabled)
     )
 
 @router.callback_query(F.data.startswith("toggle_presentation_"))
@@ -1335,87 +1330,23 @@ async def toggle_presentation(callback: CallbackQuery, db: Database):
 
     action = callback.data.split("_")[2]
     new_status = action == "on"
-    
+
     await db.set_feature_status("presentation", new_status)
-    
-    # Get updated statuses
+
+    # Get updated status for presentation
     presentation_enabled = await db.get_feature_status("presentation")
-    independent_work_enabled = await db.get_feature_status("independent_work")
-    referat_enabled = await db.get_feature_status("referat")
-    
+
     from bot.keyboards import get_feature_management_keyboard
     status_text = "yoqildi" if new_status else "o'chirildi"
     await callback.answer(f"📊 Taqdimot funksiyasi {status_text}!")
-    
+
     await callback.message.edit_text(
         "🎛 Funksiyalar boshqaruvi\n\n"
-        "Quyidagi tugmalarni bosib funksiyalarni yoqing yoki o'chiring:",
-        reply_markup=get_feature_management_keyboard(
-            presentation_enabled,
-            independent_work_enabled,
-            referat_enabled
-        )
+        "Quyidagi tugmani bosib Taqdimot funksiyasini yoqing yoki o'chiring:",
+        reply_markup=get_feature_management_keyboard(presentation_enabled)
     )
 
-@router.callback_query(F.data.startswith("toggle_independent_work_"))
-async def toggle_independent_work(callback: CallbackQuery, db: Database):
-    """Toggle independent work feature"""
-    if not is_admin(callback.from_user.id):
-        return
-
-    action = callback.data.split("_")[3]
-    new_status = action == "on"
-    
-    await db.set_feature_status("independent_work", new_status)
-    
-    # Get updated statuses
-    presentation_enabled = await db.get_feature_status("presentation")
-    independent_work_enabled = await db.get_feature_status("independent_work")
-    referat_enabled = await db.get_feature_status("referat")
-    
-    from bot.keyboards import get_feature_management_keyboard
-    status_text = "yoqildi" if new_status else "o'chirildi"
-    await callback.answer(f"🎓 Mustaqil ish funksiyasi {status_text}!")
-    
-    await callback.message.edit_text(
-        "🎛 Funksiyalar boshqaruvi\n\n"
-        "Quyidagi tugmalarni bosib funksiyalarni yoqing yoki o'chiring:",
-        reply_markup=get_feature_management_keyboard(
-            presentation_enabled,
-            independent_work_enabled,
-            referat_enabled
-        )
-    )
-
-@router.callback_query(F.data.startswith("toggle_referat_"))
-async def toggle_referat(callback: CallbackQuery, db: Database):
-    """Toggle referat feature"""
-    if not is_admin(callback.from_user.id):
-        return
-
-    action = callback.data.split("_")[2]
-    new_status = action == "on"
-    
-    await db.set_feature_status("referat", new_status)
-    
-    # Get updated statuses
-    presentation_enabled = await db.get_feature_status("presentation")
-    independent_work_enabled = await db.get_feature_status("independent_work")
-    referat_enabled = await db.get_feature_status("referat")
-    
-    from bot.keyboards import get_feature_management_keyboard
-    status_text = "yoqildi" if new_status else "o'chirildi"
-    await callback.answer(f"📄 Referat funksiyasi {status_text}!")
-    
-    await callback.message.edit_text(
-        "🎛 Funksiyalar boshqaruvi\n\n"
-        "Quyidagi tugmalarni bosib funksiyalarni yoqing yoki o'chiring:",
-        reply_markup=get_feature_management_keyboard(
-            presentation_enabled,
-            independent_work_enabled,
-            referat_enabled
-        )
-    )
+# Removed toggle_independent_work and toggle_referat handlers as per user request.
 
 @router.message(F.text == "👤 Foydalanuvchi rejimi")
 async def switch_to_user_mode(message: Message, db: Database):
@@ -1423,12 +1354,11 @@ async def switch_to_user_mode(message: Message, db: Database):
     if not is_admin(message.from_user.id):
         return
 
-    # Get feature statuses
+    # Get feature status for presentation only
     presentation_enabled = await db.get_feature_status("presentation")
-    independent_work_enabled = await db.get_feature_status("independent_work")
-    referat_enabled = await db.get_feature_status("referat")
+    # Removed independent_work and referat statuses
 
     await message.answer(
         "👤 Foydalanuvchi rejimiga o'tdingiz",
-        reply_markup=get_main_keyboard("uz", presentation_enabled, independent_work_enabled, referat_enabled)
+        reply_markup=get_main_keyboard("uz", presentation_enabled) # Pass only presentation status
     )

@@ -436,31 +436,15 @@ def get_channel_error_keyboard() -> InlineKeyboardMarkup:
     return keyboard.as_markup()
 
 def get_feature_management_keyboard(presentation_enabled: bool, independent_work_enabled: bool, referat_enabled: bool) -> InlineKeyboardMarkup:
-    """Feature management keyboard for admin"""
+    """Feature management keyboard for admin - only presentation toggle"""
     keyboard = InlineKeyboardBuilder()
     
-    # Presentation toggle
+    # Presentation toggle only
     pres_status = "🟢 Yoqilgan" if presentation_enabled else "🔴 O'chirilgan"
     pres_action = "off" if presentation_enabled else "on"
     keyboard.add(InlineKeyboardButton(
         text=f"📊 Taqdimot: {pres_status}",
         callback_data=f"toggle_presentation_{pres_action}"
-    ))
-    
-    # Independent work toggle
-    iw_status = "🟢 Yoqilgan" if independent_work_enabled else "🔴 O'chirilgan"
-    iw_action = "off" if independent_work_enabled else "on"
-    keyboard.add(InlineKeyboardButton(
-        text=f"🎓 Mustaqil ish: {iw_status}",
-        callback_data=f"toggle_independent_work_{iw_action}"
-    ))
-    
-    # Referat toggle
-    ref_status = "🟢 Yoqilgan" if referat_enabled else "🔴 O'chirilgan"
-    ref_action = "off" if referat_enabled else "on"
-    keyboard.add(InlineKeyboardButton(
-        text=f"📄 Referat: {ref_status}",
-        callback_data=f"toggle_referat_{ref_action}"
     ))
     
     keyboard.adjust(1)
