@@ -492,21 +492,10 @@ async def reject_payment(callback: CallbackQuery, db: Database):
         # Get user details
         user = await db.get_user_by_id(payment.user_id)
         
-        # Create inline keyboard with retry button
-        from aiogram.utils.keyboard import InlineKeyboardBuilder
-        from aiogram.types import InlineKeyboardButton
-        
-        keyboard = InlineKeyboardBuilder()
-        keyboard.add(InlineKeyboardButton(
-            text=get_text(user.language, "retry_payment_button"),
-            callback_data=f"retry_payment_{payment.amount}"
-        ))
-        
-        # Notify user with retry button
+        # Notify user with simple message (no retry button)
         await callback.bot.send_message(
             user.telegram_id,
-            get_text(user.language, "payment_rejected_with_retry"),
-            reply_markup=keyboard.as_markup(),
+            get_text(user.language, "payment_rejected"),
             parse_mode="Markdown"
         )
 
