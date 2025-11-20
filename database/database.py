@@ -116,14 +116,30 @@ async def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 referrer_id INTEGER NOT NULL,
                 referred_id INTEGER NOT NULL,
-                signup_bonus_given BOOLEAN DEFAULT FALSE,
-                payment_bonus_given BOOLEAN DEFAULT FALSE,
+                signup_bonus_given BOOLEAN DEFAULT 0,
+                payment_bonus_given BOOLEAN DEFAULT 0,
                 total_earned INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (referrer_id) REFERENCES users (telegram_id),
                 FOREIGN KEY (referred_id) REFERENCES users (telegram_id)
             )
         ''')
+
+        # Feature toggles table
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS feature_toggles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                feature_name TEXT UNIQUE NOT NULL,
+                is_enabled BOOLEAN DEFAULT 1,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Initialize default features
+        await db.execute("""
+            INSERT OR IGNORE INTO feature_toggles (feature_name, is_enabled) 
+            VALUES ('presentation', 1), ('independent_work', 1), ('referat', 1)
+        """)
 
         await db.commit()
 
@@ -427,8 +443,27 @@ class Database:
                 "SELECT COUNT(*) FROM used_promocodes WHERE promocode_id = ?",
                 (promocode_id,)
             ) as cursor:
-                count = await cursor.fetchone()
-                return count[0] if count else 0
+                result = await cursor.fetchone()
+                return result[0] if result else 0
+
+    async def get_feature_status(self, feature_name: str) -> bool:
+        """Get feature toggle status"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            async with db.execute(
+                "SELECT is_enabled FROM feature_toggles WHERE feature_name = ?",
+                (feature_name,)
+            ) as cursor:
+                result = await cursor.fetchone()
+                return result[0] if result else True  # Default to enabled
+
+    async def set_feature_status(self, feature_name: str, is_enabled: bool):
+        """Set feature toggle status"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            await db.execute(
+                "INSERT OR REPLACE INTO feature_toggles (feature_name, is_enabled) VALUES (?, ?)",
+                (feature_name, is_enabled)
+            )
+            await db.commit()
 
     @staticmethod
     async def get_all_promocodes_with_stats() -> List[Dict]:

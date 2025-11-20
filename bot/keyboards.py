@@ -31,26 +31,42 @@ def get_settings_keyboard(language: str) -> InlineKeyboardMarkup:
     keyboard.adjust(1)
     return keyboard.as_markup()
 
-def get_main_keyboard(language: str) -> ReplyKeyboardMarkup:
-    """Main reply keyboard"""
+def get_main_keyboard(language: str, presentation_enabled: bool = True, independent_work_enabled: bool = True, referat_enabled: bool = True) -> ReplyKeyboardMarkup:
+    """Main reply keyboard with feature toggles"""
     keyboard = ReplyKeyboardBuilder()
-
-    # First row
-    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.presentation")))
-    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.independent_work")))
-
-    # Second row
-    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.referat")))
+    
+    buttons = []
+    
+    # First row - document types
+    if presentation_enabled:
+        buttons.append(KeyboardButton(text=get_text(language, "main_menu.presentation")))
+    if independent_work_enabled:
+        buttons.append(KeyboardButton(text=get_text(language, "main_menu.independent_work")))
+    if referat_enabled:
+        buttons.append(KeyboardButton(text=get_text(language, "main_menu.referat")))
+    
+    # Add document type buttons
+    for btn in buttons:
+        keyboard.add(btn)
+    
+    # Second row - always visible
     keyboard.add(KeyboardButton(text=get_text(language, "main_menu.my_account")))
-
-    # Third row
     keyboard.add(KeyboardButton(text=get_text(language, "main_menu.payment")))
+    
+    # Third row - always visible
     keyboard.add(KeyboardButton(text=get_text(language, "main_menu.help")))
-
-    # Fourth row
     keyboard.add(KeyboardButton(text=get_text(language, "main_menu.settings")))
-
-    keyboard.adjust(2, 2, 2, 1)
+    
+    # Adjust layout based on enabled features
+    if len(buttons) == 3:
+        keyboard.adjust(2, 1, 2, 2)  # 2 in first row, 1 in second, etc.
+    elif len(buttons) == 2:
+        keyboard.adjust(2, 2, 2)
+    elif len(buttons) == 1:
+        keyboard.adjust(1, 2, 2)
+    else:
+        keyboard.adjust(2, 2)  # No document buttons
+    
     return keyboard.as_markup(resize_keyboard=True)
 
 def get_slide_count_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
@@ -211,10 +227,13 @@ def get_admin_keyboard() -> ReplyKeyboardMarkup:
     keyboard.add(KeyboardButton(text="📢 Kanallar"))
     keyboard.add(KeyboardButton(text="🎟 Promokod boshqaruvi"))
 
+    # Feature management
+    keyboard.add(KeyboardButton(text="🎛 Funksiyalar boshqaruvi"))
+
     # Orqaga qaytish
     keyboard.add(KeyboardButton(text="👤 Foydalanuvchi rejimi"))
 
-    keyboard.adjust(2, 2, 2, 1)
+    keyboard.adjust(2, 2, 2, 1, 1)
     return keyboard.as_markup(resize_keyboard=True)
 
 def get_payment_review_keyboard(payment_id: int) -> InlineKeyboardMarkup:
@@ -414,4 +433,35 @@ def get_channel_error_keyboard() -> InlineKeyboardMarkup:
     keyboard.add(InlineKeyboardButton(text="🔄 Qayta kiritish", callback_data="retry_channel_id"))
     keyboard.add(InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_channels"))
     keyboard.adjust(2)
+    return keyboard.as_markup()
+
+def get_feature_management_keyboard(presentation_enabled: bool, independent_work_enabled: bool, referat_enabled: bool) -> InlineKeyboardMarkup:
+    """Feature management keyboard for admin"""
+    keyboard = InlineKeyboardBuilder()
+    
+    # Presentation toggle
+    pres_status = "🟢 Yoqilgan" if presentation_enabled else "🔴 O'chirilgan"
+    pres_action = "off" if presentation_enabled else "on"
+    keyboard.add(InlineKeyboardButton(
+        text=f"📊 Taqdimot: {pres_status}",
+        callback_data=f"toggle_presentation_{pres_action}"
+    ))
+    
+    # Independent work toggle
+    iw_status = "🟢 Yoqilgan" if independent_work_enabled else "🔴 O'chirilgan"
+    iw_action = "off" if independent_work_enabled else "on"
+    keyboard.add(InlineKeyboardButton(
+        text=f"🎓 Mustaqil ish: {iw_status}",
+        callback_data=f"toggle_independent_work_{iw_action}"
+    ))
+    
+    # Referat toggle
+    ref_status = "🟢 Yoqilgan" if referat_enabled else "🔴 O'chirilgan"
+    ref_action = "off" if referat_enabled else "on"
+    keyboard.add(InlineKeyboardButton(
+        text=f"📄 Referat: {ref_status}",
+        callback_data=f"toggle_referat_{ref_action}"
+    ))
+    
+    keyboard.adjust(1)
     return keyboard.as_markup()

@@ -124,7 +124,7 @@ async def check_subscription_and_show_menu(message: Message, user, db: Database)
             if user.language == "uz":
                 text = "📢 Botdan foydalanish uchun quyidagi kanallarga a'zo bo'lishingiz shart:\n\n👇 Kanalga o'tish uchun tugmani bosing:"
             elif user.language == "ru":
-                text = "📢 Для использования бота необходимо подписаться на следующие каналы:\n\n👇 Нажмите кнопку для перехода в канал:"
+                text = "📢 Для использования бота необходимо<bos> подписаться на следующие каналы:\n\n👇 Нажмите кнопку для перехода в канал:"
             else:  # en
                 text = "📢 To use the bot, you must subscribe to the following channels:\n\n👇 Click the button to go to the channel:"
 
@@ -135,9 +135,13 @@ async def check_subscription_and_show_menu(message: Message, user, db: Database)
             return
 
     # Show main menu with language selected message
+    presentation_enabled = await db.get_feature_status("presentation")
+    independent_work_enabled = await db.get_feature_status("independent_work")
+    referat_enabled = await db.get_feature_status("referat")
+
     await message.answer(
         get_text(user.language, "language_selected"),
-        reply_markup=get_main_keyboard(user.language)
+        reply_markup=get_main_keyboard(user.language, presentation_enabled, independent_work_enabled, referat_enabled)
     )
 
 @router.callback_query(F.data == "check_subscription")

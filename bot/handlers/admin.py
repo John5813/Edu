@@ -1252,13 +1252,130 @@ async def handle_broadcast_target(callback: CallbackQuery, state: FSMContext, db
 
     await state.clear()
 
+@router.message(F.text == "🎛 Funksiyalar boshqaruvi")
+async def handle_feature_management(message: Message, db: Database):
+    """Handle feature management request"""
+    if not is_admin(message.from_user.id):
+        return
+
+    # Get current feature statuses
+    presentation_enabled = await db.get_feature_status("presentation")
+    independent_work_enabled = await db.get_feature_status("independent_work")
+    referat_enabled = await db.get_feature_status("referat")
+
+    from bot.keyboards import get_feature_management_keyboard
+    await message.answer(
+        "🎛 Funksiyalar boshqaruvi\n\n"
+        "Quyidagi tugmalarni bosib funksiyalarni yoqing yoki o'chiring:",
+        reply_markup=get_feature_management_keyboard(
+            presentation_enabled,
+            independent_work_enabled,
+            referat_enabled
+        )
+    )
+
+@router.callback_query(F.data.startswith("toggle_presentation_"))
+async def toggle_presentation(callback: CallbackQuery, db: Database):
+    """Toggle presentation feature"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    action = callback.data.split("_")[2]
+    new_status = action == "on"
+    
+    await db.set_feature_status("presentation", new_status)
+    
+    # Get updated statuses
+    presentation_enabled = await db.get_feature_status("presentation")
+    independent_work_enabled = await db.get_feature_status("independent_work")
+    referat_enabled = await db.get_feature_status("referat")
+    
+    from bot.keyboards import get_feature_management_keyboard
+    status_text = "yoqildi" if new_status else "o'chirildi"
+    await callback.answer(f"📊 Taqdimot funksiyasi {status_text}!")
+    
+    await callback.message.edit_text(
+        "🎛 Funksiyalar boshqaruvi\n\n"
+        "Quyidagi tugmalarni bosib funksiyalarni yoqing yoki o'chiring:",
+        reply_markup=get_feature_management_keyboard(
+            presentation_enabled,
+            independent_work_enabled,
+            referat_enabled
+        )
+    )
+
+@router.callback_query(F.data.startswith("toggle_independent_work_"))
+async def toggle_independent_work(callback: CallbackQuery, db: Database):
+    """Toggle independent work feature"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    action = callback.data.split("_")[3]
+    new_status = action == "on"
+    
+    await db.set_feature_status("independent_work", new_status)
+    
+    # Get updated statuses
+    presentation_enabled = await db.get_feature_status("presentation")
+    independent_work_enabled = await db.get_feature_status("independent_work")
+    referat_enabled = await db.get_feature_status("referat")
+    
+    from bot.keyboards import get_feature_management_keyboard
+    status_text = "yoqildi" if new_status else "o'chirildi"
+    await callback.answer(f"🎓 Mustaqil ish funksiyasi {status_text}!")
+    
+    await callback.message.edit_text(
+        "🎛 Funksiyalar boshqaruvi\n\n"
+        "Quyidagi tugmalarni bosib funksiyalarni yoqing yoki o'chiring:",
+        reply_markup=get_feature_management_keyboard(
+            presentation_enabled,
+            independent_work_enabled,
+            referat_enabled
+        )
+    )
+
+@router.callback_query(F.data.startswith("toggle_referat_"))
+async def toggle_referat(callback: CallbackQuery, db: Database):
+    """Toggle referat feature"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    action = callback.data.split("_")[2]
+    new_status = action == "on"
+    
+    await db.set_feature_status("referat", new_status)
+    
+    # Get updated statuses
+    presentation_enabled = await db.get_feature_status("presentation")
+    independent_work_enabled = await db.get_feature_status("independent_work")
+    referat_enabled = await db.get_feature_status("referat")
+    
+    from bot.keyboards import get_feature_management_keyboard
+    status_text = "yoqildi" if new_status else "o'chirildi"
+    await callback.answer(f"📄 Referat funksiyasi {status_text}!")
+    
+    await callback.message.edit_text(
+        "🎛 Funksiyalar boshqaruvi\n\n"
+        "Quyidagi tugmalarni bosib funksiyalarni yoqing yoki o'chiring:",
+        reply_markup=get_feature_management_keyboard(
+            presentation_enabled,
+            independent_work_enabled,
+            referat_enabled
+        )
+    )
+
 @router.message(F.text == "👤 Foydalanuvchi rejimi")
-async def switch_to_user_mode(message: Message):
+async def switch_to_user_mode(message: Message, db: Database):
     """Switch to user mode"""
     if not is_admin(message.from_user.id):
         return
 
+    # Get feature statuses
+    presentation_enabled = await db.get_feature_status("presentation")
+    independent_work_enabled = await db.get_feature_status("independent_work")
+    referat_enabled = await db.get_feature_status("referat")
+
     await message.answer(
         "👤 Foydalanuvchi rejimiga o'tdingiz",
-        reply_markup=get_main_keyboard("uz")  # Default to Uzbek
+        reply_markup=get_main_keyboard("uz", presentation_enabled, independent_work_enabled, referat_enabled)
     )
