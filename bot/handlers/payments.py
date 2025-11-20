@@ -179,10 +179,23 @@ async def handle_payment_screenshot(message: Message, state: FSMContext, db: Dat
             await state.clear()
             return
         
-        # Notify user and restore keyboard
+        # Check time and add reminder
+        from datetime import datetime
+        now = datetime.now()
+        current_hour = now.hour
+        is_daytime = 7 <= current_hour < 22
+        
+        # Notify user
+        success_msg = get_text(user_lang, "payment_sent_to_admin")
+        if is_daytime:
+            success_msg += f"\n\n{get_text(user_lang, 'payment_reminder_daytime')}"
+        else:
+            success_msg += f"\n\n{get_text(user_lang, 'payment_reminder_nighttime')}"
+        
         await message.answer(
-            get_text(user_lang, "payment_sent_to_admin"),
-            reply_markup=get_main_keyboard(user_lang)
+            success_msg,
+            reply_markup=get_main_keyboard(user_lang),
+            parse_mode="Markdown"
         )
         
         # Notify admins with source info

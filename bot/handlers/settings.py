@@ -196,19 +196,3 @@ async def handle_payment_amount_received(message: Message, state: FSMContext, db
         get_text(user_lang, "payment_resubmit_success"),
         reply_markup=get_main_keyboard(user_lang)
     )
-
-# Reminder for payment timing
-@router.message(lambda message: True) # Catch all messages to check timing
-async def check_payment_timing(message: Message, user_lang: str):
-    now = datetime.now()
-    current_hour = now.hour
-
-    # Daytime: 7:00 to 22:00 (non-inclusive of 22:00)
-    is_daytime = 7 <= current_hour < 22
-    # Nighttime: 22:00 to 7:00 (inclusive of 22:00, non-inclusive of 7:00)
-    is_nighttime = current_hour >= 22 or current_hour < 7
-
-    if is_daytime and message.text != "📞 Yordam": # If daytime and not help button
-        await message.answer(get_text(user_lang, "payment_reminder_daytime"))
-    elif is_nighttime and message.text != "📞 Yordam": # If nighttime and not help button
-        await message.answer(get_text(user_lang, "payment_reminder_nighttime"))
