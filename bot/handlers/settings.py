@@ -1,10 +1,10 @@
 import logging
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, ContentType
+from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
 from bot.keyboards import get_settings_keyboard, get_language_keyboard, get_main_keyboard
-from bot.states import SettingsStates, PaymentResubmitStates
+from bot.states import SettingsStates
 from translations import get_text
 from database.database import Database
 from datetime import datetime
@@ -144,54 +144,4 @@ async def handle_help(message: Message, user_lang: str):
     await message.answer(
         get_text(user_lang, "help_text"),
         parse_mode="Markdown"
-    )
-
-@router.callback_query(F.data == "payment_not_accepted")
-async def handle_payment_not_accepted(callback: CallbackQuery, state: FSMContext, user_lang: str):
-    """Handle payment not accepted - ask user to resubmit payment"""
-    await callback.message.edit_text(
-        get_text(user_lang, "ask_for_payment_check"),
-        reply_markup=None
-    )
-    await state.set_state(PaymentResubmitStates.waiting_for_receipt)
-
-@router.message(PaymentResubmitStates.waiting_for_receipt, F.content_type.in_({ContentType.PHOTO, ContentType.DOCUMENT}))
-async def handle_payment_check_received(message: Message, state: FSMContext, db: Database, user_lang: str):
-    """Handle payment check received"""
-    await message.answer(get_text(user_lang, "enter_amount_only"))
-    await state.set_state(PaymentResubmitStates.waiting_for_amount)
-
-@router.message(PaymentResubmitStates.waiting_for_amount)
-async def handle_payment_amount_received(message: Message, state: FSMContext, db: Database, user_lang: str, user):
-    """Handle payment amount received"""
-    try:
-        amount = int(message.text.strip())
-        if amount <= 0:
-            raise ValueError("Amount must be positive")
-    except ValueError:
-        await message.answer(get_text(user_lang, "invalid_amount_format"))
-        return
-
-    # Store payment details for admin confirmation
-    await db.save_pending_payment_resubmit(
-        user_id=user.id,
-        amount=amount,
-        payment_method="card"  # Assuming card payment based on user message
-    )
-
-    # Notify admin
-    admin_message = get_text(user_lang, "admin_pending_payment_notification").format(
-        user_name=user.full_name,
-        user_id=user.id,
-        amount=f"{amount:,}",
-        payment_method="card"
-    )
-    # Here you would typically send this message to an admin chat
-    # For now, we'll just log it
-    logger.info(f"Admin notification for pending payment: {admin_message}")
-
-    await state.clear()
-    await message.answer(
-        get_text(user_lang, "payment_resubmit_success"),
-        reply_markup=get_main_keyboard(user_lang)
     )
