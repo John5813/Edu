@@ -435,7 +435,7 @@ def get_channel_error_keyboard() -> InlineKeyboardMarkup:
     keyboard.adjust(2)
     return keyboard.as_markup()
 
-def get_feature_management_keyboard(presentation_enabled: bool, independent_work_enabled: bool, referat_enabled: bool) -> InlineKeyboardMarkup:
+def get_feature_management_keyboard(presentation_enabled: bool) -> InlineKeyboardMarkup:
     """Feature management keyboard for admin - only presentation toggle"""
     keyboard = InlineKeyboardBuilder()
     
