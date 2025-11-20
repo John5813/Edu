@@ -948,19 +948,40 @@ async def handle_statistics(message: Message, db: Database):
             ) as cursor:
                 revenue_today = (await cursor.fetchone())[0]
 
-            # Total documents
+            # Total documents by type
             async with db_conn.execute(
                 "SELECT COUNT(*) FROM document_orders WHERE status = 'completed'"
             ) as cursor:
                 total_documents = (await cursor.fetchone())[0]
+
+            # Total presentations
+            async with db_conn.execute(
+                "SELECT COUNT(*) FROM document_orders WHERE status = 'completed' AND document_type = 'presentation'"
+            ) as cursor:
+                total_presentations = (await cursor.fetchone())[0]
+
+            # Total independent works
+            async with db_conn.execute(
+                "SELECT COUNT(*) FROM document_orders WHERE status = 'completed' AND document_type = 'independent_work'"
+            ) as cursor:
+                total_independent_works = (await cursor.fetchone())[0]
+
+            # Total referats
+            async with db_conn.execute(
+                "SELECT COUNT(*) FROM document_orders WHERE status = 'completed' AND document_type = 'referat'"
+            ) as cursor:
+                total_referats = (await cursor.fetchone())[0]
 
         text = (
             f"📈 Bot statistikasi:\n\n"
             f"👥 Jami foydalanuvchilar: {total_users} ta\n"
             f"🆕 Bugun qo'shilganlar: {joined_today} ta\n"
             f"💳 To'lov qilganlar: {total_paid_users} ta\n"
-            f"💰 Bugungi daromad: {revenue_today:,} so'm\n"
+            f"💰 Bugungi daromad: {revenue_today:,} so'm\n\n"
             f"📄 Yaratilgan fayllar: {total_documents} ta\n"
+            f"📊 Taqdimotlar: {total_presentations} ta\n"
+            f"🎓 Mustaqil ishlar: {total_independent_works} ta\n"
+            f"📚 Referatlar: {total_referats} ta\n"
         )
 
         await message.answer(text)
@@ -1017,14 +1038,35 @@ async def handle_daily_statistics(message: Message, db: Database):
             ) as cursor:
                 documents_today = (await cursor.fetchone())[0]
 
+            # Presentations created today
+            async with db_conn.execute(
+                "SELECT COUNT(*) FROM document_orders WHERE date(created_at) = date('now') AND document_type = 'presentation'"
+            ) as cursor:
+                presentations_today = (await cursor.fetchone())[0]
+
+            # Independent works created today
+            async with db_conn.execute(
+                "SELECT COUNT(*) FROM document_orders WHERE date(created_at) = date('now') AND document_type = 'independent_work'"
+            ) as cursor:
+                independent_works_today = (await cursor.fetchone())[0]
+
+            # Referats created today
+            async with db_conn.execute(
+                "SELECT COUNT(*) FROM document_orders WHERE date(created_at) = date('now') AND document_type = 'referat'"
+            ) as cursor:
+                referats_today = (await cursor.fetchone())[0]
+
         text = (
             f"📈 Kunlik statistika ({today.strftime('%d.%m.%Y')})\n\n"
             f"👥 Jami foydalanuvchilar: {total_users} ta\n\n"
             f"🆕 Bugun /start bosganlar: {users_started_today} ta\n"
             f"💳 Bugun to'lov qilganlar: {users_paid_today} ta\n"
             f"📊 Bugun to'lovlar soni: {payments_count_today} ta\n"
-            f"💰 Bugungi daromad: {revenue_today:,} so'm\n"
-            f"📄 Bugun yaratilgan fayllar: {documents_today} ta\n\n"
+            f"💰 Bugungi daromad: {revenue_today:,} so'm\n\n"
+            f"📄 Bugun yaratilgan fayllar: {documents_today} ta\n"
+            f"📊 Taqdimotlar: {presentations_today} ta\n"
+            f"🎓 Mustaqil ishlar: {independent_works_today} ta\n"
+            f"📚 Referatlar: {referats_today} ta\n\n"
             f"⏰ Yangilandi: {today.strftime('%d.%m.%Y %H:%M')}"
         )
 
