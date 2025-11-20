@@ -154,15 +154,15 @@ async def handle_resubmit_payment(callback: CallbackQuery, state: FSMContext, us
         get_text(user_lang, "ask_for_payment_check"),
         reply_markup=None
     )
-    await state.set_state(PaymentResubmitStates.waiting_for_payment_check)
+    await state.set_state(PaymentResubmitStates.waiting_for_receipt)
 
-@router.message(PaymentResubmitStates.waiting_for_payment_check, F.content_type.in_({ContentType.PHOTO, ContentType.DOCUMENT}))
+@router.message(PaymentResubmitStates.waiting_for_receipt, F.content_type.in_({ContentType.PHOTO, ContentType.DOCUMENT}))
 async def handle_payment_check_received(message: Message, state: FSMContext, db: Database, user_lang: str):
     """Handle payment check received"""
     await message.answer(get_text(user_lang, "enter_amount_only"))
-    await state.set_state(PaymentResubmitStates.waiting_for_payment_amount)
+    await state.set_state(PaymentResubmitStates.waiting_for_amount)
 
-@router.message(PaymentResubmitStates.waiting_for_payment_amount)
+@router.message(PaymentResubmitStates.waiting_for_amount)
 async def handle_payment_amount_received(message: Message, state: FSMContext, db: Database, user_lang: str, user):
     """Handle payment amount received"""
     try:
