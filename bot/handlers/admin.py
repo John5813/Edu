@@ -69,7 +69,7 @@ async def notify_admins_about_payment(bot, user, amount, message_id, payment_id,
             )
 
         except Exception as e:
-            logger.error(f"Failed to notify admin {admin_id}: {e}")dmin {admin_id}: {e}")
+            logger.error(f"Failed to notify admin {admin_id}: {e}")
 
 async def notify_other_admins_about_payment_action(bot, payment_id, action, admin_name, amount):
     """Notify other admins about payment action to prevent double processing"""
