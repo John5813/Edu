@@ -314,11 +314,16 @@ async def handle_invalid_payment_screenshot(message: Message, state: FSMContext,
     await message.answer(error_text)
     logger.warning(f"User {message.from_user.id} sent invalid content type during payment: {message.content_type}")
 
-async def notify_admins_about_payment(bot, user, amount, message_id, payment_id):
+async def notify_admins_about_payment(bot, user, amount, message_id, payment_id, source=""):
     """Notify admins about new payment"""
     from bot.keyboards import get_payment_review_keyboard
     
     user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
+    
+    # Add source info if present
+    source_text = ""
+    if source == "help":
+        source_text = "\n📍 Manba: 📞 Yordam bo'limi orqali"
     
     for admin_id in ADMIN_IDS:
         try:
@@ -334,7 +339,7 @@ async def notify_admins_about_payment(bot, user, amount, message_id, payment_id)
                 f"🧾 Yangi to'lov:\n"
                 f"👤 Foydalanuvchi: {user_link}\n"
                 f"💵 Summasi: {amount:,} so'm\n"
-                f"📅 To'lov ID: {payment_id}\n\n"
+                f"📅 To'lov ID: {payment_id}{source_text}\n\n"
                 f"⬆️ Yuqoridagi chekni tekshiring va to'lovni tasdiqlang:"
             )
             
