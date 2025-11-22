@@ -34,9 +34,9 @@ def get_settings_keyboard(language: str) -> InlineKeyboardMarkup:
 def get_main_keyboard(language: str, presentation_enabled: bool = True, independent_work_enabled: bool = True, referat_enabled: bool = True) -> ReplyKeyboardMarkup:
     """Main reply keyboard with feature toggles"""
     keyboard = ReplyKeyboardBuilder()
-    
+
     buttons = []
-    
+
     # First row - document types
     if presentation_enabled:
         buttons.append(KeyboardButton(text=get_text(language, "main_menu.presentation")))
@@ -44,22 +44,22 @@ def get_main_keyboard(language: str, presentation_enabled: bool = True, independ
         buttons.append(KeyboardButton(text=get_text(language, "main_menu.independent_work")))
     if referat_enabled:
         buttons.append(KeyboardButton(text=get_text(language, "main_menu.referat")))
-    
+
     # Add document type buttons
     for btn in buttons:
         keyboard.add(btn)
-    
+
     # Second row - always visible
     keyboard.add(KeyboardButton(text=get_text(language, "main_menu.my_account")))
     keyboard.add(KeyboardButton(text=get_text(language, "main_menu.payment")))
-    
+
     # Third row - always visible
     keyboard.add(KeyboardButton(text=get_text(language, "main_menu.help")))
     keyboard.add(KeyboardButton(text=get_text(language, "main_menu.settings")))
-    
+
     # Adjust layout - all layouts use 2 columns
     keyboard.adjust(2)
-    
+
     return keyboard.as_markup(resize_keyboard=True)
 
 def get_slide_count_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
@@ -356,7 +356,7 @@ def get_back_to_channels_keyboard() -> InlineKeyboardMarkup:
 def get_outline_choice_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
     """Outline choice keyboard - manual or automatic"""
     keyboard = InlineKeyboardBuilder()
-    
+
     if language == "uz":
         keyboard.add(InlineKeyboardButton(text="✍️ Rejani qo'lda kiritish", callback_data="outline_manual"))
         keyboard.add(InlineKeyboardButton(text="🤖 Reja avtomatik yaratilsin", callback_data="outline_auto"))
@@ -369,28 +369,28 @@ def get_outline_choice_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
         keyboard.add(InlineKeyboardButton(text="✍️ Enter outline manually", callback_data="outline_manual"))
         keyboard.add(InlineKeyboardButton(text="🤖 Create outline automatically", callback_data="outline_auto"))
         keyboard.add(InlineKeyboardButton(text="❌ Cancel", callback_data="cancel_document"))
-    
+
     keyboard.adjust(1)
     return keyboard.as_markup()
 
 def get_manual_input_keyboard(language: str = "uz") -> ReplyKeyboardMarkup:
     """Keyboard with back button for manual outline input"""
     keyboard = ReplyKeyboardBuilder()
-    
+
     if language == "uz":
         keyboard.add(KeyboardButton(text="🔙 Ortga qaytish"))
     elif language == "ru":
         keyboard.add(KeyboardButton(text="🔙 Назад"))
     else:  # en
         keyboard.add(KeyboardButton(text="🔙 Back"))
-    
+
     keyboard.adjust(1)
     return keyboard.as_markup(resize_keyboard=True)
 
 def get_outline_review_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
     """Keyboard for outline review - confirm or edit"""
     keyboard = InlineKeyboardBuilder()
-    
+
     if language == "uz":
         keyboard.add(InlineKeyboardButton(text="✅ Tasdiqlash", callback_data="confirm_outline"))
         keyboard.add(InlineKeyboardButton(text="✏️ Tahrirlash", callback_data="edit_outline"))
@@ -400,14 +400,14 @@ def get_outline_review_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
     else:  # en
         keyboard.add(InlineKeyboardButton(text="✅ Confirm", callback_data="confirm_outline"))
         keyboard.add(InlineKeyboardButton(text="✏️ Edit", callback_data="edit_outline"))
-    
+
     keyboard.adjust(1)
     return keyboard.as_markup()
 
 def get_references_choice_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
     """Keyboard for choosing whether to add references to presentation"""
     keyboard = InlineKeyboardBuilder()
-    
+
     if language == "uz":
         keyboard.add(InlineKeyboardButton(text="✅ Ha", callback_data="add_references_yes"))
         keyboard.add(InlineKeyboardButton(text="❌ Yo'q", callback_data="add_references_no"))
@@ -417,7 +417,7 @@ def get_references_choice_keyboard(language: str = "uz") -> InlineKeyboardMarkup
     else:  # en
         keyboard.add(InlineKeyboardButton(text="✅ Yes", callback_data="add_references_yes"))
         keyboard.add(InlineKeyboardButton(text="❌ No", callback_data="add_references_no"))
-    
+
     keyboard.adjust(2)
     return keyboard.as_markup()
 
@@ -432,7 +432,7 @@ def get_channel_error_keyboard() -> InlineKeyboardMarkup:
 def get_feature_management_keyboard(presentation_enabled: bool) -> InlineKeyboardMarkup:
     """Feature management keyboard for admin - only presentation toggle"""
     keyboard = InlineKeyboardBuilder()
-    
+
     # Presentation toggle only
     pres_status = "🟢 Yoqilgan" if presentation_enabled else "🔴 O'chirilgan"
     pres_action = "off" if presentation_enabled else "on"
@@ -440,15 +440,18 @@ def get_feature_management_keyboard(presentation_enabled: bool) -> InlineKeyboar
         text=f"📊 Taqdimot: {pres_status}",
         callback_data=f"toggle_presentation_{pres_action}"
     ))
-    
+
     keyboard.adjust(1)
     return keyboard.as_markup()
 
 def get_help_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
     """Help section keyboard with view samples button"""
     keyboard = InlineKeyboardBuilder()
+    
+    # View samples button with proper translation
+    samples_text = get_text(language, "view_samples")
     keyboard.add(InlineKeyboardButton(
-        text=get_text(language, "view_samples"),
+        text=samples_text,
         callback_data="view_samples"
     ))
     keyboard.adjust(1)
@@ -466,13 +469,13 @@ def get_sample_management_keyboard() -> InlineKeyboardMarkup:
 def get_samples_list_keyboard(samples: list) -> InlineKeyboardMarkup:
     """Samples list keyboard for deletion"""
     keyboard = InlineKeyboardBuilder()
-    
+
     for sample in samples:
         keyboard.add(InlineKeyboardButton(
             text=f"🗑 {sample['title']}",
             callback_data=f"delete_sample_{sample['id']}"
         ))
-    
+
     keyboard.add(InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_sample_menu"))
     keyboard.adjust(1)
     return keyboard.as_markup()

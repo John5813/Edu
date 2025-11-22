@@ -33,15 +33,18 @@ async def handle_view_samples(callback: CallbackQuery, db: Database):
     if not samples:
         await callback.message.edit_text(
             get_text(language, "samples_title") + "\n\n" + get_text(language, "no_samples"),
+            parse_mode="Markdown",
             reply_markup=get_help_keyboard(language)
         )
         return
     
-    await callback.message.edit_text(
+    # Send title message
+    await callback.message.answer(
         get_text(language, "samples_title"),
-        reply_markup=get_help_keyboard(language)
+        parse_mode="Markdown"
     )
     
+    # Send each sample file
     for sample in samples:
         caption = f"📁 {sample['title']}"
         if sample.get('description'):
@@ -65,6 +68,9 @@ async def handle_view_samples(callback: CallbackQuery, db: Database):
                 )
         except Exception as e:
             logger.error(f"Error sending sample file: {e}")
+    
+    # Answer the callback to remove loading state
+    await callback.answer()
 
 @router.message(F.text == "📁 Namunalar boshqaruvi")
 async def handle_samples_management(message: Message):
