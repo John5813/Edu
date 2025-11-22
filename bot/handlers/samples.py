@@ -33,15 +33,13 @@ async def handle_view_samples(callback: CallbackQuery, db: Database):
     if not samples:
         await callback.message.edit_text(
             get_text(language, "samples_title") + "\n\n" + get_text(language, "no_samples"),
-            parse_mode="Markdown",
             reply_markup=get_help_keyboard(language)
         )
         return
     
     # Send title message
     await callback.message.answer(
-        get_text(language, "samples_title"),
-        parse_mode="Markdown"
+        get_text(language, "samples_title")
     )
     
     # Send each sample file
