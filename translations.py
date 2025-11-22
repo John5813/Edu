@@ -290,6 +290,66 @@ This document was created with AI assistance and serves as your helper.
         "uz": "Hozircha namunalar mavjud emas.",
         "ru": "Образцы пока недоступны.",
         "en": "No samples available yet."
+    },
+    "admin_samples_management": {
+        "uz": "📁 Namunalar boshqaruvi",
+        "ru": "📁 Управление образцами",
+        "en": "📁 Samples Management"
+    },
+    "admin_add_sample": {
+        "uz": "➕ Namuna qo'shish",
+        "ru": "➕ Добавить образец",
+        "en": "➕ Add Sample"
+    },
+    "admin_delete_sample": {
+        "uz": "🗑 Namuna o'chirish",
+        "ru": "🗑 Удалить образец",
+        "en": "🗑 Delete Sample"
+    },
+    "admin_view_samples": {
+        "uz": "📋 Namunalar ro'yxati",
+        "ru": "📋 Список образцов",
+        "en": "📋 List Samples"
+    },
+    "send_sample_file": {
+        "uz": "📎 Namuna faylini yuboring (hujjat, rasm yoki video):",
+        "ru": "📎 Отправьте файл образца (документ, изображение или видео):",
+        "en": "📎 Send sample file (document, image or video):"
+    },
+    "enter_sample_title": {
+        "uz": "📝 Namuna nomini kiriting:",
+        "ru": "📝 Введите название образца:",
+        "en": "📝 Enter sample title:"
+    },
+    "enter_sample_description": {
+        "uz": "📄 Namuna tavsifini kiriting (yoki /skip bosing):",
+        "ru": "📄 Введите описание образца (или нажмите /skip):",
+        "en": "📄 Enter sample description (or press /skip):"
+    },
+    "sample_added": {
+        "uz": "✅ Namuna muvaffaqiyatli qo'shildi!",
+        "ru": "✅ Образец успешно добавлен!",
+        "en": "✅ Sample added successfully!"
+    },
+    "sample_deleted": {
+        "uz": "✅ Namuna o'chirildi!",
+        "ru": "✅ Образец удален!",
+        "en": "✅ Sample deleted!"
+    },
+    "select_sample_to_delete": {
+        "uz": "🗑 O'chirish uchun namunani tanlang:",
+        "ru": "🗑 Выберите образец для удаления:",
+        "en": "🗑 Select sample to delete:"
+    },
+    "samples_list": {
+        "uz": "📋 Namunalar ro'yxati:\n\n{samples_list}",
+        "ru": "📋 Список образцов:\n\n{samples_list}",
+        "en": "📋 Samples list:\n\n{samples_list}"
+    },
+    "back": {
+        "uz": "🔙 Ortga",
+        "ru": "🔙 Назад",
+        "en": "🔙 Back"
     }
 }
 
