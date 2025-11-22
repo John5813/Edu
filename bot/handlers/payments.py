@@ -61,8 +61,7 @@ async def handle_account_info(message: Message, state: FSMContext, db: Database,
 @router.callback_query(F.data.startswith("pay_"))
 async def handle_payment_amount_selection(callback: CallbackQuery, state: FSMContext, user_lang: str):
     """Handle payment amount selection"""
-    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
     
     amount = int(callback.data.split("_")[1])
     await state.update_data(payment_amount=amount)
@@ -80,6 +79,7 @@ Karta egasi: {PAYMENT_CARD_OWNER}
 
 ⚠️ **DIQQAT:** To'lov chekini faqat haqiqiy to'lov qilganingizdan keyin yuboring. Soxta chek yuborish taqiqlanadi va hisobingiz bloklanishi mumkin!"""
         upload_button_text = "📤 To'lov chekini yuborish"
+        back_button_text = "🔙 Orqaga qaytish"
     elif user_lang == "ru":
         instructions = f"""💳 **Для оплаты:**
 
@@ -93,6 +93,7 @@ Karta egasi: {PAYMENT_CARD_OWNER}
 
 ⚠️ **ВНИМАНИЕ:** Отправляйте чек только после реального платежа. Отправка поддельных чеков запрещена и может привести к блокировке аккаунта!"""
         upload_button_text = "📤 Отправить чек"
+        back_button_text = "🔙 Назад"
     else:  # en
         instructions = f"""💳 **To pay:**
 
@@ -106,21 +107,30 @@ Card owner: {PAYMENT_CARD_OWNER}
 
 ⚠️ **WARNING:** Send receipt only after real payment. Sending fake receipts is prohibited and may result in account blocking!"""
         upload_button_text = "📤 Upload receipt"
+        back_button_text = "🔙 Back"
     
-    # Create inline keyboard with upload button
-    keyboard = InlineKeyboardBuilder()
-    keyboard.add(InlineKeyboardButton(
-        text=upload_button_text,
-        callback_data=f"upload_receipt_{amount}"
-    ))
+    # Create reply keyboard with upload and back buttons
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=upload_button_text)],
+            [KeyboardButton(text=back_button_text)]
+        ],
+        resize_keyboard=True
+    )
     
     await callback.message.edit_text(
         instructions,
-        reply_markup=keyboard.as_markup(),
         parse_mode="Markdown"
     )
     
+    await callback.message.answer(
+        "👇 Quyidagi tugmalardan birini tanlang:",
+        reply_markup=keyboard
+    )
+    
     await state.update_data(payment_amount=amount)
+    await state.set_state(PaymentStates.waiting_for_screenshot)
+    await callback.answer()
 
 @router.message(PaymentStates.waiting_for_screenshot, F.content_type.in_([ContentType.PHOTO, ContentType.DOCUMENT]))
 async def handle_payment_screenshot(message: Message, state: FSMContext, db: Database, user_lang: str, user=None):
@@ -218,72 +228,11 @@ async def handle_payment_screenshot(message: Message, state: FSMContext, db: Dat
     finally:
         await state.clear()
 
-@router.callback_query(F.data.startswith("upload_receipt_"))
-async def handle_upload_receipt(callback: CallbackQuery, state: FSMContext, user_lang: str):
-    """Handle upload receipt button - show back button and wait for receipt"""
-    from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-    
-    amount = int(callback.data.split("_")[2])
-    
-    if user_lang == "uz":
-        wait_text = f"""📸 **To'lov chekini yuboring**
-
-Summa: **{amount:,} so'm**
-
-📤 To'lov chekini rasm yoki fayl shaklida yuboring.
-
-⚠️ **DIQQAT:** Agar to'lovni bekor qilmoqchi bo'lsangiz, "🔙 Orqaga qaytish" tugmasini bosing!
-
-❗️ Faqat haqiqiy to'lov chekini yuboring!"""
-        back_button_text = "🔙 Orqaga qaytish"
-    elif user_lang == "ru":
-        wait_text = f"""📸 **Отправьте чек об оплате**
-
-Сумма: **{amount:,} сум**
-
-📤 Отправьте чек как фото или файл.
-
-⚠️ **ВНИМАНИЕ:** Если хотите отменить платеж, нажмите "🔙 Назад"!
-
-❗️ Отправляйте только настоящий чек об оплате!"""
-        back_button_text = "🔙 Назад"
-    else:  # en
-        wait_text = f"""📸 **Send payment receipt**
-
-Amount: **{amount:,} som**
-
-📤 Send receipt as photo or file.
-
-⚠️ **WARNING:** If you want to cancel payment, press "🔙 Back"!
-
-❗️ Send only real payment receipt!"""
-        back_button_text = "🔙 Back"
-    
-    # Delete the inline keyboard message
-    await callback.message.edit_text(
-        wait_text,
-        parse_mode="Markdown"
-    )
-    
-    # Show back button
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text=back_button_text)]],
-        resize_keyboard=True
-    )
-    
-    await callback.message.answer(
-        "👇",
-        reply_markup=keyboard
-    )
-    
-    await state.update_data(payment_amount=amount)
-    await state.set_state(PaymentStates.waiting_for_screenshot)
-    await callback.answer()
-
 @router.message(PaymentStates.waiting_for_screenshot)
-async def handle_invalid_payment_screenshot(message: Message, state: FSMContext, user_lang: str):
-    """Handle invalid payment screenshot or back button"""
-    # Check if user pressed back button
+async def handle_payment_screenshot_or_button(message: Message, state: FSMContext, user_lang: str):
+    """Handle payment screenshot upload button or back button"""
+    # Check if user pressed upload button
+    upload_buttons = ["📤 To'lov chekini yuborish", "📤 Отправить чек", "📤 Upload receipt"]
     back_buttons = ["🔙 Orqaga qaytish", "🔙 Назад", "🔙 Back"]
     
     if message.text in back_buttons:
@@ -301,6 +250,18 @@ async def handle_invalid_payment_screenshot(message: Message, state: FSMContext,
             reply_markup=get_main_keyboard(user_lang)
         )
         logger.info(f"User {message.from_user.id} cancelled payment using back button")
+        return
+    
+    if message.text in upload_buttons:
+        # User clicked upload button - ask for receipt
+        if user_lang == "uz":
+            wait_text = "📸 To'lov chekini rasm yoki fayl shaklida yuboring:"
+        elif user_lang == "ru":
+            wait_text = "📸 Отправьте чек об оплате как фото или файл:"
+        else:
+            wait_text = "📸 Send payment receipt as photo or file:"
+        
+        await message.answer(wait_text)
         return
     
     # Handle invalid content
