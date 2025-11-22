@@ -101,7 +101,7 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
         "payment_reminder_nighttime": "🌙 **Eslatma:** Kechqurun (22:00-7:00) yuborilgan to'lovlar ertangi kun ertalab 7:00 dan keyin ko'rib chiqiladi.",
         "payment_rejected_with_retry": "❌ **To'lovingiz rad etildi**\n\n💡 Agar to'lov haqiqiy bo'lsa, qayta yuboring va yordam bo'limiga murojaat qiling:\nhttps://t.me/Edufail",
         "retry_payment_button": "🔁 To'lovni qayta yuborish",
-        "view_samples": "📁 Namunalar"
+        "view_samples": "📂 Namunalar"
     },
     "ru": {
         "welcome": "🎓 Добро пожаловать в EduBot.ai!\n\nВыберите язык для создания академических документов:",
