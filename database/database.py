@@ -6,6 +6,9 @@ from datetime import datetime
 from typing import List, Optional, Dict
 from .models import User, Payment, Channel, Promocode, UsedPromocode, DocumentOrder, BroadcastMessage, Referral
 from config import DATABASE_URL
+import logging
+
+logger = logging.getLogger(__name__)
 
 DATABASE_FILE = "bot.db"
 
@@ -130,18 +133,27 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS feature_toggles (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 feature_name TEXT UNIQUE NOT NULL,
-                is_enabled BOOLEAN DEFAULT 1,
+                is_enabled INTEGER DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
 
-        # Initialize default features
+        # Sample files table
         await db.execute("""
-            INSERT OR IGNORE INTO feature_toggles (feature_name, is_enabled) 
-            VALUES ('presentation', 1), ('independent_work', 1), ('referat', 1)
+            CREATE TABLE IF NOT EXISTS sample_files (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                description TEXT,
+                file_id TEXT NOT NULL,
+                file_type TEXT NOT NULL,
+                is_active INTEGER DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
         """)
 
         await db.commit()
+        logger.info("Database initialized successfully")
 
 class Database:
     @staticmethod

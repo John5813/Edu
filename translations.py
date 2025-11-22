@@ -62,7 +62,7 @@ TRANSLATIONS = {
         "payment_approved": "✅ To'lovingiz tasdiqlandi! {amount} so'm hisobingizga qo'shildi.",
         "payment_rejected": "❌ To'lovingiz rad etildi. Iltimos, qayta urinib ko'ring.",
         "promocode_applied": "🎁 Promokod qo'llandi! Xizmat bepul.",
-        "help_text": "🆘 Yordam\n\n📊 Taqdimot narxlari:\n• 10 slayd - 5000 som\n• 15 slayd - 7000 som\n• 20 slayd - 10000 som\n\n🎓 Mustaqil ish va 📄 Referat narxlari:\n• 10-15 varoq - 5000 som\n• 15-20 varoq - 7000 som\n• 20-25 varoq - 10000 som\n• 25-30 varoq - 12000 som\n\n💰 Hisobim - balans va referral dastur\n💳 To'lov - mablag' to'ldirish\n⚙️ Sozlamalar - tilni o'zgartirish va promokod\n\n📞 Muammo va shikoyatlar uchun:\nhttps://t.me/Edufail ga murojaat qiling",
+        "help_text": "📞 *Yordam bo'limi*\n\n❓ Savol yoki muammo bo'lsa, @SupportUserBot ga murojaat qiling.\n\n💡 Bot qanday ishlaydi:\n1️⃣ Kerakli hujjat turini tanlang\n2️⃣ Mavzuni kiriting\n3️⃣ Sahifalar/slaydlar sonini tanlang\n4️⃣ To'lovni amalga oshiring\n5️⃣ Hujjatingizni oling!\n\n⚡️ Hujjat 2-5 daqiqada tayyor bo'ladi.",
         "settings_menu": "⚙️ Sozlamalar\n\nTilni o'zgartirish:",
         "language_changed": "✅ Til o'zgartirildi!",
         "help_message": "📞 Yordam va ma'lumotlar",
@@ -145,7 +145,7 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
         "payment_approved": "✅ Ваш платеж подтвержден! {amount} сум добавлено на ваш счет.",
         "payment_rejected": "❌ Ваш платеж отклонен. Пожалуйста, попробуйте снова.",
         "promocode_applied": "🎁 Промокод применен! Услуга бесплатна.",
-        "help_text": "🆘 Помощь\n\n📊 Презентация цены:\n• 10 слайдов - 5000 сум\n• 15 слайдов - 7000 сум\n• 20 слайдов - 10000 сум\n\n🎓 Самостоятельная работа и 📄 Реферат цены:\n• 10-15 страниц - 5000 сум\n• 15-20 страниц - 7000 сум\n• 20-25 страниц - 10000 сум\n• 25-30 страниц - 12000 сум\n\n💰 Мой счет - баланс и бесплатные услуги\n💳 Оплата - пополнение баланса\n⚙️ Настройки - изменение языка и промокод\n\n📞 Для проблем и жалоб:\nОбращайтесь https://t.me/Edufail",
+        "help_text": "📞 *Раздел помощи*\n\n❓ Если у вас есть вопросы или проблемы, свяжитесь с @SupportUserBot.\n\n💡 Как работает бот:\n1️⃣ Выберите тип документа\n2️⃣ Введите тему\n3️⃣ Выберите количество страниц/слайдов\n4️⃣ Произведите оплату\n5️⃣ Получите свой документ!\n\n⚡️ Документ будет готов через 2-5 минут.",
         "settings_menu": "⚙️ Настройки\n\nИзменить язык:",
         "language_changed": "✅ Язык изменен!",
         "help_message": "📞 Помощь",
@@ -232,7 +232,7 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
         "payment_approved": "✅ Your payment has been approved! {amount} som added to your account.",
         "payment_rejected": "❌ Your payment was rejected. Please try again.",
         "promocode_applied": "🎁 Promocode applied! Service is free.",
-        "help_text": "🆘 Help\n\n📊 Presentation prices:\n• 10 slides - 5000 som\n• 15 slides - 7000 som\n• 20 slides - 10000 som\n\n🎓 Independent Work and 📄 Research Paper prices:\n• 10-15 pages - 5000 som\n• 15-20 pages - 7000 som\n• 20-25 pages - 10000 som\n• 25-30 pages - 12000 som\n\n💰 My Account - balance and free services\n💳 Payment - top up balance\n⚙️ Settings - change language and promocode\n\n📞 For issues and complaints:\nContact https://t.me/Edufail",
+        "help_text": "📞 *Help Section*\n\n❓ If you have questions or issues, contact @SupportUserBot.\n\n💡 How the bot works:\n1️⃣ Select document type\n2️⃣ Enter topic\n3️⃣ Select number of pages/slides\n4️⃣ Make payment\n5️⃣ Receive your document!\n\n⚡️ Document will be ready in 2-5 minutes.",
         "settings_menu": "⚙️ Settings\n\nChange language:",
         "language_changed": "✅ Language changed!",
         "help_message": "📞 Help and Information",
@@ -275,17 +275,32 @@ This document was created with AI assistance and serves as your helper.
         "enter_amount_only": "💵 Enter the amount from the receipt in numbers only:",
         "invalid_amount_format": "❌ Invalid format. Enter only a number (example: 15000)",
         "payment_resubmit_success": "✅ Payment request sent to admin. After confirmation it will be added to your account.\n\n⏰ Reminder:\n• Daytime (7:00-22:00): Within 1 hour\n• Nighttime (22:00-7:00): After 7:00 tomorrow"
+    },
+    "view_samples": {
+        "uz": "📁 Namunalarni ko'rish",
+        "ru": "📁 Посмотреть образцы",
+        "en": "📁 View Samples"
+    },
+    "samples_title": {
+        "uz": "📁 *Xizmat namunalari*\n\nBu yerda tayyor namunalarni ko'rishingiz mumkin:",
+        "ru": "📁 *Образцы услуг*\n\nЗдесь вы можете посмотреть готовые образцы:",
+        "en": "📁 *Service Samples*\n\nHere you can view ready samples:"
+    },
+    "no_samples": {
+        "uz": "Hozircha namunalar mavjud emas.",
+        "ru": "Образцы пока недоступны.",
+        "en": "No samples available yet."
     }
 }
 
 def get_text(lang: str, key: str, **kwargs) -> str:
     """Get translated text by language and key"""
     keys = key.split('.')
-    
+
     # Use user's language, fallback to Uzbek if not found
     if lang not in TRANSLATIONS:
         lang = 'uz'
-    
+
     text = TRANSLATIONS[lang]
 
     for k in keys:

@@ -37,6 +37,11 @@ class AdminStates(StatesGroup):
     # Settings
     waiting_for_new_price = State()
 
+    # Sample management
+    waiting_for_sample_file = State()
+    waiting_for_sample_title = State()
+    waiting_for_sample_description = State()
+
 class PaymentResubmitStates(StatesGroup):
     waiting_for_receipt = State()
     waiting_for_amount = State()

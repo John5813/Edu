@@ -1362,3 +1362,161 @@ async def switch_to_user_mode(message: Message, db: Database):
         "👤 Foydalanuvchi rejimiga o'tdingiz",
         reply_markup=get_main_keyboard("uz", presentation_enabled) # Pass only presentation status
     )
+
+@router.message(F.text == "📁 Namunalar boshqaruvi")
+async def handle_sample_management(message: Message):
+    """Handle sample management"""
+    if not is_admin(message.from_user.id):
+        return
+
+    from bot.keyboards import get_sample_management_keyboard
+    await message.answer(
+        "📁 Namunalar boshqaruvi",
+        reply_markup=get_sample_management_keyboard()
+    )
+
+@router.callback_query(F.data == "add_sample")
+async def add_sample_start(callback: CallbackQuery, state: FSMContext):
+    """Start adding sample file"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    await callback.message.edit_text(
+        "📁 Yangi namuna qo'shish\n\n"
+        "Namuna faylini yuboring (hujjat yoki rasm):"
+    )
+    await state.set_state(AdminStates.waiting_for_sample_file)
+
+@router.message(AdminStates.waiting_for_sample_file)
+async def add_sample_file(message: Message, state: FSMContext):
+    """Handle sample file upload"""
+    try:
+        if message.document:
+            file_id = message.document.file_id
+            file_type = 'document'
+        elif message.photo:
+            file_id = message.photo[-1].file_id
+            file_type = 'photo'
+        else:
+            await message.answer("❌ Faqat hujjat yoki rasm yuboring.")
+            return
+
+        await state.update_data(file_id=file_id, file_type=file_type)
+        await message.answer("📝 Namuna nomini kiriting:")
+        await state.set_state(AdminStates.waiting_for_sample_title)
+
+    except Exception as e:
+        logger.error(f"Error handling sample file: {e}")
+        await message.answer("❌ Xatolik yuz berdi. Qayta urinib ko'ring.")
+        await state.clear()
+
+@router.message(AdminStates.waiting_for_sample_title)
+async def add_sample_title(message: Message, state: FSMContext):
+    """Handle sample title input"""
+    title = message.text.strip()
+    await state.update_data(title=title)
+    
+    await message.answer("📝 Namuna tavsifini kiriting (yoki 'skip' deb yozing):")
+    await state.set_state(AdminStates.waiting_for_sample_description)
+
+@router.message(AdminStates.waiting_for_sample_description)
+async def add_sample_description(message: Message, state: FSMContext, db: Database):
+    """Handle sample description and save"""
+    try:
+        description = message.text.strip() if message.text.lower() != 'skip' else ''
+        data = await state.get_data()
+
+        sample_id = await db.add_sample_file(
+            title=data['title'],
+            description=description,
+            file_id=data['file_id'],
+            file_type=data['file_type']
+        )
+
+        await message.answer(
+            f"✅ Namuna qo'shildi:\n"
+            f"📄 {data['title']}\n"
+            f"🆔 ID: {sample_id}",
+            reply_markup=get_admin_keyboard()
+        )
+
+    except Exception as e:
+        logger.error(f"Error adding sample: {e}")
+        await message.answer("❌ Xatolik yuz berdi. Qayta urinib ko'ring.")
+
+    finally:
+        await state.clear()
+
+@router.callback_query(F.data == "delete_sample")
+async def delete_sample_start(callback: CallbackQuery, db: Database):
+    """Start deleting sample"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    samples = await db.get_active_sample_files()
+
+    if not samples:
+        await callback.message.edit_text("📁 Namunalar yo'q.")
+        return
+
+    from bot.keyboards import get_samples_list_keyboard
+    await callback.message.edit_text(
+        "🗑 O'chirish uchun namunani tanlang:",
+        reply_markup=get_samples_list_keyboard(samples)
+    )
+
+@router.callback_query(F.data.startswith("delete_sample_"))
+async def delete_sample_confirm(callback: CallbackQuery, db: Database):
+    """Delete sample file"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    sample_id = int(callback.data.split("_")[2])
+
+    try:
+        sample = await db.get_sample_file(sample_id)
+        if sample:
+            await db.delete_sample_file(sample_id)
+            await callback.message.edit_text(
+                f"✅ Namuna o'chirildi: {sample['title']}"
+            )
+        else:
+            await callback.answer("❌ Namuna topilmadi.")
+    except Exception as e:
+        logger.error(f"Error deleting sample: {e}")
+        await callback.answer("❌ Xatolik yuz berdi.")
+
+@router.callback_query(F.data == "list_samples")
+async def list_samples_admin(callback: CallbackQuery, db: Database):
+    """List all samples for admin"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    samples = await db.get_active_sample_files()
+
+    if not samples:
+        await callback.message.edit_text("📁 Namunalar yo'q.")
+        return
+
+    text = f"📁 Barcha namunalar ({len(samples)} ta):\n\n"
+    for sample in samples:
+        text += f"📄 {sample['title']}\n"
+        text += f"🆔 ID: {sample['id']}\n"
+        if sample['description']:
+            text += f"📝 {sample['description']}\n"
+        text += f"📅 {sample['created_at']}\n"
+        text += "➖➖➖➖➖➖➖➖\n\n"
+
+    await callback.message.edit_text(text)
+
+@router.callback_query(F.data == "back_to_sample_menu")
+async def back_to_sample_menu(callback: CallbackQuery):
+    """Return to sample management menu"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    from bot.keyboards import get_sample_management_keyboard
+    await callback.message.edit_text(
+        "📁 Namunalar boshqaruvi",
+        reply_markup=get_sample_management_keyboard()
+    )

@@ -220,13 +220,14 @@ def get_admin_keyboard() -> ReplyKeyboardMarkup:
     keyboard.add(KeyboardButton(text="📢 Kanallar"))
     keyboard.add(KeyboardButton(text="🎟 Promokod boshqaruvi"))
 
-    # Feature management
+    # Feature management and sample management
     keyboard.add(KeyboardButton(text="🎛 Funksiyalar boshqaruvi"))
+    keyboard.add(KeyboardButton(text="📁 Namunalar boshqaruvi"))
 
     # Orqaga qaytish
     keyboard.add(KeyboardButton(text="👤 Foydalanuvchi rejimi"))
 
-    keyboard.adjust(2, 2, 2, 1, 1)
+    keyboard.adjust(2, 2, 2, 2, 1)
     return keyboard.as_markup(resize_keyboard=True)
 
 def get_payment_review_keyboard(payment_id: int) -> InlineKeyboardMarkup:
@@ -440,5 +441,38 @@ def get_feature_management_keyboard(presentation_enabled: bool) -> InlineKeyboar
         callback_data=f"toggle_presentation_{pres_action}"
     ))
     
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+def get_help_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
+    """Help section keyboard with view samples button"""
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(
+        text=get_text(language, "view_samples"),
+        callback_data="view_samples"
+    ))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+def get_sample_management_keyboard() -> InlineKeyboardMarkup:
+    """Sample files management keyboard for admin"""
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(text="➕ Namuna qo'shish", callback_data="add_sample"))
+    keyboard.add(InlineKeyboardButton(text="🗑 Namuna o'chirish", callback_data="delete_sample"))
+    keyboard.add(InlineKeyboardButton(text="📋 Barcha namunalar", callback_data="list_samples"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+def get_samples_list_keyboard(samples: list) -> InlineKeyboardMarkup:
+    """Samples list keyboard for deletion"""
+    keyboard = InlineKeyboardBuilder()
+    
+    for sample in samples:
+        keyboard.add(InlineKeyboardButton(
+            text=f"🗑 {sample['title']}",
+            callback_data=f"delete_sample_{sample['id']}"
+        ))
+    
+    keyboard.add(InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_sample_menu"))
     keyboard.adjust(1)
     return keyboard.as_markup()
