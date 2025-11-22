@@ -10,6 +10,21 @@ The system operates on a freemium model where users get one free document genera
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (November 22, 2025)
+
+✓ **XIZMATIMIZ NAMUNALARI FUNKSIYASI QO'SHILDI** - Mijozlarga tayyor namunalarni ko'rsatish:
+  - **Yordam bo'limida "📁 Namunalarni ko'rish" tugmasi**: Foydalanuvchilar yordam bo'limidan namunalarni ko'rishlari mumkin
+  - **Admin panel'da "📁 Namunalar boshqaruvi" tugmasi**: Admin namunalarni boshqaradi
+  - **Admin funksiyalari**:
+    - ➕ Namuna qo'shish: fayl yuborish, nom va tavsif kiritish
+    - 🗑 Namuna o'chirish: ro'yxatdan tanlash va o'chirish
+    - 📋 Barcha namunalar: ro'yxatni ko'rish
+  - **Database**:
+    - `sample_files` jadvali: title, description, file_id, file_type, is_active
+    - Hujjat, rasm va video fayllarni qo'llab-quvvatlaydi
+  - **3 tilda**: O'zbek, Rus, Ingliz tillarida to'liq tarjima
+  - **Maqsad**: Mijozga qanday sifatli hujjat olishini oldindan bildirish
+
 ## Recent Changes (November 18, 2025)
 
 ✓ **ADABIYOTLAR RO'YXATI FUNKSIYASI QO'SHILDI** - Taqdimotga manbaa qo'shish:
