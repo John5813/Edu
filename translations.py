@@ -100,7 +100,8 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
         "payment_reminder_daytime": "⏰ **Eslatma:** To'lovlar odatda kunduzgi vaqtda (7:00-22:00) 1 soat ichida ko'rib chiqiladi.",
         "payment_reminder_nighttime": "🌙 **Eslatma:** Kechqurun (22:00-7:00) yuborilgan to'lovlar ertangi kun ertalab 7:00 dan keyin ko'rib chiqiladi.",
         "payment_rejected_with_retry": "❌ **To'lovingiz rad etildi**\n\n💡 Agar to'lov haqiqiy bo'lsa, qayta yuboring va yordam bo'limiga murojaat qiling:\nhttps://t.me/Edufail",
-        "retry_payment_button": "🔁 To'lovni qayta yuborish"
+        "retry_payment_button": "🔁 To'lovni qayta yuborish",
+        "view_samples": "📁 Namunalar"
     },
     "ru": {
         "welcome": "🎓 Добро пожаловать в EduBot.ai!\n\nВыберите язык для создания академических документов:",
@@ -187,7 +188,8 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
         "ask_for_payment_check": "📸 Пожалуйста, отправьте мне ваш последний платежный чек сейчас (в виде фото или файла):",
         "enter_amount_only": "💵 Введите сумму из чека только цифрами:",
         "invalid_amount_format": "❌ Неверный формат. Введите только число (например: 15000)",
-        "payment_resubmit_success": "✅ Запрос на оплату отправлен администратору. После подтверждения будет добавлено на ваш счет.\n\n⏰ Напоминание:\n• Днем (7:00-22:00): В течение 1 часа\n• Ночью (22:00-7:00): После 7:00 завтра"
+        "payment_resubmit_success": "✅ Запрос на оплату отправлен администратору. После подтверждения будет добавлено на ваш счет.\n\n⏰ Напоминание:\n• Днем (7:00-22:00): В течение 1 часа\n• Ночью (22:00-7:00): После 7:00 завтра",
+        "view_samples": "📁 Образцы"
     },
     "en": {
         "welcome": "🎓 Welcome to EduBot.ai!\n\nSelect language for creating academic documents:",
@@ -274,12 +276,8 @@ This document was created with AI assistance and serves as your helper.
         "ask_for_payment_check": "📸 Please send me your last payment receipt now (as photo or file):",
         "enter_amount_only": "💵 Enter the amount from the receipt in numbers only:",
         "invalid_amount_format": "❌ Invalid format. Enter only a number (example: 15000)",
-        "payment_resubmit_success": "✅ Payment request sent to admin. After confirmation it will be added to your account.\n\n⏰ Reminder:\n• Daytime (7:00-22:00): Within 1 hour\n• Nighttime (22:00-7:00): After 7:00 tomorrow"
-    },
-    "view_samples": {
-        "uz": "📁 Namunalar",
-        "ru": "📁 Образцы",
-        "en": "📁 Samples"
+        "payment_resubmit_success": "✅ Payment request sent to admin. After confirmation it will be added to your account.\n\n⏰ Reminder:\n• Daytime (7:00-22:00): Within 1 hour\n• Nighttime (22:00-7:00): After 7:00 tomorrow",
+        "view_samples": "📁 Samples"
     },
     "samples_title": {
         "uz": "📂 *Xizmat namunalari*\n\n✨ Bu yerda tayyor namunalarni ko'rishingiz mumkin:\n👇 Quyida hujjat misollari:",
