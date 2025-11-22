@@ -277,9 +277,9 @@ This document was created with AI assistance and serves as your helper.
         "payment_resubmit_success": "✅ Payment request sent to admin. After confirmation it will be added to your account.\n\n⏰ Reminder:\n• Daytime (7:00-22:00): Within 1 hour\n• Nighttime (22:00-7:00): After 7:00 tomorrow"
     },
     "view_samples": {
-        "uz": "📂 Xizmat namunalari",
-        "ru": "📂 Примеры работ",
-        "en": "📂 Service Samples"
+        "uz": "📁 Namunalar",
+        "ru": "📁 Образцы",
+        "en": "📁 Samples"
     },
     "samples_title": {
         "uz": "📂 *Xizmat namunalari*\n\n✨ Bu yerda tayyor namunalarni ko'rishingiz mumkin:\n👇 Quyida hujjat misollari:",
