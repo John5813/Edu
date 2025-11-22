@@ -815,3 +815,56 @@ class Database:
             ) as cursor:
                 count = (await cursor.fetchone())[0]
                 return count > 0
+
+    @staticmethod
+    async def add_sample_file(title: str, description: str, file_id: str, file_type: str) -> bool:
+        """Add a new sample file"""
+        try:
+            async with aiosqlite.connect(DATABASE_FILE) as db:
+                await db.execute(
+                    "INSERT INTO sample_files (title, description, file_id, file_type) VALUES (?, ?, ?, ?)",
+                    (title, description, file_id, file_type)
+                )
+                await db.commit()
+                return True
+        except Exception as e:
+            logger.error(f"Error adding sample file: {e}")
+            return False
+
+    @staticmethod
+    async def get_all_sample_files() -> List[Dict]:
+        """Get all active sample files"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM sample_files WHERE is_active = 1 ORDER BY created_at DESC"
+            ) as cursor:
+                rows = await cursor.fetchall()
+                return [dict(row) for row in rows]
+
+    @staticmethod
+    async def delete_sample_file(sample_id: int) -> bool:
+        """Delete a sample file (soft delete)"""
+        try:
+            async with aiosqlite.connect(DATABASE_FILE) as db:
+                await db.execute(
+                    "UPDATE sample_files SET is_active = 0 WHERE id = ?",
+                    (sample_id,)
+                )
+                await db.commit()
+                return True
+        except Exception as e:
+            logger.error(f"Error deleting sample file: {e}")
+            return False
+
+    @staticmethod
+    async def get_sample_file(sample_id: int) -> Optional[Dict]:
+        """Get a specific sample file by ID"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM sample_files WHERE id = ? AND is_active = 1",
+                (sample_id,)
+            ) as cursor:
+                row = await cursor.fetchone()
+                return dict(row) if row else None
