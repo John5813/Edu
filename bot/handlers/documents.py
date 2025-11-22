@@ -1186,36 +1186,3 @@ async def help_handler(message: Message, state: FSMContext, user_lang: str):
         reply_markup=get_help_keyboard(user_lang),
         parse_mode="Markdown"
     )
-
-@router.callback_query(F.data == "view_samples")
-async def view_samples_handler(callback: CallbackQuery, db: Database, user_lang: str):
-    """Show sample files to users"""
-    await callback.answer()
-    
-    samples = await db.get_active_sample_files()
-    
-    if not samples:
-        await callback.message.answer(get_text(user_lang, "no_samples"))
-        return
-    
-    await callback.message.answer(get_text(user_lang, "samples_title"), parse_mode="Markdown")
-    
-    for sample in samples:
-        caption = f"📄 *{sample['title']}*\n\n{sample['description']}" if sample['description'] else f"📄 *{sample['title']}*"
-        
-        try:
-            if sample['file_type'] == 'document':
-                await callback.message.answer_document(
-                    document=sample['file_id'],
-                    caption=caption,
-                    parse_mode="Markdown"
-                )
-            elif sample['file_type'] == 'photo':
-                await callback.message.answer_photo(
-                    photo=sample['file_id'],
-                    caption=caption,
-                    parse_mode="Markdown"
-                )
-        except Exception as e:
-            logger.error(f"Error sending sample file: {e}")
-            await callback.message.answer(f"❌ Xatolik: {sample['title']} yuborilmadi.")

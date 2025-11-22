@@ -224,3 +224,16 @@ async def handle_list_samples(callback: CallbackQuery, db: Database):
         samples_text,
         reply_markup=get_sample_management_keyboard()
     )
+
+@router.callback_query(F.data == "back_to_sample_menu")
+async def handle_back_to_sample_menu(callback: CallbackQuery):
+    """Go back to sample management menu"""
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Ruxsat yo'q", show_alert=True)
+        return
+    
+    await callback.answer()
+    await callback.message.edit_text(
+        "📁 Namunalar boshqaruvi\n\nTanlang:",
+        reply_markup=get_sample_management_keyboard()
+    )

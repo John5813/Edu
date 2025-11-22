@@ -10,7 +10,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from bot.handlers import start, documents, payments, admin, settings
+from bot.handlers import start, documents, payments, admin, settings, samples
 from bot.middlewares import LanguageMiddleware, DatabaseMiddleware
 from database.database import init_db
 from config import BOT_TOKEN, ADMIN_IDS
@@ -44,6 +44,7 @@ async def main():
     # Register handlers - important order: specific handlers first, catch-all last!
     dp.include_router(settings.router)  # Handle settings buttons first
     dp.include_router(payments.router)  # Handle payment buttons first
+    dp.include_router(samples.router)  # Handle samples view and admin management
     dp.include_router(admin.router)
     dp.include_router(documents.router)  # Handles document creation and topic input
     dp.include_router(start.router)  # Last - has catch-all handler for unknown messages

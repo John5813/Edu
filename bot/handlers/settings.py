@@ -137,11 +137,3 @@ async def handle_settings_promocode_input(message: Message, state: FSMContext, d
         success_text.get(user_lang, success_text['uz']),
         reply_markup=get_main_keyboard(user_lang)
     )
-
-@router.message(F.text.in_(["📞 Yordam", "📞 Помощь", "📞 Help"]))
-async def handle_help(message: Message, user_lang: str):
-    """Handle help request - simple help text without payment retry option"""
-    await message.answer(
-        get_text(user_lang, "help_text"),
-        parse_mode="Markdown"
-    )
