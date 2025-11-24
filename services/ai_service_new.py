@@ -129,7 +129,7 @@ class AIService:
                             "content": f"Content generation failed for slide {i} on topic {clean_topic}.",
                             "layout_type": self._get_layout_type(i)
                         })
-                
+
                 # Small delay between batches to avoid rate limiting
                 if batch_num < num_batches - 1:
                     await asyncio.sleep(1) # Increased delay for batch processing
@@ -170,11 +170,12 @@ class AIService:
         layout_instructions = {
             "bullet_points": f"""
 LAYOUT: Uzun uzluksiz matn (bullet_points)
-- AYNAN 175 SO'ZLIK uzluksiz matn yozing
+- AYNAN 70 SO'ZLIK uzluksiz matn yozing
 - Matn sarlavhaga to'liq mos kelishi kerak
 - Umumiy emas, MAVZUGA XOSLIK bo'lishi shart
 - Matn bir butun paragraf ko'rinishida
-- To'liq 175 so'z yozing, kam yozmang
+- JUDA MUHIM: Kamida 70 so'z yozing, lekin 80 so'zdan oshirmang
+- So'zlarni sanab yozing: 70 so'z bo'lishi SHART
 """,
             "text_with_image": f"""
 LAYOUT: Uzun yahlit matn (text_with_image)
@@ -607,7 +608,7 @@ Example format:
                     ]
                 }
                 logger.warning(f"Using fallback batch data due to invalid structure for slides {start_slide}-{end_slide}")
-            
+
             # Ensure each slide has required keys and string content
             validated_slides = []
             for i, slide in enumerate(batch_data["slides"]):
@@ -650,7 +651,7 @@ Example format:
             layout = slide_info["layout_type"]
 
             if layout == "bullet_points":
-                descriptions.append(f"Slide {slide_num} (bullet_points): Generate EXACTLY 40 WORDS as ONE CONTINUOUS STRING TEXT that is HIGHLY RELEVANT to the slide title. Must be topic-specific, not generic. NOT A LIST OR ARRAY!")
+                descriptions.append(f"Slide {slide_num} (bullet_points): Generate EXACTLY 70 WORDS as ONE CONTINUOUS STRING TEXT that is HIGHLY RELEVANT to the slide title. Must be topic-specific, not generic. NOT A LIST OR ARRAY! Max 80 words.")
             elif layout == "text_with_image":
                 descriptions.append(f"Slide {slide_num} (text_with_image): Generate as ONE CONTINUOUS STRING TEXT with 100-120 words for image generation. NOT A LIST OR ARRAY!")
             elif layout == "three_column":
