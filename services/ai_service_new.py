@@ -86,46 +86,68 @@ class AIService:
             return [f"Slayd {i+1}" for i in range(num_slides)]  # Fallback titles
 
     async def generate_presentation_in_batches(self, topic: str, slide_count: int, language: str) -> Dict:
-        """Generate presentation content using improved step-by-step method with context continuation"""
-        logger.info(f"Starting improved batch presentation generation for '{topic}' with {slide_count} slides in {language}")
+        """Generate presentation content in batches of 3 slides"""
+        try:
+            # Sanitize topic for AI processing - remove special characters
+            clean_topic = topic.replace('«', '').replace('»', '')
+            clean_topic = clean_topic.replace('"', '').replace('"', '')
+            clean_topic = clean_topic.strip()
 
-        # Step 1: Generate slide titles first - BARCHA SLAYDLAR UCHUN
-        slide_titles = await self.generate_slide_titles(topic, slide_count, language)
-        logger.info(f"Generated {len(slide_titles)} slide titles: {slide_titles}")
+            # If topic becomes empty after cleaning, use original
+            if not clean_topic:
+                clean_topic = topic
 
-        all_slides = []
-        used_topics = set()  # Allaqachon ishlatilgan mavzularni kuzatish
+            all_slides = []
+            batch_size = 3
+            num_batches = (slide_count + batch_size - 1) // batch_size  # Ceiling division
 
-        # Step 2: Har bir slayd uchun ALOHIDA kontent yaratish (batches emas, individual)
-        for slide_num in range(1, slide_count + 1):
-            logger.info(f"Generating individual slide {slide_num} of {slide_count}")
+            logger.info(f"Generating {slide_count} slides in {num_batches} batches for topic: {clean_topic}")
 
-            # Get title for this slide
-            slide_title = slide_titles[slide_num-1] if slide_num-1 < len(slide_titles) else f"Slayd {slide_num}"
+            for batch_num in range(num_batches):
+                start_slide = batch_num * batch_size + 1
+                end_slide = min((batch_num + 1) * batch_size, slide_count)
+                slides_in_batch = end_slide - start_slide + 1
 
-            # Get layout type for this slide
-            layout_type = self._get_layout_type(slide_num)
+                logger.info(f"Batch {batch_num + 1}/{num_batches}: Generating slides {start_slide}-{end_slide}")
 
-            # Generate unique content for this specific slide
-            slide_content = await self._generate_single_slide_unique(
-                topic, slide_num, slide_title, layout_type, language, used_topics, slide_titles
-            )
+                # Generate batch
+                batch_content = await self._generate_slide_batch(
+                    clean_topic, start_slide, end_slide, slides_in_batch, language
+                )
 
-            if slide_content:
-                all_slides.append(slide_content)
-                # Track used content to avoid repetition
-                used_topics.add(slide_title)
-                if 'content' in slide_content:
-                    # Add key phrases from content to used topics
-                    content_words = str(slide_content['content']).split()[:10]
-                    used_topics.update(content_words)
+                if batch_content and 'slides' in batch_content:
+                    all_slides.extend(batch_content['slides'])
+                else:
+                    logger.warning(f"Batch {batch_num + 1} returned no slides for {clean_topic}")
+                    # Add placeholder slides if batch generation failed
+                    for i in range(start_slide, end_slide + 1):
+                        all_slides.append({
+                            "slide_number": i,
+                            "title": f"Placeholder Slide {i}",
+                            "content": f"Content generation failed for slide {i} on topic {clean_topic}.",
+                            "layout_type": self._get_layout_type(i)
+                        })
+                
+                # Small delay between batches to avoid rate limiting
+                if batch_num < num_batches - 1:
+                    await asyncio.sleep(1) # Increased delay for batch processing
 
-            # Small delay between slides
-            if slide_num < slide_count:
-                await asyncio.sleep(0.3)
+            logger.info(f"Finished generating {len(all_slides)} slides for topic: {clean_topic}")
+            return {"slides": all_slides}
 
-        logger.info(f"Generated complete presentation with {len(all_slides)} unique slides")
-        return {"slides": all_slides}
+        except Exception as e:
+            logger.error(f"Error during batch presentation generation for topic '{topic}': {e}")
+            # Fallback to generating placeholder slides if the entire process fails
+            fallback_slides = []
+            for i in range(1, slide_count + 1):
+                fallback_slides.append({
+                    "slide_number": i,
+                    "title": f"Fallback Slide {i}",
+                    "content": f"An error occurred while generating content for slide {i} on topic {topic}.",
+                    "layout_type": self._get_layout_type(i)
+                })
+            return {"slides": fallback_slides}
+
 
     async def _generate_single_slide_unique(self, topic: str, slide_num: int, slide_title: str, layout_type: str, language: str, used_topics: set, all_titles: List[str]) -> Dict:
         """Generate unique content for a single slide, avoiding repetition"""
@@ -216,6 +238,7 @@ JSON formatda javob bering:
                 logger.info(f"Generated unique slide {slide_num}: {slide_title[:50]}")
                 return slide_data
             else:
+                logger.warning(f"No content received for unique slide {slide_num}")
                 return None
 
         except Exception as e:
@@ -286,7 +309,7 @@ JSON formatda javob bering:
       "slide_number": {start_slide},
       "title": "Berilgan sarlavha",
       "content": "Layout tipiga mos kontent...",
-      "layout_type": "bullet_points"
+      "layout_type": "{layout_type}"
     }}
   ]
 }}
@@ -305,6 +328,7 @@ JSON formatda javob bering:
             if content_text:
                 return json.loads(content_text)
             else:
+                logger.warning("No content received for slide batch with context.")
                 return {"slides": []}
 
         except Exception as e:
@@ -391,7 +415,7 @@ JSON formatda javob bering:
 
             Respond in JSON format.
             """
-        
+
         return {}  # Placeholder
 
     async def generate_presentation_with_manual_titles(self, topic: str, slide_titles: List[str], language: str) -> Dict:
@@ -470,11 +494,11 @@ Example format:
 
             result = json.loads(response.choices[0].message.content)
             references = result.get('references', [])
-            
+
             # Ensure exactly 5 references
             if len(references) < 5:
                 references.extend([f"Academic Source {i+1} on {topic}" for i in range(len(references), 5)])
-            
+
             return references[:5]
 
         except Exception as e:
@@ -542,15 +566,60 @@ Example format:
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                temperature=0.7
+                temperature=0.7,
+                max_tokens=4000
             )
 
-            content_text = response.choices[0].message.content
-            import json
-            if content_text:
-                return json.loads(content_text)
-            else:
-                return {"slides": []}
+            content_str = response.choices[0].message.content.strip()
+            logger.info(f"AI response for batch {start_slide}-{end_slide}: {content_str[:100]}...")
+
+            # Parse JSON response with error handling
+            try:
+                batch_data = json.loads(content_str)
+            except json.JSONDecodeError as je:
+                logger.error(f"JSON parse error: {je}. Content: {content_str}")
+                # Create fallback batch
+                batch_data = {
+                    "slides": [
+                        {
+                            "title": f"Slayd {i}",
+                            "content": f"Ma'lumot {topic} mavzusi bo'yicha.",
+                            "layout_type": self._get_layout_type(i)
+                        }
+                        for i in range(start_slide, end_slide + 1)
+                    ]
+                }
+                logger.warning(f"Using fallback batch data for slides {start_slide}-{end_slide}")
+
+            # Basic validation for slides structure
+            if not isinstance(batch_data, dict) or "slides" not in batch_data or not isinstance(batch_data["slides"], list):
+                logger.error(f"Invalid structure received from AI for batch {start_slide}-{end_slide}. Content: {content_str}")
+                batch_data = {
+                    "slides": [
+                        {
+                            "title": f"Slayd {i}",
+                            "content": f"Ma'lumot {topic} mavzusi bo'yicha.",
+                            "layout_type": self._get_layout_type(i)
+                        }
+                        for i in range(start_slide, end_slide + 1)
+                    ]
+                }
+                logger.warning(f"Using fallback batch data due to invalid structure for slides {start_slide}-{end_slide}")
+            
+            # Ensure each slide has required keys and string content
+            validated_slides = []
+            for i, slide in enumerate(batch_data["slides"]):
+                slide_num_in_batch = start_slide + i
+                validated_slide = {
+                    "slide_number": slide.get("slide_number", slide_num_in_batch),
+                    "title": slide.get("title", f"Slide {slide_num_in_batch}"),
+                    "content": str(slide.get("content", f"Placeholder content for slide {slide_num_in_batch}.")),
+                    "layout_type": slide.get("layout_type", self._get_layout_type(slide_num_in_batch))
+                }
+                validated_slides.append(validated_slide)
+
+            batch_data["slides"] = validated_slides
+            return batch_data
 
         except Exception as e:
             logger.error(f"Error generating batch {start_slide}-{end_slide}: {e}")

@@ -165,6 +165,13 @@ async def handle_topic_input(message: Message, state: FSMContext, user_lang: str
     """Handle topic input"""
     # Sanitize user input to prevent injection attacks
     topic = sanitize_user_input(message.text, max_length=200)
+    
+    # Remove problematic special characters that may break AI processing
+    # Replace smart quotes and other special characters with standard ones
+    topic = topic.replace('«', '"').replace('»', '"')
+    topic = topic.replace('"', '"').replace('"', '"')
+    topic = topic.replace(''', "'").replace(''', "'")
+    topic = topic.strip()
 
     # Simple check - only handle actual topics (not system buttons)
     # System buttons will be handled by their specific routers first due to order
