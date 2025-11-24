@@ -432,6 +432,15 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
 @router.callback_query(F.data.startswith("slides_"), DocumentStates.waiting_for_slide_count)
 async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Handle slide count selection"""
+    # Check if user exists
+    if not user:
+        await callback.message.answer(
+            "❌ Xatolik yuz berdi. Iltimos, /start buyrug'ini bajaring.",
+            reply_markup=get_main_keyboard(user_lang)
+        )
+        await state.clear()
+        return
+    
     slide_count = int(callback.data.split("_")[1])
     await state.update_data(slide_count=slide_count)
 
@@ -466,6 +475,15 @@ async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Dat
 @router.callback_query(F.data.startswith("pages_"), DocumentStates.waiting_for_page_count)
 async def handle_page_count(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Handle page count selection"""
+    # Check if user exists
+    if not user:
+        await callback.message.answer(
+            "❌ Xatolik yuz berdi. Iltimos, /start buyrug'ini bajaring.",
+            reply_markup=get_main_keyboard(user_lang)
+        )
+        await state.clear()
+        return
+    
     page_range = callback.data.split("_")[1:]
     min_pages = int(page_range[0])
     max_pages = int(page_range[1])
