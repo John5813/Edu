@@ -44,9 +44,13 @@ async def language_selected(callback: CallbackQuery, state: FSMContext, db: Data
     """Handle language selection"""
     language = callback.data.split("_")[1]
     user_id = callback.from_user.id
+    
+    logger.info(f"Language selection: user_id={user_id}, language={language}")
 
     # Create or update user
     user = await db.get_user(user_id)
+    logger.info(f"Existing user check: user_id={user_id}, found={user is not None}")
+    
     if not user:
         # Check if there's a referral code in state
         state_data = await state.get_data()
@@ -60,13 +64,20 @@ async def language_selected(callback: CallbackQuery, state: FSMContext, db: Data
                 referred_by_id = referrer.telegram_id
 
         # Create new user
-        user = await db.create_user(
-            telegram_id=user_id,
-            username=callback.from_user.username,
-            first_name=callback.from_user.first_name,
-            language=language,
-            referred_by=referred_by_id
-        )
+        logger.info(f"Creating new user: telegram_id={user_id}, username={callback.from_user.username}, language={language}, referred_by={referred_by_id}")
+        try:
+            user = await db.create_user(
+                telegram_id=user_id,
+                username=callback.from_user.username,
+                first_name=callback.from_user.first_name,
+                language=language,
+                referred_by=referred_by_id
+            )
+            logger.info(f"✅ User created successfully: user_id={user_id}, user_object={user}")
+        except Exception as e:
+            logger.error(f"❌ CRITICAL: Failed to create user {user_id}: {e}", exc_info=True)
+            await callback.answer("❌ Xatolik yuz berdi. Iltimos, qaytadan /start bosing.", show_alert=True)
+            return
 
         # If referred by someone, create referral record and give bonus
         if referred_by_id:
