@@ -843,7 +843,7 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
         price = data.get('price', 0)
         await db.update_user_balance(user.telegram_id, -price)
 
-        await callback.message.edit_text(get_text(user_lang, "document_ready"))
+        await callback.message.answer(get_text(user_lang, "document_ready"))
 
         # Send file
         document = FSInputFile(file_path)
@@ -858,7 +858,7 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
 
     except Exception as e:
         logger.error(f"Error generating independent work: {e}")
-        await callback.message.edit_text(
+        await callback.message.answer(
             "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
             reply_markup=get_main_keyboard(user_lang)
         )
@@ -917,7 +917,7 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
         price = data.get('price', 0)
         await db.update_user_balance(user.telegram_id, -price)
 
-        await callback.message.edit_text(get_text(user_lang, "document_ready"))
+        await callback.message.answer(get_text(user_lang, "document_ready"))
 
         # Send file
         document = FSInputFile(file_path)
