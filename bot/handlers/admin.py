@@ -152,7 +152,8 @@ async def adjust_payment_amount(callback: CallbackQuery, db: Database):
 
         await callback.message.edit_text(
             text,
-            reply_markup=get_amount_adjustment_keyboard(payment_id, payment.amount)
+            reply_markup=get_amount_adjustment_keyboard(payment_id, payment.amount),
+            parse_mode=None
         )
 
     except Exception as e:
@@ -191,7 +192,8 @@ async def decrease_payment_amount(callback: CallbackQuery, db: Database):
 
         await callback.message.edit_text(
             text,
-            reply_markup=get_amount_adjustment_keyboard(payment_id, new_amount)
+            reply_markup=get_amount_adjustment_keyboard(payment_id, new_amount),
+            parse_mode=None
         )
 
     except Exception as e:
@@ -231,7 +233,8 @@ async def increase_payment_amount(callback: CallbackQuery, db: Database):
 
         await callback.message.edit_text(
             text,
-            reply_markup=get_amount_adjustment_keyboard(payment_id, new_amount)
+            reply_markup=get_amount_adjustment_keyboard(payment_id, new_amount),
+            parse_mode=None
         )
 
     except Exception as e:
@@ -788,7 +791,7 @@ async def list_promocodes(callback: CallbackQuery, db: Database):
     keyboard.add(InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_promocode_menu"))
     keyboard.adjust(1)
 
-    await callback.message.edit_text(text, reply_markup=keyboard.as_markup(), parse_mode="Markdown")
+    await callback.message.edit_text(text, reply_markup=keyboard.as_markup(), parse_mode=None)
 
 @router.callback_query(F.data == "promocode_stats")
 async def promocode_stats(callback: CallbackQuery, db: Database):
@@ -821,7 +824,7 @@ async def promocode_stats(callback: CallbackQuery, db: Database):
     keyboard = InlineKeyboardBuilder()
     keyboard.add(InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_promocode_menu"))
 
-    await callback.message.edit_text(text, reply_markup=keyboard.as_markup())
+    await callback.message.edit_text(text, reply_markup=keyboard.as_markup(), parse_mode=None)
 
 @router.callback_query(F.data == "deactivate_promocode")
 async def start_deactivate_promocode(callback: CallbackQuery, state: FSMContext):
