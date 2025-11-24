@@ -21,13 +21,69 @@ async def start_command(message: Message, state: FSMContext, db: Database):
 
     # Extract referral code from command if present (e.g., /start ref_ABC123)
     referral_code = None
+    referred_by_id = None
     if message.text and len(message.text.split()) > 1:
         command_args = message.text.split()[1]
         if command_args.startswith("ref_"):
             referral_code = command_args[4:]  # Remove "ref_" prefix
-            await state.update_data(referral_code=referral_code)
+            
+            # Get referrer by referral code
+            referrer = await db.get_user_by_referral_code(referral_code)
+            if referrer and referrer.telegram_id != user_id:
+                referred_by_id = referrer.telegram_id
+                await state.update_data(referred_by=referred_by_id)
 
     if not user:
+        # CRITICAL: Create user IMMEDIATELY on /start to prevent silent failures
+        logger.info(f"Creating new user on /start: telegram_id={user_id}, username={message.from_user.username}, referred_by={referred_by_id}")
+        try:
+            user = await db.create_user(
+                telegram_id=user_id,
+                username=message.from_user.username,
+                first_name=message.from_user.first_name,
+                language="uz",  # Default language, will be updated when user selects
+                referred_by=referred_by_id
+            )
+            logger.info(f"✅ User created successfully on /start: user_id={user_id}")
+            
+            # Process referral signup bonus if applicable
+            if referred_by_id:
+                try:
+                    # Create referral record
+                    await db.create_referral(referred_by_id, user_id)
+
+                    # Give 1000 som signup bonus to referrer
+                    SIGNUP_BONUS = 1000
+                    await db.update_user_balance(referred_by_id, SIGNUP_BONUS)
+                    await db.update_referral_earnings(referred_by_id, user_id, SIGNUP_BONUS)
+                    await db.update_signup_bonus(referred_by_id, user_id, True)
+
+                    # Notify referrer
+                    referrer_user = await db.get_user(referred_by_id)
+                    if referrer_user:
+                        bonus_text = {
+                            'uz': f"🎉 Yangi foydalanuvchi sizning havolangiz orqali botga qo'shildi!\n💰 +{SIGNUP_BONUS:,} so'm hisobingizga qo'shildi.",
+                            'ru': f"🎉 Новый пользователь присоединился к боту по вашей ссылке!\n💰 +{SIGNUP_BONUS:,} сум добавлено на ваш счет.",
+                            'en': f"🎉 New user joined the bot via your referral link!\n💰 +{SIGNUP_BONUS:,} som added to your balance."
+                        }
+                        try:
+                            await message.bot.send_message(
+                                referred_by_id,
+                                bonus_text.get(referrer_user.language, bonus_text['uz'])
+                            )
+                        except Exception as e:
+                            logger.error(f"Failed to notify referrer {referred_by_id}: {e}")
+                except Exception as e:
+                    logger.error(f"Error processing referral: {e}")
+        except Exception as e:
+            logger.error(f"❌ CRITICAL: Failed to create user on /start {user_id}: {e}", exc_info=True)
+            await message.answer(
+                "❌ Xatolik yuz berdi. Iltimos, qaytadan /start bosing.\n\n"
+                "❌ Произошла ошибка. Пожалуйста, нажмите /start снова.\n\n"
+                "❌ An error occurred. Please press /start again."
+            )
+            return
+        
         # New user - show language selection
         await message.answer(
             "@EDUfail_bot sizga mustaqil ish referat va taqdimotlarni tez va sifatli yaratib beradi.\n"
@@ -41,79 +97,30 @@ async def start_command(message: Message, state: FSMContext, db: Database):
 
 @router.callback_query(F.data.startswith("lang_"))
 async def language_selected(callback: CallbackQuery, state: FSMContext, db: Database):
-    """Handle language selection"""
+    """Handle language selection - only update language preference"""
     language = callback.data.split("_")[1]
     user_id = callback.from_user.id
     
-    logger.info(f"Language selection: user_id={user_id}, language={language}")
+    logger.info(f"Language selection callback: user_id={user_id}, language={language}")
 
-    # Create or update user
+    # Get user (should exist from /start handler)
     user = await db.get_user(user_id)
-    logger.info(f"Existing user check: user_id={user_id}, found={user is not None}")
     
     if not user:
-        # Check if there's a referral code in state
-        state_data = await state.get_data()
-        referral_code = state_data.get('referral_code')
-        referred_by_id = None
-
-        if referral_code:
-            # Get referrer by referral code
-            referrer = await db.get_user_by_referral_code(referral_code)
-            if referrer and referrer.telegram_id != user_id:
-                referred_by_id = referrer.telegram_id
-
-        # Create new user
-        logger.info(f"Creating new user: telegram_id={user_id}, username={callback.from_user.username}, language={language}, referred_by={referred_by_id}")
-        try:
-            user = await db.create_user(
-                telegram_id=user_id,
-                username=callback.from_user.username,
-                first_name=callback.from_user.first_name,
-                language=language,
-                referred_by=referred_by_id
-            )
-            logger.info(f"✅ User created successfully: user_id={user_id}, user_object={user}")
-        except Exception as e:
-            logger.error(f"❌ CRITICAL: Failed to create user {user_id}: {e}", exc_info=True)
-            await callback.answer("❌ Xatolik yuz berdi. Iltimos, qaytadan /start bosing.", show_alert=True)
-            return
-
-        # If referred by someone, create referral record and give bonus
-        if referred_by_id:
-            try:
-                # Create referral record
-                await db.create_referral(referred_by_id, user_id)
-
-                # Give 1000 som signup bonus to referrer
-                SIGNUP_BONUS = 1000
-                await db.update_user_balance(referred_by_id, SIGNUP_BONUS)
-                await db.update_referral_earnings(referred_by_id, user_id, SIGNUP_BONUS)
-                await db.update_signup_bonus(referred_by_id, user_id, True)
-
-                # Notify referrer
-                referrer_user = await db.get_user(referred_by_id)
-                if referrer_user:
-                    bonus_text = {
-                        'uz': f"🎉 Yangi foydalanuvchi sizning havolangiz orqali botga qo'shildi!\n💰 +{SIGNUP_BONUS:,} so'm hisobingizga qo'shildi.",
-                        'ru': f"🎉 Новый пользователь присоединился к боту по вашей ссылке!\n💰 +{SIGNUP_BONUS:,} сум добавлено на ваш счет.",
-                        'en': f"🎉 New user joined the bot via your referral link!\n💰 +{SIGNUP_BONUS:,} som added to your balance."
-                    }
-                    try:
-                        await callback.bot.send_message(
-                            referred_by_id,
-                            bonus_text.get(referrer_user.language, bonus_text['uz'])
-                        )
-                    except Exception as e:
-                        logger.error(f"Failed to notify referrer {referred_by_id}: {e}")
-
-                # Clear referral code from state
-                await state.update_data(referral_code=None)
-            except Exception as e:
-                logger.error(f"Error processing referral: {e}")
-    else:
-        await db.update_user_language(user_id, language)
-        user.language = language
+        # This should NOT happen if /start worked correctly
+        logger.error(f"❌ CRITICAL: User not found in language_selected callback: user_id={user_id}")
+        await callback.answer(
+            "❌ Xatolik yuz berdi. Iltimos, /start bosing.\n\n"
+            "❌ Произошла ошибка. Пожалуйста, нажмите /start.\n\n"
+            "❌ An error occurred. Please press /start.",
+            show_alert=True
+        )
+        return
+    
+    # Update language preference
+    await db.update_user_language(user_id, language)
+    user.language = language
+    logger.info(f"✅ Language updated: user_id={user_id}, new_language={language}")
 
     # Delete the language selection message
     await callback.message.delete()
