@@ -170,18 +170,18 @@ class AIService:
         layout_instructions = {
             "bullet_points": f"""
 LAYOUT: Uzun uzluksiz matn (bullet_points)
-- AYNAN 70 SO'ZLIK uzluksiz matn yozing
+- AYNAN 175 SO'ZLIK uzluksiz matn yozing
 - Matn sarlavhaga to'liq mos kelishi kerak
 - Umumiy emas, MAVZUGA XOSLIK bo'lishi shart
 - Matn bir butun paragraf ko'rinishida
-- To'liq 70 so'z yozing, kam yozmang
+- To'liq 175 so'z yozing, kam yozmang
 """,
             "text_with_image": f"""
 LAYOUT: Uzun yahlit matn (text_with_image)
-- AYNAN 70 SO'ZLIK matn yozing (40 emas, 70!)
+- AYNAN 175 SO'ZLIK matn yozing (70 emas, 175!)
 - Matn bir butun tarzida, sarlavhaga chuqurroq sharh sifatida yozilsin
 - MUHIM: RASM HAQIDA YOZMANG! Faqat mavzu haqida ma'lumot yozing
-- To'liq 70 so'z yozing, kam yozmang
+- To'liq 175 so'z yozing, kam yozmang
 """,
             "three_column": f"""
 LAYOUT: 3 ustunli matn (three_column)

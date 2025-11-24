@@ -305,7 +305,7 @@ class DocumentService:
                 logger.info(f"Creating content slide {slide_num} with layout: {layout_type}")
                 await self._create_new_content_slide(prs, slide_data, layout_type, slide_num, images)
 
-            # 2.5. ADD REFERENCES SLIDE - oxirgi slayddan oldin (agar berilgan bo'lsa)
+            # 2.5. ADD REFERENCES SLIDE - oxirgi slalddan oldin (agar berilgan bo'lsa)
             if references and len(references) > 0:
                 await self._create_references_slide(prs, references, language)
 
@@ -478,7 +478,7 @@ class DocumentService:
 
         # KESISH YO'Q - to'liq matn ishlatiladi
         text_para.text = original_content  # AI dan 70 so'zlik to'liq matn
-        text_para.font.size = PptxPt(24)  # Increased from 22pt to 24pt
+        text_para.font.size = PptxPt(20)  # Reduced to 20pt for image slides
         text_para.font.bold = True  # Bold for better visibility
         text_para.font.color.rgb = RGBColor(0, 0, 0)  # Black text
         text_para.alignment = PP_ALIGN.LEFT  # Left alignment
