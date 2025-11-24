@@ -88,9 +88,11 @@ class AIService:
     async def generate_presentation_in_batches(self, topic: str, slide_count: int, language: str) -> Dict:
         """Generate presentation content in batches of 3 slides"""
         try:
-            # Sanitize topic for AI processing - remove special characters
+            # Sanitize topic for AI processing - remove special characters and normalize
             clean_topic = topic.replace('«', '').replace('»', '')
             clean_topic = clean_topic.replace('"', '').replace('"', '')
+            clean_topic = clean_topic.replace(''', "'").replace(''', "'")
+            clean_topic = clean_topic.replace(',', '.')  # Replace comma with period in numbers
             clean_topic = clean_topic.strip()
 
             # If topic becomes empty after cleaning, use original

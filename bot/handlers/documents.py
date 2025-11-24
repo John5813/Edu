@@ -171,6 +171,9 @@ async def handle_topic_input(message: Message, state: FSMContext, user_lang: str
     topic = topic.replace('«', '"').replace('»', '"')
     topic = topic.replace('"', '"').replace('"', '"')
     topic = topic.replace(''', "'").replace(''', "'")
+    # Normalize numbers: replace comma with period (3,5 -> 3.5)
+    import re
+    topic = re.sub(r'(\d),(\d)', r'\1.\2', topic)
     topic = topic.strip()
 
     # Simple check - only handle actual topics (not system buttons)
