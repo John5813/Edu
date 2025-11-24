@@ -272,7 +272,8 @@ async def cancel_adjustment(callback: CallbackQuery, db: Database):
 
         await callback.message.edit_text(
             text,
-            reply_markup=get_payment_review_keyboard(payment_id)
+            reply_markup=get_payment_review_keyboard(payment_id),
+            parse_mode=None
         )
 
     except Exception as e:
@@ -356,7 +357,8 @@ async def confirm_adjusted_payment(callback: CallbackQuery, db: Database):
             f"✅ To'lov #{payment_id} tasdiqlandi.\n"
             f"👤 Foydalanuvchi: {user_link}\n"
             f"💵 {payment.amount:,} so'm foydalanuvchi hisobiga qo'shildi.\n"
-            f"📅 {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+            f"📅 {datetime.now().strftime('%d.%m.%Y %H:%M')}",
+            parse_mode=None
         )
 
         # Notify other admins
@@ -459,7 +461,8 @@ async def approve_payment(callback: CallbackQuery, db: Database):
             f"✅ To'lov #{payment_id} tasdiqlandi.\n"
             f"👤 Foydalanuvchi: {user_link}\n"
             f"💵 {payment.amount:,} so'm foydalanuvchi hisobiga qo'shildi.\n"
-            f"📅 {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+            f"📅 {datetime.now().strftime('%d.%m.%Y %H:%M')}",
+            parse_mode=None
         )
 
         # Notify other admins
@@ -510,7 +513,8 @@ async def reject_payment(callback: CallbackQuery, db: Database):
             f"👤 Foydalanuvchi: {user_link}\n"
             f"💵 Summa: {payment.amount:,} so'm\n"
             f"📅 {datetime.now().strftime('%d.%m.%Y %H:%M')}\n\n"
-            f"Foydalanuvchiga xabar yuborildi."
+            f"Foydalanuvchiga xabar yuborildi.",
+            parse_mode=None
         )
 
         # Notify other admins
@@ -542,7 +546,8 @@ async def add_channel_start(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
         "📢 Yangi kanal qo'shish\n\n"
         "Kanal ID sini kiriting (masalan: -1001234567890):",
-        reply_markup=get_back_to_channels_keyboard()
+        reply_markup=get_back_to_channels_keyboard(),
+        parse_mode=None
     )
     await state.set_state(AdminStates.waiting_for_channel_id)
 
@@ -645,12 +650,13 @@ async def remove_channel_start(callback: CallbackQuery, db: Database):
     channels = await db.get_active_channels()
 
     if not channels:
-        await callback.message.edit_text("📢 Faol kanallar yo'q.")
+        await callback.message.edit_text("📢 Faol kanallar yo'q.", parse_mode=None)
         return
 
     await callback.message.edit_text(
         "🗑 O'chirish uchun kanalni tanlang:",
-        reply_markup=get_channels_list_keyboard(channels)
+        reply_markup=get_channels_list_keyboard(channels),
+        parse_mode=None
     )
 
 @router.callback_query(F.data.startswith("delete_channel_"))
@@ -664,7 +670,8 @@ async def remove_channel_confirm(callback: CallbackQuery, db: Database):
     try:
         await db.remove_channel(channel_id)
         await callback.message.edit_text(
-            f"✅ Kanal o'chirildi: {channel_id}"
+            f"✅ Kanal o'chirildi: {channel_id}",
+            parse_mode=None
         )
     except Exception as e:
         logger.error(f"Error removing channel: {e}")
@@ -679,7 +686,7 @@ async def list_channels(callback: CallbackQuery, db: Database):
     channels = await db.get_active_channels()
 
     if not channels:
-        await callback.message.edit_text("📢 Faol kanallar yo'q.")
+        await callback.message.edit_text("📢 Faol kanallar yo'q.", parse_mode=None)
         return
 
     text = "📢 Faol kanallar:\n\n"
@@ -690,7 +697,7 @@ async def list_channels(callback: CallbackQuery, db: Database):
             text += f"  👤 @{channel.channel_username}\n"
         text += "\n"
 
-    await callback.message.edit_text(text)
+    await callback.message.edit_text(text, parse_mode=None)
 
 @router.message(F.text == "🎟 Promokod boshqaruvi")
 async def handle_promocode_management(message: Message):
@@ -711,7 +718,8 @@ async def create_promocode_start(callback: CallbackQuery, state: FSMContext):
 
     await callback.message.edit_text(
         "💬 Yangi promokod yaratish\n\n"
-        "Promokod nomini kiriting (yoki 'auto' deb yozing avtomatik yaratish uchun):"
+        "Promokod nomini kiriting (yoki 'auto' deb yozing avtomatik yaratish uchun):",
+        parse_mode=None
     )
     await state.set_state(AdminStates.waiting_for_promocode)
 
@@ -758,7 +766,8 @@ async def list_promocodes(callback: CallbackQuery, db: Database):
     if not promocodes:
         await callback.message.edit_text(
             "📋 Faol promokodlar yo'q",
-            reply_markup=get_promocode_keyboard()
+            reply_markup=get_promocode_keyboard(),
+            parse_mode=None
         )
         return
 
@@ -835,7 +844,8 @@ async def start_deactivate_promocode(callback: CallbackQuery, state: FSMContext)
     await callback.message.edit_text(
         "🔴 Promokodni faolsizlashtirish\n\n"
         "Faolsizlashtirmoqchi bo'lgan promokod nomini kiriting:\n"
-        "Masalan: ABC12345"
+        "Masalan: ABC12345",
+        parse_mode=None
     )
     await state.set_state(AdminStates.waiting_for_deactivate_promocode)
 
@@ -879,7 +889,8 @@ async def back_to_promocode_menu(callback: CallbackQuery):
 
     await callback.message.edit_text(
         "💬 Promokod boshqaruvi",
-        reply_markup=get_promocode_keyboard()
+        reply_markup=get_promocode_keyboard(),
+        parse_mode=None
     )
 
 @router.callback_query(F.data == "back_to_channels")
@@ -891,7 +902,8 @@ async def back_to_channels(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.message.edit_text(
         "📢 Kanal sozlamalari",
-        reply_markup=get_channel_management_keyboard()
+        reply_markup=get_channel_management_keyboard(),
+        parse_mode=None
     )
 
 @router.callback_query(F.data == "retry_channel_id")
@@ -904,7 +916,8 @@ async def retry_channel_id(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
         "📢 Yangi kanal qo'shish\n\n"
         "Kanal ID sini kiriting (masalan: -1001234567890):",
-        reply_markup=get_back_to_channels_keyboard()
+        reply_markup=get_back_to_channels_keyboard(),
+        parse_mode=None
     )
     await state.set_state(AdminStates.waiting_for_channel_id)
 
@@ -1386,7 +1399,8 @@ async def add_sample_start(callback: CallbackQuery, state: FSMContext):
 
     await callback.message.edit_text(
         "📁 Yangi namuna qo'shish\n\n"
-        "Namuna faylini yuboring (hujjat yoki rasm):"
+        "Namuna faylini yuboring (hujjat yoki rasm):",
+        parse_mode=None
     )
     await state.set_state(AdminStates.waiting_for_sample_file)
 
@@ -1459,13 +1473,14 @@ async def delete_sample_start(callback: CallbackQuery, db: Database):
     samples = await db.get_active_sample_files()
 
     if not samples:
-        await callback.message.edit_text("📁 Namunalar yo'q.")
+        await callback.message.edit_text("📁 Namunalar yo'q.", parse_mode=None)
         return
 
     from bot.keyboards import get_samples_list_keyboard
     await callback.message.edit_text(
         "🗑 O'chirish uchun namunani tanlang:",
-        reply_markup=get_samples_list_keyboard(samples)
+        reply_markup=get_samples_list_keyboard(samples),
+        parse_mode=None
     )
 
 @router.callback_query(F.data.startswith("delete_sample_"))
@@ -1481,7 +1496,8 @@ async def delete_sample_confirm(callback: CallbackQuery, db: Database):
         if sample:
             await db.delete_sample_file(sample_id)
             await callback.message.edit_text(
-                f"✅ Namuna o'chirildi: {sample['title']}"
+                f"✅ Namuna o'chirildi: {sample['title']}",
+                parse_mode=None
             )
         else:
             await callback.answer("❌ Namuna topilmadi.")
@@ -1498,7 +1514,7 @@ async def list_samples_admin(callback: CallbackQuery, db: Database):
     samples = await db.get_active_sample_files()
 
     if not samples:
-        await callback.message.edit_text("📁 Namunalar yo'q.")
+        await callback.message.edit_text("📁 Namunalar yo'q.", parse_mode=None)
         return
 
     text = f"📁 Barcha namunalar ({len(samples)} ta):\n\n"
@@ -1510,7 +1526,7 @@ async def list_samples_admin(callback: CallbackQuery, db: Database):
         text += f"📅 {sample['created_at']}\n"
         text += "➖➖➖➖➖➖➖➖\n\n"
 
-    await callback.message.edit_text(text)
+    await callback.message.edit_text(text, parse_mode=None)
 
 @router.callback_query(F.data == "back_to_sample_menu")
 async def back_to_sample_menu(callback: CallbackQuery):
@@ -1521,5 +1537,6 @@ async def back_to_sample_menu(callback: CallbackQuery):
     from bot.keyboards import get_sample_management_keyboard
     await callback.message.edit_text(
         "📁 Namunalar boshqaruvi",
-        reply_markup=get_sample_management_keyboard()
+        reply_markup=get_sample_management_keyboard(),
+        parse_mode=None
     )
