@@ -568,7 +568,7 @@ async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: 
     finally:
         await state.clear()
 
-async def generate_independent_work_manual(message: Message, state: FSMContext, db: Database, user_lang: str, user):
+async def generate_independent_work_manual(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Generate independent work with manual outline"""
     try:
         data = await state.get_data()
@@ -623,24 +623,24 @@ async def generate_independent_work_manual(message: Message, state: FSMContext, 
         price = data.get('price', 0)
         await db.update_user_balance(user.telegram_id, -price)
 
-        await message.answer(get_text(user_lang, "document_ready"))
+        await callback.message.answer(get_text(user_lang, "document_ready"))
 
         # Send file
         from aiogram.types import FSInputFile
         document = FSInputFile(file_path)
-        await message.answer_document(
+        await callback.message.answer_document(
             document=document,
             caption=f"🎓 {topic}",
             reply_markup=get_main_keyboard(user_lang)
         )
 
-        await message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
+        await callback.message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
 
         await state.clear()
 
     except Exception as e:
         logger.error(f"Error generating manual independent work: {e}")
-        await message.answer(
+        await callback.message.answer(
             "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
             reply_markup=get_main_keyboard(user_lang)
         )
@@ -648,7 +648,7 @@ async def generate_independent_work_manual(message: Message, state: FSMContext, 
             await db.update_document_order(order_id, "failed")
         await state.clear()
 
-async def generate_referat_manual(message: Message, state: FSMContext, db: Database, user_lang: str, user):
+async def generate_referat_manual(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Generate referat with manual outline"""
     try:
         data = await state.get_data()
@@ -703,24 +703,24 @@ async def generate_referat_manual(message: Message, state: FSMContext, db: Datab
         price = data.get('price', 0)
         await db.update_user_balance(user.telegram_id, -price)
 
-        await message.answer(get_text(user_lang, "document_ready"))
+        await callback.message.answer(get_text(user_lang, "document_ready"))
 
         # Send file
         from aiogram.types import FSInputFile
         document = FSInputFile(file_path)
-        await message.answer_document(
+        await callback.message.answer_document(
             document=document,
             caption=f"📄 {topic}",
             reply_markup=get_main_keyboard(user_lang)
         )
 
-        await message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
+        await callback.message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
 
         await state.clear()
 
     except Exception as e:
         logger.error(f"Error generating manual referat: {e}")
-        await message.answer(
+        await callback.message.answer(
             "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
             reply_markup=get_main_keyboard(user_lang)
         )
@@ -961,12 +961,14 @@ async def handle_outline_auto(callback: CallbackQuery, state: FSMContext, db: Da
         await state.set_state(DocumentStates.waiting_for_template)
     else:
         # For documents, start generation
-        await callback.message.answer("⏳ " + get_text(user_lang, "generating"))
+        generation_msg = await callback.message.answer("⏳ " + get_text(user_lang, "generating"))
 
         if document_type == "independent_work":
-            asyncio.create_task(generate_independent_work(callback, state, db, user_lang, user))
+            # Call with callback parameter
+            await generate_independent_work(callback, state, db, user_lang, user)
         else:  # referat
-            asyncio.create_task(generate_referat(callback, state, db, user_lang, user))
+            # Call with callback parameter
+            await generate_referat(callback, state, db, user_lang, user)
 
 @router.callback_query(F.data == "cancel_document")
 async def handle_cancel_document(callback: CallbackQuery, state: FSMContext, user_lang: str):
@@ -1119,9 +1121,11 @@ async def handle_confirm_outline(callback: CallbackQuery, state: FSMContext, db:
         await callback.message.answer("⏳ " + get_text(user_lang, "generating"))
         
         if document_type == "independent_work":
-            asyncio.create_task(generate_independent_work_manual(callback, state, db, user_lang, user))
+            # Call with callback parameter
+            await generate_independent_work_manual(callback, state, db, user_lang, user)
         else:  # referat
-            asyncio.create_task(generate_referat_manual(callback, state, db, user_lang, user))
+            # Call with callback parameter
+            await generate_referat_manual(callback, state, db, user_lang, user)
 
 @router.callback_query(F.data == "edit_outline", DocumentStates.waiting_for_outline_confirmation)
 async def handle_edit_outline(callback: CallbackQuery, state: FSMContext, user_lang: str):
