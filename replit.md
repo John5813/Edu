@@ -10,6 +10,20 @@ The system operates on a freemium model where users get one free document genera
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (November 24, 2025)
+
+✓ **KRITIK BUG HAL QILINDI: User Registration Silent Failure** - Production muammosi:
+  - **Muammo**: Ba'zi foydalanuvchilar (10,000+ dan atigi 6 ta database'da) til tanlash tugmasini bosmagani yoki Telegram callback'ni yo'qotgani uchun database'ga **hech qachon saqlanmagan**
+  - **Natija**: Foydalanuvchilar botdan bemalol foydalanishar edi, lekin to'lov paytida `user.balance` tekshirilganda **AttributeError crash** bo'lardi
+  - **Yechim**:
+    - `/start` handler'da user'ni **darhol yaratish** - callback'ni kutmasdan
+    - Default til: "uz" (keyin foydalanuvchi o'zgartirishi mumkin)
+    - `language_selected` callback faqat til'ni update qiladi
+    - Referral bonus processing ham `/start`'da bajariladi
+  - **Natija**: Endi **har kim /start bosganda DARHOL database'ga saqlanadi**
+  - **Files changed**: `bot/handlers/start.py`, `bot/middlewares.py`
+  - **Test confirmed**: User created and payment processed successfully
+
 ## Recent Changes (November 22, 2025)
 
 ✓ **XIZMATIMIZ NAMUNALARI FUNKSIYASI QO'SHILDI** - Mijozlarga tayyor namunalarni ko'rsatish:
