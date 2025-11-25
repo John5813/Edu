@@ -93,8 +93,8 @@ def get_all_templates_keyboard() -> InlineKeyboardMarkup:
             callback_data=f"template_{i}"
         ))
 
-    # Arrange in 4 rows of 5 buttons each to match the image layout (4x5 grid)
-    keyboard.adjust(5)  # 5 buttons per row - matches the template overview image
+    # Arrange in 5 rows of 4 buttons each to match the image layout
+    keyboard.adjust(4)  # 4 buttons per row = 5 rows
 
     return keyboard.as_markup()
 
