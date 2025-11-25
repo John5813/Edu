@@ -83,35 +83,11 @@ def get_slide_count_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
     return keyboard.as_markup()
 
 def get_all_templates_keyboard() -> InlineKeyboardMarkup:
-    """Create compact keyboard with all 20 template numbers
-    
-    Image layout (5 columns, 4 rows):
-    Row 1: 1, 2, 3, 4, 5
-    Row 2: 6, 7, 8, 9, 10
-    Row 3: 11, 12, 13, 14, 15
-    Row 4: 16, 17, 18, 19, 20
-    
-    Keyboard layout (4 columns, 5 rows) - VISUALLY matches image:
-    Row 1: 1, 2, 3, 4     (image row 1, cols 1-4)
-    Row 2: 6, 7, 8, 9     (image row 2, cols 1-4)
-    Row 3: 11, 12, 13, 14 (image row 3, cols 1-4)
-    Row 4: 16, 17, 18, 19 (image row 4, cols 1-4)
-    Row 5: 5, 10, 15, 20  (image 5th column - all grouped here)
-    """
+    """Create compact keyboard with all 20 template numbers (4 columns, 5 rows)"""
     keyboard = InlineKeyboardBuilder()
 
-    # Reorder to match image visual positions
-    # First 4 rows: columns 1-4 of each image row
-    # Last row: all 5th column templates
-    button_order = [
-        1, 2, 3, 4,      # Image row 1, cols 1-4
-        6, 7, 8, 9,      # Image row 2, cols 1-4
-        11, 12, 13, 14,  # Image row 3, cols 1-4
-        16, 17, 18, 19,  # Image row 4, cols 1-4
-        5, 10, 15, 20    # Image 5th column (grouped at bottom)
-    ]
-    
-    for i in button_order:
+    # Sequential order 1-20
+    for i in range(1, 21):
         keyboard.add(InlineKeyboardButton(
             text=str(i),
             callback_data=f"template_{i}"
