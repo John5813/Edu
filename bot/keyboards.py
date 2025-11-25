@@ -90,7 +90,7 @@ def get_all_templates_keyboard() -> InlineKeyboardMarkup:
     for i in range(1, 21):
         keyboard.add(InlineKeyboardButton(
             text=str(i),
-            callback_data=f"template_template_{i}"
+            callback_data=f"template_{i}"
         ))
 
     # Arrange in 4 rows of 5 buttons each to match the image layout (4x5 grid)
