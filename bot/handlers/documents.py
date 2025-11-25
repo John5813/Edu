@@ -257,11 +257,11 @@ async def handle_template_group_navigation(callback: CallbackQuery, state: FSMCo
         logger.error(f"Error in template group navigation: {e}")
         await callback.answer("❌ Xatolik yuz berdi")
 
-@router.callback_query(F.data.startswith("template_template_"))
+@router.callback_query(F.data.regexp(r"^template_\d+$"))
 async def handle_template_selection(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Handle template selection and ask about references"""
     try:
-        # Extract template number from callback data (template_template_X)
+        # Extract template number from callback data (template_X)
         template_num = callback.data.split("_")[-1]
         template_id = f"template_{template_num}"
         await callback.answer()
