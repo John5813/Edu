@@ -388,18 +388,15 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
             topic, content, user.first_name or "", template_id, template_service, user_lang, references
         )
 
-        # Update order
-        await db.update_document_order(order_id, "completed", file_path)
-
-        # Deduct from balance
-        await db.update_user_balance(user.telegram_id, -price)
-        await callback.message.answer(get_text(user_lang, "document_ready"))
+        # Verify file was created
+        if not file_path or not os.path.exists(file_path):
+            logger.error(f"Presentation file not created or not found: {file_path}")
+            raise Exception(f"File not created: {file_path}")
 
         # Get template name for caption
-        template_service = TemplateService()
         template_name = template_service.get_template_name(template_id, user_lang)
 
-        # Send file
+        # Send file FIRST - only proceed if successful
         document = FSInputFile(file_path)
         await callback.message.answer_document(
             document=document,
@@ -411,15 +408,25 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
             reply_markup=get_main_keyboard(user_lang)
         )
 
+        # File sent successfully - NOW update database and balance
+        await db.update_document_order(order_id, "completed", file_path)
+        await db.update_user_balance(user.telegram_id, -price)
+
+        # Send success message AFTER file is delivered
+        await callback.message.answer(get_text(user_lang, "document_ready"))
+
         # Send gentle reminder about content review
         await callback.message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
 
+        logger.info(f"Presentation successfully generated and sent: {file_path} for user {user.telegram_id}")
         await state.clear()
 
     except Exception as e:
-        logger.error(f"Error generating presentation with template: {e}")
+        import traceback
+        error_details = traceback.format_exc()
+        logger.error(f"Error generating presentation with template: {e}\n{error_details}")
         await callback.message.answer(
-            "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
+            "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.\n\nSabab: " + str(e)[:100],
             reply_markup=get_main_keyboard(user_lang)
         )
         try:
@@ -557,14 +564,12 @@ async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: 
         doc_service = DocumentService()
         file_path = await doc_service.create_new_presentation_system(topic, content, user.first_name or "", user_lang)
 
-        # Update order
-        await db.update_document_order(order_id, "completed", file_path)
+        # Verify file was created
+        if not file_path or not os.path.exists(file_path):
+            logger.error(f"Presentation file (legacy) not created: {file_path}")
+            raise Exception(f"File not created: {file_path}")
 
-        # Deduct from balance
-        await db.update_user_balance(user.telegram_id, -price)
-        await callback.message.edit_text(get_text(user_lang, "document_ready"))
-
-        # Send file
+        # Send file FIRST - only proceed if successful
         document = FSInputFile(file_path)
         await callback.message.answer_document(
             document=document,
@@ -572,12 +577,23 @@ async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: 
             reply_markup=get_main_keyboard(user_lang)
         )
 
+        # File sent successfully - NOW update database and balance
+        await db.update_document_order(order_id, "completed", file_path)
+        await db.update_user_balance(user.telegram_id, -price)
+
+        # Send success message AFTER file is delivered
+        await callback.message.edit_text(get_text(user_lang, "document_ready"))
+
         # Send gentle reminder about content review
         await callback.message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
 
+        logger.info(f"Presentation (legacy) generated and sent: {file_path} for user {user.telegram_id}")
+
     except Exception as e:
-        logger.error(f"Error generating presentation: {e}")
-        await callback.message.edit_text("❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.")
+        import traceback
+        error_details = traceback.format_exc()
+        logger.error(f"Error generating presentation: {e}\n{error_details}")
+        await callback.message.edit_text("❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.\n\nSabab: " + str(e)[:100])
         await callback.message.answer("Asosiy menyu:", reply_markup=get_main_keyboard(user_lang))
         # Update order status
         if 'order_id' in locals():
@@ -634,16 +650,12 @@ async def generate_independent_work_manual(callback: CallbackQuery, state: FSMCo
         doc_service = OldDocumentService()
         file_path = await doc_service.create_independent_work(topic, content)
 
-        # Update order
-        await db.update_document_order(order_id, "completed", file_path)
+        # Verify file was created
+        if not file_path or not os.path.exists(file_path):
+            logger.error(f"Manual independent work file not created: {file_path}")
+            raise Exception(f"File not created: {file_path}")
 
-        # Deduct from balance
-        price = data.get('price', 0)
-        await db.update_user_balance(user.telegram_id, -price)
-
-        await callback.message.answer(get_text(user_lang, "document_ready"))
-
-        # Send file
+        # Send file FIRST - only proceed if successful
         from aiogram.types import FSInputFile
         document = FSInputFile(file_path)
         await callback.message.answer_document(
@@ -652,14 +664,24 @@ async def generate_independent_work_manual(callback: CallbackQuery, state: FSMCo
             reply_markup=get_main_keyboard(user_lang)
         )
 
+        # File sent successfully - NOW update database and balance
+        await db.update_document_order(order_id, "completed", file_path)
+        price = data.get('price', 0)
+        await db.update_user_balance(user.telegram_id, -price)
+
+        # Send success message AFTER file is delivered
+        await callback.message.answer(get_text(user_lang, "document_ready"))
         await callback.message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
 
+        logger.info(f"Manual independent work generated and sent: {file_path} for user {user.telegram_id}")
         await state.clear()
 
     except Exception as e:
-        logger.error(f"Error generating manual independent work: {e}")
+        import traceback
+        error_details = traceback.format_exc()
+        logger.error(f"Error generating manual independent work: {e}\n{error_details}")
         await callback.message.answer(
-            "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
+            "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.\n\nSabab: " + str(e)[:100],
             reply_markup=get_main_keyboard(user_lang)
         )
         if 'order_id' in locals():
@@ -714,16 +736,12 @@ async def generate_referat_manual(callback: CallbackQuery, state: FSMContext, db
         doc_service = OldDocumentService()
         file_path = await doc_service.create_referat(topic, content)
 
-        # Update order
-        await db.update_document_order(order_id, "completed", file_path)
+        # Verify file was created
+        if not file_path or not os.path.exists(file_path):
+            logger.error(f"Manual referat file not created: {file_path}")
+            raise Exception(f"File not created: {file_path}")
 
-        # Deduct from balance
-        price = data.get('price', 0)
-        await db.update_user_balance(user.telegram_id, -price)
-
-        await callback.message.answer(get_text(user_lang, "document_ready"))
-
-        # Send file
+        # Send file FIRST - only proceed if successful
         from aiogram.types import FSInputFile
         document = FSInputFile(file_path)
         await callback.message.answer_document(
@@ -732,85 +750,33 @@ async def generate_referat_manual(callback: CallbackQuery, state: FSMContext, db
             reply_markup=get_main_keyboard(user_lang)
         )
 
-        await callback.message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
-
-        await state.clear()
-
-    except Exception as e:
-        logger.error(f"Error generating manual referat: {e}")
-        await callback.message.answer(
-            "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
-            reply_markup=get_main_keyboard(user_lang)
-        )
-        if 'order_id' in locals():
-            await db.update_document_order(order_id, "failed")
-        await state.clear()
-
-async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
-    """Generate presentation document"""
-    try:
-        data = await state.get_data()
-        topic = data['topic']
-        slide_count = data['slide_count']
-        price = data.get('price', 0)
-
-        # Create order record
-        specifications = json.dumps({"slide_count": slide_count})
-        order_id = await db.create_document_order(
-            user_id=user.id,
-            document_type="presentation",
-            topic=topic,
-            specifications=specifications
-        )
-
-        # Generate content with NEW AI BATCH SYSTEM
-        ai_service = AIService()
-        content = await ai_service.generate_presentation_in_batches(topic, slide_count, user_lang)
-
-        # Validate AI response
-        if not content or 'slides' not in content:
-            logger.error(f"Invalid AI response from batch generation: {content}")
-            # Create fallback content with new layout system
-            content = {
-                'slides': [
-                    {'title': topic, 'content': f"Bu taqdimot {topic} mavzusida tayyorlangan.", 'layout_type': 'bullet_points', 'slide_number': 1},
-                    {'title': 'Kirish', 'content': f"{topic} haqida batafsil ma'lumot va asosiy nuqtalar.", 'layout_type': 'bullet_points', 'slide_number': 2},
-                    {'title': 'Asosiy qism', 'content': f"{topic}ning asosiy jihatlari va muhim ma'lumotlar.", 'layout_type': 'text_with_image', 'slide_number': 3}
-                ]
-            }
-
-        # Create presentation file with NEW SYSTEM (DALL-E + 3 layouts)
-        doc_service = DocumentService()
-        file_path = await doc_service.create_new_presentation_system(topic, content, user.first_name or "", user_lang)
-
-        # Update order
+        # File sent successfully - NOW update database and balance
         await db.update_document_order(order_id, "completed", file_path)
-
-        # Deduct from balance
+        price = data.get('price', 0)
         await db.update_user_balance(user.telegram_id, -price)
-        await callback.message.edit_text(get_text(user_lang, "document_ready"))
 
-        # Send file
-        document = FSInputFile(file_path)
-        await callback.message.answer_document(
-            document=document,
-            caption=f"📊 {topic}",
-            reply_markup=get_main_keyboard(user_lang)
-        )
-
-        # Send gentle reminder about content review
+        # Send success message AFTER file is delivered
+        await callback.message.answer(get_text(user_lang, "document_ready"))
         await callback.message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
 
+        logger.info(f"Manual referat generated and sent: {file_path} for user {user.telegram_id}")
+        await state.clear()
+
     except Exception as e:
-        logger.error(f"Error generating presentation: {e}")
-        await callback.message.edit_text("❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.")
-        await callback.message.answer("Asosiy menyu:", reply_markup=get_main_keyboard(user_lang))
-        # Update order status
+        import traceback
+        error_details = traceback.format_exc()
+        logger.error(f"Error generating manual referat: {e}\n{error_details}")
+        await callback.message.answer(
+            "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.\n\nSabab: " + str(e)[:100],
+            reply_markup=get_main_keyboard(user_lang)
+        )
         if 'order_id' in locals():
             await db.update_document_order(order_id, "failed")
-
-    finally:
         await state.clear()
+
+async def generate_presentation_duplicate(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
+    """Generate presentation document (DUPLICATE - REDIRECTS TO MAIN)"""
+    await generate_presentation(callback, state, db, user_lang, user)
 
 async def generate_independent_work(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Generate independent work document"""
@@ -854,16 +820,12 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
         doc_service = OldDocumentService()
         file_path = await doc_service.create_independent_work(topic, content)
 
-        # Update order
-        await db.update_document_order(order_id, "completed", file_path)
+        # Verify file was created
+        if not file_path or not os.path.exists(file_path):
+            logger.error(f"Independent work file not created: {file_path}")
+            raise Exception(f"File not created: {file_path}")
 
-        # Deduct from balance
-        price = data.get('price', 0)
-        await db.update_user_balance(user.telegram_id, -price)
-
-        await callback.message.answer(get_text(user_lang, "document_ready"))
-
-        # Send file
+        # Send file FIRST - only proceed if successful
         document = FSInputFile(file_path)
         await callback.message.answer_document(
             document=document,
@@ -871,13 +833,25 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
             reply_markup=get_main_keyboard(user_lang)
         )
 
+        # File sent successfully - NOW update database and balance
+        await db.update_document_order(order_id, "completed", file_path)
+        price = data.get('price', 0)
+        await db.update_user_balance(user.telegram_id, -price)
+
+        # Send success message AFTER file is delivered
+        await callback.message.answer(get_text(user_lang, "document_ready"))
+
         # Send gentle reminder about content review
         await callback.message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
 
+        logger.info(f"Independent work generated and sent: {file_path} for user {user.telegram_id}")
+
     except Exception as e:
-        logger.error(f"Error generating independent work: {e}")
+        import traceback
+        error_details = traceback.format_exc()
+        logger.error(f"Error generating independent work: {e}\n{error_details}")
         await callback.message.answer(
-            "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
+            "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.\n\nSabab: " + str(e)[:100],
             reply_markup=get_main_keyboard(user_lang)
         )
         if 'order_id' in locals():
@@ -928,16 +902,12 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
         doc_service = OldDocumentService()
         file_path = await doc_service.create_referat(topic, content)
 
-        # Update order
-        await db.update_document_order(order_id, "completed", file_path)
+        # Verify file was created
+        if not file_path or not os.path.exists(file_path):
+            logger.error(f"Referat file not created: {file_path}")
+            raise Exception(f"File not created: {file_path}")
 
-        # Deduct from balance
-        price = data.get('price', 0)
-        await db.update_user_balance(user.telegram_id, -price)
-
-        await callback.message.answer(get_text(user_lang, "document_ready"))
-
-        # Send file
+        # Send file FIRST - only proceed if successful
         document = FSInputFile(file_path)
         await callback.message.answer_document(
             document=document,
@@ -945,13 +915,25 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
             reply_markup=get_main_keyboard(user_lang)
         )
 
+        # File sent successfully - NOW update database and balance
+        await db.update_document_order(order_id, "completed", file_path)
+        price = data.get('price', 0)
+        await db.update_user_balance(user.telegram_id, -price)
+
+        # Send success message AFTER file is delivered
+        await callback.message.answer(get_text(user_lang, "document_ready"))
+
         # Send gentle reminder about content review
         await callback.message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
 
+        logger.info(f"Referat generated and sent: {file_path} for user {user.telegram_id}")
+
     except Exception as e:
-        logger.error(f"Error generating referat: {e}")
+        import traceback
+        error_details = traceback.format_exc()
+        logger.error(f"Error generating referat: {e}\n{error_details}")
         await callback.message.answer(
-            "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
+            "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.\n\nSabab: " + str(e)[:100],
             reply_markup=get_main_keyboard(user_lang)
         )
         if 'order_id' in locals():

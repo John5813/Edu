@@ -10,6 +10,29 @@ The system operates on a freemium model where users get one free document genera
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (November 25, 2025)
+
+✓ **HUJJAT YETKAZILMAY QOLISHI MUAMMOSI HAL QILINDI** - Document delivery fix:
+  - **Muammo**: "Hujjat tayyor" xabari yuborilardi, lekin fayl yetib bormardi
+  - **Sabab**: Exception yashirin catch qilinib, success message fayl yuborilishidan oldin yuborilardi
+  - **Yechim**:
+    - Fayl **birinchi** yuboriladi, keyin success xabari
+    - Fayl mavjudligi tekshiriladi (`os.path.exists`)
+    - Balance va order faqat fayl muvaffaqiyatli yuborilgandan keyin yangilanadi
+    - Exception'da aniq sabab ko'rsatiladi (`Sabab: ...`)
+    - ERROR level log bilan traceback yoziladi
+  - **Files changed**: `bot/handlers/documents.py` (7 ta funksiya to'g'irlandi)
+
+✓ **SHABLON TARTIB XATOSI TO'G'IRLANDI** - Template keyboard fix:
+  - **Muammo**: User 15 tanlasa 14-shablon, 18 tanlasa 17-shablon qo'llanardi
+  - **Sabab**: Keyboard 4 tugma har qatorda (5x4), lekin rasm 5 ta shablon har qatorda (4x5)
+  - **Yechim**: `keyboard.adjust(5)` - endi keyboard rasm bilan mos (4 qator x 5 ustun)
+  - **Files changed**: `bot/keyboards.py`
+
+✓ **DUPLICATE FUNKSIYA OLIB TASHLANDI**:
+  - `generate_presentation` funksiyasi ikkita edi
+  - Bitta `generate_presentation_duplicate` redirect qilib qo'yildi
+
 ## Recent Changes (November 24, 2025)
 
 ✓ **KRITIK BUG HAL QILINDI: User Registration Silent Failure** - Production muammosi:
