@@ -148,7 +148,9 @@ class TemplateService:
             
             # Add background image if specified
             if template['file']:
-                bg_path = os.path.join('attached_assets', template['file'])
+                # Use absolute path based on this file's location
+                base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                bg_path = os.path.join(base_dir, 'attached_assets', template['file'])
                 if os.path.exists(bg_path):
                     self._set_slide_background(slide, bg_path)
                 else:
