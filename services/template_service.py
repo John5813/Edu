@@ -18,191 +18,104 @@ class TemplateService:
     
     def __init__(self):
         self.templates = {
-            # Group 1 - Educational/Academic
             'template_1': {
-                'name': {
-                    'uz': 'Ta\'lim Anjumani',
-                    'ru': 'Образовательный Совет',
-                    'en': 'Education Board'
-                },
-                'file': 'word-image-3281-1-13_1755920914578.png',
-                'colors': {'title': RGBColor(0, 51, 102), 'text': RGBColor(51, 51, 51)}
+                'name': {'uz': 'Ta\'lim Elementlari', 'ru': 'Образовательные Элементы', 'en': 'Educational Elements'},
+                'file': 'IMG_20250823_092830_649_1764043160410.jpg',
+                'colors': {'title': RGBColor(0, 102, 204), 'text': RGBColor(51, 51, 51)}
             },
             'template_2': {
-                'name': {
-                    'uz': 'Ko\'k Geometrik',
-                    'ru': 'Синий Геометрический',
-                    'en': 'Blue Geometric'
-                },
-                'file': 'sinie-tonirovannye-nabor-treugol-nyh-listov-bumagi-s-kopiei-prostranstva_1755920914625.jpg',
-                'colors': {'title': RGBColor(0, 102, 204), 'text': RGBColor(0, 51, 102)}
+                'name': {'uz': 'Ko\'k Geometrik', 'ru': 'Синий Геометрический', 'en': 'Blue Geometric'},
+                'file': 'IMG_20250823_092829_196_1764043160430.jpg',
+                'colors': {'title': RGBColor(0, 102, 255), 'text': RGBColor(0, 51, 153)}
             },
             'template_3': {
-                'name': {
-                    'uz': 'Texnologiya',
-                    'ru': 'Технология',
-                    'en': 'Technology'
-                },
-                'file': 'fd5e01cf1a9b881f0d16f2c875affac0_1755920914733.jpg',
+                'name': {'uz': 'Ko\'k Naqsh', 'ru': 'Синий Узор', 'en': 'Blue Pattern'},
+                'file': 'IMG_20250823_092826_569_1764043160448.jpg',
                 'colors': {'title': RGBColor(0, 153, 255), 'text': RGBColor(0, 102, 153)}
             },
             'template_4': {
-                'name': {
-                    'uz': 'Lola Gullari',
-                    'ru': 'Цветы Тюльпанов',
-                    'en': 'Tulip Flowers'
-                },
-                'file': 'e7d2d0af98b5e8a58374d63335615b86_1755920914800.jpg',
+                'name': {'uz': 'Vintage Gul', 'ru': 'Винтажные Цветы', 'en': 'Vintage Flowers'},
+                'file': 'IMG_20250823_092824_903_1764043160465.jpg',
                 'colors': {'title': RGBColor(153, 0, 51), 'text': RGBColor(102, 51, 51)}
             },
             'template_5': {
-                'name': {
-                    'uz': 'Gul Naqshli',
-                    'ru': 'Цветочный Узор',
-                    'en': 'Floral Pattern'
-                },
-                'file': 'e2cc2f46ec22c6a2455670d6f4d57cab_1755920914878.jpg',
+                'name': {'uz': 'Pushti Gul', 'ru': 'Розовые Цветы', 'en': 'Pink Flowers'},
+                'file': 'IMG_20250823_092822_574_1764043160484.jpg',
                 'colors': {'title': RGBColor(153, 51, 153), 'text': RGBColor(102, 51, 102)}
             },
-            
-            # Group 2 - Modern/Business
             'template_6': {
-                'name': {
-                    'uz': 'Rangli Olti Burchak',
-                    'ru': 'Цветной Шестиугольник',
-                    'en': 'Colorful Hexagon'
-                },
-                'file': 'b9b1f45236e32dec0cc8a9c27af3ec28_1755920914951.jpg',
+                'name': {'uz': 'Rangli Olti Burchak', 'ru': 'Цветной Шестиугольник', 'en': 'Colorful Hexagon'},
+                'file': 'IMG_20250823_092819_616_1764043160501.jpg',
                 'colors': {'title': RGBColor(255, 102, 0), 'text': RGBColor(51, 51, 51)}
             },
             'template_7': {
-                'name': {
-                    'uz': 'Minimalist',
-                    'ru': 'Минималист',
-                    'en': 'Minimalist'
-                },
-                'file': 'b67624d21e2e68a3433ef46cf7dcbb90_1755920915023.jpg',
+                'name': {'uz': 'Minimalist', 'ru': 'Минималист', 'en': 'Minimalist'},
+                'file': 'IMG_20250823_092810_644_1764043160522.jpg',
                 'colors': {'title': RGBColor(0, 102, 153), 'text': RGBColor(51, 51, 51)}
             },
             'template_8': {
-                'name': {
-                    'uz': 'Yashil Gradient',
-                    'ru': 'Зеленый Градиент',
-                    'en': 'Green Gradient'
-                },
-                'file': 'abstraktnoe-bumaznoe-ponatie-fona_1755920915096.jpg',
-                'colors': {'title': RGBColor(0, 153, 51), 'text': RGBColor(0, 102, 51)}
-            },
-            'template_9': {
-                'name': {
-                    'uz': 'Ko\'k To\'lqin',
-                    'ru': 'Синяя Волна',
-                    'en': 'Blue Wave'
-                },
-                'file': 'abstract-blue-background-poster-with-wave-curve-dynamic-blue-white-business-presentation-background-with-modern-technology-network-concept-vector-illustration_181182-19573_1755920915171.jpg',
+                'name': {'uz': 'Ko\'k To\'lqin', 'ru': 'Синяя Волна', 'en': 'Blue Wave'},
+                'file': 'IMG_20250823_092808_412_1764043160540.jpg',
                 'colors': {'title': RGBColor(0, 102, 204), 'text': RGBColor(0, 51, 102)}
             },
-            'template_10': {
-                'name': {
-                    'uz': 'Biznes Professional',
-                    'ru': 'Бизнес Профессиональный',
-                    'en': 'Business Professional'
-                },
-                'file': 'abstract-blue-background-poster-with-dynamic-triangle-frame-border-blue-white-business-presentation-background-with-modern-technology-network-concept-vector-illustration_181182-19578_1755920915250.jpg',
+            'template_9': {
+                'name': {'uz': 'Professional Ko\'k', 'ru': 'Профессиональный Синий', 'en': 'Professional Blue'},
+                'file': 'IMG_20250823_092805_902_1764043160558.jpg',
                 'colors': {'title': RGBColor(0, 51, 153), 'text': RGBColor(0, 51, 102)}
             },
-            
-            # Group 3 - Clean/Modern
-            'template_11': {
-                'name': {
-                    'uz': 'Zamonaviy Ko\'k',
-                    'ru': 'Современный Синий',
-                    'en': 'Modern Blue'
-                },
-                'file': 'abstract-background-blue-white-gradient-modern-blue-abstract-geometric-rectangle-box-lines-background-presentation-design-banner-brochure-business-card_181182-30704_1755920915330.jpg',
+            'template_10': {
+                'name': {'uz': 'Zamonaviy Ko\'k', 'ru': 'Современный Синий', 'en': 'Modern Blue'},
+                'file': 'IMG_20250823_092803_858_1764043160582.jpg',
                 'colors': {'title': RGBColor(0, 102, 255), 'text': RGBColor(0, 51, 153)}
             },
-            'template_12': {
-                'name': {
-                    'uz': 'Piksel Ko\'k',
-                    'ru': 'Пиксельный Синий',
-                    'en': 'Pixel Blue'
-                },
-                'file': 'a8aadcfffbbdac4e0269a15bb82dc6af_1755920915411.jpg',
+            'template_11': {
+                'name': {'uz': 'Piksel Ko\'k', 'ru': 'Пиксельный Синий', 'en': 'Pixel Blue'},
+                'file': 'IMG_20250823_092801_417_1764043160607.jpg',
                 'colors': {'title': RGBColor(51, 153, 255), 'text': RGBColor(0, 102, 204)}
             },
-            'template_13': {
-                'name': {
-                    'uz': 'Klassik Vintage',
-                    'ru': 'Классический Винтаж',
-                    'en': 'Classic Vintage'
-                },
-                'file': '62379448511baea4b1ab68cd7a4654c3_1755920915493.jpg',
+            'template_12': {
+                'name': {'uz': 'Klassik Vintage', 'ru': 'Классический Винтаж', 'en': 'Classic Vintage'},
+                'file': 'IMG_20250823_092757_637_1764043160632.jpg',
                 'colors': {'title': RGBColor(102, 51, 0), 'text': RGBColor(51, 51, 51)}
             },
-            'template_14': {
-                'name': {
-                    'uz': 'Yashil-Sariq',
-                    'ru': 'Зелено-Желтый',
-                    'en': 'Green-Yellow'
-                },
-                'file': '5700bf8cf3ba5273e88d43e954d8c0db_1755920915574.jpg',
+            'template_13': {
+                'name': {'uz': 'Yashil-Sariq', 'ru': 'Зелено-Желтый', 'en': 'Green-Yellow'},
+                'file': 'IMG_20250823_092755_564_1764043160658.jpg',
                 'colors': {'title': RGBColor(0, 102, 102), 'text': RGBColor(0, 51, 51)}
             },
-            'template_15': {
-                'name': {
-                    'uz': 'Ish Stoli',
-                    'ru': 'Рабочий Стол',
-                    'en': 'Desktop'
-                },
-                'file': '534c62010f51fee8cb5f14028280f9c0_1755920915649.jpg',
+            'template_14': {
+                'name': {'uz': 'Ish Stoli', 'ru': 'Рабочий Стол', 'en': 'Desktop'},
+                'file': 'IMG_20250823_092753_435_1764043160682.jpg',
                 'colors': {'title': RGBColor(51, 51, 51), 'text': RGBColor(102, 102, 102)}
             },
-            
-            # Group 4 - Creative/Educational
-            'template_16': {
-                'name': {
-                    'uz': 'Ta\'lim Elementlari',
-                    'ru': 'Образовательные Элементы',
-                    'en': 'Educational Elements'
-                },
-                'file': '29_1755920915725.png',
+            'template_15': {
+                'name': {'uz': 'Ta\'lim Buyumlari', 'ru': 'Учебные Предметы', 'en': 'School Supplies'},
+                'file': 'IMG_20250823_092752_204_1764043160709.jpg',
                 'colors': {'title': RGBColor(0, 153, 255), 'text': RGBColor(0, 102, 153)}
             },
-            'template_17': {
-                'name': {
-                    'uz': 'Texno Ko\'k',
-                    'ru': 'Техно Синий',
-                    'en': 'Techno Blue'
-                },
-                'file': '23ecdb398882fb138389e9ecf8676363_1755920915811.jpg',
+            'template_16': {
+                'name': {'uz': 'Texnologiya', 'ru': 'Технология', 'en': 'Technology'},
+                'file': 'IMG_20250823_092749_483_1764043160737.jpg',
                 'colors': {'title': RGBColor(0, 102, 255), 'text': RGBColor(0, 51, 153)}
             },
-            'template_18': {
-                'name': {
-                    'uz': 'Yashil To\'lqin',
-                    'ru': 'Зеленая Волна',
-                    'en': 'Green Wave'
-                },
-                'file': '200a00e49abe4c831ac600002b1e1dcd_1755920915881.jpg',
+            'template_17': {
+                'name': {'uz': 'Yashil Gradient', 'ru': 'Зеленый Градиент', 'en': 'Green Gradient'},
+                'file': 'IMG_20250823_092748_082_1764043160767.jpg',
                 'colors': {'title': RGBColor(0, 153, 102), 'text': RGBColor(0, 102, 51)}
             },
-            'template_19': {
-                'name': {
-                    'uz': 'Bahor Ranglar',
-                    'ru': 'Весенние Цвета',
-                    'en': 'Spring Colors'
-                },
-                'file': '184c6f428e31410bd29e2abe04a6582c_1755920915948.jpg',
+            'template_18': {
+                'name': {'uz': 'Bahor Gullari', 'ru': 'Весенние Цветы', 'en': 'Spring Flowers'},
+                'file': 'IMG_20250823_092737_363_1764043160796.jpg',
                 'colors': {'title': RGBColor(255, 51, 102), 'text': RGBColor(102, 51, 51)}
             },
+            'template_19': {
+                'name': {'uz': 'Ko\'k Burish', 'ru': 'Синий Угол', 'en': 'Blue Corner'},
+                'file': 'IMG_20250823_092717_373_1764043160824.jpg',
+                'colors': {'title': RGBColor(0, 102, 255), 'text': RGBColor(0, 51, 153)}
+            },
             'template_20': {
-                'name': {
-                    'uz': 'Klassik Oq',
-                    'ru': 'Классический Белый',
-                    'en': 'Classic White'
-                },
-                'file': None,  # Default white background
+                'name': {'uz': 'Ta\'lim Dizayn', 'ru': 'Образовательный Дизайн', 'en': 'Educational Design'},
+                'file': 'word-image-3281-8-13_1764043160854.png',
                 'colors': {'title': RGBColor(0, 51, 102), 'text': RGBColor(51, 51, 51)}
             }
         }
