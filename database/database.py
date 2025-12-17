@@ -124,7 +124,7 @@ async def init_db():
                 total_earned INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (referrer_id) REFERENCES users (telegram_id),
-                FOREIGNKEY (referred_id) REFERENCES users (telegram_id)
+                FOREIGN KEY (referred_id) REFERENCES users (telegram_id)
             )
         ''')
 
@@ -880,3 +880,55 @@ class Database:
             ) as cursor:
                 row = await cursor.fetchone()
                 return dict(row) if row else None
+
+    @staticmethod
+    async def is_user_blocked(telegram_id: int) -> bool:
+        """Check if user is blocked"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            async with db.execute(
+                "SELECT COUNT(*) FROM blocked_users WHERE telegram_id = ?",
+                (telegram_id,)
+            ) as cursor:
+                count = (await cursor.fetchone())[0]
+                return count > 0
+
+    @staticmethod
+    async def block_user(telegram_id: int, username: str, blocked_by: int, reason: str = None) -> bool:
+        """Block a user"""
+        try:
+            async with aiosqlite.connect(DATABASE_FILE) as db:
+                await db.execute(
+                    "INSERT OR REPLACE INTO blocked_users (telegram_id, username, blocked_by, reason) VALUES (?, ?, ?, ?)",
+                    (telegram_id, username, blocked_by, reason)
+                )
+                await db.commit()
+                return True
+        except Exception as e:
+            logger.error(f"Error blocking user: {e}")
+            return False
+
+    @staticmethod
+    async def unblock_user(telegram_id: int) -> bool:
+        """Unblock a user"""
+        try:
+            async with aiosqlite.connect(DATABASE_FILE) as db:
+                await db.execute(
+                    "DELETE FROM blocked_users WHERE telegram_id = ?",
+                    (telegram_id,)
+                )
+                await db.commit()
+                return True
+        except Exception as e:
+            logger.error(f"Error unblocking user: {e}")
+            return False
+
+    @staticmethod
+    async def get_blocked_users() -> List[Dict]:
+        """Get all blocked users"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM blocked_users ORDER BY blocked_at DESC"
+            ) as cursor:
+                rows = await cursor.fetchall()
+                return [dict(row) for row in rows]

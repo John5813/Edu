@@ -2,6 +2,7 @@ from typing import Callable, Dict, Any, Awaitable
 from aiogram import BaseMiddleware
 from aiogram.types import Message, CallbackQuery
 from database.database import Database
+from config import ADMIN_IDS
 import logging
 
 logger = logging.getLogger(__name__)
