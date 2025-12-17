@@ -1585,19 +1585,28 @@ async def process_block_user(message: Message, state: FSMContext, db: Database):
         
         for user_input in user_inputs:
             telegram_id = None
+            username = None
             
             # Extract telegram_id from different formats
             if user_input.startswith("tg://user?id="):
                 telegram_id = int(user_input.split("=")[1])
+                # Try to get username from database
+                user = await db.get_user(telegram_id)
+                username = user.username if user else None
             elif user_input.startswith("@"):
+                username = user_input[1:]
                 # Find user by username
                 all_users = await db.get_all_users()
                 for u in all_users:
-                    if u.username and u.username.lower() == user_input[1:].lower():
+                    if u.username and u.username.lower() == username.lower():
                         telegram_id = u.telegram_id
+                        username = u.username
                         break
             elif user_input.isdigit():
                 telegram_id = int(user_input)
+                # Try to get username from database
+                user = await db.get_user(telegram_id)
+                username = user.username if user else None
             
             if telegram_id:
                 # Check if already blocked
@@ -1605,7 +1614,12 @@ async def process_block_user(message: Message, state: FSMContext, db: Database):
                 if is_blocked:
                     already_blocked += 1
                 else:
-                    await db.block_user(telegram_id, message.from_user.id, reason="Adminlar tomonidan bloklangan")
+                    await db.block_user(
+                        telegram_id=telegram_id,
+                        username=username or "Unknown",
+                        blocked_by=message.from_user.id,
+                        reason="Adminlar tomonidan bloklangan"
+                    )
                     blocked_count += 1
             else:
                 not_found.append(user_input)
