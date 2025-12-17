@@ -1,3 +1,4 @@
+
 # Python
 __pycache__/
 *.pyc
@@ -8,8 +9,14 @@ env/
 venv/
 .venv/
 
+# Database
+*.db
+edubot.db
+bot.db
+
 # Replit
 .replit
+replit.nix
 
 # Log files
 *.log
@@ -18,6 +25,25 @@ venv/
 .DS_Store
 Thumbs.db
 
-# ALLOW EVERYTHING - HECH NARSANI CHETLAB O'TMASLIK UCHUN
-!*/
-!*.*
+# Temporary files
+temp/
+*.tmp
+
+# Generated documents (user documents)
+generated_documents/
+
+# Archive files
+*.tar.gz
+*.tar
+*.gz
+*.zip
+
+# Config files with sensitive data (if any)
+# config.py  # uncomment if needed
+
+# Node modules
+node_modules/
+
+# Allow template images in attached_assets
+!attached_assets/IMG_*.jpg
+!attached_assets/IMG_*.png
