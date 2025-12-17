@@ -41,6 +41,11 @@ async def main():
     dp.message.middleware(LanguageMiddleware())
     dp.callback_query.middleware(LanguageMiddleware())
     
+    # Block check middleware - must be last to check after database is injected
+    from bot.middlewares import BlockedUserMiddleware
+    dp.message.middleware(BlockedUserMiddleware())
+    dp.callback_query.middleware(BlockedUserMiddleware())
+    
     # Register handlers - important order: specific handlers first, catch-all last!
     dp.include_router(settings.router)  # Handle settings buttons first
     dp.include_router(payments.router)  # Handle payment buttons first

@@ -42,6 +42,10 @@ class AdminStates(StatesGroup):
     waiting_for_sample_title = State()
     waiting_for_sample_description = State()
 
+    # Block user states
+    waiting_for_block_user = State()
+    waiting_for_block_reason = State()
+
 class PaymentResubmitStates(StatesGroup):
     waiting_for_receipt = State()
     waiting_for_amount = State()

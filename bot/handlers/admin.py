@@ -1540,3 +1540,186 @@ async def back_to_sample_menu(callback: CallbackQuery):
         reply_markup=get_sample_management_keyboard(),
         parse_mode=None
     )
+
+@router.message(F.text == "🚫 Foydalanuvchilarni bloklash")
+async def handle_block_user_menu(message: Message):
+    """Handle block user management menu"""
+    if not is_admin(message.from_user.id):
+        return
+
+    from bot.keyboards import get_block_user_keyboard
+    await message.answer(
+        "🚫 Foydalanuvchilarni bloklash boshqaruvi",
+        reply_markup=get_block_user_keyboard()
+    )
+
+@router.callback_query(F.data == "block_user")
+async def start_block_user(callback: CallbackQuery, state: FSMContext):
+    """Start blocking a user"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    await callback.message.edit_text(
+        "🚫 Foydalanuvchini bloklash\n\n"
+        "Bloklash uchun foydalanuvchi ma'lumotini kiriting:\n"
+        "• Telegram ID: 7223515801\n"
+        "• Username: @username\n"
+        "• Link: tg://user?id=7223515801\n\n"
+        "Bir vaqtning o'zida bir nechta foydalanuvchini bloklash uchun ularni probel bilan ajrating:\n"
+        "Misol: 7223515801 @username tg://user?id=8232539555",
+        parse_mode=None
+    )
+    await state.set_state(AdminStates.waiting_for_block_user)
+
+@router.message(AdminStates.waiting_for_block_user)
+async def process_block_user(message: Message, state: FSMContext, db: Database):
+    """Process user blocking"""
+    try:
+        input_text = message.text.strip()
+        
+        # Parse input - can be multiple users separated by space
+        user_inputs = input_text.split()
+        blocked_count = 0
+        already_blocked = 0
+        not_found = []
+        
+        for user_input in user_inputs:
+            telegram_id = None
+            
+            # Extract telegram_id from different formats
+            if user_input.startswith("tg://user?id="):
+                telegram_id = int(user_input.split("=")[1])
+            elif user_input.startswith("@"):
+                # Find user by username
+                all_users = await db.get_all_users()
+                for u in all_users:
+                    if u.username and u.username.lower() == user_input[1:].lower():
+                        telegram_id = u.telegram_id
+                        break
+            elif user_input.isdigit():
+                telegram_id = int(user_input)
+            
+            if telegram_id:
+                # Check if already blocked
+                is_blocked = await db.is_user_blocked(telegram_id)
+                if is_blocked:
+                    already_blocked += 1
+                else:
+                    await db.block_user(telegram_id, message.from_user.id, reason="Adminlar tomonidan bloklangan")
+                    blocked_count += 1
+            else:
+                not_found.append(user_input)
+        
+        # Send result
+        result_text = f"✅ Bloklash natijasi:\n\n"
+        if blocked_count > 0:
+            result_text += f"🚫 Bloklandi: {blocked_count} ta\n"
+        if already_blocked > 0:
+            result_text += f"⚠️ Allaqachon bloklangan: {already_blocked} ta\n"
+        if not_found:
+            result_text += f"❌ Topilmadi: {', '.join(not_found)}\n"
+        
+        await message.answer(result_text, reply_markup=get_admin_keyboard())
+        
+    except Exception as e:
+        logger.error(f"Error blocking users: {e}")
+        await message.answer("❌ Xatolik yuz berdi. Qayta urinib ko'ring.")
+    
+    finally:
+        await state.clear()
+
+@router.callback_query(F.data == "unblock_user")
+async def show_blocked_users_for_unblock(callback: CallbackQuery, db: Database):
+    """Show blocked users for unblocking"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    blocked_users = await db.get_blocked_users()
+    
+    if not blocked_users:
+        await callback.message.edit_text(
+            "📋 Bloklangan foydalanuvchilar yo'q.",
+            parse_mode=None
+        )
+        return
+
+    from bot.keyboards import get_blocked_users_keyboard
+    await callback.message.edit_text(
+        "✅ Blokdan chiqarish uchun foydalanuvchini tanlang:",
+        reply_markup=get_blocked_users_keyboard(blocked_users),
+        parse_mode=None
+    )
+
+@router.callback_query(F.data.startswith("unblock_"))
+async def unblock_user_confirm(callback: CallbackQuery, db: Database):
+    """Unblock a user"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    telegram_id = int(callback.data.split("_")[1])
+    
+    try:
+        await db.unblock_user(telegram_id)
+        await callback.answer("✅ Foydalanuvchi blokdan chiqarildi!")
+        
+        # Refresh the list
+        blocked_users = await db.get_blocked_users()
+        if blocked_users:
+            from bot.keyboards import get_blocked_users_keyboard
+            await callback.message.edit_text(
+                "✅ Blokdan chiqarish uchun foydalanuvchini tanlang:",
+                reply_markup=get_blocked_users_keyboard(blocked_users),
+                parse_mode=None
+            )
+        else:
+            from bot.keyboards import get_block_user_keyboard
+            await callback.message.edit_text(
+                "✅ Barcha foydalanuvchilar blokdan chiqarildi.",
+                reply_markup=get_block_user_keyboard(),
+                parse_mode=None
+            )
+    except Exception as e:
+        logger.error(f"Error unblocking user: {e}")
+        await callback.answer("❌ Xatolik yuz berdi.")
+
+@router.callback_query(F.data == "list_blocked")
+async def list_blocked_users(callback: CallbackQuery, db: Database):
+    """List all blocked users"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    blocked_users = await db.get_blocked_users()
+    
+    if not blocked_users:
+        await callback.message.edit_text(
+            "📋 Bloklangan foydalanuvchilar yo'q.",
+            parse_mode=None
+        )
+        return
+
+    text = f"📋 Bloklangan foydalanuvchilar ({len(blocked_users)} ta):\n\n"
+    
+    for user in blocked_users:
+        username_display = f"@{user['username']}" if user['username'] else "Username yo'q"
+        text += f"🚫 {username_display}\n"
+        text += f"   ID: {user['telegram_id']}\n"
+        if user['reason']:
+            text += f"   Sabab: {user['reason']}\n"
+        text += f"   Sana: {user['blocked_at']}\n"
+        text += "➖➖➖➖➖➖➖➖\n\n"
+
+    from bot.keyboards import get_block_user_keyboard
+    await callback.message.edit_text(text, reply_markup=get_block_user_keyboard(), parse_mode=None)
+
+@router.callback_query(F.data == "back_to_block_menu")
+async def back_to_block_menu(callback: CallbackQuery):
+    """Return to block user management menu"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    from bot.keyboards import get_block_user_keyboard
+    await callback.message.edit_text(
+        "🚫 Foydalanuvchilarni bloklash boshqaruvi",
+        reply_markup=get_block_user_keyboard(),
+        parse_mode=None
+    )

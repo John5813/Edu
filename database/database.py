@@ -124,7 +124,7 @@ async def init_db():
                 total_earned INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (referrer_id) REFERENCES users (telegram_id),
-                FOREIGN KEY (referred_id) REFERENCES users (telegram_id)
+                FOREIGNKEY (referred_id) REFERENCES users (telegram_id)
             )
         ''')
 
@@ -147,8 +147,20 @@ async def init_db():
                 description TEXT,
                 file_id TEXT NOT NULL,
                 file_type TEXT NOT NULL,
-                is_active INTEGER DEFAULT 1,
+                is_active BOOLEAN DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Blocked users table
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS blocked_users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_id INTEGER UNIQUE NOT NULL,
+                username TEXT,
+                blocked_by INTEGER NOT NULL,
+                reason TEXT,
+                blocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
 

@@ -224,10 +224,13 @@ def get_admin_keyboard() -> ReplyKeyboardMarkup:
     keyboard.add(KeyboardButton(text="🎛 Funksiyalar boshqaruvi"))
     keyboard.add(KeyboardButton(text="📁 Namunalar boshqaruvi"))
 
+    # Block user management
+    keyboard.add(KeyboardButton(text="🚫 Foydalanuvchilarni bloklash"))
+
     # Orqaga qaytish
     keyboard.add(KeyboardButton(text="👤 Foydalanuvchi rejimi"))
 
-    keyboard.adjust(2, 2, 2, 2, 1)
+    keyboard.adjust(2, 2, 2, 1, 1)
     return keyboard.as_markup(resize_keyboard=True)
 
 def get_payment_review_keyboard(payment_id: int) -> InlineKeyboardMarkup:
@@ -477,5 +480,29 @@ def get_samples_list_keyboard(samples: list) -> InlineKeyboardMarkup:
         ))
 
     keyboard.add(InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_sample_menu"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+def get_block_user_keyboard() -> InlineKeyboardMarkup:
+    """Block user management keyboard"""
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(text="🚫 Foydalanuvchini bloklash", callback_data="block_user"))
+    keyboard.add(InlineKeyboardButton(text="✅ Blokdan chiqarish", callback_data="unblock_user"))
+    keyboard.add(InlineKeyboardButton(text="📋 Bloklangan foydalanuvchilar", callback_data="list_blocked"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+def get_blocked_users_keyboard(blocked_users: list) -> InlineKeyboardMarkup:
+    """Keyboard showing blocked users for unblocking"""
+    keyboard = InlineKeyboardBuilder()
+    
+    for user in blocked_users:
+        username_display = f"@{user['username']}" if user['username'] else f"ID: {user['telegram_id']}"
+        keyboard.add(InlineKeyboardButton(
+            text=f"✅ {username_display}",
+            callback_data=f"unblock_{user['telegram_id']}"
+        ))
+    
+    keyboard.add(InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_block_menu"))
     keyboard.adjust(1)
     return keyboard.as_markup()
