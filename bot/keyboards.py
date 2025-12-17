@@ -230,7 +230,7 @@ def get_admin_keyboard() -> ReplyKeyboardMarkup:
     # Orqaga qaytish
     keyboard.add(KeyboardButton(text="👤 Foydalanuvchi rejimi"))
 
-    keyboard.adjust(2, 2, 2, 1, 1)
+    keyboard.adjust(2)
     return keyboard.as_markup(resize_keyboard=True)
 
 def get_payment_review_keyboard(payment_id: int) -> InlineKeyboardMarkup:
