@@ -26,7 +26,6 @@ replit.nix
 Thumbs.db
 
 # Temporary files
-temp/
 *.tmp
 
 # Generated documents (user documents)
