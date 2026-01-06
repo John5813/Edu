@@ -36,10 +36,13 @@ DOCUMENT_TYPES = {
     "📄 Referat": "referat"
 }
 
-@router.message(StateFilter(None), F.text.in_(list(DOCUMENT_TYPES.keys())))
+@router.message(F.text.in_(list(DOCUMENT_TYPES.keys())))
 async def handle_document_type_selection(message: Message, state: FSMContext, user_lang: str, db: Database, user):
     """Handle document type selection from main menu"""
     try:
+        # IMPORTANT: Clear any active state first
+        await state.clear()
+        
         # Check channel subscription
         channels = await db.get_active_channels()
         if channels:
@@ -1231,8 +1234,10 @@ async def handle_edit_outline(callback: CallbackQuery, state: FSMContext, user_l
     await state.set_state(DocumentStates.waiting_for_manual_outline)
 
 @router.message(F.text == "Mening hisobim")
-async def my_account_handler(message: Message, db: Database, user_lang: str, user):
+async def my_account_handler(message: Message, state: FSMContext, db: Database, user_lang: str, user):
     """Handles the 'My Account' button click."""
+    await state.clear()  # Clear any active state
+    
     await message.answer(
         get_text(user_lang, "my_account_info", 
             name=user.first_name,
