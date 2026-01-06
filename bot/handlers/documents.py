@@ -5,6 +5,7 @@ import os
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.fsm.context import FSMContext
+from aiogram.filters import StateFilter
 
 from bot.states import DocumentStates
 from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard, get_outline_review_keyboard, get_references_choice_keyboard, get_doc_language_keyboard, get_plan_slide_keyboard
@@ -35,7 +36,7 @@ DOCUMENT_TYPES = {
     "📄 Referat": "referat"
 }
 
-@router.message(F.text.in_(list(DOCUMENT_TYPES.keys())))
+@router.message(StateFilter(None), F.text.in_(list(DOCUMENT_TYPES.keys())))
 async def handle_document_type_selection(message: Message, state: FSMContext, user_lang: str, db: Database, user):
     """Handle document type selection from main menu"""
     try:
