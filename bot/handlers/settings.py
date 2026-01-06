@@ -2,6 +2,7 @@ import logging
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
+from aiogram.filters import StateFilter
 
 from bot.keyboards import get_settings_keyboard, get_language_keyboard, get_main_keyboard
 from bot.states import SettingsStates
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 # Settings menu items in different languages
 SETTINGS_TEXTS = ["⚙️ Sozlamalar", "⚙️ Настройки", "⚙️ Settings"]
 
-@router.message(F.text.in_(SETTINGS_TEXTS))
+@router.message(StateFilter(None), F.text.in_(SETTINGS_TEXTS))
 async def handle_settings_request(message: Message, state: FSMContext, user_lang: str):
     """Handle settings request"""
     await state.clear()  # Clear any active state

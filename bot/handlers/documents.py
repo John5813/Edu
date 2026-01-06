@@ -72,14 +72,14 @@ async def handle_document_type_selection(message: Message, state: FSMContext, us
 async def handle_doc_language_selection(callback: CallbackQuery, state: FSMContext, user_lang: str):
     """Handle document language selection"""
     await callback.answer()
-    
+
     # Extract selected document language
     doc_lang = callback.data.split("_")[-1]  # uz, ru, or en
     await state.update_data(doc_language=doc_lang)
-    
+
     # Delete language selection message
     await callback.message.delete()
-    
+
     # Ask for topic in selected document language
     topic_prompts = {
         "uz": "📝 Mavzuni kiriting:",
@@ -125,7 +125,7 @@ async def handle_author_name_input(message: Message, state: FSMContext, user_lan
     try:
         # Sanitize author name
         author_name = sanitize_user_input(message.text, max_length=100)
-        
+
         if len(author_name.strip()) < 3:
             error_msgs = {
                 "uz": "❌ Ism juda qisqa. Iltimos, to'liq ism kiriting.",
@@ -235,7 +235,7 @@ async def show_template_selection(message: Message, state: FSMContext, user_lang
             reply_markup=keyboard,
             parse_mode="Markdown"
         )
-        
+
         # Save message IDs to state for later deletion
         await state.update_data(
             template_photo_msg_id=photo_msg.message_id if photo_msg else None,
@@ -275,7 +275,7 @@ async def handle_template_selection(callback: CallbackQuery, state: FSMContext, 
         photo_msg_id = data.get('template_photo_msg_id')
         keyboard_msg_id = data.get('template_keyboard_msg_id')
         doc_lang = data.get('doc_language', user_lang)
-        
+
         try:
             if photo_msg_id:
                 await callback.message.bot.delete_message(
@@ -289,7 +289,7 @@ async def handle_template_selection(callback: CallbackQuery, state: FSMContext, 
                 )
         except Exception as del_err:
             logger.warning(f"Could not delete template messages: {del_err}")
-        
+
         # Ask if user wants to add plan slide
         plan_questions = {
             "uz": "📋 Taqdimotga reja varag'ini qo'shishni xohlaysizmi?\n\n(2-chi slaydda 3 ta asosiy reja ko'rsatiladi)",
@@ -311,9 +311,9 @@ async def handle_plan_slide_yes(callback: CallbackQuery, state: FSMContext, user
     """Handle user choosing to add plan slide"""
     await callback.answer()
     await callback.message.delete()
-    
+
     await state.update_data(add_plan_slide=True)
-    
+
     # Now ask about references
     data = await state.get_data()
     doc_lang = data.get('doc_language', user_lang)
@@ -328,9 +328,9 @@ async def handle_plan_slide_no(callback: CallbackQuery, state: FSMContext, user_
     """Handle user choosing not to add plan slide"""
     await callback.answer()
     await callback.message.delete()
-    
+
     await state.update_data(add_plan_slide=False)
-    
+
     # Now ask about references
     data = await state.get_data()
     doc_lang = data.get('doc_language', user_lang)
@@ -344,13 +344,13 @@ async def handle_plan_slide_no(callback: CallbackQuery, state: FSMContext, user_
 async def handle_add_references_yes(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Handle user choosing to add references"""
     await callback.answer()
-    
+
     # Delete references question message
     await callback.message.delete()
-    
+
     # Save choice
     await state.update_data(add_references=True)
-    
+
     # Start generation
     await callback.message.answer("⏳ " + get_text(user_lang, "generating"))
     await generate_presentation_with_template(callback, state, db, user_lang, user)
@@ -359,13 +359,13 @@ async def handle_add_references_yes(callback: CallbackQuery, state: FSMContext, 
 async def handle_add_references_no(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Handle user choosing not to add references"""
     await callback.answer()
-    
+
     # Delete references question message
     await callback.message.delete()
-    
+
     # Save choice
     await state.update_data(add_references=False)
-    
+
     # Start generation
     await callback.message.answer("⏳ " + get_text(user_lang, "generating"))
     await generate_presentation_with_template(callback, state, db, user_lang, user)
@@ -408,12 +408,12 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
             )
         else:
             content = await ai_service.generate_presentation_in_batches(topic, slide_count, doc_lang)
-        
+
         # Generate references if requested
         references = []
         if add_references:
             references = await ai_service.generate_references(topic, doc_lang)
-        
+
         # Generate plan items if requested
         plan_items = []
         if add_plan_slide:
@@ -497,7 +497,7 @@ async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Dat
         )
         await state.clear()
         return
-    
+
     slide_count = int(callback.data.split("_")[1])
     await state.update_data(slide_count=slide_count)
 
@@ -520,7 +520,7 @@ async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Dat
     # Delete slide count selection message
     await callback.answer()
     await callback.message.delete()
-    
+
     # For presentations, skip outline choice and go directly to template selection
     await show_template_selection(callback.message, state, user_lang, group=1, edit_message=False)
     await state.set_state(DocumentStates.waiting_for_template)
@@ -536,7 +536,7 @@ async def handle_page_count(callback: CallbackQuery, state: FSMContext, db: Data
         )
         await state.clear()
         return
-    
+
     page_range = callback.data.split("_")[1:]
     min_pages = int(page_range[0])
     max_pages = int(page_range[1])
@@ -564,7 +564,7 @@ async def handle_page_count(callback: CallbackQuery, state: FSMContext, db: Data
     # Remove inline keyboard (buttons disappear)
     await callback.answer()
     await callback.message.edit_reply_markup(reply_markup=None)
-    
+
     # Show outline choice
     from bot.keyboards import get_outline_choice_keyboard
     await callback.message.answer(
@@ -1006,7 +1006,7 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
 async def handle_outline_auto(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Handle automatic outline generation"""
     await callback.answer()
-    
+
     # Delete outline choice message
     await callback.message.delete()
 
@@ -1033,13 +1033,13 @@ async def handle_cancel_document(callback: CallbackQuery, state: FSMContext, use
     """Handle document creation cancellation"""
     await callback.answer()
     await callback.message.edit_reply_markup(reply_markup=None)
-    
+
     cancel_texts = {
         "uz": "❌ Hujjat yaratish bekor qilindi.",
         "ru": "❌ Создание документа отменено.",
         "en": "❌ Document creation cancelled."
     }
-    
+
     await callback.message.answer(
         cancel_texts.get(user_lang, cancel_texts["uz"]),
         reply_markup=get_main_keyboard(user_lang)
@@ -1050,7 +1050,7 @@ async def handle_cancel_document(callback: CallbackQuery, state: FSMContext, use
 async def handle_outline_manual(callback: CallbackQuery, state: FSMContext, user_lang: str):
     """Handle manual outline entry"""
     await callback.answer()
-    
+
     # Delete outline choice message
     await callback.message.delete()
 
@@ -1061,7 +1061,7 @@ async def handle_outline_manual(callback: CallbackQuery, state: FSMContext, user
     if document_type == "presentation":
         slide_count = data.get('slide_count', 10)
         await state.update_data(manual_outline=[], current_section=1, total_sections=slide_count)
-        
+
         # Show instruction with total count
         await callback.message.answer(
             get_text(user_lang, "manual_outline_instruction_presentation", total_slides=slide_count)
@@ -1083,7 +1083,7 @@ async def handle_outline_manual(callback: CallbackQuery, state: FSMContext, user
             section_count = 15
 
         await state.update_data(manual_outline=[], current_section=1, total_sections=section_count)
-        
+
         # Show instruction with total count
         await callback.message.answer(
             get_text(user_lang, "manual_outline_instruction_document", total_sections=section_count)
@@ -1098,7 +1098,7 @@ async def handle_outline_manual(callback: CallbackQuery, state: FSMContext, user
 @router.message(DocumentStates.waiting_for_manual_outline)
 async def handle_manual_outline_input(message: Message, state: FSMContext, db: Database, user_lang: str, user):
     """Handle manual outline section/slide title input"""
-    
+
     # Check if user wants to go back
     back_texts = ["🔙 Ortga qaytish", "🔙 Назад", "🔙 Back"]
     if message.text in back_texts:
@@ -1110,7 +1110,7 @@ async def handle_manual_outline_input(message: Message, state: FSMContext, db: D
         )
         await state.set_state(DocumentStates.waiting_for_outline_choice)
         return
-    
+
     data = await state.get_data()
     manual_outline = data.get('manual_outline', [])
     current_section = data.get('current_section', 1)
@@ -1119,7 +1119,7 @@ async def handle_manual_outline_input(message: Message, state: FSMContext, db: D
 
     # Sanitize and validate outline input
     outline_text = sanitize_user_input(message.text, max_length=150)
-    
+
     if not validate_topic_length(outline_text, min_length=2, max_length=150):
         await message.answer("❌ Mavzu juda qisqa yoki uzun. 2-150 belgi oralig'ida kiriting.")
         return
@@ -1145,12 +1145,12 @@ async def handle_manual_outline_input(message: Message, state: FSMContext, db: D
     else:
         # All sections/slides collected - show review
         await state.update_data(manual_outline=manual_outline)
-        
+
         # Format outline for display
         outline_text = ""
         for i, item in enumerate(manual_outline, 1):
             outline_text += f"{i}. {item}\n"
-        
+
         # Show review with confirm/edit buttons
         await message.answer(
             get_text(user_lang, "outline_review", outline_list=outline_text),
@@ -1164,12 +1164,12 @@ async def handle_confirm_outline(callback: CallbackQuery, state: FSMContext, db:
     """Handle outline confirmation"""
     await callback.answer()
     await callback.message.edit_reply_markup(reply_markup=None)
-    
+
     data = await state.get_data()
     document_type = data.get('document_type')
-    
+
     await callback.message.answer(get_text(user_lang, "outline_complete"), reply_markup=get_main_keyboard(user_lang))
-    
+
     if document_type == "presentation":
         # Show template selection for presentation
         await show_template_selection(callback.message, state, user_lang, group=1, edit_message=False)
@@ -1177,7 +1177,7 @@ async def handle_confirm_outline(callback: CallbackQuery, state: FSMContext, db:
     else:
         # Start document generation
         await callback.message.answer("⏳ " + get_text(user_lang, "generating"))
-        
+
         if document_type == "independent_work":
             # Call with callback parameter
             await generate_independent_work_manual(callback, state, db, user_lang, user)
@@ -1190,16 +1190,16 @@ async def handle_edit_outline(callback: CallbackQuery, state: FSMContext, user_l
     """Handle outline editing - restart from beginning"""
     await callback.answer()
     await callback.message.edit_reply_markup(reply_markup=None)
-    
+
     data = await state.get_data()
     document_type = data.get('document_type')
-    
+
     # Reset outline and start over
     if document_type == "presentation":
         slide_count = data.get('slide_count', 10)
         total_sections = slide_count
         await state.update_data(manual_outline=[], current_section=1, total_sections=total_sections)
-        
+
         await callback.message.answer(
             get_text(user_lang, "manual_outline_instruction_presentation", total_slides=slide_count)
         )
@@ -1217,9 +1217,9 @@ async def handle_edit_outline(callback: CallbackQuery, state: FSMContext, user_l
             section_count = 12
         else:
             section_count = 15
-            
+
         await state.update_data(manual_outline=[], current_section=1, total_sections=section_count)
-        
+
         await callback.message.answer(
             get_text(user_lang, "manual_outline_instruction_document", total_sections=section_count)
         )
@@ -1227,7 +1227,7 @@ async def handle_edit_outline(callback: CallbackQuery, state: FSMContext, user_l
             get_text(user_lang, "enter_section_title", section_num=1, total_sections=section_count),
             reply_markup=get_manual_input_keyboard(user_lang)
         )
-    
+
     await state.set_state(DocumentStates.waiting_for_manual_outline)
 
 @router.message(F.text == "Mening hisobim")
