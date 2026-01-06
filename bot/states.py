@@ -1,13 +1,16 @@
 from aiogram.fsm.state import State, StatesGroup
 
 class DocumentStates(StatesGroup):
+    waiting_for_doc_language = State()  # Hujjat tili tanlash
     waiting_for_topic = State()
+    waiting_for_author_name = State()  # Ism Familiya kiritish
     waiting_for_slide_count = State()
     waiting_for_page_count = State()
     waiting_for_outline_choice = State()
     waiting_for_manual_outline = State()
     waiting_for_outline_confirmation = State()
     waiting_for_template = State()
+    waiting_for_plan_slide_choice = State()  # Reja varaq so'rovi (taqdimot uchun)
     waiting_for_references_choice = State()
 
 class PaymentStates(StatesGroup):

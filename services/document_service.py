@@ -801,7 +801,8 @@ class DocumentService:
 
             # Create custom title page with template design (language-specific)
             user_lang = content.get('language', 'uzbek')  # Default to uzbek
-            await self._create_independent_work_title_page(doc, topic, user_lang)
+            author_name = content.get('author_name', '')  # Get author name from content
+            await self._create_independent_work_title_page(doc, topic, user_lang, author_name)
 
             # Add page break after title page
             doc.add_page_break()
@@ -946,7 +947,8 @@ class DocumentService:
 
             # Create custom title page with template design (language-specific)
             user_lang = content.get('language', 'uzbek')  # Default to uzbek
-            await self._create_referat_title_page(doc, topic, user_lang)
+            author_name = content.get('author_name', '')  # Get author name from content
+            await self._create_referat_title_page(doc, topic, user_lang, author_name)
 
             # Table of contents - REJA (without any lines, no page break before it)
             toc_para = doc.add_paragraph()
@@ -1058,7 +1060,7 @@ class DocumentService:
             logger.error(f"Error creating referat: {e}")
             raise
 
-    async def _create_referat_title_page(self, doc, topic: str, language: str = 'uzbek'):
+    async def _create_referat_title_page(self, doc, topic: str, language: str = 'uzbek', author_name: str = ''):
         """Create referat title page with exact template design from user's image, language-specific"""
         try:
             # Language-specific texts
@@ -1112,14 +1114,20 @@ class DocumentService:
             signatures_para = doc.add_paragraph()
             signatures_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-            # Bajardi section (left side)
+            # Bajardi section (left side) - show author name if provided
             bajardi_run = signatures_para.add_run(f"{texts['prepared_by']}: ")
             bajardi_run.font.size = Pt(14)
             bajardi_run.font.name = 'Times New Roman'
 
-            kurs_run = signatures_para.add_run(f"_____ {texts['course']}")
-            kurs_run.font.size = Pt(14)
-            kurs_run.font.name = 'Times New Roman'
+            if author_name:
+                author_run = signatures_para.add_run(f"{author_name}")
+                author_run.font.size = Pt(14)
+                author_run.font.name = 'Times New Roman'
+                author_run.font.bold = True
+            else:
+                kurs_run = signatures_para.add_run(f"_____ {texts['course']}")
+                kurs_run.font.size = Pt(14)
+                kurs_run.font.name = 'Times New Roman'
 
             # Spacing between signatures
             signatures_para.add_run("               ")
@@ -1133,11 +1141,12 @@ class DocumentService:
             qabul_line_run.font.size = Pt(14)
             qabul_line_run.font.name = 'Times New Roman'
 
-            # Second line for group info under Bajardi
-            signatures_para.add_run("\n")
-            guruh_run = signatures_para.add_run(f"                    {texts['group_student']}")
-            guruh_run.font.size = Pt(14)
-            guruh_run.font.name = 'Times New Roman'
+            # Second line for group info under Bajardi (only if no author name)
+            if not author_name:
+                signatures_para.add_run("\n")
+                guruh_run = signatures_para.add_run(f"                    {texts['group_student']}")
+                guruh_run.font.size = Pt(14)
+                guruh_run.font.name = 'Times New Roman'
 
             # Add 3 empty lines for spacing before Toshkent
             for _ in range(3):
@@ -1197,7 +1206,7 @@ class DocumentService:
                 'city': 'Toshkent'
             }
 
-    async def _create_independent_work_title_page(self, doc, topic: str, language: str = 'uzbek'):
+    async def _create_independent_work_title_page(self, doc, topic: str, language: str = 'uzbek', author_name: str = ''):
         """Create independent work title page with exact template design from user's image, language-specific"""
         try:
             # Language-specific texts
@@ -1248,14 +1257,20 @@ class DocumentService:
             signatures_para = doc.add_paragraph()
             signatures_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
 
-            # Bajardi section (left side)
+            # Bajardi section (left side) - show author name if provided
             bajardi_run = signatures_para.add_run(f"{texts['prepared_by']}: ")
             bajardi_run.font.size = Pt(14)
             bajardi_run.font.name = 'Times New Roman'
 
-            bajardi_line_run = signatures_para.add_run("_" * 18)
-            bajardi_line_run.font.size = Pt(14)
-            bajardi_line_run.font.name = 'Times New Roman'
+            if author_name:
+                author_run = signatures_para.add_run(f"{author_name}")
+                author_run.font.size = Pt(14)
+                author_run.font.name = 'Times New Roman'
+                author_run.font.bold = True
+            else:
+                bajardi_line_run = signatures_para.add_run("_" * 18)
+                bajardi_line_run.font.size = Pt(14)
+                bajardi_line_run.font.name = 'Times New Roman'
 
             # Spacing between signatures
             signatures_para.add_run("         ")

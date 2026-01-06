@@ -515,6 +515,66 @@ Example format:
                 f"Academic Source 5 on {topic}"
             ]
 
+    async def generate_plan_items(self, topic: str, language: str) -> List[str]:
+        """Generate 3 main plan items for the topic"""
+        logger.info(f"Generating plan items for topic: {topic}")
+
+        language_instructions = {
+            'uz': "O'zbek tilida",
+            'ru': "На русском языке",
+            'en': "In English"
+        }
+
+        lang_instruction = language_instructions.get(language, "O'zbek tilida")
+
+        prompt = f"""
+Generate 3 main plan items (outline) for a presentation about "{topic}". {lang_instruction}.
+
+Requirements:
+- Each plan item should be a clear main topic/section
+- They should cover the main aspects of the topic
+- Keep them concise (5-10 words each)
+- They should logically flow from introduction to conclusion aspects
+
+Return as JSON with exactly 3 strings.
+
+Example format:
+{{
+  "plan_items": [
+    "First main topic",
+    "Second main topic", 
+    "Third main topic"
+  ]
+}}
+"""
+
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"},
+                temperature=0.7
+            )
+
+            result = json.loads(response.choices[0].message.content)
+            plan_items = result.get('plan_items', [])
+
+            # Ensure exactly 3 plan items
+            if len(plan_items) < 3:
+                plan_items.extend([f"Reja {i+1}" for i in range(len(plan_items), 3)])
+
+            return plan_items[:3]
+
+        except Exception as e:
+            logger.error(f"Error generating plan items: {e}")
+            # Return fallback plan items based on language
+            if language == "ru":
+                return ["Введение", "Основная часть", "Заключение"]
+            elif language == "en":
+                return ["Introduction", "Main Content", "Conclusion"]
+            else:
+                return ["Kirish", "Asosiy qism", "Xulosa"]
+
     async def _generate_slide_batch(self, topic: str, start_slide: int, end_slide: int, total_slides: int, language: str) -> Dict:
         """Generate a batch of 3 slides with proper layout assignment"""
 

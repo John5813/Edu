@@ -1,8 +1,28 @@
 TRANSLATIONS = {
+    "select_doc_language": {
+        "uz": "🌍 Hujjat qaysi tilda bo'lishini tanlang:",
+        "ru": "🌍 Выберите язык документа:",
+        "en": "🌍 Select document language:"
+    },
     "enter_topic": {
         "uz": "📝 Mavzuni kiriting:",
         "ru": "📝 Введите тему:",
         "en": "📝 Enter the topic:"
+    },
+    "enter_author_name": {
+        "uz": "👤 Ism va Familiyangizni to'liq kiriting:\n\n(Masalan: Aliyev Jasur)",
+        "ru": "👤 Введите ваше полное имя и фамилию:\n\n(Например: Иванов Иван)",
+        "en": "👤 Enter your full name:\n\n(Example: John Smith)"
+    },
+    "add_plan_slide_question": {
+        "uz": "📋 Taqdimotga reja varag'ini qo'shishni xohlaysizmi?\n\n(2-chi slaydda 3 ta asosiy reja ko'rsatiladi)",
+        "ru": "📋 Хотите добавить слайд с планом?\n\n(На 2-м слайде будут показаны 3 основных пункта плана)",
+        "en": "📋 Would you like to add a plan slide?\n\n(3 main plan items will be shown on slide 2)"
+    },
+    "plan_slide_title": {
+        "uz": "Reja",
+        "ru": "План",
+        "en": "Plan"
     },
     "topic_too_short": {
         "uz": "❌ Mavzu juda qisqa. Iltimos, kamida 3 ta belgi kiriting.",

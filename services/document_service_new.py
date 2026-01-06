@@ -25,11 +25,11 @@ class DocumentService:
         os.makedirs(self.documents_dir, exist_ok=True)
         os.makedirs("temp", exist_ok=True)
 
-    async def create_presentation_with_template_background(self, topic: str, content: Dict, author_name: str, template_id: str, template_service, language: str = "uz", references: List[str] = None) -> str:
+    async def create_presentation_with_template_background(self, topic: str, content: Dict, author_name: str, template_id: str, template_service, language: str = "uz", references: List[str] = None, plan_items: List[str] = None) -> str:
         """Create presentation with template background applied"""
         try:
             # First create normal presentation
-            temp_file = await self.create_new_presentation_system(topic, content, author_name, language, references)
+            temp_file = await self.create_new_presentation_system(topic, content, author_name, language, references, plan_items)
 
             # Now apply template backgrounds to all slides
             from pptx import Presentation
@@ -112,7 +112,20 @@ class DocumentService:
         title_para.font.color.rgb = colors.get('title', RGBColor(0, 51, 102))
         title_para.alignment = PP_ALIGN.CENTER
 
-        # No author name needed
+        # Add author name below topic - qalin shrift
+        if author_name:
+            author_box = slide.shapes.add_textbox(
+                PptxInches(1), PptxInches(4.5),
+                PptxInches(11.33), PptxInches(1)
+            )
+            author_frame = author_box.text_frame
+            author_frame.word_wrap = True
+            author_para = author_frame.paragraphs[0]
+            author_para.text = author_name
+            author_para.font.size = PptxPt(28)
+            author_para.font.bold = True
+            author_para.font.color.rgb = colors.get('text', RGBColor(51, 51, 51))
+            author_para.alignment = PP_ALIGN.CENTER
 
     async def _create_content_slide_with_template(self, prs, slide_data: Dict, layout_type: str, slide_num: int, images: Dict, template_service, template_id: str):
         """Create content slide with template background"""
@@ -274,7 +287,7 @@ class DocumentService:
             p.font.color.rgb = colors.get('text', RGBColor(51, 51, 51))
             p.alignment = PP_ALIGN.LEFT
 
-    async def create_new_presentation_system(self, topic: str, content: Dict, author_name: str, language: str = "uz", references: List[str] = None) -> str:
+    async def create_new_presentation_system(self, topic: str, content: Dict, author_name: str, language: str = "uz", references: List[str] = None, plan_items: List[str] = None) -> str:
         """Create presentation with new 3-template rotating system and DALL-E images"""
         try:
             # Validate content
@@ -291,8 +304,12 @@ class DocumentService:
             slides_data = content.get('slides', [])
             logger.info(f"Creating presentation with {len(slides_data)} slides")
 
-            # 1. ADD SIMPLE TITLE SLIDE - faqat mavzu nomi
-            await self._create_simple_title_slide(prs, topic)
+            # 1. ADD TITLE SLIDE - mavzu nomi va muallif ismi (qalin shrift)
+            await self._create_simple_title_slide(prs, topic, author_name)
+
+            # 1.5. ADD PLAN SLIDE - agar reja berilgan bo'lsa (2-chi slayd)
+            if plan_items and len(plan_items) > 0:
+                await self._create_plan_slide(prs, plan_items, language)
 
             # Generate DALL-E images for text+image slides
             images = await self._generate_dalle_images_for_slides(topic, slides_data)
@@ -889,14 +906,14 @@ class DocumentService:
 
         return points[:num_points]
 
-    async def _create_simple_title_slide(self, prs, topic: str):
-        """Create simple title slide - faqat mavzu nomi katta yozuvda"""
+    async def _create_simple_title_slide(self, prs, topic: str, author_name: str = ""):
+        """Create simple title slide - mavzu nomi va muallif ismi (qalin)"""
         slide_layout = prs.slide_layouts[6]  # Blank layout
         slide = prs.slides.add_slide(slide_layout)
 
         # Add topic name in center - katta yozuv
         title_box = slide.shapes.add_textbox(
-            PptxInches(1), PptxInches(3),
+            PptxInches(1), PptxInches(2.5),
             PptxInches(11.33), PptxInches(2)
         )
         title_frame = title_box.text_frame
@@ -906,6 +923,65 @@ class DocumentService:
         title_para.font.size = PptxPt(46)
         title_para.font.bold = True
         title_para.alignment = PP_ALIGN.CENTER
+
+        # Add author name below topic - qalin shrift
+        if author_name:
+            author_box = slide.shapes.add_textbox(
+                PptxInches(1), PptxInches(4.5),
+                PptxInches(11.33), PptxInches(1)
+            )
+            author_frame = author_box.text_frame
+            author_frame.word_wrap = True
+            author_para = author_frame.paragraphs[0]
+            author_para.text = author_name
+            author_para.font.size = PptxPt(28)
+            author_para.font.bold = True
+            author_para.alignment = PP_ALIGN.CENTER
+
+    async def _create_plan_slide(self, prs, plan_items: List[str], language: str = "uz"):
+        """Create plan slide with 3 main topics - 2-chi slayd"""
+        slide_layout = prs.slide_layouts[6]  # Blank layout
+        slide = prs.slides.add_slide(slide_layout)
+
+        # Plan title in different languages
+        title_texts = {
+            "uz": "Reja",
+            "ru": "План",
+            "en": "Plan"
+        }
+
+        title_text = title_texts.get(language, "Reja")
+
+        # Add title
+        title_box = slide.shapes.add_textbox(
+            PptxInches(1), PptxInches(0.5),
+            PptxInches(11.33), PptxInches(1)
+        )
+        title_frame = title_box.text_frame
+        title_para = title_frame.paragraphs[0]
+        title_para.text = title_text
+        title_para.font.size = PptxPt(36)
+        title_para.font.bold = True
+        title_para.alignment = PP_ALIGN.CENTER
+
+        # Add plan items as numbered list
+        content_box = slide.shapes.add_textbox(
+            PptxInches(2), PptxInches(2),
+            PptxInches(9.33), PptxInches(4)
+        )
+        content_frame = content_box.text_frame
+        content_frame.word_wrap = True
+
+        for i, item in enumerate(plan_items[:3]):
+            if i == 0:
+                para = content_frame.paragraphs[0]
+            else:
+                para = content_frame.add_paragraph()
+            para.text = f"{i + 1}. {item}"
+            para.font.size = PptxPt(24)
+            para.font.bold = False
+            para.alignment = PP_ALIGN.LEFT
+            para.space_after = PptxPt(20)
 
     async def _create_references_slide(self, prs, references: List[str], language: str = "uz"):
         """Create references slide with 5 sources - oxirgi slayddan oldin"""

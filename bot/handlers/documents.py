@@ -7,7 +7,7 @@ from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.fsm.context import FSMContext
 
 from bot.states import DocumentStates
-from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard, get_outline_review_keyboard, get_references_choice_keyboard
+from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard, get_outline_review_keyboard, get_references_choice_keyboard, get_doc_language_keyboard, get_plan_slide_keyboard
 from database.database import Database
 from utils.security import sanitize_user_input, validate_topic_length
 from services.ai_service_new import AIService
@@ -56,14 +56,37 @@ async def handle_document_type_selection(message: Message, state: FSMContext, us
         doc_type = DOCUMENT_TYPES[message.text]
         await state.update_data(document_type=doc_type)
 
-        # Ask for topic
-        topic_text = get_text(user_lang, "enter_topic")
-        await message.answer(topic_text)
-        await state.set_state(DocumentStates.waiting_for_topic)
+        # Ask for document language first
+        await message.answer(
+            get_text(user_lang, "select_doc_language"),
+            reply_markup=get_doc_language_keyboard()
+        )
+        await state.set_state(DocumentStates.waiting_for_doc_language)
 
     except Exception as e:
         logger.error(f"Error in document type selection: {e}")
         await message.answer("❌ Xatolik yuz berdi. Qayta urinib ko'ring.")
+
+@router.callback_query(F.data.startswith("doc_lang_"), DocumentStates.waiting_for_doc_language)
+async def handle_doc_language_selection(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Handle document language selection"""
+    await callback.answer()
+    
+    # Extract selected document language
+    doc_lang = callback.data.split("_")[-1]  # uz, ru, or en
+    await state.update_data(doc_language=doc_lang)
+    
+    # Delete language selection message
+    await callback.message.delete()
+    
+    # Ask for topic in selected document language
+    topic_prompts = {
+        "uz": "📝 Mavzuni kiriting:",
+        "ru": "📝 Введите тему:",
+        "en": "📝 Enter the topic:"
+    }
+    await callback.message.answer(topic_prompts.get(doc_lang, topic_prompts["uz"]))
+    await state.set_state(DocumentStates.waiting_for_topic)
 
 @router.message(DocumentStates.waiting_for_topic)
 async def handle_topic_input(message: Message, state: FSMContext, user_lang: str, db: Database, user):
@@ -78,26 +101,64 @@ async def handle_topic_input(message: Message, state: FSMContext, user_lang: str
 
         await state.update_data(topic=topic)
 
+        # Get document language from state
+        data = await state.get_data()
+        doc_lang = data.get('doc_language', user_lang)
+
+        # Ask for author name in document language
+        name_prompts = {
+            "uz": "👤 Ism va Familiyangizni to'liq kiriting:\n\n(Masalan: Aliyev Jasur)",
+            "ru": "👤 Введите ваше полное имя и фамилию:\n\n(Например: Иванов Иван)",
+            "en": "👤 Enter your full name:\n\n(Example: John Smith)"
+        }
+        await message.answer(name_prompts.get(doc_lang, name_prompts["uz"]))
+        await state.set_state(DocumentStates.waiting_for_author_name)
+
+    except Exception as e:
+        logger.error(f"Error handling topic input: {e}")
+        await message.answer("❌ Xatolik yuz berdi. Qayta urinib ko'ring.")
+
+@router.message(DocumentStates.waiting_for_author_name)
+async def handle_author_name_input(message: Message, state: FSMContext, user_lang: str, db: Database, user):
+    """Handle author name input from user"""
+    try:
+        # Sanitize author name
+        author_name = sanitize_user_input(message.text, max_length=100)
+        
+        if len(author_name.strip()) < 3:
+            error_msgs = {
+                "uz": "❌ Ism juda qisqa. Iltimos, to'liq ism kiriting.",
+                "ru": "❌ Имя слишком короткое. Пожалуйста, введите полное имя.",
+                "en": "❌ Name is too short. Please enter your full name."
+            }
+            data = await state.get_data()
+            doc_lang = data.get('doc_language', user_lang)
+            await message.answer(error_msgs.get(doc_lang, error_msgs["uz"]))
+            return
+
+        await state.update_data(author_name=author_name.strip())
+
         # Get document type from state
         data = await state.get_data()
         doc_type = data.get('document_type')
+        doc_lang = data.get('doc_language', user_lang)
 
         # Ask for slide/page count based on document type
         if doc_type == "presentation":
             await message.answer(
-                get_text(user_lang, "select_slide_count"),
-                reply_markup=get_slide_count_keyboard(user_lang)
+                get_text(doc_lang, "select_slide_count"),
+                reply_markup=get_slide_count_keyboard(doc_lang)
             )
             await state.set_state(DocumentStates.waiting_for_slide_count)
         else:  # referat or independent_work
             await message.answer(
-                get_text(user_lang, "select_page_count"),
-                reply_markup=get_page_count_keyboard(user_lang)
+                get_text(doc_lang, "select_page_count"),
+                reply_markup=get_page_count_keyboard(doc_type, doc_lang)
             )
             await state.set_state(DocumentStates.waiting_for_page_count)
 
     except Exception as e:
-        logger.error(f"Error handling topic input: {e}")
+        logger.error(f"Error handling author name input: {e}")
         await message.answer("❌ Xatolik yuz berdi. Qayta urinib ko'ring.")
 
 # Dynamic pricing helper function
@@ -141,67 +202,6 @@ async def check_user_subscription_required(message: Message, user, db: Database,
         return False
 
     return True
-
-@router.message(F.text.in_(DOCUMENT_TYPES.keys()))
-async def handle_document_request(message: Message, state: FSMContext, db: Database, user_lang: str, user):
-    """Handle document creation request"""
-    if not user:
-        await message.answer("❌ Сначала выполните команду /start")
-        return
-
-    # Check subscription before allowing document creation
-    if not await check_user_subscription_required(message, user, db, user_lang):
-        return
-
-    document_type = DOCUMENT_TYPES[message.text]
-    await state.update_data(document_type=document_type)
-
-    # Proceed directly to topic input
-    await message.answer(get_text(user_lang, "enter_topic"))
-    await state.set_state(DocumentStates.waiting_for_topic)
-
-@router.message(DocumentStates.waiting_for_topic)
-async def handle_topic_input(message: Message, state: FSMContext, user_lang: str):
-    """Handle topic input"""
-    # Sanitize user input to prevent injection attacks
-    topic = sanitize_user_input(message.text, max_length=200)
-    
-    # Remove problematic special characters that may break AI processing
-    # Replace smart quotes and other special characters with standard ones
-    topic = topic.replace('«', '"').replace('»', '"')
-    topic = topic.replace('"', '"').replace('"', '"')
-    topic = topic.replace(''', "'").replace(''', "'")
-    # Normalize numbers: replace comma with period (3,5 -> 3.5)
-    import re
-    topic = re.sub(r'(\d),(\d)', r'\1.\2', topic)
-    topic = topic.strip()
-
-    # Simple check - only handle actual topics (not system buttons)
-    # System buttons will be handled by their specific routers first due to order
-    if topic.startswith(("⚙️", "💳", "💰", "📞", "📊", "🎓", "📄")):
-        return  # Let other handlers process system buttons
-
-    if not validate_topic_length(topic, min_length=3, max_length=200):
-        await message.answer("❌ Mavzu juda qisqa. Iltimos, to'liqroq kiriting.")
-        return
-
-    await state.update_data(topic=topic)
-    data = await state.get_data()
-    document_type = data['document_type']
-
-    if document_type == "presentation":
-        # Show slide count selection for paid service
-        await message.answer(
-            get_text(user_lang, "select_slide_count"),
-            reply_markup=get_slide_count_keyboard(user_lang)
-        )
-        await state.set_state(DocumentStates.waiting_for_slide_count)
-    else:
-        await message.answer(
-            get_text(user_lang, "select_page_count"),
-            reply_markup=get_page_count_keyboard(document_type, user_lang)
-        )
-        await state.set_state(DocumentStates.waiting_for_page_count)
 
 async def show_template_selection(message: Message, state: FSMContext, user_lang: str, group: int = 1, edit_message: bool = False):
     """Show all 20 templates in one overview image with numbered buttons"""
@@ -259,7 +259,7 @@ async def handle_template_group_navigation(callback: CallbackQuery, state: FSMCo
 
 @router.callback_query(F.data.regexp(r"^template_\d+$"))
 async def handle_template_selection(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
-    """Handle template selection and ask about references"""
+    """Handle template selection and ask about plan slide"""
     try:
         # Extract template number from callback data (template_X)
         template_num = callback.data.split("_")[-1]
@@ -273,6 +273,7 @@ async def handle_template_selection(callback: CallbackQuery, state: FSMContext, 
         data = await state.get_data()
         photo_msg_id = data.get('template_photo_msg_id')
         keyboard_msg_id = data.get('template_keyboard_msg_id')
+        doc_lang = data.get('doc_language', user_lang)
         
         try:
             if photo_msg_id:
@@ -288,16 +289,55 @@ async def handle_template_selection(callback: CallbackQuery, state: FSMContext, 
         except Exception as del_err:
             logger.warning(f"Could not delete template messages: {del_err}")
         
-        # Ask if user wants to add references
+        # Ask if user wants to add plan slide
+        plan_questions = {
+            "uz": "📋 Taqdimotga reja varag'ini qo'shishni xohlaysizmi?\n\n(2-chi slaydda 3 ta asosiy reja ko'rsatiladi)",
+            "ru": "📋 Хотите добавить слайд с планом?\n\n(На 2-м слайде будут показаны 3 основных пункта плана)",
+            "en": "📋 Would you like to add a plan slide?\n\n(3 main plan items will be shown on slide 2)"
+        }
         await callback.message.answer(
-            get_text(user_lang, "add_references_question"),
-            reply_markup=get_references_choice_keyboard(user_lang)
+            plan_questions.get(doc_lang, plan_questions["uz"]),
+            reply_markup=get_plan_slide_keyboard(doc_lang)
         )
-        await state.set_state(DocumentStates.waiting_for_references_choice)
+        await state.set_state(DocumentStates.waiting_for_plan_slide_choice)
 
     except Exception as e:
         logger.error(f"Error in template selection: {e}")
         await callback.message.answer("❌ Xatolik yuz berdi")
+
+@router.callback_query(F.data == "plan_slide_yes", DocumentStates.waiting_for_plan_slide_choice)
+async def handle_plan_slide_yes(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Handle user choosing to add plan slide"""
+    await callback.answer()
+    await callback.message.delete()
+    
+    await state.update_data(add_plan_slide=True)
+    
+    # Now ask about references
+    data = await state.get_data()
+    doc_lang = data.get('doc_language', user_lang)
+    await callback.message.answer(
+        get_text(doc_lang, "add_references_question"),
+        reply_markup=get_references_choice_keyboard(doc_lang)
+    )
+    await state.set_state(DocumentStates.waiting_for_references_choice)
+
+@router.callback_query(F.data == "plan_slide_no", DocumentStates.waiting_for_plan_slide_choice)
+async def handle_plan_slide_no(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Handle user choosing not to add plan slide"""
+    await callback.answer()
+    await callback.message.delete()
+    
+    await state.update_data(add_plan_slide=False)
+    
+    # Now ask about references
+    data = await state.get_data()
+    doc_lang = data.get('doc_language', user_lang)
+    await callback.message.answer(
+        get_text(doc_lang, "add_references_question"),
+        reply_markup=get_references_choice_keyboard(doc_lang)
+    )
+    await state.set_state(DocumentStates.waiting_for_references_choice)
 
 @router.callback_query(F.data == "add_references_yes", DocumentStates.waiting_for_references_choice)
 async def handle_add_references_yes(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
@@ -339,12 +379,16 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         price = data.get('price', 0)
         manual_outline = data.get('manual_outline', [])
         add_references = data.get('add_references', False)
+        add_plan_slide = data.get('add_plan_slide', False)
+        author_name = data.get('author_name', user.first_name or "")
+        doc_lang = data.get('doc_language', user_lang)
 
         # Create order record
         specifications = json.dumps({
             "slide_count": slide_count,
             "template": template_id,
-            "manual_outline": len(manual_outline) > 0
+            "manual_outline": len(manual_outline) > 0,
+            "add_plan_slide": add_plan_slide
         })
         order_id = await db.create_document_order(
             user_id=user.id,
@@ -353,21 +397,26 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
             specifications=specifications
         )
 
-        # Generate content with NEW AI BATCH SYSTEM
+        # Generate content with NEW AI BATCH SYSTEM using document language
         ai_service = AIService()
 
         # If manual outline provided, use it
         if manual_outline:
             content = await ai_service.generate_presentation_with_manual_titles(
-                topic, manual_outline, user_lang
+                topic, manual_outline, doc_lang
             )
         else:
-            content = await ai_service.generate_presentation_in_batches(topic, slide_count, user_lang)
+            content = await ai_service.generate_presentation_in_batches(topic, slide_count, doc_lang)
         
         # Generate references if requested
         references = []
         if add_references:
-            references = await ai_service.generate_references(topic, user_lang)
+            references = await ai_service.generate_references(topic, doc_lang)
+        
+        # Generate plan items if requested
+        plan_items = []
+        if add_plan_slide:
+            plan_items = await ai_service.generate_plan_items(topic, doc_lang)
 
         # Validate AI response
         if not content or 'slides' not in content:
@@ -383,9 +432,9 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         doc_service = DocumentService()
         template_service = TemplateService()
 
-        # Apply template to presentation
+        # Apply template to presentation with author name and plan slide
         file_path = await doc_service.create_presentation_with_template_background(
-            topic, content, user.first_name or "", template_id, template_service, user_lang, references
+            topic, content, author_name, template_id, template_service, doc_lang, references, plan_items
         )
 
         # Verify file was created
@@ -610,6 +659,8 @@ async def generate_independent_work_manual(callback: CallbackQuery, state: FSMCo
         min_pages = data['min_pages']
         max_pages = data['max_pages']
         manual_outline = data.get('manual_outline', [])
+        author_name = data.get('author_name', user.first_name or "")
+        doc_lang = data.get('doc_language', user_lang)
 
         # Create order record
         specifications = json.dumps({"min_pages": min_pages, "max_pages": max_pages, "manual_outline": True})
@@ -620,7 +671,7 @@ async def generate_independent_work_manual(callback: CallbackQuery, state: FSMCo
             specifications=specifications
         )
 
-        # Use manual outline instead of AI-generated
+        # Use manual outline instead of AI-generated - use doc_lang
         from services.ai_service import AIService as OldAIService
         ai_service = OldAIService()
 
@@ -628,7 +679,7 @@ async def generate_independent_work_manual(callback: CallbackQuery, state: FSMCo
         sections = []
         for i, section_title in enumerate(manual_outline):
             section_content = await ai_service._generate_section_content(
-                topic, section_title, i + 1, len(manual_outline), "independent_work", user_lang
+                topic, section_title, i + 1, len(manual_outline), "independent_work", doc_lang
             )
             sections.append({
                 "title": section_title,
@@ -636,13 +687,14 @@ async def generate_independent_work_manual(callback: CallbackQuery, state: FSMCo
             })
 
         # Generate references
-        references = await ai_service._generate_references(topic, user_lang)
+        references = await ai_service._generate_references(topic, doc_lang)
 
         content = {
             "title": topic,
             "sections": sections,
             "references": references,
-            "language": user_lang
+            "language": doc_lang,
+            "author_name": author_name
         }
 
         # Create document file
@@ -696,6 +748,8 @@ async def generate_referat_manual(callback: CallbackQuery, state: FSMContext, db
         min_pages = data['min_pages']
         max_pages = data['max_pages']
         manual_outline = data.get('manual_outline', [])
+        author_name = data.get('author_name', user.first_name or "")
+        doc_lang = data.get('doc_language', user_lang)
 
         # Create order record
         specifications = json.dumps({"min_pages": min_pages, "max_pages": max_pages, "manual_outline": True})
@@ -706,7 +760,7 @@ async def generate_referat_manual(callback: CallbackQuery, state: FSMContext, db
             specifications=specifications
         )
 
-        # Use manual outline instead of AI-generated
+        # Use manual outline instead of AI-generated - use doc_lang
         from services.ai_service import AIService as OldAIService
         ai_service = OldAIService()
 
@@ -714,7 +768,7 @@ async def generate_referat_manual(callback: CallbackQuery, state: FSMContext, db
         sections = []
         for i, section_title in enumerate(manual_outline):
             section_content = await ai_service._generate_section_content(
-                topic, section_title, i + 1, len(manual_outline), "referat", user_lang
+                topic, section_title, i + 1, len(manual_outline), "referat", doc_lang
             )
             sections.append({
                 "title": section_title,
@@ -722,13 +776,14 @@ async def generate_referat_manual(callback: CallbackQuery, state: FSMContext, db
             })
 
         # Generate references
-        references = await ai_service._generate_references(topic, user_lang)
+        references = await ai_service._generate_references(topic, doc_lang)
 
         content = {
             "title": topic,
             "sections": sections,
             "references": references,
-            "language": user_lang
+            "language": doc_lang,
+            "author_name": author_name
         }
 
         # Create document file
@@ -785,6 +840,8 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
         topic = data['topic']
         min_pages = data['min_pages']
         max_pages = data['max_pages']
+        author_name = data.get('author_name', user.first_name or "")
+        doc_lang = data.get('doc_language', user_lang)
 
         # Create order record
         specifications = json.dumps({"min_pages": min_pages, "max_pages": max_pages})
@@ -805,15 +862,16 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
         else:
             section_count = 15
 
-        # Generate content with AI using old professional service
+        # Generate content with AI using old professional service - use doc_lang
         from services.ai_service import AIService as OldAIService
         ai_service = OldAIService()
         content = await ai_service.generate_document_content(
-            topic, section_count, "independent_work", user_lang
+            topic, section_count, "independent_work", doc_lang
         )
 
-        # Add language info to content for template
-        content['language'] = user_lang
+        # Add language and author info to content for template
+        content['language'] = doc_lang
+        content['author_name'] = author_name
 
         # Create document file using old professional service
         from services.document_service import DocumentService as OldDocumentService
@@ -867,6 +925,8 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
         topic = data['topic']
         min_pages = data['min_pages']
         max_pages = data['max_pages']
+        author_name = data.get('author_name', user.first_name or "")
+        doc_lang = data.get('doc_language', user_lang)
 
         # Create order record
         specifications = json.dumps({"min_pages": min_pages, "max_pages": max_pages})
@@ -887,15 +947,16 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
         else:
             section_count = 15
 
-        # Generate content with AI using old professional service
+        # Generate content with AI using old professional service - use doc_lang
         from services.ai_service import AIService as OldAIService
         ai_service = OldAIService()
         content = await ai_service.generate_document_content(
-            topic, section_count, "referat", user_lang
+            topic, section_count, "referat", doc_lang
         )
 
-        # Add language info to content for template
-        content['language'] = user_lang
+        # Add language and author info to content for template
+        content['language'] = doc_lang
+        content['author_name'] = author_name
 
         # Create document file using old professional service  
         from services.document_service import DocumentService as OldDocumentService

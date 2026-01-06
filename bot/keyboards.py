@@ -13,6 +13,30 @@ def get_language_keyboard() -> InlineKeyboardMarkup:
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+def get_doc_language_keyboard() -> InlineKeyboardMarkup:
+    """Document language selection keyboard"""
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(text="🇺🇿 O'zbek", callback_data="doc_lang_uz"))
+    keyboard.add(InlineKeyboardButton(text="🇷🇺 Русский", callback_data="doc_lang_ru"))
+    keyboard.add(InlineKeyboardButton(text="🇬🇧 English", callback_data="doc_lang_en"))
+    keyboard.adjust(3)
+    return keyboard.as_markup()
+
+def get_plan_slide_keyboard(language: str) -> InlineKeyboardMarkup:
+    """Plan slide choice keyboard"""
+    keyboard = InlineKeyboardBuilder()
+    if language == "uz":
+        keyboard.add(InlineKeyboardButton(text="✅ Ha", callback_data="plan_slide_yes"))
+        keyboard.add(InlineKeyboardButton(text="❌ Yo'q", callback_data="plan_slide_no"))
+    elif language == "ru":
+        keyboard.add(InlineKeyboardButton(text="✅ Да", callback_data="plan_slide_yes"))
+        keyboard.add(InlineKeyboardButton(text="❌ Нет", callback_data="plan_slide_no"))
+    else:
+        keyboard.add(InlineKeyboardButton(text="✅ Yes", callback_data="plan_slide_yes"))
+        keyboard.add(InlineKeyboardButton(text="❌ No", callback_data="plan_slide_no"))
+    keyboard.adjust(2)
+    return keyboard.as_markup()
+
 def get_settings_keyboard(language: str) -> InlineKeyboardMarkup:
     """Settings menu keyboard"""
     keyboard = InlineKeyboardBuilder()
