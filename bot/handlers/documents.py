@@ -521,13 +521,9 @@ async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Dat
     await callback.answer()
     await callback.message.delete()
     
-    # Show outline choice before template selection
-    from bot.keyboards import get_outline_choice_keyboard
-    await callback.message.answer(
-        get_text(user_lang, "outline_choice"),
-        reply_markup=get_outline_choice_keyboard(user_lang)
-    )
-    await state.set_state(DocumentStates.waiting_for_outline_choice)
+    # For presentations, skip outline choice and go directly to template selection
+    await show_template_selection(callback.message, state, user_lang, group=1, edit_message=False)
+    await state.set_state(DocumentStates.waiting_for_template)
 
 @router.callback_query(F.data.startswith("pages_"), DocumentStates.waiting_for_page_count)
 async def handle_page_count(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
@@ -1018,7 +1014,7 @@ async def handle_outline_auto(callback: CallbackQuery, state: FSMContext, db: Da
     document_type = data.get('document_type')
 
     if document_type == "presentation":
-        # For presentation, show template selection
+        # For presentation, show template selection directly (no manual option)
         await show_template_selection(callback.message, state, user_lang, group=1, edit_message=False)
         await state.set_state(DocumentStates.waiting_for_template)
     else:
