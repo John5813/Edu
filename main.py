@@ -47,12 +47,12 @@ async def main():
     dp.callback_query.middleware(BlockedUserMiddleware())
     
     # Register handlers - important order: specific handlers first, catch-all last!
-    dp.include_router(settings.router)  # Handle settings buttons first
-    dp.include_router(payments.router)  # Handle payment buttons first
+    dp.include_router(admin.router)  # Admin commands first
+    dp.include_router(settings.router)  # Handle settings buttons
+    dp.include_router(payments.router)  # Handle payment buttons
     dp.include_router(samples.router)  # Handle samples view and admin management
-    dp.include_router(admin.router)
-    dp.include_router(documents.router)  # Handles document creation and topic input
-    dp.include_router(start.router)  # Last - has catch-all handler for unknown messages
+    dp.include_router(documents.router)  # Handles document creation and topic input - MUST BE BEFORE start.router
+    dp.include_router(start.router)  # LAST - has catch-all handler for unknown messages
     
     # Start polling
     logger.info("Bot started")
