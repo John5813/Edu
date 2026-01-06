@@ -1,45 +1,13 @@
 TRANSLATIONS = {
-    "select_doc_language": {
-        "uz": "🌍 Hujjat qaysi tilda bo'lishini tanlang:",
-        "ru": "🌍 Выберите язык документа:",
-        "en": "🌍 Select document language:"
-    },
-    "enter_topic": {
-        "uz": "📝 Mavzuni kiriting:",
-        "ru": "📝 Введите тему:",
-        "en": "📝 Enter the topic:"
-    },
-    "enter_author_name": {
-        "uz": "👤 Ism va Familiyangizni to'liq kiriting:\n\n(Masalan: Aliyev Jasur)",
-        "ru": "👤 Введите ваше полное имя и фамилию:\n\n(Например: Иванов Иван)",
-        "en": "👤 Enter your full name:\n\n(Example: John Smith)"
-    },
-    "add_plan_slide_question": {
-        "uz": "📋 Taqdimotga reja varag'ini qo'shishni xohlaysizmi?\n\n(2-chi slaydda 3 ta asosiy reja ko'rsatiladi)",
-        "ru": "📋 Хотите добавить слайд с планом?\n\n(На 2-м слайде будут показаны 3 основных пункта плана)",
-        "en": "📋 Would you like to add a plan slide?\n\n(3 main plan items will be shown on slide 2)"
-    },
-    "plan_slide_title": {
-        "uz": "Reja",
-        "ru": "План",
-        "en": "Plan"
-    },
-    "topic_too_short": {
-        "uz": "❌ Mavzu juda qisqa. Iltimos, kamida 3 ta belgi kiriting.",
-        "ru": "❌ Тема слишком короткая. Пожалуйста, введите минимум 3 символа.",
-        "en": "❌ Topic is too short. Please enter at least 3 characters."
-    },
-    "select_slide_count": {
-        "uz": "📊 Slaydlar sonini tanlang:",
-        "ru": "📊 Выберите количество слайдов:",
-        "en": "📊 Select number of slides:"
-    },
-    "select_page_count": {
-        "uz": "📄 Varaqlar sonini tanlang:",
-        "ru": "📄 Выберите количество страниц:",
-        "en": "📄 Select number of pages:"
-    },
     "uz": {
+        "select_doc_language": "🌍 Hujjat qaysi tilda bo'lishini tanlang:",
+        "enter_topic": "📝 Mavzuni kiriting:",
+        "enter_author_name": "👤 Ism va Familiyangizni to'liq kiriting:\n\n(Masalan: Aliyev Jasur)",
+        "add_plan_slide_question": "📋 Taqdimotga reja varag'ini qo'shishni xohlaysizmi?\n\n(2-chi slaydda 3 ta asosiy reja ko'rsatiladi)",
+        "plan_slide_title": "Reja",
+        "topic_too_short": "❌ Mavzu juda qisqa. Iltimos, kamida 3 ta belgi kiriting.",
+        "select_slide_count": "📊 Slaydlar sonini tanlang:",
+        "select_page_count": "📄 Varaqlar sonini tanlang:",
         "welcome": "🎓 EduBot.ai ga xush kelibsiz!\n\nAkademik hujjatlar yaratish uchun tilni tanlang:",
         "language_selected": "📝 Til tanlandi: O'zbek\n\nBot ishga tayyor! Quyidagi tugmalar orqali xizmatlardan foydalaning:",
         "outline_choice": "📋 Reja tanlang:",
@@ -124,6 +92,14 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
         "view_samples": "📂 Namunalar"
     },
     "ru": {
+        "select_doc_language": "🌍 Выберите язык документа:",
+        "enter_topic": "📝 Введите тему:",
+        "enter_author_name": "👤 Введите ваше полное имя и фамилию:\n\n(Например: Иванов Иван)",
+        "add_plan_slide_question": "📋 Хотите добавить слайд с планом?\n\n(На 2-м слайде будут показаны 3 основных пункта плана)",
+        "plan_slide_title": "План",
+        "topic_too_short": "❌ Тема слишком короткая. Пожалуйста, введите минимум 3 символа.",
+        "select_slide_count": "📊 Выберите количество слайдов:",
+        "select_page_count": "📄 Выберите количество страниц:",
         "welcome": "🎓 Добро пожаловать в EduBot.ai!\n\nВыберите язык для создания академических документов:",
         "language_selected": "📝 Язык выбран: Русский\n\nБот готов к работе! Используйте кнопки ниже для доступа к услугам:",
         "outline_choice": "📋 Выберите план:",
@@ -212,6 +188,14 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
         "view_samples": "📁 Образцы"
     },
     "en": {
+        "select_doc_language": "🌍 Select document language:",
+        "enter_topic": "📝 Enter topic:",
+        "enter_author_name": "👤 Enter your full name:\n\n(Example: John Smith)",
+        "add_plan_slide_question": "📋 Would you like to add a plan slide?\n\n(3 main plan items will be shown on slide 2)",
+        "plan_slide_title": "Plan",
+        "topic_too_short": "❌ Topic is too short. Please enter at least 3 characters.",
+        "select_slide_count": "📊 Select number of slides:",
+        "select_page_count": "📄 Select number of pages:",
         "welcome": "🎓 Welcome to EduBot.ai!\n\nSelect language for creating academic documents:",
         "language_selected": "📝 Language selected: English\n\nBot is ready! Use the buttons below to access services:",
         "outline_choice": "📋 Choose outline:",
