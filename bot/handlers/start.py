@@ -1,6 +1,6 @@
 import logging
 from aiogram import Router, F
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
@@ -210,9 +210,9 @@ async def admin_command(message: Message):
     else:
         await message.answer("❌ Sizda admin huquqi yo'q.")
 
-@router.message()
+@router.message(StateFilter(None))
 async def handle_unknown_message(message: Message, state: FSMContext, db: Database):
-    """Handle any unrecognized message - catch-all handler"""
+    """Handle any unrecognized message - catch-all handler (only when no active state)"""
     user_id = message.from_user.id
     user = await db.get_user(user_id)
 
@@ -223,7 +223,6 @@ async def handle_unknown_message(message: Message, state: FSMContext, db: Databa
             "👋 Hello! Press /start to use the bot."
         )
     else:
-        await state.clear()
         if user.language == "uz":
             text = "❓ Iltimos, quyidagi tugmalardan birini tanlang:"
         elif user.language == "ru":
