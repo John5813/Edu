@@ -7,8 +7,7 @@ TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 # Validate required environment variables
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN environment variable is required")
-if not TOGETHER_API_KEY:
-    raise ValueError("TOGETHER_API_KEY environment variable is required")
+# TOGETHER_API_KEY is optional - images won't be generated if not provided
 
 # Admin configuration
 ADMIN_IDS = list(map(int, filter(None, os.getenv("ADMIN_IDS", "5304482470").split(",")))) if os.getenv("ADMIN_IDS") else [5304482470]

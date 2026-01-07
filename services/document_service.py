@@ -839,3 +839,54 @@ class DocumentService:
             run.font.name = 'Times New Roman'
         except Exception as e:
             logger.error(f"Error adding page number: {e}")
+
+    async def create_presentation_with_template_background(
+        self, 
+        topic: str, 
+        content: Dict, 
+        author_name: str, 
+        template_id: str, 
+        template_service, 
+        language: str, 
+        references: List = None, 
+        plan_items: List = None
+    ) -> str:
+        """Create presentation with template background and custom content"""
+        try:
+            slides_data = content.get('slides', [])
+            
+            if references:
+                for slide in slides_data:
+                    if slide.get('layout') == 'references':
+                        slide['references'] = references
+                        break
+                else:
+                    slides_data.append({
+                        'title': 'Adabiyotlar' if language == 'uz' else ('Литература' if language == 'ru' else 'References'),
+                        'content': '',
+                        'layout': 'references',
+                        'references': references
+                    })
+            
+            if plan_items:
+                for slide in slides_data:
+                    if slide.get('layout') == 'plan':
+                        slide['plan_items'] = plan_items
+                        break
+            
+            new_content = {'slides': slides_data}
+            return await self.create_presentation_with_smart_images(topic, new_content, author_name, language)
+            
+        except Exception as e:
+            logger.error(f"Error creating presentation with template background: {e}")
+            raise
+
+    async def create_new_presentation_system(
+        self, 
+        topic: str, 
+        content: Dict, 
+        author_name: str, 
+        language: str
+    ) -> str:
+        """Create presentation using new layout system"""
+        return await self.create_presentation_with_smart_images(topic, content, author_name, language)

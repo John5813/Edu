@@ -452,3 +452,180 @@ Output only the image prompt, nothing else. Make it detailed and specific for be
         except Exception as e:
             logger.error(f"Error generating image prompt: {e}")
             return f"Professional presentation image about {topic} - {slide_title}, modern corporate style, high quality, 4K"
+
+    async def generate_presentation_in_batches(self, topic: str, slide_count: int, language: str) -> Dict:
+        """Generate presentation content in batches - wrapper for generate_presentation_content"""
+        return await self.generate_presentation_content(topic, slide_count, language)
+
+    async def generate_presentation_with_manual_titles(self, topic: str, manual_titles: List[str], language: str) -> Dict:
+        """Generate presentation content with manually provided titles"""
+        try:
+            slides = []
+            
+            slides.append({
+                'title': topic,
+                'content': '',
+                'layout': 'cover'
+            })
+            
+            slides.append({
+                'title': 'Reja' if language == 'uz' else ('План' if language == 'ru' else 'Agenda'),
+                'content': '',
+                'layout': 'plan',
+                'plan_items': manual_titles[:4]
+            })
+            
+            slides.append({
+                'title': 'Kirish' if language == 'uz' else ('Введение' if language == 'ru' else 'Introduction'),
+                'content': await self._generate_intro_content(topic, language),
+                'layout': 'intro'
+            })
+            
+            layouts = ['two_column', 'right_image', 'left_image', 'three_column', 'horizontal_image', 'text_with_numbers']
+            for i, title in enumerate(manual_titles):
+                layout = layouts[i % len(layouts)]
+                content = await self._generate_slide_content(topic, title, language, layout)
+                slides.append({
+                    'title': title,
+                    'content': content,
+                    'layout': layout
+                })
+            
+            slides.append({
+                'title': 'Xulosa' if language == 'uz' else ('Заключение' if language == 'ru' else 'Conclusion'),
+                'content': await self._generate_conclusion_content(topic, language),
+                'layout': 'conclusion'
+            })
+            
+            slides.append({
+                'title': 'Adabiyotlar' if language == 'uz' else ('Литература' if language == 'ru' else 'References'),
+                'content': '',
+                'layout': 'references',
+                'references': await self._generate_references(topic, language)
+            })
+            
+            slides.append({
+                'title': '',
+                'content': '',
+                'layout': 'thanks'
+            })
+            
+            return {'slides': slides}
+            
+        except Exception as e:
+            logger.error(f"Error generating presentation with manual titles: {e}")
+            raise
+
+    async def generate_references(self, topic: str, language: str) -> List[str]:
+        """Public method to generate references"""
+        return await self._generate_references(topic, language)
+
+    async def generate_plan_items(self, topic: str, language: str) -> List[str]:
+        """Generate 4 plan items for presentation"""
+        try:
+            if language == "uz":
+                prompt = f""""{topic}" mavzusi uchun 4 ta asosiy reja punktini yarating.
+
+JSON formatda:
+{{"items": ["Punkt 1", "Punkt 2", "Punkt 3", "Punkt 4"]}}"""
+            elif language == "ru":
+                prompt = f"""Создайте 4 основных пункта плана для темы "{topic}".
+
+В формате JSON:
+{{"items": ["Пункт 1", "Пункт 2", "Пункт 3", "Пункт 4"]}}"""
+            else:
+                prompt = f"""Create 4 main agenda items for "{topic}".
+
+In JSON format:
+{{"items": ["Item 1", "Item 2", "Item 3", "Item 4"]}}"""
+
+            response = await self._make_request(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=500,
+                temperature=0.7
+            )
+
+            content_str = response.strip()
+            if content_str.startswith("```json"):
+                content_str = content_str[7:]
+            if content_str.startswith("```"):
+                content_str = content_str[3:]
+            if content_str.endswith("```"):
+                content_str = content_str[:-3]
+            
+            data = json.loads(content_str.strip())
+            return data.get('items', [])
+
+        except Exception as e:
+            logger.error(f"Error generating plan items: {e}")
+            return []
+
+    async def _generate_intro_content(self, topic: str, language: str) -> str:
+        """Generate introduction content (~50 words)"""
+        try:
+            if language == "uz":
+                prompt = f""""{topic}" mavzusiga kirish yozing. 50 so'z atrofida."""
+            elif language == "ru":
+                prompt = f"""Напишите введение к теме "{topic}". Около 50 слов."""
+            else:
+                prompt = f"""Write an introduction to "{topic}". Around 50 words."""
+
+            response = await self._make_request(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=200,
+                temperature=0.7
+            )
+            return response.strip()
+        except Exception as e:
+            logger.error(f"Error generating intro: {e}")
+            return ""
+
+    async def _generate_conclusion_content(self, topic: str, language: str) -> str:
+        """Generate conclusion content (~50 words)"""
+        try:
+            if language == "uz":
+                prompt = f""""{topic}" mavzusiga xulosa yozing. 50 so'z atrofida."""
+            elif language == "ru":
+                prompt = f"""Напишите заключение к теме "{topic}". Около 50 слов."""
+            else:
+                prompt = f"""Write a conclusion for "{topic}". Around 50 words."""
+
+            response = await self._make_request(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=200,
+                temperature=0.7
+            )
+            return response.strip()
+        except Exception as e:
+            logger.error(f"Error generating conclusion: {e}")
+            return ""
+
+    async def _generate_slide_content(self, topic: str, title: str, language: str, layout: str) -> str:
+        """Generate content for a specific slide based on layout"""
+        try:
+            word_counts = {
+                'two_column': 60,
+                'right_image': 40,
+                'left_image': 40,
+                'three_column': 60,
+                'horizontal_image': 20,
+                'text_with_numbers': 50
+            }
+            word_count = word_counts.get(layout, 50)
+            
+            if language == "uz":
+                prompt = f""""{topic}" mavzusi, "{title}" slayd uchun mazmun yozing. {word_count} so'z atrofida."""
+            elif language == "ru":
+                prompt = f"""Напишите содержание для слайда "{title}" по теме "{topic}". Около {word_count} слов."""
+            else:
+                prompt = f"""Write content for slide "{title}" on topic "{topic}". Around {word_count} words."""
+
+            response = await self._make_request(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=300,
+                temperature=0.7
+            )
+            return response.strip()
+        except Exception as e:
+            logger.error(f"Error generating slide content: {e}")
+            return ""
