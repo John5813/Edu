@@ -164,6 +164,9 @@ class DocumentService:
         columns = slide_data.get('columns', [])
         content = slide_data.get('content', '')
         
+        if isinstance(content, list):
+            content = ' '.join(str(item) for item in content)
+        
         if not columns and content:
             words = content.split()
             mid = len(words) // 2
@@ -233,6 +236,9 @@ class DocumentService:
         
         columns = slide_data.get('columns', [])
         content = slide_data.get('content', '')
+        
+        if isinstance(content, list):
+            content = ' '.join(str(item) for item in content)
         
         if not columns and content:
             words = content.split()
@@ -355,8 +361,13 @@ class DocumentService:
         p.font.color.rgb = RGBColor(0, 0, 0)
         p.alignment = PP_ALIGN.CENTER
 
-    def _add_justified_content(self, slide, content: str, left: float, top: float, width: float, height: float):
+    def _add_justified_content(self, slide, content, left: float, top: float, width: float, height: float):
         """Add justified content text - 24pt"""
+        if isinstance(content, list):
+            content = ' '.join(str(item) for item in content)
+        elif not isinstance(content, str):
+            content = str(content) if content else ''
+            
         content_box = slide.shapes.add_textbox(left, top, width, height)
         tf = content_box.text_frame
         tf.word_wrap = True
