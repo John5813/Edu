@@ -31,7 +31,11 @@ AI-driven content generation is powered by DeepSeek v3.2 via OpenRouter. Documen
 
 **Font Styling:** 42pt bold titles, 26pt main text, 24pt content with justify alignment.
 
-**Image Generation:** Together AI FLUX.1-schnell with detailed prompts in English featuring Uzbek visual context (modern architecture, Atlas fabric, cultural elements) and text overlays in user's language.
+**Image Generation:** Together AI FLUX.1-schnell with 2-step process: DeepSeek creates 20-word creative prompts using "Subject + Action + Style Professional + Lighting" formula, then Together AI generates natural professional photos without any text.
+
+**Text Cleaning:** All generated content is cleaned with clean_text() function to remove special characters (#@&*{} etc.), markdown formatting, and normalize whitespace for professional document output.
+
+**Document Generation:** Sections are generated with longer content (250-300 words for intro, 500-600 words for main sections, 350-450 words for conclusion) with explicit anti-repetition rules in all languages.
 
 ### User Management & Authentication
 The system features multi-language support (Uzbek, Russian, English) with dynamic text translation. It manages user states, including registration, language selection, and document preferences. Bot access requires channel subscription verification. An admin system provides role-based access for payment approval and system management. A referral system allows users to earn bonuses by inviting new users.
