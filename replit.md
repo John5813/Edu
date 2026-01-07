@@ -29,7 +29,8 @@ The template selection system provides 20 professional background templates disp
 ## External Dependencies
 
 ### Core Services
-- **OpenAI API**: Utilized for GPT-4o content generation and academic writing.
+- **DeepSeek API** (via OpenRouter): Utilized for DeepSeek v3.2 content generation and academic writing.
+- **Together AI**: Used for FLUX.1-schnell image generation in presentations.
 - **Telegram Bot API**: Facilitates real-time messaging and file transfers.
 
 ### Database & Storage
