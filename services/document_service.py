@@ -144,6 +144,7 @@ class DocumentService:
             p.text = item if item.startswith(str(i+1)) else f"{i+1}. {item}"
             p.font.size = PptxPt(26)
             p.font.bold = True
+            p.alignment = PP_ALIGN.JUSTIFY
             p.space_after = PptxPt(24)
 
     def _create_intro_slide(self, slide, slide_data: Dict):
@@ -302,7 +303,8 @@ class DocumentService:
         for i, ref in enumerate(references[:6]):
             p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
             p.text = f"{i+1}. {ref}" if not ref.startswith(str(i+1)) else ref
-            p.font.size = PptxPt(20)
+            p.font.size = PptxPt(24)
+            p.alignment = PP_ALIGN.JUSTIFY
             p.space_after = PptxPt(12)
 
     def _create_thanks_slide(self, slide, language: str):

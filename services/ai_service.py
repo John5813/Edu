@@ -82,11 +82,84 @@ class AIService:
                     slide['content'] = ""
                     
             logger.info(f"Generated presentation with {len(content['slides'])} slides")
+            
+            content = self._normalize_slide_structure(content, slide_count, language)
             return content
 
         except Exception as e:
             logger.error(f"Error generating presentation content: {e}")
             raise
+
+    def _normalize_slide_structure(self, content: Dict, slide_count: int, language: str) -> Dict:
+        """Ensure slides follow the mandatory structure: cover→plan→intro→rotating layouts→conclusion→references→thanks"""
+        slides = content.get('slides', [])
+        normalized = []
+        
+        cover_slide = None
+        plan_slide = None
+        intro_slide = None
+        main_slides = []
+        conclusion_slide = None
+        references_slide = None
+        thanks_slide = None
+        
+        for slide in slides:
+            layout = slide.get('layout', '')
+            if layout == 'cover' and not cover_slide:
+                cover_slide = slide
+            elif layout == 'plan' and not plan_slide:
+                plan_slide = slide
+            elif layout == 'intro' and not intro_slide:
+                intro_slide = slide
+            elif layout == 'conclusion' and not conclusion_slide:
+                conclusion_slide = slide
+            elif layout == 'references' and not references_slide:
+                references_slide = slide
+            elif layout == 'thanks' and not thanks_slide:
+                thanks_slide = slide
+            elif layout in ['two_column', 'right_image', 'left_image', 'three_column', 'horizontal_image', 'text_with_numbers']:
+                main_slides.append(slide)
+            else:
+                main_slides.append(slide)
+        
+        title_labels = {
+            'uz': {'cover': '', 'plan': 'Reja', 'intro': 'Kirish', 'conclusion': 'Xulosa', 'references': 'Foydalangan adabiyotlar', 'thanks': ''},
+            'ru': {'cover': '', 'plan': 'План', 'intro': 'Введение', 'conclusion': 'Заключение', 'references': 'Литература', 'thanks': ''},
+            'en': {'cover': '', 'plan': 'Agenda', 'intro': 'Introduction', 'conclusion': 'Conclusion', 'references': 'References', 'thanks': ''}
+        }
+        labels = title_labels.get(language, title_labels['uz'])
+        
+        if not cover_slide:
+            cover_slide = {'title': '', 'content': '', 'layout': 'cover'}
+        normalized.append(cover_slide)
+        
+        if not plan_slide:
+            plan_slide = {'title': labels['plan'], 'content': '', 'layout': 'plan', 'plan_items': []}
+        normalized.append(plan_slide)
+        
+        if not intro_slide:
+            intro_slide = {'title': labels['intro'], 'content': '', 'layout': 'intro'}
+        normalized.append(intro_slide)
+        
+        layouts = ['two_column', 'right_image', 'left_image', 'three_column', 'horizontal_image', 'text_with_numbers']
+        for i, slide in enumerate(main_slides):
+            if slide.get('layout') not in layouts:
+                slide['layout'] = layouts[i % len(layouts)]
+            normalized.append(slide)
+        
+        if not conclusion_slide:
+            conclusion_slide = {'title': labels['conclusion'], 'content': '', 'layout': 'conclusion'}
+        normalized.append(conclusion_slide)
+        
+        if not references_slide:
+            references_slide = {'title': labels['references'], 'content': '', 'layout': 'references', 'references': []}
+        normalized.append(references_slide)
+        
+        if not thanks_slide:
+            thanks_slide = {'title': labels['thanks'], 'content': '', 'layout': 'thanks'}
+        normalized.append(thanks_slide)
+        
+        return {'slides': normalized}
 
     def _get_presentation_prompt_uz(self, topic: str, slide_count: int) -> str:
         """Get Uzbek prompt for presentation generation"""
