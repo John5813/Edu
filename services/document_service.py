@@ -175,7 +175,8 @@ class DocumentService:
             tf = box.text_frame
             tf.word_wrap = True
             p = tf.paragraphs[0]
-            p.text = col.get('text', '')
+            col_text = col.get('text', '') if isinstance(col, dict) else str(col)
+            p.text = col_text
             p.font.size = PptxPt(24)
             p.alignment = PP_ALIGN.JUSTIFY
 
@@ -245,7 +246,8 @@ class DocumentService:
             tf = box.text_frame
             tf.word_wrap = True
             p = tf.paragraphs[0]
-            p.text = col.get('text', '')
+            col_text = col.get('text', '') if isinstance(col, dict) else str(col)
+            p.text = col_text
             p.font.size = PptxPt(24)
             p.alignment = PP_ALIGN.JUSTIFY
 
