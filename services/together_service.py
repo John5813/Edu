@@ -110,46 +110,134 @@ class TogetherImageService:
         return await self.generate_image(prompt, aspect_ratio="16:9")
     
     def _create_detailed_prompt(self, topic: str, slide_title: str, language: str, text_overlay: str = None) -> str:
-        """Create detailed English prompt for DALL-E style image generation"""
+        """Create highly detailed English prompt for professional image generation"""
         
-        base_prompt = f"""Professional, high-quality presentation slide image for the topic "{topic}".
-The image should visually represent "{slide_title}".
-Style: Modern, clean, professional, corporate presentation quality.
-Colors: Rich, vibrant but professional color palette.
-Composition: Well-balanced, visually appealing, suitable for business/education context.
-Quality: 4K, ultra detailed, sharp focus, professional photography or illustration style.
-Lighting: Soft, professional lighting with good contrast.
-Background: Clean, uncluttered, allows text overlay."""
+        topic_context = self._get_topic_visual_context(topic, slide_title)
+        
+        base_prompt = f"""Stunning, ultra-professional presentation image.
+
+MAIN SUBJECT: {topic_context}
+
+VISUAL STYLE:
+- Modern glass architecture with sleek lines, representing innovation and progress
+- Blend of traditional and digital elements (e.g., silk fabric transitioning into fiber-optic cables)
+- Professional photography style with cinematic lighting
+- Rich, deep color palette: dark blues, golds, and whites
+- Sunlight reflecting off surfaces creating dynamic highlights
+- Symbols of growth, stability, and advancement
+
+COMPOSITION:
+- 16:9 aspect ratio optimized for presentations
+- Clear focal point with balanced negative space for text overlay
+- Depth of field creating professional bokeh effect
+- Leading lines guiding viewer's eye
+
+TECHNICAL QUALITY:
+- 4K ultra high definition
+- Sharp focus on main subject
+- Professional color grading
+- Studio-quality lighting with soft shadows"""
 
         if text_overlay:
-            lang_name = {"uz": "Uzbek", "ru": "Russian", "en": "English"}.get(language, "Uzbek")
+            lang_name = {"uz": "O'zbek", "ru": "Русский", "en": "English"}.get(language, "O'zbek")
             base_prompt += f"""
-IMPORTANT: Include stylized text "{text_overlay}" in {lang_name} language prominently in the image.
-The text should be artistically integrated into the design."""
+
+TEXT OVERLAY (IMPORTANT):
+Include stylized text "{text_overlay}" in {lang_name} language.
+The text should be:
+- Prominently displayed with elegant typography
+- Artistically integrated into the design
+- Using complementary colors that stand out
+- Positioned for maximum visual impact"""
 
         return base_prompt
     
+    def _get_topic_visual_context(self, topic: str, slide_title: str) -> str:
+        """Generate rich visual context based on topic"""
+        return f"""Create a compelling visual representation of "{slide_title}" within the context of "{topic}".
+
+Key visual elements should include:
+- Modern architectural elements (glass skyscrapers, digital infrastructure)
+- Traditional cultural symbols blending with technology
+- Abstract representations of data, growth, and innovation
+- Professional business/educational environment
+- Dynamic lighting showcasing advancement and modernity
+
+The image should evoke: professionalism, innovation, cultural heritage meeting modern progress, and academic excellence."""
+    
     def _create_cover_prompt(self, topic: str, language: str) -> str:
-        """Create prompt for cover slide image"""
-        return f"""Professional, stunning cover image for a presentation about "{topic}".
-Style: Modern, premium, eye-catching design suitable for title slide.
-Composition: Artistic, visually striking, leaves space for text on right side.
-Colors: Deep, rich colors that convey professionalism and expertise.
-Quality: 4K, ultra high definition, photorealistic or premium illustration.
-Elements: Abstract or thematic elements related to "{topic}".
-Mood: Inspiring, professional, engaging.
-Background: Gradient or textured, allows title text to be readable."""
+        """Create stunning cover slide image prompt - always in English for Together AI"""
+        lang_name = {"uz": "Uzbek", "ru": "Russian", "en": "English"}.get(language, "Uzbek")
+        
+        return f"""Breathtaking, award-winning cover image for academic presentation about "{topic}".
+
+VISUAL CONCEPT:
+- Modern glass skyscraper in Tashkent with traditional Islamic geometric patterns
+- Silk "Atlas" fabric gracefully merging into digital fiber-optic cables
+- Golden sunlight reflecting off contemporary architecture
+- Symbolic representation of Uzbekistan's blend of heritage and innovation
+
+STYLE:
+- Cinematic, Hollywood-quality visual effects
+- Professional advertising photography style
+- Rich contrast between traditional warmth and modern coolness
+- Depth and dimension with 3D elements
+
+COLORS:
+- Deep sapphire blue and royal gold as primary
+- Accents of traditional Uzbek ikat patterns
+- Clean whites and silvers for modern elements
+- Warm amber highlights from sunlight
+
+COMPOSITION:
+- Left 50% contains main visual imagery
+- Right 50% clean gradient for title text placement
+- Subtle particle effects adding dynamism
+- Professional presentation-ready layout
+
+TEXT ELEMENT:
+Include elegant, stylized title text "{topic}" in {lang_name} language.
+Typography should be modern, bold, and perfectly integrated.
+
+QUALITY: 4K, photorealistic, studio lighting, professional retouching."""
 
     def _create_panoramic_prompt(self, topic: str, slide_title: str, language: str) -> str:
-        """Create prompt for panoramic/horizontal image"""
-        return f"""Wide panoramic professional image for presentation about "{topic}".
-Focus on: "{slide_title}"
-Style: Cinematic, wide-angle, professional business/education context.
-Aspect: Ultra-wide panoramic composition (21:9 style).
-Quality: 4K, ultra detailed, sharp focus across entire width.
-Colors: Professional, balanced color palette.
-Composition: Horizontal flow, leaves upper portion clear for text overlay.
-Mood: Professional, informative, visually engaging."""
+        """Create stunning panoramic/horizontal image prompt - always in English"""
+        lang_name = {"uz": "Uzbek", "ru": "Russian", "en": "English"}.get(language, "Uzbek")
+        
+        return f"""Cinematic ultra-wide panoramic image for professional presentation.
+
+SUBJECT: "{slide_title}" in context of "{topic}"
+
+VISUAL ELEMENTS:
+- Sweeping landscape view of modern Tashkent skyline
+- Traditional architecture seamlessly blending with glass towers
+- Flowing water features or fountain elements
+- Green parks transitioning to urban development
+- Symbolic representation of progress and tradition
+
+PANORAMIC STYLE:
+- 21:9 ultra-wide cinematic ratio
+- Hollywood film-quality color grading
+- Dramatic golden hour lighting
+- Deep depth of field showing entire scene in focus
+- Subtle motion blur suggesting dynamism
+
+COMPOSITION:
+- Horizontal flow from traditional (left) to modern (right)
+- Upper 30% reserved for text overlay
+- Leading lines drawing eye across entire width
+- Balanced visual weight across the frame
+
+TEXT INTEGRATION:
+Elegant overlay text "{slide_title}" in {lang_name} language.
+Positioned in clean upper area with subtle shadow for readability.
+
+TECHNICAL:
+- 4K resolution optimized for widescreen
+- Professional color grading (teal and orange tones)
+- Sharp focus with cinematic lens effects
+- Studio-quality post-processing."""
 
     async def _download_image(self, image_url: str, filename: str) -> Optional[str]:
         """Download image from URL"""

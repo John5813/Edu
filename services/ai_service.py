@@ -176,12 +176,12 @@ STRUKTURA (jami {slide_count} slayd):
 {slide_count}. Rahmat slayd ("E'tiboringiz uchun rahmat!")
 
 ASOSIY SLAIDLAR UCHUN 6 TA SHABLON (takrorlanadi):
-1. 2 ustunli - har ustun 30 so'zdan iborat
-2. O'ng 50% rasm, chap matn - 40 so'z
-3. Chap 50% rasm, o'ng matn - 40 so'z
-4. 3 ustunli - har ustun 20 so'z
-5. Pastda gorizontal rasm, ustida 20 so'z
-6. Oddiy matn, raqamlar bilan - 50 so'z
+1. 2 ustunli - har ustun 60 so'zdan iborat (jami 120 so'z)
+2. O'ng 50% rasm, chap matn - 80 so'z batafsil
+3. Chap 50% rasm, o'ng matn - 80 so'z batafsil
+4. 3 ustunli - har ustun 40 so'z (jami 120 so'z)
+5. Pastda gorizontal rasm, ustida 50 so'z
+6. Oddiy matn, raqamlar bilan - 100 so'z batafsil
 
 Har bir slayd uchun:
 - title: Slayd sarlavhasi
@@ -213,12 +213,12 @@ MUHIM: Faqat JSON formatda javob bering!
 {slide_count}. Слайд благодарности ("Спасибо за внимание!")
 
 ШАБЛОНЫ ДЛЯ ОСНОВНЫХ СЛАЙДОВ (повторяются):
-1. 2 колонки - по 30 слов каждая
-2. Справа 50% изображение, слева текст - 40 слов
-3. Слева 50% изображение, справа текст - 40 слов
-4. 3 колонки - по 20 слов каждая
-5. Внизу горизонтальное изображение, сверху 20 слов
-6. Простой текст с числами - 50 слов
+1. 2 колонки - по 60 слов каждая (всего 120 слов)
+2. Справа 50% изображение, слева текст - 80 слов подробно
+3. Слева 50% изображение, справа текст - 80 слов подробно
+4. 3 колонки - по 40 слов каждая (всего 120 слов)
+5. Внизу горизонтальное изображение, сверху 50 слов
+6. Простой текст с числами - 100 слов подробно
 
 ВАЖНО: Отвечайте только в формате JSON!
 {{
@@ -244,12 +244,12 @@ STRUCTURE (total {slide_count} slides):
 {slide_count}. Thank you slide ("Thank you for your attention!")
 
 TEMPLATES FOR MAIN SLIDES (rotating):
-1. 2 columns - 30 words each
-2. Right 50% image, left text - 40 words
-3. Left 50% image, right text - 40 words
-4. 3 columns - 20 words each
-5. Bottom horizontal image, top 20 words
-6. Plain text with numbers - 50 words
+1. 2 columns - 60 words each (120 words total)
+2. Right 50% image, left text - 80 words detailed
+3. Left 50% image, right text - 80 words detailed
+4. 3 columns - 40 words each (120 words total)
+5. Bottom horizontal image, top 50 words
+6. Plain text with numbers - 100 words detailed
 
 IMPORTANT: Respond only in JSON format!
 {{

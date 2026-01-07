@@ -27,7 +27,7 @@ class DocumentService:
             logger.warning(f"Together AI not available: {e}")
             self.together = None
 
-    async def create_presentation_with_smart_images(self, topic: str, content: Dict, author_name: str, language: str = "uz") -> str:
+    async def create_presentation_with_smart_images(self, topic: str, content: Dict, author_name: str, language: str = "uz", template_service=None, template_id: str = None) -> str:
         """Create PowerPoint presentation with new layout system and Together AI images
         
         NEW STRUCTURE:
@@ -48,7 +48,7 @@ class DocumentService:
             
             for i, slide_data in enumerate(slides_data):
                 layout = slide_data.get('layout', 'text_only')
-                await self._create_slide_by_layout(prs, slide_data, i, author_name, topic, language)
+                await self._create_slide_by_layout(prs, slide_data, i, author_name, topic, language, template_service, template_id)
 
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"presentation_{timestamp}.pptx"
@@ -61,10 +61,13 @@ class DocumentService:
             logger.error(f"Error creating presentation: {e}")
             raise
 
-    async def _create_slide_by_layout(self, prs, slide_data: Dict, slide_idx: int, author_name: str, topic: str, language: str):
+    async def _create_slide_by_layout(self, prs, slide_data: Dict, slide_idx: int, author_name: str, topic: str, language: str, template_service=None, template_id: str = None):
         """Create slide based on layout type"""
         layout = slide_data.get('layout', 'text_only')
         slide = prs.slides.add_slide(prs.slide_layouts[6])
+        
+        if template_service and template_id:
+            template_service.apply_template_to_slide(slide, template_id)
         
         if layout == 'cover':
             await self._create_cover_slide(slide, slide_data, author_name, topic, language)
@@ -879,7 +882,7 @@ class DocumentService:
                         break
             
             new_content = {'slides': slides_data}
-            return await self.create_presentation_with_smart_images(topic, new_content, author_name, language)
+            return await self.create_presentation_with_smart_images(topic, new_content, author_name, language, template_service, template_id)
             
         except Exception as e:
             logger.error(f"Error creating presentation with template background: {e}")
