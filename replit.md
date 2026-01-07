@@ -12,7 +12,26 @@ Preferred communication style: Simple, everyday language.
 The bot is built with `aiogram v3`, utilizing Python with async/await patterns for an asynchronous Telegram bot framework. State management is handled by FSM (Finite State Machine) for multi-step user interactions, complemented by custom middlewares for database access and language handling.
 
 ### Document Generation Pipeline
-AI-driven content generation is powered by OpenAI GPT-4o. Documents are created using `python-pptx` for PowerPoint presentations and `python-docx` for Word documents, supporting structured content generation with customizable parameters like slide and page counts. Files are stored locally in an organized directory structure. The system supports document language selection, author name inclusion, and an optional plan slide for presentations.
+AI-driven content generation is powered by DeepSeek v3.2 via OpenRouter. Documents are created using `python-pptx` for PowerPoint presentations and `python-docx` for Word documents, supporting structured content generation with customizable parameters like slide and page counts. Files are stored locally in an organized directory structure. The system supports document language selection, author name inclusion, and an optional plan slide for presentations.
+
+**Presentation Structure:**
+- Cover slide (left 50% AI-generated image, right: topic + author)
+- Plan slide (4 main points)
+- Introduction (~50 words)
+- Main slides with 6 rotating templates:
+  1. Two columns (60 words each)
+  2. Right 50% image, left text (80 words)
+  3. Left 50% image, right text (80 words)
+  4. Three columns (40 words each)
+  5. Horizontal image bottom, text top (50 words)
+  6. Text with numbers (100 words)
+- Conclusion (~50 words)
+- References (5-6 sources)
+- Thank you slide
+
+**Font Styling:** 42pt bold titles, 26pt main text, 24pt content with justify alignment.
+
+**Image Generation:** Together AI FLUX.1-schnell with detailed prompts in English featuring Uzbek visual context (modern architecture, Atlas fabric, cultural elements) and text overlays in user's language.
 
 ### User Management & Authentication
 The system features multi-language support (Uzbek, Russian, English) with dynamic text translation. It manages user states, including registration, language selection, and document preferences. Bot access requires channel subscription verification. An admin system provides role-based access for payment approval and system management. A referral system allows users to earn bonuses by inviting new users.
