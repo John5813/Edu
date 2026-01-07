@@ -4,6 +4,7 @@ import aiohttp
 import asyncio
 from typing import Optional, Dict
 from together import Together
+from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,41 @@ class TogetherImageService:
             raise ValueError("TOGETHER_API_KEY environment variable is required")
         self.client = Together(api_key=self.api_key)
         self.model = "black-forest-labs/FLUX.1-schnell"
+        
+        self.ai_client = AsyncOpenAI(
+            api_key=os.environ.get("AI_INTEGRATIONS_OPENROUTER_API_KEY"),
+            base_url=os.environ.get("AI_INTEGRATIONS_OPENROUTER_BASE_URL")
+        )
+        self.ai_model = "deepseek/deepseek-v3.2"
+    
+    async def _generate_image_prompt(self, slide_title: str) -> str:
+        """Ask DeepSeek to create a creative image prompt from slide title"""
+        try:
+            prompt_request = f"""Menga "{slide_title}" bo'yicha rasm yaratish uchun qisqa va kreativ inglizcha prompt yozib ber.
+Qoidalar:
+1. prompt 20 ta so'zdan oshmasin.
+2. Takrorlanadigan gaplar bo'lmasin.
+3. Faqat 'Subject + Action + Style Professional + Lighting' formulasidan foydalan.
+4. Rasmda hech qanday matn, yozuv yoki harf bo'lmasin.
+
+Faqat promptni yoz, boshqa hech narsa yozma."""
+
+            response = await self.ai_client.chat.completions.create(
+                model=self.ai_model,
+                messages=[{"role": "user", "content": prompt_request}],
+                max_tokens=100,
+                temperature=0.8
+            )
+            
+            generated_prompt = response.choices[0].message.content.strip()
+            generated_prompt = generated_prompt.strip('"').strip("'")
+            
+            logger.info(f"DeepSeek generated prompt: {generated_prompt}")
+            return generated_prompt
+            
+        except Exception as e:
+            logger.error(f"Error generating prompt from DeepSeek: {e}")
+            return f"Professional photograph of {slide_title}, modern style, soft natural lighting, no text"
     
     async def generate_image(self, prompt: str, aspect_ratio: str = "16:9", steps: int = 4) -> Optional[str]:
         """Generate image using Together AI FLUX model
@@ -68,66 +104,47 @@ class TogetherImageService:
             return None
     
     async def generate_slide_image(self, topic: str, slide_title: str, language: str, text_overlay: str = None) -> Optional[str]:
-        """Generate image for presentation slide
+        """Generate image for presentation slide using DeepSeek-generated prompt
         
         Args:
             topic: Main presentation topic
             slide_title: Title of current slide
-            language: Language for any text in image (uz, ru, en)
-            text_overlay: Text to appear in the image (in user's language)
+            language: Language (uz, ru, en)
+            text_overlay: Ignored - no text in images
         
         Returns:
             Path to generated image
         """
-        prompt = self._create_detailed_prompt(topic, slide_title, language, text_overlay)
+        prompt = await self._generate_image_prompt(slide_title)
         return await self.generate_image(prompt, aspect_ratio="16:9")
     
     async def generate_cover_image(self, topic: str, language: str) -> Optional[str]:
-        """Generate cover image for presentation (50% of slide, left side)
+        """Generate cover image using DeepSeek-generated prompt
         
         Args:
             topic: Presentation topic
-            language: Language for text overlay
+            language: Language (ignored - no text)
         
         Returns:
             Path to generated image
         """
-        prompt = self._create_cover_prompt(topic, language)
+        prompt = await self._generate_image_prompt(topic)
         return await self.generate_image(prompt, aspect_ratio="1:1")
     
     async def generate_panoramic_image(self, topic: str, slide_title: str, language: str) -> Optional[str]:
-        """Generate panoramic image (21:9 aspect ratio) for horizontal slides
+        """Generate panoramic image using DeepSeek-generated prompt
         
         Args:
             topic: Presentation topic
             slide_title: Slide title for context
-            language: Language for text
+            language: Language (ignored - no text)
         
         Returns:
             Path to generated image
         """
-        prompt = self._create_panoramic_prompt(topic, slide_title, language)
+        prompt = await self._generate_image_prompt(slide_title)
         return await self.generate_image(prompt, aspect_ratio="16:9")
     
-    def _create_detailed_prompt(self, topic: str, slide_title: str, language: str, text_overlay: str = None) -> str:
-        """Create concise 20-25 word prompt for natural professional image"""
-        
-        return f"Professional natural photograph illustrating {slide_title}, related to {topic}. Clean modern aesthetic, soft lighting, high quality stock photo style, no text."
-    
-    def _get_topic_visual_context(self, topic: str, slide_title: str) -> str:
-        """Generate concise visual context for slide"""
-        return f"Natural professional photo of {slide_title} concept, {topic} theme. Realistic, clean composition, bright colors, no text or labels."
-    
-    def _create_cover_prompt(self, topic: str, language: str) -> str:
-        """Create concise 20-25 word cover image prompt - natural, no text"""
-        
-        return f"Stunning professional photograph representing {topic}. Modern elegant aesthetic, natural lighting, vibrant colors, clean background, high quality, absolutely no text."
-
-    def _create_panoramic_prompt(self, topic: str, slide_title: str, language: str) -> str:
-        """Create concise panoramic image prompt - natural, no text"""
-        
-        return f"Wide panoramic natural photograph of {slide_title}, {topic} context. Professional quality, bright modern style, clean composition, no text or watermarks."
-
     async def _download_image(self, image_url: str, filename: str) -> Optional[str]:
         """Download image from URL"""
         try:
