@@ -10,10 +10,12 @@ logger = logging.getLogger(__name__)
 
 class AIService:
     def __init__(self):
-        # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
-        # do not change this unless explicitly requested by the user
-        self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        self.model = "gpt-4o"
+        # OpenRouter provides access to DeepSeek models
+        self.client = AsyncOpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=os.getenv("OPENRouter_API_KEY")
+        )
+        self.model = "deepseek/deepseek-chat"
 
     async def generate_presentation_content(self, topic: str, slide_count: int, language: str) -> Dict:
         """Generate presentation content with AI"""
@@ -21,52 +23,52 @@ class AIService:
             # Create language-specific prompt
             if language == "uz":
                 prompt = f"""O'zbek tilida "{topic}" mavzusida {slide_count} ta slaydli professional taqdimot yarating.
+                
+Mavzu olingach, har bir slayd uchun sarlavha yarating.
 
-JUDA MUHIM TALABLAR:
-1. HAR BIR SLAYD BOSHQACHA MA'LUMOTGA EGA BO'LISHI KERAK - takrorlanmasin!
-2. Har bir slayd mavzuning TURLI JIHATLARI haqida bo'lsin
-3. Bir xil ma'lumot yoki tushuncha TAKRORLANMASIN
-4. Rasm bo'lgan slaidlarda RASM HAQIDA GAP QILMANG - faqat mavzuga oid ma'lumot bering
+Varoqlar ketma-ketligi va tarkibi:
 
-3 XIL SHABLON TIZIMI - har 3 slaydda takrorlanadi:
-- Slayd 2,5,8,11,14... = SHABLON 1 (faqat matn)
-- Slayd 3,6,9,12,15... = SHABLON 2 (matn + rasm)  
-- Slayd 4,7,10,13,16... = SHABLON 3 (3 ustunli)
+1-varoq (Titul):
+- Sarlavha: Mavzu nomi
+- Matn: Mijoz ismi uchun joy (Muallif: ...)
+- Rasm tavsifi: Mavzuga mos, ichida mavzu so'zlari bo'lgan murakkab rasm (Together AI uchun inglizcha prompt).
 
-SHABLON 1 - Faqat matn:
-- Sarlavha + 3-4 ta bullet point
-- FAQAT 50-70 so'z, qisqa va aniq
+2-varoq (Reja):
+- Sarlavha: Reja
+- Matn: 4 ta asosiy reja bandi.
 
-SHABLON 2 - Matn + rasm:
-- Sarlavha + 2-3 ta qisqa bullet point
-- FAQAT 40-60 so'z
-- MUHIM: RASM HAQIDA GAP QILMANG! Faqat mavzu haqida ma'lumot yozing.
+3-varoq (Kirish):
+- Sarlavha: Kirish
+- Matn: Mavzu haqida umumiy ma'lumot, taxminan 50 so'z.
 
-SHABLON 3 - 3 ustunli:
-- Sarlavha + matnni 3 qismga bo'lish
-- Har ustun uchun 2-3 bullet point
-- Jami 50-70 so'z (barcha ustunlar birgalikda)
+Asosiy qism (shu ketma-ketlikda takrorlanadi):
+1. Slayd (Layout 1): 2 ustunli. Har bir ustun 30 so'zdan iborat.
+2. Slayd (Layout 2): O'ngda 50% rasm, chapda matn.
+3. Slayd (Layout 3): Chapda 50% rasm, o'ngda matn.
+4. Slayd (Layout 4): 3 ustunli. Har bir ustun 20 so'zdan iborat.
+5. Slayd (Layout 5): Gorizontal, pastki tarafda 21:9 rasm, ustida 20 so'z matn.
+6. Slayd (Layout 6): Faqat matn, raqamlar ishtirok etadigan, taxminan 50 so'z.
 
-MUHIM: Faqat JSON formatda javob bering. Boshqa matn yo'q!
+Yakuniy varoqlar:
+- Xulosa: Taxminan 50 so'z.
+- Adabiyotlar ro'yxati.
+- "E'tiboringiz uchun rahmat" varog'i.
 
+JUDA MUHIM:
+- Slayd sarlavhasi: qalin qora, 42pt.
+- Asosiy gaplar: qalin, 26pt.
+- Asosiy ma'lumotlar: 24pt, justify (ikki tomon tekis).
+- Rasmlar uchun "image_prompt" (inglizcha, batafsil) maydonini qo'shing.
+
+JSON formatda javob bering:
 {{
     "slides": [
         {{
-            "title": "Slayd sarlavhasi",
-            "content": "Slayd mazmuni (bullet points yoki paragraf)"
-        }},
-        {{
-            "title": "Slayd sarlavhasi",
-            "content": "Slayd mazmuni (qisqaroq, rasm uchun)"
-        }},
-        {{
-            "title": "Slayd sarlavhasi", 
-            "content": "Slayd mazmuni",
-            "columns": [
-                {{"title": "Ustun 1", "points": ["• Nuqta 1", "• Nuqta 2"]}},
-                {{"title": "Ustun 2", "points": ["• Nuqta 1", "• Nuqta 2"]}},
-                {{"title": "Ustun 3", "points": ["• Nuqta 1", "• Nuqta 2"]}}
-            ]
+            "title": "...",
+            "content": "...",
+            "layout": "titul/plan/intro/layout1/layout2/layout3/layout4/layout5/layout6/conclusion/references/thanks",
+            "image_prompt": "...",
+            "columns": [...]
         }}
     ]
 }}"""
