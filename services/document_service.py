@@ -76,13 +76,13 @@ class DocumentService:
         elif layout == 'intro':
             self._create_intro_slide(slide, slide_data)
         elif layout == 'two_column':
-            self._create_two_column_slide(slide, slide_data)
+            self._create_two_column_slide(slide, slide_data, language)
         elif layout == 'right_image':
             await self._create_right_image_slide(slide, slide_data, topic, language)
         elif layout == 'left_image':
             await self._create_left_image_slide(slide, slide_data, topic, language)
         elif layout == 'three_column':
-            self._create_three_column_slide(slide, slide_data)
+            self._create_three_column_slide(slide, slide_data, language)
         elif layout == 'horizontal_image':
             await self._create_horizontal_image_slide(slide, slide_data, topic, language)
         elif layout == 'text_with_numbers':
@@ -157,7 +157,7 @@ class DocumentService:
                                     PptxInches(1), PptxInches(2), 
                                     PptxInches(11), PptxInches(5))
 
-    def _create_two_column_slide(self, slide, slide_data: Dict):
+    def _create_two_column_slide(self, slide, slide_data: Dict, language: str = 'uz'):
         """Shablon 1: 2 ustunli - har ustun 30 so'z"""
         self._add_slide_title(slide, slide_data.get('title', ''))
         
@@ -175,6 +175,8 @@ class DocumentService:
                 {'text': ' '.join(words[mid:])}
             ]
         
+        font_size = 23 if language in ['ru', 'en'] else 24
+        
         for i, col in enumerate(columns[:2]):
             x_pos = PptxInches(0.5) if i == 0 else PptxInches(6.9)
             box = slide.shapes.add_textbox(x_pos, PptxInches(2), PptxInches(5.9), PptxInches(5))
@@ -186,8 +188,8 @@ class DocumentService:
             else:
                 col_text = str(col)
             p.text = col_text
-            p.font.size = PptxPt(24)
-            p.alignment = PP_ALIGN.JUSTIFY
+            p.font.size = PptxPt(font_size)
+            p.alignment = PP_ALIGN.LEFT
 
     async def _create_right_image_slide(self, slide, slide_data: Dict, topic: str, language: str):
         """Shablon 2: O'ng 50% rasm, chap matn"""
@@ -233,7 +235,7 @@ class DocumentService:
                                     PptxInches(6.8), PptxInches(2),
                                     PptxInches(6), PptxInches(5))
 
-    def _create_three_column_slide(self, slide, slide_data: Dict):
+    def _create_three_column_slide(self, slide, slide_data: Dict, language: str = 'uz'):
         """Shablon 4: 3 ustunli - har ustun 20 so'z"""
         self._add_slide_title(slide, slide_data.get('title', ''))
         
@@ -252,6 +254,8 @@ class DocumentService:
                 {'text': ' '.join(words[2*third:])}
             ]
         
+        font_size = 23 if language in ['ru', 'en'] else 24
+        
         for i, col in enumerate(columns[:3]):
             x_pos = PptxInches(0.4 + i * 4.3)
             box = slide.shapes.add_textbox(x_pos, PptxInches(2), PptxInches(4), PptxInches(5))
@@ -263,8 +267,8 @@ class DocumentService:
             else:
                 col_text = str(col)
             p.text = col_text
-            p.font.size = PptxPt(24)
-            p.alignment = PP_ALIGN.JUSTIFY
+            p.font.size = PptxPt(font_size)
+            p.alignment = PP_ALIGN.LEFT
 
     async def _create_horizontal_image_slide(self, slide, slide_data: Dict, topic: str, language: str):
         """Shablon 5: Pastda 21:9 gorizontal rasm, ustida matn"""
