@@ -11,8 +11,8 @@ from bot.states import DocumentStates
 from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard, get_outline_review_keyboard, get_references_choice_keyboard, get_doc_language_keyboard, get_plan_slide_keyboard
 from database.database import Database
 from utils.security import sanitize_user_input, validate_topic_length
-from services.ai_service_new import AIService
-from services.document_service_new import DocumentService
+from services.ai_service import AIService
+from services.document_service import DocumentService
 from services.template_service import TemplateService
 from services.channel_service import ChannelService
 from translations import get_text

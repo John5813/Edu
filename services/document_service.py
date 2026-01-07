@@ -4,7 +4,6 @@ from datetime import datetime
 from docx import Document
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.style import WD_STYLE_TYPE
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from pptx import Presentation
@@ -13,9 +12,8 @@ from pptx.enum.text import PP_ALIGN
 from pptx.dml.color import RGBColor
 from typing import Dict, Optional, List
 import asyncio
-import aiohttp
 from config import DOCUMENTS_DIR, TEMP_DIR
-from services.together_service import TogetherService
+from services.together_service import TogetherImageService
 
 logger = logging.getLogger(__name__)
 
@@ -23,13 +21,26 @@ class DocumentService:
     def __init__(self):
         self.documents_dir = DOCUMENTS_DIR
         self.temp_dir = TEMP_DIR
-        self.together = TogetherService(os.getenv("TOGETHER_API_KEY")) if os.getenv("TOGETHER_API_KEY") else None
+        try:
+            self.together = TogetherImageService()
+        except Exception as e:
+            logger.warning(f"Together AI not available: {e}")
+            self.together = None
 
-    async def create_presentation_with_smart_images(self, topic: str, content: Dict, author_name: str) -> str:
-        """Create PowerPoint presentation with new layout system and Together AI images"""
+    async def create_presentation_with_smart_images(self, topic: str, content: Dict, author_name: str, language: str = "uz") -> str:
+        """Create PowerPoint presentation with new layout system and Together AI images
+        
+        NEW STRUCTURE:
+        1. Muqova - O'ng: Mavzu + Ism, Chap: 50% rasm
+        2. Reja - 4 asosiy punkt
+        3. Kirish - ~50 so'z
+        4-N. Asosiy slaidlar (6 ta shablon aylanib)
+        N+1. Xulosa - ~50 so'z
+        N+2. Adabiyotlar
+        N+3. Rahmat
+        """
         try:
             prs = Presentation()
-            # Set slide size to 16:9
             prs.slide_width = PptxInches(13.333)
             prs.slide_height = PptxInches(7.5)
             
@@ -37,934 +48,424 @@ class DocumentService:
             
             for i, slide_data in enumerate(slides_data):
                 layout = slide_data.get('layout', 'text_only')
-                await self._create_custom_slide(prs, slide_data, author_name, topic)
+                await self._create_slide_by_layout(prs, slide_data, i, author_name, topic, language)
 
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"presentation_{timestamp}.pptx"
             file_path = os.path.join(self.documents_dir, filename)
             prs.save(file_path)
+            logger.info(f"Presentation saved: {file_path}")
             return file_path
+            
         except Exception as e:
             logger.error(f"Error creating presentation: {e}")
             raise
 
-    async def _create_custom_slide(self, prs, slide_data: Dict, author_name: str, topic: str):
-        layout_type = slide_data.get('layout')
-        slide = prs.slides.add_slide(prs.slide_layouts[6]) # Blank
+    async def _create_slide_by_layout(self, prs, slide_data: Dict, slide_idx: int, author_name: str, topic: str, language: str):
+        """Create slide based on layout type"""
+        layout = slide_data.get('layout', 'text_only')
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
         
-        # Add Title
-        title_box = slide.shapes.add_textbox(PptxInches(0.5), PptxInches(0.2), PptxInches(12), PptxInches(1))
+        if layout == 'cover':
+            await self._create_cover_slide(slide, slide_data, author_name, topic, language)
+        elif layout == 'plan':
+            self._create_plan_slide(slide, slide_data)
+        elif layout == 'intro':
+            self._create_intro_slide(slide, slide_data)
+        elif layout == 'two_column':
+            self._create_two_column_slide(slide, slide_data)
+        elif layout == 'right_image':
+            await self._create_right_image_slide(slide, slide_data, topic, language)
+        elif layout == 'left_image':
+            await self._create_left_image_slide(slide, slide_data, topic, language)
+        elif layout == 'three_column':
+            self._create_three_column_slide(slide, slide_data)
+        elif layout == 'horizontal_image':
+            await self._create_horizontal_image_slide(slide, slide_data, topic, language)
+        elif layout == 'text_with_numbers':
+            self._create_text_with_numbers_slide(slide, slide_data)
+        elif layout == 'conclusion':
+            self._create_conclusion_slide(slide, slide_data)
+        elif layout == 'references':
+            self._create_references_slide(slide, slide_data)
+        elif layout == 'thanks':
+            self._create_thanks_slide(slide, language)
+        else:
+            self._create_default_slide(slide, slide_data)
+
+    async def _create_cover_slide(self, slide, slide_data: Dict, author_name: str, topic: str, language: str):
+        """1-varoq: Chap 50% rasm, O'ng mavzu + ism"""
+        if self.together:
+            try:
+                image_path = await self.together.generate_cover_image(topic, language)
+                if image_path and os.path.exists(image_path):
+                    slide.shapes.add_picture(
+                        image_path,
+                        PptxInches(0), PptxInches(0),
+                        PptxInches(6.666), PptxInches(7.5)
+                    )
+            except Exception as e:
+                logger.error(f"Error generating cover image: {e}")
+        
+        title_box = slide.shapes.add_textbox(
+            PptxInches(7), PptxInches(2.5),
+            PptxInches(5.8), PptxInches(3)
+        )
         tf = title_box.text_frame
+        tf.word_wrap = True
+        
+        p1 = tf.paragraphs[0]
+        p1.text = topic
+        p1.font.size = PptxPt(42)
+        p1.font.bold = True
+        p1.font.color.rgb = RGBColor(0, 0, 0)
+        p1.alignment = PP_ALIGN.CENTER
+        
+        p2 = tf.add_paragraph()
+        p2.text = author_name if author_name else "________________"
+        p2.font.size = PptxPt(26)
+        p2.font.bold = True
+        p2.alignment = PP_ALIGN.CENTER
+
+    def _create_plan_slide(self, slide, slide_data: Dict):
+        """2-varoq: Reja - 4 asosiy punkt"""
+        self._add_slide_title(slide, slide_data.get('title', 'Reja'))
+        
+        plan_items = slide_data.get('plan_items', [])
+        content_box = slide.shapes.add_textbox(
+            PptxInches(1), PptxInches(2),
+            PptxInches(11), PptxInches(5)
+        )
+        tf = content_box.text_frame
+        tf.word_wrap = True
+        
+        for i, item in enumerate(plan_items[:4]):
+            p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+            p.text = item if item.startswith(str(i+1)) else f"{i+1}. {item}"
+            p.font.size = PptxPt(26)
+            p.font.bold = True
+            p.space_after = PptxPt(24)
+
+    def _create_intro_slide(self, slide, slide_data: Dict):
+        """3-varoq: Kirish - ~50 so'z"""
+        self._add_slide_title(slide, slide_data.get('title', 'Kirish'))
+        self._add_justified_content(slide, slide_data.get('content', ''), 
+                                    PptxInches(1), PptxInches(2), 
+                                    PptxInches(11), PptxInches(5))
+
+    def _create_two_column_slide(self, slide, slide_data: Dict):
+        """Shablon 1: 2 ustunli - har ustun 30 so'z"""
+        self._add_slide_title(slide, slide_data.get('title', ''))
+        
+        columns = slide_data.get('columns', [])
+        content = slide_data.get('content', '')
+        
+        if not columns and content:
+            words = content.split()
+            mid = len(words) // 2
+            columns = [
+                {'text': ' '.join(words[:mid])},
+                {'text': ' '.join(words[mid:])}
+            ]
+        
+        for i, col in enumerate(columns[:2]):
+            x_pos = PptxInches(0.5) if i == 0 else PptxInches(6.9)
+            box = slide.shapes.add_textbox(x_pos, PptxInches(2), PptxInches(5.9), PptxInches(5))
+            tf = box.text_frame
+            tf.word_wrap = True
+            p = tf.paragraphs[0]
+            p.text = col.get('text', '')
+            p.font.size = PptxPt(24)
+            p.alignment = PP_ALIGN.JUSTIFY
+
+    async def _create_right_image_slide(self, slide, slide_data: Dict, topic: str, language: str):
+        """Shablon 2: O'ng 50% rasm, chap matn"""
+        self._add_slide_title(slide, slide_data.get('title', ''))
+        
+        self._add_justified_content(slide, slide_data.get('content', ''),
+                                    PptxInches(0.5), PptxInches(2),
+                                    PptxInches(6), PptxInches(5))
+        
+        if self.together:
+            try:
+                image_path = await self.together.generate_slide_image(
+                    topic, slide_data.get('title', ''), language
+                )
+                if image_path and os.path.exists(image_path):
+                    slide.shapes.add_picture(
+                        image_path,
+                        PptxInches(6.8), PptxInches(1.5),
+                        PptxInches(6.2), PptxInches(5.5)
+                    )
+            except Exception as e:
+                logger.error(f"Error generating right image: {e}")
+
+    async def _create_left_image_slide(self, slide, slide_data: Dict, topic: str, language: str):
+        """Shablon 3: Chap 50% rasm, o'ng matn"""
+        self._add_slide_title(slide, slide_data.get('title', ''))
+        
+        if self.together:
+            try:
+                image_path = await self.together.generate_slide_image(
+                    topic, slide_data.get('title', ''), language
+                )
+                if image_path and os.path.exists(image_path):
+                    slide.shapes.add_picture(
+                        image_path,
+                        PptxInches(0.3), PptxInches(1.5),
+                        PptxInches(6.2), PptxInches(5.5)
+                    )
+            except Exception as e:
+                logger.error(f"Error generating left image: {e}")
+        
+        self._add_justified_content(slide, slide_data.get('content', ''),
+                                    PptxInches(6.8), PptxInches(2),
+                                    PptxInches(6), PptxInches(5))
+
+    def _create_three_column_slide(self, slide, slide_data: Dict):
+        """Shablon 4: 3 ustunli - har ustun 20 so'z"""
+        self._add_slide_title(slide, slide_data.get('title', ''))
+        
+        columns = slide_data.get('columns', [])
+        content = slide_data.get('content', '')
+        
+        if not columns and content:
+            words = content.split()
+            third = len(words) // 3
+            columns = [
+                {'text': ' '.join(words[:third])},
+                {'text': ' '.join(words[third:2*third])},
+                {'text': ' '.join(words[2*third:])}
+            ]
+        
+        for i, col in enumerate(columns[:3]):
+            x_pos = PptxInches(0.4 + i * 4.3)
+            box = slide.shapes.add_textbox(x_pos, PptxInches(2), PptxInches(4), PptxInches(5))
+            tf = box.text_frame
+            tf.word_wrap = True
+            p = tf.paragraphs[0]
+            p.text = col.get('text', '')
+            p.font.size = PptxPt(24)
+            p.alignment = PP_ALIGN.JUSTIFY
+
+    async def _create_horizontal_image_slide(self, slide, slide_data: Dict, topic: str, language: str):
+        """Shablon 5: Pastda 21:9 gorizontal rasm, ustida matn"""
+        self._add_slide_title(slide, slide_data.get('title', ''))
+        
+        self._add_justified_content(slide, slide_data.get('content', ''),
+                                    PptxInches(0.5), PptxInches(1.5),
+                                    PptxInches(12), PptxInches(2))
+        
+        if self.together:
+            try:
+                image_path = await self.together.generate_panoramic_image(
+                    topic, slide_data.get('title', ''), language
+                )
+                if image_path and os.path.exists(image_path):
+                    slide.shapes.add_picture(
+                        image_path,
+                        PptxInches(0.3), PptxInches(4),
+                        PptxInches(12.7), PptxInches(3.3)
+                    )
+            except Exception as e:
+                logger.error(f"Error generating horizontal image: {e}")
+
+    def _create_text_with_numbers_slide(self, slide, slide_data: Dict):
+        """Shablon 6: Oddiy matn, raqamlar bilan - 50 so'z"""
+        self._add_slide_title(slide, slide_data.get('title', ''))
+        self._add_justified_content(slide, slide_data.get('content', ''),
+                                    PptxInches(1), PptxInches(2),
+                                    PptxInches(11), PptxInches(5))
+
+    def _create_conclusion_slide(self, slide, slide_data: Dict):
+        """Xulosa slayd - ~50 so'z"""
+        self._add_slide_title(slide, slide_data.get('title', 'Xulosa'))
+        self._add_justified_content(slide, slide_data.get('content', ''),
+                                    PptxInches(1), PptxInches(2),
+                                    PptxInches(11), PptxInches(5))
+
+    def _create_references_slide(self, slide, slide_data: Dict):
+        """Adabiyotlar ro'yxati slayd"""
+        self._add_slide_title(slide, slide_data.get('title', 'Foydalangan adabiyotlar'))
+        
+        references = slide_data.get('references', [])
+        if isinstance(references, str):
+            references = [references]
+        
+        content_box = slide.shapes.add_textbox(
+            PptxInches(0.5), PptxInches(2),
+            PptxInches(12), PptxInches(5)
+        )
+        tf = content_box.text_frame
+        tf.word_wrap = True
+        
+        for i, ref in enumerate(references[:6]):
+            p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+            p.text = f"{i+1}. {ref}" if not ref.startswith(str(i+1)) else ref
+            p.font.size = PptxPt(20)
+            p.space_after = PptxPt(12)
+
+    def _create_thanks_slide(self, slide, language: str):
+        """Rahmat slayd - E'tiboringiz uchun rahmat!"""
+        thanks_texts = {
+            'uz': "E'tiboringiz uchun rahmat!",
+            'ru': "Спасибо за внимание!",
+            'en': "Thank you for your attention!"
+        }
+        
+        text = thanks_texts.get(language, thanks_texts['uz'])
+        
+        thanks_box = slide.shapes.add_textbox(
+            PptxInches(1), PptxInches(3),
+            PptxInches(11), PptxInches(2)
+        )
+        tf = thanks_box.text_frame
         p = tf.paragraphs[0]
-        p.text = slide_data.get('title', '')
+        p.text = text
+        p.font.size = PptxPt(48)
         p.font.bold = True
-        p.font.size = PptxPt(42)
         p.font.color.rgb = RGBColor(0, 0, 0)
         p.alignment = PP_ALIGN.CENTER
 
-        content = slide_data.get('content', '')
-        
-        if layout_type == 'titul':
-            # 1 varoq: Title on right, image on left 50%
-            if self.together and slide_data.get('image_prompt'):
-                img_path = await self.together.generate_image(slide_data['image_prompt'], f"titul_{datetime.now().timestamp()}.png")
-                if img_path:
-                    slide.shapes.add_picture(img_path, PptxInches(0), PptxInches(0), PptxInches(6.6), PptxInches(7.5))
-            
-            # Text on right
-            txt_box = slide.shapes.add_textbox(PptxInches(7), PptxInches(2.5), PptxInches(6), PptxInches(3))
-            tf = txt_box.text_frame
-            p1 = tf.paragraphs[0]
-            p1.text = topic
-            p1.font.size = PptxPt(44)
-            p1.font.bold = True
-            p2 = tf.add_paragraph()
-            p2.text = f"Muallif: {author_name}"
-            p2.font.size = PptxPt(26)
-            
-        elif layout_type == 'layout1':
-            # 2 columns
-            cols = slide_data.get('columns', [])
-            for idx, col in enumerate(cols[:2]):
-                x_pos = PptxInches(0.5 if idx == 0 else 6.8)
-                box = slide.shapes.add_textbox(x_pos, PptxInches(1.5), PptxInches(6), PptxInches(5))
-                box.text_frame.word_wrap = True
-                p = box.text_frame.paragraphs[0]
-                p.text = col.get('text', '')
-                p.font.size = PptxPt(24)
-                p.alignment = PP_ALIGN.DISTRIBUTED # Justify
-                
-        # ... Other layouts following similar logic ...
+    def _create_default_slide(self, slide, slide_data: Dict):
+        """Default text slide"""
+        self._add_slide_title(slide, slide_data.get('title', ''))
+        self._add_justified_content(slide, slide_data.get('content', ''),
+                                    PptxInches(1), PptxInches(2),
+                                    PptxInches(11), PptxInches(5))
 
-    async def create_presentation_from_template(self, topic: str, content: Dict, author_name: str, template_path: str) -> str:
-        """Create presentation using existing template and replacing content"""
-        try:
-            # Load template
-            prs = Presentation(template_path)
-            slides_data = content.get('slides', [])
-
-            # Get images for slides before processing
-            slide_images = await self._get_template_images(topic, slides_data)
-
-            # Process each slide
-            for slide_idx, slide in enumerate(prs.slides):
-                if slide_idx == 0:
-                    # Title slide - update with topic and author
-                    self._update_title_slide(slide, topic, author_name)
-                elif slide_idx - 1 < len(slides_data):
-                    # Content slides
-                    slide_data = slides_data[slide_idx - 1]
-                    await self._update_content_slide(slide, slide_data, slide_idx, slide_images)
-
-            # Remove extra slides if template has more slides than needed
-            while len(prs.slides) > len(slides_data) + 1:  # +1 for title slide
-                rId = prs.slides._sldIdLst[-1].rId
-                prs.part.drop_rel(rId)
-                del prs.slides._sldIdLst[-1]
-
-            # Add more slides if needed
-            for i in range(len(prs.slides) - 1, len(slides_data)):
-                slide_data = slides_data[i]
-                new_slide = self._add_content_slide(slide_data, i + 1, slide_images)
-
-            # Save presentation
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"presentation_{timestamp}.pptx"
-            file_path = os.path.join(self.documents_dir, filename)
-
-            prs.save(file_path)
-            logger.info(f"Template-based presentation saved: {file_path}")
-
-            return file_path
-
-        except Exception as e:
-            logger.error(f"Error creating presentation from template: {e}")
-            # Fallback to regular creation
-            images = await self._get_smart_images_for_presentation(topic, content)
-            return await self.create_presentation(topic, content, images, author_name)
-
-    def _update_title_slide(self, slide, topic: str, author_name: str):
-        """Update title slide with topic and author"""
-        try:
-            for shape in slide.shapes:
-                if hasattr(shape, "text_frame") and shape.text_frame:
-                    # Check if this might be title or subtitle
-                    if shape.top < PptxInches(3):  # Likely title
-                        shape.text_frame.clear()
-                        p = shape.text_frame.paragraphs[0]
-                        p.text = topic
-                        p.alignment = PP_ALIGN.CENTER
-                        if p.runs:
-                            p.runs[0].font.bold = True
-                            p.runs[0].font.size = PptxPt(36)
-                    elif shape.top > PptxInches(3):  # Likely subtitle area
-                        shape.text_frame.clear()
-                        p = shape.text_frame.paragraphs[0]
-                        default_author = "Noma'lum"
-                        p.text = f"Muallif: {author_name or default_author}"
-                        p.alignment = PP_ALIGN.CENTER
-                        if p.runs:
-                            p.runs[0].font.size = PptxPt(20)
-        except Exception as e:
-            logger.error(f"Error updating title slide: {e}")
-
-    async def _update_content_slide(self, slide, slide_data: Dict, slide_num: int, slide_images: Dict):
-        """Update content slide with new text and images"""
-        try:
-            # Update text content
-            for shape in slide.shapes:
-                if hasattr(shape, "text_frame") and shape.text_frame:
-                    # Determine if this is title or content based on position
-                    if shape.top < PptxInches(2):  # Likely title
-                        shape.text_frame.clear()
-                        p = shape.text_frame.paragraphs[0]
-                        p.text = slide_data.get('title', f"Slayd {slide_num}")
-                        p.alignment = PP_ALIGN.CENTER
-                        if p.runs:
-                            p.runs[0].font.bold = True
-                            p.runs[0].font.size = PptxPt(24)
-                    elif shape.top > PptxInches(2):  # Content area
-                        shape.text_frame.clear()
-                        p = shape.text_frame.paragraphs[0]
-                        p.text = slide_data.get('content', '')
-                        p.alignment = PP_ALIGN.LEFT
-                        if p.runs:
-                            p.runs[0].font.size = PptxPt(16)
-
-            # Add or replace images
-            if slide_num in slide_images:
-                await self._add_image_to_slide(slide, slide_images[slide_num])
-
-        except Exception as e:
-            logger.error(f"Error updating content slide {slide_num}: {e}")
-
-    def _add_content_slide(self, slide_data: Dict, slide_num: int, slide_images: Dict):
-        """Add new content slide to presentation"""
-        try:
-            # Use layout 1 (title and content)
-            slide_layout = prs.slide_layouts[1] if len(prs.slide_layouts) > 1 else prs.slide_layouts[0]
-            slide = prs.slides.add_slide(slide_layout)
-
-            # Add title
-            if slide.shapes.title:
-                slide.shapes.title.text = slide_data.get('title', f"Slayd {slide_num}")
-                slide.shapes.title.text_frame.paragraphs[0].font.size = PptxPt(24)
-                slide.shapes.title.text_frame.paragraphs[0].font.bold = True
-                slide.shapes.title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
-
-            # Add content
-            if len(slide.placeholders) > 1:
-                content_placeholder = slide.placeholders[1]
-                content_placeholder.text = slide_data.get('content', '')
-                content_placeholder.text_frame.paragraphs[0].font.size = PptxPt(16)
-
-            # Add image if available
-            if slide_num in slide_images:
-                asyncio.create_task(self._add_image_to_slide(slide, slide_images[slide_num]))
-
-            return slide
-
-        except Exception as e:
-            logger.error(f"Error adding content slide: {e}")
-            return None
-
-    async def _add_image_to_slide(self, slide, image_path: str):
-        """Add image to slide, replacing existing image or adding new one"""
-        try:
-            if not image_path or not os.path.exists(image_path):
-                return
-
-            # Try to find existing image placeholder or shape
-            image_added = False
-
-            for shape in slide.shapes:
-                # Check if this is an image placeholder or existing image
-                if hasattr(shape, 'image') or (hasattr(shape, 'shape_type') and shape.shape_type == 13):  # MSO_SHAPE_TYPE.PICTURE
-                    try:
-                        # Remove existing image
-                        sp = shape._element
-                        sp.getparent().remove(sp)
-
-                        # Add new image in same position
-                        slide.shapes.add_picture(
-                            image_path,
-                            shape.left, shape.top,
-                            shape.width, shape.height
-                        )
-                        image_added = True
-                        break
-                    except:
-                        continue
-
-            # If no existing image found, add new one
-            if not image_added:
-                # Add image to right side of slide
-                slide.shapes.add_picture(
-                    image_path,
-                    PptxInches(6.5), PptxInches(2),
-                    PptxInches(5.5), PptxInches(4)
-                )
-
-        except Exception as e:
-            logger.error(f"Error adding image to slide: {e}")
-
-    async def _get_template_images(self, topic: str, slides_data: List[Dict]) -> Dict[int, str]:
-        """Get images for template slides"""
-        if not self.pexels:
-            logger.warning("Pexels API not configured, skipping images")
-            return {}
-
-        try:
-            slide_images = {}
-
-            for idx, slide_data in enumerate(slides_data):
-                slide_num = idx + 1
-
-                # Extract keywords for image search
-                slide_title = slide_data.get('title', '')
-                slide_content = slide_data.get('content', '')
-
-                # Get search keywords
-                search_query = self._extract_search_keywords(slide_title, slide_content, topic)
-
-                if search_query:
-                    # Search for images
-                    photos = await self.pexels.search_images(search_query, per_page=1)
-
-                    if photos:
-                        photo = photos[0]
-                        image_url = self.pexels.get_image_url(photo, "medium")
-
-                        # Download image
-                        filename = f"template_slide_{slide_num}.jpg"
-                        image_path = await self.pexels.download_image(image_url, filename)
-
-                        if image_path:
-                            slide_images[slide_num] = image_path
-                            logger.info(f"Downloaded template image for slide {slide_num}: {search_query}")
-
-                    # Small delay to respect rate limits
-                    await asyncio.sleep(0.3)
-
-            return slide_images
-
-        except Exception as e:
-            logger.error(f"Error getting template images: {e}")
-            return {}
-
-    def _extract_search_keywords(self, title: str, content: str, main_topic: str) -> str:
-        """Extract search keywords from slide content for better image matching"""
-        # Combine title and main topic for search
-        search_terms = []
-
-        if title:
-            # Remove common words and extract meaningful terms
-            title_words = title.lower().split()
-            meaningful_words = [word for word in title_words
-                              if len(word) > 3 and word not in ['uchun', 'haqida', 'asosida', 'davom', 'bilan', 'ning', 'dan']]
-            search_terms.extend(meaningful_words[:2])  # Take first 2 meaningful words
-
-        # Add main topic words
-        if main_topic:
-            topic_words = main_topic.lower().split()[:2]  # First 2 words of main topic
-            search_terms.extend(topic_words)
-
-        # Create search query (prefer English terms for better Pexels results)
-        search_query = ' '.join(search_terms[:3])  # Max 3 terms for focused search
-
-        # Translate common Uzbek/Russian terms to English for better results
-        translations = {
-            'ta\'lim': 'education',
-            'texnologiya': 'technology',
-            'kompyuter': 'computer',
-            'internet': 'internet',
-            'dasturlash': 'programming',
-            'ishbilarmonlik': 'business',
-            'sport': 'sports',
-            'tibbiyot': 'medicine',
-            'iqtisod': 'economics',
-            'ekonomika': 'economics',
-            'san\'at': 'art',
-            'tarix': 'history',
-            'geografiya': 'geography',
-            'kimyo': 'chemistry',
-            'fizika': 'physics',
-            'matematika': 'mathematics',
-            'fan': 'science',
-            'ilm': 'science',
-            'tadqiqot': 'research',
-            'taraqqiyot': 'development',
-            'innovatsiya': 'innovation',
-            'zamonaviy': 'modern'
-        }
-
-        for uz_term, eng_term in translations.items():
-            if uz_term in search_query.lower():
-                search_query = search_query.lower().replace(uz_term, eng_term)
-
-        return search_query or main_topic  # Fallback to main topic
-
-    async def _create_simple_title_slide(self, prs, topic: str):
-        """Create simple title slide - faqat mavzu nomi katta yozuvda"""
-        slide_layout = prs.slide_layouts[6]  # Blank layout
-        slide = prs.slides.add_slide(slide_layout)
-
-        # Add topic name in center - katta yozuv
+    def _add_slide_title(self, slide, title: str):
+        """Add title to slide - qalin qora 42pt"""
         title_box = slide.shapes.add_textbox(
-            PptxInches(1), PptxInches(3),
-            PptxInches(11.33), PptxInches(2)
+            PptxInches(0.3), PptxInches(0.3),
+            PptxInches(12.7), PptxInches(1)
         )
-        title_frame = title_box.text_frame
-        title_frame.word_wrap = True
-        title_para = title_frame.paragraphs[0]
-        title_para.text = topic
-        title_para.font.size = PptxPt(44)
-        title_para.font.bold = True
-        title_para.alignment = PP_ALIGN.CENTER
+        tf = title_box.text_frame
+        p = tf.paragraphs[0]
+        p.text = title
+        p.font.size = PptxPt(42)
+        p.font.bold = True
+        p.font.color.rgb = RGBColor(0, 0, 0)
+        p.alignment = PP_ALIGN.CENTER
 
-    async def _create_thank_you_slide(self, prs):
-        """Create thank you slide - Etiboringiz uchun rahmat"""
-        slide_layout = prs.slide_layouts[6]  # Blank layout
-        slide = prs.slides.add_slide(slide_layout)
-
-        # Add thank you message in center - katta yozuv
-        thanks_box = slide.shapes.add_textbox(
-            PptxInches(1), PptxInches(3),
-            PptxInches(11.33), PptxInches(2)
-        )
-        thanks_frame = thanks_box.text_frame
-        thanks_frame.word_wrap = True
-        thanks_para = thanks_frame.paragraphs[0]
-        thanks_para.text = "E'tiboringiz uchun rahmat!"
-        thanks_para.font.size = PptxPt(44)
-        thanks_para.font.bold = True
-        thanks_para.alignment = PP_ALIGN.CENTER
-
-    async def _create_title_slide(self, prs, topic: str, author_name: str):
-        """Create title slide"""
-        slide_layout = prs.slide_layouts[0]  # Title slide layout
-        slide = prs.slides.add_slide(slide_layout)
-
-        title = slide.shapes.title
-        subtitle = slide.placeholders[1]
-
-        if title:
-            title.text = "Taqdimot"
-            title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
-            title.text_frame.paragraphs[0].font.size = PptxPt(36)
-
-        if subtitle:
-            subtitle.text = f"{topic}\n\n\n{author_name or '__________________'}"
-            subtitle.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
-            subtitle.text_frame.paragraphs[0].font.size = PptxPt(20)
-
-    async def _create_content_slide_by_layout(self, prs, slide_data: Dict, layout_type: str, slide_num: int, images: Dict):
-        """Create content slide based on layout type"""
-        logger.info(f"Creating slide {slide_num} with layout '{layout_type}', title: '{slide_data.get('title', 'NO TITLE')}', content: '{slide_data.get('content', 'NO CONTENT')[:50]}...'")
-
-        if layout_type == "text_only":
-            await self._create_text_only_slide(prs, slide_data)
-        elif layout_type == "text_with_image":
-            await self._create_text_with_image_slide(prs, slide_data, slide_num, images)
-        elif layout_type == "three_column":
-            await self._create_three_column_slide(prs, slide_data)
-        else:
-            logger.error(f"Unknown layout type: {layout_type}, using text_only fallback")
-            await self._create_text_only_slide(prs, slide_data)
-
-    async def _create_text_only_slide(self, prs, slide_data: Dict):
-        """Create SHABLON 1: Text only slide"""
-        slide_layout = prs.slide_layouts[1]  # Title and content layout
-        slide = prs.slides.add_slide(slide_layout)
-
-        title = slide.shapes.title
-        content_placeholder = slide.placeholders[1]
-
-        if title:
-            title.text = slide_data.get('title', 'Mavzu')
-            title.text_frame.paragraphs[0].font.size = PptxPt(24)
-            title.text_frame.paragraphs[0].font.bold = True
-            title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
-
-        if content_placeholder:
-            content_placeholder.text = slide_data.get('content', 'Mazmun mavjud emas')
-            content_frame = content_placeholder.text_frame
-            content_frame.paragraphs[0].font.size = PptxPt(16)
-            content_frame.paragraphs[0].alignment = PP_ALIGN.LEFT
-
-    async def _create_text_with_image_slide(self, prs, slide_data: Dict, slide_num: int, images: Dict):
-        """Create SHABLON 2: Text + Image slide"""
-        slide_layout = prs.slide_layouts[6]  # Blank layout
-        slide = prs.slides.add_slide(slide_layout)
-
-        # Add title
-        title_box = slide.shapes.add_textbox(
-            PptxInches(0.5), PptxInches(0.5),
-            PptxInches(12), PptxInches(1)
-        )
-        title_frame = title_box.text_frame
-        title_para = title_frame.paragraphs[0]
-        title_para.text = slide_data.get('title', 'Mavzu')
-        title_para.font.size = PptxPt(24)
-        title_para.font.bold = True
-        title_para.alignment = PP_ALIGN.CENTER
-
-        # Add image (left side) if available
-        if slide_num in images:
-            image_path = images[slide_num]
-            logger.info(f"Trying to add image for slide {slide_num}: {image_path}")
-            if image_path and os.path.exists(image_path):
-                try:
-                    slide.shapes.add_picture(
-                        image_path,
-                        PptxInches(0.5), PptxInches(2),
-                        PptxInches(5.5), PptxInches(4)
-                    )
-                    logger.info(f"Successfully added image to slide {slide_num}")
-                except Exception as e:
-                    logger.error(f"Error adding image to slide {slide_num}: {e}")
-            else:
-                logger.warning(f"Image not found for slide {slide_num}: {image_path}")
-        else:
-            logger.info(f"No image available for slide {slide_num}")
-
-        # Add text content (right side)
-        text_box = slide.shapes.add_textbox(
-            PptxInches(6.5), PptxInches(2),
-            PptxInches(6), PptxInches(4.5)
-        )
-        text_frame = text_box.text_frame
-        text_frame.word_wrap = True
-        text_para = text_frame.paragraphs[0]
-        text_para.text = slide_data.get('content', 'Mazmun mavjud emas')
-        text_para.font.size = PptxPt(14)
-        text_para.alignment = PP_ALIGN.LEFT
-
-    async def _create_three_column_slide(self, prs, slide_data: Dict):
-        """Create SHABLON 3: Three column slide"""
-        logger.info(f"Creating three-column slide with data: {slide_data}")
-
-        slide_layout = prs.slide_layouts[6]  # Blank layout
-        slide = prs.slides.add_slide(slide_layout)
-
-        # Add title
-        title_box = slide.shapes.add_textbox(
-            PptxInches(0.5), PptxInches(0.5),
-            PptxInches(12), PptxInches(1)
-        )
-        title_frame = title_box.text_frame
-        title_para = title_frame.paragraphs[0]
-        title_para.text = slide_data.get('title', 'Uch Ustunli Slayd')
-        title_para.font.size = PptxPt(24)
-        title_para.font.bold = True
-        title_para.alignment = PP_ALIGN.CENTER
-
-        # Get content and split into 3 columns
-        content_text = slide_data.get('content', '')
-        logger.info(f"Content for 3-column: '{content_text[:100]}...'")
-
-        if not content_text or content_text.strip() == 'Mazmun mavjud emas':
-            # Create fallback content
-            columns = [
-                {'title': 'Birinchi Ustun', 'points': ['Asosiy ma\'lumot', 'Muhim nuqtalar']},
-                {'title': 'Ikkinchi Ustun', 'points': ['Qo\'shimcha ma\'lumot', 'Tafsilotlar']},
-                {'title': 'Uchinchi Ustun', 'points': ['Xulosa', 'Natijalar']}
-            ]
-        else:
-            # Split content intelligently into 3 columns
-            sentences = [s.strip() for s in content_text.replace('•', '').split('.') if s.strip()]
-
-            if len(sentences) >= 3:
-                # Distribute sentences across columns
-                per_column = max(1, len(sentences) // 3)
-                columns = []
-                for i in range(3):
-                    start_idx = i * per_column
-                    end_idx = (i + 1) * per_column if i < 2 else len(sentences)
-                    column_sentences = sentences[start_idx:end_idx]
-
-                    columns.append({
-                        'title': f'Qism {i+1}',
-                        'points': column_sentences[:3]  # Max 3 points per column
-                    })
-            else:
-                # Split by lines or create word-based columns
-                lines = [line.strip() for line in content_text.split('\n') if line.strip()]
-                if len(lines) >= 3:
-                    columns = [
-                        {'title': f'Nuqta {i+1}', 'points': [lines[i]]}
-                        for i in range(min(3, len(lines)))
-                    ]
-                else:
-                    # Word-based split for very short content
-                    words = content_text.split()
-                    if len(words) > 9:
-                        third = len(words) // 3
-                        columns = [
-                            {'title': f'Bo\'lim {i+1}', 'points': [' '.join(words[i*third:(i+1)*third]) if i < 2 else ' '.join(words[i*third:])]}
-                            for i in range(3)
-                        ]
-                    else:
-                        # Very short content - just distribute words
-                        columns = [
-                            {'title': 'Boshi', 'points': [' '.join(words[:len(words)//3])]},
-                            {'title': 'O\'rtasi', 'points': [' '.join(words[len(words)//3:2*len(words)//3])]},
-                            {'title': 'Oxiri', 'points': [' '.join(words[2*len(words)//3:])]}
-                        ]
-
-        # Create 3 columns
-        column_width = PptxInches(3.8)
-        column_height = PptxInches(4.5)
-        start_x = PptxInches(0.5)
-        start_y = PptxInches(2)
-
-        for i, column in enumerate(columns[:3]):
-            # Calculate position
-            x_pos = start_x + i * PptxInches(4.2)
-
-            # Add column textbox
-            col_box = slide.shapes.add_textbox(x_pos, start_y, column_width, column_height)
-            col_frame = col_box.text_frame
-            col_frame.word_wrap = True
-
-            # Column title
-            col_para = col_frame.paragraphs[0]
-            col_para.text = column.get('title', f'Ustun {i+1}')
-            col_para.font.size = PptxPt(18)
-            col_para.font.bold = True
-            col_para.alignment = PP_ALIGN.CENTER
-
-            # Column points
-            points = column.get('points', [])
-            logger.info(f"Column {i+1} points: {points}")
-
-            for point in points[:3]:  # Max 3 points per column
-                if point and point.strip():
-                    p = col_frame.add_paragraph()
-                    p.text = f"• {point.strip()}"
-                    p.font.size = PptxPt(12)
-                    p.alignment = PP_ALIGN.LEFT
-
-    async def _get_smart_images_for_layouts(self, topic: str, content: Dict) -> Dict[int, str]:
-        """Get smart images only for 'text_with_image' layout slides"""
-        if not self.pexels:
-            logger.warning("Pexels API not configured, skipping images")
-            return {}
-
-        try:
-            slides_data = content.get('slides', [])
-            images_dict = {}
-
-            for idx, slide_data in enumerate(slides_data):
-                slide_num = idx + 2  # Start from slide 2 (skip title slide)
-
-                # Only get images for 'text_with_image' layout (every 3rd slide starting from 2nd content slide)
-                layout_type = self._get_layout_type(idx + 1)
-
-                if layout_type == "text_with_image":
-                    slide_title = slide_data.get('title', '')
-                    slide_content = slide_data.get('content', '')
-
-                    # Create search query
-                    search_query = self._extract_search_keywords(slide_title, slide_content, topic)
-
-                    if search_query:
-                        # Search for images
-                        photos = await self.pexels.search_images(search_query, per_page=1)
-
-                        if photos:
-                            photo = photos[0]
-                            image_url = self.pexels.get_image_url(photo, "medium")
-
-                            # Download image
-                            filename = f"slide_{slide_num}.jpg"
-                            image_path = await self.pexels.download_image(image_url, filename)
-
-                            if image_path:
-                                images_dict[slide_num] = image_path
-                                logger.info(f"Added smart image for slide {slide_num}: {search_query}")
-
-                        # Small delay to respect rate limits
-                        await asyncio.sleep(0.2)
-
-            return images_dict
-
-        except Exception as e:
-            logger.error(f"Error getting smart images for layouts: {e}")
-            return {}
-
-    async def create_presentation_with_layouts(self, topic: str, content: Dict, author_name: str) -> str:
-        """Create presentation with 3 rotating layout system"""
-        try:
-            # Validate content
-            if not content or 'slides' not in content:
-                logger.error(f"Invalid content for layouts: {content}")
-                raise ValueError("Content must contain 'slides' key")
-
-            prs = Presentation()
-
-            # Set slide size (16:9)
-            prs.slide_width = PptxInches(13.33)
-            prs.slide_height = PptxInches(7.5)
-
-            slides_data = content.get('slides', [])
-
-            # Get smart images for layout 2 slides (text + image)
-            images = await self._get_smart_images_for_layouts(topic, content)
-
-            # 1. Add TITLE SLIDE - faqat mavzu nomi
-            await self._create_simple_title_slide(prs, topic)
-
-            # 2. Add CONTENT SLIDES
-            for idx, slide_data in enumerate(slides_data):
-                slide_num = idx + 2  # +2 chunki birinchi slayd mavzu nomi
-
-                # Content slides with rotating layouts
-                layout_type = self._get_layout_type(idx + 1)  # idx+1 for proper rotation
-                await self._create_content_slide_by_layout(prs, slide_data, layout_type, slide_num, images)
-
-            # 3. Add THANK YOU SLIDE - oxirgi slayd
-            await self._create_thank_you_slide(prs)
-
-            # Save presentation
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"presentation_{timestamp}.pptx"
-            file_path = os.path.join(self.documents_dir, filename)
-
-            prs.save(file_path)
-            logger.info(f"3-layout presentation saved: {file_path}")
-
-            return file_path
-
-        except Exception as e:
-            logger.error(f"Error creating presentation with layouts: {e}")
-            raise
-
-    def _get_layout_type(self, content_slide_num: int) -> str:
-        """Get layout type based on slide number (1->2->3->1->2->3...)"""
-        layout_cycle = ["text_only", "text_with_image", "three_column"]
-        return layout_cycle[(content_slide_num - 1) % 3]
+    def _add_justified_content(self, slide, content: str, left: float, top: float, width: float, height: float):
+        """Add justified content text - 24pt"""
+        content_box = slide.shapes.add_textbox(left, top, width, height)
+        tf = content_box.text_frame
+        tf.word_wrap = True
+        p = tf.paragraphs[0]
+        p.text = content
+        p.font.size = PptxPt(24)
+        p.alignment = PP_ALIGN.JUSTIFY
 
     async def create_presentation(self, topic: str, content: Dict, images: Dict, author_name: str) -> str:
-        """Create PowerPoint presentation (fallback method)"""
-        try:
-            # Validate content and create fallback if needed
-            if not content or 'slides' not in content:
-                logger.warning(f"Invalid content, creating fallback presentation: {content}")
-                content = {
-                    'slides': [
-                        {
-                            'title': topic,
-                            'content': f"Bu taqdimot {topic} mavzusida tayyorlangan."
-                        }
-                    ]
-                }
+        """Legacy method - redirects to new method"""
+        return await self.create_presentation_with_smart_images(topic, content, author_name)
 
-            prs = Presentation()
+    async def create_presentation_with_layouts(self, topic: str, content: Dict, author_name: str) -> str:
+        """Legacy method - redirects to new method"""
+        return await self.create_presentation_with_smart_images(topic, content, author_name)
 
-            # Set slide size (16:9)
-            prs.slide_width = PptxInches(13.33)
-            prs.slide_height = PptxInches(7.5)
-
-            slides_data = content.get('slides', [])
-
-            for idx, slide_data in enumerate(slides_data):
-                slide_num = idx + 1
-
-                if slide_num == 1:
-                    # Title slide
-                    slide_layout = prs.slide_layouts[0]  # Title slide layout
-                    slide = prs.slides.add_slide(slide_layout)
-
-                    title = slide.shapes.title
-                    subtitle = slide.placeholders[1]
-
-                    if title:
-                        title.text = topic
-                        title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
-                        title.text_frame.paragraphs[0].font.size = PptxPt(36)
-
-                    if subtitle:
-                        default_author = "Noma'lum"
-                        subtitle.text = f"Muallif: {author_name or default_author}"
-                        subtitle.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
-                        subtitle.text_frame.paragraphs[0].font.size = PptxPt(20)
-
-                elif slide_num in images:
-                    # Slide with image (left side) and text (right side)
-                    slide_layout = prs.slide_layouts[6]  # Blank layout
-                    slide = prs.slides.add_slide(slide_layout)
-
-                    # Add title
-                    title_box = slide.shapes.add_textbox(
-                        PptxInches(0.5), PptxInches(0.5),
-                        PptxInches(12), PptxInches(1)
-                    )
-                    title_frame = title_box.text_frame
-                    title_para = title_frame.paragraphs[0]
-                    title_para.text = slide_data.get('title', 'Mavzu')
-                    title_para.font.size = PptxPt(24)
-                    title_para.font.bold = True
-                    title_para.alignment = PP_ALIGN.CENTER
-
-                    # Add image (left side)
-                    image_path = images[slide_num]
-                    if image_path and os.path.exists(image_path):
-                        try:
-                            slide.shapes.add_picture(
-                                image_path,
-                                PptxInches(0.5), PptxInches(2),
-                                PptxInches(5.5), PptxInches(4)
-                            )
-                        except Exception as e:
-                            logger.error(f"Error adding image to slide: {e}")
-
-                    # Add text content (right side)
-                    text_box = slide.shapes.add_textbox(
-                        PptxInches(6.5), PptxInches(2),
-                        PptxInches(6), PptxInches(4.5)
-                    )
-                    text_frame = text_box.text_frame
-                    text_frame.word_wrap = True
-                    text_para = text_frame.paragraphs[0]
-                    text_para.text = slide_data.get('content', 'Mazmun mavjud emas')
-                    text_para.font.size = PptxPt(14)
-                    text_para.alignment = PP_ALIGN.LEFT
-
-                else:
-                    # Regular text slide
-                    slide_layout = prs.slide_layouts[1]  # Title and content layout
-                    slide = prs.slides.add_slide(slide_layout)
-
-                    title = slide.shapes.title
-                    content_placeholder = slide.placeholders[1]
-
-                    if title:
-                        title.text = slide_data['title']
-                        title.text_frame.paragraphs[0].font.size = PptxPt(20)
-                        title.text_frame.paragraphs[0].font.bold = True
-                        title.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
-
-                    if content_placeholder:
-                        content_placeholder.text = slide_data['content']
-                        content_frame = content_placeholder.text_frame
-                        content_frame.paragraphs[0].font.size = PptxPt(16)
-                        content_frame.paragraphs[0].alignment = PP_ALIGN.LEFT
-
-            # Save presentation
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"presentation_{timestamp}.pptx"
-            file_path = os.path.join(self.documents_dir, filename)
-
-            prs.save(file_path)
-            logger.info(f"Presentation saved: {file_path}")
-
-            return file_path
-
-        except Exception as e:
-            logger.error(f"Error creating presentation: {e}")
-            raise
+    async def create_presentation_from_template(self, topic: str, content: Dict, author_name: str, template_path: str) -> str:
+        """Create presentation from template - falls back to standard creation"""
+        return await self.create_presentation_with_smart_images(topic, content, author_name)
 
     async def create_independent_work(self, topic: str, content: Dict) -> str:
         """Create independent work document"""
         try:
             doc = Document()
-
-            # Set document style with proper font size and line spacing
             style = doc.styles['Normal']
             font = style.font
             font.name = 'Times New Roman'
             font.size = Pt(14)
-
-            # Set line spacing for Normal style
+            
             paragraph_format = style.paragraph_format
             paragraph_format.line_spacing = 1.5
+            
+            for section in doc.sections:
+                section.top_margin = Inches(0.79)
+                section.bottom_margin = Inches(0.79)
+                section.left_margin = Inches(1.18)
+                section.right_margin = Inches(0.39)
 
-            # Set margins (30mm left, 10mm right, 20mm top, 20mm bottom)
-            sections = doc.sections
-            for idx, section in enumerate(sections):
-                section.top_margin = Inches(0.79)  # 20mm
-                section.bottom_margin = Inches(0.79)  # 20mm
-                section.left_margin = Inches(1.18)  # 30mm
-                section.right_margin = Inches(0.39)  # 10mm
-
-                # Configure page numbering (skip only title page)
-                section.footer.is_linked_to_previous = False
-                # Only set different first page for the very first section (title page)
-                if idx == 0:
-                    section.different_first_page_header_footer = True
-
-            # Create custom title page with template design (language-specific)
-            user_lang = content.get('language', 'uzbek')  # Default to uzbek
-            author_name = content.get('author_name', '')  # Get author name from content
+            user_lang = content.get('language', 'uz')
+            author_name = content.get('author_name', '')
             await self._create_independent_work_title_page(doc, topic, user_lang, author_name)
 
-            # Add page break after title page
-            doc.add_page_break()
-
-            # Table of contents - REJA (on separate page 2)
             toc_para = doc.add_paragraph()
             toc_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             toc_run = toc_para.add_run("REJA")
             toc_run.font.size = Pt(14)
             toc_run.font.bold = True
 
-            # Get language-specific text for TOC items
             toc_texts = self._get_toc_texts(user_lang)
-
-            # Get all sections
             all_sections = content.get('sections', [])
 
-            # Add "Kirish" (Introduction) - birinchi bo'lim, raqamsiz
             toc_item = doc.add_paragraph()
             toc_item.add_run(toc_texts['kirish'])
 
-            # Add numbered sections (birinchi va oxirgisini tashlab ketamiz)
             numbered_count = 0
             for idx, section in enumerate(all_sections):
-                # Birinchi bo'lim (Kirish) va oxirgi bo'lim (Xulosa) ni o'tkazib yuboramiz
                 if idx == 0 or idx == len(all_sections) - 1:
                     continue
-
-                # Raqamli bo'limlar - bir xil chiziqda
                 numbered_count += 1
                 toc_item = doc.add_paragraph()
                 toc_item.add_run(f"{numbered_count}. {section['title']}")
 
-            # Add "Xulosa" (Conclusion) - oxirgi bo'lim, raqamsiz
             toc_item = doc.add_paragraph()
             toc_item.add_run(toc_texts['xulosa'])
 
-            # Add "Foydalangan adabiyotlar" (References) - raqamsiz
             if content.get('references'):
                 toc_item = doc.add_paragraph()
                 toc_item.add_run(toc_texts['adabiyotlar'])
 
-            # Add page break after REJA
             doc.add_page_break()
 
-            # Add page numbers starting from content pages (not title or TOC)
             for section in doc.sections:
                 self._add_page_number(section)
 
-            # Add sections content with proper numbering
-            numbered_section_count = 0  # Counter for numbered sections only
-
+            numbered_section_count = 0
             for idx, section in enumerate(all_sections):
                 title = section['title']
-
-                # Section title
                 section_title = doc.add_paragraph()
                 section_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-                # Birinchi va oxirgi bo'limlar uchun til-spetsifik sarlavhalar
                 if idx == 0:
-                    # Kirish - til bo'yicha
                     section_title_run = section_title.add_run(toc_texts['kirish'].upper())
                 elif idx == len(all_sections) - 1:
-                    # Xulosa - til bo'yicha
                     section_title_run = section_title.add_run(toc_texts['xulosa'].upper())
                 else:
-                    # Raqamli bo'limlar
                     numbered_section_count += 1
-                    section_title_run = section_title.add_run(f"{numbered_section_count}. {title.upper()}")
+                    section_title_run = section_title.add_run(f"{numbered_section_count}. {title}")
 
                 section_title_run.font.bold = True
                 section_title_run.font.size = Pt(14)
 
-                # Section content
                 content_para = doc.add_paragraph(section['content'])
                 content_para.paragraph_format.first_line_indent = Inches(0.5)
                 content_para.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                 content_para.paragraph_format.line_spacing = 1.5
 
-            # References - separate page with only 5 references (newest to oldest)
             if content.get('references'):
                 doc.add_page_break()
-
                 ref_title = doc.add_paragraph()
                 ref_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 ref_title_run = ref_title.add_run(toc_texts['adabiyotlar'].upper())
                 ref_title_run.font.bold = True
                 ref_title_run.font.size = Pt(14)
 
-                # Show references from newest to oldest (already in correct order from AI)
                 references = content['references'][:5]
-
                 for idx, ref in enumerate(references, 1):
                     ref_para = doc.add_paragraph()
                     ref_para.paragraph_format.first_line_indent = Inches(0.5)
                     ref_para.paragraph_format.line_spacing = 1.5
                     ref_para.add_run(f"{idx}. {ref}")
 
-            # Save document
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"independent_work_{timestamp}.docx"
             file_path = os.path.join(self.documents_dir, filename)
-
             doc.save(file_path)
             logger.info(f"Independent work saved: {file_path}")
-
             return file_path
 
         except Exception as e:
@@ -975,174 +476,128 @@ class DocumentService:
         """Create referat document"""
         try:
             doc = Document()
-
-            # Set document style with proper font size and line spacing
             style = doc.styles['Normal']
             font = style.font
             font.name = 'Times New Roman'
             font.size = Pt(14)
 
-            # Set line spacing for Normal style
             paragraph_format = style.paragraph_format
             paragraph_format.line_spacing = 1.5
 
-            # Set margins (30mm left, 10mm right, 20mm top, 20mm bottom)
-            sections = doc.sections
-            for idx, section in enumerate(sections):
-                section.top_margin = Inches(0.79)  # 20mm
-                section.bottom_margin = Inches(0.79)  # 20mm
-                section.left_margin = Inches(1.18)  # 30mm
-                section.right_margin = Inches(0.39)  # 10mm
-
-                # Configure page numbering (skip only title page)
+            for idx, section in enumerate(doc.sections):
+                section.top_margin = Inches(0.79)
+                section.bottom_margin = Inches(0.79)
+                section.left_margin = Inches(1.18)
+                section.right_margin = Inches(0.39)
                 section.footer.is_linked_to_previous = False
-                # Only set different first page for the very first section (title page)
                 if idx == 0:
                     section.different_first_page_header_footer = True
 
-            # Create custom title page with template design (language-specific)
-            user_lang = content.get('language', 'uzbek')  # Default to uzbek
-            author_name = content.get('author_name', '')  # Get author name from content
+            user_lang = content.get('language', 'uz')
+            author_name = content.get('author_name', '')
             await self._create_referat_title_page(doc, topic, user_lang, author_name)
 
-            # Table of contents - REJA (without any lines, no page break before it)
             toc_para = doc.add_paragraph()
             toc_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             toc_run = toc_para.add_run("REJA")
             toc_run.font.size = Pt(14)
             toc_run.font.bold = True
 
-            # Get language-specific text for TOC items
             toc_texts = self._get_toc_texts(user_lang)
-
-            # Get all sections
             all_sections = content.get('sections', [])
 
-            # Add "Kirish" (Introduction) - birinchi bo'lim, raqamsiz
             toc_item = doc.add_paragraph()
             toc_item.add_run(toc_texts['kirish'])
 
-            # Add numbered sections (birinchi va oxirgisini tashlab ketamiz)
             numbered_count = 0
             for idx, section in enumerate(all_sections):
-                # Birinchi bo'lim (Kirish) va oxirgi bo'lim (Xulosa) ni o'tkazib yuboramiz
                 if idx == 0 or idx == len(all_sections) - 1:
                     continue
-
-                # Raqamli bo'limlar - bir xil chiziqda
                 numbered_count += 1
                 toc_item = doc.add_paragraph()
                 toc_item.add_run(f"{numbered_count}. {section['title']}")
 
-            # Add "Xulosa" (Conclusion) - oxirgi bo'lim, raqamsiz
             toc_item = doc.add_paragraph()
             toc_item.add_run(toc_texts['xulosa'])
 
-            # Add "Foydalangan adabiyotlar" (References) - raqamsiz
             if content.get('references'):
                 toc_item = doc.add_paragraph()
                 toc_item.add_run(toc_texts['adabiyotlar'])
 
-            # Add page break
             doc.add_page_break()
 
-            # Add page numbers starting from content pages (not title or TOC)
             for section in doc.sections:
                 self._add_page_number(section)
 
-            # Add sections content with proper numbering
-            numbered_section_count = 0  # Counter for numbered sections only
-
+            numbered_section_count = 0
             for idx, section in enumerate(all_sections):
                 title = section['title']
-
-                # Section title
                 section_title = doc.add_paragraph()
                 section_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-                # Birinchi va oxirgi bo'limlar uchun til-spetsifik sarlavhalar
                 if idx == 0:
-                    # Kirish - til bo'yicha
                     section_title_run = section_title.add_run(toc_texts['kirish'].upper())
                 elif idx == len(all_sections) - 1:
-                    # Xulosa - til bo'yicha
                     section_title_run = section_title.add_run(toc_texts['xulosa'].upper())
                 else:
-                    # Raqamli bo'limlar
                     numbered_section_count += 1
                     section_title_run = section_title.add_run(f"{numbered_section_count}. {title}")
 
                 section_title_run.font.bold = True
                 section_title_run.font.size = Pt(14)
 
-                # Section content
                 content_para = doc.add_paragraph(section['content'])
                 content_para.paragraph_format.first_line_indent = Inches(0.5)
                 content_para.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                 content_para.paragraph_format.line_spacing = 1.5
 
-            # References - separate page with only 5 references (newest to oldest)
             if content.get('references'):
                 doc.add_page_break()
-
                 ref_title = doc.add_paragraph()
                 ref_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 ref_title_run = ref_title.add_run(toc_texts['adabiyotlar'].upper())
                 ref_title_run.font.bold = True
                 ref_title_run.font.size = Pt(14)
 
-                # Reverse references to show newest first
                 references = content['references'][:5]
                 references_reversed = list(reversed(references))
-
                 for idx, ref in enumerate(references_reversed, 1):
                     ref_para = doc.add_paragraph()
                     ref_para.paragraph_format.first_line_indent = Inches(0.5)
                     ref_para.paragraph_format.line_spacing = 1.5
                     ref_para.add_run(f"{idx}. {ref}")
 
-            # Save document
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"referat_{timestamp}.docx"
             file_path = os.path.join(self.documents_dir, filename)
-
             doc.save(file_path)
             logger.info(f"Referat saved: {file_path}")
-
             return file_path
 
         except Exception as e:
             logger.error(f"Error creating referat: {e}")
             raise
 
-    async def _create_referat_title_page(self, doc, topic: str, language: str = 'uzbek', author_name: str = ''):
-        """Create referat title page with exact template design from user's image, language-specific"""
+    async def _create_referat_title_page(self, doc, topic: str, language: str = 'uz', author_name: str = ''):
+        """Create referat title page"""
         try:
-            # Language-specific texts
             texts = self._get_referat_template_texts(language)
 
-            # Set paragraph formats for alignment and spacing
-
-            # Top section with lines and "fanidan"
-            # Long line
             para1 = doc.add_paragraph()
             para1.alignment = WD_ALIGN_PARAGRAPH.CENTER
             run1 = para1.add_run("_" * 50)
             run1.font.size = Pt(14)
             run1.font.name = 'Times New Roman'
 
-            # Short line with "fanidan"
             para2 = doc.add_paragraph()
             para2.alignment = WD_ALIGN_PARAGRAPH.CENTER
             run2 = para2.add_run("_" * 20 + f" {texts['from_subject']}")
             run2.font.size = Pt(14)
             run2.font.name = 'Times New Roman'
 
-            # Add 4 empty lines for spacing
             for _ in range(4):
                 doc.add_paragraph()
 
-            # REFERAT title (large and bold)
             title_para = doc.add_paragraph()
             title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             title_run = title_para.add_run(f"{texts['referat']}:")
@@ -1150,26 +605,21 @@ class DocumentService:
             title_run.font.bold = True
             title_run.font.name = 'Times New Roman'
 
-            # Add 3 empty lines for spacing
             for _ in range(3):
                 doc.add_paragraph()
 
-            # Topic (centered)
             topic_para = doc.add_paragraph()
             topic_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             topic_run = topic_para.add_run(f"{texts['topic']}: {topic}")
             topic_run.font.size = Pt(14)
             topic_run.font.name = 'Times New Roman'
 
-            # Add 2 empty lines
             for _ in range(2):
                 doc.add_paragraph()
 
-            # Bajardi va Qabul qildi sections - yonma-yon
             signatures_para = doc.add_paragraph()
             signatures_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-            # Bajardi section (left side) - show author name if provided
             bajardi_run = signatures_para.add_run(f"{texts['prepared_by']}: ")
             bajardi_run.font.size = Pt(14)
             bajardi_run.font.name = 'Times New Roman'
@@ -1184,10 +634,8 @@ class DocumentService:
                 kurs_run.font.size = Pt(14)
                 kurs_run.font.name = 'Times New Roman'
 
-            # Spacing between signatures
             signatures_para.add_run("               ")
 
-            # Qabul qildi section (right side)
             qabul_run = signatures_para.add_run(f"{texts['accepted_by']}: ")
             qabul_run.font.size = Pt(14)
             qabul_run.font.name = 'Times New Roman'
@@ -1196,96 +644,71 @@ class DocumentService:
             qabul_line_run.font.size = Pt(14)
             qabul_line_run.font.name = 'Times New Roman'
 
-            # Second line for group info under Bajardi (only if no author name)
-            if not author_name:
-                signatures_para.add_run("\n")
-                guruh_run = signatures_para.add_run(f"                    {texts['group_student']}")
-                guruh_run.font.size = Pt(14)
-                guruh_run.font.name = 'Times New Roman'
-
-            # Add 3 empty lines for spacing before Toshkent
             for _ in range(3):
                 doc.add_paragraph()
 
-            # City at bottom
             city_para = doc.add_paragraph()
             city_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             city_run = city_para.add_run(texts['city'])
             city_run.font.size = Pt(14)
             city_run.font.name = 'Times New Roman'
 
-            logger.info("Referat title page created with template design")
-
         except Exception as e:
             logger.error(f"Error creating referat title page: {e}")
-            # Fallback to simple title if template fails
-            title_para = doc.add_paragraph()
-            title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            title_run = title_para.add_run("REFERAT")
-            title_run.font.size = Pt(16)
-            title_run.font.bold = True
 
     def _get_referat_template_texts(self, language: str) -> Dict[str, str]:
         """Get language-specific texts for referat template"""
-        if language == 'russian':
+        if language == 'ru':
             return {
                 'from_subject': 'по предмету',
                 'referat': 'РЕФЕРАТ',
                 'topic': 'Тема',
                 'prepared_by': 'Выполнил',
                 'course': 'курс',
-                'group_student': '(рус) группы студент',
                 'accepted_by': 'Принял',
                 'city': 'Ташкент'
             }
-        elif language == 'english':
+        elif language == 'en':
             return {
                 'from_subject': 'on the subject',
                 'referat': 'REPORT',
                 'topic': 'Topic',
                 'prepared_by': 'Prepared by',
                 'course': 'course',
-                'group_student': '(eng) group student',
                 'accepted_by': 'Accepted by',
                 'city': 'Tashkent'
             }
-        else:  # uzbek (default)
+        else:
             return {
                 'from_subject': 'fanidan',
                 'referat': 'REFERAT',
                 'topic': 'Mavzu',
                 'prepared_by': 'Bajardi',
                 'course': 'kurs',
-                'group_student': "(o'zb) guruhi talabasi",
                 'accepted_by': 'Qabul qildi',
                 'city': 'Toshkent'
             }
 
-    async def _create_independent_work_title_page(self, doc, topic: str, language: str = 'uzbek', author_name: str = ''):
-        """Create independent work title page with exact template design from user's image, language-specific"""
+    async def _create_independent_work_title_page(self, doc, topic: str, language: str = 'uz', author_name: str = ''):
+        """Create independent work title page"""
         try:
-            # Language-specific texts
             texts = self._get_independent_work_template_texts(language)
 
-            # Faculty line - right aligned
             faculty_para = doc.add_paragraph()
             faculty_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
             faculty_run = faculty_para.add_run("_" * 30 + f" {texts['faculty']}")
             faculty_run.font.size = Pt(14)
             faculty_run.font.name = 'Times New Roman'
 
-            # Subject line - right aligned
             subject_para = doc.add_paragraph()
             subject_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
             subject_run = subject_para.add_run("_" * 30 + f" {texts['from_subject']}")
             subject_run.font.size = Pt(14)
             subject_run.font.name = 'Times New Roman'
 
-            # Add 3 empty lines for spacing
             for _ in range(3):
                 doc.add_paragraph()
 
-            # MUSTAQIL ISH title (large and bold, centered)
             title_para = doc.add_paragraph()
             title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             title_run = title_para.add_run(texts['independent_work'])
@@ -1293,26 +716,21 @@ class DocumentService:
             title_run.font.bold = True
             title_run.font.name = 'Times New Roman'
 
-            # Add 2 empty lines for spacing
             for _ in range(2):
                 doc.add_paragraph()
 
-            # Topic (left aligned, no underline)
             topic_para = doc.add_paragraph()
             topic_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
             topic_run = topic_para.add_run(f"{texts['topic']}: {topic}")
             topic_run.font.size = Pt(14)
             topic_run.font.name = 'Times New Roman'
 
-            # Add 4 empty lines
             for _ in range(4):
                 doc.add_paragraph()
 
-            # Bajardi va Qabul qildi sections - yonma-yon (left aligned)
             signatures_para = doc.add_paragraph()
             signatures_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
 
-            # Bajardi section (left side) - show author name if provided
             bajardi_run = signatures_para.add_run(f"{texts['prepared_by']}: ")
             bajardi_run.font.size = Pt(14)
             bajardi_run.font.name = 'Times New Roman'
@@ -1327,10 +745,8 @@ class DocumentService:
                 bajardi_line_run.font.size = Pt(14)
                 bajardi_line_run.font.name = 'Times New Roman'
 
-            # Spacing between signatures
             signatures_para.add_run("         ")
 
-            # Qabul qildi section (right side)
             qabul_run = signatures_para.add_run(f"{texts['accepted_by']}: ")
             qabul_run.font.size = Pt(14)
             qabul_run.font.name = 'Times New Roman'
@@ -1339,22 +755,14 @@ class DocumentService:
             qabul_line_run.font.size = Pt(14)
             qabul_line_run.font.name = 'Times New Roman'
 
-            logger.info("Independent work title page created with template design")
-
         except Exception as e:
             logger.error(f"Error creating independent work title page: {e}")
-            # Fallback to simple title if template fails
-            title_para = doc.add_paragraph()
-            title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            title_run = title_para.add_run("MUSTAQIL ISH")
-            title_run.font.size = Pt(16)
-            title_run.font.bold = True
 
     def _get_independent_work_template_texts(self, language: str) -> Dict[str, str]:
         """Get language-specific texts for independent work template"""
         if language == 'ru':
             return {
-                'faculty': 'факультети',
+                'faculty': 'факультета',
                 'from_subject': 'по предмету',
                 'independent_work': 'Самостоятельная работа',
                 'topic': 'Тема',
@@ -1363,14 +771,14 @@ class DocumentService:
             }
         elif language == 'en':
             return {
-                'faculty': 'fakulteti',
+                'faculty': 'faculty',
                 'from_subject': 'on the subject',
                 'independent_work': 'Independent work',
                 'topic': 'Topic',
                 'prepared_by': 'Prepared by',
                 'accepted_by': 'Accepted by'
             }
-        else:  # uz (default)
+        else:
             return {
                 'faculty': 'fakulteti',
                 'from_subject': 'fanidan',
@@ -1394,7 +802,7 @@ class DocumentService:
                 'xulosa': 'Conclusion',
                 'adabiyotlar': 'References'
             }
-        else:  # uz (default)
+        else:
             return {
                 'kirish': 'Kirish',
                 'xulosa': 'Xulosa',
@@ -1402,32 +810,27 @@ class DocumentService:
             }
 
     def _add_page_number(self, section):
-        """Add page number to footer (bottom center)"""
+        """Add page number to footer"""
         try:
             footer = section.footer
             paragraph = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
             paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-            # Create page number field with proper formatting
             run = paragraph.add_run()
 
-            # Begin field
             fldChar1 = OxmlElement('w:fldChar')
             fldChar1.set(qn('w:fldCharType'), 'begin')
             run._r.append(fldChar1)
 
-            # Field instruction - PAGE for current page number
             instrText = OxmlElement('w:instrText')
             instrText.set(qn('xml:space'), 'preserve')
             instrText.text = "PAGE"
             run._r.append(instrText)
 
-            # Separate field (this is important for proper page numbering)
             fldChar2 = OxmlElement('w:fldChar')
             fldChar2.set(qn('w:fldCharType'), 'separate')
             run._r.append(fldChar2)
 
-            # End field
             fldChar3 = OxmlElement('w:fldChar')
             fldChar3.set(qn('w:fldCharType'), 'end')
             run._r.append(fldChar3)
@@ -1436,72 +839,3 @@ class DocumentService:
             run.font.name = 'Times New Roman'
         except Exception as e:
             logger.error(f"Error adding page number: {e}")
-
-    async def _download_image(self, image_url: str, filename: str) -> Optional[str]:
-        """Download image from URL for presentation"""
-        try:
-            file_path = os.path.join(self.temp_dir, filename)
-
-            async with aiohttp.ClientSession() as session:
-                async with session.get(image_url) as response:
-                    if response.status == 200:
-                        with open(file_path, 'wb') as f:
-                            f.write(await response.read())
-                        return file_path
-                    else:
-                        logger.error(f"Failed to download image: HTTP {response.status}")
-                        return None
-
-        except Exception as e:
-            logger.error(f"Error downloading image: {e}")
-            return None
-
-    async def _get_smart_images_for_presentation(self, topic: str, content: Dict) -> Dict[int, str]:
-        """Get smart images for presentation slides using Pexels API"""
-        if not self.pexels:
-            logger.warning("Pexels API not configured, skipping images")
-            return {}
-
-        try:
-            slides_data = content.get('slides', [])
-
-            # Get images for each slide topic
-            images_dict = {}
-            for idx, slide in enumerate(slides_data):
-                slide_num = idx + 1
-
-                # Skip title slide
-                if slide_num == 1:
-                    continue
-
-                # Use slide title and extract key words for better search
-                slide_title = slide.get('title', '')
-                slide_content = slide.get('content', '')
-
-                # Create search query from title and key content words
-                search_query = self._extract_search_keywords(slide_title, slide_content, topic)
-
-                if search_query:
-                    # Search for images
-                    photos = await self.pexels.search_images(search_query, per_page=1)
-
-                    if photos:
-                        photo = photos[0]
-                        image_url = self.pexels.get_image_url(photo, "medium")
-
-                        # Download image
-                        filename = f"slide_{slide_num}.jpg"
-                        image_path = await self.pexels.download_image(image_url, filename)
-
-                        if image_path:
-                            images_dict[slide_num] = image_path
-                            logger.info(f"Added smart image for slide {slide_num}: {search_query}")
-
-                    # Small delay to respect rate limits
-                    await asyncio.sleep(0.2)
-
-            return images_dict
-
-        except Exception as e:
-            logger.error(f"Error getting smart images: {e}")
-            return {}

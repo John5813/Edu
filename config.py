@@ -2,16 +2,13 @@ import os
 
 # Bot configuration - no default values for security
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
+TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 
 # Validate required environment variables
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN environment variable is required")
-if not OPENAI_API_KEY:
-    raise ValueError("OPENAI_API_KEY environment variable is required")
-if not PEXELS_API_KEY:
-    raise ValueError("PEXELS_API_KEY environment variable is required")
+if not TOGETHER_API_KEY:
+    raise ValueError("TOGETHER_API_KEY environment variable is required")
 
 # Admin configuration
 ADMIN_IDS = list(map(int, filter(None, os.getenv("ADMIN_IDS", "5304482470").split(",")))) if os.getenv("ADMIN_IDS") else [5304482470]
@@ -45,7 +42,7 @@ DOCUMENT_PRICES = {
     "25_30": 12000
 }
 
-# AI configuration
+# AI configuration (DeepSeek via OpenRouter)
 MAX_TOKENS = 4000
 TEMPERATURE = 0.7
 
