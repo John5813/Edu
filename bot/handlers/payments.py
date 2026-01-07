@@ -44,15 +44,12 @@ async def handle_account_info(message: Message, state: FSMContext, db: Database,
         await message.answer("❌ Сначала выполните команду /start")
         return
 
-    # Get referral statistics
-    stats = await db.get_referral_stats(user.telegram_id)
-
     if user_lang == "uz":
-        account_text = f"💰 Sizning hisobingiz:\n\n💵 Balans: {user.balance:,} so'm\n\n👥 Referral:\n• Taklif qilinganlar: {stats['total_referrals']}\n• To'lov qilganlar: {stats['paid_referrals']}\n• Jami daromad: {stats['total_earned']:,} so'm"
+        account_text = f"💰 Sizning hisobingiz:\n\n💵 Balans: {user.balance:,} so'm"
     elif user_lang == "ru":
-        account_text = f"💰 Ваш счет:\n\n💵 Баланс: {user.balance:,} сум\n\n👥 Реферальная программа:\n• Приглашено: {stats['total_referrals']}\n• Оплатили: {stats['paid_referrals']}\n• Всего заработано: {stats['total_earned']:,} сум"
+        account_text = f"💰 Ваш счет:\n\n💵 Баланс: {user.balance:,} сум"
     else:  # en
-        account_text = f"💰 Your Account:\n\n💵 Balance: {user.balance:,} som\n\n👥 Referral Program:\n• Invited: {stats['total_referrals']}\n• Paid: {stats['paid_referrals']}\n• Total Earned: {stats['total_earned']:,} som"
+        account_text = f"💰 Your Account:\n\n💵 Balance: {user.balance:,} som"
 
     await message.answer(
         account_text,
@@ -229,53 +226,6 @@ async def handle_payment_screenshot(message: Message, state: FSMContext, db: Dat
     finally:
         await state.clear()
 
-@router.message(PaymentStates.waiting_for_screenshot)
-async def handle_payment_screenshot_or_button(message: Message, state: FSMContext, user_lang: str):
-    """Handle payment screenshot upload button or back button"""
-    # Check if user pressed upload button
-    upload_buttons = ["📤 To'lov chekini yuborish", "📤 Отправить чек", "📤 Upload receipt"]
-    back_buttons = ["🔙 Orqaga qaytish", "🔙 Назад", "🔙 Back"]
-
-    if message.text in back_buttons:
-        await state.clear()
-
-        if user_lang == "uz":
-            cancel_text = "❌ To'lov bekor qilindi."
-        elif user_lang == "ru":
-            cancel_text = "❌ Платеж отменен."
-        else:
-            cancel_text = "❌ Payment cancelled."
-
-        await message.answer(
-            cancel_text,
-            reply_markup=get_main_keyboard(user_lang)
-        )
-        logger.info(f"User {message.from_user.id} cancelled payment using back button")
-        return
-
-    if message.text in upload_buttons:
-        # User clicked upload button - ask for receipt
-        if user_lang == "uz":
-            wait_text = "📸 To'lov chekini rasm yoki fayl shaklida yuboring:"
-        elif user_lang == "ru":
-            wait_text = "📸 Отправьте чек об оплате как фото или файл:"
-        else:
-            wait_text = "📸 Send payment receipt as photo or file:"
-
-        await message.answer(wait_text)
-        return
-
-    # Handle invalid content
-    if user_lang == "uz":
-        error_text = "❌ Iltimos, to'lov chekini rasm yoki fayl sifatida yuboring.\n\nAgar to'lovni bekor qilmoqchi bo'lsangiz, \"🔙 Orqaga qaytish\" tugmasini bosing."
-    elif user_lang == "ru":
-        error_text = "❌ Пожалуйста, отправьте чек об оплате как фото или файл.\n\nЕсли хотите отменить платеж, нажмите \"🔙 Назад\"."
-    else:
-        error_text = "❌ Please send payment receipt as photo or file.\n\nIf you want to cancel payment, press \"🔙 Back\"."
-
-    await message.answer(error_text)
-    logger.warning(f"User {message.from_user.id} sent invalid content type during payment: {message.content_type}")
-
 async def notify_admins_about_payment(bot, user, amount, message_id, payment_id, source=""):
     """Notify admins about new payment"""
     from bot.keyboards import get_payment_review_keyboard
@@ -313,81 +263,3 @@ async def notify_admins_about_payment(bot, user, amount, message_id, payment_id,
 
         except Exception as e:
             logger.error(f"Failed to notify admin {admin_id}: {e}")
-
-@router.callback_query(F.data == "show_referral")
-async def handle_referral_callback(callback: CallbackQuery, db: Database, user_lang: str, user):
-    """Show referral information from payment menu"""
-    if not user:
-        await callback.answer("❌ Avval /start buyrug'ini bajaring", show_alert=True)
-        return
-
-    try:
-        # Ensure user has referral code
-        if not user.referral_code:
-            logger.error(f"User {user.telegram_id} has no referral code after get_user")
-            await callback.answer("❌ Xatolik yuz berdi. Iltimos, /start buyrug'ini qayta bajaring.", show_alert=True)
-            return
-
-        # Get referral statistics
-        stats = await db.get_referral_stats(user.telegram_id)
-
-        # Get bot username for referral link
-        bot_info = await callback.bot.get_me()
-        bot_username = bot_info.username
-
-        # Create referral link
-        referral_link = f"https://t.me/{bot_username}?start=ref_{user.referral_code}"
-
-        # Edit message with referral info
-        await callback.message.edit_text(
-            get_text(user_lang, "referral_info",
-                    total_referrals=stats['total_referrals'],
-                    paid_referrals=stats['paid_referrals'],
-                    total_earned=stats['total_earned'],
-                    referral_link=referral_link),
-            parse_mode="Markdown"
-        )
-        await callback.answer()
-
-    except Exception as e:
-        logger.error(f"Error showing referral info: {e}")
-        await callback.answer("❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.", show_alert=True)
-
-@router.message(StateFilter(None), F.text.in_(REFERRAL_TEXTS))
-async def handle_referral_request(message: Message, db: Database, user_lang: str, user):
-    """Show referral information from main menu"""
-    if not user:
-        await message.answer("❌ Avval /start buyrug'ini bajaring")
-        return
-
-    try:
-        # Ensure user has referral code
-        if not user.referral_code:
-            logger.error(f"User {user.telegram_id} has no referral code after get_user")
-            await message.answer("❌ Xatolik yuz berdi. Iltimos, /start buyrug'ini qayta bajaring.", reply_markup=get_main_keyboard(user_lang))
-            return
-
-        # Get referral statistics
-        stats = await db.get_referral_stats(user.telegram_id)
-
-        # Get bot username for referral link
-        bot_info = await message.bot.get_me()
-        bot_username = bot_info.username
-
-        # Create referral link
-        referral_link = f"https://t.me/{bot_username}?start=ref_{user.referral_code}"
-
-        # Send message with referral info
-        await message.answer(
-            get_text(user_lang, "referral_info",
-                    total_referrals=stats['total_referrals'],
-                    paid_referrals=stats['paid_referrals'],
-                    total_earned=stats['total_earned'],
-                    referral_link=referral_link),
-            reply_markup=get_main_keyboard(user_lang),
-            parse_mode="Markdown"
-        )
-
-    except Exception as e:
-        logger.error(f"Error showing referral info: {e}")
-        await message.answer("❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.", reply_markup=get_main_keyboard(user_lang))
