@@ -1,12 +1,30 @@
 import json
 import logging
 import os
+import re
 from openai import AsyncOpenAI
 from typing import Dict, List
 import asyncio
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 
 logger = logging.getLogger(__name__)
+
+def clean_text(text: str) -> str:
+    """Clean text from special characters and formatting issues"""
+    if not text:
+        return ""
+    
+    text = re.sub(r'[#@&*{}\[\]<>|\\^~`]', '', text)
+    text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+    text = re.sub(r'\*([^*]+)\*', r'\1', text)
+    text = re.sub(r'__([^_]+)__', r'\1', text)
+    text = re.sub(r'_([^_]+)_', r'\1', text)
+    text = re.sub(r'^\s*[-*+]\s+', '', text, flags=re.MULTILINE)
+    text = re.sub(r'^\s*\d+\.\s+', '', text, flags=re.MULTILINE)
+    text = re.sub(r'\s+', ' ', text)
+    text = text.strip()
+    
+    return text
 
 def is_rate_limit_error(exception: BaseException) -> bool:
     """Check if the exception is a rate limit or quota violation error."""
@@ -248,26 +266,35 @@ STRUKTURA (jami {slide_count} slayd):
 {slide_count-1}. Adabiyotlar ro'yxati (5-6 ta manba)
 {slide_count}. Rahmat slayd ("E'tiboringiz uchun rahmat!")
 
-ASOSIY SLAIDLAR UCHUN 6 TA SHABLON (takrorlanadi):
-1. 2 ustunli - har ustun 60 so'zdan iborat (jami 120 so'z)
-2. O'ng 50% rasm, chap matn - 80 so'z batafsil
-3. Chap 50% rasm, o'ng matn - 80 so'z batafsil
-4. 3 ustunli - har ustun 40 so'z (jami 120 so'z)
-5. Pastda gorizontal rasm, ustida 50 so'z
-6. Oddiy matn, raqamlar bilan - 100 so'z batafsil
+ASOSIY SLAIDLAR UCHUN 6 TA SHABLON (tartib bilan takrorlanadi):
+1. two_column - 2 ustun, har biri 60 so'z
+2. right_image - o'ngda rasm, chapda 80 so'z matn
+3. left_image - chapda rasm, o'ngda 80 so'z matn
+4. three_column - 3 ustun, har biri 40 so'z
+5. horizontal_image - pastda rasm, ustida 50 so'z matn
+6. text_with_numbers - raqamli matn 100 so'z
 
 Har bir slayd uchun:
 - title: Slayd sarlavhasi
 - content: Asosiy mazmun
 - layout: shablon turi (cover, plan, intro, two_column, right_image, left_image, three_column, horizontal_image, text_with_numbers, conclusion, references, thanks)
-- columns (agar kerak bo'lsa): ustunlar ma'lumotlari
+- columns (ustunli slaidlar uchun): {{"column_content": "matn"}} har bir ustun uchun
 
 MUHIM: Faqat JSON formatda javob bering!
 {{
     "slides": [
-        {{"title": "...", "content": "...", "layout": "cover"}},
-        {{"title": "Reja", "content": "...", "layout": "plan", "plan_items": ["1. ...", "2. ...", "3. ...", "4. ..."]}},
-        ...
+        {{"title": "{topic}", "content": "", "layout": "cover"}},
+        {{"title": "Reja", "content": "", "layout": "plan", "plan_items": ["1. Punkt", "2. Punkt", "3. Punkt", "4. Punkt"]}},
+        {{"title": "Kirish", "content": "kirish matni ~50 so'z", "layout": "intro"}},
+        {{"title": "Sarlavha", "content": "", "layout": "two_column", "columns": [{{"column_content": "matn 60 so'z"}}, {{"column_content": "matn 60 so'z"}}]}},
+        {{"title": "Sarlavha", "content": "matn 80 so'z", "layout": "right_image"}},
+        {{"title": "Sarlavha", "content": "matn 80 so'z", "layout": "left_image"}},
+        {{"title": "Sarlavha", "content": "", "layout": "three_column", "columns": [{{"column_content": "40 so'z"}}, {{"column_content": "40 so'z"}}, {{"column_content": "40 so'z"}}]}},
+        {{"title": "Sarlavha", "content": "matn 50 so'z", "layout": "horizontal_image"}},
+        {{"title": "Sarlavha", "content": "matn 100 so'z raqamlar bilan", "layout": "text_with_numbers"}},
+        {{"title": "Xulosa", "content": "matn ~50 so'z", "layout": "conclusion"}},
+        {{"title": "Adabiyotlar", "content": "", "layout": "references", "references": ["Manba 1", "Manba 2", "Manba 3", "Manba 4", "Manba 5"]}},
+        {{"title": "", "content": "", "layout": "thanks"}}
     ]
 }}"""
 
@@ -278,27 +305,42 @@ MUHIM: Faqat JSON formatda javob bering!
 
 СТРУКТУРА (всего {slide_count} слайдов):
 1. Титульный слайд (название темы и место для автора)
-2. Слайд с планом (4 основных пункта)
+2. Слайд с планом (4 основных пункта плана)
 3. Введение (~50 слов, общее введение в тему)
 4-{slide_count-3}. Основные слайды ({main_slides} шт) - каждый освещает разные аспекты темы
 {slide_count-2}. Заключение (~50 слов)
 {slide_count-1}. Список литературы (5-6 источников)
 {slide_count}. Слайд благодарности ("Спасибо за внимание!")
 
-ШАБЛОНЫ ДЛЯ ОСНОВНЫХ СЛАЙДОВ (повторяются):
-1. 2 колонки - по 60 слов каждая (всего 120 слов)
-2. Справа 50% изображение, слева текст - 80 слов подробно
-3. Слева 50% изображение, справа текст - 80 слов подробно
-4. 3 колонки - по 40 слов каждая (всего 120 слов)
-5. Внизу горизонтальное изображение, сверху 50 слов
-6. Простой текст с числами - 100 слов подробно
+ШАБЛОНЫ ДЛЯ ОСНОВНЫХ СЛАЙДОВ (чередуются по порядку):
+1. two_column - 2 колонки по 60 слов каждая
+2. right_image - справа изображение, слева текст 80 слов
+3. left_image - слева изображение, справа текст 80 слов
+4. three_column - 3 колонки по 40 слов каждая
+5. horizontal_image - внизу изображение, сверху текст 50 слов
+6. text_with_numbers - текст с цифрами 100 слов
 
-ВАЖНО: Отвечайте только в формате JSON!
+Для каждого слайда:
+- title: Заголовок слайда
+- content: Основной текст
+- layout: тип шаблона (cover, plan, intro, two_column, right_image, left_image, three_column, horizontal_image, text_with_numbers, conclusion, references, thanks)
+- columns (для колоночных): {{"column_content": "текст"}} для каждой колонки
+
+ВАЖНО: Отвечайте ТОЛЬКО в формате JSON!
 {{
     "slides": [
-        {{"title": "...", "content": "...", "layout": "cover"}},
-        {{"title": "План", "content": "...", "layout": "plan", "plan_items": ["1. ...", "2. ...", "3. ...", "4. ..."]}},
-        ...
+        {{"title": "{topic}", "content": "", "layout": "cover"}},
+        {{"title": "План", "content": "", "layout": "plan", "plan_items": ["1. Пункт", "2. Пункт", "3. Пункт", "4. Пункт"]}},
+        {{"title": "Введение", "content": "текст введения ~50 слов", "layout": "intro"}},
+        {{"title": "Заголовок", "content": "", "layout": "two_column", "columns": [{{"column_content": "текст 60 слов"}}, {{"column_content": "текст 60 слов"}}]}},
+        {{"title": "Заголовок", "content": "текст 80 слов", "layout": "right_image"}},
+        {{"title": "Заголовок", "content": "текст 80 слов", "layout": "left_image"}},
+        {{"title": "Заголовок", "content": "", "layout": "three_column", "columns": [{{"column_content": "40 слов"}}, {{"column_content": "40 слов"}}, {{"column_content": "40 слов"}}]}},
+        {{"title": "Заголовок", "content": "текст 50 слов", "layout": "horizontal_image"}},
+        {{"title": "Заголовок", "content": "текст 100 слов с цифрами", "layout": "text_with_numbers"}},
+        {{"title": "Заключение", "content": "текст ~50 слов", "layout": "conclusion"}},
+        {{"title": "Литература", "content": "", "layout": "references", "references": ["Источник 1", "Источник 2", "Источник 3", "Источник 4", "Источник 5"]}},
+        {{"title": "", "content": "", "layout": "thanks"}}
     ]
 }}"""
 
@@ -309,27 +351,42 @@ MUHIM: Faqat JSON formatda javob bering!
 
 STRUCTURE (total {slide_count} slides):
 1. Cover slide (topic name and author placeholder)
-2. Agenda slide (4 main points)
+2. Agenda slide (4 main agenda points)
 3. Introduction (~50 words, general intro to topic)
 4-{slide_count-3}. Main slides ({main_slides} total) - each covers different aspects
 {slide_count-2}. Conclusion (~50 words)
 {slide_count-1}. References (5-6 sources)
 {slide_count}. Thank you slide ("Thank you for your attention!")
 
-TEMPLATES FOR MAIN SLIDES (rotating):
-1. 2 columns - 60 words each (120 words total)
-2. Right 50% image, left text - 80 words detailed
-3. Left 50% image, right text - 80 words detailed
-4. 3 columns - 40 words each (120 words total)
-5. Bottom horizontal image, top 50 words
-6. Plain text with numbers - 100 words detailed
+TEMPLATES FOR MAIN SLIDES (rotate in order):
+1. two_column - 2 columns with 60 words each
+2. right_image - image on right, text 80 words on left
+3. left_image - image on left, text 80 words on right
+4. three_column - 3 columns with 40 words each
+5. horizontal_image - image at bottom, text 50 words on top
+6. text_with_numbers - text with numbers 100 words
 
-IMPORTANT: Respond only in JSON format!
+For each slide:
+- title: Slide title
+- content: Main text
+- layout: template type (cover, plan, intro, two_column, right_image, left_image, three_column, horizontal_image, text_with_numbers, conclusion, references, thanks)
+- columns (for column layouts): {{"column_content": "text"}} for each column
+
+IMPORTANT: Respond ONLY in JSON format!
 {{
     "slides": [
-        {{"title": "...", "content": "...", "layout": "cover"}},
-        {{"title": "Agenda", "content": "...", "layout": "plan", "plan_items": ["1. ...", "2. ...", "3. ...", "4. ..."]}},
-        ...
+        {{"title": "{topic}", "content": "", "layout": "cover"}},
+        {{"title": "Agenda", "content": "", "layout": "plan", "plan_items": ["1. Point", "2. Point", "3. Point", "4. Point"]}},
+        {{"title": "Introduction", "content": "intro text ~50 words", "layout": "intro"}},
+        {{"title": "Title", "content": "", "layout": "two_column", "columns": [{{"column_content": "text 60 words"}}, {{"column_content": "text 60 words"}}]}},
+        {{"title": "Title", "content": "text 80 words", "layout": "right_image"}},
+        {{"title": "Title", "content": "text 80 words", "layout": "left_image"}},
+        {{"title": "Title", "content": "", "layout": "three_column", "columns": [{{"column_content": "40 words"}}, {{"column_content": "40 words"}}, {{"column_content": "40 words"}}]}},
+        {{"title": "Title", "content": "text 50 words", "layout": "horizontal_image"}},
+        {{"title": "Title", "content": "text 100 words with numbers", "layout": "text_with_numbers"}},
+        {{"title": "Conclusion", "content": "text ~50 words", "layout": "conclusion"}},
+        {{"title": "References", "content": "", "layout": "references", "references": ["Source 1", "Source 2", "Source 3", "Source 4", "Source 5"]}},
+        {{"title": "", "content": "", "layout": "thanks"}}
     ]
 }}"""
 
@@ -431,50 +488,83 @@ Respond in JSON format:
     async def _generate_section_content(self, topic: str, section_title: str, section_num: int, total_sections: int, document_type: str, language: str) -> str:
         """Generate content for a specific section"""
         try:
+            common_rules = """
+QOIDALAR:
+- Faqat oddiy matn yozing, hech qanday maxsus belgi ishlatmang (#, @, &, *, {, }, [, ], va h.k.)
+- Matnda takrorlanish bo'lmasin - har bir gap yangi ma'lumot bersin
+- Markdown formatlash ishlatmang (**, *, _, __ va h.k.)
+- Professional akademik til ishlating
+- Faqat sof matn, ro'yxatlar yoki raqamli punktlar bo'lmasin"""
+
+            common_rules_ru = """
+ПРАВИЛА:
+- Пишите только простой текст без специальных символов (#, @, &, *, {, }, [, ] и т.д.)
+- Избегайте повторений - каждое предложение должно содержать новую информацию
+- Не используйте форматирование Markdown (**, *, _, __ и т.д.)
+- Используйте профессиональный академический язык
+- Только чистый текст без списков и нумерации"""
+
+            common_rules_en = """
+RULES:
+- Write only plain text without special characters (#, @, &, *, {, }, [, ], etc.)
+- Avoid repetition - each sentence should provide new information
+- Do not use Markdown formatting (**, *, _, __, etc.)
+- Use professional academic language
+- Only plain text without lists or numbered points"""
+
             if language == "uz":
                 if section_num == 1:
-                    prompt = f"""O'zbek tilida "{topic}" mavzusidagi "{section_title}" bo'limi uchun professional akademik mazmun yarating.
+                    prompt = f"""O'zbek tilida "{topic}" mavzusidagi "{section_title}" bo'limi uchun professional akademik kirish yozing.
 
-Bu kirish bo'limi. 150-200 so'z yozing. Professional akademik til, ravon matn."""
+250-300 so'z yozing. Mavzuning dolzarbligi, maqsadi va ahamiyatini yoritib bering.
+{common_rules}"""
                 elif section_num == total_sections:
                     prompt = f"""O'zbek tilida "{topic}" mavzusidagi "{section_title}" bo'limi uchun xulosa yozing.
 
-300-400 so'z, professional akademik til."""
+350-450 so'z. Asosiy xulosalar, natijalar va tavsiyalarni yozing.
+{common_rules}"""
                 else:
                     prompt = f"""O'zbek tilida "{topic}" mavzusidagi "{section_title}" bo'limi uchun chuqur akademik mazmun yarating.
 
-400-500 so'z, professional akademik til, misollar bilan."""
+500-600 so'z yozing. Mavzuni to'liq yoritib, misollar va dalillar keltiring.
+{common_rules}"""
 
             elif language == "ru":
                 if section_num == 1:
-                    prompt = f"""Создайте профессиональное академическое введение для раздела "{section_title}" по теме "{topic}" на русском языке.
+                    prompt = f"""Напишите профессиональное академическое введение для раздела "{section_title}" по теме "{topic}" на русском языке.
 
-150-200 слов, академический язык."""
+250-300 слов. Опишите актуальность темы, цели и значимость.
+{common_rules_ru}"""
                 elif section_num == total_sections:
-                    prompt = f"""Создайте заключение для раздела "{section_title}" по теме "{topic}" на русском языке.
+                    prompt = f"""Напишите заключение для раздела "{section_title}" по теме "{topic}" на русском языке.
 
-150 слов, академический язык."""
+350-450 слов. Изложите основные выводы, результаты и рекомендации.
+{common_rules_ru}"""
                 else:
-                    prompt = f"""Создайте профессиональное академическое содержание для раздела "{section_title}" по теме "{topic}" на русском языке.
+                    prompt = f"""Напишите глубокое академическое содержание для раздела "{section_title}" по теме "{topic}" на русском языке.
 
-350 слов, академический язык с примерами."""
+500-600 слов. Полностью раскройте тему с примерами и аргументами.
+{common_rules_ru}"""
             else:
                 if section_num == 1:
-                    prompt = f"""Create professional academic introduction for "{section_title}" on "{topic}" in English.
+                    prompt = f"""Write professional academic introduction for "{section_title}" on "{topic}" in English.
 
-150-200 words, academic language."""
+250-300 words. Describe the relevance, objectives and significance of the topic.
+{common_rules_en}"""
                 elif section_num == total_sections:
-                    prompt = f"""Create conclusion for "{section_title}" on "{topic}" in English.
+                    prompt = f"""Write conclusion for "{section_title}" on "{topic}" in English.
 
-150 words, academic language."""
+350-450 words. Present main conclusions, results and recommendations.
+{common_rules_en}"""
                 else:
-                    prompt = f"""Create professional academic content for "{section_title}" on "{topic}" in English.
+                    prompt = f"""Write deep academic content for "{section_title}" on "{topic}" in English.
 
-350 words, academic language with examples."""
+500-600 words. Fully cover the topic with examples and arguments.
+{common_rules_en}"""
 
             response = await self._make_request(
                 messages=[
-                    {"role": "system", "content": "You are an academic writer. Write clear, well-structured content."},
+                    {"role": "system", "content": "You are an academic writer. Write clear, well-structured content as plain text only. Never use special characters, markdown, or formatting."},
                     {"role": "user", "content": prompt}
                 ],
                 max_tokens=4000,
@@ -484,6 +574,7 @@ Bu kirish bo'limi. 150-200 so'z yozing. Professional akademik til, ravon matn.""
             matn = response.strip()
             matn = matn.replace('\n\n', ' ')
             matn = matn.replace('\n', ' ')
+            matn = clean_text(matn)
             
             return matn
 
