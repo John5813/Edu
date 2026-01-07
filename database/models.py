@@ -16,6 +16,7 @@ class User:
     referral_earnings: int
     created_at: Union[datetime, str]
     updated_at: Union[datetime, str]
+    free_service_used: int = 0
 
 @dataclass
 class Payment:
