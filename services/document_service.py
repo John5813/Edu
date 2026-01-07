@@ -416,13 +416,15 @@ class DocumentService:
             author_name = content.get('author_name', '')
             await self._create_independent_work_title_page(doc, topic, user_lang, author_name)
 
-            toc_para = doc.add_paragraph()
-            toc_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            toc_run = toc_para.add_run("REJA")
-            toc_run.font.size = Pt(14)
-            toc_run.font.bold = True
+            doc.add_page_break()
 
             toc_texts = self._get_toc_texts(user_lang)
+            
+            toc_para = doc.add_paragraph()
+            toc_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            toc_run = toc_para.add_run(toc_texts.get('reja', 'REJA').upper())
+            toc_run.font.size = Pt(14)
+            toc_run.font.bold = True
             all_sections = content.get('sections', [])
 
             toc_item = doc.add_paragraph()
@@ -451,6 +453,10 @@ class DocumentService:
             numbered_section_count = 0
             for idx, section in enumerate(all_sections):
                 title = section['title']
+                
+                if idx == len(all_sections) - 1:
+                    doc.add_page_break()
+                
                 section_title = doc.add_paragraph()
                 section_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
@@ -521,13 +527,15 @@ class DocumentService:
             author_name = content.get('author_name', '')
             await self._create_referat_title_page(doc, topic, user_lang, author_name)
 
-            toc_para = doc.add_paragraph()
-            toc_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            toc_run = toc_para.add_run("REJA")
-            toc_run.font.size = Pt(14)
-            toc_run.font.bold = True
+            doc.add_page_break()
 
             toc_texts = self._get_toc_texts(user_lang)
+            
+            toc_para = doc.add_paragraph()
+            toc_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            toc_run = toc_para.add_run(toc_texts.get('reja', 'REJA').upper())
+            toc_run.font.size = Pt(14)
+            toc_run.font.bold = True
             all_sections = content.get('sections', [])
 
             toc_item = doc.add_paragraph()
@@ -556,6 +564,10 @@ class DocumentService:
             numbered_section_count = 0
             for idx, section in enumerate(all_sections):
                 title = section['title']
+                
+                if idx == len(all_sections) - 1:
+                    doc.add_page_break()
+                
                 section_title = doc.add_paragraph()
                 section_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
@@ -816,18 +828,21 @@ class DocumentService:
         """Get language-specific texts for table of contents"""
         if language == 'ru':
             return {
+                'reja': 'План',
                 'kirish': 'Введение',
                 'xulosa': 'Заключение',
                 'adabiyotlar': 'Использованная литература'
             }
         elif language == 'en':
             return {
+                'reja': 'Contents',
                 'kirish': 'Introduction',
                 'xulosa': 'Conclusion',
                 'adabiyotlar': 'References'
             }
         else:
             return {
+                'reja': 'Reja',
                 'kirish': 'Kirish',
                 'xulosa': 'Xulosa',
                 'adabiyotlar': 'Foydalangan adabiyotlar'
