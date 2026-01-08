@@ -1416,11 +1416,10 @@ async def process_gift_amount(message: Message, state: FSMContext, db: Database)
         success_count = 0
         for user in all_users:
             try:
-                new_balance = user.balance + amount
-                await db.update_user_balance(user.id, new_balance)
+                await db.update_user_balance(user.telegram_id, amount)
                 success_count += 1
             except Exception as e:
-                logger.error(f"Failed to add gift to user {user.id}: {e}")
+                logger.error(f"Failed to add gift to user {user.telegram_id}: {e}")
 
         await message.answer(
             f"✅ Sovg'a muvaffaqiyatli yuborildi!\n\n"
