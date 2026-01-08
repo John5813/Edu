@@ -280,7 +280,7 @@ class AIService:
 
 STRUKTURA (jami {slide_count} slayd):
 1. Muqova slayd (mavzu nomi va muallif uchun joy)
-2. Reja slayd (4 ta asosiy reja punkti)
+2. Reja slayd (4 ta sodda va qisqa reja punkti, har biri 3-5 so'z)
 3. Kirish slayd (~50 so'z, mavzuga umumiy kirish)
 4-{slide_count-3}. Asosiy slaidlar ({main_slides} ta) - har biri mavzuning turli jihatlarini yoritadi
 {slide_count-2}. Xulosa slayd (~50 so'z)
@@ -291,9 +291,9 @@ ASOSIY SLAIDLAR UCHUN 6 TA SHABLON (tartib bilan takrorlanadi):
 1. two_column - 2 ustun, har biri AYNAN 60 so'z (kam bo'lmasin!)
 2. right_image - o'ngda rasm, chapda AYNAN 80 so'z matn (kam bo'lmasin!)
 3. left_image - chapda rasm, o'ngda AYNAN 80 so'z matn (kam bo'lmasin!)
-4. three_column - 3 ustun, har biri MINIMAL 39 so'z (kam bo'lmasin!)
+4. three_column - 3 ustun, har biri 15 so'zgacha
 5. horizontal_image - pastda rasm, ustida AYNAN 50 so'z matn
-6. text_with_numbers - raqamli matn AYNAN 100 so'z (kam bo'lmasin!)
+6. text_with_numbers - raqamli matn 40-50 so'z
 
 Har bir slayd uchun:
 - title: Slayd sarlavhasi
@@ -310,9 +310,9 @@ MUHIM: Faqat JSON formatda javob bering!
         {{"title": "Sarlavha", "content": "", "layout": "two_column", "columns": [{{"column_content": "matn 60 so'z"}}, {{"column_content": "matn 60 so'z"}}]}},
         {{"title": "Sarlavha", "content": "matn 80 so'z", "layout": "right_image"}},
         {{"title": "Sarlavha", "content": "matn 80 so'z", "layout": "left_image"}},
-        {{"title": "Sarlavha", "content": "", "layout": "three_column", "columns": [{{"column_content": "39+ so'z"}}, {{"column_content": "39+ so'z"}}, {{"column_content": "39+ so'z"}}]}},
+        {{"title": "Sarlavha", "content": "", "layout": "three_column", "columns": [{{"column_content": "15 so'z"}}, {{"column_content": "15 so'z"}}, {{"column_content": "15 so'z"}}]}},
         {{"title": "Sarlavha", "content": "matn 50 so'z", "layout": "horizontal_image"}},
-        {{"title": "Sarlavha", "content": "matn 100 so'z raqamlar bilan", "layout": "text_with_numbers"}},
+        {{"title": "Sarlavha", "content": "matn 40-50 so'z", "layout": "text_with_numbers"}},
         {{"title": "Xulosa", "content": "matn ~50 so'z", "layout": "conclusion"}},
         {{"title": "Adabiyotlar", "content": "", "layout": "references", "references": ["Manba 1", "Manba 2", "Manba 3", "Manba 4"]}},
         {{"title": "", "content": "", "layout": "thanks"}}
@@ -326,7 +326,7 @@ MUHIM: Faqat JSON formatda javob bering!
 
 СТРУКТУРА (всего {slide_count} слайдов):
 1. Титульный слайд (название темы и место для автора)
-2. Слайд с планом (4 основных пункта плана)
+2. Слайд с планом (4 простых и коротких пункта, каждый 3-5 слов)
 3. Введение (~50 слов, общее введение в тему)
 4-{slide_count-3}. Основные слайды ({main_slides} шт) - каждый освещает разные аспекты темы
 {slide_count-2}. Заключение (~50 слов)
@@ -337,9 +337,9 @@ MUHIM: Faqat JSON formatda javob bering!
 1. two_column - 2 колонки РОВНО по 60 слов каждая (не меньше!)
 2. right_image - справа изображение, слева текст РОВНО 80 слов (не меньше!)
 3. left_image - слева изображение, справа текст РОВНО 80 слов (не меньше!)
-4. three_column - 3 колонки МИНИМУМ по 39 слов каждая (не меньше!)
+4. three_column - 3 колонки по 15 слов каждая
 5. horizontal_image - внизу изображение, сверху текст РОВНО 50 слов
-6. text_with_numbers - текст с цифрами РОВНО 100 слов (не меньше!)
+6. text_with_numbers - текст с цифрами 40-50 слов
 
 Для каждого слайда:
 - title: Заголовок слайда
@@ -356,9 +356,9 @@ MUHIM: Faqat JSON formatda javob bering!
         {{"title": "Заголовок", "content": "", "layout": "two_column", "columns": [{{"column_content": "текст 60 слов"}}, {{"column_content": "текст 60 слов"}}]}},
         {{"title": "Заголовок", "content": "текст 80 слов", "layout": "right_image"}},
         {{"title": "Заголовок", "content": "текст 80 слов", "layout": "left_image"}},
-        {{"title": "Заголовок", "content": "", "layout": "three_column", "columns": [{{"column_content": "39+ слов"}}, {{"column_content": "39+ слов"}}, {{"column_content": "39+ слов"}}]}},
+        {{"title": "Заголовок", "content": "", "layout": "three_column", "columns": [{{"column_content": "15 слов"}}, {{"column_content": "15 слов"}}, {{"column_content": "15 слов"}}]}},
         {{"title": "Заголовок", "content": "текст 50 слов", "layout": "horizontal_image"}},
-        {{"title": "Заголовок", "content": "текст 100 слов с цифрами", "layout": "text_with_numbers"}},
+        {{"title": "Заголовок", "content": "текст 40-50 слов", "layout": "text_with_numbers"}},
         {{"title": "Заключение", "content": "текст ~50 слов", "layout": "conclusion"}},
         {{"title": "Литература", "content": "", "layout": "references", "references": ["Источник 1", "Источник 2", "Источник 3", "Источник 4"]}},
         {{"title": "", "content": "", "layout": "thanks"}}
@@ -372,7 +372,7 @@ MUHIM: Faqat JSON formatda javob bering!
 
 STRUCTURE (total {slide_count} slides):
 1. Cover slide (topic name and author placeholder)
-2. Agenda slide (4 main agenda points)
+2. Agenda slide (4 simple and short points, each 3-5 words)
 3. Introduction (~50 words, general intro to topic)
 4-{slide_count-3}. Main slides ({main_slides} total) - each covers different aspects
 {slide_count-2}. Conclusion (~50 words)
@@ -383,9 +383,9 @@ TEMPLATES FOR MAIN SLIDES (rotate in order):
 1. two_column - 2 columns with EXACTLY 60 words each (no less!)
 2. right_image - image on right, text EXACTLY 80 words on left (no less!)
 3. left_image - image on left, text EXACTLY 80 words on right (no less!)
-4. three_column - 3 columns with MINIMUM 39 words each (no less!)
+4. three_column - 3 columns with 15 words each
 5. horizontal_image - image at bottom, text EXACTLY 50 words on top
-6. text_with_numbers - text with numbers EXACTLY 100 words (no less!)
+6. text_with_numbers - text with numbers 40-50 words
 
 For each slide:
 - title: Slide title
@@ -402,9 +402,9 @@ IMPORTANT: Respond ONLY in JSON format!
         {{"title": "Title", "content": "", "layout": "two_column", "columns": [{{"column_content": "text 60 words"}}, {{"column_content": "text 60 words"}}]}},
         {{"title": "Title", "content": "text 80 words", "layout": "right_image"}},
         {{"title": "Title", "content": "text 80 words", "layout": "left_image"}},
-        {{"title": "Title", "content": "", "layout": "three_column", "columns": [{{"column_content": "39+ words"}}, {{"column_content": "39+ words"}}, {{"column_content": "39+ words"}}]}},
+        {{"title": "Title", "content": "", "layout": "three_column", "columns": [{{"column_content": "15 words"}}, {{"column_content": "15 words"}}, {{"column_content": "15 words"}}]}},
         {{"title": "Title", "content": "text 50 words", "layout": "horizontal_image"}},
-        {{"title": "Title", "content": "text 100 words with numbers", "layout": "text_with_numbers"}},
+        {{"title": "Title", "content": "text 40-50 words", "layout": "text_with_numbers"}},
         {{"title": "Conclusion", "content": "text ~50 words", "layout": "conclusion"}},
         {{"title": "References", "content": "", "layout": "references", "references": ["Source 1", "Source 2", "Source 3", "Source 4"]}},
         {{"title": "", "content": "", "layout": "thanks"}}
@@ -865,9 +865,9 @@ In JSON format:
                 'two_column': 60,
                 'right_image': 80,
                 'left_image': 80,
-                'three_column': 39,
+                'three_column': 15,
                 'horizontal_image': 50,
-                'text_with_numbers': 100
+                'text_with_numbers': 45
             }
             word_count = word_counts.get(layout, 50)
             

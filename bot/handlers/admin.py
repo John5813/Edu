@@ -1855,23 +1855,9 @@ async def select_ai_model(callback: CallbackQuery, db: Database):
     success = await db.set_current_ai_model(model_key)
     
     if success:
-        ai_service = AIService()
-        ai_service.clear_model_cache()
-        
+        AIService.clear_model_cache()
         model_info = AI_MODELS[model_key]
         await callback.answer(f"✅ {model_info['name']} tanlandi!")
-        
-        text = (
-            "🤖 AI model sozlamalari\n\n"
-            f"📌 Hozirgi model: {model_info['name']}\n"
-            f"💰 Narxi: {model_info['price']}\n"
-            f"📝 {model_info['description']}\n\n"
-            "Quyidagi modellardan birini tanlang:"
-        )
-        
-        await callback.message.edit_text(
-            text,
-            reply_markup=get_ai_model_selection_keyboard(model_key)
-        )
+        await callback.message.delete()
     else:
         await callback.answer("❌ Xatolik yuz berdi.")
