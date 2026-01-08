@@ -23,7 +23,7 @@ class TogetherImageService:
             base_url=self.base_url
         )
         self.ai_model = "deepseek/deepseek-chat"
-        self.image_model = "openai/gpt-image-1"
+        self.image_model = "google/gemini-2.5-flash-image-preview"
     
     async def _generate_image_prompt(self, slide_title: str) -> str:
         """Ask DeepSeek to create a creative image prompt from slide title"""
@@ -77,6 +77,7 @@ Faqat promptni yoz, boshqa hech narsa yozma."""
             
             payload = {
                 "model": self.image_model,
+                "modalities": ["image", "text"],
                 "messages": [
                     {
                         "role": "user",
