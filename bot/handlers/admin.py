@@ -107,11 +107,17 @@ async def handle_orders_request(message: Message, db: Database):
         user = await db.get_user_by_id(payment.user_id)
         user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
 
+        # Handle both datetime and string formats
+        if isinstance(payment.created_at, str):
+            date_str = payment.created_at[:16].replace('T', ' ') if 'T' in payment.created_at else payment.created_at[:16]
+        else:
+            date_str = payment.created_at.strftime('%d.%m.%Y %H:%M')
+
         text = (
             f"🧾 To'lov #{payment.id}\n"
             f"👤 Foydalanuvchi: {user_link}\n"
             f"💵 Summasi: {payment.amount:,} so'm\n"
-            f"📅 Sana: {payment.created_at.strftime('%d.%m.%Y %H:%M')}"
+            f"📅 Sana: {date_str}"
         )
 
         await message.answer(
