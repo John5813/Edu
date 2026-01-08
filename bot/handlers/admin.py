@@ -588,12 +588,15 @@ async def add_channel_id(message: Message, state: FSMContext):
         channel_service = ChannelService(message.bot)
         if not await channel_service.validate_channel(channel_id):
             from bot.keyboards import get_channel_error_keyboard
+            # Get current bot username dynamically
+            bot_info = await message.bot.get_me()
+            bot_username = bot_info.username
             await message.answer(
-                "❌ Bot ushbu kanalga kirish huquqi yo'q!\n\n"
-                "📝 Quyidagi qadamlarni bajaring:\n"
-                "1. Kanalga @Hshjdjbot ni admin sifatida qo'shing\n"
-                "2. Bot uchun 'A'zolarni ko'rish' huquqini bering\n"
-                "3. Qayta urinib ko'ring",
+                f"❌ Bot ushbu kanalga kirish huquqi yo'q!\n\n"
+                f"📝 Quyidagi qadamlarni bajaring:\n"
+                f"1. Kanalga @{bot_username} ni admin sifatida qo'shing\n"
+                f"2. Bot uchun 'A'zolarni ko'rish' huquqini bering\n"
+                f"3. Qayta urinib ko'ring",
                 reply_markup=get_channel_error_keyboard()
             )
             return
