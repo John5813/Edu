@@ -12,7 +12,7 @@ Preferred communication style: Simple, everyday language.
 The bot is built with `aiogram v3`, utilizing Python with async/await patterns for an asynchronous Telegram bot framework. State management is handled by FSM (Finite State Machine) for multi-step user interactions, complemented by custom middlewares for database access and language handling.
 
 ### Document Generation Pipeline
-AI-driven content generation is powered by DeepSeek v3.2 via OpenRouter. Documents are created using `python-pptx` for PowerPoint presentations and `python-docx` for Word documents, supporting structured content generation with customizable parameters like slide and page counts. Files are stored locally in an organized directory structure. The system supports document language selection, author name inclusion, and an optional plan slide for presentations.
+AI-driven content generation is powered by DeepSeek API directly (deepseek-chat model). Documents are created using `python-pptx` for PowerPoint presentations and `python-docx` for Word documents, supporting structured content generation with customizable parameters like slide and page counts. Files are stored locally in an organized directory structure. The system supports document language selection, author name inclusion, and an optional plan slide for presentations.
 
 **Presentation Structure:**
 - Cover slide (left 50% AI-generated image, right: topic + author)
@@ -52,7 +52,7 @@ The template selection system provides 20 professional background templates disp
 ## External Dependencies
 
 ### Core Services
-- **DeepSeek API** (via OpenRouter): Utilized for DeepSeek v3.2 content generation and academic writing.
+- **DeepSeek API** (direct integration): Utilized for deepseek-chat model content generation and academic writing. API key stored securely in DEEPSEEK_API_KEY environment secret.
 - **Together AI**: Used for FLUX.1-schnell image generation in presentations.
 - **Telegram Bot API**: Facilitates real-time messaging and file transfers.
 
