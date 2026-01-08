@@ -309,11 +309,11 @@ class DocumentService:
                 logger.error(f"Error generating horizontal image: {e}")
 
     def _create_text_with_numbers_slide(self, slide, slide_data: Dict):
-        """Shablon 6: Oddiy matn, raqamlar bilan - 50 so'z, chapga tekislangan"""
+        """Shablon 6: Oddiy matn, raqamlar bilan - 50 so'z"""
         self._add_slide_title(slide, slide_data.get('title', ''))
         self._add_justified_content(slide, slide_data.get('content', ''),
                                     PptxInches(1), PptxInches(2),
-                                    PptxInches(11), PptxInches(5), align_left=True)
+                                    PptxInches(11), PptxInches(5))
 
     def _create_conclusion_slide(self, slide, slide_data: Dict):
         """Xulosa slayd - ~50 so'z"""
