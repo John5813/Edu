@@ -121,6 +121,12 @@ Faqat promptni yoz, boshqa hech narsa yozma."""
                         if isinstance(image_data, str) and ',' in image_data:
                             image_data = image_data.split(',')[1]
                         
+                        # Fix base64 padding
+                        if isinstance(image_data, str):
+                            missing_padding = len(image_data) % 4
+                            if missing_padding:
+                                image_data += '=' * (4 - missing_padding)
+                        
                         filename = f"openrouter_image_{hash(prompt) % 100000}.png"
                         filepath = os.path.join("temp", filename)
                         os.makedirs("temp", exist_ok=True)
@@ -146,6 +152,10 @@ Faqat promptni yoz, boshqa hech narsa yozma."""
                                         url = str(image_url)
                                     if url and 'base64,' in url:
                                         image_data = url.split('base64,')[1]
+                                        # Fix base64 padding
+                                        missing_padding = len(image_data) % 4
+                                        if missing_padding:
+                                            image_data += '=' * (4 - missing_padding)
                                         filename = f"openrouter_image_{hash(prompt) % 100000}.png"
                                         filepath = os.path.join("temp", filename)
                                         os.makedirs("temp", exist_ok=True)
@@ -160,6 +170,10 @@ Faqat promptni yoz, boshqa hech narsa yozma."""
                         match = re.search(r'data:image/[^;]+;base64,([A-Za-z0-9+/=]+)', content)
                         if match:
                             image_data = match.group(1)
+                            # Fix base64 padding
+                            missing_padding = len(image_data) % 4
+                            if missing_padding:
+                                image_data += '=' * (4 - missing_padding)
                             filename = f"openrouter_image_{hash(prompt) % 100000}.png"
                             filepath = os.path.join("temp", filename)
                             os.makedirs("temp", exist_ok=True)
