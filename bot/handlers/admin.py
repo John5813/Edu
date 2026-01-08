@@ -120,10 +120,25 @@ async def handle_orders_request(message: Message, db: Database):
             f"📅 Sana: {date_str}"
         )
 
-        await message.answer(
-            text,
-            reply_markup=get_payment_review_keyboard(payment.id)
-        )
+        # Send screenshot first if available
+        if payment.screenshot_file_id:
+            try:
+                await message.answer_photo(
+                    photo=payment.screenshot_file_id,
+                    caption=text,
+                    reply_markup=get_payment_review_keyboard(payment.id)
+                )
+            except Exception as e:
+                logger.error(f"Error sending payment screenshot: {e}")
+                await message.answer(
+                    text,
+                    reply_markup=get_payment_review_keyboard(payment.id)
+                )
+        else:
+            await message.answer(
+                text,
+                reply_markup=get_payment_review_keyboard(payment.id)
+            )
 
 @router.callback_query(F.data.startswith("adjust_amount_"))
 async def adjust_payment_amount(callback: CallbackQuery, db: Database):
