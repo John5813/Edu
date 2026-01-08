@@ -289,9 +289,9 @@ STRUKTURA (jami {slide_count} slayd):
 
 ASOSIY SLAIDLAR UCHUN 6 TA SHABLON (tartib bilan takrorlanadi):
 1. two_column - 2 ustun, har biri AYNAN 60 so'z (kam bo'lmasin!)
-2. right_image - o'ngda rasm, chapda AYNAN 80 so'z matn (kam bo'lmasin!)
-3. left_image - chapda rasm, o'ngda AYNAN 80 so'z matn (kam bo'lmasin!)
-4. three_column - 3 ustun, har biri 15 so'zgacha
+2. right_image - o'ngda rasm, chapda 74-76 so'z matn
+3. left_image - chapda rasm, o'ngda 74-76 so'z matn
+4. three_column - 3 ustun, har birida: 1 ta asosiy so'z (BOLD) va unga 15-18 so'z tarif
 5. horizontal_image - pastda rasm, ustida AYNAN 50 so'z matn
 6. text_with_numbers - raqamli matn 40-50 so'z
 
@@ -310,7 +310,7 @@ MUHIM: Faqat JSON formatda javob bering!
         {{"title": "Sarlavha", "content": "", "layout": "two_column", "columns": [{{"column_content": "matn 60 so'z"}}, {{"column_content": "matn 60 so'z"}}]}},
         {{"title": "Sarlavha", "content": "matn 80 so'z", "layout": "right_image"}},
         {{"title": "Sarlavha", "content": "matn 80 so'z", "layout": "left_image"}},
-        {{"title": "Sarlavha", "content": "", "layout": "three_column", "columns": [{{"column_content": "15 so'z"}}, {{"column_content": "15 so'z"}}, {{"column_content": "15 so'z"}}]}},
+        {{"title": "Sarlavha", "content": "", "layout": "three_column", "columns": [{{"keyword": "Kalit so'z", "column_content": "15-18 so'z tarif"}}, {{"keyword": "Kalit so'z", "column_content": "15-18 so'z tarif"}}, {{"keyword": "Kalit so'z", "column_content": "15-18 so'z tarif"}}]}},
         {{"title": "Sarlavha", "content": "matn 50 so'z", "layout": "horizontal_image"}},
         {{"title": "Sarlavha", "content": "matn 40-50 so'z", "layout": "text_with_numbers"}},
         {{"title": "Xulosa", "content": "matn ~50 so'z", "layout": "conclusion"}},
@@ -335,9 +335,9 @@ MUHIM: Faqat JSON formatda javob bering!
 
 ШАБЛОНЫ ДЛЯ ОСНОВНЫХ СЛАЙДОВ (чередуются по порядку):
 1. two_column - 2 колонки РОВНО по 60 слов каждая (не меньше!)
-2. right_image - справа изображение, слева текст РОВНО 80 слов (не меньше!)
-3. left_image - слева изображение, справа текст РОВНО 80 слов (не меньше!)
-4. three_column - 3 колонки по 15 слов каждая
+2. right_image - справа изображение, слева текст 74-76 слов
+3. left_image - слева изображение, справа текст 74-76 слов
+4. three_column - 3 колонки, в каждой: 1 ключевое слово (BOLD) и 15-18 слов описание
 5. horizontal_image - внизу изображение, сверху текст РОВНО 50 слов
 6. text_with_numbers - текст с цифрами 40-50 слов
 
@@ -356,7 +356,7 @@ MUHIM: Faqat JSON formatda javob bering!
         {{"title": "Заголовок", "content": "", "layout": "two_column", "columns": [{{"column_content": "текст 60 слов"}}, {{"column_content": "текст 60 слов"}}]}},
         {{"title": "Заголовок", "content": "текст 80 слов", "layout": "right_image"}},
         {{"title": "Заголовок", "content": "текст 80 слов", "layout": "left_image"}},
-        {{"title": "Заголовок", "content": "", "layout": "three_column", "columns": [{{"column_content": "15 слов"}}, {{"column_content": "15 слов"}}, {{"column_content": "15 слов"}}]}},
+        {{"title": "Заголовок", "content": "", "layout": "three_column", "columns": [{{"keyword": "Ключевое слово", "column_content": "15-18 слов описание"}}, {{"keyword": "Ключевое слово", "column_content": "15-18 слов описание"}}, {{"keyword": "Ключевое слово", "column_content": "15-18 слов описание"}}]}},
         {{"title": "Заголовок", "content": "текст 50 слов", "layout": "horizontal_image"}},
         {{"title": "Заголовок", "content": "текст 40-50 слов", "layout": "text_with_numbers"}},
         {{"title": "Заключение", "content": "текст ~50 слов", "layout": "conclusion"}},
@@ -381,9 +381,9 @@ STRUCTURE (total {slide_count} slides):
 
 TEMPLATES FOR MAIN SLIDES (rotate in order):
 1. two_column - 2 columns with EXACTLY 60 words each (no less!)
-2. right_image - image on right, text EXACTLY 80 words on left (no less!)
-3. left_image - image on left, text EXACTLY 80 words on right (no less!)
-4. three_column - 3 columns with 15 words each
+2. right_image - image on right, text 74-76 words on left
+3. left_image - image on left, text 74-76 words on right
+4. three_column - 3 columns, each with: 1 keyword (BOLD) and 15-18 words description
 5. horizontal_image - image at bottom, text EXACTLY 50 words on top
 6. text_with_numbers - text with numbers 40-50 words
 
@@ -402,7 +402,7 @@ IMPORTANT: Respond ONLY in JSON format!
         {{"title": "Title", "content": "", "layout": "two_column", "columns": [{{"column_content": "text 60 words"}}, {{"column_content": "text 60 words"}}]}},
         {{"title": "Title", "content": "text 80 words", "layout": "right_image"}},
         {{"title": "Title", "content": "text 80 words", "layout": "left_image"}},
-        {{"title": "Title", "content": "", "layout": "three_column", "columns": [{{"column_content": "15 words"}}, {{"column_content": "15 words"}}, {{"column_content": "15 words"}}]}},
+        {{"title": "Title", "content": "", "layout": "three_column", "columns": [{{"keyword": "Keyword", "column_content": "15-18 words description"}}, {{"keyword": "Keyword", "column_content": "15-18 words description"}}, {{"keyword": "Keyword", "column_content": "15-18 words description"}}]}},
         {{"title": "Title", "content": "text 50 words", "layout": "horizontal_image"}},
         {{"title": "Title", "content": "text 40-50 words", "layout": "text_with_numbers"}},
         {{"title": "Conclusion", "content": "text ~50 words", "layout": "conclusion"}},
@@ -863,9 +863,9 @@ In JSON format:
         try:
             word_counts = {
                 'two_column': 60,
-                'right_image': 80,
-                'left_image': 80,
-                'three_column': 15,
+                'right_image': 75,
+                'left_image': 75,
+                'three_column': 18,
                 'horizontal_image': 50,
                 'text_with_numbers': 45
             }

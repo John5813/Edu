@@ -236,7 +236,7 @@ class DocumentService:
                                     PptxInches(6), PptxInches(5), align_left=True)
 
     def _create_three_column_slide(self, slide, slide_data: Dict, language: str = 'uz'):
-        """Shablon 4: 3 ustunli - har ustun 20 so'z"""
+        """Shablon 4: 3 ustunli - har ustunda kalit so'z + tarif"""
         self._add_slide_title(slide, slide_data.get('title', ''))
         
         columns = slide_data.get('columns', [])
@@ -249,26 +249,42 @@ class DocumentService:
             words = content.split()
             third = len(words) // 3
             columns = [
-                {'text': ' '.join(words[:third])},
-                {'text': ' '.join(words[third:2*third])},
-                {'text': ' '.join(words[2*third:])}
+                {'column_content': ' '.join(words[:third])},
+                {'column_content': ' '.join(words[third:2*third])},
+                {'column_content': ' '.join(words[2*third:])}
             ]
         
-        font_size = 23 if language in ['ru', 'en'] else 24
+        font_size = 22 if language in ['ru', 'en'] else 23
         
         for i, col in enumerate(columns[:3]):
             x_pos = PptxInches(0.4 + i * 4.3)
             box = slide.shapes.add_textbox(x_pos, PptxInches(2), PptxInches(4), PptxInches(5))
             tf = box.text_frame
             tf.word_wrap = True
-            p = tf.paragraphs[0]
+            
             if isinstance(col, dict):
+                keyword = col.get('keyword', '')
                 col_text = col.get('column_content', col.get('text', col.get('content', '')))
             else:
+                keyword = ''
                 col_text = str(col)
-            p.text = col_text
-            p.font.size = PptxPt(font_size)
-            p.alignment = PP_ALIGN.LEFT
+            
+            if keyword:
+                p_keyword = tf.paragraphs[0]
+                p_keyword.text = keyword
+                p_keyword.font.size = PptxPt(26)
+                p_keyword.font.bold = True
+                p_keyword.alignment = PP_ALIGN.LEFT
+                
+                p_desc = tf.add_paragraph()
+                p_desc.text = col_text
+                p_desc.font.size = PptxPt(font_size)
+                p_desc.alignment = PP_ALIGN.LEFT
+            else:
+                p = tf.paragraphs[0]
+                p.text = col_text
+                p.font.size = PptxPt(font_size)
+                p.alignment = PP_ALIGN.LEFT
 
     async def _create_horizontal_image_slide(self, slide, slide_data: Dict, topic: str, language: str):
         """Shablon 5: Pastda 21:9 gorizontal rasm, ustida matn"""
