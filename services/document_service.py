@@ -293,46 +293,11 @@ class DocumentService:
                 logger.error(f"Error generating horizontal image: {e}")
 
     def _create_text_with_numbers_slide(self, slide, slide_data: Dict):
-        """Shablon 6: Raqamlangan ro'yxat ko'rinishida - 5 ta punkt"""
-        import re
+        """Shablon 6: Oddiy matn, raqamlar bilan - 50 so'z"""
         self._add_slide_title(slide, slide_data.get('title', ''))
-        
-        content = slide_data.get('content', '')
-        
-        numbered_items = []
-        if content:
-            lines = content.split('\n')
-            for line in lines:
-                line = line.strip()
-                if not line:
-                    continue
-                cleaned = re.sub(r'^[\d]+[.\)]\s*', '', line).strip()
-                if cleaned and len(cleaned) > 3:
-                    numbered_items.append(cleaned)
-        
-        if len(numbered_items) < 5 and content:
-            sentences = re.split(r'[.!?]', content)
-            for s in sentences:
-                s = s.strip()
-                s = re.sub(r'^[\d]+[.\)]\s*', '', s).strip()
-                if s and len(s) > 3 and s not in numbered_items:
-                    numbered_items.append(s)
-                if len(numbered_items) >= 5:
-                    break
-        
-        content_box = slide.shapes.add_textbox(
-            PptxInches(1), PptxInches(2),
-            PptxInches(11), PptxInches(5)
-        )
-        tf = content_box.text_frame
-        tf.word_wrap = True
-        
-        for i, item in enumerate(numbered_items[:5]):
-            p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-            p.text = f"{i+1}. {item}"
-            p.font.size = PptxPt(26)
-            p.alignment = PP_ALIGN.LEFT
-            p.space_after = PptxPt(18)
+        self._add_justified_content(slide, slide_data.get('content', ''),
+                                    PptxInches(1), PptxInches(2),
+                                    PptxInches(11), PptxInches(5))
 
     def _create_conclusion_slide(self, slide, slide_data: Dict):
         """Xulosa slayd - ~50 so'z"""

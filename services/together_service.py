@@ -24,22 +24,10 @@ class TogetherImageService:
         )
         self.ai_model = "deepseek/deepseek-v3.2"
     
-    async def _generate_image_prompt(self, slide_title: str, is_panoramic: bool = False) -> str:
+    async def _generate_image_prompt(self, slide_title: str) -> str:
         """Ask DeepSeek to create a creative image prompt from slide title"""
         try:
-            if is_panoramic:
-                prompt_request = f"""Menga "{slide_title}" bo'yicha PANORAMIK rasm yaratish uchun qisqa va kreativ inglizcha prompt yozib ber.
-Qoidalar:
-1. prompt 25 ta so'zdan oshmasin.
-2. Takrorlanadigan gaplar bo'lmasin.
-3. PANORAMIK, KENG, GORIZONTAL manzara uslubida bo'lsin.
-4. 'Wide-angle panoramic view + Subject + Professional landscape photography + Natural lighting' formulasidan foydalan.
-5. Rasmda hech qanday matn, yozuv yoki harf bo'lmasin.
-6. Ultra-wide, sweeping, expansive, horizon kabi so'zlarni qo'sh.
-
-Faqat promptni yoz, boshqa hech narsa yozma."""
-            else:
-                prompt_request = f"""Menga "{slide_title}" bo'yicha rasm yaratish uchun qisqa va kreativ inglizcha prompt yozib ber.
+            prompt_request = f"""Menga "{slide_title}" bo'yicha rasm yaratish uchun qisqa va kreativ inglizcha prompt yozib ber.
 Qoidalar:
 1. prompt 20 ta so'zdan oshmasin.
 2. Takrorlanadigan gaplar bo'lmasin.
@@ -63,8 +51,6 @@ Faqat promptni yoz, boshqa hech narsa yozma."""
             
         except Exception as e:
             logger.error(f"Error generating prompt from DeepSeek: {e}")
-            if is_panoramic:
-                return f"Ultra-wide panoramic view of {slide_title}, sweeping landscape photography, expansive horizon, natural lighting, no text"
             return f"Professional photograph of {slide_title}, modern style, soft natural lighting, no text"
     
     async def generate_image(self, prompt: str, aspect_ratio: str = "16:9", steps: int = 4) -> Optional[str]:
@@ -156,7 +142,7 @@ Faqat promptni yoz, boshqa hech narsa yozma."""
         Returns:
             Path to generated image
         """
-        prompt = await self._generate_image_prompt(slide_title, is_panoramic=True)
+        prompt = await self._generate_image_prompt(slide_title)
         return await self.generate_image(prompt, aspect_ratio="16:9")
     
     async def _download_image(self, image_url: str, filename: str) -> Optional[str]:

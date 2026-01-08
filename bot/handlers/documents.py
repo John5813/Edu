@@ -293,10 +293,17 @@ async def handle_template_selection(callback: CallbackQuery, state: FSMContext, 
         except Exception as del_err:
             logger.warning(f"Could not delete template messages: {del_err}")
 
-        await state.update_data(add_plan_slide=True, add_references=True)
-        
-        await callback.message.answer("⏳ " + get_text(doc_lang, "generating"))
-        await generate_presentation_with_template(callback, state, db, user_lang, user)
+        # Ask if user wants to add plan slide
+        plan_questions = {
+            "uz": "📋 Taqdimotga reja varag'ini qo'shishni xohlaysizmi?\n\n(2-chi slaydda 3 ta asosiy reja ko'rsatiladi)",
+            "ru": "📋 Хотите добавить слайд с планом?\n\n(На 2-м слайде будут показаны 3 основных пункта плана)",
+            "en": "📋 Would you like to add a plan slide?\n\n(3 main plan items will be shown on slide 2)"
+        }
+        await callback.message.answer(
+            plan_questions.get(doc_lang, plan_questions["uz"]),
+            reply_markup=get_plan_slide_keyboard(doc_lang)
+        )
+        await state.set_state(DocumentStates.waiting_for_plan_slide_choice)
 
     except Exception as e:
         logger.error(f"Error in template selection: {e}")
