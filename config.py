@@ -72,16 +72,10 @@ AI_MODELS = {
         "description": "Tez va samarali"
     },
     "gemini_20_flash": {
-        "id": "google/gemini-2.0-flash-exp:free",
+        "id": "google/gemini-2.0-flash-001",
         "name": "Gemini 2.0 Flash",
-        "price": "$0.00/1M",
-        "description": "Bepul variant"
-    },
-    "deepseek_v3_free": {
-        "id": "deepseek/deepseek-chat:free",
-        "name": "DeepSeek V3 Free",
-        "price": "$0.00/1M",
-        "description": "Bepul va sifatli"
+        "price": "$0.10/1M",
+        "description": "Arzon va tez"
     }
 }
 
