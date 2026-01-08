@@ -337,9 +337,13 @@ class DocumentService:
         tf = content_box.text_frame
         tf.word_wrap = True
         
-        for i, ref in enumerate(references[:6]):
+        for i, ref in enumerate(references[:4]):
             p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-            p.text = f"{i+1}. {ref}" if not ref.startswith(str(i+1)) else ref
+            if isinstance(ref, dict):
+                ref_text = ref.get('text', ref.get('title', ref.get('source', str(ref))))
+            else:
+                ref_text = str(ref)
+            p.text = f"{i+1}. {ref_text}" if not ref_text.startswith(str(i+1)) else ref_text
             p.font.size = PptxPt(24)
             p.alignment = PP_ALIGN.JUSTIFY
             p.space_after = PptxPt(12)
