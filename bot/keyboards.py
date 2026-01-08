@@ -76,6 +76,7 @@ def get_main_keyboard(language: str, presentation_enabled: bool = True, independ
     # Second row - always visible
     keyboard.add(KeyboardButton(text=get_text(language, "main_menu.my_account")))
     keyboard.add(KeyboardButton(text=get_text(language, "main_menu.payment")))
+    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.samples")))
 
     # Third row - always visible
     keyboard.add(KeyboardButton(text=get_text(language, "main_menu.help")))

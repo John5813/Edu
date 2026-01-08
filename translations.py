@@ -34,6 +34,7 @@ TRANSLATIONS = {
             "my_account": "💰 Mening hisobim",
             "payment": "💳 To'lov qilish",
             "referral": "💰 Pul ishlab topish",
+            "samples": "📂 Namunalar",
             "help": "📞 Yordam",
             "settings": "⚙️ Sozlamalar"
         },
@@ -126,6 +127,7 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
             "my_account": "💰 Мой счет",
             "payment": "💳 Оплата",
             "referral": "👥 Реферальная программа",
+            "samples": "📁 Образцы",
             "help": "📞 Помощь",
             "settings": "⚙️ Настройки"
         },
@@ -222,6 +224,7 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
             "my_account": "💰 My Account",
             "payment": "💳 Payment",
             "referral": "👥 Referral Program",
+            "samples": "📁 Samples",
             "help": "📞 Help",
             "settings": "⚙️ Settings"
         },

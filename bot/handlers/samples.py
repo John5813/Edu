@@ -20,6 +20,41 @@ class SampleStates(StatesGroup):
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
 
+SAMPLES_TEXTS = ["📂 Namunalar", "📁 Образцы", "📁 Samples"]
+
+@router.message(F.text.in_(SAMPLES_TEXTS))
+async def handle_samples_from_main_menu(message: Message, db: Database, user_lang: str):
+    """Handle samples button click from main menu"""
+    from bot.keyboards import get_main_keyboard
+    
+    samples = await db.get_all_sample_files()
+    
+    if not samples:
+        await message.answer(
+            get_text(user_lang, "samples_title") + "\n\n" + get_text(user_lang, "no_samples"),
+            reply_markup=get_main_keyboard(user_lang)
+        )
+        return
+    
+    # Send title message
+    await message.answer(get_text(user_lang, "samples_title"))
+    
+    # Send each sample file
+    for sample in samples:
+        caption = f"📁 {sample['title']}"
+        if sample.get('description'):
+            caption += f"\n\n{sample['description']}"
+        
+        try:
+            if sample['file_type'] == 'document':
+                await message.answer_document(document=sample['file_id'], caption=caption)
+            elif sample['file_type'] == 'photo':
+                await message.answer_photo(photo=sample['file_id'], caption=caption)
+            elif sample['file_type'] == 'video':
+                await message.answer_video(video=sample['file_id'], caption=caption)
+        except Exception as e:
+            logger.error(f"Error sending sample file: {e}")
+
 @router.callback_query(F.data == "view_samples")
 async def handle_view_samples(callback: CallbackQuery, db: Database):
     """Handle view samples button click from help section"""
