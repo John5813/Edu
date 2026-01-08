@@ -22,11 +22,11 @@ class TogetherImageService:
             api_key=os.environ.get("AI_INTEGRATIONS_OPENROUTER_API_KEY"),
             base_url=os.environ.get("AI_INTEGRATIONS_OPENROUTER_BASE_URL")
         )
-        # Gemini 2.5 Flash - rasm promptlari uchun
-        self.ai_model = "google/gemini-2.5-flash-preview"
+        # DeepSeek V3 - rasm promptlari uchun
+        self.ai_model = "deepseek/deepseek-chat"
     
     async def _generate_image_prompt(self, slide_title: str) -> str:
-        """Ask Gemini to create a creative image prompt from slide title"""
+        """Ask DeepSeek to create a creative image prompt from slide title"""
         try:
             prompt_request = f"""Menga "{slide_title}" bo'yicha rasm yaratish uchun qisqa va kreativ inglizcha prompt yozib ber.
 Qoidalar:
@@ -47,11 +47,11 @@ Faqat promptni yoz, boshqa hech narsa yozma."""
             generated_prompt = response.choices[0].message.content.strip()
             generated_prompt = generated_prompt.strip('"').strip("'")
             
-            logger.info(f"Gemini generated prompt: {generated_prompt}")
+            logger.info(f"DeepSeek generated prompt: {generated_prompt}")
             return generated_prompt
             
         except Exception as e:
-            logger.error(f"Error generating prompt from Gemini: {e}")
+            logger.error(f"Error generating prompt from DeepSeek: {e}")
             return f"Professional photograph of {slide_title}, modern style, soft natural lighting, no text"
     
     async def generate_image(self, prompt: str, aspect_ratio: str = "16:9", steps: int = 4) -> Optional[str]:

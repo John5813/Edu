@@ -45,8 +45,8 @@ class AIService:
             api_key=os.environ.get("AI_INTEGRATIONS_OPENROUTER_API_KEY"),
             base_url=os.environ.get("AI_INTEGRATIONS_OPENROUTER_BASE_URL")
         )
-        # openrouter/auto - OpenRouter avtomatik eng yaxshi modelni tanlaydi
-        self.model = "openrouter/auto"
+        # DeepSeek V3 - arzon va sifatli model
+        self.model = "deepseek/deepseek-chat"
 
     def _parse_json_safely(self, json_str: str) -> Dict:
         """Parse JSON with automatic repair for common AI output issues"""
