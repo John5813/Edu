@@ -293,11 +293,33 @@ class DocumentService:
                 logger.error(f"Error generating horizontal image: {e}")
 
     def _create_text_with_numbers_slide(self, slide, slide_data: Dict):
-        """Shablon 6: Oddiy matn, raqamlar bilan - 50 so'z"""
+        """Shablon 6: Raqamlangan ro'yxat ko'rinishida - 5 ta punkt"""
         self._add_slide_title(slide, slide_data.get('title', ''))
-        self._add_justified_content(slide, slide_data.get('content', ''),
-                                    PptxInches(1), PptxInches(2),
-                                    PptxInches(11), PptxInches(5))
+        
+        content = slide_data.get('content', '')
+        
+        numbered_items = slide_data.get('numbered_items', [])
+        if not numbered_items and content:
+            sentences = [s.strip() for s in content.replace('\n', '. ').split('.') if s.strip()]
+            numbered_items = sentences[:5]
+        
+        content_box = slide.shapes.add_textbox(
+            PptxInches(1), PptxInches(2),
+            PptxInches(11), PptxInches(5)
+        )
+        tf = content_box.text_frame
+        tf.word_wrap = True
+        
+        for i, item in enumerate(numbered_items[:5]):
+            p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+            item_text = item.strip()
+            if item_text.startswith(f"{i+1}.") or item_text.startswith(f"{i+1})"):
+                p.text = item_text
+            else:
+                p.text = f"{i+1}. {item_text}"
+            p.font.size = PptxPt(26)
+            p.alignment = PP_ALIGN.LEFT
+            p.space_after = PptxPt(18)
 
     def _create_conclusion_slide(self, slide, slide_data: Dict):
         """Xulosa slayd - ~50 so'z"""

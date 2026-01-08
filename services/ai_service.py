@@ -840,22 +840,53 @@ In JSON format:
     async def _generate_slide_content(self, topic: str, title: str, language: str, layout: str) -> str:
         """Generate content for a specific slide based on layout"""
         try:
-            word_counts = {
-                'two_column': 60,
-                'right_image': 40,
-                'left_image': 40,
-                'three_column': 60,
-                'horizontal_image': 20,
-                'text_with_numbers': 50
-            }
-            word_count = word_counts.get(layout, 50)
-            
-            if language == "uz":
-                prompt = f""""{topic}" mavzusi, "{title}" slayd uchun mazmun yozing. {word_count} so'z atrofida."""
-            elif language == "ru":
-                prompt = f"""Напишите содержание для слайда "{title}" по теме "{topic}". Около {word_count} слов."""
+            if layout == 'text_with_numbers':
+                if language == "uz":
+                    prompt = f""""{topic}" mavzusi, "{title}" slayd uchun 5 ta asosiy fikr yozing.
+Har bir fikr alohida qatorda va raqamlangan bo'lsin:
+1. Birinchi fikr (8-12 so'z)
+2. Ikkinchi fikr (8-12 so'z)
+3. Uchinchi fikr (8-12 so'z)
+4. To'rtinchi fikr (8-12 so'z)
+5. Beshinchi fikr (8-12 so'z)
+
+Faqat raqamli ro'yxatni yozing, boshqa hech narsa qo'shmang."""
+                elif language == "ru":
+                    prompt = f"""Напишите 5 основных тезисов для слайда "{title}" по теме "{topic}".
+Каждый тезис на отдельной строке с номером:
+1. Первый тезис (8-12 слов)
+2. Второй тезис (8-12 слов)
+3. Третий тезис (8-12 слов)
+4. Четвертый тезис (8-12 слов)
+5. Пятый тезис (8-12 слов)
+
+Напишите только нумерованный список, ничего лишнего."""
+                else:
+                    prompt = f"""Write 5 key points for slide "{title}" on topic "{topic}".
+Each point on a separate line with number:
+1. First point (8-12 words)
+2. Second point (8-12 words)
+3. Third point (8-12 words)
+4. Fourth point (8-12 words)
+5. Fifth point (8-12 words)
+
+Write only the numbered list, nothing else."""
             else:
-                prompt = f"""Write content for slide "{title}" on topic "{topic}". Around {word_count} words."""
+                word_counts = {
+                    'two_column': 60,
+                    'right_image': 40,
+                    'left_image': 40,
+                    'three_column': 60,
+                    'horizontal_image': 20
+                }
+                word_count = word_counts.get(layout, 50)
+                
+                if language == "uz":
+                    prompt = f""""{topic}" mavzusi, "{title}" slayd uchun mazmun yozing. {word_count} so'z atrofida."""
+                elif language == "ru":
+                    prompt = f"""Напишите содержание для слайда "{title}" по теме "{topic}". Около {word_count} слов."""
+                else:
+                    prompt = f"""Write content for slide "{title}" on topic "{topic}". Around {word_count} words."""
 
             response = await self._make_request(
                 messages=[{"role": "user", "content": prompt}],
