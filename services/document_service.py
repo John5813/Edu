@@ -197,7 +197,7 @@ class DocumentService:
         
         self._add_justified_content(slide, slide_data.get('content', ''),
                                     PptxInches(0.5), PptxInches(2),
-                                    PptxInches(6), PptxInches(5))
+                                    PptxInches(6), PptxInches(5), align_left=True)
         
         if self.together:
             try:
@@ -233,7 +233,7 @@ class DocumentService:
         
         self._add_justified_content(slide, slide_data.get('content', ''),
                                     PptxInches(6.8), PptxInches(2),
-                                    PptxInches(6), PptxInches(5))
+                                    PptxInches(6), PptxInches(5), align_left=True)
 
     def _create_three_column_slide(self, slide, slide_data: Dict, language: str = 'uz'):
         """Shablon 4: 3 ustunli - har ustun 20 so'z"""
@@ -371,7 +371,7 @@ class DocumentService:
         p.font.color.rgb = RGBColor(0, 0, 0)
         p.alignment = PP_ALIGN.CENTER
 
-    def _add_justified_content(self, slide, content, left: float, top: float, width: float, height: float):
+    def _add_justified_content(self, slide, content, left: float, top: float, width: float, height: float, align_left: bool = False):
         """Add justified content text - 24pt"""
         if isinstance(content, list):
             content = ' '.join(str(item) for item in content)
@@ -384,7 +384,7 @@ class DocumentService:
         p = tf.paragraphs[0]
         p.text = content
         p.font.size = PptxPt(24)
-        p.alignment = PP_ALIGN.JUSTIFY
+        p.alignment = PP_ALIGN.LEFT if align_left else PP_ALIGN.JUSTIFY
 
     async def create_presentation(self, topic: str, content: Dict, images: Dict, author_name: str) -> str:
         """Legacy method - redirects to new method"""

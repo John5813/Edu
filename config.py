@@ -66,22 +66,22 @@ AI_MODELS = {
         "description": "Tez va arzon"
     },
     "gemini_25_flash": {
-        "id": "google/gemini-2.5-flash-preview",
+        "id": "google/gemini-2.5-flash",
         "name": "Gemini 2.5 Flash",
-        "price": "$0.10/1M",
+        "price": "$0.30/1M",
         "description": "Tez va samarali"
     },
     "gemini_20_flash": {
-        "id": "google/gemini-2.0-flash-001",
+        "id": "google/gemini-2.0-flash-exp:free",
         "name": "Gemini 2.0 Flash",
-        "price": "$0.05/1M",
-        "description": "Eng arzon variant"
-    },
-    "mimo_v2_flash": {
-        "id": "moonshotai/moonlight-16b-a3b-instruct:free",
-        "name": "Mimo V2 Flash",
         "price": "$0.00/1M",
-        "description": "Tez va bepul"
+        "description": "Bepul variant"
+    },
+    "deepseek_v3_free": {
+        "id": "deepseek/deepseek-chat:free",
+        "name": "DeepSeek V3 Free",
+        "price": "$0.00/1M",
+        "description": "Bepul va sifatli"
     }
 }
 

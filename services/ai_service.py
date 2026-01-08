@@ -284,16 +284,16 @@ STRUKTURA (jami {slide_count} slayd):
 3. Kirish slayd (~50 so'z, mavzuga umumiy kirish)
 4-{slide_count-3}. Asosiy slaidlar ({main_slides} ta) - har biri mavzuning turli jihatlarini yoritadi
 {slide_count-2}. Xulosa slayd (~50 so'z)
-{slide_count-1}. Adabiyotlar ro'yxati (5-6 ta manba)
+{slide_count-1}. Adabiyotlar ro'yxati (4 ta manba)
 {slide_count}. Rahmat slayd ("E'tiboringiz uchun rahmat!")
 
 ASOSIY SLAIDLAR UCHUN 6 TA SHABLON (tartib bilan takrorlanadi):
-1. two_column - 2 ustun, har biri 60 so'z
-2. right_image - o'ngda rasm, chapda 80 so'z matn
-3. left_image - chapda rasm, o'ngda 80 so'z matn
-4. three_column - 3 ustun, har biri 40 so'z
-5. horizontal_image - pastda rasm, ustida 50 so'z matn
-6. text_with_numbers - raqamli matn 100 so'z
+1. two_column - 2 ustun, har biri AYNAN 60 so'z (kam bo'lmasin!)
+2. right_image - o'ngda rasm, chapda AYNAN 80 so'z matn (kam bo'lmasin!)
+3. left_image - chapda rasm, o'ngda AYNAN 80 so'z matn (kam bo'lmasin!)
+4. three_column - 3 ustun, har biri MINIMAL 39 so'z (kam bo'lmasin!)
+5. horizontal_image - pastda rasm, ustida AYNAN 50 so'z matn
+6. text_with_numbers - raqamli matn AYNAN 100 so'z (kam bo'lmasin!)
 
 Har bir slayd uchun:
 - title: Slayd sarlavhasi
@@ -310,11 +310,11 @@ MUHIM: Faqat JSON formatda javob bering!
         {{"title": "Sarlavha", "content": "", "layout": "two_column", "columns": [{{"column_content": "matn 60 so'z"}}, {{"column_content": "matn 60 so'z"}}]}},
         {{"title": "Sarlavha", "content": "matn 80 so'z", "layout": "right_image"}},
         {{"title": "Sarlavha", "content": "matn 80 so'z", "layout": "left_image"}},
-        {{"title": "Sarlavha", "content": "", "layout": "three_column", "columns": [{{"column_content": "40 so'z"}}, {{"column_content": "40 so'z"}}, {{"column_content": "40 so'z"}}]}},
+        {{"title": "Sarlavha", "content": "", "layout": "three_column", "columns": [{{"column_content": "39+ so'z"}}, {{"column_content": "39+ so'z"}}, {{"column_content": "39+ so'z"}}]}},
         {{"title": "Sarlavha", "content": "matn 50 so'z", "layout": "horizontal_image"}},
         {{"title": "Sarlavha", "content": "matn 100 so'z raqamlar bilan", "layout": "text_with_numbers"}},
         {{"title": "Xulosa", "content": "matn ~50 so'z", "layout": "conclusion"}},
-        {{"title": "Adabiyotlar", "content": "", "layout": "references", "references": ["Manba 1", "Manba 2", "Manba 3", "Manba 4", "Manba 5"]}},
+        {{"title": "Adabiyotlar", "content": "", "layout": "references", "references": ["Manba 1", "Manba 2", "Manba 3", "Manba 4"]}},
         {{"title": "", "content": "", "layout": "thanks"}}
     ]
 }}"""
@@ -330,16 +330,16 @@ MUHIM: Faqat JSON formatda javob bering!
 3. Введение (~50 слов, общее введение в тему)
 4-{slide_count-3}. Основные слайды ({main_slides} шт) - каждый освещает разные аспекты темы
 {slide_count-2}. Заключение (~50 слов)
-{slide_count-1}. Список литературы (5-6 источников)
+{slide_count-1}. Список литературы (4 источника)
 {slide_count}. Слайд благодарности ("Спасибо за внимание!")
 
 ШАБЛОНЫ ДЛЯ ОСНОВНЫХ СЛАЙДОВ (чередуются по порядку):
-1. two_column - 2 колонки по 60 слов каждая
-2. right_image - справа изображение, слева текст 80 слов
-3. left_image - слева изображение, справа текст 80 слов
-4. three_column - 3 колонки по 40 слов каждая
-5. horizontal_image - внизу изображение, сверху текст 50 слов
-6. text_with_numbers - текст с цифрами 100 слов
+1. two_column - 2 колонки РОВНО по 60 слов каждая (не меньше!)
+2. right_image - справа изображение, слева текст РОВНО 80 слов (не меньше!)
+3. left_image - слева изображение, справа текст РОВНО 80 слов (не меньше!)
+4. three_column - 3 колонки МИНИМУМ по 39 слов каждая (не меньше!)
+5. horizontal_image - внизу изображение, сверху текст РОВНО 50 слов
+6. text_with_numbers - текст с цифрами РОВНО 100 слов (не меньше!)
 
 Для каждого слайда:
 - title: Заголовок слайда
@@ -356,11 +356,11 @@ MUHIM: Faqat JSON formatda javob bering!
         {{"title": "Заголовок", "content": "", "layout": "two_column", "columns": [{{"column_content": "текст 60 слов"}}, {{"column_content": "текст 60 слов"}}]}},
         {{"title": "Заголовок", "content": "текст 80 слов", "layout": "right_image"}},
         {{"title": "Заголовок", "content": "текст 80 слов", "layout": "left_image"}},
-        {{"title": "Заголовок", "content": "", "layout": "three_column", "columns": [{{"column_content": "40 слов"}}, {{"column_content": "40 слов"}}, {{"column_content": "40 слов"}}]}},
+        {{"title": "Заголовок", "content": "", "layout": "three_column", "columns": [{{"column_content": "39+ слов"}}, {{"column_content": "39+ слов"}}, {{"column_content": "39+ слов"}}]}},
         {{"title": "Заголовок", "content": "текст 50 слов", "layout": "horizontal_image"}},
         {{"title": "Заголовок", "content": "текст 100 слов с цифрами", "layout": "text_with_numbers"}},
         {{"title": "Заключение", "content": "текст ~50 слов", "layout": "conclusion"}},
-        {{"title": "Литература", "content": "", "layout": "references", "references": ["Источник 1", "Источник 2", "Источник 3", "Источник 4", "Источник 5"]}},
+        {{"title": "Литература", "content": "", "layout": "references", "references": ["Источник 1", "Источник 2", "Источник 3", "Источник 4"]}},
         {{"title": "", "content": "", "layout": "thanks"}}
     ]
 }}"""
@@ -376,16 +376,16 @@ STRUCTURE (total {slide_count} slides):
 3. Introduction (~50 words, general intro to topic)
 4-{slide_count-3}. Main slides ({main_slides} total) - each covers different aspects
 {slide_count-2}. Conclusion (~50 words)
-{slide_count-1}. References (5-6 sources)
+{slide_count-1}. References (4 sources)
 {slide_count}. Thank you slide ("Thank you for your attention!")
 
 TEMPLATES FOR MAIN SLIDES (rotate in order):
-1. two_column - 2 columns with 60 words each
-2. right_image - image on right, text 80 words on left
-3. left_image - image on left, text 80 words on right
-4. three_column - 3 columns with 40 words each
-5. horizontal_image - image at bottom, text 50 words on top
-6. text_with_numbers - text with numbers 100 words
+1. two_column - 2 columns with EXACTLY 60 words each (no less!)
+2. right_image - image on right, text EXACTLY 80 words on left (no less!)
+3. left_image - image on left, text EXACTLY 80 words on right (no less!)
+4. three_column - 3 columns with MINIMUM 39 words each (no less!)
+5. horizontal_image - image at bottom, text EXACTLY 50 words on top
+6. text_with_numbers - text with numbers EXACTLY 100 words (no less!)
 
 For each slide:
 - title: Slide title
@@ -402,11 +402,11 @@ IMPORTANT: Respond ONLY in JSON format!
         {{"title": "Title", "content": "", "layout": "two_column", "columns": [{{"column_content": "text 60 words"}}, {{"column_content": "text 60 words"}}]}},
         {{"title": "Title", "content": "text 80 words", "layout": "right_image"}},
         {{"title": "Title", "content": "text 80 words", "layout": "left_image"}},
-        {{"title": "Title", "content": "", "layout": "three_column", "columns": [{{"column_content": "40 words"}}, {{"column_content": "40 words"}}, {{"column_content": "40 words"}}]}},
+        {{"title": "Title", "content": "", "layout": "three_column", "columns": [{{"column_content": "39+ words"}}, {{"column_content": "39+ words"}}, {{"column_content": "39+ words"}}]}},
         {{"title": "Title", "content": "text 50 words", "layout": "horizontal_image"}},
         {{"title": "Title", "content": "text 100 words with numbers", "layout": "text_with_numbers"}},
         {{"title": "Conclusion", "content": "text ~50 words", "layout": "conclusion"}},
-        {{"title": "References", "content": "", "layout": "references", "references": ["Source 1", "Source 2", "Source 3", "Source 4", "Source 5"]}},
+        {{"title": "References", "content": "", "layout": "references", "references": ["Source 1", "Source 2", "Source 3", "Source 4"]}},
         {{"title": "", "content": "", "layout": "thanks"}}
     ]
 }}"""
@@ -863,11 +863,11 @@ In JSON format:
         try:
             word_counts = {
                 'two_column': 60,
-                'right_image': 40,
-                'left_image': 40,
-                'three_column': 60,
-                'horizontal_image': 20,
-                'text_with_numbers': 50
+                'right_image': 80,
+                'left_image': 80,
+                'three_column': 39,
+                'horizontal_image': 50,
+                'text_with_numbers': 100
             }
             word_count = word_counts.get(layout, 50)
             
