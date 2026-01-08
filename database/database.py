@@ -164,6 +164,16 @@ async def init_db():
             )
         """)
 
+        # Bot settings table (for AI model selection, etc.)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS bot_settings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                setting_key TEXT UNIQUE NOT NULL,
+                setting_value TEXT NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         await db.commit()
         logger.info("Database initialized successfully")
 
@@ -932,3 +942,41 @@ class Database:
             ) as cursor:
                 rows = await cursor.fetchall()
                 return [dict(row) for row in rows]
+
+    @staticmethod
+    async def get_bot_setting(setting_key: str) -> Optional[str]:
+        """Get a bot setting value"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            async with db.execute(
+                "SELECT setting_value FROM bot_settings WHERE setting_key = ?",
+                (setting_key,)
+            ) as cursor:
+                row = await cursor.fetchone()
+                return row[0] if row else None
+
+    @staticmethod
+    async def set_bot_setting(setting_key: str, setting_value: str) -> bool:
+        """Set a bot setting value"""
+        try:
+            async with aiosqlite.connect(DATABASE_FILE) as db:
+                await db.execute(
+                    "INSERT OR REPLACE INTO bot_settings (setting_key, setting_value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+                    (setting_key, setting_value)
+                )
+                await db.commit()
+                return True
+        except Exception as e:
+            logger.error(f"Error setting bot setting: {e}")
+            return False
+
+    @staticmethod
+    async def get_current_ai_model() -> str:
+        """Get current AI model key"""
+        from config import DEFAULT_AI_MODEL
+        model = await Database.get_bot_setting("current_ai_model")
+        return model if model else DEFAULT_AI_MODEL
+
+    @staticmethod
+    async def set_current_ai_model(model_key: str) -> bool:
+        """Set current AI model"""
+        return await Database.set_bot_setting("current_ai_model", model_key)

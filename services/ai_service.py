@@ -38,15 +38,42 @@ def is_rate_limit_error(exception: BaseException) -> bool:
     )
 
 class AIService:
-    """AI Service using DeepSeek via OpenRouter (Replit AI Integrations)"""
+    """AI Service using OpenRouter with dynamic model selection"""
     
     def __init__(self):
         self.client = AsyncOpenAI(
             api_key=os.environ.get("AI_INTEGRATIONS_OPENROUTER_API_KEY"),
             base_url=os.environ.get("AI_INTEGRATIONS_OPENROUTER_BASE_URL")
         )
-        # DeepSeek V3 - arzon va sifatli model
-        self.model = "deepseek/deepseek-chat"
+        self._cached_model = None
+        self._cache_time = None
+    
+    def clear_model_cache(self):
+        """Clear the model cache to force refresh on next request"""
+        self._cached_model = None
+        self._cache_time = None
+    
+    async def _get_current_model_id(self) -> str:
+        """Get current AI model ID from database with caching"""
+        import time
+        from config import AI_MODELS, DEFAULT_AI_MODEL
+        from database.database import Database
+        
+        cache_duration = 30
+        
+        if self._cached_model and self._cache_time:
+            if time.time() - self._cache_time < cache_duration:
+                return self._cached_model
+        
+        try:
+            model_key = await Database.get_current_ai_model()
+            model_info = AI_MODELS.get(model_key, AI_MODELS[DEFAULT_AI_MODEL])
+            self._cached_model = model_info["id"]
+            self._cache_time = time.time()
+            return self._cached_model
+        except Exception as e:
+            logger.error(f"Error getting current model: {e}")
+            return AI_MODELS[DEFAULT_AI_MODEL]["id"]
 
     def _parse_json_safely(self, json_str: str) -> Dict:
         """Parse JSON with automatic repair for common AI output issues"""
@@ -115,9 +142,12 @@ class AIService:
         reraise=True
     )
     async def _make_request(self, messages: List[Dict], max_tokens: int = 4000, temperature: float = 0.7) -> str:
-        """Make API request with retry logic - uses OpenRouter auto model"""
+        """Make API request with retry logic - uses dynamically selected model"""
+        current_model = await self._get_current_model_id()
+        logger.info(f"Using AI model: {current_model}")
+        
         response = await self.client.chat.completions.create(
-            model=self.model,
+            model=current_model,
             messages=messages,
             max_tokens=max_tokens,
             temperature=temperature

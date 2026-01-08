@@ -52,9 +52,18 @@ The template selection system provides 20 professional background templates disp
 ## External Dependencies
 
 ### Core Services
-- **DeepSeek API** (via OpenRouter): Utilized for DeepSeek v3.2 content generation and academic writing.
+- **OpenRouter API**: Multi-model AI gateway supporting dynamic model switching:
+  - DeepSeek V3 ($0.14/1M tokens) - Default, balanced performance
+  - DeepSeek R1 ($0.55/1M tokens) - Advanced reasoning
+  - GPT-4o Mini ($0.15/1M tokens) - Fast and reliable
+  - Gemini 2.5 Flash ($0.10/1M tokens) - Efficient and capable
+  - Gemini 2.0 Flash ($0.05/1M tokens) - Most economical
+  - Mimo V2 Flash ($0.07/1M tokens) - Code-focused
 - **Together AI**: Used for FLUX.1-schnell image generation in presentations.
 - **Telegram Bot API**: Facilitates real-time messaging and file transfers.
+
+### Admin AI Model Selection
+Admins can switch between AI models via the admin panel ("🤖 AI modelni almashtirish" button). The selected model is stored in the bot_settings database table and applies to all document generation. Model selection includes price display to help admins choose cost-effective options.
 
 ### Database & Storage
 - **SQLite**: Local database for storing user data, payment information, and system configurations.

@@ -1804,3 +1804,70 @@ async def back_to_block_menu(callback: CallbackQuery):
         reply_markup=get_block_user_keyboard(),
         parse_mode=None
     )
+
+@router.message(F.text == "🤖 AI modelni almashtirish")
+async def handle_ai_model_settings(message: Message, db: Database):
+    """Handle AI model settings"""
+    if not is_admin(message.from_user.id):
+        return
+
+    from config import AI_MODELS
+    from bot.keyboards import get_ai_model_selection_keyboard
+    
+    current_model_key = await db.get_current_ai_model()
+    current_model = AI_MODELS.get(current_model_key, AI_MODELS["deepseek_v3"])
+    
+    text = (
+        "🤖 AI model sozlamalari\n\n"
+        f"📌 Hozirgi model: {current_model['name']}\n"
+        f"💰 Narxi: {current_model['price']}\n"
+        f"📝 {current_model['description']}\n\n"
+        "Quyidagi modellardan birini tanlang:"
+    )
+    
+    await message.answer(
+        text,
+        reply_markup=get_ai_model_selection_keyboard(current_model_key)
+    )
+
+@router.callback_query(F.data.startswith("select_ai_model_"))
+async def select_ai_model(callback: CallbackQuery, db: Database):
+    """Select AI model"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    from config import AI_MODELS
+    from bot.keyboards import get_ai_model_selection_keyboard
+    
+    model_key = callback.data.replace("select_ai_model_", "")
+    
+    if model_key not in AI_MODELS:
+        await callback.answer("❌ Model topilmadi.")
+        return
+    
+    current_model_key = await db.get_current_ai_model()
+    
+    if model_key == current_model_key:
+        await callback.answer("Bu model allaqachon tanlangan!")
+        return
+    
+    success = await db.set_current_ai_model(model_key)
+    
+    if success:
+        model_info = AI_MODELS[model_key]
+        await callback.answer(f"✅ {model_info['name']} tanlandi!")
+        
+        text = (
+            "🤖 AI model sozlamalari\n\n"
+            f"📌 Hozirgi model: {model_info['name']}\n"
+            f"💰 Narxi: {model_info['price']}\n"
+            f"📝 {model_info['description']}\n\n"
+            "Quyidagi modellardan birini tanlang:"
+        )
+        
+        await callback.message.edit_text(
+            text,
+            reply_markup=get_ai_model_selection_keyboard(model_key)
+        )
+    else:
+        await callback.answer("❌ Xatolik yuz berdi.")

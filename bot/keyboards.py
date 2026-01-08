@@ -251,6 +251,9 @@ def get_admin_keyboard() -> ReplyKeyboardMarkup:
 
     # Block user management
     keyboard.add(KeyboardButton(text="🚫 Foydalanuvchilarni bloklash"))
+    
+    # AI model selection
+    keyboard.add(KeyboardButton(text="🤖 AI modelni almashtirish"))
 
     # Orqaga qaytish
     keyboard.add(KeyboardButton(text="👤 Foydalanuvchi rejimi"))
@@ -535,5 +538,22 @@ def get_blocked_users_keyboard(blocked_users: list) -> InlineKeyboardMarkup:
         ))
     
     keyboard.add(InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_block_menu"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+def get_ai_model_selection_keyboard(current_model: str) -> InlineKeyboardMarkup:
+    """AI model selection keyboard for admin"""
+    from config import AI_MODELS
+    
+    keyboard = InlineKeyboardBuilder()
+    
+    for model_key, model_info in AI_MODELS.items():
+        is_current = "✅ " if model_key == current_model else ""
+        button_text = f"{is_current}{model_info['name']} - {model_info['price']}"
+        keyboard.add(InlineKeyboardButton(
+            text=button_text,
+            callback_data=f"select_ai_model_{model_key}"
+        ))
+    
     keyboard.adjust(1)
     return keyboard.as_markup()

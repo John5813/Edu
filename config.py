@@ -45,6 +45,49 @@ DOCUMENT_PRICES = {
 MAX_TOKENS = 4000
 TEMPERATURE = 0.7
 
+# Available AI Models for OpenRouter
+AI_MODELS = {
+    "deepseek_v3": {
+        "id": "deepseek/deepseek-chat",
+        "name": "DeepSeek V3",
+        "price": "$0.14/1M",
+        "description": "Arzon va sifatli"
+    },
+    "deepseek_r1": {
+        "id": "deepseek/deepseek-reasoner",
+        "name": "DeepSeek R1",
+        "price": "$0.55/1M",
+        "description": "Reasoning uchun kuchli"
+    },
+    "gpt4o_mini": {
+        "id": "openai/gpt-4o-mini",
+        "name": "GPT-4o Mini",
+        "price": "$0.15/1M",
+        "description": "Tez va arzon"
+    },
+    "gemini_25_flash": {
+        "id": "google/gemini-2.5-flash-preview",
+        "name": "Gemini 2.5 Flash",
+        "price": "$0.10/1M",
+        "description": "Tez va samarali"
+    },
+    "gemini_20_flash": {
+        "id": "google/gemini-2.0-flash-001",
+        "name": "Gemini 2.0 Flash",
+        "price": "$0.05/1M",
+        "description": "Eng arzon variant"
+    },
+    "mimo_v2_flash": {
+        "id": "01-ai/yi-large",
+        "name": "Mimo V2 Flash",
+        "price": "$0.07/1M",
+        "description": "Coding uchun maxsus"
+    }
+}
+
+# Default AI model
+DEFAULT_AI_MODEL = "deepseek_v3"
+
 # File paths
 DOCUMENTS_DIR = "generated_documents"
 TEMP_DIR = "temp"
