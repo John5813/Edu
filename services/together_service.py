@@ -2,28 +2,27 @@ import os
 import logging
 import aiohttp
 import asyncio
-import base64
-from typing import Optional
+from typing import Optional, Dict
+from together import Together
 from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
 
 class TogetherImageService:
-    """Service for generating images using OpenRouter API"""
+    """Service for generating images using Together AI FLUX models"""
     
     def __init__(self):
-        self.api_key = os.environ.get("AI_INTEGRATIONS_OPENROUTER_API_KEY")
-        self.base_url = os.environ.get("AI_INTEGRATIONS_OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
-        
+        self.api_key = os.getenv("TOGETHER_API_KEY")
         if not self.api_key:
-            raise ValueError("AI_INTEGRATIONS_OPENROUTER_API_KEY environment variable is required")
+            raise ValueError("TOGETHER_API_KEY environment variable is required")
+        self.client = Together(api_key=self.api_key)
+        self.model = "black-forest-labs/FLUX.1-schnell"
         
         self.ai_client = AsyncOpenAI(
-            api_key=self.api_key,
-            base_url=self.base_url
+            api_key=os.environ.get("AI_INTEGRATIONS_OPENROUTER_API_KEY"),
+            base_url=os.environ.get("AI_INTEGRATIONS_OPENROUTER_BASE_URL")
         )
-        self.ai_model = "deepseek/deepseek-chat"
-        self.image_model = "google/gemini-2.5-flash-image-preview"
+        self.ai_model = "deepseek/deepseek-v3.2"
     
     async def _generate_image_prompt(self, slide_title: str) -> str:
         """Ask DeepSeek to create a creative image prompt from slide title"""
@@ -55,137 +54,50 @@ Faqat promptni yoz, boshqa hech narsa yozma."""
             return f"Professional photograph of {slide_title}, modern style, soft natural lighting, no text"
     
     async def generate_image(self, prompt: str, aspect_ratio: str = "16:9", steps: int = 4) -> Optional[str]:
-        """Generate image using OpenRouter API with Gemini
+        """Generate image using Together AI FLUX model
         
         Args:
-            prompt: English description of the image
-            aspect_ratio: Image aspect ratio (ignored for now)
-            steps: Ignored for OpenRouter
+            prompt: English description of the image (detailed, high quality)
+            aspect_ratio: Image aspect ratio (16:9 for slides, 21:9 for panoramic)
+            steps: Number of generation steps (4 for fast, more for quality)
         
         Returns:
             Path to downloaded image or None if failed
         """
         try:
-            logger.info(f"Generating image with OpenRouter, prompt: {prompt[:100]}...")
+            logger.info(f"Generating image with prompt: {prompt[:100]}...")
             
-            headers = {
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-                "HTTP-Referer": "https://replit.com",
-                "X-Title": "EduBot"
-            }
+            response = await asyncio.to_thread(
+                self.client.images.generate,
+                prompt=prompt,
+                model=self.model,
+                steps=steps,
+                n=1
+            )
             
-            payload = {
-                "model": self.image_model,
-                "modalities": ["image", "text"],
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": f"Generate a high-quality professional image: {prompt}. No text, no letters, no words in the image."
-                    }
-                ]
-            }
+            if response.data and len(response.data) > 0:
+                image_url = response.data[0].url
+                if image_url:
+                    filename = f"together_image_{hash(prompt) % 100000}.png"
+                    image_path = await self._download_image(image_url, filename)
+                    if image_path:
+                        logger.info(f"Image generated and saved: {image_path}")
+                        return image_path
+                    
+                if response.data[0].b64_json:
+                    import base64
+                    filename = f"together_image_{hash(prompt) % 100000}.png"
+                    filepath = os.path.join("temp", filename)
+                    os.makedirs("temp", exist_ok=True)
+                    
+                    with open(filepath, "wb") as f:
+                        f.write(base64.b64decode(response.data[0].b64_json))
+                    
+                    logger.info(f"Image generated from base64: {filepath}")
+                    return filepath
             
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{self.base_url}/chat/completions",
-                    headers=headers,
-                    json=payload
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        logger.error(f"OpenRouter API error: {response.status} - {error_text}")
-                        return None
-                    
-                    result = await response.json()
-                    logger.info(f"OpenRouter response: {str(result)[:500]}")
-                    
-                    message = result.get('choices', [{}])[0].get('message', {})
-                    
-                    # Check for images array (can be string or dict)
-                    if 'images' in message and message['images']:
-                        image_item = message['images'][0]
-                        
-                        # Handle dict format: {"url": "data:image/..."} or {"b64_json": "..."}
-                        if isinstance(image_item, dict):
-                            if 'url' in image_item:
-                                image_data = image_item['url']
-                            elif 'b64_json' in image_item:
-                                image_data = image_item['b64_json']
-                            else:
-                                image_data = str(image_item)
-                        else:
-                            image_data = image_item
-                        
-                        # Extract base64 from data URL if present
-                        if isinstance(image_data, str) and ',' in image_data:
-                            image_data = image_data.split(',')[1]
-                        
-                        # Fix base64 padding
-                        if isinstance(image_data, str):
-                            missing_padding = len(image_data) % 4
-                            if missing_padding:
-                                image_data += '=' * (4 - missing_padding)
-                        
-                        filename = f"openrouter_image_{hash(prompt) % 100000}.png"
-                        filepath = os.path.join("temp", filename)
-                        os.makedirs("temp", exist_ok=True)
-                        
-                        with open(filepath, "wb") as f:
-                            f.write(base64.b64decode(image_data))
-                        
-                        logger.info(f"Image generated and saved: {filepath}")
-                        return filepath
-                    
-                    # Check content for inline images
-                    content = message.get('content', '')
-                    
-                    # Handle content as list (multimodal response)
-                    if isinstance(content, list):
-                        for part in content:
-                            if isinstance(part, dict):
-                                if part.get('type') == 'image_url':
-                                    image_url = part.get('image_url', {})
-                                    if isinstance(image_url, dict):
-                                        url = image_url.get('url', '')
-                                    else:
-                                        url = str(image_url)
-                                    if url and 'base64,' in url:
-                                        image_data = url.split('base64,')[1]
-                                        # Fix base64 padding
-                                        missing_padding = len(image_data) % 4
-                                        if missing_padding:
-                                            image_data += '=' * (4 - missing_padding)
-                                        filename = f"openrouter_image_{hash(prompt) % 100000}.png"
-                                        filepath = os.path.join("temp", filename)
-                                        os.makedirs("temp", exist_ok=True)
-                                        with open(filepath, "wb") as f:
-                                            f.write(base64.b64decode(image_data))
-                                        logger.info(f"Image extracted from content list: {filepath}")
-                                        return filepath
-                    
-                    # Handle content as string with embedded image
-                    if isinstance(content, str) and 'data:image' in content:
-                        import re
-                        match = re.search(r'data:image/[^;]+;base64,([A-Za-z0-9+/=]+)', content)
-                        if match:
-                            image_data = match.group(1)
-                            # Fix base64 padding
-                            missing_padding = len(image_data) % 4
-                            if missing_padding:
-                                image_data += '=' * (4 - missing_padding)
-                            filename = f"openrouter_image_{hash(prompt) % 100000}.png"
-                            filepath = os.path.join("temp", filename)
-                            os.makedirs("temp", exist_ok=True)
-                            
-                            with open(filepath, "wb") as f:
-                                f.write(base64.b64decode(image_data))
-                            
-                            logger.info(f"Image extracted from content: {filepath}")
-                            return filepath
-                    
-                    logger.error(f"No image data in response: {result}")
-                    return None
+            logger.error("No image data in response")
+            return None
             
         except Exception as e:
             logger.error(f"Error generating image: {e}")
