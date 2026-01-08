@@ -54,7 +54,7 @@ AI_MODELS = {
         "description": "Arzon va sifatli"
     },
     "deepseek_r1": {
-        "id": "deepseek/deepseek-reasoner",
+        "id": "deepseek/deepseek-r1",
         "name": "DeepSeek R1",
         "price": "$0.55/1M",
         "description": "Reasoning uchun kuchli"
@@ -78,10 +78,10 @@ AI_MODELS = {
         "description": "Eng arzon variant"
     },
     "mimo_v2_flash": {
-        "id": "01-ai/yi-large",
+        "id": "moonshotai/moonlight-16b-a3b-instruct:free",
         "name": "Mimo V2 Flash",
-        "price": "$0.07/1M",
-        "description": "Coding uchun maxsus"
+        "price": "$0.00/1M",
+        "description": "Tez va bepul"
     }
 }
 
