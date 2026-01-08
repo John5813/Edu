@@ -38,15 +38,14 @@ def is_rate_limit_error(exception: BaseException) -> bool:
     )
 
 class AIService:
-    """AI Service using DeepSeek via OpenRouter (Replit AI Integrations)"""
+    """AI Service using DeepSeek API directly"""
     
     def __init__(self):
         self.client = AsyncOpenAI(
-            api_key=os.environ.get("AI_INTEGRATIONS_OPENROUTER_API_KEY"),
-            base_url=os.environ.get("AI_INTEGRATIONS_OPENROUTER_BASE_URL")
+            api_key=os.environ.get("DEEPSEEK_API_KEY"),
+            base_url="https://api.deepseek.com"
         )
-        # openrouter/auto - OpenRouter avtomatik eng yaxshi modelni tanlaydi
-        self.model = "openrouter/auto"
+        self.model = "deepseek-chat"
 
     def _parse_json_safely(self, json_str: str) -> Dict:
         """Parse JSON with automatic repair for common AI output issues"""
