@@ -22,7 +22,8 @@ class TogetherImageService:
             api_key=os.environ.get("AI_INTEGRATIONS_OPENROUTER_API_KEY"),
             base_url=os.environ.get("AI_INTEGRATIONS_OPENROUTER_BASE_URL")
         )
-        self.ai_model = "deepseek/deepseek-v3.2"
+        # openrouter/auto - OpenRouter avtomatik eng yaxshi modelni tanlaydi
+        self.ai_model = "openrouter/auto"
     
     async def _generate_image_prompt(self, slide_title: str) -> str:
         """Ask DeepSeek to create a creative image prompt from slide title"""

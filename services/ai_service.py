@@ -45,7 +45,8 @@ class AIService:
             api_key=os.environ.get("AI_INTEGRATIONS_OPENROUTER_API_KEY"),
             base_url=os.environ.get("AI_INTEGRATIONS_OPENROUTER_BASE_URL")
         )
-        self.model = "deepseek/deepseek-v3.2"
+        # openrouter/auto - OpenRouter avtomatik eng yaxshi modelni tanlaydi
+        self.model = "openrouter/auto"
 
     def _parse_json_safely(self, json_str: str) -> Dict:
         """Parse JSON with automatic repair for common AI output issues"""
@@ -127,7 +128,7 @@ class AIService:
         reraise=True
     )
     async def _make_request(self, messages: List[Dict], max_tokens: int = 4000, temperature: float = 0.7) -> str:
-        """Make API request with retry logic"""
+        """Make API request with retry logic - uses OpenRouter auto model"""
         response = await self.client.chat.completions.create(
             model=self.model,
             messages=messages,
