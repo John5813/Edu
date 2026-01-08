@@ -22,11 +22,11 @@ class TogetherImageService:
             api_key=os.environ.get("AI_INTEGRATIONS_OPENROUTER_API_KEY"),
             base_url=os.environ.get("AI_INTEGRATIONS_OPENROUTER_BASE_URL")
         )
-        # openrouter/auto - OpenRouter avtomatik eng yaxshi modelni tanlaydi
-        self.ai_model = "openrouter/auto"
+        # Gemini 2.5 Flash - rasm promptlari uchun
+        self.ai_model = "google/gemini-2.5-flash-preview"
     
     async def _generate_image_prompt(self, slide_title: str) -> str:
-        """Ask DeepSeek to create a creative image prompt from slide title"""
+        """Ask Gemini to create a creative image prompt from slide title"""
         try:
             prompt_request = f"""Menga "{slide_title}" bo'yicha rasm yaratish uchun qisqa va kreativ inglizcha prompt yozib ber.
 Qoidalar:
@@ -40,18 +40,18 @@ Faqat promptni yoz, boshqa hech narsa yozma."""
             response = await self.ai_client.chat.completions.create(
                 model=self.ai_model,
                 messages=[{"role": "user", "content": prompt_request}],
-                max_tokens=100,
+                max_tokens=150,
                 temperature=0.8
             )
             
             generated_prompt = response.choices[0].message.content.strip()
             generated_prompt = generated_prompt.strip('"').strip("'")
             
-            logger.info(f"DeepSeek generated prompt: {generated_prompt}")
+            logger.info(f"Gemini generated prompt: {generated_prompt}")
             return generated_prompt
             
         except Exception as e:
-            logger.error(f"Error generating prompt from DeepSeek: {e}")
+            logger.error(f"Error generating prompt from Gemini: {e}")
             return f"Professional photograph of {slide_title}, modern style, soft natural lighting, no text"
     
     async def generate_image(self, prompt: str, aspect_ratio: str = "16:9", steps: int = 4) -> Optional[str]:

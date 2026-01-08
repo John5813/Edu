@@ -62,27 +62,25 @@ class AIService:
             repaired = re.sub(r',\s*}', '}', repaired)
             repaired = re.sub(r',\s*]', ']', repaired)
             
-            open_braces = repaired.count('{')
-            close_braces = repaired.count('}')
-            if open_braces > close_braces:
-                repaired += '}' * (open_braces - close_braces)
-            
-            open_brackets = repaired.count('[')
-            close_brackets = repaired.count(']')
-            if open_brackets > close_brackets:
-                repaired += ']' * (open_brackets - close_brackets)
-            
             quote_count = repaired.count('"') - repaired.count('\\"')
             if quote_count % 2 != 0:
-                last_quote = repaired.rfind('"')
-                if last_quote > 0:
-                    before_quote = repaired[:last_quote]
-                    last_colon = before_quote.rfind(':')
-                    last_open_brace = before_quote.rfind('{')
-                    if last_colon > last_open_brace:
-                        repaired = repaired[:last_quote] + '""' + repaired[last_quote+1:]
-                    else:
-                        repaired += '"'
+                last_complete_slide = repaired.rfind('},')
+                if last_complete_slide > 0:
+                    repaired = repaired[:last_complete_slide+1]
+                else:
+                    last_quote = repaired.rfind('"')
+                    if last_quote > 0:
+                        repaired = repaired[:last_quote] + '"'
+            
+            open_braces = repaired.count('{')
+            close_braces = repaired.count('}')
+            open_brackets = repaired.count('[')
+            close_brackets = repaired.count(']')
+            
+            if open_brackets > close_brackets:
+                repaired += ']' * (open_brackets - close_brackets)
+            if open_braces > close_braces:
+                repaired += '}' * (open_braces - close_braces)
             
             try:
                 return json.loads(repaired)
@@ -92,31 +90,20 @@ class AIService:
             slides_match = re.search(r'"slides"\s*:\s*\[', json_str)
             if slides_match:
                 slides_start = slides_match.end() - 1
-                bracket_count = 0
-                end_pos = slides_start
-                for i, char in enumerate(json_str[slides_start:]):
-                    if char == '[':
-                        bracket_count += 1
-                    elif char == ']':
-                        bracket_count -= 1
-                        if bracket_count == 0:
-                            end_pos = slides_start + i + 1
-                            break
-                    end_pos = slides_start + i
                 
-                slides_str = json_str[slides_start:end_pos]
-                if not slides_str.endswith(']'):
-                    last_complete = slides_str.rfind('},')
-                    if last_complete > 0:
-                        slides_str = slides_str[:last_complete+1] + ']'
-                    else:
-                        slides_str += '"}]'
+                slide_objects = re.findall(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', json_str[slides_start:])
+                valid_slides = []
+                for slide_obj in slide_objects:
+                    try:
+                        parsed = json.loads(slide_obj)
+                        if 'title' in parsed:
+                            valid_slides.append(parsed)
+                    except:
+                        continue
                 
-                try:
-                    slides = json.loads(slides_str)
-                    return {"slides": slides}
-                except:
-                    pass
+                if valid_slides:
+                    logger.info(f"Recovered {len(valid_slides)} slides from truncated JSON")
+                    return {"slides": valid_slides}
             
             logger.error(f"Could not repair JSON: {json_str[:500]}...")
             raise ValueError(f"Failed to parse AI response as JSON: {str(e)}")
