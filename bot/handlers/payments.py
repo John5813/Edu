@@ -278,9 +278,6 @@ async def handle_referral_callback(callback: CallbackQuery, db: Database, user_l
             await callback.answer("❌ Xatolik yuz berdi. Iltimos, /start buyrug'ini qayta bajaring.", show_alert=True)
             return
 
-        # Get referral statistics
-        stats = await db.get_referral_stats(user.telegram_id)
-
         # Get bot username for referral link
         bot_info = await callback.bot.get_me()
         bot_username = bot_info.username
@@ -288,13 +285,9 @@ async def handle_referral_callback(callback: CallbackQuery, db: Database, user_l
         # Create referral link
         referral_link = f"https://t.me/{bot_username}?start=ref_{user.referral_code}"
 
-        # Edit message with referral info
+        # Edit message with referral info (no statistics)
         await callback.message.edit_text(
-            get_text(user_lang, "referral_info",
-                    total_referrals=stats['total_referrals'],
-                    paid_referrals=stats['paid_referrals'],
-                    total_earned=stats['total_earned'],
-                    referral_link=referral_link),
+            get_text(user_lang, "referral_info", referral_link=referral_link),
             parse_mode="Markdown"
         )
         await callback.answer()
@@ -317,9 +310,6 @@ async def handle_referral_request(message: Message, db: Database, user_lang: str
             await message.answer("❌ Xatolik yuz berdi. Iltimos, /start buyrug'ini qayta bajaring.", reply_markup=get_main_keyboard(user_lang))
             return
 
-        # Get referral statistics
-        stats = await db.get_referral_stats(user.telegram_id)
-
         # Get bot username for referral link
         bot_info = await message.bot.get_me()
         bot_username = bot_info.username
@@ -327,13 +317,9 @@ async def handle_referral_request(message: Message, db: Database, user_lang: str
         # Create referral link
         referral_link = f"https://t.me/{bot_username}?start=ref_{user.referral_code}"
 
-        # Send message with referral info
+        # Send message with referral info (no statistics)
         await message.answer(
-            get_text(user_lang, "referral_info",
-                    total_referrals=stats['total_referrals'],
-                    paid_referrals=stats['paid_referrals'],
-                    total_earned=stats['total_earned'],
-                    referral_link=referral_link),
+            get_text(user_lang, "referral_info", referral_link=referral_link),
             reply_markup=get_main_keyboard(user_lang),
             parse_mode="Markdown"
         )
