@@ -284,7 +284,7 @@ STRUKTURA (jami {slide_count} slayd):
 3. Kirish slayd (~50 so'z, mavzuga umumiy kirish)
 4-{slide_count-3}. Asosiy slaidlar ({main_slides} ta) - har biri mavzuning turli jihatlarini yoritadi
 {slide_count-2}. Xulosa slayd (~50 so'z)
-{slide_count-1}. Adabiyotlar ro'yxati (4 ta manba)
+{slide_count-1}. Adabiyotlar ro'yxati (4 ta sodda manba, har biri 5-8 so'z)
 {slide_count}. Rahmat slayd ("E'tiboringiz uchun rahmat!")
 
 ASOSIY SLAIDLAR UCHUN 6 TA SHABLON (tartib bilan takrorlanadi):
@@ -330,7 +330,7 @@ MUHIM: Faqat JSON formatda javob bering!
 3. Введение (~50 слов, общее введение в тему)
 4-{slide_count-3}. Основные слайды ({main_slides} шт) - каждый освещает разные аспекты темы
 {slide_count-2}. Заключение (~50 слов)
-{slide_count-1}. Список литературы (4 источника)
+{slide_count-1}. Список литературы (4 простых источника, каждый 5-8 слов)
 {slide_count}. Слайд благодарности ("Спасибо за внимание!")
 
 ШАБЛОНЫ ДЛЯ ОСНОВНЫХ СЛАЙДОВ (чередуются по порядку):
@@ -376,7 +376,7 @@ STRUCTURE (total {slide_count} slides):
 3. Introduction (~50 words, general intro to topic)
 4-{slide_count-3}. Main slides ({main_slides} total) - each covers different aspects
 {slide_count-2}. Conclusion (~50 words)
-{slide_count-1}. References (4 sources)
+{slide_count-1}. References (4 simple sources, each 5-8 words)
 {slide_count}. Thank you slide ("Thank you for your attention!")
 
 TEMPLATES FOR MAIN SLIDES (rotate in order):
