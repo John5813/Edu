@@ -457,16 +457,22 @@ def get_channel_error_keyboard() -> InlineKeyboardMarkup:
     keyboard.adjust(2)
     return keyboard.as_markup()
 
-def get_feature_management_keyboard(presentation_enabled: bool) -> InlineKeyboardMarkup:
-    """Feature management keyboard for admin - only presentation toggle"""
+def get_feature_management_keyboard(startup_bonus_enabled: bool) -> InlineKeyboardMarkup:
+    """Feature management keyboard for admin - startup bonus toggle and mass gift"""
     keyboard = InlineKeyboardBuilder()
 
-    # Presentation toggle only
-    pres_status = "🟢 Yoqilgan" if presentation_enabled else "🔴 O'chirilgan"
-    pres_action = "off" if presentation_enabled else "on"
+    # Startup bonus toggle (5000 for new users)
+    bonus_status = "🟢 Yoqilgan" if startup_bonus_enabled else "🔴 O'chirilgan"
+    bonus_action = "off" if startup_bonus_enabled else "on"
     keyboard.add(InlineKeyboardButton(
-        text=f"📊 Taqdimot: {pres_status}",
-        callback_data=f"toggle_presentation_{pres_action}"
+        text=f"🎁 Start bonus (5000): {bonus_status}",
+        callback_data=f"toggle_startup_bonus_{bonus_action}"
+    ))
+
+    # Mass gift button
+    keyboard.add(InlineKeyboardButton(
+        text="💰 Barchaga sovg'a yuborish",
+        callback_data="mass_gift_start"
     ))
 
     keyboard.adjust(1)

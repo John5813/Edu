@@ -1347,40 +1347,91 @@ async def handle_feature_management(message: Message, db: Database):
         return
 
     # Get current feature statuses
-    presentation_enabled = await db.get_feature_status("presentation")
-    # Removed independent_work and referat features as per user request
+    startup_bonus_enabled = await db.get_feature_status("startup_bonus")
 
     await message.answer(
         "🎛 Funksiyalar boshqaruvi\n\n"
-        "Quyidagi tugmani bosib Taqdimot funksiyasini yoqing yoki o'chiring:",
-        reply_markup=get_feature_management_keyboard(presentation_enabled)
+        "Start bonus - yangi foydalanuvchilarga 5000 so'm bonus berish:",
+        reply_markup=get_feature_management_keyboard(startup_bonus_enabled)
     )
 
-@router.callback_query(F.data.startswith("toggle_presentation_"))
-async def toggle_presentation(callback: CallbackQuery, db: Database):
-    """Toggle presentation feature"""
+@router.callback_query(F.data.startswith("toggle_startup_bonus_"))
+async def toggle_startup_bonus(callback: CallbackQuery, db: Database):
+    """Toggle startup bonus feature"""
     if not is_admin(callback.from_user.id):
         return
 
-    action = callback.data.split("_")[2]
+    action = callback.data.split("_")[3]
     new_status = action == "on"
 
-    await db.set_feature_status("presentation", new_status)
+    await db.set_feature_status("startup_bonus", new_status)
 
-    # Get updated status for presentation
-    presentation_enabled = await db.get_feature_status("presentation")
+    # Get updated status
+    startup_bonus_enabled = await db.get_feature_status("startup_bonus")
 
     from bot.keyboards import get_feature_management_keyboard
     status_text = "yoqildi" if new_status else "o'chirildi"
-    await callback.answer(f"📊 Taqdimot funksiyasi {status_text}!")
+    await callback.answer(f"🎁 Start bonus {status_text}!")
 
     await callback.message.edit_text(
         "🎛 Funksiyalar boshqaruvi\n\n"
-        "Quyidagi tugmani bosib Taqdimot funksiyasini yoqing yoki o'chiring:",
-        reply_markup=get_feature_management_keyboard(presentation_enabled)
+        "Start bonus - yangi foydalanuvchilarga 5000 so'm bonus berish:",
+        reply_markup=get_feature_management_keyboard(startup_bonus_enabled)
     )
 
-# Removed toggle_independent_work and toggle_referat handlers as per user request.
+@router.callback_query(F.data == "mass_gift_start")
+async def mass_gift_start(callback: CallbackQuery, state: FSMContext):
+    """Start mass gift process"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    await callback.message.edit_text(
+        "💰 Barchaga sovg'a yuborish\n\n"
+        "Qancha summa yubormoqchisiz? (so'mda)\n"
+        "Masalan: 5000"
+    )
+    await state.set_state(AdminStates.waiting_for_gift_amount)
+
+@router.message(AdminStates.waiting_for_gift_amount)
+async def process_gift_amount(message: Message, state: FSMContext, db: Database):
+    """Process gift amount and send to all users"""
+    if not is_admin(message.from_user.id):
+        return
+
+    try:
+        amount = int(message.text.strip())
+        if amount <= 0:
+            await message.answer("❌ Summa 0 dan katta bo'lishi kerak!")
+            return
+
+        # Get all users
+        all_users = await db.get_all_users()
+        
+        if not all_users:
+            await message.answer("❌ Foydalanuvchilar topilmadi!")
+            await state.clear()
+            return
+
+        # Update balances for all users
+        success_count = 0
+        for user in all_users:
+            try:
+                new_balance = user.balance + amount
+                await db.update_user_balance(user.id, new_balance)
+                success_count += 1
+            except Exception as e:
+                logger.error(f"Failed to add gift to user {user.id}: {e}")
+
+        await message.answer(
+            f"✅ Sovg'a muvaffaqiyatli yuborildi!\n\n"
+            f"💰 Summa: {amount:,} so'm\n"
+            f"👥 {success_count} ta foydalanuvchiga qo'shildi"
+        )
+        await state.clear()
+
+    except ValueError:
+        await message.answer("❌ Iltimos, faqat raqam kiriting!")
+        return
 
 @router.message(F.text == "👤 Foydalanuvchi rejimi")
 async def switch_to_user_mode(message: Message, db: Database):
@@ -1388,13 +1439,9 @@ async def switch_to_user_mode(message: Message, db: Database):
     if not is_admin(message.from_user.id):
         return
 
-    # Get feature status for presentation only
-    presentation_enabled = await db.get_feature_status("presentation")
-    # Removed independent_work and referat statuses
-
     await message.answer(
         "👤 Foydalanuvchi rejimiga o'tdingiz",
-        reply_markup=get_main_keyboard("uz", presentation_enabled) # Pass only presentation status
+        reply_markup=get_main_keyboard("uz", True)
     )
 
 @router.message(F.text == "📁 Namunalar boshqaruvi")

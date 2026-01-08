@@ -49,6 +49,13 @@ async def start_command(message: Message, state: FSMContext, db: Database):
             )
             logger.info(f"✅ User created successfully on /start: user_id={user_id}")
             
+            # Check if startup bonus is enabled and add 5000 so'm
+            startup_bonus_enabled = await db.get_feature_status("startup_bonus")
+            if startup_bonus_enabled:
+                STARTUP_BONUS = 5000
+                await db.update_user_balance(user_id, STARTUP_BONUS)
+                logger.info(f"✅ Startup bonus {STARTUP_BONUS} added to user {user_id}")
+            
             # Process referral signup bonus if applicable
             if referred_by_id:
                 try:

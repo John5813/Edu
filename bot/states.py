@@ -49,6 +49,9 @@ class AdminStates(StatesGroup):
     waiting_for_block_user = State()
     waiting_for_block_reason = State()
 
+    # Mass gift
+    waiting_for_gift_amount = State()
+
 class PaymentResubmitStates(StatesGroup):
     waiting_for_receipt = State()
     waiting_for_amount = State()
