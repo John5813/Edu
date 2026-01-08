@@ -44,15 +44,12 @@ async def handle_account_info(message: Message, state: FSMContext, db: Database,
         await message.answer("❌ Сначала выполните команду /start")
         return
 
-    # Get referral statistics
-    stats = await db.get_referral_stats(user.telegram_id)
-
     if user_lang == "uz":
-        account_text = f"💰 Sizning hisobingiz:\n\n💵 Balans: {user.balance:,} so'm\n\n👥 Referral:\n• Taklif qilinganlar: {stats['total_referrals']}\n• To'lov qilganlar: {stats['paid_referrals']}\n• Jami daromad: {stats['total_earned']:,} so'm"
+        account_text = f"💰 Sizning hisobingiz:\n\n💵 Balans: {user.balance:,} so'm"
     elif user_lang == "ru":
-        account_text = f"💰 Ваш счет:\n\n💵 Баланс: {user.balance:,} сум\n\n👥 Реферальная программа:\n• Приглашено: {stats['total_referrals']}\n• Оплатили: {stats['paid_referrals']}\n• Всего заработано: {stats['total_earned']:,} сум"
+        account_text = f"💰 Ваш счет:\n\n💵 Баланс: {user.balance:,} сум"
     else:  # en
-        account_text = f"💰 Your Account:\n\n💵 Balance: {user.balance:,} som\n\n👥 Referral Program:\n• Invited: {stats['total_referrals']}\n• Paid: {stats['paid_referrals']}\n• Total Earned: {stats['total_earned']:,} som"
+        account_text = f"💰 Your Account:\n\n💵 Balance: {user.balance:,} som"
 
     await message.answer(
         account_text,
