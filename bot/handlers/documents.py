@@ -1228,19 +1228,6 @@ async def handle_edit_outline(callback: CallbackQuery, state: FSMContext, user_l
 
     await state.set_state(DocumentStates.waiting_for_manual_outline)
 
-@router.message(F.text == "Mening hisobim")
-async def my_account_handler(message: Message, state: FSMContext, db: Database, user_lang: str, user):
-    """Handles the 'My Account' button click."""
-    await state.clear()  # Clear any active state
-    
-    await message.answer(
-        get_text(user_lang, "my_account_info", 
-            name=user.first_name,
-            balance=user.balance
-        ),
-        reply_markup=get_main_keyboard(user_lang)
-    )
-
 # Help button texts in different languages
 HELP_BUTTON_TEXTS = ["📞 Yordam", "📞 Помощь", "📞 Help"]
 

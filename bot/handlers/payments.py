@@ -36,7 +36,7 @@ async def handle_payment_request(message: Message, state: FSMContext, user_lang:
         parse_mode="Markdown"
     )
 
-@router.message(StateFilter(None), F.text.in_(ACCOUNT_TEXTS))
+@router.message(F.text.in_(ACCOUNT_TEXTS))
 async def handle_account_info(message: Message, state: FSMContext, db: Database, user_lang: str, user):
     """Show account information"""
     await state.clear()  # Clear any active state
