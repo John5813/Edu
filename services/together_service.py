@@ -98,13 +98,27 @@ Faqat promptni yoz, boshqa hech narsa yozma."""
                         return None
                     
                     result = await response.json()
+                    logger.info(f"OpenRouter response: {str(result)[:500]}")
                     
                     message = result.get('choices', [{}])[0].get('message', {})
                     
+                    # Check for images array (can be string or dict)
                     if 'images' in message and message['images']:
-                        image_data = message['images'][0]
+                        image_item = message['images'][0]
                         
-                        if ',' in image_data:
+                        # Handle dict format: {"url": "data:image/..."} or {"b64_json": "..."}
+                        if isinstance(image_item, dict):
+                            if 'url' in image_item:
+                                image_data = image_item['url']
+                            elif 'b64_json' in image_item:
+                                image_data = image_item['b64_json']
+                            else:
+                                image_data = str(image_item)
+                        else:
+                            image_data = image_item
+                        
+                        # Extract base64 from data URL if present
+                        if isinstance(image_data, str) and ',' in image_data:
                             image_data = image_data.split(',')[1]
                         
                         filename = f"openrouter_image_{hash(prompt) % 100000}.png"
@@ -117,8 +131,31 @@ Faqat promptni yoz, boshqa hech narsa yozma."""
                         logger.info(f"Image generated and saved: {filepath}")
                         return filepath
                     
+                    # Check content for inline images
                     content = message.get('content', '')
-                    if 'data:image' in content:
+                    
+                    # Handle content as list (multimodal response)
+                    if isinstance(content, list):
+                        for part in content:
+                            if isinstance(part, dict):
+                                if part.get('type') == 'image_url':
+                                    image_url = part.get('image_url', {})
+                                    if isinstance(image_url, dict):
+                                        url = image_url.get('url', '')
+                                    else:
+                                        url = str(image_url)
+                                    if url and 'base64,' in url:
+                                        image_data = url.split('base64,')[1]
+                                        filename = f"openrouter_image_{hash(prompt) % 100000}.png"
+                                        filepath = os.path.join("temp", filename)
+                                        os.makedirs("temp", exist_ok=True)
+                                        with open(filepath, "wb") as f:
+                                            f.write(base64.b64decode(image_data))
+                                        logger.info(f"Image extracted from content list: {filepath}")
+                                        return filepath
+                    
+                    # Handle content as string with embedded image
+                    if isinstance(content, str) and 'data:image' in content:
                         import re
                         match = re.search(r'data:image/[^;]+;base64,([A-Za-z0-9+/=]+)', content)
                         if match:
