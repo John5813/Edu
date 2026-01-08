@@ -1838,6 +1838,7 @@ async def select_ai_model(callback: CallbackQuery, db: Database):
 
     from config import AI_MODELS
     from bot.keyboards import get_ai_model_selection_keyboard
+    from services.ai_service import AIService
     
     model_key = callback.data.replace("select_ai_model_", "")
     
@@ -1854,6 +1855,9 @@ async def select_ai_model(callback: CallbackQuery, db: Database):
     success = await db.set_current_ai_model(model_key)
     
     if success:
+        ai_service = AIService()
+        ai_service.clear_model_cache()
+        
         model_info = AI_MODELS[model_key]
         await callback.answer(f"✅ {model_info['name']} tanlandi!")
         

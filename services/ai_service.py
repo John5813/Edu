@@ -40,18 +40,21 @@ def is_rate_limit_error(exception: BaseException) -> bool:
 class AIService:
     """AI Service using OpenRouter with dynamic model selection"""
     
+    _cached_model = None
+    _cache_time = None
+    
     def __init__(self):
         self.client = AsyncOpenAI(
             api_key=os.environ.get("AI_INTEGRATIONS_OPENROUTER_API_KEY"),
             base_url=os.environ.get("AI_INTEGRATIONS_OPENROUTER_BASE_URL")
         )
-        self._cached_model = None
-        self._cache_time = None
     
-    def clear_model_cache(self):
+    @classmethod
+    def clear_model_cache(cls):
         """Clear the model cache to force refresh on next request"""
-        self._cached_model = None
-        self._cache_time = None
+        cls._cached_model = None
+        cls._cache_time = None
+        logger.info("AI model cache cleared")
     
     async def _get_current_model_id(self) -> str:
         """Get current AI model ID from database with caching"""
@@ -61,16 +64,16 @@ class AIService:
         
         cache_duration = 30
         
-        if self._cached_model and self._cache_time:
-            if time.time() - self._cache_time < cache_duration:
-                return self._cached_model
+        if AIService._cached_model and AIService._cache_time:
+            if time.time() - AIService._cache_time < cache_duration:
+                return AIService._cached_model
         
         try:
             model_key = await Database.get_current_ai_model()
             model_info = AI_MODELS.get(model_key, AI_MODELS[DEFAULT_AI_MODEL])
-            self._cached_model = model_info["id"]
-            self._cache_time = time.time()
-            return self._cached_model
+            AIService._cached_model = model_info["id"]
+            AIService._cache_time = time.time()
+            return AIService._cached_model
         except Exception as e:
             logger.error(f"Error getting current model: {e}")
             return AI_MODELS[DEFAULT_AI_MODEL]["id"]
