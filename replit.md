@@ -1,7 +1,7 @@
 # EduBot.ai - Academic Document Generation Bot
 
 ## Overview
-EduBot.ai is a Telegram bot that generates academic documents such as presentations, independent work papers, and research papers (referats) in multiple languages (Uzbek, Russian, English) using AI technology. It operates on a freemium model, offering one free document generation before requiring users to purchase credits. The project aims to provide an intuitive interface for document generation, payment processing, and account management, alongside comprehensive admin features for managing payments, channel subscriptions, and user analytics.
+EduBot.ai is a Telegram bot that generates academic documents such as presentations, independent work papers, research papers (referats), and course work in multiple languages (Uzbek, Russian, English) using AI technology. It operates on a freemium model, offering one free document generation before requiring users to purchase credits. The project aims to provide an intuitive interface for document generation, payment processing, and account management, alongside comprehensive admin features for managing payments, channel subscriptions, and user analytics.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -36,6 +36,21 @@ AI-driven content generation is powered by DeepSeek v3.2 via OpenRouter. Documen
 **Text Cleaning:** All generated content is cleaned with clean_text() function to remove special characters (#@&*{} etc.), markdown formatting, and normalize whitespace for professional document output.
 
 **Document Generation:** Sections are generated with longer content (250-300 words for intro, 500-600 words for main sections, 350-450 words for conclusion) with explicit anti-repetition rules in all languages.
+
+**Course Work Structure:**
+- Title page (university, faculty, topic, author)
+- Table of contents (mundarija)
+- Introduction (~600 words, 2 pages) covering relevance, goals, methods
+- Chapters (2-3) with 3 subsections each (~400-500 words per subsection)
+- Each subsection includes numbered footnote references [1], [2], etc.
+- Conclusion (~400 words) with findings and recommendations
+- References (5-6 academic sources)
+
+**Course Work Pricing:**
+- 15-20 pages (2 chapters): 15,000 so'm
+- 20-25 pages (2 chapters): 20,000 so'm
+- 25-30 pages (3 chapters): 25,000 so'm
+- 30-35 pages (3 chapters): 30,000 so'm
 
 ### User Management & Authentication
 The system features multi-language support (Uzbek, Russian, English) with dynamic text translation. It manages user states, including registration, language selection, and document preferences. Bot access requires channel subscription verification. An admin system provides role-based access for payment approval and system management. A referral system allows users to earn bonuses by inviting new users.
