@@ -8,7 +8,8 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from pptx import Presentation
 from pptx.util import Inches as PptxInches, Pt as PptxPt
-from pptx.enum.text import PP_ALIGN
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+from pptx.enum.dml import MSO_THEME_COLOR
 from pptx.dml.color import RGBColor
 from typing import Dict, Optional, List
 import asyncio
@@ -26,6 +27,60 @@ class DocumentService:
         except Exception as e:
             logger.warning(f"Together AI not available: {e}")
             self.together = None
+
+    def _calculate_auto_font_size(self, text: str, width_inches: float, height_inches: float, 
+                                   max_font_pt: int = 24, min_font_pt: int = 14) -> int:
+        """Calculate optimal font size to fit text within boundaries.
+        
+        Accounts for:
+        - Character count per line based on font size
+        - Explicit line breaks (\\n)
+        - Word wrapping estimation
+        - Long words that may not wrap properly
+        """
+        if not text:
+            return max_font_pt
+        
+        text = text.replace('\r\n', '\n').replace('\r', '\n')
+        paragraphs = text.split('\n')
+        
+        current_font = max_font_pt
+        while current_font >= min_font_pt:
+            chars_per_inch = 10.5 * (24 / current_font)
+            chars_per_line = int(width_inches * chars_per_inch)
+            
+            line_height_inches = current_font / 72 * 1.3
+            max_lines = int(height_inches / line_height_inches)
+            
+            total_lines_needed = 0
+            for para in paragraphs:
+                if not para.strip():
+                    total_lines_needed += 1
+                    continue
+                
+                words = para.split()
+                line_chars = 0
+                para_lines = 1
+                
+                for word in words:
+                    word_len = len(word)
+                    if word_len > chars_per_line:
+                        para_lines += (word_len // chars_per_line) + 1
+                        line_chars = word_len % chars_per_line
+                    elif line_chars + word_len + 1 <= chars_per_line:
+                        line_chars += word_len + 1
+                    else:
+                        para_lines += 1
+                        line_chars = word_len
+                
+                total_lines_needed += para_lines
+            
+            if total_lines_needed <= max_lines:
+                return current_font
+            
+            current_font -= 1
+        
+        return min_font_pt
 
     async def create_presentation_with_smart_images(self, topic: str, content: Dict, author_name: str, language: str = "uz", template_service=None, template_id: str = None) -> str:
         """Create PowerPoint presentation with new layout system and Together AI images
@@ -135,17 +190,25 @@ class DocumentService:
         self._add_slide_title(slide, slide_data.get('title', 'Reja'))
         
         plan_items = slide_data.get('plan_items', [])
+        width_in = 11
+        height_in = 5
         content_box = slide.shapes.add_textbox(
             PptxInches(1), PptxInches(2),
-            PptxInches(11), PptxInches(5)
+            PptxInches(width_in), PptxInches(height_in)
         )
         tf = content_box.text_frame
         tf.word_wrap = True
         
+        all_text = ' '.join(plan_items[:4])
+        optimal_font = self._calculate_auto_font_size(all_text, width_in, height_in, 26, 18)
+        
         for i, item in enumerate(plan_items[:4]):
             p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-            p.text = item if item.startswith(str(i+1)) else f"{i+1}. {item}"
-            p.font.size = PptxPt(26)
+            if isinstance(item, str):
+                p.text = item if item.startswith(str(i+1)) else f"{i+1}. {item}"
+            else:
+                p.text = f"{i+1}. {str(item)}"
+            p.font.size = PptxPt(optimal_font)
             p.font.bold = True
             p.alignment = PP_ALIGN.JUSTIFY
             p.space_after = PptxPt(24)
@@ -175,11 +238,13 @@ class DocumentService:
                 {'text': ' '.join(words[mid:])}
             ]
         
-        font_size = 23 if language in ['ru', 'en'] else 24
+        max_font = 23 if language in ['ru', 'en'] else 24
         
         for i, col in enumerate(columns[:2]):
             x_pos = PptxInches(0.5) if i == 0 else PptxInches(6.9)
-            box = slide.shapes.add_textbox(x_pos, PptxInches(2), PptxInches(5.9), PptxInches(5))
+            width_in = 5.9
+            height_in = 5
+            box = slide.shapes.add_textbox(x_pos, PptxInches(2), PptxInches(width_in), PptxInches(height_in))
             tf = box.text_frame
             tf.word_wrap = True
             p = tf.paragraphs[0]
@@ -187,8 +252,9 @@ class DocumentService:
                 col_text = col.get('column_content', col.get('text', col.get('content', '')))
             else:
                 col_text = str(col)
+            optimal_font = self._calculate_auto_font_size(col_text, width_in, height_in, max_font, 14)
             p.text = col_text
-            p.font.size = PptxPt(font_size)
+            p.font.size = PptxPt(optimal_font)
             p.alignment = PP_ALIGN.LEFT
 
     async def _create_right_image_slide(self, slide, slide_data: Dict, topic: str, language: str):
@@ -254,11 +320,13 @@ class DocumentService:
                 {'column_content': ' '.join(words[2*third:])}
             ]
         
-        font_size = 22 if language in ['ru', 'en'] else 23
+        max_font = 22 if language in ['ru', 'en'] else 23
+        width_in = 4
+        height_in = 5
         
         for i, col in enumerate(columns[:3]):
             x_pos = PptxInches(0.4 + i * 4.3)
-            box = slide.shapes.add_textbox(x_pos, PptxInches(2), PptxInches(4), PptxInches(5))
+            box = slide.shapes.add_textbox(x_pos, PptxInches(2), PptxInches(width_in), PptxInches(height_in))
             tf = box.text_frame
             tf.word_wrap = True
             
@@ -269,6 +337,8 @@ class DocumentService:
                 keyword = ''
                 col_text = str(col)
             
+            optimal_font = self._calculate_auto_font_size(col_text, width_in, height_in - 1, max_font, 14)
+            
             if keyword:
                 p_keyword = tf.paragraphs[0]
                 p_keyword.text = keyword
@@ -278,12 +348,12 @@ class DocumentService:
                 
                 p_desc = tf.add_paragraph()
                 p_desc.text = col_text
-                p_desc.font.size = PptxPt(font_size)
+                p_desc.font.size = PptxPt(optimal_font)
                 p_desc.alignment = PP_ALIGN.LEFT
             else:
                 p = tf.paragraphs[0]
                 p.text = col_text
-                p.font.size = PptxPt(font_size)
+                p.font.size = PptxPt(optimal_font)
                 p.alignment = PP_ALIGN.LEFT
 
     async def _create_horizontal_image_slide(self, slide, slide_data: Dict, topic: str, language: str):
@@ -391,19 +461,27 @@ class DocumentService:
         p.font.color.rgb = RGBColor(0, 0, 0)
         p.alignment = PP_ALIGN.CENTER
 
-    def _add_justified_content(self, slide, content, left: float, top: float, width: float, height: float, align_left: bool = False):
-        """Add justified content text - 24pt"""
+    def _add_justified_content(self, slide, content, left: float, top: float, width: float, height: float, align_left: bool = False, max_font: int = 24, min_font: int = 14):
+        """Add justified content text with auto-fit font sizing.
+        
+        If text is too long, font automatically reduces (min 14pt).
+        """
         if isinstance(content, list):
             content = ' '.join(str(item) for item in content)
         elif not isinstance(content, str):
             content = str(content) if content else ''
+        
+        width_inches = width / 914400 if width > 100 else width
+        height_inches = height / 914400 if height > 100 else height
+        
+        optimal_font = self._calculate_auto_font_size(content, width_inches, height_inches, max_font, min_font)
             
         content_box = slide.shapes.add_textbox(left, top, width, height)
         tf = content_box.text_frame
         tf.word_wrap = True
         p = tf.paragraphs[0]
         p.text = content
-        p.font.size = PptxPt(24)
+        p.font.size = PptxPt(optimal_font)
         p.alignment = PP_ALIGN.LEFT if align_left else PP_ALIGN.JUSTIFY
 
     async def create_presentation(self, topic: str, content: Dict, images: Dict, author_name: str) -> str:
