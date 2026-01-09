@@ -1354,10 +1354,15 @@ class DocumentService:
             for _ in range(3):
                 doc.add_paragraph()
             
-            # City
+            # Title Page City
             city_para = doc.add_paragraph()
             city_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            city_run = city_para.add_run(texts['city'])
+            
+            # Extract year from timestamp or current year
+            current_year = datetime.now().year
+            city_text = f"{texts['city']} - {current_year}"
+            
+            city_run = city_para.add_run(city_text)
             city_run.font.size = Pt(14)
             city_run.font.name = 'Times New Roman'
             
@@ -1435,10 +1440,10 @@ class DocumentService:
         if language == 'ru':
             return {
                 'course_work': 'КУРСОВАЯ РАБОТА',
-                'faculty': 'факультета',
+                'faculty': 'факультет',
                 'topic': 'Тема',
-                'prepared_by': 'Выполнил',
-                'accepted_by': 'Принял',
+                'prepared_by': 'Выполнил(а)',
+                'accepted_by': 'Принял(а)',
                 'city': 'Ташкент',
                 'contents': 'СОДЕРЖАНИЕ',
                 'introduction': 'ВВЕДЕНИЕ',
