@@ -247,11 +247,12 @@ class DocumentService:
             ]
         
         max_font = 23 if language in ['ru', 'en'] else 24
+        width_in = 5.8
+        height_in = 4.5
+        column_positions = [0.5, 6.8]
         
         for i, col in enumerate(columns[:2]):
-            x_pos = PptxInches(0.5) if i == 0 else PptxInches(6.9)
-            width_in = 5.9
-            height_in = 5
+            x_pos = PptxInches(column_positions[i])
             box = slide.shapes.add_textbox(x_pos, PptxInches(2), PptxInches(width_in), PptxInches(height_in))
             tf = box.text_frame
             tf.word_wrap = True
@@ -261,7 +262,7 @@ class DocumentService:
             else:
                 col_text = str(col)
             col_text = clean_text(col_text)
-            optimal_font = self._calculate_auto_font_size(col_text, width_in, height_in, max_font, 14)
+            optimal_font = self._calculate_auto_font_size(col_text, width_in, height_in, max_font, 12)
             p.text = col_text
             p.font.size = PptxPt(optimal_font)
             p.font.name = 'Times New Roman'
@@ -273,7 +274,7 @@ class DocumentService:
         
         self._add_justified_content(slide, slide_data.get('content', ''),
                                     PptxInches(0.5), PptxInches(2),
-                                    PptxInches(6), PptxInches(5), align_left=True)
+                                    PptxInches(5.8), PptxInches(4.5), align_left=True)
         
         if self.together:
             try:
@@ -309,7 +310,7 @@ class DocumentService:
         
         self._add_justified_content(slide, slide_data.get('content', ''),
                                     PptxInches(6.8), PptxInches(2),
-                                    PptxInches(6), PptxInches(5), align_left=True)
+                                    PptxInches(5.8), PptxInches(4.5), align_left=True)
 
     def _create_three_column_slide(self, slide, slide_data: Dict, language: str = 'uz'):
         """Shablon 4: 3 ustunli - har ustunda kalit so'z + tarif"""
@@ -335,8 +336,8 @@ class DocumentService:
             ]
         
         max_font = 22 if language in ['ru', 'en'] else 23
-        width_in = 3.8
-        height_in = 5
+        width_in = 4.0
+        height_in = 4.5
         
         column_positions = [0.3, 4.5, 8.7]
         
@@ -355,7 +356,7 @@ class DocumentService:
             
             keyword = clean_text(keyword)
             col_text = clean_text(col_text)
-            optimal_font = self._calculate_auto_font_size(col_text, width_in, height_in - 1, max_font, 14)
+            optimal_font = self._calculate_auto_font_size(col_text, width_in, height_in - 1, max_font, 12)
             
             if keyword:
                 p_keyword = tf.paragraphs[0]
