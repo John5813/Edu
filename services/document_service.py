@@ -230,8 +230,12 @@ class DocumentService:
         columns = slide_data.get('columns', [])
         content = slide_data.get('content', '')
         
+        if isinstance(content, dict):
+            content = content.get('text', content.get('content', str(content)))
         if isinstance(content, list):
             content = ' '.join(str(item) for item in content)
+        if not isinstance(content, str):
+            content = str(content)
         
         if not columns and content:
             words = content.split()
@@ -312,8 +316,12 @@ class DocumentService:
         columns = slide_data.get('columns', [])
         content = slide_data.get('content', '')
         
+        if isinstance(content, dict):
+            content = content.get('text', content.get('content', str(content)))
         if isinstance(content, list):
             content = ' '.join(str(item) for item in content)
+        if not isinstance(content, str):
+            content = str(content)
         
         if not columns and content:
             words = content.split()
