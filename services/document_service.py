@@ -239,11 +239,10 @@ class DocumentService:
             content = str(content)
         
         if not columns and content:
-            words = content.split()
-            mid = len(words) // 2
+            logger.warning("two_column slide missing 'columns' array - using content as fallback")
             columns = [
-                {'text': ' '.join(words[:mid])},
-                {'text': ' '.join(words[mid:])}
+                {'text': content},
+                {'text': ''}
             ]
         
         max_font = 23 if language in ['ru', 'en'] else 24
@@ -327,12 +326,11 @@ class DocumentService:
             content = str(content)
         
         if not columns and content:
-            words = content.split()
-            third = len(words) // 3
+            logger.warning("three_column slide missing 'columns' array - using content as fallback")
             columns = [
-                {'column_content': ' '.join(words[:third])},
-                {'column_content': ' '.join(words[third:2*third])},
-                {'column_content': ' '.join(words[2*third:])}
+                {'column_content': content},
+                {'column_content': ''},
+                {'column_content': ''}
             ]
         
         max_font = 22 if language in ['ru', 'en'] else 23

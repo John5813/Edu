@@ -296,29 +296,36 @@ STRUKTURA (jami {slide_count} slayd):
 {slide_count}. Rahmat slayd ("E'tiboringiz uchun rahmat!")
 
 ASOSIY SLAIDLAR UCHUN 6 TA SHABLON (tartib bilan takrorlanadi):
-1. two_column - 2 ustun, har biri AYNAN 60 so'z (kam bo'lmasin!)
-2. right_image - o'ngda rasm, chapda 74-76 so'z matn
-3. left_image - chapda rasm, o'ngda 74-76 so'z matn
-4. three_column - 3 ustun, har birida: 1 ta asosiy so'z (BOLD) va unga 15-18 so'z tarif
-5. horizontal_image - pastda rasm, ustida AYNAN 50 so'z matn
-6. text_with_numbers - raqamli matn 40-50 so'z
+1. two_column - 2 MUSTAQIL ustun, har biri ~60 so'z
+2. right_image - o'ngda rasm, chapda ~75 so'z matn
+3. left_image - chapda rasm, o'ngda ~75 so'z matn
+4. three_column - 3 MUSTAQIL ustun, har birida: 1 ta kalit so'z va ~20 so'z tarif
+5. horizontal_image - pastda rasm, ustida ~50 so'z matn
+6. text_with_numbers - raqamli matn ~50 so'z
+
+JUDA MUHIM QOIDA - USTUNLAR UCHUN:
+- two_column va three_column da har bir ustun O'Z ALOHIDA MAVZUSI bo'lishi kerak!
+- Bir ustundagi gap BOSHQA ustunda davom etmasin!
+- Har bir ustun TUGALLANGAN, MUSTAQIL paragraf bo'lsin!
+- Masalan: Ustun1="Bank kreditlari haqida...", Ustun2="Bank depozitlari haqida..." - ALOHIDA mavzular!
+- XATO misol: Ustun1="Bank faoliyatining", Ustun2="asosiy yo'nalishlari" - BU XATO!
 
 Har bir slayd uchun:
 - title: Slayd sarlavhasi
-- content: Asosiy mazmun
-- layout: shablon turi (cover, plan, intro, two_column, right_image, left_image, three_column, horizontal_image, text_with_numbers, conclusion, references, thanks)
-- columns (ustunli slaidlar uchun): {{"column_content": "matn"}} har bir ustun uchun
+- content: Asosiy mazmun (FAQAT ustunli bo'lmagan slaidlar uchun)
+- layout: shablon turi
+- columns: MAJBURIY two_column va three_column uchun - har bir ustun ALOHIDA matn!
 
-MUHIM: Faqat JSON formatda javob bering! Matn miqdori ko'rsatilgan joyga HAQIQIY MAZMUNLI MATN yozing!
+MUHIM: Faqat JSON formatda javob bering!
 {{
     "slides": [
         {{"title": "{topic}", "content": "", "layout": "cover"}},
         {{"title": "Reja", "content": "", "layout": "plan", "plan_items": ["1. Mavzu haqida", "2. Asosiy tushunchalar", "3. Amaliy qo'llanilishi", "4. Xulosa"]}},
         {{"title": "Kirish", "content": "[BU YERGA HAQIQIY KIRISH MATNI YOZING]", "layout": "intro"}},
-        {{"title": "Sarlavha", "content": "", "layout": "two_column", "columns": [{{"column_content": "[BIRINCHI USTUN UCHUN MAZMUNLI MATN]"}}, {{"column_content": "[IKKINCHI USTUN UCHUN MAZMUNLI MATN]"}}]}},
-        {{"title": "Sarlavha", "content": "[RASM YONIGA MAZMUNLI MATN]", "layout": "right_image"}},
-        {{"title": "Sarlavha", "content": "[RASM YONIGA MAZMUNLI MATN]", "layout": "left_image"}},
-        {{"title": "Sarlavha", "content": "", "layout": "three_column", "columns": [{{"keyword": "Tushuncha", "column_content": "[BIRINCHI TUSHUNCHA TARIFI]"}}, {{"keyword": "Tushuncha", "column_content": "[IKKINCHI TUSHUNCHA TARIFI]"}}, {{"keyword": "Tushuncha", "column_content": "[UCHINCHI TUSHUNCHA TARIFI]"}}]}},
+        {{"title": "Ikki Jihat", "content": "", "layout": "two_column", "columns": [{{"column_content": "Birinchi jihat haqida to'liq va tugallangan matn. Bu ustun o'z mavzusini yoritadi va boshqa ustundan mustaqil."}}, {{"column_content": "Ikkinchi jihat haqida alohida va tugallangan matn. Bu ustun boshqa mavzuni yoritadi va birinchi ustundan mustaqil."}}]}},
+        {{"title": "Sarlavha", "content": "[RASM YONIGA TUGALLANGAN MATN]", "layout": "right_image"}},
+        {{"title": "Sarlavha", "content": "[RASM YONIGA TUGALLANGAN MATN]", "layout": "left_image"}},
+        {{"title": "Uchta Tushuncha", "content": "", "layout": "three_column", "columns": [{{"keyword": "Birinchi", "column_content": "Birinchi tushuncha haqida tugallangan tarif."}}, {{"keyword": "Ikkinchi", "column_content": "Ikkinchi tushuncha haqida alohida tarif."}}, {{"keyword": "Uchinchi", "column_content": "Uchinchi tushuncha haqida mustaqil tarif."}}]}},
         {{"title": "Sarlavha", "content": "[RASM USTIGA MAZMUNLI MATN]", "layout": "horizontal_image"}},
         {{"title": "Sarlavha", "content": "[RAQAMLI MAZMUNLI MATN]", "layout": "text_with_numbers"}},
         {{"title": "Xulosa", "content": "[XULOSA MATNI]", "layout": "conclusion"}},
@@ -342,31 +349,38 @@ MUHIM: Faqat JSON formatda javob bering! Matn miqdori ko'rsatilgan joyga HAQIQIY
 {slide_count}. Слайд благодарности ("Спасибо за внимание!")
 
 ШАБЛОНЫ ДЛЯ ОСНОВНЫХ СЛАЙДОВ (чередуются по порядку):
-1. two_column - 2 колонки РОВНО по 60 слов каждая (не меньше!)
-2. right_image - справа изображение, слева текст 74-76 слов
-3. left_image - слева изображение, справа текст 74-76 слов
-4. three_column - 3 колонки, в каждой: 1 ключевое слово (BOLD) и 15-18 слов описание
-5. horizontal_image - внизу изображение, сверху текст РОВНО 50 слов
-6. text_with_numbers - текст с цифрами 40-50 слов
+1. two_column - 2 НЕЗАВИСИМЫЕ колонки, каждая ~60 слов
+2. right_image - справа изображение, слева ~75 слов текста
+3. left_image - слева изображение, справа ~75 слов текста
+4. three_column - 3 НЕЗАВИСИМЫЕ колонки, каждая: ключевое слово + ~20 слов описание
+5. horizontal_image - внизу изображение, сверху ~50 слов текста
+6. text_with_numbers - текст с цифрами ~50 слов
+
+ОЧЕНЬ ВАЖНОЕ ПРАВИЛО - ДЛЯ КОЛОНОК:
+- В two_column и three_column каждая колонка должна иметь СВОЮ ОТДЕЛЬНУЮ ТЕМУ!
+- Предложение из одной колонки НЕ ДОЛЖНО продолжаться в другой колонке!
+- Каждая колонка - это ЗАКОНЧЕННЫЙ, НЕЗАВИСИМЫЙ абзац!
+- Пример: Колонка1="О банковских кредитах...", Колонка2="О банковских депозитах..." - ОТДЕЛЬНЫЕ темы!
+- НЕПРАВИЛЬНО: Колонка1="Банковская деятельность", Колонка2="включает много аспектов" - ЭТО ОШИБКА!
 
 Для каждого слайда:
 - title: Заголовок слайда
-- content: Основной текст
-- layout: тип шаблона (cover, plan, intro, two_column, right_image, left_image, three_column, horizontal_image, text_with_numbers, conclusion, references, thanks)
-- columns (для колоночных): {{"column_content": "текст"}} для каждой колонки
+- content: Основной текст (ТОЛЬКО для слайдов без колонок)
+- layout: тип шаблона
+- columns: ОБЯЗАТЕЛЬНО для two_column и three_column - каждая колонка ОТДЕЛЬНЫЙ текст!
 
-ВАЖНО: Отвечайте ТОЛЬКО в формате JSON! Вместо указанного количества слов пишите РЕАЛЬНЫЙ СОДЕРЖАТЕЛЬНЫЙ ТЕКСТ!
+ВАЖНО: Отвечайте ТОЛЬКО в формате JSON!
 {{
     "slides": [
         {{"title": "{topic}", "content": "", "layout": "cover"}},
         {{"title": "План", "content": "", "layout": "plan", "plan_items": ["1. О теме", "2. Основные понятия", "3. Применение", "4. Выводы"]}},
         {{"title": "Введение", "content": "[НАПИШИТЕ РЕАЛЬНЫЙ ТЕКСТ ВВЕДЕНИЯ]", "layout": "intro"}},
-        {{"title": "Заголовок", "content": "", "layout": "two_column", "columns": [{{"column_content": "[СОДЕРЖАТЕЛЬНЫЙ ТЕКСТ ПЕРВОЙ КОЛОНКИ]"}}, {{"column_content": "[СОДЕРЖАТЕЛЬНЫЙ ТЕКСТ ВТОРОЙ КОЛОНКИ]"}}]}},
-        {{"title": "Заголовок", "content": "[СОДЕРЖАТЕЛЬНЫЙ ТЕКСТ РЯДОМ С ИЗОБРАЖЕНИЕМ]", "layout": "right_image"}},
-        {{"title": "Заголовок", "content": "[СОДЕРЖАТЕЛЬНЫЙ ТЕКСТ РЯДОМ С ИЗОБРАЖЕНИЕМ]", "layout": "left_image"}},
-        {{"title": "Заголовок", "content": "", "layout": "three_column", "columns": [{{"keyword": "Понятие", "column_content": "[ОПИСАНИЕ ПЕРВОГО ПОНЯТИЯ]"}}, {{"keyword": "Понятие", "column_content": "[ОПИСАНИЕ ВТОРОГО ПОНЯТИЯ]"}}, {{"keyword": "Понятие", "column_content": "[ОПИСАНИЕ ТРЕТЬЕГО ПОНЯТИЯ]"}}]}},
-        {{"title": "Заголовок", "content": "[СОДЕРЖАТЕЛЬНЫЙ ТЕКСТ НАД ИЗОБРАЖЕНИЕМ]", "layout": "horizontal_image"}},
-        {{"title": "Заголовок", "content": "[СОДЕРЖАТЕЛЬНЫЙ ТЕКСТ С ЦИФРАМИ]", "layout": "text_with_numbers"}},
+        {{"title": "Два Аспекта", "content": "", "layout": "two_column", "columns": [{{"column_content": "Первый аспект темы с полным и законченным описанием. Эта колонка независима от второй."}}, {{"column_content": "Второй аспект темы с отдельным и законченным описанием. Эта колонка независима от первой."}}]}},
+        {{"title": "Заголовок", "content": "[ЗАКОНЧЕННЫЙ ТЕКСТ РЯДОМ С ИЗОБРАЖЕНИЕМ]", "layout": "right_image"}},
+        {{"title": "Заголовок", "content": "[ЗАКОНЧЕННЫЙ ТЕКСТ РЯДОМ С ИЗОБРАЖЕНИЕМ]", "layout": "left_image"}},
+        {{"title": "Три Понятия", "content": "", "layout": "three_column", "columns": [{{"keyword": "Первое", "column_content": "Описание первого понятия, законченное."}}, {{"keyword": "Второе", "column_content": "Описание второго понятия, отдельное."}}, {{"keyword": "Третье", "column_content": "Описание третьего понятия, независимое."}}]}},
+        {{"title": "Заголовок", "content": "[ТЕКСТ НАД ИЗОБРАЖЕНИЕМ]", "layout": "horizontal_image"}},
+        {{"title": "Заголовок", "content": "[ТЕКСТ С ЦИФРАМИ]", "layout": "text_with_numbers"}},
         {{"title": "Заключение", "content": "[ТЕКСТ ЗАКЛЮЧЕНИЯ]", "layout": "conclusion"}},
         {{"title": "Литература", "content": "", "layout": "references", "references": ["Название источника и год", "Название источника и год", "Название источника и год", "Название источника и год"]}},
         {{"title": "", "content": "", "layout": "thanks"}}
@@ -388,31 +402,38 @@ STRUCTURE (total {slide_count} slides):
 {slide_count}. Thank you slide ("Thank you for your attention!")
 
 TEMPLATES FOR MAIN SLIDES (rotate in order):
-1. two_column - 2 columns with EXACTLY 60 words each (no less!)
-2. right_image - image on right, text 74-76 words on left
-3. left_image - image on left, text 74-76 words on right
-4. three_column - 3 columns, each with: 1 keyword (BOLD) and 15-18 words description
-5. horizontal_image - image at bottom, text EXACTLY 50 words on top
-6. text_with_numbers - text with numbers 40-50 words
+1. two_column - 2 INDEPENDENT columns, each ~60 words
+2. right_image - image on right, ~75 words text on left
+3. left_image - image on left, ~75 words text on right
+4. three_column - 3 INDEPENDENT columns, each: keyword + ~20 words description
+5. horizontal_image - image at bottom, ~50 words text on top
+6. text_with_numbers - text with numbers ~50 words
+
+CRITICAL RULE - FOR COLUMNS:
+- In two_column and three_column, each column must have its OWN SEPARATE TOPIC!
+- A sentence from one column must NOT continue in another column!
+- Each column must be a COMPLETE, INDEPENDENT paragraph!
+- Example: Column1="About bank loans...", Column2="About bank deposits..." - SEPARATE topics!
+- WRONG: Column1="Banking activities", Column2="include many aspects" - THIS IS AN ERROR!
 
 For each slide:
 - title: Slide title
-- content: Main text
-- layout: template type (cover, plan, intro, two_column, right_image, left_image, three_column, horizontal_image, text_with_numbers, conclusion, references, thanks)
-- columns (for column layouts): {{"column_content": "text"}} for each column
+- content: Main text (ONLY for non-column slides)
+- layout: template type
+- columns: REQUIRED for two_column and three_column - each column SEPARATE text!
 
-IMPORTANT: Respond ONLY in JSON format! Write REAL MEANINGFUL CONTENT instead of word count placeholders!
+IMPORTANT: Respond ONLY in JSON format!
 {{
     "slides": [
         {{"title": "{topic}", "content": "", "layout": "cover"}},
         {{"title": "Agenda", "content": "", "layout": "plan", "plan_items": ["1. About the topic", "2. Key concepts", "3. Applications", "4. Conclusions"]}},
         {{"title": "Introduction", "content": "[WRITE ACTUAL INTRODUCTION TEXT]", "layout": "intro"}},
-        {{"title": "Title", "content": "", "layout": "two_column", "columns": [{{"column_content": "[MEANINGFUL CONTENT FOR FIRST COLUMN]"}}, {{"column_content": "[MEANINGFUL CONTENT FOR SECOND COLUMN]"}}]}},
-        {{"title": "Title", "content": "[MEANINGFUL TEXT NEXT TO IMAGE]", "layout": "right_image"}},
-        {{"title": "Title", "content": "[MEANINGFUL TEXT NEXT TO IMAGE]", "layout": "left_image"}},
-        {{"title": "Title", "content": "", "layout": "three_column", "columns": [{{"keyword": "Concept", "column_content": "[DESCRIPTION OF FIRST CONCEPT]"}}, {{"keyword": "Concept", "column_content": "[DESCRIPTION OF SECOND CONCEPT]"}}, {{"keyword": "Concept", "column_content": "[DESCRIPTION OF THIRD CONCEPT]"}}]}},
-        {{"title": "Title", "content": "[MEANINGFUL TEXT ABOVE IMAGE]", "layout": "horizontal_image"}},
-        {{"title": "Title", "content": "[MEANINGFUL TEXT WITH NUMBERS]", "layout": "text_with_numbers"}},
+        {{"title": "Two Aspects", "content": "", "layout": "two_column", "columns": [{{"column_content": "First aspect of the topic with complete description. This column is independent from the second."}}, {{"column_content": "Second aspect of the topic with separate description. This column is independent from the first."}}]}},
+        {{"title": "Title", "content": "[COMPLETE TEXT NEXT TO IMAGE]", "layout": "right_image"}},
+        {{"title": "Title", "content": "[COMPLETE TEXT NEXT TO IMAGE]", "layout": "left_image"}},
+        {{"title": "Three Concepts", "content": "", "layout": "three_column", "columns": [{{"keyword": "First", "column_content": "Description of first concept, complete."}}, {{"keyword": "Second", "column_content": "Description of second concept, separate."}}, {{"keyword": "Third", "column_content": "Description of third concept, independent."}}]}},
+        {{"title": "Title", "content": "[TEXT ABOVE IMAGE]", "layout": "horizontal_image"}},
+        {{"title": "Title", "content": "[TEXT WITH NUMBERS]", "layout": "text_with_numbers"}},
         {{"title": "Conclusion", "content": "[CONCLUSION TEXT]", "layout": "conclusion"}},
         {{"title": "References", "content": "", "layout": "references", "references": ["Source name and year", "Source name and year", "Source name and year", "Source name and year"]}},
         {{"title": "", "content": "", "layout": "thanks"}}
