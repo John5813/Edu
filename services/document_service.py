@@ -1182,7 +1182,13 @@ class DocumentService:
                     sub_para = doc.add_paragraph()
                     sub_para.paragraph_format.space_before = Pt(12)
                     sub_para.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                    sub_run = sub_para.add_run(f"{subsection['number']} {subsection['title']}")
+                    
+                    # Clean title from existing numbering to avoid "1.1 1.1 Title"
+                    clean_title = subsection['title']
+                    import re
+                    clean_title = re.sub(r'^\d+(\.\d+)*\s*', '', clean_title)
+                    
+                    sub_run = sub_para.add_run(f"{subsection['number']} {clean_title}")
                     sub_run.font.size = Pt(14)
                     sub_run.font.bold = True
                     sub_run.font.name = 'Times New Roman'
@@ -1398,7 +1404,13 @@ class DocumentService:
                 sub_toc.paragraph_format.left_indent = Inches(0.5)
                 sub_toc.paragraph_format.line_spacing = 1.5
                 sub_toc.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                sub_run = sub_toc.add_run(f"{subsection['number']} {subsection['title']}")
+                
+                # Clean title from existing numbering for TOC
+                clean_sub_title = subsection['title']
+                import re
+                clean_sub_title = re.sub(r'^\d+(\.\d+)*\s*', '', clean_sub_title)
+                
+                sub_run = sub_toc.add_run(f"{subsection['number']} {clean_sub_title}")
                 sub_run.font.size = Pt(14)
                 sub_run.font.name = 'Times New Roman'
         
