@@ -931,6 +931,7 @@ In JSON format:
                 "title": topic,
                 "chapters": [],
                 "introduction": "",
+                "intro_points": {},
                 "conclusion": "",
                 "references": []
             }
@@ -940,6 +941,9 @@ In JSON format:
             
             # Generate introduction (2 pages worth ~600 words)
             content["introduction"] = await self._generate_course_intro(topic, language)
+            
+            # Generate specific intro points (Subject, Object, Goal, etc.)
+            content["intro_points"] = await self._generate_intro_points(topic, language)
             
             # Generate each chapter with 3 subsections
             for i, chapter_title in enumerate(chapter_titles, 1):
@@ -1116,6 +1120,84 @@ RULES:
         except Exception as e:
             logger.error(f"Error generating subsection content: {e}")
             return ""
+
+    async def _generate_intro_points(self, topic: str, language: str) -> Dict[str, str]:
+        """Generate specific introduction points: Subject, Object, Goal, Tasks, etc."""
+        try:
+            if language == "uz":
+                prompt = f""""{topic}" mavzusidagi kurs ishi uchun quyidagi 6 ta punktga batafsil akademik tarif bering (har biri kamida 30-40 so'z bo'lsin):
+1. Kurs ishining predmeti.
+2. Kurs ishining obyekti.
+3. Mavzuning o‘rganilganlik darajasi.
+4. Kurs ishining maqsadi.
+5. Kurs ishining vazifalari (vazifalarni punktma-punkt yozing).
+6. Kurs ishining tarkibiy tuzilishi.
+
+JSON formatda javob bering:
+{{
+  "point_1": "predmet tarifi...",
+  "point_2": "obyekt tarifi...",
+  "point_3": "daraja tarifi...",
+  "point_4": "maqsad tarifi...",
+  "point_5": "vazifa 1\\nvazifa 2\\nvazifa 3...",
+  "point_6": "tarkibiy tuzilish tarifi..."
+}}"""
+            elif language == "ru":
+                prompt = f"""Дайте подробное академическое описание следующих 6 пунктов для курсовой работы по теме "{topic}" (каждый минимум 30-40 слов):
+1. Предмет курсовой работы.
+2. Объект курсовой работы.
+3. Степень изученности темы.
+4. Цель курсовой работы.
+5. Задачи курсовой работы (напишите по пунктам).
+6. Структура курсовой работы.
+
+Ответьте в формате JSON:
+{{
+  "point_1": "описание предмета...",
+  "point_2": "описание объекта...",
+  "point_3": "описание степени изученности...",
+  "point_4": "описание цели...",
+  "point_5": "задача 1\\nзадача 2...",
+  "point_6": "описание структуры..."
+}}"""
+            else:
+                prompt = f"""Provide detailed academic descriptions for the following 6 points for a course work on "{topic}" (at least 30-40 words each):
+1. Subject of the course work.
+2. Object of the course work.
+3. Degree of study of the topic.
+4. Goal of the course work.
+5. Tasks of the course work (write point by point).
+6. Structure of the course work.
+
+Respond in JSON format:
+{{
+  "point_1": "subject description...",
+  "point_2": "object description...",
+  "point_3": "study degree description...",
+  "point_4": "goal description...",
+  "point_5": "task 1\\ntask 2...",
+  "point_6": "structure description..."
+}}"""
+
+            response = await self._make_request(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1500,
+                temperature=0.7
+            )
+            
+            content_str = response.strip()
+            if content_str.startswith("```json"):
+                content_str = content_str[7:]
+            if content_str.startswith("```"):
+                content_str = content_str[3:]
+            if content_str.endswith("```"):
+                content_str = content_str[:-3]
+            
+            return json.loads(content_str.strip())
+            
+        except Exception as e:
+            logger.error(f"Error generating intro points: {e}")
+            return {f"point_{i}": "" for i in range(1, 7)}
 
     async def _generate_course_intro(self, topic: str, language: str) -> str:
         """Generate course work introduction (~600 words for 2 pages)"""
