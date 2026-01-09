@@ -176,6 +176,7 @@ class DocumentService:
         p1.text = topic
         p1.font.size = PptxPt(42)
         p1.font.bold = True
+        p1.font.name = 'Times New Roman'
         p1.font.color.rgb = RGBColor(0, 0, 0)
         p1.alignment = PP_ALIGN.CENTER
         
@@ -183,6 +184,7 @@ class DocumentService:
         p2.text = author_name if author_name else "________________"
         p2.font.size = PptxPt(26)
         p2.font.bold = True
+        p2.font.name = 'Times New Roman'
         p2.alignment = PP_ALIGN.CENTER
 
     def _create_plan_slide(self, slide, slide_data: Dict):
@@ -210,7 +212,8 @@ class DocumentService:
                 p.text = f"{i+1}. {str(item)}"
             p.font.size = PptxPt(optimal_font)
             p.font.bold = True
-            p.alignment = PP_ALIGN.JUSTIFY
+            p.font.name = 'Times New Roman'
+            p.alignment = PP_ALIGN.LEFT
             p.space_after = PptxPt(24)
 
     def _create_intro_slide(self, slide, slide_data: Dict):
@@ -255,6 +258,7 @@ class DocumentService:
             optimal_font = self._calculate_auto_font_size(col_text, width_in, height_in, max_font, 14)
             p.text = col_text
             p.font.size = PptxPt(optimal_font)
+            p.font.name = 'Times New Roman'
             p.alignment = PP_ALIGN.LEFT
 
     async def _create_right_image_slide(self, slide, slide_data: Dict, topic: str, language: str):
@@ -344,16 +348,19 @@ class DocumentService:
                 p_keyword.text = keyword
                 p_keyword.font.size = PptxPt(26)
                 p_keyword.font.bold = True
+                p_keyword.font.name = 'Times New Roman'
                 p_keyword.alignment = PP_ALIGN.LEFT
                 
                 p_desc = tf.add_paragraph()
                 p_desc.text = col_text
                 p_desc.font.size = PptxPt(optimal_font)
+                p_desc.font.name = 'Times New Roman'
                 p_desc.alignment = PP_ALIGN.LEFT
             else:
                 p = tf.paragraphs[0]
                 p.text = col_text
                 p.font.size = PptxPt(optimal_font)
+                p.font.name = 'Times New Roman'
                 p.alignment = PP_ALIGN.LEFT
 
     async def _create_horizontal_image_slide(self, slide, slide_data: Dict, topic: str, language: str):
@@ -415,7 +422,8 @@ class DocumentService:
                 ref_text = str(ref)
             p.text = f"{i+1}. {ref_text}" if not ref_text.startswith(str(i+1)) else ref_text
             p.font.size = PptxPt(24)
-            p.alignment = PP_ALIGN.JUSTIFY
+            p.font.name = 'Times New Roman'
+            p.alignment = PP_ALIGN.LEFT
             p.space_after = PptxPt(12)
 
     def _create_thanks_slide(self, slide, language: str):
@@ -437,6 +445,7 @@ class DocumentService:
         p.text = text
         p.font.size = PptxPt(48)
         p.font.bold = True
+        p.font.name = 'Times New Roman'
         p.font.color.rgb = RGBColor(0, 0, 0)
         p.alignment = PP_ALIGN.CENTER
 
@@ -448,7 +457,7 @@ class DocumentService:
                                     PptxInches(11), PptxInches(5))
 
     def _add_slide_title(self, slide, title: str):
-        """Add title to slide - qalin qora 42pt"""
+        """Add title to slide - qalin qora 42pt Times New Roman"""
         title_box = slide.shapes.add_textbox(
             PptxInches(0.3), PptxInches(0.3),
             PptxInches(12.7), PptxInches(1)
@@ -458,12 +467,14 @@ class DocumentService:
         p.text = title
         p.font.size = PptxPt(42)
         p.font.bold = True
+        p.font.name = 'Times New Roman'
         p.font.color.rgb = RGBColor(0, 0, 0)
         p.alignment = PP_ALIGN.CENTER
 
     def _add_justified_content(self, slide, content, left: float, top: float, width: float, height: float, align_left: bool = False, max_font: int = 24, min_font: int = 14):
         """Add justified content text with auto-fit font sizing.
         
+        Uses Times New Roman font and LEFT alignment to prevent text gaps.
         If text is too long, font automatically reduces (min 14pt).
         """
         if isinstance(content, list):
@@ -482,7 +493,8 @@ class DocumentService:
         p = tf.paragraphs[0]
         p.text = content
         p.font.size = PptxPt(optimal_font)
-        p.alignment = PP_ALIGN.LEFT if align_left else PP_ALIGN.JUSTIFY
+        p.font.name = 'Times New Roman'
+        p.alignment = PP_ALIGN.LEFT
 
     async def create_presentation(self, topic: str, content: Dict, images: Dict, author_name: str) -> str:
         """Legacy method - redirects to new method"""
