@@ -62,8 +62,8 @@ async def start_command(message: Message, state: FSMContext, db: Database):
                     # Create referral record
                     await db.create_referral(referred_by_id, user_id)
 
-                    # Give 1000 som signup bonus to referrer
-                    SIGNUP_BONUS = 1000
+                    # Give 2500 som signup bonus to referrer
+                    SIGNUP_BONUS = 2500
                     await db.update_user_balance(referred_by_id, SIGNUP_BONUS)
                     await db.update_referral_earnings(referred_by_id, user_id, SIGNUP_BONUS)
                     await db.update_signup_bonus(referred_by_id, user_id, True)
