@@ -1127,7 +1127,7 @@ class DocumentService:
             for i, point_label in enumerate(texts['intro_points']):
                 p = doc.add_paragraph()
                 p.paragraph_format.line_spacing = 1.5
-                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                 run = p.add_run(point_label)
                 run.font.bold = True
                 run.font.size = Pt(14)
@@ -1144,6 +1144,7 @@ class DocumentService:
                             tp = doc.add_paragraph()
                             tp.paragraph_format.left_indent = Inches(0.5)
                             tp.paragraph_format.line_spacing = 1.5
+                            tp.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                             tp_run = tp.add_run(f"• {task.strip()}")
                             tp_run.font.size = Pt(14)
                             tp_run.font.name = 'Times New Roman'
@@ -1170,6 +1171,7 @@ class DocumentService:
                     # Subsection title - Arabic numerals
                     sub_para = doc.add_paragraph()
                     sub_para.paragraph_format.space_before = Pt(12)
+                    sub_para.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                     sub_run = sub_para.add_run(f"{subsection['number']} {subsection['title']}")
                     sub_run.font.size = Pt(14)
                     sub_run.font.bold = True
@@ -1195,6 +1197,7 @@ class DocumentService:
                         # Footnote at bottom of section (Simulated proper footnote)
                         doc.add_paragraph("_" * 20)
                         fn_p = doc.add_paragraph()
+                        fn_p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                         fn_run = fn_p.add_run(f"{footnote_num}. {footnote_text}")
                         fn_run.font.size = Pt(10)
                         fn_run.font.name = 'Times New Roman'
@@ -1356,6 +1359,7 @@ class DocumentService:
         # Introduction
         intro_toc = doc.add_paragraph()
         intro_toc.paragraph_format.line_spacing = 1.5
+        intro_toc.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
         intro_run = intro_toc.add_run(texts['introduction'])
         intro_run.font.size = Pt(14)
         intro_run.font.name = 'Times New Roman'
@@ -1366,6 +1370,7 @@ class DocumentService:
             roman_num = self._to_roman(i)
             chapter_toc = doc.add_paragraph()
             chapter_toc.paragraph_format.line_spacing = 1.5
+            chapter_toc.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             chapter_run = chapter_toc.add_run(f"{roman_num}-{texts['chapter']}. {chapter['title']}")
             chapter_run.font.size = Pt(14)
             chapter_run.font.bold = True
@@ -1376,6 +1381,7 @@ class DocumentService:
                 sub_toc = doc.add_paragraph()
                 sub_toc.paragraph_format.left_indent = Inches(0.5)
                 sub_toc.paragraph_format.line_spacing = 1.5
+                sub_toc.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                 sub_run = sub_toc.add_run(f"{subsection['number']} {subsection['title']}")
                 sub_run.font.size = Pt(14)
                 sub_run.font.name = 'Times New Roman'
@@ -1383,6 +1389,7 @@ class DocumentService:
         # Conclusion
         conclusion_toc = doc.add_paragraph()
         conclusion_toc.paragraph_format.line_spacing = 1.5
+        conclusion_toc.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
         conclusion_run = conclusion_toc.add_run(texts['conclusion'])
         conclusion_run.font.size = Pt(14)
         conclusion_run.font.name = 'Times New Roman'
@@ -1390,6 +1397,7 @@ class DocumentService:
         # References
         refs_toc = doc.add_paragraph()
         refs_toc.paragraph_format.line_spacing = 1.5
+        refs_toc.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
         refs_run = refs_toc.add_run(texts['references'])
         refs_run.font.size = Pt(14)
         refs_run.font.name = 'Times New Roman'
