@@ -65,11 +65,11 @@ AI_MODELS = {
         "price": "$0.25/1M",
         "description": "Tez, sifatli"
     },
-    "qwen_72b": {
-        "id": "qwen/qwen-2.5-72b-instruct",
-        "name": "Qwen 2.5 72B",
-        "price": "$0.15/1M",
-        "description": "Arzon va kuchli"
+    "gpt5_mini": {
+        "id": "openai/gpt-5-mini",
+        "name": "GPT-5 Mini",
+        "price": "$0.25/1M",
+        "description": "GPT-5 intellekti, tez"
     },
     "gemini_20_flash": {
         "id": "google/gemini-2.0-flash-001",
