@@ -1388,12 +1388,29 @@ async def mass_gift_start(callback: CallbackQuery, state: FSMContext):
     if not is_admin(callback.from_user.id):
         return
 
+    from bot.keyboards import get_back_to_features_keyboard
     await callback.message.edit_text(
         "💰 Barchaga sovg'a yuborish\n\n"
         "Qancha summa yubormoqchisiz? (so'mda)\n"
-        "Masalan: 5000"
+        "Masalan: 5000",
+        reply_markup=get_back_to_features_keyboard()
     )
     await state.set_state(AdminStates.waiting_for_gift_amount)
+
+@router.callback_query(F.data == "back_to_features")
+async def back_to_features_handler(callback: CallbackQuery, db: Database):
+    """Go back to feature management menu"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    startup_bonus_enabled = await db.get_feature_status("startup_bonus")
+    from bot.keyboards import get_feature_management_keyboard
+    
+    await callback.message.edit_text(
+        "🎛 Funksiyalar boshqaruvi\n\n"
+        "Start bonus - yangi foydalanuvchilarga 5000 so'm bonus berish:",
+        reply_markup=get_feature_management_keyboard(startup_bonus_enabled)
+    )
 
 @router.message(AdminStates.waiting_for_gift_amount)
 async def process_gift_amount(message: Message, state: FSMContext, db: Database):

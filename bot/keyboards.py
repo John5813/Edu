@@ -485,6 +485,12 @@ def get_channel_error_keyboard() -> InlineKeyboardMarkup:
     keyboard.adjust(2)
     return keyboard.as_markup()
 
+def get_back_to_features_keyboard() -> InlineKeyboardMarkup:
+    """Back to feature management keyboard"""
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_features"))
+    return keyboard.as_markup()
+
 def get_feature_management_keyboard(startup_bonus_enabled: bool) -> InlineKeyboardMarkup:
     """Feature management keyboard for admin - startup bonus toggle and mass gift"""
     keyboard = InlineKeyboardBuilder()
