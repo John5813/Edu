@@ -1187,23 +1187,40 @@ class DocumentService:
                     content_run.font.size = Pt(14)
                     content_run.font.name = 'Times New Roman'
                     
-                    # Add proper footnote
+                    # Add properly formatted footnote at the bottom of the page
                     footnote_text = subsection.get('footnote', '')
                     if footnote_text:
                         # Footnote reference in text
                         run_ref = content_para.add_run(str(footnote_num))
                         run_ref.font.superscript = True
                         
-                        # Footnote at bottom of section (Simulated proper footnote)
-                        doc.add_paragraph("_" * 20)
-                        fn_p = doc.add_paragraph()
-                        fn_p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                        # Add footnote to the current section's footer
+                        section = doc.sections[-1]
+                        footer = section.footer
+                        # Check if paragraph already exists in footer
+                        if not footer.paragraphs or not footer.paragraphs[0].text.strip():
+                            fn_p = footer.paragraphs[0]
+                        else:
+                            fn_p = footer.add_paragraph()
+                        
+                        fn_p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                        fn_p.paragraph_format.space_before = Pt(0)
+                        fn_p.paragraph_format.space_after = Pt(0)
+                        
+                        # Add separator line only for the first footnote in footer
+                        if len(footer.paragraphs) == 1:
+                            fn_p.add_run("_" * 20 + "\n")
+                        
                         fn_run = fn_p.add_run(f"{footnote_num}. {footnote_text}")
                         fn_run.font.size = Pt(10)
                         fn_run.font.name = 'Times New Roman'
                         footnote_num += 1
                 
-                doc.add_page_break()
+                # Each chapter starts on a new section to have independent footers if needed
+                if i < len(content.get('chapters', [])):
+                    doc.add_section()
+                else:
+                    doc.add_page_break()
             
             # Conclusion
             conclusion_para = doc.add_paragraph()
@@ -1221,9 +1238,8 @@ class DocumentService:
             conclusion_run.font.size = Pt(14)
             conclusion_run.font.name = 'Times New Roman'
             
+            # References - New Page
             doc.add_page_break()
-            
-            # References
             refs_para = doc.add_paragraph()
             refs_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             refs_run = refs_para.add_run(texts['references'])
