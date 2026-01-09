@@ -19,8 +19,8 @@ class TogetherImageService:
         self.model = "black-forest-labs/FLUX.1-schnell"
         
         self.ai_client = AsyncOpenAI(
-            api_key=os.environ.get("OPENROUTER_API_KEY"),
-            base_url="https://openrouter.ai/api/v1"
+            api_key=os.environ.get("AI_INTEGRATIONS_OPENROUTER_API_KEY"),
+            base_url=os.environ.get("AI_INTEGRATIONS_OPENROUTER_BASE_URL")
         )
         # DeepSeek V3 - rasm promptlari uchun
         self.ai_model = "deepseek/deepseek-chat"

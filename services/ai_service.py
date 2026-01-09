@@ -53,8 +53,8 @@ class AIService:
     
     def __init__(self):
         self.client = AsyncOpenAI(
-            api_key=os.environ.get("OPENROUTER_API_KEY"),
-            base_url="https://openrouter.ai/api/v1"
+            api_key=os.environ.get("AI_INTEGRATIONS_OPENROUTER_API_KEY"),
+            base_url=os.environ.get("AI_INTEGRATIONS_OPENROUTER_BASE_URL")
         )
     
     @classmethod
