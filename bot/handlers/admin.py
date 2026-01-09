@@ -1412,6 +1412,64 @@ async def back_to_features_handler(callback: CallbackQuery, db: Database):
         reply_markup=get_feature_management_keyboard(startup_bonus_enabled)
     )
 
+@router.callback_query(F.data == "mass_take_back_start")
+async def mass_take_back_start(callback: CallbackQuery, state: FSMContext):
+    """Start mass take back process"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    from bot.keyboards import get_back_to_features_keyboard
+    await callback.message.edit_text(
+        "💸 Barchadan pulni qaytib olish\n\n"
+        "Qancha summa yechib olmoqchisiz? (so'mda)\n"
+        "Masalan: 5000",
+        reply_markup=get_back_to_features_keyboard()
+    )
+    await state.set_state(AdminStates.waiting_for_take_back_amount)
+
+@router.message(AdminStates.waiting_for_take_back_amount)
+async def process_take_back_amount(message: Message, state: FSMContext, db: Database):
+    """Process take back amount and deduct from all users"""
+    if not is_admin(message.from_user.id):
+        return
+
+    try:
+        amount = int(message.text.strip())
+        if amount <= 0:
+            await message.answer("❌ Summa 0 dan katta bo'lishi kerak!")
+            return
+
+        # Get all users
+        all_users = await db.get_all_users()
+        
+        if not all_users:
+            await message.answer("❌ Foydalanuvchilar topilmadi!")
+            await state.clear()
+            return
+
+        # Update balances for all users (deduct amount)
+        success_count = 0
+        for user in all_users:
+            try:
+                # Deducting balance (passing negative amount)
+                await db.update_user_balance(user.telegram_id, -amount)
+                success_count += 1
+            except Exception as e:
+                logger.error(f"Failed to deduct money from user {user.telegram_id}: {e}")
+
+        await message.answer(
+            f"✅ Barchadan pul qaytib olindi!\n\n"
+            f"💸 Summa: {amount:,} so'm\n"
+            f"👤 Foydalanuvchilar: {success_count} ta"
+        )
+        await state.clear()
+
+    except ValueError:
+        await message.answer("❌ Iltimos, faqat son kiriting!")
+    except Exception as e:
+        logger.error(f"Error in process_take_back_amount: {e}")
+        await message.answer("❌ Xatolik yuz berdi.")
+
 @router.message(AdminStates.waiting_for_gift_amount)
 async def process_gift_amount(message: Message, state: FSMContext, db: Database):
     """Process gift amount and send to all users"""

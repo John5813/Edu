@@ -52,6 +52,7 @@ class AdminStates(StatesGroup):
 
     # Mass gift
     waiting_for_gift_amount = State()
+    waiting_for_take_back_amount = State()
 
 class PaymentResubmitStates(StatesGroup):
     waiting_for_receipt = State()

@@ -505,8 +505,14 @@ def get_feature_management_keyboard(startup_bonus_enabled: bool) -> InlineKeyboa
 
     # Mass gift button
     keyboard.add(InlineKeyboardButton(
-        text="💰 Barchaga sovg'a yuborish",
+        text="🎁 Barchaga sovg'a yuborish",
         callback_data="mass_gift_start"
+    ))
+
+    # Mass take back button
+    keyboard.add(InlineKeyboardButton(
+        text="💸 Barchadan pulni qaytib olish",
+        callback_data="mass_take_back_start"
     ))
 
     keyboard.adjust(1)
