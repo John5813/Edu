@@ -257,7 +257,14 @@ async def handle_list_samples(callback: CallbackQuery, db: Database):
         samples_text += f"{i}. 📁 {sample['title']}"
         if sample.get('description'):
             samples_text += f"\n   {sample['description']}"
-        samples_text += f"\n   📅 {sample['created_at'][:10]}\n\n"
+        
+        created_at = sample.get('created_at', 'Noma\'lum')
+        if isinstance(created_at, str):
+            date_str = created_at[:10]
+        else:
+            date_str = created_at.strftime('%Y-%m-%d')
+            
+        samples_text += f"\n   📅 {date_str}\n\n"
     
     await callback.message.edit_text(
         samples_text,

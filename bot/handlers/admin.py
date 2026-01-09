@@ -88,6 +88,18 @@ async def notify_other_admins_about_payment_action(bot, payment_id, action, admi
         except Exception as e:
             logger.error(f"Failed to notify admin {admin_id} about payment action: {e}")
 
+@router.message(F.text == "📁 Namunalar boshqaruvi")
+async def handle_samples_management_admin(message: Message):
+    """Handle samples management button for admin"""
+    if not is_admin(message.from_user.id):
+        return
+    
+    from bot.keyboards import get_sample_management_keyboard
+    await message.answer(
+        "📁 Namunalar boshqaruvi\n\nTanlang:",
+        reply_markup=get_sample_management_keyboard()
+    )
+
 # Admin menu handlers
 @router.message(F.text == "💳 To'lovlar")
 async def handle_orders_request(message: Message, db: Database):
