@@ -1178,14 +1178,27 @@ class DocumentService:
                     sub_run.font.name = 'Times New Roman'
                     
                     # Subsection content
-                    content_para = doc.add_paragraph()
-                    content_para.paragraph_format.first_line_indent = Inches(0.5)
-                    content_para.paragraph_format.line_spacing = 1.5
-                    content_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                    
-                    content_run = content_para.add_run(subsection.get('content', ''))
-                    content_run.font.size = Pt(14)
-                    content_run.font.name = 'Times New Roman'
+                    sub_content = subsection.get('content', '')
+                    # Split content into 2 paragraphs if it's long enough
+                    sentences = sub_content.split('. ')
+                    if len(sentences) > 4:
+                        mid = len(sentences) // 2
+                        para1_text = '. '.join(sentences[:mid]) + '.'
+                        para2_text = '. '.join(sentences[mid:])
+                        paragraphs = [para1_text, para2_text]
+                    else:
+                        paragraphs = [sub_content]
+
+                    for p_text in paragraphs:
+                        if not p_text.strip(): continue
+                        content_para = doc.add_paragraph()
+                        content_para.paragraph_format.first_line_indent = Inches(0.5)
+                        content_para.paragraph_format.line_spacing = 1.5
+                        content_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                        
+                        content_run = content_para.add_run(p_text.strip())
+                        content_run.font.size = Pt(14)
+                        content_run.font.name = 'Times New Roman'
                 
                 doc.add_page_break()
             
