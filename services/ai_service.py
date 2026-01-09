@@ -1125,57 +1125,66 @@ RULES:
         """Generate specific introduction points: Subject, Object, Goal, Tasks, etc."""
         try:
             if language == "uz":
-                prompt = f""""{topic}" mavzusidagi kurs ishi uchun quyidagi 6 ta punktga batafsil akademik tarif bering (har biri kamida 30-40 so'z bo'lsin):
-1. Kurs ishining predmeti.
-2. Kurs ishining obyekti.
-3. Mavzuning o‘rganilganlik darajasi.
-4. Kurs ishining maqsadi.
-5. Kurs ishining vazifalari (vazifalarni punktma-punkt yozing).
-6. Kurs ishining tarkibiy tuzilishi.
+                prompt = f""""{topic}" mavzusidagi kurs ishi uchun quyidagi 6 ta punktga juda batafsil va aynan mavzuga asoslangan akademik tarif bering. 
+DIQQAT: Umumiy gaplardan qoching, har bir punkt aynan "{topic}" mavzusining ichki jihatlarini, uning ilmiy va amaliy ahamiyatini yoritib berishi shart. 
+
+Punktlar (har biri kamida 40-50 so'zdan iborat bo'lsin):
+1. Kurs ishining predmeti (Mavzuning qaysi jihatlari o'rganiladi?).
+2. Kurs ishining obyekti (Mavzu qaysi soha yoki tushunchaga tegishli?).
+3. Mavzuning o‘rganilganlik darajasi (Hozirgi kunda bu mavzu qanchalik o'rganilgan?).
+4. Kurs ishining maqsadi (Tadqiqotdan ko'zlangan asosiy natija nima?).
+5. Kurs ishining vazifalari (Maqsadga erishish uchun bajarilishi kerak bo'lgan bosqichlarni punktma-punkt yozing).
+6. Kurs ishining tarkibiy tuzilishi (Kirish, bo'limlar va xulosaning qisqacha tavsifi).
 
 JSON formatda javob bering:
 {{
-  "point_1": "predmet tarifi...",
-  "point_2": "obyekt tarifi...",
-  "point_3": "daraja tarifi...",
-  "point_4": "maqsad tarifi...",
-  "point_5": "vazifa 1\\nvazifa 2\\nvazifa 3...",
-  "point_6": "tarkibiy tuzilish tarifi..."
+  "point_1": "konkret mavzu predmeti haqida chuqur tahlil...",
+  "point_2": "mavzu obyekti haqida batafsil ma'lumot...",
+  "point_3": "ilmiy daraja tahlili...",
+  "point_4": "aniq maqsad tarifi...",
+  "point_5": "1. ...\\n2. ...\\n3. ...",
+  "point_6": "tuzilish bayoni..."
 }}"""
             elif language == "ru":
-                prompt = f"""Дайте подробное академическое описание следующих 6 пунктов для курсовой работы по теме "{topic}" (каждый минимум 30-40 слов):
-1. Предмет курсовой работы.
-2. Объект курсовой работы.
-3. Степень изученности темы.
-4. Цель курсовой работы.
-5. Задачи курсовой работы (напишите по пунктам).
-6. Структура курсовой работы.
+                prompt = f"""Дайте подробное академическое описание следующих 6 пунктов для курсовой работы по теме "{topic}". 
+ВНИМАНИЕ: Избегайте общих фраз. Каждый пункт должен быть глубоко связан именно с темой "{topic}", раскрывая её научные и практические аспекты.
+
+Пункты (минимум 40-50 слов каждый):
+1. Предмет курсовой работы (какие именно стороны темы изучаются?).
+2. Объект курсовой работы (к какой области или понятию относится тема?).
+3. Степень изученности темы (насколько глубоко эта тема изучена на данный момент?).
+4. Цель курсовой работы (основной ожидаемый результат исследования?).
+5. Задачи курсовой работы (напишите по пунктам шаги для достижения цели).
+6. Структура курсовой работы (краткое описание введения, глав и заключения).
 
 Ответьте в формате JSON:
 {{
-  "point_1": "описание предмета...",
-  "point_2": "описание объекта...",
-  "point_3": "описание степени изученности...",
-  "point_4": "описание цели...",
-  "point_5": "задача 1\\nзадача 2...",
+  "point_1": "глубокий анализ предмета темы...",
+  "point_2": "подробное описание объекта темы...",
+  "point_3": "анализ научной степени изученности...",
+  "point_4": "описание конкретной цели...",
+  "point_5": "1. ...\\n2. ...\\n3. ...",
   "point_6": "описание структуры..."
 }}"""
             else:
-                prompt = f"""Provide detailed academic descriptions for the following 6 points for a course work on "{topic}" (at least 30-40 words each):
-1. Subject of the course work.
-2. Object of the course work.
-3. Degree of study of the topic.
-4. Goal of the course work.
-5. Tasks of the course work (write point by point).
-6. Structure of the course work.
+                prompt = f"""Provide detailed academic descriptions for the following 6 points for a course work on "{topic}".
+ATTENTION: Avoid general phrases. Each point must be deeply connected specifically to the topic "{topic}", revealing its scientific and practical aspects.
+
+Points (at least 40-50 words each):
+1. Subject of the course work (what specific aspects of the topic are studied?).
+2. Object of the course work (what area or concept does the topic belong to?).
+3. Degree of study of the topic (how well is this topic studied currently?).
+4. Goal of the course work (what is the main expected result of the study?).
+5. Tasks of the course work (write point by point steps to achieve the goal).
+6. Structure of the course work (brief description of introduction, chapters, and conclusion).
 
 Respond in JSON format:
 {{
-  "point_1": "subject description...",
-  "point_2": "object description...",
-  "point_3": "study degree description...",
-  "point_4": "goal description...",
-  "point_5": "task 1\\ntask 2...",
+  "point_1": "deep analysis of the topic subject...",
+  "point_2": "detailed description of the topic object...",
+  "point_3": "scientific study degree analysis...",
+  "point_4": "specific goal description...",
+  "point_5": "1. ...\\n2. ...\\n3. ...",
   "point_6": "structure description..."
 }}"""
 
@@ -1203,38 +1212,35 @@ Respond in JSON format:
         """Generate course work introduction (~600 words for 2 pages)"""
         try:
             if language == "uz":
-                prompt = f""""{topic}" mavzusidagi kurs ishi uchun kirish qismini yozing.
+                prompt = f""""{topic}" mavzusidagi kurs ishi uchun ilmiy va tahliliy kirish qismini yozing.
+DIQQAT: Umumiy va yuzaki gaplardan butunlay voz keching. Kirish qismi aynan "{topic}" mavzusining mohiyatini ochib berishi, uning bugungi kundagi dolzarbligini ilmiy asoslar bilan tushuntirishi kerak.
 
-600-700 so'z. Quyidagilarni qamrab oling:
-- Mavzuning dolzarbligi va ahamiyati
-- Tadqiqot maqsadi va vazifalari
-- Tadqiqot obyekti va predmeti
-- Foydalanilgan metodlar
-- Ishning tuzilishi
+600-700 so'z yozing. Quyidagilarni chuqur tahlil qiling:
+- Mavzuning dolzarbligi: Nima uchun bu mavzu bugungi kunda muhim? Qanday muammolarni hal qiladi?
+- Tadqiqotning ilmiy va amaliy ahamiyati: Bu ish kimlar uchun foydali?
+- Mavzuning qisqacha tarixi yoki nazariy asosi.
 
 Professional akademik uslubda yozing. Faqat oddiy matn, markdown ishlatmang."""
             elif language == "ru":
-                prompt = f"""Напишите введение для курсовой работы по теме "{topic}".
+                prompt = f"""Напишите научное и аналитическое введение для курсовой работы по теме "{topic}".
+ВНИМАНИЕ: Полностью избегайте общих и поверхностных фраз. Введение должно раскрывать суть именно темы "{topic}", объясняя её актуальность в современных условиях с научным обоснованием.
 
-600-700 слов. Охватите:
-- Актуальность и значимость темы
-- Цель и задачи исследования
-- Объект и предмет исследования
-- Используемые методы
-- Структура работы
+600-700 слов. Глубоко проанализируйте:
+- Актуальность темы: Почему эта тема важна сегодня? Какие проблемы она решает?
+- Научная и практическая значимость исследования: Кому полезна эта работа?
+- Краткая история или теоретическая база темы.
 
 Профессиональный академический стиль. Только простой текст, без markdown."""
             else:
-                prompt = f"""Write introduction for course work on "{topic}".
+                prompt = f"""Write a scientific and analytical introduction for a course work on "{topic}".
+ATTENTION: Completely avoid general and superficial phrases. The introduction must reveal the essence specifically of the topic "{topic}", explaining its relevance in modern conditions with scientific justification.
 
-600-700 words. Cover:
-- Relevance and significance of the topic
-- Research goal and objectives
-- Object and subject of research
-- Methods used
-- Structure of the work
+600-700 words. Deeply analyze:
+- Relevance of the topic: Why is this topic important today? What problems does it solve?
+- Scientific and practical significance of the study: Who benefits from this work?
+- Brief history or theoretical basis of the topic.
 
-Professional academic style. Plain text only, no markdown."""
+Professional academic style. Only plain text, no markdown."""
 
             response = await self._make_request(
                 messages=[
