@@ -45,25 +45,13 @@ DOCUMENT_PRICES = {
 MAX_TOKENS = 4000
 TEMPERATURE = 0.7
 
-# Available AI Models for OpenRouter
+# Available AI Models for OpenRouter (samarali modellar)
 AI_MODELS = {
-    "deepseek_v3": {
-        "id": "deepseek/deepseek-chat",
-        "name": "DeepSeek V3",
-        "price": "$0.14/1M",
-        "description": "Arzon va sifatli"
-    },
     "deepseek_r1": {
         "id": "deepseek/deepseek-r1",
         "name": "DeepSeek R1",
         "price": "$0.55/1M",
-        "description": "Reasoning uchun kuchli"
-    },
-    "gpt4o_mini": {
-        "id": "openai/gpt-4o-mini",
-        "name": "GPT-4o Mini",
-        "price": "$0.15/1M",
-        "description": "Tez va arzon"
+        "description": "Eng kuchli, reasoning"
     },
     "gemini_25_flash": {
         "id": "google/gemini-2.5-flash",
@@ -71,16 +59,28 @@ AI_MODELS = {
         "price": "$0.30/1M",
         "description": "Tez va samarali"
     },
+    "claude_haiku": {
+        "id": "anthropic/claude-3.5-haiku",
+        "name": "Claude 3.5 Haiku",
+        "price": "$0.25/1M",
+        "description": "Tez, sifatli"
+    },
+    "qwen_72b": {
+        "id": "qwen/qwen-2.5-72b-instruct",
+        "name": "Qwen 2.5 72B",
+        "price": "$0.15/1M",
+        "description": "Arzon va kuchli"
+    },
     "gemini_20_flash": {
         "id": "google/gemini-2.0-flash-001",
         "name": "Gemini 2.0 Flash",
         "price": "$0.10/1M",
-        "description": "Arzon va tez"
+        "description": "Eng arzon"
     }
 }
 
 # Default AI model
-DEFAULT_AI_MODEL = "deepseek_v3"
+DEFAULT_AI_MODEL = "gemini_25_flash"
 
 # File paths
 DOCUMENTS_DIR = "generated_documents"
