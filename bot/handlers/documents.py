@@ -8,7 +8,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
 
 from bot.states import DocumentStates
-from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard, get_outline_review_keyboard, get_references_choice_keyboard, get_doc_language_keyboard, get_plan_slide_keyboard
+from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard, get_outline_review_keyboard, get_references_choice_keyboard, get_doc_language_keyboard, get_plan_slide_keyboard, get_course_work_page_keyboard
 from database.database import Database
 from utils.security import sanitize_user_input, validate_topic_length
 from services.ai_service import AIService
@@ -16,7 +16,7 @@ from services.document_service import DocumentService
 from services.template_service import TemplateService
 from services.channel_service import ChannelService
 from translations import get_text
-from config import PRESENTATION_PRICES, DOCUMENT_PRICES
+from config import PRESENTATION_PRICES, DOCUMENT_PRICES, COURSE_WORK_PRICES
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -33,7 +33,10 @@ DOCUMENT_TYPES = {
     "🎓 Independent Work": "independent_work",
     "📄 Referat": "referat",
     "📄 Реферат": "referat",
-    "📄 Referat": "referat"
+    "📄 Research Paper": "referat",
+    "📚 Kurs ishi": "course_work",
+    "📚 Курсовая работа": "course_work",
+    "📚 Course Work": "course_work"
 }
 
 @router.message(F.text.in_(list(DOCUMENT_TYPES.keys())))
@@ -154,6 +157,12 @@ async def handle_author_name_input(message: Message, state: FSMContext, user_lan
                 reply_markup=get_slide_count_keyboard(doc_lang)
             )
             await state.set_state(DocumentStates.waiting_for_slide_count)
+        elif doc_type == "course_work":
+            await message.answer(
+                get_text(doc_lang, "select_page_count"),
+                reply_markup=get_course_work_page_keyboard(doc_lang)
+            )
+            await state.set_state(DocumentStates.waiting_for_course_work_pages)
         else:  # referat or independent_work
             await message.answer(
                 get_text(doc_lang, "select_page_count"),
@@ -171,6 +180,12 @@ def get_document_price(document_type: str, count_data: dict) -> int:
     if document_type == "presentation":
         slide_count = count_data.get('slide_count', 10)
         return PRESENTATION_PRICES.get(slide_count, 5000)
+    elif document_type == "course_work":
+        min_pages = count_data.get('min_pages', 15)
+        max_pages = count_data.get('max_pages', 20)
+        chapters = count_data.get('chapters', 2)
+        page_key = f"{min_pages}_{max_pages}_{chapters}"
+        return COURSE_WORK_PRICES.get(page_key, 15000)
     else:  # independent_work or referat
         min_pages = count_data.get('min_pages', 10)
         max_pages = count_data.get('max_pages', 15)
@@ -570,6 +585,119 @@ async def handle_page_count(callback: CallbackQuery, state: FSMContext, db: Data
         reply_markup=get_outline_choice_keyboard(user_lang)
     )
     await state.set_state(DocumentStates.waiting_for_outline_choice)
+
+@router.callback_query(F.data.startswith("cw_pages_"), DocumentStates.waiting_for_course_work_pages)
+async def handle_course_work_pages(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
+    """Handle course work page/chapter selection"""
+    if not user:
+        await callback.message.answer(
+            "❌ Xatolik yuz berdi. Iltimos, /start buyrug'ini bajaring.",
+            reply_markup=get_main_keyboard(user_lang)
+        )
+        await state.clear()
+        return
+
+    # Parse callback data: cw_pages_15_20_2 -> min=15, max=20, chapters=2
+    parts = callback.data.split("_")[2:]  # ['15', '20', '2']
+    min_pages = int(parts[0])
+    max_pages = int(parts[1])
+    chapters = int(parts[2])
+
+    await state.update_data(min_pages=min_pages, max_pages=max_pages, chapters=chapters)
+
+    # Calculate price
+    price = get_document_price("course_work", {"min_pages": min_pages, "max_pages": max_pages, "chapters": chapters})
+
+    # Check balance
+    if user.balance >= price:
+        await state.update_data(price=price)
+    else:
+        await callback.message.edit_reply_markup(reply_markup=None)
+        await callback.message.answer(
+            get_text(user_lang, "insufficient_balance", price=price),
+            reply_markup=get_main_keyboard(user_lang)
+        )
+        await state.clear()
+        return
+
+    await callback.answer()
+    await callback.message.edit_reply_markup(reply_markup=None)
+
+    # Start course work generation directly (AI will create structure)
+    data = await state.get_data()
+    doc_lang = data.get('doc_language', user_lang)
+    
+    await callback.message.answer("⏳ " + get_text(doc_lang, "generating"))
+    await generate_course_work(callback, state, db, user_lang, user)
+
+async def generate_course_work(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
+    """Generate course work with chapters and footnotes"""
+    try:
+        data = await state.get_data()
+        topic = data['topic']
+        min_pages = data['min_pages']
+        max_pages = data['max_pages']
+        chapters = data['chapters']
+        author_name = data.get('author_name', user.first_name or "")
+        doc_lang = data.get('doc_language', user_lang)
+        price = data.get('price', 0)
+
+        # Create order record
+        specifications = json.dumps({
+            "min_pages": min_pages, 
+            "max_pages": max_pages, 
+            "chapters": chapters
+        })
+        order_id = await db.create_document_order(
+            user_id=user.id,
+            document_type="course_work",
+            topic=topic,
+            specifications=specifications
+        )
+
+        # Generate course work content with AI
+        ai_service = AIService()
+        content = await ai_service.generate_course_work_content(topic, chapters, doc_lang)
+
+        # Create course work document with footnotes
+        doc_service = DocumentService()
+        file_path = await doc_service.create_course_work(topic, content, author_name, doc_lang)
+
+        # Verify file was created
+        if not file_path or not os.path.exists(file_path):
+            logger.error(f"Course work file not created: {file_path}")
+            raise Exception(f"File not created: {file_path}")
+
+        # Send file
+        document = FSInputFile(file_path)
+        await callback.message.answer_document(
+            document=document,
+            caption=f"📚 {topic}\n📄 {min_pages}-{max_pages} varoq | {chapters} bo'lim",
+            reply_markup=get_main_keyboard(user_lang)
+        )
+
+        # Update database and balance
+        await db.update_document_order(order_id, "completed", file_path)
+        await db.update_user_balance(user.telegram_id, -price)
+
+        await callback.message.answer(get_text(user_lang, "document_ready"))
+        await callback.message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
+
+        logger.info(f"Course work generated: {file_path} for user {user.telegram_id}")
+
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        logger.error(f"Error generating course work: {e}\n{error_details}")
+        await callback.message.answer(
+            "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.\n\nSabab: " + str(e)[:100],
+            reply_markup=get_main_keyboard(user_lang)
+        )
+        if 'order_id' in locals():
+            await db.update_document_order(order_id, "failed")
+
+    finally:
+        await state.clear()
 
 async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Generate presentation document"""

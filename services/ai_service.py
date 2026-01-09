@@ -916,3 +916,341 @@ In JSON format:
         except Exception as e:
             logger.error(f"Error generating slide content: {e}")
             return ""
+
+    async def generate_course_work_content(self, topic: str, chapters: int, language: str) -> Dict:
+        """Generate course work content with chapter structure and footnotes
+        
+        Structure:
+        - Kirish (Introduction) - 2 pages
+        - Bo'limlar (Chapters) with 3 subsections each
+        - Xulosa (Conclusion)
+        - Adabiyotlar (References)
+        """
+        try:
+            content = {
+                "title": topic,
+                "chapters": [],
+                "introduction": "",
+                "conclusion": "",
+                "references": []
+            }
+            
+            # Generate chapter titles first
+            chapter_titles = await self._generate_chapter_titles(topic, chapters, language)
+            
+            # Generate introduction (2 pages worth ~600 words)
+            content["introduction"] = await self._generate_course_intro(topic, language)
+            
+            # Generate each chapter with 3 subsections
+            for i, chapter_title in enumerate(chapter_titles, 1):
+                chapter = {
+                    "number": i,
+                    "title": chapter_title,
+                    "subsections": []
+                }
+                
+                # Generate 3 subsections for each chapter
+                subsection_titles = await self._generate_subsection_titles(topic, chapter_title, language)
+                
+                for j, sub_title in enumerate(subsection_titles[:3], 1):
+                    sub_content = await self._generate_subsection_content(topic, chapter_title, sub_title, language)
+                    footnote = await self._generate_footnote(topic, chapter_title, language)
+                    
+                    chapter["subsections"].append({
+                        "number": f"{i}.{j}",
+                        "title": sub_title,
+                        "content": sub_content,
+                        "footnote": footnote
+                    })
+                
+                content["chapters"].append(chapter)
+            
+            # Generate conclusion
+            content["conclusion"] = await self._generate_course_conclusion(topic, language)
+            
+            # Generate references
+            content["references"] = await self._generate_references(topic, language)
+            
+            return content
+            
+        except Exception as e:
+            logger.error(f"Error generating course work content: {e}")
+            raise
+
+    async def _generate_chapter_titles(self, topic: str, chapters: int, language: str) -> List[str]:
+        """Generate chapter titles for course work"""
+        try:
+            if language == "uz":
+                prompt = f""""{topic}" mavzusi uchun {chapters} ta bo'lim (chapter) sarlavhasini yarating.
+Har bir bo'lim mavzuning turli jihatlarini qamrab olishi kerak.
+
+JSON formatda javob bering:
+{{"chapters": ["1-bo'lim sarlavhasi", "2-bo'lim sarlavhasi", ...]}}"""
+            elif language == "ru":
+                prompt = f"""Создайте {chapters} названий глав для курсовой работы по теме "{topic}".
+Каждая глава должна охватывать разные аспекты темы.
+
+Ответьте в формате JSON:
+{{"chapters": ["Название главы 1", "Название главы 2", ...]}}"""
+            else:
+                prompt = f"""Create {chapters} chapter titles for course work on "{topic}".
+Each chapter should cover different aspects of the topic.
+
+Respond in JSON format:
+{{"chapters": ["Chapter 1 title", "Chapter 2 title", ...]}}"""
+
+            response = await self._make_request(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=500,
+                temperature=0.7
+            )
+            
+            content_str = response.strip()
+            if content_str.startswith("```json"):
+                content_str = content_str[7:]
+            if content_str.startswith("```"):
+                content_str = content_str[3:]
+            if content_str.endswith("```"):
+                content_str = content_str[:-3]
+            
+            data = json.loads(content_str.strip())
+            return data.get('chapters', [f"Bo'lim {i}" for i in range(1, chapters + 1)])
+            
+        except Exception as e:
+            logger.error(f"Error generating chapter titles: {e}")
+            return [f"Bo'lim {i}" for i in range(1, chapters + 1)]
+
+    async def _generate_subsection_titles(self, topic: str, chapter_title: str, language: str) -> List[str]:
+        """Generate 3 subsection titles for a chapter"""
+        try:
+            if language == "uz":
+                prompt = f""""{topic}" mavzusi, "{chapter_title}" bo'limi uchun 3 ta kichik bo'lim sarlavhasini yarating.
+
+JSON formatda:
+{{"subsections": ["1.1 sarlavha", "1.2 sarlavha", "1.3 sarlavha"]}}"""
+            elif language == "ru":
+                prompt = f"""Создайте 3 названия подразделов для главы "{chapter_title}" по теме "{topic}".
+
+В формате JSON:
+{{"subsections": ["Подраздел 1", "Подраздел 2", "Подраздел 3"]}}"""
+            else:
+                prompt = f"""Create 3 subsection titles for chapter "{chapter_title}" on topic "{topic}".
+
+In JSON format:
+{{"subsections": ["Subsection 1", "Subsection 2", "Subsection 3"]}}"""
+
+            response = await self._make_request(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=300,
+                temperature=0.7
+            )
+            
+            content_str = response.strip()
+            if content_str.startswith("```json"):
+                content_str = content_str[7:]
+            if content_str.startswith("```"):
+                content_str = content_str[3:]
+            if content_str.endswith("```"):
+                content_str = content_str[:-3]
+            
+            data = json.loads(content_str.strip())
+            return data.get('subsections', ["Kirish qismi", "Asosiy mazmun", "Yakuniy fikrlar"])
+            
+        except Exception as e:
+            logger.error(f"Error generating subsection titles: {e}")
+            return ["Kirish qismi", "Asosiy mazmun", "Yakuniy fikrlar"]
+
+    async def _generate_subsection_content(self, topic: str, chapter_title: str, subsection_title: str, language: str) -> str:
+        """Generate content for a subsection (~400-500 words)"""
+        try:
+            common_rules = """
+QOIDALAR:
+- Faqat oddiy matn yozing, hech qanday maxsus belgi ishlatmang
+- Hech qanday markdown formatidan foydalanmang
+- Har bir gap to'liq va mustaqil bo'lishi kerak
+- Professional akademik uslubda yozing"""
+
+            common_rules_ru = """
+ПРАВИЛА:
+- Пишите только простой текст без специальных символов
+- Не используйте markdown форматирование
+- Каждое предложение должно быть полным и самостоятельным
+- Пишите в профессиональном академическом стиле"""
+
+            common_rules_en = """
+RULES:
+- Write only plain text without special characters
+- Do not use markdown formatting
+- Each sentence must be complete and independent
+- Write in professional academic style"""
+
+            if language == "uz":
+                prompt = f""""{topic}" mavzusi, "{chapter_title}" bo'limi, "{subsection_title}" kichik bo'limi uchun akademik mazmun yozing.
+
+400-500 so'z yozing. Mavzuni chuqur yoritib, misollar va dalillar keltiring.
+{common_rules}"""
+            elif language == "ru":
+                prompt = f"""Напишите академическое содержание для подраздела "{subsection_title}" главы "{chapter_title}" по теме "{topic}".
+
+400-500 слов. Глубоко раскройте тему с примерами и аргументами.
+{common_rules_ru}"""
+            else:
+                prompt = f"""Write academic content for subsection "{subsection_title}" of chapter "{chapter_title}" on topic "{topic}".
+
+400-500 words. Deeply cover the topic with examples and arguments.
+{common_rules_en}"""
+
+            response = await self._make_request(
+                messages=[
+                    {"role": "system", "content": "You are an academic writer. Write clear, well-structured content as plain text only."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=2000,
+                temperature=0.8
+            )
+            
+            matn = response.strip()
+            matn = clean_text(matn)
+            return matn
+            
+        except Exception as e:
+            logger.error(f"Error generating subsection content: {e}")
+            return ""
+
+    async def _generate_course_intro(self, topic: str, language: str) -> str:
+        """Generate course work introduction (~600 words for 2 pages)"""
+        try:
+            if language == "uz":
+                prompt = f""""{topic}" mavzusidagi kurs ishi uchun kirish qismini yozing.
+
+600-700 so'z. Quyidagilarni qamrab oling:
+- Mavzuning dolzarbligi va ahamiyati
+- Tadqiqot maqsadi va vazifalari
+- Tadqiqot obyekti va predmeti
+- Foydalanilgan metodlar
+- Ishning tuzilishi
+
+Professional akademik uslubda yozing. Faqat oddiy matn, markdown ishlatmang."""
+            elif language == "ru":
+                prompt = f"""Напишите введение для курсовой работы по теме "{topic}".
+
+600-700 слов. Охватите:
+- Актуальность и значимость темы
+- Цель и задачи исследования
+- Объект и предмет исследования
+- Используемые методы
+- Структура работы
+
+Профессиональный академический стиль. Только простой текст, без markdown."""
+            else:
+                prompt = f"""Write introduction for course work on "{topic}".
+
+600-700 words. Cover:
+- Relevance and significance of the topic
+- Research goal and objectives
+- Object and subject of research
+- Methods used
+- Structure of the work
+
+Professional academic style. Plain text only, no markdown."""
+
+            response = await self._make_request(
+                messages=[
+                    {"role": "system", "content": "You are an academic writer specializing in course work introductions."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=2500,
+                temperature=0.7
+            )
+            
+            return clean_text(response.strip())
+            
+        except Exception as e:
+            logger.error(f"Error generating course intro: {e}")
+            return ""
+
+    async def _generate_course_conclusion(self, topic: str, language: str) -> str:
+        """Generate course work conclusion (~400 words)"""
+        try:
+            if language == "uz":
+                prompt = f""""{topic}" mavzusidagi kurs ishi uchun xulosa yozing.
+
+400-500 so'z. Quyidagilarni qamrab oling:
+- Asosiy topilmalar va natijalar
+- Tadqiqot xulosalari
+- Amaliy tavsiyalar
+- Kelajakda tadqiq qilish yo'nalishlari
+
+Professional akademik uslubda yozing."""
+            elif language == "ru":
+                prompt = f"""Напишите заключение для курсовой работы по теме "{topic}".
+
+400-500 слов. Охватите:
+- Основные результаты и выводы
+- Заключения исследования
+- Практические рекомендации
+- Направления дальнейших исследований
+
+Профессиональный академический стиль."""
+            else:
+                prompt = f"""Write conclusion for course work on "{topic}".
+
+400-500 words. Cover:
+- Main findings and results
+- Research conclusions
+- Practical recommendations
+- Directions for future research
+
+Professional academic style."""
+
+            response = await self._make_request(
+                messages=[
+                    {"role": "system", "content": "You are an academic writer specializing in course work conclusions."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=1500,
+                temperature=0.7
+            )
+            
+            return clean_text(response.strip())
+            
+        except Exception as e:
+            logger.error(f"Error generating course conclusion: {e}")
+            return ""
+
+    async def _generate_footnote(self, topic: str, context: str, language: str) -> str:
+        """Generate a footnote reference for a subsection"""
+        try:
+            if language == "uz":
+                prompt = f""""{topic}" mavzusi, "{context}" konteksti uchun bitta akademik snoska (footnote) yarating.
+
+Masalan:
+Karimov I.A. "Yuksak ma'naviyat – yengilmas kuch". Toshkent: Ma'naviyat, 2008. 45-bet.
+
+Faqat bitta manba yarating. Real ko'rinishda bo'lsin."""
+            elif language == "ru":
+                prompt = f"""Создайте одну академическую сноску для темы "{topic}", контекст "{context}".
+
+Пример:
+Иванов А.Б. "Современные технологии". Москва: Наука, 2020. С. 45.
+
+Создайте только одну ссылку. Должна выглядеть реалистично."""
+            else:
+                prompt = f"""Create one academic footnote for topic "{topic}", context "{context}".
+
+Example:
+Smith, J. "Modern Technologies". New York: Academic Press, 2020. p. 45.
+
+Create only one reference. Should look realistic."""
+
+            response = await self._make_request(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=200,
+                temperature=0.8
+            )
+            
+            return clean_text(response.strip())
+            
+        except Exception as e:
+            logger.error(f"Error generating footnote: {e}")
+            return ""

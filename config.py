@@ -41,6 +41,14 @@ DOCUMENT_PRICES = {
     "25_30": 12000
 }
 
+# Course work prices (with chapters)
+COURSE_WORK_PRICES = {
+    "15_20_2": 15000,
+    "20_25_2": 20000,
+    "25_30_3": 25000,
+    "30_35_3": 30000
+}
+
 # AI configuration (DeepSeek via OpenRouter)
 MAX_TOKENS = 4000
 TEMPERATURE = 0.7

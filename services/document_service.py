@@ -1056,3 +1056,340 @@ class DocumentService:
     ) -> str:
         """Create presentation using new layout system"""
         return await self.create_presentation_with_smart_images(topic, content, author_name, language)
+
+    async def create_course_work(self, topic: str, content: Dict, author_name: str, language: str = 'uz') -> str:
+        """Create course work document with chapters, subsections and footnotes
+        
+        Structure:
+        - Title page
+        - Table of contents
+        - Introduction (Kirish)
+        - Chapters with subsections (Bo'limlar)
+        - Conclusion (Xulosa)
+        - References (Adabiyotlar)
+        
+        Each page has a footnote at the bottom
+        """
+        try:
+            doc = Document()
+            
+            # Set document margins
+            for section in doc.sections:
+                section.top_margin = Inches(0.79)  # 2 cm
+                section.bottom_margin = Inches(0.79)  # 2 cm
+                section.left_margin = Inches(1.18)  # 3 cm
+                section.right_margin = Inches(0.59)  # 1.5 cm
+            
+            # Create title page
+            await self._create_course_work_title_page(doc, topic, language, author_name)
+            doc.add_page_break()
+            
+            # Create table of contents
+            self._create_course_work_toc(doc, content, language)
+            doc.add_page_break()
+            
+            # Footnote counter
+            footnote_num = 1
+            
+            # Introduction
+            texts = self._get_course_work_texts(language)
+            intro_para = doc.add_paragraph()
+            intro_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            intro_run = intro_para.add_run(texts['introduction'])
+            intro_run.font.size = Pt(14)
+            intro_run.font.bold = True
+            intro_run.font.name = 'Times New Roman'
+            
+            intro_content_para = doc.add_paragraph()
+            intro_content_para.paragraph_format.first_line_indent = Inches(0.5)
+            intro_content_para.paragraph_format.line_spacing = 1.5
+            intro_content_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            intro_run = intro_content_para.add_run(content.get('introduction', ''))
+            intro_run.font.size = Pt(14)
+            intro_run.font.name = 'Times New Roman'
+            
+            doc.add_page_break()
+            
+            # Chapters
+            for chapter in content.get('chapters', []):
+                # Chapter title
+                chapter_para = doc.add_paragraph()
+                chapter_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                chapter_run = chapter_para.add_run(f"{chapter['number']}-{texts['chapter']}. {chapter['title']}")
+                chapter_run.font.size = Pt(14)
+                chapter_run.font.bold = True
+                chapter_run.font.name = 'Times New Roman'
+                
+                # Subsections
+                for subsection in chapter.get('subsections', []):
+                    # Subsection title
+                    sub_para = doc.add_paragraph()
+                    sub_para.paragraph_format.space_before = Pt(12)
+                    sub_run = sub_para.add_run(f"{subsection['number']} {subsection['title']}")
+                    sub_run.font.size = Pt(14)
+                    sub_run.font.bold = True
+                    sub_run.font.name = 'Times New Roman'
+                    
+                    # Subsection content with footnote reference
+                    content_para = doc.add_paragraph()
+                    content_para.paragraph_format.first_line_indent = Inches(0.5)
+                    content_para.paragraph_format.line_spacing = 1.5
+                    content_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                    
+                    content_run = content_para.add_run(subsection.get('content', ''))
+                    content_run.font.size = Pt(14)
+                    content_run.font.name = 'Times New Roman'
+                    
+                    # Add footnote reference number (superscript)
+                    footnote_ref = content_para.add_run(f" [{footnote_num}]")
+                    footnote_ref.font.size = Pt(10)
+                    footnote_ref.font.name = 'Times New Roman'
+                    footnote_ref.font.superscript = True
+                    
+                    # Add footnote at the bottom of the paragraph
+                    footnote_para = doc.add_paragraph()
+                    footnote_para.paragraph_format.space_before = Pt(6)
+                    footnote_text = subsection.get('footnote', '')
+                    footnote_run = footnote_para.add_run(f"[{footnote_num}] {footnote_text}")
+                    footnote_run.font.size = Pt(10)
+                    footnote_run.font.name = 'Times New Roman'
+                    footnote_run.font.italic = True
+                    
+                    footnote_num += 1
+                
+                doc.add_page_break()
+            
+            # Conclusion
+            conclusion_para = doc.add_paragraph()
+            conclusion_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            conclusion_run = conclusion_para.add_run(texts['conclusion'])
+            conclusion_run.font.size = Pt(14)
+            conclusion_run.font.bold = True
+            conclusion_run.font.name = 'Times New Roman'
+            
+            conclusion_content_para = doc.add_paragraph()
+            conclusion_content_para.paragraph_format.first_line_indent = Inches(0.5)
+            conclusion_content_para.paragraph_format.line_spacing = 1.5
+            conclusion_content_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            conclusion_run = conclusion_content_para.add_run(content.get('conclusion', ''))
+            conclusion_run.font.size = Pt(14)
+            conclusion_run.font.name = 'Times New Roman'
+            
+            doc.add_page_break()
+            
+            # References
+            refs_para = doc.add_paragraph()
+            refs_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            refs_run = refs_para.add_run(texts['references'])
+            refs_run.font.size = Pt(14)
+            refs_run.font.bold = True
+            refs_run.font.name = 'Times New Roman'
+            
+            references = content.get('references', [])
+            for idx, ref in enumerate(references, 1):
+                ref_para = doc.add_paragraph()
+                ref_para.paragraph_format.first_line_indent = Inches(0.5)
+                ref_para.paragraph_format.line_spacing = 1.5
+                ref_run = ref_para.add_run(f"{idx}. {ref}")
+                ref_run.font.size = Pt(14)
+                ref_run.font.name = 'Times New Roman'
+            
+            # Add page numbers
+            for section in doc.sections:
+                section.different_first_page_header_footer = True
+                self._add_page_number(section)
+            
+            # Save document
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"kurs_ishi_{timestamp}.docx"
+            file_path = os.path.join(self.documents_dir, filename)
+            doc.save(file_path)
+            logger.info(f"Course work saved: {file_path}")
+            return file_path
+            
+        except Exception as e:
+            logger.error(f"Error creating course work: {e}")
+            raise
+
+    async def _create_course_work_title_page(self, doc, topic: str, language: str = 'uz', author_name: str = ''):
+        """Create course work title page"""
+        try:
+            texts = self._get_course_work_texts(language)
+            
+            # University placeholder
+            uni_para = doc.add_paragraph()
+            uni_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            uni_run = uni_para.add_run("_" * 50)
+            uni_run.font.size = Pt(14)
+            uni_run.font.name = 'Times New Roman'
+            
+            # Faculty placeholder
+            faculty_para = doc.add_paragraph()
+            faculty_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            faculty_run = faculty_para.add_run("_" * 30 + f" {texts['faculty']}")
+            faculty_run.font.size = Pt(14)
+            faculty_run.font.name = 'Times New Roman'
+            
+            for _ in range(4):
+                doc.add_paragraph()
+            
+            # Title
+            title_para = doc.add_paragraph()
+            title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            title_run = title_para.add_run(texts['course_work'])
+            title_run.font.size = Pt(32)
+            title_run.font.bold = True
+            title_run.font.name = 'Times New Roman'
+            
+            for _ in range(2):
+                doc.add_paragraph()
+            
+            # Topic
+            topic_para = doc.add_paragraph()
+            topic_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            topic_run = topic_para.add_run(f"{texts['topic']}: {topic}")
+            topic_run.font.size = Pt(14)
+            topic_run.font.name = 'Times New Roman'
+            
+            for _ in range(4):
+                doc.add_paragraph()
+            
+            # Author
+            author_para = doc.add_paragraph()
+            author_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            
+            bajardi_run = author_para.add_run(f"{texts['prepared_by']}: ")
+            bajardi_run.font.size = Pt(14)
+            bajardi_run.font.name = 'Times New Roman'
+            
+            if author_name:
+                author_run = author_para.add_run(f"{author_name}")
+                author_run.font.size = Pt(14)
+                author_run.font.name = 'Times New Roman'
+                author_run.font.bold = True
+            else:
+                line_run = author_para.add_run("_" * 20)
+                line_run.font.size = Pt(14)
+                line_run.font.name = 'Times New Roman'
+            
+            author_para.add_run("         ")
+            
+            qabul_run = author_para.add_run(f"{texts['accepted_by']}: ")
+            qabul_run.font.size = Pt(14)
+            qabul_run.font.name = 'Times New Roman'
+            
+            qabul_line_run = author_para.add_run("_" * 15)
+            qabul_line_run.font.size = Pt(14)
+            qabul_line_run.font.name = 'Times New Roman'
+            
+            for _ in range(3):
+                doc.add_paragraph()
+            
+            # City
+            city_para = doc.add_paragraph()
+            city_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            city_run = city_para.add_run(texts['city'])
+            city_run.font.size = Pt(14)
+            city_run.font.name = 'Times New Roman'
+            
+        except Exception as e:
+            logger.error(f"Error creating course work title page: {e}")
+
+    def _create_course_work_toc(self, doc, content: Dict, language: str):
+        """Create table of contents for course work"""
+        texts = self._get_course_work_texts(language)
+        
+        # TOC title
+        toc_para = doc.add_paragraph()
+        toc_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        toc_run = toc_para.add_run(texts['contents'])
+        toc_run.font.size = Pt(14)
+        toc_run.font.bold = True
+        toc_run.font.name = 'Times New Roman'
+        
+        doc.add_paragraph()
+        
+        # Introduction
+        intro_toc = doc.add_paragraph()
+        intro_toc.paragraph_format.line_spacing = 1.5
+        intro_run = intro_toc.add_run(texts['introduction'])
+        intro_run.font.size = Pt(14)
+        intro_run.font.name = 'Times New Roman'
+        
+        # Chapters
+        for chapter in content.get('chapters', []):
+            # Chapter entry
+            chapter_toc = doc.add_paragraph()
+            chapter_toc.paragraph_format.line_spacing = 1.5
+            chapter_run = chapter_toc.add_run(f"{chapter['number']}-{texts['chapter']}. {chapter['title']}")
+            chapter_run.font.size = Pt(14)
+            chapter_run.font.bold = True
+            chapter_run.font.name = 'Times New Roman'
+            
+            # Subsection entries
+            for subsection in chapter.get('subsections', []):
+                sub_toc = doc.add_paragraph()
+                sub_toc.paragraph_format.left_indent = Inches(0.5)
+                sub_toc.paragraph_format.line_spacing = 1.5
+                sub_run = sub_toc.add_run(f"{subsection['number']} {subsection['title']}")
+                sub_run.font.size = Pt(14)
+                sub_run.font.name = 'Times New Roman'
+        
+        # Conclusion
+        conclusion_toc = doc.add_paragraph()
+        conclusion_toc.paragraph_format.line_spacing = 1.5
+        conclusion_run = conclusion_toc.add_run(texts['conclusion'])
+        conclusion_run.font.size = Pt(14)
+        conclusion_run.font.name = 'Times New Roman'
+        
+        # References
+        refs_toc = doc.add_paragraph()
+        refs_toc.paragraph_format.line_spacing = 1.5
+        refs_run = refs_toc.add_run(texts['references'])
+        refs_run.font.size = Pt(14)
+        refs_run.font.name = 'Times New Roman'
+
+    def _get_course_work_texts(self, language: str) -> Dict[str, str]:
+        """Get language-specific texts for course work"""
+        if language == 'ru':
+            return {
+                'course_work': 'КУРСОВАЯ РАБОТА',
+                'faculty': 'факультета',
+                'topic': 'Тема',
+                'prepared_by': 'Выполнил',
+                'accepted_by': 'Принял',
+                'city': 'Ташкент',
+                'contents': 'СОДЕРЖАНИЕ',
+                'introduction': 'ВВЕДЕНИЕ',
+                'chapter': 'ГЛАВА',
+                'conclusion': 'ЗАКЛЮЧЕНИЕ',
+                'references': 'СПИСОК ИСПОЛЬЗОВАННОЙ ЛИТЕРАТУРЫ'
+            }
+        elif language == 'en':
+            return {
+                'course_work': 'COURSE WORK',
+                'faculty': 'faculty',
+                'topic': 'Topic',
+                'prepared_by': 'Prepared by',
+                'accepted_by': 'Accepted by',
+                'city': 'Tashkent',
+                'contents': 'CONTENTS',
+                'introduction': 'INTRODUCTION',
+                'chapter': 'CHAPTER',
+                'conclusion': 'CONCLUSION',
+                'references': 'REFERENCES'
+            }
+        else:  # uz
+            return {
+                'course_work': 'KURS ISHI',
+                'faculty': 'fakulteti',
+                'topic': 'Mavzu',
+                'prepared_by': 'Bajardi',
+                'accepted_by': 'Qabul qildi',
+                'city': 'Toshkent',
+                'contents': 'MUNDARIJA',
+                'introduction': 'KIRISH',
+                'chapter': 'BO\'LIM',
+                'conclusion': 'XULOSA',
+                'references': 'FOYDALANILGAN ADABIYOTLAR'
+            }

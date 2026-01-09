@@ -6,6 +6,7 @@ class DocumentStates(StatesGroup):
     waiting_for_author_name = State()  # Ism Familiya kiritish
     waiting_for_slide_count = State()
     waiting_for_page_count = State()
+    waiting_for_course_work_pages = State()  # Kurs ishi sahifa/bo'lim tanlash
     waiting_for_outline_choice = State()
     waiting_for_manual_outline = State()
     waiting_for_outline_confirmation = State()
