@@ -1815,7 +1815,7 @@ async def handle_ai_model_settings(message: Message, db: Database):
     from bot.keyboards import get_ai_model_selection_keyboard
     
     current_model_key = await db.get_current_ai_model()
-    current_model = AI_MODELS.get(current_model_key, AI_MODELS["deepseek_v3"])
+    current_model = AI_MODELS.get(current_model_key, AI_MODELS["gemini_25_flash"])
     
     text = (
         "🤖 AI model sozlamalari\n\n"
