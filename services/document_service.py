@@ -1112,13 +1112,23 @@ class DocumentService:
             intro_run.font.name = 'Times New Roman'
             
             # Intro Part 1: General Info
-            intro_content_para = doc.add_paragraph()
-            intro_content_para.paragraph_format.first_line_indent = Inches(0.5)
-            intro_content_para.paragraph_format.line_spacing = 1.5
-            intro_content_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-            intro_run = intro_content_para.add_run(content.get('introduction', ''))
-            intro_run.font.size = Pt(14)
-            intro_run.font.name = 'Times New Roman'
+            intro_text = content.get('introduction', '')
+            sentences = intro_text.split('. ')
+            if len(sentences) > 4:
+                mid = len(sentences) // 2
+                paragraphs = ['. '.join(sentences[:mid]) + '.', '. '.join(sentences[mid:])]
+            else:
+                paragraphs = [intro_text]
+
+            for p_text in paragraphs:
+                if not p_text.strip(): continue
+                intro_content_para = doc.add_paragraph()
+                intro_content_para.paragraph_format.first_line_indent = Inches(0.5)
+                intro_content_para.paragraph_format.line_spacing = 1.5
+                intro_content_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                intro_run = intro_content_para.add_run(p_text.strip())
+                intro_run.font.size = Pt(14)
+                intro_run.font.name = 'Times New Roman'
             
             doc.add_page_break()
             
@@ -1210,13 +1220,23 @@ class DocumentService:
             conclusion_run.font.bold = True
             conclusion_run.font.name = 'Times New Roman'
             
-            conclusion_content_para = doc.add_paragraph()
-            conclusion_content_para.paragraph_format.first_line_indent = Inches(0.5)
-            conclusion_content_para.paragraph_format.line_spacing = 1.5
-            conclusion_content_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-            conclusion_run = conclusion_content_para.add_run(content.get('conclusion', ''))
-            conclusion_run.font.size = Pt(14)
-            conclusion_run.font.name = 'Times New Roman'
+            conclusion_text = content.get('conclusion', '')
+            sentences = conclusion_text.split('. ')
+            if len(sentences) > 4:
+                mid = len(sentences) // 2
+                paragraphs = ['. '.join(sentences[:mid]) + '.', '. '.join(sentences[mid:])]
+            else:
+                paragraphs = [conclusion_text]
+
+            for p_text in paragraphs:
+                if not p_text.strip(): continue
+                conclusion_content_para = doc.add_paragraph()
+                conclusion_content_para.paragraph_format.first_line_indent = Inches(0.5)
+                conclusion_content_para.paragraph_format.line_spacing = 1.5
+                conclusion_content_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                conclusion_run = conclusion_content_para.add_run(p_text.strip())
+                conclusion_run.font.size = Pt(14)
+                conclusion_run.font.name = 'Times New Roman'
             
             # References - New Page
             doc.add_page_break()
