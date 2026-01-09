@@ -65,11 +65,11 @@ AI_MODELS = {
         "price": "$0.25/1M",
         "description": "Tez, sifatli"
     },
-    "gpt5_mini": {
-        "id": "openai/gpt-5-mini",
-        "name": "GPT-5 Mini",
-        "price": "$0.25/1M",
-        "description": "GPT-5 intellekti, tez"
+    "gpt4o": {
+        "id": "openai/gpt-4o",
+        "name": "GPT-4o",
+        "price": "$2.50/1M",
+        "description": "Eng mashhur, ishonchli"
     },
     "gemini_20_flash": {
         "id": "google/gemini-2.0-flash-001",
