@@ -309,20 +309,20 @@ Har bir slayd uchun:
 - layout: shablon turi (cover, plan, intro, two_column, right_image, left_image, three_column, horizontal_image, text_with_numbers, conclusion, references, thanks)
 - columns (ustunli slaidlar uchun): {{"column_content": "matn"}} har bir ustun uchun
 
-MUHIM: Faqat JSON formatda javob bering!
+MUHIM: Faqat JSON formatda javob bering! Matn miqdori ko'rsatilgan joyga HAQIQIY MAZMUNLI MATN yozing!
 {{
     "slides": [
         {{"title": "{topic}", "content": "", "layout": "cover"}},
-        {{"title": "Reja", "content": "", "layout": "plan", "plan_items": ["1. Punkt", "2. Punkt", "3. Punkt", "4. Punkt"]}},
-        {{"title": "Kirish", "content": "kirish matni ~50 so'z", "layout": "intro"}},
-        {{"title": "Sarlavha", "content": "", "layout": "two_column", "columns": [{{"column_content": "matn 60 so'z"}}, {{"column_content": "matn 60 so'z"}}]}},
-        {{"title": "Sarlavha", "content": "matn 80 so'z", "layout": "right_image"}},
-        {{"title": "Sarlavha", "content": "matn 80 so'z", "layout": "left_image"}},
-        {{"title": "Sarlavha", "content": "", "layout": "three_column", "columns": [{{"keyword": "Kalit so'z", "column_content": "15-18 so'z tarif"}}, {{"keyword": "Kalit so'z", "column_content": "15-18 so'z tarif"}}, {{"keyword": "Kalit so'z", "column_content": "15-18 so'z tarif"}}]}},
-        {{"title": "Sarlavha", "content": "matn 50 so'z", "layout": "horizontal_image"}},
-        {{"title": "Sarlavha", "content": "matn 40-50 so'z", "layout": "text_with_numbers"}},
-        {{"title": "Xulosa", "content": "matn ~50 so'z", "layout": "conclusion"}},
-        {{"title": "Adabiyotlar", "content": "", "layout": "references", "references": ["Manba 1", "Manba 2", "Manba 3", "Manba 4"]}},
+        {{"title": "Reja", "content": "", "layout": "plan", "plan_items": ["1. Mavzu haqida", "2. Asosiy tushunchalar", "3. Amaliy qo'llanilishi", "4. Xulosa"]}},
+        {{"title": "Kirish", "content": "[BU YERGA HAQIQIY KIRISH MATNI YOZING]", "layout": "intro"}},
+        {{"title": "Sarlavha", "content": "", "layout": "two_column", "columns": [{{"column_content": "[BIRINCHI USTUN UCHUN MAZMUNLI MATN]"}}, {{"column_content": "[IKKINCHI USTUN UCHUN MAZMUNLI MATN]"}}]}},
+        {{"title": "Sarlavha", "content": "[RASM YONIGA MAZMUNLI MATN]", "layout": "right_image"}},
+        {{"title": "Sarlavha", "content": "[RASM YONIGA MAZMUNLI MATN]", "layout": "left_image"}},
+        {{"title": "Sarlavha", "content": "", "layout": "three_column", "columns": [{{"keyword": "Tushuncha", "column_content": "[BIRINCHI TUSHUNCHA TARIFI]"}}, {{"keyword": "Tushuncha", "column_content": "[IKKINCHI TUSHUNCHA TARIFI]"}}, {{"keyword": "Tushuncha", "column_content": "[UCHINCHI TUSHUNCHA TARIFI]"}}]}},
+        {{"title": "Sarlavha", "content": "[RASM USTIGA MAZMUNLI MATN]", "layout": "horizontal_image"}},
+        {{"title": "Sarlavha", "content": "[RAQAMLI MAZMUNLI MATN]", "layout": "text_with_numbers"}},
+        {{"title": "Xulosa", "content": "[XULOSA MATNI]", "layout": "conclusion"}},
+        {{"title": "Adabiyotlar", "content": "", "layout": "references", "references": ["Manba nomi va yili", "Manba nomi va yili", "Manba nomi va yili", "Manba nomi va yili"]}},
         {{"title": "", "content": "", "layout": "thanks"}}
     ]
 }}"""
@@ -355,20 +355,20 @@ MUHIM: Faqat JSON formatda javob bering!
 - layout: тип шаблона (cover, plan, intro, two_column, right_image, left_image, three_column, horizontal_image, text_with_numbers, conclusion, references, thanks)
 - columns (для колоночных): {{"column_content": "текст"}} для каждой колонки
 
-ВАЖНО: Отвечайте ТОЛЬКО в формате JSON!
+ВАЖНО: Отвечайте ТОЛЬКО в формате JSON! Вместо указанного количества слов пишите РЕАЛЬНЫЙ СОДЕРЖАТЕЛЬНЫЙ ТЕКСТ!
 {{
     "slides": [
         {{"title": "{topic}", "content": "", "layout": "cover"}},
-        {{"title": "План", "content": "", "layout": "plan", "plan_items": ["1. Пункт", "2. Пункт", "3. Пункт", "4. Пункт"]}},
-        {{"title": "Введение", "content": "текст введения ~50 слов", "layout": "intro"}},
-        {{"title": "Заголовок", "content": "", "layout": "two_column", "columns": [{{"column_content": "текст 60 слов"}}, {{"column_content": "текст 60 слов"}}]}},
-        {{"title": "Заголовок", "content": "текст 80 слов", "layout": "right_image"}},
-        {{"title": "Заголовок", "content": "текст 80 слов", "layout": "left_image"}},
-        {{"title": "Заголовок", "content": "", "layout": "three_column", "columns": [{{"keyword": "Ключевое слово", "column_content": "15-18 слов описание"}}, {{"keyword": "Ключевое слово", "column_content": "15-18 слов описание"}}, {{"keyword": "Ключевое слово", "column_content": "15-18 слов описание"}}]}},
-        {{"title": "Заголовок", "content": "текст 50 слов", "layout": "horizontal_image"}},
-        {{"title": "Заголовок", "content": "текст 40-50 слов", "layout": "text_with_numbers"}},
-        {{"title": "Заключение", "content": "текст ~50 слов", "layout": "conclusion"}},
-        {{"title": "Литература", "content": "", "layout": "references", "references": ["Источник 1", "Источник 2", "Источник 3", "Источник 4"]}},
+        {{"title": "План", "content": "", "layout": "plan", "plan_items": ["1. О теме", "2. Основные понятия", "3. Применение", "4. Выводы"]}},
+        {{"title": "Введение", "content": "[НАПИШИТЕ РЕАЛЬНЫЙ ТЕКСТ ВВЕДЕНИЯ]", "layout": "intro"}},
+        {{"title": "Заголовок", "content": "", "layout": "two_column", "columns": [{{"column_content": "[СОДЕРЖАТЕЛЬНЫЙ ТЕКСТ ПЕРВОЙ КОЛОНКИ]"}}, {{"column_content": "[СОДЕРЖАТЕЛЬНЫЙ ТЕКСТ ВТОРОЙ КОЛОНКИ]"}}]}},
+        {{"title": "Заголовок", "content": "[СОДЕРЖАТЕЛЬНЫЙ ТЕКСТ РЯДОМ С ИЗОБРАЖЕНИЕМ]", "layout": "right_image"}},
+        {{"title": "Заголовок", "content": "[СОДЕРЖАТЕЛЬНЫЙ ТЕКСТ РЯДОМ С ИЗОБРАЖЕНИЕМ]", "layout": "left_image"}},
+        {{"title": "Заголовок", "content": "", "layout": "three_column", "columns": [{{"keyword": "Понятие", "column_content": "[ОПИСАНИЕ ПЕРВОГО ПОНЯТИЯ]"}}, {{"keyword": "Понятие", "column_content": "[ОПИСАНИЕ ВТОРОГО ПОНЯТИЯ]"}}, {{"keyword": "Понятие", "column_content": "[ОПИСАНИЕ ТРЕТЬЕГО ПОНЯТИЯ]"}}]}},
+        {{"title": "Заголовок", "content": "[СОДЕРЖАТЕЛЬНЫЙ ТЕКСТ НАД ИЗОБРАЖЕНИЕМ]", "layout": "horizontal_image"}},
+        {{"title": "Заголовок", "content": "[СОДЕРЖАТЕЛЬНЫЙ ТЕКСТ С ЦИФРАМИ]", "layout": "text_with_numbers"}},
+        {{"title": "Заключение", "content": "[ТЕКСТ ЗАКЛЮЧЕНИЯ]", "layout": "conclusion"}},
+        {{"title": "Литература", "content": "", "layout": "references", "references": ["Название источника и год", "Название источника и год", "Название источника и год", "Название источника и год"]}},
         {{"title": "", "content": "", "layout": "thanks"}}
     ]
 }}"""
@@ -401,20 +401,20 @@ For each slide:
 - layout: template type (cover, plan, intro, two_column, right_image, left_image, three_column, horizontal_image, text_with_numbers, conclusion, references, thanks)
 - columns (for column layouts): {{"column_content": "text"}} for each column
 
-IMPORTANT: Respond ONLY in JSON format!
+IMPORTANT: Respond ONLY in JSON format! Write REAL MEANINGFUL CONTENT instead of word count placeholders!
 {{
     "slides": [
         {{"title": "{topic}", "content": "", "layout": "cover"}},
-        {{"title": "Agenda", "content": "", "layout": "plan", "plan_items": ["1. Point", "2. Point", "3. Point", "4. Point"]}},
-        {{"title": "Introduction", "content": "intro text ~50 words", "layout": "intro"}},
-        {{"title": "Title", "content": "", "layout": "two_column", "columns": [{{"column_content": "text 60 words"}}, {{"column_content": "text 60 words"}}]}},
-        {{"title": "Title", "content": "text 80 words", "layout": "right_image"}},
-        {{"title": "Title", "content": "text 80 words", "layout": "left_image"}},
-        {{"title": "Title", "content": "", "layout": "three_column", "columns": [{{"keyword": "Keyword", "column_content": "15-18 words description"}}, {{"keyword": "Keyword", "column_content": "15-18 words description"}}, {{"keyword": "Keyword", "column_content": "15-18 words description"}}]}},
-        {{"title": "Title", "content": "text 50 words", "layout": "horizontal_image"}},
-        {{"title": "Title", "content": "text 40-50 words", "layout": "text_with_numbers"}},
-        {{"title": "Conclusion", "content": "text ~50 words", "layout": "conclusion"}},
-        {{"title": "References", "content": "", "layout": "references", "references": ["Source 1", "Source 2", "Source 3", "Source 4"]}},
+        {{"title": "Agenda", "content": "", "layout": "plan", "plan_items": ["1. About the topic", "2. Key concepts", "3. Applications", "4. Conclusions"]}},
+        {{"title": "Introduction", "content": "[WRITE ACTUAL INTRODUCTION TEXT]", "layout": "intro"}},
+        {{"title": "Title", "content": "", "layout": "two_column", "columns": [{{"column_content": "[MEANINGFUL CONTENT FOR FIRST COLUMN]"}}, {{"column_content": "[MEANINGFUL CONTENT FOR SECOND COLUMN]"}}]}},
+        {{"title": "Title", "content": "[MEANINGFUL TEXT NEXT TO IMAGE]", "layout": "right_image"}},
+        {{"title": "Title", "content": "[MEANINGFUL TEXT NEXT TO IMAGE]", "layout": "left_image"}},
+        {{"title": "Title", "content": "", "layout": "three_column", "columns": [{{"keyword": "Concept", "column_content": "[DESCRIPTION OF FIRST CONCEPT]"}}, {{"keyword": "Concept", "column_content": "[DESCRIPTION OF SECOND CONCEPT]"}}, {{"keyword": "Concept", "column_content": "[DESCRIPTION OF THIRD CONCEPT]"}}]}},
+        {{"title": "Title", "content": "[MEANINGFUL TEXT ABOVE IMAGE]", "layout": "horizontal_image"}},
+        {{"title": "Title", "content": "[MEANINGFUL TEXT WITH NUMBERS]", "layout": "text_with_numbers"}},
+        {{"title": "Conclusion", "content": "[CONCLUSION TEXT]", "layout": "conclusion"}},
+        {{"title": "References", "content": "", "layout": "references", "references": ["Source name and year", "Source name and year", "Source name and year", "Source name and year"]}},
         {{"title": "", "content": "", "layout": "thanks"}}
     ]
 }}"""
