@@ -1104,13 +1104,6 @@ class DocumentService:
             
             # Introduction
             texts = self._get_course_work_texts(language)
-            
-            # Ensure Intro section has no footer
-            intro_sec = doc.sections[-1]
-            intro_sec.footer.is_linked_to_previous = False
-            for p in intro_sec.footer.paragraphs:
-                p.clear()
-            
             intro_para = doc.add_paragraph()
             intro_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             intro_run = intro_para.add_run(texts['introduction'])
@@ -1193,48 +1186,8 @@ class DocumentService:
                     content_run = content_para.add_run(subsection.get('content', ''))
                     content_run.font.size = Pt(14)
                     content_run.font.name = 'Times New Roman'
-                    
-                    # Add properly formatted footnote at the bottom of the page
-                    footnote_text = subsection.get('footnote', '')
-                    if footnote_text:
-                        # Footnote reference in text
-                        run_ref = content_para.add_run(str(footnote_num))
-                        run_ref.font.superscript = True
-                        
-                        # Add footnote to the current section's footer
-                        # Each subsection in a chapter will be on its own page or flow
-                        # We use footer for the current section
-                        section = doc.sections[-1]
-                        footer = section.footer
-                        
-                        # Clear existing footer paragraphs if this is the first footnote for this section
-                        # But wait, sections can span multiple pages. 
-                        # In docx, footers are per section.
-                        # To have different footers per page, we need different sections.
-                        
-                        fn_p = footer.paragraphs[0]
-                        fn_p.clear()
-                        fn_p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.LEFT
-                        fn_p.add_run("_" * 20 + "\n")
-                        
-                        # Limit footnote to ~2 lines/short explanation
-                        short_footnote = footnote_text[:150] + "..." if len(footnote_text) > 150 else footnote_text
-                        fn_run = fn_p.add_run(f"{footnote_num}. {short_footnote}")
-                        fn_run.font.size = Pt(10)
-                        fn_run.font.name = 'Times New Roman'
-                        footnote_num += 1
                 
-                    # Force new section for each subsection to have unique footer
-                    doc.add_section()
-                
-                # If it's the last chapter, conclusion will be on a new page without footnotes
-                # But sections inherit footers. We must clear footer for the next section.
-            
-            # Final cleanup/setup for Conclusion and beyond
-            new_sec = doc.add_section()
-            new_sec.footer.is_linked_to_previous = False
-            for p in new_sec.footer.paragraphs:
-                p.clear()
+                doc.add_page_break()
             
             # Conclusion
             conclusion_para = doc.add_paragraph()

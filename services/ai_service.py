@@ -958,13 +958,11 @@ In JSON format:
                 
                 for j, sub_title in enumerate(subsection_titles[:3], 1):
                     sub_content = await self._generate_subsection_content(topic, chapter_title, sub_title, language)
-                    footnote = await self._generate_footnote(topic, chapter_title, language)
                     
                     chapter["subsections"].append({
                         "number": f"{i}.{j}",
                         "title": sub_title,
-                        "content": sub_content,
-                        "footnote": footnote
+                        "content": sub_content
                     })
                 
                 content["chapters"].append(chapter)
