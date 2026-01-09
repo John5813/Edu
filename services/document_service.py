@@ -335,11 +335,13 @@ class DocumentService:
             ]
         
         max_font = 22 if language in ['ru', 'en'] else 23
-        width_in = 4
+        width_in = 3.8
         height_in = 5
         
+        column_positions = [0.3, 4.5, 8.7]
+        
         for i, col in enumerate(columns[:3]):
-            x_pos = PptxInches(0.4 + i * 4.3)
+            x_pos = PptxInches(column_positions[i])
             box = slide.shapes.add_textbox(x_pos, PptxInches(2), PptxInches(width_in), PptxInches(height_in))
             tf = box.text_frame
             tf.word_wrap = True
