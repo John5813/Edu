@@ -100,7 +100,44 @@ async def handle_samples_management_admin(message: Message):
         reply_markup=get_sample_management_keyboard()
     )
 
-# Admin menu handlers
+@router.callback_query(F.data == "add_sample")
+async def add_sample_start(callback: CallbackQuery, state: FSMContext):
+    """Start adding sample process"""
+    if not is_admin(callback.from_user.id):
+        return
+
+    await callback.message.edit_text(
+        "📎 Namuna faylini yuboring (hujjat, rasm yoki video):",
+        parse_mode=None
+    )
+    await state.set_state(AdminStates.waiting_for_sample_file)
+
+@router.message(AdminStates.waiting_for_sample_file, F.document | F.photo | F.video)
+async def handle_sample_file(message: Message, state: FSMContext):
+    """Handle sample file upload"""
+    try:
+        if message.document:
+            file_id = message.document.file_id
+            file_type = 'document'
+        elif message.photo:
+            file_id = message.photo[-1].file_id
+            file_type = 'photo'
+        elif message.video:
+            file_id = message.video.file_id
+            file_type = 'video'
+        else:
+            await message.answer("❌ Noto'g'ri fayl turi.")
+            return
+
+        await state.update_data(file_id=file_id, file_type=file_type)
+        await message.answer("📝 Namuna nomini kiriting:")
+        await state.set_state(AdminStates.waiting_for_sample_title)
+
+    except Exception as e:
+        logger.error(f"Error handling sample file: {e}")
+        await message.answer("❌ Xatolik yuz berdi. Qayta urinib ko'ring.")
+        await state.clear()
+
 @router.message(F.text == "💳 To'lovlar")
 async def handle_orders_request(message: Message, db: Database):
     """Handle orders/payments request"""

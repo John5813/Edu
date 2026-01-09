@@ -560,17 +560,58 @@ class Database:
             await db.commit()
 
     @staticmethod
-    async def get_user_orders(user_id: int, limit: int = 10) -> List[DocumentOrder]:
-        """Get user's recent orders"""
+    async def get_all_sample_files() -> List[Dict]:
+        """Get all sample files"""
         async with aiosqlite.connect(DATABASE_FILE) as db:
             db.row_factory = aiosqlite.Row
             async with db.execute(
-                "SELECT * FROM document_orders WHERE user_id = ? ORDER BY created_at DESC LIMIT ?",
-                (user_id, limit)
+                "SELECT * FROM sample_files ORDER BY created_at DESC"
             ) as cursor:
                 rows = await cursor.fetchall()
-                return [DocumentOrder(**dict(row)) for row in rows]
+                return [dict(row) for row in rows]
 
+    @staticmethod
+    async def get_active_sample_files() -> List[Dict]:
+        """Get only active sample files"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM sample_files WHERE is_active = 1 ORDER BY created_at DESC"
+            ) as cursor:
+                rows = await cursor.fetchall()
+                return [dict(row) for row in rows]
+
+    @staticmethod
+    async def add_sample_file(title: str, description: str, file_id: str, file_type: str) -> int:
+        """Add new sample file"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            cursor = await db.execute(
+                "INSERT INTO sample_files (title, description, file_id, file_type) VALUES (?, ?, ?, ?)",
+                (title, description, file_id, file_type)
+            )
+            await db.commit()
+            return cursor.lastrowid
+
+    @staticmethod
+    async def delete_sample_file(sample_id: int) -> bool:
+        """Delete sample file"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            async with db.execute(
+                "DELETE FROM sample_files WHERE id = ?", (sample_id,)
+            ) as cursor:
+                await db.commit()
+                return cursor.rowcount > 0
+
+    @staticmethod
+    async def get_sample_file(sample_id: int) -> Optional[Dict]:
+        """Get sample file by ID"""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM sample_files WHERE id = ?", (sample_id,)
+            ) as cursor:
+                row = await cursor.fetchone()
+                return dict(row) if row else None
     @staticmethod
     async def get_all_users() -> List[User]:
         """Get all users"""
