@@ -1057,6 +1057,16 @@ class DocumentService:
         """Create presentation using new layout system"""
         return await self.create_presentation_with_smart_images(topic, content, author_name, language)
 
+    def _to_roman(self, n: int) -> str:
+        """Convert integer to Roman numeral"""
+        roman_map = [(10, 'X'), (9, 'IX'), (5, 'V'), (4, 'IV'), (1, 'I')]
+        result = ""
+        for val, rom in roman_map:
+            while n >= val:
+                result += rom
+                n -= val
+        return result
+
     async def create_course_work(self, topic: str, content: Dict, author_name: str, language: str = 'uz') -> str:
         """Create course work document with chapters, subsections and footnotes
         
@@ -1100,29 +1110,63 @@ class DocumentService:
             intro_run.font.bold = True
             intro_run.font.name = 'Times New Roman'
             
+            # Intro Part 1: General Info
             intro_content_para = doc.add_paragraph()
             intro_content_para.paragraph_format.first_line_indent = Inches(0.5)
             intro_content_para.paragraph_format.line_spacing = 1.5
-            intro_content_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            intro_content_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             intro_run = intro_content_para.add_run(content.get('introduction', ''))
             intro_run.font.size = Pt(14)
             intro_run.font.name = 'Times New Roman'
             
             doc.add_page_break()
             
+            # Intro Part 2: Specific Points
+            intro_points_data = content.get('intro_points', {})
+            for i, point_label in enumerate(texts['intro_points']):
+                p = doc.add_paragraph()
+                p.paragraph_format.line_spacing = 1.5
+                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                run = p.add_run(point_label)
+                run.font.bold = True
+                run.font.size = Pt(14)
+                run.font.name = 'Times New Roman'
+                
+                point_key = f"point_{i+1}"
+                point_content = intro_points_data.get(point_key, "")
+                if point_content:
+                    if point_label.endswith(':'):
+                        # List format for tasks
+                        tasks = point_content.split('\n') if '\n' in point_content else [point_content]
+                        for task in tasks:
+                            if not task.strip(): continue
+                            tp = doc.add_paragraph()
+                            tp.paragraph_format.left_indent = Inches(0.5)
+                            tp.paragraph_format.line_spacing = 1.5
+                            tp_run = tp.add_run(f"• {task.strip()}")
+                            tp_run.font.size = Pt(14)
+                            tp_run.font.name = 'Times New Roman'
+                    else:
+                        run_content = p.add_run(f" {point_content}")
+                        run_content.font.size = Pt(14)
+                        run_content.font.name = 'Times New Roman'
+            
+            doc.add_page_break()
+            
             # Chapters
-            for chapter in content.get('chapters', []):
-                # Chapter title
+            for i, chapter in enumerate(content.get('chapters', []), 1):
+                # Chapter title - Roman numerals
+                roman_num = self._to_roman(i)
                 chapter_para = doc.add_paragraph()
                 chapter_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                chapter_run = chapter_para.add_run(f"{chapter['number']}-{texts['chapter']}. {chapter['title']}")
+                chapter_run = chapter_para.add_run(f"{roman_num}-{texts['chapter']}. {chapter['title']}")
                 chapter_run.font.size = Pt(14)
                 chapter_run.font.bold = True
                 chapter_run.font.name = 'Times New Roman'
                 
                 # Subsections
                 for subsection in chapter.get('subsections', []):
-                    # Subsection title
+                    # Subsection title - Arabic numerals
                     sub_para = doc.add_paragraph()
                     sub_para.paragraph_format.space_before = Pt(12)
                     sub_run = sub_para.add_run(f"{subsection['number']} {subsection['title']}")
@@ -1130,32 +1174,30 @@ class DocumentService:
                     sub_run.font.bold = True
                     sub_run.font.name = 'Times New Roman'
                     
-                    # Subsection content with footnote reference
+                    # Subsection content
                     content_para = doc.add_paragraph()
                     content_para.paragraph_format.first_line_indent = Inches(0.5)
                     content_para.paragraph_format.line_spacing = 1.5
-                    content_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                    content_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                     
                     content_run = content_para.add_run(subsection.get('content', ''))
                     content_run.font.size = Pt(14)
                     content_run.font.name = 'Times New Roman'
                     
-                    # Add footnote reference number (superscript)
-                    footnote_ref = content_para.add_run(f" [{footnote_num}]")
-                    footnote_ref.font.size = Pt(10)
-                    footnote_ref.font.name = 'Times New Roman'
-                    footnote_ref.font.superscript = True
-                    
-                    # Add footnote at the bottom of the paragraph
-                    footnote_para = doc.add_paragraph()
-                    footnote_para.paragraph_format.space_before = Pt(6)
+                    # Add proper footnote
                     footnote_text = subsection.get('footnote', '')
-                    footnote_run = footnote_para.add_run(f"[{footnote_num}] {footnote_text}")
-                    footnote_run.font.size = Pt(10)
-                    footnote_run.font.name = 'Times New Roman'
-                    footnote_run.font.italic = True
-                    
-                    footnote_num += 1
+                    if footnote_text:
+                        # Footnote reference in text
+                        run_ref = content_para.add_run(str(footnote_num))
+                        run_ref.font.superscript = True
+                        
+                        # Footnote at bottom of section (Simulated proper footnote)
+                        doc.add_paragraph("_" * 20)
+                        fn_p = doc.add_paragraph()
+                        fn_run = fn_p.add_run(f"{footnote_num}. {footnote_text}")
+                        fn_run.font.size = Pt(10)
+                        fn_run.font.name = 'Times New Roman'
+                        footnote_num += 1
                 
                 doc.add_page_break()
             
@@ -1317,11 +1359,12 @@ class DocumentService:
         intro_run.font.name = 'Times New Roman'
         
         # Chapters
-        for chapter in content.get('chapters', []):
+        for i, chapter in enumerate(content.get('chapters', []), 1):
             # Chapter entry
+            roman_num = self._to_roman(i)
             chapter_toc = doc.add_paragraph()
             chapter_toc.paragraph_format.line_spacing = 1.5
-            chapter_run = chapter_toc.add_run(f"{chapter['number']}-{texts['chapter']}. {chapter['title']}")
+            chapter_run = chapter_toc.add_run(f"{roman_num}-{texts['chapter']}. {chapter['title']}")
             chapter_run.font.size = Pt(14)
             chapter_run.font.bold = True
             chapter_run.font.name = 'Times New Roman'
@@ -1363,7 +1406,15 @@ class DocumentService:
                 'introduction': 'ВВЕДЕНИЕ',
                 'chapter': 'ГЛАВА',
                 'conclusion': 'ЗАКЛЮЧЕНИЕ',
-                'references': 'СПИСОК ИСПОЛЬЗОВАННОЙ ЛИТЕРАТУРЫ'
+                'references': 'СПИСОК ИСПОЛЬЗОВАННОЙ ЛИТЕРАТУРЫ',
+                'intro_points': [
+                    '1. Предмет курсовой работы.',
+                    '2. Объект курсовой работы.',
+                    '3. Степень изученности темы.',
+                    '4. Цель курсовой работы.',
+                    '5. Задачи курсовой работы:',
+                    '6. Структура курсовой работы.'
+                ]
             }
         elif language == 'en':
             return {
@@ -1377,7 +1428,15 @@ class DocumentService:
                 'introduction': 'INTRODUCTION',
                 'chapter': 'CHAPTER',
                 'conclusion': 'CONCLUSION',
-                'references': 'REFERENCES'
+                'references': 'REFERENCES',
+                'intro_points': [
+                    '1. Subject of the course work.',
+                    '2. Object of the course work.',
+                    '3. Degree of study of the topic.',
+                    '4. Goal of the course work.',
+                    '5. Tasks of the course work:',
+                    '6. Structure of the course work.'
+                ]
             }
         else:  # uz
             return {
@@ -1391,5 +1450,13 @@ class DocumentService:
                 'introduction': 'KIRISH',
                 'chapter': 'BO\'LIM',
                 'conclusion': 'XULOSA',
-                'references': 'FOYDALANILGAN ADABIYOTLAR'
+                'references': 'FOYDALANILGAN ADABIYOTLAR',
+                'intro_points': [
+                    '1. Kurs ishining predmeti.',
+                    '2. Kurs ishining obyekti.',
+                    '3. Mavzuning o‘rganilganlik darajasi.',
+                    '4. Kurs ishining maqsadi.',
+                    '5. Kurs ishining vazifalari:',
+                    '6. Kurs ishining tarkibiy tuzilishi.'
+                ]
             }
