@@ -15,6 +15,7 @@ from typing import Dict, Optional, List
 import asyncio
 from config import DOCUMENTS_DIR, TEMP_DIR
 from services.together_service import TogetherImageService
+from services.ai_service import clean_text
 
 logger = logging.getLogger(__name__)
 
@@ -259,6 +260,7 @@ class DocumentService:
                 col_text = col.get('column_content', col.get('text', col.get('content', '')))
             else:
                 col_text = str(col)
+            col_text = clean_text(col_text)
             optimal_font = self._calculate_auto_font_size(col_text, width_in, height_in, max_font, 14)
             p.text = col_text
             p.font.size = PptxPt(optimal_font)
@@ -349,6 +351,8 @@ class DocumentService:
                 keyword = ''
                 col_text = str(col)
             
+            keyword = clean_text(keyword)
+            col_text = clean_text(col_text)
             optimal_font = self._calculate_auto_font_size(col_text, width_in, height_in - 1, max_font, 14)
             
             if keyword:

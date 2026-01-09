@@ -14,6 +14,14 @@ def clean_text(text: str) -> str:
     if not text:
         return ""
     
+    text = re.sub(r"^\s*\{?\s*['\"]?columns['\"]?\s*:\s*\[?\s*\{?\s*['\"]?keyword['\"]?\s*:\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"['\"]?column_content['\"]?\s*:\s*['\"]?", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"['\"]?text['\"]?\s*:\s*['\"]?", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"['\"]?content['\"]?\s*:\s*['\"]?", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"['\"]?keyword['\"]?\s*:\s*['\"]?", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"^\s*['\"]", "", text)
+    text = re.sub(r"['\"]?\s*\}?\s*\]?\s*\}?\s*$", "", text)
+    
     text = re.sub(r'[#@&*{}\[\]<>|\\^~`]', '', text)
     text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
     text = re.sub(r'\*([^*]+)\*', r'\1', text)
