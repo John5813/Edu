@@ -532,6 +532,7 @@ class DocumentService:
             
             paragraph_format = style.paragraph_format
             paragraph_format.line_spacing = 1.5
+            paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             
             for section in doc.sections:
                 section.top_margin = Inches(0.79)
@@ -1212,7 +1213,7 @@ class DocumentService:
             conclusion_content_para = doc.add_paragraph()
             conclusion_content_para.paragraph_format.first_line_indent = Inches(0.5)
             conclusion_content_para.paragraph_format.line_spacing = 1.5
-            conclusion_content_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            conclusion_content_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             conclusion_run = conclusion_content_para.add_run(content.get('conclusion', ''))
             conclusion_run.font.size = Pt(14)
             conclusion_run.font.name = 'Times New Roman'
@@ -1232,6 +1233,7 @@ class DocumentService:
                 ref_para = doc.add_paragraph()
                 ref_para.paragraph_format.first_line_indent = Inches(0.5)
                 ref_para.paragraph_format.line_spacing = 1.5
+                ref_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                 ref_run = ref_para.add_run(f"{idx}. {ref}")
                 ref_run.font.size = Pt(14)
                 ref_run.font.name = 'Times New Roman'
