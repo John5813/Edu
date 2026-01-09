@@ -633,30 +633,23 @@ RULES:
             raise
 
     async def _generate_references(self, topic: str, language: str) -> List[str]:
-        """Generate references for the document"""
+        """Generate academic references for course work"""
         try:
-            if language == "uz":
-                prompt = f"""O'zbek tilida "{topic}" mavzusi bo'yicha 5 ta ilmiy manba (kitob, maqola, veb-sayt) ro'yxatini yarating.
+            target_lang_name = "Russian" if language == "ru" else "English" if language == "en" else "Uzbek"
+            prompt = f"""Create a list of 6-8 real-looking academic references for a course work on the topic: "{topic}".
+THE ENTIRE LIST MUST BE IN {target_lang_name.upper()} LANGUAGE. 
+Include author, title, city, publisher, and year. 
+Format: Author. Title. City: Publisher, Year.
 
-JSON formatda javob bering:
-{{"references": ["Manba 1", "Manba 2", ...]}}"""
-            elif language == "ru":
-                prompt = f"""Создайте список из 5 научных источников по теме "{topic}" на русском языке.
-
-Ответьте в формате JSON:
-{{"references": ["Источник 1", "Источник 2", ...]}}"""
-            else:
-                prompt = f"""Create a list of 5 academic sources for "{topic}" in English.
-
-Respond in JSON format:
-{{"references": ["Source 1", "Source 2", ...]}}"""
+Return as a JSON list:
+{{"references": ["Reference 1", "Reference 2", ...]}}"""
 
             response = await self._make_request(
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=1000,
                 temperature=0.7
             )
-
+            
             content_str = response.strip()
             if content_str.startswith("```json"):
                 content_str = content_str[7:]
@@ -665,9 +658,9 @@ Respond in JSON format:
             if content_str.endswith("```"):
                 content_str = content_str[:-3]
             
-            refs = json.loads(content_str.strip())
-            return refs.get('references', [])
-
+            data = json.loads(content_str.strip())
+            return data.get('references', [])
+            
         except Exception as e:
             logger.error(f"Error generating references: {e}")
             return []
@@ -982,24 +975,34 @@ In JSON format:
     async def _generate_chapter_titles(self, topic: str, chapters: int, language: str) -> List[str]:
         """Generate chapter titles for course work"""
         try:
-            if language == "uz":
-                prompt = f""""{topic}" mavzusi uchun {chapters} ta bo'lim (chapter) sarlavhasini yarating.
-Har bir bo'lim mavzuning turli jihatlarini qamrab olishi kerak.
+            # First, ensure we have the topic in the target language
+            translated_topic = topic
+            if language != "uz":
+                translation_prompt = f"Translate this topic into {'Russian' if language == 'ru' else 'English'}: {topic}. Provide only the translated text."
+                translated_topic = await self._make_request(
+                    messages=[{"role": "user", "content": translation_prompt}],
+                    max_tokens=100
+                )
+                translated_topic = translated_topic.strip()
 
-JSON formatda javob bering:
-{{"chapters": ["1-bo'lim sarlavhasi", "2-bo'lim sarlavhasi", ...]}}"""
-            elif language == "ru":
-                prompt = f"""Создайте {chapters} названий глав для курсовой работы по теме "{topic}".
-Каждая глава должна охватывать разные аспекты темы.
+            if language == "ru":
+                prompt = f"""Для темы "{translated_topic}" создайте {chapters} названий глав для курсовой работы.
+Каждая глава должна охватывать разные аспекты темы. ВСЕ ДОЛЖНО БЫТЬ НА РУССКОМ ЯЗЫКЕ.
 
 Ответьте в формате JSON:
 {{"chapters": ["Название главы 1", "Название главы 2", ...]}}"""
-            else:
-                prompt = f"""Create {chapters} chapter titles for course work on "{topic}".
-Each chapter should cover different aspects of the topic.
+            elif language == "en":
+                prompt = f"""For topic "{translated_topic}", create {chapters} chapter titles for course work.
+Each chapter should cover different aspects of the topic. EVERYTHING MUST BE IN ENGLISH.
 
 Respond in JSON format:
 {{"chapters": ["Chapter 1 title", "Chapter 2 title", ...]}}"""
+            else: # uz
+                prompt = f""""{topic}" mavzusi uchun {chapters} ta bo'lim (chapter) sarlavhasini yarating.
+Har bir bo'lim mavzuning turli jihatlarini qamrab olishi kerak. HAMMASI O'ZBEK TILIDA BO'LSIN.
+
+JSON formatda javob bering:
+{{"chapters": ["1-bo'lim sarlavhasi", "2-bo'lim sarlavhasi", ...]}}"""
 
             response = await self._make_request(
                 messages=[{"role": "user", "content": prompt}],
@@ -1025,21 +1028,22 @@ Respond in JSON format:
     async def _generate_subsection_titles(self, topic: str, chapter_title: str, language: str) -> List[str]:
         """Generate 3 subsection titles for a chapter"""
         try:
-            if language == "uz":
-                prompt = f""""{topic}" mavzusi, "{chapter_title}" bo'limi uchun 3 ta kichik bo'lim sarlavhasini yarating.
-
-JSON formatda:
-{{"subsections": ["1.1 sarlavha", "1.2 sarlavha", "1.3 sarlavha"]}}"""
-            elif language == "ru":
-                prompt = f"""Создайте 3 названия подразделов для главы "{chapter_title}" по теме "{topic}".
+            # Use chapter_title directly as it should already be in the target language
+            if language == "ru":
+                prompt = f"""Создайте 3 названия подразделов для главы "{chapter_title}" по теме. ВСЕ НА РУССКОМ ЯЗЫКЕ.
 
 В формате JSON:
 {{"subsections": ["Подраздел 1", "Подраздел 2", "Подраздел 3"]}}"""
-            else:
-                prompt = f"""Create 3 subsection titles for chapter "{chapter_title}" on topic "{topic}".
+            elif language == "en":
+                prompt = f"""Create 3 subsection titles for chapter "{chapter_title}". EVERYTHING IN ENGLISH.
 
 In JSON format:
 {{"subsections": ["Subsection 1", "Subsection 2", "Subsection 3"]}}"""
+            else: # uz
+                prompt = f""""{chapter_title}" bo'limi uchun 3 ta kichik bo'lim sarlavhasini yarating. HAMMASI O'ZBEK TILIDA BO'LSIN.
+
+JSON formatda:
+{{"subsections": ["1.1 sarlavha", "1.2 sarlavha", "1.3 sarlavha"]}}"""
 
             response = await self._make_request(
                 messages=[{"role": "user", "content": prompt}],
@@ -1209,6 +1213,7 @@ Respond in JSON format:
     async def _generate_course_intro(self, topic: str, language: str) -> str:
         """Generate course work introduction (~600 words for 2 pages)"""
         try:
+            target_lang_name = "Russian" if language == "ru" else "English" if language == "en" else "Uzbek"
             if language == "uz":
                 prompt = f""""{topic}" mavzusidagi kurs ishi uchun ilmiy va tahliliy kirish qismini yozing.
 DIQQAT: Umumiy va yuzaki gaplardan butunlay voz keching. Kirish qismi aynan "{topic}" mavzusining mohiyatini ochib berishi, uning bugungi kundagi dolzarbligini ilmiy asoslar bilan tushuntirishi kerak.
@@ -1219,19 +1224,10 @@ DIQQAT: Umumiy va yuzaki gaplardan butunlay voz keching. Kirish qismi aynan "{to
 - Mavzuning qisqacha tarixi yoki nazariy asosi.
 
 Professional akademik uslubda yozing. Faqat oddiy matn, markdown ishlatmang."""
-            elif language == "ru":
-                prompt = f"""Напишите научное и аналитическое введение для курсовой работы по теме "{topic}".
-ВНИМАНИЕ: Полностью избегайте общих и поверхностных фраз. Введение должно раскрывать суть именно темы "{topic}", объясняя её актуальность в современных условиях с научным обоснованием.
-
-600-700 слов. Глубоко проанализируйте:
-- Актуальность темы: Почему эта тема важна сегодня? Какие проблемы она решает?
-- Научная и практическая значимость исследования: Кому полезна эта работа?
-- Краткая история или теоретическая база темы.
-
-Профессиональный академический стиль. Только простой текст, без markdown."""
             else:
-                prompt = f"""Write a scientific and analytical introduction for a course work on "{topic}".
-ATTENTION: Completely avoid general and superficial phrases. The introduction must reveal the essence specifically of the topic "{topic}", explaining its relevance in modern conditions with scientific justification.
+                prompt = f"""Write a scientific and analytical introduction for a course work on the topic: "{topic}".
+THE ENTIRE TEXT MUST BE IN {target_lang_name.upper()} LANGUAGE. 
+ATTENTION: Completely avoid general and superficial phrases. The introduction must reveal the essence specifically of the topic, explaining its relevance in modern conditions with scientific justification.
 
 600-700 words. Deeply analyze:
 - Relevance of the topic: Why is this topic important today? What problems does it solve?
@@ -1258,6 +1254,7 @@ Professional academic style. Only plain text, no markdown."""
     async def _generate_course_conclusion(self, topic: str, language: str) -> str:
         """Generate course work conclusion (~400 words)"""
         try:
+            target_lang_name = "Russian" if language == "ru" else "English" if language == "en" else "Uzbek"
             if language == "uz":
                 prompt = f""""{topic}" mavzusidagi kurs ishi uchun xulosa yozing.
 
@@ -1268,18 +1265,9 @@ Professional academic style. Only plain text, no markdown."""
 - Kelajakda tadqiq qilish yo'nalishlari
 
 Professional akademik uslubda yozing."""
-            elif language == "ru":
-                prompt = f"""Напишите заключение для курсовой работы по теме "{topic}".
-
-400-500 слов. Охватите:
-- Основные результаты и выводы
-- Заключения исследования
-- Практические рекомендации
-- Направления дальнейших исследований
-
-Профессиональный академический стиль."""
             else:
-                prompt = f"""Write conclusion for course work on "{topic}".
+                prompt = f"""Write a scientific conclusion for a course work on the topic: "{topic}".
+THE ENTIRE TEXT MUST BE IN {target_lang_name.upper()} LANGUAGE. 
 
 400-500 words. Cover:
 - Main findings and results
