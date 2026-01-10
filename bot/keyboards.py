@@ -157,20 +157,20 @@ def get_course_work_page_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
 
     if language == "uz":
-        keyboard.add(InlineKeyboardButton(text="15-20 varoq (2 bo'lim) - 15000 so'm", callback_data="cw_pages_15_20_2"))
-        keyboard.add(InlineKeyboardButton(text="20-25 varoq (2 bo'lim) - 20000 so'm", callback_data="cw_pages_20_25_2"))
-        keyboard.add(InlineKeyboardButton(text="25-30 varoq (3 bo'lim) - 25000 so'm", callback_data="cw_pages_25_30_3"))
-        keyboard.add(InlineKeyboardButton(text="30-35 varoq (3 bo'lim) - 30000 so'm", callback_data="cw_pages_30_35_3"))
+        keyboard.add(InlineKeyboardButton(text="15-20 varoq (2 bo'lim) - 10000 so'm", callback_data="cw_pages_15_20_2"))
+        keyboard.add(InlineKeyboardButton(text="20-25 varoq (2 bo'lim) - 15000 so'm", callback_data="cw_pages_20_25_2"))
+        keyboard.add(InlineKeyboardButton(text="25-30 varoq (3 bo'lim) - 20000 so'm", callback_data="cw_pages_25_30_3"))
+        keyboard.add(InlineKeyboardButton(text="30-35 varoq (3 bo'lim) - 25000 so'm", callback_data="cw_pages_30_35_3"))
     elif language == "ru":
-        keyboard.add(InlineKeyboardButton(text="15-20 стр (2 главы) - 15000 сум", callback_data="cw_pages_15_20_2"))
-        keyboard.add(InlineKeyboardButton(text="20-25 стр (2 главы) - 20000 сум", callback_data="cw_pages_20_25_2"))
-        keyboard.add(InlineKeyboardButton(text="25-30 стр (3 главы) - 25000 сум", callback_data="cw_pages_25_30_3"))
-        keyboard.add(InlineKeyboardButton(text="30-35 стр (3 главы) - 30000 сум", callback_data="cw_pages_30_35_3"))
+        keyboard.add(InlineKeyboardButton(text="15-20 стр (2 главы) - 10000 сум", callback_data="cw_pages_15_20_2"))
+        keyboard.add(InlineKeyboardButton(text="20-25 стр (2 главы) - 15000 сум", callback_data="cw_pages_20_25_2"))
+        keyboard.add(InlineKeyboardButton(text="25-30 стр (3 главы) - 20000 сум", callback_data="cw_pages_25_30_3"))
+        keyboard.add(InlineKeyboardButton(text="30-35 стр (3 главы) - 25000 сум", callback_data="cw_pages_30_35_3"))
     else:  # en
-        keyboard.add(InlineKeyboardButton(text="15-20 pages (2 chapters) - 15000 som", callback_data="cw_pages_15_20_2"))
-        keyboard.add(InlineKeyboardButton(text="20-25 pages (2 chapters) - 20000 som", callback_data="cw_pages_20_25_2"))
-        keyboard.add(InlineKeyboardButton(text="25-30 pages (3 chapters) - 25000 som", callback_data="cw_pages_25_30_3"))
-        keyboard.add(InlineKeyboardButton(text="30-35 pages (3 chapters) - 30000 som", callback_data="cw_pages_30_35_3"))
+        keyboard.add(InlineKeyboardButton(text="15-20 pages (2 chapters) - 10000 som", callback_data="cw_pages_15_20_2"))
+        keyboard.add(InlineKeyboardButton(text="20-25 pages (2 chapters) - 15000 som", callback_data="cw_pages_20_25_2"))
+        keyboard.add(InlineKeyboardButton(text="25-30 pages (3 chapters) - 20000 som", callback_data="cw_pages_25_30_3"))
+        keyboard.add(InlineKeyboardButton(text="30-35 pages (3 chapters) - 25000 som", callback_data="cw_pages_30_35_3"))
 
     keyboard.adjust(1)
     return keyboard.as_markup()
