@@ -43,10 +43,10 @@ DOCUMENT_PRICES = {
 
 # Course work prices (with chapters)
 COURSE_WORK_PRICES = {
-    "15_20_2": 15000,
-    "20_25_2": 20000,
-    "25_30_3": 25000,
-    "30_35_3": 30000
+    "15_20_2": 10000,
+    "20_25_2": 15000,
+    "25_30_3": 20000,
+    "30_35_3": 25000
 }
 
 # AI configuration (DeepSeek via OpenRouter)
