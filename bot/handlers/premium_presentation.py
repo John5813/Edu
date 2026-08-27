@@ -831,12 +831,53 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
             }.get(lang, "⚙️ Tayyor PPTX yaratilmoqda..."),
             parse_mode="HTML",
         )
-        final_path = await loop.run_in_executor(
-            None,
-            render_code_to_pptx,
-            code,
-            presentation_config.WORK_DIR,
-        )
+        final_path = None
+        render_error = ""
+        for attempt in range(presentation_config.MAX_CODE_RETRIES + 1):
+            try:
+                final_path = await loop.run_in_executor(
+                    None,
+                    render_code_to_pptx,
+                    code,
+                    presentation_config.WORK_DIR,
+                )
+                break
+            except Exception as exc:
+                render_error = str(exc)
+                if attempt >= presentation_config.MAX_CODE_RETRIES:
+                    raise
+                await status.edit_text(
+                    {
+                        "uz": (
+                            f"⚠️ <b>{topic}</b>\n"
+                            "Kodda texnik xato topildi, AI uni tuzatmoqda..."
+                        ),
+                        "ru": (
+                            f"⚠️ <b>{topic}</b>\n"
+                            "В коде найдена техническая ошибка, AI исправляет её..."
+                        ),
+                        "en": (
+                            f"⚠️ <b>{topic}</b>\n"
+                            "A technical code error was found, AI is fixing it..."
+                        ),
+                    }.get(lang, "⚠️ AI kodni avtomatik tuzatmoqda..."),
+                    parse_mode="HTML",
+                )
+                code = await loop.run_in_executor(
+                    None,
+                    lambda: generate_presentation_code(
+                        topic=topic,
+                        slide_count=slide_count,
+                        presentation_language=presentation_language,
+                        client_name=client_name,
+                        preferences=preferences,
+                        previous_code=code,
+                        error_feedback=render_error[-4000:],
+                        error_history=[render_error[-1200:]],
+                    ),
+                )
+        if final_path is None:
+            raise RuntimeError("PPTX yo‘li olinmadi")
     except Exception as exc:
         logger.exception("AI kodi asosida PPTX yaratishda xato: %s", exc)
         await db.update_user_balance(callback.from_user.id, price)

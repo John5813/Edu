@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import uuid
@@ -87,29 +88,33 @@ def render_code_to_pptx(source: str, work_dir: str = "temp") -> str:
         "PPTX_OUTPUT_PATH": str(output_path),
         "PYTHONNOUSERSITE": "1",
     }
-    result = subprocess.run(
-        [sys.executable, str(script_path)],
-        cwd=run_dir,
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=180,
-    )
-    if result.returncode != 0:
-        detail = (result.stderr or result.stdout or "noma’lum xato").strip()
-        raise RuntimeError(f"AI kodi PPTX yarata olmadi: {detail[-1200:]}")
-
-    candidates = [output_path, *sorted(run_dir.glob("*.pptx"))]
-    generated = next((path for path in candidates if path.is_file() and path.stat().st_size), None)
-    if generated is None:
-        raise RuntimeError("AI kodi hech qanday .pptx fayl yaratmadi")
-
     try:
+        result = subprocess.run(
+            [sys.executable, str(script_path)],
+            cwd=run_dir,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout or "noma’lum xato").strip()
+            raise RuntimeError(f"AI kodi PPTX yarata olmadi: {detail[-1200:]}")
+
+        candidates = [output_path, *sorted(run_dir.glob("*.pptx"))]
+        generated = next(
+            (path for path in candidates if path.is_file() and path.stat().st_size),
+            None,
+        )
+        if generated is None:
+            raise RuntimeError("AI kodi hech qanday .pptx fayl yaratmadi")
+
         presentation = Presentation(str(generated))
         slide_count = len(presentation.slides)
-    except Exception as exc:
-        raise RuntimeError(f"Yaratilgan fayl haqiqiy PPTX emas: {exc}") from exc
-    if slide_count == 0:
-        raise RuntimeError("Yaratilgan PPTX ichida slayd mavjud emas")
+        if slide_count == 0:
+            raise RuntimeError("Yaratilgan PPTX ichida slayd mavjud emas")
+    except Exception:
+        shutil.rmtree(run_dir, ignore_errors=True)
+        raise
 
     return str(generated)

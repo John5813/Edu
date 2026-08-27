@@ -19,6 +19,7 @@ OPENROUTER_VISION_MODEL = os.getenv(
     "openai/gpt-5.4",
 )
 MAX_QA_RETRIES = int(os.getenv("PREMIUM_MAX_QA_RETRIES", "1"))
+MAX_CODE_RETRIES = int(os.getenv("PREMIUM_CODE_RETRIES", "1"))
 WORK_DIR = os.getenv("PREMIUM_WORK_DIR", "temp")
 
 # Premium oqim AI kontentini PPTX faylga render qiladi va mavjud bo'lsa visual QA ishlatadi.

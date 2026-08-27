@@ -27,6 +27,9 @@ QAT'IY TEXNIK TALABLAR:
 - Chiroyli, takrorlanmaydigan nozik ramkalar, chiziqlar va aksentlar ishlatilsin.
 - Matn o‘qiladigan bo‘lsin: sarlavhalar katta, tana matni yetarlicha yirik.
 - Matn, rang, layout va vizuallar mavzuga mos bo‘lsin.
+- Shakllar uchun faqat python-pptx tomonidan ishonchli qo‘llab-quvvatlanadigan
+  rectangle, rounded_rectangle, ellipse va line turlaridan foydalan; ROOF,
+  FREEFORM yoki noma’lum murakkab shape turlarini ishlatma.
 - Kod bitta mustaqil .py fayl sifatida ishlashga tayyor bo‘lsin va serverda
   ishga tushirilganda haqiqiy PPTX fayl yaratsin.
 - Faqat python-pptx va xavfsiz standart kutubxonalar ishlatilsin; internet,
