@@ -73,7 +73,9 @@ def render_code_to_pptx(source: str, work_dir: str = "temp") -> str:
     """Source code'ni vaqtinchalik jarayonda ishga tushirib, PPTX yo'lini qaytaradi."""
     _validate_code(source)
 
-    run_dir = Path(work_dir) / f"code_run_{uuid.uuid4().hex[:10]}"
+    # `cwd=run_dir` bo‘lgani uchun script va output yo‘llari absolut bo‘lishi
+    # kerak; aks holda nisbiy `temp/...` yo‘li ikki marta qo‘shilib ketadi.
+    run_dir = Path(work_dir).resolve() / f"code_run_{uuid.uuid4().hex[:10]}"
     run_dir.mkdir(parents=True, exist_ok=True)
     script_path = run_dir / "generate_presentation.py"
     output_path = run_dir / "presentation.pptx"
