@@ -1,8 +1,4 @@
-"""OpenRouter (OpenAI-compatible API) yordamida python-pptx source code generatori.
-
-Bu modul kodni ishga tushirmaydi, PPTX yaratmaydi va vizual tekshiruv bajarmaydi.
-U faqat toza Python matnini qaytaradi.
-"""
+"""OpenRouter orqali tayyor PPTX yaratadigan Python source code generatori."""
 
 from __future__ import annotations
 
@@ -17,9 +13,9 @@ logger = logging.getLogger("premium_presentation.code_generator")
 
 
 BASE_PROMPT = """Sen professional PowerPoint dizayneri va Python dasturchisisan.
-Vazifa: foydalanuvchi bergan mavzu asosida python-pptx kutubxonasi bilan
-murakkab, zamonaviy va premium ko‘rinishdagi taqdimot GENERATORI uchun
-to‘liq Python source code yozish.
+    Vazifa: foydalanuvchi bergan mavzu asosida python-pptx kutubxonasi bilan
+    murakkab, zamonaviy va premium ko‘rinishdagi taqdimot yaratadigan
+    to‘liq Python source code yozish.
 
 QAT'IY TEXNIK TALABLAR:
 - Faqat python-pptx ishlatilsin; tashqi framework yoki boshqa slayd kutubxonasi kerak emas.
@@ -31,16 +27,20 @@ QAT'IY TEXNIK TALABLAR:
 - Chiroyli, takrorlanmaydigan nozik ramkalar, chiziqlar va aksentlar ishlatilsin.
 - Matn o‘qiladigan bo‘lsin: sarlavhalar katta, tana matni yetarlicha yirik.
 - Matn, rang, layout va vizuallar mavzuga mos bo‘lsin.
-- Kod ishga tushirilmasin, PPTX faylga aylantirilmasin, render qilinmasin,
-  screenshot olinmasin va hech qanday vizual QA qilinmasin.
-- O‘zgaruvchilarda MAVZU va SLIDE_COUNT aniq ko‘rinsin; foydalanuvchi ularni
-  osongina almashtira olsin.
-- Kod bitta mustaqil .py fayl sifatida ishlashga tayyor bo‘lsin.
-- Faylga saqlash uchun Presentation.save(...) bo‘lsin, ammo sen bu kodni
-  o‘zing ishga tushirmaysan.
+- Kod bitta mustaqil .py fayl sifatida ishlashga tayyor bo‘lsin va serverda
+  ishga tushirilganda haqiqiy PPTX fayl yaratsin.
+- Faqat python-pptx va xavfsiz standart kutubxonalar ishlatilsin; internet,
+  fayl yuklash, subprocess, shell buyruqlari, eval yoki exec ishlatilmasin.
+- Rasm uchun tashqi URL yoki alohida fayl talab qilma; shakllar, ikonka
+  o‘rnidagi geometrik elementlar va matn bilan premium dizayn yarat.
+- Quyidagi output yo‘lini aynan ishlat:
+  OUTPUT_PATH = os.environ.get("PPTX_OUTPUT_PATH", "presentation.pptx")
+  va oxirida prs.save(OUTPUT_PATH) chaqir.
+- MAVZU va SLIDE_COUNT o‘zgaruvchilari kodda aniq ko‘rinsin.
 
 JAVOB FORMATI:
-- Faqat sof Python source code qaytar.
+- Faqat sof Python source code qaytar. Bu kod foydalanuvchiga yuborilmaydi,
+  server tomonidan PPTX yaratish uchun ishlatiladi.
 - Markdown code fence (```), izohli kirish, xulosa yoki boshqa matn yozma.
 - Kod to‘liq bo‘lsin; qisqartirma, pseudocode yoki TODO qoldirma.
 """

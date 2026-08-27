@@ -101,6 +101,4 @@ class PremiumPresentationStates(StatesGroup):
     waiting_for_slide_count = State()
     waiting_for_payment = State()
     generating = State()
-    waiting_for_code_feedback = State()
-    waiting_for_error_text = State()
 

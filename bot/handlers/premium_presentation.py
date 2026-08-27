@@ -6,13 +6,14 @@ import asyncio
 import contextlib
 import logging
 import os
+import shutil
 
 from aiogram import Router, F
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import (
     Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton,
-    LabeledPrice, BufferedInputFile,
+    LabeledPrice,
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -145,20 +146,6 @@ def _payment_keyboard(lang: str, price: int) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def _code_feedback_keyboard(lang: str) -> InlineKeyboardMarkup:
-    builder = InlineKeyboardBuilder()
-    labels = {
-        "uz": ("❗ Xato chiqdi — tuzatish", "✅ Muvaffaqiyatli ishladi"),
-        "ru": ("❗ Возникла ошибка — исправить", "✅ Успешно работает"),
-        "en": ("❗ An error occurred — fix it", "✅ It works successfully"),
-    }
-    report, success = labels.get(lang, labels["uz"])
-    builder.button(text=report, callback_data="prem_ppt_report_error")
-    builder.button(text=success, callback_data="prem_ppt_code_success")
-    builder.adjust(1)
-    return builder.as_markup()
-
-
 class _MessageCallbackAdapter:
     """Successful Stars paymentni mavjud generatsiya oqimiga ulaydi."""
 
@@ -183,29 +170,29 @@ async def premium_presentation_start(message: Message, state: FSMContext, db: Da
     msgs = {
         "uz": (
             "⭐ <b>Premium Taqdimot</b>\n\n"
-            "OpenAI yordamida professional taqdimot uchun Python kodini yaratadi:\n\n"
-            "✅ Faqat toza .txt source code\n"
-            "✅ python-pptx va 16:9 o‘lcham\n"
+            "AI yordamida tayyor professional PowerPoint taqdimot yaratadi:\n\n"
+            "✅ Tayyor .pptx fayl\n"
+            "✅ 16:9 professional format\n"
             "✅ Har slayd uchun alohida premium tuzilma\n"
-            "✅ Xato bo‘lsa, shu kod qayta tuzatiladi\n\n"
+            "✅ Matn, dizayn va diagrammalar AI tomonidan tayyorlanadi\n\n"
             "🌍 <b>Taqdimot tilini tanlang:</b>"
         ),
         "ru": (
             "⭐ <b>Премиум Презентация</b>\n\n"
-            "Создаёт Python-код профессиональной презентации через OpenAI:\n\n"
-            "✅ Только чистый исходный код в .txt\n"
-            "✅ python-pptx и формат 16:9\n"
+            "Создаёт готовую профессиональную презентацию PowerPoint с помощью AI:\n\n"
+            "✅ Готовый файл .pptx\n"
+            "✅ Профессиональный формат 16:9\n"
             "✅ Уникальная структура каждого слайда\n"
-            "✅ Ошибки можно отправить на исправление\n\n"
+            "✅ AI готовит текст, дизайн и диаграммы\n\n"
             "🌍 <b>Выберите язык презентации:</b>"
         ),
         "en": (
             "⭐ <b>Premium Presentation</b>\n\n"
-            "Creates professional presentation Python code with OpenAI:\n\n"
-            "✅ Clean .txt source code only\n"
-            "✅ python-pptx and 16:9 format\n"
+            "Creates a ready-to-use professional PowerPoint presentation with AI:\n\n"
+            "✅ Ready .pptx file\n"
+            "✅ Professional 16:9 format\n"
             "✅ A distinct structure for every slide\n"
-            "✅ Send any error back for a fix\n\n"
+            "✅ AI prepares the text, design, and charts\n\n"
             "🌍 <b>Choose the presentation language:</b>"
         ),
     }
@@ -541,9 +528,8 @@ async def premium_ppt_got_count(callback: CallbackQuery, state: FSMContext, db: 
     client_name = data.get("client_name", "")
     preferences = data.get("preferences", "")
 
-    # Kod-only rejimda daraja uchun alohida AI chaqiruvi kerak emas.
-    # OpenAI to‘liq source code promptida mavzu va foydalanuvchi istaklarini
-    # bevosita hisobga oladi.
+    # Premium PPTX generatori hozircha bitta izchil professional darajadan
+    # foydalanadi; mavzu va foydalanuvchi istaklari AI promptiga uzatiladi.
     level = 2
     level_label = LEVEL_LABELS.get(level, {}).get(lang, "")
 
@@ -780,22 +766,19 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         await db.update_user_balance(callback.from_user.id, -price)
     await state.set_state(PremiumPresentationStates.generating)
 
-    # Create a status message before entering either generation branch.
-    # The source-code branch below uses this message immediately; previously
-    # `status` was only initialized later in the legacy PPTX branch, which
-    # caused a NameError after a successful balance confirmation.
+    # Create a status message before the AI content and PPTX generation starts.
     initial_status_texts = {
         "uz": (
             f"⏳ <b>{topic}</b>\n"
-            f"📄 {slide_count} ta slayd uchun tayyorgarlik boshlanmoqda..."
+            f"📄 {slide_count} ta slaydli PPTX tayyorlanmoqda..."
         ),
         "ru": (
             f"⏳ <b>{topic}</b>\n"
-            f"📄 Подготовка презентации на {slide_count} слайдов начинается..."
+            f"📄 Готовим PPTX-презентацию на {slide_count} слайдов..."
         ),
         "en": (
             f"⏳ <b>{topic}</b>\n"
-            f"📄 Preparing the {slide_count}-slide presentation..."
+            f"📄 Preparing the {slide_count}-slide PPTX..."
         ),
     }
     try:
@@ -811,15 +794,25 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
             parse_mode="HTML",
         )
 
-    # Yangi rejim: OpenAI faqat Python source code qaytaradi. Bu branch
-    # eski PPTX render/QA oqimidan oldin ishlaydi va kodni hech qachon
-    # ishga tushirmaydi.
+    # AI yozgan python-pptx kodini serverda ishga tushirib, foydalanuvchiga
+    # source code emas, tayyor PPTX yuboramiz.
+    loop = asyncio.get_running_loop()
     try:
         from services.premium_presentation.code_generator import (
             generate_presentation_code,
         )
+        from services.premium_presentation.code_runner import render_code_to_pptx
+        from services.premium_presentation import config as presentation_config
 
-        code = await asyncio.get_event_loop().run_in_executor(
+        await status.edit_text(
+            {
+                "uz": f"🤖 <b>{topic}</b>\nAI taqdimot kodini yozmoqda...",
+                "ru": f"🤖 <b>{topic}</b>\nAI пишет код презентации...",
+                "en": f"🤖 <b>{topic}</b>\nAI is writing the presentation code...",
+            }.get(lang, "🤖 AI taqdimot kodini yozmoqda..."),
+            parse_mode="HTML",
+        )
+        code = await loop.run_in_executor(
             None,
             lambda: generate_presentation_code(
                 topic=topic,
@@ -829,81 +822,74 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
                 preferences=preferences,
             ),
         )
-        filename = f"Premium_{topic[:30].replace(' ', '_')}.txt"
+
         await status.edit_text(
             {
-                "uz": (
-                    f"✅ <b>{topic}</b> uchun kod tayyor.\n"
-                    f"📄 {slide_count} ta slayd | Faqat .txt source code yuborilmoqda..."
-                ),
-                "ru": (
-                    f"✅ Код для темы «{topic}» готов.\n"
-                    f"📄 {slide_count} слайдов | Отправляю только .txt source code..."
-                ),
-                "en": (
-                    f"✅ Code for <b>{topic}</b> is ready.\n"
-                    f"📄 {slide_count} slides | Sending .txt source code only..."
-                ),
-            }.get(lang, "✅ Kod tayyor. Faqat .txt source code yuborilmoqda..."),
+                "uz": f"⚙️ <b>{topic}</b>\nKod olindi, tayyor PPTX yaratilmoqda...",
+                "ru": f"⚙️ <b>{topic}</b>\nКод получен, создаём готовый PPTX...",
+                "en": f"⚙️ <b>{topic}</b>\nCode received, creating the final PPTX...",
+            }.get(lang, "⚙️ Tayyor PPTX yaratilmoqda..."),
+            parse_mode="HTML",
+        )
+        final_path = await loop.run_in_executor(
+            None,
+            render_code_to_pptx,
+            code,
+            presentation_config.WORK_DIR,
+        )
+    except Exception as exc:
+        logger.exception("AI kodi asosida PPTX yaratishda xato: %s", exc)
+        await db.update_user_balance(callback.from_user.id, price)
+        error_messages = {
+            "uz": f"❌ PPTX yaratishda xato: {str(exc)[:300]}\n\n💰 {price:,} so‘m qaytarildi.",
+            "ru": f"❌ Ошибка создания PPTX: {str(exc)[:300]}\n\n💰 {price:,} сум возвращены.",
+            "en": f"❌ PPTX creation failed: {str(exc)[:300]}\n\n💰 {price:,} soʻm refunded.",
+        }
+        try:
+            await status.edit_text(
+                error_messages.get(lang, error_messages["uz"]),
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+        await state.clear()
+        return
+
+    filename = f"Premium_{topic[:30].replace(' ', '_')}.pptx"
+    try:
+        from aiogram.types import FSInputFile
+
+        await status.edit_text(
+            {
+                "uz": f"✅ <b>{topic}</b> — tayyor!\n📊 {slide_count} slayd | PPTX yuborilmoqda...",
+                "ru": f"✅ <b>{topic}</b> — готово!\n📊 {slide_count} слайдов | Отправляю PPTX...",
+                "en": f"✅ <b>{topic}</b> — done!\n📊 {slide_count} slides | Sending PPTX...",
+            }.get(lang, "✅ PPTX tayyor! Yuborilmoqda..."),
             parse_mode="HTML",
         )
         await callback.message.answer_document(
-            document=BufferedInputFile(code.encode("utf-8"), filename=filename)
+            document=FSInputFile(final_path, filename=filename)
         )
-        await state.update_data(last_code=code, error_history=[])
-        await state.set_state(PremiumPresentationStates.waiting_for_code_feedback)
-        await callback.message.answer(
-            {
-                "uz": (
-                    "Kod ishga tushirilmaydi va PPTX faylga aylantirilmaydi. "
-                    "Uni o‘zingiz ishga tushirib ko‘ring.\n\n"
-                    "Agar xato chiqsa, xato matnini yuboring — OpenAI aynan shu "
-                    "kodni xato konteksti bilan tuzatadi. Muvaffaqiyatli ishlasa, "
-                    "tasdiqlang; shunda xato xotirasi o‘chiriladi."
-                ),
-                "ru": (
-                    "Код не запускается и не конвертируется в PPTX. "
-                    "Запустите его самостоятельно.\n\n"
-                    "Если появится ошибка, отправьте её текст — OpenAI исправит "
-                    "этот код с учётом контекста. После успешного запуска подтвердите "
-                    "это, и память об ошибке будет удалена."
-                ),
-                "en": (
-                    "The code is not run or converted to PPTX. Run it yourself.\n\n"
-                    "If an error appears, send its text and OpenAI will fix this "
-                    "code with the remembered context. Confirm after it works "
-                    "successfully to delete the error memory."
-                ),
-            }.get(lang, "Kod ishga tushirilmaydi. Xato bo‘lsa, xato matnini yuboring."),
-            parse_mode="HTML",
-            reply_markup=_code_feedback_keyboard(lang),
-        )
-        logger.info(
-            "Premium presentation source code sent: topic=%s -> %s",
-            topic[:80],
-            callback.from_user.id,
-        )
-        return
-    except Exception as e:
-        logger.exception("Premium source code generation failed: %s", e)
+        logger.info("AI-generated PPTX sent: topic=%s -> %s", topic[:80], callback.from_user.id)
+    except Exception as send_err:
+        logger.exception("AI-generated PPTX yuborishda xato: %s", send_err)
         await db.update_user_balance(callback.from_user.id, price)
-        error_text = {
-            "uz": (
-                f"❌ Kod yaratishda xato: {str(e)[:300]}\n\n"
-                f"💰 {price:,} so‘m hisobingizga qaytarildi."
-            ),
-            "ru": (
-                f"❌ Ошибка создания кода: {str(e)[:300]}\n\n"
-                f"💰 {price:,} сум возвращены на баланс."
-            ),
-            "en": (
-                f"❌ Code generation failed: {str(e)[:300]}\n\n"
-                f"💰 {price:,} soʻm refunded to your balance."
-            ),
-        }
-        await status.edit_text(error_text.get(lang, error_text["uz"]), parse_mode="HTML")
-        await state.clear()
-        return
+        try:
+            await callback.message.answer(
+                {
+                    "uz": f"❌ PPTX yuborishda xato.\n\n💰 {price:,} so‘m qaytarildi.",
+                    "ru": f"❌ Ошибка отправки PPTX.\n\n💰 {price:,} сум возвращены.",
+                    "en": f"❌ Error sending PPTX.\n\n💰 {price:,} soʻm refunded.",
+                }.get(lang, "❌ PPTX yuborilmadi, to‘lov qaytarildi."),
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+    finally:
+        shutil.rmtree(os.path.dirname(final_path), ignore_errors=True)
+
+    await state.clear()
+    return
 
     total_chunks = max(1, (slide_count + 4) // 5)
     status_msgs = {
@@ -1199,150 +1185,6 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
             pass
 
     await state.clear()
-
-
-# ──────────────────────────────────────────────────────────────── CODE FEEDBACK
-
-@router.callback_query(
-    F.data == "prem_ppt_report_error",
-    PremiumPresentationStates.waiting_for_code_feedback,
-)
-async def premium_ppt_report_error(callback: CallbackQuery, state: FSMContext, db: Database):
-    """Foydalanuvchidan ishga tushirishda chiqqan xatoni qabul qiladi."""
-    await callback.answer()
-    user = await db.get_user(callback.from_user.id)
-    lang = user.language if user else "uz"
-    await state.set_state(PremiumPresentationStates.waiting_for_error_text)
-    prompts = {
-        "uz": "❗ Iltimos, chiqqan xato matnini to‘liq yuboring:",
-        "ru": "❗ Отправьте полный текст возникшей ошибки:",
-        "en": "❗ Send the complete error message you received:",
-    }
-    await callback.message.answer(prompts.get(lang, prompts["uz"]))
-
-
-@router.message(PremiumPresentationStates.waiting_for_error_text)
-async def premium_ppt_fix_code(
-    message: Message, state: FSMContext, db: Database
-):
-    """Oldingi kod va xato tarixi bilan OpenAI'dan to‘liq tuzatilgan kod oladi."""
-    user = await db.get_user(message.from_user.id)
-    lang = user.language if user else "uz"
-    error_feedback = (message.text or "").strip()
-    data = await state.get_data()
-    previous_code = data.get("last_code", "")
-
-    if len(error_feedback) < 3:
-        prompts = {
-            "uz": "❌ Xato matni juda qisqa. To‘liq xatoni yuboring.",
-            "ru": "❌ Текст ошибки слишком короткий. Отправьте ошибку полностью.",
-            "en": "❌ The error is too short. Send the complete error message.",
-        }
-        await message.answer(prompts.get(lang, prompts["uz"]))
-        return
-
-    if not previous_code:
-        await state.clear()
-        await message.answer(
-            {
-                "uz": "❌ Eski kod topilmadi. Iltimos, yangi premium taqdimot yarating.",
-                "ru": "❌ Предыдущий код не найден. Создайте новую презентацию.",
-                "en": "❌ The previous code was not found. Please create a new presentation.",
-            }.get(lang)
-        )
-        return
-
-    topic = data.get("topic", "")
-    slide_count = int(data.get("slide_count", 10))
-    presentation_language = data.get("presentation_language", "uz")
-    client_name = data.get("client_name", "")
-    preferences = data.get("preferences", "")
-    history = list(data.get("error_history", []))
-    history.append(error_feedback)
-
-    status_messages = {
-        "uz": "🔧 OpenAI xato kontekstini eslab, kodni tuzatmoqda...",
-        "ru": "🔧 OpenAI исправляет код с учётом контекста ошибки...",
-        "en": "🔧 OpenAI is fixing the code using the remembered error context...",
-    }
-    status = await message.answer(status_messages.get(lang, status_messages["uz"]))
-
-    try:
-        from services.premium_presentation.code_generator import (
-            generate_presentation_code,
-        )
-
-        fixed_code = await asyncio.get_event_loop().run_in_executor(
-            None,
-            lambda: generate_presentation_code(
-                topic=topic,
-                slide_count=slide_count,
-                presentation_language=presentation_language,
-                client_name=client_name,
-                preferences=preferences,
-                previous_code=previous_code,
-                error_feedback=error_feedback,
-                error_history=history,
-            ),
-        )
-        filename = f"Premium_{topic[:30].replace(' ', '_')}_fixed.txt"
-        await message.answer_document(
-            document=BufferedInputFile(fixed_code.encode("utf-8"), filename=filename)
-        )
-        await state.update_data(
-            last_code=fixed_code,
-            error_history=history[-5:],
-        )
-        await state.set_state(PremiumPresentationStates.waiting_for_code_feedback)
-        await status.edit_text(
-            {
-                "uz": (
-                    "✅ Kod xato ma’lumotlari asosida qayta tuzatildi.\n\n"
-                    "Yana xato bo‘lsa, yana yuboring. Kod muvaffaqiyatli ishlasa, "
-                    "pastdagi tasdiqlash tugmasini bosing."
-                ),
-                "ru": (
-                    "✅ Код исправлен с учётом информации об ошибке.\n\n"
-                    "Если ошибка повторится, отправьте её снова. После успешного "
-                    "запуска нажмите кнопку подтверждения."
-                ),
-                "en": (
-                    "✅ The code was fixed using the error information.\n\n"
-                    "If another error appears, send it again. After a successful "
-                    "run, press the confirmation button."
-                ),
-            }.get(lang, "✅ Kod xato ma’lumotlari asosida qayta tuzatildi."),
-            reply_markup=_code_feedback_keyboard(lang),
-        )
-    except Exception as exc:
-        logger.exception("Premium code repair failed: %s", exc)
-        await state.set_state(PremiumPresentationStates.waiting_for_code_feedback)
-        await status.edit_text(
-            {
-                "uz": f"❌ Tuzatishda xato: {str(exc)[:300]}\nXatoni yana yuborishingiz mumkin.",
-                "ru": f"❌ Ошибка исправления: {str(exc)[:300]}\nМожно отправить ошибку ещё раз.",
-                "en": f"❌ Repair failed: {str(exc)[:300]}\nYou can send the error again.",
-            }.get(lang)
-        )
-
-
-@router.callback_query(
-    F.data == "prem_ppt_code_success",
-    PremiumPresentationStates.waiting_for_code_feedback,
-)
-async def premium_ppt_code_success(callback: CallbackQuery, state: FSMContext, db: Database):
-    """Muvaffaqiyat tasdiqlanganda xato kontekstini ataylab o‘chiradi."""
-    await callback.answer()
-    user = await db.get_user(callback.from_user.id)
-    lang = user.language if user else "uz"
-    await state.clear()
-    await callback.message.edit_text(
-        {
-            "uz": "✅ Ajoyib! Taqdimot kodi muvaffaqiyatli ishladi. Xato xotirasi o‘chirildi.",
-            "ru": "✅ Отлично! Код презентации работает. Память об ошибках удалена.",
-            "en": "✅ Great! The presentation code works. The error memory was deleted.",
-        }.get(lang, "✅ Ajoyib! Kod muvaffaqiyatli ishladi. Xato xotirasi o‘chirildi.")
-    )
 
 
 # ──────────────────────────────────────────────────────────────── BACK

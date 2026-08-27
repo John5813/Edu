@@ -21,4 +21,4 @@ OPENROUTER_VISION_MODEL = os.getenv(
 MAX_QA_RETRIES = int(os.getenv("PREMIUM_MAX_QA_RETRIES", "1"))
 WORK_DIR = os.getenv("PREMIUM_WORK_DIR", "temp")
 
-# Bu modul endi PPTX render, image generation yoki visual QA ishlatmaydi.
+# Premium oqim AI kontentini PPTX faylga render qiladi va mavjud bo'lsa visual QA ishlatadi.
