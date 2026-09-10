@@ -30,13 +30,17 @@ WORK_DIR = os.getenv("PREMIUM_WORK_DIR", "temp")
 
 # Slayd rasmlari — asosiy bot bilan bir xil Together AI kaliti va FLUX modeli.
 TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY", "")
+# FLUX.1-schnell hisobimizning model ro'yxatida yo'q edi — birinchi so'rov
+# HTTP 400 bilan yiqilib, keyingi urinishlar 429 ga tushardi. FLUX.2-pro
+# mavjud va premium slaydlar uchun mos.
 TOGETHER_IMAGE_MODEL = os.getenv(
-    "PREMIUM_TOGETHER_IMAGE_MODEL", "black-forest-labs/FLUX.1-schnell"
+    "PREMIUM_TOGETHER_IMAGE_MODEL", "black-forest-labs/FLUX.2-pro"
 )
 TOGETHER_IMAGE_URL = os.getenv(
     "PREMIUM_TOGETHER_IMAGE_URL", "https://api.together.ai/v1/images/generations"
 )
-# FLUX.1-schnell faqat 1-4 qadamni qabul qiladi; 4 dan yuqorisi HTTP 400 beradi.
+# `steps` faqat uni qabul qiladigan modellarga yuboriladi (pastdagi ro'yxat).
+# Schnell uchun chegara 4 ta: undan yuqorisi HTTP 400 beradi.
 TOGETHER_IMAGE_STEPS = int(os.getenv("PREMIUM_TOGETHER_IMAGE_STEPS", "4"))
 # Slayd nisbati 16:9 — o'lchamlar 16 ga karrali bo'lishi shart.
 TOGETHER_IMAGE_WIDTH = int(os.getenv("PREMIUM_TOGETHER_IMAGE_WIDTH", "1344"))

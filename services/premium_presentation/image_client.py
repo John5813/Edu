@@ -22,6 +22,10 @@ _QUALITY_PREFIX = (
 # qabul qiladi, undan yuqorisi "steps must be <= 4" HTTP 400 beradi.
 _MAX_SCHNELL_STEPS = 4
 
+# `steps` ni hamma model qabul qilmaydi: FLUX.2-pro uni noma'lum parametr deb
+# rad etadi. Shuning uchun u faqat quyidagi oilalarga yuboriladi.
+_STEPS_MODELS = ("schnell", "dev", "flex")
+
 # 429 ni oldini olish uchun so'rovlar orasidagi eng kichik oraliq.
 _RATE_LOCK = threading.Lock()
 _last_request_at = 0.0
@@ -34,10 +38,13 @@ def _build_prompt(raw_prompt: str) -> str:
     return _QUALITY_PREFIX + raw_prompt.strip()
 
 
-def _steps() -> int:
-    """Model qabul qiladigan qadam sonini qaytaradi."""
+def _steps() -> int | None:
+    """Model qabul qiladigan qadam sonini qaytaradi, qabul qilmasa None."""
+    model = (config.TOGETHER_IMAGE_MODEL or "").lower()
+    if not any(family in model for family in _STEPS_MODELS):
+        return None
     steps = max(1, int(getattr(config, "TOGETHER_IMAGE_STEPS", 4)))
-    if "schnell" in (config.TOGETHER_IMAGE_MODEL or "").lower():
+    if "schnell" in model:
         steps = min(steps, _MAX_SCHNELL_STEPS)
     return steps
 
@@ -86,10 +93,12 @@ def generate_image(prompt: str, retries: int = 3) -> str | None:
         "prompt": enhanced_prompt,
         "width": config.TOGETHER_IMAGE_WIDTH,
         "height": config.TOGETHER_IMAGE_HEIGHT,
-        "steps": _steps(),
         "n": 1,
         "seed": random.randint(1, 999999),
     }
+    steps = _steps()
+    if steps is not None:
+        payload["steps"] = steps
 
     for attempt in range(1, retries + 1):
         try:
