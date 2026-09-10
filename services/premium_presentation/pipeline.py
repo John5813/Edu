@@ -2,7 +2,7 @@ import logging
 
 from pydantic import ValidationError
 
-from . import config, llm_client, qa
+from . import config, infographics, llm_client, qa
 from .models import Brief, Slide, ROLE_ORDER, VisualElement, grounding_check
 from .renderer import build_presentation
 
@@ -76,6 +76,8 @@ def canvas_validation_and_fix(
     """Har slaydni tekshiradi, muammoli slaydlarni qayta loyihalaydi."""
     # Avval matn o'lchamlari va ustma-ustni tuzatamiz
     brief = ensure_visuals(brief, topic, language)
+    brief = expand_infographics(brief)
+    brief = ensure_icons(brief)
     brief = fix_text_overlaps(brief)
     brief = enforce_min_text_size(brief)
     brief = ensure_chart_explanations(brief)
@@ -103,6 +105,9 @@ def canvas_validation_and_fix(
             log.info("Kanvas tekshiruv: hamma slayd to'liq (urinish %s)", attempt + 1)
             break
 
+    # Qayta loyihalangan slaydlar yangi infografika qaytargan bo'lishi mumkin.
+    brief = expand_infographics(brief)
+    brief = ensure_icons(brief)
     return brief
 
 
@@ -115,7 +120,10 @@ def fix_text_overlaps(brief: Brief) -> Brief:
     edge = 0.3
 
     for slide in brief.slides:
-        text_els = [e for e in slide.canvas.elements if e.type == "text"]
+        # locked — infografika presetlari hisoblab qo'ygan matnlar. Ularning
+        # o'rni kartochkasiga bog'liq, mustaqil surilsa kompozitsiya buziladi.
+        text_els = [e for e in slide.canvas.elements
+                    if e.type == "text" and not e.locked]
 
         # Renderer elementlarni slayd ichiga qistiradi. QA esa renderdan oldingi
         # koordinatalar bilan ishlaydi, shuning uchun avval bir xil koordinata
@@ -179,7 +187,7 @@ def enforce_min_text_size(brief: Brief, min_body_pt: float = 13.0) -> Brief:
     """Sarlavha bo'lmagan matn elementlari uchun minimal 13pt ta'minlaydi."""
     for slide in brief.slides:
         for el in slide.canvas.elements:
-            if el.type == "text" and not el.bold:
+            if el.type == "text" and not el.bold and not el.locked:
                 if el.size < min_body_pt:
                     el.size = min_body_pt
     return brief
@@ -345,10 +353,93 @@ def generate_brief_with_validation(topic: str, slide_count: int = 8,
 
 
 
+# ─────────────────────────────────────────── Infografika va ikonkalar
+
+def expand_infographics(brief: Brief) -> Brief:
+    """`infographic` elementlarini ibtidoiy shakllarga yoyadi.
+
+    AI faqat mazmun beradi (3-6 band), koordinata va ranglarni kod hisoblaydi —
+    shu sababli kompozitsiya har doim tekis chiqadi.
+    """
+    total = 0
+    for slide in brief.slides:
+        expanded = []
+        for element in slide.canvas.elements:
+            if element.type != "infographic":
+                expanded.append(element)
+                continue
+            parts = infographics.expand(element, brief.theme)
+            if parts:
+                expanded.extend(parts)
+                total += 1
+            else:
+                log.warning("Slayd %s: infografika yoyilmadi, element tashlandi", slide.index)
+        slide.canvas.elements = expanded
+    if total:
+        log.info("Infografika: %s ta blok yoyildi", total)
+    return brief
+
+
+def _title_icon(slide: Slide, brief: Brief) -> VisualElement | None:
+    """Sarlavha yoniga kichik ikonka qo'yadi, kerak bo'lsa sarlavhani suradi.
+
+    Sarlavhalar odatda x=0.7 da turadi, ya'ni chapda ikonkaga joy yo'q. Shu
+    sababli joy topilmasa sarlavhaning o'zi o'ngga suriladi — ikonka slayddan
+    tashqariga chiqib ketmasin.
+    """
+    title_elements = [
+        e for e in slide.canvas.elements
+        if e.type == "text" and e.bold and e.text and e.size >= 20
+    ]
+    if not title_elements:
+        return None
+    title = min(title_elements, key=lambda e: (e.y, e.x))
+
+    d = 0.46
+    needed = d + 0.22
+    icon_x = title.x - needed
+    if icon_x < 0.25:
+        # Chapda joy yo'q: sarlavhani o'ngga surib, bo'shagan joyga qo'yamiz.
+        icon_x = max(title.x, 0.25)
+        title.x = icon_x + needed
+        title.w = max((title.w or 5.0) - needed, 2.0)
+        if title.x + title.w > 13.03:
+            title.w = 13.03 - title.x
+        if title.w < 2.0:
+            return None
+
+    accent = (brief.theme.accent if brief.theme else "E8A020").lstrip("#")
+    return VisualElement(
+        type="icon", x=icon_x, y=title.y + 0.06, w=d, h=d,
+        text=f"{slide.title} {title.text}", color=accent, shape="none", locked=True,
+    )
+
+
+def ensure_icons(brief: Brief) -> Brief:
+    """Har slaydda kamida bitta ikonka bo'lishini ta'minlaydi.
+
+    Promptda so'rash yetarli emasligini rasm va diagramma tajribasi ko'rsatdi:
+    model cheklovni ko'rib eng xavfsiz yo'lni — hech narsa qo'ymaslikni —
+    tanlaydi. Shuning uchun kafolat kodda.
+    """
+    added = 0
+    for slide in brief.slides:
+        if _has(slide, "icon"):
+            continue
+        icon = _title_icon(slide, brief)
+        if icon:
+            slide.canvas.elements.append(icon)
+            added += 1
+    if added:
+        log.info("Ikonka kafolati: %s slaydga sarlavha ikonkasi qo'shildi", added)
+    return brief
+
+
 # ─────────────────────────────────────────── Vizual kafolat
 
 MIN_IMAGES = 2
 MIN_CHARTS = 2
+MIN_INFOGRAPHICS = 2
 
 
 def _count(brief: Brief, element_type: str) -> int:
@@ -394,6 +485,12 @@ def ensure_visuals(brief: Brief, topic: str, language: str = "uz") -> Brief:
          "Bu slaydga chart elementi qo'sh — mavzuga oid haqiqiy raqamlar bilan "
          "(sanalar, ulushlar, bosqichlar, taqqoslash). Kategoriya va qiymatlar "
          "o'ylab topilgan emas, mavzuga tegishli bo'lsin. caption ni to'ldir."),
+        ("infographic", MIN_INFOGRAPHICS,
+         "Bu slaydning ro'yxat yoki bosqichli matnini infographic elementiga "
+         "aylantir: {\"type\":\"infographic\",\"x\":0.6,\"y\":1.9,\"w\":12.1,"
+         "\"h\":4.4,\"preset\":\"cards|steps|timeline|cycle|pyramid\","
+         "\"items\":[{\"title\":\"...\",\"text\":\"...\",\"icon\":\"<ikonka nomi>\"}]}. "
+         "3-5 band bo'lsin, har bandda icon nomi bo'lsin. Eski matn elementlarini olib tashla."),
     ):
         for slide_index in _candidates(brief, element_type):
             if _count(brief, element_type) >= minimum:
@@ -402,7 +499,8 @@ def ensure_visuals(brief: Brief, topic: str, language: str = "uz") -> Brief:
                 brief.slides[slide_index], topic, language, instruction
             )
 
-    log.info("Vizual kafolat: %s rasm, %s diagramma", _count(brief, "image"), _count(brief, "chart"))
+    log.info("Vizual kafolat: %s rasm, %s diagramma, %s infografika",
+             _count(brief, "image"), _count(brief, "chart"), _count(brief, "infographic"))
     return brief
 
 
@@ -509,6 +607,7 @@ def run_visual_qa_and_fix(
 
         # Har qanday QA tuzatishidan keyin brief ham, PPTX ham yangilanadi.
         # Ayniqsa oxirgi raundda render qilmaslik eski faylni qaytarib yuborardi.
+        current_brief = expand_infographics(current_brief)
         current_brief = fix_text_overlaps(current_brief)
         current_path = build_presentation(current_brief)
 

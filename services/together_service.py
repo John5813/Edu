@@ -89,6 +89,11 @@ class TogetherImageService:
 
             logger.info(f"Generating image with prompt: {prompt[:100]}...")
 
+            # FLUX.1-schnell distillyatsiya qilingan: Together 4 dan ortiq
+            # qadamni HTTP 400 bilan rad etadi.
+            if "schnell" in self.model.lower():
+                steps = max(1, min(int(steps), 4))
+
             # Wrap the SDK call with a hard timeout (Together can hang on transient
             # backend issues) and a small retry loop for 429/5xx-style errors.
             async def _call():
