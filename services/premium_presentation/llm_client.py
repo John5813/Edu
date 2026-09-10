@@ -64,10 +64,21 @@ ELEMENT TURLARI:
 ③ circle — kichik aksent uchun, d ≤ 2.0", slayd ichida
 {"type":"circle","x":3.8,"y":0.6,"d":0.9,"fill":"E8A020"}
 
-④ image — AI rasm (1–2 ta slaydda, mavzu vizuallik talab qilganda)
+④ image — AI rasm
 {"type":"image","x":7.5,"y":0.8,"w":5.5,"h":5.8,"prompt":"detailed descriptive English prompt, photorealistic, professional, 20-30 words"}
 
-⑤ chart — diagramma (FAQAT raqamli, statistik, ilmiy mavzularda)
+  MAJBURIY: BIRINCHI slaydda albatta bitta image elementi bo'lsin.
+  Undan tashqari har 4 slaydda kamida bitta image bo'lsin.
+  ⚠️ Rasm promptida MATN so'ramang — "text", "label", "caption", "sign"
+  yozilgan rasm buzuq chiqadi. Faqat vizual tasvir tasvirlansin.
+
+⑤ kpi — ko'rsatkich kartochkasi (bitta katta raqam + izoh)
+{"type":"kpi","x":1.0,"y":4.2,"w":3.4,"h":1.8,"value":"78%","label":"O'simlik turlarining ulushi","fill":"F4F6F9","color":"1B2A4A"}
+
+  Bitta muhim raqamni diagramma qilmang — kpi kartochkasi qiling.
+  Yonma-yon 2–4 ta kpi qo'yilsa, slayd ko'rsatkichlar qatoriga aylanadi.
+
+⑥ chart — diagramma
 {"type":"chart","x":1.0,"y":1.8,"w":8.5,"h":4.2,
  "chart_type":"column",
  "chart_title":"Diagramma sarlavhasi",
@@ -75,18 +86,14 @@ ELEMENT TURLARI:
  "categories":["Kat1","Kat2","Kat3"],
  "series":[{"name":"Qator1","values":[45,30,25]}]}
 
-  ⚠️ MAVZU TURI ASOSIDA DIAGRAMMA QOIDASI:
+  MAJBURIY: har taqdimotda KAMIDA 2 ta diagramma bo'lsin, 4 tadan oshmasin.
 
-  RAQAMLI/ILMIY mavzular (diagramma qo'yish mumkin):
-  → Matematika, fizika, kimyo, biologiya, iqtisod, statistika, texnologiya, tarix (sanalar bilan)
-  → Taqqoslash, trend, o'sish, ulush ko'rsatish — slaydning ASOSIY maqsadi bo'lganida
-
-  FALSAFIY/ADABIY/IJODIY mavzular (diagramma MUTLAQO kerak emas):
-  → Falsafa, axloq, din, she'riyat, adabiyot, his-tuyg'u, psixologiya (miqdorsiz)
-  → "Chiroyli qalb", "Sevgi", "Baxt", "Erkinlik" kabi mavzular
-
-  ✗ Bir taqdimotda 3 tadan ORTIQ diagramma bo'lmasin
-  ✗ Diagramma "bezak" uchun qo'yilmasin — haqiqiy ma'lumot yo'q bo'lsa qo'yma
+  Har qanday mavzuda raqam topiladi — uni izlang:
+  → tarixiy sanalar va davrlar, ulushlar va foizlar, bosqichlar soni,
+    tarqalish geografiyasi, o'sish sur'ati, taqqoslash ko'rsatkichlari
+  → falsafiy yoki adabiy mavzuda ham: asrlar bo'yicha tarqalish, mualliflar
+    soni, tadqiqotlar ulushi, ta'sir darajasi
+  Raqam haqiqiy va mavzuga tegishli bo'lsin, o'ylab topilgan bo'lmasin.
 
   MAJBURIY: "caption" maydoni HAR DOIM to'ldirilsin — diagrammada nima ko'rsatilgani
   aniq bir-ikki jumlada yozilsin. Masalan:
@@ -221,7 +228,8 @@ JAVOB: faqat sof JSON (markdown, ``` yoki boshqa matn YO'Q):
 
 SYSTEM_PROMPT_REGEN = """Sen professional biznes taqdimot slaydini qayta loyihalaysan.
 
-Slayd o'lchami: 13.333" × 7.5". Element turlari: rect, text, circle, image, chart.
+Slayd o'lchami: 13.333" × 7.5". Element turlari: rect, text, circle, image, chart, kpi.
+Kpi formati: {"type":"kpi","x":1.0,"y":4.2,"w":3.4,"h":1.8,"value":"78%","label":"izoh","fill":"F4F6F9","color":"1B2A4A"}
 
 Chart formati: {"type":"chart","x":1.0,"y":2.0,"w":8.0,"h":4.0,"chart_type":"column|bar|line|pie|donut","chart_title":"...","categories":[...],"series":[{"name":"...","values":[...]}]}
 
@@ -232,8 +240,9 @@ Qoidalar:
 - Matn hajmini KAMAYTIRMA — ko'proq izoh qo'sh (kamida 80 so'z)
 - Professional layout: chap panel, yuqori tasma, ustun tizimi
 - To'q fon → oq matn; och fon → to'q matn
-- Diagramma (chart) FAQAT slayd asosan raqamli taqqoslash/trend haqida bo'lsagina qo'sh
-  Aks holda (falsafa, tushuntirish, his-tuyg'u, tavsif) — diagramma QILMA, o'rniga matn bloklari yoki rasm
+- Har taqdimotda kamida 2 ta chart va kamida 2 ta image bo'lsin; birinchi slaydda image MAJBURIY
+- Muhim raqamlarni kpi kartochkasi qilib ko'rsat (yonma-yon 2-4 ta)
+- Chart uchun raqamni har mavzuda topish mumkin: sanalar, ulushlar, bosqichlar, taqqoslash
 - Agar muammoda "keraksiz" yoki "o'chir" deyilsa — o'sha elementni OLIB TASHLА, o'rnini matn bilan to'ldir
 - Faqat sof JSON qaytar
 
@@ -405,9 +414,8 @@ def _base_rules(topic: str, slide_count: int, level: int = 2) -> str:
         "• Matn formati (bullet/paragraf) mazmunga qarab tanlangsin\n"
         "• Rang kontrasti qat'iy: to'q fon → oq matn, och fon → to'q matn\n"
         "• key_text mazmunli bo'lsin, lekin sun'iy ravishda cho'zilmasin\n"
-        "• Image va chart faqat mazmunga xizmat qilsa ishlatilsin\n"
-        "• Diagramma (chart): FAQAT raqamli/ilmiy/statistik mavzularda va FAQAT kerak joyda\n"
-        "  Falsafiy, adabiy, ijodiy mavzularda diagramma MUTLAQO kerak emas\n"
+        "• Birinchi slaydda image MAJBURIY; har taqdimotda kamida 2 ta image va 2 ta chart\n"
+        "• Rasm promptida matn so'ramang — harflar buzilib chiqadi\n"
         "  Diagramma qo'shsang — 'caption' maydoni MAJBURIY to'ldirsin\n"
         f"\n{level_instr}"
     )

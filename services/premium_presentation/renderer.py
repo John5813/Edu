@@ -12,6 +12,14 @@ from .models import Brief
 log = logging.getLogger("renderer")
 
 
+def _replace_with_panel(element, brief: Brief) -> None:
+    """Rasm o'rnini rangli panel bilan to'ldiradi — kompozitsiya buzilmasin."""
+    element.type = "rect"
+    element.radius = True
+    element.fill = element.fill or (brief.theme.accent if brief.theme else "E8A020")
+    element.prompt = None
+
+
 def build_presentation(brief: Brief) -> str:
     prs = Presentation()
     prs.slide_width = SLIDE_W
@@ -29,7 +37,13 @@ def build_presentation(brief: Brief) -> str:
                 if path:
                     image_paths[id(el)] = path
                 else:
-                    log.info("Slayd %s: rasm topilmadi, image elementi o'tkazib yuboriladi", s.index)
+                    # Rasmni jimgina tashlab ketish slaydni yarim bo'sh qoldiradi
+                    # va aynan shu sababdan taqdimotlar rasmsiz chiqib ketgan edi.
+                    log.error(
+                        "Slayd %s: rasm yaratilmadi (TOGETHER_API_KEY bormi?) — "
+                        "o'rniga rangli panel qo'yiladi", s.index
+                    )
+                    _replace_with_panel(el, brief)
 
         render_canvas(slide, s, image_paths)
 

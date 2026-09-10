@@ -3,7 +3,7 @@ import logging
 from pydantic import ValidationError
 
 from . import config, llm_client, qa
-from .models import Brief, Slide, ROLE_ORDER, grounding_check
+from .models import Brief, Slide, ROLE_ORDER, VisualElement, grounding_check
 from .renderer import build_presentation
 
 log = logging.getLogger("pipeline")
@@ -75,6 +75,7 @@ def canvas_validation_and_fix(
 ) -> Brief:
     """Har slaydni tekshiradi, muammoli slaydlarni qayta loyihalaydi."""
     # Avval matn o'lchamlari va ustma-ustni tuzatamiz
+    brief = ensure_visuals(brief, topic, language)
     brief = fix_text_overlaps(brief)
     brief = enforce_min_text_size(brief)
     brief = ensure_chart_explanations(brief)
@@ -342,6 +343,101 @@ def generate_brief_with_validation(topic: str, slide_count: int = 8,
         f"Brief generatsiya {max_attempts} urinishdan keyin muvaffaqiyatsiz: {last_error}"
     )
 
+
+
+# ─────────────────────────────────────────── Vizual kafolat
+
+MIN_IMAGES = 2
+MIN_CHARTS = 2
+
+
+def _count(brief: Brief, element_type: str) -> int:
+    return sum(
+        1 for slide in brief.slides
+        for element in slide.canvas.elements
+        if element.type == element_type
+    )
+
+
+def _has(slide: Slide, element_type: str) -> bool:
+    return any(element.type == element_type for element in slide.canvas.elements)
+
+
+def ensure_visuals(brief: Brief, topic: str, language: str = "uz") -> Brief:
+    """Taqdimot rasmsiz va diagrammasiz chiqib ketmasligini kafolatlaydi.
+
+    Promptda "majburiy" deyish yetarli emas edi: yetkazilgan taqdimotda 39 ta
+    shakl bor edi va ularning hammasi matn qutisi bo'lib chiqdi. Model
+    cheklovlarni ko'rib eng xavfsiz yo'lni — hech narsa qo'ymaslikni —
+    tanlagan. Shuning uchun tekshiruv shu yerda, kodda.
+    """
+    if not brief.slides:
+        return brief
+
+    # 1. Birinchi slaydda rasm — mijoz uchun majburiy talab.
+    if not _has(brief.slides[0], "image"):
+        brief.slides[0] = _redesign(
+            brief.slides[0], topic, language,
+            "Bu slaydda rasm yo'q. Chap yarmiga matn, o'ng yarmiga (x=7.0, w=5.9, "
+            "y=0.9, h=5.7) image elementi qo'y. Rasm prompti ingliz tilida, "
+            "mavzuni ko'rsatuvchi, matnsiz tasvir bo'lsin.",
+        )
+        if not _has(brief.slides[0], "image"):
+            _force_image(brief.slides[0], topic)
+
+    # 2. Umumiy minimum — qaysi slaydga qo'shishni mazmuniga qarab tanlaymiz.
+    for element_type, minimum, instruction in (
+        ("image", MIN_IMAGES,
+         "Bu slaydga image elementi qo'sh (matnni siqib, o'ng yoki past qismga "
+         "joyla). Rasm prompti ingliz tilida, matnsiz tasvir."),
+        ("chart", MIN_CHARTS,
+         "Bu slaydga chart elementi qo'sh — mavzuga oid haqiqiy raqamlar bilan "
+         "(sanalar, ulushlar, bosqichlar, taqqoslash). Kategoriya va qiymatlar "
+         "o'ylab topilgan emas, mavzuga tegishli bo'lsin. caption ni to'ldir."),
+    ):
+        for slide_index in _candidates(brief, element_type):
+            if _count(brief, element_type) >= minimum:
+                break
+            brief.slides[slide_index] = _redesign(
+                brief.slides[slide_index], topic, language, instruction
+            )
+
+    log.info("Vizual kafolat: %s rasm, %s diagramma", _count(brief, "image"), _count(brief, "chart"))
+    return brief
+
+
+def _candidates(brief: Brief, element_type: str) -> list:
+    """Qaysi slaydlarga qo'shish mumkin — o'rtadagi, hali bandi bo'lmaganlari."""
+    middle = range(1, max(len(brief.slides) - 1, 1))
+    return [i for i in middle if not _has(brief.slides[i], element_type)]
+
+
+def _redesign(slide: Slide, topic: str, language: str, instruction: str) -> Slide:
+    try:
+        fixed = llm_client.regenerate_slide(topic, slide.model_dump(), instruction, language=language)
+        merged = {**slide.model_dump(), **fixed}
+        return Slide.model_validate(merged)
+    except Exception as e:
+        log.error("Slaydni qayta loyihalashda xato (slayd %s): %s", slide.index, e)
+        return slide
+
+
+def _force_image(slide: Slide, topic: str) -> None:
+    """Oxirgi chora: matnni chap yarmiga siqib, o'ngga rasm qo'yadi."""
+    for element in slide.canvas.elements:
+        if element.type == "text":
+            element.w = min(element.w or 6.0, 6.4)
+            element.x = min(element.x, 0.7)
+    slide.canvas.elements.append(
+        VisualElement(
+            type="image", x=7.1, y=0.9, w=5.8, h=5.7,
+            prompt=(
+                f"professional photorealistic image representing {topic}, "
+                "clean composition, natural lighting, high detail"
+            ),
+        )
+    )
+    log.info("Birinchi slaydga rasm majburan qo'yildi")
 
 # ─────────────────────────────────────────── Vizual QA
 

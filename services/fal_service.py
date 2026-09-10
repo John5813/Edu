@@ -117,8 +117,10 @@ _NO_TEXT_SUFFIX = ", no text, no words, no letters, no labels, no watermarks, no
 
 
 def _ensure_no_text(prompt: str) -> str:
-    """Append no-text instruction to every image prompt to prevent text rendering in images."""
-    return prompt.rstrip() + _NO_TEXT_SUFFIX
+    """Matn so'rovlarini olib tashlab, taqiqni qo'shadi (together bilan bir xil)."""
+    from utils.security import strip_text_requests
+
+    return strip_text_requests(prompt)
 
 
 async def generate_infographic_ideogram(topic: str, section_title: str) -> Optional[bytes]:

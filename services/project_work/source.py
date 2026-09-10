@@ -6,8 +6,9 @@ tushuntirishidan kelib chiqishi mumkin. Bu modul har qaysisini bitta narsaga
 """
 
 import logging
-import os
 from dataclasses import dataclass
+
+from services import document_source
 
 logger = logging.getLogger(__name__)
 
@@ -42,61 +43,17 @@ def from_instructions(text: str) -> SourceMaterial:
 
 
 async def from_file(local_path: str, file_name: str) -> SourceMaterial:
-    """DOCX, PDF yoki PPTX fayldan matn ajratadi."""
-    lowered = file_name.lower()
-    if lowered.endswith(".pptx"):
-        text = _read_pptx(local_path)
-    elif lowered.endswith(".pdf"):
-        text = await _read_pdf(local_path)
-    elif lowered.endswith(".docx"):
-        text = _read_docx(local_path)
-    else:
-        raise ValueError(f"qo'llab-quvvatlanmaydigan fayl turi: {file_name}")
+    """DOCX, PDF yoki PPTX fayldan matn ajratadi.
 
-    if len(text.split()) < 20:
-        raise ValueError("fayldan yetarli matn ajratilmadi")
-    return SourceMaterial(kind=KIND_FILE, text=_trim(text), label=file_name)
-
-
-def _read_docx(path: str) -> str:
-    from docx import Document
-
-    document = Document(path)
-    parts = [p.text.strip() for p in document.paragraphs if p.text.strip()]
-    for table in document.tables:
-        for row in table.rows:
-            cells = [cell.text.strip() for cell in row.cells if cell.text.strip()]
-            if cells:
-                parts.append(" | ".join(cells))
-    return "\n".join(parts)
-
-
-def _read_pptx(path: str) -> str:
-    from pptx import Presentation
-
-    presentation = Presentation(path)
-    parts = []
-    for number, slide in enumerate(presentation.slides, start=1):
-        lines = []
-        for shape in slide.shapes:
-            if shape.has_text_frame and shape.text_frame.text.strip():
-                lines.append(shape.text_frame.text.strip())
-        if lines:
-            parts.append(f"[{number}-slayd] " + "\n".join(lines))
-    return "\n\n".join(parts)
-
-
-async def _read_pdf(path: str) -> str:
-    from services.book_translate_service import auto_convert_pdf_to_docx
-
-    docx_path = await auto_convert_pdf_to_docx(path)
-    try:
-        return _read_docx(docx_path)
-    finally:
-        try:
-            os.remove(docx_path)
-        except OSError:
-            pass
+    O'qish `services.document_source` orqali ketadi: u betma-bet o'qiydi,
+    kerakli hajmga yetganda to'xtaydi va og'ir ishlarni navbatga qo'yadi —
+    ya'ni katta kitob botni yiqitmaydi.
+    """
+    extract = await document_source.read(local_path, file_name)
+    label = file_name
+    if extract.is_partial:
+        label = f"{file_name} ({extract.used_units}/{extract.total_units} {extract.unit})"
+    return SourceMaterial(kind=KIND_FILE, text=_trim(extract.text), label=label)
 
 
 async def from_urls(urls: list) -> SourceMaterial:

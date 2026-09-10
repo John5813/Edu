@@ -10,6 +10,7 @@ from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
 
+
 class TogetherImageService:
     """Service for generating images using Together AI FLUX models"""
     
@@ -75,12 +76,14 @@ class TogetherImageService:
             # Defence in depth: block NSFW / extremist prompts before they
             # reach Together's billable API.
             try:
-                from utils.security import sanitize_image_prompt
+                from utils.security import sanitize_image_prompt, strip_text_requests
                 cleaned = sanitize_image_prompt(prompt)
                 if cleaned is None:
                     logger.warning("Image prompt rejected by sanitizer; skipping generation")
                     return None
-                prompt = cleaned
+                # Arzon modellar harflarni buzib chizadi, shuning uchun promptdan
+                # matn so'rovlari olib tashlanadi va taqiq qo'shiladi.
+                prompt = strip_text_requests(cleaned)
             except Exception as _ex:
                 logger.warning(f"Image prompt sanitizer unavailable: {_ex}")
 

@@ -61,6 +61,8 @@ def render_canvas(slide, s, image_paths: dict):
                     _draw_image(slide, el, img_path)
             elif el.type == "chart":
                 _draw_chart(slide, el)
+            elif el.type == "kpi":
+                _draw_kpi(slide, el, s)
         except Exception as exc:
             log.warning("Element chizishda xato (%s, slayd %s): %s", el.type, s.index, exc)
 
@@ -82,6 +84,52 @@ def _draw_rect(slide, el):
     else:
         shp.fill.background()
     shp.line.fill.background()
+
+
+# ─────────────────────────────────────────────────────────── kpi
+
+def _draw_kpi(slide, el, s):
+    """Ko'rsatkich kartochkasi: katta raqam va uning ostida izoh.
+
+    Bitta raqam diagramma talab qilmaydi — u shunchaki katta yozilishi kerak.
+    Kartochka native shakllardan quriladi, ya'ni PowerPoint'da tahrirlanadi.
+    """
+    w = _clamp(el.w or 3.0, 1.2, 13.333)
+    h = _clamp(el.h or 1.9, 0.9, 7.5)
+    x = _clamp(el.x, 0.0, 13.333 - w)
+    y = _clamp(el.y, 0.0, 7.5 - h)
+
+    card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE,
+                                  Inches(x), Inches(y), Inches(w), Inches(h))
+    card.shadow.inherit = False
+    card.fill.solid()
+    card.fill.fore_color.rgb = _hex(el.fill or "F4F6F9")
+    card.line.fill.background()
+
+    box = slide.shapes.add_textbox(Inches(x + 0.12), Inches(y + 0.10),
+                                   Inches(w - 0.24), Inches(h - 0.20))
+    frame = box.text_frame
+    frame.word_wrap = True
+    frame.margin_left = frame.margin_right = Inches(0.06)
+    frame.vertical_anchor = MSO_ANCHOR.MIDDLE
+
+    number = frame.paragraphs[0]
+    number.alignment = PP_ALIGN.CENTER
+    run = number.add_run()
+    run.text = str(el.value or "")
+    run.font.size = Pt(_clamp((el.size or 34), 20, 54))
+    run.font.bold = True
+    run.font.name = el.font or "Calibri"
+    run.font.color.rgb = _hex(el.color or "1B2A4A")
+
+    if el.label:
+        caption = frame.add_paragraph()
+        caption.alignment = PP_ALIGN.CENTER
+        crun = caption.add_run()
+        crun.text = str(el.label)
+        crun.font.size = Pt(12)
+        crun.font.name = el.font or "Calibri"
+        crun.font.color.rgb = _hex("52514E")
 
 
 # ─────────────────────────────────────────────────────────── text

@@ -17,11 +17,15 @@ from utils.heading_guard import heading_rule, strip_echoed_heading
 from .source import SourceMaterial
 from .specs import (
     ARTIFACT_BUDGET,
+    ARTIFACT_FORECAST,
     ARTIFACT_DATA,
     ARTIFACT_RESULTS,
     ARTIFACT_RISKS,
     ARTIFACT_SCHEME,
     ARTIFACT_TIMELINE,
+    CHART_ARTIFACTS,
+    CARD_ARTIFACTS,
+    TABLE_ARTIFACTS,
     GENERIC_FIELD_KEY,
     SectionSpec,
     generic_sections,
@@ -92,13 +96,50 @@ _TABLE_KINDS = {
     },
 }
 
+# Diagramma quriladigan artefaktlar. Jadvaldan farqi: bu yerda AI dan matn
+# emas, SON so'raladi — chizish uchun raqam kerak.
+_CHART_SHAPES = {
+    ARTIFACT_BUDGET: (
+        'the project cost items with realistic Uzbekistan market prices. '
+        '"amount" must be a plain number of so\'m with no spaces or words. '
+        'Give 5-7 items, largest first, and no total row — the chart sums them.',
+        '{"items": [{"name": "Uskunalar va jihozlar", "amount": 48000000}]}',
+    ),
+    ARTIFACT_TIMELINE: (
+        'the sequential stages of the project. "start" is the month the stage '
+        'begins counted from zero, "duration" is its length in months; both are '
+        'plain numbers. Stages follow one another without gaps. Give 5-7 stages.',
+        '{"stages": [{"name": "Tayyorgarlik va loyihalash", "start": 0, "duration": 2, "owner": "Loyiha rahbari"}]}',
+    ),
+    ARTIFACT_RISKS: (
+        'the risks specific to this project, not generic ones. "likelihood" and '
+        '"impact" must each be exactly one of: past, o\'rta, yuqori. Give 5-6 risks.',
+        '{"risks": [{"name": "Uskuna yetkazib berish kechikishi", "likelihood": "o\'rta", "impact": "yuqori", "mitigation": "Ikkinchi yetkazib beruvchi bilan shartnoma"}]}',
+    ),
+    ARTIFACT_RESULTS: (
+        'the measurable indicators of the project\'s success. "current" and '
+        '"target" are plain numbers, "unit" is their unit of measure. Give 4-5 '
+        'indicators whose target is clearly better than the current value.',
+        '{"indicators": [{"name": "Ishlab chiqarish hajmi", "current": 1200, "target": 3400, "unit": "tonna/yil"}]}',
+    ),
+    ARTIFACT_FORECAST: (
+        'a forecast of the project\'s key quantity over four periods, starting '
+        'from the current year. "value" is the expected figure, "low" and "high" '
+        'the confidence range; all plain numbers in the same unit. The first '
+        'period is today\'s actual figure, so its low and high equal its value.',
+        '{"unit": "mln so\'m", "points": [{"period": "2025", "value": 1200, "low": 1200, "high": 1200}]}',
+    ),
+}
+
 
 @dataclass
 class SectionContent:
     spec: SectionSpec
     text: str
     table: Optional[Dict] = None       # {"headers": [...], "rows": [[...]]}
+    chart: Optional[Dict] = None       # diagramma yoki kartochka uchun raqamli ma'lumot
     image_prompt: str = ""
+    formula: Optional[Dict] = None
 
 
 @dataclass
@@ -266,12 +307,21 @@ Respond with JSON only:
         text = await self._section_text(topic, spec, language, brief)
 
         table = None
+        chart = None
+        formula = None
         image_prompt = ""
-        if spec.artifact in _TABLE_KINDS:
+        if spec.artifact in TABLE_ARTIFACTS:
             try:
                 table = await self._table(topic, spec, language, brief)
             except Exception as e:
                 logger.error("Loyiha jadvali olinmadi (%s): %s", spec.key, e)
+        elif spec.artifact in CHART_ARTIFACTS or spec.artifact in CARD_ARTIFACTS:
+            try:
+                chart = await self._chart(topic, spec, language, brief)
+            except Exception as e:
+                logger.error("Loyiha diagrammasi olinmadi (%s): %s", spec.key, e)
+            if spec.artifact == ARTIFACT_FORECAST:
+                formula = await self._formula(topic, spec, language)
         elif spec.artifact == ARTIFACT_SCHEME and with_scheme:
             image_prompt = (
                 f"clean professional diagram illustrating {spec.heading('en')} "
@@ -279,7 +329,8 @@ Respond with JSON only:
                 f"and arrows, white background, no text captions"
             )
 
-        return SectionContent(spec=spec, text=text, table=table, image_prompt=image_prompt)
+        return SectionContent(spec=spec, text=text, table=table, chart=chart,
+                              image_prompt=image_prompt, formula=formula)
 
     async def _section_text(self, topic: str, spec: SectionSpec, language: str, brief: str = "") -> str:
         target = _LANGUAGE_NAMES.get(language, "Uzbek")
@@ -363,6 +414,54 @@ Respond with JSON only:
         if not headers or not rows:
             raise ValueError("jadval bo'sh qaytdi")
         return {"headers": headers, "rows": rows}
+
+    async def _chart(self, topic: str, spec: SectionSpec, language: str, brief: str = "") -> Dict:
+        """Diagramma uchun raqamli ma'lumot — jadvaldan farqli o'laroq son so'raladi."""
+        ask, example = _CHART_SHAPES[spec.artifact]
+        target = _LANGUAGE_NAMES.get(language, "Uzbek")
+        prompt = f"""Produce the data behind a figure in a project work.
+
+Project topic: "{topic}"
+Section: "{spec.heading(language)}"
+
+The data must give {ask}
+Write every name and label in {target}. Numbers are plain digits — no spaces,
+no thousand separators, no currency words inside the number.{self._source_block(brief)}
+
+Respond with JSON only, in exactly this shape:
+{example}"""
+
+        raw = await self._json_request(prompt, max_tokens=1600, temperature=0.4)
+        for key in ("items", "stages", "risks", "indicators", "points"):
+            if raw.get(key):
+                return raw
+        raise ValueError("diagramma ma'lumoti bo'sh qaytdi")
+
+    async def _formula(self, topic: str, spec: SectionSpec, language: str) -> Optional[Dict]:
+        """Samaradorlik hisobi — formula, qiymatlar va natija."""
+        target = _LANGUAGE_NAMES.get(language, "Uzbek")
+        prompt = f"""Give the one calculation that proves this project's effectiveness.
+
+Project topic: "{topic}"
+
+Choose the measure that fits the field — payback period, return on investment,
+yield per hectare, throughput, cost per unit — and show it worked through.
+"latex" is the formula in LaTeX without dollar signs. "name", "meaning" and
+"conclusion" are in {target}.
+
+Respond with JSON only:
+{{"name": "Investitsiya rentabelligi (ROI)",
+  "latex": "ROI = \\\\frac{{P}}{{I}} \\\\times 100\\\\%",
+  "given": ["P — sof foyda, 148 mln so'm", "I — investitsiya, 420 mln so'm"],
+  "result": "ROI = 35,2%",
+  "meaning": "Bir yillik sof foyda investitsiyaning 35 foizini qoplaydi.",
+  "conclusion": "Loyiha taxminan 2,8 yilda o'zini oqlaydi."}}"""
+        try:
+            raw = await self._json_request(prompt, max_tokens=900, temperature=0.3)
+            return raw if raw.get("latex") else None
+        except Exception as e:
+            logger.error("Samaradorlik formulasi olinmadi: %s", e)
+            return None
 
     async def _references(self, topic: str, language: str) -> List[str]:
         try:

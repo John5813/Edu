@@ -22,14 +22,19 @@ ARTIFACT_BUDGET = "budget"      # modda | miqdor | narx | summa
 ARTIFACT_RISKS = "risks"        # xavf | ehtimollik | ta'sir | chora
 ARTIFACT_RESULTS = "results"    # ko'rsatkich | hozirgi | maqsad | o'lchov
 ARTIFACT_SCHEME = "scheme"      # AI chizgan sxema (rasm)
+ARTIFACT_FORECAST = "forecast"  # prognoz chizig'i + hisob formulasi
 
-TABLE_ARTIFACTS = {
-    ARTIFACT_DATA,
-    ARTIFACT_TIMELINE,
+# Bir xil ko'rinishdagi beshta jadval o'rniga har ma'lumot o'z shaklini
+# oladi: xarajat — ustunli diagramma, bosqichlar — Gantt lentasi, risklar —
+# matritsa, natijalar — ko'rsatkich kartochkalari, prognoz — chiziq.
+CHART_ARTIFACTS = {
     ARTIFACT_BUDGET,
+    ARTIFACT_TIMELINE,
     ARTIFACT_RISKS,
-    ARTIFACT_RESULTS,
+    ARTIFACT_FORECAST,
 }
+CARD_ARTIFACTS = {ARTIFACT_RESULTS}
+TABLE_ARTIFACTS = {ARTIFACT_DATA}
 
 
 @dataclass(frozen=True)
@@ -135,6 +140,22 @@ RESULTS = SectionSpec(
     artifact=ARTIFACT_RESULTS,
 )
 
+FORECAST = SectionSpec(
+    key="prognoz",
+    title={
+        "uz": "Prognoz va samaradorlik hisobi",
+        "ru": "Прогноз и расчёт эффективности",
+        "en": "Forecast and effectiveness calculation",
+    },
+    guidance=(
+        "Project how the key quantity develops over the next three to four "
+        "periods and explain what drives it. State the calculation behind the "
+        "effectiveness figure — payback, yield, capacity or whichever measure "
+        "fits this field — and interpret the result."
+    ),
+    artifact=ARTIFACT_FORECAST,
+)
+
 CONCLUSION = SectionSpec(
     key="xulosa",
     title={"uz": "Xulosa", "ru": "Заключение", "en": "Conclusion"},
@@ -146,7 +167,7 @@ CONCLUSION = SectionSpec(
 )
 
 _OPENING = [INTRO, RELEVANCE]
-_CLOSING = [TIMELINE, BUDGET, RISKS, RESULTS, CONCLUSION]
+_CLOSING = [TIMELINE, BUDGET, FORECAST, RISKS, RESULTS, CONCLUSION]
 
 
 def _section(key, uz, ru, en, guidance, artifact=None, words="300-380") -> SectionSpec:
