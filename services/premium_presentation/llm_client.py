@@ -80,13 +80,20 @@ ELEMENT TURLARI:
 
 ⑥ chart — diagramma
 {"type":"chart","x":1.0,"y":1.8,"w":8.5,"h":4.2,
- "chart_type":"column",
+ "chart_type":"column",   // column | bar | line | area | pie | donut | radar | scatter
  "chart_title":"Diagramma sarlavhasi",
  "caption":"Bu diagrammada nima ko'rsatilgani — aniq va ravshan izohlang (1-2 jumla)",
  "categories":["Kat1","Kat2","Kat3"],
  "series":[{"name":"Qator1","values":[45,30,25]}]}
 
   MAJBURIY: har taqdimotda KAMIDA 2 ta diagramma bo'lsin, 4 tadan oshmasin.
+
+  Turni ma'lumot vazifasiga qarab tanlang, hammasini "column" qilmang:
+  → column/bar — kattaliklarni taqqoslash
+  → line/area  — vaqt bo'yicha o'zgarish
+  → pie/donut  — butunning ulushlari (5 tagacha bo'lak)
+  → radar      — bir nechta mezon bo'yicha profil (5-7 mezon)
+  → scatter    — ikki son o'rtasidagi bog'liqlik
 
   Har qanday mavzuda raqam topiladi — uni izlang:
   → tarixiy sanalar va davrlar, ulushlar va foizlar, bosqichlar soni,
@@ -279,7 +286,7 @@ Infographic formati: {"type":"infographic","x":0.6,"y":1.9,"w":12.1,"h":4.4,"pre
   → items 3-5 ta, har birida icon nomi; koordinatani kod hisoblaydi, sen faqat mazmun ber
 Ikonka nomlari: agriculture, ai, airplane, algorithm, architecture, art, atom, award, basketball, behavior, biology, brain, building, business, calendar, car, certificate, chart, chemistry, cinema, city, climate, code, communication, computer, construction, contract, cooking, country, court, crime, culture, database, democracy, design, diploma, dna, doctor, economics, education, electricity, emotion, energy, environment, family, finance, fire, fitness, flag, food, football, forest, geography, globe, government, graduation, health, history, hospital, house, idea, industry, innovation, internet, investment, justice, language, law, leadership, literature, logistics, management, map, marketing, math, medicine, mental, microscope, military, money, moon, mountain, museum, music, nature, network, nuclear, nutrition, ocean, peace, pharmacy, philosophy, photography, physics, planet, politics, pollution, poverty, privacy, project, psychology, rain, recycling, research, rights, robot, running, satellite, school, science, security, ship, social, solar, space, sport, star, startup, statistics, strategy, success, surgery, swimming, target, team, technology, tennis, theater, time, trade, train, transport, university, vaccine, volleyball, war, water, welfare, wind, writing, yoga
 
-Chart formati: {"type":"chart","x":1.0,"y":2.0,"w":8.0,"h":4.0,"chart_type":"column|bar|line|pie|donut","chart_title":"...","categories":[...],"series":[{"name":"...","values":[...]}]}
+Chart formati: {"type":"chart","x":1.0,"y":2.0,"w":8.0,"h":4.0,"chart_type":"column|bar|line|area|pie|donut|radar|scatter","chart_title":"...","categories":[...],"series":[{"name":"...","values":[...]}]}
 
 Muammoni to'liq bartaraf etgan YANGI professional layout bilan qaytар.
 

@@ -2,6 +2,8 @@ import logging
 
 from pydantic import ValidationError
 
+from services.project_work import variety
+
 from . import config, infographics, llm_client, qa
 from .models import Brief, Slide, ROLE_ORDER, VisualElement, grounding_check
 from .renderer import build_presentation
@@ -76,6 +78,7 @@ def canvas_validation_and_fix(
     """Har slaydni tekshiradi, muammoli slaydlarni qayta loyihalaydi."""
     # Avval matn o'lchamlari va ustma-ustni tuzatamiz
     brief = ensure_visuals(brief, topic, language)
+    brief = spread_chart_types(brief, topic)
     brief = expand_infographics(brief)
     brief = ensure_icons(brief)
     brief = fix_text_overlaps(brief)
@@ -354,6 +357,31 @@ def generate_brief_with_validation(topic: str, slide_count: int = 8,
 
 
 # ─────────────────────────────────────────── Infografika va ikonkalar
+
+def spread_chart_types(brief: Brief, topic: str) -> Brief:
+    """Bitta taqdimotda bir xil diagramma turi takrorlanmasin.
+
+    Model odatda hamma slaydga ustunli diagramma qo'yadi. Almashtirish
+    faqat bir xil ma'lumotni ko'rsata oladigan turlar orasida bo'ladi,
+    shuning uchun mazmun buzilmaydi.
+    """
+    charts = [
+        element
+        for slide in brief.slides
+        for element in slide.canvas.elements
+        if element.type == "chart"
+    ]
+    if len(charts) < 2:
+        return brief
+
+    current = [element.chart_type or "column" for element in charts]
+    spread = variety.spread_chart_types(current, (topic, brief.topic))
+    for element, chart_type in zip(charts, spread):
+        element.chart_type = chart_type
+    if spread != current:
+        log.info("Diagramma turlari yoyildi: %s → %s", current, spread)
+    return brief
+
 
 def expand_infographics(brief: Brief) -> Brief:
     """`infographic` elementlarini ibtidoiy shakllarga yoyadi.

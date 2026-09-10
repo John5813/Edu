@@ -17,13 +17,18 @@ from utils.heading_guard import heading_rule, strip_echoed_heading
 from .source import SourceMaterial
 from .specs import (
     ARTIFACT_BUDGET,
+    ARTIFACT_CALC,
     ARTIFACT_FORECAST,
     ARTIFACT_DATA,
     ARTIFACT_RESULTS,
     ARTIFACT_RISKS,
     ARTIFACT_SCHEME,
     ARTIFACT_TIMELINE,
+    BLOCK_AUTO,
+    BLOCK_ORDER,
+    BLOCK_SCHEME,
     CHART_ARTIFACTS,
+    DEFAULT_BLOCKS,
     CARD_ARTIFACTS,
     TABLE_ARTIFACTS,
     GENERIC_FIELD_KEY,
@@ -89,6 +94,20 @@ _TABLE_KINDS = {
         "ask": "measurable indicators of the project's success, with concrete numbers",
         "rows": 5,
     },
+    ARTIFACT_CALC: {
+        "columns": {
+            "uz": ["Ko'rsatkich", "Hisoblash usuli", "Natija", "O'lchov birligi"],
+            "ru": ["Показатель", "Способ расчёта", "Результат", "Единица измерения"],
+            "en": ["Indicator", "Calculation", "Result", "Unit"],
+        },
+        "ask": (
+            "the step-by-step numeric calculation this project rests on. Each row is "
+            "one computed quantity: what it is, how it is obtained from the previous "
+            "figures, the resulting number, and its unit. The rows must follow on from "
+            "one another and the arithmetic must be correct"
+        ),
+        "rows": 6,
+    },
     ARTIFACT_DATA: {
         "columns": None,  # ustunlarni AI mavzuga qarab o'zi tanlaydi
         "ask": "the most useful analytical table for this particular section",
@@ -148,6 +167,9 @@ class ProjectContent:
     field_key: str
     language: str
     author_name: str = ""
+    # Chizma shakli va rang sxemasi shu mijozning oldingi ishlariga qarab
+    # tanlanadi, shuning uchun kim buyurtma bergani ma'lum bo'lishi kerak.
+    user_id: Optional[int] = None
     sections: List[SectionContent] = dataclass_field(default_factory=list)
     references: List[str] = dataclass_field(default_factory=list)
 
@@ -165,11 +187,14 @@ class ProjectContentBuilder:
         depth: float = 1.0,
         source: Optional["SourceMaterial"] = None,
         progress_cb=None,
+        blocks=None,
+        user_id: Optional[int] = None,
     ) -> ProjectContent:
         brief = await self._source_brief(source, topic)
+        blocks = await self.resolve_blocks(topic, field_key, blocks, brief)
         specs = [
             self._scaled(spec, depth)
-            for spec in await self._resolve_sections(topic, field_key, language, brief)
+            for spec in await self._resolve_sections(topic, field_key, language, brief, blocks)
         ]
 
         semaphore = asyncio.Semaphore(_CONCURRENCY)
@@ -192,6 +217,7 @@ class ProjectContentBuilder:
             language=language,
             sections=list(sections),
             references=references,
+            user_id=user_id,
         )
 
     @staticmethod
@@ -258,11 +284,83 @@ MATERIAL:
     # ------------------------------------------------------------- bo'limlar
 
     async def _resolve_sections(
-        self, topic: str, field_key: str, language: str, brief: str = ""
+        self, topic: str, field_key: str, language: str, brief: str = "", blocks=None
     ) -> List[SectionSpec]:
         if field_key != GENERIC_FIELD_KEY:
-            return sections_for(field_key)
-        return generic_sections(await self.propose_middle_sections(topic, language, brief))
+            return sections_for(field_key, blocks)
+        middle = await self.propose_middle_sections(topic, language, brief)
+        return generic_sections(middle, blocks)
+
+    async def resolve_blocks(self, topic: str, field_key: str, blocks, brief: str = "") -> List[str]:
+        """Mijoz tanlovini yakuniy blok ro'yxatiga aylantiradi.
+
+        `auto` tanlansa mavzuga qarab AI hal qiladi: sof hisob-kitobli ishga
+        Gantt lentasi ham, risk matritsasi ham keraksiz, va aksincha.
+        """
+        chosen = [b for b in (blocks or []) if b in BLOCK_ORDER or b == BLOCK_SCHEME]
+        if BLOCK_AUTO not in (blocks or []):
+            return chosen
+
+        try:
+            proposed = await self._propose_blocks(topic, field_key, brief)
+        except Exception as e:
+            logger.error("Bloklarni AI tanlay olmadi: %s", e)
+            proposed = []
+        merged = [b for b in BLOCK_ORDER if b in proposed or b in chosen]
+        if BLOCK_SCHEME in chosen:
+            merged.append(BLOCK_SCHEME)
+        return merged or list(DEFAULT_BLOCKS)
+
+    async def suggest_field(self, topic: str) -> str:
+        """Mavzudan yo'nalishni taxmin qiladi.
+
+        Mijoz sakkizta tugmadan o'zi qidirgandan ko'ra, bot taklif qilib
+        tasdiqlatgani tezroq va kamroq xato beradi.
+        """
+        from .specs import FIELDS
+
+        catalogue = "\n".join(
+            f"{key} — {spec.name('en')}" for key, spec in FIELDS.items()
+        )
+        prompt = f"""Which field of study does this project work topic belong to?
+
+Topic: "{topic}"
+
+Fields:
+{catalogue}
+other — none of the above fits
+
+Respond with JSON only: {{"field": "business"}}"""
+        try:
+            raw = await self._json_request(prompt, max_tokens=60, temperature=0.0)
+            key = str(raw.get("field") or "").strip().lower()
+            if key in FIELDS:
+                return key
+        except Exception as e:
+            logger.error("Yo'nalishni aniqlab bo'lmadi: %s", e)
+        return GENERIC_FIELD_KEY
+
+    async def _propose_blocks(self, topic: str, field_key: str, brief: str = "") -> List[str]:
+        prompt = f"""A student is writing a project work ("loyiha ishi") on: "{topic}".
+
+Decide which of these content blocks this particular work genuinely needs.
+Include a block only when the topic really calls for it — a purely
+computational work needs no Gantt chart or risk matrix, and a purely
+organisational one needs no formulas.
+
+calc      — step-by-step calculations and formulas
+budget    — cost estimate and resources
+timeline  — implementation stages with durations
+forecast  — projection of a key quantity and an effectiveness calculation
+risks     — risk analysis with mitigations
+results   — measurable expected results
+
+Choose between two and five of them.{self._source_block(brief)}
+
+Respond with JSON only: {{"blocks": ["timeline", "budget"]}}"""
+        raw = await self._json_request(prompt, max_tokens=200, temperature=0.2)
+        proposed = [str(b).strip().lower() for b in (raw.get("blocks") or [])]
+        return [b for b in proposed if b in BLOCK_ORDER]
 
     async def propose_middle_sections(
         self, topic: str, language: str, brief: str = ""
@@ -315,6 +413,10 @@ Respond with JSON only:
                 table = await self._table(topic, spec, language, brief)
             except Exception as e:
                 logger.error("Loyiha jadvali olinmadi (%s): %s", spec.key, e)
+            # Hisob-kitob bo'limining mag'zi — formulaning o'zi, shuning uchun
+            # u jadval bilan birga chiqadi.
+            if spec.artifact == ARTIFACT_CALC:
+                formula = await self._formula(topic, spec, language)
         elif spec.artifact in CHART_ARTIFACTS or spec.artifact in CARD_ARTIFACTS:
             try:
                 chart = await self._chart(topic, spec, language, brief)
