@@ -2,6 +2,7 @@ import base64
 import logging
 import os
 import random
+import threading
 import time
 import uuid
 
@@ -17,10 +18,54 @@ _QUALITY_PREFIX = (
     "8k resolution, natural lighting, clean composition, "
 )
 
+# FLUX.1-schnell distillyatsiya qilingan model: Together uni 1-4 qadam bilan
+# qabul qiladi, undan yuqorisi "steps must be <= 4" HTTP 400 beradi.
+_MAX_SCHNELL_STEPS = 4
+
+# 429 ni oldini olish uchun so'rovlar orasidagi eng kichik oraliq.
+_RATE_LOCK = threading.Lock()
+_last_request_at = 0.0
+
+_MAX_RETRY_WAIT = 30.0
+
 
 def _build_prompt(raw_prompt: str) -> str:
     """AI bergan promptga professional sifat prefiksi qo'shadi."""
     return _QUALITY_PREFIX + raw_prompt.strip()
+
+
+def _steps() -> int:
+    """Model qabul qiladigan qadam sonini qaytaradi."""
+    steps = max(1, int(getattr(config, "TOGETHER_IMAGE_STEPS", 4)))
+    if "schnell" in (config.TOGETHER_IMAGE_MODEL or "").lower():
+        steps = min(steps, _MAX_SCHNELL_STEPS)
+    return steps
+
+
+def _throttle() -> None:
+    """Ketma-ket so'rovlar orasida minimal oraliqni ushlab turadi."""
+    interval = float(getattr(config, "TOGETHER_MIN_INTERVAL", 0.0) or 0.0)
+    if interval <= 0:
+        return
+    global _last_request_at
+    with _RATE_LOCK:
+        gap = time.monotonic() - _last_request_at
+        if gap < interval:
+            time.sleep(interval - gap)
+        _last_request_at = time.monotonic()
+
+
+def _retry_after(response) -> float | None:
+    """Together bergan Retry-After sarlavhasini soniyaga aylantiradi."""
+    if response is None:
+        return None
+    raw = response.headers.get("Retry-After") or response.headers.get("retry-after")
+    if not raw:
+        return None
+    try:
+        return max(0.0, min(float(raw.strip()), _MAX_RETRY_WAIT))
+    except (TypeError, ValueError):
+        return None
 
 
 def generate_image(prompt: str, retries: int = 3) -> str | None:
@@ -39,15 +84,16 @@ def generate_image(prompt: str, retries: int = 3) -> str | None:
     payload = {
         "model": config.TOGETHER_IMAGE_MODEL,
         "prompt": enhanced_prompt,
-        "width": 1280,
-        "height": 832,
-        "steps": 10,          # 4 → 10: sezilarli sifat oshishi
+        "width": config.TOGETHER_IMAGE_WIDTH,
+        "height": config.TOGETHER_IMAGE_HEIGHT,
+        "steps": _steps(),
         "n": 1,
         "seed": random.randint(1, 999999),
     }
 
     for attempt in range(1, retries + 1):
         try:
+            _throttle()
             resp = requests.post(
                 config.TOGETHER_IMAGE_URL,
                 headers=headers,
@@ -99,15 +145,21 @@ def generate_image(prompt: str, retries: int = 3) -> str | None:
             break
 
         except requests.exceptions.HTTPError as e:
-            status = e.response.status_code if e.response else "?"
-            body = e.response.text[:300] if e.response else ""
+            response = e.response
+            status = response.status_code if response is not None else "?"
+            body = response.text[:300] if response is not None else ""
             log.warning("Together HTTP %s (urinish %s/%s): %s | %s", status, attempt, retries, e, body)
             if status == 429:
-                wait = 5 * attempt
-                log.info("Rate limit — %ss kutilmoqda", wait)
+                wait = _retry_after(response)
+                if wait is None:
+                    wait = min(5 * (2 ** (attempt - 1)), _MAX_RETRY_WAIT)
+                log.info("Rate limit — %.1fs kutilmoqda", wait)
                 time.sleep(wait)
                 continue
-            log.error("Qayta urinish bekor: HTTP %s", status)
+            if isinstance(status, int) and status >= 500 and attempt < retries:
+                time.sleep(2 * attempt)
+                continue
+            log.error("Qayta urinish bekor: HTTP %s | %s", status, body)
             break
         except Exception as e:
             log.warning("Together xato (urinish %s/%s): %s", attempt, retries, e)
@@ -116,5 +168,3 @@ def generate_image(prompt: str, retries: int = 3) -> str | None:
 
     log.error("Rasm generatsiyasi %s urinishdan keyin muvaffaqiyatsiz: '%s'", retries, prompt[:80])
     return None
-
-
