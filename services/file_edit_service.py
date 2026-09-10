@@ -38,6 +38,17 @@ _MAX_PLAN_CHARS = 60_000
 _BLOCK_PREVIEW_CHARS = 400
 _MAX_OPERATIONS = 60
 
+# A DOCX stores no pagination — Word computes it when the file is opened — but
+# clients ask for changes by page ("4-varaqqa 5 ta snoska qo'sh"), so the model
+# needs a page number per block or it can only guess.
+#
+# Word does leave `w:lastRenderedPageBreak` markers where it last paginated;
+# those are real and preferred. Without them the page is estimated from the
+# A4 / Times New Roman 14pt / 1.5-spacing layout these documents are built with.
+_CHARS_PER_LINE = 75
+_LINES_PER_PAGE = 34
+_TABLE_ROW_LINES = 1.5
+
 
 @dataclass
 class EditOperation:
@@ -56,6 +67,14 @@ class EditPlan:
     summary: str
     price: int
     truncated: bool = False
+
+
+@dataclass
+class EditResult:
+    """What actually landed in the file, as opposed to what was planned."""
+    path: str
+    applied: List[EditOperation]
+    failed: List[EditOperation]
 
 
 class FileEditNotSupported(Exception):
@@ -79,20 +98,57 @@ class FileEditService:
             elif child.tag == qn("w:tbl"):
                 yield Table(child, doc)
 
+    @staticmethod
+    def _page_numbers(blocks: list) -> List[int]:
+        """Page number per block, from Word's own marks when the file carries them."""
+        rendered = any(
+            block._element.findall(f".//{qn('w:lastRenderedPageBreak')}")
+            for block in blocks
+        )
+
+        pages = []
+        page = 1
+        lines_used = 0.0
+        for block in blocks:
+            pages.append(page)
+
+            if rendered:
+                # Word paginated this file itself; trust its marks.
+                page += len(block._element.findall(f".//{qn('w:lastRenderedPageBreak')}"))
+                continue
+
+            if block._element.findall(f".//{qn('w:br')}[@{qn('w:type')}='page']"):
+                page += 1
+                lines_used = 0.0
+                continue
+
+            if isinstance(block, Table):
+                lines_used += len(block.rows) * _TABLE_ROW_LINES
+            else:
+                lines_used += max(1, -(-len(block.text) // _CHARS_PER_LINE))
+
+            while lines_used >= _LINES_PER_PAGE:
+                lines_used -= _LINES_PER_PAGE
+                page += 1
+
+        return pages
+
     @classmethod
     def _describe(cls, path: str) -> tuple:
         """Return (doc, blocks, listing, truncated) for the document at `path`."""
         doc = Document(path)
         blocks = list(cls._iter_blocks(doc))
+        pages = cls._page_numbers(blocks)
 
         lines = []
         used = 0
         truncated = False
         for index, block in enumerate(blocks, start=1):
+            page = pages[index - 1]
             if isinstance(block, Table):
                 headers = [cell.text.strip() for cell in block.rows[0].cells] if block.rows else []
                 line = (
-                    f"[{index}] JADVAL {len(block.rows)}x{len(block.columns)}"
+                    f"[{index}] (bet {page}) JADVAL {len(block.rows)}x{len(block.columns)}"
                     f" | ustunlar: {', '.join(headers)[:200]}"
                 )
             else:
@@ -102,7 +158,7 @@ class FileEditService:
                 preview = text[:_BLOCK_PREVIEW_CHARS]
                 if len(text) > _BLOCK_PREVIEW_CHARS:
                     preview += " …"
-                line = f"[{index}] {preview}"
+                line = f"[{index}] (bet {page}) {preview}"
 
             if used + len(line) > _MAX_PLAN_CHARS:
                 truncated = True
@@ -139,8 +195,13 @@ class FileEditService:
         prompt = f"""You edit a Word document on behalf of its owner.
 
 Every editable block of the document is listed below with its id in square
-brackets. Paragraphs show their text, tables show their size and column
-headers.{truncation_note}
+brackets, followed by the page it falls on. Paragraphs show their text, tables
+show their size and column headers.{truncation_note}
+
+Clients name pages, not block ids ("add 5 footnotes to page 4"). Use the
+"(bet N)" marker to find the blocks on the page they mean, then address those
+blocks by id. When a request names a page, every operation for it must target
+a block carrying that page number.
 
 DOCUMENT BLOCKS:
 {listing}
@@ -246,8 +307,8 @@ Respond with JSON only:
 
     # --------------------------------------------------------------- applying
 
-    async def apply(self, path: str, plan: EditPlan, language: str = "uz") -> str:
-        """Apply `plan` to the document and return the path of the edited copy."""
+    async def apply(self, path: str, plan: EditPlan, language: str = "uz") -> "EditResult":
+        """Apply `plan` to the document, reporting what landed and what did not."""
         images = await self._render_images(plan)
         try:
             return await asyncio.to_thread(self._apply_sync, path, plan, images)
@@ -280,21 +341,24 @@ Respond with JSON only:
                 logger.warning("Image generation failed for operation %s: %s", index, result)
         return images
 
-    def _apply_sync(self, path: str, plan: EditPlan, images: Dict[int, str]) -> str:
+    def _apply_sync(self, path: str, plan: EditPlan, images: Dict[int, str]) -> EditResult:
         doc = Document(path)
         blocks = list(self._iter_blocks(doc))
 
-        applied = 0
+        applied: List[EditOperation] = []
+        failed: List[EditOperation] = []
         for index, operation in enumerate(plan.operations):
             block = self._block_at(blocks, operation.block_id)
             if block is None:
                 logger.warning("Edit operation %s targets missing block %s", operation.op, operation.block_id)
+                failed.append(operation)
                 continue
             try:
                 self._apply_one(doc, block, operation, images.get(index))
-                applied += 1
+                applied.append(operation)
             except Exception as e:
                 logger.error("Edit operation %s on block %s failed: %s", operation.op, operation.block_id, e)
+                failed.append(operation)
 
         if not applied:
             raise RuntimeError("no edit operation could be applied")
@@ -305,8 +369,8 @@ Respond with JSON only:
             TEMP_DIR, f"{base}_edited_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
         )
         doc.save(out_path)
-        logger.info("Applied %s/%s edit operations → %s", applied, len(plan.operations), out_path)
-        return out_path
+        logger.info("Applied %s/%s edit operations → %s", len(applied), len(plan.operations), out_path)
+        return EditResult(path=out_path, applied=applied, failed=failed)
 
     @staticmethod
     def _block_at(blocks: list, block_id: Optional[int]):
