@@ -24,7 +24,15 @@ _LABEL_PREFIX = re.compile(rf"^\s*(?:{_LABEL})\s+[\dIVXLCDM]+\s*[.)]?\s*", re.IG
 _NUMBERED_LABEL_PREFIX = re.compile(
     rf"^\s*[\dIVXLCDM]+\s*[-–—]?\s*(?:{_LABEL})\s*[.)]?\s*", re.IGNORECASE
 )
-_NUMBER_PREFIX = re.compile(r"^\s*(?:\d+|[IVXLCDM]+)(?:\s*[.)]\s*\d+)*\s*[.)]?\s+")
+# "XX asr", "XIX-XX asrlar", "1991 yil" — bular raqamlash emas, sarlavhaning
+# o'zi. Ularni qirqish "XX asr global iqtisodiyoti" ni "asr global ..." qiladi.
+_UNIT_GUARD = r"(?!(?i:asr|yil|аср|век|год|century|centuries|year)\w*\b)"
+
+_NUMBER_PREFIX = re.compile(
+    rf"^\s*(?:\d+|[IVXLCDM]+)(?:\s*[.)]\s*\d+)*\s*[.)]?\s+{_UNIT_GUARD}"
+)
+# "III.I", "II.IV" — rim raqamli ikki bosqichli raqamlash
+_ROMAN_PREFIX = re.compile(rf"^\s*[IVXLCDM]+(?:\s*\.\s*[IVXLCDM]+)*\s*\.?\s+{_UNIT_GUARD}")
 _PUNCTUATION = re.compile(r"[^\w\s]", re.UNICODE)
 _WHITESPACE = re.compile(r"\s+")
 _SENTENCE_END = re.compile(r"[.!?]")
@@ -58,10 +66,26 @@ def heading_rule(language: str) -> str:
     return _HEADING_RULE.get(language, _HEADING_RULE["uz"])
 
 
+def strip_leading_numbering(title: str) -> str:
+    """Remove numbering the model put in a title the builder numbers itself.
+
+    Covers what actually turns up: "1.", "1.1", "III.I", "1-BOB.", "BOB 2".
+    Without the Roman forms a plan reads "I BO'LIM. I. ..." or "3.1 III.I ...".
+    """
+    cleaned = (title or "").strip()
+    for _ in range(3):
+        before = cleaned
+        cleaned = _LABEL_PREFIX.sub("", cleaned)
+        cleaned = _NUMBERED_LABEL_PREFIX.sub("", cleaned)
+        cleaned = _NUMBER_PREFIX.sub("", cleaned)
+        cleaned = _ROMAN_PREFIX.sub("", cleaned)
+        if cleaned == before:
+            break
+    return cleaned.strip() or (title or "").strip()
+
+
 def _normalize(value: str) -> str:
-    value = _LABEL_PREFIX.sub("", value.strip())
-    value = _NUMBERED_LABEL_PREFIX.sub("", value)
-    value = _NUMBER_PREFIX.sub("", value)
+    value = strip_leading_numbering(value)
     value = value.lower()
     for apostrophe in ("ʻ", "’", "`", "‘"):
         value = value.replace(apostrophe, "'")

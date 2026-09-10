@@ -7,7 +7,8 @@ from typing import Dict, List
 import asyncio
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 
-from utils.heading_guard import heading_rule, strip_echoed_heading
+from utils.ai_text import token_budget, trim_to_last_sentence
+from utils.heading_guard import heading_rule, strip_echoed_heading, strip_leading_numbering
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,29 @@ def clean_text(text: str) -> str:
     text = re.sub(r'^\s*\d+\.\s+', '', text, flags=re.MULTILINE)
     text = re.sub(r'\s+', ' ', text)
     return text.strip()
+
+def _subsection_word_target(total_subsections: int, min_pages: int, max_pages: int,
+                            fixed_pages: int = 9) -> str:
+    """How long each subsection should be for the page range the client bought.
+
+    The old version floored the body at 10 pages, so a 15-page order was given
+    the same body as a 25-page one and came back at roughly double the length.
+    It aims at the middle of the range, and the overhead below is what these
+    documents actually spend outside the body: title page, plan, introduction
+    with its six points, conclusion, references, per-chapter tables and the
+    part-page lost to each chapter's page break. `fixed_pages` varies by
+    document type — a dissertation carries far more front and back matter.
+    """
+    WORDS_PER_PAGE = 280
+
+    target_pages = (min_pages + max_pages) / 2
+    body_pages = max(target_pages - fixed_pages, 4)
+    words_per_sub = int(body_pages * WORDS_PER_PAGE / max(total_subsections, 1))
+
+    low = max(int(words_per_sub * 0.9) // 10 * 10, 180)
+    high = max(int(words_per_sub * 1.1) // 10 * 10, low + 60)
+    return f"{low}-{high}"
+
 
 def is_rate_limit_error(exception: BaseException) -> bool:
     """Check if the exception is a rate limit or quota violation error."""
@@ -690,9 +714,30 @@ IMPORTANT: Respond ONLY in JSON format! Total {slide_count} slides REQUIRED (mai
 
     @staticmethod
     def _strip_leading_numbering(title: str) -> str:
-        """Remove leading numbering like '1.', '1.1', '2.3 ' from titles"""
-        import re
-        return re.sub(r'^\d+[\d.]*[.\s]+', '', title).strip()
+        """Remove numbering the builder adds itself ('1.', 'III.I', '1-BOB.')."""
+        return strip_leading_numbering(title)
+
+    # The plan has to fit on one page. Models like to append a colon subtitle
+    # ("Klassik maktablar: XV asrdan XIX asrgacha"), which doubles every entry
+    # and pushes the plan onto a second page, so the tail is dropped here —
+    # the prompt rule alone does not hold reliably.
+    _TITLE_RULE = {
+        "uz": "Sarlavha QISQA bo'lsin — ko'pi bilan 7 so'z. Ikki nuqta (:) qo'yib qo'shimcha izoh yozmang.",
+        "ru": "Название КОРОТКОЕ — максимум 7 слов. Не добавляйте подзаголовок через двоеточие (:).",
+        "en": "Keep the title SHORT — at most 7 words. Do not add a subtitle after a colon (:).",
+    }
+
+    @classmethod
+    def _title_rule(cls, language: str) -> str:
+        return cls._TITLE_RULE.get(language, cls._TITLE_RULE["uz"])
+
+    @classmethod
+    def _tidy_title(cls, title: str) -> str:
+        cleaned = cls._strip_leading_numbering(str(title or ""))
+        head, separator, _ = cleaned.partition(":")
+        if separator and len(head.split()) >= 2:
+            cleaned = head
+        return cleaned.strip(" .;—–-") or str(title or "").strip()
 
     async def _generate_document_outline(self, topic: str, section_count: int, document_type: str, language: str) -> Dict:
         """Generate document outline with section titles"""
@@ -797,7 +842,7 @@ Respond in JSON format:
                     )
 
             outline['sections'] = [
-                self._strip_leading_numbering(s) for s in outline.get('sections', [])
+                self._tidy_title(s) for s in outline.get('sections', [])
             ]
             return outline
 
@@ -904,7 +949,11 @@ EXACTLY {body_words} words — no more. Fully cover the topic with examples and 
                     {"role": "system", "content": "You are an academic writer. The section heading is already printed in the document above your text; you produce only the body text that goes underneath it. Write clear, well-structured content as plain text only. Never use special characters, markdown, or formatting."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=4000,
+                max_tokens=token_budget(
+                    body_words if 1 < section_num < total_sections
+                    else (intro_words if section_num == 1 else conclusion_words),
+                    language,
+                ),
                 temperature=0.8
             )
 
@@ -912,8 +961,7 @@ EXACTLY {body_words} words — no more. Fully cover the topic with examples and 
             matn = matn.replace('\n\n', ' ')
             matn = matn.replace('\n', ' ')
             matn = clean_text(matn)
-
-            return matn
+            return trim_to_last_sentence(matn)
 
         except Exception as e:
             logger.error(f"Error generating section content: {e}")
@@ -1270,20 +1318,7 @@ In JSON format:
                 "references": []
             }
             
-            # Calculate word target based on target page range.
-            # Fixed overhead (title, TOC, intro, conclusion, refs): ~8 pages.
-            # ~280 words per page (Times New Roman 14pt, 1.5 spacing).
-            FIXED_PAGES = 8
-            WORDS_PER_PAGE = 280
-            total_subsections = chapters * 3
-            content_pages = max(min_pages - FIXED_PAGES, 10)
-            words_needed = content_pages * WORDS_PER_PAGE
-            words_per_sub = words_needed // total_subsections
-            low = int(words_per_sub * 0.9 // 50 * 50)
-            high = int(words_per_sub * 1.1 // 50 * 50) + 50
-            low = max(low, 280)
-            high = max(high, low + 100)
-            sub_word_target = f"{low}-{high}"
+            sub_word_target = _subsection_word_target(chapters * 3, min_pages, max_pages)
 
             # Generate chapter titles first
             chapter_titles = await self._generate_chapter_titles(topic, chapters, language)
@@ -1359,6 +1394,7 @@ In JSON format:
 Каждая глава должна охватывать разные аспекты темы. ВСЕ ДОЛЖНО БЫТЬ НА РУССКОМ ЯЗЫКЕ.
 {century_ru_lang}
 Не добавляйте номер главы (1., 2.) в начало названия.
+{self._title_rule("ru")}
 
 Ответьте в формате JSON:
 {{"chapters": ["Название главы 1", "Название главы 2", ...]}}"""
@@ -1367,6 +1403,7 @@ In JSON format:
 Each chapter should cover different aspects of the topic. EVERYTHING MUST BE IN ENGLISH.
 {century_en}
 Do not add a chapter number (1., 2.) at the beginning of the title.
+{self._title_rule("en")}
 
 Respond in JSON format:
 {{"chapters": ["Chapter 1 title", "Chapter 2 title", ...]}}"""
@@ -1375,6 +1412,7 @@ Respond in JSON format:
 Har bir bo'lim mavzuning turli jihatlarini qamrab olishi kerak. HAMMASI O'ZBEK TILIDA BO'LSIN.
 {century_ru}
 Sarlavha boshiga raqam (1., 2.) qo'shmang.
+{self._title_rule("uz")}
 
 JSON formatda javob bering:
 {{"chapters": ["Birinchi bo'lim sarlavhasi", "Ikkinchi bo'lim sarlavhasi", ...]}}"""
@@ -1394,7 +1432,8 @@ JSON formatda javob bering:
                 content_str = content_str[:-3]
             
             data = json.loads(content_str.strip())
-            return data.get('chapters', [f"Bo'lim {i}" for i in range(1, chapters + 1)])
+            titles = data.get('chapters') or [f"Bo'lim {i}" for i in range(1, chapters + 1)]
+            return [self._tidy_title(t) for t in titles]
             
         except Exception as e:
             logger.error(f"Error generating chapter titles: {e}")
@@ -1416,18 +1455,21 @@ JSON formatda javob bering:
             if language == "ru":
                 prompt = f"""Создайте 3 названия подразделов для главы "{chapter_title}" по теме. ВСЕ НА РУССКОМ ЯЗЫКЕ.
 {century_ru_lang} Не добавляйте номер (1.1, 1.2) в начало названия.
+{self._title_rule("ru")}
 
 В формате JSON:
 {{"subsections": ["Подраздел 1", "Подраздел 2", "Подраздел 3"]}}"""
             elif language == "en":
                 prompt = f"""Create 3 subsection titles for chapter "{chapter_title}". EVERYTHING IN ENGLISH.
 {century_en} Do not add numbering (1.1, 1.2) at the start.
+{self._title_rule("en")}
 
 In JSON format:
 {{"subsections": ["Subsection 1", "Subsection 2", "Subsection 3"]}}"""
             else: # uz
                 prompt = f""""{chapter_title}" bo'limi uchun 3 ta kichik bo'lim sarlavhasini yarating. HAMMASI O'ZBEK TILIDA BO'LSIN.
 {century_uz} Sarlavha boshiga raqam (1.1, 1.2) qo'shmang.
+{self._title_rule("uz")}
 
 JSON formatda:
 {{"subsections": ["sarlavha 1", "sarlavha 2", "sarlavha 3"]}}"""
@@ -1447,7 +1489,8 @@ JSON formatda:
                 content_str = content_str[:-3]
             
             data = json.loads(content_str.strip())
-            return data.get('subsections', ["Kirish qismi", "Asosiy mazmun", "Yakuniy fikrlar"])
+            titles = data.get('subsections') or ["Kirish qismi", "Asosiy mazmun", "Yakuniy fikrlar"]
+            return [self._tidy_title(t) for t in titles]
             
         except Exception as e:
             logger.error(f"Error generating subsection titles: {e}")
@@ -1498,29 +1541,23 @@ RULES:
             if language == "uz":
                 prompt = f"""Quyidagi kichik bo'lim uchun akademik mazmun yozing: "{subsection_title}" (umumiy mavzu: "{topic}", bob: "{chapter_title}").
 
-KAMIDA {word_target} so'z yozing — bu MAJBURIY minimal hajm. Mavzuni juda chuqur, batafsil yoriting: tarixiy ma'lumotlar, ko'plab misollar, statistik dalillar, mualliflar fikri, qiyosiy tahlil, sabab-oqibat aloqalari, amaliy ahamiyat — barchasini keng yoriting. Qisqa yozmang.
+{word_target} so'z yozing — bu hajmdan OSHIRMANG va kam ham yozmang. Shu hajm ichida mavzuni chuqur yoriting: tarixiy ma'lumotlar, misollar, statistik dalillar, mualliflar fikri, qiyosiy tahlil, sabab-oqibat aloqalari, amaliy ahamiyat. Matnni tugallangan gap bilan yakunlang.
 Matnni mazmun bilan boshlang, sarlavhalarni takrorlamang.
 {common_rules}"""
             elif language == "ru":
                 prompt = f"""Напишите академическое содержание для подраздела: "{subsection_title}" (общая тема: "{topic}", глава: "{chapter_title}").
 
-МИНИМУМ {word_target} слов — это ОБЯЗАТЕЛЬНЫЙ минимальный объём. Раскройте тему максимально глубоко и подробно: исторические данные, множество примеров, статистические аргументы, мнения авторов, сравнительный анализ, причинно-следственные связи, практическое значение — всё развёрнуто. Не пишите коротко.
+{word_target} слов — НЕ ПРЕВЫШАЙТЕ этот объём и не пишите короче. В этом объёме раскройте тему глубоко: исторические данные, примеры, статистические аргументы, мнения авторов, сравнительный анализ, причинно-следственные связи, практическое значение. Завершите текст законченным предложением.
 Начинайте с содержания, не повторяйте названия.
 {common_rules_ru}"""
             else:
                 prompt = f"""Write academic content for the subsection: "{subsection_title}" (overall topic: "{topic}", chapter: "{chapter_title}").
 
-AT LEAST {word_target} words — this is the MANDATORY minimum length. Cover the topic in maximum depth and detail: historical context, many examples, statistical evidence, scholarly opinions, comparative analysis, cause-and-effect relationships, practical significance — all expanded. Do not write briefly.
+{word_target} words — do NOT exceed this length and do not write less. Within it, cover the topic in depth: historical context, examples, statistical evidence, scholarly opinions, comparative analysis, cause and effect, practical significance. End on a complete sentence.
 Begin with content directly, do not repeat titles.
 {common_rules_en}"""
 
-            # Dynamically set max_tokens from the upper end of word_target.
-            # Uzbek/Russian text uses ~1.8 tokens per word on average.
-            try:
-                upper_words = int(word_target.split("-")[-1])
-            except Exception:
-                upper_words = 650
-            dynamic_max_tokens = min(int(upper_words * 2.5), 8000)
+            dynamic_max_tokens = token_budget(word_target, language)
 
             response = await self._make_request(
                 messages=[
@@ -1535,6 +1572,8 @@ Begin with content directly, do not repeat titles.
             # sitting on its own line is the clearest evidence of an echo.
             matn = strip_echoed_heading(response, [subsection_title, chapter_title, topic])
             matn = clean_text(matn)
+            # Javob token chegarasiga urilgan bo'lsa, chala gap hujjatga tushmasin.
+            matn = trim_to_last_sentence(matn)
 
             import re as _re_local
 
@@ -1579,7 +1618,7 @@ Begin with content directly, do not repeat titles.
                 prompt = f""""{topic}" mavzusidagi kurs ishi uchun quyidagi 6 ta punktga juda batafsil va aynan mavzuga asoslangan akademik tarif bering. 
 DIQQAT: Umumiy gaplardan qoching, har bir punkt aynan "{topic}" mavzusining ichki jihatlarini, uning ilmiy va amaliy ahamiyatini yoritib berishi shart. 
 
-Punktlar (har biri kamida 40-50 so'zdan iborat bo'lsin):
+Punktlar (har biri 35-45 so'z — bu hajmdan oshirmang):
 1. Kurs ishining predmeti (Mavzuning qaysi jihatlari o'rganiladi?).
 2. Kurs ishining obyekti (Mavzu qaysi soha yoki tushunchaga tegishli?).
 3. Mavzuning o‘rganilganlik darajasi (Hozirgi kunda bu mavzu qanchalik o'rganilgan?).
@@ -1600,7 +1639,7 @@ JSON formatda javob bering:
                 prompt = f"""Дайте подробное академическое описание следующих 6 пунктов для курсовой работы по теме "{topic}". 
 ВНИМАНИЕ: Избегайте общих фраз. Каждый пункт должен быть глубоко связан именно с темой "{topic}", раскрывая её научные и практические аспекты.
 
-Пункты (минимум 40-50 слов каждый):
+Пункты (по 35-45 слов каждый — не превышайте этот объём):
 1. Предмет курсовой работы (какие именно стороны темы изучаются?).
 2. Объект курсовой работы (к какой области или понятию относится тема?).
 3. Степень изученности темы (насколько глубоко эта тема изучена на данный момент?).
@@ -1621,7 +1660,7 @@ JSON formatda javob bering:
                 prompt = f"""Provide detailed academic descriptions for the following 6 points for a course work on "{topic}".
 ATTENTION: Avoid general phrases. Each point must be deeply connected specifically to the topic "{topic}", revealing its scientific and practical aspects.
 
-Points (at least 40-50 words each):
+Points (35-45 words each — do not exceed this):
 1. Subject of the course work (what specific aspects of the topic are studied?).
 2. Object of the course work (what area or concept does the topic belong to?).
 3. Degree of study of the topic (how well is this topic studied currently?).
@@ -1762,7 +1801,7 @@ Professional academic style. Plain text only, no markdown."""
                 prompt = f""""{topic}" mavzusidagi diplom ishi uchun quyidagi 6 ta punktga juda batafsil va aynan mavzuga asoslangan akademik tarif bering. 
 DIQQAT: Umumiy gaplardan qoching, har bir punkt aynan "{topic}" mavzusining ichki jihatlarini, uning ilmiy va amaliy ahamiyatini yoritib berishi shart. 
 
-Punktlar (har biri kamida 40-50 so'zdan iborat bo'lsin):
+Punktlar (har biri 35-45 so'z — bu hajmdan oshirmang):
 1. Diplom ishining predmeti (Mavzuning qaysi jihatlari o'rganiladi?).
 2. Diplom ishining obyekti (Mavzu qaysi soha yoki tushunchaga tegishli?).
 3. Mavzuning o'rganilganlik darajasi (Hozirgi kunda bu mavzu qanchalik o'rganilgan?).
@@ -1783,7 +1822,7 @@ JSON formatda javob bering:
                 prompt = f"""Дайте подробное академическое описание следующих 6 пунктов для дипломной работы по теме "{topic}". 
 ВНИМАНИЕ: Избегайте общих фраз. Каждый пункт должен быть глубоко связан именно с темой "{topic}".
 
-Пункты (минимум 40-50 слов каждый):
+Пункты (по 35-45 слов каждый — не превышайте этот объём):
 1. Предмет дипломной работы (какие именно стороны темы изучаются?).
 2. Объект дипломной работы (к какой области или понятию относится тема?).
 3. Степень изученности темы (насколько глубоко эта тема изучена на данный момент?).
@@ -1804,7 +1843,7 @@ JSON formatda javob bering:
                 prompt = f"""Provide detailed academic descriptions for the following 6 points for a diploma work on "{topic}".
 ATTENTION: Avoid general phrases. Each point must be deeply connected specifically to the topic "{topic}".
 
-Points (at least 40-50 words each):
+Points (35-45 words each — do not exceed this):
 1. Subject of the diploma work (what specific aspects of the topic are studied?).
 2. Object of the diploma work (what area or concept does the topic belong to?).
 3. Degree of study of the topic (how well is this topic studied currently?).
@@ -1850,19 +1889,7 @@ Respond in JSON format:
                 "references": []
             }
 
-            # Calculate word target based on target page range.
-            # Fixed overhead (title, TOC, intro, conclusion, refs): ~8 pages.
-            FIXED_PAGES = 8
-            WORDS_PER_PAGE = 280
-            total_subsections = chapters * 3
-            content_pages = max(min_pages - FIXED_PAGES, 10)
-            words_needed = content_pages * WORDS_PER_PAGE
-            words_per_sub = words_needed // total_subsections
-            low = int(words_per_sub * 0.9 // 50 * 50)
-            high = int(words_per_sub * 1.1 // 50 * 50) + 50
-            low = max(low, 350)
-            high = max(high, low + 100)
-            dw_word_target = f"{low}-{high}"
+            dw_word_target = _subsection_word_target(chapters * 3, min_pages, max_pages)
 
             chapter_titles = await self._generate_chapter_titles(topic, chapters, language)
 
@@ -1922,24 +1949,9 @@ Respond in JSON format:
             # glossary, appendices) use ~15 pages. Annotation was removed.
             # Remaining pages are filled by chapter subsections.
             # ~250 words per page (14pt Times New Roman, 1.5 spacing).
-            # Target the UPPER end of the user-selected range and add a 25%
-            # buffer because LLMs typically under-deliver vs. word targets.
-            FIXED_PAGES = 15
-            WORDS_PER_PAGE = 250
-            subsections_per_chapter = 3
-            total_subsections = chapters * subsections_per_chapter
-
-            target_pages = int(max_pages * 1.25)
-            content_pages_needed = max(target_pages - FIXED_PAGES, 30)
-            words_needed = content_pages_needed * WORDS_PER_PAGE
-            words_per_sub = words_needed // total_subsections
-
-            # Round to a clean "low-high" range (target..+15%)
-            low = int(words_per_sub // 50 * 50)
-            high = int(words_per_sub * 1.15 // 50 * 50) + 50
-            low = max(low, 1200)
-            high = max(high, low + 200)
-            word_target = f"{low}-{high}"
+            word_target = _subsection_word_target(
+                chapters * 3, min_pages, max_pages, fixed_pages=15
+            )
 
             chapter_titles = await self._generate_chapter_titles(topic, chapters, language)
             content["introduction"] = await self._generate_graduation_intro(topic, language)
@@ -1948,7 +1960,7 @@ Respond in JSON format:
             for i, chapter_title in enumerate(chapter_titles, 1):
                 chapter = {"number": i, "title": chapter_title, "subsections": []}
                 subsection_titles = await self._generate_subsection_titles(topic, chapter_title, language)
-                for j, sub_title in enumerate(subsection_titles[:subsections_per_chapter], 1):
+                for j, sub_title in enumerate(subsection_titles[:3], 1):
                     sub_content = await self._generate_subsection_content(topic, chapter_title, sub_title, language, word_target)
                     chapter["subsections"].append({
                         "number": f"{i}.{j}",
@@ -2101,18 +2113,9 @@ JSON: {{"point_1": "...", ..., "point_10": "..."}}"""
                 "appendices": [],
             }
 
-            # Fixed overhead (title, TOC, intro+points, conclusion, refs, glossary, appendices): ~15 pages.
-            FIXED_PAGES = 15
-            WORDS_PER_PAGE = 280
-            total_subsections = chapters * 3
-            content_pages = max(min_pages - FIXED_PAGES, 15)
-            words_needed = content_pages * WORDS_PER_PAGE
-            words_per_sub = words_needed // total_subsections
-            low = int(words_per_sub * 0.9 // 50 * 50)
-            high = int(words_per_sub * 1.1 // 50 * 50) + 50
-            low = max(low, 400)
-            high = max(high, low + 150)
-            word_target = f"{low}-{high}"
+            word_target = _subsection_word_target(
+                chapters * 3, min_pages, max_pages, fixed_pages=15
+            )
 
             # ── Step 1: Get chapter + subsection titles (manual or AI) ───────────
             if manual_plan:
@@ -2197,7 +2200,7 @@ Professional academic style. Plain text only."""
         try:
             if language == "uz":
                 prompt = f""""{topic}" mavzusidagi bitiruv malakaviy ishi uchun quyidagi 8 ta punktga batafsil akademik tarif bering.
-Har bir punkt kamida 40-50 so'zdan iborat bo'lsin:
+Har bir punkt 35-45 so'zdan iborat bo'lsin, oshirmang:
 1. Tadqiqotning dolzarbligi
 2. Tadqiqot obyekti
 3. Tadqiqot predmeti
@@ -2211,7 +2214,7 @@ JSON formatda javob bering:
 {{"point_1": "...", "point_2": "...", "point_3": "...", "point_4": "...", "point_5": "1. ...\\n2. ...", "point_6": "...", "point_7": "...", "point_8": "..."}}"""
             elif language == "ru":
                 prompt = f"""Для выпускной квалификационной работы по теме "{topic}" дайте подробное описание 8 пунктов.
-Каждый пункт минимум 40-50 слов:
+Каждый пункт 35-45 слов, не превышайте:
 1. Актуальность исследования
 2. Объект исследования
 3. Предмет исследования
@@ -2225,7 +2228,7 @@ JSON формат:
 {{"point_1": "...", "point_2": "...", "point_3": "...", "point_4": "...", "point_5": "1. ...\\n2. ...", "point_6": "...", "point_7": "...", "point_8": "..."}}"""
             else:
                 prompt = f"""For a graduation qualifying work on "{topic}", provide detailed descriptions for 8 points.
-Each point at least 40-50 words:
+Each point 35-45 words, do not exceed:
 1. Relevance of research
 2. Object of research
 3. Subject of research

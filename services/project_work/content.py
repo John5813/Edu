@@ -11,6 +11,7 @@ import re
 from dataclasses import dataclass, field as dataclass_field, replace
 from typing import Dict, List, Optional
 
+from utils.ai_text import token_budget, trim_to_last_sentence
 from utils.heading_guard import heading_rule, strip_echoed_heading
 
 from .source import SourceMaterial
@@ -308,14 +309,14 @@ RULES:
                 },
                 {"role": "user", "content": prompt},
             ],
-            max_tokens=2000,
+            max_tokens=token_budget(spec.words, language),
             temperature=0.75,
         )
 
         from services.ai_service import clean_text
 
         text = strip_echoed_heading(response, [spec.heading(language), topic])
-        return clean_text(text)
+        return trim_to_last_sentence(clean_text(text))
 
     # ------------------------------------------------------------- artefakt
 
