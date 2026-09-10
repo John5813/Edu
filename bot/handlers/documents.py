@@ -10,7 +10,7 @@ from aiogram.filters import StateFilter
 
 from bot.states import DocumentStates
 import re as _re_plan
-from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard, get_outline_review_keyboard, get_references_choice_keyboard, get_doc_language_keyboard, get_plan_slide_keyboard, get_icon_choice_keyboard, get_course_work_page_keyboard, get_diploma_work_page_keyboard, get_graduation_work_page_keyboard, get_dissertation_page_keyboard, get_payment_choice_keyboard, get_insufficient_balance_keyboard, get_back_inline_keyboard, get_article_page_keyboard, get_source_selection_keyboard, get_other_services_keyboard, get_extras_keyboard, get_gw_outline_choice_keyboard
+from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard, get_outline_review_keyboard, get_references_choice_keyboard, get_doc_language_keyboard, get_plan_slide_keyboard, get_icon_choice_keyboard, get_course_work_page_keyboard, get_diploma_work_page_keyboard, get_graduation_work_page_keyboard, get_dissertation_page_keyboard, get_payment_choice_keyboard, get_insufficient_balance_keyboard, get_back_inline_keyboard, get_article_page_keyboard, get_source_selection_keyboard, get_other_services_keyboard, get_extras_keyboard, get_gw_outline_choice_keyboard, get_edit_file_mode_keyboard
 from database.database import Database
 from utils.security import sanitize_user_input, validate_topic_length
 from services.ai_service import AIService, get_ai_service
@@ -3394,9 +3394,31 @@ async def other_services_callback_handler(callback: CallbackQuery, state: FSMCon
 
     if action == "edit_file":
         await state.clear()
-        await state.set_state(DocumentStates.waiting_for_edit_file)
-        await callback.message.answer(get_text(user_lang, "edit_file_send_file"))
+        await callback.message.answer(
+            get_text(user_lang, "edit_file_choose_mode"),
+            parse_mode="HTML",
+            reply_markup=get_edit_file_mode_keyboard(user_lang),
+        )
         return
+
+
+@router.callback_query(F.data.startswith("edit_mode:"))
+async def handle_edit_mode_choice(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Route the edit-file menu to either the AI flow or the manual Mini App."""
+    await callback.answer()
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+
+    if callback.data.endswith(":ai"):
+        from bot.handlers.file_edit import start_ai_edit
+        await start_ai_edit(callback.message, state, user_lang)
+        return
+
+    await state.clear()
+    await state.set_state(DocumentStates.waiting_for_edit_file)
+    await callback.message.answer(get_text(user_lang, "edit_file_send_file"))
 
 
 @router.message(DocumentStates.waiting_for_edit_file, F.document)

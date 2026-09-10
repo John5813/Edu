@@ -125,6 +125,20 @@ DISSERTATION_PRICES = {
     "90_100_4": 170000,
 }
 
+# AI file editing — the quote is built from the plan the AI produces, so the
+# client pays for the amount of work actually requested, not a flat fee.
+FILE_EDIT_BASE_PRICE = 500
+FILE_EDIT_PRICE_STEP = 500
+FILE_EDIT_MAX_PRICE = 30_000
+FILE_EDIT_OP_PRICES = {
+    "replace_text":      500,
+    "insert_paragraph":  500,
+    "delete_block":      300,
+    "add_footnote":      500,
+    "insert_table":     1000,
+    "insert_image":     1500,
+}
+
 # Extras prices (in so'm) added on top of base document price
 EXTRAS_PRICES = {
     "formulas":   1000,

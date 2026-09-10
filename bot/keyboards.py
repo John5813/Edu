@@ -174,6 +174,25 @@ def get_other_services_keyboard(language: str, media_enabled: bool = True, pdf_c
     return keyboard.as_markup()
 
 
+def get_edit_file_mode_keyboard(language: str) -> InlineKeyboardMarkup:
+    """Choose between AI editing and the manual Mini App editor."""
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(text=get_text(language, "edit_file_mode_ai"), callback_data="edit_mode:ai"))
+    keyboard.add(InlineKeyboardButton(text=get_text(language, "edit_file_mode_manual"), callback_data="edit_mode:manual"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
+def get_ai_edit_confirm_keyboard(language: str) -> InlineKeyboardMarkup:
+    """Accept the quote, restate the request, or drop the whole edit."""
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(text=get_text(language, "ai_edit_confirm"), callback_data="ai_edit:confirm"))
+    keyboard.add(InlineKeyboardButton(text=get_text(language, "ai_edit_retry"), callback_data="ai_edit:retry"))
+    keyboard.add(InlineKeyboardButton(text=get_text(language, "ai_edit_cancel"), callback_data="ai_edit:cancel"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
 def get_test_question_count_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
     """Keyboard for selecting test question count"""
     keyboard = InlineKeyboardBuilder()

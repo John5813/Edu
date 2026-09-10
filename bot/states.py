@@ -30,6 +30,12 @@ class DocumentStates(StatesGroup):
     waiting_for_references_choice = State()
     waiting_for_icon_choice = State()
 
+class AIFileEditStates(StatesGroup):
+    waiting_for_file = State()
+    waiting_for_instructions = State()
+    waiting_for_confirmation = State()
+    applying = State()
+
 class PaymentStates(StatesGroup):
     waiting_for_amount = State()
     waiting_for_custom_amount = State()
