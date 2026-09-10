@@ -26,6 +26,7 @@ from bot.states import ProjectWorkStates
 from config import PROJECT_WORK_DEPTH, PROJECT_WORK_PRICES, TEMP_DIR
 from database.database import Database
 from services.project_work import field_label, get_content_builder, get_document_builder
+from services import document_source
 from services.project_work import source as source_module
 from translations import get_text
 from utils.security import sanitize_user_input, validate_topic_length
@@ -162,6 +163,18 @@ async def got_source_file(message: Message, state: FSMContext, user_lang: str):
     name = (document.file_name or "").lower()
     if not name.endswith((".pdf", ".docx", ".pptx")):
         await message.answer(get_text(user_lang, "pw_source_bad_file"))
+        return
+
+    # Hajm xabar bilan birga keladi — bitta bayt yuklanmasdan oldin rad etamiz.
+    try:
+        document_source.check_size(document.file_size)
+    except document_source.SourceTooLarge as e:
+        await message.answer(
+            get_text(user_lang, "source_too_large",
+                     size=round(e.size_mb, 1),
+                     limit=document_source.MAX_UPLOAD_BYTES // (1024 * 1024)),
+            parse_mode="HTML",
+        )
         return
 
     status = await message.answer(get_text(user_lang, "pw_source_reading"))
