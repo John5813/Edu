@@ -35,7 +35,9 @@ Telegram bot ichida OpenAI yordamida professional `python-pptx` taqdimot kodini 
 - `services/project_work/specs.py` — loyiha ishi soha spetsifikatsiyalari: umumiy bo'limlar bir marta, har soha faqat o'ziga xos qismini beradi
 - `services/project_work/content.py` — spetsifikatsiya bo'yicha matn, jadval va sxema promptlari
 - `services/project_work/source.py` — mijoz bergan manbani (matn / DOCX / PDF / PPTX / sayt) matnga aylantiradi
+- `services/project_work/charts.py` — byudjet diagrammasi, prognoz chizig'i, Gantt lentasi, risk matritsasi va formula tasviri
 - `services/project_work/builder.py` — bitta umumiy DOCX quruvchi; yangi soha qo'shilganda o'zgarmaydi
+- `services/document_source.py` — yuklangan PDF/DOCX/PPTX dan xavfsiz matn olish (betma-bet, chegara bilan, navbatda)
 - `bot/handlers/project_work.py` — loyiha ishi dialogi
 
 ## Architecture decisions
@@ -47,6 +49,8 @@ Telegram bot ichida OpenAI yordamida professional `python-pptx` taqdimot kodini 
 - Balans faqat tahrirlangan fayl mijozga yetkazilgandan keyin yechiladi.
 - Loyiha ishida yo‘nalishni ham, artefaktlarni ham mijoz tanlaydi; yangi soha qo‘shish — `FIELDS` ga bitta spetsifikatsiya, quruvchi kod emas.
 - Uzun manba (qo‘llanma, sayt) har bo‘lim promptiga qo‘yilmaydi: bir marta siqiladi va shu xulosa ishlatiladi.
+- Yuklangan fayl `file_size` bo‘yicha yuklashdan OLDIN rad etiladi; PDF `pdf2docx` orqali emas, PyMuPDF bilan betma-bet o‘qiladi va kerakli hajmga yetganda to‘xtaydi.
+- Loyiha ishida har ma’lumot o‘z shaklini oladi: xarajat — ustunli diagramma, bosqichlar — Gantt, risklar — matritsa, natijalar — kartochka, prognoz — chiziq. Ranglar tekshirilgan palitradan; ordinal ramp validatordan o‘tkazilgan.
 
 ## Product
 
