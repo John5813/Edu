@@ -183,20 +183,31 @@ async def handle_confirm(callback: CallbackQuery, state: FSMContext, user_lang: 
 
     out_path = None
     try:
-        out_path = await get_file_edit_service().apply(local_path, plan, user_lang)
+        service = get_file_edit_service()
+        result = await service.apply(local_path, plan, user_lang)
+        out_path = result.path
+
+        # Charge for what actually landed, never more than the quote. A plan the
+        # AI could only half-apply must not cost the same as a complete one.
+        charged = min(price, service.price_of(result.applied))
 
         original = data.get("original_filename", "hujjat.docx")
         base = os.path.splitext(original)[0]
         edited = FSInputFile(out_path, filename=f"{base}_tahrirlangan.docx")
 
-        await callback.message.answer_document(
-            document=edited, caption=get_text(user_lang, "ai_edit_done")
-        )
+        caption = get_text(user_lang, "ai_edit_done_report", done=len(result.applied))
+        if result.failed:
+            caption += get_text(
+                user_lang, "ai_edit_partial",
+                failed=len(result.failed), price=charged,
+            )
+
+        await callback.message.answer_document(document=edited, caption=caption)
         # Charged only after the file is delivered, so a failure costs nothing.
-        await db.update_user_balance(user.telegram_id, -price)
+        await db.update_user_balance(user.telegram_id, -charged)
         logger.info(
-            "AI edit delivered to %s: %s operations, %s so'm",
-            user.telegram_id, len(plan.operations), price,
+            "AI edit delivered to %s: %s/%s operations, %s so'm",
+            user.telegram_id, len(result.applied), len(plan.operations), charged,
         )
         await callback.message.answer(
             get_text(user_lang, "document_ready"), reply_markup=get_main_keyboard(user_lang)

@@ -350,6 +350,10 @@ def run_visual_qa_and_fix(
 ) -> str:
     """Slaydlarni rasmga aylantirib, vision model tekshiradi.
     Muammo topilsa tegishli slaydni qayta loyihalaydi yoki elementni olib tashlaydi."""
+    if not config.VISUAL_QA_ENABLED:
+        log.info("Vizual QA o'chirilgan (PREMIUM_VISUAL_QA=1 bilan yoqiladi)")
+        return pptx_path
+
     current_path = pptx_path
     current_brief = brief
 

@@ -6,7 +6,6 @@ import asyncio
 import contextlib
 import logging
 import os
-import shutil
 
 from aiogram import Router, F
 from aiogram.filters import StateFilter
@@ -794,144 +793,6 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
             parse_mode="HTML",
         )
 
-    # AI yozgan python-pptx kodini serverda ishga tushirib, foydalanuvchiga
-    # source code emas, tayyor PPTX yuboramiz.
-    loop = asyncio.get_running_loop()
-    try:
-        from services.premium_presentation.code_generator import (
-            generate_presentation_code,
-        )
-        from services.premium_presentation.code_runner import render_code_to_pptx
-        from services.premium_presentation import config as presentation_config
-
-        await status.edit_text(
-            {
-                "uz": f"🤖 <b>{topic}</b>\nAI taqdimot kodini yozmoqda...",
-                "ru": f"🤖 <b>{topic}</b>\nAI пишет код презентации...",
-                "en": f"🤖 <b>{topic}</b>\nAI is writing the presentation code...",
-            }.get(lang, "🤖 AI taqdimot kodini yozmoqda..."),
-            parse_mode="HTML",
-        )
-        code = await loop.run_in_executor(
-            None,
-            lambda: generate_presentation_code(
-                topic=topic,
-                slide_count=slide_count,
-                presentation_language=presentation_language,
-                client_name=client_name,
-                preferences=preferences,
-            ),
-        )
-
-        await status.edit_text(
-            {
-                "uz": f"⚙️ <b>{topic}</b>\nKod olindi, tayyor PPTX yaratilmoqda...",
-                "ru": f"⚙️ <b>{topic}</b>\nКод получен, создаём готовый PPTX...",
-                "en": f"⚙️ <b>{topic}</b>\nCode received, creating the final PPTX...",
-            }.get(lang, "⚙️ Tayyor PPTX yaratilmoqda..."),
-            parse_mode="HTML",
-        )
-        final_path = None
-        render_error = ""
-        for attempt in range(presentation_config.MAX_CODE_RETRIES + 1):
-            try:
-                final_path = await loop.run_in_executor(
-                    None,
-                    render_code_to_pptx,
-                    code,
-                    presentation_config.WORK_DIR,
-                )
-                break
-            except Exception as exc:
-                render_error = str(exc)
-                if attempt >= presentation_config.MAX_CODE_RETRIES:
-                    raise
-                await status.edit_text(
-                    {
-                        "uz": (
-                            f"⚠️ <b>{topic}</b>\n"
-                            "Kodda texnik xato topildi, AI uni tuzatmoqda..."
-                        ),
-                        "ru": (
-                            f"⚠️ <b>{topic}</b>\n"
-                            "В коде найдена техническая ошибка, AI исправляет её..."
-                        ),
-                        "en": (
-                            f"⚠️ <b>{topic}</b>\n"
-                            "A technical code error was found, AI is fixing it..."
-                        ),
-                    }.get(lang, "⚠️ AI kodni avtomatik tuzatmoqda..."),
-                    parse_mode="HTML",
-                )
-                code = await loop.run_in_executor(
-                    None,
-                    lambda: generate_presentation_code(
-                        topic=topic,
-                        slide_count=slide_count,
-                        presentation_language=presentation_language,
-                        client_name=client_name,
-                        preferences=preferences,
-                        previous_code=code,
-                        error_feedback=render_error[-4000:],
-                        error_history=[render_error[-1200:]],
-                    ),
-                )
-        if final_path is None:
-            raise RuntimeError("PPTX yo‘li olinmadi")
-    except Exception as exc:
-        logger.exception("AI kodi asosida PPTX yaratishda xato: %s", exc)
-        await db.update_user_balance(callback.from_user.id, price)
-        error_messages = {
-            "uz": f"❌ PPTX yaratishda xato: {str(exc)[:300]}\n\n💰 {price:,} so‘m qaytarildi.",
-            "ru": f"❌ Ошибка создания PPTX: {str(exc)[:300]}\n\n💰 {price:,} сум возвращены.",
-            "en": f"❌ PPTX creation failed: {str(exc)[:300]}\n\n💰 {price:,} soʻm refunded.",
-        }
-        try:
-            await status.edit_text(
-                error_messages.get(lang, error_messages["uz"]),
-                parse_mode="HTML",
-            )
-        except Exception:
-            pass
-        await state.clear()
-        return
-
-    filename = f"Premium_{topic[:30].replace(' ', '_')}.pptx"
-    try:
-        from aiogram.types import FSInputFile
-
-        await status.edit_text(
-            {
-                "uz": f"✅ <b>{topic}</b> — tayyor!\n📊 {slide_count} slayd | PPTX yuborilmoqda...",
-                "ru": f"✅ <b>{topic}</b> — готово!\n📊 {slide_count} слайдов | Отправляю PPTX...",
-                "en": f"✅ <b>{topic}</b> — done!\n📊 {slide_count} slides | Sending PPTX...",
-            }.get(lang, "✅ PPTX tayyor! Yuborilmoqda..."),
-            parse_mode="HTML",
-        )
-        await callback.message.answer_document(
-            document=FSInputFile(final_path, filename=filename)
-        )
-        logger.info("AI-generated PPTX sent: topic=%s -> %s", topic[:80], callback.from_user.id)
-    except Exception as send_err:
-        logger.exception("AI-generated PPTX yuborishda xato: %s", send_err)
-        await db.update_user_balance(callback.from_user.id, price)
-        try:
-            await callback.message.answer(
-                {
-                    "uz": f"❌ PPTX yuborishda xato.\n\n💰 {price:,} so‘m qaytarildi.",
-                    "ru": f"❌ Ошибка отправки PPTX.\n\n💰 {price:,} сум возвращены.",
-                    "en": f"❌ Error sending PPTX.\n\n💰 {price:,} soʻm refunded.",
-                }.get(lang, "❌ PPTX yuborilmadi, to‘lov qaytarildi."),
-                parse_mode="HTML",
-            )
-        except Exception:
-            pass
-    finally:
-        shutil.rmtree(os.path.dirname(final_path), ignore_errors=True)
-
-    await state.clear()
-    return
-
     total_chunks = max(1, (slide_count + 4) // 5)
     status_msgs = {
         "uz": (
@@ -951,11 +812,11 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         ),
     }
 
-    status = await callback.message.edit_text(
-        status_msgs.get(lang, status_msgs["uz"]), parse_mode="HTML"
-    )
+    # Edit the status message created above — after a Stars payment that message
+    # is a fresh one, not `callback.message`.
+    await status.edit_text(status_msgs.get(lang, status_msgs["uz"]), parse_mode="HTML")
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     rotating_facts = {
         "uz": [
             "Quyosh nuri Yerga taxminan 8 daqiqa 20 soniyada yetib keladi.",
@@ -1113,21 +974,21 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
                 f"✅ Kontent: {len(brief.slides)} slayd\n"
                 f"✅ Strukturaviy tekshiruv o'tdi\n"
                 f"✅ Slaydlar chizildi\n"
-                f"⏳ Vizual sifat nazorati..."
+                f"⏳ Yakuniy tayyorlash..."
             ),
             "ru": (
                 f"⚙️ <b>{topic}</b>\n"
                 f"✅ Контент: {len(brief.slides)} слайдов\n"
                 f"✅ Структурная проверка пройдена\n"
                 f"✅ Слайды нарисованы\n"
-                f"⏳ Визуальный контроль качества..."
+                f"⏳ Финальная подготовка..."
             ),
             "en": (
                 f"⚙️ <b>{topic}</b>\n"
                 f"✅ Content: {len(brief.slides)} slides\n"
                 f"✅ Structural check passed\n"
                 f"✅ Slides drawn\n"
-                f"⏳ Visual quality check..."
+                f"⏳ Final preparation..."
             ),
         }
         await status.edit_text(step4.get(lang, step4["uz"]), parse_mode="HTML")
