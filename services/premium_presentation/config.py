@@ -21,11 +21,15 @@ OPENROUTER_VISION_MODEL = os.getenv(
     "openai/gpt-4o-mini",
 )
 
-# Vizual QA har slaydni rasmga aylantirib vision modelga yuboradi — oqimdagi
-# eng qimmat qadam. Dasturiy tekshiruvlar (ustma-ustlik, minimal shrift,
-# grounding) ishning kattasini bepul bajaradi, shuning uchun QA ixtiyoriy.
-VISUAL_QA_ENABLED = os.getenv("PREMIUM_VISUAL_QA", "0").lower() in {"1", "true", "yes"}
-MAX_QA_RETRIES = int(os.getenv("PREMIUM_MAX_QA_RETRIES", "1"))
+# Vizual QA har slaydni rasmga aylantirib vision modelga yuboradi. Ilgari u
+# sukut bo'yicha o'chiq edi, shuning uchun tekshiruv umuman ishlamasdi.
+# Endi yoqiq: dasturiy tekshiruvlar ustma-ustlikning kattasini bepul topadi,
+# lekin matn rasm ustiga tushgan yoki kontrast yetmagan holatni faqat ko'z
+# ko'radi. PREMIUM_VISUAL_QA=0 bilan o'chiriladi.
+VISUAL_QA_ENABLED = os.getenv("PREMIUM_VISUAL_QA", "1").lower() in {"1", "true", "yes"}
+# Ikki raund: birinchisida arzon tuzatish (surish), yordam bermasa
+# ikkinchisida daraja ko'tariladi.
+MAX_QA_RETRIES = int(os.getenv("PREMIUM_MAX_QA_RETRIES", "2"))
 WORK_DIR = os.getenv("PREMIUM_WORK_DIR", "temp")
 
 # Slayd rasmlari — asosiy bot bilan bir xil Together AI kaliti va FLUX modeli.

@@ -118,11 +118,22 @@ def canvas_validation_and_fix(
 
 def fix_text_overlaps(brief: Brief) -> Brief:
     """Slayddagi matn bloklari bir-birining ustiga chiqmasligini ta'minlaydi."""
+    for slide in brief.slides:
+        fix_slide_overlaps(slide)
+    return brief
+
+
+def fix_slide_overlaps(slide: Slide) -> Slide:
+    """Bitta slayd ichidagi matn bloklarini ustma-ustlikdan tozalaydi.
+
+    Alohida funksiya, chunki vizual QA aynan bitta slaydni tuzatadi —
+    uni `Brief` ichiga o'rash rol tartibi validatorini buzardi.
+    """
     slide_w = 13.333
     slide_h = 7.5
     edge = 0.3
 
-    for slide in brief.slides:
+    if True:
         # locked — infografika presetlari hisoblab qo'ygan matnlar. Ularning
         # o'rni kartochkasiga bog'liq, mustaqil surilsa kompozitsiya buziladi.
         text_els = [e for e in slide.canvas.elements
@@ -183,7 +194,7 @@ def fix_text_overlaps(brief: Brief) -> Brief:
         for el in text_els:
             el.x = min(max(el.x, edge), slide_w - edge - (el.w or 5.0))
             el.y = min(max(el.y, edge), slide_h - edge - (el.h or 1.0))
-    return brief
+    return slide
 
 
 def enforce_min_text_size(brief: Brief, min_body_pt: float = 13.0) -> Brief:
@@ -565,19 +576,242 @@ def _force_image(slide: Slide, topic: str) -> None:
     )
     log.info("Birinchi slaydga rasm majburan qo'yildi")
 
+# ─────────────────────────────────────────── Vizual tuzatish darajalari
+#
+# Vision faqat "yomon" deb aytsa, yagona chora slaydni qaytadan yozish edi —
+# eng qimmat va eng xavfli yo'l, chunki yaxshi qismlar ham yo'qolardi. Endi
+# uch daraja bor va har biri o'zidan qimmatrog'iga faqat kerak bo'lganda
+# o'tadi.
+
+SLIDE_W = 13.333
+SLIDE_H = 7.5
+_EDGE = 0.3
+# Suzuvchi nuqta xatosi uchun bo'shashish: 5.800000000000001 + 1.4 qiymati
+# 7.2 dan katta chiqib, mutlaqo joyiga tushadigan variant rad etilardi.
+_TOLERANCE = 0.02
+# Sarlavha bezak panelining burchagiga ozgina tegib turishi — dizaynda
+# odatiy hol. Faqat matnning sezilarli qismi yopilgandagina suramiz.
+_MIN_OVERLAP_SHARE = 0.15
+
+# Matn ustiga tushib qolsa o'qilmay qoladigan elementlar. `rect` faqat
+# to'ldirilgan bo'lsa hisobga olinadi — fonsiz to'rtburchak xalaqit bermaydi.
+_OPAQUE_TYPES = {"image", "chart", "kpi", "circle", "infographic"}
+
+
+def _box(element) -> tuple:
+    width = element.w or element.d or (5.0 if element.type == "text" else 1.0)
+    height = element.h or element.d or (1.0 if element.type == "text" else 1.0)
+    return element.x, element.y, width, height
+
+
+def _overlaps(first: tuple, second: tuple, pad: float = 0.0) -> bool:
+    ax, ay, aw, ah = first
+    bx, by, bw, bh = second
+    return (ax < bx + bw - pad and bx < ax + aw - pad
+            and ay < by + bh - pad and by < ay + ah - pad)
+
+
+def _overlap_share(text_box: tuple, blocker_box: tuple) -> float:
+    """Matn maydonining qancha ulushi to'suvchi ostida qolganini qaytaradi."""
+    tx, ty, tw, th = text_box
+    bx, by, bw, bh = blocker_box
+    width = min(tx + tw, bx + bw) - max(tx, bx)
+    height = min(ty + th, by + bh) - max(ty, by)
+    if width <= 0 or height <= 0 or tw <= 0 or th <= 0:
+        return 0.0
+    return (width * height) / (tw * th)
+
+
+def _is_opaque(element) -> bool:
+    if element.type in _OPAQUE_TYPES:
+        return True
+    return element.type == "rect" and bool(element.fill)
+
+
+def pull_inside(slide: Slide) -> int:
+    """Chegaradan chiqqan elementlarni slayd ichiga tortadi."""
+    moved = 0
+    for element in slide.canvas.elements:
+        if element.locked:
+            continue
+        x, y, width, height = _box(element)
+        width = min(width, SLIDE_W - 2 * _EDGE)
+        height = min(height, SLIDE_H - 2 * _EDGE)
+        new_x = min(max(x, _EDGE), SLIDE_W - _EDGE - width)
+        new_y = min(max(y, _EDGE), SLIDE_H - _EDGE - height)
+        if abs(new_x - x) > 0.01 or abs(new_y - y) > 0.01:
+            element.x, element.y = new_x, new_y
+            if element.w:
+                element.w = width
+            if element.h:
+                element.h = height
+            moved += 1
+    return moved
+
+
+def lift_text_off_blockers(slide: Slide) -> int:
+    """Matnni rasm, diagramma yoki to'ldirilgan blok ustidan olib ketadi.
+
+    `fix_text_overlaps` faqat matnni matn bilan solishtiradi, shuning uchun
+    rasm ustiga tushgan sarlavhani ko'rmasdi — vision aynan shuni topardi.
+    """
+    texts = [e for e in slide.canvas.elements
+             if e.type == "text" and e.text and not e.locked]
+    blockers = [e for e in slide.canvas.elements if _is_opaque(e) and not e.locked]
+    if not texts or not blockers:
+        return 0
+
+    moved = 0
+    for text in texts:
+        for blocker in blockers:
+            text_box = _box(text)
+            blocker_box = _box(blocker)
+            if not _overlaps(text_box, blocker_box, pad=0.06):
+                continue
+            if _overlap_share(text_box, blocker_box) < _MIN_OVERLAP_SHARE:
+                continue
+            if _shift_clear(text, blocker_box):
+                moved += 1
+                break
+    return moved
+
+
+def _shift_clear(text, blocker: tuple) -> bool:
+    """Matnni to'suvchi elementdan chetga suradi — eng kam siljish tomoniga."""
+    tx, ty, tw, th = _box(text)
+    bx, by, bw, bh = blocker
+
+    candidates = [
+        ("chapga", bx - tw - 0.12, ty),
+        ("o'ngga", bx + bw + 0.12, ty),
+        ("yuqoriga", tx, by - th - 0.12),
+        ("pastga", tx, by + bh + 0.12),
+    ]
+    best = None
+    for _, new_x, new_y in candidates:
+        if new_x < _EDGE - _TOLERANCE or new_x + tw > SLIDE_W - _EDGE + _TOLERANCE:
+            continue
+        if new_y < _EDGE - _TOLERANCE or new_y + th > SLIDE_H - _EDGE + _TOLERANCE:
+            continue
+        distance = abs(new_x - tx) + abs(new_y - ty)
+        if best is None or distance < best[0]:
+            best = (distance, new_x, new_y)
+
+    if best is None:
+        return False
+    text.x, text.y = best[1], best[2]
+    return True
+
+
+def repair_regions(slide: Slide, regions: list) -> int:
+    """1-daraja: vision belgilagan joylarni kod bilan tuzatadi.
+
+    Model chaqirilmaydi, shuning uchun bu tuzatish bepul va bir zumda.
+    """
+    kinds = {region.get("kind") for region in (regions or [])}
+    changed = 0
+
+    if "offscreen" in kinds or not kinds:
+        changed += pull_inside(slide)
+
+    if "overlap" in kinds or "clutter" in kinds or not kinds:
+        changed += lift_text_off_blockers(slide)
+        before = [(e.x, e.y) for e in slide.canvas.elements]
+        fix_slide_overlaps(slide)
+        changed += sum(
+            1 for old, element in zip(before, slide.canvas.elements)
+            if abs(old[0] - element.x) > 0.01 or abs(old[1] - element.y) > 0.01
+        )
+
+    # Ustma-ustlik tuzatuvchisi elementni pastga surib chegaradan chiqarishi
+    # mumkin, shuning uchun oxirida yana ichkariga tortamiz.
+    changed += pull_inside(slide)
+    return changed
+
+
+def simplify_slide(slide: Slide, remove_type: str | None) -> str:
+    """2-daraja: slayddan bitta ortiqcha narsani olib tashlaydi.
+
+    Butun slaydni qayta yozishdan arzon va xavfsiz: qolgan mazmun joyida
+    qoladi, faqat xalaqit berayotgani ketadi.
+    """
+    elements = slide.canvas.elements
+
+    if remove_type:
+        kept = [e for e in elements if e.type != remove_type]
+        if len(kept) < len(elements) and any(e.type == "text" for e in kept):
+            slide.canvas.elements = kept
+            return f"'{remove_type}' olib tashlandi"
+
+    # Model nimani olib tashlashni aytmagan: eng ko'p joy egallagan, lekin
+    # mazmun tashimaydigan bezakni tanlaymiz.
+    decorations = [e for e in elements
+                   if e.type in ("circle", "rect") and not e.locked]
+    if decorations:
+        biggest = max(decorations, key=lambda e: (e.w or e.d or 0) * (e.h or e.d or 0))
+        elements.remove(biggest)
+        return "bezak bloki olib tashlandi"
+
+    # Bezak yo'q — eng uzun matnni qisqartiramiz.
+    texts = [e for e in elements if e.type == "text" and e.text and not e.locked]
+    if texts:
+        longest = max(texts, key=lambda e: len(e.text or ""))
+        if len(longest.text) > 120:
+            longest.text = _trim_sentence(longest.text, int(len(longest.text) * 0.6))
+            return "eng uzun matn qisqartirildi"
+
+    charts = [e for e in elements if e.type in ("chart", "image")]
+    if charts and sum(1 for e in elements if e.type == "text") >= 1:
+        elements.remove(charts[-1])
+        return f"'{charts[-1].type}' olib tashlandi"
+
+    return ""
+
+
+def _trim_sentence(text: str, limit: int) -> str:
+    """Matnni oxirgi tugagan jumlada kesadi."""
+    text = (text or "").strip()
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    for mark in (". ", "! ", "? ", "\n"):
+        index = cut.rfind(mark)
+        if index > limit * 0.4:
+            return cut[:index + 1].strip()
+    space = cut.rfind(" ")
+    return (cut[:space] if space > limit * 0.5 else cut).rstrip(" ,;:") + "."
+
+
 # ─────────────────────────────────────────── Vizual QA
 
 def run_visual_qa_and_fix(
     pptx_path: str, brief: Brief, topic: str, language: str = "uz"
 ) -> str:
-    """Slaydlarni rasmga aylantirib, vision model tekshiradi.
-    Muammo topilsa tegishli slaydni qayta loyihalaydi yoki elementni olib tashlaydi."""
+    """Slaydlarni rasmga aylantirib, vision model tekshiradi va TUZATADI.
+
+    Vision faqat baho bermaydi — u muammoli joyni belgilaydi va tuzatish
+    darajasini aytadi. Daraja qanchalik past bo'lsa, tuzatish shunchalik
+    arzon va xavfsiz:
+
+      1 — joyini surish (kod hal qiladi, model chaqirilmaydi)
+      2 — bitta ortiqcha elementni olib tashlash
+      3 — slaydni soddaroq qilib qayta yozish
+
+    Arzonrog'i yordam bermasa, keyingi raundda daraja ko'tariladi. Butun
+    taqdimot emas, faqat muammoli slayd qayta yoziladi.
+    """
     if not config.VISUAL_QA_ENABLED:
-        log.info("Vizual QA o'chirilgan (PREMIUM_VISUAL_QA=1 bilan yoqiladi)")
+        log.info("Vizual QA o'chirilgan (PREMIUM_VISUAL_QA=0)")
         return pptx_path
 
     current_path = pptx_path
     current_brief = brief
+    # Qaysi slaydga qaysi daraja qo'llanganini eslab qolamiz: bir xil
+    # muammo takrorlansa, o'sha darajada tiqilib qolmasdan yuqoriga chiqamiz.
+    applied: dict[int, int] = {}
+    # Birinchi raundda hamma slayd tekshiriladi; keyingilarida faqat
+    # tuzatilganlar — o'tgan slaydni qayta so'rash bekorga pul sarflashdir.
+    to_check: set | None = None
 
     for round_no in range(config.MAX_QA_RETRIES):
         try:
@@ -587,56 +821,117 @@ def run_visual_qa_and_fix(
             break
 
         if not images or len(images) != len(current_brief.slides):
-            log.warning("QA rasm soni slayd soniga mos kelmadi (%s vs %s), QA bekor",
-                        len(images or []), len(current_brief.slides))
-            break
+            if images:
+                log.warning("QA rasm soni slayd soniga mos kelmadi (%s vs %s)",
+                            len(images), len(current_brief.slides))
+            else:
+                log.warning("QA slaydlarni rasmga aylantira olmadi — serverda "
+                            "LibreOffice o'rnatilganini tekshiring")
+            # Ko'z bilan tekshirib bo'lmasa ham, geometriyani kod tekshira
+            # oladi: ustma-ustlik va chetdan chiqish shu yerda hal bo'ladi.
+            return _geometry_only_pass(current_brief, current_path)
 
-        any_issue = False
+        repaired = set()
         for slide_pos, (img_path, slide) in enumerate(zip(images, current_brief.slides)):
+            if to_check is not None and slide.index not in to_check:
+                continue
             context = (
                 f"role={slide.role}, title={slide.title}, "
                 f"elements={len(slide.canvas.elements)}"
             )
             result = qa.check_slide_image(img_path, context)
-            if not result.get("ok", True):
-                any_issue = True
-                issue = result.get("issue", "aniqlanmagan muammo")
-                remove_type = result.get("remove")
-                log.info("Vizual QA muammo (slayd %s): %s | remove=%s",
-                         slide.index, issue, remove_type)
-                try:
-                    if remove_type:
-                        slide_data = slide.model_dump()
-                        before = len(slide_data["canvas"]["elements"])
-                        slide_data["canvas"]["elements"] = [
-                            e for e in slide_data["canvas"]["elements"]
-                            if e.get("type") != remove_type
-                        ]
-                        removed = before - len(slide_data["canvas"]["elements"])
-                        log.info("QA: %d ta '%s' olib tashlandi (slayd %s)",
-                                 removed, remove_type, slide.index)
-                        merged = {**slide.model_dump(), **slide_data}
-                        current_brief.slides[slide_pos] = Slide.model_validate(merged)
-                    else:
-                        fixed = llm_client.regenerate_slide(
-                            topic, slide.model_dump(), issue, language=language
-                        )
-                        merged = {**slide.model_dump(), **fixed}
-                        current_brief.slides[slide_pos] = Slide.model_validate(merged)
-                        ok2, problem2 = canvas_check(current_brief.slides[slide_pos])
-                        if not ok2:
-                            log.warning("Vizual tuzatishdan keyin kanvas muammo: %s", problem2)
-                except Exception as e:
-                    log.error("Slayd qayta loyihalashda xato: %s", e)
+            level = int(result.get("level", qa.LEVEL_OK))
+            if level == qa.LEVEL_OK:
+                continue
 
-        if not any_issue:
-            log.info("Vizual QA: barcha slayd qabul qilindi (round %s)", round_no + 1)
+            # Shu slaydda o'sha daraja allaqachon sinalgan bo'lsa, keyingisiga.
+            level = max(level, applied.get(slide.index, 0) + 1)
+            if level > qa.LEVEL_REBUILD:
+                log.warning("Slayd %s: uchala daraja ham yordam bermadi, qoldirildi",
+                            slide.index)
+                continue
+
+            issue = result.get("issue") or "aniqlanmagan muammo"
+            log.info("Vizual QA (raund %s, slayd %s): %s-daraja | %s",
+                     round_no + 1, slide.index, level, issue[:120])
+
+            try:
+                done = _apply_level(current_brief, slide_pos, level, result,
+                                    topic, language)
+            except Exception as e:
+                log.error("Tuzatishda xato (slayd %s, %s-daraja): %s",
+                          slide.index, level, e)
+                continue
+
+            if done:
+                applied[slide.index] = level
+                repaired.add(slide.index)
+                log.info("Slayd %s tuzatildi (%s-daraja): %s", slide.index, level, done)
+
+        to_check = repaired
+        if not repaired:
+            log.info("Vizual QA: barcha slayd qabul qilindi (raund %s)", round_no + 1)
             break
 
-        # Har qanday QA tuzatishidan keyin brief ham, PPTX ham yangilanadi.
-        # Ayniqsa oxirgi raundda render qilmaslik eski faylni qaytarib yuborardi.
+        # Tuzatishdan keyin brief ham, PPTX ham yangilanadi. Ayniqsa oxirgi
+        # raundda render qilmaslik eski faylni qaytarib yuborardi.
         current_brief = expand_infographics(current_brief)
         current_brief = fix_text_overlaps(current_brief)
         current_path = build_presentation(current_brief)
 
     return current_path
+
+
+def _geometry_only_pass(brief: Brief, current_path: str) -> str:
+    """Vision ishlamaganda ham 1-darajali tuzatishni qo'llaydi.
+
+    Rasterizatsiya serverga bog'liq va har doim ham ishlamaydi. Shunday
+    holatda QA ni butunlay tashlab ketish mijozga eng ko'p uchraydigan
+    nuqsonlar bilan hujjat berish demakdir, holbuki ularning aksari
+    koordinatalardan ham ko'rinadi.
+    """
+    repaired = 0
+    for slide in brief.slides:
+        repaired += repair_regions(slide, [])
+    if not repaired:
+        return current_path
+
+    log.info("Vizual QA ko'zsiz o'tdi: %s ta element joyiga qo'yildi", repaired)
+    brief = expand_infographics(brief)
+    return build_presentation(brief)
+
+
+def _apply_level(brief: Brief, slide_pos: int, level: int, result: dict,
+                 topic: str, language: str) -> str:
+    """Berilgan darajadagi tuzatishni qo'llaydi va nima qilinganini qaytaradi."""
+    slide = brief.slides[slide_pos]
+
+    if level == qa.LEVEL_NUDGE:
+        moved = repair_regions(slide, result.get("regions") or [])
+        return f"{moved} ta element surildi" if moved else ""
+
+    if level == qa.LEVEL_SIMPLIFY:
+        what = simplify_slide(slide, result.get("remove"))
+        # Element olib tashlanishi joylashuvni o'zgartiradi, shuning uchun
+        # qolganlarini yana joyiga qo'yamiz.
+        repair_regions(slide, [])
+        return what
+
+    # 3-daraja: faqat shu slayd qayta yoziladi, boshqalariga tegilmaydi.
+    instruction = (
+        f"Bu slaydda quyidagi muammo bor: {result.get('issue') or 'bloklar bir-biriga xalaqit beradi'}. "
+        "Slaydni SODDAROQ qilib qayta loyihala: elementlar soni kamaysin, "
+        "har blok o'z joyida tursin, hech biri ikkinchisining ustiga chiqmasin "
+        "va hech nima slayd chetidan chiqmasin. Mazmunni saqlab qol, faqat "
+        "joylashuvni va blok sonini soddalashtir."
+    )
+    before = slide.model_dump()
+    rebuilt = _redesign(slide, topic, language, instruction)
+    brief.slides[slide_pos] = rebuilt
+    moved = repair_regions(rebuilt, [])
+
+    if rebuilt.model_dump() == before:
+        # Model chaqiruvi yiqildi yoki hech nima o'zgartirmadi. Buni
+        # "tuzatildi" deb ko'rsatish yolg'on bo'lardi.
+        return f"qayta loyihalash ishlamadi, {moved} ta element surildi" if moved else ""
+    return "slayd qayta loyihalandi"
