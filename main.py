@@ -23,6 +23,7 @@ from bot.handlers import book_translate
 from bot.handlers import test as test_handler
 from bot.handlers import premium_presentation as premium_presentation_handler
 from bot.handlers import file_edit
+from bot.handlers import project_work
 from bot.middlewares import LanguageMiddleware, DatabaseMiddleware
 from database.database import init_db
 from config import BOT_TOKEN, ADMIN_IDS
@@ -336,6 +337,7 @@ async def main():
     dp.include_router(book_translate.router)  # Handle book translation service
     dp.include_router(test_handler.router)  # Handle test generation service
     dp.include_router(file_edit.router)  # AI editing of an uploaded document
+    dp.include_router(project_work.router)  # Loyiha ishi — client picks field and source
     dp.include_router(documents.router)  # Handles document creation and topic input - MUST BE BEFORE start.router
     dp.include_router(start.router)  # LAST - has catch-all handler for unknown messages
     

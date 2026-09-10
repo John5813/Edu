@@ -17,9 +17,20 @@ import asyncio
 from config import DOCUMENTS_DIR, TEMP_DIR
 from services.together_service import get_together_service
 from services.ai_service import clean_text
+from utils.heading_guard import strip_leading_numbering
 from services.icon_service import find_icon_path_for_column
 
 logger = logging.getLogger(__name__)
+
+
+# Times New Roman 14pt, 1.5 interval, shu hujjatlardagi A4 chekkalari bilan
+# bir betga taxminan shuncha belgi sig'adi (~75 belgi × ~34 qator).
+CHARS_PER_PAGE = 2550
+
+
+def _footnote_slots(text: str) -> int:
+    """Matn necha bet bo'lsa, shuncha snoska — kamida bitta."""
+    return max(1, round(len(text or "") / CHARS_PER_PAGE))
 
 
 def _split_into_paragraphs(text: str, target_count: int = 2, min_sentences: int = 6) -> list:
@@ -78,18 +89,8 @@ class DocumentService:
             logger.warning(f"Together AI not available: {e}")
             self.together = None
         
-        # Verify bayoo-docx footnote support is available
-        try:
-            test_doc = Document()
-            test_para = test_doc.add_paragraph("test")
-            self.footnotes_available = hasattr(test_para, 'add_footnote')
-            if self.footnotes_available:
-                logger.info("Word-native footnotes (snoska) support is available via bayoo-docx")
-            else:
-                logger.warning("Word-native footnotes not available - will use inline citations as fallback")
-        except Exception as e:
-            logger.warning(f"Could not verify footnote support: {e}")
-            self.footnotes_available = False
+        # Footnotes are written as OOXML directly by `_add_word_footnote_xml`,
+        # which works on any python-docx version — there is nothing to probe.
 
     def _calculate_auto_font_size(self, text: str, width_inches: float, height_inches: float, 
                                    max_font_pt: int = 24, min_font_pt: int = 14) -> int:
@@ -1398,28 +1399,14 @@ class DocumentService:
                 section_title_run.font.bold = True
                 section_title_run.font.size = Pt(14)
 
-                # Add content with footnote references
-                section_content = section['content']
-                content_para = doc.add_paragraph()
-                content_para.paragraph_format.first_line_indent = Inches(0.5)
-                content_para.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                content_para.paragraph_format.line_spacing = 1.5
-                
-                content_run = content_para.add_run(section_content)
-                content_run.font.size = Pt(14)
-                content_run.font.name = 'Times New Roman'
-                
                 is_main = idx > 0 and idx < len(all_sections) - 1
 
-                # Add footnote to main body sections (not intro/conclusion)
-                if is_main and references:
-                    # Filter out __CATEGORY__ headers — they are bibliography section
-                    # headings, not actual citations. Never use them as snoska text.
-                    citable_refs = [r for r in references if not r.startswith("__CATEGORY__")]
-                    if citable_refs:
-                        ref_idx = (footnote_counter - 1) % len(citable_refs)
-                        self._add_footnote(content_para, citable_refs[ref_idx], footnote_counter)
-                        footnote_counter += 1
+                # Kirish va xulosaga snoska qo'yilmaydi.
+                footnote_counter = self._add_body_with_footnotes(
+                    doc, section['content'],
+                    references if is_main else None,
+                    footnote_counter,
+                )
                 
                 # Add extras only to main body sections, not kirish/xulosa
                 # Use cycling pattern: pos1→formulas, pos2→image+table, pos3→table
@@ -1590,20 +1577,12 @@ class DocumentService:
                 section_title_run.font.bold = True
                 section_title_run.font.size = Pt(14)
 
-                content_para = doc.add_paragraph(section['content'])
-                content_para.paragraph_format.first_line_indent = Inches(0.5)
-                content_para.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                content_para.paragraph_format.line_spacing = 1.5
-
-                # Add footnote to main body sections only (not intro/conclusion)
-                if is_main_section and references:
-                    # Filter out __CATEGORY__ headers — they are bibliography section
-                    # headings, not actual citations. Never use them as snoska text.
-                    citable_refs = [r for r in references if not r.startswith("__CATEGORY__")]
-                    if citable_refs:
-                        ref_idx = (footnote_counter - 1) % len(citable_refs)
-                        self._add_footnote(content_para, citable_refs[ref_idx], footnote_counter)
-                        footnote_counter += 1
+                # Kirish va xulosaga snoska qo'yilmaydi.
+                footnote_counter = self._add_body_with_footnotes(
+                    doc, section['content'],
+                    references if is_main_section else None,
+                    footnote_counter,
+                )
 
                 # Add extras only to main body sections, not kirish/xulosa
                 # Use cycling pattern: pos1→formulas, pos2→image+table, pos3→table
@@ -1907,6 +1886,36 @@ class DocumentService:
         except Exception as e:
             logger.error(f"Error adding page number: {e}")
 
+    def _add_body_with_footnotes(self, doc, text: str, references: list, footnote_counter: int) -> int:
+        """Write body text and put one footnote on each page of it.
+
+        Every chapter-based document used to do this its own way — some one
+        footnote per section, some two per subsection regardless of length —
+        which is why the density differed between services. Returns the next
+        footnote number.
+        """
+        citable = [
+            r for r in (references or [])
+            if r and not str(r).startswith("__CATEGORY__")
+        ]
+        for chunk in _split_into_paragraphs(text, target_count=_footnote_slots(text)):
+            if not chunk.strip():
+                continue
+            para = doc.add_paragraph()
+            para.paragraph_format.first_line_indent = Inches(0.5)
+            para.paragraph_format.line_spacing = 1.5
+            para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+            run = para.add_run(chunk.strip())
+            run.font.size = Pt(14)
+            run.font.name = 'Times New Roman'
+
+            if citable:
+                self._add_footnote(
+                    para, citable[(footnote_counter - 1) % len(citable)], footnote_counter
+                )
+                footnote_counter += 1
+        return footnote_counter
+
     def _add_footnote(self, paragraph, footnote_text: str, footnote_num: int = 1):
         """Add a real Word page-bottom footnote (snoska).
 
@@ -2043,11 +2052,20 @@ class DocumentService:
             jc = etree.SubElement(fpp, w('jc'))
             jc.set(w('val'), 'both')
 
-            # Reference mark run (the small superscript number)
+            # Reference mark run (the small superscript number).
+            # python-docx's template defines no FootnoteReference style, so the
+            # rStyle alone leaves the mark full-size; superscript and size are
+            # set explicitly, exactly as on the in-text reference below.
             fr = etree.SubElement(fp, w('r'))
             frp = etree.SubElement(fr, w('rPr'))
             frs = etree.SubElement(frp, w('rStyle'))
             frs.set(w('val'), 'FootnoteReference')
+            fr_va = etree.SubElement(frp, w('vertAlign'))
+            fr_va.set(w('val'), 'superscript')
+            fr_sz = etree.SubElement(frp, w('sz'))
+            fr_sz.set(w('val'), '20')
+            fr_szcs = etree.SubElement(frp, w('szCs'))
+            fr_szcs.set(w('val'), '20')
             etree.SubElement(fr, w('footnoteRef'))
 
             # Footnote body text run
@@ -2720,7 +2738,7 @@ class DocumentService:
                 chapter_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 chapter_para.paragraph_format.space_before = Pt(18)
                 chapter_para.paragraph_format.space_after = Pt(6)
-                clean_ch_title = re.sub(r'^(?:\d+\.\s+|\d+(?:\.\d+)+\s+)', '', chapter['title'])
+                clean_ch_title = strip_leading_numbering(chapter['title'])
                 chapter_run = chapter_para.add_run(f"{roman_num} {texts['chapter']}. {clean_ch_title.upper()}")
                 chapter_run.font.size = Pt(14)
                 chapter_run.font.bold = True
@@ -2734,7 +2752,7 @@ class DocumentService:
                     sub_para.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
                     clean_title = subsection['title']
-                    clean_title = re.sub(r'^(?:\d+\.\s+|\d+(?:\.\d+)+\s+)', '', clean_title)
+                    clean_title = strip_leading_numbering(clean_title)
 
                     sub_run = sub_para.add_run(f"{subsection['number']} {clean_title}")
                     sub_run.font.size = Pt(14)
@@ -2784,38 +2802,9 @@ class DocumentService:
 
                     # Subsection text content
                     sub_content = subsection.get('content', '')
-                    content_paragraphs = _split_into_paragraphs(sub_content, target_count=2)
-                    footnotes_in_sub = 0
-                    last_content_para = None
-
-                    for p_idx, p_text in enumerate(content_paragraphs):
-                        if not p_text.strip():
-                            continue
-                        content_para = doc.add_paragraph()
-                        content_para.paragraph_format.first_line_indent = Inches(0.5)
-                        content_para.paragraph_format.line_spacing = 1.5
-                        content_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-
-                        content_run = content_para.add_run(p_text.strip())
-                        content_run.font.size = Pt(14)
-                        content_run.font.name = 'Times New Roman'
-                        last_content_para = content_para
-
-                        # Add a footnote at the end of each paragraph (2-3 per subsection)
-                        if references:
-                            ref_idx = (footnote_counter - 1) % len(references)
-                            ref_text = references[ref_idx]
-                            self._add_footnote(content_para, ref_text, footnote_counter)
-                            footnote_counter += 1
-                            footnotes_in_sub += 1
-
-                    # Ensure at least 2 footnotes per subsection
-                    while footnotes_in_sub < 2 and references and last_content_para is not None:
-                        ref_idx = (footnote_counter - 1) % len(references)
-                        ref_text = references[ref_idx]
-                        self._add_footnote(last_content_para, ref_text, footnote_counter)
-                        footnote_counter += 1
-                        footnotes_in_sub += 1
+                    footnote_counter = self._add_body_with_footnotes(
+                        doc, sub_content, references, footnote_counter
+                    )
 
                     # Table after subsection 3 (only when no extras)
                     if j == 3 and not extras:
@@ -3065,7 +3054,7 @@ class DocumentService:
             chapter_toc = doc.add_paragraph()
             chapter_toc.paragraph_format.line_spacing = 1.5
             chapter_toc.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-            clean_ch_title = re.sub(r'^(?:\d+\.\s+|\d+(?:\.\d+)+\s+)', '', chapter['title'])
+            clean_ch_title = strip_leading_numbering(chapter['title'])
             chapter_run = chapter_toc.add_run(f"{roman_num} {texts['chapter']}. {clean_ch_title.upper()}")
             chapter_run.font.size = Pt(14)
             chapter_run.font.bold = True
@@ -3076,7 +3065,7 @@ class DocumentService:
                 sub_toc.paragraph_format.left_indent = Inches(0.5)
                 sub_toc.paragraph_format.line_spacing = 1.5
                 sub_toc.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                clean_sub_title = re.sub(r'^(?:\d+\.\s+|\d+(?:\.\d+)+\s+)', '', subsection['title'])
+                clean_sub_title = strip_leading_numbering(subsection['title'])
                 sub_run = sub_toc.add_run(f"{subsection['number']} {clean_sub_title}")
                 sub_run.font.size = Pt(14)
                 sub_run.font.name = 'Times New Roman'
@@ -3206,7 +3195,7 @@ class DocumentService:
                 chapter_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 chapter_para.paragraph_format.space_before = Pt(18)
                 chapter_para.paragraph_format.space_after = Pt(6)
-                clean_ch_title = re.sub(r'^(?:\d+\.\s+|\d+(?:\.\d+)+\s+)', '', chapter['title'])
+                clean_ch_title = strip_leading_numbering(chapter['title'])
                 chapter_run = chapter_para.add_run(f"{roman_num} {texts['chapter']}. {clean_ch_title.upper()}")
                 chapter_run.font.size = Pt(14)
                 chapter_run.font.bold = True
@@ -3222,7 +3211,7 @@ class DocumentService:
                     
                     # Clean title from existing numbering to avoid "1.1 1.1 Title"
                     clean_title = subsection['title']
-                    clean_title = re.sub(r'^(?:\d+\.\s+|\d+(?:\.\d+)+\s+)', '', clean_title)
+                    clean_title = strip_leading_numbering(clean_title)
                     
                     sub_run = sub_para.add_run(f"{subsection['number']} {clean_title}")
                     sub_run.font.size = Pt(14)
@@ -3231,37 +3220,9 @@ class DocumentService:
                     
                     # Subsection content
                     sub_content = subsection.get('content', '')
-                    paragraphs = _split_into_paragraphs(sub_content, target_count=2)
-                    footnotes_in_sub = 0
-                    last_content_para = None
-
-                    for p_idx, p_text in enumerate(paragraphs):
-                        if not p_text.strip(): continue
-                        content_para = doc.add_paragraph()
-                        content_para.paragraph_format.first_line_indent = Inches(0.5)
-                        content_para.paragraph_format.line_spacing = 1.5
-                        content_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                        
-                        content_run = content_para.add_run(p_text.strip())
-                        content_run.font.size = Pt(14)
-                        content_run.font.name = 'Times New Roman'
-                        last_content_para = content_para
-                        
-                        # Add footnote at end of each paragraph (2-3 per subsection)
-                        if references:
-                            ref_idx = (footnote_counter - 1) % len(references)
-                            ref_text = references[ref_idx]
-                            self._add_footnote(content_para, ref_text, footnote_counter)
-                            footnote_counter += 1
-                            footnotes_in_sub += 1
-
-                    # Ensure at least 2 footnotes per subsection
-                    while footnotes_in_sub < 2 and references and last_content_para is not None:
-                        ref_idx = (footnote_counter - 1) % len(references)
-                        ref_text = references[ref_idx]
-                        self._add_footnote(last_content_para, ref_text, footnote_counter)
-                        footnote_counter += 1
-                        footnotes_in_sub += 1
+                    footnote_counter = self._add_body_with_footnotes(
+                        doc, sub_content, references, footnote_counter
+                    )
                     
                     # Add extras per subsection using cycle pattern
                     if extras:
@@ -3507,7 +3468,7 @@ class DocumentService:
             chapter_toc = doc.add_paragraph()
             chapter_toc.paragraph_format.line_spacing = 1.5
             chapter_toc.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-            clean_ch_title = re.sub(r'^(?:\d+\.\s+|\d+(?:\.\d+)+\s+)', '', chapter['title'])
+            clean_ch_title = strip_leading_numbering(chapter['title'])
             chapter_run = chapter_toc.add_run(f"{roman_num} {texts['chapter']}. {clean_ch_title.upper()}")
             chapter_run.font.size = Pt(14)
             chapter_run.font.bold = True
@@ -3522,7 +3483,7 @@ class DocumentService:
                 
                 # Clean title from existing numbering for TOC
                 clean_sub_title = subsection['title']
-                clean_sub_title = re.sub(r'^(?:\d+\.\s+|\d+(?:\.\d+)+\s+)', '', clean_sub_title)
+                clean_sub_title = strip_leading_numbering(clean_sub_title)
                 
                 sub_run = sub_toc.add_run(f"{subsection['number']} {clean_sub_title}")
                 sub_run.font.size = Pt(14)
@@ -4148,7 +4109,7 @@ class DocumentService:
                 ch_toc = doc.add_paragraph()
                 ch_toc.paragraph_format.line_spacing = 1.5
                 ch_toc.paragraph_format.space_after = Pt(0)
-                clean_ch_title_toc = _re.sub(r'^(?:\d+\.\s+|\d+(?:\.\d+)+\s+)', '', chapter['title'])
+                clean_ch_title_toc = strip_leading_numbering(chapter['title'])
                 ch_tr = ch_toc.add_run(f"{roman_num_toc} {texts['chapter']}. {clean_ch_title_toc.upper()}")
                 ch_tr.font.size = Pt(14)
                 ch_tr.font.bold = True
@@ -4159,7 +4120,7 @@ class DocumentService:
                     sp.paragraph_format.left_indent = Inches(0.5)
                     sp.paragraph_format.line_spacing = 1.5
                     sp.paragraph_format.space_after = Pt(0)
-                    clean_t = _re.sub(r'^(?:\d+\.\s+|\d+(?:\.\d+)+\s+)', '', subsection['title'])
+                    clean_t = strip_leading_numbering(subsection['title'])
                     sr = sp.add_run(f"{subsection['number']} {clean_t}")
                     sr.font.size = Pt(14)
                     sr.font.name = 'Times New Roman'
@@ -4244,7 +4205,7 @@ class DocumentService:
                 ch_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 ch_para.paragraph_format.space_before = Pt(18)
                 ch_para.paragraph_format.space_after = Pt(6)
-                clean_ch_title_body = _re.sub(r'^(?:\d+\.\s+|\d+(?:\.\d+)+\s+)', '', chapter['title'])
+                clean_ch_title_body = strip_leading_numbering(chapter['title'])
                 ch_run = ch_para.add_run(f"{roman_num} {texts['chapter']}. {clean_ch_title_body.upper()}")
                 ch_run.font.size = Pt(14)
                 ch_run.font.bold = True
@@ -4256,42 +4217,16 @@ class DocumentService:
                     sub_para.paragraph_format.space_before = Pt(12)
                     sub_para.paragraph_format.space_after = Pt(4)
                     sub_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                    clean_title = _re.sub(r'^(?:\d+\.\s+|\d+(?:\.\d+)+\s+)', '', subsection['title'])
+                    clean_title = strip_leading_numbering(subsection['title'])
                     sub_run = sub_para.add_run(f"{subsection['number']} {clean_title}")
                     sub_run.font.size = Pt(14)
                     sub_run.font.bold = True
                     sub_run.font.name = 'Times New Roman'
 
                     sub_content = subsection.get('content', '')
-                    paragraphs = _split_into_paragraphs(sub_content, target_count=2)
-                    footnotes_in_sub = 0
-                    last_cp = None
-
-                    for p_idx, p_text in enumerate(paragraphs):
-                        if not p_text.strip(): continue
-                        cp = doc.add_paragraph()
-                        cp.paragraph_format.first_line_indent = Inches(0.5)
-                        cp.paragraph_format.line_spacing = 1.5
-                        cp.paragraph_format.space_after = Pt(0)
-                        cp.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                        cr = cp.add_run(p_text.strip())
-                        cr.font.size = Pt(14)
-                        cr.font.name = 'Times New Roman'
-                        last_cp = cp
-                        if clean_refs:
-                            ref_idx = (footnote_counter - 1) % len(clean_refs)
-                            ref_text = clean_refs[ref_idx]
-                            self._add_word_footnote_xml(doc, cp, ref_text, footnote_counter)
-                            footnote_counter += 1
-                            footnotes_in_sub += 1
-
-                    # Ensure at least 2 footnotes per subsection
-                    while footnotes_in_sub < 2 and clean_refs and last_cp is not None:
-                        ref_idx = (footnote_counter - 1) % len(clean_refs)
-                        ref_text = clean_refs[ref_idx]
-                        self._add_word_footnote_xml(doc, last_cp, ref_text, footnote_counter)
-                        footnote_counter += 1
-                        footnotes_in_sub += 1
+                    footnote_counter = self._add_body_with_footnotes(
+                        doc, sub_content, clean_refs, footnote_counter
+                    )
 
                     if j == 3:
                         table_data = content.get(f'table_data_{i}', {})
@@ -4656,7 +4591,7 @@ class DocumentService:
                 ch_toc = doc.add_paragraph()
                 ch_toc.paragraph_format.line_spacing = 1.5
                 ch_toc.paragraph_format.space_after = Pt(0)
-                clean_ch_title_toc = _re.sub(r'^(?:\d+\.\s+|\d+(?:\.\d+)+\s+)', '', chapter['title'])
+                clean_ch_title_toc = strip_leading_numbering(chapter['title'])
                 ch_tr = ch_toc.add_run(f"{roman_num_toc} {texts['chapter']}. {clean_ch_title_toc.upper()}")
                 ch_tr.font.size = Pt(14)
                 ch_tr.font.bold = True
@@ -4667,7 +4602,7 @@ class DocumentService:
                     sp.paragraph_format.left_indent = Inches(0.5)
                     sp.paragraph_format.line_spacing = 1.5
                     sp.paragraph_format.space_after = Pt(0)
-                    clean_t = _re.sub(r'^(?:\d+\.\s+|\d+(?:\.\d+)+\s+)', '', subsection['title'])
+                    clean_t = strip_leading_numbering(subsection['title'])
                     sr = sp.add_run(f"{subsection['number']} {clean_t}")
                     sr.font.size = Pt(14)
                     sr.font.name = 'Times New Roman'
@@ -4751,7 +4686,7 @@ class DocumentService:
                 ch_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 ch_para.paragraph_format.space_before = Pt(18)
                 ch_para.paragraph_format.space_after = Pt(6)
-                clean_ch_title_body = _re.sub(r'^(?:\d+\.\s+|\d+(?:\.\d+)+\s+)', '', chapter['title'])
+                clean_ch_title_body = strip_leading_numbering(chapter['title'])
                 ch_run = ch_para.add_run(f"{roman_num} {texts['chapter']}. {clean_ch_title_body.upper()}")
                 ch_run.font.size = Pt(14)
                 ch_run.font.bold = True
@@ -4762,42 +4697,16 @@ class DocumentService:
                     sub_para.paragraph_format.space_before = Pt(12)
                     sub_para.paragraph_format.space_after = Pt(4)
                     sub_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                    clean_title = _re.sub(r'^(?:\d+\.\s+|\d+(?:\.\d+)+\s+)', '', subsection['title'])
+                    clean_title = strip_leading_numbering(subsection['title'])
                     sub_run = sub_para.add_run(f"{subsection['number']} {clean_title}")
                     sub_run.font.size = Pt(14)
                     sub_run.font.bold = True
                     sub_run.font.name = 'Times New Roman'
 
                     sub_content = subsection.get('content', '')
-                    paragraphs = _split_into_paragraphs(sub_content, target_count=2)
-                    footnotes_in_sub = 0
-                    last_cp = None
-
-                    for p_idx, p_text in enumerate(paragraphs):
-                        if not p_text.strip(): continue
-                        cp = doc.add_paragraph()
-                        cp.paragraph_format.first_line_indent = Inches(0.5)
-                        cp.paragraph_format.line_spacing = 1.5
-                        cp.paragraph_format.space_after = Pt(0)
-                        cp.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                        cr = cp.add_run(p_text.strip())
-                        cr.font.size = Pt(14)
-                        cr.font.name = 'Times New Roman'
-                        last_cp = cp
-                        if clean_refs:
-                            ref_idx = (footnote_counter - 1) % len(clean_refs)
-                            ref_text = clean_refs[ref_idx]
-                            self._add_word_footnote_xml(doc, cp, ref_text, footnote_counter)
-                            footnote_counter += 1
-                            footnotes_in_sub += 1
-
-                    # Ensure at least 2 footnotes per subsection
-                    while footnotes_in_sub < 2 and clean_refs and last_cp is not None:
-                        ref_idx = (footnote_counter - 1) % len(clean_refs)
-                        ref_text = clean_refs[ref_idx]
-                        self._add_word_footnote_xml(doc, last_cp, ref_text, footnote_counter)
-                        footnote_counter += 1
-                        footnotes_in_sub += 1
+                    footnote_counter = self._add_body_with_footnotes(
+                        doc, sub_content, clean_refs, footnote_counter
+                    )
 
                     if j == 3:
                         table_data = content.get(f'table_data_{i}', {})

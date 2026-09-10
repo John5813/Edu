@@ -30,6 +30,20 @@ class DocumentStates(StatesGroup):
     waiting_for_references_choice = State()
     waiting_for_icon_choice = State()
 
+class ProjectWorkStates(StatesGroup):
+    waiting_for_language = State()
+    waiting_for_topic = State()
+    waiting_for_author = State()
+    waiting_for_source_kind = State()
+    waiting_for_instructions = State()
+    waiting_for_source_file = State()
+    waiting_for_source_urls = State()
+    waiting_for_field = State()
+    waiting_for_artifacts = State()
+    waiting_for_depth = State()
+    waiting_for_payment = State()
+    generating = State()
+
 class AIFileEditStates(StatesGroup):
     waiting_for_file = State()
     waiting_for_instructions = State()

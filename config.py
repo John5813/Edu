@@ -125,6 +125,16 @@ DISSERTATION_PRICES = {
     "90_100_4": 170000,
 }
 
+# Loyiha ishi — hajmi bo'yicha ikki daraja
+PROJECT_WORK_PRICES = {
+    "standart": 15_000,   # ~15-20 bet
+    "keng":     25_000,   # ~25-30 bet
+}
+PROJECT_WORK_DEPTH = {
+    "standart": 1.0,
+    "keng":     1.6,
+}
+
 # AI file editing — the quote is built from the plan the AI produces, so the
 # client pays for the amount of work actually requested, not a flat fee.
 FILE_EDIT_BASE_PRICE = 500
