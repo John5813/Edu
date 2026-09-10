@@ -239,15 +239,6 @@ def get_project_skip_keyboard(language: str, callback: str) -> InlineKeyboardMar
     return keyboard.as_markup()
 
 
-def get_edit_file_mode_keyboard(language: str) -> InlineKeyboardMarkup:
-    """Choose between AI editing and the manual Mini App editor."""
-    keyboard = InlineKeyboardBuilder()
-    keyboard.add(InlineKeyboardButton(text=get_text(language, "edit_file_mode_ai"), callback_data="edit_mode:ai"))
-    keyboard.add(InlineKeyboardButton(text=get_text(language, "edit_file_mode_manual"), callback_data="edit_mode:manual"))
-    keyboard.adjust(1)
-    return keyboard.as_markup()
-
-
 def get_ai_edit_confirm_keyboard(language: str) -> InlineKeyboardMarkup:
     """Accept the quote, restate the request, or drop the whole edit."""
     keyboard = InlineKeyboardBuilder()

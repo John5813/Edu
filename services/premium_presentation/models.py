@@ -8,7 +8,7 @@ ROLE_ORDER = ["hook", "context", "breakdown", "detail", "comparison", "applicati
 
 class VisualElement(BaseModel):
     """Slayddagi bitta vizual element."""
-    type: Literal["rect", "text", "circle", "image", "chart"]
+    type: Literal["rect", "text", "circle", "image", "chart", "kpi"]
     x: float
     y: float
     w: Optional[float] = None
@@ -28,6 +28,9 @@ class VisualElement(BaseModel):
     d: Optional[float] = None
     # image
     prompt: Optional[str] = None
+    # kpi — ko'rsatkich kartochkasi (katta raqam + izoh)
+    value: Optional[str] = None
+    label: Optional[str] = None
     # chart
     chart_type: Optional[Literal["bar", "column", "line", "pie", "donut"]] = None
     chart_title: Optional[str] = None

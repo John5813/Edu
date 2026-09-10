@@ -120,3 +120,28 @@ def validate_topic_length(text: str, min_length: int = 3, max_length: int = 200)
     length = len(text)
     
     return min_length <= length <= max_length
+
+
+# Arzon rasm modellari harflarni to'g'ri chizmaydi — chiqqan "matn" o'qib
+# bo'lmaydigan belgilar to'plami bo'ladi va slaydni buzadi. Shuning uchun
+# har prompt matndan tozalanadi va oxiriga qat'iy taqiq qo'shiladi.
+_NO_TEXT_SUFFIX = (
+    ", no text, no letters, no words, no numbers, no captions, no labels, "
+    "no watermark, no signage, no typography, purely visual"
+)
+
+_TEXT_REQUEST = re.compile(
+    r"\b(?:with|containing|showing|including)?\s*(?:the\s+)?"
+    r"(?:texts?|captions?|labels?|titles?|words?|letters?|numbers?|"
+    r"typography|inscriptions?|signs?|signage|writings?|written)\b[^,.;]*",
+    re.IGNORECASE,
+)
+
+
+def strip_text_requests(prompt: str) -> str:
+    """Promptdan matn so'rovlarini olib tashlab, taqiqni qo'shadi."""
+    cleaned = _TEXT_REQUEST.sub("", prompt or "")
+    cleaned = re.sub(r"\s+([,;.])", r"\1", cleaned)
+    cleaned = re.sub(r"([,;])\s*[,;]+", r"\1", cleaned)
+    cleaned = re.sub(r"\s{2,}", " ", cleaned).strip(" ,;")
+    return f"{cleaned}{_NO_TEXT_SUFFIX}"

@@ -29,8 +29,6 @@ Telegram bot ichida OpenAI yordamida professional `python-pptx` taqdimot kodini 
 - `services/premium_presentation/renderer.py` va `layouts.py` — briefni deterministik ravishda PPTX ga chizadi
 - `services/premium_presentation/config.py` — model, vizual QA va rasm sozlamalari
 - `bot/states.py` — taqdimot yaratish va xato qayta aloqa holatlari
-- `services/file_edit_service.py` — mijoz yuklagan DOCX ni AI orqali tahrirlash: bloklarni raqamlash, AI dan amallar rejasini olish, narxlash va python-docx bilan qo'llash
-- `bot/handlers/file_edit.py` — «Faylni tahrirlash → AI orqali» dialogi
 - `utils/heading_guard.py` — AI matni hujjatda allaqachon chop etilgan sarlavhani takrorlab yuborishining oldini oladi
 - `services/project_work/specs.py` — loyiha ishi soha spetsifikatsiyalari: umumiy bo'limlar bir marta, har soha faqat o'ziga xos qismini beradi
 - `services/project_work/content.py` — spetsifikatsiya bo'yicha matn, jadval va sxema promptlari
@@ -45,6 +43,8 @@ Telegram bot ichida OpenAI yordamida professional `python-pptx` taqdimot kodini 
 - Premium oqim AI dan JSON brief oladi va uni o‘zi PPTX ga render qiladi. AI Python kodi yozmaydi va server AI yozgan kodni ishga tushirmaydi.
 - Sifat modeldan emas, deterministik rendererdan keladi: pydantic sxemasi, matn ustma-ustligini tuzatish va minimal shrift dasturiy ravishda ta’minlanadi. Shuning uchun brief uchun arzon model yetarli.
 - Vizual QA (har slaydni rasmga aylantirib vision modelga yuborish) — oqimdagi eng qimmat qadam, shuning uchun sukut bo‘yicha o‘chiq. `PREMIUM_VISUAL_QA=1` bilan yoqiladi.
+- Taqdimotda rasm va diagramma borligi promptga emas, `pipeline.ensure_visuals` ga tayanadi: birinchi slaydda rasm majburiy, taqdimotda kamida 2 ta rasm va 2 ta diagramma. `TOGETHER_API_KEY` bo‘lmasa rasm o‘rniga rangli panel qo‘yiladi va ERROR yoziladi.
+- Rasm promptlaridan matn so‘rovlari `utils.security.strip_text_requests` bilan olib tashlanadi — arzon modellar harflarni buzib chizadi.
 - AI fayl tahririning narxini AI emas, `config.FILE_EDIT_*` bo‘yicha Python hisoblaydi — narx so‘ralgan amallar sonidan kelib chiqadi va tekshirib bo‘ladi.
 - Balans faqat tahrirlangan fayl mijozga yetkazilgandan keyin yechiladi.
 - Loyiha ishida yo‘nalishni ham, artefaktlarni ham mijoz tanlaydi; yangi soha qo‘shish — `FIELDS` ga bitta spetsifikatsiya, quruvchi kod emas.

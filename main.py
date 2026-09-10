@@ -22,7 +22,6 @@ from bot.handlers import pptx_converter
 from bot.handlers import book_translate
 from bot.handlers import test as test_handler
 from bot.handlers import premium_presentation as premium_presentation_handler
-from bot.handlers import file_edit
 from bot.handlers import project_work
 from bot.middlewares import LanguageMiddleware, DatabaseMiddleware
 from database.database import init_db
@@ -340,8 +339,7 @@ async def main():
     # otherwise Stars payments are credited as balance instead of starting the deck.
     dp.include_router(premium_presentation_handler.router)  # Premium taqdimot — Ustalar tizimi
     # Xizmat uchun qilingan Stars to'lovi payments.py dagi umumiy handlerga
-    # tushib, balansga yozilib ketmasligi uchun bular undan oldin turadi.
-    dp.include_router(file_edit.router)  # AI editing of an uploaded document
+    # tushib, balansga yozilib ketmasligi uchun bu undan oldin turadi.
     dp.include_router(project_work.router)  # Loyiha ishi — client picks field and source
     dp.include_router(payments.router)  # Handle payment buttons
     dp.include_router(samples.router)  # Handle samples view and admin management

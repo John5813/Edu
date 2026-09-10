@@ -31,11 +31,11 @@ MAX_SLIDES = 30
 # Narx (so'm) — slide soni bo'yicha
 def _get_price(slide_count: int) -> int:
     if slide_count <= 10:
-        return 15000
+        return 7500
     elif slide_count <= 20:
-        return 25000
+        return 12500
     else:
-        return 35000
+        return 17500
 
 
 def _back_text(lang: str) -> str:
@@ -624,7 +624,7 @@ async def premium_ppt_pay_balance(callback: CallbackQuery, state: FSMContext, db
 async def premium_ppt_pay_stars(callback: CallbackQuery, state: FSMContext, db: Database):
     await callback.answer()
     data = await state.get_data()
-    price = int(data.get("price", 15000))
+    price = int(data.get("price", 7500))
     slide_count = int(data.get("slide_count", 10))
     stars = som_to_stars(price)
     title = "Premium taqdimot"
@@ -690,7 +690,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
 
     # Tasdiqlash va to'lov tanlovi alohida ekranda bo'ladi.
     if not data.get("payment_method"):
-        price = data.get("price", 15000)
+        price = data.get("price", 7500)
         await state.set_state(PremiumPresentationStates.waiting_for_payment)
         payment_texts = {
             "uz": (
@@ -720,7 +720,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
     preferences = data.get("preferences", "")
     presentation_language = data.get("presentation_language", "uz")
     slide_count = data.get("slide_count", 10)
-    price = data.get("price", 15000)
+    price = data.get("price", 7500)
     level = data.get("level", 2)
     client_name = data.get("client_name", "")
 
