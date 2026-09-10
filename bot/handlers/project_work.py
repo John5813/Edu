@@ -17,10 +17,11 @@ from bot.keyboards import (
     get_project_artifacts_keyboard,
     get_project_depth_keyboard,
     get_project_field_keyboard,
-    get_project_payment_keyboard,
     get_project_skip_keyboard,
     get_project_source_keyboard,
 )
+from bot import checkout as pay
+from bot import dialog
 from bot.states import ProjectWorkStates
 from config import PROJECT_WORK_DEPTH, PROJECT_WORK_PRICES, TEMP_DIR
 from database.database import Database
@@ -46,6 +47,9 @@ _DEPTH_NAMES = {
 }
 
 
+CHECKOUT = pay.Checkout(service="pw", back_callback="pw_back_to_depth")
+
+
 def _label(table: dict, key: str, language: str) -> str:
     entry = table.get(key, {})
     return entry.get(language, entry.get("uz", key))
@@ -56,11 +60,13 @@ def _label(table: dict, key: str, language: str) -> str:
 @router.message(F.text.in_(MENU_TEXTS))
 async def start_project_work(message: Message, state: FSMContext, user_lang: str):
     await state.clear()
+    await state.set_data(pay.start({}))
     await state.set_state(ProjectWorkStates.waiting_for_language)
-    await message.answer(
+    await dialog.ask(
+        message, state,
         get_text(user_lang, "pw_intro"),
-        parse_mode="HTML",
         reply_markup=get_doc_language_keyboard(user_lang, back_callback="pw_cancel"),
+        parse_mode="HTML",
     )
 
 
@@ -78,9 +84,11 @@ async def got_topic(message: Message, state: FSMContext, user_lang: str):
     if not validate_topic_length(topic):
         await message.answer(get_text(user_lang, "pw_ask_topic"))
         return
+    await dialog.resolve(message, state, get_text(user_lang, "pw_done_topic", topic=topic))
     await state.update_data(topic=topic)
     await state.set_state(ProjectWorkStates.waiting_for_author)
-    await message.answer(
+    await dialog.ask(
+        message, state,
         get_text(user_lang, "pw_ask_author"),
         reply_markup=get_project_skip_keyboard(user_lang, "pw_skip_author"),
     )
@@ -88,23 +96,27 @@ async def got_topic(message: Message, state: FSMContext, user_lang: str):
 
 @router.message(ProjectWorkStates.waiting_for_author, F.text)
 async def got_author(message: Message, state: FSMContext, user_lang: str):
-    await state.update_data(author_name=sanitize_user_input(message.text or "")[:100])
+    author = sanitize_user_input(message.text or "")[:100]
+    await dialog.resolve(message, state, get_text(user_lang, "pw_done_author", author=author))
+    await state.update_data(author_name=author)
     await _ask_source(message, state, user_lang)
 
 
 @router.callback_query(F.data == "pw_skip_author", ProjectWorkStates.waiting_for_author)
 async def skip_author(callback: CallbackQuery, state: FSMContext, user_lang: str):
     await callback.answer()
+    await dialog.resolve(callback.message, state, get_text(user_lang, "pw_done_author_skipped"))
     await state.update_data(author_name="")
     await _ask_source(callback.message, state, user_lang)
 
 
 async def _ask_source(message: Message, state: FSMContext, user_lang: str):
     await state.set_state(ProjectWorkStates.waiting_for_source_kind)
-    await message.answer(
+    await dialog.ask(
+        message, state,
         get_text(user_lang, "pw_ask_source"),
-        parse_mode="HTML",
         reply_markup=get_project_source_keyboard(user_lang),
+        parse_mode="HTML",
     )
 
 
@@ -114,10 +126,10 @@ async def _ask_source(message: Message, state: FSMContext, user_lang: str):
 async def chose_source(callback: CallbackQuery, state: FSMContext, user_lang: str):
     await callback.answer()
     kind = callback.data.split(":", 1)[1]
-    try:
-        await callback.message.edit_reply_markup(reply_markup=None)
-    except Exception:
-        pass
+    await dialog.resolve(
+        callback.message, state,
+        get_text(user_lang, "pw_done_source", source=_label(_SOURCE_NAMES, kind, user_lang)),
+    )
 
     if kind == source_module.KIND_AI:
         await state.update_data(source_kind=source_module.KIND_AI, source_text="", source_label="")
@@ -132,7 +144,7 @@ async def chose_source(callback: CallbackQuery, state: FSMContext, user_lang: st
     key, next_state = prompts[kind]
     await state.update_data(source_kind=kind)
     await state.set_state(next_state)
-    await callback.message.answer(get_text(user_lang, key))
+    await dialog.ask(callback.message, state, get_text(user_lang, key))
 
 
 @router.message(ProjectWorkStates.waiting_for_instructions, F.text)
@@ -203,10 +215,12 @@ async def _store_source(message: Message, state: FSMContext, user_lang: str, mat
         source_label=material.label,
     )
     if material.label:
-        await message.answer(
+        await dialog.resolve(
+            message, state,
             get_text(user_lang, "pw_source_ok", label=material.label, words=len(material.text.split())),
-            parse_mode="HTML",
         )
+    else:
+        await dialog.resolve(message, state, get_text(user_lang, "pw_done_brief"))
     await _ask_field(message, state, user_lang)
 
 
@@ -214,10 +228,11 @@ async def _store_source(message: Message, state: FSMContext, user_lang: str, mat
 
 async def _ask_field(message: Message, state: FSMContext, user_lang: str):
     await state.set_state(ProjectWorkStates.waiting_for_field)
-    await message.answer(
+    await dialog.ask(
+        message, state,
         get_text(user_lang, "pw_ask_field"),
-        parse_mode="HTML",
         reply_markup=get_project_field_keyboard(user_lang),
+        parse_mode="HTML",
     )
 
 
@@ -249,24 +264,119 @@ async def chose_artifacts(callback: CallbackQuery, state: FSMContext, user_lang:
 async def chose_depth(callback: CallbackQuery, state: FSMContext, user_lang: str, user):
     await callback.answer()
     depth_key = callback.data.split(":", 1)[1]
-    price = PROJECT_WORK_PRICES[depth_key]
-    await state.update_data(depth_key=depth_key, price=price)
-    await state.set_state(ProjectWorkStates.waiting_for_payment)
+    await state.update_data(depth_key=depth_key, price=PROJECT_WORK_PRICES[depth_key])
+    await _show_summary(callback.message, state, user_lang, user)
 
+
+@router.callback_query(F.data == "pw_back_to_depth", ProjectWorkStates.waiting_for_payment)
+async def back_to_depth(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Orqaga — hajm tanlash qaytadan ochiladi."""
+    await callback.answer()
+    await state.set_state(ProjectWorkStates.waiting_for_depth)
+    await callback.message.edit_text(
+        get_text(user_lang, "pw_ask_depth"),
+        parse_mode="HTML",
+        reply_markup=get_project_depth_keyboard(user_lang),
+    )
+
+
+async def _show_summary(message: Message, state: FSMContext, user_lang: str, user) -> None:
+    await state.set_state(ProjectWorkStates.waiting_for_payment)
     data = await state.get_data()
     doc_language = data.get("doc_language", user_lang)
-    await callback.message.edit_text(
-        get_text(
-            user_lang, "pw_summary",
-            topic=data.get("topic", ""),
-            field=field_label(data.get("field_key", ""), doc_language),
-            source=_label(_SOURCE_NAMES, data.get("source_kind", source_module.KIND_AI), user_lang),
-            depth=_label(_DEPTH_NAMES, depth_key, user_lang),
-            price=price,
-            balance=user.balance if user else 0,
-        ),
-        parse_mode="HTML",
-        reply_markup=get_project_payment_keyboard(user_lang, price),
+    price = data.get("price", 0)
+    summary = get_text(
+        user_lang, "pw_summary",
+        topic=data.get("topic", ""),
+        field=field_label(data.get("field_key", ""), doc_language),
+        source=_label(_SOURCE_NAMES, data.get("source_kind", source_module.KIND_AI), user_lang),
+        depth=_label(_DEPTH_NAMES, data.get("depth_key", "standart"), user_lang),
+        price=price,
+        balance=user.balance if user else 0,
+    )
+    markup = pay.payment_keyboard(CHECKOUT, user_lang, price)
+    try:
+        await message.edit_text(summary, parse_mode="HTML", reply_markup=markup)
+    except Exception:
+        await message.answer(summary, parse_mode="HTML", reply_markup=markup)
+
+
+# ─────────────────────────────────────────────────────────────────── to'lov
+
+# Holat filtri yo'q: mijoz balansni to'ldirishga o'tib qaytgan bo'lishi
+# mumkin, u oqim esa FSM ni tozalab yuboradi.
+@router.callback_query(F.data == CHECKOUT.pay_stars)
+async def pay_with_stars(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    await callback.answer()
+    data = await _order(callback.from_user.id, state)
+    if not data:
+        await _report_expired(callback.message, state, user_lang)
+        return
+    await pay.send_invoice(
+        callback.message, CHECKOUT, user_lang, data.get("price", 0),
+        title=get_text(user_lang, "main_menu.project_work"),
+        description=data.get("topic", "")[:200],
+    )
+
+
+@router.message(F.successful_payment)
+async def stars_paid(message: Message, state: FSMContext, user_lang: str, db: Database, user):
+    """Stars to'landi — balans tekshirilmaydi, xizmat darhol yaratiladi."""
+    payment = message.successful_payment
+    if not payment or not CHECKOUT.owns_payload(payment.invoice_payload):
+        return
+
+    data = await _order(message.from_user.id, state)
+    if not data:
+        await _report_expired(message, state, user_lang)
+        return
+
+    await state.set_data(pay.mark_paid_with_stars(data))
+    pay.forget(message.from_user.id)
+    await message.answer(get_text(user_lang, "pay_stars_done"))
+    await _generate(message, state, user_lang, db, user)
+
+
+@router.callback_query(F.data == CHECKOUT.recheck)
+async def recheck_balance(callback: CallbackQuery, state: FSMContext, user_lang: str, db: Database, user):
+    """Mijoz balansni to'ldirgach — buyurtma o'sha joyidan davom etadi."""
+    await callback.answer()
+    data = await _order(callback.from_user.id, state)
+    if not data:
+        await _report_expired(callback.message, state, user_lang)
+        return
+
+    fresh = await db.get_user(callback.from_user.id)
+    balance = fresh.balance if fresh else 0
+    price = data.get("price", 0)
+    if balance < price:
+        await callback.answer(
+            get_text(user_lang, "pay_still_short", balance=balance, price=price),
+            show_alert=True,
+        )
+        return
+    pay.forget(callback.from_user.id)
+    await _generate(callback.message, state, user_lang, db, fresh)
+
+
+async def _order(user_id: int, state: FSMContext) -> dict:
+    """Buyurtmani FSM dan, u yo'q bo'lsa saqlangan nusxadan oladi."""
+    data = await state.get_data()
+    if data.get("topic") and not pay.is_expired(data):
+        return data
+
+    saved = pay.recall(user_id, CHECKOUT.service)
+    if saved:
+        await state.set_data(saved)
+        await state.set_state(ProjectWorkStates.waiting_for_payment)
+    return saved
+
+
+async def _report_expired(message: Message, state: FSMContext, user_lang: str) -> None:
+    await state.clear()
+    pay.forget(message.chat.id)
+    await message.answer(
+        get_text(user_lang, "order_expired"), reply_markup=get_main_keyboard(user_lang)
     )
 
 
@@ -285,21 +395,35 @@ async def cancel(callback: CallbackQuery, state: FSMContext, user_lang: str):
 
 # ────────────────────────────────────────────────────────────────── yaratish
 
-@router.callback_query(F.data == "pw_pay", ProjectWorkStates.waiting_for_payment)
-async def generate(callback: CallbackQuery, state: FSMContext, user_lang: str, db: Database, user):
+@router.callback_query(F.data == CHECKOUT.pay_balance, ProjectWorkStates.waiting_for_payment)
+async def pay_from_balance(callback: CallbackQuery, state: FSMContext, user_lang: str, db: Database, user):
     await callback.answer()
+    data = await _order(callback.from_user.id, state)
+    if not data:
+        await _report_expired(callback.message, state, user_lang)
+        return
+
+    price = data.get("price", 0)
+    balance = user.balance if user else 0
+    if balance < price:
+        # Buyurtma o'chmaydi. Balansni to'ldirish oqimi FSM ni tozalaydi,
+        # shuning uchun buyurtma undan tashqarida saqlanadi.
+        pay.remember(callback.from_user.id, CHECKOUT.service, data)
+        await pay.send_shortfall(callback.message, CHECKOUT, user_lang, price, balance)
+        return
+
+    await _generate(callback.message, state, user_lang, db, user)
+
+
+async def _generate(message: Message, state: FSMContext, user_lang: str, db: Database, user):
     data = await state.get_data()
     price = data.get("price", 0)
-
-    if (user.balance if user else 0) < price:
-        await callback.message.answer(get_text(user_lang, "insufficient_balance"))
-        return
 
     await state.set_state(ProjectWorkStates.generating)
     topic = data.get("topic", "")
     doc_language = data.get("doc_language", user_lang)
 
-    status = await callback.message.edit_text(
+    status = await message.answer(
         get_text(user_lang, "pw_generating", topic=topic, done=0, total="?"),
         parse_mode="HTML",
     )
@@ -337,24 +461,26 @@ async def generate(callback: CallbackQuery, state: FSMContext, user_lang: str, d
         file_path = await get_document_builder().build(content)
 
         tables = sum(1 for section in content.sections if section.table)
-        await callback.message.answer_document(
+        await message.answer_document(
             document=FSInputFile(file_path, filename=f"Loyiha_ishi_{topic[:30].replace(' ', '_')}.docx"),
             caption=get_text(user_lang, "pw_done", sections=len(content.sections), tables=tables),
         )
-        await db.update_user_balance(user.telegram_id, -price)
+        # Stars bilan to'langan bo'lsa balansdan yechilmaydi.
+        if not pay.paid_with_stars(data):
+            await db.update_user_balance(user.telegram_id, -price)
         logger.info("Loyiha ishi yuborildi: %s → %s", topic[:60], user.telegram_id)
 
         try:
             await status.delete()
         except Exception:
             pass
-        await callback.message.answer(
+        await message.answer(
             get_text(user_lang, "document_ready"), reply_markup=get_main_keyboard(user_lang)
         )
     except Exception as e:
         logger.exception("Loyiha ishi yaratishda xato: %s", e)
         await _safe_edit(status, get_text(user_lang, "pw_failed"))
-        await callback.message.answer(
+        await message.answer(
             get_text(user_lang, "pw_cancelled"), reply_markup=get_main_keyboard(user_lang)
         )
     finally:

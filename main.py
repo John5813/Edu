@@ -203,6 +203,14 @@ async def periodic_cleanup(interval_seconds: int = 1800, storage=None):
     while True:
         await asyncio.sleep(interval_seconds)
         cleanup_temp_files()
+        # Bir soatdan oshgan to'lanmagan buyurtmalar bot xotirasida qolmasin.
+        try:
+            from bot import checkout
+            dropped = checkout.purge_expired()
+            if dropped:
+                logger.info("Eskirgan %s ta to'lanmagan buyurtma o'chirildi", dropped)
+        except Exception:
+            pass
         # Release matplotlib global figure registry
         try:
             import matplotlib.pyplot as plt
@@ -331,13 +339,15 @@ async def main():
     # Premium presentation must precede the generic successful_payment handler,
     # otherwise Stars payments are credited as balance instead of starting the deck.
     dp.include_router(premium_presentation_handler.router)  # Premium taqdimot — Ustalar tizimi
+    # Xizmat uchun qilingan Stars to'lovi payments.py dagi umumiy handlerga
+    # tushib, balansga yozilib ketmasligi uchun bular undan oldin turadi.
+    dp.include_router(file_edit.router)  # AI editing of an uploaded document
+    dp.include_router(project_work.router)  # Loyiha ishi — client picks field and source
     dp.include_router(payments.router)  # Handle payment buttons
     dp.include_router(samples.router)  # Handle samples view and admin management
     dp.include_router(media.router)   # Legacy media router (empty)
     dp.include_router(book_translate.router)  # Handle book translation service
     dp.include_router(test_handler.router)  # Handle test generation service
-    dp.include_router(file_edit.router)  # AI editing of an uploaded document
-    dp.include_router(project_work.router)  # Loyiha ishi — client picks field and source
     dp.include_router(documents.router)  # Handles document creation and topic input - MUST BE BEFORE start.router
     dp.include_router(start.router)  # LAST - has catch-all handler for unknown messages
     

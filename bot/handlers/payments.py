@@ -7,6 +7,7 @@ from aiogram.filters import StateFilter
 
 from bot.states import PaymentStates
 from bot.keyboards import get_payment_amount_keyboard, get_main_keyboard
+from bot import checkout
 from database.database import Database
 from translations import get_text
 from config import PAYMENT_CARD, PAYMENT_CARD_2, PAYMENT_CARD_OWNER, ADMIN_IDS, STARS_RATE, som_to_stars
@@ -567,6 +568,10 @@ async def successful_payment_handler(message: Message, db: Database, user_lang: 
     """Handle successful Stars payment — credit balance"""
     try:
         payment = message.successful_payment
+        # Xizmat uchun qilingan to'lovni o'z handleri qabul qiladi; bu yerda
+        # balansga yozib yuborilsa, mijoz to'lagan xizmatni olmay qolardi.
+        if checkout.is_service_payload(payment.invoice_payload):
+            return
         stars = payment.total_amount
         som_amount = stars * STARS_RATE
 

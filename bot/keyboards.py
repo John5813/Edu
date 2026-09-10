@@ -231,15 +231,6 @@ def get_project_depth_keyboard(language: str) -> InlineKeyboardMarkup:
     return keyboard.as_markup()
 
 
-def get_project_payment_keyboard(language: str, price: int) -> InlineKeyboardMarkup:
-    keyboard = InlineKeyboardBuilder()
-    keyboard.add(InlineKeyboardButton(
-        text=get_text(language, "pw_pay_balance", price=price), callback_data="pw_pay"))
-    keyboard.add(InlineKeyboardButton(text=_back_text(language), callback_data="pw_cancel"))
-    keyboard.adjust(1)
-    return keyboard.as_markup()
-
-
 def get_project_skip_keyboard(language: str, callback: str) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.add(InlineKeyboardButton(text=get_text(language, "pw_skip"), callback_data=callback))
