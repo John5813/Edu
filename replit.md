@@ -23,8 +23,11 @@ Telegram bot ichida OpenAI yordamida professional `python-pptx` taqdimot kodini 
 ## Where things live
 
 - `bot/handlers/premium_presentation.py` — premium xizmatning Telegram dialogi, to‘lov oqimi va xato tuzatish tugmalari
-- `services/premium_presentation/code_generator.py` — OpenAI prompti va toza Python source code generatsiyasi
-- `services/premium_presentation/config.py` — OpenAI model/kalit sozlamalari
+- `services/premium_presentation/llm_client.py` — AI dan qat'iy JSON "brief" so'rash (5 slaydlik bo'laklarda)
+- `services/premium_presentation/models.py` — brief pydantic sxemasi; noto'g'ri slaydni shu ushlaydi
+- `services/premium_presentation/pipeline.py` — kanvas tekshiruvi, ustma-ustlikni tuzatish, minimal shrift, ixtiyoriy vizual QA
+- `services/premium_presentation/renderer.py` va `layouts.py` — briefni deterministik ravishda PPTX ga chizadi
+- `services/premium_presentation/config.py` — model, vizual QA va rasm sozlamalari
 - `bot/states.py` — taqdimot yaratish va xato qayta aloqa holatlari
 - `services/file_edit_service.py` — mijoz yuklagan DOCX ni AI orqali tahrirlash: bloklarni raqamlash, AI dan amallar rejasini olish, narxlash va python-docx bilan qo'llash
 - `bot/handlers/file_edit.py` — «Faylni tahrirlash → AI orqali» dialogi
@@ -32,22 +35,20 @@ Telegram bot ichida OpenAI yordamida professional `python-pptx` taqdimot kodini 
 
 ## Architecture decisions
 
-- Premium oqim `python-pptx` kodini qaytaradi; bot kodni ishga tushirmaydi, PPTX yaratmaydi va vizual QA qilmaydi.
-- Xato tuzatish uchun oxirgi kod va ko‘pi bilan beshta xato holat ma’lumotlari foydalanuvchi FSM holatida vaqtincha saqlanadi.
-- Muvaffaqiyat tugmasi bosilganda FSM tozalanadi va xato konteksti o‘chiriladi.
+- Premium oqim AI dan JSON brief oladi va uni o‘zi PPTX ga render qiladi. AI Python kodi yozmaydi va server AI yozgan kodni ishga tushirmaydi.
+- Sifat modeldan emas, deterministik rendererdan keladi: pydantic sxemasi, matn ustma-ustligini tuzatish va minimal shrift dasturiy ravishda ta’minlanadi. Shuning uchun brief uchun arzon model yetarli.
+- Vizual QA (har slaydni rasmga aylantirib vision modelga yuborish) — oqimdagi eng qimmat qadam, shuning uchun sukut bo‘yicha o‘chiq. `PREMIUM_VISUAL_QA=1` bilan yoqiladi.
 - AI fayl tahririning narxini AI emas, `config.FILE_EDIT_*` bo‘yicha Python hisoblaydi — narx so‘ralgan amallar sonidan kelib chiqadi va tekshirib bo‘ladi.
 - Balans faqat tahrirlangan fayl mijozga yetkazilgandan keyin yechiladi.
 
 ## Product
 
-Foydalanuvchi til, mavzu, ism, uslub va slayd sonini tanlaydi; to‘lovdan keyin OpenAI’dan
-16:9, ko‘k-yashil, oq professional dizayndagi to‘liq Python kodini oladi. Kod ishga
-tushirish foydalanuvchining o‘zida qoladi. Ishga tushirish xatosi yuborilsa, aynan o‘sha
-kod kontekst bilan qayta tuzatiladi.
+Foydalanuvchi til, mavzu, ism, uslub va slayd sonini tanlaydi; to‘lovdan keyin tayyor
+16:9 `.pptx` faylni oladi. Generatsiya xato bersa, balans avtomatik qaytariladi.
 
 ## User preferences
 
-- Premium taqdimot natijasi faqat `.txt` ko‘rinishida beriladi.
+- Premium taqdimot natijasi tayyor `.pptx` fayl bo‘lishi kerak — source code emas.
 
 ## Gotchas
 
