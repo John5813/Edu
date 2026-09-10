@@ -7,6 +7,8 @@ from typing import Dict, List
 import asyncio
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 
+from utils.heading_guard import heading_rule, strip_echoed_heading
+
 logger = logging.getLogger(__name__)
 
 def clean_text(text: str) -> str:
@@ -820,28 +822,28 @@ Respond in JSON format:
                 body_words = "500-600"
                 conclusion_words = "350-450"
 
-            common_rules = """
+            common_rules = f"""
 QOIDALAR:
-- Javobni to'g'ridan-to'g'ri matn bilan boshlang, bo'lim sarlavhasini qaytarmang
-- Faqat oddiy matn yozing, hech qanday maxsus belgi ishlatmang (#, @, &, *, {, }, [, ], va h.k.)
+{heading_rule("uz")}
+- Faqat oddiy matn yozing, hech qanday maxsus belgi ishlatmang (#, @, &, *, {{, }}, [, ], va h.k.)
 - Matnda takrorlanish bo'lmasin - har bir gap yangi ma'lumot bersin
 - Markdown formatlash ishlatmang (**, *, _, __ va h.k.)
 - Professional akademik til ishlating
 - Faqat sof matn, ro'yxatlar yoki raqamli punktlar bo'lmasin"""
 
-            common_rules_ru = """
+            common_rules_ru = f"""
 ПРАВИЛА:
-- Начинайте ответ сразу с текста, не повторяйте заголовок раздела
-- Пишите только простой текст без специальных символов (#, @, &, *, {, }, [, ] и т.д.)
+{heading_rule("ru")}
+- Пишите только простой текст без специальных символов (#, @, &, *, {{, }}, [, ] и т.д.)
 - Избегайте повторений - каждое предложение должно содержать новую информацию
 - Не используйте форматирование Markdown (**, *, _, __ и т.д.)
 - Используйте профессиональный академический язык
 - Только чистый текст без списков и нумерации"""
 
-            common_rules_en = """
+            common_rules_en = f"""
 RULES:
-- Start your response directly with the text, do not repeat the section title
-- Write only plain text without special characters (#, @, &, *, {, }, [, ], etc.)
+{heading_rule("en")}
+- Write only plain text without special characters (#, @, &, *, {{, }}, [, ], etc.)
 - Avoid repetition - each sentence should provide new information
 - Do not use Markdown formatting (**, *, _, __, etc.)
 - Use professional academic language
@@ -899,14 +901,14 @@ EXACTLY {body_words} words — no more. Fully cover the topic with examples and 
 
             response = await self._make_request(
                 messages=[
-                    {"role": "system", "content": "You are an academic writer. Write clear, well-structured content as plain text only. Never use special characters, markdown, or formatting. Never repeat the section title at the start of your response."},
+                    {"role": "system", "content": "You are an academic writer. The section heading is already printed in the document above your text; you produce only the body text that goes underneath it. Write clear, well-structured content as plain text only. Never use special characters, markdown, or formatting."},
                     {"role": "user", "content": prompt}
                 ],
                 max_tokens=4000,
                 temperature=0.8
             )
 
-            matn = response.strip()
+            matn = strip_echoed_heading(response, [section_title, topic])
             matn = matn.replace('\n\n', ' ')
             matn = matn.replace('\n', ' ')
             matn = clean_text(matn)
@@ -1470,7 +1472,7 @@ QOIDALAR:
 - Har bir gap to'liq va mustaqil bo'lishi kerak
 - Professional akademik uslubda yozing
 {century_uz_rule}
-- Matn boshida mavzu, bob yoki kichik bo'lim sarlavhasini TAKRORLAMANG — to'g'ridan to'g'ri mazmun bilan boshlang
+{heading_rule("uz")}
 - Matn ichiga "Foydalanilgan adabiyotlar:", "[1]", "[2]", "[3]" kabi ro'yxat yoki manba belgilarini KIRITMANG — manbalar avtomatik ravishda qo'shiladi"""
 
             common_rules_ru = f"""
@@ -1480,7 +1482,7 @@ QOIDALAR:
 - Каждое предложение должно быть полным и самостоятельным
 - Пишите в профессиональном академическом стиле
 {century_ru_rule}
-- НЕ ПОВТОРЯЙТЕ в начале текста название темы, главы или подраздела — начинайте сразу с содержания
+{heading_rule("ru")}
 - НЕ ВКЛЮЧАЙТЕ в текст списки источников вида "Список литературы:", "[1]", "[2]", "[3]" — ссылки добавляются автоматически"""
 
             common_rules_en = f"""
@@ -1490,7 +1492,7 @@ RULES:
 - Each sentence must be complete and independent
 - Write in professional academic style
 {century_en_rule}
-- DO NOT repeat the topic, chapter, or subsection title at the start of the text — begin directly with the content
+{heading_rule("en")}
 - DO NOT include reference lists like "References:", "[1]", "[2]", "[3]" inside the text — citations are added automatically"""
 
             if language == "uz":
@@ -1522,78 +1524,19 @@ Begin with content directly, do not repeat titles.
 
             response = await self._make_request(
                 messages=[
-                    {"role": "system", "content": "You are an academic writer. Write clear, well-structured content as plain text only."},
+                    {"role": "system", "content": "You are an academic writer. The subsection heading is already printed in the document above your text; you produce only the body text that goes underneath it. Write clear, well-structured content as plain text only."},
                     {"role": "user", "content": prompt}
                 ],
                 max_tokens=dynamic_max_tokens,
                 temperature=0.8
             )
             
-            matn = response.strip()
+            # Runs before clean_text: clean_text collapses newlines, and a heading
+            # sitting on its own line is the clearest evidence of an echo.
+            matn = strip_echoed_heading(response, [subsection_title, chapter_title, topic])
             matn = clean_text(matn)
 
-            # Strip ANY combination of topic / chapter_title / subsection_title that the
-            # AI may have prepended as a heading. Repeats stripping until no prefix matches.
             import re as _re_local
-
-            def _normalize(s: str) -> str:
-                # lowercase, strip punctuation/whitespace, collapse spaces
-                s = s.lower()
-                s = _re_local.sub(r"[^\w\s\-]", " ", s, flags=_re_local.UNICODE)
-                s = _re_local.sub(r"\s+", " ", s).strip()
-                return s
-
-            prefixes_to_strip = [
-                subsection_title,
-                chapter_title,
-                topic,
-            ]
-            # Also try without leading numbering like "1.1 ", "1. "
-            extra_prefixes = []
-            for p in prefixes_to_strip:
-                stripped = _re_local.sub(r"^\d+(\.\d+)*\.?\s*", "", p)
-                if stripped and stripped != p:
-                    extra_prefixes.append(stripped)
-            prefixes_to_strip.extend(extra_prefixes)
-
-            changed = True
-            max_iters = 8
-            while changed and max_iters > 0:
-                changed = False
-                max_iters -= 1
-                norm_matn = _normalize(matn)
-                for prefix in prefixes_to_strip:
-                    norm_prefix = _normalize(prefix)
-                    if not norm_prefix:
-                        continue
-                    if norm_matn.startswith(norm_prefix):
-                        # Find original position by counting normalized chars
-                        # Simpler: find prefix word-by-word in original matn
-                        words_prefix = norm_prefix.split()
-                        # Walk original matn, skipping characters until we've consumed all prefix words
-                        pos = 0
-                        consumed = 0
-                        n = len(matn)
-                        while pos < n and consumed < len(words_prefix):
-                            # Skip non-word chars
-                            while pos < n and not (matn[pos].isalnum() or matn[pos] in "-'’ʻ"):
-                                pos += 1
-                            # Read a word
-                            word_start = pos
-                            while pos < n and (matn[pos].isalnum() or matn[pos] in "-'’ʻ"):
-                                pos += 1
-                            word = _normalize(matn[word_start:pos])
-                            if word == words_prefix[consumed]:
-                                consumed += 1
-                            else:
-                                break
-                        if consumed == len(words_prefix):
-                            # Skip trailing punctuation/space
-                            while pos < n and matn[pos] in " .,;:!?—-\n\t":
-                                pos += 1
-                            matn = matn[pos:].strip()
-                            changed = True
-                            break
 
             # Hard fallback: strip inline reference list patterns the AI may
             # still produce despite the prompt rule. Real footnotes are added

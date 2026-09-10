@@ -26,12 +26,17 @@ Telegram bot ichida OpenAI yordamida professional `python-pptx` taqdimot kodini 
 - `services/premium_presentation/code_generator.py` — OpenAI prompti va toza Python source code generatsiyasi
 - `services/premium_presentation/config.py` — OpenAI model/kalit sozlamalari
 - `bot/states.py` — taqdimot yaratish va xato qayta aloqa holatlari
+- `services/file_edit_service.py` — mijoz yuklagan DOCX ni AI orqali tahrirlash: bloklarni raqamlash, AI dan amallar rejasini olish, narxlash va python-docx bilan qo'llash
+- `bot/handlers/file_edit.py` — «Faylni tahrirlash → AI orqali» dialogi
+- `utils/heading_guard.py` — AI matni hujjatda allaqachon chop etilgan sarlavhani takrorlab yuborishining oldini oladi
 
 ## Architecture decisions
 
 - Premium oqim `python-pptx` kodini qaytaradi; bot kodni ishga tushirmaydi, PPTX yaratmaydi va vizual QA qilmaydi.
 - Xato tuzatish uchun oxirgi kod va ko‘pi bilan beshta xato holat ma’lumotlari foydalanuvchi FSM holatida vaqtincha saqlanadi.
 - Muvaffaqiyat tugmasi bosilganda FSM tozalanadi va xato konteksti o‘chiriladi.
+- AI fayl tahririning narxini AI emas, `config.FILE_EDIT_*` bo‘yicha Python hisoblaydi — narx so‘ralgan amallar sonidan kelib chiqadi va tekshirib bo‘ladi.
+- Balans faqat tahrirlangan fayl mijozga yetkazilgandan keyin yechiladi.
 
 ## Product
 
