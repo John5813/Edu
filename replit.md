@@ -32,6 +32,11 @@ Telegram bot ichida OpenAI yordamida professional `python-pptx` taqdimot kodini 
 - `services/file_edit_service.py` — mijoz yuklagan DOCX ni AI orqali tahrirlash: bloklarni raqamlash, AI dan amallar rejasini olish, narxlash va python-docx bilan qo'llash
 - `bot/handlers/file_edit.py` — «Faylni tahrirlash → AI orqali» dialogi
 - `utils/heading_guard.py` — AI matni hujjatda allaqachon chop etilgan sarlavhani takrorlab yuborishining oldini oladi
+- `services/project_work/specs.py` — loyiha ishi soha spetsifikatsiyalari: umumiy bo'limlar bir marta, har soha faqat o'ziga xos qismini beradi
+- `services/project_work/content.py` — spetsifikatsiya bo'yicha matn, jadval va sxema promptlari
+- `services/project_work/source.py` — mijoz bergan manbani (matn / DOCX / PDF / PPTX / sayt) matnga aylantiradi
+- `services/project_work/builder.py` — bitta umumiy DOCX quruvchi; yangi soha qo'shilganda o'zgarmaydi
+- `bot/handlers/project_work.py` — loyiha ishi dialogi
 
 ## Architecture decisions
 
@@ -40,6 +45,8 @@ Telegram bot ichida OpenAI yordamida professional `python-pptx` taqdimot kodini 
 - Vizual QA (har slaydni rasmga aylantirib vision modelga yuborish) — oqimdagi eng qimmat qadam, shuning uchun sukut bo‘yicha o‘chiq. `PREMIUM_VISUAL_QA=1` bilan yoqiladi.
 - AI fayl tahririning narxini AI emas, `config.FILE_EDIT_*` bo‘yicha Python hisoblaydi — narx so‘ralgan amallar sonidan kelib chiqadi va tekshirib bo‘ladi.
 - Balans faqat tahrirlangan fayl mijozga yetkazilgandan keyin yechiladi.
+- Loyiha ishida yo‘nalishni ham, artefaktlarni ham mijoz tanlaydi; yangi soha qo‘shish — `FIELDS` ga bitta spetsifikatsiya, quruvchi kod emas.
+- Uzun manba (qo‘llanma, sayt) har bo‘lim promptiga qo‘yilmaydi: bir marta siqiladi va shu xulosa ishlatiladi.
 
 ## Product
 

@@ -115,7 +115,7 @@ def get_article_page_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
     keyboard.adjust(1)
     return keyboard.as_markup()
 
-def get_main_keyboard(language: str, presentation_enabled: bool = True, independent_work_enabled: bool = True, referat_enabled: bool = True, course_work_enabled: bool = True, tezis_enabled: bool = True, media_enabled: bool = True, diploma_work_enabled: bool = True, maqola_enabled: bool = True, pdf_convert_enabled: bool = True, book_translate_enabled: bool = True, mahsus_ishlanma_enabled: bool = True) -> ReplyKeyboardMarkup:
+def get_main_keyboard(language: str, presentation_enabled: bool = True, independent_work_enabled: bool = True, referat_enabled: bool = True, course_work_enabled: bool = True, tezis_enabled: bool = True, media_enabled: bool = True, diploma_work_enabled: bool = True, maqola_enabled: bool = True, pdf_convert_enabled: bool = True, book_translate_enabled: bool = True, mahsus_ishlanma_enabled: bool = True, project_work_enabled: bool = True) -> ReplyKeyboardMarkup:
     """Main reply keyboard with feature toggles"""
     keyboard = ReplyKeyboardBuilder()
 
@@ -132,6 +132,8 @@ def get_main_keyboard(language: str, presentation_enabled: bool = True, independ
         keyboard.add(KeyboardButton(text=get_text(language, "main_menu.referat")))
     if course_work_enabled:
         keyboard.add(KeyboardButton(text=get_text(language, "main_menu.course_work")))
+    if project_work_enabled:
+        keyboard.add(KeyboardButton(text=get_text(language, "main_menu.project_work")))
     # mahsus_ishlanma button temporarily hidden
     # if mahsus_ishlanma_enabled:
     #     keyboard.add(KeyboardButton(text=get_text(language, "main_menu.mahsus_ishlanma")))
@@ -171,6 +173,78 @@ def get_other_services_keyboard(language: str, media_enabled: bool = True, pdf_c
 
     keyboard.adjust(2)
 
+    return keyboard.as_markup()
+
+
+def get_project_source_keyboard(language: str) -> InlineKeyboardMarkup:
+    """Where the project work's material comes from."""
+    keyboard = InlineKeyboardBuilder()
+    for key in ("ai", "text", "file", "url"):
+        keyboard.add(InlineKeyboardButton(
+            text=get_text(language, f"pw_source_{key}"),
+            callback_data=f"pw_source:{key}",
+        ))
+    keyboard.add(InlineKeyboardButton(text=_back_text(language), callback_data="pw_cancel"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
+def get_project_field_keyboard(language: str) -> InlineKeyboardMarkup:
+    """Field of study — the client picks, so every institute is covered."""
+    from services.project_work.specs import FIELDS, GENERIC_FIELD_KEY, GENERIC_LABEL
+
+    keyboard = InlineKeyboardBuilder()
+    for key, spec in FIELDS.items():
+        keyboard.add(InlineKeyboardButton(text=spec.name(language), callback_data=f"pw_field:{key}"))
+    keyboard.add(InlineKeyboardButton(
+        text=GENERIC_LABEL.get(language, GENERIC_LABEL["uz"]),
+        callback_data=f"pw_field:{GENERIC_FIELD_KEY}",
+    ))
+    keyboard.add(InlineKeyboardButton(text=_back_text(language), callback_data="pw_cancel"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
+def get_project_artifacts_keyboard(language: str) -> InlineKeyboardMarkup:
+    """Tables only, or tables plus a generated scheme."""
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(
+        text=get_text(language, "pw_artifacts_tables"), callback_data="pw_artifacts:tables"))
+    keyboard.add(InlineKeyboardButton(
+        text=get_text(language, "pw_artifacts_scheme"), callback_data="pw_artifacts:scheme"))
+    keyboard.add(InlineKeyboardButton(text=_back_text(language), callback_data="pw_cancel"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
+def get_project_depth_keyboard(language: str) -> InlineKeyboardMarkup:
+    from config import PROJECT_WORK_PRICES
+
+    keyboard = InlineKeyboardBuilder()
+    for key in ("standart", "keng"):
+        keyboard.add(InlineKeyboardButton(
+            text=get_text(language, f"pw_depth_{key}", price=PROJECT_WORK_PRICES[key]),
+            callback_data=f"pw_depth:{key}",
+        ))
+    keyboard.add(InlineKeyboardButton(text=_back_text(language), callback_data="pw_cancel"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
+def get_project_payment_keyboard(language: str, price: int) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(
+        text=get_text(language, "pw_pay_balance", price=price), callback_data="pw_pay"))
+    keyboard.add(InlineKeyboardButton(text=_back_text(language), callback_data="pw_cancel"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
+def get_project_skip_keyboard(language: str, callback: str) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(text=get_text(language, "pw_skip"), callback_data=callback))
+    keyboard.add(InlineKeyboardButton(text=_back_text(language), callback_data="pw_cancel"))
+    keyboard.adjust(1)
     return keyboard.as_markup()
 
 
