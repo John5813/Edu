@@ -6,9 +6,20 @@ Role = Literal["hook", "context", "breakdown", "detail", "comparison", "applicat
 ROLE_ORDER = ["hook", "context", "breakdown", "detail", "comparison", "application", "synthesis"]
 
 
+INFOGRAPHIC_PRESETS = ("cards", "steps", "timeline", "cycle", "pyramid")
+
+
+class InfographicItem(BaseModel):
+    """Infografikaning bitta bandi — mazmun; koordinatani kod hisoblaydi."""
+    title: str = ""
+    text: str = ""
+    icon: Optional[str] = None
+    value: Optional[str] = None   # timeline uchun yil, steps uchun raqam
+
+
 class VisualElement(BaseModel):
     """Slayddagi bitta vizual element."""
-    type: Literal["rect", "text", "circle", "image", "chart", "kpi"]
+    type: Literal["rect", "text", "circle", "image", "chart", "kpi", "icon", "infographic"]
     x: float
     y: float
     w: Optional[float] = None
@@ -24,13 +35,22 @@ class VisualElement(BaseModel):
     color: Optional[str] = None
     align: Literal["left", "center", "right"] = "left"
     font: str = "Calibri"
-    # circle
+    # circle — d bilan aylana, w/h bilan ellips; `line` faqat kontur chizadi
     d: Optional[float] = None
+    line: Optional[str] = None
     # image
     prompt: Optional[str] = None
     # kpi — ko'rsatkich kartochkasi (katta raqam + izoh)
     value: Optional[str] = None
     label: Optional[str] = None
+    # icon — lokal ikonka: `icon` nomi, `shape` fon shakli
+    icon: Optional[str] = None
+    shape: Literal["circle", "square", "none"] = "circle"
+    # infographic — preset + bandlar; kod uni ibtidoiy elementlarga yoyadi
+    preset: Optional[Literal["cards", "steps", "timeline", "cycle", "pyramid"]] = None
+    items: Optional[List[InfographicItem]] = None
+    # kod hosil qilgan element: ustma-ustlik tuzatuvchisi unga tegmaydi
+    locked: bool = False
     # chart
     chart_type: Optional[Literal["bar", "column", "line", "pie", "donut"]] = None
     chart_title: Optional[str] = None

@@ -99,6 +99,49 @@ ELEMENT TURLARI:
   aniq bir-ikki jumlada yozilsin. Masalan:
   "2015–2024 yillarda O'zbekistonda yalpi ichki mahsulot o'sishi (mlrd. so'm)"
 
+⑦ icon — tayyor ikonka (rasm generatsiyasi EMAS, lokal fayl)
+{"type":"icon","x":1.2,"y":2.4,"w":0.7,"h":0.7,"icon":"innovation","fill":"2A78D6","color":"FFFFFF","shape":"circle"}
+• "icon" — quyidagi ro'yxatdagi ANIQ nom bo'lsin
+• shape: "circle" (rangli doira ichida) | "square" | "none" (fonsiz)
+• Ikonkani matn yoki blok yoniga qo'ying — bo'sh joyga emas
+
+⑧ infographic — ikonkali kompozitsiya (ENG KUCHLI element)
+{"type":"infographic","x":0.6,"y":1.9,"w":12.1,"h":4.4,"preset":"cards",
+ "items":[{"title":"Qisqa sarlavha","text":"1-2 jumla izoh","icon":"idea","value":"2019"}]}
+
+• Sen faqat MAZMUN berasan — koordinata, rang, chiziq, raqamni kod hisoblaydi
+• items: 3–5 band (6 dan oshmasin), har bandda "icon" nomi MAJBURIY
+• presetlar:
+  → "cards"    — teng darajali 3–5 xususiyat/omil/yo'nalish
+  → "steps"    — tartibli bosqichlar (raqamlanadi)
+  → "timeline" — yillar yoki davrlar ketma-ketligi ("value" ga yil yozing)
+  → "cycle"    — takrorlanadigan aylanma jarayon
+  → "pyramid"  — darajali ierarxiya (yuqoridan pastga kengayadi)
+• title: 2–4 so'z | text: 1–2 qisqa jumla (90 belgigacha)
+
+  MAJBURIY: har taqdimotda KAMIDA 2 ta infographic bo'lsin.
+  Bullet ro'yxati o'rniga infographic ishlating — u ancha professional ko'rinadi.
+
+══════════════════════════════════════════════════
+MAVJUD IKONKA NOMLARI (faqat shu ro'yxatdan tanlang):
+agriculture, ai, airplane, algorithm, architecture, art, atom, award, basketball, behavior,
+biology, brain, building, business, calendar, car, certificate, chart, chemistry, cinema,
+city, climate, code, communication, computer, construction, contract, cooking, country,
+court, crime, culture, database, democracy, design, diploma, dna, doctor, economics,
+education, electricity, emotion, energy, environment, family, finance, fire, fitness, flag,
+food, football, forest, geography, globe, government, graduation, health, history, hospital,
+house, idea, industry, innovation, internet, investment, justice, language, law, leadership,
+literature, logistics, management, map, marketing, math, medicine, mental, microscope,
+military, money, moon, mountain, museum, music, nature, network, nuclear, nutrition, ocean,
+peace, pharmacy, philosophy, photography, physics, planet, politics, pollution, poverty,
+privacy, project, psychology, rain, recycling, research, rights, robot, running, satellite,
+school, science, security, ship, social, solar, space, sport, star, startup, statistics,
+strategy, success, surgery, swimming, target, team, technology, tennis, theater, time,
+trade, train, transport, university, vaccine, volleyball, war, water, welfare, wind,
+writing, yoga
+Mavzuga eng yaqinini tanlang. Ro'yxatda aynan mos nom bo'lmasa — ma'no jihatdan
+eng yaqinini oling (masalan "fotosintez" → "biology", "bank" → "finance").
+
 ══════════════════════════════════════════════════
 MATN FORMATI — AI o'zi tanlaydi:
 
@@ -228,8 +271,13 @@ JAVOB: faqat sof JSON (markdown, ``` yoki boshqa matn YO'Q):
 
 SYSTEM_PROMPT_REGEN = """Sen professional biznes taqdimot slaydini qayta loyihalaysan.
 
-Slayd o'lchami: 13.333" × 7.5". Element turlari: rect, text, circle, image, chart, kpi.
+Slayd o'lchami: 13.333" × 7.5". Element turlari: rect, text, circle, image, chart, kpi, icon, infographic.
 Kpi formati: {"type":"kpi","x":1.0,"y":4.2,"w":3.4,"h":1.8,"value":"78%","label":"izoh","fill":"F4F6F9","color":"1B2A4A"}
+
+Icon formati: {"type":"icon","x":1.2,"y":2.4,"w":0.7,"h":0.7,"icon":"<ro'yxatdagi nom>","fill":"2A78D6","color":"FFFFFF","shape":"circle"}
+Infographic formati: {"type":"infographic","x":0.6,"y":1.9,"w":12.1,"h":4.4,"preset":"cards|steps|timeline|cycle|pyramid","items":[{"title":"...","text":"...","icon":"<nom>","value":"2019"}]}
+  → items 3-5 ta, har birida icon nomi; koordinatani kod hisoblaydi, sen faqat mazmun ber
+Ikonka nomlari: agriculture, ai, airplane, algorithm, architecture, art, atom, award, basketball, behavior, biology, brain, building, business, calendar, car, certificate, chart, chemistry, cinema, city, climate, code, communication, computer, construction, contract, cooking, country, court, crime, culture, database, democracy, design, diploma, dna, doctor, economics, education, electricity, emotion, energy, environment, family, finance, fire, fitness, flag, food, football, forest, geography, globe, government, graduation, health, history, hospital, house, idea, industry, innovation, internet, investment, justice, language, law, leadership, literature, logistics, management, map, marketing, math, medicine, mental, microscope, military, money, moon, mountain, museum, music, nature, network, nuclear, nutrition, ocean, peace, pharmacy, philosophy, photography, physics, planet, politics, pollution, poverty, privacy, project, psychology, rain, recycling, research, rights, robot, running, satellite, school, science, security, ship, social, solar, space, sport, star, startup, statistics, strategy, success, surgery, swimming, target, team, technology, tennis, theater, time, trade, train, transport, university, vaccine, volleyball, war, water, welfare, wind, writing, yoga
 
 Chart formati: {"type":"chart","x":1.0,"y":2.0,"w":8.0,"h":4.0,"chart_type":"column|bar|line|pie|donut","chart_title":"...","categories":[...],"series":[{"name":"...","values":[...]}]}
 
@@ -240,7 +288,8 @@ Qoidalar:
 - Matn hajmini KAMAYTIRMA — ko'proq izoh qo'sh (kamida 80 so'z)
 - Professional layout: chap panel, yuqori tasma, ustun tizimi
 - To'q fon → oq matn; och fon → to'q matn
-- Har taqdimotda kamida 2 ta chart va kamida 2 ta image bo'lsin; birinchi slaydda image MAJBURIY
+- Har taqdimotda kamida 2 ta chart, 2 ta image va 2 ta infographic bo'lsin; birinchi slaydda image MAJBURIY
+- Ro'yxatli slaydni bullet emas, infographic qilib bering
 - Muhim raqamlarni kpi kartochkasi qilib ko'rsat (yonma-yon 2-4 ta)
 - Chart uchun raqamni har mavzuda topish mumkin: sanalar, ulushlar, bosqichlar, taqqoslash
 - Agar muammoda "keraksiz" yoki "o'chir" deyilsa — o'sha elementni OLIB TASHLА, o'rnini matn bilan to'ldir

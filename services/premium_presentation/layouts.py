@@ -42,7 +42,8 @@ def _clamp(val, lo, hi):
     return max(lo, min(hi, val))
 
 
-def render_canvas(slide, s, image_paths: dict):
+def render_canvas(slide, s, image_paths: dict, used_icons: set | None = None):
+    used_icons = used_icons if used_icons is not None else set()
     bg = slide.background
     bg.fill.solid()
     bg.fill.fore_color.rgb = _hex(s.canvas.background)
@@ -63,6 +64,12 @@ def render_canvas(slide, s, image_paths: dict):
                 _draw_chart(slide, el)
             elif el.type == "kpi":
                 _draw_kpi(slide, el, s)
+            elif el.type == "icon":
+                _draw_icon(slide, el, used_icons)
+            elif el.type == "infographic":
+                # Pipeline uni ibtidoiy elementlarga yoyishi kerak edi; bu yerga
+                # yetib kelgani — yoyish o'tkazib yuborilganini bildiradi.
+                log.warning("Yoyilmagan infografika (slayd %s) chizilmadi", s.index)
         except Exception as exc:
             log.warning("Element chizishda xato (%s, slayd %s): %s", el.type, s.index, exc)
 
@@ -175,18 +182,63 @@ def _draw_text(slide, el):
 # ─────────────────────────────────────────────────────────── circle
 
 def _draw_circle(slide, el):
-    d = _clamp(el.d or 1.0, 0.1, 4.0)
-    x = _clamp(el.x, 0.0, 13.0)
-    y = _clamp(el.y, 0.0, 7.0)
+    # d berilsa — aylana; w/h berilsa — ellips (masalan cycle preseti halqasi).
+    if el.d:
+        w = h = _clamp(el.d, 0.1, 7.0)
+    else:
+        w = _clamp(el.w or 1.0, 0.1, 13.333)
+        h = _clamp(el.h or 1.0, 0.1, 7.5)
+    x = _clamp(el.x, 0.0, 13.333 - w)
+    y = _clamp(el.y, 0.0, 7.5 - h)
 
-    shp = slide.shapes.add_shape(MSO_SHAPE.OVAL, Inches(x), Inches(y), Inches(d), Inches(d))
+    shp = slide.shapes.add_shape(MSO_SHAPE.OVAL, Inches(x), Inches(y), Inches(w), Inches(h))
     shp.shadow.inherit = False
     if el.fill:
         shp.fill.solid()
         shp.fill.fore_color.rgb = _hex(el.fill)
     else:
         shp.fill.background()
-    shp.line.fill.background()
+    if el.line:
+        shp.line.color.rgb = _hex(el.line)
+        shp.line.width = Pt(1.25)
+    else:
+        shp.line.fill.background()
+
+
+# ─────────────────────────────────────────────────────────── icon
+
+def _draw_icon(slide, el, used_icons: set):
+    """Lokal ikonkani berilgan rangda chizadi (kerak bo'lsa fon shakli bilan).
+
+    Rasm generatsiyasi emas: fayl `assets/icons/` dan olinadi va Pillow orqali
+    bo'yaladi. Narxi nol, kutish yo'q, uslub butun taqdimotda bir xil.
+    """
+    from . import icon_render
+
+    size = _clamp(el.w or el.d or 0.6, 0.15, 3.0)
+    x = _clamp(el.x, 0.0, 13.333 - size)
+    y = _clamp(el.y, 0.0, 7.5 - size)
+
+    if el.shape != "none":
+        shape_type = MSO_SHAPE.OVAL if el.shape == "circle" else MSO_SHAPE.ROUNDED_RECTANGLE
+        pad = size * 0.3
+        holder = slide.shapes.add_shape(
+            shape_type, Inches(x - pad), Inches(y - pad),
+            Inches(size + 2 * pad), Inches(size + 2 * pad),
+        )
+        holder.shadow.inherit = False
+        holder.fill.solid()
+        holder.fill.fore_color.rgb = _hex(el.fill or "2A78D6")
+        holder.line.fill.background()
+
+    icon_path = icon_render.resolve(el.icon, el.text or "", used=used_icons)
+    if not icon_path:
+        log.warning("Ikonka topilmadi: %s / %s", el.icon, (el.text or "")[:40])
+        return
+
+    tinted = icon_render.tinted(icon_path, el.color or "FFFFFF")
+    if tinted:
+        slide.shapes.add_picture(tinted, Inches(x), Inches(y), Inches(size), Inches(size))
 
 
 # ─────────────────────────────────────────────────────────── image

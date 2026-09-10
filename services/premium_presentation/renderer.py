@@ -26,6 +26,9 @@ def build_presentation(brief: Brief) -> str:
     prs.slide_height = SLIDE_H
     blank_layout = prs.slide_layouts[6]  # to'liq bo'sh layout
 
+    # Butun taqdimot bo'ylab bitta ikonka ikki marta ishlatilmasin.
+    used_icons: set[str] = set()
+
     for s in brief.slides:
         slide = prs.slides.add_slide(blank_layout)
 
@@ -45,7 +48,7 @@ def build_presentation(brief: Brief) -> str:
                     )
                     _replace_with_panel(el, brief)
 
-        render_canvas(slide, s, image_paths)
+        render_canvas(slide, s, image_paths, used_icons)
 
     os.makedirs(config.WORK_DIR, exist_ok=True)
     out_path = os.path.join(config.WORK_DIR, f"ppt_{uuid.uuid4().hex[:10]}.pptx")
