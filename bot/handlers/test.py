@@ -14,6 +14,7 @@ from bot.keyboards import (
     get_test_question_count_keyboard,
     get_test_source_keyboard,
 )
+from bot import uploads
 from bot.states import TestStates
 from database.database import Database
 from config import TEMP_DIR
@@ -154,23 +155,21 @@ async def test_file_tests(call: CallbackQuery, state: FSMContext, user_lang: str
 
 @router.message(TestStates.waiting_for_file)
 async def test_got_file(message: Message, state: FSMContext, user_lang: str = "uz"):
-    doc = message.document
-    filename = (doc.file_name if doc else "") or ""
-    if not doc or not filename.lower().endswith((".docx", ".pdf")):
-        await message.answer(get_text(user_lang, "test_file_type_error"))
+    # Fayl umumiy qabul qiluvchidan o'tadi: hajm yuklashdan oldin
+    # tekshiriladi, ya'ni katta kitob diskka umuman tushmaydi.
+    upload = await uploads.receive(message, user_lang, accept=uploads.TEXT_SOURCES,
+                                   prefix="test_input", extract=False)
+    if upload is None:
         return
 
+    filename = upload.file_name
+    local_path = upload.path
     wait_message = await message.answer(get_text(user_lang, "test_file_reading"))
-    suffix = ".pdf" if filename.lower().endswith(".pdf") else ".docx"
-    local_path = os.path.join(
-        TEMP_DIR, f"test_input_{message.from_user.id}_{doc.file_id[-12:]}{suffix}"
-    )
     try:
-        os.makedirs(TEMP_DIR, exist_ok=True)
-        await message.bot.download(doc, destination=local_path)
         tests = extract_numbered_tests(local_path)
     except Exception as exc:
         logger.error(f"Could not read uploaded test file: {exc}")
+        uploads.discard(upload)
         await wait_message.edit_text(get_text(user_lang, "test_file_read_error"))
         return
 

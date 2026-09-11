@@ -49,7 +49,15 @@ async def from_file(local_path: str, file_name: str) -> SourceMaterial:
     kerakli hajmga yetganda to'xtaydi va og'ir ishlarni navbatga qo'yadi —
     ya'ni katta kitob botni yiqitmaydi.
     """
-    extract = await document_source.read(local_path, file_name)
+    return from_extract(await document_source.read(local_path, file_name), file_name)
+
+
+def from_extract(extract, file_name: str) -> SourceMaterial:
+    """Allaqachon o'qilgan matnni manba obyektiga aylantiradi.
+
+    Faylni `bot.uploads` o'qib bergan bo'lsa, uni ikkinchi marta o'qish
+    shart emas.
+    """
     label = file_name
     if extract.is_partial:
         label = f"{file_name} ({extract.used_units}/{extract.total_units} {extract.unit})"

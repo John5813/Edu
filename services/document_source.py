@@ -82,14 +82,21 @@ async def read(path: str, file_name: str) -> Extract:
 
 def read_sync(path: str, file_name: str) -> Extract:
     lowered = (file_name or path).lower()
-    if lowered.endswith(".pdf"):
-        extract = _read_pdf(path)
-    elif lowered.endswith(".docx"):
-        extract = _read_docx(path)
-    elif lowered.endswith(".pptx"):
-        extract = _read_pptx(path)
-    else:
+    readers = {".pdf": _read_pdf, ".docx": _read_docx, ".pptx": _read_pptx}
+    reader = next((fn for ext, fn in readers.items() if lowered.endswith(ext)), None)
+    if reader is None:
         raise SourceUnreadable(f"qo'llab-quvvatlanmaydigan tur: {file_name}")
+
+    try:
+        extract = reader(path)
+    except (SourceTooLarge, SourceUnreadable):
+        raise
+    except Exception as e:
+        # Shikastlangan yoki parol bilan yopilgan fayl kutubxonadan
+        # o'zining xatosini ko'taradi (masalan BadZipFile). U chaqiruvchiga
+        # yetib borsa, handler yiqiladi — shuning uchun bu yerda bitta
+        # tushunarli xatoga aylantiriladi.
+        raise SourceUnreadable(f"fayl o'qilmadi ({type(e).__name__}): {e}") from e
 
     if extract.words < 20:
         raise SourceUnreadable("fayldan yetarli matn ajratilmadi")

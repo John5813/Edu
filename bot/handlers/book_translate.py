@@ -5,6 +5,7 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.fsm.context import FSMContext
 
+from bot import uploads
 from bot.states import BookTranslateStates, DocumentStates
 from bot.keyboards import (
     get_main_keyboard,
@@ -71,26 +72,20 @@ async def handle_book_command(message: Message, state: FSMContext, user_lang: st
 
 @router.message(BookTranslateStates.waiting_for_file)
 async def handle_book_translate_file(message: Message, state: FSMContext, user_lang: str, db: Database, user):
-    doc = message.document
-    if not doc:
-        await message.answer(get_text(user_lang, "book_translate_not_docx"))
+    # Kitob tarjimasi eng katta fayllarni oladi, shuning uchun hajm
+    # tekshiruvi shu yerda ayniqsa muhim: ilgari u umuman yo'q edi va
+    # yuz megabaytli kitob botni yiqitardi.
+    upload = await uploads.receive(message, user_lang, accept=uploads.TEXT_SOURCES,
+                                   prefix="bt_input", extract=False)
+    if upload is None:
         return
 
-    file_name = doc.file_name or ""
-    is_pdf = file_name.lower().endswith(".pdf")
-    is_docx = file_name.lower().endswith(".docx")
-
-    if not is_pdf and not is_docx:
-        await message.answer(get_text(user_lang, "book_translate_not_docx"))
-        return
+    file_name = upload.file_name
+    is_pdf = upload.extension == ".pdf"
+    local_path = upload.path
 
     wait_msg = await message.answer(get_text(user_lang, "book_translate_checking"))
     try:
-        os.makedirs(TEMP_DIR, exist_ok=True)
-        ext = ".pdf" if is_pdf else ".docx"
-        local_path = os.path.join(TEMP_DIR, f"bt_input_{message.from_user.id}_{doc.file_id[-8:]}{ext}")
-        file = await message.bot.get_file(doc.file_id)
-        await message.bot.download_file(file.file_path, local_path)
 
         if is_pdf:
             pdf_info = get_pdf_info(local_path)
