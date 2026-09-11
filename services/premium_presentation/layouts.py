@@ -7,7 +7,7 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.chart.data import CategoryChartData, XyChartData
-from pptx.enum.chart import XL_CHART_TYPE
+from pptx.enum.chart import XL_CHART_TYPE, XL_LABEL_POSITION, XL_LEGEND_POSITION
 
 log = logging.getLogger("layouts")
 
@@ -412,11 +412,32 @@ def _draw_chart(slide, el, palette=None):
             chart.has_title = False
 
         if el.chart_type in ("pie", "donut"):
+            # Doiraviy diagrammada bo'lakning nomi faqat legendada ko'rinadi.
+            # Legendasiz va foizsiz u shunchaki rangli halqa bo'lib qolardi —
+            # unda nima ko'rsatilgani slayddan o'qilmasdi.
             plot = chart.plots[0]
             plot.has_data_labels = True
-
-        if len(series_list) <= 1:
+            labels = plot.data_labels
+            labels.show_percentage = True
+            labels.show_value = False
+            labels.show_category_name = False
+            labels.number_format = "0%"
+            labels.number_format_is_linked = False
+            labels.font.size = Pt(10)
+            labels.position = XL_LABEL_POSITION.CENTER if el.chart_type == "pie" else XL_LABEL_POSITION.OUTSIDE_END
+            chart.has_legend = True
+            chart.legend.position = XL_LEGEND_POSITION.RIGHT
+            chart.legend.include_in_layout = False
+            chart.legend.font.size = Pt(10)
+        elif len(series_list) <= 1:
+            # Ustun, chiziq va radarda kategoriya nomi o'qning o'zida turadi,
+            # shuning uchun legenda ortiqcha.
             chart.has_legend = False
+        else:
+            chart.has_legend = True
+            chart.legend.position = XL_LEGEND_POSITION.BOTTOM
+            chart.legend.include_in_layout = False
+            chart.legend.font.size = Pt(10)
 
         _colour_chart(chart, requested, palette)
 
@@ -433,7 +454,7 @@ def _draw_chart(slide, el, palette=None):
                 cap_p = cap_tf.paragraphs[0]
                 cap_p.alignment = PP_ALIGN.CENTER
                 cap_run = cap_p.add_run()
-                cap_run.text = f"📊 {caption_text}"
+                cap_run.text = caption_text
                 cap_run.font.size = Pt(11)
                 cap_run.font.italic = True
                 cap_run.font.name = "Calibri"

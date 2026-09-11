@@ -2,6 +2,7 @@ import hashlib
 import logging
 import os
 import random
+import re
 
 from pydantic import ValidationError
 
@@ -45,10 +46,20 @@ def canvas_check(slide: Slide) -> tuple[bool, str]:
 
 
 def ensure_chart_explanations(brief: Brief) -> Brief:
-    """Diagramma izohsiz qolmasin, lekin AI yozgan izohni majburan almashtirmasin."""
+    """Har diagrammaga raqam va izoh beradi.
+
+    Diagramma raqamsiz va izohsiz bo'lsa, uni himoyada tushuntirib bo'lmaydi:
+    o'qituvchi "bu nima?" deb so'raganda javob slaydning o'zida turishi kerak.
+    AI yozgan izoh saqlanadi, faqat oldiga raqam qo'shiladi.
+    """
+    number = 0
     for slide in brief.slides:
         for element in slide.canvas.elements:
-            if element.type != "chart" or (element.caption and element.caption.strip()):
+            if element.type != "chart":
+                continue
+            number += 1
+            if element.caption and element.caption.strip():
+                element.caption = _numbered(element.caption, number)
                 continue
             categories = element.categories or []
             series = element.series or []
@@ -72,7 +83,16 @@ def ensure_chart_explanations(brief: Brief) -> Brief:
                     f"{element.chart_title or series_name}: diagrammadagi asosiy "
                     "ko‘rsatkichlar taqqoslanishi."
                 )
+            element.caption = _numbered(element.caption, number)
     return brief
+
+
+def _numbered(caption: str, number: int) -> str:
+    """Izoh oldiga "1-rasm." qo'yadi, allaqachon raqamlangan bo'lsa tegmaydi."""
+    text = (caption or "").strip()
+    if re.match(r"^\d+\s*-\s*rasm", text, re.IGNORECASE):
+        return text
+    return f"{number}-rasm. {text}"
 
 
 def canvas_validation_and_fix(
@@ -86,6 +106,10 @@ def canvas_validation_and_fix(
     # birinchi slaydning bloki navbatdan joy olib, keyin tashlab yuborilardi.
     brief = build_title_slide(brief, topic)
     brief = spread_infographic_presets(brief, topic)
+    # Ortiqcha instrumentlar infografika yoyilishidan OLDIN olib tashlanadi:
+    # yoyilgandan keyin u o'nlab ibtidoiy elementga aylanadi va uni butun
+    # holda qaytarib olish imkonsiz bo'lardi.
+    brief = limit_instruments(brief)
     brief = expand_infographics(brief)
     brief = ensure_title_contrast(brief)
     brief = ensure_body_contrast(brief)
@@ -525,6 +549,106 @@ def spread_infographic_presets(brief: Brief, topic: str) -> Brief:
     return brief
 
 
+# Bitta slaydda nechta "instrument" bo'lishi mumkin. Instrument — diagramma,
+# infografika bloki, rasm yoki ko'rsatkich kartochkalari qatori; oddiy matn
+# hisobga olinmaydi. Uchtasi bir varaqqa sig'sa ham, o'quvchi ularni birdaniga
+# o'qiy olmaydi: matn + sakkizta kartochka + doiraviy diagramma bir slaydda
+# juda ko'p.
+_MAX_INSTRUMENTS = 2
+
+# Qaysi biri qolishi kerak. Diagramma raqam ko'rsatadi, rasm mavzuni ochadi,
+# ikonkali kartochkalar esa eng ko'p takrorlanadigan va eng kam ma'lumot
+# beradigan qism — shuning uchun oxirgi o'rinda.
+_INSTRUMENT_RANK = {"chart": 0, "image": 1, "kpi": 2, "infographic": 3}
+
+
+def limit_instruments(brief: Brief) -> Brief:
+    """Har slaydda ikkitadan ortiq instrument qolmasin.
+
+    Ortiqcha infografika o'chirilmaydi — o'z o'rnida oddiy ro'yxat matniga
+    aylanadi, shunda mazmun yo'qolmaydi, faqat bezak kamayadi.
+    """
+    for slide in brief.slides:
+        groups = []          # (rank, tartib, tur, elementlar)
+        kpis = [e for e in slide.canvas.elements if e.type == "kpi"]
+        for index, element in enumerate(slide.canvas.elements):
+            if element.type in ("chart", "image", "infographic"):
+                groups.append((_INSTRUMENT_RANK[element.type], index,
+                               element.type, [element]))
+        if kpis:
+            first = slide.canvas.elements.index(kpis[0])
+            groups.append((_INSTRUMENT_RANK["kpi"], first, "kpi", kpis))
+
+        if len(groups) <= _MAX_INSTRUMENTS:
+            continue
+
+        groups.sort(key=lambda g: (g[0], g[1]))
+        for _, _, kind, elements in groups[_MAX_INSTRUMENTS:]:
+            log.info("Slayd %s: ortiqcha %s olib tashlandi (%s ta instrument edi)",
+                     slide.index, kind, len(groups))
+            if kind == "infographic":
+                _infographic_to_text(elements[0], slide)
+            else:
+                for element in elements:
+                    if element in slide.canvas.elements:
+                        slide.canvas.elements.remove(element)
+    return brief
+
+
+def _infographic_to_text(element, slide: Slide) -> None:
+    """Infografikani o'z qutisidagi oddiy ro'yxatga aylantiradi."""
+    lines = []
+    for item in (element.items or []):
+        head = (item.title or item.value or "").strip()
+        body = (item.text or "").strip()
+        if head and body:
+            lines.append(f"• {head} — {body}")
+        elif head or body:
+            lines.append(f"• {head or body}")
+    position = slide.canvas.elements.index(element)
+    slide.canvas.elements.remove(element)
+    if not lines:
+        return
+
+    width = max(element.w or 6.0, 2.0)
+    height = max(element.h or 3.0, 0.6)
+    text = "\n".join(lines)
+    size = infographics._fit(text, width, height, start=14.0, minimum=11.0)
+    slide.canvas.elements.insert(position, VisualElement(
+        type="text", x=element.x, y=element.y, w=width, h=height,
+        text=text, size=size, align="left", color="1B2A4A",
+    ))
+
+
+def _grow_into_free_space(element, slide: Slide) -> None:
+    """Infografika blokini ostidagi bo'sh joy hisobiga kengaytiradi.
+
+    Blok past bo'lsa kartochkadagi izoh matni sig'may "…" bilan kesilardi.
+    Balandlikni oshirish eng arzon yechim, lekin faqat haqiqatan bo'sh joyga:
+    pastda boshqa element tursa, uning tepasida to'xtaymiz.
+    """
+    left = element.x
+    right = element.x + (element.w or 6.0)
+    bottom = element.y + (element.h or 3.0)
+    floor = SLIDE_H - _EDGE
+
+    for other in slide.canvas.elements:
+        if other is element:
+            continue
+        other_left, other_top, other_w, other_h = _box(other)
+        if min(right, other_left + other_w) - max(left, other_left) <= 0.1:
+            continue          # yonma-yon turibdi, xalaqit qilmaydi
+        if other_top + other_h <= element.y + 0.1:
+            continue          # tepada turibdi
+        if other_top < bottom - 0.1:
+            continue          # allaqachon kesishyapti — o'sish mumkin emas
+        floor = min(floor, other_top - _GAP)
+
+    room = floor - element.y
+    if room > (element.h or 0) + 0.1:
+        element.h = round(room, 2)
+
+
 def expand_infographics(brief: Brief) -> Brief:
     """`infographic` elementlarini ibtidoiy shakllarga yoyadi.
 
@@ -538,6 +662,7 @@ def expand_infographics(brief: Brief) -> Brief:
             if element.type != "infographic":
                 expanded.append(element)
                 continue
+            _grow_into_free_space(element, slide)
             parts = infographics.expand(element, brief.theme)
             if parts:
                 expanded.extend(parts)

@@ -68,20 +68,77 @@ def expand(el: VisualElement, theme=None) -> list[VisualElement]:
     }.get(preset, _cards)
 
     colors = _colors(el, theme)
-    try:
-        out = builder(items, x, y, w, h, colors)
+    low = PRESET_FITS.get(preset, (2, MAX_ITEMS))[0]
+
+    def _build(chosen):
+        out = builder(chosen, x, y, w, h, colors)
         if not out and builder is not _cards:
             # Preset bu mazmun uchun geometrik jihatdan imkonsiz — har doim
             # ishlaydigan kartochkalarga o'tamiz, bo'sh slayd qoldirmaymiz.
             log.info("'%s' preseti bu mazmunga sig'madi — cards ishlatildi", preset)
-            out = _cards(items, x, y, w, h, colors)
+            out = _cards(chosen, x, y, w, h, colors)
+        return out
+
+    try:
+        # Bandlar ko'p yoki blok past bo'lsa matn "…" bilan kesilardi — mijoz
+        # kesilgan gapni haqli ravishda kamchilik deb biladi. Endi kesilish
+        # bo'lsa mazmun bosqichma-bosqich siyraklashtiriladi, lekin hech
+        # qachon so'z o'rtasidan kesilmaydi:
+        #   1) hamma band, to'liq matn
+        #   2) kamroq band, to'liq matn  — to'rtta to'liq kartochka beshta
+        #      chala kartochkadan yaxshiroq
+        #   3) hamma band, faqat sarlavhalar — izoh yo'qoladi, lekin qolgani
+        #      butun bo'ladi
+        #   4) kamroq band, faqat sarlavhalar
+        out = None
+        for titles_only in (False, True):
+            source = items if not titles_only else [_without_text(i) for i in items]
+            for count in range(len(source), max(low, 2) - 1, -1):
+                candidate = _build(source[:count])
+                if out is None:
+                    out = candidate
+                if candidate and not _is_truncated(candidate, source[:count]):
+                    if titles_only or count < len(items):
+                        log.info("Infografika sig'madi — %s band%s bilan qurildi",
+                                 count, ", izohsiz" if titles_only else "")
+                    out = candidate
+                    break
+            else:
+                continue
+            break
     except Exception as exc:
         log.error("Infografika qurishda xato (preset=%s): %s", el.preset, exc)
         return []
+    if not out:
+        return []
+
+    if _is_truncated(out, items):
+        # Hech bir ko'rinishda sig'madi. Kesilgan gap qoldirgandan ko'ra
+        # oddiy ro'yxat: u tabiiy o'raladi va shrifti joyga moslashadi.
+        log.info("Infografika bu joyga sig'madi — ro'yxat matniga aylantirildi")
+        return _as_list(items, x, y, w, h)
 
     for e in out:
         e.locked = True
     return out
+
+
+def _as_list(items, x, y, w, h) -> list[VisualElement]:
+    """Bandlarni bitta oddiy ro'yxat blokiga aylantiradi."""
+    lines = []
+    for item in items:
+        head = (item.title or item.value or "").strip()
+        body = (item.text or "").strip()
+        if head and body:
+            lines.append(f"• {head} — {body}")
+        elif head or body:
+            lines.append(f"• {head or body}")
+    if not lines:
+        return []
+    text = "\n".join(lines)
+    size = _fit(text, w, h, start=14.0, minimum=MIN_BODY_PT)
+    return [VisualElement(type="text", x=x, y=y, w=w, h=h,
+                          text=text, size=size, align="left", color="1B2A4A")]
 
 
 # ─────────────────────────────────────────────────────── presetlar
@@ -471,6 +528,33 @@ def _fit(text: str, w: float, available_h: float, start: float, minimum: float) 
             return round(size, 1)
         size -= 0.5
     return minimum
+
+
+def _without_text(item):
+    """Bandning izohini olib tashlaydi — sarlavha va qiymat qoladi."""
+    clone = item.model_copy(deep=True)
+    clone.text = None
+    return clone
+
+
+def _is_truncated(out, items) -> bool:
+    """Chiqqan bloklarda kesilgan matn bormi?
+
+    Kesilgan matn "…" bilan tugaydi; manba matnining o'zi shunday tugagan
+    bo'lsa, bu kesilish emas.
+    """
+    if not out:
+        return False
+    sources = set()
+    for item in items:
+        for value in (item.title, item.text, item.value):
+            if value:
+                sources.add(value.strip())
+    for element in out:
+        text = (element.text or "").strip()
+        if text.endswith("…") and text not in sources:
+            return True
+    return False
 
 
 def _trim_to_lines(text: str, w: float, size: float, max_lines: int) -> str:
