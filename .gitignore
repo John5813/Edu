@@ -57,4 +57,13 @@ runtime/
 
 # Ish vaqtidagi kesh va vaqtinchalik fayllar
 temp/
+
+# Jonli sqlite bazasi. U repoda turganda har `git pull` serverdagi haqiqiy
+# bazani repodagi eski nusxa bilan almashtirib yuborardi — git .gitignore'dagi
+# faylni ogohlantirmasdan ustiga yozadi, chunki uni keraksiz deb biladi.
+bot.db
+bot.db-journal
+bot.db-wal
+bot.db-shm
+bot.db.*
 generated_documents/
