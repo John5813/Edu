@@ -67,3 +67,6 @@ bot.db-wal
 bot.db-shm
 bot.db.*
 generated_documents/
+bot.db
+bot.db.*
+temp/
