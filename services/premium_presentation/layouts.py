@@ -225,7 +225,9 @@ def _draw_icon(slide, el, used_icons: set):
     """
     from . import icon_render
 
-    size = _clamp(el.w or el.d or 0.6, 0.15, 3.0)
+    # Ikonka 96px lik siluet: 1 duymdan katta qilib qo'yilsa, u rasm
+    # o'rnini egallab, taqdimot bo'sh ko'rinadi.
+    size = _clamp(el.w or el.d or 0.6, 0.15, 1.0)
     x = _clamp(el.x, 0.0, 13.333 - size)
     y = _clamp(el.y, 0.0, 7.5 - size)
 
@@ -254,11 +256,37 @@ def _draw_icon(slide, el, used_icons: set):
 # ─────────────────────────────────────────────────────────── image
 
 def _draw_image(slide, el, img_path: str):
-    w = _clamp(el.w or 5.0, 0.5, 13.333)
-    h = _clamp(el.h or 4.0, 0.5, 7.5)
-    x = _clamp(el.x, 0.0, 13.0)
-    y = _clamp(el.y, 0.0, 7.0)
-    slide.shapes.add_picture(img_path, Inches(x), Inches(y), Inches(w), Inches(h))
+    """Rasmni qutiga JOYLASHTIRADI — cho'zmaydi.
+
+    Ilgari rasm quti o'lchamiga majburan tortilardi: 1344x768 lik surat
+    5.50x5.20 duymga qo'yilib, odamlar va narsalar siqilib ko'rinardi.
+    Endi nisbat saqlanadi, ortib qolgan joy markazlashtiriladi.
+    """
+    box_w = _clamp(el.w or 5.0, 0.5, 13.333)
+    box_h = _clamp(el.h or 4.0, 0.5, 7.5)
+    x = _clamp(el.x, 0.0, 13.333 - box_w)
+    y = _clamp(el.y, 0.0, 7.5 - box_h)
+
+    width, height = _native_size(img_path)
+    if width and height:
+        scale = min(box_w / width, box_h / height)
+        draw_w, draw_h = width * scale, height * scale
+        x += (box_w - draw_w) / 2
+        y += (box_h - draw_h) / 2
+        box_w, box_h = draw_w, draw_h
+
+    slide.shapes.add_picture(img_path, Inches(x), Inches(y), Inches(box_w), Inches(box_h))
+
+
+def _native_size(img_path: str):
+    """Rasmning o'z o'lchami (nisbat uchun); aniqlab bo'lmasa (0, 0)."""
+    try:
+        from PIL import Image
+        with Image.open(img_path) as image:
+            return image.size
+    except Exception as exc:
+        log.warning("Rasm o'lchami aniqlanmadi (%s): %s", img_path, exc)
+        return 0, 0
 
 
 # ─────────────────────────────────────────────────────────── chart
