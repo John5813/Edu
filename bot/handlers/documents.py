@@ -3189,8 +3189,14 @@ async def handle_edit_outline(callback: CallbackQuery, state: FSMContext, user_l
 
     await state.set_state(DocumentStates.waiting_for_manual_outline)
 
-# Help button texts in different languages
-HELP_BUTTON_TEXTS = ["💬 Yordam", "💬 Помощь", "💬 Help"]
+# Yordam tugmasining matni. Ro'yxat tarjimalardan yig'iladi, shuning uchun
+# tugma yozuvi o'zgarganda bu yer bilan ajralib qolmaydi — ilgari ikkisi
+# qo'lda takrorlanar va bittasini o'zgartirish tugmani o'lik qilardi.
+# Eski 💬 variantlari ham qoldirilgan: Telegram klaviaturani foydalanuvchida
+# saqlab qoladi va u /start bosmaguncha eski tugmani yuborishda davom etadi.
+HELP_BUTTON_TEXTS = [
+    get_text(language, "main_menu.help") for language in ("uz", "ru", "en")
+] + ["💬 Yordam", "💬 Помощь", "💬 Help"]
 
 @router.callback_query(DocumentStates.waiting_for_payment, F.data == "pay_balance_doc")
 async def pay_balance_doc_handler(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
