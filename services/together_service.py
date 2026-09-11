@@ -340,42 +340,47 @@ Corporate presentation quality, inspiring and engaging visual."""
     ) -> str:
         """Generate a focused English image prompt for FLUX.2-pro.
 
-        image_type='infographic': technical/scientific visualization (diagrams, mechanisms,
-            chemical structures, mathematical graphs) — NO people.
-        image_type='scene': realistic scene with people applying the topic concepts
-            (scientists, economists, engineers, students in context).
+        Ikkala tur ham REALISTIK fotosurat: infografika, vektor chizma yoki
+        diagramma so'ralmaydi — diagrammalar hujjatga matplotlib bilan alohida
+        qo'yiladi, rasm esa jonli suratdek ko'rinishi kerak.
+
+        image_type='infographic': mavzuga oid real muhit/jihoz/obyekt fotosurati
+            (odamsiz) — dokumental kadr.
+        image_type='scene': mavzu bilan ishlayotgan odamlar fotosurati.
         """
         if image_type == 'infographic':
             style_instruction = (
-                f"TYPE: Scientific/technical infographic illustration.\n"
-                f"- Show diagrams, mechanisms, chemical structures, mathematical graphs, "
-                f"technical schematics, or process flowcharts directly related to '{subsection_title}'\n"
-                f"- Style: clean vector infographic, blueprint, or scientific diagram — high detail\n"
-                f"- NO people, NO faces, NO human figures\n"
-                f"- NO text overlays, NO labels, NO watermarks, NO formulas written as text\n"
-                f"- Visualize CONCEPTS as shapes, arrows, structures — not as written symbols\n"
-                f"- Colors: professional blue/white/gray palette, bright and clear"
+                f"TYPE: Realistic documentary photograph — objects and environment, no people.\n"
+                f"- Photograph the real equipment, materials, workplace or objects used in "
+                f"'{subsection_title}' within the field of '{topic}'\n"
+                f"- Style: photorealistic DSLR photo, 50mm lens, natural light, shallow depth of field\n"
+                f"- NOT an infographic, NOT a diagram, NOT a chart, NOT vector art, NOT a 3D render, "
+                f"NOT an illustration — a real photograph only\n"
+                f"- NO people, NO faces\n"
+                f"- NO text, NO letters, NO numbers, NO labels, NO watermarks\n"
+                f"- Authentic colours, real textures, professional composition"
             )
             fallback = (
-                f"Scientific technical infographic diagram about '{subsection_title}' related to '{topic}', "
-                f"clean vector illustration, mechanisms and structures, blue palette, no people, "
-                f"no text, no letters, high quality"
+                f"Realistic documentary photograph of the real equipment and workplace used in "
+                f"'{subsection_title}' related to '{topic}', photorealistic DSLR photo, natural light, "
+                f"no people, no text, no letters, no diagram, no infographic, high quality"
             )
         else:
             style_instruction = (
-                f"TYPE: Realistic scene with people.\n"
+                f"TYPE: Realistic documentary photograph with people.\n"
                 f"- Show professionals or students actively working with or applying the concepts of '{subsection_title}'\n"
                 f"- Examples: scientists in a lab, economists at a market, engineers at a factory, "
                 f"programmers at computers, doctors with patients — choose what fits the topic\n"
-                f"- Style: photorealistic or high-quality editorial illustration\n"
+                f"- Style: photorealistic DSLR photo, natural light, candid and authentic\n"
+                f"- NOT an illustration, NOT vector art, NOT a 3D render, NOT an infographic\n"
                 f"- Scene must feel authentic and directly relevant to '{topic}'\n"
-                f"- NO text overlays, NO watermarks, NO written formulas\n"
+                f"- NO text, NO letters, NO watermarks, NO written formulas\n"
                 f"- Bright, well-lit, professional environment"
             )
             fallback = (
-                f"Realistic scene of professionals working with '{subsection_title}' concepts related to '{topic}', "
-                f"people in a professional environment, photorealistic, bright lighting, "
-                f"no text, no watermarks, high quality"
+                f"Realistic photograph of professionals working with '{subsection_title}' concepts related to '{topic}', "
+                f"people in a professional environment, photorealistic DSLR photo, natural light, "
+                f"no text, no watermarks, no illustration, high quality"
             )
 
         prompt_request = (

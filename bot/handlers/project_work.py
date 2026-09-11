@@ -31,7 +31,6 @@ from database.database import Database
 from services.project_work import field_label, get_content_builder, get_document_builder
 from services.project_work.specs import (
     BLOCK_AUTO,
-    BLOCK_SCHEME,
     GENERIC_FIELD_KEY,
     block_label,
 )
@@ -320,7 +319,6 @@ async def blocks_done(callback: CallbackQuery, state: FSMContext, user_lang: str
     names = ", ".join(block_label(key, user_lang) for key in selected)
     await dialog.resolve(callback.message, state,
                          get_text(user_lang, "pw_done_blocks", blocks=names))
-    await state.update_data(with_scheme=BLOCK_SCHEME in selected)
     await state.set_state(ProjectWorkStates.waiting_for_depth)
     await dialog.ask(
         callback.message, state,
@@ -417,6 +415,17 @@ async def show_other_methods(callback: CallbackQuery, state: FSMContext, user_la
         parse_mode="HTML",
         reply_markup=pay.other_methods_keyboard(CHECKOUT, user_lang, price),
     )
+
+
+@router.callback_query(F.data == CHECKOUT.pay_back)
+async def back_to_payment(callback: CallbackQuery, state: FSMContext, user_lang: str, user):
+    """«Boshqa usullar»dan asosiy to'lov oynasiga qaytish."""
+    await callback.answer()
+    data = await _order(callback.from_user.id, state)
+    if not data:
+        await _report_expired(callback.message, state, user_lang)
+        return
+    await _show_summary(callback.message, state, user_lang, user)
 
 
 @router.callback_query(F.data == CHECKOUT.pay_stars)
@@ -564,7 +573,6 @@ async def _generate(message: Message, state: FSMContext, user_lang: str, db: Dat
             topic=topic,
             field_key=data.get("field_key", ""),
             language=doc_language,
-            with_scheme=data.get("with_scheme", False),
             blocks=data.get("blocks") or None,
             user_id=message.chat.id,
             depth=PROJECT_WORK_DEPTH[data.get("depth_key", "standart")],

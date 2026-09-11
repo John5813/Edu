@@ -139,6 +139,7 @@ PROJECT_WORK_DEPTH = {
 EXTRAS_PRICES = {
     "formulas":   1000,
     "images":     2000,
+    "scheme":     1000,
     "tables":     1000,
     "glossary":   1000,
     "statistics": 1000,

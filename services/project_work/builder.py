@@ -79,7 +79,7 @@ class ProjectWorkBuilder:
             if isinstance(result, str) and result and os.path.exists(result):
                 images[section.spec.key] = result
             else:
-                logger.warning("Loyiha sxemasi chizilmadi (%s): %s", section.spec.key, result)
+                logger.warning("Loyiha surati olinmadi (%s): %s", section.spec.key, result)
         return images
 
     # ------------------------------------------------------------------ docx

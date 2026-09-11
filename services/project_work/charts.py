@@ -21,10 +21,10 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.patches import Rectangle
+from matplotlib.patches import FancyBboxPatch
 
 from . import palettes
-from .palettes import GRID, INK, INK_SOFT, STATUS, SURFACE, Palette
+from .palettes import GRID, INK, INK_SOFT, SURFACE, Palette
 
 logger = logging.getLogger(__name__)
 
@@ -439,38 +439,6 @@ def _risk_rows(risks: list) -> list:
 _RISK_AXIS = ["Past", "O'rta", "Yuqori"]
 
 
-def risk_matrix(risks: list, title: str, work_dir: str, palette=None) -> str:
-    """Ehtimollik × ta'sir matritsasi.
-
-    Rang xavf darajasini bildiradi, lekin uni yolg'iz tashlab qo'ymaydi:
-    har katakda risk raqami turadi va ro'yxat pastda beriladi. Status
-    ranglari palitra bilan aylanmaydi — ular ma'no tashiydi.
-    """
-    rows = _risk_rows(risks)
-    figure, axes = _new_figure(4.0)
-
-    fills = {}
-    for x in range(3):
-        for y in range(3):
-            severity = (x + 1) * (y + 1)
-            tier = 1 if severity <= 2 else 2 if severity <= 4 else 3 if severity <= 6 else 4
-            fills[(x, y)] = STATUS[tier]
-            axes.add_patch(Rectangle((x, y), 1, 1, facecolor=STATUS[tier],
-                                     edgecolor=SURFACE, linewidth=3))
-
-    for number, _, likelihood, impact in rows:
-        fill = fills[(likelihood - 1, impact - 1)]
-        axes.text(likelihood - 0.5, impact - 0.5, str(number),
-                  ha="center", va="center", fontsize=13,
-                  color=_on_fill(fill), fontweight="bold")
-
-    _risk_axes(axes, 0, 3, [0.5, 1.5, 2.5])
-    for side in ("left", "bottom"):
-        axes.spines[side].set_visible(False)
-    _title(axes, title)
-    return _save(figure, work_dir)
-
-
 def risk_bubble(risks: list, title: str, work_dir: str, palette=None) -> str:
     """Pufakchali XY — har risk o'z rangida, raqami pufakcha ichida."""
     palette = _palette(palette)
@@ -555,6 +523,113 @@ def render_formula(latex: str, work_dir: str) -> str:
         return _save(figure, work_dir)
 
 
+# ══════════════════════════════════════════════════════════════ sxema
+
+def structure_scheme(data: dict, title: str, work_dir: str, palette=None) -> str:
+    """Loyiha tuzilmasi sxemasi — bloklar va ularni bog'lovchi chiziqlar.
+
+    Ilgari bu AI chizgan rasm edi: arzon modellar sxemadagi yozuvlarni
+    buzib chizardi va natija o'qilmasdi. Endi sxema shu yerda chiziladi,
+    ya'ni yozuvlar har doim to'g'ri va uslub hujjatning qolganiga mos.
+    """
+    palette = _palette(palette)
+    root = _shorten(str(data.get("root") or title), 40)
+    branches = [b for b in (data.get("branches") or []) if isinstance(b, dict)][:5]
+    if len(branches) < 2:
+        raise ValueError("sxema uchun kamida ikkita tarmoq kerak")
+
+    columns = len(branches)
+
+    # Balandlik eng chuqur tarmoqqa qarab olinadi: aks holda tarmoqlarda
+    # bittadan element bo'lsa, rasm pastida katta bo'sh maydon qolardi.
+    branch_y, branch_h, item_h, item_gap = 58.0, 12.0, 10.0, 3.5
+    depth = max((len([i for i in (b.get("items") or [])][:3]) for b in branches),
+                default=0)
+    floor = branch_y - depth * (item_h + item_gap) - 4
+    span = 100 - floor
+    figure, axes = plt.subplots(
+        figsize=(_FIGSIZE[0], max(2.9, 4.6 * span / 86.5)), dpi=_DPI)
+    figure.patch.set_facecolor(SURFACE)
+    axes.set_facecolor(SURFACE)
+    axes.set_xlim(0, 100)
+    axes.set_ylim(floor, 100)
+    axes.axis("off")
+
+    # Ildiz bloki
+    root_w, root_h = 46, 13
+    root_x, root_y = 50 - root_w / 2, 84
+    _scheme_box(axes, root_x, root_y, root_w, root_h, palette.ramp[3], root, 11, bold=True)
+
+    gap = 3.0
+    col_w = (100 - gap * (columns - 1)) / columns
+
+    for index, branch in enumerate(branches):
+        hue = palette.categorical[index % len(palette.categorical)]
+        col_x = index * (col_w + gap)
+        centre = col_x + col_w / 2
+
+        # Ildizdan tarmoqqa: vertikal + gorizontal ulanish
+        axes.plot([50, 50], [root_y, root_y - 6], color=GRID, linewidth=1.6, zorder=1)
+        axes.plot([50, centre], [root_y - 6, root_y - 6], color=GRID, linewidth=1.6, zorder=1)
+        axes.plot([centre, centre], [root_y - 6, branch_y + branch_h],
+                  color=GRID, linewidth=1.6, zorder=1)
+
+        _scheme_box(axes, col_x, branch_y, col_w, branch_h, hue,
+                    _shorten(str(branch.get("name", "")), 26), 9.5, bold=True)
+
+        items = [str(i) for i in (branch.get("items") or [])][:3]
+        for level, item in enumerate(items):
+            item_y = branch_y - (level + 1) * (item_h + item_gap)
+            axes.plot([centre, centre], [item_y + item_h, item_y + item_h + item_gap],
+                      color=GRID, linewidth=1.2, zorder=1)
+            _scheme_box(axes, col_x + col_w * 0.06, item_y, col_w * 0.88, item_h,
+                        _tint(hue, 0.86), _shorten(item, 30), 8.5,
+                        edge=hue, text_colour=INK)
+
+    axes.set_title(title, fontsize=11, color=INK, loc="left", pad=12)
+    return _save(figure, work_dir)
+
+
+def _tint(hex_str: str, amount: float) -> str:
+    """Rangni oqqa yaqinlashtiradi — ichki bloklar foni uchun."""
+    h = (hex_str or "").lstrip("#")
+    if len(h) != 6:
+        return "#f2f2f2"
+    r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
+    def mix(c):
+        return int(round(c + (255 - c) * amount))
+    return "#%02x%02x%02x" % (mix(r), mix(g), mix(b))
+
+
+def _scheme_box(axes, x, y, w, h, fill, text, size, bold=False,
+                edge=None, text_colour=None):
+    """Yumaloq burchakli blok va uning ichidagi markazlashtirilgan matn."""
+    axes.add_patch(FancyBboxPatch(
+        (x + 1, y + 1), w - 2, h - 2,
+        boxstyle="round,pad=0.6,rounding_size=2",
+        facecolor=fill, edgecolor=edge or fill, linewidth=1.4, zorder=2,
+    ))
+    axes.text(x + w / 2, y + h / 2, _wrap_label(text, w),
+              ha="center", va="center", fontsize=size,
+              color=text_colour or _on_fill(fill),
+              fontweight="bold" if bold else "normal", zorder=3)
+
+
+def _wrap_label(text: str, width: float) -> str:
+    """Blok eniga qarab matnni qatorlarga bo'ladi."""
+    per_line = max(int(width * 0.42), 10)
+    words, lines, current = str(text).split(), [], ""
+    for word in words:
+        trial = f"{current} {word}".strip()
+        if len(trial) <= per_line or not current:
+            current = trial
+        else:
+            lines.append(current)
+            current = word
+    lines.append(current)
+    return "\n".join(lines[:3])
+
+
 # ══════════════════════════════════════════════════════════ shakl tanlash
 
 _DRAWERS = {
@@ -565,16 +640,16 @@ _DRAWERS = {
     ("timeline", "gantt"): gantt,
     ("timeline", "milestones"): timeline_milestones,
     ("timeline", "steps"): timeline_steps,
-    ("risks", "matrix"): risk_matrix,
     ("risks", "bubble"): risk_bubble,
+    ("scheme", "structure"): structure_scheme,
     ("risks", "radar"): risk_radar,
     ("forecast", "line"): forecast_line,
     ("forecast", "area"): forecast_area,
     ("forecast", "column"): forecast_column,
 }
 
-_FALLBACK = {"budget": budget_bar, "timeline": gantt,
-             "risks": risk_matrix, "forecast": forecast_line}
+_FALLBACK = {"budget": budget_bar, "timeline": gantt, "scheme": structure_scheme,
+             "risks": risk_bubble, "forecast": forecast_line}
 
 
 def draw(artifact: str, form: str, data: dict, title: str, work_dir: str,
@@ -591,4 +666,6 @@ def draw(artifact: str, form: str, data: dict, title: str, work_dir: str,
             return drawer(data.get("stages") or [], title, work_dir, palette)
         if artifact == "risks":
             return drawer(data.get("risks") or [], title, work_dir, palette)
+        if artifact == "scheme":
+            return drawer(data, title, work_dir, palette)
         return drawer(data.get("points") or [], title, unit, work_dir, palette)

@@ -26,7 +26,6 @@ from .specs import (
     ARTIFACT_TIMELINE,
     BLOCK_AUTO,
     BLOCK_ORDER,
-    BLOCK_SCHEME,
     CHART_ARTIFACTS,
     DEFAULT_BLOCKS,
     CARD_ARTIFACTS,
@@ -161,6 +160,47 @@ class SectionContent:
     formula: Optional[Dict] = None
 
 
+# Hujjatga qo'yiladigan haqiqiy suratlar soni. Sxemalar va diagrammalar
+# ma'lumotni ko'rsatadi, surat esa ishga jonli tus beradi — ikkitasi
+# hujjatni bosib ketmaydi.
+PHOTOGRAPHS_PER_WORK = 2
+
+
+def _place_photographs(sections: list, topic: str) -> list:
+    """Ikkita bo'limga realistik surat prompti biriktiradi.
+
+    Infografika yoki sxema emas, aynan surat: mijoz hujjatda jonli tasvir
+    ko'rishni kutadi. Diagramma yoki jadvali bor bo'limlar chetlab
+    o'tiladi — ular allaqachon vizual to'la.
+    """
+    free = [
+        index for index, section in enumerate(sections)
+        if not section.chart and not section.table
+        and section.spec.key not in {"kirish", "xulosa"}
+        and not section.image_prompt
+    ]
+    if not free:
+        return sections
+
+    # Hujjat bo'ylab tekis taqsimlaymiz: boshida va o'rtasida.
+    chosen = []
+    if free:
+        chosen.append(free[0])
+    if len(free) > 1:
+        chosen.append(free[len(free) // 2] if free[len(free) // 2] != free[0] else free[-1])
+
+    for index in chosen[:PHOTOGRAPHS_PER_WORK]:
+        section = sections[index]
+        section.image_prompt = (
+            f"professional documentary photograph illustrating "
+            f"{section.spec.heading('en').lower()} in the context of {topic}. "
+            "Real people and real equipment in a real workplace, natural "
+            "lighting, sharp focus, photorealistic, editorial quality. "
+            "No text, no letters, no diagrams, no illustration style."
+        )
+    return sections
+
+
 @dataclass
 class ProjectContent:
     topic: str
@@ -183,7 +223,6 @@ class ProjectContentBuilder:
         topic: str,
         field_key: str,
         language: str,
-        with_scheme: bool,
         depth: float = 1.0,
         source: Optional["SourceMaterial"] = None,
         progress_cb=None,
@@ -203,13 +242,14 @@ class ProjectContentBuilder:
         async def one(spec: SectionSpec) -> SectionContent:
             nonlocal done
             async with semaphore:
-                section = await self._section(topic, spec, language, with_scheme, brief)
+                section = await self._section(topic, spec, language, brief)
             done += 1
             if progress_cb:
                 progress_cb(done, len(specs))
             return section
 
         sections = await asyncio.gather(*(one(spec) for spec in specs))
+        sections = _place_photographs(list(sections), topic)
         references = await self._references(topic, language)
         return ProjectContent(
             topic=topic,
@@ -295,9 +335,10 @@ MATERIAL:
         """Mijoz tanlovini yakuniy blok ro'yxatiga aylantiradi.
 
         `auto` tanlansa mavzuga qarab AI hal qiladi: sof hisob-kitobli ishga
-        Gantt lentasi ham, risk matritsasi ham keraksiz, va aksincha.
+        Gantt lentasi ham, risklar diagrammasi ham keraksiz, va aksincha.
+        Tuzilma sxemasi bu ro'yxatga kirmaydi — u har bir ishda bo'ladi.
         """
-        chosen = [b for b in (blocks or []) if b in BLOCK_ORDER or b == BLOCK_SCHEME]
+        chosen = [b for b in (blocks or []) if b in BLOCK_ORDER]
         if BLOCK_AUTO not in (blocks or []):
             return chosen
 
@@ -307,8 +348,6 @@ MATERIAL:
             logger.error("Bloklarni AI tanlay olmadi: %s", e)
             proposed = []
         merged = [b for b in BLOCK_ORDER if b in proposed or b in chosen]
-        if BLOCK_SCHEME in chosen:
-            merged.append(BLOCK_SCHEME)
         return merged or list(DEFAULT_BLOCKS)
 
     async def suggest_field(self, topic: str) -> str:
@@ -400,7 +439,7 @@ Respond with JSON only:
         return proposed
 
     async def _section(
-        self, topic: str, spec: SectionSpec, language: str, with_scheme: bool, brief: str = ""
+        self, topic: str, spec: SectionSpec, language: str, brief: str = ""
     ) -> SectionContent:
         text = await self._section_text(topic, spec, language, brief)
 
@@ -424,12 +463,13 @@ Respond with JSON only:
                 logger.error("Loyiha diagrammasi olinmadi (%s): %s", spec.key, e)
             if spec.artifact == ARTIFACT_FORECAST:
                 formula = await self._formula(topic, spec, language)
-        elif spec.artifact == ARTIFACT_SCHEME and with_scheme:
-            image_prompt = (
-                f"clean professional diagram illustrating {spec.heading('en')} "
-                f"for a project about {topic}, flat vector style, labelled boxes "
-                f"and arrows, white background, no text captions"
-            )
+        elif spec.artifact == ARTIFACT_SCHEME:
+            # Sxema endi kod bilan chiziladi. AI chizgan sxemada yozuvlar
+            # buzilib chiqardi va uni o'qib bo'lmasdi.
+            try:
+                chart = await self._scheme(topic, spec, language, brief)
+            except Exception as e:
+                logger.error("Loyiha sxemasi olinmadi (%s): %s", spec.key, e)
 
         return SectionContent(spec=spec, text=text, table=table, chart=chart,
                               image_prompt=image_prompt, formula=formula)
@@ -538,6 +578,29 @@ Respond with JSON only, in exactly this shape:
             if raw.get(key):
                 return raw
         raise ValueError("diagramma ma'lumoti bo'sh qaytdi")
+
+    async def _scheme(self, topic: str, spec: SectionSpec, language: str,
+                      brief: str = "") -> Dict:
+        """Loyiha tuzilmasi sxemasi uchun bloklar ierarxiyasini so'raydi."""
+        target = _LANGUAGE_NAMES.get(language, "Uzbek")
+        prompt = f"""Describe the structure of this project as a hierarchy of blocks.
+
+Project topic: "{topic}"
+Section: "{spec.heading(language)}"
+
+"root" is the project or system name. "branches" are its 3-4 main parts;
+each has 2-3 concrete components under it. Keep every label short — two or
+three words — because they are drawn inside boxes. Write them in {target}.
+The parts must be specific to this project, not generic
+headings.{self._source_block(brief)}
+
+Respond with JSON only:
+{{"root": "Loyiha nomi",
+  "branches": [{{"name": "Laboratoriya", "items": ["Namuna olish", "Tahlil"]}}]}}"""
+        raw = await self._json_request(prompt, max_tokens=700, temperature=0.4)
+        if not raw.get("branches"):
+            raise ValueError("sxema bloklari bo'sh")
+        return raw
 
     async def _formula(self, topic: str, spec: SectionSpec, language: str) -> Optional[Dict]:
         """Samaradorlik hisobi — formula, qiymatlar va natija."""

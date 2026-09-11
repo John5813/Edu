@@ -21,18 +21,21 @@ ARTIFACT_TIMELINE = "timeline"  # bosqich | muddat | mas'ul | natija
 ARTIFACT_BUDGET = "budget"      # modda | miqdor | narx | summa
 ARTIFACT_RISKS = "risks"        # xavf | ehtimollik | ta'sir | chora
 ARTIFACT_RESULTS = "results"    # ko'rsatkich | hozirgi | maqsad | o'lchov
-ARTIFACT_SCHEME = "scheme"      # AI chizgan sxema (rasm)
+ARTIFACT_SCHEME = "scheme"      # tuzilma sxemasi (kod bilan chiziladi)
 ARTIFACT_FORECAST = "forecast"  # prognoz chizig'i + hisob formulasi
 ARTIFACT_CALC = "calc"          # hisob-kitob jadvali + formulalar, chizmasiz
 
 # Bir xil ko'rinishdagi beshta jadval o'rniga har ma'lumot o'z shaklini
 # oladi: xarajat — ustunli diagramma, bosqichlar — Gantt lentasi, risklar —
-# matritsa, natijalar — ko'rsatkich kartochkalari, prognoz — chiziq.
+# pufakchali yoki radar diagramma, natijalar — ko'rsatkich kartochkalari,
+# prognoz — chiziq, tuzilma — bloklar sxemasi.
 CHART_ARTIFACTS = {
     ARTIFACT_BUDGET,
     ARTIFACT_TIMELINE,
     ARTIFACT_RISKS,
     ARTIFACT_FORECAST,
+    # Sxema ham chizma: ilgari u AI rasmi edi va undagi yozuvlar buzilardi.
+    ARTIFACT_SCHEME,
 }
 CARD_ARTIFACTS = {ARTIFACT_RESULTS}
 TABLE_ARTIFACTS = {ARTIFACT_DATA, ARTIFACT_CALC}
@@ -50,7 +53,6 @@ BLOCK_TIMELINE = "timeline"
 BLOCK_FORECAST = "forecast"
 BLOCK_RISKS = "risks"
 BLOCK_RESULTS = "results"
-BLOCK_SCHEME = "scheme"
 BLOCK_AUTO = "auto"
 
 # Hujjatdagi tartib — mijoz tanlash tartibi emas.
@@ -72,7 +74,6 @@ BLOCK_LABELS: Dict[str, Dict[str, str]] = {
                   "en": "Risk analysis"},
     BLOCK_RESULTS: {"uz": "Kutilayotgan natijalar", "ru": "Ожидаемые результаты",
                     "en": "Expected results"},
-    BLOCK_SCHEME: {"uz": "Sxema/rasm", "ru": "Схема/рисунок", "en": "Scheme/figure"},
     BLOCK_AUTO: {"uz": "AI mavzuga qarab o'zi tanlasin",
                  "ru": "ИИ выберет сам по теме",
                  "en": "Let the AI choose by topic"},
@@ -227,6 +228,23 @@ CONCLUSION = SectionSpec(
         "and give practical recommendations for putting it into practice."
     ),
     words="240-300",
+)
+
+STRUCTURE = SectionSpec(
+    key="tuzilma",
+    title={
+        "uz": "Loyihaning tuzilmasi",
+        "ru": "Структура проекта",
+        "en": "Project structure",
+    },
+    guidance=(
+        "Describe how the project is put together: its main parts, what each "
+        "part is responsible for, and how they connect into one working whole. "
+        "Name the parts concretely — this is the structure of this project, not "
+        "a general description of the field."
+    ),
+    artifact=ARTIFACT_SCHEME,
+    words="260-320",
 )
 
 _OPENING = [INTRO, RELEVANCE]
@@ -469,17 +487,29 @@ def closing_for(blocks) -> List[SectionSpec]:
     return [*ordered, CONCLUSION]
 
 
+def _with_structure(middle: List[SectionSpec]) -> List[SectionSpec]:
+    """Har bir ishga tuzilma sxemasini qo'shadi.
+
+    Sxema o'rta bo'limlarning boshida turadi: o'quvchi avval loyihaning
+    tuzilishini ko'radi, keyin tafsilotlarni o'qiydi. Soha bo'limlarida
+    allaqachon sxema bo'lsa (masalan IT'dagi arxitektura), takrorlanmaydi.
+    """
+    if any(section.artifact == ARTIFACT_SCHEME for section in middle):
+        return list(middle)
+    return [STRUCTURE, *middle]
+
+
 def sections_for(field_key: str, blocks=None) -> List[SectionSpec]:
     """Sohaning to'liq bo'limlar ketma-ketligi."""
     spec = FIELDS.get(field_key)
     if spec is None:
         raise KeyError(f"noma'lum soha: {field_key}")
-    return [*_OPENING, *spec.middle, *closing_for(blocks)]
+    return [*_OPENING, *_with_structure(spec.middle), *closing_for(blocks)]
 
 
 def generic_sections(middle: List[SectionSpec], blocks=None) -> List[SectionSpec]:
     """AI taklif qilgan o'rta bo'limlarni umumiy skeletga joylaydi."""
-    return [*_OPENING, *middle, *closing_for(blocks)]
+    return [*_OPENING, *_with_structure(middle), *closing_for(blocks)]
 
 
 def field_label(field_key: str, language: str) -> str:
