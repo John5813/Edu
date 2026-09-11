@@ -348,12 +348,24 @@ def _colour_chart(chart, chart_type: str, palette) -> None:
     except Exception as exc:
         log.warning("Diagramma rangi qo'llanmadi: %s", exc)
 
+# Diagramma izohi uchun tasma. U diagrammaning E'LON QILINGAN maydoni
+# ICHIDAN olinadi: ilgari izoh maydondan pastga chizilardi va kanvasda
+# ko'rinmasdi, shuning uchun ustma-ustlik tuzatuvchisi uni hisobga ololmay,
+# diagramma ostidagi manba satri izoh bilan qo'shilib ketardi.
+_CAPTION_STRIP = 0.45
+
+
 def _draw_chart(slide, el, palette=None):
     """python-pptx native chart + caption (izoh matni) chizadi."""
     w = _clamp(el.w or 7.0, 2.0, 13.0)
-    h = _clamp(el.h or 4.0, 1.5, 6.5)   # caption uchun joy qoldiramiz
+    h = _clamp(el.h or 4.0, 1.5, 6.5)
     x = _clamp(el.x, 0.0, 11.0)
     y = _clamp(el.y, 0.0, 6.0)
+
+    caption_text = el.caption or el.chart_title or ""
+    graphic_h = h
+    if caption_text and h - _CAPTION_STRIP >= 1.2:
+        graphic_h = h - _CAPTION_STRIP
 
     chart_data = CategoryChartData()
 
@@ -386,7 +398,7 @@ def _draw_chart(slide, el, palette=None):
 
     try:
         chart_frame = slide.shapes.add_chart(
-            chart_type, Inches(x), Inches(y), Inches(w), Inches(h), chart_data
+            chart_type, Inches(x), Inches(y), Inches(w), Inches(graphic_h), chart_data
         )
         chart = chart_frame.chart
 
@@ -405,10 +417,9 @@ def _draw_chart(slide, el, palette=None):
 
         _colour_chart(chart, requested, palette)
 
-        # ── Caption: diagramma ostida izoh matni ──────────────────
-        caption_text = el.caption or el.chart_title or ""
+        # ── Caption: diagramma maydonining pastki tasmasida ───────
         if caption_text:
-            cap_y = _clamp(y + h + 0.08, 0.0, 7.3)
+            cap_y = _clamp(y + graphic_h + 0.05, 0.0, 7.3)
             # caption slayd ichida bo'lishini tekshir
             if cap_y + 0.35 <= 7.5:
                 cap_tb = slide.shapes.add_textbox(

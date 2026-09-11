@@ -128,8 +128,111 @@ def canvas_validation_and_fix(
 def fix_text_overlaps(brief: Brief) -> Brief:
     """Slayddagi matn bloklari bir-birining ustiga chiqmasligini ta'minlaydi."""
     for slide in brief.slides:
+        lift_text_off_blockers(slide)
         fix_slide_overlaps(slide)
     return brief
+
+
+# Ikki matn oralig'idagi eng kichik bo'shliq.
+_GAP = 0.1
+# Gorizontal kesishish shu ulushdan kam bo'lsa — bloklar yonma-yon ustunlarda
+# turibdi. Ularni vertikal ajratish kompozitsiyani buzadi, chunki ular
+# allaqachon bir-biriga xalaqit qilmaydi.
+_COLUMN_SHARE = 0.3
+# Qisqartirilgan matn blokining eng kichik balandligi.
+_MIN_TEXT_H = 0.45
+def _reading_key(element, index: int) -> tuple:
+    """Elementning o'qilish tartibidagi o'rni.
+
+    Sarlavha har doim birinchi: tuzatish jarayonida uning `y` qiymati
+    o'zgarsa ham u matn ostiga tushib qolmasligi kerak.
+    """
+    is_title = bool(element.bold) and (element.size or 0) >= _TITLE_MIN_SIZE
+    return (0 if is_title else 1, round(element.y, 2), round(element.x, 2), index)
+
+
+def _horizontal_share(first: tuple, second: tuple) -> float:
+    """Ikki maydon gorizontal bo'yicha qanchalik ustma-ust tushishini qaytaradi."""
+    ax, _, aw, _ = first
+    bx, _, bw, _ = second
+    overlap = min(ax + aw, bx + bw) - max(ax, bx)
+    if overlap <= 0 or aw <= 0 or bw <= 0:
+        return 0.0
+    return overlap / min(aw, bw)
+
+
+def _is_title(element) -> bool:
+    return bool(element.bold) and (element.size or 0) >= _TITLE_MIN_SIZE
+
+
+def _ceiling(element, placed: list) -> float:
+    """Element joylasha oladigan eng yuqori nuqta.
+
+    Faqat undan oldin o'qiladigan va gorizontal kesishadigan bloklar to'sadi;
+    yonma-yon ustundagi blok halaqit qilmaydi.
+    """
+    ex, _, ew, _ = _box(element)
+    top = _EDGE
+    for other in placed:
+        ox, oy, ow, oh = _box(other)
+        if min(ex + ew, ox + ow) - max(ex, ox) <= 0:
+            continue
+        if _horizontal_share(_box(element), _box(other)) < _COLUMN_SHARE:
+            continue
+        top = max(top, oy + oh + _GAP)
+    return top
+
+
+def _flow(ordered: list, compact: bool) -> bool:
+    """Bloklarni o'qilish tartibida yuqoridan pastga joylaydi.
+
+    Har blok o'zidan oldingilarning ostiga tushadi, shuning uchun tartib
+    hech qachon teskari bo'lmaydi. `compact` rejimida bloklar imkon qadar
+    yuqoriga tortiladi — bu faqat slaydga sig'may qolganda ishlatiladi,
+    chunki u dizayn qo'ygan bo'shliqlarni yeb qo'yadi. Sarlavha esa
+    ko'tarilmaydi: u o'zining bezak bandi ichida turishi kerak.
+    """
+    fits = True
+    placed = []
+    for element in ordered:
+        top = _ceiling(element, placed)
+        if element.y < top - _TOLERANCE or (compact and not _is_title(element)):
+            element.y = top
+        _, _, _, height = _box(element)
+        if element.y + height > SLIDE_H - _EDGE + _TOLERANCE:
+            fits = False
+        placed.append(element)
+    return fits
+
+
+def _shrink_overflow(ordered: list) -> None:
+    """Slayddan toshib ketgan matnni qisqartiradi.
+
+    Tartibni buzib blokni yuqoriga ko'tarishdan ko'ra matnni kichraytirgan
+    ma'qul. Qisqartirish faqat oxirgi blokdan emas, hamma moslashuvchan
+    bloklardan ulushiga qarab olinadi: aks holda oxirgisi yolg'iz o'zi
+    o'qib bo'lmas darajada siqilardi. Sarlavhaga tegilmaydi.
+    """
+    bottom = max((element.y + _box(element)[3]) for element in ordered)
+    overflow = bottom - (SLIDE_H - _EDGE)
+    if overflow <= _TOLERANCE:
+        return
+
+    flexible = [e for e in ordered
+                if not _is_title(e) and _box(e)[3] > _MIN_TEXT_H + _TOLERANCE]
+    slack = sum(_box(e)[3] - _MIN_TEXT_H for e in flexible)
+    if slack <= _TOLERANCE:
+        return
+
+    ratio = min(1.0, overflow / slack)
+    for element in flexible:
+        height = _box(element)[3]
+        new_height = height - (height - _MIN_TEXT_H) * ratio
+        if element.size:
+            # Pastki chegara `enforce_min_text_size` bilan bir xil, aks holda
+            # u shriftni qaytarib kattalashtirib, matn blokdan toshib ketardi.
+            element.size = max(13.0, element.size * max(new_height / height, 0.7))
+        element.h = new_height
 
 
 def fix_slide_overlaps(slide: Slide) -> Slide:
@@ -138,71 +241,44 @@ def fix_slide_overlaps(slide: Slide) -> Slide:
     Alohida funksiya, chunki vizual QA aynan bitta slaydni tuzatadi —
     uni `Brief` ichiga o'rash rol tartibi validatorini buzardi.
     """
-    slide_w = 13.333
-    slide_h = 7.5
-    edge = 0.3
+    edge = _EDGE
+    # locked — infografika presetlari hisoblab qo'ygan matnlar. Ularning
+    # o'rni kartochkasiga bog'liq, mustaqil surilsa kompozitsiya buziladi.
+    texts = [e for e in slide.canvas.elements if e.type == "text" and not e.locked]
+    if not texts:
+        return slide
 
-    if True:
-        # locked — infografika presetlari hisoblab qo'ygan matnlar. Ularning
-        # o'rni kartochkasiga bog'liq, mustaqil surilsa kompozitsiya buziladi.
-        text_els = [e for e in slide.canvas.elements
-                    if e.type == "text" and not e.locked]
+    # Renderer elementlarni slayd ichiga qistiradi. QA esa renderdan oldingi
+    # koordinatalar bilan ishlaydi, shuning uchun avval bir xil koordinata
+    # tizimiga keltiramiz.
+    for element in texts:
+        width = min(max(element.w or 5.0, 0.5), SLIDE_W - edge * 2)
+        height = min(max(element.h or 1.0, 0.2), SLIDE_H - edge * 2)
+        element.w, element.h = width, height
+        element.x = min(max(element.x, edge), SLIDE_W - edge - width)
+        element.y = min(max(element.y, edge), SLIDE_H - edge - height)
 
-        # Renderer elementlarni slayd ichiga qistiradi. QA esa renderdan oldingi
-        # koordinatalar bilan ishlaydi, shuning uchun avval bir xil koordinata
-        # tizimiga keltiramiz.
-        for el in text_els:
-            el_w = el.w or 5.0
-            el_h = el.h or 1.0
-            el.w = min(max(el_w, 0.5), slide_w - edge * 2)
-            el.h = min(max(el_h, 0.2), slide_h - edge * 2)
-            el.x = min(max(el.x, edge), slide_w - edge - el.w)
-            el.y = min(max(el.y, edge), slide_h - edge - el.h)
+    # O'qilish tartibi bir marta, kirish holatidan olinadi va keyin
+    # o'zgarmaydi. Ilgari "qaysi biri pastroq turibdi" degan savolga har
+    # iteratsiyada qayta javob berilardi: bir marta surilgan blok keyingi
+    # aylanishda anchorga aylanib, sarlavhani o'zidan pastga itarib
+    # yuborardi va slayd teskari o'qiladigan bo'lib qolardi.
+    # `texts.index(...)` ishlatilmaydi: pydantic modellari qiymat bo'yicha
+    # taqqoslanadi, ya'ni bir xil ikki matn bitta indeksni qaytarardi.
+    ordered = [element for _, element in sorted(
+        ((_reading_key(element, position), element)
+         for position, element in enumerate(texts)),
+        key=lambda pair: pair[0],
+    )]
 
-        changed = True
-        max_iter = max(10, len(text_els) * len(text_els))
-        while changed and max_iter > 0:
-            changed = False
-            max_iter -= 1
-            for i in range(len(text_els)):
-                for j in range(i + 1, len(text_els)):
-                    el1, el2 = text_els[i], text_els[j]
-                    el1_w = el1.w or 5.0
-                    el1_h = el1.h or 1.0
-                    el2_w = el2.w or 5.0
-                    el2_h = el2.h or 1.0
+    if not _flow(ordered, compact=False):
+        _flow(ordered, compact=True)
+        _shrink_overflow(ordered)
+        _flow(ordered, compact=True)
 
-                    # Gorizontal va vertikal kesishishni tekshir
-                    h_overlap = (el1.x < el2.x + el2_w) and (el2.x < el1.x + el1_w)
-                    v_overlap = (el1.y < el2.y + el2_h) and (el2.y < el1.y + el1_h)
-
-                    if h_overlap and v_overlap:
-                        # Pastdagini biroz pastga tushir. Pastda joy qolmasa,
-                        # yuqoridagi blokni ko'taramiz; eski kod bu holatda
-                        # hech narsa qilmasdan chiqib ketardi.
-                        if el1.y <= el2.y:
-                            moving, anchor = el2, el1
-                        else:
-                            moving, anchor = el1, el2
-
-                        moving_h = moving.h or 1.0
-                        anchor_h = anchor.h or 1.0
-                        below = anchor.y + anchor_h + 0.1
-                        max_y = slide_h - edge - moving_h
-                        if below <= max_y:
-                            new_y = below
-                        else:
-                            above = anchor.y - moving_h - 0.1
-                            new_y = max(edge, above)
-
-                        if abs(moving.y - new_y) > 0.001:
-                            moving.y = new_y
-                            changed = True
-
-        # A final clamp is important after several cascading moves.
-        for el in text_els:
-            el.x = min(max(el.x, edge), slide_w - edge - (el.w or 5.0))
-            el.y = min(max(el.y, edge), slide_h - edge - (el.h or 1.0))
+    for element in texts:
+        element.x = min(max(element.x, edge), SLIDE_W - edge - (element.w or 5.0))
+        element.y = min(max(element.y, edge), SLIDE_H - edge - (element.h or 1.0))
     return slide
 
 
@@ -878,8 +954,7 @@ _TOLERANCE = 0.02
 # odatiy hol. Faqat matnning sezilarli qismi yopilgandagina suramiz.
 _MIN_OVERLAP_SHARE = 0.15
 
-# Matn ustiga tushib qolsa o'qilmay qoladigan elementlar. `rect` faqat
-# to'ldirilgan bo'lsa hisobga olinadi — fonsiz to'rtburchak xalaqit bermaydi.
+# Matn ustiga tushib qolsa o'qilmay qoladigan elementlar.
 _OPAQUE_TYPES = {"image", "chart", "kpi", "circle", "infographic"}
 
 
@@ -908,9 +983,15 @@ def _overlap_share(text_box: tuple, blocker_box: tuple) -> float:
 
 
 def _is_opaque(element) -> bool:
-    if element.type in _OPAQUE_TYPES:
-        return True
-    return element.type == "rect" and bool(element.fill)
+    """Matnni yeb qo'yadigan element — rasm, diagramma, ikonka doirasi.
+
+    To'ldirilgan `rect` bu ro'yxatda emas: bezak bandi ham, kartochka ham
+    aynan matn ORTIDA turishi uchun chiziladi. Ilgari u ham to'suvchi
+    sanalardi va sarlavha o'z bandidan surib chiqarilardi — band bo'sh
+    qolib, sarlavha kontent ustiga tushardi. O'qilishini `ensure_title_contrast`
+    va `ensure_body_contrast` ta'minlaydi.
+    """
+    return element.type in _OPAQUE_TYPES
 
 
 def pull_inside(slide: Slide) -> int:
@@ -955,14 +1036,20 @@ def lift_text_off_blockers(slide: Slide) -> int:
                 continue
             if _overlap_share(text_box, blocker_box) < _MIN_OVERLAP_SHARE:
                 continue
-            if _shift_clear(text, blocker_box):
+            is_title = bool(text.bold) and (text.size or 0) >= _TITLE_MIN_SIZE
+            if _shift_clear(text, blocker_box, prefer_up=is_title):
                 moved += 1
                 break
     return moved
 
 
-def _shift_clear(text, blocker: tuple) -> bool:
-    """Matnni to'suvchi elementdan chetga suradi — eng kam siljish tomoniga."""
+def _shift_clear(text, blocker: tuple, prefer_up: bool = False) -> bool:
+    """Matnni to'suvchi elementdan chetga suradi — eng kam siljish tomoniga.
+
+    `prefer_up` sarlavha uchun: uni pastga surish slaydni boshsiz qoldiradi,
+    shuning uchun avval yuqoriga (va yon tomonlarga) qaraladi va pastga
+    tushirish faqat boshqa iloj qolmaganda bo'ladi.
+    """
     tx, ty, tw, th = _box(text)
     bx, by, bw, bh = blocker
 
@@ -973,18 +1060,20 @@ def _shift_clear(text, blocker: tuple) -> bool:
         ("pastga", tx, by + bh + 0.12),
     ]
     best = None
-    for _, new_x, new_y in candidates:
+    for name, new_x, new_y in candidates:
         if new_x < _EDGE - _TOLERANCE or new_x + tw > SLIDE_W - _EDGE + _TOLERANCE:
             continue
         if new_y < _EDGE - _TOLERANCE or new_y + th > SLIDE_H - _EDGE + _TOLERANCE:
             continue
         distance = abs(new_x - tx) + abs(new_y - ty)
-        if best is None or distance < best[0]:
-            best = (distance, new_x, new_y)
+        # Sarlavha uchun pastga tushish eng oxirgi chora.
+        rank = 1 if (prefer_up and name == "pastga") else 0
+        if best is None or (rank, distance) < (best[0], best[1]):
+            best = (rank, distance, new_x, new_y)
 
     if best is None:
         return False
-    text.x, text.y = best[1], best[2]
+    text.x, text.y = best[2], best[3]
     return True
 
 
