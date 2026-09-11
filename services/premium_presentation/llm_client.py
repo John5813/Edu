@@ -375,7 +375,10 @@ def _salvage_partial_json(text: str) -> dict | None:
 
 def _call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 0.7) -> dict:
     if not config.OPENROUTER_API_KEY:
-        raise RuntimeError("OPENROUTER_API_KEY topilmadi")
+        raise RuntimeError(
+            "OpenRouter kaliti topilmadi — muhitda AI_INTEGRATIONS_OPENROUTER_API_KEY "
+            "yoki OPENROUTER_API_KEY bo'lishi kerak"
+        )
 
     headers = {
         "Authorization": f"Bearer {config.OPENROUTER_API_KEY}",

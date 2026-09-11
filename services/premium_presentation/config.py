@@ -1,11 +1,22 @@
 import os
 
 # Premium presentation OpenAI-compatible OpenRouter API orqali ishlaydi.
-# Kalit Replit Secrets'da OPENROUTER_API_KEY sifatida saqlanadi.
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
-OPENROUTER_BASE_URL = os.getenv(
-    "OPENROUTER_BASE_URL",
-    "https://openrouter.ai/api/v1",
+#
+# Kalit ikki nom bilan saqlanishi mumkin: Replit integratsiyasi uni
+# `AI_INTEGRATIONS_OPENROUTER_API_KEY` deb qo'yadi, qo'lda sozlanganda esa
+# odatda `OPENROUTER_API_KEY` bo'ladi. Ildizdagi `config.py` ikkalasini ham
+# qabul qiladi, bu modul esa faqat ikkinchisini bilardi — shu sababli bir
+# serverda oddiy taqdimot ishlab, premium "OPENROUTER_API_KEY topilmadi"
+# deb to'xtardi. Endi ro'yxat bir xil.
+OPENROUTER_API_KEY = (
+    os.getenv("AI_INTEGRATIONS_OPENROUTER_API_KEY")
+    or os.getenv("OPENROUTER_API_KEY")
+    or ""
+)
+OPENROUTER_BASE_URL = (
+    os.getenv("AI_INTEGRATIONS_OPENROUTER_BASE_URL")
+    or os.getenv("OPENROUTER_BASE_URL")
+    or "https://openrouter.ai/api/v1"
 ).rstrip("/")
 OPENROUTER_URL = os.getenv(
     "OPENROUTER_URL",
