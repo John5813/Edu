@@ -23,6 +23,22 @@ SLIDE_H = 7.5
 MIN_BODY_PT = 11.0
 MAX_ITEMS = 6
 
+# Har preset nechta bandni ko'tara oladi. Halqa uchtadan kam va to'rttadan
+# ko'p bandni ko'tara olmaydi (yassi ellipsda bandlar bir-birining ustiga
+# tushadi), piramida esa beshtadan ko'pini.
+PRESET_FITS = {
+    "cards": (2, 6),
+    "steps": (2, 6),
+    "timeline": (2, 6),
+    "cycle": (3, 4),
+    "pyramid": (2, 5),
+}
+
+
+def fits(preset: str, items: int) -> bool:
+    low, high = PRESET_FITS.get(preset, (2, MAX_ITEMS))
+    return low <= items <= high
+
 
 def expand(el: VisualElement, theme=None) -> list[VisualElement]:
     """Infografika elementini ibtidoiy elementlar ro'yxatiga aylantiradi."""
@@ -100,7 +116,8 @@ def _cards(items, x, y, w, h, colors):
                                item.icon, item.title))
 
         _stack_text(out, item, col_x + 0.16, card_y + icon_d / 2 + 0.24, text_w,
-                    card_y + card_h - 0.2, hue, title_box=title_box)
+                    card_y + card_h - 0.2, hue, title_box=title_box,
+                    surface=_tint(hue, 0.88))
     return out
 
 
@@ -127,8 +144,10 @@ def _steps(items, x, y, w, h, colors):
         out.append(VisualElement(type="rect", x=col_x, y=top, w=col_w, h=card_h,
                                  fill=_tint(hue, 0.9)))
         out.append(VisualElement(type="rect", x=col_x, y=top, w=col_w, h=band_h, fill=hue))
+        # Quti band balandligidan oshmasin: oshsa, raqam och kartochka
+        # ustiga tushib, oq rangda ko'rinmay qolardi.
         out.append(VisualElement(type="text", x=col_x, y=top + band_h * 0.18,
-                                 w=col_w, h=band_h, align="center",
+                                 w=col_w, h=band_h * 0.7, align="center",
                                  text=item.value or f"{i + 1:02d}",
                                  size=min(20, band_h * 34), bold=True,
                                  color=_ink(hue)))
@@ -301,7 +320,7 @@ def _icon_badge(x, y, d, hue, icon_name, fallback_text, glyph_only=False):
 
 
 def _stack_text(out, item, x, y, w, bottom, hue, align="left",
-                skip_value=False, on_fill=None, title_box=None):
+                skip_value=False, on_fill=None, title_box=None, surface="FFFFFF"):
     """Sarlavha va matnni ustma-ust joylaydi, o'lchamni joyga moslab kichraytiradi."""
     cursor = y
     title_color = _ink(on_fill) if on_fill else "1B2A4A"
@@ -310,7 +329,7 @@ def _stack_text(out, item, x, y, w, bottom, hue, align="left",
     if not skip_value and item.value and bottom - cursor >= 0.36:
         out.append(VisualElement(type="text", x=x, y=cursor, w=w, h=0.36,
                                  text=item.value, size=VALUE_PT, bold=True,
-                                 align=align, color=hue))
+                                 align=align, color=_readable(hue, surface)))
         cursor += 0.38
 
     if item.title and bottom - cursor >= 0.24:
@@ -544,11 +563,45 @@ def _tint(hex_str: str, amount: float) -> str:
     return f"{mix(r):02X}{mix(g):02X}{mix(b):02X}"
 
 
+def _readable(hue: str, background: str, minimum: float = 4.5) -> str:
+    """Rangni fon ustida o'qiladigan bo'lguncha to'qlashtiradi.
+
+    Sariq yoki och yashil kategoriya rangi oq fonda matn sifatida
+    ishlatilsa, kontrast 2.2 ga tushib ketadi — rang ko'rinadi, lekin
+    yozuvni o'qib bo'lmaydi. Bu yerda rang o'z tusini saqlab, faqat
+    yorqinligi pasaytiriladi.
+    """
+    r, g, b = _rgb(hue)
+    for _ in range(12):
+        if _contrast(f"{r:02X}{g:02X}{b:02X}", background) >= minimum:
+            break
+        r, g, b = int(r * 0.82), int(g * 0.82), int(b * 0.82)
+    return f"{r:02X}{g:02X}{b:02X}"
+
+
+def _relative_luminance(hex_str: str) -> float:
+    channels = [c / 255 for c in _rgb(hex_str)]
+    linear = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def _contrast(first: str, second: str) -> float:
+    a, b = _relative_luminance(first), _relative_luminance(second)
+    high, low = max(a, b), min(a, b)
+    return (high + 0.05) / (low + 0.05)
+
+
 def _ink(fill: str | None) -> str:
-    """Fon ustida o'qiladigan matn/ikonka rangi — yorqinlikdan hisoblanadi."""
-    r, g, b = _rgb(fill or "000000")
-    luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-    return "1B2A4A" if luminance > 0.62 else "FFFFFF"
+    """Fon ustida o'qiladigan matn/ikonka rangi.
+
+    Ilgari bu oddiy yorqinlik formulasi edi va yashil (#1baf7a) kabi o'rta
+    ranglarda oqni tanlardi — kontrast 2.82, ya'ni o'qish qiyin. Endi
+    ikkala variant ham haqiqiy kontrast bo'yicha o'lchanadi va kattasi
+    olinadi.
+    """
+    fill = fill or "000000"
+    dark, light = "1B2A4A", "FFFFFF"
+    return dark if _contrast(dark, fill) >= _contrast(light, fill) else light
 
 
 def _clamp(value, low, high):

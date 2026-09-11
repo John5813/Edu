@@ -78,14 +78,28 @@ def get(key: str) -> Palette:
     return PALETTES.get(key, DEFAULT_PALETTE)
 
 
-def on_fill(fill: str) -> str:
-    """Fon ustida o'qiladigan matn rangi — yorqinlikdan hisoblanadi."""
-    h = (fill or "").lstrip("#")
+def _luminance(hex_str: str) -> float:
+    h = (hex_str or "").lstrip("#")
     if len(h) != 6:
-        return INK
-    r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
-    luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-    return INK if luminance > 0.62 else "#ffffff"
+        return 0.0
+    channels = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+    linear = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def contrast(first: str, second: str) -> float:
+    a, b = _luminance(first), _luminance(second)
+    high, low = max(a, b), min(a, b)
+    return (high + 0.05) / (low + 0.05)
+
+
+def on_fill(fill: str) -> str:
+    """Fon ustida o'qiladigan matn rangi — haqiqiy kontrast bo'yicha.
+
+    Oddiy yorqinlik formulasi o'rta to'qlikdagi ranglarda (masalan yashil)
+    oqni tanlab qo'yardi, holbuki to'q siyoh ancha aniqroq ko'rinadi.
+    """
+    return INK if contrast(INK, fill) >= contrast("#ffffff", fill) else "#ffffff"
 
 
 def shades(palette: Palette, values: List[float]) -> List[str]:

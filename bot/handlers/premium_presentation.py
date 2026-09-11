@@ -16,6 +16,7 @@ from aiogram.types import (
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from bot import checkout as pay
 from bot.states import PremiumPresentationStates
 from database.database import Database
 from translations import get_text
@@ -80,33 +81,12 @@ def _preferences_keyboard(lang: str) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def _level_keyboard(lang: str) -> InlineKeyboardMarkup:
-    builder = InlineKeyboardBuilder()
-    if lang == "ru":
-        builder.button(text="🏫 1. Школьный уровень", callback_data="prem_ppt_level:1")
-        builder.button(text="🎓 2. Студент", callback_data="prem_ppt_level:2")
-        builder.button(text="📚 3. Академический", callback_data="prem_ppt_level:3")
-        builder.button(text="🔙 Назад", callback_data="prem_ppt_back_to_name")
-    elif lang == "en":
-        builder.button(text="🏫 1. School level", callback_data="prem_ppt_level:1")
-        builder.button(text="🎓 2. Student", callback_data="prem_ppt_level:2")
-        builder.button(text="📚 3. Academic", callback_data="prem_ppt_level:3")
-        builder.button(text="🔙 Back", callback_data="prem_ppt_back_to_name")
-    else:
-        builder.button(text="🏫 1. Maktab darsligi", callback_data="prem_ppt_level:1")
-        builder.button(text="🎓 2. Student", callback_data="prem_ppt_level:2")
-        builder.button(text="📚 3. Akademik", callback_data="prem_ppt_level:3")
-        builder.button(text="🔙 Orqaga", callback_data="prem_ppt_back_to_name")
-    builder.adjust(1)
-    return builder.as_markup()
-
-
 def _slide_count_keyboard(lang: str) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for n in [5, 8, 10, 12, 15, 20, 25, 30]:
         price = _get_price(n)
         builder.button(text=f"{n} ta | {price:,} so'm", callback_data=f"prem_ppt_count:{n}")
-    builder.button(text=_back_text(lang), callback_data="prem_ppt_back_to_level")
+    builder.button(text=_back_text(lang), callback_data="prem_ppt_back_to_preferences")
     builder.adjust(2)
     return builder.as_markup()
 
@@ -126,23 +106,15 @@ def _confirm_keyboard(lang: str, slide_count: int, price: int) -> InlineKeyboard
     return builder.as_markup()
 
 
+# Premium ham boshqa xizmatlar bilan bir xil to'lov oqimidan foydalanadi:
+# balans yetmasa buyurtma saqlanib qoladi, Stars esa «boshqa to'lov usuli»
+# ortida turadi. Ilgari bu yerda o'z klaviaturasi bor edi va mablag'
+# yetmaganda oqim shu yerda tugardi.
+CHECKOUT = pay.Checkout(service="prem", back_callback="prem_ppt_back_to_confirm")
+
+
 def _payment_keyboard(lang: str, price: int) -> InlineKeyboardMarkup:
-    builder = InlineKeyboardBuilder()
-    stars = som_to_stars(price)
-    if lang == "ru":
-        builder.button(text=f"💰 С баланса · {price:,} сум", callback_data="prem_ppt_pay_balance")
-        builder.button(text=f"⭐ Оплатить {stars} Stars", callback_data="prem_ppt_pay_stars")
-        builder.button(text="🔙 Назад", callback_data="prem_ppt_back_to_confirm")
-    elif lang == "en":
-        builder.button(text=f"💰 From balance · {price:,} soʻm", callback_data="prem_ppt_pay_balance")
-        builder.button(text=f"⭐ Pay {stars} Stars", callback_data="prem_ppt_pay_stars")
-        builder.button(text="🔙 Back", callback_data="prem_ppt_back_to_confirm")
-    else:
-        builder.button(text=f"💰 Balansdan · {price:,} so'm", callback_data="prem_ppt_pay_balance")
-        builder.button(text=f"⭐ {stars} Stars bilan to‘lash", callback_data="prem_ppt_pay_stars")
-        builder.button(text="🔙 Orqaga", callback_data="prem_ppt_back_to_confirm")
-    builder.adjust(1)
-    return builder.as_markup()
+    return pay.payment_keyboard(CHECKOUT, lang, price)
 
 
 class _MessageCallbackAdapter:
@@ -163,6 +135,8 @@ class _MessageCallbackAdapter:
 async def premium_presentation_start(message: Message, state: FSMContext, db: Database):
     """Premium taqdimot tugmasi bosilganda"""
     await state.clear()
+    # Buyurtma boshlangan vaqti — bir soatdan keyin eskirishini hisoblash uchun.
+    await state.set_data(pay.start({}))
     user = await db.get_user(message.from_user.id)
     lang = user.language if user else "uz"
 
@@ -405,74 +379,6 @@ async def premium_ppt_skip_preferences(callback: CallbackQuery, state: FSMContex
     await _show_auto_confirm(callback, state, lang, is_callback=True)
 
 
-async def _show_level_step(source, state: FSMContext, lang: str, is_callback: bool):
-    await state.set_state(PremiumPresentationStates.waiting_for_level)
-    data = await state.get_data()
-    topic = data.get("topic", "")
-    msgs = {
-        "uz": (
-            f"📋 Mavzu: <b>{topic}</b>\n\n"
-            "📐 <b>Taqdimot qaysi daraja uchun?</b>\n\n"
-            "🏫 <b>1. Maktab darsligi</b>\n"
-            "   Bolalar uchun juda oddiy, hayotdan misollar\n\n"
-            "🎓 <b>2. Student</b>\n"
-            "   Tartibli, aniq ma'lumotlar, murakkablik o'rtacha\n\n"
-            "📚 <b>3. Akademik</b>\n"
-            "   Chuqur tahlil, ilmiy faktlar, professional til"
-        ),
-        "ru": (
-            f"📋 Тема: <b>{topic}</b>\n\n"
-            "📐 <b>Для какого уровня презентация?</b>\n\n"
-            "🏫 <b>1. Школьный уровень</b>\n"
-            "   Очень просто, примеры из жизни\n\n"
-            "🎓 <b>2. Студент</b>\n"
-            "   Структурировано, точные данные, средняя сложность\n\n"
-            "📚 <b>3. Академический</b>\n"
-            "   Глубокий анализ, научные факты, профессиональный язык"
-        ),
-        "en": (
-            f"📋 Topic: <b>{topic}</b>\n\n"
-            "📐 <b>What level is this presentation for?</b>\n\n"
-            "🏫 <b>1. School level</b>\n"
-            "   Very simple, real-life examples\n\n"
-            "🎓 <b>2. Student</b>\n"
-            "   Structured, accurate data, moderate complexity\n\n"
-            "📚 <b>3. Academic</b>\n"
-            "   Deep analysis, scientific facts, professional language"
-        ),
-    }
-    text = msgs.get(lang, msgs["uz"])
-    kb = _level_keyboard(lang)
-    if is_callback:
-        await source.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
-    else:
-        await source.answer(text, parse_mode="HTML", reply_markup=kb)
-
-
-# ──────────────────────────────────────────────────────────────── LEVEL
-
-@router.callback_query(F.data.startswith("prem_ppt_level:"))
-async def premium_ppt_got_level(callback: CallbackQuery, state: FSMContext, db: Database):
-    await callback.answer()
-    user = await db.get_user(callback.from_user.id)
-    lang = user.language if user else "uz"
-    level = int(callback.data.split(":")[1])
-    await state.update_data(level=level)
-    await state.set_state(PremiumPresentationStates.waiting_for_slide_count)
-
-    data = await state.get_data()
-    topic = data.get("topic", "")
-    level_label = LEVEL_LABELS.get(level, {}).get(lang, "")
-
-    msgs = {
-        "uz": f"📋 Mavzu: <b>{topic}</b>\n📐 Daraja: <b>{level_label}</b>\n\n📊 Necha slayd kerak?",
-        "ru": f"📋 Тема: <b>{topic}</b>\n📐 Уровень: <b>{level_label}</b>\n\n📊 Сколько слайдов нужно?",
-        "en": f"📋 Topic: <b>{topic}</b>\n📐 Level: <b>{level_label}</b>\n\n📊 How many slides do you need?",
-    }
-    await callback.message.edit_text(msgs.get(lang, msgs["uz"]), parse_mode="HTML",
-                                     reply_markup=_slide_count_keyboard(lang))
-
-
 @router.callback_query(F.data == "prem_ppt_back_to_name")
 async def premium_ppt_back_to_name(callback: CallbackQuery, state: FSMContext, db: Database):
     """Daraja sahifasidan ism sahifasiga qaytish"""
@@ -503,13 +409,17 @@ async def premium_ppt_back_to_name(callback: CallbackQuery, state: FSMContext, d
                                      reply_markup=_client_name_keyboard(lang))
 
 
-@router.callback_query(F.data == "prem_ppt_back_to_level")
-async def premium_ppt_back_to_level(callback: CallbackQuery, state: FSMContext, db: Database):
-    """Slayd soni sahifasidan daraja sahifasiga qaytish"""
+@router.callback_query(F.data == "prem_ppt_back_to_preferences")
+async def premium_ppt_back_to_preferences(callback: CallbackQuery, state: FSMContext, db: Database):
+    """Slayd sonidan istaklar qadamiga qaytish.
+
+    Ilgari bu tugma daraja tanlash oynasiga qaytarardi — o'sha oyna oqimdan
+    olib tashlangan bo'lsa ham, orqaga bosilganda qayta paydo bo'lardi.
+    """
     await callback.answer()
     user = await db.get_user(callback.from_user.id)
     lang = user.language if user else "uz"
-    await _show_level_step(callback, state, lang, is_callback=True)
+    await _show_preferences_step(callback, state, lang, is_callback=True)
 
 
 # ──────────────────────────────────────────────────────────────── SLIDE COUNT
@@ -604,8 +514,70 @@ async def premium_ppt_recount(callback: CallbackQuery, state: FSMContext, db: Da
 
 # ──────────────────────────────────────────────────────────────── CONFIRM & GENERATE
 
+async def _order(user_id: int, state: FSMContext) -> dict:
+    """Buyurtmani FSM dan, u yo'q bo'lsa saqlangan nusxadan oladi."""
+    data = await state.get_data()
+    if data.get("topic") and not pay.is_expired(data):
+        return data
+
+    saved = pay.recall(user_id, CHECKOUT.service)
+    if saved:
+        await state.set_data(saved)
+        await state.set_state(PremiumPresentationStates.waiting_for_payment)
+    return saved
+
+
+async def _report_expired(message: Message, state: FSMContext, lang: str) -> None:
+    await state.clear()
+    await message.answer(get_text(lang, "pay_order_expired"), parse_mode="HTML")
+
+
+@router.callback_query(F.data == CHECKOUT.pay_other)
+async def premium_ppt_other_methods(callback: CallbackQuery, state: FSMContext, db: Database):
+    """Stars va balansni to'ldirish — asosiy oynani chalg'itmasin deb shu yerda."""
+    await callback.answer()
+    user = await db.get_user(callback.from_user.id)
+    lang = user.language if user else "uz"
+    data = await _order(callback.from_user.id, state)
+    if not data:
+        await _report_expired(callback.message, state, lang)
+        return
+    price = int(data.get("price", 7500))
+    await callback.message.edit_text(
+        get_text(lang, "pay_other_title", price=price),
+        parse_mode="HTML",
+        reply_markup=pay.other_methods_keyboard(CHECKOUT, lang, price),
+    )
+
+
+@router.callback_query(F.data == CHECKOUT.recheck)
+async def premium_ppt_recheck(callback: CallbackQuery, state: FSMContext, db: Database):
+    """Balans to'ldirilgandan keyin — buyurtmani yo'qotmasdan davom etish."""
+    user = await db.get_user(callback.from_user.id)
+    lang = user.language if user else "uz"
+    data = await _order(callback.from_user.id, state)
+    if not data:
+        await callback.answer()
+        await _report_expired(callback.message, state, lang)
+        return
+
+    price = int(data.get("price", 7500))
+    balance = user.balance if user else 0
+    if balance < price:
+        await callback.answer(
+            get_text(lang, "pay_still_short", balance=balance, price=price),
+            show_alert=True,
+        )
+        return
+
+    await callback.answer()
+    pay.forget(callback.from_user.id)
+    await state.update_data(payment_method="balance")
+    await state.set_state(PremiumPresentationStates.waiting_for_slide_count)
+    await premium_ppt_confirm(callback, state, db)
+
 @router.callback_query(
-    F.data == "prem_ppt_pay_balance",
+    F.data == CHECKOUT.pay_balance,
     PremiumPresentationStates.waiting_for_payment,
 )
 async def premium_ppt_pay_balance(callback: CallbackQuery, state: FSMContext, db: Database):
@@ -618,31 +590,29 @@ async def premium_ppt_pay_balance(callback: CallbackQuery, state: FSMContext, db
 
 
 @router.callback_query(
-    F.data == "prem_ppt_pay_stars",
+    F.data == CHECKOUT.pay_stars,
     PremiumPresentationStates.waiting_for_payment,
 )
 async def premium_ppt_pay_stars(callback: CallbackQuery, state: FSMContext, db: Database):
     await callback.answer()
-    data = await state.get_data()
+    user = await db.get_user(callback.from_user.id)
+    lang = user.language if user else "uz"
+    data = await _order(callback.from_user.id, state)
+    if not data:
+        await _report_expired(callback.message, state, lang)
+        return
     price = int(data.get("price", 7500))
     slide_count = int(data.get("slide_count", 10))
-    stars = som_to_stars(price)
-    title = "Premium taqdimot"
-    description = f"{slide_count} ta slayd uchun premium taqdimot"
-
-    try:
-        await callback.message.answer_invoice(
-            title=title,
-            description=description,
-            payload=f"premium_ppt_{callback.from_user.id}_{price}_{slide_count}",
-            provider_token="",
-            currency="XTR",
-            prices=[LabeledPrice(label=title, amount=stars)],
-        )
-        await callback.message.edit_reply_markup(reply_markup=None)
-    except Exception as e:
-        logger.exception("Premium presentation Stars invoice error: %s", e)
-        await callback.answer("❌ Stars to‘lovini ochib bo‘lmadi", show_alert=True)
+    sent = await pay.send_invoice(
+        callback.message, CHECKOUT, lang, price,
+        title="Premium taqdimot",
+        description=f"{slide_count} ta slayd uchun premium taqdimot",
+    )
+    if sent:
+        try:
+            await callback.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
 
 
 @router.message(
@@ -653,10 +623,14 @@ async def premium_ppt_successful_stars(
     message: Message, state: FSMContext, db: Database
 ):
     payment = message.successful_payment
-    if not payment or not payment.invoice_payload.startswith("premium_ppt_"):
+    if not payment or not CHECKOUT.owns_payload(payment.invoice_payload):
         return
 
-    data = await state.get_data()
+    data = await _order(message.chat.id, state)
+    if not data:
+        await _report_expired(message, state, "uz")
+        return
+    pay.forget(message.chat.id)
     await state.update_data(payment_method="stars")
     await state.set_state(PremiumPresentationStates.waiting_for_slide_count)
     adapter = _MessageCallbackAdapter(
@@ -709,6 +683,10 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
                 "Choose a payment method:"
             ),
         }
+        # Buyurtma shu yerdayoq saqlanadi: mijoz to'lov usulini tanlashdan
+        # oldin balansni to'ldirishga ketishi mumkin, u oqim esa FSM ni
+        # tozalaydi.
+        pay.remember(callback.from_user.id, CHECKOUT.service, await state.get_data())
         await callback.message.edit_text(
             payment_texts.get(lang, payment_texts["uz"]),
             parse_mode="HTML",
@@ -728,37 +706,13 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
 
     # Faqat balans orqali to'lovda balansni tekshiramiz va yechamiz.
     if payment_method == "balance" and user.balance < price:
-        shortage = price - user.balance
-        msgs = {
-            "uz": (
-                f"❌ <b>Hisobingizda mablag' yetarli emas</b>\n\n"
-                f"💰 Kerakli: {price:,} so'm\n"
-                f"💳 Mavjud: {user.balance:,} so'm\n"
-                f"📉 Yetishmaydi: {shortage:,} so'm\n\n"
-                f"To'lov bo'limiga o'ting va hisobni to'ldiring."
-            ),
-            "ru": (
-                f"❌ <b>Недостаточно средств</b>\n\n"
-                f"💰 Нужно: {price:,} сум\n"
-                f"💳 Доступно: {user.balance:,} сум\n"
-                f"📉 Не хватает: {shortage:,} сум\n\n"
-                f"Пополните баланс в разделе оплаты."
-            ),
-            "en": (
-                f"❌ <b>Insufficient balance</b>\n\n"
-                f"💰 Required: {price:,} soʻm\n"
-                f"💳 Available: {user.balance:,} soʻm\n"
-                f"📉 Shortfall: {shortage:,} soʻm\n\n"
-                f"Please top up your balance in the payment section."
-            ),
-        }
+        # Buyurtma FSM dan tashqarida saqlanadi: balansni to'ldirish oqimi
+        # FSM ni tozalaydi, shuning uchun ilgari mijoz hamma narsani
+        # qaytadan kiritishga majbur bo'lardi.
         await state.update_data(payment_method=None)
+        pay.remember(callback.from_user.id, CHECKOUT.service, await state.get_data())
         await state.set_state(PremiumPresentationStates.waiting_for_payment)
-        await callback.message.edit_text(
-            msgs.get(lang, msgs["uz"]),
-            parse_mode="HTML",
-            reply_markup=_payment_keyboard(lang, price),
-        )
+        await pay.send_shortfall(callback.message, CHECKOUT, lang, price, user.balance)
         return
 
     if payment_method == "balance":

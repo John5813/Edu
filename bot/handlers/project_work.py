@@ -8,6 +8,7 @@ import logging
 import os
 
 from aiogram import F, Router
+from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, FSInputFile, Message
 
@@ -22,6 +23,7 @@ from bot.keyboards import (
     get_project_source_keyboard,
 )
 from bot import checkout as pay
+from bot import uploads
 from bot import dialog
 from bot.states import ProjectWorkStates
 from config import PROJECT_WORK_DEPTH, PROJECT_WORK_PRICES, TEMP_DIR
@@ -180,42 +182,23 @@ async def got_instructions(message: Message, state: FSMContext, user_lang: str):
 
 @router.message(ProjectWorkStates.waiting_for_source_file, F.document)
 async def got_source_file(message: Message, state: FSMContext, user_lang: str):
-    document = message.document
-    name = (document.file_name or "").lower()
-    if not name.endswith((".pdf", ".docx", ".pptx")):
-        await message.answer(get_text(user_lang, "pw_source_bad_file"))
-        return
-
-    # Hajm xabar bilan birga keladi — bitta bayt yuklanmasdan oldin rad etamiz.
-    try:
-        document_source.check_size(document.file_size)
-    except document_source.SourceTooLarge as e:
-        await message.answer(
-            get_text(user_lang, "source_too_large",
-                     size=round(e.size_mb, 1),
-                     limit=document_source.MAX_UPLOAD_BYTES // (1024 * 1024)),
-            parse_mode="HTML",
-        )
+    # Fayl tekshiruvi, yuklab olish va matn ajratish — hammasi umumiy
+    # qabul qiluvchida. Har xizmat buni o'zicha qilgani uchun chegaralar
+    # ham, xato xabarlari ham har xil edi.
+    upload = await uploads.receive(message, user_lang, accept=uploads.DOCUMENTS,
+                                   prefix="pw_src")
+    if upload is None:
         return
 
     status = await message.answer(get_text(user_lang, "pw_source_reading"))
-    local_path = None
     try:
-        os.makedirs(TEMP_DIR, exist_ok=True)
-        extension = os.path.splitext(name)[1]
-        local_path = os.path.join(TEMP_DIR, f"pw_src_{document.file_id[-12:]}{extension}")
-        await message.bot.download(document, destination=local_path)
-        material = await source_module.from_file(local_path, document.file_name or "manba")
+        material = source_module.from_extract(upload.extract, upload.file_name)
     except Exception as e:
         logger.error("Loyiha ishi manbasi o'qilmadi: %s", e)
         await status.edit_text(get_text(user_lang, "pw_source_failed"))
         return
     finally:
-        if local_path and os.path.exists(local_path):
-            try:
-                os.remove(local_path)
-            except OSError:
-                pass
+        uploads.discard(upload)
 
     await status.delete()
     await _store_source(message, state, user_lang, material)
@@ -270,9 +253,14 @@ async def _ask_field(message: Message, state: FSMContext, user_lang: str, edit: 
     await dialog.ask(message, state, text, reply_markup=markup, parse_mode="HTML")
 
 
-@router.callback_query(F.data.startswith("pw_field:"),
-                       ProjectWorkStates.waiting_for_field,
-                       ProjectWorkStates.waiting_for_field_confirm)
+# aiogram pozitsion filtrlarni VA bilan bog'laydi, shuning uchun ikkita
+# holatni shunday yozish "ikkalasi ham bir vaqtda" degani bo'lib qolardi va
+# tugma hech qachon ishlamasdi. `StateFilter` esa YOKI bilan bog'laydi.
+@router.callback_query(
+    F.data.startswith("pw_field:"),
+    StateFilter(ProjectWorkStates.waiting_for_field,
+                ProjectWorkStates.waiting_for_field_confirm),
+)
 async def chose_field(callback: CallbackQuery, state: FSMContext, user_lang: str):
     await callback.answer()
     field_key = callback.data.split(":", 1)[1]
@@ -415,6 +403,22 @@ async def _show_summary(message: Message, state: FSMContext, user_lang: str, use
 
 # Holat filtri yo'q: mijoz balansni to'ldirishga o'tib qaytgan bo'lishi
 # mumkin, u oqim esa FSM ni tozalab yuboradi.
+@router.callback_query(F.data == CHECKOUT.pay_other)
+async def show_other_methods(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Stars va balansni to'ldirish — asosiy oynani chalg'itmasin deb shu yerda."""
+    await callback.answer()
+    data = await _order(callback.from_user.id, state)
+    if not data:
+        await _report_expired(callback.message, state, user_lang)
+        return
+    price = data.get("price", 0)
+    await callback.message.edit_text(
+        get_text(user_lang, "pay_other_title", price=price),
+        parse_mode="HTML",
+        reply_markup=pay.other_methods_keyboard(CHECKOUT, user_lang, price),
+    )
+
+
 @router.callback_query(F.data == CHECKOUT.pay_stars)
 async def pay_with_stars(callback: CallbackQuery, state: FSMContext, user_lang: str):
     await callback.answer()

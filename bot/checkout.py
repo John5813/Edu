@@ -93,6 +93,10 @@ class Checkout:
     def recheck(self) -> str:
         return f"{self.service}_recheck"
 
+    @property
+    def pay_other(self) -> str:
+        return f"{self.service}_other"
+
     def payload(self, user_id: int, price: int) -> str:
         return f"{self.service}:{user_id}:{price}"
 
@@ -119,18 +123,40 @@ def paid_with_stars(data: dict) -> bool:
 
 
 def payment_keyboard(checkout: Checkout, language: str, price: int) -> InlineKeyboardMarkup:
-    """To'lov usullari — balans va Stars doimo yonma-yon turadi."""
+    """Asosiy to'lov oynasi — balansdan to'lash va boshqa usullar.
+
+    Stars tugmasi birinchi ekranda ko'rsatilmaydi: mijozlarning aksariyati
+    balansdan to'laydi va yonma-yon turgan ikkita to'lov tugmasi chalg'itadi.
+    Stars «boshqa to'lov usuli» ortida turadi.
+    """
     keyboard = InlineKeyboardBuilder()
     keyboard.add(InlineKeyboardButton(
         text=get_text(language, "pay_from_balance", price=price),
         callback_data=checkout.pay_balance,
     ))
     keyboard.add(InlineKeyboardButton(
+        text=get_text(language, "pay_other_method"),
+        callback_data=checkout.pay_other,
+    ))
+    keyboard.add(InlineKeyboardButton(
+        text=get_text(language, "pw_back"), callback_data=checkout.back_callback,
+    ))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
+def other_methods_keyboard(checkout: Checkout, language: str, price: int) -> InlineKeyboardMarkup:
+    """Boshqa to'lov usullari — Stars va balansni to'ldirish."""
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(
         text=get_text(language, "pay_with_stars", stars=som_to_stars(price)),
         callback_data=checkout.pay_stars,
     ))
     keyboard.add(InlineKeyboardButton(
-        text=get_text(language, "pw_back"), callback_data=checkout.back_callback,
+        text=get_text(language, "pay_topup"), callback_data="pay_card_start",
+    ))
+    keyboard.add(InlineKeyboardButton(
+        text=get_text(language, "pay_recheck"), callback_data=checkout.recheck,
     ))
     keyboard.adjust(1)
     return keyboard.as_markup()
@@ -140,11 +166,11 @@ def shortfall_keyboard(checkout: Checkout, language: str, price: int) -> InlineK
     """Mablag' yetmaganda — to'ldirish, Stars, yoki qayta tekshirish."""
     keyboard = InlineKeyboardBuilder()
     keyboard.add(InlineKeyboardButton(
-        text=get_text(language, "pay_with_stars", stars=som_to_stars(price)),
-        callback_data=checkout.pay_stars,
+        text=get_text(language, "pay_topup"), callback_data="pay_card_start",
     ))
     keyboard.add(InlineKeyboardButton(
-        text=get_text(language, "pay_topup"), callback_data="pay_card_start",
+        text=get_text(language, "pay_with_stars", stars=som_to_stars(price)),
+        callback_data=checkout.pay_stars,
     ))
     keyboard.add(InlineKeyboardButton(
         text=get_text(language, "pay_recheck"), callback_data=checkout.recheck,

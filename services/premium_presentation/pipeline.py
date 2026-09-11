@@ -1,5 +1,7 @@
+import hashlib
 import logging
 import os
+import random
 
 from pydantic import ValidationError
 
@@ -80,7 +82,13 @@ def canvas_validation_and_fix(
     # Avval matn o'lchamlari va ustma-ustni tuzatamiz
     brief = ensure_visuals(brief, topic, language)
     brief = spread_chart_types(brief, topic)
+    # Mavzu sahifasi presetlar taqsimlanishidan oldin quriladi: aks holda
+    # birinchi slaydning bloki navbatdan joy olib, keyin tashlab yuborilardi.
+    brief = build_title_slide(brief, topic)
+    brief = spread_infographic_presets(brief, topic)
     brief = expand_infographics(brief)
+    brief = ensure_title_contrast(brief)
+    brief = ensure_body_contrast(brief)
     brief = ensure_icons(brief)
     brief = fix_text_overlaps(brief)
     brief = enforce_min_text_size(brief)
@@ -395,6 +403,52 @@ def spread_chart_types(brief: Brief, topic: str) -> Brief:
     return brief
 
 
+def spread_infographic_presets(brief: Brief, topic: str) -> Brief:
+    """Bir xil kartochka to'ri hamma slaydga tushib qolmasin.
+
+    Yetkazilgan taqdimotda 11 slaydning 8 tasi bir xil tuzilishda edi:
+    to'rtta kartochka, to'rtta doira, to'rtta ikonka. Model eng oson
+    presetni tanlab, uni takrorlayverardi. Bu yerda presetlar bandlar
+    soniga mos keladiganlari orasida almashtiriladi.
+    """
+    blocks = [
+        element
+        for slide in brief.slides
+        for element in slide.canvas.elements
+        if element.type == "infographic"
+    ]
+    if len(blocks) < 2:
+        return brief
+
+    seed = f"{topic}|{brief.topic}"
+    rng = random.Random(hashlib.sha256(seed.encode("utf-8")).hexdigest())
+
+    # Ketma-ket ikkitadan ortiq takrorlanmasin va umuman bir xili ko'p
+    # bo'lmasin — shuning uchun har preset nechta ishlatilgani sanaladi.
+    used: dict = {}
+    previous = None
+    current = [element.preset or "cards" for element in blocks]
+
+    for element in blocks:
+        items = len(element.items or [])
+        options = [preset for preset in infographics.PRESET_FITS
+                   if infographics.fits(preset, items)]
+        if not options:
+            continue
+        fewest = min(used.get(option, 0) for option in options)
+        fresh = [option for option in options
+                 if used.get(option, 0) == fewest and option != previous]
+        pick = rng.choice(fresh or [o for o in options if o != previous] or options)
+        element.preset = pick
+        used[pick] = used.get(pick, 0) + 1
+        previous = pick
+
+    spread = [element.preset for element in blocks]
+    if spread != current:
+        log.info("Infografika presetlari yoyildi: %s → %s", current, spread)
+    return brief
+
+
 def expand_infographics(brief: Brief) -> Brief:
     """`infographic` elementlarini ibtidoiy shakllarga yoyadi.
 
@@ -477,9 +531,16 @@ def ensure_icons(brief: Brief) -> Brief:
 
 # ─────────────────────────────────────────── Vizual kafolat
 
+# Sobit ikkita rasm 11 slaydlik taqdimotda juda kam edi — kafolat aynan
+# minimumda to'xtab, qolgan hamma slayd matn va kartochka bo'lib qolardi.
 MIN_IMAGES = 2
 MIN_CHARTS = 2
 MIN_INFOGRAPHICS = 2
+
+
+def _image_target(brief: Brief) -> int:
+    """Har uch slaydga kamida bitta rasm, lekin ikkitadan kam emas."""
+    return max(MIN_IMAGES, round(len(brief.slides) / 3))
 
 
 def _count(brief: Brief, element_type: str) -> int:
@@ -518,7 +579,7 @@ def ensure_visuals(brief: Brief, topic: str, language: str = "uz") -> Brief:
 
     # 2. Umumiy minimum — qaysi slaydga qo'shishni mazmuniga qarab tanlaymiz.
     for element_type, minimum, instruction in (
-        ("image", MIN_IMAGES,
+        ("image", _image_target(brief),
          "Bu slaydga image elementi qo'sh (matnni siqib, o'ng yoki past qismga "
          "joyla). Rasm prompti ingliz tilida, matnsiz tasvir."),
         ("chart", MIN_CHARTS,
@@ -576,6 +637,229 @@ def _force_image(slide: Slide, topic: str) -> None:
         )
     )
     log.info("Birinchi slaydga rasm majburan qo'yildi")
+
+def build_title_slide(brief: Brief, topic: str) -> Brief:
+    """Birinchi slaydni toza mavzu sahifasiga aylantiradi.
+
+    Yetkazilgan taqdimotda birinchi slayd oddiy kontent sahifasi edi:
+    sarlavha o'rtada emas, yonida statistika kartochkalari va cho'zilgan
+    rasm. Mavzu sahifasi bitta ish qiladi — mavzuni e'lon qiladi, shuning
+    uchun u shu yerda qo'lda quriladi, model ixtiyoriga qoldirilmaydi.
+    """
+    if not brief.slides:
+        return brief
+
+    slide = brief.slides[0]
+    theme = brief.theme
+    primary = (theme.primary if theme else "1B2A4A").lstrip("#")
+    accent = (theme.accent if theme else "E8A020").lstrip("#")
+
+    # Mavjud matnlardan sarlavha va tagsarlavhani ajratib olamiz.
+    texts = [e for e in slide.canvas.elements
+             if e.type == "text" and (e.text or "").strip()]
+    title_text = (slide.title or topic).strip()
+    subtitle = ""
+    for element in sorted(texts, key=lambda e: -(e.size or 0)):
+        candidate = " ".join((element.text or "").split())
+        if candidate and candidate != title_text and len(candidate) > 25:
+            subtitle = candidate[:200]
+            break
+    if not subtitle:
+        subtitle = " ".join((slide.key_text or "").split())[:200]
+
+    # Rasm promptini saqlab qolamiz — u mavzuga moslab yozilgan.
+    image = next((e for e in slide.canvas.elements if e.type == "image" and e.prompt), None)
+    prompt = image.prompt if image else (
+        f"professional photorealistic image representing {topic}, "
+        "clean composition, natural lighting, high detail"
+    )
+
+    slide.canvas.background = "FFFFFF"
+    slide.canvas.elements = [
+        # Chap yarmi — to'q panel, sarlavha shu yerda turadi.
+        VisualElement(type="rect", x=0.0, y=0.0, w=7.2, h=7.5, fill=primary),
+        VisualElement(type="rect", x=0.9, y=2.35, w=1.5, h=0.09, fill=accent),
+        VisualElement(type="text", x=0.9, y=2.75, w=5.7, h=2.2,
+                      text=title_text, size=34, bold=True,
+                      color="FFFFFF", align="left"),
+        VisualElement(type="image", x=7.6, y=0.0, w=5.733, h=7.5, prompt=prompt),
+    ]
+    if subtitle:
+        slide.canvas.elements.insert(3, VisualElement(
+            type="text", x=0.9, y=5.15, w=5.7, h=1.4,
+            text=subtitle, size=14, color="D6DAE2", align="left"))
+
+    log.info("Birinchi slayd mavzu sahifasi qilib qayta qurildi")
+    return brief
+
+
+# ─────────────────────────────────────────── Sarlavha ko'rinishi
+#
+# Yetkazilgan taqdimotda 11 slaydning 11 tasida ham sarlavha oq rangda,
+# lekin oq fon ustida turardi — kontrast 1.00, ya'ni umuman ko'rinmasdi.
+# Model to'q ko'k bezak bandini chizib, sarlavhani oq qilardi, lekin uni
+# band ichiga qo'ymasdi. Buni promptda so'rash yordam bermadi, shuning
+# uchun kafolat shu yerda.
+
+_TITLE_MIN_SIZE = 20.0
+_MIN_CONTRAST = 4.5
+
+
+def _luminance(hex_colour: str) -> float:
+    h = (hex_colour or "").lstrip("#")
+    if len(h) == 3:
+        h = h[0] * 2 + h[1] * 2 + h[2] * 2
+    if len(h) != 6:
+        return 1.0
+    try:
+        channels = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+    except ValueError:
+        return 1.0
+    linear = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def contrast_ratio(first: str, second: str) -> float:
+    a, b = _luminance(first), _luminance(second)
+    high, low = max(a, b), min(a, b)
+    return (high + 0.05) / (low + 0.05)
+
+
+def readable_on(background: str) -> str:
+    """Fon ustida o'qiladigan matn rangi."""
+    return "1B2A4A" if _luminance(background) > 0.4 else "FFFFFF"
+
+
+def _titles(slide: Slide) -> list:
+    return [
+        element for element in slide.canvas.elements
+        if element.type == "text" and (element.text or "").strip()
+        and element.bold and (element.size or 0) >= _TITLE_MIN_SIZE
+    ]
+
+
+def _panels(slide: Slide) -> list:
+    """To'ldirilgan bloklar — sarlavha ular ustida turishi mumkin."""
+    return [
+        element for element in slide.canvas.elements
+        if element.type == "rect" and element.fill
+    ]
+
+
+def _covering_fill(element, panels, background: str) -> str:
+    """Element ostidagi KO'RINADIGAN fon rangini aniqlaydi.
+
+    Elementlar ro'yxat tartibida chiziladi, ya'ni keyingisi oldingisining
+    ustiga tushadi. Shuning uchun qidiruv teskari tartibda boradi: bosqich
+    raqami och kartochka VA uning ustidagi rangli band bilan qoplangan
+    bo'lsa, ko'rinadigani — band.
+    """
+    box = _box(element)
+    for panel in reversed(panels):
+        if _overlap_share(box, _box(panel)) > 0.6:
+            return panel.fill
+
+    best, best_share = background, 0.0
+    for panel in reversed(panels):
+        share = _overlap_share(box, _box(panel))
+        if share > best_share:
+            best, best_share = panel.fill, share
+    return best if best_share > 0.5 else background
+
+
+def _host_panel(title, panels, slide: Slide):
+    """Sarlavhani sig'dira oladigan BO'SH bezak bandini topadi.
+
+    Eng yaqin panelni olish xato edi: piramida qatori sarlavhaga bandan
+    ko'ra yaqinroq bo'lib chiqib, sarlavha kontent ustida qolib ketardi.
+    Endi faqat matnsiz panellar ko'riladi va ular orasidan eng yuqoridagisi
+    tanlanadi — bezak bandi odatda slayd tepasida turadi.
+    """
+    tx, ty, tw, th = _box(title)
+    candidates = []
+    for panel in panels:
+        px, py, pw, ph = _box(panel)
+        if pw < tw * 0.7 or ph < th + 0.1:
+            continue
+        if not _panel_is_free(panel, slide):
+            continue
+        candidates.append((py, panel))
+    if not candidates:
+        return None
+    return min(candidates, key=lambda pair: pair[0])[1]
+
+
+def _panel_is_free(panel, slide: Slide) -> bool:
+    panel_box = _box(panel)
+    for element in slide.canvas.elements:
+        if element.type != "text" or not (element.text or "").strip():
+            continue
+        if _overlap_share(_box(element), panel_box) > 0.5:
+            return False
+    return True
+
+
+def ensure_title_contrast(brief: Brief) -> Brief:
+    """Har slayd sarlavhasi o'qiladigan bo'lishini kafolatlaydi.
+
+    Ikki yo'l bor va arzonrog'i tanlanadi: sarlavhani o'zi uchun chizilgan
+    bo'sh bandga ko'chirish, yoki rangini fonga moslash. Birinchisi afzal,
+    chunki model bandni ataylab chizgan.
+    """
+    moved = recoloured = 0
+    for slide in brief.slides:
+        background = slide.canvas.background or "FFFFFF"
+        panels = _panels(slide)
+        for title in _titles(slide):
+            colour = title.color or "1B2A4A"
+            under = _covering_fill(title, panels, background)
+            if contrast_ratio(colour, under) >= _MIN_CONTRAST:
+                continue
+
+            host = _host_panel(title, panels, slide)
+            if host is not None:
+                hx, hy, hw, hh = _box(host)
+                tw = min(title.w or hw, hw - 0.5)
+                title.x = hx + 0.35
+                title.w = max(tw, 1.5)
+                title.y = hy + max((hh - (title.h or 0.9)) / 2, 0.1)
+                title.color = readable_on(host.fill)
+                moved += 1
+                continue
+
+            title.color = readable_on(under)
+            recoloured += 1
+
+    if moved or recoloured:
+        log.info("Sarlavha ko'rinishi: %s ta bandga ko'chirildi, %s ta rangi o'zgartirildi",
+                 moved, recoloured)
+    return brief
+
+
+def ensure_body_contrast(brief: Brief) -> Brief:
+    """Tana matni ham fon bilan qo'shilib ketmasin.
+
+    Yetkazilgan taqdimotda to'q ko'k panel ustida to'q ko'k ro'yxat bor
+    edi — butun bir bo'lim ko'rinmasdi.
+    """
+    fixed = 0
+    for slide in brief.slides:
+        background = slide.canvas.background or "FFFFFF"
+        panels = _panels(slide)
+        for element in slide.canvas.elements:
+            if element.type != "text" or not (element.text or "").strip():
+                continue
+            if element.locked:
+                continue   # infografika ranglarini o'zi hisoblaydi
+            colour = element.color or "1B2A4A"
+            under = _covering_fill(element, panels, background)
+            if contrast_ratio(colour, under) < 3.0:
+                element.color = readable_on(under)
+                fixed += 1
+    if fixed:
+        log.info("Matn kontrasti: %s ta blok rangi tuzatildi", fixed)
+    return brief
+
 
 # ─────────────────────────────────────────── Vizual tuzatish darajalari
 #

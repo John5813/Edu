@@ -112,7 +112,6 @@ class PremiumPresentationStates(StatesGroup):
     waiting_for_topic_text = State()
     waiting_for_client_name = State()
     waiting_for_preferences = State()
-    waiting_for_level = State()
     waiting_for_slide_count = State()
     waiting_for_payment = State()
     generating = State()

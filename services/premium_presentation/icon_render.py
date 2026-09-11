@@ -120,12 +120,23 @@ def _rgb(hex_str: str | None) -> tuple[int, int, int]:
         return (255, 255, 255)
 
 
+def _luminance(hex_str: str) -> float:
+    channels = [c / 255 for c in _rgb(hex_str)]
+    linear = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
 def ink_on(fill: str | None) -> str:
     """Fon rangi ustida o'qiladigan siyoh rangini tanlaydi.
 
-    Sariq yoki och yashil doirada oq ikonka ko'rinmaydi — bu yerda qaror
-    fonning yorqinligidan hisoblanadi, taxmin qilinmaydi.
+    Qaror haqiqiy kontrast bo'yicha: oddiy yorqinlik formulasi o'rta
+    to'qlikdagi ranglarda oq ikonkani tanlab, uni fonda yo'qotardi.
     """
-    r, g, b = _rgb(fill or "000000")
-    luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-    return "1B2A4A" if luminance > 0.62 else "FFFFFF"
+    fill = fill or "000000"
+
+    def ratio(colour: str) -> float:
+        a, b = _luminance(colour), _luminance(fill)
+        high, low = max(a, b), min(a, b)
+        return (high + 0.05) / (low + 0.05)
+
+    return "1B2A4A" if ratio("1B2A4A") >= ratio("FFFFFF") else "FFFFFF"
