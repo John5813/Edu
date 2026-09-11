@@ -59,6 +59,11 @@ def resolve(name: str | None, fallback_text: str = "",
         return None
 
     path = find_icon_path(text, used=used)
+    if path is None and used:
+        # Takrorlanmaslik qoidasi bir taqdimotda ikonkalarni tugatib
+        # qo'yardi: qatordagi to'rt kartochkadan oxirgisi ikonkasiz qolar
+        # edi. Ikonkasiz kartochkadan ko'ra takrorlangani yaxshiroq.
+        path = find_icon_path(text)
     if path and used is not None:
         used.add(os.path.basename(path))
     return path

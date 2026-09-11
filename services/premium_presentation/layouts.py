@@ -231,6 +231,14 @@ def _draw_icon(slide, el, used_icons: set):
     x = _clamp(el.x, 0.0, 13.333 - size)
     y = _clamp(el.y, 0.0, 7.5 - size)
 
+    # Ikonka avval topiladi. Ilgari fon doirasi birinchi chizilar va ikonka
+    # topilmasa funksiya shu yerda to'xtardi — kartochkada ichi bo'sh rangli
+    # doira qolib ketardi.
+    icon_path = icon_render.resolve(el.icon, el.text or "", used=used_icons)
+    if not icon_path:
+        log.warning("Ikonka topilmadi: %s / %s", el.icon, (el.text or "")[:40])
+        return
+
     if el.shape != "none":
         shape_type = MSO_SHAPE.OVAL if el.shape == "circle" else MSO_SHAPE.ROUNDED_RECTANGLE
         pad = size * 0.3
@@ -242,11 +250,6 @@ def _draw_icon(slide, el, used_icons: set):
         holder.fill.solid()
         holder.fill.fore_color.rgb = _hex(el.fill or "2A78D6")
         holder.line.fill.background()
-
-    icon_path = icon_render.resolve(el.icon, el.text or "", used=used_icons)
-    if not icon_path:
-        log.warning("Ikonka topilmadi: %s / %s", el.icon, (el.text or "")[:40])
-        return
 
     tinted = icon_render.tinted(icon_path, el.color or "FFFFFF")
     if tinted:
