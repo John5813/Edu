@@ -298,8 +298,45 @@ async def periodic_cleanup(interval_seconds: int = 1800, storage=None):
         logger.info("Periodic memory cleanup done (plt.close('all') + gc.collect())")
 
 
+# Pullik oqimlar og'ir modullarni faqat buyurtma kelganda import qiladi —
+# bu botni tez ishga tushirish uchun qilingan. Salbiy tomoni: kutubxona
+# yetishmasa, buni birinchi bo'lib TO'LOV QILGAN mijoz biladi. Premium
+# taqdimot aynan shu sababdan "No module named 'requests'" bilan to'xtadi.
+# Shuning uchun import zanjiri ishga tushishda bir marta tekshiriladi.
+_LAZY_MODULES = (
+    "services.premium_presentation.pipeline",
+    "services.premium_presentation.renderer",
+    "services.project_work.builder",
+    "services.document_service",
+    "services.together_service",
+)
+
+
+def check_lazy_imports() -> list[str]:
+    """Buyurtma paytida kerak bo'ladigan modullarni oldindan tekshiradi."""
+    import importlib
+
+    broken = []
+    for name in _LAZY_MODULES:
+        try:
+            importlib.import_module(name)
+        except Exception as exc:
+            broken.append(f"{name}: {type(exc).__name__}: {exc}")
+    return broken
+
+
 async def main():
     """Main function to start the bot"""
+    broken = check_lazy_imports()
+    if broken:
+        logger.error(
+            "DIQQAT: quyidagi modullar yuklanmadi — ularga bog'liq xizmatlar "
+            "buyurtma paytida xato beradi. Kutubxonalarni o'rnating: "
+            "venv/bin/pip install -r requirements.txt"
+        )
+        for line in broken:
+            logger.error("   %s", line)
+
     # Initialize database
     await init_db()
 
