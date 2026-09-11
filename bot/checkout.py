@@ -97,6 +97,11 @@ class Checkout:
     def pay_other(self) -> str:
         return f"{self.service}_other"
 
+    @property
+    def pay_back(self) -> str:
+        """«Boshqa usullar» oynasidan asosiy to'lov oynasiga qaytish."""
+        return f"{self.service}_payback"
+
     def payload(self, user_id: int, price: int) -> str:
         return f"{self.service}:{user_id}:{price}"
 
@@ -146,7 +151,11 @@ def payment_keyboard(checkout: Checkout, language: str, price: int) -> InlineKey
 
 
 def other_methods_keyboard(checkout: Checkout, language: str, price: int) -> InlineKeyboardMarkup:
-    """Boshqa to'lov usullari — Stars va balansni to'ldirish."""
+    """Boshqa to'lov usullari — Stars va balansni to'ldirish.
+
+    Orqaga tugmasi shart: usulni ko'rgan mijoz baribir balansdan to'lashni
+    tanlashi mumkin, va usiz u shu oynada qamalib qolardi.
+    """
     keyboard = InlineKeyboardBuilder()
     keyboard.add(InlineKeyboardButton(
         text=get_text(language, "pay_with_stars", stars=som_to_stars(price)),
@@ -157,6 +166,9 @@ def other_methods_keyboard(checkout: Checkout, language: str, price: int) -> Inl
     ))
     keyboard.add(InlineKeyboardButton(
         text=get_text(language, "pay_recheck"), callback_data=checkout.recheck,
+    ))
+    keyboard.add(InlineKeyboardButton(
+        text=get_text(language, "pw_back"), callback_data=checkout.pay_back,
     ))
     keyboard.adjust(1)
     return keyboard.as_markup()

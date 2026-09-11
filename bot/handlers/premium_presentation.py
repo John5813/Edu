@@ -550,6 +550,27 @@ async def premium_ppt_other_methods(callback: CallbackQuery, state: FSMContext, 
     )
 
 
+@router.callback_query(F.data == CHECKOUT.pay_back)
+async def premium_ppt_payment_back(callback: CallbackQuery, state: FSMContext, db: Database):
+    """«Boshqa usullar»dan asosiy to'lov oynasiga qaytish."""
+    await callback.answer()
+    user = await db.get_user(callback.from_user.id)
+    lang = user.language if user else "uz"
+    data = await _order(callback.from_user.id, state)
+    if not data:
+        await _report_expired(callback.message, state, lang)
+        return
+    price = int(data.get("price", 7500))
+    texts = {
+        "uz": f"✅ <b>Buyurtma tasdiqlandi</b>\n\n💰 Narx: <b>{price:,} so'm</b>\nTo'lov usulini tanlang:",
+        "ru": f"✅ <b>Заказ подтверждён</b>\n\n💰 Цена: <b>{price:,} сум</b>\nВыберите способ оплаты:",
+        "en": f"✅ <b>Order confirmed</b>\n\n💰 Price: <b>{price:,} so'm</b>\nChoose a payment method:",
+    }
+    await state.set_state(PremiumPresentationStates.waiting_for_payment)
+    await callback.message.edit_text(texts.get(lang, texts["uz"]), parse_mode="HTML",
+                                     reply_markup=_payment_keyboard(lang, price))
+
+
 @router.callback_query(F.data == CHECKOUT.recheck)
 async def premium_ppt_recheck(callback: CallbackQuery, state: FSMContext, db: Database):
     """Balans to'ldirilgandan keyin — buyurtmani yo'qotmasdan davom etish."""

@@ -419,6 +419,17 @@ async def show_other_methods(callback: CallbackQuery, state: FSMContext, user_la
     )
 
 
+@router.callback_query(F.data == CHECKOUT.pay_back)
+async def back_to_payment(callback: CallbackQuery, state: FSMContext, user_lang: str, user):
+    """«Boshqa usullar»dan asosiy to'lov oynasiga qaytish."""
+    await callback.answer()
+    data = await _order(callback.from_user.id, state)
+    if not data:
+        await _report_expired(callback.message, state, user_lang)
+        return
+    await _show_summary(callback.message, state, user_lang, user)
+
+
 @router.callback_query(F.data == CHECKOUT.pay_stars)
 async def pay_with_stars(callback: CallbackQuery, state: FSMContext, user_lang: str):
     await callback.answer()
