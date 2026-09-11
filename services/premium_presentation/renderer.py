@@ -26,6 +26,48 @@ def _soft(hex_colour: str, amount: float = 0.86) -> str:
     return "".join(f"{int(round(c + (255 - c) * amount)):02X}" for c in channels)
 
 
+# Shrift keglidan qator o'lchamlari. Ehtiyotkor tomonga qiyshaytirilgan:
+# baho haqiqatdan kattaroq chiqsa matn paneldan tashqariga chiqmaydi.
+_CHAR_W = 0.55 / 72.0
+_LINE_H = 1.25 / 72.0
+
+
+def _wrapped_height(text: str, size: float, width: float) -> float:
+    """Matn shu enda shu shriftda necha dyuym joy olishini baholaydi."""
+    per_line = max(1, int(width / (size * _CHAR_W)))
+    lines, current = 1, 0
+    for word in text.split():
+        extra = len(word) + (1 if current else 0)
+        if current + extra <= per_line:
+            current += extra
+        else:
+            lines += 1
+            current = len(word)
+    return lines * size * _LINE_H
+
+
+def _fit_message(text: str, width: float, height: float) -> tuple[str, float]:
+    """Panelga sig'adigan shrift va (kerak bo'lsa) qisqartirilgan matn.
+
+    Shriftni kichraytirish bilan cheklanib bo'lmaydi: kichik panelga uzun
+    xabar 13pt da ham sig'maydi va python-pptx uni qutidan tashqariga
+    to'kib yuboradi — o'sha paytda xabar yonidagi matn ustiga minib ketadi.
+    Shuning uchun oxirgi chora sifatida matnning o'zi qisqartiriladi.
+    """
+    for size in (18.0, 16.0, 15.0, 14.0, 13.0):
+        if _wrapped_height(text, size, width) <= height:
+            return text, size
+
+    size = 13.0
+    words = text.split()
+    while words:
+        trial = " ".join(words).rstrip(",;:") + "…"
+        if _wrapped_height(trial, size, width) <= height:
+            return trial, size
+        words.pop()
+    return "", size
+
+
 def _shorten(text: str, limit: int) -> str:
     clean = " ".join((text or "").split())
     if len(clean) <= limit:
@@ -60,18 +102,18 @@ def _replace_with_message(element, slide: Slide, brief: Brief) -> None:
     inner_w = width - 2 * pad_x
     inner_h = height - 2 * pad_y
 
-    # Shrift qutiga qarab: uzun matn kichik quti ichiga sig'sin.
-    per_line = max(int(inner_w / 0.11), 12)
-    lines = max(1, -(-len(message) // per_line))
-    size = 18.0 if lines * 0.34 <= inner_h else max(13.0, inner_h / max(lines, 1) / 0.34 * 18.0)
-    size = max(13.0, min(size, 20.0))
+    message, size = _fit_message(message, inner_w, inner_h)
+    if not message:
+        return
 
+    text_h = min(inner_h, _wrapped_height(message, size, inner_w))
     slide.canvas.elements.append(VisualElement(
         type="text",
         x=element.x + pad_x,
-        y=element.y + pad_y,
+        # Panel ichida vertikal markazlashadi — matn tepaga yopishib qolmaydi.
+        y=element.y + pad_y + max(0.0, (inner_h - text_h) / 2),
         w=inner_w,
-        h=inner_h,
+        h=text_h,
         text=message,
         size=size,
         italic=True,
