@@ -68,14 +68,21 @@ def _extras_for_cycle(extras: list, section_num: int) -> list:
       pos 3 (sections 3, 6, 9 …) → tables only
     Extras not in the cycle (e.g. 'glossary', 'statistics') are ignored here
     because glossary is added at document end and statistics follows tables.
+
+    'scheme' is outside the cycle: a structure diagram says what the whole
+    subject is made of, so one per document is right — repeating it every
+    third section would say the same thing over and over.
     """
     pos = ((section_num - 1) % 3) + 1
     if pos == 1:
-        return [e for e in extras if e == "formulas"]
+        chosen = [e for e in extras if e == "formulas"]
     elif pos == 2:
-        return [e for e in extras if e in ("images", "tables", "statistics")]
+        chosen = [e for e in extras if e in ("images", "tables", "statistics")]
     else:
-        return [e for e in extras if e in ("tables", "statistics")]
+        chosen = [e for e in extras if e in ("tables", "statistics")]
+    if section_num == 1 and "scheme" in extras:
+        chosen.append("scheme")
+    return chosen
 
 
 class DocumentService:
@@ -1021,6 +1028,35 @@ class DocumentService:
                         pass
             except Exception as img_err:
                 logger.warning(f"Could not embed {img_type} image: {img_err}")
+
+        # ── 1b. Tuzilma sxemasi (hujjatga bir marta) ──────────────────────
+        if "scheme" in extras:
+            try:
+                scheme = await ai.generate_structure_scheme(section_title, topic, lang)
+                if scheme.get("branches"):
+                    from services.project_work import charts as _charts
+                    from services.project_work import variety as _variety
+                    # Rang sxemasi mavzudan kelib chiqadi: ikki xil mavzu
+                    # ikki xil ko'rinadi, bir mavzu esa qayta yaratilganda
+                    # aynan o'sha rangda chiqadi.
+                    scheme_path = _charts.structure_scheme(
+                        scheme, "", self.temp_dir,
+                        palette=_variety.choose_palette((topic, section_title)),
+                    )
+                    if lang == "ru":
+                        scheme_cap = f"Схема. {section_title}"
+                    elif lang == "en":
+                        scheme_cap = f"Scheme. {section_title}"
+                    else:
+                        scheme_cap = f"Sxema. {section_title}"
+                    await _add_bridge("before_scheme")
+                    await _embed_image(scheme_path, scheme_cap)
+                    try:
+                        os.remove(scheme_path)
+                    except OSError:
+                        pass
+            except Exception as scheme_err:
+                logger.warning(f"Could not embed structure scheme: {scheme_err}")
 
         # ── 2. Formulas ───────────────────────────────────────────────────
         def _render_latex(latex_str: str):
@@ -3968,7 +4004,13 @@ class DocumentService:
             _body(doc, qadam_tavsifi)
 
             if extras:
-                await self._add_section_extras(doc, qadam_nomi, topic, language, extras, section_idx=i)
+                # Sikl bo'yicha: aks holda tanlangan blok har bir qadamda
+                # takrorlanib, hujjat bir xil ko'rinishga tushib qolardi.
+                cycle_extras = _extras_for_cycle(extras, i)
+                if cycle_extras:
+                    await self._add_section_extras(
+                        doc, qadam_nomi, topic, language, cycle_extras, section_idx=i
+                    )
 
             if i < len(steps):
                 doc.add_page_break()
@@ -4681,6 +4723,10 @@ class DocumentService:
             references = content.get('references', [])
             clean_refs = [r for r in references if not r.startswith('__CATEGORY__')]
             footnote_counter = 1
+            # Bu hujjatda qo'shimchalar har bir kichik bo'limga to'liq
+            # qo'shilardi: tanlangan blok necha kichik bo'lim bo'lsa shuncha
+            # marta takrorlanardi. Qolgan hujjatlardagi kabi sikl bo'yicha.
+            sub_counter = 0
 
             for i, chapter in enumerate(content.get('chapters', []), 1):
                 await asyncio.sleep(0)  # yield to event loop between chapters
@@ -4716,8 +4762,14 @@ class DocumentService:
                         if table_data:
                             self._add_info_table(doc, topic, table_data, language, chapter_num=i)
 
+                    sub_counter += 1
                     if extras:
-                        await self._add_section_extras(doc, clean_title, topic, language, extras, section_idx=i + j)
+                        cycle_extras = _extras_for_cycle(extras, sub_counter)
+                        if cycle_extras:
+                            await self._add_section_extras(
+                                doc, clean_title, topic, language, cycle_extras,
+                                section_idx=sub_counter,
+                            )
 
                 doc.add_page_break()
 

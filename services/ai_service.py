@@ -3381,6 +3381,44 @@ In JSON format:
             logger.error(f"Error generating formulas for '{section_title}': {e}")
             return {"formulas": [], "example": {"task": "", "solution": ""}}
 
+    async def generate_structure_scheme(self, section_title: str, topic: str, lang: str) -> dict:
+        """Bo'lim uchun tuzilma sxemasining bloklar ierarxiyasini so'raydi.
+
+        Sxemaning o'zi kod bilan chiziladi (charts.structure_scheme), shuning
+        uchun bu yerdan faqat qisqa yozuvlar kerak: rasm ichidagi matn
+        uzun bo'lsa, kataklarga sig'maydi.
+        """
+        lang_map = {"uz": "o'zbek", "ru": "русский", "en": "English"}
+        lang_name = lang_map.get(lang, "o'zbek")
+        prompt = (
+            f"Describe the structure of \"{section_title}\" (part of a document about "
+            f"\"{topic}\") as a hierarchy of blocks for a diagram.\n"
+            f'"root" is the whole system or process. "branches" are its 3-4 main parts; '
+            f"each has 2-3 concrete components under it.\n"
+            f"Every label must be 1-3 words — they are drawn inside small boxes.\n"
+            f"The parts must be specific to this subject, not generic headings.\n"
+            f"Write all labels in {lang_name}.\n"
+            f"Return JSON only:\n"
+            f'{{"root": "Tizim nomi", "branches": [{{"name": "Qism", "items": ["Element", "Element"]}}]}}'
+        )
+        try:
+            response = await self._make_request(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=600,
+                temperature=0.5,
+            )
+            content_str = response.strip()
+            for prefix in ("```json", "```"):
+                if content_str.startswith(prefix):
+                    content_str = content_str[len(prefix):]
+            if content_str.endswith("```"):
+                content_str = content_str[:-3]
+            data = json.loads(content_str.strip())
+            return data if isinstance(data, dict) else {}
+        except Exception as e:
+            logger.error(f"Error generating structure scheme for '{section_title}': {e}")
+            return {}
+
     async def generate_section_statistics(self, section_title: str, topic: str, lang: str) -> str:
         """Generate 2-3 statistics/facts for a document section."""
         lang_map = {"uz": "o'zbek", "ru": "русский", "en": "English"}
@@ -3470,16 +3508,20 @@ In JSON format:
     ) -> str:
         """Generate a single varied transitional sentence connecting document blocks.
 
-        block_type values: before_image1, before_image2, before_formulas,
-                           before_table, before_statistics
+        block_type values: before_image1, before_image2, before_scheme,
+                           before_formulas, before_table, before_statistics
         """
         lang_map = {"uz": "o'zbek", "ru": "русский", "en": "English"}
         lang_name = lang_map.get(lang, "o'zbek")
 
         block_desc = {
             "before_image1": (
-                "a scientific/technical infographic image (diagrams, mechanisms, formulas visualized) "
-                "that illustrates the section"
+                "a realistic documentary photograph of the real equipment, materials or "
+                "workplace connected with the section"
+            ),
+            "before_scheme": (
+                "a structure diagram showing the main parts of the subject and how they "
+                "connect to each other"
             ),
             "before_image2": (
                 "a realistic scene image showing people working with or applying the concepts "
@@ -3521,21 +3563,24 @@ In JSON format:
             logger.error(f"Error generating bridge sentence ({block_type}): {e}")
             fallbacks = {
                 "uz": {
-                    "before_image1": f"\"{section_title}\" bo'limining ilmiy-texnik ko'rinishi:",
+                    "before_image1": f"\"{section_title}\" bo'limiga oid amaliy ko'rinish:",
+                    "before_scheme": f"\"{section_title}\" ning tuzilishi quyidagi sxemada ko'rsatilgan:",
                     "before_image2": f"Ushbu tushunchalar amaliyotda quyidagicha namoyon bo'ladi:",
                     "before_formulas": f"\"{section_title}\" bo'limiga xos asosiy formulalar:",
                     "before_table": f"Asosiy ko'rsatkichlarni quyidagi jadval orqali taqqoslash mumkin:",
                     "before_statistics": f"Mavzuning dolzarbligini quyidagi raqamlar tasdiqlaydi:",
                 },
                 "ru": {
-                    "before_image1": f"Научно-техническая визуализация раздела «{section_title}»:",
+                    "before_image1": f"Практический вид раздела «{section_title}»:",
+                    "before_scheme": f"Структура раздела «{section_title}» показана на схеме ниже:",
                     "before_image2": "Практическое применение данных концепций выглядит следующим образом:",
                     "before_formulas": f"Ключевые формулы, характерные для раздела «{section_title}»:",
                     "before_table": "Сравнение основных показателей представлено в таблице ниже:",
                     "before_statistics": "Актуальность темы подтверждается следующими данными:",
                 },
                 "en": {
-                    "before_image1": f"The scientific visualization of \"{section_title}\" is shown below:",
+                    "before_image1": f"A practical view of \"{section_title}\" is shown below:",
+                    "before_scheme": f"The structure of \"{section_title}\" is shown in the scheme below:",
                     "before_image2": "The practical application of these concepts is illustrated here:",
                     "before_formulas": f"The key formulas specific to \"{section_title}\" are presented below:",
                     "before_table": "The following table compares the main indicators:",

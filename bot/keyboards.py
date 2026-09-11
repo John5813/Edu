@@ -1227,7 +1227,8 @@ def get_ai_model_selection_keyboard(current_model: str) -> InlineKeyboardMarkup:
 
 _EXTRAS_META = {
     "formulas":   {"uz": "🔢 Formulalar",          "ru": "🔢 Формулы",              "en": "🔢 Formulas"},
-    "images":     {"uz": "🖼 Infografik rasmlar",   "ru": "🖼 Инфографика",           "en": "🖼 Infographics"},
+    "images":     {"uz": "🖼 Realistik rasmlar",    "ru": "🖼 Реалистичные фото",     "en": "🖼 Realistic photos"},
+    "scheme":     {"uz": "🗺 Struktura sxemasi",    "ru": "🗺 Схема структуры",       "en": "🗺 Structure scheme"},
     "tables":     {"uz": "📊 Taqqoslash jadvallari","ru": "📊 Сравн. таблицы",        "en": "📊 Comparison tables"},
     "glossary":   {"uz": "📖 Lug'at",               "ru": "📖 Глоссарий",             "en": "📖 Glossary"},
     "statistics": {"uz": "📈 Statistika va faktlar","ru": "📈 Статистика и факты",    "en": "📈 Statistics & facts"},
