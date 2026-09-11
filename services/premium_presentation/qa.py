@@ -73,6 +73,31 @@ def _render_with_pymupdf(pdf_path: str, work_dir: str) -> list[str]:
     return images
 
 
+def discard_images(images: list) -> None:
+    """QA rasmlarini va ular turgan katalogni darhol o'chiradi.
+
+    Har tekshiruv PDF va bir nechta JPG qoldiradi — 8 slaydli taqdimotda
+    ~2 MB. Ular davriy tozalashni kutib yotsa, disk bandligi taqdimot
+    sonidan ortib boradi.
+    """
+    directories = set()
+    for path in images or []:
+        directories.add(os.path.dirname(path))
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+    for directory in directories:
+        if not directory or os.path.basename(directory).startswith("qa_") is False:
+            continue
+        try:
+            for leftover in os.listdir(directory):
+                os.remove(os.path.join(directory, leftover))
+            os.rmdir(directory)
+        except OSError:
+            pass
+
+
 def _b64(image_path: str) -> str:
     with open(image_path, "rb") as f:
         return base64.b64encode(f.read()).decode("utf-8")

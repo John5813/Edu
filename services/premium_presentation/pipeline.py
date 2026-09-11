@@ -1,4 +1,5 @@
 import logging
+import os
 
 from pydantic import ValidationError
 
@@ -824,6 +825,7 @@ def run_visual_qa_and_fix(
             if images:
                 log.warning("QA rasm soni slayd soniga mos kelmadi (%s vs %s)",
                             len(images), len(current_brief.slides))
+                qa.discard_images(images)
             else:
                 log.warning("QA slaydlarni rasmga aylantira olmadi — serverda "
                             "LibreOffice o'rnatilganini tekshiring")
@@ -832,7 +834,40 @@ def run_visual_qa_and_fix(
             return _geometry_only_pass(current_brief, current_path)
 
         repaired = set()
-        for slide_pos, (img_path, slide) in enumerate(zip(images, current_brief.slides)):
+        try:
+            repaired = _inspect_and_repair(images, current_brief, topic, language,
+                                           applied, to_check, round_no)
+        finally:
+            # Skrinshotlar faqat shu raund uchun kerak edi.
+            qa.discard_images(images)
+
+        to_check = repaired
+        if not repaired:
+            log.info("Vizual QA: barcha slayd qabul qilindi (raund %s)", round_no + 1)
+            break
+
+        # Tuzatishdan keyin brief ham, PPTX ham yangilanadi. Ayniqsa oxirgi
+        # raundda render qilmaslik eski faylni qaytarib yuborardi.
+        current_brief = expand_infographics(current_brief)
+        current_brief = fix_text_overlaps(current_brief)
+        previous_path = current_path
+        current_path = build_presentation(current_brief)
+        # Almashtirilgan oraliq fayl kerak emas; asl fayl chaqiruvchiniki,
+        # shuning uchun unga tegilmaydi.
+        if previous_path != pptx_path:
+            try:
+                os.remove(previous_path)
+            except OSError:
+                pass
+
+    return current_path
+
+
+def _inspect_and_repair(images, current_brief, topic, language,
+                        applied: dict, to_check, round_no: int) -> set:
+    """Bir raundni yuradi: har slaydni tekshiradi va tuzatadi."""
+    repaired: set = set()
+    for slide_pos, (img_path, slide) in enumerate(zip(images, current_brief.slides)):
             if to_check is not None and slide.index not in to_check:
                 continue
             context = (
@@ -867,19 +902,7 @@ def run_visual_qa_and_fix(
                 applied[slide.index] = level
                 repaired.add(slide.index)
                 log.info("Slayd %s tuzatildi (%s-daraja): %s", slide.index, level, done)
-
-        to_check = repaired
-        if not repaired:
-            log.info("Vizual QA: barcha slayd qabul qilindi (raund %s)", round_no + 1)
-            break
-
-        # Tuzatishdan keyin brief ham, PPTX ham yangilanadi. Ayniqsa oxirgi
-        # raundda render qilmaslik eski faylni qaytarib yuborardi.
-        current_brief = expand_infographics(current_brief)
-        current_brief = fix_text_overlaps(current_brief)
-        current_path = build_presentation(current_brief)
-
-    return current_path
+    return repaired
 
 
 def _geometry_only_pass(brief: Brief, current_path: str) -> str:

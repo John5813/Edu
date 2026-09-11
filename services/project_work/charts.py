@@ -10,6 +10,7 @@ Lekin rang bajaradigan ishi o'zgarmaydi — kattalik uchun bitta rangning
 to'qlashuvi, holat uchun alohida status ranglari.
 """
 
+import contextlib
 import logging
 import os
 import re
@@ -75,6 +76,26 @@ def _new_figure(height: float = _FIGSIZE[1]):
         axes.spines[side].set_color(GRID)
     axes.tick_params(colors=INK_SOFT, labelsize=9, length=0)
     return figure, axes
+
+
+@contextlib.contextmanager
+def _figure_guard():
+    """Chizish davomida ochilgan figuralar har qanday holatda yopilishini kafolatlaydi.
+
+    matplotlib figuralarni global ro'yxatda ushlab turadi. `_save` ga
+    yetib bormasdan xato yuz bersa (masalan ma'lumot kutilmagan shaklda
+    bo'lsa), figura o'z buferi bilan xotirada qolib ketardi — bot uzoq
+    ishlagani sari xotira shu tarzda to'lardi.
+    """
+    before = set(plt.get_fignums())
+    try:
+        yield
+    finally:
+        for number in set(plt.get_fignums()) - before:
+            try:
+                plt.close(number)
+            except Exception:
+                pass
 
 
 def _save(figure, work_dir: str) -> str:
@@ -527,10 +548,11 @@ def _title(axes, title: str):
 
 def render_formula(latex: str, work_dir: str) -> str:
     """Formulani matematik yozuv sifatida chizadi."""
-    figure = plt.figure(figsize=(6.4, 0.9), dpi=_DPI)
-    figure.patch.set_facecolor(SURFACE)
-    figure.text(0.02, 0.45, f"${latex}$", fontsize=17, color=INK, va="center")
-    return _save(figure, work_dir)
+    with _figure_guard():
+        figure = plt.figure(figsize=(6.4, 0.9), dpi=_DPI)
+        figure.patch.set_facecolor(SURFACE)
+        figure.text(0.02, 0.45, f"${latex}$", fontsize=17, color=INK, va="center")
+        return _save(figure, work_dir)
 
 
 # ══════════════════════════════════════════════════════════ shakl tanlash
@@ -562,10 +584,11 @@ def draw(artifact: str, form: str, data: dict, title: str, work_dir: str,
     if drawer is None:
         raise ValueError(f"chizma shakli yo'q: {artifact}/{form}")
 
-    if artifact == "budget":
-        return drawer(data.get("items") or [], title, work_dir, palette)
-    if artifact == "timeline":
-        return drawer(data.get("stages") or [], title, work_dir, palette)
-    if artifact == "risks":
-        return drawer(data.get("risks") or [], title, work_dir, palette)
-    return drawer(data.get("points") or [], title, unit, work_dir, palette)
+    with _figure_guard():
+        if artifact == "budget":
+            return drawer(data.get("items") or [], title, work_dir, palette)
+        if artifact == "timeline":
+            return drawer(data.get("stages") or [], title, work_dir, palette)
+        if artifact == "risks":
+            return drawer(data.get("risks") or [], title, work_dir, palette)
+        return drawer(data.get("points") or [], title, unit, work_dir, palette)
