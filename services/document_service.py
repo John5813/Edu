@@ -258,12 +258,13 @@ class DocumentService:
 
             if not image_url:
                 from services.fal_service import generate_image_nano
-                lang_name = {'uz': 'Uzbek', 'ru': 'Russian', 'en': 'English'}.get(language, 'Uzbek')
                 prompt = (
-                    f"Professional educational infographic poster clearly explaining '{topic}'. "
-                    f"Include text labels, key terms, and annotations in {lang_name} language. "
-                    "Data charts, statistics, diagrams, icons, flowcharts, key concepts all related to this specific topic. "
-                    "Colorful modern academic design, high quality, wide landscape format."
+                    f"Realistic professional photograph illustrating '{topic}'. "
+                    "Photorealistic DSLR photo of the real environment, people or equipment "
+                    "connected with this subject, natural light, authentic colours and textures, "
+                    "cinematic composition, wide landscape 16:9 format. "
+                    "NOT an infographic, NOT a poster, NOT a diagram, NOT vector art, NOT a 3D render. "
+                    "No text, no letters, no labels, no watermarks."
                 )
                 logger.info(f"Generating full-page infographic slide for: {topic}")
                 image_url = await generate_image_nano(prompt, aspect_ratio="16_9")
@@ -945,7 +946,8 @@ class DocumentService:
     ) -> None:
         """Add selected extras (image, formulas, stats, table) after a section.
         formula_data: pre-fetched formula dict; fetched here if None and 'formulas' in extras.
-        section_idx: used to alternate image type (even=infographic, odd=scene).
+        section_idx: rasm turini almashtiradi (juft=obyekt fotosurati, toq=odamli
+            fotosurat). Ikkalasi ham REALISTIK surat — infografika emas.
         """
         from services.ai_service import get_ai_service
         from services.together_service import get_together_service
@@ -961,7 +963,7 @@ class DocumentService:
         if "formulas" in extras and formula_data is None:
             formula_data = await ai.generate_section_formulas(section_title, topic, lang)
 
-        # ══ ORDER: image1(infographic) → image2(scene) → formulas+masala → tables → statistics ══
+        # ══ ORDER: image1(obyekt foto) → image2(odamli foto) → formulas+masala → tables → statistics ══
 
         async def _add_bridge(block_type: str) -> None:
             text = await ai.generate_bridge_sentence(block_type, section_title, topic, lang)
@@ -994,7 +996,8 @@ class DocumentService:
             cap_run.font.italic = True
             cap_run.font.name = "Times New Roman"
 
-        # ── 1. Image (alternates: even sections → infographic, odd → scene) ─
+        # ── 1. Rasm (juft bo'limlarda obyekt fotosurati, toqda odamli fotosurat;
+        #    ikkalasi ham realistik surat, infografika emas) ─────────────────
         if "images" in extras:
             img_type = "infographic" if section_idx % 2 == 0 else "scene"
             if lang == "ru":
@@ -1002,7 +1005,7 @@ class DocumentService:
             elif lang == "en":
                 cap = f"Fig. {section_title}"
             else:
-                cap = f"{'Infografika' if img_type == 'infographic' else 'Rasm'}. {section_title}"
+                cap = f"Rasm. {section_title}"
             bridge_key = "before_image1" if img_type == "infographic" else "before_image2"
             try:
                 together = get_together_service()

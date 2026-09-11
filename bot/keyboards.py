@@ -212,15 +212,13 @@ def get_project_blocks_keyboard(language: str, selected) -> InlineKeyboardMarkup
     text admitted both variants carried the same tables, so the client was
     choosing nothing they could perceive.
     """
-    from services.project_work.specs import (
-        BLOCK_AUTO, BLOCK_ORDER, BLOCK_SCHEME, block_label,
-    )
+    from services.project_work.specs import BLOCK_AUTO, BLOCK_ORDER, block_label
 
     selected = set(selected or [])
     keyboard = InlineKeyboardBuilder()
     auto = BLOCK_AUTO in selected
 
-    for key in (*BLOCK_ORDER, BLOCK_SCHEME):
+    for key in BLOCK_ORDER:
         mark = "☑️" if (key in selected and not auto) else "⬜️"
         keyboard.add(InlineKeyboardButton(
             text=f"{mark} {block_label(key, language)}",

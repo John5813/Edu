@@ -28,6 +28,7 @@ from .specs import (
     ARTIFACT_BUDGET,
     ARTIFACT_FORECAST,
     ARTIFACT_RISKS,
+    ARTIFACT_SCHEME,
     ARTIFACT_TIMELINE,
 )
 
@@ -40,10 +41,13 @@ FORMS: Dict[str, List[str]] = {
     ARTIFACT_BUDGET: ["bar", "lollipop", "donut", "waterfall"],
     # bosqichlar ketma-ketligi
     ARTIFACT_TIMELINE: ["gantt", "milestones", "steps"],
-    # ikki o'lchov + og'irlik
-    ARTIFACT_RISKS: ["matrix", "bubble", "radar"],
+    # ikki o'lchov + og'irlik. Matritsa olib tashlandi: u rangli katakchalar
+    # to'ri bo'lib, mijozga hech narsa aytmasdi.
+    ARTIFACT_RISKS: ["bubble", "radar"],
     # vaqt bo'yicha o'zgarish
     ARTIFACT_FORECAST: ["line", "area", "column"],
+    # tuzilma — bitta shakl, chunki u ierarxiyani ko'rsatadi
+    ARTIFACT_SCHEME: ["structure"],
 }
 
 # `data/` — Python paketi (icons_map.py shu yerda), shuning uchun ish
@@ -93,15 +97,20 @@ def choose(seed_parts, user_id: Optional[int] = None) -> Variety:
     for entry in history:
         for artifact, form in (entry.get("forms") or {}).items():
             used_forms.setdefault(artifact, set()).add(form)
+    # Eng oxirgi ish — u bilan ketma-ket bir xil bo'lish eng ko'zga tashlanadi.
+    previous = history[-1] if history else {}
+    last_forms = previous.get("forms") or {}
 
-    palette_key = _pick(palettes.PALETTE_KEYS, used_palettes, rng)
+    palette_key = _pick(palettes.PALETTE_KEYS, used_palettes, rng,
+                        last=previous.get("palette"))
     forms: Dict[str, str] = {}
     taken: set = set()
     for artifact in sorted(FORMS):
         options = FORMS[artifact]
         # Hujjat ichida bir shakl ikki marta ishlatilmasin.
         fresh = [f for f in options if f not in taken]
-        forms[artifact] = _pick(fresh or options, used_forms.get(artifact, set()), rng)
+        forms[artifact] = _pick(fresh or options, used_forms.get(artifact, set()),
+                                rng, last=last_forms.get(artifact))
         taken.add(forms[artifact])
 
     chosen = Variety(palettes.get(palette_key), forms)
@@ -113,8 +122,10 @@ def choose_palette(seed_parts, user_id: Optional[int] = None):
     """Faqat rang sxemasini tanlaydi — taqdimot uchun shakl tanlash boshqacha."""
     seed = "|".join(str(part) for part in seed_parts if part is not None)
     rng = random.Random(hashlib.sha256(seed.encode("utf-8")).hexdigest())
-    used = {entry.get("palette") for entry in _history(user_id)}
-    key = _pick(palettes.PALETTE_KEYS, used, rng)
+    history = _history(user_id)
+    used = {entry.get("palette") for entry in history}
+    key = _pick(palettes.PALETTE_KEYS, used, rng,
+                last=(history[-1].get("palette") if history else None))
     chosen = Variety(palettes.get(key), {})
     _remember(user_id, chosen)
     return chosen.palette
@@ -146,12 +157,22 @@ def spread_chart_types(types: List[str], seed_parts) -> List[str]:
     return out
 
 
-def _pick(options: List[str], avoid: set, rng: random.Random) -> str:
-    """Iloji bo'lsa yaqinda ishlatilmaganini tanlaydi."""
+def _pick(options: List[str], avoid: set, rng: random.Random,
+          last: Optional[str] = None) -> str:
+    """Iloji bo'lsa yaqinda ishlatilmaganini tanlaydi.
+
+    Variantlar soni xotiradan kam bo'lsa (risklarda atigi ikkita shakl bor),
+    hammasi "ishlatilgan" bo'lib chiqadi. Bunda ham hech bo'lmaganda eng
+    oxirgi ishdagi shakl chetlab o'tiladi — mijoz ketma-ket ikkita bir xil
+    chizmani aynan shu holatda sezadi.
+    """
     if not options:
         return ""
     fresh = [option for option in options if option not in avoid]
-    return rng.choice(fresh or options)
+    if fresh:
+        return rng.choice(fresh)
+    not_last = [option for option in options if option != last]
+    return rng.choice(not_last or options)
 
 
 # ─────────────────────────────────────────────────────────────── xotira
