@@ -23,6 +23,7 @@ ARTIFACT_RISKS = "risks"        # xavf | ehtimollik | ta'sir | chora
 ARTIFACT_RESULTS = "results"    # ko'rsatkich | hozirgi | maqsad | o'lchov
 ARTIFACT_SCHEME = "scheme"      # AI chizgan sxema (rasm)
 ARTIFACT_FORECAST = "forecast"  # prognoz chizig'i + hisob formulasi
+ARTIFACT_CALC = "calc"          # hisob-kitob jadvali + formulalar, chizmasiz
 
 # Bir xil ko'rinishdagi beshta jadval o'rniga har ma'lumot o'z shaklini
 # oladi: xarajat — ustunli diagramma, bosqichlar — Gantt lentasi, risklar —
@@ -34,7 +35,53 @@ CHART_ARTIFACTS = {
     ARTIFACT_FORECAST,
 }
 CARD_ARTIFACTS = {ARTIFACT_RESULTS}
-TABLE_ARTIFACTS = {ARTIFACT_DATA}
+TABLE_ARTIFACTS = {ARTIFACT_DATA, ARTIFACT_CALC}
+
+
+# ─────────────────────────────────────────── Mijoz tanlaydigan mazmun bloklari
+#
+# Ilgari TIMELINE, BUDGET, FORECAST, RISKS va RESULTS har bir loyiha ishiga
+# majburan tushardi. Ammo sof hisob-kitobli ishga Gantt lentasi ham, risk
+# matritsasi ham keraksiz. Endi bo'limlar mijoz tanlagan bloklardan yig'iladi.
+
+BLOCK_CALC = "calc"
+BLOCK_BUDGET = "budget"
+BLOCK_TIMELINE = "timeline"
+BLOCK_FORECAST = "forecast"
+BLOCK_RISKS = "risks"
+BLOCK_RESULTS = "results"
+BLOCK_SCHEME = "scheme"
+BLOCK_AUTO = "auto"
+
+# Hujjatdagi tartib — mijoz tanlash tartibi emas.
+BLOCK_ORDER = [
+    BLOCK_CALC, BLOCK_BUDGET, BLOCK_TIMELINE,
+    BLOCK_FORECAST, BLOCK_RISKS, BLOCK_RESULTS,
+]
+
+BLOCK_LABELS: Dict[str, Dict[str, str]] = {
+    BLOCK_CALC: {"uz": "Hisob-kitob va formulalar", "ru": "Расчёты и формулы",
+                 "en": "Calculations and formulas"},
+    BLOCK_BUDGET: {"uz": "Smeta va resurslar", "ru": "Смета и ресурсы",
+                   "en": "Budget and resources"},
+    BLOCK_TIMELINE: {"uz": "Ish jadvali (bosqichlar)", "ru": "План работ (этапы)",
+                     "en": "Work plan (stages)"},
+    BLOCK_FORECAST: {"uz": "Prognoz va samaradorlik", "ru": "Прогноз и эффективность",
+                     "en": "Forecast and effectiveness"},
+    BLOCK_RISKS: {"uz": "Risklar tahlili", "ru": "Анализ рисков",
+                  "en": "Risk analysis"},
+    BLOCK_RESULTS: {"uz": "Kutilayotgan natijalar", "ru": "Ожидаемые результаты",
+                    "en": "Expected results"},
+    BLOCK_SCHEME: {"uz": "Sxema/rasm", "ru": "Схема/рисунок", "en": "Scheme/figure"},
+    BLOCK_AUTO: {"uz": "AI mavzuga qarab o'zi tanlasin",
+                 "ru": "ИИ выберет сам по теме",
+                 "en": "Let the AI choose by topic"},
+}
+
+
+def block_label(block: str, language: str) -> str:
+    labels = BLOCK_LABELS.get(block, {})
+    return labels.get(language, labels.get("uz", block))
 
 
 @dataclass(frozen=True)
@@ -156,6 +203,22 @@ FORECAST = SectionSpec(
     artifact=ARTIFACT_FORECAST,
 )
 
+CALCULATION = SectionSpec(
+    key="hisob",
+    title={
+        "uz": "Hisob-kitob va uni asoslash",
+        "ru": "Расчёты и их обоснование",
+        "en": "Calculations and their justification",
+    },
+    guidance=(
+        "Work through the numeric core of the project step by step: state the "
+        "input quantities with their units, the formula applied at each step, "
+        "and the figure it produces. Explain what each result means in practice. "
+        "This section is about arithmetic, not about planning or risks."
+    ),
+    artifact=ARTIFACT_CALC,
+)
+
 CONCLUSION = SectionSpec(
     key="xulosa",
     title={"uz": "Xulosa", "ru": "Заключение", "en": "Conclusion"},
@@ -167,7 +230,19 @@ CONCLUSION = SectionSpec(
 )
 
 _OPENING = [INTRO, RELEVANCE]
-_CLOSING = [TIMELINE, BUDGET, FORECAST, RISKS, RESULTS, CONCLUSION]
+
+# Blok → bo'lim. CONCLUSION har doim oxirida turadi, u blok emas.
+_BLOCK_SECTIONS: Dict[str, SectionSpec] = {
+    BLOCK_CALC: CALCULATION,
+    BLOCK_BUDGET: BUDGET,
+    BLOCK_TIMELINE: TIMELINE,
+    BLOCK_FORECAST: FORECAST,
+    BLOCK_RISKS: RISKS,
+    BLOCK_RESULTS: RESULTS,
+}
+
+# Mijoz hech narsa tanlamasa ham hujjat bo'sh qolmasin.
+DEFAULT_BLOCKS = [BLOCK_TIMELINE, BLOCK_BUDGET, BLOCK_RISKS, BLOCK_RESULTS]
 
 
 def _section(key, uz, ru, en, guidance, artifact=None, words="300-380") -> SectionSpec:
@@ -387,17 +462,24 @@ GENERIC_LABEL = {
 }
 
 
-def sections_for(field_key: str) -> List[SectionSpec]:
+def closing_for(blocks) -> List[SectionSpec]:
+    """Mijoz tanlagan bloklardan yakuniy bo'limlarni yig'adi."""
+    chosen = set(blocks or [])
+    ordered = [_BLOCK_SECTIONS[key] for key in BLOCK_ORDER if key in chosen]
+    return [*ordered, CONCLUSION]
+
+
+def sections_for(field_key: str, blocks=None) -> List[SectionSpec]:
     """Sohaning to'liq bo'limlar ketma-ketligi."""
     spec = FIELDS.get(field_key)
     if spec is None:
         raise KeyError(f"noma'lum soha: {field_key}")
-    return [*_OPENING, *spec.middle, *_CLOSING]
+    return [*_OPENING, *spec.middle, *closing_for(blocks)]
 
 
-def generic_sections(middle: List[SectionSpec]) -> List[SectionSpec]:
+def generic_sections(middle: List[SectionSpec], blocks=None) -> List[SectionSpec]:
     """AI taklif qilgan o'rta bo'limlarni umumiy skeletga joylaydi."""
-    return [*_OPENING, *middle, *_CLOSING]
+    return [*_OPENING, *middle, *closing_for(blocks)]
 
 
 def field_label(field_key: str, language: str) -> str:

@@ -52,7 +52,8 @@ class VisualElement(BaseModel):
     # kod hosil qilgan element: ustma-ustlik tuzatuvchisi unga tegmaydi
     locked: bool = False
     # chart
-    chart_type: Optional[Literal["bar", "column", "line", "pie", "donut"]] = None
+    chart_type: Optional[Literal["bar", "column", "line", "area", "pie",
+                                 "donut", "radar", "scatter"]] = None
     chart_title: Optional[str] = None
     caption: Optional[str] = None   # diagramma ostida ko'rsatiladigan izoh matni
     categories: Optional[List[str]] = None

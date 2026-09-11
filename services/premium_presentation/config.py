@@ -21,22 +21,30 @@ OPENROUTER_VISION_MODEL = os.getenv(
     "openai/gpt-4o-mini",
 )
 
-# Vizual QA har slaydni rasmga aylantirib vision modelga yuboradi — oqimdagi
-# eng qimmat qadam. Dasturiy tekshiruvlar (ustma-ustlik, minimal shrift,
-# grounding) ishning kattasini bepul bajaradi, shuning uchun QA ixtiyoriy.
-VISUAL_QA_ENABLED = os.getenv("PREMIUM_VISUAL_QA", "0").lower() in {"1", "true", "yes"}
-MAX_QA_RETRIES = int(os.getenv("PREMIUM_MAX_QA_RETRIES", "1"))
+# Vizual QA har slaydni rasmga aylantirib vision modelga yuboradi. Ilgari u
+# sukut bo'yicha o'chiq edi, shuning uchun tekshiruv umuman ishlamasdi.
+# Endi yoqiq: dasturiy tekshiruvlar ustma-ustlikning kattasini bepul topadi,
+# lekin matn rasm ustiga tushgan yoki kontrast yetmagan holatni faqat ko'z
+# ko'radi. PREMIUM_VISUAL_QA=0 bilan o'chiriladi.
+VISUAL_QA_ENABLED = os.getenv("PREMIUM_VISUAL_QA", "1").lower() in {"1", "true", "yes"}
+# Ikki raund: birinchisida arzon tuzatish (surish), yordam bermasa
+# ikkinchisida daraja ko'tariladi.
+MAX_QA_RETRIES = int(os.getenv("PREMIUM_MAX_QA_RETRIES", "2"))
 WORK_DIR = os.getenv("PREMIUM_WORK_DIR", "temp")
 
 # Slayd rasmlari — asosiy bot bilan bir xil Together AI kaliti va FLUX modeli.
 TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY", "")
+# FLUX.1-schnell hisobimizning model ro'yxatida yo'q edi — birinchi so'rov
+# HTTP 400 bilan yiqilib, keyingi urinishlar 429 ga tushardi. FLUX.2-pro
+# mavjud va premium slaydlar uchun mos.
 TOGETHER_IMAGE_MODEL = os.getenv(
-    "PREMIUM_TOGETHER_IMAGE_MODEL", "black-forest-labs/FLUX.1-schnell"
+    "PREMIUM_TOGETHER_IMAGE_MODEL", "black-forest-labs/FLUX.2-pro"
 )
 TOGETHER_IMAGE_URL = os.getenv(
     "PREMIUM_TOGETHER_IMAGE_URL", "https://api.together.ai/v1/images/generations"
 )
-# FLUX.1-schnell faqat 1-4 qadamni qabul qiladi; 4 dan yuqorisi HTTP 400 beradi.
+# `steps` faqat uni qabul qiladigan modellarga yuboriladi (pastdagi ro'yxat).
+# Schnell uchun chegara 4 ta: undan yuqorisi HTTP 400 beradi.
 TOGETHER_IMAGE_STEPS = int(os.getenv("PREMIUM_TOGETHER_IMAGE_STEPS", "4"))
 # Slayd nisbati 16:9 — o'lchamlar 16 ga karrali bo'lishi shart.
 TOGETHER_IMAGE_WIDTH = int(os.getenv("PREMIUM_TOGETHER_IMAGE_WIDTH", "1344"))

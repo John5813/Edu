@@ -6,7 +6,7 @@ from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
-from pptx.chart.data import ChartData
+from pptx.chart.data import CategoryChartData, XyChartData
 from pptx.enum.chart import XL_CHART_TYPE
 
 log = logging.getLogger("layouts")
@@ -20,13 +20,22 @@ ALIGN_MAP = {
     "right": PP_ALIGN.RIGHT,
 }
 
+# python-pptx bu turlarni native qo'llaydi, ya'ni diagramma PowerPoint'da
+# tahrirlanadigan bo'lib qoladi — rasm emas.
 CHART_TYPE_MAP = {
-    "bar":    XL_CHART_TYPE.BAR_CLUSTERED,
-    "column": XL_CHART_TYPE.COLUMN_CLUSTERED,
-    "line":   XL_CHART_TYPE.LINE,
-    "pie":    XL_CHART_TYPE.PIE,
-    "donut":  XL_CHART_TYPE.DOUGHNUT,
+    "bar":     XL_CHART_TYPE.BAR_CLUSTERED,
+    "column":  XL_CHART_TYPE.COLUMN_CLUSTERED,
+    "line":    XL_CHART_TYPE.LINE_MARKERS,
+    "area":    XL_CHART_TYPE.AREA,
+    "pie":     XL_CHART_TYPE.PIE,
+    "donut":   XL_CHART_TYPE.DOUGHNUT,
+    "radar":   XL_CHART_TYPE.RADAR_MARKERS,
+    "scatter": XL_CHART_TYPE.XY_SCATTER,
 }
+
+# Bitta qiymatlar qatorini rang bo'yicha ajratadigan turlar: bu yerda rang
+# har bo'lakka, qolganlarida esa butun qatorga beriladi.
+_PER_POINT = {"pie", "donut"}
 
 
 def _hex(hex_str: str) -> RGBColor:
@@ -42,7 +51,8 @@ def _clamp(val, lo, hi):
     return max(lo, min(hi, val))
 
 
-def render_canvas(slide, s, image_paths: dict, used_icons: set | None = None):
+def render_canvas(slide, s, image_paths: dict, used_icons: set | None = None,
+                  palette=None):
     used_icons = used_icons if used_icons is not None else set()
     bg = slide.background
     bg.fill.solid()
@@ -61,7 +71,7 @@ def render_canvas(slide, s, image_paths: dict, used_icons: set | None = None):
                 if img_path:
                     _draw_image(slide, el, img_path)
             elif el.type == "chart":
-                _draw_chart(slide, el)
+                _draw_chart(slide, el, palette)
             elif el.type == "kpi":
                 _draw_kpi(slide, el, s)
             elif el.type == "icon":
@@ -253,14 +263,71 @@ def _draw_image(slide, el, img_path: str):
 
 # ─────────────────────────────────────────────────────────── chart
 
-def _draw_chart(slide, el):
+def _xy_data(categories, series_list):
+    """Kategoriyalar son bo'lsa, ularni x qiymatlari sifatida ishlatadi."""
+    x_values = []
+    for category in categories:
+        try:
+            x_values.append(float(str(category).replace(" ", "").replace(",", ".")))
+        except (TypeError, ValueError):
+            return None
+    if len(x_values) < 2:
+        return None
+
+    data = XyChartData()
+    added = False
+    for entry in series_list:
+        if not isinstance(entry, dict):
+            continue
+        values = entry.get("values") or []
+        series = data.add_series(entry.get("name", "Series"))
+        for x, y in zip(x_values, values):
+            try:
+                series.add_data_point(x, float(y))
+                added = True
+            except (TypeError, ValueError):
+                continue
+    return data if added else None
+
+
+def _colour_chart(chart, chart_type: str, palette) -> None:
+    """Diagramma ranglarini taqdimot palitrasiga moslaydi.
+
+    PowerPoint'ning standart rang sxemasi har taqdimotda bir xil ko'k-to'q
+    sariq bo'lib chiqardi. Bu yerda rang tekshiruvdan o'tgan palitradan
+    olinadi, shuning uchun har taqdimot boshqacha ko'rinadi.
+    """
+    if palette is None:
+        return
+    try:
+        plot = chart.plots[0]
+        if chart_type in _PER_POINT:
+            # Bir qator, ko'p bo'lak: rang har bo'lakka beriladi.
+            points = list(plot.series[0].points)
+            for index, point in enumerate(points):
+                point.format.fill.solid()
+                point.format.fill.fore_color.rgb = _hex(
+                    palette.categorical[index % len(palette.categorical)])
+            return
+        for index, series in enumerate(plot.series):
+            colour = palette.categorical[index % len(palette.categorical)]
+            if chart_type in ("line", "scatter", "radar"):
+                series.format.line.color.rgb = _hex(colour)
+                series.format.line.width = Pt(2.25)
+            else:
+                series.format.fill.solid()
+                series.format.fill.fore_color.rgb = _hex(colour)
+    except Exception as exc:
+        log.warning("Diagramma rangi qo'llanmadi: %s", exc)
+
+def _draw_chart(slide, el, palette=None):
     """python-pptx native chart + caption (izoh matni) chizadi."""
     w = _clamp(el.w or 7.0, 2.0, 13.0)
     h = _clamp(el.h or 4.0, 1.5, 6.5)   # caption uchun joy qoldiramiz
     x = _clamp(el.x, 0.0, 11.0)
     y = _clamp(el.y, 0.0, 6.0)
 
-    chart_data = ChartData()
+    chart_data = CategoryChartData()
 
     categories = el.categories or ["A", "B", "C"]
     chart_data.categories = categories
@@ -275,7 +342,19 @@ def _draw_chart(slide, el):
             values = list(values) + [0] * (len(categories) - len(values))
         chart_data.add_series(name, tuple(values[:len(categories)]))
 
-    chart_type = CHART_TYPE_MAP.get(el.chart_type or "column", XL_CHART_TYPE.COLUMN_CLUSTERED)
+    requested = el.chart_type or "column"
+    if requested == "scatter":
+        # XY_SCATTER kategoriya emas, (x, y) juftlarini talab qiladi. Kategoriyalar
+        # son bo'lmasa scatter chizib bo'lmaydi — bunday holatda chiziqqa o'tamiz,
+        # aks holda diagramma umuman chizilmay qolardi.
+        xy_data = _xy_data(categories, series_list)
+        if xy_data is not None:
+            chart_data = xy_data
+        else:
+            log.info("Scatter uchun kategoriyalar son emas — chiziqqa o'tildi")
+            requested = "line"
+
+    chart_type = CHART_TYPE_MAP.get(requested, XL_CHART_TYPE.COLUMN_CLUSTERED)
 
     try:
         chart_frame = slide.shapes.add_chart(
@@ -295,6 +374,8 @@ def _draw_chart(slide, el):
 
         if len(series_list) <= 1:
             chart.has_legend = False
+
+        _colour_chart(chart, requested, palette)
 
         # ── Caption: diagramma ostida izoh matni ──────────────────
         caption_text = el.caption or el.chart_title or ""

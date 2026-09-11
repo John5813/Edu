@@ -15,11 +15,9 @@ from docx.shared import Inches, Pt
 
 from config import DOCUMENTS_DIR, TEMP_DIR
 
-from . import charts
+from . import charts, variety
 from .content import ProjectContent, SectionContent
 from .specs import (
-    ARTIFACT_BUDGET,
-    ARTIFACT_FORECAST,
     ARTIFACT_RESULTS,
     ARTIFACT_RISKS,
     ARTIFACT_TIMELINE,
@@ -52,8 +50,15 @@ class ProjectWorkBuilder:
 
     async def build(self, content: ProjectContent) -> str:
         images = await self._render_images(content)
+        # Sxema hujjat boshida bir marta tanlanadi va butun hujjat bo'ylab
+        # amal qiladi. Quruvchi umumiy obyekt bo'lgani uchun u `self` da
+        # emas, chaqiruv zanjiri orqali uzatiladi.
+        chosen = variety.choose(
+            (content.language, content.topic, content.field_key),
+            user_id=content.user_id,
+        )
         try:
-            return await asyncio.to_thread(self._build_sync, content, images)
+            return await asyncio.to_thread(self._build_sync, content, images, chosen)
         finally:
             for path in images.values():
                 try:
@@ -79,7 +84,7 @@ class ProjectWorkBuilder:
 
     # ------------------------------------------------------------------ docx
 
-    def _build_sync(self, content: ProjectContent, images: dict) -> str:
+    def _build_sync(self, content: ProjectContent, images: dict, chosen) -> str:
         language = content.language
         doc = Document()
 
@@ -106,7 +111,7 @@ class ProjectWorkBuilder:
         for section in doc.sections:
             self.documents._add_page_number(section)
 
-        self._body(doc, content, images)
+        self._body(doc, content, images, chosen)
         self._references(doc, content)
 
         os.makedirs(DOCUMENTS_DIR, exist_ok=True)
@@ -191,7 +196,7 @@ class ProjectWorkBuilder:
         """Kirish va xulosa raqamlanmaydi — akademik qoida shunday."""
         return section.spec.key not in {"kirish", "xulosa"}
 
-    def _body(self, doc, content: ProjectContent, images: dict) -> None:
+    def _body(self, doc, content: ProjectContent, images: dict, chosen) -> None:
         language = content.language
         citable = [r for r in content.references if not r.startswith("__CATEGORY__")]
         table_no = 0
@@ -223,7 +228,7 @@ class ProjectWorkBuilder:
 
             if section.chart:
                 figure_no, table_no = self._add_instrument(
-                    doc, section, figure_no, table_no, language
+                    doc, section, figure_no, table_no, language, chosen
                 )
 
             if section.formula:
@@ -247,7 +252,7 @@ class ProjectWorkBuilder:
         return written
 
     def _add_instrument(self, doc, section: SectionContent, figure_no: int,
-                        table_no: int, language: str) -> tuple:
+                        table_no: int, language: str, chosen) -> tuple:
         """Bo'limning raqamli ma'lumotini o'ziga mos shaklda chizadi."""
         artifact = section.spec.artifact
         data = section.chart or {}
@@ -257,21 +262,19 @@ class ProjectWorkBuilder:
             self._add_indicator_cards(doc, data.get("indicators") or [], language)
             return figure_no, table_no
 
-        drawers = {
-            ARTIFACT_BUDGET: lambda: charts.budget_bar(data.get("items") or [], title, TEMP_DIR),
-            ARTIFACT_TIMELINE: lambda: charts.gantt(data.get("stages") or [], title, TEMP_DIR),
-            ARTIFACT_RISKS: lambda: charts.risk_matrix(data.get("risks") or [], title, TEMP_DIR),
-            ARTIFACT_FORECAST: lambda: charts.forecast_line(
-                data.get("points") or [], title, str(data.get("unit") or ""), TEMP_DIR),
-        }
-        draw = drawers.get(artifact)
-        if draw is None:
+        if artifact not in variety.FORMS:
             return figure_no, table_no
 
+        # Shakl va rang sxemasi hujjat boshida tanlangan: shu sababli bitta
+        # ishda ikkita bir xil chizma bo'lmaydi, ketma-ket ishlar esa
+        # bir-biriga o'xshamaydi.
+        form = chosen.form(artifact)
         try:
-            image_path = draw()
+            image_path = charts.draw(artifact, form, data, title, TEMP_DIR,
+                                     palette=chosen.palette,
+                                     unit=str(data.get("unit") or ""))
         except Exception as e:
-            logger.warning("Diagramma chizilmadi (%s): %s", section.spec.key, e)
+            logger.warning("Diagramma chizilmadi (%s/%s): %s", section.spec.key, form, e)
             return figure_no, table_no
 
         figure_no += 1

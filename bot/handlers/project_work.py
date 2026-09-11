@@ -14,8 +14,9 @@ from aiogram.types import CallbackQuery, FSInputFile, Message
 from bot.keyboards import (
     get_doc_language_keyboard,
     get_main_keyboard,
-    get_project_artifacts_keyboard,
+    get_project_blocks_keyboard,
     get_project_depth_keyboard,
+    get_project_field_confirm_keyboard,
     get_project_field_keyboard,
     get_project_skip_keyboard,
     get_project_source_keyboard,
@@ -26,6 +27,12 @@ from bot.states import ProjectWorkStates
 from config import PROJECT_WORK_DEPTH, PROJECT_WORK_PRICES, TEMP_DIR
 from database.database import Database
 from services.project_work import field_label, get_content_builder, get_document_builder
+from services.project_work.specs import (
+    BLOCK_AUTO,
+    BLOCK_SCHEME,
+    GENERIC_FIELD_KEY,
+    block_label,
+)
 from services import document_source
 from services.project_work import source as source_module
 from translations import get_text
@@ -87,28 +94,42 @@ async def got_topic(message: Message, state: FSMContext, user_lang: str):
         return
     await dialog.resolve(message, state, get_text(user_lang, "pw_done_topic", topic=topic))
     await state.update_data(topic=topic)
-    await state.set_state(ProjectWorkStates.waiting_for_author)
+    await _suggest_field(message, state, user_lang, topic)
+
+
+# ─────────────────────────────────────────────────────────────── yo'nalish
+
+async def _suggest_field(message: Message, state: FSMContext, user_lang: str, topic: str):
+    """Mavzudan yo'nalishni taxmin qilib, tasdiqlashni so'raydi.
+
+    Sakkizta tugmani mijozning o'zi ko'zdan kechirgandan ko'ra, taklifni
+    tasdiqlash tezroq. Taxmin ishonchsiz bo'lsa — to'liq ro'yxat ochiladi.
+    """
+    try:
+        field_key = await get_content_builder().suggest_field(topic)
+    except Exception as e:
+        logger.warning("Yo'nalish taxmini ishlamadi: %s", e)
+        field_key = GENERIC_FIELD_KEY
+
+    if field_key == GENERIC_FIELD_KEY:
+        # Taxmin ishonchsiz — to'liq ro'yxat ochiladi.
+        await _ask_field(message, state, user_lang)
+        return
+
+    await state.update_data(suggested_field=field_key)
+    await state.set_state(ProjectWorkStates.waiting_for_field_confirm)
     await dialog.ask(
         message, state,
-        get_text(user_lang, "pw_ask_author"),
-        reply_markup=get_project_skip_keyboard(user_lang, "pw_skip_author"),
+        get_text(user_lang, "pw_field_suggest", field=field_label(field_key, user_lang)),
+        reply_markup=get_project_field_confirm_keyboard(user_lang, field_key),
+        parse_mode="HTML",
     )
 
 
-@router.message(ProjectWorkStates.waiting_for_author, F.text)
-async def got_author(message: Message, state: FSMContext, user_lang: str):
-    author = sanitize_user_input(message.text or "")[:100]
-    await dialog.resolve(message, state, get_text(user_lang, "pw_done_author", author=author))
-    await state.update_data(author_name=author)
-    await _ask_source(message, state, user_lang)
-
-
-@router.callback_query(F.data == "pw_skip_author", ProjectWorkStates.waiting_for_author)
-async def skip_author(callback: CallbackQuery, state: FSMContext, user_lang: str):
+@router.callback_query(F.data == "pw_field_change", ProjectWorkStates.waiting_for_field_confirm)
+async def change_field(callback: CallbackQuery, state: FSMContext, user_lang: str):
     await callback.answer()
-    await dialog.resolve(callback.message, state, get_text(user_lang, "pw_done_author_skipped"))
-    await state.update_data(author_name="")
-    await _ask_source(callback.message, state, user_lang)
+    await _ask_field(callback.message, state, user_lang, edit=True)
 
 
 async def _ask_source(message: Message, state: FSMContext, user_lang: str):
@@ -134,7 +155,7 @@ async def chose_source(callback: CallbackQuery, state: FSMContext, user_lang: st
 
     if kind == source_module.KIND_AI:
         await state.update_data(source_kind=source_module.KIND_AI, source_text="", source_label="")
-        await _ask_field(callback.message, state, user_lang)
+        await _ask_blocks(callback.message, state, user_lang)
         return
 
     prompts = {
@@ -234,50 +255,124 @@ async def _store_source(message: Message, state: FSMContext, user_lang: str, mat
         )
     else:
         await dialog.resolve(message, state, get_text(user_lang, "pw_done_brief"))
-    await _ask_field(message, state, user_lang)
+    await _ask_blocks(message, state, user_lang)
 
 
 # ─────────────────────────────────────────────────────────── yo'nalish va hajm
 
-async def _ask_field(message: Message, state: FSMContext, user_lang: str):
+async def _ask_field(message: Message, state: FSMContext, user_lang: str, edit: bool = False):
     await state.set_state(ProjectWorkStates.waiting_for_field)
-    await dialog.ask(
-        message, state,
-        get_text(user_lang, "pw_ask_field"),
-        reply_markup=get_project_field_keyboard(user_lang),
-        parse_mode="HTML",
-    )
+    text = get_text(user_lang, "pw_ask_field")
+    markup = get_project_field_keyboard(user_lang)
+    if edit:
+        await message.edit_text(text, parse_mode="HTML", reply_markup=markup)
+        return
+    await dialog.ask(message, state, text, reply_markup=markup, parse_mode="HTML")
 
 
-@router.callback_query(F.data.startswith("pw_field:"), ProjectWorkStates.waiting_for_field)
+@router.callback_query(F.data.startswith("pw_field:"),
+                       ProjectWorkStates.waiting_for_field,
+                       ProjectWorkStates.waiting_for_field_confirm)
 async def chose_field(callback: CallbackQuery, state: FSMContext, user_lang: str):
     await callback.answer()
-    await state.update_data(field_key=callback.data.split(":", 1)[1])
-    await state.set_state(ProjectWorkStates.waiting_for_artifacts)
-    await callback.message.edit_text(
-        get_text(user_lang, "pw_ask_artifacts"),
+    field_key = callback.data.split(":", 1)[1]
+    await state.update_data(field_key=field_key)
+    await dialog.resolve(
+        callback.message, state,
+        get_text(user_lang, "pw_done_field", field=field_label(field_key, user_lang)),
+    )
+    await _ask_source(callback.message, state, user_lang)
+
+
+# ──────────────────────────────────────────────────────────── mazmun bloklari
+
+async def _ask_blocks(message: Message, state: FSMContext, user_lang: str):
+    data = await state.get_data()
+    await state.set_state(ProjectWorkStates.waiting_for_blocks)
+    await dialog.ask(
+        message, state,
+        get_text(user_lang, "pw_ask_blocks"),
+        reply_markup=get_project_blocks_keyboard(user_lang, data.get("blocks") or []),
         parse_mode="HTML",
-        reply_markup=get_project_artifacts_keyboard(user_lang),
     )
 
 
-@router.callback_query(F.data.startswith("pw_artifacts:"), ProjectWorkStates.waiting_for_artifacts)
-async def chose_artifacts(callback: CallbackQuery, state: FSMContext, user_lang: str):
+@router.callback_query(F.data.startswith("pw_block:"), ProjectWorkStates.waiting_for_blocks)
+async def toggle_block(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Bitta blokni yoqadi yoki o'chiradi va ro'yxatni joyida yangilaydi."""
     await callback.answer()
-    await state.update_data(with_scheme=callback.data.endswith(":scheme"))
+    key = callback.data.split(":", 1)[1]
+    data = await state.get_data()
+    selected = set(data.get("blocks") or [])
+
+    if key == BLOCK_AUTO:
+        # AI tanlovi qolgan belgilarni ma'nosiz qiladi, shuning uchun ular tozalanadi.
+        selected = set() if BLOCK_AUTO in selected else {BLOCK_AUTO}
+    else:
+        selected.discard(BLOCK_AUTO)
+        selected.symmetric_difference_update({key})
+
+    await state.update_data(blocks=sorted(selected))
+    try:
+        await callback.message.edit_reply_markup(
+            reply_markup=get_project_blocks_keyboard(user_lang, selected))
+    except Exception:
+        pass
+
+
+@router.callback_query(F.data == "pw_blocks_done", ProjectWorkStates.waiting_for_blocks)
+async def blocks_done(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    data = await state.get_data()
+    selected = list(data.get("blocks") or [])
+    if not selected:
+        await callback.answer(get_text(user_lang, "pw_blocks_empty"), show_alert=True)
+        return
+
+    await callback.answer()
+    names = ", ".join(block_label(key, user_lang) for key in selected)
+    await dialog.resolve(callback.message, state,
+                         get_text(user_lang, "pw_done_blocks", blocks=names))
+    await state.update_data(with_scheme=BLOCK_SCHEME in selected)
     await state.set_state(ProjectWorkStates.waiting_for_depth)
-    await callback.message.edit_text(
+    await dialog.ask(
+        callback.message, state,
         get_text(user_lang, "pw_ask_depth"),
-        parse_mode="HTML",
         reply_markup=get_project_depth_keyboard(user_lang),
+        parse_mode="HTML",
     )
 
 
 @router.callback_query(F.data.startswith("pw_depth:"), ProjectWorkStates.waiting_for_depth)
-async def chose_depth(callback: CallbackQuery, state: FSMContext, user_lang: str, user):
+async def chose_depth(callback: CallbackQuery, state: FSMContext, user_lang: str):
     await callback.answer()
     depth_key = callback.data.split(":", 1)[1]
     await state.update_data(depth_key=depth_key, price=PROJECT_WORK_PRICES[depth_key])
+    await dialog.resolve(
+        callback.message, state,
+        get_text(user_lang, "pw_done_depth", depth=_label(_DEPTH_NAMES, depth_key, user_lang)),
+    )
+    # Muallif ismi faqat muqova uchun kerak, shuning uchun u eng oxirida so'raladi.
+    await state.set_state(ProjectWorkStates.waiting_for_author)
+    await dialog.ask(
+        callback.message, state,
+        get_text(user_lang, "pw_ask_author"),
+        reply_markup=get_project_skip_keyboard(user_lang, "pw_skip_author"),
+    )
+
+
+@router.message(ProjectWorkStates.waiting_for_author, F.text)
+async def got_author(message: Message, state: FSMContext, user_lang: str, user):
+    author = sanitize_user_input(message.text or "")[:100]
+    await dialog.resolve(message, state, get_text(user_lang, "pw_done_author", author=author))
+    await state.update_data(author_name=author)
+    await _show_summary(message, state, user_lang, user)
+
+
+@router.callback_query(F.data == "pw_skip_author", ProjectWorkStates.waiting_for_author)
+async def skip_author(callback: CallbackQuery, state: FSMContext, user_lang: str, user):
+    await callback.answer()
+    await dialog.resolve(callback.message, state, get_text(user_lang, "pw_done_author_skipped"))
+    await state.update_data(author_name="")
     await _show_summary(callback.message, state, user_lang, user)
 
 
@@ -304,6 +399,8 @@ async def _show_summary(message: Message, state: FSMContext, user_lang: str, use
         field=field_label(data.get("field_key", ""), doc_language),
         source=_label(_SOURCE_NAMES, data.get("source_kind", source_module.KIND_AI), user_lang),
         depth=_label(_DEPTH_NAMES, data.get("depth_key", "standart"), user_lang),
+        blocks=", ".join(block_label(key, user_lang) for key in (data.get("blocks") or []))
+               or block_label(BLOCK_AUTO, user_lang),
         price=price,
         balance=user.balance if user else 0,
     )
@@ -464,6 +561,8 @@ async def _generate(message: Message, state: FSMContext, user_lang: str, db: Dat
             field_key=data.get("field_key", ""),
             language=doc_language,
             with_scheme=data.get("with_scheme", False),
+            blocks=data.get("blocks") or None,
+            user_id=message.chat.id,
             depth=PROJECT_WORK_DEPTH[data.get("depth_key", "standart")],
             source=material,
             progress_cb=progress,

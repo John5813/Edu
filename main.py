@@ -25,7 +25,7 @@ from bot.handlers import premium_presentation as premium_presentation_handler
 from bot.handlers import project_work
 from bot.middlewares import LanguageMiddleware, DatabaseMiddleware
 from database.database import init_db
-from config import BOT_TOKEN, ADMIN_IDS
+from config import ADMIN_IDS, BOT_TOKEN, DOCUMENTS_DIR, TEMP_DIR
 import webapp
 from webapp.server import start_web_server
 
@@ -37,34 +37,101 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def cleanup_temp_files() -> int:
-    """Delete old temp files and documents.
+# temp/ ichida qoladigan yagona fayl — u ish vaqtidagi holat, axlat emas.
+_TEMP_KEEP = {"doc_tokens.json"}
+# Bir soat: eng uzun generatsiya ham bundan qisqa, shuning uchun faol ishni
+# buzmaydi, lekin tashlandiq fayl uzoq yotib qolmaydi.
+_TEMP_MAX_AGE = 3600
+# Bo'yalgan ikonka keshi foydali (qayta bo'yash shart bo'lmaydi), lekin
+# cheksiz emas: mavzu ranglari har taqdimotda boshqacha bo'lgani uchun
+# kombinatsiyalar soni chegaralanmasa fayl soni o'sib ketadi.
+_ICON_CACHE_MAX = 400
 
-    - temp/ images (PNG/JPG/WEBP): deleted on every call (they should not survive restarts)
-    - documents/ (DOCX/PPTX/PDF): deleted only when older than 25 hours
-      (tokens expire after 24h and delete their files; this catches any orphans)
+
+def _remove(path: str) -> bool:
+    try:
+        os.remove(path)
+        return True
+    except OSError:
+        return False
+
+
+def _prune_temp(now: float) -> int:
+    """temp/ dagi eskirgan fayllarni va bo'shab qolgan kataloglarni o'chiradi.
+
+    Eski versiya faqat `temp/*.png` kabi yuza shablonlarni ko'rardi, shuning
+    uchun kichik kataloglar (qa_*, code_run_*) va .pptx/.docx fayllari
+    umuman tozalanmasdan yig'ilib borardi.
+    """
+    temp_dir = TEMP_DIR
+    icon_dir = os.path.join(temp_dir, "icons")
+    removed = 0
+
+    for root, dirs, files in os.walk(temp_dir, topdown=False):
+        if os.path.abspath(root) == os.path.abspath(icon_dir):
+            continue  # kesh alohida qoidalar bilan boshqariladi
+        for name in files:
+            if name in _TEMP_KEEP:
+                continue
+            path = os.path.join(root, name)
+            try:
+                if now - os.path.getmtime(path) < _TEMP_MAX_AGE:
+                    continue
+            except OSError:
+                continue
+            removed += _remove(path)
+
+        if os.path.abspath(root) == os.path.abspath(temp_dir):
+            continue
+        try:
+            if not os.listdir(root):
+                os.rmdir(root)
+        except OSError:
+            pass
+
+    return removed
+
+
+def _prune_icon_cache() -> int:
+    """Ikonka keshini eng yaqinda ishlatilgan fayllar bilan cheklaydi."""
+    icon_dir = os.path.join(TEMP_DIR, "icons")
+    try:
+        entries = [os.path.join(icon_dir, n) for n in os.listdir(icon_dir)]
+    except OSError:
+        return 0
+    if len(entries) <= _ICON_CACHE_MAX:
+        return 0
+
+    try:
+        entries.sort(key=os.path.getmtime, reverse=True)
+    except OSError:
+        return 0
+    return sum(_remove(path) for path in entries[_ICON_CACHE_MAX:])
+
+
+def cleanup_temp_files() -> int:
+    """Eskirgan vaqtinchalik fayllar va tashlandiq hujjatlarni o'chiradi.
+
+    - temp/ : bir soatdan eski hamma narsa, kataloglar ichi bilan birga
+    - temp/icons/ : kesh, eng yangi _ICON_CACHE_MAX tasi qoladi
+    - hujjatlar : 25 soatdan eski yetimlar (token 24 soatda tugaydi)
     """
     removed = 0
     now = time.time()
 
-    # Temp images — always delete on startup/periodic run
-    for pattern in ["temp/*.png", "temp/*.jpg", "temp/*.jpeg", "temp/*.webp"]:
-        for fp in glob.glob(pattern):
-            try:
-                os.remove(fp)
-                removed += 1
-            except Exception:
-                pass
+    removed += _prune_temp(now)
+    removed += _prune_icon_cache()
 
-    # Generated documents — only delete orphans older than 25 hours
-    doc_cutoff = now - 90000  # 25 hours
-    for pattern in ["documents/*.docx", "documents/*.pptx", "documents/*.pdf"]:
-        for fp in glob.glob(pattern):
+    # Katalog nomi konfigdan olinadi. Ilgari bu yerda "documents/" yozilgan
+    # edi, holbuki fayllar "generated_documents/" ga yoziladi — shu sababli
+    # yetim hujjatlar hech qachon o'chirilmagan.
+    doc_cutoff = now - 90000  # 25 soat
+    for extension in ("docx", "pptx", "pdf", "xlsx"):
+        for path in glob.glob(os.path.join(DOCUMENTS_DIR, f"*.{extension}")):
             try:
-                if os.path.getmtime(fp) < doc_cutoff:
-                    os.remove(fp)
-                    removed += 1
-            except Exception:
+                if os.path.getmtime(path) < doc_cutoff:
+                    removed += _remove(path)
+            except OSError:
                 pass
 
     if removed:

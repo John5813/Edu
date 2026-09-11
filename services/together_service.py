@@ -1,5 +1,6 @@
-import os
+import functools
 import logging
+import os
 import aiohttp
 import asyncio
 import base64
@@ -19,7 +20,9 @@ class TogetherImageService:
         if not self.api_key:
             raise ValueError("TOGETHER_API_KEY environment variable is required")
         self.client = Together(api_key=self.api_key)
-        self.model = "black-forest-labs/FLUX.1-schnell"
+        # FLUX.1-schnell hisobimizning model ro'yxatida yo'q edi — so'rovlar
+        # HTTP 400, keyin 429 bilan yiqilardi va rasmlar umuman chiqmasdi.
+        self.model = os.getenv("TOGETHER_IMAGE_MODEL", "black-forest-labs/FLUX.2-pro")
         
         self.ai_client = AsyncOpenAI(
             api_key=os.environ.get("AI_INTEGRATIONS_OPENROUTER_API_KEY") or "dummy-key",
@@ -89,20 +92,24 @@ class TogetherImageService:
 
             logger.info(f"Generating image with prompt: {prompt[:100]}...")
 
-            # FLUX.1-schnell distillyatsiya qilingan: Together 4 dan ortiq
-            # qadamni HTTP 400 bilan rad etadi.
-            if "schnell" in self.model.lower():
-                steps = max(1, min(int(steps), 4))
+            # `steps` ni hamma model qabul qilmaydi: FLUX.2-pro uni noma'lum
+            # parametr deb rad etadi, Schnell esa 4 dan ortig'ini rad etadi.
+            model_name = self.model.lower()
+            extra = {}
+            if any(family in model_name for family in ("schnell", "dev", "flex")):
+                extra["steps"] = max(1, min(int(steps), 4)) if "schnell" in model_name else int(steps)
 
             # Wrap the SDK call with a hard timeout (Together can hang on transient
             # backend issues) and a small retry loop for 429/5xx-style errors.
             async def _call():
                 return await asyncio.to_thread(
-                    self.client.images.generate,
-                    prompt=prompt,
-                    model=self.model,
-                    steps=steps,
-                    n=1,
+                    functools.partial(
+                        self.client.images.generate,
+                        prompt=prompt,
+                        model=self.model,
+                        n=1,
+                        **extra,
+                    )
                 )
 
             last_exc = None

@@ -4,6 +4,8 @@ import uuid
 
 from pptx import Presentation
 
+from services.project_work import variety
+
 from . import config
 from .image_client import generate_image
 from .layouts import SLIDE_H, SLIDE_W, render_canvas
@@ -20,7 +22,7 @@ def _replace_with_panel(element, brief: Brief) -> None:
     element.prompt = None
 
 
-def build_presentation(brief: Brief) -> str:
+def build_presentation(brief: Brief, user_id: int | None = None) -> str:
     prs = Presentation()
     prs.slide_width = SLIDE_W
     prs.slide_height = SLIDE_H
@@ -28,6 +30,10 @@ def build_presentation(brief: Brief) -> str:
 
     # Butun taqdimot bo'ylab bitta ikonka ikki marta ishlatilmasin.
     used_icons: set[str] = set()
+
+    # Rang sxemasi taqdimot boshida bir marta tanlanadi: PowerPoint'ning
+    # standart ranglari har taqdimotni bir xil qilib qo'yardi.
+    palette = variety.choose_palette((brief.topic, brief.theme.primary), user_id)
 
     for s in brief.slides:
         slide = prs.slides.add_slide(blank_layout)
@@ -48,7 +54,7 @@ def build_presentation(brief: Brief) -> str:
                     )
                     _replace_with_panel(el, brief)
 
-        render_canvas(slide, s, image_paths, used_icons)
+        render_canvas(slide, s, image_paths, used_icons, palette)
 
     os.makedirs(config.WORK_DIR, exist_ok=True)
     out_path = os.path.join(config.WORK_DIR, f"ppt_{uuid.uuid4().hex[:10]}.pptx")

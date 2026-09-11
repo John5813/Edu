@@ -41,7 +41,11 @@ logger = logging.getLogger(__name__)
 # Block a user from kicking off a second generation while their first one
 # is still running, and throttle back-to-back successful generations.
 _GEN_INFLIGHT: set[int] = set()
+# Oxirgi generatsiya vaqti — faqat sovish oralig'ini hisoblash uchun. Ilgari
+# bu lug'atdan hech narsa o'chirilmasdi, ya'ni u har yangi foydalanuvchi
+# bilan o'sib borardi. Endi eskirgan yozuvlar tashlab yuboriladi.
 _GEN_LAST_AT: dict[int, float] = {}
+_GEN_LAST_AT_MAX = 2000
 _GEN_COOLDOWN_SEC = 8  # minimum gap between two finished generations
 
 
@@ -72,6 +76,19 @@ def _rate_limit_check(user_id: int, lang: str = "uz") -> str | None:
     return None
 
 
+def _prune_rate_limit() -> None:
+    """Sovish oralig'i o'tgan yozuvlarni tashlaydi — lug'at cheksiz o'smasin."""
+    if len(_GEN_LAST_AT) <= _GEN_LAST_AT_MAX:
+        return
+    cutoff = _rl_time.time() - _GEN_COOLDOWN_SEC
+    for user_id in [uid for uid, at in _GEN_LAST_AT.items() if at < cutoff]:
+        _GEN_LAST_AT.pop(user_id, None)
+    # Hammasi hali "yangi" bo'lsa ham chegara ushlab turilsin.
+    if len(_GEN_LAST_AT) > _GEN_LAST_AT_MAX:
+        for user_id in sorted(_GEN_LAST_AT, key=_GEN_LAST_AT.get)[:len(_GEN_LAST_AT) - _GEN_LAST_AT_MAX]:
+            _GEN_LAST_AT.pop(user_id, None)
+
+
 class _RateLimitSlot:
     """Async context manager that holds a generation slot for one user."""
     def __init__(self, user_id: int):
@@ -84,6 +101,7 @@ class _RateLimitSlot:
         if self.user_id:
             _GEN_INFLIGHT.discard(self.user_id)
             _GEN_LAST_AT[self.user_id] = _rl_time.time()
+            _prune_rate_limit()
         return False
 
 _BOOK_MODE_INSTRUCTIONS = {

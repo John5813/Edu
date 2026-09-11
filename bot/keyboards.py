@@ -205,13 +205,45 @@ def get_project_field_keyboard(language: str) -> InlineKeyboardMarkup:
     return keyboard.as_markup()
 
 
-def get_project_artifacts_keyboard(language: str) -> InlineKeyboardMarkup:
-    """Tables only, or tables plus a generated scheme."""
+def get_project_blocks_keyboard(language: str, selected) -> InlineKeyboardMarkup:
+    """Which content blocks the work should contain — a real multi-select.
+
+    The old question offered "tables" or "tables plus a scheme" while its own
+    text admitted both variants carried the same tables, so the client was
+    choosing nothing they could perceive.
+    """
+    from services.project_work.specs import (
+        BLOCK_AUTO, BLOCK_ORDER, BLOCK_SCHEME, block_label,
+    )
+
+    selected = set(selected or [])
+    keyboard = InlineKeyboardBuilder()
+    auto = BLOCK_AUTO in selected
+
+    for key in (*BLOCK_ORDER, BLOCK_SCHEME):
+        mark = "☑️" if (key in selected and not auto) else "⬜️"
+        keyboard.add(InlineKeyboardButton(
+            text=f"{mark} {block_label(key, language)}",
+            callback_data=f"pw_block:{key}",
+        ))
+    keyboard.add(InlineKeyboardButton(
+        text=f"{'☑️' if auto else '⬜️'} 🤖 {block_label(BLOCK_AUTO, language)}",
+        callback_data=f"pw_block:{BLOCK_AUTO}",
+    ))
+    keyboard.add(InlineKeyboardButton(
+        text=get_text(language, "pw_blocks_done"), callback_data="pw_blocks_done"))
+    keyboard.add(InlineKeyboardButton(text=_back_text(language), callback_data="pw_cancel"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
+def get_project_field_confirm_keyboard(language: str, field_key: str) -> InlineKeyboardMarkup:
+    """Confirm the field the bot inferred from the topic, or pick another."""
     keyboard = InlineKeyboardBuilder()
     keyboard.add(InlineKeyboardButton(
-        text=get_text(language, "pw_artifacts_tables"), callback_data="pw_artifacts:tables"))
+        text=get_text(language, "pw_field_confirm"), callback_data=f"pw_field:{field_key}"))
     keyboard.add(InlineKeyboardButton(
-        text=get_text(language, "pw_artifacts_scheme"), callback_data="pw_artifacts:scheme"))
+        text=get_text(language, "pw_field_change"), callback_data="pw_field_change"))
     keyboard.add(InlineKeyboardButton(text=_back_text(language), callback_data="pw_cancel"))
     keyboard.adjust(1)
     return keyboard.as_markup()

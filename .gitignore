@@ -51,3 +51,10 @@ Thumbs.db
 # Python bytecode
 __pycache__/
 *.py[cod]
+
+# Ish vaqtidagi holat (chizma tanlovi tarixi)
+runtime/
+
+# Ish vaqtidagi kesh va vaqtinchalik fayllar
+temp/
+generated_documents/
