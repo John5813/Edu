@@ -98,7 +98,11 @@ COURSE_WORK_PRICES = {
     "15_20_3": 10000,
     "20_25_3": 15000,
     "25_30_3": 20000,
-    "30_35_3": 25000
+    "30_35_3": 25000,
+    # Katta hajmlar to'rtta bo'limga bo'linadi: uchtaga sig'dirilsa har bir
+    # kichik bo'limga 1400 so'zdan tushib, matn suyulib ketardi.
+    "40_50_4": 40000,
+    "50_60_4": 50000,
 }
 
 # Diploma work prices (same structure as course work)
