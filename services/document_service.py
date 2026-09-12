@@ -59,6 +59,96 @@ def _split_into_paragraphs(text: str, target_count: int = 2, min_sentences: int 
     return paragraphs or [text]
 
 
+def render_latex_png(latex_str: str):
+    """LaTeX matematik ifodasini PNG baytlariga aylantiradi.
+
+    Ilgari bu `_add_section_extras` ichidagi yopiq funksiya edi va uni
+    boshqa joydan chaqirib bo'lmasdi.
+
+    Model ba'zan ifodani ikki marta ekranlaydi (`\\\\frac`). Bunday satrni
+    matplotlib tushunmaydi, shuning uchun birinchi urinish yiqilsa qo'sh
+    teskari chiziq bittaga keltirilib qayta urinib ko'riladi.
+    """
+    data = _render_latex_once(latex_str)
+    if data is None and "\\\\" in latex_str:
+        data = _render_latex_once(latex_str.replace("\\\\", "\\"))
+    return data
+
+
+def _render_latex_once(latex_str: str):
+    fig = None
+    plt = None
+    try:
+        import io as _io
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        fig = plt.figure(figsize=(6, 0.7))
+        fig.patch.set_facecolor("white")
+        ax = fig.add_axes([0, 0, 1, 1])
+        ax.set_axis_off()
+        ax.text(0.5, 0.5, f"${latex_str}$", ha="center", va="center",
+                fontsize=18, transform=ax.transAxes, color="black")
+        buf = _io.BytesIO()
+        fig.savefig(buf, format="png", dpi=130, bbox_inches="tight",
+                    facecolor="white", edgecolor="none")
+        buf.seek(0)
+        data = buf.read()
+        buf.close()
+        return data
+    except Exception as exc:
+        logger.warning(f"LaTeX render failed ({latex_str}): {exc}")
+        return None
+    finally:
+        try:
+            if plt is not None and fig is not None:
+                plt.close(fig)
+        except Exception:
+            pass
+
+
+# ─────────────────────────────────────────────── Mundarija o'lchami
+#
+# Mundarija ikkinchi varaqqa oshib ketardi: har bir qator uslubdan kelgan
+# qo'shimcha bo'shliqni ham olardi va to'rt bo'limli ishda jami balandlik
+# varaqdan oshardi. Endi joy oldindan hisoblanadi va sig'maganda shrift
+# bilan interval qisqaradi — mundarija har doim bitta varaqda qoladi.
+
+_TOC_PAGE_H = 11.0 - 0.79 - 0.79      # varaq balandligi, tepa va past chekka
+_TOC_WIDTH = 8.5 - 1.18 - 0.59        # foydali en
+_TOC_INDENT = 0.5
+# Times New Roman uchun o'rtacha belgi eni (kegldan ulush).
+_TOC_CHAR_EM = 0.5
+
+
+def _toc_lines(text: str, width_in: float, size_pt: float) -> int:
+    """Matn shu enda necha qatorga o'ralishini baholaydi."""
+    char_w = size_pt * _TOC_CHAR_EM / 72.0
+    per_line = max(int(width_in / char_w), 8)
+    lines, current = 1, 0
+    for word in str(text).split():
+        extra = len(word) + (1 if current else 0)
+        if current + extra <= per_line:
+            current += extra
+        else:
+            lines += 1
+            current = len(word)
+    return lines
+
+
+def _toc_layout(entries) -> tuple:
+    """Mundarija bitta varaqqa sig'adigan shrift va intervalni tanlaydi."""
+    for size, spacing in ((14, 1.5), (14, 1.15), (13, 1.15), (12, 1.0), (11, 1.0)):
+        total = (size * 1.5 / 72.0) * 2      # sarlavha va bo'sh qator
+        for text, indented, _bold in entries:
+            width = _TOC_WIDTH - (_TOC_INDENT if indented else 0)
+            total += _toc_lines(text, width, size) * size * spacing / 72.0
+        if total <= _TOC_PAGE_H - 0.3:       # pastdan zaxira
+            return size, spacing
+    return 11, 1.0
+
+
 def _extras_for_cycle(extras: list, section_num: int) -> list:
     """Return the subset of extras for this section based on a 3-step cycle.
 
@@ -1059,45 +1149,9 @@ class DocumentService:
                 logger.warning(f"Could not embed structure scheme: {scheme_err}")
 
         # ── 2. Formulas ───────────────────────────────────────────────────
-        def _render_latex(latex_str: str):
-            """Render a LaTeX math string to PNG bytes using matplotlib."""
-            fig = None
-            plt = None
-            try:
-                import matplotlib
-                matplotlib.use("Agg")
-                import matplotlib.pyplot as plt
-                import io as _mpl_io
-                fig = plt.figure(figsize=(6, 0.7))
-                fig.patch.set_facecolor("white")
-                ax = fig.add_axes([0, 0, 1, 1])
-                ax.set_axis_off()
-                ax.text(
-                    0.5, 0.5,
-                    f"${latex_str}$",
-                    ha="center", va="center",
-                    fontsize=18,
-                    transform=ax.transAxes,
-                    color="black",
-                )
-                buf = _mpl_io.BytesIO()
-                fig.savefig(buf, format="png", dpi=130, bbox_inches="tight",
-                            facecolor="white", edgecolor="none")
-                buf.seek(0)
-                data = buf.read()
-                buf.close()
-                return data
-            except Exception as _e:
-                logger.warning(f"LaTeX render failed ({latex_str}): {_e}")
-                return None
-            finally:
-                try:
-                    if plt is not None:
-                        if fig is not None:
-                            plt.close(fig)
-                        plt.close("all")
-                except Exception:
-                    pass
+        # Chizuvchi modul darajasiga chiqarilgan: ilgari bu yerda nusxasi
+        # turardi va ikkinchi joyda ishlatib bo'lmasdi.
+        _render_latex = render_latex_png
 
         if "formulas" in extras and formula_data:
             formulas = formula_data.get("formulas", [])
@@ -2730,7 +2784,9 @@ class DocumentService:
                 run.font.size = Pt(14)
                 run.font.name = 'Times New Roman'
 
-            doc.add_page_break()
+            # Kirish matni va bandlari bitta bo'lim: orasidagi varaq uzilishi
+            # varaqni yarim bo'sh qoldirardi.
+            doc.add_paragraph()
 
             # Intro points
             intro_points_data = content.get('intro_points', {})
@@ -3184,9 +3240,12 @@ class DocumentService:
                 intro_run = intro_content_para.add_run(p_text.strip())
                 intro_run.font.size = Pt(14)
                 intro_run.font.name = 'Times New Roman'
-            
-            doc.add_page_break()
-            
+
+            # Kirish matni va uning raqamlangan bandlari bitta bo'lim —
+            # ular orasida varaq uzilishi bor edi va kirish matni varaq
+            # boshida tugasa, qolgan qismi butunlay bo'sh qolardi.
+            doc.add_paragraph()
+
             # Intro Part 2: Specific Points
             intro_points_data = content.get('intro_points', {})
             for i, point_label in enumerate(texts['intro_points']):
@@ -3224,6 +3283,15 @@ class DocumentService:
             references = content.get('references', [])
             footnote_counter = 1
             sub_counter = 0
+            # Rejani lug'atga aylantiramiz: har bo'lim o'zinikini oladi va
+            # olingani ro'yxatdan chiqadi, ya'ni ikki marta chizilmaydi.
+            planned_visuals = {
+                str(item.get('subsection')): item
+                for item in (content.get('visuals') or [])
+                if isinstance(item, dict) and item.get('subsection')
+            }
+            figure_no = 0
+            formula_no = 0
 
             # Chapters
             for i, chapter in enumerate(content.get('chapters', []), 1):
@@ -3263,6 +3331,15 @@ class DocumentService:
                         doc, sub_content, references, footnote_counter
                     )
                     
+                    # AI rejalashtirgan diagramma yoki formula shu bo'lim
+                    # ostiga tushadi — u qaysi bo'limga kerakligini o'zi
+                    # tanlagan, qat'iy sikl bo'yicha emas.
+                    planned = planned_visuals.pop(str(subsection['number']), None)
+                    if planned:
+                        figure_no, formula_no = await self._add_planned_visual(
+                            doc, planned, figure_no, formula_no, language
+                        )
+
                     # Add extras per subsection using cycle pattern
                     if extras:
                         cycle_extras = _extras_for_cycle(extras, sub_counter)
@@ -3478,71 +3555,187 @@ class DocumentService:
         except Exception as e:
             logger.error(f"Error creating course work title page: {e}")
 
+    _VISUAL_LABELS = {
+        "uz": {"figure": "{n}-rasm", "formula": "Formula {n}",
+               "given": "Berilganlar", "result": "Natija"},
+        "ru": {"figure": "Рисунок {n}", "formula": "Формула {n}",
+               "given": "Дано", "result": "Результат"},
+        "en": {"figure": "Figure {n}", "formula": "Formula {n}",
+               "given": "Given", "result": "Result"},
+    }
+
+    async def _add_planned_visual(self, doc, item: Dict, figure_no: int,
+                                  formula_no: int, language: str) -> tuple:
+        """AI tanlagan diagramma yoki formulani bo'lim ostiga qo'yadi.
+
+        Har bir diagramma ostida albatta izoh turadi: raqamsiz va izohsiz
+        diagramma himoyada savol tug'diradi, chunki uni tushuntirib
+        bo'lmaydi.
+        """
+        labels = self._VISUAL_LABELS.get(language, self._VISUAL_LABELS["uz"])
+        kind = str(item.get("kind") or "").strip().lower()
+        explanation = str(item.get("explanation") or "").strip()
+
+        try:
+            if kind == "chart":
+                figure_no = self._add_planned_chart(
+                    doc, item, figure_no, labels, explanation
+                )
+            elif kind == "formula":
+                formula_no = self._add_planned_formula(
+                    doc, item, formula_no, labels, explanation
+                )
+        except Exception as exc:
+            logger.warning(f"Rejadagi vizual qo'yilmadi ({kind}): {exc}")
+        return figure_no, formula_no
+
+    def _add_planned_chart(self, doc, item: Dict, figure_no: int,
+                           labels: Dict, explanation: str) -> int:
+        from services import doc_charts
+        from services.project_work import palettes, variety
+
+        # Rang sxemasi mavzudan kelib chiqadi: har hujjat o'z ko'rinishida
+        # bo'ladi, bir mavzu qayta yaratilsa esa o'sha rangda qaytadi.
+        palette = variety.choose_palette((item.get("title"), item.get("chart_type")))
+        path = doc_charts.draw(item, self.temp_dir, palette)
+        if not path:
+            return figure_no
+
+        try:
+            figure_no += 1
+            picture = doc.add_paragraph()
+            picture.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            picture.paragraph_format.space_before = Pt(8)
+            picture.paragraph_format.space_after = Pt(2)
+            picture.add_run().add_picture(path, width=Inches(5.8))
+
+            caption = doc.add_paragraph()
+            caption.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            caption.paragraph_format.space_after = Pt(4)
+            text = labels["figure"].format(n=figure_no)
+            title = str(item.get("title") or "").strip()
+            caption_run = caption.add_run(f"{text}. {title}" if title else text)
+            caption_run.font.size = Pt(12)
+            caption_run.font.italic = True
+            caption_run.font.name = "Times New Roman"
+
+            self._add_visual_note(doc, explanation)
+        finally:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+        return figure_no
+
+    def _add_planned_formula(self, doc, item: Dict, formula_no: int,
+                             labels: Dict, explanation: str) -> int:
+        import io as _io
+
+        latex = str(item.get("latex") or "").strip()
+        image = render_latex_png(latex) if latex else None
+        formula_no += 1
+
+        name = str(item.get("name") or "").strip()
+        if name:
+            heading = doc.add_paragraph()
+            heading.paragraph_format.space_before = Pt(8)
+            heading.paragraph_format.space_after = Pt(2)
+            heading_run = heading.add_run(f"{labels['formula'].format(n=formula_no)}. {name}")
+            heading_run.font.size = Pt(13)
+            heading_run.font.bold = True
+            heading_run.font.name = "Times New Roman"
+
+        if image:
+            picture = doc.add_paragraph()
+            picture.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            picture.paragraph_format.space_after = Pt(2)
+            picture.add_run().add_picture(_io.BytesIO(image), width=Inches(4.2))
+        elif latex:
+            # Render ishlamasa ham formula matn ko'rinishida qolsin.
+            fallback = doc.add_paragraph()
+            fallback.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            fallback_run = fallback.add_run(latex)
+            fallback_run.font.size = Pt(13)
+            fallback_run.font.italic = True
+            fallback_run.font.name = "Times New Roman"
+
+        given = [str(g).strip() for g in (item.get("given") or []) if str(g).strip()]
+        if given:
+            line = doc.add_paragraph()
+            line.paragraph_format.line_spacing = 1.5
+            line.paragraph_format.space_after = Pt(2)
+            run = line.add_run(f"{labels['given']}: " + "; ".join(given))
+            run.font.size = Pt(13)
+            run.font.name = "Times New Roman"
+
+        result = str(item.get("result") or "").strip()
+        if result:
+            line = doc.add_paragraph()
+            line.paragraph_format.line_spacing = 1.5
+            line.paragraph_format.space_after = Pt(2)
+            run = line.add_run(f"{labels['result']}: {result}")
+            run.font.size = Pt(13)
+            run.font.bold = True
+            run.font.name = "Times New Roman"
+
+        self._add_visual_note(doc, explanation)
+        return formula_no
+
+    def _add_visual_note(self, doc, explanation: str) -> None:
+        """Diagramma yoki formula ostidagi izoh matni."""
+        if not explanation:
+            return
+        note = doc.add_paragraph()
+        note.paragraph_format.first_line_indent = Inches(0.5)
+        note.paragraph_format.line_spacing = 1.5
+        note.paragraph_format.space_after = Pt(8)
+        note.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        run = note.add_run(explanation)
+        run.font.size = Pt(14)
+        run.font.name = "Times New Roman"
+
     def _create_course_work_toc(self, doc, content: Dict, language: str):
-        """Create table of contents for course work"""
+        """Create table of contents for course work — always on a single page."""
         texts = self._get_course_work_texts(language)
-        
-        # TOC title
-        toc_para = doc.add_paragraph()
-        toc_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        toc_run = toc_para.add_run(texts['contents'])
-        toc_run.font.size = Pt(14)
-        toc_run.font.bold = True
-        toc_run.font.name = 'Times New Roman'
-        
-        doc.add_paragraph()
-        
-        # Introduction
-        intro_toc = doc.add_paragraph()
-        intro_toc.paragraph_format.line_spacing = 1.5
-        intro_toc.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        intro_run = intro_toc.add_run(texts['introduction'])
-        intro_run.font.size = Pt(14)
-        intro_run.font.name = 'Times New Roman'
-        
-        # Chapters
-        for i, chapter in enumerate(content.get('chapters', []), 1):
-            # Chapter entry
-            roman_num = self._to_roman(i)
-            chapter_toc = doc.add_paragraph()
-            chapter_toc.paragraph_format.line_spacing = 1.5
-            chapter_toc.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-            clean_ch_title = strip_leading_numbering(chapter['title'])
-            chapter_run = chapter_toc.add_run(f"{roman_num} {texts['chapter']}. {clean_ch_title.upper()}")
-            chapter_run.font.size = Pt(14)
-            chapter_run.font.bold = True
-            chapter_run.font.name = 'Times New Roman'
-            
-            # Subsection entries
-            for subsection in chapter.get('subsections', []):
-                sub_toc = doc.add_paragraph()
-                sub_toc.paragraph_format.left_indent = Inches(0.5)
-                sub_toc.paragraph_format.line_spacing = 1.5
-                sub_toc.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                
-                # Clean title from existing numbering for TOC
-                clean_sub_title = subsection['title']
-                clean_sub_title = strip_leading_numbering(clean_sub_title)
-                
-                sub_run = sub_toc.add_run(f"{subsection['number']} {clean_sub_title}")
-                sub_run.font.size = Pt(14)
-                sub_run.font.name = 'Times New Roman'
-        
-        # Conclusion
-        conclusion_toc = doc.add_paragraph()
-        conclusion_toc.paragraph_format.line_spacing = 1.5
-        conclusion_toc.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        conclusion_run = conclusion_toc.add_run(texts['conclusion'])
-        conclusion_run.font.size = Pt(14)
-        conclusion_run.font.name = 'Times New Roman'
-        
-        # References
-        refs_toc = doc.add_paragraph()
-        refs_toc.paragraph_format.line_spacing = 1.5
-        refs_toc.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        refs_run = refs_toc.add_run(texts['references'])
-        refs_run.font.size = Pt(14)
-        refs_run.font.name = 'Times New Roman'
+
+        # Yozuvlar avval yig'iladi: qancha joy olishini bilmasdan turib
+        # shrift va intervalni tanlab bo'lmaydi.
+        entries = [(texts["introduction"], False, False)]
+        for index, chapter in enumerate(content.get("chapters", []), 1):
+            roman = self._to_roman(index)
+            title = strip_leading_numbering(chapter["title"]).upper()
+            entries.append((f"{roman} {texts['chapter']}. {title}", False, True))
+            for subsection in chapter.get("subsections", []):
+                sub_title = strip_leading_numbering(subsection["title"])
+                entries.append((f"{subsection['number']} {sub_title}", True, False))
+        entries.append((texts["conclusion"], False, False))
+        entries.append((texts["references"], False, False))
+
+        size, spacing = _toc_layout(entries)
+
+        title_para = doc.add_paragraph()
+        title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        title_para.paragraph_format.space_after = Pt(0)
+        title_run = title_para.add_run(texts["contents"])
+        title_run.font.size = Pt(size)
+        title_run.font.bold = True
+        title_run.font.name = "Times New Roman"
+
+        gap = doc.add_paragraph()
+        gap.paragraph_format.space_after = Pt(0)
+
+        for text, indented, bold in entries:
+            line = doc.add_paragraph()
+            line.paragraph_format.line_spacing = spacing
+            line.paragraph_format.space_after = Pt(0)
+            line.paragraph_format.space_before = Pt(0)
+            line.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+            if indented:
+                line.paragraph_format.left_indent = Inches(_TOC_INDENT)
+            run = line.add_run(text)
+            run.font.size = Pt(size)
+            run.font.bold = bold
+            run.font.name = "Times New Roman"
 
     def _get_course_work_texts(self, language: str) -> Dict[str, str]:
         """Get language-specific texts for course work"""
