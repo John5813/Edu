@@ -72,7 +72,10 @@ _TABLE_KINDS = {
             "the step-by-step numeric calculation this project rests on. Each row is "
             "one computed quantity: what it is, how it is obtained from the previous "
             "figures, the resulting number, and its unit. The rows must follow on from "
-            "one another and the arithmetic must be correct"
+            "one another and the arithmetic must be correct. Write the calculation "
+            "column as a compact formula with symbols or short factors "
+            "(\"18 x 4,5 mln\", \"Jami xarajat / hajm\"), never as an enumeration "
+            "of every component"
         ),
         "rows": 6,
     },
@@ -311,14 +314,15 @@ class ProjectContentBuilder:
     ) -> ProjectContent:
         brief = await self._source_brief(source, topic)
         target = sum(pages) / 2
-        blocks = await self.resolve_blocks(topic, field_key, blocks, brief, pages)
+        blocks = await self.resolve_blocks(topic, field_key, blocks, brief,
+                                           pages, language)
         resolved = await self._resolve_sections(
             topic, field_key, language, brief, blocks)
         # Matn uzunligi bo'limlar ro'yxati ma'lum bo'lgandan keyin hisoblanadi:
         # jadval va diagrammalar egallagan joy ayrilib, qolgani bo'limlar
         # orasida taqsimlanadi. Shundagina tanlangan varoq soni haqiqiy
         # chegara bo'ladi.
-        scale = layout.word_scale(resolved, target)
+        scale = layout.word_scale(resolved, target, language)
         specs = [self._scaled(spec, scale) for spec in resolved]
 
         semaphore = asyncio.Semaphore(_CONCURRENCY)
@@ -426,7 +430,8 @@ MATERIAL:
         return generic_sections(middle, blocks)
 
     async def resolve_blocks(self, topic: str, field_key: str, blocks,
-                             brief: str = "", pages: tuple = (15, 20)) -> List[str]:
+                             brief: str = "", pages: tuple = (15, 20),
+                             language: str = "uz") -> List[str]:
         """Mijoz tanlovini yakuniy blok ro'yxatiga aylantiradi.
 
         `auto` tanlansa mavzuga qarab AI hal qiladi: sof hisob-kitobli ishga
@@ -436,10 +441,9 @@ MATERIAL:
         Tanlov har doim tanlangan varoq soniga moslanadi: AI ham, mijoz ham
         hujjatga sig'maydigan miqdorda blok bera olmaydi.
         """
-        low, high = pages
         allowed = available_blocks(field_key)
-        floor = layout.min_blocks(field_key, low)
-        ceiling = layout.max_blocks(field_key, high)
+        floor = layout.min_blocks(field_key, pages, language)
+        ceiling = layout.max_blocks(field_key, pages, language)
 
         chosen = [b for b in (blocks or []) if b in allowed]
         if BLOCK_AUTO not in (blocks or []):
@@ -688,6 +692,11 @@ The table must show {kind['ask']}.
 {header_rule}
 Produce {kind['rows']} data rows. Every cell must carry a real, specific value
 in {target} — never "...", never an empty cell, never a placeholder.
+
+Keep every cell SHORT: at most six words, or one formula written compactly.
+A cell is not a sentence and never a list — "Bosh oshpaz 1, oshpaz 2,
+yordamchi 2, administrator 2, ofitsiant 6" belongs in the section text, not
+in a cell. If a value needs explaining, the explanation goes in the text.
 
 {self._source_block(brief)}
 

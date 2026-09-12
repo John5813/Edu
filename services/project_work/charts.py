@@ -602,13 +602,46 @@ def _title(axes, title: str):
     axes.set_title(title, fontsize=11, color=INK, loc="left", pad=12)
 
 
+# Formula rasmi shu zichlikda chiziladi. Hujjatga qo'yilganda ham shu
+# zichlik saqlanadi, ya'ni qisqa formula kichik, uzuni kattaroq bo'ladi —
+# lekin harflarning o'lchami hamma formulada bir xil qoladi.
+FORMULA_DPI = 220
+FORMULA_FONT = 15
+
+
 def render_formula(latex: str, work_dir: str) -> str:
-    """Formulani matematik yozuv sifatida chizadi."""
+    """Formulani matematik yozuv sifatida chizadi.
+
+    Rasm mumkin qadar qisqa qirqiladi. Ilgari `bbox_inches` ni umumiy
+    `_save` bajarardi va atrofida 0,18 dyuymdan bo'sh joy qolardi; qisqa
+    formula tor qirqilib, hujjatda 3,6 dyuym kenglikka cho'zilganda esa
+    balandligi 1,2 dyuymgacha kattalashib ketardi — bir qator formula
+    varoqning sakkizdan birini egallardi.
+    """
     with _figure_guard():
-        figure = plt.figure(figsize=(6.4, 0.9), dpi=_DPI)
+        figure = plt.figure(figsize=(6.4, 0.8), dpi=FORMULA_DPI)
         figure.patch.set_facecolor(SURFACE)
-        figure.text(0.02, 0.45, f"${latex}$", fontsize=17, color=INK, va="center")
-        return _save(figure, work_dir)
+        figure.text(0.01, 0.5, f"${latex}$", fontsize=FORMULA_FONT,
+                    color=INK, va="center")
+        os.makedirs(work_dir, exist_ok=True)
+        path = os.path.join(work_dir, f"pwformula_{uuid.uuid4().hex[:10]}.png")
+        figure.savefig(path, facecolor=SURFACE, bbox_inches="tight",
+                       pad_inches=0.02)
+        plt.close(figure)
+        return path
+
+
+def formula_size(path: str) -> tuple:
+    """Formula rasmining tabiiy o'lchami (dyuymda).
+
+    Hujjatga aynan shu o'lchamda qo'yiladi — cho'zilmaydi ham, siqilmaydi
+    ham, shuning uchun hamma formulada shrift bir xil ko'rinadi.
+    """
+    from PIL import Image
+
+    with Image.open(path) as image:
+        width, height = image.size
+    return width / FORMULA_DPI, height / FORMULA_DPI
 
 
 # ══════════════════════════════════════════════════════ marketing prognozi
