@@ -12,6 +12,13 @@ from utils.heading_guard import heading_rule, strip_echoed_heading, strip_leadin
 
 logger = logging.getLogger(__name__)
 
+# Diagramma turlari chizuvchi modulda e'lon qilinadi: prompt va chizuvchi
+# turli ro'yxatlarga tayansa, model chiza olmaydigan turni so'rab qolardi.
+try:
+    from services.doc_charts import CHART_TYPES as DOC_CHART_TYPES
+except Exception:  # pragma: no cover - matplotlib yo'q muhit
+    DOC_CHART_TYPES = ("line", "bar", "column", "pie", "scatter", "area")
+
 def clean_text(text: str) -> str:
     """Clean text from special characters, formatting issues, and technical JSON snippets"""
     if not text:
@@ -1354,7 +1361,17 @@ In JSON format:
             # Generate table data for all chapters
             for chapter_num in range(1, chapters + 1):
                 content[f"table_data_{chapter_num}"] = await self.generate_table_data(topic, chapter_num, language)
-            
+
+            # Diagramma va formulalarni AI o'zi taqsimlaydi: qaysi bo'limda
+            # raqam ko'rsatish mantiqiy ekanini u matnni yozgandan keyin
+            # yaxshiroq biladi. Bitta so'rov — butun hujjat uchun.
+            outline = [
+                (sub["number"], sub["title"])
+                for chapter in content["chapters"]
+                for sub in chapter["subsections"]
+            ]
+            content["visuals"] = await self.plan_document_visuals(topic, outline, language)
+
             # Generate conclusion
             content["conclusion"] = await self._generate_course_conclusion(topic, language)
             
@@ -3380,6 +3397,91 @@ In JSON format:
         except Exception as e:
             logger.error(f"Error generating formulas for '{section_title}': {e}")
             return {"formulas": [], "example": {"task": "", "solution": ""}}
+
+    async def plan_document_visuals(self, topic: str, outline: list, language: str,
+                                    charts: int = 3, formulas: int = 2) -> list:
+        """Qaysi kichik bo'limga diagramma yoki formula kerakligini AI hal qiladi.
+
+        Ilgari diagramma qat'iy sikl bo'yicha qo'yilardi va mavzuga aloqasi
+        bo'lmasligi mumkin edi. Bu yerda model butun rejani ko'rib, o'zi
+        tanlaydi: qaysi bo'limda raqam ko'rsatish mantiqiy, qaysinisida
+        hisob formulasi joyida.
+
+        `outline` — [(raqam, sarlavha), ...]. Qaytadigan har bir yozuvda
+        `subsection`, `kind` ("chart"/"formula") va tushuntirish matni bor;
+        tushuntirishsiz yozuv rad etiladi, chunki izohsiz diagramma
+        himoyada savol tug'diradi.
+        """
+        lang_map = {"uz": "o'zbek", "ru": "русский", "en": "English"}
+        lang_name = lang_map.get(language, "o'zbek")
+        listing = "\n".join(f"{number} {title}" for number, title in outline)
+        types = ", ".join(DOC_CHART_TYPES)
+
+        prompt = (
+            f'Kurs ishi mavzusi: "{topic}"\n\n'
+            f"Bo'limlar:\n{listing}\n\n"
+            f"Shu ro'yxatdan {charts} ta kichik bo'limga diagramma va "
+            f"{formulas} ta kichik bo'limga hisob formulasi tanlang. "
+            f"Faqat raqam bilan ko'rsatish MANTIQIY bo'lgan bo'limni tanlang — "
+            f"sof nazariy bo'limga diagramma qo'ymang. Bitta bo'limga bittadan "
+            f"ortiq element bermang.\n\n"
+            f"Diagramma turlari: {types}. Ma'lumot mavzuga oid, real "
+            f"kattalikdagi sonlar bo'lsin (o'ylab topilgan bo'lsa ham ishonarli). "
+            f"Kamida 3 ta kategoriya bering.\n"
+            f"Formulada latex dollarsiz yoziladi.\n"
+            f"Har bir elementda 'explanation' — diagramma yoki formula ostiga "
+            f"tushadigan 2-3 gaplik izoh. Unda nima ko'rsatilgani va undan "
+            f"qanday xulosa chiqishi yozilsin.\n"
+            f"Barcha matnlar {lang_name} tilida.\n\n"
+            f"Faqat JSON qaytaring:\n"
+            f'{{"visuals": [\n'
+            f'  {{"subsection": "1.2", "kind": "chart", "chart_type": "line", '
+            f'"title": "Diagramma nomi", "x_label": "Yil", "y_label": "%", '
+            f'"categories": ["2020","2021","2022"], '
+            f'"series": [{{"name": "Ko\'rsatkich", "values": [9.1, 8.7, 8.2]}}], '
+            f'"explanation": "Izoh"}},\n'
+            f'  {{"subsection": "2.1", "kind": "formula", "name": "Formula nomi", '
+            f'"latex": "E = \\\\frac{{P}}{{Z}} \\\\times 100", '
+            f'"given": ["P — sof foyda"], "result": "E = 24,5%", '
+            f'"explanation": "Izoh"}}\n'
+            f"]}}"
+        )
+
+        try:
+            response = await self._make_request(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=2000,
+                temperature=0.5,
+            )
+            content_str = response.strip()
+            for prefix in ("```json", "```"):
+                if content_str.startswith(prefix):
+                    content_str = content_str[len(prefix):]
+            if content_str.endswith("```"):
+                content_str = content_str[:-3]
+            data = json.loads(content_str.strip())
+        except Exception as e:
+            logger.error(f"Vizual reja olinmadi: {e}")
+            return []
+
+        wanted = {str(number) for number, _title in outline}
+        seen = set()
+        plan = []
+        for item in (data.get("visuals") or []):
+            if not isinstance(item, dict):
+                continue
+            number = str(item.get("subsection") or "").strip()
+            kind = str(item.get("kind") or "").strip().lower()
+            # Izohsiz diagramma mijozga hech narsa tushuntirmaydi.
+            if (number not in wanted or number in seen
+                    or kind not in ("chart", "formula")
+                    or not str(item.get("explanation") or "").strip()):
+                continue
+            if kind == "formula" and not str(item.get("latex") or "").strip():
+                continue
+            seen.add(number)
+            plan.append(item)
+        return plan
 
     async def generate_structure_scheme(self, section_title: str, topic: str, lang: str) -> dict:
         """Bo'lim uchun tuzilma sxemasining bloklar ierarxiyasini so'raydi.
