@@ -1129,9 +1129,13 @@ class DocumentService:
                     # Rang sxemasi mavzudan kelib chiqadi: ikki xil mavzu
                     # ikki xil ko'rinadi, bir mavzu esa qayta yaratilganda
                     # aynan o'sha rangda chiqadi.
+                    # Sxemaning shakli mavzudan kelib chiqadi: bir hujjatda
+                    # daraxt, boshqasida sikl yoki darajalar chiqadi. Ilgari
+                    # u hamma hujjatda aynan bir xil ko'rinardi.
                     scheme_path = _charts.structure_scheme(
                         scheme, "", self.temp_dir,
                         palette=_variety.choose_palette((topic, section_title)),
+                        language=lang,
                     )
                     if lang == "ru":
                         scheme_cap = f"Схема. {section_title}"

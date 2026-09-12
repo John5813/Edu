@@ -22,7 +22,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.patheffects as path_effects
-from matplotlib.patches import FancyBboxPatch
 from matplotlib.ticker import FuncFormatter, ScalarFormatter
 
 from . import palettes
@@ -114,6 +113,22 @@ def _palette(palette) -> Palette:
 def _shorten(text: str, limit: int = 34) -> str:
     text = " ".join(str(text or "").split())
     return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def _wrap_label(text: str, width: int) -> str:
+    """Uzun o'q yorlig'ini so'z chegarasida ikkiga bo'ladi."""
+    words = str(text or "").split()
+    lines, current = [], ""
+    for word in words:
+        candidate = f"{current} {word}".strip()
+        if len(candidate) <= width or not current:
+            current = candidate
+        else:
+            lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
+    return "\n".join(lines[:2])
 
 
 def _new_figure(height: float = _FIGSIZE[1]):
@@ -1158,111 +1173,19 @@ def _breakeven_marker(axes, positions, cumulative, language: str) -> None:
 
 
 # ══════════════════════════════════════════════════════════════ sxema
+#
+# Sxemalar `schemes.py` da: ularning bir nechta shakli bor va qaysi biri
+# ishlatilishi mavzuga bog'liq. Import chaqiruv paytida bo'ladi, chunki
+# `schemes` bu moduldagi yordamchilarni oladi.
 
 def structure_scheme(data: dict, title: str, work_dir: str,
-                     palette=None, language: str = "uz") -> str:
-    """Loyiha tuzilmasi sxemasi — bloklar va ularni bog'lovchi chiziqlar.
+                     palette=None, language: str = "uz", form: str = "") -> str:
+    """Tuzilma sxemasi — shakli mavzuga qarab tanlanadi."""
+    from . import schemes
 
-    Ilgari bu AI chizgan rasm edi: arzon modellar sxemadagi yozuvlarni
-    buzib chizardi va natija o'qilmasdi. Endi sxema shu yerda chiziladi,
-    ya'ni yozuvlar har doim to'g'ri va uslub hujjatning qolganiga mos.
-    """
-    palette = _palette(palette)
-    root = _shorten(str(data.get("root") or title), 40)
-    branches = [b for b in (data.get("branches") or []) if isinstance(b, dict)][:5]
-    if len(branches) < 2:
-        raise ValueError("sxema uchun kamida ikkita tarmoq kerak")
+    return schemes.draw(data, title, work_dir, palette=palette,
+                        language=language, form=form)
 
-    columns = len(branches)
-
-    # Balandlik eng chuqur tarmoqqa qarab olinadi: aks holda tarmoqlarda
-    # bittadan element bo'lsa, rasm pastida katta bo'sh maydon qolardi.
-    branch_y, branch_h, item_h, item_gap = 58.0, 12.0, 10.0, 3.5
-    depth = max((len([i for i in (b.get("items") or [])][:3]) for b in branches),
-                default=0)
-    floor = branch_y - depth * (item_h + item_gap) - 4
-    span = 100 - floor
-    figure, axes = plt.subplots(
-        figsize=(_FIGSIZE[0], max(2.9, 4.6 * span / 86.5)), dpi=_DPI)
-    figure.patch.set_facecolor(SURFACE)
-    axes.set_facecolor(SURFACE)
-    axes.set_xlim(0, 100)
-    axes.set_ylim(floor, 100)
-    axes.axis("off")
-
-    # Ildiz bloki
-    root_w, root_h = 46, 13
-    root_x, root_y = 50 - root_w / 2, 84
-    _scheme_box(axes, root_x, root_y, root_w, root_h, palette.ramp[3], root, 11, bold=True)
-
-    gap = 3.0
-    col_w = (100 - gap * (columns - 1)) / columns
-
-    for index, branch in enumerate(branches):
-        hue = palette.categorical[index % len(palette.categorical)]
-        col_x = index * (col_w + gap)
-        centre = col_x + col_w / 2
-
-        # Ildizdan tarmoqqa: vertikal + gorizontal ulanish
-        axes.plot([50, 50], [root_y, root_y - 6], color=GRID, linewidth=1.6, zorder=1)
-        axes.plot([50, centre], [root_y - 6, root_y - 6], color=GRID, linewidth=1.6, zorder=1)
-        axes.plot([centre, centre], [root_y - 6, branch_y + branch_h],
-                  color=GRID, linewidth=1.6, zorder=1)
-
-        _scheme_box(axes, col_x, branch_y, col_w, branch_h, hue,
-                    _shorten(str(branch.get("name", "")), 26), 9.5, bold=True)
-
-        items = [str(i) for i in (branch.get("items") or [])][:3]
-        for level, item in enumerate(items):
-            item_y = branch_y - (level + 1) * (item_h + item_gap)
-            axes.plot([centre, centre], [item_y + item_h, item_y + item_h + item_gap],
-                      color=GRID, linewidth=1.2, zorder=1)
-            _scheme_box(axes, col_x + col_w * 0.06, item_y, col_w * 0.88, item_h,
-                        _tint(hue, 0.86), _shorten(item, 30), 8.5,
-                        edge=hue, text_colour=INK)
-
-    axes.set_title(title, fontsize=11, color=INK, loc="left", pad=12)
-    return _save(figure, work_dir, language)
-
-
-def _tint(hex_str: str, amount: float) -> str:
-    """Rangni oqqa yaqinlashtiradi — ichki bloklar foni uchun."""
-    h = (hex_str or "").lstrip("#")
-    if len(h) != 6:
-        return "#f2f2f2"
-    r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
-    def mix(c):
-        return int(round(c + (255 - c) * amount))
-    return "#%02x%02x%02x" % (mix(r), mix(g), mix(b))
-
-
-def _scheme_box(axes, x, y, w, h, fill, text, size, bold=False,
-                edge=None, text_colour=None):
-    """Yumaloq burchakli blok va uning ichidagi markazlashtirilgan matn."""
-    axes.add_patch(FancyBboxPatch(
-        (x + 1, y + 1), w - 2, h - 2,
-        boxstyle="round,pad=0.6,rounding_size=2",
-        facecolor=fill, edgecolor=edge or fill, linewidth=1.4, zorder=2,
-    ))
-    axes.text(x + w / 2, y + h / 2, _wrap_label(text, w),
-              ha="center", va="center", fontsize=size,
-              color=text_colour or _on_fill(fill),
-              fontweight="bold" if bold else "normal", zorder=3)
-
-
-def _wrap_label(text: str, width: float) -> str:
-    """Blok eniga qarab matnni qatorlarga bo'ladi."""
-    per_line = max(int(width * 0.42), 10)
-    words, lines, current = str(text).split(), [], ""
-    for word in words:
-        trial = f"{current} {word}".strip()
-        if len(trial) <= per_line or not current:
-            current = trial
-        else:
-            lines.append(current)
-            current = word
-    lines.append(current)
-    return "\n".join(lines[:3])
 
 
 # ══════════════════════════════════════════════════════════ shakl tanlash
@@ -1276,7 +1199,6 @@ _DRAWERS = {
     ("timeline", "milestones"): timeline_milestones,
     ("timeline", "steps"): timeline_steps,
     ("risks", "bubble"): risk_bubble,
-    ("scheme", "structure"): structure_scheme,
     ("risks", "radar"): risk_radar,
     ("forecast", "line"): forecast_line,
     ("forecast", "area"): forecast_area,
@@ -1293,19 +1215,25 @@ _DRAWERS = {
     ("cashflow", "waterfall"): cashflow_waterfall,
 }
 
-_FALLBACK = {"budget": budget_bar, "timeline": gantt, "scheme": structure_scheme,
+_FALLBACK = {"budget": budget_bar, "timeline": gantt,
              "risks": risk_bubble, "forecast": forecast_line,
              "marketing": marketing_sales_columns, "costs": costs_donut,
              "breakeven": breakeven_lines, "cashflow": cashflow_bars}
 
 # Butun ma'lumot lug'atini oladigan artefaktlar: ularda bitta ro'yxat emas,
 # bir nechta kalit ishlatiladi (davrlar, kanallar, narx, doimiy xarajat).
-_WHOLE_DATA = {"scheme", "marketing", "costs", "breakeven", "cashflow"}
+_WHOLE_DATA = {"marketing", "costs", "breakeven", "cashflow"}
 
 
 def draw(artifact: str, form: str, data: dict, title: str, work_dir: str,
          palette=None, unit: str = "", language: str = "uz") -> str:
     """Artefakt va tanlangan shakl bo'yicha chizmani chizadi."""
+    if artifact == "scheme":
+        # Sxemaning shakli ma'lumotdagi turga ham bog'liq, shuning uchun u
+        # umumiy jadvaldan emas, o'z moduli orqali chiziladi.
+        return structure_scheme(data, title, work_dir, palette=palette,
+                                language=language, form=form)
+
     drawer = _DRAWERS.get((artifact, form)) or _FALLBACK.get(artifact)
     if drawer is None:
         raise ValueError(f"chizma shakli yo'q: {artifact}/{form}")

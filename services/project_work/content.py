@@ -761,21 +761,31 @@ Respond with JSON only, in exactly this shape (plus "note"):
                       brief: str = "") -> Dict:
         """Loyiha tuzilmasi sxemasi uchun bloklar ierarxiyasini so'raydi."""
         target = _LANGUAGE_NAMES.get(language, "Uzbek")
-        prompt = f"""Describe the structure of this project as a hierarchy of blocks.
+        prompt = f"""Describe the structure of this project as blocks for a diagram.
 
 Project topic: "{topic}"
 Section: "{spec.heading(language)}"
 
-"root" is the project or system name. "branches" are its 3-4 main parts;
-each has 2-3 concrete components under it. Keep every label short — two or
-three words — because they are drawn inside boxes. Write them in {target}.
-The parts must be specific to this project, not generic
-headings.{self._source_block(brief)}
+First decide what shape this project really has and put it in "kind":
+  hierarchy  — a whole that divides into parts and sub-parts
+  components — parts that make up one thing, with no ordering between them
+  process    — stages that follow one another from start to finish
+  cycle      — stages that repeat, the last leading back to the first
+  levels     — layers built on top of one another, base to top
+Choose by the project itself: a production line is a process, a workshop is
+components, a quality system has levels.
+
+"root" is the project or system name. "branches" are its 3-5 main parts —
+for a process or cycle they are the stages IN ORDER, for levels they go from
+the top layer down. Each has 2-3 concrete components under it. Keep every
+label short — two or three words — because they are drawn inside boxes.
+Write them in {target}. The parts must be specific to this project, not
+generic headings.{self._source_block(brief)}
 
 Respond with JSON only:
-{{"root": "Loyiha nomi",
+{{"kind": "process", "root": "Loyiha nomi",
   "branches": [{{"name": "Laboratoriya", "items": ["Namuna olish", "Tahlil"]}}]}}"""
-        raw = await self._json_request(prompt, max_tokens=700, temperature=0.4)
+        raw = await self._json_request(prompt, max_tokens=800, temperature=0.4)
         if not raw.get("branches"):
             raise ValueError("sxema bloklari bo'sh")
         return raw
