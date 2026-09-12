@@ -798,10 +798,14 @@ Respond with JSON only:
         buni birinchi ko'radi.
         """
         lines = []
+        # `tables.derive` hisoblab qo'ygan qiymatlar ham shu yerda: model
+        # zararsizlik nuqtasini o'zi qayta hisoblasa, jadvaldagi son bilan
+        # formuladagi son yaxlitlashda ayrilib qolardi.
         for key in ("total", "fixed_total", "variable_total", "budget_total",
                     "customers_total", "cost_per_customer", "investment",
                     "fixed", "price", "variable", "planned", "payback_period",
-                    "unit", "money_unit"):
+                    "breakeven_point", "breakeven_revenue", "margin_per_unit",
+                    "total_growth", "unit", "money_unit"):
             value = data.get(key)
             if value not in (None, "", 0):
                 lines.append(f"{key} = {value}")
@@ -816,7 +820,10 @@ Respond with JSON only:
         if not lines:
             return ""
         return ("\n\nFIGURES ALREADY PRINTED IN THIS SECTION — your calculation "
-                "must use these exact numbers and must not contradict them:\n"
+                "must use these exact numbers and must not contradict them. "
+                "Where a figure here is already the answer to one of your "
+                "calculations, state that figure, rounded the same way as the "
+                "table shows it; do not recompute it to a different value:\n"
                 + "\n".join(lines))
 
     async def _references(self, topic: str, language: str) -> List[str]:
