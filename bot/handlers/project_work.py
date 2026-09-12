@@ -36,7 +36,7 @@ from services.project_work.specs import (
     GENERIC_FIELD_KEY,
     block_label,
 )
-from services import document_source
+from services import document_source, workload
 from services.project_work import source as source_module
 from translations import get_text
 from utils.security import sanitize_user_input, validate_topic_length
@@ -605,6 +605,9 @@ async def _generate(message: Message, state: FSMContext, user_lang: str, db: Dat
     )
 
     file_path = None
+    # Loyiha ishi ham navbatdan tashqarida yaratiladi — admin paneldagi
+    # yangilash tugmasi buni ko'rib turishi kerak.
+    work_id = workload.begin("loyiha ishi")
     try:
         content = await get_content_builder().build(
             topic=topic,
@@ -645,6 +648,7 @@ async def _generate(message: Message, state: FSMContext, user_lang: str, db: Dat
             get_text(user_lang, "pw_cancelled"), reply_markup=get_main_keyboard(user_lang)
         )
     finally:
+        workload.end(work_id)
         if file_path and os.path.exists(file_path):
             try:
                 os.remove(file_path)
