@@ -21,7 +21,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.patheffects as path_effects
 from matplotlib.patches import FancyBboxPatch
+from matplotlib.ticker import FuncFormatter, ScalarFormatter
 
 from . import palettes
 from .palettes import GRID, INK, INK_SOFT, SURFACE, Palette
@@ -30,6 +32,41 @@ logger = logging.getLogger(__name__)
 
 _FIGSIZE = (7.6, 4.2)
 _DPI = 150
+
+# Chizma ichidagi yozuvlar. Hujjat rus yoki ingliz tilida bo'lsa, diagramma
+# ham o'sha tilda bo'lishi kerak — ilgari bu so'zlar kodda o'zbekcha qotib
+# qolgan edi va ruscha loyiha ishida "Kirim / Chiqim" deb chiqardi.
+_WORDS = {
+    "month":      {"uz": "oy", "ru": "мес.", "en": "month"},
+    "total":      {"uz": "jami", "ru": "всего", "en": "total"},
+    "low":        {"uz": "Past", "ru": "Низкая", "en": "Low"},
+    "medium":     {"uz": "O'rta", "ru": "Средняя", "en": "Medium"},
+    "high":       {"uz": "Yuqori", "ru": "Высокая", "en": "High"},
+    "likelihood": {"uz": "Ehtimolligi", "ru": "Вероятность", "en": "Likelihood"},
+    "impact":     {"uz": "Ta'siri", "ru": "Влияние", "en": "Impact"},
+    "revenue":    {"uz": "Tushum", "ru": "Выручка", "en": "Revenue"},
+    "total_cost": {"uz": "Umumiy xarajat", "ru": "Общие затраты", "en": "Total cost"},
+    "fixed_cost": {"uz": "Doimiy xarajat", "ru": "Постоянные затраты", "en": "Fixed cost"},
+    "fixed":      {"uz": "Doimiy", "ru": "Постоянные", "en": "Fixed"},
+    "variable":   {"uz": "O'zgaruvchi", "ru": "Переменные", "en": "Variable"},
+    "plan":       {"uz": "reja", "ru": "план", "en": "plan"},
+    "breakeven":  {"uz": "zararsizlik", "ru": "безубыточность", "en": "break-even"},
+    "profit":     {"uz": "foyda", "ru": "прибыль", "en": "profit"},
+    "inflow":     {"uz": "Kirim", "ru": "Поступления", "en": "Inflow"},
+    "outflow":    {"uz": "Chiqim", "ru": "Расходы", "en": "Outflow"},
+    "cumulative": {"uz": "To'plangan oqim", "ru": "Накопленный поток",
+                   "en": "Cumulative flow"},
+    "payback":    {"uz": "qoplanish", "ru": "окупаемость", "en": "payback"},
+    "cum_share":  {"uz": "to'plangan, %", "ru": "накоплено, %", "en": "cumulative, %"},
+    "volume":     {"uz": "hajm", "ru": "объём", "en": "volume"},
+    "customer":   {"uz": "mijoz", "ru": "клиент", "en": "customer"},
+}
+
+
+def _w(language: str, key: str) -> str:
+    words = _WORDS[key]
+    return words.get(language, words["uz"])
+
 
 
 def _number(value) -> float:
@@ -44,12 +81,25 @@ def _number(value) -> float:
         return 0.0
 
 
-def _format(value: float) -> str:
+_MILLION_WORD = {"uz": "mln", "ru": "млн", "en": "m"}
+
+
+def _format(value: float, language: str = "uz") -> str:
+    """Sonni yorliqqa tayyorlaydi: 240 000 000 → "240 mln", 1800 → "1 800".
+
+    Faqat milliondan katta sonlar qisqartiriladi. Minglar qisqartilmaydi:
+    1800 mijozni "2 ming" deb yozish raqamni buzadi — mijoz jadvalda 1 800
+    ni ko'radi-yu, diagrammada boshqa sonni ko'radi.
+
+    Ishora alohida ajratiladi, aks holda manfiy millionlar qisqarmay
+    "-190000000" bo'lib chiqardi. Qisqartma so'zi hujjat tilida bo'ladi.
+    """
+    sign = "−" if value < 0 else ""
+    value = abs(value)
     if value >= 1_000_000:
-        return f"{value / 1_000_000:.1f} mln".replace(".0 ", " ")
-    if value >= 1_000:
-        return f"{value / 1_000:.0f} ming"
-    return f"{value:.0f}"
+        word = _MILLION_WORD.get(language, "mln")
+        return sign + f"{value / 1_000_000:.1f} {word}".replace(".0 ", " ")
+    return sign + f"{round(value):,}".replace(",", " ")
 
 
 def _on_fill(fill: str) -> str:
@@ -98,7 +148,31 @@ def _figure_guard():
                 pass
 
 
-def _save(figure, work_dir: str) -> str:
+def _compact_ticks(figure, language: str) -> None:
+    """Raqamli o'qlardagi yorliqlarni qisqartiradi.
+
+    matplotlib katta sonlarni burchakdagi "1e8" ko'paytuvchisi bilan
+    ko'rsatadi — ilmiy yozuv loyiha ishida g'alati ko'rinadi va o'quvchi
+    ustun qiymatini o'qiy olmaydi.
+
+    Faqat sonli o'qlar tegiladi: kategoriya yorliqlari (bosqich nomlari,
+    davrlar) boshqa formatlagichda turadi va ularga tegilmaydi.
+    """
+    for axes in figure.axes:
+        for axis in (axes.xaxis, axes.yaxis):
+            if not isinstance(axis.get_major_formatter(), ScalarFormatter):
+                continue
+            # Faqat million va undan yuqori qiymatlarda: "2 ming" degan
+            # yorliq 2000 dan yomonroq o'qiladi, "250 mln" esa 2.5e8 dan
+            # ancha yaxshi.
+            span = max((abs(tick) for tick in axis.get_ticklocs()), default=0)
+            if span >= 1_000_000:
+                axis.set_major_formatter(
+                    FuncFormatter(lambda value, _pos: _format(value, language)))
+
+
+def _save(figure, work_dir: str, language: str = "uz") -> str:
+    _compact_ticks(figure, language)
     os.makedirs(work_dir, exist_ok=True)
     path = os.path.join(work_dir, f"pwchart_{uuid.uuid4().hex[:10]}.png")
     figure.savefig(path, facecolor=SURFACE, bbox_inches="tight", pad_inches=0.18)
@@ -120,7 +194,8 @@ def _budget_rows(rows: list) -> list:
     return items
 
 
-def budget_bar(rows: list, title: str, work_dir: str, palette=None) -> str:
+def budget_bar(rows: list, title: str, work_dir: str,
+               palette=None, language: str = "uz") -> str:
     """Gorizontal ustunlar, kattaligi bo'yicha tartiblangan."""
     palette = _palette(palette)
     items = sorted(_budget_rows(rows), key=lambda pair: pair[1])
@@ -136,13 +211,14 @@ def budget_bar(rows: list, title: str, work_dir: str, palette=None) -> str:
         axes.spines[side].set_visible(False)
     for bar, value in zip(bars, values):
         axes.text(bar.get_width() + max(values) * 0.02,
-                  bar.get_y() + bar.get_height() / 2, _format(value),
+                  bar.get_y() + bar.get_height() / 2, _format(value, language),
                   va="center", ha="left", fontsize=9, color=INK)
     _title(axes, title)
-    return _save(figure, work_dir)
+    return _save(figure, work_dir, language)
 
 
-def budget_lollipop(rows: list, title: str, work_dir: str, palette=None) -> str:
+def budget_lollipop(rows: list, title: str, work_dir: str,
+                    palette=None, language: str = "uz") -> str:
     """Nuqta va ingichka chiziq — ustunga qaraganda yengilroq ko'rinadi."""
     palette = _palette(palette)
     items = sorted(_budget_rows(rows), key=lambda pair: pair[1])
@@ -161,13 +237,14 @@ def budget_lollipop(rows: list, title: str, work_dir: str, palette=None) -> str:
     for side in ("bottom", "left"):
         axes.spines[side].set_visible(False)
     for index, value in enumerate(values):
-        axes.text(value + max(values) * 0.025, index, _format(value),
+        axes.text(value + max(values) * 0.025, index, _format(value, language),
                   va="center", ha="left", fontsize=9, color=INK)
     _title(axes, title)
-    return _save(figure, work_dir)
+    return _save(figure, work_dir, language)
 
 
-def budget_donut(rows: list, title: str, work_dir: str, palette=None) -> str:
+def budget_donut(rows: list, title: str, work_dir: str,
+                 palette=None, language: str = "uz") -> str:
     """Ulushlar halqasi — markazda jami summa."""
     palette = _palette(palette)
     items = sorted(_budget_rows(rows), key=lambda pair: pair[1], reverse=True)
@@ -187,13 +264,14 @@ def budget_donut(rows: list, title: str, work_dir: str, palette=None) -> str:
              startangle=90, counterclock=False,
              wedgeprops=dict(width=0.42, edgecolor=SURFACE, linewidth=2),
              textprops=dict(fontsize=9, color=INK))
-    axes.text(0, 0, _format(sum(values)), ha="center", va="center",
+    axes.text(0, 0, _format(sum(values), language), ha="center", va="center",
               fontsize=13, color=INK, fontweight="bold")
     axes.set_title(title, fontsize=11, color=INK, loc="left", pad=12)
-    return _save(figure, work_dir)
+    return _save(figure, work_dir, language)
 
 
-def budget_waterfall(rows: list, title: str, work_dir: str, palette=None) -> str:
+def budget_waterfall(rows: list, title: str, work_dir: str,
+                     palette=None, language: str = "uz") -> str:
     """Sharshara — moddalar birin-ketin qo'shilib jamini hosil qiladi."""
     palette = _palette(palette)
     items = sorted(_budget_rows(rows), key=lambda pair: pair[1], reverse=True)[:7]
@@ -206,7 +284,7 @@ def budget_waterfall(rows: list, title: str, work_dir: str, palette=None) -> str
         axes.bar(index, amount, bottom=bottom, width=0.62,
                  color=fill, edgecolor=SURFACE, linewidth=2)
         # Ulanish chizig'i — keyingi ustun qayerdan boshlanishini ko'rsatadi.
-        axes.text(index, bottom + amount, _format(amount), ha="center",
+        axes.text(index, bottom + amount, _format(amount, language), ha="center",
                   va="bottom", fontsize=8, color=INK_SOFT)
         if index < len(items) - 1:
             axes.plot([index + 0.31, index + 0.69], [bottom + amount] * 2,
@@ -215,7 +293,7 @@ def budget_waterfall(rows: list, title: str, work_dir: str, palette=None) -> str
 
     axes.bar(len(items), total, width=0.62, color=palette.ramp[-1],
              edgecolor=SURFACE, linewidth=2)
-    axes.text(len(items), total, _format(total), ha="center", va="bottom",
+    axes.text(len(items), total, _format(total, language), ha="center", va="bottom",
               fontsize=9.5, color=INK, fontweight="bold")
 
     axes.set_xticks(range(len(items) + 1))
@@ -227,7 +305,7 @@ def budget_waterfall(rows: list, title: str, work_dir: str, palette=None) -> str
     for side in ("left", "bottom"):
         axes.spines[side].set_visible(False)
     _title(axes, title)
-    return _save(figure, work_dir)
+    return _save(figure, work_dir, language)
 
 
 # ══════════════════════════════════════════════════════════════ prognoz
@@ -248,7 +326,8 @@ def _last_label(axes, values):
                   ha="right", fontsize=10, color=INK, fontweight="bold")
 
 
-def forecast_line(points: list, title: str, unit: str, work_dir: str, palette=None) -> str:
+def forecast_line(points: list, title: str, unit: str, work_dir: str,
+                  palette=None, language: str = "uz") -> str:
     """Chiziq va ishonch oralig'i. Bitta seriya, legend kerak emas."""
     palette = _palette(palette)
     periods, values = _forecast_series(points)
@@ -263,10 +342,11 @@ def forecast_line(points: list, title: str, unit: str, work_dir: str, palette=No
     _time_axis(axes, unit)
     _last_label(axes, values)
     _title(axes, title)
-    return _save(figure, work_dir)
+    return _save(figure, work_dir, language)
 
 
-def forecast_area(points: list, title: str, unit: str, work_dir: str, palette=None) -> str:
+def forecast_area(points: list, title: str, unit: str, work_dir: str,
+                  palette=None, language: str = "uz") -> str:
     """To'ldirilgan maydon — o'sishning to'planishini ko'rsatadi."""
     palette = _palette(palette)
     periods, values = _forecast_series(points)
@@ -280,10 +360,11 @@ def forecast_area(points: list, title: str, unit: str, work_dir: str, palette=No
     _time_axis(axes, unit)
     _last_label(axes, values)
     _title(axes, title)
-    return _save(figure, work_dir)
+    return _save(figure, work_dir, language)
 
 
-def forecast_column(points: list, title: str, unit: str, work_dir: str, palette=None) -> str:
+def forecast_column(points: list, title: str, unit: str, work_dir: str,
+                    palette=None, language: str = "uz") -> str:
     """Ustunlar — davrlar aniq ajralib turadi, oxirgisi prognoz sifatida ochroq."""
     palette = _palette(palette)
     periods, values = _forecast_series(points)
@@ -293,12 +374,12 @@ def forecast_column(points: list, title: str, unit: str, work_dir: str, palette=
     fills[-1] = palette.ramp[0]     # oxirgi davr — prognoz, shuning uchun ochroq
     axes.bar(periods, values, width=0.6, color=fills, edgecolor=SURFACE, linewidth=2)
     for index, value in enumerate(values):
-        axes.text(index, value, _format(value), ha="center", va="bottom",
+        axes.text(index, value, _format(value, language), ha="center", va="bottom",
                   fontsize=8.5, color=INK)
     axes.set_ylim(0, max(values) * 1.18)
     _time_axis(axes, unit)
     _title(axes, title)
-    return _save(figure, work_dir)
+    return _save(figure, work_dir, language)
 
 
 def _time_axis(axes, unit: str):
@@ -327,7 +408,8 @@ def _stage_rows(stages: list) -> list:
     return rows
 
 
-def gantt(stages: list, title: str, work_dir: str, palette=None) -> str:
+def gantt(stages: list, title: str, work_dir: str,
+          palette=None, language: str = "uz") -> str:
     """Bosqichlar vaqt o'qida — jadval emas, lenta."""
     palette = _palette(palette)
     rows = _stage_rows(stages)
@@ -347,12 +429,13 @@ def gantt(stages: list, title: str, work_dir: str, palette=None) -> str:
     axes.grid(axis="x", color=GRID, linewidth=1)
     axes.set_axisbelow(True)
     axes.spines["left"].set_visible(False)
-    axes.set_xlabel("oy", fontsize=9, color=INK_SOFT)
+    axes.set_xlabel(_w(language, "month"), fontsize=9, color=INK_SOFT)
     _title(axes, title)
-    return _save(figure, work_dir)
+    return _save(figure, work_dir, language)
 
 
-def timeline_milestones(stages: list, title: str, work_dir: str, palette=None) -> str:
+def timeline_milestones(stages: list, title: str, work_dir: str,
+                        palette=None, language: str = "uz") -> str:
     """Vaqt chizig'i — belgilar chiziqda, nomlar navbatma-navbat yuqori/quyi."""
     palette = _palette(palette)
     rows = _stage_rows(stages)
@@ -378,12 +461,13 @@ def timeline_milestones(stages: list, title: str, work_dir: str, palette=None) -
     axes.yaxis.set_visible(False)
     for side in ("left", "bottom"):
         axes.spines[side].set_visible(False)
-    axes.set_xlabel("oy", fontsize=9, color=INK_SOFT)
+    axes.set_xlabel(_w(language, "month"), fontsize=9, color=INK_SOFT)
     _title(axes, title)
-    return _save(figure, work_dir)
+    return _save(figure, work_dir, language)
 
 
-def timeline_steps(stages: list, title: str, work_dir: str, palette=None) -> str:
+def timeline_steps(stages: list, title: str, work_dir: str,
+                   palette=None, language: str = "uz") -> str:
     """Zinapoya — har bosqich oldingisining ustiga qo'yiladi."""
     palette = _palette(palette)
     rows = _stage_rows(stages)
@@ -406,7 +490,7 @@ def timeline_steps(stages: list, title: str, work_dir: str, palette=None) -> str
     for side in ("left", "bottom"):
         axes.spines[side].set_visible(False)
     _title(axes, title)
-    return _save(figure, work_dir)
+    return _save(figure, work_dir, language)
 
 
 # ══════════════════════════════════════════════════════════════ risklar
@@ -436,10 +520,12 @@ def _risk_rows(risks: list) -> list:
     return rows
 
 
-_RISK_AXIS = ["Past", "O'rta", "Yuqori"]
+def _risk_levels(language: str) -> list:
+    return [_w(language, "low"), _w(language, "medium"), _w(language, "high")]
 
 
-def risk_bubble(risks: list, title: str, work_dir: str, palette=None) -> str:
+def risk_bubble(risks: list, title: str, work_dir: str,
+                palette=None, language: str = "uz") -> str:
     """Pufakchali XY — har risk o'z rangida, raqami pufakcha ichida."""
     palette = _palette(palette)
     rows = _risk_rows(risks)
@@ -456,12 +542,13 @@ def risk_bubble(risks: list, title: str, work_dir: str, palette=None) -> str:
 
     axes.grid(color=GRID, linewidth=0.9)
     axes.set_axisbelow(True)
-    _risk_axes(axes, 0.4, 3.6, [1, 2, 3])
+    _risk_axes(axes, 0.4, 3.6, [1, 2, 3], language)
     _title(axes, title)
-    return _save(figure, work_dir)
+    return _save(figure, work_dir, language)
 
 
-def risk_radar(risks: list, title: str, work_dir: str, palette=None) -> str:
+def risk_radar(risks: list, title: str, work_dir: str,
+               palette=None, language: str = "uz") -> str:
     """Radar — risklar og'irligi bo'yicha profil."""
     palette = _palette(palette)
     rows = _risk_rows(risks)[:7]
@@ -496,18 +583,19 @@ def risk_radar(risks: list, title: str, work_dir: str, palette=None) -> str:
     axes.grid(color=GRID)
     axes.spines["polar"].set_color(GRID)
     axes.set_title(title, fontsize=11, color=INK, loc="left", pad=18)
-    return _save(figure, work_dir)
+    return _save(figure, work_dir, language)
 
 
-def _risk_axes(axes, low, high, ticks):
+def _risk_axes(axes, low, high, ticks, language: str = "uz"):
     axes.set_xlim(low, high)
     axes.set_ylim(low, high)
     axes.set_xticks(ticks)
     axes.set_yticks(ticks)
-    axes.set_xticklabels(_RISK_AXIS, fontsize=9)
-    axes.set_yticklabels(_RISK_AXIS, fontsize=9)
-    axes.set_xlabel("Ehtimolligi", fontsize=9, color=INK_SOFT)
-    axes.set_ylabel("Ta'siri", fontsize=9, color=INK_SOFT)
+    levels = _risk_levels(language)
+    axes.set_xticklabels(levels, fontsize=9)
+    axes.set_yticklabels(levels, fontsize=9)
+    axes.set_xlabel(_w(language, "likelihood"), fontsize=9, color=INK_SOFT)
+    axes.set_ylabel(_w(language, "impact"), fontsize=9, color=INK_SOFT)
 
 
 def _title(axes, title: str):
@@ -523,9 +611,523 @@ def render_formula(latex: str, work_dir: str) -> str:
         return _save(figure, work_dir)
 
 
+# ══════════════════════════════════════════════════════ marketing prognozi
+#
+# Sotuv prognozi ikki o'lchovli: nechta sotiladi va qancha pul keladi.
+# Ikkisi turli birlikda, shuning uchun ustun va chiziq ikkita o'qda turadi —
+# bitta o'qqa siqilsa, kichik son ko'rinmay ketardi.
+
+def _periods(data: dict):
+    rows = [p for p in (data.get("periods") or []) if str(p.get("period", "")).strip()]
+    if len(rows) < 2:
+        raise ValueError("prognoz uchun kamida ikkita davr kerak")
+    labels = [_shorten(str(p.get("period")), 14) for p in rows]
+    units = [_number(p.get("units")) for p in rows]
+    revenue = [_number(p.get("revenue")) for p in rows]
+    return labels, units, revenue
+
+
+def _second_axis(axes, label: str):
+    """O'ng o'q — birinchisining to'rini takrorlamasin, faqat o'z yorliqlari."""
+    twin = axes.twinx()
+    twin.set_facecolor("none")
+    for side in ("top", "left"):
+        twin.spines[side].set_visible(False)
+    twin.spines["right"].set_color(GRID)
+    twin.tick_params(colors=INK_SOFT, labelsize=9, length=0)
+    if label:
+        twin.set_ylabel(label, fontsize=9, color=INK_SOFT)
+    return twin
+
+
+def marketing_sales_columns(data: dict, title: str, work_dir: str,
+                            palette=None, language: str = "uz") -> str:
+    """Sotuv hajmi ustunlarda, tushum chiziqda — klassik sotuv prognozi."""
+    palette = _palette(palette)
+    labels, units, revenue = _periods(data)
+
+    figure, axes = _new_figure()
+    axes.bar(labels, units, width=0.58, color=palette.ramp[1],
+             edgecolor=SURFACE, linewidth=2,
+             label=_sales_label(data.get("unit"), language, "volume"))
+    axes.grid(axis="y", color=GRID, linewidth=1)
+    axes.set_axisbelow(True)
+    axes.spines["left"].set_visible(False)
+    axes.set_ylim(0, max(units + [1]) * 1.22)
+    if data.get("unit"):
+        axes.set_ylabel(str(data["unit"]), fontsize=9, color=INK_SOFT)
+
+    twin = _second_axis(axes, str(data.get("money_unit") or ""))
+    twin.plot(labels, revenue, color=palette.ramp[4], linewidth=2.4,
+              marker="o", markersize=7, markerfacecolor=palette.ramp[4],
+              markeredgecolor=SURFACE, markeredgewidth=2,
+              label=_sales_label(data.get("money_unit"), language, "revenue"))
+    twin.set_ylim(0, max(revenue + [1]) * 1.3)
+    twin.annotate(_format(revenue[-1], language), (len(revenue) - 1, revenue[-1]),
+                  textcoords="offset points", xytext=(-6, 12), ha="right",
+                  fontsize=10, color=INK, fontweight="bold")
+
+    _merged_legend(axes, twin)
+    _title(axes, title)
+    return _save(figure, work_dir, language)
+
+
+def marketing_sales_area(data: dict, title: str, work_dir: str,
+                         palette=None, language: str = "uz") -> str:
+    """Tushum maydoni — o'sishning to'planishi ko'zga tashlanadi."""
+    palette = _palette(palette)
+    labels, units, revenue = _periods(data)
+
+    figure, axes = _new_figure()
+    axes.fill_between(labels, revenue, color=palette.ramp[1], alpha=0.5, linewidth=0)
+    axes.plot(labels, revenue, color=palette.ramp[3], linewidth=2.4,
+              marker="o", markersize=6, markerfacecolor=palette.ramp[3],
+              markeredgecolor=SURFACE, markeredgewidth=2,
+              label=_sales_label(data.get("money_unit"), language, "revenue"))
+    axes.grid(axis="y", color=GRID, linewidth=1)
+    axes.set_axisbelow(True)
+    axes.spines["left"].set_visible(False)
+    axes.set_ylim(0, max(revenue + [1]) * 1.22)
+    if data.get("money_unit"):
+        axes.set_ylabel(str(data["money_unit"]), fontsize=9, color=INK_SOFT)
+
+    twin = _second_axis(axes, str(data.get("unit") or ""))
+    twin.plot(labels, units, color=INK_SOFT, linewidth=1.8, linestyle="--",
+              marker="s", markersize=5, markerfacecolor=SURFACE,
+              label=_sales_label(data.get("unit"), language, "volume"))
+    twin.set_ylim(0, max(units + [1]) * 1.32)
+
+    _merged_legend(axes, twin)
+    _title(axes, title)
+    return _save(figure, work_dir, language)
+
+
+def marketing_channels(data: dict, title: str, work_dir: str,
+                       palette=None, language: str = "uz") -> str:
+    """Kanallar: nechta mijoz keltirdi va bir mijoz qanchaga tushdi."""
+    palette = _palette(palette)
+    rows = [c for c in (data.get("channels") or []) if str(c.get("name", "")).strip()]
+    pairs = [(_shorten(str(c.get("name")), 26), _number(c.get("customers")),
+              _number(c.get("cost_per_customer")) or
+              (_number(c.get("budget")) / _number(c.get("customers"))
+               if _number(c.get("customers")) else 0.0))
+             for c in rows]
+    pairs = [p for p in pairs if p[1] > 0]
+    if not pairs:
+        # Kanal ma'lumoti bo'sh bo'lsa sotuv prognoziga qaytamiz — bo'lim
+        # diagrammasiz qolmasin.
+        return marketing_sales_columns(data, title, work_dir, palette, language)
+
+    pairs.sort(key=lambda p: p[1])
+    names = [p[0] for p in pairs]
+    customers = [p[1] for p in pairs]
+    per_customer = [p[2] for p in pairs]
+
+    figure, axes = _new_figure(height=max(3.0, 0.62 * len(pairs) + 1.3))
+    positions = np.arange(len(pairs))
+    fills = palettes.shades(palette, customers)
+    axes.barh(positions, customers, height=0.62, color=fills,
+              edgecolor=SURFACE, linewidth=1.5)
+    axes.set_yticks(positions)
+    axes.set_yticklabels(names, fontsize=9.5)
+    axes.set_xlim(0, max(customers) * 1.3)
+    axes.grid(axis="x", color=GRID, linewidth=1)
+    axes.set_axisbelow(True)
+    axes.spines["bottom"].set_visible(False)
+
+    for position, count, cost in zip(positions, customers, per_customer):
+        label = _format(count, language)
+        if cost:
+            label += f"  ({_format(cost, language)}/{_w(language, 'customer')})"
+        axes.text(count + max(customers) * 0.02, position, label,
+                  va="center", fontsize=9, color=INK_SOFT)
+
+    _title(axes, title)
+    return _save(figure, work_dir, language)
+
+
+def _sales_label(unit, language: str, key: str) -> str:
+    """Legenda yorlig'i: ma'no so'zi va qavs ichida birlik.
+
+    Faqat birlikni yozish yetmaydi — "tonna" degan legenda nimaning
+    tonnasi ekanini aytmaydi.
+    """
+    word = _w(language, key)
+    unit = " ".join(str(unit or "").split())
+    return f"{word} ({_shorten(unit, 14)})" if unit else word
+
+
+def _merged_legend(axes, twin) -> None:
+    """Ikki o'qdagi belgilarni bitta legendaga yig'adi."""
+    handles, labels = axes.get_legend_handles_labels()
+    extra_handles, extra_labels = twin.get_legend_handles_labels()
+    if not handles and not extra_handles:
+        return
+    axes.legend(handles + extra_handles, labels + extra_labels,
+                fontsize=9, frameon=False, loc="upper left",
+                bbox_to_anchor=(0, 1.02), ncols=2)
+
+
+# ══════════════════════════════════════════════════════ chiqimlar tarkibi
+
+def _cost_rows(data: dict):
+    rows = [(
+        _shorten(str(item.get("name", "")), 28),
+        _number(item.get("amount")),
+        bool(item.get("fixed")),
+    ) for item in (data.get("items") or [])]
+    rows = [row for row in rows if row[1] > 0]
+    if not rows:
+        raise ValueError("chiqim moddalari bo'sh")
+    return sorted(rows, key=lambda row: row[1], reverse=True)
+
+
+def costs_donut(data: dict, title: str, work_dir: str,
+                palette=None, language: str = "uz") -> str:
+    """Ulushlar halqasi — qaysi modda pulni yeyayotgani darhol ko'rinadi."""
+    palette = _palette(palette)
+    rows = _cost_rows(data)[:7]
+    amounts = [amount for _n, amount, _f in rows]
+    total = sum(amounts)
+
+    figure, axes = plt.subplots(figsize=(_FIGSIZE[0], 4.4), dpi=_DPI)
+    figure.patch.set_facecolor(SURFACE)
+    axes.set_facecolor(SURFACE)
+    wedges, _texts = axes.pie(
+        amounts,
+        colors=[palette.categorical[i % len(palette.categorical)] for i in range(len(rows))],
+        startangle=90, counterclock=False,
+        wedgeprops=dict(width=0.42, edgecolor=SURFACE, linewidth=2),
+    )
+    axes.axis("equal")
+    # Markazda yig'indi: halqa ulushni ko'rsatadi, umumiy son esa shu yerda.
+    axes.text(0, 0.08, _format(total, language), ha="center", va="center",
+              fontsize=16, fontweight="bold", color=INK)
+    axes.text(0, -0.16, _w(language, "total"), ha="center", va="center",
+              fontsize=9.5, color=INK_SOFT)
+
+    axes.legend(
+        wedges,
+        [f"{name} — {amount / total * 100:.0f}%" for name, amount, _f in rows],
+        fontsize=9, frameon=False, loc="center left", bbox_to_anchor=(1.0, 0.5),
+    )
+    axes.set_title(title, fontsize=11, color=INK, loc="left", pad=10)
+    return _save(figure, work_dir, language)
+
+
+def costs_pareto(data: dict, title: str, work_dir: str,
+                 palette=None, language: str = "uz") -> str:
+    """Pareto: ustunlar kamayish tartibida, chiziq to'plangan ulush.
+
+    Chiqim tahlilida asosiy savol "qaysi ikki-uch modda xarajatning yarmini
+    tashkil qiladi" — to'plangan chiziq shuni bir qarashda ko'rsatadi.
+    """
+    palette = _palette(palette)
+    rows = _cost_rows(data)[:7]
+    names = [name for name, _a, _f in rows]
+    amounts = [amount for _n, amount, _f in rows]
+    total = sum(amounts)
+
+    figure, axes = _new_figure(height=4.4)
+    positions = np.arange(len(rows))
+    axes.bar(positions, amounts, width=0.6, color=palette.ramp[2],
+             edgecolor=SURFACE, linewidth=2)
+    axes.set_xticks(positions)
+    axes.set_xticklabels([_wrap_label(name, 16) for name in names], fontsize=8.5)
+    axes.grid(axis="y", color=GRID, linewidth=1)
+    axes.set_axisbelow(True)
+    axes.spines["left"].set_visible(False)
+    axes.set_ylim(0, max(amounts) * 1.2)
+    for position, amount in zip(positions, amounts):
+        axes.text(position, amount, _format(amount, language), ha="center", va="bottom",
+                  fontsize=8.5, color=INK)
+
+    cumulative, running = [], 0.0
+    for amount in amounts:
+        running += amount
+        cumulative.append(running / total * 100)
+    twin = _second_axis(axes, _w(language, "cum_share"))
+    twin.plot(positions, cumulative, color=palettes.STATUS[4], linewidth=2,
+              marker="o", markersize=5, markerfacecolor=SURFACE, markeredgewidth=1.8)
+    twin.set_ylim(0, 112)
+    twin.axhline(80, color=INK_SOFT, linewidth=1, linestyle=":")
+
+    _title(axes, title)
+    return _save(figure, work_dir, language)
+
+
+def costs_fixed_variable(data: dict, title: str, work_dir: str,
+                         palette=None, language: str = "uz") -> str:
+    """Doimiy va o'zgaruvchi chiqim — ikkita yig'ma ustun.
+
+    Bu ajratish bo'limning mag'zi: o'zgaruvchi ulush katta bo'lsa hajm
+    tushganda xarajat ham tushadi, doimiy ulush katta bo'lsa tushmaydi.
+    """
+    palette = _palette(palette)
+    rows = _cost_rows(data)
+    groups = [
+        (_w(language, "fixed"), [row for row in rows if row[2]], palette.ramp[3]),
+        (_w(language, "variable"), [row for row in rows if not row[2]],
+         palette.ramp[1]),
+    ]
+    groups = [group for group in groups if group[1]]
+    if len(groups) < 2:
+        # Model hammasini bir turga qo'ygan — ajratishning ma'nosi qolmaydi.
+        return costs_donut(data, title, work_dir, palette, language)
+
+    figure, axes = _new_figure(height=4.2)
+    for index, (label, members, base) in enumerate(groups):
+        bottom = 0.0
+        for order, (name, amount, _fixed) in enumerate(members):
+            shade = palette.ramp[min(len(palette.ramp) - 1, 1 + order % 4)] \
+                if base == palette.ramp[1] else palette.ramp[max(0, 4 - order % 4)]
+            axes.bar(index, amount, bottom=bottom, width=0.5, color=shade,
+                     edgecolor=SURFACE, linewidth=2)
+            if amount > sum(a for _n, a, _f in rows) * 0.05:
+                axes.text(index, bottom + amount / 2, _shorten(name, 20),
+                          ha="center", va="center", fontsize=8,
+                          color=_on_fill(shade))
+            bottom += amount
+        axes.text(index, bottom, _format(bottom, language), ha="center", va="bottom",
+                  fontsize=10, fontweight="bold", color=INK)
+
+    axes.set_xticks(range(len(groups)))
+    axes.set_xticklabels([group[0] for group in groups], fontsize=10)
+    axes.set_xlim(-0.6, len(groups) - 0.4)
+    axes.grid(axis="y", color=GRID, linewidth=1)
+    axes.set_axisbelow(True)
+    axes.spines["left"].set_visible(False)
+    _title(axes, title)
+    return _save(figure, work_dir, language)
+
+
+# ══════════════════════════════════════════════════════ zararsizlik nuqtasi
+
+def _breakeven_figures(data: dict):
+    fixed = _number(data.get("fixed"))
+    price = _number(data.get("price"))
+    variable = _number(data.get("variable"))
+    if fixed <= 0 or price <= variable:
+        raise ValueError("zararsizlik nuqtasi hisoblanmaydi")
+    point = fixed / (price - variable)
+    planned = _number(data.get("planned")) or point * 1.3
+    return fixed, price, variable, point, planned
+
+
+def breakeven_lines(data: dict, title: str, work_dir: str,
+                    palette=None, language: str = "uz") -> str:
+    """Tushum va xarajat chiziqlari kesishgan joy — zararsizlik nuqtasi."""
+    palette = _palette(palette)
+    fixed, price, variable, point, planned = _breakeven_figures(data)
+
+    top = max(point, planned) * 1.35
+    volumes = np.linspace(0, top, 120)
+    revenue = price * volumes
+    cost = fixed + variable * volumes
+
+    figure, axes = _new_figure(height=4.3)
+    axes.fill_between(volumes, revenue, cost, where=(cost >= revenue),
+                      color=palettes.STATUS[4], alpha=0.13, linewidth=0)
+    axes.fill_between(volumes, revenue, cost, where=(revenue > cost),
+                      color=palettes.STATUS[1], alpha=0.13, linewidth=0)
+    axes.plot(volumes, revenue, color=palette.ramp[3], linewidth=2.4, label=_w(language, "revenue"))
+    axes.plot(volumes, cost, color=palettes.STATUS[3], linewidth=2.4,
+              label=_w(language, "total_cost"))
+    axes.axhline(fixed, color=INK_SOFT, linewidth=1.4, linestyle="--",
+                 label=_w(language, "fixed_cost"))
+
+    axes.scatter([point], [price * point], s=110, color=INK, zorder=5,
+                 edgecolor=SURFACE, linewidth=2)
+    axes.annotate(f"{_format(point, language)} {data.get('unit', '')}".strip(),
+                  (point, price * point), textcoords="offset points",
+                  xytext=(10, -16), fontsize=10, fontweight="bold", color=INK)
+    if planned and abs(planned - point) > top * 0.04:
+        axes.axvline(planned, color=palette.ramp[2], linewidth=1.2, linestyle=":")
+        axes.annotate(_w(language, "plan"), (planned, price * top * 0.02),
+                      textcoords="offset points", xytext=(5, 6),
+                      fontsize=9, color=palette.ramp[3])
+
+    axes.set_xlim(0, top)
+    axes.set_ylim(0, max(revenue[-1], cost[-1]) * 1.08)
+    axes.grid(color=GRID, linewidth=1)
+    axes.set_axisbelow(True)
+    axes.set_xlabel(str(data.get("unit") or _w(language, "volume")),
+                    fontsize=9, color=INK_SOFT)
+    axes.set_ylabel(str(data.get("money_unit") or ""), fontsize=9, color=INK_SOFT)
+    axes.legend(fontsize=9, frameon=False, loc="upper left")
+    _title(axes, title)
+    return _save(figure, work_dir, language)
+
+
+def breakeven_profit(data: dict, title: str, work_dir: str,
+                     palette=None, language: str = "uz") -> str:
+    """Foyda chizig'i nolni kesib o'tadi — xuddi shu nuqta, boshqa ko'rinishda."""
+    palette = _palette(palette)
+    fixed, price, variable, point, planned = _breakeven_figures(data)
+
+    top = max(point, planned) * 1.35
+    volumes = np.linspace(0, top, 120)
+    profit = (price - variable) * volumes - fixed
+
+    figure, axes = _new_figure(height=4.3)
+    axes.fill_between(volumes, profit, 0, where=(profit < 0),
+                      color=palettes.STATUS[4], alpha=0.16, linewidth=0)
+    axes.fill_between(volumes, profit, 0, where=(profit >= 0),
+                      color=palettes.STATUS[1], alpha=0.16, linewidth=0)
+    axes.plot(volumes, profit, color=palette.ramp[3], linewidth=2.6)
+    axes.axhline(0, color=INK_SOFT, linewidth=1.2)
+
+    axes.scatter([point], [0], s=110, color=INK, zorder=5,
+                 edgecolor=SURFACE, linewidth=2)
+    axes.annotate(f"{_w(language, 'breakeven')}: {_format(point, language)} "
+                  f"{data.get('unit', '')}".strip(),
+                  (point, 0), textcoords="offset points", xytext=(10, 12),
+                  fontsize=10, fontweight="bold", color=INK)
+    if planned:
+        planned_profit = (price - variable) * planned - fixed
+        axes.scatter([planned], [planned_profit], s=90, color=palette.ramp[1],
+                     zorder=5, edgecolor=SURFACE, linewidth=2)
+        axes.annotate(f"{_w(language, 'plan')}: {_format(planned_profit, language)}",
+                      (planned, planned_profit),
+                      textcoords="offset points", xytext=(-8, 12), ha="right",
+                      fontsize=9.5, color=palette.ramp[4])
+
+    axes.set_xlim(0, top)
+    axes.grid(color=GRID, linewidth=1)
+    axes.set_axisbelow(True)
+    axes.set_xlabel(str(data.get("unit") or _w(language, "volume")),
+                    fontsize=9, color=INK_SOFT)
+    axes.set_ylabel(f"{_w(language, 'profit')}, {data.get('money_unit', '')}".strip(", "),
+                    fontsize=9, color=INK_SOFT)
+    _title(axes, title)
+    return _save(figure, work_dir, language)
+
+
+# ══════════════════════════════════════════════════════════════ pul oqimi
+
+def _cashflow_rows(data: dict):
+    rows = [p for p in (data.get("periods") or []) if str(p.get("period", "")).strip()]
+    if len(rows) < 2:
+        raise ValueError("pul oqimi uchun kamida ikkita davr kerak")
+    labels = [_shorten(str(p.get("period")), 12) for p in rows]
+    income = [_number(p.get("income")) for p in rows]
+    expense = [_number(p.get("expense")) for p in rows]
+    cumulative, running = [], 0.0
+    for money_in, money_out in zip(income, expense):
+        running += money_in - money_out
+        cumulative.append(running)
+    return labels, income, expense, cumulative
+
+
+def cashflow_bars(data: dict, title: str, work_dir: str,
+                  palette=None, language: str = "uz") -> str:
+    """Kirim yuqoriga, chiqim pastga, to'plangan oqim chiziqda."""
+    palette = _palette(palette)
+    labels, income, expense, cumulative = _cashflow_rows(data)
+
+    figure, axes = _new_figure(height=4.3)
+    positions = np.arange(len(labels))
+    axes.bar(positions, income, width=0.56, color=palette.ramp[1],
+             edgecolor=SURFACE, linewidth=2, label=_w(language, "inflow"))
+    axes.bar(positions, [-value for value in expense], width=0.56,
+             color=palettes.STATUS[3], edgecolor=SURFACE, linewidth=2,
+             label=_w(language, "outflow"))
+    axes.axhline(0, color=INK_SOFT, linewidth=1.2)
+    axes.plot(positions, cumulative, color=INK, linewidth=2.2, marker="o",
+              markersize=6, markerfacecolor=SURFACE, markeredgewidth=2,
+              label=_w(language, "cumulative"))
+
+    axes.set_xticks(positions)
+    axes.set_xticklabels(labels, fontsize=9.5)
+    axes.grid(axis="y", color=GRID, linewidth=1)
+    axes.set_axisbelow(True)
+    axes.spines["left"].set_visible(False)
+    axes.set_ylabel(str(data.get("money_unit") or data.get("unit") or ""),
+                    fontsize=9, color=INK_SOFT)
+    _pad_limits(axes, income + [-value for value in expense] + cumulative)
+    _breakeven_marker(axes, positions, cumulative, language)
+    axes.legend(fontsize=9, frameon=False, loc="upper left", ncols=3,
+                bbox_to_anchor=(0, 1.02))
+    _title(axes, title)
+    return _save(figure, work_dir, language)
+
+
+def cashflow_waterfall(data: dict, title: str, work_dir: str,
+                       palette=None, language: str = "uz") -> str:
+    """Sharshara: har davr sof oqimi to'plangan qoldiqni qanday o'zgartiradi."""
+    palette = _palette(palette)
+    labels, income, expense, cumulative = _cashflow_rows(data)
+    nets = [money_in - money_out for money_in, money_out in zip(income, expense)]
+
+    figure, axes = _new_figure(height=4.3)
+    positions = np.arange(len(labels))
+    bottom = 0.0
+    for position, net in zip(positions, nets):
+        colour = palette.ramp[2] if net >= 0 else palettes.STATUS[3]
+        axes.bar(position, net, bottom=bottom, width=0.56, color=colour,
+                 edgecolor=SURFACE, linewidth=2)
+        tip = bottom + net
+        axes.text(position, tip,
+                  _format(net, language) if net >= 0
+                  else f"−{_format(-net, language)}",
+                  ha="center", va="bottom" if net >= 0 else "top",
+                  fontsize=9, color=INK)
+        if position < len(positions) - 1:
+            axes.plot([position + 0.28, position + 0.72], [tip, tip],
+                      color=GRID, linewidth=1.2, linestyle="--")
+        bottom = tip
+
+    axes.axhline(0, color=INK_SOFT, linewidth=1.2)
+    axes.set_xticks(positions)
+    axes.set_xticklabels(labels, fontsize=9.5)
+    axes.grid(axis="y", color=GRID, linewidth=1)
+    axes.set_axisbelow(True)
+    axes.spines["left"].set_visible(False)
+    axes.set_ylabel(str(data.get("money_unit") or data.get("unit") or ""),
+                    fontsize=9, color=INK_SOFT)
+    # Yorliqlar ustun uchidan tashqarida turadi, shuning uchun o'qqa joy
+    # qoldiriladi — aks holda birinchi ustunning raqami davr nomiga
+    # yopishib qolardi.
+    _pad_limits(axes, cumulative + [0])
+    _breakeven_marker(axes, positions, cumulative, language)
+    _title(axes, title)
+    return _save(figure, work_dir, language)
+
+
+def _pad_limits(axes, values) -> None:
+    """Qiymatlar atrofida yorliqlar sig'adigan bo'sh joy qoldiradi."""
+    if not values:
+        return
+    low, high = min(values), max(values)
+    span = (high - low) or abs(high) or 1.0
+    axes.set_ylim(low - span * 0.16, high + span * 0.16)
+
+
+def _breakeven_marker(axes, positions, cumulative, language: str) -> None:
+    """To'plangan oqim musbatga o'tgan davrni belgilaydi — qoplanish muddati."""
+    for position, value in zip(positions, cumulative):
+        if value < 0:
+            continue
+        # Nuqta o'qning yuqori chekkasiga yaqin bo'lsa yozuv sarlavhaga
+        # chiqib ketardi — bunday holda u nuqtaning ostiga qo'yiladi.
+        low, high = axes.get_ylim()
+        near_top = value > low + (high - low) * 0.78
+        axes.annotate(_w(language, "payback"), (position, value),
+                      textcoords="offset points",
+                      xytext=(0, -20) if near_top else (0, 18),
+                      ha="center", fontsize=9, color=palettes.STATUS[1],
+                      fontweight="bold",
+                      # Yozuv ustun ustiga tushishi mumkin — ochiq hoshiya
+                      # uni har qanday fonda o'qiladigan qiladi.
+                      path_effects=[path_effects.withStroke(
+                          linewidth=3, foreground=SURFACE)])
+        return
+
+
 # ══════════════════════════════════════════════════════════════ sxema
 
-def structure_scheme(data: dict, title: str, work_dir: str, palette=None) -> str:
+def structure_scheme(data: dict, title: str, work_dir: str,
+                     palette=None, language: str = "uz") -> str:
     """Loyiha tuzilmasi sxemasi — bloklar va ularni bog'lovchi chiziqlar.
 
     Ilgari bu AI chizgan rasm edi: arzon modellar sxemadagi yozuvlarni
@@ -587,7 +1189,7 @@ def structure_scheme(data: dict, title: str, work_dir: str, palette=None) -> str
                         edge=hue, text_colour=INK)
 
     axes.set_title(title, fontsize=11, color=INK, loc="left", pad=12)
-    return _save(figure, work_dir)
+    return _save(figure, work_dir, language)
 
 
 def _tint(hex_str: str, amount: float) -> str:
@@ -646,14 +1248,30 @@ _DRAWERS = {
     ("forecast", "line"): forecast_line,
     ("forecast", "area"): forecast_area,
     ("forecast", "column"): forecast_column,
+    ("marketing", "sales_columns"): marketing_sales_columns,
+    ("marketing", "sales_area"): marketing_sales_area,
+    ("marketing", "channels"): marketing_channels,
+    ("costs", "donut"): costs_donut,
+    ("costs", "pareto"): costs_pareto,
+    ("costs", "fixed_variable"): costs_fixed_variable,
+    ("breakeven", "lines"): breakeven_lines,
+    ("breakeven", "profit"): breakeven_profit,
+    ("cashflow", "bars"): cashflow_bars,
+    ("cashflow", "waterfall"): cashflow_waterfall,
 }
 
 _FALLBACK = {"budget": budget_bar, "timeline": gantt, "scheme": structure_scheme,
-             "risks": risk_bubble, "forecast": forecast_line}
+             "risks": risk_bubble, "forecast": forecast_line,
+             "marketing": marketing_sales_columns, "costs": costs_donut,
+             "breakeven": breakeven_lines, "cashflow": cashflow_bars}
+
+# Butun ma'lumot lug'atini oladigan artefaktlar: ularda bitta ro'yxat emas,
+# bir nechta kalit ishlatiladi (davrlar, kanallar, narx, doimiy xarajat).
+_WHOLE_DATA = {"scheme", "marketing", "costs", "breakeven", "cashflow"}
 
 
 def draw(artifact: str, form: str, data: dict, title: str, work_dir: str,
-         palette=None, unit: str = "") -> str:
+         palette=None, unit: str = "", language: str = "uz") -> str:
     """Artefakt va tanlangan shakl bo'yicha chizmani chizadi."""
     drawer = _DRAWERS.get((artifact, form)) or _FALLBACK.get(artifact)
     if drawer is None:
@@ -661,11 +1279,11 @@ def draw(artifact: str, form: str, data: dict, title: str, work_dir: str,
 
     with _figure_guard():
         if artifact == "budget":
-            return drawer(data.get("items") or [], title, work_dir, palette)
+            return drawer(data.get("items") or [], title, work_dir, palette, language)
         if artifact == "timeline":
-            return drawer(data.get("stages") or [], title, work_dir, palette)
+            return drawer(data.get("stages") or [], title, work_dir, palette, language)
         if artifact == "risks":
-            return drawer(data.get("risks") or [], title, work_dir, palette)
-        if artifact == "scheme":
-            return drawer(data, title, work_dir, palette)
-        return drawer(data.get("points") or [], title, unit, work_dir, palette)
+            return drawer(data.get("risks") or [], title, work_dir, palette, language)
+        if artifact in _WHOLE_DATA:
+            return drawer(data, title, work_dir, palette, language)
+        return drawer(data.get("points") or [], title, unit, work_dir, palette, language)

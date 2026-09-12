@@ -17,11 +17,7 @@ from config import DOCUMENTS_DIR, TEMP_DIR
 
 from . import charts, variety
 from .content import ProjectContent, SectionContent
-from .specs import (
-    ARTIFACT_RESULTS,
-    ARTIFACT_RISKS,
-    ARTIFACT_TIMELINE,
-)
+from .specs import ARTIFACT_RESULTS
 
 logger = logging.getLogger(__name__)
 
@@ -201,6 +197,9 @@ class ProjectWorkBuilder:
         citable = [r for r in content.references if not r.startswith("__CATEGORY__")]
         table_no = 0
         figure_no = 0
+        # Formulalar hujjat bo'ylab ketma-ket raqamlanadi — akademik qoida
+        # shunday, va matnda "(3) formuladan ko'rinadi" deb havola qilinadi.
+        formula_no = 0
         footnote_no = 1
         numbered = 0
 
@@ -231,8 +230,9 @@ class ProjectWorkBuilder:
                     doc, section, figure_no, table_no, language, chosen
                 )
 
-            if section.formula:
-                self._add_formula(doc, section.formula, language)
+            for formula in section.formulas:
+                formula_no += 1
+                self._add_formula(doc, formula, language, formula_no)
 
             image_path = images.get(section.spec.key)
             if image_path:
@@ -272,7 +272,8 @@ class ProjectWorkBuilder:
         try:
             image_path = charts.draw(artifact, form, data, title, TEMP_DIR,
                                      palette=chosen.palette,
-                                     unit=str(data.get("unit") or ""))
+                                     unit=str(data.get("unit") or ""),
+                                     language=language)
         except Exception as e:
             logger.warning("Diagramma chizilmadi (%s/%s): %s", section.spec.key, form, e)
             return figure_no, table_no
@@ -289,12 +290,23 @@ class ProjectWorkBuilder:
             except OSError:
                 pass
 
-        # Diagramma raqamni ko'rsatadi, tafsilotni esa yonidagi ro'yxat beradi.
-        if artifact == ARTIFACT_RISKS:
-            self._add_risk_key(doc, data.get("risks") or [], language)
-        elif artifact == ARTIFACT_TIMELINE:
-            self._add_stage_owners(doc, data.get("stages") or [], language)
+        # Har diagramma ostida uni tushuntiruvchi matn: ustoz "bu nimani
+        # ko'rsatadi" deb so'raganda javob hujjatda turishi kerak.
+        self._add_note(doc, section.note)
         return figure_no, table_no
+
+    def _add_note(self, doc, note: str) -> None:
+        text = " ".join(str(note or "").split())
+        if not text:
+            return
+        para = doc.add_paragraph()
+        para.paragraph_format.first_line_indent = Inches(0.5)
+        para.paragraph_format.line_spacing = 1.5
+        para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        run = para.add_run(text)
+        run.font.size = Pt(14)
+        run.font.name = "Times New Roman"
+        doc.add_paragraph()
 
     def _caption(self, doc, text: str, align=WD_ALIGN_PARAGRAPH.CENTER) -> None:
         caption = doc.add_paragraph()
@@ -337,36 +349,8 @@ class ProjectWorkBuilder:
                 tail.font.name = "Times New Roman"
         doc.add_paragraph()
 
-    def _add_risk_key(self, doc, risks: list, language: str) -> None:
-        """Matritsadagi raqamlar nimani anglatishini ochib beradi."""
-        for number, risk in enumerate(risks[:9], start=1):
-            para = doc.add_paragraph()
-            para.paragraph_format.line_spacing = 1.15
-            para.paragraph_format.left_indent = Inches(0.3)
-            label = para.add_run(f"{number}. {risk.get('name', '')} — ")
-            label.font.size = Pt(12)
-            label.font.name = "Times New Roman"
-            label.font.bold = True
-            fix = para.add_run(str(risk.get("mitigation", "")))
-            fix.font.size = Pt(12)
-            fix.font.name = "Times New Roman"
-        doc.add_paragraph()
-
-    def _add_stage_owners(self, doc, stages: list, language: str) -> None:
-        owners = [s for s in stages if s.get("owner")]
-        if not owners:
-            return
-        for stage in owners[:8]:
-            para = doc.add_paragraph()
-            para.paragraph_format.line_spacing = 1.15
-            para.paragraph_format.left_indent = Inches(0.3)
-            run = para.add_run(f"{stage.get('name', '')} — {stage.get('owner', '')}")
-            run.font.size = Pt(12)
-            run.font.name = "Times New Roman"
-        doc.add_paragraph()
-
-    def _add_formula(self, doc, formula: dict, language: str) -> None:
-        """Samaradorlik hisobi: formula, berilganlar, natija va izoh."""
+    def _add_formula(self, doc, formula: dict, language: str, number: int) -> None:
+        """Bitta hisob: nomi, raqamlangan formula, berilganlar, natija va izoh."""
         name = str(formula.get("name", "")).strip()
         if name:
             heading = doc.add_paragraph()
@@ -379,9 +363,7 @@ class ProjectWorkBuilder:
         if latex:
             try:
                 image_path = charts.render_formula(latex, TEMP_DIR)
-                para = doc.add_paragraph()
-                para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                para.add_run().add_picture(image_path, width=Inches(3.6))
+                self._numbered_formula(doc, image_path, number)
                 os.remove(image_path)
             except Exception as e:
                 logger.warning("Formula chizilmadi: %s", e)
@@ -408,6 +390,29 @@ class ProjectWorkBuilder:
             run.font.name = "Times New Roman"
         doc.add_paragraph()
 
+    def _numbered_formula(self, doc, image_path: str, number: int) -> None:
+        """Formula o'rtada, raqami o'ng chekkada — akademik yozuv shunday.
+
+        Chegarasiz jadval ishlatiladi: bitta paragrafda rasmni markazlab,
+        raqamni o'ng chetga qo'yib bo'lmaydi — markazlash raqamni ham
+        o'ziga tortib ketadi.
+        """
+        layout = doc.add_table(rows=1, cols=2)
+        layout.autofit = False
+        formula_cell, number_cell = layout.rows[0].cells
+        formula_cell.width = Inches(5.4)
+        number_cell.width = Inches(0.9)
+
+        holder = formula_cell.paragraphs[0]
+        holder.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        holder.add_run().add_picture(image_path, width=Inches(3.6))
+
+        label = number_cell.paragraphs[0]
+        label.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        run = label.add_run(f"({number})")
+        run.font.size = Pt(14)
+        run.font.name = "Times New Roman"
+
     def _add_table(self, doc, section: SectionContent, number: int, language: str) -> None:
         caption = doc.add_paragraph()
         caption.alignment = WD_ALIGN_PARAGRAPH.RIGHT
@@ -433,6 +438,8 @@ class ProjectWorkBuilder:
                     run.font.size = Pt(12)
                     run.font.name = "Times New Roman"
 
+        # Yig'indi satri qalin: ustoz avvalo shu satrni qidiradi.
+        total_row = len(rows) if section.table.get("last_row_bold") else -1
         for row_index, row in enumerate(rows, start=1):
             cells = table.rows[row_index].cells
             for column in range(len(headers)):
@@ -442,6 +449,7 @@ class ProjectWorkBuilder:
                     for run in paragraph.runs:
                         run.font.size = Pt(12)
                         run.font.name = "Times New Roman"
+                        run.font.bold = row_index == total_row
 
         doc.add_paragraph()
 

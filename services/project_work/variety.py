@@ -25,8 +25,12 @@ from typing import Dict, List, Optional
 
 from . import palettes
 from .specs import (
+    ARTIFACT_BREAKEVEN,
     ARTIFACT_BUDGET,
+    ARTIFACT_CASHFLOW,
+    ARTIFACT_COSTS,
     ARTIFACT_FORECAST,
+    ARTIFACT_MARKETING,
     ARTIFACT_RISKS,
     ARTIFACT_SCHEME,
     ARTIFACT_TIMELINE,
@@ -48,6 +52,14 @@ FORMS: Dict[str, List[str]] = {
     ARTIFACT_FORECAST: ["line", "area", "column"],
     # tuzilma — bitta shakl, chunki u ierarxiyani ko'rsatadi
     ARTIFACT_SCHEME: ["structure"],
+    # sotuv prognozi: hajm va tushum, yoki kanallar bo'yicha samara
+    ARTIFACT_MARKETING: ["sales_columns", "sales_area", "channels"],
+    # chiqim tarkibi: ulush, Pareto yoki doimiy/o'zgaruvchi ajratmasi
+    ARTIFACT_COSTS: ["donut", "pareto", "fixed_variable"],
+    # zararsizlik nuqtasi — bitta hisob, ikki ko'rinish
+    ARTIFACT_BREAKEVEN: ["lines", "profit"],
+    # pul oqimi: kirim-chiqim ustunlari yoki sharshara
+    ARTIFACT_CASHFLOW: ["bars", "waterfall"],
 }
 
 # `data/` — Python paketi (icons_map.py shu yerda), shuning uchun ish

@@ -24,6 +24,10 @@ ARTIFACT_RESULTS = "results"    # ko'rsatkich | hozirgi | maqsad | o'lchov
 ARTIFACT_SCHEME = "scheme"      # tuzilma sxemasi (kod bilan chiziladi)
 ARTIFACT_FORECAST = "forecast"  # prognoz chizig'i + hisob formulasi
 ARTIFACT_CALC = "calc"          # hisob-kitob jadvali + formulalar, chizmasiz
+ARTIFACT_MARKETING = "marketing"  # sotuv prognozi + kanallar bo'yicha hisob
+ARTIFACT_COSTS = "costs"        # chiqimlar tarkibi + tannarx hisobi
+ARTIFACT_BREAKEVEN = "breakeven"  # zararsizlik nuqtasi
+ARTIFACT_CASHFLOW = "cashflow"  # kirim-chiqim oqimi va to'planishi
 
 # Bir xil ko'rinishdagi beshta jadval o'rniga har ma'lumot o'z shaklini
 # oladi: xarajat — ustunli diagramma, bosqichlar — Gantt lentasi, risklar —
@@ -34,11 +38,49 @@ CHART_ARTIFACTS = {
     ARTIFACT_TIMELINE,
     ARTIFACT_RISKS,
     ARTIFACT_FORECAST,
+    ARTIFACT_MARKETING,
+    ARTIFACT_COSTS,
+    ARTIFACT_BREAKEVEN,
+    ARTIFACT_CASHFLOW,
     # Sxema ham chizma: ilgari u AI rasmi edi va undagi yozuvlar buzilardi.
     ARTIFACT_SCHEME,
 }
 CARD_ARTIFACTS = {ARTIFACT_RESULTS}
+# AI dan matn ko'rinishida jadval so'raladigan artefaktlar.
 TABLE_ARTIFACTS = {ARTIFACT_DATA, ARTIFACT_CALC}
+
+# Jadvali raqamli ma'lumotdan KOD bilan chiqariladigan artefaktlar.
+#
+# Ilgari byudjet uchun ikkita alohida so'rov bor edi: biri jadval uchun,
+# biri diagramma uchun. Ikkisi bir-biriga bog'lanmagani uchun jadvaldagi
+# summa bilan diagrammadagi ustun boshqa-boshqa chiqardi — va jadval
+# so'rovi hech qachon chaqirilmagani uchun bu ko'rinmay qolgan edi.
+#
+# Endi bitta so'rov raqamlarni beradi, jadval ham diagramma ham o'sha
+# raqamdan quriladi. Yig'indi va ulush kodda hisoblanadi: AI qo'shishda
+# xato qilardi, ustoz esa avvalo yig'indini tekshiradi.
+DERIVED_TABLE_ARTIFACTS = {
+    ARTIFACT_BUDGET,
+    ARTIFACT_TIMELINE,
+    ARTIFACT_RISKS,
+    ARTIFACT_MARKETING,
+    ARTIFACT_COSTS,
+    ARTIFACT_CASHFLOW,
+    ARTIFACT_BREAKEVEN,
+    ARTIFACT_FORECAST,
+}
+
+# Nechta formula so'ralishi. Hisob-kitob bo'limining mag'zi formulalar
+# bo'lgani uchun u eng ko'p oladi; rejadagi bo'limlarga formula kerak emas.
+FORMULA_COUNTS = {
+    ARTIFACT_CALC: 3,
+    ARTIFACT_COSTS: 2,
+    ARTIFACT_BREAKEVEN: 3,
+    ARTIFACT_MARKETING: 2,
+    ARTIFACT_CASHFLOW: 2,
+    ARTIFACT_FORECAST: 2,
+    ARTIFACT_BUDGET: 1,
+}
 
 
 # ─────────────────────────────────────────── Mijoz tanlaydigan mazmun bloklari
@@ -49,17 +91,28 @@ TABLE_ARTIFACTS = {ARTIFACT_DATA, ARTIFACT_CALC}
 
 BLOCK_CALC = "calc"
 BLOCK_BUDGET = "budget"
+BLOCK_COSTS = "costs"
 BLOCK_TIMELINE = "timeline"
+BLOCK_MARKETING = "marketing"
+BLOCK_BREAKEVEN = "breakeven"
 BLOCK_FORECAST = "forecast"
+BLOCK_CASHFLOW = "cashflow"
 BLOCK_RISKS = "risks"
 BLOCK_RESULTS = "results"
 BLOCK_AUTO = "auto"
 
-# Hujjatdagi tartib — mijoz tanlash tartibi emas.
+# Hujjatdagi tartib — mijoz tanlash tartibi emas. Iqtisodiy mantiq bo'yicha:
+# hisob-kitob → investitsiya → doimiy chiqim → reja → sotuv → zararsizlik →
+# prognoz → pul oqimi → risklar → natija.
 BLOCK_ORDER = [
-    BLOCK_CALC, BLOCK_BUDGET, BLOCK_TIMELINE,
-    BLOCK_FORECAST, BLOCK_RISKS, BLOCK_RESULTS,
+    BLOCK_CALC, BLOCK_BUDGET, BLOCK_COSTS, BLOCK_TIMELINE,
+    BLOCK_MARKETING, BLOCK_BREAKEVEN, BLOCK_FORECAST, BLOCK_CASHFLOW,
+    BLOCK_RISKS, BLOCK_RESULTS,
 ]
+
+# Iqtisodiy hisob-kitob bloklari — `auto` rejimida mavzuda pul, ishlab
+# chiqarish yoki xizmat bo'lsa AI shulardan tanlaydi.
+ECONOMIC_BLOCKS = [BLOCK_COSTS, BLOCK_MARKETING, BLOCK_BREAKEVEN, BLOCK_CASHFLOW]
 
 BLOCK_LABELS: Dict[str, Dict[str, str]] = {
     BLOCK_CALC: {"uz": "Hisob-kitob va formulalar", "ru": "Расчёты и формулы",
@@ -74,6 +127,18 @@ BLOCK_LABELS: Dict[str, Dict[str, str]] = {
                   "en": "Risk analysis"},
     BLOCK_RESULTS: {"uz": "Kutilayotgan natijalar", "ru": "Ожидаемые результаты",
                     "en": "Expected results"},
+    BLOCK_COSTS: {"uz": "Chiqimlar tarkibi va tannarx",
+                  "ru": "Структура расходов и себестоимость",
+                  "en": "Cost structure and unit cost"},
+    BLOCK_MARKETING: {"uz": "Marketing prognozi va sotuv rejasi",
+                      "ru": "Маркетинговый прогноз и план продаж",
+                      "en": "Marketing forecast and sales plan"},
+    BLOCK_BREAKEVEN: {"uz": "Zararsizlik nuqtasi tahlili",
+                      "ru": "Анализ точки безубыточности",
+                      "en": "Break-even analysis"},
+    BLOCK_CASHFLOW: {"uz": "Pul oqimi va qoplanish muddati",
+                     "ru": "Денежный поток и срок окупаемости",
+                     "en": "Cash flow and payback period"},
     BLOCK_AUTO: {"uz": "AI mavzuga qarab o'zi tanlasin",
                  "ru": "ИИ выберет сам по теме",
                  "en": "Let the AI choose by topic"},
@@ -154,8 +219,11 @@ BUDGET = SectionSpec(
         "en": "Project budget and resources",
     },
     guidance=(
-        "Explain what the project spends money on, where the funding comes from, "
-        "and which costs dominate. Use realistic Uzbek market prices in so'm."
+        "Explain the one-off investment the project needs to start: equipment, "
+        "premises, installation, licences, working capital. Say where the "
+        "funding comes from and which items dominate. Use realistic Uzbek "
+        "market prices in so'm. Do not go into the recurring monthly running "
+        "costs here — those belong to the cost-structure section."
     ),
     artifact=ARTIFACT_BUDGET,
 )
@@ -220,6 +288,79 @@ CALCULATION = SectionSpec(
     artifact=ARTIFACT_CALC,
 )
 
+COSTS = SectionSpec(
+    key="chiqimlar",
+    title={
+        "uz": "Chiqimlar tarkibi va tannarx hisobi",
+        "ru": "Структура расходов и расчёт себестоимости",
+        "en": "Cost structure and unit cost calculation",
+    },
+    guidance=(
+        "Analyse what the project spends money on once it is running — not the "
+        "one-off investment, but the recurring cost of operating it. Separate "
+        "the fixed costs from the variable ones and say which items dominate. "
+        "Work out the cost of one unit of output and compare it with the price "
+        "the market pays. Use realistic Uzbek figures in so'm."
+    ),
+    artifact=ARTIFACT_COSTS,
+    words="340-420",
+)
+
+MARKETING = SectionSpec(
+    key="marketing_prognoz",
+    title={
+        "uz": "Marketing prognozi va sotuv rejasi",
+        "ru": "Маркетинговый прогноз и план продаж",
+        "en": "Marketing forecast and sales plan",
+    },
+    guidance=(
+        "Forecast how much the project will sell and earn over the coming "
+        "periods, and say what that forecast rests on: the size of the "
+        "audience, the promotion channels, the price. Go through the channels "
+        "one by one — what each costs, how many people it reaches, how many of "
+        "them become customers. State what one customer costs to acquire and "
+        "whether that is justified by what the customer brings in."
+    ),
+    artifact=ARTIFACT_MARKETING,
+    words="340-420",
+)
+
+BREAKEVEN = SectionSpec(
+    key="zararsizlik",
+    title={
+        "uz": "Zararsizlik nuqtasi va moliyaviy barqarorlik",
+        "ru": "Точка безубыточности и финансовая устойчивость",
+        "en": "Break-even point and financial stability",
+    },
+    guidance=(
+        "Work out the volume at which the project stops making a loss: the "
+        "fixed costs it must cover, the margin each unit contributes, and the "
+        "number of units or the revenue that follows from those two. Say how "
+        "far the planned volume sits above that point, and what happens to the "
+        "figure if the price falls or costs rise."
+    ),
+    artifact=ARTIFACT_BREAKEVEN,
+    words="320-400",
+)
+
+CASHFLOW = SectionSpec(
+    key="pul_oqimi",
+    title={
+        "uz": "Pul oqimi va investitsiyaning qoplanishi",
+        "ru": "Денежный поток и окупаемость инвестиций",
+        "en": "Cash flow and return on investment",
+    },
+    guidance=(
+        "Follow the money period by period: what comes in, what goes out, what "
+        "is left, and how the accumulated balance moves from negative to "
+        "positive. Say in which period the project turns cash-positive and when "
+        "the initial investment is recovered. Name the periods concretely "
+        "(years or quarters)."
+    ),
+    artifact=ARTIFACT_CASHFLOW,
+    words="320-400",
+)
+
 CONCLUSION = SectionSpec(
     key="xulosa",
     title={"uz": "Xulosa", "ru": "Заключение", "en": "Conclusion"},
@@ -253,14 +394,21 @@ _OPENING = [INTRO, RELEVANCE]
 _BLOCK_SECTIONS: Dict[str, SectionSpec] = {
     BLOCK_CALC: CALCULATION,
     BLOCK_BUDGET: BUDGET,
+    BLOCK_COSTS: COSTS,
     BLOCK_TIMELINE: TIMELINE,
+    BLOCK_MARKETING: MARKETING,
+    BLOCK_BREAKEVEN: BREAKEVEN,
     BLOCK_FORECAST: FORECAST,
+    BLOCK_CASHFLOW: CASHFLOW,
     BLOCK_RISKS: RISKS,
     BLOCK_RESULTS: RESULTS,
 }
 
-# Mijoz hech narsa tanlamasa ham hujjat bo'sh qolmasin.
-DEFAULT_BLOCKS = [BLOCK_TIMELINE, BLOCK_BUDGET, BLOCK_RISKS, BLOCK_RESULTS]
+# `auto` tanlanib, AI javob bera olmasa ishlatiladigan zaxira ro'yxat.
+# Ichida bitta haqiqiy hisob-kitob bo'lishi shart: loyiha ishida raqamsiz
+# byudjet jadvali yetarli emas.
+DEFAULT_BLOCKS = [BLOCK_BUDGET, BLOCK_COSTS, BLOCK_TIMELINE,
+                  BLOCK_RISKS, BLOCK_RESULTS]
 
 
 def _section(key, uz, ru, en, guidance, artifact=None, words="300-380") -> SectionSpec:
@@ -294,10 +442,13 @@ FIELDS: Dict[str, FieldSpec] = {
                 "makes it different from what already exists.",
             ),
             _section(
-                "marketing", "Marketing va sotuv strategiyasi",
-                "Маркетинг и стратегия продаж", "Marketing and sales strategy",
-                "Explain pricing, promotion channels, sales process and how "
-                "customers will be retained.",
+                "marketing", "Marketing strategiyasi va narx siyosati",
+                "Маркетинговая стратегия и ценовая политика",
+                "Marketing strategy and pricing policy",
+                "Explain the positioning, the pricing policy and the reasoning "
+                "behind it, the sales process and how customers are retained. "
+                "Keep this qualitative — the channel figures and the sales "
+                "forecast belong to the marketing forecast section.",
             ),
         ],
     ),
