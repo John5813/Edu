@@ -205,20 +205,24 @@ def get_project_field_keyboard(language: str) -> InlineKeyboardMarkup:
     return keyboard.as_markup()
 
 
-def get_project_blocks_keyboard(language: str, selected) -> InlineKeyboardMarkup:
+def get_project_blocks_keyboard(language: str, selected,
+                                field_key: str = "") -> InlineKeyboardMarkup:
     """Which content blocks the work should contain — a real multi-select.
 
     The old question offered "tables" or "tables plus a scheme" while its own
     text admitted both variants carried the same tables, so the client was
     choosing nothing they could perceive.
+
+    Sohaning o'z bo'limida hisob-kitob bo'lsa, umumiy hisob bloki ro'yxatga
+    chiqmaydi: u baribir hujjatga qo'shilmaydi.
     """
-    from services.project_work.specs import BLOCK_AUTO, BLOCK_ORDER, block_label
+    from services.project_work.specs import BLOCK_AUTO, available_blocks, block_label
 
     selected = set(selected or [])
     keyboard = InlineKeyboardBuilder()
     auto = BLOCK_AUTO in selected
 
-    for key in BLOCK_ORDER:
+    for key in available_blocks(field_key):
         mark = "☑️" if (key in selected and not auto) else "⬜️"
         keyboard.add(InlineKeyboardButton(
             text=f"{mark} {block_label(key, language)}",
@@ -247,14 +251,34 @@ def get_project_field_confirm_keyboard(language: str, field_key: str) -> InlineK
     return keyboard.as_markup()
 
 
-def get_project_depth_keyboard(language: str) -> InlineKeyboardMarkup:
-    from config import PROJECT_WORK_PRICES
+# Hajm tugmasining yozuvi: "15-20 varoq · 15,000 so'm".
+_PW_SIZE_LABEL = {
+    "uz": "📄 {lo}-{hi} varoq · {price:,} so'm",
+    "ru": "📄 {lo}-{hi} стр. · {price:,} сум",
+    "en": "📄 {lo}-{hi} pages · {price:,} so'm",
+}
 
+
+def project_size_label(key: str, language: str) -> str:
+    """Xulosa va tasdiq matnlarida ishlatiladigan qisqa nom."""
+    from config import project_work_size
+
+    lo, hi = project_work_size(key)["pages"]
+    word = {"uz": "varoq", "ru": "стр.", "en": "pages"}.get(language, "varoq")
+    return f"{lo}-{hi} {word}"
+
+
+def get_project_size_keyboard(language: str) -> InlineKeyboardMarkup:
+    """Loyiha ishining varoq soni — narx ham shunga bog'liq."""
+    from config import PROJECT_WORK_SIZES
+
+    template = _PW_SIZE_LABEL.get(language, _PW_SIZE_LABEL["uz"])
     keyboard = InlineKeyboardBuilder()
-    for key in ("standart", "keng"):
+    for key, size in PROJECT_WORK_SIZES.items():
+        lo, hi = size["pages"]
         keyboard.add(InlineKeyboardButton(
-            text=get_text(language, f"pw_depth_{key}", price=PROJECT_WORK_PRICES[key]),
-            callback_data=f"pw_depth:{key}",
+            text=template.format(lo=lo, hi=hi, price=size["price"]),
+            callback_data=f"pw_size:{key}",
         ))
     keyboard.add(InlineKeyboardButton(text=_back_text(language), callback_data="pw_cancel"))
     keyboard.adjust(1)

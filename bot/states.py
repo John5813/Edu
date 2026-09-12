@@ -41,7 +41,7 @@ class ProjectWorkStates(StatesGroup):
     waiting_for_field = State()
     waiting_for_field_confirm = State()
     waiting_for_blocks = State()
-    waiting_for_depth = State()
+    waiting_for_size = State()
     waiting_for_payment = State()
     generating = State()
 

@@ -135,14 +135,29 @@ DISSERTATION_PRICES = {
 }
 
 # Loyiha ishi — hajmi bo'yicha ikki daraja
-PROJECT_WORK_PRICES = {
-    "standart": 15_000,   # ~15-20 bet
-    "keng":     25_000,   # ~25-30 bet
+# Loyiha ishi hajmi. Ilgari ikkita variant bor edi ("standart" va
+# "kengaytirilgan") va ular faqat bo'lim matnini cho'zardi — bo'limlar soniga
+# ta'sir qilmasdi. Shu sababli "~15-20 bet" deb yozilgan tugma 40 varoqli
+# hujjat berardi. Endi varoq soni haqiqiy chegara: unga qarab mijoz nechta
+# mazmun bloki tanlay olishi ham, matn uzunligi ham belgilanadi
+# (`services/project_work/layout.py`).
+PROJECT_WORK_SIZES = {
+    "10_15": {"pages": (10, 15), "price": 10_000},
+    "15_20": {"pages": (15, 20), "price": 15_000},
+    "20_25": {"pages": (20, 25), "price": 20_000},
+    "25_30": {"pages": (25, 30), "price": 25_000},
+    "30_40": {"pages": (30, 40), "price": 35_000},
 }
-PROJECT_WORK_DEPTH = {
-    "standart": 1.0,
-    "keng":     1.6,
-}
+
+# To'lovgacha yetib kelgan eski buyurtmalar holatida hali eski kalit turishi
+# mumkin — ular yangi hajmga o'giriladi, aks holda KeyError bilan yiqilardi.
+_LEGACY_SIZE_KEYS = {"standart": "15_20", "keng": "25_30"}
+
+
+def project_work_size(key: str) -> dict:
+    """Hajm kaliti bo'yicha varoq oralig'i va narxi."""
+    key = _LEGACY_SIZE_KEYS.get(key, key)
+    return PROJECT_WORK_SIZES.get(key, PROJECT_WORK_SIZES["15_20"])
 
 # Extras prices (in so'm) added on top of base document price
 EXTRAS_PRICES = {
