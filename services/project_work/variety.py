@@ -24,6 +24,7 @@ import threading
 from typing import Dict, List, Optional
 
 from . import palettes
+from .schemes import ALL_FORMS as SCHEME_FORMS
 from .specs import (
     ARTIFACT_BREAKEVEN,
     ARTIFACT_BUDGET,
@@ -50,8 +51,10 @@ FORMS: Dict[str, List[str]] = {
     ARTIFACT_RISKS: ["bubble", "radar"],
     # vaqt bo'yicha o'zgarish
     ARTIFACT_FORECAST: ["line", "area", "column"],
-    # tuzilma — bitta shakl, chunki u ierarxiyani ko'rsatadi
-    ARTIFACT_SCHEME: ["structure"],
+    # tuzilma — sakkizta shakl. Qaysi biri to'g'ri kelishi ma'lumotdagi
+    # turga bog'liq (`schemes.FORMS_BY_KIND`); mos kelmasa `schemes` o'zi
+    # mavzu urug'idan tanlaydi.
+    ARTIFACT_SCHEME: list(SCHEME_FORMS),
     # sotuv prognozi: hajm va tushum, yoki kanallar bo'yicha samara
     ARTIFACT_MARKETING: ["sales_columns", "sales_area", "channels"],
     # chiqim tarkibi: ulush, Pareto yoki doimiy/o'zgaruvchi ajratmasi

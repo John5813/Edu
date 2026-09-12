@@ -3494,14 +3494,25 @@ In JSON format:
         lang_name = lang_map.get(lang, "o'zbek")
         prompt = (
             f"Describe the structure of \"{section_title}\" (part of a document about "
-            f"\"{topic}\") as a hierarchy of blocks for a diagram.\n"
-            f'"root" is the whole system or process. "branches" are its 3-4 main parts; '
-            f"each has 2-3 concrete components under it.\n"
+            f"\"{topic}\") as blocks for a diagram.\n\n"
+            f'First decide what SHAPE this subject really has and put it in "kind":\n'
+            f"  hierarchy  — a whole that divides into parts and sub-parts\n"
+            f"  components — parts that make up one thing, no ordering between them\n"
+            f"  process    — stages that follow one another from start to finish\n"
+            f"  cycle      — stages that repeat, the last one leading back to the first\n"
+            f"  levels     — layers built on top of one another, base to top\n"
+            f"Choose by the subject itself, not by habit: a method has stages, a "
+            f"system has components, a management model has levels.\n\n"
+            f'"root" is the whole system, process or model. "branches" are its 3-5 '
+            f"main parts — for a process or cycle they are the stages IN ORDER, for "
+            f"levels they go from the top layer down. Each branch has 2-3 concrete "
+            f"components under it.\n"
             f"Every label must be 1-3 words — they are drawn inside small boxes.\n"
             f"The parts must be specific to this subject, not generic headings.\n"
             f"Write all labels in {lang_name}.\n"
             f"Return JSON only:\n"
-            f'{{"root": "Tizim nomi", "branches": [{{"name": "Qism", "items": ["Element", "Element"]}}]}}'
+            f'{{"kind": "process", "root": "Tizim nomi", '
+            f'"branches": [{{"name": "Qism", "items": ["Element", "Element"]}}]}}'
         )
         try:
             response = await self._make_request(
