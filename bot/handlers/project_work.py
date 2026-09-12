@@ -274,9 +274,12 @@ async def chose_field(callback: CallbackQuery, state: FSMContext, user_lang: str
 async def _block_limits(data: dict) -> tuple:
     """Tanlangan hajmga nechta blok sig'adi: (eng kam, eng ko'p)."""
     field_key = data.get("field_key") or GENERIC_FIELD_KEY
-    low, high = project_work_size(data.get("size_key", ""))["pages"]
-    return (pw_layout.min_blocks(field_key, low),
-            pw_layout.max_blocks(field_key, high))
+    pages = project_work_size(data.get("size_key", ""))["pages"]
+    # Hujjat tili muhim: o'zbekcha so'zlar inglizchadan uzun, ya'ni bir xil
+    # varoq soniga kamroq so'z sig'adi.
+    language = data.get("doc_language", "uz")
+    return (pw_layout.min_blocks(field_key, pages, language),
+            pw_layout.max_blocks(field_key, pages, language))
 
 
 async def _ask_blocks(message: Message, state: FSMContext, user_lang: str):

@@ -26,6 +26,10 @@ _FIELD_WORD = {"uz": "Yo'nalish", "ru": "Направление", "en": "Field"}
 _TABLE_WORD = {"uz": "jadval", "ru": "Таблица", "en": "Table"}
 _FIGURE_WORD = {"uz": "rasm", "ru": "Рисунок", "en": "Figure"}
 
+# Formula rasmi shu kenglikdan oshsa kichraytiriladi — matn maydoni
+# 6,93 dyuym, raqam uchun ham joy kerak.
+_FORMULA_MAX_WIDTH = 4.8
+
 
 def _table_caption(index: int, title: str, language: str) -> str:
     if language == "uz":
@@ -37,6 +41,47 @@ def _figure_caption(index: int, title: str, language: str) -> str:
     if language == "uz":
         return f"{index}-{_FIGURE_WORD['uz']}. {title}"
     return f"{_FIGURE_WORD.get(language, _FIGURE_WORD['en'])} {index}. {title}"
+
+
+# Jadval maydoni: matn kengligi (6,93") dan biroz tor, chekkalar uchun.
+_TABLE_WIDTH = 6.7
+# Bitta ustun shundan tor bo'lmaydi — aks holda har so'z alohida satrga
+# tushib, jadval balandligi bir necha barobar oshadi.
+_MIN_COLUMN = 0.75
+
+
+def _fit_columns(table, headers: list, rows: list) -> None:
+    """Ustun kengliklarini ichidagi matnga qarab taqsimlaydi.
+
+    python-docx sukut bo'yicha hamma ustunga teng kenglik beradi. Shu
+    sababli "Ko'rsatkich" ustuni tor qolib har so'zi alohida satrga tushardi,
+    yonidagi uzun matnli ustun esa o'n qatorga cho'zilardi — jadval bir
+    varoqni egallab, o'qib bo'lmas holga kelardi.
+    """
+    counts = len(headers)
+    if not counts:
+        return
+
+    # Har ustunning "og'irligi" — eng uzun katagi emas, o'rtachasi: bitta
+    # uzun katak butun ustunni kengaytirib yuborishi kerak emas.
+    weights = []
+    for column in range(counts):
+        lengths = [len(str(headers[column]))]
+        lengths += [len(str(row[column])) for row in rows if column < len(row)]
+        average = sum(lengths) / len(lengths)
+        weights.append(max(average, len(str(headers[column])) * 0.6))
+
+    total = sum(weights) or 1.0
+    spare = _TABLE_WIDTH - _MIN_COLUMN * counts
+    if spare <= 0:
+        widths = [_TABLE_WIDTH / counts] * counts
+    else:
+        widths = [_MIN_COLUMN + spare * weight / total for weight in weights]
+
+    table.autofit = False
+    for column, width in enumerate(widths):
+        for row in table.rows:
+            row.cells[column].width = Inches(width)
 
 
 class ProjectWorkBuilder:
@@ -100,8 +145,10 @@ class ProjectWorkBuilder:
 
         self._title_page(doc, content, _DOC_LABEL.get(language, _DOC_LABEL["uz"]))
 
-        doc.add_page_break()
-        self._contents(doc, content)
+        # Reja varag'i chiqarilmaydi: loyiha ishida u talab qilinmaydi va
+        # bo'limlar ro'yxatini ikki marta bosib chiqarish bir varoqni bekorga
+        # yeb qo'yardi. Mijoz kerak bo'lsa Word'ning o'z mundarijasini
+        # qo'yadi — sarlavhalar raqamlangan holda turibdi.
         doc.add_page_break()
 
         for section in doc.sections:
@@ -166,26 +213,6 @@ class ProjectWorkBuilder:
         for _ in range(3):
             doc.add_paragraph()
         centered(texts["city"])
-
-    def _contents(self, doc, content: ProjectContent) -> None:
-        toc = self.documents._get_toc_texts(content.language)
-        heading = doc.add_paragraph()
-        heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = heading.add_run(toc.get("reja", "REJA").upper())
-        run.font.size = Pt(14)
-        run.font.bold = True
-
-        numbered = 0
-        for section in content.sections:
-            item = doc.add_paragraph()
-            if self._is_numbered(section):
-                numbered += 1
-                item.add_run(f"{numbered}. {section.spec.heading(content.language)}")
-            else:
-                item.add_run(section.spec.heading(content.language))
-
-        if content.references:
-            doc.add_paragraph().add_run(toc["adabiyotlar"])
 
     @staticmethod
     def _is_numbered(section: SectionContent) -> bool:
@@ -350,10 +377,18 @@ class ProjectWorkBuilder:
         doc.add_paragraph()
 
     def _add_formula(self, doc, formula: dict, language: str, number: int) -> None:
-        """Bitta hisob: nomi, raqamlangan formula, berilganlar, natija va izoh."""
+        """Bitta hisob: nomi, raqamlangan formula, berilganlar, natija va izoh.
+
+        Blok ataylab zich terilgan. Ilgari har qatordan keyin bo'sh joy
+        qolardi va bitta hisob-kitob yarim varoqni egallardi — mijoz buni
+        "orasidagi masofa juda katta" deb ko'rsatgan edi.
+        """
         name = str(formula.get("name", "")).strip()
         if name:
             heading = doc.add_paragraph()
+            heading.paragraph_format.line_spacing = 1.15
+            heading.paragraph_format.space_before = Pt(6)
+            heading.paragraph_format.space_after = Pt(0)
             run = heading.add_run(name)
             run.font.bold = True
             run.font.size = Pt(13)
@@ -368,10 +403,13 @@ class ProjectWorkBuilder:
             except Exception as e:
                 logger.warning("Formula chizilmadi: %s", e)
 
+        # Berilganlar — qisqa ro'yxat, zich terilgan.
         for given in (formula.get("given") or [])[:6]:
             para = doc.add_paragraph()
-            para.paragraph_format.left_indent = Inches(0.3)
-            para.paragraph_format.line_spacing = 1.15
+            para.paragraph_format.left_indent = Inches(0.4)
+            para.paragraph_format.line_spacing = 1.0
+            para.paragraph_format.space_before = Pt(0)
+            para.paragraph_format.space_after = Pt(0)
             run = para.add_run(str(given))
             run.font.size = Pt(12)
             run.font.name = "Times New Roman"
@@ -383,12 +421,13 @@ class ProjectWorkBuilder:
             para = doc.add_paragraph()
             para.paragraph_format.first_line_indent = Inches(0.5)
             para.paragraph_format.line_spacing = 1.5
+            para.paragraph_format.space_before = Pt(2 if key == "result" else 0)
+            para.paragraph_format.space_after = Pt(0)
             para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             run = para.add_run(text)
             run.font.size = Pt(14)
             run.font.bold = bold
             run.font.name = "Times New Roman"
-        doc.add_paragraph()
 
     def _numbered_formula(self, doc, image_path: str, number: int) -> None:
         """Formula o'rtada, raqami o'ng chekkada — akademik yozuv shunday.
@@ -396,19 +435,33 @@ class ProjectWorkBuilder:
         Chegarasiz jadval ishlatiladi: bitta paragrafda rasmni markazlab,
         raqamni o'ng chetga qo'yib bo'lmaydi — markazlash raqamni ham
         o'ziga tortib ketadi.
+
+        Rasm o'z tabiiy o'lchamida qo'yiladi. Ilgari u qat'iy 3,6 dyuym
+        kenglikka cho'zilardi: qisqa formula tor qirqilgani uchun shu
+        kenglikka yetguncha balandligi bir necha barobar oshib ketardi.
         """
-        layout = doc.add_table(rows=1, cols=2)
-        layout.autofit = False
-        formula_cell, number_cell = layout.rows[0].cells
+        width, height = charts.formula_size(image_path)
+        if width > _FORMULA_MAX_WIDTH:
+            height *= _FORMULA_MAX_WIDTH / width
+            width = _FORMULA_MAX_WIDTH
+
+        table = doc.add_table(rows=1, cols=2)
+        table.autofit = False
+        formula_cell, number_cell = table.rows[0].cells
         formula_cell.width = Inches(5.4)
         number_cell.width = Inches(0.9)
 
         holder = formula_cell.paragraphs[0]
         holder.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        holder.add_run().add_picture(image_path, width=Inches(3.6))
+        holder.paragraph_format.line_spacing = 1.0
+        holder.paragraph_format.space_before = Pt(2)
+        holder.paragraph_format.space_after = Pt(2)
+        holder.add_run().add_picture(image_path, width=Inches(width),
+                                     height=Inches(height))
 
         label = number_cell.paragraphs[0]
         label.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        label.paragraph_format.line_spacing = 1.0
         run = label.add_run(f"({number})")
         run.font.size = Pt(14)
         run.font.name = "Times New Roman"
@@ -427,6 +480,7 @@ class ProjectWorkBuilder:
         rows = section.table["rows"]
         table = doc.add_table(rows=1 + len(rows), cols=len(headers))
         table.style = "Table Grid"
+        _fit_columns(table, headers, rows)
 
         for column, title in enumerate(headers):
             cell = table.rows[0].cells[column]

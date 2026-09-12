@@ -53,10 +53,20 @@ LINES_PER_PAGE = TEXT_HEIGHT / LINE_HEIGHT                  # ≈ 32,3
 CHAR_EM = 0.5
 CHARS_PER_LINE = TEXT_WIDTH / (BODY_SIZE * CHAR_EM / 72.0)  # ≈ 71
 
-# O'zbekcha o'rtacha so'z: oltita harf va bitta probel.
-CHARS_PER_WORD = 7.0
-WORDS_PER_LINE = CHARS_PER_LINE / CHARS_PER_WORD            # ≈ 10,2
-WORDS_PER_PAGE = WORDS_PER_LINE * LINES_PER_PAGE            # ≈ 329
+# O'rtacha so'z uzunligi (probel bilan). Tayyor hujjatlardan o'lchangan:
+# o'zbekcha akademik matnda so'zlar uzun ("ishlab chiqarishning",
+# "samaradorligi"), inglizchada ancha qisqa. Ilgari hamma til uchun 7,0
+# olingan edi va o'zbekcha hujjat baholanganidan 23 foiz uzun chiqardi.
+CHARS_PER_WORD = {"uz": 8.6, "ru": 8.8, "en": 6.4}
+DEFAULT_LANGUAGE = "uz"
+
+
+def words_per_line(language: str = DEFAULT_LANGUAGE) -> float:
+    return CHARS_PER_LINE / CHARS_PER_WORD.get(language, CHARS_PER_WORD["uz"])
+
+
+def words_per_page(language: str = DEFAULT_LANGUAGE) -> float:
+    return words_per_line(language) * LINES_PER_PAGE
 
 
 def _lines(inches: float) -> float:
@@ -86,26 +96,31 @@ PHOTO_LINES = _lines(5.0 * 0.75) + 2.5
 # Formula bloki: nomi, formula rasmi, berilganlar ro'yxati va
 # natija/ma'no/xulosa paragraflari.
 #
-# Formula rasmining balandligi e'lon qilingan figsize dan chiqmaydi:
-# `bbox_inches="tight"` bo'sh joyni qirqadi va qisqa formulada kenglik
-# balandlikdan ko'ra ko'proq qisqaradi. Tayyor hujjatlarda o'lchanganda
-# 3,6" kenglikdagi rasm 1,23" balandlikda chiqadi.
-FORMULA_IMAGE = 1.23
-FORMULA_LINES = 1.0 + _lines(FORMULA_IMAGE) + 2.0 + 6.0 + 1.0
+# Rasm o'z tabiiy o'lchamida qo'yiladi (`charts.formula_size`), ya'ni bir
+# qatorli formula 0,25-0,35 dyuym balandlikda chiqadi. Ilgari u qat'iy
+# kenglikka cho'zilib 1,23 dyuymgacha kattalashardi.
+FORMULA_IMAGE = 0.34
+# Berilganlar bir intervalda (12pt), nomi 1,15 intervalda terilgan —
+# ikkalasi ham asosiy satrdan past.
+FORMULA_LINES = (_lines(0.22)                 # nomi
+                 + _lines(FORMULA_IMAGE + 0.06)
+                 + 3 * _lines(0.17)           # berilganlar
+                 + 4.0)                       # natija, ma'no, xulosa
 
 # Ko'rsatkich kartochkalari — beshta satrli jadval.
 CARDS_LINES = 5 * _lines(0.33) + 1.0
 
-# Muqova va mundarija alohida varoqlarda, adabiyotlar ro'yxati ham yangi
-# varoqdan boshlanadi.
-FRONT_MATTER_PAGES = 2.0
+# Muqova alohida varoqda, adabiyotlar ro'yxati ham yangi varoqdan
+# boshlanadi. Reja varag'i chiqarilmaydi — loyiha ishida u talab
+# qilinmaydi.
+FRONT_MATTER_PAGES = 1.0
 REFERENCES_PAGES = 1.0
 
 
-def prose_lines(words: float) -> float:
+def prose_lines(words: float, language: str = DEFAULT_LANGUAGE) -> float:
     """Matn necha satr egallashi. Har paragraf oxirgi satrini to'ldirmaydi."""
     paragraphs = 2                       # `_split_into_paragraphs` ikkiga bo'ladi
-    return words / WORDS_PER_LINE + paragraphs * 0.5
+    return words / words_per_line(language) + paragraphs * 0.5
 
 
 # ────────────────────────────────────────────────────────── bo'lim o'lchovi
@@ -159,9 +174,11 @@ def overhead_lines(spec) -> float:
     return total + FORMULA_LINES * FORMULA_COUNTS.get(spec.artifact or "", 0)
 
 
-def section_lines(spec, words: float, has_photo: bool = False) -> float:
+def section_lines(spec, words: float, language: str = DEFAULT_LANGUAGE,
+                  has_photo: bool = False) -> float:
     """Bitta bo'lim necha satr egallashi — matni va hamma artefaktlari bilan."""
-    return overhead_lines(spec) + prose_lines(words) + (PHOTO_LINES if has_photo else 0)
+    return (overhead_lines(spec) + prose_lines(words, language)
+            + (PHOTO_LINES if has_photo else 0))
 
 
 def _base_words(spec) -> float:
@@ -195,7 +212,8 @@ def photographs_for(target_pages: float) -> int:
     return PHOTOGRAPHS if target_pages >= 20 else 1
 
 
-def free_lines(specs: List, target_pages: float) -> float:
+def free_lines(specs: List, target_pages: float,
+               language: str = DEFAULT_LANGUAGE) -> float:
     """Artefaktlardan keyin matnga qoladigan joy (satrda)."""
     lines = (target_pages - fixed_pages()) * LINES_PER_PAGE
     lines -= sum(overhead_lines(spec) for spec in specs)
@@ -208,15 +226,17 @@ def _clamp(words: float) -> float:
     return min(MAX_WORDS, max(MIN_WORDS, words))
 
 
-def estimate(specs: List, scale: float = 1.0, target_pages: float = 25.0) -> float:
+def estimate(specs: List, scale: float = 1.0, target_pages: float = 25.0,
+             language: str = DEFAULT_LANGUAGE) -> float:
     """Berilgan bo'limlar ro'yxati necha varoq chiqishini baholaydi."""
-    lines = sum(section_lines(spec, _clamp(_base_words(spec) * scale))
+    lines = sum(section_lines(spec, _clamp(_base_words(spec) * scale), language)
                 for spec in specs)
     lines += PHOTO_LINES * photographs_for(target_pages)
     return lines / LINES_PER_PAGE + fixed_pages()
 
 
-def word_scale(specs: List, target_pages: float) -> float:
+def word_scale(specs: List, target_pages: float,
+               language: str = DEFAULT_LANGUAGE) -> float:
     """Bo'limlar shu varoq soniga tushishi uchun matnni qancha o'zgartirish kerak.
 
     Artefaktlar egallagan joy matn uzunligiga bog'liq emas, shuning uchun
@@ -228,7 +248,7 @@ def word_scale(specs: List, target_pages: float) -> float:
     wanted = sum(_base_words(spec) for spec in specs)
     if wanted <= 0:
         return 1.0
-    available = free_lines(specs, target_pages) * WORDS_PER_LINE
+    available = free_lines(specs, target_pages, language) * words_per_line(language)
     return max(0.45, min(2.5, available / wanted))
 
 
@@ -247,26 +267,36 @@ def _block_specs(field_key: str) -> List:
     return [_BLOCK_SECTIONS[key] for key in available_blocks(field_key)]
 
 
-def min_blocks(field_key: str, target_pages: float) -> int:
-    """Tanlangan varoq soniga yetish uchun eng kami nechta blok kerak.
+def target_for(pages: tuple) -> float:
+    """Hujjat qaysi varoq soniga mo'ljallanadi — oraliqning o'rtasi."""
+    low, high = pages
+    return (low + high) / 2
+
+
+def min_blocks(field_key: str, pages: tuple,
+               language: str = DEFAULT_LANGUAGE) -> int:
+    """Tanlangan oraliqqa yetish uchun eng kami nechta blok kerak.
 
     Matnni cheksiz cho'zib bo'lmaydi: bitta bo'lim ming so'zdan oshsa u
     akademik bo'lim emas, insho bo'lib qoladi. Shuning uchun katta hajm
     tanlangan bo'lsa, uni bo'limlar soni bilan to'ldirish kerak — aks holda
     mijoz "30-40 varoq" deb to'lab, 26 varoq oladi.
     """
+    low = pages[0]
+    target = target_for(pages)
     base = _base_sections(field_key)
     # Eng arzon bloklar bilan tekshiramiz: mijoz aynan shularni tanlasa ham
     # hujjat va'da qilingan varoq soniga yetishi kerak.
     blocks = sorted(_block_specs(field_key), key=overhead_lines)
     for count in range(0, len(blocks) + 1):
-        if estimate([*base, *blocks[:count]], 2.5, target_pages) >= target_pages:
+        if estimate([*base, *blocks[:count]], 2.5, target, language) >= low:
             return count
     return len(blocks)
 
 
-def max_blocks(field_key: str, target_pages: float) -> int:
-    """Tanlangan varoq soniga nechta mazmun bloki sig'adi.
+def max_blocks(field_key: str, pages: tuple,
+               language: str = DEFAULT_LANGUAGE) -> int:
+    """Tanlangan oraliqqa nechta mazmun bloki sig'adi.
 
     Har blok o'zi bilan jadval, diagramma va formulalarni olib keladi, ular
     esa matndan ko'ra ko'proq joy egallaydi. Shuning uchun varoq sonini
@@ -277,12 +307,14 @@ def max_blocks(field_key: str, target_pages: float) -> int:
     jadvalida bittasi ham yo'q), shuning uchun o'rtacha qiymat olinadi:
     mijoz qaysilarini tanlashini oldindan bilib bo'lmaydi.
     """
+    high = pages[1]
+    target = target_for(pages)
     base = _base_sections(field_key)
     # Eng qimmat bloklar bilan tekshiramiz: mijoz qaysilarini tanlashini
     # bilmaymiz, shuning uchun cheklov eng og'ir holatga mo'ljallanadi.
     blocks = sorted(_block_specs(field_key), key=overhead_lines, reverse=True)
     for count in range(len(blocks), 0, -1):
         specs = [*base, *blocks[:count]]
-        if estimate(specs, word_scale(specs, target_pages), target_pages) <= target_pages:
+        if estimate(specs, word_scale(specs, target, language), target, language) <= high:
             return count
     return 1
