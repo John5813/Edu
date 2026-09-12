@@ -474,6 +474,7 @@ FIELDS: Dict[str, FieldSpec] = {
                 "Проектирование и инженерные расчёты", "Design and engineering calculations",
                 "Present the design decisions and the calculations behind them: "
                 "loads, capacity, dimensions, materials. Show the reasoning.",
+                artifact=ARTIFACT_CALC,
                 words="380-450",
             ),
             _section(
@@ -616,7 +617,9 @@ FIELDS: Dict[str, FieldSpec] = {
                 "hosildorlik", "Hosildorlik va sifat ko'rsatkichlari",
                 "Показатели урожайности и качества", "Yield and quality indicators",
                 "Give expected yield and quality figures and compare them with "
-                "regional averages.",
+                "regional averages, and work out the yield per hectare and the "
+                "output the project's area produces.",
+                artifact=ARTIFACT_CALC,
             ),
         ],
     ),
@@ -631,9 +634,17 @@ GENERIC_LABEL = {
 }
 
 
-def closing_for(blocks) -> List[SectionSpec]:
-    """Mijoz tanlagan bloklardan yakuniy bo'limlarni yig'adi."""
+def closing_for(blocks, middle: Optional[List[SectionSpec]] = None) -> List[SectionSpec]:
+    """Mijoz tanlagan bloklardan yakuniy bo'limlarni yig'adi.
+
+    Sohaning o'z bo'limlarida allaqachon hisob-kitob bo'lsa (muhandislikdagi
+    loyihalash hisobi, qishloq xo'jaligidagi hosildorlik), umumiy hisob
+    bloki qo'shilmaydi — aks holda hujjatda ikkita bir xil vazifadagi
+    bo'lim va ikkita hisob jadvali paydo bo'lardi.
+    """
     chosen = set(blocks or [])
+    if any(section.artifact == ARTIFACT_CALC for section in (middle or [])):
+        chosen.discard(BLOCK_CALC)
     ordered = [_BLOCK_SECTIONS[key] for key in BLOCK_ORDER if key in chosen]
     return [*ordered, CONCLUSION]
 
@@ -655,12 +666,13 @@ def sections_for(field_key: str, blocks=None) -> List[SectionSpec]:
     spec = FIELDS.get(field_key)
     if spec is None:
         raise KeyError(f"noma'lum soha: {field_key}")
-    return [*_OPENING, *_with_structure(spec.middle), *closing_for(blocks)]
+    return [*_OPENING, *_with_structure(spec.middle),
+            *closing_for(blocks, spec.middle)]
 
 
 def generic_sections(middle: List[SectionSpec], blocks=None) -> List[SectionSpec]:
     """AI taklif qilgan o'rta bo'limlarni umumiy skeletga joylaydi."""
-    return [*_OPENING, *_with_structure(middle), *closing_for(blocks)]
+    return [*_OPENING, *_with_structure(middle), *closing_for(blocks, middle)]
 
 
 def field_label(field_key: str, language: str) -> str:
