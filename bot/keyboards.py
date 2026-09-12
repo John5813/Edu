@@ -176,15 +176,20 @@ def get_other_services_keyboard(language: str, media_enabled: bool = True, pdf_c
     return keyboard.as_markup()
 
 
-def get_project_source_keyboard(language: str) -> InlineKeyboardMarkup:
-    """Where the project work's material comes from."""
+def get_project_source_keyboard(language: str, prefix: str = "pw",
+                                back: str = "pw_cancel") -> InlineKeyboardMarkup:
+    """Material qayerdan olinishi — AI o'zi, matn, fayl yoki sayt.
+
+    `prefix` bilan boshqa xizmatlar ham shu tugmalardan foydalanadi:
+    savol ham, javob shakllari ham bir xil, faqat callback nomi boshqa.
+    """
     keyboard = InlineKeyboardBuilder()
     for key in ("ai", "text", "file", "url"):
         keyboard.add(InlineKeyboardButton(
             text=get_text(language, f"pw_source_{key}"),
-            callback_data=f"pw_source:{key}",
+            callback_data=f"{prefix}_source:{key}",
         ))
-    keyboard.add(InlineKeyboardButton(text=_back_text(language), callback_data="pw_cancel"))
+    keyboard.add(InlineKeyboardButton(text=_back_text(language), callback_data=back))
     keyboard.adjust(1)
     return keyboard.as_markup()
 

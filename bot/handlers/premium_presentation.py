@@ -21,7 +21,12 @@ from bot.states import PremiumPresentationStates
 from database.database import Database
 from translations import get_text
 from config import som_to_stars, STARS_RATE
-from bot.keyboards import get_doc_language_keyboard
+from bot import uploads
+from bot.keyboards import (
+    get_doc_language_keyboard,
+    get_project_source_keyboard,
+)
+from services.project_work import source as source_module
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -233,8 +238,129 @@ async def premium_ppt_got_topic(message: Message, state: FSMContext, db: Databas
         return
 
     await state.update_data(topic=topic)
-    await state.set_state(PremiumPresentationStates.waiting_for_client_name)
+    await _ask_source(message, state, lang)
 
+
+# ──────────────────────────────────────────────────────────────── MANBA
+
+async def _ask_source(target, state: FSMContext, lang: str, is_callback: bool = False):
+    """Taqdimot AI ning o'z bilimiga tayanadimi yoki mijoz bergan hujjatgami."""
+    await state.set_state(PremiumPresentationStates.waiting_for_source_kind)
+    data = await state.get_data()
+    text = (f"📋 {get_text(lang, 'prem_ppt_topic_label')}: <b>{data.get('topic', '')}</b>\n\n"
+            + get_text(lang, "prem_ppt_ask_source"))
+    markup = get_project_source_keyboard(lang, prefix="prem_ppt",
+                                         back="prem_ppt_back")
+    if is_callback:
+        await target.message.edit_text(text, parse_mode="HTML", reply_markup=markup)
+    else:
+        await target.answer(text, parse_mode="HTML", reply_markup=markup)
+
+
+@router.callback_query(F.data.startswith("prem_ppt_source:"),
+                       PremiumPresentationStates.waiting_for_source_kind)
+async def premium_ppt_chose_source(callback: CallbackQuery, state: FSMContext, db: Database):
+    await callback.answer()
+    user = await db.get_user(callback.from_user.id)
+    lang = user.language if user else "uz"
+    kind = callback.data.split(":", 1)[1]
+
+    if kind == source_module.KIND_AI:
+        await state.update_data(source_kind=source_module.KIND_AI,
+                                source_text="", source_label="")
+        await _ask_client_name(callback, state, lang, is_callback=True)
+        return
+
+    prompts = {
+        source_module.KIND_TEXT: ("prem_ppt_ask_instructions",
+                                  PremiumPresentationStates.waiting_for_instructions),
+        source_module.KIND_FILE: ("pw_ask_file",
+                                  PremiumPresentationStates.waiting_for_source_file),
+        source_module.KIND_URL: ("pw_ask_urls",
+                                 PremiumPresentationStates.waiting_for_source_urls),
+    }
+    key, next_state = prompts[kind]
+    await state.update_data(source_kind=kind)
+    await state.set_state(next_state)
+    await callback.message.edit_text(get_text(lang, key), parse_mode="HTML")
+
+
+@router.message(PremiumPresentationStates.waiting_for_instructions, F.text)
+async def premium_ppt_got_instructions(message: Message, state: FSMContext, db: Database):
+    user = await db.get_user(message.from_user.id)
+    lang = user.language if user else "uz"
+    material = source_module.from_instructions(message.text or "")
+    if not material.has_content:
+        await message.answer(get_text(lang, "prem_ppt_ask_instructions"), parse_mode="HTML")
+        return
+    await _store_source(message, state, lang, material)
+
+
+@router.message(PremiumPresentationStates.waiting_for_source_file, F.document)
+async def premium_ppt_got_source_file(message: Message, state: FSMContext, db: Database):
+    user = await db.get_user(message.from_user.id)
+    lang = user.language if user else "uz"
+    upload = await uploads.receive(message, lang, accept=uploads.DOCUMENTS,
+                                   prefix="prem_src")
+    if upload is None:
+        return
+
+    status = await message.answer(get_text(lang, "pw_source_reading"))
+    try:
+        material = source_module.from_extract(upload.extract, upload.file_name)
+    except Exception as e:
+        logger.error("Premium taqdimot manbasi o'qilmadi: %s", e)
+        await status.edit_text(get_text(lang, "pw_source_failed"))
+        return
+    finally:
+        uploads.discard(upload)
+
+    await status.delete()
+    await _store_source(message, state, lang, material)
+
+
+@router.message(PremiumPresentationStates.waiting_for_source_urls, F.text)
+async def premium_ppt_got_source_urls(message: Message, state: FSMContext, db: Database):
+    from services.url_book_service import extract_urls_from_text, validate_url
+
+    user = await db.get_user(message.from_user.id)
+    lang = user.language if user else "uz"
+    urls = [url for url in extract_urls_from_text(message.text or "") if validate_url(url)[0]]
+    if not urls:
+        await message.answer(get_text(lang, "pw_ask_urls"), parse_mode="HTML")
+        return
+
+    status = await message.answer(get_text(lang, "pw_source_reading"))
+    try:
+        material = await source_module.from_urls(urls[:5])
+    except Exception as e:
+        logger.error("Premium taqdimot uchun saytdan matn olinmadi: %s", e)
+        await status.edit_text(get_text(lang, "pw_source_failed"))
+        return
+
+    await status.delete()
+    await _store_source(message, state, lang, material)
+
+
+async def _store_source(message: Message, state: FSMContext, lang: str, material):
+    await state.update_data(source_kind=material.kind, source_text=material.text,
+                            source_label=material.label)
+    if material.label:
+        await message.answer(
+            get_text(lang, "pw_source_ok", label=material.label,
+                     words=len(material.text.split())),
+            parse_mode="HTML")
+    else:
+        await message.answer(get_text(lang, "pw_done_brief"), parse_mode="HTML")
+    await _ask_client_name(message, state, lang, is_callback=False)
+
+
+# ──────────────────────────────────────────────────────────────── CLIENT NAME
+
+async def _ask_client_name(target, state: FSMContext, lang: str, is_callback: bool):
+    await state.set_state(PremiumPresentationStates.waiting_for_client_name)
+    data = await state.get_data()
+    topic = data.get("topic", "")
     msgs = {
         "uz": (
             f"📋 Mavzu: <b>{topic}</b>\n\n"
@@ -252,11 +378,13 @@ async def premium_ppt_got_topic(message: Message, state: FSMContext, db: Databas
             "<i>(Will appear on the title slide)</i>"
         ),
     }
-    await message.answer(msgs.get(lang, msgs["uz"]), parse_mode="HTML",
-                         reply_markup=_client_name_keyboard(lang))
+    text = msgs.get(lang, msgs["uz"])
+    markup = _client_name_keyboard(lang)
+    if is_callback:
+        await target.message.edit_text(text, parse_mode="HTML", reply_markup=markup)
+    else:
+        await target.answer(text, parse_mode="HTML", reply_markup=markup)
 
-
-# ──────────────────────────────────────────────────────────────── CLIENT NAME
 
 @router.message(PremiumPresentationStates.waiting_for_client_name)
 async def premium_ppt_got_name(message: Message, state: FSMContext, db: Database):
@@ -342,15 +470,22 @@ async def _show_auto_confirm(source, state: FSMContext, lang: str, is_callback: 
         "ru": f"\n🎨 Пожелания: <i>{preferences or 'не указаны — AI выберет сам'}</i>",
         "en": f"\n🎨 Preferences: <i>{preferences or 'not provided — AI will decide'}</i>",
     }
+    # Mijoz hujjat bergan bo'lsa, to'lovdan oldin buni ko'rib tursin.
+    source_line = ""
+    if data.get("source_text"):
+        label = data.get("source_label") or {
+            "uz": "mijoz tushuntirgan", "ru": "описание клиента",
+            "en": "client's brief"}.get(lang, "mijoz tushuntirgan")
+        source_line = "\n" + get_text(lang, "prem_ppt_source_line", source=label)
     msgs = {
         "uz": f"⭐ <b>AI erkin rejimi</b>\n\n📋 Mavzu: <b>{topic}</b>"
-                f"{name_line['uz']}{preferences_line['uz']}\n\n{preference_line['uz']}\n\n"
+                f"{name_line['uz']}{source_line}{preferences_line['uz']}\n\n{preference_line['uz']}\n\n"
                "📊 Endi slaydlar sonini tanlang:",
         "ru": f"⭐ <b>Свободный режим AI</b>\n\n📋 Тема: <b>{topic}</b>"
-                f"{name_line['ru']}{preferences_line['ru']}\n\n{preference_line['ru']}\n\n"
+                f"{name_line['ru']}{source_line}{preferences_line['ru']}\n\n{preference_line['ru']}\n\n"
                "📊 Теперь выберите количество слайдов:",
         "en": f"⭐ <b>AI free mode</b>\n\n📋 Topic: <b>{topic}</b>"
-                f"{name_line['en']}{preferences_line['en']}\n\n{preference_line['en']}\n\n"
+                f"{name_line['en']}{source_line}{preferences_line['en']}\n\n{preference_line['en']}\n\n"
                "📊 Now choose the number of slides:",
     }
     kb = _slide_count_keyboard(lang)
@@ -381,32 +516,14 @@ async def premium_ppt_skip_preferences(callback: CallbackQuery, state: FSMContex
 
 @router.callback_query(F.data == "prem_ppt_back_to_name")
 async def premium_ppt_back_to_name(callback: CallbackQuery, state: FSMContext, db: Database):
-    """Daraja sahifasidan ism sahifasiga qaytish"""
+    """Istaklar sahifasidan ism sahifasiga qaytish."""
     await callback.answer()
     user = await db.get_user(callback.from_user.id)
     lang = user.language if user else "uz"
-    await state.set_state(PremiumPresentationStates.waiting_for_client_name)
-    data = await state.get_data()
-    topic = data.get("topic", "")
-    msgs = {
-        "uz": (
-            f"📋 Mavzu: <b>{topic}</b>\n\n"
-            "👤 <b>Mijozning ism-familiyasini kiriting</b>\n"
-            "<i>(Taqdimotning sarlavha sahifasiga yoziladi)</i>"
-        ),
-        "ru": (
-            f"📋 Тема: <b>{topic}</b>\n\n"
-            "👤 <b>Введите имя и фамилию клиента</b>\n"
-            "<i>(Будет указано на титульном слайде)</i>"
-        ),
-        "en": (
-            f"📋 Topic: <b>{topic}</b>\n\n"
-            "👤 <b>Enter client's full name</b>\n"
-            "<i>(Will appear on the title slide)</i>"
-        ),
-    }
-    await callback.message.edit_text(msgs.get(lang, msgs["uz"]), parse_mode="HTML",
-                                     reply_markup=_client_name_keyboard(lang))
+    # Savol matni bitta joyda turadi: ilgari u shu yerda ham, asosiy
+    # qadamda ham alohida yozilgan edi va ikkisi bir-biridan ajralib
+    # ketishi mumkin edi.
+    await _ask_client_name(callback, state, lang, is_callback=True)
 
 
 @router.callback_query(F.data == "prem_ppt_back_to_preferences")
@@ -717,6 +834,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
 
     topic = data.get("topic", "")
     preferences = data.get("preferences", "")
+    source_text = data.get("source_text", "")
     presentation_language = data.get("presentation_language", "uz")
     slide_count = data.get("slide_count", 10)
     price = data.get("price", 7500)
@@ -891,6 +1009,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
                 topic, slide_count, progress_cb, level=level,
                 preferences=preferences,
                 language=presentation_language,
+                source_text=source_text,
             )
         )
 

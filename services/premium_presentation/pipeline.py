@@ -341,17 +341,42 @@ def _enforce_role_order(slides_raw: list) -> list:
     return slides_raw
 
 
+# Mijoz bergan hujjat promptga to'liq sig'maydi va har bo'lakka qayta-qayta
+# yuborilsa qimmatga tushadi. Shundan uzuni bir marta siqiladi.
+_SOURCE_INLINE_LIMIT = 3_500
+
+
+def condense_source(source_text: str, topic: str) -> str:
+    """Mijoz bergan materialni har bo'lak promptiga sig'adigan holga keltiradi.
+
+    Qisqa material o'z holicha ketadi. Uzuni bir marta xulosalanadi: aks
+    holda o'nta slaydlik taqdimotda 60 000 belgilik qo'llanma sakkiz marta
+    yuborilardi.
+    """
+    text = (source_text or "").strip()
+    if len(text) <= _SOURCE_INLINE_LIMIT:
+        return text
+    try:
+        return llm_client.condense_source(text, topic)
+    except Exception as e:
+        log.error("Manbani siqib bo'lmadi, boshi ishlatiladi: %s", e)
+        return text[:_SOURCE_INLINE_LIMIT]
+
+
 def generate_brief_chunked(topic: str, target_count: int, progress_cb=None, level: int = 2,
-                           preferences: str = "", language: str = "uz") -> Brief:
+                           preferences: str = "", language: str = "uz",
+                           source_text: str = "") -> Brief:
     """Katta taqdimotni har 5 varoqlik bo'laklarda generatsiya qiladi.
     Har bo'lak avvalgi bo'lak xulosasi bilan mantiqiy bog'liq bo'ladi.
     """
     CHUNK_SIZE = 5
+    source = condense_source(source_text, topic)
 
     if target_count <= 7:
         # Kichik taqdimot — yagona prompt
         return generate_brief_with_validation(topic, target_count, level=level,
-                                              preferences=preferences, language=language)
+                                              preferences=preferences, language=language,
+                                              source=source)
 
     total_chunks = (target_count + CHUNK_SIZE - 1) // CHUNK_SIZE
     all_slides_raw: list = []
@@ -381,6 +406,7 @@ def generate_brief_chunked(topic: str, target_count: int, progress_cb=None, leve
                     prev_summary=prev_summary,
                     level=level,
                     preferences=preferences,
+                    source=source,
                     language=language,
                 )
                 slides_raw = raw.get("slides", [])
@@ -440,13 +466,15 @@ def generate_brief_chunked(topic: str, target_count: int, progress_cb=None, leve
 
 def generate_brief_with_validation(topic: str, slide_count: int = 8,
                                    max_attempts: int = 3, level: int = 2,
-                                   preferences: str = "", language: str = "uz") -> Brief:
+                                   preferences: str = "", language: str = "uz",
+                                   source: str = "") -> Brief:
     """LLM'dan JSON so'raydi, pydantic orqali qat'iy tekshiradi. Silent fallback YO'Q."""
     last_error = None
     for attempt in range(1, max_attempts + 1):
         try:
             raw = llm_client.generate_brief(topic, slide_count, level=level,
-                                            preferences=preferences, language=language)
+                                            preferences=preferences, language=language,
+                                            source=source)
             brief = Brief.model_validate(raw)
 
             for i, s in enumerate(brief.slides):

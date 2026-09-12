@@ -409,6 +409,38 @@ def _call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 
         raise
 
 
+def _call_openrouter_text(system_prompt: str, user_prompt: str,
+                          temperature: float = 0.3,
+                          max_tokens: int = 1800) -> str:
+    """Oddiy matn so'raydi — JSON rejimisiz.
+
+    Manbani siqishda javob JSON emas, nasr bo'lishi kerak; `_call_openrouter`
+    esa har doim `json_object` rejimida so'raydi.
+    """
+    if not config.OPENROUTER_API_KEY:
+        raise RuntimeError(
+            "OpenRouter kaliti topilmadi — muhitda AI_INTEGRATIONS_OPENROUTER_API_KEY "
+            "yoki OPENROUTER_API_KEY bo'lishi kerak"
+        )
+
+    headers = {
+        "Authorization": f"Bearer {config.OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": config.OPENROUTER_TEXT_MODEL,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+    }
+    resp = requests.post(config.OPENROUTER_URL, headers=headers, json=payload, timeout=180)
+    resp.raise_for_status()
+    return (resp.json()["choices"][0]["message"]["content"] or "").strip()
+
+
 # ─────────────────────────────────────────── DARAJA INSTRUCTIONLARI
 
 LEVEL_INSTRUCTIONS = {
@@ -498,13 +530,49 @@ Faqat JSON qaytar: {{"level": 2, "reason": "qisqa sabab"}}"""
     return result if isinstance(result, dict) else {"level": 2}
 
 
+def _source_block(source: str) -> str:
+    """Mijoz bergan materialni promptga qo'yadigan bo'lak.
+
+    Material bo'lmasa bo'sh satr qaytadi va prompt avvalgidek qoladi.
+    """
+    text = (source or "").strip()
+    if not text:
+        return ""
+    return (
+        "\n\nMIJOZ BERGAN MATERIAL — taqdimot ANA SHUNGA tayanishi shart:\n"
+        f"{text}\n"
+        "• Slaydlardagi faktlar, raqamlar, nomlar va atamalar shu materialdan "
+        "olinsin; materialda yo'q raqamni o'ylab topmang.\n"
+        "• Materialga zid narsa yozilmasin.\n"
+        "• Material mavzuning bir qismini qamrasa, qolganini o'z bilimingiz "
+        "bilan to'ldiring, lekin materialdagi qismini o'zgartirmang.\n"
+    )
+
+
+def condense_source(text: str, topic: str) -> str:
+    """Uzun materialni taqdimot uchun ishchi xulosaga aylantiradi."""
+    prompt = (
+        f"Quyidagi materialni \"{topic}\" mavzusidagi taqdimot uchun ishchi "
+        "xulosaga aylantir.\n\n"
+        "Yozuvchiga kerak bo'ladigan har bir narsani saqla: raqamlar, sanalar, "
+        "nomlar, atamalar, tuzilma, xulosalar. Navigatsiya matni, reklama va "
+        "takrorni tashla. 500-700 so'z, oddiy nasr, materialning o'z tilida.\n\n"
+        f"MATERIAL:\n{text[:40_000]}"
+    )
+    return _call_openrouter_text(
+        "Siz materialni hech narsa o'ylab topmasdan qisqartirasiz.",
+        prompt, temperature=0.2, max_tokens=1800)
+
+
 def generate_brief(topic: str, slide_count: int = 8, level: int = 2,
-                   preferences: str = "", language: str = "uz") -> dict:
+                   preferences: str = "", language: str = "uz",
+                   source: str = "") -> dict:
     angle_name, angle_desc = random.choice(_NARRATIVE_ANGLES)
 
     user_prompt = (
         f"Mavzu: {topic}\n"
-        f"Foydalanuvchi istaklari: {preferences or 'Erkin ijodiy qarorlarni o‘zing tanla.'}\n\n"
+        f"Foydalanuvchi istaklari: {preferences or 'Erkin ijodiy qarorlarni o‘zing tanla.'}\n"
+        f"{_source_block(source)}\n"
         f"TIL TALABI: {_language_instruction(language)}\n\n"
         f"NARRATIV YONDASHUV: «{angle_name}»\n"
         f"{angle_desc}\n\n"
@@ -525,6 +593,7 @@ def generate_brief_chunk(
     level: int = 2,
     preferences: str = "",
     language: str = "uz",
+    source: str = "",
 ) -> dict:
     """Taqdimotning bir bo'lagini (chunk_size ta slayd) generatsiya qiladi."""
     if is_first:
@@ -554,6 +623,7 @@ def generate_brief_chunk(
     user_prompt = (
         f"Mavzu: {topic}\n"
         f"Foydalanuvchi istaklari: {preferences or 'Erkin ijodiy qarorlarni o‘zing tanla.'}\n"
+        f"{_source_block(source)}"
         f"TIL TALABI: {_language_instruction(language)}\n"
         f"Bo'lak: {chunk_num+1}/{total_chunks} | {chunk_size} ta slayd\n"
         f"{prev_ctx}\n"

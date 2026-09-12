@@ -110,6 +110,11 @@ class TestStates(StatesGroup):
 class PremiumPresentationStates(StatesGroup):
     waiting_for_topic = State()
     waiting_for_topic_text = State()
+    # Taqdimot mijoz bergan hujjatga tayanishi ham mumkin.
+    waiting_for_source_kind = State()
+    waiting_for_instructions = State()
+    waiting_for_source_file = State()
+    waiting_for_source_urls = State()
     waiting_for_client_name = State()
     waiting_for_preferences = State()
     waiting_for_slide_count = State()
