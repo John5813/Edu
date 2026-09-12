@@ -15,11 +15,16 @@ from utils.ai_text import token_budget, trim_to_last_sentence
 from utils.heading_guard import heading_rule, strip_echoed_heading
 
 from .source import SourceMaterial
+from . import tables
 from .specs import (
+    ARTIFACT_BREAKEVEN,
     ARTIFACT_BUDGET,
     ARTIFACT_CALC,
+    ARTIFACT_CASHFLOW,
+    ARTIFACT_COSTS,
     ARTIFACT_FORECAST,
     ARTIFACT_DATA,
+    ARTIFACT_MARKETING,
     ARTIFACT_RESULTS,
     ARTIFACT_RISKS,
     ARTIFACT_SCHEME,
@@ -28,7 +33,9 @@ from .specs import (
     BLOCK_ORDER,
     CHART_ARTIFACTS,
     DEFAULT_BLOCKS,
+    DERIVED_TABLE_ARTIFACTS,
     CARD_ARTIFACTS,
+    FORMULA_COUNTS,
     TABLE_ARTIFACTS,
     GENERIC_FIELD_KEY,
     SectionSpec,
@@ -48,51 +55,13 @@ _SOURCE_CONDENSE_LIMIT = 40_000
 
 _LANGUAGE_NAMES = {"uz": "Uzbek", "ru": "Russian", "en": "English"}
 
-# Har artefakt turi qanday jadval ekani. Ustunlar hujjatga chop etiladi,
-# shuning uchun uch tilda; `ask` faqat AI ga boradi.
+# Modelning o'zi yozadigan jadvallar. Bularning mazmuni matn: ustunlar ham
+# mavzuga qarab o'zgaradi, shuning uchun ularni kod bilan qurib bo'lmaydi.
+#
+# Byudjet, bosqichlar, risklar, marketing, chiqim va pul oqimi jadvallari bu
+# yerda YO'Q: ular diagramma ma'lumotidan `tables.py` da quriladi, ya'ni
+# jadvaldagi raqam bilan diagrammadagi raqam bir xil bo'ladi.
 _TABLE_KINDS = {
-    ARTIFACT_TIMELINE: {
-        "columns": {
-            "uz": ["Bosqich", "Muddat", "Mas'ul", "Kutilayotgan natija"],
-            "ru": ["Этап", "Срок", "Ответственный", "Ожидаемый результат"],
-            "en": ["Stage", "Duration", "Responsible", "Expected result"],
-        },
-        "ask": "the sequential stages of carrying out the project, with realistic durations",
-        "rows": 6,
-    },
-    ARTIFACT_BUDGET: {
-        "columns": {
-            "uz": ["Xarajat moddasi", "Miqdori", "Birlik narxi (so'm)", "Jami (so'm)"],
-            "ru": ["Статья расходов", "Количество", "Цена за единицу (сум)", "Итого (сум)"],
-            "en": ["Cost item", "Quantity", "Unit price (so'm)", "Total (so'm)"],
-        },
-        "ask": (
-            "the project's cost items with realistic Uzbekistan market prices in so'm. "
-            "The last row must be a total row and the totals must add up correctly"
-        ),
-        "rows": 7,
-    },
-    ARTIFACT_RISKS: {
-        "columns": {
-            "uz": ["Xavf", "Ehtimolligi", "Ta'siri", "Oldini olish chorasi"],
-            "ru": ["Риск", "Вероятность", "Влияние", "Меры предотвращения"],
-            "en": ["Risk", "Likelihood", "Impact", "Mitigation"],
-        },
-        "ask": (
-            "the risks specific to this project, not generic ones. "
-            "Likelihood and impact must be one of: yuqori / o'rta / past (in the target language)"
-        ),
-        "rows": 5,
-    },
-    ARTIFACT_RESULTS: {
-        "columns": {
-            "uz": ["Ko'rsatkich", "Hozirgi holat", "Maqsadli qiymat", "O'lchash usuli"],
-            "ru": ["Показатель", "Текущее состояние", "Целевое значение", "Способ измерения"],
-            "en": ["Indicator", "Current state", "Target value", "Measurement method"],
-        },
-        "ask": "measurable indicators of the project's success, with concrete numbers",
-        "rows": 5,
-    },
     ARTIFACT_CALC: {
         "columns": {
             "uz": ["Ko'rsatkich", "Hisoblash usuli", "Natija", "O'lchov birligi"],
@@ -118,16 +87,24 @@ _TABLE_KINDS = {
 # emas, SON so'raladi — chizish uchun raqam kerak.
 _CHART_SHAPES = {
     ARTIFACT_BUDGET: (
-        'the project cost items with realistic Uzbekistan market prices. '
-        '"amount" must be a plain number of so\'m with no spaces or words. '
-        'Give 5-7 items, largest first, and no total row — the chart sums them.',
-        '{"items": [{"name": "Uskunalar va jihozlar", "amount": 48000000}]}',
+        'the one-off investment items the project needs to start, with realistic '
+        'Uzbekistan market prices. For each item give "quantity" (how many), '
+        '"unit" (what is counted: dona, komplekt, m2, xizmat) and "unit_price" '
+        'in so\'m. Quantity and unit price are plain numbers; the line total and '
+        'the grand total are computed from them, so do NOT give a total row. '
+        'Give 5-7 items, largest first.',
+        '{"items": [{"name": "Ishlab chiqarish uskunasi", "quantity": 3, '
+        '"unit": "dona", "unit_price": 16000000}]}',
     ),
     ARTIFACT_TIMELINE: (
         'the sequential stages of the project. "start" is the month the stage '
         'begins counted from zero, "duration" is its length in months; both are '
-        'plain numbers. Stages follow one another without gaps. Give 5-7 stages.',
-        '{"stages": [{"name": "Tayyorgarlik va loyihalash", "start": 0, "duration": 2, "owner": "Loyiha rahbari"}]}',
+        'plain numbers. "owner" is who is responsible and "result" is the '
+        'concrete deliverable that stage ends with. Stages follow one another '
+        'without gaps. Give 5-7 stages.',
+        '{"stages": [{"name": "Tayyorgarlik va loyihalash", "start": 0, '
+        '"duration": 2, "owner": "Loyiha rahbari", "result": "Tasdiqlangan '
+        'texnik topshiriq"}]}',
     ),
     ARTIFACT_RISKS: (
         'the risks specific to this project, not generic ones. "likelihood" and '
@@ -147,6 +124,101 @@ _CHART_SHAPES = {
         'period is today\'s actual figure, so its low and high equal its value.',
         '{"unit": "mln so\'m", "points": [{"period": "2025", "value": 1200, "low": 1200, "high": 1200}]}',
     ),
+    ARTIFACT_MARKETING: (
+        'the sales forecast and the promotion channels behind it. "periods" are '
+        '4-6 consecutive selling periods (quarters or years) with "units" — how '
+        'much is sold — and "revenue" — what it brings in, expressed in '
+        '"money_unit". "channels" are 4-5 real promotion channels with the '
+        '"budget" spent on each in so\'m, the "reach" in people, the '
+        '"conversion" share as text, and the resulting number of "customers". '
+        'The cost per customer is computed from budget and customers, so do not '
+        'give it. Every figure is a plain number and the channel figures must be '
+        'consistent with the sales forecast.',
+        '{"unit": "dona", "money_unit": "mln so\'m", '
+        '"periods": [{"period": "2026 I chorak", "units": 1200, "revenue": 96}], '
+        '"channels": [{"name": "Instagram maqsadli reklama", "budget": 12000000, '
+        '"reach": 150000, "conversion": "1,2%", "customers": 1800}]}',
+    ),
+    ARTIFACT_COSTS: (
+        'the recurring cost of running the project for one year — not the '
+        'one-off investment. Each item has "kind", which is exactly one of '
+        'doimiy (a cost that does not change with output) or o\'zgaruvchi (one '
+        'that does), and "amount", the annual figure in so\'m as a plain '
+        'number. The share of each item is computed, so do not give it. '
+        '"output" is what the project produces in that same year, with its own '
+        'unit, so that the cost of one unit can be worked out. Give 5-7 items, '
+        'largest first.',
+        '{"output": {"name": "Yillik ishlab chiqarish", "value": 12000, '
+        '"unit": "tonna"}, "items": [{"name": "Xom ashyo va materiallar", '
+        '"kind": "o\'zgaruvchi", "amount": 240000000}]}',
+    ),
+    ARTIFACT_BREAKEVEN: (
+        'the figures the break-even point is worked out from. "fixed" is the '
+        'annual fixed cost, "price" the selling price of one unit and "variable" '
+        'the variable cost of one unit — all three in the same "money_unit". '
+        '"planned" is the volume the project plans to sell, in "unit". The price '
+        'must be greater than the variable cost, otherwise the project can never '
+        'break even. All four are plain numbers.',
+        '{"unit": "dona", "money_unit": "mln so\'m", "fixed": 420, '
+        '"price": 0.085, "variable": 0.052, "planned": 9000}',
+    ),
+    ARTIFACT_CASHFLOW: (
+        'the project\'s cash flow over 4-6 consecutive periods (years or '
+        'quarters), all figures in the same "money_unit" as plain numbers. '
+        '"income" is what comes in that period and "expense" what goes out; the '
+        'first period includes the initial investment, so its expense is much '
+        'larger and the flow starts negative. "investment" is that initial '
+        'outlay. The net and the accumulated flow are computed, so do not give '
+        'them, but the figures must be such that the accumulated flow turns '
+        'positive somewhere in the middle of the range.',
+        '{"money_unit": "mln so\'m", "investment": 420, '
+        '"periods": [{"period": "2026", "income": 180, "expense": 560}]}',
+    ),
+}
+
+
+# Qaysi bo'limda qanday hisob kutiladi. Aniq nomlar berilgan, chunki
+# "samaradorlikni hisobla" degan ko'rsatma har bo'limda bir xil ROI ni
+# qaytarardi — mijoz esa bir hujjatda uchta bir xil formulani ko'rardi.
+_FORMULA_ASKS = {
+    ARTIFACT_CALC: (
+        "the numeric core of the project, step by step. Each calculation feeds "
+        "the next one: a quantity, then what is derived from it, then the "
+        "result that the project's decision rests on. These are the field's own "
+        "engineering or economic formulas, not general financial ratios."
+    ),
+    ARTIFACT_COSTS: (
+        "first the cost of one unit of output (total annual cost divided by "
+        "annual output), then the share of variable costs in the total and what "
+        "that share says about how the cost behaves when output changes."
+    ),
+    ARTIFACT_MARKETING: (
+        "first the cost of acquiring one customer (marketing budget divided by "
+        "the customers it brings), then the return on the marketing spend "
+        "(revenue it generates against the budget spent)."
+    ),
+    ARTIFACT_BREAKEVEN: (
+        "first the break-even volume in units — fixed costs divided by the "
+        "margin one unit contributes — then the break-even revenue, then the "
+        "safety margin: how far the planned volume sits above the break-even "
+        "volume, as a percentage."
+    ),
+    ARTIFACT_CASHFLOW: (
+        "first the payback period of the initial investment from the "
+        "accumulated cash flow, then the profitability of the investment over "
+        "the whole period."
+    ),
+    ARTIFACT_FORECAST: (
+        "first the growth rate the forecast implies between the first and the "
+        "last period, then the measure of effectiveness that fits this field."
+    ),
+    ARTIFACT_BUDGET: (
+        "the investment per unit of the capacity the money buys — what one unit "
+        "of output capacity costs to create."
+    ),
+    "default": (
+        "the measure of effectiveness that fits this field, worked through."
+    ),
 }
 
 
@@ -157,7 +229,12 @@ class SectionContent:
     table: Optional[Dict] = None       # {"headers": [...], "rows": [[...]]}
     chart: Optional[Dict] = None       # diagramma yoki kartochka uchun raqamli ma'lumot
     image_prompt: str = ""
-    formula: Optional[Dict] = None
+    # Bir bo'limda bir nechta hisob bo'lishi mumkin: tannarx ham, rentabellik
+    # ham, qoplanish muddati ham. Ilgari bittasi chiqardi.
+    formulas: List[Dict] = dataclass_field(default_factory=list)
+    # Diagramma ostidagi izoh. Ustoz "bu nimani ko'rsatadi" deb so'raganda
+    # javob hujjatning o'zida turishi kerak.
+    note: str = ""
 
 
 # Hujjatga qo'yiladigan haqiqiy suratlar soni. Sxemalar va diagrammalar
@@ -242,7 +319,7 @@ class ProjectContentBuilder:
         async def one(spec: SectionSpec) -> SectionContent:
             nonlocal done
             async with semaphore:
-                section = await self._section(topic, spec, language, brief)
+                section = await self._section(topic, spec, language, brief, field_key)
             done += 1
             if progress_cb:
                 progress_cb(done, len(specs))
@@ -381,23 +458,38 @@ Respond with JSON only: {{"field": "business"}}"""
 
     async def _propose_blocks(self, topic: str, field_key: str, brief: str = "") -> List[str]:
         prompt = f"""A student is writing a project work ("loyiha ishi") on: "{topic}".
+Field of study: {field_key}
 
 Decide which of these content blocks this particular work genuinely needs.
-Include a block only when the topic really calls for it — a purely
-computational work needs no Gantt chart or risk matrix, and a purely
-organisational one needs no formulas.
 
-calc      — step-by-step calculations and formulas
-budget    — cost estimate and resources
-timeline  — implementation stages with durations
-forecast  — projection of a key quantity and an effectiveness calculation
+calc      — the field's own step-by-step calculations and formulas
+budget    — the one-off investment: what it buys, at what price
+costs     — the recurring annual cost of running it, split into fixed and
+            variable, and the cost of one unit of output
+timeline  — implementation stages with durations and responsibilities
+marketing — sales forecast by period plus the promotion channels, their
+            budgets and the customers each brings
+breakeven — the volume at which the project stops making a loss
+forecast  — projection of a key quantity over several periods
+cashflow  — money in and out period by period, and when the investment is
+            recovered
 risks     — risk analysis with mitigations
 results   — measurable expected results
 
-Choose between two and five of them.{self._source_block(brief)}
+Rules for choosing:
+- A project that sells something, produces something, or serves paying
+  clients needs the money blocks: costs, marketing, breakeven and cashflow
+  are what a supervisor asks about first. Include at least two of them.
+- A project with no revenue side — a purely technical, medical, pedagogical
+  or research project — still spends money, so budget and costs belong, but
+  marketing and breakeven do not.
+- A purely computational work needs no Gantt chart or risk matrix; a purely
+  organisational one needs no formulas.
 
-Respond with JSON only: {{"blocks": ["timeline", "budget"]}}"""
-        raw = await self._json_request(prompt, max_tokens=200, temperature=0.2)
+Choose between four and seven blocks.{self._source_block(brief)}
+
+Respond with JSON only: {{"blocks": ["budget", "costs", "marketing", "breakeven"]}}"""
+        raw = await self._json_request(prompt, max_tokens=260, temperature=0.2)
         proposed = [str(b).strip().lower() for b in (raw.get("blocks") or [])]
         return [b for b in proposed if b in BLOCK_ORDER]
 
@@ -439,40 +531,55 @@ Respond with JSON only:
         return proposed
 
     async def _section(
-        self, topic: str, spec: SectionSpec, language: str, brief: str = ""
+        self, topic: str, spec: SectionSpec, language: str, brief: str = "",
+        field_key: str = GENERIC_FIELD_KEY,
     ) -> SectionContent:
         text = await self._section_text(topic, spec, language, brief)
 
         table = None
         chart = None
-        formula = None
-        image_prompt = ""
-        if spec.artifact in TABLE_ARTIFACTS:
+        note = ""
+        if spec.artifact == ARTIFACT_SCHEME:
+            # Sxema endi kod bilan chiziladi. AI chizgan sxemada yozuvlar
+            # buzilib chiqardi va uni o'qib bo'lmasdi.
+            #
+            # Bu tekshiruv eng oldinda turishi SHART: sxema ham `CHART_ARTIFACTS`
+            # ro'yxatida, shuning uchun u umumiy diagramma shoxiga tushib
+            # ketardi va `_CHART_SHAPES["scheme"]` bo'lmagani uchun har safar
+            # KeyError bergan — ya'ni tuzilma sxemasi hech bir loyiha ishida
+            # chiqmagan, xato esa log ichida qolib ketgan.
+            try:
+                chart = await self._scheme(topic, spec, language, brief)
+            except Exception as e:
+                logger.error("Loyiha sxemasi olinmadi (%s): %s", spec.key, e)
+        elif spec.artifact in TABLE_ARTIFACTS:
             try:
                 table = await self._table(topic, spec, language, brief)
             except Exception as e:
                 logger.error("Loyiha jadvali olinmadi (%s): %s", spec.key, e)
-            # Hisob-kitob bo'limining mag'zi — formulaning o'zi, shuning uchun
-            # u jadval bilan birga chiqadi.
-            if spec.artifact == ARTIFACT_CALC:
-                formula = await self._formula(topic, spec, language)
         elif spec.artifact in CHART_ARTIFACTS or spec.artifact in CARD_ARTIFACTS:
             try:
                 chart = await self._chart(topic, spec, language, brief)
             except Exception as e:
                 logger.error("Loyiha diagrammasi olinmadi (%s): %s", spec.key, e)
-            if spec.artifact == ARTIFACT_FORECAST:
-                formula = await self._formula(topic, spec, language)
-        elif spec.artifact == ARTIFACT_SCHEME:
-            # Sxema endi kod bilan chiziladi. AI chizgan sxemada yozuvlar
-            # buzilib chiqardi va uni o'qib bo'lmasdi.
-            try:
-                chart = await self._scheme(topic, spec, language, brief)
-            except Exception as e:
-                logger.error("Loyiha sxemasi olinmadi (%s): %s", spec.key, e)
+            if chart:
+                note = str(chart.get("note") or "").strip()
+                # Jadval ham shu ma'lumotdan quriladi — ikkinchi so'rov yo'q,
+                # ya'ni jadvaldagi summa diagrammadagiga teng bo'ladi.
+                if spec.artifact in DERIVED_TABLE_ARTIFACTS:
+                    table = tables.derive(spec.artifact, chart, language)
+
+        # Formulalar bo'lim ma'lumoti tayyor bo'lgandan keyin so'raladi:
+        # model jadvaldagi raqamlarni ko'rib, shu raqamlar bilan hisoblaydi.
+        formulas = []
+        count = FORMULA_COUNTS.get(spec.artifact or "")
+        if count:
+            formulas = await self._formulas(
+                topic, spec, language, field_key, count, chart or {}, table
+            )
 
         return SectionContent(spec=spec, text=text, table=table, chart=chart,
-                              image_prompt=image_prompt, formula=formula)
+                              image_prompt="", formulas=formulas, note=note)
 
     async def _section_text(self, topic: str, spec: SectionSpec, language: str, brief: str = "") -> str:
         target = _LANGUAGE_NAMES.get(language, "Uzbek")
@@ -568,16 +675,34 @@ Section: "{spec.heading(language)}"
 
 The data must give {ask}
 Write every name and label in {target}. Numbers are plain digits — no spaces,
-no thousand separators, no currency words inside the number.{self._source_block(brief)}
+no thousand separators, no currency words inside the number.
 
-Respond with JSON only, in exactly this shape:
+Add one more key, "note": a single sentence in {target} saying what the figure
+shows and what conclusion the reader should draw from it. It is printed under
+the figure, so it must stand on its own — never "as can be seen in the figure
+above".{self._source_block(brief)}
+
+Respond with JSON only, in exactly this shape (plus "note"):
 {example}"""
 
-        raw = await self._json_request(prompt, max_tokens=1600, temperature=0.4)
-        for key in ("items", "stages", "risks", "indicators", "points"):
-            if raw.get(key):
-                return raw
+        raw = await self._json_request(prompt, max_tokens=2200, temperature=0.4)
+        if self._has_chart_data(spec.artifact, raw):
+            return raw
         raise ValueError("diagramma ma'lumoti bo'sh qaytdi")
+
+    @staticmethod
+    def _has_chart_data(artifact: str, raw: Dict) -> bool:
+        """Ma'lumot chizishga yetarlimi. Zararsizlik nuqtasida ro'yxat yo'q —
+        u to'rtta sondan chiziladi, shuning uchun tekshiruv boshqacha."""
+        if artifact == ARTIFACT_BREAKEVEN:
+            price = tables.number(raw.get("price"))
+            variable = tables.number(raw.get("variable"))
+            # Narx o'zgaruvchi xarajatdan past bo'lsa nuqta umuman yo'q:
+            # chizma cheksizlikka ketardi.
+            return bool(tables.number(raw.get("fixed")) > 0 and price > variable)
+        return any(raw.get(key) for key in
+                   ("items", "stages", "risks", "indicators", "points",
+                    "periods", "channels"))
 
     async def _scheme(self, topic: str, spec: SectionSpec, language: str,
                       brief: str = "") -> Dict:
@@ -602,31 +727,104 @@ Respond with JSON only:
             raise ValueError("sxema bloklari bo'sh")
         return raw
 
-    async def _formula(self, topic: str, spec: SectionSpec, language: str) -> Optional[Dict]:
-        """Samaradorlik hisobi — formula, qiymatlar va natija."""
+    async def _formulas(
+        self, topic: str, spec: SectionSpec, language: str, field_key: str,
+        count: int, data: Dict, table: Optional[Dict],
+    ) -> List[Dict]:
+        """Bo'limning hisob-kitoblari — bittasi emas, bir nechtasi.
+
+        Formulalar bo'lim ma'lumoti olingandan keyin so'raladi va shu
+        ma'lumot promptga kiritiladi: aks holda model jadvalda 240 mln
+        turganda hisobda 300 mln ishlatib yuborardi.
+
+        Qaysi formulalar kerakligi bo'lim turiga va sohaga bog'liq —
+        qishloq xo'jaligi loyihasida gektardan hosildorlik, IT loyihasida
+        esa bir foydalanuvchi narxi hisoblanadi.
+        """
         target = _LANGUAGE_NAMES.get(language, "Uzbek")
-        prompt = f"""Give the one calculation that proves this project's effectiveness.
+        ask = _FORMULA_ASKS.get(spec.artifact or "", _FORMULA_ASKS["default"])
+        known = self._known_figures(data, table)
+
+        prompt = f"""Work out the calculations for one section of a project work.
 
 Project topic: "{topic}"
+Field of study: {field_key}
+Section: "{spec.heading(language)}"
 
-Choose the measure that fits the field — payback period, return on investment,
-yield per hectare, throughput, cost per unit — and show it worked through.
-"latex" is the formula in LaTeX without dollar signs. "name", "meaning" and
-"conclusion" are in {target}.
+Give exactly {count} calculation{'s' if count > 1 else ''}: {ask}
+
+Choose the measures that genuinely fit THIS topic and field — a farming
+project is measured per hectare, a workshop per unit of output, a software
+project per user, a social project per beneficiary. Do not repeat the same
+measure twice and do not invent a measure that this field does not use.
+
+Every calculation must be worked through with real numbers: the formula, the
+value of each symbol, and the figure that comes out. The arithmetic must be
+correct — a reader will check it.{known}
+
+"latex" is the formula in LaTeX without dollar signs. "name", "given",
+"result", "meaning" are in {target}. Give "conclusion" only on the last
+calculation, as the overall verdict.
 
 Respond with JSON only:
-{{"name": "Investitsiya rentabelligi (ROI)",
-  "latex": "ROI = \\\\frac{{P}}{{I}} \\\\times 100\\\\%",
-  "given": ["P — sof foyda, 148 mln so'm", "I — investitsiya, 420 mln so'm"],
-  "result": "ROI = 35,2%",
-  "meaning": "Bir yillik sof foyda investitsiyaning 35 foizini qoplaydi.",
-  "conclusion": "Loyiha taxminan 2,8 yilda o'zini oqlaydi."}}"""
+{{"formulas": [
+  {{"name": "Investitsiya rentabelligi (ROI)",
+    "latex": "ROI = \\\\frac{{P}}{{I}} \\\\times 100\\\\%",
+    "given": ["P — sof foyda, 148 mln so'm", "I — investitsiya, 420 mln so'm"],
+    "result": "ROI = 35,2%",
+    "meaning": "Bir yillik sof foyda investitsiyaning 35 foizini qoplaydi.",
+    "conclusion": "Loyiha taxminan 2,8 yilda o'zini oqlaydi."}}]}}"""
         try:
-            raw = await self._json_request(prompt, max_tokens=900, temperature=0.3)
-            return raw if raw.get("latex") else None
+            raw = await self._json_request(
+                prompt, max_tokens=500 + 550 * count, temperature=0.3
+            )
         except Exception as e:
-            logger.error("Samaradorlik formulasi olinmadi: %s", e)
-            return None
+            logger.error("Hisob-kitob formulalari olinmadi (%s): %s", spec.key, e)
+            return []
+
+        out = []
+        for item in (raw.get("formulas") or [])[:count]:
+            if isinstance(item, dict) and str(item.get("latex") or "").strip():
+                out.append(item)
+        if not out:
+            logger.warning("Formulalar bo'sh qaytdi (%s)", spec.key)
+        return out
+
+    @staticmethod
+    def _known_figures(data: Dict, table: Optional[Dict]) -> str:
+        """Bo'limda allaqachon bor raqamlarni promptga qo'shadi.
+
+        Shu bo'lmasa formula jadval bilan qarama-qarshi chiqadi va ustoz
+        buni birinchi ko'radi.
+        """
+        lines = []
+        # `tables.derive` hisoblab qo'ygan qiymatlar ham shu yerda: model
+        # zararsizlik nuqtasini o'zi qayta hisoblasa, jadvaldagi son bilan
+        # formuladagi son yaxlitlashda ayrilib qolardi.
+        for key in ("total", "fixed_total", "variable_total", "budget_total",
+                    "customers_total", "cost_per_customer", "investment",
+                    "fixed", "price", "variable", "planned", "payback_period",
+                    "breakeven_point", "breakeven_revenue", "margin_per_unit",
+                    "total_growth", "unit", "money_unit"):
+            value = data.get(key)
+            if value not in (None, "", 0):
+                lines.append(f"{key} = {value}")
+        output = data.get("output")
+        if isinstance(output, dict) and output.get("value"):
+            lines.append(f"output = {output.get('value')} {output.get('unit', '')}".strip())
+        if table and table.get("rows"):
+            headers = " | ".join(str(h) for h in table.get("headers") or [])
+            body = "\n".join(" | ".join(str(cell) for cell in row)
+                              for row in table["rows"][:8])
+            lines.append(f"The section's table:\n{headers}\n{body}")
+        if not lines:
+            return ""
+        return ("\n\nFIGURES ALREADY PRINTED IN THIS SECTION — your calculation "
+                "must use these exact numbers and must not contradict them. "
+                "Where a figure here is already the answer to one of your "
+                "calculations, state that figure, rounded the same way as the "
+                "table shows it; do not recompute it to a different value:\n"
+                + "\n".join(lines))
 
     async def _references(self, topic: str, language: str) -> List[str]:
         try:
