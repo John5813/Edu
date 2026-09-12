@@ -15,7 +15,7 @@ from utils.ai_text import token_budget, trim_to_last_sentence
 from utils.heading_guard import heading_rule, strip_echoed_heading
 
 from .source import SourceMaterial
-from . import tables
+from . import layout, tables
 from .specs import (
     ARTIFACT_BREAKEVEN,
     ARTIFACT_BUDGET,
@@ -30,7 +30,6 @@ from .specs import (
     ARTIFACT_SCHEME,
     ARTIFACT_TIMELINE,
     BLOCK_AUTO,
-    BLOCK_ORDER,
     CHART_ARTIFACTS,
     DEFAULT_BLOCKS,
     DERIVED_TABLE_ARTIFACTS,
@@ -38,6 +37,7 @@ from .specs import (
     FORMULA_COUNTS,
     TABLE_ARTIFACTS,
     GENERIC_FIELD_KEY,
+    available_blocks,
     SectionSpec,
     generic_sections,
     sections_for,
@@ -243,8 +243,11 @@ class SectionContent:
 PHOTOGRAPHS_PER_WORK = 2
 
 
-def _place_photographs(sections: list, topic: str) -> list:
-    """Ikkita bo'limga realistik surat prompti biriktiradi.
+def _place_photographs(sections: list, topic: str, wanted: int = PHOTOGRAPHS_PER_WORK) -> list:
+    """Bir nechta bo'limga realistik surat prompti biriktiradi.
+
+    Nechta surat qo'yilishi hujjat hajmiga bog'liq: 12 varoqli ishda ikkita
+    surat matnga joy qoldirmaydi.
 
     Infografika yoki sxema emas, aynan surat: mijoz hujjatda jonli tasvir
     ko'rishni kutadi. Diagramma yoki jadvali bor bo'limlar chetlab
@@ -266,7 +269,7 @@ def _place_photographs(sections: list, topic: str) -> list:
     if len(free) > 1:
         chosen.append(free[len(free) // 2] if free[len(free) // 2] != free[0] else free[-1])
 
-    for index in chosen[:PHOTOGRAPHS_PER_WORK]:
+    for index in chosen[:max(0, wanted)]:
         section = sections[index]
         section.image_prompt = (
             f"professional documentary photograph illustrating "
@@ -300,18 +303,23 @@ class ProjectContentBuilder:
         topic: str,
         field_key: str,
         language: str,
-        depth: float = 1.0,
+        pages: tuple = (15, 20),
         source: Optional["SourceMaterial"] = None,
         progress_cb=None,
         blocks=None,
         user_id: Optional[int] = None,
     ) -> ProjectContent:
         brief = await self._source_brief(source, topic)
-        blocks = await self.resolve_blocks(topic, field_key, blocks, brief)
-        specs = [
-            self._scaled(spec, depth)
-            for spec in await self._resolve_sections(topic, field_key, language, brief, blocks)
-        ]
+        target = sum(pages) / 2
+        blocks = await self.resolve_blocks(topic, field_key, blocks, brief, pages)
+        resolved = await self._resolve_sections(
+            topic, field_key, language, brief, blocks)
+        # Matn uzunligi bo'limlar ro'yxati ma'lum bo'lgandan keyin hisoblanadi:
+        # jadval va diagrammalar egallagan joy ayrilib, qolgani bo'limlar
+        # orasida taqsimlanadi. Shundagina tanlangan varoq soni haqiqiy
+        # chegara bo'ladi.
+        scale = layout.word_scale(resolved, target)
+        specs = [self._scaled(spec, scale) for spec in resolved]
 
         semaphore = asyncio.Semaphore(_CONCURRENCY)
         done = 0
@@ -326,7 +334,8 @@ class ProjectContentBuilder:
             return section
 
         sections = await asyncio.gather(*(one(spec) for spec in specs))
-        sections = _place_photographs(list(sections), topic)
+        sections = _place_photographs(list(sections), topic,
+                                      layout.photographs_for(target))
         references = await self._references(topic, language)
         return ProjectContent(
             topic=topic,
@@ -338,15 +347,23 @@ class ProjectContentBuilder:
         )
 
     @staticmethod
-    def _scaled(spec: SectionSpec, depth: float) -> SectionSpec:
-        """Bo'lim hajmini mijoz tanlagan darajaga moslaydi."""
-        if depth == 1.0:
+    def _scaled(spec: SectionSpec, scale: float) -> SectionSpec:
+        """Bo'lim matnini hisoblangan koeffitsiyentga moslaydi.
+
+        Chegaralar `layout` dagi bilan bir xil: juda qisqa bo'lim qaydga,
+        juda uzuni esa inshoga aylanadi.
+        """
+        if scale == 1.0:
             return spec
         try:
             low, high = (int(part) for part in spec.words.split("-"))
         except ValueError:
             return spec
-        return replace(spec, words=f"{round(low * depth)}-{round(high * depth)}")
+        scaled_low = round(min(layout.MAX_WORDS, max(layout.MIN_WORDS, low * scale)))
+        scaled_high = round(min(layout.MAX_WORDS, max(layout.MIN_WORDS, high * scale)))
+        if scaled_high <= scaled_low:
+            scaled_high = scaled_low + 40
+        return replace(spec, words=f"{scaled_low}-{scaled_high}")
 
     # ---------------------------------------------------------------- manba
 
@@ -408,24 +425,49 @@ MATERIAL:
         middle = await self.propose_middle_sections(topic, language, brief)
         return generic_sections(middle, blocks)
 
-    async def resolve_blocks(self, topic: str, field_key: str, blocks, brief: str = "") -> List[str]:
+    async def resolve_blocks(self, topic: str, field_key: str, blocks,
+                             brief: str = "", pages: tuple = (15, 20)) -> List[str]:
         """Mijoz tanlovini yakuniy blok ro'yxatiga aylantiradi.
 
         `auto` tanlansa mavzuga qarab AI hal qiladi: sof hisob-kitobli ishga
         Gantt lentasi ham, risklar diagrammasi ham keraksiz, va aksincha.
         Tuzilma sxemasi bu ro'yxatga kirmaydi — u har bir ishda bo'ladi.
+
+        Tanlov har doim tanlangan varoq soniga moslanadi: AI ham, mijoz ham
+        hujjatga sig'maydigan miqdorda blok bera olmaydi.
         """
-        chosen = [b for b in (blocks or []) if b in BLOCK_ORDER]
+        low, high = pages
+        allowed = available_blocks(field_key)
+        floor = layout.min_blocks(field_key, low)
+        ceiling = layout.max_blocks(field_key, high)
+
+        chosen = [b for b in (blocks or []) if b in allowed]
         if BLOCK_AUTO not in (blocks or []):
-            return chosen
+            return self._fit(chosen, allowed, floor, ceiling)
 
         try:
-            proposed = await self._propose_blocks(topic, field_key, brief)
+            proposed = await self._propose_blocks(topic, field_key, brief, ceiling)
         except Exception as e:
             logger.error("Bloklarni AI tanlay olmadi: %s", e)
             proposed = []
-        merged = [b for b in BLOCK_ORDER if b in proposed or b in chosen]
-        return merged or list(DEFAULT_BLOCKS)
+        merged = [b for b in allowed if b in proposed or b in chosen]
+        return self._fit(merged or [b for b in DEFAULT_BLOCKS if b in allowed],
+                         allowed, floor, ceiling)
+
+    @staticmethod
+    def _fit(chosen: List[str], allowed: List[str], floor: int, ceiling: int) -> List[str]:
+        """Ro'yxatni varoq soniga sig'adigan holga keltiradi.
+
+        Ko'p bo'lsa oxiridan qirqiladi (tartib hujjatdagi tartib, ya'ni eng
+        muhimlari boshida), kam bo'lsa qolganlaridan to'ldiriladi.
+        """
+        fitted = [b for b in allowed if b in chosen][:ceiling]
+        for key in allowed:
+            if len(fitted) >= floor:
+                break
+            if key not in fitted:
+                fitted.append(key)
+        return [b for b in allowed if b in fitted]
 
     async def suggest_field(self, topic: str) -> str:
         """Mavzudan yo'nalishni taxmin qiladi.
@@ -456,7 +498,8 @@ Respond with JSON only: {{"field": "business"}}"""
             logger.error("Yo'nalishni aniqlab bo'lmadi: %s", e)
         return GENERIC_FIELD_KEY
 
-    async def _propose_blocks(self, topic: str, field_key: str, brief: str = "") -> List[str]:
+    async def _propose_blocks(self, topic: str, field_key: str, brief: str = "",
+                              ceiling: int = 7) -> List[str]:
         prompt = f"""A student is writing a project work ("loyiha ishi") on: "{topic}".
 Field of study: {field_key}
 
@@ -486,12 +529,13 @@ Rules for choosing:
 - A purely computational work needs no Gantt chart or risk matrix; a purely
   organisational one needs no formulas.
 
-Choose between four and seven blocks.{self._source_block(brief)}
+Choose between {min(3, ceiling)} and {ceiling} blocks — the client paid for a
+document of a fixed length and more than that does not fit.{self._source_block(brief)}
 
 Respond with JSON only: {{"blocks": ["budget", "costs", "marketing", "breakeven"]}}"""
         raw = await self._json_request(prompt, max_tokens=260, temperature=0.2)
         proposed = [str(b).strip().lower() for b in (raw.get("blocks") or [])]
-        return [b for b in proposed if b in BLOCK_ORDER]
+        return [b for b in proposed if b in available_blocks(field_key)]
 
     async def propose_middle_sections(
         self, topic: str, language: str, brief: str = ""

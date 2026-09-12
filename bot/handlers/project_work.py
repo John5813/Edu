@@ -16,19 +16,21 @@ from bot.keyboards import (
     get_doc_language_keyboard,
     get_main_keyboard,
     get_project_blocks_keyboard,
-    get_project_depth_keyboard,
+    get_project_size_keyboard,
     get_project_field_confirm_keyboard,
     get_project_field_keyboard,
     get_project_skip_keyboard,
     get_project_source_keyboard,
+    project_size_label,
 )
 from bot import checkout as pay
 from bot import uploads
 from bot import dialog
 from bot.states import ProjectWorkStates
-from config import PROJECT_WORK_DEPTH, PROJECT_WORK_PRICES, TEMP_DIR
+from config import TEMP_DIR, project_work_size
 from database.database import Database
 from services.project_work import field_label, get_content_builder, get_document_builder
+from services.project_work import layout as pw_layout
 from services.project_work.specs import (
     BLOCK_AUTO,
     GENERIC_FIELD_KEY,
@@ -49,10 +51,6 @@ _SOURCE_NAMES = {
     source_module.KIND_TEXT: {"uz": "Mijoz tushuntirgan", "ru": "Описание клиента", "en": "Client's brief"},
     source_module.KIND_FILE: {"uz": "Yuklangan fayl", "ru": "Загруженный файл", "en": "Uploaded file"},
     source_module.KIND_URL: {"uz": "Sayt", "ru": "Сайт", "en": "Website"},
-}
-_DEPTH_NAMES = {
-    "standart": {"uz": "Standart", "ru": "Стандартный", "en": "Standard"},
-    "keng": {"uz": "Kengaytirilgan", "ru": "Расширенный", "en": "Extended"},
 }
 
 
@@ -156,7 +154,7 @@ async def chose_source(callback: CallbackQuery, state: FSMContext, user_lang: st
 
     if kind == source_module.KIND_AI:
         await state.update_data(source_kind=source_module.KIND_AI, source_text="", source_label="")
-        await _ask_blocks(callback.message, state, user_lang)
+        await _ask_size(callback.message, state, user_lang)
         return
 
     prompts = {
@@ -237,7 +235,7 @@ async def _store_source(message: Message, state: FSMContext, user_lang: str, mat
         )
     else:
         await dialog.resolve(message, state, get_text(user_lang, "pw_done_brief"))
-    await _ask_blocks(message, state, user_lang)
+    await _ask_size(message, state, user_lang)
 
 
 # ─────────────────────────────────────────────────────────── yo'nalish va hajm
@@ -273,13 +271,23 @@ async def chose_field(callback: CallbackQuery, state: FSMContext, user_lang: str
 
 # ──────────────────────────────────────────────────────────── mazmun bloklari
 
+async def _block_limits(data: dict) -> tuple:
+    """Tanlangan hajmga nechta blok sig'adi: (eng kam, eng ko'p)."""
+    field_key = data.get("field_key") or GENERIC_FIELD_KEY
+    low, high = project_work_size(data.get("size_key", ""))["pages"]
+    return (pw_layout.min_blocks(field_key, low),
+            pw_layout.max_blocks(field_key, high))
+
+
 async def _ask_blocks(message: Message, state: FSMContext, user_lang: str):
     data = await state.get_data()
+    minimum, maximum = await _block_limits(data)
     await state.set_state(ProjectWorkStates.waiting_for_blocks)
     await dialog.ask(
         message, state,
-        get_text(user_lang, "pw_ask_blocks"),
-        reply_markup=get_project_blocks_keyboard(user_lang, data.get("blocks") or []),
+        get_text(user_lang, "pw_ask_blocks", minimum=minimum, maximum=maximum),
+        reply_markup=get_project_blocks_keyboard(
+            user_lang, data.get("blocks") or [], data.get("field_key") or ""),
         parse_mode="HTML",
     )
 
@@ -296,13 +304,22 @@ async def toggle_block(callback: CallbackQuery, state: FSMContext, user_lang: st
         # AI tanlovi qolgan belgilarni ma'nosiz qiladi, shuning uchun ular tozalanadi.
         selected = set() if BLOCK_AUTO in selected else {BLOCK_AUTO}
     else:
+        _minimum, maximum = await _block_limits(data)
+        if key not in selected and len(selected - {BLOCK_AUTO}) >= maximum:
+            # Chegaradan oshgan blok hujjatni tanlangan varoq sonidan
+            # chiqarib yuborardi — shuning uchun belgilanmaydi.
+            await callback.answer(
+                get_text(user_lang, "pw_blocks_too_many", maximum=maximum),
+                show_alert=True)
+            return
         selected.discard(BLOCK_AUTO)
         selected.symmetric_difference_update({key})
 
     await state.update_data(blocks=sorted(selected))
     try:
         await callback.message.edit_reply_markup(
-            reply_markup=get_project_blocks_keyboard(user_lang, selected))
+            reply_markup=get_project_blocks_keyboard(
+                user_lang, selected, data.get("field_key") or ""))
     except Exception:
         pass
 
@@ -315,28 +332,18 @@ async def blocks_done(callback: CallbackQuery, state: FSMContext, user_lang: str
         await callback.answer(get_text(user_lang, "pw_blocks_empty"), show_alert=True)
         return
 
+    minimum, _maximum = await _block_limits(data)
+    if BLOCK_AUTO not in selected and len(selected) < minimum:
+        # Kam blok bilan hujjat va'da qilingan varoq soniga yetmaydi: matnni
+        # cheksiz cho'zib bo'lmaydi, bo'lim insho bo'lib qoladi.
+        await callback.answer(
+            get_text(user_lang, "pw_blocks_too_few", minimum=minimum), show_alert=True)
+        return
+
     await callback.answer()
     names = ", ".join(block_label(key, user_lang) for key in selected)
     await dialog.resolve(callback.message, state,
                          get_text(user_lang, "pw_done_blocks", blocks=names))
-    await state.set_state(ProjectWorkStates.waiting_for_depth)
-    await dialog.ask(
-        callback.message, state,
-        get_text(user_lang, "pw_ask_depth"),
-        reply_markup=get_project_depth_keyboard(user_lang),
-        parse_mode="HTML",
-    )
-
-
-@router.callback_query(F.data.startswith("pw_depth:"), ProjectWorkStates.waiting_for_depth)
-async def chose_depth(callback: CallbackQuery, state: FSMContext, user_lang: str):
-    await callback.answer()
-    depth_key = callback.data.split(":", 1)[1]
-    await state.update_data(depth_key=depth_key, price=PROJECT_WORK_PRICES[depth_key])
-    await dialog.resolve(
-        callback.message, state,
-        get_text(user_lang, "pw_done_depth", depth=_label(_DEPTH_NAMES, depth_key, user_lang)),
-    )
     # Muallif ismi faqat muqova uchun kerak, shuning uchun u eng oxirida so'raladi.
     await state.set_state(ProjectWorkStates.waiting_for_author)
     await dialog.ask(
@@ -344,6 +351,32 @@ async def chose_depth(callback: CallbackQuery, state: FSMContext, user_lang: str
         get_text(user_lang, "pw_ask_author"),
         reply_markup=get_project_skip_keyboard(user_lang, "pw_skip_author"),
     )
+
+
+async def _ask_size(message: Message, state: FSMContext, user_lang: str):
+    """Varoq soni bloklardan OLDIN so'raladi: u nechta blok sig'ishini belgilaydi."""
+    await state.set_state(ProjectWorkStates.waiting_for_size)
+    await dialog.ask(
+        message, state,
+        get_text(user_lang, "pw_ask_size"),
+        reply_markup=get_project_size_keyboard(user_lang),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data.startswith("pw_size:"), ProjectWorkStates.waiting_for_size)
+async def chose_size(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    await callback.answer()
+    size_key = callback.data.split(":", 1)[1]
+    size = project_work_size(size_key)
+    # Hajm o'zgarsa oldingi tanlov chegaradan oshib ketishi mumkin.
+    await state.update_data(size_key=size_key, price=size["price"], blocks=[])
+    await dialog.resolve(
+        callback.message, state,
+        get_text(user_lang, "pw_done_size",
+                 size=project_size_label(size_key, user_lang)),
+    )
+    await _ask_blocks(callback.message, state, user_lang)
 
 
 @router.message(ProjectWorkStates.waiting_for_author, F.text)
@@ -362,15 +395,16 @@ async def skip_author(callback: CallbackQuery, state: FSMContext, user_lang: str
     await _show_summary(callback.message, state, user_lang, user)
 
 
-@router.callback_query(F.data == "pw_back_to_depth", ProjectWorkStates.waiting_for_payment)
-async def back_to_depth(callback: CallbackQuery, state: FSMContext, user_lang: str):
-    """Orqaga — hajm tanlash qaytadan ochiladi."""
+@router.callback_query(F.data.in_({"pw_back_to_size", "pw_back_to_depth"}),
+                       ProjectWorkStates.waiting_for_payment)
+async def back_to_size(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Orqaga — hajm tanlash qaytadan ochiladi, undan keyin bloklar."""
     await callback.answer()
-    await state.set_state(ProjectWorkStates.waiting_for_depth)
+    await state.set_state(ProjectWorkStates.waiting_for_size)
     await callback.message.edit_text(
-        get_text(user_lang, "pw_ask_depth"),
+        get_text(user_lang, "pw_ask_size"),
         parse_mode="HTML",
-        reply_markup=get_project_depth_keyboard(user_lang),
+        reply_markup=get_project_size_keyboard(user_lang),
     )
 
 
@@ -384,7 +418,7 @@ async def _show_summary(message: Message, state: FSMContext, user_lang: str, use
         topic=data.get("topic", ""),
         field=field_label(data.get("field_key", ""), doc_language),
         source=_label(_SOURCE_NAMES, data.get("source_kind", source_module.KIND_AI), user_lang),
-        depth=_label(_DEPTH_NAMES, data.get("depth_key", "standart"), user_lang),
+        depth=project_size_label(data.get("size_key", ""), user_lang),
         blocks=", ".join(block_label(key, user_lang) for key in (data.get("blocks") or []))
                or block_label(BLOCK_AUTO, user_lang),
         price=price,
@@ -575,7 +609,7 @@ async def _generate(message: Message, state: FSMContext, user_lang: str, db: Dat
             language=doc_language,
             blocks=data.get("blocks") or None,
             user_id=message.chat.id,
-            depth=PROJECT_WORK_DEPTH[data.get("depth_key", "standart")],
+            pages=project_work_size(data.get("size_key", ""))["pages"],
             source=material,
             progress_cb=progress,
         )

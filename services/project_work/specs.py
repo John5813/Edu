@@ -634,6 +634,21 @@ GENERIC_LABEL = {
 }
 
 
+def available_blocks(field_key: str) -> List[str]:
+    """Shu sohada mijozga taklif qilinadigan bloklar.
+
+    Sohaning o'z bo'limida hisob-kitob bo'lsa (muhandislikdagi loyihalash
+    hisobi, agrodagi hosildorlik), umumiy hisob bloki hujjatga qo'shilmaydi.
+    Uni ro'yxatda qoldirish mijozni aldash bo'lardi: belgilaydi-yu, hujjatda
+    ko'rmaydi.
+    """
+    spec = FIELDS.get(field_key)
+    middle = spec.middle if spec else []
+    if any(section.artifact == ARTIFACT_CALC for section in middle):
+        return [key for key in BLOCK_ORDER if key != BLOCK_CALC]
+    return list(BLOCK_ORDER)
+
+
 def closing_for(blocks, middle: Optional[List[SectionSpec]] = None) -> List[SectionSpec]:
     """Mijoz tanlagan bloklardan yakuniy bo'limlarni yig'adi.
 
