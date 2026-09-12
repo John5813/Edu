@@ -13,6 +13,8 @@ import asyncio
 import logging
 import random
 import time
+
+from services import workload
 from dataclasses import dataclass, field
 from typing import Any, Callable, Coroutine, Optional
 
@@ -264,7 +266,10 @@ class DocumentQueue:
                 self._active_start = time.time()
             try:
                 logger.info(f"Queue: starting {task.doc_type} for user {task.user_telegram_id}")
-                await task.coro_factory()
+                # Admin paneldagi yangilash tugmasi shu ro'yxatga qaraydi:
+                # ishlab turgan generatsiyani uzib qo'ymasligi kerak.
+                with workload.track(task.doc_type):
+                    await task.coro_factory()
             except asyncio.CancelledError:
                 # Worker is being shut down — mark task done so animation exits
                 task.done_event.set()

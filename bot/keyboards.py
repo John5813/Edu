@@ -766,11 +766,44 @@ def get_admin_keyboard() -> ReplyKeyboardMarkup:
     keyboard.add(KeyboardButton(text="👥 Mijoz bilan ishlash"))
     keyboard.add(KeyboardButton(text="➕ Yangi mijoz qo'shish"))
 
+    # Kodni GitHub'dan yangilash — serverga kirmasdan
+    keyboard.add(KeyboardButton(text="🔄 Botni yangilash"))
+
     # Orqaga qaytish
     keyboard.add(KeyboardButton(text="👤 Foydalanuvchi rejimi"))
 
     keyboard.adjust(2)
     return keyboard.as_markup(resize_keyboard=True)
+
+def get_self_update_keyboard(token: str, has_updates: bool) -> InlineKeyboardMarkup:
+    """Yangilash oynasidagi tugmalar.
+
+    Tasdiqlash tugmasida bir martalik token bor: qayta ishga tushgandan
+    keyin token xotirada qolmaydi, shuning uchun Telegram o'sha bosishni
+    qayta yuborsa ham bot ikkinchi marta yangilanmaydi.
+    """
+    keyboard = InlineKeyboardBuilder()
+    if has_updates:
+        keyboard.add(InlineKeyboardButton(
+            text="⬇️ Yangilash va qayta ishga tushirish",
+            callback_data=f"selfupd:go:{token}"))
+    keyboard.add(InlineKeyboardButton(text="🔁 Qayta tekshirish",
+                                      callback_data="selfupd:check"))
+    keyboard.add(InlineKeyboardButton(text="✖️ Yopish", callback_data="selfupd:close"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
+def get_self_update_force_keyboard(token: str) -> InlineKeyboardMarkup:
+    """Hujjat yaratilayotgan paytda qo'shimcha tasdiq."""
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(
+        text="⚠️ Baribir yangilash", callback_data=f"selfupd:force:{token}"))
+    keyboard.add(InlineKeyboardButton(text="✖️ Bekor qilish",
+                                      callback_data="selfupd:close"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
 
 def get_client_action_keyboard(telegram_id: int, show_dismiss: bool = False) -> InlineKeyboardMarkup:
     """Admin client management action keyboard"""

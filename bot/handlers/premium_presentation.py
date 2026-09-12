@@ -26,6 +26,7 @@ from bot.keyboards import (
     get_doc_language_keyboard,
     get_project_source_keyboard,
 )
+from services import workload
 from services.project_work import source as source_module
 
 router = Router()
@@ -994,6 +995,10 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
                 pass
         asyncio.run_coroutine_threadsafe(_edit(), loop)
 
+    # Admin paneldagi yangilash tugmasi shu ro'yxatga qaraydi: taqdimot
+    # navbatdan tashqarida yaratiladi, sanalmasa "hech narsa bajarilmayapti"
+    # deb ko'rinardi va qayta ishga tushirish uni uzib qo'yardi.
+    work_id = workload.begin("premium taqdimot")
     try:
         from services.premium_presentation.pipeline import (
             generate_brief_chunked,
@@ -1174,6 +1179,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         except Exception:
             pass
     finally:
+        workload.end(work_id)
         # Temp faylni o'chirish
         try:
             os.remove(final_path)

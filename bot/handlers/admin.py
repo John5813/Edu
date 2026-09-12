@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import datetime, timedelta
 from aiogram import Router, F
@@ -2580,3 +2581,217 @@ async def select_ai_model(callback: CallbackQuery, db: Database):
         await callback.message.delete()
     else:
         await callback.answer("❌ Xatolik yuz berdi.")
+
+# ─────────────────────────────────────────────── Botni GitHub'dan yangilash
+#
+# Ilgari har yangilanish uchun serverga SSH bilan kirib, `screen` ichida
+# qo'lda buyruq yozish kerak edi. Endi admin panelda tugma bor.
+#
+# Tasdiqlash tugmasi bir martalik token bilan ishlaydi. Token faqat
+# xotirada turadi: bot qayta ishga tushgach u yo'qoladi, shuning uchun
+# Telegram o'sha bosishni qayta yuborsa ham ikkinchi yangilash boshlanmaydi
+# — aks holda bot cheksiz qayta ishga tushaverardi.
+_update_tokens: dict = {}
+
+
+def _new_update_token(admin_id: int) -> str:
+    import secrets
+
+    token = secrets.token_urlsafe(8)
+    _update_tokens[admin_id] = token
+    return token
+
+
+def _take_update_token(admin_id: int, token: str) -> bool:
+    """Tokenni tekshiradi va darhol bekor qiladi — bir marta ishlaydi."""
+    return _update_tokens.pop(admin_id, None) == token
+
+
+def _busy_documents() -> tuple:
+    """Hozir nima bajarilmoqda: (ishlayotganlar ro'yxati, navbatdagilar soni).
+
+    Navbat faqat og'ir hujjatlarni biladi; premium taqdimot va loyiha ishi
+    undan tashqarida ishlaydi, shuning uchun umumiy hisoblagichdan
+    so'raymiz.
+    """
+    from services import workload
+
+    running = workload.labels()
+    try:
+        from bot.queue_service import get_doc_queue
+
+        pending = get_doc_queue().pending_count()
+    except Exception as e:
+        logger.warning(f"Navbat holati o'qilmadi: {e}")
+        pending = 0
+    return running, pending
+
+
+def _format_update_status(state: dict) -> tuple:
+    """Holatni admin ko'radigan matnga aylantiradi."""
+    if not state.get("ok"):
+        return f"🔄 <b>Botni yangilash</b>\n\n❌ {state.get('error', '')}", False
+
+    lines = [
+        "🔄 <b>Botni yangilash</b>\n",
+        f"🌿 Shoxcha: <code>{state['branch']}</code>",
+        f"📍 Hozirgi: <code>{state['current']}</code>",
+    ]
+
+    if state["dirty"]:
+        listed = "\n".join(f"• {name}" for name in state["dirty"][:8])
+        lines.append(f"\n⚠️ <b>Saqlanmagan o'zgarishlar:</b>\n{listed}")
+        lines.append("\nYangilash to'xtatiladi — ular yo'qolmasligi kerak.")
+        return "\n".join(lines), False
+
+    if state["local_only"]:
+        listed = "\n".join(f"• {line}" for line in state["local_only"][:8])
+        lines.append(f"\n⚠️ <b>GitHub'ga yuborilmagan commitlar:</b>\n{listed}")
+        lines.append("\nAvval ularni push qiling.")
+        return "\n".join(lines), False
+
+    if not state["incoming"]:
+        lines.append("\n✅ Bot eng yangi kodda ishlayapti.")
+        return "\n".join(lines), False
+
+    listed = "\n".join(f"• {line}" for line in state["incoming"][:12])
+    more = len(state["incoming"]) - 12
+    if more > 0:
+        listed += f"\n• … va yana {more} ta"
+    lines.append(f"\n📥 <b>{len(state['incoming'])} ta yangilanish:</b>\n{listed}")
+    lines.append("\nYangilangach bot qayta ishga tushadi (10-20 soniya).")
+    return "\n".join(lines), True
+
+
+@router.message(F.text == "🔄 Botni yangilash")
+async def handle_self_update(message: Message):
+    """Yangilanishlar bor-yo'qligini ko'rsatadi."""
+    if not is_admin(message.from_user.id):
+        return
+
+    from bot.keyboards import get_self_update_keyboard
+    from services import self_update
+
+    status = await message.answer("⏳ GitHub tekshirilmoqda...")
+    state = await asyncio.to_thread(self_update.status)
+    token = _new_update_token(message.from_user.id)
+    text, has_updates = _format_update_status(state)
+    await status.edit_text(text, parse_mode="HTML",
+                           reply_markup=get_self_update_keyboard(token, has_updates))
+
+
+@router.callback_query(F.data == "selfupd:check")
+async def handle_self_update_check(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer()
+        return
+
+    from bot.keyboards import get_self_update_keyboard
+    from services import self_update
+
+    await callback.answer("Tekshirilmoqda...")
+    state = await asyncio.to_thread(self_update.status)
+    token = _new_update_token(callback.from_user.id)
+    text, has_updates = _format_update_status(state)
+    try:
+        await callback.message.edit_text(
+            text, parse_mode="HTML",
+            reply_markup=get_self_update_keyboard(token, has_updates))
+    except Exception:
+        pass
+
+
+@router.callback_query(F.data == "selfupd:close")
+async def handle_self_update_close(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer()
+        return
+    _update_tokens.pop(callback.from_user.id, None)
+    await callback.answer()
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+
+
+@router.callback_query(F.data.startswith("selfupd:go:"))
+async def handle_self_update_go(callback: CallbackQuery):
+    """Yangilashdan oldin hujjat yaratilayotganini tekshiradi."""
+    if not is_admin(callback.from_user.id):
+        await callback.answer()
+        return
+
+    from bot.keyboards import get_self_update_force_keyboard
+
+    token = callback.data.split(":", 2)[2]
+    if not _take_update_token(callback.from_user.id, token):
+        await callback.answer("Bu tugma eskirgan. Qaytadan oching.", show_alert=True)
+        return
+
+    running, pending = _busy_documents()
+    if running or pending:
+        # Qayta ishga tushirish ishlab turgan generatsiyani uzib qo'yadi —
+        # mijoz esa buning uchun pul to'lagan.
+        listed = "\n".join(f"• {label}" for label in running[:6]) or "• —"
+        fresh = _new_update_token(callback.from_user.id)
+        await callback.answer()
+        await callback.message.edit_text(
+            "⚠️ <b>Hozir ish bajarilmoqda</b>\n\n"
+            f"{listed}\nNavbatda: {pending} ta\n\n"
+            "Hozir yangilasangiz ular uzilib qoladi va mijozlar to'lagan "
+            "pulini qaytarish kerak bo'ladi.\n\n"
+            "Bir necha daqiqadan keyin qayta urinib ko'ring.",
+            parse_mode="HTML",
+            reply_markup=get_self_update_force_keyboard(fresh))
+        return
+
+    await _do_self_update(callback)
+
+
+@router.callback_query(F.data.startswith("selfupd:force:"))
+async def handle_self_update_force(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer()
+        return
+    token = callback.data.split(":", 2)[2]
+    if not _take_update_token(callback.from_user.id, token):
+        await callback.answer("Bu tugma eskirgan. Qaytadan oching.", show_alert=True)
+        return
+    await _do_self_update(callback)
+
+
+async def _do_self_update(callback: CallbackQuery) -> None:
+    """Kodni tortadi, kerak bo'lsa kutubxonalarni o'rnatadi va qayta ishga tushadi."""
+    from services import self_update
+
+    await callback.answer()
+    try:
+        await callback.message.edit_text("⏳ Kod yuklab olinmoqda...", parse_mode="HTML")
+    except Exception:
+        pass
+
+    result = await asyncio.to_thread(self_update.update)
+    if not result.get("ok"):
+        await callback.message.edit_text(
+            f"🔄 <b>Yangilash bajarilmadi</b>\n\n❌ {result.get('error', '')}",
+            parse_mode="HTML")
+        return
+
+    if not result.get("changed"):
+        await callback.message.edit_text(
+            "✅ Bot allaqachon eng yangi kodda — qayta ishga tushirish shart emas.",
+            parse_mode="HTML")
+        return
+
+    steps = "\n".join(f"• {step}" for step in result.get("steps") or [])
+    await callback.message.edit_text(
+        "✅ <b>Kod yangilandi</b>\n\n"
+        f"📍 Yangi holat: <code>{result['current']}</code>\n"
+        f"{steps}\n\n"
+        "♻️ Bot qayta ishga tushmoqda. 10-20 soniyadan keyin /start bosing.",
+        parse_mode="HTML")
+
+    # Xabar yetib borishi va Telegram yangilanish raqamini tasdiqlashi uchun
+    # biroz kutamiz — aks holda bu bosish qayta yuborilishi mumkin edi.
+    await asyncio.sleep(3)
+    self_update.restart()
