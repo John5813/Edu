@@ -766,6 +766,9 @@ def get_admin_keyboard() -> ReplyKeyboardMarkup:
     keyboard.add(KeyboardButton(text="👥 Mijoz bilan ishlash"))
     keyboard.add(KeyboardButton(text="➕ Yangi mijoz qo'shish"))
 
+    # Saytdagi katalogni boshqarish
+    keyboard.add(KeyboardButton(text="🏪 Do'kon katalogi"))
+
     # Kodni GitHub'dan yangilash — serverga kirmasdan
     keyboard.add(KeyboardButton(text="🔄 Botni yangilash"))
 

@@ -127,6 +127,11 @@ class StoreStates(StatesGroup):
     waiting_for_payment = State()
 
 
+class StoreAdminStates(StatesGroup):
+    """Admin do'kon katalogini boshqaradi."""
+    waiting_for_remove_code = State()
+
+
 class StorePublishStates(StatesGroup):
     """Admin tayyor ishni do'kon katalogiga qo'yadi."""
     waiting_for_file = State()

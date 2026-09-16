@@ -20,7 +20,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 import webapp
 from bot import checkout as pay, uploads
-from bot.states import StorePublishStates, StoreStates
+from bot.states import StoreAdminStates, StorePublishStates, StoreStates
 from config import ADMIN_IDS, STORE_VAULT_CHAT_ID
 from database.database import Database
 from translations import get_text
@@ -647,6 +647,17 @@ async def store_status(message: Message):
                            disable_web_page_preview=True)
 
 
+async def _remove_item(code: str) -> bool:
+    """Ishni saytdan olib tashlaydi va ko'rgazma rasmlarini o'chiradi."""
+    if not await Database.set_store_item_active(code, False):
+        return False
+    from services.store_publisher import discard_previews
+
+    discard_previews(code)
+    logger.info("Katalogdan olib tashlandi: %s", code)
+    return True
+
+
 @router.message(Command("nashr_ochir"))
 async def publish_remove(message: Message, command: CommandObject):
     if not _is_admin(message.from_user.id):
@@ -655,9 +666,122 @@ async def publish_remove(message: Message, command: CommandObject):
     if not _CODE_RE.match(code):
         await message.answer("Foydalanish: <code>/nashr_ochir KOD</code>", parse_mode="HTML")
         return
-    if await Database.set_store_item_active(code, False):
-        from services.store_publisher import discard_previews
-        discard_previews(code)
+    if await _remove_item(code):
         await message.answer(f"✅ {code} katalogdan olib tashlandi.")
     else:
         await message.answer(f"❌ {code} topilmadi.")
+
+
+# ── Admin paneli: katalogni boshqarish ─────────────────────────────────
+
+_LIST_SIZE = 15
+
+
+@router.message(F.text == "🏪 Do'kon katalogi")
+async def store_admin_open(message: Message, state: FSMContext):
+    if not _is_admin(message.from_user.id):
+        return
+    from config import work_label
+
+    await state.clear()
+    result = await Database.list_store_items(limit=_LIST_SIZE)
+    if not result["total"]:
+        await message.answer(
+            "🏪 <b>Do'kon katalogi</b>\n\nKatalog bo'sh. "
+            "Ishlar mijozga yetkazilgach o'zi qo'shiladi, "
+            "yoki <code>/nashr</code> bilan qo'lda qo'yasiz.",
+            parse_mode="HTML")
+        return
+
+    lines = [f"🏪 <b>Do'kon katalogi</b> — jami {result['total']} ta\n"]
+    for item in result["items"]:
+        kind = work_label(item.get("work_type") or "")
+        price = f"{item['price']:,}".replace(",", " ")
+        lines.append(
+            f"<code>{item['public_code']}</code> — {item['title'][:44]}\n"
+            f"    {kind or 'tur yo‘q'} · {price} so'm · {item['sale_count']} sotildi")
+    if result["total"] > _LIST_SIZE:
+        lines.append(f"\n<i>Oxirgi {_LIST_SIZE} tasi ko'rsatildi.</i>")
+    lines.append("\n🗑 Olib tashlash uchun <b>kodni yuboring</b> "
+                 "(masalan: <code>F60ADBXI</code>).\nBekor qilish: /bekor")
+
+    await state.set_state(StoreAdminStates.waiting_for_remove_code)
+    await message.answer("\n".join(lines), parse_mode="HTML")
+
+
+@router.message(Command("bekor"), StoreAdminStates.waiting_for_remove_code)
+async def store_admin_cancel(message: Message, state: FSMContext):
+    if not _is_admin(message.from_user.id):
+        return
+    await state.clear()
+    await message.answer("Bekor qilindi.")
+
+
+@router.message(StoreAdminStates.waiting_for_remove_code, F.text)
+async def store_admin_got_code(message: Message, state: FSMContext):
+    if not _is_admin(message.from_user.id):
+        return
+    from config import work_label
+
+    code = (message.text or "").strip().upper()
+    if not _CODE_RE.match(code):
+        await message.answer("Kod 8 ta harf va raqamdan iborat. Qaytadan yuboring "
+                             "yoki /bekor bosing.")
+        return
+
+    item = await Database.get_store_item(code)
+    if not item:
+        await message.answer(f"❌ <code>{code}</code> topilmadi — u allaqachon "
+                             f"olib tashlangan bo'lishi mumkin.", parse_mode="HTML")
+        return
+
+    # Tasdiqlash so'raladi: ko'rgazma rasmlari butunlay o'chadi va ishni
+    # qaytarish uchun uni qaytadan nashr qilish kerak bo'ladi.
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(text="🗑 Ha, olib tashlansin",
+                                      callback_data=f"storedel:{code}"))
+    keyboard.add(InlineKeyboardButton(text="🔙 Yo'q", callback_data="storedel_no"))
+    keyboard.adjust(1)
+
+    kind = work_label(item.get("work_type") or "")
+    await message.answer(
+        f"🗑 <b>Saytdan olib tashlansinmi?</b>\n\n"
+        f"📄 {item['title']}\n"
+        f"🗃 {kind or 'tur ko‘rsatilmagan'}\n"
+        f"🔖 <code>{code}</code>\n\n"
+        f"<i>Ko'rgazma rasmlari o'chadi; qaytarish uchun ishni qaytadan "
+        f"nashr qilish kerak bo'ladi. Ombordagi fayl joyida qoladi.</i>",
+        parse_mode="HTML", reply_markup=keyboard.as_markup())
+
+
+@router.callback_query(F.data.startswith("storedel:"))
+async def store_admin_confirm(callback: CallbackQuery, state: FSMContext):
+    if not _is_admin(callback.from_user.id):
+        return
+    await callback.answer()
+    code = callback.data.split(":", 1)[1]
+    await state.clear()
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+
+    if _CODE_RE.match(code) and await _remove_item(code):
+        await callback.message.answer(
+            f"✅ <code>{code}</code> saytdan olib tashlandi.", parse_mode="HTML")
+    else:
+        await callback.message.answer(f"❌ <code>{code}</code> topilmadi.",
+                                      parse_mode="HTML")
+
+
+@router.callback_query(F.data == "storedel_no")
+async def store_admin_decline(callback: CallbackQuery, state: FSMContext):
+    if not _is_admin(callback.from_user.id):
+        return
+    await callback.answer()
+    await state.clear()
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    await callback.message.answer("Bekor qilindi — ish saytda qoldi.")
