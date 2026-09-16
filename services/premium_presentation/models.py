@@ -9,7 +9,43 @@ ROLE_ORDER = ["hook", "context", "breakdown", "detail", "comparison", "applicati
 INFOGRAPHIC_PRESETS = ("cards", "steps", "timeline", "cycle", "pyramid")
 
 
-class InfographicItem(BaseModel):
+# Model ba'zan matnni HTML bilan bezaydi: "<b>Samaradorlik:</b> ...".
+# PowerPoint uni teg deb tanimaydi va mijoz slaydda qavslarni o'qiydi.
+# Faqat ma'lum teglar olib tashlanadi — "E > 1" yoki "x < y" kabi
+# ifodalar matnda uchraydi va ular tegilmasligi kerak.
+_TAG_RE = re.compile(
+    r"</?(?:b|i|u|s|em|strong|span|p|br|div|ul|ol|li|h[1-6])\s*/?>",
+    re.IGNORECASE,
+)
+
+
+def strip_markup(value: Any) -> Any:
+    """Matndagi HTML bezaklarini olib tashlaydi, qolganini tegmaydi."""
+    if not isinstance(value, str) or "<" not in value and "&" not in value:
+        return value
+    cleaned = _TAG_RE.sub("", value)
+    cleaned = cleaned.replace("&nbsp;", " ").replace("&quot;", '"')
+    cleaned = cleaned.replace("&lt;", "<").replace("&gt;", ">")
+    cleaned = cleaned.replace("&amp;", "&")     # oxirida: qayta ochilmasin
+    return re.sub(r"[ \t]{2,}", " ", cleaned).strip()
+
+
+class CleanText(BaseModel):
+    """Matn maydonlari HTML bezaklaridan tozalanadigan model.
+
+    Tozalash shu yerda turadi, chunki matn modelga faqat shu yo'l bilan
+    kiradi: LLM javobi ham, vizual QA tuzatishlari ham.
+    """
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def _drop_markup(cls, value: Any) -> Any:
+        if isinstance(value, list):
+            return [strip_markup(item) for item in value]
+        return strip_markup(value)
+
+
+class InfographicItem(CleanText):
     """Infografikaning bitta bandi — mazmun; koordinatani kod hisoblaydi."""
     title: str = ""
     text: str = ""
@@ -17,7 +53,7 @@ class InfographicItem(BaseModel):
     value: Optional[str] = None   # timeline uchun yil, steps uchun raqam
 
 
-class VisualElement(BaseModel):
+class VisualElement(CleanText):
     """Slayddagi bitta vizual element."""
     type: Literal["rect", "text", "circle", "image", "chart", "kpi", "icon",
                   "infographic", "scheme"]
@@ -85,7 +121,7 @@ class SlideCanvas(BaseModel):
     elements: List[VisualElement]
 
 
-class Slide(BaseModel):
+class Slide(CleanText):
     index: int
     role: Role
     title: str
@@ -101,7 +137,7 @@ class Slide(BaseModel):
         return " ".join([p for p in parts if p])
 
 
-class Brief(BaseModel):
+class Brief(CleanText):
     topic: str
     theme: Theme
     slides: List[Slide]

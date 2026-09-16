@@ -188,6 +188,18 @@ def build_presentation(brief: Brief, user_id: int | None = None) -> str:
         log.warning("Rasmlar: %s tadan %s tasi yaratilmadi. Oxirgi sabab: %s",
                     wanted, failed, image_client.LAST_ERROR or "noma'lum")
 
+    # python-pptx sukut shabloni fayl xossalarida o'z muallifini va
+    # "generated using python-pptx" izohini qoldiradi. Mijoz faylning
+    # xossalarini ochsa shu ko'rinadi, shuning uchun ular tozalanadi.
+    props = prs.core_properties
+    props.title = brief.topic or ""
+    props.author = ""
+    props.last_modified_by = ""
+    props.comments = ""
+    props.category = ""
+    props.keywords = ""
+    props.subject = ""
+
     os.makedirs(config.WORK_DIR, exist_ok=True)
     out_path = os.path.join(config.WORK_DIR, f"ppt_{uuid.uuid4().hex[:10]}.pptx")
     prs.save(out_path)
