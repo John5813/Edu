@@ -220,6 +220,20 @@ def _attach_and_schedule(token: str, message_id: int, delay: int = _EDIT_TOKEN_T
     asyncio.create_task(_expire_token(token, delay=delay))
 
 
+def _to_store(bot, file_path: str, topic: str, work_type: str) -> None:
+    """Yetkazilgan ishni do'kon katalogiga yo'naltiradi.
+
+    Yetkazishdan keyin chaqiriladi va hech qachon xato ko'tarmaydi: mijoz
+    faylini olib bo'ldi, do'kon esa ikkinchi darajali.
+    """
+    try:
+        from services.store_publisher import schedule_publish
+
+        schedule_publish(bot, file_path, topic, work_type)
+    except Exception as exc:
+        logger.warning(f"Katalogga yo'naltirilmadi ({work_type}): {exc}")
+
+
 def _safe_remove_file(file_path: str) -> None:
     """Best-effort delete of a generated file after delivery. Never raises."""
     if not file_path:
@@ -963,6 +977,7 @@ async def generate_thesis(message: Message, state: FSMContext, db: Database, use
 
         document = FSInputFile(file_path)
         await message.answer_document(document=document, caption=f"📝 {topic}")
+        _to_store(message.bot, file_path, topic, "tezis")
 
         await db.update_document_order(order_id, "completed", file_path)
         await db.update_user_balance(user.telegram_id, -price)
@@ -1368,6 +1383,7 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
                 template=template_name
             ),
         )
+        _to_store(callback.bot, file_path, topic, "taqdimot")
 
         # File sent successfully - NOW update database and balance
         await db.update_document_order(order_id, "completed", file_path)
@@ -1497,6 +1513,7 @@ async def generate_article(callback: CallbackQuery, state: FSMContext, db: Datab
             document=document,
             caption=f"📰 {topic}\n📄 {min_pages}-{max_pages} varoq | IMRAD tuzilma",
         )
+        _to_store(callback.bot, file_path, topic, "maqola")
 
         await db.update_document_order(order_id, "completed", file_path)
         await db.update_user_balance(user.telegram_id, -price)
@@ -1938,30 +1955,35 @@ _HEAVY_BUSY_MSG = {
 }
 
 # Configuration per heavy doc type: AI method, doc method, caption emoji
+# `store_type` — do'kondagi narx kaliti (config.STORE_PRICES).
 _HEAVY_DOC_CFG = {
     "course_work": {
         "ai_method": "generate_course_work_content",
         "doc_method": "create_course_work",
         "emoji": "📚",
         "label": "bo'lim",
+        "store_type": "kurs_ishi",
     },
     "diploma_work": {
         "ai_method": "generate_diploma_work_content",
         "doc_method": "create_diploma_work",
         "emoji": "🎓",
         "label": "bo'lim",
+        "store_type": "diplom_ishi",
     },
     "dissertatsiya": {
         "ai_method": "generate_dissertation_content",
         "doc_method": "create_dissertation",
         "emoji": "📕",
         "label": "bob",
+        "store_type": "dissertatsiya",
     },
     "bitiruv_ishi": {
         "ai_method": "generate_graduation_work_content",
         "doc_method": "create_graduation_work",
         "emoji": "🎓",
         "label": "bob",
+        "store_type": "bitiruv_ishi",
     },
 }
 
@@ -2043,6 +2065,7 @@ async def _execute_heavy_generation(
                 document=document,
                 caption=caption,
             )
+            _to_store(bot, file_path, topic, cfg["store_type"])
         except Exception as send_err:
             # Refund the user — they were charged but never received the file.
             if balance_deducted:
@@ -2353,6 +2376,7 @@ async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: 
             document=document,
             caption=f"📊 {topic}",
         )
+        _to_store(callback.bot, file_path, topic, "taqdimot")
 
         # File sent successfully - NOW update database and balance
         await db.update_document_order(order_id, "completed", file_path)
@@ -2449,6 +2473,7 @@ async def generate_independent_work_manual(callback: CallbackQuery, state: FSMCo
             document=document,
             caption=f"🎓 {topic}",
         )
+        _to_store(callback.bot, file_path, topic, "mustaqil_ish")
 
         # File sent successfully - NOW update database and balance
         await db.update_document_order(order_id, "completed", file_path)
@@ -2544,6 +2569,7 @@ async def generate_referat_manual(callback: CallbackQuery, state: FSMContext, db
             document=document,
             caption=f"📄 {topic}",
         )
+        _to_store(callback.bot, file_path, topic, "referat")
 
         # File sent successfully - NOW update database and balance
         await db.update_document_order(order_id, "completed", file_path)
@@ -2636,6 +2662,7 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
             document=document,
             caption=f"🎓 {topic}",
         )
+        _to_store(callback.bot, file_path, topic, "mustaqil_ish")
 
         # File sent successfully - NOW update database and balance
         await db.update_document_order(order_id, "completed", file_path)
@@ -2727,6 +2754,7 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
             document=document,
             caption=f"📄 {topic}",
         )
+        _to_store(callback.bot, file_path, topic, "referat")
 
         # File sent successfully - NOW update database and balance
         await db.update_document_order(order_id, "completed", file_path)
@@ -3505,6 +3533,7 @@ async def generate_mahsus_ishlanma(callback: CallbackQuery, state: FSMContext, d
             document=document,
             caption=f"🔬 {topic}",
         )
+        _to_store(callback.bot, file_path, topic, "mahsus_ishlanma")
 
         await db.update_document_order(order_id, "completed", file_path)
         price = data.get('price', 0)

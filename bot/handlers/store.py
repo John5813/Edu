@@ -306,6 +306,9 @@ async def _expired(message: Message, state: FSMContext, lang: str) -> None:
 # ── Admin: katalogga qo'yish ───────────────────────────────────────────
 
 SKIP = "-"
+# Do'kon taqdimot ham, Word hujjati ham qabul qiladi; PDF esa tozalab
+# bo'lmaydi — undagi matn qatlami tahrirlanmaydi.
+STORE_FORMATS = (".pptx", ".docx")
 
 
 def _is_admin(user_id: int) -> bool:
@@ -329,8 +332,10 @@ async def publish_start(message: Message, state: FSMContext):
     # xatoga uchrardi.
     if not shutil.which("soffice"):
         await message.answer(
-            "❌ LibreOffice o'rnatilmagan — slaydlardan ko'rgazma rasmi olib "
-            "bo'lmaydi.\n\nServerda: <code>apt install libreoffice-impress</code>",
+            "❌ LibreOffice o'rnatilmagan — varaqlardan ko'rgazma rasmi olib "
+            "bo'lmaydi.\n\nServerda:\n"
+            "<code>apt install libreoffice-impress libreoffice-writer</code>\n\n"
+            "Impress taqdimot uchun, Writer esa Word hujjatlari uchun kerak.",
             parse_mode="HTML",
         )
         return
@@ -363,7 +368,7 @@ async def publish_cancel(message: Message, state: FSMContext):
 async def publish_got_file(message: Message, state: FSMContext):
     if not _is_admin(message.from_user.id):
         return
-    upload = await uploads.receive(message, "uz", accept=uploads.SLIDES,
+    upload = await uploads.receive(message, "uz", accept=STORE_FORMATS,
                                    prefix="store_pub", extract=False)
     if upload is None:
         return
@@ -447,7 +452,7 @@ async def publish_got_category(message: Message, state: FSMContext):
 async def publish_got_description(message: Message, state: FSMContext):
     if not _is_admin(message.from_user.id):
         return
-    from services.store_publisher import publish_pptx
+    from services.store_publisher import publish_work
 
     description = (message.text or "").strip()
     data = await state.get_data()
@@ -456,7 +461,7 @@ async def publish_got_description(message: Message, state: FSMContext):
 
     status = await message.answer("⏳ Tozalanmoqda va katalogga qo'yilmoqda...")
     try:
-        result = await publish_pptx(
+        result = await publish_work(
             message.bot, path,
             title=data.get("pub_title", ""),
             price=int(data.get("pub_price", 0)),

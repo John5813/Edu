@@ -57,6 +57,9 @@ const BOT_URL = $('#create-top').getAttribute('href');
 const HAS_BOT = BOT_URL && !BOT_URL.startsWith('__');
 $('#create-top').hidden = !HAS_BOT;
 
+/* Taqdimotda slayd, Word hujjatida varaq sanaladi. */
+const sheets = it => it.file_type === 'docx' ? 'varaq' : 'slayd';
+
 const createBtn = label => HAS_BOT
   ? `<a class="create" href="${esc(BOT_URL)}" target="_blank" rel="noopener">${label}</a>`
   : '';
@@ -139,7 +142,7 @@ function card(it) {
     <div class="card-b">
       <div class="card-t">${esc(it.title)}</div>
       <div class="card-m">
-        ${it.slide_count ? `<span class="tag">${it.slide_count} slayd</span>` : ''}
+        ${it.slide_count ? `<span class="tag">${it.slide_count} ${sheets(it)}</span>` : ''}
         ${it.category ? `<span class="tag">${esc(it.category)}</span>` : ''}
       </div>
       <div class="price">${money(it.price)}</div>

@@ -306,6 +306,33 @@ STORE_PREVIEW_MAX = int(os.getenv("STORE_PREVIEW_MAX", "60"))
 # Rasm ustidagi shaffof shtamp — ko'rgazma xaridning o'rnini bosmasligi uchun.
 STORE_WATERMARK = os.getenv("STORE_WATERMARK", "NAMUNA")
 
+# Tayyor ish mijozga yuborilgach o'zi katalogga tushadimi.
+STORE_AUTO_PUBLISH = os.getenv("STORE_AUTO_PUBLISH", "1") not in ("0", "false", "no")
+
+# Qayta sotuv narxlari (so'm). Bular yaratish narxidan ancha past: ish
+# allaqachon tayyor, har xarid uchun yangi generatsiya ketmaydi. Zinapoya
+# ish hajmi va murakkabligiga qarab ko'tariladi.
+STORE_PRICES = {
+    "taqdimot":         3000,
+    "referat":          3000,
+    "tezis":            3000,
+    "mustaqil_ish":     4000,
+    "maqola":           4000,
+    "mahsus_ishlanma":  4000,
+    "premium_taqdimot": 5000,
+    "kurs_ishi":        5000,
+    "loyiha_ishi":      5000,
+    "bitiruv_ishi":     7000,
+    "diplom_ishi":      7000,
+    "dissertatsiya":    9000,
+}
+STORE_DEFAULT_PRICE = int(os.getenv("STORE_DEFAULT_PRICE", "4000"))
+
+
+def store_price(work_type: str) -> int:
+    """Ish turiga ko'ra katalog narxi."""
+    return STORE_PRICES.get(work_type, STORE_DEFAULT_PRICE)
+
 # Ensure directories exist
 os.makedirs(DOCUMENTS_DIR, exist_ok=True)
 os.makedirs(TEMP_DIR, exist_ok=True)

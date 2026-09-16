@@ -1229,6 +1229,13 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         document = FSInputFile(final_path, filename=filename)
         await callback.message.answer_document(document=document)
         logger.info("Premium taqdimot yuborildi: %s → %s", final_path, callback.from_user.id)
+        try:
+            from services.store_publisher import schedule_publish
+
+            schedule_publish(callback.bot, final_path, topic, "premium_taqdimot",
+                             language=presentation_language)
+        except Exception as store_err:
+            logger.warning("Katalogga yo'naltirilmadi (premium): %s", store_err)
     except Exception as send_err:
         logger.exception("Premium taqdimot yuborishda xato: %s", send_err)
         # Balansni qaytarish

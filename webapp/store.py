@@ -42,6 +42,7 @@ def _item_json(row: dict) -> dict:
         "category": row.get("category") or "",
         "language": row.get("language") or "uz",
         "slide_count": row.get("slide_count") or 0,
+        "file_type": row.get("file_type") or "pptx",
         "price": row.get("price") or 0,
         "sale_count": row.get("sale_count") or 0,
         "preview": f"/shop/preview/{code}/thumb.jpg",
@@ -151,7 +152,8 @@ def _summary(row: dict) -> str:
     if row.get("description"):
         parts.append(row["description"])
     if row.get("slide_count"):
-        parts.append(f"{row['slide_count']} slayd.")
+        unit = "varaq" if (row.get("file_type") or "pptx") == "docx" else "slayd"
+        parts.append(f"{row['slide_count']} {unit}.")
     parts.append("Tayyor ish — darhol yuklab olish mumkin.")
     return " ".join(parts)[:300]
 
@@ -180,9 +182,11 @@ async def handle_item_page(request: web.Request) -> web.Response:
     title, category = row["title"], row.get("category") or ""
     summary = _summary(row)
 
+    # Taqdimotda slayd, Word hujjatida varaq sanaladi.
+    unit = "varaq" if (row.get("file_type") or "pptx") == "docx" else "slayd"
     facts = []
     if row.get("slide_count"):
-        facts.append(f'<span class="tag">{row["slide_count"]} slayd</span>')
+        facts.append(f'<span class="tag">{row["slide_count"]} {unit}</span>')
     if category:
         facts.append(f'<a class="tag" href="/shop?category={esc(category)}">{esc(category)}</a>')
     facts.append(f'<span class="tag">{esc((row.get("language") or "uz").upper())}</span>')
@@ -203,8 +207,8 @@ async def handle_item_page(request: web.Request) -> web.Response:
                   f'rel="noopener">+ Yangi yaratish</a>') if create_url else ""
 
     slides = "\n".join(
-        f'<figure><img src="{esc(src)}" alt="{esc(title)} — {n}-slayd" '
-        f'loading="lazy" width="1000"><figcaption>{n}-slayd</figcaption></figure>'
+        f'<figure><img src="{esc(src)}" alt="{esc(title)} — {n}-{unit}" '
+        f'loading="lazy" width="1000"><figcaption>{n}-{unit}</figcaption></figure>'
         for n, src in enumerate(shots, start=1)
     )
 

@@ -368,7 +368,19 @@ async def main():
     await _upgrade_default_ai_model()
 
     # Set Mini App domain from environment
-    webapp.WEBAPP_DOMAIN = os.environ.get("REPLIT_DEV_DOMAIN", "localhost:5000")
+    # Domen Mini App havolasiga ham, do'kondagi ish manziliga ham kerak.
+    # `REPLIT_DEV_DOMAIN` faqat Replit'da to'ldiriladi — o'z serverida
+    # `WEBAPP_DOMAIN` qo'yiladi, aks holda havolalar "localhost" ga ketardi.
+    webapp.WEBAPP_DOMAIN = (
+        os.environ.get("WEBAPP_DOMAIN")
+        or os.environ.get("REPLIT_DEV_DOMAIN")
+        or "localhost:5000"
+    )
+    if webapp.WEBAPP_DOMAIN.startswith("localhost"):
+        logger.warning(
+            "WEBAPP_DOMAIN sozlanmagan — Mini App va do'kon havolalari "
+            "localhost'ga ishora qiladi va tashqaridan ochilmaydi."
+        )
 
     # Restore tokens saved before last restart
     webapp.load_tokens_from_disk()
