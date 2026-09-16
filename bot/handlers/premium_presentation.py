@@ -32,6 +32,43 @@ from services.project_work import source as source_module
 router = Router()
 logger = logging.getLogger(__name__)
 
+# Bir xil xato haqida har taqdimotda xabar yubormaslik uchun: sabab
+# o'zgarmaguncha admin bir marta ogohlantiriladi.
+_last_image_warning = ""
+
+
+async def _warn_admin_about_images(bot) -> None:
+    """Rasmlar chiqmaganda adminga xabar yuboradi."""
+    global _last_image_warning
+
+    try:
+        from config import ADMIN_IDS
+        from services.premium_presentation import renderer
+
+        report = getattr(renderer, "LAST_IMAGE_REPORT", None) or {}
+        failed, wanted = report.get("failed", 0), report.get("wanted", 0)
+        if not failed:
+            _last_image_warning = ""
+            return
+
+        reason = report.get("reason") or "sabab noma'lum"
+        if reason == _last_image_warning:
+            return
+        _last_image_warning = reason
+
+        text = (
+            "⚠️ <b>Premium taqdimot rasmsiz chiqdi</b>\n\n"
+            f"So'ralgan rasm: {wanted} ta, chiqmagani: {failed} ta\n\n"
+            f"<code>{reason[:300]}</code>\n\n"
+            "Together hisobidagi kredit va model nomini tekshiring "
+            "(PREMIUM_TOGETHER_IMAGE_MODEL)."
+        )
+        for admin_id in ADMIN_IDS:
+            with contextlib.suppress(Exception):
+                await bot.send_message(admin_id, text, parse_mode="HTML")
+    except Exception as e:
+        logger.error("Rasm ogohlantirishini yuborib bo'lmadi: %s", e)
+
 MIN_SLIDES = 5
 MAX_SLIDES = 30
 
@@ -1109,6 +1146,11 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         final_path = await loop.run_in_executor(
             None, run_visual_qa_and_fix, pptx_path, brief, topic, presentation_language
         )
+
+        # Rasmlar chiqmagan bo'lsa admin darhol bilishi kerak: mijoz
+        # "premium" deb pul to'lagan taqdimot ikonka va matndan iborat
+        # bo'lib qoladi, sabab esa faqat server logida qolardi.
+        await _warn_admin_about_images(callback.bot)
 
     except Exception as e:
         logger.exception("Premium taqdimot generatsiyasida xato: %s", e)
