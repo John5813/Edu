@@ -1,7 +1,11 @@
 """Loyiha ishi mazmunini spetsifikatsiya bo'yicha AI dan olish.
 
 Har bo'lim uchun matn, artefakt talab qilgan bo'limlar uchun jadval yoki
-sxema, va oxirida adabiyotlar ro'yxati olinadi.
+sxema olinadi.
+
+Adabiyotlar ro'yxati so'ralmaydi: loyiha ishi shaxsan to'plangan ma'lumot
+sifatida topshiriladi, shuning uchun unda na foydalanilgan adabiyotlar
+bo'limi, na snoska bo'ladi.
 """
 
 import asyncio
@@ -36,6 +40,7 @@ from .specs import (
     CARD_ARTIFACTS,
     FORMULA_COUNTS,
     TABLE_ARTIFACTS,
+    FIRST_PERSON_SECTIONS,
     GENERIC_FIELD_KEY,
     available_blocks,
     SectionSpec,
@@ -225,6 +230,45 @@ _FORMULA_ASKS = {
 }
 
 
+# Loyiha ishi talabaning o'z ishi sifatida topshiriladi, shuning uchun matn
+# muallif tilidan yoziladi. Ilgari model "ushbu loyiha ishi talabaga ... imkon
+# beradi" deb hujjatning o'zi haqida uchinchi shaxsda yozardi — bu esa ish
+# boshqa birov tomonidan tayyorlanganini ko'rsatib turardi.
+#
+# Misollar promptga mijoz tanlagan tilda beriladi: ko'rsatmaning o'zi
+# inglizcha bo'lgani uchun model "men" ni ruscha matnda ham to'g'ri
+# ishlatishi uchun namunaga muhtoj.
+_VOICE_EXAMPLES = {
+    "uz": ('"Men shu loyihani tanladim", "hisoblab chiqdim", "shu yerda '
+           'tannarx qanday shakllanishini o\'rgandim"'),
+    "ru": ('"Я выбрал этот проект", "я рассчитал", "здесь я понял, как '
+           'формируется себестоимость"'),
+    "en": ('"I chose this project", "I calculated", "here I learned how the '
+           'unit cost is formed"'),
+}
+
+
+def _voice_rule(spec: SectionSpec, language: str) -> str:
+    """Bo'lim qanday shaxsda yozilishini aytadigan qoida."""
+    examples = _VOICE_EXAMPLES.get(language, _VOICE_EXAMPLES["uz"])
+    common = (
+        "- Never write about the document itself. Sentences of the kind \"this "
+        "project work gives the student...\" or \"the work examines...\" are "
+        "forbidden; write about the project and about what you did"
+    )
+    if spec.key in FIRST_PERSON_SECTIONS:
+        return (
+            "- Write in the FIRST PERSON SINGULAR, as the author speaking about "
+            f"their own work: {examples}. Not \"we\", not an impersonal voice\n"
+            + common
+        )
+    return (
+        "- Where the text speaks of work that was done — a choice, a "
+        "calculation, an observation — say it in the first person singular "
+        f"({examples}). The analysis itself stays factual\n" + common
+    )
+
+
 @dataclass
 class SectionContent:
     spec: SectionSpec
@@ -294,7 +338,6 @@ class ProjectContent:
     # tanlanadi, shuning uchun kim buyurtma bergani ma'lum bo'lishi kerak.
     user_id: Optional[int] = None
     sections: List[SectionContent] = dataclass_field(default_factory=list)
-    references: List[str] = dataclass_field(default_factory=list)
 
 
 class ProjectContentBuilder:
@@ -340,13 +383,11 @@ class ProjectContentBuilder:
         sections = await asyncio.gather(*(one(spec) for spec in specs))
         sections = _place_photographs(list(sections), topic,
                                       layout.photographs_for(target))
-        references = await self._references(topic, language)
         return ProjectContent(
             topic=topic,
             field_key=field_key,
             language=language,
             sections=list(sections),
-            references=references,
             user_id=user_id,
         )
 
@@ -641,6 +682,7 @@ Write {spec.words} words in {target}.
 
 RULES:
 {heading_rule(language)}
+{_voice_rule(spec, language)}
 - Be concrete: real figures, named examples, Uzbekistan context where it fits
 - Plain text only — no markdown, no bullet lists, no special characters
 - Do not mention that a table or figure follows; it is added automatically{self._source_block(brief)}"""
@@ -650,8 +692,9 @@ RULES:
                 {
                     "role": "system",
                     "content": (
-                        "You write project documentation. The section heading is already "
-                        "printed above your text; you produce only the body text under it. "
+                        "You are the student who carried out this project and you are "
+                        "writing it up yourself. The section heading is already printed "
+                        "above your text; you produce only the body text under it. "
                         "Plain text only."
                     ),
                 },
@@ -888,13 +931,6 @@ Respond with JSON only:
                 "calculations, state that figure, rounded the same way as the "
                 "table shows it; do not recompute it to a different value:\n"
                 + "\n".join(lines))
-
-    async def _references(self, topic: str, language: str) -> List[str]:
-        try:
-            return await self.ai.generate_references(topic, language)
-        except Exception as e:
-            logger.error("Loyiha ishi uchun adabiyotlar olinmadi: %s", e)
-            return []
 
     # ------------------------------------------------------------- yordamchi
 

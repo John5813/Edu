@@ -178,8 +178,12 @@ INTRO = SectionSpec(
     key="kirish",
     title={"uz": "Kirish", "ru": "Введение", "en": "Introduction"},
     guidance=(
-        "State what the project is, why it is needed now, who benefits from it, "
-        "and what the work covers. Do not list the sections that follow."
+        "Tell, as the author, what project you took on and why: what you saw in "
+        "practice that made it necessary, who it is for, what you set out to "
+        "work out and what you learned while doing it. Speak about your own "
+        "work — the problem you chose, the figures you calculated, the decision "
+        "you reached — not about the document. Do not list the sections that "
+        "follow."
     ),
     words="220-280",
 )
@@ -365,8 +369,9 @@ CONCLUSION = SectionSpec(
     key="xulosa",
     title={"uz": "Xulosa", "ru": "Заключение", "en": "Conclusion"},
     guidance=(
-        "Summarise what the project achieves, what was established in the work, "
-        "and give practical recommendations for putting it into practice."
+        "Sum up, as the author, what you established: what your calculations "
+        "showed, what conclusion you drew from them, what you learned along the "
+        "way, and what you recommend to whoever puts the project into practice."
     ),
     words="240-300",
 )
@@ -387,6 +392,10 @@ STRUCTURE = SectionSpec(
     artifact=ARTIFACT_SCHEME,
     words="260-320",
 )
+
+# Bu bo'limlar butunlay muallif tilidan yoziladi. Qolgan bo'limlar tahliliy,
+# lekin ularda ham hujjatning o'zi haqida uchinchi shaxsda gapirilmaydi.
+FIRST_PERSON_SECTIONS = {INTRO.key, CONCLUSION.key}
 
 _OPENING = [INTRO, RELEVANCE]
 
