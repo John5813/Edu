@@ -30,6 +30,24 @@ logger = logging.getLogger(__name__)
 
 CHECKOUT = pay.Checkout(service="store", back_callback="store_cancel")
 
+
+@pay.describes(CHECKOUT.service)
+def _order_summary(data: dict, language: str) -> str:
+    """Balans to'lgach xaridorga ko'rsatiladigan tafsilot."""
+    import html as _html
+
+    title = _html.escape(str(data.get("title") or "").strip(), quote=False)[:200]
+    lines = [_t(language, "🛒 <b>Saytdagi tayyor ish</b>",
+                "🛒 <b>Готовая работа с сайта</b>",
+                "🛒 <b>Ready-made work from the site</b>")]
+    if title:
+        lines.append(f"📄 <b>{title}</b>")
+    kind = data.get("work_label")
+    if kind:
+        lines.append(f"🗃 {_html.escape(str(kind), quote=False)}")
+    return "\n".join(lines)
+
+
 _CODE_RE = re.compile(r"^[A-Z0-9]{8}$")
 
 
@@ -83,13 +101,31 @@ async def _deliver(message: Message, item: dict, lang: str) -> bool:
         return False
 
 
-async def _pending(state: FSMContext) -> dict | None:
-    """FSM'dagi buyurtmani katalogdagi joriy holat bilan qayta o'qiydi."""
+async def _pending(state: FSMContext, user_id: int = 0) -> dict | None:
+    """Buyurtmani katalogdagi joriy holat bilan qayta o'qiydi.
+
+    Balansni to'ldirish oqimi FSM'ni tozalaydi, shuning uchun u yerda
+    topilmasa saqlangan nusxadan olinadi.
+    """
     data = await state.get_data()
     code = data.get("store_code")
+    if not code and user_id:
+        code = (pay.recall(user_id, CHECKOUT.service) or {}).get("store_code")
     if not code:
         return None
     return await Database.get_store_item(code)
+
+
+def _keep_order(user_id: int, item: dict) -> None:
+    """Xaridni to'lov tugagunicha saqlab qo'yadi."""
+    from config import work_label
+
+    pay.remember(user_id, CHECKOUT.service, {
+        "store_code": item["public_code"],
+        "price": item["price"],
+        "title": item["title"],
+        "work_label": work_label(item.get("work_type") or ""),
+    })
 
 
 async def _sell(message: Message, item: dict, lang: str, user_id: int,
@@ -162,19 +198,21 @@ async def store_open(message: Message, command: CommandObject, state: FSMContext
 
 # ── To'lov ─────────────────────────────────────────────────────────────
 
-@router.callback_query(F.data == CHECKOUT.pay_balance,
-                       StoreStates.waiting_for_payment)
+@router.callback_query(F.data == CHECKOUT.pay_balance)
 async def store_pay_balance(callback: CallbackQuery, state: FSMContext, db: Database):
     await callback.answer()
     user = await db.get_user(callback.from_user.id)
     lang = user.language if user else "uz"
-    item = await _pending(state)
+    item = await _pending(state, callback.from_user.id)
     if not item:
         await _expired(callback.message, state, lang)
         return
 
     balance = user.balance if user else 0
     if balance < item["price"]:
+        # Balansni to'ldirish oqimi FSM'ni tozalaydi — xarid undan
+        # tashqarida saqlanadi, aks holda yo'qolardi.
+        _keep_order(callback.from_user.id, item)
         await pay.send_shortfall(callback.message, CHECKOUT, lang, item["price"], balance)
         return
 
@@ -185,13 +223,12 @@ async def store_pay_balance(callback: CallbackQuery, state: FSMContext, db: Data
     await _sell(callback.message, item, lang, callback.from_user.id, state, db, charge=True)
 
 
-@router.callback_query(F.data == CHECKOUT.pay_other,
-                       StoreStates.waiting_for_payment)
+@router.callback_query(F.data == CHECKOUT.pay_other)
 async def store_pay_other(callback: CallbackQuery, state: FSMContext, db: Database):
     await callback.answer()
     user = await db.get_user(callback.from_user.id)
     lang = user.language if user else "uz"
-    item = await _pending(state)
+    item = await _pending(state, callback.from_user.id)
     if not item:
         await _expired(callback.message, state, lang)
         return
@@ -202,13 +239,12 @@ async def store_pay_other(callback: CallbackQuery, state: FSMContext, db: Databa
         pass
 
 
-@router.callback_query(F.data == CHECKOUT.pay_back,
-                       StoreStates.waiting_for_payment)
+@router.callback_query(F.data == CHECKOUT.pay_back)
 async def store_pay_back(callback: CallbackQuery, state: FSMContext, db: Database):
     await callback.answer()
     user = await db.get_user(callback.from_user.id)
     lang = user.language if user else "uz"
-    item = await _pending(state)
+    item = await _pending(state, callback.from_user.id)
     if not item:
         await _expired(callback.message, state, lang)
         return
@@ -219,13 +255,14 @@ async def store_pay_back(callback: CallbackQuery, state: FSMContext, db: Databas
         pass
 
 
-@router.callback_query(F.data == CHECKOUT.recheck,
-                       StoreStates.waiting_for_payment)
+# Holat filtri yo'q: balansni to'ldirish FSM'ni tozalaydi va tugma
+# shundan keyin bosiladi.
+@router.callback_query(F.data == CHECKOUT.recheck)
 async def store_recheck(callback: CallbackQuery, state: FSMContext, db: Database):
     """Balans to'ldirilgandan keyin buyurtmani yo'qotmasdan davom etish."""
     user = await db.get_user(callback.from_user.id)
     lang = user.language if user else "uz"
-    item = await _pending(state)
+    item = await _pending(state, callback.from_user.id)
     if not item:
         await callback.answer()
         await _expired(callback.message, state, lang)
@@ -243,13 +280,12 @@ async def store_recheck(callback: CallbackQuery, state: FSMContext, db: Database
     await _sell(callback.message, item, lang, callback.from_user.id, state, db, charge=True)
 
 
-@router.callback_query(F.data == CHECKOUT.pay_stars,
-                       StoreStates.waiting_for_payment)
+@router.callback_query(F.data == CHECKOUT.pay_stars)
 async def store_pay_stars(callback: CallbackQuery, state: FSMContext, db: Database):
     await callback.answer()
     user = await db.get_user(callback.from_user.id)
     lang = user.language if user else "uz"
-    item = await _pending(state)
+    item = await _pending(state, callback.from_user.id)
     if not item:
         await _expired(callback.message, state, lang)
         return
@@ -268,7 +304,11 @@ async def store_pay_stars(callback: CallbackQuery, state: FSMContext, db: Databa
             pass
 
 
-@router.message(StoreStates.waiting_for_payment, F.successful_payment)
+# To'lov belgisiga qarab filtrlanadi, holatga emas: balansni to'ldirish
+# FSM'ni tozalaydi. Belgisi bo'yicha ajratish shart — filtrsiz bu ishlovchi
+# boshqa xizmatlarning Stars to'lovini ham tutib qolardi.
+@router.message(F.successful_payment.invoice_payload.startswith(
+    CHECKOUT.service + ":"))
 async def store_successful_stars(message: Message, state: FSMContext, db: Database):
     payment = message.successful_payment
     if not payment or not CHECKOUT.owns_payload(payment.invoice_payload):
@@ -276,7 +316,7 @@ async def store_successful_stars(message: Message, state: FSMContext, db: Databa
 
     user = await db.get_user(message.chat.id)
     lang = user.language if user else "uz"
-    item = await _pending(state)
+    item = await _pending(state, message.chat.id)
     if not item:
         await _expired(message, state, lang)
         return
