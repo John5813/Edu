@@ -1107,3 +1107,21 @@ class Database:
     async def set_current_ai_model(model_key: str) -> bool:
         """Set current AI model"""
         return await Database.set_bot_setting("current_ai_model", model_key)
+
+    @staticmethod
+    async def get_premium_ai_model() -> str:
+        """Premium taqdimot uchun tanlangan model kaliti.
+
+        U alohida saqlanadi: premium taqdimot eng qimmat xizmat va unda
+        matn sifati boshqa hujjatlardagidan ko'ra ko'proq ko'rinadi,
+        shuning uchun unga kuchliroq (va qimmatroq) model qo'yish, qolgan
+        xizmatlarni esa arzonroq modelda qoldirish mumkin.
+        """
+        from config import PREMIUM_DEFAULT_AI_MODEL
+
+        model = await Database.get_bot_setting("premium_ai_model")
+        return model if model else PREMIUM_DEFAULT_AI_MODEL
+
+    @staticmethod
+    async def set_premium_ai_model(model_key: str) -> bool:
+        return await Database.set_bot_setting("premium_ai_model", model_key)

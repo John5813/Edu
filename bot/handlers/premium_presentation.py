@@ -1000,6 +1000,19 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
     # deb ko'rinardi va qayta ishga tushirish uni uzib qo'yardi.
     work_id = workload.begin("premium taqdimot")
     try:
+        # Premium taqdimot modeli admin panelda alohida tanlanadi.
+        # Generatsiya sinxron oqimda ishlaydi va u yerdan bazaga murojaat
+        # qilib bo'lmaydi, shuning uchun tanlov shu yerda o'qiladi.
+        try:
+            from config import AI_MODELS
+            from services.premium_presentation import llm_client as _llm
+
+            premium_key = await db.get_premium_ai_model()
+            if premium_key in AI_MODELS:
+                _llm.set_text_model(AI_MODELS[premium_key]["id"])
+        except Exception as e:
+            logger.error("Premium model tanlovini o'qib bo'lmadi: %s", e)
+
         from services.premium_presentation.pipeline import (
             generate_brief_chunked,
             canvas_validation_and_fix,
