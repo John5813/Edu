@@ -198,6 +198,9 @@ async def init_db():
                 title TEXT NOT NULL,
                 description TEXT DEFAULT '',
                 category TEXT DEFAULT '',
+                -- Ish turi (taqdimot, kurs_ishi, ...) — fandan mustaqil
+                -- o'lchov: saytda katalog avval shu bo'yicha bo'linadi.
+                work_type TEXT DEFAULT '',
                 language TEXT DEFAULT 'uz',
                 keywords TEXT DEFAULT '',
                 -- Sarlavha + tavsif + kalit so'zlar, apostrofsiz va kichik
@@ -246,13 +249,37 @@ async def init_db():
         except Exception:
             pass  # Column already exists
 
-        # Do'kon qidiruv ustuni — jadval ilgari usiz yaratilgan bo'lishi mumkin.
+        # Do'kon ustunlari — jadval ilgari ularsiz yaratilgan bo'lishi mumkin.
+        for column in ("search_text TEXT DEFAULT ''", "work_type TEXT DEFAULT ''"):
+            try:
+                await db.execute(f"ALTER TABLE store_items ADD COLUMN {column}")
+                await db.commit()
+                logger.info("Migration: added '%s' to store_items", column.split()[0])
+            except Exception:
+                pass  # Column already exists
+
+        # Ilgari ish turi faqat kalit so'zlarda saqlangan edi — filtrlash
+        # uchun uni ustunga ko'chiramiz.
         try:
-            await db.execute("ALTER TABLE store_items ADD COLUMN search_text TEXT DEFAULT ''")
-            await db.commit()
-            logger.info("Migration: added 'search_text' column to store_items")
-        except Exception:
-            pass  # Column already exists
+            from config import STORE_WORK_LABELS
+
+            async with db.execute(
+                "SELECT id, keywords FROM store_items "
+                "WHERE (work_type IS NULL OR work_type = '') AND keywords != ''"
+            ) as cursor:
+                stale = await cursor.fetchall()
+            moved = []
+            for row_id, keywords in stale:
+                key = (keywords or "").strip().lower().replace(" ", "_")
+                if key in STORE_WORK_LABELS:
+                    moved.append((key, row_id))
+            if moved:
+                await db.executemany(
+                    "UPDATE store_items SET work_type = ? WHERE id = ?", moved)
+                await db.commit()
+                logger.info("Migration: work_type filled for %s store item(s)", len(moved))
+        except Exception as work_mig_err:
+            logger.warning("store_items work_type backfill skipped: %s", work_mig_err)
 
         try:
             from services.store_taxonomy import normalize
@@ -1226,23 +1253,30 @@ class Database:
         price: int,
         description: str = "",
         category: str = "",
+        work_type: str = "",
         language: str = "uz",
         keywords: str = "",
         slide_count: int = 0,
         file_type: str = "pptx",
         preview_count: int = 0,
     ) -> int:
+        from config import work_label
         from services.store_taxonomy import normalize
 
-        search_text = normalize(" ".join(filter(None, (title, description, keywords))))
+        # Ish turining nomi ham qidiruvga tushsin: "kurs ishi" deb
+        # qidirgan mijoz o'sha ishlarni topishi kerak.
+        search_text = normalize(" ".join(filter(
+            None, (title, description, keywords, work_label(work_type)))))
         async with aiosqlite.connect(DATABASE_FILE) as db:
             cursor = await db.execute(
                 """INSERT INTO store_items
-                   (public_code, title, description, category, language, keywords,
-                    search_text, slide_count, price, file_id, file_type, preview_count)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (public_code, title, description, category, language, keywords,
-                 search_text, slide_count, price, file_id, file_type, preview_count),
+                   (public_code, title, description, category, work_type, language,
+                    keywords, search_text, slide_count, price, file_id, file_type,
+                    preview_count)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (public_code, title, description, category, work_type, language,
+                 keywords, search_text, slide_count, price, file_id, file_type,
+                 preview_count),
             )
             await db.commit()
             return cursor.lastrowid
@@ -1251,6 +1285,7 @@ class Database:
     async def list_store_items(
         query: str = "",
         category: str = "",
+        work_type: str = "",
         language: str = "",
         sort: str = "new",
         limit: int = 24,
@@ -1273,14 +1308,17 @@ class Database:
             "expensive": "price DESC, id DESC",
         }.get(sort, "created_at DESC, id DESC")
 
-        FIELDS = ("public_code, title, description, category, language, "
-                  "slide_count, price, preview_count, sale_count, created_at")
+        FIELDS = ("public_code, title, description, category, work_type, language, "
+                  "file_type, slide_count, price, preview_count, sale_count, created_at")
 
         base_where = ["is_active = 1"]
         base_params: list = []
         if category:
             base_where.append("category = ?")
             base_params.append(category)
+        if work_type:
+            base_where.append("work_type = ?")
+            base_params.append(work_type)
         if language:
             base_where.append("language = ?")
             base_params.append(language)
@@ -1399,12 +1437,36 @@ class Database:
         return [{"code": r[0], "created_at": r[1]} for r in rows]
 
     @staticmethod
-    async def get_store_categories() -> List[Dict]:
+    async def get_store_work_types() -> List[Dict]:
+        """Katalogdagi ish turlari. Tartib config'dagi ro'yxatga tayanadi."""
+        from config import STORE_WORK_LABELS, work_label
+
         async with aiosqlite.connect(DATABASE_FILE) as db:
             async with db.execute(
-                "SELECT category, COUNT(*) FROM store_items "
-                "WHERE is_active = 1 AND category != '' "
-                "GROUP BY category ORDER BY COUNT(*) DESC"
+                "SELECT work_type, COUNT(*) FROM store_items "
+                "WHERE is_active = 1 AND work_type != '' GROUP BY work_type"
+            ) as cursor:
+                counts = dict(await cursor.fetchall())
+
+        order = list(STORE_WORK_LABELS)
+        known = [k for k in order if k in counts]
+        extra = sorted(k for k in counts if k not in order)
+        return [{"key": k, "label": work_label(k), "count": counts[k]}
+                for k in known + extra]
+
+    @staticmethod
+    async def get_store_categories(work_type: str = "") -> List[Dict]:
+        """Fanlar ro'yxati. `work_type` berilsa — faqat o'sha tur ichidagilar,
+        aks holda bo'sh bo'lim ko'rsatilib qolardi."""
+        where = "is_active = 1 AND category != ''"
+        params: list = []
+        if work_type:
+            where += " AND work_type = ?"
+            params.append(work_type)
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            async with db.execute(
+                f"SELECT category, COUNT(*) FROM store_items WHERE {where} "
+                f"GROUP BY category ORDER BY COUNT(*) DESC", params
             ) as cursor:
                 rows = await cursor.fetchall()
         return [{"name": r[0], "count": r[1]} for r in rows]

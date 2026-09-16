@@ -28,6 +28,7 @@
 </header>
 
 <main class="wrap">
+  <nav class="kinds" id="kinds"></nav>
   <div class="filters">
     <div class="chips" id="cats"></div>
     <select id="sort" aria-label="Saralash">
@@ -69,6 +70,7 @@ const startup = new URLSearchParams(location.search);
 const state = {
   q: startup.get('q') || '',
   category: startup.get('category') || '',
+  type: startup.get('type') || '',
   sort: startup.get('sort') || 'new',
   page: 1, total: 0, loaded: 0,
 };
@@ -78,6 +80,7 @@ $('#sort').value = state.sort;
 function syncUrl() {
   const p = new URLSearchParams();
   if (state.q) p.set('q', state.q);
+  if (state.type) p.set('type', state.type);
   if (state.category) p.set('category', state.category);
   if (state.sort !== 'new') p.set('sort', state.sort);
   const qs = p.toString();
@@ -89,6 +92,7 @@ async function load(reset) {
   if (reset) { state.page = 1; state.loaded = 0; $('#grid').innerHTML = skeletons(8); }
   const p = new URLSearchParams({ sort: state.sort, page: state.page });
   if (state.q) p.set('q', state.q);
+  if (state.type) p.set('type', state.type);
   if (state.category) p.set('category', state.category);
 
   let data;
@@ -140,6 +144,7 @@ function card(it) {
   return `<a class="card" href="/shop/${esc(it.code)}">
     <img class="thumb" src="${esc(it.preview)}" alt="${esc(it.title)}" loading="lazy">
     <div class="card-b">
+      ${it.work_label ? `<div class="card-kind">${esc(it.work_label)}</div>` : ''}
       <div class="card-t">${esc(it.title)}</div>
       <div class="card-m">
         ${it.slide_count ? `<span class="tag">${it.slide_count} ${sheets(it)}</span>` : ''}
@@ -150,11 +155,29 @@ function card(it) {
   </a>`;
 }
 
+/* ── Ish turlari: katalogning asosiy bo'linishi ─ */
+async function loadKinds() {
+  let kinds = [];
+  try {
+    const r = await fetch('/api/shop/types');
+    if (r.ok) kinds = (await r.json()).types || [];
+  } catch (e) { /* turlarsiz ham ishlayveradi */ }
+
+  if (!kinds.length) { $('#kinds').innerHTML = ''; return; }
+  const on = k => k === state.type ? ' on' : '';
+  $('#kinds').innerHTML =
+    `<a class="kind-tab${on('')}" href="/shop" data-k="">Hammasi</a>` +
+    kinds.map(k => `<a class="kind-tab${on(k.key)}" data-k="${esc(k.key)}"
+        href="/shop?type=${encodeURIComponent(k.key)}">${esc(k.label)} <i>${k.count}</i></a>`).join('');
+}
+
 /* ── Fanlar ──────────────────────────────── */
 async function loadCats() {
   let cats = [];
   try {
-    const r = await fetch('/api/shop/categories');
+    // Tanlangan tur ichidagi fanlar — bo'sh bo'lim ko'rsatilmasin
+    const url = '/api/shop/categories' + (state.type ? '?type=' + encodeURIComponent(state.type) : '');
+    const r = await fetch(url);
     if (r.ok) cats = (await r.json()).categories || [];
   } catch (e) { /* fansiz ham ishlayveradi */ }
 
@@ -185,8 +208,20 @@ $('#cats').onclick = e => {
   syncUrl();
   load(true);
 };
+$('#kinds').onclick = e => {
+  const tab = e.target.closest('.kind-tab');
+  if (!tab) return;
+  e.preventDefault();
+  state.type = tab.dataset.k;
+  $('#kinds').querySelectorAll('.kind-tab').forEach(n => n.classList.toggle('on', n === tab));
+  syncUrl();
+  // Tur o'zgarganda fanlar ro'yxati ham o'zgaradi
+  loadCats();
+  load(true);
+};
 $('#more').onclick = () => { state.page++; load(false); };
 
+loadKinds();
 loadCats();
 load(true);
 </script>

@@ -15,7 +15,8 @@ import shutil
 from aiogram import F, Router
 from aiogram.filters import Command, CommandObject, CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 import webapp
 from bot import checkout as pay, uploads
@@ -375,8 +376,41 @@ async def publish_got_file(message: Message, state: FSMContext):
         return
 
     await state.update_data(pub_path=upload.path)
+    await state.set_state(StorePublishStates.waiting_for_work_type)
+    await message.answer("🗃 Bu qanday ish?", reply_markup=_work_type_keyboard())
+
+
+def _work_type_keyboard() -> InlineKeyboardMarkup:
+    from config import STORE_WORK_LABELS
+
+    keyboard = InlineKeyboardBuilder()
+    for key, label in STORE_WORK_LABELS.items():
+        keyboard.add(InlineKeyboardButton(text=label, callback_data=f"pubtype:{key}"))
+    keyboard.adjust(2)
+    return keyboard.as_markup()
+
+
+@router.callback_query(F.data.startswith("pubtype:"),
+                       StorePublishStates.waiting_for_work_type)
+async def publish_got_work_type(callback: CallbackQuery, state: FSMContext):
+    if not _is_admin(callback.from_user.id):
+        return
+    from config import STORE_WORK_LABELS, work_label
+
+    key = callback.data.split(":", 1)[1]
+    if key not in STORE_WORK_LABELS:
+        await callback.answer("Noma'lum tur", show_alert=True)
+        return
+
+    await callback.answer()
+    await state.update_data(pub_work_type=key)
     await state.set_state(StorePublishStates.waiting_for_customer)
-    await message.answer(
+    try:
+        await callback.message.edit_text(f"🗃 Ish turi: <b>{work_label(key)}</b>",
+                                         parse_mode="HTML")
+    except Exception:
+        pass
+    await callback.message.answer(
         "👤 Ish kimga tayyorlangan edi? <b>Ism-familiyasini</b> yozing — "
         "u fayldan tozalanadi.\n\n"
         f"Ism noma'lum bo'lsa <code>{SKIP}</code> yuboring.",
@@ -403,10 +437,17 @@ async def publish_got_title(message: Message, state: FSMContext):
     if len(title) < 3:
         await message.answer("Sarlavha juda qisqa. Qaytadan yozing.")
         return
+    from config import store_price
+
     await state.update_data(pub_title=title[:300])
     await state.set_state(StorePublishStates.waiting_for_price)
-    await message.answer("💰 <b>Narxini</b> so'mda yozing (masalan: <code>15000</code>).",
-                         parse_mode="HTML")
+    data = await state.get_data()
+    suggested = store_price(data.get("pub_work_type", ""))
+    await message.answer(
+        f"💰 <b>Narxini</b> so'mda yozing.\n\n"
+        f"Bu tur uchun odatdagisi: <b>{suggested:,}</b> so'm — "
+        f"rozi bo'lsangiz <code>{SKIP}</code> yuboring.".replace(",", " "),
+        parse_mode="HTML")
 
 
 def _category_prompt(title: str) -> str:
@@ -425,11 +466,18 @@ def _category_prompt(title: str) -> str:
 async def publish_got_price(message: Message, state: FSMContext):
     if not _is_admin(message.from_user.id):
         return
+    from config import store_price
+
     raw = (message.text or "").replace(" ", "").replace(",", "")
-    if not raw.isdigit() or not 0 < int(raw) <= 10_000_000:
+    if raw == SKIP:
+        data = await state.get_data()
+        price = store_price(data.get("pub_work_type", ""))
+    elif raw.isdigit() and 0 < int(raw) <= 10_000_000:
+        price = int(raw)
+    else:
         await message.answer("Narx faqat raqamlardan iborat bo'lsin. Qaytadan yozing.")
         return
-    await state.update_data(pub_price=int(raw))
+    await state.update_data(pub_price=price)
     await state.set_state(StorePublishStates.waiting_for_category)
     data = await state.get_data()
     await message.answer(_category_prompt(data.get("pub_title", "")), parse_mode="HTML")
@@ -469,6 +517,7 @@ async def publish_got_description(message: Message, state: FSMContext):
             customer_name=data.get("pub_customer", ""),
             description="" if description == SKIP else description[:1000],
             category=data.get("pub_category", ""),
+            work_type=data.get("pub_work_type", ""),
         )
     except Exception as exc:
         logger.exception("Katalogga qo'yilmadi: %s", exc)

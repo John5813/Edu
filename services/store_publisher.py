@@ -391,6 +391,7 @@ async def publish_work(
     customer_name: str = "",
     description: str = "",
     category: str = "",
+    work_type: str = "",
     language: str = "uz",
     keywords: str = "",
 ) -> dict:
@@ -442,6 +443,7 @@ async def publish_work(
             price=price,
             description=description,
             category=category,
+            work_type=work_type,
             language=language,
             keywords=keywords,
             slide_count=_slide_count(cleaned_path, preview_count),
@@ -502,7 +504,7 @@ def schedule_publish(bot, file_path: str, title: str, work_type: str, *,
             await publish_work(
                 bot, staged, title.strip()[:300], store_price(work_type),
                 customer_name=customer_name, language=language,
-                keywords=work_type.replace("_", " "),
+                work_type=work_type,
             )
         except Exception as exc:
             logger.error("Avtomatik nashr bo'lmadi (%s): %s", work_type, exc)
