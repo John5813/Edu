@@ -129,11 +129,27 @@ ELEMENT TURLARI:
   MAJBURIY: har taqdimotda KAMIDA 2 ta infographic bo'lsin.
   Bullet ro'yxati o'rniga infographic ishlating — u ancha professional ko'rinadi.
 
+⑨ scheme — tuzilma sxemasi (kartochka to'ri EMAS)
+{"type":"scheme","x":0.8,"y":1.7,"w":11.7,"h":4.8,
+ "scheme_kind":"process",   // hierarchy | components | process | cycle | levels
+ "scheme_root":"Markazdagi tushuncha",
+ "items":[{"title":"Tarmoq nomi","text":"tarkibi, vergul bilan, 2-3 ta"}]}
+
+• Sen faqat MAZMUN berasan — shaklni kod tanlaydi: daraxt, radial,
+  oqim, chevron, halqa, bosqichlar yoki piramida
+• scheme_kind mazmunga qarab: bo'linadigan butun — hierarchy, teng
+  qismlar — components, ketma-ket bosqichlar — process, takrorlanadigan
+  jarayon — cycle, bir-birining ustiga qurilgan qatlamlar — levels
+• items: 2-6 ta tarmoq; "title" — 1-3 so'z, "text" — tarkibi (2-3 ta
+  qisqa ibora, vergul bilan ajratilgan) yoki bo'sh
+• Tizim, tuzilma, jarayon yoki tasnif haqidagi slaydda infographic
+  o'rniga SHUNI ishlating — u butunlay boshqacha ko'rinadi
+
 ══════════════════════════════════════════════════
 BITTA SLAYD — BITTA INSTRUMENT (eng muhim qoida):
 
-Instrument — image, chart, infographic yoki kpi kartochkalari qatori.
-Bitta slaydda ULARDAN FAQAT BITTASI bo'lsin.
+Instrument — image, chart, infographic, scheme yoki kpi kartochkalari
+qatori. Bitta slaydda ULARDAN FAQAT BITTASI bo'lsin.
 
 ✗ Rasm + diagramma bir varaqda — ular bir-birini yopadi va o'quvchi
   ikkalasini birdan o'zlashtira olmaydi
@@ -145,6 +161,7 @@ Qaysi birini tanlash — slayd nimani aytmoqchi bo'lsa o'shanga qarab:
   → raqam gapiradi (o'sish, ulush, taqqoslash)   → chart
   → mavzuni ko'z bilan ko'rsatish kerak          → image
   → bandlar, bosqichlar, davrlar                 → infographic
+  → tizim, tuzilma, tasnif, jarayon oqimi        → scheme
   → bitta hal qiluvchi raqam                     → kpi
 
 TANLANGAN INSTRUMENT TO'LIQ YORITILSIN:
@@ -155,6 +172,23 @@ TANLANGAN INSTRUMENT TO'LIQ YORITILSIN:
   matnida izohlansin
 • Bitta instrument bilan slayd bo'sh ko'rinmaydi — bo'shagan joy izoh,
   tahlil va misol bilan to'ldiriladi
+
+══════════════════════════════════════════════════
+TUZILMA TAKRORLANMASIN:
+
+✗ Ketma-ket ikki slaydda bir xil tuzilma (masalan ikkalasida ham
+  to'rtta ikonkali kartochka — faqat matni boshqa)
+✗ DASTLABKI 5 SLAYD bir-birini takrorlasa — taqdimot aynan shu yerda
+  baholanadi
+
+Har slaydda boshqa vosita va boshqa joylashuv bo'lsin. Masalan:
+  1 — mavzu sahifasi (rasm + sarlavha)
+  2 — infographic (cards)
+  3 — scheme yoki chart
+  4 — rasm + tahlil matni
+  5 — infographic (steps/timeline) yoki kpi qatori
+Bu shunchaki misol — mavzuga qarab o'zgartiring, lekin ketma-ket
+takrorlanmasin.
 
 ══════════════════════════════════════════════════
 MAVJUD IKONKA NOMLARI (faqat shu ro'yxatdan tanlang):
@@ -324,6 +358,8 @@ Slayd o'lchami: 13.333" × 7.5". Element turlari: rect, text, circle, image, cha
 Kpi formati: {"type":"kpi","x":1.0,"y":4.2,"w":3.4,"h":1.8,"value":"78%","label":"izoh","fill":"F4F6F9","color":"1B2A4A"}
 
 Icon formati: {"type":"icon","x":1.2,"y":2.4,"w":0.7,"h":0.7,"icon":"<ro'yxatdagi nom>","fill":"2A78D6","color":"FFFFFF","shape":"circle"}
+Scheme formati: {"type":"scheme","x":0.8,"y":1.7,"w":11.7,"h":4.8,"scheme_kind":"hierarchy|components|process|cycle|levels","scheme_root":"markaz","items":[{"title":"Tarmoq","text":"tarkibi, vergul bilan"}]}
+  → tizim/tuzilma/jarayon uchun; shaklni kod tanlaydi, sen faqat mazmun berasan
 Infographic formati: {"type":"infographic","x":0.6,"y":1.9,"w":12.1,"h":4.4,"preset":"cards|steps|timeline|cycle|pyramid","items":[{"title":"...","text":"...","icon":"<nom>","value":"2019"}]}
   → items 3-5 ta, har birida icon nomi; koordinatani kod hisoblaydi, sen faqat mazmun ber
 Ikonka nomlari: {ICONS}
@@ -607,8 +643,12 @@ def _base_rules(topic: str, slide_count: int, level: int = 2) -> str:
         "• Rang kontrasti qat'iy: to'q fon → oq matn, och fon → to'q matn\n"
         "• key_text mazmunli bo'lsin, lekin sun'iy ravishda cho'zilmasin\n"
         "• Birinchi slaydda image MAJBURIY; har taqdimotda kamida 2 ta image va 2 ta chart\n"
-        "• BITTA slaydda BITTA instrument (image | chart | infographic | kpi) — "
-        "ikkitasi bir varaqqa sig'maydi va bir-birini yopadi\n"
+        "• BITTA slaydda BITTA instrument (image | chart | infographic | "
+        "scheme | kpi) — ikkitasi bir varaqqa sig'maydi va bir-birini yopadi\n"
+        "• Ketma-ket slaydlarda tuzilma takrorlanmasin; dastlabki 5 slayd "
+        "bir-biridan butunlay boshqacha bo'lsin\n"
+        "• Tizim, tuzilma yoki jarayon haqidagi slaydda `scheme` elementidan "
+        "foydalan — u kartochka to'ridan butunlay boshqacha ko'rinadi\n"
         "• O'sha yagona instrument slaydning kamida yarmini egallasin va matnda "
         "to'liq izohlansin — nima ko'rsatilgani va qanday xulosa chiqishi\n"
         "• Matn hajmi: instrumentli slaydda 90-130 so'z, instrumentsizda 160-240 so'z "

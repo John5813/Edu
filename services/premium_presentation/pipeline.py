@@ -23,14 +23,17 @@ log = logging.getLogger("pipeline")
 # "diagramma + rasm" edi: rasm diagramma ustiga tushib uni yopib qo'yardi,
 # o'quvchi esa ikkalasini birdan o'qiy olmaydi. Bitta instrument qolsa, unga
 # joy ham, izoh ham yetadi.
-_INSTRUMENTS = {"image", "chart", "infographic", "kpi"}
+_INSTRUMENTS = {"image", "chart", "infographic", "scheme", "kpi"}
 
 # Qaysi biri qolishi kerak: diagramma raqam ko'rsatadi, rasm mavzuni ochadi,
-# infografika bandlarni tartiblaydi, kartochkalar esa eng kam ma'lumot beradi.
-_INSTRUMENT_RANK = {"chart": 0, "image": 1, "infographic": 2, "kpi": 3}
+# sxema tuzilmani ko'rsatadi, infografika bandlarni tartiblaydi,
+# kartochkalar esa eng kam ma'lumot beradi.
+_INSTRUMENT_RANK = {"chart": 0, "image": 1, "scheme": 2, "infographic": 3, "kpi": 4}
 
 _INSTRUMENT_NAMES = {"image": "rasm", "chart": "diagramma",
-                     "infographic": "infografika", "kpi": "ko'rsatkich kartochkalari"}
+                     "scheme": "tuzilma sxemasi",
+                     "infographic": "infografika",
+                     "kpi": "ko'rsatkich kartochkalari"}
 
 
 def _instrument_groups(slide: Slide) -> list:
@@ -200,6 +203,10 @@ def canvas_validation_and_fix(
     # yoyilgandan keyin u o'nlab ibtidoiy elementga aylanadi va uni butun
     # holda qaytarib olish imkonsiz bo'lardi.
     brief = limit_instruments(brief)
+    # Tuzilmalar yoyilishi infografika ibtidoiy shakllarga yoyilishidan
+    # OLDIN bo'lishi shart: yoyilgandan keyin preset yoki sxema turini
+    # almashtirib bo'lmaydi.
+    brief = diversify_structures(brief, topic)
     brief = expand_infographics(brief)
     brief = ensure_title_contrast(brief)
     brief = ensure_body_contrast(brief)
@@ -715,6 +722,215 @@ def spread_infographic_presets(brief: Brief, topic: str) -> Brief:
     return brief
 
 
+# ─────────────────────────────────────────── Tuzilma xilma-xilligi
+#
+# Yetkazilgan taqdimotda 2 va 3-slayd bir xil edi: to'rtta ikonkali
+# kartochka, faqat matni boshqa. Ketma-ket kelgan bir xil tuzilma
+# taqdimotni shablonga o'xshatib qo'yadi, mijoz esa aynan shu birinchi
+# beshta slaydga qarab baho beradi.
+
+# Dastlabki nechta slayd bir-birini umuman takrorlamasligi kerak.
+_HEAD_SLIDES = 5
+
+# Sxema turlari — infografika o'rniga qo'yiladigan muqobil tuzilma.
+_SCHEME_KINDS = ("hierarchy", "components", "process", "cycle", "levels")
+
+# Bir xil ma'lumotni ko'rsata oladigan diagramma turlari.
+_CHART_SWAPS = {
+    "column": ("bar", "line", "area"),
+    "bar": ("column", "line", "area"),
+    "line": ("area", "column", "bar"),
+    "area": ("line", "column", "bar"),
+    "pie": ("donut", "bar", "column"),
+    "donut": ("pie", "bar", "column"),
+    "radar": ("bar", "column", "line"),
+    "scatter": ("line", "column", "bar"),
+}
+
+
+def _structure(slide: Slide) -> str:
+    """Slaydning tuzilishi — o'quvchi ko'z bilan ajratadigan darajada."""
+    groups = _instrument_groups(slide)
+    if not groups:
+        return "matn"
+    kind, elements = groups[0][2], groups[0][3]
+    element = elements[0]
+    if kind == "infographic":
+        return f"infographic:{element.preset or 'cards'}"
+    if kind == "scheme":
+        return f"scheme:{element.scheme_kind or 'hierarchy'}"
+    if kind == "chart":
+        return f"chart:{element.chart_type or 'column'}"
+    return kind
+
+
+def _to_scheme(element, slide: Slide) -> bool:
+    """Infografikani tuzilma sxemasiga aylantiradi.
+
+    Sxema loyiha ishidagi chizuvchi bilan chiziladi: daraxt, radial,
+    oqim, halqa yoki bosqichlar — kartochka to'ridan butunlay boshqacha
+    ko'rinadi. Mazmun o'zgarmaydi: band nomi tarmoq nomiga, izohi esa
+    uning tarkibiga aylanadi.
+    """
+    items = [item for item in (element.items or []) if (item.title or item.text)]
+    if not 2 <= len(items) <= 6:
+        return False
+
+    # Sxemada tarmoq tarkibi qutichalar ichida chiziladi, ya'ni u qisqa
+    # ibora bo'lishi kerak. Infografikadagi izoh esa to'liq jumla —
+    # uni o'z holicha qo'ysak, quticha ichida o'qib bo'lmas matn qolardi.
+    for item in items:
+        parts = [part.strip() for part in (item.text or "").split(",")]
+        short = [part for part in parts if 0 < len(part) <= 28][:3]
+        item.text = ", ".join(short) if len(short) >= 2 else ""
+        if not item.title:
+            item.title = (parts[0] if parts else "")[:40]
+
+    element.items = items
+    element.type = "scheme"
+    element.scheme_root = " ".join((slide.title or "").split())[:60]
+    element.preset = None
+    return True
+
+
+def _restructure(slide: Slide, avoid: set, rng) -> bool:
+    """Slayd tuzilishini o'zgartiradi — mazmuniga tegmasdan."""
+    groups = _instrument_groups(slide)
+    if not groups:
+        return False
+    kind, elements = groups[0][2], groups[0][3]
+    element = elements[0]
+
+    if kind == "infographic":
+        count = len(element.items or [])
+        options = [preset for preset in infographics.PRESET_FITS
+                   if infographics.fits(preset, count)
+                   and f"infographic:{preset}" not in avoid]
+        if options:
+            element.preset = rng.choice(options)
+            return True
+        # Hamma preset ishlatilgan — butunlay boshqa tuzilmaga o'tamiz.
+        kinds = [k for k in _SCHEME_KINDS if f"scheme:{k}" not in avoid]
+        if kinds and _to_scheme(element, slide):
+            element.scheme_kind = rng.choice(kinds)
+            return True
+        return False
+
+    if kind == "scheme":
+        kinds = [k for k in _SCHEME_KINDS if f"scheme:{k}" not in avoid]
+        if kinds:
+            element.scheme_kind = rng.choice(kinds)
+            return True
+        return False
+
+    if kind == "chart":
+        current = element.chart_type or "column"
+        options = [swap for swap in _CHART_SWAPS.get(current, ())
+                   if f"chart:{swap}" not in avoid]
+        # Doiraviy diagramma beshtadan ko'p kategoriyani ko'tarmaydi.
+        if len(element.categories or []) > 5:
+            options = [o for o in options if o not in ("pie", "donut")]
+        if options:
+            element.chart_type = options[0]
+            return True
+        return False
+
+    if kind == "image":
+        # Ikki rasm slaydi ketma-ket kelsa, kompozitsiyani aks ettiramiz:
+        # rasm chapga, matn o'ngga o'tadi.
+        return _mirror(slide)
+    return False
+
+
+def _mirror(slide: Slide) -> bool:
+    """Chap-o'ng kompozitsiyani almashtiradi."""
+    moved = False
+    for element in slide.canvas.elements:
+        if element.locked:
+            continue
+        width = element.w or (element.d or 1.0)
+        new_x = SLIDE_W - (element.x + width)
+        if abs(new_x - element.x) > 0.2:
+            element.x = max(_EDGE, min(new_x, SLIDE_W - _EDGE - width))
+            moved = True
+    return moved
+
+
+def diversify_structures(brief: Brief, topic: str) -> Brief:
+    """Ketma-ket slaydlar bir xil tuzilishda chiqmasin.
+
+    Dastlabki beshtasi bir-birini umuman takrorlamaydi, qolganlarida esa
+    faqat qo'shni slayd bilan bir xil bo'lish taqiqlanadi — aks holda
+    uzun taqdimotda tuzilmalar tugab qolardi va xilma-xillik o'rniga
+    tasodifiy sakrash chiqardi.
+    """
+    if len(brief.slides) < 2:
+        return brief
+
+    rng = random.Random(hashlib.sha256(
+        f"{topic}|{brief.topic}".encode("utf-8")).hexdigest())
+    before = [_structure(slide) for slide in brief.slides]
+
+    # Avval boshidagi ortiqcha kartochka to'rlari sxemaga o'tkaziladi,
+    # keyin ketma-ketlik tekshiriladi — shunda yangi sxema qo'shnisi
+    # bilan bir xil bo'lib qolsa ham tuzatiladi.
+    _limit_head_infographics(brief, rng)
+
+    head: list = []
+    previous = None
+    for index, slide in enumerate(brief.slides):
+        current = _structure(slide)
+        avoid = set(head) if index < _HEAD_SLIDES else set()
+        if previous:
+            avoid.add(previous)
+        if current in avoid:
+            if _restructure(slide, avoid, rng):
+                current = _structure(slide)
+            else:
+                log.info("Slayd %s tuzilishini o'zgartirib bo'lmadi (%s)",
+                         slide.index, current)
+        previous = current
+        if index < _HEAD_SLIDES:
+            head.append(current)
+
+    after = [_structure(slide) for slide in brief.slides]
+    if after != before:
+        log.info("Tuzilmalar yoyildi: %s → %s", before, after)
+    return brief
+
+
+# Dastlabki beshta slaydda nechta infografika bo'lishi mumkin. Preset
+# almashtirish yordam beradi, lekin uchta kartochka to'ri ketma-ket
+# kelsa taqdimot baribir bir xil ko'rinadi — uchinchisi sxemaga aylanadi.
+_HEAD_INFOGRAPHICS = 2
+
+
+def _limit_head_infographics(brief: Brief, rng) -> None:
+    """Boshidagi slaydlarda infografika ko'payib ketmasin."""
+    used_kinds = {
+        element.scheme_kind
+        for slide in brief.slides
+        for element in slide.canvas.elements
+        if element.type == "scheme" and element.scheme_kind
+    }
+    seen = 0
+    for slide in brief.slides[:_HEAD_SLIDES]:
+        groups = _instrument_groups(slide)
+        if not groups or groups[0][2] != "infographic":
+            continue
+        seen += 1
+        if seen <= _HEAD_INFOGRAPHICS:
+            continue
+        element = groups[0][3][0]
+        options = [kind for kind in _SCHEME_KINDS if kind not in used_kinds]
+        if not options or not _to_scheme(element, slide):
+            continue
+        element.scheme_kind = rng.choice(options)
+        used_kinds.add(element.scheme_kind)
+        log.info("Slayd %s: infografika tuzilma sxemasiga aylantirildi (%s)",
+                 slide.index, element.scheme_kind)
+
+
 def _describe(kind: str, elements: list) -> str:
     """Instrumentni bir satrda tasvirlaydi — modelga qaror uchun shu yetadi."""
     element = elements[0]
@@ -724,10 +940,11 @@ def _describe(kind: str, elements: list) -> str:
         return f"{what} ({element.chart_type}; {cats})".strip()
     if kind == "image":
         return (element.prompt or "")[:120]
-    if kind == "infographic":
+    if kind in ("infographic", "scheme"):
         titles = ", ".join((item.title or item.text or "")[:24]
                            for item in (element.items or [])[:4])
-        return f"{element.preset}: {titles}"
+        shape = element.preset if kind == "infographic" else element.scheme_kind
+        return f"{shape}: {titles}"
     return " · ".join(f"{e.value} {e.label}".strip() for e in elements[:4])
 
 
@@ -1631,7 +1848,7 @@ _TOLERANCE = 0.02
 _MIN_OVERLAP_SHARE = 0.15
 
 # Matn ustiga tushib qolsa o'qilmay qoladigan elementlar.
-_OPAQUE_TYPES = {"image", "chart", "kpi", "circle", "infographic"}
+_OPAQUE_TYPES = {"image", "chart", "kpi", "circle", "infographic", "scheme"}
 
 
 def _box(element) -> tuple:

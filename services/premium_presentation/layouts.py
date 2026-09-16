@@ -76,6 +76,8 @@ def render_canvas(slide, s, image_paths: dict, used_icons: set | None = None,
                 _draw_kpi(slide, el, s)
             elif el.type == "icon":
                 _draw_icon(slide, el, used_icons)
+            elif el.type == "scheme":
+                _draw_scheme(slide, el, palette, s.canvas.background)
             elif el.type == "infographic":
                 # Pipeline uni ibtidoiy elementlarga yoyishi kerak edi; bu yerga
                 # yetib kelgani — yoyish o'tkazib yuborilganini bildiradi.
@@ -307,6 +309,59 @@ def _native_size(img_path: str):
     except Exception as exc:
         log.warning("Rasm o'lchami aniqlanmadi (%s): %s", img_path, exc)
         return 0, 0
+
+
+# ─────────────────────────────────────────────────────────── scheme
+
+def _draw_scheme(slide, el, palette=None, background: str = "FFFFFF"):
+    """Tuzilma sxemasini chizib, rasm sifatida qo'yadi.
+
+    Chizuvchi loyiha ishi bilan bir xil (`project_work.schemes`): shakl
+    mazmun turiga va mavzu urug'iga qarab tanlanadi, shuning uchun har
+    taqdimotda boshqacha ko'rinadi — bir xil kartochka to'ri emas.
+    """
+    from services.project_work import schemes
+
+    from . import config as _config
+
+    branches = []
+    for item in (el.items or []):
+        name = (item.title or item.value or "").strip()
+        parts = [part.strip() for part in (item.text or "").split(",") if part.strip()]
+        if name or parts:
+            branches.append({"name": name or parts[0], "items": parts[:3]})
+    if len(branches) < 2:
+        log.warning("Sxema uchun band yetarli emas (slayd %s)", getattr(el, "text", ""))
+        return
+
+    data = {"kind": el.scheme_kind or "hierarchy",
+            "root": (el.scheme_root or "").strip(),
+            "branches": branches}
+    # Sarlavha berilmaydi: u slaydda allaqachon bor va rasm ichida
+    # ikkinchi marta chiqsa takrorlanardi. Fon esa slaydniki bo'ladi —
+    # aks holda chizma ostida boshqa rangdagi to'rtburchak ko'rinardi.
+    try:
+        path = schemes.draw(data, "", _config.WORK_DIR, palette,
+                            facecolor=f"#{(el.fill or background or 'FFFFFF').lstrip('#')}")
+    except Exception as exc:
+        log.warning("Sxema chizilmadi: %s", exc)
+        return
+    if not path:
+        return
+
+    box_w = _clamp(el.w or 11.0, 2.0, 13.333)
+    box_h = _clamp(el.h or 4.4, 1.5, 7.5)
+    x = _clamp(el.x, 0.0, 13.333 - box_w)
+    y = _clamp(el.y, 0.0, 7.5 - box_h)
+
+    width, height = _native_size(path)
+    if width and height:
+        scale = min(box_w / width, box_h / height)
+        draw_w, draw_h = width * scale, height * scale
+        x += (box_w - draw_w) / 2
+        y += (box_h - draw_h) / 2
+        box_w, box_h = draw_w, draw_h
+    slide.shapes.add_picture(path, Inches(x), Inches(y), Inches(box_w), Inches(box_h))
 
 
 # ─────────────────────────────────────────────────────────── chart

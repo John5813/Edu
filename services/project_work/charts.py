@@ -186,11 +186,19 @@ def _compact_ticks(figure, language: str) -> None:
                     FuncFormatter(lambda value, _pos: _format(value, language)))
 
 
-def _save(figure, work_dir: str, language: str = "uz") -> str:
+def _save(figure, work_dir: str, language: str = "uz",
+          facecolor: str = "") -> str:
+    """Chizmani saqlaydi.
+
+    `facecolor` — fon rangi. Hujjatda oq varaq bo'lgani uchun sukut
+    bo'yicha `SURFACE`, taqdimotda esa slaydning o'z foni beriladi,
+    aks holda chizma ostida boshqa rangdagi to'rtburchak ko'rinib qolardi.
+    """
     _compact_ticks(figure, language)
     os.makedirs(work_dir, exist_ok=True)
     path = os.path.join(work_dir, f"pwchart_{uuid.uuid4().hex[:10]}.png")
-    figure.savefig(path, facecolor=SURFACE, bbox_inches="tight", pad_inches=0.18)
+    figure.savefig(path, facecolor=facecolor or SURFACE,
+                   bbox_inches="tight", pad_inches=0.18)
     plt.close(figure)
     return path
 
