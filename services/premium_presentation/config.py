@@ -84,9 +84,21 @@ TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY", "")
 # FLUX.1-schnell hisobimizning model ro'yxatida yo'q edi — birinchi so'rov
 # HTTP 400 bilan yiqilib, keyingi urinishlar 429 ga tushardi. FLUX.2-pro
 # mavjud va premium slaydlar uchun mos.
-TOGETHER_IMAGE_MODEL = os.getenv(
-    "PREMIUM_TOGETHER_IMAGE_MODEL", "black-forest-labs/FLUX.2-pro"
+# Rasm modeli ham ro'yxat: yetkazilgan taqdimotlarda hamma rasm so'rovi
+# muvaffaqiyatsiz tugagan va taqdimot faqat ikonka bilan chiqqan. Bitta
+# model ishlamasa (hisobda ochiq emas, nomi o'zgargan, limit) keyingisiga
+# o'tiladi — mijoz pul to'lagan ishda rasmsiz qolmaslik muhimroq.
+_DEFAULT_IMAGE_CHAIN = (
+    "black-forest-labs/FLUX.2-pro,"
+    "black-forest-labs/FLUX.1.1-pro,"
+    "black-forest-labs/FLUX.1-schnell-Free,"
+    "black-forest-labs/FLUX.1-schnell"
 )
+TOGETHER_IMAGE_MODELS = _chain(
+    os.getenv("PREMIUM_TOGETHER_IMAGE_MODEL", "") + "," +
+    os.getenv("PREMIUM_TOGETHER_IMAGE_FALLBACKS", _DEFAULT_IMAGE_CHAIN)
+)
+TOGETHER_IMAGE_MODEL = TOGETHER_IMAGE_MODELS[0]
 TOGETHER_IMAGE_URL = os.getenv(
     "PREMIUM_TOGETHER_IMAGE_URL", "https://api.together.ai/v1/images/generations"
 )

@@ -38,15 +38,31 @@ def _build_prompt(raw_prompt: str) -> str:
     return _QUALITY_PREFIX + raw_prompt.strip()
 
 
-def _steps() -> int | None:
+def _steps(model_name: str) -> int | None:
     """Model qabul qiladigan qadam sonini qaytaradi, qabul qilmasa None."""
-    model = (config.TOGETHER_IMAGE_MODEL or "").lower()
+    model = (model_name or "").lower()
     if not any(family in model for family in _STEPS_MODELS):
         return None
     steps = max(1, int(getattr(config, "TOGETHER_IMAGE_STEPS", 4)))
     if "schnell" in model:
         steps = min(steps, _MAX_SCHNELL_STEPS)
     return steps
+
+
+# Ishlab turgan rasm modeli — birinchi muvaffaqiyatli so'rovdan keyin
+# eslab qolinadi, shunda qolgan rasmlar uchun ishlamaydigan modellar
+# qayta sinalmaydi (har biri 3 urinish va bir necha o'n soniya edi).
+_WORKING_MODEL = None
+# Oxirgi xato sababi — chaqiruvchi uni adminга ko'rsatishi uchun.
+LAST_ERROR = ""
+
+
+def _models() -> list:
+    chain = list(getattr(config, "TOGETHER_IMAGE_MODELS", None)
+                 or [config.TOGETHER_IMAGE_MODEL])
+    if _WORKING_MODEL and _WORKING_MODEL in chain:
+        return [_WORKING_MODEL] + [m for m in chain if m != _WORKING_MODEL]
+    return chain
 
 
 def _throttle() -> None:
@@ -77,26 +93,39 @@ def _retry_after(response) -> float | None:
 
 def generate_image(prompt: str, retries: int = 3) -> str | None:
     """Together AI orqali sifatli rasm generatsiya qiladi."""
+    global LAST_ERROR
     if not config.TOGETHER_API_KEY:
+        LAST_ERROR = "TOGETHER_API_KEY o'rnatilmagan"
         log.warning("TOGETHER_API_KEY yo'q, rasm generatsiyasi o'tkazib yuborildi")
         return None
 
     enhanced_prompt = _build_prompt(prompt)
     log.info("Rasm so'rovi: %s", enhanced_prompt[:160])
 
+    for model in _models():
+        path = _generate_with(model, enhanced_prompt, retries)
+        if path:
+            return path
+    return None
+
+
+def _generate_with(model_name: str, enhanced_prompt: str, retries: int) -> str | None:
+    """Bitta model bilan urinadi. Sabab `LAST_ERROR` ga yoziladi."""
+    global _WORKING_MODEL, LAST_ERROR
+
     headers = {
         "Authorization": f"Bearer {config.TOGETHER_API_KEY}",
         "Content-Type": "application/json",
     }
     payload = {
-        "model": config.TOGETHER_IMAGE_MODEL,
+        "model": model_name,
         "prompt": enhanced_prompt,
         "width": config.TOGETHER_IMAGE_WIDTH,
         "height": config.TOGETHER_IMAGE_HEIGHT,
         "n": 1,
         "seed": random.randint(1, 999999),
     }
-    steps = _steps()
+    steps = _steps(model_name)
     if steps is not None:
         payload["steps"] = steps
 
@@ -127,7 +156,8 @@ def generate_image(prompt: str, retries: int = 3) -> str | None:
                 img_bytes = base64.b64decode(b64)
                 with open(out_path, "wb") as f:
                     f.write(img_bytes)
-                log.info("Rasm saqlandi (b64): %s", out_path)
+                log.info("Rasm saqlandi (b64): %s | model %s", out_path, model_name)
+                _WORKING_MODEL = model_name
                 return out_path
 
             # URL orqali yuklash
@@ -147,7 +177,9 @@ def generate_image(prompt: str, retries: int = 3) -> str | None:
                     break
                 with open(out_path, "wb") as f:
                     f.write(content)
-                log.info("Rasm saqlandi (url): %s | %s bayt", out_path, len(content))
+                log.info("Rasm saqlandi (url): %s | %s bayt | model %s",
+                         out_path, len(content), model_name)
+                _WORKING_MODEL = model_name
                 return out_path
 
             log.error("Together javobida na b64_json na url: %s", item)
@@ -157,7 +189,9 @@ def generate_image(prompt: str, retries: int = 3) -> str | None:
             response = e.response
             status = response.status_code if response is not None else "?"
             body = response.text[:300] if response is not None else ""
-            log.warning("Together HTTP %s (urinish %s/%s): %s | %s", status, attempt, retries, e, body)
+            LAST_ERROR = f"{model_name}: HTTP {status} {body[:160]}"
+            log.warning("Together HTTP %s (%s, urinish %s/%s): %s | %s",
+                        status, model_name, attempt, retries, e, body)
             if status == 429:
                 wait = _retry_after(response)
                 if wait is None:
@@ -171,9 +205,12 @@ def generate_image(prompt: str, retries: int = 3) -> str | None:
             log.error("Qayta urinish bekor: HTTP %s | %s", status, body)
             break
         except Exception as e:
-            log.warning("Together xato (urinish %s/%s): %s", attempt, retries, e)
+            LAST_ERROR = f"{model_name}: {e}"
+            log.warning("Together xato (%s, urinish %s/%s): %s",
+                        model_name, attempt, retries, e)
             if attempt < retries:
                 time.sleep(2 * attempt)
 
-    log.error("Rasm generatsiyasi %s urinishdan keyin muvaffaqiyatsiz: '%s'", retries, prompt[:80])
+    log.error("Rasm chiqmadi (%s, %s urinish). Sabab: %s",
+              model_name, retries, LAST_ERROR or "noma'lum")
     return None

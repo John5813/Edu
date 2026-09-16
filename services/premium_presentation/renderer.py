@@ -7,11 +7,16 @@ from pptx import Presentation
 from services.project_work import palettes, variety
 
 from . import config
+from . import image_client
 from .image_client import generate_image
 from .layouts import SLIDE_H, SLIDE_W, render_canvas
 from .models import Brief, Slide, VisualElement
 
 log = logging.getLogger("renderer")
+
+# Oxirgi renderda rasmlar bo'yicha natija: {"wanted", "failed", "reason"}.
+# Telegram tomoni buni o'qib, kerak bo'lsa adminni ogohlantiradi.
+LAST_IMAGE_REPORT = {"wanted": 0, "failed": 0, "reason": ""}
 
 
 def _soft(hex_colour: str, amount: float = 0.86) -> str:
@@ -160,18 +165,28 @@ def build_presentation(brief: Brief, user_id: int | None = None) -> str:
 
         render_canvas(slide, s, image_paths, used_icons, palette)
 
+    # Oxirgi natija chaqiruvchiga ham kerak: rasmsiz taqdimot mijozga
+    # "premium" bo'lib ko'rinmaydi, shuning uchun admin bundan xabardor
+    # bo'lishi kerak — jimgina yuborib qo'yilmasin.
+    global LAST_IMAGE_REPORT
+    LAST_IMAGE_REPORT = {
+        "wanted": wanted, "failed": failed,
+        "reason": image_client.LAST_ERROR if failed else "",
+    }
+
     if wanted and failed == wanted:
         # Bitta ham rasm chiqmasa sabab deyarli har doim bitta bo'ladi:
         # kalit yo'q, krediti tugagan yoki model hisobda mavjud emas.
         # Har slayd uchun alohida yozuv bu xulosani ko'mib yuborardi.
         log.error(
             "HECH BIR RASM YARATILMADI (%s ta so'rovning hammasi muvaffaqiyatsiz). "
-            "TOGETHER_API_KEY, hisobdagi kredit va PREMIUM_TOGETHER_IMAGE_MODEL "
-            "(%s) ni tekshiring — yuqoridagi HTTP javob kodi sababni ko'rsatadi.",
-            wanted, config.TOGETHER_IMAGE_MODEL,
+            "Sinalgan modellar: %s. Oxirgi sabab: %s",
+            wanted, ", ".join(config.TOGETHER_IMAGE_MODELS),
+            image_client.LAST_ERROR or "noma'lum",
         )
     elif failed:
-        log.warning("Rasmlar: %s tadan %s tasi yaratilmadi", wanted, failed)
+        log.warning("Rasmlar: %s tadan %s tasi yaratilmadi. Oxirgi sabab: %s",
+                    wanted, failed, image_client.LAST_ERROR or "noma'lum")
 
     os.makedirs(config.WORK_DIR, exist_ok=True)
     out_path = os.path.join(config.WORK_DIR, f"ppt_{uuid.uuid4().hex[:10]}.pptx")
