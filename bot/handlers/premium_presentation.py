@@ -1233,6 +1233,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
             from services.store_publisher import schedule_publish
 
             schedule_publish(callback.bot, final_path, topic, "premium_taqdimot",
+                             customer_name=client_name,
                              language=presentation_language)
         except Exception as store_err:
             logger.warning("Katalogga yo'naltirilmadi (premium): %s", store_err)

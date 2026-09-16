@@ -48,13 +48,13 @@ def _card(item: dict, lang: str) -> str:
         lines.append(item["description"])
         lines.append("")
     if item.get("slide_count"):
+        count = item["slide_count"]
+        docx = (item.get("file_type") or "pptx") == "docx"
         lines.append(_t(lang,
-                        f"📄 Slaydlar: {item['slide_count']} ta",
-                        f"📄 Слайдов: {item['slide_count']}",
-                        f"📄 Slides: {item['slide_count']}"))
-    lines.append(_t(lang, f"🔖 Kod: {item['public_code']}",
-                   f"🔖 Код: {item['public_code']}",
-                   f"🔖 Code: {item['public_code']}"))
+                        f"📄 {'Varaqlar' if docx else 'Slaydlar'}: {count} ta",
+                        f"📄 {'Страниц' if docx else 'Слайдов'}: {count}",
+                        f"📄 {'Pages' if docx else 'Slides'}: {count}"))
+    # Ichki kod mijozga ko'rsatilmaydi — u faqat admin uchun.
     lines.append("")
     lines.append(_t(lang, f"💰 Narxi: <b>{price} so'm</b>",
                    f"💰 Цена: <b>{price} сум</b>",
