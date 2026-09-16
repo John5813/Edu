@@ -2525,43 +2525,116 @@ async def back_to_block_menu(callback: CallbackQuery):
         parse_mode=None
     )
 
+# ─────────────────────────────────────────────── AI model sozlamalari
+#
+# Ikkita alohida tanlov bor: premium taqdimot va qolgan xizmatlar. Premium
+# taqdimot eng qimmat xizmat va undagi matn sifati mijozga eng ko'p
+# ko'rinadi, shuning uchun unga qimmatroq model qo'yib, kundalik
+# hujjatlarni arzonroq modelda qoldirish mumkin.
+
+_AI_TARGETS = {
+    "main": ("📄 Hujjatlar va oddiy taqdimot", "hujjatlar"),
+    "premium": ("💎 Premium taqdimot", "premium taqdimot"),
+}
+
+
+async def _model_key(db: Database, target: str) -> str:
+    if target == "premium":
+        return await db.get_premium_ai_model()
+    return await db.get_current_ai_model()
+
+
+async def _save_model_key(db: Database, target: str, model_key: str) -> bool:
+    if target == "premium":
+        return await db.set_premium_ai_model(model_key)
+    return await db.set_current_ai_model(model_key)
+
+
+def _model_info(model_key: str):
+    from config import AI_MODELS, DEFAULT_AI_MODEL
+
+    return AI_MODELS.get(model_key, AI_MODELS[DEFAULT_AI_MODEL])
+
+
+async def _ai_settings_text(db: Database) -> str:
+    """Ikkala tanlovni va haqiqatda ishlayotgan modelni ko'rsatadi."""
+    from services.ai_service import AIService
+    from services.premium_presentation import llm_client as premium_llm
+
+    main_info = _model_info(await _model_key(db, "main"))
+    premium_info = _model_info(await _model_key(db, "premium"))
+
+    # Tanlangan model bilan ishlayotgan model boshqa-boshqa bo'lishi
+    # mumkin (zaxiraga o'tilgan bo'lsa) — aynan shu farqni ko'rsatish kerak.
+    def served_line(actual, chosen) -> str:
+        if not actual:
+            return ""
+        if actual != chosen["id"]:
+            return (f"   ⚠️ ishlayapti: <code>{actual}</code> "
+                    "(tanlangani ishlamadi)\n")
+        return "   ✅ oxirgi so'rov shu model bilan bajarildi\n"
+
+    return (
+        "🤖 <b>AI model sozlamalari</b>\n\n"
+        f"📄 <b>Hujjatlar va oddiy taqdimot</b>\n"
+        f"   {main_info['name']} — {main_info['price']}\n"
+        f"{served_line(AIService._last_served_model, main_info)}"
+        f"\n💎 <b>Premium taqdimot</b>\n"
+        f"   {premium_info['name']} — {premium_info['price']}\n"
+        f"{served_line(premium_llm._WORKING.get('text'), premium_info)}"
+        "\nQaysi xizmat uchun modelni almashtirasiz?"
+    )
+
+
 @router.message(F.text == "🤖 AI modelni almashtirish")
 async def handle_ai_model_settings(message: Message, db: Database):
     """Handle AI model settings"""
     if not is_admin(message.from_user.id):
         return
 
-    from config import AI_MODELS
+    from bot.keyboards import get_ai_target_keyboard
+
+    await message.answer(await _ai_settings_text(db),
+                         reply_markup=get_ai_target_keyboard())
+
+
+@router.callback_query(F.data == "ai_model_back")
+async def ai_model_back(callback: CallbackQuery, db: Database):
+    if not is_admin(callback.from_user.id):
+        return
+    from bot.keyboards import get_ai_target_keyboard
+
+    await callback.message.edit_text(await _ai_settings_text(db),
+                                     reply_markup=get_ai_target_keyboard())
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("ai_model_target_"))
+async def ai_model_target(callback: CallbackQuery, db: Database):
+    """Tanlangan xizmat uchun modellar ro'yxatini ko'rsatadi."""
+    if not is_admin(callback.from_user.id):
+        return
+
     from bot.keyboards import get_ai_model_selection_keyboard
-    
-    current_model_key = await db.get_current_ai_model()
-    current_model = AI_MODELS.get(current_model_key, AI_MODELS["gemini_25_flash"])
-    
-    from services.ai_service import AIService
 
-    served = AIService._last_served_model
-    # Zaxiraga o'tilgan bo'lsa buni aytish shart: tanlangan model bilan
-    # ishlayotgan model boshqa-boshqa bo'lishi mumkin.
-    served_line = ""
-    if served and served != current_model["id"]:
-        served_line = (f"\n⚠️ Oxirgi so'rovni <b>{served}</b> bajargan — "
-                       "tanlangan model ishlamagani uchun zaxiraga o'tilgan.\n")
-    elif served:
-        served_line = "\n✅ Oxirgi so'rov shu model bilan bajarilgan.\n"
+    target = callback.data.replace("ai_model_target_", "")
+    if target not in _AI_TARGETS:
+        await callback.answer("❌ Noma'lum bo'lim.")
+        return
 
-    text = (
-        "🤖 AI model sozlamalari\n\n"
-        f"📌 Hozirgi model: {current_model['name']}\n"
-        f"💰 Narxi: {current_model['price']}\n"
-        f"📝 {current_model['description']}\n"
-        f"{served_line}\n"
-        "Quyidagi modellardan birini tanlang:"
+    current_key = await _model_key(db, target)
+    info = _model_info(current_key)
+    title, _ = _AI_TARGETS[target]
+    await callback.message.edit_text(
+        f"{title}\n\n"
+        f"📌 Hozirgi model: <b>{info['name']}</b>\n"
+        f"💰 Narxi: {info['price']}\n"
+        f"📝 {info['description']}\n\n"
+        "Quyidagi modellardan birini tanlang:",
+        reply_markup=get_ai_model_selection_keyboard(current_key, target),
     )
-    
-    await message.answer(
-        text,
-        reply_markup=get_ai_model_selection_keyboard(current_model_key)
-    )
+    await callback.answer()
+
 
 @router.callback_query(F.data.startswith("select_ai_model_"))
 async def select_ai_model(callback: CallbackQuery, db: Database):
@@ -2570,18 +2643,21 @@ async def select_ai_model(callback: CallbackQuery, db: Database):
         return
 
     from config import AI_MODELS
-    from bot.keyboards import get_ai_model_selection_keyboard
     from services.ai_service import AIService
-    
-    model_key = callback.data.replace("select_ai_model_", "")
-    
+
+    suffix = callback.data.replace("select_ai_model_", "")
+    target = "main"
+    for name in _AI_TARGETS:
+        if suffix.startswith(f"{name}_"):
+            target, suffix = name, suffix[len(name) + 1:]
+            break
+    model_key = suffix
+
     if model_key not in AI_MODELS:
         await callback.answer("❌ Model topilmadi.")
         return
-    
-    current_model_key = await db.get_current_ai_model()
-    
-    if model_key == current_model_key:
+
+    if model_key == await _model_key(db, target):
         await callback.answer("Bu model allaqachon tanlangan!")
         return
 
@@ -2601,22 +2677,30 @@ async def select_ai_model(callback: CallbackQuery, db: Database):
         )
         return
 
-    success = await db.set_current_ai_model(model_key)
-    
-    if success:
-        AIService.clear_model_cache()
-        await callback.message.answer(f"✅ <b>{model_info['name']}</b> tanlandi va "
-                                      "sinov so'rovi muvaffaqiyatli o'tdi.")
-        await callback.message.delete()
-    else:
+    if not await _save_model_key(db, target, model_key):
         await callback.answer("❌ Xatolik yuz berdi.")
+        return
+
+    title, where = _AI_TARGETS[target]
+    if target == "premium":
+        from services.premium_presentation import llm_client as premium_llm
+
+        premium_llm.set_text_model(model_info["id"])
+    else:
+        AIService.clear_model_cache()
+    await callback.message.answer(
+        f"✅ <b>{where.capitalize()}</b> uchun <b>{model_info['name']}</b> "
+        "tanlandi va sinov so'rovi muvaffaqiyatli o'tdi."
+    )
+    await callback.message.delete()
 
 
 async def _probe_model(model_id: str) -> tuple:
     """Modelga eng kichik so'rov yuboradi: ishlaydimi yoki yo'q.
 
     Javob mazmuni muhim emas, shuning uchun bitta so'z so'raladi —
-    tekshiruv deyarli bepul.
+    tekshiruv deyarli bepul. Zaxira zanjiri o'chiriladi, aks holda
+    ishlamaydigan model "ishladi" bo'lib ko'rinardi.
     """
     from services.ai_service import AIService
 
@@ -2629,6 +2713,7 @@ async def _probe_model(model_id: str) -> tuple:
         return bool(answer is not None), ""
     except Exception as e:
         return False, str(e)
+
 
 # ─────────────────────────────────────────────── Botni GitHub'dan yangilash
 #

@@ -424,14 +424,35 @@ def _salvage_partial_json(text: str) -> dict | None:
 _WORKING = {}
 
 
+# Admin panelda premium taqdimot uchun alohida tanlangan model. Bu yerda
+# turadi, chunki generatsiya sinxron oqimda (`run_in_executor`) ishlaydi va
+# u yerdan bazaga murojaat qilib bo'lmaydi; tanlovni Telegram tomoni
+# generatsiya boshlanishidan oldin shu yerga yozib qo'yadi.
+_preferred = {}
+
+
+def set_text_model(model_id: str) -> None:
+    """Premium taqdimot uchun tanlangan matn modelini o'rnatadi."""
+    model_id = (model_id or "").strip()
+    if not model_id or _preferred.get("text") == model_id:
+        return
+    _preferred["text"] = model_id
+    # Avval boshqa model ishlayotgan bo'lsa, u eslab qolingan — yangi
+    # tanlov birinchi bo'lib sinalishi uchun tozalanadi.
+    _WORKING.pop("text", None)
+    log.info("Premium taqdimot matn modeli: %s", model_id)
+
+
 def _models(kind: str) -> list:
-    """Sinaladigan modellar — avval ishlagani ma'lum bo'lgani."""
+    """Sinaladigan modellar — avval tanlangani, keyin ishlagani ma'lum bo'lgani."""
     chain = (config.OPENROUTER_TEXT_MODELS if kind == "text"
              else config.OPENROUTER_VISION_MODELS)
-    known = _WORKING.get(kind)
-    if known and known in chain:
-        return [known] + [model for model in chain if model != known]
-    return list(chain)
+    chain = list(chain)
+    for model in (_WORKING.get(kind), _preferred.get(kind)):
+        if not model:
+            continue
+        chain = [model] + [item for item in chain if item != model]
+    return chain
 
 
 def _request(kind: str, payload: dict, timeout: int = 180) -> dict:

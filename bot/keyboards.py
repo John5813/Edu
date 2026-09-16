@@ -1275,20 +1275,41 @@ def get_veo_image_keyboard(language: str) -> ReplyKeyboardMarkup:
     keyboard.adjust(1)
     return keyboard.as_markup(resize_keyboard=True)
 
-def get_ai_model_selection_keyboard(current_model: str) -> InlineKeyboardMarkup:
+def get_ai_target_keyboard() -> InlineKeyboardMarkup:
+    """Qaysi xizmat uchun model tanlanishini so'raydigan tugmalar.
+
+    Premium taqdimot alohida: u eng qimmat xizmat va undagi matn sifati
+    mijozga eng ko'p ko'rinadi, shuning uchun unga qimmatroq model qo'yib,
+    qolgan hujjatlarni arzonroq modelda qoldirish mumkin.
+    """
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(
+        text="📄 Hujjatlar va oddiy taqdimot",
+        callback_data="ai_model_target_main"))
+    keyboard.add(InlineKeyboardButton(
+        text="💎 Premium taqdimot",
+        callback_data="ai_model_target_premium"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
+def get_ai_model_selection_keyboard(current_model: str,
+                                    target: str = "main") -> InlineKeyboardMarkup:
     """AI model selection keyboard for admin"""
     from config import AI_MODELS
-    
+
     keyboard = InlineKeyboardBuilder()
-    
+
     for model_key, model_info in AI_MODELS.items():
         is_current = "✅ " if model_key == current_model else ""
         button_text = f"{is_current}{model_info['name']} - {model_info['price']}"
         keyboard.add(InlineKeyboardButton(
             text=button_text,
-            callback_data=f"select_ai_model_{model_key}"
+            callback_data=f"select_ai_model_{target}_{model_key}"
         ))
-    
+
+    keyboard.add(InlineKeyboardButton(text="⬅️ Orqaga",
+                                      callback_data="ai_model_back"))
     keyboard.adjust(1)
     return keyboard.as_markup()
 

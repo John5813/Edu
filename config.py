@@ -266,6 +266,11 @@ AI_MODELS = {
 # Shuning uchun sukut bo'yicha model kuchlirog'iga almashtirildi.
 DEFAULT_AI_MODEL = "claude_sonnet_5"
 
+# Premium taqdimot uchun alohida sukut. Bu eng qimmat xizmat va undagi
+# matn sifati mijozga eng ko'p ko'rinadi, shuning uchun u boshqa
+# xizmatlardan mustaqil tanlanadi.
+PREMIUM_DEFAULT_AI_MODEL = "claude_sonnet_5"
+
 # Tanlangan model ishlamasa (hisobda yo'q, nomi o'zgargan, provayder javob
 # bermayapti) shu ro'yxat bo'yicha keyingisiga o'tiladi. Oxirgisi — eski
 # arzon model, ya'ni eng yomon holatda xizmat avvalgidek ishlaydi.
