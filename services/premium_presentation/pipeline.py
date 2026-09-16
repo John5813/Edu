@@ -312,13 +312,18 @@ def _is_title(element) -> bool:
     return bool(element.bold) and (element.size or 0) >= _TITLE_MIN_SIZE
 
 
-def _ceiling(element, placed: list) -> float:
+def _ceiling(element, placed: list, fixed: list = ()) -> float:
     """Element joylasha oladigan eng yuqori nuqta.
 
     Faqat undan oldin o'qiladigan va gorizontal kesishadigan bloklar to'sadi;
     yonma-yon ustundagi blok halaqit qilmaydi.
+
+    Qo'zg'almas to'siqlar (diagramma, rasm, kartochka) faqat elementdan
+    YUQORIDA turgan bo'lsa hisobga olinadi. Aks holda slaydning pastidagi
+    kartochka tepadagi sarlavhaning "shifti" bo'lib qolar va sarlavha
+    slayd tubiga tushib ketardi.
     """
-    ex, _, ew, _ = _box(element)
+    ex, ey, ew, _ = _box(element)
     top = _EDGE
     for other in placed:
         ox, oy, ow, oh = _box(other)
@@ -327,10 +332,94 @@ def _ceiling(element, placed: list) -> float:
         if _horizontal_share(_box(element), _box(other)) < _COLUMN_SHARE:
             continue
         top = max(top, oy + oh + _GAP)
+    for other in fixed:
+        ox, oy, ow, oh = _box(other)
+        if oy + oh > ey + _TOLERANCE:
+            # To'siq to'liq yuqorida bo'lsagina "shift" bo'la oladi.
+            # Elementning ustiga tushib turgan to'siq esa shift emas:
+            # uning tepasida joy bormi yo'qmi — buni `_clear_fixed` hal
+            # qiladi. Aks holda diagramma ustida turgan kichik sarlavha
+            # o'sha diagrammaning ostiga majburan tushib ketardi.
+            continue
+        if min(ex + ew, ox + ow) - max(ex, ox) <= 0:
+            continue
+        if _horizontal_share(_box(element), _box(other)) < _COLUMN_SHARE:
+            continue
+        top = max(top, oy + oh + _GAP)
     return top
 
 
-def _flow(ordered: list, compact: bool) -> bool:
+# Yon ustun shundan tor bo'lsa, matn u yerda o'qilmaydi.
+_MIN_COLUMN_W = 2.8
+
+
+def _move_beside(element, blocker: tuple) -> bool:
+    """Matnni to'siqning yonidagi bo'sh ustunga ko'chiradi."""
+    left = blocker[0] - _EDGE - _GAP
+    right = SLIDE_W - _EDGE - (blocker[0] + blocker[2]) - _GAP
+    if max(left, right) < _MIN_COLUMN_W:
+        return False
+    if left >= right:
+        element.x, element.w = _EDGE, round(left, 2)
+    else:
+        element.x = round(blocker[0] + blocker[2] + _GAP, 2)
+        element.w = round(right, 2)
+    return True
+
+
+def _clear_fixed(element, fixed: list, ceiling: float) -> None:
+    """Matnni qo'zg'almas to'siqdan (diagramma, rasm, kartochka) chiqaradi.
+
+    Bu qadam bo'lmasa joylashtiruvchi matnni diagramma ustiga qaytarib
+    qo'yardi: `lift_text_off_blockers` uni chetga surar, keyin esa oqim
+    faqat matnni matn bilan solishtirib, o'sha joyga qaytarardi.
+    Yetkazilgan taqdimotda 7 va 10-slaydlarda aynan shu bo'lgan.
+
+    Tepasida joy bo'lsa matn to'siqning USTIGA qo'yiladi — o'qilish
+    tartibi shuni talab qiladi: kichik sarlavha diagrammadan keyin emas,
+    oldin turishi kerak. Joy bo'lmasa pastga suriladi.
+    """
+    for _ in range(len(fixed) + 1):
+        box = _box(element)
+        height = box[3]
+        blocker = None
+        for other in fixed:
+            other_box = _box(other)
+            if not _overlaps(box, other_box, pad=0.05):
+                continue
+            if _horizontal_share(box, other_box) < _COLUMN_SHARE:
+                continue          # yonma-yon turibdi, xalaqit qilmaydi
+            if blocker is None or other_box[1] < blocker[1]:
+                blocker = other_box
+        if blocker is None:
+            return
+        # Tepadagi bo'shliq o'lchanadi. Modelning e'lon qilgan `h` qiymati
+        # ko'pincha matnga kerak bo'lgandan kattaroq va aynan shu sababli
+        # blok tepaga sig'masdan pastga tushib ketardi; haqiqiy balandlik
+        # bilan esa sig'adi.
+        real = height
+        if element.type == "text" and (element.text or "").strip():
+            real = min(height, infographics.height_of(
+                element.text, box[2], element.size or 14.0))
+        above = blocker[1] - _GAP - real
+        below = blocker[1] + blocker[3] + _GAP
+        if above >= ceiling - _TOLERANCE:
+            element.y = above
+            if real < height - _TOLERANCE:
+                element.h = real
+        elif below + real <= SLIDE_H - _EDGE + _TOLERANCE:
+            element.y = below
+        elif _move_beside(element, blocker):
+            # Baland to'siq (masalan butun bo'yiga cho'zilgan rasm) —
+            # na tepasida, na ostida joy bor. Bunday holda matn uning
+            # YONIDAGI ustunga o'tadi: pastga surish uni slayddan
+            # chiqarib yuborardi va bloklar bir-birining ustiga minardi.
+            return
+        else:
+            element.y = below
+
+
+def _flow(ordered: list, compact: bool, fixed: list = ()) -> bool:
     """Bloklarni o'qilish tartibida yuqoridan pastga joylaydi.
 
     Har blok o'zidan oldingilarning ostiga tushadi, shuning uchun tartib
@@ -338,13 +427,27 @@ def _flow(ordered: list, compact: bool) -> bool:
     yuqoriga tortiladi — bu faqat slaydga sig'may qolganda ishlatiladi,
     chunki u dizayn qo'ygan bo'shliqlarni yeb qo'yadi. Sarlavha esa
     ko'tarilmaydi: u o'zining bezak bandi ichida turishi kerak.
+
+    `fixed` — qo'zg'almas to'siqlar: diagramma, rasm, sxema, kartochkalar
+    va preset hisoblab qo'ygan matnlar. Ular surilmaydi, lekin matn
+    ularning ustiga tushmaydi.
     """
     fits = True
     placed = []
+    fixed = list(fixed)
     for element in ordered:
-        top = _ceiling(element, placed)
-        if element.y < top - _TOLERANCE or (compact and not _is_title(element)):
-            element.y = top
+        # To'siqdan chiqarish blokni surib yuboradi, shuning uchun
+        # joylashuv bir necha marta qayta hisoblanadi: aks holda ikkita
+        # blok bitta to'siq ostiga tushib, bir-birining ustiga chiqardi.
+        for step in range(3):
+            top = _ceiling(element, placed, fixed)
+            if element.y < top - _TOLERANCE or (
+                    step == 0 and compact and not _is_title(element)):
+                element.y = top
+            previous = element.y
+            _clear_fixed(element, fixed, top)
+            if abs(element.y - previous) < _TOLERANCE:
+                break
         _, _, _, height = _box(element)
         if element.y + height > SLIDE_H - _EDGE + _TOLERANCE:
             fits = False
@@ -422,16 +525,24 @@ def fix_slide_overlaps(slide: Slide) -> Slide:
         key=lambda pair: pair[0],
     )]
 
-    if not _flow(ordered, compact=False):
+    # Qo'zg'almas to'siqlar: instrumentlar va preset hisoblab qo'ygan
+    # matnlar. Ular oqimda qatnashmaydi, lekin ularning ustiga ham
+    # tushib bo'lmaydi.
+    fixed = [element for element in slide.canvas.elements
+             if _is_opaque(element)
+             or (element.type == "text" and element.locked
+                 and (element.text or "").strip())]
+
+    if not _flow(ordered, compact=False, fixed=fixed):
         # Har qadamda shrift pastki chegarasi tushadi. Birinchi qadam —
         # avvalgi xatti-harakat (13pt). Model belgilangan matn hajmidan
         # oshib ketgan slaydda 13pt da hech narsa sig'maydi va tanlov
         # ikkita bo'lib qoladi: o'qib bo'lmaydigan ustma-ustlik yoki
         # kichikroq shrift. Ikkinchisi afzal.
         for floor in (_MIN_BODY_PT, _HARD_MIN_PT, _LAST_RESORT_PT):
-            _flow(ordered, compact=True)
+            _flow(ordered, compact=True, fixed=fixed)
             _shrink_overflow(ordered, floor=floor)
-            if _flow(ordered, compact=True):
+            if _flow(ordered, compact=True, fixed=fixed):
                 break
 
     # Yakuniy chegara tekshiruvi HAM o'lchangan balandlik bilan bajariladi.
@@ -1946,36 +2057,29 @@ def lift_text_off_blockers(slide: Slide) -> int:
 
 
 def _shift_clear(text, blocker: tuple, prefer_up: bool = False) -> bool:
-    """Matnni to'suvchi elementdan chetga suradi — eng kam siljish tomoniga.
+    """Matnni to'suvchi elementdan YON tomonga suradi.
 
-    `prefer_up` sarlavha uchun: uni pastga surish slaydni boshsiz qoldiradi,
-    shuning uchun avval yuqoriga (va yon tomonlarga) qaraladi va pastga
-    tushirish faqat boshqa iloj qolmaganda bo'ladi.
+    Vertikal siljish bu yerda qilinmaydi. Ilgari qilinardi va aynan shu
+    o'qilish tartibini buzardi: diagramma ustidagi ikkita matn ham
+    tepadagi tor bo'shliqqa ko'tarilib, ikkinchisi birinchisidan
+    yuqorida qolar, keyin joylashtiruvchi ularni o'sha teskari tartibda
+    terib chiqardi. Vertikalni `_flow` hal qiladi — u o'qilish tartibini
+    biladi va to'siqning ustida joy bormi, yo'qmi, o'zi hisoblaydi.
     """
     tx, ty, tw, th = _box(text)
     bx, by, bw, bh = blocker
 
-    candidates = [
-        ("chapga", bx - tw - 0.12, ty),
-        ("o'ngga", bx + bw + 0.12, ty),
-        ("yuqoriga", tx, by - th - 0.12),
-        ("pastga", tx, by + bh + 0.12),
-    ]
     best = None
-    for name, new_x, new_y in candidates:
+    for new_x in (bx - tw - 0.12, bx + bw + 0.12):
         if new_x < _EDGE - _TOLERANCE or new_x + tw > SLIDE_W - _EDGE + _TOLERANCE:
             continue
-        if new_y < _EDGE - _TOLERANCE or new_y + th > SLIDE_H - _EDGE + _TOLERANCE:
-            continue
-        distance = abs(new_x - tx) + abs(new_y - ty)
-        # Sarlavha uchun pastga tushish eng oxirgi chora.
-        rank = 1 if (prefer_up and name == "pastga") else 0
-        if best is None or (rank, distance) < (best[0], best[1]):
-            best = (rank, distance, new_x, new_y)
+        distance = abs(new_x - tx)
+        if best is None or distance < best[0]:
+            best = (distance, new_x)
 
     if best is None:
         return False
-    text.x, text.y = best[2], best[3]
+    text.x = best[1]
     return True
 
 
