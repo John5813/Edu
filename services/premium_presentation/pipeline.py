@@ -353,18 +353,29 @@ def _ceiling(element, placed: list, fixed: list = ()) -> float:
 _MIN_COLUMN_W = 2.8
 
 
-def _move_beside(element, blocker: tuple) -> bool:
-    """Matnni to'siqning yonidagi bo'sh ustunga ko'chiradi."""
+def _move_beside(element, blocker: tuple, fixed: list) -> bool:
+    """Matnni to'siqning yonidagi bo'sh ustunga ko'chiradi.
+
+    Ustun HAQIQATAN bo'sh bo'lishi tekshiriladi: kartochkalar qatorida
+    bitta kartochkaning yonida ikkinchisi turadi va matn uning ortiga
+    tushib qolardi.
+    """
+    _, ey, _, eh = _box(element)
+    options = []
     left = blocker[0] - _EDGE - _GAP
+    if left >= _MIN_COLUMN_W:
+        options.append((_EDGE, round(left, 2)))
     right = SLIDE_W - _EDGE - (blocker[0] + blocker[2]) - _GAP
-    if max(left, right) < _MIN_COLUMN_W:
-        return False
-    if left >= right:
-        element.x, element.w = _EDGE, round(left, 2)
-    else:
-        element.x = round(blocker[0] + blocker[2] + _GAP, 2)
-        element.w = round(right, 2)
-    return True
+    if right >= _MIN_COLUMN_W:
+        options.append((round(blocker[0] + blocker[2] + _GAP, 2), round(right, 2)))
+
+    for x, width in sorted(options, key=lambda pair: -pair[1]):
+        target = (x, ey, width, eh)
+        if any(_overlaps(target, _box(other), pad=0.05) for other in fixed):
+            continue
+        element.x, element.w = x, width
+        return True
+    return False
 
 
 def _clear_fixed(element, fixed: list, ceiling: float) -> None:
@@ -409,7 +420,7 @@ def _clear_fixed(element, fixed: list, ceiling: float) -> None:
                 element.h = real
         elif below + real <= SLIDE_H - _EDGE + _TOLERANCE:
             element.y = below
-        elif _move_beside(element, blocker):
+        elif _move_beside(element, blocker, fixed):
             # Baland to'siq (masalan butun bo'yiga cho'zilgan rasm) —
             # na tepasida, na ostida joy bor. Bunday holda matn uning
             # YONIDAGI ustunga o'tadi: pastga surish uni slayddan
@@ -445,7 +456,11 @@ def _flow(ordered: list, compact: bool, fixed: list = ()) -> bool:
                     step == 0 and compact and not _is_title(element)):
                 element.y = top
             previous = element.y
-            _clear_fixed(element, fixed, top)
+            # To'siqdan chiqishda "shift" faqat MATNLARDAN hisoblanadi.
+            # Aks holda kartochkalar ortiga tushib qolgan blok u yerdan
+            # chiqa olmasdi: uning tepasidagi kartochka matni ham shift
+            # bo'lib, yuqoriga yo'l bermasdi.
+            _clear_fixed(element, fixed, _ceiling(element, placed))
             if abs(element.y - previous) < _TOLERANCE:
                 break
         _, _, _, height = _box(element)
