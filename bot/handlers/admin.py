@@ -30,6 +30,25 @@ import random
 router = Router()
 logger = logging.getLogger(__name__)
 
+
+async def _nudge_pending_order(bot, db, telegram_id: int) -> None:
+    """Balans to'lgach kutayotgan buyurtmani mijozga eslatadi.
+
+    Mijoz balansni to'ldirgach «Qayta tekshirish» tugmasini qidirib
+    o'tirmasligi kerak. To'lovni tasdiqlash oqimini buzmasligi uchun bu
+    yerda hech qanday xato ko'tarilmaydi.
+    """
+    try:
+        from bot import checkout as pay
+
+        fresh = await db.get_user(telegram_id)
+        if not fresh:
+            return
+        await pay.offer_continue(bot, telegram_id, fresh.balance or 0,
+                                 fresh.language or "uz")
+    except Exception as exc:
+        logger.warning(f"Buyurtma eslatmasi yuborilmadi ({telegram_id}): {exc}")
+
 def is_admin(user_id: int) -> bool:
     """Check if user is admin"""
     return user_id in ADMIN_IDS
@@ -297,6 +316,7 @@ async def payment_amount_entered(message: Message, state: FSMContext, db: Databa
         # 2. Add balance
         user = await db.get_user_by_id(payment.user_id)
         await db.update_user_balance(user.telegram_id, new_amount)
+        await _nudge_pending_order(callback.bot, db, user.telegram_id)
 
         # 3. Referral bonus (same logic as approve_payment)
         PAYMENT_BONUS = 1000
@@ -460,6 +480,7 @@ async def confirm_adjusted_payment(callback: CallbackQuery, db: Database):
         # Add balance to user with the adjusted amount
         user = await db.get_user_by_id(payment.user_id)
         await db.update_user_balance(user.telegram_id, payment.amount)
+        await _nudge_pending_order(callback.bot, db, user.telegram_id)
 
         # Check referral bonus (same as original approve logic)
         PAYMENT_BONUS = 1000
@@ -553,6 +574,7 @@ async def approve_payment(callback: CallbackQuery, db: Database):
         # Add balance to user
         user = await db.get_user_by_id(payment.user_id)
         await db.update_user_balance(user.telegram_id, payment.amount)
+        await _nudge_pending_order(callback.bot, db, user.telegram_id)
 
         # Check if this is user's first payment and if they were referred
         # If yes, give payment bonus to referrer
@@ -1948,6 +1970,7 @@ async def client_add_confirm(callback: CallbackQuery, state: FSMContext, db: Dat
     await state.clear()
 
     await db.update_user_balance(tg_id, amount)
+    await _nudge_pending_order(callback.bot, db, tg_id)
     try:
         await callback.bot.send_message(
             tg_id,
