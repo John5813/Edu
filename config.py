@@ -292,6 +292,18 @@ PREVIOUS_DEFAULT_AI_MODEL = "gemini_25_flash"
 DOCUMENTS_DIR = "generated_documents"
 TEMP_DIR = "temp"
 
+# Do'kon (qayta sotuv sayti)
+# Tayyor ishlarning o'zi yopiq Telegram kanalida saqlanadi — bazada faqat
+# file_id turadi. Kanal ID'si "-100..." ko'rinishida bo'ladi va bot o'sha
+# kanalda administrator bo'lishi shart.
+STORE_VAULT_CHAT_ID = os.getenv("STORE_VAULT_CHAT_ID", "")
+# Ko'rgazma rasmlari — yagona ommaviy ko'rinadigan qism. Bu katalog
+# `temp/` dan tashqarida, chunki davriy tozalash uni o'chirib yuborardi.
+STORE_PREVIEW_DIR = os.getenv("STORE_PREVIEW_DIR", "store_previews")
+# Bitta ish uchun nechta slayd ko'rsatiladi. Qolgani faqat to'lovdan keyin.
+STORE_PREVIEW_LIMIT = int(os.getenv("STORE_PREVIEW_LIMIT", "4"))
+
 # Ensure directories exist
 os.makedirs(DOCUMENTS_DIR, exist_ok=True)
 os.makedirs(TEMP_DIR, exist_ok=True)
+os.makedirs(STORE_PREVIEW_DIR, exist_ok=True)

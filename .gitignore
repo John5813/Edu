@@ -70,3 +70,6 @@ generated_documents/
 bot.db
 bot.db.*
 temp/
+
+# Do'kon ko'rgazma rasmlari — ular nashr qilishda qayta yaratiladi.
+store_previews/
