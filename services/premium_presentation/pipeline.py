@@ -528,8 +528,13 @@ def fix_slide_overlaps(slide: Slide) -> Slide:
     # Qo'zg'almas to'siqlar: instrumentlar va preset hisoblab qo'ygan
     # matnlar. Ular oqimda qatnashmaydi, lekin ularning ustiga ham
     # tushib bo'lmaydi.
+    # Qulflangan elementlar — infografika preseti chizgan kartochka,
+    # doira va ikonkalar. Ular matndan KEYIN chiziladi, ya'ni matn o'sha
+    # joyga tushsa, kartochka orqasida ko'rinmay qoladi. Shuning uchun
+    # ular ham to'siq: ilgari faqat qulflangan MATNLAR hisobga olinardi.
     fixed = [element for element in slide.canvas.elements
              if _is_opaque(element)
+             or (element.locked and element.type != "text")
              or (element.type == "text" and element.locked
                  and (element.text or "").strip())]
 
@@ -1425,16 +1430,20 @@ def _grow_panel(panel, slide: Slide, guests: list) -> None:
     for other in slide.canvas.elements:
         if other is panel or any(other is guest for guest in guests):
             continue
-        if other.type == "rect":
-            continue                      # band bandni to'smaydi
         ox, oy, ow, oh = _box(other)
+        # Butun slaydni qoplagan to'rtburchak — bu fon, chegara emas.
+        if ow >= SLIDE_W - 0.4 and oh >= SLIDE_H - 0.4:
+            continue
         if min(px + pw, ox + ow) - max(px, ox) <= 0.1:
             continue                      # yonma-yon turibdi
         if oy + oh <= py + 0.1:
             continue                      # tepada
-        # Qolgan hamma narsa chegara: band o'sib begona matnni bosib qolsa,
-        # o'sha matn rangi endi mos kelmay qoladi (oq fon uchun tanlangan
-        # to'q harflar to'q band ustiga tushib, o'qilmay qoladi).
+        # Qolgan hamma narsa chegara. Ilgari `rect` lar chetlab o'tilardi
+        # va band infografika kartochkalarining ustiga o'sib ketardi:
+        # ko'k maydon slaydning yarmini egallar, uning ichidagi matn esa
+        # kartochkalar ortida ko'rinmay qolardi (ular banddan keyin
+        # chiziladi). Begona matn ustiga o'sish ham xuddi shunday yomon —
+        # oq fon uchun tanlangan to'q harflar to'q band ustiga tushardi.
         floor = min(floor, oy - _GAP)
     if floor - py > ph + 0.1:
         panel.h = round(floor - py, 2)
@@ -1476,6 +1485,20 @@ def keep_text_inside_panels(brief: Brief) -> Brief:
             if over > py + ph - _PANEL_PAD + _TOLERANCE:
                 _grow_panel(panel, slide, guests)
                 px, py, pw, ph = _box(panel)
+            # Keng tasma matndan ancha baland bo'lsa, ortiqcha bo'sh
+            # maydon qoladi — mijoz slaydda "katta ko'k maydon" deb
+            # aynan shuni ko'radi. Balandlik mazmuniga qaytariladi.
+            # Chap paneldek tor va butun bo'yiga cho'zilgan bloklarga
+            # tegilmaydi: ular dizaynning o'zi.
+            if pw >= SLIDE_W * 0.6 and ph < SLIDE_H * 0.7:
+                content = max(_box(e)[1] + _box(e)[3] for e in guests)
+                wanted = content - py + _PANEL_PAD
+                if wanted + 0.8 < ph:
+                    panel.h = round(max(wanted, 0.5), 2)
+                    px, py, pw, ph = _box(panel)
+                    log.info("Slayd %s: bezak tasmasi mazmuniga qisqartirildi "
+                             "(%.2f → %.2f)", slide.index, ph + (ph - panel.h), panel.h)
+
             bottom = py + ph - _PANEL_PAD
             for element in guests:
                 ex, ey, ew, eh = _box(element)
