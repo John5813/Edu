@@ -9,6 +9,7 @@ yerda ishlaydi.
 import logging
 import os
 import re
+import shutil
 
 from aiogram import F, Router
 from aiogram.filters import Command, CommandObject, CommandStart, StateFilter
@@ -320,6 +321,16 @@ async def publish_start(message: Message, state: FSMContext):
             "❌ <code>STORE_VAULT_CHAT_ID</code> sozlanmagan.\n\n"
             "Yopiq kanal oching, botni u yerga administrator qiling va kanal "
             "ID'sini (<code>-100...</code>) shu o'zgaruvchiga yozing.",
+            parse_mode="HTML",
+        )
+        return
+    # Slaydlarni rasmga aylantirish LibreOffice'ga tayanadi. Buni oldindan
+    # aytmasak, admin faylni yuborib, savollarga javob berib bo'lgach
+    # xatoga uchrardi.
+    if not shutil.which("soffice"):
+        await message.answer(
+            "❌ LibreOffice o'rnatilmagan — slaydlardan ko'rgazma rasmi olib "
+            "bo'lmaydi.\n\nServerda: <code>apt install libreoffice-impress</code>",
             parse_mode="HTML",
         )
         return
