@@ -8,6 +8,7 @@ from aiogram.types import Message, CallbackQuery, FSInputFile, InlineKeyboardMar
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
 
+from bot import checkout as _pay
 from bot.states import DocumentStates
 import re as _re_plan
 from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard, get_outline_review_keyboard, get_references_choice_keyboard, get_doc_language_keyboard, get_plan_slide_keyboard, get_icon_choice_keyboard, get_course_work_page_keyboard, get_diploma_work_page_keyboard, get_graduation_work_page_keyboard, get_dissertation_page_keyboard, get_payment_choice_keyboard, get_insufficient_balance_keyboard, get_back_inline_keyboard, get_article_page_keyboard, get_source_selection_keyboard, get_other_services_keyboard, get_extras_keyboard, get_gw_outline_choice_keyboard
@@ -3233,6 +3234,61 @@ HELP_BUTTON_TEXTS = [
     get_text(language, "main_menu.help") for language in ("uz", "ru", "en")
 ] + ["💬 Yordam", "💬 Помощь", "💬 Help"]
 
+# Hujjat xizmatlari ham umumiy to'lov oqimidan foydalanadi: mablag'
+# yetmasa buyurtma saqlanib qoladi va balans to'lgach o'zi eslatiladi.
+DOC_CHECKOUT = _pay.Checkout(service="doc", back_callback="back_from_doc_payment")
+
+_DOC_NAMES = {
+    "referat":          {"uz": "Referat", "ru": "Реферат", "en": "Referat"},
+    "independent_work": {"uz": "Mustaqil ish", "ru": "Самостоятельная работа", "en": "Independent work"},
+    "presentation":     {"uz": "Taqdimot", "ru": "Презентация", "en": "Presentation"},
+    "tezis":            {"uz": "Tezis", "ru": "Тезис", "en": "Thesis"},
+    "maqola":           {"uz": "Maqola", "ru": "Статья", "en": "Article"},
+    "mahsus_ishlanma":  {"uz": "Mahsus ishlanma", "ru": "Спец. разработка", "en": "Special work"},
+    "course_work":      {"uz": "Kurs ishi", "ru": "Курсовая работа", "en": "Course work"},
+    "diploma_work":     {"uz": "Diplom ishi", "ru": "Дипломная работа", "en": "Diploma work"},
+    "bitiruv_ishi":     {"uz": "Bitiruv ishi", "ru": "Выпускная работа", "en": "Graduation work"},
+    "dissertatsiya":    {"uz": "Dissertatsiya", "ru": "Диссертация", "en": "Dissertation"},
+}
+# `document_type` har oqimda yozilavermaydi — o'shanda keyingi qadam aytadi.
+_STEP_TYPES = {
+    "course_work_gen": "course_work",
+    "diploma_work_gen": "diploma_work",
+    "graduation_work_gen": "bitiruv_ishi",
+    "dissertation_gen": "dissertatsiya",
+    "tezis_gen": "tezis",
+    "maqola_gen": "maqola",
+    "presentation_template": "presentation",
+}
+
+
+@_pay.describes(DOC_CHECKOUT.service)
+def _doc_order_summary(data: dict, language: str) -> str:
+    """Balans to'lgach mijozga ko'rsatiladigan buyurtma tafsiloti."""
+    import html as _html
+
+    def clean(value, limit=200):
+        # quote=False: matn element ichida turadi, apostrof qochirilmasin.
+        return _html.escape(str(value or "").strip(), quote=False)[:limit]
+
+    key = data.get("document_type") or _STEP_TYPES.get(data.get("doc_next_step", ""), "")
+    names = _DOC_NAMES.get(key, {})
+    title = names.get(language) or names.get("uz") or "Hujjat"
+
+    lines = [f"📄 <b>{title}</b>"]
+    topic = clean(data.get("topic"))
+    if topic:
+        lines.append(f"📝 Mavzu: <b>{topic}</b>")
+    author = clean(data.get("author_name"), 120)
+    if author:
+        lines.append(f"👤 Muallif: {author}")
+    pages = data.get("page_count") or data.get("slide_count")
+    if pages:
+        lines.append(f"📑 Hajm: {clean(pages, 40)}")
+    lines.append(f"🌐 Til: {clean(data.get('doc_language', language), 10).upper()}")
+    return "\n".join(lines)
+
+
 @router.callback_query(DocumentStates.waiting_for_payment, F.data == "pay_balance_doc")
 async def pay_balance_doc_handler(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Handle 'pay from balance' when user confirms payment for document service"""
@@ -3242,14 +3298,63 @@ async def pay_balance_doc_handler(callback: CallbackQuery, state: FSMContext, db
 
     data = await state.get_data()
     price = data.get("price", 0)
-    doc_next_step = data.get("doc_next_step", "")
 
     if user.balance < price:
+        # Ilgari bu yerda tugma jimgina ishlamas edi. Endi buyurtma
+        # saqlanadi: to'ldirish oqimi FSM ni tozalaydi, shuning uchun u
+        # undan tashqarida turadi va balans to'lgach o'zi eslatiladi.
         await callback.answer()
+        _pay.remember(callback.from_user.id, DOC_CHECKOUT.service, data)
+        await _pay.send_shortfall(callback.message, DOC_CHECKOUT, user_lang,
+                                  price, user.balance)
         return
 
     await callback.answer()
     await callback.message.edit_reply_markup(reply_markup=None)
+    await _run_doc_step(callback, state, db, user_lang, user, data)
+
+
+# Holat filtri yo'q: balansni to'ldirish FSM ni tozalaydi va tugma
+# shundan keyin bosiladi.
+@router.callback_query(F.data == DOC_CHECKOUT.recheck)
+async def doc_recheck_handler(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
+    """Balans to'ldirilgach hujjat buyurtmasi o'sha joyidan davom etadi."""
+    data = await state.get_data()
+    if not data.get("doc_next_step"):
+        saved = _pay.recall(callback.from_user.id, DOC_CHECKOUT.service)
+        if saved:
+            await state.set_data(saved)
+            await state.set_state(DocumentStates.waiting_for_payment)
+            data = saved
+
+    if not data.get("doc_next_step"):
+        await callback.answer()
+        await state.clear()
+        await callback.message.answer(get_text(user_lang, "order_expired"),
+                                      reply_markup=get_main_keyboard(user_lang))
+        return
+
+    price = data.get("price", 0)
+    balance = user.balance if user else 0
+    if balance < price:
+        await callback.answer(
+            get_text(user_lang, "pay_still_short", balance=balance, price=price),
+            show_alert=True)
+        return
+
+    await callback.answer()
+    _pay.forget(callback.from_user.id)
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    await _run_doc_step(callback, state, db, user_lang, user, data)
+
+
+async def _run_doc_step(callback: CallbackQuery, state: FSMContext, db: Database,
+                        user_lang: str, user, data: dict):
+    """To'lovdan keyingi qadam — qaysi hujjat yaratilishini `doc_next_step` aytadi."""
+    doc_next_step = data.get("doc_next_step", "")
 
     if doc_next_step == "presentation_template":
         await state.set_state(DocumentStates.waiting_for_template)
