@@ -57,6 +57,29 @@ _SOURCE_NAMES = {
 CHECKOUT = pay.Checkout(service="pw", back_callback="pw_back_to_depth")
 
 
+@pay.describes(CHECKOUT.service)
+def _order_summary(data: dict, language: str) -> str:
+    """Balans to'lgach mijozga ko'rsatiladigan buyurtma tafsiloti."""
+    import html as _html
+
+    def clean(value, limit=120):
+        # quote=False: matn element ichida turadi, apostrof qochirilsa
+        # o'zbekcha jumla "Ko&#x27;proq" bo'lib ko'rinardi.
+        return _html.escape(str(value or "").strip(), quote=False)[:limit]
+
+    lines = ["📗 <b>Loyiha ishi</b>"]
+    topic = clean(data.get("topic"), 200)
+    if topic:
+        lines.append(f"📝 Mavzu: <b>{topic}</b>")
+    author = clean(data.get("author_name"))
+    lines.append(f"👤 Muallif: {author}" if author else "👤 Muallif: ko'rsatilmagan")
+    size = data.get("size_key")
+    if size:
+        lines.append(f"📄 Hajm: {clean(project_size_label(size, language))}")
+    lines.append(f"🌐 Til: {clean(data.get('doc_language', 'uz')).upper()}")
+    return "\n".join(lines)
+
+
 def _label(table: dict, key: str, language: str) -> str:
     entry = table.get(key, {})
     return entry.get(language, entry.get("uz", key))

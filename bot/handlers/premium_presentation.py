@@ -164,6 +164,31 @@ def _confirm_keyboard(lang: str, slide_count: int, price: int) -> InlineKeyboard
 CHECKOUT = pay.Checkout(service="prem", back_callback="prem_ppt_back_to_confirm")
 
 
+@pay.describes(CHECKOUT.service)
+def _order_summary(data: dict, language: str) -> str:
+    """Balans to'lgach mijozga ko'rsatiladigan buyurtma tafsiloti."""
+    import html as _html
+
+    def clean(value, limit=120):
+        # quote=False: matn element ichida turadi, apostrof qochirilsa
+        # o'zbekcha jumla "Ko&#x27;proq" bo'lib ko'rinardi.
+        return _html.escape(str(value or "").strip(), quote=False)[:limit]
+
+    lines = ["📊 <b>Premium taqdimot</b>"]
+    topic = clean(data.get("topic"), 200)
+    if topic:
+        lines.append(f"📝 Mavzu: <b>{topic}</b>")
+    if data.get("slide_count"):
+        lines.append(f"📄 Slaydlar: {int(data['slide_count'])} ta")
+    name = clean(data.get("client_name"))
+    lines.append(f"👤 Ism: {name}" if name else "👤 Ism: ko'rsatilmagan")
+    lines.append(f"🌐 Til: {clean(data.get('presentation_language', 'uz')).upper()}")
+    wishes = clean(data.get("preferences"), 150)
+    if wishes:
+        lines.append(f"✍️ Istaklar: {wishes}")
+    return "\n".join(lines)
+
+
 def _payment_keyboard(lang: str, price: int) -> InlineKeyboardMarkup:
     return pay.payment_keyboard(CHECKOUT, lang, price)
 

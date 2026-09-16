@@ -582,5 +582,15 @@ async def successful_payment_handler(message: Message, db: Database, user_lang: 
             reply_markup=get_main_keyboard(user_lang),
         )
         logger.info(f"Stars payment: user={message.from_user.id}, stars={stars}, som={som_amount}")
+
+        # Balansni to'ldirish kutayotgan buyurtma uchun bo'lgan bo'lishi
+        # mumkin — mijoz tugma qidirib o'tirmasin.
+        try:
+            fresh = await db.get_user(message.from_user.id)
+            await checkout.offer_continue(
+                message.bot, message.from_user.id,
+                (fresh.balance if fresh else 0) or 0, user_lang)
+        except Exception as nudge_err:
+            logger.warning(f"Buyurtma eslatmasi yuborilmadi: {nudge_err}")
     except Exception as e:
         logger.error(f"successful_payment handler error: {e}")

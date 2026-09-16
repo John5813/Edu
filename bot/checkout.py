@@ -6,7 +6,7 @@ holatida qoladi: mijoz balansni to'ldiradi yoki Telegram Stars bilan
 to'laydi, va to'lov qaysi yo'l bilan bo'lishidan qat'i nazar xizmat
 o'sha buyurtma ustida davom etadi.
 
-Buyurtma botda joy egallab turgani uchun bir soatdan keyin eskiradi.
+Buyurtma botda joy egallab turgani uchun ikki soatdan keyin eskiradi.
 """
 
 import logging
@@ -21,7 +21,9 @@ from translations import get_text
 
 logger = logging.getLogger(__name__)
 
-ORDER_TTL_SECONDS = 3600
+# Ikki soat: mijoz kartadan pul o'tkazib, admin uni tasdiqlashini kutishi
+# mumkin — bir soat bunga ko'pincha yetmasdi.
+ORDER_TTL_SECONDS = 7200
 
 _STARTED_KEY = "_order_started_at"
 _PAID_KEY = "_paid_with_stars"
@@ -51,6 +53,96 @@ def recall(user_id: int, service: str) -> dict:
 
 def forget(user_id: int) -> None:
     _PENDING.pop(user_id, None)
+
+
+def pending(user_id: int) -> dict:
+    """Kutayotgan buyurtma — xizmati bilan birga. Eskirgan bo'lsa bo'sh dict."""
+    entry = _PENDING.get(user_id)
+    if not entry:
+        return {}
+    if time.time() - entry["at"] > ORDER_TTL_SECONDS:
+        _PENDING.pop(user_id, None)
+        return {}
+    return {"service": entry["service"], "data": entry["data"]}
+
+
+# Har bir xizmat o'z buyurtmasini qanday ko'rsatishini o'zi biladi: mavzu,
+# hajm, til va boshqa maydonlar xizmatdan xizmatga farq qiladi.
+_SUMMARY: dict = {}
+
+
+def describes(service: str):
+    """Buyurtma tafsilotlarini chizuvchi funksiyani ro'yxatdan o'tkazadi."""
+    def register(renderer):
+        _SUMMARY[service] = renderer
+        return renderer
+    return register
+
+
+def summarize(service: str, data: dict, language: str) -> str:
+    renderer = _SUMMARY.get(service)
+    if renderer is None:
+        return ""
+    try:
+        return renderer(data, language) or ""
+    except Exception as exc:
+        logger.warning("Buyurtma tafsiloti chizilmadi (%s): %s", service, exc)
+        return ""
+
+
+def _continue_keyboard(service: str, language: str, affordable: bool,
+                       price: int) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    if affordable:
+        keyboard.add(InlineKeyboardButton(
+            text=get_text(language, "pay_continue_yes"),
+            callback_data=f"{service}_recheck"))
+    else:
+        keyboard.add(InlineKeyboardButton(
+            text=get_text(language, "pay_topup"), callback_data="pay_card_start"))
+        keyboard.add(InlineKeyboardButton(
+            text=get_text(language, "pay_with_stars", stars=som_to_stars(price)),
+            callback_data=f"{service}_stars"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
+async def offer_continue(bot, user_id: int, balance: int,
+                         language: str = "uz") -> bool:
+    """Balans to'lgach kutayotgan buyurtmani eslatadi.
+
+    Mijoz balansni to'ldirgach «Qayta tekshirish» tugmasini qidirib
+    o'tirmasligi kerak: pul tushishi bilan buyurtma o'zi eslatiladi.
+    Qaytariladi: xabar yuborildimi.
+    """
+    order = pending(user_id)
+    if not order:
+        return False
+
+    data = order["data"]
+    price = int(data.get("price", 0) or 0)
+    details = summarize(order["service"], data, language)
+    if not details:
+        return False
+
+    affordable = balance >= price
+    if affordable:
+        text = get_text(language, "pay_order_ready",
+                        details=details, price=price, balance=balance)
+    else:
+        text = get_text(language, "pay_order_still_short",
+                        details=details, price=price, balance=balance,
+                        shortage=price - balance)
+
+    try:
+        await bot.send_message(
+            user_id, text, parse_mode="HTML",
+            reply_markup=_continue_keyboard(order["service"], language,
+                                            affordable, price))
+        return True
+    except Exception as exc:
+        logger.warning("Buyurtma eslatmasi yuborilmadi (%s): %s", user_id, exc)
+        return False
 
 
 def purge_expired() -> int:
