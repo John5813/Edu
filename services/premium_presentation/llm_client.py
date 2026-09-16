@@ -130,6 +130,33 @@ ELEMENT TURLARI:
   Bullet ro'yxati o'rniga infographic ishlating — u ancha professional ko'rinadi.
 
 ══════════════════════════════════════════════════
+BITTA SLAYD — BITTA INSTRUMENT (eng muhim qoida):
+
+Instrument — image, chart, infographic yoki kpi kartochkalari qatori.
+Bitta slaydda ULARDAN FAQAT BITTASI bo'lsin.
+
+✗ Rasm + diagramma bir varaqda — ular bir-birini yopadi va o'quvchi
+  ikkalasini birdan o'zlashtira olmaydi
+✗ Diagramma + kartochkalar qatori — slayd raqamlar to'plamiga aylanadi
+✓ Diagramma + uni tushuntiruvchi matn
+✓ Rasm + uni tushuntiruvchi matn
+
+Qaysi birini tanlash — slayd nimani aytmoqchi bo'lsa o'shanga qarab:
+  → raqam gapiradi (o'sish, ulush, taqqoslash)   → chart
+  → mavzuni ko'z bilan ko'rsatish kerak          → image
+  → bandlar, bosqichlar, davrlar                 → infographic
+  → bitta hal qiluvchi raqam                     → kpi
+
+TANLANGAN INSTRUMENT TO'LIQ YORITILSIN:
+• U slaydning kamida yarmini egallasin — kichik qilib burchakka qo'ymang
+• Yonida yoki ostida uni TUSHUNTIRUVCHI matn bo'lsin: nima ko'rsatilgan,
+  raqamlar nimani anglatadi va bundan qanday xulosa chiqadi
+• Diagramma uchun "caption" MAJBURIY; rasm va infografika esa slayd
+  matnida izohlansin
+• Bitta instrument bilan slayd bo'sh ko'rinmaydi — bo'shagan joy izoh,
+  tahlil va misol bilan to'ldiriladi
+
+══════════════════════════════════════════════════
 MAVJUD IKONKA NOMLARI (faqat shu ro'yxatdan tanlang):
 agriculture, ai, airplane, algorithm, architecture, art, atom, award, basketball, behavior,
 biology, brain, building, business, calendar, car, certificate, chart, chemistry, cinema,
@@ -190,7 +217,7 @@ PROFESSIONAL LAYOUT TIZIMI:
 
 [E] KONTENT + DIAGRAMMA
   • Chap: sarlavha + 3–5 qator tushuntirish matni
-  • O'ng: diagramma (chart element)
+  • O'ng: diagramma (chart element) — rasm bilan birga EMAS
 
 [F] YARIM MATN + YARIM RASM (har 6 varoqda KAMIDA 1 ta MAJBURIY)
   • Chap yarmi (x=0.4, w=6.0): to'q panel yoki och fon + sarlavha + 4–6 qator matn
@@ -204,6 +231,13 @@ MATN HAJMI — MAJBURIY:
 Har slaydda KAMIDA 80 so'z matn bo'lsin (sarlavhalar bilan birga).
 Har faktblok/karta ichida: sarlavha + 2–4 qator izoh.
 Tana matni 13–16pt — o'qib bo'ladigan, mazmunli jumlalar.
+
+YUQORI CHEGARA — bu o'lchangan, taxmin emas:
+  • Instrumenti bor slaydda jami 90–130 so'z (matn yarim ustunga tushadi)
+  • Instrumenti yo'q slaydda 160–240 so'z (matn butun enni egallaydi)
+Bundan ortig'i 14pt da qutiga sig'maydi va quyidagi blok ustiga minib
+qoladi. Ko'proq aytadigan gap bo'lsa — uni keyingi slaydga oling, matnni
+siqib tiqmang.
 
 ══════════════════════════════════════════════════
 RANG QOIDALARI:
@@ -237,6 +271,9 @@ application → Amaliy, qadamli. Bullet yoki raqamlangan qadamlar.
 synthesis  → Final xulosa. 4–5 asosiy xulosa + har biri 1–2 qator izoh.
               Yakunlovchi chaqiriq yoki asosiy tavsiya.
 
+Yuqorida "diagramma mumkin" deyilgan joylarda ham qoida bitta: slaydda
+allaqachon rasm yoki infografika bo'lsa, diagramma QO'SHILMAYDI.
+
 ══════════════════════════════════════════════════
 DIAGRAMMA UCHUN MA'LUMOTLAR:
 
@@ -253,6 +290,7 @@ QATTIQ TAQIQLAR:
 ✗ Dekorativ katta doiralar slayd chegarasidan tashqarida
 ✗ Mavzudan uzilgan global statistika (kerak bo'lmasa)
 ✗ Hamma slaydda bir xil bullet format
+✗ Bitta slaydda ikkita instrument (rasm + diagramma, diagramma + kartochka)
 ✗ Chekka: matn bloklari slayd chegarasidan ≥ 0.3" masofada
 
 ══════════════════════════════════════════════════
@@ -276,6 +314,10 @@ JAVOB: faqat sof JSON (markdown, ``` yoki boshqa matn YO'Q):
 
 # ─────────────────────────────────────────── REGENERATE PROMPT
 
+ICON_NAMES = (
+    "agriculture, ai, airplane, algorithm, architecture, art, atom, award, basketball, behavior, biology, brain, building, business, calendar, car, certificate, chart, chemistry, cinema, city, climate, code, communication, computer, construction, contract, cooking, country, court, crime, culture, database, democracy, design, diploma, dna, doctor, economics, education, electricity, emotion, energy, environment, family, finance, fire, fitness, flag, food, football, forest, geography, globe, government, graduation, health, history, hospital, house, idea, industry, innovation, internet, investment, justice, language, law, leadership, literature, logistics, management, map, marketing, math, medicine, mental, microscope, military, money, moon, mountain, museum, music, nature, network, nuclear, nutrition, ocean, peace, pharmacy, philosophy, photography, physics, planet, politics, pollution, poverty, privacy, project, psychology, rain, recycling, research, rights, robot, running, satellite, school, science, security, ship, social, solar, space, sport, star, startup, statistics, strategy, success, surgery, swimming, target, team, technology, tennis, theater, time, trade, train, transport, university, vaccine, volleyball, war, water, welfare, wind, writing, yoga"
+)
+
 SYSTEM_PROMPT_REGEN = """Sen professional biznes taqdimot slaydini qayta loyihalaysan.
 
 Slayd o'lchami: 13.333" × 7.5". Element turlari: rect, text, circle, image, chart, kpi, icon, infographic.
@@ -284,7 +326,7 @@ Kpi formati: {"type":"kpi","x":1.0,"y":4.2,"w":3.4,"h":1.8,"value":"78%","label"
 Icon formati: {"type":"icon","x":1.2,"y":2.4,"w":0.7,"h":0.7,"icon":"<ro'yxatdagi nom>","fill":"2A78D6","color":"FFFFFF","shape":"circle"}
 Infographic formati: {"type":"infographic","x":0.6,"y":1.9,"w":12.1,"h":4.4,"preset":"cards|steps|timeline|cycle|pyramid","items":[{"title":"...","text":"...","icon":"<nom>","value":"2019"}]}
   → items 3-5 ta, har birida icon nomi; koordinatani kod hisoblaydi, sen faqat mazmun ber
-Ikonka nomlari: agriculture, ai, airplane, algorithm, architecture, art, atom, award, basketball, behavior, biology, brain, building, business, calendar, car, certificate, chart, chemistry, cinema, city, climate, code, communication, computer, construction, contract, cooking, country, court, crime, culture, database, democracy, design, diploma, dna, doctor, economics, education, electricity, emotion, energy, environment, family, finance, fire, fitness, flag, food, football, forest, geography, globe, government, graduation, health, history, hospital, house, idea, industry, innovation, internet, investment, justice, language, law, leadership, literature, logistics, management, map, marketing, math, medicine, mental, microscope, military, money, moon, mountain, museum, music, nature, network, nuclear, nutrition, ocean, peace, pharmacy, philosophy, photography, physics, planet, politics, pollution, poverty, privacy, project, psychology, rain, recycling, research, rights, robot, running, satellite, school, science, security, ship, social, solar, space, sport, star, startup, statistics, strategy, success, surgery, swimming, target, team, technology, tennis, theater, time, trade, train, transport, university, vaccine, volleyball, war, water, welfare, wind, writing, yoga
+Ikonka nomlari: {ICONS}
 
 Chart formati: {"type":"chart","x":1.0,"y":2.0,"w":8.0,"h":4.0,"chart_type":"column|bar|line|area|pie|donut|radar|scatter","chart_title":"...","categories":[...],"series":[{"name":"...","values":[...]}]}
 
@@ -292,10 +334,13 @@ Muammoni to'liq bartaraf etgan YANGI professional layout bilan qaytар.
 
 Qoidalar:
 - role, index o'zgartirma
-- Matn hajmini KAMAYTIRMA — ko'proq izoh qo'sh (kamida 80 so'z)
+- Matn hajmi: kamida 80 so'z; instrumentli slaydda 130 so'zdan, instrumentsizda
+  240 so'zdan OSHMASIN — ortig'i qutiga sig'maydi va ustma-ust tushadi
 - Professional layout: chap panel, yuqori tasma, ustun tizimi
 - To'q fon → oq matn; och fon → to'q matn
 - Har taqdimotda kamida 2 ta chart, 2 ta image va 2 ta infographic bo'lsin; birinchi slaydda image MAJBURIY
+- BITTA SLAYDDA BITTA INSTRUMENT: image, chart, infographic va kpi dan faqat bittasi.
+  Qolgan joyni matn bilan to'ldir va o'sha instrumentni to'liq izohla
 - Ro'yxatli slaydni bullet emas, infographic qilib bering
 - Muhim raqamlarni kpi kartochkasi qilib ko'rsat (yonma-yon 2-4 ta)
 - Chart uchun raqamni har mavzuda topish mumkin: sanalar, ulushlar, bosqichlar, taqqoslash
@@ -307,7 +352,7 @@ Format:
   "index": <n>, "role": "<role>",
   "title": "<sarlavha>", "key_text": "<kamida 3 jumla>",
   "canvas": {"background": "<hex>", "elements": [...]}
-}"""
+}""".replace("{ICONS}", ICON_NAMES)
 
 
 # ─────────────────────────────────────────── YORDAMCHI FUNKSIYALAR
@@ -373,7 +418,8 @@ def _salvage_partial_json(text: str) -> dict | None:
         return None
 
 
-def _call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 0.7) -> dict:
+def _call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 0.7,
+                     max_tokens: int = 16000) -> dict:
     if not config.OPENROUTER_API_KEY:
         raise RuntimeError(
             "OpenRouter kaliti topilmadi — muhitda AI_INTEGRATIONS_OPENROUTER_API_KEY "
@@ -387,7 +433,7 @@ def _call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 
     payload = {
         "model": config.OPENROUTER_TEXT_MODEL,
         "temperature": temperature,
-        "max_tokens": 16000,
+        "max_tokens": max_tokens,
         "response_format": {"type": "json_object"},
         "messages": [
             {"role": "system", "content": system_prompt},
@@ -506,6 +552,12 @@ def _base_rules(topic: str, slide_count: int, level: int = 2) -> str:
         "• Rang kontrasti qat'iy: to'q fon → oq matn, och fon → to'q matn\n"
         "• key_text mazmunli bo'lsin, lekin sun'iy ravishda cho'zilmasin\n"
         "• Birinchi slaydda image MAJBURIY; har taqdimotda kamida 2 ta image va 2 ta chart\n"
+        "• BITTA slaydda BITTA instrument (image | chart | infographic | kpi) — "
+        "ikkitasi bir varaqqa sig'maydi va bir-birini yopadi\n"
+        "• O'sha yagona instrument slaydning kamida yarmini egallasin va matnda "
+        "to'liq izohlansin — nima ko'rsatilgani va qanday xulosa chiqishi\n"
+        "• Matn hajmi: instrumentli slaydda 90-130 so'z, instrumentsizda 160-240 so'z "
+        "(o'lchangan chegara — ortig'i qutiga sig'maydi)\n"
         "• Rasm promptida matn so'ramang — harflar buzilib chiqadi\n"
         "  Diagramma qo'shsang — 'caption' maydoni MAJBURIY to'ldirsin\n"
         f"\n{level_instr}"
@@ -645,6 +697,84 @@ def get_chunk_summary(slides_raw: list) -> str:
         role = s.get("role", "")
         parts.append(f"[{role}] {title}: {key}")
     return "\n".join(parts)
+
+
+# ─────────────────────────────────────── Kichik tuzatish so'rovlari
+#
+# Slaydda nuqson topilganda uni BUTUNICHA qayta yozdirish eng qimmat yo'l:
+# butun kanvas JSON ketadi va butun kanvas JSON qaytadi — bitta slayd uchun
+# ming-ming token. Quyidagi so'rovlar esa faqat bitta qarorni yoki bitta
+# elementni so'raydi, qolganini kod bajaradi. Shuning uchun javob bir necha
+# o'nlab token bo'ladi va slaydning yaxshi qismlari o'zgarmay qoladi.
+
+SYSTEM_PROMPT_PATCH = (
+    "Sen taqdimot slaydini tuzatishga yordam berasan. Faqat so'ralgan narsani "
+    "ber — slaydni qayta yozma, ortiqcha izoh berma. Javob sof JSON bo'lsin."
+)
+
+
+def choose_instrument(topic: str, title: str, key_text: str, options: list,
+                      language: str = "uz") -> dict:
+    """Bir necha instrumentdan qaysi biri qolishini so'raydi.
+
+    Slayd JSON'i yuborilmaydi: modelga qaror uchun sarlavha, mazmun va
+    variantlar ro'yxati yetarli.
+    """
+    listed = "\n".join(f"- {item['kind']}: {item['what']}" for item in options)
+    user_prompt = (
+        f"Mavzu: {topic}\n"
+        f"Slayd sarlavhasi: {title}\n"
+        f"Slayd mazmuni: {key_text}\n\n"
+        f"Bu slaydda bir nechta instrument bor:\n{listed}\n\n"
+        "Bir varaqda faqat BITTASI qolishi kerak — ular bir-birini yopadi. "
+        "Qaysi biri slayd g'oyasini yaxshiroq ochadi?\n"
+        f"TIL TALABI: {_language_instruction(language)}\n"
+        'Faqat JSON: {"keep": "chart", "note": "qoladigan instrumentni '
+        'izohlovchi bitta jumla — nima ko\'rsatilgan va qanday xulosa chiqadi"}'
+    )
+    return _call_openrouter(SYSTEM_PROMPT_PATCH, user_prompt,
+                            temperature=0.2, max_tokens=300)
+
+
+def make_chart(topic: str, title: str, key_text: str, language: str = "uz") -> dict:
+    """Slaydga qo'yiladigan bitta diagramma elementini so'raydi.
+
+    Koordinata so'ralmaydi — uni kod hisoblaydi.
+    """
+    user_prompt = (
+        f"Mavzu: {topic}\n"
+        f"Slayd sarlavhasi: {title}\n"
+        f"Slayd mazmuni: {key_text}\n\n"
+        "Shu slayd mazmuniga mos BITTA diagramma ma'lumotini ber. Raqamlar "
+        "mavzuga tegishli va mantiqiy bo'lsin, o'ylab topilgan bo'lmasin. "
+        "Kategoriya 3-7 ta.\n"
+        f"TIL TALABI: {_language_instruction(language)}\n"
+        'Faqat JSON: {"chart_type": "column|bar|line|area|pie|donut|radar", '
+        '"chart_title": "...", "caption": "diagramma nimani ko\'rsatadi — '
+        '1-2 jumla", "categories": ["..."], '
+        '"series": [{"name": "...", "values": [1, 2, 3]}]}'
+    )
+    return _call_openrouter(SYSTEM_PROMPT_PATCH, user_prompt,
+                            temperature=0.4, max_tokens=900)
+
+
+def make_infographic(topic: str, title: str, key_text: str, icons: str,
+                     language: str = "uz") -> dict:
+    """Infografika bandlarini so'raydi — joylashuvni kod hisoblaydi."""
+    user_prompt = (
+        f"Mavzu: {topic}\n"
+        f"Slayd sarlavhasi: {title}\n"
+        f"Slayd mazmuni: {key_text}\n\n"
+        "Shu slayd mazmunini 3-5 bandli infografikaga aylantir. Har bandda "
+        "qisqa sarlavha (2-4 so'z), 1-2 jumla izoh (90 belgigacha) va "
+        "ro'yxatdan ikonka nomi bo'lsin.\n"
+        f"Ikonka nomlari: {icons}\n"
+        f"TIL TALABI: {_language_instruction(language)}\n"
+        'Faqat JSON: {"preset": "cards|steps|timeline|cycle|pyramid", '
+        '"items": [{"title": "...", "text": "...", "icon": "...", "value": "2019"}]}'
+    )
+    return _call_openrouter(SYSTEM_PROMPT_PATCH, user_prompt,
+                            temperature=0.4, max_tokens=900)
 
 
 def regenerate_slide(
