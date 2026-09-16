@@ -1,6 +1,8 @@
 import hashlib
+import hashlib
 import logging
 import os
+import random
 import random
 import re
 
@@ -208,6 +210,7 @@ def canvas_validation_and_fix(
     # almashtirib bo'lmaydi.
     brief = diversify_structures(brief, topic)
     brief = expand_infographics(brief)
+    brief = build_title_slide(brief, topic)
     brief = ensure_title_contrast(brief)
     brief = ensure_body_contrast(brief)
     brief = ensure_icons(brief)
@@ -215,6 +218,7 @@ def canvas_validation_and_fix(
     # Band chegarasi matn joylashuvidan KEYIN tekshiriladi: blok surilgandan
     # keyin bandan chiqib ketishi mumkin.
     brief = keep_text_inside_panels(brief)
+    brief = seat_titles_in_bands(brief)
     brief = enforce_min_text_size(brief)
     brief = ensure_chart_explanations(brief)
 
@@ -233,6 +237,7 @@ def canvas_validation_and_fix(
             # eng qimmat yo'l va tayyor qismlarni ham o'zgartirib yuboradi.
             if _repair_in_code(brief, slide):
                 fix_slide_overlaps(slide)
+                seat_title_in_band(slide)
                 ok, problem = canvas_check(slide)
                 if ok:
                     log.info("Slayd %s kod bilan tuzatildi (model chaqirilmadi)",
@@ -259,6 +264,9 @@ def canvas_validation_and_fix(
     # Qayta loyihalangan slaydlar yangi infografika qaytargan bo'lishi mumkin.
     brief = expand_infographics(brief)
     brief = ensure_icons(brief)
+    # Eng oxirgi qadam. Undan keyin hech narsa sarlavhaga tegmaydi, ya'ni
+    # "sarlavha o'z bandining ichida" sharti render paytigacha saqlanadi.
+    brief = seat_titles_in_bands(brief)
     return brief
 
 
@@ -430,7 +438,8 @@ def _clear_fixed(element, fixed: list, ceiling: float) -> None:
             element.y = below
 
 
-def _flow(ordered: list, compact: bool, fixed: list = ()) -> bool:
+def _flow(ordered: list, compact: bool, fixed: list = (),
+          anchors: list = ()) -> bool:
     """Bloklarni o'qilish tartibida yuqoridan pastga joylaydi.
 
     Har blok o'zidan oldingilarning ostiga tushadi, shuning uchun tartib
@@ -442,9 +451,15 @@ def _flow(ordered: list, compact: bool, fixed: list = ()) -> bool:
     `fixed` — qo'zg'almas to'siqlar: diagramma, rasm, sxema, kartochkalar
     va preset hisoblab qo'ygan matnlar. Ular surilmaydi, lekin matn
     ularning ustiga tushmaydi.
+
+    `anchors` — o'rni dizayn bilan belgilangan matnlar (bezak bandidagi
+    sarlavha). Ular oqimdan oldin joylashgan hisoblanadi: shu sababli
+    quyidagi bloklar ularning OSTIGA tushadi. Aks holda banddagi
+    sarlavhadan qochgan matn uning tepasiga ko'tarilib, o'qilish tartibi
+    teskari bo'lib qolardi.
     """
     fits = True
-    placed = []
+    placed = list(anchors)
     fixed = list(fixed)
     for element in ordered:
         # To'siqdan chiqarish blokni surib yuboradi, shuning uchun
@@ -534,11 +549,29 @@ def fix_slide_overlaps(slide: Slide) -> Slide:
     # yuborardi va slayd teskari o'qiladigan bo'lib qolardi.
     # `texts.index(...)` ishlatilmaydi: pydantic modellari qiymat bo'yicha
     # taqqoslanadi, ya'ni bir xil ikki matn bitta indeksni qaytarardi.
+    # Bezak bandi ustidagi sarlavha oqimda qatnashmaydi: uning o'rnini
+    # dizaynning o'zi — band — belgilab bergan. Ilgari qatnashardi va
+    # diagrammadan qochayotib bandan tashqariga chiqib ketardi; oq band
+    # ustida oq harflar bilan yozilgan sarlavha oq fonga tushib, umuman
+    # ko'rinmay qolardi. Boshqa bloklar uchun u qo'zg'almas to'siq.
+    panels = _panels(slide)
+    anchored = [element for element in texts
+                if _is_title(element) and _title_band(element, panels) is not None]
+    anchored_ids = {id(element) for element in anchored}
+    # Sarlavha yonidagi ikonka band bezagi — to'siq emas. Ilgari to'siq
+    # sanalardi va bandning ikkinchi matni (masalan kichik sarlavha) undan
+    # qochib bandan tashqariga, oq fonga chiqib ketardi.
+    decor_ids = {id(icon) for icon in
+                 (_icon_beside(slide, title) for title in anchored) if icon is not None}
+
     ordered = [element for _, element in sorted(
         ((_reading_key(element, position), element)
-         for position, element in enumerate(texts)),
+         for position, element in enumerate(texts)
+         if id(element) not in anchored_ids),
         key=lambda pair: pair[0],
     )]
+    if not ordered:
+        return slide
 
     # Qo'zg'almas to'siqlar: instrumentlar va preset hisoblab qo'ygan
     # matnlar. Ular oqimda qatnashmaydi, lekin ularning ustiga ham
@@ -551,18 +584,20 @@ def fix_slide_overlaps(slide: Slide) -> Slide:
              if _is_opaque(element)
              or (element.locked and element.type != "text")
              or (element.type == "text" and element.locked
-                 and (element.text or "").strip())]
+                 and (element.text or "").strip())
+             or id(element) in anchored_ids]
+    fixed = [element for element in fixed if id(element) not in decor_ids]
 
-    if not _flow(ordered, compact=False, fixed=fixed):
+    if not _flow(ordered, compact=False, fixed=fixed, anchors=anchored):
         # Har qadamda shrift pastki chegarasi tushadi. Birinchi qadam —
         # avvalgi xatti-harakat (13pt). Model belgilangan matn hajmidan
         # oshib ketgan slaydda 13pt da hech narsa sig'maydi va tanlov
         # ikkita bo'lib qoladi: o'qib bo'lmaydigan ustma-ustlik yoki
         # kichikroq shrift. Ikkinchisi afzal.
         for floor in (_MIN_BODY_PT, _HARD_MIN_PT, _LAST_RESORT_PT):
-            _flow(ordered, compact=True, fixed=fixed)
+            _flow(ordered, compact=True, fixed=fixed, anchors=anchored)
             _shrink_overflow(ordered, floor=floor)
-            if _flow(ordered, compact=True, fixed=fixed):
+            if _flow(ordered, compact=True, fixed=fixed, anchors=anchored):
                 break
 
     # Yakuniy chegara tekshiruvi HAM o'lchangan balandlik bilan bajariladi.
@@ -571,6 +606,8 @@ def fix_slide_overlaps(slide: Slide) -> Slide:
     # ajratilgan qo'shni blok ustiga qaytib minib qolardi — ya'ni
     # ustma-ustlikni tuzatuvchining o'zi tiklab qo'yardi.
     for element in texts:
+        if id(element) in anchored_ids:
+            continue                # o'rni band bilan belgilangan
         _, _, width, height = _box(element)
         element.x = min(max(element.x, edge), SLIDE_W - edge - width)
         element.y = min(max(element.y, edge), SLIDE_H - edge - height)
@@ -1337,6 +1374,52 @@ def _grow_into_free_space(element, slide: Slide) -> None:
         element.h = round(room, 2)
 
 
+def spread_infographic_presets(brief: Brief, topic: str) -> Brief:
+    """Bir xil kartochka to'ri hamma slaydga tushib qolmasin.
+
+    Yetkazilgan taqdimotda 11 slaydning 8 tasi bir xil tuzilishda edi:
+    to'rtta kartochka, to'rtta doira, to'rtta ikonka. Model eng oson
+    presetni tanlab, uni takrorlayverardi. Bu yerda presetlar bandlar
+    soniga mos keladiganlari orasida almashtiriladi.
+    """
+    blocks = [
+        element
+        for slide in brief.slides
+        for element in slide.canvas.elements
+        if element.type == "infographic"
+    ]
+    if len(blocks) < 2:
+        return brief
+
+    seed = f"{topic}|{brief.topic}"
+    rng = random.Random(hashlib.sha256(seed.encode("utf-8")).hexdigest())
+
+    # Ketma-ket ikkitadan ortiq takrorlanmasin va umuman bir xili ko'p
+    # bo'lmasin — shuning uchun har preset nechta ishlatilgani sanaladi.
+    used: dict = {}
+    previous = None
+    current = [element.preset or "cards" for element in blocks]
+
+    for element in blocks:
+        items = len(element.items or [])
+        options = [preset for preset in infographics.PRESET_FITS
+                   if infographics.fits(preset, items)]
+        if not options:
+            continue
+        fewest = min(used.get(option, 0) for option in options)
+        fresh = [option for option in options
+                 if used.get(option, 0) == fewest and option != previous]
+        pick = rng.choice(fresh or [o for o in options if o != previous] or options)
+        element.preset = pick
+        used[pick] = used.get(pick, 0) + 1
+        previous = pick
+
+    spread = [element.preset for element in blocks]
+    if spread != current:
+        log.info("Infografika presetlari yoyildi: %s → %s", current, spread)
+    return brief
+
+
 def expand_infographics(brief: Brief) -> Brief:
     """`infographic` elementlarini ibtidoiy shakllarga yoyadi.
 
@@ -1516,6 +1599,10 @@ def keep_text_inside_panels(brief: Brief) -> Brief:
 
             bottom = py + ph - _PANEL_PAD
             for element in guests:
+                if _is_title(element):
+                    # Sarlavhani `seat_title_in_band` o'lchaydi: u zaxira
+                    # qatorsiz o'lchaydi va kerak bo'lsa markazlashtiradi.
+                    continue
                 ex, ey, ew, eh = _box(element)
                 room = bottom - ey
                 if eh <= room + _TOLERANCE:
@@ -1534,6 +1621,181 @@ def keep_text_inside_panels(brief: Brief) -> Brief:
                 fitted_h = infographics.height_of(element.text, ew, element.size or 14.0)
                 element.h = max(min(element.h or eh, room), fitted_h)
     return brief
+
+
+# Sarlavha bandga sig'masa shrift shu chegaragacha kichrayadi. Undan
+# pastga tushirilgan sarlavha sarlavha bo'lishdan to'xtaydi.
+_TITLE_FLOOR_PT = 18.0
+# Sarlavha o'z bandidan shuncha dyuymgacha uzoqlashib ketgan bo'lsa ham
+# "o'sha bandniki" hisoblanadi: uni aynan joylashtiruvchi surib yuborgan.
+_BAND_REACH = 1.2
+# Kontent kartochkasi emas, sarlavha tasmasi: shundan baland blokda
+# sarlavha markazlashtirilmaydi, faqat ichkariga tortiladi.
+_BAND_MAX_H = 2.6              # slayd balandligining ~uchdan biri
+
+
+def _title_band(title, panels):
+    """Sarlavha turishi kerak bo'lgan bezak bandini qaytaradi.
+
+    `_host_panel_of` dan farqi: u matn bandning ICHIDA boshlanishini talab
+    qiladi, ya'ni aynan nuqsonli holatda — sarlavha banddan chiqib ketgan
+    paytda — hech narsa topmaydi. Bu yerda esa yaqin turgan band ham
+    hisobga olinadi, chunki savol "qayerda turibdi" emas, "qayerda
+    turishi kerak" edi.
+    """
+    tx, ty, tw, th = _box(title)
+    best, best_score = None, None
+    for panel in panels:
+        px, py, pw, ph = _box(panel)
+        if ph < _MIN_PANEL_H:
+            continue
+        if pw >= SLIDE_W - 0.4 and ph >= SLIDE_H - 0.4:
+            continue                       # butun slayd foni, band emas
+        if pw + _TOLERANCE < tw * 0.5:
+            continue                       # sarlavhadan ancha tor
+        overlap = min(tx + tw, px + pw) - max(tx, px)
+        if tw <= 0 or overlap / tw < _PANEL_SHARE:
+            continue
+        # Musbat — kesishish, manfiy — orasidagi masofa.
+        near = min(ty + th, py + ph) - max(ty, py)
+        if near < -_BAND_REACH:
+            continue
+        if best_score is None or near > best_score:
+            best, best_score = panel, near
+    return best
+
+
+def _band_guests(slide: Slide, band, title) -> int:
+    """Banddagi boshqa matnlar soni — markazlashtirish shunga bog'liq."""
+    box = _box(band)
+    count = 0
+    for element in slide.canvas.elements:
+        if element is title or element.type != "text":
+            continue
+        if not (element.text or "").strip():
+            continue
+        if _overlap_share(_box(element), box) > 0.5:
+            count += 1
+    return count
+
+
+def _icon_beside(slide: Slide, title):
+    """Sarlavhaning chap yonidagi ikonka — `ensure_icons` qo'ygani."""
+    for element in slide.canvas.elements:
+        if element.type != "icon":
+            continue
+        ix, iy, iw, ih = _box(element)
+        if not (0.0 < title.x - (ix + iw) < 0.6):
+            continue                       # sarlavhaning chap yonida emas
+        if abs(iy - title.y) > 1.2:
+            continue                       # boshqa qatordagi ikonka
+        return element
+    return None
+
+
+def _follow_title(icon, title, height: float) -> None:
+    """Sarlavha ikonkasini sarlavha bilan birga ko'chiradi.
+
+    Ikonka `ensure_icons` da sarlavhaning o'sha paytdagi o'rniga qarab
+    qo'yiladi. Sarlavha keyin bandga qaytarilsa, ikonka eski joyida
+    qolib, band chetida osilib turardi.
+    """
+    if icon is None:
+        return
+    _, _, iw, ih = _box(icon)
+    icon.y = round(title.y + (height - ih) / 2, 2)
+    icon.x = round(max(_EDGE, title.x - iw - 0.22), 2)
+
+
+def seat_titles_in_bands(brief: Brief) -> Brief:
+    """Har sarlavhani o'z bezak bandining ichiga qaytarib o'tqazadi."""
+    seated = 0
+    for slide in brief.slides:
+        seated += seat_title_in_band(slide)
+    if seated:
+        log.info("Sarlavha o'rni: %s ta sarlavha bandiga qaytarildi", seated)
+    return brief
+
+
+def seat_title_in_band(slide: Slide) -> int:
+    """Bitta slayddagi sarlavhalarni bandiga o'tqazadi.
+
+    Bu qadam hamma tuzatishlardan KEYIN turadi va bitta o'zgarmas shartni
+    kafolatlaydi: sarlavha qaysi band uchun chizilgan bo'lsa, o'sha
+    bandning ichida turadi. Ilgari joylashtiruvchi sarlavhani diagramma
+    yoki ikonkadan qochirib bandan tashqariga chiqarib yuborardi — mijozga
+    yetkazilgan taqdimotning 6-slaydida sarlavha tasmadan 0.34 dyuym
+    yuqorida, oq fonda oq harflar bilan turardi.
+
+    Sig'masa avval shrift kichrayadi (band — dizaynning o'zi, uni
+    o'zgartirmaslik ma'qul), u ham yetmasa band pastdagi bo'sh joy
+    hisobiga uzayadi.
+    """
+    panels = _panels(slide)
+    if not panels:
+        return 0
+
+    seated = 0
+    for title in _titles(slide):
+        if title.locked:
+            continue
+        band = _title_band(title, panels)
+        if band is None:
+            continue
+
+        # Sarlavhaning o'z ikonkasi band ichida turadi: u bandning "chegarasi"
+        # emas, aks holda band uzayolmasdi.
+        icon = _icon_beside(slide, title)
+        bx, by, bw, bh = _box(band)
+        width = min(title.w or bw, bw - 2 * _PANEL_PAD)
+        if width < 1.0:
+            continue                       # bunday tor bandga sarlavha sig'maydi
+
+        size = title.size or 24.0
+        room = bh - 2 * _PANEL_PAD
+        height = infographics.height_of(title.text, width, size, reserve=False)
+
+        if height > room + _TOLERANCE:
+            size = infographics.fit_size(title.text, width, room, start=size,
+                                         minimum=_TITLE_FLOOR_PT, reserve=False)
+            height = infographics.height_of(title.text, width, size, reserve=False)
+        if height > room + _TOLERANCE:
+            # 18pt da ham sig'madi — band pastdagi bo'sh joyga cho'ziladi.
+            _grow_panel(band, slide, [title] + ([icon] if icon else []))
+            bx, by, bw, bh = _box(band)
+            room = bh - 2 * _PANEL_PAD
+        if height > room + _TOLERANCE:
+            # Band ham yetmadi. Bunday sarlavha juda kam uchraydi (mijoz
+            # mavzu o'rniga butun bir jumla yozganda), lekin shunda ham
+            # sarlavha oq fonga chiqib ketgandan ko'ra kichikroq bo'lgani
+            # ma'qul — shart har qanday holatda saqlanadi.
+            size = infographics.fit_size(title.text, width, room, start=size,
+                                         minimum=_HARD_MIN_PT, reserve=False)
+            height = infographics.height_of(title.text, width, size, reserve=False)
+
+        if _band_guests(slide, band, title) or bh > _BAND_MAX_H:
+            # Bandni boshqa matn bilan baham ko'ryapti yoki bu kontent
+            # kartochkasi — markazlashtirish kompozitsiyani buzadi.
+            new_y = min(max(title.y, by + _PANEL_PAD),
+                        max(by + bh - _PANEL_PAD - height, by + _PANEL_PAD))
+        else:
+            new_y = by + max((bh - height) / 2, _PANEL_PAD)
+        new_x = min(max(title.x, bx + _PANEL_PAD),
+                    max(bx + bw - _PANEL_PAD - width, bx + _PANEL_PAD))
+
+        if (abs(new_y - title.y) > _TOLERANCE or abs(new_x - title.x) > _TOLERANCE
+                or abs(size - (title.size or size)) > 0.01):
+            seated += 1
+            log.info("Slayd %s: sarlavha bandiga qaytarildi (y %.2f → %.2f, "
+                     "shrift %.1f → %.1f pt)", slide.index, title.y, new_y,
+                     title.size or size, size)
+        title.x, title.y, title.w, title.size = round(new_x, 2), round(new_y, 2), width, size
+        # E'lon qilingan balandlik bandan oshmasin: `_draw_text` aynan shu
+        # quti bo'yicha shriftni qayta o'lchaydi.
+        title.h = round(max(min(title.h or height, max(room, 0.2)), height), 2)
+        _follow_title(icon, title, height)
+
+    return seated
 
 
 def ensure_icons(brief: Brief) -> Brief:
@@ -1560,9 +1822,16 @@ def ensure_icons(brief: Brief) -> Brief:
 
 # Sobit ikkita rasm 11 slaydlik taqdimotda juda kam edi — kafolat aynan
 # minimumda to'xtab, qolgan hamma slayd matn va kartochka bo'lib qolardi.
+# Sobit ikkita rasm 11 slaydlik taqdimotda juda kam edi — kafolat aynan
+# minimumda to'xtab, qolgan hamma slayd matn va kartochka bo'lib qolardi.
 MIN_IMAGES = 2
 MIN_CHARTS = 2
 MIN_INFOGRAPHICS = 2
+
+
+def _image_target(brief: Brief) -> int:
+    """Har uch slaydga kamida bitta rasm, lekin ikkitadan kam emas."""
+    return max(MIN_IMAGES, round(len(brief.slides) / 3))
 
 
 def _image_target(brief: Brief) -> int:
@@ -1754,6 +2023,61 @@ def _redesign(slide: Slide, topic: str, language: str, instruction: str) -> Slid
     except Exception as e:
         log.error("Slaydni qayta loyihalashda xato (slayd %s): %s", slide.index, e)
         return slide
+
+
+def build_title_slide(brief: Brief, topic: str) -> Brief:
+    """Birinchi slaydni toza mavzu sahifasiga aylantiradi.
+
+    Yetkazilgan taqdimotda birinchi slayd oddiy kontent sahifasi edi:
+    sarlavha o'rtada emas, yonida statistika kartochkalari va cho'zilgan
+    rasm. Mavzu sahifasi bitta ish qiladi — mavzuni e'lon qiladi, shuning
+    uchun u shu yerda qo'lda quriladi, model ixtiyoriga qoldirilmaydi.
+    """
+    if not brief.slides:
+        return brief
+
+    slide = brief.slides[0]
+    theme = brief.theme
+    primary = (theme.primary if theme else "1B2A4A").lstrip("#")
+    accent = (theme.accent if theme else "E8A020").lstrip("#")
+
+    # Mavjud matnlardan sarlavha va tagsarlavhani ajratib olamiz.
+    texts = [e for e in slide.canvas.elements
+             if e.type == "text" and (e.text or "").strip()]
+    title_text = (slide.title or topic).strip()
+    subtitle = ""
+    for element in sorted(texts, key=lambda e: -(e.size or 0)):
+        candidate = " ".join((element.text or "").split())
+        if candidate and candidate != title_text and len(candidate) > 25:
+            subtitle = candidate[:200]
+            break
+    if not subtitle:
+        subtitle = " ".join((slide.key_text or "").split())[:200]
+
+    # Rasm promptini saqlab qolamiz — u mavzuga moslab yozilgan.
+    image = next((e for e in slide.canvas.elements if e.type == "image" and e.prompt), None)
+    prompt = image.prompt if image else (
+        f"professional photorealistic image representing {topic}, "
+        "clean composition, natural lighting, high detail"
+    )
+
+    slide.canvas.background = "FFFFFF"
+    slide.canvas.elements = [
+        # Chap yarmi — to'q panel, sarlavha shu yerda turadi.
+        VisualElement(type="rect", x=0.0, y=0.0, w=7.2, h=7.5, fill=primary),
+        VisualElement(type="rect", x=0.9, y=2.35, w=1.5, h=0.09, fill=accent),
+        VisualElement(type="text", x=0.9, y=2.75, w=5.7, h=2.2,
+                      text=title_text, size=34, bold=True,
+                      color="FFFFFF", align="left"),
+        VisualElement(type="image", x=7.6, y=0.0, w=5.733, h=7.5, prompt=prompt),
+    ]
+    if subtitle:
+        slide.canvas.elements.insert(3, VisualElement(
+            type="text", x=0.9, y=5.15, w=5.7, h=1.4,
+            text=subtitle, size=14, color="D6DAE2", align="left"))
+
+    log.info("Birinchi slayd mavzu sahifasi qilib qayta qurildi")
+    return brief
 
 
 def build_title_slide(brief: Brief, topic: str) -> Brief:
@@ -2010,8 +2334,13 @@ def _box(element) -> tuple:
         # qo'yilar va matn ustma-ust tushardi. Endi haqiqiy balandlik
         # o'lchanadi; kattasi olinadi, ya'ni model ataylab qoldirgan
         # bo'shliq ham saqlanadi.
+        # Sarlavhaga zaxira qator ajratilmaydi: u qisqa va yirik, bitta
+        # ortiqcha qator esa yarim dyuym — shuncha "balandlik" sarlavhani
+        # o'zining bezak bandiga sig'masdek ko'rsatar va joylashtiruvchi
+        # uni banddan tashqariga chiqarib yuborardi.
         height = max(height, infographics.height_of(
-            element.text, width, element.size or 14.0))
+            element.text, width, element.size or 14.0,
+            reserve=not _is_title(element)))
     return element.x, element.y, width, height
 
 
@@ -2144,6 +2473,7 @@ def repair_regions(slide: Slide, regions: list) -> int:
     # Ustma-ustlik tuzatuvchisi elementni pastga surib chegaradan chiqarishi
     # mumkin, shuning uchun oxirida yana ichkariga tortamiz.
     changed += pull_inside(slide)
+    changed += seat_title_in_band(slide)
     return changed
 
 

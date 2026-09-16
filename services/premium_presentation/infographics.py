@@ -39,6 +39,23 @@ def fits(preset: str, items: int) -> bool:
     low, high = PRESET_FITS.get(preset, (2, MAX_ITEMS))
     return low <= items <= high
 
+# Har preset nechta bandni ko'tara oladi. Halqa uchtadan kam va to'rttadan
+# ko'p bandni ko'tara olmaydi (yassi ellipsda bandlar bir-birining ustiga
+# tushadi), piramida esa beshtadan ko'pini.
+PRESET_FITS = {
+    "cards": (2, 6),
+    "steps": (2, 6),
+    "timeline": (2, 6),
+    "cycle": (3, 4),
+    "pyramid": (2, 5),
+}
+
+
+def fits(preset: str, items: int) -> bool:
+    low, high = PRESET_FITS.get(preset, (2, MAX_ITEMS))
+    return low <= items <= high
+
+
 
 def expand(el: VisualElement, theme=None) -> list[VisualElement]:
     """Infografika elementini ibtidoiy elementlar ro'yxatiga aylantiradi."""
@@ -499,7 +516,7 @@ def _line_count(text: str, w: float, size: float) -> int:
     return total
 
 
-def _reserved_lines(text: str, w: float, size: float) -> int:
+def _reserved_lines(text: str, w: float, size: float, reserve: bool = True) -> int:
     """Blok uchun ajratiladigan qator soni — bahodan bitta ko'p.
 
     Qator sonini belgilar soni bo'yicha baholash aniq emas: haqiqiy shrift
@@ -508,6 +525,12 @@ def _reserved_lines(text: str, w: float, size: float) -> int:
     qator ajratiladi — bo'sh joy ustma-ustlikdan afzal.
     """
     lines = _line_count(text, w, size)
+    if not reserve:
+        # Zaxira qatorsiz o'lchov. Bu faqat matn o'z QUTISIGA (bezak bandi)
+        # sig'adimi degan savolga kerak: bir qatorlik sarlavhaga ikkinchi
+        # qator ajratilsa, u hech qaysi bandga sig'masdi va band ichida
+        # turishi kerak bo'lgan sarlavha undan chiqarib yuborilardi.
+        return lines
     budget = _chars_per_line(w, size)
     longest = max((len(part) for part in (text or "").split("\n")), default=0)
     if lines > 1 or longest >= budget * 0.75:
@@ -520,17 +543,18 @@ def _block_height(lines: int, size: float) -> float:
     return max(lines * size * 1.28 / 72, 0.24)
 
 
-def _fit(text: str, w: float, available_h: float, start: float, minimum: float) -> float:
+def _fit(text: str, w: float, available_h: float, start: float, minimum: float,
+         reserve: bool = True) -> float:
     """Matn ajratilgan balandlikka sig'adigan eng katta shrift o'lchamini topadi."""
     size = start
     while size > minimum:
-        if _block_height(_reserved_lines(text, w, size), size) <= available_h:
+        if _block_height(_reserved_lines(text, w, size, reserve), size) <= available_h:
             return round(size, 1)
         size -= 0.5
     return minimum
 
 
-def height_of(text: str, width: float, size: float) -> float:
+def height_of(text: str, width: float, size: float, reserve: bool = True) -> float:
     """Matn bloki shu kenglikda haqiqatda necha dyuym joy egallaydi.
 
     Kanvas joylashuvini hisoblash uchun ochiq: `pipeline` ilgari modelning
@@ -539,13 +563,14 @@ def height_of(text: str, width: float, size: float) -> float:
     """
     width = max(width, 0.4)
     size = max(size, 6.0)
-    return _block_height(_reserved_lines(text or "", width, size), size)
+    return _block_height(_reserved_lines(text or "", width, size, reserve), size)
 
 
 def fit_size(text: str, width: float, height: float, start: float,
-             minimum: float) -> float:
+             minimum: float, reserve: bool = True) -> float:
     """Berilgan qutiga sig'adigan eng katta shrift o'lchami."""
-    return _fit(text or "", max(width, 0.4), max(height, 0.2), start, minimum)
+    return _fit(text or "", max(width, 0.4), max(height, 0.2), start, minimum,
+                reserve=reserve)
 
 
 def _without_text(item):
