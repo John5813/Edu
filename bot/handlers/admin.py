@@ -2537,11 +2537,24 @@ async def handle_ai_model_settings(message: Message, db: Database):
     current_model_key = await db.get_current_ai_model()
     current_model = AI_MODELS.get(current_model_key, AI_MODELS["gemini_25_flash"])
     
+    from services.ai_service import AIService
+
+    served = AIService._last_served_model
+    # Zaxiraga o'tilgan bo'lsa buni aytish shart: tanlangan model bilan
+    # ishlayotgan model boshqa-boshqa bo'lishi mumkin.
+    served_line = ""
+    if served and served != current_model["id"]:
+        served_line = (f"\n⚠️ Oxirgi so'rovni <b>{served}</b> bajargan — "
+                       "tanlangan model ishlamagani uchun zaxiraga o'tilgan.\n")
+    elif served:
+        served_line = "\n✅ Oxirgi so'rov shu model bilan bajarilgan.\n"
+
     text = (
         "🤖 AI model sozlamalari\n\n"
         f"📌 Hozirgi model: {current_model['name']}\n"
         f"💰 Narxi: {current_model['price']}\n"
-        f"📝 {current_model['description']}\n\n"
+        f"📝 {current_model['description']}\n"
+        f"{served_line}\n"
         "Quyidagi modellardan birini tanlang:"
     )
     
@@ -2571,16 +2584,51 @@ async def select_ai_model(callback: CallbackQuery, db: Database):
     if model_key == current_model_key:
         await callback.answer("Bu model allaqachon tanlangan!")
         return
-    
+
+    # Model haqiqatan ishlashini avval tekshiramiz. OpenRouter katalogida
+    # model nomlari o'zgarib turadi va hisobga ochiq bo'lmasligi mumkin;
+    # tekshirmasdan saqlansa, bot keyingi buyurtmada yiqilardi va sabab
+    # faqat logda ko'rinardi.
+    model_info = AI_MODELS[model_key]
+    await callback.answer("Model tekshirilmoqda…")
+    ok, problem = await _probe_model(model_info["id"])
+    if not ok:
+        await callback.message.answer(
+            f"❌ <b>{model_info['name']}</b> ishlamadi, model almashtirilmadi.\n\n"
+            f"<code>{problem[:300]}</code>\n\n"
+            "Model nomi OpenRouter'da o'zgargan yoki hisobingizda ochiq emas. "
+            "Boshqa modelni tanlang."
+        )
+        return
+
     success = await db.set_current_ai_model(model_key)
     
     if success:
         AIService.clear_model_cache()
-        model_info = AI_MODELS[model_key]
-        await callback.answer(f"✅ {model_info['name']} tanlandi!")
+        await callback.message.answer(f"✅ <b>{model_info['name']}</b> tanlandi va "
+                                      "sinov so'rovi muvaffaqiyatli o'tdi.")
         await callback.message.delete()
     else:
         await callback.answer("❌ Xatolik yuz berdi.")
+
+
+async def _probe_model(model_id: str) -> tuple:
+    """Modelga eng kichik so'rov yuboradi: ishlaydimi yoki yo'q.
+
+    Javob mazmuni muhim emas, shuning uchun bitta so'z so'raladi —
+    tekshiruv deyarli bepul.
+    """
+    from services.ai_service import AIService
+
+    try:
+        service = AIService()
+        answer = await service._make_request(
+            messages=[{"role": "user", "content": "Javob: OK"}],
+            max_tokens=5, temperature=0.0, model_id=model_id, fallback=False,
+        )
+        return bool(answer is not None), ""
+    except Exception as e:
+        return False, str(e)
 
 # ─────────────────────────────────────────────── Botni GitHub'dan yangilash
 #

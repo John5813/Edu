@@ -185,7 +185,35 @@ MAX_TOKENS = 4000
 TEMPERATURE = 0.7
 
 # Available AI Models for OpenRouter (samarali modellar)
+#
+# Tartib muhim: ro'yxat admin panelda shu ketma-ketlikda ko'rinadi va
+# birinchilari eng kuchli modellar. Narxlar taxminiy (OpenRouter'da vaqt
+# o'tishi bilan o'zgaradi), shuning uchun "~" bilan yozilgan.
 AI_MODELS = {
+    "claude_sonnet_5": {
+        "id": "anthropic/claude-sonnet-5",
+        "name": "Claude Sonnet 5",
+        "price": "~$3/1M",
+        "description": "Eng kuchli — chuqur, tabiiy va ishonchli matn"
+    },
+    "claude_sonnet_45": {
+        "id": "anthropic/claude-sonnet-4.5",
+        "name": "Claude Sonnet 4.5",
+        "price": "~$3/1M",
+        "description": "Kuchli, uzun matnlarda barqaror"
+    },
+    "gpt_41": {
+        "id": "openai/gpt-4.1",
+        "name": "GPT-4.1",
+        "price": "~$2/1M",
+        "description": "OpenAI, ko'rsatmalarga qat'iy amal qiladi"
+    },
+    "gemini_25_pro": {
+        "id": "google/gemini-2.5-pro",
+        "name": "Gemini 2.5 Pro",
+        "price": "~$1.25/1M",
+        "description": "Google'ning kuchli modeli, arzonroq"
+    },
     "gemini_25_flash": {
         "id": "google/gemini-2.5-flash",
         "name": "Gemini 2.5 Flash",
@@ -230,8 +258,30 @@ AI_MODELS = {
     }
 }
 
-# Default AI model
-DEFAULT_AI_MODEL = "gemini_25_flash"
+# Default AI model.
+#
+# Gemini Flash arzon, lekin u cheklovlarni ko'rganda eng kam ish qilishni
+# tanlaydi: yetkazilgan taqdimotlarda "kamida 80 so'z" talab qilingan
+# slaydlarda 34-38 so'z chiqqan va matnda markdown belgilar qolib ketgan.
+# Shuning uchun sukut bo'yicha model kuchlirog'iga almashtirildi.
+DEFAULT_AI_MODEL = "claude_sonnet_5"
+
+# Tanlangan model ishlamasa (hisobda yo'q, nomi o'zgargan, provayder javob
+# bermayapti) shu ro'yxat bo'yicha keyingisiga o'tiladi. Oxirgisi — eski
+# arzon model, ya'ni eng yomon holatda xizmat avvalgidek ishlaydi.
+AI_MODEL_FALLBACKS = [
+    "anthropic/claude-sonnet-5",
+    "anthropic/claude-sonnet-4.5",
+    "openai/gpt-4.1",
+    "google/gemini-2.5-pro",
+    "google/gemini-2.5-flash",
+    "meta-llama/llama-3.3-70b-instruct",
+]
+
+# Eski sukut modeli. Admin panelda hech narsa tanlanmagan bo'lsa,
+# ma'lumotlar bazasida shu qiymat turibdi va u yangi sukutni bosib
+# ketardi — `main.py` uni bir marta yangilaydi.
+PREVIOUS_DEFAULT_AI_MODEL = "gemini_25_flash"
 
 # File paths
 DOCUMENTS_DIR = "generated_documents"

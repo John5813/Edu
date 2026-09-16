@@ -24,13 +24,49 @@ OPENROUTER_URL = os.getenv(
 )
 
 # Model nomlari OpenRouter katalogidagi aniq model ID'lari bo'lishi kerak.
-# Brief — qat'iy JSON sxema; uni pydantic tekshiradi va noto'g'ri slaydni
-# alohida qayta so'raydi, shuning uchun bu yerda eng qimmat model shart emas.
-OPENROUTER_TEXT_MODEL = os.getenv("OPENROUTER_TEXT_MODEL", "google/gemini-2.5-flash")
-OPENROUTER_VISION_MODEL = os.getenv(
-    "OPENROUTER_VISION_MODEL",
-    "openai/gpt-4o-mini",
+#
+# Ular RO'YXAT bo'lib sinaladi: birinchisi ishlamasa (hisobda mavjud emas,
+# nomi o'zgargan, vaqtincha o'chirilgan) keyingisiga o'tiladi. Shu sababli
+# bitta noto'g'ri nom xizmatni to'xtatib qo'ymaydi va ishlagan model
+# jarayon davomida eslab qolinadi — har so'rovda qayta sinalmaydi.
+#
+# Tartib sifat bo'yicha: avval kuchli modellar, oxirida — avvalgi arzon
+# model, ya'ni eng yomon holatda xizmat bugungidek ishlaydi.
+_DEFAULT_TEXT_CHAIN = (
+    "anthropic/claude-sonnet-5,"
+    "anthropic/claude-sonnet-4.5,"
+    "openai/gpt-4.1,"
+    "google/gemini-2.5-pro,"
+    "google/gemini-2.5-flash"
 )
+# Slayd rasmini ko'z bilan tekshiradigan model. U har slayd uchun
+# chaqiriladi, shuning uchun o'rta darajali model yetarli.
+_DEFAULT_VISION_CHAIN = (
+    "anthropic/claude-haiku-4.5,"
+    "openai/gpt-4.1-mini,"
+    "openai/gpt-4o-mini"
+)
+
+
+def _chain(value: str) -> list:
+    """Vergul bilan ajratilgan model ro'yxatini tozalab beradi."""
+    return [item.strip() for item in (value or "").split(",") if item.strip()]
+
+
+# `OPENROUTER_TEXT_MODEL` berilsa — u ro'yxat boshiga qo'yiladi, ya'ni
+# serverda bitta o'zgaruvchi bilan modelni almashtirib bo'ladi.
+OPENROUTER_TEXT_MODELS = _chain(
+    os.getenv("OPENROUTER_TEXT_MODEL", "") + "," +
+    os.getenv("OPENROUTER_TEXT_FALLBACKS", _DEFAULT_TEXT_CHAIN)
+)
+OPENROUTER_VISION_MODELS = _chain(
+    os.getenv("OPENROUTER_VISION_MODEL", "") + "," +
+    os.getenv("OPENROUTER_VISION_FALLBACKS", _DEFAULT_VISION_CHAIN)
+)
+
+# Eski nom bilan foydalanadigan joylar uchun — ro'yxatning birinchisi.
+OPENROUTER_TEXT_MODEL = OPENROUTER_TEXT_MODELS[0]
+OPENROUTER_VISION_MODEL = OPENROUTER_VISION_MODELS[0]
 
 # Vizual QA har slaydni rasmga aylantirib vision modelga yuboradi. Ilgari u
 # sukut bo'yicha o'chiq edi, shuning uchun tekshiruv umuman ishlamasdi.
