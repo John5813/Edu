@@ -392,6 +392,18 @@ async def publish_got_title(message: Message, state: FSMContext):
                          parse_mode="HTML")
 
 
+def _category_prompt(title: str) -> str:
+    from services.store_taxonomy import classify
+
+    guess = classify(title)
+    if guess:
+        return (f"🗂 <b>Fan</b>: mavzuga qarab <b>{guess}</b> deb aniqlandi.\n\n"
+                f"Rozi bo'lsangiz <code>{SKIP}</code> yuboring, "
+                f"yoki boshqa nom yozing.")
+    return ("🗂 <b>Fan</b> nomini yozing (masalan: <code>iqtisodiyot</code>).\n"
+            f"Kerak bo'lmasa <code>{SKIP}</code>.")
+
+
 @router.message(StorePublishStates.waiting_for_price, F.text)
 async def publish_got_price(message: Message, state: FSMContext):
     if not _is_admin(message.from_user.id):
@@ -402,11 +414,8 @@ async def publish_got_price(message: Message, state: FSMContext):
         return
     await state.update_data(pub_price=int(raw))
     await state.set_state(StorePublishStates.waiting_for_category)
-    await message.answer(
-        "🗂 <b>Kategoriya</b>ni yozing (masalan: <code>iqtisodiyot</code>).\n"
-        f"Kerak bo'lmasa <code>{SKIP}</code>.",
-        parse_mode="HTML",
-    )
+    data = await state.get_data()
+    await message.answer(_category_prompt(data.get("pub_title", "")), parse_mode="HTML")
 
 
 @router.message(StorePublishStates.waiting_for_category, F.text)

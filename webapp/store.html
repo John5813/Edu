@@ -3,153 +3,41 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tayyor taqdimotlar — do'kon</title>
-<meta name="description" content="Tayyor taqdimot va ishlar to'plami. Mavzu bo'yicha qidiring, slaydlarni ko'ring va darhol yuklab oling.">
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#f6f7f9; --card:#fff; --text:#12141a; --muted:#6b7280;
-  --accent:#2563eb; --accent-dark:#1d4ed8; --line:rgba(0,0,0,.09);
-  --shadow:0 1px 3px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.05);
-  --radius:14px;
-}
-@media (prefers-color-scheme:dark){
-  :root{
-    --bg:#0f1117; --card:#171a21; --text:#e8eaed; --muted:#9aa2b1;
-    --accent:#3b82f6; --accent-dark:#2563eb; --line:rgba(255,255,255,.1);
-    --shadow:0 1px 3px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3);
-  }
-}
-body{
-  background:var(--bg);color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Inter,sans-serif;
-  line-height:1.5;-webkit-font-smoothing:antialiased;
-}
-.wrap{max-width:1160px;margin:0 auto;padding:0 16px}
-
-/* ── Sarlavha ─────────────────────────────── */
-header{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
-.head-in{display:flex;align-items:center;gap:16px;padding:14px 0;flex-wrap:wrap}
-.logo{font-size:18px;font-weight:700;letter-spacing:-.02em;white-space:nowrap;cursor:pointer;
-      background:none;border:0;color:var(--text);font-family:inherit}
-.logo span{color:var(--accent)}
-.search{flex:1;min-width:200px;position:relative}
-.search input{
-  width:100%;padding:11px 14px 11px 40px;font-size:15px;font-family:inherit;
-  border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);
-}
-.search input:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
-.search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);opacity:.45}
-
-/* ── Filtrlar ─────────────────────────────── */
-.filters{display:flex;gap:10px;align-items:center;padding:16px 0 6px;flex-wrap:wrap}
-.chips{display:flex;gap:8px;flex-wrap:wrap;flex:1}
-.chip{
-  padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);
-  color:var(--muted);font-size:13.5px;font-family:inherit;cursor:pointer;white-space:nowrap;
-}
-.chip:hover{border-color:var(--accent)}
-.chip.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:500}
-select{
-  padding:8px 12px;border-radius:10px;border:1px solid var(--line);
-  background:var(--card);color:var(--text);font-size:13.5px;font-family:inherit;cursor:pointer;
-}
-.count{color:var(--muted);font-size:13.5px;padding:10px 0 2px}
-/* Tor ekranda saralash ro'yxati kategoriya tugmalari orasiga tushib qolmasin. */
-@media (max-width:560px){
-  .filters{flex-direction:column;align-items:stretch}
-  select{width:100%}
-}
-
-/* ── Karta to'ri ──────────────────────────── */
-.grid{
-  display:grid;gap:18px;padding:12px 0 40px;
-  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
-}
-.card{
-  background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
-  overflow:hidden;cursor:pointer;text-align:left;font-family:inherit;color:inherit;padding:0;
-  transition:transform .15s,box-shadow .15s;display:flex;flex-direction:column;
-}
-.card:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
-/* Slaydlar 16:9 — kartochka ham shunday, aks holda sarlavha chetidan qirqiladi. */
-.thumb{width:100%;aspect-ratio:16/9;object-fit:cover;background:var(--bg);display:block;border-bottom:1px solid var(--line)}
-.card-b{padding:13px 14px 15px;display:flex;flex-direction:column;gap:8px;flex:1}
-.card-t{font-size:14.5px;font-weight:600;line-height:1.35;
-        display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.card-m{font-size:12.5px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;margin-top:auto}
-.price{font-size:15.5px;font-weight:700;color:var(--accent)}
-.tag{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:2px 7px;font-size:11.5px}
-
-/* ── Holatlar ─────────────────────────────── */
-.state{text-align:center;padding:70px 20px;color:var(--muted)}
-.state b{display:block;color:var(--text);font-size:17px;margin-bottom:6px}
-.more{display:block;margin:0 auto 48px;padding:12px 30px;border-radius:10px;
-      border:1px solid var(--line);background:var(--card);color:var(--text);
-      font-size:14.5px;font-family:inherit;cursor:pointer}
-/* `display:block` HTML'dagi `hidden` atributini bosib ketadi — shu sabab aniq yoziladi. */
-.more[hidden]{display:none}
-.more:hover{border-color:var(--accent);color:var(--accent)}
-.skel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);height:280px;
-      animation:pulse 1.3s ease-in-out infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-
-/* ── Ish sahifasi ─────────────────────────── */
-.ovl{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:40;display:none;
-     overflow-y:auto;padding:24px 16px;backdrop-filter:blur(2px)}
-.ovl.on{display:block}
-.sheet{max-width:920px;margin:0 auto;background:var(--card);border-radius:16px;
-       box-shadow:var(--shadow);overflow:hidden}
-.sheet-h{display:flex;align-items:flex-start;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line)}
-.sheet-h h2{font-size:19px;font-weight:700;line-height:1.3;flex:1}
-.x{border:0;background:var(--bg);color:var(--text);width:32px;height:32px;border-radius:8px;
-   font-size:19px;cursor:pointer;line-height:1;flex-shrink:0;font-family:inherit}
-.x:hover{background:var(--accent);color:#fff}
-/* Balandlik cheklanadi, aks holda katta ekranda "sotib olish" tugmasi
-   ko'rinish maydonidan tashqarida qolib ketadi. */
-.stage{width:100%;aspect-ratio:16/9;max-height:52vh;object-fit:contain;background:var(--bg);display:block}
-.strip{display:flex;gap:8px;padding:12px 20px;overflow-x:auto;border-bottom:1px solid var(--line)}
-.strip img{width:96px;aspect-ratio:16/9;object-fit:cover;border-radius:7px;cursor:pointer;
-           border:2px solid transparent;flex-shrink:0;background:var(--bg)}
-.strip img.on{border-color:var(--accent)}
-.sheet-b{padding:18px 20px 24px}
-.desc{color:var(--muted);font-size:14.5px;margin-bottom:16px;white-space:pre-wrap}
-.facts{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
-.buy-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;
-         padding-top:18px;border-top:1px solid var(--line)}
-.buy-price{font-size:24px;font-weight:700}
-.buy{flex:1;min-width:200px;padding:14px 24px;border-radius:11px;border:0;background:var(--accent);
-     color:#fff;font-size:15.5px;font-weight:600;font-family:inherit;cursor:pointer;
-     text-align:center;text-decoration:none;display:block}
-.buy:hover{background:var(--accent-dark)}
-.note{font-size:12.5px;color:var(--muted);margin-top:12px}
-footer{border-top:1px solid var(--line);padding:26px 0;color:var(--muted);font-size:13px;text-align:center}
-</style>
+<title>Tayyor taqdimotlar va ishlar — do'kon</title>
+<meta name="description" content="Tayyor taqdimot va ishlar to'plami: fan bo'yicha tanlang, barcha slaydlarni ko'ring va darhol yuklab oling. Mavzu topilmasa, yangisini buyurtma qiling.">
+<link rel="canonical" href="{{CANONICAL}}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Tayyor taqdimotlar va ishlar">
+<meta property="og:description" content="Fan bo'yicha tayyor ishlar: barcha slaydlarni ko'rib, darhol yuklab oling.">
+<meta property="og:url" content="{{CANONICAL}}">
+<link rel="stylesheet" href="/shop/style.css">
 </head>
 <body>
 
 <header>
   <div class="wrap head-in">
-    <button class="logo" id="home">Tayyor<span>Ish</span></button>
+    <a class="logo" href="/shop">Tayyor<span>Ish</span></a>
     <div class="search">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
         <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
       </svg>
       <input id="q" type="search" placeholder="Mavzu bo'yicha qidiring..." autocomplete="off">
     </div>
+    <a class="create" id="create-top" href="__BOT_URL__" target="_blank" rel="noopener">+ Yangi yaratish</a>
   </div>
 </header>
 
 <main class="wrap">
   <div class="filters">
     <div class="chips" id="cats"></div>
-    <select id="sort">
+    <select id="sort" aria-label="Saralash">
       <option value="new">Yangi qo'shilgan</option>
       <option value="popular">Ommabop</option>
       <option value="cheap">Arzon avval</option>
       <option value="expensive">Qimmat avval</option>
     </select>
   </div>
+  <div id="notice"></div>
   <div class="count" id="count"></div>
   <div class="grid" id="grid"></div>
   <button class="more" id="more" hidden>Yana ko'rsatish</button>
@@ -157,17 +45,41 @@ footer{border-top:1px solid var(--line);padding:26px 0;color:var(--muted);font-s
 
 <footer class="wrap">Har bir ish mijoz ma'lumotlaridan tozalangan holda joylanadi.</footer>
 
-<div class="ovl" id="ovl">
-  <div class="sheet" id="sheet"></div>
-</div>
-
 <script>
 const $ = s => document.querySelector(s);
 const money = n => (n || 0).toLocaleString('ru-RU').replace(/ /g, ' ') + " so'm";
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-const state = { q:'', category:'', sort:'new', page:1, total:0, loaded:0 };
+/* Bot nomi serverda HTML ichiga qo'yiladi. Hali ma'lum bo'lmasa —
+   havola o'rnida o'rin egallovchi qoladi va tugma ko'rsatilmaydi. */
+const BOT_URL = $('#create-top').getAttribute('href');
+const HAS_BOT = BOT_URL && !BOT_URL.startsWith('__');
+$('#create-top').hidden = !HAS_BOT;
+
+const createBtn = label => HAS_BOT
+  ? `<a class="create" href="${esc(BOT_URL)}" target="_blank" rel="noopener">${label}</a>`
+  : '';
+
+/* Havoladan boshlang'ich holat — /shop?q=...&category=... ulashsa bo'ladi. */
+const startup = new URLSearchParams(location.search);
+const state = {
+  q: startup.get('q') || '',
+  category: startup.get('category') || '',
+  sort: startup.get('sort') || 'new',
+  page: 1, total: 0, loaded: 0,
+};
+$('#q').value = state.q;
+$('#sort').value = state.sort;
+
+function syncUrl() {
+  const p = new URLSearchParams();
+  if (state.q) p.set('q', state.q);
+  if (state.category) p.set('category', state.category);
+  if (state.sort !== 'new') p.set('sort', state.sort);
+  const qs = p.toString();
+  history.replaceState({}, '', '/shop' + (qs ? '?' + qs : ''));
+}
 
 /* ── Katalog ─────────────────────────────── */
 async function load(reset) {
@@ -183,6 +95,7 @@ async function load(reset) {
     data = await r.json();
   } catch (e) {
     $('#grid').innerHTML = '';
+    $('#notice').innerHTML = '';
     $('#count').innerHTML = '<div class="state"><b>Ro\'yxat yuklanmadi</b>Internet aloqasini tekshirib, sahifani yangilang.</div>';
     $('#more').hidden = true;
     return;
@@ -190,15 +103,25 @@ async function load(reset) {
 
   state.total = data.total;
   state.loaded += data.items.length;
-  if (reset) $('#grid').innerHTML = '';
+  if (reset) { $('#grid').innerHTML = ''; $('#notice').innerHTML = ''; }
 
   if (!data.total) {
     $('#count').textContent = '';
     $('#grid').innerHTML = state.q || state.category
-      ? '<div class="state" style="grid-column:1/-1"><b>Hech narsa topilmadi</b>Boshqa so\'z bilan qidirib ko\'ring.</div>'
-      : '<div class="state" style="grid-column:1/-1"><b>Katalog hozircha bo\'sh</b>Tez orada tayyor ishlar qo\'shiladi.</div>';
+      ? `<div class="state" style="grid-column:1/-1"><b>Hech narsa topilmadi</b>
+         Bu mavzu katalogda yo'q — uni hoziroq yaratib olsangiz bo'ladi.
+         ${createBtn("+ Shu mavzuni yaratish")}</div>`
+      : `<div class="state" style="grid-column:1/-1"><b>Katalog hozircha bo'sh</b>
+         Tez orada tayyor ishlar qo'shiladi.${createBtn("+ Yangi yaratish")}</div>`;
     $('#more').hidden = true;
     return;
+  }
+
+  if (reset && data.fuzzy) {
+    // Aynan so'ralgani yo'q — nima ko'rsatilayotgani aytilmasa chalg'itadi.
+    $('#notice').innerHTML = `<div class="notice">
+      <span><b>«${esc(state.q)}»</b> aynan topilmadi — shunga yaqin mavzular:</span>
+      ${createBtn("+ Shu mavzuni yaratish")}</div>`;
   }
 
   $('#count').textContent = data.total + ' ta ish topildi';
@@ -208,8 +131,10 @@ async function load(reset) {
 
 const skeletons = n => '<div class="skel"></div>'.repeat(n);
 
+/* Kartochka — haqiqiy havola: qidiruv tizimlari indekslay olsin va
+   yangi oynada ochish ishlasin. */
 function card(it) {
-  return `<button class="card" data-code="${esc(it.code)}">
+  return `<a class="card" href="/shop/${esc(it.code)}">
     <img class="thumb" src="${esc(it.preview)}" alt="${esc(it.title)}" loading="lazy">
     <div class="card-b">
       <div class="card-t">${esc(it.title)}</div>
@@ -219,122 +144,48 @@ function card(it) {
       </div>
       <div class="price">${money(it.price)}</div>
     </div>
-  </button>`;
+  </a>`;
 }
 
-/* ── Ish sahifasi ────────────────────────── */
-async function openItem(code) {
-  $('#ovl').classList.add('on');
-  document.body.style.overflow = 'hidden';
-  $('#sheet').innerHTML = '<div class="state">Yuklanmoqda...</div>';
-  history.pushState({ code }, '', '/shop?item=' + encodeURIComponent(code));
-
-  let it;
-  try {
-    const r = await fetch('/api/shop/items/' + encodeURIComponent(code));
-    if (!r.ok) throw new Error(r.status);
-    it = await r.json();
-  } catch (e) {
-    $('#sheet').innerHTML = `<div class="sheet-h"><h2>Ish topilmadi</h2>
-      <button class="x" onclick="closeItem()">&times;</button></div>
-      <div class="state">Bu ish olib tashlangan bo'lishi mumkin.</div>`;
-    return;
-  }
-
-  const shots = it.previews && it.previews.length ? it.previews : [it.preview];
-  $('#sheet').innerHTML = `
-    <div class="sheet-h">
-      <h2>${esc(it.title)}</h2>
-      <button class="x" id="close" aria-label="Yopish">&times;</button>
-    </div>
-    <img class="stage" id="stage" src="${esc(shots[0])}" alt="${esc(it.title)}">
-    ${shots.length > 1 ? `<div class="strip">${shots.map((s, i) =>
-      `<img src="${esc(s)}" class="${i ? '' : 'on'}" data-i="${i}" alt="">`).join('')}</div>` : ''}
-    <div class="sheet-b">
-      ${it.description ? `<div class="desc">${esc(it.description)}</div>` : ''}
-      <div class="facts">
-        ${it.slide_count ? `<span class="tag">${it.slide_count} slayd</span>` : ''}
-        ${it.category ? `<span class="tag">${esc(it.category)}</span>` : ''}
-        <span class="tag">${esc((it.language || 'uz').toUpperCase())}</span>
-        <span class="tag">Kod: ${esc(it.code)}</span>
-      </div>
-      <div class="buy-row">
-        <div class="buy-price">${money(it.price)}</div>
-        ${it.buy_url
-          ? `<a class="buy" href="${esc(it.buy_url)}" target="_blank" rel="noopener">Botda sotib olish</a>`
-          : `<div class="note">Sotib olish vaqtincha ishlamayapti.</div>`}
-      </div>
-      <div class="note">Yuqorida ${shots.length} ta slayd ko'rsatilgan${
-        it.slide_count > shots.length ? `, jami ${it.slide_count} ta` : ''
-      }. To'liq fayl to'lovdan so'ng botda yuboriladi.</div>
-    </div>`;
-
-  $('#close').onclick = closeItem;
-  const strip = $('#sheet').querySelector('.strip');
-  if (strip) strip.onclick = e => {
-    const img = e.target.closest('img');
-    if (!img) return;
-    $('#stage').src = shots[img.dataset.i];
-    strip.querySelectorAll('img').forEach(n => n.classList.toggle('on', n === img));
-  };
-}
-
-function closeItem(skipHistory) {
-  $('#ovl').classList.remove('on');
-  document.body.style.overflow = '';
-  if (!skipHistory && location.search.includes('item=')) history.pushState({}, '', '/shop');
-}
-
-/* ── Kategoriyalar ───────────────────────── */
+/* ── Fanlar ──────────────────────────────── */
 async function loadCats() {
   let cats = [];
   try {
     const r = await fetch('/api/shop/categories');
     if (r.ok) cats = (await r.json()).categories || [];
-  } catch (e) { /* kategoriyasiz ham ishlayveradi */ }
+  } catch (e) { /* fansiz ham ishlayveradi */ }
 
+  const on = c => c === state.category ? ' on' : '';
   $('#cats').innerHTML =
-    `<button class="chip on" data-c="">Hammasi</button>` +
-    cats.map(c => `<button class="chip" data-c="${esc(c.name)}">${esc(c.name)} (${c.count})</button>`).join('');
+    `<a class="chip${on('')}" href="/shop" data-c="">Hammasi</a>` +
+    cats.map(c => `<a class="chip${on(c.name)}" href="/shop?category=${encodeURIComponent(c.name)}"
+        data-c="${esc(c.name)}">${esc(c.name)} (${c.count})</a>`).join('');
 }
 
 /* ── Hodisalar ───────────────────────────── */
 let timer;
 $('#q').oninput = e => {
   clearTimeout(timer);
-  timer = setTimeout(() => { state.q = e.target.value.trim(); load(true); }, 280);
+  timer = setTimeout(() => {
+    state.q = e.target.value.trim();
+    syncUrl();
+    load(true);
+  }, 280);
 };
-$('#sort').onchange = e => { state.sort = e.target.value; load(true); };
+$('#sort').onchange = e => { state.sort = e.target.value; syncUrl(); load(true); };
 $('#cats').onclick = e => {
   const chip = e.target.closest('.chip');
   if (!chip) return;
+  e.preventDefault();
   state.category = chip.dataset.c;
   $('#cats').querySelectorAll('.chip').forEach(n => n.classList.toggle('on', n === chip));
+  syncUrl();
   load(true);
-};
-$('#grid').onclick = e => {
-  const c = e.target.closest('.card');
-  if (c) openItem(c.dataset.code);
 };
 $('#more').onclick = () => { state.page++; load(false); };
-$('#home').onclick = () => {
-  state.q = ''; state.category = ''; $('#q').value = '';
-  $('#cats').querySelectorAll('.chip').forEach((n, i) => n.classList.toggle('on', i === 0));
-  load(true);
-};
-$('#ovl').onclick = e => { if (e.target === $('#ovl')) closeItem(); };
-document.onkeydown = e => { if (e.key === 'Escape') closeItem(); };
-onpopstate = () => {
-  const code = new URLSearchParams(location.search).get('item');
-  if (code) openItem(code); else closeItem(true);
-};
 
-/* ── Boshlash ────────────────────────────── */
 loadCats();
-load(true).then(() => {
-  const code = new URLSearchParams(location.search).get('item');
-  if (code) openItem(code);
-});
+load(true);
 </script>
 </body>
 </html>

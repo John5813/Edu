@@ -11,7 +11,13 @@ import re
 import shutil
 import uuid
 
-from config import STORE_PREVIEW_DIR, STORE_PREVIEW_LIMIT, STORE_VAULT_CHAT_ID, TEMP_DIR
+from config import (
+    STORE_PREVIEW_DIR,
+    STORE_PREVIEW_MAX,
+    STORE_VAULT_CHAT_ID,
+    STORE_WATERMARK,
+    TEMP_DIR,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -161,16 +167,86 @@ def anonymize_pptx(src_path: str, customer_name: str = "", out_path: str = "") -
     return out_path
 
 
-def render_previews(pptx_path: str, public_code: str, limit: int = 0) -> int:
-    """Birinchi slaydlarni JPG qilib saqlaydi, nechtasi saqlangani qaytadi.
+PREVIEW_WIDTH = 1000
+THUMB_WIDTH = 480
 
-    Faqat bir qismi chiqariladi: ko'rgazma xaridning o'rnini bosmasligi kerak.
+
+def _font_path() -> str:
+    """Shtamp uchun shrift. Matplotlib har doim loyihada bor."""
+    import matplotlib
+
+    bundled = os.path.join(os.path.dirname(matplotlib.__file__),
+                           "mpl-data", "fonts", "ttf", "DejaVuSans-Bold.ttf")
+    if os.path.exists(bundled):
+        return bundled
+    return "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+
+
+def _watermark(image, text: str = ""):
+    """Butun rasm bo'ylab qiya, yarim shaffof shtamp qo'yadi.
+
+    Naqsh matnning ustiga tushadi: ko'rgazma ishni baholashga yetadi,
+    lekin tayyor ish o'rnida ishlatib bo'lmaydi. Oq harf qora chiziq
+    bilan chiziladi — shunda ham och, ham to'q slaydda ko'rinadi.
+    """
+    from PIL import Image, ImageDraw, ImageFont
+
+    text = (text or STORE_WATERMARK).strip()
+    if not text:
+        return image
+
+    width, height = image.size
+    # Qiya naqsh burchaklarni ham qoplashi uchun diagonal bo'yicha chiziladi.
+    span = int((width ** 2 + height ** 2) ** 0.5) + 2
+    layer = Image.new("RGBA", (span, span), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+
+    try:
+        font = ImageFont.truetype(_font_path(), size=max(16, width // 24))
+    except OSError:
+        font = ImageFont.load_default()
+
+    box = draw.textbbox((0, 0), text, font=font)
+    text_w, text_h = box[2] - box[0], box[3] - box[1]
+    step_x = text_w + max(60, width // 10)
+    step_y = text_h * 5
+
+    for row, y in enumerate(range(0, span, step_y)):
+        # Har qatorni surib chizish naqshni tik ustunlarga tushib qolishdan saqlaydi.
+        offset = (row % 2) * (step_x // 2)
+        for x in range(-step_x, span, step_x):
+            draw.text((x + offset, y), text, font=font,
+                      fill=(255, 255, 255, 66),
+                      stroke_width=2, stroke_fill=(0, 0, 0, 74))
+
+    rotated = layer.rotate(30, resample=Image.BICUBIC)
+    left, top = (span - width) // 2, (span - height) // 2
+    stamp = rotated.crop((left, top, left + width, top + height))
+
+    return Image.alpha_composite(image.convert("RGBA"), stamp).convert("RGB")
+
+
+def _shrink_and_stamp(image, width: int):
+    """Kerakli kenglikka keltirib, so'ng shtamp bosadi."""
+    from PIL import Image
+
+    if image.width > width:
+        height = round(image.height * width / image.width)
+        image = image.resize((width, height), Image.LANCZOS)
+    return _watermark(image)
+
+
+def render_previews(pptx_path: str, public_code: str, limit: int = 0) -> int:
+    """Har slaydni shtampli JPG qilib saqlaydi, nechtasi saqlangani qaytadi.
+
+    Saytda butun ish varaqma-varaq ko'riladi — faylning o'zi esa berilmaydi,
+    shu sababli har rasmga shtamp bosiladi.
     """
     from PIL import Image
 
     from services.premium_presentation.qa import discard_images, pptx_to_images
 
-    limit = limit or STORE_PREVIEW_LIMIT
+    limit = limit or STORE_PREVIEW_MAX
     out_dir = os.path.join(STORE_PREVIEW_DIR, public_code)
     os.makedirs(out_dir, exist_ok=True)
 
@@ -183,14 +259,20 @@ def render_previews(pptx_path: str, public_code: str, limit: int = 0) -> int:
     try:
         for source in images[:limit]:
             try:
-                with Image.open(source) as img:
-                    img = img.convert("RGB")
-                    if img.width > 1000:
-                        height = round(img.height * 1000 / img.width)
-                        img = img.resize((1000, height), Image.LANCZOS)
+                with Image.open(source) as raw:
+                    clean = raw.convert("RGB")
                     saved += 1
-                    img.save(os.path.join(out_dir, f"{saved}.jpg"),
-                             format="JPEG", quality=82, optimize=True)
+                    _shrink_and_stamp(clean, PREVIEW_WIDTH).save(
+                        os.path.join(out_dir, f"{saved}.jpg"),
+                        format="JPEG", quality=80, optimize=True)
+                    if saved == 1:
+                        # Katalog to'ridagi kichik rasm — har kartochkaga
+                        # to'liq o'lchamli slayd yuklanmasin. Shtamp shu
+                        # o'lchamda bosiladi: tayyorini kichraytirsak, naqsh
+                        # mayda-mayda bo'lib kartochkani ifloslantirardi.
+                        _shrink_and_stamp(clean, THUMB_WIDTH).save(
+                            os.path.join(out_dir, "thumb.jpg"),
+                            format="JPEG", quality=78, optimize=True)
             except Exception as exc:
                 logger.warning("Ko'rgazma rasmi tayyorlanmadi (%s): %s", source, exc)
     finally:
@@ -225,11 +307,16 @@ async def publish_pptx(
     from pptx import Presentation
 
     from database.database import Database
+    from services.store_taxonomy import classify
 
     if not STORE_VAULT_CHAT_ID:
         raise RuntimeError(
             "STORE_VAULT_CHAT_ID sozlanmagan — ombor kanali ko'rsatilishi kerak"
         )
+
+    # Fan ko'rsatilmagan bo'lsa mavzudan aniqlanadi: har bir ish saytda
+    # o'z bo'limiga tushishi kerak, aks holda filtrlar bo'sh qoladi.
+    category = category or classify(title, description, keywords)
 
     public_code = await Database.generate_store_code()
     cleaned_path = anonymize_pptx(pptx_path, customer_name)

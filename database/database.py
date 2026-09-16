@@ -200,6 +200,10 @@ async def init_db():
                 category TEXT DEFAULT '',
                 language TEXT DEFAULT 'uz',
                 keywords TEXT DEFAULT '',
+                -- Sarlavha + tavsif + kalit so'zlar, apostrofsiz va kichik
+                -- harfda. Qidiruv shu ustunga tushadi, aks holda "o'zbek"
+                -- va "ozbek" boshqa so'z bo'lib qolardi.
+                search_text TEXT DEFAULT '',
                 slide_count INTEGER DEFAULT 0,
                 price INTEGER NOT NULL DEFAULT 0,
                 file_id TEXT NOT NULL,
@@ -241,6 +245,31 @@ async def init_db():
             logger.info("Migration: added 'source' column to payments table")
         except Exception:
             pass  # Column already exists
+
+        # Do'kon qidiruv ustuni — jadval ilgari usiz yaratilgan bo'lishi mumkin.
+        try:
+            await db.execute("ALTER TABLE store_items ADD COLUMN search_text TEXT DEFAULT ''")
+            await db.commit()
+            logger.info("Migration: added 'search_text' column to store_items")
+        except Exception:
+            pass  # Column already exists
+
+        try:
+            from services.store_taxonomy import normalize
+            async with db.execute(
+                "SELECT id, title, description, keywords FROM store_items "
+                "WHERE search_text IS NULL OR search_text = ''"
+            ) as cursor:
+                stale = await cursor.fetchall()
+            if stale:
+                await db.executemany(
+                    "UPDATE store_items SET search_text = ? WHERE id = ?",
+                    [(normalize(" ".join(filter(None, row[1:]))), row[0]) for row in stale],
+                )
+                await db.commit()
+                logger.info("Migration: filled search_text for %s store item(s)", len(stale))
+        except Exception as store_mig_err:
+            logger.warning("store_items search_text backfill skipped: %s", store_mig_err)
 
         # Privacy migration: copy any existing completed document_orders rows
         # into the anonymous document_stats table, then purge ALL legacy rows
@@ -1203,14 +1232,17 @@ class Database:
         file_type: str = "pptx",
         preview_count: int = 0,
     ) -> int:
+        from services.store_taxonomy import normalize
+
+        search_text = normalize(" ".join(filter(None, (title, description, keywords))))
         async with aiosqlite.connect(DATABASE_FILE) as db:
             cursor = await db.execute(
                 """INSERT INTO store_items
                    (public_code, title, description, category, language, keywords,
-                    slide_count, price, file_id, file_type, preview_count)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    search_text, slide_count, price, file_id, file_type, preview_count)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (public_code, title, description, category, language, keywords,
-                 slide_count, price, file_id, file_type, preview_count),
+                 search_text, slide_count, price, file_id, file_type, preview_count),
             )
             await db.commit()
             return cursor.lastrowid
@@ -1224,7 +1256,14 @@ class Database:
         limit: int = 24,
         offset: int = 0,
     ) -> Dict:
-        """Katalogni filtrlab qaytaradi: {'items': [...], 'total': N}."""
+        """Katalogni filtrlab qaytaradi: {'items': [...], 'total': N, 'fuzzy': bool}.
+
+        Qidiruv so'zma-so'z ishlaydi: mavzu aynan topilmasa ham, so'zlaridan
+        biri mos kelgan ishlar chiqadi va ko'p so'zi moslari yuqori turadi.
+        Umuman moslik bo'lmasa — eng yaqin sarlavhalar qaytariladi.
+        """
+        from services.store_taxonomy import normalize
+
         # Tartib faqat ma'lum qiymatlardan tanlanadi — bu ustun nomi SQL ga
         # to'g'ridan-to'g'ri qo'shilgani uchun majburiy.
         order_by = {
@@ -1234,41 +1273,108 @@ class Database:
             "expensive": "price DESC, id DESC",
         }.get(sort, "created_at DESC, id DESC")
 
-        where = ["is_active = 1"]
-        params: list = []
+        FIELDS = ("public_code, title, description, category, language, "
+                  "slide_count, price, preview_count, sale_count, created_at")
 
-        if query:
-            # LIKE naqshidagi maxsus belgilar qidiruv so'zi sifatida qaralsin.
-            safe = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            like = f"%{safe}%"
-            where.append(
-                "(title LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\' "
-                "OR keywords LIKE ? ESCAPE '\\')"
-            )
-            params += [like, like, like]
+        base_where = ["is_active = 1"]
+        base_params: list = []
         if category:
-            where.append("category = ?")
-            params.append(category)
+            base_where.append("category = ?")
+            base_params.append(category)
         if language:
-            where.append("language = ?")
-            params.append(language)
+            base_where.append("language = ?")
+            base_params.append(language)
+
+        words = [w for w in normalize(query).split() if len(w) >= 2][:6]
+        likes = [
+            "%" + w.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+            for w in words
+        ]
+
+        where = list(base_where)
+        rank = ""
+        match_params: list = []
+        if likes:
+            where.append("(" + " OR ".join(
+                ["search_text LIKE ? ESCAPE '\\'"] * len(likes)) + ")")
+            # Ko'proq so'zi mos kelgan ish yuqorida tursin.
+            rank = " + ".join(
+                ["(CASE WHEN search_text LIKE ? ESCAPE '\\' THEN 1 ELSE 0 END)"] * len(likes)
+            ) + " DESC, "
+            match_params = likes
 
         clause = " AND ".join(where)
+        where_params = base_params + match_params
+
         async with aiosqlite.connect(DATABASE_FILE) as db:
             db.row_factory = aiosqlite.Row
             async with db.execute(
-                f"SELECT COUNT(*) FROM store_items WHERE {clause}", params
+                f"SELECT COUNT(*) FROM store_items WHERE {clause}", where_params
             ) as cursor:
                 total = (await cursor.fetchone())[0]
+
+            if total:
+                async with db.execute(
+                    f"""SELECT {FIELDS} FROM store_items WHERE {clause}
+                        ORDER BY {rank}{order_by} LIMIT ? OFFSET ?""",
+                    where_params + match_params + [limit, offset],
+                ) as cursor:
+                    rows = await cursor.fetchall()
+                return {"items": [dict(r) for r in rows], "total": total, "fuzzy": False}
+
+            if not words:
+                return {"items": [], "total": 0, "fuzzy": False}
+
+            # Hech narsa mos kelmadi — mijozni bo'sh sahifada qoldirmaslik
+            # uchun sarlavhasi eng yaqin ishlar ko'rsatiladi.
+            base_clause = " AND ".join(base_where)
             async with db.execute(
-                f"""SELECT public_code, title, description, category, language,
-                           slide_count, price, preview_count, sale_count, created_at
-                    FROM store_items WHERE {clause}
-                    ORDER BY {order_by} LIMIT ? OFFSET ?""",
-                params + [limit, offset],
+                f"SELECT public_code, search_text FROM store_items WHERE {base_clause}",
+                base_params,
             ) as cursor:
-                rows = await cursor.fetchall()
-        return {"items": [dict(r) for r in rows], "total": total}
+                candidates = await cursor.fetchall()
+
+            codes = Database._closest_codes(normalize(query), candidates, limit + offset)
+            if not codes:
+                return {"items": [], "total": 0, "fuzzy": False}
+
+            page = codes[offset:offset + limit]
+            if not page:
+                return {"items": [], "total": len(codes), "fuzzy": True}
+            holes = ",".join("?" * len(page))
+            async with db.execute(
+                f"SELECT {FIELDS} FROM store_items WHERE public_code IN ({holes})", page
+            ) as cursor:
+                found = {r["public_code"]: dict(r) for r in await cursor.fetchall()}
+
+        return {
+            "items": [found[c] for c in page if c in found],
+            "total": len(codes),
+            "fuzzy": True,
+        }
+
+    @staticmethod
+    def _closest_codes(query: str, candidates, limit: int) -> List[str]:
+        """Sarlavhasi so'ralganga eng o'xshash ishlarni tartiblab qaytaradi."""
+        from difflib import SequenceMatcher
+
+        query_words = [w for w in query.split() if len(w) >= 3]
+        scored = []
+        for row in candidates:
+            text = row["search_text"] or ""
+            if not text:
+                continue
+            best = SequenceMatcher(None, query, text[:120]).ratio()
+            # Bitta so'z ham yetarlicha o'xshash bo'lsa — mavzu yaqin demak.
+            for qw in query_words:
+                for tw in text.split():
+                    if abs(len(tw) - len(qw)) <= 4:
+                        best = max(best, SequenceMatcher(None, qw, tw).ratio())
+            if best >= 0.62:
+                scored.append((best, row["public_code"]))
+
+        scored.sort(key=lambda pair: pair[0], reverse=True)
+        return [code for _, code in scored[:limit]]
 
     @staticmethod
     async def get_store_item(public_code: str) -> Optional[Dict]:
@@ -1280,6 +1386,17 @@ class Database:
             ) as cursor:
                 row = await cursor.fetchone()
                 return dict(row) if row else None
+
+    @staticmethod
+    async def all_store_codes() -> List[Dict]:
+        """Sayt xaritasi uchun — barcha ochiq ishlarning kodi va sanasi."""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            async with db.execute(
+                "SELECT public_code, created_at FROM store_items "
+                "WHERE is_active = 1 ORDER BY created_at DESC"
+            ) as cursor:
+                rows = await cursor.fetchall()
+        return [{"code": r[0], "created_at": r[1]} for r in rows]
 
     @staticmethod
     async def get_store_categories() -> List[Dict]:
