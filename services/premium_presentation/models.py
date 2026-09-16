@@ -19,7 +19,8 @@ class InfographicItem(BaseModel):
 
 class VisualElement(BaseModel):
     """Slayddagi bitta vizual element."""
-    type: Literal["rect", "text", "circle", "image", "chart", "kpi", "icon", "infographic"]
+    type: Literal["rect", "text", "circle", "image", "chart", "kpi", "icon",
+                  "infographic", "scheme"]
     x: float
     y: float
     w: Optional[float] = None
@@ -49,6 +50,13 @@ class VisualElement(BaseModel):
     # infographic — preset + bandlar; kod uni ibtidoiy elementlarga yoyadi
     preset: Optional[Literal["cards", "steps", "timeline", "cycle", "pyramid"]] = None
     items: Optional[List[InfographicItem]] = None
+    # scheme — tuzilma sxemasi (loyiha ishidagi bilan bir xil chizuvchi).
+    # Shakl `scheme_kind` va mavzudan tanlanadi: daraxt, radial, oqim,
+    # halqa, bosqichlar... Bandlar `items` da: `title` — tarmoq nomi,
+    # `text` — uning tarkibi (vergul bilan).
+    scheme_kind: Optional[Literal["hierarchy", "components", "process",
+                                  "cycle", "levels"]] = None
+    scheme_root: Optional[str] = None
     # kod hosil qilgan element: ustma-ustlik tuzatuvchisi unga tegmaydi
     locked: bool = False
     # shrifti sig'dirish uchun ataylab kichraytirilgan: minimal o'lcham

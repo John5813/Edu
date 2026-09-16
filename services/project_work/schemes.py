@@ -427,7 +427,7 @@ _HEIGHTS = {
 
 
 def draw(data: dict, title: str, work_dir: str, palette=None,
-         language: str = "uz", form: str = "") -> str:
+         language: str = "uz", form: str = "", facecolor: str = "") -> str:
     """Tuzilma sxemasini chizadi.
 
     Shakl ma'lumotdagi `kind` va mavzu urug'idan tanlanadi, shuning uchun
@@ -475,4 +475,4 @@ def draw(data: dict, title: str, work_dir: str, palette=None,
         # rasmning yarmi bo'sh qolardi.
         axes.set_ylim(min(floor, 98.0), 100)
         _title(axes, title)
-        return _save(figure, work_dir, language)
+        return _save(figure, work_dir, language, facecolor)
