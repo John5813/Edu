@@ -161,11 +161,6 @@ def check_slide_image(image_path: str, slide_context: str) -> dict:
     if not config.OPENROUTER_API_KEY:
         return {"level": LEVEL_OK, "issue": "", "remove": None, "regions": []}
 
-    headers = {
-        "Authorization": f"Bearer {config.OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-    }
-
     prompt = f"""Professional taqdimot slaydini QATTIQ va HALOL bahola, so'ng
 uni TUZATISH uchun aniq ko'rsatma ber. Faqat qarab chiqish emas — muammoli
 joyni belgilab ket.
@@ -207,7 +202,6 @@ Faqat JSON:
                 "note":"ikki matn bloki ustma-ust"}}]}}"""
 
     payload = {
-        "model": config.OPENROUTER_VISION_MODEL,
         "temperature": 0.1,
         "response_format": {"type": "json_object"},
         "messages": [
@@ -224,9 +218,12 @@ Faqat JSON:
         ],
     }
     try:
-        resp = requests.post(config.OPENROUTER_URL, headers=headers, json=payload, timeout=90)
-        resp.raise_for_status()
-        raw = resp.json()["choices"][0]["message"]["content"]
+        # Model ro'yxat bo'yicha tanlanadi: biri hisobda bo'lmasa keyingisiga
+        # o'tiladi (`llm_client._request`), shuning uchun model nomini
+        # almashtirish QA ni o'chirib qo'ymaydi.
+        from .llm_client import _request
+
+        raw = _request("vision", payload, timeout=90)["choices"][0]["message"]["content"]
         cleaned = re.sub(r"```json|```", "", raw).strip()
         result = json.loads(cleaned)
 

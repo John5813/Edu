@@ -94,6 +94,11 @@ class AIService:
     
     _cached_model = None
     _cache_time = None
+    # Oxirgi so'rovni haqiqatda bajargan model. Zaxiraga o'tilgan bo'lsa,
+    # admin panelda tanlangan model bilan bir xil bo'lmaydi — aynan shu
+    # farqni ko'rsatish kerak, aks holda "modelni almashtirdim, lekin
+    # hech narsa o'zgarmadi" degan holat tushunarsiz qolardi.
+    _last_served_model = None
     
     def __init__(self):
         api_key = (
@@ -240,7 +245,7 @@ class AIService:
         retry=retry_if_exception(is_rate_limit_error),
         reraise=True
     )
-    async def _make_request(self, messages: List[Dict], max_tokens: int = 4000, temperature: float = 0.5, response_format: Dict = None, model_id: str = None) -> str:
+    async def _make_request(self, messages: List[Dict], max_tokens: int = 4000, temperature: float = 0.5, response_format: Dict = None, model_id: str = None, fallback: bool = True) -> str:
         """Make API request with retry logic using Replit AI Integrations for OpenRouter"""
         current_model = model_id or await self._get_current_model_id()
         logger.info(f"Using AI model: {current_model}")
@@ -251,8 +256,6 @@ class AIService:
         )
         if has_book:
             messages = [{"role": "system", "content": self._BOOK_MODE_SYSTEM}] + list(messages)
-
-        FALLBACK_MODEL = "meta-llama/llama-3.3-70b-instruct"
 
         async def _do_request(model: str) -> str:
             params = {
@@ -266,14 +269,36 @@ class AIService:
             resp = await self.client.chat.completions.create(**params)
             return resp.choices[0].message.content.strip()
 
-        try:
-            return await _do_request(current_model)
-        except Exception as e:
-            err_str = str(e)
-            if "504" in err_str or "502" in err_str or "503" in err_str or "aborted" in err_str.lower():
-                logger.warning(f"Provider error ({err_str[:120]}), retrying with fallback model: {FALLBACK_MODEL}")
-                return await _do_request(FALLBACK_MODEL)
-            raise
+        # Tanlangan model ishlamasa zaxira ro'yxati bo'yicha keyingisiga
+        # o'tiladi. Ilgari bitta zaxira bor edi va u faqat 502/503/504 da
+        # ishlardi — model nomi noto'g'ri bo'lsa (404 yoki "no endpoints")
+        # xizmat butunlay to'xtardi.
+        from config import AI_MODEL_FALLBACKS
+
+        # `fallback=False` — aynan shu model tekshirilmoqda (admin paneldagi
+        # sinov). Zaxiraga o'tilsa, ishlamaydigan model "ishladi" bo'lib
+        # ko'rinardi va saqlanib qolardi.
+        chain = [current_model]
+        if fallback:
+            chain += [m for m in AI_MODEL_FALLBACKS if m != current_model]
+        last_error = None
+        for index, model in enumerate(chain):
+            try:
+                answer = await _do_request(model)
+                AIService._last_served_model = model
+                if model != current_model:
+                    logger.warning(f"Zaxira model ishlatildi: {model}")
+                return answer
+            except Exception as e:
+                last_error = e
+                if index + 1 >= len(chain):
+                    break
+                logger.warning(
+                    f"Model ishlamadi ({model}): {str(e)[:150]} — "
+                    f"{chain[index + 1]} ga o'tilmoqda"
+                )
+        logger.error(f"Ro'yxatdagi hamma model ishlamadi: {str(last_error)[:200]}")
+        raise last_error
 
     async def generate_presentation_content(self, topic: str, slide_count: int, language: str) -> Dict:
         """Generate presentation content with AI - new structured format"""

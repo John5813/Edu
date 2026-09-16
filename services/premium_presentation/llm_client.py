@@ -418,8 +418,29 @@ def _salvage_partial_json(text: str) -> dict | None:
         return None
 
 
-def _call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 0.7,
-                     max_tokens: int = 16000) -> dict:
+# Ishlab turgan model jarayon davomida eslab qolinadi: ro'yxatning boshidagi
+# model hisobda bo'lmasa, uni har so'rovda qayta sinash keraksiz kechikish
+# beradi. Bot qayta ishga tushganda tekshiruv yangidan boshlanadi.
+_WORKING = {}
+
+
+def _models(kind: str) -> list:
+    """Sinaladigan modellar — avval ishlagani ma'lum bo'lgani."""
+    chain = (config.OPENROUTER_TEXT_MODELS if kind == "text"
+             else config.OPENROUTER_VISION_MODELS)
+    known = _WORKING.get(kind)
+    if known and known in chain:
+        return [known] + [model for model in chain if model != known]
+    return list(chain)
+
+
+def _request(kind: str, payload: dict, timeout: int = 180) -> dict:
+    """So'rovni ro'yxatdagi modellar bilan navbatma-navbat bajaradi.
+
+    Model yaroqsiz bo'lsa (hisobda yo'q, nomi o'zgargan) yoki provayder
+    javob bermasa keyingisiga o'tiladi. Shu sababli model nomini
+    almashtirish xizmatni to'xtatib qo'yolmaydi.
+    """
     if not config.OPENROUTER_API_KEY:
         raise RuntimeError(
             "OpenRouter kaliti topilmadi — muhitda AI_INTEGRATIONS_OPENROUTER_API_KEY "
@@ -430,8 +451,35 @@ def _call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 
         "Authorization": f"Bearer {config.OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
     }
+    chain = _models(kind)
+    last_error = None
+    for index, model in enumerate(chain):
+        try:
+            resp = requests.post(config.OPENROUTER_URL, headers=headers,
+                                 json={**payload, "model": model}, timeout=timeout)
+            resp.raise_for_status()
+            data = resp.json()
+        except requests.exceptions.RequestException as e:
+            status = getattr(getattr(e, "response", None), "status_code", "?")
+            body = getattr(getattr(e, "response", None), "text", "")[:200]
+            last_error = e
+            if index + 1 < len(chain):
+                log.warning("Model ishlamadi (%s, HTTP %s): %s — %s ga o'tildi",
+                            model, status, body, chain[index + 1])
+                continue
+            log.error("Ro'yxatdagi hamma model ishlamadi (oxirgisi %s, HTTP %s): %s",
+                      model, status, body)
+            raise
+        if _WORKING.get(kind) != model:
+            log.info("%s modeli: %s", "Matn" if kind == "text" else "Vision", model)
+            _WORKING[kind] = model
+        return data
+    raise last_error if last_error else RuntimeError("Model ro'yxati bo'sh")
+
+
+def _call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 0.7,
+                     max_tokens: int = 16000) -> dict:
     payload = {
-        "model": config.OPENROUTER_TEXT_MODEL,
         "temperature": temperature,
         "max_tokens": max_tokens,
         "response_format": {"type": "json_object"},
@@ -440,9 +488,7 @@ def _call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 
             {"role": "user", "content": user_prompt},
         ],
     }
-    resp = requests.post(config.OPENROUTER_URL, headers=headers, json=payload, timeout=180)
-    resp.raise_for_status()
-    raw = resp.json()["choices"][0]["message"]["content"]
+    raw = _request("text", payload)["choices"][0]["message"]["content"]
     cleaned = _clean_json(raw)
     try:
         return json.loads(cleaned)
@@ -463,18 +509,7 @@ def _call_openrouter_text(system_prompt: str, user_prompt: str,
     Manbani siqishda javob JSON emas, nasr bo'lishi kerak; `_call_openrouter`
     esa har doim `json_object` rejimida so'raydi.
     """
-    if not config.OPENROUTER_API_KEY:
-        raise RuntimeError(
-            "OpenRouter kaliti topilmadi — muhitda AI_INTEGRATIONS_OPENROUTER_API_KEY "
-            "yoki OPENROUTER_API_KEY bo'lishi kerak"
-        )
-
-    headers = {
-        "Authorization": f"Bearer {config.OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-    }
     payload = {
-        "model": config.OPENROUTER_TEXT_MODEL,
         "temperature": temperature,
         "max_tokens": max_tokens,
         "messages": [
@@ -482,9 +517,8 @@ def _call_openrouter_text(system_prompt: str, user_prompt: str,
             {"role": "user", "content": user_prompt},
         ],
     }
-    resp = requests.post(config.OPENROUTER_URL, headers=headers, json=payload, timeout=180)
-    resp.raise_for_status()
-    return (resp.json()["choices"][0]["message"]["content"] or "").strip()
+    data = _request("text", payload)
+    return (data["choices"][0]["message"]["content"] or "").strip()
 
 
 # ─────────────────────────────────────────── DARAJA INSTRUCTIONLARI
