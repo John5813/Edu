@@ -479,13 +479,14 @@ async def publish_got_description(message: Message, state: FSMContext):
         except OSError:
             pass
 
-    domain = webapp.WEBAPP_DOMAIN or "localhost:5000"
+    code = result["public_code"]
+    unit = "varaq" if result["file_type"] == "docx" else "slayd"
     await status.edit_text(
         f"✅ <b>Katalogga qo'shildi</b>\n\n"
-        f"🔖 Kod: <code>{result['public_code']}</code>\n"
-        f"📄 {result['slide_count']} slayd, {result['preview_count']} ta ko'rgazma rasmi\n"
-        f"🌐 https://{domain}/shop?item={result['public_code']}\n\n"
-        f"Olib tashlash: <code>/nashr_ochir {result['public_code']}</code>",
+        f"🔖 Kod: <code>{code}</code>\n"
+        f"📄 {result['slide_count']} {unit}, {result['preview_count']} ta ko'rgazma rasmi\n"
+        f"🌐 {webapp.public_url('/shop/' + code)}\n\n"
+        f"Olib tashlash: <code>/nashr_ochir {code}</code>",
         parse_mode="HTML",
     )
 

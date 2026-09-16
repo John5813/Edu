@@ -70,9 +70,10 @@ def _origin(request: web.Request) -> str:
     scheme = request.headers.get("X-Forwarded-Proto", "").split(",")[0].strip()
     host = request.headers.get("X-Forwarded-Host", "").split(",")[0].strip()
     host = host or request.headers.get("Host", "") or webapp.WEBAPP_DOMAIN
-    if not scheme:
-        scheme = "https" if request.secure or not host.startswith("localhost") else "http"
-    return f"{scheme}://{host}" if host else ""
+    # Proksi sarlavhasi bo'lmasa — ulanishning o'z sxemasi. Ilgari bu yerda
+    # "localhost bo'lmasa https" deb taxmin qilinardi: domensiz, IP orqali
+    # ochilgan saytda hamma havola ishlamaydigan https ga ketardi.
+    return f"{scheme or request.scheme}://{host}" if host else ""
 
 
 async def handle_style(request: web.Request) -> web.Response:
