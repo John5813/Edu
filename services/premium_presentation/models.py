@@ -51,6 +51,10 @@ class VisualElement(BaseModel):
     items: Optional[List[InfographicItem]] = None
     # kod hosil qilgan element: ustma-ustlik tuzatuvchisi unga tegmaydi
     locked: bool = False
+    # shrifti sig'dirish uchun ataylab kichraytirilgan: minimal o'lcham
+    # kafolati uni qaytarib kattalashtirmasligi kerak, aks holda matn yana
+    # qutidan toshib, quyidagi blok ustiga minib qoladi
+    fitted: bool = False
     # chart
     chart_type: Optional[Literal["bar", "column", "line", "area", "pie",
                                  "donut", "radar", "scatter"]] = None

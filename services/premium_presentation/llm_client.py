@@ -130,6 +130,33 @@ ELEMENT TURLARI:
   Bullet ro'yxati o'rniga infographic ishlating — u ancha professional ko'rinadi.
 
 ══════════════════════════════════════════════════
+BITTA SLAYD — BITTA INSTRUMENT (eng muhim qoida):
+
+Instrument — image, chart, infographic yoki kpi kartochkalari qatori.
+Bitta slaydda ULARDAN FAQAT BITTASI bo'lsin.
+
+✗ Rasm + diagramma bir varaqda — ular bir-birini yopadi va o'quvchi
+  ikkalasini birdan o'zlashtira olmaydi
+✗ Diagramma + kartochkalar qatori — slayd raqamlar to'plamiga aylanadi
+✓ Diagramma + uni tushuntiruvchi matn
+✓ Rasm + uni tushuntiruvchi matn
+
+Qaysi birini tanlash — slayd nimani aytmoqchi bo'lsa o'shanga qarab:
+  → raqam gapiradi (o'sish, ulush, taqqoslash)   → chart
+  → mavzuni ko'z bilan ko'rsatish kerak          → image
+  → bandlar, bosqichlar, davrlar                 → infographic
+  → bitta hal qiluvchi raqam                     → kpi
+
+TANLANGAN INSTRUMENT TO'LIQ YORITILSIN:
+• U slaydning kamida yarmini egallasin — kichik qilib burchakka qo'ymang
+• Yonida yoki ostida uni TUSHUNTIRUVCHI matn bo'lsin: nima ko'rsatilgan,
+  raqamlar nimani anglatadi va bundan qanday xulosa chiqadi
+• Diagramma uchun "caption" MAJBURIY; rasm va infografika esa slayd
+  matnida izohlansin
+• Bitta instrument bilan slayd bo'sh ko'rinmaydi — bo'shagan joy izoh,
+  tahlil va misol bilan to'ldiriladi
+
+══════════════════════════════════════════════════
 MAVJUD IKONKA NOMLARI (faqat shu ro'yxatdan tanlang):
 agriculture, ai, airplane, algorithm, architecture, art, atom, award, basketball, behavior,
 biology, brain, building, business, calendar, car, certificate, chart, chemistry, cinema,
@@ -190,7 +217,7 @@ PROFESSIONAL LAYOUT TIZIMI:
 
 [E] KONTENT + DIAGRAMMA
   • Chap: sarlavha + 3–5 qator tushuntirish matni
-  • O'ng: diagramma (chart element)
+  • O'ng: diagramma (chart element) — rasm bilan birga EMAS
 
 [F] YARIM MATN + YARIM RASM (har 6 varoqda KAMIDA 1 ta MAJBURIY)
   • Chap yarmi (x=0.4, w=6.0): to'q panel yoki och fon + sarlavha + 4–6 qator matn
@@ -204,6 +231,13 @@ MATN HAJMI — MAJBURIY:
 Har slaydda KAMIDA 80 so'z matn bo'lsin (sarlavhalar bilan birga).
 Har faktblok/karta ichida: sarlavha + 2–4 qator izoh.
 Tana matni 13–16pt — o'qib bo'ladigan, mazmunli jumlalar.
+
+YUQORI CHEGARA — bu o'lchangan, taxmin emas:
+  • Instrumenti bor slaydda jami 90–130 so'z (matn yarim ustunga tushadi)
+  • Instrumenti yo'q slaydda 160–240 so'z (matn butun enni egallaydi)
+Bundan ortig'i 14pt da qutiga sig'maydi va quyidagi blok ustiga minib
+qoladi. Ko'proq aytadigan gap bo'lsa — uni keyingi slaydga oling, matnni
+siqib tiqmang.
 
 ══════════════════════════════════════════════════
 RANG QOIDALARI:
@@ -237,6 +271,9 @@ application → Amaliy, qadamli. Bullet yoki raqamlangan qadamlar.
 synthesis  → Final xulosa. 4–5 asosiy xulosa + har biri 1–2 qator izoh.
               Yakunlovchi chaqiriq yoki asosiy tavsiya.
 
+Yuqorida "diagramma mumkin" deyilgan joylarda ham qoida bitta: slaydda
+allaqachon rasm yoki infografika bo'lsa, diagramma QO'SHILMAYDI.
+
 ══════════════════════════════════════════════════
 DIAGRAMMA UCHUN MA'LUMOTLAR:
 
@@ -253,6 +290,7 @@ QATTIQ TAQIQLAR:
 ✗ Dekorativ katta doiralar slayd chegarasidan tashqarida
 ✗ Mavzudan uzilgan global statistika (kerak bo'lmasa)
 ✗ Hamma slaydda bir xil bullet format
+✗ Bitta slaydda ikkita instrument (rasm + diagramma, diagramma + kartochka)
 ✗ Chekka: matn bloklari slayd chegarasidan ≥ 0.3" masofada
 
 ══════════════════════════════════════════════════
@@ -292,10 +330,13 @@ Muammoni to'liq bartaraf etgan YANGI professional layout bilan qaytар.
 
 Qoidalar:
 - role, index o'zgartirma
-- Matn hajmini KAMAYTIRMA — ko'proq izoh qo'sh (kamida 80 so'z)
+- Matn hajmi: kamida 80 so'z; instrumentli slaydda 130 so'zdan, instrumentsizda
+  240 so'zdan OSHMASIN — ortig'i qutiga sig'maydi va ustma-ust tushadi
 - Professional layout: chap panel, yuqori tasma, ustun tizimi
 - To'q fon → oq matn; och fon → to'q matn
 - Har taqdimotda kamida 2 ta chart, 2 ta image va 2 ta infographic bo'lsin; birinchi slaydda image MAJBURIY
+- BITTA SLAYDDA BITTA INSTRUMENT: image, chart, infographic va kpi dan faqat bittasi.
+  Qolgan joyni matn bilan to'ldir va o'sha instrumentni to'liq izohla
 - Ro'yxatli slaydni bullet emas, infographic qilib bering
 - Muhim raqamlarni kpi kartochkasi qilib ko'rsat (yonma-yon 2-4 ta)
 - Chart uchun raqamni har mavzuda topish mumkin: sanalar, ulushlar, bosqichlar, taqqoslash
@@ -506,6 +547,12 @@ def _base_rules(topic: str, slide_count: int, level: int = 2) -> str:
         "• Rang kontrasti qat'iy: to'q fon → oq matn, och fon → to'q matn\n"
         "• key_text mazmunli bo'lsin, lekin sun'iy ravishda cho'zilmasin\n"
         "• Birinchi slaydda image MAJBURIY; har taqdimotda kamida 2 ta image va 2 ta chart\n"
+        "• BITTA slaydda BITTA instrument (image | chart | infographic | kpi) — "
+        "ikkitasi bir varaqqa sig'maydi va bir-birini yopadi\n"
+        "• O'sha yagona instrument slaydning kamida yarmini egallasin va matnda "
+        "to'liq izohlansin — nima ko'rsatilgani va qanday xulosa chiqishi\n"
+        "• Matn hajmi: instrumentli slaydda 90-130 so'z, instrumentsizda 160-240 so'z "
+        "(o'lchangan chegara — ortig'i qutiga sig'maydi)\n"
         "• Rasm promptida matn so'ramang — harflar buzilib chiqadi\n"
         "  Diagramma qo'shsang — 'caption' maydoni MAJBURIY to'ldirsin\n"
         f"\n{level_instr}"

@@ -162,6 +162,23 @@ def _draw_text(slide, el):
     if not el.bold and font_size < 13:
         font_size = 13
 
+    # Oxirgi kafolat: matn qutisiga sig'masa shrift kichraytiriladi.
+    # PowerPoint sig'magan matnni qutidan pastga chiqarib yuboradi va u
+    # quyidagi blok ustiga minib qoladi. Joylashuvni `pipeline` allaqachon
+    # o'lchov bilan hisoblaydi, lekin oxirgi qadamda ham tekshirilgani
+    # ma'qul — bu yerdan keyin hech narsa tuzatilmaydi.
+    #
+    # Sarlavha uchun pastki chegara balandroq: 34pt sarlavhani 11pt ga
+    # tushirish uni sarlavha bo'lishdan to'xtatadi.
+    if el.text:
+        from .infographics import fit_size
+
+        floor = 16.0 if font_size >= 20 else 11.0
+        fitted = fit_size(el.text, w, h, start=font_size, minimum=min(floor, font_size))
+        if fitted < font_size:
+            log.info("Matn qutiga sig'madi, shrift %.1f → %.1f pt", font_size, fitted)
+            font_size = fitted
+
     tb = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(h))
     tf = tb.text_frame
     tf.word_wrap = True

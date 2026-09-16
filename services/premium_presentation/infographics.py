@@ -530,6 +530,24 @@ def _fit(text: str, w: float, available_h: float, start: float, minimum: float) 
     return minimum
 
 
+def height_of(text: str, width: float, size: float) -> float:
+    """Matn bloki shu kenglikda haqiqatda necha dyuym joy egallaydi.
+
+    Kanvas joylashuvini hisoblash uchun ochiq: `pipeline` ilgari modelning
+    e'lon qilgan `h` qiymatiga ishonardi, PowerPoint esa sig'magan matnni
+    qutidan pastga chiqarib yuborardi — quyidagi blok ustiga minib qolardi.
+    """
+    width = max(width, 0.4)
+    size = max(size, 6.0)
+    return _block_height(_reserved_lines(text or "", width, size), size)
+
+
+def fit_size(text: str, width: float, height: float, start: float,
+             minimum: float) -> float:
+    """Berilgan qutiga sig'adigan eng katta shrift o'lchami."""
+    return _fit(text or "", max(width, 0.4), max(height, 0.2), start, minimum)
+
+
 def _without_text(item):
     """Bandning izohini olib tashlaydi — sarlavha va qiymat qoladi."""
     clone = item.model_copy(deep=True)

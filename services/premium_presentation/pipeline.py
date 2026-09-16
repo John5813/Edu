@@ -15,6 +15,44 @@ from .renderer import build_presentation
 log = logging.getLogger("pipeline")
 
 
+# Bitta slaydda bitta instrument. Instrument — diagramma, rasm, infografika
+# yoki ko'rsatkich kartochkalari qatori; oddiy matn hisobga olinmaydi.
+#
+# Ilgari ikkitasiga ruxsat berilardi va eng ko'p uchraydigan juftlik aynan
+# "diagramma + rasm" edi: rasm diagramma ustiga tushib uni yopib qo'yardi,
+# o'quvchi esa ikkalasini birdan o'qiy olmaydi. Bitta instrument qolsa, unga
+# joy ham, izoh ham yetadi.
+_INSTRUMENTS = {"image", "chart", "infographic", "kpi"}
+
+# Qaysi biri qolishi kerak: diagramma raqam ko'rsatadi, rasm mavzuni ochadi,
+# infografika bandlarni tartiblaydi, kartochkalar esa eng kam ma'lumot beradi.
+_INSTRUMENT_RANK = {"chart": 0, "image": 1, "infographic": 2, "kpi": 3}
+
+_INSTRUMENT_NAMES = {"image": "rasm", "chart": "diagramma",
+                     "infographic": "infografika", "kpi": "ko'rsatkich kartochkalari"}
+
+
+def _instrument_groups(slide: Slide) -> list:
+    """Slayddagi instrumentlar: (daraja, tartib, tur, elementlar).
+
+    Kartochkalar qatori bitta instrument sifatida sanaladi — yonma-yon
+    turgan to'rtta kartochka to'rtta alohida instrument emas.
+    """
+    groups = []
+    kpis = []
+    for position, element in enumerate(slide.canvas.elements):
+        if element.type == "kpi":
+            kpis.append((position, element))
+        elif element.type in _INSTRUMENTS:
+            groups.append((_INSTRUMENT_RANK[element.type], position,
+                           element.type, [element]))
+    if kpis:
+        groups.append((_INSTRUMENT_RANK["kpi"], kpis[0][0], "kpi",
+                       [element for _, element in kpis]))
+    groups.sort(key=lambda group: (group[0], group[1]))
+    return groups
+
+
 # ─────────────────────────────────────────── Kanvas validatsiyasi
 
 def canvas_check(slide: Slide) -> tuple[bool, str]:
@@ -41,6 +79,19 @@ def canvas_check(slide: Slide) -> tuple[bool, str]:
 
     if not slide.title or not slide.title.strip():
         return False, f"Slayd {slide.index}: 'title' maydoni bo'sh."
+
+    groups = _instrument_groups(slide)
+    if len(groups) > 1:
+        listed = ", ".join(_INSTRUMENT_NAMES.get(kind, kind) for _, _, kind, _ in groups)
+        return False, (
+            f"Slayd {slide.index}: bir varaqda {len(groups)} ta instrument bor "
+            f"({listed}). Bir varaqqa BITTA instrument qo'yiladi — ular "
+            "bir-birini yopadi va o'quvchi ikkalasini birdan o'qiy olmaydi. "
+            "Slayd g'oyasini qaysi biri yaxshiroq ochsa o'shani qoldir, "
+            "qolganini olib tashla. Qolgan instrumentni kattaroq qilib joylashtir "
+            "va uni matn bilan to'liq izohla: nima ko'rsatilgan va undan qanday "
+            "xulosa chiqadi."
+        )
 
     return True, ""
 
@@ -101,6 +152,10 @@ def canvas_validation_and_fix(
     """Har slaydni tekshiradi, muammoli slaydlarni qayta loyihalaydi."""
     # Avval matn o'lchamlari va ustma-ustni tuzatamiz
     brief = ensure_visuals(brief, topic, language)
+    # Bitta slaydda bitta instrument — tanlovni model qiladi. Bu qadam
+    # `limit_instruments` dan oldin turishi shart: kod kesib tashlagandan
+    # keyin modelga tanlaydigan narsa qolmaydi.
+    brief = ensure_single_instrument(brief, topic, language)
     brief = spread_chart_types(brief, topic)
     # Mavzu sahifasi presetlar taqsimlanishidan oldin quriladi: aks holda
     # birinchi slaydning bloki navbatdan joy olib, keyin tashlab yuborilardi.
@@ -165,6 +220,14 @@ _GAP = 0.1
 _COLUMN_SHARE = 0.3
 # Qisqartirilgan matn blokining eng kichik balandligi.
 _MIN_TEXT_H = 0.45
+# Tana matnining odatdagi pastki chegarasi.
+_MIN_BODY_PT = 13.0
+# Model belgilangan hajmdan oshib ketgan slaydda oxirgi chora. 11pt kichik,
+# lekin ustma-ust tushgan matndan o'qish osonroq — shuning uchun faqat
+# 13pt da ham sig'magan holatda ishlatiladi. 9pt esa juda kam uchraydigan
+# holat uchun: matn hajmi chegaradan ikki baravar oshib ketganda.
+_HARD_MIN_PT = 11.0
+_LAST_RESORT_PT = 9.0
 def _reading_key(element, index: int) -> tuple:
     """Elementning o'qilish tartibidagi o'rni.
 
@@ -229,7 +292,7 @@ def _flow(ordered: list, compact: bool) -> bool:
     return fits
 
 
-def _shrink_overflow(ordered: list) -> None:
+def _shrink_overflow(ordered: list, floor: float = _MIN_BODY_PT) -> None:
     """Slayddan toshib ketgan matnni qisqartiradi.
 
     Tartibni buzib blokni yuqoriga ko'tarishdan ko'ra matnni kichraytirgan
@@ -253,9 +316,13 @@ def _shrink_overflow(ordered: list) -> None:
         height = _box(element)[3]
         new_height = height - (height - _MIN_TEXT_H) * ratio
         if element.size:
-            # Pastki chegara `enforce_min_text_size` bilan bir xil, aks holda
-            # u shriftni qaytarib kattalashtirib, matn blokdan toshib ketardi.
-            element.size = max(13.0, element.size * max(new_height / height, 0.7))
+            reduced = max(floor, element.size * max(new_height / height, 0.7))
+            if reduced < element.size:
+                # `enforce_min_text_size` shriftni qaytarib kattalashtirmasin:
+                # aks holda matn yana qutidan toshib, quyidagi blok ustiga
+                # minib qolardi.
+                element.fitted = reduced < _MIN_BODY_PT
+                element.size = reduced
         element.h = new_height
 
 
@@ -296,21 +363,39 @@ def fix_slide_overlaps(slide: Slide) -> Slide:
     )]
 
     if not _flow(ordered, compact=False):
-        _flow(ordered, compact=True)
-        _shrink_overflow(ordered)
-        _flow(ordered, compact=True)
+        # Har qadamda shrift pastki chegarasi tushadi. Birinchi qadam —
+        # avvalgi xatti-harakat (13pt). Model belgilangan matn hajmidan
+        # oshib ketgan slaydda 13pt da hech narsa sig'maydi va tanlov
+        # ikkita bo'lib qoladi: o'qib bo'lmaydigan ustma-ustlik yoki
+        # kichikroq shrift. Ikkinchisi afzal.
+        for floor in (_MIN_BODY_PT, _HARD_MIN_PT, _LAST_RESORT_PT):
+            _flow(ordered, compact=True)
+            _shrink_overflow(ordered, floor=floor)
+            if _flow(ordered, compact=True):
+                break
 
+    # Yakuniy chegara tekshiruvi HAM o'lchangan balandlik bilan bajariladi.
+    # Ilgari bu yerda modelning e'lon qilgan `h` qiymati ishlatilardi:
+    # oxirgi blok "sig'yapti" deb hisoblanib yuqoriga tortilar va endigina
+    # ajratilgan qo'shni blok ustiga qaytib minib qolardi — ya'ni
+    # ustma-ustlikni tuzatuvchining o'zi tiklab qo'yardi.
     for element in texts:
-        element.x = min(max(element.x, edge), SLIDE_W - edge - (element.w or 5.0))
-        element.y = min(max(element.y, edge), SLIDE_H - edge - (element.h or 1.0))
+        _, _, width, height = _box(element)
+        element.x = min(max(element.x, edge), SLIDE_W - edge - width)
+        element.y = min(max(element.y, edge), SLIDE_H - edge - height)
     return slide
 
 
-def enforce_min_text_size(brief: Brief, min_body_pt: float = 13.0) -> Brief:
-    """Sarlavha bo'lmagan matn elementlari uchun minimal 13pt ta'minlaydi."""
+def enforce_min_text_size(brief: Brief, min_body_pt: float = _MIN_BODY_PT) -> Brief:
+    """Sarlavha bo'lmagan matn elementlari uchun minimal 13pt ta'minlaydi.
+
+    `fitted` belgisi qo'yilgan bloklar chetlab o'tiladi: ularning shrifti
+    matnni qutiga sig'dirish uchun ataylab kichraytirilgan va uni qaytarib
+    kattalashtirish ustma-ustlikni tiklab qo'yardi.
+    """
     for slide in brief.slides:
         for el in slide.canvas.elements:
-            if el.type == "text" and not el.bold and not el.locked:
+            if el.type == "text" and not el.bold and not el.locked and not el.fitted:
                 if el.size < min_body_pt:
                     el.size = min_body_pt
     return brief
@@ -577,50 +662,143 @@ def spread_infographic_presets(brief: Brief, topic: str) -> Brief:
     return brief
 
 
-# Bitta slaydda nechta "instrument" bo'lishi mumkin. Instrument — diagramma,
-# infografika bloki, rasm yoki ko'rsatkich kartochkalari qatori; oddiy matn
-# hisobga olinmaydi. Uchtasi bir varaqqa sig'sa ham, o'quvchi ularni birdaniga
-# o'qiy olmaydi: matn + sakkizta kartochka + doiraviy diagramma bir slaydda
-# juda ko'p.
-_MAX_INSTRUMENTS = 2
+def ensure_single_instrument(brief: Brief, topic: str, language: str = "uz") -> Brief:
+    """Bir slaydda bitta instrument qolishini MODELNING o'ziga hal qildiradi.
 
-# Qaysi biri qolishi kerak. Diagramma raqam ko'rsatadi, rasm mavzuni ochadi,
-# ikonkali kartochkalar esa eng ko'p takrorlanadigan va eng kam ma'lumot
-# beradigan qism — shuning uchun oxirgi o'rinda.
-_INSTRUMENT_RANK = {"chart": 0, "image": 1, "kpi": 2, "infographic": 3}
+    Ortiqchasini kod kesib tashlashi oson yo'l edi, lekin u slaydni
+    yarimta qoldirardi: diagramma ketsa, uning o'rnida bo'sh joy qolar,
+    matn esa o'sha-o'sha edi. Shuning uchun tanlovni model qiladi — qaysi
+    biri slayd g'oyasini ochsa o'shani qoldirib, slaydni butunicha qaytadan
+    joylashtiradi va qolgan instrumentni kattaroq qilib izohlaydi.
+
+    Kod faqat kafolat sifatida qoladi (`limit_instruments`).
+    """
+    for index, slide in enumerate(brief.slides):
+        groups = _instrument_groups(slide)
+        if len(groups) <= 1:
+            continue
+        listed = ", ".join(_INSTRUMENT_NAMES.get(kind, kind) for _, _, kind, _ in groups)
+        keep = _INSTRUMENT_NAMES.get(groups[0][2], groups[0][2])
+        brief.slides[index] = _redesign(
+            slide, topic, language,
+            f"Bu slaydda {len(groups)} ta instrument bor ({listed}). Bir varaqda "
+            "ular bir-birini yopadi va o'quvchi ikkalasini birdan o'qiy olmaydi. "
+            "Faqat BITTASINI qoldir — slayd g'oyasini qaysi biri yaxshiroq ochsa "
+            f"o'shani (raqam gapirsa diagramma, mavzuni ko'rsatish kerak bo'lsa "
+            f"rasm; odatda bu {keep}). Qolganini butunlay olib tashla. "
+            "Qolgan instrumentni kattaroq qilib joylashtir va uni to'liq izohla: "
+            "nima ko'rsatilgani va undan qanday xulosa chiqishi matnda yozilsin. "
+            "Bo'shagan joyni shu izoh bilan to'ldir, slayd yarim bo'sh qolmasin.",
+        )
+        left = _instrument_groups(brief.slides[index])
+        if len(left) > 1:
+            log.warning("Slayd %s: model hali ham %s ta instrument qaytardi",
+                        slide.index, len(left))
+    return brief
 
 
 def limit_instruments(brief: Brief) -> Brief:
-    """Har slaydda ikkitadan ortiq instrument qolmasin.
+    """Kafolat: yetkazilayotgan slaydda bitta instrument qoladi.
 
-    Ortiqcha infografika o'chirilmaydi — o'z o'rnida oddiy ro'yxat matniga
-    aylanadi, shunda mazmun yo'qolmaydi, faqat bezak kamayadi.
+    Asosiy tanlovni model qiladi (`ensure_single_instrument`); bu yer u
+    bajarmagan yoki so'rov xato bilan tugagan holat uchun. Mazmun
+    yo'qotilmaydi: infografika ham, kartochkalar ham o'z o'rnida matnga
+    aylanadi, rasm esa instrumenti yo'q boshqa slaydga ko'chiriladi.
+    O'chirish — faqat boshqa ilojsiz qolganda.
     """
     for slide in brief.slides:
-        groups = []          # (rank, tartib, tur, elementlar)
-        kpis = [e for e in slide.canvas.elements if e.type == "kpi"]
-        for index, element in enumerate(slide.canvas.elements):
-            if element.type in ("chart", "image", "infographic"):
-                groups.append((_INSTRUMENT_RANK[element.type], index,
-                               element.type, [element]))
-        if kpis:
-            first = slide.canvas.elements.index(kpis[0])
-            groups.append((_INSTRUMENT_RANK["kpi"], first, "kpi", kpis))
-
-        if len(groups) <= _MAX_INSTRUMENTS:
+        groups = _instrument_groups(slide)
+        if len(groups) <= 1:
             continue
-
-        groups.sort(key=lambda g: (g[0], g[1]))
-        for _, _, kind, elements in groups[_MAX_INSTRUMENTS:]:
-            log.info("Slayd %s: ortiqcha %s olib tashlandi (%s ta instrument edi)",
+        for _, _, kind, elements in groups[1:]:
+            log.info("Slayd %s: ortiqcha %s (%s ta instrument edi)",
                      slide.index, kind, len(groups))
             if kind == "infographic":
                 _infographic_to_text(elements[0], slide)
+            elif kind == "kpi":
+                _kpis_to_text(elements, slide)
+            elif kind == "image" and _relocate_image(brief, slide, elements[0]):
+                continue
             else:
                 for element in elements:
                     if element in slide.canvas.elements:
                         slide.canvas.elements.remove(element)
+        _grow_into_free_space_any(slide)
     return brief
+
+
+def _kpis_to_text(elements: list, slide: Slide) -> None:
+    """Kartochkalar qatorini bitta matn satriga aylantiradi.
+
+    Kartochkalarni o'chirish raqamlarni yo'qotardi — aynan ular slaydning
+    eng qimmatli qismi. Matn ularni saqlaydi, joyni esa bo'shatadi.
+    """
+    parts = []
+    for element in elements:
+        value = (element.value or "").strip()
+        label = (element.label or "").strip()
+        if value and label:
+            parts.append(f"{value} — {label}")
+        elif value or label:
+            parts.append(value or label)
+    box = [(element.x, element.y, element.w or 3.0, element.h or 1.8)
+           for element in elements]
+    for element in elements:
+        if element in slide.canvas.elements:
+            slide.canvas.elements.remove(element)
+    if not parts:
+        return
+    left = min(x for x, _, _, _ in box)
+    top = min(y for _, y, _, _ in box)
+    right = max(x + w for x, _, w, _ in box)
+    text = " · ".join(parts)
+    width = max(right - left, 2.0)
+    slide.canvas.elements.append(VisualElement(
+        type="text", x=left, y=top, w=width,
+        h=infographics.height_of(text, width, 13.0),
+        text=text, size=13.0, align="left", color="1B2A4A",
+    ))
+
+
+def _relocate_image(brief: Brief, source: Slide, element) -> bool:
+    """Ortiqcha rasmni instrumenti yo'q boshqa slaydga ko'chiradi.
+
+    O'chirish taqdimotdagi rasmlar sonini kamaytirardi — `ensure_visuals`
+    esa aynan shu sonni kafolatlaydi, ya'ni ikkita qoida bir-biri bilan
+    kurashardi. Ko'chirishda rasm ham qoladi, kafolat ham buzilmaydi.
+    """
+    for slide in brief.slides[1:-1]:
+        if slide is source or _instrument_groups(slide):
+            continue
+        source.canvas.elements.remove(element)
+        # Qabul qiluvchi slaydning matni chap yarmiga siqiladi, rasm o'ng
+        # yarmini egallaydi — `_force_image` dagi bilan bir xil sxema.
+        for text in slide.canvas.elements:
+            if text.type == "text" and not text.locked:
+                text.w = min(text.w or 6.0, 6.4)
+                text.x = min(text.x, 0.7)
+        element.x, element.y, element.w, element.h = 7.1, 0.9, 5.8, 5.7
+        slide.canvas.elements.append(element)
+        log.info("Slayd %s dagi ortiqcha rasm %s-slaydga ko'chirildi",
+                 source.index, slide.index)
+        return True
+    return False
+
+
+def _grow_into_free_space_any(slide: Slide) -> None:
+    """Yolg'iz qolgan instrumentni bo'shagan joy hisobiga kattalashtiradi.
+
+    Ikkinchi instrument ketgach uning o'rni bo'sh qoladi. Bitta instrument
+    qoldi degani uni kichik qoldirish degani emas — mijoz to'lagan slayd
+    yarim bo'sh ko'rinmasligi kerak.
+    """
+    groups = _instrument_groups(slide)
+    if len(groups) != 1:
+        return
+    kind, elements = groups[0][2], groups[0][3]
+    if kind == "kpi" or len(elements) != 1:
+        return
+    _grow_into_free_space(elements[0], slide)
 
 
 def _infographic_to_text(element, slide: Slide) -> None:
@@ -835,8 +1013,16 @@ def ensure_visuals(brief: Brief, topic: str, language: str = "uz") -> Brief:
 
 
 def _candidates(brief: Brief, element_type: str) -> list:
-    """Qaysi slaydlarga qo'shish mumkin — o'rtadagi, hali bandi bo'lmaganlari."""
+    """Qaysi slaydlarga qo'shish mumkin — o'rtadagi, hali bo'sh turganlari.
+
+    Instrument faqat instrumenti YO'Q slaydga qo'shiladi. Ilgari tekshiruv
+    "shu turdagi element bormi" degan savolga qarardi, shuning uchun kafolat
+    diagrammasi bor slaydga rasm qo'yib yuborardi — ya'ni ustma-ustlikni
+    aynan tuzatuvchining o'zi yaratardi.
+    """
     middle = range(1, max(len(brief.slides) - 1, 1))
+    if element_type in _INSTRUMENTS:
+        return [i for i in middle if not _instrument_groups(brief.slides[i])]
     return [i for i in middle if not _has(brief.slides[i], element_type)]
 
 
@@ -1114,6 +1300,15 @@ _OPAQUE_TYPES = {"image", "chart", "kpi", "circle", "infographic"}
 def _box(element) -> tuple:
     width = element.w or element.d or (5.0 if element.type == "text" else 1.0)
     height = element.h or element.d or (1.0 if element.type == "text" else 1.0)
+    if element.type == "text" and (element.text or "").strip():
+        # E'lon qilingan balandlik — modelning taxmini, o'lchov emas.
+        # PowerPoint sig'magan matnni qutidan pastga chiqarib yuboradi,
+        # shuning uchun quyidagi blok "bo'sh joy" deb hisoblangan yerga
+        # qo'yilar va matn ustma-ust tushardi. Endi haqiqiy balandlik
+        # o'lchanadi; kattasi olinadi, ya'ni model ataylab qoldirgan
+        # bo'shliq ham saqlanadi.
+        height = max(height, infographics.height_of(
+            element.text, width, element.size or 14.0))
     return element.x, element.y, width, height
 
 

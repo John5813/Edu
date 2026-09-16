@@ -179,6 +179,9 @@ TEKSHIRILADIGAN MEZONLAR:
 4. KONTRAST — to'q fonda to'q matn yoki och fonda och matn bormi?
 5. ORTIQCHA ELEMENT — mavzuga mos kelmaydigan diagramma yoki rasm bormi?
 6. TIQILINCH — slayd shu qadar to'laki, hech narsani o'qib bo'lmaydimi?
+7. IKKITA INSTRUMENT — bir varaqda ham rasm, ham diagramma (yoki kartochkalar
+   qatori) turibdimi? Bir slaydda faqat BITTA instrument bo'lishi kerak;
+   bunday holat 2-daraja va "remove" ga ortiqchasi yoziladi.
 
 TUZATISH DARAJASINI TANLA — eng arzonini, ortig'ini emas:
   0 — muammo yo'q.
