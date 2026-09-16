@@ -23,6 +23,7 @@ from bot.handlers import book_translate
 from bot.handlers import test as test_handler
 from bot.handlers import premium_presentation as premium_presentation_handler
 from bot.handlers import project_work
+from bot.handlers import store
 from bot.handlers import emoji as emoji_handler
 from bot.middlewares import LanguageMiddleware, DatabaseMiddleware
 from database.database import init_db
@@ -367,7 +368,19 @@ async def main():
     await _upgrade_default_ai_model()
 
     # Set Mini App domain from environment
-    webapp.WEBAPP_DOMAIN = os.environ.get("REPLIT_DEV_DOMAIN", "localhost:5000")
+    # Domen Mini App havolasiga ham, do'kondagi ish manziliga ham kerak.
+    # `REPLIT_DEV_DOMAIN` faqat Replit'da to'ldiriladi — o'z serverida
+    # `WEBAPP_DOMAIN` qo'yiladi, aks holda havolalar "localhost" ga ketardi.
+    webapp.WEBAPP_DOMAIN = (
+        os.environ.get("WEBAPP_DOMAIN")
+        or os.environ.get("REPLIT_DEV_DOMAIN")
+        or "localhost:5000"
+    )
+    if webapp.WEBAPP_DOMAIN.startswith("localhost"):
+        logger.warning(
+            "WEBAPP_DOMAIN sozlanmagan — Mini App va do'kon havolalari "
+            "localhost'ga ishora qiladi va tashqaridan ochilmaydi."
+        )
 
     # Restore tokens saved before last restart
     webapp.load_tokens_from_disk()
@@ -471,6 +484,10 @@ async def main():
     # Xizmat uchun qilingan Stars to'lovi payments.py dagi umumiy handlerga
     # tushib, balansga yozilib ketmasligi uchun bu undan oldin turadi.
     dp.include_router(project_work.router)  # Loyiha ishi — client picks field and source
+    # Do'kon ham Stars bilan to'lanadi, shuning uchun u payments.router dagi
+    # umumiy successful_payment handleridan oldin turadi; /start buy_... ni
+    # ushlash uchun esa start.router dan oldin.
+    dp.include_router(store.router)  # Saytdagi tayyor ishni sotib olish
     dp.include_router(emoji_handler.router)  # Handle emoji mosaic conversion
     dp.include_router(payments.router)  # Handle payment buttons
     dp.include_router(samples.router)  # Handle samples view and admin management
@@ -517,6 +534,7 @@ async def main():
 
     bot_info = await bot.get_me()
     emoji_handler.set_bot_username(bot_info.username or "")
+    webapp.BOT_USERNAME = bot_info.username or ""
     polling_task = asyncio.create_task(dp.start_polling(bot))
     web_task     = asyncio.create_task(start_web_server(port=5000))
     cleanup_task = asyncio.create_task(periodic_cleanup(storage=dp.storage))

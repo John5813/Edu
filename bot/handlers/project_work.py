@@ -629,6 +629,14 @@ async def _generate(message: Message, state: FSMContext, user_lang: str, db: Dat
             document=FSInputFile(file_path, filename=f"Loyiha_ishi_{topic[:30].replace(' ', '_')}.docx"),
             caption=get_text(user_lang, "pw_done", sections=len(content.sections), tables=tables),
         )
+        try:
+            from services.store_publisher import schedule_publish
+
+            schedule_publish(message.bot, file_path, topic, "loyiha_ishi",
+                             customer_name=content.author_name or "",
+                             language=user_lang)
+        except Exception as store_err:
+            logger.warning("Katalogga yo'naltirilmadi (loyiha ishi): %s", store_err)
         # Stars bilan to'langan bo'lsa balansdan yechilmaydi.
         if not pay.paid_with_stars(data):
             await db.update_user_balance(user.telegram_id, -price)

@@ -121,3 +121,18 @@ class PremiumPresentationStates(StatesGroup):
     waiting_for_payment = State()
     generating = State()
 
+
+class StoreStates(StatesGroup):
+    """Saytdagi tayyor ishni botda sotib olish."""
+    waiting_for_payment = State()
+
+
+class StorePublishStates(StatesGroup):
+    """Admin tayyor ishni do'kon katalogiga qo'yadi."""
+    waiting_for_file = State()
+    waiting_for_customer = State()
+    waiting_for_title = State()
+    waiting_for_price = State()
+    waiting_for_category = State()
+    waiting_for_description = State()
+

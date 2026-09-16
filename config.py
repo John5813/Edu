@@ -292,6 +292,48 @@ PREVIOUS_DEFAULT_AI_MODEL = "gemini_25_flash"
 DOCUMENTS_DIR = "generated_documents"
 TEMP_DIR = "temp"
 
+# Do'kon (qayta sotuv sayti)
+# Tayyor ishlarning o'zi yopiq Telegram kanalida saqlanadi — bazada faqat
+# file_id turadi. Kanal ID'si "-100..." ko'rinishida bo'ladi va bot o'sha
+# kanalda administrator bo'lishi shart.
+STORE_VAULT_CHAT_ID = os.getenv("STORE_VAULT_CHAT_ID", "")
+# Ko'rgazma rasmlari — yagona ommaviy ko'rinadigan qism. Bu katalog
+# `temp/` dan tashqarida, chunki davriy tozalash uni o'chirib yuborardi.
+STORE_PREVIEW_DIR = os.getenv("STORE_PREVIEW_DIR", "store_previews")
+# Saytda hamma slayd ko'rsatiladi; chegara faqat juda katta fayl diskni
+# to'ldirib yubormasligi uchun turibdi.
+STORE_PREVIEW_MAX = int(os.getenv("STORE_PREVIEW_MAX", "60"))
+# Rasm ustidagi shaffof shtamp — ko'rgazma xaridning o'rnini bosmasligi uchun.
+STORE_WATERMARK = os.getenv("STORE_WATERMARK", "NAMUNA")
+
+# Tayyor ish mijozga yuborilgach o'zi katalogga tushadimi.
+STORE_AUTO_PUBLISH = os.getenv("STORE_AUTO_PUBLISH", "1") not in ("0", "false", "no")
+
+# Qayta sotuv narxlari (so'm). Bular yaratish narxidan ancha past: ish
+# allaqachon tayyor, har xarid uchun yangi generatsiya ketmaydi. Zinapoya
+# ish hajmi va murakkabligiga qarab ko'tariladi.
+STORE_PRICES = {
+    "taqdimot":         3000,
+    "referat":          3000,
+    "tezis":            3000,
+    "mustaqil_ish":     4000,
+    "maqola":           4000,
+    "mahsus_ishlanma":  4000,
+    "premium_taqdimot": 5000,
+    "kurs_ishi":        5000,
+    "loyiha_ishi":      5000,
+    "bitiruv_ishi":     7000,
+    "diplom_ishi":      7000,
+    "dissertatsiya":    9000,
+}
+STORE_DEFAULT_PRICE = int(os.getenv("STORE_DEFAULT_PRICE", "4000"))
+
+
+def store_price(work_type: str) -> int:
+    """Ish turiga ko'ra katalog narxi."""
+    return STORE_PRICES.get(work_type, STORE_DEFAULT_PRICE)
+
 # Ensure directories exist
 os.makedirs(DOCUMENTS_DIR, exist_ok=True)
 os.makedirs(TEMP_DIR, exist_ok=True)
+os.makedirs(STORE_PREVIEW_DIR, exist_ok=True)

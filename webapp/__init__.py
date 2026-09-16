@@ -8,6 +8,9 @@ logger = logging.getLogger(__name__)
 DOC_TOKENS: dict = {}
 WEBAPP_DOMAIN: str = ""
 BOT = None
+# Do'kon sahifasidagi "sotib olish" tugmasi shu nom orqali botga havola
+# yasaydi. Ishga tushishda `get_me()` dan to'ldiriladi.
+BOT_USERNAME: str = ""
 
 _TOKEN_FILE = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "temp", "doc_tokens.json"

@@ -1269,10 +1269,14 @@ async def handle_save_api(request: web.Request) -> web.Response:
 
 
 async def handle_root(request: web.Request) -> web.Response:
-    raise web.HTTPFound("/edit")
+    # Domen ildiziga oddiy tashrifchi keladi — tahrirlovchi esa Mini App
+    # ichidan to'g'ridan-to'g'ri /edit?token=... bilan ochiladi.
+    raise web.HTTPFound("/shop")
 
 
 def create_web_app() -> web.Application:
+    from webapp.store import setup_store_routes
+
     app = web.Application(client_max_size=60 * 1024 * 1024)
     app.router.add_get("/", handle_root)
     app.router.add_get("/edit", handle_editor)
@@ -1281,6 +1285,7 @@ def create_web_app() -> web.Application:
     app.router.add_post("/api/save/{token}", handle_save_api)
     app.router.add_get("/api/templates", handle_templates_api)
     app.router.add_get("/api/template-image/{tid}", handle_template_image_api)
+    setup_store_routes(app)
     return app
 
 

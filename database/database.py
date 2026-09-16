@@ -188,12 +188,88 @@ async def init_db():
             )
         """)
 
+        # Do'kon katalogi: mijoz ma'lumotidan tozalangan, qayta sotuvga
+        # qo'yilgan ishlar. Fayllarning o'zi Telegram omborida (yopiq kanal)
+        # yotadi, bu yerda faqat file_id va ko'rgazma ma'lumoti saqlanadi.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS store_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                public_code TEXT UNIQUE NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT DEFAULT '',
+                category TEXT DEFAULT '',
+                language TEXT DEFAULT 'uz',
+                keywords TEXT DEFAULT '',
+                -- Sarlavha + tavsif + kalit so'zlar, apostrofsiz va kichik
+                -- harfda. Qidiruv shu ustunga tushadi, aks holda "o'zbek"
+                -- va "ozbek" boshqa so'z bo'lib qolardi.
+                search_text TEXT DEFAULT '',
+                slide_count INTEGER DEFAULT 0,
+                price INTEGER NOT NULL DEFAULT 0,
+                file_id TEXT NOT NULL,
+                file_type TEXT DEFAULT 'pptx',
+                preview_count INTEGER DEFAULT 0,
+                is_active BOOLEAN DEFAULT 1,
+                view_count INTEGER DEFAULT 0,
+                sale_count INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_store_items_active "
+            "ON store_items (is_active, created_at DESC)"
+        )
+
+        # Saytdan boshlangan sotuvlar. To'lov botda amalga oshadi, shuning
+        # uchun bu yerda faqat buyurtma holati kuzatiladi.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS store_orders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                item_id INTEGER NOT NULL,
+                telegram_id INTEGER,
+                price INTEGER NOT NULL DEFAULT 0,
+                status TEXT DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                paid_at TIMESTAMP,
+                FOREIGN KEY (item_id) REFERENCES store_items (id)
+            )
+        """)
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_store_orders_buyer "
+            "ON store_orders (telegram_id, item_id)"
+        )
+
         try:
             await db.execute("ALTER TABLE payments ADD COLUMN source TEXT DEFAULT ''")
             await db.commit()
             logger.info("Migration: added 'source' column to payments table")
         except Exception:
             pass  # Column already exists
+
+        # Do'kon qidiruv ustuni — jadval ilgari usiz yaratilgan bo'lishi mumkin.
+        try:
+            await db.execute("ALTER TABLE store_items ADD COLUMN search_text TEXT DEFAULT ''")
+            await db.commit()
+            logger.info("Migration: added 'search_text' column to store_items")
+        except Exception:
+            pass  # Column already exists
+
+        try:
+            from services.store_taxonomy import normalize
+            async with db.execute(
+                "SELECT id, title, description, keywords FROM store_items "
+                "WHERE search_text IS NULL OR search_text = ''"
+            ) as cursor:
+                stale = await cursor.fetchall()
+            if stale:
+                await db.executemany(
+                    "UPDATE store_items SET search_text = ? WHERE id = ?",
+                    [(normalize(" ".join(filter(None, row[1:]))), row[0]) for row in stale],
+                )
+                await db.commit()
+                logger.info("Migration: filled search_text for %s store item(s)", len(stale))
+        except Exception as store_mig_err:
+            logger.warning("store_items search_text backfill skipped: %s", store_mig_err)
 
         # Privacy migration: copy any existing completed document_orders rows
         # into the anonymous document_stats table, then purge ALL legacy rows
@@ -1125,3 +1201,257 @@ class Database:
     @staticmethod
     async def set_premium_ai_model(model_key: str) -> bool:
         return await Database.set_bot_setting("premium_ai_model", model_key)
+
+    # ── Do'kon katalogi ────────────────────────────────────────────────────
+
+    @staticmethod
+    async def generate_store_code() -> str:
+        """Saytdagi havolada ko'rinadigan qisqa, takrorlanmas kod."""
+        alphabet = string.ascii_uppercase + string.digits
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            for _ in range(20):
+                code = "".join(secrets.choice(alphabet) for _ in range(8))
+                async with db.execute(
+                    "SELECT 1 FROM store_items WHERE public_code = ?", (code,)
+                ) as cursor:
+                    if await cursor.fetchone() is None:
+                        return code
+        raise RuntimeError("store uchun bo'sh kod topilmadi")
+
+    @staticmethod
+    async def create_store_item(
+        public_code: str,
+        title: str,
+        file_id: str,
+        price: int,
+        description: str = "",
+        category: str = "",
+        language: str = "uz",
+        keywords: str = "",
+        slide_count: int = 0,
+        file_type: str = "pptx",
+        preview_count: int = 0,
+    ) -> int:
+        from services.store_taxonomy import normalize
+
+        search_text = normalize(" ".join(filter(None, (title, description, keywords))))
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            cursor = await db.execute(
+                """INSERT INTO store_items
+                   (public_code, title, description, category, language, keywords,
+                    search_text, slide_count, price, file_id, file_type, preview_count)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (public_code, title, description, category, language, keywords,
+                 search_text, slide_count, price, file_id, file_type, preview_count),
+            )
+            await db.commit()
+            return cursor.lastrowid
+
+    @staticmethod
+    async def list_store_items(
+        query: str = "",
+        category: str = "",
+        language: str = "",
+        sort: str = "new",
+        limit: int = 24,
+        offset: int = 0,
+    ) -> Dict:
+        """Katalogni filtrlab qaytaradi: {'items': [...], 'total': N, 'fuzzy': bool}.
+
+        Qidiruv so'zma-so'z ishlaydi: mavzu aynan topilmasa ham, so'zlaridan
+        biri mos kelgan ishlar chiqadi va ko'p so'zi moslari yuqori turadi.
+        Umuman moslik bo'lmasa — eng yaqin sarlavhalar qaytariladi.
+        """
+        from services.store_taxonomy import normalize
+
+        # Tartib faqat ma'lum qiymatlardan tanlanadi — bu ustun nomi SQL ga
+        # to'g'ridan-to'g'ri qo'shilgani uchun majburiy.
+        order_by = {
+            "new": "created_at DESC, id DESC",
+            "popular": "sale_count DESC, view_count DESC, id DESC",
+            "cheap": "price ASC, id DESC",
+            "expensive": "price DESC, id DESC",
+        }.get(sort, "created_at DESC, id DESC")
+
+        FIELDS = ("public_code, title, description, category, language, "
+                  "slide_count, price, preview_count, sale_count, created_at")
+
+        base_where = ["is_active = 1"]
+        base_params: list = []
+        if category:
+            base_where.append("category = ?")
+            base_params.append(category)
+        if language:
+            base_where.append("language = ?")
+            base_params.append(language)
+
+        words = [w for w in normalize(query).split() if len(w) >= 2][:6]
+        likes = [
+            "%" + w.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+            for w in words
+        ]
+
+        where = list(base_where)
+        rank = ""
+        match_params: list = []
+        if likes:
+            where.append("(" + " OR ".join(
+                ["search_text LIKE ? ESCAPE '\\'"] * len(likes)) + ")")
+            # Ko'proq so'zi mos kelgan ish yuqorida tursin.
+            rank = " + ".join(
+                ["(CASE WHEN search_text LIKE ? ESCAPE '\\' THEN 1 ELSE 0 END)"] * len(likes)
+            ) + " DESC, "
+            match_params = likes
+
+        clause = " AND ".join(where)
+        where_params = base_params + match_params
+
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                f"SELECT COUNT(*) FROM store_items WHERE {clause}", where_params
+            ) as cursor:
+                total = (await cursor.fetchone())[0]
+
+            if total:
+                async with db.execute(
+                    f"""SELECT {FIELDS} FROM store_items WHERE {clause}
+                        ORDER BY {rank}{order_by} LIMIT ? OFFSET ?""",
+                    where_params + match_params + [limit, offset],
+                ) as cursor:
+                    rows = await cursor.fetchall()
+                return {"items": [dict(r) for r in rows], "total": total, "fuzzy": False}
+
+            if not words:
+                return {"items": [], "total": 0, "fuzzy": False}
+
+            # Hech narsa mos kelmadi — mijozni bo'sh sahifada qoldirmaslik
+            # uchun sarlavhasi eng yaqin ishlar ko'rsatiladi.
+            base_clause = " AND ".join(base_where)
+            async with db.execute(
+                f"SELECT public_code, search_text FROM store_items WHERE {base_clause}",
+                base_params,
+            ) as cursor:
+                candidates = await cursor.fetchall()
+
+            codes = Database._closest_codes(normalize(query), candidates, limit + offset)
+            if not codes:
+                return {"items": [], "total": 0, "fuzzy": False}
+
+            page = codes[offset:offset + limit]
+            if not page:
+                return {"items": [], "total": len(codes), "fuzzy": True}
+            holes = ",".join("?" * len(page))
+            async with db.execute(
+                f"SELECT {FIELDS} FROM store_items WHERE public_code IN ({holes})", page
+            ) as cursor:
+                found = {r["public_code"]: dict(r) for r in await cursor.fetchall()}
+
+        return {
+            "items": [found[c] for c in page if c in found],
+            "total": len(codes),
+            "fuzzy": True,
+        }
+
+    @staticmethod
+    def _closest_codes(query: str, candidates, limit: int) -> List[str]:
+        """Sarlavhasi so'ralganga eng o'xshash ishlarni tartiblab qaytaradi."""
+        from difflib import SequenceMatcher
+
+        query_words = [w for w in query.split() if len(w) >= 3]
+        scored = []
+        for row in candidates:
+            text = row["search_text"] or ""
+            if not text:
+                continue
+            best = SequenceMatcher(None, query, text[:120]).ratio()
+            # Bitta so'z ham yetarlicha o'xshash bo'lsa — mavzu yaqin demak.
+            for qw in query_words:
+                for tw in text.split():
+                    if abs(len(tw) - len(qw)) <= 4:
+                        best = max(best, SequenceMatcher(None, qw, tw).ratio())
+            if best >= 0.62:
+                scored.append((best, row["public_code"]))
+
+        scored.sort(key=lambda pair: pair[0], reverse=True)
+        return [code for _, code in scored[:limit]]
+
+    @staticmethod
+    async def get_store_item(public_code: str) -> Optional[Dict]:
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM store_items WHERE public_code = ? AND is_active = 1",
+                (public_code,),
+            ) as cursor:
+                row = await cursor.fetchone()
+                return dict(row) if row else None
+
+    @staticmethod
+    async def all_store_codes() -> List[Dict]:
+        """Sayt xaritasi uchun — barcha ochiq ishlarning kodi va sanasi."""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            async with db.execute(
+                "SELECT public_code, created_at FROM store_items "
+                "WHERE is_active = 1 ORDER BY created_at DESC"
+            ) as cursor:
+                rows = await cursor.fetchall()
+        return [{"code": r[0], "created_at": r[1]} for r in rows]
+
+    @staticmethod
+    async def get_store_categories() -> List[Dict]:
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            async with db.execute(
+                "SELECT category, COUNT(*) FROM store_items "
+                "WHERE is_active = 1 AND category != '' "
+                "GROUP BY category ORDER BY COUNT(*) DESC"
+            ) as cursor:
+                rows = await cursor.fetchall()
+        return [{"name": r[0], "count": r[1]} for r in rows]
+
+    @staticmethod
+    async def bump_store_view(public_code: str) -> None:
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            await db.execute(
+                "UPDATE store_items SET view_count = view_count + 1 "
+                "WHERE public_code = ?",
+                (public_code,),
+            )
+            await db.commit()
+
+    @staticmethod
+    async def set_store_item_active(public_code: str, is_active: bool) -> bool:
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            cursor = await db.execute(
+                "UPDATE store_items SET is_active = ? WHERE public_code = ?",
+                (1 if is_active else 0, public_code),
+            )
+            await db.commit()
+            return cursor.rowcount > 0
+
+    @staticmethod
+    async def record_store_sale(item_id: int, telegram_id: int, price: int) -> int:
+        """Sotuvni yozadi va katalogdagi sotuv hisobini oshiradi."""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            cursor = await db.execute(
+                """INSERT INTO store_orders (item_id, telegram_id, price, status, paid_at)
+                   VALUES (?, ?, ?, 'paid', CURRENT_TIMESTAMP)""",
+                (item_id, telegram_id, price),
+            )
+            await db.execute(
+                "UPDATE store_items SET sale_count = sale_count + 1 WHERE id = ?",
+                (item_id,),
+            )
+            await db.commit()
+            return cursor.lastrowid
+
+    @staticmethod
+    async def has_bought_store_item(telegram_id: int, item_id: int) -> bool:
+        """Sotib olingan ish qayta to'lovsiz yuklab olinishi uchun."""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            async with db.execute(
+                "SELECT 1 FROM store_orders WHERE telegram_id = ? AND item_id = ? "
+                "AND status = 'paid' LIMIT 1",
+                (telegram_id, item_id),
+            ) as cursor:
+                return await cursor.fetchone() is not None
