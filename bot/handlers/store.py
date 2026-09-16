@@ -6,6 +6,7 @@ keladi, chunki to'lov tizimi (balans, Stars, to'ldirish) allaqachon shu
 yerda ishlaydi.
 """
 
+import asyncio
 import logging
 import os
 import re
@@ -489,6 +490,112 @@ async def publish_got_description(message: Message, state: FSMContext):
         f"Olib tashlash: <code>/nashr_ochir {code}</code>",
         parse_mode="HTML",
     )
+
+
+def _conversion_works(extension: str) -> bool:
+    """Shu turdagi faylni rasmga aylantirib bo'ladimi.
+
+    Paket bor-yo'qligini tekshirish o'rniga haqiqiy o'tkazish sinaladi:
+    LibreOffice filtrlari alohida paketlarda keladi va `soffice` mavjud
+    bo'la turib .docx yoki .pptx ni ocholmasligi mumkin.
+    """
+    import tempfile
+
+    from services.premium_presentation.qa import discard_images, pptx_to_images
+
+    folder = tempfile.mkdtemp()
+    path = os.path.join(folder, f"sinov{extension}")
+    try:
+        if extension == ".pptx":
+            from pptx import Presentation
+            from pptx.util import Inches
+
+            deck = Presentation()
+            slide = deck.slides.add_slide(deck.slide_layouts[6])
+            slide.shapes.add_textbox(Inches(1), Inches(1), Inches(4), Inches(1)) \
+                .text_frame.text = "sinov"
+            deck.save(path)
+        else:
+            from docx import Document
+
+            document = Document()
+            document.add_paragraph("sinov")
+            document.save(path)
+
+        images = pptx_to_images(path)
+        discard_images(images)
+        return bool(images)
+    except Exception as exc:
+        logger.warning("Konvertatsiya sinovi xato berdi (%s): %s", extension, exc)
+        return False
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
+@router.message(Command("dokon"))
+async def store_status(message: Message):
+    """Do'kon ishlashiga kerak bo'lgan hamma narsani tekshiradi.
+
+    Avtomatik nashr mijozga yetkazishni buzmaslik uchun xatolarni yutadi,
+    shuning uchun nosozlik faqat shu yerda ko'rinadi.
+    """
+    if not _is_admin(message.from_user.id):
+        return
+
+    from config import STORE_AUTO_PUBLISH, STORE_PREVIEW_DIR
+    from services import store_publisher
+
+    status = await message.answer("⏳ Tekshirilmoqda...")
+    lines = ["🏪 <b>Do'kon holati</b>\n"]
+
+    auto = "yoqilgan" if STORE_AUTO_PUBLISH else "o'chirilgan"
+    lines.append(f"{'✅' if STORE_AUTO_PUBLISH else '⏸'} Avtomatik nashr: {auto}")
+
+    if STORE_VAULT_CHAT_ID:
+        try:
+            probe = await message.bot.send_message(
+                STORE_VAULT_CHAT_ID, "Do'kon tekshiruvi — bu xabar o'chiriladi.")
+            try:
+                await message.bot.delete_message(STORE_VAULT_CHAT_ID, probe.message_id)
+            except Exception:
+                pass
+            lines.append(f"✅ Ombor kanali: <code>{STORE_VAULT_CHAT_ID}</code> — yozish mumkin")
+        except Exception as exc:
+            lines.append(f"❌ Ombor kanali: <code>{STORE_VAULT_CHAT_ID}</code>\n"
+                         f"    {type(exc).__name__}: {str(exc)[:160]}\n"
+                         f"    <i>Bot o'sha kanalda administrator ekanini tekshiring.</i>")
+    else:
+        lines.append("❌ Ombor kanali: <code>STORE_VAULT_CHAT_ID</code> sozlanmagan")
+
+    loop = asyncio.get_running_loop()
+    for extension, label, package in ((".pptx", "Taqdimot", "libreoffice-impress"),
+                                      (".docx", "Word hujjati", "libreoffice-writer")):
+        ok = await loop.run_in_executor(None, _conversion_works, extension)
+        lines.append(f"{'✅' if ok else '❌'} {label} rasmga aylantirish"
+                     + ("" if ok else f"\n    <i>Kerak: apt install {package}</i>"))
+
+    lines.append(f"🌐 Sayt: {webapp.public_url('/shop')}")
+
+    try:
+        total = (await Database.list_store_items(limit=1))["total"]
+        lines.append(f"📦 Katalogda: {total} ta ish")
+    except Exception as exc:
+        lines.append(f"❌ Katalog o'qilmadi: {exc}")
+
+    try:
+        folders = len(os.listdir(STORE_PREVIEW_DIR))
+        lines.append(f"🖼 Ko'rgazma papkalari: {folders} ta")
+    except OSError:
+        pass
+
+    if store_publisher.LAST_ERROR:
+        last = store_publisher.LAST_ERROR
+        lines.append(f"\n⚠️ <b>Oxirgi nashr xatosi</b> ({last.get('at', '')})\n"
+                     f"    {last.get('title', '')} — {last.get('work_type', '')}\n"
+                     f"    <code>{last.get('error', '')}</code>")
+
+    await status.edit_text("\n".join(lines), parse_mode="HTML",
+                           disable_web_page_preview=True)
 
 
 @router.message(Command("nashr_ochir"))
