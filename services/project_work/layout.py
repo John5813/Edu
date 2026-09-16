@@ -110,11 +110,11 @@ FORMULA_LINES = (_lines(0.22)                 # nomi
 # Ko'rsatkich kartochkalari — beshta satrli jadval.
 CARDS_LINES = 5 * _lines(0.33) + 1.0
 
-# Muqova alohida varoqda, adabiyotlar ro'yxati ham yangi varoqdan
-# boshlanadi. Reja varag'i chiqarilmaydi — loyiha ishida u talab
-# qilinmaydi.
+# Muqova alohida varoqda. Reja varag'i ham, adabiyotlar ro'yxati ham
+# chiqarilmaydi — loyiha ishida ular talab qilinmaydi — shuning uchun
+# matnga bir varoq ko'proq joy qoladi.
 FRONT_MATTER_PAGES = 1.0
-REFERENCES_PAGES = 1.0
+REFERENCES_PAGES = 0.0
 
 
 def prose_lines(words: float, language: str = DEFAULT_LANGUAGE) -> float:
@@ -200,7 +200,7 @@ PHOTOGRAPHS = 2
 
 
 def fixed_pages() -> float:
-    """Muqova, mundarija va adabiyotlar — matn hajmiga bog'liq emas."""
+    """Matn hajmiga bog'liq bo'lmagan varoqlar — hozir faqat muqova."""
     return FRONT_MATTER_PAGES + REFERENCES_PAGES
 
 def photographs_for(target_pages: float) -> int:

@@ -154,8 +154,10 @@ class ProjectWorkBuilder:
         for section in doc.sections:
             self.documents._add_page_number(section)
 
+        # Adabiyotlar ro'yxati ham chiqarilmaydi: loyiha ishi shaxsan
+        # to'plangan ma'lumot sifatida topshiriladi, ya'ni uning orqasida
+        # boshqa mualliflarning manbalari turmaydi.
         self._body(doc, content, images, chosen)
-        self._references(doc, content)
 
         os.makedirs(DOCUMENTS_DIR, exist_ok=True)
         filename = f"loyiha_ishi_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
@@ -221,13 +223,11 @@ class ProjectWorkBuilder:
 
     def _body(self, doc, content: ProjectContent, images: dict, chosen) -> None:
         language = content.language
-        citable = [r for r in content.references if not r.startswith("__CATEGORY__")]
         table_no = 0
         figure_no = 0
         # Formulalar hujjat bo'ylab ketma-ket raqamlanadi — akademik qoida
         # shunday, va matnda "(3) formuladan ko'rinadi" deb havola qilinadi.
         formula_no = 0
-        footnote_no = 1
         numbered = 0
 
         for section in content.sections:
@@ -241,12 +241,9 @@ class ProjectWorkBuilder:
             run.font.bold = True
             run.font.size = Pt(14)
 
-            body = self._paragraphs(doc, section.text)
-
-            if body and citable and self._is_numbered(section):
-                reference = citable[(footnote_no - 1) % len(citable)]
-                self.documents._add_footnote(body[-1], reference, footnote_no)
-                footnote_no += 1
+            # Snoska qo'yilmaydi: matn o'zlashtirilgan manbaga emas, ishning
+            # o'z hisob-kitoblariga tayanadi.
+            self._paragraphs(doc, section.text)
 
             if section.table:
                 table_no += 1
@@ -522,21 +519,3 @@ class ProjectWorkBuilder:
         caption_run.font.name = "Times New Roman"
         doc.add_paragraph()
 
-    def _references(self, doc, content: ProjectContent) -> None:
-        if not content.references:
-            return
-        toc = self.documents._get_toc_texts(content.language)
-        doc.add_page_break()
-        heading = doc.add_paragraph()
-        heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = heading.add_run(toc["adabiyotlar"].upper())
-        run.font.bold = True
-        run.font.size = Pt(14)
-
-        for index, reference in enumerate(content.references, start=1):
-            if reference.startswith("__CATEGORY__"):
-                continue
-            para = doc.add_paragraph()
-            para.paragraph_format.first_line_indent = Inches(0.5)
-            para.paragraph_format.line_spacing = 1.5
-            para.add_run(f"{index}. {reference}")
