@@ -34,12 +34,16 @@ _PAGE_SIZE = 24
 
 
 def _item_json(row: dict) -> dict:
+    from config import work_label
+
     code = row["public_code"]
     return {
         "code": code,
         "title": row["title"],
         "description": row.get("description") or "",
         "category": row.get("category") or "",
+        "work_type": row.get("work_type") or "",
+        "work_label": work_label(row.get("work_type") or ""),
         "language": row.get("language") or "uz",
         "slide_count": row.get("slide_count") or 0,
         "file_type": row.get("file_type") or "pptx",
@@ -101,6 +105,7 @@ async def handle_items(request: web.Request) -> web.Response:
 
     query = (request.query.get("q") or "").strip()[:100]
     category = (request.query.get("category") or "").strip()[:50]
+    work_type = (request.query.get("type") or "").strip()[:50]
     language = (request.query.get("language") or "").strip()[:10]
     sort = (request.query.get("sort") or "new").strip()
     try:
@@ -109,8 +114,8 @@ async def handle_items(request: web.Request) -> web.Response:
         page = 1
 
     result = await Database.list_store_items(
-        query=query, category=category, language=language, sort=sort,
-        limit=_PAGE_SIZE, offset=(page - 1) * _PAGE_SIZE,
+        query=query, category=category, work_type=work_type, language=language,
+        sort=sort, limit=_PAGE_SIZE, offset=(page - 1) * _PAGE_SIZE,
     )
     return web.json_response({
         "total": result["total"],
@@ -149,13 +154,16 @@ def _money(value: int) -> str:
 
 def _summary(row: dict) -> str:
     """Qidiruv natijasida ko'rinadigan qisqa tavsif."""
-    parts = [row["title"]]
+    from config import work_label
+
+    kind = work_label(row.get("work_type") or "")
+    parts = [f"{row['title']} — tayyor {kind.lower()}." if kind else row["title"]]
     if row.get("description"):
         parts.append(row["description"])
     if row.get("slide_count"):
         unit = "varaq" if (row.get("file_type") or "pptx") == "docx" else "slayd"
         parts.append(f"{row['slide_count']} {unit}.")
-    parts.append("Tayyor ish — darhol yuklab olish mumkin.")
+    parts.append("Darhol yuklab olish mumkin.")
     return " ".join(parts)[:300]
 
 
@@ -179,8 +187,12 @@ async def handle_item_page(request: web.Request) -> web.Response:
     if not shots:
         shots = [f"/shop/preview/{code}/thumb.jpg"]
 
+    from config import work_label
+
     esc = lambda value: html.escape(str(value or ""), quote=True)
     title, category = row["title"], row.get("category") or ""
+    work_type = row.get("work_type") or ""
+    work_name = work_label(work_type)
     summary = _summary(row)
 
     # Taqdimotda slayd, Word hujjatida varaq sanaladi.
@@ -191,9 +203,11 @@ async def handle_item_page(request: web.Request) -> web.Response:
     if category:
         facts.append(f'<a class="tag" href="/shop?category={esc(category)}">{esc(category)}</a>')
     facts.append(f'<span class="tag">{esc((row.get("language") or "uz").upper())}</span>')
-    facts.append(f'<span class="tag">Kod: {esc(code)}</span>')
+    # Ichki kod mijozga ko'rsatilmaydi — u admin uchun, /nashr javobida bor.
 
     crumbs = ['<a href="/shop">Katalog</a>']
+    if work_type:
+        crumbs.append(f'<a href="/shop?type={esc(work_type)}">{esc(work_name)}</a>')
     if category:
         crumbs.append(f'<a href="/shop?category={esc(category)}">{esc(category)}</a>')
     crumbs.append(esc(title))
@@ -251,6 +265,10 @@ async def handle_item_page(request: web.Request) -> web.Response:
         # `</script>` JSON matni ichida uchrasa sahifani buzardi.
         "{{JSONLD}}": json.dumps(jsonld, ensure_ascii=False).replace("</", "<\\/"),
         "{{CRUMBS}}": " / ".join(crumbs),
+        # Ish turi sarlavha ustida, mayda qalin harflar bilan — tashrifchi
+        # bu nima ekanini birinchi qarashda bilishi kerak.
+        "{{KIND}}": (f'<a class="kind" href="/shop?type={esc(work_type)}">'
+                     f'{esc(work_name)}</a>') if work_name else "",
         "{{DESC_BLOCK}}": description_block,
         "{{FACTS}}": "".join(facts),
         "{{PRICE}}": esc(_money(row.get("price"))),
@@ -300,7 +318,15 @@ async def handle_sitemap(request: web.Request) -> web.Response:
 async def handle_categories(request: web.Request) -> web.Response:
     from database.database import Database
 
-    return web.json_response({"categories": await Database.get_store_categories()})
+    work_type = (request.query.get("type") or "").strip()[:50]
+    return web.json_response(
+        {"categories": await Database.get_store_categories(work_type)})
+
+
+async def handle_work_types(request: web.Request) -> web.Response:
+    from database.database import Database
+
+    return web.json_response({"types": await Database.get_store_work_types()})
 
 
 async def handle_preview(request: web.Request) -> web.Response:
@@ -339,3 +365,4 @@ def setup_store_routes(app: web.Application) -> None:
     app.router.add_get("/api/shop/items", handle_items)
     app.router.add_get("/api/shop/items/{code}", handle_item)
     app.router.add_get("/api/shop/categories", handle_categories)
+    app.router.add_get("/api/shop/types", handle_work_types)

@@ -328,10 +328,35 @@ STORE_PRICES = {
 }
 STORE_DEFAULT_PRICE = int(os.getenv("STORE_DEFAULT_PRICE", "4000"))
 
+# Saytda ko'rinadigan nomlar. Tartib muhim: filtrlar shu ketma-ketlikda
+# chiqadi, shuning uchun eng ko'p so'raladigani boshida turadi.
+STORE_WORK_LABELS = {
+    "taqdimot":         "Taqdimot",
+    "premium_taqdimot": "Premium taqdimot",
+    "referat":          "Referat",
+    "mustaqil_ish":     "Mustaqil ish",
+    "kurs_ishi":        "Kurs ishi",
+    "loyiha_ishi":      "Loyiha ishi",
+    "maqola":           "Maqola",
+    "tezis":            "Tezis",
+    "mahsus_ishlanma":  "Mahsus ishlanma",
+    "bitiruv_ishi":     "Bitiruv ishi",
+    "diplom_ishi":      "Diplom ishi",
+    "dissertatsiya":    "Dissertatsiya",
+}
+
 
 def store_price(work_type: str) -> int:
     """Ish turiga ko'ra katalog narxi."""
     return STORE_PRICES.get(work_type, STORE_DEFAULT_PRICE)
+
+
+def work_label(work_type: str) -> str:
+    """Ish turining saytda ko'rinadigan nomi."""
+    if not work_type:
+        return ""
+    return (STORE_WORK_LABELS.get(work_type)
+            or work_type.replace("_", " ").capitalize())
 
 # Ensure directories exist
 os.makedirs(DOCUMENTS_DIR, exist_ok=True)

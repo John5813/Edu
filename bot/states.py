@@ -130,6 +130,7 @@ class StoreStates(StatesGroup):
 class StorePublishStates(StatesGroup):
     """Admin tayyor ishni do'kon katalogiga qo'yadi."""
     waiting_for_file = State()
+    waiting_for_work_type = State()
     waiting_for_customer = State()
     waiting_for_title = State()
     waiting_for_price = State()
