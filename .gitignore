@@ -73,3 +73,8 @@ temp/
 
 # Do'kon ko'rgazma rasmlari — ular nashr qilishda qayta yaratiladi.
 store_previews/
+
+# Serverdagi kalitlar: BOT_TOKEN, API kalitlari, ombor kanali ID'si.
+# Bular hech qachon repoga tushmasligi kerak.
+.env
+.env.*
