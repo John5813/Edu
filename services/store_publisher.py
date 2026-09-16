@@ -142,6 +142,18 @@ def _name_pattern(customer_name: str):
     return re.compile("|".join(parts), re.IGNORECASE) if parts else None
 
 
+def _download_name(title: str, extension: str, fallback: str) -> str:
+    """Xaridorga ko'rinadigan fayl nomi.
+
+    Ombordagi fayl mavzu nomi bilan saqlanadi: sotib olgan mijoz faylni
+    `F60ABXI.docx` ko'rinishida emas, mavzusi bilan oladi — ichki kod unga
+    hech narsa anglatmaydi.
+    """
+    cleaned = re.sub(r"[^\w\s.-]", "", title or "", flags=re.UNICODE).strip()
+    cleaned = re.sub(r"\s+", "_", cleaned)[:60].strip("._-")
+    return (cleaned or fallback) + extension
+
+
 def _staged_path(extension: str) -> str:
     os.makedirs(TEMP_DIR, exist_ok=True)
     return os.path.join(TEMP_DIR, f"store_{uuid.uuid4().hex[:8]}{extension}")
@@ -414,7 +426,9 @@ async def publish_work(
 
         message = await bot.send_document(
             chat_id=STORE_VAULT_CHAT_ID,
-            document=FSInputFile(cleaned_path, filename=f"{public_code}{extension}"),
+            document=FSInputFile(
+                cleaned_path,
+                filename=_download_name(title, extension, public_code)),
             caption=f"{public_code} — {title}",
             parse_mode=None,
         )
