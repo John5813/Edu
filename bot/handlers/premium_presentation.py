@@ -56,12 +56,20 @@ async def _warn_admin_about_images(bot) -> None:
             return
         _last_image_warning = reason
 
+        # Har model bo'yicha sabab: qaysi biri "kredit yo'q", qaysi biri
+        # "bunday model yo'q" ekani bir qarashda ko'rinsin.
+        from services.premium_presentation import image_client
+
+        lines = "\n".join(
+            f"• <b>{model.split('/')[-1]}</b> — {why}"
+            for model, why in list(image_client.LAST_ERRORS.items())[:6]
+        ) or f"<code>{reason[:300]}</code>"
+
         text = (
             "⚠️ <b>Premium taqdimot rasmsiz chiqdi</b>\n\n"
             f"So'ralgan rasm: {wanted} ta, chiqmagani: {failed} ta\n\n"
-            f"<code>{reason[:300]}</code>\n\n"
-            "Together hisobidagi kredit va model nomini tekshiring "
-            "(PREMIUM_TOGETHER_IMAGE_MODEL)."
+            f"{lines}\n\n"
+            "Together hisobidagi kredit va modelga ruxsatni tekshiring."
         )
         for admin_id in ADMIN_IDS:
             with contextlib.suppress(Exception):
@@ -279,9 +287,35 @@ async def premium_ppt_got_topic(message: Message, state: FSMContext, db: Databas
     await _ask_source(message, state, lang)
 
 
+async def _open_step(target, text: str, markup, is_callback: bool,
+                     replace: bool = False) -> None:
+    """Keyingi savolni YANGI xabar sifatida ochadi.
+
+    Ilgari har qadam o'sha xabarni tahrirlardi: mijoz tugmani bosishi
+    bilan manba savoli ism savoliga, u esa istaklar savoliga aylanib
+    ketardi va suhbatda hech qanday iz qolmasdi — "oynachalar
+    ochilmayapti" degan holat shundan. Endi oldingi xabarning tugmalari
+    olib tashlanadi (ikki marta bosib bo'lmasin) va savol yangi xabarda
+    chiqadi.
+
+    `replace=True` — orqaga qaytishda: u yerda yangi xabar chiqarish
+    suhbatni takroriy kartochkalar bilan to'ldirardi.
+    """
+    if is_callback and replace:
+        await target.message.edit_text(text, parse_mode="HTML", reply_markup=markup)
+        return
+    if is_callback:
+        with contextlib.suppress(Exception):
+            await target.message.edit_reply_markup(reply_markup=None)
+        await target.message.answer(text, parse_mode="HTML", reply_markup=markup)
+        return
+    await target.answer(text, parse_mode="HTML", reply_markup=markup)
+
+
 # ──────────────────────────────────────────────────────────────── MANBA
 
-async def _ask_source(target, state: FSMContext, lang: str, is_callback: bool = False):
+async def _ask_source(target, state: FSMContext, lang: str, is_callback: bool = False,
+                      replace: bool = False):
     """Taqdimot AI ning o'z bilimiga tayanadimi yoki mijoz bergan hujjatgami."""
     await state.set_state(PremiumPresentationStates.waiting_for_source_kind)
     data = await state.get_data()
@@ -289,10 +323,7 @@ async def _ask_source(target, state: FSMContext, lang: str, is_callback: bool = 
             + get_text(lang, "prem_ppt_ask_source"))
     markup = get_project_source_keyboard(lang, prefix="prem_ppt",
                                          back="prem_ppt_back")
-    if is_callback:
-        await target.message.edit_text(text, parse_mode="HTML", reply_markup=markup)
-    else:
-        await target.answer(text, parse_mode="HTML", reply_markup=markup)
+    await _open_step(target, text, markup, is_callback, replace=replace)
 
 
 @router.callback_query(F.data.startswith("prem_ppt_source:"),
@@ -395,7 +426,8 @@ async def _store_source(message: Message, state: FSMContext, lang: str, material
 
 # ──────────────────────────────────────────────────────────────── CLIENT NAME
 
-async def _ask_client_name(target, state: FSMContext, lang: str, is_callback: bool):
+async def _ask_client_name(target, state: FSMContext, lang: str, is_callback: bool,
+                           replace: bool = False):
     await state.set_state(PremiumPresentationStates.waiting_for_client_name)
     data = await state.get_data()
     topic = data.get("topic", "")
@@ -416,12 +448,8 @@ async def _ask_client_name(target, state: FSMContext, lang: str, is_callback: bo
             "<i>(Will appear on the title slide)</i>"
         ),
     }
-    text = msgs.get(lang, msgs["uz"])
-    markup = _client_name_keyboard(lang)
-    if is_callback:
-        await target.message.edit_text(text, parse_mode="HTML", reply_markup=markup)
-    else:
-        await target.answer(text, parse_mode="HTML", reply_markup=markup)
+    await _open_step(target, msgs.get(lang, msgs["uz"]), _client_name_keyboard(lang),
+                     is_callback, replace=replace)
 
 
 @router.message(PremiumPresentationStates.waiting_for_client_name)
@@ -442,7 +470,8 @@ async def premium_ppt_skip_name(callback: CallbackQuery, state: FSMContext, db: 
     await _show_preferences_step(callback, state, lang, is_callback=True)
 
 
-async def _show_preferences_step(source, state: FSMContext, lang: str, is_callback: bool):
+async def _show_preferences_step(source, state: FSMContext, lang: str,
+                                 is_callback: bool, replace: bool = False):
     """Foydalanuvchidan qat'iy forma emas, erkin ijodiy yo'nalish oladi."""
     await state.set_state(PremiumPresentationStates.waiting_for_preferences)
     data = await state.get_data()
@@ -476,15 +505,12 @@ async def _show_preferences_step(source, state: FSMContext, lang: str, is_callba
             "and persuasive.</i>"
         ),
     }
-    text = msgs.get(lang, msgs["uz"])
-    kb = _preferences_keyboard(lang)
-    if is_callback:
-        await source.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
-    else:
-        await source.answer(text, parse_mode="HTML", reply_markup=kb)
+    await _open_step(source, msgs.get(lang, msgs["uz"]), _preferences_keyboard(lang),
+                     is_callback, replace=replace)
 
 
-async def _show_auto_confirm(source, state: FSMContext, lang: str, is_callback: bool):
+async def _show_auto_confirm(source, state: FSMContext, lang: str,
+                             is_callback: bool, replace: bool = False):
     await state.set_state(PremiumPresentationStates.waiting_for_slide_count)
     data = await state.get_data()
     topic = data.get("topic", "")
@@ -526,11 +552,8 @@ async def _show_auto_confirm(source, state: FSMContext, lang: str, is_callback: 
                 f"{name_line['en']}{source_line}{preferences_line['en']}\n\n{preference_line['en']}\n\n"
                "📊 Now choose the number of slides:",
     }
-    kb = _slide_count_keyboard(lang)
-    if is_callback:
-        await source.message.edit_text(msgs.get(lang, msgs["uz"]), parse_mode="HTML", reply_markup=kb)
-    else:
-        await source.answer(msgs.get(lang, msgs["uz"]), parse_mode="HTML", reply_markup=kb)
+    await _open_step(source, msgs.get(lang, msgs["uz"]), _slide_count_keyboard(lang),
+                     is_callback, replace=replace)
 
 
 @router.message(PremiumPresentationStates.waiting_for_preferences)
@@ -561,7 +584,7 @@ async def premium_ppt_back_to_name(callback: CallbackQuery, state: FSMContext, d
     # Savol matni bitta joyda turadi: ilgari u shu yerda ham, asosiy
     # qadamda ham alohida yozilgan edi va ikkisi bir-biridan ajralib
     # ketishi mumkin edi.
-    await _ask_client_name(callback, state, lang, is_callback=True)
+    await _ask_client_name(callback, state, lang, is_callback=True, replace=True)
 
 
 @router.callback_query(F.data == "prem_ppt_back_to_preferences")
@@ -574,7 +597,7 @@ async def premium_ppt_back_to_preferences(callback: CallbackQuery, state: FSMCon
     await callback.answer()
     user = await db.get_user(callback.from_user.id)
     lang = user.language if user else "uz"
-    await _show_preferences_step(callback, state, lang, is_callback=True)
+    await _show_preferences_step(callback, state, lang, is_callback=True, replace=True)
 
 
 # ──────────────────────────────────────────────────────────────── SLIDE COUNT
