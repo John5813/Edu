@@ -9,7 +9,8 @@ from pydantic import ValidationError
 from services.project_work import variety
 
 from . import config, infographics, llm_client, qa
-from .models import Brief, Slide, ROLE_ORDER, VisualElement, grounding_check
+from .models import (Brief, INFOGRAPHIC_PRESETS, InfographicItem, Slide,
+                     ROLE_ORDER, VisualElement, grounding_check)
 from .renderer import build_presentation
 
 log = logging.getLogger("pipeline")
@@ -96,6 +97,40 @@ def canvas_check(slide: Slide) -> tuple[bool, str]:
     return True, ""
 
 
+def _repair_in_code(brief: Brief, slide: Slide) -> bool:
+    """Kanvas nuqsonini modelsiz tuzatishga urinadi. Bir narsa o'zgarsa True.
+
+    Slaydni qayta yozdirish uchun modelga murojaat qilish eng qimmat yo'l:
+    butun kanvas JSON ketadi va butun kanvas JSON qaytadi. Quyidagi
+    nuqsonlarga esa model kerak emas.
+    """
+    repaired = False
+
+    # Juda kichik shrift — o'lchamni ko'tarish yetarli.
+    for element in slide.canvas.elements:
+        if element.type != "text" or not element.size or element.size >= 10:
+            continue
+        element.size = 20.0 if element.bold else _MIN_BODY_PT
+        element.fitted = False
+        repaired = True
+
+    # Bo'sh sarlavha — slaydning o'z matnidan olinadi.
+    if not (slide.title or "").strip():
+        source = next((element.text for element in slide.canvas.elements
+                       if element.type == "text" and element.bold
+                       and (element.text or "").strip()), "")
+        source = source or (slide.key_text or "")
+        if source.strip():
+            slide.title = " ".join(source.split())[:80]
+            repaired = True
+
+    # Ikkita instrument — kesmasdan, mazmunni saqlab bittaga tushiramiz.
+    if _reduce_to_one(brief, slide):
+        repaired = True
+
+    return repaired
+
+
 def ensure_chart_explanations(brief: Brief) -> Brief:
     """Har diagrammaga raqam va izoh beradi.
 
@@ -170,6 +205,9 @@ def canvas_validation_and_fix(
     brief = ensure_body_contrast(brief)
     brief = ensure_icons(brief)
     brief = fix_text_overlaps(brief)
+    # Band chegarasi matn joylashuvidan KEYIN tekshiriladi: blok surilgandan
+    # keyin bandan chiqib ketishi mumkin.
+    brief = keep_text_inside_panels(brief)
     brief = enforce_min_text_size(brief)
     brief = ensure_chart_explanations(brief)
 
@@ -177,20 +215,35 @@ def canvas_validation_and_fix(
         any_issue = False
         for i, slide in enumerate(brief.slides):
             ok, problem = canvas_check(slide)
-            if not ok:
-                any_issue = True
-                log.warning("Kanvas muammo (slayd %s, urinish %s): %s", slide.index, attempt + 1, problem)
-                try:
-                    fixed = llm_client.regenerate_slide(
-                        topic, slide.model_dump(), problem, language=language
-                    )
-                    merged = {**slide.model_dump(), **fixed}
-                    brief.slides[i] = Slide.model_validate(merged)
-                    ok2, problem2 = canvas_check(brief.slides[i])
-                    if not ok2:
-                        log.error("Tuzatishdan keyin ham muammo (slayd %s): %s", slide.index, problem2)
-                except Exception as e:
-                    log.error("Kanvas tuzatishda xato (slayd %s): %s", slide.index, e)
+            if ok:
+                continue
+            log.warning("Kanvas muammo (slayd %s, urinish %s): %s",
+                        slide.index, attempt + 1, problem)
+
+            # Avval kod bilan tuzatishga urinamiz. Nuqsonlarning ko'pi —
+            # juda kichik shrift, bo'sh sarlavha, ikkita instrument —
+            # modelsiz tuzatiladi, slaydni butunicha qayta yozdirish esa
+            # eng qimmat yo'l va tayyor qismlarni ham o'zgartirib yuboradi.
+            if _repair_in_code(brief, slide):
+                fix_slide_overlaps(slide)
+                ok, problem = canvas_check(slide)
+                if ok:
+                    log.info("Slayd %s kod bilan tuzatildi (model chaqirilmadi)",
+                             slide.index)
+                    continue
+
+            any_issue = True
+            try:
+                fixed = llm_client.regenerate_slide(
+                    topic, slide.model_dump(), problem, language=language
+                )
+                merged = {**slide.model_dump(), **fixed}
+                brief.slides[i] = Slide.model_validate(merged)
+                ok2, problem2 = canvas_check(brief.slides[i])
+                if not ok2:
+                    log.error("Tuzatishdan keyin ham muammo (slayd %s): %s", slide.index, problem2)
+            except Exception as e:
+                log.error("Kanvas tuzatishda xato (slayd %s): %s", slide.index, e)
 
         if not any_issue:
             log.info("Kanvas tekshiruv: hamma slayd to'liq (urinish %s)", attempt + 1)
@@ -662,69 +715,150 @@ def spread_infographic_presets(brief: Brief, topic: str) -> Brief:
     return brief
 
 
-def ensure_single_instrument(brief: Brief, topic: str, language: str = "uz") -> Brief:
-    """Bir slaydda bitta instrument qolishini MODELNING o'ziga hal qildiradi.
+def _describe(kind: str, elements: list) -> str:
+    """Instrumentni bir satrda tasvirlaydi — modelga qaror uchun shu yetadi."""
+    element = elements[0]
+    if kind == "chart":
+        what = element.chart_title or element.caption or ""
+        cats = ", ".join(str(c) for c in (element.categories or [])[:4])
+        return f"{what} ({element.chart_type}; {cats})".strip()
+    if kind == "image":
+        return (element.prompt or "")[:120]
+    if kind == "infographic":
+        titles = ", ".join((item.title or item.text or "")[:24]
+                           for item in (element.items or [])[:4])
+        return f"{element.preset}: {titles}"
+    return " · ".join(f"{e.value} {e.label}".strip() for e in elements[:4])
 
-    Ortiqchasini kod kesib tashlashi oson yo'l edi, lekin u slaydni
-    yarimta qoldirardi: diagramma ketsa, uning o'rnida bo'sh joy qolar,
-    matn esa o'sha-o'sha edi. Shuning uchun tanlovni model qiladi — qaysi
-    biri slayd g'oyasini ochsa o'shani qoldirib, slaydni butunicha qaytadan
-    joylashtiradi va qolgan instrumentni kattaroq qilib izohlaydi.
 
-    Kod faqat kafolat sifatida qoladi (`limit_instruments`).
+def _ask_which_instrument(topic: str, slide: Slide, groups: list,
+                          language: str) -> tuple:
+    """Modeldan faqat bitta qarorni so'raydi: qaysi instrument qolsin.
+
+    Butun slaydni qayta yozdirish o'rniga shu: so'rovga slaydning JSON'i
+    emas, sarlavhasi va variantlar ro'yxati ketadi, javob esa bir necha
+    o'nlab token. Slaydning yaxshi qismlari ham o'z joyida qoladi.
     """
-    for index, slide in enumerate(brief.slides):
+    options = [{"kind": kind, "what": _describe(kind, elements)}
+               for _, _, kind, elements in groups]
+    try:
+        answer = llm_client.choose_instrument(
+            topic, slide.title or "", slide.key_text or "", options, language)
+    except Exception as e:
+        log.error("Instrument tanlashda xato (slayd %s): %s", slide.index, e)
+        return "", ""
+    keep = str(answer.get("keep") or "").strip().lower()
+    if keep not in {kind for _, _, kind, _ in groups}:
+        log.warning("Slayd %s: model noma'lum instrument nomini qaytardi (%r)",
+                    slide.index, keep)
+        keep = ""
+    return keep, str(answer.get("note") or "").strip()
+
+
+def ensure_single_instrument(brief: Brief, topic: str, language: str = "uz") -> Brief:
+    """Bir slaydda bitta instrument qolishini ta'minlaydi.
+
+    Tanlovni MODEL qiladi, o'zgartirishni KOD bajaradi. Ilgari bu yerda
+    butun slayd qayta yozdirilardi — bitta qaror uchun ming-ming token
+    ketardi va slaydning butun qismlari ham qaytadan yozilib, yaxshi
+    joylari yo'qolardi.
+
+    Mazmun yo'qotilmaydi: infografika matnga aylanadi, kartochka raqamlari
+    matn satriga ko'chadi, ortiqcha rasm yoki diagramma esa instrumenti
+    yo'q boshqa slaydga o'tadi.
+    """
+    for slide in brief.slides:
         groups = _instrument_groups(slide)
         if len(groups) <= 1:
             continue
-        listed = ", ".join(_INSTRUMENT_NAMES.get(kind, kind) for _, _, kind, _ in groups)
-        keep = _INSTRUMENT_NAMES.get(groups[0][2], groups[0][2])
-        brief.slides[index] = _redesign(
-            slide, topic, language,
-            f"Bu slaydda {len(groups)} ta instrument bor ({listed}). Bir varaqda "
-            "ular bir-birini yopadi va o'quvchi ikkalasini birdan o'qiy olmaydi. "
-            "Faqat BITTASINI qoldir — slayd g'oyasini qaysi biri yaxshiroq ochsa "
-            f"o'shani (raqam gapirsa diagramma, mavzuni ko'rsatish kerak bo'lsa "
-            f"rasm; odatda bu {keep}). Qolganini butunlay olib tashla. "
-            "Qolgan instrumentni kattaroq qilib joylashtir va uni to'liq izohla: "
-            "nima ko'rsatilgani va undan qanday xulosa chiqishi matnda yozilsin. "
-            "Bo'shagan joyni shu izoh bilan to'ldir, slayd yarim bo'sh qolmasin.",
-        )
-        left = _instrument_groups(brief.slides[index])
-        if len(left) > 1:
-            log.warning("Slayd %s: model hali ham %s ta instrument qaytardi",
-                        slide.index, len(left))
+        keep, note = _ask_which_instrument(topic, slide, groups, language)
+        _reduce_to_one(brief, slide, keep, grow=False)
+        if note:
+            _explain_instrument(slide, note)
+        _grow_into_free_space_any(slide)
     return brief
 
 
 def limit_instruments(brief: Brief) -> Brief:
     """Kafolat: yetkazilayotgan slaydda bitta instrument qoladi.
 
-    Asosiy tanlovni model qiladi (`ensure_single_instrument`); bu yer u
-    bajarmagan yoki so'rov xato bilan tugagan holat uchun. Mazmun
-    yo'qotilmaydi: infografika ham, kartochkalar ham o'z o'rnida matnga
-    aylanadi, rasm esa instrumenti yo'q boshqa slaydga ko'chiriladi.
-    O'chirish — faqat boshqa ilojsiz qolganda.
+    Tanlovni model qilishi kerak edi (`ensure_single_instrument`); bu yer
+    so'rov xato bilan tugagan yoki keyingi qadamlar yana ikkinchisini
+    qo'shib qo'ygan holat uchun.
     """
     for slide in brief.slides:
-        groups = _instrument_groups(slide)
-        if len(groups) <= 1:
-            continue
-        for _, _, kind, elements in groups[1:]:
-            log.info("Slayd %s: ortiqcha %s (%s ta instrument edi)",
-                     slide.index, kind, len(groups))
-            if kind == "infographic":
-                _infographic_to_text(elements[0], slide)
-            elif kind == "kpi":
-                _kpis_to_text(elements, slide)
-            elif kind == "image" and _relocate_image(brief, slide, elements[0]):
-                continue
-            else:
-                for element in elements:
-                    if element in slide.canvas.elements:
-                        slide.canvas.elements.remove(element)
-        _grow_into_free_space_any(slide)
+        _reduce_to_one(brief, slide)
     return brief
+
+
+def _reduce_to_one(brief: Brief, slide: Slide, keep: str = "",
+                   grow: bool = True) -> bool:
+    """Slaydda bitta instrument qoldiradi. Qaysi biri — `keep` aytadi.
+
+    `keep` bo'sh bo'lsa tartib bo'yicha eng yuqorisi qoladi. Ortiqchasi
+    o'chirilmaydi: iloji boricha mazmuni saqlanadi.
+    """
+    groups = _instrument_groups(slide)
+    if len(groups) <= 1:
+        return False
+    if keep:
+        groups.sort(key=lambda group: (group[2] != keep, group[0], group[1]))
+
+    for _, _, kind, elements in groups[1:]:
+        log.info("Slayd %s: ortiqcha %s olib tashlandi (%s ta instrument edi, "
+                 "qoladigani %s)", slide.index, kind, len(groups), groups[0][2])
+        if kind == "infographic":
+            _infographic_to_text(elements[0], slide)
+        elif kind == "kpi":
+            _kpis_to_text(elements, slide)
+        elif kind in ("image", "chart") and _relocate_visual(brief, slide, elements[0]):
+            continue
+        else:
+            for element in elements:
+                if element in slide.canvas.elements:
+                    slide.canvas.elements.remove(element)
+    if grow:
+        _grow_into_free_space_any(slide)
+    return True
+
+
+def _explain_instrument(slide: Slide, note: str) -> None:
+    """Qolgan instrumentga izoh qo'yadi.
+
+    Bitta instrument qoldirish uni yaxshiroq yoritish uchun qilinadi,
+    shuning uchun "nima ko'rsatilgani" slaydda yozilib turishi kerak.
+    Diagrammada bu `caption`, boshqalarida — ostidagi kichik matn.
+    """
+    groups = _instrument_groups(slide)
+    if len(groups) != 1:
+        return
+    kind, elements = groups[0][2], groups[0][3]
+    element = elements[0]
+    if kind == "chart":
+        if not (element.caption or "").strip():
+            element.caption = note
+        return
+
+    x, y, width, height = _box(element)
+    top = y + height + 0.08
+    floor = SLIDE_H - _EDGE
+    for other in slide.canvas.elements:
+        if other is element or other.type == "rect":
+            continue
+        ox, oy, ow, oh = _box(other)
+        if min(x + width, ox + ow) - max(x, ox) <= 0.1 or oy < top:
+            continue
+        floor = min(floor, oy - _GAP)
+    room = floor - top
+    if room < 0.4:
+        return
+    size = infographics.fit_size(note, width, room, start=12.0, minimum=10.0)
+    slide.canvas.elements.append(VisualElement(
+        type="text", x=x, y=top, w=width,
+        h=min(room, infographics.height_of(note, width, size)),
+        text=note, size=size, italic=True, align="center", color="52514E",
+        fitted=True,
+    ))
 
 
 def _kpis_to_text(elements: list, slide: Slide) -> None:
@@ -760,8 +894,8 @@ def _kpis_to_text(elements: list, slide: Slide) -> None:
     ))
 
 
-def _relocate_image(brief: Brief, source: Slide, element) -> bool:
-    """Ortiqcha rasmni instrumenti yo'q boshqa slaydga ko'chiradi.
+def _relocate_visual(brief: Brief, source: Slide, element) -> bool:
+    """Ortiqcha rasm yoki diagrammani instrumenti yo'q slaydga ko'chiradi.
 
     O'chirish taqdimotdagi rasmlar sonini kamaytirardi — `ensure_visuals`
     esa aynan shu sonni kafolatlaydi, ya'ni ikkita qoida bir-biri bilan
@@ -772,15 +906,15 @@ def _relocate_image(brief: Brief, source: Slide, element) -> bool:
             continue
         source.canvas.elements.remove(element)
         # Qabul qiluvchi slaydning matni chap yarmiga siqiladi, rasm o'ng
-        # yarmini egallaydi — `_force_image` dagi bilan bir xil sxema.
+        # yarmini egallaydi — `_add_image` dagi bilan bir xil sxema.
         for text in slide.canvas.elements:
             if text.type == "text" and not text.locked:
                 text.w = min(text.w or 6.0, 6.4)
                 text.x = min(text.x, 0.7)
         element.x, element.y, element.w, element.h = 7.1, 0.9, 5.8, 5.7
         slide.canvas.elements.append(element)
-        log.info("Slayd %s dagi ortiqcha rasm %s-slaydga ko'chirildi",
-                 source.index, slide.index)
+        log.info("Slayd %s dagi ortiqcha %s %s-slaydga ko'chirildi",
+                 source.index, element.type, slide.index)
         return True
     return False
 
@@ -916,6 +1050,126 @@ def _title_icon(slide: Slide, brief: Brief) -> VisualElement | None:
     )
 
 
+# Bezak bandi ichidagi matn uchun chekinish.
+_PANEL_PAD = 0.12
+# Matn bandga "tegishli" hisoblanishi uchun kerakli gorizontal ustma-ustlik.
+_PANEL_SHARE = 0.6
+# Ingichka aksent chiziqlari band emas.
+_MIN_PANEL_H = 0.5
+
+
+def _host_panel_of(element, panels) -> object:
+    """Matn qaysi rangli band ICHIDA boshlanganini aniqlaydi.
+
+    Maydon ulushi bilan aniqlab bo'lmaydi: aynan nuqsonli holatda matnning
+    ko'p qismi banddan TASHQARIDA bo'ladi (u bandan chiqib ketgan), ya'ni
+    ulush kichik chiqadi. Shu sababli matnning boshlanish nuqtasi qaralaadi.
+    """
+    ex, ey, ew, eh = _box(element)
+    best, best_top = None, -1.0
+    for panel in panels:
+        px, py, pw, ph = _box(panel)
+        if ph < _MIN_PANEL_H:
+            continue
+        # Butun slaydni qoplagan band — bu fon, chegara emas.
+        if pw >= SLIDE_W - 0.4 and ph >= SLIDE_H - 0.4:
+            continue
+        if not (py - _TOLERANCE <= ey < py + ph):
+            continue
+        overlap = min(ex + ew, px + pw) - max(ex, px)
+        if ew <= 0 or overlap / ew < _PANEL_SHARE:
+            continue
+        # Bir nechta band mos kelsa — eng ichkarisi, ya'ni eng pastdan
+        # boshlanadigani.
+        if py > best_top:
+            best, best_top = panel, py
+    return best
+
+
+def _grow_panel(panel, slide: Slide, guests: list) -> None:
+    """Bandni pastdagi bo'sh joy hisobiga uzaytiradi.
+
+    `guests` — bandning o'z matnlari. Ular band bilan kesishgani tabiiy,
+    shuning uchun to'siq deb hisoblanmaydi.
+    """
+    px, py, pw, ph = _box(panel)
+    floor = SLIDE_H - _EDGE
+    for other in slide.canvas.elements:
+        if other is panel or any(other is guest for guest in guests):
+            continue
+        if other.type == "rect":
+            continue                      # band bandni to'smaydi
+        ox, oy, ow, oh = _box(other)
+        if min(px + pw, ox + ow) - max(px, ox) <= 0.1:
+            continue                      # yonma-yon turibdi
+        if oy + oh <= py + 0.1:
+            continue                      # tepada
+        # Qolgan hamma narsa chegara: band o'sib begona matnni bosib qolsa,
+        # o'sha matn rangi endi mos kelmay qoladi (oq fon uchun tanlangan
+        # to'q harflar to'q band ustiga tushib, o'qilmay qoladi).
+        floor = min(floor, oy - _GAP)
+    if floor - py > ph + 0.1:
+        panel.h = round(floor - py, 2)
+
+
+def keep_text_inside_panels(brief: Brief) -> Brief:
+    """Rangli band ustidagi matn bandning ichida qolishini ta'minlaydi.
+
+    Ustma-ustlik tuzatuvchisi to'ldirilgan `rect` ni ataylab to'siq deb
+    bilmaydi: band aynan matn ORTIDA turishi uchun chiziladi. Lekin hech
+    kim matn bandning pastidan chiqib ketmasligini tekshirmasdi — matn
+    to'q bandan chiqib, oq fonda oq harflar bilan davom etar va o'sha
+    yerdan o'qilmay qolardi.
+
+    Avval shrift kichraytiriladi; u yetmasa band pastdagi bo'sh joy
+    hisobiga uzaytiriladi.
+    """
+    for slide in brief.slides:
+        panels = _panels(slide)
+        if not panels:
+            continue
+
+        hosted = {}
+        for element in slide.canvas.elements:
+            if element.type != "text" or not (element.text or "").strip():
+                continue
+            if element.locked:
+                continue                 # preset hisoblab qo'ygan matn
+            panel = _host_panel_of(element, panels)
+            if panel is None:
+                continue
+            hosted.setdefault(id(panel), (panel, []))[1].append(element)
+
+        for panel, guests in hosted.values():
+            px, py, pw, ph = _box(panel)
+            over = max((_box(e)[1] + _box(e)[3] for e in guests), default=0.0)
+            # Avval bandni uzaytirishga urinamiz: pastda bo'sh joy tursa,
+            # matnni kichraytirgandan ko'ra bandni cho'zgan ma'qul.
+            if over > py + ph - _PANEL_PAD + _TOLERANCE:
+                _grow_panel(panel, slide, guests)
+                px, py, pw, ph = _box(panel)
+            bottom = py + ph - _PANEL_PAD
+            for element in guests:
+                ex, ey, ew, eh = _box(element)
+                room = bottom - ey
+                if eh <= room + _TOLERANCE:
+                    continue
+                size = infographics.fit_size(
+                    element.text, ew, max(room, 0.2),
+                    start=element.size or 14.0, minimum=_LAST_RESORT_PT)
+                if size < (element.size or 14.0):
+                    element.fitted = size < _MIN_BODY_PT
+                    element.size = size
+                    log.info("Slayd %s: matn banddan chiqib ketgan edi, "
+                             "shrift %.1f pt ga tushirildi", slide.index, size)
+                # E'lon qilingan balandlik ham qisqartiriladi: matn
+                # kichraygan bo'lsa ham, model qo'ygan katta `h` qiymati
+                # blokni banddan chiqarib turaverardi.
+                fitted_h = infographics.height_of(element.text, ew, element.size or 14.0)
+                element.h = max(min(element.h or eh, room), fitted_h)
+    return brief
+
+
 def ensure_icons(brief: Brief) -> Brief:
     """Har slaydda kamida bitta ikonka bo'lishini ta'minlaydi.
 
@@ -969,47 +1223,147 @@ def ensure_visuals(brief: Brief, topic: str, language: str = "uz") -> Brief:
     shakl bor edi va ularning hammasi matn qutisi bo'lib chiqdi. Model
     cheklovlarni ko'rib eng xavfsiz yo'lni — hech narsa qo'ymaslikni —
     tanlagan. Shuning uchun tekshiruv shu yerda, kodda.
+
+    Yetishmagan element ham shu yerda QO'SHILADI, slaydni qayta yozdirib
+    emas: rasm uchun model umuman chaqirilmaydi (prompt mavzudan quriladi),
+    diagramma va infografika uchun esa faqat o'sha elementning o'zi
+    so'raladi. Ilgari har bir yetishmovchilik butun slaydni qaytadan
+    yozdirardi — eng qimmat yo'l va slaydning tayyor qismlari ham
+    o'zgarardi.
     """
     if not brief.slides:
         return brief
 
     # 1. Birinchi slaydda rasm — mijoz uchun majburiy talab.
     if not _has(brief.slides[0], "image"):
-        brief.slides[0] = _redesign(
-            brief.slides[0], topic, language,
-            "Bu slaydda rasm yo'q. Chap yarmiga matn, o'ng yarmiga (x=7.0, w=5.9, "
-            "y=0.9, h=5.7) image elementi qo'y. Rasm prompti ingliz tilida, "
-            "mavzuni ko'rsatuvchi, matnsiz tasvir bo'lsin.",
-        )
-        if not _has(brief.slides[0], "image"):
-            _force_image(brief.slides[0], topic)
+        _add_image(brief.slides[0], topic)
 
     # 2. Umumiy minimum — qaysi slaydga qo'shishni mazmuniga qarab tanlaymiz.
-    for element_type, minimum, instruction in (
-        ("image", _image_target(brief),
-         "Bu slaydga image elementi qo'sh (matnni siqib, o'ng yoki past qismga "
-         "joyla). Rasm prompti ingliz tilida, matnsiz tasvir."),
-        ("chart", MIN_CHARTS,
-         "Bu slaydga chart elementi qo'sh — mavzuga oid haqiqiy raqamlar bilan "
-         "(sanalar, ulushlar, bosqichlar, taqqoslash). Kategoriya va qiymatlar "
-         "o'ylab topilgan emas, mavzuga tegishli bo'lsin. caption ni to'ldir."),
-        ("infographic", MIN_INFOGRAPHICS,
-         "Bu slaydning ro'yxat yoki bosqichli matnini infographic elementiga "
-         "aylantir: {\"type\":\"infographic\",\"x\":0.6,\"y\":1.9,\"w\":12.1,"
-         "\"h\":4.4,\"preset\":\"cards|steps|timeline|cycle|pyramid\","
-         "\"items\":[{\"title\":\"...\",\"text\":\"...\",\"icon\":\"<ikonka nomi>\"}]}. "
-         "3-5 band bo'lsin, har bandda icon nomi bo'lsin. Eski matn elementlarini olib tashla."),
-    ):
+    for element_type, minimum in (("image", _image_target(brief)),
+                                  ("chart", MIN_CHARTS),
+                                  ("infographic", MIN_INFOGRAPHICS)):
         for slide_index in _candidates(brief, element_type):
             if _count(brief, element_type) >= minimum:
                 break
-            brief.slides[slide_index] = _redesign(
-                brief.slides[slide_index], topic, language, instruction
-            )
+            slide = brief.slides[slide_index]
+            added = False
+            if element_type == "image":
+                added = _add_image(slide, topic)
+            elif element_type == "chart":
+                added = _add_chart(slide, topic, language)
+            else:
+                added = _add_infographic(slide, topic, language)
+            if added:
+                fix_slide_overlaps(slide)
 
     log.info("Vizual kafolat: %s rasm, %s diagramma, %s infografika",
              _count(brief, "image"), _count(brief, "chart"), _count(brief, "infographic"))
     return brief
+
+
+# Instrument o'ng yarmda, matn chap yarmda — eng ishonchli va eng ko'p
+# ishlatiladigan sxema.
+_VISUAL_BOX = (7.1, 0.9, 5.8, 5.7)
+_TEXT_HALF = 6.4
+
+
+def _clear_left(slide: Slide) -> None:
+    """Matnni chap yarimga siqadi — o'ng yarim instrument uchun bo'shaydi."""
+    for element in slide.canvas.elements:
+        if element.type == "text" and not element.locked:
+            element.w = min(element.w or 6.0, _TEXT_HALF)
+            element.x = min(element.x, 0.7)
+
+
+def _add_image(slide: Slide, topic: str) -> bool:
+    """Slaydga rasm qo'yadi — model chaqirilmaydi.
+
+    Rasm prompti mavzu va slayd sarlavhasidan quriladi; rasmni baribir
+    tasvir modeli chizadi, matn modelidan bu yerda hech narsa so'rash
+    shart emas.
+    """
+    _clear_left(slide)
+    x, y, width, height = _VISUAL_BOX
+    subject = " — ".join(part for part in (topic, (slide.title or "").strip()) if part)
+    slide.canvas.elements.append(VisualElement(
+        type="image", x=x, y=y, w=width, h=height,
+        prompt=(f"professional photorealistic image representing {subject}, "
+                "clean composition, natural lighting, high detail, no text"),
+    ))
+    log.info("Slayd %s: rasm qo'shildi (modelsiz)", slide.index)
+    return True
+
+
+def _add_chart(slide: Slide, topic: str, language: str) -> bool:
+    """Slaydga diagramma qo'yadi — modeldan faqat raqamlar so'raladi."""
+    try:
+        data = llm_client.make_chart(topic, slide.title or "",
+                                     slide.key_text or "", language)
+    except Exception as e:
+        log.error("Diagramma ma'lumoti olinmadi (slayd %s): %s", slide.index, e)
+        return False
+    categories = [str(c) for c in (data.get("categories") or [])]
+    series = [item for item in (data.get("series") or []) if isinstance(item, dict)]
+    if not categories or not series:
+        log.warning("Slayd %s: diagramma ma'lumoti bo'sh qaytdi", slide.index)
+        return False
+
+    _clear_left(slide)
+    x, y, width, height = _VISUAL_BOX
+    slide.canvas.elements.append(VisualElement(
+        type="chart", x=x, y=y + 0.3, w=width, h=height - 1.0,
+        chart_type=str(data.get("chart_type") or "column"),
+        chart_title=str(data.get("chart_title") or "")[:80],
+        caption=str(data.get("caption") or "")[:200],
+        categories=categories, series=series,
+    ))
+    log.info("Slayd %s: diagramma qo'shildi", slide.index)
+    return True
+
+
+def _add_infographic(slide: Slide, topic: str, language: str) -> bool:
+    """Slaydning eng uzun matnini infografikaga aylantiradi.
+
+    Joylashuvni infografika presetlari o'zi hisoblaydi, shuning uchun
+    modeldan faqat bandlar so'raladi.
+    """
+    try:
+        data = llm_client.make_infographic(topic, slide.title or "",
+                                           slide.key_text or "",
+                                           llm_client.ICON_NAMES, language)
+    except Exception as e:
+        log.error("Infografika bandlari olinmadi (slayd %s): %s", slide.index, e)
+        return False
+    items = [item for item in (data.get("items") or []) if isinstance(item, dict)][:5]
+    if len(items) < 2:
+        log.warning("Slayd %s: infografika bandlari yetarli emas", slide.index)
+        return False
+
+    bodies = [element for element in slide.canvas.elements
+              if element.type == "text" and not element.locked and not element.bold
+              and (element.text or "").strip()]
+    if bodies:
+        longest = max(bodies, key=lambda e: len(e.text or ""))
+        top = max(_box(longest)[1], 1.6)
+        slide.canvas.elements.remove(longest)
+    else:
+        top = 1.9
+
+    preset = str(data.get("preset") or "cards")
+    if preset not in INFOGRAPHIC_PRESETS:
+        preset = "cards"
+    slide.canvas.elements.append(VisualElement(
+        type="infographic", x=0.6, y=top, w=12.1,
+        h=max(SLIDE_H - _EDGE - top, 2.6), preset=preset,
+        items=[InfographicItem(
+            title=str(item.get("title") or "")[:60],
+            text=str(item.get("text") or "")[:160],
+            icon=str(item.get("icon") or "") or None,
+            value=str(item.get("value") or "") or None,
+        ) for item in items],
+    ))
+    log.info("Slayd %s: infografika qo'shildi (%s ta band)", slide.index, len(items))
+    return True
 
 
 def _candidates(brief: Brief, element_type: str) -> list:
@@ -1035,23 +1389,6 @@ def _redesign(slide: Slide, topic: str, language: str, instruction: str) -> Slid
         log.error("Slaydni qayta loyihalashda xato (slayd %s): %s", slide.index, e)
         return slide
 
-
-def _force_image(slide: Slide, topic: str) -> None:
-    """Oxirgi chora: matnni chap yarmiga siqib, o'ngga rasm qo'yadi."""
-    for element in slide.canvas.elements:
-        if element.type == "text":
-            element.w = min(element.w or 6.0, 6.4)
-            element.x = min(element.x, 0.7)
-    slide.canvas.elements.append(
-        VisualElement(
-            type="image", x=7.1, y=0.9, w=5.8, h=5.7,
-            prompt=(
-                f"professional photorealistic image representing {topic}, "
-                "clean composition, natural lighting, high detail"
-            ),
-        )
-    )
-    log.info("Birinchi slaydga rasm majburan qo'yildi")
 
 def build_title_slide(brief: Brief, topic: str) -> Brief:
     """Birinchi slaydni toza mavzu sahifasiga aylantiradi.
@@ -1571,6 +1908,7 @@ def run_visual_qa_and_fix(
         # raundda render qilmaslik eski faylni qaytarib yuborardi.
         current_brief = expand_infographics(current_brief)
         current_brief = fix_text_overlaps(current_brief)
+        current_brief = keep_text_inside_panels(current_brief)
         previous_path = current_path
         current_path = build_presentation(current_brief)
         # Almashtirilgan oraliq fayl kerak emas; asl fayl chaqiruvchiniki,
@@ -1642,6 +1980,7 @@ def _geometry_only_pass(brief: Brief, current_path: str) -> str:
 
     log.info("Vizual QA ko'zsiz o'tdi: %s ta element joyiga qo'yildi", repaired)
     brief = expand_infographics(brief)
+    brief = keep_text_inside_panels(brief)
     return build_presentation(brief)
 
 

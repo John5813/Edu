@@ -314,6 +314,10 @@ JAVOB: faqat sof JSON (markdown, ``` yoki boshqa matn YO'Q):
 
 # ─────────────────────────────────────────── REGENERATE PROMPT
 
+ICON_NAMES = (
+    "agriculture, ai, airplane, algorithm, architecture, art, atom, award, basketball, behavior, biology, brain, building, business, calendar, car, certificate, chart, chemistry, cinema, city, climate, code, communication, computer, construction, contract, cooking, country, court, crime, culture, database, democracy, design, diploma, dna, doctor, economics, education, electricity, emotion, energy, environment, family, finance, fire, fitness, flag, food, football, forest, geography, globe, government, graduation, health, history, hospital, house, idea, industry, innovation, internet, investment, justice, language, law, leadership, literature, logistics, management, map, marketing, math, medicine, mental, microscope, military, money, moon, mountain, museum, music, nature, network, nuclear, nutrition, ocean, peace, pharmacy, philosophy, photography, physics, planet, politics, pollution, poverty, privacy, project, psychology, rain, recycling, research, rights, robot, running, satellite, school, science, security, ship, social, solar, space, sport, star, startup, statistics, strategy, success, surgery, swimming, target, team, technology, tennis, theater, time, trade, train, transport, university, vaccine, volleyball, war, water, welfare, wind, writing, yoga"
+)
+
 SYSTEM_PROMPT_REGEN = """Sen professional biznes taqdimot slaydini qayta loyihalaysan.
 
 Slayd o'lchami: 13.333" × 7.5". Element turlari: rect, text, circle, image, chart, kpi, icon, infographic.
@@ -322,7 +326,7 @@ Kpi formati: {"type":"kpi","x":1.0,"y":4.2,"w":3.4,"h":1.8,"value":"78%","label"
 Icon formati: {"type":"icon","x":1.2,"y":2.4,"w":0.7,"h":0.7,"icon":"<ro'yxatdagi nom>","fill":"2A78D6","color":"FFFFFF","shape":"circle"}
 Infographic formati: {"type":"infographic","x":0.6,"y":1.9,"w":12.1,"h":4.4,"preset":"cards|steps|timeline|cycle|pyramid","items":[{"title":"...","text":"...","icon":"<nom>","value":"2019"}]}
   → items 3-5 ta, har birida icon nomi; koordinatani kod hisoblaydi, sen faqat mazmun ber
-Ikonka nomlari: agriculture, ai, airplane, algorithm, architecture, art, atom, award, basketball, behavior, biology, brain, building, business, calendar, car, certificate, chart, chemistry, cinema, city, climate, code, communication, computer, construction, contract, cooking, country, court, crime, culture, database, democracy, design, diploma, dna, doctor, economics, education, electricity, emotion, energy, environment, family, finance, fire, fitness, flag, food, football, forest, geography, globe, government, graduation, health, history, hospital, house, idea, industry, innovation, internet, investment, justice, language, law, leadership, literature, logistics, management, map, marketing, math, medicine, mental, microscope, military, money, moon, mountain, museum, music, nature, network, nuclear, nutrition, ocean, peace, pharmacy, philosophy, photography, physics, planet, politics, pollution, poverty, privacy, project, psychology, rain, recycling, research, rights, robot, running, satellite, school, science, security, ship, social, solar, space, sport, star, startup, statistics, strategy, success, surgery, swimming, target, team, technology, tennis, theater, time, trade, train, transport, university, vaccine, volleyball, war, water, welfare, wind, writing, yoga
+Ikonka nomlari: {ICONS}
 
 Chart formati: {"type":"chart","x":1.0,"y":2.0,"w":8.0,"h":4.0,"chart_type":"column|bar|line|area|pie|donut|radar|scatter","chart_title":"...","categories":[...],"series":[{"name":"...","values":[...]}]}
 
@@ -348,7 +352,7 @@ Format:
   "index": <n>, "role": "<role>",
   "title": "<sarlavha>", "key_text": "<kamida 3 jumla>",
   "canvas": {"background": "<hex>", "elements": [...]}
-}"""
+}""".replace("{ICONS}", ICON_NAMES)
 
 
 # ─────────────────────────────────────────── YORDAMCHI FUNKSIYALAR
@@ -414,7 +418,8 @@ def _salvage_partial_json(text: str) -> dict | None:
         return None
 
 
-def _call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 0.7) -> dict:
+def _call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 0.7,
+                     max_tokens: int = 16000) -> dict:
     if not config.OPENROUTER_API_KEY:
         raise RuntimeError(
             "OpenRouter kaliti topilmadi — muhitda AI_INTEGRATIONS_OPENROUTER_API_KEY "
@@ -428,7 +433,7 @@ def _call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 
     payload = {
         "model": config.OPENROUTER_TEXT_MODEL,
         "temperature": temperature,
-        "max_tokens": 16000,
+        "max_tokens": max_tokens,
         "response_format": {"type": "json_object"},
         "messages": [
             {"role": "system", "content": system_prompt},
@@ -692,6 +697,84 @@ def get_chunk_summary(slides_raw: list) -> str:
         role = s.get("role", "")
         parts.append(f"[{role}] {title}: {key}")
     return "\n".join(parts)
+
+
+# ─────────────────────────────────────── Kichik tuzatish so'rovlari
+#
+# Slaydda nuqson topilganda uni BUTUNICHA qayta yozdirish eng qimmat yo'l:
+# butun kanvas JSON ketadi va butun kanvas JSON qaytadi — bitta slayd uchun
+# ming-ming token. Quyidagi so'rovlar esa faqat bitta qarorni yoki bitta
+# elementni so'raydi, qolganini kod bajaradi. Shuning uchun javob bir necha
+# o'nlab token bo'ladi va slaydning yaxshi qismlari o'zgarmay qoladi.
+
+SYSTEM_PROMPT_PATCH = (
+    "Sen taqdimot slaydini tuzatishga yordam berasan. Faqat so'ralgan narsani "
+    "ber — slaydni qayta yozma, ortiqcha izoh berma. Javob sof JSON bo'lsin."
+)
+
+
+def choose_instrument(topic: str, title: str, key_text: str, options: list,
+                      language: str = "uz") -> dict:
+    """Bir necha instrumentdan qaysi biri qolishini so'raydi.
+
+    Slayd JSON'i yuborilmaydi: modelga qaror uchun sarlavha, mazmun va
+    variantlar ro'yxati yetarli.
+    """
+    listed = "\n".join(f"- {item['kind']}: {item['what']}" for item in options)
+    user_prompt = (
+        f"Mavzu: {topic}\n"
+        f"Slayd sarlavhasi: {title}\n"
+        f"Slayd mazmuni: {key_text}\n\n"
+        f"Bu slaydda bir nechta instrument bor:\n{listed}\n\n"
+        "Bir varaqda faqat BITTASI qolishi kerak — ular bir-birini yopadi. "
+        "Qaysi biri slayd g'oyasini yaxshiroq ochadi?\n"
+        f"TIL TALABI: {_language_instruction(language)}\n"
+        'Faqat JSON: {"keep": "chart", "note": "qoladigan instrumentni '
+        'izohlovchi bitta jumla — nima ko\'rsatilgan va qanday xulosa chiqadi"}'
+    )
+    return _call_openrouter(SYSTEM_PROMPT_PATCH, user_prompt,
+                            temperature=0.2, max_tokens=300)
+
+
+def make_chart(topic: str, title: str, key_text: str, language: str = "uz") -> dict:
+    """Slaydga qo'yiladigan bitta diagramma elementini so'raydi.
+
+    Koordinata so'ralmaydi — uni kod hisoblaydi.
+    """
+    user_prompt = (
+        f"Mavzu: {topic}\n"
+        f"Slayd sarlavhasi: {title}\n"
+        f"Slayd mazmuni: {key_text}\n\n"
+        "Shu slayd mazmuniga mos BITTA diagramma ma'lumotini ber. Raqamlar "
+        "mavzuga tegishli va mantiqiy bo'lsin, o'ylab topilgan bo'lmasin. "
+        "Kategoriya 3-7 ta.\n"
+        f"TIL TALABI: {_language_instruction(language)}\n"
+        'Faqat JSON: {"chart_type": "column|bar|line|area|pie|donut|radar", '
+        '"chart_title": "...", "caption": "diagramma nimani ko\'rsatadi — '
+        '1-2 jumla", "categories": ["..."], '
+        '"series": [{"name": "...", "values": [1, 2, 3]}]}'
+    )
+    return _call_openrouter(SYSTEM_PROMPT_PATCH, user_prompt,
+                            temperature=0.4, max_tokens=900)
+
+
+def make_infographic(topic: str, title: str, key_text: str, icons: str,
+                     language: str = "uz") -> dict:
+    """Infografika bandlarini so'raydi — joylashuvni kod hisoblaydi."""
+    user_prompt = (
+        f"Mavzu: {topic}\n"
+        f"Slayd sarlavhasi: {title}\n"
+        f"Slayd mazmuni: {key_text}\n\n"
+        "Shu slayd mazmunini 3-5 bandli infografikaga aylantir. Har bandda "
+        "qisqa sarlavha (2-4 so'z), 1-2 jumla izoh (90 belgigacha) va "
+        "ro'yxatdan ikonka nomi bo'lsin.\n"
+        f"Ikonka nomlari: {icons}\n"
+        f"TIL TALABI: {_language_instruction(language)}\n"
+        'Faqat JSON: {"preset": "cards|steps|timeline|cycle|pyramid", '
+        '"items": [{"title": "...", "text": "...", "icon": "...", "value": "2019"}]}'
+    )
+    return _call_openrouter(SYSTEM_PROMPT_PATCH, user_prompt,
+                            temperature=0.4, max_tokens=900)
 
 
 def regenerate_slide(
