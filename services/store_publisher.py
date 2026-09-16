@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import shutil
+import time
 import uuid
 
 from config import (
@@ -20,6 +21,10 @@ from config import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Avtomatik nashr yetkazishni buzmasligi uchun xatoni yutadi. Admin nima
+# bo'lganini ko'ra olishi uchun oxirgisi shu yerda saqlanadi.
+LAST_ERROR: dict = {}
 
 # "Tayyorladi:", "Автор —", "Prepared by" kabi satrlar. Mijoz ismi noma'lum
 # bo'lganda ham shu satrlar orqali topiladi.
@@ -487,6 +492,11 @@ def schedule_publish(bot, file_path: str, title: str, work_type: str, *,
             )
         except Exception as exc:
             logger.error("Avtomatik nashr bo'lmadi (%s): %s", work_type, exc)
+            LAST_ERROR.update(work_type=work_type, title=title.strip()[:80],
+                              error=f"{type(exc).__name__}: {exc}"[:300],
+                              at=time.strftime("%d.%m %H:%M"))
+        else:
+            LAST_ERROR.clear()
         finally:
             try:
                 os.remove(staged)
