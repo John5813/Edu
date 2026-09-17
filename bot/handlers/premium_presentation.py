@@ -27,6 +27,30 @@ from bot.keyboards import (
     get_project_source_keyboard,
 )
 from services import workload
+
+# Har bosqich uchun vaqt chegarasi (soniya). Chegarasiz bosqich tashqi
+# xizmat javob bermay qolganda cheksiz osilib qolardi: mijoz "tayyorlanmoqda"
+# animatsiyasini soatlab ko'rar, admin panelda esa "hozir ish bajarilmoqda"
+# yozuvi abadiy turib, yangilash tugmasini bloklab qo'yardi. Endi bosqich
+# chegaradan oshsa xato ko'tariladi — pul qaytariladi, ro'yxat tozalanadi.
+_STEP_TIMEOUTS = {
+    "brief": 15 * 60,
+    "canvas": 12 * 60,
+    "render": 8 * 60,
+    "qa": 12 * 60,
+}
+
+
+async def _run_step(loop, func, *, step: str, label: str):
+    """Og'ir bosqichni chegaralangan vaqt ichida bajaradi."""
+    timeout = _STEP_TIMEOUTS[step]
+    try:
+        return await asyncio.wait_for(loop.run_in_executor(None, func), timeout)
+    except (asyncio.TimeoutError, TimeoutError):
+        raise RuntimeError(
+            f"{label} {int(timeout // 60)} daqiqada tugamadi — "
+            f"tashqi xizmat javob bermadi"
+        ) from None
 from services.project_work import source as source_module
 
 router = Router()
@@ -1106,15 +1130,15 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         from services.premium_presentation.renderer import build_presentation
 
         # 1 — Brief yaratish (level va client_name uzatiladi)
-        brief = await loop.run_in_executor(
-            None,
+        brief = await _run_step(
+            loop,
             lambda: generate_brief_chunked(
                 topic, slide_count, progress_cb, level=level,
                 preferences=preferences,
                 language=presentation_language,
                 source_text=source_text,
-            )
-        )
+            ),
+            step="brief", label="Kontent tayyorlash")
 
         step2 = {
             "uz": (
@@ -1136,9 +1160,10 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         await status.edit_text(step2.get(lang, step2["uz"]), parse_mode="HTML")
 
         # 2 — Kanvas validatsiyasi
-        brief = await loop.run_in_executor(
-            None, canvas_validation_and_fix, brief, topic, 2, presentation_language
-        )
+        brief = await _run_step(
+            loop,
+            lambda: canvas_validation_and_fix(brief, topic, 2, presentation_language),
+            step="canvas", label="Strukturaviy tekshiruv")
 
         step3 = {
             "uz": (
@@ -1163,7 +1188,9 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         await status.edit_text(step3.get(lang, step3["uz"]), parse_mode="HTML")
 
         # 3 — Render
-        pptx_path = await loop.run_in_executor(None, build_presentation, brief)
+        pptx_path = await _run_step(
+            loop, lambda: build_presentation(brief),
+            step="render", label="Slaydlarni chizish")
 
         step4 = {
             "uz": (
@@ -1191,9 +1218,10 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         await status.edit_text(step4.get(lang, step4["uz"]), parse_mode="HTML")
 
         # 4 — Vizual QA
-        final_path = await loop.run_in_executor(
-            None, run_visual_qa_and_fix, pptx_path, brief, topic, presentation_language
-        )
+        final_path = await _run_step(
+            loop,
+            lambda: run_visual_qa_and_fix(pptx_path, brief, topic, presentation_language),
+            step="qa", label="Vizual tekshiruv")
 
         # Rasmlar chiqmagan bo'lsa admin darhol bilishi kerak: mijoz
         # "premium" deb pul to'lagan taqdimot ikonka va matndan iborat
