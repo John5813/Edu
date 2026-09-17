@@ -424,11 +424,17 @@ async def notify_admins_about_payment(bot, user, amount, message_id, payment_id,
                 f"⬆️ Yuqoridagi chekni tekshiring va to'lovni tasdiqlang:"
             )
 
-            await bot.send_message(
+            sent = await bot.send_message(
                 admin_id,
                 text,
                 reply_markup=get_payment_review_keyboard(payment_id)
             )
+            # Qaror chiqqach tugmalar HAMMA admindan olinishi uchun bu
+            # xabarning manzili eslab qolinadi.
+            from database.database import Database
+
+            await Database.add_payment_admin_message(
+                payment_id, sent.chat.id, sent.message_id)
 
         except Exception as e:
             logger.error(f"Failed to notify admin {admin_id}: {e}")

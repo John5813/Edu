@@ -28,6 +28,9 @@ class Payment:
     created_at: datetime
     updated_at: datetime
     source: str = ""  # empty, "help" for help section resubmission
+    # Adminlarga ketgan xabarlar: [[chat_id, message_id], ...] JSON bo'lib
+    # saqlanadi. Qaror chiqqach tugmalar hammasidan olib tashlanadi.
+    admin_messages: str = ""
 
 @dataclass
 class Channel:
