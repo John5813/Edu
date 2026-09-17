@@ -1,5 +1,6 @@
 import aiosqlite
 import asyncio
+import json
 import secrets
 import string
 from datetime import datetime
@@ -249,6 +250,16 @@ async def init_db():
         except Exception:
             pass  # Column already exists
 
+        # To'lov haqidagi xabar HAR adminga boradi. Qaror chiqqach tugmalar
+        # hammasidan olinishi uchun o'sha xabarlarning manzili saqlanadi.
+        try:
+            await db.execute(
+                "ALTER TABLE payments ADD COLUMN admin_messages TEXT DEFAULT ''")
+            await db.commit()
+            logger.info("Migration: added 'admin_messages' column to payments table")
+        except Exception:
+            pass  # Column already exists
+
         # Do'kon ustunlari — jadval ilgari ularsiz yaratilgan bo'lishi mumkin.
         for column in ("search_text TEXT DEFAULT ''", "work_type TEXT DEFAULT ''"):
             try:
@@ -477,6 +488,53 @@ class Database:
                 (new_amount, datetime.now(), payment_id)
             )
             await db.commit()
+
+    @staticmethod
+    async def add_payment_admin_message(payment_id: int, chat_id: int,
+                                        message_id: int) -> None:
+        """Adminga ko'rsatilgan to'lov xabarining manzilini eslab qoladi.
+
+        Bitta to'lov bo'yicha xabar hamma adminga ketadi. Biri qaror
+        qilgach qolganlarida tugmalar osilib qolmasligi kerak — buning
+        uchun qaysi chatdagi qaysi xabarda tugma borligi ma'lum bo'lishi
+        shart. Bot qayta ishga tushsa ham yo'qolmasin deb bazada turadi.
+        """
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            async with db.execute(
+                "SELECT admin_messages FROM payments WHERE id = ?", (payment_id,)
+            ) as cursor:
+                row = await cursor.fetchone()
+            if row is None:
+                return
+            try:
+                stored = json.loads(row[0]) if row[0] else []
+            except (TypeError, ValueError):
+                stored = []
+            pair = [int(chat_id), int(message_id)]
+            if pair not in stored:
+                stored.append(pair)
+            await db.execute(
+                "UPDATE payments SET admin_messages = ? WHERE id = ?",
+                (json.dumps(stored), payment_id),
+            )
+            await db.commit()
+
+    @staticmethod
+    async def get_payment_admin_messages(payment_id: int) -> List[tuple]:
+        """To'lov bo'yicha adminlarga ketgan xabarlar: [(chat_id, message_id), ...]."""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            async with db.execute(
+                "SELECT admin_messages FROM payments WHERE id = ?", (payment_id,)
+            ) as cursor:
+                row = await cursor.fetchone()
+        if not row or not row[0]:
+            return []
+        try:
+            stored = json.loads(row[0])
+        except (TypeError, ValueError):
+            return []
+        return [(int(chat), int(message)) for chat, message in stored
+                if isinstance(chat, int) or str(chat).lstrip("-").isdigit()]
 
     @staticmethod
     async def update_payment_status(payment_id: int, status: str):

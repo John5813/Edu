@@ -84,14 +84,49 @@ async def notify_admins_about_payment(bot, user, amount, message_id, payment_id,
 
             text += "\n⬆️ Yuqoridagi chekni tekshiring va to'lovni tasdiqlang:"
 
-            await bot.send_message(
+            sent = await bot.send_message(
                 admin_id,
                 text,
                 reply_markup=get_payment_review_keyboard(payment_id)
             )
+            await Database.add_payment_admin_message(
+                payment_id, sent.chat.id, sent.message_id)
 
         except Exception as e:
             logger.error(f"Failed to notify admin {admin_id}: {e}")
+
+async def close_payment_buttons(bot, payment_id: int, keep: tuple = ()) -> int:
+    """To'lov bo'yicha tugmalarni HAMMA admin xabaridan olib tashlaydi.
+
+    Ilgari faqat qaror qilgan adminning xabari tahrirlanardi: qolgan
+    adminlarda "Tasdiqlash / Rad etish" tugmalari osilib qolar, ular
+    faqat pastdan kelgan "admin tasdiqladi" xabaridan bilib olardi.
+    Tugmani bosgan ikkinchi admin esa "bu to'lov allaqachon approved
+    holatida" degan javob olardi.
+
+    `keep` — tahrir qilinmaydigan xabar (odatda qaror qilgan adminniki:
+    uning matni to'liq almashtiriladi).
+    """
+    try:
+        pairs = await Database.get_payment_admin_messages(payment_id)
+    except Exception as e:
+        logger.error(f"To'lov xabarlari ro'yxati o'qilmadi ({payment_id}): {e}")
+        return 0
+
+    closed = 0
+    for chat_id, message_id in pairs:
+        if keep and (chat_id, message_id) == tuple(keep):
+            continue
+        try:
+            await bot.edit_message_reply_markup(
+                chat_id=chat_id, message_id=message_id, reply_markup=None)
+            closed += 1
+        except Exception as e:
+            # Xabar o'chirilgan yoki tugmalari allaqachon olingan bo'lishi
+            # mumkin — bu oddiy hol, qaror qabul qilishni to'xtatmaydi.
+            logger.debug(f"To'lov tugmasi olinmadi ({chat_id}/{message_id}): {e}")
+    return closed
+
 
 async def notify_other_admins_about_payment_action(bot, payment_id, action, admin_name, amount):
     """Notify other admins about payment action to prevent double processing"""
@@ -191,24 +226,30 @@ async def handle_orders_request(message: Message, db: Database):
         )
 
         # Send screenshot first if available
+        sent = None
         if payment.screenshot_file_id:
             try:
-                await message.answer_photo(
+                sent = await message.answer_photo(
                     photo=payment.screenshot_file_id,
                     caption=text,
                     reply_markup=get_payment_review_keyboard(payment.id)
                 )
             except Exception as e:
                 logger.error(f"Error sending payment screenshot: {e}")
-                await message.answer(
+                sent = await message.answer(
                     text,
                     reply_markup=get_payment_review_keyboard(payment.id)
                 )
         else:
-            await message.answer(
+            sent = await message.answer(
                 text,
                 reply_markup=get_payment_review_keyboard(payment.id)
             )
+        # Ro'yxatdan ochilgan kartochkada ham tugma bor — qaror chiqqach
+        # u ham yopilishi kerak.
+        if sent is not None:
+            await db.add_payment_admin_message(payment.id, sent.chat.id,
+                                               sent.message_id)
 
 @router.callback_query(F.data.startswith("adjust_amount_"))
 async def adjust_payment_amount(callback: CallbackQuery, state: FSMContext, db: Database):
@@ -368,15 +409,18 @@ async def payment_amount_entered(message: Message, state: FSMContext, db: Databa
         except Exception:
             pass
 
-        # 5. Remove all buttons from original payment message (process done)
-        try:
-            await message.bot.edit_message_reply_markup(
-                chat_id=orig_chat_id,
-                message_id=orig_msg_id,
-                reply_markup=None,
-            )
-        except Exception:
-            pass
+        # 5. Tugmalarni hamma admin xabaridan olib tashlaymiz — qaror
+        # chiqdi, boshqa hech kim bosmasligi kerak.
+        await close_payment_buttons(message.bot, payment_id)
+        if orig_chat_id and orig_msg_id:
+            try:
+                await message.bot.edit_message_reply_markup(
+                    chat_id=orig_chat_id,
+                    message_id=orig_msg_id,
+                    reply_markup=None,
+                )
+            except Exception:
+                pass
 
         # 6. Confirm to admin
         user_link = f"@{user.username}" if user.username else f"ID: {user.telegram_id}"
@@ -546,6 +590,11 @@ async def confirm_adjusted_payment(callback: CallbackQuery, db: Database):
             parse_mode=None
         )
 
+        # Qolgan adminlarda tugmalar osilib qolmasin.
+        await close_payment_buttons(
+            callback.bot, payment_id,
+            keep=(callback.message.chat.id, callback.message.message_id))
+
         # Notify other admins
         admin_name = callback.from_user.username or callback.from_user.full_name
         await notify_other_admins_about_payment_action(callback.bot, payment_id, "tasdiqlandi", admin_name, payment.amount)
@@ -572,6 +621,12 @@ async def approve_payment(callback: CallbackQuery, db: Database):
         # Check if payment is already processed
         if payment.status != "pending":
             await callback.answer(f"❌ Bu to'lov allaqachon {payment.status} holatida.")
+            # Eskirgan kartochka: tugmalarni shu yerda ham olib tashlaymiz,
+            # aks holda u ro'yxatda hamisha "qaror kutilmoqda" bo'lib turardi.
+            try:
+                await callback.message.edit_reply_markup(reply_markup=None)
+            except Exception:
+                pass
             return
 
         # Update payment status
@@ -646,6 +701,11 @@ async def approve_payment(callback: CallbackQuery, db: Database):
             parse_mode=None
         )
 
+        # Qolgan adminlarda tugmalar osilib qolmasin.
+        await close_payment_buttons(
+            callback.bot, payment_id,
+            keep=(callback.message.chat.id, callback.message.message_id))
+
         # Notify other admins
         admin_name = callback.from_user.username or callback.from_user.full_name
         await notify_other_admins_about_payment_action(callback.bot, payment_id, "tasdiqlandi", admin_name, payment.amount)
@@ -672,6 +732,12 @@ async def reject_payment(callback: CallbackQuery, db: Database):
         # Check if payment is already processed
         if payment.status != "pending":
             await callback.answer(f"❌ Bu to'lov allaqachon {payment.status} holatida.")
+            # Eskirgan kartochka: tugmalarni shu yerda ham olib tashlaymiz,
+            # aks holda u ro'yxatda hamisha "qaror kutilmoqda" bo'lib turardi.
+            try:
+                await callback.message.edit_reply_markup(reply_markup=None)
+            except Exception:
+                pass
             return
 
         # Update payment status
@@ -697,6 +763,11 @@ async def reject_payment(callback: CallbackQuery, db: Database):
             f"Foydalanuvchiga xabar yuborildi.",
             parse_mode=None
         )
+
+        # Qolgan adminlarda tugmalar osilib qolmasin.
+        await close_payment_buttons(
+            callback.bot, payment_id,
+            keep=(callback.message.chat.id, callback.message.message_id))
 
         # Notify other admins
         admin_name = callback.from_user.username or callback.from_user.full_name
