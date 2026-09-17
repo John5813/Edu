@@ -221,6 +221,67 @@ class TemplateService:
         """Get color scheme for a template"""
         template = self.templates.get(template_id, self.templates['template_20'])
         return template['colors']
+
+    # Fon yorqinligi bir marta o'lchanadi — har slaydda rasm ochilmasin.
+    _luminance_cache: Dict[str, float] = {}
+
+    def background_path(self, template_id: str) -> str:
+        """Shablon fonining to'liq yo'li."""
+        template = self.templates.get(template_id, self.templates['template_20'])
+        if not template.get('file'):
+            return ""
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(base_dir, 'attached_assets', template['file'])
+
+    def background_luminance(self, template_id: str) -> float:
+        """Fonning o'rtacha yorqinligi (0-255). Matn rangi shunga qarab tanlanadi.
+
+        O'lchov faqat markazdan olinadi: matn shu yerda turadi, chetdagi
+        to'q hoshiya esa butun fonni to'q ko'rsatib qo'yardi.
+        """
+        if template_id in self._luminance_cache:
+            return self._luminance_cache[template_id]
+
+        value = 255.0
+        path = self.background_path(template_id)
+        try:
+            from PIL import Image, ImageStat
+
+            with Image.open(path) as image:
+                grey = image.convert("L").resize((80, 45))
+                middle = grey.crop((8, 8, 72, 40))
+                value = float(ImageStat.Stat(middle).mean[0])
+        except Exception as e:
+            logger.warning(f"Template luminance not measured ({template_id}): {e}")
+
+        self._luminance_cache[template_id] = value
+        return value
+
+    def get_readable_colors(self, template_id: str) -> Dict:
+        """Fon ustida ALBATTA o'qiladigan sarlavha va matn ranglari.
+
+        Shablonga yozilgan ranglar asos qilib olinadi, lekin ular fon bilan
+        qo'shilib ketmasligi tekshiriladi: "Binafsha To'lqin" kabi to'q
+        fonli shablonda qora matn umuman ko'rinmasdi.
+        """
+        colors = self.get_template_colors(template_id)
+        title, text = colors['title'], colors['text']
+        dark_background = self.background_luminance(template_id) < 120
+
+        def brightness(colour) -> float:
+            return 0.299 * colour[0] + 0.587 * colour[1] + 0.114 * colour[2]
+
+        if dark_background:
+            if brightness(title) < 150:
+                title = RGBColor(255, 255, 255)
+            if brightness(text) < 150:
+                text = RGBColor(238, 238, 244)
+        else:
+            if brightness(title) > 140:
+                title = RGBColor(26, 26, 26)
+            if brightness(text) > 140:
+                text = RGBColor(51, 51, 51)
+        return {'title': title, 'text': text}
     
     def get_template_name(self, template_id: str, language: str = 'uz') -> str:
         """Get template name in specified language"""

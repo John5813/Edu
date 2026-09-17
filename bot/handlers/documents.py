@@ -1352,15 +1352,17 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         if add_plan_slide:
             plan_items = await ai_service.generate_plan_items(ai_topic, doc_lang)
 
-        # Validate AI response
+        # Javob yaroqsiz bo'lsa bir marta qayta so'raladi. Ilgari bu yerda
+        # ikki slaydlik "zaxira" taqdimot yasalib, mijozga TO'LIQ narxda
+        # yuborilardi — o'n slaydga to'lagan odam ikkita bo'sh varaq
+        # olardi. Endi ikkinchi urinish ham chiqmasa xato ko'tariladi:
+        # fayl ham ketmaydi, pul ham yechilmaydi.
         if not content or 'slides' not in content:
             logger.error(f"Invalid AI response from batch generation: {content}")
-            content = {
-                'slides': [
-                    {'title': topic, 'content': f"Bu taqdimot {topic} mavzusida tayyorlangan.", 'layout_type': 'bullet_points', 'slide_number': 1},
-                    {'title': 'Kirish', 'content': f"{topic} haqida batafsil ma'lumot va asosiy nuqtalar.", 'layout_type': 'bullet_points', 'slide_number': 2}
-                ]
-            }
+            content = await ai_service.generate_presentation_in_batches(
+                ai_topic, slide_count, doc_lang)
+        if not content or not content.get('slides'):
+            raise Exception("AI taqdimot mazmunini qaytarmadi")
 
         # Create presentation with selected template background
         doc_service = get_document_service()
@@ -1380,13 +1382,16 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         # Get template name for caption
         template_name = template_service.get_template_name(template_id, user_lang)
 
+        # Sarlavhada haqiqatda chizilgan varaq soni yoziladi.
+        made_count = len(content.get('slides') or []) or slide_count
+
         # Send file FIRST - only proceed if successful
         document = FSInputFile(file_path)
         await callback.message.answer_document(
             document=document,
             caption=get_text(user_lang, "document_ready_caption", 
                 topic=topic,
-                slide_count=slide_count,
+                slide_count=made_count,
                 template=template_name
             ),
         )
@@ -1400,20 +1405,13 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         # Send success message AFTER file is delivered
         await callback.message.answer(get_text(user_lang, "document_ready"), reply_markup=get_main_keyboard(user_lang))
 
-        # Send icon usage summary if icons were enabled
+        # Ikonka hisoboti faqat jurnalga yoziladi: u tuzatuvchi uchun
+        # kerak, mijozga esa "Icons: idea, chart, growth" degan ichki
+        # ro'yxat ko'rinishi kerak emas.
         if add_icons:
             used_icons = getattr(doc_service, '_last_used_icons', set())
-            if used_icons:
-                icon_names = ", ".join(sorted(used_icons))
-                summary_msg = (
-                    f"🎨 {len(used_icons)} ta unikal ikonka ishlatildi.\n"
-                    f"Icons: {icon_names}"
-                )
-                logger.info(f"[Icon summary] user={user.telegram_id} icons={icon_names}")
-                await callback.message.answer(summary_msg)
-            else:
-                logger.info(f"[Icon summary] user={user.telegram_id} no icons were added")
-                await callback.message.answer("ℹ️ Ikonkalar qo'shilmadi (mos ikonka topilmadi).")
+            logger.info("[Icon summary] user=%s icons=%s", user.telegram_id,
+                        ", ".join(sorted(used_icons)) or "yo'q")
 
         # Send gentle reminder about content review
         await callback.message.answer(get_text(user_lang, "document_reminder"), parse_mode="Markdown")
