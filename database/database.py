@@ -491,7 +491,8 @@ class Database:
 
     @staticmethod
     async def add_payment_admin_message(payment_id: int, chat_id: int,
-                                        message_id: int) -> None:
+                                        message_id: int, text: str = "",
+                                        caption: bool = False) -> None:
         """Adminga ko'rsatilgan to'lov xabarining manzilini eslab qoladi.
 
         Bitta to'lov bo'yicha xabar hamma adminga ketadi. Biri qaror
@@ -510,9 +511,17 @@ class Database:
                 stored = json.loads(row[0]) if row[0] else []
             except (TypeError, ValueError):
                 stored = []
-            pair = [int(chat_id), int(message_id)]
-            if pair not in stored:
-                stored.append(pair)
+            # Xabar MATNI ham saqlanadi: qaror chiqqach o'sha kartochkaga
+            # "falonchi tasdiqladi" satri qo'shiladi, matnni esa Telegram
+            # bermaydi — faqat to'liq yangi matn bilan almashtirish mumkin.
+            entry = {"chat": int(chat_id), "msg": int(message_id),
+                     "text": str(text or "")[:3500], "caption": bool(caption)}
+            known = {(item.get("chat"), item.get("msg"))
+                     for item in stored if isinstance(item, dict)}
+            known |= {(item[0], item[1]) for item in stored
+                      if isinstance(item, list) and len(item) >= 2}
+            if (entry["chat"], entry["msg"]) not in known:
+                stored.append(entry)
             await db.execute(
                 "UPDATE payments SET admin_messages = ? WHERE id = ?",
                 (json.dumps(stored), payment_id),
@@ -520,8 +529,14 @@ class Database:
             await db.commit()
 
     @staticmethod
-    async def get_payment_admin_messages(payment_id: int) -> List[tuple]:
-        """To'lov bo'yicha adminlarga ketgan xabarlar: [(chat_id, message_id), ...]."""
+    async def get_payment_admin_messages(payment_id: int) -> List[Dict]:
+        """To'lov bo'yicha adminlarga ketgan xabarlar.
+
+        Har yozuv: {"chat", "msg", "text", "caption"}. Eski yozuvlar
+        [chat, msg] ko'rinishida bo'lgan — ular ham o'qiladi, faqat
+        matnsiz (bunday kartochkada tugmalar olib tashlanadi, matn esa
+        o'zgarmaydi).
+        """
         async with aiosqlite.connect(DATABASE_FILE) as db:
             async with db.execute(
                 "SELECT admin_messages FROM payments WHERE id = ?", (payment_id,)
@@ -533,8 +548,22 @@ class Database:
             stored = json.loads(row[0])
         except (TypeError, ValueError):
             return []
-        return [(int(chat), int(message)) for chat, message in stored
-                if isinstance(chat, int) or str(chat).lstrip("-").isdigit()]
+
+        out = []
+        for item in stored:
+            if isinstance(item, dict):
+                chat, message = item.get("chat"), item.get("msg")
+                text, caption = item.get("text", ""), bool(item.get("caption"))
+            elif isinstance(item, (list, tuple)) and len(item) >= 2:
+                chat, message, text, caption = item[0], item[1], "", False
+            else:
+                continue
+            try:
+                out.append({"chat": int(chat), "msg": int(message),
+                            "text": str(text or ""), "caption": caption})
+            except (TypeError, ValueError):
+                continue
+        return out
 
     @staticmethod
     async def update_payment_status(payment_id: int, status: str):
