@@ -327,6 +327,9 @@ class DocumentService:
                         except Exception:
                             pass
 
+            # Shablon ranglari — eng oxirida, hamma slayd tayyor bo'lgach.
+            self._apply_template_colors(prs, template_service, template_id)
+
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"presentation_{timestamp}.pptx"
             file_path = os.path.join(self.documents_dir, filename)
@@ -403,6 +406,43 @@ class DocumentService:
         except Exception as e:
             logger.warning(f"Could not create infographic slide: {e}", exc_info=True)
 
+    # Sarlavha deb hisoblanadigan eng kichik shrift.
+    _TITLE_PT = 20
+
+    def _apply_template_colors(self, prs, template_service, template_id: str) -> None:
+        """Shablonning matn ranglarini butun taqdimotga qo'llaydi.
+
+        Ranglar `TemplateService` da har shablon uchun yozib qo'yilgan edi,
+        lekin hech qayerda ishlatilmasdi: matn doim qora chiqardi. To'q
+        fonli shablonda ("Binafsha To'lqin") bu butun taqdimotni o'qib
+        bo'lmaydigan qilardi — qora harflar to'q binafsha fon ustida.
+
+        Jadval kataklari chetlab o'tiladi: ular oq bo'yalgan, matni to'q
+        qolishi kerak.
+        """
+        if not template_service or not template_id:
+            return
+        try:
+            colors = template_service.get_readable_colors(template_id)
+        except Exception as e:
+            logger.warning(f"Template colors not applied: {e}")
+            return
+        title_rgb, text_rgb = colors['title'], colors['text']
+
+        for slide in prs.slides:
+            for shape in slide.shapes:
+                if getattr(shape, "has_table", False):
+                    continue
+                if not getattr(shape, "has_text_frame", False):
+                    continue
+                for paragraph in shape.text_frame.paragraphs:
+                    size = paragraph.font.size
+                    for run in paragraph.runs:
+                        run_size = run.font.size or size
+                        heading = bool(run.font.bold or paragraph.font.bold) and \
+                            run_size is not None and run_size.pt >= self._TITLE_PT
+                        run.font.color.rgb = title_rgb if heading else text_rgb
+
     async def _create_slide_by_layout(self, prs, slide_data: Dict, slide_idx: int, author_name: str, topic: str, language: str, template_service=None, template_id: str = None, pre_fetched_image=None, used_icons: set | None = None):
         """Create slide based on layout type"""
         layout = slide_data.get('layout', 'text_only')
@@ -445,6 +485,7 @@ class DocumentService:
 
     async def _create_cover_slide(self, slide, slide_data: Dict, author_name: str, topic: str, language: str, pre_fetched_image=None):
         """1-varoq: Chap 50% rasm, O'ng mavzu + ism"""
+        has_image = False
         if self.together:
             try:
                 image_path = pre_fetched_image if pre_fetched_image else await self.together.generate_cover_image(topic, language)
@@ -454,6 +495,7 @@ class DocumentService:
                         PptxInches(0), PptxInches(0),
                         PptxInches(6.666), PptxInches(7.5)
                     )
+                    has_image = True
                     if not pre_fetched_image:
                         try:
                             os.remove(image_path)
@@ -461,10 +503,13 @@ class DocumentService:
                             pass
             except Exception as e:
                 logger.error(f"Error generating cover image: {e}")
-        
+
+        # Rasm chiqmasa mavzu slayd o'rtasida turadi: chap yarmi bo'sh
+        # qolgan muqova tugallanmagandek ko'rinardi.
+        box_left, box_width = (7.0, 5.8) if has_image else (1.5, 10.3)
         title_box = slide.shapes.add_textbox(
-            PptxInches(7), PptxInches(2.5),
-            PptxInches(5.8), PptxInches(3)
+            PptxInches(box_left), PptxInches(2.5),
+            PptxInches(box_width), PptxInches(3)
         )
         tf = title_box.text_frame
         tf.word_wrap = True
@@ -474,7 +519,7 @@ class DocumentService:
         p1.text = topic
         cover_font_size = self._calculate_auto_font_size(
             topic,
-            width_inches=5.8,
+            width_inches=box_width,
             height_inches=2.2,
             max_font_pt=42,
             min_font_pt=18
@@ -600,59 +645,73 @@ class DocumentService:
             p.font.name = 'Times New Roman'
             p.alignment = PP_ALIGN.LEFT
 
+    async def _place_slide_image(self, slide, slide_data: Dict, topic: str,
+                                 language: str, pre_fetched_image, rect,
+                                 panoramic: bool = False) -> bool:
+        """Rasmni slaydga qo'yadi. Rasm chiqmasa False qaytaradi.
+
+        Rasm yaratilmasligi oddiy hol: kalit tugaydi, xizmat javob
+        bermaydi, limit oshadi. Ilgari bunda rasm uchun ajratilgan yarim
+        slayd BO'SH qolardi — mijoz to'lagan taqdimotning uchtagacha
+        varag'i yarim bo'sh ketardi. Endi chaqiruvchi buni biladi va
+        matnni butun kenglikka yoyadi.
+        """
+        if not self.together:
+            return False
+        try:
+            image_path = pre_fetched_image
+            if not image_path:
+                if panoramic:
+                    image_path = await self.together.generate_panoramic_image(
+                        topic, slide_data.get('title', ''), language)
+                else:
+                    image_path = await self.together.generate_slide_image(
+                        topic, slide_data.get('title', ''), language)
+            if not image_path or not os.path.exists(image_path):
+                return False
+            left, top, width, height = rect
+            slide.shapes.add_picture(image_path, PptxInches(left), PptxInches(top),
+                                     PptxInches(width), PptxInches(height))
+            if not pre_fetched_image:
+                try:
+                    os.remove(image_path)
+                except Exception:
+                    pass
+            return True
+        except Exception as e:
+            logger.error(f"Error placing slide image: {e}")
+            return False
+
     async def _create_right_image_slide(self, slide, slide_data: Dict, topic: str, language: str, pre_fetched_image=None):
         """Shablon 2: O'ng 50% rasm, chap matn"""
         self._add_slide_title(slide, slide_data.get('title', ''))
-        
+
+        has_image = await self._place_slide_image(
+            slide, slide_data, topic, language, pre_fetched_image,
+            (6.8, 1.5, 6.2, 5.5))
+
+        # Rasm chiqmagan bo'lsa matn butun kenglikni egallaydi — yarim
+        # bo'sh slayd qolmaydi.
+        width = 5.8 if has_image else 12.3
         self._add_justified_content(slide, slide_data.get('content', ''),
                                     PptxInches(0.5), PptxInches(2),
-                                    PptxInches(5.8), PptxInches(4.5), align_left=True)
-        
-        if self.together:
-            try:
-                image_path = pre_fetched_image if pre_fetched_image else await self.together.generate_slide_image(
-                    topic, slide_data.get('title', ''), language
-                )
-                if image_path and os.path.exists(image_path):
-                    slide.shapes.add_picture(
-                        image_path,
-                        PptxInches(6.8), PptxInches(1.5),
-                        PptxInches(6.2), PptxInches(5.5)
-                    )
-                    if not pre_fetched_image:
-                        try:
-                            os.remove(image_path)
-                        except Exception:
-                            pass
-            except Exception as e:
-                logger.error(f"Error generating right image: {e}")
+                                    PptxInches(width), PptxInches(4.5),
+                                    align_left=True)
 
     async def _create_left_image_slide(self, slide, slide_data: Dict, topic: str, language: str, pre_fetched_image=None):
         """Shablon 3: Chap 50% rasm, o'ng matn"""
         self._add_slide_title(slide, slide_data.get('title', ''))
-        
-        if self.together:
-            try:
-                image_path = pre_fetched_image if pre_fetched_image else await self.together.generate_slide_image(
-                    topic, slide_data.get('title', ''), language
-                )
-                if image_path and os.path.exists(image_path):
-                    slide.shapes.add_picture(
-                        image_path,
-                        PptxInches(0.3), PptxInches(1.5),
-                        PptxInches(6.2), PptxInches(5.5)
-                    )
-                    if not pre_fetched_image:
-                        try:
-                            os.remove(image_path)
-                        except Exception:
-                            pass
-            except Exception as e:
-                logger.error(f"Error generating left image: {e}")
-        
+
+        has_image = await self._place_slide_image(
+            slide, slide_data, topic, language, pre_fetched_image,
+            (0.3, 1.5, 6.2, 5.5))
+
+        left = 6.8 if has_image else 0.5
+        width = 5.8 if has_image else 12.3
         self._add_justified_content(slide, slide_data.get('content', ''),
-                                    PptxInches(6.8), PptxInches(2),
-                                    PptxInches(5.8), PptxInches(4.5), align_left=True)
+                                    PptxInches(left), PptxInches(2),
+                                    PptxInches(width), PptxInches(4.5),
+                                    align_left=True)
 
     def _create_three_column_slide(self, slide, slide_data: Dict, language: str = 'uz', used_icons: set | None = None):
         """Shablon 4: 3 ustunli - har ustunda kalit so'z + tarif + ikonka"""
@@ -751,29 +810,16 @@ class DocumentService:
     async def _create_horizontal_image_slide(self, slide, slide_data: Dict, topic: str, language: str, pre_fetched_image=None):
         """Shablon 5: Pastda 21:9 gorizontal rasm, ustida matn"""
         self._add_slide_title(slide, slide_data.get('title', ''))
-        
+
+        has_image = await self._place_slide_image(
+            slide, slide_data, topic, language, pre_fetched_image,
+            (0.3, 4.0, 12.7, 3.3), panoramic=True)
+
+        # Rasmsiz qolsa matn pastdagi bo'sh joyni ham egallaydi.
+        height = 2.0 if has_image else 5.3
         self._add_justified_content(slide, slide_data.get('content', ''),
                                     PptxInches(0.5), PptxInches(1.5),
-                                    PptxInches(12), PptxInches(2))
-        
-        if self.together:
-            try:
-                image_path = pre_fetched_image if pre_fetched_image else await self.together.generate_panoramic_image(
-                    topic, slide_data.get('title', ''), language
-                )
-                if image_path and os.path.exists(image_path):
-                    slide.shapes.add_picture(
-                        image_path,
-                        PptxInches(0.3), PptxInches(4),
-                        PptxInches(12.7), PptxInches(3.3)
-                    )
-                    if not pre_fetched_image:
-                        try:
-                            os.remove(image_path)
-                        except Exception:
-                            pass
-            except Exception as e:
-                logger.error(f"Error generating horizontal image: {e}")
+                                    PptxInches(12), PptxInches(height))
 
     def _create_text_with_numbers_slide(self, slide, slide_data: Dict):
         """Shablon 6: Oddiy matn, raqamlar bilan - 50 so'z"""

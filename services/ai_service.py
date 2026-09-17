@@ -356,7 +356,12 @@ class AIService:
                     slide['content'] = ""
                     
             logger.info(f"Generated presentation with {len(content['slides'])} slides")
-            
+
+            # Model kelishilgan sondan kam slayd qaytargan bo'lsa (ko'pincha
+            # javob token chegarasida uzilib qolganda) yetishmagani alohida
+            # so'raladi: mijoz to'lagan varaq soni to'liq bo'lishi kerak.
+            content = await self._top_up_main_slides(content, topic, slide_count, language)
+
             content = self._normalize_slide_structure(content, slide_count, language)
 
             for slide in content.get('slides', []):
@@ -372,6 +377,81 @@ class AIService:
         except Exception as e:
             logger.error(f"Error generating presentation content: {e}")
             raise
+
+    # Tuzilmadagi qat'iy slaydlar: muqova, reja, kirish, xulosa,
+    # adabiyotlar, rahmat. Qolgani — asosiy slaydlar.
+    _FIXED_LAYOUTS = {'cover', 'plan', 'intro', 'conclusion', 'references',
+                      'thanks', 'table'}
+
+    async def _top_up_main_slides(self, content: Dict, topic: str,
+                                  slide_count: int, language: str) -> Dict:
+        """Yetishmagan asosiy slaydlarni modeldan qo'shimcha so'rab oladi."""
+        slides = content.get('slides', [])
+        main = [s for s in slides if s.get('layout') not in self._FIXED_LAYOUTS]
+        target = max(slide_count - 6, 1) + (1 if slide_count == 10 else 0)
+        missing = target - len(main)
+        if missing <= 0:
+            return content
+
+        titles = [s.get('title', '') for s in main if s.get('title')]
+        known_uz = "; ".join(titles) or "yo'q"
+        known_ru = "; ".join(titles) or "нет"
+        known_en = "; ".join(titles) or "none"
+        layouts_line = ('"two_column", "right_image", "left_image", '
+                        '"three_column", "horizontal_image", "text_with_numbers"')
+        prompts = {
+            'uz': (f'"{topic}" mavzusidagi taqdimot uchun YANA {missing} ta asosiy '
+                   f'slayd yozing. Quyidagilar allaqachon bor, ularni takrorlamang: '
+                   f'{known_uz}.\n'
+                   f'Har slaydda: "title" (sarlavha), "content" (4 ta to\'liq gap), '
+                   f'"layout" — {layouts_line} dan biri.\n'
+                   f'Faqat JSON: {{"slides": [...]}}'),
+            'ru': (f'Напишите ЕЩЁ {missing} основных слайдов для презентации на тему '
+                   f'"{topic}". Уже есть, не повторяйте: {known_ru}.\n'
+                   f'В каждом слайде: "title", "content" (4 полных предложения), '
+                   f'"layout" — один из {layouts_line}.\n'
+                   f'Только JSON: {{"slides": [...]}}'),
+            'en': (f'Write {missing} MORE main slides for a presentation on "{topic}". '
+                   f'Already present, do not repeat: {known_en}.\n'
+                   f'Each slide: "title", "content" (4 full sentences), "layout" — '
+                   f'one of {layouts_line}.\n'
+                   f'JSON only: {{"slides": [...]}}'),
+        }
+        logger.warning("Taqdimotda %s ta asosiy slayd yetishmadi — qo'shimcha so'raldi",
+                       missing)
+        try:
+            response = await self._make_request(
+                messages=[{"role": "user", "content": prompts.get(language, prompts['uz'])}],
+                max_tokens=4096, temperature=0.7,
+            )
+            extra = self._parse_json_safely(response.strip().strip('`').lstrip('json'))
+        except Exception as e:
+            logger.error(f"Qo'shimcha slaydlar olinmadi: {e}")
+            return content
+
+        added = []
+        for slide in (extra.get('slides') or []):
+            if not isinstance(slide, dict):
+                continue
+            if slide.get('layout') in self._FIXED_LAYOUTS:
+                continue
+            if not (slide.get('title') or '').strip() and not (slide.get('content') or '').strip():
+                continue
+            slide.setdefault('content', '')
+            added.append(slide)
+            if len(added) >= missing:
+                break
+
+        if not added:
+            return content
+
+        # Qo'shimchalar xulosadan OLDIN, oxirgi asosiy slayddan keyin turadi.
+        tail_layouts = {'conclusion', 'references', 'thanks'}
+        head = [s for s in slides if s.get('layout') not in tail_layouts]
+        tail = [s for s in slides if s.get('layout') in tail_layouts]
+        content['slides'] = head + added + tail
+        logger.info("Qo'shimcha %s ta slayd qo'shildi", len(added))
+        return content
 
     def _shorten_plan_item(self, item: str) -> str:
         """Shorten a plan item to a concise single phrase (max 6 words)."""
@@ -434,9 +514,18 @@ class AIService:
             target_main += 1
         layouts = ['two_column', 'right_image', 'left_image', 'three_column', 'horizontal_image', 'text_with_numbers']
 
-        while len(main_slides) < target_main:
-            idx = len(main_slides)
-            main_slides.append({'title': '', 'content': '', 'layout': layouts[idx % 6]})
+        # Yetishmagan slaydlar BO'SH kataklar bilan to'ldirilmaydi. Ilgari
+        # shunday qilinardi: model kelishilgan sondan kam slayd qaytarsa
+        # (JSON token chegarasida uzilib qolsa ham shunday bo'ladi),
+        # mijozga faqat fon ko'rinib turgan bo'sh varaqlar ketardi.
+        # Yetishmovchilikni `generate_presentation_content` modeldan
+        # qo'shimcha so'rab to'ldiradi; qolgani esa bo'lgani bo'yicha
+        # yetkaziladi — bo'sh varaqdan ko'ra kamroq varaq yaxshiroq.
+        if len(main_slides) < target_main:
+            logger.warning(
+                "Model %s ta asosiy slayd qaytardi (kerak: %s) — bo'sh varaq "
+                "qo'shilmaydi", len(main_slides), target_main
+            )
 
         main_slides = main_slides[:target_main]
 

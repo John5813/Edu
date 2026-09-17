@@ -112,11 +112,123 @@ def _box(axes, x, y, w, h, fill, text, size, *, bold=False, edge=None,
         facecolor=fill, edgecolor=edge or fill, linewidth=1.4, zorder=2))
     if not text:
         return
-    axes.text(x + w / 2, y + h / 2,
-              _wrap(text, wrap) if wrap else text,
-              ha="center", va="center", fontsize=size, zorder=3,
-              color=text_colour or palettes.on_fill(fill),
-              fontweight="bold" if bold else "normal", linespacing=1.15)
+    label = axes.text(x + w / 2, y + h / 2,
+                      _wrap(text, wrap) if wrap else text,
+                      ha="center", va="center", fontsize=size, zorder=3,
+                      color=text_colour or palettes.on_fill(fill),
+                      fontweight="bold" if bold else "normal", linespacing=1.15)
+    # Yorliq chizma oxirida kataklariga aniq o'lchov bilan sig'diriladi.
+    _register_label(axes, label, (x, y, w, h), text)
+
+
+# ─────────────────────────────────────────────── yorliqlarni sig'dirish
+#
+# Ilgari katak matni belgilar soni bo'yicha kesilardi: "Yuqori Sinf
+# (Sanoat Burjuaziy…". Chegara hamma shakl uchun bitta edi, katakning
+# haqiqiy eni esa shaklga ham, tarmoqlar soniga ham bog'liq — shuning
+# uchun keng katakda ham matn kesilib ketardi. Endi hech narsa
+# kesilmaydi: matn matplotlib bilan o'lchanadi, katak eniga qarab
+# o'raladi, sig'masa shrift kichrayadi.
+
+# Yorliq shundan kichraymaydi: undan pastda o'qib bo'lmaydi.
+_MIN_LABEL_PT = 5.5
+# Katak chetida qoladigan bo'shliq (eni va bo'yi bo'yicha ulush).
+_LABEL_PAD_W = 0.90
+_LABEL_PAD_H = 0.88
+
+
+def _register_label(axes, artist, rect, text) -> None:
+    labels = getattr(axes, "_scheme_labels", None)
+    if labels is None:
+        labels = []
+        axes._scheme_labels = labels
+    clean = "\n".join(" ".join(line.split())
+                      for line in str(text or "").split("\n"))
+    labels.append((artist, rect, clean))
+
+
+def _measure(artist, renderer, text: str) -> float:
+    artist.set_text(text)
+    return artist.get_window_extent(renderer).width
+
+
+def _break_word(artist, renderer, word: str, limit: float) -> list:
+    """Katakka sig'maydigan yagona so'zni bo'laklarga bo'ladi."""
+    chunks, current = [], ""
+    for letter in word:
+        if current and _measure(artist, renderer, current + letter) > limit:
+            chunks.append(current)
+            current = letter
+        else:
+            current += letter
+    if current:
+        chunks.append(current)
+    return chunks
+
+
+def _wrap_to_width(artist, renderer, text: str, limit: float) -> str:
+    """Matnni katak eniga qarab o'raydi — o'lchov bo'yicha, belgi sanamay.
+
+    Matnda aniq qator ajratgich bo'lsa (ro'yxatdagi har band alohida
+    qatorda turadi), u saqlanadi: faqat uzun qatorlar o'raladi.
+    """
+    if "\n" in text:
+        return "\n".join(_wrap_to_width(artist, renderer, part, limit)
+                          for part in text.split("\n"))
+    lines, current = [], ""
+    for word in text.split():
+        if _measure(artist, renderer, word) > limit:
+            # Uzun so'z (masalan havola yoki qo'shma atama) — bo'lib yozamiz.
+            if current:
+                lines.append(current)
+                current = ""
+            pieces = _break_word(artist, renderer, word, limit)
+            lines.extend(pieces[:-1])
+            current = pieces[-1] if pieces else ""
+            continue
+        candidate = f"{current} {word}".strip()
+        if not current or _measure(artist, renderer, candidate) <= limit:
+            current = candidate
+        else:
+            lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
+    return "\n".join(lines)
+
+
+def _fit_labels(figure, axes) -> None:
+    """Har yorliqni o'z katagiga sig'diradi: o'raydi, kerak bo'lsa kichraytiradi."""
+    labels = getattr(axes, "_scheme_labels", None)
+    if not labels:
+        return
+    try:
+        figure.canvas.draw()          # transformlar va renderer tayyor bo'lsin
+        renderer = figure.canvas.get_renderer()
+    except Exception as exc:          # chizuvchi ishlamasa eski holida qoladi
+        logger.warning("Sxema yorliqlarini o'lchab bo'lmadi: %s", exc)
+        return
+
+    for artist, (x, y, w, h), text in labels:
+        if not text:
+            continue
+        try:
+            corners = axes.transData.transform([(x, y), (x + w, y + h)])
+        except Exception:
+            continue
+        box_w = abs(corners[1][0] - corners[0][0]) * _LABEL_PAD_W
+        box_h = abs(corners[1][1] - corners[0][1]) * _LABEL_PAD_H
+        if box_w <= 1 or box_h <= 1:
+            continue
+        size = float(artist.get_fontsize())
+        while True:
+            artist.set_fontsize(size)
+            wrapped = _wrap_to_width(artist, renderer, text, box_w)
+            artist.set_text(wrapped)
+            extent = artist.get_window_extent(renderer)
+            if (extent.width <= box_w and extent.height <= box_h) or size <= _MIN_LABEL_PT:
+                break
+            size = max(_MIN_LABEL_PT, size - 0.4)
 
 
 def _arrow(axes, start, end, colour=GRID, width=1.8, style="-|>"):
@@ -170,7 +282,7 @@ def _tree(axes, root: str, parts: list, palette) -> float:
     root_w, root_h = 46, 13
     root_y = 86
     _box(axes, 50 - root_w / 2, root_y, root_w, root_h, palette.ramp[3],
-         _shorten(root, 46), 11, bold=True, wrap=30)
+         root, 11, bold=True, wrap=30)
 
     branch_h, item_h, gap = 11.0, 9.0, 3.2
     branch_y = root_y - 14 - depth * 0  # tarmoq qatori ildizdan pastda
@@ -188,14 +300,14 @@ def _tree(axes, root: str, parts: list, palette) -> float:
         _line(axes, [centre, centre], [root_y - 7, branch_y + branch_h])
 
         _box(axes, col_x, branch_y, col_w, branch_h, hue,
-             _shorten(name, 30), 9.5, bold=True, wrap=max(12, int(col_w / 1.6)))
+             name, 9.5, bold=True, wrap=max(12, int(col_w / 1.6)))
 
         for level, item in enumerate(items):
             item_y = branch_y - (level + 1) * (item_h + gap)
             _line(axes, [centre, centre], [item_y + item_h, item_y + item_h + gap],
                   width=1.2)
             _box(axes, col_x + col_w * 0.05, item_y, col_w * 0.9, item_h,
-                 _tint(hue, 0.86), _shorten(item, 34), 8.5, edge=hue,
+                 _tint(hue, 0.86), item, 8.5, edge=hue,
                  text_colour=INK, wrap=max(12, int(col_w / 1.5)))
 
     floor = branch_y - depth * (item_h + gap) - 3
@@ -212,9 +324,13 @@ def _radial(axes, root: str, parts: list, palette) -> float:
 
     axes.add_patch(Circle((centre_x, centre_y), 15.5, facecolor=palette.ramp[3],
                           edgecolor=SURFACE, linewidth=2.5, zorder=3))
-    axes.text(centre_x, centre_y, _wrap(_shorten(root, 40), 14), ha="center",
-              va="center", fontsize=10, fontweight="bold", zorder=4,
-              color=palettes.on_fill(palette.ramp[3]), linespacing=1.15)
+    centre_label = axes.text(
+        centre_x, centre_y, root, ha="center", va="center", fontsize=10,
+        fontweight="bold", zorder=4,
+        color=palettes.on_fill(palette.ramp[3]), linespacing=1.15)
+    # Doira ichiga chizilgan to'rtburchak — yozuv shundan chiqmasin.
+    _register_label(axes, centre_label,
+                    (centre_x - 10.5, centre_y - 10.5, 21.0, 21.0), root)
 
     for index, (name, items) in enumerate(parts):
         angle = math.pi / 2 - index * 2 * math.pi / count
@@ -227,7 +343,7 @@ def _radial(axes, root: str, parts: list, palette) -> float:
 
         width, height = 27.0, 11.0
         _box(axes, x - width / 2, y - height / 2, width, height, hue,
-             _shorten(name, 28), 9.2, bold=True, wrap=16)
+             name, 9.2, bold=True, wrap=16)
 
         # Elementlar katakdan markazga QARAMA-QARSHI tomonda yoziladi:
         # yuqoridagi qism uchun tepada, pastdagisi uchun ostida. Ilgari
@@ -236,10 +352,18 @@ def _radial(axes, root: str, parts: list, palette) -> float:
         # bloki ustiga tushib qolardi.
         if items:
             upward = math.sin(angle) > 0.3
-            axes.text(x, y + (height / 2 + 1.5 if upward else -height / 2 - 1.5),
-                      "\n".join(_shorten(item, 24) for item in items),
-                      ha="center", va="bottom" if upward else "top",
-                      fontsize=7.6, color=INK_SOFT, linespacing=1.5, zorder=3)
+            edge = y + (height / 2 + 1.5 if upward else -height / 2 - 1.5)
+            listing = "\n".join(items)
+            label = axes.text(x, edge, listing,
+                              ha="center", va="bottom" if upward else "top",
+                              fontsize=7.6, color=INK_SOFT, linespacing=1.5,
+                              zorder=3)
+            # Bo'sh joy: tepadagi qism uchun rasm tepasigacha, pastdagisi
+            # uchun rasm tubigacha.
+            room = min(20.0, (100 - edge) if upward else (edge + 6))
+            _register_label(axes, label,
+                            (x - 17.0, edge if upward else edge - room,
+                             34.0, max(room, 6.0)), listing)
     return -6.0
 
 
@@ -251,7 +375,7 @@ def _mindmap(axes, root: str, parts: list, palette) -> float:
     root_w, root_h = 30.0, 16.0
     root_x, root_y = 2.0, 50 - root_h / 2
     _box(axes, root_x, root_y, root_w, root_h, palette.ramp[3],
-         _shorten(root, 48), 10.5, bold=True, wrap=18)
+         root, 10.5, bold=True, wrap=18)
 
     span = 92.0
     branch_h = min(15.0, span / count - 3.0)
@@ -271,14 +395,18 @@ def _mindmap(axes, root: str, parts: list, palette) -> float:
                   solid_capstyle="round")
 
         width = 30.0
-        _box(axes, mid + 4, y, width, branch_h, hue, _shorten(name, 30), 9.4,
+        _box(axes, mid + 4, y, width, branch_h, hue, name, 9.4,
              bold=True, wrap=18)
 
         if items:
-            axes.text(mid + 4 + width + 2, centre_y,
-                      "\n".join(f"— {_shorten(item, 26)}" for item in items),
-                      ha="left", va="center", fontsize=8, color=INK_SOFT,
-                      linespacing=1.5, zorder=3)
+            list_x = mid + 4 + width + 2
+            listing = "\n".join(f"— {item}" for item in items)
+            label = axes.text(list_x, centre_y, listing,
+                              ha="left", va="center", fontsize=8, color=INK_SOFT,
+                              linespacing=1.5, zorder=3)
+            _register_label(axes, label,
+                            (list_x, centre_y - step / 2, max(100 - list_x, 10.0),
+                             max(step - 2.0, 6.0)), listing)
     return 0.0
 
 
@@ -287,12 +415,16 @@ def _mindmap(axes, root: str, parts: list, palette) -> float:
 def _flow(axes, root: str, parts: list, palette, chevron: bool = False) -> float:
     """Chapdan o'ngga bosqichlar — ketma-ket boradigan jarayon uchun."""
     count = len(parts)
-    _box(axes, 2, 86, 96, 12, palette.ramp[3], _shorten(root, 60), 10.5,
+    _box(axes, 2, 86, 96, 12, palette.ramp[3], root, 10.5,
          bold=True, wrap=60)
 
     gap = 2.5 if chevron else 4.0
     width = (100 - gap * (count - 1)) / count
     y, height = 58.0, 16.0
+    # Ro'yxatlar uchun ajratilgan bo'shliq — chizmaning pastki chegarasi
+    # shu bo'yicha hisoblanadi (pastdagi `return` bilan bir xil).
+    deepest = max((len(items) for _n, items in parts), default=0)
+    list_room = max(3.0 + deepest * 4.5, 6.0)
 
     for index, (name, items) in enumerate(parts):
         hue = palette.categorical[index % len(palette.categorical)]
@@ -306,13 +438,15 @@ def _flow(axes, root: str, parts: list, palette, chevron: bool = False) -> float
                 points.append((x + tip, y + height / 2))
             axes.add_patch(Polygon(points, closed=True, facecolor=hue,
                                    edgecolor=SURFACE, linewidth=2, zorder=2))
-            axes.text(x + width / 2, y + height / 2,
-                      _wrap(_shorten(name, 30), max(10, int(width / 1.7))),
-                      ha="center", va="center", fontsize=9.2, zorder=3,
-                      fontweight="bold", color=palettes.on_fill(hue),
-                      linespacing=1.15)
+            chevron_label = axes.text(
+                x + width / 2, y + height / 2, name,
+                ha="center", va="center", fontsize=9.2, zorder=3,
+                fontweight="bold", color=palettes.on_fill(hue),
+                linespacing=1.15)
+            _register_label(axes, chevron_label,
+                            (x, y, width * 0.84, height), name)
         else:
-            _box(axes, x, y, width, height, hue, _shorten(name, 30), 9.2,
+            _box(axes, x, y, width, height, hue, name, 9.2,
                  bold=True, wrap=max(10, int(width / 1.7)))
             if index:
                 _arrow(axes, (x - gap + 0.4, y + height / 2), (x - 0.4, y + height / 2))
@@ -323,12 +457,13 @@ def _flow(axes, root: str, parts: list, palette, chevron: bool = False) -> float
                   fontweight="bold", zorder=3)
 
         if items:
-            axes.text(x + width / 2, y - 3,
-                      "\n".join(f"• {_shorten(item, 20)}" for item in items),
-                      ha="center", va="top", fontsize=7.8, color=INK_SOFT,
-                      linespacing=1.5, zorder=3)
+            listing = "\n".join(f"• {item}" for item in items)
+            label = axes.text(x + width / 2, y - 3, listing,
+                              ha="center", va="top", fontsize=7.8, color=INK_SOFT,
+                              linespacing=1.5, zorder=3)
+            _register_label(axes, label,
+                            (x, y - 3 - list_room, width, list_room), listing)
 
-    deepest = max((len(items) for _n, items in parts), default=0)
     return y - 6 - deepest * 4.5
 
 
@@ -339,9 +474,12 @@ def _cycle(axes, root: str, parts: list, palette) -> float:
     count = len(parts)
     centre_x, centre_y, radius = 50.0, 48.0, 31.0
 
-    axes.text(centre_x, centre_y, _wrap(_shorten(root, 40), 16), ha="center",
-              va="center", fontsize=10.5, fontweight="bold", color=INK,
-              zorder=4, linespacing=1.2)
+    centre_label = axes.text(centre_x, centre_y, root, ha="center",
+                             va="center", fontsize=10.5, fontweight="bold",
+                             color=INK, zorder=4, linespacing=1.2)
+    # Halqaning ichki bo'shlig'i — yozuv kataklarga tegib ketmasin.
+    _register_label(axes, centre_label,
+                    (centre_x - 17.0, centre_y - 9.0, 34.0, 18.0), root)
 
     positions = []
     for index in range(count):
@@ -362,16 +500,20 @@ def _cycle(axes, root: str, parts: list, palette) -> float:
         hue = palette.categorical[index % len(palette.categorical)]
         width, height = 26.0, 12.0
         _box(axes, x - width / 2, y - height / 2, width, height, hue,
-             _shorten(name, 26), 9.2, bold=True, wrap=15)
+             name, 9.2, bold=True, wrap=15)
         if items:
             # Yozuv yoy ustiga tushishi mumkin — ochiq hoshiya uni har
             # qanday fonda o'qiladigan qiladi.
-            axes.text(x, y - height / 2 - 1.5,
-                      "\n".join(_shorten(item, 20) for item in items[:2]),
-                      ha="center", va="top", fontsize=7.4, color=INK_SOFT,
-                      linespacing=1.5, zorder=4,
-                      path_effects=[path_effects.withStroke(
-                          linewidth=3, foreground=SURFACE)])
+            listing = "\n".join(items[:2])
+            edge = y - height / 2 - 1.5
+            label = axes.text(x, edge, listing,
+                              ha="center", va="top", fontsize=7.4, color=INK_SOFT,
+                              linespacing=1.5, zorder=4,
+                              path_effects=[path_effects.withStroke(
+                                  linewidth=3, foreground=SURFACE)])
+            room = min(12.0, edge + 8)
+            _register_label(axes, label, (x - 15.0, edge - room, 30.0,
+                                          max(room, 5.0)), listing)
     return -8.0
 
 
@@ -380,7 +522,7 @@ def _cycle(axes, root: str, parts: list, palette) -> float:
 def _levels(axes, root: str, parts: list, palette, pyramid: bool = False) -> float:
     """Ustma-ust qatlamlar — biri ikkinchisiga asos bo'ladigan tuzilma."""
     count = len(parts)
-    _box(axes, 2, 88, 96, 11, palette.ramp[3], _shorten(root, 60), 10.5,
+    _box(axes, 2, 88, 96, 11, palette.ramp[3], root, 10.5,
          bold=True, wrap=60)
 
     top, bottom = 84.0, 4.0
@@ -400,15 +542,22 @@ def _levels(axes, root: str, parts: list, palette, pyramid: bool = False) -> flo
             x, width = 4.0, 92.0
 
         _box(axes, x, y, width, height, hue, "", 9)
-        label = _shorten(name, 40)
-        detail = " · ".join(_shorten(item, 20) for item in items[:2])
-        axes.text(x + width / 2, y + height / 2 + (1.6 if detail else 0),
-                  _wrap(label, 46), ha="center", va="center", fontsize=9.6,
-                  fontweight="bold", color=palettes.on_fill(hue), zorder=3)
+        detail = " · ".join(items[:2])
+        name_label = axes.text(
+            x + width / 2, y + height / 2 + (1.6 if detail else 0), name,
+            ha="center", va="center", fontsize=9.6,
+            fontweight="bold", color=palettes.on_fill(hue), zorder=3)
+        # Qatlam ichidagi ikki yozuv balandlikni bo'lishadi.
+        _register_label(axes, name_label,
+                        (x, y + height * (0.42 if detail else 0.1), width,
+                         height * (0.5 if detail else 0.8)), name)
         if detail:
-            axes.text(x + width / 2, y + height / 2 - 2.6, detail, ha="center",
-                      va="center", fontsize=7.6, zorder=3,
-                      color=palettes.on_fill(hue), alpha=0.85)
+            detail_label = axes.text(
+                x + width / 2, y + height / 2 - 2.6, detail, ha="center",
+                va="center", fontsize=7.6, zorder=3,
+                color=palettes.on_fill(hue), alpha=0.85)
+            _register_label(axes, detail_label,
+                            (x, y + height * 0.08, width, height * 0.36), detail)
     return 0.0
 
 
@@ -475,4 +624,7 @@ def draw(data: dict, title: str, work_dir: str, palette=None,
         # rasmning yarmi bo'sh qolardi.
         axes.set_ylim(min(floor, 98.0), 100)
         _title(axes, title)
+        # Yorliqlar oxirida sig'diriladi: bu paytda o'qlar chegarasi
+        # aniq, ya'ni katakning haqiqiy o'lchamini o'lchash mumkin.
+        _fit_labels(figure, axes)
         return _save(figure, work_dir, language, facecolor)
