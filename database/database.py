@@ -1492,6 +1492,18 @@ class Database:
             return cursor.rowcount > 0
 
     @staticmethod
+    async def set_store_preview_count(public_code: str, count: int) -> bool:
+        """Ko'rgazma rasmlari soni — diskdagi haqiqiy holatga keltiriladi."""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            cursor = await db.execute(
+                "UPDATE store_items SET preview_count = ? "
+                "WHERE public_code = ? AND preview_count <> ?",
+                (count, public_code, count),
+            )
+            await db.commit()
+            return cursor.rowcount > 0
+
+    @staticmethod
     async def record_store_sale(item_id: int, telegram_id: int, price: int) -> int:
         """Sotuvni yozadi va katalogdagi sotuv hisobini oshiradi."""
         async with aiosqlite.connect(DATABASE_FILE) as db:

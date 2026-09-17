@@ -144,6 +144,8 @@ async def handle_item(request: web.Request) -> web.Response:
     data = _item_json(row)
     count = min(row.get("preview_count") or 0, STORE_PREVIEW_MAX)
     data["previews"] = [f"/shop/preview/{code}/{n}.jpg" for n in range(1, count + 1)]
+    # Ko'rgazmada faqat boshlanishi bor; qolgani son bo'lib beriladi.
+    data["hidden_pages"] = max((row.get("slide_count") or count) - count, 0)
     data["buy_url"] = _bot_url(f"buy_{code}")
     return web.json_response(data)
 
@@ -186,6 +188,9 @@ async def handle_item_page(request: web.Request) -> web.Response:
     shots = [f"/shop/preview/{code}/{n}.jpg" for n in range(1, count + 1)]
     if not shots:
         shots = [f"/shop/preview/{code}/thumb.jpg"]
+    # Ishning qolgan varaqlari umuman rasmga aylantirilmagan — ular
+    # faqat son bo'lib ko'rsatiladi.
+    hidden = max((row.get("slide_count") or len(shots)) - len(shots), 0)
 
     from config import work_label
 
@@ -253,9 +258,24 @@ async def handle_item_page(request: web.Request) -> web.Response:
 
     description_block = (f'<p class="item-desc">{esc(row["description"])}</p>'
                          if row.get("description") else "")
-    note = (f"Ishning barcha {len(shots)} ta varag'i shu yerda — rasmlarda shtamp bor. "
-            f"Shtampsiz, tahrirlash mumkin bo'lgan PPTX fayl to'lovdan so'ng "
-            f"botda yuboriladi.")
+    file_name = (row.get("file_type") or "pptx").upper()
+    if hidden:
+        note = (f"Ko'rgazmada ishning dastlabki {len(shots)} ta {unit} "
+                f"ko'rsatilgan, yana {hidden} tasi to'liq faylda. Shtampsiz, "
+                f"tahrirlash mumkin bo'lgan to'liq {file_name} fayl to'lovdan "
+                f"so'ng botda yuboriladi.")
+    else:
+        note = (f"Ishning hamma {len(shots)} ta {unit} shu yerda — rasmlarda "
+                f"shtamp bor. Shtampsiz, tahrirlash mumkin bo'lgan {file_name} "
+                f"fayl to'lovdan so'ng botda yuboriladi.")
+
+    more_pages = ""
+    if hidden:
+        more_pages = (
+            f'<div class="more-pages"><strong>Yana {hidden} ta {unit}</strong>'
+            f'<span>Ko\'rgazmada faqat boshlanishi turadi. To\'liq ish '
+            f'({row.get("slide_count")} {unit}) to\'lovdan keyin fayl '
+            f'ko\'rinishida yuboriladi.</span></div>')
 
     values = {
         "{{TITLE}}": esc(title),
@@ -276,6 +296,7 @@ async def handle_item_page(request: web.Request) -> web.Response:
         "{{CREATE_TOP}}": create_top,
         "{{NOTE}}": esc(note),
         "{{SLIDES}}": slides,
+        "{{MORE_PAGES}}": more_pages,
     }
     for token, value in values.items():
         template = template.replace(token, value)

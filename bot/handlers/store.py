@@ -574,7 +574,8 @@ async def publish_got_description(message: Message, state: FSMContext):
     await status.edit_text(
         f"✅ <b>Katalogga qo'shildi</b>\n\n"
         f"🔖 Kod: <code>{code}</code>\n"
-        f"📄 {result['slide_count']} {unit}, {result['preview_count']} ta ko'rgazma rasmi\n"
+        f"📄 Jami {result['slide_count']} {unit}; saytda dastlabki "
+        f"{result['preview_count']} tasi ko'rinadi\n"
         f"🌐 {webapp.public_url('/shop/' + code)}\n\n"
         f"Olib tashlash: <code>/nashr_ochir {code}</code>",
         parse_mode="HTML",
