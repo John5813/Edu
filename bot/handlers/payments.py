@@ -434,7 +434,7 @@ async def notify_admins_about_payment(bot, user, amount, message_id, payment_id,
             from database.database import Database
 
             await Database.add_payment_admin_message(
-                payment_id, sent.chat.id, sent.message_id)
+                payment_id, sent.chat.id, sent.message_id, text=text)
 
         except Exception as e:
             logger.error(f"Failed to notify admin {admin_id}: {e}")
