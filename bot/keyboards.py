@@ -811,7 +811,7 @@ def get_self_update_force_keyboard(token: str) -> InlineKeyboardMarkup:
 def get_client_action_keyboard(telegram_id: int, show_dismiss: bool = False) -> InlineKeyboardMarkup:
     """Admin client management action keyboard"""
     keyboard = InlineKeyboardBuilder()
-    keyboard.add(InlineKeyboardButton(text="📨 Xabar yuborish", callback_data=f"client_msg_{telegram_id}"))
+    keyboard.add(InlineKeyboardButton(text="📨 Xabar / fayl yuborish", callback_data=f"client_msg_{telegram_id}"))
     keyboard.add(InlineKeyboardButton(text="➕ Balans qo'shish", callback_data=f"client_add_{telegram_id}"))
     keyboard.add(InlineKeyboardButton(text="➖ Balansdan yechish", callback_data=f"client_deduct_{telegram_id}"))
     keyboard.add(InlineKeyboardButton(text="🔍 Boshqa mijoz", callback_data="client_search_again"))
