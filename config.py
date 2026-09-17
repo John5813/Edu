@@ -300,9 +300,11 @@ STORE_VAULT_CHAT_ID = os.getenv("STORE_VAULT_CHAT_ID", "")
 # Ko'rgazma rasmlari — yagona ommaviy ko'rinadigan qism. Bu katalog
 # `temp/` dan tashqarida, chunki davriy tozalash uni o'chirib yuborardi.
 STORE_PREVIEW_DIR = os.getenv("STORE_PREVIEW_DIR", "store_previews")
-# Saytda hamma slayd ko'rsatiladi; chegara faqat juda katta fayl diskni
-# to'ldirib yubormasligi uchun turibdi.
-STORE_PREVIEW_MAX = int(os.getenv("STORE_PREVIEW_MAX", "60"))
+# Saytda ishning faqat boshlanishi ko'rsatiladi: dastlabki shuncha varaq
+# rasmga aylantirilib saqlanadi, qolganlari umuman chizilmaydi — ular
+# hostda joy egallamasin. Sahifada "yana X ta varaq bor" deb yoziladi,
+# to'liq ish esa to'lovdan keyin fayl ko'rinishida beriladi.
+STORE_PREVIEW_MAX = int(os.getenv("STORE_PREVIEW_MAX", "8"))
 # Rasm ustidagi shaffof shtamp — ko'rgazma xaridning o'rnini bosmasligi uchun.
 STORE_WATERMARK = os.getenv("STORE_WATERMARK", "NAMUNA")
 

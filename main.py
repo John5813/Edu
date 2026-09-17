@@ -367,6 +367,15 @@ async def main():
 
     await _upgrade_default_ai_model()
 
+    # Saytda ishning faqat boshlanishi ko'rsatiladi, shuning uchun eski
+    # nashrlarning ortiqcha ko'rgazma rasmlari hostda qolib ketmasin.
+    try:
+        from services.store_publisher import trim_stored_previews
+
+        await trim_stored_previews()
+    except Exception as exc:
+        logger.warning("Ko'rgazma rasmlarini qisqartirib bo'lmadi: %s", exc)
+
     # Set Mini App domain from environment
     # Domen Mini App havolasiga ham, do'kondagi ish manziliga ham kerak.
     # `REPLIT_DEV_DOMAIN` faqat Replit'da to'ldiriladi — o'z serverida

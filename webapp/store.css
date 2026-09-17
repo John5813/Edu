@@ -143,5 +143,12 @@ select{
 .slides figure{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .slides img{width:100%;display:block;background:var(--bg)}
 .slides figcaption{font-size:12.5px;color:var(--muted);padding:8px 12px;border-top:1px solid var(--line)}
+/* Ko'rgazmada ishning faqat boshlanishi turadi — qolgani shu blokda son
+   bo'lib e'lon qilinadi. Uzuq-yuluq ko'rinmasin uchun bu ham kartochka. */
+.more-pages{display:flex;flex-direction:column;gap:5px;text-align:center;
+  background:var(--card);border:1px dashed var(--line);border-radius:12px;
+  padding:22px 18px;margin:-30px 0 44px}
+.more-pages strong{font-size:16px}
+.more-pages span{font-size:13px;color:var(--muted);max-width:60ch;margin:0 auto}
 
 footer{border-top:1px solid var(--line);padding:26px 0;color:var(--muted);font-size:13px;text-align:center}

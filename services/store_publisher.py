@@ -317,13 +317,17 @@ def _shrink_and_stamp(image, width: int):
     return _watermark(image)
 
 
-def render_previews(source_path: str, public_code: str, limit: int = 0) -> int:
-    """Har varaqni shtampli JPG qilib saqlaydi, nechtasi saqlangani qaytadi.
+def render_previews(source_path: str, public_code: str,
+                    limit: int = 0) -> tuple[int, int]:
+    """Dastlabki varaqlarni shtampli JPG qilib saqlaydi.
 
-    Saytda butun ish varaqma-varaq ko'riladi — faylning o'zi esa berilmaydi,
-    shu sababli har rasmga shtamp bosiladi. LibreOffice .pptx ni ham,
-    .docx ni ham avval PDF'ga aylantiradi, shuning uchun bitta yo'l ikkala
-    turga yetadi.
+    `(saqlangan_rasm, jami_varaq)` qaytaradi. Saytda ishning faqat
+    boshlanishi ko'rsatiladi — qolgan varaqlar rasmga ham aylantirilmaydi,
+    ular hostda joy egallamasligi kerak; sahifada esa nechta varaq
+    qolgani yoziladi. Ko'rsatilganlarga shtamp bosiladi: ko'rgazma ishni
+    baholashga yetadi, lekin uning o'rnini bosmaydi. LibreOffice .pptx ni
+    ham, .docx ni ham avval PDF'ga aylantiradi, shuning uchun bitta yo'l
+    ikkala turga yetadi.
     """
     from PIL import Image
 
@@ -336,7 +340,8 @@ def render_previews(source_path: str, public_code: str, limit: int = 0) -> int:
     images = pptx_to_images(source_path)
     if not images:
         logger.error("Ko'rgazma rasmlari yaratilmadi: %s", source_path)
-        return 0
+        return 0, 0
+    total = len(images)
 
     saved = 0
     try:
@@ -361,12 +366,66 @@ def render_previews(source_path: str, public_code: str, limit: int = 0) -> int:
     finally:
         discard_images(images)
 
-    return saved
+    if total > saved:
+        logger.info("%s: %s varaqdan %s tasi ko'rgazmaga chiqdi, qolgani "
+                    "saqlanmadi", public_code, total, saved)
+    return saved, total
 
 
 def discard_previews(public_code: str) -> None:
     """Katalogdan olib tashlangan ishning rasmlarini o'chiradi."""
     shutil.rmtree(os.path.join(STORE_PREVIEW_DIR, public_code), ignore_errors=True)
+
+
+async def trim_stored_previews(limit: int = 0) -> int:
+    """Eski nashrlarning ortiqcha ko'rgazma rasmlarini o'chiradi.
+
+    Ilgari butun ish varaqma-varaq rasmga aylantirilardi: qirq varaqli
+    kurs ishi hostda qirqta JPG bo'lib yotardi. Endi saytda faqat
+    boshlanishi ko'rsatiladi, ya'ni ortiqcha rasmlar hech kimga
+    ko'rinmaydi — ular diskda ham qolmasligi kerak. Bazadagi
+    `preview_count` ham haqiqatga keltiriladi; jami varaq soni
+    `slide_count` da turadi, shuning uchun "yana X ta varaq" yozuvi
+    eski ishlarda ham to'g'ri chiqadi.
+
+    Bot ishga tushganda bir marta chaqiriladi va nechta fayl o'chirilgani
+    qaytadi.
+    """
+    from database.database import Database
+
+    limit = limit or STORE_PREVIEW_MAX
+    if not os.path.isdir(STORE_PREVIEW_DIR):
+        return 0
+
+    removed = 0
+    for code in os.listdir(STORE_PREVIEW_DIR):
+        folder = os.path.join(STORE_PREVIEW_DIR, code)
+        if not os.path.isdir(folder):
+            continue
+        kept = 0
+        for name in os.listdir(folder):
+            stem, extension = os.path.splitext(name)
+            if extension.lower() != ".jpg" or not stem.isdigit():
+                continue                      # thumb.jpg va begona fayllar
+            if int(stem) > limit:
+                try:
+                    os.remove(os.path.join(folder, name))
+                    removed += 1
+                except OSError as exc:
+                    logger.warning("Ortiqcha ko'rgazma rasmi o'chmadi (%s): %s",
+                                   name, exc)
+            else:
+                kept += 1
+        if kept:
+            try:
+                await Database.set_store_preview_count(code, kept)
+            except Exception as exc:
+                logger.warning("preview_count yangilanmadi (%s): %s", code, exc)
+
+    if removed:
+        logger.info("Ko'rgazma rasmlari qisqartirildi: %s ta ortiqcha fayl "
+                    "o'chirildi (chegara %s varaq)", removed, limit)
+    return removed
 
 
 def _slide_count(path: str, fallback: int) -> int:
@@ -421,7 +480,7 @@ async def publish_work(
     cleaned_path = anonymize(source_path, customer_name)
 
     try:
-        preview_count = render_previews(cleaned_path, public_code)
+        preview_count, page_count = render_previews(cleaned_path, public_code)
         if not preview_count:
             raise RuntimeError("ko'rgazma rasmlari tayyorlanmadi")
 
@@ -446,7 +505,9 @@ async def publish_work(
             work_type=work_type,
             language=language,
             keywords=keywords,
-            slide_count=_slide_count(cleaned_path, preview_count),
+            # Jami varaq soni — ko'rgazmada nechtasi ko'ringanidan
+            # qat'i nazar: sayt "yana X ta varaq bor" deb shundan yozadi.
+            slide_count=_slide_count(cleaned_path, page_count),
             file_type=file_type,
             preview_count=preview_count,
         )
@@ -467,7 +528,7 @@ async def publish_work(
         "title": title,
         "price": price,
         "file_type": file_type,
-        "slide_count": _slide_count(source_path, preview_count),
+        "slide_count": _slide_count(source_path, page_count),
         "preview_count": preview_count,
     }
 
