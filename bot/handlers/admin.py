@@ -2813,15 +2813,21 @@ def _take_update_token(admin_id: int, token: str) -> bool:
 
 
 def _busy_documents() -> tuple:
-    """Hozir nima bajarilmoqda: (ishlayotganlar ro'yxati, navbatdagilar soni).
+    """Hozir nima bajarilmoqda: (tavsiflar, navbatdagilar, tirik ishlar soni).
 
     Navbat faqat og'ir hujjatlarni biladi; premium taqdimot va loyiha ishi
     undan tashqarida ishlaydi, shuning uchun umumiy hisoblagichdan
     so'raymiz.
+
+    Tavsifda har ishning yoshi bor. Javob bermay qolgan (osilib qolgan)
+    ishlar alohida belgilanadi va yangilashni TO'XTATMAYDI: ilgari bitta
+    osilgan generatsiya tugmani butunlay ishlamaydigan qilib qo'yardi —
+    aslida hech narsa yaratilmayotgan bo'lsa ham.
     """
     from services import workload
 
-    running = workload.labels()
+    described = workload.describe()
+    alive = workload.active()
     try:
         from bot.queue_service import get_doc_queue
 
@@ -2829,7 +2835,7 @@ def _busy_documents() -> tuple:
     except Exception as e:
         logger.warning(f"Navbat holati o'qilmadi: {e}")
         pending = 0
-    return running, pending
+    return described, pending, alive
 
 
 def _format_update_status(state: dict) -> tuple:
@@ -2933,11 +2939,11 @@ async def handle_self_update_go(callback: CallbackQuery):
         await callback.answer("Bu tugma eskirgan. Qaytadan oching.", show_alert=True)
         return
 
-    running, pending = _busy_documents()
-    if running or pending:
+    described, pending, alive = _busy_documents()
+    if alive or pending:
         # Qayta ishga tushirish ishlab turgan generatsiyani uzib qo'yadi —
         # mijoz esa buning uchun pul to'lagan.
-        listed = "\n".join(f"• {label}" for label in running[:6]) or "• —"
+        listed = "\n".join(f"• {line}" for line in described[:6]) or "• —"
         fresh = _new_update_token(callback.from_user.id)
         await callback.answer()
         await callback.message.edit_text(
@@ -2945,10 +2951,21 @@ async def handle_self_update_go(callback: CallbackQuery):
             f"{listed}\nNavbatda: {pending} ta\n\n"
             "Hozir yangilasangiz ular uzilib qoladi va mijozlar to'lagan "
             "pulini qaytarish kerak bo'ladi.\n\n"
-            "Bir necha daqiqadan keyin qayta urinib ko'ring.",
+            "Bir necha daqiqadan keyin qayta urinib ko'ring — yoki "
+            "quyidagi tugma bilan baribir yangilang.",
             parse_mode="HTML",
             reply_markup=get_self_update_force_keyboard(fresh))
         return
+
+    # Osilib qolgan yozuvlar qolgan bo'lsa ular tozalanadi: ish allaqachon
+    # tugamaydigan bo'lib qolgan, ro'yxatda turishi esa keyingi safar ham
+    # yangilashni to'xtatib turardi.
+    if described:
+        from services import workload
+
+        dropped = workload.drop_stale()
+        logger.info("Yangilashdan oldin %s ta javobsiz ish ro'yxatdan olindi",
+                    dropped)
 
     await _do_self_update(callback)
 
