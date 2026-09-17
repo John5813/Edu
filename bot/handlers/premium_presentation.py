@@ -17,6 +17,7 @@ from aiogram.types import (
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot import checkout as pay
+from bot import checkout as pay
 from bot.states import PremiumPresentationStates
 from database.database import Database
 from translations import get_text
@@ -104,14 +105,22 @@ async def _warn_admin_about_images(bot) -> None:
 MIN_SLIDES = 5
 MAX_SLIDES = 30
 
-# Narx (so'm) — slide soni bo'yicha
+# Narx har varaqdan hisoblanadi va butun mingga yaxlitlanadi (pastga):
+# 10 varaq — 7 000, 15 varaq — 10 000, 20 varaq — 14 000, 30 varaq — 21 000.
+# Ilgari uchta keng zinapoya bor edi (10 gacha 7 500, 20 gacha 12 500),
+# ya'ni 11 varaq ham, 20 varaq ham bir xil turardi.
+PRICE_PER_SLIDE = 700
+MIN_PRICE = 3000
+
+
 def _get_price(slide_count: int) -> int:
-    if slide_count <= 10:
-        return 7500
-    elif slide_count <= 20:
-        return 12500
-    else:
-        return 17500
+    """Varaq soniga qarab narx (so'm)."""
+    try:
+        count = int(slide_count or 0)
+    except (TypeError, ValueError):
+        count = MIN_SLIDES
+    count = max(MIN_SLIDES, min(count, MAX_SLIDES))
+    return max(MIN_PRICE, count * PRICE_PER_SLIDE // 1000 * 1000)
 
 
 def _back_text(lang: str) -> str:
@@ -769,7 +778,7 @@ async def premium_ppt_other_methods(callback: CallbackQuery, state: FSMContext, 
     if not data:
         await _report_expired(callback.message, state, lang)
         return
-    price = int(data.get("price", 7500))
+    price = int(data.get("price", _get_price(MIN_SLIDES)))
     await callback.message.edit_text(
         get_text(lang, "pay_other_title", price=price),
         parse_mode="HTML",
@@ -787,7 +796,7 @@ async def premium_ppt_payment_back(callback: CallbackQuery, state: FSMContext, d
     if not data:
         await _report_expired(callback.message, state, lang)
         return
-    price = int(data.get("price", 7500))
+    price = int(data.get("price", _get_price(MIN_SLIDES)))
     texts = {
         "uz": f"✅ <b>Buyurtma tasdiqlandi</b>\n\n💰 Narx: <b>{price:,} so'm</b>\nTo'lov usulini tanlang:",
         "ru": f"✅ <b>Заказ подтверждён</b>\n\n💰 Цена: <b>{price:,} сум</b>\nВыберите способ оплаты:",
@@ -809,7 +818,7 @@ async def premium_ppt_recheck(callback: CallbackQuery, state: FSMContext, db: Da
         await _report_expired(callback.message, state, lang)
         return
 
-    price = int(data.get("price", 7500))
+    price = int(data.get("price", _get_price(MIN_SLIDES)))
     balance = user.balance if user else 0
     if balance < price:
         await callback.answer(
@@ -849,7 +858,7 @@ async def premium_ppt_pay_stars(callback: CallbackQuery, state: FSMContext, db: 
     if not data:
         await _report_expired(callback.message, state, lang)
         return
-    price = int(data.get("price", 7500))
+    price = int(data.get("price", _get_price(MIN_SLIDES)))
     slide_count = int(data.get("slide_count", 10))
     sent = await pay.send_invoice(
         callback.message, CHECKOUT, lang, price,
@@ -912,7 +921,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
 
     # Tasdiqlash va to'lov tanlovi alohida ekranda bo'ladi.
     if not data.get("payment_method"):
-        price = data.get("price", 7500)
+        price = data.get("price", _get_price(MIN_SLIDES))
         await state.set_state(PremiumPresentationStates.waiting_for_payment)
         payment_texts = {
             "uz": (
@@ -947,7 +956,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
     source_text = data.get("source_text", "")
     presentation_language = data.get("presentation_language", "uz")
     slide_count = data.get("slide_count", 10)
-    price = data.get("price", 7500)
+    price = data.get("price", _get_price(MIN_SLIDES))
     level = data.get("level", 2)
     client_name = data.get("client_name", "")
 
