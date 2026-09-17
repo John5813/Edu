@@ -316,7 +316,13 @@ async def payment_amount_entered(message: Message, state: FSMContext, db: Databa
         # 2. Add balance
         user = await db.get_user_by_id(payment.user_id)
         await db.update_user_balance(user.telegram_id, new_amount)
-        await _nudge_pending_order(callback.bot, db, user.telegram_id)
+        # Bu MATN ishlovchisi — bu yerda `callback` yo'q. Ilgari shu satrda
+        # `callback.bot` turardi: summani o'zgartirib tasdiqlagan admin
+        # har safar "❌ Xatolik yuz berdi" xabarini olardi. Balans allaqachon
+        # qo'shilgani uchun jarayon to'g'ri ko'rinar, lekin undan keyingi
+        # qadamlar — referal bonusi, mijozga xabar, tugmalarni olib tashlash
+        # va adminlarga bildirish — umuman bajarilmasdi.
+        await _nudge_pending_order(message.bot, db, user.telegram_id)
 
         # 3. Referral bonus (same logic as approve_payment)
         PAYMENT_BONUS = 1000
