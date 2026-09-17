@@ -1869,12 +1869,62 @@ async def client_msg_start(callback: CallbackQuery, state: FSMContext):
     await state.update_data(client_tg_id=tg_id, client_action_msg_id=callback.message.message_id)
     await state.set_state(AdminStates.waiting_for_client_message)
     await callback.message.edit_text(
-        "📨 Mijozga yuboriladigan xabarni yozing:\n\n(Bekor qilish uchun tugmani bosing)",
+        "📨 Mijozga xabar yoki fayl yuborish\n\n"
+        "Matn yozing yoki shu yerga fayl tashlang — hujjat, rasm, video, "
+        "ovozli xabar, stiker. Izoh (caption) bilan yuborsangiz, u ham "
+        "mijozga yetib boradi.\n\n(Bekor qilish uchun tugmani bosing)",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(text="❌ Bekor qilish", callback_data=f"client_action_cancel_{tg_id}")
         ]])
     )
     await callback.answer()
+
+# Mijozga ketadigan xabarning sarlavhasi — u admindan kelganini bildiradi.
+_ADMIN_NOTICE = "📩 Admin xabari:"
+
+
+def _attachment_name(message: Message) -> str:
+    """Yuborilgan biriktirmaning nomi — adminga hisobot uchun."""
+    if message.document:
+        return f"hujjat ({message.document.file_name or 'nomsiz'})"
+    for kind, label in (("photo", "rasm"), ("video", "video"),
+                        ("animation", "GIF"), ("audio", "audio"),
+                        ("voice", "ovozli xabar"), ("video_note", "video xabar"),
+                        ("sticker", "stiker")):
+        if getattr(message, kind, None):
+            return label
+    return ""
+
+
+async def _send_to_client(message: Message, tg_id: int) -> str:
+    """Adminning xabarini yoki faylini mijozga yetkazadi.
+
+    Fayl `copy_to` bilan ko'chiriladi: shunda u serverga qayta yuklanmaydi
+    va turi (hujjat, rasm, video, ovoz, stiker) o'zgarmaydi. Ilgari bu
+    yerda faqat `message.text` yuborilardi — admin fayl tashlasa, mijozga
+    "None" degan matn ketardi.
+    """
+    if message.text:
+        await message.bot.send_message(tg_id, f"{_ADMIN_NOTICE}\n\n{message.text}")
+        return "✅ Xabar muvaffaqiyatli yuborildi."
+
+    kind = _attachment_name(message)
+    if not kind:
+        return "❌ Bu turdagi xabarni yuborib bo'lmaydi. Matn yoki fayl yuboring."
+
+    if (message.caption or "").strip() or message.sticker or message.video_note:
+        # Admin izoh yozgan bo'lsa unga tegilmaydi: izohdagi formatlash
+        # (qalin harf, havola) o'z joyida qolishi uchun sarlavha alohida
+        # xabar bo'lib ketadi. Stiker va video xabar esa izohni umuman
+        # qabul qilmaydi.
+        await message.bot.send_message(tg_id, _ADMIN_NOTICE)
+        await message.copy_to(tg_id)
+    else:
+        # Izoh bo'sh — sarlavhani o'sha joyga yozamiz. `parse_mode=None`:
+        # sarlavha oddiy matn, HTML deb o'qilmasin.
+        await message.copy_to(tg_id, caption=_ADMIN_NOTICE, parse_mode=None)
+    return f"✅ Mijozga {kind} yuborildi."
+
 
 @router.message(AdminStates.waiting_for_client_message)
 async def client_msg_send(message: Message, state: FSMContext, db: Database):
@@ -1885,11 +1935,10 @@ async def client_msg_send(message: Message, state: FSMContext, db: Database):
     msg_id = data.get("client_action_msg_id")
     await state.clear()
     try:
-        await message.bot.send_message(tg_id, f"📩 Admin xabari:\n\n{message.text}")
-        result = "✅ Xabar muvaffaqiyatli yuborildi."
+        result = await _send_to_client(message, tg_id)
     except Exception as e:
         logger.error(f"Error sending message to client {tg_id}: {e}")
-        result = f"❌ Xabar yuborib bo'lmadi: {e}"
+        result = f"❌ Yuborib bo'lmadi: {e}"
     try:
         await message.delete()
     except Exception:
