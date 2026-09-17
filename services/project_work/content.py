@@ -368,13 +368,18 @@ class ProjectContentBuilder:
         scale = layout.word_scale(resolved, target, language)
         specs = [self._scaled(spec, scale) for spec in resolved]
 
+        # Bo'limlar bir vaqtda yoziladi va bir-birini ko'rmaydi, shuning
+        # uchun loyihaning o'zi shu yerda — bir marta — qat'iylashtiriladi.
+        passport = await self._project_passport(topic, field_key, language, brief)
+
         semaphore = asyncio.Semaphore(_CONCURRENCY)
         done = 0
 
         async def one(spec: SectionSpec) -> SectionContent:
             nonlocal done
             async with semaphore:
-                section = await self._section(topic, spec, language, brief, field_key)
+                section = await self._section(topic, spec, language, brief,
+                                              field_key, passport)
             done += 1
             if progress_cb:
                 progress_cb(done, len(specs))
@@ -459,6 +464,88 @@ MATERIAL:
             "consistent with its facts and terminology, and do not contradict it:\n"
             f"{brief}"
         )
+
+    # ------------------------------------------------------------- pasport
+
+    @staticmethod
+    def _passport_block(passport: str) -> str:
+        """Har promptga qo'shiladigan loyiha pasporti.
+
+        Bo'limlar bir vaqtda, bir-biridan xabarsiz yoziladi. Mavzu umumiy
+        bo'lsa ("Biznes loyiha") har bo'lim o'ziga boshqa biznes o'ylab
+        topardi: kirishda pishloq sexi, uchinchi bo'limda qahvaxona,
+        beshinchisida ta'lim markazi. Pasport — butun ish uchun bir marta
+        qat'iylashtirilgan tafsilotlar; u har promptga qo'shiladi.
+        """
+        if not passport:
+            return ""
+        return (
+            "\n\nPROJECT PASSPORT — the whole work describes THIS ONE project. "
+            "Every section, table, figure and calculation must use exactly these "
+            "facts. Never invent a different business, product, place or set of "
+            "numbers; add detail only where the passport is silent:\n"
+            f"{passport}"
+        )
+
+    async def _project_passport(self, topic: str, field_key: str, language: str,
+                                brief: str = "") -> str:
+        """Loyihaning aniq tafsilotlarini bir marta belgilaydi.
+
+        Mavzu aniq bo'lsa ("Non zavodi tashkil etish") pasport uni shunchaki
+        rasmiylashtiradi; umumiy bo'lsa — bitta aniq variantni tanlaydi va
+        butun ish shu bittasi haqida yoziladi.
+        """
+        target = _LANGUAGE_NAMES.get(language, "Uzbek")
+        prompt = f"""Fix the concrete identity of one project work ("loyiha ishi").
+
+Project topic: "{topic}"
+
+The topic may be general. Decide ONCE what this specific project is, so that
+every section of the work can be written about the same thing. If the topic
+already names the object, keep it and only fill in the missing detail.
+
+Answer with 7-9 short lines, each "Name: value", in {target}:
+  the project's own name, what exactly it produces or does, where it is
+  located, who its customers or users are, its capacity or volume, the
+  start-up investment, the price of one unit, the team size, the launch
+  period. Use realistic Uzbekistan figures in so'm.
+
+No headings, no explanation, no markdown — only the lines.{self._source_block(brief)}"""
+
+        try:
+            response = await self.ai._make_request(
+                messages=[
+                    {"role": "system", "content": (
+                        "You pin down the concrete facts of a project so that every "
+                        "part of the write-up stays about the same project.")},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=400,
+                temperature=0.5,
+            )
+        except Exception as e:
+            logger.error("Loyiha pasporti olinmadi: %s", e)
+            return ""
+
+        lines = []
+        for raw in (response or "").splitlines():
+            line = raw.strip().lstrip("-•*").strip()
+            # Faqat "Nom: qiymat" ko'rinishidagi satrlar qoladi. Model
+            # qo'shib yuborgan kirish jumlasi ("Mana loyiha tafsilotlari:")
+            # ham tushib qolishi uchun ikki nuqtadan KEYIN qiymat borligi
+            # tekshiriladi.
+            name, _, value = line.partition(":")
+            if not value.strip() or len(name.strip()) < 3:
+                continue
+            lines.append(f"- {line[:160]}")
+            if len(lines) >= 10:
+                break
+        if len(lines) < 3:
+            logger.warning("Loyiha pasporti tushunarsiz qaytdi — ishlatilmaydi")
+            return ""
+        passport = "\n".join(lines)
+        logger.info("Loyiha pasporti: %s", passport.replace("\n", " | "))
+        return passport
 
     # ------------------------------------------------------------- bo'limlar
 
@@ -621,9 +708,9 @@ Respond with JSON only:
 
     async def _section(
         self, topic: str, spec: SectionSpec, language: str, brief: str = "",
-        field_key: str = GENERIC_FIELD_KEY,
+        field_key: str = GENERIC_FIELD_KEY, passport: str = "",
     ) -> SectionContent:
-        text = await self._section_text(topic, spec, language, brief)
+        text = await self._section_text(topic, spec, language, brief, passport)
 
         table = None
         chart = None
@@ -638,17 +725,17 @@ Respond with JSON only:
             # KeyError bergan — ya'ni tuzilma sxemasi hech bir loyiha ishida
             # chiqmagan, xato esa log ichida qolib ketgan.
             try:
-                chart = await self._scheme(topic, spec, language, brief)
+                chart = await self._scheme(topic, spec, language, brief, passport)
             except Exception as e:
                 logger.error("Loyiha sxemasi olinmadi (%s): %s", spec.key, e)
         elif spec.artifact in TABLE_ARTIFACTS:
             try:
-                table = await self._table(topic, spec, language, brief)
+                table = await self._table(topic, spec, language, brief, passport)
             except Exception as e:
                 logger.error("Loyiha jadvali olinmadi (%s): %s", spec.key, e)
         elif spec.artifact in CHART_ARTIFACTS or spec.artifact in CARD_ARTIFACTS:
             try:
-                chart = await self._chart(topic, spec, language, brief)
+                chart = await self._chart(topic, spec, language, brief, passport)
             except Exception as e:
                 logger.error("Loyiha diagrammasi olinmadi (%s): %s", spec.key, e)
             if chart:
@@ -664,13 +751,15 @@ Respond with JSON only:
         count = FORMULA_COUNTS.get(spec.artifact or "")
         if count:
             formulas = await self._formulas(
-                topic, spec, language, field_key, count, chart or {}, table
+                topic, spec, language, field_key, count, chart or {}, table,
+                passport
             )
 
         return SectionContent(spec=spec, text=text, table=table, chart=chart,
                               image_prompt="", formulas=formulas, note=note)
 
-    async def _section_text(self, topic: str, spec: SectionSpec, language: str, brief: str = "") -> str:
+    async def _section_text(self, topic: str, spec: SectionSpec, language: str,
+                            brief: str = "", passport: str = "") -> str:
         target = _LANGUAGE_NAMES.get(language, "Uzbek")
         prompt = f"""Write the body text of one section of a project work ("loyiha ishi").
 
@@ -685,7 +774,7 @@ RULES:
 {_voice_rule(spec, language)}
 - Be concrete: real figures, named examples, Uzbekistan context where it fits
 - Plain text only — no markdown, no bullet lists, no special characters
-- Do not mention that a table or figure follows; it is added automatically{self._source_block(brief)}"""
+- Do not mention that a table or figure follows; it is added automatically{self._passport_block(passport)}{self._source_block(brief)}"""
 
         response = await self.ai._make_request(
             messages=[
@@ -711,7 +800,8 @@ RULES:
 
     # ------------------------------------------------------------- artefakt
 
-    async def _table(self, topic: str, spec: SectionSpec, language: str, brief: str = "") -> Dict:
+    async def _table(self, topic: str, spec: SectionSpec, language: str,
+                     brief: str = "", passport: str = "") -> Dict:
         kind = _TABLE_KINDS[spec.artifact]
         target = _LANGUAGE_NAMES.get(language, "Uzbek")
         columns = kind["columns"]
@@ -740,8 +830,7 @@ Keep every cell SHORT: at most six words, or one formula written compactly.
 A cell is not a sentence and never a list — "Bosh oshpaz 1, oshpaz 2,
 yordamchi 2, administrator 2, ofitsiant 6" belongs in the section text, not
 in a cell. If a value needs explaining, the explanation goes in the text.
-
-{self._source_block(brief)}
+{self._passport_block(passport)}{self._source_block(brief)}
 
 Respond with JSON only:
 {{"headers": ["..."], "rows": [["..."]]}}"""
@@ -760,7 +849,8 @@ Respond with JSON only:
             raise ValueError("jadval bo'sh qaytdi")
         return {"headers": headers, "rows": rows}
 
-    async def _chart(self, topic: str, spec: SectionSpec, language: str, brief: str = "") -> Dict:
+    async def _chart(self, topic: str, spec: SectionSpec, language: str,
+                     brief: str = "", passport: str = "") -> Dict:
         """Diagramma uchun raqamli ma'lumot — jadvaldan farqli o'laroq son so'raladi."""
         ask, example = _CHART_SHAPES[spec.artifact]
         target = _LANGUAGE_NAMES.get(language, "Uzbek")
@@ -776,7 +866,7 @@ no thousand separators, no currency words inside the number.
 Add one more key, "note": a single sentence in {target} saying what the figure
 shows and what conclusion the reader should draw from it. It is printed under
 the figure, so it must stand on its own — never "as can be seen in the figure
-above".{self._source_block(brief)}
+above".{self._passport_block(passport)}{self._source_block(brief)}
 
 Respond with JSON only, in exactly this shape (plus "note"):
 {example}"""
@@ -801,7 +891,7 @@ Respond with JSON only, in exactly this shape (plus "note"):
                     "periods", "channels"))
 
     async def _scheme(self, topic: str, spec: SectionSpec, language: str,
-                      brief: str = "") -> Dict:
+                      brief: str = "", passport: str = "") -> Dict:
         """Loyiha tuzilmasi sxemasi uchun bloklar ierarxiyasini so'raydi."""
         target = _LANGUAGE_NAMES.get(language, "Uzbek")
         prompt = f"""Describe the structure of this project as blocks for a diagram.
@@ -823,7 +913,7 @@ for a process or cycle they are the stages IN ORDER, for levels they go from
 the top layer down. Each has 2-3 concrete components under it. Keep every
 label short — two or three words — because they are drawn inside boxes.
 Write them in {target}. The parts must be specific to this project, not
-generic headings.{self._source_block(brief)}
+generic headings.{self._passport_block(passport)}{self._source_block(brief)}
 
 Respond with JSON only:
 {{"kind": "process", "root": "Loyiha nomi",
@@ -835,7 +925,7 @@ Respond with JSON only:
 
     async def _formulas(
         self, topic: str, spec: SectionSpec, language: str, field_key: str,
-        count: int, data: Dict, table: Optional[Dict],
+        count: int, data: Dict, table: Optional[Dict], passport: str = "",
     ) -> List[Dict]:
         """Bo'limning hisob-kitoblari — bittasi emas, bir nechtasi.
 
@@ -866,7 +956,7 @@ measure twice and do not invent a measure that this field does not use.
 
 Every calculation must be worked through with real numbers: the formula, the
 value of each symbol, and the figure that comes out. The arithmetic must be
-correct — a reader will check it.{known}
+correct — a reader will check it.{known}{self._passport_block(passport)}
 
 "latex" is the formula in LaTeX without dollar signs. "name", "given",
 "result", "meaning" are in {target}. Give "conclusion" only on the last
