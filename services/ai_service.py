@@ -852,6 +852,95 @@ IMPORTANT: Respond ONLY in JSON format! Total {slide_count} slides REQUIRED (mai
     def _title_rule(cls, language: str) -> str:
         return cls._TITLE_RULE.get(language, cls._TITLE_RULE["uz"])
 
+    # Reja mavzuning o'zidan kelib chiqishi kerak. Ilgari promptda faqat
+    # "har bo'lim turli jihatlarni qamrab olsin" degan gap bor edi va model
+    # har qanday mavzuga bitta shablonni yopishtirardi: tarixi →
+    # nazariy asoslari → hozirgi holati → muammolar va istiqbollar. Shu
+    # sababli har bir kurs ishi asrlar tarixidan boshlanib ketardi.
+    _PLAN_RULE = {
+        "uz": """REJA MAVZUNING O'ZIDAN KELIB CHIQSIN:
+- Avval mavzu qaysi sohaga tegishli ekanini aniqlang (texnika, iqtisod, huquq,
+  tibbiyot, pedagogika, adabiyot, tabiiy fan va h.k.) va shu soha mutaxassisi
+  bu mavzu bo'yicha qanday savollarga javob berishini o'ylang. Bo'limlar AYNAN
+  shu savollarga javob bersin.
+- Har bo'lim nomida mavzuning o'z tushunchalari bo'lsin — nomga qarab qaysi
+  mavzu ekani bilinsin.
+- Mavzu tarixiy bo'lmasa, birinchi bo'limni "tarixi", "rivojlanish
+  bosqichlari", "shakllanishi" deb boshlamang va asrlarni tilga olmang.
+- "Nazariy asoslari — tahlil — muammolar va istiqbollar" kabi har qanday
+  mavzuga yopishtiriladigan shablondan foydalanmang.
+- Bo'limlar bir-birini takrorlamasin: har biri boshqa savolga javob bersin.""",
+        "ru": """ПЛАН ДОЛЖЕН ВЫТЕКАТЬ ИЗ САМОЙ ТЕМЫ:
+- Сначала определите, к какой области относится тема (техника, экономика,
+  право, медицина, педагогика, литература, естественные науки и т.д.) и на
+  какие вопросы по ней отвечал бы специалист. Главы отвечают ИМЕННО на эти
+  вопросы.
+- В названии каждой главы должны быть собственные понятия темы — по названию
+  должно быть понятно, о какой теме идёт речь.
+- Если тема не историческая, не начинайте первую главу с "истории", "этапов
+  развития", "становления" и не упоминайте века.
+- Не используйте шаблон "теоретические основы — анализ — проблемы и
+  перспективы", который подходит к любой теме.
+- Главы не должны повторять друг друга: каждая отвечает на свой вопрос.""",
+        "en": """THE PLAN MUST COME FROM THE TOPIC ITSELF:
+- First work out which field the topic belongs to (engineering, economics, law,
+  medicine, education, literature, natural science and so on) and what
+  questions a specialist in that field would answer. The chapters answer
+  EXACTLY those questions.
+- Every chapter title must carry the topic's own concepts — the title alone
+  should say which topic this is.
+- If the topic is not historical, do not open with "history", "stages of
+  development" or "formation", and do not mention centuries.
+- Do not use the one-size-fits-all template "theoretical foundations —
+  analysis — problems and prospects".
+- Chapters must not repeat one another: each answers a different question.""",
+    }
+
+    _SUBPLAN_RULE = {
+        "uz": """- Kichik bo'limlar shu bo'limning ichini ochsin, mavzuni qaytadan
+  boshlamasin.
+- Nomlarda mavzuning aniq tushunchalari bo'lsin; "mohiyati", "ahamiyati",
+  "muammolari" kabi umumiy so'zlar bilan cheklanmang.
+- Mavzu tarixiy bo'lmasa, tarixga oid kichik bo'lim qo'shmang.""",
+        "ru": """- Подразделы раскрывают содержание ИМЕННО этой главы, а не начинают
+  тему заново.
+- В названиях должны быть конкретные понятия темы; не ограничивайтесь общими
+  словами "сущность", "значение", "проблемы".
+- Если тема не историческая, не добавляйте подраздел об истории.""",
+        "en": """- Subsections open up THIS chapter, they do not start the topic again.
+- Titles must carry the topic's concrete concepts; do not settle for generic
+  words such as "essence", "importance", "problems".
+- If the topic is not historical, do not add a subsection about history.""",
+    }
+
+    # Asrlar QOIDASI — faqat yozilish shakli haqida. Ilgari ikkita variant
+    # bor edi va sukut bo'yicha "asrlarni ALBATTA Rim raqamida yozing"
+    # ishlatilardi; model buni "asrlarni qo'sh" deb tushunib, har rejaga
+    # XX asrni kiritardi.
+    _CENTURY_RULE = {
+        "uz": ("Agar mavzuda asrlar tilga olinsa, ularni Rim raqamida yozing "
+               "(masalan, XX asr). Mavzu tarix bilan bog'liq bo'lmasa, "
+               "asrlarni O'ZINGIZDAN QO'SHMANG."),
+        "ru": ("Если тема связана с историческими периодами — пишите века "
+               "римскими цифрами (например, XX век). Если тема не "
+               "историческая — НЕ добавляйте их."),
+        "en": ("If the topic involves historical periods, write centuries in "
+               "Roman numerals (e.g., XX century). If the topic is not "
+               "historical — do NOT add century references."),
+    }
+
+    @classmethod
+    def _plan_rule(cls, language: str) -> str:
+        return cls._PLAN_RULE.get(language, cls._PLAN_RULE["uz"])
+
+    @classmethod
+    def _subplan_rule(cls, language: str) -> str:
+        return cls._SUBPLAN_RULE.get(language, cls._SUBPLAN_RULE["uz"])
+
+    @classmethod
+    def _century_rule(cls, language: str) -> str:
+        return cls._CENTURY_RULE.get(language, cls._CENTURY_RULE["uz"])
+
     @classmethod
     def _tidy_title(cls, title: str) -> str:
         cleaned = cls._strip_leading_numbering(str(title or ""))
@@ -872,6 +961,8 @@ Bo'limlar:
 2-{section_count-1}. Asosiy bo'limlar
 {section_count}. Xulosa
 
+{self._plan_rule("uz")}
+
 MUHIM: Sarlavhalarga raqam qo'shmang (masalan "1.", "1.1", "2.3" kabi boshlamang).
 
 JSON formatda javob bering:
@@ -883,6 +974,8 @@ Bo'limlar:
 1. Kirish
 2-{section_count-1}. Asosiy bo'limlar  
 {section_count}. Xulosa
+
+{self._plan_rule("uz")}
 
 MUHIM: Sarlavhalarga raqam qo'shmang (masalan "1.", "1.1", "2.3" kabi boshlamang).
 
@@ -897,6 +990,8 @@ JSON formatda javob bering:
 2-{section_count-1}. Основные разделы
 {section_count}. Заключение
 
+{self._plan_rule("ru")}
+
 ВАЖНО: Не добавляйте номера к заголовкам (не начинайте с "1.", "1.1", "2.3" и т.д.).
 
 Ответьте в формате JSON:
@@ -909,6 +1004,8 @@ Sections:
 1. Introduction
 2-{section_count-1}. Main sections
 {section_count}. Conclusion
+
+{self._plan_rule("en")}
 
 IMPORTANT: Do not include numbers in the titles (do not start with "1.", "1.1", "2.3", etc.).
 
@@ -1498,7 +1595,7 @@ In JSON format:
             logger.error(f"Error generating course work content: {e}")
             raise
 
-    async def _generate_chapter_titles(self, topic: str, chapters: int, language: str, century_conditional: bool = False) -> List[str]:
+    async def _generate_chapter_titles(self, topic: str, chapters: int, language: str) -> List[str]:
         """Generate chapter titles for course work"""
         try:
             # First, ensure we have the topic in the target language
@@ -1511,18 +1608,16 @@ In JSON format:
                 )
                 translated_topic = translated_topic.strip()
 
-            if century_conditional:
-                century_ru = "Agar mavzuda asrlar tilga olinsa, ularni Rim raqamida yozing (masalan, XX asr). Mavzu tarix bilan bog'liq bo'lmasa, asrlarni o'zingizdan QO'SHMANG."
-                century_ru_lang = "Если тема связана с историческими периодами — пишите века римскими цифрами (например, XX век). Если тема не предполагает века — НЕ добавляйте их."
-                century_en = "If the topic involves historical periods, write centuries in Roman numerals (e.g., XX century). If the topic is not historical — do NOT add century references."
-            else:
-                century_ru = "Asrlarni ALBATTA Rim raqamida yozing (masalan, \"XX asr\", \"XIX-XX asrlar\", \"XIV asr\"), HECH QACHON arab raqamida yozmang (\"20-asr\" emas, \"XX asr\")."
-                century_ru_lang = "ОБЯЗАТЕЛЬНО пишите века РИМСКИМИ цифрами (например, \"XX век\", \"XIX-XX века\", \"XIV век\"), НИКОГДА не используйте арабские цифры (НЕ \"20 век\", а \"XX век\")."
-                century_en = "ALWAYS write centuries in ROMAN numerals (e.g., \"XX century\", \"XIX-XX centuries\", \"XIV century\"), NEVER in Arabic numerals (NOT \"20th century\", but \"XX century\")."
+            century_ru = self._century_rule("uz")
+            century_ru_lang = self._century_rule("ru")
+            century_en = self._century_rule("en")
 
             if language == "ru":
                 prompt = f"""Для темы "{translated_topic}" создайте {chapters} названий глав для курсовой работы.
-Каждая глава должна охватывать разные аспекты темы. ВСЕ ДОЛЖНО БЫТЬ НА РУССКОМ ЯЗЫКЕ.
+ВСЕ ДОЛЖНО БЫТЬ НА РУССКОМ ЯЗЫКЕ.
+
+{self._plan_rule("ru")}
+
 {century_ru_lang}
 Не добавляйте номер главы (1., 2.) в начало названия.
 {self._title_rule("ru")}
@@ -1531,7 +1626,10 @@ In JSON format:
 {{"chapters": ["Название главы 1", "Название главы 2", ...]}}"""
             elif language == "en":
                 prompt = f"""For topic "{translated_topic}", create {chapters} chapter titles for course work.
-Each chapter should cover different aspects of the topic. EVERYTHING MUST BE IN ENGLISH.
+EVERYTHING MUST BE IN ENGLISH.
+
+{self._plan_rule("en")}
+
 {century_en}
 Do not add a chapter number (1., 2.) at the beginning of the title.
 {self._title_rule("en")}
@@ -1540,7 +1638,10 @@ Respond in JSON format:
 {{"chapters": ["Chapter 1 title", "Chapter 2 title", ...]}}"""
             else: # uz
                 prompt = f""""{topic}" mavzusi uchun {chapters} ta bo'lim (chapter) sarlavhasini yarating.
-Har bir bo'lim mavzuning turli jihatlarini qamrab olishi kerak. HAMMASI O'ZBEK TILIDA BO'LSIN.
+HAMMASI O'ZBEK TILIDA BO'LSIN.
+
+{self._plan_rule("uz")}
+
 {century_ru}
 Sarlavha boshiga raqam (1., 2.) qo'shmang.
 {self._title_rule("uz")}
@@ -1570,35 +1671,39 @@ JSON formatda javob bering:
             logger.error(f"Error generating chapter titles: {e}")
             return [f"Bo'lim {i}" for i in range(1, chapters + 1)]
 
-    async def _generate_subsection_titles(self, topic: str, chapter_title: str, language: str, century_conditional: bool = False) -> List[str]:
+    async def _generate_subsection_titles(self, topic: str, chapter_title: str, language: str) -> List[str]:
         """Generate 3 subsection titles for a chapter"""
         try:
             # Use chapter_title directly as it should already be in the target language
-            if century_conditional:
-                century_uz = "Agar bob nomi yoki mavzuda asrlar tilga olinsa, Rim raqamida yozing (masalan, XX asr). Mavzu tarix bilan bog'liq bo'lmasa, asrlarni QO'SHMANG."
-                century_ru_lang = "Если глава или тема связана с историческими периодами — пишите века римскими цифрами (например, XX век). Если нет — НЕ добавляйте их."
-                century_en = "If the chapter or topic involves historical periods, write centuries in Roman numerals (e.g., XX century). If not — do NOT add century references."
-            else:
-                century_uz = "Asrlarni ALBATTA Rim raqamida yozing (masalan, \"XX asr\", \"XIV asr\"), HECH QACHON arab raqamida yozmang."
-                century_ru_lang = "ОБЯЗАТЕЛЬНО пишите века РИМСКИМИ цифрами (например, \"XX век\", \"XIV век\"), НИКОГДА не используйте арабские цифры."
-                century_en = "ALWAYS write centuries in ROMAN numerals (e.g., \"XX century\", \"XIV century\"), NEVER in Arabic numerals."
+            century_uz = self._century_rule("uz")
+            century_ru_lang = self._century_rule("ru")
+            century_en = self._century_rule("en")
 
             if language == "ru":
-                prompt = f"""Создайте 3 названия подразделов для главы "{chapter_title}" по теме. ВСЕ НА РУССКОМ ЯЗЫКЕ.
+                prompt = f"""Создайте 3 названия подразделов для главы "{chapter_title}" по теме "{topic}". ВСЕ НА РУССКОМ ЯЗЫКЕ.
+
+{self._subplan_rule("ru")}
+
 {century_ru_lang} Не добавляйте номер (1.1, 1.2) в начало названия.
 {self._title_rule("ru")}
 
 В формате JSON:
 {{"subsections": ["Подраздел 1", "Подраздел 2", "Подраздел 3"]}}"""
             elif language == "en":
-                prompt = f"""Create 3 subsection titles for chapter "{chapter_title}". EVERYTHING IN ENGLISH.
+                prompt = f"""Create 3 subsection titles for chapter "{chapter_title}" of the topic "{topic}". EVERYTHING IN ENGLISH.
+
+{self._subplan_rule("en")}
+
 {century_en} Do not add numbering (1.1, 1.2) at the start.
 {self._title_rule("en")}
 
 In JSON format:
 {{"subsections": ["Subsection 1", "Subsection 2", "Subsection 3"]}}"""
             else: # uz
-                prompt = f""""{chapter_title}" bo'limi uchun 3 ta kichik bo'lim sarlavhasini yarating. HAMMASI O'ZBEK TILIDA BO'LSIN.
+                prompt = f""""{topic}" mavzusidagi "{chapter_title}" bo'limi uchun 3 ta kichik bo'lim sarlavhasini yarating. HAMMASI O'ZBEK TILIDA BO'LSIN.
+
+{self._subplan_rule("uz")}
+
 {century_uz} Sarlavha boshiga raqam (1.1, 1.2) qo'shmang.
 {self._title_rule("uz")}
 
@@ -1627,17 +1732,12 @@ JSON formatda:
             logger.error(f"Error generating subsection titles: {e}")
             return ["Kirish qismi", "Asosiy mazmun", "Yakuniy fikrlar"]
 
-    async def _generate_subsection_content(self, topic: str, chapter_title: str, subsection_title: str, language: str, word_target: str = "380-440", century_conditional: bool = False) -> str:
+    async def _generate_subsection_content(self, topic: str, chapter_title: str, subsection_title: str, language: str, word_target: str = "380-440") -> str:
         """Generate content for a subsection"""
         try:
-            if century_conditional:
-                century_uz_rule = "- Agar matnda asrlar tilga olinsa, ularni Rim raqamida yozing (XIV asr, XIX-XX asrlar). Mavzu tarix bilan bog'liq bo'lmasa, asrlarni O'ZINGIZDAN QO'SHMANG"
-                century_ru_rule = "- Если в тексте упоминаются исторические периоды — пишите века римскими цифрами (XIV век, XIX-XX века). Если тема не историческая — НЕ добавляйте века самостоятельно"
-                century_en_rule = "- If the text mentions historical periods, write centuries in Roman numerals (XIV century, XIX-XX centuries). If the topic is not historical — do NOT add century references on your own"
-            else:
-                century_uz_rule = "- Asrlarni ALBATTA Rim raqamida yozing (XIV asr, XIX-XX asrlar, VII asr) — HECH QACHON arab raqamida (14-asr, 19-asr) yozmang"
-                century_ru_rule = "- ОБЯЗАТЕЛЬНО пишите века РИМСКИМИ цифрами (XIV век, XIX-XX века, VII век) — НИКОГДА не пишите арабскими (14 век, 19 век)"
-                century_en_rule = "- ALWAYS write centuries in ROMAN numerals (XIV century, XIX-XX centuries, VII century) — NEVER in Arabic numerals (14th century, 19th century)"
+            century_uz_rule = f"- {self._century_rule('uz')}"
+            century_ru_rule = f"- {self._century_rule('ru')}"
+            century_en_rule = f"- {self._century_rule('en')}"
 
             common_rules = f"""
 QOIDALAR:
@@ -1672,19 +1772,19 @@ RULES:
             if language == "uz":
                 prompt = f"""Quyidagi kichik bo'lim uchun akademik mazmun yozing: "{subsection_title}" (umumiy mavzu: "{topic}", bob: "{chapter_title}").
 
-{word_target} so'z yozing — bu hajmdan OSHIRMANG va kam ham yozmang. Shu hajm ichida mavzuni chuqur yoriting: tarixiy ma'lumotlar, misollar, statistik dalillar, mualliflar fikri, qiyosiy tahlil, sabab-oqibat aloqalari, amaliy ahamiyat. Matnni tugallangan gap bilan yakunlang.
+{word_target} so'z yozing — bu hajmdan OSHIRMANG va kam ham yozmang. Shu hajm ichida mavzuni chuqur yoriting: aniq misollar, raqam va statistik dalillar, mutaxassislar fikri, qiyosiy tahlil, sabab-oqibat aloqalari, amaliy ahamiyat. Tarixiy ma'lumot faqat mavzuning o'zi shuni talab qilganda keltiriladi — har bo'limni tarixdan boshlamang. Matnni tugallangan gap bilan yakunlang.
 Matnni mazmun bilan boshlang, sarlavhalarni takrorlamang.
 {common_rules}"""
             elif language == "ru":
                 prompt = f"""Напишите академическое содержание для подраздела: "{subsection_title}" (общая тема: "{topic}", глава: "{chapter_title}").
 
-{word_target} слов — НЕ ПРЕВЫШАЙТЕ этот объём и не пишите короче. В этом объёме раскройте тему глубоко: исторические данные, примеры, статистические аргументы, мнения авторов, сравнительный анализ, причинно-следственные связи, практическое значение. Завершите текст законченным предложением.
+{word_target} слов — НЕ ПРЕВЫШАЙТЕ этот объём и не пишите короче. В этом объёме раскройте тему глубоко: конкретные примеры, цифры и статистические аргументы, мнения специалистов, сравнительный анализ, причинно-следственные связи, практическое значение. Исторические данные приводите ТОЛЬКО если этого требует сама тема — не начинайте каждый раздел с истории. Завершите текст законченным предложением.
 Начинайте с содержания, не повторяйте названия.
 {common_rules_ru}"""
             else:
                 prompt = f"""Write academic content for the subsection: "{subsection_title}" (overall topic: "{topic}", chapter: "{chapter_title}").
 
-{word_target} words — do NOT exceed this length and do not write less. Within it, cover the topic in depth: historical context, examples, statistical evidence, scholarly opinions, comparative analysis, cause and effect, practical significance. End on a complete sentence.
+{word_target} words — do NOT exceed this length and do not write less. Within it, cover the topic in depth: concrete examples, figures and statistical evidence, expert opinions, comparative analysis, cause and effect, practical significance. Bring in historical material ONLY where the topic itself calls for it — do not open every section with history. End on a complete sentence.
 Begin with content directly, do not repeat titles.
 {common_rules_en}"""
 
@@ -2253,10 +2353,10 @@ JSON: {{"point_1": "...", ..., "point_10": "..."}}"""
                 chapter_titles = [ch["title"] for ch in manual_plan]
                 all_subsection_titles = [ch.get("subsections", [])[:3] for ch in manual_plan]
             else:
-                chapter_titles = await self._generate_chapter_titles(topic, chapters, language, century_conditional=True)
+                chapter_titles = await self._generate_chapter_titles(topic, chapters, language)
                 all_subsection_titles = []
                 for chapter_title in chapter_titles:
-                    sub_titles = await self._generate_subsection_titles(topic, chapter_title, language, century_conditional=True)
+                    sub_titles = await self._generate_subsection_titles(topic, chapter_title, language)
                     all_subsection_titles.append(sub_titles[:3])
 
             # ── Step 2: Generate introduction ────────────────────────────────────
@@ -2268,8 +2368,7 @@ JSON: {{"point_1": "...", ..., "point_10": "..."}}"""
                 chapter = {"number": i, "title": chapter_title, "subsections": []}
                 for j, sub_title in enumerate(sub_titles, 1):
                     sub_content = await self._generate_subsection_content(
-                        topic, chapter_title, sub_title, language, word_target,
-                        century_conditional=True
+                        topic, chapter_title, sub_title, language, word_target
                     )
                     chapter["subsections"].append({
                         "number": f"{i}.{j}",
