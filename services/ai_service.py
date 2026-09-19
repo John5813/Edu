@@ -125,6 +125,20 @@ def _word_count(text: str) -> int:
     return len(str(text or "").split())
 
 
+def _point_text(value) -> str:
+    """Kirish bandining matni — ro'yxat kelsa qatorma-qator qilinadi.
+
+    Vazifalar har biri alohida qatorda so'raladi va model ularni
+    ko'pincha JSON ro'yxati qilib qaytaradi. Ilgari javob shunchaki
+    `str()` qilinar va varaqda Python ro'yxatining o'zi — qavsi,
+    qo'shtirnog'i bilan, bitta qatorda — chiqib qolardi.
+    """
+    if isinstance(value, (list, tuple)):
+        parts = [clean_text(str(item).strip()) for item in value]
+        return "\n".join(part for part in parts if part)
+    return clean_text(str(value or "").strip())
+
+
 def _plan_flow(plan: list, chapter_index: int, sub_index: int,
                previous_text: str) -> dict:
     """Murakkab rejadagi bo'lim uchun mantiqiy bog'liqlik ma'lumoti.
@@ -2590,7 +2604,8 @@ Begin with content directly, do not repeat titles.
             f"Matn {target} tilida. Har band 30-45 so'z, vazifalar esa "
             "har biri bitta qator.\n"
             "Faqat JSON: {"
-            + ", ".join(f'"{key}": "..."' for key in keys)
+            + ", ".join(f'"{key}": ["...", "..."]' if key == "tasks"
+                        else f'"{key}": "..."' for key in keys)
             + "}"
         )
 
@@ -2610,7 +2625,7 @@ Begin with content directly, do not repeat titles.
             if raw.endswith("```"):
                 raw = raw[:-3]
             data = json.loads(raw.strip())
-            return {key: clean_text(str(data.get(key, "")).strip()) for key in keys}
+            return {key: _point_text(data.get(key, "")) for key in keys}
         except Exception as e:
             logger.error(f"Error generating intro points: {e}")
             return {key: "" for key in keys}

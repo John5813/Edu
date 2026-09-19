@@ -192,7 +192,8 @@ async def check_generation():
               "Ishning butun rejasi" in joined, joined[:80])
 
     check("tarkib jumlasida savol soni haqiqiy",
-          "10 ta savol" in cw.structure_sentence("uz", cw.SIMPLE, 10))
+          "o'nta savol" in cw.structure_sentence("uz", cw.SIMPLE, 10),
+          cw.structure_sentence("uz", cw.SIMPLE, 10)[:60])
 
 
 def _done(value):

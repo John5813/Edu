@@ -3393,7 +3393,9 @@ class DocumentService:
                 # Vazifalar qatorma-qator keladi — ularni tozalash
                 # `clean_tasks` ishi; qolganlarida esa sarlavha takrori
                 # olib tashlanadi.
-                point_content = (str(raw_point) if key == "tasks"
+                # Vazifalar ro'yxat bo'lib kelishi mumkin — uni matnga
+                # aylantirmaymiz, `clean_tasks` o'zi ajratadi.
+                point_content = (raw_point if key == "tasks"
                                  else course_work.strip_echo(raw_point, language, key))
                 if not str(point_content).strip():
                     continue
