@@ -55,14 +55,20 @@ def check_rules():
           "belgilab olindi:" in labels[1], labels[1])
 
     print("\n2) Tarkib bandi")
-    for style, count, word in ((cw.SIMPLE, 4, "4 ta savol"),
-                               (cw.SIMPLE, 5, "5 ta savol"),
-                               (cw.COMPLEX, 3, "3 ta bob"),
-                               (cw.COMPLEX, 4, "4 ta bob")):
+    for style, count, word in ((cw.SIMPLE, 4, "to'rtta savol"),
+                               (cw.SIMPLE, 5, "beshta savol"),
+                               (cw.COMPLEX, 3, "uchta bob"),
+                               (cw.COMPLEX, 4, "to'rtta bob")):
         sentence = cw.structure_sentence("uz", style, count)
         check(f"{word} deb yoziladi", word in sentence, sentence)
         check(f"{word}: adabiyotlar aytilgan",
               "adabiyotlar" in sentence, sentence)
+        # Bitta quruq jumla emas: ishning qismlari qisqacha tushuntiriladi.
+        check(f"{word}: batafsil yozilgan",
+              sentence.count(".") >= 4 and "Kirish qismida" in sentence,
+              sentence[:80])
+    check("o'ntadan ko'pi raqam bilan",
+          "12 ta savol" in cw.structure_sentence("uz", cw.SIMPLE, 12))
 
     print("\n3) Kirish qoidalari")
     rule = cw.intro_rule("uz", cw.SIMPLE)
@@ -112,6 +118,16 @@ def check_echo():
     many = cw.clean_tasks("- birinchi\n- ikkinchi\n\n- uchinchi")
     check("qatorma-qator kelgani o'qildi", len(many) == 3, str(many))
 
+    # Model vazifalarni JSON ro'yxati qilib qaytaradi. Ilgari u matnga
+    # aylantirilar va varaqda "['birinchi', 'ikkinchi']" bo'lib chiqardi.
+    listed = cw.clean_tasks(["Birinchi vazifa.", "Ikkinchi vazifa."])
+    check("ro'yxat bo'lib kelgani o'qildi", len(listed) == 2, str(listed))
+    repr_form = cw.clean_tasks(str(["Birinchi vazifa.", "Ikkinchi vazifa."]))
+    check("matnga aylangan ro'yxat ham ajratildi",
+          len(repr_form) == 2, str(repr_form))
+    check("qavs va qo'shtirnoq qolmadi",
+          not any("[" in t or "'" in t for t in repr_form), str(repr_form))
+
 
 async def check_documents():
     print("\n7) Ikki usulda hujjat")
@@ -126,7 +142,10 @@ async def check_documents():
             "subject": "Kurs ishining predmeti milliy boylikning shakllanishidir.",
             "object": "Kurs ishining obyekti O'zbekiston iqtisodiyotidir.",
             "goal": "Milliy boylikdan foydalanish yo'llarini o'rganish.",
-            "tasks": "o'rnini o'rganish\nomillarni tahlil qilish\nyo'nalishlarni aniqlash",
+            # Model vazifalarni ro'yxat qilib qaytaradi — varaqda ular
+            # baribir qatorma-qator, tire bilan chiqishi kerak.
+            "tasks": ["o'rnini o'rganish", "omillarni tahlil qilish",
+                      "yo'nalishlarni aniqlash"],
         },
         conclusion="Xulosa. " * 20,
         references=["Karimov B. — Toshkent, 2019."],
@@ -161,9 +180,14 @@ async def check_documents():
     check("kirish dolzarblikdan boshlanadi",
           "Mavzuning dolzarbligi." in " ".join(intro.split()[:8]),
           " ".join(intro.split()[:8]))
-    check("vazifalar tire bilan", "- o'rnini o'rganish" in intro.replace("\n", " ")
-          or "- o'rnini" in intro)
-    check("tarkibda 4 ta savol", "4 ta savol" in intro.replace("\n", " "))
+    flat_intro = " ".join(intro.split())
+    check("vazifalar tire bilan", "- o'rnini o'rganish" in flat_intro, flat_intro[:120])
+    check("vazifalar alohida qatorlarda",
+          "- omillarni tahlil qilish" in flat_intro
+          and "- yo'nalishlarni aniqlash" in flat_intro, flat_intro[:160])
+    check("ro'yxat belgilari varaqqa tushmadi",
+          "['" not in intro and "']" not in intro, intro[:120])
+    check("tarkibda to'rtta savol", "to'rtta savol" in intro.replace("\n", " "))
     check("bandlar raqamsiz",
           "1. Kurs ishining" not in intro and "3. Mavzuning" not in intro)
 
@@ -174,7 +198,7 @@ async def check_documents():
     pages = await render(hard)
     toc, intro = pages[1], "\n".join(pages[2:4])
     check("murakkab rejada boblar bor", "BOB" in toc, toc[:90])
-    check("tarkibda 3 ta bob", "3 ta bob" in intro.replace("\n", " "))
+    check("tarkibda uchta bob", "uchta bob" in intro.replace("\n", " "))
     check("predmet va obyekt bor",
           "predmeti" in intro and "obyekti" in intro)
     flat = " ".join(intro.split())

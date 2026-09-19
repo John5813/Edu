@@ -87,31 +87,89 @@ def point_labels(language: str, style: str) -> List[str]:
     return [lead(language, key) for key in point_keys(style)]
 
 
+_UZ_NUMBERS = ("bitta", "ikkita", "uchta", "to'rtta", "beshta", "oltita",
+               "yettita", "sakkizta", "to'qqizta", "o'nta")
+_EN_NUMBERS = ("one", "two", "three", "four", "five", "six", "seven",
+               "eight", "nine", "ten")
+
+
+def _number_word(count: int, language: str) -> str:
+    """Sonni so'z bilan: "beshta savol" — akademik matnda shunday yoziladi."""
+    if language == "ru":
+        return str(count)
+    words = _EN_NUMBERS if language == "en" else _UZ_NUMBERS
+    if 1 <= count <= len(words):
+        return words[count - 1]
+    return str(count) if language == "en" else f"{count} ta"
+
+
 def structure_sentence(language: str, style: str, count: int) -> str:
     """Tarkib bandining matni — reja soni haqiqatga mos bo'lsin.
 
     Ilgari bu jumla AI tomonidan yozilar va "uchta bo'lim" deb chiqar,
     hujjatda esa to'rtta bo'lardi. Endi son kod tomonidan qo'yiladi.
+
+    Jumla bitta qatordan iborat bo'lsa varaqda juda quruq ko'rinardi,
+    shuning uchun ishning qaysi qismida nima yoritilgani ham qisqacha
+    aytib o'tiladi. Rejaning o'zi bu yerda takrorlanmaydi — u
+    mundarijada turibdi.
     """
     count = max(1, int(count or 1))
+    number = _number_word(count, language)
+
     if normalize(style) == SIMPLE:
         if language == "ru":
-            return (f"Введение, {count} вопроса, заключение и предложения, "
-                    "а также список использованной литературы.")
+            return (f"Курсовая работа состоит из введения, {number} вопросов, "
+                    "заключения с предложениями и списка использованной "
+                    "литературы. Во введении раскрыты актуальность темы, её "
+                    "цель и вытекающие из неё задачи. В вопросах тема "
+                    "рассматривается последовательно, теоретические подходы "
+                    "сопоставляются с практическими данными, приводятся "
+                    "статистические показатели и примеры. В заключении "
+                    "обобщены результаты работы и даны практические "
+                    "рекомендации.")
         if language == "en":
-            return (f"An introduction, {count} questions, conclusions and "
-                    "proposals, and a list of references.")
-        return (f"Kirish, {count} ta savol, xulosa va takliflar hamda "
-                "foydalanilgan adabiyotlar ro'yxatidan iborat.")
+            return (f"The course work consists of an introduction, {number} "
+                    "questions, a conclusion with proposals and a list of "
+                    "references. The introduction sets out the relevance of "
+                    "the topic, its aim and the tasks that follow from it. "
+                    "The questions examine the topic step by step, comparing "
+                    "theoretical approaches with practical data, statistics "
+                    "and examples. The conclusion summarises the results of "
+                    "the work and offers practical recommendations.")
+        return (f"Kurs ishi kirish, {number} savol, xulosa va takliflar hamda "
+                "foydalanilgan adabiyotlar ro'yxatidan iborat. Kirish "
+                "qismida mavzuning dolzarbligi, maqsadi va shu maqsaddan "
+                "kelib chiqadigan vazifalar yoritilgan. Savollarda mavzu "
+                "bosqichma-bosqich tahlil qilinib, nazariy qarashlar amaliy "
+                "ma'lumotlar, statistik ko'rsatkichlar va misollar bilan "
+                "solishtirilgan. Xulosa va takliflar qismida ish natijalari "
+                "umumlashtirilib, amaliy tavsiyalar berilgan.")
 
     if language == "ru":
-        return (f"Введение, {count} главы, заключение и список "
-                "использованной литературы.")
+        return (f"Курсовая работа состоит из введения, {number} глав, "
+                "заключения и списка использованной литературы. Во введении "
+                "раскрыты актуальность темы, её цель и вытекающие из неё "
+                "задачи. Главы разделены на подразделы: тема раскрывается "
+                "последовательно — от теоретических основ к практическому "
+                "анализу и предложениям. В заключении обобщены результаты "
+                "работы и даны практические рекомендации.")
     if language == "en":
-        return (f"An introduction, {count} chapters, a conclusion and a "
-                "list of references.")
-    return (f"Kirish, {count} ta bob, xulosa va foydalanilgan adabiyotlar "
-            "ro'yxatidan iborat.")
+        return (f"The course work consists of an introduction, {number} "
+                "chapters, a conclusion and a list of references. The "
+                "introduction sets out the relevance of the topic, its aim "
+                "and the tasks that follow from it. The chapters are divided "
+                "into subsections and develop the topic step by step, from "
+                "its theoretical foundations to practical analysis and "
+                "proposals. The conclusion summarises the results of the "
+                "work and offers practical recommendations.")
+    return (f"Kurs ishi kirish, {number} bob, xulosa va foydalanilgan "
+            "adabiyotlar ro'yxatidan iborat. Kirish qismida mavzuning "
+            "dolzarbligi, maqsadi va shu maqsaddan kelib chiqadigan "
+            "vazifalar yoritilgan. Boblar o'z mavzulariga bo'lingan bo'lib, "
+            "ularda mavzu nazariy asoslardan amaliy tahlilga qarab "
+            "bosqichma-bosqich ochib berilgan. Xulosa qismida ish natijalari "
+            "umumlashtirilib, amaliy takliflar berilgan.")
 
 
 # ─────────────────────────────────────────── promptga qo'yiladigan qoida
@@ -210,24 +268,50 @@ def strip_echo(text: str, language: str, key: str) -> str:
     return value[:1].upper() + value[1:] if value else ""
 
 
-def clean_tasks(text: str) -> list:
-    """Vazifalar ro'yxati — raqam va belgilardan tozalangan.
+# AI javobi ro'yxat bo'lib kelib, matnga aylantirilganda qoladigan iz:
+# "['Birinchi vazifa.', 'Ikkinchi vazifa.']". Varaqda aynan shu
+# ko'rinishda — qavs va qo'shtirnoqlari bilan, bitta qatorda — chiqib
+# qolgan edi.
+_LIST_REPR = re.compile(r"^\[\s*['\"].*['\"]\s*\]$", re.S)
 
-    Ustoz vazifalarni raqamlamaslikni talab qilgan, AI esa ularni
-    "1.", "2." bilan yozadi.
+
+def clean_tasks(text) -> list:
+    """Vazifalar ro'yxati — har biri alohida qatorda, raqamsiz.
+
+    Ustoz vazifalarni raqamlamaslikni va ularni bir-birining ostiga
+    yozishni talab qilgan. AI esa ularni uch xil ko'rinishda beradi:
+    ro'yxat sifatida, qatorma-qator matn sifatida yoki hammasini
+    bitta qatorga "1. ... 2. ..." qilib. Uchalasi ham shu yerda bir
+    ko'rinishga keltiriladi.
     """
-    value = str(text or "").replace(";", "\n")
-    # AI ba'zan hammasini bitta qatorga yozadi: "1. ... 2. ... 3. ...".
-    # Shunda raqamlarning o'zi ajratuvchi bo'ladi.
-    if "\n" not in value.strip():
-        value = re.sub(r"\s+(?=\d+\s*[.)]\s)", "\n", value)
+    if isinstance(text, (list, tuple)):
+        items = [str(item) for item in text]
+    else:
+        value = str(text or "").strip()
+        if _LIST_REPR.match(value):
+            # Ro'yxat matnga aylantirilgan bo'lsa — qaytarib ajratamiz.
+            try:
+                import ast
+                parsed = ast.literal_eval(value)
+                items = [str(item) for item in parsed]
+            except (ValueError, SyntaxError):
+                items = [value]
+        else:
+            items = [value]
 
     lines = []
-    for raw in value.splitlines():
-        item = raw.strip().lstrip("-\u2014\u2013\u2022 ")
-        item = re.sub(r"^\d+\s*[.)]\s*", "", item).strip(" .;")
-        if item:
-            lines.append(item)
+    for chunk in items:
+        value = str(chunk or "").replace(";", "\n")
+        # AI ba'zan hammasini bitta qatorga yozadi: "1. ... 2. ... 3. ...".
+        # Shunda raqamlarning o'zi ajratuvchi bo'ladi.
+        if "\n" not in value.strip():
+            value = re.sub(r"\s+(?=\d+\s*[.)]\s)", "\n", value)
+
+        for raw in value.splitlines():
+            item = raw.strip().lstrip("-\u2014\u2013\u2022 ").strip("'\"")
+            item = re.sub(r"^\d+\s*[.)]\s*", "", item).strip(" .;")
+            if item:
+                lines.append(item)
     return lines
 
 
