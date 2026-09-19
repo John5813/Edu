@@ -85,15 +85,68 @@ def _subsection_word_target(total_subsections: int, min_pages: int, max_pages: i
 # Bitta so'rovda yoziladigan matnning amaliy chegarasi. Model javobi
 # 8000 tokendan oshmaydi, o'zbekcha matnda bu ~1900 so'z; shunga yaqin
 # so'ralsa javob chala kelib, oxirgi gapigacha qirqilardi.
-# Oddiy rejada nechta savol bo'ladi. Ustoz tekshirgan ishda to'rtta edi.
+# Oddiy rejada nechta savol bo'ladi. Ustoz tekshirgan ishda to'rtta edi —
+# AI o'zi tuzganda shuncha bo'ladi. Mijoz qo'lda yozsa esa ikkitadan
+# o'ntagacha yozishi mumkin: matn hajmi savollar soniga qarab bo'linadi,
+# shuning uchun buyurtma qilingan varaq soni baribir chiqadi.
 _SIMPLE_QUESTIONS = 4
-_SIMPLE_MAX_QUESTIONS = 6
+_SIMPLE_MAX_QUESTIONS = 10
 
 _MAX_WORDS_PER_SUBSECTION = 2600
 
 # Bitta so'rovda ishonchli yoziladigan hajm. Bundan ortig'i so'ralsa javob
 # token chegarasiga urilib, matn oxirgi tugagan gapigacha qirqilardi.
 _WORDS_PER_REQUEST = 1200
+
+# Bitta bo'lim nechta bo'lakda yozilishi mumkin. Oddiy rejada ikkita
+# savol yozilgan ellik varaqli ishda bitta savolga olti-yetti ming so'z
+# to'g'ri keladi — bu bitta so'rovga sig'maydi, shuning uchun chegara
+# keng. So'rovlarning umumiy soni esa undan ikkitagina ko'p bo'ladi:
+# model qisqa javob berishda davom etsa, ish bir joyda qotib qolmasin.
+_MAX_SUBSECTION_PARTS = 8
+_MAX_SUBSECTION_REQUESTS = 10
+
+
+def _target_bounds(word_target: str) -> tuple:
+    """"380-440" kabi ko'rsatkichdan quyi va yuqori chegarani ajratadi."""
+    parts = [p.strip() for p in str(word_target or "").split("-") if p.strip()]
+    try:
+        numbers = [int(re.sub(r"[^\d]", "", p)) for p in parts if re.sub(r"[^\d]", "", p)]
+    except ValueError:
+        numbers = []
+    if not numbers:
+        return 380, 440
+    if len(numbers) == 1:
+        return numbers[0], numbers[0]
+    return min(numbers), max(numbers)
+
+
+def _word_count(text: str) -> int:
+    return len(str(text or "").split())
+
+
+def _plan_flow(plan: list, chapter_index: int, sub_index: int,
+               previous_text: str) -> dict:
+    """Murakkab rejadagi bo'lim uchun mantiqiy bog'liqlik ma'lumoti.
+
+    Butun reja tekis ro'yxatga yoyiladi va shu bo'limning ro'yxatdagi
+    o'rni topiladi: oldingi va keyingi sarlavha shundan olinadi.
+    """
+    flat = []
+    position = 0
+    for c_index, chapter in enumerate(plan):
+        for s_index, sub in enumerate(chapter.get("subsections") or []):
+            if c_index == chapter_index and s_index == sub_index:
+                position = len(flat)
+            flat.append(str(sub).strip())
+    if not flat:
+        return {}
+    return {
+        "plan": flat,
+        "before": flat[position - 1] if position else "",
+        "after": flat[position + 1] if position + 1 < len(flat) else "",
+        "tail": previous_text,
+    }
 
 
 def _subsections_per_chapter(min_pages: int, max_pages: int,
@@ -1407,6 +1460,65 @@ EXACTLY {body_words} words — no more. Fully cover the topic with examples and 
             logger.error(f"Error reviewing manual plan: {e}")
             return plan
 
+    async def review_manual_questions(self, questions: list, topic: str,
+                                      language: str) -> list:
+        """Oddiy rejadagi savollarni tahrirlaydi — sonini o'zgartirmasdan.
+
+        Murakkab rejadagidek: imlo va uslub tuzatiladi, savollar soni va
+        tartibi esa mijoz yozganicha qoladi. Javob boshqacha kelsa,
+        mijozning o'z ro'yxati qaytariladi.
+        """
+        items = [str(q).strip() for q in (questions or []) if str(q).strip()]
+        if not items:
+            return items
+
+        outline = "\n".join(f"{index}. {item}"
+                             for index, item in enumerate(items, 1))
+        target = {"ru": "русском", "en": "English"}.get(language, "o'zbek")
+        prompt = (
+            f'Mavzu: "{topic}"\n\n'
+            f"Mijoz qo'lda yozgan reja (savollar):\n{outline}\n\n"
+            "Shu savollarni tahrirlang:\n"
+            "- imlo va tinish belgilaridagi xatolarni tuzating;\n"
+            "- sarlavhalarni akademik uslubga keltiring, bosh harf bilan "
+            "boshlang;\n"
+            "- yarim qolgan yoki tushunarsiz sarlavhani mazmunidan kelib "
+            "chiqib to'ldiring;\n"
+            f"- hammasi {target} tilida bo'lsin.\n\n"
+            f"QAT'IY SHART: savollar soni {len(items)} ta bo'lib qolsin. "
+            "Yangi savol QO'SHMANG, borini olib TASHLAMANG, tartibini "
+            "o'zgartirmang. Sarlavha boshiga raqam qo'ymang.\n\n"
+            'Faqat JSON: {"questions": ["...", "..."]}'
+        )
+
+        try:
+            response = await self._make_request(
+                messages=[
+                    {"role": "system", "content": "You are an academic editor. Respond with valid JSON only."},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=300 + 120 * len(items),
+                temperature=0.3,
+            )
+            raw = response.strip()
+            if raw.startswith("```json"):
+                raw = raw[7:]
+            if raw.startswith("```"):
+                raw = raw[3:]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            edited = json.loads(raw.strip()).get("questions") or []
+            edited = [self._tidy_title(str(q).strip())
+                      for q in edited if str(q).strip()]
+            if len(edited) != len(items):
+                logger.warning("Savollar tahriri sonini o'zgartirdi: %d -> %d",
+                               len(items), len(edited))
+                return items
+            return edited
+        except Exception as e:
+            logger.error(f"Error reviewing manual questions: {e}")
+            return items
+
     async def presidential_opening(self, topic: str, language: str) -> Dict[str, str]:
         """O'zbekiston mavzulari uchun kirishning birinchi abzatsini yozadi.
 
@@ -1789,6 +1901,9 @@ In JSON format:
                 topic, _SIMPLE_QUESTIONS, language)
 
         titles = titles or [topic]
+        # Hajm savollar soniga bo'linadi: ikkita savol bo'lsa har biri
+        # uzun, o'nta bo'lsa qisqa yoziladi. Uzun bo'lim bir necha
+        # so'rovda yozilib, hajm to'lguncha davom etadi.
         word_target = _subsection_word_target(len(titles), min_pages, max_pages)
         logger.info("Kurs ishi (oddiy reja): %d savol, har biriga %s so'z",
                     len(titles), word_target)
@@ -1797,10 +1912,19 @@ In JSON format:
         content["intro_points"] = await self._generate_intro_points(
             topic, language, course_work.SIMPLE)
 
-        for title in titles:
+        previous = ""
+        for index, title in enumerate(titles):
             body = await self._generate_subsection_content(
-                topic, topic, title, language, word_target)
+                topic, topic, title, language, word_target,
+                flow={
+                    "plan": titles,
+                    "before": titles[index - 1] if index else "",
+                    "after": titles[index + 1] if index + 1 < len(titles) else "",
+                    "tail": previous,
+                },
+            )
             content["sections"].append({"title": title, "content": body})
+            previous = body
 
         for number in range(1, len(titles) + 1):
             content[f"table_data_{number}"] = await self.generate_table_data(
@@ -1922,6 +2046,9 @@ In JSON format:
             content["intro_points"] = await self._generate_intro_points(
                 topic, language, style)
 
+            # Bo'limlar bir-biriga ulanib ketsin: har bo'limga oldingisining
+            # oxiri ko'rsatiladi, shunda fikr davom etadi va takrorlanmaydi.
+            previous_text = ""
             for i, planned in enumerate(plan, 1):
                 chapter_title = planned["title"]
                 chapter = {
@@ -1931,7 +2058,11 @@ In JSON format:
                 }
 
                 for j, sub_title in enumerate(planned["subsections"], 1):
-                    sub_content = await self._generate_subsection_content(topic, chapter_title, sub_title, language, sub_word_target)
+                    sub_content = await self._generate_subsection_content(
+                        topic, chapter_title, sub_title, language, sub_word_target,
+                        flow=_plan_flow(plan, i - 1, j - 1, previous_text),
+                    )
+                    previous_text = sub_content
                     
                     chapter["subsections"].append({
                         "number": f"{i}.{j}",
@@ -2158,40 +2289,132 @@ JSON formatda:
 
     async def _generate_subsection_content(self, topic: str, chapter_title: str,
                                            subsection_title: str, language: str,
-                                           word_target: str = "380-440") -> str:
-        """Kichik bo'lim matni — kerak bo'lsa bir necha bo'lakda.
+                                           word_target: str = "380-440",
+                                           flow: dict = None) -> str:
+        """Kichik bo'lim matni — hajm to'lguncha, kerak bo'lsa bo'laklab.
 
         Bitta so'rovda model ming ikki yuz so'zdan ortig'ini ishonchli
         yozmaydi: javob token chegarasiga urilib, oxirgi tugagan gapgacha
         qirqiladi va bo'lim buyurtma qilingan hajmdan qisqa chiqadi.
-        Shuning uchun katta hajm bo'laklarga bo'linib so'raladi va
-        qo'shib yoziladi — shunda har bobda ikkitadan mavzu qolaveradi,
-        varaq soni esa baribir chiqadi.
+        Shuning uchun katta hajm bo'laklarga bo'linib so'raladi.
+
+        Bo'laklar yozilgandan keyin ham hajm to'lmasa — model qisqa
+        javob bergan bo'lsa — davomi so'raladi. Aynan shu narsa rejada
+        ikkitami, o'ntami savol borligidan qat'i nazar buyurtma qilingan
+        varaq sonini ta'minlaydi: ikkita savol bo'lsa har biri uzunroq
+        yoziladi, o'nta bo'lsa qisqaroq.
+
+        `flow` — bo'limlar orasidagi mantiqiy bog'liqlik uchun: butun
+        reja, qo'shni sarlavhalar va oldingi bo'limning oxiri.
         """
-        try:
-            upper = int(str(word_target).split("-")[-1].strip())
-        except (AttributeError, ValueError):
-            upper = 440
+        low, upper = _target_bounds(word_target)
 
-        if upper <= _WORDS_PER_REQUEST:
-            return await self._write_subsection_part(
-                topic, chapter_title, subsection_title, language, word_target
-            )
-
-        parts = min((upper + _WORDS_PER_REQUEST - 1) // _WORDS_PER_REQUEST, 3)
-        per_part = upper // parts
-        chunk_target = f"{int(per_part * 0.9)}-{per_part}"
-
+        parts = max(1, min((upper + _WORDS_PER_REQUEST - 1) // _WORDS_PER_REQUEST,
+                           _MAX_SUBSECTION_PARTS))
         written = []
-        for number in range(1, parts + 1):
+
+        if parts == 1:
             text = await self._write_subsection_part(
-                topic, chapter_title, subsection_title, language, chunk_target,
-                part=(number, parts), written=" ".join(written),
+                topic, chapter_title, subsection_title, language, word_target,
+                flow=flow,
             )
             if text:
                 written.append(text)
+        else:
+            per_part = upper // parts
+            chunk_target = f"{int(per_part * 0.9)}-{per_part}"
+            for number in range(1, parts + 1):
+                text = await self._write_subsection_part(
+                    topic, chapter_title, subsection_title, language, chunk_target,
+                    part=(number, parts), written=" ".join(written), flow=flow,
+                )
+                if text:
+                    written.append(text)
+
+        # Hajm to'lmadimi — davomini so'raymiz. Chegaradan sal pastini
+        # qabul qilamiz: har safar aniq songa yetkazishga urinish
+        # so'rovlarni ko'paytiradi, matnga esa deyarli hech narsa
+        # qo'shmaydi.
+        attempts = parts
+        limit = min(parts + 2, _MAX_SUBSECTION_REQUESTS)
+        while attempts < limit:
+            shortfall = low - _word_count(" ".join(written))
+            if shortfall < 80:
+                break
+            ask = min(shortfall + 60, _WORDS_PER_REQUEST)
+            attempts += 1
+            logger.info("Bo'lim hajmi to'lmadi (%s), davomi so'ralmoqda: %d so'z",
+                        subsection_title[:40], ask)
+            text = await self._write_subsection_part(
+                topic, chapter_title, subsection_title, language,
+                f"{int(ask * 0.9)}-{ask}", part=(attempts, attempts),
+                written=" ".join(written), flow=flow,
+            )
+            if not text:
+                break
+            written.append(text)
 
         return " ".join(written)
+
+    def _flow_rule(self, flow: dict, language: str) -> str:
+        """Bo'limlar bir-biriga ulanishi uchun beriladigan ko'rsatma.
+
+        Ilgari har bo'lim alohida so'ralar, model esa oldingilarini
+        ko'rmasdi: natijada bitta fikr ikki joyda takrorlanar, bo'limlar
+        orasida esa bog'liqlik sezilmasdi. Endi modelga butun reja,
+        qo'shni sarlavhalar va oldingi bo'limning oxirgi gaplari
+        beriladi.
+        """
+        if not flow:
+            return ""
+
+        plan = [str(item).strip() for item in (flow.get("plan") or []) if str(item).strip()]
+        before = str(flow.get("before") or "").strip()
+        after = str(flow.get("after") or "").strip()
+        tail = str(flow.get("tail") or "").strip()[-500:]
+
+        lines = []
+        if language == "ru":
+            if plan:
+                lines.append("- Весь план работы: " + "; ".join(plan)
+                             + ". Пишите ТОЛЬКО о своём разделе, не "
+                               "залезайте в чужие.")
+            if before:
+                lines.append(f"- Предыдущий раздел: «{before}» — опирайтесь "
+                             "на него, но не пересказывайте.")
+            if after:
+                lines.append(f"- Следующий раздел: «{after}» — подведите "
+                             "мысль к нему.")
+            if tail:
+                lines.append(f"- Предыдущий раздел закончился так: ...{tail}")
+        elif language == "en":
+            if plan:
+                lines.append("- The whole plan: " + "; ".join(plan)
+                             + ". Write ONLY about your own section, do not "
+                               "cover the others.")
+            if before:
+                lines.append(f"- Previous section: \"{before}\" — build on "
+                             "it, do not retell it.")
+            if after:
+                lines.append(f"- Next section: \"{after}\" — lead the "
+                             "argument towards it.")
+            if tail:
+                lines.append(f"- The previous section ended like this: ...{tail}")
+        else:
+            if plan:
+                lines.append("- Ishning butun rejasi: " + "; ".join(plan)
+                             + ". FAQAT o'z bo'limingiz haqida yozing, "
+                               "boshqalarining mavzusiga kirmang.")
+            if before:
+                lines.append(f"- Oldingi bo'lim: \"{before}\" — unga "
+                             "tayaning, lekin qaytarmang.")
+            if after:
+                lines.append(f"- Keyingi bo'lim: \"{after}\" — fikrni "
+                             "shunga olib boring.")
+            if tail:
+                lines.append(f"- Oldingi bo'lim shunday tugagan: ...{tail}")
+
+        return ("\n" + "\n".join(lines)) if lines else ""
 
     def _part_rule(self, part: tuple, written: str, language: str) -> str:
         """Bo'lakka bo'lib yozishda modelga beriladigan ko'rsatma."""
@@ -2232,7 +2455,8 @@ JSON formatda:
     async def _write_subsection_part(self, topic: str, chapter_title: str,
                                      subsection_title: str, language: str,
                                      word_target: str = "380-440",
-                                     part: tuple = None, written: str = "") -> str:
+                                     part: tuple = None, written: str = "",
+                                     flow: dict = None) -> str:
         """Generate content for a subsection"""
         try:
             century_uz_rule = f"- {self._century_rule('uz')}"
@@ -2248,7 +2472,7 @@ QOIDALAR:
 {century_uz_rule}
 {timeframe.year_rule("uz")}
 {heading_rule("uz")}
-- Matn ichiga "Foydalanilgan adabiyotlar:", "[1]", "[2]", "[3]" kabi ro'yxat yoki manba belgilarini KIRITMANG — manbalar avtomatik ravishda qo'shiladi{self._part_rule(part, written, "uz")}"""
+- Matn ichiga "Foydalanilgan adabiyotlar:", "[1]", "[2]", "[3]" kabi ro'yxat yoki manba belgilarini KIRITMANG — manbalar avtomatik ravishda qo'shiladi{self._part_rule(part, written, "uz")}{self._flow_rule(flow, "uz")}"""
 
             common_rules_ru = f"""
 ПРАВИЛА:
@@ -2259,7 +2483,7 @@ QOIDALAR:
 {century_ru_rule}
 {timeframe.year_rule("ru")}
 {heading_rule("ru")}
-- НЕ ВКЛЮЧАЙТЕ в текст списки источников вида "Список литературы:", "[1]", "[2]", "[3]" — ссылки добавляются автоматически{self._part_rule(part, written, "ru")}"""
+- НЕ ВКЛЮЧАЙТЕ в текст списки источников вида "Список литературы:", "[1]", "[2]", "[3]" — ссылки добавляются автоматически{self._part_rule(part, written, "ru")}{self._flow_rule(flow, "ru")}"""
 
             common_rules_en = f"""
 RULES:
@@ -2270,7 +2494,7 @@ RULES:
 {century_en_rule}
 {timeframe.year_rule("en")}
 {heading_rule("en")}
-- DO NOT include reference lists like "References:", "[1]", "[2]", "[3]" inside the text — citations are added automatically{self._part_rule(part, written, "en")}"""
+- DO NOT include reference lists like "References:", "[1]", "[2]", "[3]" inside the text — citations are added automatically{self._part_rule(part, written, "en")}{self._flow_rule(flow, "en")}"""
 
             if language == "uz":
                 prompt = f"""Quyidagi kichik bo'lim uchun akademik mazmun yozing: "{subsection_title}" (umumiy mavzu: "{topic}", bob: "{chapter_title}").
