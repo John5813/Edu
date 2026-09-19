@@ -81,6 +81,30 @@ def _subsection_word_target(total_subsections: int, min_pages: int, max_pages: i
     return f"{low}-{high}"
 
 
+# Bitta so'rovda yoziladigan matnning amaliy chegarasi. Model javobi
+# 8000 tokendan oshmaydi, o'zbekcha matnda bu ~1900 so'z; shunga yaqin
+# so'ralsa javob chala kelib, oxirgi gapigacha qirqilardi.
+_MAX_WORDS_PER_SUBSECTION = 1500
+
+
+def _subsections_per_chapter(min_pages: int, max_pages: int,
+                             chapters: int = 3) -> int:
+    """Bitta bobga nechta kichik bo'lim to'g'ri kelishi.
+
+    O'zbek kurs ishlarida odatda har bobda ikkita mavzu bo'ladi va
+    har biri bir necha varaqni egallaydi — shuning uchun boshlang'ich
+    son ikki. Kurs ishi har doim uch bobdan iborat, ya'ni katta hajmda
+    bob qo'shib bo'lmaydi: bitta mavzuga sig'maydigan hajm qolganda
+    bobga uchinchi mavzu qo'shiladi.
+    """
+    body_pages = max((min_pages + max_pages) / 2 - 9, 4)
+    body_words = body_pages * 280
+    for per_chapter in (2, 3, 4, 5):
+        if body_words / (max(chapters, 1) * per_chapter) <= _MAX_WORDS_PER_SUBSECTION:
+            return per_chapter
+    return 5
+
+
 def is_rate_limit_error(exception: BaseException) -> bool:
     """Check if the exception is a rate limit or quota violation error."""
     error_msg = str(exception)
@@ -947,8 +971,26 @@ IMPORTANT: Respond ONLY in JSON format! Total {slide_count} slides REQUIRED (mai
     }
 
     @classmethod
-    def _plan_rule(cls, language: str) -> str:
-        return cls._PLAN_RULE.get(language, cls._PLAN_RULE["uz"])
+    def _plan_rule(cls, language: str, topic: str = "") -> str:
+        """Reja qoidasi.
+
+        O'zbekistonga oid mavzularda boblar ketma-ketligi qat'iy
+        belgilangan (konseptual — bugungi holat — istiqbollar), shuning
+        uchun "shablondan foydalanmang" degan band olib tashlanadi: aks
+        holda ikki qoida bir-biriga zid bo'lib qolardi.
+        """
+        rule = cls._PLAN_RULE.get(language, cls._PLAN_RULE["uz"])
+        if topic and uzbekistan.is_uzbek_topic(topic):
+            rule = "\n".join(
+                line for line in rule.splitlines()
+                if "shablondan" not in line
+                and "шаблон" not in line
+                and "one-size-fits-all" not in line
+                and "analysis — problems" not in line
+                and "перспективы" not in line
+                and "istiqbollar" not in line
+            )
+        return rule
 
     @classmethod
     def _subplan_rule(cls, language: str) -> str:
@@ -978,7 +1020,7 @@ Bo'limlar:
 2-{section_count-1}. Asosiy bo'limlar
 {section_count}. Xulosa
 
-{self._plan_rule("uz")}
+{self._plan_rule("uz", topic)}
 
 MUHIM: Sarlavhalarga raqam qo'shmang (masalan "1.", "1.1", "2.3" kabi boshlamang).
 
@@ -992,7 +1034,7 @@ Bo'limlar:
 2-{section_count-1}. Asosiy bo'limlar  
 {section_count}. Xulosa
 
-{self._plan_rule("uz")}
+{self._plan_rule("uz", topic)}
 
 MUHIM: Sarlavhalarga raqam qo'shmang (masalan "1.", "1.1", "2.3" kabi boshlamang).
 
@@ -1007,7 +1049,7 @@ JSON formatda javob bering:
 2-{section_count-1}. Основные разделы
 {section_count}. Заключение
 
-{self._plan_rule("ru")}
+{self._plan_rule("ru", topic)}
 
 ВАЖНО: Не добавляйте номера к заголовкам (не начинайте с "1.", "1.1", "2.3" и т.д.).
 
@@ -1022,7 +1064,7 @@ Sections:
 2-{section_count-1}. Main sections
 {section_count}. Conclusion
 
-{self._plan_rule("en")}
+{self._plan_rule("en", topic)}
 
 IMPORTANT: Do not include numbers in the titles (do not start with "1.", "1.1", "2.3", etc.).
 
@@ -1630,14 +1672,21 @@ In JSON format:
             logger.error(f"Error generating slide content: {e}")
             return ""
 
-    async def generate_course_work_content(self, topic: str, chapters: int, language: str, min_pages: int = 20, max_pages: int = 25) -> Dict:
+    async def generate_course_work_content(self, topic: str, chapters: int, language: str,
+                                           min_pages: int = 20, max_pages: int = 25,
+                                           manual_plan: list = None) -> Dict:
         """Generate course work content with chapter structure and footnotes
-        
+
         Structure:
         - Kirish (Introduction) - 2 pages
-        - Bo'limlar (Chapters) with 3 subsections each
+        - Boblar (Chapters) with their subsections
         - Xulosa (Conclusion)
         - Adabiyotlar (References)
+
+        `manual_plan` — mijoz qo'lda yozgan reja:
+        [{"title": ..., "subsections": [...]}]. Unda qaysi bobga nechta
+        kichik bo'lim yozilgani mijozning ixtiyorida: biriga ikkita,
+        boshqasiga uchta bo'lishi mumkin.
         """
         try:
             content = {
@@ -1648,30 +1697,59 @@ In JSON format:
                 "conclusion": "",
                 "references": []
             }
-            
-            sub_word_target = _subsection_word_target(chapters * 3, min_pages, max_pages)
 
-            # Generate chapter titles first
-            chapter_titles = await self._generate_chapter_titles(topic, chapters, language)
-            
+            # Reja avval to'liq aniqlanadi: matn hajmi kichik bo'limlar
+            # sonidan hisoblanadi. Ilgari u "bob × 3" deb olinardi, ya'ni
+            # mijoz qo'lda ikkita mavzu yozsa ish buyurtma qilingan
+            # varaqqa yetmay qolardi.
+            if manual_plan:
+                plan = [
+                    {
+                        "title": str(chapter.get("title", "")).strip(),
+                        "subsections": [
+                            str(sub).strip()
+                            for sub in (chapter.get("subsections") or [])
+                            if str(sub).strip()
+                        ],
+                    }
+                    for chapter in manual_plan
+                    if str(chapter.get("title", "")).strip()
+                ]
+                plan = [chapter for chapter in plan if chapter["subsections"]]
+            else:
+                per_chapter = _subsections_per_chapter(min_pages, max_pages)
+                chapter_titles = await self._generate_chapter_titles(topic, chapters, language)
+                plan = []
+                for chapter_title in chapter_titles:
+                    subsection_titles = await self._generate_subsection_titles(
+                        topic, chapter_title, language, per_chapter
+                    )
+                    plan.append({"title": chapter_title, "subsections": subsection_titles})
+
+            total_subsections = sum(len(chapter["subsections"]) for chapter in plan)
+            sub_word_target = _subsection_word_target(
+                total_subsections, min_pages, max_pages
+            )
+            logger.info(
+                "Kurs ishi rejasi: %d bob, %d kichik bo'lim, har biriga %s so'z",
+                len(plan), total_subsections, sub_word_target,
+            )
+
             # Generate introduction (2 pages worth ~600 words)
             content["introduction"] = await self._generate_course_intro(topic, language)
             
             # Generate specific intro points (Subject, Object, Goal, etc.)
             content["intro_points"] = await self._generate_intro_points(topic, language)
-            
-            # Generate each chapter with 3 subsections
-            for i, chapter_title in enumerate(chapter_titles, 1):
+
+            for i, planned in enumerate(plan, 1):
+                chapter_title = planned["title"]
                 chapter = {
                     "number": i,
                     "title": chapter_title,
                     "subsections": []
                 }
-                
-                # Generate 3 subsections for each chapter
-                subsection_titles = await self._generate_subsection_titles(topic, chapter_title, language)
 
-                for j, sub_title in enumerate(subsection_titles[:3], 1):
+                for j, sub_title in enumerate(planned["subsections"], 1):
                     sub_content = await self._generate_subsection_content(topic, chapter_title, sub_title, language, sub_word_target)
                     
                     chapter["subsections"].append({
@@ -1682,8 +1760,9 @@ In JSON format:
                 
                 content["chapters"].append(chapter)
             
-            # Generate table data for all chapters
-            for chapter_num in range(1, chapters + 1):
+            # Jadval har bir bob uchun — reja qo'lda yozilgan bo'lsa,
+            # boblar soni tanlanganidan farq qilishi mumkin.
+            for chapter_num in range(1, len(content["chapters"]) + 1):
                 content[f"table_data_{chapter_num}"] = await self.generate_table_data(topic, chapter_num, language)
 
             # Diagramma va formulalarni AI o'zi taqsimlaydi: qaysi bo'limda
@@ -1710,6 +1789,13 @@ In JSON format:
             logger.error(f"Error generating course work content: {e}")
             raise
 
+    @staticmethod
+    def _chapter_arc(topic: str, language: str) -> str:
+        """O'zbekiston mavzularida boblar ketma-ketligi qat'iy."""
+        if not uzbekistan.is_uzbek_topic(topic):
+            return ""
+        return "\n" + uzbekistan.chapter_arc(topic, language)
+
     async def _generate_chapter_titles(self, topic: str, chapters: int, language: str) -> List[str]:
         """Generate chapter titles for course work"""
         try:
@@ -1731,7 +1817,8 @@ In JSON format:
                 prompt = f"""Для темы "{translated_topic}" создайте {chapters} названий глав для курсовой работы.
 ВСЕ ДОЛЖНО БЫТЬ НА РУССКОМ ЯЗЫКЕ.
 
-{self._plan_rule("ru")}
+{self._plan_rule("ru", topic)}
+{self._chapter_arc(topic, "ru")}
 
 {century_ru_lang}
 Не добавляйте номер главы (1., 2.) в начало названия.
@@ -1743,7 +1830,8 @@ In JSON format:
                 prompt = f"""For topic "{translated_topic}", create {chapters} chapter titles for course work.
 EVERYTHING MUST BE IN ENGLISH.
 
-{self._plan_rule("en")}
+{self._plan_rule("en", topic)}
+{self._chapter_arc(topic, "en")}
 
 {century_en}
 Do not add a chapter number (1., 2.) at the beginning of the title.
@@ -1752,17 +1840,18 @@ Do not add a chapter number (1., 2.) at the beginning of the title.
 Respond in JSON format:
 {{"chapters": ["Chapter 1 title", "Chapter 2 title", ...]}}"""
             else: # uz
-                prompt = f""""{topic}" mavzusi uchun {chapters} ta bo'lim (chapter) sarlavhasini yarating.
+                prompt = f""""{topic}" mavzusi uchun {chapters} ta bob sarlavhasini yarating.
 HAMMASI O'ZBEK TILIDA BO'LSIN.
 
-{self._plan_rule("uz")}
+{self._plan_rule("uz", topic)}
+{self._chapter_arc(topic, "uz")}
 
 {century_ru}
 Sarlavha boshiga raqam (1., 2.) qo'shmang.
 {self._title_rule("uz")}
 
 JSON formatda javob bering:
-{{"chapters": ["Birinchi bo'lim sarlavhasi", "Ikkinchi bo'lim sarlavhasi", ...]}}"""
+{{"chapters": ["Birinchi bob sarlavhasi", "Ikkinchi bob sarlavhasi", ...]}}"""
 
             response = await self._make_request(
                 messages=[{"role": "user", "content": prompt}],
@@ -1786,8 +1875,44 @@ JSON formatda javob bering:
             logger.error(f"Error generating chapter titles: {e}")
             return [f"Bo'lim {i}" for i in range(1, chapters + 1)]
 
-    async def _generate_subsection_titles(self, topic: str, chapter_title: str, language: str) -> List[str]:
-        """Generate 3 subsection titles for a chapter"""
+    @staticmethod
+    def _title_slots(count: int, word: str) -> str:
+        """Promptdagi JSON namunasi uchun shuncha o'rin."""
+        return ", ".join(f'"{word} {i}"' for i in range(1, count + 1))
+
+    @staticmethod
+    def _pad_subsections(titles: list, count: int, chapter_title: str,
+                         language: str) -> list:
+        """Kichik bo'limlar sonini kerakligiga keltiradi.
+
+        AI so'ralgandan kam sarlavha qaytarsa, hujjat bo'sh bob bilan
+        chiqib ketmasin: yetmagani bob nomidan yasaladi.
+        """
+        titles = [t for t in titles if str(t).strip()][:count]
+        fillers = {
+            "ru": ("Теоретические основы", "Современное состояние", "Анализ и оценка",
+                   "Проблемы и решения", "Перспективы развития", "Выводы по главе"),
+            "en": ("Theoretical foundations", "Current state", "Analysis and assessment",
+                   "Problems and solutions", "Development prospects", "Chapter findings"),
+            "uz": ("Nazariy asoslari", "Hozirgi holati", "Tahlili va baholanishi",
+                   "Muammolari va yechimlari", "Rivojlanish istiqbollari",
+                   "Bob bo'yicha xulosalar"),
+        }
+        words = fillers.get(language, fillers["uz"])
+        index = 0
+        while len(titles) < count:
+            titles.append(f"{chapter_title} {words[index % len(words)].lower()}")
+            index += 1
+        return titles
+
+    async def _generate_subsection_titles(self, topic: str, chapter_title: str,
+                                          language: str, count: int = 3) -> List[str]:
+        """Generate subsection titles for a chapter.
+
+        Nechta bo'lishi hujjat hajmiga bog'liq: bob soni o'zgarmaydi,
+        shuning uchun katta ishda bobga ko'proq kichik bo'lim tushadi.
+        """
+        count = max(2, min(int(count or 3), 6))
         try:
             # Use chapter_title directly as it should already be in the target language
             century_uz = self._century_rule("uz")
@@ -1795,39 +1920,42 @@ JSON formatda javob bering:
             century_en = self._century_rule("en")
 
             if language == "ru":
-                prompt = f"""Создайте 3 названия подразделов для главы "{chapter_title}" по теме "{topic}". ВСЕ НА РУССКОМ ЯЗЫКЕ.
+                prompt = f"""Создайте {count} названия подразделов для главы "{chapter_title}" по теме "{topic}". ВСЕ НА РУССКОМ ЯЗЫКЕ.
 
 {self._subplan_rule("ru")}
+{self._chapter_arc(topic, "ru")}
 
 {century_ru_lang} Не добавляйте номер (1.1, 1.2) в начало названия.
 {self._title_rule("ru")}
 
 В формате JSON:
-{{"subsections": ["Подраздел 1", "Подраздел 2", "Подраздел 3"]}}"""
+{{"subsections": [{self._title_slots(count, "Подраздел")}]}}"""
             elif language == "en":
-                prompt = f"""Create 3 subsection titles for chapter "{chapter_title}" of the topic "{topic}". EVERYTHING IN ENGLISH.
+                prompt = f"""Create {count} subsection titles for chapter "{chapter_title}" of the topic "{topic}". EVERYTHING IN ENGLISH.
 
 {self._subplan_rule("en")}
+{self._chapter_arc(topic, "en")}
 
 {century_en} Do not add numbering (1.1, 1.2) at the start.
 {self._title_rule("en")}
 
 In JSON format:
-{{"subsections": ["Subsection 1", "Subsection 2", "Subsection 3"]}}"""
+{{"subsections": [{self._title_slots(count, "Subsection")}]}}"""
             else: # uz
-                prompt = f""""{topic}" mavzusidagi "{chapter_title}" bo'limi uchun 3 ta kichik bo'lim sarlavhasini yarating. HAMMASI O'ZBEK TILIDA BO'LSIN.
+                prompt = f""""{topic}" mavzusidagi "{chapter_title}" bobi uchun {count} ta kichik bo'lim sarlavhasini yarating. HAMMASI O'ZBEK TILIDA BO'LSIN.
 
 {self._subplan_rule("uz")}
+{self._chapter_arc(topic, "uz")}
 
 {century_uz} Sarlavha boshiga raqam (1.1, 1.2) qo'shmang.
 {self._title_rule("uz")}
 
 JSON formatda:
-{{"subsections": ["sarlavha 1", "sarlavha 2", "sarlavha 3"]}}"""
+{{"subsections": [{self._title_slots(count, "sarlavha")}]}}"""
 
             response = await self._make_request(
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=300,
+                max_tokens=150 + 80 * count,
                 temperature=0.7
             )
             
@@ -1840,12 +1968,12 @@ JSON formatda:
                 content_str = content_str[:-3]
             
             data = json.loads(content_str.strip())
-            titles = data.get('subsections') or ["Kirish qismi", "Asosiy mazmun", "Yakuniy fikrlar"]
-            return [self._tidy_title(t) for t in titles]
+            titles = [self._tidy_title(t) for t in (data.get('subsections') or [])]
+            return self._pad_subsections(titles, count, chapter_title, language)
             
         except Exception as e:
             logger.error(f"Error generating subsection titles: {e}")
-            return ["Kirish qismi", "Asosiy mazmun", "Yakuniy fikrlar"]
+            return self._pad_subsections([], count, chapter_title, language)
 
     async def _generate_subsection_content(self, topic: str, chapter_title: str, subsection_title: str, language: str, word_target: str = "380-440") -> str:
         """Generate content for a subsection"""
@@ -2466,20 +2594,42 @@ JSON: {{"point_1": "...", ..., "point_10": "..."}}"""
                 "appendices": [],
             }
 
-            word_target = _subsection_word_target(
-                chapters * 3, min_pages, max_pages, fixed_pages=15
-            )
-
             # ── Step 1: Get chapter + subsection titles (manual or AI) ───────────
+            # Reja avval tuziladi, hajm keyin hisoblanadi: qo'lda yozilgan
+            # rejada bobga ikkita ham, uchta ham mavzu bo'lishi mumkin, matn
+            # hajmi esa buyurtma qilingan varaqqa yetishi kerak.
             if manual_plan:
-                chapter_titles = [ch["title"] for ch in manual_plan]
-                all_subsection_titles = [ch.get("subsections", [])[:3] for ch in manual_plan]
+                chapter_titles = []
+                all_subsection_titles = []
+                for chapter in manual_plan:
+                    title = str(chapter.get("title", "")).strip()
+                    subs = [
+                        str(sub).strip()
+                        for sub in (chapter.get("subsections") or [])
+                        if str(sub).strip()
+                    ]
+                    if not title or not subs:
+                        continue
+                    chapter_titles.append(title)
+                    all_subsection_titles.append(subs)
             else:
+                per_chapter = _subsections_per_chapter(min_pages, max_pages)
                 chapter_titles = await self._generate_chapter_titles(topic, chapters, language)
                 all_subsection_titles = []
                 for chapter_title in chapter_titles:
-                    sub_titles = await self._generate_subsection_titles(topic, chapter_title, language)
-                    all_subsection_titles.append(sub_titles[:3])
+                    sub_titles = await self._generate_subsection_titles(
+                        topic, chapter_title, language, per_chapter
+                    )
+                    all_subsection_titles.append(sub_titles)
+
+            total_subsections = sum(len(subs) for subs in all_subsection_titles)
+            word_target = _subsection_word_target(
+                total_subsections, min_pages, max_pages, fixed_pages=15
+            )
+            logger.info(
+                "Bitiruv ishi rejasi: %d bob, %d kichik bo'lim, har biriga %s so'z",
+                len(chapter_titles), total_subsections, word_target,
+            )
 
             # ── Step 2: Generate introduction ────────────────────────────────────
             content["introduction"] = await self._generate_graduation_intro(topic, language)

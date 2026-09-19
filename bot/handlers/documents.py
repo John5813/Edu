@@ -1641,10 +1641,18 @@ async def handle_course_work_pages(callback: CallbackQuery, state: FSMContext, d
     await callback.message.edit_reply_markup(reply_markup=None)
 
     await state.update_data(base_price=price, doc_next_step="course_work_gen")
-    await state.set_state(DocumentStates.waiting_for_extras_choice)
+
+    # Mijoz rejani o'zi yozishi mumkin: bob nomlari ham, ularning ostidagi
+    # mavzular ham o'zinikicha bo'ladi.
+    await state.set_state(DocumentStates.waiting_for_gw_outline_choice)
+    outline_prompt = {
+        "uz": "📋 Kurs ishi uchun rejani qanday tuzamiz?",
+        "ru": "📋 Как составим план курсовой работы?",
+        "en": "📋 How should we create the plan for the course work?",
+    }
     await callback.message.answer(
-        get_text(user_lang, "extras_panel_title"),
-        reply_markup=get_extras_keyboard(user_lang, [], price)
+        outline_prompt.get(user_lang, outline_prompt["uz"]),
+        reply_markup=get_gw_outline_choice_keyboard(user_lang),
     )
 
 @router.callback_query(F.data.startswith("dw_pages_"), DocumentStates.waiting_for_diploma_work_pages)
@@ -1777,7 +1785,9 @@ async def handle_gw_outline_manual(callback: CallbackQuery, state: FSMContext, d
         sub_example = ["Понятие и классификация", "Методы оценки", "Зарубежный опыт"]
         intro_note = (
             "✏️ Введите <b>полное оглавление</b> одним сообщением в формате ниже.\n"
-            "Каждая глава — {n} подразделов (3.1, 3.2, 3.3).\n\n"
+            "Под каждой главой — сколько подразделов хотите: два, три или больше.\n"
+            "Объём текста подстроится, заказанное количество страниц будет "
+            "выдержано в любом случае.\n\n"
             "📌 <b>Образец:</b>"
         )
         hint = "\n\n⚠️ Соблюдайте формат. Каждую главу введите с <b>I BOB / II BOB</b> и т.д."
@@ -1786,7 +1796,8 @@ async def handle_gw_outline_manual(callback: CallbackQuery, state: FSMContext, d
         sub_example = ["Definition and classification", "Assessment methods", "International experience"]
         intro_note = (
             "✏️ Enter the <b>full table of contents</b> in one message using the format below.\n"
-            "Each chapter has 3 subsections.\n\n"
+            "Put as many subsections under each chapter as you like — two, three or more.\n"
+            "The text length adapts, so the ordered page count is reached either way.\n\n"
             "📌 <b>Sample:</b>"
         )
         hint = "\n\n⚠️ Follow the format. Each chapter starts with <b>I BOB / II BOB</b>, etc."
@@ -1794,18 +1805,24 @@ async def handle_gw_outline_manual(callback: CallbackQuery, state: FSMContext, d
         chap_word = "BOB"
         sub_example = ["Tushunchasi va tasnifi", "Baholash usullari", "Xorijiy tajriba"]
         intro_note = (
-            "✏️ Quyidagi formatda <b>butun mundarijani</b> bitta xabarda yuboring.\n"
-            "Har bir bob 3 ta kichik bo'limdan iborat bo'lishi kerak.\n\n"
+            "✏️ Quyidagi formatda <b>butun rejani</b> bitta xabarda yuboring.\n"
+            "Har bir bob ostiga nechta mavzu yozsangiz — ikkita, uchta yoki "
+            "ko'proq — o'zingiz bilasiz.\n"
+            "Matn hajmi shunga qarab moslashadi, buyurtma qilingan varaq soni "
+            "baribir chiqadi.\n\n"
             "📌 <b>Namuna:</b>"
         )
         hint = "\n\n⚠️ Formatga rioya qiling. Har bir bob <b>I BOB / II BOB</b> ko'rinishida boshlansin."
 
     roman_nums = ["I", "II", "III", "IV", "V"]
+    # Odatda har bobda ikkita mavzu bo'ladi; namunada bittasi uchta —
+    # mijoz ularni bir xil qilishi shart emasligi shundan ko'rinadi.
+    sample_counts = [2, 2, 3, 2, 2]
     lines = [intro_note]
     lines.append("<pre>")
     for i in range(1, chapters + 1):
         lines.append(f"{roman_nums[i-1]} {chap_word}. [Bob {i} sarlavhasi]")
-        for j in range(1, 4):
+        for j in range(1, sample_counts[(i - 1) % len(sample_counts)] + 1):
             lines.append(f"  {i}.{j}. [{sub_example[(j-1) % len(sub_example)]}]")
         if i < chapters:
             lines.append("")
@@ -1814,6 +1831,70 @@ async def handle_gw_outline_manual(callback: CallbackQuery, state: FSMContext, d
 
     await state.set_state(DocumentStates.waiting_for_gw_plan_text)
     await callback.message.answer("\n".join(lines), parse_mode="HTML")
+
+
+# Bob qatori: "I BOB. Mustaqillik", "ll bob qadriyat", "BOB 2 — Tahlil",
+# "2-bob: Natijalar", "ГЛАВА I. ..." — mijoz qanday yozsa ham tushunilsin.
+# Ilgari faqat "RIM_RAQAMI BOB. Sarlavha" ko'rinishi qabul qilinardi va
+# ozgina boshqacha yozilgan reja "format xato" bo'lib qaytarilardi.
+_CHAPTER_LINE = _re_plan.compile(
+    r'^\W*(?:[IVXLCDMivxlcdm\d]{1,6}\s*[-.):]?\s*)?'
+    r'(?:bob|глава|chapter|боб)\b[\s.:)—–-]*(.*)$',
+    _re_plan.IGNORECASE,
+)
+# "ГЛАВА I. Nomi" yoki "CHAPTER 2 — Nomi" da raqam so'zdan keyin keladi —
+# u sarlavhaga qo'shilib ketmasin.
+# Faqat alohida turgan raqam olib tashlanadi: undan keyin ajratuvchi belgi
+# yoki qator oxiri bo'lishi shart. Aks holda "MILLIY BOYLIK" sarlavhasining
+# boshidagi "MILLI" rim raqami deb o'qilib, "Y BOYLIK" qolib ketardi.
+_LEADING_NUMBER = _re_plan.compile(
+    r'^(?:[IVXLCDM]{1,5}|\d{1,2})(?=[\s.:)\u2014\u2013-]|$)[\s.:)\u2014\u2013-]*'
+)
+# Kichik bo'lim: "1.1. Erkinlik", "1.1 Erkinlik", "- Erkinlik" yoki oddiy qator.
+_SUB_LINE = _re_plan.compile(r'^\W*(?:\d+[.\-]\d+)[.):]?\s*(.*)$')
+_BULLET_LINE = _re_plan.compile(r'^\s*[-•*–—]\s*(.+)$')
+
+
+def _parse_manual_plan(text: str) -> list:
+    """Mijoz qo'lda yozgan rejani boblar ro'yxatiga aylantiradi.
+
+    Qaysi bobga nechta mavzu yozilgani o'zgartirilmaydi — mijoz biriga
+    ikkita, boshqasiga uchta yozishi mumkin. Raqamsiz yozilgan qator ham
+    mavzu deb olinadi: hamma ham "1.1." qo'yib o'tirmaydi.
+    """
+    plan = []
+    current = None
+
+    def close():
+        if current and current["subsections"]:
+            plan.append(current)
+
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+
+        chapter = _CHAPTER_LINE.match(line)
+        if chapter:
+            close()
+            title = chapter.group(1).strip(" .:-—–")
+            stripped = _LEADING_NUMBER.sub("", title).strip(" .:-—–")
+            # Sarlavha faqat raqamdan iborat bo'lsa (masalan "II"), uni
+            # olib tashlab bo'sh qator qolmasin.
+            title = stripped or title or line.strip(" .:-—–")
+            current = {"title": title, "subsections": []}
+            continue
+
+        if current is None:
+            continue
+
+        sub = _SUB_LINE.match(line) or _BULLET_LINE.match(line)
+        name = (sub.group(1) if sub else line).strip(" .:-—–")
+        if name:
+            current["subsections"].append(name)
+
+    close()
+    return plan
 
 
 @router.message(DocumentStates.waiting_for_gw_plan_text)
@@ -1829,29 +1910,7 @@ async def handle_gw_plan_text(message: Message, state: FSMContext, db: Database,
         await message.answer(err.get(user_lang, err["uz"]))
         return
 
-    # Parse plan: detect chapter lines and subsection lines
-    plan = []
-    current_chapter = None
-    for line in text.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        # Chapter line: Roman numeral + BOB/ГЛАВА/CHAPTER (case-insensitive)
-        m_ch = _re_plan.match(
-            r'^([IVXLCDM]+)\s+(?:BOB|ГЛАВА|CHAPTER)[.:\s]+(.+)$', line, _re_plan.IGNORECASE
-        )
-        if m_ch:
-            if current_chapter and current_chapter["subsections"]:
-                plan.append(current_chapter)
-            current_chapter = {"title": m_ch.group(2).strip(), "subsections": []}
-            continue
-        # Subsection line: N.M. title
-        m_sub = _re_plan.match(r'^\d+\.\d+\.?\s+(.+)$', line)
-        if m_sub and current_chapter is not None:
-            current_chapter["subsections"].append(m_sub.group(1).strip())
-
-    if current_chapter and current_chapter["subsections"]:
-        plan.append(current_chapter)
+    plan = _parse_manual_plan(text)
 
     data = await state.get_data()
     chapters = data.get("chapters", 3)
@@ -1865,11 +1924,13 @@ async def handle_gw_plan_text(message: Message, state: FSMContext, db: Database,
         await message.answer(err.get(user_lang, err["uz"]), parse_mode="HTML")
         return
 
-    # Ensure each chapter has exactly 3 subsections (pad or trim)
+    # Mijoz qaysi bobga nechta mavzu yozgan bo'lsa — shundayligicha
+    # qoladi. Ilgari hammasi uchtaga tenglashtirilardi: ikkita yozgan
+    # mijozga o'zi so'ramagan uchinchi mavzu qo'shilib ketardi.
+    # Matn hajmi esa shu songa qarab hisoblanadi, shuning uchun
+    # buyurtma qilingan varaq soni baribir chiqadi.
     for ch in plan:
-        while len(ch["subsections"]) < 3:
-            ch["subsections"].append(f"{ch['title']} bo'yicha tahlil")
-        ch["subsections"] = ch["subsections"][:3]
+        ch["subsections"] = ch["subsections"][:6]
 
     # Trim or extend plan to match chapters count
     if len(plan) > chapters:
@@ -1966,8 +2027,10 @@ _HEAVY_DOC_CFG = {
         "ai_method": "generate_course_work_content",
         "doc_method": "create_course_work",
         "emoji": "📚",
-        "label": "bo'lim",
+        "label": "bob",
         "store_type": "kurs_ishi",
+        # Mijoz rejani qo'lda yozishi mumkin.
+        "manual_plan": True,
     },
     "diploma_work": {
         "ai_method": "generate_diploma_work_content",
@@ -1989,6 +2052,7 @@ _HEAVY_DOC_CFG = {
         "emoji": "🎓",
         "label": "bob",
         "store_type": "bitiruv_ishi",
+        "manual_plan": True,
     },
 }
 
@@ -2020,7 +2084,7 @@ async def _execute_heavy_generation(
         ai_service = get_ai_service()
         ai_method = getattr(ai_service, cfg["ai_method"])
 
-        if doc_type == "bitiruv_ishi":
+        if cfg.get("manual_plan"):
             content = await ai_method(
                 ai_topic, chapters, doc_lang,
                 min_pages=min_pages, max_pages=max_pages,

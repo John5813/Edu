@@ -108,6 +108,51 @@ def opening_rule(topic: str, language: str = "uz") -> str:
     )
 
 
+def chapter_arc(topic: str, language: str = "uz") -> str:
+    """Uch bobning mantiqiy ketma-ketligi — prompt qoidasi.
+
+    O'zbekistonga oid kurs ishlari shu tartibda yoziladi: avval
+    tushuncha va nazariya, keyin mamlakatdagi bugungi holat, oxirida
+    istiqbollar. Bu tartibsiz boblar bir-birini takrorlab, ish
+    mantiqiy izchillikni yo'qotardi.
+    """
+    if language == "ru":
+        return (
+            "СТРУКТУРА ГЛАВ (строго в этом порядке):\n"
+            "- I глава — концептуальная: понятие, сущность, теоретические "
+            "основы и мировой опыт по теме.\n"
+            "- II глава — нынешнее положение в Узбекистане: действующая "
+            "практика, данные, достигнутые результаты и проблемы.\n"
+            "- III глава — перспективы: пути совершенствования, прогноз и "
+            "предложения.\n"
+            "Главы не должны повторять друг друга: каждая продолжает "
+            "предыдущую."
+        )
+    if language == "en":
+        return (
+            "CHAPTER STRUCTURE (strictly in this order):\n"
+            "- Chapter I — conceptual: the notion, its essence, the "
+            "theoretical foundations and international experience.\n"
+            "- Chapter II — the present state in Uzbekistan: current "
+            "practice, figures, results achieved and problems.\n"
+            "- Chapter III — prospects: ways to improve, forecast and "
+            "proposals.\n"
+            "The chapters must not repeat one another: each continues the "
+            "previous one."
+        )
+    return (
+        "BOBLAR TUZILISHI (aynan shu tartibda):\n"
+        "- I bob — konseptual: mavzuning tushunchasi, mohiyati, nazariy "
+        "asoslari va jahon tajribasi.\n"
+        "- II bob — O'zbekistondagi bugungi holat: amaldagi tartib, "
+        "raqamlar, erishilgan natijalar va muammolar.\n"
+        "- III bob — istiqbollar: takomillashtirish yo'llari, prognoz va "
+        "takliflar.\n"
+        "Boblar bir-birini takrorlamasin: har biri oldingisining davomi "
+        "bo'lsin."
+    )
+
+
 def constitution_source(language: str = "uz") -> str:
     """Adabiyotlar ro'yxatida ikkinchi bo'lib turadigan yozuv."""
     if language == "ru":

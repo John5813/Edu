@@ -99,15 +99,17 @@ COURSE_WORK_PRICES = {
     "20_25_3": 15000,
     "25_30_3": 20000,
     "30_35_3": 25000,
-    # Katta hajmlar to'rtta bo'limga bo'linadi: uchtaga sig'dirilsa har bir
-    # kichik bo'limga 1400 so'zdan tushib, matn suyulib ketardi.
+    # Kurs ishi qaysi hajmda bo'lmasin uch bobdan iborat: shunday
+    # yoziladi. Katta hajmda bob qo'shilmaydi, har bobga qo'shimcha
+    # kichik bo'lim qo'shiladi — aks holda bitta kichik bo'limga 1400
+    # so'zdan tushib, matn suyulib ketardi.
     #
     # Narx zinapoyaning +5 000 ritmini davom ettiradi. Ilgari u varoq soniga
     # to'g'ri proporsional edi va varog'iga tushadigan narx hajm oshgani sari
     # ko'tarilib borardi (500 → 833) — ya'ni ko'p buyurtma qilgan mijoz
     # qimmatroq to'lardi. Endi aksincha: 40-50 da 600, 50-60 da 583 so'm.
-    "40_50_4": 30000,
-    "50_60_4": 35000,
+    "40_50_3": 30000,
+    "50_60_3": 35000,
 }
 
 # Diploma work prices (same structure as course work)
