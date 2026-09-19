@@ -3887,7 +3887,8 @@ class DocumentService:
                 'city': 'Toshkent',
                 'contents': 'MUNDARIJA',
                 'introduction': 'KIRISH',
-                'chapter': 'BO\'LIM',
+                # O'zbek ilmiy ishlarida bo'lim emas, "bob" deyiladi.
+                'chapter': 'BOB',
                 'conclusion': 'XULOSA',
                 'references': 'FOYDALANILGAN ADABIYOTLAR',
                 'intro_points': [
@@ -5249,7 +5250,9 @@ class DocumentService:
                 'city': 'Toshkent',
                 'contents': 'MUNDARIJA',
                 'introduction': 'KIRISH',
-                'chapter': "BO'LIM",
+                # Qo'lda reja so'ralganda ham "I BOB" ko'rinishi so'raladi,
+                # hujjatda esa "BO'LIM" chiqardi.
+                'chapter': "BOB",
                 'conclusion': 'XULOSA VA TAKLIFLAR',
                 'conclusion_toc': 'XULOSA',
                 'references': 'FOYDALANILGAN ADABIYOTLAR',
