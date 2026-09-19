@@ -2,6 +2,7 @@ import logging
 import json
 import asyncio
 import os
+import html
 import uuid as uuid_mod
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, FSInputFile, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
@@ -11,7 +12,7 @@ from aiogram.filters import StateFilter
 from bot import checkout as _pay
 from bot.states import DocumentStates
 import re as _re_plan
-from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard, get_outline_review_keyboard, get_references_choice_keyboard, get_doc_language_keyboard, get_plan_slide_keyboard, get_icon_choice_keyboard, get_course_work_page_keyboard, get_diploma_work_page_keyboard, get_graduation_work_page_keyboard, get_dissertation_page_keyboard, get_payment_choice_keyboard, get_insufficient_balance_keyboard, get_back_inline_keyboard, get_article_page_keyboard, get_source_selection_keyboard, get_other_services_keyboard, get_extras_keyboard, get_gw_outline_choice_keyboard
+from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard, get_outline_review_keyboard, get_references_choice_keyboard, get_doc_language_keyboard, get_plan_slide_keyboard, get_icon_choice_keyboard, get_course_work_page_keyboard, get_diploma_work_page_keyboard, get_graduation_work_page_keyboard, get_dissertation_page_keyboard, get_payment_choice_keyboard, get_insufficient_balance_keyboard, get_back_inline_keyboard, get_article_page_keyboard, get_source_selection_keyboard, get_other_services_keyboard, get_extras_keyboard, get_gw_outline_choice_keyboard, get_plan_confirm_keyboard
 from database.database import Database
 from utils.security import sanitize_user_input, validate_topic_length
 from services import document_source
@@ -1855,18 +1856,77 @@ _SUB_LINE = _re_plan.compile(r'^\W*(?:\d+[.\-]\d+)[.):]?\s*(.*)$')
 _BULLET_LINE = _re_plan.compile(r'^\s*[-•*–—]\s*(.+)$')
 
 
+# Mijoz rejasi shu chegaralarda qabul qilinadi. Mijoz to'rt bobga
+# uchtadan yozsa ham shundayligicha qoladi; chegara faqat tasodifiy
+# yoki juda katta kiritishdan himoya qiladi.
+_MAX_MANUAL_CHAPTERS = 6
+_MAX_MANUAL_SUBSECTIONS = 6
+
+_ROMAN = ("I", "II", "III", "IV", "V", "VI")
+
+
+def _format_plan(plan: list, language: str) -> str:
+    """Tahrirlangan rejani mijozga ko'rsatish uchun matn.
+
+    Mijoz o'zi yozgani bilan solishtira olishi kerak, shuning uchun
+    hujjatdagi ko'rinishda — bob raqami rim raqamida, mavzular esa
+    "1.1" tartibida yoziladi.
+    """
+    chapter_word = {"ru": "ГЛАВА", "en": "CHAPTER"}.get(language, "BOB")
+    heading = {
+        "uz": "📋 <b>Reja tekshirildi.</b> Quyidagicha bo'ladi:",
+        "ru": "📋 <b>Оглавление проверено.</b> Получилось так:",
+        "en": "📋 <b>The plan has been checked.</b> Here it is:",
+    }.get(language, "📋 <b>Reja tekshirildi.</b> Quyidagicha bo'ladi:")
+    footer = {
+        "uz": "Bob va mavzular soni siz yozganicha qoldi — faqat imlo va "
+              "uslub tuzatildi.",
+        "ru": "Количество глав и подразделов осталось вашим — исправлены "
+              "только орфография и стиль.",
+        "en": "The number of chapters and subsections is yours — only "
+              "spelling and wording were corrected.",
+    }.get(language, "")
+
+    lines = [heading, ""]
+    for index, chapter in enumerate(plan, 1):
+        roman = _ROMAN[(index - 1) % len(_ROMAN)]
+        # Avval katta harfga, keyin ekranlash: teskarisida "&#x27;" ham
+        # kattalashib, Telegram uni tanimay qolardi. Qo'shtirnoq
+        # ekranlanmaydi — o'zbekcha apostrof matnda ko'p uchraydi.
+        title = html.escape(str(chapter.get("title", "")).upper(), quote=False)
+        lines.append(f"<b>{roman} {chapter_word}. {title}</b>")
+        for number, sub in enumerate(chapter.get("subsections") or [], 1):
+            lines.append(f"   {index}.{number}. {html.escape(str(sub), quote=False)}")
+        lines.append("")
+    lines.append(f"<i>{footer}</i>")
+    return "\n".join(lines)
+
+
 def _parse_manual_plan(text: str) -> list:
     """Mijoz qo'lda yozgan rejani boblar ro'yxatiga aylantiradi.
 
     Qaysi bobga nechta mavzu yozilgani o'zgartirilmaydi — mijoz biriga
-    ikkita, boshqasiga uchta yozishi mumkin. Raqamsiz yozilgan qator ham
-    mavzu deb olinadi: hamma ham "1.1." qo'yib o'tirmaydi.
+    ikkita, boshqasiga uchta yozishi mumkin.
+
+    Uzun sarlavha ikki qatorga bo'linib yoziladi:
+
+        I BOB. AHOLI BANDLIGINI TA'MINLASH VA IJTIMOIY HIMOYANING
+        NAZARIY ASOSLARI
+         1.1. Aholi bandligi va ijtimoiy himoya tushunchasi, mazmuni va
+              asosiy tamoyillari
+
+    Ilgari har qator alohida mavzu deb olinardi va ikkita mavzu yozgan
+    mijozning bobi beshta mavzuga bo'linib ketardi. Endi raqam (1.1) yoki
+    tire bilan boshlanmagan qator oldingisining davomi hisoblanadi.
     """
     plan = []
     current = None
 
     def close():
-        if current and current["subsections"]:
+        # Mavzusiz bob ham saqlanadi: raqamsiz yozilgan rejada mavzular
+        # bob nomiga qo'shilib ketgan bo'lishi mumkin, ular `_split_unnumbered`
+        # da ajratiladi.
+        if current:
             plan.append(current)
 
     for raw in text.splitlines():
@@ -1882,19 +1942,54 @@ def _parse_manual_plan(text: str) -> list:
             # Sarlavha faqat raqamdan iborat bo'lsa (masalan "II"), uni
             # olib tashlab bo'sh qator qolmasin.
             title = stripped or title or line.strip(" .:-—–")
-            current = {"title": title, "subsections": []}
+            current = {"title": title, "subsections": [], "wrapped": []}
             continue
 
         if current is None:
             continue
 
         sub = _SUB_LINE.match(line) or _BULLET_LINE.match(line)
-        name = (sub.group(1) if sub else line).strip(" .:-—–")
-        if name:
-            current["subsections"].append(name)
+        if sub:
+            name = sub.group(1).strip(" .:-—–")
+            if name:
+                current["subsections"].append(name)
+            continue
+
+        # Davomi: oxirgi mavzuga, mavzu hali yo'q bo'lsa bob nomiga.
+        tail = line.strip(" .:-—–")
+        if not tail:
+            continue
+        if current["subsections"]:
+            current["subsections"][-1] += " " + tail
+        else:
+            current["title"] += " " + tail
+            current["wrapped"].append(tail)
 
     close()
-    return plan
+    chapters = [_split_unnumbered(chapter) for chapter in plan]
+    return [chapter for chapter in chapters if chapter["subsections"]]
+
+
+def _split_unnumbered(chapter: dict) -> dict:
+    """Raqamsiz yozilgan rejani ajratadi.
+
+    Mijoz raqam ham, tire ham qo'ymasdan yozsa:
+
+        bob mustaqillik
+        erkinlik
+        tinchlik
+
+    qatorlar bob nomiga qo'shilib ketgan bo'ladi. Bobda birorta mavzu
+    qolmagani shundan dalolat beradi — o'shanda qo'shilganlari qaytarib
+    mavzuga aylantiriladi.
+    """
+    wrapped = chapter.pop("wrapped", [])
+    if chapter["subsections"] or not wrapped:
+        return chapter
+    for tail in wrapped:
+        chapter["title"] = chapter["title"][: -(len(tail) + 1)]
+    chapter["subsections"] = wrapped
+    return chapter
 
 
 @router.message(DocumentStates.waiting_for_gw_plan_text)
@@ -1924,29 +2019,81 @@ async def handle_gw_plan_text(message: Message, state: FSMContext, db: Database,
         await message.answer(err.get(user_lang, err["uz"]), parse_mode="HTML")
         return
 
-    # Mijoz qaysi bobga nechta mavzu yozgan bo'lsa — shundayligicha
-    # qoladi. Ilgari hammasi uchtaga tenglashtirilardi: ikkita yozgan
-    # mijozga o'zi so'ramagan uchinchi mavzu qo'shilib ketardi.
-    # Matn hajmi esa shu songa qarab hisoblanadi, shuning uchun
+    # Reja mijoz yozganicha qoladi: nechta bob, qaysi bobga nechta
+    # mavzu yozgan bo'lsa — shundayligicha. Ilgari uchta bobga
+    # qisqartirilib, har bobi uchtaga tenglashtirilardi, ya'ni to'rt
+    # bobga uchtadan yozgan mijozning rejasi buzilardi. Matn hajmi
+    # haqiqiy mavzular soniga qarab hisoblanadi, shuning uchun
     # buyurtma qilingan varaq soni baribir chiqadi.
+    plan = plan[:_MAX_MANUAL_CHAPTERS]
     for ch in plan:
-        ch["subsections"] = ch["subsections"][:6]
+        ch["subsections"] = ch["subsections"][:_MAX_MANUAL_SUBSECTIONS]
 
-    # Trim or extend plan to match chapters count
-    if len(plan) > chapters:
-        plan = plan[:chapters]
+    thinking = {
+        "uz": "🔍 Reja tekshirilmoqda...",
+        "ru": "🔍 Проверяем оглавление...",
+        "en": "🔍 Checking the plan...",
+    }
+    notice = await message.answer(thinking.get(user_lang, thinking["uz"]))
+
+    # AI imlo va uslubni tuzatadi, tuzilishga tegmaydi.
+    doc_lang = data.get("doc_language", user_lang)
+    try:
+        plan = await get_ai_service().review_manual_plan(
+            plan, data.get("topic", ""), doc_lang
+        )
+    except Exception as exc:
+        logger.warning(f"Reja tahriri o'tmadi, mijoznikida qoldi: {exc}")
+
+    try:
+        await notice.delete()
+    except Exception:
+        pass
 
     await state.update_data(gw_manual_plan=plan)
+    await state.set_state(DocumentStates.waiting_for_plan_confirm)
+    await message.answer(
+        _format_plan(plan, user_lang),
+        parse_mode="HTML",
+        reply_markup=get_plan_confirm_keyboard(user_lang),
+    )
 
+
+@router.callback_query(F.data == "plan_confirm", DocumentStates.waiting_for_plan_confirm)
+async def handle_plan_confirm(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
+    """Mijoz tahrirlangan rejani tasdiqladi — qo'shimchalarga o'tamiz."""
+    await callback.answer()
+    await callback.message.edit_reply_markup(reply_markup=None)
+    data = await state.get_data()
+    plan = data.get("gw_manual_plan") or []
     price = data.get("base_price", 0)
-    await state.set_state(DocumentStates.waiting_for_extras_choice)
 
+    await state.set_state(DocumentStates.waiting_for_extras_choice)
+    subs = sum(len(ch.get("subsections") or []) for ch in plan)
     ok = {
-        "uz": f"✅ Reja qabul qilindi! ({len(plan)} ta bob)\n\nEndi qo'shimcha xizmatlarni tanlang:",
-        "ru": f"✅ Оглавление принято! ({len(plan)} гл.)\n\nВыберите дополнительные услуги:",
-        "en": f"✅ Plan accepted! ({len(plan)} chapters)\n\nChoose additional services:",
+        "uz": f"✅ Reja qabul qilindi: {len(plan)} ta bob, {subs} ta mavzu.\n\nEndi qo'shimcha xizmatlarni tanlang:",
+        "ru": f"✅ Оглавление принято: {len(plan)} гл., {subs} подразделов.\n\nВыберите дополнительные услуги:",
+        "en": f"✅ Plan accepted: {len(plan)} chapters, {subs} subsections.\n\nChoose additional services:",
     }
-    await message.answer(ok.get(user_lang, ok["uz"]), reply_markup=get_extras_keyboard(user_lang, [], price))
+    await callback.message.answer(
+        ok.get(user_lang, ok["uz"]),
+        reply_markup=get_extras_keyboard(user_lang, [], price),
+    )
+
+
+@router.callback_query(F.data == "plan_redo", DocumentStates.waiting_for_plan_confirm)
+async def handle_plan_redo(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
+    """Mijoz rejani qaytadan yozmoqchi."""
+    await callback.answer()
+    await callback.message.edit_reply_markup(reply_markup=None)
+    await state.update_data(gw_manual_plan=None)
+    await state.set_state(DocumentStates.waiting_for_gw_plan_text)
+    again = {
+        "uz": "✏️ Rejani qaytadan yuboring:",
+        "ru": "✏️ Отправьте оглавление заново:",
+        "en": "✏️ Send the plan again:",
+    }
+    await callback.message.answer(again.get(user_lang, again["uz"]))
 
 
 @router.callback_query(F.data.startswith("extras_toggle_"), DocumentStates.waiting_for_extras_choice)

@@ -84,18 +84,23 @@ def _subsection_word_target(total_subsections: int, min_pages: int, max_pages: i
 # Bitta so'rovda yoziladigan matnning amaliy chegarasi. Model javobi
 # 8000 tokendan oshmaydi, o'zbekcha matnda bu ~1900 so'z; shunga yaqin
 # so'ralsa javob chala kelib, oxirgi gapigacha qirqilardi.
-_MAX_WORDS_PER_SUBSECTION = 1500
+_MAX_WORDS_PER_SUBSECTION = 2600
+
+# Bitta so'rovda ishonchli yoziladigan hajm. Bundan ortig'i so'ralsa javob
+# token chegarasiga urilib, matn oxirgi tugagan gapigacha qirqilardi.
+_WORDS_PER_REQUEST = 1200
 
 
 def _subsections_per_chapter(min_pages: int, max_pages: int,
                              chapters: int = 3) -> int:
     """Bitta bobga nechta kichik bo'lim to'g'ri kelishi.
 
-    O'zbek kurs ishlarida odatda har bobda ikkita mavzu bo'ladi va
-    har biri bir necha varaqni egallaydi — shuning uchun boshlang'ich
-    son ikki. Kurs ishi har doim uch bobdan iborat, ya'ni katta hajmda
-    bob qo'shib bo'lmaydi: bitta mavzuga sig'maydigan hajm qolganda
-    bobga uchinchi mavzu qo'shiladi.
+    O'zbek kurs ishlarida har bobda ikkita mavzu bo'ladi va har biri
+    bir necha varaqni egallaydi — shuning uchun javob deyarli hamma
+    hajmda ikki. Katta hajmda ham bob ham, mavzu ham qo'shilmaydi:
+    uzun matn bir necha so'rovga bo'lib yoziladi (`_WORDS_PER_REQUEST`).
+    Uchinchi mavzu faqat matn bo'laklarga bo'linganda ham sig'may
+    qolsa qo'shiladi — bu kurs ishi hajmlarida uchramaydi.
     """
     body_pages = max((min_pages + max_pages) / 2 - 9, 4)
     body_words = body_pages * 280
@@ -1315,6 +1320,88 @@ EXACTLY {body_words} words — no more. Fully cover the topic with examples and 
         )
         return content
 
+    async def review_manual_plan(self, plan: list, topic: str, language: str) -> list:
+        """Mijoz qo'lda yozgan rejani tahrirlaydi — tuzilishiga tegmasdan.
+
+        Mijoz rejani shoshib yozadi: kichik harf bilan boshlaydi, imlo
+        xatosi qoladi, sarlavha yarim qoladi. AI shularni tuzatadi va
+        akademik ko'rinishga keltiradi.
+
+        Bob va mavzular SONI o'zgarmaydi: mijoz to'rt bobga uchtadan
+        yozgan bo'lsa, javob ham aynan shunday bo'ladi. Javob boshqacha
+        kelsa, mijozning o'z rejasi qaytariladi — tuzatishdan ko'ra
+        mijoz yozganini saqlash muhimroq.
+        """
+        shape = [len(chapter.get("subsections") or []) for chapter in plan]
+        if not plan or not any(shape):
+            return plan
+
+        outline = "\n".join(
+            f"{index}. BOB: {chapter['title']}\n" + "\n".join(
+                f"   {index}.{number}. {sub}"
+                for number, sub in enumerate(chapter.get("subsections") or [], 1)
+            )
+            for index, chapter in enumerate(plan, 1)
+        )
+
+        target = {"ru": "русском", "en": "English"}.get(language, "o'zbek")
+        prompt = (
+            f'Mavzu: "{topic}"\n\n'
+            f"Mijoz qo'lda yozgan reja:\n{outline}\n\n"
+            "Shu rejani tahrirlang:\n"
+            "- imlo va tinish belgilaridagi xatolarni tuzating;\n"
+            "- sarlavhalarni akademik uslubga keltiring, bosh harf bilan "
+            "boshlang;\n"
+            "- yarim qolgan yoki tushunarsiz sarlavhani mazmunidan kelib "
+            "chiqib to'ldiring;\n"
+            f"- hammasi {target} tilida bo'lsin.\n\n"
+            "QAT'IY SHART: boblar soni va har bobdagi mavzular soni "
+            f"o'zgarmasin. Boblar soni {len(plan)} ta, mavzular soni "
+            f"mos ravishda {', '.join(str(n) for n in shape)} ta. "
+            "Yangi bob yoki mavzu QO'SHMANG, borini olib TASHLAMANG, "
+            "ularning tartibini o'zgartirmang.\n\n"
+            'Faqat JSON: {"chapters": [{"title": "...", '
+            '"subsections": ["...", "..."]}]}'
+        )
+
+        try:
+            response = await self._make_request(
+                messages=[
+                    {"role": "system", "content": "You are an academic editor. Respond with valid JSON only."},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=400 + 120 * sum(shape),
+                temperature=0.3,
+            )
+            raw = response.strip()
+            if raw.startswith("```json"):
+                raw = raw[7:]
+            if raw.startswith("```"):
+                raw = raw[3:]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            data = json.loads(raw.strip())
+            edited = data.get("chapters") or []
+
+            if len(edited) != len(plan):
+                logger.warning("Reja tahriri boblar sonini o'zgartirdi: %d -> %d",
+                               len(plan), len(edited))
+                return plan
+
+            result = []
+            for original, fixed in zip(plan, edited):
+                subs = [str(x).strip() for x in (fixed.get("subsections") or []) if str(x).strip()]
+                title = str(fixed.get("title", "")).strip()
+                if len(subs) != len(original.get("subsections") or []) or not title:
+                    logger.warning("Reja tahriri mavzular sonini o'zgartirdi — mijoznikida qoldi")
+                    return plan
+                result.append({"title": self._tidy_title(title), "subsections": subs})
+            return result
+
+        except Exception as e:
+            logger.error(f"Error reviewing manual plan: {e}")
+            return plan
+
     async def presidential_opening(self, topic: str, language: str) -> Dict[str, str]:
         """O'zbekiston mavzulari uchun kirishning birinchi abzatsini yozadi.
 
@@ -1975,7 +2062,83 @@ JSON formatda:
             logger.error(f"Error generating subsection titles: {e}")
             return self._pad_subsections([], count, chapter_title, language)
 
-    async def _generate_subsection_content(self, topic: str, chapter_title: str, subsection_title: str, language: str, word_target: str = "380-440") -> str:
+    async def _generate_subsection_content(self, topic: str, chapter_title: str,
+                                           subsection_title: str, language: str,
+                                           word_target: str = "380-440") -> str:
+        """Kichik bo'lim matni — kerak bo'lsa bir necha bo'lakda.
+
+        Bitta so'rovda model ming ikki yuz so'zdan ortig'ini ishonchli
+        yozmaydi: javob token chegarasiga urilib, oxirgi tugagan gapgacha
+        qirqiladi va bo'lim buyurtma qilingan hajmdan qisqa chiqadi.
+        Shuning uchun katta hajm bo'laklarga bo'linib so'raladi va
+        qo'shib yoziladi — shunda har bobda ikkitadan mavzu qolaveradi,
+        varaq soni esa baribir chiqadi.
+        """
+        try:
+            upper = int(str(word_target).split("-")[-1].strip())
+        except (AttributeError, ValueError):
+            upper = 440
+
+        if upper <= _WORDS_PER_REQUEST:
+            return await self._write_subsection_part(
+                topic, chapter_title, subsection_title, language, word_target
+            )
+
+        parts = min((upper + _WORDS_PER_REQUEST - 1) // _WORDS_PER_REQUEST, 3)
+        per_part = upper // parts
+        chunk_target = f"{int(per_part * 0.9)}-{per_part}"
+
+        written = []
+        for number in range(1, parts + 1):
+            text = await self._write_subsection_part(
+                topic, chapter_title, subsection_title, language, chunk_target,
+                part=(number, parts), written=" ".join(written),
+            )
+            if text:
+                written.append(text)
+
+        return " ".join(written)
+
+    def _part_rule(self, part: tuple, written: str, language: str) -> str:
+        """Bo'lakka bo'lib yozishda modelga beriladigan ko'rsatma."""
+        if not part:
+            return ""
+        number, total = part
+        tail = written[-600:].strip()
+        if language == "ru":
+            rule = (f"\n- Это часть {number} из {total} одного подраздела. "
+                    "Пишите сплошным текстом, без заголовков и без слов "
+                    "«продолжение», «часть».")
+            if tail:
+                rule += (f"\n- Уже написано (НЕ повторяйте, продолжайте "
+                         f"мысль дальше): ...{tail}")
+            elif total > 1:
+                rule += "\n- Не подводите итог: подраздел продолжится."
+            return rule
+        if language == "en":
+            rule = (f"\n- This is part {number} of {total} of ONE subsection. "
+                    "Write continuous prose, no headings, never write "
+                    '"continued" or "part".')
+            if tail:
+                rule += (f"\n- Already written (do NOT repeat it, carry the "
+                         f"thought forward): ...{tail}")
+            elif total > 1:
+                rule += "\n- Do not conclude yet: the subsection continues."
+            return rule
+        rule = (f"\n- Bu bitta kichik bo'limning {number}-bo'lagi ({total} "
+                "tadan). Yaxlit matn yozing, sarlavha qo'ymang, \"davomi\", "
+                "\"qism\" kabi so'zlarni yozmang.")
+        if tail:
+            rule += (f"\n- Allaqachon yozilgani (TAKRORLAMANG, fikrni davom "
+                     f"ettiring): ...{tail}")
+        elif total > 1:
+            rule += "\n- Hali xulosa qilmang: bo'lim davom etadi."
+        return rule
+
+    async def _write_subsection_part(self, topic: str, chapter_title: str,
+                                     subsection_title: str, language: str,
+                                     word_target: str = "380-440",
+                                     part: tuple = None, written: str = "") -> str:
         """Generate content for a subsection"""
         try:
             century_uz_rule = f"- {self._century_rule('uz')}"
@@ -1991,7 +2154,7 @@ QOIDALAR:
 {century_uz_rule}
 {timeframe.year_rule("uz")}
 {heading_rule("uz")}
-- Matn ichiga "Foydalanilgan adabiyotlar:", "[1]", "[2]", "[3]" kabi ro'yxat yoki manba belgilarini KIRITMANG — manbalar avtomatik ravishda qo'shiladi"""
+- Matn ichiga "Foydalanilgan adabiyotlar:", "[1]", "[2]", "[3]" kabi ro'yxat yoki manba belgilarini KIRITMANG — manbalar avtomatik ravishda qo'shiladi{self._part_rule(part, written, "uz")}"""
 
             common_rules_ru = f"""
 ПРАВИЛА:
@@ -2002,7 +2165,7 @@ QOIDALAR:
 {century_ru_rule}
 {timeframe.year_rule("ru")}
 {heading_rule("ru")}
-- НЕ ВКЛЮЧАЙТЕ в текст списки источников вида "Список литературы:", "[1]", "[2]", "[3]" — ссылки добавляются автоматически"""
+- НЕ ВКЛЮЧАЙТЕ в текст списки источников вида "Список литературы:", "[1]", "[2]", "[3]" — ссылки добавляются автоматически{self._part_rule(part, written, "ru")}"""
 
             common_rules_en = f"""
 RULES:
@@ -2013,7 +2176,7 @@ RULES:
 {century_en_rule}
 {timeframe.year_rule("en")}
 {heading_rule("en")}
-- DO NOT include reference lists like "References:", "[1]", "[2]", "[3]" inside the text — citations are added automatically"""
+- DO NOT include reference lists like "References:", "[1]", "[2]", "[3]" inside the text — citations are added automatically{self._part_rule(part, written, "en")}"""
 
             if language == "uz":
                 prompt = f"""Quyidagi kichik bo'lim uchun akademik mazmun yozing: "{subsection_title}" (umumiy mavzu: "{topic}", bob: "{chapter_title}").

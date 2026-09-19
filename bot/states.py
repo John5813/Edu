@@ -20,6 +20,8 @@ class DocumentStates(StatesGroup):
     waiting_for_graduation_work_pages = State()
     waiting_for_gw_outline_choice = State()
     waiting_for_gw_plan_text = State()
+    # Qo'lda yozilgan reja AI tomonidan tahrirlangach, mijoz tasdiqlaydi.
+    waiting_for_plan_confirm = State()
     waiting_for_dissertation_pages = State()
     waiting_for_extras_choice = State()
     waiting_for_outline_choice = State()
