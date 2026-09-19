@@ -5,6 +5,7 @@ import re
 import requests
 
 from . import config
+from services import timeframe
 
 log = logging.getLogger("llm_client")
 
@@ -104,7 +105,7 @@ ELEMENT TURLARI:
 
   MAJBURIY: "caption" maydoni HAR DOIM to'ldirilsin — diagrammada nima ko'rsatilgani
   aniq bir-ikki jumlada yozilsin. Masalan:
-  "2015–2024 yillarda O'zbekistonda yalpi ichki mahsulot o'sishi (mlrd. so'm)"
+  "{YEAR_SPAN} yillarda O'zbekistonda yalpi ichki mahsulot o'sishi (mlrd. so'm)"
 
 ⑦ icon — tayyor ikonka (rasm generatsiyasi EMAS, lokal fayl)
 {"type":"icon","x":1.2,"y":2.4,"w":0.7,"h":0.7,"icon":"innovation","fill":"2A78D6","color":"FFFFFF","shape":"circle"}
@@ -114,7 +115,7 @@ ELEMENT TURLARI:
 
 ⑧ infographic — ikonkali kompozitsiya (ENG KUCHLI element)
 {"type":"infographic","x":0.6,"y":1.9,"w":12.1,"h":4.4,"preset":"cards",
- "items":[{"title":"Qisqa sarlavha","text":"1-2 jumla izoh","icon":"idea","value":"2019"}]}
+ "items":[{"title":"Qisqa sarlavha","text":"1-2 jumla izoh","icon":"idea","value":"{LAST_YEAR}"}]}
 
 • Sen faqat MAZMUN berasan — koordinata, rang, chiziq, raqamni kod hisoblaydi
 • items: 3–5 band (6 dan oshmasin), har bandda "icon" nomi MAJBURIY
@@ -360,7 +361,7 @@ Kpi formati: {"type":"kpi","x":1.0,"y":4.2,"w":3.4,"h":1.8,"value":"78%","label"
 Icon formati: {"type":"icon","x":1.2,"y":2.4,"w":0.7,"h":0.7,"icon":"<ro'yxatdagi nom>","fill":"2A78D6","color":"FFFFFF","shape":"circle"}
 Scheme formati: {"type":"scheme","x":0.8,"y":1.7,"w":11.7,"h":4.8,"scheme_kind":"hierarchy|components|process|cycle|levels","scheme_root":"markaz","items":[{"title":"Tarmoq","text":"tarkibi, vergul bilan"}]}
   → tizim/tuzilma/jarayon uchun; shaklni kod tanlaydi, sen faqat mazmun berasan
-Infographic formati: {"type":"infographic","x":0.6,"y":1.9,"w":12.1,"h":4.4,"preset":"cards|steps|timeline|cycle|pyramid","items":[{"title":"...","text":"...","icon":"<nom>","value":"2019"}]}
+Infographic formati: {"type":"infographic","x":0.6,"y":1.9,"w":12.1,"h":4.4,"preset":"cards|steps|timeline|cycle|pyramid","items":[{"title":"...","text":"...","icon":"<nom>","value":"{LAST_YEAR}"}]}
   → items 3-5 ta, har birida icon nomi; koordinatani kod hisoblaydi, sen faqat mazmun ber
 Ikonka nomlari: {ICONS}
 
@@ -534,6 +535,19 @@ def _request(kind: str, payload: dict, timeout: int = 180) -> dict:
     raise last_error if last_error else RuntimeError("Model ro'yxati bo'sh")
 
 
+def _with_today(system_prompt: str) -> str:
+    """System promptga bugungi sanani qo'yadi.
+
+    Promptdagi yil misollari ({LAST_YEAR}, {YEAR_SPAN}) va yil qoidasi har
+    chaqiruvda qaytadan hisoblanadi — shuning uchun bot yangi yilga
+    o'tganda ham qayta ishga tushirish shart emas.
+    """
+    history = timeframe.history_years()
+    prompt = system_prompt.replace("{LAST_YEAR}", str(timeframe.last_full_year()))
+    prompt = prompt.replace("{YEAR_SPAN}", f"{history[0]}–{history[-1]}")
+    return prompt + "\n\n" + timeframe.year_rule("uz")
+
+
 def _call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 0.7,
                      max_tokens: int = 16000) -> dict:
     payload = {
@@ -541,7 +555,7 @@ def _call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 
         "max_tokens": max_tokens,
         "response_format": {"type": "json_object"},
         "messages": [
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": _with_today(system_prompt)},
             {"role": "user", "content": user_prompt},
         ],
     }
@@ -570,7 +584,7 @@ def _call_openrouter_text(system_prompt: str, user_prompt: str,
         "temperature": temperature,
         "max_tokens": max_tokens,
         "messages": [
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": _with_today(system_prompt)},
             {"role": "user", "content": user_prompt},
         ],
     }
@@ -843,6 +857,7 @@ def make_chart(topic: str, title: str, key_text: str, language: str = "uz") -> d
         "Shu slayd mazmuniga mos BITTA diagramma ma'lumotini ber. Raqamlar "
         "mavzuga tegishli va mantiqiy bo'lsin, o'ylab topilgan bo'lmasin. "
         "Kategoriya 3-7 ta.\n"
+        f"{timeframe.year_rule(language)}\n"
         f"TIL TALABI: {_language_instruction(language)}\n"
         'Faqat JSON: {"chart_type": "column|bar|line|area|pie|donut|radar", '
         '"chart_title": "...", "caption": "diagramma nimani ko\'rsatadi — '
@@ -866,7 +881,8 @@ def make_infographic(topic: str, title: str, key_text: str, icons: str,
         f"Ikonka nomlari: {icons}\n"
         f"TIL TALABI: {_language_instruction(language)}\n"
         'Faqat JSON: {"preset": "cards|steps|timeline|cycle|pyramid", '
-        '"items": [{"title": "...", "text": "...", "icon": "...", "value": "2019"}]}'
+        '"items": [{"title": "...", "text": "...", "icon": "...", '
+        f'"value": "{timeframe.last_full_year()}"}}]}}'
     )
     return _call_openrouter(SYSTEM_PROMPT_PATCH, user_prompt,
                             temperature=0.4, max_tokens=900)

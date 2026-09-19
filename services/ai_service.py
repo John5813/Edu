@@ -10,6 +10,9 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 from utils.ai_text import token_budget, trim_to_last_sentence
 from utils.heading_guard import heading_rule, strip_echoed_heading, strip_leading_numbering
 
+from services import timeframe
+from services import uzbekistan
+
 logger = logging.getLogger(__name__)
 
 # Diagramma turlari chizuvchi modulda e'lon qilinadi: prompt va chizuvchi
@@ -583,6 +586,9 @@ class AIService:
     def _build_example_slides_json(self, topic: str, main_count: int, lang: str) -> str:
         """Build dynamic example JSON with exactly main_count main slides"""
         layouts = ['two_column', 'right_image', 'left_image', 'three_column', 'horizontal_image', 'text_with_numbers']
+        # Misoldagi yil ham bugungidan olinadi: model misolni ko'rib, o'sha
+        # yilni o'z javobiga ko'chirardi.
+        last_year = timeframe.last_full_year()
 
         uz_examples = [
             '{"title": "Sarlavha", "content": "", "layout": "two_column", "columns": [{"column_content": "Birinchi jihat haqida uchta aniq tushuntiruvchi gap. Bu ustun mustaqil mavzuni yoritadi. Har bir gap tugallangan fikr bildiradi."}, {"column_content": "Ikkinchi jihat haqida uchta alohida gap. Bu ustun boshqa mavzuni yoritadi. Har bir gap mustaqil fikrga ega."}]}',
@@ -590,7 +596,7 @@ class AIService:
             '{"title": "Sarlavha", "content": "Mavzuning boshqa jihati haqida birinchi gap. Ikkinchi gapda ilmiy malumot keltirilgan. Uchinchi gapda tahlil berilgan. Tortinchi gapda natija korsatilgan.", "layout": "left_image"}',
             '{"title": "Sarlavha", "content": "", "layout": "three_column", "columns": [{"keyword": "Birinchi", "column_content": "Birinchi tushuncha haqida yigirmaga yaqin sozdan iborat tugallangan tarif gapi."}, {"keyword": "Ikkinchi", "column_content": "Ikkinchi tushuncha haqida yigirmaga yaqin sozdan iborat alohida tarif gapi."}, {"keyword": "Uchinchi", "column_content": "Uchinchi tushuncha haqida yigirmaga yaqin sozdan iborat mustaqil tarif gapi."}]}',
             '{"title": "Sarlavha", "content": "Mavzuning ushbu qirrasi haqida birinchi aniq gap. Ikkinchi gapda statistika va dalillar keltirilgan. Uchinchi gapda amaliy ahamiyati korsatilgan.", "layout": "horizontal_image"}',
-            '{"title": "Sarlavha", "content": "1. Birinchi korsatkich — 85% samaradorlik. Batafsil izoh va tahlil.\\n2. Ikkinchi malumot — 3,2 marta osish. Sabablar va oqibatlar.\\n3. Uchinchi statistika — 47 ta davlatda qollaniladi. Tarqalish sabablari.\\n4. Tortinchi fakt — 2024 yilda 15% osish kuzatilgan. Tendentsiya.\\n5. Beshinchi korsatkich — 92% ijobiy baho. Amaliy natijalar.", "layout": "text_with_numbers"}',
+            '{"title": "Sarlavha", "content": "1. Birinchi korsatkich — 85% samaradorlik. Batafsil izoh va tahlil.\\n2. Ikkinchi malumot — 3,2 marta osish. Sabablar va oqibatlar.\\n3. Uchinchi statistika — 47 ta davlatda qollaniladi. Tarqalish sabablari.\\n4. Tortinchi fakt — {last_year} yilda 15% osish kuzatilgan. Tendentsiya.\\n5. Beshinchi korsatkich — 92% ijobiy baho. Amaliy natijalar.", "layout": "text_with_numbers"}',
         ]
 
         ru_examples = [
@@ -599,7 +605,7 @@ class AIService:
             '{"title": "Заголовок", "content": "Первое предложение о другом аспекте темы. Второе предложение с научными данными. Третье предложение с анализом. Четвёртое предложение с результатом.", "layout": "left_image"}',
             '{"title": "Заголовок", "content": "", "layout": "three_column", "columns": [{"keyword": "Первое", "column_content": "Описание первого понятия в одном предложении около двадцати слов."}, {"keyword": "Второе", "column_content": "Описание второго понятия в одном предложении около двадцати слов."}, {"keyword": "Третье", "column_content": "Описание третьего понятия в одном предложении около двадцати слов."}]}',
             '{"title": "Заголовок", "content": "Первое точное предложение о данном аспекте темы. Второе предложение со статистикой и фактами. Третье предложение о практическом значении.", "layout": "horizontal_image"}',
-            '{"title": "Заголовок", "content": "1. Первый показатель — 85% эффективности. Подробный анализ.\\n2. Второй показатель — рост в 3,2 раза. Причины и последствия.\\n3. Третий факт — применяется в 47 странах. Распространение.\\n4. Четвёртый факт — рост 15% в 2024 году. Тенденция.\\n5. Пятый показатель — 92% положительных оценок. Результаты.", "layout": "text_with_numbers"}',
+            '{"title": "Заголовок", "content": "1. Первый показатель — 85% эффективности. Подробный анализ.\\n2. Второй показатель — рост в 3,2 раза. Причины и последствия.\\n3. Третий факт — применяется в 47 странах. Распространение.\\n4. Четвёртый факт — рост 15% в {last_year} году. Тенденция.\\n5. Пятый показатель — 92% положительных оценок. Результаты.", "layout": "text_with_numbers"}',
         ]
 
         en_examples = [
@@ -608,7 +614,7 @@ class AIService:
             '{"title": "Title", "content": "First sentence about another aspect of the topic. Second sentence with scientific data and research. Third sentence with detailed analysis. Fourth sentence with key results.", "layout": "left_image"}',
             '{"title": "Title", "content": "", "layout": "three_column", "columns": [{"keyword": "First", "column_content": "A complete description of the first concept in about twenty words."}, {"keyword": "Second", "column_content": "A complete description of the second concept in about twenty words."}, {"keyword": "Third", "column_content": "A complete description of the third concept in about twenty words."}]}',
             '{"title": "Title", "content": "First precise sentence about this aspect of the topic. Second sentence with statistics and evidence. Third sentence about practical significance.", "layout": "horizontal_image"}',
-            '{"title": "Title", "content": "1. First indicator — 85% efficiency. Detailed analysis.\\n2. Second metric — 3.2x growth. Causes and implications.\\n3. Third statistic — used in 47 countries. Reasons for spread.\\n4. Fourth fact — 15% growth in 2024. Development trend.\\n5. Fifth indicator — 92% positive rating. Practical results.", "layout": "text_with_numbers"}',
+            '{"title": "Title", "content": "1. First indicator — 85% efficiency. Detailed analysis.\\n2. Second metric — 3.2x growth. Causes and implications.\\n3. Third statistic — used in 47 countries. Reasons for spread.\\n4. Fourth fact — 15% growth in {last_year}. Development trend.\\n5. Fifth indicator — 92% positive rating. Practical results.", "layout": "text_with_numbers"}',
         ]
 
         lang_map = {'uz': uz_examples, 'ru': ru_examples, 'en': en_examples}
@@ -656,7 +662,10 @@ class AIService:
         slides.extend(footers.get(lang, footers['uz']))
 
         entries = ',\n        '.join(slides)
-        return '{\n    "slides": [\n        ' + entries + '\n    ]\n}'
+        example = '{\n    "slides": [\n        ' + entries + '\n    ]\n}'
+        # Misol satrlari f-string emas (ichida JSON qavslari bor), shuning
+        # uchun yil shu yerda qo'yiladi.
+        return example.replace('{last_year}', str(last_year))
 
     def _get_presentation_prompt_uz(self, topic: str, slide_count: int) -> str:
         """Get Uzbek prompt for presentation generation"""
@@ -700,6 +709,8 @@ Har bir slayd uchun:
 - content: Asosiy mazmun (FAQAT ustunli bo'lmagan slaidlar uchun)
 - layout: shablon turi
 - columns: MAJBURIY two_column va three_column uchun
+
+{timeframe.year_rule('uz')}
 
 MUHIM: Faqat JSON formatda javob bering! Jami {slide_count} ta slayd bo'lishi SHART (asosiy slaidlar soni: {main_count} ta)!
 {example_json}"""
@@ -747,6 +758,8 @@ MUHIM: Faqat JSON formatda javob bering! Jami {slide_count} ta slayd bo'lishi SH
 - layout: тип шаблона
 - columns: ОБЯЗАТЕЛЬНО для two_column и three_column
 
+{timeframe.year_rule('ru')}
+
 ВАЖНО: Отвечайте ТОЛЬКО в формате JSON! Всего {slide_count} слайдов ОБЯЗАТЕЛЬНО (основных слайдов: {main_count})!
 {example_json}"""
 
@@ -793,6 +806,8 @@ For each slide:
 - layout: template type
 - columns: REQUIRED for two_column and three_column
 
+{timeframe.year_rule('en')}
+
 IMPORTANT: Respond ONLY in JSON format! Total {slide_count} slides REQUIRED (main slides: {main_count})!
 {example_json}"""
 
@@ -826,7 +841,9 @@ IMPORTANT: Respond ONLY in JSON format! Total {slide_count} slides REQUIRED (mai
             
             if table_data_3:
                 result["table_data_3"] = table_data_3
-            
+
+            await self.add_uzbek_opening(result, topic, language)
+
             return result
 
         except Exception as e:
@@ -1092,7 +1109,8 @@ QOIDALAR:
 - Matnda takrorlanish bo'lmasin - har bir gap yangi ma'lumot bersin
 - Markdown formatlash ishlatmang (**, *, _, __ va h.k.)
 - Professional akademik til ishlating
-- Faqat sof matn, ro'yxatlar yoki raqamli punktlar bo'lmasin"""
+- Faqat sof matn, ro'yxatlar yoki raqamli punktlar bo'lmasin
+{timeframe.year_rule("uz")}"""
 
             common_rules_ru = f"""
 ПРАВИЛА:
@@ -1101,7 +1119,8 @@ QOIDALAR:
 - Избегайте повторений - каждое предложение должно содержать новую информацию
 - Не используйте форматирование Markdown (**, *, _, __ и т.д.)
 - Используйте профессиональный академический язык
-- Только чистый текст без списков и нумерации"""
+- Только чистый текст без списков и нумерации
+{timeframe.year_rule("ru")}"""
 
             common_rules_en = f"""
 RULES:
@@ -1110,7 +1129,8 @@ RULES:
 - Avoid repetition - each sentence should provide new information
 - Do not use Markdown formatting (**, *, _, __, etc.)
 - Use professional academic language
-- Only plain text without lists or numbered points"""
+- Only plain text without lists or numbered points
+{timeframe.year_rule("en")}"""
 
             if language == "uz":
                 if section_num == 1:
@@ -1213,6 +1233,99 @@ EXACTLY {body_words} words — no more. Fully cover the topic with examples and 
             text = re.sub(pattern, replacement, text)
         return text
 
+    def _opening_note(self, topic: str, language: str) -> str:
+        """Kirish promptiga qo'shiladigan eslatma.
+
+        O'zbekiston mavzularida birinchi abzats alohida so'raladi
+        (`presidential_opening`) va hujjat boshiga qo'yiladi — kirishning
+        qolgan qismi o'sha gaplarni takrorlamasligi kerak.
+        """
+        if not uzbekistan.is_uzbek_topic(topic):
+            return ""
+        if language == "ru":
+            return ("\nПервый абзац о словах Президента пишется отдельно и "
+                    "добавляется автоматически — не повторяйте его здесь.")
+        if language == "en":
+            return ("\nThe opening paragraph about the President's words is "
+                    "written separately and added automatically — do not "
+                    "repeat it here.")
+        return ("\nPrezident so'zlari haqidagi birinchi abzats alohida "
+                "yoziladi va avtomatik qo'shiladi — uni bu yerda "
+                "takrorlamang.")
+
+    async def add_uzbek_opening(self, content: Dict, topic: str, language: str) -> Dict:
+        """O'zbekiston mavzusi bo'lsa, kirish abzatsini va tartibni qo'shadi.
+
+        Kirishning birinchi abzatsi Prezident so'zlaridan boshlanadi,
+        adabiyotlar ro'yxatida esa o'sha manba birinchi, Konstitutsiya
+        ikkinchi bo'lib turadi, qolganlari yangi yildan eskisiga qarab
+        saralanadi. Mavzu O'zbekistonga tegishli bo'lmasa, hech narsa
+        o'zgarmaydi.
+        """
+        if not uzbekistan.is_uzbek_topic(topic):
+            return content
+
+        opening = await self.presidential_opening(topic, language)
+        if opening:
+            content["presidential_opening"] = opening
+        content["references"] = uzbekistan.order_references(
+            content.get("references") or [], language, opening.get("source", "")
+        )
+        return content
+
+    async def presidential_opening(self, topic: str, language: str) -> Dict[str, str]:
+        """O'zbekiston mavzulari uchun kirishning birinchi abzatsini yozadi.
+
+        Bunday ishlarda kirish Prezidentning shu sohadagi so'zlaridan
+        boshlanadi va o'sha so'zlarga snoska qo'yiladi. Matn bilan birga
+        manba ham so'raladi: snoska va adabiyotlar ro'yxatining birinchi
+        yozuvi o'sha manbadan olinadi.
+
+        Mavzu O'zbekistonga tegishli bo'lmasa — bo'sh lug'at.
+        """
+        if not uzbekistan.is_uzbek_topic(topic):
+            return {}
+
+        target = {"ru": "русском", "en": "English"}.get(language, "o'zbek")
+        prompt = (
+            f"{uzbekistan.opening_rule(topic, language)}\n\n"
+            f"Matn {target} tilida bo'lsin. Faqat abzatsning o'zi — "
+            "sarlavhasiz, markdownsiz, qavs ichida izohsiz.\n"
+            "\"source\" — o'sha so'zlar olingan manba, adabiyotlar "
+            "ro'yxatidagidek to'liq yozilsin: muallif, asar yoki "
+            "murojaatnoma nomi, shahar, nashriyot va yil.\n\n"
+            'Faqat JSON: {"text": "...", "source": "..."}'
+        )
+
+        try:
+            response = await self._make_request(
+                messages=[
+                    {"role": "system", "content": "You are an academic writer. Respond with valid JSON only."},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=900,
+                temperature=0.6,
+            )
+            raw = response.strip()
+            if raw.startswith("```json"):
+                raw = raw[7:]
+            if raw.startswith("```"):
+                raw = raw[3:]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            data = json.loads(raw.strip())
+            text = clean_text(str(data.get("text", "")).strip())
+            if not text:
+                return {}
+            source = str(data.get("source", "")).strip()
+            return {
+                "text": text,
+                "source": source or uzbekistan.default_president_source(language),
+            }
+        except Exception as e:
+            logger.error(f"Error generating presidential opening: {e}")
+            return {}
+
     async def _generate_references(self, topic: str, language: str) -> List[str]:
         """Generate academic references for course work"""
         try:
@@ -1221,11 +1334,11 @@ EXACTLY {body_words} words — no more. Fully cover the topic with examples and 
 THE ENTIRE LIST MUST BE IN {target_lang_name.upper()} LANGUAGE.
 
 STRICT COMPOSITION RULES:
-- At least 4-5 must be BOOKS or TEXTBOOKS: Author(s). Title. City: Publisher, Year. — e.g. "Ivanov A.B. Ekonomika. Toshkent: Fan nashriyoti, 2021."
+- At least 4-5 must be BOOKS or TEXTBOOKS: Author(s). Title. City: Publisher, Year. — e.g. "Ivanov A.B. Ekonomika. Toshkent: Fan nashriyoti, {timeframe.current_year() - 5}."
 - At least 2 must be JOURNAL ARTICLES: Author(s). Article title // Journal name. Year. No.X. Pages X-X.
 - Maximum 1-2 legal/regulatory documents (laws, decrees) — do NOT make these the majority
 - NO duplicate authors or titles
-- All years must be between 2005 and 2024
+- All years must be between {timeframe.current_year() - 20} and {timeframe.current_year()}, and at least three of them from the last five years
 - DO NOT include category headers, numbering, or bullet points in the output
 - ALWAYS write city names IN FULL — NEVER use abbreviations like "T.", "T:", "M.", "M:", "B.", "B:" etc. Write "Toshkent", "Moskva", "Bishkek", "London" in full.
 
@@ -1588,7 +1701,9 @@ In JSON format:
             
             # Generate references
             content["references"] = await self._generate_references(topic, language)
-            
+
+            await self.add_uzbek_opening(content, topic, language)
+
             return content
             
         except Exception as e:
@@ -1746,6 +1861,7 @@ QOIDALAR:
 - Har bir gap to'liq va mustaqil bo'lishi kerak
 - Professional akademik uslubda yozing
 {century_uz_rule}
+{timeframe.year_rule("uz")}
 {heading_rule("uz")}
 - Matn ichiga "Foydalanilgan adabiyotlar:", "[1]", "[2]", "[3]" kabi ro'yxat yoki manba belgilarini KIRITMANG — manbalar avtomatik ravishda qo'shiladi"""
 
@@ -1756,6 +1872,7 @@ QOIDALAR:
 - Каждое предложение должно быть полным и самостоятельным
 - Пишите в профессиональном академическом стиле
 {century_ru_rule}
+{timeframe.year_rule("ru")}
 {heading_rule("ru")}
 - НЕ ВКЛЮЧАЙТЕ в текст списки источников вида "Список литературы:", "[1]", "[2]", "[3]" — ссылки добавляются автоматически"""
 
@@ -1766,6 +1883,7 @@ RULES:
 - Each sentence must be complete and independent
 - Write in professional academic style
 {century_en_rule}
+{timeframe.year_rule("en")}
 {heading_rule("en")}
 - DO NOT include reference lists like "References:", "[1]", "[2]", "[3]" inside the text — citations are added automatically"""
 
@@ -1939,7 +2057,7 @@ DIQQAT: Umumiy gaplardan voz keching. Kirish qismi aynan "{topic}" mavzusining m
 - Tadqiqotning ilmiy va amaliy ahamiyati
 - Mavzuning qisqacha nazariy asosi
 
-Professional akademik uslubda yozing. Faqat oddiy matn, markdown ishlatmang."""
+Professional akademik uslubda yozing. Faqat oddiy matn, markdown ishlatmang.{self._opening_note(topic, language)}"""
             elif language == "ru":
                 prompt = f"""Напишите краткое научное введение для курсовой работы по теме: "{topic}".
 ВНИМАНИЕ: Избегайте общих фраз. Введение должно раскрывать суть темы "{topic}".
@@ -1949,7 +2067,7 @@ Professional akademik uslubda yozing. Faqat oddiy matn, markdown ishlatmang."""
 - Научная и практическая значимость
 - Краткая теоретическая основа
 
-Профессиональный академический стиль. Только обычный текст, без markdown."""
+Профессиональный академический стиль. Только обычный текст, без markdown.{self._opening_note(topic, language)}"""
             else:
                 prompt = f"""Write a concise scientific introduction for a course work on: "{topic}".
 THE ENTIRE TEXT MUST BE IN {target_lang_name.upper()} LANGUAGE.
@@ -1960,7 +2078,7 @@ Avoid general phrases. Focus on the essence of "{topic}".
 - Scientific and practical significance
 - Brief theoretical basis
 
-Professional academic style. Plain text only, no markdown."""
+Professional academic style. Plain text only, no markdown.{self._opening_note(topic, language)}"""
 
             response = await self._make_request(
                 messages=[
@@ -2151,6 +2269,8 @@ Respond in JSON format:
             content["conclusion"] = await self._generate_course_conclusion(topic, language)
             content["references"] = await self._generate_references(topic, language)
 
+            await self.add_uzbek_opening(content, topic, language)
+
             return content
 
         except Exception as e:
@@ -2209,6 +2329,8 @@ Respond in JSON format:
             content["references"] = await self._generate_graduation_references(topic, language)
             content["glossary_terms"] = await self._generate_glossary_terms(topic, language)
             content["appendices"] = await self._generate_appendices(topic, language)
+
+            await self.add_uzbek_opening(content, topic, language)
 
             return content
 
@@ -2386,6 +2508,8 @@ JSON: {{"point_1": "...", ..., "point_10": "..."}}"""
             content["references"] = await self._generate_graduation_references(topic, language)
             content["glossary_terms"] = await self._generate_glossary_terms(topic, language)
             content["appendices"] = await self._generate_appendices(topic, language)
+
+            await self.add_uzbek_opening(content, topic, language)
 
             return content
 
@@ -2693,14 +2817,14 @@ Faqat bitta manba yarating. Real ko'rinishda bo'lsin."""
                 prompt = f"""Создайте одну академическую сноску для темы "{topic}", контекст "{context}".
 
 Пример:
-Иванов А.Б. "Современные технологии". Москва: Наука, 2020. С. 45.
+Иванов А.Б. "Современные технологии". Москва: Наука, {timeframe.current_year() - 6}. С. 45.
 
 Создайте только одну ссылку. Должна выглядеть реалистично."""
             else:
                 prompt = f"""Create one academic footnote for topic "{topic}", context "{context}".
 
 Example:
-Smith, J. "Modern Technologies". New York: Academic Press, 2020. p. 45.
+Smith, J. "Modern Technologies". New York: Academic Press, {timeframe.current_year() - 6}. p. 45.
 
 Create only one reference. Should look realistic."""
 
@@ -2766,6 +2890,7 @@ Create only one reference. Should look realistic."""
                         f"4 ta ustun, 6 ta qator (sarlavha qatori hisoblanmaydi). "
                         f"Ustun sarlavhalarini mavzuga mos ravishda o'zing tanla. "
                         f"Har bir katakda mazmunli ma'lumot yoz. "
+                        f"{timeframe.year_rule('uz')}\n"
                         f"Faqat JSON formatda javob ber:\n{json_template}"
                     )
                 elif language == "ru":
@@ -2773,6 +2898,7 @@ Create only one reference. Should look realistic."""
                         f'Создай таблицу по теме "{clean_topic}". '
                         f"4 столбца, 6 строк (без учёта заголовка). "
                         f"Заголовки столбцов выбери сам. В каждой ячейке содержательная информация. "
+                        f"{timeframe.year_rule('ru')}\n"
                         f"Только в JSON формате:\n{json_template}"
                     )
                 else:
@@ -2780,6 +2906,7 @@ Create only one reference. Should look realistic."""
                         f'Create a table about "{clean_topic}". '
                         f"4 columns, 6 rows (excluding header). "
                         f"Choose column headers based on the topic. Each cell: meaningful content. "
+                        f"{timeframe.year_rule('en')}\n"
                         f"Respond only in JSON:\n{json_template}"
                     )
 
@@ -2872,7 +2999,7 @@ Create only one reference. Should look realistic."""
 
             web_context = ""
             if search_results:
-                web_context = f"\n\nBUGUN {current_year}-YIL. INTERNETDAN TOPILGAN ENG SO'NGI MA'LUMOTLAR:\n{search_results}\n\nMUHIM: Yuqoridagi internet ma'lumotlaridan foydalanib haqiqiy raqamlarni jadvalga kiritgin. Yillarni ham internetdagi eng so'nggi yillarga mos qil. Eski yillarni (2022, 2023) emas, eng yangi topilgan yillarni ishlat!"
+                web_context = f"\n\nBUGUN {current_year}-YIL. INTERNETDAN TOPILGAN ENG SO'NGI MA'LUMOTLAR:\n{search_results}\n\nMUHIM: Yuqoridagi internet ma'lumotlaridan foydalanib haqiqiy raqamlarni jadvalga kiritgin. Yillarni ham internetdagi eng so'nggi yillarga mos qil. Eski yillarni ({current_year - 4}, {current_year - 3}) emas, eng yangi topilgan yillarni ishlat!"
             else:
                 web_context = f"\n\nBugun {current_year}-yil. Eng so'nggi mavjud statistik ma'lumotlarni ishlat."
 
@@ -2920,7 +3047,7 @@ Respond only in JSON format:
 
             response = await self._make_request(
                 messages=[
-                    {"role": "system", "content": f"Today is {current_year}. You must respond with valid JSON only. Use ONLY real numbers and statistics from the provided web search data. Column headers for years must reflect the most recent data available - do NOT default to old years like 2022-2023. Use actual current data."},
+                    {"role": "system", "content": f"Today is {current_year}. You must respond with valid JSON only. Use ONLY real numbers and statistics from the provided web search data. Column headers for years must reflect the most recent data available - do NOT default to old years like {current_year - 4}-{current_year - 3}. Use actual current data."},
                     {"role": "user", "content": prompt}
                 ],
                 max_tokens=2000,
@@ -2975,6 +3102,8 @@ Respond only in JSON format:
 
 Jadval mavzuga to'liq mos bo'lsin. Har bir katak qisqa va mazmunli bo'lsin (1-5 so'z).
 
+{timeframe.year_rule("uz")}
+
 Faqat quyidagi formatda javob ber:
 USTUNLAR: Ustun1 | Ustun2 | Ustun3 | Ustun4
 QATOR1: matn | matn | matn | matn
@@ -2988,6 +3117,8 @@ QATOR5: matn | matn | matn | matn"""
 
 Таблица должна полностью соответствовать теме. Каждая ячейка — краткий содержательный текст (1-5 слов).
 
+{timeframe.year_rule("ru")}
+
 Ответ только в формате:
 СТОЛБЦЫ: Столбец1 | Столбец2 | Столбец3 | Столбец4
 СТРОКА1: текст | текст | текст | текст
@@ -3000,6 +3131,8 @@ QATOR5: matn | matn | matn | matn"""
                 prompt = f"""Create a 5-row, 4-column table for the topic "{topic}".
 
 Table must be fully relevant to the topic. Each cell should be brief and informative (1-5 words).
+
+{timeframe.year_rule("en")}
 
 Respond only in this format:
 COLUMNS: Column1 | Column2 | Column3 | Column4
@@ -3049,17 +3182,17 @@ ROW5: text | text | text | text"""
             logger.error(f"Error generating presentation table data: {e}")
             if language == "ru":
                 return {
-                    "headers": ["Показатель", "2023", "2024", "Изменение"],
+                    "headers": timeframe.year_headers("ru"),
                     "rows": [["—"] * 4] * 5
                 }
             elif language == "en":
                 return {
-                    "headers": ["Indicator", "2023", "2024", "Change"],
+                    "headers": timeframe.year_headers("en"),
                     "rows": [["—"] * 4] * 5
                 }
             else:
                 return {
-                    "headers": ["Ko'rsatkich", "2023", "2024", "O'zgarish"],
+                    "headers": timeframe.year_headers("uz"),
                     "rows": [["—"] * 4] * 5
                 }
 
@@ -3286,7 +3419,7 @@ ROW5: text | text | text | text"""
                         rows.append(row[:4])
             
             if not headers or len(headers) < 4:
-                headers = ["Ko'rsatkich", "2023", "2024", "O'zgarish"]
+                headers = timeframe.year_headers(language)
             
             while len(rows) < 5:
                 rows.append(["—", "—", "—", "—"])
@@ -3296,7 +3429,7 @@ ROW5: text | text | text | text"""
         except Exception as e:
             logger.error(f"Error generating presentation table data: {e}")
             return {
-                "headers": ["Ko'rsatkich", "2023", "2024", "O'zgarish"],
+                "headers": timeframe.year_headers("uz"),
                 "rows": [
                     ["Birinchi", "100", "120", "+20%"],
                     ["Ikkinchi", "50", "65", "+30%"],
@@ -3357,13 +3490,13 @@ IMRAD tuzilmasiga qat'iy rioya qil. Faqat JSON formatda javob ber:
   "conclusion": "Xulosa (150-200 so'z): tadqiqot natijalari xulosasi, ilmiy yangilik, muhim topilmalar.",
   "recommendations": "Amaliy takliflar (100-150 so'z): sohaga, davlat siyosatiga yoki keyingi tadqiqotlarga takliflar.",
   "references": [
-    "1. Muallif A.B. Kitob nomi. — Toshkent: Nashriyot, 2022. — 250 b.",
-    "2. Muallif C.D. Maqola nomi // Jurnal nomi. — 2023. — №2. — B. 45-62.",
-    "3. Muallif E.F. Kitob. — M.: Nauka, 2021. — 180 s.",
-    "4. Author G.H. Article title // Journal. — 2023. — Vol.5. — P. 12-28.",
-    "5. Author I.J. Book title. — New York: Publisher, 2022. — 320 p.",
-    "6. Muallif K.L. Maqola // Jurnal. — 2024. — №1. — B. 10-25.",
-    "7. Author M.N. Research paper // Conference. — 2023. — P. 5-15."
+    "1. Muallif A.B. Kitob nomi. — Toshkent: Nashriyot, {timeframe.current_year() - 4}. — 250 b.",
+    "2. Muallif C.D. Maqola nomi // Jurnal nomi. — {timeframe.current_year() - 3}. — №2. — B. 45-62.",
+    "3. Muallif E.F. Kitob. — M.: Nauka, {timeframe.current_year() - 5}. — 180 s.",
+    "4. Author G.H. Article title // Journal. — {timeframe.current_year() - 3}. — Vol.5. — P. 12-28.",
+    "5. Author I.J. Book title. — New York: Publisher, {timeframe.current_year() - 4}. — 320 p.",
+    "6. Muallif K.L. Maqola // Jurnal. — {timeframe.current_year() - 2}. — №1. — B. 10-25.",
+    "7. Author M.N. Research paper // Conference. — {timeframe.current_year() - 3}. — P. 5-15."
   ]
 }}
 
@@ -3394,13 +3527,13 @@ Faqat JSON qaytargin, boshqa hech narsa yozma."""
   "conclusion": "Заключение (150-200 слов): выводы, научная новизна, ключевые результаты.",
   "recommendations": "Практические рекомендации (100-150 слов): предложения для отрасли, государственной политики или будущих исследований.",
   "references": [
-    "1. Автор А.Б. Название книги. — М.: Издательство, 2022. — 250 с.",
-    "2. Автор В.Г. Название статьи // Журнал. — 2023. — №2. — С. 45-62.",
-    "3. Author C.D. Book title. — New York: Publisher, 2021. — 180 p.",
-    "4. Автор Д.Е. Монография. — Ташкент: Наука, 2023. — 300 с.",
-    "5. Author E.F. Article // Journal. — 2023. — Vol.5. — P. 12-28.",
-    "6. Автор Ж.З. Статья // Сборник. — 2024. — С. 10-25.",
-    "7. Author G.H. Research. — London: Press, 2022. — P. 5-15."
+    "1. Автор А.Б. Название книги. — М.: Издательство, {timeframe.current_year() - 4}. — 250 с.",
+    "2. Автор В.Г. Название статьи // Журнал. — {timeframe.current_year() - 3}. — №2. — С. 45-62.",
+    "3. Author C.D. Book title. — New York: Publisher, {timeframe.current_year() - 5}. — 180 p.",
+    "4. Автор Д.Е. Монография. — Ташкент: Наука, {timeframe.current_year() - 3}. — 300 с.",
+    "5. Author E.F. Article // Journal. — {timeframe.current_year() - 3}. — Vol.5. — P. 12-28.",
+    "6. Автор Ж.З. Статья // Сборник. — {timeframe.current_year() - 2}. — С. 10-25.",
+    "7. Author G.H. Research. — London: Press, {timeframe.current_year() - 4}. — P. 5-15."
   ]
 }}
 
@@ -3431,13 +3564,13 @@ Strictly follow the IMRAD structure. Respond only in JSON format:
   "conclusion": "Conclusion (150-200 words): summary of findings, scientific novelty, key results.",
   "recommendations": "Practical Recommendations (100-150 words): suggestions for industry, policy, or future research.",
   "references": [
-    "1. Author A.B. Book title. — New York: Publisher, 2022. — 250 p.",
-    "2. Author C.D. Article title // Journal. — 2023. — Vol.3, №2. — P. 45-62.",
-    "3. Author E.F. Monograph. — London: Press, 2021. — 180 p.",
-    "4. Author G.H. Research paper // Conference. — 2023. — P. 5-15.",
-    "5. Author I.J. Book. — Chicago: Publisher, 2022. — 320 p.",
-    "6. Author K.L. Article // Journal. — 2024. — Vol.6. — P. 10-25.",
-    "7. Author M.N. Study. — Boston: Academic, 2023. — P. 33-48."
+    "1. Author A.B. Book title. — New York: Publisher, {timeframe.current_year() - 4}. — 250 p.",
+    "2. Author C.D. Article title // Journal. — {timeframe.current_year() - 3}. — Vol.3, №2. — P. 45-62.",
+    "3. Author E.F. Monograph. — London: Press, {timeframe.current_year() - 5}. — 180 p.",
+    "4. Author G.H. Research paper // Conference. — {timeframe.current_year() - 3}. — P. 5-15.",
+    "5. Author I.J. Book. — Chicago: Publisher, {timeframe.current_year() - 4}. — 320 p.",
+    "6. Author K.L. Article // Journal. — {timeframe.current_year() - 2}. — Vol.6. — P. 10-25.",
+    "7. Author M.N. Study. — Boston: Academic, {timeframe.current_year() - 3}. — P. 33-48."
   ]
 }}
 
@@ -3650,7 +3783,7 @@ In JSON format:
             f'{{"visuals": [\n'
             f'  {{"subsection": "1.2", "kind": "chart", "chart_type": "line", '
             f'"title": "Diagramma nomi", "x_label": "Yil", "y_label": "%", '
-            f'"categories": ["2020","2021","2022"], '
+            f'"categories": {json.dumps([str(y) for y in timeframe.history_years(3)], ensure_ascii=False)}, '
             f'"series": [{{"name": "Ko\'rsatkich", "values": [9.1, 8.7, 8.2]}}], '
             f'"explanation": "Izoh"}},\n'
             f'  {{"subsection": "2.1", "kind": "formula", "name": "Formula nomi", '

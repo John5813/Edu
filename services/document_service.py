@@ -17,6 +17,9 @@ import asyncio
 from config import DOCUMENTS_DIR, TEMP_DIR
 from services.together_service import get_together_service
 from services.ai_service import clean_text
+from services import timeframe
+from services.doc_toc import TocPlan
+from services import uzbekistan
 from utils.heading_guard import strip_leading_numbering
 from services.icon_service import find_icon_path_for_column
 
@@ -118,6 +121,8 @@ def _render_latex_once(latex_str: str):
 _TOC_PAGE_H = 11.0 - 0.79 - 0.79      # varaq balandligi, tepa va past chekka
 _TOC_WIDTH = 8.5 - 1.18 - 0.59        # foydali en
 _TOC_INDENT = 0.5
+# Nuqtali chiziq va varaq raqami uchun o'ng chekkada qoldiriladigan joy.
+_TOC_TAIL = 0.6
 # Times New Roman uchun o'rtacha belgi eni (kegldan ulush).
 _TOC_CHAR_EM = 0.5
 
@@ -142,7 +147,10 @@ def _toc_layout(entries) -> tuple:
     for size, spacing in ((14, 1.5), (14, 1.15), (13, 1.15), (12, 1.0), (11, 1.0)):
         total = (size * 1.5 / 72.0) * 2      # sarlavha va bo'sh qator
         for text, indented, _bold in entries:
-            width = _TOC_WIDTH - (_TOC_INDENT if indented else 0)
+            # O'ng chekkada nuqtali chiziq va varaq raqami turadi —
+            # sarlavha butun enni egallasa, raqam keyingi qatorga tushib
+            # ketardi.
+            width = _TOC_WIDTH - _TOC_TAIL - (_TOC_INDENT if indented else 0)
             total += _toc_lines(text, width, size) * size * spacing / 72.0
         if total <= _TOC_PAGE_H - 0.3:       # pastdan zaxira
             return size, spacing
@@ -922,10 +930,10 @@ class DocumentService:
                 table_data = {}
         
         if isinstance(table_data, dict):
-            headers = table_data.get('headers', ['Ko\'rsatkich', '2023', '2024', 'O\'zgarish'])
+            headers = table_data.get('headers', timeframe.year_headers(language))
             rows = table_data.get('rows', [])
         else:
-            headers = ['Ko\'rsatkich', '2023', '2024', 'O\'zgarish']
+            headers = timeframe.year_headers(language)
             rows = []
         
         if not rows:
@@ -1494,23 +1502,21 @@ class DocumentService:
             toc_run.font.bold = True
             all_sections = content.get('sections', [])
 
-            toc_item = doc.add_paragraph()
-            toc_item.add_run(toc_texts['kirish'])
+            toc_plan = self._toc_plan(doc)
+            toc_plan.line(doc, toc_texts['kirish'], toc_texts['kirish'])
 
             numbered_count = 0
             for idx, section in enumerate(all_sections):
                 if idx == 0 or idx == len(all_sections) - 1:
                     continue
                 numbered_count += 1
-                toc_item = doc.add_paragraph()
-                toc_item.add_run(f"{numbered_count}. {section['title']}")
+                entry = f"{numbered_count}. {section['title']}"
+                toc_plan.line(doc, entry, entry)
 
-            toc_item = doc.add_paragraph()
-            toc_item.add_run(toc_texts['xulosa'])
+            toc_plan.line(doc, toc_texts['xulosa'], toc_texts['xulosa'])
 
             if content.get('references'):
-                toc_item = doc.add_paragraph()
-                toc_item.add_run(toc_texts['adabiyotlar'])
+                toc_plan.line(doc, toc_texts['adabiyotlar'], toc_texts['adabiyotlar'])
 
             doc.add_page_break()
 
@@ -1543,6 +1549,13 @@ class DocumentService:
                 section_title_run.font.size = Pt(14)
 
                 is_main = idx > 0 and idx < len(all_sections) - 1
+
+                if idx == 0:
+                    # O'zbekiston mavzularida kirish Prezident so'zlaridan
+                    # boshlanadi va o'sha so'zlarga snoska qo'yiladi.
+                    footnote_counter = self._add_presidential_opening(
+                        doc, content, footnote_counter
+                    )
 
                 # Kirish va xulosaga snoska qo'yilmaydi.
                 footnote_counter = self._add_body_with_footnotes(
@@ -1630,6 +1643,7 @@ class DocumentService:
             filename = f"independent_work_{timestamp}.docx"
             file_path = os.path.join(self.documents_dir, filename)
             await asyncio.to_thread(doc.save, file_path)
+            await toc_plan.fill(doc, file_path)
             logger.info(f"Independent work saved: {file_path}")
             return file_path
 
@@ -1673,23 +1687,21 @@ class DocumentService:
             toc_run.font.bold = True
             all_sections = content.get('sections', [])
 
-            toc_item = doc.add_paragraph()
-            toc_item.add_run(toc_texts['kirish'])
+            toc_plan = self._toc_plan(doc)
+            toc_plan.line(doc, toc_texts['kirish'], toc_texts['kirish'])
 
             numbered_count = 0
             for idx, section in enumerate(all_sections):
                 if idx == 0 or idx == len(all_sections) - 1:
                     continue
                 numbered_count += 1
-                toc_item = doc.add_paragraph()
-                toc_item.add_run(f"{numbered_count}. {section['title']}")
+                entry = f"{numbered_count}. {section['title']}"
+                toc_plan.line(doc, entry, entry)
 
-            toc_item = doc.add_paragraph()
-            toc_item.add_run(toc_texts['xulosa'])
+            toc_plan.line(doc, toc_texts['xulosa'], toc_texts['xulosa'])
 
             if content.get('references'):
-                toc_item = doc.add_paragraph()
-                toc_item.add_run(toc_texts['adabiyotlar'])
+                toc_plan.line(doc, toc_texts['adabiyotlar'], toc_texts['adabiyotlar'])
 
             doc.add_page_break()
 
@@ -1719,6 +1731,13 @@ class DocumentService:
 
                 section_title_run.font.bold = True
                 section_title_run.font.size = Pt(14)
+
+                if idx == 0:
+                    # O'zbekiston mavzularida kirish Prezident so'zlaridan
+                    # boshlanadi va o'sha so'zlarga snoska qo'yiladi.
+                    footnote_counter = self._add_presidential_opening(
+                        doc, content, footnote_counter
+                    )
 
                 # Kirish va xulosaga snoska qo'yilmaydi.
                 footnote_counter = self._add_body_with_footnotes(
@@ -1757,6 +1776,7 @@ class DocumentService:
             filename = f"referat_{timestamp}.docx"
             file_path = os.path.join(self.documents_dir, filename)
             await asyncio.to_thread(doc.save, file_path)
+            await toc_plan.fill(doc, file_path)
             logger.info(f"Referat saved: {file_path}")
             return file_path
 
@@ -2028,6 +2048,38 @@ class DocumentService:
             run.font.name = 'Times New Roman'
         except Exception as e:
             logger.error(f"Error adding page number: {e}")
+
+    def _add_presidential_opening(self, doc, content: Dict,
+                                  footnote_counter: int = 1) -> int:
+        """Kirishni Prezident so'zlari haqidagi abzatsdan boshlaydi.
+
+        O'zbekiston iqtisodi yoki siyosatiga oid ishlarda kirishning
+        birinchi abzatsi shu sohada Prezident aytganlariga bag'ishlanadi
+        va o'sha so'zlarga snoska qo'yiladi — bu shunday ishlarga
+        qo'yiladigan talab. Matn tayyor bo'lmasa (mavzu O'zbekistonga
+        tegishli emas yoki AI bermagan) hech narsa yozilmaydi.
+
+        Keyingi snoska raqamini qaytaradi.
+        """
+        opening = content.get('presidential_opening') or {}
+        text = str(opening.get('text', '')).strip()
+        if not text:
+            return footnote_counter
+
+        para = doc.add_paragraph()
+        para.paragraph_format.first_line_indent = Inches(0.5)
+        para.paragraph_format.line_spacing = 1.5
+        para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        run = para.add_run(text)
+        run.font.size = Pt(14)
+        run.font.name = 'Times New Roman'
+
+        source = str(opening.get('source', '')).strip()
+        if not source:
+            language = content.get('language', 'uz')
+            source = uzbekistan.default_president_source(language)
+        self._add_footnote(para, source, footnote_counter)
+        return footnote_counter + 1
 
     def _add_body_with_footnotes(self, doc, text: str, references: list, footnote_counter: int) -> int:
         """Write body text and put one footnote on each page of it.
@@ -2314,7 +2366,7 @@ class DocumentService:
         try:
             # Handle both dict format (new) and list format (old)
             if isinstance(table_data, dict):
-                headers = table_data.get('headers', ['Tahlil', '2020', '2023', "O'zgarish"])
+                headers = table_data.get('headers', timeframe.year_headers(language))
                 rows = table_data.get('rows', [])
             else:
                 # Old format - list of rows
@@ -2801,7 +2853,7 @@ class DocumentService:
             await self._create_diploma_work_title_page(doc, topic, language, author_name)
             doc.add_page_break()
 
-            self._create_diploma_work_toc(doc, content, language)
+            toc_plan = self._create_diploma_work_toc(doc, content, language)
             doc.add_page_break()
 
             texts = self._get_diploma_work_texts(language)
@@ -2814,6 +2866,10 @@ class DocumentService:
             intro_run.font.size = Pt(14)
             intro_run.font.bold = True
             intro_run.font.name = 'Times New Roman'
+
+            # O'zbekiston mavzularida kirish Prezident so'zlaridan boshlanadi.
+            content.setdefault('language', language)
+            footnote_num = self._add_presidential_opening(doc, content, footnote_num)
 
             intro_text = content.get('introduction', '')
             sentences = intro_text.split('. ')
@@ -2872,7 +2928,7 @@ class DocumentService:
             doc.add_page_break()
 
             references = content.get('references', [])
-            footnote_counter = 1
+            footnote_counter = footnote_num
             sub_counter = 0
 
             # Chapters
@@ -3022,6 +3078,7 @@ class DocumentService:
             filename = f"diplom_ishi_{timestamp}.docx"
             file_path = os.path.join(self.documents_dir, filename)
             await asyncio.to_thread(doc.save, file_path)
+            await toc_plan.fill(doc, file_path)
             logger.info(f"Diploma work saved: {file_path}")
             return file_path
 
@@ -3174,7 +3231,7 @@ class DocumentService:
         except Exception as e:
             logger.error(f"Error creating diploma work title page: {e}")
 
-    def _create_diploma_work_toc(self, doc, content: Dict, language: str):
+    def _create_diploma_work_toc(self, doc, content: Dict, language: str) -> TocPlan:
         """Create table of contents for diploma work"""
         texts = self._get_diploma_work_texts(language)
 
@@ -3187,47 +3244,23 @@ class DocumentService:
 
         doc.add_paragraph()
 
-        intro_toc = doc.add_paragraph()
-        intro_toc.paragraph_format.line_spacing = 1.5
-        intro_toc.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        intro_run = intro_toc.add_run(texts['introduction'])
-        intro_run.font.size = Pt(14)
-        intro_run.font.name = 'Times New Roman'
+        plan = self._toc_plan(doc)
+        plan.line(doc, texts['introduction'], texts['introduction'])
 
         for i, chapter in enumerate(content.get('chapters', []), 1):
             roman_num = self._to_roman(i)
-            chapter_toc = doc.add_paragraph()
-            chapter_toc.paragraph_format.line_spacing = 1.5
-            chapter_toc.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             clean_ch_title = strip_leading_numbering(chapter['title'])
-            chapter_run = chapter_toc.add_run(f"{roman_num} {texts['chapter']}. {clean_ch_title.upper()}")
-            chapter_run.font.size = Pt(14)
-            chapter_run.font.bold = True
-            chapter_run.font.name = 'Times New Roman'
+            entry = f"{roman_num} {texts['chapter']}. {clean_ch_title.upper()}"
+            plan.line(doc, entry, entry, bold=True)
 
             for subsection in chapter.get('subsections', []):
-                sub_toc = doc.add_paragraph()
-                sub_toc.paragraph_format.left_indent = Inches(0.5)
-                sub_toc.paragraph_format.line_spacing = 1.5
-                sub_toc.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                 clean_sub_title = strip_leading_numbering(subsection['title'])
-                sub_run = sub_toc.add_run(f"{subsection['number']} {clean_sub_title}")
-                sub_run.font.size = Pt(14)
-                sub_run.font.name = 'Times New Roman'
+                sub_entry = f"{subsection['number']} {clean_sub_title}"
+                plan.line(doc, sub_entry, sub_entry, indent=0.5)
 
-        conclusion_toc = doc.add_paragraph()
-        conclusion_toc.paragraph_format.line_spacing = 1.5
-        conclusion_toc.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        conclusion_run = conclusion_toc.add_run(texts['conclusion'])
-        conclusion_run.font.size = Pt(14)
-        conclusion_run.font.name = 'Times New Roman'
-
-        refs_toc = doc.add_paragraph()
-        refs_toc.paragraph_format.line_spacing = 1.5
-        refs_toc.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        refs_run = refs_toc.add_run(texts['references'])
-        refs_run.font.size = Pt(14)
-        refs_run.font.name = 'Times New Roman'
+        plan.line(doc, texts['conclusion'], texts['conclusion'])
+        plan.line(doc, texts['references'], texts['references'])
+        return plan
 
     async def create_course_work(self, topic: str, content: Dict, author_name: str, language: str = 'uz', extras: list = None) -> str:
         """Create course work document with chapters, subsections and footnotes
@@ -3257,7 +3290,7 @@ class DocumentService:
             doc.add_page_break()
             
             # Create table of contents
-            self._create_course_work_toc(doc, content, language)
+            toc_plan = self._create_course_work_toc(doc, content, language)
             doc.add_page_break()
             
             # Footnote counter
@@ -3271,7 +3304,11 @@ class DocumentService:
             intro_run.font.size = Pt(14)
             intro_run.font.bold = True
             intro_run.font.name = 'Times New Roman'
-            
+
+            # O'zbekiston mavzularida kirish Prezident so'zlaridan boshlanadi.
+            content.setdefault('language', language)
+            footnote_num = self._add_presidential_opening(doc, content, footnote_num)
+
             # Intro Part 1: General Info
             intro_text = content.get('introduction', '')
             sentences = intro_text.split('. ')
@@ -3331,7 +3368,7 @@ class DocumentService:
             
             # Get references for footnotes
             references = content.get('references', [])
-            footnote_counter = 1
+            footnote_counter = footnote_num
             sub_counter = 0
             # Rejani lug'atga aylantiramiz: har bo'lim o'zinikini oladi va
             # olingani ro'yxatdan chiqadi, ya'ni ikki marta chizilmaydi.
@@ -3509,6 +3546,7 @@ class DocumentService:
             filename = f"kurs_ishi_{timestamp}.docx"
             file_path = os.path.join(self.documents_dir, filename)
             await asyncio.to_thread(doc.save, file_path)
+            await toc_plan.fill(doc, file_path)
             logger.info(f"Course work saved: {file_path}")
             return file_path
             
@@ -3744,24 +3782,37 @@ class DocumentService:
         run.font.size = Pt(14)
         run.font.name = "Times New Roman"
 
-    def _create_course_work_toc(self, doc, content: Dict, language: str):
+    def _toc_plan(self, doc, size: float = 14.0) -> TocPlan:
+        """Shu hujjat o'lchamiga mos reja yozuvchisini beradi.
+
+        Nuqtalar varaqning o'ng chekkasigacha chiziladi, shuning uchun
+        foydali en hujjatning o'z chekkalaridan olinadi — ular hujjat
+        turiga qarab har xil.
+        """
+        section = doc.sections[0]
+        width = section.page_width - section.left_margin - section.right_margin
+        return TocPlan(width_in=width / 914400, size=size)
+
+    def _create_course_work_toc(self, doc, content: Dict, language: str) -> TocPlan:
         """Create table of contents for course work — always on a single page."""
         texts = self._get_course_work_texts(language)
 
         # Yozuvlar avval yig'iladi: qancha joy olishini bilmasdan turib
         # shrift va intervalni tanlab bo'lmaydi.
-        entries = [(texts["introduction"], False, False)]
+        entries = [(texts["introduction"], False, False, texts["introduction"])]
         for index, chapter in enumerate(content.get("chapters", []), 1):
             roman = self._to_roman(index)
             title = strip_leading_numbering(chapter["title"]).upper()
-            entries.append((f"{roman} {texts['chapter']}. {title}", False, True))
+            line_text = f"{roman} {texts['chapter']}. {title}"
+            entries.append((line_text, False, True, line_text))
             for subsection in chapter.get("subsections", []):
                 sub_title = strip_leading_numbering(subsection["title"])
-                entries.append((f"{subsection['number']} {sub_title}", True, False))
-        entries.append((texts["conclusion"], False, False))
-        entries.append((texts["references"], False, False))
+                sub_text = f"{subsection['number']} {sub_title}"
+                entries.append((sub_text, True, False, sub_text))
+        entries.append((texts["conclusion"], False, False, texts["conclusion"]))
+        entries.append((texts["references"], False, False, texts["references"]))
 
-        size, spacing = _toc_layout(entries)
+        size, spacing = _toc_layout([e[:3] for e in entries])
 
         title_para = doc.add_paragraph()
         title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -3774,18 +3825,11 @@ class DocumentService:
         gap = doc.add_paragraph()
         gap.paragraph_format.space_after = Pt(0)
 
-        for text, indented, bold in entries:
-            line = doc.add_paragraph()
-            line.paragraph_format.line_spacing = spacing
-            line.paragraph_format.space_after = Pt(0)
-            line.paragraph_format.space_before = Pt(0)
-            line.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-            if indented:
-                line.paragraph_format.left_indent = Inches(_TOC_INDENT)
-            run = line.add_run(text)
-            run.font.size = Pt(size)
-            run.font.bold = bold
-            run.font.name = "Times New Roman"
+        plan = self._toc_plan(doc, size)
+        for text, indented, bold, heading in entries:
+            plan.line(doc, text, heading, bold=bold, spacing=spacing,
+                      indent=_TOC_INDENT if indented else 0.0, space_after=0)
+        return plan
 
     def _get_course_work_texts(self, language: str) -> Dict[str, str]:
         """Get language-specific texts for course work"""
@@ -4195,21 +4239,19 @@ class DocumentService:
         toc_run.font.size = Pt(14)
         toc_run.font.name = 'Times New Roman'
 
-        toc_items = [
-            labels['maqsad'],
-            labels['tushunchalar'],
-            f"{labels['amaliy']}",
-        ]
         steps = content.get('amaliy_qadamlar', [])
+        toc_items = [
+            (labels['maqsad'], 0.0),
+            (labels['tushunchalar'], 0.0),
+            (labels['amaliy'], 0.0),
+        ]
         for i, step in enumerate(steps, 1):
-            toc_items.append(f"  {labels['qadam']} {i}. {step.get('qadam_nomi', '')}")
-        toc_items += [labels['xulosa'], labels['adabiyotlar']]
+            toc_items.append((f"{labels['qadam']} {i}. {step.get('qadam_nomi', '')}", 0.3))
+        toc_items += [(labels['xulosa'], 0.0), (labels['adabiyotlar'], 0.0)]
 
-        for item in toc_items:
-            p = doc.add_paragraph()
-            run = p.add_run(item)
-            run.font.size = Pt(13)
-            run.font.name = 'Times New Roman'
+        toc_plan = self._toc_plan(doc, size=13)
+        for item, indent in toc_items:
+            toc_plan.line(doc, item, item, indent=indent)
 
         doc.add_page_break()
 
@@ -4285,6 +4327,7 @@ class DocumentService:
         filename = f"mahsus_ishlanma_{timestamp}.docx"
         file_path = os.path.join(self.documents_dir, filename)
         await asyncio.to_thread(doc.save, file_path)
+        await toc_plan.fill(doc, file_path)
         logger.info(f"Mahsus ishlanma saved: {file_path}")
         return file_path
 
@@ -4385,41 +4428,23 @@ class DocumentService:
             th_run.font.name = 'Times New Roman'
             doc.add_paragraph()
 
-            tp = doc.add_paragraph()
-            tp.paragraph_format.line_spacing = 1.5
-            tp.paragraph_format.space_after = Pt(0)
-            tr = tp.add_run(texts['introduction'])
-            tr.font.size = Pt(14)
-            tr.font.name = 'Times New Roman'
+            toc_plan = self._toc_plan(doc)
+            toc_plan.line(doc, texts['introduction'], texts['introduction'],
+                          space_after=0)
 
             for i, chapter in enumerate(content.get('chapters', []), 1):
                 roman_num_toc = self._to_roman(i)
-                ch_toc = doc.add_paragraph()
-                ch_toc.paragraph_format.line_spacing = 1.5
-                ch_toc.paragraph_format.space_after = Pt(0)
                 clean_ch_title_toc = strip_leading_numbering(chapter['title'])
-                ch_tr = ch_toc.add_run(f"{roman_num_toc} {texts['chapter']}. {clean_ch_title_toc.upper()}")
-                ch_tr.font.size = Pt(14)
-                ch_tr.font.bold = True
-                ch_tr.font.name = 'Times New Roman'
+                entry = f"{roman_num_toc} {texts['chapter']}. {clean_ch_title_toc.upper()}"
+                toc_plan.line(doc, entry, entry, bold=True, space_after=0)
 
                 for subsection in chapter.get('subsections', []):
-                    sp = doc.add_paragraph()
-                    sp.paragraph_format.left_indent = Inches(0.5)
-                    sp.paragraph_format.line_spacing = 1.5
-                    sp.paragraph_format.space_after = Pt(0)
                     clean_t = strip_leading_numbering(subsection['title'])
-                    sr = sp.add_run(f"{subsection['number']} {clean_t}")
-                    sr.font.size = Pt(14)
-                    sr.font.name = 'Times New Roman'
+                    sub_entry = f"{subsection['number']} {clean_t}"
+                    toc_plan.line(doc, sub_entry, sub_entry, indent=0.5, space_after=0)
 
             for toc_item in [texts['conclusion'], texts['references'], texts['glossary'], texts['appendices']]:
-                tp2 = doc.add_paragraph()
-                tp2.paragraph_format.line_spacing = 1.5
-                tp2.paragraph_format.space_after = Pt(0)
-                tr2 = tp2.add_run(toc_item)
-                tr2.font.size = Pt(14)
-                tr2.font.name = 'Times New Roman'
+                toc_plan.line(doc, toc_item, toc_item, space_after=0)
 
             doc.add_page_break()
 
@@ -4430,6 +4455,10 @@ class DocumentService:
             ih_run.font.size = Pt(14)
             ih_run.font.bold = True
             ih_run.font.name = 'Times New Roman'
+
+            # O'zbekiston mavzularida kirish Prezident so'zlaridan boshlanadi.
+            content.setdefault('language', language)
+            footnote_num = self._add_presidential_opening(doc, content, 1)
 
             intro_text = content.get('introduction', '')
             sentences = intro_text.split('. ')
@@ -4483,7 +4512,7 @@ class DocumentService:
             # ── 5. MAIN BODY ───────────────────────────────────────────────
             references = content.get('references', [])
             clean_refs = [r for r in references if not r.startswith('__CATEGORY__')]
-            footnote_counter = 1
+            footnote_counter = footnote_num
             sub_counter = 0
 
             for i, chapter in enumerate(content.get('chapters', []), 1):
@@ -4668,6 +4697,7 @@ class DocumentService:
             filename = f"dissertatsiya_{safe_topic}_{timestamp}.docx"
             file_path = os.path.join(self.documents_dir, filename)
             await asyncio.to_thread(doc.save, file_path)
+            await toc_plan.fill(doc, file_path)
             logger.info(f"Dissertation saved: {file_path}")
             return file_path
 
@@ -4866,42 +4896,23 @@ class DocumentService:
             th_run.font.name = 'Times New Roman'
             doc.add_paragraph()
 
-            for toc_item, bold in [(texts['introduction'], False)]:
-                tp = doc.add_paragraph()
-                tp.paragraph_format.line_spacing = 1.5
-                tp.paragraph_format.space_after = Pt(0)
-                tr = tp.add_run(toc_item)
-                tr.font.size = Pt(14)
-                tr.font.name = 'Times New Roman'
+            toc_plan = self._toc_plan(doc)
+            toc_plan.line(doc, texts['introduction'], texts['introduction'],
+                          space_after=0)
 
             for i, chapter in enumerate(content.get('chapters', []), 1):
                 roman_num_toc = self._to_roman(i)
-                ch_toc = doc.add_paragraph()
-                ch_toc.paragraph_format.line_spacing = 1.5
-                ch_toc.paragraph_format.space_after = Pt(0)
                 clean_ch_title_toc = strip_leading_numbering(chapter['title'])
-                ch_tr = ch_toc.add_run(f"{roman_num_toc} {texts['chapter']}. {clean_ch_title_toc.upper()}")
-                ch_tr.font.size = Pt(14)
-                ch_tr.font.bold = True
-                ch_tr.font.name = 'Times New Roman'
+                entry = f"{roman_num_toc} {texts['chapter']}. {clean_ch_title_toc.upper()}"
+                toc_plan.line(doc, entry, entry, bold=True, space_after=0)
 
                 for subsection in chapter.get('subsections', []):
-                    sp = doc.add_paragraph()
-                    sp.paragraph_format.left_indent = Inches(0.5)
-                    sp.paragraph_format.line_spacing = 1.5
-                    sp.paragraph_format.space_after = Pt(0)
                     clean_t = strip_leading_numbering(subsection['title'])
-                    sr = sp.add_run(f"{subsection['number']} {clean_t}")
-                    sr.font.size = Pt(14)
-                    sr.font.name = 'Times New Roman'
+                    sub_entry = f"{subsection['number']} {clean_t}"
+                    toc_plan.line(doc, sub_entry, sub_entry, indent=0.5, space_after=0)
 
             for toc_item in [texts['conclusion_toc'], texts['references'], texts['glossary'], texts['appendices']]:
-                tp2 = doc.add_paragraph()
-                tp2.paragraph_format.line_spacing = 1.5
-                tp2.paragraph_format.space_after = Pt(0)
-                tr2 = tp2.add_run(toc_item)
-                tr2.font.size = Pt(14)
-                tr2.font.name = 'Times New Roman'
+                toc_plan.line(doc, toc_item, toc_item, space_after=0)
 
             doc.add_page_break()
 
@@ -4912,6 +4923,10 @@ class DocumentService:
             ih_run.font.size = Pt(14)
             ih_run.font.bold = True
             ih_run.font.name = 'Times New Roman'
+
+            # O'zbekiston mavzularida kirish Prezident so'zlaridan boshlanadi.
+            content.setdefault('language', language)
+            footnote_num = self._add_presidential_opening(doc, content, 1)
 
             intro_text = content.get('introduction', '')
             sentences = intro_text.split('. ')
@@ -4965,7 +4980,7 @@ class DocumentService:
             # ── 4. MAIN BODY ───────────────────────────────────────────────
             references = content.get('references', [])
             clean_refs = [r for r in references if not r.startswith('__CATEGORY__')]
-            footnote_counter = 1
+            footnote_counter = footnote_num
             # Bu hujjatda qo'shimchalar har bir kichik bo'limga to'liq
             # qo'shilardi: tanlangan blok necha kichik bo'lim bo'lsa shuncha
             # marta takrorlanardi. Qolgan hujjatlardagi kabi sikl bo'yicha.
@@ -5157,6 +5172,7 @@ class DocumentService:
             filename = f"bitiruv_ishi_{timestamp}.docx"
             file_path = os.path.join(self.documents_dir, filename)
             await asyncio.to_thread(doc.save, file_path)
+            await toc_plan.fill(doc, file_path)
             logger.info(f"Graduation work saved: {file_path}")
             return file_path
 
