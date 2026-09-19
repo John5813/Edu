@@ -15,7 +15,7 @@ import re as _re_plan
 from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard, get_outline_review_keyboard, get_references_choice_keyboard, get_doc_language_keyboard, get_plan_slide_keyboard, get_icon_choice_keyboard, get_course_work_page_keyboard, get_diploma_work_page_keyboard, get_graduation_work_page_keyboard, get_dissertation_page_keyboard, get_payment_choice_keyboard, get_insufficient_balance_keyboard, get_back_inline_keyboard, get_article_page_keyboard, get_source_selection_keyboard, get_other_services_keyboard, get_extras_keyboard, get_gw_outline_choice_keyboard, get_plan_confirm_keyboard, get_plan_style_keyboard
 from database.database import Database
 from utils.security import sanitize_user_input, validate_topic_length
-from services import document_source
+from services import course_work, document_source
 from services.ai_service import AIService, get_ai_service
 from services.document_service import DocumentService, get_document_service
 from services.template_service import TemplateService
@@ -1802,6 +1802,123 @@ async def handle_gw_outline_auto(callback: CallbackQuery, state: FSMContext, db:
     )
 
 
+# ─── ODDIY REJA (savollar) ────────────────────────────────────────────────
+# Oddiy rejada bob yo'q: mustaqil ishdagidek raqamlangan savollar bo'ladi.
+# Savollar soni mijozning ixtiyorida — ikkitadan o'ntagacha. Matn hajmi
+# savollar soniga bo'linadi, shuning uchun buyurtma qilingan varaq soni
+# har qanday sonda ham chiqadi.
+
+_MIN_MANUAL_QUESTIONS = 2
+_MAX_MANUAL_QUESTIONS = 10
+
+# "1. Savol", "1) Savol", "- Savol" — mijoz qanday yozsa ham tushunilsin.
+_QUESTION_LINE = _re_plan.compile(r'^\W*(\d{1,2})\s*[.):\-]\s*(.+)$')
+
+
+def _simple_plan_prompt(language: str) -> str:
+    """Oddiy reja uchun namuna — bobsiz, savollar ko'rinishida."""
+    if language == "ru":
+        note = (
+            "✏️ Отправьте <b>весь план</b> одним сообщением в формате ниже.\n"
+            "Сколько вопросов написать — два, пять или десять — решаете вы.\n"
+            "Объём текста подстроится, заказанное количество страниц будет "
+            "выдержано в любом случае.\n\n"
+            "📌 <b>Образец:</b>"
+        )
+        sample = ["[Первый вопрос]", "[Второй вопрос]", "[Третий вопрос]"]
+        hint = ("\n\n⚠️ Каждый вопрос с новой строки, с номером. Введение, "
+                "заключение и список литературы писать не нужно — они "
+                "добавляются сами.")
+    elif language == "en":
+        note = (
+            "✏️ Send the <b>whole plan</b> in one message using the format below.\n"
+            "How many questions to write — two, five or ten — is up to you.\n"
+            "The text length adapts, so the ordered page count is reached "
+            "either way.\n\n"
+            "📌 <b>Sample:</b>"
+        )
+        sample = ["[First question]", "[Second question]", "[Third question]"]
+        hint = ("\n\n⚠️ One question per line, numbered. There is no need to "
+                "write the introduction, conclusion or references — they are "
+                "added automatically.")
+    else:
+        note = (
+            "✏️ Quyidagi formatda <b>butun rejani</b> bitta xabarda yuboring.\n"
+            "Nechta savol yozasiz — ikkitami, beshtami, o'ntami — o'zingiz "
+            "bilasiz.\n"
+            "Matn hajmi shunga qarab moslashadi, buyurtma qilingan varaq soni "
+            "baribir chiqadi.\n\n"
+            "📌 <b>Namuna:</b>"
+        )
+        sample = ["[Birinchi savol sarlavhasi]", "[Ikkinchi savol sarlavhasi]",
+                  "[Uchinchi savol sarlavhasi]"]
+        hint = ("\n\n⚠️ Har bir savolni yangi qatordan, raqami bilan yozing. "
+                "Kirish, xulosa va adabiyotlar ro'yxatini yozish shart emas — "
+                "ular o'zi qo'shiladi.")
+
+    lines = [note, "<pre>"]
+    lines.extend(f"{index}. {text}" for index, text in enumerate(sample, 1))
+    lines.append("</pre>")
+    lines.append(hint)
+    return "\n".join(lines)
+
+
+def _parse_manual_questions(text: str) -> list:
+    """Qo'lda yozilgan oddiy rejani savollar ro'yxatiga aylantiradi.
+
+    Bobli rejadagidek, raqam bilan boshlanmagan qator oldingisining
+    davomi hisoblanadi: uzun savol ikki qatorga bo'linib yozilsa,
+    ikkita savolga bo'linib ketmasin.
+    """
+    questions = []
+    for raw in str(text or "").splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+
+        match = _QUESTION_LINE.match(line) or _BULLET_LINE.match(line)
+        if match:
+            item = match.group(match.lastindex).strip(" .:-—–")
+            if item:
+                questions.append(item)
+            continue
+
+        tail = line.strip(" .:-—–")
+        if not tail:
+            continue
+        if questions:
+            questions[-1] += " " + tail
+        else:
+            # Mijoz raqamsiz yozgan bo'lsa — har qator alohida savol.
+            questions.append(tail)
+
+    return [q for q in questions if q][:_MAX_MANUAL_QUESTIONS]
+
+
+def _format_questions(questions: list, language: str) -> str:
+    """Tekshirilgan oddiy rejani mijozga ko'rsatish uchun matn."""
+    heading = {
+        "uz": "📋 <b>Reja tekshirildi.</b> Quyidagicha bo'ladi:",
+        "ru": "📋 <b>План проверен.</b> Получилось так:",
+        "en": "📋 <b>The plan has been checked.</b> Here it is:",
+    }.get(language, "📋 <b>Reja tekshirildi.</b> Quyidagicha bo'ladi:")
+    footer = {
+        "uz": "Savollar soni siz yozganicha qoldi — faqat imlo va uslub "
+              "tuzatildi. Matn hajmi shu savollarga bo'linadi.",
+        "ru": "Количество вопросов осталось вашим — исправлены только "
+              "орфография и стиль. Объём текста делится между ними.",
+        "en": "The number of questions is yours — only spelling and wording "
+              "were corrected. The text length is split between them.",
+    }.get(language, "")
+
+    lines = [heading, ""]
+    for index, question in enumerate(questions, 1):
+        lines.append(f"<b>{index}.</b> {html.escape(str(question), quote=False)}")
+    lines.append("")
+    lines.append(f"<i>{footer}</i>")
+    return "\n".join(lines)
+
+
 @router.callback_query(F.data == "gw_outline_manual", DocumentStates.waiting_for_gw_outline_choice)
 async def handle_gw_outline_manual(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """User chose manual outline entry — show sample format and ask for full plan."""
@@ -1809,6 +1926,15 @@ async def handle_gw_outline_manual(callback: CallbackQuery, state: FSMContext, d
     await callback.message.edit_reply_markup(reply_markup=None)
     data = await state.get_data()
     chapters = data.get("chapters", 3)
+
+    # Oddiy rejada bob bo'lmaydi — savollar bo'ladi. Ilgari bu yerda
+    # ikkala usulga ham bitta bobli namuna ko'rsatilardi va oddiy reja
+    # tanlagan mijoz bobli reja yozib yuborardi.
+    if course_work.normalize(data.get("plan_style")) == course_work.SIMPLE:
+        await state.set_state(DocumentStates.waiting_for_gw_plan_text)
+        await callback.message.answer(_simple_plan_prompt(user_lang),
+                                      parse_mode="HTML")
+        return
 
     if user_lang == "ru":
         chap_word = "ГЛАВА"
@@ -2034,10 +2160,16 @@ async def handle_gw_plan_text(message: Message, state: FSMContext, db: Database,
         await message.answer(err.get(user_lang, err["uz"]))
         return
 
-    plan = _parse_manual_plan(text)
-
     data = await state.get_data()
     chapters = data.get("chapters", 3)
+    doc_lang = data.get("doc_language", user_lang)
+
+    # Oddiy reja alohida o'qiladi: unda bob yo'q, savollar bor.
+    if course_work.normalize(data.get("plan_style")) == course_work.SIMPLE:
+        await _handle_simple_plan_text(message, state, text, user_lang, doc_lang)
+        return
+
+    plan = _parse_manual_plan(text)
 
     if len(plan) < 1:
         err = {
@@ -2066,7 +2198,6 @@ async def handle_gw_plan_text(message: Message, state: FSMContext, db: Database,
     notice = await message.answer(thinking.get(user_lang, thinking["uz"]))
 
     # AI imlo va uslubni tuzatadi, tuzilishga tegmaydi.
-    doc_lang = data.get("doc_language", user_lang)
     try:
         plan = await get_ai_service().review_manual_plan(
             plan, data.get("topic", ""), doc_lang
@@ -2088,6 +2219,61 @@ async def handle_gw_plan_text(message: Message, state: FSMContext, db: Database,
     )
 
 
+async def _handle_simple_plan_text(message: Message, state: FSMContext, text: str,
+                                   user_lang: str, doc_lang: str) -> None:
+    """Oddiy rejani o'qiydi, AI ga tekshirtiradi va mijozga ko'rsatadi."""
+    questions = _parse_manual_questions(text)
+
+    if len(questions) < _MIN_MANUAL_QUESTIONS:
+        err = {
+            "uz": ("❌ Reja to'g'ri kiritilmadi. Har bir savolni yangi "
+                   "qatordan, raqami bilan yozing:\n"
+                   "<b>1. Birinchi savol</b>\n<b>2. Ikkinchi savol</b>\n\n"
+                   "Kamida ikkita savol bo'lsin. Qaytadan yuboring."),
+            "ru": ("❌ Неверный формат. Каждый вопрос с новой строки, с "
+                   "номером:\n<b>1. Первый вопрос</b>\n<b>2. Второй вопрос</b>"
+                   "\n\nНужно минимум два вопроса. Отправьте заново."),
+            "en": ("❌ Incorrect format. One question per line, numbered:\n"
+                   "<b>1. First question</b>\n<b>2. Second question</b>\n\n"
+                   "At least two questions are needed. Please try again."),
+        }
+        await message.answer(err.get(user_lang, err["uz"]), parse_mode="HTML")
+        return
+
+    thinking = {
+        "uz": "🔍 Reja tekshirilmoqda...",
+        "ru": "🔍 Проверяем план...",
+        "en": "🔍 Checking the plan...",
+    }
+    notice = await message.answer(thinking.get(user_lang, thinking["uz"]))
+
+    data = await state.get_data()
+    try:
+        questions = await get_ai_service().review_manual_questions(
+            questions, data.get("topic", ""), doc_lang
+        )
+    except Exception as exc:
+        logger.warning(f"Savollar tahriri o'tmadi, mijoznikida qoldi: {exc}")
+
+    try:
+        await notice.delete()
+    except Exception:
+        pass
+
+    # Keyingi bosqichlar rejani bitta ko'rinishda kutadi, shuning uchun
+    # har savol mavzusiz "bob" bo'lib saqlanadi — `_simple_course_work`
+    # undan savol sarlavhalarini oladi.
+    await state.update_data(
+        gw_manual_plan=[{"title": q, "subsections": []} for q in questions]
+    )
+    await state.set_state(DocumentStates.waiting_for_plan_confirm)
+    await message.answer(
+        _format_questions(questions, user_lang),
+        parse_mode="HTML",
+        reply_markup=get_plan_confirm_keyboard(user_lang),
+    )
+
+
 @router.callback_query(F.data == "plan_confirm", DocumentStates.waiting_for_plan_confirm)
 async def handle_plan_confirm(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Mijoz tahrirlangan rejani tasdiqladi — qo'shimchalarga o'tamiz."""
@@ -2099,11 +2285,18 @@ async def handle_plan_confirm(callback: CallbackQuery, state: FSMContext, db: Da
 
     await state.set_state(DocumentStates.waiting_for_extras_choice)
     subs = sum(len(ch.get("subsections") or []) for ch in plan)
-    ok = {
-        "uz": f"✅ Reja qabul qilindi: {len(plan)} ta bob, {subs} ta mavzu.\n\nEndi qo'shimcha xizmatlarni tanlang:",
-        "ru": f"✅ Оглавление принято: {len(plan)} гл., {subs} подразделов.\n\nВыберите дополнительные услуги:",
-        "en": f"✅ Plan accepted: {len(plan)} chapters, {subs} subsections.\n\nChoose additional services:",
-    }
+    if course_work.normalize(data.get("plan_style")) == course_work.SIMPLE:
+        ok = {
+            "uz": f"✅ Reja qabul qilindi: {len(plan)} ta savol.\n\nEndi qo'shimcha xizmatlarni tanlang:",
+            "ru": f"✅ План принят: {len(plan)} вопросов.\n\nВыберите дополнительные услуги:",
+            "en": f"✅ Plan accepted: {len(plan)} questions.\n\nChoose additional services:",
+        }
+    else:
+        ok = {
+            "uz": f"✅ Reja qabul qilindi: {len(plan)} ta bob, {subs} ta mavzu.\n\nEndi qo'shimcha xizmatlarni tanlang:",
+            "ru": f"✅ Оглавление принято: {len(plan)} гл., {subs} подразделов.\n\nВыберите дополнительные услуги:",
+            "en": f"✅ Plan accepted: {len(plan)} chapters, {subs} subsections.\n\nChoose additional services:",
+        }
     await callback.message.answer(
         ok.get(user_lang, ok["uz"]),
         reply_markup=get_extras_keyboard(user_lang, [], price),

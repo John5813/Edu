@@ -266,10 +266,14 @@ async def check_long_subsection():
     print("\n8) Uzun bo'limni bo'laklab yozish")
     service = get_ai_service()
     prompts = []
+    # Model so'ralgan hajmni to'liq yozadi: shunda so'rovlar soni faqat
+    # bo'laklarga bog'liq bo'ladi. Hajm to'lmagan holat alohida —
+    # test_oddiy_reja.py da sinaladi.
+    words = [1300]
 
     async def fake(messages, **kwargs):
         prompts.append(messages[-1]["content"])
-        return "Birinchi bo'lak matni. " * 25
+        return "Birinchi bo'lak matni. " * (words[0] // 3)
 
     service._make_request = fake
 
