@@ -28,6 +28,7 @@ from bot.handlers.documents import _parse_manual_plan  # noqa: E402
 from services import uzbekistan  # noqa: E402
 from services.ai_service import (  # noqa: E402
     _MAX_WORDS_PER_SUBSECTION,
+    _WORDS_PER_REQUEST,
     _subsection_word_target,
     _subsections_per_chapter,
     get_ai_service,
@@ -64,15 +65,20 @@ def check_volume():
         total = 3 * per
         target = _subsection_word_target(total, low, high)
         words = int(target.split("-")[-1])
-        check(f"{low}-{high} varaq: bobga {per} ta mavzu",
-              2 <= per <= 4, str(per))
+        check(f"{low}-{high} varaq: bobga {per} ta mavzu", per == 2, str(per))
         check(f"{low}-{high} varaq: bitta mavzu {target} so'z",
-              words <= _MAX_WORDS_PER_SUBSECTION + 100, target)
-        check(f"{low}-{high} varaq: javob token chegarasiga sig'adi",
-              token_budget(target, "uz") < 8000, str(token_budget(target, "uz")))
+              words <= _MAX_WORDS_PER_SUBSECTION, target)
 
-    common = [_subsections_per_chapter(lo, hi) for lo, hi in sizes[:4]]
-    check("odatdagi hajmlarda bobga ikkita mavzu", common == [2, 2, 2, 2], str(common))
+        # Uzun bo'lim bir necha so'rovga bo'linadi; har so'rov token
+        # chegarasidan pastda qolishi kerak, aks holda matn qirqiladi.
+        parts = min(-(-words // _WORDS_PER_REQUEST), 3)
+        chunk = f"{int(words // parts * 0.9)}-{words // parts}"
+        budget = token_budget(chunk, "uz")
+        check(f"{low}-{high} varaq: {parts} ta so'rov, har biri sig'adi",
+              budget < 8000, f"{chunk} -> {budget}")
+
+    every = [_subsections_per_chapter(lo, hi) for lo, hi in sizes]
+    check("hamma hajmda bobga ikkita mavzu", every == [2] * len(sizes), str(every))
 
 
 def check_manual_plan():
@@ -250,6 +256,48 @@ def check_plan_message():
     check("buzilgan HTML yo'q", "&#X27;" not in text)
 
 
+async def check_long_subsection():
+    """Uzun bo'lim bir necha so'rovga bo'linib yozilsinmi.
+
+    Katta hajmda har bobda ikkitadan mavzu qolishi uchun bitta mavzuga
+    ikki mingga yaqin so'z tushadi. Bitta so'rovda bunchasi chiqmaydi —
+    javob token chegarasiga urilib qirqilardi.
+    """
+    print("\n8) Uzun bo'limni bo'laklab yozish")
+    service = get_ai_service()
+    prompts = []
+
+    async def fake(messages, **kwargs):
+        prompts.append(messages[-1]["content"])
+        return "Birinchi bo'lak matni. " * 25
+
+    service._make_request = fake
+
+    prompts.clear()
+    await service._generate_subsection_content("Mavzu", "Bob", "Kichik", "uz", "560-690")
+    check("qisqa bo'lim bitta so'rovda", len(prompts) == 1, str(len(prompts)))
+    check("qisqa bo'limda bo'lak qoidasi yo'q",
+          "bo'lagi" not in prompts[0])
+
+    prompts.clear()
+    text = await service._generate_subsection_content(
+        "Mavzu", "Bob", "Kichik", "uz", "1930-2360")
+    check("uzun bo'lim ikki so'rovda", len(prompts) == 2, str(len(prompts)))
+    check("birinchi bo'lak xulosa qilmaydi",
+          "Hali xulosa qilmang" in prompts[0])
+    check("ikkinchi bo'lakka avvalgisi berildi",
+          "Allaqachon yozilgani" in prompts[1])
+    check("matn qo'shib yozildi", len(text.split()) > 50, str(len(text.split())))
+
+    for language, marker in (("ru", "часть"), ("en", "part")):
+        prompts.clear()
+        await service._generate_subsection_content(
+            "Topic", "Chapter", "Sub", language, "1930-2360")
+        check(f"{language} tilida ham bo'laklanadi",
+              len(prompts) == 2 and marker in prompts[0],
+              str(len(prompts)))
+
+
 async def check_chapter_arc():
     print("\n4) O'zbekiston mavzularida boblar ketma-ketligi")
     service = get_ai_service()
@@ -292,6 +340,7 @@ async def main():
     check_wrapped_plan()
     await check_plan_review()
     check_plan_message()
+    await check_long_subsection()
     await check_chapter_arc()
 
     print()
