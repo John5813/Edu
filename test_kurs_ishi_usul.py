@@ -78,8 +78,43 @@ def check_rules():
     check("to'liq kelgan snoska saqlanadi", "2025" in kept, kept)
 
 
+def check_echo():
+    """Sarlavha matn ichida takrorlanmasinmi.
+
+    Ustoz tekshirgan ishda "Kurs ishining predmeti. Kurs ishining
+    predmeti O'zbekistonda..." deb ikki marta yozilgan va u takrorni
+    chizib tashlagan.
+    """
+    print("\n5) Takrorlanuvchi sarlavha")
+    cases = [
+        ("subject", "Kurs ishining predmeti O'zbekistonda bozor iqtisodiyotiga o'tishdir."),
+        ("object", "Kurs ishining obyekti — O'zbekiston iqtisodiy siyosatidir."),
+        ("goal", "Kurs ishining maqsadi. Tizimni tahlil qilishdir."),
+    ]
+    for key, text in cases:
+        cleaned = cw.strip_echo(text, "uz", key)
+        label = cw.lead("uz", key).rstrip(".")
+        check(f"«{key}» takrori olib tashlandi",
+              not cleaned.lower().startswith(label.lower()), cleaned)
+        check(f"«{key}» mazmuni saqlandi", len(cleaned) > 10, cleaned)
+
+    check("takrorsiz matn tegilmaydi",
+          cw.strip_echo("Tizimni tahlil qilishdir.", "uz", "goal")
+          == "Tizimni tahlil qilishdir.")
+
+    print("\n6) Vazifalar tozalanishi")
+    one_line = cw.clean_tasks(
+        "1. nazariy asoslarini o'rganish 2. bosqichlarni tahlil qilish "
+        "3. mexanizmlarni baholash")
+    check("bitta qatorda kelgani ajratildi", len(one_line) == 3, str(one_line))
+    check("raqamlar olib tashlandi",
+          not any(t[0].isdigit() for t in one_line), str(one_line))
+    many = cw.clean_tasks("- birinchi\n- ikkinchi\n\n- uchinchi")
+    check("qatorma-qator kelgani o'qildi", len(many) == 3, str(many))
+
+
 async def check_documents():
-    print("\n5) Ikki usulda hujjat")
+    print("\n7) Ikki usulda hujjat")
     from services.document_service import DocumentService
 
     body = "Milliy boylik iqtisodiyotning moddiy asosini tashkil etadi. " * 45
@@ -87,8 +122,9 @@ async def check_documents():
         language="uz",
         introduction="Hammaga ma'lumki, iqtisodiyot o'zgardi. " * 16,
         intro_points={
-            "subject": "Milliy boylikning shakllanish jarayoni.",
-            "object": "O'zbekiston iqtisodiyoti.",
+            # Ataylab takror bilan: kod uni olib tashlashi kerak.
+            "subject": "Kurs ishining predmeti milliy boylikning shakllanishidir.",
+            "object": "Kurs ishining obyekti O'zbekiston iqtisodiyotidir.",
             "goal": "Milliy boylikdan foydalanish yo'llarini o'rganish.",
             "tasks": "o'rnini o'rganish\nomillarni tahlil qilish\nyo'nalishlarni aniqlash",
         },
@@ -141,10 +177,15 @@ async def check_documents():
     check("tarkibda 3 ta bob", "3 ta bob" in intro.replace("\n", " "))
     check("predmet va obyekt bor",
           "predmeti" in intro and "obyekti" in intro)
+    flat = " ".join(intro.split())
+    check("sarlavha matnda takrorlanmaydi",
+          "predmeti. Kurs ishining predmeti" not in flat
+          and "obyekti. Kurs ishining obyekti" not in flat, flat[:120])
 
 
 async def main():
     check_rules()
+    check_echo()
     await check_documents()
     print()
     if FAILS:

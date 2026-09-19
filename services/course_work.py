@@ -22,6 +22,7 @@ Ikki usul:
   `murakkab` — reja boblardan va ularning ichidagi mavzulardan iborat.
 """
 
+import re
 from typing import Dict, List
 
 SIMPLE = "oddiy"
@@ -175,6 +176,60 @@ def points_rule(language: str, style: str) -> str:
 
 
 # ──────────────────────────────────────────────── Prezident snoskasi
+
+def _flat(text: str) -> str:
+    """Solishtirish uchun: kichik harf, apostrofsiz, bitta bo'shliq."""
+    value = re.sub(r"[\u2018\u2019\u02bb\u02bc\u2032'`\u00b4]", "", str(text or "").lower())
+    return re.sub(r"[^\w\s]+", " ", value)
+
+
+def strip_echo(text: str, language: str, key: str) -> str:
+    """Band matnidan uning o'z sarlavhasini olib tashlaydi.
+
+    Sarlavhani hujjatga kod yozadi ("Kurs ishining predmeti."), AI esa
+    matnni ko'pincha o'sha ibora bilan boshlaydi. Natijada varaqda
+    "Kurs ishining predmeti. Kurs ishining predmeti O'zbekistonda..."
+    bo'lib chiqar — ustoz aynan shu takrorni chizib tashlagan.
+    """
+    value = re.sub(r"\s+", " ", str(text or "")).strip()
+    if not value:
+        return ""
+
+    label = lead(language, key)
+    # Nuqtasiz variant ham kerak: AI sarlavhani gapga qo'shib yuboradi —
+    # "Kurs ishining predmeti O'zbekistonda ... jarayonidir."
+    variants = sorted({label, label.rstrip(".:")}, key=len, reverse=True)
+    flat_value = _flat(value)
+    for variant in variants:
+        flat_variant = _flat(variant).strip()
+        if flat_variant and flat_value.startswith(flat_variant):
+            words = len(flat_variant.split())
+            value = " ".join(value.split()[words:]).lstrip(" \u2014\u2013-:.,")
+            break
+
+    return value[:1].upper() + value[1:] if value else ""
+
+
+def clean_tasks(text: str) -> list:
+    """Vazifalar ro'yxati — raqam va belgilardan tozalangan.
+
+    Ustoz vazifalarni raqamlamaslikni talab qilgan, AI esa ularni
+    "1.", "2." bilan yozadi.
+    """
+    value = str(text or "").replace(";", "\n")
+    # AI ba'zan hammasini bitta qatorga yozadi: "1. ... 2. ... 3. ...".
+    # Shunda raqamlarning o'zi ajratuvchi bo'ladi.
+    if "\n" not in value.strip():
+        value = re.sub(r"\s+(?=\d+\s*[.)]\s)", "\n", value)
+
+    lines = []
+    for raw in value.splitlines():
+        item = raw.strip().lstrip("-\u2014\u2013\u2022 ")
+        item = re.sub(r"^\d+\s*[.)]\s*", "", item).strip(" .;")
+        if item:
+            lines.append(item)
+    return lines
+
 
 def president_footnote(source: str, language: str = "uz") -> str:
     """Prezident so'zlariga snoska — to'liq ko'rinishda.

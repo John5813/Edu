@@ -3387,15 +3387,19 @@ class DocumentService:
                     tail.font.name = 'Times New Roman'
                     continue
 
-                point_content = str(intro_points_data.get(key, "")).strip()
-                if not point_content:
+                # Sarlavhani kod yozadi; AI matni ham o'sha ibora bilan
+                # boshlansa, varaqda takror bo'lib chiqardi.
+                raw_point = intro_points_data.get(key, "")
+                # Vazifalar qatorma-qator keladi — ularni tozalash
+                # `clean_tasks` ishi; qolganlarida esa sarlavha takrori
+                # olib tashlanadi.
+                point_content = (str(raw_point) if key == "tasks"
+                                 else course_work.strip_echo(raw_point, language, key))
+                if not str(point_content).strip():
                     continue
 
                 if key == "tasks":
-                    for task in point_content.split('\n'):
-                        task = task.strip().lstrip("-—•0123456789. )")
-                        if not task:
-                            continue
+                    for task in course_work.clean_tasks(point_content):
                         tp = doc.add_paragraph()
                         tp.paragraph_format.left_indent = Inches(0.5)
                         tp.paragraph_format.line_spacing = 1.5
