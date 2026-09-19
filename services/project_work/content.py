@@ -18,6 +18,8 @@ from typing import Dict, List, Optional
 from utils.ai_text import token_budget, trim_to_last_sentence
 from utils.heading_guard import heading_rule, strip_echoed_heading
 
+from services import timeframe
+
 from .source import SourceMaterial
 from . import layout, tables
 from .specs import (
@@ -130,7 +132,8 @@ _CHART_SHAPES = {
         'from the current year. "value" is the expected figure, "low" and "high" '
         'the confidence range; all plain numbers in the same unit. The first '
         'period is today\'s actual figure, so its low and high equal its value.',
-        '{"unit": "mln so\'m", "points": [{"period": "2025", "value": 1200, "low": 1200, "high": 1200}]}',
+        f'{{"unit": "mln so\'m", "points": [{{"period": "{timeframe.current_year()}", '
+        f'"value": 1200, "low": 1200, "high": 1200}}]}}',
     ),
     ARTIFACT_MARKETING: (
         'the sales forecast and the promotion channels behind it. "periods" are '
@@ -143,7 +146,8 @@ _CHART_SHAPES = {
         'give it. Every figure is a plain number and the channel figures must be '
         'consistent with the sales forecast.',
         '{"unit": "dona", "money_unit": "mln so\'m", '
-        '"periods": [{"period": "2026 I chorak", "units": 1200, "revenue": 96}], '
+        f'"periods": [{{"period": "{timeframe.current_year()} I chorak", '
+        f'"units": 1200, "revenue": 96}}], '
         '"channels": [{"name": "Instagram maqsadli reklama", "budget": 12000000, '
         '"reach": 150000, "conversion": "1,2%", "customers": 1800}]}',
     ),
@@ -180,7 +184,8 @@ _CHART_SHAPES = {
         'them, but the figures must be such that the accumulated flow turns '
         'positive somewhere in the middle of the range.',
         '{"money_unit": "mln so\'m", "investment": 420, '
-        '"periods": [{"period": "2026", "income": 180, "expense": 560}]}',
+        f'"periods": [{{"period": "{timeframe.current_year()}", "income": 180, '
+        f'"expense": 560}}]}}',
     ),
 }
 
@@ -774,7 +779,9 @@ RULES:
 {_voice_rule(spec, language)}
 - Be concrete: real figures, named examples, Uzbekistan context where it fits
 - Plain text only — no markdown, no bullet lists, no special characters
-- Do not mention that a table or figure follows; it is added automatically{self._passport_block(passport)}{self._source_block(brief)}"""
+- Do not mention that a table or figure follows; it is added automatically
+
+{timeframe.year_rule(language)}{self._passport_block(passport)}{self._source_block(brief)}"""
 
         response = await self.ai._make_request(
             messages=[
@@ -830,7 +837,8 @@ Keep every cell SHORT: at most six words, or one formula written compactly.
 A cell is not a sentence and never a list — "Bosh oshpaz 1, oshpaz 2,
 yordamchi 2, administrator 2, ofitsiant 6" belongs in the section text, not
 in a cell. If a value needs explaining, the explanation goes in the text.
-{self._passport_block(passport)}{self._source_block(brief)}
+
+{timeframe.year_rule(language)}{self._passport_block(passport)}{self._source_block(brief)}
 
 Respond with JSON only:
 {{"headers": ["..."], "rows": [["..."]]}}"""
@@ -866,7 +874,9 @@ no thousand separators, no currency words inside the number.
 Add one more key, "note": a single sentence in {target} saying what the figure
 shows and what conclusion the reader should draw from it. It is printed under
 the figure, so it must stand on its own — never "as can be seen in the figure
-above".{self._passport_block(passport)}{self._source_block(brief)}
+above".
+
+{timeframe.year_rule(language)}{self._passport_block(passport)}{self._source_block(brief)}
 
 Respond with JSON only, in exactly this shape (plus "note"):
 {example}"""
@@ -956,7 +966,9 @@ measure twice and do not invent a measure that this field does not use.
 
 Every calculation must be worked through with real numbers: the formula, the
 value of each symbol, and the figure that comes out. The arithmetic must be
-correct — a reader will check it.{known}{self._passport_block(passport)}
+correct — a reader will check it.{known}
+
+{timeframe.year_rule(language)}{self._passport_block(passport)}
 
 "latex" is the formula in LaTeX without dollar signs. "name", "given",
 "result", "meaning" are in {target}. Give "conclusion" only on the last

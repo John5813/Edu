@@ -17,6 +17,7 @@ import asyncio
 from config import DOCUMENTS_DIR, TEMP_DIR
 from services.together_service import get_together_service
 from services.ai_service import clean_text
+from services import timeframe
 from utils.heading_guard import strip_leading_numbering
 from services.icon_service import find_icon_path_for_column
 
@@ -922,10 +923,10 @@ class DocumentService:
                 table_data = {}
         
         if isinstance(table_data, dict):
-            headers = table_data.get('headers', ['Ko\'rsatkich', '2023', '2024', 'O\'zgarish'])
+            headers = table_data.get('headers', timeframe.year_headers(language))
             rows = table_data.get('rows', [])
         else:
-            headers = ['Ko\'rsatkich', '2023', '2024', 'O\'zgarish']
+            headers = timeframe.year_headers(language)
             rows = []
         
         if not rows:
@@ -2314,7 +2315,7 @@ class DocumentService:
         try:
             # Handle both dict format (new) and list format (old)
             if isinstance(table_data, dict):
-                headers = table_data.get('headers', ['Tahlil', '2020', '2023', "O'zgarish"])
+                headers = table_data.get('headers', timeframe.year_headers(language))
                 rows = table_data.get('rows', [])
             else:
                 # Old format - list of rows
