@@ -412,6 +412,24 @@ def get_dissertation_page_keyboard(language: str = "uz") -> InlineKeyboardMarkup
     return keyboard.as_markup()
 
 
+def get_plan_style_keyboard(lang: str = "uz") -> InlineKeyboardMarkup:
+    """Kurs ishi rejasining ikki usuli."""
+    keyboard = InlineKeyboardBuilder()
+    labels = {
+        "uz": ("📄 Oddiy reja — savollar (Kirish, 1-4 savol, Xulosa)",
+               "📚 Murakkab reja — boblar (I, II, III bob va mavzular)"),
+        "ru": ("📄 Простой план — вопросы (Введение, 1-4 вопрос, Заключение)",
+               "📚 Сложный план — главы (I, II, III глава и подразделы)"),
+        "en": ("📄 Simple plan — questions (Intro, 1-4 questions, Conclusion)",
+               "📚 Detailed plan — chapters (I, II, III and subsections)"),
+    }
+    simple, complex_ = labels.get(lang, labels["uz"])
+    keyboard.add(InlineKeyboardButton(text=simple, callback_data="cw_style:oddiy"))
+    keyboard.add(InlineKeyboardButton(text=complex_, callback_data="cw_style:murakkab"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
 def get_gw_outline_choice_keyboard(lang: str = "uz") -> InlineKeyboardMarkup:
     """Auto vs manual outline choice keyboard for BMI (bitiruv malakaviy ishi)"""
     keyboard = InlineKeyboardBuilder()

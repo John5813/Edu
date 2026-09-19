@@ -20,6 +20,7 @@ from services.ai_service import clean_text
 from services import timeframe
 from services.doc_toc import TocPlan
 from services import uzbekistan
+from services import course_work
 from utils.heading_guard import strip_leading_numbering
 from services.icon_service import find_icon_path_for_column
 
@@ -2050,7 +2051,8 @@ class DocumentService:
             logger.error(f"Error adding page number: {e}")
 
     def _add_presidential_opening(self, doc, content: Dict,
-                                  footnote_counter: int = 1) -> int:
+                                  footnote_counter: int = 1,
+                                  lead: str = "") -> int:
         """Kirishni Prezident so'zlari haqidagi abzatsdan boshlaydi.
 
         O'zbekiston iqtisodi yoki siyosatiga oid ishlarda kirishning
@@ -2070,6 +2072,13 @@ class DocumentService:
         para.paragraph_format.first_line_indent = Inches(0.5)
         para.paragraph_format.line_spacing = 1.5
         para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        if lead:
+            # "Mavzuning dolzarbligi." kirishning eng boshida turadi —
+            # Prezident so'zlari o'sha dolzarblikning birinchi abzatsi.
+            lead_run = para.add_run(lead + " ")
+            lead_run.font.size = Pt(14)
+            lead_run.font.bold = True
+            lead_run.font.name = 'Times New Roman'
         run = para.add_run(text)
         run.font.size = Pt(14)
         run.font.name = 'Times New Roman'
@@ -3289,8 +3298,13 @@ class DocumentService:
             await self._create_course_work_title_page(doc, topic, language, author_name)
             doc.add_page_break()
             
+            # Mijoz ikki usuldan birini tanlaydi: oddiy reja savollardan,
+            # murakkab reja boblardan iborat bo'ladi.
+            plan_style = course_work.normalize(content.get('plan_style'))
+
             # Create table of contents
-            toc_plan = self._create_course_work_toc(doc, content, language)
+            toc_plan = self._create_course_work_toc(doc, content, language,
+                                                    plan_style)
             doc.add_page_break()
             
             # Footnote counter
@@ -3307,7 +3321,13 @@ class DocumentService:
 
             # O'zbekiston mavzularida kirish Prezident so'zlaridan boshlanadi.
             content.setdefault('language', language)
-            footnote_num = self._add_presidential_opening(doc, content, footnote_num)
+            relevance_lead = course_work.lead(language, "relevance")
+            before = footnote_num
+            footnote_num = self._add_presidential_opening(
+                doc, content, footnote_num, lead=relevance_lead)
+            # Prezident abzatsi yozilgan bo'lsa, dolzarblik sarlavhasi
+            # o'sha yerda turibdi — keyingi abzatsda takrorlanmasin.
+            opening_written = footnote_num != before
 
             # Intro Part 1: General Info
             intro_text = content.get('introduction', '')
@@ -3318,12 +3338,19 @@ class DocumentService:
             else:
                 paragraphs = [intro_text]
 
-            for p_text in paragraphs:
+            # Kirish "Mavzuning dolzarbligi." dan boshlanadi — ustoz
+            # tekshirgan ishda aynan shu talab qilingan.
+            for order, p_text in enumerate(paragraphs):
                 if not p_text.strip(): continue
                 intro_content_para = doc.add_paragraph()
                 intro_content_para.paragraph_format.first_line_indent = Inches(0.5)
                 intro_content_para.paragraph_format.line_spacing = 1.5
                 intro_content_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                if order == 0 and not opening_written:
+                    lead_run = intro_content_para.add_run(relevance_lead + " ")
+                    lead_run.font.size = Pt(14)
+                    lead_run.font.bold = True
+                    lead_run.font.name = 'Times New Roman'
                 intro_run = intro_content_para.add_run(p_text.strip())
                 intro_run.font.size = Pt(14)
                 intro_run.font.name = 'Times New Roman'
@@ -3333,36 +3360,53 @@ class DocumentService:
             # boshida tugasa, qolgan qismi butunlay bo'sh qolardi.
             doc.add_paragraph()
 
-            # Intro Part 2: Specific Points
+            # Intro Part 2: maqsad, vazifalar, tarkib — raqamlanmaydi.
+            # Ustoz "1., 2., 3." raqamlarini va "o'rganilganlik darajasi"
+            # bandini chizib tashlagan, vazifalarni esa tire bilan
+            # yozishni talab qilgan.
             intro_points_data = content.get('intro_points', {})
-            for i, point_label in enumerate(texts['intro_points']):
+            plan_count = (len(content.get('chapters', []))
+                          or len(content.get('sections', [])) or 1)
+            for key in course_work.point_keys(plan_style):
                 p = doc.add_paragraph()
                 p.paragraph_format.line_spacing = 1.5
+                p.paragraph_format.first_line_indent = Inches(0.5)
                 p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                run = p.add_run(point_label)
+                run = p.add_run(course_work.lead(language, key))
                 run.font.bold = True
                 run.font.size = Pt(14)
                 run.font.name = 'Times New Roman'
-                
-                point_key = f"point_{i+1}"
-                point_content = intro_points_data.get(point_key, "")
-                if point_content:
-                    if point_label.endswith(':'):
-                        # List format for tasks
-                        tasks = point_content.split('\n') if '\n' in point_content else [point_content]
-                        for task in tasks:
-                            if not task.strip(): continue
-                            tp = doc.add_paragraph()
-                            tp.paragraph_format.left_indent = Inches(0.5)
-                            tp.paragraph_format.line_spacing = 1.5
-                            tp.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                            tp_run = tp.add_run(f"• {task.strip()}")
-                            tp_run.font.size = Pt(14)
-                            tp_run.font.name = 'Times New Roman'
-                    else:
-                        run_content = p.add_run(f" {point_content}")
-                        run_content.font.size = Pt(14)
-                        run_content.font.name = 'Times New Roman'
+
+                if key == "structure":
+                    # Reja soni kod tomonidan qo'yiladi: AI yozganda matnda
+                    # "uchta bo'lim" deb chiqar, hujjatda to'rtta bo'lardi.
+                    body = " " + course_work.structure_sentence(
+                        language, plan_style, plan_count)
+                    tail = p.add_run(body)
+                    tail.font.size = Pt(14)
+                    tail.font.name = 'Times New Roman'
+                    continue
+
+                point_content = str(intro_points_data.get(key, "")).strip()
+                if not point_content:
+                    continue
+
+                if key == "tasks":
+                    for task in point_content.split('\n'):
+                        task = task.strip().lstrip("-—•0123456789. )")
+                        if not task:
+                            continue
+                        tp = doc.add_paragraph()
+                        tp.paragraph_format.left_indent = Inches(0.5)
+                        tp.paragraph_format.line_spacing = 1.5
+                        tp.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                        tp_run = tp.add_run(f"- {task}")
+                        tp_run.font.size = Pt(14)
+                        tp_run.font.name = 'Times New Roman'
+                else:
+                    run_content = p.add_run(f" {point_content}")
+                    run_content.font.size = Pt(14)
+                    run_content.font.name = 'Times New Roman'
             
             doc.add_page_break()
             
@@ -3379,6 +3423,29 @@ class DocumentService:
             }
             figure_no = 0
             formula_no = 0
+
+            if plan_style == course_work.SIMPLE:
+                # Oddiy reja: boblar emas, raqamlangan savollar.
+                for number, section in enumerate(content.get('sections', []), 1):
+                    await asyncio.sleep(0)
+                    title = strip_leading_numbering(str(section.get('title', '')))
+                    head = doc.add_paragraph()
+                    head.paragraph_format.space_before = Pt(12)
+                    head.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                    head_run = head.add_run(f"{number}. {title}")
+                    head_run.font.size = Pt(14)
+                    head_run.font.bold = True
+                    head_run.font.name = 'Times New Roman'
+
+                    footnote_counter = self._add_body_with_footnotes(
+                        doc, section.get('content', ''), references, footnote_counter)
+
+                    if extras:
+                        cycle_extras = _extras_for_cycle(extras, number)
+                        if cycle_extras:
+                            await self._add_section_extras(
+                                doc, title, topic, language, cycle_extras,
+                                section_idx=number)
 
             # Chapters
             for i, chapter in enumerate(content.get('chapters', []), 1):
@@ -3793,22 +3860,33 @@ class DocumentService:
         width = section.page_width - section.left_margin - section.right_margin
         return TocPlan(width_in=width / 914400, size=size)
 
-    def _create_course_work_toc(self, doc, content: Dict, language: str) -> TocPlan:
-        """Create table of contents for course work — always on a single page."""
+    def _create_course_work_toc(self, doc, content: Dict, language: str,
+                                plan_style: str = course_work.COMPLEX) -> TocPlan:
+        """Create table of contents for course work — always on a single page.
+
+        Ikki usul: oddiy rejada savollar, murakkab rejada boblar va
+        ularning ichidagi mavzular ko'rsatiladi.
+        """
         texts = self._get_course_work_texts(language)
 
         # Yozuvlar avval yig'iladi: qancha joy olishini bilmasdan turib
         # shrift va intervalni tanlab bo'lmaydi.
         entries = [(texts["introduction"], False, False, texts["introduction"])]
-        for index, chapter in enumerate(content.get("chapters", []), 1):
-            roman = self._to_roman(index)
-            title = strip_leading_numbering(chapter["title"]).upper()
-            line_text = f"{roman} {texts['chapter']}. {title}"
-            entries.append((line_text, False, True, line_text))
-            for subsection in chapter.get("subsections", []):
-                sub_title = strip_leading_numbering(subsection["title"])
-                sub_text = f"{subsection['number']} {sub_title}"
-                entries.append((sub_text, True, False, sub_text))
+        if course_work.normalize(plan_style) == course_work.SIMPLE:
+            for index, section in enumerate(content.get("sections", []), 1):
+                title = strip_leading_numbering(str(section.get("title", "")))
+                line_text = f"{index}. {title}"
+                entries.append((line_text, False, False, line_text))
+        else:
+            for index, chapter in enumerate(content.get("chapters", []), 1):
+                roman = self._to_roman(index)
+                title = strip_leading_numbering(chapter["title"]).upper()
+                line_text = f"{roman} {texts['chapter']}. {title}"
+                entries.append((line_text, False, True, line_text))
+                for subsection in chapter.get("subsections", []):
+                    sub_title = strip_leading_numbering(subsection["title"])
+                    sub_text = f"{subsection['number']} {sub_title}"
+                    entries.append((sub_text, True, False, sub_text))
         entries.append((texts["conclusion"], False, False, texts["conclusion"]))
         entries.append((texts["references"], False, False, texts["references"]))
 
@@ -3892,12 +3970,14 @@ class DocumentService:
                 'conclusion': 'XULOSA',
                 'references': 'FOYDALANILGAN ADABIYOTLAR',
                 'intro_points': [
-                    '1. Kurs ishining predmeti.',
-                    '2. Kurs ishining obyekti.',
-                    '3. Mavzuning o‘rganilganlik darajasi.',
-                    '4. Kurs ishining maqsadi.',
-                    '5. Kurs ishining vazifalari:',
-                    '6. Kurs ishining tarkibiy tuzilishi.'
+                    # Bandlar endi `services/course_work.py` da: ular
+                    # raqamlanmaydi va usulga qarab o'zgaradi. Bu ro'yxat
+                    # boshqa hujjat turlari bilan moslik uchun qoladi.
+                    'Kurs ishining predmeti.',
+                    'Kurs ishining obyekti.',
+                    'Kurs ishining maqsadi.',
+                    'Kurs ishining maqsadidan kelib chiqib quyidagi vazifalar belgilab olindi:',
+                    'Kurs ishining tarkibi.'
                 ]
             }
 

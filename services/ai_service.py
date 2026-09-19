@@ -12,6 +12,7 @@ from utils.heading_guard import heading_rule, strip_echoed_heading, strip_leadin
 
 from services import timeframe
 from services import uzbekistan
+from services import course_work
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,10 @@ def _subsection_word_target(total_subsections: int, min_pages: int, max_pages: i
 # Bitta so'rovda yoziladigan matnning amaliy chegarasi. Model javobi
 # 8000 tokendan oshmaydi, o'zbekcha matnda bu ~1900 so'z; shunga yaqin
 # so'ralsa javob chala kelib, oxirgi gapigacha qirqilardi.
+# Oddiy rejada nechta savol bo'ladi. Ustoz tekshirgan ishda to'rtta edi.
+_SIMPLE_QUESTIONS = 4
+_SIMPLE_MAX_QUESTIONS = 6
+
 _MAX_WORDS_PER_SUBSECTION = 2600
 
 # Bitta so'rovda ishonchli yoziladigan hajm. Bundan ortig'i so'ralsa javob
@@ -1420,9 +1425,8 @@ EXACTLY {body_words} words — no more. Fully cover the topic with examples and 
             f"{uzbekistan.opening_rule(topic, language)}\n\n"
             f"Matn {target} tilida bo'lsin. Faqat abzatsning o'zi — "
             "sarlavhasiz, markdownsiz, qavs ichida izohsiz.\n"
-            "\"source\" — o'sha so'zlar olingan manba, adabiyotlar "
-            "ro'yxatidagidek to'liq yozilsin: muallif, asar yoki "
-            "murojaatnoma nomi, shahar, nashriyot va yil.\n\n"
+            "\"source\" — o'sha so'zlar olingan manba. "
+            f"{course_work.footnote_rule(language)}\n\n"
             'Faqat JSON: {"text": "...", "source": "..."}'
         )
 
@@ -1449,7 +1453,9 @@ EXACTLY {body_words} words — no more. Fully cover the topic with examples and 
             source = str(data.get("source", "")).strip()
             return {
                 "text": text,
-                "source": source or uzbekistan.default_president_source(language),
+                # Snoska to'liq bo'lishi kerak: ustoz qisqa yozilganini
+                # to'g'rilab, palata, sana va sayt manzilini talab qilgan.
+                "source": course_work.president_footnote(source, language),
             }
         except Exception as e:
             logger.error(f"Error generating presidential opening: {e}")
@@ -1759,9 +1765,89 @@ In JSON format:
             logger.error(f"Error generating slide content: {e}")
             return ""
 
+    async def _simple_course_work(self, content: Dict, topic: str, language: str,
+                                  min_pages: int, max_pages: int,
+                                  manual_plan: list = None) -> Dict:
+        """Oddiy reja: boblar emas, raqamlangan savollar.
+
+        Ustoz tekshirgan ishdagi ko'rinish: Kirish, 4 ta savol, Xulosa va
+        takliflar, Foydalanilgan adabiyotlar. Mustaqil ishga o'xshaydi,
+        lekin kurs ishi titul varag'i va kirish bandlari bilan.
+        """
+        if manual_plan:
+            titles = []
+            for chapter in manual_plan:
+                title = str(chapter.get("title", "")).strip()
+                if title:
+                    titles.append(title)
+                titles.extend(str(sub).strip()
+                              for sub in (chapter.get("subsections") or [])
+                              if str(sub).strip())
+            titles = titles[:_SIMPLE_MAX_QUESTIONS]
+        else:
+            titles = await self._generate_question_titles(
+                topic, _SIMPLE_QUESTIONS, language)
+
+        titles = titles or [topic]
+        word_target = _subsection_word_target(len(titles), min_pages, max_pages)
+        logger.info("Kurs ishi (oddiy reja): %d savol, har biriga %s so'z",
+                    len(titles), word_target)
+
+        content["introduction"] = await self._generate_course_intro(topic, language)
+        content["intro_points"] = await self._generate_intro_points(
+            topic, language, course_work.SIMPLE)
+
+        for title in titles:
+            body = await self._generate_subsection_content(
+                topic, topic, title, language, word_target)
+            content["sections"].append({"title": title, "content": body})
+
+        for number in range(1, len(titles) + 1):
+            content[f"table_data_{number}"] = await self.generate_table_data(
+                topic, number, language)
+
+        content["conclusion"] = await self._generate_course_conclusion(topic, language)
+        content["references"] = await self._generate_references(topic, language)
+        await self.add_uzbek_opening(content, topic, language)
+        return content
+
+    async def _generate_question_titles(self, topic: str, count: int,
+                                        language: str) -> List[str]:
+        """Oddiy reja uchun savol sarlavhalari."""
+        target = {"ru": "русском", "en": "English"}.get(language, "o'zbek")
+        prompt = (
+            f'Mavzu: "{topic}"\n\n'
+            f"Kurs ishi rejasi uchun {count} ta savol sarlavhasini yozing. "
+            "Ular bob emas, mustaqil savollar: har biri mavzuning bir "
+            "tomonini ochadi va bir-birini takrorlamaydi.\n"
+            f"{self._plan_rule(language, topic)}\n"
+            f"{self._chapter_arc(topic, language)}\n"
+            "Sarlavha boshiga raqam qo'shmang.\n"
+            f"Matn {target} tilida.\n"
+            'Faqat JSON: {"questions": ["...", "..."]}'
+        )
+        try:
+            response = await self._make_request(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=120 + 90 * count, temperature=0.7)
+            raw = response.strip()
+            for fence in ("```json", "```"):
+                if raw.startswith(fence):
+                    raw = raw[len(fence):]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            titles = [self._tidy_title(t)
+                      for t in (json.loads(raw.strip()).get("questions") or [])]
+            titles = [t for t in titles if t]
+            return titles[:count] or [topic]
+        except Exception as e:
+            logger.error(f"Error generating question titles: {e}")
+            return [topic]
+
     async def generate_course_work_content(self, topic: str, chapters: int, language: str,
                                            min_pages: int = 20, max_pages: int = 25,
-                                           manual_plan: list = None) -> Dict:
+                                           manual_plan: list = None,
+                                           plan_style: str = "") -> Dict:
         """Generate course work content with chapter structure and footnotes
 
         Structure:
@@ -1776,14 +1862,21 @@ In JSON format:
         boshqasiga uchta bo'lishi mumkin.
         """
         try:
+            style = course_work.normalize(plan_style)
             content = {
                 "title": topic,
                 "chapters": [],
+                "sections": [],
+                "plan_style": style,
                 "introduction": "",
                 "intro_points": {},
                 "conclusion": "",
                 "references": []
             }
+
+            if style == course_work.SIMPLE:
+                return await self._simple_course_work(
+                    content, topic, language, min_pages, max_pages, manual_plan)
 
             # Reja avval to'liq aniqlanadi: matn hajmi kichik bo'limlar
             # sonidan hisoblanadi. Ilgari u "bob × 3" deb olinardi, ya'ni
@@ -1826,7 +1919,8 @@ In JSON format:
             content["introduction"] = await self._generate_course_intro(topic, language)
             
             # Generate specific intro points (Subject, Object, Goal, etc.)
-            content["intro_points"] = await self._generate_intro_points(topic, language)
+            content["intro_points"] = await self._generate_intro_points(
+                topic, language, style)
 
             for i, planned in enumerate(plan, 1):
                 chapter_title = planned["title"]
@@ -2251,89 +2345,51 @@ Begin with content directly, do not repeat titles.
             logger.error(f"Error generating subsection content: {e}")
             return ""
 
-    async def _generate_intro_points(self, topic: str, language: str) -> Dict[str, str]:
-        """Generate specific introduction points: Subject, Object, Goal, Tasks, etc."""
+    async def _generate_intro_points(self, topic: str, language: str,
+                                     plan_style: str = "") -> Dict[str, str]:
+        """Kirishning maqsad, vazifa va predmet bandlarini yozadi.
+
+        Bandlar raqamlanmaydi va "mavzuning o'rganilganlik darajasi"
+        umuman so'ralmaydi — ustoz tekshirgan ishda u chizib tashlangan.
+        Tarkib bandi ham so'ralmaydi: rejadagi haqiqiy son kod tomonidan
+        qo'yiladi, aks holda matnda "uchta bo'lim" deb chiqib, hujjatda
+        to'rtta bo'lardi.
+        """
+        keys = [k for k in course_work.point_keys(plan_style) if k != "structure"]
+        target = {"ru": "русском", "en": "English"}.get(language, "o'zbek")
+
+        prompt = (
+            f'Mavzu: "{topic}"\n\n'
+            "Kurs ishi kirishining bandlarini yozing.\n\n"
+            f"{course_work.points_rule(language, plan_style)}\n\n"
+            f"{course_work.intro_rule(language, plan_style)}\n\n"
+            f"Matn {target} tilida. Har band 30-45 so'z, vazifalar esa "
+            "har biri bitta qator.\n"
+            "Faqat JSON: {"
+            + ", ".join(f'"{key}": "..."' for key in keys)
+            + "}"
+        )
+
         try:
-            if language == "uz":
-                prompt = f""""{topic}" mavzusidagi kurs ishi uchun quyidagi 6 ta punktga juda batafsil va aynan mavzuga asoslangan akademik tarif bering. 
-DIQQAT: Umumiy gaplardan qoching, har bir punkt aynan "{topic}" mavzusining ichki jihatlarini, uning ilmiy va amaliy ahamiyatini yoritib berishi shart. 
-
-Punktlar (har biri 35-45 so'z — bu hajmdan oshirmang):
-1. Kurs ishining predmeti (Mavzuning qaysi jihatlari o'rganiladi?).
-2. Kurs ishining obyekti (Mavzu qaysi soha yoki tushunchaga tegishli?).
-3. Mavzuning o‘rganilganlik darajasi (Hozirgi kunda bu mavzu qanchalik o'rganilgan?).
-4. Kurs ishining maqsadi (Tadqiqotdan ko'zlangan asosiy natija nima?).
-5. Kurs ishining vazifalari (Maqsadga erishish uchun bajarilishi kerak bo'lgan bosqichlarni punktma-punkt yozing).
-6. Kurs ishining tarkibiy tuzilishi (Kirish, bo'limlar va xulosaning qisqacha tavsifi).
-
-JSON formatda javob bering:
-{{
-  "point_1": "konkret mavzu predmeti haqida chuqur tahlil...",
-  "point_2": "mavzu obyekti haqida batafsil ma'lumot...",
-  "point_3": "ilmiy daraja tahlili...",
-  "point_4": "aniq maqsad tarifi...",
-  "point_5": "1. ...\\n2. ...\\n3. ...",
-  "point_6": "tuzilish bayoni..."
-}}"""
-            elif language == "ru":
-                prompt = f"""Дайте подробное академическое описание следующих 6 пунктов для курсовой работы по теме "{topic}". 
-ВНИМАНИЕ: Избегайте общих фраз. Каждый пункт должен быть глубоко связан именно с темой "{topic}", раскрывая её научные и практические аспекты.
-
-Пункты (по 35-45 слов каждый — не превышайте этот объём):
-1. Предмет курсовой работы (какие именно стороны темы изучаются?).
-2. Объект курсовой работы (к какой области или понятию относится тема?).
-3. Степень изученности темы (насколько глубоко эта тема изучена на данный момент?).
-4. Цель курсовой работы (основной ожидаемый результат исследования?).
-5. Задачи курсовой работы (напишите по пунктам шаги для достижения цели).
-6. Структура курсовой работы (краткое описание введения, глав и заключения).
-
-Ответьте в формате JSON:
-{{
-  "point_1": "глубокий анализ предмета темы...",
-  "point_2": "подробное описание объекта темы...",
-  "point_3": "анализ научной степени изученности...",
-  "point_4": "описание конкретной цели...",
-  "point_5": "1. ...\\n2. ...\\n3. ...",
-  "point_6": "описание структуры..."
-}}"""
-            else:
-                prompt = f"""Provide detailed academic descriptions for the following 6 points for a course work on "{topic}".
-ATTENTION: Avoid general phrases. Each point must be deeply connected specifically to the topic "{topic}", revealing its scientific and practical aspects.
-
-Points (35-45 words each — do not exceed this):
-1. Subject of the course work (what specific aspects of the topic are studied?).
-2. Object of the course work (what area or concept does the topic belong to?).
-3. Degree of study of the topic (how well is this topic studied currently?).
-4. Goal of the course work (what is the main expected result of the study?).
-5. Tasks of the course work (write point by point steps to achieve the goal).
-6. Structure of the course work (brief description of introduction, chapters, and conclusion).
-
-Respond in JSON format:
-{{
-  "point_1": "deep analysis of the topic subject...",
-  "point_2": "detailed description of the topic object...",
-  "point_3": "scientific study degree analysis...",
-  "point_4": "specific goal description...",
-  "point_5": "1. ...\\n2. ...\\n3. ...",
-  "point_6": "structure description..."
-}}"""
-
             response = await self._make_request(
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=2000,
-                temperature=0.7
+                messages=[
+                    {"role": "system", "content": "You are an academic writer. Respond with valid JSON only."},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=900,
+                temperature=0.6,
             )
-            
-            import re as _re_json
-            content_str = response.strip()
-            m = _re_json.search(r'\{.*\}', content_str, _re_json.DOTALL)
-            if m:
-                content_str = m.group()
-            return json.loads(content_str)
-            
+            raw = response.strip()
+            for fence in ("```json", "```"):
+                if raw.startswith(fence):
+                    raw = raw[len(fence):]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            data = json.loads(raw.strip())
+            return {key: clean_text(str(data.get(key, "")).strip()) for key in keys}
         except Exception as e:
             logger.error(f"Error generating intro points: {e}")
-            return {f"point_{i}": "" for i in range(1, 7)}
+            return {key: "" for key in keys}
 
     async def _generate_course_intro(self, topic: str, language: str) -> str:
         """Generate course work introduction (~300 words, concise)"""
@@ -2343,20 +2399,20 @@ Respond in JSON format:
                 prompt = f""""{topic}" mavzusidagi kurs ishi uchun qisqa va lo'nda ilmiy kirish qismini yozing.
 DIQQAT: Umumiy gaplardan voz keching. Kirish qismi aynan "{topic}" mavzusining mohiyatini ochib bersin.
 
-250-300 so'z yozing. Quyidagilarni qisqacha yozing:
-- Mavzuning dolzarbligi
-- Tadqiqotning ilmiy va amaliy ahamiyati
-- Mavzuning qisqacha nazariy asosi
+250-300 so'z yozing. Mavzu nega dolzarb ekanini yoriting: hozirgi
+holat, amaliy ahamiyati va qanday masalalar ko'tarilayotgani.
+
+{course_work.intro_rule("uz", "")}
 
 Professional akademik uslubda yozing. Faqat oddiy matn, markdown ishlatmang.{self._opening_note(topic, language)}"""
             elif language == "ru":
                 prompt = f"""Напишите краткое научное введение для курсовой работы по теме: "{topic}".
 ВНИМАНИЕ: Избегайте общих фраз. Введение должно раскрывать суть темы "{topic}".
 
-250-300 слов. Кратко раскройте:
-- Актуальность темы
-- Научная и практическая значимость
-- Краткая теоретическая основа
+250-300 слов. Раскройте, почему тема актуальна: нынешнее положение,
+практическое значение и какие вопросы поднимаются.
+
+{course_work.intro_rule("ru", "")}
 
 Профессиональный академический стиль. Только обычный текст, без markdown.{self._opening_note(topic, language)}"""
             else:
@@ -2364,10 +2420,10 @@ Professional akademik uslubda yozing. Faqat oddiy matn, markdown ishlatmang.{sel
 THE ENTIRE TEXT MUST BE IN {target_lang_name.upper()} LANGUAGE.
 Avoid general phrases. Focus on the essence of "{topic}".
 
-250-300 words. Briefly cover:
-- Relevance of the topic
-- Scientific and practical significance
-- Brief theoretical basis
+250-300 words. Explain why the topic matters: the present state, its
+practical significance and the questions being raised.
+
+{course_work.intro_rule("en", "")}
 
 Professional academic style. Plain text only, no markdown.{self._opening_note(topic, language)}"""
 
