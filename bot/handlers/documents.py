@@ -12,7 +12,7 @@ from aiogram.filters import StateFilter
 from bot import checkout as _pay
 from bot.states import DocumentStates
 import re as _re_plan
-from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard, get_outline_review_keyboard, get_references_choice_keyboard, get_doc_language_keyboard, get_plan_slide_keyboard, get_icon_choice_keyboard, get_course_work_page_keyboard, get_diploma_work_page_keyboard, get_graduation_work_page_keyboard, get_dissertation_page_keyboard, get_payment_choice_keyboard, get_insufficient_balance_keyboard, get_back_inline_keyboard, get_article_page_keyboard, get_source_selection_keyboard, get_other_services_keyboard, get_extras_keyboard, get_gw_outline_choice_keyboard, get_plan_confirm_keyboard
+from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard, get_outline_review_keyboard, get_references_choice_keyboard, get_doc_language_keyboard, get_plan_slide_keyboard, get_icon_choice_keyboard, get_course_work_page_keyboard, get_diploma_work_page_keyboard, get_graduation_work_page_keyboard, get_dissertation_page_keyboard, get_payment_choice_keyboard, get_insufficient_balance_keyboard, get_back_inline_keyboard, get_article_page_keyboard, get_source_selection_keyboard, get_other_services_keyboard, get_extras_keyboard, get_gw_outline_choice_keyboard, get_plan_confirm_keyboard, get_plan_style_keyboard
 from database.database import Database
 from utils.security import sanitize_user_input, validate_topic_length
 from services import document_source
@@ -1643,13 +1643,42 @@ async def handle_course_work_pages(callback: CallbackQuery, state: FSMContext, d
 
     await state.update_data(base_price=price, doc_next_step="course_work_gen")
 
-    # Mijoz rejani o'zi yozishi mumkin: bob nomlari ham, ularning ostidagi
-    # mavzular ham o'zinikicha bo'ladi.
+    # Avval usul tanlanadi: oddiy reja savollardan, murakkab reja
+    # boblardan iborat bo'ladi.
+    await state.set_state(DocumentStates.waiting_for_plan_style)
+    style_prompt = {
+        "uz": ("📋 Kurs ishi rejasi qanday bo'lsin?\n\n"
+               "<b>Oddiy reja</b> — mustaqil ishdagidek: kirish, raqamlangan "
+               "savollar, xulosa.\n"
+               "<b>Murakkab reja</b> — boblar va ularning ichida mavzular."),
+        "ru": ("📋 Каким будет план курсовой работы?\n\n"
+               "<b>Простой план</b> — введение, пронумерованные вопросы, "
+               "заключение.\n"
+               "<b>Сложный план</b> — главы и подразделы внутри них."),
+        "en": ("📋 What should the course work plan look like?\n\n"
+               "<b>Simple plan</b> — introduction, numbered questions, "
+               "conclusion.\n"
+               "<b>Detailed plan</b> — chapters with subsections."),
+    }
+    await callback.message.answer(
+        style_prompt.get(user_lang, style_prompt["uz"]), parse_mode="HTML",
+        reply_markup=get_plan_style_keyboard(user_lang),
+    )
+
+
+@router.callback_query(F.data.startswith("cw_style:"), DocumentStates.waiting_for_plan_style)
+async def handle_course_work_style(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
+    """Usul tanlandi — endi reja avtomatik yoki qo'lda tuziladi."""
+    await callback.answer()
+    await callback.message.edit_reply_markup(reply_markup=None)
+    style = callback.data.split(":", 1)[1]
+    await state.update_data(plan_style=style)
+
     await state.set_state(DocumentStates.waiting_for_gw_outline_choice)
     outline_prompt = {
-        "uz": "📋 Kurs ishi uchun rejani qanday tuzamiz?",
-        "ru": "📋 Как составим план курсовой работы?",
-        "en": "📋 How should we create the plan for the course work?",
+        "uz": "📋 Rejani kim tuzadi?",
+        "ru": "📋 Кто составит план?",
+        "en": "📋 Who should create the plan?",
     }
     await callback.message.answer(
         outline_prompt.get(user_lang, outline_prompt["uz"]),
@@ -2223,6 +2252,7 @@ async def _execute_heavy_generation(
     order_id: int,
     db: Database,
     gw_manual_plan: list = None,
+    plan_style: str = "",
 ):
     """Runs INSIDE the queue worker. Does AI generation, builds the .docx
     file, sends it to the user, updates DB, and reports errors."""
@@ -2231,7 +2261,13 @@ async def _execute_heavy_generation(
         ai_service = get_ai_service()
         ai_method = getattr(ai_service, cfg["ai_method"])
 
-        if cfg.get("manual_plan"):
+        if doc_type == "course_work":
+            content = await ai_method(
+                ai_topic, chapters, doc_lang,
+                min_pages=min_pages, max_pages=max_pages,
+                manual_plan=gw_manual_plan, plan_style=plan_style,
+            )
+        elif cfg.get("manual_plan"):
             content = await ai_method(
                 ai_topic, chapters, doc_lang,
                 min_pages=min_pages, max_pages=max_pages,
@@ -2455,6 +2491,7 @@ async def _enqueue_heavy_doc(
                     order_id=order_id,
                     db=db,
                     gw_manual_plan=data.get('gw_manual_plan'),
+                    plan_style=data.get('plan_style', ''),
                 )
             finally:
                 done_event.set()

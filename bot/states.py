@@ -18,6 +18,8 @@ class DocumentStates(StatesGroup):
     waiting_for_course_work_pages = State()
     waiting_for_diploma_work_pages = State()
     waiting_for_graduation_work_pages = State()
+    # Kurs ishida ikki usul: oddiy reja (savollar) yoki murakkab (boblar).
+    waiting_for_plan_style = State()
     waiting_for_gw_outline_choice = State()
     waiting_for_gw_plan_text = State()
     # Qo'lda yozilgan reja AI tomonidan tahrirlangach, mijoz tasdiqlaydi.
@@ -120,6 +122,8 @@ class PremiumPresentationStates(StatesGroup):
     waiting_for_client_name = State()
     waiting_for_preferences = State()
     waiting_for_slide_count = State()
+    # Mijoz rang sxemasini tanlaydi.
+    waiting_for_theme = State()
     waiting_for_payment = State()
     generating = State()
 
