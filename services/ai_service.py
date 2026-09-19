@@ -11,6 +11,7 @@ from utils.ai_text import token_budget, trim_to_last_sentence
 from utils.heading_guard import heading_rule, strip_echoed_heading, strip_leading_numbering
 
 from services import timeframe
+from services import uzbekistan
 
 logger = logging.getLogger(__name__)
 
@@ -840,7 +841,9 @@ IMPORTANT: Respond ONLY in JSON format! Total {slide_count} slides REQUIRED (mai
             
             if table_data_3:
                 result["table_data_3"] = table_data_3
-            
+
+            await self.add_uzbek_opening(result, topic, language)
+
             return result
 
         except Exception as e:
@@ -1230,6 +1233,99 @@ EXACTLY {body_words} words — no more. Fully cover the topic with examples and 
             text = re.sub(pattern, replacement, text)
         return text
 
+    def _opening_note(self, topic: str, language: str) -> str:
+        """Kirish promptiga qo'shiladigan eslatma.
+
+        O'zbekiston mavzularida birinchi abzats alohida so'raladi
+        (`presidential_opening`) va hujjat boshiga qo'yiladi — kirishning
+        qolgan qismi o'sha gaplarni takrorlamasligi kerak.
+        """
+        if not uzbekistan.is_uzbek_topic(topic):
+            return ""
+        if language == "ru":
+            return ("\nПервый абзац о словах Президента пишется отдельно и "
+                    "добавляется автоматически — не повторяйте его здесь.")
+        if language == "en":
+            return ("\nThe opening paragraph about the President's words is "
+                    "written separately and added automatically — do not "
+                    "repeat it here.")
+        return ("\nPrezident so'zlari haqidagi birinchi abzats alohida "
+                "yoziladi va avtomatik qo'shiladi — uni bu yerda "
+                "takrorlamang.")
+
+    async def add_uzbek_opening(self, content: Dict, topic: str, language: str) -> Dict:
+        """O'zbekiston mavzusi bo'lsa, kirish abzatsini va tartibni qo'shadi.
+
+        Kirishning birinchi abzatsi Prezident so'zlaridan boshlanadi,
+        adabiyotlar ro'yxatida esa o'sha manba birinchi, Konstitutsiya
+        ikkinchi bo'lib turadi, qolganlari yangi yildan eskisiga qarab
+        saralanadi. Mavzu O'zbekistonga tegishli bo'lmasa, hech narsa
+        o'zgarmaydi.
+        """
+        if not uzbekistan.is_uzbek_topic(topic):
+            return content
+
+        opening = await self.presidential_opening(topic, language)
+        if opening:
+            content["presidential_opening"] = opening
+        content["references"] = uzbekistan.order_references(
+            content.get("references") or [], language, opening.get("source", "")
+        )
+        return content
+
+    async def presidential_opening(self, topic: str, language: str) -> Dict[str, str]:
+        """O'zbekiston mavzulari uchun kirishning birinchi abzatsini yozadi.
+
+        Bunday ishlarda kirish Prezidentning shu sohadagi so'zlaridan
+        boshlanadi va o'sha so'zlarga snoska qo'yiladi. Matn bilan birga
+        manba ham so'raladi: snoska va adabiyotlar ro'yxatining birinchi
+        yozuvi o'sha manbadan olinadi.
+
+        Mavzu O'zbekistonga tegishli bo'lmasa — bo'sh lug'at.
+        """
+        if not uzbekistan.is_uzbek_topic(topic):
+            return {}
+
+        target = {"ru": "русском", "en": "English"}.get(language, "o'zbek")
+        prompt = (
+            f"{uzbekistan.opening_rule(topic, language)}\n\n"
+            f"Matn {target} tilida bo'lsin. Faqat abzatsning o'zi — "
+            "sarlavhasiz, markdownsiz, qavs ichida izohsiz.\n"
+            "\"source\" — o'sha so'zlar olingan manba, adabiyotlar "
+            "ro'yxatidagidek to'liq yozilsin: muallif, asar yoki "
+            "murojaatnoma nomi, shahar, nashriyot va yil.\n\n"
+            'Faqat JSON: {"text": "...", "source": "..."}'
+        )
+
+        try:
+            response = await self._make_request(
+                messages=[
+                    {"role": "system", "content": "You are an academic writer. Respond with valid JSON only."},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=900,
+                temperature=0.6,
+            )
+            raw = response.strip()
+            if raw.startswith("```json"):
+                raw = raw[7:]
+            if raw.startswith("```"):
+                raw = raw[3:]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            data = json.loads(raw.strip())
+            text = clean_text(str(data.get("text", "")).strip())
+            if not text:
+                return {}
+            source = str(data.get("source", "")).strip()
+            return {
+                "text": text,
+                "source": source or uzbekistan.default_president_source(language),
+            }
+        except Exception as e:
+            logger.error(f"Error generating presidential opening: {e}")
+            return {}
+
     async def _generate_references(self, topic: str, language: str) -> List[str]:
         """Generate academic references for course work"""
         try:
@@ -1605,7 +1701,9 @@ In JSON format:
             
             # Generate references
             content["references"] = await self._generate_references(topic, language)
-            
+
+            await self.add_uzbek_opening(content, topic, language)
+
             return content
             
         except Exception as e:
@@ -1959,7 +2057,7 @@ DIQQAT: Umumiy gaplardan voz keching. Kirish qismi aynan "{topic}" mavzusining m
 - Tadqiqotning ilmiy va amaliy ahamiyati
 - Mavzuning qisqacha nazariy asosi
 
-Professional akademik uslubda yozing. Faqat oddiy matn, markdown ishlatmang."""
+Professional akademik uslubda yozing. Faqat oddiy matn, markdown ishlatmang.{self._opening_note(topic, language)}"""
             elif language == "ru":
                 prompt = f"""Напишите краткое научное введение для курсовой работы по теме: "{topic}".
 ВНИМАНИЕ: Избегайте общих фраз. Введение должно раскрывать суть темы "{topic}".
@@ -1969,7 +2067,7 @@ Professional akademik uslubda yozing. Faqat oddiy matn, markdown ishlatmang."""
 - Научная и практическая значимость
 - Краткая теоретическая основа
 
-Профессиональный академический стиль. Только обычный текст, без markdown."""
+Профессиональный академический стиль. Только обычный текст, без markdown.{self._opening_note(topic, language)}"""
             else:
                 prompt = f"""Write a concise scientific introduction for a course work on: "{topic}".
 THE ENTIRE TEXT MUST BE IN {target_lang_name.upper()} LANGUAGE.
@@ -1980,7 +2078,7 @@ Avoid general phrases. Focus on the essence of "{topic}".
 - Scientific and practical significance
 - Brief theoretical basis
 
-Professional academic style. Plain text only, no markdown."""
+Professional academic style. Plain text only, no markdown.{self._opening_note(topic, language)}"""
 
             response = await self._make_request(
                 messages=[
@@ -2171,6 +2269,8 @@ Respond in JSON format:
             content["conclusion"] = await self._generate_course_conclusion(topic, language)
             content["references"] = await self._generate_references(topic, language)
 
+            await self.add_uzbek_opening(content, topic, language)
+
             return content
 
         except Exception as e:
@@ -2229,6 +2329,8 @@ Respond in JSON format:
             content["references"] = await self._generate_graduation_references(topic, language)
             content["glossary_terms"] = await self._generate_glossary_terms(topic, language)
             content["appendices"] = await self._generate_appendices(topic, language)
+
+            await self.add_uzbek_opening(content, topic, language)
 
             return content
 
@@ -2406,6 +2508,8 @@ JSON: {{"point_1": "...", ..., "point_10": "..."}}"""
             content["references"] = await self._generate_graduation_references(topic, language)
             content["glossary_terms"] = await self._generate_glossary_terms(topic, language)
             content["appendices"] = await self._generate_appendices(topic, language)
+
+            await self.add_uzbek_opening(content, topic, language)
 
             return content
 
