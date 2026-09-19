@@ -120,6 +120,8 @@ class PremiumPresentationStates(StatesGroup):
     waiting_for_client_name = State()
     waiting_for_preferences = State()
     waiting_for_slide_count = State()
+    # Mijoz rang sxemasini tanlaydi.
+    waiting_for_theme = State()
     waiting_for_payment = State()
     generating = State()
 

@@ -640,9 +640,18 @@ def _trim(text: str, limit: int) -> str:
 def _colors(el: VisualElement, theme) -> list[str]:
     """Palitrani mavzu rangi bilan boshlaydi, so'ng validatsiyadan o'tgan qatorni davom ettiradi."""
     base = [c.lstrip("#") for c in PALETTE]
-    primary = (getattr(theme, "primary", None) or "").lstrip("#")
-    accent = (getattr(theme, "accent", None) or "").lstrip("#")
-    lead = [c for c in (primary, accent) if len(c) == 6 and _usable_hue(c)]
+    # Mavzu to'liq rang qatorini bersa — o'shani olamiz. Ilgari faqat ikki
+    # rang olinar, uchinchi banddan boshlab umumiy palitraga o'tib ketardi:
+    # ko'k sxemadagi taqdimotda to'rtinchi kartochka to'satdan to'q sariq
+    # bo'lib chiqardi.
+    series = [str(c).lstrip("#") for c in (getattr(theme, "series", None) or [])]
+    series = [c for c in series if len(c) == 6 and _usable_hue(c)]
+    if series:
+        lead = series
+    else:
+        primary = (getattr(theme, "primary", None) or "").lstrip("#")
+        accent = (getattr(theme, "accent", None) or "").lstrip("#")
+        lead = [c for c in (primary, accent) if len(c) == 6 and _usable_hue(c)]
     if el.fill:
         lead.insert(0, el.fill.lstrip("#"))
     # Mavzu rangi palitradagi biriga juda yaqin bo'lsa, ikkalasi ham qolsa

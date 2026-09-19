@@ -68,9 +68,9 @@ async def _warn_admin_about_images(bot) -> None:
 
     try:
         from config import ADMIN_IDS
-        from services.premium_presentation import renderer
+        from services.premium_presentation import deck
 
-        report = getattr(renderer, "LAST_IMAGE_REPORT", None) or {}
+        report = getattr(deck, "LAST_IMAGE_REPORT", None) or {}
         failed, wanted = report.get("failed", 0), report.get("wanted", 0)
         if not failed:
             _last_image_warning = ""
@@ -680,6 +680,83 @@ async def premium_ppt_got_count(callback: CallbackQuery, state: FSMContext, db: 
 
     await state.update_data(slide_count=slide_count, price=price)
 
+    # Rang sxemasi mijozning tanlovi — taqdimot uning uslubida chiqsin.
+    await state.set_state(PremiumPresentationStates.waiting_for_theme)
+    await callback.message.edit_text(
+        _theme_prompt(lang, topic), parse_mode="HTML",
+        reply_markup=_theme_keyboard(lang, topic))
+
+
+def _theme_prompt(lang: str, topic: str) -> str:
+    from services.premium_presentation import themes as _themes
+    suggested = _themes.suggest(topic)
+    msgs = {
+        "uz": (f"🎨 <b>Rang sxemasini tanlang</b>\n\n"
+               f"Mavzuga mos keladigani — <b>{suggested.name}</b>.\n"
+               f"Xohlagan rangni tanlashingiz mumkin:"),
+        "ru": (f"🎨 <b>Выберите цветовую схему</b>\n\n"
+               f"По теме подходит — <b>{suggested.name}</b>.\n"
+               f"Можно выбрать любую:"),
+        "en": (f"🎨 <b>Choose a colour scheme</b>\n\n"
+               f"Suggested for this topic — <b>{suggested.name}</b>.\n"
+               f"Pick any you like:"),
+    }
+    return msgs.get(lang, msgs["uz"])
+
+
+def _theme_keyboard(lang: str, topic: str):
+    from services.premium_presentation import themes as _themes
+    suggested = _themes.suggest(topic)
+    builder = InlineKeyboardBuilder()
+    auto = {"uz": "✨ AI mavzuga qarab tanlasin",
+            "ru": "✨ Пусть AI выберет по теме",
+            "en": "✨ Let the AI choose"}
+    builder.add(InlineKeyboardButton(text=auto.get(lang, auto["uz"]),
+                                     callback_data="prem_ppt_theme:auto"))
+    for theme in _themes.choices():
+        mark = "  ✓" if theme.key == suggested.key else ""
+        builder.add(InlineKeyboardButton(
+            text=f"{theme.name}{mark}",
+            callback_data=f"prem_ppt_theme:{theme.key}"))
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+@router.callback_query(F.data.startswith("prem_ppt_theme:"),
+                       PremiumPresentationStates.waiting_for_theme)
+async def premium_ppt_got_theme(callback: CallbackQuery, state: FSMContext, db: Database):
+    """Rang tanlandi — to'lov oynasiga o'tamiz."""
+    await callback.answer()
+    user = await db.get_user(callback.from_user.id)
+    lang = user.language if user else "uz"
+    data = await state.get_data()
+
+    from services.premium_presentation import themes as _themes
+    choice = callback.data.split(":", 1)[1]
+    theme = (_themes.suggest(data.get("topic", "")) if choice == "auto"
+             else _themes.get(choice))
+    await state.update_data(theme_key=theme.key)
+    await state.set_state(PremiumPresentationStates.waiting_for_slide_count)
+    await _show_payment_summary(callback, state, lang, theme.name)
+
+
+async def _show_payment_summary(callback: CallbackQuery, state: FSMContext,
+                                lang: str, theme_name: str = "") -> None:
+    data = await state.get_data()
+    topic = data.get("topic", "")
+    client_name = data.get("client_name", "")
+    preferences = data.get("preferences", "")
+    slide_count = data.get("slide_count", MIN_SLIDES)
+    price = data.get("price", _get_price(slide_count))
+    level = data.get("level", 2)
+    level_label = LEVEL_LABELS.get(level, {}).get(lang, "")
+
+    theme_line = {
+        "uz": f"🎨 Rang: <b>{theme_name}</b>\n" if theme_name else "",
+        "ru": f"🎨 Цвет: <b>{theme_name}</b>\n" if theme_name else "",
+        "en": f"🎨 Colour: <b>{theme_name}</b>\n" if theme_name else "",
+    }
+
     name_line = {
         "uz": f"👤 Mijoz: <b>{client_name or 'ko‘rsatilmagan — o‘tkazib yuborilgan'}</b>\n",
         "ru": f"👤 Клиент: <b>{client_name or 'не указан — пропущено'}</b>\n",
@@ -697,6 +774,7 @@ async def premium_ppt_got_count(callback: CallbackQuery, state: FSMContext, db: 
             f"{name_line['uz']}"
             f"{preference_line['uz']}"
             f"📐 Daraja: <b>{level_label}</b>\n"
+            f"{theme_line['uz']}"
             f"📊 Slaydlar: <b>{slide_count} ta</b>\n"
             f"💰 Narx: <b>{price:,} so'm</b>\n\n"
             f"Hisobingizdan yechiladi. Tasdiqlaysizmi?"
@@ -707,6 +785,7 @@ async def premium_ppt_got_count(callback: CallbackQuery, state: FSMContext, db: 
             f"{name_line['ru']}"
             f"{preference_line['ru']}"
             f"📐 Уровень: <b>{level_label}</b>\n"
+            f"{theme_line['ru']}"
             f"📊 Слайдов: <b>{slide_count}</b>\n"
             f"💰 Цена: <b>{price:,} сум</b>\n\n"
             f"Будет списано с вашего баланса. Подтверждаете?"
@@ -717,6 +796,7 @@ async def premium_ppt_got_count(callback: CallbackQuery, state: FSMContext, db: 
             f"{name_line['en']}"
             f"{preference_line['en']}"
             f"📐 Level: <b>{level_label}</b>\n"
+            f"{theme_line['en']}"
             f"📊 Slides: <b>{slide_count}</b>\n"
             f"💰 Price: <b>{price:,} soʻm</b>\n\n"
             f"Will be deducted from your balance. Confirm?"
@@ -1131,110 +1211,41 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         except Exception as e:
             logger.error("Premium model tanlovini o'qib bo'lmadi: %s", e)
 
-        from services.premium_presentation.pipeline import (
-            generate_brief_chunked,
-            canvas_validation_and_fix,
-            run_visual_qa_and_fix,
-        )
-        from services.premium_presentation.renderer import build_presentation
+        from services.premium_presentation import composer, deck, themes
 
-        # 1 — Brief yaratish (level va client_name uzatiladi)
-        brief = await _run_step(
+        theme = themes.get(data.get("theme_key", "")) if data.get("theme_key") \
+            else themes.suggest(topic)
+
+        # 1 — Reja: AI qaysi qolipni olishini va o'rinlarga nima
+        # yozilishini aytadi. Koordinata so'ralmaydi — joylashuv
+        # qoliplarda tayyor, shuning uchun tuzatish bosqichi ham,
+        # vizual tekshiruv ham kerak emas.
+        planned = await _run_step(
             loop,
-            lambda: generate_brief_chunked(
-                topic, slide_count, progress_cb, level=level,
-                preferences=preferences,
-                language=presentation_language,
-                source_text=source_text,
-            ),
+            lambda: composer.plan_deck(
+                topic, slide_count, language=presentation_language,
+                level=level, preferences=preferences,
+                source_text=source_text, progress_cb=progress_cb),
             step="brief", label="Kontent tayyorlash")
 
         step2 = {
-            "uz": (
-                f"⚙️ <b>{topic}</b>\n"
-                f"✅ Kontent tayyor: {len(brief.slides)} slayd\n"
-                f"⏳ Strukturaviy tekshiruv..."
-            ),
-            "ru": (
-                f"⚙️ <b>{topic}</b>\n"
-                f"✅ Контент готов: {len(brief.slides)} слайдов\n"
-                f"⏳ Структурная проверка..."
-            ),
-            "en": (
-                f"⚙️ <b>{topic}</b>\n"
-                f"✅ Content ready: {len(brief.slides)} slides\n"
-                f"⏳ Structural check..."
-            ),
+            "uz": (f"⚙️ <b>{topic}</b>\n"
+                   f"✅ Kontent tayyor: {len(planned)} slayd\n"
+                   f"⏳ Slaydlar chizilmoqda..."),
+            "ru": (f"⚙️ <b>{topic}</b>\n"
+                   f"✅ Контент готов: {len(planned)} слайдов\n"
+                   f"⏳ Рисуем слайды..."),
+            "en": (f"⚙️ <b>{topic}</b>\n"
+                   f"✅ Content ready: {len(planned)} slides\n"
+                   f"⏳ Drawing slides..."),
         }
         await status.edit_text(step2.get(lang, step2["uz"]), parse_mode="HTML")
 
-        # 2 — Kanvas validatsiyasi
-        brief = await _run_step(
-            loop,
-            lambda: canvas_validation_and_fix(brief, topic, 2, presentation_language),
-            step="canvas", label="Strukturaviy tekshiruv")
-
-        step3 = {
-            "uz": (
-                f"⚙️ <b>{topic}</b>\n"
-                f"✅ Kontent: {len(brief.slides)} slayd\n"
-                f"✅ Strukturaviy tekshiruv o'tdi\n"
-                f"⏳ Slaydlar chizilmoqda..."
-            ),
-            "ru": (
-                f"⚙️ <b>{topic}</b>\n"
-                f"✅ Контент: {len(brief.slides)} слайдов\n"
-                f"✅ Структурная проверка пройдена\n"
-                f"⏳ Рисуем слайды..."
-            ),
-            "en": (
-                f"⚙️ <b>{topic}</b>\n"
-                f"✅ Content: {len(brief.slides)} slides\n"
-                f"✅ Structural check passed\n"
-                f"⏳ Drawing slides..."
-            ),
-        }
-        await status.edit_text(step3.get(lang, step3["uz"]), parse_mode="HTML")
-
-        # 3 — Render
-        pptx_path = await _run_step(
-            loop, lambda: build_presentation(brief),
+        # 2 — Chizish. Rasm faqat rasm o'rni bor qoliplarda so'raladi.
+        final_path = await _run_step(
+            loop, lambda: deck.build(planned, theme),
             step="render", label="Slaydlarni chizish")
 
-        step4 = {
-            "uz": (
-                f"⚙️ <b>{topic}</b>\n"
-                f"✅ Kontent: {len(brief.slides)} slayd\n"
-                f"✅ Strukturaviy tekshiruv o'tdi\n"
-                f"✅ Slaydlar chizildi\n"
-                f"⏳ Yakuniy tayyorlash..."
-            ),
-            "ru": (
-                f"⚙️ <b>{topic}</b>\n"
-                f"✅ Контент: {len(brief.slides)} слайдов\n"
-                f"✅ Структурная проверка пройдена\n"
-                f"✅ Слайды нарисованы\n"
-                f"⏳ Финальная подготовка..."
-            ),
-            "en": (
-                f"⚙️ <b>{topic}</b>\n"
-                f"✅ Content: {len(brief.slides)} slides\n"
-                f"✅ Structural check passed\n"
-                f"✅ Slides drawn\n"
-                f"⏳ Final preparation..."
-            ),
-        }
-        await status.edit_text(step4.get(lang, step4["uz"]), parse_mode="HTML")
-
-        # 4 — Vizual QA
-        final_path = await _run_step(
-            loop,
-            lambda: run_visual_qa_and_fix(pptx_path, brief, topic, presentation_language),
-            step="qa", label="Vizual tekshiruv")
-
-        # Rasmlar chiqmagan bo'lsa admin darhol bilishi kerak: mijoz
-        # "premium" deb pul to'lagan taqdimot ikonka va matndan iborat
-        # bo'lib qoladi, sabab esa faqat server logida qolardi.
         await _warn_admin_about_images(callback.bot)
 
     except Exception as e:
@@ -1276,9 +1287,9 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
 
     # Tayyor — yuborish
     done_msgs = {
-        "uz": f"✅ <b>{topic}</b> — tayyor!\n📊 {len(brief.slides)} slayd | Yuborilmoqda...",
-        "ru": f"✅ <b>{topic}</b> — готово!\n📊 {len(brief.slides)} слайдов | Отправляю...",
-        "en": f"✅ <b>{topic}</b> — done!\n📊 {len(brief.slides)} slides | Sending...",
+        "uz": f"✅ <b>{topic}</b> — tayyor!\n📊 {len(planned)} slayd | Yuborilmoqda...",
+        "ru": f"✅ <b>{topic}</b> — готово!\n📊 {len(planned)} слайдов | Отправляю...",
+        "en": f"✅ <b>{topic}</b> — done!\n📊 {len(planned)} slides | Sending...",
     }
     try:
         await status.edit_text(done_msgs.get(lang, done_msgs["uz"]), parse_mode="HTML")
