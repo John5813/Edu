@@ -1315,6 +1315,88 @@ EXACTLY {body_words} words — no more. Fully cover the topic with examples and 
         )
         return content
 
+    async def review_manual_plan(self, plan: list, topic: str, language: str) -> list:
+        """Mijoz qo'lda yozgan rejani tahrirlaydi — tuzilishiga tegmasdan.
+
+        Mijoz rejani shoshib yozadi: kichik harf bilan boshlaydi, imlo
+        xatosi qoladi, sarlavha yarim qoladi. AI shularni tuzatadi va
+        akademik ko'rinishga keltiradi.
+
+        Bob va mavzular SONI o'zgarmaydi: mijoz to'rt bobga uchtadan
+        yozgan bo'lsa, javob ham aynan shunday bo'ladi. Javob boshqacha
+        kelsa, mijozning o'z rejasi qaytariladi — tuzatishdan ko'ra
+        mijoz yozganini saqlash muhimroq.
+        """
+        shape = [len(chapter.get("subsections") or []) for chapter in plan]
+        if not plan or not any(shape):
+            return plan
+
+        outline = "\n".join(
+            f"{index}. BOB: {chapter['title']}\n" + "\n".join(
+                f"   {index}.{number}. {sub}"
+                for number, sub in enumerate(chapter.get("subsections") or [], 1)
+            )
+            for index, chapter in enumerate(plan, 1)
+        )
+
+        target = {"ru": "русском", "en": "English"}.get(language, "o'zbek")
+        prompt = (
+            f'Mavzu: "{topic}"\n\n'
+            f"Mijoz qo'lda yozgan reja:\n{outline}\n\n"
+            "Shu rejani tahrirlang:\n"
+            "- imlo va tinish belgilaridagi xatolarni tuzating;\n"
+            "- sarlavhalarni akademik uslubga keltiring, bosh harf bilan "
+            "boshlang;\n"
+            "- yarim qolgan yoki tushunarsiz sarlavhani mazmunidan kelib "
+            "chiqib to'ldiring;\n"
+            f"- hammasi {target} tilida bo'lsin.\n\n"
+            "QAT'IY SHART: boblar soni va har bobdagi mavzular soni "
+            f"o'zgarmasin. Boblar soni {len(plan)} ta, mavzular soni "
+            f"mos ravishda {', '.join(str(n) for n in shape)} ta. "
+            "Yangi bob yoki mavzu QO'SHMANG, borini olib TASHLAMANG, "
+            "ularning tartibini o'zgartirmang.\n\n"
+            'Faqat JSON: {"chapters": [{"title": "...", '
+            '"subsections": ["...", "..."]}]}'
+        )
+
+        try:
+            response = await self._make_request(
+                messages=[
+                    {"role": "system", "content": "You are an academic editor. Respond with valid JSON only."},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=400 + 120 * sum(shape),
+                temperature=0.3,
+            )
+            raw = response.strip()
+            if raw.startswith("```json"):
+                raw = raw[7:]
+            if raw.startswith("```"):
+                raw = raw[3:]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            data = json.loads(raw.strip())
+            edited = data.get("chapters") or []
+
+            if len(edited) != len(plan):
+                logger.warning("Reja tahriri boblar sonini o'zgartirdi: %d -> %d",
+                               len(plan), len(edited))
+                return plan
+
+            result = []
+            for original, fixed in zip(plan, edited):
+                subs = [str(x).strip() for x in (fixed.get("subsections") or []) if str(x).strip()]
+                title = str(fixed.get("title", "")).strip()
+                if len(subs) != len(original.get("subsections") or []) or not title:
+                    logger.warning("Reja tahriri mavzular sonini o'zgartirdi — mijoznikida qoldi")
+                    return plan
+                result.append({"title": self._tidy_title(title), "subsections": subs})
+            return result
+
+        except Exception as e:
+            logger.error(f"Error reviewing manual plan: {e}")
+            return plan
+
     async def presidential_opening(self, topic: str, language: str) -> Dict[str, str]:
         """O'zbekiston mavzulari uchun kirishning birinchi abzatsini yozadi.
 

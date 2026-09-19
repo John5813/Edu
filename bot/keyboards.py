@@ -427,6 +427,21 @@ def get_gw_outline_choice_keyboard(lang: str = "uz") -> InlineKeyboardMarkup:
     return keyboard.as_markup()
 
 
+def get_plan_confirm_keyboard(lang: str = "uz") -> InlineKeyboardMarkup:
+    """Tahrirlangan rejani tasdiqlash yoki qaytadan yozish."""
+    keyboard = InlineKeyboardBuilder()
+    labels = {
+        "uz": ("✅ Tasdiqlayman", "✏️ Qaytadan yozaman"),
+        "ru": ("✅ Подтверждаю", "✏️ Напишу заново"),
+        "en": ("✅ Confirm", "✏️ Rewrite"),
+    }
+    confirm_lbl, redo_lbl = labels.get(lang, labels["uz"])
+    keyboard.add(InlineKeyboardButton(text=confirm_lbl, callback_data="plan_confirm"))
+    keyboard.add(InlineKeyboardButton(text=redo_lbl, callback_data="plan_redo"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
 def get_graduation_work_page_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
     """Graduation qualifying work page count selection keyboard (multilingual)"""
     keyboard = InlineKeyboardBuilder()

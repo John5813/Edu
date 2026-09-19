@@ -17,6 +17,7 @@ Ishga tushirish:
 """
 
 import asyncio
+import json
 import os
 import sys
 
@@ -126,6 +127,129 @@ def check_manual_plan():
     check("kam mavzuda har biri uzunroq", two > three, f"{two} vs {three}")
 
 
+def check_wrapped_plan():
+    """Ikki qatorga bo'lingan sarlavha bitta mavzu bo'lib qolsinmi.
+
+    Mijoz rejani nusxalab tashlaganda uzun sarlavha ikki qatorga
+    bo'lingan edi. Har qator alohida mavzu deb olinib, ikkita mavzu
+    yozilgan bob beshta mavzuga bo'linib ketgandi.
+    """
+    print("\n5) Ikki qatorga bo'lingan sarlavhalar")
+    pasted = (
+        "I BOB. AHOLI BANDLIGINI TA'MINLASH VA IJTIMOIY HIMOYANING\n"
+        "NAZARIY ASOSLARI\n"
+        " 1.1. Aholi bandligi va ijtimoiy himoya tushunchasi, mazmuni va\n"
+        "      asosiy tamoyillari\n"
+        " 1.2. Bandlikni ta'minlash va ijtimoiy himoya modellari: jahon\n"
+        "      tajribasi\n\n"
+        "II BOB. O'ZBEKISTONDA BANDLIK VA IJTIMOIY HIMOYA TIZIMINING\n"
+        "HOZIRGI HOLATI\n"
+        " 2.1. Mehnat bozori, bandlik va ishsizlik ko'rsatkichlari tahlili\n"
+        " 2.2. Ijtimoiy nafaqalar, moddiy yordam va kam ta'minlangan\n"
+        "      oilalarni qo'llab-quvvatlash amaliyoti\n\n"
+        "III BOB. BANDLIKNI TA'MINLASH VA IJTIMOIY HIMOYANI\n"
+        "TAKOMILLASHTIRISH ISTIQBOLLARI\n"
+        " 3.1. Tizimdagi muammolar va ularni hal etish yo'llari\n"
+        " 3.2. Bandlik va ijtimoiy himoyani rivojlantirish prognozi va\n"
+        "      takliflar"
+    )
+    plan = _parse_manual_plan(pasted)
+    counts = [len(c["subsections"]) for c in plan]
+    check("uchta bob", len(plan) == 3, str(len(plan)))
+    check("har bobda ikkitadan mavzu", counts == [2, 2, 2], str(counts))
+    check("bob nomi butun qo'shildi",
+          plan[0]["title"].endswith("NAZARIY ASOSLARI"), plan[0]["title"])
+    check("mavzu nomi butun qo'shildi",
+          plan[0]["subsections"][0].endswith("asosiy tamoyillari"),
+          plan[0]["subsections"][0])
+    check("ikkinchi mavzu ham butun",
+          plan[0]["subsections"][1].endswith("jahon tajribasi"),
+          plan[0]["subsections"][1])
+
+    # To'rt bobga uchtadan yozilgan reja ham o'zgarmasin.
+    four = _parse_manual_plan("\n".join(
+        f"{roman} BOB. {roman}-bob nomi\n" + "\n".join(
+            f" {index}.{sub}. {index}.{sub}-mavzu" for sub in (1, 2, 3))
+        for index, roman in enumerate(["I", "II", "III", "IV"], 1)
+    ))
+    check("to'rt bob saqlandi", len(four) == 4, str(len(four)))
+    check("har bobda uchtadan",
+          [len(c["subsections"]) for c in four] == [3, 3, 3, 3],
+          str([len(c["subsections"]) for c in four]))
+
+
+async def check_plan_review():
+    """AI reja tuzilishiga tegmasligi kerak."""
+    print("\n6) AI rejani tahrirlashi")
+    service = get_ai_service()
+    plan = [
+        {"title": "nazariy asoslar", "subsections": ["tushuncha", "tasnif"]},
+        {"title": "hozirgi holat", "subsections": ["tahlil", "muammolar", "natija"]},
+    ]
+
+    async def polite(messages, **kwargs):
+        return json.dumps({"chapters": [
+            {"title": chapter["title"].capitalize(),
+             "subsections": [s.capitalize() for s in chapter["subsections"]]}
+            for chapter in plan
+        ]}, ensure_ascii=False)
+
+    service._make_request = polite
+    fixed = await service.review_manual_plan(plan, "Mavzu", "uz")
+    check("boblar soni saqlandi", len(fixed) == 2, str(len(fixed)))
+    check("mavzular soni saqlandi",
+          [len(c["subsections"]) for c in fixed] == [2, 3],
+          str([len(c["subsections"]) for c in fixed]))
+    check("imlo tuzatildi", fixed[0]["title"][0].isupper(), fixed[0]["title"])
+
+    # AI bob qo'shib yuborsa — mijoznikida qolsin.
+    async def greedy(messages, **kwargs):
+        return json.dumps({"chapters": [
+            {"title": "Bir", "subsections": ["a", "b"]},
+            {"title": "Ikki", "subsections": ["c", "d", "e"]},
+            {"title": "Uch", "subsections": ["f", "g"]},
+        ]})
+
+    service._make_request = greedy
+    kept = await service.review_manual_plan(plan, "Mavzu", "uz")
+    check("AI bob qo'shsa mijoznikida qoladi", kept == plan, str(len(kept)))
+
+    # AI mavzu qo'shib yuborsa ham.
+    async def padded(messages, **kwargs):
+        return json.dumps({"chapters": [
+            {"title": "Bir", "subsections": ["a", "b", "c"]},
+            {"title": "Ikki", "subsections": ["d", "e", "f"]},
+        ]})
+
+    service._make_request = padded
+    kept = await service.review_manual_plan(plan, "Mavzu", "uz")
+    check("AI mavzu qo'shsa mijoznikida qoladi", kept == plan, str(kept[0]))
+
+    # Javob buzilgan bo'lsa ham reja yo'qolmasin.
+    async def broken(messages, **kwargs):
+        return "javob JSON emas"
+
+    service._make_request = broken
+    kept = await service.review_manual_plan(plan, "Mavzu", "uz")
+    check("buzuq javobda reja yo'qolmaydi", kept == plan)
+
+
+def check_plan_message():
+    """Mijozga ko'rsatiladigan matn."""
+    print("\n7) Mijozga ko'rsatiladigan reja")
+    import bot.handlers.documents as handlers
+
+    text = handlers._format_plan([
+        {"title": "Nazariy asoslar", "subsections": ["Tushuncha", "Tasnif"]},
+        {"title": "Hozirgi <holat> & tahlil", "subsections": ["Bir", "Ikki"]},
+    ], "uz")
+    check("bob raqami rim raqamida", "I BOB." in text and "II BOB." in text)
+    check("mavzular raqamlangan", "1.1." in text and "2.2." in text, text)
+    # Bob nomi katta harfga o'tkazilgandan keyin ekranlanadi.
+    check("HTML belgilari ekranlandi", "&lt;HOLAT&gt;" in text and "&amp;" in text, text)
+    check("buzilgan HTML yo'q", "&#X27;" not in text)
+
+
 async def check_chapter_arc():
     print("\n4) O'zbekiston mavzularida boblar ketma-ketligi")
     service = get_ai_service()
@@ -165,6 +289,9 @@ async def main():
     check_chapter_word()
     check_volume()
     check_manual_plan()
+    check_wrapped_plan()
+    await check_plan_review()
+    check_plan_message()
     await check_chapter_arc()
 
     print()
