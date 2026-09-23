@@ -127,10 +127,19 @@ def _add_text(slide, block: Dict) -> None:
     # pastga ko'chib qo'shnisining ustiga tushardi. O'rashni butunlay
     # o'chirib bo'lmaydi — o'shanda PowerPoint qutini markazga qarab
     # kengaytiradi va chapga tekislangan matn o'rtaga siljib qoladi.
+    # Zaxira kenglik SHRIFT o'lchamiga qarab beriladi. Ilgari u
+    # qutining ikki foizi edi: 88 px li yirik raqam uchun bu atigi
+    # olti piksel bo'lib, PowerPoint oxirgi so'zni pastki qatorga
+    # tushirib yuborardi va u quyidagi yozuvning ustiga chiqardi.
+    # Zaxira qutining O'NG tomoniga emas, tekislanishiga qarab
+    # taqsimlanadi — shunda matn ko'zga ko'rinib siljimaydi.
     single = int(block.get("lines") or 1) <= 1
-    slack = max(area["w"] * 0.02, 6.0) if single else 2.0
+    size_px = float(block.get("size") or 16)
+    slack = max(area["w"] * 0.02, size_px * 0.4, 6.0) if single else 2.0
+    align = block.get("align")
+    shift = slack / 2 if align == "center" else slack if align == "right" else 0
     frame_box = slide.shapes.add_textbox(
-        _emu(area["x"]), _emu(area["y"]),
+        _emu(area["x"] - shift), _emu(area["y"]),
         _emu(area["w"] + slack), _emu(area["h"]))
     frame = frame_box.text_frame
     frame.word_wrap = True
