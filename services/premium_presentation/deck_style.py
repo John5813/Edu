@@ -141,6 +141,11 @@ border-radius:18px;display:block}
 .slide.dark .rasm{background:#BANDCARD}
 .slide.dark .rasm-matn{color:#FFFFFF}
 .split.wide-right{grid-template-columns:1fr 1.25fr}
+/* Diagramma yonidagi tushuntirish: o'qiladigan o'lchamda, bosh
+   jumla bilan izoh orasida nafas. */
+.split>div:not([class]){display:flex;flex-direction:column;gap:24px}
+.split:has(>.chart)>div:not([class])>.note,
+.split:has(>.chart)>.note{font-size:34px;line-height:1.5;color:#BODY}
 
 /* ── Kartochka ─────────────────────────────────────────────────── */
 .card{background:linear-gradient(160deg,#SOFT 0%,#SOFTER 100%);
@@ -459,10 +464,10 @@ shuning uchun u to'liq, mazmunli bo'lsin.
     <div class="item-text"><b>Kalit so'z.</b> Qolgan jumla.</div></div>
 </div>
 
-6. IKKI USTUN (chapda matn, o'ngda diagramma yoki kartalar):
+6. IKKI USTUN (chapda matn, o'ngda kartalar yoki jadval):
 <div class="split">
   <div class="list"> ... </div>
-  <div class="chart" data-kind="bar" ...></div>
+  <div class="cols cols-2"> ... </div>
 </div>
 `split wide-left` yoki `split wide-right` bilan nisbatni o'zgartirasiz.
 
@@ -530,12 +535,24 @@ $\to$ → →, $\infty$ → ∞, $\sqrt{x}$ → √(x), $a_1$ → a₁.
   <div class="misol-answer">Javob: ...</div>
 </div>
 
-DIAGRAMMA — siz chizmaysiz, faqat ma'lumot berasiz:
-<div class="chart" data-kind="bar" data-labels="2016,2018,2020"
-     data-series="Patentlar: 12,18,24|Nashrlar: 20,28,35"
-     data-unit="ming dona"></div>
+DIAGRAMMA — siz chizmaysiz, faqat ma'lumot berasiz. Diagrammali
+slaydda faqat diagramma va uni tushuntiradigan matn bo'ladi —
+boshqa ro'yxat, kartochka yoki rasm qo'shilmaydi:
+<div class="split wide-left">
+  <div class="chart" data-kind="bar" data-labels="2016,2018,2020"
+       data-series="Patentlar: 12,18,24|Nashrlar: 20,28,35"
+       data-unit="ming dona"></div>
+  <div>
+    <p class="lead">Diagramma nimani ko'rsatishi — bitta gap.</p>
+    <p class="note">Raqamlar nimani bildiradi, nega shunday va undan
+    qanday xulosa chiqadi — 2-4 gap.</p>
+  </div>
+</div>
   data-kind: bar (ustunli), line (chiziqli) yoki donut (ulushlar).
+  data-labels — o'q yorliqlari vergul bilan; data-series — har qator
+  "Nomi: qiymat,qiymat,qiymat", qatorlar faqat | bilan ajratiladi.
+  Kasr nuqta bilan yoziladi: 0.29 (0,29 emas).
   donut uchun bitta qator bering: data-series="Ulush: 45,30,25"
   va nomlarini data-labels ga yozing: data-labels="AQSh,Yevropa,Osiyo".
-  Diagramma ostidagi <p class="note"> da raqam nimani bildirishi,
-  nega shunday ekani va undan qanday xulosa chiqishi tushuntiriladi."""
+  Yagona raqamdan diagramma chiqmaydi — u uchun ko'rsatkich (kpi)
+  bloki bor."""
