@@ -172,7 +172,9 @@ QAT'IY QOIDALAR:
    emas — shuncha bo'lishi kerak emas, shundan OSHMASIN):
    - kartochka 4 tadan oshmasin, izohi 2 gapdan oshmasin;
    - ro'yxat bandi 5 tadan oshmasin;
-   - ko'rsatkich 4 tadan oshmasin;
+   - ko'rsatkich 4 tadan oshmasin; har birining ostidagi izoh
+     yolg'iz yorliq emas, raqamning ma'nosi va sababini
+     tushuntiruvchi 1-2 to'liq gap bo'lsin;
    - vaqt o'qida 5 tadan ortiq to'xtash bo'lmasin.
    Varaq 1920x1080 — bundan ko'pi sig'maydi va kesiladi.
 6. BO'SH BLOK QOLDIRMA. Har kartochkaning sarlavhasi ham, izohi ham
@@ -367,6 +369,25 @@ def split_slides(raw: str) -> List[str]:
     return bodies
 
 
+_DARK_SLIDE = re.compile(
+    r'(<section\b[^>]*\bclass\s*=\s*(["\'])[^"\']*\bdark\b[^"\']*\2'
+    r'[^>]*>)', re.IGNORECASE)
+
+
+def _decorate(body: str) -> str:
+    """To'q varaqqa yumshoq bezak doiralarini qo'yadi.
+
+    Yassi to'q fon quruq ko'rinadi. Ikkita katta, kam farq qiladigan
+    doira unga chuqurlik beradi. Ular `position:fixed` bilan
+    qo'yilgani uchun joylashuvga tegmaydi va matnning orqasida
+    turadi; PowerPointda oddiy shakl bo'lib chiqadi.
+    """
+    if not _DARK_SLIDE.search(body):
+        return body
+    bits = '<div class="bezak bezak-a"></div><div class="bezak bezak-b"></div>'
+    return _DARK_SLIDE.sub(lambda m: m.group(1) + bits, body, count=1)
+
+
 def build_pages(bodies: List[str], theme) -> List[str]:
     """Slayd mazmunlarini chizishga tayyor HTML hujjatlarga aylantiradi.
 
@@ -374,7 +395,7 @@ def build_pages(bodies: List[str], theme) -> List[str]:
     SVG ni kod yasaydi — shunda ustunning balandligi ham, yozuvning
     o'rni ham har safar to'g'ri chiqadi.
     """
-    drawn = [deck_charts.draw(deck_math.render(body), theme)
+    drawn = [deck_charts.draw(deck_math.render(_decorate(body)), theme)
              for body in bodies]
     try:
         from . import html_images

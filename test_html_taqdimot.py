@@ -1590,9 +1590,122 @@ def check_text_spill():
           css.count("\n.card{background:") == 1,
           str(css.count("\n.card{background:")))
     body = css.split("\n.card{background:")[1].split("}")[0]
-    check("qutiga balandlik berilmaydi", "height" not in body, body)
+    # Faqat qat'iy `height` taqiqlanadi. `min-height` xavfsiz: mazmun
+    # ko'p bo'lsa quti baribir cho'ziladi, matn chiqib ketmaydi.
+    import re as _re
+    check("qutiga qat'iy balandlik berilmaydi",
+          not _re.search(r"(?<!min-)(?<!max-)height:", body), body)
     check("matn uchun doira yo'q — faqat ikonka uchun",
           "border-radius:50%" in css and ".ikon-dot{" in css)
+
+
+def check_colour_harmony():
+    """To'q fonda qora matn qolmasin, yassi fon quruq ko'rinmasin.
+
+    Mijoz taqdimotida to'q ko'k kartochka ichidagi ro'yxat qora
+    rangda qolib, umuman o'qilmagan edi: uslubda `.item-text` ning
+    to'q fon uchun varianti yo'q edi. Bu ikki yo'l bilan yopildi:
+    uslubda to'q sirtdagi hamma matn sanab chiqildi, chizuvchida esa
+    kontrast qorovuli qo'yildi — sinf unutilsa ham matn o'qiladigan
+    rangga o'giriladi.
+    """
+    print("\n23) Rang uyg'unligi va gradient")
+    if not html_render.available():
+        check("brauzer o'rnatilgan", False, html_render._INSTALL_HINT)
+        return
+
+    theme = themes.get("ko'k")
+    solid = ('<section class="slide"><div class="body"><div class="cols cols-2">'
+             '<div class="card"><div class="card-title">Och</div>'
+             '<div class="list"><div class="item"><span class="item-dot"></span>'
+             '<div class="item-text">Och kartadagi band</div></div></div></div>'
+             '<div class="card solid"><div class="card-title">To\'q</div>'
+             '<div class="list"><div class="item"><span class="item-dot"></span>'
+             '<div class="item-text"><b>Kalit.</b> To\'q kartadagi band</div>'
+             '</div></div></div></div></div></section>')
+    dark = ('<section class="slide dark"><div class="body">'
+            '<h1 class="title big">Muqova</h1><p class="lead">Izoh</p>'
+            '</div></section>')
+    pages = html_slides.build_pages([solid, dark], theme)
+
+    # Qasddan buzilgan uslub: to'q blokda to'q matn. Qorovul uni
+    # o'qiladigan rangga o'girishi kerak.
+    broken = ("<!DOCTYPE html><html><head><style>"
+              "body{margin:0;width:1920px;height:1080px}"
+              ".q{background:#10243F;padding:60px;width:900px}"
+              ".q p{color:#1A2A40;font-size:40px}</style></head><body>"
+              "<div class='q'><p>Ko'rinmas matn</p></div></body></html>")
+
+    from playwright.sync_api import sync_playwright
+
+    layouts = []
+    with sync_playwright() as playwright:
+        browser = html_render._launch(playwright)
+        try:
+            context = browser.new_context(
+                viewport={"width": 1920, "height": 1080})
+            for html in pages + [broken]:
+                handle = context.new_page()
+                handle.set_content(html, wait_until="load")
+                layouts.append(html_extract.read_layout(handle))
+                handle.close()
+            context.close()
+        finally:
+            browser.close()
+
+    def texts(layout):
+        return {b["text"]: b for b in layout["blocks"] if b["kind"] == "text"}
+
+    def light(colour):
+        r, g, b = (int(colour[i:i + 2], 16) for i in (0, 2, 4))
+        return (r + g + b) / 3 > 170
+
+    first = texts(layouts[0])
+    band = next((b for t, b in first.items() if "To'q kartadagi" in t), None)
+    plain = first.get("Och kartadagi band")
+    check("to'q kartada matn OCHIQ", band is not None and light(band["color"]),
+          str(band and band["color"]))
+    check("och kartada matn TO'Q", plain is not None and not light(plain["color"]),
+          str(plain and plain["color"]))
+
+    cover = texts(layouts[1])
+    check("muqova sarlavhasi oq", "Muqova" in cover and
+          light(cover["Muqova"]["color"]), str(cover.get("Muqova", {}).get("color")))
+    ramps = [b for b in layouts[1]["blocks"]
+             if b["kind"] == "rect" and b.get("gradient")]
+    check("to'q varaq gradientli", bool(ramps), str(len(ramps)))
+    check("gradient ikki tusli", bool(ramps) and len(ramps[0]["gradient"]["stops"]) >= 2)
+    circles = [b for b in layouts[1]["blocks"]
+               if b["kind"] == "rect" and b.get("circle")]
+    check("bezak doiralari bor", len(circles) >= 2, str(len(circles)))
+
+    fixed = texts(layouts[2]).get("Ko'rinmas matn")
+    check("qorovul to'q fondagi to'q matnni ochdi",
+          fixed is not None and light(fixed["color"]),
+          str(fixed and fixed["color"]))
+
+    # PowerPointda gradient haqiqiy to'ldirish bo'lsin.
+    path = html_render.render(pages[1:], out_dir="temp", name="gradient")
+    try:
+        import zipfile
+        with zipfile.ZipFile(path) as archive:
+            xml = archive.read("ppt/slides/slide1.xml").decode("utf-8")
+        check("PowerPointda gradient to'ldirish", "gradFill" in xml)
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+    # Shrift telefonda ham o'qilsin.
+    import re as _re
+    css = deck_style.stylesheet(theme)
+
+    def size(sel):
+        m = _re.search(r"\n" + _re.escape(sel) + r"\{[^}]*?font-size:(\d+)px", css)
+        return int(m.group(1)) if m else 0
+
+    for sel, least in ((".item-text", 36), (".card-note", 30),
+                       (".kpi-note", 30), (".note", 28), ("body", 28)):
+        check(f"{sel} yetarlicha yirik", size(sel) >= least, f"{size(sel)}px")
 
 
 def main():
@@ -1628,6 +1741,7 @@ def main():
     check_gap_text()
     if html_render.available():
         check_text_spill()
+        check_colour_harmony()
 
     print()
     if FAILS:

@@ -41,7 +41,7 @@ _CSS = """
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:1920px;height:1080px;overflow:hidden}
 body{font-family:SANS;background:#BACKGROUND;color:#BODY;
-font-size:24px;line-height:1.5;-webkit-font-smoothing:antialiased}
+font-size:30px;line-height:1.5;-webkit-font-smoothing:antialiased}
 
 /* ── Varaq ─────────────────────────────────────────────────────── */
 .slide{width:1920px;height:1080px;padding:96px;display:flex;
@@ -51,8 +51,9 @@ justify-content:center;gap:48px;min-height:0}
 /* Asosiy blok qolgan balandlikni EGALLAYDI — shunda varaqning
    pastki yarmi bo'sh qolmaydi. Izoh va sarlavha esa o'z bo'yida
    qoladi. */
-.slide>.body>.cols,.slide>.body>.split,.slide>.body>.steps,
+.slide>.body>.split,.slide>.body>.steps,
 .slide>.body>table,.slide>.body>.list{flex:1 1 auto}
+.slide>.body>.cols{flex:0 1 auto;align-content:center}
 .slide>.body>.timeline{flex:none}
 .slide>.body>.note,.slide>.body>.foot,.slide>.body>.lead,
 .slide>.body>.formula{flex:none}
@@ -61,22 +62,50 @@ justify-content:center;gap:48px;min-height:0}
 .cols>.kpi{justify-content:center}
 .timeline .stop{justify-content:flex-start}
 
-/* To'q fonli varaq: ajratkich va muqova. */
-.slide.dark{background:#BAND;color:#INVERT}
+/* ── To'q sirt ─────────────────────────────────────────────────── */
+/* Ajratkich, muqova va to'q kartochka. Ichidagi HAMMA matn ochiq
+   rangga o'tishi kerak: bitta sinf unutilsa, to'q ko'k fonda qora
+   matn qolib, umuman o'qilmaydi. Shuning uchun ro'yxat to'liq
+   sanaladi, chizuvchida esa qo'shimcha qorovul bor. */
+.slide.dark{background:linear-gradient(135deg,#BAND 0%,#BANDDEEP 100%);
+color:#INVERT}
 .slide.dark .title,.slide.dark .lead,.slide.dark .kpi-value,
-.slide.dark .card-title{color:#INVERT}
-.slide.dark .note,.slide.dark .card-note,.slide.dark .sub{color:#SOFTINK}
-.slide.dark .card{background:#BANDCARD}
-.slide.dark .rule{background:#ACCENT}
+.slide.dark .card-title,.slide.dark .item-text,.slide.dark .item-text b,
+.slide.dark .quote,.slide.dark .misol-task,.slide.dark .misol-answer,
+.slide.dark .formula-body,.slide.dark .kpi-label,.slide.dark .when,
+.slide.dark .what,.slide.dark .misol-tag,.slide.dark td,
+.slide.dark th{color:#INVERT}
+.slide.dark .note,.slide.dark .card-note,.slide.dark .sub,
+.slide.dark .kpi-note,.slide.dark .formula-note,.slide.dark .misol-text,
+.slide.dark .quote-by,.slide.dark .foot{color:#SOFTINK}
+.slide.dark .card,.slide.dark .formula,.slide.dark .misol{background:#BANDCARD}
+.slide.dark .kpi{border-left-color:#ACCENT}
+.slide.dark .rule,.slide.dark .item-dot,.slide.dark .bead,
+.slide.dark .misol-num,.slide.dark .quote-mark{background:#ACCENT}
+.slide.dark .quote-mark{background:none;color:#ACCENT}
+.slide.dark .frac .dn{border-top-color:#INVERT}
+.slide.dark .timeline .stop{border-top-color:#BANDCARD}
+.slide.dark tr:nth-child(even) td{background:#BANDCARD}
+.slide.dark td{border-bottom-color:#BANDCARD}
+
+/* Bezak: to'q varaqqa chuqurlik beradigan yumshoq doiralar. Ular
+   `position:fixed` — joylashuvga tegmaydi, matnning orqasida
+   turadi va PowerPointda oddiy shakl bo'lib chiqadi. */
+.bezak{position:fixed;border-radius:50%}
+.bezak-a{width:560px;height:560px;right:-120px;top:-150px;
+background:#BANDGLOW}
+.bezak-b{width:300px;height:300px;left:-60px;bottom:-60px;
+background:#BANDSOFT}
 
 /* ── Sarlavhalar ───────────────────────────────────────────────── */
-.title{font-size:60px;line-height:1.18;font-weight:700;color:#HEADING;
+.title{font-size:66px;line-height:1.18;font-weight:700;color:#HEADING;
 letter-spacing:-0.5px}
-.title.big{font-size:84px;line-height:1.1}
-.sub{font-size:30px;line-height:1.4;color:#MUTED;font-weight:400}
-.lead{font-size:34px;line-height:1.45;color:#BODY;max-width:1400px}
-.lead.huge{font-size:52px;line-height:1.35;font-weight:700;color:#HEADING}
-.note{font-size:22px;line-height:1.6;color:#MUTED;max-width:1500px}
+.title.big{font-size:96px;line-height:1.08;
+letter-spacing:-1.5px}
+.sub{font-size:36px;line-height:1.4;color:#MUTED;font-weight:400}
+.lead{font-size:42px;line-height:1.45;color:#BODY;max-width:1400px}
+.lead.huge{font-size:60px;line-height:1.35;font-weight:700;color:#HEADING}
+.note{font-size:30px;line-height:1.6;color:#MUTED;max-width:1500px}
 .rule{width:120px;height:6px;background:#ACCENT;border-radius:3px;
 flex:none}
 
@@ -96,15 +125,20 @@ align-items:center}
 .split.wide-right{grid-template-columns:1fr 1.25fr}
 
 /* ── Kartochka ─────────────────────────────────────────────────── */
-.card{background:#SOFT;border-radius:18px;padding:44px;
+.card{background:linear-gradient(160deg,#SOFT 0%,#SOFTER 100%);
+border-radius:18px;padding:44px;min-height:280px;
 display:flex;flex-direction:column;justify-content:center;gap:18px}
 .card.line{border-top:6px solid #ACCENT;border-radius:0 0 18px 18px}
 .card.solid{background:#BAND;color:#INVERT}
-.card.solid .card-title{color:#INVERT}
-.card.solid .card-note{color:#SOFTINK}
-.card-num{font-size:44px;font-weight:700;color:#ACCENT;line-height:1}
-.card-title{font-size:30px;font-weight:700;color:#HEADING;line-height:1.25}
-.card-note{font-size:22px;line-height:1.55;color:#BODY}
+.card.solid .card-title,.card.solid .item-text,.card.solid .item-text b,
+.card.solid .kpi-value,.card.solid .kpi-label,
+.card.solid .misol-task{color:#INVERT}
+.card.solid .card-note,.card.solid .kpi-note,
+.card.solid .misol-text{color:#SOFTINK}
+.card.solid .item-dot,.card.solid .misol-num{background:#ACCENT}
+.card-num{font-size:50px;font-weight:700;color:#ACCENT;line-height:1}
+.card-title{font-size:42px;font-weight:700;color:#HEADING;line-height:1.25}
+.card-note{font-size:33px;line-height:1.55;color:#BODY}
 
 /* ── Ikonka ────────────────────────────────────────────────────── */
 /* Ikonka HAR DOIM o'z qatorida turadi: matn oqimiga qo'yilsa
@@ -116,19 +150,20 @@ display:flex;align-items:center;justify-content:center;flex:none}
 .ikon-row{display:flex;gap:32px;align-items:center}
 
 /* ── Ko'rsatkich ───────────────────────────────────────────────── */
-.kpi{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
-.kpi-value{font-size:88px;line-height:1;font-weight:700;color:#ACCENT;
+.kpi{display:flex;flex-direction:column;gap:14px;align-items:flex-start;
+border-left:6px solid #ACCENT;padding-left:32px}
+.kpi-value{font-size:96px;line-height:1;font-weight:700;color:#ACCENT;
 letter-spacing:-2px}
-.kpi-label{font-size:26px;font-weight:700;color:#HEADING}
-.kpi-note{font-size:21px;line-height:1.5;color:#MUTED}
+.kpi-label{font-size:36px;font-weight:700;color:#HEADING}
+.kpi-note{font-size:32px;line-height:1.5;color:#MUTED}
 
 /* ── Ro'yxat ───────────────────────────────────────────────────── */
 .list{display:flex;flex-direction:column;justify-content:center;
-gap:28px}
+gap:34px}
 .item{display:flex;gap:24px;align-items:flex-start}
-.item-dot{width:14px;height:14px;border-radius:50%;background:#ACCENT;
-flex:none;margin-top:14px}
-.item-text{font-size:25px;line-height:1.5;color:#BODY}
+.item-dot{width:16px;height:16px;border-radius:50%;background:#ACCENT;
+flex:none;margin-top:23px}
+.item-text{font-size:38px;line-height:1.5;color:#BODY}
 .item-text b{color:#HEADING}
 
 /* ── Qadamlar ──────────────────────────────────────────────────── */
@@ -144,18 +179,18 @@ align-items:center;text-align:center;justify-content:flex-start;
 border-top:4px solid #SOFT;padding:0 24px}
 .timeline .bead{width:22px;height:22px;border-radius:50%;
 background:#ACCENT;flex:none;margin-top:-13px}
-.timeline .when{font-size:28px;font-weight:700;color:#ACCENT}
-.timeline .what{font-size:21px;line-height:1.5;color:#BODY}
+.timeline .when{font-size:36px;font-weight:700;color:#ACCENT}
+.timeline .what{font-size:30px;line-height:1.5;color:#BODY}
 
 /* ── Iqtibos ───────────────────────────────────────────────────── */
-.quote{font-family:SERIF;font-size:42px;line-height:1.45;font-style:italic;
+.quote{font-family:SERIF;font-size:48px;line-height:1.45;font-style:italic;
 color:#HEADING;max-width:1500px}
-.quote-by{font-size:24px;color:#MUTED;margin-top:28px}
+.quote-by{font-size:28px;color:#MUTED;margin-top:28px}
 .quote-mark{font-family:SERIF;font-size:120px;line-height:0.7;
 color:#ACCENT;opacity:1}
 
 /* ── Jadval ────────────────────────────────────────────────────── */
-table{width:100%;border-collapse:collapse;font-size:22px}
+table{width:100%;border-collapse:collapse;font-size:30px}
 th{background:#ACCENT;color:#INVERT;font-weight:700;text-align:left;
 padding:20px 24px}
 td{padding:18px 24px;border-bottom:1px solid #SOFT;color:#BODY;
@@ -168,9 +203,9 @@ tr:nth-child(even) td{background:#SOFT}
 .formula{background:#SOFT;border-left:8px solid #ACCENT;
 border-radius:0 14px 14px 0;padding:36px 44px;display:flex;
 flex-direction:column;gap:18px;align-items:flex-start}
-.formula-body{font-family:SERIF;font-size:46px;line-height:1.5;
+.formula-body{font-family:SERIF;font-size:54px;line-height:1.5;
 color:#HEADING}
-.formula-note{font-size:21px;line-height:1.5;color:#MUTED}
+.formula-note{font-size:30px;line-height:1.5;color:#MUTED}
 .slide.dark .formula{background:#BANDCARD}
 .slide.dark .formula-body{color:#INVERT}
 
@@ -185,17 +220,17 @@ margin:0 8px}
 /* ── Ishlangan misol ───────────────────────────────────────────── */
 .misol{background:#SOFT;border-radius:18px;padding:40px;
 display:flex;flex-direction:column;gap:22px}
-.misol-tag{font-size:20px;font-weight:700;letter-spacing:2px;
+.misol-tag{font-size:24px;font-weight:700;letter-spacing:2px;
 text-transform:uppercase;color:#ACCENT}
-.misol-task{font-size:30px;font-weight:700;color:#HEADING;
+.misol-task{font-size:36px;font-weight:700;color:#HEADING;
 line-height:1.35}
 .misol-steps{display:flex;flex-direction:column;gap:18px}
 .misol-step{display:flex;gap:20px;align-items:flex-start}
-.misol-num{width:38px;height:38px;border-radius:50%;background:#ACCENT;
-color:#INVERT;font-size:20px;font-weight:700;flex:none;display:flex;
+.misol-num{width:48px;height:48px;border-radius:50%;background:#ACCENT;
+color:#INVERT;font-size:24px;font-weight:700;flex:none;display:flex;
 align-items:center;justify-content:center}
-.misol-text{font-size:24px;line-height:1.5;color:#BODY}
-.misol-answer{font-size:26px;font-weight:700;color:#HEADING;
+.misol-text{font-size:32px;line-height:1.5;color:#BODY}
+.misol-answer{font-size:32px;font-weight:700;color:#HEADING;
 border-top:3px solid #ACCENT;padding-top:20px}
 
 /* ── Diagramma ─────────────────────────────────────────────────── */
@@ -205,7 +240,7 @@ justify-content:center;min-height:0}
 max-height:100%}
 
 /* ── Pastki qator ──────────────────────────────────────────────── */
-.foot{font-size:20px;color:#MUTED;flex:none}
+.foot{font-size:24px;color:#MUTED;flex:none}
 """
 
 
@@ -215,6 +250,14 @@ def stylesheet(theme) -> str:
     # fonga qorishtiramiz, shunda "oq quti" kabi ajralib turmaydi.
     band_card = _mix(theme.band, theme.invert, 0.12)
     soft_ink = _mix(theme.band, theme.invert, 0.72)
+    # To'q fon yassi bir rang bo'lsa quruq ko'rinadi. Aksentga
+    # ozgina burilgan ikkinchi tus gradient uchun chuqurlik beradi.
+    band_deep = _mix(theme.band, theme.accent, 0.32)
+    band_glow = _mix(theme.band, theme.accent, 0.20)
+    band_soft = _mix(theme.band, theme.invert, 0.07)
+    # Kartochka foni ham bir tusdan ikkinchisiga ozgina o'tsin —
+    # yassi rang quruq ko'rinadi.
+    softer = _mix(theme.accent_soft, theme.background, 0.55)
     swap = {
         "SANS": SANS,
         "SERIF": SERIF,
@@ -227,6 +270,10 @@ def stylesheet(theme) -> str:
         "BAND": theme.band,
         "INVERT": theme.invert,
         "BANDCARD": band_card,
+        "BANDDEEP": band_deep,
+        "BANDGLOW": band_glow,
+        "BANDSOFT": band_soft,
+        "SOFTER": softer,
         "SOFTINK": soft_ink,
     }
     css = _CSS
@@ -316,7 +363,8 @@ BLOKLAR:
   <div class="kpi">
     <div class="kpi-value">42%</div>
     <div class="kpi-label">Nimani bildiradi</div>
-    <div class="kpi-note">Bir qatorlik izoh.</div>
+    <div class="kpi-note">Raqam nimani anglatishi va nega muhimligini
+    tushuntiruvchi 1-2 to'liq gap.</div>
   </div>
 </div>
 

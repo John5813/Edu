@@ -73,11 +73,21 @@ _SCRIPT = r"""
   };
 
   // Elementning ORQASIDAGI rang: eng yaqin shaffof bo'lmagan fon.
+  // Gradient ham fonni to'liq yopadi — uni hisobga olmasak, to'q
+  // gradientli varaqning orqasi "oq" deb topilib, oq sarlavha
+  // qoraytirilib yuborilardi.
   const behind = (el) => {
     let node = el.parentElement;
     while (node) {
       const colour = parse(getComputedStyle(node).backgroundColor);
       if (colour && colour.a > 0.95) return colour;
+      const ramp = gradient(node);
+      if (ramp && ramp.stops.length) {
+        const a = unhex(ramp.stops[0].colour);
+        const b = unhex(ramp.stops[ramp.stops.length - 1].colour);
+        return {r: (a.r + b.r) / 2, g: (a.g + b.g) / 2,
+                b: (a.b + b.b) / 2, a: 1};
+      }
       node = node.parentElement;
     }
     return {r: 255, g: 255, b: 255, a: 1};
@@ -98,6 +108,51 @@ _SCRIPT = r"""
     return hex2(mix(colour.r, base.r))
          + hex2(mix(colour.g, base.g))
          + hex2(mix(colour.b, base.b));
+  };
+
+  // Rangning ko'z uchun yorqinligi (WCAG). Ikki rangning nisbati
+  // 4.5 dan past bo'lsa matn o'qilmay qoladi.
+  const lum = (c) => {
+    const f = (v) => {
+      v /= 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+  };
+
+  const ratio = (a, b) => {
+    const hi = Math.max(lum(a), lum(b)), lo = Math.min(lum(a), lum(b));
+    return (hi + 0.05) / (lo + 0.05);
+  };
+
+  const unhex = (value) => ({
+    r: parseInt(value.slice(0, 2), 16),
+    g: parseInt(value.slice(2, 4), 16),
+    b: parseInt(value.slice(4, 6), 16),
+  });
+
+  // `linear-gradient(135deg, #A 0%, #B 100%)` → PowerPoint tushunadigan
+  // ko'rinish. Yassi bitta rang quruq ko'rinadi, gradient esa
+  // chuqurlik beradi — PowerPointda u haqiqiy gradient to'ldirish
+  // bo'lib chiqadi.
+  const gradient = (el) => {
+    const image = getComputedStyle(el).backgroundImage || "";
+    if (image.indexOf("linear-gradient") < 0) return null;
+    const stops = [];
+    const colours = image.match(/rgba?\([^)]+\)\s*[\d.]*%?/g) || [];
+    for (let i = 0; i < colours.length; i += 1) {
+      const colour = parse(colours[i]);
+      if (!colour) continue;
+      const spot = colours[i].match(/([\d.]+)%\s*$/);
+      stops.push({
+        colour: hex2(colour.r) + hex2(colour.g) + hex2(colour.b),
+        at: spot ? parseFloat(spot[1]) / 100
+                 : (colours.length > 1 ? i / (colours.length - 1) : 0),
+      });
+    }
+    if (stops.length < 2) return null;
+    const turn = image.match(/(-?[\d.]+)deg/);
+    return {stops, angle: turn ? parseFloat(turn[1]) : 180};
   };
 
   const box = (el) => {
@@ -325,7 +380,8 @@ _SCRIPT = r"""
     const borderWidth = uniform ? widths[0] : 0;
     const borderColor = borderWidth > 0
       ? rgbOver(s.borderTopColor, el, shown) : null;
-    if ((fill || borderColor) && tag !== "body" && tag !== "html") {
+    const ramp = gradient(el);
+    if ((fill || borderColor || ramp) && tag !== "body" && tag !== "html") {
       // border-radius foizda berilishi mumkin ("50%"). Uni pikselga
       // o'girmasak, doira PowerPointda burchagi yumaloq kvadrat
       // bo'lib chiqadi.
@@ -334,7 +390,7 @@ _SCRIPT = r"""
       let radius = parseFloat(raw) || 0;
       if (raw.indexOf("%") >= 0) radius = short * radius / 100;
       out.push({
-        kind: "rect", fill, ...r,
+        kind: "rect", fill, gradient: ramp, ...r,
         border: borderColor, borderWidth,
         radius,
         circle: radius * 2 >= short * 0.95,
@@ -380,6 +436,21 @@ _SCRIPT = r"""
     const inkColour = parse(s.webkitTextFillColor || s.color);
     const ink = shown * (inkColour ? inkColour.a : 0.01);
 
+    // Matn o'z foni ustida ko'rinadimi. Uslubda bitta sinf unutilsa
+    // (masalan to'q kartochka ichidagi ro'yxat), qora matn to'q ko'k
+    // fonda qolib ketardi. Bu yerda tekshiriladi va kerak bo'lsa
+    // o'qiladigan rangga o'giriladi — mijoz ko'rinmas matn olmaydi.
+    let paint = rgbOver(s.color, el, shown) || "000000";
+    if (text) {
+      const back = behind(el);
+      if (ratio(unhex(paint), back) < 3.2) {
+        const light = {r: 255, g: 255, b: 255};
+        const dark = {r: 17, g: 17, b: 17};
+        paint = ratio(light, back) >= ratio(dark, back)
+          ? "FFFFFF" : "111111";
+      }
+    }
+
     if (text && !faded) {
       const turn = spin(el);
       const tr = flatBox(el, r, turn);
@@ -388,7 +459,7 @@ _SCRIPT = r"""
         size: parseFloat(s.fontSize) || 16,
         weight: parseInt(s.fontWeight, 10) || 400,
         italic: s.fontStyle === "italic",
-        color: rgbOver(s.color, el, shown) || "000000",
+        color: paint,
         align: align(s.textAlign),
         family: s.fontFamily || "",
         lineHeight: parseFloat(s.lineHeight) || 0,
@@ -437,6 +508,7 @@ _SCRIPT = r"""
   return {
     background: rgbOver(getComputedStyle(document.body).backgroundColor,
                         document.body) || "FFFFFF",
+    backgroundGradient: gradient(document.body),
     blocks: dropDoubles(),
   };
 }
