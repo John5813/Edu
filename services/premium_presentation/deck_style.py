@@ -307,6 +307,61 @@ max-height:100%}
 
 /* ── Pastki qator ──────────────────────────────────────────────── */
 .foot{font-size:24px;color:#MUTED;flex:none}
+
+/* ── Sig'dirish ────────────────────────────────────────────────────
+   Mazmun varaqqa sig'masa, brauzerda bosqichma-bosqich zichlanadi
+   (`html_render.fit`): avval oraliqlar, keyin shrift. Sig'gan
+   varaqqa tegilmaydi — u to'liq o'lchamda qoladi. */
+.slide.fit1,.slide.fit2,.slide.fit3{gap:36px}
+.slide.fit1>.body,.slide.fit2>.body,.slide.fit3>.body{gap:28px}
+.slide.fit1 .card,.slide.fit2 .card,.slide.fit3 .card{min-height:0;
+padding:32px;gap:12px}
+.slide.fit1 .cols,.slide.fit2 .cols,.slide.fit3 .cols{gap:28px}
+.slide.fit1 .list,.slide.fit2 .list,.slide.fit3 .list{gap:20px}
+.slide.fit1 .rasm,.slide.fit2 .rasm,.slide.fit3 .rasm{min-height:0;
+padding:36px}
+/* Ikonkali kartochkalar ikki qator bo'lsa, pastki qatorning doirasi
+   yuqori kartochkaga minmasin. */
+.cols:has(>.card>.ikon-dot:first-child){row-gap:76px}
+.slide.fit1 .cols:has(>.card>.ikon-dot:first-child),
+.slide.fit2 .cols:has(>.card>.ikon-dot:first-child){row-gap:64px}
+.slide.fit3 .cols:has(>.card>.ikon-dot:first-child){row-gap:52px}
+
+.slide.fit2 .title{font-size:58px}
+.slide.fit2 .item-text{font-size:32px}
+.slide.fit2 .card-title{font-size:36px}
+.slide.fit2 .card-note,.slide.fit2 .rasm-matn{font-size:29px}
+.slide.fit2 .card-num{font-size:42px}
+.slide.fit2 .lead{font-size:36px}
+.slide.fit2 .note{font-size:27px}
+.slide.fit2 .kpi-value{font-size:78px}
+.slide.fit2 .kpi-label{font-size:31px}
+.slide.fit2 .kpi-note{font-size:28px}
+.slide.fit2 .timeline .what,.slide.fit2 table{font-size:27px}
+.slide.fit2 .misol-text,.slide.fit2 .misol-answer{font-size:28px}
+.slide.fit2 .formula-body{font-size:46px}
+.slide.fit2 .quote{font-size:40px}
+
+.slide.fit3 .title{font-size:50px}
+.slide.fit3 .item-text{font-size:27px}
+.slide.fit3 .card-title{font-size:31px}
+.slide.fit3 .card-note,.slide.fit3 .rasm-matn{font-size:25px}
+.slide.fit3 .card-num{font-size:36px}
+.slide.fit3 .lead{font-size:31px}
+.slide.fit3 .note{font-size:24px}
+.slide.fit3 .kpi-value{font-size:62px}
+.slide.fit3 .kpi-label{font-size:27px}
+.slide.fit3 .kpi-note{font-size:24px}
+.slide.fit3 .timeline .what,.slide.fit3 table{font-size:24px}
+.slide.fit3 .misol-text,.slide.fit3 .misol-answer{font-size:25px}
+.slide.fit3 .formula-body{font-size:40px}
+.slide.fit3 .quote{font-size:34px}
+.slide.fit3 .ikon-dot{width:84px;height:84px}
+.slide.fit3 .ikon-dot .ikon{width:44px;height:44px}
+.slide.fit3 .cols>.card>.ikon-dot:first-child,
+.slide.fit3 .steps>.card>.ikon-dot:first-child{margin-top:-74px}
+.slide.fit3 .item-ikon{width:56px;height:56px}
+.slide.fit3 .item-ikon .ikon{width:30px;height:30px}
 """
 
 
@@ -464,7 +519,8 @@ shuning uchun u to'liq, mazmunli bo'lsin.
     <div class="item-text"><b>Kalit so'z.</b> Qolgan jumla.</div></div>
 </div>
 
-6. IKKI USTUN (chapda matn, o'ngda kartalar yoki jadval):
+6. IKKI USTUN (chapda matn, o'ngda jadval yoki bir-ikki kartochka —
+yarim ustunga ko'p narsa sig'maydi):
 <div class="split">
   <div class="list"> ... </div>
   <div class="cols cols-2"> ... </div>

@@ -136,7 +136,8 @@ def check_design_system():
              and "100%" not in line and "1080px" not in line
              and "0" not in line
              and not any(f"height:{n}px" in line for n in
-                         (4, 5, 6, 14, 16, 22, 36, 48, 54, 56, 68, 96, 104))]
+                         (4, 5, 6, 14, 16, 22, 30, 36, 44, 48, 54, 56, 68, 84, 96,
+                          104))]
     check("kartochkaga qat'iy balandlik yo'q", not loose, str(loose[:2]))
 
     other = deck_style.stylesheet(themes.get("qizil"))
@@ -2295,6 +2296,89 @@ def check_chart_formats():
           'class="rasm"' in sources[1] and 'class="rasm"' not in sources[-1])
 
 
+def check_fit_to_slide():
+    """Sig'maydigan mazmun varaqdan chiqib ketmasin — zichlansin."""
+    print("\n31) Mazmun varaqqa sig'diriladi")
+    theme = themes.get("ko'k")
+    rules = html_slides.shell_rules(theme, "uz")
+    check("ko'rsatkichga manba talab qilinadi",
+          "manbasini ayta olmaydigan raqam" in rules)
+    check("yarim ustunga ko'p narsa sig'masligi aytilgan",
+          "yarim ustunga ko'p narsa sig'maydi" in rules)
+    if not html_render.available():
+        return
+
+    def item(text):
+        return ('<div class="item"><span class="item-dot"></span>'
+                f'<div class="item-text"><b>{text}.</b> Bu aholining umumiy '
+                'milliy daromaddagi ulushini anglatadi va farovonlikni '
+                'bildiradi.</div></div>')
+
+    def card(title):
+        return (f'<div class="card"><div class="card-title">{title}</div>'
+                '<div class="card-note">Sifatli ta\'limga ega bo\'lish '
+                'daromad imkoniyatlarini oshiradi.</div></div>')
+
+    head = ('<section class="slide"><div class="head"><h2 class="title">'
+            'Sarlavha</h2><div class="rule"></div></div><div class="body">')
+    crowded = (head + '<div class="split"><div class="list">'
+               + "".join(item(f"Band {i}") for i in range(5)) + '</div>'
+               '<div class="rasm" data-prompt="x"><p class="rasm-matn">'
+               'Qo\'shimcha matn.</p></div></div></div></section>')
+    grid = (head + '<div class="cols cols-3">'
+            + "".join(card(f"Karta {i}") for i in range(6))
+            + '</div></div></section>')
+    light = (head + '<div class="list">' + item("Bitta") +
+             '</div></div></section>')
+    pages = html_slides.build_pages([crowded, grid, light], theme)
+
+    lowest = ("() => { let low = 0; for (const el of document.querySelectorAll("
+              "'section.slide .body *')) { const r = el.getBoundingClientRect();"
+              " if (r.width > 2 && r.height > 2) low = Math.max(low, r.bottom);"
+              " } return low; }")
+    from playwright.sync_api import sync_playwright
+
+    seen = {}
+    with sync_playwright() as playwright:
+        browser = html_render._launch(playwright)
+        try:
+            context = browser.new_context(
+                viewport={"width": 1920, "height": 1080})
+            for name, page in zip(("zich", "panjara", "yengil"), pages):
+                raw = context.new_page()
+                raw.set_content(page, wait_until="load")
+                before = raw.evaluate(lowest)
+                raw.close()
+                handle = html_render._open_page(context, page)
+                seen[name] = (before, handle.evaluate(lowest),
+                              handle.evaluate("() => document.querySelector("
+                                              "'section.slide').className"))
+                if name == "panjara":
+                    dots = handle.evaluate(
+                        "() => [...document.querySelectorAll('.ikon-dot')]"
+                        ".map(d => d.getBoundingClientRect().top)")
+                    cards = handle.evaluate(
+                        "() => [...document.querySelectorAll('.cols>.card')]"
+                        ".map(c => c.getBoundingClientRect().bottom)")
+                    seen["dots"] = (dots, cards)
+                handle.close()
+            context.close()
+        finally:
+            browser.close()
+
+    before, after, classes = seen["zich"]
+    check("sig'maydigan varaq sig'diriladi",
+          before > 1080 and after <= 1080 - 40, str(seen["zich"]))
+    before, after, classes = seen["panjara"]
+    check("olti kartochkali panjara sig'diriladi", after <= 1040,
+          str(seen["panjara"]))
+    check("sig'gan varaqqa tegilmaydi", "fit" not in seen["yengil"][2],
+          str(seen["yengil"]))
+    dots, cards = seen["dots"]
+    check("pastki qator doirasi yuqori kartochkaga minmaydi",
+          min(dots[3:]) >= max(cards[:3]), f"{dots} {cards}")
+
+
 def main():
     check_handler_names()
     check_prompt()
@@ -2336,6 +2420,7 @@ def main():
     check_no_sections_and_photo_text()
     check_conclusion_only()
     check_chart_formats()
+    check_fit_to_slide()
 
     print()
     if FAILS:
