@@ -1208,8 +1208,14 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         await status.edit_text(step_photo.get(lang, step_photo["uz"]),
                                parse_mode="HTML")
 
+        # Ikonkalar tayyor turadi — tekin va tez, shuning uchun avval
+        # ular qo'yiladi, keyin fotosurat chizdiriladi.
+        html_pages, icons = await _run_step(
+            loop, lambda: html_images.apply_icons(html_pages, theme),
+            step="render", label="Ikonkalarni qo'yish")
         html_pages, photos = await html_images.illustrate(
             html_pages, theme, topic)
+        logger.info("Taqdimot bezagi: %d ikonka, %d fotosurat", icons, photos)
 
         step2 = {
             "uz": (f"⚙️ <b>{topic}</b>\n"

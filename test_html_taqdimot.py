@@ -570,6 +570,91 @@ def check_photos():
     check("muqovada rasm majburiy", "MUQOVADA albatta" in rules)
 
 
+def check_icons():
+    """Tayyor ikonkalar — eski tizimdagi 142 ta siluet."""
+    print("\n11) Ikonkalar")
+    from services.premium_presentation import icon_render
+
+    names = icon_render.icon_names()
+    check("ikonkalar joyida", len(names) > 100, str(len(names)))
+    check("tanish nomlar bor",
+          all(name in names for name in ("education", "finance", "research")),
+          str(names[:5]))
+
+    rules = html_slides.shell_rules(themes.get("zumrad"), "uz")
+    check("promptda ikonka aytilgan", "data-icon" in rules)
+    check("promptda ro'yxat berilgan", "education" in rules)
+
+    theme = themes.get("zumrad")
+    page = ('<html><body>'
+            '<img data-icon="education" class="ikon">'
+            '<img data-icon="finance" class="ikon" data-icon-color="FFFFFF">'
+            '<img data-icon="yo-q-bunday-ikonka" class="ikon" style="width:60px">'
+            '</body></html>')
+    filled, count = html_images.apply_icons([page], theme)
+
+    check("ikonkalar qo'yildi", count >= 2, str(count))
+    check("HTML ichiga joylashdi",
+          filled[0].count('src="data:image/png;base64,') >= 2, str(count))
+    check("noma'lum nom slaydni buzmaydi", "<img" not in filled[0]
+          or filled[0].count("<img") <= count, filled[0][:80])
+
+    # Rang: aksent va oq — ikki xil fayl bo'lishi kerak.
+    education = icon_render.resolve("education")
+    check("ikonka fayli topiladi", bool(education), str(education))
+    if education:
+        painted = icon_render.tinted(education, theme.accent)
+        white = icon_render.tinted(education, "FFFFFF")
+        check("ikonka bo'yaladi", bool(painted) and painted != white,
+              f"{painted} / {white}")
+        from PIL import Image
+
+        with Image.open(painted) as image:
+            pixels = list(image.convert("RGBA").getdata())
+        ink = {p[:3] for p in pixels if p[3] > 200}
+        wanted = tuple(int(theme.accent[i:i + 2], 16) for i in (0, 2, 4))
+        check("bo'yog'i sxema rangida", ink == {wanted} if ink else False,
+              str(list(ink)[:3]))
+
+
+def check_accent_strip():
+    """Bir tomonlama chegara butun ramka bo'lib qolmasin."""
+    print("\n12) Aksent chizig'i")
+    if not html_render.available():
+        check("brauzer o'rnatilgan", False, html_render._INSTALL_HINT)
+        return
+
+    theme = themes.get("zumrad")
+    page = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    *{{margin:0;padding:0;box-sizing:border-box}}
+    body{{width:1920px;height:1080px;padding:90px;background:#FFFFFF;
+    font-family:{html_slides.FONT_STACK};overflow:hidden}}
+    .card{{width:600px;height:300px;background:#{theme.accent_soft};
+    border-radius:20px;border-top:8px solid #{theme.accent};padding:40px}}
+    .boxed{{width:600px;height:200px;margin-top:60px;
+    border:4px solid #{theme.accent};padding:30px}}
+    </style></head><body>
+    <div class="card"><p>Tepasida aksent chizig'i</p></div>
+    <div class="boxed"><p>To'liq ramka</p></div></body></html>"""
+
+    path = html_render.render([page], out_dir="temp", name="sinov")
+    try:
+        from pptx import Presentation
+
+        shapes = [s for s in list(Presentation(path).slides)[0].shapes
+                  if s.shape_type == 1]
+        # Kartochka + uning tepasidagi tasma + to'liq ramkali blok.
+        strips = [s for s in shapes if s.height / 914400 < 0.12]
+        check("aksent chizig'i alohida tasma bo'ldi", len(strips) == 1,
+              str([round(s.height / 914400, 3) for s in shapes]))
+        outlined = [s for s in shapes if s.line.fill.type == 1]
+        check("to'liq ramka ramka bo'lib qoldi", len(outlined) == 1,
+              str(len(outlined)))
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+
 def main():
     check_handler_names()
     check_prompt()
@@ -582,6 +667,9 @@ def main():
         check_layout_guard()
         check_decoration()
     check_photos()
+    check_icons()
+    if html_render.available():
+        check_accent_strip()
 
     print()
     if FAILS:

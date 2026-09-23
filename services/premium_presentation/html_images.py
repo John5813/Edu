@@ -10,8 +10,12 @@ HTML ichiga to'g'ridan-to'g'ri joylaydi (data URI). Brauzer rasmni
 o'zining CSS qoidalari bilan (object-fit, border-radius) joylashtiradi,
 chizuvchi esa uni shundayligicha PowerPointga o'tkazadi.
 
-Rasm chiqmasa, `<img>` o'rniga o'sha o'lchamdagi rangli blok qoladi —
-slaydda teshik ochilmaydi va joylashuv buzilmaydi.
+Ikonkalar boshqacha ishlaydi: ular `assets/icons/` da tayyor turadi,
+faqat slayd rangiga bo'yaladi. Shuning uchun ular tekin, tez va har
+safar bir xil sifatda chiqadi.
+
+Rasm yoki ikonka chiqmasa, `<img>` o'rniga o'sha o'lchamdagi rangli
+blok qoladi — slaydda teshik ochilmaydi va joylashuv buzilmaydi.
 """
 
 import asyncio
@@ -31,6 +35,10 @@ MAX_PHOTOS = 6
 
 _IMG_TAG = re.compile(r"<img\b[^>]*\bdata-prompt\s*=\s*([\"'])(.*?)\1[^>]*>",
                       re.IGNORECASE | re.DOTALL)
+_ICON_TAG = re.compile(r"<img\b[^>]*\bdata-icon\s*=\s*([\"'])(.*?)\1[^>]*>",
+                       re.IGNORECASE | re.DOTALL)
+_ICON_COLOUR = re.compile(r"\bdata-icon-color\s*=\s*([\"'])(.*?)\1",
+                          re.IGNORECASE)
 _CLASS = re.compile(r"\bclass\s*=\s*([\"'])(.*?)\1", re.IGNORECASE | re.DOTALL)
 _STYLE = re.compile(r"\bstyle\s*=\s*([\"'])(.*?)\1", re.IGNORECASE | re.DOTALL)
 
@@ -70,6 +78,47 @@ def _placeholder(tag: str, fill: str) -> str:
     extra = style.group(2).rstrip("; ") + "; " if style else ""
     parts.append(f'style="{extra}background:#{fill}"')
     return "<div " + " ".join(parts) + "></div>"
+
+
+def apply_icons(pages: List[str], theme) -> Tuple[List[str], int]:
+    """Ikonka belgilarini tayyor ikonkalarga almashtiradi.
+
+    `assets/icons/` da 142 ta bir rangli siluet turadi. Ular mavzuga
+    qarab tanlanadi va slaydning rangiga bo'yaladi — rasm chizdirish
+    shart emas, ya'ni pul ham, kutish ham yo'q. Eski taqdimot tizimida
+    aynan shular ishlatilardi va chiroyli chiqardi.
+    """
+    try:
+        from . import icon_render
+    except Exception as exc:
+        log.warning("Ikonka moduli mavjud emas: %s", exc)
+        return pages, 0
+
+    used = set()
+    placed = 0
+    result = []
+
+    for page in pages:
+        def swap(match):
+            nonlocal placed
+            tag, name = match.group(0), match.group(2).strip()
+            colour = _ICON_COLOUR.search(tag)
+            tint = (colour.group(2) if colour else theme.accent).lstrip("#")
+
+            path = icon_render.resolve(name, used=used)
+            if not path:
+                return _placeholder(tag, theme.accent_soft)
+            painted = icon_render.tinted(path, tint) or path
+            uri = _data_uri(painted)
+            if not uri:
+                return _placeholder(tag, theme.accent_soft)
+            placed += 1
+            return tag.replace("<img", f'<img src="{uri}"', 1)
+
+        result.append(_ICON_TAG.sub(swap, page))
+
+    log.info("Ikonkalar qo'yildi: %d ta", placed)
+    return result, placed
 
 
 async def illustrate(pages: List[str], theme, topic: str = "",

@@ -91,6 +91,24 @@ def catalogue_text() -> str:
 
 # ────────────────────────────────────────────────────────── qobiq qoidalari
 
+def icon_list() -> str:
+    """Mavjud ikonkalar nomi — promptga qo'yiladi."""
+    try:
+        from . import icon_render
+
+        names = icon_render.icon_names()
+    except Exception:
+        names = ()
+    if not names:
+        return "  (ikonka yo'q)"
+    # Uzun bitta qator o'rniga o'nta ustunli ro'yxat: model uni
+    # oson o'qiydi.
+    rows = []
+    for start in range(0, len(names), 10):
+        rows.append("  " + ", ".join(names[start:start + 10]))
+    return "\n".join(rows)
+
+
 def shell_rules(theme, language: str) -> str:
     """Har slaydga baravar tegishli QOBIQ qoidalari.
 
@@ -98,6 +116,7 @@ def shell_rules(theme, language: str) -> str:
     shrift, rang, tashqi faylning yo'qligi. Ichini AI o'zi chizadi.
     """
     target = _LANGUAGE.get(language, _LANGUAGE["uz"])
+    icons = icon_list()
     return f"""Sen professional taqdimot dizaynerisan. Sen HTML/CSS/SVG yozasan.
 Kodingiz brauzerda {SLIDE_W_PX}×{SLIDE_H_PX} o'lchamda suratga olinadi va
 PowerPoint slaydiga aylanadi — shuning uchun quyidagi QOBIQ shartlari
@@ -175,6 +194,21 @@ to'ldiradi:
 - MUQOVADA albatta bitta katta rasm bo'lsin (butun slaydni yoki
   yarmini egallagan), undan tashqari yana kamida ikkita slaydda rasm
   bo'lsin. Jami uchtadan kam bo'lmasin, oltitadan oshmasin.
+
+IKONKA (tekin, tez — ko'p ishlating):
+Kartochka, qadam, ro'yxat bandi va ko'rsatkich yonida ikonka tursin.
+Rasmdek belgilanadi, faqat `data-icon` bilan:
+
+  <img data-icon="education" class="ikon" alt="">
+
+- Nom faqat shu ro'yxatdan olinadi:
+{icons}
+- Rang kerak bo'lsa: `data-icon-color="FFFFFF"` (to'q fon ustida).
+  Berilmasa aksent rangida chiqadi.
+- CSS da o'lcham bering (48-72px). Ikonkalar bir rangli siluet —
+  ularni och fonli doira yoki kvadrat ichiga qo'ysangiz chiroyli
+  chiqadi.
+- Bir slaydda bir xil ikonkani takrorlamang.
 
 DIZAYN (slaydlar bir-biriga o'xshab ketmasin):
 - MUQOVA: butun slaydni egallagan rasm + ustidan to'q parda
