@@ -52,10 +52,48 @@ def _numbers(text: str) -> List[float]:
     return out
 
 
+# "2022: 0.29, 2023: 0.28" — yorliq va qiymat juftlari bitta qatorda.
+_PAIR = re.compile(r"\s*([^:=,;|\n]+?)\s*[:=]\s*(-?\d[\d\s]*(?:\.\d+)?)\s*%?\s*")
+
+
+def _pairs(text: str) -> Tuple[List[str], List[float]]:
+    """Yorliq:qiymat juftlari. Matn to'liq juftlardan iborat bo'lmasa — bo'sh.
+
+    Model ma'lumotni ko'pincha shunday yozadi. Ilgari bu bitta
+    qiymatli qator deb o'qilib, diagramma tashlab yuborilardi.
+    """
+    text = str(text or "").strip()
+    if "|" in text:
+        return [], []
+    pieces = [piece for piece in re.split(r"[,;\n]", text) if piece.strip()]
+    labels, values = [], []
+    for piece in pieces:
+        match = _PAIR.fullmatch(piece)
+        if not match:
+            return [], []
+        labels.append(match.group(1).strip())
+        values.append(float(match.group(2).replace(" ", "")))
+    if len(values) < 2:
+        return [], []
+    return labels, values
+
+
 def _series(text: str) -> List[Tuple[str, List[float]]]:
-    """`Nomi: 1,2,3|Boshqasi: 4,5,6` → [(nom, [qiymat])]."""
+    """`Nomi: 1,2,3|Boshqasi: 4,5,6` → [(nom, [qiymat])].
+
+    Qatorlar `|` bilan ajratiladi. Model ba'zan `;` yoki yangi qator
+    bilan ajratadi — bir nechta nomli qator bo'lsa, ular ham ajratuvchi
+    deb olinadi (aks holda ikki qator bittaga qo'shilib ketardi).
+    """
+    text = str(text or "")
+    if "|" not in text:
+        for mark in ("\n", ";"):
+            parts = [part for part in text.split(mark) if part.strip()]
+            if len(parts) >= 2 and all(":" in part for part in parts):
+                text = "|".join(parts)
+                break
     rows = []
-    for part in str(text or "").split("|"):
+    for part in text.split("|"):
         part = part.strip()
         if not part:
             continue
@@ -74,8 +112,12 @@ def _labels(text: str) -> List[str]:
 
 
 def _fmt(value: float) -> str:
-    if abs(value - round(value)) < 0.05:
+    # Kichik qiymatlar (Gini 0.29, stavka 2.75) ikki xonagacha
+    # yoziladi — aks holda 0.29 va 0.28 ikkalasi "0,3" bo'lib qolardi.
+    if abs(value - round(value)) < 0.005:
         return str(int(round(value)))
+    if abs(value) < 10:
+        return f"{value:.2f}".rstrip("0").replace(".", ",")
     return f"{value:.1f}".replace(".", ",")
 
 
@@ -259,11 +301,15 @@ def draw(html_body: str, theme) -> str:
         tag = match.group(0)
         data: Dict[str, str] = {key.lower(): value
                                 for key, _, value in _ATTR.findall(tag)}
-        rows = _series(data.get("series") or data.get("values") or "")
+        raw = data.get("series") or data.get("values") or ""
+        pair_labels, pair_values = _pairs(raw)
+        rows = [("", pair_values)] if pair_values else _series(raw)
         if not rows:
             log.warning("Diagrammada ma'lumot yo'q: %s", tag[:120])
             return ""
         labels = _labels(data.get("labels", ""))
+        if pair_values and len(labels) != len(pair_values):
+            labels = pair_labels
         # Model ulushlarni ko'pincha har birini alohida qator qilib
         # yozadi: "AQSh: 45|Yevropa: 30|Osiyo: 25". Bu uchta bitta
         # qiymatli qator emas — bitta qatorning uchta qiymati. Ilgari
@@ -279,6 +325,18 @@ def draw(html_body: str, theme) -> str:
         # Bitta qiymatli halqa "100%" deydi, xolos — hech narsani
         # ko'rsatmaydi, halqaning o'zi esa chizilmay (boshi va oxiri
         # bir nuqta) faqat imzo qolardi. Bunday diagramma tashlanadi.
+        # Yagona qiymatdan diagramma chiqmaydi ("— 100%" halqa yoki
+        # bitta ustun). Lekin raqam tashlab yuborilmaydi: u yirik
+        # ko'rsatkich bo'lib turadi, slaydda bo'sh joy qolmaydi.
+        if sum(len(values) for _, values in rows) == 1:
+            row_name, values = rows[0]
+            unit = (data.get("unit") or "").strip()
+            label = row_name or (labels[0] if labels else "")
+            log.info("Bitta qiymatli diagramma ko'rsatkichga aylantirildi")
+            return ('<div class="kpi"><div class="kpi-value">'
+                    f'{html.escape(_fmt(values[0]))}</div>'
+                    f'<div class="kpi-label">{html.escape(" ".join((label, unit)).strip())}'
+                    '</div></div>')
         if kind is _donut and len(rows[0][1]) < 2:
             log.warning("Bitta qiymatli halqa diagramma tashlandi")
             return ""

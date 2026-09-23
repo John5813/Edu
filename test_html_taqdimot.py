@@ -1843,8 +1843,10 @@ def check_auto_icons():
 
     one = '<div class="chart" data-kind="donut" data-series="100"></div>'
     two = '<div class="chart" data-kind="donut" data-series="60,40"></div>'
-    check("bitta qiymatli halqa chizilmaydi",
-          deck_charts.draw(one, Theme()) == "")
+    single = deck_charts.draw(one, Theme())
+    check("bitta qiymatli halqa chizilmaydi, raqam ko'rsatkich bo'ladi",
+          "<svg" not in single and 'class="kpi-value">100<' in single,
+          single)
     check("ikki qiymatli halqa chiziladi",
           "<svg" in deck_charts.draw(two, Theme()))
     check("mazmun sarlavha ustiga chiqmaydi (safe center)",
@@ -2217,6 +2219,82 @@ def check_conclusion_only():
     check("boshqa varaqlarga tegilmaydi", sources[1] == thanks)
 
 
+def check_chart_formats():
+    """Model yozadigan har xil ma'lumot shakli diagramma bo'lib chiqsin."""
+    print("\n30) Diagramma ma'lumoti shakllari")
+    theme = themes.get("ko'k")
+
+    def draw(series, kind="bar", labels=""):
+        extra = f' data-labels="{labels}"' if labels else ""
+        return deck_charts.draw(
+            f'<div class="chart" data-kind="{kind}"{extra} '
+            f'data-series="{series}"></div>', theme)
+
+    pairs = draw("2022: 0.29, 2023: 0.29, 2024: 0.28", "line")
+    check("yil: qiymat juftlari chiziladi",
+          "<svg" in pairs and ">2024<" in pairs and ">0,28<" in pairs,
+          pairs[:200])
+    shares = draw("Mehnat: 62%, Tadbirkorlik: 20%, Transfer: 18%", "donut")
+    check("foizli juftlar halqa bo'ladi", "Mehnat — 62%" in shares)
+    semi = deck_charts._series("Real: 100,108,115; Nominal: 110,122,135")
+    check("nuqtali vergul bilan ikki qator ajraladi",
+          semi == [("Real", [100.0, 108.0, 115.0]),
+                   ("Nominal", [110.0, 122.0, 135.0])], str(semi))
+    lines = deck_charts._series("Real: 100,108\nNominal: 110,122")
+    check("yangi qator bilan ikki qator ajraladi", len(lines) == 2,
+          str(lines))
+    check("oddiy shakl o'zgarmaydi",
+          deck_charts._series("Ulush: 45,30,25") == [("Ulush",
+                                                      [45.0, 30.0, 25.0])])
+    check("kichik kasr yaxlitlanmaydi",
+          [deck_charts._fmt(v) for v in (0.29, 2.75, 12.34, 100)]
+          == ["0,29", "2,75", "12,3", "100"])
+    kpi = draw("Gini: 0.29", "line")
+    check("yagona raqam ko'rsatkich bo'ladi",
+          'class="kpi-value">0,29<' in kpi and "Gini" in kpi, kpi)
+
+    body = ('<div class="split"><div class="chart" data-kind="bar" '
+            'data-series="A: 1,2"></div><p class="note">Izoh</p></div>'
+            '<div class="chart" data-kind="bar" data-series="B: 1,2"></div>')
+    marked = html_slides._half_charts(body)
+    check("ikki ustundagi diagramma yarim o'lchamda",
+          marked.count('data-size="half"') == 1
+          and marked.index('data-size="half"') < marked.index("B: 1,2"))
+
+    rules = html_slides.shell_rules(theme, "uz")
+    check("diagrammali slaydda faqat diagramma va izoh",
+          "faqat diagramma va uni tushuntiradigan matn" in rules)
+    check("qatorlar | bilan ajratilishi aytilgan",
+          "faqat | bilan ajratiladi" in rules)
+
+    conclusion = ('<section class="slide"><div class="head"><h2 class="title">'
+                  'Xulosa</h2></div><div class="body"><div class="split">'
+                  '<div class="list"><div class="item"><span class="item-dot">'
+                  '</span><div class="item-text">Band.</div></div></div>'
+                  '<div class="rasm" data-prompt="x"><p class="rasm-matn">'
+                  'Oxirgi fikr.</p></div></div></div></section>')
+    out = html_slides._no_photo(conclusion)
+    check("xulosada rasm bloki qolmaydi",
+          'class="rasm"' not in out and "data-prompt" not in out)
+    check("rasm o'rnidagi matn saqlanadi", "Oxirgi fikr." in out
+          and 'class="split"' not in out and "Band." in out, out)
+    check("xulosada rasm yo'qligi aytilgan", "Xulosada rasm" in rules)
+
+    saved = (html_slides.plan_outline, html_slides._write_chunk)
+    try:
+        html_slides.plan_outline = lambda *a, **k: {
+            "family": "umumiy",
+            "slides": [{"brief": "b", "category": "kartalar"}] * 4}
+        html_slides._write_chunk = lambda system, user, count: (
+            [conclusion] * 3 if "1-slayddan" in user else [conclusion])
+        pages = html_slides.write_slides("Mavzu", 4, theme)
+    finally:
+        html_slides.plan_outline, html_slides._write_chunk = saved
+    sources = [html_slides.source_of(page) for page in pages]
+    check("faqat xulosadan rasm olinadi",
+          'class="rasm"' in sources[1] and 'class="rasm"' not in sources[-1])
+
+
 def main():
     check_handler_names()
     check_prompt()
@@ -2257,6 +2335,7 @@ def main():
     check_repair_edits_same_slide()
     check_no_sections_and_photo_text()
     check_conclusion_only()
+    check_chart_formats()
 
     print()
     if FAILS:

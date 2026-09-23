@@ -88,16 +88,15 @@ _CATEGORIES = (
              "ko'rinishida, har birida qisqa izoh"),
     ("matn_rasm", "bir tomonda fikrni ochgan matn, bir tomonda rasm "
                   "(rasm chiqmasa o'rnida qo'shimcha matn)"),
-    ("ikki_ustun", "chapda matn, o'ngda vizual (SVG diagramma, sxema yoki "
-                   "geometrik kompozitsiya)"),
+    ("ikki_ustun", "chapda matn, o'ngda kartalar yoki jadval"),
     ("korsatkichlar", "2-4 ta juda yirik raqam, har birining ostida qisqa "
                       "izoh"),
     ("jarayon", "o'qlar bilan bog'langan qadamlar qatori"),
     ("vaqt_oqi", "gorizontal chiziq ustidagi sana va voqealar"),
     ("qiyoslash", "ikki ustunli qiyos yoki 2×2 matritsa (masalan SWOT)"),
     ("jadval", "HTML jadval — sarlavha qatori aksent rangda"),
-    ("diagramma", "sahifani egallagan SVG diagramma: chiziqli, ustunli, "
-                  "donut, voronka yoki radar; yonida qisqa xulosa"),
+    ("diagramma", "faqat diagramma (chiziqli, ustunli yoki halqa) va uni "
+                  "tushuntiradigan matn"),
     ("tuzilma", "qutilar va ularni bog'lovchi chiziqlar — ierarxiya yoki "
                 "tarkib sxemasi"),
     ("iqtibos", "yirik tirnoq belgisi, kursiv matn, muallif qatori"),
@@ -197,7 +196,8 @@ QAT'IY QOIDALAR:
    izoh bir jumla.
 11. Birinchi slayd — MUQOVA, oxirgisi — XULOSA: unda faqat xulosa
    matni bo'ladi, "Rahmat", "E'tiboringiz uchun rahmat", "Savollar"
-   yozilmaydi va ular uchun alohida varaq ham yo'q. Taqdimot bo'limlarga
+   yozilmaydi va ular uchun alohida varaq ham yo'q. Xulosada rasm
+   bloki ishlatilmaydi. Taqdimot bo'limlarga
    ajratilmaydi: faqat bo'lim nomi yozilgan alohida varaq bo'lmaydi,
    har varaq mazmun beradi.
 12. Matn haqiqiy va aniq bo'lsin: nom, misol, manba bilan. "Lorem
@@ -556,7 +556,8 @@ def build_pages(bodies: List[str], theme) -> List[str]:
     o'rni ham har safar to'g'ri chiqadi.
     """
     drawn = [deck_charts.draw(
-        deck_math.render(_whiten_icons(_auto_icons(_decorate(body)))),
+        _half_charts(deck_math.render(
+            _whiten_icons(_auto_icons(_decorate(body))))),
         theme)
              for body in bodies]
     try:
@@ -642,6 +643,8 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
                 body = _drop_thanks(body)
             if 1 < number and _thin(body):
                 body = _thicken(body, system, theme)
+            if number == slide_count:
+                body = _no_photo(body)
             slides.append(body)
         used.extend(item["brief"] for item in outline[start - 1:start - 1 + count])
         start += count
@@ -683,6 +686,83 @@ def _drop_thanks(body: str) -> str:
         return match.group(0)
 
     return _SHORT_TEXT.sub(drop, body)
+
+
+_SPLIT_OPEN = re.compile(
+    r'<div\b[^>]*\bclass\s*=\s*["\'][^"\']*(?<![-\w])split(?![-\w])'
+    r'[^"\']*["\'][^>]*>', re.IGNORECASE)
+_RASM_OPEN = re.compile(
+    r'<div\b[^>]*\bclass\s*=\s*["\'][^"\']*(?<![-\w])rasm(?![-\w])'
+    r'[^"\']*["\'][^>]*>', re.IGNORECASE)
+_RASM_TEXT = re.compile(
+    r'<p\b[^>]*\bclass\s*=\s*["\'][^"\']*\brasm-matn\b[^"\']*["\'][^>]*>'
+    r'(.*?)</p>', re.IGNORECASE | re.DOTALL)
+
+
+def _close_of(body: str, opening) -> int:
+    """Ochuvchi `<div>` ning yopuvchi tegidan keyingi o'rin (-1 — yo'q)."""
+    depth = 1
+    for tag in _DIV_TAG.finditer(body, opening.end()):
+        depth += -1 if tag.group(0).startswith("</") else 1
+        if depth == 0:
+            return tag.end()
+    return -1
+
+
+def _no_photo(body: str) -> str:
+    """Xulosadagi rasm blokini oddiy matnga aylantiradi.
+
+    Xulosaga rasm kerak emas. Rasm o'rnidagi qo'shimcha matn
+    yo'qotilmaydi — u xulosa matnining davomi bo'lib, to'liq enli
+    qatorga o'tadi; rasm bloki turgan `split` esa yechiladi.
+    """
+    while True:
+        opening = _RASM_OPEN.search(body)
+        if not opening:
+            return body
+        end = _close_of(body, opening)
+        if end < 0:
+            return body
+        texts = _RASM_TEXT.findall(body[opening.start():end])
+        plain = "".join(f'<p class="note">{text.strip()}</p>'
+                        for text in texts if _plain(text))
+        # Rasm bloki turgan `split` (bo'lsa) yechiladi.
+        holder = None
+        for split in _SPLIT_OPEN.finditer(body, 0, opening.start()):
+            close = _close_of(body, split)
+            if close >= end:
+                holder = (split, close)
+        body = body[:opening.start()] + plain + body[end:]
+        if holder:
+            split, close = holder
+            close += len(plain) - (end - opening.start())
+            inner = body[split.end():close]
+            inner = inner[:inner.lower().rfind("</div")]
+            body = body[:split.start()] + inner + body[close:]
+
+
+_CHART_OPEN = re.compile(
+    r'<div\b(?=[^>]*\bclass\s*=\s*["\'][^"\']*\bchart\b)'
+    r'(?![^>]*\bdata-size\s*=)', re.IGNORECASE)
+
+
+def _half_charts(body: str) -> str:
+    """Ikki ustunli joydagi diagramma yarim o'lchamda chizilsin.
+
+    To'liq enli chizma yarim ustunga siqilsa, yozuvlari o'qib
+    bo'lmas darajada mayda chiqadi.
+    """
+    spans = []
+    for split in _SPLIT_OPEN.finditer(body):
+        close = _close_of(body, split)
+        if close > 0:
+            spans.append((split.end(), close))
+
+    def mark(match):
+        inside = any(start <= match.start() < end for start, end in spans)
+        return match.group(0) + (' data-size="half"' if inside else "")
+
+    return _CHART_OPEN.sub(mark, body)
 
 
 def _thin(body: str) -> bool:
