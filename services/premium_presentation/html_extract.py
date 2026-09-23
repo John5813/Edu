@@ -448,6 +448,7 @@ _CHECK_SCRIPT = r"""
   const W = window.innerWidth, H = window.innerHeight;
   const problems = [];
   const texts = [];
+  const chunks = [];
 
   const own = (el) => {
     let text = "";
@@ -470,6 +471,18 @@ _CHECK_SCRIPT = r"""
       lowest = Math.max(lowest, r.bottom);
       tallest = tallest || r.top;
       tallest = Math.min(tallest, r.top);
+    }
+
+    // Ko'zga tashlanadigan bo'laklar: matn, to'ldirilgan blok, rasm
+    // yoki diagramma. Butun varaqni egallagan fon va ingichka chiziq
+    // hisobga olinmaydi — ular joylashuvni ko'rsatmaydi.
+    const fill = style.backgroundColor || "";
+    const solid = fill && fill.indexOf("rgba(0, 0, 0, 0)") < 0
+      && fill !== "transparent";
+    const drawn = ["IMG", "SVG", "CANVAS", "TABLE"].indexOf(el.tagName) >= 0;
+    if ((text || solid || drawn) && r.width > 8 && r.height > 8
+        && r.width < W * 0.95) {
+      chunks.push(r);
     }
     // Slayddan chiqib ketgan: butun ekranni egallagan fon bundan mustasno.
     if (r.width < W * 0.98 || r.height < H * 0.98) {
@@ -551,6 +564,35 @@ _CHECK_SCRIPT = r"""
     if (gap > H * 0.42) {
       problems.push("mazmun o'rtasida " + Math.round(gap * 100 / H)
         + "% balandlikda bo'sh tasma qolgan");
+    }
+  }
+
+  // Slaydning bir yoni bo'sh qolganmi. Diagramma ko'pincha shunday
+  // buziladi: ustunlar qatori chap chekkaga siqilib qoladi va o'ng
+  // yarmi bo'm-bo'sh turadi. Balandligi bo'yicha ustma-ust tushgan
+  // bo'laklar bitta qator deb olinadi va o'sha qatorning eni
+  // o'lchanadi. Markazga qo'yilgan blok (ikki yoni baravar bo'sh)
+  // xato sanalmaydi — u ataylab shunday qilingan.
+  const rows = [];
+  for (const r of chunks.slice().sort((a, b) => a.top - b.top)) {
+    const row = rows.length ? rows[rows.length - 1] : null;
+    if (row && r.top < row.bottom - 2) {
+      row.left = Math.min(row.left, r.left);
+      row.right = Math.max(row.right, r.right);
+      row.bottom = Math.max(row.bottom, r.bottom);
+    } else {
+      rows.push({top: r.top, bottom: r.bottom, left: r.left, right: r.right});
+    }
+  }
+  for (const row of rows) {
+    if (row.bottom - row.top < H * 0.15) continue;
+    const near = Math.min(row.left, W - row.right);
+    const far = Math.max(row.left, W - row.right);
+    if (far > W * 0.30 && near < W * 0.15) {
+      problems.push("mazmun slaydning bir yoniga siqilgan, "
+        + Math.round(far * 100 / W) + "% eni bo'sh qolgan — "
+        + "diagramma va bloklar butun enni egallasin");
+      break;
     }
   }
   return problems;
