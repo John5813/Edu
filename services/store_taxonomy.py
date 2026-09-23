@@ -63,8 +63,10 @@ TAXONOMY: dict[str, tuple[str, ...]] = {
     ),
     "biologiya": (
         "biolog", "hujayra", "genetik", "anatomiya", "botanika", "zoolog",
-        "evolyutsiya", "mikrobiolog", "биолог", "генетик", "клетк",
-        "biology", "genetics",
+        "evolyutsiya", "mikrobiolog", "fotosintez", "organizm", "fermet",
+        "nafas olish", "irsiyat", "dnk", "oqsil", "bakteriya", "virus",
+        "биолог", "генетик", "клетк", "фотосинтез",
+        "biology", "genetics", "photosynthesis",
     ),
     "tibbiyot": (
         "tibbiyot", "kasallik", "davolash", "shifokor", "diagnostik",
