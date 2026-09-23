@@ -538,6 +538,18 @@ def _request(kind: str, payload: dict, timeout: int = 180) -> dict:
         try:
             resp = requests.post(config.OPENROUTER_URL, headers=headers,
                                  json={**payload, "model": model}, timeout=timeout)
+            afford = _affordable(resp, payload)
+            if afford:
+                # Hisobdagi mablag' so'ralgan javob uzunligini qoplamaydi.
+                # Boshqa modelga o'tish foyda bermaydi (hisob bitta) —
+                # o'sha model kichikroq chegara bilan qayta so'raladi.
+                log.warning("OpenRouter mablag'i %s tokenga yetadi (%s so'ralgan) "
+                            "— chegara kamaytirildi", afford,
+                            payload.get("max_tokens"))
+                resp = requests.post(
+                    config.OPENROUTER_URL, headers=headers,
+                    json={**payload, "model": model, "max_tokens": afford},
+                    timeout=timeout)
             resp.raise_for_status()
             data = resp.json()
         except requests.exceptions.RequestException as e:
@@ -557,6 +569,24 @@ def _request(kind: str, payload: dict, timeout: int = 180) -> dict:
         _count(data)
         return data
     raise last_error if last_error else RuntimeError("Model ro'yxati bo'sh")
+
+
+_AFFORD = re.compile(r"can only afford (\d+)", re.IGNORECASE)
+# Bundan qisqa javobga bitta slayd ham sig'maydi.
+_MIN_TOKENS = 1500
+
+
+def _affordable(resp, payload: dict) -> int:
+    """402 "can only afford N" bo'lsa — qayta so'rash uchun N (aks holda 0)."""
+    if getattr(resp, "status_code", 0) != 402:
+        return 0
+    match = _AFFORD.search(getattr(resp, "text", "") or "")
+    if not match:
+        return 0
+    afford = int(match.group(1)) - 50
+    if afford < _MIN_TOKENS or afford >= int(payload.get("max_tokens") or 0):
+        return 0
+    return afford
 
 
 def _with_today(system_prompt: str) -> str:

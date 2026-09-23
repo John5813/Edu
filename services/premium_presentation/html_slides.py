@@ -643,6 +643,21 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
             retry = _write_chunk(system, user, count)
             if len(retry) > len(chunk):
                 chunk = retry
+        # Hali ham yetmasa — yetmaganlari BITTADAN so'raladi. Uch
+        # slaydlik katta so'rov vaqt chegarasiga, hisobdagi mablag'
+        # chegarasiga yoki model javob uzunligi chegarasiga urilishi
+        # mumkin; bitta slaydlik kichik so'rov esa o'tadi. Ilgari
+        # yetmagan slaydlar jimgina tashlab yuborilardi va mijozga
+        # ikki slaydlik taqdimot borardi.
+        for number in range(start + len(chunk), start + count):
+            single = _user_prompt(topic, number, 1, slide_count, outline,
+                                  used, level, source_text, preferences,
+                                  author, family)
+            one = _write_chunk(system, single, 1)
+            if one:
+                chunk.append(one[0])
+            else:
+                log.error("%d-slayd yozilmadi", number)
 
         for offset, body in enumerate(chunk[:count]):
             number = start + offset
@@ -656,10 +671,21 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
         used.extend(item["brief"] for item in outline[start - 1:start - 1 + count])
         start += count
 
-    log.info("HTML slaydlar tayyor: %d ta", len(slides))
+    log.info("HTML slaydlar tayyor: %d/%d ta", len(slides), slide_count)
     if not slides:
         raise RuntimeError("AI birorta to'liq slayd qaytarmadi")
+    # Chala taqdimot mijozga berilmaydi: pul qaytariladi va qayta
+    # urinish mumkin. Bir-ikki slayd yetmasa — taqdimot baribir to'liq
+    # ko'rinadi, u topshiriladi.
+    if len(slides) < _enough(slide_count):
+        raise RuntimeError(
+            f"AI {slide_count} ta slayddan faqat {len(slides)} tasini yozdi")
     return build_pages(slides, theme)
+
+
+def _enough(slide_count: int) -> int:
+    """Topshirish uchun kerakli eng kam slayd soni."""
+    return max(3, -(-slide_count * 4 // 5))
 
 
 # Varaqni mazmunli qiladigan bloklar. Ularning birortasi ham bo'lmasa
