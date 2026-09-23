@@ -17,6 +17,7 @@ Shu fayl aynan o'sha kafolatlarni sinaydi:
     python test_html_taqdimot.py
 """
 
+import asyncio
 import os
 import subprocess
 import sys
@@ -25,7 +26,7 @@ sys.path.insert(0, ".")
 os.environ.setdefault("BOT_TOKEN", "test")
 
 from services.premium_presentation import (  # noqa: E402
-    html_extract, html_render, html_slides, llm_client, themes)
+    html_extract, html_images, html_render, html_slides, llm_client, themes)
 
 FAILS = []
 
@@ -494,6 +495,81 @@ def check_decoration():
             os.remove(path)
 
 
+def check_photos():
+    """Fotosurat oqimi: AI o'rin belgilaydi, Together rasmni chizadi."""
+    print("\n10) Fotosuratlar")
+    theme = themes.get("zumrad")
+
+    page = ('<html><body>'
+            '<img data-prompt="wide photograph of a city skyline" class="photo">'
+            '<p>matn</p>'
+            '<img data-prompt="close-up of hands writing" class="small" '
+            'style="width:400px">'
+            '</body></html>')
+
+    check("rasm so'rovlari topiladi",
+          len(html_images.requests_in(page)) == 2,
+          str(html_images.requests_in(page)))
+    check("butun taqdimot bo'yicha sanaladi",
+          html_images.count_requests([page, page]) == 4)
+    check("so'rovsiz slaydda nol",
+          html_images.count_requests(["<html><body>x</body></html>"]) == 0)
+
+    # Together javob bersa — rasm HTML ichiga joylashadi.
+    from PIL import Image
+
+    os.makedirs("temp", exist_ok=True)
+    made = []
+
+    class Stub:
+        async def generate_image(self, prompt, aspect_ratio="16:9"):
+            path = os.path.join("temp", f"stub_{len(made)}.png")
+            Image.new("RGB", (64, 36), (40, 100, 90)).save(path)
+            made.append(prompt)
+            return path
+
+    import services.together_service as together_service
+
+    original = together_service.get_together_service
+    try:
+        together_service.get_together_service = lambda: Stub()
+        pages, count = asyncio.run(
+            html_images.illustrate([page], theme, "Mavzu"))
+    finally:
+        together_service.get_together_service = original
+
+    check("ikkala rasm ham chizildi", count == 2, str(count))
+    check("rasm HTML ichiga joylashdi",
+          pages[0].count('src="data:image/') == 2, str(count))
+    check("tavsif Together ga yetib bordi",
+          any("skyline" in item for item in made), str(made))
+
+    # Together ishlamasa — rangli blok qoladi, joylashuv buzilmaydi.
+    class Broken:
+        async def generate_image(self, prompt, aspect_ratio="16:9"):
+            raise RuntimeError("kredit yo'q")
+
+    try:
+        together_service.get_together_service = lambda: Broken()
+        pages, count = asyncio.run(
+            html_images.illustrate([page], theme, "Mavzu"))
+    finally:
+        together_service.get_together_service = original
+
+    check("rasm chiqmasa xato bermaydi", count == 0)
+    check("o'rniga rangli blok qoladi",
+          pages[0].count("<div ") == 2 and "<img" not in pages[0],
+          pages[0][:90])
+    check("blok o'z o'lchamini saqlaydi",
+          "width:400px" in pages[0], pages[0][-120:])
+
+    # Promptda rasm qoidasi bormi.
+    rules = html_slides.shell_rules(theme, "uz")
+    check("promptda rasm so'raladi", "data-prompt" in rules)
+    check("kamida uchta rasm talab qilinadi", "uchtadan kam bo'lmasin" in rules)
+    check("muqovada rasm majburiy", "MUQOVADA albatta" in rules)
+
+
 def main():
     check_handler_names()
     check_prompt()
@@ -505,6 +581,7 @@ def main():
         check_editable()
         check_layout_guard()
         check_decoration()
+    check_photos()
 
     print()
     if FAILS:

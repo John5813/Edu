@@ -343,6 +343,27 @@ _CHECK_SCRIPT = r"""
     problems.push("mazmun slaydning yuqori qismiga to'plangan, pastki "
       + Math.round(100 - lowest * 100 / H) + "% bo'sh qolgan");
   }
+
+  // Mazmun ichida katta bo'sh tasma qolganmi: sarlavha tepada, qolgani
+  // pastda — o'rtasi bo'm-bo'sh. Bu slaydni "uzilgan" qilib ko'rsatadi.
+  if (texts.length > 1) {
+    const bands = texts
+      .map((t) => ({top: t.r.top, bottom: t.r.bottom}))
+      .sort((a, b) => a.top - b.top);
+    let reach = bands[0].bottom;
+    let gap = 0;
+    for (const band of bands.slice(1)) {
+      if (band.top > reach) gap = Math.max(gap, band.top - reach);
+      reach = Math.max(reach, band.bottom);
+    }
+    // Chegara keng olingan: sarlavha bilan mazmun orasidagi odatdagi
+    // nafas ~37% gacha boradi va u xato emas. Faqat mazmun bir chetga
+    // siqilib, o'rtada katta teshik qolganda shikoyat qilamiz.
+    if (gap > H * 0.42) {
+      problems.push("mazmun o'rtasida " + Math.round(gap * 100 / H)
+        + "% balandlikda bo'sh tasma qolgan");
+    }
+  }
   return problems;
 }
 """

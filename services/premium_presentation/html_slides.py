@@ -60,6 +60,10 @@ _CATEGORIES = (
     ("reja", "01, 02, 03 deb raqamlangan kartalar — ustun yoki panjara "
              "ko'rinishida, har birida qisqa izoh"),
     ("bayonot", "bitta yirik fikr sahifa markazida, atrofida bo'sh joy"),
+    ("ajratkich", "to'q aksent fon, ustida oq yirik sarlavha va bitta "
+                  "jumla — bo'limlar orasidagi nafas"),
+    ("rasmli", "butun slaydni yoki yarmini egallagan fotosurat, ustida "
+               "yoki yonida qisqa matn"),
     ("ikki_ustun", "chapda matn, o'ngda vizual (SVG diagramma, sxema yoki "
                    "geometrik kompozitsiya)"),
     ("korsatkichlar", "2-4 ta juda yirik raqam, har birining ostida qisqa "
@@ -155,6 +159,51 @@ TIPOGRAFIKA:
   slayd sarlavhasi 52-72px, bo'lim sarlavhasi 30-40px,
   tana matn 22-28px, izoh 18-20px. Qalin va ingichka qalinlikni
   aralashtir — ierarxiya ko'rinsin.
+
+FOTOSURAT (majburiy):
+Rasm kerak joyga shunday belgi qo'y — `src` yozma, uni tizim o'zi
+to'ldiradi:
+
+  <img data-prompt="wide documentary photograph of ..., natural light"
+       class="photo" alt="">
+
+- `data-prompt` INGLIZ tilida, 15-25 so'z, mavzuga aniq mos real
+  sahna. Ichida YOZUV so'rama (text, label, sign, caption) — modellar
+  harflarni buzib chizadi.
+- CSS da rasmga o'lcham va `object-fit: cover` ber, kerak bo'lsa
+  `border-radius`.
+- MUQOVADA albatta bitta katta rasm bo'lsin (butun slaydni yoki
+  yarmini egallagan), undan tashqari yana kamida ikkita slaydda rasm
+  bo'lsin. Jami uchtadan kam bo'lmasin, oltitadan oshmasin.
+
+DIZAYN (slaydlar bir-biriga o'xshab ketmasin):
+- MUQOVA: butun slaydni egallagan rasm + ustidan to'q parda
+  (masalan `background: linear-gradient(...)` yoki to'q rangli qatlam)
+  + oq sarlavha. Oq fonli quruq muqova YOZMA.
+- Har 3-4 slaydda bitta AJRATKICH slayd: to'q aksent fon
+  (#{theme.band}), ustida oq yirik sarlavha va bitta jumla.
+- Qolgan slaydlar och fonda, lekin har birida bitta kuchli vizual
+  langar bo'lsin: rasm, SVG diagramma, yirik raqam yoki ikonkalar
+  qatori. Faqat matndan iborat slayd bo'lmasin.
+- Kartochkalarga soya berma (PowerPointda chiqmaydi). O'rniga och fon
+  (#{theme.accent_soft}), 16-20px yumaloq burchak va tepasida yoki
+  chapida 4-6px aksent chizig'i.
+- Bir slaydda ikkitadan ortiq turli rang ishlatma.
+
+DIAGRAMMA VA KO'RSATKICH:
+- Har diagramma yoki ko'rsatkichlar qatoridan keyin 2-3 gaplik IZOH
+  bo'lsin: raqam nimani bildiradi, nega shunday, undan qanday xulosa
+  chiqadi. Quruq raqam qoldirma.
+- Diagramma o'qlarida yozuv bo'lsin; qiymatlar ustun tepasida tursin,
+  ustun ichiga kirmasin.
+- Ko'rsatkich (KPI) kartochkasida: yirik raqam, ostida nima ekani,
+  ostida bir qatorli izoh.
+
+VAQT O'QI uchun aniq usul (eng ko'p shu buziladi):
+Gorizontal chiziq chizib, kartochkalarni `position:absolute` bilan
+osma. Buning o'rniga: `display:flex` qatori, har ustunda tepada
+sana, ostida 14px doira, ostida matn. Chiziqni doiralar qatorining
+orqasiga `::before` bilan emas, alohida `div` bilan qo'y.
 
 MAZMUN:
 - Matn {target} bo'lsin.
@@ -343,6 +392,39 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
     if not slides:
         raise RuntimeError("AI birorta to'liq slayd qaytarmadi")
     return slides
+
+
+def ensure_photos(pages: List[str], theme, language: str = "uz",
+                  minimum: int = 3) -> List[str]:
+    """Taqdimotda kamida shuncha fotosurat so'ralganiga ishonch hosil qiladi.
+
+    Promptda aytilgan bo'lsa ham, model ba'zan rasmsiz slayd yozadi.
+    Shunda faqat o'sha slaydlar qayta so'raladi — muqovadan boshlab.
+    """
+    from . import html_images
+
+    have = html_images.count_requests(pages)
+    if have >= minimum or not pages:
+        return pages
+
+    log.warning("Taqdimotda %d ta rasm so'ralgan, kamida %d kerak",
+                have, minimum)
+    result = list(pages)
+    # Muqova birinchi navbatda, keyin o'rtadagi slaydlar.
+    order = [0] + [i for i in range(1, len(result) - 1)]
+    for index in order:
+        if have >= minimum:
+            break
+        if html_images.requests_in(result[index]):
+            continue
+        problem = ("slaydda fotosurat yo'q — bitta <img data-prompt=\"...\"> "
+                   "qo'shing va unga CSS da o'lcham hamda object-fit: cover "
+                   "bering")
+        fixed = fix_slide(result[index], [problem], theme, language)
+        if fixed and html_images.requests_in(fixed):
+            result[index] = fixed
+            have += 1
+    return result
 
 
 def fix_slide(html: str, problems: List[str], theme, language: str = "uz") -> str:
