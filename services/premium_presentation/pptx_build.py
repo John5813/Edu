@@ -138,6 +138,13 @@ def _add_text(slide, block: Dict) -> None:
     frame.margin_top = frame.margin_bottom = 0
     frame.vertical_anchor = MSO_ANCHOR.TOP
 
+    # Tik yozilgan o'q yozuvi PowerPointda ham burilgan bo'lsin.
+    # Aks holda ingichka qutiga tushib, har harfi alohida qatorga
+    # ko'chib ketadi.
+    turn = float(block.get("rotation") or 0)
+    if abs(turn) >= 5:
+        frame_box.rotation = turn
+
     size = _pt(block.get("size") or 16)
     # Qator oralig'i AYNAN punktda beriladi. Nisbat bilan berilsa
     # ("1.15") PowerPoint uni o'zining bir qator balandligiga ko'paytiradi
