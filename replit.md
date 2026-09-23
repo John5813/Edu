@@ -1,45 +1,66 @@
-# [Project name]
+# Edu Telegram Bot
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Telegram bot in Uzbek and Russian for generating educational documents, presentations, translations, and media with AI-assisted services.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- `python main.py` — run the Telegram bot and its document editor web server
+- The `Telegram Bot` workflow is the primary application workflow and listens on port 5000.
+- `python -m compileall bot database services utils webapp` — quick Python syntax check
+- `python -m pytest` — run the repository's Python tests when test dependencies are available
+
+Required secret:
+
+- `BOT_TOKEN`
+
+Optional secrets used by feature areas:
+
+- `OPENROUTER_API_KEY` — text generation and premium presentation briefs
+- `TOGETHER_API_KEY` — image generation
+- `FAL_API_KEY` — media and infographic generation
+- `OPENAI_API_KEY` — selected media and presentation helpers
+
+The bot defaults to a local SQLite database (`bot.db`) unless `DATABASE_URL` is configured for another supported database.
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- Python 3.11
+- aiogram Telegram bot framework
+- aiosqlite persistence
+- python-pptx, python-docx, PDF/DOCX conversion and Playwright-based rendering
+- OpenRouter, Together, FAL, and OpenAI integrations
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `main.py` — bot bootstrap, polling, background jobs, and the editor web server
+- `bot/handlers/` — Telegram feature flows
+- `services/` — AI, document, media, presentation, translation, and store services
+- `database/` — SQLite schema and migrations
+- `webapp/` — browser editor and store pages
+- `config.py` — environment-backed settings and service pricing
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- The Telegram bot and document editor run from the same Python process.
+- User balances, orders, and generated-work metadata are stored in SQLite by default.
+- Secrets are read only from environment variables; they are not stored in source files.
+- Generated files are written to local working directories and cleaned up by background jobs.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Users select a language, work type, topic, length, and optional extras in Telegram. The bot generates educational documents and presentations, supports file conversion and translation, and can deliver generated files after payment or balance checks.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Premium presentation output should be a ready-to-use `.pptx` file, not source code.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Do not put API keys in source files or chat; use project Secrets.
+- Keep `BOT_TOKEN` configured before restarting the `Telegram Bot` workflow.
+- The initial database migration runs at bot startup.
+- Playwright Chromium is downloaded on first use if it is not already available.
 
 ## Pointers
 
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- Source repository: `https://github.com/John5813/Edu`

@@ -1,0 +1,1368 @@
+"""
+Premium taqdimot handleri — Ustalar loyihasidan olingan yangi taqdimot tizimi.
+Mavjud hujjat xizmatlariga halaqit qilmaydi, to'liq mustaqil modul.
+"""
+import asyncio
+import contextlib
+import logging
+import os
+
+from aiogram import Router, F
+from aiogram.filters import StateFilter
+from aiogram.fsm.context import FSMContext
+from aiogram.types import (
+    Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton,
+    LabeledPrice,
+)
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+from bot import checkout as pay
+from bot import checkout as pay
+from bot.states import PremiumPresentationStates
+from database.database import Database
+from translations import get_text
+from config import som_to_stars, STARS_RATE
+from bot import uploads
+from bot.keyboards import (
+    get_doc_language_keyboard,
+    get_project_source_keyboard,
+)
+from services import workload
+
+# Har bosqich uchun vaqt chegarasi (soniya). Chegarasiz bosqich tashqi
+# xizmat javob bermay qolganda cheksiz osilib qolardi: mijoz "tayyorlanmoqda"
+# animatsiyasini soatlab ko'rar, admin panelda esa "hozir ish bajarilmoqda"
+# yozuvi abadiy turib, yangilash tugmasini bloklab qo'yardi. Endi bosqich
+# chegaradan oshsa xato ko'tariladi — pul qaytariladi, ro'yxat tozalanadi.
+_STEP_TIMEOUTS = {
+    "brief": 15 * 60,
+    "canvas": 12 * 60,
+    "render": 8 * 60,
+    "qa": 12 * 60,
+}
+
+
+async def _run_step(loop, func, *, step: str, label: str):
+    """Og'ir bosqichni chegaralangan vaqt ichida bajaradi."""
+    timeout = _STEP_TIMEOUTS[step]
+    try:
+        return await asyncio.wait_for(loop.run_in_executor(None, func), timeout)
+    except (asyncio.TimeoutError, TimeoutError):
+        raise RuntimeError(
+            f"{label} {int(timeout // 60)} daqiqada tugamadi — "
+            f"tashqi xizmat javob bermadi"
+        ) from None
+from services.project_work import source as source_module
+
+router = Router()
+logger = logging.getLogger(__name__)
+
+MIN_SLIDES = 5
+MAX_SLIDES = 30
+
+# Narx har varaqdan hisoblanadi va butun mingga yaxlitlanadi (pastga):
+# 10 varaq — 7 000, 15 varaq — 10 000, 20 varaq — 14 000, 30 varaq — 21 000.
+# Ilgari uchta keng zinapoya bor edi (10 gacha 7 500, 20 gacha 12 500),
+# ya'ni 11 varaq ham, 20 varaq ham bir xil turardi.
+PRICE_PER_SLIDE = 700
+MIN_PRICE = 3000
+
+
+def _get_price(slide_count: int) -> int:
+    """Varaq soniga qarab narx (so'm)."""
+    try:
+        count = int(slide_count or 0)
+    except (TypeError, ValueError):
+        count = MIN_SLIDES
+    count = max(MIN_SLIDES, min(count, MAX_SLIDES))
+    return max(MIN_PRICE, count * PRICE_PER_SLIDE // 1000 * 1000)
+
+
+def _back_text(lang: str) -> str:
+    if lang == "ru": return "🔙 Назад"
+    if lang == "en": return "🔙 Back"
+    return "🔙 Orqaga"
+
+
+LEVEL_LABELS = {
+    1: {"uz": "🏫 Maktab darsligi", "ru": "🏫 Школьный уровень", "en": "🏫 School level"},
+    2: {"uz": "🎓 Student", "ru": "🎓 Студент", "en": "🎓 Student"},
+    3: {"uz": "📚 Akademik", "ru": "📚 Академический", "en": "📚 Academic"},
+}
+
+
+def _client_name_keyboard(lang: str) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    if lang == "ru":
+        builder.button(text="⏭ Пропустить", callback_data="prem_ppt_skip_name")
+        builder.button(text="🔙 Назад", callback_data="prem_ppt_back")
+    elif lang == "en":
+        builder.button(text="⏭ Skip", callback_data="prem_ppt_skip_name")
+        builder.button(text="🔙 Back", callback_data="prem_ppt_back")
+    else:
+        builder.button(text="⏭ Tashlab ketish", callback_data="prem_ppt_skip_name")
+        builder.button(text="🔙 Orqaga", callback_data="prem_ppt_back")
+    builder.adjust(2)
+    return builder.as_markup()
+
+
+def _preferences_keyboard(lang: str) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    labels = {
+        "uz": ("⏭ O‘tkazib yuborish", "🔙 Orqaga"),
+        "ru": ("⏭ Пропустить", "🔙 Назад"),
+        "en": ("⏭ Skip", "🔙 Back"),
+    }
+    skip, back = labels.get(lang, labels["uz"])
+    builder.button(text=skip, callback_data="prem_ppt_skip_preferences")
+    builder.button(text=back, callback_data="prem_ppt_back_to_name")
+    builder.adjust(2)
+    return builder.as_markup()
+
+
+def _slide_count_keyboard(lang: str) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    for n in [5, 8, 10, 12, 15, 20, 25, 30]:
+        price = _get_price(n)
+        builder.button(text=f"{n} ta | {price:,} so'm", callback_data=f"prem_ppt_count:{n}")
+    builder.button(text=_back_text(lang), callback_data="prem_ppt_back_to_preferences")
+    builder.adjust(2)
+    return builder.as_markup()
+
+
+def _confirm_keyboard(lang: str, slide_count: int, price: int) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    if lang == "ru":
+        builder.button(text="✅ Подтвердить заказ", callback_data="prem_ppt_confirm")
+        builder.button(text="🔙 Назад", callback_data="prem_ppt_recount")
+    elif lang == "en":
+        builder.button(text="✅ Confirm order", callback_data="prem_ppt_confirm")
+        builder.button(text="🔙 Back", callback_data="prem_ppt_recount")
+    else:
+        builder.button(text="✅ Buyurtmani tasdiqlash", callback_data="prem_ppt_confirm")
+        builder.button(text="🔙 Orqaga", callback_data="prem_ppt_recount")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+# Premium ham boshqa xizmatlar bilan bir xil to'lov oqimidan foydalanadi:
+# balans yetmasa buyurtma saqlanib qoladi, Stars esa «boshqa to'lov usuli»
+# ortida turadi. Ilgari bu yerda o'z klaviaturasi bor edi va mablag'
+# yetmaganda oqim shu yerda tugardi.
+CHECKOUT = pay.Checkout(service="prem", back_callback="prem_ppt_back_to_confirm")
+
+
+@pay.describes(CHECKOUT.service)
+def _order_summary(data: dict, language: str) -> str:
+    """Balans to'lgach mijozga ko'rsatiladigan buyurtma tafsiloti."""
+    import html as _html
+
+    def clean(value, limit=120):
+        # quote=False: matn element ichida turadi, apostrof qochirilsa
+        # o'zbekcha jumla "Ko&#x27;proq" bo'lib ko'rinardi.
+        return _html.escape(str(value or "").strip(), quote=False)[:limit]
+
+    lines = ["📊 <b>Premium taqdimot</b>"]
+    topic = clean(data.get("topic"), 200)
+    if topic:
+        lines.append(f"📝 Mavzu: <b>{topic}</b>")
+    if data.get("slide_count"):
+        lines.append(f"📄 Slaydlar: {int(data['slide_count'])} ta")
+    name = clean(data.get("client_name"))
+    lines.append(f"👤 Ism: {name}" if name else "👤 Ism: ko'rsatilmagan")
+    lines.append(f"🌐 Til: {clean(data.get('presentation_language', 'uz')).upper()}")
+    wishes = clean(data.get("preferences"), 150)
+    if wishes:
+        lines.append(f"✍️ Istaklar: {wishes}")
+    return "\n".join(lines)
+
+
+def _payment_keyboard(lang: str, price: int) -> InlineKeyboardMarkup:
+    return pay.payment_keyboard(CHECKOUT, lang, price)
+
+
+class _MessageCallbackAdapter:
+    """Successful Stars paymentni mavjud generatsiya oqimiga ulaydi."""
+
+    def __init__(self, message: Message, data: str = ""):
+        self.message = message
+        self.from_user = message.from_user
+        self.data = data
+
+    async def answer(self, *args, **kwargs):
+        return None
+
+
+# ──────────────────────────────────────────────────────────────── ENTRY POINT
+
+@router.message(F.text.in_(["⭐ Premium taqdimot", "⭐ Премиум презентация", "⭐ Premium presentation"]))
+async def premium_presentation_start(message: Message, state: FSMContext, db: Database):
+    """Premium taqdimot tugmasi bosilganda"""
+    await state.clear()
+    # Buyurtma boshlangan vaqti — bir soatdan keyin eskirishini hisoblash uchun.
+    await state.set_data(pay.start({}))
+    user = await db.get_user(message.from_user.id)
+    lang = user.language if user else "uz"
+
+    msgs = {
+        "uz": (
+            "⭐ <b>Premium Taqdimot</b>\n\n"
+            "AI yordamida tayyor professional PowerPoint taqdimot yaratadi:\n\n"
+            "✅ Tayyor .pptx fayl\n"
+            "✅ 16:9 professional format\n"
+            "✅ Har slayd uchun alohida premium tuzilma\n"
+            "✅ Matn, dizayn va diagrammalar AI tomonidan tayyorlanadi\n\n"
+            "🌍 <b>Taqdimot tilini tanlang:</b>"
+        ),
+        "ru": (
+            "⭐ <b>Премиум Презентация</b>\n\n"
+            "Создаёт готовую профессиональную презентацию PowerPoint с помощью AI:\n\n"
+            "✅ Готовый файл .pptx\n"
+            "✅ Профессиональный формат 16:9\n"
+            "✅ Уникальная структура каждого слайда\n"
+            "✅ AI готовит текст, дизайн и диаграммы\n\n"
+            "🌍 <b>Выберите язык презентации:</b>"
+        ),
+        "en": (
+            "⭐ <b>Premium Presentation</b>\n\n"
+            "Creates a ready-to-use professional PowerPoint presentation with AI:\n\n"
+            "✅ Ready .pptx file\n"
+            "✅ Professional 16:9 format\n"
+            "✅ A distinct structure for every slide\n"
+            "✅ AI prepares the text, design, and charts\n\n"
+            "🌍 <b>Choose the presentation language:</b>"
+        ),
+    }
+
+    await state.set_state(PremiumPresentationStates.waiting_for_topic)
+    await message.answer(
+        msgs.get(lang, msgs["uz"]),
+        parse_mode="HTML",
+        reply_markup=get_doc_language_keyboard(lang, back_callback="prem_ppt_back"),
+    )
+
+
+@router.callback_query(
+    F.data.startswith("doc_lang_"),
+    PremiumPresentationStates.waiting_for_topic,
+)
+async def premium_ppt_language_selected(
+    callback: CallbackQuery, state: FSMContext, db: Database
+):
+    """Professional taqdimot uchun natija tilini tanlash."""
+    await callback.answer()
+    presentation_language = callback.data.split("_")[-1]
+    await state.update_data(presentation_language=presentation_language)
+
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+
+    user = await db.get_user(callback.from_user.id)
+    ui_lang = user.language if user else "uz"
+    topic_prompts = {
+        "uz": "📝 Taqdimot mavzusini kiriting:",
+        "ru": "📝 Введите тему презентации:",
+        "en": "📝 Enter the presentation topic:",
+    }
+    await callback.message.answer(
+        topic_prompts.get(ui_lang, topic_prompts["uz"]),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[[
+                InlineKeyboardButton(
+                    text=_back_text(ui_lang), callback_data="prem_ppt_back"
+                )
+            ]]
+        ),
+    )
+    await state.set_state(PremiumPresentationStates.waiting_for_topic_text)
+
+
+# ──────────────────────────────────────────────────────────────── TOPIC
+
+@router.message(PremiumPresentationStates.waiting_for_topic_text)
+async def premium_ppt_got_topic(message: Message, state: FSMContext, db: Database):
+    user = await db.get_user(message.from_user.id)
+    lang = user.language if user else "uz"
+    topic = (message.text or "").strip()
+
+    if len(topic) < 3:
+        short_msg = {
+            "uz": "❌ Mavzu juda qisqa. Kamida 3 ta belgi kiriting.",
+            "ru": "❌ Тема слишком короткая. Введите минимум 3 символа.",
+            "en": "❌ Topic too short. Enter at least 3 characters.",
+        }
+        await message.answer(short_msg.get(lang, short_msg["uz"]))
+        return
+
+    await state.update_data(topic=topic)
+    await _ask_source(message, state, lang)
+
+
+async def _open_step(target, text: str, markup, is_callback: bool,
+                     replace: bool = False) -> None:
+    """Keyingi savolni YANGI xabar sifatida ochadi.
+
+    Ilgari har qadam o'sha xabarni tahrirlardi: mijoz tugmani bosishi
+    bilan manba savoli ism savoliga, u esa istaklar savoliga aylanib
+    ketardi va suhbatda hech qanday iz qolmasdi — "oynachalar
+    ochilmayapti" degan holat shundan. Endi oldingi xabarning tugmalari
+    olib tashlanadi (ikki marta bosib bo'lmasin) va savol yangi xabarda
+    chiqadi.
+
+    `replace=True` — orqaga qaytishda: u yerda yangi xabar chiqarish
+    suhbatni takroriy kartochkalar bilan to'ldirardi.
+    """
+    if is_callback and replace:
+        await target.message.edit_text(text, parse_mode="HTML", reply_markup=markup)
+        return
+    if is_callback:
+        with contextlib.suppress(Exception):
+            await target.message.edit_reply_markup(reply_markup=None)
+        await target.message.answer(text, parse_mode="HTML", reply_markup=markup)
+        return
+    await target.answer(text, parse_mode="HTML", reply_markup=markup)
+
+
+# ──────────────────────────────────────────────────────────────── MANBA
+
+async def _ask_source(target, state: FSMContext, lang: str, is_callback: bool = False,
+                      replace: bool = False):
+    """Taqdimot AI ning o'z bilimiga tayanadimi yoki mijoz bergan hujjatgami."""
+    await state.set_state(PremiumPresentationStates.waiting_for_source_kind)
+    data = await state.get_data()
+    text = (f"📋 {get_text(lang, 'prem_ppt_topic_label')}: <b>{data.get('topic', '')}</b>\n\n"
+            + get_text(lang, "prem_ppt_ask_source"))
+    markup = get_project_source_keyboard(lang, prefix="prem_ppt",
+                                         back="prem_ppt_back")
+    await _open_step(target, text, markup, is_callback, replace=replace)
+
+
+@router.callback_query(F.data.startswith("prem_ppt_source:"),
+                       PremiumPresentationStates.waiting_for_source_kind)
+async def premium_ppt_chose_source(callback: CallbackQuery, state: FSMContext, db: Database):
+    await callback.answer()
+    user = await db.get_user(callback.from_user.id)
+    lang = user.language if user else "uz"
+    kind = callback.data.split(":", 1)[1]
+
+    if kind == source_module.KIND_AI:
+        await state.update_data(source_kind=source_module.KIND_AI,
+                                source_text="", source_label="")
+        await _ask_client_name(callback, state, lang, is_callback=True)
+        return
+
+    prompts = {
+        source_module.KIND_TEXT: ("prem_ppt_ask_instructions",
+                                  PremiumPresentationStates.waiting_for_instructions),
+        source_module.KIND_FILE: ("pw_ask_file",
+                                  PremiumPresentationStates.waiting_for_source_file),
+        source_module.KIND_URL: ("pw_ask_urls",
+                                 PremiumPresentationStates.waiting_for_source_urls),
+    }
+    key, next_state = prompts[kind]
+    await state.update_data(source_kind=kind)
+    await state.set_state(next_state)
+    await callback.message.edit_text(get_text(lang, key), parse_mode="HTML")
+
+
+@router.message(PremiumPresentationStates.waiting_for_instructions, F.text)
+async def premium_ppt_got_instructions(message: Message, state: FSMContext, db: Database):
+    user = await db.get_user(message.from_user.id)
+    lang = user.language if user else "uz"
+    material = source_module.from_instructions(message.text or "")
+    if not material.has_content:
+        await message.answer(get_text(lang, "prem_ppt_ask_instructions"), parse_mode="HTML")
+        return
+    await _store_source(message, state, lang, material)
+
+
+@router.message(PremiumPresentationStates.waiting_for_source_file, F.document)
+async def premium_ppt_got_source_file(message: Message, state: FSMContext, db: Database):
+    user = await db.get_user(message.from_user.id)
+    lang = user.language if user else "uz"
+    upload = await uploads.receive(message, lang, accept=uploads.DOCUMENTS,
+                                   prefix="prem_src")
+    if upload is None:
+        return
+
+    status = await message.answer(get_text(lang, "pw_source_reading"))
+    try:
+        material = source_module.from_extract(upload.extract, upload.file_name)
+    except Exception as e:
+        logger.error("Premium taqdimot manbasi o'qilmadi: %s", e)
+        await status.edit_text(get_text(lang, "pw_source_failed"))
+        return
+    finally:
+        uploads.discard(upload)
+
+    await status.delete()
+    await _store_source(message, state, lang, material)
+
+
+@router.message(PremiumPresentationStates.waiting_for_source_urls, F.text)
+async def premium_ppt_got_source_urls(message: Message, state: FSMContext, db: Database):
+    from services.url_book_service import extract_urls_from_text, validate_url
+
+    user = await db.get_user(message.from_user.id)
+    lang = user.language if user else "uz"
+    urls = [url for url in extract_urls_from_text(message.text or "") if validate_url(url)[0]]
+    if not urls:
+        await message.answer(get_text(lang, "pw_ask_urls"), parse_mode="HTML")
+        return
+
+    status = await message.answer(get_text(lang, "pw_source_reading"))
+    try:
+        material = await source_module.from_urls(urls[:5])
+    except Exception as e:
+        logger.error("Premium taqdimot uchun saytdan matn olinmadi: %s", e)
+        await status.edit_text(get_text(lang, "pw_source_failed"))
+        return
+
+    await status.delete()
+    await _store_source(message, state, lang, material)
+
+
+async def _store_source(message: Message, state: FSMContext, lang: str, material):
+    await state.update_data(source_kind=material.kind, source_text=material.text,
+                            source_label=material.label)
+    if material.label:
+        await message.answer(
+            get_text(lang, "pw_source_ok", label=material.label,
+                     words=len(material.text.split())),
+            parse_mode="HTML")
+    else:
+        await message.answer(get_text(lang, "pw_done_brief"), parse_mode="HTML")
+    await _ask_client_name(message, state, lang, is_callback=False)
+
+
+# ──────────────────────────────────────────────────────────────── CLIENT NAME
+
+async def _ask_client_name(target, state: FSMContext, lang: str, is_callback: bool,
+                           replace: bool = False):
+    await state.set_state(PremiumPresentationStates.waiting_for_client_name)
+    data = await state.get_data()
+    topic = data.get("topic", "")
+    msgs = {
+        "uz": (
+            f"📋 Mavzu: <b>{topic}</b>\n\n"
+            "👤 <b>Mijozning ism-familiyasini kiriting</b>\n"
+            "<i>(Taqdimotning sarlavha sahifasiga yoziladi)</i>"
+        ),
+        "ru": (
+            f"📋 Тема: <b>{topic}</b>\n\n"
+            "👤 <b>Введите имя и фамилию клиента</b>\n"
+            "<i>(Будет указано на титульном слайде)</i>"
+        ),
+        "en": (
+            f"📋 Topic: <b>{topic}</b>\n\n"
+            "👤 <b>Enter client's full name</b>\n"
+            "<i>(Will appear on the title slide)</i>"
+        ),
+    }
+    await _open_step(target, msgs.get(lang, msgs["uz"]), _client_name_keyboard(lang),
+                     is_callback, replace=replace)
+
+
+@router.message(PremiumPresentationStates.waiting_for_client_name)
+async def premium_ppt_got_name(message: Message, state: FSMContext, db: Database):
+    user = await db.get_user(message.from_user.id)
+    lang = user.language if user else "uz"
+    client_name = (message.text or "").strip()
+    await state.update_data(client_name=client_name)
+    await _show_preferences_step(message, state, lang, is_callback=False)
+
+
+@router.callback_query(F.data == "prem_ppt_skip_name")
+async def premium_ppt_skip_name(callback: CallbackQuery, state: FSMContext, db: Database):
+    await callback.answer()
+    user = await db.get_user(callback.from_user.id)
+    lang = user.language if user else "uz"
+    await state.update_data(client_name="")
+    await _show_preferences_step(callback, state, lang, is_callback=True)
+
+
+async def _show_preferences_step(source, state: FSMContext, lang: str,
+                                 is_callback: bool, replace: bool = False):
+    """Foydalanuvchidan qat'iy forma emas, erkin ijodiy yo'nalish oladi."""
+    await state.set_state(PremiumPresentationStates.waiting_for_preferences)
+    data = await state.get_data()
+    topic = data.get("topic", "")
+    msgs = {
+        "uz": (
+            f"📋 Mavzu: <b>{topic}</b>\n\n"
+            "🎨 <b>Taqdimot qanday bo‘lishini xohlaysiz?</b>\n\n"
+            "Istaklaringizni erkin yozing: auditoriya, maqsad, ohang, ranglar, "
+            "misollar, uslub yoki alohida talablar. Hech qanday qat’iy shakl shart emas — "
+            "AI eng yaxshi tuzilma va dizaynni o‘zi tanlaydi.\n\n"
+            "<i>Masalan: investorlar uchun ishonchli va zamonaviy, ko‘proq vizual, "
+            "o‘zbek tilida, qisqa va ta’sirli.</i>"
+        ),
+        "ru": (
+            f"📋 Тема: <b>{topic}</b>\n\n"
+            "🎨 <b>Каким вы хотите видеть презентацию?</b>\n\n"
+            "Напишите пожелания свободно: аудитория, цель, тон, цвета, примеры, "
+            "стиль или любые требования. Жёсткий формат не нужен — AI сам выберет "
+            "лучшую структуру и дизайн.\n\n"
+            "<i>Например: современная презентация для инвесторов, больше визуала, "
+            "коротко и убедительно.</i>"
+        ),
+        "en": (
+            f"📋 Topic: <b>{topic}</b>\n\n"
+            "🎨 <b>How should the presentation feel?</b>\n\n"
+            "Describe anything freely: audience, goal, tone, colors, examples, "
+            "style, or special requirements. No rigid format is needed — AI will "
+            "choose the best structure and design.\n\n"
+            "<i>For example: modern and confident for investors, visual, concise, "
+            "and persuasive.</i>"
+        ),
+    }
+    await _open_step(source, msgs.get(lang, msgs["uz"]), _preferences_keyboard(lang),
+                     is_callback, replace=replace)
+
+
+async def _show_auto_confirm(source, state: FSMContext, lang: str,
+                             is_callback: bool, replace: bool = False):
+    await state.set_state(PremiumPresentationStates.waiting_for_slide_count)
+    data = await state.get_data()
+    topic = data.get("topic", "")
+    client_name = data.get("client_name", "")
+    preferences = data.get("preferences", "")
+    preference_line = {
+        "uz": "AI daraja, tuzilma, vizual konsepsiya, ranglar, rasmlar va diagrammalarni "
+               "mavzuga mos ravishda o‘zi tanlaydi.",
+        "ru": "AI сам выберет уровень, структуру, визуальную концепцию, цвета, изображения "
+               "и диаграммы по теме.",
+        "en": "AI will choose the level, structure, visual concept, colors, images, and "
+               "charts based on the topic.",
+    }
+    name_line = {
+        "uz": f"\n👤 Ism-familiya: <b>{client_name or 'ko‘rsatilmagan — o‘tkazib yuborilgan'}</b>",
+        "ru": f"\n👤 Имя: <b>{client_name or 'не указано — пропущено'}</b>",
+        "en": f"\n👤 Name: <b>{client_name or 'not provided — skipped'}</b>",
+    }
+    preferences_line = {
+        "uz": f"\n🎨 Istaklar: <i>{preferences or 'ko‘rsatilmagan — AI o‘zi tanlaydi'}</i>",
+        "ru": f"\n🎨 Пожелания: <i>{preferences or 'не указаны — AI выберет сам'}</i>",
+        "en": f"\n🎨 Preferences: <i>{preferences or 'not provided — AI will decide'}</i>",
+    }
+    # Mijoz hujjat bergan bo'lsa, to'lovdan oldin buni ko'rib tursin.
+    source_line = ""
+    if data.get("source_text"):
+        label = data.get("source_label") or {
+            "uz": "mijoz tushuntirgan", "ru": "описание клиента",
+            "en": "client's brief"}.get(lang, "mijoz tushuntirgan")
+        source_line = "\n" + get_text(lang, "prem_ppt_source_line", source=label)
+    msgs = {
+        "uz": f"⭐ <b>AI erkin rejimi</b>\n\n📋 Mavzu: <b>{topic}</b>"
+                f"{name_line['uz']}{source_line}{preferences_line['uz']}\n\n{preference_line['uz']}\n\n"
+               "📊 Endi slaydlar sonini tanlang:",
+        "ru": f"⭐ <b>Свободный режим AI</b>\n\n📋 Тема: <b>{topic}</b>"
+                f"{name_line['ru']}{source_line}{preferences_line['ru']}\n\n{preference_line['ru']}\n\n"
+               "📊 Теперь выберите количество слайдов:",
+        "en": f"⭐ <b>AI free mode</b>\n\n📋 Topic: <b>{topic}</b>"
+                f"{name_line['en']}{source_line}{preferences_line['en']}\n\n{preference_line['en']}\n\n"
+               "📊 Now choose the number of slides:",
+    }
+    await _open_step(source, msgs.get(lang, msgs["uz"]), _slide_count_keyboard(lang),
+                     is_callback, replace=replace)
+
+
+@router.message(PremiumPresentationStates.waiting_for_preferences)
+async def premium_ppt_got_preferences(message: Message, state: FSMContext, db: Database):
+    user = await db.get_user(message.from_user.id)
+    lang = user.language if user else "uz"
+    preferences = (message.text or "").strip()
+    await state.update_data(preferences=preferences)
+    await _show_auto_confirm(message, state, lang, is_callback=False)
+
+
+@router.callback_query(F.data == "prem_ppt_skip_preferences",
+                       PremiumPresentationStates.waiting_for_preferences)
+async def premium_ppt_skip_preferences(callback: CallbackQuery, state: FSMContext, db: Database):
+    await callback.answer()
+    user = await db.get_user(callback.from_user.id)
+    lang = user.language if user else "uz"
+    await state.update_data(preferences="")
+    await _show_auto_confirm(callback, state, lang, is_callback=True)
+
+
+@router.callback_query(F.data == "prem_ppt_back_to_name")
+async def premium_ppt_back_to_name(callback: CallbackQuery, state: FSMContext, db: Database):
+    """Istaklar sahifasidan ism sahifasiga qaytish."""
+    await callback.answer()
+    user = await db.get_user(callback.from_user.id)
+    lang = user.language if user else "uz"
+    # Savol matni bitta joyda turadi: ilgari u shu yerda ham, asosiy
+    # qadamda ham alohida yozilgan edi va ikkisi bir-biridan ajralib
+    # ketishi mumkin edi.
+    await _ask_client_name(callback, state, lang, is_callback=True, replace=True)
+
+
+@router.callback_query(F.data == "prem_ppt_back_to_preferences")
+async def premium_ppt_back_to_preferences(callback: CallbackQuery, state: FSMContext, db: Database):
+    """Slayd sonidan istaklar qadamiga qaytish.
+
+    Ilgari bu tugma daraja tanlash oynasiga qaytarardi — o'sha oyna oqimdan
+    olib tashlangan bo'lsa ham, orqaga bosilganda qayta paydo bo'lardi.
+    """
+    await callback.answer()
+    user = await db.get_user(callback.from_user.id)
+    lang = user.language if user else "uz"
+    await _show_preferences_step(callback, state, lang, is_callback=True, replace=True)
+
+
+# ──────────────────────────────────────────────────────────────── SLIDE COUNT
+
+@router.callback_query(F.data.startswith("prem_ppt_count:"), PremiumPresentationStates.waiting_for_slide_count)
+async def premium_ppt_got_count(callback: CallbackQuery, state: FSMContext, db: Database):
+    await callback.answer()
+    user = await db.get_user(callback.from_user.id)
+    lang = user.language if user else "uz"
+
+    slide_count = int(callback.data.split(":")[1])
+    price = _get_price(slide_count)
+    data = await state.get_data()
+    topic = data.get("topic", "")
+    client_name = data.get("client_name", "")
+    preferences = data.get("preferences", "")
+
+    # Premium PPTX generatori hozircha bitta izchil professional darajadan
+    # foydalanadi; mavzu va foydalanuvchi istaklari AI promptiga uzatiladi.
+    level = 2
+    level_label = LEVEL_LABELS.get(level, {}).get(lang, "")
+
+    await state.update_data(slide_count=slide_count, price=price)
+
+    # Rang sxemasi mijozning tanlovi — taqdimot uning uslubida chiqsin.
+    await state.set_state(PremiumPresentationStates.waiting_for_theme)
+    await callback.message.edit_text(
+        _theme_prompt(lang, topic), parse_mode="HTML",
+        reply_markup=_theme_keyboard(lang, topic))
+
+
+def _theme_prompt(lang: str, topic: str) -> str:
+    from services.premium_presentation import themes as _themes
+    suggested = _themes.suggest(topic)
+    msgs = {
+        "uz": (f"🎨 <b>Rang sxemasini tanlang</b>\n\n"
+               f"Mavzuga mos keladigani — <b>{suggested.name}</b>.\n"
+               f"Xohlagan rangni tanlashingiz mumkin:"),
+        "ru": (f"🎨 <b>Выберите цветовую схему</b>\n\n"
+               f"По теме подходит — <b>{suggested.name}</b>.\n"
+               f"Можно выбрать любую:"),
+        "en": (f"🎨 <b>Choose a colour scheme</b>\n\n"
+               f"Suggested for this topic — <b>{suggested.name}</b>.\n"
+               f"Pick any you like:"),
+    }
+    return msgs.get(lang, msgs["uz"])
+
+
+def _theme_keyboard(lang: str, topic: str):
+    from services.premium_presentation import themes as _themes
+    suggested = _themes.suggest(topic)
+    builder = InlineKeyboardBuilder()
+    auto = {"uz": "✨ AI mavzuga qarab tanlasin",
+            "ru": "✨ Пусть AI выберет по теме",
+            "en": "✨ Let the AI choose"}
+    builder.add(InlineKeyboardButton(text=auto.get(lang, auto["uz"]),
+                                     callback_data="prem_ppt_theme:auto"))
+    for theme in _themes.choices():
+        mark = "  ✓" if theme.key == suggested.key else ""
+        builder.add(InlineKeyboardButton(
+            text=f"{theme.name}{mark}",
+            callback_data=f"prem_ppt_theme:{theme.key}"))
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+@router.callback_query(F.data.startswith("prem_ppt_theme:"),
+                       PremiumPresentationStates.waiting_for_theme)
+async def premium_ppt_got_theme(callback: CallbackQuery, state: FSMContext, db: Database):
+    """Rang tanlandi — to'lov oynasiga o'tamiz."""
+    await callback.answer()
+    user = await db.get_user(callback.from_user.id)
+    lang = user.language if user else "uz"
+    data = await state.get_data()
+
+    from services.premium_presentation import themes as _themes
+    choice = callback.data.split(":", 1)[1]
+    theme = (_themes.suggest(data.get("topic", "")) if choice == "auto"
+             else _themes.get(choice))
+    await state.update_data(theme_key=theme.key)
+    await state.set_state(PremiumPresentationStates.waiting_for_slide_count)
+    await _show_payment_summary(callback, state, lang, theme.name)
+
+
+async def _show_payment_summary(callback: CallbackQuery, state: FSMContext,
+                                lang: str, theme_name: str = "") -> None:
+    data = await state.get_data()
+    topic = data.get("topic", "")
+    client_name = data.get("client_name", "")
+    preferences = data.get("preferences", "")
+    slide_count = data.get("slide_count", MIN_SLIDES)
+    price = data.get("price", _get_price(slide_count))
+    level = data.get("level", 2)
+    level_label = LEVEL_LABELS.get(level, {}).get(lang, "")
+
+    theme_line = {
+        "uz": f"🎨 Rang: <b>{theme_name}</b>\n" if theme_name else "",
+        "ru": f"🎨 Цвет: <b>{theme_name}</b>\n" if theme_name else "",
+        "en": f"🎨 Colour: <b>{theme_name}</b>\n" if theme_name else "",
+    }
+
+    name_line = {
+        "uz": f"👤 Mijoz: <b>{client_name or 'ko‘rsatilmagan — o‘tkazib yuborilgan'}</b>\n",
+        "ru": f"👤 Клиент: <b>{client_name or 'не указан — пропущено'}</b>\n",
+        "en": f"👤 Client: <b>{client_name or 'not provided — skipped'}</b>\n",
+    }
+    preference_line = {
+        "uz": f"🎨 Istaklar: <i>{preferences or 'ko‘rsatilmagan — AI o‘zi tanlaydi'}</i>\n",
+        "ru": f"🎨 Пожелания: <i>{preferences or 'не указаны — AI выберет сам'}</i>\n",
+        "en": f"🎨 Preferences: <i>{preferences or 'not provided — AI will decide'}</i>\n",
+    }
+    msgs = {
+        "uz": (
+            f"⭐ <b>Premium Taqdimot</b>\n\n"
+            f"📋 Mavzu: <b>{topic}</b>\n"
+            f"{name_line['uz']}"
+            f"{preference_line['uz']}"
+            f"📐 Daraja: <b>{level_label}</b>\n"
+            f"{theme_line['uz']}"
+            f"📊 Slaydlar: <b>{slide_count} ta</b>\n"
+            f"💰 Narx: <b>{price:,} so'm</b>\n\n"
+            f"Hisobingizdan yechiladi. Tasdiqlaysizmi?"
+        ),
+        "ru": (
+            f"⭐ <b>Премиум Презентация</b>\n\n"
+            f"📋 Тема: <b>{topic}</b>\n"
+            f"{name_line['ru']}"
+            f"{preference_line['ru']}"
+            f"📐 Уровень: <b>{level_label}</b>\n"
+            f"{theme_line['ru']}"
+            f"📊 Слайдов: <b>{slide_count}</b>\n"
+            f"💰 Цена: <b>{price:,} сум</b>\n\n"
+            f"Будет списано с вашего баланса. Подтверждаете?"
+        ),
+        "en": (
+            f"⭐ <b>Premium Presentation</b>\n\n"
+            f"📋 Topic: <b>{topic}</b>\n"
+            f"{name_line['en']}"
+            f"{preference_line['en']}"
+            f"📐 Level: <b>{level_label}</b>\n"
+            f"{theme_line['en']}"
+            f"📊 Slides: <b>{slide_count}</b>\n"
+            f"💰 Price: <b>{price:,} soʻm</b>\n\n"
+            f"Will be deducted from your balance. Confirm?"
+        ),
+    }
+    await callback.message.edit_text(
+        msgs.get(lang, msgs["uz"]),
+        parse_mode="HTML",
+        reply_markup=_confirm_keyboard(lang, slide_count, price)
+    )
+
+
+@router.callback_query(F.data == "prem_ppt_recount", PremiumPresentationStates.waiting_for_slide_count)
+async def premium_ppt_recount(callback: CallbackQuery, state: FSMContext, db: Database):
+    await callback.answer()
+    user = await db.get_user(callback.from_user.id)
+    lang = user.language if user else "uz"
+    data = await state.get_data()
+    topic = data.get("topic", "")
+    level = data.get("level", 2)
+    level_label = LEVEL_LABELS.get(level, {}).get(lang, "")
+
+    msgs = {
+        "uz": f"📋 Mavzu: <b>{topic}</b>\n📐 Daraja: <b>{level_label}</b>\n\n📊 Necha slayd kerak?",
+        "ru": f"📋 Тема: <b>{topic}</b>\n📐 Уровень: <b>{level_label}</b>\n\n📊 Сколько слайдов нужно?",
+        "en": f"📋 Topic: <b>{topic}</b>\n📐 Level: <b>{level_label}</b>\n\n📊 How many slides do you need?",
+    }
+    await callback.message.edit_text(msgs.get(lang, msgs["uz"]), parse_mode="HTML",
+                                     reply_markup=_slide_count_keyboard(lang))
+
+
+# ──────────────────────────────────────────────────────────────── CONFIRM & GENERATE
+
+async def _order(user_id: int, state: FSMContext) -> dict:
+    """Buyurtmani FSM dan, u yo'q bo'lsa saqlangan nusxadan oladi."""
+    data = await state.get_data()
+    if data.get("topic") and not pay.is_expired(data):
+        return data
+
+    saved = pay.recall(user_id, CHECKOUT.service)
+    if saved:
+        await state.set_data(saved)
+        await state.set_state(PremiumPresentationStates.waiting_for_payment)
+    return saved
+
+
+async def _report_expired(message: Message, state: FSMContext, lang: str) -> None:
+    await state.clear()
+    await message.answer(get_text(lang, "pay_order_expired"), parse_mode="HTML")
+
+
+@router.callback_query(F.data == CHECKOUT.pay_other)
+async def premium_ppt_other_methods(callback: CallbackQuery, state: FSMContext, db: Database):
+    """Stars va balansni to'ldirish — asosiy oynani chalg'itmasin deb shu yerda."""
+    await callback.answer()
+    user = await db.get_user(callback.from_user.id)
+    lang = user.language if user else "uz"
+    data = await _order(callback.from_user.id, state)
+    if not data:
+        await _report_expired(callback.message, state, lang)
+        return
+    price = int(data.get("price", _get_price(MIN_SLIDES)))
+    await callback.message.edit_text(
+        get_text(lang, "pay_other_title", price=price),
+        parse_mode="HTML",
+        reply_markup=pay.other_methods_keyboard(CHECKOUT, lang, price),
+    )
+
+
+@router.callback_query(F.data == CHECKOUT.pay_back)
+async def premium_ppt_payment_back(callback: CallbackQuery, state: FSMContext, db: Database):
+    """«Boshqa usullar»dan asosiy to'lov oynasiga qaytish."""
+    await callback.answer()
+    user = await db.get_user(callback.from_user.id)
+    lang = user.language if user else "uz"
+    data = await _order(callback.from_user.id, state)
+    if not data:
+        await _report_expired(callback.message, state, lang)
+        return
+    price = int(data.get("price", _get_price(MIN_SLIDES)))
+    texts = {
+        "uz": f"✅ <b>Buyurtma tasdiqlandi</b>\n\n💰 Narx: <b>{price:,} so'm</b>\nTo'lov usulini tanlang:",
+        "ru": f"✅ <b>Заказ подтверждён</b>\n\n💰 Цена: <b>{price:,} сум</b>\nВыберите способ оплаты:",
+        "en": f"✅ <b>Order confirmed</b>\n\n💰 Price: <b>{price:,} so'm</b>\nChoose a payment method:",
+    }
+    await state.set_state(PremiumPresentationStates.waiting_for_payment)
+    await callback.message.edit_text(texts.get(lang, texts["uz"]), parse_mode="HTML",
+                                     reply_markup=_payment_keyboard(lang, price))
+
+
+@router.callback_query(F.data == CHECKOUT.recheck)
+async def premium_ppt_recheck(callback: CallbackQuery, state: FSMContext, db: Database):
+    """Balans to'ldirilgandan keyin — buyurtmani yo'qotmasdan davom etish."""
+    user = await db.get_user(callback.from_user.id)
+    lang = user.language if user else "uz"
+    data = await _order(callback.from_user.id, state)
+    if not data:
+        await callback.answer()
+        await _report_expired(callback.message, state, lang)
+        return
+
+    price = int(data.get("price", _get_price(MIN_SLIDES)))
+    balance = user.balance if user else 0
+    if balance < price:
+        await callback.answer(
+            get_text(lang, "pay_still_short", balance=balance, price=price),
+            show_alert=True,
+        )
+        return
+
+    await callback.answer()
+    pay.forget(callback.from_user.id)
+    await state.update_data(payment_method="balance")
+    await state.set_state(PremiumPresentationStates.waiting_for_slide_count)
+    await premium_ppt_confirm(callback, state, db)
+
+@router.callback_query(
+    F.data == CHECKOUT.pay_balance,
+    PremiumPresentationStates.waiting_for_payment,
+)
+async def premium_ppt_pay_balance(callback: CallbackQuery, state: FSMContext, db: Database):
+    # premium_ppt_confirm() callback'ni o'zi tasdiqlaydi. Bu yerda yana
+    # callback.answer() chaqirish Telegram callback'ini ikki marta
+    # tasdiqlashga urinish va keyingi bosqich ochilmasligiga olib keladi.
+    await state.update_data(payment_method="balance")
+    await state.set_state(PremiumPresentationStates.waiting_for_slide_count)
+    await premium_ppt_confirm(callback, state, db)
+
+
+@router.callback_query(
+    F.data == CHECKOUT.pay_stars,
+    PremiumPresentationStates.waiting_for_payment,
+)
+async def premium_ppt_pay_stars(callback: CallbackQuery, state: FSMContext, db: Database):
+    await callback.answer()
+    user = await db.get_user(callback.from_user.id)
+    lang = user.language if user else "uz"
+    data = await _order(callback.from_user.id, state)
+    if not data:
+        await _report_expired(callback.message, state, lang)
+        return
+    price = int(data.get("price", _get_price(MIN_SLIDES)))
+    slide_count = int(data.get("slide_count", 10))
+    sent = await pay.send_invoice(
+        callback.message, CHECKOUT, lang, price,
+        title="Premium taqdimot",
+        description=f"{slide_count} ta slayd uchun premium taqdimot",
+    )
+    if sent:
+        try:
+            await callback.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+
+
+@router.message(
+    PremiumPresentationStates.waiting_for_payment,
+    F.successful_payment,
+)
+async def premium_ppt_successful_stars(
+    message: Message, state: FSMContext, db: Database
+):
+    payment = message.successful_payment
+    if not payment or not CHECKOUT.owns_payload(payment.invoice_payload):
+        return
+
+    data = await _order(message.chat.id, state)
+    if not data:
+        await _report_expired(message, state, "uz")
+        return
+    pay.forget(message.chat.id)
+    await state.update_data(payment_method="stars")
+    await state.set_state(PremiumPresentationStates.waiting_for_slide_count)
+    adapter = _MessageCallbackAdapter(
+        message,
+        data=f"prem_ppt_count:{data.get('slide_count', 10)}",
+    )
+    await premium_ppt_confirm(adapter, state, db)
+
+
+@router.callback_query(
+    F.data == "prem_ppt_back_to_confirm",
+    PremiumPresentationStates.waiting_for_payment,
+)
+async def premium_ppt_back_to_confirm(callback: CallbackQuery, state: FSMContext, db: Database):
+    await callback.answer()
+    data = await state.get_data()
+    slide_count = int(data.get("slide_count", 10))
+    adapter = _MessageCallbackAdapter(
+        callback.message,
+        data=f"prem_ppt_count:{slide_count}",
+    )
+    await state.set_state(PremiumPresentationStates.waiting_for_slide_count)
+    await premium_ppt_got_count(adapter, state, db)
+
+@router.callback_query(F.data == "prem_ppt_confirm", PremiumPresentationStates.waiting_for_slide_count)
+async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Database):
+    await callback.answer()
+    user = await db.get_user(callback.from_user.id)
+    lang = user.language if user else "uz"
+    data = await state.get_data()
+
+    # Tasdiqlash va to'lov tanlovi alohida ekranda bo'ladi.
+    if not data.get("payment_method"):
+        price = data.get("price", _get_price(MIN_SLIDES))
+        await state.set_state(PremiumPresentationStates.waiting_for_payment)
+        payment_texts = {
+            "uz": (
+                "✅ <b>Buyurtma tasdiqlandi</b>\n\n"
+                f"💰 Narx: <b>{price:,} so'm</b>\n"
+                "To‘lov usulini tanlang:"
+            ),
+            "ru": (
+                "✅ <b>Заказ подтверждён</b>\n\n"
+                f"💰 Цена: <b>{price:,} сум</b>\n"
+                "Выберите способ оплаты:"
+            ),
+            "en": (
+                "✅ <b>Order confirmed</b>\n\n"
+                f"💰 Price: <b>{price:,} soʻm</b>\n"
+                "Choose a payment method:"
+            ),
+        }
+        # Buyurtma shu yerdayoq saqlanadi: mijoz to'lov usulini tanlashdan
+        # oldin balansni to'ldirishga ketishi mumkin, u oqim esa FSM ni
+        # tozalaydi.
+        pay.remember(callback.from_user.id, CHECKOUT.service, await state.get_data())
+        await callback.message.edit_text(
+            payment_texts.get(lang, payment_texts["uz"]),
+            parse_mode="HTML",
+            reply_markup=_payment_keyboard(lang, price),
+        )
+        return
+
+    topic = data.get("topic", "")
+    preferences = data.get("preferences", "")
+    source_text = data.get("source_text", "")
+    presentation_language = data.get("presentation_language", "uz")
+    slide_count = data.get("slide_count", 10)
+    price = data.get("price", _get_price(MIN_SLIDES))
+    level = data.get("level", 2)
+    client_name = data.get("client_name", "")
+
+    payment_method = data.get("payment_method", "balance")
+
+    # Faqat balans orqali to'lovda balansni tekshiramiz va yechamiz.
+    if payment_method == "balance" and user.balance < price:
+        # Buyurtma FSM dan tashqarida saqlanadi: balansni to'ldirish oqimi
+        # FSM ni tozalaydi, shuning uchun ilgari mijoz hamma narsani
+        # qaytadan kiritishga majbur bo'lardi.
+        await state.update_data(payment_method=None)
+        pay.remember(callback.from_user.id, CHECKOUT.service, await state.get_data())
+        await state.set_state(PremiumPresentationStates.waiting_for_payment)
+        await pay.send_shortfall(callback.message, CHECKOUT, lang, price, user.balance)
+        return
+
+    if payment_method == "balance":
+        await db.update_user_balance(callback.from_user.id, -price)
+    await state.set_state(PremiumPresentationStates.generating)
+
+    # Create a status message before the AI content and PPTX generation starts.
+    initial_status_texts = {
+        "uz": (
+            f"⏳ <b>{topic}</b>\n"
+            f"📄 {slide_count} ta slaydli PPTX tayyorlanmoqda..."
+        ),
+        "ru": (
+            f"⏳ <b>{topic}</b>\n"
+            f"📄 Готовим PPTX-презентацию на {slide_count} слайдов..."
+        ),
+        "en": (
+            f"⏳ <b>{topic}</b>\n"
+            f"📄 Preparing the {slide_count}-slide PPTX..."
+        ),
+    }
+    try:
+        status = await callback.message.edit_text(
+            initial_status_texts.get(lang, initial_status_texts["uz"]),
+            parse_mode="HTML",
+        )
+    except Exception:
+        # Successful Stars payments arrive as a service message that may not
+        # be editable, so use a new message in that case.
+        status = await callback.message.answer(
+            initial_status_texts.get(lang, initial_status_texts["uz"]),
+            parse_mode="HTML",
+        )
+
+    total_chunks = max(1, (slide_count + 4) // 5)
+    status_msgs = {
+        "uz": (
+            f"⚙️ <b>{topic}</b>\n"
+            f"📄 {slide_count} ta slayd tayyorlanmoqda...\n\n"
+            f"⏳ Kontent 1/{total_chunks} bo'lak..."
+        ),
+        "ru": (
+            f"⚙️ <b>{topic}</b>\n"
+            f"📄 Готовим {slide_count} слайдов...\n\n"
+            f"⏳ Контент 1/{total_chunks} часть..."
+        ),
+        "en": (
+            f"⚙️ <b>{topic}</b>\n"
+            f"📄 Preparing {slide_count} slides...\n\n"
+            f"⏳ Content 1/{total_chunks} chunk..."
+        ),
+    }
+
+    # Edit the status message created above — after a Stars payment that message
+    # is a fresh one, not `callback.message`.
+    await status.edit_text(status_msgs.get(lang, status_msgs["uz"]), parse_mode="HTML")
+
+    loop = asyncio.get_running_loop()
+    rotating_facts = {
+        "uz": [
+            "Quyosh nuri Yerga taxminan 8 daqiqa 20 soniyada yetib keladi.",
+            "Ahtapotning uchta yuragi bor, qoni esa ko‘kimtir rangda bo‘ladi.",
+            "Asalarilar raqs orqali oziq manzilini bir-biriga bildiradi.",
+            "Odam miyasi tanadagi energiyaning taxminan 20 foizini sarflaydi.",
+            "Venerada bir kun bir yildan uzunroq davom etadi.",
+            "AI endi o‘rgangan ma’lumotlar asosida slaydlarni tekshirmoqda.",
+        ],
+        "ru": [
+            "Солнечный свет достигает Земли примерно за 8 минут 20 секунд.",
+            "У осьминога три сердца, а его кровь имеет голубоватый цвет.",
+            "Пчёлы сообщают друг другу о местоположении пищи с помощью танца.",
+            "Мозг человека расходует около 20 процентов энергии организма.",
+            "На Венере один день длится дольше, чем один год.",
+            "AI проверяет слайды на основе изученных материалов.",
+        ],
+        "en": [
+            "Sunlight takes about 8 minutes and 20 seconds to reach Earth.",
+            "An octopus has three hearts, and its blood is bluish.",
+            "Bees use a dance to tell each other where food can be found.",
+            "The human brain uses about 20 percent of the body's energy.",
+            "A day on Venus lasts longer than one Venusian year.",
+            "AI is checking the slides against the material it has learned.",
+        ],
+    }
+    preparing_labels = {
+        "uz": ("Tayyorlash jarayonida...", "Tayyorlanmoqda..."),
+        "ru": ("Подготовка...", "Готовим презентацию..."),
+        "en": ("Preparing...", "Creating your presentation..."),
+    }
+    fact_index = 0
+    animation_task = None
+
+    async def rotate_status():
+        nonlocal fact_index
+        facts = rotating_facts.get(lang, rotating_facts["uz"])
+        while True:
+            await asyncio.sleep(6.5)
+            fact_index = (fact_index + 1) % len(facts)
+            try:
+                await status.edit_text(
+                    f"⚙️ <b>{topic}</b>\n"
+                    f"📄 {slide_count} "
+                    f"{'ta slayd' if lang == 'uz' else 'слайдов' if lang == 'ru' else 'slides'} "
+                    f"{preparing_labels.get(lang, preparing_labels['uz'])[1]}\n\n"
+                    f"⏳ <b>{preparing_labels.get(lang, preparing_labels['uz'])[0]}</b>\n"
+                    f"💡 {facts[fact_index]}",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
+
+    animation_task = asyncio.create_task(rotate_status())
+
+    def progress_cb(done_chunk: int, total: int):
+        async def _edit():
+            try:
+                msgs2 = {
+                    "uz": (
+                        f"⚙️ <b>{topic}</b>\n"
+                        f"📄 {slide_count} ta slayd\n\n"
+                        f"⏳ Kontent: {done_chunk}/{total} bo'lak tayyor..."
+                    ),
+                    "ru": (
+                        f"⚙️ <b>{topic}</b>\n"
+                        f"📄 {slide_count} слайдов\n\n"
+                        f"⏳ Контент: {done_chunk}/{total} частей готово..."
+                    ),
+                    "en": (
+                        f"⚙️ <b>{topic}</b>\n"
+                        f"📄 {slide_count} slides\n\n"
+                        f"⏳ Content: {done_chunk}/{total} chunks done..."
+                    ),
+                }
+                fact = rotating_facts.get(lang, rotating_facts["uz"])[fact_index % len(rotating_facts.get(lang, rotating_facts["uz"]))]
+                await status.edit_text(
+                    msgs2.get(lang, msgs2["uz"]) + f"\n💡 {fact}",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
+        asyncio.run_coroutine_threadsafe(_edit(), loop)
+
+    # Admin paneldagi yangilash tugmasi shu ro'yxatga qaraydi: taqdimot
+    # navbatdan tashqarida yaratiladi, sanalmasa "hech narsa bajarilmayapti"
+    # deb ko'rinardi va qayta ishga tushirish uni uzib qo'yardi.
+    work_id = workload.begin("premium taqdimot")
+    html_pages: list = []
+    try:
+        # Premium taqdimot modeli admin panelda alohida tanlanadi.
+        # Generatsiya sinxron oqimda ishlaydi va u yerdan bazaga murojaat
+        # qilib bo'lmaydi, shuning uchun tanlov shu yerda o'qiladi.
+        try:
+            from config import AI_MODELS
+            from services.premium_presentation import llm_client as _llm
+
+            premium_key = await db.get_premium_ai_model()
+            if premium_key in AI_MODELS:
+                _llm.set_text_model(AI_MODELS[premium_key]["id"])
+        except Exception as e:
+            logger.error("Premium model tanlovini o'qib bo'lmadi: %s", e)
+
+        from services.premium_presentation import (html_images, html_render,
+                                                    html_slides, themes)
+
+        theme = themes.get(data.get("theme_key", "")) if data.get("theme_key") \
+            else themes.suggest(topic)
+
+        # 1 — AI butun slaydni HTML/CSS/SVG qilib chizadi. Kod unga
+        # faqat qobiq shartlarini (o'lcham, shrift, rang, tashqi fayl
+        # yo'qligi) va joylashuv kategoriyalarini beradi — ichki
+        # kompozitsiyani har safar o'zi o'ylab topadi.
+        html_pages = await _run_step(
+            loop,
+            lambda: html_slides.write_slides(
+                topic, slide_count, theme, language=presentation_language,
+                level=level, preferences=preferences,
+                source_text=source_text, author=client_name,
+                progress_cb=progress_cb),
+            step="brief", label="Slaydlarni yozish")
+
+        # 2 — Fotosuratlar. AI slaydda faqat rasm o'rnini belgilaydi,
+        # rasmning o'zini Together chizadi.
+        html_pages = await _run_step(
+            loop,
+            lambda: html_slides.ensure_photos(
+                html_pages, theme, presentation_language),
+            step="brief", label="Rasm o'rinlarini tekshirish")
+
+        step_photo = {
+            "uz": (f"⚙️ <b>{topic}</b>\n"
+                   f"✅ Slaydlar yozildi: {len(html_pages)} ta\n"
+                   f"🖼 Rasmlar chizilmoqda..."),
+            "ru": (f"⚙️ <b>{topic}</b>\n"
+                   f"✅ Слайды написаны: {len(html_pages)}\n"
+                   f"🖼 Рисуем изображения..."),
+            "en": (f"⚙️ <b>{topic}</b>\n"
+                   f"✅ Slides written: {len(html_pages)}\n"
+                   f"🖼 Generating images..."),
+        }
+        await status.edit_text(step_photo.get(lang, step_photo["uz"]),
+                               parse_mode="HTML")
+
+        # Ikonkalar tayyor turadi — tekin va tez, shuning uchun avval
+        # ular qo'yiladi, keyin fotosurat chizdiriladi.
+        html_pages, icons = await _run_step(
+            loop, lambda: html_images.apply_icons(html_pages, theme),
+            step="render", label="Ikonkalarni qo'yish")
+        html_pages, photos = await html_images.illustrate(
+            html_pages, theme, topic)
+        logger.info("Taqdimot bezagi: %d ikonka, %d fotosurat", icons, photos)
+
+        step2 = {
+            "uz": (f"⚙️ <b>{topic}</b>\n"
+                   f"✅ Slaydlar: {len(html_pages)} ta, rasm: {photos} ta\n"
+                   f"⏳ PowerPointga o'tkazilmoqda..."),
+            "ru": (f"⚙️ <b>{topic}</b>\n"
+                   f"✅ Слайдов: {len(html_pages)}, изображений: {photos}\n"
+                   f"⏳ Переносим в PowerPoint..."),
+            "en": (f"⚙️ <b>{topic}</b>\n"
+                   f"✅ Slides: {len(html_pages)}, images: {photos}\n"
+                   f"⏳ Building the PowerPoint file..."),
+        }
+        await status.edit_text(step2.get(lang, step2["uz"]), parse_mode="HTML")
+
+        # 3 — Brauzerda 1920×1080 joylashtiriladi va PPTX ga yig'iladi.
+        # Brauzer nima ko'rsatsa, PowerPointda ham aynan o'sha turadi.
+        # Joylashuvi buzilgan slayd bir marta qayta chizdiriladi:
+        # buzilganini faqat brauzer ko'radi, AI esa uni ko'rmaydi.
+        final_path = await _run_step(
+            loop,
+            lambda: html_render.render(
+                html_pages,
+                repair=lambda page, problems: html_slides.fix_slide(
+                    page, problems, theme, presentation_language)),
+            step="render", label="Slaydlarni suratga olish")
+
+    except Exception as e:
+        logger.exception("Premium taqdimot generatsiyasida xato: %s", e)
+        if animation_task:
+            animation_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await animation_task
+        # Balansni qaytarish
+        await db.update_user_balance(callback.from_user.id, price)
+        err_msgs = {
+            "uz": (
+                f"❌ Xatolik yuz berdi:\n{str(e)[:300]}\n\n"
+                f"💰 {price:,} so'm hisobingizga qaytarildi.\n"
+                f"Qayta urinib ko'ring."
+            ),
+            "ru": (
+                f"❌ Произошла ошибка:\n{str(e)[:300]}\n\n"
+                f"💰 {price:,} сум возвращены на баланс.\n"
+                f"Попробуйте снова."
+            ),
+            "en": (
+                f"❌ An error occurred:\n{str(e)[:300]}\n\n"
+                f"💰 {price:,} soʻm refunded to your balance.\n"
+                f"Please try again."
+            ),
+        }
+        try:
+            await status.edit_text(err_msgs.get(lang, err_msgs["uz"]), parse_mode="HTML")
+        except Exception:
+            pass
+        await state.clear()
+        return
+
+    if animation_task:
+        animation_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await animation_task
+
+    # Tayyor — yuborish
+    ready = len(html_pages)
+    done_msgs = {
+        "uz": f"✅ <b>{topic}</b> — tayyor!\n📊 {ready} slayd | Yuborilmoqda...",
+        "ru": f"✅ <b>{topic}</b> — готово!\n📊 {ready} слайдов | Отправляю...",
+        "en": f"✅ <b>{topic}</b> — done!\n📊 {ready} slides | Sending...",
+    }
+    try:
+        await status.edit_text(done_msgs.get(lang, done_msgs["uz"]), parse_mode="HTML")
+    except Exception:
+        pass
+
+    filename = f"Premium_{topic[:30].replace(' ', '_')}.pptx"
+    try:
+        from aiogram.types import FSInputFile
+        document = FSInputFile(final_path, filename=filename)
+        await callback.message.answer_document(document=document)
+        logger.info("Premium taqdimot yuborildi: %s → %s", final_path, callback.from_user.id)
+        try:
+            from services.store_publisher import schedule_publish
+
+            schedule_publish(callback.bot, final_path, topic, "premium_taqdimot",
+                             customer_name=client_name,
+                             language=presentation_language)
+        except Exception as store_err:
+            logger.warning("Katalogga yo'naltirilmadi (premium): %s", store_err)
+    except Exception as send_err:
+        logger.exception("Premium taqdimot yuborishda xato: %s", send_err)
+        # Balansni qaytarish
+        await db.update_user_balance(callback.from_user.id, price)
+        send_err_msgs = {
+            "uz": (
+                f"❌ Fayl yuborishda xato yuz berdi.\n\n"
+                f"💰 {price:,} so'm hisobingizga qaytarildi.\n"
+                f"Qayta urinib ko'ring yoki admin bilan bog'laning."
+            ),
+            "ru": (
+                f"❌ Ошибка при отправке файла.\n\n"
+                f"💰 {price:,} сум возвращены на баланс.\n"
+                f"Попробуйте снова или обратитесь к администратору."
+            ),
+            "en": (
+                f"❌ Error sending the file.\n\n"
+                f"💰 {price:,} soʻm refunded to your balance.\n"
+                f"Please try again or contact the administrator."
+            ),
+        }
+        try:
+            await callback.message.answer(
+                send_err_msgs.get(lang, send_err_msgs["uz"]), parse_mode="HTML"
+            )
+        except Exception:
+            pass
+    finally:
+        workload.end(work_id)
+        # Temp faylni o'chirish
+        try:
+            os.remove(final_path)
+        except Exception:
+            pass
+
+    await state.clear()
+
+
+# ──────────────────────────────────────────────────────────────── BACK
+
+@router.callback_query(F.data == "prem_ppt_back")
+async def premium_ppt_back(callback: CallbackQuery, state: FSMContext, db: Database):
+    await callback.answer()
+    await state.clear()
+    user = await db.get_user(callback.from_user.id)
+    lang = user.language if user else "uz"
+    from bot.keyboards import get_main_keyboard
+    from database.database import Database as DB
+    media_enabled = await db.get_feature_status("media")
+    book_translate_enabled = await db.get_feature_status("book_translate")
+    mahsus_ishlanma_enabled = await db.get_feature_status("mahsus_ishlanma")
+    await callback.message.delete()
+    await callback.message.answer(
+        "🏠 Bosh menyu",
+        reply_markup=get_main_keyboard(
+            lang,
+            media_enabled=media_enabled,
+            book_translate_enabled=book_translate_enabled,
+            mahsus_ishlanma_enabled=mahsus_ishlanma_enabled,
+        )
+    )

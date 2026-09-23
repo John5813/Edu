@@ -1,0 +1,1064 @@
+"""Loyiha ishi mazmunini spetsifikatsiya bo'yicha AI dan olish.
+
+Har bo'lim uchun matn, artefakt talab qilgan bo'limlar uchun jadval yoki
+sxema olinadi.
+
+Adabiyotlar ro'yxati so'ralmaydi: loyiha ishi shaxsan to'plangan ma'lumot
+sifatida topshiriladi, shuning uchun unda na foydalanilgan adabiyotlar
+bo'limi, na snoska bo'ladi.
+"""
+
+import asyncio
+import json
+import logging
+import re
+from dataclasses import dataclass, field as dataclass_field, replace
+from typing import Dict, List, Optional
+
+from utils.ai_text import token_budget, trim_to_last_sentence
+from utils.heading_guard import heading_rule, strip_echoed_heading
+
+from services import timeframe
+
+from .source import SourceMaterial
+from . import layout, tables
+from .specs import (
+    ARTIFACT_BREAKEVEN,
+    ARTIFACT_BUDGET,
+    ARTIFACT_CALC,
+    ARTIFACT_CASHFLOW,
+    ARTIFACT_COSTS,
+    ARTIFACT_FORECAST,
+    ARTIFACT_DATA,
+    ARTIFACT_MARKETING,
+    ARTIFACT_RESULTS,
+    ARTIFACT_RISKS,
+    ARTIFACT_SCHEME,
+    ARTIFACT_TIMELINE,
+    BLOCK_AUTO,
+    CHART_ARTIFACTS,
+    DEFAULT_BLOCKS,
+    DERIVED_TABLE_ARTIFACTS,
+    CARD_ARTIFACTS,
+    FORMULA_COUNTS,
+    TABLE_ARTIFACTS,
+    FIRST_PERSON_SECTIONS,
+    GENERIC_FIELD_KEY,
+    available_blocks,
+    SectionSpec,
+    generic_sections,
+    sections_for,
+)
+
+logger = logging.getLogger(__name__)
+
+# Bir vaqtda nechta bo'lim yozilsin — ketma-ket juda sekin, cheksiz parallel
+# esa provayder limitiga uriladi.
+_CONCURRENCY = 3
+
+# Bundan qisqa manba promptga o'z holicha ketadi; uzuni bir marta siqiladi.
+_SOURCE_INLINE_LIMIT = 4_000
+_SOURCE_CONDENSE_LIMIT = 40_000
+
+_LANGUAGE_NAMES = {"uz": "Uzbek", "ru": "Russian", "en": "English"}
+
+# Modelning o'zi yozadigan jadvallar. Bularning mazmuni matn: ustunlar ham
+# mavzuga qarab o'zgaradi, shuning uchun ularni kod bilan qurib bo'lmaydi.
+#
+# Byudjet, bosqichlar, risklar, marketing, chiqim va pul oqimi jadvallari bu
+# yerda YO'Q: ular diagramma ma'lumotidan `tables.py` da quriladi, ya'ni
+# jadvaldagi raqam bilan diagrammadagi raqam bir xil bo'ladi.
+_TABLE_KINDS = {
+    ARTIFACT_CALC: {
+        "columns": {
+            "uz": ["Ko'rsatkich", "Hisoblash usuli", "Natija", "O'lchov birligi"],
+            "ru": ["Показатель", "Способ расчёта", "Результат", "Единица измерения"],
+            "en": ["Indicator", "Calculation", "Result", "Unit"],
+        },
+        "ask": (
+            "the step-by-step numeric calculation this project rests on. Each row is "
+            "one computed quantity: what it is, how it is obtained from the previous "
+            "figures, the resulting number, and its unit. The rows must follow on from "
+            "one another and the arithmetic must be correct. Write the calculation "
+            "column as a compact formula with symbols or short factors "
+            "(\"18 x 4,5 mln\", \"Jami xarajat / hajm\"), never as an enumeration "
+            "of every component"
+        ),
+        "rows": 6,
+    },
+    ARTIFACT_DATA: {
+        "columns": None,  # ustunlarni AI mavzuga qarab o'zi tanlaydi
+        "ask": "the most useful analytical table for this particular section",
+        "rows": 6,
+    },
+}
+
+# Diagramma quriladigan artefaktlar. Jadvaldan farqi: bu yerda AI dan matn
+# emas, SON so'raladi — chizish uchun raqam kerak.
+_CHART_SHAPES = {
+    ARTIFACT_BUDGET: (
+        'the one-off investment items the project needs to start, with realistic '
+        'Uzbekistan market prices. For each item give "quantity" (how many), '
+        '"unit" (what is counted: dona, komplekt, m2, xizmat) and "unit_price" '
+        'in so\'m. Quantity and unit price are plain numbers; the line total and '
+        'the grand total are computed from them, so do NOT give a total row. '
+        'Give 5-7 items, largest first.',
+        '{"items": [{"name": "Ishlab chiqarish uskunasi", "quantity": 3, '
+        '"unit": "dona", "unit_price": 16000000}]}',
+    ),
+    ARTIFACT_TIMELINE: (
+        'the sequential stages of the project. "start" is the month the stage '
+        'begins counted from zero, "duration" is its length in months; both are '
+        'plain numbers. "owner" is who is responsible and "result" is the '
+        'concrete deliverable that stage ends with. Stages follow one another '
+        'without gaps. Give 5-7 stages.',
+        '{"stages": [{"name": "Tayyorgarlik va loyihalash", "start": 0, '
+        '"duration": 2, "owner": "Loyiha rahbari", "result": "Tasdiqlangan '
+        'texnik topshiriq"}]}',
+    ),
+    ARTIFACT_RISKS: (
+        'the risks specific to this project, not generic ones. "likelihood" and '
+        '"impact" must each be exactly one of: past, o\'rta, yuqori. Give 5-6 risks.',
+        '{"risks": [{"name": "Uskuna yetkazib berish kechikishi", "likelihood": "o\'rta", "impact": "yuqori", "mitigation": "Ikkinchi yetkazib beruvchi bilan shartnoma"}]}',
+    ),
+    ARTIFACT_RESULTS: (
+        'the measurable indicators of the project\'s success. "current" and '
+        '"target" are plain numbers, "unit" is their unit of measure. Give 4-5 '
+        'indicators whose target is clearly better than the current value.',
+        '{"indicators": [{"name": "Ishlab chiqarish hajmi", "current": 1200, "target": 3400, "unit": "tonna/yil"}]}',
+    ),
+    ARTIFACT_FORECAST: (
+        'a forecast of the project\'s key quantity over four periods, starting '
+        'from the current year. "value" is the expected figure, "low" and "high" '
+        'the confidence range; all plain numbers in the same unit. The first '
+        'period is today\'s actual figure, so its low and high equal its value.',
+        f'{{"unit": "mln so\'m", "points": [{{"period": "{timeframe.current_year()}", '
+        f'"value": 1200, "low": 1200, "high": 1200}}]}}',
+    ),
+    ARTIFACT_MARKETING: (
+        'the sales forecast and the promotion channels behind it. "periods" are '
+        '4-6 consecutive selling periods (quarters or years) with "units" — how '
+        'much is sold — and "revenue" — what it brings in, expressed in '
+        '"money_unit". "channels" are 4-5 real promotion channels with the '
+        '"budget" spent on each in so\'m, the "reach" in people, the '
+        '"conversion" share as text, and the resulting number of "customers". '
+        'The cost per customer is computed from budget and customers, so do not '
+        'give it. Every figure is a plain number and the channel figures must be '
+        'consistent with the sales forecast.',
+        '{"unit": "dona", "money_unit": "mln so\'m", '
+        f'"periods": [{{"period": "{timeframe.current_year()} I chorak", '
+        f'"units": 1200, "revenue": 96}}], '
+        '"channels": [{"name": "Instagram maqsadli reklama", "budget": 12000000, '
+        '"reach": 150000, "conversion": "1,2%", "customers": 1800}]}',
+    ),
+    ARTIFACT_COSTS: (
+        'the recurring cost of running the project for one year — not the '
+        'one-off investment. Each item has "kind", which is exactly one of '
+        'doimiy (a cost that does not change with output) or o\'zgaruvchi (one '
+        'that does), and "amount", the annual figure in so\'m as a plain '
+        'number. The share of each item is computed, so do not give it. '
+        '"output" is what the project produces in that same year, with its own '
+        'unit, so that the cost of one unit can be worked out. Give 5-7 items, '
+        'largest first.',
+        '{"output": {"name": "Yillik ishlab chiqarish", "value": 12000, '
+        '"unit": "tonna"}, "items": [{"name": "Xom ashyo va materiallar", '
+        '"kind": "o\'zgaruvchi", "amount": 240000000}]}',
+    ),
+    ARTIFACT_BREAKEVEN: (
+        'the figures the break-even point is worked out from. "fixed" is the '
+        'annual fixed cost, "price" the selling price of one unit and "variable" '
+        'the variable cost of one unit — all three in the same "money_unit". '
+        '"planned" is the volume the project plans to sell, in "unit". The price '
+        'must be greater than the variable cost, otherwise the project can never '
+        'break even. All four are plain numbers.',
+        '{"unit": "dona", "money_unit": "mln so\'m", "fixed": 420, '
+        '"price": 0.085, "variable": 0.052, "planned": 9000}',
+    ),
+    ARTIFACT_CASHFLOW: (
+        'the project\'s cash flow over 4-6 consecutive periods (years or '
+        'quarters), all figures in the same "money_unit" as plain numbers. '
+        '"income" is what comes in that period and "expense" what goes out; the '
+        'first period includes the initial investment, so its expense is much '
+        'larger and the flow starts negative. "investment" is that initial '
+        'outlay. The net and the accumulated flow are computed, so do not give '
+        'them, but the figures must be such that the accumulated flow turns '
+        'positive somewhere in the middle of the range.',
+        '{"money_unit": "mln so\'m", "investment": 420, '
+        f'"periods": [{{"period": "{timeframe.current_year()}", "income": 180, '
+        f'"expense": 560}}]}}',
+    ),
+}
+
+
+# Qaysi bo'limda qanday hisob kutiladi. Aniq nomlar berilgan, chunki
+# "samaradorlikni hisobla" degan ko'rsatma har bo'limda bir xil ROI ni
+# qaytarardi — mijoz esa bir hujjatda uchta bir xil formulani ko'rardi.
+_FORMULA_ASKS = {
+    ARTIFACT_CALC: (
+        "the numeric core of the project, step by step. Each calculation feeds "
+        "the next one: a quantity, then what is derived from it, then the "
+        "result that the project's decision rests on. These are the field's own "
+        "engineering or economic formulas, not general financial ratios."
+    ),
+    ARTIFACT_COSTS: (
+        "first the cost of one unit of output (total annual cost divided by "
+        "annual output), then the share of variable costs in the total and what "
+        "that share says about how the cost behaves when output changes."
+    ),
+    ARTIFACT_MARKETING: (
+        "first the cost of acquiring one customer (marketing budget divided by "
+        "the customers it brings), then the return on the marketing spend "
+        "(revenue it generates against the budget spent)."
+    ),
+    ARTIFACT_BREAKEVEN: (
+        "first the break-even volume in units — fixed costs divided by the "
+        "margin one unit contributes — then the break-even revenue, then the "
+        "safety margin: how far the planned volume sits above the break-even "
+        "volume, as a percentage."
+    ),
+    ARTIFACT_CASHFLOW: (
+        "first the payback period of the initial investment from the "
+        "accumulated cash flow, then the profitability of the investment over "
+        "the whole period."
+    ),
+    ARTIFACT_FORECAST: (
+        "first the growth rate the forecast implies between the first and the "
+        "last period, then the measure of effectiveness that fits this field."
+    ),
+    ARTIFACT_BUDGET: (
+        "the investment per unit of the capacity the money buys — what one unit "
+        "of output capacity costs to create."
+    ),
+    "default": (
+        "the measure of effectiveness that fits this field, worked through."
+    ),
+}
+
+
+# Loyiha ishi talabaning o'z ishi sifatida topshiriladi, shuning uchun matn
+# muallif tilidan yoziladi. Ilgari model "ushbu loyiha ishi talabaga ... imkon
+# beradi" deb hujjatning o'zi haqida uchinchi shaxsda yozardi — bu esa ish
+# boshqa birov tomonidan tayyorlanganini ko'rsatib turardi.
+#
+# Misollar promptga mijoz tanlagan tilda beriladi: ko'rsatmaning o'zi
+# inglizcha bo'lgani uchun model "men" ni ruscha matnda ham to'g'ri
+# ishlatishi uchun namunaga muhtoj.
+_VOICE_EXAMPLES = {
+    "uz": ('"Men shu loyihani tanladim", "hisoblab chiqdim", "shu yerda '
+           'tannarx qanday shakllanishini o\'rgandim"'),
+    "ru": ('"Я выбрал этот проект", "я рассчитал", "здесь я понял, как '
+           'формируется себестоимость"'),
+    "en": ('"I chose this project", "I calculated", "here I learned how the '
+           'unit cost is formed"'),
+}
+
+
+def _voice_rule(spec: SectionSpec, language: str) -> str:
+    """Bo'lim qanday shaxsda yozilishini aytadigan qoida."""
+    examples = _VOICE_EXAMPLES.get(language, _VOICE_EXAMPLES["uz"])
+    common = (
+        "- Never write about the document itself. Sentences of the kind \"this "
+        "project work gives the student...\" or \"the work examines...\" are "
+        "forbidden; write about the project and about what you did"
+    )
+    if spec.key in FIRST_PERSON_SECTIONS:
+        return (
+            "- Write in the FIRST PERSON SINGULAR, as the author speaking about "
+            f"their own work: {examples}. Not \"we\", not an impersonal voice\n"
+            + common
+        )
+    return (
+        "- Where the text speaks of work that was done — a choice, a "
+        "calculation, an observation — say it in the first person singular "
+        f"({examples}). The analysis itself stays factual\n" + common
+    )
+
+
+@dataclass
+class SectionContent:
+    spec: SectionSpec
+    text: str
+    table: Optional[Dict] = None       # {"headers": [...], "rows": [[...]]}
+    chart: Optional[Dict] = None       # diagramma yoki kartochka uchun raqamli ma'lumot
+    image_prompt: str = ""
+    # Bir bo'limda bir nechta hisob bo'lishi mumkin: tannarx ham, rentabellik
+    # ham, qoplanish muddati ham. Ilgari bittasi chiqardi.
+    formulas: List[Dict] = dataclass_field(default_factory=list)
+    # Diagramma ostidagi izoh. Ustoz "bu nimani ko'rsatadi" deb so'raganda
+    # javob hujjatning o'zida turishi kerak.
+    note: str = ""
+
+
+# Hujjatga qo'yiladigan haqiqiy suratlar soni. Sxemalar va diagrammalar
+# ma'lumotni ko'rsatadi, surat esa ishga jonli tus beradi — ikkitasi
+# hujjatni bosib ketmaydi.
+PHOTOGRAPHS_PER_WORK = 2
+
+
+def _place_photographs(sections: list, topic: str, wanted: int = PHOTOGRAPHS_PER_WORK) -> list:
+    """Bir nechta bo'limga realistik surat prompti biriktiradi.
+
+    Nechta surat qo'yilishi hujjat hajmiga bog'liq: 12 varoqli ishda ikkita
+    surat matnga joy qoldirmaydi.
+
+    Infografika yoki sxema emas, aynan surat: mijoz hujjatda jonli tasvir
+    ko'rishni kutadi. Diagramma yoki jadvali bor bo'limlar chetlab
+    o'tiladi — ular allaqachon vizual to'la.
+    """
+    free = [
+        index for index, section in enumerate(sections)
+        if not section.chart and not section.table
+        and section.spec.key not in {"kirish", "xulosa"}
+        and not section.image_prompt
+    ]
+    if not free:
+        return sections
+
+    # Hujjat bo'ylab tekis taqsimlaymiz: boshida va o'rtasida.
+    chosen = []
+    if free:
+        chosen.append(free[0])
+    if len(free) > 1:
+        chosen.append(free[len(free) // 2] if free[len(free) // 2] != free[0] else free[-1])
+
+    for index in chosen[:max(0, wanted)]:
+        section = sections[index]
+        section.image_prompt = (
+            f"professional documentary photograph illustrating "
+            f"{section.spec.heading('en').lower()} in the context of {topic}. "
+            "Real people and real equipment in a real workplace, natural "
+            "lighting, sharp focus, photorealistic, editorial quality. "
+            "No text, no letters, no diagrams, no illustration style."
+        )
+    return sections
+
+
+@dataclass
+class ProjectContent:
+    topic: str
+    field_key: str
+    language: str
+    author_name: str = ""
+    # Chizma shakli va rang sxemasi shu mijozning oldingi ishlariga qarab
+    # tanlanadi, shuning uchun kim buyurtma bergani ma'lum bo'lishi kerak.
+    user_id: Optional[int] = None
+    sections: List[SectionContent] = dataclass_field(default_factory=list)
+
+
+class ProjectContentBuilder:
+    def __init__(self, ai_service):
+        self.ai = ai_service
+
+    async def build(
+        self,
+        topic: str,
+        field_key: str,
+        language: str,
+        pages: tuple = (15, 20),
+        source: Optional["SourceMaterial"] = None,
+        progress_cb=None,
+        blocks=None,
+        user_id: Optional[int] = None,
+    ) -> ProjectContent:
+        brief = await self._source_brief(source, topic)
+        target = sum(pages) / 2
+        blocks = await self.resolve_blocks(topic, field_key, blocks, brief,
+                                           pages, language)
+        resolved = await self._resolve_sections(
+            topic, field_key, language, brief, blocks)
+        # Matn uzunligi bo'limlar ro'yxati ma'lum bo'lgandan keyin hisoblanadi:
+        # jadval va diagrammalar egallagan joy ayrilib, qolgani bo'limlar
+        # orasida taqsimlanadi. Shundagina tanlangan varoq soni haqiqiy
+        # chegara bo'ladi.
+        scale = layout.word_scale(resolved, target, language)
+        specs = [self._scaled(spec, scale) for spec in resolved]
+
+        # Bo'limlar bir vaqtda yoziladi va bir-birini ko'rmaydi, shuning
+        # uchun loyihaning o'zi shu yerda — bir marta — qat'iylashtiriladi.
+        passport = await self._project_passport(topic, field_key, language, brief)
+
+        semaphore = asyncio.Semaphore(_CONCURRENCY)
+        done = 0
+
+        async def one(spec: SectionSpec) -> SectionContent:
+            nonlocal done
+            async with semaphore:
+                section = await self._section(topic, spec, language, brief,
+                                              field_key, passport)
+            done += 1
+            if progress_cb:
+                progress_cb(done, len(specs))
+            return section
+
+        sections = await asyncio.gather(*(one(spec) for spec in specs))
+        sections = _place_photographs(list(sections), topic,
+                                      layout.photographs_for(target))
+        return ProjectContent(
+            topic=topic,
+            field_key=field_key,
+            language=language,
+            sections=list(sections),
+            user_id=user_id,
+        )
+
+    @staticmethod
+    def _scaled(spec: SectionSpec, scale: float) -> SectionSpec:
+        """Bo'lim matnini hisoblangan koeffitsiyentga moslaydi.
+
+        Chegaralar `layout` dagi bilan bir xil: juda qisqa bo'lim qaydga,
+        juda uzuni esa inshoga aylanadi.
+        """
+        if scale == 1.0:
+            return spec
+        try:
+            low, high = (int(part) for part in spec.words.split("-"))
+        except ValueError:
+            return spec
+        scaled_low = round(min(layout.MAX_WORDS, max(layout.MIN_WORDS, low * scale)))
+        scaled_high = round(min(layout.MAX_WORDS, max(layout.MIN_WORDS, high * scale)))
+        if scaled_high <= scaled_low:
+            scaled_high = scaled_low + 40
+        return replace(spec, words=f"{scaled_low}-{scaled_high}")
+
+    # ---------------------------------------------------------------- manba
+
+    async def _source_brief(self, source: Optional[SourceMaterial], topic: str) -> str:
+        """Manbani bir marta siqib, har bo'lim promptiga qo'shiladigan holga keltiradi.
+
+        Qo'llanma yoki sayt 60 000 belgi bo'lishi mumkin; uni o'nta bo'lim
+        promptining har biriga qo'yish qimmat ham, foydasiz ham. Qisqa manba
+        o'z holicha ketadi, uzuni bir marta xulosalanadi.
+        """
+        if source is None or not source.has_content:
+            return ""
+
+        text = source.text.strip()
+        if len(text) <= _SOURCE_INLINE_LIMIT:
+            return text
+
+        prompt = f"""Condense this material into a working brief for writing a project
+work on "{topic}".
+
+Keep every fact that a writer would need: figures, names, dates, requirements,
+methods, standards, structure. Drop navigation text, adverts and repetition.
+Write 500-700 words of plain prose in the material's own language.
+
+MATERIAL:
+{text[:_SOURCE_CONDENSE_LIMIT]}"""
+
+        try:
+            condensed = await self.ai._make_request(
+                messages=[
+                    {"role": "system", "content": "You condense source material without inventing anything."},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=1800,
+                temperature=0.2,
+            )
+            return condensed.strip()
+        except Exception as e:
+            logger.error("Manbani siqishda xato, boshi ishlatiladi: %s", e)
+            return text[:_SOURCE_INLINE_LIMIT]
+
+    @staticmethod
+    def _source_block(brief: str) -> str:
+        if not brief:
+            return ""
+        return (
+            "\n\nSOURCE MATERIAL the client supplied — build the text on it, stay "
+            "consistent with its facts and terminology, and do not contradict it:\n"
+            f"{brief}"
+        )
+
+    # ------------------------------------------------------------- pasport
+
+    @staticmethod
+    def _passport_block(passport: str) -> str:
+        """Har promptga qo'shiladigan loyiha pasporti.
+
+        Bo'limlar bir vaqtda, bir-biridan xabarsiz yoziladi. Mavzu umumiy
+        bo'lsa ("Biznes loyiha") har bo'lim o'ziga boshqa biznes o'ylab
+        topardi: kirishda pishloq sexi, uchinchi bo'limda qahvaxona,
+        beshinchisida ta'lim markazi. Pasport — butun ish uchun bir marta
+        qat'iylashtirilgan tafsilotlar; u har promptga qo'shiladi.
+        """
+        if not passport:
+            return ""
+        return (
+            "\n\nPROJECT PASSPORT — the whole work describes THIS ONE project. "
+            "Every section, table, figure and calculation must use exactly these "
+            "facts. Never invent a different business, product, place or set of "
+            "numbers; add detail only where the passport is silent:\n"
+            f"{passport}"
+        )
+
+    async def _project_passport(self, topic: str, field_key: str, language: str,
+                                brief: str = "") -> str:
+        """Loyihaning aniq tafsilotlarini bir marta belgilaydi.
+
+        Mavzu aniq bo'lsa ("Non zavodi tashkil etish") pasport uni shunchaki
+        rasmiylashtiradi; umumiy bo'lsa — bitta aniq variantni tanlaydi va
+        butun ish shu bittasi haqida yoziladi.
+        """
+        target = _LANGUAGE_NAMES.get(language, "Uzbek")
+        prompt = f"""Fix the concrete identity of one project work ("loyiha ishi").
+
+Project topic: "{topic}"
+
+The topic may be general. Decide ONCE what this specific project is, so that
+every section of the work can be written about the same thing. If the topic
+already names the object, keep it and only fill in the missing detail.
+
+Answer with 7-9 short lines, each "Name: value", in {target}:
+  the project's own name, what exactly it produces or does, where it is
+  located, who its customers or users are, its capacity or volume, the
+  start-up investment, the price of one unit, the team size, the launch
+  period. Use realistic Uzbekistan figures in so'm.
+
+No headings, no explanation, no markdown — only the lines.{self._source_block(brief)}"""
+
+        try:
+            response = await self.ai._make_request(
+                messages=[
+                    {"role": "system", "content": (
+                        "You pin down the concrete facts of a project so that every "
+                        "part of the write-up stays about the same project.")},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=400,
+                temperature=0.5,
+            )
+        except Exception as e:
+            logger.error("Loyiha pasporti olinmadi: %s", e)
+            return ""
+
+        lines = []
+        for raw in (response or "").splitlines():
+            line = raw.strip().lstrip("-•*").strip()
+            # Faqat "Nom: qiymat" ko'rinishidagi satrlar qoladi. Model
+            # qo'shib yuborgan kirish jumlasi ("Mana loyiha tafsilotlari:")
+            # ham tushib qolishi uchun ikki nuqtadan KEYIN qiymat borligi
+            # tekshiriladi.
+            name, _, value = line.partition(":")
+            if not value.strip() or len(name.strip()) < 3:
+                continue
+            lines.append(f"- {line[:160]}")
+            if len(lines) >= 10:
+                break
+        if len(lines) < 3:
+            logger.warning("Loyiha pasporti tushunarsiz qaytdi — ishlatilmaydi")
+            return ""
+        passport = "\n".join(lines)
+        logger.info("Loyiha pasporti: %s", passport.replace("\n", " | "))
+        return passport
+
+    # ------------------------------------------------------------- bo'limlar
+
+    async def _resolve_sections(
+        self, topic: str, field_key: str, language: str, brief: str = "", blocks=None
+    ) -> List[SectionSpec]:
+        if field_key != GENERIC_FIELD_KEY:
+            return sections_for(field_key, blocks)
+        middle = await self.propose_middle_sections(topic, language, brief)
+        return generic_sections(middle, blocks)
+
+    async def resolve_blocks(self, topic: str, field_key: str, blocks,
+                             brief: str = "", pages: tuple = (15, 20),
+                             language: str = "uz") -> List[str]:
+        """Mijoz tanlovini yakuniy blok ro'yxatiga aylantiradi.
+
+        `auto` tanlansa mavzuga qarab AI hal qiladi: sof hisob-kitobli ishga
+        Gantt lentasi ham, risklar diagrammasi ham keraksiz, va aksincha.
+        Tuzilma sxemasi bu ro'yxatga kirmaydi — u har bir ishda bo'ladi.
+
+        Tanlov har doim tanlangan varoq soniga moslanadi: AI ham, mijoz ham
+        hujjatga sig'maydigan miqdorda blok bera olmaydi.
+        """
+        allowed = available_blocks(field_key)
+        floor = layout.min_blocks(field_key, pages, language)
+        ceiling = layout.max_blocks(field_key, pages, language)
+
+        chosen = [b for b in (blocks or []) if b in allowed]
+        if BLOCK_AUTO not in (blocks or []):
+            return self._fit(chosen, allowed, floor, ceiling)
+
+        try:
+            proposed = await self._propose_blocks(topic, field_key, brief, ceiling)
+        except Exception as e:
+            logger.error("Bloklarni AI tanlay olmadi: %s", e)
+            proposed = []
+        merged = [b for b in allowed if b in proposed or b in chosen]
+        return self._fit(merged or [b for b in DEFAULT_BLOCKS if b in allowed],
+                         allowed, floor, ceiling)
+
+    @staticmethod
+    def _fit(chosen: List[str], allowed: List[str], floor: int, ceiling: int) -> List[str]:
+        """Ro'yxatni varoq soniga sig'adigan holga keltiradi.
+
+        Ko'p bo'lsa oxiridan qirqiladi (tartib hujjatdagi tartib, ya'ni eng
+        muhimlari boshida), kam bo'lsa qolganlaridan to'ldiriladi.
+        """
+        fitted = [b for b in allowed if b in chosen][:ceiling]
+        for key in allowed:
+            if len(fitted) >= floor:
+                break
+            if key not in fitted:
+                fitted.append(key)
+        return [b for b in allowed if b in fitted]
+
+    async def suggest_field(self, topic: str) -> str:
+        """Mavzudan yo'nalishni taxmin qiladi.
+
+        Mijoz sakkizta tugmadan o'zi qidirgandan ko'ra, bot taklif qilib
+        tasdiqlatgani tezroq va kamroq xato beradi.
+        """
+        from .specs import FIELDS
+
+        catalogue = "\n".join(
+            f"{key} — {spec.name('en')}" for key, spec in FIELDS.items()
+        )
+        prompt = f"""Which field of study does this project work topic belong to?
+
+Topic: "{topic}"
+
+Fields:
+{catalogue}
+other — none of the above fits
+
+Respond with JSON only: {{"field": "business"}}"""
+        try:
+            raw = await self._json_request(prompt, max_tokens=60, temperature=0.0)
+            key = str(raw.get("field") or "").strip().lower()
+            if key in FIELDS:
+                return key
+        except Exception as e:
+            logger.error("Yo'nalishni aniqlab bo'lmadi: %s", e)
+        return GENERIC_FIELD_KEY
+
+    async def _propose_blocks(self, topic: str, field_key: str, brief: str = "",
+                              ceiling: int = 7) -> List[str]:
+        prompt = f"""A student is writing a project work ("loyiha ishi") on: "{topic}".
+Field of study: {field_key}
+
+Decide which of these content blocks this particular work genuinely needs.
+
+calc      — the field's own step-by-step calculations and formulas
+budget    — the one-off investment: what it buys, at what price
+costs     — the recurring annual cost of running it, split into fixed and
+            variable, and the cost of one unit of output
+timeline  — implementation stages with durations and responsibilities
+marketing — sales forecast by period plus the promotion channels, their
+            budgets and the customers each brings
+breakeven — the volume at which the project stops making a loss
+forecast  — projection of a key quantity over several periods
+cashflow  — money in and out period by period, and when the investment is
+            recovered
+risks     — risk analysis with mitigations
+results   — measurable expected results
+
+Rules for choosing:
+- A project that sells something, produces something, or serves paying
+  clients needs the money blocks: costs, marketing, breakeven and cashflow
+  are what a supervisor asks about first. Include at least two of them.
+- A project with no revenue side — a purely technical, medical, pedagogical
+  or research project — still spends money, so budget and costs belong, but
+  marketing and breakeven do not.
+- A purely computational work needs no Gantt chart or risk matrix; a purely
+  organisational one needs no formulas.
+
+Choose between {min(3, ceiling)} and {ceiling} blocks — the client paid for a
+document of a fixed length and more than that does not fit.{self._source_block(brief)}
+
+Respond with JSON only: {{"blocks": ["budget", "costs", "marketing", "breakeven"]}}"""
+        raw = await self._json_request(prompt, max_tokens=260, temperature=0.2)
+        proposed = [str(b).strip().lower() for b in (raw.get("blocks") or [])]
+        return [b for b in proposed if b in available_blocks(field_key)]
+
+    async def propose_middle_sections(
+        self, topic: str, language: str, brief: str = ""
+    ) -> List[SectionSpec]:
+        """Ro'yxatda yo'q soha uchun o'rta bo'limlarni AI taklif qiladi."""
+        target = _LANGUAGE_NAMES.get(language, "Uzbek")
+        prompt = f"""A student is writing a project work ("loyiha ishi") on: "{topic}".
+
+The document already has these sections and you must NOT repeat them:
+introduction, relevance and goal, implementation plan, budget, risks,
+expected results, conclusion.
+
+Propose the 3-4 middle sections that belong between "relevance" and
+"implementation plan" for this specific topic and its field of study.
+Write the titles in {target}. Each needs a one-sentence instruction, in
+English, saying what its text must contain.{self._source_block(brief)}
+
+Respond with JSON only:
+{{"sections": [{{"title": "...", "guidance": "..."}}]}}"""
+
+        raw = await self._json_request(prompt, max_tokens=1200, temperature=0.5)
+        proposed = []
+        for item in (raw.get("sections") or [])[:4]:
+            title = str(item.get("title") or "").strip()
+            if not title:
+                continue
+            proposed.append(
+                SectionSpec(
+                    key=f"custom_{len(proposed) + 1}",
+                    title={"uz": title, "ru": title, "en": title},
+                    guidance=str(item.get("guidance") or "Cover this aspect of the project in depth."),
+                    artifact=ARTIFACT_DATA if len(proposed) == 0 else None,
+                )
+            )
+        if not proposed:
+            raise RuntimeError("AI loyiha bo'limlarini taklif qila olmadi")
+        return proposed
+
+    async def _section(
+        self, topic: str, spec: SectionSpec, language: str, brief: str = "",
+        field_key: str = GENERIC_FIELD_KEY, passport: str = "",
+    ) -> SectionContent:
+        text = await self._section_text(topic, spec, language, brief, passport)
+
+        table = None
+        chart = None
+        note = ""
+        if spec.artifact == ARTIFACT_SCHEME:
+            # Sxema endi kod bilan chiziladi. AI chizgan sxemada yozuvlar
+            # buzilib chiqardi va uni o'qib bo'lmasdi.
+            #
+            # Bu tekshiruv eng oldinda turishi SHART: sxema ham `CHART_ARTIFACTS`
+            # ro'yxatida, shuning uchun u umumiy diagramma shoxiga tushib
+            # ketardi va `_CHART_SHAPES["scheme"]` bo'lmagani uchun har safar
+            # KeyError bergan — ya'ni tuzilma sxemasi hech bir loyiha ishida
+            # chiqmagan, xato esa log ichida qolib ketgan.
+            try:
+                chart = await self._scheme(topic, spec, language, brief, passport)
+            except Exception as e:
+                logger.error("Loyiha sxemasi olinmadi (%s): %s", spec.key, e)
+        elif spec.artifact in TABLE_ARTIFACTS:
+            try:
+                table = await self._table(topic, spec, language, brief, passport)
+            except Exception as e:
+                logger.error("Loyiha jadvali olinmadi (%s): %s", spec.key, e)
+        elif spec.artifact in CHART_ARTIFACTS or spec.artifact in CARD_ARTIFACTS:
+            try:
+                chart = await self._chart(topic, spec, language, brief, passport)
+            except Exception as e:
+                logger.error("Loyiha diagrammasi olinmadi (%s): %s", spec.key, e)
+            if chart:
+                note = str(chart.get("note") or "").strip()
+                # Jadval ham shu ma'lumotdan quriladi — ikkinchi so'rov yo'q,
+                # ya'ni jadvaldagi summa diagrammadagiga teng bo'ladi.
+                if spec.artifact in DERIVED_TABLE_ARTIFACTS:
+                    table = tables.derive(spec.artifact, chart, language)
+
+        # Formulalar bo'lim ma'lumoti tayyor bo'lgandan keyin so'raladi:
+        # model jadvaldagi raqamlarni ko'rib, shu raqamlar bilan hisoblaydi.
+        formulas = []
+        count = FORMULA_COUNTS.get(spec.artifact or "")
+        if count:
+            formulas = await self._formulas(
+                topic, spec, language, field_key, count, chart or {}, table,
+                passport
+            )
+
+        return SectionContent(spec=spec, text=text, table=table, chart=chart,
+                              image_prompt="", formulas=formulas, note=note)
+
+    async def _section_text(self, topic: str, spec: SectionSpec, language: str,
+                            brief: str = "", passport: str = "") -> str:
+        target = _LANGUAGE_NAMES.get(language, "Uzbek")
+        prompt = f"""Write the body text of one section of a project work ("loyiha ishi").
+
+Project topic: "{topic}"
+Section: "{spec.heading(language)}"
+What this section must contain: {spec.guidance}
+
+Write {spec.words} words in {target}.
+
+RULES:
+{heading_rule(language)}
+{_voice_rule(spec, language)}
+- Be concrete: real figures, named examples, Uzbekistan context where it fits
+- Plain text only — no markdown, no bullet lists, no special characters
+- Do not mention that a table or figure follows; it is added automatically
+
+{timeframe.year_rule(language)}{self._passport_block(passport)}{self._source_block(brief)}"""
+
+        response = await self.ai._make_request(
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are the student who carried out this project and you are "
+                        "writing it up yourself. The section heading is already printed "
+                        "above your text; you produce only the body text under it. "
+                        "Plain text only."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=token_budget(spec.words, language),
+            temperature=0.75,
+        )
+
+        from services.ai_service import clean_text
+
+        text = strip_echoed_heading(response, [spec.heading(language), topic])
+        return trim_to_last_sentence(clean_text(text))
+
+    # ------------------------------------------------------------- artefakt
+
+    async def _table(self, topic: str, spec: SectionSpec, language: str,
+                     brief: str = "", passport: str = "") -> Dict:
+        kind = _TABLE_KINDS[spec.artifact]
+        target = _LANGUAGE_NAMES.get(language, "Uzbek")
+        columns = kind["columns"]
+
+        if columns:
+            headers = columns.get(language, columns["uz"])
+            header_rule = (
+                f'Use exactly these column headers, in this order: {json.dumps(headers, ensure_ascii=False)}'
+            )
+        else:
+            header_rule = (
+                f"Choose 4 column headers yourself, in {target}, that suit the section"
+            )
+
+        prompt = f"""Build a table for a project work.
+
+Project topic: "{topic}"
+Section: "{spec.heading(language)}"
+The table must show {kind['ask']}.
+
+{header_rule}
+Produce {kind['rows']} data rows. Every cell must carry a real, specific value
+in {target} — never "...", never an empty cell, never a placeholder.
+
+Keep every cell SHORT: at most six words, or one formula written compactly.
+A cell is not a sentence and never a list — "Bosh oshpaz 1, oshpaz 2,
+yordamchi 2, administrator 2, ofitsiant 6" belongs in the section text, not
+in a cell. If a value needs explaining, the explanation goes in the text.
+
+Add one more key, "note": one paragraph of 3-5 full sentences in {target}
+saying what the table shows, which rows matter most, why the numbers came out
+this way and what conclusion follows. It is printed under the table, so it must
+stand on its own — never "as can be seen in the table above".
+
+{timeframe.year_rule(language)}{self._passport_block(passport)}{self._source_block(brief)}
+
+Respond with JSON only:
+{{"headers": ["..."], "rows": [["..."]], "note": "..."}}"""
+
+        raw = await self._json_request(prompt, max_tokens=2000, temperature=0.4)
+
+        headers = [str(h) for h in (raw.get("headers") or [])]
+        if columns:
+            headers = columns.get(language, columns["uz"])
+        rows = [
+            [str(cell) for cell in row]
+            for row in (raw.get("rows") or [])
+            if isinstance(row, list) and row
+        ]
+        if not headers or not rows:
+            raise ValueError("jadval bo'sh qaytdi")
+        return {"headers": headers, "rows": rows,
+                "note": str(raw.get("note") or "").strip()}
+
+    async def _chart(self, topic: str, spec: SectionSpec, language: str,
+                     brief: str = "", passport: str = "") -> Dict:
+        """Diagramma uchun raqamli ma'lumot — jadvaldan farqli o'laroq son so'raladi."""
+        ask, example = _CHART_SHAPES[spec.artifact]
+        target = _LANGUAGE_NAMES.get(language, "Uzbek")
+        prompt = f"""Produce the data behind a figure in a project work.
+
+Project topic: "{topic}"
+Section: "{spec.heading(language)}"
+
+The data must give {ask}
+Write every name and label in {target}. Numbers are plain digits — no spaces,
+no thousand separators, no currency words inside the number.
+
+Add one more key, "note": one paragraph of 3-5 full sentences in {target}
+saying what the figure shows, how the values differ, what explains that and
+what conclusion the reader should draw. It is printed under the figure, so it
+must stand on its own — never "as can be seen in the figure above".
+
+{timeframe.year_rule(language)}{self._passport_block(passport)}{self._source_block(brief)}
+
+Respond with JSON only, in exactly this shape (plus "note"):
+{example}"""
+
+        raw = await self._json_request(prompt, max_tokens=2200, temperature=0.4)
+        if self._has_chart_data(spec.artifact, raw):
+            return raw
+        raise ValueError("diagramma ma'lumoti bo'sh qaytdi")
+
+    @staticmethod
+    def _has_chart_data(artifact: str, raw: Dict) -> bool:
+        """Ma'lumot chizishga yetarlimi. Zararsizlik nuqtasida ro'yxat yo'q —
+        u to'rtta sondan chiziladi, shuning uchun tekshiruv boshqacha."""
+        if artifact == ARTIFACT_BREAKEVEN:
+            price = tables.number(raw.get("price"))
+            variable = tables.number(raw.get("variable"))
+            # Narx o'zgaruvchi xarajatdan past bo'lsa nuqta umuman yo'q:
+            # chizma cheksizlikka ketardi.
+            return bool(tables.number(raw.get("fixed")) > 0 and price > variable)
+        return any(raw.get(key) for key in
+                   ("items", "stages", "risks", "indicators", "points",
+                    "periods", "channels"))
+
+    async def _scheme(self, topic: str, spec: SectionSpec, language: str,
+                      brief: str = "", passport: str = "") -> Dict:
+        """Loyiha tuzilmasi sxemasi uchun bloklar ierarxiyasini so'raydi."""
+        target = _LANGUAGE_NAMES.get(language, "Uzbek")
+        prompt = f"""Describe the structure of this project as blocks for a diagram.
+
+Project topic: "{topic}"
+Section: "{spec.heading(language)}"
+
+First decide what shape this project really has and put it in "kind":
+  hierarchy  — a whole that divides into parts and sub-parts
+  components — parts that make up one thing, with no ordering between them
+  process    — stages that follow one another from start to finish
+  cycle      — stages that repeat, the last leading back to the first
+  levels     — layers built on top of one another, base to top
+Choose by the project itself: a production line is a process, a workshop is
+components, a quality system has levels.
+
+"root" is the project or system name. "branches" are its 3-5 main parts —
+for a process or cycle they are the stages IN ORDER, for levels they go from
+the top layer down. Each has 2-3 concrete components under it. Keep every
+label short — two or three words — because they are drawn inside boxes.
+Write them in {target}. The parts must be specific to this project, not
+generic headings.{self._passport_block(passport)}{self._source_block(brief)}
+
+Respond with JSON only:
+{{"kind": "process", "root": "Loyiha nomi",
+  "branches": [{{"name": "Laboratoriya", "items": ["Namuna olish", "Tahlil"]}}]}}"""
+        raw = await self._json_request(prompt, max_tokens=800, temperature=0.4)
+        if not raw.get("branches"):
+            raise ValueError("sxema bloklari bo'sh")
+        return raw
+
+    async def _formulas(
+        self, topic: str, spec: SectionSpec, language: str, field_key: str,
+        count: int, data: Dict, table: Optional[Dict], passport: str = "",
+    ) -> List[Dict]:
+        """Bo'limning hisob-kitoblari — bittasi emas, bir nechtasi.
+
+        Formulalar bo'lim ma'lumoti olingandan keyin so'raladi va shu
+        ma'lumot promptga kiritiladi: aks holda model jadvalda 240 mln
+        turganda hisobda 300 mln ishlatib yuborardi.
+
+        Qaysi formulalar kerakligi bo'lim turiga va sohaga bog'liq —
+        qishloq xo'jaligi loyihasida gektardan hosildorlik, IT loyihasida
+        esa bir foydalanuvchi narxi hisoblanadi.
+        """
+        target = _LANGUAGE_NAMES.get(language, "Uzbek")
+        ask = _FORMULA_ASKS.get(spec.artifact or "", _FORMULA_ASKS["default"])
+        known = self._known_figures(data, table)
+
+        prompt = f"""Work out the calculations for one section of a project work.
+
+Project topic: "{topic}"
+Field of study: {field_key}
+Section: "{spec.heading(language)}"
+
+Give exactly {count} calculation{'s' if count > 1 else ''}: {ask}
+
+Choose the measures that genuinely fit THIS topic and field — a farming
+project is measured per hectare, a workshop per unit of output, a software
+project per user, a social project per beneficiary. Do not repeat the same
+measure twice and do not invent a measure that this field does not use.
+
+Every calculation must be worked through with real numbers: the formula, the
+value of each symbol, and the figure that comes out. The arithmetic must be
+correct — a reader will check it.{known}
+
+{timeframe.year_rule(language)}{self._passport_block(passport)}
+
+"latex" is the formula in LaTeX without dollar signs. "name", "given",
+"result", "meaning" are in {target}. Give "conclusion" only on the last
+calculation, as the overall verdict.
+
+Respond with JSON only:
+{{"formulas": [
+  {{"name": "Investitsiya rentabelligi (ROI)",
+    "latex": "ROI = \\\\frac{{P}}{{I}} \\\\times 100\\\\%",
+    "given": ["P — sof foyda, 148 mln so'm", "I — investitsiya, 420 mln so'm"],
+    "result": "ROI = 35,2%",
+    "meaning": "Bir yillik sof foyda investitsiyaning 35 foizini qoplaydi.",
+    "conclusion": "Loyiha taxminan 2,8 yilda o'zini oqlaydi."}}]}}"""
+        try:
+            raw = await self._json_request(
+                prompt, max_tokens=500 + 550 * count, temperature=0.3
+            )
+        except Exception as e:
+            logger.error("Hisob-kitob formulalari olinmadi (%s): %s", spec.key, e)
+            return []
+
+        out = []
+        for item in (raw.get("formulas") or [])[:count]:
+            if isinstance(item, dict) and str(item.get("latex") or "").strip():
+                out.append(item)
+        if not out:
+            logger.warning("Formulalar bo'sh qaytdi (%s)", spec.key)
+        return out
+
+    @staticmethod
+    def _known_figures(data: Dict, table: Optional[Dict]) -> str:
+        """Bo'limda allaqachon bor raqamlarni promptga qo'shadi.
+
+        Shu bo'lmasa formula jadval bilan qarama-qarshi chiqadi va ustoz
+        buni birinchi ko'radi.
+        """
+        lines = []
+        # `tables.derive` hisoblab qo'ygan qiymatlar ham shu yerda: model
+        # zararsizlik nuqtasini o'zi qayta hisoblasa, jadvaldagi son bilan
+        # formuladagi son yaxlitlashda ayrilib qolardi.
+        for key in ("total", "fixed_total", "variable_total", "budget_total",
+                    "customers_total", "cost_per_customer", "investment",
+                    "fixed", "price", "variable", "planned", "payback_period",
+                    "breakeven_point", "breakeven_revenue", "margin_per_unit",
+                    "total_growth", "unit", "money_unit"):
+            value = data.get(key)
+            if value not in (None, "", 0):
+                lines.append(f"{key} = {value}")
+        output = data.get("output")
+        if isinstance(output, dict) and output.get("value"):
+            lines.append(f"output = {output.get('value')} {output.get('unit', '')}".strip())
+        if table and table.get("rows"):
+            headers = " | ".join(str(h) for h in table.get("headers") or [])
+            body = "\n".join(" | ".join(str(cell) for cell in row)
+                              for row in table["rows"][:8])
+            lines.append(f"The section's table:\n{headers}\n{body}")
+        if not lines:
+            return ""
+        return ("\n\nFIGURES ALREADY PRINTED IN THIS SECTION — your calculation "
+                "must use these exact numbers and must not contradict them. "
+                "Where a figure here is already the answer to one of your "
+                "calculations, state that figure, rounded the same way as the "
+                "table shows it; do not recompute it to a different value:\n"
+                + "\n".join(lines))
+
+    # ------------------------------------------------------------- yordamchi
+
+    async def _json_request(self, prompt: str, max_tokens: int, temperature: float) -> Dict:
+        response = await self.ai._make_request(
+            messages=[
+                {"role": "system", "content": "Respond with valid JSON only. No markdown, no commentary."},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        text = response.strip()
+        if text.startswith("```"):
+            text = re.sub(r"^```(?:json)?\s*", "", text)
+            text = re.sub(r"\s*```$", "", text)
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            match = re.search(r"\{.*\}", text, re.DOTALL)
+            if match:
+                return json.loads(match.group(0))
+            raise
