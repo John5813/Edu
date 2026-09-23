@@ -48,14 +48,56 @@ _SCRIPT = r"""
   const out = [];
   let shotIndex = 0;
 
-  const rgb = (value) => {
+  const hex2 = (n) => Math.max(0, Math.min(255, Math.round(n)))
+    .toString(16).padStart(2, "0").toUpperCase();
+
+  const parse = (value) => {
     const m = String(value || "").match(/rgba?\(([^)]+)\)/);
     if (!m) return null;
     const p = m[1].split(",").map((x) => parseFloat(x));
-    if (p.length > 3 && p[3] < 0.05) return null;          // shaffof
-    const hex = (n) => Math.max(0, Math.min(255, Math.round(n)))
-      .toString(16).padStart(2, "0").toUpperCase();
-    return hex(p[0]) + hex(p[1]) + hex(p[2]);
+    const alpha = p.length > 3 ? p[3] : 1;
+    if (alpha < 0.02) return null;
+    return {r: p[0], g: p[1], b: p[2], a: alpha};
+  };
+
+  // Elementning ko'rinadigan shaffofligi: o'ziniki va hamma
+  // ota-onalariniki ko'paytiriladi.
+  const chainOpacity = (el) => {
+    let value = 1;
+    let node = el;
+    while (node && node !== document.documentElement) {
+      value *= parseFloat(getComputedStyle(node).opacity || "1");
+      node = node.parentElement;
+    }
+    return value;
+  };
+
+  // Elementning ORQASIDAGI rang: eng yaqin shaffof bo'lmagan fon.
+  const behind = (el) => {
+    let node = el.parentElement;
+    while (node) {
+      const colour = parse(getComputedStyle(node).backgroundColor);
+      if (colour && colour.a > 0.95) return colour;
+      node = node.parentElement;
+    }
+    return {r: 255, g: 255, b: 255, a: 1};
+  };
+
+  // Shaffof rangni orqa fon bilan aralashtiramiz. PowerPointda shakl
+  // shaffofligini berish noqulay, aralashtirilgani esa ko'zga aynan
+  // brauzerdagidek ko'rinadi. Aralashtirmasak, ozgina ko'k bezak
+  // slaydda to'q ko'k plastina bo'lib chiqadi.
+  const rgbOver = (value, el, extraAlpha) => {
+    const colour = parse(value);
+    if (!colour) return null;
+    const alpha = colour.a * (extraAlpha === undefined ? 1 : extraAlpha);
+    if (alpha < 0.02) return null;
+    if (alpha > 0.98) return hex2(colour.r) + hex2(colour.g) + hex2(colour.b);
+    const base = behind(el);
+    const mix = (a, b) => a * alpha + b * (1 - alpha);
+    return hex2(mix(colour.r, base.r))
+         + hex2(mix(colour.g, base.g))
+         + hex2(mix(colour.b, base.b));
   };
 
   const box = (el) => {
@@ -63,13 +105,35 @@ _SCRIPT = r"""
     return {x: r.left, y: r.top, w: r.width, h: r.height};
   };
 
+  // Element ko'rinadigan maydon: slayd va `overflow: hidden` qo'ygan
+  // ota-onalar bilan kesishmasi.
+  const shownArea = (el, r) => {
+    let box = {l: 0, t: 0, rr: W, b: H};
+    let node = el.parentElement;
+    while (node && node !== document.documentElement) {
+      const style = getComputedStyle(node);
+      if (style.overflow !== "visible" || style.overflowX !== "visible"
+          || style.overflowY !== "visible") {
+        const p = node.getBoundingClientRect();
+        box = {l: Math.max(box.l, p.left), t: Math.max(box.t, p.top),
+               rr: Math.min(box.rr, p.right), b: Math.min(box.b, p.bottom)};
+      }
+      node = node.parentElement;
+    }
+    const w = Math.min(r.x + r.w, box.rr) - Math.max(r.x, box.l);
+    const h = Math.min(r.y + r.h, box.b) - Math.max(r.y, box.t);
+    return Math.max(w, 0) * Math.max(h, 0);
+  };
+
   const visible = (el, r) => {
     const s = getComputedStyle(el);
     if (s.display === "none" || s.visibility === "hidden") return false;
-    if (parseFloat(s.opacity || "1") < 0.05) return false;
+    if (chainOpacity(el) < 0.04) return false;
     if (r.w < 1 || r.h < 1) return false;
-    if (r.x > W || r.y > H || r.x + r.w < 0 || r.y + r.h < 0) return false;
-    return true;
+    // Elementning yarmidan ko'pi kesilib ketgan bo'lsa, uni qo'ymaymiz:
+    // brauzerda ko'rinmagan narsa slaydda ingichka chiziq bo'lib
+    // chiqib qolardi.
+    return shownArea(el, r) >= r.w * r.h * 0.5;
   };
 
   // Elementning O'ZIGA tegishli matn (bolalarinikisiz).
@@ -103,9 +167,18 @@ _SCRIPT = r"""
 
   const walk = (el) => {
     const r = box(el);
-    if (!visible(el, r)) return;
     const s = getComputedStyle(el);
     const tag = el.tagName.toLowerCase();
+    if (!visible(el, r)) {
+      // O'zi ko'rinmasa ham, bolasi ko'rinishi mumkin (masalan katta
+      // idish slayddan chiqqan, ichidagi matn esa joyida).
+      if (s.display !== "none" && s.visibility !== "hidden") {
+        for (const child of el.children) {
+          if (child.tagName !== "BR") walk(child);
+        }
+      }
+      return;
+    }
 
     // Diagramma va rasm — suratga olinadi, ichiga kirilmaydi.
     if (tag === "svg" || tag === "canvas" || tag === "img" || tag === "video") {
@@ -130,10 +203,10 @@ _SCRIPT = r"""
           const style = getComputedStyle(cell);
           if (rows.length === 0) {
             widths.push(cell.getBoundingClientRect().width);
-            headerFill = headerFill || rgb(style.backgroundColor);
-            headerColor = headerColor || rgb(style.color);
+            headerFill = headerFill || rgbOver(style.backgroundColor, cell);
+            headerColor = headerColor || rgbOver(style.color, cell);
           } else if (!bodyColor) {
-            bodyColor = rgb(style.color);
+            bodyColor = rgbOver(style.color, cell);
           }
           size = parseFloat(style.fontSize) || size;
           cells.push({
@@ -152,14 +225,24 @@ _SCRIPT = r"""
     }
 
     // Fon yoki chegarasi bor blok — PowerPointda shakl bo'ladi.
-    const fill = rgb(s.backgroundColor);
+    const shown = chainOpacity(el);
+    const fill = rgbOver(s.backgroundColor, el, shown);
     const borderWidth = parseFloat(s.borderTopWidth) || 0;
-    const borderColor = borderWidth > 0 ? rgb(s.borderTopColor) : null;
+    const borderColor = borderWidth > 0
+      ? rgbOver(s.borderTopColor, el, shown) : null;
     if ((fill || borderColor) && tag !== "body" && tag !== "html") {
+      // border-radius foizda berilishi mumkin ("50%"). Uni pikselga
+      // o'girmasak, doira PowerPointda burchagi yumaloq kvadrat
+      // bo'lib chiqadi.
+      const raw = s.borderTopLeftRadius || "0";
+      const short = Math.max(Math.min(r.w, r.h), 1);
+      let radius = parseFloat(raw) || 0;
+      if (raw.indexOf("%") >= 0) radius = short * radius / 100;
       out.push({
         kind: "rect", fill, ...r,
         border: borderColor, borderWidth,
-        radius: parseFloat(s.borderTopLeftRadius) || 0,
+        radius,
+        circle: radius * 2 >= short * 0.95,
       });
     }
 
@@ -171,7 +254,7 @@ _SCRIPT = r"""
         size: parseFloat(s.fontSize) || 16,
         weight: parseInt(s.fontWeight, 10) || 400,
         italic: s.fontStyle === "italic",
-        color: rgb(s.color) || "000000",
+        color: rgbOver(s.color, el, shown) || "000000",
         align: align(s.textAlign),
         family: s.fontFamily || "",
         lineHeight: parseFloat(s.lineHeight) || 0,
@@ -187,11 +270,91 @@ _SCRIPT = r"""
 
   for (const child of document.body.children) walk(child);
   return {
-    background: rgb(getComputedStyle(document.body).backgroundColor),
+    background: rgbOver(getComputedStyle(document.body).backgroundColor,
+                        document.body) || "FFFFFF",
     blocks: out,
   };
 }
 """
+
+
+# Slaydni chizishdan OLDIN tekshiradigan skript. Brauzer HTML ni
+# qanday joylashtirganini biz ko'rmaymiz, AI esa ba'zan varaqdan
+# chiqib ketadigan yoki matn ustiga matn qo'yadigan kod yozadi. Shu
+# tekshiruv muammoni topadi va slayd bir marta qayta so'raladi.
+_CHECK_SCRIPT = r"""
+() => {
+  const W = window.innerWidth, H = window.innerHeight;
+  const problems = [];
+  const texts = [];
+
+  const own = (el) => {
+    let text = "";
+    for (const node of el.childNodes) {
+      if (node.nodeType === 3) text += node.nodeValue;
+    }
+    return text.trim();
+  };
+
+  let outside = 0, tallest = 0, lowest = 0;
+  for (const el of document.body.querySelectorAll("*")) {
+    const style = getComputedStyle(el);
+    if (style.display === "none" || style.visibility === "hidden") continue;
+    const r = el.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) continue;
+
+    const text = own(el);
+    if (text) {
+      texts.push({r, text});
+      lowest = Math.max(lowest, r.bottom);
+      tallest = tallest || r.top;
+      tallest = Math.min(tallest, r.top);
+    }
+    // Slayddan chiqib ketgan: butun ekranni egallagan fon bundan mustasno.
+    if (r.width < W * 0.98 || r.height < H * 0.98) {
+      if (r.left < -8 || r.top < -8 || r.right > W + 8 || r.bottom > H + 8) {
+        outside += 1;
+      }
+    }
+  }
+  if (outside) {
+    problems.push(outside + " ta element slayddan chiqib ketgan "
+      + "(1920x1080 dan tashqarida yoki manfiy o'rinda)");
+  }
+
+  // Matn ustiga matn tushganmi.
+  let collisions = 0;
+  for (let i = 0; i < texts.length; i += 1) {
+    for (let j = i + 1; j < texts.length; j += 1) {
+      const a = texts[i].r, b = texts[j].r;
+      const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+      const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+      if (w <= 2 || h <= 2) continue;
+      const small = Math.min(a.width * a.height, b.width * b.height);
+      if (w * h > small * 0.35) collisions += 1;
+    }
+  }
+  if (collisions) {
+    problems.push(collisions + " joyda matn ustiga matn tushgan");
+  }
+
+  // Pastki yarmi butunlay bo'sh qolganmi.
+  if (texts.length && lowest < H * 0.62) {
+    problems.push("mazmun slaydning yuqori qismiga to'plangan, pastki "
+      + Math.round(100 - lowest * 100 / H) + "% bo'sh qolgan");
+  }
+  return problems;
+}
+"""
+
+
+def check_layout(page) -> List[str]:
+    """Slaydning joylashuvidagi ko'zga tashlanadigan xatolar ro'yxati."""
+    try:
+        return [str(item) for item in (page.evaluate(_CHECK_SCRIPT) or [])]
+    except Exception as exc:
+        log.warning("Joylashuvni tekshirib bo'lmadi: %s", exc)
+        return []
 
 
 def read_layout(page) -> Dict:

@@ -126,6 +126,19 @@ QOBIQ:
    tashlama: bir gap — bir element.
 10. Matn ustiga matn qo'yma (absolute joylashuv bilan ham). Bloklarni
    flex yoki grid bilan yonma-yon qo'y.
+11. Mazmun BUTUN BALANDLIKNI egallasin. body ni shunday qil:
+   display:flex; flex-direction:column; height:1080px;
+   va bo'shliqni bloklar orasiga taqsimla (gap yoki
+   justify-content:space-between). Hamma narsa yuqoriga to'planib,
+   pastki yarmi bo'sh qolmasin.
+12. position:absolute dan iloji boricha qochning; ishlatsangiz ham
+   manfiy o'rin (top:-40px, margin-top:-...) BERMANG va element
+   ota-onasidan chiqib ketmasin. Vaqt o'qi (timeline) kabi narsalarda
+   kartochkalarni chiziqning OSTIGA oddiy flex bilan qo'ying.
+13. Diagramma yozuvlari (izoh, legend, qiymat) ustunlar yoki
+   chiziqlar USTIGA tushmasin — ular uchun alohida joy ajrating.
+14. Bezak uchun shaffoflik (opacity, rgba) o'rniga TAYYOR och rangni
+   yozing: PowerPointda shaffoflik boshqacha chiqadi.
 
 RANG TIZIMI (hamma slaydda AYNAN shu ranglar):
   aksent:        #{theme.accent}
@@ -330,6 +343,46 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
     if not slides:
         raise RuntimeError("AI birorta to'liq slayd qaytarmadi")
     return slides
+
+
+def fix_slide(html: str, problems: List[str], theme, language: str = "uz") -> str:
+    """Joylashuvi buzilgan slaydni qayta chizdiradi.
+
+    Brauzer slaydni joylashtirgandan keyin tekshiriladi: element
+    varaqdan chiqib ketgani, matn ustiga matn tushgani yoki mazmun
+    yuqoriga to'planib qolgani ko'rinadi. Shu ro'yxat modelga aytiladi
+    va u FAQAT o'sha slaydni qayta yozadi — butun taqdimot emas.
+    """
+    if not problems:
+        return html
+
+    listed = "\n".join(f"- {item}" for item in problems)
+    user = (
+        "Quyidagi slayd brauzerda noto'g'ri joylashdi. Topilgan "
+        f"kamchiliklar:\n{listed}\n\n"
+        "Shu slaydni QAYTA yoz. Mazmunini saqla — faqat joylashuvini "
+        "to'g'rila:\n"
+        "- hech bir element 1920x1080 dan chiqmasin, manfiy o'rin "
+        "ishlatma;\n"
+        "- matn ustiga matn tushmasin — bloklarni flex yoki grid bilan "
+        "yonma-yon qo'y, ustma-ust emas;\n"
+        "- mazmun butun balandlikni egallasin: body ni flex ustun qilib, "
+        "bo'shliqni bloklar orasiga taqsimla;\n"
+        "- diagramma yozuvlari ustunlar ustiga tushmasin.\n\n"
+        "Javobda faqat to'liq HTML hujjat bo'lsin, boshqa hech narsa "
+        "yozma.\n\nSlayd:\n" + html
+    )
+
+    try:
+        raw = llm_client._call_openrouter_text(
+            shell_rules(theme, language), user,
+            temperature=0.4, max_tokens=5200)
+    except Exception as exc:
+        log.error("Slaydni tuzatib bo'lmadi: %s", exc)
+        return html
+
+    fixed = split_slides(raw)
+    return fixed[0] if fixed else html
 
 
 def _write_chunk(system: str, user: str, count: int) -> List[str]:

@@ -406,13 +406,18 @@ def build_pptx(image_paths: List[str], out_dir: str = "temp",
 
 
 def render(html_slides: List[str], out_dir: str = "temp",
-           name: str = "taqdimot") -> str:
+           name: str = "taqdimot", repair=None) -> str:
     """HTML → tahrirlanadigan PPTX.
 
     Har slayd brauzerda ochiladi, joylashuvi o'qiladi va PowerPointning
     haqiqiy matn qutilari, shakllari va jadvallariga aylanadi. Bir slayd
     o'qilmasa, o'sha slaydning o'zi surat bo'lib tushadi — qolganlari
     baribir tahrirlanadi.
+
+    `repair(html, problems) -> html` berilsa, joylashuvi buzilgan slayd
+    bir marta qayta chizdiriladi: AI HTML ni brauzersiz yozadi va
+    ba'zan varaqdan chiqib ketadigan yoki matn ustiga matn qo'yadigan
+    kod chiqaradi. Buni faqat brauzer ko'radi.
     """
     from playwright.sync_api import sync_playwright
 
@@ -438,6 +443,25 @@ def render(html_slides: List[str], out_dir: str = "temp",
                     page = None
                     try:
                         page = _open_page(context, html)
+
+                        if repair is not None:
+                            problems = html_extract.check_layout(page)
+                            if problems:
+                                log.warning("%d-slayd joylashuvi: %s",
+                                            index, "; ".join(problems))
+                                fixed = repair(html, problems)
+                                if fixed and fixed != html:
+                                    page.close()
+                                    page = _open_page(context, fixed)
+                                    left = html_extract.check_layout(page)
+                                    if len(left) > len(problems):
+                                        # Tuzatish yomonlashtirdi — eskisi
+                                        # qaytariladi.
+                                        page.close()
+                                        page = _open_page(context, html)
+                                    else:
+                                        log.info("%d-slayd tuzatildi", index)
+
                         layout = html_extract.read_layout(page)
                         blocks = layout.get("blocks") or []
                         if not blocks:
