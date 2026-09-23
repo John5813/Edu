@@ -289,10 +289,9 @@ def check_math():
     check("va'da qoidasi bor", "VA'DA QILINGAN NARSA" in rules)
 
     guide = deck_shape.guidance("aniq")
-    check("aniq fanlarda misol talab qilinadi",
-          "KAMIDA BITTA ISHLANGAN MISOL" in guide)
-    check("aniq fanlarda formula alohida",
-          "`formula` blokida" in guide)
+    check("aniq fanlarda misol bloki aytilgan", "`misol` bloki" in guide)
+    check("aniq fanlarda formula bloki aytilgan",
+          "`formula`" in guide)
     check("iqtisodda ham formula aytilgan",
           "`formula` blokida" in deck_shape.guidance("ijtimoiy"))
 
@@ -342,6 +341,78 @@ def check_fraction_boxes():
               f"{up['x']:.0f} vs {down['x']:.0f}")
     check("qolgan matn butun qoldi",
           any(t.startswith("y =") for t in by_text), str(list(by_text)))
+
+
+def check_no_quotas():
+    """Promptda majburlovchi kvota qolmasin.
+
+    Bu xato ikki marta takrorlandi, shuning uchun qorovul sinov
+    yozildi. Biz yozgan qoidalarning o'zi modelga prompt bo'lib
+    ketadi: "har uch slaydning birida diagramma bo'lsin" desak,
+    adabiyotda ham statistika o'ylab topiladi; "kamida bitta misol
+    bo'lsin" desak, misol kerak bo'lmagan joyga ham tiqiladi.
+
+    Qoida MAZMUNNI emas, KO'RINISHNI boshqarishi kerak. Shuning
+    uchun promptning hamma bo'lagi — umumiy qoidalar, oila
+    yo'riqnomalari, reja va slayd so'rovlari — miqdor talabiga
+    tekshiriladi.
+    """
+    print("\n2b) Majburlovchi kvota yo'qligi")
+    theme = themes.get("ko'k")
+
+    pieces = {"qoidalar": html_slides.shell_rules(theme, "uz")}
+    for key in deck_shape.FAMILY_KEYS:
+        pieces[f"oila:{key}"] = deck_shape.guidance(key)
+    pieces["slayd so'rovi"] = html_slides._user_prompt(
+        "Mavzu", 1, 3, 9, [{"brief": "b", "category": "kartalar"}],
+        [], 2, "", "", "", "aniq")
+
+    seen = {}
+
+    def catch(system, user, temperature=0.7, max_tokens=16000):
+        seen["reja"] = user
+        return {"fan": "aniq", "slides": []}
+
+    original = llm_client._call_openrouter
+    try:
+        llm_client._call_openrouter = catch
+        html_slides.plan_outline("Mavzu", 6, "uz")
+    finally:
+        llm_client._call_openrouter = original
+    pieces["reja so'rovi"] = seen.get("reja", "")
+
+    # Miqdor talab qiladigan iboralar. "Yuqori chegara" qoladi —
+    # u varaqqa sig'ish uchun, tuzilishni buyurish uchun emas.
+    banned = ("kamida", "majburiy", "har uch slayd", "bo'lishi shart",
+              "har slaydda bo'lsin", "tagacha")
+    for name, text in pieces.items():
+        low = text.lower()
+        hits = [word for word in banned if word in low]
+        check(f"{name}da kvota yo'q", not hits, str(hits))
+
+    # Aksincha — shaklni mazmun tanlashi AYTILGAN bo'lsin.
+    rules = pieces["qoidalar"]
+    check("blokni mazmun tanlashi aytilgan",
+          "BLOKNI MAZMUN TANLAYDI" in rules)
+    check("ketma-ket takror ruxsat etilgan",
+          "bir xil shaklda bo'lishi MUMKIN" in rules)
+    check("raqam o'ylab topish taqiqlangan",
+          "RAQAMNI O'YLAB TOPMANG" in rules)
+    check("diagrammasiz taqdimot ham to'g'ri",
+          "birorta diagramma" in rules and "TO'G'RI" in rules)
+    check("so'rovda shakl mazmundan kelishi aytilgan",
+          "SHAKL MAZMUNDAN KELIB CHIQSIN" in pieces["slayd so'rovi"])
+
+    # Formula va misol — imkoniyat, talab emas.
+    exact = pieces["oila:aniq"]
+    check("formula shartli aytilgan", "Formula BO'LSA" in exact, exact)
+    check("misol shartli aytilgan", "mumkin bo'lsa" in exact, exact)
+    check("iqtisodda formula shartli",
+          "uchrasa" in pieces["oila:ijtimoiy"])
+
+    # Miqdor chegarasi faqat YUQORI chegara bo'lsin.
+    check("chegara yuqoridan berilgan",
+          "oshmasin" in rules and "kerak emas" in rules)
 
 
 def check_outline():
@@ -1533,6 +1604,7 @@ def main():
     if html_render.available():
         check_fraction_boxes()
     check_split()
+    check_no_quotas()
     check_outline()
     check_family_shape()
     check_writer()
