@@ -393,7 +393,11 @@ _SCRIPT = r"""
         kind: "rect", fill, gradient: ramp, ...r,
         border: borderColor, borderWidth,
         radius,
-        circle: radius * 2 >= short * 0.95,
+        // Doira faqat deyarli KVADRAT shakl. Ingichka uzun chiziq
+        // (120x6, radiusi 3) ham "radius qisqa tomonning yarmi"
+        // shartiga tushib, PowerPointda ellips bo'lib chiqardi.
+        circle: radius * 2 >= short * 0.95
+          && Math.abs(r.w - r.h) <= short * 0.15,
       });
     }
 

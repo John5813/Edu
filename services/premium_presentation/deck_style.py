@@ -128,8 +128,29 @@ align-items:center}
 .card{background:linear-gradient(160deg,#SOFT 0%,#SOFTER 100%);
 border-radius:18px;padding:44px;min-height:280px;
 display:flex;flex-direction:column;justify-content:center;gap:18px}
-.card.line{border-top:6px solid #ACCENT;border-radius:0 0 18px 18px}
-.card.solid{background:#BAND;color:#INVERT}
+.card.line{border-bottom:8px solid var(--tone,#ACCENT);
+border-radius:18px 18px 0 0}
+
+/* ── Rangli kartochkalar ───────────────────────────────────────── */
+/* Har kartochka o'z rangini oladi: ikonka shu rangdagi doira ichida
+   oq bo'lib turadi, kartochka shu rangning och tusida, pastida shu
+   rangdagi tasma. Eski tizimda aynan shunday edi va eng jonli
+   ko'rinadigan qismi shu edi. */
+.cols>*:nth-child(5n+1),.ikon-row>*:nth-child(5n+1){--tone:#TONE1;--tint:#TINT1}
+.cols>*:nth-child(5n+2),.ikon-row>*:nth-child(5n+2){--tone:#TONE2;--tint:#TINT2}
+.cols>*:nth-child(5n+3),.ikon-row>*:nth-child(5n+3){--tone:#TONE3;--tint:#TINT3}
+.cols>*:nth-child(5n+4),.ikon-row>*:nth-child(5n+4){--tone:#TONE4;--tint:#TINT4}
+.cols>*:nth-child(5n+5),.ikon-row>*:nth-child(5n+5){--tone:#TONE5;--tint:#TINT5}
+.cols>.card{background:var(--tint)}
+/* Ikonka kartochkaning tepa chetiga yarim chiqib turadi. */
+.cols>.card>.ikon-dot:first-child{margin-top:-96px;align-self:center}
+.cols:has(>.card>.ikon-dot:first-child){padding-top:56px}
+/* Ikonkali kartochkada mazmun tepadan boshlanadi — aks holda doira
+   har kartochkada har xil balandlikda turardi. Pastida shu rangdagi
+   tasma. */
+.cols>.card:has(>.ikon-dot:first-child){justify-content:flex-start;
+border-bottom:8px solid var(--tone);border-radius:18px 18px 0 0}
+.card.solid,.cols>.card.solid{background:#BAND;color:#INVERT}
 .card.solid .card-title,.card.solid .item-text,.card.solid .item-text b,
 .card.solid .kpi-value,.card.solid .kpi-label,
 .card.solid .misol-task{color:#INVERT}
@@ -143,10 +164,10 @@ display:flex;flex-direction:column;justify-content:center;gap:18px}
 /* ── Ikonka ────────────────────────────────────────────────────── */
 /* Ikonka HAR DOIM o'z qatorida turadi: matn oqimiga qo'yilsa
    harflarning ustiga minib qolardi. */
-.ikon{width:56px;height:56px;flex:none;display:block}
-.ikon-dot{width:96px;height:96px;border-radius:50%;background:#SOFT;
+.ikon{width:54px;height:54px;flex:none;display:block}
+.ikon-dot{width:104px;height:104px;border-radius:50%;
+background:var(--tone,#ACCENT);
 display:flex;align-items:center;justify-content:center;flex:none}
-.slide.dark .ikon-dot,.card.solid .ikon-dot{background:#BANDCARD}
 .ikon-row{display:flex;gap:32px;align-items:center}
 
 /* ── Ko'rsatkich ───────────────────────────────────────────────── */
@@ -258,6 +279,11 @@ def stylesheet(theme) -> str:
     # Kartochka foni ham bir tusdan ikkinchisiga ozgina o'tsin —
     # yassi rang quruq ko'rinadi.
     softer = _mix(theme.accent_soft, theme.background, 0.55)
+    # Ikonka ranglari: sariq, ko'k, marjon, yashil, binafsha. Ular
+    # mavzu rangidan mustaqil — eski tizimda ham shunday edi va eng
+    # jonli ko'rinadigan narsa shu edi. Birinchisi mavzu aksenti.
+    tones = [theme.accent] + [t for t in _TONES
+                              if _far(t, theme.accent)][:4]
     swap = {
         "SANS": SANS,
         "SERIF": SERIF,
@@ -274,6 +300,9 @@ def stylesheet(theme) -> str:
         "BANDGLOW": band_glow,
         "BANDSOFT": band_soft,
         "SOFTER": softer,
+        **{f"TONE{i + 1}": tone for i, tone in enumerate(tones)},
+        **{f"TINT{i + 1}": _mix(tone, "FFFFFF", 0.87)
+           for i, tone in enumerate(tones)},
         "SOFTINK": soft_ink,
     }
     css = _CSS
@@ -282,6 +311,19 @@ def stylesheet(theme) -> str:
     for key in sorted(swap, key=len, reverse=True):
         css = css.replace(key, swap[key])
     return css
+
+
+_TONES = ("E8A33D", "2F7BE0", "EE6C3A", "1FAE7A", "7B61FF", "D6457A")
+
+
+def _far(one: str, two: str) -> bool:
+    """Ikki rang ko'zga yetarlicha farq qiladimi."""
+    try:
+        a = [int(one[i:i + 2], 16) for i in (0, 2, 4)]
+        b = [int(two[i:i + 2], 16) for i in (0, 2, 4)]
+    except (ValueError, IndexError):
+        return True
+    return sum(abs(x - y) for x, y in zip(a, b)) > 140
 
 
 def _mix(base: str, other: str, ratio: float) -> str:

@@ -374,6 +374,22 @@ _DARK_SLIDE = re.compile(
     r'[^>]*>)', re.IGNORECASE)
 
 
+_DOT_ICON = re.compile(
+    r'(class\s*=\s*["\'][^"\']*\bikon-dot\b[^"\']*["\'][^>]*>\s*<img\b)'
+    r'(?![^>]*data-icon-color)', re.IGNORECASE)
+
+
+def _whiten_icons(body: str) -> str:
+    """Rangli doira ichidagi ikonka oq rangga bo'yalsin.
+
+    Doira endi kartochka rangida to'la bo'yalgan — ikonka o'sha rangda
+    bo'lsa ko'rinmay qoladi. Doiradan tashqaridagi ikonka esa aksent
+    rangida qoladi.
+    """
+    return _DOT_ICON.sub(lambda m: m.group(1) + ' data-icon-color="FFFFFF"',
+                         body)
+
+
 def _decorate(body: str) -> str:
     """To'q varaqqa yumshoq bezak doiralarini qo'yadi.
 
@@ -395,7 +411,8 @@ def build_pages(bodies: List[str], theme) -> List[str]:
     SVG ni kod yasaydi — shunda ustunning balandligi ham, yozuvning
     o'rni ham har safar to'g'ri chiqadi.
     """
-    drawn = [deck_charts.draw(deck_math.render(_decorate(body)), theme)
+    drawn = [deck_charts.draw(
+        deck_math.render(_whiten_icons(_decorate(body))), theme)
              for body in bodies]
     try:
         from . import html_images
