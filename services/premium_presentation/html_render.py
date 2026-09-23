@@ -10,8 +10,10 @@ olinadi: server kichik (1 vCPU / 2 GB), bir vaqtda ikkita Chromium
 oynasi ochilsa xotira yetmaydi.
 """
 
+import glob
 import logging
 import os
+import re
 import tempfile
 from typing import List
 
@@ -38,49 +40,110 @@ _WAIT_UNTIL = "load"
 _TIMEOUT_MS = 30000
 
 
-# Playwright brauzerni o'z versiyasi bo'yicha qidiradi. Kutubxona
-# yangilangan, brauzer esa eski bo'lsa ("Executable doesn't exist"),
-# shu yo'llar bo'yicha topilgani ishlatiladi. Serverda `playwright
-# install chromium` qilingan bo'lsa, bu ro'yxatga umuman kerak
-# bo'lmaydi.
-_FALLBACK_BROWSERS = (
-    os.getenv("PREMIUM_CHROMIUM_PATH", ""),
+# Playwright brauzerni O'Z versiyasi bo'yicha qidiradi: kutubxona
+# yangilansa, u yangi raqamli papkani kutadi va serverdagi eski brauzerni
+# ko'rmaydi ("Executable doesn't exist at .../chromium_headless_shell-1243").
+# Shuning uchun brauzer diskdan o'zimiz ham qidiramiz.
+#
+# Playwright brauzerlarni shu yerda saqlaydi:
+#   $PLAYWRIGHT_BROWSERS_PATH yoki ~/.cache/ms-playwright
+# ichida chromium-<raqam>/ va chromium_headless_shell-<raqam>/ papkalari.
+_BROWSER_GLOBS = (
+    "chromium-*/chrome-linux/chrome",
+    "chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell",
+)
+
+# Tizimga o'rnatilgan brauzerlar — Playwright papkasi umuman bo'lmasa.
+_SYSTEM_BROWSERS = (
     "/opt/pw-browsers/chromium",
     "/usr/bin/chromium",
     "/usr/bin/chromium-browser",
     "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable",
 )
+
+_INSTALL_HINT = ("Serverda brauzer topilmadi. Bir marta shuni bajaring:\n"
+                 "  venv/bin/playwright install --with-deps chromium")
+
+
+def _browser_roots() -> List[str]:
+    roots = []
+    configured = os.getenv("PLAYWRIGHT_BROWSERS_PATH", "").strip()
+    if configured and configured != "0":
+        roots.append(configured)
+    roots.append(os.path.expanduser("~/.cache/ms-playwright"))
+    # Bot boshqa foydalanuvchi ostida ishga tushirilgan bo'lishi mumkin,
+    # brauzer esa root ostida o'rnatilgan bo'ladi.
+    roots.append("/root/.cache/ms-playwright")
+    return [root for root in roots if os.path.isdir(root)]
 
 
 def _executable() -> str:
-    """Playwright topolmasa ishlatiladigan brauzer yo'li."""
-    for path in _FALLBACK_BROWSERS:
-        if path and os.path.exists(path):
+    """Diskdagi eng yangi Chromium — Playwright topolmaganda ishlatiladi."""
+    override = os.getenv("PREMIUM_CHROMIUM_PATH", "").strip()
+    if override and os.path.exists(override):
+        return override
+
+    found = []
+    for root in _browser_roots():
+        for pattern in _BROWSER_GLOBS:
+            found.extend(glob.glob(os.path.join(root, pattern)))
+    if found:
+        # Papka nomidagi raqam — build raqami; eng kattasi eng yangisi.
+        def build_number(path: str) -> int:
+            match = re.search(r"-(\d+)[/\\]", path)
+            return int(match.group(1)) if match else 0
+
+        return max(found, key=build_number)
+
+    for path in _SYSTEM_BROWSERS:
+        if os.path.exists(path):
             return path
     return ""
 
 
 def available() -> bool:
-    """Playwright va brauzer shu serverda bormi."""
+    """Playwright ham, brauzer ham shu serverda bormi.
+
+    Ilgari bu faqat kutubxona import bo'lishini tekshirardi va brauzer
+    yo'qligi mijoz to'lovdan keyin bilinardi.
+    """
     try:
         from playwright.sync_api import sync_playwright  # noqa: F401
     except ImportError:
         return False
-    return True
+    return bool(_executable())
 
 
 def _launch(playwright):
-    """Brauzerni ishga tushiradi — kerak bo'lsa zaxira yo'l bilan."""
+    """Brauzerni ishga tushiradi — uch usulni ketma-ket sinab.
+
+    1. Playwright o'zi bilgan brauzer (odatdagi holat).
+    2. To'liq Chromium: yangi Playwright `headless=True` uchun alohida
+       "headless shell" ni kutadi, serverda esa ko'pincha faqat to'liq
+       Chromium o'rnatilgan bo'ladi.
+    3. Diskdan topilgan brauzer yo'li.
+    """
+    attempts = []
     try:
         return playwright.chromium.launch(headless=True, args=_LAUNCH_ARGS)
     except Exception as exc:
-        path = _executable()
-        if not path:
-            raise
-        log.warning("Playwright brauzerni topmadi (%s), %s ishlatiladi",
-                    str(exc).splitlines()[0][:120], path)
+        attempts.append(str(exc).splitlines()[0][:160])
+
+    try:
         return playwright.chromium.launch(
-            headless=True, args=_LAUNCH_ARGS, executable_path=path)
+            headless=True, args=_LAUNCH_ARGS, channel="chromium")
+    except Exception as exc:
+        attempts.append(str(exc).splitlines()[0][:160])
+
+    path = _executable()
+    if not path:
+        raise RuntimeError(f"{_INSTALL_HINT}\n\n" + "\n".join(attempts))
+
+    log.warning("Playwright brauzerni topmadi (%s) — %s ishlatiladi",
+                attempts[0], path)
+    return playwright.chromium.launch(
+        headless=True, args=_LAUNCH_ARGS, executable_path=path)
 
 
 def shoot(html_slides: List[str], out_dir: str = "temp") -> List[str]:
