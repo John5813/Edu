@@ -21,6 +21,9 @@ opencv-python-headless>=4.10.0
 openpyxl>=3.1.5
 pdf2docx>=0.5.12
 pillow>=11.3.0
+# Premium taqdimot slaydlari brauzerda suratga olinadi. Serverda bir
+# marta `venv/bin/playwright install --with-deps chromium` ham qilinadi.
+playwright>=1.49.0
 pymupdf>=1.24.0
 python-dotenv>=1.2.2
 python-pptx>=1.0.2

@@ -139,6 +139,21 @@ def _point_text(value) -> str:
     return clean_text(str(value or "").strip())
 
 
+def _visual_quota(sections: int) -> dict:
+    """Nechta diagramma, jadval va formula so'ralsin.
+
+    Bo'limlar soniga bog'liq: har bo'limga bittadan ortiq element
+    qo'yilmaydi, shuning uchun ikkita savolli ishda ikkitadan ortig'ini
+    so'rashning ma'nosi yo'q. Diagramma jadvaldan ko'proq bo'ladi —
+    kurs ishida ko'rgazmali qism shunday ko'rinadi.
+    """
+    sections = max(1, int(sections or 1))
+    charts = max(1, min(round(sections * 0.45), 4))
+    tables = max(1, min(round(sections * 0.3), 3))
+    formulas = min(max(sections - charts - tables, 0), 2)
+    return {"charts": charts, "tables": tables, "formulas": formulas}
+
+
 def _plan_flow(plan: list, chapter_index: int, sub_index: int,
                previous_text: str) -> dict:
     """Murakkab rejadagi bo'lim uchun mantiqiy bog'liqlik ma'lumoti.
@@ -1940,9 +1955,16 @@ In JSON format:
             content["sections"].append({"title": title, "content": body})
             previous = body
 
-        for number in range(1, len(titles) + 1):
-            content[f"table_data_{number}"] = await self.generate_table_data(
-                topic, number, language)
+        # Diagramma va jadvallarni AI o'zi taqsimlaydi — qaysi savolda
+        # raqam ko'rsatish, qaysinisida qiyoslash jadvali mantiqiy ekanini
+        # mavzuning o'ziga qarab tanlaydi. Savollar soniga qarab nechta
+        # element berilishi ham o'zgaradi: ikkita savolli ishga beshta
+        # diagramma sig'maydi.
+        outline = [(str(index), section["title"])
+                   for index, section in enumerate(content["sections"], 1)]
+        content["visuals"] = await self.plan_document_visuals(
+            topic, outline, language,
+            **_visual_quota(len(outline)))
 
         content["conclusion"] = await self._generate_course_conclusion(topic, language)
         content["references"] = await self._generate_references(topic, language)
@@ -2086,20 +2108,18 @@ In JSON format:
                 
                 content["chapters"].append(chapter)
             
-            # Jadval har bir bob uchun — reja qo'lda yozilgan bo'lsa,
-            # boblar soni tanlanganidan farq qilishi mumkin.
-            for chapter_num in range(1, len(content["chapters"]) + 1):
-                content[f"table_data_{chapter_num}"] = await self.generate_table_data(topic, chapter_num, language)
-
-            # Diagramma va formulalarni AI o'zi taqsimlaydi: qaysi bo'limda
-            # raqam ko'rsatish mantiqiy ekanini u matnni yozgandan keyin
-            # yaxshiroq biladi. Bitta so'rov — butun hujjat uchun.
+            # Diagramma, jadval va formulalarni AI o'zi taqsimlaydi: qaysi
+            # bo'limda raqam ko'rsatish, qaysinisida qiyoslash jadvali
+            # mantiqiy ekanini u matnni yozgandan keyin yaxshiroq biladi.
+            # Bitta so'rov — butun hujjat uchun. (Ilgari har bobga alohida
+            # jadval so'ralar, lekin hujjatga tushmay qolardi.)
             outline = [
                 (sub["number"], sub["title"])
                 for chapter in content["chapters"]
                 for sub in chapter["subsections"]
             ]
-            content["visuals"] = await self.plan_document_visuals(topic, outline, language)
+            content["visuals"] = await self.plan_document_visuals(
+                topic, outline, language, **_visual_quota(len(outline)))
 
             # Generate conclusion
             content["conclusion"] = await self._generate_course_conclusion(topic, language)
@@ -4353,39 +4373,51 @@ In JSON format:
             return {"formulas": [], "example": {"task": "", "solution": ""}}
 
     async def plan_document_visuals(self, topic: str, outline: list, language: str,
-                                    charts: int = 3, formulas: int = 2) -> list:
-        """Qaysi kichik bo'limga diagramma yoki formula kerakligini AI hal qiladi.
+                                    charts: int = 3, formulas: int = 2,
+                                    tables: int = 2) -> list:
+        """Qaysi bo'limga diagramma, jadval yoki formula kerakligini AI hal qiladi.
 
         Ilgari diagramma qat'iy sikl bo'yicha qo'yilardi va mavzuga aloqasi
         bo'lmasligi mumkin edi. Bu yerda model butun rejani ko'rib, o'zi
         tanlaydi: qaysi bo'limda raqam ko'rsatish mantiqiy, qaysinisida
-        hisob formulasi joyida.
+        jadval, qaysinisida hisob formulasi joyida.
 
         `outline` — [(raqam, sarlavha), ...]. Qaytadigan har bir yozuvda
-        `subsection`, `kind` ("chart"/"formula") va tushuntirish matni bor;
-        tushuntirishsiz yozuv rad etiladi, chunki izohsiz diagramma
+        `subsection`, `kind` ("chart"/"table"/"formula") va izoh matni bor;
+        izohsiz yozuv rad etiladi, chunki tushuntirilmagan diagramma
         himoyada savol tug'diradi.
         """
         lang_map = {"uz": "o'zbek", "ru": "русский", "en": "English"}
         lang_name = lang_map.get(language, "o'zbek")
         listing = "\n".join(f"{number} {title}" for number, title in outline)
         types = ", ".join(DOC_CHART_TYPES)
+        # Namunadagi yillar ham bugungi sanadan olinadi, aks holda model
+        # ularni ko'chirib, eskirgan jadval yasaydi.
+        first_column = "Ko'rsatkich"
+        table_headers = json.dumps(
+            [first_column] + [str(year) for year in timeframe.history_years(2)],
+            ensure_ascii=False)
 
         prompt = (
             f'Kurs ishi mavzusi: "{topic}"\n\n'
             f"Bo'limlar:\n{listing}\n\n"
-            f"Shu ro'yxatdan {charts} ta kichik bo'limga diagramma va "
-            f"{formulas} ta kichik bo'limga hisob formulasi tanlang. "
-            f"Faqat raqam bilan ko'rsatish MANTIQIY bo'lgan bo'limni tanlang — "
-            f"sof nazariy bo'limga diagramma qo'ymang. Bitta bo'limga bittadan "
-            f"ortiq element bermang.\n\n"
+            f"Shu ro'yxatdan {charts} ta bo'limga diagramma, {tables} ta "
+            f"bo'limga jadval va {formulas} ta bo'limga hisob formulasi "
+            f"tanlang. Faqat raqam yoki qiyoslash bilan ko'rsatish MANTIQIY "
+            f"bo'lgan bo'limni tanlang — sof nazariy bo'limga diagramma "
+            f"qo'ymang. Bitta bo'limga bittadan ortiq element bermang.\n\n"
             f"Diagramma turlari: {types}. Ma'lumot mavzuga oid, real "
             f"kattalikdagi sonlar bo'lsin (o'ylab topilgan bo'lsa ham ishonarli). "
             f"Kamida 3 ta kategoriya bering.\n"
+            f"Jadvalda 3-4 ta ustun va 4-6 ta qator bo'lsin; ustun "
+            f"sarlavhalari mavzudan kelib chiqsin.\n"
             f"Formulada latex dollarsiz yoziladi.\n"
-            f"Har bir elementda 'explanation' — diagramma yoki formula ostiga "
-            f"tushadigan 2-3 gaplik izoh. Unda nima ko'rsatilgani va undan "
-            f"qanday xulosa chiqishi yozilsin.\n"
+            f"Har bir elementda 'explanation' — diagramma, jadval yoki "
+            f"formula ostiga tushadigan IZOH. U 3-5 ta to'liq gapdan iborat "
+            f"bo'lsin va quyidagilarni o'z ichiga olsin: nima ko'rsatilgan, "
+            f"raqamlar qanday o'zgargan yoki qatorlar nimani qiyoslaydi, "
+            f"buning sababi nimada va undan qanday xulosa kelib chiqadi. "
+            f"Bir gapli quruq izoh YOZMANG.\n"
             f"Barcha matnlar {lang_name} tilida.\n\n"
             f"Faqat JSON qaytaring:\n"
             f'{{"visuals": [\n'
@@ -4394,6 +4426,10 @@ In JSON format:
             f'"categories": {json.dumps([str(y) for y in timeframe.history_years(3)], ensure_ascii=False)}, '
             f'"series": [{{"name": "Ko\'rsatkich", "values": [9.1, 8.7, 8.2]}}], '
             f'"explanation": "Izoh"}},\n'
+            f'  {{"subsection": "1.3", "kind": "table", "title": "Jadval nomi", '
+            f'"headers": {table_headers}, '
+            f'"rows": [["Band aholi, ming kishi", "13 900", "14 260"]], '
+            f'"explanation": "Uch-besh gaplik izoh"}},\n'
             f'  {{"subsection": "2.1", "kind": "formula", "name": "Formula nomi", '
             f'"latex": "E = \\\\frac{{P}}{{Z}} \\\\times 100", '
             f'"given": ["P — sof foyda"], "result": "E = 24,5%", '
@@ -4404,7 +4440,7 @@ In JSON format:
         try:
             response = await self._make_request(
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=2000,
+                max_tokens=3600,
                 temperature=0.5,
             )
             content_str = response.strip()
@@ -4428,10 +4464,12 @@ In JSON format:
             kind = str(item.get("kind") or "").strip().lower()
             # Izohsiz diagramma mijozga hech narsa tushuntirmaydi.
             if (number not in wanted or number in seen
-                    or kind not in ("chart", "formula")
+                    or kind not in ("chart", "table", "formula")
                     or not str(item.get("explanation") or "").strip()):
                 continue
             if kind == "formula" and not str(item.get("latex") or "").strip():
+                continue
+            if kind == "table" and not (item.get("headers") and item.get("rows")):
                 continue
             seen.add(number)
             plan.append(item)
@@ -4565,6 +4603,69 @@ In JSON format:
             logger.error(f"Error generating glossary for '{topic}': {e}")
             return []
 
+
+    async def describe_visual(self, kind: str, section_title: str, topic: str,
+                              lang: str) -> str:
+        """Rasm, jadval yoki sxema ostiga tushadigan 3-5 gaplik izoh.
+
+        Ilgari ular oldidan bitta ulovchi gap turar, ostida esa hech
+        narsa bo'lmasdi: o'quvchi rasmga qarab, nega u shu yerda
+        turganini bilmay qolardi.
+        """
+        subject = {
+            "image": {
+                "uz": "bo'lim mavzusiga oid rasm",
+                "ru": "изображение по теме раздела",
+                "en": "an image related to the section",
+            },
+            "scheme": {
+                "uz": "mavzuning tuzilma sxemasi",
+                "ru": "структурная схема темы",
+                "en": "a structure diagram of the topic",
+            },
+            "table": {
+                "uz": "bo'limdagi ma'lumotlarni qiyoslovchi jadval",
+                "ru": "таблица, сравнивающая данные раздела",
+                "en": "a table comparing the section's data",
+            },
+        }.get(kind, {}).get(lang if lang in ("uz", "ru", "en") else "uz", "")
+
+        if lang == "ru":
+            prompt = (
+                f'Раздел: "{section_title}" (тема работы: "{topic}").\n'
+                f"Под ним помещено: {subject}.\n\n"
+                "Напишите пояснение из 3-5 полных предложений: что именно "
+                "показано, на что следует обратить внимание, чем это "
+                "объясняется и какой вывод из этого следует. Только сплошной "
+                "текст, без заголовков, списков и markdown."
+            )
+        elif lang == "en":
+            prompt = (
+                f'Section: "{section_title}" (work topic: "{topic}").\n'
+                f"Placed underneath it: {subject}.\n\n"
+                "Write an explanation of 3-5 complete sentences: what exactly "
+                "is shown, what the reader should notice, what explains it and "
+                "what conclusion follows. Continuous prose only, no headings, "
+                "no lists, no markdown."
+            )
+        else:
+            prompt = (
+                f'Bo\'lim: "{section_title}" (ish mavzusi: "{topic}").\n'
+                f"Uning ostida: {subject}.\n\n"
+                "Shunga 3-5 ta to'liq gapdan iborat izoh yozing: aynan nima "
+                "ko'rsatilgan, nimaga e'tibor berish kerak, buning sababi "
+                "nimada va undan qanday xulosa kelib chiqadi. Faqat yaxlit "
+                "matn — sarlavhasiz, ro'yxatsiz, markdownsiz."
+            )
+
+        try:
+            response = await self._make_request(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=400, temperature=0.7)
+            return clean_text(response.strip())
+        except Exception as exc:
+            logger.warning(f"Vizual izohi olinmadi ({kind}): {exc}")
+            return ""
 
     async def generate_bridge_sentence(
         self,

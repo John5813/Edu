@@ -5,6 +5,7 @@ from datetime import datetime
 from docx import Document
 from docx.shared import Inches, Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from pptx import Presentation
@@ -17,6 +18,7 @@ import asyncio
 from config import DOCUMENTS_DIR, TEMP_DIR
 from services.together_service import get_together_service
 from services.ai_service import clean_text
+from services import doc_visuals
 from services import timeframe
 from services.doc_toc import TocPlan
 from services import uzbekistan
@@ -1110,6 +1112,8 @@ class DocumentService:
             return
 
         ai = get_ai_service()
+        # Rasm va jadval raqamlari butun hujjat bo'yicha ketma-ket boradi.
+        numbering = doc_visuals.of(doc, lang)
 
         # ── Pre-fetch formulas ───────────────────────────────────────────
         if "formulas" in extras and formula_data is None:
@@ -1128,7 +1132,13 @@ class DocumentService:
             r.font.size = Pt(13)
             r.font.name = "Times New Roman"
 
+        async def _add_note(kind: str) -> None:
+            """Rasm/jadval/sxema ostidagi bir abzats izoh (3-5 gap)."""
+            numbering.note(
+                doc, await ai.describe_visual(kind, section_title, topic, lang))
+
         async def _embed_image(img_path: str, caption: str) -> None:
+            """Rasmni qo'yadi va ostiga "N-rasm. Nomi" deb yozadi."""
             with open(img_path, "rb") as _f:
                 img_bytes = _f.read()
             img_para = doc.add_paragraph()
@@ -1138,26 +1148,13 @@ class DocumentService:
             img_para.paragraph_format.line_spacing = 1.0
             img_run = img_para.add_run()
             img_run.add_picture(_io.BytesIO(img_bytes), width=_Inches(5.5))
-            cap_para = doc.add_paragraph()
-            cap_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            cap_para.paragraph_format.space_before = Pt(0)
-            cap_para.paragraph_format.space_after = Pt(6)
-            cap_para.paragraph_format.line_spacing = 1.0
-            cap_run = cap_para.add_run(caption)
-            cap_run.font.size = Pt(11)
-            cap_run.font.italic = True
-            cap_run.font.name = "Times New Roman"
+            numbering.figure_caption(doc, caption)
 
         # ── 1. Rasm (juft bo'limlarda obyekt fotosurati, toqda odamli fotosurat;
         #    ikkalasi ham realistik surat, infografika emas) ─────────────────
         if "images" in extras:
             img_type = "infographic" if section_idx % 2 == 0 else "scene"
-            if lang == "ru":
-                cap = f"Рис. {section_title}"
-            elif lang == "en":
-                cap = f"Fig. {section_title}"
-            else:
-                cap = f"Rasm. {section_title}"
+            cap = section_title
             bridge_key = "before_image1" if img_type == "infographic" else "before_image2"
             try:
                 together = get_together_service()
@@ -1167,6 +1164,7 @@ class DocumentService:
                 if img_path and os.path.exists(img_path):
                     await _add_bridge(bridge_key)
                     await _embed_image(img_path, cap)
+                    await _add_note("image")
                     try:
                         os.remove(img_path)
                     except Exception:
@@ -1192,14 +1190,10 @@ class DocumentService:
                         palette=_variety.choose_palette((topic, section_title)),
                         language=lang,
                     )
-                    if lang == "ru":
-                        scheme_cap = f"Схема. {section_title}"
-                    elif lang == "en":
-                        scheme_cap = f"Scheme. {section_title}"
-                    else:
-                        scheme_cap = f"Sxema. {section_title}"
+                    scheme_cap = section_title
                     await _add_bridge("before_scheme")
                     await _embed_image(scheme_path, scheme_cap)
+                    await _add_note("scheme")
                     try:
                         os.remove(scheme_path)
                     except OSError:
@@ -1362,7 +1356,7 @@ class DocumentService:
             if headers and rows:
                 await _add_bridge("before_table")
                 from docx.shared import RGBColor as _RGB
-                from docx.enum.table import WD_TABLE_ALIGNMENT
+                numbering.table_caption(doc, tbl_data.get("title") or section_title)
                 tbl = doc.add_table(rows=1 + len(rows), cols=len(headers))
                 tbl.style = "Table Grid"
 
@@ -1395,6 +1389,7 @@ class DocumentService:
                             cell_text = cell_text[:117] + "..."
                         row_cells[c_idx].text = cell_text
                         row_cells[c_idx].paragraphs[0].runs[0].font.size = Pt(9)
+                await _add_note("table")
                 doc.add_paragraph()
 
         # ── 4. Statistics ─────────────────────────────────────────────────
@@ -1583,32 +1578,13 @@ class DocumentService:
                             img_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
                             img_run = img_para.add_run()
                             img_run.add_picture(image_path, width=Inches(5.0))
-                            caption_para = doc.add_paragraph()
-                            caption_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                            caption_para.paragraph_format.space_after = Pt(6)
-                            if user_lang == 'uz':
-                                caption_text = f"1-rasm. {title}"
-                            elif user_lang == 'ru':
-                                caption_text = f"Рисунок 1. {title}"
-                            else:
-                                caption_text = f"Figure 1. {title}"
-                            cap_run = caption_para.add_run(caption_text)
-                            cap_run.font.size = Pt(12)
-                            cap_run.font.italic = True
-                            cap_run.font.name = 'Times New Roman'
+                            numbering = doc_visuals.of(doc, user_lang)
+                            numbering.figure_caption(doc, title)
                             image_description = await self.together.generate_image_description(
                                 topic, title, user_lang, image_path
                             )
                             if image_description:
-                                from docx.enum.text import WD_LINE_SPACING
-                                desc_para = doc.add_paragraph()
-                                desc_para.paragraph_format.first_line_indent = Inches(0.5)
-                                desc_para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.ONE_POINT_FIVE
-                                desc_para.paragraph_format.space_after = Pt(12)
-                                desc_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                                desc_run = desc_para.add_run(clean_text(image_description))
-                                desc_run.font.size = Pt(14)
-                                desc_run.font.name = 'Times New Roman'
+                                numbering.note(doc, clean_text(image_description))
                             doc.add_page_break()
                             try:
                                 os.remove(image_path)
@@ -2392,7 +2368,14 @@ class DocumentService:
 
             # Add page break before table (table on separate page)
             doc.add_page_break()
-            
+
+            # Jadvalning nomi tepada turadi, izohi esa ostida.
+            numbering = doc_visuals.of(doc, language)
+            title = ""
+            if isinstance(table_data, dict):
+                title = str(table_data.get('title') or '').strip()
+            numbering.table_caption(doc, title or f"{topic}")
+
             # Create table with rows + 1 header
             table = doc.add_table(rows=len(rows) + 1, cols=len(headers))
             table.style = 'Table Grid'
@@ -2423,32 +2406,9 @@ class DocumentService:
                                 run.font.size = Pt(11)
                                 run.font.name = 'Times New Roman'
             
-            # Get description from table_data if available (AI-generated)
+            # Jadval ostidagi izoh — bir abzats.
             if isinstance(table_data, dict):
-                base_desc = table_data.get('description', f"{topic} tahlili")
-                if language == 'uz':
-                    description = f"{chapter_num}-jadval. {base_desc}"
-                elif language == 'ru':
-                    description = f"Таблица {chapter_num}. {base_desc}"
-                else:
-                    description = f"Table {chapter_num}. {base_desc}"
-            else:
-                # Fallback descriptions
-                captions = {
-                    'uz': f"{chapter_num}-jadval. {topic} tahlili",
-                    'ru': f"Таблица {chapter_num}. Анализ: {topic}", 
-                    'en': f"Table {chapter_num}. Analysis: {topic}"
-                }
-                description = captions.get(language, captions['uz'])
-            
-            # Add table caption/description below
-            caption_para = doc.add_paragraph()
-            caption_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            caption_para.paragraph_format.space_before = Pt(6)
-            caption_run = caption_para.add_run(description)
-            caption_run.font.italic = True
-            caption_run.font.size = Pt(11)
-            caption_run.font.name = 'Times New Roman'
+                numbering.note(doc, table_data.get('description', ''))
             
             # Add spacing after table
             doc.add_paragraph()
@@ -2660,6 +2620,8 @@ class DocumentService:
                 headers = table_data.get('headers', [])
                 rows = table_data.get('rows', [])
                 num_cols = len(headers) if headers else 1
+                doc_visuals.of(doc, language).table_caption(
+                    doc, table_data.get('title') or topic)
                 table = doc.add_table(rows=len(rows) + 1, cols=num_cols)
                 table.style = 'Table Grid'
                 
@@ -2694,6 +2656,8 @@ class DocumentService:
                 headers2 = table2_data.get('headers', [])
                 rows2 = table2_data.get('rows', [])
                 num_cols2 = len(headers2) if headers2 else 1
+                doc_visuals.of(doc, language).table_caption(
+                    doc, table2_data.get('title') or topic)
                 table2 = doc.add_table(rows=len(rows2) + 1, cols=num_cols2)
                 table2.style = 'Table Grid'
                 
@@ -2981,34 +2945,13 @@ class DocumentService:
                             img_run = img_para.add_run()
                             img_run.add_picture(image_path, width=Inches(5.5))
 
-                            # Caption
-                            caption_para = doc.add_paragraph()
-                            caption_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                            caption_para.paragraph_format.space_after = Pt(6)
+                            # Rasm nomi va izohi — raqam butun hujjat
+                            # bo'yicha ketma-ket boradi.
+                            numbering = doc_visuals.of(doc, language)
+                            numbering.figure_caption(doc, clean_title)
 
-                            if language == 'uz':
-                                caption_text = f"{i}-rasm. {clean_title}"
-                            elif language == 'ru':
-                                caption_text = f"Рисунок {i}. {clean_title}"
-                            else:
-                                caption_text = f"Figure {i}. {clean_title}"
-
-                            cap_run = caption_para.add_run(caption_text)
-                            cap_run.font.size = Pt(12)
-                            cap_run.font.italic = True
-                            cap_run.font.name = 'Times New Roman'
-
-                            # Description after caption
                             if image_description:
-                                from docx.enum.text import WD_LINE_SPACING
-                                desc_para = doc.add_paragraph()
-                                desc_para.paragraph_format.first_line_indent = Inches(0.5)
-                                desc_para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.ONE_POINT_FIVE
-                                desc_para.paragraph_format.space_after = Pt(12)
-                                desc_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                                desc_run = desc_para.add_run(clean_text(image_description))
-                                desc_run.font.size = Pt(14)
-                                desc_run.font.name = 'Times New Roman'
+                                numbering.note(doc, clean_text(image_description))
 
                     # Subsection text content
                     sub_content = subsection.get('content', '')
@@ -3427,8 +3370,6 @@ class DocumentService:
                 for item in (content.get('visuals') or [])
                 if isinstance(item, dict) and item.get('subsection')
             }
-            figure_no = 0
-            formula_no = 0
 
             if plan_style == course_work.SIMPLE:
                 # Oddiy reja: boblar emas, raqamlangan savollar.
@@ -3445,6 +3386,13 @@ class DocumentService:
 
                     footnote_counter = self._add_body_with_footnotes(
                         doc, section.get('content', ''), references, footnote_counter)
+
+                    # Oddiy rejada ham diagramma, jadval va formula bo'ladi:
+                    # qaysi savolga nimasi kerakligini AI mavzuga qarab
+                    # tanlagan.
+                    planned = planned_visuals.pop(str(number), None)
+                    if planned:
+                        await self._add_planned_visual(doc, planned, language)
 
                     if extras:
                         cycle_extras = _extras_for_cycle(extras, number)
@@ -3496,9 +3444,7 @@ class DocumentService:
                     # tanlagan, qat'iy sikl bo'yicha emas.
                     planned = planned_visuals.pop(str(subsection['number']), None)
                     if planned:
-                        figure_no, formula_no = await self._add_planned_visual(
-                            doc, planned, figure_no, formula_no, language
-                        )
+                        await self._add_planned_visual(doc, planned, language)
 
                     # Add extras per subsection using cycle pattern
                     if extras:
@@ -3518,32 +3464,14 @@ class DocumentService:
                                     img_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
                                     img_run = img_para.add_run()
                                     img_run.add_picture(image_path, width=Inches(5.0))
-                                    caption_para = doc.add_paragraph()
-                                    caption_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                                    caption_para.paragraph_format.space_after = Pt(6)
-                                    if language == 'uz':
-                                        caption_text = f"{i}-rasm. {clean_title}"
-                                    elif language == 'ru':
-                                        caption_text = f"Рисунок {i}. {clean_title}"
-                                    else:
-                                        caption_text = f"Figure {i}. {clean_title}"
-                                    cap_run = caption_para.add_run(caption_text)
-                                    cap_run.font.size = Pt(12)
-                                    cap_run.font.italic = True
-                                    cap_run.font.name = 'Times New Roman'
+                                    numbering = doc_visuals.of(doc, language)
+                                    numbering.figure_caption(doc, clean_title)
                                     image_description = await self.together.generate_image_description(
                                         topic, clean_title, language, image_path
                                     )
                                     if image_description:
-                                        from docx.enum.text import WD_LINE_SPACING
-                                        desc_para = doc.add_paragraph()
-                                        desc_para.paragraph_format.first_line_indent = Inches(0.5)
-                                        desc_para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.ONE_POINT_FIVE
-                                        desc_para.paragraph_format.space_after = Pt(12)
-                                        desc_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                                        desc_run = desc_para.add_run(clean_text(image_description))
-                                        desc_run.font.size = Pt(14)
-                                        desc_run.font.name = 'Times New Roman'
+                                        numbering.note(
+                                            doc, clean_text(image_description))
                                     doc.add_page_break()
                                     logger.info(f"Added Flux Pro image with description for chapter {i} subsection 2")
                                     try:
@@ -3552,12 +3480,6 @@ class DocumentService:
                                         pass
                             except Exception as img_error:
                                 logger.warning(f"Could not add image for chapter {i}.2: {img_error}")
-
-                        # Add informational table after each chapter's subsection 3 (only without extras)
-                        if j == 3:
-                            table_data = content.get(f'table_data_{i}', {})
-                            if table_data:
-                                self._add_info_table(doc, topic, table_data, language, chapter_num=i)
 
                 doc.add_page_break()
             
@@ -3718,40 +3640,92 @@ class DocumentService:
 
     _VISUAL_LABELS = {
         "uz": {"figure": "{n}-rasm", "formula": "Formula {n}",
+               "table": "{n}-jadval",
                "given": "Berilganlar", "result": "Natija"},
         "ru": {"figure": "Рисунок {n}", "formula": "Формула {n}",
+               "table": "Таблица {n}",
                "given": "Дано", "result": "Результат"},
         "en": {"figure": "Figure {n}", "formula": "Formula {n}",
+               "table": "Table {n}",
                "given": "Given", "result": "Result"},
     }
 
-    async def _add_planned_visual(self, doc, item: Dict, figure_no: int,
-                                  formula_no: int, language: str) -> tuple:
-        """AI tanlagan diagramma yoki formulani bo'lim ostiga qo'yadi.
+    async def _add_planned_visual(self, doc, item: Dict, language: str) -> None:
+        """AI tanlagan diagramma, jadval yoki formulani bo'lim ostiga qo'yadi.
 
-        Har bir diagramma ostida albatta izoh turadi: raqamsiz va izohsiz
-        diagramma himoyada savol tug'diradi, chunki uni tushuntirib
-        bo'lmaydi.
+        Har bir element nomlanadi ("3-rasm.", "2-jadval.") va ostida bir
+        abzats izoh turadi: raqamsiz va izohsiz diagramma himoyada savol
+        tug'diradi, chunki uni tushuntirib bo'lmaydi. Raqamlar hujjat
+        bo'yicha umumiy hisoblagichdan olinadi — qo'shimcha xizmat
+        sifatida qo'yilgan rasmlar bilan bir qatorda boradi.
         """
-        labels = self._VISUAL_LABELS.get(language, self._VISUAL_LABELS["uz"])
+        numbering = doc_visuals.of(doc, language)
         kind = str(item.get("kind") or "").strip().lower()
         explanation = str(item.get("explanation") or "").strip()
 
         try:
             if kind == "chart":
-                figure_no = self._add_planned_chart(
-                    doc, item, figure_no, labels, explanation
-                )
+                self._add_planned_chart(doc, item, numbering, explanation)
+            elif kind == "table":
+                self._add_planned_table(doc, item, numbering, explanation)
             elif kind == "formula":
-                formula_no = self._add_planned_formula(
-                    doc, item, formula_no, labels, explanation
-                )
+                self._add_planned_formula(doc, item, numbering, explanation)
         except Exception as exc:
             logger.warning(f"Rejadagi vizual qo'yilmadi ({kind}): {exc}")
-        return figure_no, formula_no
 
-    def _add_planned_chart(self, doc, item: Dict, figure_no: int,
-                           labels: Dict, explanation: str) -> int:
+    def _add_planned_table(self, doc, item: Dict, numbering,
+                           explanation: str) -> None:
+        """AI tanlagan jadvalni nomi va izohi bilan qo'yadi.
+
+        Jadvalning nomi tepada ("1-jadval. Nomi"), izoh esa ostida
+        turadi — o'zbek ishlarida shunday rasmiylashtiriladi.
+        """
+        headers = [str(h).strip() for h in (item.get("headers") or []) if str(h).strip()]
+        rows = [row for row in (item.get("rows") or []) if row]
+        if not headers or not rows:
+            return
+
+        numbering.table_caption(doc, str(item.get("title") or "").strip())
+
+        table = doc.add_table(rows=1 + len(rows), cols=len(headers))
+        table.style = "Table Grid"
+        table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        width = OxmlElement("w:tblW")
+        width.set(qn("w:w"), "5000")
+        width.set(qn("w:type"), "pct")
+        table._tbl.tblPr.append(width)
+
+        for index, header in enumerate(headers):
+            cell = table.rows[0].cells[index]
+            cell.text = header
+            shade = OxmlElement("w:shd")
+            shade.set(qn("w:val"), "clear")
+            shade.set(qn("w:color"), "auto")
+            shade.set(qn("w:fill"), "D6E4F0")
+            cell._tc.get_or_add_tcPr().append(shade)
+            for paragraph in cell.paragraphs:
+                paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                for run in paragraph.runs:
+                    run.font.bold = True
+                    run.font.size = Pt(11)
+                    run.font.name = "Times New Roman"
+
+        for row_index, row_data in enumerate(rows, 1):
+            values = list(row_data) if isinstance(row_data, (list, tuple)) else [row_data]
+            for col_index in range(len(headers)):
+                cell = table.rows[row_index].cells[col_index]
+                value = str(values[col_index]) if col_index < len(values) else ""
+                cell.text = value[:120]
+                for paragraph in cell.paragraphs:
+                    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    for run in paragraph.runs:
+                        run.font.size = Pt(11)
+                        run.font.name = "Times New Roman"
+
+        numbering.note(doc, explanation)
+
+    def _add_planned_chart(self, doc, item: Dict, numbering,
+                           explanation: str) -> None:
         from services import doc_charts
         from services.project_work import palettes, variety
 
@@ -3760,41 +3734,32 @@ class DocumentService:
         palette = variety.choose_palette((item.get("title"), item.get("chart_type")))
         path = doc_charts.draw(item, self.temp_dir, palette)
         if not path:
-            return figure_no
+            return
 
         try:
-            figure_no += 1
             picture = doc.add_paragraph()
             picture.alignment = WD_ALIGN_PARAGRAPH.CENTER
             picture.paragraph_format.space_before = Pt(8)
             picture.paragraph_format.space_after = Pt(2)
             picture.add_run().add_picture(path, width=Inches(5.8))
 
-            caption = doc.add_paragraph()
-            caption.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            caption.paragraph_format.space_after = Pt(4)
-            text = labels["figure"].format(n=figure_no)
-            title = str(item.get("title") or "").strip()
-            caption_run = caption.add_run(f"{text}. {title}" if title else text)
-            caption_run.font.size = Pt(12)
-            caption_run.font.italic = True
-            caption_run.font.name = "Times New Roman"
-
-            self._add_visual_note(doc, explanation)
+            numbering.figure_caption(doc, str(item.get("title") or "").strip())
+            numbering.note(doc, explanation)
         finally:
             try:
                 os.remove(path)
             except OSError:
                 pass
-        return figure_no
 
-    def _add_planned_formula(self, doc, item: Dict, formula_no: int,
-                             labels: Dict, explanation: str) -> int:
+    def _add_planned_formula(self, doc, item: Dict, numbering,
+                             explanation: str) -> None:
         import io as _io
 
+        labels = self._VISUAL_LABELS.get(numbering.language,
+                                         self._VISUAL_LABELS["uz"])
         latex = str(item.get("latex") or "").strip()
         image = render_latex_png(latex) if latex else None
-        formula_no += 1
+        formula_no = numbering.next_formula()
 
         name = str(item.get("name") or "").strip()
         if name:
@@ -3839,21 +3804,7 @@ class DocumentService:
             run.font.bold = True
             run.font.name = "Times New Roman"
 
-        self._add_visual_note(doc, explanation)
-        return formula_no
-
-    def _add_visual_note(self, doc, explanation: str) -> None:
-        """Diagramma yoki formula ostidagi izoh matni."""
-        if not explanation:
-            return
-        note = doc.add_paragraph()
-        note.paragraph_format.first_line_indent = Inches(0.5)
-        note.paragraph_format.line_spacing = 1.5
-        note.paragraph_format.space_after = Pt(8)
-        note.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        run = note.add_run(explanation)
-        run.font.size = Pt(14)
-        run.font.name = "Times New Roman"
+        numbering.note(doc, explanation)
 
     def _toc_plan(self, doc, size: float = 14.0) -> TocPlan:
         """Shu hujjat o'lchamiga mos reja yozuvchisini beradi.
@@ -4109,6 +4060,8 @@ class DocumentService:
                 caption = table_data.get("caption", "")
                 if headers and rows:
                     doc.add_paragraph()
+                    doc_visuals.of(doc, language).table_caption(
+                        doc, table_data.get("title") or topic)
                     tbl = doc.add_table(rows=1, cols=len(headers))
                     tbl.style = 'Table Grid'
                     hdr_cells = tbl.rows[0].cells
@@ -4122,11 +4075,8 @@ class DocumentService:
                             row_cells[i].text = str(val)
                             for run in row_cells[i].paragraphs[0].runs:
                                 _set_run(run, size=12)
-                    if caption:
-                        p_cap = doc.add_paragraph()
-                        p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                        run_cap = p_cap.add_run(caption)
-                        _set_run(run_cap, italic=True, size=12)
+                    # Jadval ostidagi izoh — bir abzats.
+                    doc_visuals.of(doc, language).note(doc, caption)
 
         _section_header(labels["conclusion"])
         for para in content.get("conclusion", "").split("\n"):
