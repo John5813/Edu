@@ -187,6 +187,35 @@ _SCRIPT = r"""
     return "left";
   };
 
+  // Element burilganmi. Diagrammaning tik o'q yozuvi ("Hajmi, %")
+  // odatda `rotate(-90deg)` yoki `writing-mode: vertical-rl` bilan
+  // yoziladi. `getBoundingClientRect` bunday elementning ingichka va
+  // baland QAMROVINI beradi; uni shundayligicha matn qutisi qilsak,
+  // PowerPoint har harfni alohida qatorga tushirib yuboradi.
+  const spin = (el) => {
+    const s = getComputedStyle(el);
+    const matrix = String(s.transform || "");
+    const m = matrix.match(/matrix\(([^)]+)\)/);
+    if (m) {
+      const p = m[1].split(",").map((x) => parseFloat(x));
+      const deg = Math.round(Math.atan2(p[1], p[0]) * 180 / Math.PI);
+      if (Math.abs(deg) >= 5) return deg;
+    }
+    const mode = String(s.writingMode || "");
+    if (mode.indexOf("vertical") === 0) return 90;
+    return 0;
+  };
+
+  // Burilgan elementning burilishdan OLDINGI qutisi, qamrovning
+  // markazida turadi. PowerPoint ham shaklni markazi atrofida
+  // buradi, shuning uchun ikkisi bir joyga tushadi.
+  const flatBox = (el, r, turn) => {
+    if (!turn || !el.offsetWidth || !el.offsetHeight) return r;
+    return {x: r.x + r.w / 2 - el.offsetWidth / 2,
+            y: r.y + r.h / 2 - el.offsetHeight / 2,
+            w: el.offsetWidth, h: el.offsetHeight};
+  };
+
   // Ikki matnni taqqoslash kaliti.
   const key = (value) => String(value || "")
     .replace(/\s+/g, " ").trim().toLowerCase();
@@ -348,8 +377,10 @@ _SCRIPT = r"""
     const ink = shown * (inkColour ? inkColour.a : 0.01);
 
     if (text && !faded) {
+      const turn = spin(el);
+      const tr = flatBox(el, r, turn);
       out.push({
-        kind: "text", text, ink, ...r,
+        kind: "text", text, ink, rotation: turn, ...tr,
         size: parseFloat(s.fontSize) || 16,
         weight: parseInt(s.fontWeight, 10) || 400,
         italic: s.fontStyle === "italic",
@@ -359,7 +390,7 @@ _SCRIPT = r"""
         lineHeight: parseFloat(s.lineHeight) || 0,
         upper: s.textTransform === "uppercase",
         letterSpacing: parseFloat(s.letterSpacing) || 0,
-        lines: lineCount(el, r),
+        lines: lineCount(el, tr),
       });
     }
 
@@ -541,11 +572,67 @@ def read_layout(page) -> Dict:
     return page.evaluate(_SCRIPT)
 
 
+# Brauzerning element surati ELEMENTNI emas, sahifaning o'sha
+# joyini oladi: rasm ustida turgan matn ham suratga tushadi. Muqovada
+# butun slaydni egallagan fotosurat bo'lgani uchun sarlavha, ost
+# sarlavha va pastki qator rasmning ichiga ham kirib qolardi — keyin
+# biz o'sha matnlarni yana haqiqiy matn qutisi qilib ustiga qo'yardik
+# va matn ikki marta yozilgandek ko'rinardi.
+#
+# Shuning uchun surat olishdan oldin rasm ustidagi MATNLAR
+# vaqtincha yashiriladi. Bezak qatlamlari (masalan to'q parda)
+# yashirilmaydi: ular PowerPointda alohida shakl bo'lib chiqmaydi,
+# rasmning ichida qolgani to'g'ri. `visibility: hidden` joylashuvni
+# o'zgartirmaydi, shuning uchun qolgan hamma narsa o'z o'rnida qoladi.
+_HIDE_SCRIPT = r"""
+(shot) => {
+  const target = document.querySelector('[data-pptx-shot="' + shot + '"]');
+  if (!target) return 0;
+  const r = target.getBoundingClientRect();
+
+  // Elementning O'ZIGA tegishli matni bormi (bolalarinikisiz).
+  const hasOwnText = (el) => {
+    for (const node of el.childNodes) {
+      if (node.nodeType === 3 && node.nodeValue.trim()) return true;
+    }
+    return false;
+  };
+
+  const hidden = [];
+  for (const el of document.body.querySelectorAll("*")) {
+    if (el === target || el.contains(target) || target.contains(el)) continue;
+    if (!hasOwnText(el)) continue;
+    const b = el.getBoundingClientRect();
+    if (b.width < 1 || b.height < 1) continue;
+    if (b.right <= r.left || b.left >= r.right
+        || b.bottom <= r.top || b.top >= r.bottom) continue;
+    hidden.push([el, el.style.getPropertyValue("visibility"),
+                 el.style.getPropertyPriority("visibility")]);
+    el.style.setProperty("visibility", "hidden", "important");
+  }
+  window.__pptxHidden = hidden;
+  return hidden.length;
+}
+"""
+
+_SHOW_SCRIPT = r"""
+() => {
+  for (const item of (window.__pptxHidden || [])) {
+    const el = item[0];
+    if (item[1]) el.style.setProperty("visibility", item[1], item[2]);
+    else el.style.removeProperty("visibility");
+  }
+  window.__pptxHidden = [];
+}
+"""
+
+
 def capture_images(page, blocks: List[Dict], out_dir: str, slide: int) -> None:
     """Diagramma va rasmlarni alohida suratga oladi.
 
     Har bir surat o'z elementining o'lchamida olinadi, shuning uchun
-    PowerPointda cho'zilmaydi.
+    PowerPointda cho'zilmaydi. Rasm ustidagi matn suratga tushmaydi —
+    u PowerPointda alohida, tahrirlanadigan quti bo'lib qo'yiladi.
     """
     for block in blocks:
         if block.get("kind") != "image":
@@ -556,7 +643,11 @@ def capture_images(page, blocks: List[Dict], out_dir: str, slide: int) -> None:
             element = page.query_selector(f'[data-pptx-shot="{block["shot"]}"]')
             if element is None:
                 continue
-            element.screenshot(path=path, omit_background=True)
+            try:
+                page.evaluate(_HIDE_SCRIPT, block["shot"])
+                element.screenshot(path=path, omit_background=True)
+            finally:
+                page.evaluate(_SHOW_SCRIPT)
             block["path"] = path
         except Exception as exc:
             log.warning("Slayd %d: vizual %s suratga olinmadi: %s",

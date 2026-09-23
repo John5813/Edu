@@ -936,6 +936,169 @@ def check_repair_keeps_images():
     check("sarlavha joyida", "Sarlavha" in restored)
 
 
+def check_photo_has_no_text():
+    """Rasm suratiga uning ustidagi matn tushmasin.
+
+    Brauzerning element surati ELEMENTNI emas, sahifaning o'sha
+    joyini oladi. Muqovada fotosurat butun slaydni egallaydi,
+    shuning uchun sarlavha, ost sarlavha va pastki qator rasmning
+    ichiga ham kirib qolardi. Keyin biz o'sha matnlarni yana haqiqiy
+    matn qutisi qilib ustiga qo'yardik — mijoz har bir qatorni ikki
+    marta, bir-biridan sal siljigan holda ko'rardi.
+
+    Bezak qatlami (to'q parda) esa rasmda QOLISHI kerak: u
+    PowerPointda alohida shakl bo'lib chiqmaydi.
+    """
+    print("\n18) Rasm ichida matn qolmasin")
+    if not html_render.available():
+        check("brauzer o'rnatilgan", False, html_render._INSTALL_HINT)
+        return
+
+    # Bir rangli "fotosurat": ustidagi matn bo'lsa darhol bilinadi.
+    photo = ("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5v"
+             "cmcvMjAwMC9zdmciIHdpZHRoPSI4MDAiIGhlaWdodD0iNDUwIj48cmVjdCB3"
+             "aWR0aD0iODAwIiBoZWlnaHQ9IjQ1MCIgZmlsbD0iI0ZGRkZGRiIvPjwvc3Zn"
+             "Pg==")
+    page = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    *{{margin:0;padding:0;box-sizing:border-box}}
+    body{{width:1920px;height:1080px;font-family:{html_slides.FONT_STACK};
+    overflow:hidden}}
+    .slide{{position:relative;width:1920px;height:1080px;overflow:hidden}}
+    .photo{{position:absolute;inset:0;width:100%;height:100%;
+    object-fit:cover}}
+    .parda{{position:absolute;inset:0;background:rgb(20,40,70)}}
+    .ichi{{position:absolute;left:0;right:0;top:400px;text-align:center;
+    color:#FFFFFF}}
+    h1{{font-size:88px}}
+    .belgi{{position:absolute;left:100px;top:900px}}
+    </style></head><body><div class="slide">
+    <img class="photo" src="{photo}" alt="">
+    <div class="parda"></div>
+    <div class="ichi"><h1>MUQOVA SARLAVHASI</h1></div>
+    <svg class="belgi" width="300" height="120">
+      <rect width="300" height="120" fill="#FFFFFF"></rect>
+      <text x="20" y="70" font-size="40" fill="#000000">Diagramma</text>
+    </svg>
+    </div></body></html>"""
+
+    out = os.path.join("temp", "sinov_surat")
+    os.makedirs(out, exist_ok=True)
+    from playwright.sync_api import sync_playwright
+
+    blocks = []
+    with sync_playwright() as playwright:
+        browser = html_render._launch(playwright)
+        try:
+            context = browser.new_context(
+                viewport={"width": 1920, "height": 1080},
+                device_scale_factor=1)
+            handle = context.new_page()
+            handle.set_content(page, wait_until="load")
+            blocks = html_extract.read_layout(handle)["blocks"]
+            html_extract.capture_images(handle, blocks, out, 1)
+            after = handle.evaluate(
+                "() => getComputedStyle(document.querySelector('h1'))"
+                ".visibility")
+            context.close()
+        finally:
+            browser.close()
+
+    shots = [b for b in blocks if b.get("path")]
+    check("ikkala vizual ham suratga olindi", len(shots) == 2, str(len(shots)))
+    check("matn qayta ko'rinadigan qilindi", after == "visible", str(after))
+
+    from PIL import Image
+
+    try:
+        wide = next(b for b in shots if b["w"] > 1000)
+        small = next(b for b in shots if b["w"] < 1000)
+
+        image = Image.open(wide["path"]).convert("RGB")
+        band = image.crop((300, 400, 1620, 520))
+        check("fotosuratda sarlavha qolmadi",
+              len(set(band.getdata())) == 1,
+              f"{len(set(band.getdata()))} xil rang")
+        check("parda rasmda qoldi",
+              band.getpixel((10, 10)) == (20, 40, 70),
+              str(band.getpixel((10, 10))))
+
+        mark = Image.open(small["path"]).convert("RGB")
+        check("diagramma o'z yozuvini saqladi",
+              len(set(mark.getdata())) > 1,
+              f"{len(set(mark.getdata()))} xil rang")
+    finally:
+        for block in shots:
+            if os.path.exists(block["path"]):
+                os.remove(block["path"])
+
+
+def check_rotated_label():
+    """Tik yozilgan o'q yozuvi PowerPointda ham tik tursin.
+
+    Diagrammaning tik o'q yozuvi (`rotate(-90deg)` yoki
+    `writing-mode: vertical-rl`) uchun brauzer ingichka va baland
+    qamrov beradi. Uni shundayligicha matn qutisi qilsak, PowerPoint
+    har harfni alohida qatorga tushirib yuboradi — slaydda chetda
+    bir ustun harf turardi.
+    """
+    print("\n19) Burilgan o'q yozuvi")
+    if not html_render.available():
+        check("brauzer o'rnatilgan", False, html_render._INSTALL_HINT)
+        return
+
+    page = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    *{{margin:0;padding:0;box-sizing:border-box}}
+    body{{width:1920px;height:1080px;padding:90px;background:#FFFFFF;
+    font-family:{html_slides.FONT_STACK};overflow:hidden}}
+    .oq{{width:360px;font-size:24px;transform:rotate(-90deg);
+    position:absolute;left:60px;top:500px}}
+    .tik{{font-size:24px;writing-mode:vertical-rl;position:absolute;
+    left:300px;top:400px}}
+    .yotiq{{font-size:24px;position:absolute;left:700px;top:400px}}
+    </style></head><body>
+    <div class="oq">Iqtisodiyotga ta'sir (%)</div>
+    <div class="tik">Hajmi</div>
+    <div class="yotiq">Oddiy yozuv</div>
+    </body></html>"""
+
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = html_render._launch(playwright)
+        try:
+            context = browser.new_context(
+                viewport={"width": 1920, "height": 1080})
+            handle = context.new_page()
+            handle.set_content(page, wait_until="load")
+            blocks = [b for b in html_extract.read_layout(handle)["blocks"]
+                      if b["kind"] == "text"]
+            context.close()
+        finally:
+            browser.close()
+
+    found = {b["text"]: b for b in blocks}
+    axis = found.get("Iqtisodiyotga ta'sir (%)")
+    check("o'q yozuvi topildi", axis is not None, str(list(found)))
+    if axis:
+        check("burilish o'lchandi", axis.get("rotation") == -90,
+              str(axis.get("rotation")))
+        check("quti burilishdan oldingi o'lchamda",
+              axis["w"] > axis["h"] and axis["w"] > 300,
+              f"{axis['w']:.0f}x{axis['h']:.0f}")
+        check("bitta qatorga sig'di", axis.get("lines") == 1,
+              str(axis.get("lines")))
+
+    upright = found.get("Hajmi")
+    check("vertical-rl ham burilgan deb olindi",
+          upright is not None and upright.get("rotation") == 90,
+          str(upright.get("rotation") if upright else None))
+
+    plain = found.get("Oddiy yozuv")
+    check("oddiy yozuv burilmadi",
+          plain is not None and not plain.get("rotation"),
+          str(plain.get("rotation") if plain else None))
+
+
 def main():
     check_handler_names()
     check_prompt()
@@ -956,6 +1119,9 @@ def main():
         check_double_text()
     check_no_shadow()
     check_repair_keeps_images()
+    if html_render.available():
+        check_photo_has_no_text()
+        check_rotated_label()
 
     print()
     if FAILS:
