@@ -71,10 +71,23 @@ _SYSTEM_BROWSERS = (
     "/usr/bin/google-chrome-stable",
 )
 
-_INSTALL_HINT = ("Serverda brauzer topilmadi va o'rnatib ham bo'lmadi.\n"
+_INSTALL_HINT = ("Serverda brauzer ishga tushmadi.\n"
                  "Qo'lda bajaring (root ostida):\n"
                  "  venv/bin/playwright install chromium\n"
                  "  venv/bin/playwright install-deps chromium")
+
+# Chromium ishlashi uchun kerak bo'ladigan tizim kutubxonalari.
+# `install-deps` ishlamay qolsa (masalan apt manbasi boshqacha), shu
+# ro'yxat to'g'ridan-to'g'ri o'rnatiladi.
+_SYSTEM_PACKAGES = (
+    "libatk1.0-0", "libatk-bridge2.0-0", "libcups2", "libdrm2",
+    "libxkbcommon0", "libxcomposite1", "libxdamage1", "libxfixes3",
+    "libxrandr2", "libgbm1", "libpango-1.0-0", "libcairo2",
+    "libasound2", "libnss3", "libnspr4", "fonts-liberation",
+)
+
+# Brauzer bor, lekin ishga tushmadi — sabab tizim kutubxonasida.
+_MISSING_LIBRARY = "shared librar"
 
 # Brauzer bir marta o'rnatiladi. Bir vaqtda ikkita buyurtma kelsa,
 # ikkovi ham yuklab olishga urinmasin.
@@ -122,6 +135,55 @@ def install_browser(timeout: int = 900) -> str:
                           or f"chiqish kodi {result.returncode}")
         log.error("Brauzer o'rnatilmadi: %s", _install_error)
         return _install_error
+
+
+_DEPS_LOCK = threading.Lock()
+_deps_done = False
+
+
+def install_dependencies(timeout: int = 900) -> str:
+    """Chromium uchun tizim kutubxonalarini o'rnatadi.
+
+    Brauzerning o'zi yuklab olinsa ham, u GTK kutubxonalarisiz ishga
+    tushmaydi: "libatk-1.0.so.0: cannot open shared object file". Bu
+    kutubxonalar apt orqali o'rnatiladi va buning uchun root kerak —
+    bot odatda root ostida ishlaydi, shuning uchun o'zi bajara oladi.
+    """
+    global _deps_done
+
+    with _DEPS_LOCK:
+        if _deps_done:
+            return ""
+        _deps_done = True
+
+        environment = dict(os.environ, DEBIAN_FRONTEND="noninteractive")
+        commands = [
+            [sys.executable, "-m", "playwright", "install-deps", "chromium"],
+            ["apt-get", "update"],
+            ["apt-get", "install", "-y", "--no-install-recommends",
+             *_SYSTEM_PACKAGES],
+        ]
+
+        failure = ""
+        for command in commands:
+            log.warning("Tizim kutubxonalari: %s", " ".join(command[:4]))
+            try:
+                result = subprocess.run(command, capture_output=True,
+                                        text=True, timeout=timeout,
+                                        env=environment)
+            except Exception as exc:
+                failure = str(exc)[:200]
+                continue
+            if result.returncode == 0:
+                # Birinchi buyruq yetib qolsa, qolganlari kerak emas.
+                if command[0] != "apt-get" or command[1] != "update":
+                    log.info("Tizim kutubxonalari o'rnatildi")
+                    return ""
+                continue
+            failure = (result.stderr or result.stdout or "").strip()[-200:]
+
+        log.error("Tizim kutubxonalarini o'rnatib bo'lmadi: %s", failure)
+        return failure or "apt ishlamadi"
 
 
 def _browser_roots() -> List[str]:
@@ -183,11 +245,32 @@ def prepare(install: bool = True) -> str:
         from playwright.sync_api import sync_playwright  # noqa: F401
     except ImportError:
         return "playwright kutubxonasi o'rnatilmagan"
-    if _executable():
+    if not _executable():
+        if not install:
+            return "brauzer o'rnatilmagan"
+        failure = install_browser()
+        if failure:
+            return failure
+
+    # Brauzer borligi yetarli emas: u tizim kutubxonalarisiz ishga
+    # tushmaydi. Buni bot ishga tushganda bilib olgan yaxshi — mijoz
+    # to'lovdan keyin emas.
+    return _launch_check(install)
+
+
+def _launch_check(install: bool) -> str:
+    """Brauzerni haqiqatan ishga tushirib ko'radi."""
+    from playwright.sync_api import sync_playwright
+
+    try:
+        with sync_playwright() as playwright:
+            browser = _launch(playwright) if install else \
+                playwright.chromium.launch(headless=True, args=_LAUNCH_ARGS,
+                                           executable_path=_executable())
+            browser.close()
         return ""
-    if not install:
-        return "brauzer o'rnatilmagan"
-    return install_browser()
+    except Exception as exc:
+        return str(exc).strip().splitlines()[0][:300]
 
 
 def _launch(playwright):
@@ -213,7 +296,7 @@ def _launch(playwright):
 
     path = _executable()
     if not path:
-        # Brauzer umuman yo'q — o'zimiz yuklab olamiz va qayta sinaymiz.
+        # Brauzer umuman yo'q — o'zimiz yuklab olamiz.
         failure = install_browser()
         path = _executable()
         if not path:
@@ -222,13 +305,33 @@ def _launch(playwright):
                 + "\n".join(attempts))
         try:
             return playwright.chromium.launch(headless=True, args=_LAUNCH_ARGS)
-        except Exception:
-            pass
+        except Exception as exc:
+            attempts.append(str(exc).splitlines()[0][:160])
 
-    log.warning("Playwright brauzerni topmadi (%s) — %s ishlatiladi",
-                attempts[0], path)
-    return playwright.chromium.launch(
-        headless=True, args=_LAUNCH_ARGS, executable_path=path)
+    try:
+        log.warning("Playwright brauzerni topmadi (%s) — %s ishlatiladi",
+                    attempts[0], path)
+        return playwright.chromium.launch(
+            headless=True, args=_LAUNCH_ARGS, executable_path=path)
+    except Exception as exc:
+        attempts.append(str(exc).splitlines()[0][:160])
+
+    # Brauzer bor, lekin ishga tushmadi. Deyarli har doim sabab bitta:
+    # GTK kutubxonalari o'rnatilmagan. Ularni o'rnatib, qayta sinaymiz.
+    if not any(_MISSING_LIBRARY in attempt.lower() for attempt in attempts):
+        joined = "\n".join(attempts)
+        if _MISSING_LIBRARY not in joined.lower():
+            log.info("Brauzer ishga tushmadi — kutubxonalar sinab ko'riladi")
+    failure = install_dependencies()
+    try:
+        return playwright.chromium.launch(
+            headless=True, args=_LAUNCH_ARGS, executable_path=path)
+    except Exception as exc:
+        attempts.append(str(exc).splitlines()[0][:200])
+
+    raise RuntimeError(
+        f"{_INSTALL_HINT}\n\nKutubxona xatosi: {failure}\n"
+        + "\n".join(attempts[-2:]))
 
 
 def _open_page(context, html: str):
