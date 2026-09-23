@@ -189,6 +189,8 @@ to'ldiradi:
 - `data-prompt` INGLIZ tilida, 15-25 so'z, mavzuga aniq mos real
   sahna. Ichida YOZUV so'rama (text, label, sign, caption) — modellar
   harflarni buzib chizadi.
+- `src` ni O'ZINGIZ yozmang va tashqi havola bermang: `data-prompt`siz
+  `<img>` slaydda buzuq belgi bo'lib qoladi.
 - CSS da rasmga o'lcham va `object-fit: cover` ber, kerak bo'lsa
   `border-radius`.
 - MUQOVADA albatta bitta katta rasm bo'lsin (butun slaydni yoki

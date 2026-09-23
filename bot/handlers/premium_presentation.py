@@ -1217,8 +1217,13 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         html_pages, icons = await _run_step(
             loop, lambda: html_images.apply_icons(html_pages, theme),
             step="render", label="Ikonkalarni qo'yish")
+        # Belgilanmagan <img> lar ham rasm so'roviga aylantiriladi —
+        # aks holda ular slaydda buzuq belgi bo'lib qolardi.
+        html_pages = html_images.normalize(html_pages)
         html_pages, photos = await html_images.illustrate(
             html_pages, theme, topic)
+        # To'ldirilmay qolgani rangli blokka almashadi.
+        html_pages = html_images.sweep(html_pages, theme)
         logger.info("Taqdimot bezagi: %d ikonka, %d fotosurat", icons, photos)
         logger.info("Taqdimot sarfi: %s, %d ta rasm (%d slayd)",
                     llm_client.usage_report(), photos, len(html_pages))

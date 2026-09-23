@@ -39,8 +39,62 @@ _ICON_TAG = re.compile(r"<img\b[^>]*\bdata-icon\s*=\s*([\"'])(.*?)\1[^>]*>",
                        re.IGNORECASE | re.DOTALL)
 _ICON_COLOUR = re.compile(r"\bdata-icon-color\s*=\s*([\"'])(.*?)\1",
                           re.IGNORECASE)
+# Har qanday <img>. Model ba'zan `data-prompt` o'rniga oddiy
+# `<img src="..." alt="...">` yozadi; unday rasm hech qachon
+# to'ldirilmaydi va brauzer uning o'rniga "buzuq rasm" belgisini
+# alt matni bilan chizadi. Slaydda u ingichka chiziq bo'lib qoladi.
+_ANY_IMG = re.compile(r"<img\b[^>]*>", re.IGNORECASE | re.DOTALL)
+_HAS_DATA_SRC = re.compile(r"\bsrc\s*=\s*([\"'])\s*data:", re.IGNORECASE)
+_ALT = re.compile(r"\balt\s*=\s*([\"'])(.*?)\1", re.IGNORECASE | re.DOTALL)
 _CLASS = re.compile(r"\bclass\s*=\s*([\"'])(.*?)\1", re.IGNORECASE | re.DOTALL)
 _STYLE = re.compile(r"\bstyle\s*=\s*([\"'])(.*?)\1", re.IGNORECASE | re.DOTALL)
+
+
+def normalize(pages: List[str]) -> List[str]:
+    """Belgilanmagan `<img>` larni rasm so'roviga aylantiradi.
+
+    Promptda `data-prompt` yozish aytilgan, lekin model uni ba'zan
+    unutib, oddiy `<img src="..." alt="Laboratoriya">` yozadi. Bunday
+    rasm to'ldirilmaydi va slaydda buzuq rasm belgisi bo'lib qoladi.
+    Shunday `<img>` ning `alt` matni tavsif sifatida ishlatiladi.
+    """
+    result = []
+    for page in pages:
+        def fix(match):
+            tag = match.group(0)
+            if ("data-prompt" in tag.lower() or "data-icon" in tag.lower()
+                    or _HAS_DATA_SRC.search(tag)):
+                return tag
+            alt = _ALT.search(tag)
+            text = alt.group(2).strip() if alt else ""
+            if not text:
+                return tag
+            # `src` ni olib tashlaymiz: u yaroqsiz, brauzer uni yuklay
+            # olmaydi va rasm buzuq bo'lib chiqadi.
+            cleaned = re.sub(r"\bsrc\s*=\s*([\"'])(.*?)\1", "", tag,
+                             flags=re.IGNORECASE | re.DOTALL)
+            return cleaned.replace("<img", f'<img data-prompt="{text}"', 1)
+
+        result.append(_ANY_IMG.sub(fix, page))
+    return result
+
+
+def sweep(pages: List[str], theme) -> List[str]:
+    """To'ldirilmay qolgan `<img>` larni rangli blokka almashtiradi.
+
+    Chegaradan oshgan yoki xato tufayli chiqmagan rasm slaydda buzuq
+    belgi bo'lib turmasin — uning o'rnida toza rangli maydon qolsin.
+    """
+    result = []
+    for page in pages:
+        def fix(match):
+            tag = match.group(0)
+            if _HAS_DATA_SRC.search(tag):
+                return tag
+            return _placeholder(tag, theme.accent_soft)
+
+        result.append(_ANY_IMG.sub(fix, page))
+    return result
 
 
 def requests_in(html: str) -> List[str]:
