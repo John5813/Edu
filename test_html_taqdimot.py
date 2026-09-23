@@ -2178,6 +2178,45 @@ def check_no_sections_and_photo_text():
           str([(shape.shape_type, shape.width) for shape in slides[1].shapes]))
 
 
+def check_conclusion_only():
+    """Xulosada faqat xulosa matni — rahmat va savollarsiz."""
+    print("\n29) Xulosa — faqat xulosa matni")
+    theme = themes.get("ko'k")
+    rules = html_slides.shell_rules(theme, "uz")
+    check("xulosada rahmat yozilmasligi aytilgan",
+          "faqat xulosa\n   matni" in rules and "yozilmaydi" in rules)
+    check("yakun kategoriyasida rahmat yo'q",
+          "rahmat qatori" not in html_slides.catalogue_text())
+
+    body = ('<section class="slide"><div class="head"><h2 class="title">'
+            'Xulosa</h2></div><div class="body"><div class="list">'
+            '<div class="item"><span class="item-dot"></span>'
+            '<div class="item-text"><b>Asosiy.</b> Bu savol muhim ekani '
+            'ko\'rindi.</div></div></div><p class="lead">E\'tiboringiz '
+            'uchun rahmat!</p><p class="note">Savollar?</p></div></section>')
+    out = html_slides._drop_thanks(body)
+    check("rahmat qatori olib tashlanadi", "rahmat" not in out.lower())
+    check("savollar qatori olib tashlanadi", "Savollar?" not in out)
+    check("xulosa mazmuni qoladi", "Bu savol muhim" in out
+          and ">Xulosa<" in out)
+
+    # write_slides: faqat oxirgi varaq tozalanadi.
+    thanks = body.replace("Xulosa", "Kirish")
+    saved = (html_slides.plan_outline, html_slides._write_chunk)
+    try:
+        html_slides.plan_outline = lambda *a, **k: {
+            "family": "umumiy",
+            "slides": [{"brief": "b", "category": "kartalar"}] * 4}
+        html_slides._write_chunk = lambda system, user, count: (
+            [thanks] * 3 if "1-slayddan" in user else [body])
+        pages = html_slides.write_slides("Mavzu", 4, theme)
+    finally:
+        html_slides.plan_outline, html_slides._write_chunk = saved
+    sources = [html_slides.source_of(page) for page in pages]
+    check("oxirgi varaq tozalanadi", "rahmat" not in sources[-1].lower())
+    check("boshqa varaqlarga tegilmaydi", sources[1] == thanks)
+
+
 def main():
     check_handler_names()
     check_prompt()
@@ -2217,6 +2256,7 @@ def main():
     check_repair_keeps_rich_slides()
     check_repair_edits_same_slide()
     check_no_sections_and_photo_text()
+    check_conclusion_only()
 
     print()
     if FAILS:
