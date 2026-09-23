@@ -187,6 +187,10 @@ QOBIQ:
    kartochkalarni chiziqning OSTIGA oddiy flex bilan qo'ying.
 13. Diagramma yozuvlari (izoh, legend, qiymat) ustunlar yoki
    chiziqlar USTIGA tushmasin — ular uchun alohida joy ajrating.
+   Diagramma BUTUN ENNI egallasin: ustunlar qatorini
+   `display:flex; justify-content:space-between` qiling yoki har
+   ustunga `flex:1` bering. Ustunlarga qat'iy `width` berib chap
+   chekkaga to'plamang — o'ng yarmi bo'sh qolib ketadi.
 14. Bezak uchun shaffoflik (opacity, rgba) o'rniga TAYYOR och rangni
    yozing: PowerPointda shaffoflik boshqacha chiqadi.
 

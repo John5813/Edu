@@ -1099,6 +1099,80 @@ def check_rotated_label():
           str(plain.get("rotation") if plain else None))
 
 
+def check_side_gap():
+    """Slaydning bir yoni bo'sh qolganini tekshiruv ko'rsin.
+
+    Diagramma ko'pincha shunday buziladi: model ustunlarga qat'iy
+    `width` berib, ularni `flex` qatoriga tiqadi — ustunlar chap
+    chekkaga to'planadi va slaydning o'ng yarmi bo'm-bo'sh qoladi.
+    Tepadan pastga qarab tekshiruvchi qoidalar buni ko'rmasdi.
+
+    Markazga qo'yilgan blok (ikki yoni baravar bo'sh) xato emas —
+    u ataylab shunday qilingan.
+    """
+    print("\n20) Yon tomondagi bo'shliq")
+    if not html_render.available():
+        check("brauzer o'rnatilgan", False, html_render._INSTALL_HINT)
+        return
+
+    theme = themes.get("ko'k")
+    head = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    *{{margin:0;padding:0;box-sizing:border-box}}
+    body{{width:1920px;height:1080px;padding:90px;background:#FFFFFF;
+    font-family:{html_slides.FONT_STACK};overflow:hidden}}
+    h2{{font-size:52px;color:#{theme.heading};margin-bottom:60px}}
+    .ustun{{width:100px;background:#{theme.accent}}}
+    .qator{{display:flex;gap:20px;align-items:flex-end;height:520px}}
+    .keng{{justify-content:space-between}}
+    .keng .ustun{{flex:1}}
+    .markaz{{margin:0 auto;width:900px;height:520px;
+    background:#{theme.accent_soft}}}
+    .yon{{display:flex;gap:40px;height:520px}}
+    .yon>div{{flex:1;background:#{theme.accent_soft}}}
+    </style></head><body><h2>Sarlavha</h2>"""
+    tail = "</body></html>"
+    bars = "".join(f'<div class="ustun" style="height:{h}%"></div>'
+                   for h in (90, 80, 70, 60, 50, 40, 30))
+
+    pages = {
+        # Ustunlar chap chekkada — xato.
+        "chap": head + f'<div class="qator">{bars}</div>' + tail,
+        # O'sha ustunlar butun enni egallagan — to'g'ri.
+        "keng": head + f'<div class="qator keng">{bars}</div>' + tail,
+        # Markazga qo'yilgan blok — xato emas.
+        "markaz": head + '<div class="markaz"></div>' + tail,
+        # Ikki ustunli slayd — xato emas.
+        "ikki": head + '<div class="yon"><div></div><div></div></div>' + tail,
+    }
+
+    from playwright.sync_api import sync_playwright
+
+    seen = {}
+    with sync_playwright() as playwright:
+        browser = html_render._launch(playwright)
+        try:
+            context = browser.new_context(
+                viewport={"width": 1920, "height": 1080})
+            for name, html in pages.items():
+                handle = context.new_page()
+                handle.set_content(html, wait_until="load")
+                seen[name] = any("bir yoniga siqilgan" in item
+                                 for item in html_extract.check_layout(handle))
+                handle.close()
+            context.close()
+        finally:
+            browser.close()
+
+    check("chap chekkaga siqilgani topildi", seen["chap"])
+    check("butun enni egallagani xato emas", not seen["keng"])
+    check("markazdagi blok xato emas", not seen["markaz"])
+    check("ikki ustunli slayd xato emas", not seen["ikki"])
+
+    rules = html_slides.shell_rules(theme, "uz")
+    check("promptda butun en talab qilingan",
+          "BUTUN ENNI egallasin" in rules)
+
+
 def main():
     check_handler_names()
     check_prompt()
@@ -1122,6 +1196,7 @@ def main():
     if html_render.available():
         check_photo_has_no_text()
         check_rotated_label()
+        check_side_gap()
 
     print()
     if FAILS:
