@@ -35,9 +35,13 @@ MARKER = "===SLIDE_BREAK==="
 # uchun bo'lak kichik.
 CHUNK = 3
 
-# Serverda mavjud shriftlar. Boshqasini so'rasa, brauzer o'zinikini
-# qo'yadi va slayd rejadagidan boshqacha chiqadi.
-FONT_STACK = "'DejaVu Sans', 'Liberation Sans', Arial, sans-serif"
+# Shrift ikki tomonga mos kelishi kerak: brauzer slaydni shu shrift
+# bilan joylashtiradi, PowerPoint esa uni Arial (yoki Times New Roman)
+# bilan chizadi. Liberation Sans/Serif aynan o'sha ikkisi bilan
+# o'lchovdosh — harflar kengligi bir xil, shuning uchun matn
+# PowerPointda ham o'sha joyni egallaydi va qutisidan toshmaydi.
+FONT_STACK = "Arial, 'Liberation Sans', 'DejaVu Sans', sans-serif"
+SERIF_STACK = "'Times New Roman', 'Liberation Serif', 'DejaVu Serif', serif"
 
 _THINK = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
 _FENCE = re.compile(r"```(?:html)?", re.IGNORECASE)
@@ -102,8 +106,11 @@ QOBIQ:
    ichki padding 72-96px. box-sizing: border-box.
 3. Faqat ichki <style>. Tashqi CSS fayl, Google Fonts, JS kutubxona,
    tashqi rasm havolasi — YO'Q. Hammasi bitta faylda o'zi yetarli.
-4. Shrift faqat shu qator: font-family: {FONT_STACK};
-   Serverda boshqa shrift yo'q — boshqasini yozsang slayd buziladi.
+4. Shrift faqat shu ikkisidan biri:
+   font-family: {FONT_STACK};
+   font-family: {SERIF_STACK};
+   Boshqasini yozsang slayd PowerPointda boshqacha joylashadi.
+   Qalinlikni font-weight bilan bering (300-800).
 5. Rasm o'rniga SVG yoki CSS bilan chiz. <img>, tashqi ikonka, emoji
    shrifti ishlatma. Belgi kerak bo'lsa — inline SVG.
 6. Matn KESILMASIN: text-overflow, ellipsis, qat'iy height bilan
@@ -113,6 +120,12 @@ QOBIQ:
    blokka mazmun topolmasang — o'sha blokni butunlay olib tashla.
 8. Slayd chetiga matn yopishmasin: hech bir element body chetidan
    48px dan yaqin bo'lmasin.
+9. Slayd PowerPointda TAHRIRLANADI: har matn bo'lagi o'z elementida
+   tursin. Bitta <p> ichiga <br> bilan uch xil fikrni tiqma — har biri
+   alohida element bo'lsin. Matnni <span> ichida rangga bo'lib
+   tashlama: bir gap — bir element.
+10. Matn ustiga matn qo'yma (absolute joylashuv bilan ham). Bloklarni
+   flex yoki grid bilan yonma-yon qo'y.
 
 RANG TIZIMI (hamma slaydda AYNAN shu ranglar):
   aksent:        #{theme.accent}
