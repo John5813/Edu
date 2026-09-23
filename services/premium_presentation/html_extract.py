@@ -187,16 +187,44 @@ _SCRIPT = r"""
     return "left";
   };
 
-  const walk = (el) => {
+  // Ikki matnni taqqoslash kaliti.
+  const key = (value) => String(value || "")
+    .replace(/\s+/g, " ").trim().toLowerCase();
+
+  // Matn xiralashtirilgan qatlamdami? Dizaynda sarlavha ortiga
+  // `filter: blur(...)` bilan nusxa qo'yib "nur" chiziladi. Brauzerda
+  // u yumshoq dog', PowerPointda esa o'sha matnning ikkinchi, to'q
+  // nusxasi bo'lib chiqadi — shuning uchun bunday matn olinmaydi.
+  const blurry = (el) => /blur\(/.test(getComputedStyle(el).filter || "");
+
+  // "SalomSalom" yoki "Salom Salom" — bitta matn ikki marta yozilgan.
+  // Bu sarlavha ichiga soya uchun qo'yilgan <span> nusxasidan kelib
+  // chiqadi: brauzer ikkalasini ustma-ust chizadi, innerText esa
+  // ikkalasini ham qaytaradi.
+  const undouble = (value) => {
+    const t = String(value || "").trim();
+    if (t.length < 12 || t.indexOf("\n") >= 0) return value;
+    if (t.length % 2 === 0) {
+      const half = t.length / 2;
+      if (t.slice(0, half) === t.slice(half)) return t.slice(0, half);
+    }
+    const mid = (t.length - 1) / 2;
+    if (Number.isInteger(mid) && t[mid] === " "
+        && t.slice(0, mid) === t.slice(mid + 1)) return t.slice(0, mid);
+    return value;
+  };
+
+  const walk = (el, soft) => {
     const r = box(el);
     const s = getComputedStyle(el);
     const tag = el.tagName.toLowerCase();
+    const faded = soft || blurry(el);
     if (!visible(el, r)) {
       // O'zi ko'rinmasa ham, bolasi ko'rinishi mumkin (masalan katta
       // idish slayddan chiqqan, ichidagi matn esa joyida).
       if (s.display !== "none" && s.visibility !== "hidden") {
         for (const child of el.children) {
-          if (child.tagName !== "BR") walk(child);
+          if (child.tagName !== "BR") walk(child, faded);
         }
       }
       return;
@@ -306,14 +334,22 @@ _SCRIPT = r"""
     // "<b>" ning matni otasidan tushib qolar va uning ustiga alohida
     // quti bo'lib chiqar edi.
     const whole = inlineOnly(el);
-    const text = whole
+    const text = undouble(whole
       ? (el.innerText || "").replace(/[^\S\n]+/g, " ")
           .replace(/\n{3,}/g, "\n\n").trim()
-      : ownText(el);
+      : ownText(el));
 
-    if (text) {
+    // Matnning ko'rinish kuchi: qatlam shaffofligi va harf rangining
+    // shaffofligi. Gradient sarlavhada harf rangi shaffof bo'ladi
+    // (`-webkit-text-fill-color: transparent`) — matn fon bilan
+    // chiziladi. Ikki nusxadan qaysi biri haqiqiy ekanini shu raqam
+    // aytadi.
+    const inkColour = parse(s.webkitTextFillColor || s.color);
+    const ink = shown * (inkColour ? inkColour.a : 0.01);
+
+    if (text && !faded) {
       out.push({
-        kind: "text", text, ...r,
+        kind: "text", text, ink, ...r,
         size: parseFloat(s.fontSize) || 16,
         weight: parseInt(s.fontWeight, 10) || 400,
         italic: s.fontStyle === "italic",
@@ -332,15 +368,41 @@ _SCRIPT = r"""
       // Matni otasiga qo'shib olindi — ichiga kirmaymiz. Rasm va
       // jadval esa baribir alohida olinadi.
       if (whole && text && !RECURSE_TAGS.has(child.tagName)) continue;
-      walk(child);
+      walk(child, faded);
     }
   };
 
-  for (const child of document.body.children) walk(child);
+  for (const child of document.body.children) walk(child, false);
+
+  // Bir matn ikki elementdan kelgan bo'lsa (soya, kontur yoki nur
+  // uchun qo'yilgan nusxa), brauzerda ular ustma-ust tushib bitta
+  // bo'lib ko'rinadi. PowerPointda esa ikkita alohida quti bo'lib,
+  // matn ikki marta yozilgandek chiqadi. Shu yerda nusxa olib
+  // tashlanadi: ko'rinadigani — ranggi to'qroq bo'lgani, tenglikda
+  // esa keyin chizilgani (ustida turgani) qoladi.
+  const dropDoubles = () => {
+    const texts = out.filter((b) => b.kind === "text");
+    const gone = new Set();
+    for (let i = 0; i < texts.length; i += 1) {
+      for (let j = i + 1; j < texts.length; j += 1) {
+        const a = texts[i], b = texts[j];
+        if (gone.has(a) || gone.has(b)) continue;
+        if (key(a.text) !== key(b.text)) continue;
+        const w = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+        const h = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+        if (w <= 0 || h <= 0) continue;
+        const small = Math.min(a.w * a.h, b.w * b.h);
+        if (w * h < small * 0.5) continue;
+        gone.add(b.ink > a.ink + 0.05 ? a : a.ink > b.ink + 0.05 ? b : a);
+      }
+    }
+    return out.filter((b) => !gone.has(b));
+  };
+
   return {
     background: rgbOver(getComputedStyle(document.body).backgroundColor,
                         document.body) || "FFFFFF",
-    blocks: out,
+    blocks: dropDoubles(),
   };
 }
 """
@@ -408,6 +470,30 @@ _CHECK_SCRIPT = r"""
   }
   if (collisions) {
     problems.push(collisions + " joyda matn ustiga matn tushgan");
+  }
+
+  // Bir matn ikki marta yozilganmi. Soya, kontur yoki nur uchun
+  // qo'yilgan nusxa brauzerda bittadek ko'rinadi, PowerPointda esa
+  // ikkita alohida quti bo'lib chiqadi. Chizuvchi nusxani olib
+  // tashlaydi, lekin HTML ning o'zi ham tuzatilgani ma'qul: nusxa
+  // sarlavha qutisini kengaytirib, joylashuvni ham buzadi.
+  let doubled = 0;
+  for (let i = 0; i < texts.length; i += 1) {
+    for (let j = i + 1; j < texts.length; j += 1) {
+      const a = texts[i].r, b = texts[j].r;
+      if (texts[i].text.replace(/\s+/g, " ").trim().toLowerCase()
+          !== texts[j].text.replace(/\s+/g, " ").trim().toLowerCase()) continue;
+      const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+      const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+      if (w <= 0 || h <= 0) continue;
+      const small = Math.min(a.width * a.height, b.width * b.height);
+      if (w * h < small * 0.5) continue;
+      doubled += 1;
+    }
+  }
+  if (doubled) {
+    problems.push(doubled + " ta matn ikki marta yozilgan (soya yoki nur "
+      + "uchun nusxa qo'yilgan) — har matn bitta elementda bo'lsin");
   }
 
   // Pastki yarmi butunlay bo'sh qolganmi.
