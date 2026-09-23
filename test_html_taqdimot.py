@@ -169,7 +169,8 @@ def check_browser_setup():
         calls.append(list(command))
 
         class Result:
-            returncode = 1
+            # Brauzerni yuklab olish tushadi, kutubxonalar esa o'rnatiladi.
+            returncode = 0 if "install-deps" in command else 1
             stdout = ""
             stderr = "tarmoq yo'q"
 
@@ -196,11 +197,22 @@ def check_browser_setup():
         count = len(calls)
         html_render.install_browser()
         check("ikki marta yuklab olmaydi", len(calls) == count, str(len(calls)))
+
+        # Brauzer bor, lekin GTK kutubxonalari yo'q — eng ko'p uchraydigan
+        # holat. Kod kutubxonalarni o'rnatib, qayta sinashi kerak.
+        calls.clear()
+        html_render._deps_done = False
+        failure = html_render.install_dependencies()
+        check("kutubxonalar o'rnatiladi", bool(calls), str(calls))
+        check("avval install-deps sinaladi",
+              calls and "install-deps" in calls[0], str(calls[:1]))
+        check("kutubxona xatosi qaytmadi", failure == "", failure)
     finally:
         subprocess.run = original_run
         html_render._BROWSER_GLOBS = original_globs
         html_render._SYSTEM_BROWSERS = original_system
         html_render._install_done = False
+        html_render._deps_done = False
 
     check("brauzer topilganda o'rnatish so'ralmaydi",
           html_render.prepare(install=False) == "" if html_render._executable()
