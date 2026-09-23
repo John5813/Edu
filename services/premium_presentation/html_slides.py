@@ -86,11 +86,8 @@ _CATEGORIES = (
                "muallif va fan qatori"),
     ("reja", "01, 02, 03 deb raqamlangan kartalar — ustun yoki panjara "
              "ko'rinishida, har birida qisqa izoh"),
-    ("bayonot", "bitta yirik fikr sahifa markazida, atrofida bo'sh joy"),
-    ("ajratkich", "to'q aksent fon, ustida oq yirik sarlavha va bitta "
-                  "jumla — bo'limlar orasidagi nafas"),
-    ("rasmli", "butun slaydni yoki yarmini egallagan fotosurat, ustida "
-               "yoki yonida qisqa matn"),
+    ("matn_rasm", "bir tomonda fikrni ochgan matn, bir tomonda rasm "
+                  "(rasm chiqmasa o'rnida qo'shimcha matn)"),
     ("ikki_ustun", "chapda matn, o'ngda vizual (SVG diagramma, sxema yoki "
                    "geometrik kompozitsiya)"),
     ("korsatkichlar", "2-4 ta juda yirik raqam, har birining ostida qisqa "
@@ -166,7 +163,8 @@ QAT'IY QOIDALAR:
    YOZMA. Rang, shrift, piksel, `width`, `height`, `margin`, `padding`
    — hech qaysisi yozilmaydi. Faqat yuqoridagi sinf nomlari.
 3. `<img>` faqat ikonka uchun: `<img class="ikon" data-icon="NOM" alt="">`.
-   Fotosurat, tashqi havola, emoji — yo'q.
+   Rasm faqat MATN VA RASM blokidagi `rasm` orqali so'raladi.
+   Tashqi havola, emoji — yo'q.
 4. Diagrammani O'ZING chizma. `<svg>` yozma. Faqat `.chart` blokiga
    ma'lumot ber — qolganini tizim chizadi.
 5. Bir varaqqa qancha sig'ishining YUQORI chegarasi (bu talab
@@ -180,12 +178,12 @@ QAT'IY QOIDALAR:
    Varaq 1920x1080 — bundan ko'pi sig'maydi va kesiladi.
 6. BO'SH BLOK QOLDIRMA. Har kartochkaning sarlavhasi ham, izohi ham
    bo'lsin. Mazmun topolmasang kartochkani butunlay olib tashla va
-   qolganlarini kamroq ustunga joyla. Oddiy slayd sarlavha va bitta
+   qolganlarini kamroq ustunga joyla. Slayd sarlavha va bitta
    jumladan iborat bo'lib qolmasin — sarlavhadagi fikr slaydda
-   ochilsin.
+   ochilsin; fikr bitta bo'lsa MATN VA RASM bloki bor.
 7. BLOKNI MAZMUN TANLAYDI, xilma-xillik emas. Ketma-ketlik bo'lsa
    qadam yoki vaqt o'qi, tasnif bo'lsa jadval yoki kartochka,
-   taqqoslash bo'lsa ikki ustun, kuchli fikr bo'lsa bayonot.
+   taqqoslash bo'lsa ikki ustun.
    Ikki slayd ketma-ket bir xil shaklda bo'lishi MUMKIN. Blokni
    "boshqacha bo'lsin" deb almashtirmang.
 8. RAQAMNI O'YLAB TOPMANG. Foiz, statistika, o'sish sur'ati va
@@ -197,9 +195,9 @@ QAT'IY QOIDALAR:
 9. Bir slaydda bir xil matnni ikki marta yozma.
 10. Yorliqlar qisqa: kartochka sarlavhasi 1-4 so'z, vaqt o'qidagi
    izoh bir jumla.
-11. Birinchi slayd — MUQOVA, oxirgisi — xulosa. Mavzu bir necha
-   qismga bo'linsa, qismlar orasiga AJRATKICH (`slide dark`)
-   qo'ying va uni mavzuning o'z bo'lim nomi bilan ataang.
+11. Birinchi slayd — MUQOVA, oxirgisi — xulosa. Taqdimot bo'limlarga
+   ajratilmaydi: faqat bo'lim nomi yozilgan alohida varaq bo'lmaydi,
+   har varaq mazmun beradi.
 12. Matn haqiqiy va aniq bo'lsin: nom, misol, manba bilan. "Lorem
    ipsum", "Matn shu yerda" kabi o'rin egallovchi yozma.
 13. SARLAVHADA VA'DA QILINGAN NARSA SLAYDDA BO'LSIN. Sarlavhada
@@ -231,10 +229,9 @@ def _user_prompt(topic: str, start: int, count: int, total: int,
         deck_shape.guidance(family),
         "SHAKL MAZMUNDAN KELIB CHIQSIN. Blokni fikrga qarab tanlang: "
         "ketma-ketlik bo'lsa qadam yoki vaqt o'qi, tasnif bo'lsa jadval "
-        "yoki kartochka, taqqoslash bo'lsa ikki ustun, kuchli fikr "
-        "bo'lsa bayonot. Xilma-xillik uchun blok almashtirmang — ikki "
-        "slayd ketma-ket bir xil shaklda bo'lishi MUMKIN, agar mazmun "
-        "shuni talab qilsa.",
+        "yoki kartochka, taqqoslash bo'lsa ikki ustun. Xilma-xillik "
+        "uchun blok almashtirmang — ikki slayd ketma-ket bir xil "
+        "shaklda bo'lishi MUMKIN, agar mazmun shuni talab qilsa.",
     ]
 
     if outline:
@@ -331,7 +328,7 @@ def plan_outline(topic: str, count: int, language: str,
 # kategoriyalar YO'Q: mavzu qanday ekanini bilmay turib diagramma yoki
 # ko'rsatkich so'rash — modelni statistika o'ylab topishga majburlash
 # demakdir. Zaxira har doim mazmunga neytral bloklardan boshlanadi.
-_SAFE_CATEGORIES = ("kartalar", "bayonot", "ikki_ustun", "reja",
+_SAFE_CATEGORIES = ("kartalar", "matn_rasm", "ikki_ustun", "reja",
                     "jarayon", "tuzilma", "qiyoslash", "iqtibos")
 
 
@@ -637,7 +634,11 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
             if len(retry) > len(chunk):
                 chunk = retry
 
-        slides.extend(chunk[:count])
+        for offset, body in enumerate(chunk[:count]):
+            number = start + offset
+            if 1 < number and _thin(body):
+                body = _thicken(body, system, theme)
+            slides.append(body)
         used.extend(item["brief"] for item in outline[start - 1:start - 1 + count])
         start += count
 
@@ -645,6 +646,52 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
     if not slides:
         raise RuntimeError("AI birorta to'liq slayd qaytarmadi")
     return build_pages(slides, theme)
+
+
+# Varaqni mazmunli qiladigan bloklar. Ularning birortasi ham bo'lmasa
+# varaq faqat sarlavha va bir-ikki jumladan iborat — bunday varaq
+# (bo'lim ajratkichi ham) taqdimotda kerak emas.
+_CONTENT_CLASSES = ("cols", "steps", "list", "timeline", "split", "formula",
+                    "misol", "chart", "kpi", "quote", "ikon-row", "rasm",
+                    "card")
+
+
+def _thin(body: str) -> bool:
+    """Varaq faqat sarlavha va qisqa matndan iboratmi."""
+    if re.search(r"<table\b", body, re.IGNORECASE):
+        return False
+    for value in _CLASS_ATTR.findall(body):
+        if any(name in _CONTENT_CLASSES for name in value.split()):
+            return False
+    return True
+
+
+def _thicken(body: str, system: str, theme) -> str:
+    """Yupqa varaqni MATN VA RASM varag'iga aylantiradi."""
+    user = (
+        "Quyidagi slayd faqat sarlavha va bir-ikki jumladan iborat "
+        "(yoki faqat bo'lim nomi yozilgan ajratkich). Bunday varaq "
+        "taqdimotda kerak emas.\n\n"
+        "Shu slaydni MATN VA RASM bloki bilan qayta yozing: sarlavhadagi "
+        "fikr o'sha qolsin, chap tomonda u ro'yxat bilan ochilsin, o'ng "
+        "tomonda `rasm` bloki (ichida rasm chiqmasa turadigan qo'shimcha "
+        "matn) bo'lsin. Oddiy `<section class=\"slide\">` — `dark` va "
+        "`title big` emas.\n\n"
+        "Javobda faqat bitta <section class=\"slide\"> ... </section> "
+        "bo'lsin.\n\nSlayd:\n" + body
+    )
+    try:
+        raw = llm_client._call_openrouter_text(
+            system, user, temperature=0.5, max_tokens=3000)
+    except Exception as exc:
+        log.warning("Yupqa slayd to'ldirilmadi: %s", exc)
+        return body
+    fixed = split_slides(raw)
+    if not fixed or _thin(fixed[0]):
+        log.warning("Yupqa slayd to'ldirilmadi: javob ham yupqa")
+        return body
+    log.info("Yupqa slayd matn va rasm bilan to'ldirildi")
+    return fixed[0]
 
 
 _DATA_SRC = re.compile(r'src\s*=\s*(["\'])\s*(data:[^"\']+)\1',
@@ -732,7 +779,8 @@ def fix_slide(html: str, problems: List[str], theme, language: str = "uz") -> st
 # Slaydning tuzilishini belgilaydigan bloklar. Tuzatishda ularning
 # biri yo'qolsa yoki yangisi paydo bo'lsa — bu tuzatish emas.
 _BLOCK_CLASSES = ("cols", "steps", "list", "timeline", "split", "formula",
-                  "misol", "chart", "kpi", "quote", "ikon-row", "lead")
+                  "misol", "chart", "kpi", "quote", "ikon-row", "lead",
+                  "rasm")
 _CLASS_ATTR = re.compile(r'class\s*=\s*["\']([^"\']*)["\']', re.IGNORECASE)
 
 

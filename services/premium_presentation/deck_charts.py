@@ -264,6 +264,16 @@ def draw(html_body: str, theme) -> str:
             log.warning("Diagrammada ma'lumot yo'q: %s", tag[:120])
             return ""
         labels = _labels(data.get("labels", ""))
+        # Model ulushlarni ko'pincha har birini alohida qator qilib
+        # yozadi: "AQSh: 45|Yevropa: 30|Osiyo: 25". Bu uchta bitta
+        # qiymatli qator emas — bitta qatorning uchta qiymati. Ilgari
+        # halqa faqat birinchisini chizib "— 100%" derdi, keyin esa
+        # bunday halqa butunlay tashlab yuborilardi.
+        if len(rows) >= 2 and all(len(values) == 1 for _, values in rows):
+            names = [row_name for row_name, _ in rows]
+            rows = [("", [values[0] for _, values in rows])]
+            if len(labels) != len(names) and all(names):
+                labels = names
         name = (data.get("kind") or "bar").strip().lower()
         kind = _KINDS.get(name, _bar)
         # Bitta qiymatli halqa "100%" deydi, xolos — hech narsani

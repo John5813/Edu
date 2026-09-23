@@ -1194,7 +1194,13 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         # diagrammalarni kod chizdi, ikonkalar qo'yildi — bu yerda
         # tashqi xizmat ham, kutish ham yo'q.
         icons = sum(page.count("data-icon") for page in html_pages)
-        photos = 0
+        # "Matn va rasm" bloklariga rasm qo'yiladi (yoqilgan bo'lsa).
+        # Rasm chiqmagan joyda qo'shimcha matn qoladi.
+        try:
+            html_pages, photos = await html_images.fill_photos(html_pages)
+        except Exception as e:
+            logger.warning("Rasmlar qo'yilmadi: %s", e)
+            photos = 0
 
         step2 = {
             "uz": (f"⚙️ <b>{topic}</b>\n"

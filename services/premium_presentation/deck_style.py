@@ -128,6 +128,18 @@ flex:none}
 .split{display:grid;grid-template-columns:1fr 1fr;gap:64px;
 align-items:safe center}
 .split.wide-left{grid-template-columns:1.25fr 1fr}
+/* Matn va rasm. Rasm chiqmasa o'rnida qo'shimcha matn turadi —
+   kartochka ko'rinishida, chap tomonidagi matn bilan teng bo'yda. */
+.rasm{align-self:stretch;display:flex;flex-direction:column;
+justify-content:center;gap:24px;border-radius:18px;padding:48px;
+background:linear-gradient(160deg,#SOFT 0%,#SOFTER 100%);
+border-left:8px solid #ACCENT;min-height:420px}
+.rasm-matn{font-size:36px;line-height:1.5;color:#BODY}
+.rasm.photo-in{padding:0;border:0;background:none;overflow:hidden}
+.rasm .photo{width:100%;height:100%;min-height:420px;object-fit:cover;
+border-radius:18px;display:block}
+.slide.dark .rasm{background:#BANDCARD}
+.slide.dark .rasm-matn{color:#FFFFFF}
 .split.wide-right{grid-template-columns:1fr 1.25fr}
 
 /* ── Kartochka ─────────────────────────────────────────────────── */
@@ -408,14 +420,17 @@ BLOKLAR:
   </div>
 </section>
 
-2. AJRATKICH (mavzu qismlarga bo'linsa, qism boshida; `head` yozilmaydi):
-<section class="slide dark">
-  <div class="body">
-    <h2 class="title big">Bo'lim nomi</h2>
-    <div class="rule"></div>
-    <p class="lead">Bo'limni ochadigan bitta jumla.</p>
+2. MATN VA RASM (bir tomonda matn, bir tomonda rasm):
+<div class="split">
+  <div class="list"> ... </div>
+  <div class="rasm" data-prompt="english description of a documentary photo">
+    <p class="rasm-matn">Rasm chiqmasa uning o'rnida turadigan qo'shimcha
+    matn: shu mavzuni to'ldiruvchi 2-3 gap (misol, sabab yoki ahamiyat).</p>
   </div>
-</section>
+</div>
+`data-prompt` — rasmning inglizcha tavsifi (matn va yozuvsiz). Rasm
+chiqsa `rasm-matn` o'rniga rasm turadi; chiqmasa matn qoladi —
+shuning uchun u to'liq, mazmunli bo'lsin.
 
 3. KARTOCHKALAR (2, 3 yoki 4 ta; reja ham shu):
 <div class="cols cols-3">
@@ -487,10 +502,6 @@ Chiziq o'zi chiziladi — siz chizmaysiz.
   <p class="quote-by">— Muallif, lavozimi</p>
 </div>
 
-12. BAYONOT (slayd faqat shu jumladan iborat bo'ladi — oddiy ta'rif
-    yoki izoh uchun emas, o'zi butun slayd bo'la oladigan fikr uchun):
-<p class="lead huge">Bitta kuchli jumla.</p>
-
 13. IKONKALAR QATORI (bezak sifatida):
 <div class="ikon-row">
   <div class="ikon-dot"><img class="ikon" data-icon="NOM" alt=""></div>
@@ -524,6 +535,7 @@ DIAGRAMMA — siz chizmaysiz, faqat ma'lumot berasiz:
      data-series="Patentlar: 12,18,24|Nashrlar: 20,28,35"
      data-unit="ming dona"></div>
   data-kind: bar (ustunli), line (chiziqli) yoki donut (ulushlar).
-  donut uchun bitta qator bering: data-series="Ulush: 45,30,25".
+  donut uchun bitta qator bering: data-series="Ulush: 45,30,25"
+  va nomlarini data-labels ga yozing: data-labels="AQSh,Yevropa,Osiyo".
   Diagramma ostidagi <p class="note"> da raqam nimani bildirishi,
   nega shunday ekani va undan qanday xulosa chiqishi tushuntiriladi."""
