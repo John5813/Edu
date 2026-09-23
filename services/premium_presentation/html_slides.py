@@ -103,7 +103,7 @@ _CATEGORIES = (
     ("iqtibos", "yirik tirnoq belgisi, kursiv matn, muallif qatori"),
     ("kartalar", "bir xil o'lchamdagi kartalar, har birida sarlavha va "
                  "bir-ikki gaplik izoh"),
-    ("yakun", "asosiy xulosalar va yakuniy rahmat qatori"),
+    ("yakun", "faqat xulosa matni — rahmat va savollar qatorisiz"),
 )
 
 CATEGORY_KEYS = tuple(key for key, _ in _CATEGORIES)
@@ -195,7 +195,9 @@ QAT'IY QOIDALAR:
 9. Bir slaydda bir xil matnni ikki marta yozma.
 10. Yorliqlar qisqa: kartochka sarlavhasi 1-4 so'z, vaqt o'qidagi
    izoh bir jumla.
-11. Birinchi slayd — MUQOVA, oxirgisi — xulosa. Taqdimot bo'limlarga
+11. Birinchi slayd — MUQOVA, oxirgisi — XULOSA: unda faqat xulosa
+   matni bo'ladi, "Rahmat", "E'tiboringiz uchun rahmat", "Savollar"
+   yozilmaydi va ular uchun alohida varaq ham yo'q. Taqdimot bo'limlarga
    ajratilmaydi: faqat bo'lim nomi yozilgan alohida varaq bo'lmaydi,
    har varaq mazmun beradi.
 12. Matn haqiqiy va aniq bo'lsin: nom, misol, manba bilan. "Lorem
@@ -636,6 +638,8 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
 
         for offset, body in enumerate(chunk[:count]):
             number = start + offset
+            if number == slide_count:
+                body = _drop_thanks(body)
             if 1 < number and _thin(body):
                 body = _thicken(body, system, theme)
             slides.append(body)
@@ -654,6 +658,31 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
 _CONTENT_CLASSES = ("cols", "steps", "list", "timeline", "split", "formula",
                     "misol", "chart", "kpi", "quote", "ikon-row", "rasm",
                     "card")
+
+
+# Xulosa varag'idagi "rahmat" va "savollar" qatorlari. Qisqa matnli
+# elementgina olib tashlanadi — mazmunli gap ichida "savol" so'zi
+# uchrasa tegilmaydi.
+_THANKS = re.compile(
+    r"rahmat|e[\'ʼ‘’`]?tiboringiz|savollar|savolingiz|спасибо|"
+    r"благодар|вопрос|thank|questions", re.IGNORECASE)
+_SHORT_TEXT = re.compile(
+    r"<(p|h[1-6]|div|span)\b[^>]*>((?:(?!<div\b|</div>|<p\b|</p>).){0,120}?)"
+    r"</\1\s*>", re.IGNORECASE | re.DOTALL)
+_TITLE_CLASS = re.compile(r'class\s*=\s*["\'][^"\']*\btitle\b', re.IGNORECASE)
+
+
+def _drop_thanks(body: str) -> str:
+    """Xulosadan "rahmat" va "savollar" qatorlarini olib tashlaydi."""
+
+    def drop(match):
+        text = _plain(match.group(2), 200)
+        if (text and len(text) <= 80 and _THANKS.search(text)
+                and not _TITLE_CLASS.search(match.group(0))):
+            return ""
+        return match.group(0)
+
+    return _SHORT_TEXT.sub(drop, body)
 
 
 def _thin(body: str) -> bool:
