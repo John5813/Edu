@@ -1,12 +1,18 @@
-"""HTML slaydni brauzerda suratga oladi va PPTX ga yig'adi.
+"""HTML slaydni brauzerda ochib, PowerPointga o'giradi.
 
-Slaydning ko'rinishi endi HTML/CSS bilan belgilanadi, ya'ni uni
-python-pptx bilan qayta chizish shart emas: brauzer nima ko'rsatsa,
-PowerPointda ham aynan o'sha turadi. Har slayd 1920×1080 PNG bo'lib,
-13.333×7.5 dyuymli varaqni to'liq egallaydi.
+Slaydni rasm qilib qo'yish oson bo'lardi, lekin o'shanda mijoz matnni
+tuzata olmaydi. Shuning uchun brauzerdan har bir elementning aniq
+o'rni, o'lchami va uslubi o'qib olinadi va PowerPointda o'sha
+o'rinlarga haqiqiy matn qutisi, shakl va jadval qo'yiladi: joylashuvni
+brauzer hisoblagani uchun hech narsa ustma-ust tushmaydi, matn esa
+tahrirlanadigan bo'lib qoladi. Diagramma va murakkab grafika (SVG)
+rasm bo'lib qo'yiladi.
+
+Joylashuvni o'qib bo'lmasa, o'sha slayd butunicha suratga olinadi —
+bo'sh slayd chiqmaydi.
 
 Brauzer bitta marta ishga tushiriladi va slaydlar navbat bilan
-olinadi: server kichik (1 vCPU / 2 GB), bir vaqtda ikkita Chromium
+ochiladi: server kichik (1 vCPU / 2 GB), bir vaqtda ikkita Chromium
 oynasi ochilsa xotira yetmaydi.
 """
 
@@ -146,11 +152,17 @@ def _launch(playwright):
         headless=True, args=_LAUNCH_ARGS, executable_path=path)
 
 
-def shoot(html_slides: List[str], out_dir: str = "temp") -> List[str]:
-    """Har HTML hujjatni PNG qilib saqlaydi va yo'llarini qaytaradi.
+def _open_page(context, html: str):
+    page = context.new_page()
+    page.set_content(html, wait_until=_WAIT_UNTIL, timeout=_TIMEOUT_MS)
+    return page
 
-    Bitta slayd chizilmasa, qolganlari baribir chiqadi — taqdimot
-    bitta xato tufayli butunlay yo'qolmaydi.
+
+def shoot(html_slides: List[str], out_dir: str = "temp") -> List[str]:
+    """Har HTML hujjatni to'liq PNG qilib saqlaydi.
+
+    Tahrirlanadigan slayd asosiy yo'l; bu yerdagi surat ko'rish va
+    tekshirish uchun kerak (do'kondagi namunalar ham shundan olinadi).
     """
     from playwright.sync_api import sync_playwright
 
@@ -188,27 +200,7 @@ def shoot(html_slides: List[str], out_dir: str = "temp") -> List[str]:
     return paths
 
 
-def build_pptx(image_paths: List[str], out_dir: str = "temp",
-               name: str = "taqdimot") -> str:
-    """PNG larni to'liq varaqni egallagan slaydlarga aylantiradi."""
-    from pptx import Presentation
-    from pptx.util import Inches
-
-    if not image_paths:
-        raise RuntimeError("Birorta slayd suratga olinmadi")
-
-    presentation = Presentation()
-    presentation.slide_width = Inches(SLIDE_W_IN)
-    presentation.slide_height = Inches(SLIDE_H_IN)
-    blank = presentation.slide_layouts[6]
-
-    for path in image_paths:
-        slide = presentation.slides.add_slide(blank)
-        slide.shapes.add_picture(
-            path, left=0, top=0,
-            width=presentation.slide_width,
-            height=presentation.slide_height)
-
+def _save(presentation, out_dir: str, name: str) -> str:
     os.makedirs(out_dir, exist_ok=True)
     handle, out_path = tempfile.mkstemp(
         prefix=f"{name}_", suffix=".pptx", dir=out_dir)
@@ -217,15 +209,104 @@ def build_pptx(image_paths: List[str], out_dir: str = "temp",
     return out_path
 
 
+def build_pptx(image_paths: List[str], out_dir: str = "temp",
+               name: str = "taqdimot") -> str:
+    """PNG larni to'liq varaqni egallagan slaydlarga aylantiradi."""
+    from . import pptx_build
+
+    if not image_paths:
+        raise RuntimeError("Birorta slayd suratga olinmadi")
+
+    presentation = pptx_build.new_presentation()
+    for path in image_paths:
+        pptx_build.add_picture_slide(presentation, path)
+    return _save(presentation, out_dir, name)
+
+
 def render(html_slides: List[str], out_dir: str = "temp",
            name: str = "taqdimot") -> str:
-    """HTML → PNG → PPTX. Vaqtinchalik rasmlar o'chiriladi."""
-    images = shoot(html_slides, out_dir)
+    """HTML → tahrirlanadigan PPTX.
+
+    Har slayd brauzerda ochiladi, joylashuvi o'qiladi va PowerPointning
+    haqiqiy matn qutilari, shakllari va jadvallariga aylanadi. Bir slayd
+    o'qilmasa, o'sha slaydning o'zi surat bo'lib tushadi — qolganlari
+    baribir tahrirlanadi.
+    """
+    from playwright.sync_api import sync_playwright
+
+    from . import html_extract, pptx_build
+
+    if not html_slides:
+        raise RuntimeError("Slayd yo'q")
+
+    os.makedirs(out_dir, exist_ok=True)
+    presentation = pptx_build.new_presentation()
+    temporary: List[str] = []
+    editable = 0
+
+    with sync_playwright() as playwright:
+        browser = _launch(playwright)
+        try:
+            context = browser.new_context(
+                viewport={"width": SLIDE_W_PX, "height": SLIDE_H_PX},
+                device_scale_factor=1,
+            )
+            try:
+                for index, html in enumerate(html_slides, 1):
+                    page = None
+                    try:
+                        page = _open_page(context, html)
+                        layout = html_extract.read_layout(page)
+                        blocks = layout.get("blocks") or []
+                        if not blocks:
+                            raise RuntimeError("element topilmadi")
+                        html_extract.capture_images(
+                            page, blocks, out_dir, index)
+                        temporary.extend(
+                            block["path"] for block in blocks
+                            if block.get("path"))
+                        pptx_build.add_slide(presentation, layout)
+                        editable += 1
+                    except Exception as exc:
+                        log.warning("%d-slayd o'qilmadi (%s) — surat qilinadi",
+                                    index, exc)
+                        _picture_fallback(presentation, page, out_dir,
+                                          index, temporary)
+                    finally:
+                        if page is not None:
+                            try:
+                                page.close()
+                            except Exception:
+                                pass
+            finally:
+                context.close()
+        finally:
+            browser.close()
+
+    log.info("Taqdimot tayyor: %d/%d slayd tahrirlanadi",
+             editable, len(html_slides))
     try:
-        return build_pptx(images, out_dir, name)
+        return _save(presentation, out_dir, name)
     finally:
-        for path in images:
+        for path in temporary:
             try:
                 os.remove(path)
             except OSError:
                 pass
+
+
+def _picture_fallback(presentation, page, out_dir: str, index: int,
+                      temporary: List[str]) -> None:
+    """Slayd o'qilmasa — o'sha slaydning suratini qo'yadi."""
+    if page is None:
+        return
+    path = os.path.join(out_dir, f"fallback_{os.getpid()}_{index:02d}.png")
+    try:
+        page.screenshot(path=path, type="png",
+                        clip={"x": 0, "y": 0,
+                              "width": SLIDE_W_PX, "height": SLIDE_H_PX})
+        temporary.append(path)
+        from . import pptx_build
+        pptx_build.add_picture_slide(presentation, path)
+    except Exception as exc:
+        log.error("%d-slayd butunlay chiqmadi: %s", index, exc)

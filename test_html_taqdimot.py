@@ -11,7 +11,8 @@ Shu fayl aynan o'sha kafolatlarni sinaydi:
 2. Chala kelgan HTML hujjat tashlab yuboriladi.
 3. Reja kelmasa ham slaydlar xilma-xil kategoriyalarda bo'ladi.
 4. Brauzer HTML ni haqiqatan 1920×1080 PNG qiladi.
-5. PPTX slaydlari to'liq varaqni egallaydi.
+5. PPTX slaydi TAHRIRLANADI: matn — matn qutisi, jadval — jadval,
+   blok — shakl. Faqat diagramma rasm bo'lib qoladi.
 
     python test_html_taqdimot.py
 """
@@ -156,47 +157,114 @@ def check_writer():
           "takrorlama" in calls[1].lower(), calls[1][:80])
 
 
-def check_render():
+def check_shot():
     print("\n5) Brauzerda suratga olish")
     if not html_render.available():
-        check("playwright o'rnatilgan", False, "playwright yo'q")
-        return
+        check("brauzer o'rnatilgan", False, html_render._INSTALL_HINT)
+        return False
 
-    pages = [
-        _page("Birinchi slayd", '<svg width="600" height="300">'
-              '<circle cx="150" cy="150" r="120" fill="#1F8A70"/></svg>'),
-        _page("Ikkinchi slayd",
-              '<table><tr><td>A</td><td>B</td></tr></table>'),
-    ]
-    images = html_render.shoot(pages, out_dir="temp")
-    check("har slayd suratga olindi", len(images) == 2, str(len(images)))
-
+    images = html_render.shoot([_page("Birinchi slayd")], out_dir="temp")
+    check("slayd suratga olindi", len(images) == 1, str(len(images)))
+    if not images:
+        return True
     try:
         from PIL import Image
         with Image.open(images[0]) as picture:
             size = picture.size
-        check("surat 1920×1080", size == (1920, 1080), str(size))
-        with Image.open(images[0]) as picture:
             colours = picture.convert("RGB").getcolors(maxcolors=200000) or []
-        check("slayd bo'sh emas", len(colours) > 3, str(len(colours)))
-
-        path = html_render.build_pptx(images, "temp", "sinov")
-        from pptx import Presentation
-        presentation = Presentation(path)
-        check("PPTX slaydlari to'g'ri",
-              len(presentation.slides._sldIdLst) == 2)
-        check("slayd 16:9 varaq",
-              abs(presentation.slide_width / 914400 - 13.333) < 0.01
-              and abs(presentation.slide_height / 914400 - 7.5) < 0.01)
-        picture_shape = list(presentation.slides)[0].shapes[0]
-        check("rasm butun varaqni egallaydi",
-              picture_shape.width == presentation.slide_width
-              and picture_shape.height == presentation.slide_height)
-        os.remove(path)
+        check("surat 1920×1080", size == (1920, 1080), str(size))
+        check("slayd bo'sh emas", len(colours) > 2, str(len(colours)))
     finally:
         for image in images:
             if os.path.exists(image):
                 os.remove(image)
+    return True
+
+
+def check_editable():
+    print("\n6) Tahrirlanadigan PPTX")
+    if not html_render.available():
+        check("brauzer o'rnatilgan", False, html_render._INSTALL_HINT)
+        return
+
+    theme = themes.get("zumrad")
+    font = html_slides.FONT_STACK
+    slide = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    *{{margin:0;padding:0;box-sizing:border-box}}
+    body{{width:1920px;height:1080px;padding:84px;background:#FFFFFF;
+    font-family:{font};overflow:hidden}}
+    h2{{font-size:52px;color:#{theme.heading};font-weight:700}}
+    .bar{{width:180px;height:9px;background:#{theme.accent};margin:26px 0 40px}}
+    .card{{background:#{theme.accent_soft};border-radius:20px;padding:30px;
+    width:520px}}
+    .v{{font-size:56px;font-weight:700;color:#{theme.accent}}}
+    table{{border-collapse:collapse;width:700px;margin-top:40px}}
+    th{{background:#{theme.accent};color:#FFFFFF;font-size:22px;padding:14px}}
+    td{{font-size:21px;color:#{theme.body};padding:13px}}
+    </style></head><body>
+    <h2>Bandlik ko'rsatkichlari<br>ikkinchi qator</h2>
+    <div class="bar"></div>
+    <div class="card"><div class="v">14,4 mln</div></div>
+    <table><tr><th>Hudud</th><th>2026</th></tr>
+    <tr><td>Toshkent shahri</td><td>1 260</td></tr></table>
+    <svg width="400" height="200"><circle cx="100" cy="100" r="80"
+    fill="#{theme.accent}"/></svg></body></html>"""
+
+    path = html_render.render([slide], out_dir="temp", name="sinov")
+    try:
+        from pptx import Presentation
+        from pptx.util import Pt
+
+        presentation = Presentation(path)
+        check("slayd yaratildi", len(presentation.slides._sldIdLst) == 1)
+        check("slayd 16:9 varaq",
+              abs(presentation.slide_width / 914400 - 13.333) < 0.01
+              and abs(presentation.slide_height / 914400 - 7.5) < 0.01)
+
+        shapes = list(list(presentation.slides)[0].shapes)
+        texts = [s.text_frame.text for s in shapes
+                 if s.has_text_frame and s.text_frame.text.strip()]
+        check("sarlavha matn bo'lib turibdi",
+              any("Bandlik ko'rsatkichlari" in t for t in texts), str(texts[:4]))
+        check("qator ko'chishi saqlandi",
+              any("\n" in t for t in texts), str(texts[:4]))
+        check("ko'rsatkich matni bor", any("14,4 mln" in t for t in texts))
+
+        check("jadval haqiqiy jadval", any(s.has_table for s in shapes))
+        table = next(s.table for s in shapes if s.has_table)
+        check("jadval kataklari o'qiladi",
+              table.cell(0, 0).text == "Hudud"
+              and table.cell(1, 0).text == "Toshkent shahri",
+              table.cell(0, 0).text)
+
+        pictures = [s for s in shapes if s.shape_type == 13]
+        check("diagramma rasm bo'lib qo'yildi", len(pictures) == 1,
+              str(len(pictures)))
+        check("rasm butun varaqni egallamaydi",
+              all(p.width < presentation.slide_width * 0.9 for p in pictures),
+              str([p.width for p in pictures]))
+
+        # Bezak bloklari — shakl; matnsiz.
+        filled = [s for s in shapes
+                  if s.shape_type == 1 and not s.text_frame.text.strip()]
+        check("bezak bloklari shakl bo'ldi", len(filled) >= 2, str(len(filled)))
+
+        title = next(s for s in shapes if s.has_text_frame
+                     and "Bandlik" in s.text_frame.text)
+        run = title.text_frame.paragraphs[0].runs[0]
+        check("sarlavha o'lchami saqlandi",
+              abs(run.font.size.pt - 26) < 1.5, str(run.font.size.pt))
+        check("shrift PowerPointnikiga o'girildi",
+              run.font.name == "Arial", str(run.font.name))
+        check("rang saqlandi",
+              str(run.font.color.rgb) == theme.heading.upper(),
+              str(run.font.color.rgb))
+        check("slayd foni oq",
+              str(list(presentation.slides)[0].background.fill.fore_color.rgb)
+              == "FFFFFF")
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
 
 
 def main():
@@ -204,13 +272,14 @@ def main():
     check_split()
     check_outline()
     check_writer()
-    check_render()
+    if check_shot():
+        check_editable()
 
     print()
     if FAILS:
         print(f"❌ {len(FAILS)} ta tekshiruv o'tmadi: {', '.join(FAILS[:5])}")
         return 1
-    print("✅ HTML slaydlar chiziladi, suratga olinadi va PPTX ga tushadi.")
+    print("✅ HTML slaydlar chiziladi va tahrirlanadigan PPTX ga tushadi.")
     return 0
 
 
