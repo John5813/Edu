@@ -225,6 +225,14 @@ DIZAYN (slaydlar bir-biriga o'xshab ketmasin):
   (#{theme.accent_soft}), 16-20px yumaloq burchak va tepasida yoki
   chapida 4-6px aksent chizig'i.
 - Bir slaydda ikkitadan ortiq turli rang ishlatma.
+- BIR MATNNI IKKI MARTA YOZMANG. Soya, kontur yoki nur uchun
+  sarlavhaning ikkinchi nusxasini (`<span>` ichida, `position:absolute`
+  bilan yoki `filter: blur` qo'yilgan qatlamda) qo'ymang: brauzerda
+  ular ustma-ust tushib bittadek ko'rinadi, PowerPointda esa matn ikki
+  marta yozilgan bo'lib chiqadi. Soya kerak bo'lsa `text-shadow`
+  ishlating — u bitta elementda qoladi.
+- Sarlavhaga gradient bermang (`-webkit-background-clip: text`):
+  PowerPointda harf rangi yo'qoladi. Oddiy `color` yetarli.
 
 DIAGRAMMA VA KO'RSATKICH:
 - Har diagramma yoki ko'rsatkichlar qatoridan keyin 2-3 gaplik IZOH

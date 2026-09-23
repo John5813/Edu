@@ -763,6 +763,102 @@ def check_text_box_width():
             os.remove(path)
 
 
+def check_double_text():
+    """Bir matn slaydda ikki marta yozilmasin.
+
+    Dizayn qilayotgan model sarlavhaga soya yoki nur berish uchun
+    uning ikkinchi nusxasini qo'yadi: `<span>` ichida, ustma-ust
+    `position:absolute` bilan yoki `filter: blur` qo'yilgan qatlamda.
+    Brauzerda ikkalasi ustma-ust tushib bittadek ko'rinadi, PowerPoint
+    esa ikkita alohida matn qutisi chizadi — mijoz muqovada sarlavha
+    ikki marta yozilganini ko'radi.
+
+    Chizuvchi nusxani olib tashlashi va tekshiruv HTML ning o'zi
+    tuzatilishini so'rashi kerak. Ayni paytda turli joydagi bir xil
+    matn (masalan ikki kartada bir sarlavha) o'chib ketmasligi kerak.
+    """
+    print("\n15) Matn ikki marta yozilishi")
+    if not html_render.available():
+        check("brauzer o'rnatilgan", False, html_render._INSTALL_HINT)
+        return
+
+    theme = themes.get("ko'k")
+    head = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    *{{margin:0;padding:0;box-sizing:border-box}}
+    body{{width:1920px;height:1080px;padding:90px;background:#FFFFFF;
+    font-family:{html_slides.FONT_STACK};overflow:hidden}}
+    h1{{font-size:88px;color:#{theme.heading};position:relative}}
+    .soya{{position:absolute;left:6px;top:6px;color:rgba(0,0,0,.35)}}
+    .nur{{position:absolute;left:90px;top:90px;filter:blur(6px);
+    color:#{theme.accent}}}
+    .izoh{{margin-top:48px;font-size:28px;color:#{theme.body};
+    line-height:1.6;max-width:1400px}}
+    .karta{{display:inline-block;width:520px;padding:32px;
+    background:#{theme.accent_soft};margin-right:24px}}
+    .karta h3{{font-size:32px;color:#{theme.heading}}}
+    </style></head><body>"""
+    tail = "</body></html>"
+
+    pages = {
+        # Soya uchun ustma-ust qo'yilgan nusxa.
+        "soya": head + """
+        <h1><span class="soya">Muqova sarlavhasi</span>Muqova sarlavhasi</h1>
+        <p class="izoh">Sarlavha ostidagi izoh matni.</p>""" + tail,
+        # Xiralashtirilgan "nur" qatlami.
+        "nur": head + """
+        <h1 class="nur">Muqova sarlavhasi</h1>
+        <h1>Muqova sarlavhasi</h1>
+        <p class="izoh">Sarlavha ostidagi izoh matni.</p>""" + tail,
+        # Matn oqimi ichidagi nusxa: innerText ikki marta qaytaradi.
+        "oqim": head + """
+        <h1><span style="color:rgba(0,0,0,.2)">Muqova sarlavhasi</span>Muqova sarlavhasi</h1>
+        <p class="izoh">Sarlavha ostidagi izoh matni.</p>""" + tail,
+        # Turli joydagi bir xil matn — nusxa emas, ikkalasi qolsin.
+        "alohida": head + """
+        <h1>Ikki karta</h1>
+        <div class="karta"><h3>Yalpi ichki mahsulot</h3></div>
+        <div class="karta"><h3>Yalpi ichki mahsulot</h3></div>
+        <p class="izoh">Bir xil sarlavha ikki kartada, lekin ustma-ust emas.</p>"""
+        + tail,
+    }
+
+    from playwright.sync_api import sync_playwright
+
+    found = {}
+    warned = {}
+    with sync_playwright() as playwright:
+        browser = html_render._launch(playwright)
+        try:
+            context = browser.new_context(
+                viewport={"width": 1920, "height": 1080})
+            for name, html in pages.items():
+                handle = context.new_page()
+                handle.set_content(html, wait_until="load")
+                found[name] = [
+                    block["text"]
+                    for block in html_extract.read_layout(handle)["blocks"]
+                    if block["kind"] == "text"]
+                warned[name] = any("ikki marta yozilgan" in item
+                                   for item in html_extract.check_layout(handle))
+                handle.close()
+            context.close()
+        finally:
+            browser.close()
+
+    for name in ("soya", "nur", "oqim"):
+        titles = [t for t in found[name] if "Muqova sarlavhasi" in t]
+        check(f"{name}: sarlavha bir marta tushdi",
+              len(titles) == 1 and titles[0] == "Muqova sarlavhasi",
+              str(titles))
+
+    check("soya: HTML tuzatilishi so'raladi", warned["soya"])
+    check("nur: HTML tuzatilishi so'raladi", warned["nur"])
+
+    apart = [t for t in found["alohida"] if t == "Yalpi ichki mahsulot"]
+    check("turli joydagi bir xil matn saqlandi", len(apart) == 2, str(apart))
+    check("alohida matn nusxa deb sanalmadi", not warned["alohida"])
+
+
 def main():
     check_handler_names()
     check_prompt()
@@ -780,6 +876,7 @@ def main():
         check_accent_strip()
         check_inline_text()
         check_text_box_width()
+        check_double_text()
 
     print()
     if FAILS:
