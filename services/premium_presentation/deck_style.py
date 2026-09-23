@@ -346,7 +346,7 @@ BLOKLAR:
   <div class="stop"><span class="bead"></span>
     <div class="when">2003</div>
     <div class="what">Nima bo'lgani.</div></div>
-  ... yana to'xtashlar (3 tadan 5 tagacha) ...
+  ... mavzu talab qilgancha to'xtash ...
 </div>
 Chiziq o'zi chiziladi — siz chizmaysiz.
 

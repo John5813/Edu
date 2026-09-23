@@ -168,11 +168,12 @@ QAT'IY QOIDALAR:
    Fotosurat, tashqi havola, emoji — yo'q.
 4. Diagrammani O'ZING chizma. `<svg>` yozma. Faqat `.chart` blokiga
    ma'lumot ber — qolganini tizim chizadi.
-5. Har slaydda MAZMUN yetarli bo'lsin, lekin oshirib yuborma:
-   - kartochka 2 tadan 4 tagacha, izohi 1-2 gap;
-   - ro'yxat bandi 3 tadan 5 tagacha, har biri 1-2 gap;
-   - ko'rsatkich 2 tadan 4 tagacha;
-   - vaqt o'qida 3 tadan 5 tagacha to'xtash.
+5. Bir varaqqa qancha sig'ishining YUQORI chegarasi (bu talab
+   emas — shuncha bo'lishi kerak emas, shundan OSHMASIN):
+   - kartochka 4 tadan oshmasin, izohi 2 gapdan oshmasin;
+   - ro'yxat bandi 5 tadan oshmasin;
+   - ko'rsatkich 4 tadan oshmasin;
+   - vaqt o'qida 5 tadan ortiq to'xtash bo'lmasin.
    Varaq 1920x1080 — bundan ko'pi sig'maydi va kesiladi.
 6. BO'SH BLOK QOLDIRMA. Har kartochkaning sarlavhasi ham, izohi ham
    bo'lsin. Mazmun topolmasang kartochkani butunlay olib tashla va
@@ -201,9 +202,10 @@ QAT'IY QOIDALAR:
    desangiz — formula ko'rinsin; "qiyoslash" desangiz — ikki tomon
    yonma-yon tursin. Va'dani bajarolmasangiz sarlavhani
    o'zgartiring.
-14. FORMULANI MATN ICHIGA TIQMANG. U alohida `formula` blokida,
-   yirik va o'qiladigan bo'lsin. Formulani LaTeX bilan yozing —
-   tizim uni belgilarga o'giradi."""
+14. Formula BO'LSA, uni matn ichiga tiqmang: `formula` bloki bor,
+   u yirik va o'qiladigan chiqadi. Formulani LaTeX bilan yozing —
+   tizim uni belgilarga o'giradi. Mavzuda formula yo'q bo'lsa,
+   bu blok ishlatilmaydi."""
 
 
 def _user_prompt(topic: str, start: int, count: int, total: int,
