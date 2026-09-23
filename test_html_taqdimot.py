@@ -135,7 +135,7 @@ def check_design_system():
              and "100%" not in line and "1080px" not in line
              and "0" not in line
              and not any(f"height:{n}px" in line for n in
-                         (4, 5, 6, 14, 22, 56, 96))]
+                         (4, 5, 6, 14, 16, 22, 48, 54, 56, 96, 104))]
     check("kartochkaga qat'iy balandlik yo'q", not loose, str(loose[:2]))
 
     other = deck_style.stylesheet(themes.get("qizil"))
@@ -1708,6 +1708,87 @@ def check_colour_harmony():
         check(f"{sel} yetarlicha yirik", size(sel) >= least, f"{size(sel)}px")
 
 
+def check_icon_cards():
+    """Rangli ikonkali kartochkalar va to'g'ri chiziq.
+
+    Eski tizimda eng jonli ko'rinadigan narsa ikonkalar edi: har
+    kartochka o'z rangida, oq ikonka shu rangdagi doirada, pastida
+    shu rangdagi tasma. Dizayn tizimiga o'tganda hamma kartochka bir
+    xil och ko'k bo'lib qolgan edi — shu qaytarildi.
+
+    Sarlavha ostidagi ingichka chiziq (120x6, radiusi 3) esa
+    "radius qisqa tomonning yarmi" shartiga tushib, PowerPointda
+    ellips bo'lib chiqayotgan edi.
+    """
+    print("\n24) Rangli ikonkalar va sarlavha chizig'i")
+    if not html_render.available():
+        check("brauzer o'rnatilgan", False, html_render._INSTALL_HINT)
+        return
+
+    theme = themes.get("ko'k")
+
+    def card(title):
+        return ('<div class="card"><div class="ikon-dot">'
+                '<img class="ikon" data-icon="chart" alt=""></div>'
+                f'<div class="card-title">{title}</div>'
+                '<div class="card-note">Izoh matni.</div></div>')
+
+    body = ('<section class="slide"><div class="head">'
+            '<h2 class="title">Sarlavha</h2><div class="rule"></div></div>'
+            '<div class="body"><div class="cols cols-3">'
+            + card("Bir") + card("Ikki") + card("Uch") +
+            '</div></div></section>')
+    check("doiradagi ikonka oq qilinadi",
+          'data-icon-color="FFFFFF"' in html_slides._whiten_icons(body))
+    page = html_slides.build_pages([body], theme)[0]
+
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = html_render._launch(playwright)
+        try:
+            context = browser.new_context(
+                viewport={"width": 1920, "height": 1080})
+            handle = context.new_page()
+            handle.set_content(page, wait_until="load")
+            blocks = html_extract.read_layout(handle)["blocks"]
+            context.close()
+        finally:
+            browser.close()
+
+    rects = [b for b in blocks if b["kind"] == "rect"]
+    rule = [b for b in rects if 100 < b["w"] < 140 and b["h"] < 10]
+    check("sarlavha chizig'i topildi", bool(rule), str(len(rule)))
+    check("chiziq ellips emas", rule and not rule[0]["circle"],
+          str(rule[0] if rule else None))
+
+    dots = [b for b in rects if b.get("circle") and 90 < b["w"] < 120]
+    check("uchta rangli doira", len(dots) == 3, str(len(dots)))
+    check("doiralar har xil rangda",
+          len({d["fill"] for d in dots}) == 3, str([d["fill"] for d in dots]))
+    check("birinchi doira mavzu aksentida",
+          bool(dots) and dots[0]["fill"] == theme.accent,
+          str(dots[0]["fill"] if dots else None))
+    check("doiralar bir balandlikda",
+          len({round(d["y"]) for d in dots}) == 1,
+          str([round(d["y"]) for d in dots]))
+
+    cards = [b for b in rects if b["w"] > 400 and b["h"] > 200]
+    check("kartochkalar har xil tusda",
+          len({c.get("fill") for c in cards}) == 3,
+          str([c.get("fill") for c in cards]))
+    bars = [b for b in rects if b["h"] <= 10 and b["w"] > 400]
+    check("pastida rangli tasma", len(bars) == 3, str(len(bars)))
+    if dots and cards:
+        check("doira kartochka chetidan chiqib turadi",
+              dots[0]["y"] < min(c["y"] for c in cards),
+              f"{dots[0]['y']:.0f} vs {min(c['y'] for c in cards):.0f}")
+
+    css = deck_style.stylesheet(theme)
+    check("rang kalitlari almashtirildi",
+          "TONE" not in css and "TINT" not in css)
+
+
 def main():
     check_handler_names()
     check_prompt()
@@ -1742,6 +1823,7 @@ def main():
     if html_render.available():
         check_text_spill()
         check_colour_harmony()
+        check_icon_cards()
 
     print()
     if FAILS:
