@@ -19,7 +19,7 @@ import logging
 import re
 from typing import Callable, Dict, List, Optional
 
-from . import deck_charts, deck_style, llm_client
+from . import deck_charts, deck_shape, deck_style, llm_client
 
 log = logging.getLogger("html_slides")
 
@@ -176,23 +176,31 @@ QAT'IY QOIDALAR:
 6. BO'SH BLOK QOLDIRMA. Har kartochkaning sarlavhasi ham, izohi ham
    bo'lsin. Mazmun topolmasang kartochkani butunlay olib tashla va
    qolganlarini kamroq ustunga joyla.
-7. Har slaydda bitta ko'rgazmali langar bo'lsin: diagramma, jadval,
-   ko'rsatkichlar, vaqt o'qi, qadamlar yoki ikonkali kartochkalar.
-   Faqat quruq matndan iborat slayd bo'lmasin.
-8. Ketma-ket ikki slayd bir xil blokda bo'lmasin. Butun taqdimotda
-   kamida oltita turli blok ishlatilsin.
+7. BLOKNI MAZMUN TANLAYDI, xilma-xillik emas. Ketma-ketlik bo'lsa
+   qadam yoki vaqt o'qi, tasnif bo'lsa jadval yoki kartochka,
+   taqqoslash bo'lsa ikki ustun, kuchli fikr bo'lsa bayonot.
+   Ikki slayd ketma-ket bir xil shaklda bo'lishi MUMKIN. Blokni
+   "boshqacha bo'lsin" deb almashtirmang.
+8. RAQAMNI O'YLAB TOPMANG. Foiz, statistika, o'sish sur'ati va
+   kelajak prognozi faqat siz ishonadigan HAQIQIY ma'lumot bo'lsa
+   yoziladi. Ishonchingiz komil bo'lmasa diagramma ham,
+   ko'rsatkich ham qo'ymang — o'sha fikrni matn bilan ayting.
+   Mavzu raqam talab qilmasa, butun taqdimotda birorta diagramma
+   bo'lmasligi ham mumkin va bu TO'G'RI.
 9. Bir slaydda bir xil matnni ikki marta yozma.
 10. Yorliqlar qisqa: kartochka sarlavhasi 1-4 so'z, vaqt o'qidagi
    izoh bir jumla.
-11. Birinchi slayd — MUQOVA, oxirgisi — xulosa. Har 4-5 slaydda
-   bitta AJRATKICH (`slide dark`).
-12. Matn haqiqiy va aniq bo'lsin: raqam, sana, misol bilan. "Lorem
+11. Birinchi slayd — MUQOVA, oxirgisi — xulosa. Mavzu bir necha
+   qismga bo'linsa, qismlar orasiga AJRATKICH (`slide dark`)
+   qo'ying va uni mavzuning o'z bo'lim nomi bilan ataang.
+12. Matn haqiqiy va aniq bo'lsin: nom, misol, manba bilan. "Lorem
    ipsum", "Matn shu yerda" kabi o'rin egallovchi yozma."""
 
 
 def _user_prompt(topic: str, start: int, count: int, total: int,
                  outline: List[Dict], used: List[str], level: int,
-                 source: str, preferences: str, author: str) -> str:
+                 source: str, preferences: str, author: str,
+                 family: str = "umumiy") -> str:
     depth = {
         1: "Tinglovchi — maktab o'quvchisi: sodda til, kundalik misollar.",
         2: "Tinglovchi — talaba: akademik, lekin ravon til.",
@@ -204,13 +212,13 @@ def _user_prompt(topic: str, start: int, count: int, total: int,
         f"Taqdimot jami {total} slayddan iborat.",
         f"Hozir {start}-slayddan boshlab {count} ta slayd kerak.",
         depth,
-        "JOYLASHUV KATEGORIYALARI (tanlab, aralashtirib ishlat — bu "
-        "shablon emas, yo'nalish):\n" + catalogue_text(),
-        "- Ketma-ket ikki slayd bir xil kategoriyada bo'lmasin.\n"
-        "- Butun taqdimotda kamida oltita turli kategoriya ishlatilsin.\n"
-        "- Har uch slaydning birida SVG diagramma yoki sxema bo'lsin.\n"
-        "- Kategoriya ichida ham har safar yangicha chiz: bir xil "
-        "kompozitsiyani takrorlama.",
+        deck_shape.guidance(family),
+        "SHAKL MAZMUNDAN KELIB CHIQSIN. Blokni fikrga qarab tanlang: "
+        "ketma-ketlik bo'lsa qadam yoki vaqt o'qi, tasnif bo'lsa jadval "
+        "yoki kartochka, taqqoslash bo'lsa ikki ustun, kuchli fikr "
+        "bo'lsa bayonot. Xilma-xillik uchun blok almashtirmang — ikki "
+        "slayd ketma-ket bir xil shaklda bo'lishi MUMKIN, agar mazmun "
+        "shuni talab qilsa.",
     ]
 
     if outline:
@@ -224,8 +232,8 @@ def _user_prompt(topic: str, start: int, count: int, total: int,
         parts.append("Taqdimot rejasi (→ bilan belgilangani hozir "
                      "yoziladi):\n" + "\n".join(lines))
     if used:
-        parts.append("Oldingi slaydlarda ishlatilgan kategoriyalar "
-                     "(takrorlama): " + ", ".join(used[-6:]))
+        parts.append("Oldingi slaydlarda ochilgan fikrlar (ularni qayta "
+                     "aytmang): " + "; ".join(used[-5:]))
     if author and start == 1:
         parts.append(f"Muqovada muallif: {author}")
     if preferences:
@@ -240,7 +248,7 @@ def _user_prompt(topic: str, start: int, count: int, total: int,
 # ────────────────────────────────────────────────────────────── reja
 
 def plan_outline(topic: str, count: int, language: str,
-                 level: int = 2) -> List[Dict]:
+                 level: int = 2) -> Dict:
     """Har slayd uchun bir qatorli mazmun va joylashuv kategoriyasi.
 
     Slaydlar bo'laklab yoziladi va har bo'lak avvalgisining HTML'ini
@@ -253,20 +261,32 @@ def plan_outline(topic: str, count: int, language: str,
         "uchun bir qatorli mazmun va unga mos joylashuv kategoriyasini "
         "ayt.\n\n"
         "Kategoriyalar:\n" + catalogue_text() + "\n\n"
-        "Birinchisi — muqova, oxirgisi — yakun. Ketma-ket ikki slayd bir "
-        "xil kategoriyada bo'lmasin, jami kamida oltita turli kategoriya "
-        "ishlatilsin. Slaydlar mavzuni bosqichma-bosqich ochsin.\n\n"
+        "Birinchisi — muqova, oxirgisi — yakun. Qolganlari mavzuni "
+        "MANTIQIY ketma-ketlikda ochsin: nimadan boshlash, nima bilan "
+        "davom etish va qayerda yakunlash kerakligini mavzuning o'zi "
+        "aytadi.\n"
+        "Kategoriyani xilma-xillik uchun emas, MAZMUNGA QARAB tanlang. "
+        "Ikki slayd ketma-ket bir xil kategoriyada bo'lishi mumkin. "
+        "Mavzu raqam talab qilmasa, diagramma va statistika "
+        "kategoriyalarini umuman ishlatmang.\n\n"
+        "Shuningdek mavzu qaysi oilaga tegishli ekanini ayting: "
+        + deck_shape.names() + "\n\n"
         f"Matn {_LANGUAGE.get(language, _LANGUAGE['uz'])}.\n"
-        'Faqat JSON: {"slides": [{"brief": "...", "category": "..."}]}'
+        'Faqat JSON: {"fan": "...", '
+        '"slides": [{"brief": "...", "category": "..."}]}'
     )
     try:
         data = llm_client._call_openrouter(
             "Sen taqdimot rejasini tuzasan. Faqat JSON qaytar.",
             prompt, temperature=0.6, max_tokens=300 + 90 * count)
         raw = data.get("slides") or []
+        hint = data.get("fan") or ""
     except Exception as exc:
         log.warning("Reja olinmadi, kategoriyalar o'zimiz tanlaymiz: %s", exc)
-        raw = []
+        raw, hint = [], ""
+
+    family = deck_shape.of(topic, hint)
+    log.info("Mavzu oilasi: %s", family)
 
     outline: List[Dict] = []
     for index in range(count):
@@ -283,17 +303,25 @@ def plan_outline(topic: str, count: int, language: str,
             category = _fallback_category(index, count)
         outline.append({"brief": brief or topic, "category": category})
 
-    # Ketma-ket takror qolmasin — AI reja bosqichida ham takrorlashi mumkin.
-    for index in range(1, len(outline) - 1):
-        if outline[index]["category"] == outline[index - 1]["category"]:
-            outline[index]["category"] = _fallback_category(index + 3, count)
-    return outline
+    # Ilgari bu yerda ketma-ket takrorlangan kategoriya kod darajasida
+    # almashtirilardi. Bu xato edi: mantiqan ketma-ket kelishi kerak
+    # bo'lgan ikki ro'yxat sun'iy ravishda ajratilib, taqdimotning
+    # fikri uzilardi. Endi takror ruxsat etiladi — shaklni mazmun
+    # tanlaydi.
+    return {"family": family, "slides": outline}
+
+
+# Reja kelmaganda ishlatiladigan zaxira. Unda raqamga tayanadigan
+# kategoriyalar YO'Q: mavzu qanday ekanini bilmay turib diagramma yoki
+# ko'rsatkich so'rash — modelni statistika o'ylab topishga majburlash
+# demakdir. Zaxira har doim mazmunga neytral bloklardan boshlanadi.
+_SAFE_CATEGORIES = ("kartalar", "bayonot", "ikki_ustun", "reja",
+                    "jarayon", "tuzilma", "qiyoslash", "iqtibos")
 
 
 def _fallback_category(index: int, count: int) -> str:
-    """Reja kelmaganda ham slaydlar xilma-xil bo'lsin."""
-    middle = [key for key in CATEGORY_KEYS if key not in ("muqova", "yakun")]
-    return middle[index % len(middle)]
+    """Reja kelmaganda tanlanadigan neytral kategoriya."""
+    return _SAFE_CATEGORIES[index % len(_SAFE_CATEGORIES)]
 
 
 # ───────────────────────────────────────────────────────── slayd yozish
@@ -355,7 +383,9 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
                  progress_cb: Optional[Callable] = None) -> List[str]:
     """Butun taqdimotni HTML hujjatlar ro'yxati qilib qaytaradi."""
     slide_count = max(4, int(slide_count or 8))
-    outline = plan_outline(topic, slide_count, language, level)
+    plan = plan_outline(topic, slide_count, language, level)
+    outline = plan["slides"]
+    family = plan["family"]
     system = shell_rules(theme, language)
 
     slides: List[str] = []
@@ -370,7 +400,8 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
                 pass
 
         user = _user_prompt(topic, start, count, slide_count, outline,
-                            used, level, source_text, preferences, author)
+                            used, level, source_text, preferences, author,
+                            family)
         chunk = _write_chunk(system, user, count)
         if len(chunk) < count:
             # Bir marta qayta so'raymiz: chala javob har safar emas,
@@ -382,7 +413,7 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
                 chunk = retry
 
         slides.extend(chunk[:count])
-        used.extend(item["category"] for item in outline[start - 1:start - 1 + count])
+        used.extend(item["brief"] for item in outline[start - 1:start - 1 + count])
         start += count
 
     log.info("HTML slaydlar tayyor: %d ta", len(slides))

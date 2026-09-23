@@ -26,7 +26,7 @@ sys.path.insert(0, ".")
 os.environ.setdefault("BOT_TOKEN", "test")
 
 from services.premium_presentation import (  # noqa: E402
-    deck_charts, deck_style, html_extract, html_images, html_render,
+    deck_charts, deck_shape, deck_style, html_extract, html_images, html_render,
     html_slides, llm_client, themes)
 
 FAILS = []
@@ -236,26 +236,47 @@ def check_split():
 
 
 def check_outline():
-    print("\n3) Reja va kategoriyalar")
+    """Reja mavzudan kelib chiqsin, kvotadan emas.
+
+    Ilgari reja "kamida oltita turli kategoriya" va "ketma-ket ikki
+    slayd bir xil bo'lmasin" degan kvotalarga bo'ysunardi, hatto kod
+    darajasida takrorlangan kategoriya majburan almashtirilardi.
+    Natijada mantiqan ketma-ket kelishi kerak bo'lgan ikki ro'yxat
+    sun'iy ravishda ajratilib, taqdimotning fikri uzilardi.
+    """
+    print("\n3) Reja va mavzu oilasi")
+    seen = {}
 
     def fake(system, user, temperature=0.7, max_tokens=16000):
-        return {"slides": [{"brief": f"{i}-slayd", "category": "kartalar"}
+        seen["prompt"] = user
+        return {"fan": "gumanitar",
+                "slides": [{"brief": f"{i}-slayd", "category": "kartalar"}
                            for i in range(1, 9)]}
 
     original = llm_client._call_openrouter
     try:
         llm_client._call_openrouter = fake
-        outline = html_slides.plan_outline("Raqamli iqtisodiyot", 8, "uz")
+        plan = html_slides.plan_outline("Navoiy ijodi", 8, "uz")
     finally:
         llm_client._call_openrouter = original
 
+    outline = plan["slides"]
     check("reja to'liq", len(outline) == 8, str(len(outline)))
     check("birinchisi muqova", outline[0]["category"] == "muqova")
     check("oxirgisi yakun", outline[-1]["category"] == "yakun")
-    check("ketma-ket takror yo'q",
-          all(a["category"] != b["category"]
-              for a, b in zip(outline, outline[1:])),
-          str([o["category"] for o in outline]))
+    check("mavzu oilasi olindi", plan["family"] == "gumanitar",
+          plan["family"])
+
+    # Kvota yo'q: model bir xil kategoriya bersa, u saqlanadi.
+    middle = [o["category"] for o in outline[1:-1]]
+    check("ketma-ket takror majburan almashtirilmadi",
+          middle == ["kartalar"] * len(middle), str(middle))
+    check("rejada xilma-xillik kvotasi yo'q",
+          "kamida oltita" not in seen["prompt"], "")
+    check("rejada mazmunga qarab tanlash aytilgan",
+          "MAZMUNGA QARAB" in seen["prompt"])
+    check("raqamsiz mavzu eslatilgan",
+          "raqam talab qilmasa" in seen["prompt"])
 
     # AI javob bermasa ham reja tuzilishi kerak.
     def broken(*a, **k):
@@ -263,14 +284,56 @@ def check_outline():
 
     try:
         llm_client._call_openrouter = broken
-        fallback = html_slides.plan_outline("Mavzu", 6, "uz")
+        fallback = html_slides.plan_outline("Alisher Navoiy she'riyati",
+                                            6, "uz")
     finally:
         llm_client._call_openrouter = original
 
-    check("reja kelmasa ham slaydlar bor", len(fallback) == 6)
-    check("zaxira rejada ham xilma-xillik",
-          len({o["category"] for o in fallback}) >= 4,
-          str([o["category"] for o in fallback]))
+    check("reja kelmasa ham slaydlar bor", len(fallback["slides"]) == 6)
+    check("oila kalit so'zdan topildi", fallback["family"] == "gumanitar",
+          fallback["family"])
+    # Zaxira rejada raqamga tayanadigan kategoriya bo'lmasin: mavzuni
+    # bilmay turib diagramma so'rash — statistika o'ylab toptirishdir.
+    kinds = {o["category"] for o in fallback["slides"]}
+    check("zaxirada statistika kategoriyasi yo'q",
+          not (kinds & {"diagramma", "korsatkichlar", "jadval", "vaqt_oqi"}),
+          str(kinds))
+
+
+def check_family_shape():
+    """Har mavzu oilasiga o'z yo'riqnomasi berilsin."""
+    print("\n3b) Mavzuga moslashish")
+
+    pairs = (("Amir Temur saltanati", "tarix"),
+             ("Alisher Navoiy ijodi", "gumanitar"),
+             ("Fotosintez jarayoni", "tabiiy"),
+             ("Yashirin iqtisodiyot", "ijtimoiy"),
+             ("Pedagogik mahorat", "amaliy"))
+    for topic, want in pairs:
+        got = deck_shape.of(topic)
+        check(f"{topic} → {want}", got == want, got)
+
+    check("model taxmini ustun", deck_shape.of("Mavzu", "aniq") == "aniq")
+    check("notanish taxmin yiqitmaydi",
+          deck_shape.of("Mavzu", "allaqanday") == "umumiy")
+
+    # Gumanitar mavzuda statistika TAQIQLANADI, ijtimoiyda ruxsat.
+    human = deck_shape.guidance("gumanitar")
+    social = deck_shape.guidance("ijtimoiy")
+    exact = deck_shape.guidance("aniq")
+    check("adabiyotda diagramma taqiqlangan",
+          "DIAGRAMMA VA STATISTIKA YOZMANG" in human)
+    check("adabiyotda iqtibos tavsiya qilingan", "Iqtibos bloki" in human)
+    check("matematikada statistika kerak emas",
+          "STATISTIKA BU YERDA KERAK EMAS" in exact)
+    check("matematikada isbot aytilgan", "isbot" in exact)
+    check("iqtisodda ko'rsatkich o'rinli", "o'rinli" in social)
+    check("hamma oilada prognoz cheklangan",
+          all("prognoz" in deck_shape.guidance(k).lower()
+              or "o'ylab topmang" in deck_shape.guidance(k)
+              or "o'ylab topilgan" in deck_shape.guidance(k)
+              for k in deck_shape.FAMILY_KEYS),
+          str(deck_shape.FAMILY_KEYS))
 
 
 def check_writer():
@@ -299,7 +362,7 @@ def check_writer():
     check("bo'laklab so'raldi", len(calls) == 2, f"{len(calls)} ta so'rov")
     check("rejadagi o'rin ko'rsatilgan", "→" in calls[0], calls[0][:60])
     check("ikkinchi bo'lak avvalgisini biladi",
-          "takrorlama" in calls[1].lower(), calls[1][:80])
+          "qayta aytmang" in calls[1].lower(), calls[1][:80])
 
 
 def check_browser_setup():
@@ -1359,6 +1422,7 @@ def main():
     check_charts()
     check_split()
     check_outline()
+    check_family_shape()
     check_writer()
     check_browser_setup()
     if check_shot():
