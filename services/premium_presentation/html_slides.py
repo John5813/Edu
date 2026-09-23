@@ -570,7 +570,36 @@ def build_pages(bodies: List[str], theme) -> List[str]:
         log.info("Ikonkalar: %d ta", placed)
     except Exception as exc:
         log.warning("Ikonkalar qo'yilmadi: %s", exc)
-    return [deck_style.page(theme, body) for body in drawn]
+    return [_keep_source(deck_style.page(theme, page), body)
+            for page, body in zip(drawn, bodies)]
+
+
+# Modelning o'zi yozgan slayd sahifaning boshida izoh sifatida
+# saqlanadi. Tuzatish kerak bo'lsa modelga AYNAN shu yuboriladi —
+# ikonkalar data-URI, diagrammalar tayyor SVG bo'lib ketgan chizilgan
+# nusxa emas. U nusxa minglab token bo'lardi: model uni qayta yoza
+# olmay, o'rniga yangi, sodda slayd yozib qo'yardi.
+_SOURCE = re.compile(r"<!--manba:([A-Za-z0-9+/=]*)-->")
+
+
+def _keep_source(page: str, body: str) -> str:
+    import base64
+
+    token = base64.b64encode(body.encode("utf-8")).decode("ascii")
+    return page.replace("</head>", f"<!--manba:{token}--></head>", 1)
+
+
+def source_of(page: str) -> str:
+    """Sahifadan modelning asl yozgan slaydini oladi ("" — topilmasa)."""
+    import base64
+
+    match = _SOURCE.search(page or "")
+    if not match:
+        return ""
+    try:
+        return base64.b64decode(match.group(1)).decode("utf-8")
+    except Exception:
+        return ""
 
 
 def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
@@ -642,42 +671,49 @@ def _unpark_images(html: str, store: dict) -> str:
 
 
 def fix_slide(html: str, problems: List[str], theme, language: str = "uz") -> str:
-    """Joylashuvi buzilgan slaydni qayta yozdiradi.
+    """Joylashuvi buzilgan slaydning O'ZINI tuzattiradi.
 
-    Modelga butun hujjat emas, faqat slaydning MAZMUNI yuboriladi:
-    CSS o'zgarmaydi, shuning uchun uni so'rovga qo'shish bekorga
-    token sarflash bo'lardi. Javob ham mazmun bo'lib keladi va
-    o'sha dizayn tizimiga qaytadan o'raladi.
+    Yangi slayd yozdirilmaydi. Modelga o'zi yozgan slayd va unda
+    brauzer topgan xatolar — qaysi matn, qayerda — aniq aytiladi va
+    faqat o'sha joylar tuzatiladi. Javob asl slaydga solishtiriladi:
+    tuzilishi o'zgargan yoki mazmuni yo'qolgan bo'lsa, u tuzatish
+    emas, qayta yozish — qabul qilinmaydi.
     """
     if not problems:
         return html
 
-    match = _SECTION.search(html)
-    if not match:
-        return html
-    body = match.group(0)
+    source = source_of(html)
+    if not source:
+        match = _SECTION.search(html)
+        if not match:
+            return html
+        source = _park_images(match.group(0))[0]
 
     listed = "\n".join(f"- {item}" for item in problems)
     user = (
-        "Quyidagi slayd brauzerda noto'g'ri joylashdi. Topilgan "
-        f"kamchiliklar:\n{listed}\n\n"
-        "Shu slaydni QAYTA yoz. Faqat shu kamchiliklarni tuzat — "
-        "slaydning turi (muqova, ajratkich, `dark` sinfi), bloklari va "
-        "mazmuni o'zgarmasin. Slaydni soddalashtirma:\n"
-        "- matn qutisidan yoki varaqdan toshgan bo'lsa, o'sha joyni "
-        "qisqart (izohni kaltaroq qil yoki bitta kartochka/bandni "
-        "olib tashla);\n"
-        "- bo'sh kartochka va bo'sh blok qoldirma;\n"
-        "- bir matnni ikki marta yozma;\n"
-        "- faqat tanish sinf nomlaridan foydalan, yangi uslub yozma.\n\n"
+        "Bu slaydni siz yozgansiz. Brauzerda ochilganda quyidagi xatolar "
+        f"topildi (« » ichida — xato turgan matn):\n{listed}\n\n"
+        "SHU SLAYDNI QAYTARING — yangisini yozmang. Faqat xato "
+        "ko'rsatilgan joylarni tuzating. Qolgan hamma narsa — "
+        "`<section>` sinfi, sarlavha, bloklar, ularning tartibi, "
+        "sinf nomlari va matnlar — o'zgarmasin.\n\n"
+        "Tuzatish yo'llari:\n"
+        "- matn qutisiga sig'magan yoki varaqdan chiqib ketgan bo'lsa — "
+        "o'sha matnni qisqartiring (ma'nosini saqlab); faqat bu yetmasa "
+        "o'sha blokdagi bitta band yoki kartochkani olib tashlang;\n"
+        "- matn ustiga matn tushgan bo'lsa — ikkalasidan biri keraksiz "
+        "bo'lsa o'chiring, aks holda ikkalasini qisqartiring;\n"
+        "- matn ikki marta yozilgan bo'lsa — nusxasini o'chiring;\n"
+        "- varaqda katta bo'sh joy qolgan bo'lsa — mavjud izohlarni "
+        "to'liqroq yozing, yangi blok qo'shmang.\n\n"
         "Javobda faqat bitta <section class=\"slide\"> ... </section> "
-        "bo'lsin.\n\nSlayd:\n" + body
+        "bo'lsin.\n\nSlayd:\n" + source
     )
 
     try:
         raw = llm_client._call_openrouter_text(
             shell_rules(theme, language), user,
-            temperature=0.4, max_tokens=2600)
+            temperature=0.2, max_tokens=max(2600, len(source) // 2))
     except Exception as exc:
         log.error("Slaydni tuzatib bo'lmadi: %s", exc)
         return html
@@ -685,7 +721,50 @@ def fix_slide(html: str, problems: List[str], theme, language: str = "uz") -> st
     fixed = split_slides(raw)
     if not fixed:
         return html
+    reason = _rewritten(source, fixed[0])
+    if reason:
+        log.warning("Tuzatish qabul qilinmadi — slayd qayta yozilgan: %s",
+                    reason)
+        return html
     return build_pages(fixed[:1], theme)[0]
+
+
+# Slaydning tuzilishini belgilaydigan bloklar. Tuzatishda ularning
+# biri yo'qolsa yoki yangisi paydo bo'lsa — bu tuzatish emas.
+_BLOCK_CLASSES = ("cols", "steps", "list", "timeline", "split", "formula",
+                  "misol", "chart", "kpi", "quote", "ikon-row", "lead")
+_CLASS_ATTR = re.compile(r'class\s*=\s*["\']([^"\']*)["\']', re.IGNORECASE)
+
+
+def _shape(body: str) -> Dict[str, int]:
+    counts: Dict[str, int] = {}
+    for value in _CLASS_ATTR.findall(body):
+        for name in value.split():
+            if name in _BLOCK_CLASSES:
+                counts[name] = counts.get(name, 0) + 1
+    counts["table"] = len(re.findall(r"<table\b", body, re.IGNORECASE))
+    return counts
+
+
+def _rewritten(before: str, after: str) -> str:
+    """Tuzatilgan slayd asl slaydning o'zimi. Bo'lmasa — sababi."""
+    import difflib
+
+    dark = lambda body: bool(_DARK_SLIDE.search(body))
+    if dark(before) != dark(after):
+        return "slayd turi (dark) o'zgargan"
+    old, new = _shape(before), _shape(after)
+    changed = sorted(name for name in set(old) | set(new)
+                     if bool(old.get(name)) != bool(new.get(name)))
+    if changed:
+        return "bloklar o'zgargan: " + ", ".join(changed)
+    words = lambda body: _plain(body, 100000).lower().split()
+    first, second = words(before), words(after)
+    if first:
+        kept = difflib.SequenceMatcher(None, first, second).ratio()
+        if kept < 0.55:
+            return f"matnning faqat {kept:.0%} i qolgan"
+    return ""
 
 
 # Bo'sh yonga qo'yiladigan izohning uzunligi. Uzun matn qutisidan

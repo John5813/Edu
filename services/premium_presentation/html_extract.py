@@ -537,7 +537,20 @@ _CHECK_SCRIPT = r"""
     return text.trim();
   };
 
+  // Xato qaysi joyda ekanini modelga aniq aytish uchun: element
+  // matnining boshi (matni bo'lmasa ichidagi matn yoki sinf nomi).
+  const label = (el) => {
+    let text = own(el) || (el.textContent || "").trim();
+    text = text.replace(/\s+/g, " ");
+    if (!text) text = "." + String(el.className || el.tagName).split(" ")[0];
+    return "«" + (text.length > 60 ? text.slice(0, 60) + "…" : text) + "»";
+  };
+  const examples = (list) => list.length
+    ? ": " + list.slice(0, 3).join(", ") + (list.length > 3 ? " va boshqalar" : "")
+    : "";
+
   let outside = 0, tallest = 0, lowest = 0;
+  const outsideAt = [];
   for (const el of document.body.querySelectorAll("*")) {
     const style = getComputedStyle(el);
     if (style.display === "none" || style.visibility === "hidden") continue;
@@ -561,18 +574,24 @@ _CHECK_SCRIPT = r"""
     if (r.width < W * 0.98 || r.height < H * 0.98) {
       if (r.left < -8 || r.top < -8 || r.right > W + 8 || r.bottom > H + 8) {
         outside += 1;
+        // Ichma-ich elementlardan faqat eng tashqisi nomlanadi.
+        if (!outsideAt.some((x) => x.el.contains(el))) {
+          outsideAt.push({el, name: label(el)});
+        }
       }
     }
   }
   if (outside) {
     problems.push(outside + " ta element slayddan chiqib ketgan "
-      + "(1920x1080 dan tashqarida yoki manfiy o'rinda)");
+      + "(1920x1080 dan tashqarida yoki manfiy o'rinda)"
+      + examples(outsideAt.map((x) => x.name)));
   }
 
   // Matn ustiga matn tushganmi. Ota va uning ichidagi element
   // sanalmaydi: ular bir matnning bo'laklari, chizuvchi ularni
   // bitta quti qilib qo'yadi.
   let collisions = 0;
+  const collidedAt = [];
   for (let i = 0; i < texts.length; i += 1) {
     for (let j = i + 1; j < texts.length; j += 1) {
       const first = texts[i].el, second = texts[j].el;
@@ -582,11 +601,15 @@ _CHECK_SCRIPT = r"""
       const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
       if (w <= 2 || h <= 2) continue;
       const small = Math.min(a.width * a.height, b.width * b.height);
-      if (w * h > small * 0.35) collisions += 1;
+      if (w * h > small * 0.35) {
+        collisions += 1;
+        collidedAt.push(label(first) + " bilan " + label(second));
+      }
     }
   }
   if (collisions) {
-    problems.push(collisions + " joyda matn ustiga matn tushgan");
+    problems.push(collisions + " joyda matn ustiga matn tushgan"
+      + examples(collidedAt));
   }
 
   // Bir matn ikki marta yozilganmi. Soya, kontur yoki nur uchun
@@ -595,6 +618,7 @@ _CHECK_SCRIPT = r"""
   // tashlaydi, lekin HTML ning o'zi ham tuzatilgani ma'qul: nusxa
   // sarlavha qutisini kengaytirib, joylashuvni ham buzadi.
   let doubled = 0;
+  const doubledAt = [];
   for (let i = 0; i < texts.length; i += 1) {
     for (let j = i + 1; j < texts.length; j += 1) {
       const a = texts[i].r, b = texts[j].r;
@@ -606,11 +630,13 @@ _CHECK_SCRIPT = r"""
       const small = Math.min(a.width * a.height, b.width * b.height);
       if (w * h < small * 0.5) continue;
       doubled += 1;
+      doubledAt.push(label(texts[i].el));
     }
   }
   if (doubled) {
     problems.push(doubled + " ta matn ikki marta yozilgan (soya yoki nur "
-      + "uchun nusxa qo'yilgan) — har matn bitta elementda bo'lsin");
+      + "uchun nusxa qo'yilgan) — har matn bitta elementda bo'lsin"
+      + examples(doubledAt));
   }
 
   // Matn o'z qutisiga sig'maganmi. Sxemadagi doiraga uzun yorliq
@@ -636,17 +662,21 @@ _CHECK_SCRIPT = r"""
   };
 
   let spill = 0;
+  const spillAt = [];
   for (const el of document.body.querySelectorAll("*")) {
     const style = getComputedStyle(el);
     if (style.display === "none" || style.visibility === "hidden") continue;
     if (!own(el)) continue;
     if (el.clientWidth < 8 || el.clientHeight < 8) continue;
-    if (spillsOut(el)) spill += 1;
+    if (spillsOut(el)) {
+      spill += 1;
+      spillAt.push(label(el));
+    }
   }
   if (spill) {
     problems.push(spill + " ta blokda matn qutisiga sig'magan (chetidan "
       + "chiqib ketgan) — qutiga qat'iy balandlik berilmasin yoki "
-      + "yorliq qisqartirilsin");
+      + "yorliq qisqartirilsin" + examples(spillAt));
   }
 
   // Pastki yarmi butunlay bo'sh qolganmi.
