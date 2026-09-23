@@ -1233,6 +1233,88 @@ def check_gap_text():
           html_slides.fill_gap(page, None, theme, "uz") == page)
 
 
+def check_text_spill():
+    """Matn o'z qutisidan chiqib ketgani topilsin.
+
+    Sxemalarda model natija tugunini doira qilib chizadi va ichiga
+    ikki so'zlik yorliq yozadi. Doiraga matn sig'maydi: harflar
+    chetidan chiqib, bog'lovchi chiziqqa minadi. Brauzer buni aniq
+    aytadi — mazmun qutidan kattami yoki yo'q.
+    """
+    print("\n22) Matn qutisiga sig'masligi")
+    if not html_render.available():
+        check("brauzer o'rnatilgan", False, html_render._INSTALL_HINT)
+        return
+
+    theme = themes.get("ko'k")
+    head = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    *{{margin:0;padding:0;box-sizing:border-box}}
+    body{{width:1920px;height:1080px;padding:90px;background:#FFFFFF;
+    font-family:{html_slides.FONT_STACK};overflow:hidden}}
+    h2{{font-size:52px;color:#{theme.heading};margin-bottom:60px}}
+    .doira{{width:110px;height:110px;border-radius:50%;
+    background:#{theme.accent};color:#FFFFFF;font-size:28px;
+    display:flex;align-items:center;justify-content:center;
+    text-align:center}}
+    .keng{{width:240px;height:240px}}
+    .quti{{width:520px;padding:28px;background:#{theme.accent_soft};
+    border-radius:16px;font-size:26px;color:#{theme.body}}}
+    .qator{{display:flex;gap:48px;align-items:center;height:420px}}
+    </style></head><body><h2>Sxema</h2>"""
+    tail = "</body></html>"
+
+    pages = {
+        # Doiraga uzun yorliq — sig'maydi.
+        "toshgan": head + '<div class="qator"><div class="doira">'
+                   "Yashirin Iqtisodiyot</div></div>" + tail,
+        # Qutisi matnga qarab cho'ziladi — sig'adi.
+        "sigdi": head + '<div class="qator"><div class="quti">'
+                 "Yashirin iqtisodiyot davlat nazoratidan tashqarida "
+                 "qolgan faoliyat turlari.</div></div>" + tail,
+        # Doirada qisqa raqam — sig'adi.
+        "raqam": head + '<div class="qator"><div class="doira">01</div>'
+                 "</div>" + tail,
+        # Doira matnga yetarlicha keng — sig'adi.
+        "keng": head + '<div class="qator"><div class="doira keng">'
+                "Yashirin Iqtisodiyot</div></div>" + tail,
+    }
+
+    from playwright.sync_api import sync_playwright
+
+    seen = {}
+    with sync_playwright() as playwright:
+        browser = html_render._launch(playwright)
+        try:
+            context = browser.new_context(
+                viewport={"width": 1920, "height": 1080})
+            for name, html in pages.items():
+                handle = context.new_page()
+                handle.set_content(html, wait_until="load")
+                seen[name] = [item for item in html_extract.check_layout(handle)
+                              if "sig'magan" in item]
+                handle.close()
+            context.close()
+        finally:
+            browser.close()
+
+    check("doiradan toshgan matn topildi", bool(seen["toshgan"]),
+          str(seen["toshgan"]))
+    check("cho'ziladigan quti xato emas", not seen["sigdi"],
+          str(seen["sigdi"]))
+    check("doiradagi raqam xato emas", not seen["raqam"],
+          str(seen["raqam"]))
+    check("keng doira xato emas", not seen["keng"], str(seen["keng"]))
+
+    rules = html_slides.shell_rules(theme, "uz")
+    for name, needle in (
+            ("sxema uslubi aytilgan", "SXEMA, TUZILMA va JARAYON"),
+            ("bir xil ko'rinish talab qilingan", "BIR XIL ko'rinishda"),
+            ("takror tugun taqiqlangan", "natija qutisi BITTA bo'lsin"),
+            ("doiraga matn yozish taqiqlangan", "Qutini doira qilma"),
+            ("chiziq uchi aytilgan", "marker-end")):
+        check(name, needle in rules)
+
+
 def main():
     check_handler_names()
     check_prompt()
@@ -1258,6 +1340,8 @@ def main():
         check_rotated_label()
         check_side_gap()
     check_gap_text()
+    if html_render.available():
+        check_text_spill()
 
     print()
     if FAILS:

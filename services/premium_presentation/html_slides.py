@@ -281,6 +281,32 @@ osma. Buning o'rniga: `display:flex` qatori, har ustunda tepada
 sana, ostida 14px doira, ostida matn. Chiziqni doiralar qatorining
 orqasiga `::before` bilan emas, alohida `div` bilan qo'y.
 
+SXEMA, TUZILMA va JARAYON uchun aniq usul:
+Bu slaydlar eng ko'p xunuk chiqadi — quyidagilarga qat'iy amal qil.
+- Bitta sxemada hamma quti BIR XIL ko'rinishda bo'lsin: bir xil
+  balandlik, bir xil `padding` (20-28px), bir xil yumaloq burchak
+  (14-18px), bir xil shrift o'lchami. Bir qutini yirik, boshqasini
+  mayda qilma.
+- Bir darajadagi qutilar BIR XIL rangda bo'lsin. Uchta sababni uch xil
+  ko'kning uch xil to'qligida bermang — bu tartibsiz ko'rinadi.
+  Daraja o'zgarsagina rang o'zgarsin: sabablar och fonda
+  (#{theme.accent_soft}) aksent chizig'i bilan, natija esa to'q
+  aksentda (#{theme.band}) oq matn bilan.
+- Bir xil MATNNI bir necha marta chizma. Uch sabab bitta natijaga
+  olib kelsa, natija qutisi BITTA bo'lsin va uchala sabab o'sha
+  bittasiga ulansin. Uchta bir xil doira chizish — xato.
+- Qutini doira qilma. Doiraga matn sig'maydi va chetidan chiqib
+  ketadi; doira faqat raqam yoki ikonka uchun (48-72px). Matn uchun
+  yumaloq burchakli to'rtburchak ishlat.
+- Matn qutiga SIG'SIN: qutiga qat'iy balandlik berma, matn uzun
+  bo'lsa quti o'zi cho'zilsin. Yorliqlar qisqa bo'lsin (1-3 so'z).
+- Bog'lovchi chiziqqa uchi bo'lsin. Eng oson yo'li — inline SVG:
+  `<svg><defs><marker id="uch" ...><path d="M0,0 L8,4 L0,8 Z"/>
+  </marker></defs><line marker-end="url(#uch)" .../></svg>`.
+  Uchsiz chiziq yo'nalishni ko'rsatmaydi.
+- Bloklarni `display:flex` yoki `grid` bilan tekisla, `gap` 32-48px.
+  `position:absolute` bilan osma.
+
 MAZMUN:
 - Matn {target} bo'lsin.
 - Har slaydda BITTA asosiy g'oya. O'rtacha 60 so'z — undan ortig'i
