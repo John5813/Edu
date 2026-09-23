@@ -5,6 +5,7 @@ from datetime import datetime
 from docx import Document
 from docx.shared import Inches, Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from pptx import Presentation
@@ -1128,6 +1129,20 @@ class DocumentService:
             r.font.size = Pt(13)
             r.font.name = "Times New Roman"
 
+        async def _add_note(kind: str) -> None:
+            """Rasm/jadval/sxema ostidagi 3-5 gaplik izoh."""
+            text = await ai.describe_visual(kind, section_title, topic, lang)
+            if not text:
+                return
+            p = doc.add_paragraph()
+            p.paragraph_format.first_line_indent = Inches(0.5)
+            p.paragraph_format.line_spacing = 1.5
+            p.paragraph_format.space_after = Pt(8)
+            p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+            r = p.add_run(text)
+            r.font.size = Pt(14)
+            r.font.name = "Times New Roman"
+
         async def _embed_image(img_path: str, caption: str) -> None:
             with open(img_path, "rb") as _f:
                 img_bytes = _f.read()
@@ -1167,6 +1182,7 @@ class DocumentService:
                 if img_path and os.path.exists(img_path):
                     await _add_bridge(bridge_key)
                     await _embed_image(img_path, cap)
+                    await _add_note("image")
                     try:
                         os.remove(img_path)
                     except Exception:
@@ -1200,6 +1216,7 @@ class DocumentService:
                         scheme_cap = f"Sxema. {section_title}"
                     await _add_bridge("before_scheme")
                     await _embed_image(scheme_path, scheme_cap)
+                    await _add_note("scheme")
                     try:
                         os.remove(scheme_path)
                     except OSError:
@@ -1395,6 +1412,7 @@ class DocumentService:
                             cell_text = cell_text[:117] + "..."
                         row_cells[c_idx].text = cell_text
                         row_cells[c_idx].paragraphs[0].runs[0].font.size = Pt(9)
+                await _add_note("table")
                 doc.add_paragraph()
 
         # ── 4. Statistics ─────────────────────────────────────────────────
@@ -3429,6 +3447,7 @@ class DocumentService:
             }
             figure_no = 0
             formula_no = 0
+            table_no = 0
 
             if plan_style == course_work.SIMPLE:
                 # Oddiy reja: boblar emas, raqamlangan savollar.
@@ -3445,6 +3464,15 @@ class DocumentService:
 
                     footnote_counter = self._add_body_with_footnotes(
                         doc, section.get('content', ''), references, footnote_counter)
+
+                    # Oddiy rejada ham diagramma, jadval va formula bo'ladi:
+                    # qaysi savolga nimasi kerakligini AI mavzuga qarab
+                    # tanlagan.
+                    planned = planned_visuals.pop(str(number), None)
+                    if planned:
+                        figure_no, formula_no, table_no = await self._add_planned_visual(
+                            doc, planned, figure_no, formula_no, language, table_no
+                        )
 
                     if extras:
                         cycle_extras = _extras_for_cycle(extras, number)
@@ -3496,8 +3524,8 @@ class DocumentService:
                     # tanlagan, qat'iy sikl bo'yicha emas.
                     planned = planned_visuals.pop(str(subsection['number']), None)
                     if planned:
-                        figure_no, formula_no = await self._add_planned_visual(
-                            doc, planned, figure_no, formula_no, language
+                        figure_no, formula_no, table_no = await self._add_planned_visual(
+                            doc, planned, figure_no, formula_no, language, table_no
                         )
 
                     # Add extras per subsection using cycle pattern
@@ -3552,12 +3580,6 @@ class DocumentService:
                                         pass
                             except Exception as img_error:
                                 logger.warning(f"Could not add image for chapter {i}.2: {img_error}")
-
-                        # Add informational table after each chapter's subsection 3 (only without extras)
-                        if j == 3:
-                            table_data = content.get(f'table_data_{i}', {})
-                            if table_data:
-                                self._add_info_table(doc, topic, table_data, language, chapter_num=i)
 
                 doc.add_page_break()
             
@@ -3718,20 +3740,27 @@ class DocumentService:
 
     _VISUAL_LABELS = {
         "uz": {"figure": "{n}-rasm", "formula": "Formula {n}",
+               "table": "{n}-jadval",
                "given": "Berilganlar", "result": "Natija"},
         "ru": {"figure": "Рисунок {n}", "formula": "Формула {n}",
+               "table": "Таблица {n}",
                "given": "Дано", "result": "Результат"},
         "en": {"figure": "Figure {n}", "formula": "Formula {n}",
+               "table": "Table {n}",
                "given": "Given", "result": "Result"},
     }
 
     async def _add_planned_visual(self, doc, item: Dict, figure_no: int,
-                                  formula_no: int, language: str) -> tuple:
-        """AI tanlagan diagramma yoki formulani bo'lim ostiga qo'yadi.
+                                  formula_no: int, language: str,
+                                  table_no: int = 0):
+        """AI tanlagan diagramma, jadval yoki formulani bo'lim ostiga qo'yadi.
 
-        Har bir diagramma ostida albatta izoh turadi: raqamsiz va izohsiz
+        Har bir element ostida albatta izoh turadi: raqamsiz va izohsiz
         diagramma himoyada savol tug'diradi, chunki uni tushuntirib
         bo'lmaydi.
+
+        Jadval raqami ham qaytariladi, lekin eski chaqiruvlar ikkitagina
+        qiymat kutadi — shuning uchun u faqat so'ralganda qo'shiladi.
         """
         labels = self._VISUAL_LABELS.get(language, self._VISUAL_LABELS["uz"])
         kind = str(item.get("kind") or "").strip().lower()
@@ -3742,13 +3771,79 @@ class DocumentService:
                 figure_no = self._add_planned_chart(
                     doc, item, figure_no, labels, explanation
                 )
+            elif kind == "table":
+                table_no = self._add_planned_table(
+                    doc, item, table_no, labels, explanation
+                )
             elif kind == "formula":
                 formula_no = self._add_planned_formula(
                     doc, item, formula_no, labels, explanation
                 )
         except Exception as exc:
             logger.warning(f"Rejadagi vizual qo'yilmadi ({kind}): {exc}")
-        return figure_no, formula_no
+        return figure_no, formula_no, table_no
+
+    def _add_planned_table(self, doc, item: Dict, table_no: int,
+                           labels: Dict, explanation: str) -> int:
+        """AI tanlagan jadvalni sarlavhasi va izohi bilan qo'yadi.
+
+        Jadval sarlavhasi tepada ("1-jadval. Nomi"), izoh esa ostida
+        turadi — o'zbek ishlarida shunday rasmiylashtiriladi.
+        """
+        headers = [str(h).strip() for h in (item.get("headers") or []) if str(h).strip()]
+        rows = [row for row in (item.get("rows") or []) if row]
+        if not headers or not rows:
+            return table_no
+
+        table_no += 1
+        caption = doc.add_paragraph()
+        caption.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        caption.paragraph_format.space_before = Pt(10)
+        caption.paragraph_format.space_after = Pt(2)
+        title = str(item.get("title") or "").strip()
+        text = labels.get("table", "{n}-jadval").format(n=table_no)
+        caption_run = caption.add_run(f"{text}. {title}" if title else text)
+        caption_run.font.size = Pt(12)
+        caption_run.font.italic = True
+        caption_run.font.name = "Times New Roman"
+
+        table = doc.add_table(rows=1 + len(rows), cols=len(headers))
+        table.style = "Table Grid"
+        table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        width = OxmlElement("w:tblW")
+        width.set(qn("w:w"), "5000")
+        width.set(qn("w:type"), "pct")
+        table._tbl.tblPr.append(width)
+
+        for index, header in enumerate(headers):
+            cell = table.rows[0].cells[index]
+            cell.text = header
+            shade = OxmlElement("w:shd")
+            shade.set(qn("w:val"), "clear")
+            shade.set(qn("w:color"), "auto")
+            shade.set(qn("w:fill"), "D6E4F0")
+            cell._tc.get_or_add_tcPr().append(shade)
+            for paragraph in cell.paragraphs:
+                paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                for run in paragraph.runs:
+                    run.font.bold = True
+                    run.font.size = Pt(11)
+                    run.font.name = "Times New Roman"
+
+        for row_index, row_data in enumerate(rows, 1):
+            values = list(row_data) if isinstance(row_data, (list, tuple)) else [row_data]
+            for col_index in range(len(headers)):
+                cell = table.rows[row_index].cells[col_index]
+                value = str(values[col_index]) if col_index < len(values) else ""
+                cell.text = value[:120]
+                for paragraph in cell.paragraphs:
+                    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    for run in paragraph.runs:
+                        run.font.size = Pt(11)
+                        run.font.name = "Times New Roman"
+
+        self._add_visual_note(doc, explanation)
+        return table_no
 
     def _add_planned_chart(self, doc, item: Dict, figure_no: int,
                            labels: Dict, explanation: str) -> int:
