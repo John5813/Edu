@@ -227,7 +227,19 @@ _SCRIPT = r"""
     // Fon yoki chegarasi bor blok — PowerPointda shakl bo'ladi.
     const shown = chainOpacity(el);
     const fill = rgbOver(s.backgroundColor, el, shown);
-    const borderWidth = parseFloat(s.borderTopWidth) || 0;
+    const sides = {
+      top: parseFloat(s.borderTopWidth) || 0,
+      right: parseFloat(s.borderRightWidth) || 0,
+      bottom: parseFloat(s.borderBottomWidth) || 0,
+      left: parseFloat(s.borderLeftWidth) || 0,
+    };
+    const widths = [sides.top, sides.right, sides.bottom, sides.left];
+    const uniform = widths.every((w) => Math.abs(w - widths[0]) < 0.6);
+    // Faqat bitta tomonda chegara bo'lsa (dizaynda ko'p uchraydigan
+    // aksent chizig'i), uni butun shaklga ramka qilib qo'ysak
+    // kartochka qutiga aylanib qoladi. Bunday chiziq alohida tasma
+    // bo'lib chiziladi.
+    const borderWidth = uniform ? widths[0] : 0;
     const borderColor = borderWidth > 0
       ? rgbOver(s.borderTopColor, el, shown) : null;
     if ((fill || borderColor) && tag !== "body" && tag !== "html") {
@@ -244,6 +256,27 @@ _SCRIPT = r"""
         radius,
         circle: radius * 2 >= short * 0.95,
       });
+    }
+
+    // Bir tomonlama aksent chizig'i — alohida tasma.
+    if (!uniform) {
+      const strips = {
+        top: {x: r.x, y: r.y, w: r.w, h: sides.top},
+        bottom: {x: r.x, y: r.y + r.h - sides.bottom, w: r.w, h: sides.bottom},
+        left: {x: r.x, y: r.y, w: sides.left, h: r.h},
+        right: {x: r.x + r.w - sides.right, y: r.y, w: sides.right, h: r.h},
+      };
+      const colours = {
+        top: s.borderTopColor, bottom: s.borderBottomColor,
+        left: s.borderLeftColor, right: s.borderRightColor,
+      };
+      for (const side of ["top", "bottom", "left", "right"]) {
+        if (sides[side] < 1) continue;
+        const colour = rgbOver(colours[side], el, shown);
+        if (!colour) continue;
+        out.push({kind: "rect", fill: colour, ...strips[side],
+                  border: null, borderWidth: 0, radius: 0, circle: false});
+      }
     }
 
     // O'z matni bo'lsa — matn qutisi.
@@ -342,6 +375,27 @@ _CHECK_SCRIPT = r"""
   if (texts.length && lowest < H * 0.62) {
     problems.push("mazmun slaydning yuqori qismiga to'plangan, pastki "
       + Math.round(100 - lowest * 100 / H) + "% bo'sh qolgan");
+  }
+
+  // Mazmun ichida katta bo'sh tasma qolganmi: sarlavha tepada, qolgani
+  // pastda — o'rtasi bo'm-bo'sh. Bu slaydni "uzilgan" qilib ko'rsatadi.
+  if (texts.length > 1) {
+    const bands = texts
+      .map((t) => ({top: t.r.top, bottom: t.r.bottom}))
+      .sort((a, b) => a.top - b.top);
+    let reach = bands[0].bottom;
+    let gap = 0;
+    for (const band of bands.slice(1)) {
+      if (band.top > reach) gap = Math.max(gap, band.top - reach);
+      reach = Math.max(reach, band.bottom);
+    }
+    // Chegara keng olingan: sarlavha bilan mazmun orasidagi odatdagi
+    // nafas ~37% gacha boradi va u xato emas. Faqat mazmun bir chetga
+    // siqilib, o'rtada katta teshik qolganda shikoyat qilamiz.
+    if (gap > H * 0.42) {
+      problems.push("mazmun o'rtasida " + Math.round(gap * 100 / H)
+        + "% balandlikda bo'sh tasma qolgan");
+    }
   }
   return problems;
 }

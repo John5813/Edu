@@ -1167,8 +1167,8 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         except Exception as e:
             logger.error("Premium model tanlovini o'qib bo'lmadi: %s", e)
 
-        from services.premium_presentation import (html_render, html_slides,
-                                                    themes)
+        from services.premium_presentation import (html_images, html_render,
+                                                    html_slides, themes)
 
         theme = themes.get(data.get("theme_key", "")) if data.get("theme_key") \
             else themes.suggest(topic)
@@ -1186,20 +1186,51 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
                 progress_cb=progress_cb),
             step="brief", label="Slaydlarni yozish")
 
-        step2 = {
+        # 2 — Fotosuratlar. AI slaydda faqat rasm o'rnini belgilaydi,
+        # rasmning o'zini Together chizadi.
+        html_pages = await _run_step(
+            loop,
+            lambda: html_slides.ensure_photos(
+                html_pages, theme, presentation_language),
+            step="brief", label="Rasm o'rinlarini tekshirish")
+
+        step_photo = {
             "uz": (f"⚙️ <b>{topic}</b>\n"
                    f"✅ Slaydlar yozildi: {len(html_pages)} ta\n"
-                   f"⏳ Suratga olinmoqda..."),
+                   f"🖼 Rasmlar chizilmoqda..."),
             "ru": (f"⚙️ <b>{topic}</b>\n"
                    f"✅ Слайды написаны: {len(html_pages)}\n"
-                   f"⏳ Снимаем изображения..."),
+                   f"🖼 Рисуем изображения..."),
             "en": (f"⚙️ <b>{topic}</b>\n"
                    f"✅ Slides written: {len(html_pages)}\n"
-                   f"⏳ Capturing images..."),
+                   f"🖼 Generating images..."),
+        }
+        await status.edit_text(step_photo.get(lang, step_photo["uz"]),
+                               parse_mode="HTML")
+
+        # Ikonkalar tayyor turadi — tekin va tez, shuning uchun avval
+        # ular qo'yiladi, keyin fotosurat chizdiriladi.
+        html_pages, icons = await _run_step(
+            loop, lambda: html_images.apply_icons(html_pages, theme),
+            step="render", label="Ikonkalarni qo'yish")
+        html_pages, photos = await html_images.illustrate(
+            html_pages, theme, topic)
+        logger.info("Taqdimot bezagi: %d ikonka, %d fotosurat", icons, photos)
+
+        step2 = {
+            "uz": (f"⚙️ <b>{topic}</b>\n"
+                   f"✅ Slaydlar: {len(html_pages)} ta, rasm: {photos} ta\n"
+                   f"⏳ PowerPointga o'tkazilmoqda..."),
+            "ru": (f"⚙️ <b>{topic}</b>\n"
+                   f"✅ Слайдов: {len(html_pages)}, изображений: {photos}\n"
+                   f"⏳ Переносим в PowerPoint..."),
+            "en": (f"⚙️ <b>{topic}</b>\n"
+                   f"✅ Slides: {len(html_pages)}, images: {photos}\n"
+                   f"⏳ Building the PowerPoint file..."),
         }
         await status.edit_text(step2.get(lang, step2["uz"]), parse_mode="HTML")
 
-        # 2 — Brauzerda 1920×1080 suratga olinadi va PPTX ga yig'iladi.
+        # 3 — Brauzerda 1920×1080 joylashtiriladi va PPTX ga yig'iladi.
         # Brauzer nima ko'rsatsa, PowerPointda ham aynan o'sha turadi.
         # Joylashuvi buzilgan slayd bir marta qayta chizdiriladi:
         # buzilganini faqat brauzer ko'radi, AI esa uni ko'rmaydi.
