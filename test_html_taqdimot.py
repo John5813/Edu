@@ -1110,7 +1110,7 @@ def check_side_gap():
     Markazga qo'yilgan blok (ikki yoni baravar bo'sh) xato emas —
     u ataylab shunday qilingan.
     """
-    print("\n20) Yon tomondagi bo'shliq")
+    print("\n20) Bo'sh yon maydonini o'lchash")
     if not html_render.available():
         check("brauzer o'rnatilgan", False, html_render._INSTALL_HINT)
         return
@@ -1148,6 +1148,7 @@ def check_side_gap():
     from playwright.sync_api import sync_playwright
 
     seen = {}
+    problems = {}
     with sync_playwright() as playwright:
         browser = html_render._launch(playwright)
         try:
@@ -1156,21 +1157,80 @@ def check_side_gap():
             for name, html in pages.items():
                 handle = context.new_page()
                 handle.set_content(html, wait_until="load")
-                seen[name] = any("bir yoniga siqilgan" in item
-                                 for item in html_extract.check_layout(handle))
+                seen[name] = html_extract.gap_area(handle)
+                problems[name] = html_extract.check_layout(handle)
                 handle.close()
             context.close()
         finally:
             browser.close()
 
-    check("chap chekkaga siqilgani topildi", seen["chap"])
-    check("butun enni egallagani xato emas", not seen["keng"])
-    check("markazdagi blok xato emas", not seen["markaz"])
-    check("ikki ustunli slayd xato emas", not seen["ikki"])
+    check("chap chekkaga siqilgani topildi", seen["chap"] is not None)
+    check("butun enni egallagani bo'sh emas", seen["keng"] is None)
+    check("markazdagi blok bo'sh emas", seen["markaz"] is None)
+    check("ikki ustunli slayd bo'sh emas", seen["ikki"] is None)
+
+    area = seen["chap"]
+    if area:
+        check("bo'sh yon o'ng tomonda", area["side"] == "right",
+              str(area["side"]))
+        check("maydon o'lchamlari to'g'ri",
+              area["w"] > 1920 * 0.30 and area["h"] > 1080 * 0.15,
+              f"{area['w']:.0f}x{area['h']:.0f}")
+        check("bo'sh yon xato deb sanalmadi",
+              not any("bir yoniga" in item for item in problems["chap"]),
+              str(problems["chap"]))
+
+        # Bo'sh joyga izoh qo'yiladi — slayd qayta chizilmaydi.
+        filled = html_slides.fill_gap(
+            pages["chap"], area, theme, "uz")
+        check("izohsiz slayd o'zgarmaydi", filled == pages["chap"],
+              "model chaqirilmasligi kerak edi")
 
     rules = html_slides.shell_rules(theme, "uz")
     check("promptda butun en talab qilingan",
           "BUTUN ENNI egallasin" in rules)
+
+
+def check_gap_text():
+    """Bo'sh yonga diagramma izohi qo'yilsin.
+
+    Slaydning bir yoni bo'sh qolsa uni QAYTA CHIZISH shart emas:
+    joylashuv to'g'ri, shunchaki joy bor. O'sha joyga diagrammani
+    tushuntiruvchi matn qo'yiladi — slayd ham to'ladi, mazmuni ham
+    boyiydi.
+    """
+    print("\n21) Bo'sh yonga qo'yiladigan izoh")
+    theme = themes.get("ko'k")
+    page = ("<!DOCTYPE html><html><head><style>"
+            ".q{width:600px;height:500px}</style></head><body>"
+            '<div class="q">Diagramma</div></body></html>')
+    area = {"side": "right", "x": 800.0, "y": 300.0, "w": 900.0, "h": 500.0}
+
+    # Modelni chaqirmaymiz — matnni o'zimiz beramiz.
+    izoh = ("Ko'rsatkich 2020-yildagi 60 foizdan 2026-yilga kelib 30 "
+            "foizga tushgan. Bu <kurashish> choralari samara berayotganini "
+            "bildiradi.")
+    asl = html_slides.explain_visual
+    html_slides.explain_visual = lambda *a, **k: izoh
+    try:
+        out = html_slides.fill_gap(page, area, theme, "uz")
+    finally:
+        html_slides.explain_visual = asl
+
+    check("izoh slaydga qo'shildi", "foizga tushgan" in out, out[-200:])
+    check("bo'sh joyga qo'yildi", "left:848px" in out, out[-260:])
+    check("</body> ichida qoldi", out.rstrip().endswith("</body></html>"),
+          out[-40:])
+    check("asl mazmun o'zgarmadi", '<div class="q">Diagramma</div>' in out)
+    check("teg qochirildi", "&lt;kurashish&gt;" in out and "<kurashish>" not in out)
+    check("aksent chizig'i qo'yildi", f"background:#{theme.accent}" in out)
+
+    # Maydon juda kichik bo'lsa tegilmaydi.
+    tor = html_slides.fill_gap(page, {"x": 0, "y": 0, "w": 150, "h": 500},
+                               theme, "uz")
+    check("tor joyga matn tiqilmaydi", tor == page)
+    check("maydonsiz chaqiruv xavfsiz",
+          html_slides.fill_gap(page, None, theme, "uz") == page)
 
 
 def main():
@@ -1197,6 +1257,7 @@ def main():
         check_photo_has_no_text()
         check_rotated_label()
         check_side_gap()
+    check_gap_text()
 
     print()
     if FAILS:
