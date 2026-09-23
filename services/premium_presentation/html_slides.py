@@ -16,6 +16,7 @@ so'ralsa, javob token chegarasiga urilib oxirgisi chala keladi.
 """
 
 import logging
+import os
 import re
 from typing import Callable, Dict, List, Optional
 
@@ -374,6 +375,148 @@ _DARK_SLIDE = re.compile(
     r'[^>]*>)', re.IGNORECASE)
 
 
+_ROW_OPEN = re.compile(
+    r'<div\b[^>]*\bclass\s*=\s*["\'][^"\']*(?<![-\w])(?:cols|steps)(?![-\w])'
+    r'[^"\']*["\'][^>]*>', re.IGNORECASE)
+_LIST_OPEN = re.compile(
+    r'<div\b[^>]*\bclass\s*=\s*["\'][^"\']*(?<![-\w])list(?![-\w])'
+    r'[^"\']*["\'][^>]*>', re.IGNORECASE)
+_DIV_TAG = re.compile(r"<div\b[^>]*>|</div\s*>", re.IGNORECASE)
+_CARD_OPEN = re.compile(
+    r'^<div\b[^>]*\bclass\s*=\s*["\'][^"\']*(?<![-\w])card(?![-\w])',
+    re.IGNORECASE)
+_ITEM_OPEN = re.compile(
+    r'^<div\b[^>]*\bclass\s*=\s*["\'][^"\']*(?<![-\w])item(?![-\w])',
+    re.IGNORECASE)
+_CARD_TITLE = re.compile(
+    r'class\s*=\s*["\'][^"\']*\bcard-title\b[^"\']*["\'][^>]*>(.*?)</div>',
+    re.IGNORECASE | re.DOTALL)
+_HAS_DOT = re.compile(r'^\s*<div\b[^>]*\bikon-dot\b', re.IGNORECASE)
+_ITEM_DOT = re.compile(
+    r'<span\b[^>]*\bclass\s*=\s*["\']item-dot["\'][^>]*>\s*</span>',
+    re.IGNORECASE)
+_ANY_TAG = re.compile(r"<[^>]+>")
+# Kalit so'z bo'yicha topilmasa beriladigan umumiy ikonkalar.
+_SPARE_ICONS = ("idea", "target", "star", "strategy", "success",
+                "research", "project", "innovation", "award", "team")
+
+
+def _pick_icon(texts, used: set) -> str:
+    """Kartochka yoki band matniga mos ikonka nomi.
+
+    Matnlar tartib bilan sinaladi: avval sarlavha (u mavzuni aniq
+    aytadi), keyin butun matn. Aks holda izohdagi tasodifiy so'z
+    sarlavhadan ustun kelardi.
+    """
+    if isinstance(texts, str):
+        texts = [texts]
+    name, known = "", set()
+    try:
+        from . import icon_render
+
+        known = set(icon_render.icon_names())
+        for text in texts:
+            if not text:
+                continue
+            path = icon_render.resolve(None, text,
+                                       used={n + ".png" for n in used})
+            name = os.path.basename(path)[:-4] if path else ""
+            if name and name != "default" and name not in used:
+                return name
+    except Exception as exc:
+        log.warning("Ikonka tanlanmadi: %s", exc)
+    for spare in _SPARE_ICONS:
+        if spare not in used and (not known or spare in known):
+            return spare
+    return name or _SPARE_ICONS[0]
+
+
+def _plain(fragment: str, limit: int = 120) -> str:
+    return " ".join(_ANY_TAG.sub(" ", fragment).split())[:limit]
+
+
+def _children(body: str, opening):
+    """Blokning bevosita bola `<div>` lari: (ochuvchi teg, butun blok)."""
+    depth, child = 1, None
+    for tag in _DIV_TAG.finditer(body, opening.end()):
+        if tag.group(0).startswith("</"):
+            depth -= 1
+            if depth == 1 and child is not None:
+                yield child, body[child.start():tag.end()]
+                child = None
+            if depth == 0:
+                return
+        else:
+            if depth == 1:
+                child = tag
+            depth += 1
+
+
+def _inside_card(body: str, at: int) -> bool:
+    """`at` o'rni kartochka ichidami."""
+    stack = []
+    for tag in _DIV_TAG.finditer(body, 0, at):
+        if tag.group(0).startswith("</"):
+            if stack:
+                stack.pop()
+        else:
+            stack.append(bool(_CARD_OPEN.match(tag.group(0))))
+    return any(stack)
+
+
+def _auto_icons(body: str) -> str:
+    """Kartochka, qadam va ro'yxat bandlariga ikonka qo'yadi.
+
+    Eski tizimda promptda "har kartochka yonida ikonka tursin" degan
+    talab bor edi. Kvotalar olib tashlanganda u ham ketdi va model
+    ixtiyoriy ikonkani deyarli qo'ymay qo'ydi — slaydlar yana quruq
+    bo'lib qoldi. Ikonka — dizayn, mazmun emas, shuning uchun uni
+    modeldan so'ramaymiz: kod har kartochka va bandning matniga
+    qarab o'zi tanlaydi. Bir slaydda ikonka takrorlanmaydi.
+
+    Kartochka ichidagi kichik ro'yxatga tegilmaydi — u yerda
+    kartochkaning o'z ikonkasi yetarli.
+    """
+    inserts = []
+    used: set = set(re.findall(r'data-icon\s*=\s*["\']([^"\']+)', body))
+
+    for opening in _ROW_OPEN.finditer(body):
+        for child, card in _children(body, opening):
+            inner = card[len(child.group(0)):]
+            if not _CARD_OPEN.match(child.group(0)) or _HAS_DOT.match(inner):
+                continue
+            title = _CARD_TITLE.search(card)
+            name = _pick_icon([_plain(title.group(1)) if title else "",
+                               _plain(card, 160)], used)
+            used.add(name)
+            inserts.append((child.end(), child.end(),
+                            '<div class="ikon-dot"><img class="ikon" '
+                            f'data-icon="{name}" alt=""></div>'))
+
+    for opening in _LIST_OPEN.finditer(body):
+        if _inside_card(body, opening.start()):
+            continue
+        for child, item in _children(body, opening):
+            if not _ITEM_OPEN.match(child.group(0)):
+                continue
+            dot = _ITEM_DOT.search(item)
+            if not dot:
+                continue
+            bold = re.search(r"<b>(.*?)</b>", item, re.IGNORECASE | re.DOTALL)
+            name = _pick_icon([_plain(bold.group(1)) if bold else "",
+                               _plain(item)], used)
+            used.add(name)
+            start = child.start() + dot.start()
+            inserts.append((start, child.start() + dot.end(),
+                            '<span class="item-ikon"><img class="ikon" '
+                            f'data-icon="{name}" data-icon-color="FFFFFF" '
+                            'alt=""></span>'))
+
+    for start, end, piece in sorted(inserts, reverse=True):
+        body = body[:start] + piece + body[end:]
+    return body
+
+
 _DOT_ICON = re.compile(
     r'(class\s*=\s*["\'][^"\']*\bikon-dot\b[^"\']*["\'][^>]*>\s*<img\b)'
     r'(?![^>]*data-icon-color)', re.IGNORECASE)
@@ -412,7 +555,8 @@ def build_pages(bodies: List[str], theme) -> List[str]:
     o'rni ham har safar to'g'ri chiqadi.
     """
     drawn = [deck_charts.draw(
-        deck_math.render(_whiten_icons(_decorate(body))), theme)
+        deck_math.render(_whiten_icons(_auto_icons(_decorate(body)))),
+        theme)
              for body in bodies]
     try:
         from . import html_images

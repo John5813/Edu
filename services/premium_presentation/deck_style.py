@@ -47,13 +47,16 @@ font-size:30px;line-height:1.5;-webkit-font-smoothing:antialiased}
 .slide{width:1920px;height:1080px;padding:96px;display:flex;
 flex-direction:column;gap:56px;overflow:hidden}
 .slide>.body{flex:1;display:flex;flex-direction:column;
-justify-content:center;gap:48px;min-height:0}
+justify-content:safe center;gap:48px;min-height:0}
 /* Asosiy blok qolgan balandlikni EGALLAYDI — shunda varaqning
    pastki yarmi bo'sh qolmaydi. Izoh va sarlavha esa o'z bo'yida
    qoladi. */
-.slide>.body>.split,.slide>.body>.steps,
+.slide>.body>.split,
 .slide>.body>table,.slide>.body>.list{flex:1 1 auto}
 .slide>.body>.cols{flex:0 1 auto;align-content:center}
+/* Qadam kartochkasi ichida bir-ikki gap bo'ladi — butun varaq
+   bo'yiga cho'zilsa pastki yarmi bo'sh qoladi. */
+.slide>.body>.steps{flex:0 1 auto}
 .slide>.body>.timeline{flex:none}
 .slide>.body>.note,.slide>.body>.foot,.slide>.body>.lead,
 .slide>.body>.formula{flex:none}
@@ -91,7 +94,10 @@ color:#INVERT}
 /* Bezak: to'q varaqqa chuqurlik beradigan yumshoq doiralar. Ular
    `position:fixed` — joylashuvga tegmaydi, matnning orqasida
    turadi va PowerPointda oddiy shakl bo'lib chiqadi. */
-.bezak{position:fixed;border-radius:50%}
+.bezak{position:fixed;border-radius:50%;z-index:0}
+/* Bezak mazmun ORTIDA turadi: u ikonka yoki kartochka ustiga
+   chiqmasin. */
+.slide>.head,.slide>.body{position:relative;z-index:1}
 .bezak-a{width:560px;height:560px;right:-120px;top:-150px;
 background:#BANDGLOW}
 .bezak-b{width:300px;height:300px;left:-60px;bottom:-60px;
@@ -120,7 +126,7 @@ flex:none}
 .row{display:flex;gap:40px;align-items:stretch}
 .row>*{flex:1}
 .split{display:grid;grid-template-columns:1fr 1fr;gap:64px;
-align-items:center}
+align-items:safe center}
 .split.wide-left{grid-template-columns:1.25fr 1fr}
 .split.wide-right{grid-template-columns:1fr 1.25fr}
 
@@ -179,7 +185,7 @@ letter-spacing:-2px}
 .kpi-note{font-size:32px;line-height:1.5;color:#MUTED}
 
 /* ── Ro'yxat ───────────────────────────────────────────────────── */
-.list{display:flex;flex-direction:column;justify-content:center;
+.list{display:flex;flex-direction:column;justify-content:safe center;
 gap:34px}
 .item{display:flex;gap:24px;align-items:flex-start}
 .item-dot{width:16px;height:16px;border-radius:50%;background:#ACCENT;
@@ -187,9 +193,31 @@ flex:none;margin-top:23px}
 .item-text{font-size:38px;line-height:1.5;color:#BODY}
 .item-text b{color:#HEADING}
 
+/* Ro'yxat bandidagi ikonka: nuqta o'rnida rangli doira ichida oq
+   ikonka. Har band o'z rangida. */
+.item-ikon{width:68px;height:68px;border-radius:50%;flex:none;
+background:var(--tone,#ACCENT);display:flex;align-items:center;
+justify-content:center}
+.item-ikon .ikon{width:36px;height:36px}
+.item:has(>.item-ikon){align-items:center;gap:30px}
+.list>.item:nth-child(5n+1){--tone:#TONE1}
+.list>.item:nth-child(5n+2){--tone:#TONE2}
+.list>.item:nth-child(5n+3){--tone:#TONE3}
+.list>.item:nth-child(5n+4){--tone:#TONE4}
+.list>.item:nth-child(5n+5){--tone:#TONE5}
+
 /* ── Qadamlar ──────────────────────────────────────────────────── */
 .steps{display:flex;align-items:stretch;gap:0}
 .steps .card{flex:1}
+.steps>.card:nth-child(4n+1){--tone:#TONE1;--tint:#TINT1}
+.steps>.card:nth-child(4n+3){--tone:#TONE2;--tint:#TINT2}
+.steps>.card:nth-child(4n+5){--tone:#TONE3;--tint:#TINT3}
+.steps>.card:nth-child(4n+7){--tone:#TONE4;--tint:#TINT4}
+.steps>.card{background:var(--tint)}
+.steps>.card>.ikon-dot:first-child{margin-top:-96px;align-self:center}
+.steps:has(>.card>.ikon-dot:first-child){padding-top:56px}
+.steps>.card:has(>.ikon-dot:first-child){justify-content:flex-start;
+border-bottom:8px solid var(--tone);border-radius:18px 18px 0 0}
 .steps .arrow{width:56px;flex:none;display:flex;align-items:center;
 justify-content:center;color:#ACCENT;font-size:38px;font-weight:700}
 
