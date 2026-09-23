@@ -190,7 +190,7 @@ async def check_subscription_and_show_menu(message: Message, user, db: Database)
             if user.language == "uz":
                 text = "📢 Botdan foydalanish uchun quyidagi kanallarga a'zo bo'lishingiz shart:\n\n👇 Kanalga o'tish uchun tugmani bosing:"
             elif user.language == "ru":
-                text = "📢 Для использования бота необходимо<bos> подписаться на следующие каналы:\n\n👇 Нажмите кнопку для перехода в канал:"
+                text = "📢 Для использования бота необходимо подписаться на следующие каналы:\n\n👇 Нажмите кнопку для перехода в канал:"
             else:  # en
                 text = "📢 To use the bot, you must subscribe to the following channels:\n\n👇 Click the button to go to the channel:"
 
@@ -201,16 +201,27 @@ async def check_subscription_and_show_menu(message: Message, user, db: Database)
             return
 
     # Show main menu with language selected message
-    presentation_enabled = await db.get_feature_status("presentation")
-    independent_work_enabled = await db.get_feature_status("independent_work")
-    referat_enabled = await db.get_feature_status("referat")
-    media_enabled = await db.get_feature_status("media")
-    book_translate_enabled = await db.get_feature_status("book_translate")
-    mahsus_ishlanma_enabled = await db.get_feature_status("mahsus_ishlanma")
-
     await message.answer(
         get_text(user.language, "language_selected"),
-        reply_markup=get_main_keyboard(user.language, presentation_enabled, independent_work_enabled, referat_enabled, media_enabled=media_enabled, book_translate_enabled=book_translate_enabled, mahsus_ishlanma_enabled=mahsus_ishlanma_enabled)
+        reply_markup=await _main_keyboard(user.language, db)
+    )
+
+
+async def _main_keyboard(language: str, db: Database):
+    """Bosh menyu — hamma xizmat bayroqlari bilan.
+
+    Eski tugma yoki tanilmagan xabarga javobda ham aynan shu menyu
+    yuboriladi: mijozning eski klaviaturasi yangisiga almashadi va
+    /start bosish shart bo'lmaydi.
+    """
+    return get_main_keyboard(
+        language,
+        await db.get_feature_status("presentation"),
+        await db.get_feature_status("independent_work"),
+        await db.get_feature_status("referat"),
+        media_enabled=await db.get_feature_status("media"),
+        book_translate_enabled=await db.get_feature_status("book_translate"),
+        mahsus_ishlanma_enabled=await db.get_feature_status("mahsus_ishlanma"),
     )
 
 @router.callback_query(F.data == "check_subscription")
@@ -280,15 +291,69 @@ async def handle_unknown_message(message: Message, state: FSMContext, db: Databa
             "👋 Hello! Press /start to use the bot."
         )
     else:
+        # Ko'pincha bu eski klaviaturadagi tugma yoki bot yangilanganda
+        # uzilib qolgan jarayon — menyu yangisi bilan almashtiriladi.
         if user.language == "uz":
-            text = "❓ Iltimos, quyidagi tugmalardan birini tanlang:"
+            text = ("❓ Bu buyruq tushunilmadi yoki bot yangilangan. "
+                    "Menyu yangilandi — quyidagi tugmalardan birini tanlang:")
         elif user.language == "ru":
-            text = "❓ Пожалуйста, выберите одну из кнопок ниже:"
+            text = ("❓ Команда не распознана или бот обновлён. "
+                    "Меню обновлено — выберите одну из кнопок ниже:")
         else:
-            text = "❓ Please select one of the buttons below:"
+            text = ("❓ Command not recognized or the bot was updated. "
+                    "The menu is refreshed — please choose a button below:")
 
-        media_enabled = await db.get_feature_status("media")
         await message.answer(
             text,
-            reply_markup=get_main_keyboard(user.language, media_enabled=media_enabled)
+            reply_markup=await _main_keyboard(user.language, db)
         )
+
+
+_STALE_BUTTON = {
+    "uz": "Bu tugma eskirgan (bot yangilangan). Menyudan xizmatni qaytadan tanlang.",
+    "ru": "Эта кнопка устарела (бот обновлён). Выберите услугу в меню заново.",
+    "en": "This button is outdated (the bot was updated). Choose the service again from the menu.",
+}
+_WRONG_STEP = {
+    "uz": ("❓ Bu bosqichda boshqa javob kutilmoqda. So'ralgan ma'lumotni "
+           "yuboring yoki qaytadan boshlash uchun menyudan xizmatni tanlang."),
+    "ru": ("❓ На этом шаге ожидается другой ответ. Отправьте запрошенные "
+           "данные или выберите услугу в меню, чтобы начать заново."),
+    "en": ("❓ A different answer is expected at this step. Send what was "
+           "asked, or choose the service in the menu to start over."),
+}
+
+
+@router.message()
+async def handle_unexpected_in_step(message: Message, state: FSMContext, db: Database):
+    """Jarayon ichida kutilmagan xabar (masalan matn o'rniga rasm).
+
+    Ilgari bunday xabarga bot umuman javob bermasdi va mijoz bot
+    ishlamay qoldi deb o'ylardi.
+    """
+    user = await db.get_user(message.from_user.id)
+    language = user.language if user else "uz"
+    await message.answer(_WRONG_STEP.get(language, _WRONG_STEP["uz"]))
+
+
+@router.callback_query()
+async def handle_stale_button(callback: CallbackQuery, state: FSMContext, db: Database):
+    """Hech bir handler tanimagan tugma — eski xabardagi yoki eski
+    tizimdagi tugma.
+
+    Ilgari bunday tugma bosilganda hech narsa bo'lmasdi (faqat
+    aylanayotgan belgi). Endi mijozga aytiladi va, jarayon ichida
+    bo'lmasa, yangi menyu yuboriladi.
+    """
+    user = await db.get_user(callback.from_user.id)
+    language = user.language if user else "uz"
+    logger.info("Eskirgan tugma: %s (foydalanuvchi %s)", callback.data,
+                callback.from_user.id)
+    try:
+        await callback.answer(_STALE_BUTTON.get(language, _STALE_BUTTON["uz"]),
+                              show_alert=True)
+    except Exception:
+        pass
+    if user and await state.get_state() is None and callback.message:
+        await callback.message.answer(
+            "👇", reply_markup=await _main_keyboard(language, db))

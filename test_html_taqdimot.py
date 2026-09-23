@@ -2453,6 +2453,89 @@ def check_formula_rich():
                 _os.environ[key] = value
 
 
+def check_no_half_decks():
+    """Chala taqdimot berilmasin; yetmagan slayd bittadan so'ralsin."""
+    print("\n33) Chala taqdimot berilmaydi")
+    theme = themes.get("ko'k")
+    block = ('<div class="list"><div class="item"><span class="item-dot">'
+             '</span><div class="item-text">Band.</div></div></div>')
+
+    def run(chunk_reply, single_reply):
+        calls = []
+
+        def chunk(system, user, count):
+            calls.append(count)
+            return chunk_reply(count) if count > 1 else single_reply()
+
+        saved = (html_slides.plan_outline, html_slides._write_chunk)
+        try:
+            html_slides.plan_outline = lambda *a, **k: {
+                "family": "umumiy",
+                "slides": [{"brief": "b", "category": "kartalar"}] * 10}
+            html_slides._write_chunk = chunk
+            try:
+                pages = html_slides.write_slides("Mavzu", 10, theme)
+                error = ""
+            except RuntimeError as exc:
+                pages, error = [], str(exc)
+        finally:
+            html_slides.plan_outline, html_slides._write_chunk = saved
+        return pages, error, calls
+
+    slide = _page("Slayd", block)
+    pages, error, calls = run(lambda count: [], lambda: [slide])
+    check("katta bo'lak xato bersa slaydlar bittadan yoziladi",
+          len(pages) == 10 and not error, f"{len(pages)} {error}")
+    check("bittadan so'rov faqat yetmaganlariga",
+          calls.count(1) == 10, str(calls))
+    pages, error, calls = run(lambda count: [slide] * (count - 1),
+                              lambda: [slide])
+    check("chala bo'lakning yetmagani to'ldiriladi", len(pages) == 10,
+          str(len(pages)))
+    pages, error, calls = run(lambda count: [], lambda: [])
+    check("hech narsa chiqmasa xato", "birorta" in error, error)
+    state = {"left": 2}
+
+    def two():
+        if state["left"]:
+            state["left"] -= 1
+            return [slide]
+        return []
+
+    pages, error, calls = run(lambda count: [], two)
+    check("ikki slaydlik taqdimot berilmaydi (pul qaytadi)",
+          not pages and "faqat 2" in error, error)
+    check("bir-ikki slayd yetmasa taqdimot beriladi",
+          html_slides._enough(10) == 8 and html_slides._enough(5) == 4)
+
+    class Reply:
+        status_code = 402
+        text = ('{"error":{"message":"This request requires more credits, or '
+                'fewer max_tokens. You requested up to 12600 tokens, but can '
+                'only afford 8150."}}')
+
+    check("402 da hisob yetadigan chegara olinadi",
+          llm_client._affordable(Reply(), {"max_tokens": 12600}) == 8100)
+    Reply.text = "can only afford 900"
+    check("juda kichik chegara bilan qayta so'ralmaydi",
+          llm_client._affordable(Reply(), {"max_tokens": 12600}) == 0)
+    Reply.status_code = 500
+    check("boshqa xatoda qayta so'ralmaydi",
+          llm_client._affordable(Reply(), {"max_tokens": 12600}) == 0)
+
+    source = open("bot/handlers/start.py", encoding="utf-8").read()
+    check("rus tilidagi obuna xabarida buzuq teg yo'q", "<bos>" not in source)
+    check("eskirgan tugma ushlanadi",
+          "@router.callback_query()\nasync def handle_stale_button" in source)
+    check("jarayondagi kutilmagan xabarga javob beriladi",
+          "@router.message()\nasync def handle_unexpected_in_step" in source)
+    main = open("main.py", encoding="utf-8").read()
+    routers = [line for line in main.splitlines()
+               if "dp.include_router(" in line]
+    check("start router eng oxirida", "start.router" in routers[-1],
+          routers[-1])
+
+
 def main():
     check_handler_names()
     check_prompt()
@@ -2496,6 +2579,7 @@ def main():
     check_chart_formats()
     check_fit_to_slide()
     check_formula_rich()
+    check_no_half_decks()
 
     print()
     if FAILS:
