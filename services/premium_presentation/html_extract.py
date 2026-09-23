@@ -528,6 +528,42 @@ _CHECK_SCRIPT = r"""
       + "uchun nusxa qo'yilgan) — har matn bitta elementda bo'lsin");
   }
 
+  // Matn o'z qutisiga sig'maganmi. Sxemadagi doiraga uzun yorliq
+  // yozilsa, harflar doiraning chetidan chiqib ketadi va qo'shni
+  // chiziqqa minadi — slayd tartibsiz ko'rinadi. Brauzer buni
+  // `scrollWidth`/`scrollHeight` bilan aniq aytadi: mazmun qutidan
+  // kattami yoki yo'q.
+  // Matnning o'zi qayerga chizilganini brauzerdan Range bilan
+  // so'raymiz. `scrollHeight` yetarli emas: markazga tekislangan
+  // matn qutidan ikki tomonga baravar toshsa, u buni ko'rsatmaydi.
+  const spillsOut = (el) => {
+    const box = el.getBoundingClientRect();
+    for (const node of el.childNodes) {
+      if (node.nodeType !== 3 || !node.nodeValue.trim()) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const r = range.getBoundingClientRect();
+      if (r.width < 1 && r.height < 1) continue;
+      if (r.left < box.left - 3 || r.right > box.right + 3
+          || r.top < box.top - 3 || r.bottom > box.bottom + 3) return true;
+    }
+    return false;
+  };
+
+  let spill = 0;
+  for (const el of document.body.querySelectorAll("*")) {
+    const style = getComputedStyle(el);
+    if (style.display === "none" || style.visibility === "hidden") continue;
+    if (!own(el)) continue;
+    if (el.clientWidth < 8 || el.clientHeight < 8) continue;
+    if (spillsOut(el)) spill += 1;
+  }
+  if (spill) {
+    problems.push(spill + " ta blokda matn qutisiga sig'magan (chetidan "
+      + "chiqib ketgan) — qutiga qat'iy balandlik berilmasin yoki "
+      + "yorliq qisqartirilsin");
+  }
+
   // Pastki yarmi butunlay bo'sh qolganmi.
   if (texts.length && lowest < H * 0.62) {
     problems.push("mazmun slaydning yuqori qismiga to'plangan, pastki "
