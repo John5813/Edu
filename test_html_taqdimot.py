@@ -1941,6 +1941,101 @@ def check_repair_keeps_rich_slides():
           and html_render._severity(["matn toshgan"]) == 1)
 
 
+def check_repair_edits_same_slide():
+    """Tuzatishda slaydning O'ZI tuzatiladi, yangisi yozilmaydi."""
+    print("\n27) Tuzatish — o'sha slaydning o'zi")
+    theme = themes.get("ko'k")
+
+    def card(title, note):
+        return (f'<div class="card"><div class="card-title">{title}</div>'
+                f'<div class="card-note">{note}</div></div>')
+
+    source = ('<section class="slide"><div class="head"><h2 class="title">'
+              'Nyuton qonunlari</h2></div><div class="body">'
+              '<div class="cols cols-3">'
+              + card("Inertsiya", "Jism tashqi kuch bo'lmasa tinch turadi "
+                     "yoki tekis harakatlanadi.")
+              + card("Kuch", "Tezlanish kuchga to'g'ri, massaga teskari "
+                     "proporsional.")
+              + card("Aks ta'sir", "Har ta'sirga teng va qarama-qarshi aks "
+                     "ta'sir bor.")
+              + '</div><div class="chart" data-kind="bar" '
+              'data-labels="A,B" data-series="1,2"></div></div></section>')
+    page = html_slides.build_pages([source], theme)[0]
+    check("asl slayd sahifada saqlanadi",
+          html_slides.source_of(page) == source)
+    check("chizilgan sahifada ikonka va diagramma bor",
+          "data:image" in page and "<svg" in page)
+
+    shorter = source.replace(" yoki tekis harakatlanadi", "")
+    simple = ('<section class="slide"><div class="head"><h2 class="title">'
+              'Nyuton qonunlari</h2></div><div class="body"><p class="lead">'
+              'Uch qonun mexanikaning asosi.</p></div></section>')
+    check("qisqartirish — tuzatish", html_slides._rewritten(source, shorter)
+          == "", html_slides._rewritten(source, shorter))
+    check("soddalashtirish — qayta yozish",
+          bool(html_slides._rewritten(source, simple)))
+    check("to'q varaq oqarsa — qayta yozish", bool(html_slides._rewritten(
+        source.replace('class="slide"', 'class="slide dark"', 1), source)))
+    other = source
+    for word in ("Inertsiya", "Kuch", "Aks ta'sir", "Jism", "Tezlanish",
+                 "Har", "tashqi", "kuchga", "teng", "massaga", "tinch",
+                 "qarama-qarshi", "proporsional", "harakatlanadi", "turadi",
+                 "bor", "aks", "ta'sirga", "to'g'ri", "teskari"):
+        other = other.replace(word, "boshqa")
+    check("matni almashgan — qayta yozish",
+          bool(html_slides._rewritten(source, other)))
+
+    seen = {}
+
+    def reply(text):
+        def call(system, user, temperature=0.7, max_tokens=4000):
+            seen["user"] = user
+            return text
+        return call
+
+    problems = ["1 ta blokda matn qutisiga sig'magan: «Jism tashqi kuch»"]
+    original = llm_client._call_openrouter_text
+    try:
+        llm_client._call_openrouter_text = reply(simple)
+        kept = html_slides.fix_slide(page, problems, theme)
+        prompt = seen.get("user", "")
+        llm_client._call_openrouter_text = reply(shorter)
+        fixed = html_slides.fix_slide(page, problems, theme)
+    finally:
+        llm_client._call_openrouter_text = original
+    check("modelga asl slayd yuboriladi", source in prompt)
+    check("modelga chizilgan nusxa yuborilmaydi",
+          "data:image" not in prompt and "<svg" not in prompt)
+    check("xato joyi aytiladi", "«Jism tashqi kuch»" in prompt)
+    check("yangisini yozmaslik aytiladi", "yangisini yozmang" in prompt)
+    check("soddalashtirilgan javob qabul qilinmaydi", kept == page)
+    check("kichik tuzatish qabul qilinadi",
+          html_slides.source_of(fixed) == shorter)
+
+    if not html_render.available():
+        return
+    from playwright.sync_api import sync_playwright
+
+    # Doiraga uzun yorliq — sig'maydi (22-bo'limdagi namuna).
+    handle_page = ('<!DOCTYPE html><html><head><meta charset="utf-8">'
+                   '<style>*{margin:0}.doira{width:110px;height:110px;'
+                   'border-radius:50%;font-size:28px;display:flex;'
+                   'align-items:center;justify-content:center}</style>'
+                   '</head><body><div class="doira">Juda uzun sarlavha '
+                   'yorlig\'i</div></body></html>')
+    with sync_playwright() as playwright:
+        browser = html_render._launch(playwright)
+        try:
+            handle = browser.new_page(viewport={"width": 1920, "height": 1080})
+            handle.set_content(handle_page, wait_until="load")
+            found = html_extract.check_layout(handle)
+        finally:
+            browser.close()
+    check("xato xabarida matn nomlanadi",
+          any("«Juda uzun sarlavha" in item for item in found), str(found))
+
+
 def main():
     check_handler_names()
     check_prompt()
@@ -1978,6 +2073,7 @@ def main():
         check_icon_cards()
     check_auto_icons()
     check_repair_keeps_rich_slides()
+    check_repair_edits_same_slide()
 
     print()
     if FAILS:
