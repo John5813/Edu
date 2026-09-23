@@ -190,7 +190,9 @@ QAT'IY QOIDALAR:
    yoziladi. Ishonchingiz komil bo'lmasa diagramma ham,
    ko'rsatkich ham qo'ymang — o'sha fikrni matn bilan ayting.
    Mavzu raqam talab qilmasa, butun taqdimotda birorta diagramma
-   bo'lmasligi ham mumkin va bu TO'G'RI.
+   bo'lmasligi ham mumkin va bu TO'G'RI. Ko'rsatkich (kpi) raqami
+   izohida uning manbasi va yili aytiladi (masalan: Statistika
+   agentligi, 2024) — manbasini ayta olmaydigan raqam yozilmaydi.
 9. Bir slaydda bir xil matnni ikki marta yozma.
 10. Yorliqlar qisqa: kartochka sarlavhasi 1-4 so'z, vaqt o'qidagi
    izoh bir jumla.
