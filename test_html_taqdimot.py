@@ -45,6 +45,39 @@ def _page(title="Sinov", extra=""):
     <body><h1>{title}</h1>{extra}</body></html>"""
 
 
+def check_handler_names():
+    """Taqdimot oqimida aniqlanmagan o'zgaruvchi qolmaganini tekshiradi.
+
+    Tizim qayta yozilganda eski o'zgaruvchiga qilingan bitta havola
+    qolib ketgan edi: slaydlar yaratilib, fayl tayyor bo'lgandan keyin
+    "yuborilmoqda" xabarida `NameError` chiqar va mijoz to'lagan puli
+    qaytarilar edi. Sintaksis tekshiruvi bunday xatoni ko'rmaydi.
+    """
+    print("\n0) Oqimda aniqlanmagan nom yo'qligi")
+    try:
+        from pyflakes import api, reporter
+    except ImportError:
+        print("  o'tkazildi   pyflakes o'rnatilmagan")
+        return
+
+    import io
+
+    files = [
+        "bot/handlers/premium_presentation.py",
+        "services/premium_presentation/html_render.py",
+        "services/premium_presentation/html_slides.py",
+        "services/premium_presentation/html_extract.py",
+        "services/premium_presentation/pptx_build.py",
+    ]
+    for path in files:
+        out, err = io.StringIO(), io.StringIO()
+        api.checkPath(path, reporter.Reporter(out, err))
+        undefined = [line for line in out.getvalue().splitlines()
+                     if "undefined name" in line]
+        check(f"{os.path.basename(path)} da aniqlanmagan nom yo'q",
+              not undefined, "; ".join(undefined[:2]))
+
+
 def check_prompt():
     print("\n1) Qobiq qoidalari")
     theme = themes.get("zumrad")
@@ -330,6 +363,7 @@ def check_editable():
 
 
 def main():
+    check_handler_names()
     check_prompt()
     check_split()
     check_outline()
