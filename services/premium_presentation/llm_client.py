@@ -492,6 +492,29 @@ def _models(kind: str) -> list:
     return chain
 
 
+# Bitta taqdimotga qancha token ketganini yozib boradi. Narxni taxmin
+# qilish o'rniga logdan aniq ko'rinsin: modellar va hajm o'zgarganda
+# taxmin eskiradi, hisob esa eskirmaydi.
+USAGE = {"calls": 0, "input": 0, "output": 0}
+
+
+def reset_usage() -> None:
+    USAGE.update(calls=0, input=0, output=0)
+
+
+def usage_report() -> str:
+    """Logga yoziladigan qisqa hisobot."""
+    return (f"{USAGE['calls']} so'rov, "
+            f"{USAGE['input']:,} kirish + {USAGE['output']:,} chiqish tokeni")
+
+
+def _count(data: dict) -> None:
+    usage = (data or {}).get("usage") or {}
+    USAGE["calls"] += 1
+    USAGE["input"] += int(usage.get("prompt_tokens") or 0)
+    USAGE["output"] += int(usage.get("completion_tokens") or 0)
+
+
 def _request(kind: str, payload: dict, timeout: int = 180) -> dict:
     """So'rovni ro'yxatdagi modellar bilan navbatma-navbat bajaradi.
 
@@ -531,6 +554,7 @@ def _request(kind: str, payload: dict, timeout: int = 180) -> dict:
         if _WORKING.get(kind) != model:
             log.info("%s modeli: %s", "Matn" if kind == "text" else "Vision", model)
             _WORKING[kind] = model
+        _count(data)
         return data
     raise last_error if last_error else RuntimeError("Model ro'yxati bo'sh")
 

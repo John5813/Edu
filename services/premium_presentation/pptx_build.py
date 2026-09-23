@@ -117,13 +117,21 @@ def _add_text(slide, block: Dict) -> None:
         text = text.upper()
 
     area = _clip(block)
-    # Quti biroz kengroq bo'lsin: PowerPointdagi shrift brauzernikidan
-    # ozgina keng chiqsa, oxirgi so'z pastga ko'chib ketmasin. Balandlik
-    # va yuqori chekka esa tegilmaydi — aks holda matn quyidagi bezakka
-    # minib qoladi.
+    # Bir qatorli matn qayta O'RALMASIN. Ilgari quti o'n piksel
+    # kengaytirilardi va matn PowerPointda baribir qaytadan o'ralib,
+    # oxirgi so'z pastga tushib qo'shnisining ustiga chiqardi. Endi
+    # o'lcham brauzerdagining aynan o'zi, bir qatorlisida esa o'rash
+    # butunlay o'chiriladi.
+    # Bir qatorli matnga ozgina zaxira kenglik beriladi: PowerPointdagi
+    # shrift brauzernikidan bir necha piksel keng chiqsa, oxirgi so'z
+    # pastga ko'chib qo'shnisining ustiga tushardi. O'rashni butunlay
+    # o'chirib bo'lmaydi — o'shanda PowerPoint qutini markazga qarab
+    # kengaytiradi va chapga tekislangan matn o'rtaga siljib qoladi.
+    single = int(block.get("lines") or 1) <= 1
+    slack = max(area["w"] * 0.02, 6.0) if single else 2.0
     frame_box = slide.shapes.add_textbox(
         _emu(area["x"]), _emu(area["y"]),
-        _emu(area["w"] + 10), _emu(area["h"]))
+        _emu(area["w"] + slack), _emu(area["h"]))
     frame = frame_box.text_frame
     frame.word_wrap = True
     frame.margin_left = frame.margin_right = 0

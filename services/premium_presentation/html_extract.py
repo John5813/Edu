@@ -158,6 +158,28 @@ _SCRIPT = r"""
       .trim();
   };
 
+  // Bola element matn oqimining ichida turadimi (<b>, <span>, <a>)?
+  // Shunday bolalar ota abzatsning bir qismi: ularni alohida quti
+  // qilib olsak, matn ikkiga bo'linib, ustma-ust tushadi.
+  const RECURSE_TAGS = new Set(["SVG", "CANVAS", "IMG", "VIDEO", "TABLE"]);
+
+  const inlineOnly = (el) => {
+    for (const child of el.children) {
+      if (child.tagName === "BR") continue;
+      if (RECURSE_TAGS.has(child.tagName)) return false;
+      const display = getComputedStyle(child).display || "";
+      if (!display.startsWith("inline")) return false;
+    }
+    return true;
+  };
+
+  // Matn nechta qatorga joylashgan.
+  const lineCount = (el, r) => {
+    const height = parseFloat(getComputedStyle(el).lineHeight);
+    if (!height || !isFinite(height)) return 1;
+    return Math.max(1, Math.round(r.h / height));
+  };
+
   const align = (value) => {
     if (value === "center") return "center";
     if (value === "right" || value === "end") return "right";
@@ -279,8 +301,16 @@ _SCRIPT = r"""
       }
     }
 
-    // O'z matni bo'lsa — matn qutisi.
-    const text = ownText(el);
+    // Matn qutisi. Bolalari faqat oqim ichidagi elementlar bo'lsa
+    // (<b>, <span>, <a>), butun matn BITTA quti bo'ladi: aks holda
+    // "<b>" ning matni otasidan tushib qolar va uning ustiga alohida
+    // quti bo'lib chiqar edi.
+    const whole = inlineOnly(el);
+    const text = whole
+      ? (el.innerText || "").replace(/[^\S\n]+/g, " ")
+          .replace(/\n{3,}/g, "\n\n").trim()
+      : ownText(el);
+
     if (text) {
       out.push({
         kind: "text", text, ...r,
@@ -293,11 +323,16 @@ _SCRIPT = r"""
         lineHeight: parseFloat(s.lineHeight) || 0,
         upper: s.textTransform === "uppercase",
         letterSpacing: parseFloat(s.letterSpacing) || 0,
+        lines: lineCount(el, r),
       });
     }
 
     for (const child of el.children) {
-      if (child.tagName !== "BR") walk(child);
+      if (child.tagName === "BR") continue;
+      // Matni otasiga qo'shib olindi — ichiga kirmaymiz. Rasm va
+      // jadval esa baribir alohida olinadi.
+      if (whole && text && !RECURSE_TAGS.has(child.tagName)) continue;
+      walk(child);
     }
   };
 
@@ -338,7 +373,7 @@ _CHECK_SCRIPT = r"""
 
     const text = own(el);
     if (text) {
-      texts.push({r, text});
+      texts.push({r, text, el});
       lowest = Math.max(lowest, r.bottom);
       tallest = tallest || r.top;
       tallest = Math.min(tallest, r.top);
@@ -355,10 +390,14 @@ _CHECK_SCRIPT = r"""
       + "(1920x1080 dan tashqarida yoki manfiy o'rinda)");
   }
 
-  // Matn ustiga matn tushganmi.
+  // Matn ustiga matn tushganmi. Ota va uning ichidagi element
+  // sanalmaydi: ular bir matnning bo'laklari, chizuvchi ularni
+  // bitta quti qilib qo'yadi.
   let collisions = 0;
   for (let i = 0; i < texts.length; i += 1) {
     for (let j = i + 1; j < texts.length; j += 1) {
+      const first = texts[i].el, second = texts[j].el;
+      if (first.contains(second) || second.contains(first)) continue;
       const a = texts[i].r, b = texts[j].r;
       const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
       const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);

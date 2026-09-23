@@ -655,6 +655,114 @@ def check_accent_strip():
             os.remove(path)
 
 
+def check_inline_text():
+    """Abzats ichidagi <b>/<span> matni ajralib ketmasligi.
+
+    Ekstraktor faqat elementning O'Z matn tugunlarini olardi. Abzats
+    ichida <b> bo'lsa, uning matni otasidan tushib qolar va alohida
+    quti bo'lib o'sha abzatsning USTIGA chiqardi: varaqda matn ham
+    uzilgan, ham ustma-ust bo'lib ko'rinardi.
+    """
+    print("\n13) Abzats ichidagi ajratilgan matn")
+    if not html_render.available():
+        check("brauzer o'rnatilgan", False, html_render._INSTALL_HINT)
+        return
+
+    theme = themes.get("ko'k")
+    page = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    *{{margin:0;padding:0;box-sizing:border-box}}
+    body{{width:1920px;height:1080px;padding:90px;background:#FFFFFF;
+    font-family:{html_slides.FONT_STACK};overflow:hidden}}
+    h2{{font-size:52px;color:#{theme.heading}}}
+    p{{font-size:28px;color:#{theme.body};max-width:1200px;line-height:1.5;
+    margin-top:40px}}
+    b{{color:#{theme.accent}}}
+    .uzun{{max-width:700px}}
+    </style></head><body>
+    <h2>Sarlavha <b>ajratilgan</b> so'z bilan</h2>
+    <p>Yalpi ichki mahsulot <b>2026-yilda</b> pasaydi.</p>
+    <p class="uzun">Bu ko'rsatkich <b>uch yil</b> davomida pasayishda davom
+    etishi va ishlab chiqarish hajmiga hamda bandlik darajasiga sezilarli
+    ta'sir ko'rsatishi kutilmoqda.</p>
+    </body></html>"""
+
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = html_render._launch(playwright)
+        try:
+            context = browser.new_context(
+                viewport={"width": 1920, "height": 1080})
+            page_handle = context.new_page()
+            page_handle.set_content(page, wait_until="load")
+            blocks = [b for b in html_extract.read_layout(page_handle)["blocks"]
+                      if b["kind"] == "text"]
+            problems = html_extract.check_layout(page_handle)
+            context.close()
+        finally:
+            browser.close()
+
+    texts = [b["text"] for b in blocks]
+    check("har abzats bitta quti", len(blocks) == 3, str(len(blocks)))
+    check("ajratilgan so'z o'z joyida qoldi",
+          any("2026-yilda pasaydi" in t for t in texts), str(texts))
+    check("sarlavha ham butun",
+          any(t.startswith("Sarlavha ajratilgan so'z") for t in texts),
+          str(texts[:1]))
+    check("matn ikki marta olinmadi",
+          sum(t.count("2026-yilda") for t in texts) == 1, str(texts))
+    check("soxta to'qnashuv yo'q",
+          not any("matn ustiga matn" in item for item in problems),
+          str(problems))
+
+    single = [b for b in blocks if b.get("lines") == 1]
+    multi = [b for b in blocks if b.get("lines", 1) > 1]
+    check("qator soni o'lchanadi", bool(single) and bool(multi),
+          str([b.get("lines") for b in blocks]))
+
+
+def check_text_box_width():
+    """Matn qutisi brauzerdagi o'lchamda qolsin.
+
+    Ilgari har quti o'n piksel kengaytirilardi. Ko'p qatorli matnda bu
+    o'rashni o'zgartirar, matn qayta o'ralib qo'shnisining ustiga
+    chiqardi.
+    """
+    print("\n14) Matn qutisining kengligi")
+    if not html_render.available():
+        check("brauzer o'rnatilgan", False, html_render._INSTALL_HINT)
+        return
+
+    theme = themes.get("ko'k")
+    page = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    *{{margin:0;padding:0;box-sizing:border-box}}
+    body{{width:1920px;height:1080px;padding:90px;background:#FFFFFF;
+    font-family:{html_slides.FONT_STACK};overflow:hidden}}
+    .box{{width:800px;font-size:26px;color:#{theme.body};line-height:1.5}}
+    </style></head><body>
+    <div class="box">Bu matn sakkiz yuz piksel kenglikdagi blokda turadi va
+    bir necha qatorga joylashadi, shuning uchun uning kengligi aynan
+    saqlanishi kerak.</div></body></html>"""
+
+    path = html_render.render([page], out_dir="temp", name="sinov")
+    try:
+        from pptx import Presentation
+
+        shape = next(s for s in list(Presentation(path).slides)[0].shapes
+                     if s.has_text_frame and s.text_frame.text.strip())
+        # 800 px = 5.56 dyuym. Zaxira ikki pikseldan oshmasin.
+        width = shape.width / 914400
+        check("ko'p qatorli quti o'z kengligida",
+              abs(width - 800 * 13.333 / 1920) < 0.03, f"{width:.3f} dyuym")
+        check("matn to'liq ko'chdi",
+              "saqlanishi kerak" in shape.text_frame.text,
+              shape.text_frame.text[-40:])
+        check("o'rash yoqilgan", shape.text_frame.word_wrap is True)
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+
 def main():
     check_handler_names()
     check_prompt()
@@ -670,6 +778,8 @@ def main():
     check_icons()
     if html_render.available():
         check_accent_strip()
+        check_inline_text()
+        check_text_box_width()
 
     print()
     if FAILS:
