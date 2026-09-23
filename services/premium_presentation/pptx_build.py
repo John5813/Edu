@@ -117,15 +117,17 @@ def _add_text(slide, block: Dict) -> None:
         text = text.upper()
 
     area = _clip(block)
-    # Quti biroz kengroq bo'lsin: PowerPointdagi shrift brauzernikidan
-    # ozgina keng chiqsa, oxirgi so'z pastga ko'chib ketmasin. Balandlik
-    # va yuqori chekka esa tegilmaydi — aks holda matn quyidagi bezakka
-    # minib qoladi.
+    # HTML extractor matnni ko'rinadigan satrlar bo'yicha bo'lib, har bir
+    # fragmentning aniq kengligini beradi. Qutini yana kengaytirsak,
+    # yonma-yon turgan oddiy matn va highlight bir-birining ustiga chiqadi.
     frame_box = slide.shapes.add_textbox(
         _emu(area["x"]), _emu(area["y"]),
-        _emu(area["w"] + 10), _emu(area["h"]))
+        _emu(area["w"]), _emu(area["h"]))
     frame = frame_box.text_frame
-    frame.word_wrap = True
+    # Har bir blok bitta ko'rinadigan satr. PowerPoint shrift o'lchami
+    # ozgina farq qilsa ham, uni ikkinchi satrga ko'chirmaslik matnni
+    # kesilib yoki keyingi fragment ustiga tushib qolishidan saqlaydi.
+    frame.word_wrap = False
     frame.margin_left = frame.margin_right = 0
     frame.margin_top = frame.margin_bottom = 0
     frame.vertical_anchor = MSO_ANCHOR.TOP

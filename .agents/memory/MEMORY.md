@@ -1,2 +1,3 @@
 - [Python bot import and startup](python-bot-import.md) — use the workspace Python environment directly instead of uv project synchronization.
 - [Replit Chromium path](replit-chromium.md) — prefer the system Chromium binary when Playwright's downloaded shell closes unexpectedly.
+- [Premium inline text extraction](premium-inline-text.md) — extract wrapped DOM text by visual text-node fragments so nested spans never become overlapping PPTX boxes.

@@ -136,26 +136,57 @@ _SCRIPT = r"""
     return shownArea(el, r) >= r.w * r.h * 0.5;
   };
 
-  // Elementning O'ZIGA tegishli matn (bolalarinikisiz).
-  // <br> qator ko'chirishni bildiradi: uni yo'qotsak, ikki satr
-  // "sarlavhaning davomi" bo'lib yopishib qolardi.
-  const ownText = (el) => {
+  // Element ichidagi to'g'ridan-to'g'ri text node'larni alohida o'qiymiz.
+  // Masalan, <p>oddiy <span>ajratilgan</span> matn</p> uchun ota <p>
+  // ning butun qutisini qayta chizmaymiz: aks holda u span qutisi bilan
+  // ustma-ust tushadi va gapning so'zlari yo'qolgandek ko'rinadi.
+  const textNodeFragments = (node) => {
+    const value = node.nodeValue || "";
     const lines = [];
-    let current = "";
-    for (const node of el.childNodes) {
-      if (node.nodeType === 3) {
-        current += node.nodeValue;
-      } else if (node.nodeType === 1 && node.tagName === "BR") {
-        lines.push(current);
-        current = "";
+    for (let index = 0; index < value.length; index += 1) {
+      const charRange = document.createRange();
+      charRange.setStart(node, index);
+      charRange.setEnd(node, index + 1);
+      const rects = charRange.getClientRects();
+      if (!rects.length) continue;
+      const rect = rects[0];
+      if (rect.width < 0.01 || rect.height < 0.01) continue;
+      const key = Math.round(rect.top * 10) / 10;
+      let line = lines.find((item) => Math.abs(item.top - key) < 0.2);
+      if (!line) {
+        line = {top: key, start: index, end: index + 1};
+        lines.push(line);
+      } else {
+        line.start = Math.min(line.start, index);
+        line.end = Math.max(line.end, index + 1);
       }
     }
-    lines.push(current);
-    return lines
-      .map((line) => line.replace(/[^\S\n]+/g, " ").trim())
-      .join("\n")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
+
+    return lines.map((line) => {
+      let start = line.start;
+      let end = line.end;
+      while (start < end && /\s/.test(value[start])) start += 1;
+      while (end > start && /\s/.test(value[end - 1])) end -= 1;
+      if (end <= start) return null;
+      const range = document.createRange();
+      range.setStart(node, start);
+      range.setEnd(node, end);
+      const r = range.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1) return null;
+      return {
+        text: value.slice(start, end).replace(/\s+/g, " ").trim(),
+        r: {x: r.left, y: r.top, w: r.width, h: r.height},
+      };
+    }).filter(Boolean);
+  };
+
+  const directText = (el) => {
+    const fragments = [];
+    for (const node of el.childNodes) {
+      if (node.nodeType !== 3) continue;
+      fragments.push(...textNodeFragments(node));
+    }
+    return fragments;
   };
 
   const align = (value) => {
@@ -279,11 +310,12 @@ _SCRIPT = r"""
       }
     }
 
-    // O'z matni bo'lsa — matn qutisi.
-    const text = ownText(el);
-    if (text) {
+    // Ota konteynerning o'zi emas, faqat uning bevosita text node'lari
+    // matn qutisiga aylanadi. Child span/div lar keyingi walk() da o'qiladi.
+    for (const fragment of directText(el)) {
+      if (!visible(el, fragment.r) || !fragment.text) continue;
       out.push({
-        kind: "text", text, ...r,
+        kind: "text", text: fragment.text, ...fragment.r,
         size: parseFloat(s.fontSize) || 16,
         weight: parseInt(s.fontWeight, 10) || 400,
         italic: s.fontStyle === "italic",
@@ -321,12 +353,49 @@ _CHECK_SCRIPT = r"""
   const problems = [];
   const texts = [];
 
-  const own = (el) => {
-    let text = "";
-    for (const node of el.childNodes) {
-      if (node.nodeType === 3) text += node.nodeValue;
+  const textNodeFragments = (node) => {
+    const value = node.nodeValue || "";
+    const lines = [];
+    for (let index = 0; index < value.length; index += 1) {
+      const charRange = document.createRange();
+      charRange.setStart(node, index);
+      charRange.setEnd(node, index + 1);
+      const rects = charRange.getClientRects();
+      if (!rects.length) continue;
+      const rect = rects[0];
+      if (rect.width < 0.01 || rect.height < 0.01) continue;
+      const key = Math.round(rect.top * 10) / 10;
+      let line = lines.find((item) => Math.abs(item.top - key) < 0.2);
+      if (!line) {
+        line = {top: key, start: index, end: index + 1};
+        lines.push(line);
+      } else {
+        line.start = Math.min(line.start, index);
+        line.end = Math.max(line.end, index + 1);
+      }
     }
-    return text.trim();
+    return lines.map((line) => {
+      let start = line.start;
+      let end = line.end;
+      while (start < end && /\s/.test(value[start])) start += 1;
+      while (end > start && /\s/.test(value[end - 1])) end -= 1;
+      if (end <= start) return null;
+      const range = document.createRange();
+      range.setStart(node, start);
+      range.setEnd(node, end);
+      const r = range.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1) return null;
+      return {r, text: value.slice(start, end).trim()};
+    }).filter(Boolean);
+  };
+
+  const directText = (el) => {
+    const fragments = [];
+    for (const node of el.childNodes) {
+      if (node.nodeType !== 3) continue;
+      fragments.push(...textNodeFragments(node));
+    }
+    return fragments;
   };
 
   let outside = 0, tallest = 0, lowest = 0;
@@ -336,12 +405,11 @@ _CHECK_SCRIPT = r"""
     const r = el.getBoundingClientRect();
     if (r.width < 2 || r.height < 2) continue;
 
-    const text = own(el);
-    if (text) {
-      texts.push({r, text});
-      lowest = Math.max(lowest, r.bottom);
-      tallest = tallest || r.top;
-      tallest = Math.min(tallest, r.top);
+    for (const fragment of directText(el)) {
+      texts.push(fragment);
+      lowest = Math.max(lowest, fragment.r.bottom);
+      tallest = tallest || fragment.r.top;
+      tallest = Math.min(tallest, fragment.r.top);
     }
     // Slayddan chiqib ketgan: butun ekranni egallagan fon bundan mustasno.
     if (r.width < W * 0.98 || r.height < H * 0.98) {
