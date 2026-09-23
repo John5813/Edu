@@ -1245,12 +1245,16 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         # Brauzer nima ko'rsatsa, PowerPointda ham aynan o'sha turadi.
         # Joylashuvi buzilgan slayd bir marta qayta chizdiriladi:
         # buzilganini faqat brauzer ko'radi, AI esa uni ko'rmaydi.
+        # Bir yoni bo'sh qolgan slayd esa qayta chizilmaydi — o'sha
+        # joyga diagrammani tushuntiruvchi matn qo'yiladi.
         final_path = await _run_step(
             loop,
             lambda: html_render.render(
                 html_pages,
                 repair=lambda page, problems: html_slides.fix_slide(
-                    page, problems, theme, presentation_language)),
+                    page, problems, theme, presentation_language),
+                explain=lambda page, area: html_slides.fill_gap(
+                    page, area, theme, presentation_language)),
             step="render", label="Slaydlarni suratga olish")
 
     except Exception as e:

@@ -406,7 +406,7 @@ def build_pptx(image_paths: List[str], out_dir: str = "temp",
 
 
 def render(html_slides: List[str], out_dir: str = "temp",
-           name: str = "taqdimot", repair=None) -> str:
+           name: str = "taqdimot", repair=None, explain=None) -> str:
     """HTML → tahrirlanadigan PPTX.
 
     Har slayd brauzerda ochiladi, joylashuvi o'qiladi va PowerPointning
@@ -418,6 +418,11 @@ def render(html_slides: List[str], out_dir: str = "temp",
     bir marta qayta chizdiriladi: AI HTML ni brauzersiz yozadi va
     ba'zan varaqdan chiqib ketadigan yoki matn ustiga matn qo'yadigan
     kod chiqaradi. Buni faqat brauzer ko'radi.
+
+    `explain(html, area) -> html` berilsa, bir yoni bo'sh qolgan
+    slaydning o'sha maydoniga diagrammani tushuntiruvchi matn
+    qo'yiladi. Bunda slayd QAYTA CHIZILMAYDI — mavjud joylashuvga
+    tegilmaydi, faqat bo'sh joy to'ldiriladi.
     """
     from playwright.sync_api import sync_playwright
 
@@ -443,6 +448,22 @@ def render(html_slides: List[str], out_dir: str = "temp",
                     page = None
                     try:
                         page = _open_page(context, html)
+
+                        # Bir yoni bo'sh qolgan bo'lsa, o'sha joyga
+                        # diagramma izohi qo'yiladi. Slaydni qayta
+                        # chizish shart emas: joylashuv to'g'ri, faqat
+                        # bo'sh joy bor.
+                        if explain is not None:
+                            area = html_extract.gap_area(page)
+                            if area:
+                                log.info("%d-slayd: bo'sh yon (%d%%) izoh "
+                                         "bilan to'ldiriladi", index,
+                                         round(area["w"] * 100 / SLIDE_W_PX))
+                                filled = explain(html, area)
+                                if filled and filled != html:
+                                    html = filled
+                                    page.close()
+                                    page = _open_page(context, html)
 
                         if repair is not None:
                             problems = html_extract.check_layout(page)

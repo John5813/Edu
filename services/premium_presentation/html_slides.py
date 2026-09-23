@@ -584,6 +584,100 @@ def fix_slide(html: str, problems: List[str], theme, language: str = "uz") -> st
     return _restore(_unpark_images(fixed[0], store), theme)
 
 
+# Bo'sh yonga qo'yiladigan izohning uzunligi. Uzun matn qutisidan
+# toshib, diagrammaning ustiga chiqib ketadi.
+_GAP_WORDS = 45
+
+
+def explain_visual(html: str, theme, language: str = "uz") -> str:
+    """Slayddagi diagrammani tushuntiruvchi qisqa matn.
+
+    Slaydning bir yoni bo'sh qolganda ishlatiladi: slaydni qayta
+    chizish shart emas, bo'sh joyga diagrammaning ma'nosini
+    aytadigan matn qo'yilsa yetadi.
+    """
+    target = _LANGUAGE.get(language, _LANGUAGE["uz"])
+    parked, _ = _park_images(html)
+    system = ("Sen taqdimot matnlarini yozadigan muharrirsan. "
+              f"Javobni {target} yozasan.")
+    user = (
+        "Quyida taqdimot slaydining HTML kodi berilgan. Undagi "
+        "diagramma, jadval yoki ko'rsatkichlarni tushuntiruvchi "
+        f"2-3 gaplik matn yoz ({_GAP_WORDS} so'zdan oshmasin): raqamlar "
+        "nimani bildiradi, nega shunday va undan qanday xulosa "
+        "chiqadi.\n"
+        "Slaydda allaqachon yozilgan gaplarni takrorlama. Sarlavha, "
+        "ro'yxat belgisi, HTML teg va qo'shtirnoq yozma — faqat "
+        "tayyor matnning o'zini ber.\n\nSlayd:\n" + parked
+    )
+
+    try:
+        raw = llm_client._call_openrouter_text(
+            system, user, temperature=0.5, max_tokens=400)
+    except Exception as exc:
+        log.warning("Diagramma izohi olinmadi: %s", exc)
+        return ""
+
+    text = _THINK.sub("", str(raw or ""))
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"\s+", " ", text).strip().strip('"').strip()
+    words = text.split()
+    if len(words) > _GAP_WORDS:
+        text = " ".join(words[:_GAP_WORDS]).rstrip(".,;:") + "."
+    return text
+
+
+def _escape(text: str) -> str:
+    return (text.replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;"))
+
+
+def fill_gap(html: str, area: Dict, theme, language: str = "uz") -> str:
+    """Slaydning bo'sh yoniga diagramma izohini qo'yadi.
+
+    Slayd qayta chizilmaydi: mavjud joylashuvga tegilmay, bo'sh
+    maydonga bitta matn bloki qo'shiladi. Blok `position: fixed`
+    bilan qo'yiladi — slayd aynan brauzer oynasi o'lchamida
+    (1920x1080) bo'lgani uchun u varaqning o'sha joyiga tushadi.
+    """
+    if not area:
+        return html
+
+    # O'lcham avval tekshiriladi: tor joyga matn baribir sig'maydi,
+    # modelni bekorga chaqirib so'rov sarflamaymiz.
+    pad = 48
+    x = float(area.get("x") or 0) + pad
+    y = float(area.get("y") or 0)
+    width = float(area.get("w") or 0) - pad * 2
+    height = float(area.get("h") or 0)
+    if width < 220 or height < 120:
+        return html
+
+    text = explain_visual(html, theme, language)
+    if not text:
+        return html
+
+    # Matn maydonga sig'sin: tor joyda shrift kichrayadi.
+    size = 30 if width >= 460 else 24
+
+    block = (
+        f'<div style="position:fixed;left:{x:.0f}px;top:{y:.0f}px;'
+        f'width:{width:.0f}px;height:{height:.0f}px;display:flex;'
+        'flex-direction:column;justify-content:center;'
+        f'font-size:{size}px;line-height:1.6;color:#{theme.body};'
+        'text-align:left">'
+        f'<div style="width:72px;height:5px;background:#{theme.accent};'
+        'margin-bottom:24px"></div>'
+        f'<p>{_escape(text)}</p></div>'
+    )
+
+    lower = html.lower()
+    cut = lower.rfind("</body>")
+    if cut < 0:
+        return html + block
+    return html[:cut] + block + html[cut:]
+
+
 def _restore(html: str, theme) -> str:
     """Qayta chizilgan slaydning rasmlarini joyiga qo'yadi.
 

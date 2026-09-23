@@ -448,7 +448,6 @@ _CHECK_SCRIPT = r"""
   const W = window.innerWidth, H = window.innerHeight;
   const problems = [];
   const texts = [];
-  const chunks = [];
 
   const own = (el) => {
     let text = "";
@@ -473,17 +472,6 @@ _CHECK_SCRIPT = r"""
       tallest = Math.min(tallest, r.top);
     }
 
-    // Ko'zga tashlanadigan bo'laklar: matn, to'ldirilgan blok, rasm
-    // yoki diagramma. Butun varaqni egallagan fon va ingichka chiziq
-    // hisobga olinmaydi — ular joylashuvni ko'rsatmaydi.
-    const fill = style.backgroundColor || "";
-    const solid = fill && fill.indexOf("rgba(0, 0, 0, 0)") < 0
-      && fill !== "transparent";
-    const drawn = ["IMG", "SVG", "CANVAS", "TABLE"].indexOf(el.tagName) >= 0;
-    if ((text || solid || drawn) && r.width > 8 && r.height > 8
-        && r.width < W * 0.95) {
-      chunks.push(r);
-    }
     // Slayddan chiqib ketgan: butun ekranni egallagan fon bundan mustasno.
     if (r.width < W * 0.98 || r.height < H * 0.98) {
       if (r.left < -8 || r.top < -8 || r.right > W + 8 || r.bottom > H + 8) {
@@ -567,14 +555,48 @@ _CHECK_SCRIPT = r"""
     }
   }
 
-  // Slaydning bir yoni bo'sh qolganmi. Diagramma ko'pincha shunday
-  // buziladi: ustunlar qatori chap chekkaga siqilib qoladi va o'ng
-  // yarmi bo'm-bo'sh turadi. Balandligi bo'yicha ustma-ust tushgan
-  // bo'laklar bitta qator deb olinadi va o'sha qatorning eni
-  // o'lchanadi. Markazga qo'yilgan blok (ikki yoni baravar bo'sh)
-  // xato sanalmaydi — u ataylab shunday qilingan.
+  return problems;
+}
+"""
+
+
+# Slaydning bir yoni bo'sh qolganini o'lchaydi. Diagramma ko'pincha
+# shunday chiqadi: ustunlar qatori chap chekkaga siqilib qoladi va
+# o'ng yarmi bo'm-bo'sh turadi. Bu xato emas — slaydni qayta chizish
+# shart emas. Bo'sh yonga diagrammani tushuntiruvchi matn qo'yiladi,
+# shunda slayd ham to'ladi, mazmuni ham boyiydi.
+#
+# Balandligi bo'yicha ustma-ust tushgan bo'laklar bitta qator deb
+# olinadi va o'sha qatorning eni o'lchanadi. Markazga qo'yilgan blok
+# (ikki yoni baravar bo'sh) tegilmaydi — u ataylab shunday.
+_GAP_SCRIPT = r"""
+() => {
+  const W = window.innerWidth, H = window.innerHeight;
+  const chunks = [];
+
+  const own = (el) => {
+    let text = "";
+    for (const node of el.childNodes) {
+      if (node.nodeType === 3) text += node.nodeValue;
+    }
+    return text.trim();
+  };
+
+  for (const el of document.body.querySelectorAll("*")) {
+    const style = getComputedStyle(el);
+    if (style.display === "none" || style.visibility === "hidden") continue;
+    const r = el.getBoundingClientRect();
+    if (r.width <= 8 || r.height <= 8) continue;
+    if (r.width >= W * 0.95) continue;
+    const fill = style.backgroundColor || "";
+    const solid = fill.indexOf("rgba(0, 0, 0, 0)") < 0 && fill !== "transparent";
+    const drawn = ["IMG", "SVG", "CANVAS", "TABLE"].indexOf(el.tagName) >= 0;
+    if (!own(el) && !solid && !drawn) continue;
+    chunks.push({top: r.top, bottom: r.bottom, left: r.left, right: r.right});
+  }
+
   const rows = [];
-  for (const r of chunks.slice().sort((a, b) => a.top - b.top)) {
+  for (const r of chunks.sort((a, b) => a.top - b.top)) {
     const row = rows.length ? rows[rows.length - 1] : null;
     if (row && r.top < row.bottom - 2) {
       row.left = Math.min(row.left, r.left);
@@ -584,20 +606,35 @@ _CHECK_SCRIPT = r"""
       rows.push({top: r.top, bottom: r.bottom, left: r.left, right: r.right});
     }
   }
+
+  let best = null;
   for (const row of rows) {
     if (row.bottom - row.top < H * 0.15) continue;
-    const near = Math.min(row.left, W - row.right);
-    const far = Math.max(row.left, W - row.right);
-    if (far > W * 0.30 && near < W * 0.15) {
-      problems.push("mazmun slaydning bir yoniga siqilgan, "
-        + Math.round(far * 100 / W) + "% eni bo'sh qolgan — "
-        + "diagramma va bloklar butun enni egallasin");
-      break;
-    }
+    const leftGap = row.left, rightGap = W - row.right;
+    const far = Math.max(leftGap, rightGap);
+    const near = Math.min(leftGap, rightGap);
+    if (far <= W * 0.30 || near >= W * 0.15) continue;
+    const area = {
+      side: rightGap >= leftGap ? "right" : "left",
+      x: rightGap >= leftGap ? row.right : 0,
+      y: row.top,
+      w: far,
+      h: row.bottom - row.top,
+    };
+    if (!best || area.w * area.h > best.w * best.h) best = area;
   }
-  return problems;
+  return best;
 }
 """
+
+
+def gap_area(page):
+    """Slaydning bo'sh qolgan yon maydoni (yoki None)."""
+    try:
+        return page.evaluate(_GAP_SCRIPT)
+    except Exception as exc:
+        log.warning("Bo'sh yon o'lchanmadi: %s", exc)
+        return None
 
 
 def check_layout(page) -> List[str]:
