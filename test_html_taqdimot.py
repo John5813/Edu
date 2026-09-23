@@ -385,10 +385,14 @@ def check_no_quotas():
     # Miqdor talab qiladigan iboralar. "Yuqori chegara" qoladi —
     # u varaqqa sig'ish uchun, tuzilishni buyurish uchun emas.
     banned = ("kamida", "majburiy", "har uch slayd", "bo'lishi shart",
-              "har slaydda bo'lsin", "tagacha")
+              "har slaydda bo'lsin", "tagacha", "albatta",
+              "har slaydda bitta", "3-6 ta")
+    # "Har 4-5 slaydda bitta" kabi davriy talab.
+    periodic = re.compile(r"har \d+(?:-\d+)? ?(?:-?chi )?slayd")
     for name, text in pieces.items():
         low = text.lower()
         hits = [word for word in banned if word in low]
+        hits += periodic.findall(low)
         check(f"{name}da kvota yo'q", not hits, str(hits))
 
     # Aksincha — shaklni mazmun tanlashi AYTILGAN bo'lsin.
@@ -1850,6 +1854,93 @@ def check_auto_icons():
           str(page.count("data:image")))
 
 
+def check_repair_keeps_rich_slides():
+    """To'q varaq "buzuq" deb topilib soddalashtirilmasin.
+
+    Bezak doiralari ataylab varaq chetidan chiqib turadi. Qorovul
+    ularni xato deb sanardi, shuning uchun har bir to'q varaq —
+    muqova, ajratkich, to'q qadamlar — modelga qayta yozdirilardi.
+    Qayta yozish "qisqart" degani uchun varaq sarlavha va bitta
+    jumlaga aylanardi, muammo soni esa kamaymasa ham yangi varaq
+    qabul qilinardi.
+    """
+    print("\n26) Qayta yozish varaqni soddalashtirmaydi")
+    if not html_render.available():
+        check("brauzer o'rnatilgan", False, html_render._INSTALL_HINT)
+        return
+    theme = themes.get("ko'k")
+
+    divider = ('<section class="slide dark"><div class="body">'
+               '<h2 class="title big">Termodinamika</h2><div class="rule">'
+               '</div><p class="lead">Issiqlik va ish.</p></div></section>')
+    steps = ('<section class="slide dark"><div class="head"><h2 class="title">'
+             'Bosqichlar</h2></div><div class="body"><div class="steps">'
+             + '<div class="arrow">&#8594;</div>'.join(
+                 f'<div class="card"><div class="card-title">Bosqich {i}</div>'
+                 '<div class="card-note">Izoh matni.</div></div>'
+                 for i in range(4)) + '</div></div></section>')
+    pages = html_slides.build_pages([divider, steps], theme)
+
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = html_render._launch(playwright)
+        try:
+            context = browser.new_context(
+                viewport={"width": 1920, "height": 1080})
+            for name, page in zip(("ajratkich", "to'q qadamlar"), pages):
+                handle = context.new_page()
+                handle.set_content(page, wait_until="load")
+                problems = html_extract.check_layout(handle)
+                check(f"{name}: bezak xato deb sanalmaydi", not problems,
+                      str(problems))
+                handle.close()
+            context.close()
+        finally:
+            browser.close()
+
+    calls = []
+
+    def repair(html, problems):
+        calls.append(problems)
+        return html
+
+    out_dir = os.path.join("temp", "test_repair")
+    path = html_render.render(pages, out_dir=out_dir, name="qayta",
+                              repair=repair)
+    check("to'q varaq qayta yozdirilmaydi", not calls, str(calls))
+
+    # Tuzatish muammoni kamaytirmasa — asl varaq qoladi.
+    broken = ('<section class="slide"><div class="head"><h2 class="title">'
+              'Sarlavha</h2></div><div class="body"><div class="cols cols-2">'
+              '<div class="card"><div class="card-title">Bir</div>'
+              '<div class="card-note">Izoh.</div></div><div class="card">'
+              '<div class="card-title">Ikki</div><div class="card-note">'
+              'Izoh.</div></div></div></div></section>')
+    page = html_slides.build_pages([broken], theme)[0]
+    simple = html_slides.build_pages(
+        ['<section class="slide"><div class="head"><h2 class="title">'
+         'Sarlavha</h2></div><div class="body"><p class="lead">Bitta '
+         'jumla.</p></div></section>'], theme)[0]
+    original = html_extract.check_layout
+    try:
+        html_extract.check_layout = lambda handle: ["1 ta element slayddan "
+                                                    "chiqib ketgan"]
+        path = html_render.render([page], out_dir=out_dir, name="qayta2",
+                                  repair=lambda html, problems: simple)
+    finally:
+        html_extract.check_layout = original
+    from pptx import Presentation
+
+    texts = [shape.text_frame.text for shape in
+             Presentation(path).slides[0].shapes if shape.has_text_frame]
+    check("yaxshilamagan tuzatish qabul qilinmaydi",
+          "Bir" in texts and "Bitta jumla." not in texts, str(texts))
+    check("og'irlik soni bo'yicha solishtiriladi",
+          html_render._severity(["2 ta element", "1 joyda matn"]) == 3
+          and html_render._severity(["matn toshgan"]) == 1)
+
+
 def main():
     check_handler_names()
     check_prompt()
@@ -1886,6 +1977,7 @@ def main():
         check_colour_harmony()
         check_icon_cards()
     check_auto_icons()
+    check_repair_keeps_rich_slides()
 
     print()
     if FAILS:

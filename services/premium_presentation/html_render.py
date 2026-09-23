@@ -405,6 +405,19 @@ def build_pptx(image_paths: List[str], out_dir: str = "temp",
     return _save(presentation, out_dir, name)
 
 
+def _severity(problems: List[str]) -> int:
+    """Joylashuv xatolarining og'irligi.
+
+    Har xabar sonidan boshlanadi ("2 ta element ..."); soni yo'q
+    xabar bitta hisoblanadi.
+    """
+    total = 0
+    for item in problems:
+        head = str(item).split(" ", 1)[0]
+        total += int(head) if head.isdigit() else 1
+    return total
+
+
 def render(html_slides: List[str], out_dir: str = "temp",
            name: str = "taqdimot", repair=None, explain=None) -> str:
     """HTML → tahrirlanadigan PPTX.
@@ -475,9 +488,11 @@ def render(html_slides: List[str], out_dir: str = "temp",
                                     page.close()
                                     page = _open_page(context, fixed)
                                     left = html_extract.check_layout(page)
-                                    if len(left) > len(problems):
-                                        # Tuzatish yomonlashtirdi — eskisi
-                                        # qaytariladi.
+                                    if _severity(left) >= _severity(problems):
+                                        # Tuzatish yaxshilamadi — eskisi
+                                        # qaytariladi. Muammo kamaymagan
+                                        # bo'lsa qayta yozilgan slayd
+                                        # faqat soddalashgan bo'ladi.
                                         page.close()
                                         page = _open_page(context, html)
                                     else:

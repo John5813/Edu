@@ -120,7 +120,8 @@ _FAMILIES: Dict[str, Dict[str, str]] = {
         "shape": (
             "- Mavzuni o'zi talab qilgan tartibda oching: tushuncha,\n"
             "  turlari, jarayoni, misoli, ahamiyati.\n"
-            "- Har slaydda bitta fikr bo'lsin."),
+            "- Har slayd bitta savolga javob bersin va uni to'la\n"
+            "  ochsin."),
         "numbers": (
             "Raqamni o'ylab topmang. Ishonchingiz komil bo'lmasa "
             "diagramma o'rniga matn bilan tushuntiring."),
