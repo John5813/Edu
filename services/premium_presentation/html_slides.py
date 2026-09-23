@@ -19,9 +19,7 @@ import logging
 import re
 from typing import Callable, Dict, List, Optional
 
-from services import timeframe
-
-from . import llm_client
+from . import deck_charts, deck_style, llm_client
 
 log = logging.getLogger("html_slides")
 
@@ -137,191 +135,59 @@ def icon_list() -> str:
 
 
 def shell_rules(theme, language: str) -> str:
-    """Har slaydga baravar tegishli QOBIQ qoidalari.
+    """Modelga beriladigan qoidalar — dizayn emas, MAZMUN uchun.
 
-    Bu yerda slaydning ichi emas, tashqi shartlari aytiladi: o'lcham,
-    shrift, rang, tashqi faylning yo'qligi. Ichini AI o'zi chizadi.
+    Ilgari bu yerda "shriftni shunday ber, rangni bunday qil" degan
+    o'nlab qoida turardi va model ularning yarmini unutardi. Endi
+    dizayn CSS da qat'iy turibdi (`deck_style`), shuning uchun model
+    bilan faqat mazmun haqida gaplashamiz: qaysi blok va ichida
+    qanday matn.
     """
     target = _LANGUAGE.get(language, _LANGUAGE["uz"])
-    icons = icon_list()
-    return f"""Sen professional taqdimot dizaynerisan. Sen HTML/CSS/SVG yozasan.
-Kodingiz brauzerda {SLIDE_W_PX}×{SLIDE_H_PX} o'lchamda suratga olinadi va
-PowerPoint slaydiga aylanadi — shuning uchun quyidagi QOBIQ shartlari
-qat'iy.
+    return f"""Sen taqdimot muallifi va kompozitorisan. Matnni {target}
+yozasan.
 
-QOBIQ:
-1. Har slayd — alohida, TO'LIQ HTML hujjat: <!DOCTYPE html> dan
-   </html> gacha.
-2. body: aniq {SLIDE_W_PX}px × {SLIDE_H_PX}px, margin 0, overflow hidden,
-   ichki padding 72-96px. box-sizing: border-box.
-3. Faqat ichki <style>. Tashqi CSS fayl, Google Fonts, JS kutubxona,
-   tashqi rasm havolasi — YO'Q. Hammasi bitta faylda o'zi yetarli.
-4. Shrift faqat shu ikkisidan biri:
-   font-family: {FONT_STACK};
-   font-family: {SERIF_STACK};
-   Boshqasini yozsang slayd PowerPointda boshqacha joylashadi.
-   Qalinlikni font-weight bilan bering (300-800).
-5. Rasm o'rniga SVG yoki CSS bilan chiz. <img>, tashqi ikonka, emoji
-   shrifti ishlatma. Belgi kerak bo'lsa — inline SVG.
-6. Matn KESILMASIN: text-overflow, ellipsis, qat'iy height bilan
-   overflow yashirish — taqiqlanadi. Matn uzun bo'lsa shriftni
-   kichraytir yoki blokni kengaytir.
-7. Bo'sh joy egasi ("Lorem ipsum", "Matn shu yerda") qoldirma. Biror
-   blokka mazmun topolmasang — o'sha blokni butunlay olib tashla.
-8. Slayd chetiga matn yopishmasin: hech bir element body chetidan
-   48px dan yaqin bo'lmasin.
-9. Slayd PowerPointda TAHRIRLANADI: har matn bo'lagi o'z elementida
-   tursin. Bitta <p> ichiga <br> bilan uch xil fikrni tiqma — har biri
-   alohida element bo'lsin. Matnni <span> ichida rangga bo'lib
-   tashlama: bir gap — bir element.
-10. Matn ustiga matn qo'yma (absolute joylashuv bilan ham). Bloklarni
-   flex yoki grid bilan yonma-yon qo'y.
-11. Mazmun BUTUN BALANDLIKNI egallasin. body ni shunday qil:
-   display:flex; flex-direction:column; height:1080px;
-   va bo'shliqni bloklar orasiga taqsimla (gap yoki
-   justify-content:space-between). Hamma narsa yuqoriga to'planib,
-   pastki yarmi bo'sh qolmasin.
-12. position:absolute dan iloji boricha qochning; ishlatsangiz ham
-   manfiy o'rin (top:-40px, margin-top:-...) BERMANG va element
-   ota-onasidan chiqib ketmasin. Vaqt o'qi (timeline) kabi narsalarda
-   kartochkalarni chiziqning OSTIGA oddiy flex bilan qo'ying.
-13. Diagramma yozuvlari (izoh, legend, qiymat) ustunlar yoki
-   chiziqlar USTIGA tushmasin — ular uchun alohida joy ajrating.
-   Diagramma BUTUN ENNI egallasin: ustunlar qatorini
-   `display:flex; justify-content:space-between` qiling yoki har
-   ustunga `flex:1` bering. Ustunlarga qat'iy `width` berib chap
-   chekkaga to'plamang — o'ng yarmi bo'sh qolib ketadi.
-14. Bezak uchun shaffoflik (opacity, rgba) o'rniga TAYYOR och rangni
-   yozing: PowerPointda shaffoflik boshqacha chiqadi.
+Dizayn TAYYOR: shrift, rang, chet, oraliq va kartochkaning ko'rinishi
+CSS da qat'iy berilgan. Sen CSS yozmaysan, rang tanlamaysan, o'lcham
+bermaysan. Sen faqat SLAYD MAZMUNINI va uning tuzilishini yozasan —
+tayyor bloklardan foydalanib.
 
-RANG TIZIMI (hamma slaydda AYNAN shu ranglar):
-  aksent:        #{theme.accent}
-  to'q aksent:   #{theme.band}
-  yumshoq fon:   #{theme.accent_soft}
-  sahifa foni:   #{theme.background}
-  sarlavha matn: #{theme.heading}
-  tana matn:     #{theme.body}
-  ikkilamchi:    #{theme.muted}
-  to'q fon ustidagi matn: #{theme.invert}
-Diagrammalarda shu ranglardan foydalaning: {", ".join("#" + c for c in theme.chart[:5])}
+{deck_style.BLOCKS}
 
-TIPOGRAFIKA:
-  slayd sarlavhasi 52-72px, bo'lim sarlavhasi 30-40px,
-  tana matn 22-28px, izoh 18-20px. Qalin va ingichka qalinlikni
-  aralashtir — ierarxiya ko'rinsin.
+IKONKA nomlari faqat shu ro'yxatdan olinadi:
+{icon_list()}
 
-FOTOSURAT (majburiy):
-Rasm kerak joyga shunday belgi qo'y — `src` yozma, uni tizim o'zi
-to'ldiradi:
-
-  <img data-prompt="wide documentary photograph of ..., natural light"
-       class="photo" alt="">
-
-- `data-prompt` INGLIZ tilida, 15-25 so'z, mavzuga aniq mos real
-  sahna. Ichida YOZUV so'rama (text, label, sign, caption) — modellar
-  harflarni buzib chizadi.
-- `src` ni O'ZINGIZ yozmang va tashqi havola bermang: `data-prompt`siz
-  `<img>` slaydda buzuq belgi bo'lib qoladi.
-- CSS da rasmga o'lcham va `object-fit: cover` ber, kerak bo'lsa
-  `border-radius`.
-- MUQOVADA albatta bitta katta rasm bo'lsin (butun slaydni yoki
-  yarmini egallagan), undan tashqari yana kamida ikkita slaydda rasm
-  bo'lsin. Jami uchtadan kam bo'lmasin, oltitadan oshmasin.
-
-IKONKA (tekin, tez — ko'p ishlating):
-Kartochka, qadam, ro'yxat bandi va ko'rsatkich yonida ikonka tursin.
-Rasmdek belgilanadi, faqat `data-icon` bilan:
-
-  <img data-icon="education" class="ikon" alt="">
-
-- Nom faqat shu ro'yxatdan olinadi:
-{icons}
-- Rang kerak bo'lsa: `data-icon-color="FFFFFF"` (to'q fon ustida).
-  Berilmasa aksent rangida chiqadi.
-- CSS da o'lcham bering (48-72px). Ikonkalar bir rangli siluet —
-  ularni och fonli doira yoki kvadrat ichiga qo'ysangiz chiroyli
-  chiqadi.
-- Bir slaydda bir xil ikonkani takrorlamang.
-
-DIZAYN (slaydlar bir-biriga o'xshab ketmasin):
-- MUQOVA: butun slaydni egallagan rasm + ustidan to'q parda
-  (masalan `background: linear-gradient(...)` yoki to'q rangli qatlam)
-  + oq sarlavha. Oq fonli quruq muqova YOZMA.
-- Har 3-4 slaydda bitta AJRATKICH slayd: to'q aksent fon
-  (#{theme.band}), ustida oq yirik sarlavha va bitta jumla.
-- Qolgan slaydlar och fonda, lekin har birida bitta kuchli vizual
-  langar bo'lsin: rasm, SVG diagramma, yirik raqam yoki ikonkalar
-  qatori. Faqat matndan iborat slayd bo'lmasin.
-- SOYA UMUMAN ISHLATILMAYDI: na `box-shadow`, na `text-shadow`, na
-  `filter: drop-shadow`. PowerPointda soya chiqmaydi, kodda esa u
-  butunlay kesib tashlanadi — yozsangiz shunchaki yo'qoladi.
-  Hajm kerak bo'lsa: och fon (#{theme.accent_soft}), 16-20px yumaloq
-  burchak va tepasida yoki chapida 4-6px aksent chizig'i.
-- Bir slaydda ikkitadan ortiq turli rang ishlatma.
-- BIR MATNNI IKKI MARTA YOZMANG. Soya, kontur yoki nur berish uchun
-  sarlavhaning ikkinchi nusxasini (`<span>` ichida, `position:absolute`
-  bilan yoki `filter: blur` qo'yilgan qatlamda) qo'ymang: brauzerda
-  ular ustma-ust tushib bittadek ko'rinadi, PowerPointda esa matn ikki
-  marta yozilgan bo'lib chiqadi. Har matn — bitta element, soyasiz.
-- Sarlavhaga gradient bermang (`-webkit-background-clip: text`):
-  PowerPointda harf rangi yo'qoladi. Oddiy `color` yetarli.
-
-DIAGRAMMA VA KO'RSATKICH:
-- Har diagramma yoki ko'rsatkichlar qatoridan keyin 2-3 gaplik IZOH
-  bo'lsin: raqam nimani bildiradi, nega shunday, undan qanday xulosa
-  chiqadi. Quruq raqam qoldirma.
-- Diagramma o'qlarida yozuv bo'lsin; qiymatlar ustun tepasida tursin,
-  ustun ichiga kirmasin.
-- Ko'rsatkich (KPI) kartochkasida: yirik raqam, ostida nima ekani,
-  ostida bir qatorli izoh.
-
-VAQT O'QI uchun aniq usul (eng ko'p shu buziladi):
-Gorizontal chiziq chizib, kartochkalarni `position:absolute` bilan
-osma. Buning o'rniga: `display:flex` qatori, har ustunda tepada
-sana, ostida 14px doira, ostida matn. Chiziqni doiralar qatorining
-orqasiga `::before` bilan emas, alohida `div` bilan qo'y.
-
-SXEMA, TUZILMA va JARAYON uchun aniq usul:
-Bu slaydlar eng ko'p xunuk chiqadi — quyidagilarga qat'iy amal qil.
-- Bitta sxemada hamma quti BIR XIL ko'rinishda bo'lsin: bir xil
-  balandlik, bir xil `padding` (20-28px), bir xil yumaloq burchak
-  (14-18px), bir xil shrift o'lchami. Bir qutini yirik, boshqasini
-  mayda qilma.
-- Bir darajadagi qutilar BIR XIL rangda bo'lsin. Uchta sababni uch xil
-  ko'kning uch xil to'qligida bermang — bu tartibsiz ko'rinadi.
-  Daraja o'zgarsagina rang o'zgarsin: sabablar och fonda
-  (#{theme.accent_soft}) aksent chizig'i bilan, natija esa to'q
-  aksentda (#{theme.band}) oq matn bilan.
-- Bir xil MATNNI bir necha marta chizma. Uch sabab bitta natijaga
-  olib kelsa, natija qutisi BITTA bo'lsin va uchala sabab o'sha
-  bittasiga ulansin. Uchta bir xil doira chizish — xato.
-- Qutini doira qilma. Doiraga matn sig'maydi va chetidan chiqib
-  ketadi; doira faqat raqam yoki ikonka uchun (48-72px). Matn uchun
-  yumaloq burchakli to'rtburchak ishlat.
-- Matn qutiga SIG'SIN: qutiga qat'iy balandlik berma, matn uzun
-  bo'lsa quti o'zi cho'zilsin. Yorliqlar qisqa bo'lsin (1-3 so'z).
-- Bog'lovchi chiziqqa uchi bo'lsin. Eng oson yo'li — inline SVG:
-  `<svg><defs><marker id="uch" ...><path d="M0,0 L8,4 L0,8 Z"/>
-  </marker></defs><line marker-end="url(#uch)" .../></svg>`.
-  Uchsiz chiziq yo'nalishni ko'rsatmaydi.
-- Bloklarni `display:flex` yoki `grid` bilan tekisla, `gap` 32-48px.
-  `position:absolute` bilan osma.
-
-MAZMUN:
-- Matn {target} bo'lsin.
-- Har slaydda BITTA asosiy g'oya. O'rtacha 60 so'z — undan ortig'i
-  o'qilmaydi.
-- Aniq bo'l: raqam, sana, misol. Umumiy gaplardan qoch.
-- Diagrammadagi raqamlar mavzuga oid va ishonarli bo'lsin.
-
-{timeframe.year_rule(language)}
-
-CHIQISH FORMATI:
-Har slaydni to'liq HTML hujjat qilib yoz va slaydlar orasiga AYNAN shu
-qatorni qo'y:
-{MARKER}
-Boshqa hech qanday izoh, tushuntirish yoki markdown yozma — faqat xom
-HTML va ajratuvchi."""
+QAT'IY QOIDALAR:
+1. Javobda faqat `<section class="slide">` ... `</section>` bo'ladi.
+   Har slayddan keyin alohida qatorda {MARKER} yoziladi.
+2. `<style>`, `style="..."`, `<script>`, `<html>`, `<head>`, `<body>`
+   YOZMA. Rang, shrift, piksel, `width`, `height`, `margin`, `padding`
+   — hech qaysisi yozilmaydi. Faqat yuqoridagi sinf nomlari.
+3. `<img>` faqat ikonka uchun: `<img class="ikon" data-icon="NOM" alt="">`.
+   Fotosurat, tashqi havola, emoji — yo'q.
+4. Diagrammani O'ZING chizma. `<svg>` yozma. Faqat `.chart` blokiga
+   ma'lumot ber — qolganini tizim chizadi.
+5. Har slaydda MAZMUN yetarli bo'lsin, lekin oshirib yuborma:
+   - kartochka 2 tadan 4 tagacha, izohi 1-2 gap;
+   - ro'yxat bandi 3 tadan 5 tagacha, har biri 1-2 gap;
+   - ko'rsatkich 2 tadan 4 tagacha;
+   - vaqt o'qida 3 tadan 5 tagacha to'xtash.
+   Varaq 1920x1080 — bundan ko'pi sig'maydi va kesiladi.
+6. BO'SH BLOK QOLDIRMA. Har kartochkaning sarlavhasi ham, izohi ham
+   bo'lsin. Mazmun topolmasang kartochkani butunlay olib tashla va
+   qolganlarini kamroq ustunga joyla.
+7. Har slaydda bitta ko'rgazmali langar bo'lsin: diagramma, jadval,
+   ko'rsatkichlar, vaqt o'qi, qadamlar yoki ikonkali kartochkalar.
+   Faqat quruq matndan iborat slayd bo'lmasin.
+8. Ketma-ket ikki slayd bir xil blokda bo'lmasin. Butun taqdimotda
+   kamida oltita turli blok ishlatilsin.
+9. Bir slaydda bir xil matnni ikki marta yozma.
+10. Yorliqlar qisqa: kartochka sarlavhasi 1-4 so'z, vaqt o'qidagi
+   izoh bir jumla.
+11. Birinchi slayd — MUQOVA, oxirgisi — xulosa. Har 4-5 slaydda
+   bitta AJRATKICH (`slide dark`).
+12. Matn haqiqiy va aniq bo'lsin: raqam, sana, misol bilan. "Lorem
+   ipsum", "Matn shu yerda" kabi o'rin egallovchi yozma."""
 
 
 def _user_prompt(topic: str, start: int, count: int, total: int,
@@ -432,26 +298,55 @@ def _fallback_category(index: int, count: int) -> str:
 
 # ───────────────────────────────────────────────────────── slayd yozish
 
-def split_slides(raw: str) -> List[str]:
-    """Javobni to'liq HTML hujjatlarga ajratadi.
+_SECTION = re.compile(r"<section\b[^>]*\bclass\s*=\s*[\"'][^\"']*\bslide\b"
+                      r"[^\"']*[\"'][^>]*>.*?</section>",
+                      re.IGNORECASE | re.DOTALL)
+# Model ba'zan sinf nomiga qo'shimcha yozadi yoki `style=` tiqadi —
+# ikkalasi ham dizayn tizimini buzadi.
+_STYLE_ATTR = re.compile(r"\sstyle\s*=\s*([\"'])(.*?)\1",
+                         re.IGNORECASE | re.DOTALL)
+_STYLE_TAG = re.compile(r"<style\b.*?</style>|<script\b.*?</script>",
+                        re.IGNORECASE | re.DOTALL)
 
-    Chala kelgan hujjat tashlab yuboriladi: uni suratga olsak, yarim
-    slayd chiqadi.
+
+def split_slides(raw: str) -> List[str]:
+    """Javobni slayd mazmunlariga ajratadi.
+
+    Model endi to'liq HTML hujjat emas, `<section class="slide">`
+    bloklarini yozadi. Chala kelgani (yopilmagani) tashlab
+    yuboriladi: uni chizsak yarim slayd chiqadi.
     """
-    text = _FENCE.sub("", _THINK.sub("", str(raw or ""))).strip()
-    slides = []
+    text = _FENCE.sub("", _THINK.sub("", str(raw or "")))
+    text = _STYLE_TAG.sub("", text)
+    bodies = []
     for part in text.split(MARKER):
-        part = part.strip()
-        if not part:
-            continue
-        lower = part.lower()
-        if "<html" not in lower:
-            continue
-        if "</html>" not in lower:
-            log.warning("Chala kelgan slayd tashlandi (%d belgi)", len(part))
-            continue
-        slides.append(strip_shadows(part))
-    return slides
+        for match in _SECTION.finditer(part):
+            body = _STYLE_ATTR.sub("", match.group(0))
+            bodies.append(strip_shadows(body).strip())
+    if not bodies:
+        log.warning("Javobda slayd topilmadi (%d belgi)", len(text))
+    return bodies
+
+
+def build_pages(bodies: List[str], theme) -> List[str]:
+    """Slayd mazmunlarini chizishga tayyor HTML hujjatlarga aylantiradi.
+
+    Diagrammalar shu yerda chiziladi: model faqat ma'lumot beradi,
+    SVG ni kod yasaydi — shunda ustunning balandligi ham, yozuvning
+    o'rni ham har safar to'g'ri chiqadi.
+    """
+    drawn = [deck_charts.draw(body, theme) for body in bodies]
+    try:
+        from . import html_images
+
+        drawn, placed = html_images.apply_icons(drawn, theme)
+        # Ikonkasi topilmagani rangli belgiga aylanadi — buzuq rasm
+        # belgisi slaydga tushmaydi.
+        drawn = html_images.sweep(drawn, theme)
+        log.info("Ikonkalar: %d ta", placed)
+    except Exception as exc:
+        log.warning("Ikonkalar qo'yilmadi: %s", exc)
+    return [deck_style.page(theme, body) for body in drawn]
 
 
 def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
@@ -493,49 +388,9 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
     log.info("HTML slaydlar tayyor: %d ta", len(slides))
     if not slides:
         raise RuntimeError("AI birorta to'liq slayd qaytarmadi")
-    return slides
+    return build_pages(slides, theme)
 
 
-def ensure_photos(pages: List[str], theme, language: str = "uz",
-                  minimum: int = 3) -> List[str]:
-    """Taqdimotda kamida shuncha fotosurat so'ralganiga ishonch hosil qiladi.
-
-    Promptda aytilgan bo'lsa ham, model ba'zan rasmsiz slayd yozadi.
-    Shunda faqat o'sha slaydlar qayta so'raladi — muqovadan boshlab.
-    """
-    from . import html_images
-
-    have = html_images.count_requests(pages)
-    if have >= minimum or not pages:
-        return pages
-
-    log.warning("Taqdimotda %d ta rasm so'ralgan, kamida %d kerak",
-                have, minimum)
-    result = list(pages)
-    # Muqova birinchi navbatda, keyin o'rtadagi slaydlar.
-    order = [0] + [i for i in range(1, len(result) - 1)]
-    for index in order:
-        if have >= minimum:
-            break
-        if html_images.requests_in(result[index]):
-            continue
-        problem = ("slaydda fotosurat yo'q — bitta <img data-prompt=\"...\"> "
-                   "qo'shing va unga CSS da o'lcham hamda object-fit: cover "
-                   "bering")
-        fixed = fix_slide(result[index], [problem], theme, language)
-        if fixed and html_images.requests_in(fixed):
-            result[index] = fixed
-            have += 1
-    return result
-
-
-# Slaydga joylashtirilgan rasm `src="data:image/png;base64,...."`
-# ko'rinishida turadi va bitta fotosurat bir necha yuz ming belgi
-# bo'ladi. Uni modelga yuborib bo'lmaydi: so'rov kontekstga sig'maydi,
-# sig'sa ham model uzun satrni qayta yoza olmay rasmni tushirib
-# qoldiradi va slaydda "buzuq rasm" belgisi alt matni bilan qoladi.
-# Shuning uchun rasmlar so'rovdan OLDIN qisqa belgiga almashtiriladi
-# va javob kelgach o'z joyiga qaytariladi.
 _DATA_SRC = re.compile(r'src\s*=\s*(["\'])\s*(data:[^"\']+)\1',
                        re.IGNORECASE)
 
@@ -560,46 +415,39 @@ def _unpark_images(html: str, store: dict) -> str:
 
 
 def fix_slide(html: str, problems: List[str], theme, language: str = "uz") -> str:
-    """Joylashuvi buzilgan slaydni qayta chizdiradi.
+    """Joylashuvi buzilgan slaydni qayta yozdiradi.
 
-    Brauzer slaydni joylashtirgandan keyin tekshiriladi: element
-    varaqdan chiqib ketgani, matn ustiga matn tushgani yoki mazmun
-    yuqoriga to'planib qolgani ko'rinadi. Shu ro'yxat modelga aytiladi
-    va u FAQAT o'sha slaydni qayta yozadi — butun taqdimot emas.
-
-    Slayddagi fotosurat va ikonkalar so'rovga qo'shilmaydi: ular
-    qisqa belgiga almashtirilib, javob kelgach joyiga qaytariladi.
+    Modelga butun hujjat emas, faqat slaydning MAZMUNI yuboriladi:
+    CSS o'zgarmaydi, shuning uchun uni so'rovga qo'shish bekorga
+    token sarflash bo'lardi. Javob ham mazmun bo'lib keladi va
+    o'sha dizayn tizimiga qaytadan o'raladi.
     """
     if not problems:
         return html
 
-    parked, store = _park_images(html)
+    match = _SECTION.search(html)
+    if not match:
+        return html
+    body = match.group(0)
+
     listed = "\n".join(f"- {item}" for item in problems)
-    keep = ("- `src=\"#rasm1\"` kabi qisqa belgilar — bu tayyor rasmlar. "
-            "Ularni AYNAN o'sha holicha ko'chiring, o'zgartirmang va "
-            "o'chirmang; yangi `<img>` qo'shmang.\n") if store else ""
     user = (
         "Quyidagi slayd brauzerda noto'g'ri joylashdi. Topilgan "
         f"kamchiliklar:\n{listed}\n\n"
-        "Shu slaydni QAYTA yoz. Mazmunini saqla — faqat joylashuvini "
-        "to'g'rila:\n"
-        "- hech bir element 1920x1080 dan chiqmasin, manfiy o'rin "
-        "ishlatma;\n"
-        "- matn ustiga matn tushmasin — bloklarni flex yoki grid bilan "
-        "yonma-yon qo'y, ustma-ust emas;\n"
-        "- mazmun butun balandlikni egallasin: body ni flex ustun qilib, "
-        "bo'shliqni bloklar orasiga taqsimla;\n"
-        "- diagramma yozuvlari ustunlar ustiga tushmasin;\n"
-        "- bir matnni ikki marta yozma, soya ishlatma.\n"
-        + keep +
-        "\nJavobda faqat to'liq HTML hujjat bo'lsin, boshqa hech narsa "
-        "yozma.\n\nSlayd:\n" + parked
+        "Shu slaydni QAYTA yoz. Mazmunini saqla, lekin:\n"
+        "- mazmun ko'p bo'lsa qisqart: kartochka yoki band sonini "
+        "kamaytir, izohlarni kaltaroq qil;\n"
+        "- bo'sh kartochka va bo'sh blok qoldirma;\n"
+        "- bir matnni ikki marta yozma;\n"
+        "- faqat tanish sinf nomlaridan foydalan, yangi uslub yozma.\n\n"
+        "Javobda faqat bitta <section class=\"slide\"> ... </section> "
+        "bo'lsin.\n\nSlayd:\n" + body
     )
 
     try:
         raw = llm_client._call_openrouter_text(
             shell_rules(theme, language), user,
-            temperature=0.4, max_tokens=5200)
+            temperature=0.4, max_tokens=2600)
     except Exception as exc:
         log.error("Slaydni tuzatib bo'lmadi: %s", exc)
         return html
@@ -607,7 +455,7 @@ def fix_slide(html: str, problems: List[str], theme, language: str = "uz") -> st
     fixed = split_slides(raw)
     if not fixed:
         return html
-    return _restore(_unpark_images(fixed[0], store), theme)
+    return build_pages(fixed[:1], theme)[0]
 
 
 # Bo'sh yonga qo'yiladigan izohning uzunligi. Uzun matn qutisidan
@@ -623,11 +471,12 @@ def explain_visual(html: str, theme, language: str = "uz") -> str:
     aytadigan matn qo'yilsa yetadi.
     """
     target = _LANGUAGE.get(language, _LANGUAGE["uz"])
-    parked, _ = _park_images(html)
+    match = _SECTION.search(html)
+    parked = _park_images(match.group(0) if match else html)[0]
     system = ("Sen taqdimot matnlarini yozadigan muharrirsan. "
               f"Javobni {target} yozasan.")
     user = (
-        "Quyida taqdimot slaydining HTML kodi berilgan. Undagi "
+        "Quyida taqdimot slaydining mazmuni berilgan. Undagi "
         "diagramma, jadval yoki ko'rsatkichlarni tushuntiruvchi "
         f"2-3 gaplik matn yoz ({_GAP_WORDS} so'zdan oshmasin): raqamlar "
         "nimani bildiradi, nega shunday va undan qanday xulosa "
@@ -665,12 +514,11 @@ def fill_gap(html: str, area: Dict, theme, language: str = "uz") -> str:
     maydonga bitta matn bloki qo'shiladi. Blok `position: fixed`
     bilan qo'yiladi — slayd aynan brauzer oynasi o'lchamida
     (1920x1080) bo'lgani uchun u varaqning o'sha joyiga tushadi.
+    Ko'rinishi dizayn tizimidan olinadi: aksent chizig'i va `note`.
     """
     if not area:
         return html
 
-    # O'lcham avval tekshiriladi: tor joyga matn baribir sig'maydi,
-    # modelni bekorga chaqirib so'rov sarflamaymiz.
     pad = 48
     x = float(area.get("x") or 0) + pad
     y = float(area.get("y") or 0)
@@ -683,18 +531,12 @@ def fill_gap(html: str, area: Dict, theme, language: str = "uz") -> str:
     if not text:
         return html
 
-    # Matn maydonga sig'sin: tor joyda shrift kichrayadi.
-    size = 30 if width >= 460 else 24
-
     block = (
         f'<div style="position:fixed;left:{x:.0f}px;top:{y:.0f}px;'
         f'width:{width:.0f}px;height:{height:.0f}px;display:flex;'
-        'flex-direction:column;justify-content:center;'
-        f'font-size:{size}px;line-height:1.6;color:#{theme.body};'
-        'text-align:left">'
-        f'<div style="width:72px;height:5px;background:#{theme.accent};'
-        'margin-bottom:24px"></div>'
-        f'<p>{_escape(text)}</p></div>'
+        'flex-direction:column;justify-content:center;gap:24px">'
+        '<div class="rule"></div>'
+        f'<p class="note">{_escape(text)}</p></div>'
     )
 
     lower = html.lower()

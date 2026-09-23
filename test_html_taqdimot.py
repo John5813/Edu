@@ -26,7 +26,8 @@ sys.path.insert(0, ".")
 os.environ.setdefault("BOT_TOKEN", "test")
 
 from services.premium_presentation import (  # noqa: E402
-    html_extract, html_images, html_render, html_slides, llm_client, themes)
+    deck_charts, deck_style, html_extract, html_images, html_render,
+    html_slides, llm_client, themes)
 
 FAILS = []
 
@@ -38,12 +39,11 @@ def check(name, condition, detail=""):
 
 
 def _page(title="Sinov", extra=""):
-    return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-    *{{margin:0;padding:0;box-sizing:border-box}}
-    body{{width:1920px;height:1080px;padding:90px;background:#FFFFFF;
-    font-family:'DejaVu Sans','Liberation Sans',Arial,sans-serif}}
-    h1{{font-size:64px;color:#10241C}}</style></head>
-    <body><h1>{title}</h1>{extra}</body></html>"""
+    """Model qaytaradigan slayd mazmuni (to'liq hujjat emas)."""
+    inner = extra or '<p class="note">Matn.</p>'
+    return ('<section class="slide"><div class="head">'
+            f'<h2 class="title">{title}</h2><div class="rule"></div></div>'
+            f'<div class="body">{inner}</div></section>')
 
 
 def check_handler_names():
@@ -80,49 +80,159 @@ def check_handler_names():
 
 
 def check_prompt():
-    print("\n1) Qobiq qoidalari")
+    """Model bilan MAZMUN haqida gaplashiladi, dizayn haqida emas.
+
+    Ilgari promptda "shriftni shunday ber, rangni bunday qil" degan
+    o'nlab qoida turardi va model ularning yarmini unutardi — har
+    slayd boshqacha chiqardi. Endi dizayn CSS da qat'iy turibdi,
+    model esa faqat qaysi blok va ichida qanday matn bo'lishini
+    aytadi.
+    """
+    print("\n1) Mazmun qoidalari")
     theme = themes.get("zumrad")
     rules = html_slides.shell_rules(theme, "uz")
 
-    check("o'lcham aytilgan", "1920px × 1080px" in rules, rules[:80])
-    check("tashqi fayl taqiqlangan",
-          "Google Fonts" in rules and "YO'Q" in rules)
-    check("shrift qat'iy", html_slides.FONT_STACK in rules)
-    check("tanlangan rang promptda", theme.accent in rules, theme.accent)
-    check("matn kesilishi taqiqlangan", "ellipsis" in rules)
     check("ajratuvchi aytilgan", html_slides.MARKER in rules)
-    check("bo'sh joy egasi taqiqlangan", "Lorem ipsum" in rules)
+    check("varaq tuzilishi berilgan",
+          '<section class="slide">' in rules and '<div class="body">' in rules)
+    check("bo'sh joy egasi taqiqlangan", "o'rin egallovchi" in rules)
+    check("bo'sh blok taqiqlangan", "BO'SH BLOK QOLDIRMA" in rules)
+    check("ikonka ro'yxati bor", "data-icon" in rules)
 
-    # Qat'iy shablon bo'lmasligi kerak: kategoriya — yo'nalish, o'rin
-    # koordinatasi emas.
-    catalogue = html_slides.catalogue_text()
-    check("kategoriyalar ro'yxati bor", len(html_slides.CATEGORY_KEYS) >= 12,
-          str(len(html_slides.CATEGORY_KEYS)))
-    check("kategoriyada koordinata yo'q",
-          not any(word in catalogue.lower()
-                  for word in ("px", "x:", "y:", "dyuym")), catalogue[:80])
-    check("diagramma kategoriyasi bor", "diagramma" in html_slides.CATEGORY_KEYS)
-    check("jadval kategoriyasi bor", "jadval" in html_slides.CATEGORY_KEYS)
+    # Dizayn haqida so'ralmaydi: rang, piksel va CSS promptda YO'Q.
+    check("CSS yozish taqiqlangan",
+          "`<style>`" in rules and 'style="..."' in rules)
+    check("rang tanlash so'ralmagan", theme.accent not in rules, theme.accent)
+    check("SVG chizish taqiqlangan", "`<svg>` yozma" in rules)
+    check("diagramma ma'lumot bilan beriladi",
+          'data-kind="bar"' in rules and "data-series" in rules)
+
+    for name in ("cols-3", "kpi", "timeline", "steps", "quote",
+                 "table", "card", "list"):
+        check(f"{name} bloki bor", name in deck_style.BLOCKS)
+
+
+def check_design_system():
+    """Dizayn CSS da qat'iy va bir xil bo'lsin."""
+    print("\n1b) Dizayn tizimi")
+    theme = themes.get("binafsha")
+    css = deck_style.stylesheet(theme)
+
+    check("almashtirilmagan kalit qolmadi",
+          not any(word in css for word in
+                  ("BACKGROUND", "HEADING", "ACCENT", "BANDCARD", "SANS")),
+          css[:80])
+    check("tanlangan sxema ishlatilgan", "#" + theme.accent in css)
+    check("varaq o'lchami qat'iy", "width:1920px" in css and "1080px" in css)
+    check("soya yo'q", "shadow" not in css.lower())
+
+    # Qutiga qat'iy balandlik berilmasa, matn undan chiqib keta
+    # olmaydi. Slaydning o'zi va bezaklargina o'lchamli bo'ladi.
+    lines = [line for line in css.split("\n")
+             if "height:" in line and "line-height" not in line
+             and "min-height" not in line and "max-height" not in line]
+    loose = [line for line in lines if "auto" not in line
+             and "100%" not in line and "1080px" not in line
+             and "0" not in line
+             and not any(f"height:{n}px" in line for n in
+                         (4, 5, 6, 14, 22, 56, 96))]
+    check("kartochkaga qat'iy balandlik yo'q", not loose, str(loose[:2]))
+
+    other = deck_style.stylesheet(themes.get("qizil"))
+    check("sxema butun uslubni almashtiradi", other != css)
+    check("tuzilish o'zgarmaydi", css.count("{") == other.count("{"))
+
+    page = deck_style.page(theme, '<section class="slide">x</section>')
+    check("to'liq hujjat yig'iladi",
+          page.startswith("<!DOCTYPE html>") and page.endswith("</html>"))
+    check("CSS hujjat ichida", "<style>" in page)
+
+
+def check_charts():
+    """Diagrammani kod chizadi — hisob har safar to'g'ri bo'ladi."""
+    print("\n1c) Diagrammalar")
+    import re as _re
+
+    theme = themes.get("ko'k")
+    body = ('<div class="chart" data-kind="bar" data-labels="2016,2018,2020" '
+            'data-series="Patent: 12,18,24|Nashr: 20,28,35" '
+            'data-unit="ming"></div>')
+    out = deck_charts.draw(body, theme)
+    check("SVG chizildi", "<svg" in out and "</svg>" in out)
+    check("ustunlar soni to'g'ri", out.count("<rect") >= 6,
+          str(out.count("<rect")))
+    check("qiymatlar yozildi", ">12<" in out and ">35<" in out)
+    check("o'q yozuvlari bor", ">2016<" in out and ">2020<" in out)
+    check("qatorlar imzolandi", ">Patent<" in out and ">Nashr<" in out)
+    check("birlik ko'rsatildi", ">ming<" in out)
+    check("sxema rangi ishlatildi", "#" + theme.chart[0] in out)
+
+    # Oxirgi ikki to'rtburchak — izoh belgisi, ustun emas.
+    tall = [float(m) for m in _re.findall(r'<rect[^>]*height="(\d+)"', out)][:6]
+    check("ustun balandligi nolga teng emas", all(v > 0 for v in tall),
+          str(tall[:4]))
+    check("eng katta qiymat eng baland", tall and max(tall) == tall[-1],
+          str(tall))
+
+    line = deck_charts.draw(
+        '<div class="chart" data-kind="line" data-labels="a,b,c" '
+        'data-series="X: 3,6,9"></div>', theme)
+    check("chiziqli diagramma chizildi", "<path" in line and "<circle" in line)
+
+    donut = deck_charts.draw(
+        '<div class="chart" data-kind="donut" data-labels="Bir,Ikki" '
+        'data-series="Ulush: 75,25"></div>', theme)
+    check("halqa chizildi", "<path" in donut)
+    check("ulush foizga o'girildi", "75%" in donut and "25%" in donut)
+
+    empty = deck_charts.draw('<div class="chart" data-kind="bar"></div>', theme)
+    check("bo'sh diagramma olib tashlandi", "chart" not in empty, empty[:60])
 
 
 def check_split():
+    """Javob slayd mazmunlariga ajratilsin, uslub esa o'tkazilmasin."""
     print("\n2) Javobni slaydlarga ajratish")
-    good = _page("Bir") + f"\n{html_slides.MARKER}\n" + _page("Ikki")
-    check("ikkita slayd ajratildi", len(html_slides.split_slides(good)) == 2)
+    one = '<section class="slide"><div class="body">Bir</div></section>'
+    two = '<section class="slide dark"><div class="body">Ikki</div></section>'
 
-    truncated = _page("Bir") + f"\n{html_slides.MARKER}\n" + "<html><body><h1>Chala"
-    parts = html_slides.split_slides(truncated)
-    check("chala slayd tashlandi", len(parts) == 1, str(len(parts)))
+    parts = html_slides.split_slides(one + f"\n{html_slides.MARKER}\n" + two)
+    check("ikkita slayd ajratildi", len(parts) == 2, str(len(parts)))
+    check("sinf nomi saqlandi", len(parts) == 2 and "slide dark" in parts[1])
 
-    fenced = "```html\n" + _page("Bir") + "\n```"
+    half = one + f"\n{html_slides.MARKER}\n" + '<section class="slide">chala'
+    check("chala slayd tashlandi",
+          len(html_slides.split_slides(half)) == 1)
+
+    fenced = "```html\n" + one + "\n```"
     check("markdown ramkasi olib tashlandi",
           len(html_slides.split_slides(fenced)) == 1)
 
-    thinking = "<think>o'ylayapman</think>" + _page("Bir")
+    thinking = "<think>o'ylayapman</think>" + one
     parts = html_slides.split_slides(thinking)
     check("o'ylash bloki olib tashlandi",
           len(parts) == 1 and "o'ylayapman" not in parts[0])
     check("bo'sh javobdan slayd chiqmaydi", html_slides.split_slides("") == [])
+
+    # Model uslub yozib yuborsa ham dizayn tizimi buzilmasin.
+    dirty = ('<style>.card{color:red}</style>'
+             '<section class="slide"><div class="body" style="padding:200px">'
+             '<div class="card" style="background:red">Matn</div>'
+             '</div></section>')
+    parts = html_slides.split_slides(dirty)
+    check("tashqi uslub olib tashlandi",
+          len(parts) == 1 and "color:red" not in parts[0], str(parts)[:120])
+    check("style atributi olib tashlandi",
+          parts and "style=" not in parts[0])
+    check("mazmun o'z joyida", parts and "Matn" in parts[0])
+
+    theme = themes.get("ko'k")
+    page = html_slides.build_pages(
+        ['<section class="slide"><div class="body">'
+         '<div class="chart" data-kind="bar" data-labels="a,b" '
+         'data-series="X: 1,2"></div></div></section>'], theme)[0]
+    check("sahifa to'liq hujjat", page.startswith("<!DOCTYPE html>"))
+    check("CSS qo'shildi", "<style>" in page and "#" + theme.accent in page)
+    check("diagramma chizildi", "<svg" in page)
 
 
 def check_outline():
@@ -495,81 +605,6 @@ def check_decoration():
             os.remove(path)
 
 
-def check_photos():
-    """Fotosurat oqimi: AI o'rin belgilaydi, Together rasmni chizadi."""
-    print("\n10) Fotosuratlar")
-    theme = themes.get("zumrad")
-
-    page = ('<html><body>'
-            '<img data-prompt="wide photograph of a city skyline" class="photo">'
-            '<p>matn</p>'
-            '<img data-prompt="close-up of hands writing" class="small" '
-            'style="width:400px">'
-            '</body></html>')
-
-    check("rasm so'rovlari topiladi",
-          len(html_images.requests_in(page)) == 2,
-          str(html_images.requests_in(page)))
-    check("butun taqdimot bo'yicha sanaladi",
-          html_images.count_requests([page, page]) == 4)
-    check("so'rovsiz slaydda nol",
-          html_images.count_requests(["<html><body>x</body></html>"]) == 0)
-
-    # Together javob bersa — rasm HTML ichiga joylashadi.
-    from PIL import Image
-
-    os.makedirs("temp", exist_ok=True)
-    made = []
-
-    class Stub:
-        async def generate_image(self, prompt, aspect_ratio="16:9"):
-            path = os.path.join("temp", f"stub_{len(made)}.png")
-            Image.new("RGB", (64, 36), (40, 100, 90)).save(path)
-            made.append(prompt)
-            return path
-
-    import services.together_service as together_service
-
-    original = together_service.get_together_service
-    try:
-        together_service.get_together_service = lambda: Stub()
-        pages, count = asyncio.run(
-            html_images.illustrate([page], theme, "Mavzu"))
-    finally:
-        together_service.get_together_service = original
-
-    check("ikkala rasm ham chizildi", count == 2, str(count))
-    check("rasm HTML ichiga joylashdi",
-          pages[0].count('src="data:image/') == 2, str(count))
-    check("tavsif Together ga yetib bordi",
-          any("skyline" in item for item in made), str(made))
-
-    # Together ishlamasa — rangli blok qoladi, joylashuv buzilmaydi.
-    class Broken:
-        async def generate_image(self, prompt, aspect_ratio="16:9"):
-            raise RuntimeError("kredit yo'q")
-
-    try:
-        together_service.get_together_service = lambda: Broken()
-        pages, count = asyncio.run(
-            html_images.illustrate([page], theme, "Mavzu"))
-    finally:
-        together_service.get_together_service = original
-
-    check("rasm chiqmasa xato bermaydi", count == 0)
-    check("o'rniga rangli blok qoladi",
-          pages[0].count("<div ") == 2 and "<img" not in pages[0],
-          pages[0][:90])
-    check("blok o'z o'lchamini saqlaydi",
-          "width:400px" in pages[0], pages[0][-120:])
-
-    # Promptda rasm qoidasi bormi.
-    rules = html_slides.shell_rules(theme, "uz")
-    check("promptda rasm so'raladi", "data-prompt" in rules)
-    check("kamida uchta rasm talab qilinadi", "uchtadan kam bo'lmasin" in rules)
-    check("muqovada rasm majburiy", "MUQOVADA albatta" in rules)
-
-
 def check_icons():
     """Tayyor ikonkalar — eski tizimdagi 142 ta siluet."""
     print("\n11) Ikonkalar")
@@ -880,11 +915,8 @@ def check_no_shadow():
             '<div class="karta" style="box-shadow:0 2px 4px #0002;color:red">'
             "<h1>Sarlavha</h1></div></body></html>")
 
-    cleaned = html_slides.split_slides(page)
-    check("slayd o'qildi", len(cleaned) == 1, str(len(cleaned)))
-    if not cleaned:
-        return
-    out = cleaned[0]
+    out = html_slides.strip_shadows(page)
+    check("slayd o'qildi", bool(out))
 
     check("box-shadow qolmadi", "box-shadow" not in out.lower())
     check("text-shadow qolmadi", "text-shadow" not in out.lower())
@@ -893,9 +925,8 @@ def check_no_shadow():
     check("boshqa uslub tegilmadi",
           "width:400px" in out and "color:red" in out and "80px" in out, out)
 
-    rules = html_slides.shell_rules(theme, "uz").lower()
-    check("promptda soya taqiqlangan",
-          "soya umuman ishlatilmaydi" in rules, "")
+    check("dizayn tizimida soya yo'q",
+          "shadow" not in deck_style.stylesheet(theme).lower())
 
 
 def check_repair_keeps_images():
@@ -1186,9 +1217,13 @@ def check_side_gap():
         check("izohsiz slayd o'zgarmaydi", filled == pages["chap"],
               "model chaqirilmasligi kerak edi")
 
-    rules = html_slides.shell_rules(theme, "uz")
-    check("promptda butun en talab qilingan",
-          "BUTUN ENNI egallasin" in rules)
+    # Diagramma endi kod chizadi va u butun enni egallaydi — model
+    # uni tor qilib qo'ya olmaydi.
+    svg = deck_charts.draw(
+        '<div class="chart" data-kind="bar" data-labels="a,b" '
+        'data-series="X: 1,2"></div>', theme)
+    check("diagramma butun enni egallaydi",
+          f'width="{deck_charts.W}"' in svg, svg[:120])
 
 
 def check_gap_text():
@@ -1223,7 +1258,7 @@ def check_gap_text():
           out[-40:])
     check("asl mazmun o'zgarmadi", '<div class="q">Diagramma</div>' in out)
     check("teg qochirildi", "&lt;kurashish&gt;" in out and "<kurashish>" not in out)
-    check("aksent chizig'i qo'yildi", f"background:#{theme.accent}" in out)
+    check("aksent chizig'i qo'yildi", 'class="rule"' in out)
 
     # Maydon juda kichik bo'lsa tegilmaydi.
     tor = html_slides.fill_gap(page, {"x": 0, "y": 0, "w": 150, "h": 500},
@@ -1305,19 +1340,23 @@ def check_text_spill():
           str(seen["raqam"]))
     check("keng doira xato emas", not seen["keng"], str(seen["keng"]))
 
-    rules = html_slides.shell_rules(theme, "uz")
-    for name, needle in (
-            ("sxema uslubi aytilgan", "SXEMA, TUZILMA va JARAYON"),
-            ("bir xil ko'rinish talab qilingan", "BIR XIL ko'rinishda"),
-            ("takror tugun taqiqlangan", "natija qutisi BITTA bo'lsin"),
-            ("doiraga matn yozish taqiqlangan", "Qutini doira qilma"),
-            ("chiziq uchi aytilgan", "marker-end")):
-        check(name, needle in rules)
+    # Sxemadagi qutilar endi bir xil bo'lishi SHART emas — ular
+    # dizayn tizimidan kelgani uchun boshqacha bo'la olmaydi.
+    css = deck_style.stylesheet(theme)
+    check("kartochka bitta qoidadan keladi",
+          css.count("\n.card{background:") == 1,
+          str(css.count("\n.card{background:")))
+    body = css.split("\n.card{background:")[1].split("}")[0]
+    check("qutiga balandlik berilmaydi", "height" not in body, body)
+    check("matn uchun doira yo'q — faqat ikonka uchun",
+          "border-radius:50%" in css and ".ikon-dot{" in css)
 
 
 def main():
     check_handler_names()
     check_prompt()
+    check_design_system()
+    check_charts()
     check_split()
     check_outline()
     check_writer()
@@ -1326,7 +1365,6 @@ def main():
         check_editable()
         check_layout_guard()
         check_decoration()
-    check_photos()
     check_icons()
     if html_render.available():
         check_accent_strip()

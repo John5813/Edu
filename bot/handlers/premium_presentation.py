@@ -1190,43 +1190,11 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
                 progress_cb=progress_cb),
             step="brief", label="Slaydlarni yozish")
 
-        # 2 — Fotosuratlar. AI slaydda faqat rasm o'rnini belgilaydi,
-        # rasmning o'zini Together chizadi.
-        html_pages = await _run_step(
-            loop,
-            lambda: html_slides.ensure_photos(
-                html_pages, theme, presentation_language),
-            step="brief", label="Rasm o'rinlarini tekshirish")
-
-        step_photo = {
-            "uz": (f"⚙️ <b>{topic}</b>\n"
-                   f"✅ Slaydlar yozildi: {len(html_pages)} ta\n"
-                   f"🖼 Rasmlar chizilmoqda..."),
-            "ru": (f"⚙️ <b>{topic}</b>\n"
-                   f"✅ Слайды написаны: {len(html_pages)}\n"
-                   f"🖼 Рисуем изображения..."),
-            "en": (f"⚙️ <b>{topic}</b>\n"
-                   f"✅ Slides written: {len(html_pages)}\n"
-                   f"🖼 Generating images..."),
-        }
-        await status.edit_text(step_photo.get(lang, step_photo["uz"]),
-                               parse_mode="HTML")
-
-        # Ikonkalar tayyor turadi — tekin va tez, shuning uchun avval
-        # ular qo'yiladi, keyin fotosurat chizdiriladi.
-        html_pages, icons = await _run_step(
-            loop, lambda: html_images.apply_icons(html_pages, theme),
-            step="render", label="Ikonkalarni qo'yish")
-        # Belgilanmagan <img> lar ham rasm so'roviga aylantiriladi —
-        # aks holda ular slaydda buzuq belgi bo'lib qolardi.
-        html_pages = html_images.normalize(html_pages)
-        html_pages, photos = await html_images.illustrate(
-            html_pages, theme, topic)
-        # To'ldirilmay qolgani rangli blokka almashadi.
-        html_pages = html_images.sweep(html_pages, theme)
-        logger.info("Taqdimot bezagi: %d ikonka, %d fotosurat", icons, photos)
-        logger.info("Taqdimot sarfi: %s, %d ta rasm (%d slayd)",
-                    llm_client.usage_report(), photos, len(html_pages))
+        # 2 — Slaydlar tayyor. Dizayn CSS da qat'iy turibdi,
+        # diagrammalarni kod chizdi, ikonkalar qo'yildi — bu yerda
+        # tashqi xizmat ham, kutish ham yo'q.
+        icons = sum(page.count("data-icon") for page in html_pages)
+        photos = 0
 
         step2 = {
             "uz": (f"⚙️ <b>{topic}</b>\n"
