@@ -79,34 +79,136 @@ _SUB = {
     "u": "ᵤ", "v": "ᵥ", "x": "ₓ", " ": " ",
 }
 
-_SCRIPT = re.compile(r"([\^_])\{([^{}]*)\}|([\^_])(\w)")
-_FRAC = re.compile(r"\\[dt]?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}")
-_SQRT = re.compile(r"\\sqrt\s*\{([^{}]*)\}")
 _MATH = re.compile(r"\$\$(.+?)\$\$|\$([^$]+)\$|\\\((.+?)\\\)|\\\[(.+?)\\\]",
                    re.DOTALL)
 _TAGS = re.compile(r"(<[^>]+>)")
-_LEFTOVER = re.compile(r"\\[a-zA-Z]+")
+_COMMAND = re.compile(r"\\([a-zA-Z]+)")
+
+# Harf ustidagi belgi: \bar{x} → x̄ (o'rtacha), \hat{y} → ŷ (baho).
+_ACCENTS = {"bar": "\u0304", "overline": "\u0304", "hat": "\u0302",
+            "widehat": "\u0302", "tilde": "\u0303", "widetilde": "\u0303",
+            "vec": "\u20d7", "dot": "\u0307", "ddot": "\u0308"}
+# Ichidagi matn o'zi qoladigan buyruqlar.
+_KEEP = {"text", "textrm", "textbf", "textit", "mathrm", "mathbf", "mathit",
+         "mathsf", "mathcal", "mathbb", "boldsymbol", "operatorname", "mbox"}
+# Faqat o'lcham yoki joy bildiradigan buyruqlar — tashlanadi.
+_SKIP = {"left", "right", "big", "Big", "bigg", "Bigg", "bigl", "bigr",
+         "Bigl", "Bigr", "displaystyle", "textstyle", "limits", "nolimits"}
+# `\%`, `\,` kabi bir belgili buyruqlar.
+_ESCAPES = {"%": "%", "{": "{", "}": "}", "$": "$", "&": "&", "#": "#",
+            "_": "_", ",": " ", ";": " ", ":": " ", "!": "", " ": " ",
+            "\\": " ", "|": "‖"}
+_SIMPLE = re.compile(r"[\w\u0300-\u036f\u20d7\u2070-\u209f.′]+")
 
 
-def _script(text: str) -> str:
-    """`x^{n-1}` va `a_1` ni yuqori/quyi belgiga o'giradi."""
+def _group(text: str, i: int):
+    """`i` dan boshlanadigan argument: `{...}` (ichma-ich qavslar
+    hisobga olinadi), buyruq yoki bitta belgi. (mazmun, keyingi o'rin)."""
+    n = len(text)
+    while i < n and text[i] == " ":
+        i += 1
+    if i >= n:
+        return "", i
+    if text[i] == "{":
+        depth = 0
+        for j in range(i, n):
+            if text[j] == "{":
+                depth += 1
+            elif text[j] == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[i + 1:j], j + 1
+        return text[i + 1:], n
+    if text[i] == "\\":
+        match = _COMMAND.match(text, i)
+        if match:
+            return match.group(0), match.end()
+        return text[i:i + 2], i + 2
+    return text[i], i + 1
 
-    def swap(match):
-        mark = match.group(1) or match.group(3)
-        body = match.group(2) if match.group(2) is not None else match.group(4)
-        table = _SUP if mark == "^" else _SUB
-        out = []
-        for char in body:
-            if char not in table:
-                # Belgisi yo'q — qavs bilan yozamiz, aks holda
-                # "x2" bo'lib, daraja yo'qolib qolardi.
-                if mark == "^":
-                    return "^(" + body + ")"
-                return " (" + body + ")"
-            out.append(table[char])
-        return "".join(out)
 
-    return _SCRIPT.sub(swap, text)
+def _wrap(text: str) -> str:
+    """Oddiy bo'lmagan ifoda qavsga olinadi: a+b → (a+b)."""
+    return text if _SIMPLE.fullmatch(text) else f"({text})"
+
+
+def _accent(text: str, mark: str) -> str:
+    return "".join(char + mark if char.isalnum() else char for char in text)
+
+
+def _scripted(mark: str, body: str) -> str:
+    """Daraja yoki indeksni yuqori/quyi belgiga o'giradi."""
+    table = _SUP if mark == "^" else _SUB
+    if "<" not in body and all(char in table for char in body):
+        return "".join(table[char] for char in body)
+    if mark == "^":
+        return "^" + _wrap(body)
+    return " (" + body + ")"
+
+
+def _convert(text: str, depth: int = 0) -> str:
+    out = []
+    i, n = 0, len(text)
+    while i < n:
+        char = text[i]
+        if char == "\\":
+            match = _COMMAND.match(text, i)
+            if not match:
+                nxt = text[i + 1:i + 2]
+                out.append(_ESCAPES.get(nxt, nxt))
+                i += 2
+                continue
+            name = match.group(1)
+            i = match.end()
+            if name in ("frac", "dfrac", "tfrac", "cfrac"):
+                up, i = _group(text, i)
+                down, i = _group(text, i)
+                up, down = _convert(up, depth + 1), _convert(down, depth + 1)
+                # Tashqi kasr ustma-ust chiziladi; ichidagisi qator
+                # ichida qoladi — ustma-ust kasr ichida yana ustma-ust
+                # kasr PowerPointda o'qib bo'lmaydi.
+                out.append(_fraction(up, down) if depth == 0
+                           else f"{_wrap(up)}/{_wrap(down)}")
+            elif name == "sqrt":
+                index = ""
+                j = i
+                while j < n and text[j] == " ":
+                    j += 1
+                if j < n and text[j] == "[":
+                    close = text.find("]", j)
+                    if close > 0:
+                        index, i = text[j + 1:close].strip(), close + 1
+                body, i = _group(text, i)
+                # Ildiz ostidagi yolg'iz kasr ham ustma-ust chiziladi.
+                inner = _convert(body, depth)
+                sign = {"3": "∛", "4": "∜"}.get(index, "√")
+                alone = (inner.startswith('<span class="frac">')
+                         and inner.count('class="frac"') == 1
+                         and inner.endswith("</span></span>"))
+                if "<" in inner and not alone:
+                    inner = _convert(body, depth + 1)
+                out.append(sign + (inner if alone or _SIMPLE.fullmatch(inner)
+                                   else f"({inner})"))
+            elif name in _ACCENTS:
+                body, i = _group(text, i)
+                out.append(_accent(_convert(body, depth + 1), _ACCENTS[name]))
+            elif name in _KEEP:
+                body, i = _group(text, i)
+                out.append(_convert(body, depth))
+            elif name in _SKIP:
+                if name in ("left", "right") and text[i:i + 1] == ".":
+                    i += 1
+            else:
+                out.append(_WORDS.get("\\" + name, ""))
+        elif char in "^_":
+            body, i = _group(text, i + 1)
+            out.append(_scripted(char, _convert(body, depth + 1)))
+        elif char in "{}":
+            i += 1
+        else:
+            out.append(char)
+            i += 1
+    return "".join(out)
 
 
 def _fraction(numerator: str, denominator: str) -> str:
@@ -121,23 +223,16 @@ def _fraction(numerator: str, denominator: str) -> str:
 
 
 def formula(text: str) -> str:
-    """Bitta formulani belgilarga o'giradi."""
-    out = str(text or "")
-    for _ in range(3):
-        new = _FRAC.sub(lambda m: _fraction(m.group(1), m.group(2)), out)
-        if new == out:
-            break
-        out = new
-    out = _SQRT.sub(lambda m: "√(" + m.group(1) + ")", out)
-    for word in sorted(_WORDS, key=len, reverse=True):
-        out = out.replace(word, _WORDS[word])
-    out = _script(out)
-    # `\prime` allaqachon yuqorida turadigan belgi — uning oldidagi
+    """Bitta formulani belgilarga o'giradi.
+
+    Argumentlar ichma-ich qavslar bilan to'g'ri o'qiladi: ilgari
+    `\\frac{\\sum_{i=1}^{n} x_i}{n}` kasr deb tanilmay, "∑ᵢ₌₁ⁿ xᵢn" bo'lib
+    qolardi, `\\bar{x}` esa oddiy "x" ga aylanardi.
+    """
+    out = _convert(str(text or ""))
+    # `\\prime` allaqachon yuqorida turadigan belgi — uning oldidagi
     # "^" ortiqcha.
     out = out.replace("^′", "′").replace("^'", "′").replace("^(′)", "′")
-    # Qolgan buyruq va figurali qavslar ko'rinmasin.
-    out = _LEFTOVER.sub("", out)
-    out = out.replace("{", "").replace("}", "")
     return re.sub(r"[ \t]{2,}", " ", out).strip()
 
 

@@ -411,7 +411,10 @@ def check_no_quotas():
 
     # Formula va misol — imkoniyat, talab emas.
     exact = pieces["oila:aniq"]
-    check("formula shartli aytilgan", "Formula BO'LSA" in exact, exact)
+    # Formula tushunchaga bog'langan: formulasi bor tushuncha
+    # formulasiz qolmaydi, lekin formula soni talab qilinmaydi.
+    check("formula shartli aytilgan",
+          "formulasi bor tushuncha" in exact, exact)
     check("misol shartli aytilgan", "mumkin bo'lsa" in exact, exact)
     check("iqtisodda formula shartli",
           "uchrasa" in pieces["oila:ijtimoiy"])
@@ -1491,7 +1494,8 @@ def check_gap_text():
     theme = themes.get("ko'k")
     page = ("<!DOCTYPE html><html><head><style>"
             ".q{width:600px;height:500px}</style></head><body>"
-            '<div class="q">Diagramma</div></body></html>')
+            '<div class="q">Diagramma<svg width="10" height="10"></svg></div>'
+            '</body></html>')
     area = {"side": "right", "x": 800.0, "y": 300.0, "w": 900.0, "h": 500.0}
 
     # Modelni chaqirmaymiz — matnni o'zimiz beramiz.
@@ -1509,7 +1513,7 @@ def check_gap_text():
     check("bo'sh joyga qo'yildi", "left:848px" in out, out[-260:])
     check("</body> ichida qoldi", out.rstrip().endswith("</body></html>"),
           out[-40:])
-    check("asl mazmun o'zgarmadi", '<div class="q">Diagramma</div>' in out)
+    check("asl mazmun o'zgarmadi", '<div class="q">Diagramma<svg' in out)
     check("teg qochirildi", "&lt;kurashish&gt;" in out and "<kurashish>" not in out)
     check("aksent chizig'i qo'yildi", 'class="rule"' in out)
 
@@ -2379,6 +2383,76 @@ def check_fit_to_slide():
           min(dots[3:]) >= max(cards[:3]), f"{dots} {cards}")
 
 
+def check_formula_rich():
+    """Formula mavzuga qarab ko'rinsin va buzilmasin."""
+    print("\n32) Formulalar va rasm")
+    catalogue = html_slides.catalogue_text()
+    check("rejada formula va misol turlari bor",
+          "formula —" in catalogue and "misol —" in catalogue)
+    rules = html_slides.shell_rules(themes.get("ko'k"), "uz")
+    check("tushuncha formulasi bilan ko'rsatilishi aytilgan",
+          "formulasi `formula` blokida" in rules)
+
+    mean = deck_math.formula(r"\bar{x} = \frac{\sum_{i=1}^{n} x_i}{n}")
+    check("ichma-ich qavsli kasr ustma-ust chiziladi",
+          mean.startswith("x\u0304 = ") and 'class="up">∑ᵢ₌₁ⁿ xᵢ<' in mean
+          and 'class="dn">n<' in mean, mean)
+    sigma = deck_math.formula(
+        r"\sigma = \sqrt{\frac{\sum (x_i - \bar{x})^2}{n-1}}")
+    check("ildiz ostidagi kasr ham ustma-ust",
+          sigma.startswith("σ = √<span class=\"frac\">")
+          and "(xᵢ - x\u0304)²" in sigma, sigma)
+    check("baho belgisi: ŷ",
+          deck_math.formula(r"\hat{y} = b_0 + b_1 x") == "y\u0302 = b₀ + b₁ x")
+    check("foiz belgisi tozalanadi",
+          deck_math.formula(r"V = 100\%").endswith("100%"))
+    nested = deck_math.formula(r"\frac{\frac{a}{b}}{c}")
+    check("kasr ichidagi kasr qator ichida",
+          nested.count('class="frac"') == 1 and "a/b" in nested, nested)
+    check("eski shakllar o'zgarmaydi",
+          deck_math.formula(r"nx^{n-1}") == "nxⁿ⁻¹"
+          and deck_math.formula(r"x \to \infty") == "x → ∞")
+
+    page = html_slides.build_pages([
+        '<section class="slide"><div class="head"><h2 class="title">T</h2>'
+        '</div><div class="body"><div class="split"><div class="list">'
+        '<div class="item"><span class="item-dot"></span><div class='
+        '"item-text">Band.</div></div></div><div class="rasm" data-prompt='
+        '"x"><p class="rasm-matn">Matn.</p></div></div></div></section>'],
+        themes.get("ko'k"))[0]
+    calls = []
+    original = html_slides.explain_visual
+    try:
+        html_slides.explain_visual = lambda *a, **k: calls.append(1) or "Izoh"
+        same = html_slides.fill_gap(page, {"x": 960, "y": 300, "w": 900,
+                                           "h": 500}, themes.get("ko'k"))
+    finally:
+        html_slides.explain_visual = original
+    check("diagrammasiz varaqqa izoh qo'yilmaydi", same == page and not calls)
+
+    import os as _os
+
+    saved = {key: _os.environ.get(key)
+             for key in ("PREMIUM_PHOTOS", "TOGETHER_API_KEY")}
+    try:
+        _os.environ.pop("PREMIUM_PHOTOS", None)
+        _os.environ["TOGETHER_API_KEY"] = "kalit"
+        check("Together kaliti bo'lsa rasm yoqiladi",
+              html_images.photos_enabled())
+        _os.environ["PREMIUM_PHOTOS"] = "0"
+        check("PREMIUM_PHOTOS=0 bilan o'chiriladi",
+              not html_images.photos_enabled())
+        _os.environ.pop("PREMIUM_PHOTOS", None)
+        _os.environ.pop("TOGETHER_API_KEY", None)
+        check("kalit bo'lmasa rasm o'chiq", not html_images.photos_enabled())
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                _os.environ.pop(key, None)
+            else:
+                _os.environ[key] = value
+
+
 def main():
     check_handler_names()
     check_prompt()
@@ -2421,6 +2495,7 @@ def main():
     check_conclusion_only()
     check_chart_formats()
     check_fit_to_slide()
+    check_formula_rich()
 
     print()
     if FAILS:

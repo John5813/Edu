@@ -100,6 +100,9 @@ _CATEGORIES = (
     ("tuzilma", "qutilar va ularni bog'lovchi chiziqlar — ierarxiya yoki "
                 "tarkib sxemasi"),
     ("iqtibos", "yirik tirnoq belgisi, kursiv matn, muallif qatori"),
+    ("formula", "tushunchaning formulasi yirik, ostida belgilar izohi va "
+                "u nimani hisoblashi"),
+    ("misol", "masala sharti, qadamma-qadam yechim va javob"),
     ("kartalar", "bir xil o'lchamdagi kartalar, har birida sarlavha va "
                  "bir-ikki gaplik izoh"),
     ("yakun", "faqat xulosa matni — rahmat va savollar qatorisiz"),
@@ -209,10 +212,12 @@ QAT'IY QOIDALAR:
    desangiz — formula ko'rinsin; "qiyoslash" desangiz — ikki tomon
    yonma-yon tursin. Va'dani bajarolmasangiz sarlavhani
    o'zgartiring.
-14. Formula BO'LSA, uni matn ichiga tiqmang: `formula` bloki bor,
-   u yirik va o'qiladigan chiqadi. Formulani LaTeX bilan yozing —
-   tizim uni belgilarga o'giradi. Mavzuda formula yo'q bo'lsa,
-   bu blok ishlatilmaydi."""
+14. Tushuncha formula bilan ta'riflansa (o'rtacha, dispersiya,
+   korrelatsiya koeffitsiyenti, tezlanish, foiz stavkasi...), o'sha
+   tushuncha kiritilgan slaydda uning formulasi `formula` blokida
+   ko'rsatiladi — so'z bilan tasvirlab qo'yish yetmaydi. Formulani
+   matn ichiga tiqmang va LaTeX bilan yozing — tizim uni belgilarga
+   o'giradi. Mavzuda formula yo'q bo'lsa, bu blok ishlatilmaydi."""
 
 
 def _user_prompt(topic: str, start: int, count: int, total: int,
@@ -985,6 +990,14 @@ def fill_gap(html: str, area: Dict, theme, language: str = "uz") -> str:
     Ko'rinishi dizayn tizimidan olinadi: aksent chizig'i va `note`.
     """
     if not area:
+        return html
+    # Izoh diagramma, jadval yoki ko'rsatkichni tushuntiradi. Ular
+    # bo'lmagan varaqda "bo'sh joy" — rasm kartochkasi yoki ataylab
+    # qoldirilgan nafas; u yerga matn qo'yilsa kartochka ustiga
+    # chiqib qolardi.
+    section = _SECTION.search(html)
+    visual = section.group(0) if section else html
+    if not re.search(r"<svg\b|<table\b|\bkpi\b", visual, re.IGNORECASE):
         return html
 
     pad = 48

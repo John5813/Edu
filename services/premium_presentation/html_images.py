@@ -263,12 +263,16 @@ _PROMPT = re.compile(r"\bdata-prompt\s*=\s*([\"'])(.*?)\1",
 def photos_enabled() -> bool:
     """Rasm chizdirish yoqilganmi.
 
-    Together hisobida mablag' bo'lmasa har so'rov bekorga vaqt
-    oladi, shuning uchun u alohida yoqiladi: `PREMIUM_PHOTOS=1`.
-    O'chiq bo'lsa rasm o'rnida qo'shimcha matn turadi.
+    Together kaliti bo'lsa — yoqilgan. Hisobda mablag' tugasa uni
+    `PREMIUM_PHOTOS=0` bilan o'chirish mumkin: har so'rov bekorga vaqt
+    olmasin. O'chiq bo'lsa rasm o'rnida qo'shimcha matn turadi.
     """
-    return os.getenv("PREMIUM_PHOTOS", "0").strip().lower() in (
-        "1", "true", "yes", "on", "ha")
+    flag = os.getenv("PREMIUM_PHOTOS", "").strip().lower()
+    if flag in ("0", "false", "no", "off", "yo'q"):
+        return False
+    if flag in ("1", "true", "yes", "on", "ha"):
+        return True
+    return bool(os.getenv("TOGETHER_API_KEY"))
 
 
 def photo_blocks(page: str) -> List[Tuple[int, int, str]]:
@@ -308,30 +312,42 @@ async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
         async def generate(prompt):
             return await together.generate_image(prompt, aspect_ratio="4:3")
 
-    result, placed, tried = [], 0, 0
-    for page in pages:
-        blocks = photo_blocks(page)
-        for start, end, prompt in reversed(blocks):
-            if tried >= limit:
-                continue
-            tried += 1
+    # Rasmlar bir vaqtda chizdiriladi: ketma-ket bo'lsa har biri
+    # bir daqiqagacha kutadi va taqdimot juda sekinlashadi.
+    wanted = []
+    for index, page in enumerate(pages):
+        for start, end, prompt in photo_blocks(page):
+            wanted.append((index, start, end, prompt))
+    wanted = wanted[:max(0, int(limit))]
+    gate = asyncio.Semaphore(3)
+
+    async def one(prompt):
+        async with gate:
             try:
                 path = await generate(prompt + ", no text, no letters")
             except Exception as exc:
                 log.warning("Rasm chizilmadi (%s): %s", prompt[:50], exc)
-                path = None
-            uri = _data_uri(path) if path and os.path.exists(path) else None
-            if path and os.path.exists(path):
-                try:
-                    os.remove(path)
-                except OSError:
-                    pass
-            if not uri:
-                continue
-            page = (page[:start] + '<div class="rasm photo-in"><img '
-                    f'class="photo" src="{uri}" alt=""></div>' + page[end:])
-            placed += 1
-        result.append(page)
+                return None
+        uri = _data_uri(path) if path and os.path.exists(path) else None
+        if path and os.path.exists(path):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+        return uri
+
+    uris = await asyncio.gather(*(one(item[3]) for item in wanted))
+    result, placed, tried = list(pages), 0, len(wanted)
+    # Oxiridan boshlab almashtiriladi — oldingi o'rinlar siljimaydi.
+    for (index, start, end, prompt), uri in sorted(
+            zip(wanted, uris), key=lambda pair: (pair[0][0], -pair[0][1])):
+        if not uri:
+            continue
+        page = result[index]
+        result[index] = (page[:start] + '<div class="rasm photo-in"><img '
+                         f'class="photo" src="{uri}" alt=""></div>'
+                         + page[end:])
+        placed += 1
     log.info("Rasm bloklari: %d tasi sinaldi, %d tasiga rasm qo'yildi",
              tried, placed)
     return result, placed
