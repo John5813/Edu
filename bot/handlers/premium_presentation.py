@@ -1152,6 +1152,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
     # navbatdan tashqarida yaratiladi, sanalmasa "hech narsa bajarilmayapti"
     # deb ko'rinardi va qayta ishga tushirish uni uzib qo'yardi.
     work_id = workload.begin("premium taqdimot")
+    html_pages: list = []
     try:
         # Premium taqdimot modeli admin panelda alohida tanlanadi.
         # Generatsiya sinxron oqimda ishlaydi va u yerdan bazaga murojaat
@@ -1242,10 +1243,11 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
             await animation_task
 
     # Tayyor — yuborish
+    ready = len(html_pages)
     done_msgs = {
-        "uz": f"✅ <b>{topic}</b> — tayyor!\n📊 {len(planned)} slayd | Yuborilmoqda...",
-        "ru": f"✅ <b>{topic}</b> — готово!\n📊 {len(planned)} слайдов | Отправляю...",
-        "en": f"✅ <b>{topic}</b> — done!\n📊 {len(planned)} slides | Sending...",
+        "uz": f"✅ <b>{topic}</b> — tayyor!\n📊 {ready} slayd | Yuborilmoqda...",
+        "ru": f"✅ <b>{topic}</b> — готово!\n📊 {ready} слайдов | Отправляю...",
+        "en": f"✅ <b>{topic}</b> — done!\n📊 {ready} slides | Sending...",
     }
     try:
         await status.edit_text(done_msgs.get(lang, done_msgs["uz"]), parse_mode="HTML")
