@@ -502,6 +502,13 @@ class ProjectWorkBuilder:
                         run.font.name = "Times New Roman"
                         run.font.bold = row_index == total_row
 
+        # Jadval ostida ham uni tushuntiruvchi abzats turadi — ilgari u
+        # faqat diagrammalarga qo'yilardi. Jadval diagramma ma'lumotidan
+        # qurilgan bo'lsa, o'z izohi bo'lmaydi: o'shanda izoh darhol
+        # keyin keladigan diagramma ostida turadi va ikki marta
+        # takrorlanmaydi.
+        note = section.table.get("note") or ("" if section.chart else section.note)
+        self._add_note(doc, note)
         doc.add_paragraph()
 
     def _add_figure(self, doc, section: SectionContent, image_path: str, number: int, language: str) -> None:

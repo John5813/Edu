@@ -838,10 +838,15 @@ A cell is not a sentence and never a list — "Bosh oshpaz 1, oshpaz 2,
 yordamchi 2, administrator 2, ofitsiant 6" belongs in the section text, not
 in a cell. If a value needs explaining, the explanation goes in the text.
 
+Add one more key, "note": one paragraph of 3-5 full sentences in {target}
+saying what the table shows, which rows matter most, why the numbers came out
+this way and what conclusion follows. It is printed under the table, so it must
+stand on its own — never "as can be seen in the table above".
+
 {timeframe.year_rule(language)}{self._passport_block(passport)}{self._source_block(brief)}
 
 Respond with JSON only:
-{{"headers": ["..."], "rows": [["..."]]}}"""
+{{"headers": ["..."], "rows": [["..."]], "note": "..."}}"""
 
         raw = await self._json_request(prompt, max_tokens=2000, temperature=0.4)
 
@@ -855,7 +860,8 @@ Respond with JSON only:
         ]
         if not headers or not rows:
             raise ValueError("jadval bo'sh qaytdi")
-        return {"headers": headers, "rows": rows}
+        return {"headers": headers, "rows": rows,
+                "note": str(raw.get("note") or "").strip()}
 
     async def _chart(self, topic: str, spec: SectionSpec, language: str,
                      brief: str = "", passport: str = "") -> Dict:
@@ -871,10 +877,10 @@ The data must give {ask}
 Write every name and label in {target}. Numbers are plain digits — no spaces,
 no thousand separators, no currency words inside the number.
 
-Add one more key, "note": a single sentence in {target} saying what the figure
-shows and what conclusion the reader should draw from it. It is printed under
-the figure, so it must stand on its own — never "as can be seen in the figure
-above".
+Add one more key, "note": one paragraph of 3-5 full sentences in {target}
+saying what the figure shows, how the values differ, what explains that and
+what conclusion the reader should draw. It is printed under the figure, so it
+must stand on its own — never "as can be seen in the figure above".
 
 {timeframe.year_rule(language)}{self._passport_block(passport)}{self._source_block(brief)}
 
