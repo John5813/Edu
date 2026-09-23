@@ -231,9 +231,11 @@ def _add_image(slide, block: Dict) -> None:
     if not path or not os.path.exists(path):
         return
     area = _clip(block)
-    slide.shapes.add_picture(
+    picture = slide.shapes.add_picture(
         path, _emu(area["x"]), _emu(area["y"]),
         _emu(area["w"]), _emu(area["h"]))
+    # Rasmga ham mavzu soyasi tegmasin: taqdimotda soya umuman yo'q.
+    picture.shadow.inherit = False
 
 
 # ──────────────────────────────────────────────────────────── slaydlar

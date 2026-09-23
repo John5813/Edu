@@ -156,6 +156,10 @@ def apply_icons(pages: List[str], theme) -> Tuple[List[str], int]:
         def swap(match):
             nonlocal placed
             tag, name = match.group(0), match.group(2).strip()
+            # Ikonkasi allaqachon qo'yilgan bo'lsa tegilmaydi: slayd
+            # qayta chizilganda bu ikkinchi marta chaqiriladi.
+            if _HAS_DATA_SRC.search(tag):
+                return tag
             colour = _ICON_COLOUR.search(tag)
             tint = (colour.group(2) if colour else theme.accent).lstrip("#")
 
