@@ -245,3 +245,93 @@ async def illustrate(pages: List[str], theme, topic: str = "",
     log.info("Fotosuratlar: %d ta so'ralgan, %d tasi chiqdi",
              len(wanted), filled)
     return result, filled
+
+
+# ─────────────────────────────────────────── matn va rasm bloki
+
+# `<div class="rasm" data-prompt="...">` — model rasm so'ragan joy.
+# Ichida rasm chiqmasa turadigan qo'shimcha matn bor, shuning uchun
+# rasm chiqmasa hech narsa qilinmaydi: matn o'z joyida qoladi.
+_RASM_OPEN = re.compile(
+    r'<div\b[^>]*\bclass\s*=\s*(["\'])[^"\']*(?<![-\w])rasm(?![-\w])'
+    r'[^"\']*\1[^>]*>', re.IGNORECASE)
+_DIV = re.compile(r"<div\b[^>]*>|</div\s*>", re.IGNORECASE)
+_PROMPT = re.compile(r"\bdata-prompt\s*=\s*([\"'])(.*?)\1",
+                     re.IGNORECASE | re.DOTALL)
+
+
+def photos_enabled() -> bool:
+    """Rasm chizdirish yoqilganmi.
+
+    Together hisobida mablag' bo'lmasa har so'rov bekorga vaqt
+    oladi, shuning uchun u alohida yoqiladi: `PREMIUM_PHOTOS=1`.
+    O'chiq bo'lsa rasm o'rnida qo'shimcha matn turadi.
+    """
+    return os.getenv("PREMIUM_PHOTOS", "0").strip().lower() in (
+        "1", "true", "yes", "on", "ha")
+
+
+def photo_blocks(page: str) -> List[Tuple[int, int, str]]:
+    """Sahifadagi rasm bloklari: (boshi, oxiri, inglizcha tavsif)."""
+    found = []
+    for opening in _RASM_OPEN.finditer(page):
+        prompt = _PROMPT.search(opening.group(0))
+        if not prompt or not prompt.group(2).strip():
+            continue
+        depth = 1
+        for tag in _DIV.finditer(page, opening.end()):
+            depth += -1 if tag.group(0).startswith("</") else 1
+            if depth == 0:
+                found.append((opening.start(), tag.end(),
+                              prompt.group(2).strip()))
+                break
+    return found
+
+
+async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
+                      generate=None) -> Tuple[List[str], int]:
+    """Rasm bloklariga rasm qo'yadi. (slaydlar, qo'yilgan rasmlar soni).
+
+    Rasm chiqmagan blok tegilmaydi — unda qo'shimcha matn qoladi.
+    """
+    if generate is None:
+        if not photos_enabled():
+            return pages, 0
+        try:
+            from services.together_service import get_together_service
+
+            together = get_together_service()
+        except Exception as exc:
+            log.error("Together xizmati mavjud emas: %s", exc)
+            return pages, 0
+
+        async def generate(prompt):
+            return await together.generate_image(prompt, aspect_ratio="4:3")
+
+    result, placed, tried = [], 0, 0
+    for page in pages:
+        blocks = photo_blocks(page)
+        for start, end, prompt in reversed(blocks):
+            if tried >= limit:
+                continue
+            tried += 1
+            try:
+                path = await generate(prompt + ", no text, no letters")
+            except Exception as exc:
+                log.warning("Rasm chizilmadi (%s): %s", prompt[:50], exc)
+                path = None
+            uri = _data_uri(path) if path and os.path.exists(path) else None
+            if path and os.path.exists(path):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+            if not uri:
+                continue
+            page = (page[:start] + '<div class="rasm photo-in"><img '
+                    f'class="photo" src="{uri}" alt=""></div>' + page[end:])
+            placed += 1
+        result.append(page)
+    log.info("Rasm bloklari: %d tasi sinaldi, %d tasiga rasm qo'yildi",
+             tried, placed)
+    return result, placed

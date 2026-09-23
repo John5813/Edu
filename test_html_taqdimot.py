@@ -527,7 +527,11 @@ def check_writer():
 
     def fake(system, user, temperature=0.7, max_tokens=1800):
         calls.append(user)
-        pages = [_page(f"Slayd {len(calls)}.{i}") for i in range(3)]
+        # Mazmunli varaq: yupqa varaq qo'shimcha so'rov bilan
+        # to'ldiriladi, bu yerda esa faqat bo'laklash sinaladi.
+        block = ('<div class="list"><div class="item"><span class="item-dot">'
+                 '</span><div class="item-text">Band.</div></div></div>')
+        pages = [_page(f"Slayd {len(calls)}.{i}", block) for i in range(3)]
         return f"\n{html_slides.MARKER}\n".join(pages)
 
     def fake_plan(system, user, temperature=0.7, max_tokens=16000):
@@ -2036,6 +2040,144 @@ def check_repair_edits_same_slide():
           any("«Juda uzun sarlavha" in item for item in found), str(found))
 
 
+def check_no_sections_and_photo_text():
+    """Bo'lim varag'i yo'q, yupqa varaq yo'q, halqa qaytdi."""
+    print("\n28) Bo'limsiz, yupqasiz; matn va rasm; halqa diagramma")
+    theme = themes.get("ko'k")
+
+    # Halqa: ulushlar alohida qator qilib yozilsa ham chiziladi.
+    donut = deck_charts.draw(
+        '<div class="chart" data-kind="donut" '
+        'data-series="AQSh: 45|Yevropa: 30|Osiyo: 25"></div>', theme)
+    check("alohida qatorli ulushlar halqa bo'lib chiziladi",
+          "AQSh — 45%" in donut and "Osiyo — 25%" in donut, donut[:200])
+    bar = deck_charts.draw(
+        '<div class="chart" data-kind="bar" '
+        'data-series="AQSh: 45|Yevropa: 30"></div>', theme)
+    check("alohida qatorli ustunlar ham chiziladi",
+          "<svg" in bar and ">AQSh<" in bar, bar[:200])
+
+    rules = html_slides.shell_rules(theme, "uz")
+    catalogue = html_slides.catalogue_text()
+    check("ajratkich bloki yo'q",
+          "AJRATKICH (" not in rules and "ajratkich" not in catalogue)
+    check("bayonot bloki yo'q",
+          "BAYONOT" not in rules and "bayonot" not in catalogue
+          and "lead huge" not in rules)
+    check("bo'limlarga ajratmaslik aytilgan",
+          "bo'limlarga\n   ajratilmaydi" in rules)
+    check("matn va rasm bloki bor",
+          "MATN VA RASM" in rules and 'class="rasm"' in rules
+          and "matn_rasm" in catalogue)
+
+    head = ('<section class="slide"><div class="head"><h2 class="title">'
+            'Sarlavha</h2></div><div class="body">')
+    divider = ('<section class="slide dark"><div class="body"><h2 class="title '
+               'big">Bo\'lim: 20-asr</h2><p class="lead">Bir jumla.</p>'
+               '</div></section>')
+    lead = head + '<p class="lead">Bitta jumla.</p></div></section>'
+    listed = (head + '<div class="list"><div class="item"><span class="item-dot">'
+              '</span><div class="item-text">Band.</div></div></div>'
+              '</div></section>')
+    table = head + '<table><tr><th>A</th></tr></table></div></section>'
+    photo = (head + '<div class="split"><div class="list"><div class="item">'
+             '<span class="item-dot"></span><div class="item-text">Ipoteka '
+             'kreditlari tarqaldi.</div></div></div><div class="rasm" '
+             'data-prompt="bank building in New York"><p class="rasm-matn">'
+             'Qo\'shimcha matn: banklar tavakkalni yashirdi.</p></div></div>'
+             '</div></section>')
+    check("ajratkich — yupqa", html_slides._thin(divider))
+    check("sarlavha + bitta jumla — yupqa", html_slides._thin(lead))
+    check("ro'yxat — yupqa emas", not html_slides._thin(listed))
+    check("jadval — yupqa emas", not html_slides._thin(table))
+    check("matn va rasm — yupqa emas", not html_slides._thin(photo))
+
+    original = llm_client._call_openrouter_text
+    try:
+        llm_client._call_openrouter_text = lambda *a, **k: photo
+        thick = html_slides._thicken(lead, "tizim", theme)
+        llm_client._call_openrouter_text = lambda *a, **k: lead
+        still = html_slides._thicken(lead, "tizim", theme)
+    finally:
+        llm_client._call_openrouter_text = original
+    check("yupqa varaq matn va rasmga aylanadi", thick == photo)
+    check("javob ham yupqa bo'lsa asl varaq qoladi", still == lead)
+
+    # write_slides: 2-varaqdan boshlab yupqasi to'ldiriladi, muqova emas.
+    cover = ('<section class="slide dark"><div class="body"><h1 class="title '
+             'big">Mavzu</h1></div></section>')
+    calls = []
+    saved = (html_slides.plan_outline, html_slides._write_chunk,
+             html_slides._thicken)
+    try:
+        html_slides.plan_outline = lambda *a, **k: {
+            "family": "umumiy",
+            "slides": [{"brief": "b", "category": "kartalar"}] * 4}
+        html_slides._write_chunk = lambda system, user, count: (
+            [cover, divider, listed][:count] if "1-slayddan" in user
+            else [listed])
+        html_slides._thicken = lambda body, system, theme: (
+            calls.append(body) or photo)
+        pages = html_slides.write_slides("Mavzu", 4, theme)
+    finally:
+        (html_slides.plan_outline, html_slides._write_chunk,
+         html_slides._thicken) = saved
+    sources = [html_slides.source_of(page) for page in pages]
+    check("muqova tegilmaydi", sources[0] == cover)
+    check("ajratkich o'rniga matn va rasm", sources[1] == photo
+          and calls == [divider], str(len(calls)))
+
+    # Rasm: yoqilmagan bo'lsa matn qoladi; chiqsa rasm qo'yiladi.
+    import asyncio as _asyncio
+    import tempfile
+
+    page = html_slides.build_pages([photo], theme)[0]
+    check("rasm bloki topiladi",
+          [item[2] for item in html_images.photo_blocks(page)]
+          == ["bank building in New York"])
+    same, placed = _asyncio.run(html_images.fill_photos([page]))
+    check("rasm o'chiq bo'lsa matn qoladi",
+          same == [page] and placed == 0)
+
+    async def none(prompt):
+        return None
+
+    kept, placed = _asyncio.run(html_images.fill_photos([page],
+                                                        generate=none))
+    check("rasm chiqmasa matn qoladi",
+          kept == [page] and placed == 0 and "rasm-matn" in kept[0])
+
+    from PIL import Image
+
+    async def make(prompt):
+        handle, path = tempfile.mkstemp(suffix=".png")
+        os.close(handle)
+        Image.new("RGB", (40, 30), (120, 90, 60)).save(path)
+        return path
+
+    done, placed = _asyncio.run(html_images.fill_photos([page],
+                                                        generate=make))
+    check("rasm chiqsa matn o'rniga rasm",
+          placed == 1 and 'class="photo"' in done[0]
+          and "rasm-matn" not in done[0].split("</head>", 1)[1])
+
+    if not html_render.available():
+        return
+    from pptx import Presentation
+
+    out_dir = os.path.join("temp", "test_rasm")
+    path = html_render.render([page, done[0]], out_dir=out_dir, name="rasm")
+    slides = Presentation(path).slides
+    texts = [shape.text_frame.text for shape in slides[0].shapes
+             if shape.has_text_frame]
+    check("rasm o'rnidagi matn PPTX da bor",
+          any("Qo'shimcha matn" in text for text in texts), str(texts))
+    pictures = [shape for shape in slides[1].shapes
+                if shape.shape_type == 13 and shape.width > 3_000_000]
+    check("rasm PPTX da katta rasm bo'lib turadi", bool(pictures),
+          str([(shape.shape_type, shape.width) for shape in slides[1].shapes]))
+
+
 def main():
     check_handler_names()
     check_prompt()
@@ -2074,6 +2216,7 @@ def main():
     check_auto_icons()
     check_repair_keeps_rich_slides()
     check_repair_edits_same_slide()
+    check_no_sections_and_photo_text()
 
     print()
     if FAILS:
