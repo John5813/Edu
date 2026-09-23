@@ -54,7 +54,9 @@ justify-content:center;gap:48px;min-height:0}
 .slide>.body>.cols,.slide>.body>.split,.slide>.body>.steps,
 .slide>.body>table,.slide>.body>.list{flex:1 1 auto}
 .slide>.body>.timeline{flex:none}
-.slide>.body>.note,.slide>.body>.foot,.slide>.body>.lead{flex:none}
+.slide>.body>.note,.slide>.body>.foot,.slide>.body>.lead,
+.slide>.body>.formula{flex:none}
+.slide>.body>.misol{flex:1 1 auto;justify-content:center}
 .cols{align-content:stretch}
 .cols>.kpi{justify-content:center}
 .timeline .stop{justify-content:flex-start}
@@ -159,6 +161,42 @@ padding:20px 24px}
 td{padding:18px 24px;border-bottom:1px solid #SOFT;color:#BODY;
 vertical-align:top}
 tr:nth-child(even) td{background:#SOFT}
+
+/* ── Formula ───────────────────────────────────────────────────── */
+/* Formula alohida ko'rinsin: matn oqimiga tiqilgan formula
+   o'qilmaydi. Serif shrift matematik yozuvga mos tushadi. */
+.formula{background:#SOFT;border-left:8px solid #ACCENT;
+border-radius:0 14px 14px 0;padding:36px 44px;display:flex;
+flex-direction:column;gap:18px;align-items:flex-start}
+.formula-body{font-family:SERIF;font-size:46px;line-height:1.5;
+color:#HEADING}
+.formula-note{font-size:21px;line-height:1.5;color:#MUTED}
+.slide.dark .formula{background:#BANDCARD}
+.slide.dark .formula-body{color:#INVERT}
+
+/* Kasr ustma-ust yoziladi. `up` va `dn` alohida element bo'lgani
+   uchun ular PowerPointda ham ustma-ust tushadi, oradagi chiziq esa
+   alohida tasma bo'lib chiqadi. */
+.frac{display:inline-grid;vertical-align:middle;text-align:center;
+margin:0 8px}
+.frac .up{padding:0 10px 6px}
+.frac .dn{padding:6px 10px 0;border-top:3px solid #HEADING}
+
+/* ── Ishlangan misol ───────────────────────────────────────────── */
+.misol{background:#SOFT;border-radius:18px;padding:40px;
+display:flex;flex-direction:column;gap:22px}
+.misol-tag{font-size:20px;font-weight:700;letter-spacing:2px;
+text-transform:uppercase;color:#ACCENT}
+.misol-task{font-size:30px;font-weight:700;color:#HEADING;
+line-height:1.35}
+.misol-steps{display:flex;flex-direction:column;gap:18px}
+.misol-step{display:flex;gap:20px;align-items:flex-start}
+.misol-num{width:38px;height:38px;border-radius:50%;background:#ACCENT;
+color:#INVERT;font-size:20px;font-weight:700;flex:none;display:flex;
+align-items:center;justify-content:center}
+.misol-text{font-size:24px;line-height:1.5;color:#BODY}
+.misol-answer{font-size:26px;font-weight:700;color:#HEADING;
+border-top:3px solid #ACCENT;padding-top:20px}
 
 /* ── Diagramma ─────────────────────────────────────────────────── */
 .chart{width:100%;display:flex;align-items:center;
@@ -338,6 +376,28 @@ Chiziq o'zi chiziladi — siz chizmaysiz.
 <div class="ikon-row">
   <div class="ikon-dot"><img class="ikon" data-icon="NOM" alt=""></div>
   ... yana ikonkalar ...
+</div>
+
+14. FORMULA (matematika, fizika, iqtisod uchun):
+<div class="formula">
+  <div class="formula-body">Formulaning o'zi</div>
+  <div class="formula-note">Belgilar nimani bildiradi.</div>
+</div>
+Formulani LaTeX bilan yozing — tizim uni chiroyli belgilarga
+o'giradi: $x^2$ → x², $\frac{a}{b}$ → ustma-ust kasr,
+$\to$ → →, $\infty$ → ∞, $\sqrt{x}$ → √(x), $a_1$ → a₁.
+
+15. ISHLANGAN MISOL (masala va uning yechimi):
+<div class="misol">
+  <div class="misol-tag">Misol</div>
+  <div class="misol-task">Masalaning shartini yozing.</div>
+  <div class="misol-steps">
+    <div class="misol-step"><span class="misol-num">1</span>
+      <div class="misol-text">Birinchi qadam.</div></div>
+    <div class="misol-step"><span class="misol-num">2</span>
+      <div class="misol-text">Ikkinchi qadam.</div></div>
+  </div>
+  <div class="misol-answer">Javob: ...</div>
 </div>
 
 DIAGRAMMA — siz chizmaysiz, faqat ma'lumot berasiz:

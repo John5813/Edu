@@ -26,7 +26,7 @@ sys.path.insert(0, ".")
 os.environ.setdefault("BOT_TOKEN", "test")
 
 from services.premium_presentation import (  # noqa: E402
-    deck_charts, deck_shape, deck_style, html_extract, html_images, html_render,
+    deck_charts, deck_math, deck_shape, deck_style, html_extract, html_images, html_render,
     html_slides, llm_client, themes)
 
 FAILS = []
@@ -233,6 +233,115 @@ def check_split():
     check("sahifa to'liq hujjat", page.startswith("<!DOCTYPE html>"))
     check("CSS qo'shildi", "<style>" in page and "#" + theme.accent in page)
     check("diagramma chizildi", "<svg" in page)
+
+
+def check_math():
+    """Formula slaydda o'qiladigan bo'lsin.
+
+    Matematika, fizika va iqtisod mavzularida model formulani deyarli
+    har doim LaTeX bilan yozadi — u shunday o'rgatilgan. Brauzerda
+    LaTeX ni hech kim o'qib bermaydi, shuning uchun slaydga dollar
+    belgilari va teskari chiziqlar bilan "$nx^{n-1}$" bo'lib
+    tushardi.
+    """
+    print("\n1d) Formula va misol")
+
+    pairs = (
+        ("Masalan, $1/n$ ketma-ketligi", "1/n"),
+        ("$x \\to \\infty$ da", "x \u2192 \u221e"),
+        ("$x^n$ uchun $nx^{n-1}$", "nx\u207f\u207b\u00b9"),
+        ("$a_1$ va $a_2$", "a\u2081"),
+        ("$\\sqrt{x^2 + y^2}$", "\u221a(x\u00b2 + y\u00b2)"),
+        ("$\\alpha + \\beta \\leq \\pi$", "\u03b1 + \u03b2 \u2264 \u03c0"),
+        ("$\\lim_{h \\to 0} x$", "lim (h \u2192 0) x"),
+    )
+    for source, want in pairs:
+        got = deck_math.render(source)
+        check(f"{source[:26]} \u2192 {want[:18]}", want in got, got)
+
+    check("dollar belgisi qolmadi",
+          "$" not in deck_math.render("$x^2$ va $y_1$"))
+    check("teskari chiziq qolmadi",
+          "\\" not in deck_math.render("$\\alpha \\to \\beta$"))
+    check("formulasiz matn tegilmaydi",
+          deck_math.render("Oddiy jumla.") == "Oddiy jumla.")
+
+    # Kasr ustma-ust yoziladi.
+    frac = deck_math.render("$\\frac{a+b}{2}$")
+    check("kasr ustma-ust", 'class="frac"' in frac and "a+b" in frac, frac)
+
+    # Teg ichidagi matnga tegilmaydi.
+    tagged = deck_math.render('<div class="a_b" data-x="$1$">$x^2$</div>')
+    check("atributga tegilmadi", 'class="a_b"' in tagged and
+          'data-x="$1$"' in tagged, tagged)
+    check("matn o'girildi", ">x\u00b2<" in tagged, tagged)
+
+    # Dizayn tizimida blok va qoidalar bor.
+    theme = themes.get("ko'k")
+    css = deck_style.stylesheet(theme)
+    check("formula uslubi bor", ".formula-body{" in css)
+    check("kasr uslubi bor", ".frac{" in css and ".frac .dn{" in css)
+    check("misol uslubi bor", ".misol{" in css and ".misol-answer{" in css)
+
+    rules = html_slides.shell_rules(theme, "uz")
+    check("formula bloki tushuntirilgan", "formula-body" in rules)
+    check("misol bloki tushuntirilgan", "misol-answer" in rules)
+    check("va'da qoidasi bor", "VA'DA QILINGAN NARSA" in rules)
+
+    guide = deck_shape.guidance("aniq")
+    check("aniq fanlarda misol talab qilinadi",
+          "KAMIDA BITTA ISHLANGAN MISOL" in guide)
+    check("aniq fanlarda formula alohida",
+          "`formula` blokida" in guide)
+    check("iqtisodda ham formula aytilgan",
+          "`formula` blokida" in deck_shape.guidance("ijtimoiy"))
+
+
+def check_fraction_boxes():
+    """Kasr PowerPointda ham ustma-ust tursin.
+
+    Kasr ota matnga qo'shib olinsa, surat va maxraj yonma-yon bitta
+    qatorga tushib, formula ma'nosini yo'qotardi.
+    """
+    print("\n1e) Kasrning joylashuvi")
+    if not html_render.available():
+        check("brauzer o'rnatilgan", False, html_render._INSTALL_HINT)
+        return
+
+    theme = themes.get("ko'k")
+    page = html_slides.build_pages(
+        ['<section class="slide"><div class="body"><div class="formula">'
+         '<div class="formula-body">y = $\\frac{a+b}{2}$ qiymat</div>'
+         "</div></div></section>"], theme)[0]
+
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = html_render._launch(playwright)
+        try:
+            context = browser.new_context(
+                viewport={"width": 1920, "height": 1080})
+            handle = context.new_page()
+            handle.set_content(page, wait_until="load")
+            blocks = [b for b in html_extract.read_layout(handle)["blocks"]
+                      if b["kind"] == "text"]
+            context.close()
+        finally:
+            browser.close()
+
+    by_text = {b["text"]: b for b in blocks}
+    up = by_text.get("a+b")
+    down = by_text.get("2")
+    check("surat alohida quti", up is not None, str(list(by_text)))
+    check("maxraj alohida quti", down is not None, str(list(by_text)))
+    if up and down:
+        check("maxraj suratning ostida", down["y"] > up["y"] + up["h"] - 6,
+              f"{up['y']:.0f}+{up['h']:.0f} vs {down['y']:.0f}")
+        check("ikkisi bir ustunda",
+              abs((up["x"] + up["w"] / 2) - (down["x"] + down["w"] / 2)) < 30,
+              f"{up['x']:.0f} vs {down['x']:.0f}")
+    check("qolgan matn butun qoldi",
+          any(t.startswith("y =") for t in by_text), str(list(by_text)))
 
 
 def check_outline():
@@ -1420,6 +1529,9 @@ def main():
     check_prompt()
     check_design_system()
     check_charts()
+    check_math()
+    if html_render.available():
+        check_fraction_boxes()
     check_split()
     check_outline()
     check_family_shape()

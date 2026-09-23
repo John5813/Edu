@@ -45,8 +45,11 @@ _FAMILIES: Dict[str, Dict[str, str]] = {
         "shape": (
             "- Mantiq zanjiri asosiy: ta'rif → xossa → isbot yoki\n"
             "  keltirib chiqarish → misol → qo'llanilishi.\n"
-            "- Formula va belgilashlar aniq yozilsin.\n"
-            "- Yechimni qadamlarga ajratib ko'rsatish juda yaxshi ishlaydi.\n"
+            "- FORMULA alohida `formula` blokida, yirik ko'rsatilsin;\n"
+            "  ostida belgilar nimani bildirishi yozilsin.\n"
+            "- KAMIDA BITTA ISHLANGAN MISOL bo'lsin: `misol` bloki —\n"
+            "  masala sharti, qadamma-qadam yechim va javob.\n"
+            "  Tushunchani faqat ta'rif bilan qoldirmang.\n"
             "- Tasnif va shartlar uchun jadval qulay."),
         "numbers": (
             "STATISTIKA BU YERDA KERAK EMAS. Diagramma faqat funksiya "
@@ -74,6 +77,9 @@ _FAMILIES: Dict[str, Dict[str, str]] = {
             "- Tushuncha → maqsad → tarkib → vositalar → natija zanjiri\n"
             "  tabiiy ketma-ketlik.\n"
             "- Ko'rsatkich va qiyoslash shu yerda o'rinli.\n"
+            "- Hisob formulasi bo'lsa (YIM, inflyatsiya,\n"
+            "  rentabellik) uni `formula` blokida ko'rsating va\n"
+            "  bitta raqamli misol bilan hisoblab bering.\n"
             "- Qonun, hujjat va institutlar nomi aniq ko'rsatilsin.\n"
             "- Muammo va yechim juftligi kuchli ishlaydi."),
         "numbers": (
