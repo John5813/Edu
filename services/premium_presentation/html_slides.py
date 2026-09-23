@@ -104,9 +104,9 @@ _CATEGORIES = (
     ("tuzilma", "qutilar va ularni bog'lovchi chiziqlar — ierarxiya yoki "
                 "tarkib sxemasi"),
     ("iqtibos", "yirik tirnoq belgisi, kursiv matn, muallif qatori"),
-    ("kartalar", "3-6 ta bir xil o'lchamdagi karta, har birida sarlavha, "
-                 "bir-ikki qator matn va oddiy SVG belgi"),
-    ("yakun", "2-3 ta asosiy xulosa va yakuniy rahmat qatori"),
+    ("kartalar", "bir xil o'lchamdagi kartalar, har birida sarlavha va "
+                 "bir-ikki gaplik izoh"),
+    ("yakun", "asosiy xulosalar va yakuniy rahmat qatori"),
 )
 
 CATEGORY_KEYS = tuple(key for key, _ in _CATEGORIES)
@@ -180,7 +180,9 @@ QAT'IY QOIDALAR:
    Varaq 1920x1080 — bundan ko'pi sig'maydi va kesiladi.
 6. BO'SH BLOK QOLDIRMA. Har kartochkaning sarlavhasi ham, izohi ham
    bo'lsin. Mazmun topolmasang kartochkani butunlay olib tashla va
-   qolganlarini kamroq ustunga joyla.
+   qolganlarini kamroq ustunga joyla. Oddiy slayd sarlavha va bitta
+   jumladan iborat bo'lib qolmasin — sarlavhadagi fikr slaydda
+   ochilsin.
 7. BLOKNI MAZMUN TANLAYDI, xilma-xillik emas. Ketma-ketlik bo'lsa
    qadam yoki vaqt o'qi, tasnif bo'lsa jadval yoki kartochka,
    taqqoslash bo'lsa ikki ustun, kuchli fikr bo'lsa bayonot.
@@ -292,7 +294,7 @@ def plan_outline(topic: str, count: int, language: str,
     try:
         data = llm_client._call_openrouter(
             "Sen taqdimot rejasini tuzasan. Faqat JSON qaytar.",
-            prompt, temperature=0.6, max_tokens=300 + 90 * count)
+            prompt, temperature=0.6, max_tokens=600 + 160 * count)
         raw = data.get("slides") or []
         hint = data.get("fan") or ""
     except Exception as exc:
@@ -659,9 +661,12 @@ def fix_slide(html: str, problems: List[str], theme, language: str = "uz") -> st
     user = (
         "Quyidagi slayd brauzerda noto'g'ri joylashdi. Topilgan "
         f"kamchiliklar:\n{listed}\n\n"
-        "Shu slaydni QAYTA yoz. Mazmunini saqla, lekin:\n"
-        "- mazmun ko'p bo'lsa qisqart: kartochka yoki band sonini "
-        "kamaytir, izohlarni kaltaroq qil;\n"
+        "Shu slaydni QAYTA yoz. Faqat shu kamchiliklarni tuzat — "
+        "slaydning turi (muqova, ajratkich, `dark` sinfi), bloklari va "
+        "mazmuni o'zgarmasin. Slaydni soddalashtirma:\n"
+        "- matn qutisidan yoki varaqdan toshgan bo'lsa, o'sha joyni "
+        "qisqart (izohni kaltaroq qil yoki bitta kartochka/bandni "
+        "olib tashla);\n"
         "- bo'sh kartochka va bo'sh blok qoldirma;\n"
         "- bir matnni ikki marta yozma;\n"
         "- faqat tanish sinf nomlaridan foydalan, yangi uslub yozma.\n\n"

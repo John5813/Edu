@@ -553,6 +553,11 @@ _CHECK_SCRIPT = r"""
     }
 
     // Slayddan chiqib ketgan: butun ekranni egallagan fon bundan mustasno.
+    // Bezak doiralari ATAYLAB chetdan chiqib turadi — ular xato emas.
+    // Ilgari ular sanalardi va har bir to'q varaq "buzuq" deb topilib
+    // modelga qayta yozdirilardi; qayta yozilgan varaq esa sarlavha va
+    // bitta jumlaga aylanib qolardi.
+    if (el.closest(".bezak")) continue;
     if (r.width < W * 0.98 || r.height < H * 0.98) {
       if (r.left < -8 || r.top < -8 || r.right > W + 8 || r.bottom > H + 8) {
         outside += 1;

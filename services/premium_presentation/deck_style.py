@@ -408,7 +408,7 @@ BLOKLAR:
   </div>
 </section>
 
-2. AJRATKICH (har 4-5 slaydda bitta; `head` yozilmaydi):
+2. AJRATKICH (mavzu qismlarga bo'linsa, qism boshida; `head` yozilmaydi):
 <section class="slide dark">
   <div class="body">
     <h2 class="title big">Bo'lim nomi</h2>
@@ -487,7 +487,8 @@ Chiziq o'zi chiziladi — siz chizmaysiz.
   <p class="quote-by">— Muallif, lavozimi</p>
 </div>
 
-12. BAYONOT (bitta yirik fikr):
+12. BAYONOT (slayd faqat shu jumladan iborat bo'ladi — oddiy ta'rif
+    yoki izoh uchun emas, o'zi butun slayd bo'la oladigan fikr uchun):
 <p class="lead huge">Bitta kuchli jumla.</p>
 
 13. IKONKALAR QATORI (bezak sifatida):
@@ -524,5 +525,5 @@ DIAGRAMMA — siz chizmaysiz, faqat ma'lumot berasiz:
      data-unit="ming dona"></div>
   data-kind: bar (ustunli), line (chiziqli) yoki donut (ulushlar).
   donut uchun bitta qator bering: data-series="Ulush: 45,30,25".
-  Diagrammadan keyin ALBATTA <p class="note"> bilan 2-3 gaplik izoh:
-  raqam nimani bildiradi, nega shunday, qanday xulosa chiqadi."""
+  Diagramma ostidagi <p class="note"> da raqam nimani bildirishi,
+  nega shunday ekani va undan qanday xulosa chiqishi tushuntiriladi."""
