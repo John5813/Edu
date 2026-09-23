@@ -25,7 +25,7 @@ sys.path.insert(0, ".")
 os.environ.setdefault("BOT_TOKEN", "test")
 
 from services.premium_presentation import (  # noqa: E402
-    html_render, html_slides, llm_client, themes)
+    html_extract, html_render, html_slides, llm_client, themes)
 
 FAILS = []
 
@@ -362,6 +362,138 @@ def check_editable():
             os.remove(path)
 
 
+def check_layout_guard():
+    """Joylashuv tekshiruvi va tuzatish bosqichi.
+
+    AI HTML ni brauzersiz yozadi, shuning uchun ba'zan matn ustiga
+    matn tushadi yoki mazmun yuqoriga to'planib qoladi. Buni faqat
+    brauzer ko'radi — shuning uchun slayd chizilishidan oldin
+    tekshiriladi va bir marta qayta so'raladi.
+    """
+    print("\n8) Joylashuv qorovuli")
+    if not html_render.available():
+        check("brauzer o'rnatilgan", False, html_render._INSTALL_HINT)
+        return
+
+    theme = themes.get("ko'k")
+    font = html_slides.FONT_STACK
+
+    broken = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    *{{margin:0;padding:0;box-sizing:border-box}}
+    body{{width:1920px;height:1080px;padding:84px;background:#FFFFFF;
+    font-family:{font};overflow:hidden}}
+    h2{{font-size:48px;color:#{theme.heading}}}
+    .line{{position:relative;height:6px;background:#{theme.accent};margin-top:30px}}
+    .card{{position:absolute;bottom:100%;margin-bottom:40px;width:320px;
+    background:#{theme.accent_soft};padding:24px}}
+    .c1{{left:0}} .c2{{left:460px}}
+    </style></head><body><h2>Vaqt o'qi</h2><div class="line">
+    <div class="card c1"><b>2022</b><div>Birinchi.</div></div>
+    <div class="card c2"><b>2023</b><div>Ikkinchi.</div></div></div></body></html>"""
+
+    whole = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    *{{margin:0;padding:0;box-sizing:border-box}}
+    body{{width:1920px;height:1080px;padding:84px;background:#FFFFFF;
+    font-family:{font};overflow:hidden;display:flex;flex-direction:column;
+    justify-content:space-between}}
+    h2{{font-size:48px;color:#{theme.heading}}}
+    .row{{display:flex;gap:40px}}
+    .card{{flex:1;background:#{theme.accent_soft};padding:30px}}
+    .foot{{font-size:20px;color:#{theme.muted}}}
+    </style></head><body><h2>To'g'ri joylashgan slayd</h2>
+    <div class="row"><div class="card"><b>2022</b><div>Birinchi voqea.</div></div>
+    <div class="card"><b>2023</b><div>Ikkinchi voqea.</div></div></div>
+    <div class="foot">Manba: statistika qo'mitasi</div></body></html>"""
+
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = html_render._launch(playwright)
+        try:
+            context = browser.new_context(
+                viewport={"width": 1920, "height": 1080})
+            page = context.new_page()
+            page.set_content(broken, wait_until="load")
+            problems = html_extract.check_layout(page)
+            check("buzuq joylashuv topiladi", bool(problems), str(problems))
+            check("matn ustiga matn ko'riladi",
+                  any("matn ustiga matn" in item for item in problems),
+                  str(problems))
+            check("bo'sh pastki qism ko'riladi",
+                  any("bo'sh qolgan" in item for item in problems),
+                  str(problems))
+
+            page.set_content(whole, wait_until="load")
+            check("to'g'ri slaydda shikoyat yo'q",
+                  html_extract.check_layout(page) == [],
+                  str(html_extract.check_layout(page)))
+            context.close()
+        finally:
+            browser.close()
+
+    # Tuzatish bosqichi chaqiriladimi va natijasi ishlatiladimi.
+    asked = []
+
+    def repair(html, problems):
+        asked.append(problems)
+        return whole
+
+    path = html_render.render([broken], out_dir="temp", name="sinov",
+                              repair=repair)
+    try:
+        check("buzuq slayd tuzatishga yuboriladi", bool(asked), str(asked))
+        from pptx import Presentation
+        texts = [shape.text_frame.text
+                 for shape in list(Presentation(path).slides)[0].shapes
+                 if shape.has_text_frame]
+        check("tuzatilgan slayd ishlatildi",
+              any("To'g'ri joylashgan" in t for t in texts), str(texts[:3]))
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def check_decoration():
+    """Shaffof bezak va doira to'g'ri o'girilishi."""
+    print("\n9) Bezak ranglari va shakllari")
+    if not html_render.available():
+        check("brauzer o'rnatilgan", False, html_render._INSTALL_HINT)
+        return
+
+    theme = themes.get("ko'k")
+    page_html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    *{{margin:0;padding:0;box-sizing:border-box}}
+    body{{width:1920px;height:1080px;background:#FFFFFF;overflow:hidden;
+    position:relative;font-family:{html_slides.FONT_STACK}}}
+    .dot{{position:absolute;border-radius:50%;background:#{theme.accent};
+    opacity:.08;width:200px;height:200px;top:120px;left:160px}}
+    .hidden{{position:absolute;top:-400px;left:40px;width:300px;height:300px;
+    background:#{theme.accent}}}
+    h1{{font-size:56px;color:#{theme.heading};padding:400px 90px}}
+    </style></head><body><div class="dot"></div><div class="hidden"></div>
+    <h1>Bezak sinovi</h1></body></html>"""
+
+    path = html_render.render([page_html], out_dir="temp", name="sinov")
+    try:
+        from pptx import Presentation
+        from pptx.enum.shapes import MSO_SHAPE
+
+        shapes = list(list(Presentation(path).slides)[0].shapes)
+        ovals = [s for s in shapes
+                 if s.shape_type == 1 and s.auto_shape_type == MSO_SHAPE.OVAL]
+        check("border-radius 50% doira bo'ldi", len(ovals) == 1, str(len(ovals)))
+        if ovals:
+            colour = str(ovals[0].fill.fore_color.rgb)
+            check("shaffof bezak och rangga o'girildi",
+                  colour != theme.accent.upper() and colour != "FFFFFF", colour)
+        filled = [s for s in shapes if s.shape_type == 1]
+        check("slayddan chiqqan blok qo'yilmadi", len(filled) == 1,
+              str(len(filled)))
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+
 def main():
     check_handler_names()
     check_prompt()
@@ -371,6 +503,8 @@ def main():
     check_browser_setup()
     if check_shot():
         check_editable()
+        check_layout_guard()
+        check_decoration()
 
     print()
     if FAILS:

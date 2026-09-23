@@ -1201,8 +1201,14 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
 
         # 2 — Brauzerda 1920×1080 suratga olinadi va PPTX ga yig'iladi.
         # Brauzer nima ko'rsatsa, PowerPointda ham aynan o'sha turadi.
+        # Joylashuvi buzilgan slayd bir marta qayta chizdiriladi:
+        # buzilganini faqat brauzer ko'radi, AI esa uni ko'rmaydi.
         final_path = await _run_step(
-            loop, lambda: html_render.render(html_pages),
+            loop,
+            lambda: html_render.render(
+                html_pages,
+                repair=lambda page, problems: html_slides.fix_slide(
+                    page, problems, theme, presentation_language)),
             step="render", label="Slaydlarni suratga olish")
 
     except Exception as e:

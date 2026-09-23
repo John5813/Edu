@@ -64,8 +64,14 @@ def _clip(block: Dict) -> Dict:
 def _add_rect(slide, block: Dict) -> None:
     area = _clip(block)
     radius = float(block.get("radius") or 0)
-    shape_kind = (MSO_SHAPE.ROUNDED_RECTANGLE if radius >= 4
-                  else MSO_SHAPE.RECTANGLE)
+    if block.get("circle"):
+        # border-radius: 50% — bu doira. Ilgari u burchagi yumaloq
+        # kvadrat bo'lib chiqardi.
+        shape_kind = MSO_SHAPE.OVAL
+    elif radius >= 4:
+        shape_kind = MSO_SHAPE.ROUNDED_RECTANGLE
+    else:
+        shape_kind = MSO_SHAPE.RECTANGLE
     shape = slide.shapes.add_shape(
         shape_kind, _emu(area["x"]), _emu(area["y"]),
         _emu(area["w"]), _emu(area["h"]))
