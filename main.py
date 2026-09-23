@@ -350,6 +350,32 @@ async def _upgrade_default_ai_model() -> None:
         logger.error("AI modelni ko'chirishda xato: %s", e)
 
 
+def _prepare_browser() -> None:
+    """Premium taqdimot uchun brauzerni oldindan tayyorlaydi.
+
+    Brauzer slaydning joylashuvini hisoblaydi (CSS ni hisoblaydigan
+    boshqa vosita yo'q). U yo'q bo'lsa, kod uni o'zi yuklab oladi —
+    lekin buni buyurtma paytida qilish mijozni kuttiradi, shuning uchun
+    ish botning ishga tushishi bilan alohida oqimda boshlanadi.
+    """
+    import threading
+
+    def run():
+        try:
+            from services.premium_presentation import html_render
+
+            failure = html_render.prepare()
+            if failure:
+                logger.error(
+                    "Premium taqdimot uchun brauzer tayyor emas: %s", failure)
+            else:
+                logger.info("Premium taqdimot uchun brauzer tayyor")
+        except Exception as exc:
+            logger.error("Brauzerni tayyorlashda xato: %s", exc)
+
+    threading.Thread(target=run, name="browser-prepare", daemon=True).start()
+
+
 async def main():
     """Main function to start the bot"""
     broken = check_lazy_imports()
@@ -361,6 +387,8 @@ async def main():
         )
         for line in broken:
             logger.error("   %s", line)
+
+    _prepare_browser()
 
     # Initialize database
     await init_db()

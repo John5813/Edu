@@ -18,6 +18,7 @@ Shu fayl aynan o'sha kafolatlarni sinaydi:
 """
 
 import os
+import subprocess
 import sys
 
 sys.path.insert(0, ".")
@@ -157,8 +158,57 @@ def check_writer():
           "takrorlama" in calls[1].lower(), calls[1][:80])
 
 
+def check_browser_setup():
+    print("\n5) Brauzer tayyorligi")
+    original_globs = html_render._BROWSER_GLOBS
+    original_system = html_render._SYSTEM_BROWSERS
+    original_run = subprocess.run
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append(list(command))
+
+        class Result:
+            returncode = 1
+            stdout = ""
+            stderr = "tarmoq yo'q"
+
+        return Result()
+
+    try:
+        # Brauzersiz server holatini yasaymiz.
+        html_render._BROWSER_GLOBS = ("yo-q-*/chrome",)
+        html_render._SYSTEM_BROWSERS = ()
+        html_render._install_done = False
+        subprocess.run = fake_run
+
+        check("brauzersiz serverda topilmaydi", not html_render._executable())
+        check("available() yolg'on aytmaydi", not html_render.available())
+
+        failure = html_render.install_browser()
+        check("o'zi o'rnatishga urinadi", bool(calls), str(calls))
+        check("to'g'ri buyruq chaqiriladi",
+              calls and calls[0][-3:] == ["install", "chromium"] or
+              calls and "install" in calls[0], str(calls[:1]))
+        check("xato matni qaytariladi", "tarmoq" in failure, failure)
+
+        # Ikkinchi marta qayta yuklab olishga urinmasin.
+        count = len(calls)
+        html_render.install_browser()
+        check("ikki marta yuklab olmaydi", len(calls) == count, str(len(calls)))
+    finally:
+        subprocess.run = original_run
+        html_render._BROWSER_GLOBS = original_globs
+        html_render._SYSTEM_BROWSERS = original_system
+        html_render._install_done = False
+
+    check("brauzer topilganda o'rnatish so'ralmaydi",
+          html_render.prepare(install=False) == "" if html_render._executable()
+          else True)
+
+
 def check_shot():
-    print("\n5) Brauzerda suratga olish")
+    print("\n6) Brauzerda suratga olish")
     if not html_render.available():
         check("brauzer o'rnatilgan", False, html_render._INSTALL_HINT)
         return False
@@ -182,7 +232,7 @@ def check_shot():
 
 
 def check_editable():
-    print("\n6) Tahrirlanadigan PPTX")
+    print("\n7) Tahrirlanadigan PPTX")
     if not html_render.available():
         check("brauzer o'rnatilgan", False, html_render._INSTALL_HINT)
         return
@@ -272,6 +322,7 @@ def main():
     check_split()
     check_outline()
     check_writer()
+    check_browser_setup()
     if check_shot():
         check_editable()
 

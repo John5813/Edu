@@ -20,7 +20,10 @@ import glob
 import logging
 import os
 import re
+import subprocess
+import sys
 import tempfile
+import threading
 from typing import List
 
 log = logging.getLogger("html_render")
@@ -68,8 +71,57 @@ _SYSTEM_BROWSERS = (
     "/usr/bin/google-chrome-stable",
 )
 
-_INSTALL_HINT = ("Serverda brauzer topilmadi. Bir marta shuni bajaring:\n"
-                 "  venv/bin/playwright install --with-deps chromium")
+_INSTALL_HINT = ("Serverda brauzer topilmadi va o'rnatib ham bo'lmadi.\n"
+                 "Qo'lda bajaring (root ostida):\n"
+                 "  venv/bin/playwright install chromium\n"
+                 "  venv/bin/playwright install-deps chromium")
+
+# Brauzer bir marta o'rnatiladi. Bir vaqtda ikkita buyurtma kelsa,
+# ikkovi ham yuklab olishga urinmasin.
+_INSTALL_LOCK = threading.Lock()
+_install_done = False
+_install_error = ""
+
+
+def install_browser(timeout: int = 900) -> str:
+    """Brauzerni o'zimiz yuklab olamiz. Xato matnini qaytaradi ("" — joyida).
+
+    Serverda `playwright install` ni qo'lda bajarish oson tushib
+    ketardi: kutubxona yangilangach, u yangi brauzerni kutadi va eskisi
+    yaramaydi. Shuning uchun brauzer topilmasa, kod o'zi yuklab oladi —
+    bu bir marta bo'ladi va keyin hamma buyurtmada tayyor turadi.
+    """
+    global _install_done, _install_error
+
+    with _INSTALL_LOCK:
+        if _executable():
+            _install_done = True
+            return ""
+        if _install_done:
+            return _install_error or "brauzer o'rnatilmadi"
+
+        command = [sys.executable, "-m", "playwright", "install", "chromium"]
+        log.warning("Brauzer topilmadi — yuklab olinmoqda: %s",
+                    " ".join(command))
+        try:
+            result = subprocess.run(command, capture_output=True, text=True,
+                                    timeout=timeout)
+        except Exception as exc:
+            _install_done = True
+            _install_error = str(exc)[:300]
+            log.error("Brauzerni yuklab bo'lmadi: %s", _install_error)
+            return _install_error
+
+        _install_done = True
+        if _executable():
+            log.info("Brauzer o'rnatildi: %s", _executable())
+            _install_error = ""
+            return ""
+
+        _install_error = ((result.stderr or result.stdout or "").strip()[-300:]
+                          or f"chiqish kodi {result.returncode}")
+        log.error("Brauzer o'rnatilmadi: %s", _install_error)
+        return _install_error
 
 
 def _browser_roots() -> List[str]:
@@ -121,6 +173,23 @@ def available() -> bool:
     return bool(_executable())
 
 
+def prepare(install: bool = True) -> str:
+    """Bot ishga tushganda chaqiriladi: brauzer tayyorligini ta'minlaydi.
+
+    Xato matnini qaytaradi; hammasi joyida bo'lsa — bo'sh satr. Buyurtma
+    kelguncha yuklab olinsa, mijoz kutib qolmaydi.
+    """
+    try:
+        from playwright.sync_api import sync_playwright  # noqa: F401
+    except ImportError:
+        return "playwright kutubxonasi o'rnatilmagan"
+    if _executable():
+        return ""
+    if not install:
+        return "brauzer o'rnatilmagan"
+    return install_browser()
+
+
 def _launch(playwright):
     """Brauzerni ishga tushiradi — uch usulni ketma-ket sinab.
 
@@ -144,7 +213,17 @@ def _launch(playwright):
 
     path = _executable()
     if not path:
-        raise RuntimeError(f"{_INSTALL_HINT}\n\n" + "\n".join(attempts))
+        # Brauzer umuman yo'q — o'zimiz yuklab olamiz va qayta sinaymiz.
+        failure = install_browser()
+        path = _executable()
+        if not path:
+            raise RuntimeError(
+                f"{_INSTALL_HINT}\n\nO'rnatish xatosi: {failure}\n"
+                + "\n".join(attempts))
+        try:
+            return playwright.chromium.launch(headless=True, args=_LAUNCH_ARGS)
+        except Exception:
+            pass
 
     log.warning("Playwright brauzerni topmadi (%s) — %s ishlatiladi",
                 attempts[0], path)
