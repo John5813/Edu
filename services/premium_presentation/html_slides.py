@@ -19,7 +19,8 @@ import logging
 import re
 from typing import Callable, Dict, List, Optional
 
-from . import deck_charts, deck_shape, deck_style, llm_client
+from . import (deck_charts, deck_math, deck_shape, deck_style,
+               llm_client)
 
 log = logging.getLogger("html_slides")
 
@@ -194,7 +195,15 @@ QAT'IY QOIDALAR:
    qismga bo'linsa, qismlar orasiga AJRATKICH (`slide dark`)
    qo'ying va uni mavzuning o'z bo'lim nomi bilan ataang.
 12. Matn haqiqiy va aniq bo'lsin: nom, misol, manba bilan. "Lorem
-   ipsum", "Matn shu yerda" kabi o'rin egallovchi yozma."""
+   ipsum", "Matn shu yerda" kabi o'rin egallovchi yozma.
+13. SARLAVHADA VA'DA QILINGAN NARSA SLAYDDA BO'LSIN. Sarlavhada
+   "misollar" desangiz — ishlangan misol bo'lsin; "formula"
+   desangiz — formula ko'rinsin; "qiyoslash" desangiz — ikki tomon
+   yonma-yon tursin. Va'dani bajarolmasangiz sarlavhani
+   o'zgartiring.
+14. FORMULANI MATN ICHIGA TIQMANG. U alohida `formula` blokida,
+   yirik va o'qiladigan bo'lsin. Formulani LaTeX bilan yozing —
+   tizim uni belgilarga o'giradi."""
 
 
 def _user_prompt(topic: str, start: int, count: int, total: int,
@@ -363,7 +372,8 @@ def build_pages(bodies: List[str], theme) -> List[str]:
     SVG ni kod yasaydi — shunda ustunning balandligi ham, yozuvning
     o'rni ham har safar to'g'ri chiqadi.
     """
-    drawn = [deck_charts.draw(body, theme) for body in bodies]
+    drawn = [deck_charts.draw(deck_math.render(body), theme)
+             for body in bodies]
     try:
         from . import html_images
 

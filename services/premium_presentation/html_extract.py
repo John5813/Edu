@@ -167,6 +167,10 @@ _SCRIPT = r"""
     for (const child of el.children) {
       if (child.tagName === "BR") continue;
       if (RECURSE_TAGS.has(child.tagName)) return false;
+      // Kasr ustma-ust yoziladi: uni ota matnga qo'shib olsak,
+      // surat va maxraj yonma-yon bitta qatorga tushib, formula
+      // ma'nosini yo'qotardi.
+      if (child.classList && child.classList.contains("frac")) return false;
       const display = getComputedStyle(child).display || "";
       if (!display.startsWith("inline")) return false;
     }
