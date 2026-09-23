@@ -61,6 +61,32 @@ def _clip(block: Dict) -> Dict:
 
 # ────────────────────────────────────────────────────────── elementlar
 
+def _gradient(fill, ramp) -> bool:
+    """Gradient to'ldirish. Qo'yilsa `True` qaytaradi.
+
+    Yassi bitta rang slaydni quruq ko'rsatadi. Brauzerdagi
+    `linear-gradient` PowerPointning o'z gradient to'ldirishiga
+    aylanadi — ya'ni rasm emas, tahrirlanadigan to'ldirish bo'lib
+    qoladi.
+    """
+    stops = (ramp or {}).get("stops") or []
+    if len(stops) < 2:
+        return False
+    try:
+        fill.gradient()
+        slots = fill.gradient_stops
+        for index, stop in enumerate(stops[:len(slots)]):
+            slots[index].color.rgb = _colour(stop.get("colour"))
+            slots[index].position = max(0.0, min(1.0, float(stop.get("at", 0))))
+        # CSS da 0deg — tepaga, PowerPointda 0 — o'ngga. Burchak
+        # shuning uchun 90 gradusga suriladi.
+        fill.gradient_angle = (float(ramp.get("angle", 180)) - 90) % 360
+        return True
+    except Exception as exc:
+        log.warning("Gradient qo'yilmadi: %s", exc)
+        return False
+
+
 def _add_rect(slide, block: Dict) -> None:
     area = _clip(block)
     radius = float(block.get("radius") or 0)
@@ -84,11 +110,12 @@ def _add_rect(slide, block: Dict) -> None:
         except (IndexError, ValueError):
             pass
 
-    if block.get("fill"):
-        shape.fill.solid()
-        shape.fill.fore_color.rgb = _colour(block["fill"])
-    else:
-        shape.fill.background()
+    if not _gradient(shape.fill, block.get("gradient")):
+        if block.get("fill"):
+            shape.fill.solid()
+            shape.fill.fore_color.rgb = _colour(block["fill"])
+        else:
+            shape.fill.background()
 
     if block.get("border"):
         shape.line.color.rgb = _colour(block["border"])
@@ -256,8 +283,10 @@ def _add_image(slide, block: Dict) -> None:
 
 # ──────────────────────────────────────────────────────────── slaydlar
 
-def _background(slide, colour: str) -> None:
+def _background(slide, colour: str, ramp=None) -> None:
     fill = slide.background.fill
+    if _gradient(fill, ramp):
+        return
     fill.solid()
     fill.fore_color.rgb = _colour(colour or "FFFFFF")
 
@@ -265,7 +294,8 @@ def _background(slide, colour: str) -> None:
 def add_slide(presentation, layout: Dict) -> None:
     """Bitta slaydni tahrirlanadigan elementlardan yig'adi."""
     slide = presentation.slides.add_slide(presentation.slide_layouts[6])
-    _background(slide, layout.get("background"))
+    _background(slide, layout.get("background"),
+                layout.get("backgroundGradient"))
 
     # Tartib muhim: fon bloklari avval, matn keyin — shunda matn
     # ularning ustida turadi.

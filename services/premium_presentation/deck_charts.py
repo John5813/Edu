@@ -120,10 +120,10 @@ def _bar(rows, labels, theme, unit, W, H) -> str:
                 f'<rect x="{x:.0f}" y="{y:.0f}" width="{bar_w - 6:.0f}" '
                 f'height="{height:.0f}" rx="6" fill="#{colour}"/>')
             parts.append(_text(x + (bar_w - 6) / 2, y - 12, _fmt(value),
-                               22, theme.heading, weight="700"))
+                               27, theme.heading, weight="700"))
         if index < len(labels):
             parts.append(_text(left + group * index + group / 2,
-                               top + plot_h + 34, labels[index], 22,
+                               top + plot_h + 38, labels[index], 27,
                                theme.body, weight="700"))
 
     parts.append(_legend(rows, theme, top + plot_h + 58))
@@ -157,12 +157,12 @@ def _line(rows, labels, theme, unit, W, H) -> str:
         for index, (x, y) in enumerate(points):
             parts.append(f'<circle cx="{x:.0f}" cy="{y:.0f}" r="9" '
                          f'fill="#{colour}"/>')
-            parts.append(_text(x, y - 22, _fmt(values[index]), 22,
+            parts.append(_text(x, y - 24, _fmt(values[index]), 27,
                                theme.heading, weight="700"))
 
     for index, label in enumerate(labels[:count]):
-        parts.append(_text(left + step * index, top + plot_h + 34, label,
-                           22, theme.body, weight="700"))
+        parts.append(_text(left + step * index, top + plot_h + 38, label,
+                           27, theme.body, weight="700"))
 
     parts.append(_legend(rows, theme, top + plot_h + 58))
     return _svg(parts, unit, theme, W, H)
@@ -193,7 +193,7 @@ def _donut(rows, labels, theme, unit, W, H) -> str:
         left = cx + radius + 56
         parts.append(f'<rect x="{left:.0f}" y="{line_y - 18:.0f}" width="22" '
                      f'height="22" rx="5" fill="#{colour}"/>')
-        parts.append(_text(left + 38, line_y, f"{label} — {_fmt(share)}%", 26,
+        parts.append(_text(left + 38, line_y, f"{label} — {_fmt(share)}%", 30,
                            theme.body, anchor="start", weight="700"))
         line_y += 54
 
@@ -231,7 +231,7 @@ def _legend(rows, theme, y) -> str:
         colour = theme.chart[order % len(theme.chart)]
         parts.append(f'<rect x="{x}" y="{y - 16:.0f}" width="20" height="20" '
                      f'rx="5" fill="#{colour}"/>')
-        parts.append(_text(x + 30, y, name, 22, theme.body, anchor="start"))
+        parts.append(_text(x + 30, y, name, 27, theme.body, anchor="start"))
         x += 44 + len(name) * 12
     return "".join(parts)
 
@@ -239,7 +239,7 @@ def _legend(rows, theme, y) -> str:
 def _svg(parts, unit, theme, W, H) -> str:
     head = ""
     if unit:
-        head = _text(24, 24, unit, 22, theme.muted, anchor="start")
+        head = _text(24, 24, unit, 27, theme.muted, anchor="start")
     return (f'<svg viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
             f'xmlns="http://www.w3.org/2000/svg">{head}'
             + "".join(parts) + "</svg>")
