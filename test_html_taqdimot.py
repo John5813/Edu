@@ -859,6 +859,83 @@ def check_double_text():
     check("alohida matn nusxa deb sanalmadi", not warned["alohida"])
 
 
+def check_no_shadow():
+    """Slaydda soya umuman qolmasin.
+
+    Soya PowerPointga o'tmaydi: shakl soyasini biz o'chiramiz, matn
+    soyasini esa model ko'pincha matnning ikkinchi nusxasi bilan
+    chizadi — shunda sarlavha ikki marta yozilgan bo'lib chiqadi.
+    Shuning uchun soya HTML ning o'zidan kesib tashlanadi: model
+    qoidani unutsa ham slaydda soya qolmaydi.
+    """
+    print("\n16) Soya butunlay olib tashlanadi")
+    theme = themes.get("ko'k")
+
+    page = ("<!DOCTYPE html><html><head><style>"
+            ".karta{box-shadow:0 4px 12px rgba(0,0,0,.2);width:400px}"
+            "h1{text-shadow:2px 2px 6px #000;font-size:80px}"
+            ".nur{filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}"
+            ".xira{filter:blur(4px) drop-shadow(0 2px 4px #000)}"
+            "</style></head><body>"
+            '<div class="karta" style="box-shadow:0 2px 4px #0002;color:red">'
+            "<h1>Sarlavha</h1></div></body></html>")
+
+    cleaned = html_slides.split_slides(page)
+    check("slayd o'qildi", len(cleaned) == 1, str(len(cleaned)))
+    if not cleaned:
+        return
+    out = cleaned[0]
+
+    check("box-shadow qolmadi", "box-shadow" not in out.lower())
+    check("text-shadow qolmadi", "text-shadow" not in out.lower())
+    check("drop-shadow qolmadi", "drop-shadow" not in out.lower())
+    check("blur o'z joyida qoldi", "blur(4px)" in out, out[-160:])
+    check("boshqa uslub tegilmadi",
+          "width:400px" in out and "color:red" in out and "80px" in out, out)
+
+    rules = html_slides.shell_rules(theme, "uz").lower()
+    check("promptda soya taqiqlangan",
+          "soya umuman ishlatilmaydi" in rules, "")
+
+
+def check_repair_keeps_images():
+    """Slayd qayta chizilganda rasm va ikonka yo'qolmasin.
+
+    Tuzatish so'rovi slaydning butun HTML ini modelga yuborardi —
+    ichidagi `src="data:image/png;base64,..."` bilan birga. Bitta
+    fotosurat yuz minglab belgi bo'ladi: so'rov kontekstga sig'maydi,
+    sig'sa ham model uzun satrni qayta yoza olmay rasmni tushirib
+    qoldiradi. Natijada slaydda buzuq rasm belgisi alt matni bilan
+    qolardi — mijoz uni "ortiqcha snoska" deb ko'rardi.
+    """
+    print("\n17) Tuzatishda rasm saqlanadi")
+    theme = themes.get("ko'k")
+
+    photo = "data:image/png;base64," + "A" * 4000
+    page = ("<!DOCTYPE html><html><head><style>"
+            ".foto{width:600px}</style></head><body>"
+            f'<img class="foto" src="{photo}" alt="Sanoat">'
+            '<img class="ikon" src="data:image/png;base64,BBBB" alt="">'
+            "<h1>Sarlavha</h1></body></html>")
+
+    parked, store = html_slides._park_images(page)
+    check("rasm so'rovdan chiqarildi", "base64,AAAA" not in parked)
+    check("belgi qo'yildi", 'src="#rasm1"' in parked, parked[:200])
+    check("so'rov qisqardi", len(parked) < len(page) - 3900,
+          f"{len(page)} → {len(parked)}")
+    check("ikkala rasm ham saqlandi", len(store) == 2, str(len(store)))
+    check("belgilar qaytariladi",
+          html_slides._unpark_images(parked, store) == page)
+
+    # Model belgini tushirib qoldirsa — buzuq rasm qolmasin.
+    lost = parked.replace('src="#rasm1"', "")
+    restored = html_slides._restore(lost, theme)
+    check("egasiz rasm blokka aylandi",
+          "<img" not in restored.replace('<img class="ikon"', ""),
+          restored[:300])
+    check("sarlavha joyida", "Sarlavha" in restored)
+
+
 def main():
     check_handler_names()
     check_prompt()
@@ -877,6 +954,8 @@ def main():
         check_inline_text()
         check_text_box_width()
         check_double_text()
+    check_no_shadow()
+    check_repair_keeps_images()
 
     print()
     if FAILS:

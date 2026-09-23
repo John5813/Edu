@@ -46,6 +46,33 @@ SERIF_STACK = "'Times New Roman', 'Liberation Serif', 'DejaVu Serif', serif"
 _THINK = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
 _FENCE = re.compile(r"```(?:html)?", re.IGNORECASE)
 
+# Soya PowerPointga umuman o'tmaydi: shakl soyasini biz o'chiramiz,
+# matn soyasi esa model uni matnning ikkinchi nusxasi bilan chizishga
+# urinishiga olib keladi. Shuning uchun soya HTML dan butunlay
+# kesib tashlanadi — model qoidani unutsa ham slaydda soya qolmaydi.
+_SHADOW_DECL = re.compile(
+    r"(?:-webkit-|-moz-|-ms-)?(?:box|text)-shadow\s*:[^;}\"']*;?",
+    re.IGNORECASE)
+# `drop-shadow(...)` `filter` qiymatining ichida turadi; ichida
+# `rgba(...)` bo'lishi mumkin, shuning uchun bir qavat qavs hisobga
+# olinadi.
+_DROP_SHADOW = re.compile(
+    r"drop-shadow\s*\([^()]*(?:\([^()]*\)[^()]*)*\)", re.IGNORECASE)
+# Ichidagi yagona qiymat olib tashlangach bo'sh qolgan `filter:`.
+_EMPTY_FILTER = re.compile(
+    r"(?:-webkit-)?filter\s*:\s*([;}\"'])", re.IGNORECASE)
+
+
+def strip_shadows(html: str) -> str:
+    """Slayddan har qanday soyani olib tashlaydi."""
+    text = _SHADOW_DECL.sub("", html)
+    text = _DROP_SHADOW.sub("", text)
+    text = _EMPTY_FILTER.sub(r"\1", text)
+    text = re.sub(r";\s*;+", "; ", text)
+    # Qoida olib tashlangach qolgan bo'sh nuqtali vergul.
+    return re.sub(r"([{\"'])\s*;\s*", r"\1", text)
+
+
 _LANGUAGE = {
     "ru": "русском языке",
     "en": "in English",
@@ -221,16 +248,17 @@ DIZAYN (slaydlar bir-biriga o'xshab ketmasin):
 - Qolgan slaydlar och fonda, lekin har birida bitta kuchli vizual
   langar bo'lsin: rasm, SVG diagramma, yirik raqam yoki ikonkalar
   qatori. Faqat matndan iborat slayd bo'lmasin.
-- Kartochkalarga soya berma (PowerPointda chiqmaydi). O'rniga och fon
-  (#{theme.accent_soft}), 16-20px yumaloq burchak va tepasida yoki
-  chapida 4-6px aksent chizig'i.
+- SOYA UMUMAN ISHLATILMAYDI: na `box-shadow`, na `text-shadow`, na
+  `filter: drop-shadow`. PowerPointda soya chiqmaydi, kodda esa u
+  butunlay kesib tashlanadi — yozsangiz shunchaki yo'qoladi.
+  Hajm kerak bo'lsa: och fon (#{theme.accent_soft}), 16-20px yumaloq
+  burchak va tepasida yoki chapida 4-6px aksent chizig'i.
 - Bir slaydda ikkitadan ortiq turli rang ishlatma.
-- BIR MATNNI IKKI MARTA YOZMANG. Soya, kontur yoki nur uchun
+- BIR MATNNI IKKI MARTA YOZMANG. Soya, kontur yoki nur berish uchun
   sarlavhaning ikkinchi nusxasini (`<span>` ichida, `position:absolute`
   bilan yoki `filter: blur` qo'yilgan qatlamda) qo'ymang: brauzerda
   ular ustma-ust tushib bittadek ko'rinadi, PowerPointda esa matn ikki
-  marta yozilgan bo'lib chiqadi. Soya kerak bo'lsa `text-shadow`
-  ishlating — u bitta elementda qoladi.
+  marta yozilgan bo'lib chiqadi. Har matn — bitta element, soyasiz.
 - Sarlavhaga gradient bermang (`-webkit-background-clip: text`):
   PowerPointda harf rangi yo'qoladi. Oddiy `color` yetarli.
 
@@ -392,7 +420,7 @@ def split_slides(raw: str) -> List[str]:
         if "</html>" not in lower:
             log.warning("Chala kelgan slayd tashlandi (%d belgi)", len(part))
             continue
-        slides.append(part)
+        slides.append(strip_shadows(part))
     return slides
 
 
@@ -471,6 +499,36 @@ def ensure_photos(pages: List[str], theme, language: str = "uz",
     return result
 
 
+# Slaydga joylashtirilgan rasm `src="data:image/png;base64,...."`
+# ko'rinishida turadi va bitta fotosurat bir necha yuz ming belgi
+# bo'ladi. Uni modelga yuborib bo'lmaydi: so'rov kontekstga sig'maydi,
+# sig'sa ham model uzun satrni qayta yoza olmay rasmni tushirib
+# qoldiradi va slaydda "buzuq rasm" belgisi alt matni bilan qoladi.
+# Shuning uchun rasmlar so'rovdan OLDIN qisqa belgiga almashtiriladi
+# va javob kelgach o'z joyiga qaytariladi.
+_DATA_SRC = re.compile(r'src\s*=\s*(["\'])\s*(data:[^"\']+)\1',
+                       re.IGNORECASE)
+
+
+def _park_images(html: str) -> tuple:
+    """Rasmlarni qisqa belgiga almashtiradi."""
+    store = {}
+
+    def hide(match):
+        token = f"#rasm{len(store) + 1}"
+        store[token] = match.group(2)
+        return f'src="{token}"'
+
+    return _DATA_SRC.sub(hide, html), store
+
+
+def _unpark_images(html: str, store: dict) -> str:
+    """Belgilarni rasmning o'ziga qaytaradi."""
+    for token, uri in store.items():
+        html = html.replace(token, uri)
+    return html
+
+
 def fix_slide(html: str, problems: List[str], theme, language: str = "uz") -> str:
     """Joylashuvi buzilgan slaydni qayta chizdiradi.
 
@@ -478,11 +536,18 @@ def fix_slide(html: str, problems: List[str], theme, language: str = "uz") -> st
     varaqdan chiqib ketgani, matn ustiga matn tushgani yoki mazmun
     yuqoriga to'planib qolgani ko'rinadi. Shu ro'yxat modelga aytiladi
     va u FAQAT o'sha slaydni qayta yozadi — butun taqdimot emas.
+
+    Slayddagi fotosurat va ikonkalar so'rovga qo'shilmaydi: ular
+    qisqa belgiga almashtirilib, javob kelgach joyiga qaytariladi.
     """
     if not problems:
         return html
 
+    parked, store = _park_images(html)
     listed = "\n".join(f"- {item}" for item in problems)
+    keep = ("- `src=\"#rasm1\"` kabi qisqa belgilar — bu tayyor rasmlar. "
+            "Ularni AYNAN o'sha holicha ko'chiring, o'zgartirmang va "
+            "o'chirmang; yangi `<img>` qo'shmang.\n") if store else ""
     user = (
         "Quyidagi slayd brauzerda noto'g'ri joylashdi. Topilgan "
         f"kamchiliklar:\n{listed}\n\n"
@@ -494,9 +559,11 @@ def fix_slide(html: str, problems: List[str], theme, language: str = "uz") -> st
         "yonma-yon qo'y, ustma-ust emas;\n"
         "- mazmun butun balandlikni egallasin: body ni flex ustun qilib, "
         "bo'shliqni bloklar orasiga taqsimla;\n"
-        "- diagramma yozuvlari ustunlar ustiga tushmasin.\n\n"
-        "Javobda faqat to'liq HTML hujjat bo'lsin, boshqa hech narsa "
-        "yozma.\n\nSlayd:\n" + html
+        "- diagramma yozuvlari ustunlar ustiga tushmasin;\n"
+        "- bir matnni ikki marta yozma, soya ishlatma.\n"
+        + keep +
+        "\nJavobda faqat to'liq HTML hujjat bo'lsin, boshqa hech narsa "
+        "yozma.\n\nSlayd:\n" + parked
     )
 
     try:
@@ -508,7 +575,27 @@ def fix_slide(html: str, problems: List[str], theme, language: str = "uz") -> st
         return html
 
     fixed = split_slides(raw)
-    return fixed[0] if fixed else html
+    if not fixed:
+        return html
+    return _restore(_unpark_images(fixed[0], store), theme)
+
+
+def _restore(html: str, theme) -> str:
+    """Qayta chizilgan slaydning rasmlarini joyiga qo'yadi.
+
+    Model belgini tushirib qoldirsa yoki yangi `<img>` qo'shsa, u
+    brauzerda buzuq rasm belgisi bo'lib, alt matni bilan slaydga
+    tushardi. Shuning uchun ikonkalar qaytadan qo'yiladi, egasiz
+    qolgan `<img>` esa o'sha o'lchamdagi rangli blokka aylanadi.
+    """
+    try:
+        from . import html_images
+
+        page = html_images.apply_icons([html], theme)[0][0]
+        return html_images.sweep([page], theme)[0]
+    except Exception as exc:
+        log.warning("Tuzatilgan slayd rasmlari tiklanmadi: %s", exc)
+        return html
 
 
 def _write_chunk(system: str, user: str, count: int) -> List[str]:
