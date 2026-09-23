@@ -64,6 +64,9 @@ _BROWSER_GLOBS = (
 
 # Tizimga o'rnatilgan brauzerlar — Playwright papkasi umuman bo'lmasa.
 _SYSTEM_BROWSERS = (
+    # Replit's Nix/browser toolchain exposes Chromium here. This is more
+    # reliable than downloading Playwright's headless shell at runtime.
+    "/repl/tools/bin/chromium",
     "/opt/pw-browsers/chromium",
     "/usr/bin/chromium",
     "/usr/bin/chromium-browser",
