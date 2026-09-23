@@ -57,51 +57,6 @@ from services.project_work import source as source_module
 router = Router()
 logger = logging.getLogger(__name__)
 
-# Bir xil xato haqida har taqdimotda xabar yubormaslik uchun: sabab
-# o'zgarmaguncha admin bir marta ogohlantiriladi.
-_last_image_warning = ""
-
-
-async def _warn_admin_about_images(bot) -> None:
-    """Rasmlar chiqmaganda adminga xabar yuboradi."""
-    global _last_image_warning
-
-    try:
-        from config import ADMIN_IDS
-        from services.premium_presentation import deck
-
-        report = getattr(deck, "LAST_IMAGE_REPORT", None) or {}
-        failed, wanted = report.get("failed", 0), report.get("wanted", 0)
-        if not failed:
-            _last_image_warning = ""
-            return
-
-        reason = report.get("reason") or "sabab noma'lum"
-        if reason == _last_image_warning:
-            return
-        _last_image_warning = reason
-
-        # Har model bo'yicha sabab: qaysi biri "kredit yo'q", qaysi biri
-        # "bunday model yo'q" ekani bir qarashda ko'rinsin.
-        from services.premium_presentation import image_client
-
-        lines = "\n".join(
-            f"• <b>{model.split('/')[-1]}</b> — {why}"
-            for model, why in list(image_client.LAST_ERRORS.items())[:6]
-        ) or f"<code>{reason[:300]}</code>"
-
-        text = (
-            "⚠️ <b>Premium taqdimot rasmsiz chiqdi</b>\n\n"
-            f"So'ralgan rasm: {wanted} ta, chiqmagani: {failed} ta\n\n"
-            f"{lines}\n\n"
-            "Together hisobidagi kredit va modelga ruxsatni tekshiring."
-        )
-        for admin_id in ADMIN_IDS:
-            with contextlib.suppress(Exception):
-                await bot.send_message(admin_id, text, parse_mode="HTML")
-    except Exception as e:
-        logger.error("Rasm ogohlantirishini yuborib bo'lmadi: %s", e)
-
 MIN_SLIDES = 5
 MAX_SLIDES = 30
 
@@ -1211,42 +1166,43 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         except Exception as e:
             logger.error("Premium model tanlovini o'qib bo'lmadi: %s", e)
 
-        from services.premium_presentation import composer, deck, themes
+        from services.premium_presentation import (html_render, html_slides,
+                                                    themes)
 
         theme = themes.get(data.get("theme_key", "")) if data.get("theme_key") \
             else themes.suggest(topic)
 
-        # 1 — Reja: AI qaysi qolipni olishini va o'rinlarga nima
-        # yozilishini aytadi. Koordinata so'ralmaydi — joylashuv
-        # qoliplarda tayyor, shuning uchun tuzatish bosqichi ham,
-        # vizual tekshiruv ham kerak emas.
-        planned = await _run_step(
+        # 1 — AI butun slaydni HTML/CSS/SVG qilib chizadi. Kod unga
+        # faqat qobiq shartlarini (o'lcham, shrift, rang, tashqi fayl
+        # yo'qligi) va joylashuv kategoriyalarini beradi — ichki
+        # kompozitsiyani har safar o'zi o'ylab topadi.
+        html_pages = await _run_step(
             loop,
-            lambda: composer.plan_deck(
-                topic, slide_count, language=presentation_language,
+            lambda: html_slides.write_slides(
+                topic, slide_count, theme, language=presentation_language,
                 level=level, preferences=preferences,
-                source_text=source_text, progress_cb=progress_cb),
-            step="brief", label="Kontent tayyorlash")
+                source_text=source_text, author=client_name,
+                progress_cb=progress_cb),
+            step="brief", label="Slaydlarni yozish")
 
         step2 = {
             "uz": (f"⚙️ <b>{topic}</b>\n"
-                   f"✅ Kontent tayyor: {len(planned)} slayd\n"
-                   f"⏳ Slaydlar chizilmoqda..."),
+                   f"✅ Slaydlar yozildi: {len(html_pages)} ta\n"
+                   f"⏳ Suratga olinmoqda..."),
             "ru": (f"⚙️ <b>{topic}</b>\n"
-                   f"✅ Контент готов: {len(planned)} слайдов\n"
-                   f"⏳ Рисуем слайды..."),
+                   f"✅ Слайды написаны: {len(html_pages)}\n"
+                   f"⏳ Снимаем изображения..."),
             "en": (f"⚙️ <b>{topic}</b>\n"
-                   f"✅ Content ready: {len(planned)} slides\n"
-                   f"⏳ Drawing slides..."),
+                   f"✅ Slides written: {len(html_pages)}\n"
+                   f"⏳ Capturing images..."),
         }
         await status.edit_text(step2.get(lang, step2["uz"]), parse_mode="HTML")
 
-        # 2 — Chizish. Rasm faqat rasm o'rni bor qoliplarda so'raladi.
+        # 2 — Brauzerda 1920×1080 suratga olinadi va PPTX ga yig'iladi.
+        # Brauzer nima ko'rsatsa, PowerPointda ham aynan o'sha turadi.
         final_path = await _run_step(
-            loop, lambda: deck.build(planned, theme),
-            step="render", label="Slaydlarni chizish")
-
-        await _warn_admin_about_images(callback.bot)
+            loop, lambda: html_render.render(html_pages),
+            step="render", label="Slaydlarni suratga olish")
 
     except Exception as e:
         logger.exception("Premium taqdimot generatsiyasida xato: %s", e)

@@ -306,8 +306,8 @@ async def periodic_cleanup(interval_seconds: int = 1800, storage=None):
 # taqdimot aynan shu sababdan "No module named 'requests'" bilan to'xtadi.
 # Shuning uchun import zanjiri ishga tushishda bir marta tekshiriladi.
 _LAZY_MODULES = (
-    "services.premium_presentation.pipeline",
-    "services.premium_presentation.renderer",
+    "services.premium_presentation.html_slides",
+    "services.premium_presentation.html_render",
     "services.project_work.builder",
     "services.document_service",
     "services.together_service",

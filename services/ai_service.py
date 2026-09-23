@@ -4391,6 +4391,12 @@ In JSON format:
         lang_name = lang_map.get(language, "o'zbek")
         listing = "\n".join(f"{number} {title}" for number, title in outline)
         types = ", ".join(DOC_CHART_TYPES)
+        # Namunadagi yillar ham bugungi sanadan olinadi, aks holda model
+        # ularni ko'chirib, eskirgan jadval yasaydi.
+        first_column = "Ko'rsatkich"
+        table_headers = json.dumps(
+            [first_column] + [str(year) for year in timeframe.history_years(2)],
+            ensure_ascii=False)
 
         prompt = (
             f'Kurs ishi mavzusi: "{topic}"\n\n'
@@ -4421,7 +4427,7 @@ In JSON format:
             f'"series": [{{"name": "Ko\'rsatkich", "values": [9.1, 8.7, 8.2]}}], '
             f'"explanation": "Izoh"}},\n'
             f'  {{"subsection": "1.3", "kind": "table", "title": "Jadval nomi", '
-            f'"headers": ["Ko\'rsatkich", "2024", "2025"], '
+            f'"headers": {table_headers}, '
             f'"rows": [["Band aholi, ming kishi", "13 900", "14 260"]], '
             f'"explanation": "Uch-besh gaplik izoh"}},\n'
             f'  {{"subsection": "2.1", "kind": "formula", "name": "Formula nomi", '
