@@ -1168,7 +1168,11 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
             logger.error("Premium model tanlovini o'qib bo'lmadi: %s", e)
 
         from services.premium_presentation import (html_images, html_render,
-                                                    html_slides, themes)
+                                                    html_slides, llm_client,
+                                                    themes)
+
+        # Token hisobi shu taqdimot uchun noldan boshlansin.
+        llm_client.reset_usage()
 
         theme = themes.get(data.get("theme_key", "")) if data.get("theme_key") \
             else themes.suggest(topic)
@@ -1216,6 +1220,8 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         html_pages, photos = await html_images.illustrate(
             html_pages, theme, topic)
         logger.info("Taqdimot bezagi: %d ikonka, %d fotosurat", icons, photos)
+        logger.info("Taqdimot sarfi: %s, %d ta rasm (%d slayd)",
+                    llm_client.usage_report(), photos, len(html_pages))
 
         step2 = {
             "uz": (f"⚙️ <b>{topic}</b>\n"
