@@ -19,6 +19,7 @@ Shu fayl aynan o'sha kafolatlarni sinaydi:
 
 import asyncio
 import os
+import re
 import subprocess
 import sys
 
@@ -135,7 +136,7 @@ def check_design_system():
              and "100%" not in line and "1080px" not in line
              and "0" not in line
              and not any(f"height:{n}px" in line for n in
-                         (4, 5, 6, 14, 16, 22, 48, 54, 56, 96, 104))]
+                         (4, 5, 6, 14, 16, 22, 36, 48, 54, 56, 68, 96, 104))]
     check("kartochkaga qat'iy balandlik yo'q", not loose, str(loose[:2]))
 
     other = deck_style.stylesheet(themes.get("qizil"))
@@ -1789,6 +1790,66 @@ def check_icon_cards():
           "TONE" not in css and "TINT" not in css)
 
 
+def check_auto_icons():
+    """Ikonkani model emas, kod qo'yadi — model yozmasa ham chiqadi."""
+    print("\n25) Ikonkalar avtomatik qo'yiladi")
+
+    def item(text):
+        return ('<div class="item"><span class="item-dot"></span>'
+                f'<div class="item-text">{text}</div></div>')
+
+    body = ('<section class="slide"><div class="head">'
+            '<h2 class="title">Inqiroz oqibatlari</h2></div><div class="body">'
+            '<div class="list">' + item("<b>Bank tizimi.</b> Banklar yopildi.")
+            + item("<b>Ishsizlik.</b> Ish o'rinlari qisqardi.")
+            + item("<b>Savdo.</b> Eksport kamaydi.") + '</div>'
+            '<div class="steps"><div class="card"><div class="card-title">'
+            '1-qadam</div><div class="card-note">Ta\'lim tizimi</div></div>'
+            '<div class="arrow">&#8594;</div><div class="card">'
+            '<div class="card-title">2-qadam</div><div class="card-note">'
+            'Investitsiya</div></div></div>'
+            '<div class="cols cols-2"><div class="card"><div class="card-title">'
+            'Moliya</div><div class="list">' + item("ichki band") +
+            '</div></div><div class="card"><div class="ikon-dot"><img '
+            'class="ikon" data-icon="chart" alt=""></div><div class="card-title">'
+            'Grafik</div></div></div></div></section>')
+    out = html_slides._auto_icons(body)
+    names = re.findall(r'data-icon="([^"]+)"', out)
+    check("ro'yxat bandlariga ikonka", out.count('class="item-ikon"') == 3,
+          str(out.count('class="item-ikon"')))
+    check("kartochka ichidagi ro'yxatga tegilmaydi",
+          out.count('class="item-dot"') == 1, str(out.count('class="item-dot"')))
+    check("qadam va kartochkalarga ikonka", out.count('class="ikon-dot"') == 4,
+          str(out.count('class="ikon-dot"')))
+    check("model qo'ygan ikonka saqlanadi", names.count("chart") == 1, str(names))
+    check("slaydda ikonka takrorlanmaydi", len(names) == len(set(names)),
+          str(names))
+    check("topilmagan ikonka yo'q", "default" not in names, str(names))
+    check("ikki marta yurgizilsa o'zgarmaydi",
+          html_slides._auto_icons(out) == out)
+
+    class Theme:
+        heading = body_ = muted = "333333"
+        body = "333333"
+        chart = ["2F7BE0", "E8A33D"]
+
+    one = '<div class="chart" data-kind="donut" data-series="100"></div>'
+    two = '<div class="chart" data-kind="donut" data-series="60,40"></div>'
+    check("bitta qiymatli halqa chizilmaydi",
+          deck_charts.draw(one, Theme()) == "")
+    check("ikki qiymatli halqa chiziladi",
+          "<svg" in deck_charts.draw(two, Theme()))
+    check("mazmun sarlavha ustiga chiqmaydi (safe center)",
+          "safe center" in deck_style.stylesheet(themes.get("ko'k")))
+
+    if not html_render.available():
+        return
+    theme = themes.get("ko'k")
+    page = html_slides.build_pages([body], theme)[0]
+    check("ikonkalar rasmga aylandi", page.count("data:image") >= 7,
+          str(page.count("data:image")))
+
+
 def main():
     check_handler_names()
     check_prompt()
@@ -1824,6 +1885,7 @@ def main():
         check_text_spill()
         check_colour_harmony()
         check_icon_cards()
+    check_auto_icons()
 
     print()
     if FAILS:

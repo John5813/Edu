@@ -266,6 +266,15 @@ def draw(html_body: str, theme) -> str:
         labels = _labels(data.get("labels", ""))
         name = (data.get("kind") or "bar").strip().lower()
         kind = _KINDS.get(name, _bar)
+        # Bitta qiymatli halqa "100%" deydi, xolos — hech narsani
+        # ko'rsatmaydi, halqaning o'zi esa chizilmay (boshi va oxiri
+        # bir nuqta) faqat imzo qolardi. Bunday diagramma tashlanadi.
+        if kind is _donut and len(rows[0][1]) < 2:
+            log.warning("Bitta qiymatli halqa diagramma tashlandi")
+            return ""
+        if all(len(values) < 2 for _, values in rows) and kind is not _donut:
+            log.warning("Bitta nuqtali diagramma tashlandi")
+            return ""
         # Halqa tabiatan ixcham: u har doim yarim o'lchamda chiziladi.
         half = (data.get("size") or "").strip().lower() in ("half", "yarim")
         width, height = ((HALF_W, HALF_H) if half or kind is _donut
