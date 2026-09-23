@@ -45,8 +45,10 @@ _FAMILIES: Dict[str, Dict[str, str]] = {
         "shape": (
             "- Mantiq zanjiri asosiy: ta'rif → xossa → isbot yoki\n"
             "  keltirib chiqarish → misol → qo'llanilishi.\n"
-            "- Formula BO'LSA, uni matn ichiga tiqmang: `formula`\n"
-            "  bloki bor, u yirik va o'qiladigan chiqadi.\n"
+            "- Bu fanlarda tushuncha odatda formula bilan ta'riflanadi:\n"
+            "  formulasi bor tushuncha formulasiz qolmasin — u\n"
+            "  `formula` blokida yirik ko'rsatiladi, belgilari\n"
+            "  izohlanadi.\n"
             "- Tushunchani misol bilan ko'rsatish mumkin bo'lsa,\n"
             "  `misol` bloki bor: masala sharti, qadamma-qadam\n"
             "  yechim va javob.\n"
