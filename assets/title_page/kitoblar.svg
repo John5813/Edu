@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 420" width="600" height="420">
+  <defs>
+    <linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#EDE6D6"/>
+    </linearGradient>
+    <linearGradient id="pgL" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#F4EFE3"/><stop offset="0.85" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E4DCC8"/>
+    </linearGradient>
+    <linearGradient id="pgR" x1="1" y1="0" x2="0" y2="0">
+      <stop offset="0" stop-color="#F4EFE3"/><stop offset="0.85" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E4DCC8"/>
+    </linearGradient>
+    <radialGradient id="sh" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#000" stop-opacity="0.22"/><stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <ellipse cx="300" cy="392" rx="235" ry="16" fill="url(#sh)"/>
+
+  <!-- 3: pastki kitob (och havorang) -->
+  <rect x="92" y="330" width="410" height="54" rx="5" fill="#9CC3D9"/>
+  <rect x="92" y="330" width="26" height="54" rx="5" fill="#7AA9C4"/>
+  <rect x="440" y="336" width="56" height="42" fill="url(#pg)"/>
+  <g stroke="#DDD3BD" stroke-width="1.2"><line x1="440" y1="344" x2="496" y2="344"/><line x1="440" y1="352" x2="496" y2="352"/><line x1="440" y1="360" x2="496" y2="360"/><line x1="440" y1="368" x2="496" y2="368"/></g>
+  <rect x="132" y="340" width="290" height="4" fill="#FFFFFF" opacity="0.55"/>
+  <rect x="132" y="370" width="290" height="4" fill="#FFFFFF" opacity="0.55"/>
+
+  <!-- 2: o'rta kitob (to'q ko'k) -->
+  <rect x="118" y="270" width="372" height="60" rx="5" fill="#1F5A8C"/>
+  <rect x="118" y="270" width="26" height="60" rx="5" fill="#174873"/>
+  <rect x="430" y="277" width="54" height="46" fill="url(#pg)"/>
+  <g stroke="#DDD3BD" stroke-width="1.2"><line x1="430" y1="285" x2="484" y2="285"/><line x1="430" y1="293" x2="484" y2="293"/><line x1="430" y1="301" x2="484" y2="301"/><line x1="430" y1="309" x2="484" y2="309"/><line x1="430" y1="317" x2="484" y2="317"/></g>
+  <rect x="160" y="281" width="250" height="4" fill="#E8B94A"/>
+  <rect x="160" y="315" width="250" height="4" fill="#E8B94A"/>
+
+  <!-- 1: yuqori kitob (bej) -->
+  <rect x="104" y="220" width="380" height="50" rx="5" fill="#D9B58A"/>
+  <rect x="104" y="220" width="26" height="50" rx="5" fill="#C29B6E"/>
+  <rect x="424" y="226" width="54" height="38" fill="url(#pg)"/>
+  <g stroke="#DDD3BD" stroke-width="1.2"><line x1="424" y1="234" x2="478" y2="234"/><line x1="424" y1="242" x2="478" y2="242"/><line x1="424" y1="250" x2="478" y2="250"/><line x1="424" y1="258" x2="478" y2="258"/></g>
+  <rect x="150" y="230" width="250" height="3" fill="#8C5A2B" opacity="0.6"/>
+  <rect x="150" y="257" width="250" height="3" fill="#8C5A2B" opacity="0.6"/>
+
+  <!-- ochiq kitob: muqova -->
+  <path d="M300 214 C 245 196 170 196 96 206 L 96 222 C 170 212 245 212 300 230 C 355 212 430 212 504 222 L 504 206 C 430 196 355 196 300 214 Z" fill="#B8322C"/>
+  <!-- sahifa qalinligi -->
+  <path d="M300 208 C 248 190 176 190 110 198 L 110 212 C 176 204 248 204 300 222 C 352 204 424 204 490 212 L 490 198 C 424 190 352 190 300 208 Z" fill="#EFE8D8"/>
+  <g stroke="#D8CEB6" stroke-width="1" fill="none">
+    <path d="M110 202 C 176 194 248 194 300 212 C 352 194 424 194 490 202"/>
+    <path d="M110 207 C 176 199 248 199 300 217 C 352 199 424 199 490 207"/>
+  </g>
+  <!-- chap sahifalar -->
+  <path d="M300 204 C 260 150 190 128 116 136 L 110 198 C 176 190 248 190 300 208 Z" fill="url(#pgL)" stroke="#D5CAB0" stroke-width="1.2"/>
+  <path d="M300 204 C 268 130 214 96 150 90 L 128 150 C 196 150 262 170 300 204 Z" fill="#FFFFFF" stroke="#D5CAB0" stroke-width="1.2" opacity="0.97"/>
+  <path d="M300 204 C 278 120 246 74 204 52 L 170 110 C 226 128 276 162 300 204 Z" fill="#FBF8F0" stroke="#D5CAB0" stroke-width="1.2"/>
+  <!-- o'ng sahifalar -->
+  <path d="M300 204 C 340 150 410 128 484 136 L 490 198 C 424 190 352 190 300 208 Z" fill="url(#pgR)" stroke="#D5CAB0" stroke-width="1.2"/>
+  <path d="M300 204 C 332 130 386 96 450 90 L 472 150 C 404 150 338 170 300 204 Z" fill="#FFFFFF" stroke="#D5CAB0" stroke-width="1.2" opacity="0.97"/>
+  <path d="M300 204 C 314 118 338 66 372 38 L 408 96 C 360 122 318 160 300 204 Z" fill="#FBF8F0" stroke="#D5CAB0" stroke-width="1.2"/>
+  <!-- matn chiziqlari -->
+  <g stroke="#C9D3DC" stroke-width="1.6" stroke-linecap="round" opacity="0.8">
+    <path d="M140 160 C 190 158 240 168 280 186" fill="none"/>
+    <path d="M136 172 C 188 170 238 178 280 194" fill="none"/>
+    <path d="M320 186 C 360 168 410 158 460 160" fill="none"/>
+    <path d="M320 194 C 362 178 412 170 464 172" fill="none"/>
+  </g>
+  <line x1="300" y1="204" x2="300" y2="222" stroke="#B8AE96" stroke-width="1.5"/>
+</svg>

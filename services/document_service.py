@@ -4,7 +4,8 @@ import re
 from datetime import datetime
 from docx import Document
 from docx.shared import Inches, Pt, Cm
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_TAB_ALIGNMENT
+from docx.shared import RGBColor as DocxRGB
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
@@ -25,6 +26,9 @@ from services import uzbekistan
 from services import course_work
 from utils.heading_guard import strip_leading_numbering
 from services.icon_service import find_icon_path_for_column
+
+_TITLE_ASSETS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                             'assets', 'title_page')
 
 logger = logging.getLogger(__name__)
 
@@ -1873,70 +1877,82 @@ class DocumentService:
             }
 
     async def _create_independent_work_title_page(self, doc, topic: str, language: str = 'uz', author_name: str = ''):
-        """Create independent work title page"""
+        """Mustaqil ish muqovasi — gerb va bayroq, vazirlik, to'ldiriladigan
+        qatorlar, kitoblar rasmi va yirik "MUSTAQIL ISH" sarlavhasi.
+
+        Mijoz bilmagan qatorlar (universitet, fakultet, guruh...) chiziq
+        bo'lib qoladi — talaba ularni o'zi to'ldiradi.
+        """
         try:
             texts = self._get_independent_work_template_texts(language)
+            name = (author_name or '').strip()
 
-            faculty_para = doc.add_paragraph()
-            faculty_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-            faculty_run = faculty_para.add_run("_" * 30 + f" {texts['faculty']}")
-            faculty_run.font.size = Pt(14)
-            faculty_run.font.name = 'Times New Roman'
+            def line(text='', size=13, bold=True, after=2, before=0,
+                     align=WD_ALIGN_PARAGRAPH.CENTER, color=None):
+                para = doc.add_paragraph()
+                para.alignment = align
+                fmt = para.paragraph_format
+                fmt.first_line_indent = Cm(0)
+                fmt.line_spacing = 1.0
+                fmt.space_before = Pt(before)
+                fmt.space_after = Pt(after)
+                if text:
+                    run = para.add_run(text)
+                    run.font.name = 'Times New Roman'
+                    run.font.size = Pt(size)
+                    run.font.bold = bold
+                    if color:
+                        run.font.color.rgb = DocxRGB(*color)
+                return para
 
-            subject_para = doc.add_paragraph()
-            subject_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-            subject_run = subject_para.add_run("_" * 30 + f" {texts['from_subject']}")
-            subject_run.font.size = Pt(14)
-            subject_run.font.name = 'Times New Roman'
+            def picture(file_name, width_cm, after=4):
+                path = os.path.join(_TITLE_ASSETS, file_name)
+                para = line(after=after)
+                if os.path.exists(path):
+                    para.add_run().add_picture(path, width=Cm(width_cm))
+                return para
 
-            for _ in range(3):
-                doc.add_paragraph()
-
-            title_para = doc.add_paragraph()
-            title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            title_run = title_para.add_run(texts['independent_work'])
-            title_run.font.size = Pt(32)
-            title_run.font.bold = True
-            title_run.font.name = 'Times New Roman'
-
-            for _ in range(2):
-                doc.add_paragraph()
-
-            topic_para = doc.add_paragraph()
-            topic_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            topic_run = topic_para.add_run(f"{texts['topic']}: {topic}")
-            topic_run.font.size = Pt(14)
-            topic_run.font.name = 'Times New Roman'
-
-            for _ in range(4):
-                doc.add_paragraph()
-
-            signatures_para = doc.add_paragraph()
-            signatures_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-
-            bajardi_run = signatures_para.add_run(f"{texts['prepared_by']}: ")
-            bajardi_run.font.size = Pt(14)
-            bajardi_run.font.name = 'Times New Roman'
-
-            if author_name:
-                author_run = signatures_para.add_run(f"{author_name}")
-                author_run.font.size = Pt(14)
-                author_run.font.name = 'Times New Roman'
-                author_run.font.bold = True
+            picture('gerb_bayroq.png', 13.5, after=0)
+            line(texts['country'], after=4)
+            line(texts['ministry'], after=14)
+            line('_' * 32 + ' ' + texts['university'], after=10)
+            line('_' * 36 + ' ' + texts['faculty'], after=10)
+            line('_' * 36 + ' ' + texts['direction'], after=10)
+            line(texts['course_group'], after=10)
+            if name:
+                line(texts['student_of'].format(name=name.upper()), after=10)
             else:
-                bajardi_line_run = signatures_para.add_run("_" * 18)
-                bajardi_line_run.font.size = Pt(14)
-                bajardi_line_run.font.name = 'Times New Roman'
+                line('_' * 50 + texts['student_blank'], after=10)
+            line('_' * 30 + ' ' + texts['from_subject'], after=18)
 
-            signatures_para.add_run("         ")
+            picture('kitoblar.png', 5.2, after=14)
 
-            qabul_run = signatures_para.add_run(f"{texts['accepted_by']}: ")
-            qabul_run.font.size = Pt(14)
-            qabul_run.font.name = 'Times New Roman'
+            title = texts['independent_work']
+            line(title, size=40 if len(title) <= 14 else 30,
+                 color=(0x3A, 0x6E, 0xB5), after=6)
+            if topic:
+                para = line(after=26)
+                label = para.add_run(f"{texts['topic']}: ")
+                label.font.name = 'Times New Roman'
+                label.font.size = Pt(15)
+                label.font.bold = True
+                value = para.add_run(topic)
+                value.font.name = 'Times New Roman'
+                value.font.size = Pt(15)
+                value.font.bold = True
+                value.font.italic = True
 
-            qabul_line_run = signatures_para.add_run("_" * 15)
-            qabul_line_run.font.size = Pt(14)
-            qabul_line_run.font.name = 'Times New Roman'
+            for label, value in ((texts['submitted_by'], name),
+                                 (texts['accepted_by'], '')):
+                para = line(align=WD_ALIGN_PARAGRAPH.LEFT, after=8)
+                para.paragraph_format.tab_stops.add_tab_stop(
+                    Cm(16.5), WD_TAB_ALIGNMENT.RIGHT)
+                run = para.add_run(f"{label}:\t{value or '_' * 16}")
+                run.font.name = 'Times New Roman'
+                run.font.size = Pt(13)
+
+            line('_' * 16 + f" – {datetime.now().year}", size=13, bold=False,
+                 before=6)
 
         except Exception as e:
             logger.error(f"Error creating independent work title page: {e}")
@@ -1945,30 +1961,51 @@ class DocumentService:
         """Get language-specific texts for independent work template"""
         if language == 'ru':
             return {
-                'faculty': 'факультета',
-                'from_subject': 'по предмету',
-                'independent_work': 'Самостоятельная работа',
+                'country': 'РЕСПУБЛИКА УЗБЕКИСТАН',
+                'ministry': 'МИНИСТЕРСТВО ВЫСШЕГО ОБРАЗОВАНИЯ, НАУКИ И ИННОВАЦИЙ',
+                'university': 'УНИВЕРСИТЕТ',
+                'faculty': 'ФАКУЛЬТЕТ',
+                'direction': 'НАПРАВЛЕНИЕ',
+                'course_group': 'СТУДЕНТА ____ КУРСА ____ ГРУППЫ',
+                'student_of': '{name}',
+                'student_blank': '',
+                'from_subject': 'ПО ПРЕДМЕТУ',
+                'independent_work': 'САМОСТОЯТЕЛЬНАЯ РАБОТА',
                 'topic': 'Тема',
-                'prepared_by': 'Выполнил',
-                'accepted_by': 'Принял'
+                'submitted_by': 'Выполнил(а)',
+                'accepted_by': 'Принял(а)',
             }
         elif language == 'en':
             return {
-                'faculty': 'faculty',
-                'from_subject': 'on the subject',
-                'independent_work': 'Independent work',
+                'country': 'REPUBLIC OF UZBEKISTAN',
+                'ministry': 'MINISTRY OF HIGHER EDUCATION, SCIENCE AND INNOVATION',
+                'university': 'UNIVERSITY',
+                'faculty': 'FACULTY',
+                'direction': 'PROGRAMME',
+                'course_group': '____-YEAR ____-GROUP STUDENT',
+                'student_of': '{name}',
+                'student_blank': '',
+                'from_subject': 'SUBJECT',
+                'independent_work': 'INDEPENDENT WORK',
                 'topic': 'Topic',
-                'prepared_by': 'Prepared by',
-                'accepted_by': 'Accepted by'
+                'submitted_by': 'Submitted by',
+                'accepted_by': 'Accepted by',
             }
         else:
             return {
-                'faculty': 'fakulteti',
-                'from_subject': 'fanidan',
-                'independent_work': 'Mustaqil ish',
+                'country': "O'ZBEKISTON RESPUBLIKASI",
+                'ministry': "OLIY TA'LIM, FAN VA INNOVATSIYALAR VAZIRLIGI",
+                'university': 'UNIVERSITETI',
+                'faculty': 'FAKULTETI',
+                'direction': "YO'NALISHI",
+                'course_group': '____-KURS ____-GURUH TALABASI',
+                'student_of': '{name}NING',
+                'student_blank': 'NING',
+                'from_subject': 'FANIDAN TAYYORLAGAN',
+                'independent_work': 'MUSTAQIL ISH',
                 'topic': 'Mavzu',
-                'prepared_by': 'Bajardi',
-                'accepted_by': 'Qabul qildi'
+                'submitted_by': 'Topshirdi',
+                'accepted_by': 'Qabul qildi',
             }
 
     def _get_toc_texts(self, language: str) -> dict:
