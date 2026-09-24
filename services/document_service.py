@@ -1903,8 +1903,7 @@ class DocumentService:
                 run.font.name = 'Times New Roman'
                 run.font.size = Pt(13)
 
-            line('_' * 16 + f" – {datetime.now().year}", size=13, bold=False,
-                 before=6)
+            line('_' * 16 + ' – ' + '_' * 8, size=13, bold=False, before=6)
 
         except Exception as e:
             logger.error(f"Muqova yasalmadi: {e}")
