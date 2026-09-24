@@ -501,8 +501,9 @@ class AIService:
             logger.error(f"Error generating presentation content: {e}")
             raise
 
-    # Tuzilmadagi qat'iy slaydlar: muqova, reja, kirish, xulosa,
-    # adabiyotlar, rahmat. Qolgani — asosiy slaydlar.
+    # Tuzilmadagi qat'iy slaydlar: muqova, reja, kirish, xulosa, rahmat.
+    # Qolgani — asosiy slaydlar. Adabiyotlar ro'yxati oddiy taqdimotga
+    # qo'yilmaydi — uning o'rni asosiy slaydga beriladi.
     _FIXED_LAYOUTS = {'cover', 'plan', 'intro', 'conclusion', 'references',
                       'thanks', 'table'}
 
@@ -511,7 +512,7 @@ class AIService:
         """Yetishmagan asosiy slaydlarni modeldan qo'shimcha so'rab oladi."""
         slides = content.get('slides', [])
         main = [s for s in slides if s.get('layout') not in self._FIXED_LAYOUTS]
-        target = max(slide_count - 6, 1) + (1 if slide_count == 10 else 0)
+        target = max(slide_count - 5, 1) + (1 if slide_count == 10 else 0)
         missing = target - len(main)
         if missing <= 0:
             return content
@@ -592,7 +593,8 @@ class AIService:
 
     def _normalize_slide_structure(self, content: Dict, slide_count: int, language: str) -> Dict:
         """Ensure slides follow the mandatory structure and enforce exact slide_count.
-        Structure: cover + plan + intro + N main + conclusion + references + thanks = slide_count.
+        Structure: cover + plan + intro + N main + conclusion + thanks = slide_count.
+        Adabiyotlar ro'yxati qo'yilmaydi — model yozgan bo'lsa ham tashlanadi.
         Table slides are EXTRA and do NOT count toward slide_count."""
         slides = content.get('slides', [])
 
@@ -632,7 +634,7 @@ class AIService:
         }
         labels = title_labels.get(language, title_labels['uz'])
 
-        target_main = max(slide_count - 6, 1)
+        target_main = max(slide_count - 5, 1)
         if slide_count == 10:
             target_main += 1
         layouts = ['two_column', 'right_image', 'left_image', 'three_column', 'horizontal_image', 'text_with_numbers']
@@ -692,10 +694,6 @@ class AIService:
         if not conclusion_slide:
             conclusion_slide = {'title': labels['conclusion'], 'content': '', 'layout': 'conclusion'}
         normalized.append(conclusion_slide)
-
-        if not references_slide:
-            references_slide = {'title': labels['references'], 'content': '', 'layout': 'references', 'references': []}
-        normalized.append(references_slide)
 
         if not thanks_slide:
             thanks_slide = {'title': labels['thanks'], 'content': '', 'layout': 'thanks'}
@@ -761,17 +759,14 @@ class AIService:
         footers = {
             'uz': [
                 '{"title": "Xulosa", "content": "Mavzuning asosiy fikrlarini jamlang.", "layout": "conclusion"}',
-                '{"title": "Adabiyotlar", "content": "", "layout": "references", "references": ["Manba nomi va yili", "Manba nomi va yili", "Manba nomi va yili", "Manba nomi va yili"]}',
                 '{"title": "", "content": "", "layout": "thanks"}'
             ],
             'ru': [
                 '{"title": "Заключение", "content": "Обобщите основные идеи темы.", "layout": "conclusion"}',
-                '{"title": "Литература", "content": "", "layout": "references", "references": ["Источник 1", "Источник 2", "Источник 3", "Источник 4"]}',
                 '{"title": "", "content": "", "layout": "thanks"}'
             ],
             'en': [
                 '{"title": "Conclusion", "content": "Summarize the main ideas of the topic.", "layout": "conclusion"}',
-                '{"title": "References", "content": "", "layout": "references", "references": ["Source 1", "Source 2", "Source 3", "Source 4"]}',
                 '{"title": "", "content": "", "layout": "thanks"}'
             ]
         }
@@ -789,7 +784,7 @@ class AIService:
 
     def _get_presentation_prompt_uz(self, topic: str, slide_count: int) -> str:
         """Get Uzbek prompt for presentation generation"""
-        main_count = slide_count - 6
+        main_count = slide_count - 5
         if main_count < 1:
             main_count = 1
         if slide_count == 10:
@@ -802,8 +797,7 @@ STRUKTURA (jami {slide_count} slayd):
 2. Reja slayd (4 ta reja punkti — har biri 2-4 so'zlik QISQA IBORA, jumlasiz, nuqtasiz)
 3. Kirish slayd (~50 so'z, mavzuga umumiy kirish)
 4-{3 + main_count}. Asosiy slaidlar ({main_count} ta) - har biri mavzuning turli jihatlarini yoritadi
-{slide_count - 2}. Xulosa slayd (~50 so'z)
-{slide_count - 1}. Adabiyotlar ro'yxati (4 ta sodda manba, har biri 5-8 so'z)
+{slide_count - 1}. Xulosa slayd (~50 so'z)
 {slide_count}. Rahmat slayd ("E'tiboringiz uchun rahmat!")
 
 ASOSIY SLAIDLAR UCHUN 6 TA SHABLON (tartib bilan takrorlanadi):
@@ -837,7 +831,7 @@ MUHIM: Faqat JSON formatda javob bering! Jami {slide_count} ta slayd bo'lishi SH
 
     def _get_presentation_prompt_ru(self, topic: str, slide_count: int) -> str:
         """Get Russian prompt for presentation generation"""
-        main_count = slide_count - 6
+        main_count = slide_count - 5
         if main_count < 1:
             main_count = 1
         if slide_count == 10:
@@ -850,8 +844,7 @@ MUHIM: Faqat JSON formatda javob bering! Jami {slide_count} ta slayd bo'lishi SH
 2. Слайд с планом (4 пункта — каждый КРАТКАЯ ФРАЗА из 2-4 слов, без запятых и точек)
 3. Введение (~50 слов, общее введение в тему)
 4-{3 + main_count}. Основные слайды ({main_count} шт) - каждый освещает разные аспекты темы
-{slide_count - 2}. Заключение (~50 слов)
-{slide_count - 1}. Список литературы (4 простых источника, каждый 5-8 слов)
+{slide_count - 1}. Заключение (~50 слов)
 {slide_count}. Слайд благодарности ("Спасибо за внимание!")
 
 ШАБЛОНЫ ДЛЯ ОСНОВНЫХ СЛАЙДОВ (чередуются по порядку):
@@ -885,7 +878,7 @@ MUHIM: Faqat JSON formatda javob bering! Jami {slide_count} ta slayd bo'lishi SH
 
     def _get_presentation_prompt_en(self, topic: str, slide_count: int) -> str:
         """Get English prompt for presentation generation"""
-        main_count = slide_count - 6
+        main_count = slide_count - 5
         if main_count < 1:
             main_count = 1
         if slide_count == 10:
@@ -898,8 +891,7 @@ STRUCTURE (total {slide_count} slides):
 2. Agenda slide (4 points — each a SHORT PHRASE of 2-4 words, no full sentences, no punctuation)
 3. Introduction (~50 words, general intro to topic)
 4-{3 + main_count}. Main slides ({main_count} total) - each covers different aspects
-{slide_count - 2}. Conclusion (~50 words)
-{slide_count - 1}. References (4 simple sources, each 5-8 words)
+{slide_count - 1}. Conclusion (~50 words)
 {slide_count}. Thank you slide ("Thank you for your attention!")
 
 TEMPLATES FOR MAIN SLIDES (rotate in order):
@@ -1763,13 +1755,6 @@ Output only the image prompt, nothing else. Make it detailed and specific for be
                 'title': 'Xulosa' if language == 'uz' else ('Заключение' if language == 'ru' else 'Conclusion'),
                 'content': await self._generate_conclusion_content(topic, language),
                 'layout': 'conclusion'
-            })
-            
-            slides.append({
-                'title': 'Adabiyotlar' if language == 'uz' else ('Литература' if language == 'ru' else 'References'),
-                'content': '',
-                'layout': 'references',
-                'references': await self._generate_references(topic, language)
             })
             
             slides.append({

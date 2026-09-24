@@ -758,6 +758,37 @@ async def handle_doc_language_selection(callback: CallbackQuery, state: FSMConte
     )
     await state.set_state(DocumentStates.waiting_for_topic)
 
+# Mavzu qaysi tilda yozilgani. Mijoz "O'zbek" ni tanlab, mavzuni ruscha
+# yozsa, ish o'zbekcha yozilar, muqovada esa ruscha mavzu qolardi — mijoz
+# "taqdimot rus tilidan o'zbekchaga aylanib ketdi" deb ko'rardi.
+_UZ_CYRILLIC = set("ўқғҳЎҚҒҲ")
+_UZ_LATIN = _re_plan.compile(
+    r"[og][ʻ'`’‘]|\b(?:va|uchun|bo'yicha|haqida|hamda|tahlili|ahamiyati|"
+    r"asoslari|xususiyatlari|rivojlanishi|tarixi|o'rni)\b", _re_plan.IGNORECASE)
+
+
+def _topic_language(text: str):
+    """"ru", "uz" yoki None (aniq bo'lmasa — masalan inglizcha yoki aralash)."""
+    letters = [char for char in str(text or "") if char.isalpha()]
+    if len(letters) < 6:
+        return None
+    cyrillic = sum(1 for char in letters if "\u0400" <= char <= "\u04ff")
+    latin = sum(1 for char in letters if char.isascii())
+    if cyrillic / len(letters) > 0.6:
+        return "uz" if any(char in _UZ_CYRILLIC for char in text) else "ru"
+    if latin / len(letters) > 0.6 and _UZ_LATIN.search(text):
+        return "uz"
+    return None
+
+
+_LANG_NAMES = {
+    "uz": {"uz": "o'zbek", "ru": "rus", "en": "ingliz"},
+    "ru": {"uz": "узбекском", "ru": "русском", "en": "английском"},
+    "en": {"uz": "Uzbek", "ru": "Russian", "en": "English"},
+}
+_LANG_FLAGS = {"uz": "🇺🇿", "ru": "🇷🇺", "en": "🇬🇧"}
+
+
 @router.message(DocumentStates.waiting_for_topic)
 async def handle_topic_input(message: Message, state: FSMContext, user_lang: str, db: Database, user):
     """Handle topic input from user"""
@@ -769,43 +800,94 @@ async def handle_topic_input(message: Message, state: FSMContext, user_lang: str
             await message.answer(get_text(user_lang, "topic_too_short"))
             return
 
-        # Get document language from state
         data = await state.get_data()
         doc_lang = data.get('doc_language', user_lang)
+        written = _topic_language(topic)
 
-        # Translate topic to document language if they differ
-        if doc_lang != user_lang:
-            translating_msgs = {
-                "uz": "🔄 Mavzu tarjima qilinmoqda...",
-                "ru": "🔄 Тема переводится...",
-                "en": "🔄 Translating topic..."
+        if written and written != doc_lang:
+            names = _LANG_NAMES.get(user_lang, _LANG_NAMES["uz"])
+            question = {
+                "uz": (f"❓ Mavzu {names[written]} tilida yozilgan, ish tili esa "
+                       f"{names[doc_lang]} tanlangan. Ish qaysi tilda yozilsin?"),
+                "ru": (f"❓ Тема написана на {names[written]} языке, а выбран "
+                       f"{names[doc_lang]}. На каком языке писать работу?"),
+                "en": (f"❓ The topic is written in {names[written]}, but "
+                       f"{names[doc_lang]} was chosen. Which language should the work be in?"),
             }
-            wait_msg = await message.answer(translating_msgs.get(user_lang, translating_msgs["uz"]))
-            try:
-                ai_service = get_ai_service()
-                topic = await ai_service.translate_topic(topic, doc_lang)
-            except Exception:
-                pass
-            finally:
-                await wait_msg.delete()
+            label = {"uz": "tilida", "ru": "", "en": ""}.get(user_lang, "tilida")
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(
+                    text=f"{_LANG_FLAGS.get(code, '')} {names[code].capitalize()} {label}".strip(),
+                    callback_data=f"topic_lang:{code}")]
+                for code in (written, doc_lang)
+            ])
+            await state.update_data(pending_topic=topic)
+            await state.set_state(DocumentStates.waiting_for_topic_language)
+            await message.answer(question.get(user_lang, question["uz"]),
+                                 reply_markup=keyboard)
+            return
 
-        await state.update_data(topic=topic)
-
-        # Ask for author name in document language
-        name_prompts = {
-            "uz": "👤 Ism va Familiyangizni to'liq kiriting:\n\n(Masalan: Aliyev Jasur)",
-            "ru": "👤 Введите ваше полное имя и фамилию:\n\n(Например: Иванов Иван)",
-            "en": "👤 Enter your full name:\n\n(Example: John Smith)"
-        }
-        await message.answer(
-            name_prompts.get(doc_lang, name_prompts["uz"]),
-            reply_markup=get_back_inline_keyboard(user_lang, "back_to_topic")
-        )
-        await state.set_state(DocumentStates.waiting_for_author_name)
+        await _accept_topic(message, state, user_lang, topic, doc_lang, written)
 
     except Exception as e:
         logger.error(f"Error handling topic input: {e}")
         await message.answer("❌ Xatolik yuz berdi. Qayta urinib ko'ring.")
+
+
+@router.callback_query(F.data.startswith("topic_lang:"), DocumentStates.waiting_for_topic_language)
+async def handle_topic_language(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Mijoz mavzu tili bilan ish tili mos kelmaganda tilni tanladi."""
+    await callback.answer()
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    doc_lang = callback.data.split(":", 1)[1]
+    if doc_lang not in ("uz", "ru", "en"):
+        doc_lang = "uz"
+    data = await state.get_data()
+    topic = data.get("pending_topic", "")
+    await state.update_data(doc_language=doc_lang, pending_topic=None)
+    await _accept_topic(callback.message, state, user_lang, topic, doc_lang,
+                        _topic_language(topic))
+
+
+async def _accept_topic(message: Message, state: FSMContext, user_lang: str,
+                        topic: str, doc_lang: str, written) -> None:
+    """Mavzuni ish tiliga moslab saqlaydi va ism-familiyani so'raydi."""
+    # Mavzu ish tilida yozilmagan bo'lsa tarjima qilinadi. Tili aniq
+    # bo'lmasa — eski qoida: ish tili bot tilidan farq qilsa.
+    translate = (written != doc_lang) if written else (doc_lang != user_lang)
+    if translate:
+        translating_msgs = {
+            "uz": "🔄 Mavzu tarjima qilinmoqda...",
+            "ru": "🔄 Тема переводится...",
+            "en": "🔄 Translating topic..."
+        }
+        wait_msg = await message.answer(translating_msgs.get(user_lang, translating_msgs["uz"]))
+        try:
+            topic = await get_ai_service().translate_topic(topic, doc_lang)
+        except Exception:
+            pass
+        finally:
+            try:
+                await wait_msg.delete()
+            except Exception:
+                pass
+
+    await state.update_data(topic=topic)
+
+    # Ask for author name in document language
+    name_prompts = {
+        "uz": "👤 Ism va Familiyangizni to'liq kiriting:\n\n(Masalan: Aliyev Jasur)",
+        "ru": "👤 Введите ваше полное имя и фамилию:\n\n(Например: Иванов Иван)",
+        "en": "👤 Enter your full name:\n\n(Example: John Smith)"
+    }
+    await message.answer(
+        name_prompts.get(doc_lang, name_prompts["uz"]),
+        reply_markup=get_back_inline_keyboard(user_lang, "back_to_topic")
+    )
+    await state.set_state(DocumentStates.waiting_for_author_name)
 
 @router.message(DocumentStates.waiting_for_author_name)
 async def handle_author_name_input(message: Message, state: FSMContext, user_lang: str, db: Database, user):
@@ -1158,8 +1240,9 @@ async def handle_template_selection(callback: CallbackQuery, state: FSMContext, 
         except Exception as del_err:
             logger.warning(f"Could not delete template messages: {del_err}")
 
-        # Auto-set plan slide and references, then ask about icons
-        await state.update_data(add_plan_slide=True, add_references=True)
+        # Reja slaydi avtomatik qo'yiladi. Adabiyotlar ro'yxati oddiy
+        # taqdimotda umuman bo'lmaydi.
+        await state.update_data(add_plan_slide=True, add_references=False)
 
         await callback.message.answer(
             get_text(doc_lang, "add_icons_question"),
@@ -1202,7 +1285,7 @@ async def handle_icon_no(callback: CallbackQuery, state: FSMContext, db: Databas
     await generate_presentation_with_template(callback, state, db, user_lang, user)
 
 @router.callback_query(F.data == "plan_slide_yes", DocumentStates.waiting_for_plan_slide_choice)
-async def handle_plan_slide_yes(callback: CallbackQuery, state: FSMContext, user_lang: str):
+async def handle_plan_slide_yes(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Handle user choosing to add plan slide"""
     try:
         await callback.answer()
@@ -1215,17 +1298,13 @@ async def handle_plan_slide_yes(callback: CallbackQuery, state: FSMContext, user
 
     await state.update_data(add_plan_slide=True)
 
-    # Now ask about references
-    data = await state.get_data()
-    doc_lang = data.get('doc_language', user_lang)
-    await callback.message.answer(
-        get_text(doc_lang, "add_references_question"),
-        reply_markup=get_references_choice_keyboard(doc_lang)
-    )
-    await state.set_state(DocumentStates.waiting_for_references_choice)
+    # Adabiyotlar ro'yxati so'ralmaydi — oddiy taqdimotda u bo'lmaydi.
+    await state.update_data(add_references=False)
+    await callback.message.answer("⏳ " + get_text(user_lang, "generating"))
+    await generate_presentation_with_template(callback, state, db, user_lang, user)
 
 @router.callback_query(F.data == "plan_slide_no", DocumentStates.waiting_for_plan_slide_choice)
-async def handle_plan_slide_no(callback: CallbackQuery, state: FSMContext, user_lang: str):
+async def handle_plan_slide_no(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Handle user choosing not to add plan slide"""
     try:
         await callback.answer()
@@ -1238,14 +1317,10 @@ async def handle_plan_slide_no(callback: CallbackQuery, state: FSMContext, user_
 
     await state.update_data(add_plan_slide=False)
 
-    # Now ask about references
-    data = await state.get_data()
-    doc_lang = data.get('doc_language', user_lang)
-    await callback.message.answer(
-        get_text(doc_lang, "add_references_question"),
-        reply_markup=get_references_choice_keyboard(doc_lang)
-    )
-    await state.set_state(DocumentStates.waiting_for_references_choice)
+    # Adabiyotlar ro'yxati so'ralmaydi — oddiy taqdimotda u bo'lmaydi.
+    await state.update_data(add_references=False)
+    await callback.message.answer("⏳ " + get_text(user_lang, "generating"))
+    await generate_presentation_with_template(callback, state, db, user_lang, user)
 
 @router.callback_query(F.data == "add_references_yes", DocumentStates.waiting_for_references_choice)
 async def handle_add_references_yes(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
@@ -1312,7 +1387,8 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         template_id = data.get('selected_template', 'template_20')
         price = data.get('price', 0)
         manual_outline = data.get('manual_outline', [])
-        add_references = data.get('add_references', False)
+        # Oddiy taqdimotda adabiyotlar ro'yxati bo'lmaydi.
+        add_references = False
         add_plan_slide = data.get('add_plan_slide', False)
         add_icons = data.get('add_icons', True)
         author_name = data.get('author_name', user.first_name or "")
@@ -1364,6 +1440,8 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
                 ai_topic, slide_count, doc_lang)
         if not content or not content.get('slides'):
             raise Exception("AI taqdimot mazmunini qaytarmadi")
+        content['slides'] = [slide for slide in content['slides']
+                             if slide.get('layout') != 'references']
 
         # Create presentation with selected template background
         doc_service = get_document_service()
