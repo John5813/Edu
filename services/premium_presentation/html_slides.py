@@ -211,7 +211,9 @@ QAT'IY QOIDALAR:
 13. SARLAVHADA VA'DA QILINGAN NARSA SLAYDDA BO'LSIN. Sarlavhada
    "misollar" desangiz — ishlangan misol bo'lsin; "formula"
    desangiz — formula ko'rinsin; "qiyoslash" desangiz — ikki tomon
-   yonma-yon tursin. Va'dani bajarolmasangiz sarlavhani
+   yonma-yon tursin; ko'plikda "olimlar", "usullar" desangiz —
+   bittasi emas, bir nechtasi bo'lsin (bitta iqtibosli varaqni
+   "Mashhur olimlar" deb atamang). Va'dani bajarolmasangiz sarlavhani
    o'zgartiring.
 14. Tushuncha formula bilan ta'riflansa (o'rtacha, dispersiya,
    korrelatsiya koeffitsiyenti, tezlanish, foiz stavkasi...), o'sha
@@ -221,7 +223,9 @@ QAT'IY QOIDALAR:
    o'giradi. Mavzuda formula yo'q bo'lsa, bu blok ishlatilmaydi.
 15. Qonun, farmon, qaror, nutq yoki dastur matnini so'zma-so'z
    KO'CHIRMANG. Hujjatning nomi, raqami va yilini ayting, mazmunini
-   o'z so'zlaringiz bilan qisqa bayon qiling."""
+   o'z so'zlaringiz bilan qisqa bayon qiling.
+16. Imlo adabiy tilda: kirish qismi "Kirish" deb yoziladi
+   ("Kiritish" emas), atamalar fan darsliklaridagidek."""
 
 
 def _user_prompt(topic: str, start: int, count: int, total: int,

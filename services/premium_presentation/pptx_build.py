@@ -172,7 +172,8 @@ def _add_text(slide, block: Dict) -> None:
     frame.word_wrap = True
     frame.margin_left = frame.margin_right = 0
     frame.margin_top = frame.margin_bottom = 0
-    frame.vertical_anchor = MSO_ANCHOR.TOP
+    frame.vertical_anchor = (MSO_ANCHOR.MIDDLE if block.get("valign") == "middle"
+                             else MSO_ANCHOR.TOP)
 
     # Tik yozilgan o'q yozuvi PowerPointda ham burilgan bo'lsin.
     # Aks holda ingichka qutiga tushib, har harfi alohida qatorga

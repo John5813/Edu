@@ -76,8 +76,11 @@ _SCRIPT = r"""
   // Gradient ham fonni to'liq yopadi — uni hisobga olmasak, to'q
   // gradientli varaqning orqasi "oq" deb topilib, oq sarlavha
   // qoraytirilib yuborilardi.
-  const behind = (el) => {
-    let node = el.parentElement;
+  // `self` — elementning o'z foni ham hisobga olinadi. Matn o'z
+  // elementining foni ustida turadi: doiradagi oq raqam ota-onasining
+  // och foniga solishtirilsa "o'qilmaydi" deb qoraytirilib yuborilardi.
+  const behind = (el, self) => {
+    let node = self ? el : el.parentElement;
     while (node) {
       const colour = parse(getComputedStyle(node).backgroundColor);
       if (colour && colour.a > 0.95) return colour;
@@ -230,6 +233,72 @@ _SCRIPT = r"""
       if (!display.startsWith("inline")) return false;
     }
     return true;
+  };
+
+  // Qator ichida kasr bor (misol qadamlari: "x̄ = <kasr> = 77.5").
+  // Bunday qatorni bitta matn qutisi qilib bo'lmaydi: kasr alohida
+  // qutilarga chiqadi, qolgan bo'laklar esa bir-biriga yopishib,
+  // kasrning ustiga tushardi. Shuning uchun har bir matn bo'lagi
+  // brauzerdagi o'z o'rni bilan, qator-qator alohida olinadi.
+  const hasInlineFrac = (el) => {
+    let frac = false;
+    for (const child of el.children) {
+      if (child.tagName === "BR") continue;
+      if (child.classList && child.classList.contains("frac")) {
+        frac = true;
+        continue;
+      }
+      if (RECURSE_TAGS.has(child.tagName)) return false;
+      const display = getComputedStyle(child).display || "";
+      if (!display.startsWith("inline")) return false;
+    }
+    return frac;
+  };
+
+  const insideFrac = (node, root) => {
+    for (let p = node.parentElement; p && p !== root; p = p.parentElement) {
+      if (p.classList && p.classList.contains("frac")) return true;
+    }
+    return false;
+  };
+
+  const textPieces = (el) => {
+    const pieces = [];
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const range = document.createRange();
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (insideFrac(node, el)) continue;
+      const value = node.nodeValue || "";
+      let cur = null;
+      const flush = () => {
+        if (cur && cur.text.trim() && cur.x2 > cur.x1) pieces.push(cur);
+        cur = null;
+      };
+      for (let i = 0; i < value.length; i += 1) {
+        range.setStart(node, i);
+        range.setEnd(node, i + 1);
+        const rects = range.getClientRects();
+        if (!rects.length) {
+          if (cur) cur.text += value[i];
+          continue;
+        }
+        const rc = rects[0];
+        if (cur && Math.abs(rc.top - cur.top) > rc.height * 0.5) flush();
+        if (!cur) {
+          cur = {node, text: "", top: rc.top,
+                 x1: Infinity, x2: -Infinity, y1: Infinity, y2: -Infinity};
+        }
+        cur.text += value[i];
+        if (value[i].trim()) {
+          cur.x1 = Math.min(cur.x1, rc.left);
+          cur.x2 = Math.max(cur.x2, rc.right);
+          cur.y1 = Math.min(cur.y1, rc.top);
+          cur.y2 = Math.max(cur.y2, rc.bottom);
+        }
+      }
+      flush();
+    }
+    return pieces;
   };
 
   // Matn nechta qatorga joylashgan.
@@ -422,6 +491,39 @@ _SCRIPT = r"""
       }
     }
 
+    if (hasInlineFrac(el)) {
+      if (!faded) {
+        for (const piece of textPieces(el)) {
+          const owner = piece.node.parentElement || el;
+          const ps = getComputedStyle(owner);
+          const shownP = chainOpacity(owner);
+          let tint = rgbOver(ps.color, owner, shownP) || "000000";
+          const under = behind(owner, true);
+          if (ratio(unhex(tint), under) < 3.2) {
+            tint = ratio({r: 255, g: 255, b: 255}, under)
+              >= ratio({r: 17, g: 17, b: 17}, under) ? "FFFFFF" : "111111";
+          }
+          const inkP = parse(ps.webkitTextFillColor || ps.color);
+          out.push({
+            kind: "text", text: piece.text.replace(/\s+/g, " ").trim(),
+            ink: shownP * (inkP ? inkP.a : 0.01), rotation: 0,
+            x: piece.x1, y: piece.y1,
+            w: piece.x2 - piece.x1, h: piece.y2 - piece.y1,
+            size: parseFloat(ps.fontSize) || 16,
+            weight: parseInt(ps.fontWeight, 10) || 400,
+            italic: ps.fontStyle === "italic",
+            color: tint, align: "left", family: ps.fontFamily || "",
+            lineHeight: 0, upper: ps.textTransform === "uppercase",
+            letterSpacing: parseFloat(ps.letterSpacing) || 0, lines: 1,
+          });
+        }
+      }
+      for (const child of el.children) {
+        if (child.classList && child.classList.contains("frac")) walk(child, faded);
+      }
+      return;
+    }
+
     // Matn qutisi. Bolalari faqat oqim ichidagi elementlar bo'lsa
     // (<b>, <span>, <a>), butun matn BITTA quti bo'ladi: aks holda
     // "<b>" ning matni otasidan tushib qolar va uning ustiga alohida
@@ -446,7 +548,7 @@ _SCRIPT = r"""
     // o'qiladigan rangga o'giriladi — mijoz ko'rinmas matn olmaydi.
     let paint = rgbOver(s.color, el, shown) || "000000";
     if (text) {
-      const back = behind(el);
+      const back = behind(el, true);
       if (ratio(unhex(paint), back) < 3.2) {
         const light = {r: 255, g: 255, b: 255};
         const dark = {r: 17, g: 17, b: 17};
@@ -457,14 +559,38 @@ _SCRIPT = r"""
 
     if (text && !faded) {
       const turn = spin(el);
-      const tr = flatBox(el, r, turn);
+      let tr = flatBox(el, r, turn);
+      // Flex yoki grid quti matnni o'rtaga joylaydi (masalan doiradagi
+      // qadam raqami). Qutining o'zi olinsa, matn PowerPointda uning
+      // chap-yuqori burchagiga tushardi — shuning uchun matnning
+      // haqiqiy o'rni olinadi.
+      let textAlign = align(s.textAlign);
+      let valign = "top";
+      if (!turn && whole && /flex|grid/.test(s.display || "")) {
+        const middle = (value) => /center/.test(value || "");
+        if (middle(s.alignItems) && middle(s.justifyContent)) {
+          // Butunlay o'rtaga olingan (doira ichidagi raqam): quti
+          // elementning o'zi, matn esa gorizontal ham, vertikal ham
+          // o'rtada — shrift o'lchovlari farq qilsa ham siljimaydi.
+          textAlign = "center";
+          valign = "middle";
+        } else {
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          const rc = range.getBoundingClientRect();
+          if (rc.width > 0 && rc.height > 0) {
+            tr = {x: rc.left, y: rc.top, w: rc.width, h: rc.height};
+          }
+        }
+      }
       out.push({
         kind: "text", text, ink, rotation: turn, ...tr,
         size: parseFloat(s.fontSize) || 16,
         weight: parseInt(s.fontWeight, 10) || 400,
         italic: s.fontStyle === "italic",
         color: paint,
-        align: align(s.textAlign),
+        align: textAlign,
+        valign,
         family: s.fontFamily || "",
         lineHeight: parseFloat(s.lineHeight) || 0,
         upper: s.textTransform === "uppercase",
