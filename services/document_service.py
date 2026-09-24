@@ -4,7 +4,8 @@ import re
 from datetime import datetime
 from docx import Document
 from docx.shared import Inches, Pt, Cm
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_TAB_ALIGNMENT
+from docx.shared import RGBColor as DocxRGB
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
@@ -25,6 +26,9 @@ from services import uzbekistan
 from services import course_work
 from utils.heading_guard import strip_leading_numbering
 from services.icon_service import find_icon_path_for_column
+
+_TITLE_ASSETS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                             'assets', 'title_page')
 
 logger = logging.getLogger(__name__)
 
@@ -1762,82 +1766,8 @@ class DocumentService:
             raise
 
     async def _create_referat_title_page(self, doc, topic: str, language: str = 'uz', author_name: str = ''):
-        """Create referat title page"""
-        try:
-            texts = self._get_referat_template_texts(language)
-
-            para1 = doc.add_paragraph()
-            para1.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            run1 = para1.add_run("_" * 50)
-            run1.font.size = Pt(14)
-            run1.font.name = 'Times New Roman'
-
-            para2 = doc.add_paragraph()
-            para2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            run2 = para2.add_run("_" * 20 + f" {texts['from_subject']}")
-            run2.font.size = Pt(14)
-            run2.font.name = 'Times New Roman'
-
-            for _ in range(4):
-                doc.add_paragraph()
-
-            title_para = doc.add_paragraph()
-            title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            title_run = title_para.add_run(f"{texts['referat']}:")
-            title_run.font.size = Pt(36)
-            title_run.font.bold = True
-            title_run.font.name = 'Times New Roman'
-
-            for _ in range(3):
-                doc.add_paragraph()
-
-            topic_para = doc.add_paragraph()
-            topic_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            topic_run = topic_para.add_run(f"{texts['topic']}: {topic}")
-            topic_run.font.size = Pt(14)
-            topic_run.font.name = 'Times New Roman'
-
-            for _ in range(2):
-                doc.add_paragraph()
-
-            signatures_para = doc.add_paragraph()
-            signatures_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-            bajardi_run = signatures_para.add_run(f"{texts['prepared_by']}: ")
-            bajardi_run.font.size = Pt(14)
-            bajardi_run.font.name = 'Times New Roman'
-
-            if author_name:
-                author_run = signatures_para.add_run(f"{author_name}")
-                author_run.font.size = Pt(14)
-                author_run.font.name = 'Times New Roman'
-                author_run.font.bold = True
-            else:
-                kurs_run = signatures_para.add_run(f"_____ {texts['course']}")
-                kurs_run.font.size = Pt(14)
-                kurs_run.font.name = 'Times New Roman'
-
-            signatures_para.add_run("               ")
-
-            qabul_run = signatures_para.add_run(f"{texts['accepted_by']}: ")
-            qabul_run.font.size = Pt(14)
-            qabul_run.font.name = 'Times New Roman'
-
-            qabul_line_run = signatures_para.add_run("_" * 15)
-            qabul_line_run.font.size = Pt(14)
-            qabul_line_run.font.name = 'Times New Roman'
-
-            for _ in range(3):
-                doc.add_paragraph()
-
-            city_para = doc.add_paragraph()
-            city_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            city_run = city_para.add_run(texts['city'])
-            city_run.font.size = Pt(14)
-            city_run.font.name = 'Times New Roman'
-
-        except Exception as e:
-            logger.error(f"Error creating referat title page: {e}")
+        texts = self._get_referat_template_texts(language)
+        self._standard_title_page(doc, topic, language, author_name, texts['referat'])
 
     def _get_referat_template_texts(self, language: str) -> Dict[str, str]:
         """Get language-specific texts for referat template"""
@@ -1873,102 +1803,169 @@ class DocumentService:
             }
 
     async def _create_independent_work_title_page(self, doc, topic: str, language: str = 'uz', author_name: str = ''):
-        """Create independent work title page"""
+        texts = self._get_independent_work_template_texts(language)
+        self._standard_title_page(doc, topic, language, author_name,
+                                  texts['independent_work'])
+
+    def _standard_title_page(self, doc, topic: str, language: str = 'uz',
+                             author_name: str = '', title: str = '',
+                             advisor: bool = False, graduate: bool = False,
+                             extra_lines=()):
+        """Hamma ish turlari uchun bitta muqova: gerb va bayroq, vazirlik,
+        to'ldiriladigan qatorlar, kitoblar rasmi, yirik ko'k sarlavha.
+
+        Mijoz bilmagan qatorlar (universitet, fakultet, guruh...) chiziq
+        bo'lib qoladi — talaba ularni o'zi to'ldiradi. `advisor` — imzo
+        qatorida "Ilmiy rahbar"; `graduate` — fan o'rniga kafedra qatori.
+        """
         try:
             texts = self._get_independent_work_template_texts(language)
+            name = (author_name or '').strip()
+            section = doc.sections[-1]
+            text_width = section.page_width - section.left_margin - section.right_margin
 
-            faculty_para = doc.add_paragraph()
-            faculty_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-            faculty_run = faculty_para.add_run("_" * 30 + f" {texts['faculty']}")
-            faculty_run.font.size = Pt(14)
-            faculty_run.font.name = 'Times New Roman'
+            def line(text='', size=13, bold=True, after=2, before=0,
+                     align=WD_ALIGN_PARAGRAPH.CENTER, color=None):
+                para = doc.add_paragraph()
+                para.alignment = align
+                fmt = para.paragraph_format
+                fmt.first_line_indent = Cm(0)
+                fmt.line_spacing = 1.0
+                fmt.space_before = Pt(before)
+                fmt.space_after = Pt(after)
+                if text:
+                    run = para.add_run(text)
+                    run.font.name = 'Times New Roman'
+                    run.font.size = Pt(size)
+                    run.font.bold = bold
+                    if color:
+                        run.font.color.rgb = DocxRGB(*color)
+                return para
 
-            subject_para = doc.add_paragraph()
-            subject_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-            subject_run = subject_para.add_run("_" * 30 + f" {texts['from_subject']}")
-            subject_run.font.size = Pt(14)
-            subject_run.font.name = 'Times New Roman'
+            def picture(file_name, width_cm, after=4):
+                path = os.path.join(_TITLE_ASSETS, file_name)
+                para = line(after=after)
+                if os.path.exists(path):
+                    para.add_run().add_picture(path, width=Cm(width_cm))
+                return para
 
-            for _ in range(3):
-                doc.add_paragraph()
-
-            title_para = doc.add_paragraph()
-            title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            title_run = title_para.add_run(texts['independent_work'])
-            title_run.font.size = Pt(32)
-            title_run.font.bold = True
-            title_run.font.name = 'Times New Roman'
-
-            for _ in range(2):
-                doc.add_paragraph()
-
-            topic_para = doc.add_paragraph()
-            topic_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            topic_run = topic_para.add_run(f"{texts['topic']}: {topic}")
-            topic_run.font.size = Pt(14)
-            topic_run.font.name = 'Times New Roman'
-
-            for _ in range(4):
-                doc.add_paragraph()
-
-            signatures_para = doc.add_paragraph()
-            signatures_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-
-            bajardi_run = signatures_para.add_run(f"{texts['prepared_by']}: ")
-            bajardi_run.font.size = Pt(14)
-            bajardi_run.font.name = 'Times New Roman'
-
-            if author_name:
-                author_run = signatures_para.add_run(f"{author_name}")
-                author_run.font.size = Pt(14)
-                author_run.font.name = 'Times New Roman'
-                author_run.font.bold = True
+            picture('gerb_bayroq.jpg', 11.0, after=0)
+            line(texts['country'], after=4)
+            line(texts['ministry'], after=14)
+            line('_' * 46 + ' ' + texts['university'], after=10)
+            line('_' * 50 + ' ' + texts['faculty'], after=10)
+            line('_' * 50 + ' ' + texts['direction'], after=10)
+            line(texts['course_group'], after=10)
+            if name:
+                line(texts['student_of'].format(name=name.upper()), after=10)
             else:
-                bajardi_line_run = signatures_para.add_run("_" * 18)
-                bajardi_line_run.font.size = Pt(14)
-                bajardi_line_run.font.name = 'Times New Roman'
+                line('_' * 58 + texts['student_blank'], after=10)
+            line('_' * 42 + ' ' + texts['department' if graduate else 'from_subject'],
+                 after=18)
 
-            signatures_para.add_run("         ")
+            picture('kitoblar.png', 4.2, after=12)
 
-            qabul_run = signatures_para.add_run(f"{texts['accepted_by']}: ")
-            qabul_run.font.size = Pt(14)
-            qabul_run.font.name = 'Times New Roman'
+            title = (title or texts['independent_work']).upper()
+            # Sarlavha bir qatorda tursin: katta harfli qalin Times harfi
+            # o'rtacha 0.68 em keng.
+            room = text_width / 12700 * 0.95
+            size = next((pt for pt in (40, 34, 30, 26, 22, 20)
+                         if len(title) * pt * 0.68 <= room), 18)
+            line(title, size=size, color=(0x3A, 0x6E, 0xB5), after=6)
+            if topic:
+                para = line(after=8 if extra_lines else 26)
+                topic_pt = 15 if len(topic) <= 110 else 14 if len(topic) <= 180 else 13
+                label = para.add_run(f"{texts['topic']}: ")
+                label.font.name = 'Times New Roman'
+                label.font.size = Pt(topic_pt)
+                label.font.bold = True
+                value = para.add_run(topic)
+                value.font.name = 'Times New Roman'
+                value.font.size = Pt(topic_pt)
+                value.font.bold = True
+                value.font.italic = True
+            for index, extra in enumerate(extra_lines, 1):
+                line(extra, size=14, bold=False,
+                     after=22 if index == len(extra_lines) else 4)
 
-            qabul_line_run = signatures_para.add_run("_" * 15)
-            qabul_line_run.font.size = Pt(14)
-            qabul_line_run.font.name = 'Times New Roman'
+            labels = (('prepared_by', 'supervisor') if advisor
+                      else ('submitted_by', 'accepted_by'))
+            # Chiziq (yoki ism) yorliqdan keyin darhol boshlanadi; ikkala
+            # qatorda bir xil joydan boshlanishi uchun uzun yorliqqa
+            # qarab chap tab qo'yiladi.
+            signers = ((texts[labels[0]], name), (texts[labels[1]], ''))
+            start = Cm(min(max(len(label) for label, _ in signers) * 0.22 + 0.4, 7.0))
+            for label, value in signers:
+                para = line(align=WD_ALIGN_PARAGRAPH.LEFT, after=8)
+                para.paragraph_format.tab_stops.add_tab_stop(
+                    start, WD_TAB_ALIGNMENT.LEFT)
+                run = para.add_run(f"{label}:\t{value or '_' * 30}")
+                run.font.name = 'Times New Roman'
+                run.font.size = Pt(13)
+
+            line('_' * 16 + ' – ' + '_' * 8, size=13, bold=False, before=6)
 
         except Exception as e:
-            logger.error(f"Error creating independent work title page: {e}")
+            logger.error(f"Muqova yasalmadi: {e}")
 
     def _get_independent_work_template_texts(self, language: str) -> Dict[str, str]:
         """Get language-specific texts for independent work template"""
         if language == 'ru':
             return {
-                'faculty': 'факультета',
-                'from_subject': 'по предмету',
-                'independent_work': 'Самостоятельная работа',
+                'country': 'РЕСПУБЛИКА УЗБЕКИСТАН',
+                'ministry': 'МИНИСТЕРСТВО ВЫСШЕГО ОБРАЗОВАНИЯ, НАУКИ И ИННОВАЦИЙ',
+                'university': 'УНИВЕРСИТЕТ',
+                'faculty': 'ФАКУЛЬТЕТ',
+                'direction': 'НАПРАВЛЕНИЕ',
+                'course_group': 'СТУДЕНТА ________ КУРСА ________ ГРУППЫ',
+                'student_of': '{name}',
+                'student_blank': '',
+                'from_subject': 'ПО ПРЕДМЕТУ',
+                'independent_work': 'САМОСТОЯТЕЛЬНАЯ РАБОТА',
                 'topic': 'Тема',
-                'prepared_by': 'Выполнил',
-                'accepted_by': 'Принял'
+                'submitted_by': 'Выполнил(а)',
+                'prepared_by': 'Выполнил(а)',
+                'supervisor': 'Научный руководитель',
+                'department': 'КАФЕДРА',
+                'accepted_by': 'Принял(а)',
             }
         elif language == 'en':
             return {
-                'faculty': 'faculty',
-                'from_subject': 'on the subject',
-                'independent_work': 'Independent work',
+                'country': 'REPUBLIC OF UZBEKISTAN',
+                'ministry': 'MINISTRY OF HIGHER EDUCATION, SCIENCE AND INNOVATION',
+                'university': 'UNIVERSITY',
+                'faculty': 'FACULTY',
+                'direction': 'PROGRAMME',
+                'course_group': '________-YEAR ________-GROUP STUDENT',
+                'student_of': '{name}',
+                'student_blank': '',
+                'from_subject': 'SUBJECT',
+                'independent_work': 'INDEPENDENT WORK',
                 'topic': 'Topic',
+                'submitted_by': 'Submitted by',
                 'prepared_by': 'Prepared by',
-                'accepted_by': 'Accepted by'
+                'supervisor': 'Scientific supervisor',
+                'department': 'DEPARTMENT',
+                'accepted_by': 'Accepted by',
             }
         else:
             return {
-                'faculty': 'fakulteti',
-                'from_subject': 'fanidan',
-                'independent_work': 'Mustaqil ish',
+                'country': "O'ZBEKISTON RESPUBLIKASI",
+                'ministry': "OLIY TA'LIM, FAN VA INNOVATSIYALAR VAZIRLIGI",
+                'university': 'UNIVERSITETI',
+                'faculty': 'FAKULTETI',
+                'direction': "YO'NALISHI",
+                'course_group': '________-KURS ________-GURUH TALABASI',
+                'student_of': '{name}NING',
+                'student_blank': 'NING',
+                'from_subject': 'FANIDAN TAYYORLAGAN',
+                'independent_work': 'MUSTAQIL ISH',
                 'topic': 'Mavzu',
+                'submitted_by': 'Topshirdi',
                 'prepared_by': 'Bajardi',
-                'accepted_by': 'Qabul qildi'
+                'supervisor': 'Ilmiy rahbar',
+                'department': 'KAFEDRASI',
+                'accepted_by': 'Qabul qildi',
             }
 
     def _get_toc_texts(self, language: str) -> dict:
@@ -3108,80 +3105,9 @@ class DocumentService:
             }
 
     async def _create_diploma_work_title_page(self, doc, topic: str, language: str = 'uz', author_name: str = ''):
-        """Create diploma work title page"""
-        try:
-            texts = self._get_diploma_work_texts(language)
-
-            uni_para = doc.add_paragraph()
-            uni_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            uni_run = uni_para.add_run("_" * 50)
-            uni_run.font.size = Pt(14)
-            uni_run.font.name = 'Times New Roman'
-
-            faculty_para = doc.add_paragraph()
-            faculty_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            faculty_run = faculty_para.add_run("_" * 30 + f" {texts['faculty']}")
-            faculty_run.font.size = Pt(14)
-            faculty_run.font.name = 'Times New Roman'
-
-            for _ in range(4):
-                doc.add_paragraph()
-
-            title_para = doc.add_paragraph()
-            title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            title_run = title_para.add_run(texts['diploma_work'])
-            title_run.font.size = Pt(32)
-            title_run.font.bold = True
-            title_run.font.name = 'Times New Roman'
-
-            for _ in range(2):
-                doc.add_paragraph()
-
-            topic_para = doc.add_paragraph()
-            topic_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            topic_run = topic_para.add_run(f"{texts['topic']}: {topic}")
-            topic_run.font.size = Pt(14)
-            topic_run.font.name = 'Times New Roman'
-
-            for _ in range(4):
-                doc.add_paragraph()
-
-            author_para = doc.add_paragraph()
-            author_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            bajardi_run = author_para.add_run(f"{texts['prepared_by']}: ")
-            bajardi_run.font.size = Pt(14)
-            bajardi_run.font.name = 'Times New Roman'
-
-            if author_name:
-                author_run = author_para.add_run(f"{author_name}")
-                author_run.font.size = Pt(14)
-                author_run.font.name = 'Times New Roman'
-                author_run.font.bold = True
-            else:
-                line_run = author_para.add_run("_" * 20)
-                line_run.font.size = Pt(14)
-                line_run.font.name = 'Times New Roman'
-
-            author_para.add_run("         ")
-            qabul_run = author_para.add_run(f"{texts['accepted_by']}: ")
-            qabul_run.font.size = Pt(14)
-            qabul_run.font.name = 'Times New Roman'
-            qabul_line_run = author_para.add_run("_" * 15)
-            qabul_line_run.font.size = Pt(14)
-            qabul_line_run.font.name = 'Times New Roman'
-
-            for _ in range(3):
-                doc.add_paragraph()
-
-            city_para = doc.add_paragraph()
-            city_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            current_year = datetime.now().year
-            city_run = city_para.add_run(f"{texts['city']} - {current_year}")
-            city_run.font.size = Pt(14)
-            city_run.font.name = 'Times New Roman'
-
-        except Exception as e:
-            logger.error(f"Error creating diploma work title page: {e}")
+        texts = self._get_diploma_work_texts(language)
+        self._standard_title_page(doc, topic, language, author_name,
+                                  texts['diploma_work'], advisor=True, graduate=True)
 
     def _create_diploma_work_toc(self, doc, content: Dict, language: str) -> TocPlan:
         """Create table of contents for diploma work"""
@@ -3550,105 +3476,9 @@ class DocumentService:
             raise
 
     async def _create_course_work_title_page(self, doc, topic: str, language: str = 'uz', author_name: str = ''):
-        """Create course work title page"""
-        try:
-            texts = self._get_course_work_texts(language)
-            
-            # University placeholder
-            uni_para = doc.add_paragraph()
-            uni_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            uni_run = uni_para.add_run("_" * 50)
-            uni_run.font.size = Pt(14)
-            uni_run.font.name = 'Times New Roman'
-            
-            # Faculty placeholder
-            faculty_para = doc.add_paragraph()
-            faculty_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            faculty_run = faculty_para.add_run("_" * 30 + f" {texts['faculty']}")
-            faculty_run.font.size = Pt(14)
-            faculty_run.font.name = 'Times New Roman'
-            
-            for _ in range(4):
-                doc.add_paragraph()
-            
-            # Title
-            title_para = doc.add_paragraph()
-            title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            title_run = title_para.add_run(texts['course_work'])
-            title_run.font.size = Pt(32)
-            title_run.font.bold = True
-            title_run.font.name = 'Times New Roman'
-            
-            for _ in range(2):
-                doc.add_paragraph()
-            
-            # Topic
-            topic_para = doc.add_paragraph()
-            topic_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            topic_run = topic_para.add_run(f"{texts['topic']}: {topic}")
-            topic_run.font.size = Pt(14)
-            topic_run.font.name = 'Times New Roman'
-            
-            for _ in range(4):
-                doc.add_paragraph()
-            
-            # Author
-            author_para = doc.add_paragraph()
-            author_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            
-            bajardi_run = author_para.add_run(f"{texts['prepared_by']}: ")
-            bajardi_run.font.size = Pt(14)
-            bajardi_run.font.name = 'Times New Roman'
-            
-            if author_name:
-                author_run = author_para.add_run(f"{author_name}")
-                author_run.font.size = Pt(14)
-                author_run.font.name = 'Times New Roman'
-                author_run.font.bold = True
-            else:
-                line_run = author_para.add_run("_" * 20)
-                line_run.font.size = Pt(14)
-                line_run.font.name = 'Times New Roman'
-            
-            author_para.add_run("         ")
-            
-            qabul_run = author_para.add_run(f"{texts['accepted_by']}: ")
-            qabul_run.font.size = Pt(14)
-            qabul_run.font.name = 'Times New Roman'
-            
-            qabul_line_run = author_para.add_run("_" * 15)
-            qabul_line_run.font.size = Pt(14)
-            qabul_line_run.font.name = 'Times New Roman'
-            
-            for _ in range(3):
-                doc.add_paragraph()
-            
-            # Title Page City
-            city_para = doc.add_paragraph()
-            city_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            
-            # Extract year from timestamp or current year
-            current_year = datetime.now().year
-            city_text = f"{texts['city']} - {current_year}"
-            
-            city_run = city_para.add_run(city_text)
-            city_run.font.size = Pt(14)
-            city_run.font.name = 'Times New Roman'
-            
-        except Exception as e:
-            logger.error(f"Error creating course work title page: {e}")
-
-    _VISUAL_LABELS = {
-        "uz": {"figure": "{n}-rasm", "formula": "Formula {n}",
-               "table": "{n}-jadval",
-               "given": "Berilganlar", "result": "Natija"},
-        "ru": {"figure": "Рисунок {n}", "formula": "Формула {n}",
-               "table": "Таблица {n}",
-               "given": "Дано", "result": "Результат"},
-        "en": {"figure": "Figure {n}", "formula": "Formula {n}",
-               "table": "Table {n}",
-               "given": "Given", "result": "Result"},
-    }
+        texts = self._get_course_work_texts(language)
+        self._standard_title_page(doc, topic, language, author_name,
+                                  texts['course_work'], advisor=True)
 
     async def _add_planned_visual(self, doc, item: Dict, language: str) -> None:
         """AI tanlagan diagramma, jadval yoki formulani bo'lim ostiga qo'yadi.
@@ -4237,34 +4067,8 @@ class DocumentService:
         style.paragraph_format.line_spacing = 1.5
 
         # ── Title page ────────────────────────────────────────────────────────
-        title_p = doc.add_paragraph()
-        title_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        title_run = title_p.add_run(labels['doc_type'])
-        title_run.font.bold = True
-        title_run.font.size = Pt(16)
-        title_run.font.name = 'Times New Roman'
-
-        doc.add_paragraph()
-
-        topic_p = doc.add_paragraph()
-        topic_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        topic_run = topic_p.add_run(f"Mavzu: {topic}" if language == 'uz' else
-                                     f"Тема: {topic}" if language == 'ru' else
-                                     f"Topic: {topic}")
-        topic_run.font.bold = True
-        topic_run.font.size = Pt(14)
-        topic_run.font.name = 'Times New Roman'
-
-        doc.add_paragraph()
-
-        if author_name:
-            author_p = doc.add_paragraph()
-            author_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            label_text = ("Bajardi:" if language == 'uz' else
-                          "Выполнил(а):" if language == 'ru' else "Prepared by:")
-            author_run = author_p.add_run(f"{label_text} {author_name}")
-            author_run.font.size = Pt(14)
-            author_run.font.name = 'Times New Roman'
+        self._standard_title_page(doc, topic, language, author_name,
+                                  labels['doc_type'])
 
         doc.add_page_break()
 
@@ -4387,72 +4191,8 @@ class DocumentService:
             texts = self._get_dissertation_texts(language)
 
             # ── 1. TITLE PAGE ──────────────────────────────────────────────
-            ministry_para = doc.add_paragraph()
-            ministry_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            min_run = ministry_para.add_run(texts['ministry'])
-            min_run.font.size = Pt(12)
-            min_run.font.name = 'Times New Roman'
-
-            uni_para = doc.add_paragraph()
-            uni_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            uni_run = uni_para.add_run("_" * 50)
-            uni_run.font.size = Pt(14)
-            uni_run.font.bold = True
-            uni_run.font.name = 'Times New Roman'
-
-            faculty_para = doc.add_paragraph()
-            faculty_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            fac_run = faculty_para.add_run("_" * 30 + f" {texts['faculty']}")
-            fac_run.font.size = Pt(14)
-            fac_run.font.name = 'Times New Roman'
-
-            for _ in range(4):
-                doc.add_paragraph()
-
-            title_para = doc.add_paragraph()
-            title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            title_run = title_para.add_run(texts['dissertation'])
-            title_run.font.size = Pt(28)
-            title_run.font.bold = True
-            title_run.font.name = 'Times New Roman'
-
-            for _ in range(2):
-                doc.add_paragraph()
-
-            topic_para = doc.add_paragraph()
-            topic_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            topic_run = topic_para.add_run(f"{texts['topic']}: {topic}")
-            topic_run.font.size = Pt(14)
-            topic_run.font.name = 'Times New Roman'
-
-            for _ in range(3):
-                doc.add_paragraph()
-
-            author_para = doc.add_paragraph()
-            author_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            author_para.add_run(f"{texts['prepared_by']}: ").font.size = Pt(14)
-            if author_name:
-                ar = author_para.add_run(author_name)
-                ar.font.size = Pt(14)
-                ar.font.bold = True
-                ar.font.name = 'Times New Roman'
-            else:
-                author_para.add_run("_" * 20).font.size = Pt(14)
-
-            supervisor_para = doc.add_paragraph()
-            supervisor_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            sup_run = supervisor_para.add_run(f"{texts['supervisor']}: " + "_" * 20)
-            sup_run.font.size = Pt(14)
-            sup_run.font.name = 'Times New Roman'
-
-            for _ in range(3):
-                doc.add_paragraph()
-
-            city_para = doc.add_paragraph()
-            city_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            city_run = city_para.add_run(f"{texts['city']} — {datetime.now().year}")
-            city_run.font.size = Pt(14)
-            city_run.font.name = 'Times New Roman'
+            self._standard_title_page(doc, topic, language, author_name,
+                                      texts['dissertation'], advisor=True, graduate=True)
 
             doc.add_page_break()
 
@@ -4855,72 +4595,8 @@ class DocumentService:
             texts = self._get_graduation_work_texts(language)
 
             # ── 1. TITLE PAGE ──────────────────────────────────────────────
-            ministry_para = doc.add_paragraph()
-            ministry_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            min_run = ministry_para.add_run(texts['ministry'])
-            min_run.font.size = Pt(12)
-            min_run.font.name = 'Times New Roman'
-
-            uni_para = doc.add_paragraph()
-            uni_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            uni_run = uni_para.add_run("_" * 50)
-            uni_run.font.size = Pt(14)
-            uni_run.font.bold = True
-            uni_run.font.name = 'Times New Roman'
-
-            faculty_para = doc.add_paragraph()
-            faculty_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            fac_run = faculty_para.add_run("_" * 30 + f" {texts['faculty']}")
-            fac_run.font.size = Pt(14)
-            fac_run.font.name = 'Times New Roman'
-
-            for _ in range(4):
-                doc.add_paragraph()
-
-            title_para = doc.add_paragraph()
-            title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            title_run = title_para.add_run(texts['graduation_work'])
-            title_run.font.size = Pt(28)
-            title_run.font.bold = True
-            title_run.font.name = 'Times New Roman'
-
-            for _ in range(2):
-                doc.add_paragraph()
-
-            topic_para = doc.add_paragraph()
-            topic_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            topic_run = topic_para.add_run(f"{texts['topic']}: {topic}")
-            topic_run.font.size = Pt(14)
-            topic_run.font.name = 'Times New Roman'
-
-            for _ in range(3):
-                doc.add_paragraph()
-
-            author_para = doc.add_paragraph()
-            author_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            author_para.add_run(f"{texts['prepared_by']}: ").font.size = Pt(14)
-            if author_name:
-                ar = author_para.add_run(author_name)
-                ar.font.size = Pt(14)
-                ar.font.bold = True
-                ar.font.name = 'Times New Roman'
-            else:
-                author_para.add_run("_" * 20).font.size = Pt(14)
-
-            supervisor_para = doc.add_paragraph()
-            supervisor_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            sup_run = supervisor_para.add_run(f"{texts['supervisor']}: " + "_" * 20)
-            sup_run.font.size = Pt(14)
-            sup_run.font.name = 'Times New Roman'
-
-            for _ in range(3):
-                doc.add_paragraph()
-
-            city_para = doc.add_paragraph()
-            city_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            city_run = city_para.add_run(f"{texts['city']} — {datetime.now().year}")
-            city_run.font.size = Pt(14)
-            city_run.font.name = 'Times New Roman'
+            self._standard_title_page(doc, topic, language, author_name,
+                                      texts['graduation_work'], advisor=True, graduate=True)
 
             doc.add_page_break()
 

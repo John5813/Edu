@@ -1233,12 +1233,22 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
 
     except Exception as e:
         logger.exception("Premium taqdimot generatsiyasida xato: %s", e)
+        workload.end(work_id)
         if animation_task:
             animation_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await animation_task
         # Balansni qaytarish
         await db.update_user_balance(callback.from_user.id, price)
+        from services.premium_presentation.llm_client import NoCredits
+
+        if isinstance(e, NoCredits):
+            await _warn_admins_no_credits(callback.bot, str(e))
+            e = RuntimeError({
+                "uz": "Xizmat vaqtincha ishlamayapti, admin xabardor qilindi.",
+                "ru": "Сервис временно недоступен, администратор уведомлён.",
+                "en": "The service is temporarily unavailable; the admin has been notified.",
+            }.get(lang, "Xizmat vaqtincha ishlamayapti, admin xabardor qilindi."))
         err_msgs = {
             "uz": (
                 f"❌ Xatolik yuz berdi:\n{str(e)[:300]}\n\n"
@@ -1330,6 +1340,29 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
             pass
 
     await state.clear()
+
+
+_last_credit_warning = 0.0
+
+
+async def _warn_admins_no_credits(bot, detail: str) -> None:
+    """OpenRouter mablag'i tugaganini adminlarga aytadi (10 daqiqada bir marta)."""
+    import time
+    from config import ADMIN_IDS
+
+    global _last_credit_warning
+    if time.monotonic() - _last_credit_warning < 600:
+        return
+    _last_credit_warning = time.monotonic()
+    text = ("⚠️ OpenRouter hisobida mablag' tugadi — premium taqdimot "
+            "yaratilmayapti, mijozlarga pul qaytarilmoqda.\n"
+            "To'ldirish: https://openrouter.ai/settings/credits\n\n"
+            f"{detail[:200]}")
+    for admin_id in ADMIN_IDS:
+        try:
+            await bot.send_message(admin_id, text)
+        except Exception as exc:
+            logger.warning("Adminga xabar yuborilmadi (%s): %s", admin_id, exc)
 
 
 # ──────────────────────────────────────────────────────────────── BACK

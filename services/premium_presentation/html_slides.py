@@ -306,6 +306,8 @@ def plan_outline(topic: str, count: int, language: str,
             prompt, temperature=0.6, max_tokens=600 + 160 * count)
         raw = data.get("slides") or []
         hint = data.get("fan") or ""
+    except llm_client.NoCredits:
+        raise
     except Exception as exc:
         log.warning("Reja olinmadi, kategoriyalar o'zimiz tanlaymiz: %s", exc)
         raw, hint = [], ""
@@ -1089,6 +1091,8 @@ def _write_chunk(system: str, user: str, count: int) -> List[str]:
         raw = llm_client._call_openrouter_text(
             system, user, temperature=0.75, max_tokens=4200 * count,
             accept=lambda text: bool(split_slides(text)))
+    except llm_client.NoCredits:
+        raise
     except Exception as exc:
         log.error("Slayd bo'lagi olinmadi: %s", exc)
         return []
@@ -1120,6 +1124,8 @@ def _plain_slide(topic: str, brief: str, number: int, total: int,
         data = llm_client._call_openrouter(
             "Sen taqdimot slaydi matnini yozasan. Faqat JSON qaytar.",
             prompt, temperature=0.5, max_tokens=1500)
+    except llm_client.NoCredits:
+        raise
     except Exception as exc:
         log.error("%d-slayd zaxira yo'li bilan ham yozilmadi: %s", number, exc)
         return ""
