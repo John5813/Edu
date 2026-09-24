@@ -3679,10 +3679,15 @@ class DocumentService:
 
         size, spacing = _toc_layout([e[:3] for e in entries])
 
+        # Oddiy rejada (savollar) sarlavha "REJA", murakkab rejada
+        # (boblar va mavzular) esa "MUNDARIJA".
+        simple = course_work.normalize(plan_style) == course_work.SIMPLE
+        heading = ({"ru": "ПЛАН", "en": "PLAN"}.get(language, "REJA")
+                   if simple else texts["contents"])
         title_para = doc.add_paragraph()
         title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
         title_para.paragraph_format.space_after = Pt(0)
-        title_run = title_para.add_run(texts["contents"])
+        title_run = title_para.add_run(heading)
         title_run.font.size = Pt(size)
         title_run.font.bold = True
         title_run.font.name = "Times New Roman"
