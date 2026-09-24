@@ -22,7 +22,7 @@ from .specs import ARTIFACT_RESULTS
 logger = logging.getLogger(__name__)
 
 _DOC_LABEL = {"uz": "LOYIHA ISHI", "ru": "ПРОЕКТНАЯ РАБОТА", "en": "PROJECT WORK"}
-_FIELD_WORD = {"uz": "Yo'nalish", "ru": "Направление", "en": "Field"}
+_FIELD_WORD = {"uz": "Loyiha sohasi", "ru": "Область проекта", "en": "Project field"}
 _TABLE_WORD = {"uz": "jadval", "ru": "Таблица", "en": "Table"}
 _FIGURE_WORD = {"uz": "rasm", "ru": "Рисунок", "en": "Figure"}
 
@@ -167,54 +167,14 @@ class ProjectWorkBuilder:
         return path
 
     def _title_page(self, doc, content: ProjectContent, label: str) -> None:
-        """Title page for a project work — like the referat one, plus the field."""
-        texts = self.documents._get_referat_template_texts(content.language)
-
-        def centered(text: str, size: int = 14, bold: bool = False):
-            para = doc.add_paragraph()
-            para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            run = para.add_run(text)
-            run.font.size = Pt(size)
-            run.font.bold = bold
-            run.font.name = "Times New Roman"
-            return para
-
-        centered("_" * 50)
-        centered("_" * 20 + f" {texts['from_subject']}")
-        for _ in range(4):
-            doc.add_paragraph()
-
-        centered(f"{label}:", size=36, bold=True)
-        for _ in range(3):
-            doc.add_paragraph()
-
-        centered(f"{texts['topic']}: {content.topic}")
+        """Hamma ishlar bilan bir xil muqova, ostida loyiha sohasi."""
         from .specs import field_label
 
-        centered(f"{_FIELD_WORD.get(content.language, _FIELD_WORD['uz'])}: "
+        field = (f"{_FIELD_WORD.get(content.language, _FIELD_WORD['uz'])}: "
                  f"{field_label(content.field_key, content.language)}")
-        doc.add_paragraph()
-
-        signatures = doc.add_paragraph()
-        signatures.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        prepared = signatures.add_run(f"{texts['prepared_by']}: ")
-        prepared.font.size = Pt(14)
-        prepared.font.name = "Times New Roman"
-        if content.author_name:
-            author = signatures.add_run(content.author_name)
-            author.font.bold = True
-        else:
-            author = signatures.add_run(f"_____ {texts['course']}")
-        author.font.size = Pt(14)
-        author.font.name = "Times New Roman"
-        signatures.add_run("               ")
-        accepted = signatures.add_run(f"{texts['accepted_by']}: " + "_" * 15)
-        accepted.font.size = Pt(14)
-        accepted.font.name = "Times New Roman"
-
-        for _ in range(3):
-            doc.add_paragraph()
-        centered(texts["city"])
+        self.documents._standard_title_page(
+            doc, content.topic, content.language, content.author_name,
+            label, extra_lines=(field,))
 
     @staticmethod
     def _is_numbered(section: SectionContent) -> bool:
