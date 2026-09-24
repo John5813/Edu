@@ -144,10 +144,11 @@ def _add_text(slide, block: Dict) -> None:
         text = text.upper()
 
     area = _clip(block)
-    # Bir qatorli fragment qayta O'RALMASIN. Ilgari quti o'n piksel
+    # Bir qatorli matn qayta O'RALMASIN. Ilgari quti o'n piksel
     # kengaytirilardi va matn PowerPointda baribir qaytadan o'ralib,
     # oxirgi so'z pastga tushib qo'shnisining ustiga chiqardi. Endi
-    # fragment o'lchami brauzerdagining aynan o'zi.
+    # o'lcham brauzerdagining aynan o'zi, bir qatorlisida esa o'rash
+    # butunlay o'chiriladi.
     # Bir qatorli matnga ozgina zaxira kenglik beriladi: PowerPointdagi
     # shrift brauzernikidan bir necha piksel keng chiqsa, oxirgi so'z
     # pastga ko'chib qo'shnisining ustiga tushardi. O'rashni butunlay
@@ -159,18 +160,16 @@ def _add_text(slide, block: Dict) -> None:
     # tushirib yuborardi va u quyidagi yozuvning ustiga chiqardi.
     # Zaxira qutining O'NG tomoniga emas, tekislanishiga qarab
     # taqsimlanadi — shunda matn ko'zga ko'rinib siljimaydi.
-    fragment = bool(block.get("fragment"))
     single = int(block.get("lines") or 1) <= 1
     size_px = float(block.get("size") or 16)
-    slack = 0.0 if fragment else (
-        max(area["w"] * 0.02, size_px * 0.4, 6.0) if single else 2.0)
+    slack = max(area["w"] * 0.02, size_px * 0.4, 6.0) if single else 2.0
     align = block.get("align")
     shift = slack / 2 if align == "center" else slack if align == "right" else 0
     frame_box = slide.shapes.add_textbox(
         _emu(area["x"] - shift), _emu(area["y"]),
         _emu(area["w"] + slack), _emu(area["h"]))
     frame = frame_box.text_frame
-    frame.word_wrap = not fragment
+    frame.word_wrap = True
     frame.margin_left = frame.margin_right = 0
     frame.margin_top = frame.margin_bottom = 0
     frame.vertical_anchor = MSO_ANCHOR.TOP

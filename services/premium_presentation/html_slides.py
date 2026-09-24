@@ -88,22 +88,24 @@ _CATEGORIES = (
              "ko'rinishida, har birida qisqa izoh"),
     ("matn_rasm", "bir tomonda fikrni ochgan matn, bir tomonda rasm "
                   "(rasm chiqmasa o'rnida qo'shimcha matn)"),
-    ("ikki_ustun", "chapda matn, o'ngda vizual (SVG diagramma, sxema yoki "
-                   "geometrik kompozitsiya)"),
+    ("ikki_ustun", "chapda matn, o'ngda kartalar yoki jadval"),
     ("korsatkichlar", "2-4 ta juda yirik raqam, har birining ostida qisqa "
                       "izoh"),
     ("jarayon", "o'qlar bilan bog'langan qadamlar qatori"),
     ("vaqt_oqi", "gorizontal chiziq ustidagi sana va voqealar"),
     ("qiyoslash", "ikki ustunli qiyos yoki 2×2 matritsa (masalan SWOT)"),
     ("jadval", "HTML jadval — sarlavha qatori aksent rangda"),
-    ("diagramma", "sahifani egallagan SVG diagramma: chiziqli, ustunli, "
-                  "donut, voronka yoki radar; yonida qisqa xulosa"),
+    ("diagramma", "faqat diagramma (chiziqli, ustunli yoki halqa) va uni "
+                  "tushuntiradigan matn"),
     ("tuzilma", "qutilar va ularni bog'lovchi chiziqlar — ierarxiya yoki "
                 "tarkib sxemasi"),
     ("iqtibos", "yirik tirnoq belgisi, kursiv matn, muallif qatori"),
+    ("formula", "tushunchaning formulasi yirik, ostida belgilar izohi va "
+                "u nimani hisoblashi"),
+    ("misol", "masala sharti, qadamma-qadam yechim va javob"),
     ("kartalar", "bir xil o'lchamdagi kartalar, har birida sarlavha va "
                  "bir-ikki gaplik izoh"),
-    ("yakun", "asosiy xulosalar va yakuniy rahmat qatori"),
+    ("yakun", "faqat xulosa matni — rahmat va savollar qatorisiz"),
 )
 
 CATEGORY_KEYS = tuple(key for key, _ in _CATEGORIES)
@@ -191,11 +193,16 @@ QAT'IY QOIDALAR:
    yoziladi. Ishonchingiz komil bo'lmasa diagramma ham,
    ko'rsatkich ham qo'ymang — o'sha fikrni matn bilan ayting.
    Mavzu raqam talab qilmasa, butun taqdimotda birorta diagramma
-   bo'lmasligi ham mumkin va bu TO'G'RI.
+   bo'lmasligi ham mumkin va bu TO'G'RI. Ko'rsatkich (kpi) raqami
+   izohida uning manbasi va yili aytiladi (masalan: Statistika
+   agentligi, 2024) — manbasini ayta olmaydigan raqam yozilmaydi.
 9. Bir slaydda bir xil matnni ikki marta yozma.
 10. Yorliqlar qisqa: kartochka sarlavhasi 1-4 so'z, vaqt o'qidagi
    izoh bir jumla.
-11. Birinchi slayd — MUQOVA, oxirgisi — xulosa. Taqdimot bo'limlarga
+11. Birinchi slayd — MUQOVA, oxirgisi — XULOSA: unda faqat xulosa
+   matni bo'ladi, "Rahmat", "E'tiboringiz uchun rahmat", "Savollar"
+   yozilmaydi va ular uchun alohida varaq ham yo'q. Xulosada rasm
+   bloki ishlatilmaydi. Taqdimot bo'limlarga
    ajratilmaydi: faqat bo'lim nomi yozilgan alohida varaq bo'lmaydi,
    har varaq mazmun beradi.
 12. Matn haqiqiy va aniq bo'lsin: nom, misol, manba bilan. "Lorem
@@ -205,10 +212,15 @@ QAT'IY QOIDALAR:
    desangiz — formula ko'rinsin; "qiyoslash" desangiz — ikki tomon
    yonma-yon tursin. Va'dani bajarolmasangiz sarlavhani
    o'zgartiring.
-14. Formula BO'LSA, uni matn ichiga tiqmang: `formula` bloki bor,
-   u yirik va o'qiladigan chiqadi. Formulani LaTeX bilan yozing —
-   tizim uni belgilarga o'giradi. Mavzuda formula yo'q bo'lsa,
-   bu blok ishlatilmaydi."""
+14. Tushuncha formula bilan ta'riflansa (o'rtacha, dispersiya,
+   korrelatsiya koeffitsiyenti, tezlanish, foiz stavkasi...), o'sha
+   tushuncha kiritilgan slaydda uning formulasi `formula` blokida
+   ko'rsatiladi — so'z bilan tasvirlab qo'yish yetmaydi. Formulani
+   matn ichiga tiqmang va LaTeX bilan yozing — tizim uni belgilarga
+   o'giradi. Mavzuda formula yo'q bo'lsa, bu blok ishlatilmaydi.
+15. Qonun, farmon, qaror, nutq yoki dastur matnini so'zma-so'z
+   KO'CHIRMANG. Hujjatning nomi, raqami va yilini ayting, mazmunini
+   o'z so'zlaringiz bilan qisqa bayon qiling."""
 
 
 def _user_prompt(topic: str, start: int, count: int, total: int,
@@ -554,7 +566,8 @@ def build_pages(bodies: List[str], theme) -> List[str]:
     o'rni ham har safar to'g'ri chiqadi.
     """
     drawn = [deck_charts.draw(
-        deck_math.render(_whiten_icons(_auto_icons(_decorate(body)))),
+        _half_charts(deck_math.render(
+            _whiten_icons(_auto_icons(_decorate(body))))),
         theme)
              for body in bodies]
     try:
@@ -633,19 +646,57 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
             retry = _write_chunk(system, user, count)
             if len(retry) > len(chunk):
                 chunk = retry
+        # Hali ham yetmasa — yetmaganlari BITTADAN so'raladi. Uch
+        # slaydlik katta so'rov vaqt chegarasiga, hisobdagi mablag'
+        # chegarasiga yoki model javob uzunligi chegarasiga urilishi
+        # mumkin; bitta slaydlik kichik so'rov esa o'tadi. Ilgari
+        # yetmagan slaydlar jimgina tashlab yuborilardi va mijozga
+        # ikki slaydlik taqdimot borardi.
+        for number in range(start + len(chunk), start + count):
+            single = _user_prompt(topic, number, 1, slide_count, outline,
+                                  used, level, source_text, preferences,
+                                  author, family)
+            one = _write_chunk(system, single, 1)
+            if not one:
+                # Oxirgi chora: kichik JSON so'rov, slaydni kod yig'adi.
+                # Katta HTML javobni filtr kesadigan mavzularda ham u
+                # odatda o'tadi — mijoz taqdimotsiz qolmaydi.
+                item = outline[number - 1] if number <= len(outline) else {}
+                plain = _plain_slide(topic, item.get("brief") or topic,
+                                     number, slide_count, language, author)
+                one = [plain] if plain else []
+            if one:
+                chunk.append(one[0])
+            else:
+                log.error("%d-slayd yozilmadi", number)
 
         for offset, body in enumerate(chunk[:count]):
             number = start + offset
+            if number == slide_count:
+                body = _drop_thanks(body)
             if 1 < number and _thin(body):
                 body = _thicken(body, system, theme)
+            if number == slide_count:
+                body = _no_photo(body)
             slides.append(body)
         used.extend(item["brief"] for item in outline[start - 1:start - 1 + count])
         start += count
 
-    log.info("HTML slaydlar tayyor: %d ta", len(slides))
+    log.info("HTML slaydlar tayyor: %d/%d ta", len(slides), slide_count)
     if not slides:
         raise RuntimeError("AI birorta to'liq slayd qaytarmadi")
+    # Chala taqdimot mijozga berilmaydi: pul qaytariladi va qayta
+    # urinish mumkin. Bir-ikki slayd yetmasa — taqdimot baribir to'liq
+    # ko'rinadi, u topshiriladi.
+    if len(slides) < _enough(slide_count):
+        raise RuntimeError(
+            f"AI {slide_count} ta slayddan faqat {len(slides)} tasini yozdi")
     return build_pages(slides, theme)
+
+
+def _enough(slide_count: int) -> int:
+    """Topshirish uchun kerakli eng kam slayd soni."""
+    return max(3, -(-slide_count * 4 // 5))
 
 
 # Varaqni mazmunli qiladigan bloklar. Ularning birortasi ham bo'lmasa
@@ -654,6 +705,108 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
 _CONTENT_CLASSES = ("cols", "steps", "list", "timeline", "split", "formula",
                     "misol", "chart", "kpi", "quote", "ikon-row", "rasm",
                     "card")
+
+
+# Xulosa varag'idagi "rahmat" va "savollar" qatorlari. Qisqa matnli
+# elementgina olib tashlanadi — mazmunli gap ichida "savol" so'zi
+# uchrasa tegilmaydi.
+_THANKS = re.compile(
+    r"rahmat|e[\'ʼ‘’`]?tiboringiz|savollar|savolingiz|спасибо|"
+    r"благодар|вопрос|thank|questions", re.IGNORECASE)
+_SHORT_TEXT = re.compile(
+    r"<(p|h[1-6]|div|span)\b[^>]*>((?:(?!<div\b|</div>|<p\b|</p>).){0,120}?)"
+    r"</\1\s*>", re.IGNORECASE | re.DOTALL)
+_TITLE_CLASS = re.compile(r'class\s*=\s*["\'][^"\']*\btitle\b', re.IGNORECASE)
+
+
+def _drop_thanks(body: str) -> str:
+    """Xulosadan "rahmat" va "savollar" qatorlarini olib tashlaydi."""
+
+    def drop(match):
+        text = _plain(match.group(2), 200)
+        if (text and len(text) <= 80 and _THANKS.search(text)
+                and not _TITLE_CLASS.search(match.group(0))):
+            return ""
+        return match.group(0)
+
+    return _SHORT_TEXT.sub(drop, body)
+
+
+_SPLIT_OPEN = re.compile(
+    r'<div\b[^>]*\bclass\s*=\s*["\'][^"\']*(?<![-\w])split(?![-\w])'
+    r'[^"\']*["\'][^>]*>', re.IGNORECASE)
+_RASM_OPEN = re.compile(
+    r'<div\b[^>]*\bclass\s*=\s*["\'][^"\']*(?<![-\w])rasm(?![-\w])'
+    r'[^"\']*["\'][^>]*>', re.IGNORECASE)
+_RASM_TEXT = re.compile(
+    r'<p\b[^>]*\bclass\s*=\s*["\'][^"\']*\brasm-matn\b[^"\']*["\'][^>]*>'
+    r'(.*?)</p>', re.IGNORECASE | re.DOTALL)
+
+
+def _close_of(body: str, opening) -> int:
+    """Ochuvchi `<div>` ning yopuvchi tegidan keyingi o'rin (-1 — yo'q)."""
+    depth = 1
+    for tag in _DIV_TAG.finditer(body, opening.end()):
+        depth += -1 if tag.group(0).startswith("</") else 1
+        if depth == 0:
+            return tag.end()
+    return -1
+
+
+def _no_photo(body: str) -> str:
+    """Xulosadagi rasm blokini oddiy matnga aylantiradi.
+
+    Xulosaga rasm kerak emas. Rasm o'rnidagi qo'shimcha matn
+    yo'qotilmaydi — u xulosa matnining davomi bo'lib, to'liq enli
+    qatorga o'tadi; rasm bloki turgan `split` esa yechiladi.
+    """
+    while True:
+        opening = _RASM_OPEN.search(body)
+        if not opening:
+            return body
+        end = _close_of(body, opening)
+        if end < 0:
+            return body
+        texts = _RASM_TEXT.findall(body[opening.start():end])
+        plain = "".join(f'<p class="note">{text.strip()}</p>'
+                        for text in texts if _plain(text))
+        # Rasm bloki turgan `split` (bo'lsa) yechiladi.
+        holder = None
+        for split in _SPLIT_OPEN.finditer(body, 0, opening.start()):
+            close = _close_of(body, split)
+            if close >= end:
+                holder = (split, close)
+        body = body[:opening.start()] + plain + body[end:]
+        if holder:
+            split, close = holder
+            close += len(plain) - (end - opening.start())
+            inner = body[split.end():close]
+            inner = inner[:inner.lower().rfind("</div")]
+            body = body[:split.start()] + inner + body[close:]
+
+
+_CHART_OPEN = re.compile(
+    r'<div\b(?=[^>]*\bclass\s*=\s*["\'][^"\']*\bchart\b)'
+    r'(?![^>]*\bdata-size\s*=)', re.IGNORECASE)
+
+
+def _half_charts(body: str) -> str:
+    """Ikki ustunli joydagi diagramma yarim o'lchamda chizilsin.
+
+    To'liq enli chizma yarim ustunga siqilsa, yozuvlari o'qib
+    bo'lmas darajada mayda chiqadi.
+    """
+    spans = []
+    for split in _SPLIT_OPEN.finditer(body):
+        close = _close_of(body, split)
+        if close > 0:
+            spans.append((split.end(), close))
+
+    def mark(match):
+        inside = any(start <= match.start() < end for start, end in spans)
+        return match.group(0) + (' data-size="half"' if inside else "")
+
+    return _CHART_OPEN.sub(mark, body)
 
 
 def _thin(body: str) -> bool:
@@ -875,6 +1028,14 @@ def fill_gap(html: str, area: Dict, theme, language: str = "uz") -> str:
     """
     if not area:
         return html
+    # Izoh diagramma, jadval yoki ko'rsatkichni tushuntiradi. Ular
+    # bo'lmagan varaqda "bo'sh joy" — rasm kartochkasi yoki ataylab
+    # qoldirilgan nafas; u yerga matn qo'yilsa kartochka ustiga
+    # chiqib qolardi.
+    section = _SECTION.search(html)
+    visual = section.group(0) if section else html
+    if not re.search(r"<svg\b|<table\b|\bkpi\b", visual, re.IGNORECASE):
+        return html
 
     pad = 48
     x = float(area.get("x") or 0) + pad
@@ -923,9 +1084,64 @@ def _restore(html: str, theme) -> str:
 
 def _write_chunk(system: str, user: str, count: int) -> List[str]:
     try:
+        # Birorta ham yopilgan slayd bo'lmagan javob (filtr kesgan, token
+        # chegarasida uzilgan) keyingi modelga o'tkaziladi.
         raw = llm_client._call_openrouter_text(
-            system, user, temperature=0.75, max_tokens=4200 * count)
+            system, user, temperature=0.75, max_tokens=4200 * count,
+            accept=lambda text: bool(split_slides(text)))
     except Exception as exc:
         log.error("Slayd bo'lagi olinmadi: %s", exc)
         return []
     return split_slides(raw)
+
+
+def _plain_slide(topic: str, brief: str, number: int, total: int,
+                 language: str = "uz", author: str = "") -> str:
+    """Hech bir model HTML slayd bermaganda — oddiy ro'yxatli slayd.
+
+    Muqovaga AI kerak emas: u mavzu va muallifdan yig'iladi.
+    """
+    if number == 1:
+        note = f'<p class="note">{_escape(author)}</p>' if author else ""
+        return ('<section class="slide dark"><div class="body">'
+                f'<h1 class="title big">{_escape(topic)}</h1>'
+                f'<div class="rule"></div>{note}</div></section>')
+    target = _LANGUAGE.get(language, _LANGUAGE["uz"])
+    kind = "xulosa" if number == total else "mazmun"
+    prompt = (
+        f'Mavzu: "{topic}". Taqdimotning {number}-slaydi ({kind}): {brief}\n\n'
+        f"Matn {target}. Hujjat yoki nutq matnini so'zma-so'z ko'chirmang, "
+        "o'z so'zlaringiz bilan yozing.\n"
+        'Faqat JSON: {"title": "slayd sarlavhasi (2-7 so\'z)", '
+        '"points": [{"key": "kalit so\'z", "text": "bir-ikki to\'liq gap"}]} '
+        "— 3 tadan 5 tagacha band."
+    )
+    try:
+        data = llm_client._call_openrouter(
+            "Sen taqdimot slaydi matnini yozasan. Faqat JSON qaytar.",
+            prompt, temperature=0.5, max_tokens=1500)
+    except Exception as exc:
+        log.error("%d-slayd zaxira yo'li bilan ham yozilmadi: %s", number, exc)
+        return ""
+    if not isinstance(data, dict):
+        data = {}
+    title = str(data.get("title") or brief).strip()
+    items = []
+    for point in data.get("points") or []:
+        if not isinstance(point, dict):
+            continue
+        text = str(point.get("text") or "").strip()
+        if not text:
+            continue
+        key = str(point.get("key") or "").strip()
+        lead = f"<b>{_escape(key)}.</b> " if key else ""
+        items.append('<div class="item"><span class="item-dot"></span>'
+                     f'<div class="item-text">{lead}{_escape(text)}</div></div>')
+    if len(items) < 2:
+        log.error("%d-slayd zaxira javobi bo'sh", number)
+        return ""
+    log.warning("%d-slayd zaxira yo'li bilan yozildi", number)
+    return ('<section class="slide"><div class="head">'
+            f'<h2 class="title">{_escape(title)}</h2><div class="rule"></div>'
+            '</div><div class="body"><div class="list">'
+            + "".join(items[:5]) + '</div></div></section>')

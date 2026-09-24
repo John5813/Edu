@@ -64,8 +64,8 @@ _BROWSER_GLOBS = (
 
 # Tizimga o'rnatilgan brauzerlar — Playwright papkasi umuman bo'lmasa.
 _SYSTEM_BROWSERS = (
-    # Replit's Nix/browser toolchain exposes Chromium here. This is more
-    # reliable than downloading Playwright's headless shell at runtime.
+    # Replit's Chromium binary is more reliable than a downloaded
+    # Playwright headless shell in this environment.
     "/repl/tools/bin/chromium",
     "/opt/pw-browsers/chromium",
     "/usr/bin/chromium",
@@ -340,7 +340,53 @@ def _launch(playwright):
 def _open_page(context, html: str):
     page = context.new_page()
     page.set_content(html, wait_until=_WAIT_UNTIL, timeout=_TIMEOUT_MS)
+    fit(page)
     return page
+
+
+# Mazmunning eng past nuqtasi. `level` bosqichdagi zichlash sinfi
+# qo'yilgandan keyin o'lchanadi.
+_FIT_SCRIPT = r"""
+(level) => {
+  const slide = document.querySelector("section.slide");
+  if (!slide) return 0;
+  slide.classList.remove("fit1", "fit2", "fit3");
+  if (level) slide.classList.add("fit" + level);
+  let low = 0;
+  for (const el of slide.querySelectorAll(".head *, .body *")) {
+    const r = el.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) continue;
+    low = Math.max(low, r.bottom);
+  }
+  return low;
+}
+"""
+
+# Varaq pastida qoldiriladigan eng kam chet (px).
+_FIT_MARGIN = 40
+
+
+def fit(page) -> int:
+    """Mazmun varaqqa sig'maguncha bosqichma-bosqich zichlaydi.
+
+    Model ba'zan varaqqa sig'maydigan mazmun yozadi: pastki
+    kartochkalar yoki oxirgi bandlar varaq chetidan chiqib, PowerPointda
+    kesilib qoladi. Buni modelga qayta yozdirish ishonchsiz va
+    qimmat — shuning uchun avval oraliqlar, keyin shrift kichraytiriladi.
+    Sig'gan varaqqa tegilmaydi. Qaytaradi: qo'llangan bosqich (0-3).
+    """
+    try:
+        for level in range(4):
+            low = page.evaluate(_FIT_SCRIPT, level)
+            if low <= SLIDE_H_PX - _FIT_MARGIN:
+                if level:
+                    log.info("Varaq sig'dirildi: %d-bosqich", level)
+                return level
+        log.warning("Varaq 3-bosqichda ham to'liq sig'madi")
+        return 3
+    except Exception as exc:
+        log.warning("Varaqni sig'dirib bo'lmadi: %s", exc)
+        return 0
 
 
 def shoot(html_slides: List[str], out_dir: str = "temp") -> List[str]:

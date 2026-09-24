@@ -191,56 +191,26 @@ _SCRIPT = r"""
     return shownArea(el, r) >= r.w * r.h * 0.5;
   };
 
-  // Element ichidagi to'g'ridan-to'g'ri text node'larni brauzer ko'rsatgan
-  // satrlar bo'yicha bo'lamiz. Masalan, blok ichida `span` bo'lsa, ota
-  // blokning butun qutisini qayta chizish highlight bilan ustma-ust tushadi.
-  const textNodeFragments = (node) => {
-    const value = node.nodeValue || "";
+  // Elementning O'ZIGA tegishli matn (bolalarinikisiz).
+  // <br> qator ko'chirishni bildiradi: uni yo'qotsak, ikki satr
+  // "sarlavhaning davomi" bo'lib yopishib qolardi.
+  const ownText = (el) => {
     const lines = [];
-    for (let index = 0; index < value.length; index += 1) {
-      const charRange = document.createRange();
-      charRange.setStart(node, index);
-      charRange.setEnd(node, index + 1);
-      const rects = charRange.getClientRects();
-      if (!rects.length) continue;
-      const rect = rects[0];
-      if (rect.width < 0.01 || rect.height < 0.01) continue;
-      const key = Math.round(rect.top * 10) / 10;
-      let line = lines.find((item) => Math.abs(item.top - key) < 0.2);
-      if (!line) {
-        line = {top: key, start: index, end: index + 1};
-        lines.push(line);
-      } else {
-        line.start = Math.min(line.start, index);
-        line.end = Math.max(line.end, index + 1);
+    let current = "";
+    for (const node of el.childNodes) {
+      if (node.nodeType === 3) {
+        current += node.nodeValue;
+      } else if (node.nodeType === 1 && node.tagName === "BR") {
+        lines.push(current);
+        current = "";
       }
     }
-
-    return lines.map((line) => {
-      let start = line.start;
-      let end = line.end;
-      while (start < end && /\s/.test(value[start])) start += 1;
-      while (end > start && /\s/.test(value[end - 1])) end -= 1;
-      if (end <= start) return null;
-      const range = document.createRange();
-      range.setStart(node, start);
-      range.setEnd(node, end);
-      const r = range.getBoundingClientRect();
-      if (r.width < 1 || r.height < 1) return null;
-      return {
-        text: value.slice(start, end).replace(/\s+/g, " ").trim(),
-        r: {x: r.left, y: r.top, w: r.width, h: r.height},
-      };
-    }).filter(Boolean);
-  };
-
-  const directText = (el) => {
-    const fragments = [];
-    for (const node of el.childNodes) {
-      if (node.nodeType !== 3) continue;
-      fragments.push(...textNodeFragments(node));
-    }
-    return fragments;
+    lines.push(current);
+    return lines
+      .map((line) => line.replace(/[^\S\n]+/g, " ").trim())
+      .join("\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
   };
 
   // Bola element matn oqimining ichida turadimi (<b>, <span>, <a>)?
@@ -257,10 +227,7 @@ _SCRIPT = r"""
       // ma'nosini yo'qotardi.
       if (child.classList && child.classList.contains("frac")) return false;
       const display = getComputedStyle(child).display || "";
-      // `inline-block` oqimda turgan bo'lsa ham, o'zining mustaqil
-      // qutisiga ega. Uni ota matn bilan bitta quti deb olish highlight
-      // va yonma-yon kartochkalarni PowerPointda ustma-ust qo'yadi.
-      if (display !== "inline") return false;
+      if (!display.startsWith("inline")) return false;
     }
     return true;
   };
@@ -460,11 +427,10 @@ _SCRIPT = r"""
     // "<b>" ning matni otasidan tushib qolar va uning ustiga alohida
     // quti bo'lib chiqar edi.
     const whole = inlineOnly(el);
-    const text = whole
-      ? undouble((el.innerText || "").replace(/[^\S\n]+/g, " ")
-          .replace(/\n{3,}/g, "\n\n").trim())
-      : "";
-    const fragments = whole ? [] : directText(el);
+    const text = undouble(whole
+      ? (el.innerText || "").replace(/[^\S\n]+/g, " ")
+          .replace(/\n{3,}/g, "\n\n").trim()
+      : ownText(el));
 
     // Matnning ko'rinish kuchi: qatlam shaffofligi va harf rangining
     // shaffofligi. Gradient sarlavhada harf rangi shaffof bo'ladi
@@ -479,7 +445,7 @@ _SCRIPT = r"""
     // fonda qolib ketardi. Bu yerda tekshiriladi va kerak bo'lsa
     // o'qiladigan rangga o'giriladi — mijoz ko'rinmas matn olmaydi.
     let paint = rgbOver(s.color, el, shown) || "000000";
-    if (text || fragments.length) {
+    if (text) {
       const back = behind(el);
       if (ratio(unhex(paint), back) < 3.2) {
         const light = {r: 255, g: 255, b: 255};
@@ -489,35 +455,22 @@ _SCRIPT = r"""
       }
     }
 
-    if (!faded) {
+    if (text && !faded) {
       const turn = spin(el);
       const tr = flatBox(el, r, turn);
-      const records = whole ? [{text, box: tr, lines: lineCount(el, tr)}]
-        : fragments.map((fragment) => ({
-            text: fragment.text, box: fragment.r, lines: 1,
-          }));
-      for (const record of records) {
-        if (!record.text) continue;
-        out.push({
-          kind: "text", text: record.text, ink,
-          rotation: whole ? turn : 0, ...record.box,
-          // Mustaqil inline-block matn ham brauzer o'lchagan qutida
-          // qoladi. Builder unga shrift zaxirasini qo'shsa, yonidagi
-          // parent fragment bilan ustma-ust tushadi.
-          fragment: !whole || s.display === "inline-block"
-            || s.display === "inline-flex" || s.display === "inline-grid",
-          size: parseFloat(s.fontSize) || 16,
-          weight: parseInt(s.fontWeight, 10) || 400,
-          italic: s.fontStyle === "italic",
-          color: paint,
-          align: align(s.textAlign),
-          family: s.fontFamily || "",
-          lineHeight: parseFloat(s.lineHeight) || 0,
-          upper: s.textTransform === "uppercase",
-          letterSpacing: parseFloat(s.letterSpacing) || 0,
-          lines: record.lines,
-        });
-      }
+      out.push({
+        kind: "text", text, ink, rotation: turn, ...tr,
+        size: parseFloat(s.fontSize) || 16,
+        weight: parseInt(s.fontWeight, 10) || 400,
+        italic: s.fontStyle === "italic",
+        color: paint,
+        align: align(s.textAlign),
+        family: s.fontFamily || "",
+        lineHeight: parseFloat(s.lineHeight) || 0,
+        upper: s.textTransform === "uppercase",
+        letterSpacing: parseFloat(s.letterSpacing) || 0,
+        lines: lineCount(el, tr),
+      });
     }
 
     for (const child of el.children) {
@@ -584,51 +537,6 @@ _CHECK_SCRIPT = r"""
     return text.trim();
   };
 
-  const textNodeFragments = (node) => {
-    const value = node.nodeValue || "";
-    const lines = [];
-    for (let index = 0; index < value.length; index += 1) {
-      const charRange = document.createRange();
-      charRange.setStart(node, index);
-      charRange.setEnd(node, index + 1);
-      const rects = charRange.getClientRects();
-      if (!rects.length) continue;
-      const rect = rects[0];
-      if (rect.width < 0.01 || rect.height < 0.01) continue;
-      const key = Math.round(rect.top * 10) / 10;
-      let line = lines.find((item) => Math.abs(item.top - key) < 0.2);
-      if (!line) {
-        line = {top: key, start: index, end: index + 1};
-        lines.push(line);
-      } else {
-        line.start = Math.min(line.start, index);
-        line.end = Math.max(line.end, index + 1);
-      }
-    }
-    return lines.map((line) => {
-      let start = line.start;
-      let end = line.end;
-      while (start < end && /\s/.test(value[start])) start += 1;
-      while (end > start && /\s/.test(value[end - 1])) end -= 1;
-      if (end <= start) return null;
-      const range = document.createRange();
-      range.setStart(node, start);
-      range.setEnd(node, end);
-      const r = range.getBoundingClientRect();
-      if (r.width < 1 || r.height < 1) return null;
-      return {r, text: value.slice(start, end).trim()};
-    }).filter(Boolean);
-  };
-
-  const directText = (el) => {
-    const fragments = [];
-    for (const node of el.childNodes) {
-      if (node.nodeType !== 3) continue;
-      fragments.push(...textNodeFragments(node));
-    }
-    return fragments;
-  };
-
   // Xato qaysi joyda ekanini modelga aniq aytish uchun: element
   // matnining boshi (matni bo'lmasa ichidagi matn yoki sinf nomi).
   const label = (el) => {
@@ -649,11 +557,12 @@ _CHECK_SCRIPT = r"""
     const r = el.getBoundingClientRect();
     if (r.width < 2 || r.height < 2) continue;
 
-    for (const fragment of directText(el)) {
-      texts.push({r: fragment.r, text: fragment.text, el});
-      lowest = Math.max(lowest, fragment.r.bottom);
-      tallest = tallest || fragment.r.top;
-      tallest = Math.min(tallest, fragment.r.top);
+    const text = own(el);
+    if (text) {
+      texts.push({r, text, el});
+      lowest = Math.max(lowest, r.bottom);
+      tallest = tallest || r.top;
+      tallest = Math.min(tallest, r.top);
     }
 
     // Slayddan chiqib ketgan: butun ekranni egallagan fon bundan mustasno.
