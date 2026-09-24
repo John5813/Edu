@@ -41,7 +41,7 @@ ON_UPLOAD = None
 def _sweep() -> None:
     now = time.time()
     for token in [t for t, r in _uploads.items() if r["expires"] < now]:
-        _uploads.pop(token, None)
+        _drop_part(_uploads.pop(token, None))
     for token in [t for t, r in _downloads.items() if r["expires"] < now]:
         record = _downloads.pop(token, None)
         if record:
@@ -51,20 +51,31 @@ def _sweep() -> None:
                 pass
 
 
+def _drop_part(record) -> None:
+    """Chala yuklangan faylni o'chiradi."""
+    path = (record or {}).get("part")
+    if path and os.path.exists(path):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
 def new_upload_link(user_id: int, chat_id: int, lang: str) -> str:
     """Bir martalik yuklash havolasi (3 soat amal qiladi)."""
     _sweep()
-    for token in [t for t, r in _uploads.items() if r["user_id"] == user_id]:
-        _uploads.pop(token, None)
+    forget_upload_links(user_id)
     token = secrets.token_urlsafe(18)
     _uploads[token] = {"user_id": user_id, "chat_id": chat_id, "lang": lang,
-                       "expires": time.time() + UPLOAD_TTL, "busy": False}
+                       "expires": time.time() + UPLOAD_TTL, "busy": False,
+                       "part": None, "received": 0, "size": 0,
+                       "lock": asyncio.Lock()}
     return webapp.public_url(f"/book/upload/{token}")
 
 
 def forget_upload_links(user_id: int) -> None:
     for token in [t for t, r in _uploads.items() if r["user_id"] == user_id]:
-        _uploads.pop(token, None)
+        _drop_part(_uploads.pop(token, None))
 
 
 def new_download_link(path: str, file_name: str) -> str:
@@ -84,6 +95,7 @@ _TEXTS = {
         "pick": "Faylni tanlash",
         "send": "Yuklash",
         "sending": "Yuklanmoqda…",
+        "retry": "Internet uzildi, qayta ulanmoqda… ({n})",
         "done": "✅ Fayl qabul qilindi. Botga qayting.",
         "big": "❌ Fayl juda katta. Eng ko'pi {mb} MB.",
         "type": "❌ Faqat PDF yoki Word (DOCX) fayl.",
@@ -98,6 +110,7 @@ _TEXTS = {
         "pick": "Выбрать файл",
         "send": "Загрузить",
         "sending": "Загрузка…",
+        "retry": "Связь прервалась, переподключение… ({n})",
         "done": "✅ Файл принят. Вернитесь в бот.",
         "big": "❌ Файл слишком большой. Максимум {mb} МБ.",
         "type": "❌ Только PDF или Word (DOCX).",
@@ -112,6 +125,7 @@ _TEXTS = {
         "pick": "Choose file",
         "send": "Upload",
         "sending": "Uploading…",
+        "retry": "Connection lost, retrying… ({n})",
         "done": "✅ File received. Go back to the bot.",
         "big": "❌ The file is too large. Maximum {mb} MB.",
         "type": "❌ PDF or Word (DOCX) only.",
@@ -152,30 +166,66 @@ button:disabled{{opacity:.5}}
 <script>
 const T = {texts};
 const f = document.getElementById('file');
+// Fayl bo'laklab yuboriladi: bitta katta so'rovni oraliq server (nginx,
+// Cloudflare) to'xtatib qo'yishi yoki mobil internet uzib yuborishi mumkin.
+// Uzilsa, yuklash to'xtagan joyidan davom etadi.
+const CHUNK = 768 * 1024;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function call(url, opts) {{
+  const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 90000);
+  try {{ return await fetch(url, Object.assign({{signal: ctl.signal, cache: 'no-store'}}, opts)); }}
+  finally {{ clearTimeout(timer); }}
+}}
+async function problem(r) {{
+  if (r.status === 413) return T.proxy;
+  try {{ return (await r.json()).error || T.fail; }} catch (e) {{ return T.fail; }}
+}}
 if (f) {{
   const btn = document.getElementById('send'), msg = document.getElementById('msg');
   const bar = document.querySelector('.bar'), fill = document.querySelector('.bar i');
+  const base = location.pathname.replace(/\/$/, '');
   f.addEventListener('change', () => {{
     document.getElementById('name').textContent = f.files[0] ? f.files[0].name : '';
     btn.disabled = !f.files[0]; msg.textContent = '';
   }});
-  btn.addEventListener('click', () => {{
+  btn.addEventListener('click', async () => {{
     const file = f.files[0]; if (!file) return;
-    if (!/\\.(pdf|docx)$/i.test(file.name)) {{ msg.textContent = T.type; return; }}
+    if (!/\.(pdf|docx)$/i.test(file.name)) {{ msg.textContent = T.type; return; }}
     if (file.size > T.max) {{ msg.textContent = T.big; return; }}
-    const data = new FormData(); data.append('file', file, file.name);
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', location.pathname);
-    xhr.upload.onprogress = e => {{ if (e.lengthComputable) fill.style.width = (100 * e.loaded / e.total) + '%'; }};
-    xhr.onload = () => {{
-      btn.disabled = false;
-      if (xhr.status === 200) {{ msg.textContent = T.done; btn.style.display = 'none'; f.disabled = true; return; }}
-      if (xhr.status === 413 && !xhr.responseText.startsWith('{{')) {{ msg.textContent = T.proxy; return; }}
-      try {{ msg.textContent = JSON.parse(xhr.responseText).error || T.fail; }} catch (e) {{ msg.textContent = T.fail; }}
-    }};
-    xhr.onerror = () => {{ btn.disabled = false; msg.textContent = T.fail; }};
-    btn.disabled = true; bar.style.display = 'block'; msg.textContent = T.sending;
-    xhr.send(data);
+    btn.disabled = true; f.disabled = true; bar.style.display = 'block'; msg.textContent = T.sending;
+    const fail = text => {{ msg.textContent = text; btn.disabled = false; f.disabled = false; }};
+    let offset = 0, errors = 0;
+    while (offset < file.size) {{
+      try {{
+        const end = Math.min(offset + CHUNK, file.size);
+        const r = await call(`${{base}}/chunk?offset=${{offset}}&size=${{file.size}}`,
+                             {{method: 'POST', body: file.slice(offset, end),
+                              headers: {{'Content-Type': 'application/octet-stream'}}}});
+        if (r.status === 409) {{ offset = (await r.json()).received; continue; }}
+        if (!r.ok) {{ if (r.status >= 500) throw new Error(r.status); return fail(await problem(r)); }}
+        offset = (await r.json()).received; errors = 0;
+        fill.style.width = (100 * offset / file.size) + '%';
+        msg.textContent = `${{T.sending}} ${{Math.floor(100 * offset / file.size)}}%`;
+      }} catch (e) {{
+        errors += 1;
+        if (errors > 40) return fail(T.fail);
+        msg.textContent = T.retry.replace('{{n}}', errors);
+        await sleep(Math.min(15000, 1500 * errors));
+        try {{
+          const st = await call(`${{base}}/status`);
+          if (st.ok) offset = (await st.json()).received;
+        }} catch (e2) {{}}
+      }}
+    }}
+    for (let attempt = 1; attempt <= 5; attempt++) {{
+      try {{
+        const r = await call(`${{base}}/finish`, {{method: 'POST',
+          headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify({{name: file.name}})}});
+        if (r.ok) {{ msg.textContent = T.done; btn.style.display = 'none'; return; }}
+        return fail(await problem(r));
+      }} catch (e) {{ await sleep(3000 * attempt); }}
+    }}
+    fail(T.fail);
   }});
 }}
 </script></body></html>"""
@@ -281,6 +331,91 @@ async def handle_upload(request: web.Request) -> web.Response:
                 pass
 
 
+def _record(request: web.Request):
+    _sweep()
+    token = request.match_info.get("token", "")
+    return token, _uploads.get(token)
+
+
+async def handle_status(request: web.Request) -> web.Response:
+    _, record = _record(request)
+    if not record:
+        return _error(_texts("uz"), "dead", 410)
+    return web.json_response({"received": record["received"]},
+                             headers={"Cache-Control": "no-store"})
+
+
+async def handle_chunk(request: web.Request) -> web.Response:
+    """Faylning bitta bo'lagi. Bo'lak aynan kutilgan joydan boshlanishi kerak —
+    aks holda 409 va qayerdan davom etish kerakligi qaytariladi."""
+    _, record = _record(request)
+    texts = _texts(record["lang"] if record else "uz")
+    if not record:
+        return _error(texts, "dead", 410)
+    try:
+        offset = int(request.query.get("offset", "-1"))
+        size = int(request.query.get("size", "0"))
+    except ValueError:
+        return _error(texts, "fail", 400)
+    limit = BOOK_MAX_UPLOAD_MB * 1024 * 1024
+    if size <= 0 or size > limit:
+        return _error(texts, "big", 413)
+
+    async with record["lock"]:
+        if offset == 0 and record["received"] and record["size"] != size:
+            # Boshqa fayl tanlangan — eskisini tashlab, boshidan boshlaymiz.
+            _drop_part(record)
+            record.update(part=None, received=0)
+        if offset != record["received"]:
+            return web.json_response({"received": record["received"]}, status=409)
+        data = await request.read()
+        if not data or offset + len(data) > size:
+            return _error(texts, "fail", 400)
+        if record["part"] is None:
+            os.makedirs(TEMP_DIR, exist_ok=True)
+            record["part"] = os.path.join(TEMP_DIR, f"bt_part_{uuid.uuid4().hex[:10]}")
+            record["size"] = size
+        with open(record["part"], "ab") as out:
+            out.write(data)
+        record["received"] = offset + len(data)
+        record["expires"] = max(record["expires"], time.time() + 3600)
+        return web.json_response({"received": record["received"]})
+
+
+async def handle_finish(request: web.Request) -> web.Response:
+    """Hamma bo'lak kelgach: tur tekshiriladi va kitob botga uzatiladi."""
+    token, record = _record(request)
+    texts = _texts(record["lang"] if record else "uz")
+    if not record:
+        return _error(texts, "dead", 410)
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+    file_name = os.path.basename(str(payload.get("name") or ""))[:120]
+    extension = os.path.splitext(file_name)[1].lower()
+    async with record["lock"]:
+        if extension not in _EXTENSIONS:
+            return _error(texts, "type", 415)
+        part = record["part"]
+        if not part or record["received"] != record["size"] or not os.path.exists(part):
+            return _error(texts, "fail", 400)
+        with open(part, "rb") as source:
+            head = source.read(8)
+        if not head.startswith(_EXTENSIONS[extension]):
+            _drop_part(record)
+            record.update(part=None, received=0, size=0)
+            return _error(texts, "type", 415)
+        path = part + extension
+        os.replace(part, path)
+        _uploads.pop(token, None)
+    logger.info("Kitob saytdan yuklandi: %s, %.1f MB, user=%s",
+                file_name, record["size"] / 1024 / 1024, record["user_id"])
+    if ON_UPLOAD is not None:
+        asyncio.create_task(_deliver(record, path, file_name))
+    return web.json_response({"ok": True})
+
+
 async def _deliver(record: dict, path: str, file_name: str) -> None:
     try:
         await ON_UPLOAD(record, path, file_name)
@@ -309,4 +444,7 @@ async def handle_download(request: web.Request) -> web.StreamResponse:
 def setup_book_routes(app: web.Application) -> None:
     app.router.add_get("/book/upload/{token}", handle_upload_page)
     app.router.add_post("/book/upload/{token}", handle_upload)
+    app.router.add_get("/book/upload/{token}/status", handle_status)
+    app.router.add_post("/book/upload/{token}/chunk", handle_chunk)
+    app.router.add_post("/book/upload/{token}/finish", handle_finish)
     app.router.add_get("/book/download/{token}", handle_download)

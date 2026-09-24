@@ -135,6 +135,41 @@ async def main():
         r = await client.post(path, data=aiohttp.FormData([("file", b"x")]))
         check("havola bir martalik", r.status == 410, r.status)
 
+        # ── Bo'laklab yuklash: uzilsa to'xtagan joyidan davom etadi
+        url2 = book_upload.new_upload_link(8, 8, "uz")
+        base = "/" + url2.split("/", 3)[3]
+        blob = open(f"{SCR}/book40.pdf", "rb").read()
+        size, step = len(blob), 700 * 1024
+        r = await client.post(f"{base}/chunk?offset=0&size={size}", data=blob[:step])
+        check("birinchi bo'lak qabul qilindi", r.status == 200 and (await r.json())["received"] == step)
+        r = await client.post(f"{base}/chunk?offset=0&size={size}", data=blob[:step])
+        check("takror bo'lakda qayerdan davom etish aytiladi",
+              r.status == 409 and (await r.json())["received"] == step, r.status)
+        r = await client.get(f"{base}/status")
+        check("holat so'rovi", (await r.json())["received"] == step)
+        r = await client.post(f"{base}/finish", json={"name": "k.pdf"})
+        check("chala faylni yakunlab bo'lmaydi", r.status == 400, r.status)
+        offset = step
+        while offset < size:
+            r = await client.post(f"{base}/chunk?offset={offset}&size={size}",
+                                  data=blob[offset:offset + step])
+            offset = (await r.json())["received"]
+        before = len(delivered)
+        r = await client.post(f"{base}/finish", json={"name": "Kitob bo'laklab.pdf"})
+        await asyncio.sleep(0.1)
+        ok = (r.status == 200 and len(delivered) == before + 1
+              and open(delivered[-1][1], "rb").read() == blob)
+        check("bo'laklab yuklangan fayl aynan asliday", ok, r.status)
+        if len(delivered) > before:
+            os.remove(delivered.pop()[1])
+        url3 = book_upload.new_upload_link(9, 9, "uz")
+        base3 = "/" + url3.split("/", 3)[3]
+        await client.post(f"{base3}/chunk?offset=0&size=9", data=b"not a pdf")
+        r = await client.post(f"{base3}/finish", json={"name": "x.pdf"})
+        check("bo'laklab yuklangan soxta PDF rad etiladi", r.status == 415, r.status)
+        r = await client.post(f"{base3}/chunk?offset=0&size={999 * 1024 * 1024}", data=b"%PDF")
+        check("e'lon qilingan hajm chegaradan katta — rad", r.status == 413, r.status)
+
         link = book_upload.new_download_link(saved, "Kitob_uz.pdf")
         r = await client.get("/" + link.split("/", 3)[3])
         blob = await r.read()
