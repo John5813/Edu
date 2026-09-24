@@ -9,6 +9,8 @@ logger = logging.getLogger(__name__)
 DOC_TOKENS: dict = {}
 WEBAPP_DOMAIN: str = ""
 BOT = None
+# Sayt orqali yuklangan kitobni bot oqimiga (FSM) ulash uchun kerak.
+DISPATCHER = None
 # Do'kon sahifasidagi "sotib olish" tugmasi shu nom orqali botga havola
 # yasaydi. Ishga tushishda `get_me()` dan to'ldiriladi.
 BOT_USERNAME: str = ""

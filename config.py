@@ -71,6 +71,36 @@ BOOK_TRANSLATE_PRICES = {
     999999999: 100_000,
 }
 
+# ── Telegram fayl cheklovlari
+#
+# Oddiy Bot API bot'ga 20 MB dan katta faylni bermaydi va 50 MB dan katta
+# fayl yuborishga ruxsat bermaydi. Serverda mahalliy Bot API server
+# (telegram-bot-api) ishga tushirilsa, ikkala chegara 2000 MB ga ko'tariladi:
+#   TELEGRAM_API_SERVER=http://127.0.0.1:8081
+# Server Docker ichida bo'lsa va fayllari boshqa papkada ko'rinsa:
+#   TELEGRAM_API_FILES_SERVER_DIR=/var/lib/telegram-bot-api
+#   TELEGRAM_API_FILES_LOCAL_DIR=/srv/telegram-bot-api
+TELEGRAM_API_SERVER = os.getenv("TELEGRAM_API_SERVER", "").strip().rstrip("/")
+TELEGRAM_API_FILES_SERVER_DIR = os.getenv("TELEGRAM_API_FILES_SERVER_DIR", "").strip()
+TELEGRAM_API_FILES_LOCAL_DIR = os.getenv("TELEGRAM_API_FILES_LOCAL_DIR", "").strip()
+_MB = 1024 * 1024
+TELEGRAM_DOWNLOAD_LIMIT = (2000 if TELEGRAM_API_SERVER else 20) * _MB
+TELEGRAM_UPLOAD_LIMIT = (2000 if TELEGRAM_API_SERVER else 50) * _MB
+
+# Kitob tarjimasi uchun eng katta fayl. Telegram orqali sig'magani sayt
+# orqali yuklanadi (bot bir martalik havola beradi).
+BOOK_MAX_UPLOAD_MB = int(os.getenv("BOOK_MAX_UPLOAD_MB", "150"))
+
+# Katta PDF kitob tarjimasi uchun modellar zanjiri: birinchisi ishlamasa
+# keyingisi. `BOOK_TRANSLATE_MODEL` muhit o'zgaruvchisi bilan boshqasini
+# birinchi qo'yish mumkin. Gemini 2.5 Flash — sifat/narx bo'yicha eng mosi:
+# 200 betlik kitob taxminan $0.5-1 turadi.
+BOOK_TRANSLATE_MODELS = [
+    "google/gemini-2.5-flash",
+    "google/gemini-2.0-flash-001",
+    "openai/gpt-4.1-mini",
+]
+
 # Article prices (in som)
 ARTICLE_PRICES = {
     "4_5": 5000,
