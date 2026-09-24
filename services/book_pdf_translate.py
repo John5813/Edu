@@ -1,35 +1,27 @@
-"""Katta PDF kitobni joyida tarjima qilish — rasmlar o'z o'rnida qoladi.
+"""Katta PDF kitobdan matnni olib tarjima qilish — natija toza Word (DOCX).
 
 Kitobning og'irligi deyarli butunlay rasmlarda: 226 betlik darslik 38 MB,
-lekin undagi matn bir-ikki megabayt xolos. Ilgari PDF avval `pdf2docx`
-bilan Word'ga aylantirilardi (yuzlab betda juda sekin va xotirani yeydi),
-keyin tarjima yangi, bo'sh hujjatga yozilardi — rasmlar umuman tushib
-qolardi. Tibbiyot darsligida esa rasmlarsiz matnning qadri yo'q.
+lekin undagi matn bir-ikki megabayt xolos. Rasmlarni saqlab, PDF ni joyida
+qayta chizish 2 GB xotirali serverni to'ldirib, botni qotirib qo'ydi.
+Shuning uchun rasmlarga umuman tegilmaydi (ular ochilmaydi ham):
 
-Bu yerda PDF ning o'zi tahrirlanadi:
+  1. har betdan faqat matn bloklari olinadi — abzats, sarlavha, izoh;
+     sahifa raqami va har betda takrorlanadigan kolontitullar tashlanadi;
+  2. bet chegarasida uzilgan abzats qayta ulanadi;
+  3. bo'laklar bir necha so'rovda parallel tarjima qilinadi;
+  4. natija sarlavhalari ajratilgan oddiy Word hujjat bo'ladi.
 
-  1. har betdagi matn bloklari o'rni, shrifti, rangi bilan olinadi;
-  2. bloklar bo'laklarga bo'linib, bir necha so'rov parallel tarjima qilinadi;
-  3. asl matn faqat matn qatlamidan o'chiriladi (rasm va chiziqlarga
-     tegilmaydi) va tarjima o'sha to'rtburchakka yoziladi — sig'masa
-     pastdagi bo'sh joyga cho'ziladi, baribir sig'masa shrift kichrayadi;
-  4. rasmlar o'qish uchun yetarli aniqlikka (150 dpi) siqiladi — fayl
-     bir necha barobar yengillashadi, telefonda farqi ko'rinmaydi.
-
-Tarjima qilinmay qolgan blok (model javob bermasa) asl holida qoladi —
+Tarjima qilinmay qolgan bo'lak (model javob bermasa) asl tilida qoladi —
 bitta muvaffaqiyatsiz so'rov butun kitobni yiqitmaydi.
 """
 
 import asyncio
-import html
 import logging
 import os
 import re
-import uuid
 from dataclasses import dataclass, field
 from typing import Awaitable, Callable, Dict, List, Optional
 
-from config import TEMP_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -38,15 +30,9 @@ logger = logging.getLogger(__name__)
 BATCH_CHARS = 7000
 # Bir kitob uchun bir vaqtdagi so'rovlar.
 CONCURRENCY = 5
-# Bir vaqtda nechta kitob tarjima qilinadi: har biri o'nlab so'rov yuboradi.
-_JOBS = asyncio.Semaphore(2)
 
 # Shundan kichik matn (izoh belgilari va h.k.) tegilmaydi.
 MIN_FONT = 4.0
-# Siqilgan rasm aniqligi. 150 dpi — ekranda va oddiy chop etishda yetarli.
-IMAGE_DPI = 150
-IMAGE_QUALITY = 78
-
 _CYRILLIC = re.compile(r"[а-яёА-ЯЁўқғҳЎҚҒҲ]")
 _LATIN = re.compile(r"[A-Za-z]")
 _LETTER = re.compile(r"[^\W\d_]")
@@ -97,19 +83,6 @@ class Block:
     serif: bool
     align: str
     segments: List[int] = field(default_factory=list)
-
-
-@dataclass
-class TranslateResult:
-    path: str
-    pages: int
-    blocks: int
-    failed: int
-    size: int
-
-    @property
-    def failed_share(self) -> float:
-        return self.failed / self.blocks if self.blocks else 0.0
 
 
 # ─────────────────────────────────────────────── PDF ni o'qish
@@ -294,7 +267,7 @@ def _side_by_side(lines: List[dict]) -> bool:
 
 
 def _make_block(number: int, lines: List[dict], rect: tuple, width: float,
-                source_lang: str) -> Optional[Block]:
+                source_lang: str, require_source: bool = True) -> Optional[Block]:
     spans = [s for line in lines for s in line["spans"] if s["text"].strip()]
     if not spans:
         return None
@@ -302,7 +275,10 @@ def _make_block(number: int, lines: List[dict], rect: tuple, width: float,
     if size < MIN_FONT:
         return None
     paragraphs = _join_lines(lines, rect)
-    if not _wanted(" ".join(paragraphs), source_lang):
+    text = " ".join(paragraphs)
+    if require_source and not _wanted(text, source_lang):
+        return None
+    if len(_LETTER.findall(text)) < 2:
         return None
     bold = _dominant([(bool(s["flags"] & 16) or "bold" in s["font"].lower(),
                        len(s["text"])) for s in spans], False)
@@ -318,14 +294,17 @@ def _make_block(number: int, lines: List[dict], rect: tuple, width: float,
     )
 
 
-def extract_blocks(doc, source_lang: str) -> List[Block]:
-    """Hamma betdagi tarjima qilinadigan matn bloklari."""
+def extract_blocks(doc, source_lang: str, pages=None,
+                   require_source: bool = True) -> List[Block]:
+    """Betlardagi matn bloklari (sukut bo'yicha — faqat tarjimaga muhtojlari)."""
     import pymupdf
 
     flags = (pymupdf.TEXT_PRESERVE_WHITESPACE | pymupdf.TEXT_PRESERVE_LIGATURES
              | pymupdf.TEXT_DEHYPHENATE | pymupdf.TEXT_MEDIABOX_CLIP)
     blocks: List[Block] = []
-    for number, page in enumerate(doc):
+    numbers = range(doc.page_count) if pages is None else pages
+    for number in numbers:
+        page = doc[number]
         width = page.rect.width
         for raw in page.get_text("dict", flags=flags)["blocks"]:
             if raw.get("type") != 0 or not raw.get("lines"):
@@ -340,12 +319,13 @@ def extract_blocks(doc, source_lang: str) -> List[Block]:
                 for pieces in split:
                     for piece in pieces:
                         block = _make_block(number, [piece], piece["bbox"], width,
-                                            source_lang)
+                                            source_lang, require_source)
                         if block:
                             block.align = "left"
                             blocks.append(block)
                 continue
-            block = _make_block(number, lines, tuple(raw["bbox"]), width, source_lang)
+            block = _make_block(number, lines, tuple(raw["bbox"]), width, source_lang,
+                                require_source)
             if block:
                 blocks.append(block)
     return blocks
@@ -569,180 +549,108 @@ async def translate_texts(texts: List[str], source_lang: str, target_lang: str,
     return [results.get(i) for i in range(len(texts))]
 
 
-# ─────────────────────────────────────────────── PDF ga yozish
+# ─────────────────────────────────────────────── Matn va Word
 
-def _obstacles(page, own: List[tuple]) -> List[tuple]:
-    """Tarjima cho'zilganda kirib ketmasligi kerak bo'lgan joylar."""
-    rects = [tuple(r) for r in own]
-    for info in page.get_image_info():
-        rects.append(tuple(info["bbox"]))
+_END = (".", "!", "?", ":", ";", "…", "»", '"', ")")
+
+
+def _is_margin(block: Block, height: float) -> bool:
+    """Kolontitul yoki sahifa raqami: betning eng tepasi yoki eng pastida,
+    qisqa matn."""
+    text = " ".join(block.paragraphs)
+    top, bottom = block.rect[1], block.rect[3]
+    return len(text) < 120 and (bottom < height * 0.07 or top > height * 0.93)
+
+
+def extract_paragraphs(src: str, start: int, stop: int, source_lang: str) -> List[dict]:
+    """[start, stop) betlardagi abzatslar: matn, sarlavhami, tarjima kerakmi.
+
+    Rasmlar ochilmaydi — faqat matn qatlami o'qiladi, shuning uchun
+    rasmga boy kitobda ham xotira kam ketadi.
+    """
+    doc = _open(src)
     try:
-        for drawing in page.get_drawings():
-            rect = drawing.get("rect")
-            if rect is not None and (rect.width > 0 or rect.height > 0):
-                rects.append(tuple(rect))
-    except Exception:
-        pass
-    return rects
-
-
-def _grown(block: Block, obstacles: List[tuple], page_rect, margin: float) -> tuple:
-    """Blokni pastga (va chap tekislangan bo'lsa o'ngga) bo'sh joygacha cho'zadi."""
-    x0, y0, x1, y1 = block.rect
-
-    def contains(rect) -> bool:
-        return (rect[0] <= x0 + 1 and rect[1] <= y0 + 1
-                and rect[2] >= x1 - 1 and rect[3] >= y1 - 1)
-
-    others = [r for r in obstacles if r != block.rect and not contains(r)]
-    right = x1
-    if block.align == "left":
-        right = max(x1, page_rect.width - margin)
-        for r in others:
-            if r[1] < y1 and r[3] > y0 and r[0] >= x1 - 1:
-                right = min(right, r[0] - 3)
-        right = max(right, x1)
-    bottom = max(y1, page_rect.height - 18)
-    for r in others:
-        if r[0] < right and r[2] > x0 and r[1] >= y1 - 1:
-            bottom = min(bottom, r[1] - 2)
-    return (x0, y0, right, max(bottom, y1))
-
-
-def _html(block: Block, paragraphs: List[str]) -> tuple:
-    family = "serif" if block.serif else "sans-serif"
-    css = (
-        f"* {{font-family: {family}; font-size: {block.size:.1f}px; color: {block.color};"
-        f" line-height: 1.15;}}"
-        f" p {{margin: 0; text-align: {block.align};"
-        f" font-weight: {'bold' if block.bold else 'normal'};"
-        f" font-style: {'italic' if block.italic else 'normal'};}}"
-    )
-    body = "".join(f"<p>{html.escape(text)}</p>" for text in paragraphs)
-    return body, css
-
-
-def _write_page(page, blocks: List[Block], texts: Dict[int, List[str]]) -> None:
-    import pymupdf
-
-    todo = [b for b in blocks if id(b) in texts]
-    if not todo:
-        return
-    all_rects = [b.rect for b in blocks]
-    obstacles = _obstacles(page, all_rects)
-    margin = max(18.0, min((b.rect[0] for b in blocks), default=36.0))
-    for block in todo:
-        page.add_redact_annot(pymupdf.Rect(block.rect), fill=False)
-    page.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_NONE,
-                          graphics=pymupdf.PDF_REDACT_LINE_ART_NONE)
-    for block in todo:
-        body, css = _html(block, texts[id(block)])
-        own = pymupdf.Rect(block.rect)
-        wide = pymupdf.Rect(_grown(block, obstacles, page.rect, margin))
-        # Avval asl o'lchamda, keyin bo'sh joyga cho'zib, oxiri kichraytirib.
-        for rect, scale in ((own, 1), (wide, 1), (wide, 0)):
-            try:
-                spare, _ = page.insert_htmlbox(rect, body, css=css, scale_low=scale)
-            except Exception as exc:
-                logger.warning("Blok yozilmadi (%d-bet): %s", block.page + 1, exc)
-                break
-            if spare >= 0:
-                break
-
-
-def _compress(doc) -> None:
-    try:
-        doc.rewrite_images(dpi_threshold=IMAGE_DPI + 20, dpi_target=IMAGE_DPI,
-                           quality=IMAGE_QUALITY)
-    except Exception as exc:
-        logger.warning("Rasmlar siqilmadi: %s", exc)
-    try:
-        doc.subset_fonts()
-    except Exception as exc:
-        logger.debug("Shriftlar qisqartirilmadi: %s", exc)
-
-
-def _assign_segments(blocks: List[Block]) -> List[str]:
-    texts: List[str] = []
-    for block in blocks:
-        block.segments = []
-        for paragraph in block.paragraphs:
-            block.segments.append(len(texts))
-            texts.append(paragraph)
-    return texts
-
-
-def _output_path(source: str, target_lang: str) -> str:
-    base = os.path.splitext(os.path.basename(source))[0][:60] or "kitob"
-    os.makedirs(TEMP_DIR, exist_ok=True)
-    return os.path.join(TEMP_DIR, f"{base}_{target_lang}_{uuid.uuid4().hex[:6]}.pdf")
-
-
-async def translate_pdf(path: str, target_lang: str, source_lang: str = None,
-                        page_from: int = None, page_to: int = None,
-                        progress: Progress = None, translator=None) -> TranslateResult:
-    """PDF kitobni tarjima qiladi va yangi PDF yo'lini qaytaradi."""
-    async with _JOBS:
-        doc = await asyncio.to_thread(_open, path)
-        try:
-            start, stop = _range(doc.page_count, page_from, page_to)
-            if (start, stop) != (0, doc.page_count):
-                await asyncio.to_thread(doc.select, list(range(start, stop)))
-            if source_lang is None:
-                source_lang = detect_language(
-                    " ".join(doc[i].get_text() for i in range(min(20, doc.page_count))))
-            blocks = await asyncio.to_thread(extract_blocks, doc, source_lang)
-            if not blocks:
-                scanned = sum(1 for page in doc if _page_is_scanned(page))
-                if scanned > doc.page_count * 0.4:
-                    raise ScannedBook("matn qatlami yo'q")
-                raise BookTranslateError("tarjima qilinadigan matn topilmadi")
-
-            texts = _assign_segments(blocks)
-            logger.info("Kitob tarjimasi: %d bet, %d blok, %d bo'lak, %d belgi",
-                        doc.page_count, len(blocks), len(texts), sum(map(len, texts)))
-            translated = await translate_texts(texts, source_lang, target_lang,
-                                               progress=progress, translator=translator)
-
-            by_page: Dict[int, List[Block]] = {}
-            for block in blocks:
-                by_page.setdefault(block.page, []).append(block)
-            ready: Dict[int, List[str]] = {}
-            failed = 0
-            for block in blocks:
-                parts = [translated[i] for i in block.segments]
-                if all(parts):
-                    ready[id(block)] = parts
-                else:
-                    failed += 1
-
-            def write():
-                for number, page_blocks in by_page.items():
-                    _write_page(doc[number], page_blocks, ready)
-                _compress(doc)
-                out = _output_path(path, target_lang)
-                doc.save(out, garbage=3, deflate=True, clean=True)
-                return out
-
-            out = await asyncio.to_thread(write)
-            return TranslateResult(path=out, pages=doc.page_count, blocks=len(blocks),
-                                   failed=failed, size=os.path.getsize(out))
-        finally:
-            doc.close()
-
-
-def read_text(path: str, limit: int = 60000) -> str:
-    """Tarjima qilingan PDF matni — kitob asosida hujjat yozish uchun."""
-    doc = _open(path)
-    try:
-        parts, size = [], 0
-        for page in doc:
-            text = page.get_text("text").strip()
-            if text:
-                parts.append(text)
-                size += len(text)
-            if size >= limit:
-                break
-        return "\n\n".join(parts)[:limit]
+        stop = min(stop, doc.page_count)
+        blocks = extract_blocks(doc, source_lang, pages=range(start, stop),
+                                require_source=False)
+        heights = {n: doc[n].rect.height for n in range(start, stop)}
     finally:
         doc.close()
+
+    blocks = [b for b in blocks if not _is_margin(b, heights.get(b.page, 842))]
+    body = _dominant([(b.size, sum(len(p) for p in b.paragraphs)) for b in blocks], 10.0)
+    items: List[dict] = []
+    for block in blocks:
+        for text in block.paragraphs:
+            short = len(text) < 160 and not text.rstrip().endswith((".", ";", ","))
+            heading = short and (block.size >= body * 1.15 or block.bold)
+            items.append({
+                "text": text, "page": block.page, "heading": heading,
+                "small": block.size < body * 0.88, "italic": block.italic,
+                "translate": _wanted(text, source_lang),
+            })
+    return join_page_breaks(items)
+
+
+def join_page_breaks(items: List[dict]) -> List[dict]:
+    """Bet oxirida uzilib, keyingi betda davom etgan abzatsni ulaydi."""
+    joined: List[dict] = []
+    for item in items:
+        prev = joined[-1] if joined else None
+        text = item["text"].lstrip()
+        if (prev and prev["page"] != item["page"] and not prev["heading"]
+                and not item["heading"] and text[:1].islower()
+                and not prev["text"].rstrip().endswith(_END)):
+            if prev["text"].endswith(("-", "\xad")):
+                prev["text"] = prev["text"].rstrip("-\xad") + text
+            else:
+                prev["text"] += " " + text
+            prev["page"] = item["page"]
+            prev["translate"] = prev["translate"] or item["translate"]
+            continue
+        joined.append(dict(item))
+    return joined
+
+
+def build_docx(items: List[dict], out: str, title: str = "") -> None:
+    """Tarjima qilingan abzatslardan oddiy, o'qishga qulay Word hujjat."""
+    from docx import Document
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.shared import Cm, Pt
+
+    doc = Document()
+    for section in doc.sections:
+        section.left_margin = section.right_margin = Cm(2)
+        section.top_margin = section.bottom_margin = Cm(2)
+    normal = doc.styles["Normal"]
+    normal.font.name = "Times New Roman"
+    normal.font.size = Pt(13)
+    normal.paragraph_format.space_after = Pt(4)
+    normal.paragraph_format.line_spacing = 1.15
+
+    if title:
+        head = doc.add_paragraph()
+        head.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = head.add_run(title)
+        run.bold = True
+        run.font.size = Pt(16)
+
+    for item in join_page_breaks(items):
+        text = (item.get("text") or "").strip()
+        if not text:
+            continue
+        para = doc.add_paragraph()
+        run = para.add_run(text)
+        if item.get("heading"):
+            run.bold = True
+            run.font.size = Pt(14)
+            para.paragraph_format.space_before = Pt(12)
+            para.paragraph_format.keep_with_next = True
+        elif item.get("small"):
+            run.italic = True
+            run.font.size = Pt(11)
+        else:
+            para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+            para.paragraph_format.first_line_indent = Cm(1)
+            run.italic = bool(item.get("italic"))
+    doc.save(out)

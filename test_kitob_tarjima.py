@@ -1,5 +1,5 @@
-"""Kitob tarjimasi: sayt orqali katta faylni yuklash, PDF ni joyida tarjima
-qilish (rasmlar qoladi), to'lov va xato holatlari.
+"""Kitob tarjimasi: sayt orqali katta faylni yuklash, kitob matnini fonda
+qismma-qism tarjima qilish (natija — toza DOCX), to'lov va xato holatlari.
 
 Tarmoq kerak emas: tarjimon soxta. Kitob ham sintetik — sinov uchun
 yozilgan jumlalar, rasmlar va jadval.
@@ -38,8 +38,11 @@ class FakeBot:
         sent.append(("msg", text, kw.get("reply_markup"))); return FakeMsg()
     async def send_document(self, chat_id, document, caption=None, **kw):
         sent.append(("doc", document.filename, os.path.getsize(document.path))); return FakeMsg()
+    async def edit_message_text(self, text, **kw): sent.append(("edit", text))
+    async def delete_message(self, *a, **kw): pass
 class FakeMsg:
-    def __init__(self): self.chat = types.SimpleNamespace(id=7); self.bot = BOT
+    def __init__(self):
+        self.chat = types.SimpleNamespace(id=7); self.bot = BOT; self.message_id = len(sent) + 1
     async def delete(self): pass
     async def edit_text(self, text, **kw): sent.append(("edit", text))
     async def answer(self, text, **kw): sent.append(("msg", text, kw.get("reply_markup"))); return FakeMsg()
@@ -189,62 +192,93 @@ async def main():
     check("saytdan kelgan kitob bot oqimiga ulandi", st == BookTranslateStates.waiting_for_line_range.state, st)
     check("kitob tahlil qilindi (12 bet, ruscha)", data.get("total_pages") == 12 and data.get("source_lang") == "ru", data)
 
-    # ── To'lov → tarjima (soxta tarjimon)
+    # ── To'lov → fonda qismma-qism tarjima → bitta DOCX
+    from services import book_jobs
+    import database.database as dbm
+    from docx import Document as Docx
     async def fake_texts(texts, source, target, progress=None, translator=None):
-        if progress: await progress(len(texts), len(texts))
         return [f"Tarjima {i}: oʻzbekcha matn" for i, _ in enumerate(texts)]
     bpt_real = bpt.translate_texts
     bpt.translate_texts = fake_texts
-    charged = []
+    balance = {"v": 500000}
+    async def upd(uid, delta): balance["v"] += delta
+    dbm.Database.update_user_balance = staticmethod(upd)
     class DB:
-        async def update_user_balance(self, uid, delta): charged.append(delta)
+        async def update_user_balance(self, uid, delta): balance["v"] += delta
+    old_part = book_jobs.BOOK_PART_PAGES
+    book_jobs.BOOK_PART_PAGES = 5
     user = types.SimpleNamespace(telegram_id=7, balance=500000)
     cb = types.SimpleNamespace(message=FakeMsg(), bot=BOT, answer=lambda *a, **k: asyncio.sleep(0))
     await state.update_data(price=100000, target_lang="uz", page_from=None, page_to=None)
     sent.clear()
     await bt._translate_pdf_book(cb, state, "uz", DB(), user, await state.get_data(), 100000)
+    check("mijoz darhol bo'shatildi (kutish holati yo'q)", await state.get_state() is None)
+    check("pul buyurtmada yechildi", balance["v"] == 400000, balance)
+    await asyncio.gather(*list(book_jobs._tasks))
     docs = [s for s in sent if s[0] == "doc"]
-    check("tarjima PDF yuborildi", docs and docs[0][1] == "Kitob 2-qism_uz.pdf", sent[-4:])
-    check("pul faqat muvaffaqiyatdan keyin yechildi", charged == [-100000], charged)
+    check("bitta DOCX yuborildi", len(docs) == 1 and docs[0][1] == "Kitob 2-qism_uz.docx", sent[-6:])
     check("kiruvchi fayl o'chirildi", not os.path.exists(saved))
+    check("holat foizi ko'rsatildi", any(s[0] in ("msg", "edit") and "%" in s[1] for s in sent))
     data = await state.get_data()
-    check("keyingi xizmatlar holati", await state.get_state() == BookTranslateStates.post_translation.state)
-    text = bpt.read_text(data["translated_path"])
-    check("tarjima matni o'qiladi", "Tarjima" in text, text[:80])
+    check("keyingi xizmatlar taklif qilindi", await state.get_state() == BookTranslateStates.post_translation.state)
+    paras = [p.text for p in Docx(data["translated_path"]).paragraphs if p.text.strip()]
+    check("DOCX da tarjima bor, rasm yo'q", paras and all("Tarjima" in p or not any("а" <= c <= "я" for c in p) for p in paras)
+          and not Docx(data["translated_path"]).inline_shapes, paras[:3])
+    check("sahifa raqamlari va kolontitul tushib qoldi",
+          not any(p.strip().isdigit() for p in paras) and not any("Проверочный раздел" in p for p in paras), paras[:5])
     os.remove(data["translated_path"])
 
-    # ── Katta natija → saytdan yuklab olish havolasi
+    # ── Bet chegarasida uzilgan abzats ulanadi, sarlavha ajratiladi
+    items = bpt.join_page_breaks([
+        {"text": "Birinchi betdagi gap davom", "page": 0, "heading": False, "translate": True},
+        {"text": "etadi va shu yerda tugaydi.", "page": 1, "heading": False, "translate": True},
+        {"text": "2-bob", "page": 1, "heading": True, "translate": True}])
+    check("bet chegarasidagi abzats ulandi", len(items) == 2 and items[0]["text"].endswith("tugaydi."), items)
+
+    # ── Bot qayta ishga tushsa, to'xtagan qismidan davom etadi
     import shutil
-    shutil.copy(f"{SCR}/book40.pdf", f"{SCR}/book40_copy.pdf")
-    await state.update_data(pdf_path=f"{SCR}/book40_copy.pdf", page_from=2, page_to=5)
-    old_limit = bt.TELEGRAM_UPLOAD_LIMIT
-    bt.TELEGRAM_UPLOAD_LIMIT = 600 * 1024
-    sent.clear(); charged.clear()
-    await bt._translate_pdf_book(cb, state, "uz", DB(), user, await state.get_data(), 30000)
-    bt.TELEGRAM_UPLOAD_LIMIT = old_limit
-    link_msgs = [s for s in sent if s[0] == "msg" and "48 soat" in s[1]]
-    check("katta natija uchun yuklab olish havolasi", link_msgs and not [s for s in sent if s[0] == "doc"], sent)
-    data = await state.get_data()
-    check("oraliq tanlanganda faqat o'sha betlar", bpt.inspect_pdf(data["translated_path"]).total_pages == 4)
-    check("havola berilgan fayl 'kerak emas'da o'chirilmaydi", data.get("translated_shared") is True)
-    bt._drop_translated(data)
-    check("... va haqiqatan qoldi", os.path.exists(data["translated_path"]))
-    os.remove(data["translated_path"])
+    sent.clear(); balance["v"] = 500000
+    build(f"{SCR}/resume.pdf", 12)
+    job = book_jobs.create_job(user_id=8, chat_id=8, lang="uz", pdf_path=f"{SCR}/resume.pdf",
+        file_name="K2.pdf", target_lang="uz", source_lang="ru", start=0, stop=12, price=60000, charged=60000)
+    first = await book_jobs._translate_part(BOT, job, 0, 5)
+    job.update(next=5, parts=[first["path"]], status="running"); book_jobs._save(job)
+    seen = []
+    real_part = book_jobs._translate_part
+    async def spy(bot, job, a, b):
+        seen.append((a, b)); return await real_part(bot, job, a, b)
+    book_jobs._translate_part = spy
+    await book_jobs.resume_all(BOT)
+    await asyncio.gather(*list(book_jobs._tasks))
+    book_jobs._translate_part = real_part
+    check("qayta ishga tushgach 6-betdan davom etdi", seen == [(5, 10), (10, 12)], seen)
+    check("mijozga davom etayotgani aytildi", any("6-betdan" in s[1] for s in sent if s[0] == "msg"))
+    check("natija yuborildi", [s[1] for s in sent if s[0] == "doc"] == ["K2_uz.docx"])
 
-    # ── Mablag' tugasa: pul yechilmaydi
-    async def no_credits(*a, **k):
-        raise bpt.BookNoCredits("402")
-    bpt.translate_texts = no_credits
+    # ── Mablag' tugasa: tayyor qism yuboriladi, qolgani uchun pul qaytadi
+    calls = {"n": 0}
+    async def credits_run_out(texts, source, target, progress=None, translator=None):
+        calls["n"] += 1
+        if calls["n"] > 1:
+            raise bpt.BookNoCredits("402")
+        return [f"Tarjima {i}" for i in range(len(texts))]
+    bpt.translate_texts = credits_run_out
     import bot.handlers.premium_presentation as pp
     warned = []
     async def warn(bot, detail): warned.append(detail)
     pp._warn_admins_no_credits = warn
-    shutil.copy(f"{SCR}/book40.pdf", f"{SCR}/book40_copy.pdf")
-    await state.update_data(pdf_path=f"{SCR}/book40_copy.pdf", page_from=1, page_to=2)
-    sent.clear(); charged.clear()
-    await bt._translate_pdf_book(cb, state, "uz", DB(), user, await state.get_data(), 30000)
-    check("mablag' tugasa pul yechilmaydi va admin ogohlantiriladi",
-          not charged and warned and any("vaqtincha" in s[1] for s in sent if s[0] == "msg"), sent)
+    old_tries = book_jobs.CREDIT_TRIES
+    book_jobs.CREDIT_TRIES = 1
+    build(f"{SCR}/credits.pdf", 10)
+    sent.clear(); balance["v"] = 0
+    job = book_jobs.create_job(user_id=9, chat_id=9, lang="uz", pdf_path=f"{SCR}/credits.pdf",
+        file_name="K3.pdf", target_lang="uz", source_lang="ru", start=0, stop=10, price=50000, charged=50000)
+    await book_jobs.run(BOT, job)
+    book_jobs.CREDIT_TRIES = old_tries
+    check("mablag' tugasa tayyor qism yuboriladi", [s[1] for s in sent if s[0] == "doc"] == ["K3_uz_1-5.docx"], sent)
+    check("qolgan betlar uchun pul qaytdi va admin ogohlantirildi", balance["v"] == 25000 and warned, (balance, warned))
+    check("ish papkasi tozalandi", not os.path.exists(book_jobs._job_dir(job["id"])))
+    book_jobs.BOOK_PART_PAGES = old_part
     bpt.translate_texts = bpt_real
 
 asyncio.run(main())

@@ -72,6 +72,8 @@ def _prune_temp(now: float) -> int:
     for root, dirs, files in os.walk(temp_dir, topdown=False):
         if os.path.abspath(root) == os.path.abspath(icon_dir):
             continue  # kesh alohida qoidalar bilan boshqariladi
+        if os.path.abspath(root).startswith(os.path.abspath(os.path.join(temp_dir, "book_jobs"))):
+            continue  # kitob tarjimasi soatlab davom etishi mumkin — o'zi tozalaydi
         for name in files:
             if name in _TEMP_KEEP:
                 continue
@@ -604,6 +606,10 @@ async def main():
     bot_info = await bot.get_me()
     emoji_handler.set_bot_username(bot_info.username or "")
     webapp.BOT_USERNAME = bot_info.username or ""
+    # Bot qayta ishga tushganda to'xtab qolgan kitob tarjimalari davom etadi.
+    from services import book_jobs
+    asyncio.create_task(book_jobs.resume_all(bot))
+
     polling_task = asyncio.create_task(dp.start_polling(bot))
     web_task     = asyncio.create_task(start_web_server(port=5000))
     cleanup_task = asyncio.create_task(periodic_cleanup(storage=dp.storage))

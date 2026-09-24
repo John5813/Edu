@@ -90,6 +90,9 @@ TELEGRAM_UPLOAD_LIMIT = (2000 if TELEGRAM_API_SERVER else 50) * _MB
 # Kitob tarjimasi uchun eng katta fayl. Telegram orqali sig'magani sayt
 # orqali yuklanadi (bot bir martalik havola beradi).
 BOOK_MAX_UPLOAD_MB = int(os.getenv("BOOK_MAX_UPLOAD_MB", "150"))
+# Kitob shu betlik qismlarga bo'lib tarjima qilinadi va har qism tayyor
+# bo'lishi bilan yuboriladi. Qism xotiraga sig'masa, avtomatik kichrayadi.
+BOOK_PART_PAGES = int(os.getenv("BOOK_PART_PAGES", "20"))
 
 # Katta PDF kitob tarjimasi uchun modellar zanjiri: birinchisi ishlamasa
 # keyingisi. `BOOK_TRANSLATE_MODEL` muhit o'zgaruvchisi bilan boshqasini
