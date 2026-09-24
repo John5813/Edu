@@ -1350,7 +1350,7 @@ def get_ai_target_keyboard() -> InlineKeyboardMarkup:
         text="📄 Hujjatlar va oddiy taqdimot",
         callback_data="ai_model_target_main"))
     keyboard.add(InlineKeyboardButton(
-        text="💎 Premium taqdimot",
+        text="💎 Zamonaviy taqdimot",
         callback_data="ai_model_target_premium"))
     keyboard.adjust(1)
     return keyboard.as_markup()

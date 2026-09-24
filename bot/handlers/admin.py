@@ -2747,7 +2747,7 @@ async def back_to_block_menu(callback: CallbackQuery):
 
 _AI_TARGETS = {
     "main": ("📄 Hujjatlar va oddiy taqdimot", "hujjatlar"),
-    "premium": ("💎 Premium taqdimot", "premium taqdimot"),
+    "premium": ("💎 Zamonaviy taqdimot", "zamonaviy taqdimot"),
 }
 
 
@@ -2792,7 +2792,7 @@ async def _ai_settings_text(db: Database) -> str:
         f"📄 <b>Hujjatlar va oddiy taqdimot</b>\n"
         f"   {main_info['name']} — {main_info['price']}\n"
         f"{served_line(AIService._last_served_model, main_info)}"
-        f"\n💎 <b>Premium taqdimot</b>\n"
+        f"\n💎 <b>Zamonaviy taqdimot</b>\n"
         f"   {premium_info['name']} — {premium_info['price']}\n"
         f"{served_line(premium_llm._WORKING.get('text'), premium_info)}"
         "\nQaysi xizmat uchun modelni almashtirasiz?"

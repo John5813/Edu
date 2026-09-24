@@ -336,7 +336,7 @@ STORE_DEFAULT_PRICE = int(os.getenv("STORE_DEFAULT_PRICE", "4000"))
 # chiqadi, shuning uchun eng ko'p so'raladigani boshida turadi.
 STORE_WORK_LABELS = {
     "taqdimot":         "Taqdimot",
-    "premium_taqdimot": "Premium taqdimot",
+    "premium_taqdimot": "Zamonaviy taqdimot",
     "referat":          "Referat",
     "mustaqil_ish":     "Mustaqil ish",
     "kurs_ishi":        "Kurs ishi",
