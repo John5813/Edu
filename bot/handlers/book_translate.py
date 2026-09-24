@@ -17,7 +17,7 @@ from bot.keyboards import (
 )
 from database.database import Database
 from translations import get_text
-from config import BOOK_MAX_UPLOAD_MB, TELEGRAM_DOWNLOAD_LIMIT, TELEGRAM_UPLOAD_LIMIT
+from config import BOOK_MAX_UPLOAD_MB, TELEGRAM_DOWNLOAD_LIMIT
 from services import book_pdf_translate
 from services import workload
 from webapp import book_upload
@@ -362,6 +362,11 @@ async def handle_bt_pay_balance(callback: CallbackQuery, state: FSMContext, user
 
     pdf_path = data.get("pdf_path")
     if pdf_path and os.path.exists(pdf_path):
+        from services import book_jobs
+
+        if book_jobs.pending_for(user.telegram_id):
+            await callback.message.answer(get_text(user_lang, "book_job_busy"))
+            return
         await _translate_pdf_book(callback, state, user_lang, db, user, data, price)
     else:
         await _translate_docx_book(callback, state, user_lang, db, user, data, price)
@@ -379,111 +384,40 @@ def _out_name(original_filename: str, target_lang: str, page_from, page_to, ext:
 
 async def _translate_pdf_book(callback: CallbackQuery, state: FSMContext, user_lang: str,
                               db: Database, user, data: dict, price: int) -> None:
-    """PDF kitob: matn joyida tarjima qilinadi, rasmlar qoladi."""
-    import time
+    """PDF kitob: matni qismlarga bo'lib, fonda tarjima qilinadi (`book_jobs`).
+
+    Handler ish tugashini kutmaydi — mijoz shu orada botdan foydalanaveradi.
+    Pul hozir yechiladi; ish oxirigacha yetmasa, qolgan betlar ulushi
+    qaytariladi.
+    """
+    from config import BOOK_PART_PAGES
+    from services import book_jobs
 
     pdf_path = data["pdf_path"]
-    target_lang = data.get("target_lang", "uz")
+    total = data.get("total_pages", 0)
     page_from, page_to = data.get("page_from"), data.get("page_to")
-    pages = (page_to - page_from + 1) if page_from and page_to else data.get("total_pages", 0)
-    message = callback.message
-
-    processing_msg = await message.answer(
-        get_text(user_lang, "book_progress", percent=0, pages=pages))
-    last_edit = [0.0, 0]
-
-    async def progress(done: int, total: int) -> None:
-        percent = min(99, int(done * 100 / max(total, 1)))
-        now = time.monotonic()
-        if percent - last_edit[1] < 5 or now - last_edit[0] < 15:
-            return
-        last_edit[:] = [now, percent]
-        try:
-            await processing_msg.edit_text(
-                get_text(user_lang, "book_progress", percent=percent, pages=pages))
-        except Exception:
-            pass
-
-    job = workload.begin(f"Kitob tarjimasi ({pages} bet)")
-    result = None
-    shared = False
+    start = (page_from - 1) if page_from else 0
+    stop = page_to if page_to else total
+    await db.update_user_balance(user.telegram_id, -price)
     try:
-        logger.info("Kitob tarjimasi boshlandi: user=%s, %s bet, til=%s",
-                    user.telegram_id, pages, target_lang)
-        result = await book_pdf_translate.translate_pdf(
-            pdf_path, target_lang, source_lang=data.get("source_lang"),
-            page_from=page_from, page_to=page_to, progress=progress)
-        # Ko'p qismi tarjima qilinmagan bo'lsa, bu yaroqli ish emas.
-        if result.failed_share > 0.15:
-            raise book_pdf_translate.BookTranslateError(
-                f"{result.failed}/{result.blocks} blok tarjima qilinmadi")
-
-        await db.update_user_balance(user.telegram_id, -price)
-        logger.info("Kitob tarjimasi tayyor: user=%s, %.1f MB, %d/%d blok qoldi",
-                    user.telegram_id, result.size / _MB, result.failed, result.blocks)
-        try:
-            await processing_msg.delete()
-        except Exception:
-            pass
-
-        out_name = _out_name(data.get("original_filename"), target_lang, page_from, page_to, ".pdf")
-        # Telegram'ga sig'masa — saytdan yuklab olish havolasi.
-        if result.size > TELEGRAM_UPLOAD_LIMIT - 512 * 1024:
-            url = book_upload.new_download_link(result.path, out_name)
-            shared = True
-            keyboard = InlineKeyboardBuilder()
-            keyboard.add(InlineKeyboardButton(
-                text=get_text(user_lang, "book_download_button"), url=url))
-            await message.answer(
-                get_text(user_lang, "book_pdf_done") + "\n\n" +
-                get_text(user_lang, "book_download_link", size=round(result.size / _MB)),
-                reply_markup=keyboard.as_markup())
-        else:
-            # Katta faylni yuborish sekin — standart 60 soniya yetmaydi.
-            await message.bot.send_document(
-                message.chat.id,
-                document=FSInputFile(result.path, filename=out_name),
-                caption=get_text(user_lang, "book_pdf_done"),
-                request_timeout=600,
-            )
-        if result.failed:
-            await message.answer(get_text(user_lang, "book_pdf_partial", failed=result.failed))
-        await message.answer(get_text(user_lang, "book_pdf_note"))
-
-        book_topic = os.path.splitext(data.get("original_filename") or "")[0][:100]
-        await state.update_data(book_topic=book_topic, translated_path=result.path,
-                                translated_shared=shared)
-        await state.set_state(BookTranslateStates.post_translation)
-        await message.answer(
-            get_text(user_lang, "book_translate_post_services"),
-            reply_markup=get_post_translation_keyboard(user_lang)
-        )
+        job = book_jobs.create_job(
+            user_id=user.telegram_id, chat_id=callback.message.chat.id, lang=user_lang,
+            pdf_path=pdf_path, file_name=data.get("original_filename") or "kitob.pdf",
+            target_lang=data.get("target_lang", "uz"),
+            source_lang=data.get("source_lang") or "ru",
+            start=start, stop=stop, price=price, charged=price)
     except Exception as e:
-        try:
-            await processing_msg.delete()
-        except Exception:
-            pass
-        if isinstance(e, book_pdf_translate.BookNoCredits):
-            from bot.handlers.premium_presentation import _warn_admins_no_credits
-
-            await _warn_admins_no_credits(callback.bot, f"Kitob tarjimasi: {e}")
-            text = get_text(user_lang, "book_no_credits")
-        elif isinstance(e, book_pdf_translate.ScannedBook):
-            text = get_text(user_lang, "book_scanned")
-        else:
-            logger.exception("Kitob tarjimasida xato: %s", e)
-            text = get_text(user_lang, "book_translate_error")
-        await message.answer(text, reply_markup=get_main_keyboard(user_lang))
-        if result and os.path.exists(result.path):
-            os.remove(result.path)
+        await db.update_user_balance(user.telegram_id, price)
+        logger.exception("Kitob tarjimasi ishi yaratilmadi: %s", e)
+        await callback.message.answer(get_text(user_lang, "book_translate_error"),
+                                      reply_markup=get_main_keyboard(user_lang))
         await state.clear()
-    finally:
-        workload.end(job)
-        if os.path.exists(pdf_path):
-            try:
-                os.remove(pdf_path)
-            except OSError:
-                pass
+        return
+
+    await state.clear()
+    await callback.message.answer(get_text(user_lang, "book_job_started", part=BOOK_PART_PAGES),
+                                  reply_markup=get_main_keyboard(user_lang))
+    book_jobs.start(callback.bot, job)
 
 
 async def _translate_docx_book(callback: CallbackQuery, state: FSMContext, user_lang: str,
