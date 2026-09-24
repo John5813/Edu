@@ -1,1 +1,0 @@
-- [Premium PPTX output](premium-pptx-output.md) — AI source code is an internal intermediate; users receive only a generated `.pptx`.

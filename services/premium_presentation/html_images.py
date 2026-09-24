@@ -39,8 +39,62 @@ _ICON_TAG = re.compile(r"<img\b[^>]*\bdata-icon\s*=\s*([\"'])(.*?)\1[^>]*>",
                        re.IGNORECASE | re.DOTALL)
 _ICON_COLOUR = re.compile(r"\bdata-icon-color\s*=\s*([\"'])(.*?)\1",
                           re.IGNORECASE)
+# Har qanday <img>. Model ba'zan `data-prompt` o'rniga oddiy
+# `<img src="..." alt="...">` yozadi; unday rasm hech qachon
+# to'ldirilmaydi va brauzer uning o'rniga "buzuq rasm" belgisini
+# alt matni bilan chizadi. Slaydda u ingichka chiziq bo'lib qoladi.
+_ANY_IMG = re.compile(r"<img\b[^>]*>", re.IGNORECASE | re.DOTALL)
+_HAS_DATA_SRC = re.compile(r"\bsrc\s*=\s*([\"'])\s*data:", re.IGNORECASE)
+_ALT = re.compile(r"\balt\s*=\s*([\"'])(.*?)\1", re.IGNORECASE | re.DOTALL)
 _CLASS = re.compile(r"\bclass\s*=\s*([\"'])(.*?)\1", re.IGNORECASE | re.DOTALL)
 _STYLE = re.compile(r"\bstyle\s*=\s*([\"'])(.*?)\1", re.IGNORECASE | re.DOTALL)
+
+
+def normalize(pages: List[str]) -> List[str]:
+    """Belgilanmagan `<img>` larni rasm so'roviga aylantiradi.
+
+    Promptda `data-prompt` yozish aytilgan, lekin model uni ba'zan
+    unutib, oddiy `<img src="..." alt="Laboratoriya">` yozadi. Bunday
+    rasm to'ldirilmaydi va slaydda buzuq rasm belgisi bo'lib qoladi.
+    Shunday `<img>` ning `alt` matni tavsif sifatida ishlatiladi.
+    """
+    result = []
+    for page in pages:
+        def fix(match):
+            tag = match.group(0)
+            if ("data-prompt" in tag.lower() or "data-icon" in tag.lower()
+                    or _HAS_DATA_SRC.search(tag)):
+                return tag
+            alt = _ALT.search(tag)
+            text = alt.group(2).strip() if alt else ""
+            if not text:
+                return tag
+            # `src` ni olib tashlaymiz: u yaroqsiz, brauzer uni yuklay
+            # olmaydi va rasm buzuq bo'lib chiqadi.
+            cleaned = re.sub(r"\bsrc\s*=\s*([\"'])(.*?)\1", "", tag,
+                             flags=re.IGNORECASE | re.DOTALL)
+            return cleaned.replace("<img", f'<img data-prompt="{text}"', 1)
+
+        result.append(_ANY_IMG.sub(fix, page))
+    return result
+
+
+def sweep(pages: List[str], theme) -> List[str]:
+    """To'ldirilmay qolgan `<img>` larni rangli blokka almashtiradi.
+
+    Chegaradan oshgan yoki xato tufayli chiqmagan rasm slaydda buzuq
+    belgi bo'lib turmasin — uning o'rnida toza rangli maydon qolsin.
+    """
+    result = []
+    for page in pages:
+        def fix(match):
+            tag = match.group(0)
+            if _HAS_DATA_SRC.search(tag):
+                return tag
+            return _placeholder(tag, theme.accent_soft)
+
+        result.append(_ANY_IMG.sub(fix, page))
+    return result
 
 
 def requests_in(html: str) -> List[str]:
@@ -102,6 +156,10 @@ def apply_icons(pages: List[str], theme) -> Tuple[List[str], int]:
         def swap(match):
             nonlocal placed
             tag, name = match.group(0), match.group(2).strip()
+            # Ikonkasi allaqachon qo'yilgan bo'lsa tegilmaydi: slayd
+            # qayta chizilganda bu ikkinchi marta chaqiriladi.
+            if _HAS_DATA_SRC.search(tag):
+                return tag
             colour = _ICON_COLOUR.search(tag)
             tint = (colour.group(2) if colour else theme.accent).lstrip("#")
 
@@ -187,3 +245,93 @@ async def illustrate(pages: List[str], theme, topic: str = "",
     log.info("Fotosuratlar: %d ta so'ralgan, %d tasi chiqdi",
              len(wanted), filled)
     return result, filled
+
+
+# ─────────────────────────────────────────── matn va rasm bloki
+
+# `<div class="rasm" data-prompt="...">` — model rasm so'ragan joy.
+# Ichida rasm chiqmasa turadigan qo'shimcha matn bor, shuning uchun
+# rasm chiqmasa hech narsa qilinmaydi: matn o'z joyida qoladi.
+_RASM_OPEN = re.compile(
+    r'<div\b[^>]*\bclass\s*=\s*(["\'])[^"\']*(?<![-\w])rasm(?![-\w])'
+    r'[^"\']*\1[^>]*>', re.IGNORECASE)
+_DIV = re.compile(r"<div\b[^>]*>|</div\s*>", re.IGNORECASE)
+_PROMPT = re.compile(r"\bdata-prompt\s*=\s*([\"'])(.*?)\1",
+                     re.IGNORECASE | re.DOTALL)
+
+
+def photos_enabled() -> bool:
+    """Rasm chizdirish yoqilganmi.
+
+    Together hisobida mablag' bo'lmasa har so'rov bekorga vaqt
+    oladi, shuning uchun u alohida yoqiladi: `PREMIUM_PHOTOS=1`.
+    O'chiq bo'lsa rasm o'rnida qo'shimcha matn turadi.
+    """
+    return os.getenv("PREMIUM_PHOTOS", "0").strip().lower() in (
+        "1", "true", "yes", "on", "ha")
+
+
+def photo_blocks(page: str) -> List[Tuple[int, int, str]]:
+    """Sahifadagi rasm bloklari: (boshi, oxiri, inglizcha tavsif)."""
+    found = []
+    for opening in _RASM_OPEN.finditer(page):
+        prompt = _PROMPT.search(opening.group(0))
+        if not prompt or not prompt.group(2).strip():
+            continue
+        depth = 1
+        for tag in _DIV.finditer(page, opening.end()):
+            depth += -1 if tag.group(0).startswith("</") else 1
+            if depth == 0:
+                found.append((opening.start(), tag.end(),
+                              prompt.group(2).strip()))
+                break
+    return found
+
+
+async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
+                      generate=None) -> Tuple[List[str], int]:
+    """Rasm bloklariga rasm qo'yadi. (slaydlar, qo'yilgan rasmlar soni).
+
+    Rasm chiqmagan blok tegilmaydi — unda qo'shimcha matn qoladi.
+    """
+    if generate is None:
+        if not photos_enabled():
+            return pages, 0
+        try:
+            from services.together_service import get_together_service
+
+            together = get_together_service()
+        except Exception as exc:
+            log.error("Together xizmati mavjud emas: %s", exc)
+            return pages, 0
+
+        async def generate(prompt):
+            return await together.generate_image(prompt, aspect_ratio="4:3")
+
+    result, placed, tried = [], 0, 0
+    for page in pages:
+        blocks = photo_blocks(page)
+        for start, end, prompt in reversed(blocks):
+            if tried >= limit:
+                continue
+            tried += 1
+            try:
+                path = await generate(prompt + ", no text, no letters")
+            except Exception as exc:
+                log.warning("Rasm chizilmadi (%s): %s", prompt[:50], exc)
+                path = None
+            uri = _data_uri(path) if path and os.path.exists(path) else None
+            if path and os.path.exists(path):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+            if not uri:
+                continue
+            page = (page[:start] + '<div class="rasm photo-in"><img '
+                    f'class="photo" src="{uri}" alt=""></div>' + page[end:])
+            placed += 1
+        result.append(page)
+    log.info("Rasm bloklari: %d tasi sinaldi, %d tasiga rasm qo'yildi",
+             tried, placed)
+    return result, placed

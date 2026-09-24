@@ -73,11 +73,21 @@ _SCRIPT = r"""
   };
 
   // Elementning ORQASIDAGI rang: eng yaqin shaffof bo'lmagan fon.
+  // Gradient ham fonni to'liq yopadi — uni hisobga olmasak, to'q
+  // gradientli varaqning orqasi "oq" deb topilib, oq sarlavha
+  // qoraytirilib yuborilardi.
   const behind = (el) => {
     let node = el.parentElement;
     while (node) {
       const colour = parse(getComputedStyle(node).backgroundColor);
       if (colour && colour.a > 0.95) return colour;
+      const ramp = gradient(node);
+      if (ramp && ramp.stops.length) {
+        const a = unhex(ramp.stops[0].colour);
+        const b = unhex(ramp.stops[ramp.stops.length - 1].colour);
+        return {r: (a.r + b.r) / 2, g: (a.g + b.g) / 2,
+                b: (a.b + b.b) / 2, a: 1};
+      }
       node = node.parentElement;
     }
     return {r: 255, g: 255, b: 255, a: 1};
@@ -98,6 +108,51 @@ _SCRIPT = r"""
     return hex2(mix(colour.r, base.r))
          + hex2(mix(colour.g, base.g))
          + hex2(mix(colour.b, base.b));
+  };
+
+  // Rangning ko'z uchun yorqinligi (WCAG). Ikki rangning nisbati
+  // 4.5 dan past bo'lsa matn o'qilmay qoladi.
+  const lum = (c) => {
+    const f = (v) => {
+      v /= 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+  };
+
+  const ratio = (a, b) => {
+    const hi = Math.max(lum(a), lum(b)), lo = Math.min(lum(a), lum(b));
+    return (hi + 0.05) / (lo + 0.05);
+  };
+
+  const unhex = (value) => ({
+    r: parseInt(value.slice(0, 2), 16),
+    g: parseInt(value.slice(2, 4), 16),
+    b: parseInt(value.slice(4, 6), 16),
+  });
+
+  // `linear-gradient(135deg, #A 0%, #B 100%)` → PowerPoint tushunadigan
+  // ko'rinish. Yassi bitta rang quruq ko'rinadi, gradient esa
+  // chuqurlik beradi — PowerPointda u haqiqiy gradient to'ldirish
+  // bo'lib chiqadi.
+  const gradient = (el) => {
+    const image = getComputedStyle(el).backgroundImage || "";
+    if (image.indexOf("linear-gradient") < 0) return null;
+    const stops = [];
+    const colours = image.match(/rgba?\([^)]+\)\s*[\d.]*%?/g) || [];
+    for (let i = 0; i < colours.length; i += 1) {
+      const colour = parse(colours[i]);
+      if (!colour) continue;
+      const spot = colours[i].match(/([\d.]+)%\s*$/);
+      stops.push({
+        colour: hex2(colour.r) + hex2(colour.g) + hex2(colour.b),
+        at: spot ? parseFloat(spot[1]) / 100
+                 : (colours.length > 1 ? i / (colours.length - 1) : 0),
+      });
+    }
+    if (stops.length < 2) return null;
+    const turn = image.match(/(-?[\d.]+)deg/);
+    return {stops, angle: turn ? parseFloat(turn[1]) : 180};
   };
 
   const box = (el) => {
@@ -136,10 +191,9 @@ _SCRIPT = r"""
     return shownArea(el, r) >= r.w * r.h * 0.5;
   };
 
-  // Element ichidagi to'g'ridan-to'g'ri text node'larni alohida o'qiymiz.
-  // Masalan, <p>oddiy <span>ajratilgan</span> matn</p> uchun ota <p>
-  // ning butun qutisini qayta chizmaymiz: aks holda u span qutisi bilan
-  // ustma-ust tushadi va gapning so'zlari yo'qolgandek ko'rinadi.
+  // Element ichidagi to'g'ridan-to'g'ri text node'larni brauzer ko'rsatgan
+  // satrlar bo'yicha bo'lamiz. Masalan, blok ichida `span` bo'lsa, ota
+  // blokning butun qutisini qayta chizish highlight bilan ustma-ust tushadi.
   const textNodeFragments = (node) => {
     const value = node.nodeValue || "";
     const lines = [];
@@ -189,6 +243,35 @@ _SCRIPT = r"""
     return fragments;
   };
 
+  // Bola element matn oqimining ichida turadimi (<b>, <span>, <a>)?
+  // Shunday bolalar ota abzatsning bir qismi: ularni alohida quti
+  // qilib olsak, matn ikkiga bo'linib, ustma-ust tushadi.
+  const RECURSE_TAGS = new Set(["SVG", "CANVAS", "IMG", "VIDEO", "TABLE"]);
+
+  const inlineOnly = (el) => {
+    for (const child of el.children) {
+      if (child.tagName === "BR") continue;
+      if (RECURSE_TAGS.has(child.tagName)) return false;
+      // Kasr ustma-ust yoziladi: uni ota matnga qo'shib olsak,
+      // surat va maxraj yonma-yon bitta qatorga tushib, formula
+      // ma'nosini yo'qotardi.
+      if (child.classList && child.classList.contains("frac")) return false;
+      const display = getComputedStyle(child).display || "";
+      // `inline-block` oqimda turgan bo'lsa ham, o'zining mustaqil
+      // qutisiga ega. Uni ota matn bilan bitta quti deb olish highlight
+      // va yonma-yon kartochkalarni PowerPointda ustma-ust qo'yadi.
+      if (display !== "inline") return false;
+    }
+    return true;
+  };
+
+  // Matn nechta qatorga joylashgan.
+  const lineCount = (el, r) => {
+    const height = parseFloat(getComputedStyle(el).lineHeight);
+    if (!height || !isFinite(height)) return 1;
+    return Math.max(1, Math.round(r.h / height));
+  };
+
   const align = (value) => {
     if (value === "center") return "center";
     if (value === "right" || value === "end") return "right";
@@ -196,16 +279,73 @@ _SCRIPT = r"""
     return "left";
   };
 
-  const walk = (el) => {
+  // Element burilganmi. Diagrammaning tik o'q yozuvi ("Hajmi, %")
+  // odatda `rotate(-90deg)` yoki `writing-mode: vertical-rl` bilan
+  // yoziladi. `getBoundingClientRect` bunday elementning ingichka va
+  // baland QAMROVINI beradi; uni shundayligicha matn qutisi qilsak,
+  // PowerPoint har harfni alohida qatorga tushirib yuboradi.
+  const spin = (el) => {
+    const s = getComputedStyle(el);
+    const matrix = String(s.transform || "");
+    const m = matrix.match(/matrix\(([^)]+)\)/);
+    if (m) {
+      const p = m[1].split(",").map((x) => parseFloat(x));
+      const deg = Math.round(Math.atan2(p[1], p[0]) * 180 / Math.PI);
+      if (Math.abs(deg) >= 5) return deg;
+    }
+    const mode = String(s.writingMode || "");
+    if (mode.indexOf("vertical") === 0) return 90;
+    return 0;
+  };
+
+  // Burilgan elementning burilishdan OLDINGI qutisi, qamrovning
+  // markazida turadi. PowerPoint ham shaklni markazi atrofida
+  // buradi, shuning uchun ikkisi bir joyga tushadi.
+  const flatBox = (el, r, turn) => {
+    if (!turn || !el.offsetWidth || !el.offsetHeight) return r;
+    return {x: r.x + r.w / 2 - el.offsetWidth / 2,
+            y: r.y + r.h / 2 - el.offsetHeight / 2,
+            w: el.offsetWidth, h: el.offsetHeight};
+  };
+
+  // Ikki matnni taqqoslash kaliti.
+  const key = (value) => String(value || "")
+    .replace(/\s+/g, " ").trim().toLowerCase();
+
+  // Matn xiralashtirilgan qatlamdami? Dizaynda sarlavha ortiga
+  // `filter: blur(...)` bilan nusxa qo'yib "nur" chiziladi. Brauzerda
+  // u yumshoq dog', PowerPointda esa o'sha matnning ikkinchi, to'q
+  // nusxasi bo'lib chiqadi — shuning uchun bunday matn olinmaydi.
+  const blurry = (el) => /blur\(/.test(getComputedStyle(el).filter || "");
+
+  // "SalomSalom" yoki "Salom Salom" — bitta matn ikki marta yozilgan.
+  // Bu sarlavha ichiga soya uchun qo'yilgan <span> nusxasidan kelib
+  // chiqadi: brauzer ikkalasini ustma-ust chizadi, innerText esa
+  // ikkalasini ham qaytaradi.
+  const undouble = (value) => {
+    const t = String(value || "").trim();
+    if (t.length < 12 || t.indexOf("\n") >= 0) return value;
+    if (t.length % 2 === 0) {
+      const half = t.length / 2;
+      if (t.slice(0, half) === t.slice(half)) return t.slice(0, half);
+    }
+    const mid = (t.length - 1) / 2;
+    if (Number.isInteger(mid) && t[mid] === " "
+        && t.slice(0, mid) === t.slice(mid + 1)) return t.slice(0, mid);
+    return value;
+  };
+
+  const walk = (el, soft) => {
     const r = box(el);
     const s = getComputedStyle(el);
     const tag = el.tagName.toLowerCase();
+    const faded = soft || blurry(el);
     if (!visible(el, r)) {
       // O'zi ko'rinmasa ham, bolasi ko'rinishi mumkin (masalan katta
       // idish slayddan chiqqan, ichidagi matn esa joyida).
       if (s.display !== "none" && s.visibility !== "hidden") {
         for (const child of el.children) {
-          if (child.tagName !== "BR") walk(child);
+          if (child.tagName !== "BR") walk(child, faded);
         }
       }
       return;
@@ -273,7 +413,8 @@ _SCRIPT = r"""
     const borderWidth = uniform ? widths[0] : 0;
     const borderColor = borderWidth > 0
       ? rgbOver(s.borderTopColor, el, shown) : null;
-    if ((fill || borderColor) && tag !== "body" && tag !== "html") {
+    const ramp = gradient(el);
+    if ((fill || borderColor || ramp) && tag !== "body" && tag !== "html") {
       // border-radius foizda berilishi mumkin ("50%"). Uni pikselga
       // o'girmasak, doira PowerPointda burchagi yumaloq kvadrat
       // bo'lib chiqadi.
@@ -282,10 +423,14 @@ _SCRIPT = r"""
       let radius = parseFloat(raw) || 0;
       if (raw.indexOf("%") >= 0) radius = short * radius / 100;
       out.push({
-        kind: "rect", fill, ...r,
+        kind: "rect", fill, gradient: ramp, ...r,
         border: borderColor, borderWidth,
         radius,
-        circle: radius * 2 >= short * 0.95,
+        // Doira faqat deyarli KVADRAT shakl. Ingichka uzun chiziq
+        // (120x6, radiusi 3) ham "radius qisqa tomonning yarmi"
+        // shartiga tushib, PowerPointda ellips bo'lib chiqardi.
+        circle: radius * 2 >= short * 0.95
+          && Math.abs(r.w - r.h) <= short * 0.15,
       });
     }
 
@@ -310,34 +455,112 @@ _SCRIPT = r"""
       }
     }
 
-    // Ota konteynerning o'zi emas, faqat uning bevosita text node'lari
-    // matn qutisiga aylanadi. Child span/div lar keyingi walk() da o'qiladi.
-    for (const fragment of directText(el)) {
-      if (!visible(el, fragment.r) || !fragment.text) continue;
-      out.push({
-        kind: "text", text: fragment.text, ...fragment.r,
-        size: parseFloat(s.fontSize) || 16,
-        weight: parseInt(s.fontWeight, 10) || 400,
-        italic: s.fontStyle === "italic",
-        color: rgbOver(s.color, el, shown) || "000000",
-        align: align(s.textAlign),
-        family: s.fontFamily || "",
-        lineHeight: parseFloat(s.lineHeight) || 0,
-        upper: s.textTransform === "uppercase",
-        letterSpacing: parseFloat(s.letterSpacing) || 0,
-      });
+    // Matn qutisi. Bolalari faqat oqim ichidagi elementlar bo'lsa
+    // (<b>, <span>, <a>), butun matn BITTA quti bo'ladi: aks holda
+    // "<b>" ning matni otasidan tushib qolar va uning ustiga alohida
+    // quti bo'lib chiqar edi.
+    const whole = inlineOnly(el);
+    const text = whole
+      ? undouble((el.innerText || "").replace(/[^\S\n]+/g, " ")
+          .replace(/\n{3,}/g, "\n\n").trim())
+      : "";
+    const fragments = whole ? [] : directText(el);
+
+    // Matnning ko'rinish kuchi: qatlam shaffofligi va harf rangining
+    // shaffofligi. Gradient sarlavhada harf rangi shaffof bo'ladi
+    // (`-webkit-text-fill-color: transparent`) — matn fon bilan
+    // chiziladi. Ikki nusxadan qaysi biri haqiqiy ekanini shu raqam
+    // aytadi.
+    const inkColour = parse(s.webkitTextFillColor || s.color);
+    const ink = shown * (inkColour ? inkColour.a : 0.01);
+
+    // Matn o'z foni ustida ko'rinadimi. Uslubda bitta sinf unutilsa
+    // (masalan to'q kartochka ichidagi ro'yxat), qora matn to'q ko'k
+    // fonda qolib ketardi. Bu yerda tekshiriladi va kerak bo'lsa
+    // o'qiladigan rangga o'giriladi — mijoz ko'rinmas matn olmaydi.
+    let paint = rgbOver(s.color, el, shown) || "000000";
+    if (text || fragments.length) {
+      const back = behind(el);
+      if (ratio(unhex(paint), back) < 3.2) {
+        const light = {r: 255, g: 255, b: 255};
+        const dark = {r: 17, g: 17, b: 17};
+        paint = ratio(light, back) >= ratio(dark, back)
+          ? "FFFFFF" : "111111";
+      }
+    }
+
+    if (!faded) {
+      const turn = spin(el);
+      const tr = flatBox(el, r, turn);
+      const records = whole ? [{text, box: tr, lines: lineCount(el, tr)}]
+        : fragments.map((fragment) => ({
+            text: fragment.text, box: fragment.r, lines: 1,
+          }));
+      for (const record of records) {
+        if (!record.text) continue;
+        out.push({
+          kind: "text", text: record.text, ink,
+          rotation: whole ? turn : 0, ...record.box,
+          // Mustaqil inline-block matn ham brauzer o'lchagan qutida
+          // qoladi. Builder unga shrift zaxirasini qo'shsa, yonidagi
+          // parent fragment bilan ustma-ust tushadi.
+          fragment: !whole || s.display === "inline-block"
+            || s.display === "inline-flex" || s.display === "inline-grid",
+          size: parseFloat(s.fontSize) || 16,
+          weight: parseInt(s.fontWeight, 10) || 400,
+          italic: s.fontStyle === "italic",
+          color: paint,
+          align: align(s.textAlign),
+          family: s.fontFamily || "",
+          lineHeight: parseFloat(s.lineHeight) || 0,
+          upper: s.textTransform === "uppercase",
+          letterSpacing: parseFloat(s.letterSpacing) || 0,
+          lines: record.lines,
+        });
+      }
     }
 
     for (const child of el.children) {
-      if (child.tagName !== "BR") walk(child);
+      if (child.tagName === "BR") continue;
+      // Matni otasiga qo'shib olindi — ichiga kirmaymiz. Rasm va
+      // jadval esa baribir alohida olinadi.
+      if (whole && text && !RECURSE_TAGS.has(child.tagName)) continue;
+      walk(child, faded);
     }
   };
 
-  for (const child of document.body.children) walk(child);
+  for (const child of document.body.children) walk(child, false);
+
+  // Bir matn ikki elementdan kelgan bo'lsa (soya, kontur yoki nur
+  // uchun qo'yilgan nusxa), brauzerda ular ustma-ust tushib bitta
+  // bo'lib ko'rinadi. PowerPointda esa ikkita alohida quti bo'lib,
+  // matn ikki marta yozilgandek chiqadi. Shu yerda nusxa olib
+  // tashlanadi: ko'rinadigani — ranggi to'qroq bo'lgani, tenglikda
+  // esa keyin chizilgani (ustida turgani) qoladi.
+  const dropDoubles = () => {
+    const texts = out.filter((b) => b.kind === "text");
+    const gone = new Set();
+    for (let i = 0; i < texts.length; i += 1) {
+      for (let j = i + 1; j < texts.length; j += 1) {
+        const a = texts[i], b = texts[j];
+        if (gone.has(a) || gone.has(b)) continue;
+        if (key(a.text) !== key(b.text)) continue;
+        const w = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+        const h = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+        if (w <= 0 || h <= 0) continue;
+        const small = Math.min(a.w * a.h, b.w * b.h);
+        if (w * h < small * 0.5) continue;
+        gone.add(b.ink > a.ink + 0.05 ? a : a.ink > b.ink + 0.05 ? b : a);
+      }
+    }
+    return out.filter((b) => !gone.has(b));
+  };
+
   return {
     background: rgbOver(getComputedStyle(document.body).backgroundColor,
                         document.body) || "FFFFFF",
-    blocks: out,
+    backgroundGradient: gradient(document.body),
+    blocks: dropDoubles(),
   };
 }
 """
@@ -352,6 +575,14 @@ _CHECK_SCRIPT = r"""
   const W = window.innerWidth, H = window.innerHeight;
   const problems = [];
   const texts = [];
+
+  const own = (el) => {
+    let text = "";
+    for (const node of el.childNodes) {
+      if (node.nodeType === 3) text += node.nodeValue;
+    }
+    return text.trim();
+  };
 
   const textNodeFragments = (node) => {
     const value = node.nodeValue || "";
@@ -398,7 +629,20 @@ _CHECK_SCRIPT = r"""
     return fragments;
   };
 
+  // Xato qaysi joyda ekanini modelga aniq aytish uchun: element
+  // matnining boshi (matni bo'lmasa ichidagi matn yoki sinf nomi).
+  const label = (el) => {
+    let text = own(el) || (el.textContent || "").trim();
+    text = text.replace(/\s+/g, " ");
+    if (!text) text = "." + String(el.className || el.tagName).split(" ")[0];
+    return "«" + (text.length > 60 ? text.slice(0, 60) + "…" : text) + "»";
+  };
+  const examples = (list) => list.length
+    ? ": " + list.slice(0, 3).join(", ") + (list.length > 3 ? " va boshqalar" : "")
+    : "";
+
   let outside = 0, tallest = 0, lowest = 0;
+  const outsideAt = [];
   for (const el of document.body.querySelectorAll("*")) {
     const style = getComputedStyle(el);
     if (style.display === "none" || style.visibility === "hidden") continue;
@@ -406,37 +650,124 @@ _CHECK_SCRIPT = r"""
     if (r.width < 2 || r.height < 2) continue;
 
     for (const fragment of directText(el)) {
-      texts.push(fragment);
+      texts.push({r: fragment.r, text: fragment.text, el});
       lowest = Math.max(lowest, fragment.r.bottom);
       tallest = tallest || fragment.r.top;
       tallest = Math.min(tallest, fragment.r.top);
     }
+
     // Slayddan chiqib ketgan: butun ekranni egallagan fon bundan mustasno.
+    // Bezak doiralari ATAYLAB chetdan chiqib turadi — ular xato emas.
+    // Ilgari ular sanalardi va har bir to'q varaq "buzuq" deb topilib
+    // modelga qayta yozdirilardi; qayta yozilgan varaq esa sarlavha va
+    // bitta jumlaga aylanib qolardi.
+    if (el.closest(".bezak")) continue;
     if (r.width < W * 0.98 || r.height < H * 0.98) {
       if (r.left < -8 || r.top < -8 || r.right > W + 8 || r.bottom > H + 8) {
         outside += 1;
+        // Ichma-ich elementlardan faqat eng tashqisi nomlanadi.
+        if (!outsideAt.some((x) => x.el.contains(el))) {
+          outsideAt.push({el, name: label(el)});
+        }
       }
     }
   }
   if (outside) {
     problems.push(outside + " ta element slayddan chiqib ketgan "
-      + "(1920x1080 dan tashqarida yoki manfiy o'rinda)");
+      + "(1920x1080 dan tashqarida yoki manfiy o'rinda)"
+      + examples(outsideAt.map((x) => x.name)));
   }
 
-  // Matn ustiga matn tushganmi.
+  // Matn ustiga matn tushganmi. Ota va uning ichidagi element
+  // sanalmaydi: ular bir matnning bo'laklari, chizuvchi ularni
+  // bitta quti qilib qo'yadi.
   let collisions = 0;
+  const collidedAt = [];
   for (let i = 0; i < texts.length; i += 1) {
     for (let j = i + 1; j < texts.length; j += 1) {
+      const first = texts[i].el, second = texts[j].el;
+      if (first.contains(second) || second.contains(first)) continue;
       const a = texts[i].r, b = texts[j].r;
       const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
       const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
       if (w <= 2 || h <= 2) continue;
       const small = Math.min(a.width * a.height, b.width * b.height);
-      if (w * h > small * 0.35) collisions += 1;
+      if (w * h > small * 0.35) {
+        collisions += 1;
+        collidedAt.push(label(first) + " bilan " + label(second));
+      }
     }
   }
   if (collisions) {
-    problems.push(collisions + " joyda matn ustiga matn tushgan");
+    problems.push(collisions + " joyda matn ustiga matn tushgan"
+      + examples(collidedAt));
+  }
+
+  // Bir matn ikki marta yozilganmi. Soya, kontur yoki nur uchun
+  // qo'yilgan nusxa brauzerda bittadek ko'rinadi, PowerPointda esa
+  // ikkita alohida quti bo'lib chiqadi. Chizuvchi nusxani olib
+  // tashlaydi, lekin HTML ning o'zi ham tuzatilgani ma'qul: nusxa
+  // sarlavha qutisini kengaytirib, joylashuvni ham buzadi.
+  let doubled = 0;
+  const doubledAt = [];
+  for (let i = 0; i < texts.length; i += 1) {
+    for (let j = i + 1; j < texts.length; j += 1) {
+      const a = texts[i].r, b = texts[j].r;
+      if (texts[i].text.replace(/\s+/g, " ").trim().toLowerCase()
+          !== texts[j].text.replace(/\s+/g, " ").trim().toLowerCase()) continue;
+      const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+      const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+      if (w <= 0 || h <= 0) continue;
+      const small = Math.min(a.width * a.height, b.width * b.height);
+      if (w * h < small * 0.5) continue;
+      doubled += 1;
+      doubledAt.push(label(texts[i].el));
+    }
+  }
+  if (doubled) {
+    problems.push(doubled + " ta matn ikki marta yozilgan (soya yoki nur "
+      + "uchun nusxa qo'yilgan) — har matn bitta elementda bo'lsin"
+      + examples(doubledAt));
+  }
+
+  // Matn o'z qutisiga sig'maganmi. Sxemadagi doiraga uzun yorliq
+  // yozilsa, harflar doiraning chetidan chiqib ketadi va qo'shni
+  // chiziqqa minadi — slayd tartibsiz ko'rinadi. Brauzer buni
+  // `scrollWidth`/`scrollHeight` bilan aniq aytadi: mazmun qutidan
+  // kattami yoki yo'q.
+  // Matnning o'zi qayerga chizilganini brauzerdan Range bilan
+  // so'raymiz. `scrollHeight` yetarli emas: markazga tekislangan
+  // matn qutidan ikki tomonga baravar toshsa, u buni ko'rsatmaydi.
+  const spillsOut = (el) => {
+    const box = el.getBoundingClientRect();
+    for (const node of el.childNodes) {
+      if (node.nodeType !== 3 || !node.nodeValue.trim()) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const r = range.getBoundingClientRect();
+      if (r.width < 1 && r.height < 1) continue;
+      if (r.left < box.left - 3 || r.right > box.right + 3
+          || r.top < box.top - 3 || r.bottom > box.bottom + 3) return true;
+    }
+    return false;
+  };
+
+  let spill = 0;
+  const spillAt = [];
+  for (const el of document.body.querySelectorAll("*")) {
+    const style = getComputedStyle(el);
+    if (style.display === "none" || style.visibility === "hidden") continue;
+    if (!own(el)) continue;
+    if (el.clientWidth < 8 || el.clientHeight < 8) continue;
+    if (spillsOut(el)) {
+      spill += 1;
+      spillAt.push(label(el));
+    }
+  }
+  if (spill) {
+    problems.push(spill + " ta blokda matn qutisiga sig'magan (chetidan "
+      + "chiqib ketgan) — qutiga qat'iy balandlik berilmasin yoki "
+      + "yorliq qisqartirilsin" + examples(spillAt));
   }
 
   // Pastki yarmi butunlay bo'sh qolganmi.
@@ -465,9 +796,87 @@ _CHECK_SCRIPT = r"""
         + "% balandlikda bo'sh tasma qolgan");
     }
   }
+
   return problems;
 }
 """
+
+
+# Slaydning bir yoni bo'sh qolganini o'lchaydi. Diagramma ko'pincha
+# shunday chiqadi: ustunlar qatori chap chekkaga siqilib qoladi va
+# o'ng yarmi bo'm-bo'sh turadi. Bu xato emas — slaydni qayta chizish
+# shart emas. Bo'sh yonga diagrammani tushuntiruvchi matn qo'yiladi,
+# shunda slayd ham to'ladi, mazmuni ham boyiydi.
+#
+# Balandligi bo'yicha ustma-ust tushgan bo'laklar bitta qator deb
+# olinadi va o'sha qatorning eni o'lchanadi. Markazga qo'yilgan blok
+# (ikki yoni baravar bo'sh) tegilmaydi — u ataylab shunday.
+_GAP_SCRIPT = r"""
+() => {
+  const W = window.innerWidth, H = window.innerHeight;
+  const chunks = [];
+
+  const own = (el) => {
+    let text = "";
+    for (const node of el.childNodes) {
+      if (node.nodeType === 3) text += node.nodeValue;
+    }
+    return text.trim();
+  };
+
+  for (const el of document.body.querySelectorAll("*")) {
+    const style = getComputedStyle(el);
+    if (style.display === "none" || style.visibility === "hidden") continue;
+    const r = el.getBoundingClientRect();
+    if (r.width <= 8 || r.height <= 8) continue;
+    if (r.width >= W * 0.95) continue;
+    const fill = style.backgroundColor || "";
+    const solid = fill.indexOf("rgba(0, 0, 0, 0)") < 0 && fill !== "transparent";
+    const drawn = ["IMG", "SVG", "CANVAS", "TABLE"].indexOf(el.tagName) >= 0;
+    if (!own(el) && !solid && !drawn) continue;
+    chunks.push({top: r.top, bottom: r.bottom, left: r.left, right: r.right});
+  }
+
+  const rows = [];
+  for (const r of chunks.sort((a, b) => a.top - b.top)) {
+    const row = rows.length ? rows[rows.length - 1] : null;
+    if (row && r.top < row.bottom - 2) {
+      row.left = Math.min(row.left, r.left);
+      row.right = Math.max(row.right, r.right);
+      row.bottom = Math.max(row.bottom, r.bottom);
+    } else {
+      rows.push({top: r.top, bottom: r.bottom, left: r.left, right: r.right});
+    }
+  }
+
+  let best = null;
+  for (const row of rows) {
+    if (row.bottom - row.top < H * 0.15) continue;
+    const leftGap = row.left, rightGap = W - row.right;
+    const far = Math.max(leftGap, rightGap);
+    const near = Math.min(leftGap, rightGap);
+    if (far <= W * 0.30 || near >= W * 0.15) continue;
+    const area = {
+      side: rightGap >= leftGap ? "right" : "left",
+      x: rightGap >= leftGap ? row.right : 0,
+      y: row.top,
+      w: far,
+      h: row.bottom - row.top,
+    };
+    if (!best || area.w * area.h > best.w * best.h) best = area;
+  }
+  return best;
+}
+"""
+
+
+def gap_area(page):
+    """Slaydning bo'sh qolgan yon maydoni (yoki None)."""
+    try:
+        return page.evaluate(_GAP_SCRIPT)
+    except Exception as exc:
+        log.warning("Bo'sh yon o'lchanmadi: %s", exc)
+        return None
 
 
 def check_layout(page) -> List[str]:
@@ -484,11 +893,67 @@ def read_layout(page) -> Dict:
     return page.evaluate(_SCRIPT)
 
 
+# Brauzerning element surati ELEMENTNI emas, sahifaning o'sha
+# joyini oladi: rasm ustida turgan matn ham suratga tushadi. Muqovada
+# butun slaydni egallagan fotosurat bo'lgani uchun sarlavha, ost
+# sarlavha va pastki qator rasmning ichiga ham kirib qolardi — keyin
+# biz o'sha matnlarni yana haqiqiy matn qutisi qilib ustiga qo'yardik
+# va matn ikki marta yozilgandek ko'rinardi.
+#
+# Shuning uchun surat olishdan oldin rasm ustidagi MATNLAR
+# vaqtincha yashiriladi. Bezak qatlamlari (masalan to'q parda)
+# yashirilmaydi: ular PowerPointda alohida shakl bo'lib chiqmaydi,
+# rasmning ichida qolgani to'g'ri. `visibility: hidden` joylashuvni
+# o'zgartirmaydi, shuning uchun qolgan hamma narsa o'z o'rnida qoladi.
+_HIDE_SCRIPT = r"""
+(shot) => {
+  const target = document.querySelector('[data-pptx-shot="' + shot + '"]');
+  if (!target) return 0;
+  const r = target.getBoundingClientRect();
+
+  // Elementning O'ZIGA tegishli matni bormi (bolalarinikisiz).
+  const hasOwnText = (el) => {
+    for (const node of el.childNodes) {
+      if (node.nodeType === 3 && node.nodeValue.trim()) return true;
+    }
+    return false;
+  };
+
+  const hidden = [];
+  for (const el of document.body.querySelectorAll("*")) {
+    if (el === target || el.contains(target) || target.contains(el)) continue;
+    if (!hasOwnText(el)) continue;
+    const b = el.getBoundingClientRect();
+    if (b.width < 1 || b.height < 1) continue;
+    if (b.right <= r.left || b.left >= r.right
+        || b.bottom <= r.top || b.top >= r.bottom) continue;
+    hidden.push([el, el.style.getPropertyValue("visibility"),
+                 el.style.getPropertyPriority("visibility")]);
+    el.style.setProperty("visibility", "hidden", "important");
+  }
+  window.__pptxHidden = hidden;
+  return hidden.length;
+}
+"""
+
+_SHOW_SCRIPT = r"""
+() => {
+  for (const item of (window.__pptxHidden || [])) {
+    const el = item[0];
+    if (item[1]) el.style.setProperty("visibility", item[1], item[2]);
+    else el.style.removeProperty("visibility");
+  }
+  window.__pptxHidden = [];
+}
+"""
+
+
 def capture_images(page, blocks: List[Dict], out_dir: str, slide: int) -> None:
     """Diagramma va rasmlarni alohida suratga oladi.
 
     Har bir surat o'z elementining o'lchamida olinadi, shuning uchun
-    PowerPointda cho'zilmaydi.
+    PowerPointda cho'zilmaydi. Rasm ustidagi matn suratga tushmaydi —
+    u PowerPointda alohida, tahrirlanadigan quti bo'lib qo'yiladi.
     """
     for block in blocks:
         if block.get("kind") != "image":
@@ -499,7 +964,11 @@ def capture_images(page, blocks: List[Dict], out_dir: str, slide: int) -> None:
             element = page.query_selector(f'[data-pptx-shot="{block["shot"]}"]')
             if element is None:
                 continue
-            element.screenshot(path=path, omit_background=True)
+            try:
+                page.evaluate(_HIDE_SCRIPT, block["shot"])
+                element.screenshot(path=path, omit_background=True)
+            finally:
+                page.evaluate(_SHOW_SCRIPT)
             block["path"] = path
         except Exception as exc:
             log.warning("Slayd %d: vizual %s suratga olinmadi: %s",

@@ -61,6 +61,32 @@ def _clip(block: Dict) -> Dict:
 
 # ────────────────────────────────────────────────────────── elementlar
 
+def _gradient(fill, ramp) -> bool:
+    """Gradient to'ldirish. Qo'yilsa `True` qaytaradi.
+
+    Yassi bitta rang slaydni quruq ko'rsatadi. Brauzerdagi
+    `linear-gradient` PowerPointning o'z gradient to'ldirishiga
+    aylanadi — ya'ni rasm emas, tahrirlanadigan to'ldirish bo'lib
+    qoladi.
+    """
+    stops = (ramp or {}).get("stops") or []
+    if len(stops) < 2:
+        return False
+    try:
+        fill.gradient()
+        slots = fill.gradient_stops
+        for index, stop in enumerate(stops[:len(slots)]):
+            slots[index].color.rgb = _colour(stop.get("colour"))
+            slots[index].position = max(0.0, min(1.0, float(stop.get("at", 0))))
+        # CSS da 0deg — tepaga, PowerPointda 0 — o'ngga. Burchak
+        # shuning uchun 90 gradusga suriladi.
+        fill.gradient_angle = (float(ramp.get("angle", 180)) - 90) % 360
+        return True
+    except Exception as exc:
+        log.warning("Gradient qo'yilmadi: %s", exc)
+        return False
+
+
 def _add_rect(slide, block: Dict) -> None:
     area = _clip(block)
     radius = float(block.get("radius") or 0)
@@ -84,11 +110,12 @@ def _add_rect(slide, block: Dict) -> None:
         except (IndexError, ValueError):
             pass
 
-    if block.get("fill"):
-        shape.fill.solid()
-        shape.fill.fore_color.rgb = _colour(block["fill"])
-    else:
-        shape.fill.background()
+    if not _gradient(shape.fill, block.get("gradient")):
+        if block.get("fill"):
+            shape.fill.solid()
+            shape.fill.fore_color.rgb = _colour(block["fill"])
+        else:
+            shape.fill.background()
 
     if block.get("border"):
         shape.line.color.rgb = _colour(block["border"])
@@ -117,20 +144,43 @@ def _add_text(slide, block: Dict) -> None:
         text = text.upper()
 
     area = _clip(block)
-    # HTML extractor matnni ko'rinadigan satrlar bo'yicha bo'lib, har bir
-    # fragmentning aniq kengligini beradi. Qutini yana kengaytirsak,
-    # yonma-yon turgan oddiy matn va highlight bir-birining ustiga chiqadi.
+    # Bir qatorli fragment qayta O'RALMASIN. Ilgari quti o'n piksel
+    # kengaytirilardi va matn PowerPointda baribir qaytadan o'ralib,
+    # oxirgi so'z pastga tushib qo'shnisining ustiga chiqardi. Endi
+    # fragment o'lchami brauzerdagining aynan o'zi.
+    # Bir qatorli matnga ozgina zaxira kenglik beriladi: PowerPointdagi
+    # shrift brauzernikidan bir necha piksel keng chiqsa, oxirgi so'z
+    # pastga ko'chib qo'shnisining ustiga tushardi. O'rashni butunlay
+    # o'chirib bo'lmaydi — o'shanda PowerPoint qutini markazga qarab
+    # kengaytiradi va chapga tekislangan matn o'rtaga siljib qoladi.
+    # Zaxira kenglik SHRIFT o'lchamiga qarab beriladi. Ilgari u
+    # qutining ikki foizi edi: 88 px li yirik raqam uchun bu atigi
+    # olti piksel bo'lib, PowerPoint oxirgi so'zni pastki qatorga
+    # tushirib yuborardi va u quyidagi yozuvning ustiga chiqardi.
+    # Zaxira qutining O'NG tomoniga emas, tekislanishiga qarab
+    # taqsimlanadi — shunda matn ko'zga ko'rinib siljimaydi.
+    fragment = bool(block.get("fragment"))
+    single = int(block.get("lines") or 1) <= 1
+    size_px = float(block.get("size") or 16)
+    slack = 0.0 if fragment else (
+        max(area["w"] * 0.02, size_px * 0.4, 6.0) if single else 2.0)
+    align = block.get("align")
+    shift = slack / 2 if align == "center" else slack if align == "right" else 0
     frame_box = slide.shapes.add_textbox(
-        _emu(area["x"]), _emu(area["y"]),
-        _emu(area["w"]), _emu(area["h"]))
+        _emu(area["x"] - shift), _emu(area["y"]),
+        _emu(area["w"] + slack), _emu(area["h"]))
     frame = frame_box.text_frame
-    # Har bir blok bitta ko'rinadigan satr. PowerPoint shrift o'lchami
-    # ozgina farq qilsa ham, uni ikkinchi satrga ko'chirmaslik matnni
-    # kesilib yoki keyingi fragment ustiga tushib qolishidan saqlaydi.
-    frame.word_wrap = False
+    frame.word_wrap = not fragment
     frame.margin_left = frame.margin_right = 0
     frame.margin_top = frame.margin_bottom = 0
     frame.vertical_anchor = MSO_ANCHOR.TOP
+
+    # Tik yozilgan o'q yozuvi PowerPointda ham burilgan bo'lsin.
+    # Aks holda ingichka qutiga tushib, har harfi alohida qatorga
+    # ko'chib ketadi.
+    turn = float(block.get("rotation") or 0)
+    if abs(turn) >= 5:
+        frame_box.rotation = turn
 
     size = _pt(block.get("size") or 16)
     # Qator oralig'i AYNAN punktda beriladi. Nisbat bilan berilsa
@@ -225,15 +275,19 @@ def _add_image(slide, block: Dict) -> None:
     if not path or not os.path.exists(path):
         return
     area = _clip(block)
-    slide.shapes.add_picture(
+    picture = slide.shapes.add_picture(
         path, _emu(area["x"]), _emu(area["y"]),
         _emu(area["w"]), _emu(area["h"]))
+    # Rasmga ham mavzu soyasi tegmasin: taqdimotda soya umuman yo'q.
+    picture.shadow.inherit = False
 
 
 # ──────────────────────────────────────────────────────────── slaydlar
 
-def _background(slide, colour: str) -> None:
+def _background(slide, colour: str, ramp=None) -> None:
     fill = slide.background.fill
+    if _gradient(fill, ramp):
+        return
     fill.solid()
     fill.fore_color.rgb = _colour(colour or "FFFFFF")
 
@@ -241,7 +295,8 @@ def _background(slide, colour: str) -> None:
 def add_slide(presentation, layout: Dict) -> None:
     """Bitta slaydni tahrirlanadigan elementlardan yig'adi."""
     slide = presentation.slides.add_slide(presentation.slide_layouts[6])
-    _background(slide, layout.get("background"))
+    _background(slide, layout.get("background"),
+                layout.get("backgroundGradient"))
 
     # Tartib muhim: fon bloklari avval, matn keyin — shunda matn
     # ularning ustida turadi.
