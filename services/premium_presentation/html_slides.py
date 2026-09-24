@@ -199,7 +199,8 @@ QAT'IY QOIDALAR:
 9. Bir slaydda bir xil matnni ikki marta yozma.
 10. Yorliqlar qisqa: kartochka sarlavhasi 1-4 so'z, vaqt o'qidagi
    izoh bir jumla.
-11. Birinchi slayd — MUQOVA, oxirgisi — XULOSA: unda faqat xulosa
+11. Birinchi slayd — MUQOVA: unda muallif ismi, fan va yil
+   YOZILMAYDI (ismni tizim o'zi qo'yadi). Oxirgisi — XULOSA: unda faqat xulosa
    matni bo'ladi, "Rahmat", "E'tiboringiz uchun rahmat", "Savollar"
    yozilmaydi va ular uchun alohida varaq ham yo'q. Xulosada rasm
    bloki ishlatilmaydi. Taqdimot bo'limlarga
@@ -259,8 +260,6 @@ def _user_prompt(topic: str, start: int, count: int, total: int,
     if used:
         parts.append("Oldingi slaydlarda ochilgan fikrlar (ularni qayta "
                      "aytmang): " + "; ".join(used[-5:]))
-    if author and start == 1:
-        parts.append(f"Muqovada muallif: {author}")
     if preferences:
         parts.append(f"Mijoz istagi: {preferences}")
     if source:
@@ -674,6 +673,8 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
 
         for offset, body in enumerate(chunk[:count]):
             number = start + offset
+            if number == 1:
+                body = _cover_credit(body, author, language)
             if number == slide_count:
                 body = _drop_thanks(body)
             if 1 < number and _thin(body):
@@ -694,6 +695,38 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
         raise RuntimeError(
             f"AI {slide_count} ta slayddan faqat {len(slides)} tasini yozdi")
     return build_pages(slides, theme)
+
+
+# Muqovadagi "Tayyorladi: ... | Fan: ... | 2026" qatori. Model uni namunadan
+# ko'chirib, ism, fan va yilni o'zi o'ylab topardi — mijoz ism kiritmagan
+# bo'lsa ham muqovada begona ism turardi. Endi bunday qator kod bilan
+# olib tashlanadi, ism esa faqat mijoz kiritgan bo'lsa qo'yiladi.
+_CREDIT_LABEL = {"uz": "Tayyorladi", "ru": "Подготовил(а)", "en": "Prepared by"}
+_CREDIT_LINE = re.compile(
+    r"<(p|div|span)\b[^>]*>(?:(?!</?\1\b).)*?"
+    r"(?:tayyorladi|bajardi|muallif|topshirdi|fan\s*:|yo.nalish\s*:|"
+    r"подготовил|выполнил|автор|предмет\s*:|prepared\s+by|author|subject\s*:)"
+    r"(?:(?!</?\1\b).)*?</\1>",
+    re.IGNORECASE | re.DOTALL)
+_NOTE_LINE = re.compile(r"<p\b[^>]*\bclass\s*=\s*[\"'][^\"']*\bnote\b[^\"']*[\"'][^>]*>.*?</p>",
+                        re.IGNORECASE | re.DOTALL)
+
+
+def _cover_credit(body: str, author: str = "", language: str = "uz") -> str:
+    """Muqovadan ism/fan/yil qatorini olib, mijoz ismini (bo'lsa) qo'yadi."""
+    body = _NOTE_LINE.sub("", body)
+    body = _CREDIT_LINE.sub("", body)
+    author = (author or "").strip()
+    if not author:
+        return body
+    label = _CREDIT_LABEL.get(language, _CREDIT_LABEL["uz"])
+    note = f'<p class="note">{_escape(label)}: {_escape(author)}</p>'
+    # Muqova `.body` ichining oxiriga qo'yiladi.
+    match = re.search(r"</div>\s*</section>\s*$", body, re.IGNORECASE)
+    if match:
+        return body[:match.start()] + note + body[match.start():]
+    return re.sub(r"</section>\s*$", note + "</section>", body, count=1,
+                  flags=re.IGNORECASE)
 
 
 def _enough(slide_count: int) -> int:
@@ -1106,7 +1139,8 @@ def _plain_slide(topic: str, brief: str, number: int, total: int,
     Muqovaga AI kerak emas: u mavzu va muallifdan yig'iladi.
     """
     if number == 1:
-        note = f'<p class="note">{_escape(author)}</p>' if author else ""
+        note = (f'<p class="note">{_escape(_CREDIT_LABEL.get(language, _CREDIT_LABEL["uz"]))}: '
+                f'{_escape(author)}</p>') if author else ""
         return ('<section class="slide dark"><div class="body">'
                 f'<h1 class="title big">{_escape(topic)}</h1>'
                 f'<div class="rule"></div>{note}</div></section>')
