@@ -7,6 +7,7 @@ yopiq Telegram kanalida qoladi va ular saytdan hech qachon yuklab
 olinmaydi, sotib olish botda amalga oshadi.
 """
 
+import hashlib
 import html
 import json
 import logging
@@ -25,6 +26,20 @@ _HERE = Path(__file__).parent
 STORE_HTML = _HERE / "store.html"
 ITEM_HTML = _HERE / "store_item.html"
 STORE_CSS = _HERE / "store.css"
+
+
+def _with_style_version(page: str) -> str:
+    """Uslub havolasiga fayl mazmunidan olingan belgi qo'shadi.
+
+    style.css bir soat keshlanadi; belgisiz havolada yangilangan dizayn
+    mijozga bir soatgacha ko'rinmasdi. Fayl o'zgarsa havola ham o'zgaradi
+    va brauzer yangisini darhol yuklaydi.
+    """
+    try:
+        version = hashlib.sha1(STORE_CSS.read_bytes()).hexdigest()[:10]
+    except OSError:
+        return page
+    return page.replace('href="/shop/style.css"', f'href="/shop/style.css?v={version}"')
 
 # Kod havolada keladi va ko'rgazma rasmining yo'liga qo'shiladi, shuning
 # uchun u qat'iy tekshiriladi — aks holda "../" bilan katalogdan chiqib
@@ -97,7 +112,7 @@ async def handle_store_page(request: web.Request) -> web.Response:
     # uchun u alohida so'rovsiz, HTML ichiga qo'yib yuboriladi.
     page = page.replace("__BOT_URL__", html.escape(_bot_url(), quote=True))
     page = page.replace("{{CANONICAL}}", html.escape(_origin(request) + "/shop", quote=True))
-    return web.Response(text=page, content_type="text/html")
+    return web.Response(text=_with_style_version(page), content_type="text/html")
 
 
 async def handle_items(request: web.Request) -> web.Response:
@@ -300,7 +315,7 @@ async def handle_item_page(request: web.Request) -> web.Response:
     }
     for token, value in values.items():
         template = template.replace(token, value)
-    return web.Response(text=template, content_type="text/html")
+    return web.Response(text=_with_style_version(template), content_type="text/html")
 
 
 async def handle_robots(request: web.Request) -> web.Response:
