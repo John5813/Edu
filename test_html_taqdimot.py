@@ -529,7 +529,7 @@ def check_writer():
     print("\n4) Slaydlarni bo'laklab yozish")
     calls = []
 
-    def fake(system, user, temperature=0.7, max_tokens=1800):
+    def fake(system, user, temperature=0.7, max_tokens=1800, accept=None):
         calls.append(user)
         # Mazmunli varaq: yupqa varaq qo'shimcha so'rov bilan
         # to'ldiriladi, bu yerda esa faqat bo'laklash sinaladi.
@@ -2000,7 +2000,7 @@ def check_repair_edits_same_slide():
     seen = {}
 
     def reply(text):
-        def call(system, user, temperature=0.7, max_tokens=4000):
+        def call(system, user, temperature=0.7, max_tokens=4000, accept=None):
             seen["user"] = user
             return text
         return call
@@ -2467,19 +2467,22 @@ def check_no_half_decks():
             calls.append(count)
             return chunk_reply(count) if count > 1 else single_reply()
 
-        saved = (html_slides.plan_outline, html_slides._write_chunk)
+        saved = (html_slides.plan_outline, html_slides._write_chunk,
+                 html_slides._plain_slide)
         try:
             html_slides.plan_outline = lambda *a, **k: {
                 "family": "umumiy",
                 "slides": [{"brief": "b", "category": "kartalar"}] * 10}
             html_slides._write_chunk = chunk
+            html_slides._plain_slide = lambda *a, **k: ""
             try:
                 pages = html_slides.write_slides("Mavzu", 10, theme)
                 error = ""
             except RuntimeError as exc:
                 pages, error = [], str(exc)
         finally:
-            html_slides.plan_outline, html_slides._write_chunk = saved
+            (html_slides.plan_outline, html_slides._write_chunk,
+             html_slides._plain_slide) = saved
         return pages, error, calls
 
     slide = _page("Slayd", block)
@@ -2536,6 +2539,112 @@ def check_no_half_decks():
           routers[-1])
 
 
+def check_blocked_replies():
+    """Filtr kesgan yoki bo'sh javob keyingi modelga o'tkazilsin.
+
+    Mijozning "Pandemiya davrida O'zbekiston ishsizlarini ijtimoiy
+    himoya qilish" mavzusida 15 slayddan 8 tasi yozilgan: HTTP 200
+    kelgan, lekin javob bo'sh yoki to'xtatilgan bo'lgan va u
+    muvaffaqiyat deb hisoblangan. Boshqa model sinalmagan.
+    """
+    print("\n34) Yaroqsiz javobda boshqa model sinaladi")
+
+    def reply(content, finish="stop", native=None):
+        choice = {"message": {"content": content}, "finish_reason": finish}
+        if native:
+            choice["native_finish_reason"] = native
+        return {"choices": [choice]}
+
+    check("RECITATION yaroqsiz",
+          "recitation" in llm_client._unusable(
+              reply("<section", "content_filter", "RECITATION")))
+    check("bo'sh javob yaroqsiz", llm_client._unusable(reply(None)) != "")
+    check("200 ichidagi xato yaroqsiz",
+          llm_client._unusable({"error": {"message": "x"}}) != "")
+    check("oddiy javob yaroqli", llm_client._unusable(reply("salom")) == "")
+
+    class Resp:
+        status_code = 200
+        text = ""
+
+        def __init__(self, data):
+            self.data = data
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self.data
+
+    slide = ('<section class="slide"><div class="head"><h2 class="title">'
+             'Sarlavha</h2></div><div class="body"><p class="lead">Matn.'
+             '</p></div></section>')
+    replies = {"a": reply("", "content_filter", "RECITATION"),
+               "b": reply("<section class=\"slide\"><div>chala"),
+               "c": reply(slide + "\n" + html_slides.MARKER)}
+    asked = []
+
+    def post(url, headers=None, json=None, timeout=None):
+        asked.append(json["model"])
+        return Resp(replies[json["model"]])
+
+    saved = (llm_client.requests.post, llm_client.config.OPENROUTER_API_KEY,
+             llm_client.config.OPENROUTER_TEXT_MODELS,
+             dict(llm_client._WORKING), dict(llm_client._preferred))
+    try:
+        llm_client.requests.post = post
+        llm_client.config.OPENROUTER_API_KEY = "test"
+        llm_client.config.OPENROUTER_TEXT_MODELS = ["a", "b", "c"]
+        llm_client._WORKING.clear()
+        llm_client._preferred.clear()
+        got = html_slides._write_chunk("s", "u", 1)
+        check("to'xtatilgan va chala javobdan keyin uchinchi model yozadi",
+              len(got) == 1 and asked == ["a", "b", "c"], str(asked))
+        check("zaxira model eslab qolinmaydi",
+              "text" not in llm_client._WORKING, str(llm_client._WORKING))
+        replies["c"] = reply("")
+        asked.clear()
+        text = llm_client._call_openrouter_text(
+            "s", "u", accept=lambda raw: bool(html_slides.split_slides(raw)))
+        check("hech biri yaroqli bo'lmasa qisman javob qaytadi",
+              text.startswith("<section") and asked == ["a", "b", "c"],
+              f"{asked} {text[:30]}")
+    finally:
+        (llm_client.requests.post, llm_client.config.OPENROUTER_API_KEY,
+         llm_client.config.OPENROUTER_TEXT_MODELS) = saved[:3]
+        llm_client._WORKING.clear()
+        llm_client._WORKING.update(saved[3])
+        llm_client._preferred.clear()
+        llm_client._preferred.update(saved[4])
+
+    theme = themes.get("ko'k")
+    saved = (html_slides.plan_outline, html_slides._write_chunk,
+             llm_client._call_openrouter)
+    try:
+        html_slides.plan_outline = lambda *a, **k: {
+            "family": "umumiy",
+            "slides": [{"brief": "b", "category": "kartalar"}] * 6}
+        html_slides._write_chunk = lambda system, user, count: []
+        llm_client._call_openrouter = lambda *a, **k: {
+            "title": "Ishsizlik <nafaqasi>",
+            "points": [{"key": "Nafaqa", "text": "To'lov muddati uzaytirildi."},
+                       {"key": "Kredit", "text": "Soliq ta'tili berildi."}]}
+        pages = html_slides.write_slides("Pandemiya davrida himoya", 6, theme,
+                                         author="Temirbaeva Nuriya")
+    finally:
+        (html_slides.plan_outline, html_slides._write_chunk,
+         llm_client._call_openrouter) = saved
+    check("HTML slayd chiqmasa zaxira slaydlar bilan taqdimot to'liq",
+          len(pages) == 6, str(len(pages)))
+    check("zaxira muqovada mavzu va muallif",
+          "Pandemiya davrida himoya" in pages[0]
+          and "Temirbaeva Nuriya" in pages[0])
+    check("zaxira slayd matni HTML sifatida xavfsiz",
+          "&lt;nafaqasi&gt;" in pages[1] and "To'lov muddati" in pages[1])
+    check("promptda hujjatni ko'chirmaslik qoidasi",
+          "so'zma-so'z" in html_slides.shell_rules(theme, "uz"))
+
+
 def main():
     check_handler_names()
     check_prompt()
@@ -2580,6 +2689,7 @@ def main():
     check_fit_to_slide()
     check_formula_rich()
     check_no_half_decks()
+    check_blocked_replies()
 
     print()
     if FAILS:

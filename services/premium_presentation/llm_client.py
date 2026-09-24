@@ -3,6 +3,7 @@ import logging
 import random
 import re
 import requests
+from typing import Callable, Optional
 
 from . import config
 from services import timeframe
@@ -509,18 +510,56 @@ def usage_report() -> str:
 
 
 def _count(data: dict) -> None:
-    usage = (data or {}).get("usage") or {}
+    usage = (data.get("usage") if isinstance(data, dict) else None) or {}
     USAGE["calls"] += 1
     USAGE["input"] += int(usage.get("prompt_tokens") or 0)
     USAGE["output"] += int(usage.get("completion_tokens") or 0)
 
 
-def _request(kind: str, payload: dict, timeout: int = 180) -> dict:
+# Provayder javobni to'xtatganini bildiradigan sabablar. Gemini hujjat
+# yoki nutq matniga o'xshash javobni "RECITATION" deb kesadi — farmon va
+# davlat choralari haqidagi mavzularda bu tez-tez bo'ladi. HTTP 200
+# keladi, lekin matn bo'sh yoki chala.
+_BLOCKED = {"content_filter", "safety", "recitation", "prohibited_content",
+            "blocklist", "spii", "image_safety", "error"}
+
+
+def _content(data: dict) -> str:
+    choices = (data or {}).get("choices") or [{}]
+    message = (choices[0] or {}).get("message") or {}
+    return str(message.get("content") or "")
+
+
+def _unusable(data: dict) -> str:
+    """Javob ishlatib bo'lmaydigan bo'lsa — sababi, aks holda ""."""
+    if not isinstance(data, dict):
+        return "javob JSON obyekt emas"
+    if data.get("error"):
+        return f"provayder xatosi: {str(data['error'])[:200]}"
+    choices = data.get("choices") or []
+    if not choices:
+        return "javobda choices yo'q"
+    choice = choices[0] or {}
+    finish = str(choice.get("finish_reason") or "").lower()
+    native = str(choice.get("native_finish_reason") or "").lower()
+    if finish in _BLOCKED or native in _BLOCKED:
+        return f"javob to'xtatildi ({native or finish})"
+    if not _content(data).strip():
+        return f"bo'sh javob (finish_reason={native or finish or '?'})"
+    return ""
+
+
+def _request(kind: str, payload: dict, timeout: int = 180,
+             accept: Optional[Callable[[str], bool]] = None) -> dict:
     """So'rovni ro'yxatdagi modellar bilan navbatma-navbat bajaradi.
 
     Model yaroqsiz bo'lsa (hisobda yo'q, nomi o'zgargan) yoki provayder
     javob bermasa keyingisiga o'tiladi. Shu sababli model nomini
     almashtirish xizmatni to'xtatib qo'yolmaydi.
+
+    HTTP 200 ham yetarli emas: javob bo'sh, filtr bilan to'xtatilgan
+    yoki `accept` uni rad etsa ham keyingi model sinaladi. Ilgari bunday
+    javob "muvaffaqiyatli" hisoblanib, slayd jimgina tashlab ketilardi.
     """
     if not config.OPENROUTER_API_KEY:
         raise RuntimeError(
@@ -534,6 +573,10 @@ def _request(kind: str, payload: dict, timeout: int = 180) -> dict:
     }
     chain = _models(kind)
     last_error = None
+    # Hech bir model to'liq javob bermasa, bo'sh bo'lmagan eng birinchi
+    # javob qaytariladi — undan qisman foydalanish mumkin.
+    partial = None
+    rejected = False
     for index, model in enumerate(chain):
         try:
             resp = requests.post(config.OPENROUTER_URL, headers=headers,
@@ -560,14 +603,43 @@ def _request(kind: str, payload: dict, timeout: int = 180) -> dict:
                 log.warning("Model ishlamadi (%s, HTTP %s): %s — %s ga o'tildi",
                             model, status, body, chain[index + 1])
                 continue
+            if partial is not None:
+                break
             log.error("Ro'yxatdagi hamma model ishlamadi (oxirgisi %s, HTTP %s): %s",
                       model, status, body)
             raise
-        if _WORKING.get(kind) != model:
+        except ValueError as e:
+            # 200 keldi, lekin tanasi JSON emas (provayder sahifasi).
+            last_error = e
+            log.warning("Model javobi JSON emas (%s): %s", model, e)
+            continue
+        _count(data)
+        reason = _unusable(data)
+        if not reason and accept is not None and not accept(_content(data)):
+            reason = "javobda kerakli qism yo'q"
+        choice = ((data.get("choices") or [{}])[0] or {}) if isinstance(data, dict) else {}
+        if choice.get("finish_reason") == "length":
+            log.warning("%s javobi token chegarasida kesildi (max_tokens=%s)",
+                        model, payload.get("max_tokens"))
+        if reason:
+            rejected = True
+            last_error = RuntimeError(f"{model}: {reason}")
+            if partial is None and _content(data).strip():
+                partial = data
+            log.warning("Model javobi yaroqsiz (%s): %s%s", model, reason,
+                        f" — {chain[index + 1]} ga o'tildi"
+                        if index + 1 < len(chain) else "")
+            continue
+        # Oldingi model mazmun sababli yiqilgan bo'lsa, zaxira model
+        # eslab qolinmaydi: keyingi so'rovlar yana tanlangan modeldan
+        # boshlanadi (zaxira odatda qimmatroq).
+        if not rejected and _WORKING.get(kind) != model:
             log.info("%s modeli: %s", "Matn" if kind == "text" else "Vision", model)
             _WORKING[kind] = model
-        _count(data)
         return data
+    if partial is not None:
+        log.warning("Hech bir model to'liq javob bermadi — qisman javob olindi")
+        return partial
     raise last_error if last_error else RuntimeError("Model ro'yxati bo'sh")
 
 
@@ -628,11 +700,13 @@ def _call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 
 
 def _call_openrouter_text(system_prompt: str, user_prompt: str,
                           temperature: float = 0.3,
-                          max_tokens: int = 1800) -> str:
+                          max_tokens: int = 1800,
+                          accept: Optional[Callable[[str], bool]] = None) -> str:
     """Oddiy matn so'raydi — JSON rejimisiz.
 
     Manbani siqishda javob JSON emas, nasr bo'lishi kerak; `_call_openrouter`
-    esa har doim `json_object` rejimida so'raydi.
+    esa har doim `json_object` rejimida so'raydi. `accept` javobni rad
+    etsa, keyingi model sinaladi.
     """
     payload = {
         "temperature": temperature,
@@ -642,8 +716,8 @@ def _call_openrouter_text(system_prompt: str, user_prompt: str,
             {"role": "user", "content": user_prompt},
         ],
     }
-    data = _request("text", payload)
-    return (data["choices"][0]["message"]["content"] or "").strip()
+    data = _request("text", payload, accept=accept)
+    return _content(data).strip()
 
 
 # ─────────────────────────────────────────── DARAJA INSTRUCTIONLARI
