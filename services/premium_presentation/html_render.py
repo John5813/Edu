@@ -365,6 +365,51 @@ _FIT_SCRIPT = r"""
 # Varaq pastida qoldiriladigan eng kam chet (px).
 _FIT_MARGIN = 40
 
+# Oxirgi chora: uch bosqichdan keyin ham sig'magan mazmun bir tekis
+# kichraytiriladi — shrift, qator oralig'i, bo'shliqlar va rasmlar.
+# Ilgari bunday varaq shundayligicha qolib, pastki kartochka izohi
+# PowerPointda kesilib ketardi.
+_SHRINK_SCRIPT = r"""
+(factor) => {
+  const slide = document.querySelector("section.slide");
+  if (!slide) return 0;
+  const px = (v) => parseFloat(v) || 0;
+  const items = Array.from(slide.querySelectorAll(".head, .body, .head *, .body *"));
+  const plan = items.map((el) => {
+    const s = getComputedStyle(el);
+    return {el, s: {
+      fontSize: px(s.fontSize), lineHeight: s.lineHeight,
+      rowGap: px(s.rowGap), columnGap: px(s.columnGap),
+      paddingTop: px(s.paddingTop), paddingBottom: px(s.paddingBottom),
+      marginTop: px(s.marginTop), marginBottom: px(s.marginBottom),
+      height: px(s.height), width: px(s.width),
+    }, tag: el.tagName.toLowerCase()};
+  });
+  for (const {el, s, tag} of plan) {
+    const st = el.style;
+    if (s.fontSize) st.fontSize = (s.fontSize * factor) + "px";
+    if (String(s.lineHeight).endsWith("px")) st.lineHeight = (px(s.lineHeight) * factor) + "px";
+    if (s.rowGap) st.rowGap = (s.rowGap * factor) + "px";
+    if (s.columnGap) st.columnGap = (s.columnGap * factor) + "px";
+    st.paddingTop = (s.paddingTop * factor) + "px";
+    st.paddingBottom = (s.paddingBottom * factor) + "px";
+    if (s.marginTop > 0) st.marginTop = (s.marginTop * factor) + "px";
+    if (s.marginBottom > 0) st.marginBottom = (s.marginBottom * factor) + "px";
+    if (tag === "svg" || tag === "img" || tag === "canvas") {
+      st.height = (s.height * factor) + "px";
+      st.width = (s.width * factor) + "px";
+    }
+  }
+  let low = 0;
+  for (const el of slide.querySelectorAll(".head *, .body *")) {
+    const r = el.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) continue;
+    low = Math.max(low, r.bottom);
+  }
+  return low;
+}
+"""
+
 
 def fit(page) -> int:
     """Mazmun varaqqa sig'maguncha bosqichma-bosqich zichlaydi.
@@ -373,7 +418,7 @@ def fit(page) -> int:
     kartochkalar yoki oxirgi bandlar varaq chetidan chiqib, PowerPointda
     kesilib qoladi. Buni modelga qayta yozdirish ishonchsiz va
     qimmat — shuning uchun avval oraliqlar, keyin shrift kichraytiriladi.
-    Sig'gan varaqqa tegilmaydi. Qaytaradi: qo'llangan bosqich (0-3).
+    Sig'gan varaqqa tegilmaydi. Qaytaradi: qo'llangan bosqich (0-4).
     """
     try:
         for level in range(4):
@@ -382,8 +427,14 @@ def fit(page) -> int:
                 if level:
                     log.info("Varaq sig'dirildi: %d-bosqich", level)
                 return level
-        log.warning("Varaq 3-bosqichda ham to'liq sig'madi")
-        return 3
+        for step in range(1, 6):
+            low = page.evaluate(_SHRINK_SCRIPT, 0.9)
+            if low <= SLIDE_H_PX - _FIT_MARGIN:
+                log.info("Varaq sig'dirildi: mazmun %d%% ga kichraytirildi",
+                         round(100 - 100 * 0.9 ** step))
+                return 4
+        log.warning("Varaq kichraytirilgandan keyin ham to'liq sig'madi")
+        return 4
     except Exception as exc:
         log.warning("Varaqni sig'dirib bo'lmadi: %s", exc)
         return 0

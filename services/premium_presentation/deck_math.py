@@ -136,11 +136,18 @@ def _accent(text: str, mark: str) -> str:
     return "".join(char + mark if char.isalnum() else char for char in text)
 
 
+# Yuqori/quyi shakli yo'q, lekin indeks ichida ma'nosi o'zgarmaydigan
+# belgilar. Ilgari bittasi uchrasa butun indeks oddiy matnga tushib,
+# mediana formulasidagi x_{(n+1)/2} "x ((n+1)/2)" bo'lib qolardi.
+_NEUTRAL = {"/": "⁄", ",": ",", ".": ".", "'": "′"}
+
+
 def _scripted(mark: str, body: str) -> str:
     """Daraja yoki indeksni yuqori/quyi belgiga o'giradi."""
     table = _SUP if mark == "^" else _SUB
-    if "<" not in body and all(char in table for char in body):
-        return "".join(table[char] for char in body)
+    if "<" not in body and any(char in table for char in body) and all(
+            char in table or char in _NEUTRAL for char in body):
+        return "".join(table.get(char) or _NEUTRAL[char] for char in body)
     if mark == "^":
         return "^" + _wrap(body)
     return " (" + body + ")"

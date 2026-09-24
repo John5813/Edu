@@ -2761,6 +2761,84 @@ def check_cover_credit():
           "Abdug" not in " ".join(texts) and "Alisher Navoiy" in " ".join(texts), str(texts))
 
 
+def check_inline_math_in_pptx():
+    """Misol qadamlari PowerPointda ham brauzerdagidek tursin.
+
+    "Matematik statistika" taqdimotida uch xato bor edi: matn ichidagi
+    kasr atrofidagi so'zlar bitta qutiga yopishib ("x̄ = = = 77.5")
+    kasr ustiga tushgan; doiradagi qadam raqami chap-yuqori burchakda
+    va qora rangda chiqqan; ikki formulali varaq sig'may, izohi kesilgan.
+    """
+    print("\n36) Kasrli qator, qadam raqami va sig'dirish")
+    check("indeksda kasr chizig'i qoladi",
+          deck_math.formula(r"M_e = x_{(n+1)/2}") == "Mₑ = x₍ₙ₊₁₎⁄₂")
+    check("daraja kasri", deck_math.formula(r"x^{1/2}") == "x¹⁄²")
+    if not html_render.available():
+        print("  (brauzer yo'q — PPTX tekshiruvi o'tkazib yuborildi)")
+        return
+    import tempfile
+    from pptx import Presentation
+    from pptx.util import Emu
+
+    theme = themes.get("ko'k")
+    head = lambda t: (f'<section class="slide"><div class="head"><h2 class="title">{t}'
+                      '</h2><div class="rule"></div></div><div class="body">')
+    step = lambda n, t: (f'<div class="misol-step"><span class="misol-num">{n}</span>'
+                         f'<div class="misol-text">{t}</div></div>')
+    misol = (head("Misol") + '<div class="misol"><div class="misol-tag">Misol</div>'
+             '<div class="misol-task">Ballar: 75, 80, 65.</div><div class="misol-steps">'
+             + step(1, "Yig'indi: $\\sum x_i = 775$.")
+             + step(2, "Formula bo'yicha: $\\bar{x} = \\frac{\\sum x_i}{n} = \\frac{775}{10} = 77.5$.")
+             + '</div><div class="misol-answer">Javob: 77.5.</div></div></div></section>')
+    item = lambda t: (f'<div class="item"><span class="item-dot"></span>'
+                      f'<div class="item-text">{t}</div></div>')
+    note = "Belgilar izohi va formula nimani hisoblashi haqida ikki-uch jumlalik tushuntirish. " * 2
+    crowded = (head("Markaziy tendensiya o'lchovlari") + '<div class="list">'
+               + "".join(item("Ma'lumotlar to'plamining markaziy nuqtasi haqida band.") for _ in range(3))
+               + '</div>' + "".join(
+                   '<div class="formula"><div class="formula-body">$\\bar{x} = '
+                   '\\frac{\\sum_{i=1}^{n} x_i}{n}$</div>'
+                   f'<div class="formula-note">{note}</div></div>' for _ in range(3))
+               + '</div></section>')
+    path = html_render.render(html_slides.build_pages([misol, crowded], theme),
+                              out_dir=tempfile.mkdtemp(), name="t36")
+    deck = Presentation(path)
+    px = lambda v: Emu(v).inches * 1920 / 13.333
+    shapes = list(deck.slides[0].shapes)
+    texts = [sh for sh in shapes if sh.has_text_frame and sh.text_frame.text.strip()]
+    joined = " | ".join(sh.text_frame.text for sh in texts)
+    check("kasr atrofidagi so'zlar bir-biriga yopishmaydi", "= =" not in joined, joined)
+
+    def overlap(a, b):
+        w = min(a.left + a.width, b.left + b.width) - max(a.left, b.left)
+        h = min(a.top + a.height, b.top + b.height) - max(a.top, b.top)
+        return w > Emu(914400 * 0.02) and h > Emu(914400 * 0.02)
+
+    frac_parts = [sh for sh in texts if sh.text_frame.text.strip() in ("∑ xᵢ", "n", "775", "10")]
+    others = [sh for sh in texts if sh not in frac_parts]
+    clash = [(a.text_frame.text, b.text_frame.text) for a in frac_parts for b in others if overlap(a, b)]
+    check("kasr qismlari boshqa matn ustiga tushmaydi", not clash and len(frac_parts) >= 4,
+          str(clash or len(frac_parts)))
+
+    number = next(sh for sh in texts if sh.text_frame.text.strip() == "1")
+    circle = min((sh for sh in shapes if not (sh.has_text_frame and sh.text_frame.text.strip())
+                  and abs(px(sh.width) - 48) < 4 and abs(px(sh.height) - 48) < 4),
+                 key=lambda sh: abs(sh.top - number.top))
+    centre = lambda sh: (px(sh.left) + px(sh.width) / 2, px(sh.top) + px(sh.height) / 2)
+    (nx, ny), (cx, cy) = centre(number), centre(circle)
+    check("qadam raqami doira o'rtasida", abs(nx - cx) < 3 and abs(ny - cy) < 3,
+          f"{nx:.0f},{ny:.0f} vs {cx:.0f},{cy:.0f}")
+    run = number.text_frame.paragraphs[0].runs[0]
+    check("qadam raqami doira ustida o'qiladi (oq)", str(run.font.color.rgb) == "FFFFFF",
+          str(run.font.color.rgb))
+
+    height = Emu(deck.slide_height).cm
+    lowest = max(Emu(sh.top + sh.height).cm for sh in deck.slides[1].shapes
+                 if sh.has_text_frame and sh.text_frame.text.strip())
+    check("sig'magan varaq kichraytirilib, pastda chet qoladi", lowest < height - 0.3,
+          f"{lowest:.2f} / {height:.2f}")
+
+
 def main():
     check_handler_names()
     check_prompt()
@@ -2807,6 +2885,7 @@ def main():
     check_no_half_decks()
     check_blocked_replies()
     check_cover_credit()
+    check_inline_math_in_pptx()
 
     print()
     if FAILS:
