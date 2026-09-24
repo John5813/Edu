@@ -376,6 +376,32 @@ def _prepare_browser() -> None:
     threading.Thread(target=run, name="browser-prepare", daemon=True).start()
 
 
+def _bot_session_kwargs() -> dict:
+    """Mahalliy Bot API server sozlangan bo'lsa — unga ulanadi.
+
+    Oddiy Bot API 20 MB dan katta faylni yuklab bermaydi; mahalliy server
+    2000 MB gacha beradi. Sozlanmagan bo'lsa bot avvalgidek ishlaydi.
+    """
+    from config import (TELEGRAM_API_FILES_LOCAL_DIR, TELEGRAM_API_FILES_SERVER_DIR,
+                        TELEGRAM_API_SERVER)
+
+    if not TELEGRAM_API_SERVER:
+        return {}
+    from pathlib import Path
+
+    from aiogram.client.session.aiohttp import AiohttpSession
+    from aiogram.client.telegram import SimpleFilesPathWrapper, TelegramAPIServer
+
+    extra = {}
+    if TELEGRAM_API_FILES_SERVER_DIR and TELEGRAM_API_FILES_LOCAL_DIR:
+        extra["wrap_local_file"] = SimpleFilesPathWrapper(
+            Path(TELEGRAM_API_FILES_SERVER_DIR), Path(TELEGRAM_API_FILES_LOCAL_DIR))
+    api = TelegramAPIServer.from_base(TELEGRAM_API_SERVER, is_local=True, **extra)
+    logger.info("Mahalliy Telegram Bot API server: %s", TELEGRAM_API_SERVER)
+    # Katta fayl yuborish sekin — standart 60 soniya yetmaydi.
+    return {"session": AiohttpSession(api=api, timeout=600)}
+
+
 async def main():
     """Main function to start the bot"""
     broken = check_lazy_imports()
@@ -425,10 +451,12 @@ async def main():
     # Initialize bot and dispatcher
     bot = Bot(
         token=BOT_TOKEN,
-        default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+        **_bot_session_kwargs(),
     )
-    
+
     dp = Dispatcher(storage=MemoryStorage())
+    webapp.DISPATCHER = dp
 
     # ── Global error handler ───────────────────────────────────────────────────
     # Catches TelegramBadRequest (expired/invalid callback query IDs) and other

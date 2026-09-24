@@ -63,7 +63,7 @@ def _extension(file_name: str, accept) -> str | None:
 
 
 async def receive(message, language: str, accept=DOCUMENTS, prefix: str = "upload",
-                  extract: bool = True) -> Upload | None:
+                  extract: bool = True, max_bytes: int | None = None) -> Upload | None:
     """Faylni tekshirib, yuklab oladi. Xato bo'lsa mijozga aytadi va None qaytaradi.
 
     `extract=False` — fayl matn uchun emas, o'zi kerak bo'lganda (masalan
@@ -86,12 +86,10 @@ async def receive(message, language: str, accept=DOCUMENTS, prefix: str = "uploa
 
     # Hajm yuklashdan OLDIN tekshiriladi: aks holda 200 MB lik kitob
     # diskka tushib, botni yiqitardi.
-    try:
-        document_source.check_size(document.file_size)
-    except document_source.SourceTooLarge:
+    limit = max_bytes or document_source.MAX_UPLOAD_BYTES
+    if document.file_size and document.file_size > limit:
         await message.answer(
-            get_text(language, "upload_too_large",
-                     limit=document_source.MAX_UPLOAD_BYTES // (1024 * 1024))
+            get_text(language, "upload_too_large", limit=limit // (1024 * 1024))
         )
         return None
 
@@ -99,7 +97,8 @@ async def receive(message, language: str, accept=DOCUMENTS, prefix: str = "uploa
     local_path = os.path.join(TEMP_DIR, f"{prefix}_{uuid.uuid4().hex[:10]}{extension}")
     try:
         telegram_file = await message.bot.get_file(document.file_id)
-        await message.bot.download_file(telegram_file.file_path, local_path)
+        # Katta faylga standart 30 soniya yetmaydi.
+        await message.bot.download_file(telegram_file.file_path, local_path, timeout=600)
     except Exception as e:
         logger.error("Fayl yuklab olinmadi (%s): %s", file_name, e)
         document_source.cleanup(local_path)

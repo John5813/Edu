@@ -1275,6 +1275,7 @@ async def handle_root(request: web.Request) -> web.Response:
 
 
 def create_web_app() -> web.Application:
+    from webapp.book_upload import setup_book_routes
     from webapp.store import setup_store_routes
 
     app = web.Application(client_max_size=60 * 1024 * 1024)
@@ -1286,6 +1287,7 @@ def create_web_app() -> web.Application:
     app.router.add_get("/api/templates", handle_templates_api)
     app.router.add_get("/api/template-image/{tid}", handle_template_image_api)
     setup_store_routes(app)
+    setup_book_routes(app)
     return app
 
 

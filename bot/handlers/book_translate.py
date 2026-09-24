@@ -2,8 +2,9 @@ import logging
 import os
 import re
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, FSInputFile
+from aiogram.types import Message, CallbackQuery, FSInputFile, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot import uploads
 from bot.states import BookTranslateStates, DocumentStates
@@ -16,7 +17,10 @@ from bot.keyboards import (
 )
 from database.database import Database
 from translations import get_text
-from config import TEMP_DIR
+from config import BOOK_MAX_UPLOAD_MB, TELEGRAM_DOWNLOAD_LIMIT, TELEGRAM_UPLOAD_LIMIT
+from services import book_pdf_translate
+from services import workload
+from webapp import book_upload
 from services.book_translate_service import (
     count_docx_words,
     count_estimated_pages,
@@ -24,11 +28,11 @@ from services.book_translate_service import (
     extract_pages_by_range,
     get_book_translate_price,
     translate_docx,
-    auto_convert_pdf_to_docx,
     extract_relevant_content_for_topic,
     detect_source_language,
 )
-from services.converter_service import get_pdf_page_count, get_pdf_info, extract_pdf_pages_to_docx
+
+_MB = 1024 * 1024
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -51,11 +55,31 @@ async def _cleanup_temp_file(state: FSMContext):
         pass
 
 
-@router.message(F.text.in_(list(BOOK_TRANSLATE_TEXTS.values())))
-async def handle_book_translate_start(message: Message, state: FSMContext, user_lang: str, db: Database, user):
+def _upload_keyboard(url: str, user_lang: str):
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(text=get_text(user_lang, "book_upload_button"), url=url))
+    return keyboard.as_markup()
+
+
+async def _ask_for_file(message: Message, state: FSMContext, user_lang: str) -> None:
+    await _cleanup_temp_file(state)
     await state.clear()
     await state.set_state(BookTranslateStates.waiting_for_file)
-    await message.answer(get_text(user_lang, "book_translate_send_file"))
+    if TELEGRAM_DOWNLOAD_LIMIT >= BOOK_MAX_UPLOAD_MB * _MB:
+        # Mahalliy Bot API server bor — hamma fayl Telegram orqali keladi.
+        await message.answer(get_text(user_lang, "book_translate_send_file"))
+        return
+    url = book_upload.new_upload_link(message.from_user.id, message.chat.id, user_lang)
+    await message.answer(
+        get_text(user_lang, "book_send_file", limit=TELEGRAM_DOWNLOAD_LIMIT // _MB,
+                 max=BOOK_MAX_UPLOAD_MB),
+        reply_markup=_upload_keyboard(url, user_lang),
+    )
+
+
+@router.message(F.text.in_(list(BOOK_TRANSLATE_TEXTS.values())))
+async def handle_book_translate_start(message: Message, state: FSMContext, user_lang: str, db: Database, user):
+    await _ask_for_file(message, state, user_lang)
 
 
 from aiogram.filters import Command
@@ -65,33 +89,60 @@ from aiogram.filters import Command
 async def handle_book_command(message: Message, state: FSMContext, user_lang: str, db: Database, user):
     """Hidden /book command to access book translation feature."""
     logger.info("Book translation command received: user_id=%s", message.from_user.id)
-    await state.clear()
-    await state.set_state(BookTranslateStates.waiting_for_file)
-    await message.answer(get_text(user_lang, "book_translate_send_file"))
+    await _ask_for_file(message, state, user_lang)
 
 
 @router.message(BookTranslateStates.waiting_for_file)
 async def handle_book_translate_file(message: Message, state: FSMContext, user_lang: str, db: Database, user):
-    # Kitob tarjimasi eng katta fayllarni oladi, shuning uchun hajm
-    # tekshiruvi shu yerda ayniqsa muhim: ilgari u umuman yo'q edi va
-    # yuz megabaytli kitob botni yiqitardi.
-    upload = await uploads.receive(message, user_lang, accept=uploads.TEXT_SOURCES,
-                                   prefix="bt_input", extract=False)
-    if upload is None:
+    # Telegram bot'ga 20 MB dan kattasini bermaydi (mahalliy serversiz).
+    # Bunday fayl yuklab olinmaydi — mijozga saytga yuklash havolasi beriladi.
+    document = message.document
+    size = (document.file_size or 0) if document else 0
+    if size > BOOK_MAX_UPLOAD_MB * _MB:
+        await message.answer(get_text(user_lang, "book_too_big", size=round(size / _MB),
+                                      max=BOOK_MAX_UPLOAD_MB))
+        return
+    if size > TELEGRAM_DOWNLOAD_LIMIT:
+        url = book_upload.new_upload_link(message.from_user.id, message.chat.id, user_lang)
+        await message.answer(
+            get_text(user_lang, "book_too_big_for_telegram", size=round(size / _MB),
+                     limit=TELEGRAM_DOWNLOAD_LIMIT // _MB),
+            reply_markup=_upload_keyboard(url, user_lang),
+        )
         return
 
-    file_name = upload.file_name
-    is_pdf = upload.extension == ".pdf"
-    local_path = upload.path
+    upload = await uploads.receive(message, user_lang, accept=uploads.TEXT_SOURCES,
+                                   prefix="bt_input", extract=False,
+                                   max_bytes=min(TELEGRAM_DOWNLOAD_LIMIT,
+                                                 BOOK_MAX_UPLOAD_MB * _MB))
+    if upload is None:
+        return
+    book_upload.forget_upload_links(message.from_user.id)
+    await _accept_book(message.bot, message.chat.id, state, user_lang,
+                       upload.path, upload.file_name)
 
-    wait_msg = await message.answer(get_text(user_lang, "book_translate_checking"))
+
+async def _accept_book(bot, chat_id: int, state: FSMContext, user_lang: str,
+                       local_path: str, file_name: str) -> None:
+    """Qabul qilingan kitobni tahlil qiladi va varoq oralig'ini so'raydi.
+
+    Telegram orqali ham, sayt orqali kelgan fayl ham shu yerdan o'tadi.
+    """
+    import asyncio
+
+    is_pdf = local_path.lower().endswith(".pdf")
+    wait_msg = await bot.send_message(chat_id, get_text(user_lang, "book_translate_checking"))
     try:
-
         if is_pdf:
-            pdf_info = get_pdf_info(local_path)
-            total_pages = pdf_info["total_pages"]
-            word_count = pdf_info["word_count"]
-            source_lang = pdf_info["source_lang"]
+            info = await asyncio.to_thread(book_pdf_translate.inspect_pdf, local_path)
+            if info.is_scanned:
+                await wait_msg.delete()
+                await bot.send_message(chat_id, get_text(user_lang, "book_scanned"),
+                                       reply_markup=get_main_keyboard(user_lang))
+                os.remove(local_path)
+                await state.clear()
+                return
+            total_pages, word_count, source_lang = info.total_pages, info.words, info.source_lang
             await state.update_data(
                 pdf_path=local_path,
                 local_path=None,
@@ -102,7 +153,8 @@ async def handle_book_translate_file(message: Message, state: FSMContext, user_l
             )
         else:
             docx_path = local_path
-            await state.update_data(local_path=docx_path, original_filename=file_name)
+            await state.update_data(local_path=docx_path, pdf_path=None,
+                                    original_filename=file_name)
             word_count = count_docx_words(docx_path)
             total_pages = count_estimated_pages(docx_path)
             source_lang = detect_source_language(docx_path)
@@ -110,7 +162,8 @@ async def handle_book_translate_file(message: Message, state: FSMContext, user_l
 
         await wait_msg.delete()
 
-        await message.answer(
+        await bot.send_message(
+            chat_id,
             get_text(user_lang, "book_translate_enter_range", total=total_pages),
             parse_mode="Markdown"
         )
@@ -122,9 +175,33 @@ async def handle_book_translate_file(message: Message, state: FSMContext, user_l
             await wait_msg.delete()
         except Exception:
             pass
-        await message.answer(get_text(user_lang, "book_translate_error"))
+        await bot.send_message(chat_id, get_text(user_lang, "book_translate_error"))
         await _cleanup_temp_file(state)
+        if os.path.exists(local_path):
+            os.remove(local_path)
         await state.clear()
+
+
+async def _on_web_upload(record: dict, path: str, file_name: str) -> None:
+    """Saytdan yuklangan kitobni mijozning bot oqimiga ulaydi."""
+    import webapp
+    from aiogram.fsm.storage.base import StorageKey
+
+    bot, dispatcher = webapp.BOT, webapp.DISPATCHER
+    if bot is None or dispatcher is None:
+        raise RuntimeError("bot hali ishga tushmagan")
+    key = StorageKey(bot_id=bot.id, chat_id=record["chat_id"], user_id=record["user_id"])
+    state = FSMContext(storage=dispatcher.storage, key=key)
+    user_lang = record.get("lang") or "uz"
+    # Mijoz shu orada boshqa kitob yuborgan bo'lsa, eskisi tashlanadi.
+    await _cleanup_temp_file(state)
+    await state.clear()
+    await bot.send_message(record["chat_id"],
+                           get_text(user_lang, "book_web_received", name=file_name))
+    await _accept_book(bot, record["chat_id"], state, user_lang, path, file_name)
+
+
+book_upload.ON_UPLOAD = _on_web_upload
 
 
 @router.message(BookTranslateStates.waiting_for_line_range)
@@ -262,51 +339,163 @@ async def handle_bt_pay_balance(callback: CallbackQuery, state: FSMContext, user
         await callback.message.answer(get_text(user_lang, "insufficient_balance"))
         return
 
-    local_path = data.get("local_path")
-    target_lang = data.get("target_lang", "en")
-    original_filename = data.get("original_filename", "document.docx")
-    page_from = data.get("page_from")
-    page_to = data.get("page_to")
-
     await state.set_state(BookTranslateStates.translating)
     try:
         await callback.message.delete()
     except Exception:
         pass
 
+    pdf_path = data.get("pdf_path")
+    if pdf_path and os.path.exists(pdf_path):
+        await _translate_pdf_book(callback, state, user_lang, db, user, data, price)
+    else:
+        await _translate_docx_book(callback, state, user_lang, db, user, data, price)
+
+
+def _out_name(original_filename: str, target_lang: str, page_from, page_to, ext: str) -> str:
+    base = os.path.splitext(original_filename or "kitob")[0]
+    if base.lower().endswith(".pdf"):
+        base = base[:-4]
+    suffix = f"_{target_lang}"
+    if page_from and page_to:
+        return f"{base}_v{page_from}_{page_to}{suffix}{ext}"
+    return f"{base}{suffix}{ext}"
+
+
+async def _translate_pdf_book(callback: CallbackQuery, state: FSMContext, user_lang: str,
+                              db: Database, user, data: dict, price: int) -> None:
+    """PDF kitob: matn joyida tarjima qilinadi, rasmlar qoladi."""
+    import time
+
+    pdf_path = data["pdf_path"]
+    target_lang = data.get("target_lang", "uz")
+    page_from, page_to = data.get("page_from"), data.get("page_to")
+    pages = (page_to - page_from + 1) if page_from and page_to else data.get("total_pages", 0)
+    message = callback.message
+
+    processing_msg = await message.answer(
+        get_text(user_lang, "book_progress", percent=0, pages=pages))
+    last_edit = [0.0, 0]
+
+    async def progress(done: int, total: int) -> None:
+        percent = min(99, int(done * 100 / max(total, 1)))
+        now = time.monotonic()
+        if percent - last_edit[1] < 5 or now - last_edit[0] < 15:
+            return
+        last_edit[:] = [now, percent]
+        try:
+            await processing_msg.edit_text(
+                get_text(user_lang, "book_progress", percent=percent, pages=pages))
+        except Exception:
+            pass
+
+    job = workload.begin(f"Kitob tarjimasi ({pages} bet)")
+    result = None
+    shared = False
+    try:
+        logger.info("Kitob tarjimasi boshlandi: user=%s, %s bet, til=%s",
+                    user.telegram_id, pages, target_lang)
+        result = await book_pdf_translate.translate_pdf(
+            pdf_path, target_lang, source_lang=data.get("source_lang"),
+            page_from=page_from, page_to=page_to, progress=progress)
+        # Ko'p qismi tarjima qilinmagan bo'lsa, bu yaroqli ish emas.
+        if result.failed_share > 0.15:
+            raise book_pdf_translate.BookTranslateError(
+                f"{result.failed}/{result.blocks} blok tarjima qilinmadi")
+
+        await db.update_user_balance(user.telegram_id, -price)
+        logger.info("Kitob tarjimasi tayyor: user=%s, %.1f MB, %d/%d blok qoldi",
+                    user.telegram_id, result.size / _MB, result.failed, result.blocks)
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
+        out_name = _out_name(data.get("original_filename"), target_lang, page_from, page_to, ".pdf")
+        # Telegram'ga sig'masa — saytdan yuklab olish havolasi.
+        if result.size > TELEGRAM_UPLOAD_LIMIT - 512 * 1024:
+            url = book_upload.new_download_link(result.path, out_name)
+            shared = True
+            keyboard = InlineKeyboardBuilder()
+            keyboard.add(InlineKeyboardButton(
+                text=get_text(user_lang, "book_download_button"), url=url))
+            await message.answer(
+                get_text(user_lang, "book_pdf_done") + "\n\n" +
+                get_text(user_lang, "book_download_link", size=round(result.size / _MB)),
+                reply_markup=keyboard.as_markup())
+        else:
+            # Katta faylni yuborish sekin — standart 60 soniya yetmaydi.
+            await message.bot.send_document(
+                message.chat.id,
+                document=FSInputFile(result.path, filename=out_name),
+                caption=get_text(user_lang, "book_pdf_done"),
+                request_timeout=600,
+            )
+        if result.failed:
+            await message.answer(get_text(user_lang, "book_pdf_partial", failed=result.failed))
+        await message.answer(get_text(user_lang, "book_pdf_note"))
+
+        book_topic = os.path.splitext(data.get("original_filename") or "")[0][:100]
+        await state.update_data(book_topic=book_topic, translated_path=result.path,
+                                translated_shared=shared)
+        await state.set_state(BookTranslateStates.post_translation)
+        await message.answer(
+            get_text(user_lang, "book_translate_post_services"),
+            reply_markup=get_post_translation_keyboard(user_lang)
+        )
+    except Exception as e:
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        if isinstance(e, book_pdf_translate.BookNoCredits):
+            from bot.handlers.premium_presentation import _warn_admins_no_credits
+
+            await _warn_admins_no_credits(callback.bot, f"Kitob tarjimasi: {e}")
+            text = get_text(user_lang, "book_no_credits")
+        elif isinstance(e, book_pdf_translate.ScannedBook):
+            text = get_text(user_lang, "book_scanned")
+        else:
+            logger.exception("Kitob tarjimasida xato: %s", e)
+            text = get_text(user_lang, "book_translate_error")
+        await message.answer(text, reply_markup=get_main_keyboard(user_lang))
+        if result and os.path.exists(result.path):
+            os.remove(result.path)
+        await state.clear()
+    finally:
+        workload.end(job)
+        if os.path.exists(pdf_path):
+            try:
+                os.remove(pdf_path)
+            except OSError:
+                pass
+
+
+async def _translate_docx_book(callback: CallbackQuery, state: FSMContext, user_lang: str,
+                               db: Database, user, data: dict, price: int) -> None:
+    local_path = data.get("local_path")
+    target_lang = data.get("target_lang", "en")
+    original_filename = data.get("original_filename", "document.docx")
+    page_from = data.get("page_from")
+    page_to = data.get("page_to")
+
     processing_msg = await callback.message.answer(get_text(user_lang, "book_translate_processing"))
 
-    pdf_path = data.get("pdf_path")
     range_path = None
-    full_pdf_docx = None
     translate_path = local_path
+    job = workload.begin("Kitob tarjimasi (Word)")
     try:
         if page_from and page_to:
             logger.info(f"Extracting pages {page_from}-{page_to} for user {user.telegram_id}")
-            if pdf_path and os.path.exists(pdf_path):
-                range_path = await extract_pdf_pages_to_docx(pdf_path, page_from, page_to)
-            else:
-                range_path = extract_pages_by_range(local_path, page_from, page_to)
+            range_path = extract_pages_by_range(local_path, page_from, page_to)
             translate_path = range_path
-        elif pdf_path and os.path.exists(pdf_path) and not local_path:
-            logger.info(f"Converting full PDF to DOCX for user {user.telegram_id}")
-            full_pdf_docx = await auto_convert_pdf_to_docx(pdf_path)
-            translate_path = full_pdf_docx
 
         logger.info(f"Starting translation for user {user.telegram_id}: lang={target_lang}, pages={page_from}-{page_to or 'ALL'}")
         out_path = await translate_docx(translate_path, target_lang)
         await db.update_user_balance(user.telegram_id, -price)
         logger.info(f"Translation complete for user {user.telegram_id}: {out_path}")
 
-        base, ext = os.path.splitext(original_filename)
-        if base.lower().endswith(".pdf"):
-            base = base[:-4]
-        lang_suffixes = {"uz": "_uz", "ru": "_ru", "en": "_en"}
-        if page_from and page_to:
-            out_filename = f"{base}_v{page_from}_{page_to}{lang_suffixes.get(target_lang, f'_{target_lang}')}.docx"
-        else:
-            out_filename = f"{base}{lang_suffixes.get(target_lang, f'_{target_lang}')}.docx"
-
+        out_filename = _out_name(original_filename, target_lang, page_from, page_to, ".docx")
         doc_file = FSInputFile(out_path, filename=out_filename)
         try:
             await processing_msg.delete()
@@ -319,8 +508,9 @@ async def handle_bt_pay_balance(callback: CallbackQuery, state: FSMContext, user
         # Mualiflik huquqi haqida eslatma
         await callback.message.answer(get_text(user_lang, "book_translate_copyright_note"))
 
-        book_topic = base[:100]
-        await state.update_data(book_topic=book_topic, translated_path=out_path)
+        book_topic = os.path.splitext(original_filename)[0][:100]
+        await state.update_data(book_topic=book_topic, translated_path=out_path,
+                                translated_shared=False)
         await state.set_state(BookTranslateStates.post_translation)
         await callback.message.answer(
             get_text(user_lang, "book_translate_post_services"),
@@ -339,18 +529,24 @@ async def handle_bt_pay_balance(callback: CallbackQuery, state: FSMContext, user
         )
         await state.clear()
     finally:
+        workload.end(job)
         try:
             if local_path and os.path.exists(local_path):
                 os.remove(local_path)
-            pdf_path = data.get("pdf_path")
-            if pdf_path and os.path.exists(pdf_path):
-                os.remove(pdf_path)
             if range_path and os.path.exists(range_path):
                 os.remove(range_path)
-            if full_pdf_docx and os.path.exists(full_pdf_docx):
-                os.remove(full_pdf_docx)
         except Exception:
             pass
+
+
+def _drop_translated(data: dict) -> None:
+    """Tarjima faylini o'chiradi — saytdan yuklab olinadigan bo'lsa qoldiradi."""
+    path = data.get("translated_path")
+    if path and os.path.exists(path) and not data.get("translated_shared"):
+        try:
+            os.remove(path)
+        except OSError:
+            logger.warning("Could not remove translated book file: %s", path)
 
 
 @router.callback_query(F.data.startswith("bt_post_"), BookTranslateStates.post_translation)
@@ -366,12 +562,7 @@ async def handle_post_translation_service(callback: CallbackQuery, state: FSMCon
         pass
 
     if action == "no_thanks":
-        translated_path = data.get("translated_path")
-        if translated_path and os.path.exists(translated_path):
-            try:
-                os.remove(translated_path)
-            except OSError:
-                logger.warning("Could not remove translated book file: %s", translated_path)
+        _drop_translated(data)
         await state.clear()
         await callback.message.answer(
             get_text(user_lang, "book_translate_main_menu"),
@@ -421,25 +612,28 @@ async def handle_book_translate_doc_topic(message: Message, state: FSMContext, u
     book_content = ""
     try:
         if translated_path and os.path.exists(translated_path):
-            from docx import Document as DocxDocument
-            docx_doc = DocxDocument(translated_path)
-            paragraphs = []
-            word_count = 0
-            for para in docx_doc.paragraphs:
-                text = para.text.strip()
-                if not text:
-                    continue
-                paragraphs.append(text)
-                word_count += len(text.split())
-                if word_count > 15000:
-                    break
-            raw_content = "\n\n".join(paragraphs)
-            if len(raw_content) > 60000:
-                raw_content = raw_content[:60000]
-            try:
-                os.remove(translated_path)
-            except Exception:
-                pass
+            if translated_path.lower().endswith(".pdf"):
+                import asyncio
+
+                raw_content = await asyncio.to_thread(book_pdf_translate.read_text,
+                                                      translated_path)
+            else:
+                from docx import Document as DocxDocument
+                docx_doc = DocxDocument(translated_path)
+                paragraphs = []
+                word_count = 0
+                for para in docx_doc.paragraphs:
+                    text = para.text.strip()
+                    if not text:
+                        continue
+                    paragraphs.append(text)
+                    word_count += len(text.split())
+                    if word_count > 15000:
+                        break
+                raw_content = "\n\n".join(paragraphs)
+                if len(raw_content) > 60000:
+                    raw_content = raw_content[:60000]
+            _drop_translated(data)
             book_content = await extract_relevant_content_for_topic(raw_content, topic, user_lang)
     except Exception as e:
         logger.warning(f"Could not read translated file: {e}")
