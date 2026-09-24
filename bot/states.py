@@ -27,6 +27,8 @@ class DocumentStates(StatesGroup):
     # Mustaqil ish: butun reja bitta xabarda, keyin tasdiqlash.
     waiting_for_iw_plan_text = State()
     waiting_for_iw_plan_confirm = State()
+    # Mavzu tili tanlangan tildan farq qilsa — qaysi tilda yozilishi so'raladi.
+    waiting_for_topic_language = State()
     waiting_for_dissertation_pages = State()
     waiting_for_extras_choice = State()
     waiting_for_outline_choice = State()
