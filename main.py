@@ -533,6 +533,10 @@ async def main():
     dp.callback_query.middleware(LanguageMiddleware())
     dp.pre_checkout_query.middleware(LanguageMiddleware())
     
+    # Buyruq tugallanmagan suhbat holatini bekor qiladi (/admin, /start, /book...).
+    from bot.middlewares import CommandResetMiddleware
+    dp.message.outer_middleware(CommandResetMiddleware())
+
     # Block check middleware - must be last to check after database is injected
     from bot.middlewares import BlockedUserMiddleware
     dp.message.middleware(BlockedUserMiddleware())
