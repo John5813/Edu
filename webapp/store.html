@@ -169,6 +169,14 @@ async function loadKinds() {
     `<a class="kind-tab${on('')}" href="/shop" data-k="">Hammasi</a>` +
     kinds.map(k => `<a class="kind-tab${on(k.key)}" data-k="${esc(k.key)}"
         href="/shop?type=${encodeURIComponent(k.key)}">${esc(k.label)} <i>${k.count}</i></a>`).join('');
+  showActive($('#kinds'));
+}
+
+/* Tanlangan tugma yonga suriladigan qatorning ko'rinmas qismida qolmasin. */
+function showActive(row) {
+  const on = row.querySelector('.on');
+  if (!on || on === row.firstElementChild) return;
+  row.scrollLeft = on.offsetLeft - (row.clientWidth - on.offsetWidth) / 2;
 }
 
 /* ── Fanlar ──────────────────────────────── */
@@ -186,6 +194,7 @@ async function loadCats() {
     `<a class="chip${on('')}" href="/shop" data-c="">Hammasi</a>` +
     cats.map(c => `<a class="chip${on(c.name)}" href="/shop?category=${encodeURIComponent(c.name)}"
         data-c="${esc(c.name)}">${esc(c.name)} (${c.count})</a>`).join('');
+  showActive($('#cats'));
 }
 
 /* ── Hodisalar ───────────────────────────── */

@@ -24,7 +24,7 @@ a{color:inherit}
 
 /* ── Sarlavha ─────────────────────────────── */
 header{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
-.head-in{display:flex;align-items:center;gap:16px;padding:14px 0;flex-wrap:wrap}
+.head-in{display:flex;align-items:center;gap:16px;padding-top:14px;padding-bottom:14px;flex-wrap:wrap}
 .logo{font-size:18px;font-weight:700;letter-spacing:-.02em;white-space:nowrap;cursor:pointer;
       background:none;border:0;color:var(--text);font-family:inherit;text-decoration:none}
 .logo span{color:var(--accent)}
@@ -41,8 +41,18 @@ header{background:var(--card);border-bottom:1px solid var(--line);position:stick
 .create[hidden]{display:none}
 
 /* ── Ish turi: katalogning asosiy bo'linishi ─ */
-.kinds{display:flex;gap:8px;flex-wrap:wrap;padding:18px 0 4px;
-       border-bottom:1px solid var(--line);margin-bottom:2px}
+/* Turlar va fanlar ko'payib ketdi — ular bir qatorda turadi va yonga
+   suriladi. O'ng chetdagi so'nish davomi borligini ko'rsatadi. */
+.kinds,.chips{
+  display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;position:relative;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;
+  scroll-snap-type:x proximity;padding-right:28px;
+  -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent);
+          mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent);
+}
+.kinds::-webkit-scrollbar,.chips::-webkit-scrollbar{display:none}
+.kinds>*,.chips>*{flex-shrink:0;scroll-snap-align:start}
+.kinds{padding-top:18px;padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:2px}
 .kind-tab{
   padding:9px 15px;border-radius:9px;border:1px solid var(--line);background:var(--card);
   color:var(--text);font-family:inherit;cursor:pointer;text-decoration:none;
@@ -65,7 +75,7 @@ header{background:var(--card);border-bottom:1px solid var(--line);position:stick
 
 /* ── Filtrlar ─────────────────────────────── */
 .filters{display:flex;gap:10px;align-items:center;padding:16px 0 6px;flex-wrap:wrap}
-.chips{display:flex;gap:8px;flex-wrap:wrap;flex:1}
+.chips{flex:1;min-width:0;max-width:100%;padding-bottom:2px}
 .chip{
   padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);
   color:var(--muted);font-size:13.5px;font-family:inherit;cursor:pointer;white-space:nowrap;
