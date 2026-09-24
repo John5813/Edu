@@ -516,6 +516,10 @@ def _count(data: dict) -> None:
     USAGE["output"] += int(usage.get("completion_tokens") or 0)
 
 
+class NoCredits(RuntimeError):
+    """OpenRouter hisobida mablag' tugagan (HTTP 402)."""
+
+
 # Provayder javobni to'xtatganini bildiradigan sabablar. Gemini hujjat
 # yoki nutq matniga o'xshash javobni "RECITATION" deb kesadi — farmon va
 # davlat choralari haqidagi mavzularda bu tez-tez bo'ladi. HTTP 200
@@ -611,6 +615,10 @@ def _request(kind: str, payload: dict, timeout: int = 180,
                     config.OPENROUTER_URL, headers=headers,
                     json=_body({**payload, "max_tokens": afford}, model),
                     timeout=timeout)
+            if getattr(resp, "status_code", 0) == 402:
+                # Hisob bitta: boshqa modelga o'tish ham, qolgan
+                # slaydlarni so'rash ham shu xatoni qaytaradi.
+                raise NoCredits((getattr(resp, "text", "") or "")[:300])
             resp.raise_for_status()
             data = resp.json()
         except requests.exceptions.RequestException as e:

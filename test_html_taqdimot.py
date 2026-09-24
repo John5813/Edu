@@ -2617,6 +2617,44 @@ def check_blocked_replies():
         llm_client._preferred.clear()
         llm_client._preferred.update(saved[4])
 
+    class Broke(Resp):
+        status_code = 402
+        text = ('{"error":{"message":"This request requires more credits, or '
+                'fewer max_tokens. You requested up to 4200 tokens, but can '
+                'only afford 217."}}')
+
+        def raise_for_status(self):
+            raise llm_client.requests.exceptions.HTTPError("402")
+
+    tried = []
+
+    def broke(url, headers=None, json=None, timeout=None):
+        tried.append(json["model"])
+        return Broke({})
+
+    saved = (llm_client.requests.post, llm_client.config.OPENROUTER_API_KEY,
+             llm_client.config.OPENROUTER_TEXT_MODELS)
+    try:
+        llm_client.requests.post = broke
+        llm_client.config.OPENROUTER_API_KEY = "test"
+        llm_client.config.OPENROUTER_TEXT_MODELS = ["a", "b", "c"]
+        try:
+            html_slides._write_chunk("s", "u", 1)
+            raised = False
+        except llm_client.NoCredits:
+            raised = True
+    finally:
+        (llm_client.requests.post, llm_client.config.OPENROUTER_API_KEY,
+         llm_client.config.OPENROUTER_TEXT_MODELS) = saved
+    check("mablag' tugasa (402) boshqa modellar sinalmaydi va xato ko'tariladi",
+          raised and tried == ["a"], str(tried))
+    handler = open("bot/handlers/premium_presentation.py", encoding="utf-8").read()
+    check("402 da adminga xabar boradi",
+          "_warn_admins_no_credits(callback.bot" in handler)
+    check("xato bilan tugagan ish admin panelda osilib qolmaydi",
+          'logger.exception("Premium taqdimot generatsiyasida xato: %s", e)\n'
+          '        workload.end(work_id)' in handler)
+
     flash = llm_client._body({"max_tokens": 4200}, "google/gemini-2.5-flash")
     check("Gemini 2.5 Flash o'ylashi chegaralanadi, javob joyi saqlanadi",
           flash.get("reasoning", {}).get("max_tokens") == 1024
