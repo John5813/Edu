@@ -2795,8 +2795,128 @@ async def _ai_settings_text(db: Database) -> str:
         f"\n💎 <b>Zamonaviy taqdimot</b>\n"
         f"   {premium_info['name']} — {premium_info['price']}\n"
         f"{served_line(premium_llm._WORKING.get('text'), premium_info)}"
+        f"\n🖼 <b>Rasm modellari</b>\n"
+        f"{await _image_models_text(db)}"
         "\nQaysi xizmat uchun modelni almashtirasiz?"
     )
+
+
+async def _image_model_state(db: Database, target: str) -> tuple:
+    """(katalog kaliti yoki None, model ID'si) — hozir shu xizmatda ishlaydigan."""
+    from config import IMAGE_MODELS
+    from services.together_service import _env_default
+
+    key = await db.get_image_model(target)
+    if key in IMAGE_MODELS:
+        return key, IMAGE_MODELS[key]["id"]
+    model_id = _env_default(target)
+    for catalog_key, info in IMAGE_MODELS.items():
+        if info["id"].lower() == model_id.lower():
+            return catalog_key, model_id
+    return None, model_id
+
+
+async def _image_models_text(db: Database) -> str:
+    from bot.keyboards import IMAGE_TARGET_TITLES
+    from config import IMAGE_MODELS
+
+    lines = []
+    for target, title in IMAGE_TARGET_TITLES.items():
+        key, model_id = await _image_model_state(db, target)
+        if key:
+            info = IMAGE_MODELS[key]
+            label = f"{info['name']} — {info['price']}"
+        else:
+            label = f"<code>{model_id}</code>"
+        lines.append(f"   {title}: {label}\n")
+    return "".join(lines)
+
+
+@router.callback_query(F.data.startswith("img_model_target_"))
+async def image_model_target(callback: CallbackQuery, db: Database):
+    """Tanlangan xizmat uchun rasm modellari ro'yxati."""
+    if not is_admin(callback.from_user.id):
+        return
+
+    from bot.keyboards import IMAGE_TARGET_TITLES, get_image_model_selection_keyboard
+    from config import IMAGE_MODELS
+
+    target = callback.data.replace("img_model_target_", "")
+    if target not in IMAGE_TARGET_TITLES:
+        await callback.answer("❌ Noma'lum bo'lim.")
+        return
+
+    key, model_id = await _image_model_state(db, target)
+    if key:
+        info = IMAGE_MODELS[key]
+        current = (f"📌 Hozirgi model: <b>{info['name']}</b>\n"
+                   f"💰 Bitta rasm: {info['price']}\n"
+                   f"📝 {info['description']}\n\n")
+    else:
+        current = f"📌 Hozirgi model: <code>{model_id}</code>\n\n"
+    await callback.message.edit_text(
+        f"🖼 <b>Rasm modeli: {IMAGE_TARGET_TITLES[target]}</b>\n\n"
+        f"{current}"
+        "Narx — bitta rasm uchun taxminiy. Tanlangan model ishlamay qolsa, "
+        "bot avtomatik FLUX.2 Pro → FLUX 1.1 Pro → FLUX Schnell ga o'tadi.\n\n"
+        "Modelni tanlang:",
+        reply_markup=get_image_model_selection_keyboard(key, target),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("select_img_model_"))
+async def select_image_model(callback: CallbackQuery, db: Database):
+    """Rasm modelini tanlaydi — avval Together hisobida borligini tekshiradi."""
+    if not is_admin(callback.from_user.id):
+        return
+
+    import asyncio
+
+    from bot.keyboards import IMAGE_TARGET_TITLES
+    from config import IMAGE_MODELS
+    from services import together_service
+
+    suffix = callback.data.replace("select_img_model_", "")
+    target = next((t for t in IMAGE_TARGET_TITLES if suffix.startswith(f"{t}_")), None)
+    model_key = suffix[len(target) + 1:] if target else ""
+    if not target or model_key not in IMAGE_MODELS:
+        await callback.answer("❌ Model topilmadi.")
+        return
+
+    current_key, _ = await _image_model_state(db, target)
+    if model_key == current_key:
+        await callback.answer("Bu model allaqachon tanlangan!")
+        return
+
+    # Katalogdagi nomlar Together'da o'zgarib turadi. Hisobdagi modellar
+    # ro'yxati bepul olinadi — rasm chizib pul sarflamasdan tekshiramiz.
+    info = IMAGE_MODELS[model_key]
+    await callback.answer("Model tekshirilmoqda…")
+    available = await asyncio.to_thread(together_service.list_account_image_models)
+    if available is not None and info["id"].lower() not in available:
+        await callback.message.answer(
+            f"❌ <b>{info['name']}</b> (<code>{info['id']}</code>) Together "
+            "hisobingizda topilmadi, model almashtirilmadi.\n\n"
+            "Model nomi o'zgargan yoki hisobingizda ochiq emas. Boshqa modelni "
+            "tanlang."
+        )
+        return
+
+    if not await db.set_image_model(target, model_key):
+        await callback.message.answer("❌ Xatolik yuz berdi.")
+        return
+
+    together_service.forget_image_model_choice(target)
+    checked = ("va Together hisobida borligi tekshirildi"
+               if available is not None else
+               "(Together ro'yxatini olib bo'lmadi, tekshirilmadi — ishlamasa "
+               "bot zaxira modelga o'tadi)")
+    await callback.message.answer(
+        f"✅ <b>{IMAGE_TARGET_TITLES[target]}</b> rasmlari uchun "
+        f"<b>{info['name']}</b> tanlandi {checked}."
+    )
+    await callback.message.delete()
 
 
 @router.message(F.text == "🤖 AI modelni almashtirish")

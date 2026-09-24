@@ -1352,6 +1352,36 @@ def get_ai_target_keyboard() -> InlineKeyboardMarkup:
     keyboard.add(InlineKeyboardButton(
         text="💎 Zamonaviy taqdimot",
         callback_data="ai_model_target_premium"))
+    # Rasm modeli ham har xizmat uchun alohida: rasm eng qimmat qism,
+    # shuning uchun arzon xizmatga arzon model qo'yish mumkin.
+    for target, title in IMAGE_TARGET_TITLES.items():
+        keyboard.add(InlineKeyboardButton(
+            text=f"🖼 Rasm: {title}",
+            callback_data=f"img_model_target_{target}"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
+IMAGE_TARGET_TITLES = {
+    "docs": "Hujjatlar",
+    "presentation": "Oddiy taqdimot",
+    "premium": "Zamonaviy taqdimot",
+}
+
+
+def get_image_model_selection_keyboard(current_model: str,
+                                       target: str) -> InlineKeyboardMarkup:
+    """Rasm modellari ro'yxati (Together AI)."""
+    from config import IMAGE_MODELS
+
+    keyboard = InlineKeyboardBuilder()
+    for model_key, model_info in IMAGE_MODELS.items():
+        mark = "✅ " if model_key == current_model else ""
+        keyboard.add(InlineKeyboardButton(
+            text=f"{mark}{model_info['name']} - {model_info['price']}",
+            callback_data=f"select_img_model_{target}_{model_key}"))
+    keyboard.add(InlineKeyboardButton(text="⬅️ Orqaga",
+                                      callback_data="ai_model_back"))
     keyboard.adjust(1)
     return keyboard.as_markup()
 

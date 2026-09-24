@@ -214,7 +214,8 @@ async def illustrate(pages: List[str], theme, topic: str = "",
         if together is None:
             continue
         try:
-            path = await together.generate_image(prompt, aspect_ratio="16:9")
+            path = await together.generate_image(prompt, aspect_ratio="16:9",
+                                                 target="premium")
         except Exception as exc:
             log.warning("Rasm chizilmadi (%s): %s", prompt[:50], exc)
             path = None
@@ -310,7 +311,8 @@ async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
             return pages, 0
 
         async def generate(prompt):
-            return await together.generate_image(prompt, aspect_ratio="4:3")
+            return await together.generate_image(prompt, aspect_ratio="4:3",
+                                                target="premium")
 
     # Rasmlar bir vaqtda chizdiriladi: ketma-ket bo'lsa har biri
     # bir daqiqagacha kutadi va taqdimot juda sekinlashadi.
