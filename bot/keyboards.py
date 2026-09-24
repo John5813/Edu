@@ -460,6 +460,37 @@ def get_plan_confirm_keyboard(lang: str = "uz") -> InlineKeyboardMarkup:
     return keyboard.as_markup()
 
 
+_IW_PLAN_LABELS = {
+    "uz": {"ai": "🤖 Rejani AI tuzib bersin", "confirm": "✅ Tasdiqlayman",
+           "edit": "✏️ Tahrirlayman", "again": "🤖 AI yangi reja tuzsin"},
+    "ru": {"ai": "🤖 Пусть план составит ИИ", "confirm": "✅ Подтверждаю",
+           "edit": "✏️ Отредактирую", "again": "🤖 ИИ составит новый план"},
+    "en": {"ai": "🤖 Let AI write the plan", "confirm": "✅ Confirm",
+           "edit": "✏️ Edit", "again": "🤖 AI writes a new plan"},
+}
+
+
+def get_iw_plan_prompt_keyboard(lang: str = "uz") -> InlineKeyboardMarkup:
+    """Mustaqil ish rejasini yozish oynasi: AI tuzsin yoki orqaga."""
+    labels = _IW_PLAN_LABELS.get(lang, _IW_PLAN_LABELS["uz"])
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(text=labels["ai"], callback_data="iw_plan_ai"))
+    keyboard.add(InlineKeyboardButton(text=_back_text(lang), callback_data="iw_plan_back"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
+def get_iw_plan_confirm_keyboard(lang: str = "uz") -> InlineKeyboardMarkup:
+    """Tekshirilgan rejani tasdiqlash, tahrirlash yoki AI dan yangisini olish."""
+    labels = _IW_PLAN_LABELS.get(lang, _IW_PLAN_LABELS["uz"])
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(text=labels["confirm"], callback_data="iw_plan_confirm"))
+    keyboard.add(InlineKeyboardButton(text=labels["edit"], callback_data="iw_plan_edit"))
+    keyboard.add(InlineKeyboardButton(text=labels["again"], callback_data="iw_plan_ai"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
 def get_graduation_work_page_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
     """Graduation qualifying work page count selection keyboard (multilingual)"""
     keyboard = InlineKeyboardBuilder()
@@ -1319,7 +1350,7 @@ def get_ai_target_keyboard() -> InlineKeyboardMarkup:
         text="📄 Hujjatlar va oddiy taqdimot",
         callback_data="ai_model_target_main"))
     keyboard.add(InlineKeyboardButton(
-        text="💎 Premium taqdimot",
+        text="💎 Zamonaviy taqdimot",
         callback_data="ai_model_target_premium"))
     keyboard.adjust(1)
     return keyboard.as_markup()

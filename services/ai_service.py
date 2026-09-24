@@ -106,6 +106,10 @@ _WORDS_PER_REQUEST = 1200
 _MAX_SUBSECTION_PARTS = 8
 _MAX_SUBSECTION_REQUESTS = 10
 
+# Mustaqil ishda asosiy matndan tashqari varaqlar: titul, reja, kirish,
+# xulosa, adabiyotlar va jadval varag'i.
+_IW_FIXED_PAGES = 6
+
 
 def _target_bounds(word_target: str) -> tuple:
     """"380-440" kabi ko'rsatkichdan quyi va yuqori chegarani ajratadi."""
@@ -1971,13 +1975,84 @@ In JSON format:
         await self.add_uzbek_opening(content, topic, language)
         return content
 
+    async def plan_independent_work(self, topic: str, count: int,
+                                    language: str) -> List[str]:
+        """Mustaqil ish uchun AI tuzadigan reja — mijoz ko'rib tasdiqlaydi."""
+        return await self._generate_question_titles(
+            topic, count, language, work="Mustaqil ish")
+
+    async def generate_independent_work_from_plan(self, topic: str,
+                                                  questions: list,
+                                                  language: str,
+                                                  min_pages: int,
+                                                  max_pages: int) -> Dict:
+        """Mijoz tasdiqlagan savollar bo'yicha mustaqil ish.
+
+        Kirish va xulosa savollarga qo'shilmaydi — alohida yoziladi.
+        Ilgari mijozning birinchi sarlavhasi "Kirish", oxirgisi "Xulosa"
+        bo'lib ketardi, ya'ni ikki savoli yo'qolardi. Hajm esa sarlavhalar
+        soniga qarab tanlanardi: 25-30 varoqqa uchta savol yozgan mijoz
+        o'n varoqlik ish olardi. Endi hajm buyurtma qilingan varaqdan
+        hisoblanib savollarga bo'linadi — savol nechta bo'lmasin, hujjat
+        tanlangan hajmda chiqadi.
+        """
+        titles = [self._tidy_title(str(q)) for q in (questions or [])]
+        titles = [t for t in titles if t] or [topic]
+        word_target = _subsection_word_target(len(titles), min_pages, max_pages,
+                                              fixed_pages=_IW_FIXED_PAGES)
+        logger.info("Mustaqil ish (mijoz rejasi): %d savol, har biriga %s so'z",
+                    len(titles), word_target)
+
+        labels = {"ru": ("Введение", "Заключение"),
+                  "en": ("Introduction", "Conclusion")}.get(
+                      language, ("Kirish", "Xulosa"))
+        # Kirish va xulosa hajmi varaq soniga qarab (bo'limlar soni emas).
+        size = 6 if max_pages <= 15 else 9 if max_pages <= 20 else 12
+
+        sections = [{
+            "title": labels[0],
+            "content": await self._generate_section_content(
+                topic, labels[0], 1, size, "independent_work", language),
+        }]
+        previous = ""
+        for index, title in enumerate(titles):
+            body = await self._generate_subsection_content(
+                topic, topic, title, language, word_target,
+                flow={
+                    "plan": titles,
+                    "before": titles[index - 1] if index else "",
+                    "after": titles[index + 1] if index + 1 < len(titles) else "",
+                    "tail": previous,
+                },
+            )
+            sections.append({"title": title, "content": body})
+            previous = body
+        sections.append({
+            "title": labels[1],
+            "content": await self._generate_section_content(
+                topic, labels[1], size, size, "independent_work", language),
+        })
+
+        result = {
+            "title": topic,
+            "sections": sections,
+            "references": await self._generate_references(topic, language),
+        }
+        if len(titles) >= 3:
+            table = await self.generate_table_data(topic, 3, language)
+            if table:
+                result["table_data_3"] = table
+        await self.add_uzbek_opening(result, topic, language)
+        return result
+
     async def _generate_question_titles(self, topic: str, count: int,
-                                        language: str) -> List[str]:
+                                        language: str,
+                                        work: str = "Kurs ishi") -> List[str]:
         """Oddiy reja uchun savol sarlavhalari."""
         target = {"ru": "русском", "en": "English"}.get(language, "o'zbek")
         prompt = (
             f'Mavzu: "{topic}"\n\n'
-            f"Kurs ishi rejasi uchun {count} ta savol sarlavhasini yozing. "
+            f"{work} rejasi uchun {count} ta savol sarlavhasini yozing. "
             "Ular bob emas, mustaqil savollar: har biri mavzuning bir "
             "tomonini ochadi va bir-birini takrorlamaydi.\n"
             f"{self._plan_rule(language, topic)}\n"

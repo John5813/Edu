@@ -12,7 +12,7 @@ from aiogram.filters import StateFilter
 from bot import checkout as _pay
 from bot.states import DocumentStates
 import re as _re_plan
-from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard, get_outline_review_keyboard, get_references_choice_keyboard, get_doc_language_keyboard, get_plan_slide_keyboard, get_icon_choice_keyboard, get_course_work_page_keyboard, get_diploma_work_page_keyboard, get_graduation_work_page_keyboard, get_dissertation_page_keyboard, get_payment_choice_keyboard, get_insufficient_balance_keyboard, get_back_inline_keyboard, get_article_page_keyboard, get_source_selection_keyboard, get_other_services_keyboard, get_extras_keyboard, get_gw_outline_choice_keyboard, get_plan_confirm_keyboard, get_plan_style_keyboard
+from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard, get_outline_review_keyboard, get_references_choice_keyboard, get_doc_language_keyboard, get_plan_slide_keyboard, get_icon_choice_keyboard, get_course_work_page_keyboard, get_diploma_work_page_keyboard, get_graduation_work_page_keyboard, get_dissertation_page_keyboard, get_payment_choice_keyboard, get_insufficient_balance_keyboard, get_back_inline_keyboard, get_article_page_keyboard, get_source_selection_keyboard, get_other_services_keyboard, get_extras_keyboard, get_gw_outline_choice_keyboard, get_plan_confirm_keyboard, get_plan_style_keyboard, get_iw_plan_prompt_keyboard, get_iw_plan_confirm_keyboard
 from database.database import Database
 from utils.security import sanitize_user_input, validate_topic_length
 from services import course_work, document_source
@@ -1863,7 +1863,7 @@ def _simple_plan_prompt(language: str) -> str:
     return "\n".join(lines)
 
 
-def _parse_manual_questions(text: str) -> list:
+def _parse_manual_questions(text: str, limit: int = _MAX_MANUAL_QUESTIONS) -> list:
     """Qo'lda yozilgan oddiy rejani savollar ro'yxatiga aylantiradi.
 
     Bobli rejadagidek, raqam bilan boshlanmagan qator oldingisining
@@ -1892,7 +1892,8 @@ def _parse_manual_questions(text: str) -> list:
             # Mijoz raqamsiz yozgan bo'lsa — har qator alohida savol.
             questions.append(tail)
 
-    return [q for q in questions if q][:_MAX_MANUAL_QUESTIONS]
+    questions = [q for q in questions if q]
+    return questions[:limit] if limit else questions
 
 
 def _format_questions(questions: list, language: str) -> str:
@@ -2879,30 +2880,13 @@ async def generate_independent_work_manual(callback: CallbackQuery, state: FSMCo
             specifications=specifications
         )
 
-        # Use manual outline instead of AI-generated - use doc_lang
-        ai_service = get_ai_service()
-
-        # Generate content for each manually entered section
-        sections = []
-        for i, section_title in enumerate(manual_outline):
-            section_content = await ai_service._generate_section_content(
-                ai_topic, section_title, i + 1, len(manual_outline), "independent_work", doc_lang
-            )
-            sections.append({
-                "title": section_title,
-                "content": section_content
-            })
-
-        # Generate references
-        references = await ai_service._generate_references(ai_topic, doc_lang)
-
-        content = {
-            "title": topic,
-            "sections": sections,
-            "references": references,
-            "language": doc_lang,
-            "author_name": author_name
-        }
+        # Mijoz rejasidagi savollar: kirish va xulosa alohida yoziladi,
+        # hajm esa buyurtma qilingan varaqdan savollarga bo'linadi.
+        content = await get_ai_service().generate_independent_work_from_plan(
+            ai_topic, manual_outline, doc_lang, min_pages, max_pages)
+        content["title"] = topic
+        content["language"] = doc_lang
+        content["author_name"] = author_name
 
         # Create document file
         doc_service = get_document_service()
@@ -3480,6 +3464,246 @@ async def back_from_template_handler(callback: CallbackQuery, state: FSMContext,
 
 # ─── END BACK NAVIGATION ──────────────────────────────────────────────────────
 
+# ─── MUSTAQIL ISH: reja bitta xabarda ─────────────────────────────────────
+# Ilgari reja sarlavhalari bittalab so'ralardi va soni varaqqa qarab qat'iy
+# edi (6/9/12/15). Endi mijoz butun rejani bitta xabarda yozadi — savollar
+# soni uning ixtiyorida, faqat varaq hajmiga qarab yuqori chegara bor. AI
+# imloni tuzatib qaytaradi, mijoz tasdiqlaydi yoki tahrirlaydi. Rejani AI
+# ham tuzib berishi mumkin. Savol nechta bo'lmasin, hujjat tanlangan
+# hajmda chiqadi: matn hajmi varaqdan hisoblanib savollarga bo'linadi.
+
+_IW_MIN_QUESTIONS = 3
+
+
+def _iw_question_limit(max_pages: int) -> int:
+    """Varaq hajmiga qarab rejadagi savollarning eng ko'p soni."""
+    if max_pages <= 15:
+        return 5
+    if max_pages <= 20:
+        return 8
+    if max_pages <= 25:
+        return 10
+    return 12
+
+
+def _iw_ai_question_count(max_pages: int) -> int:
+    """AI tuzadigan rejadagi savollar soni."""
+    return {5: 4, 8: 6, 10: 8, 12: 10}[_iw_question_limit(max_pages)]
+
+
+def _iw_plan_prompt(language: str, min_pages: int, max_pages: int) -> str:
+    limit = _iw_question_limit(max_pages)
+    if language == "ru":
+        return (
+            f"✏️ Напишите <b>весь план одним сообщением</b> — от "
+            f"<b>{_IW_MIN_QUESTIONS} до {limit}</b> вопросов (для "
+            f"{min_pages}-{max_pages} страниц).\n"
+            "Каждый вопрос с новой строки, с номером. Введение, заключение и "
+            "список литературы добавятся сами.\n"
+            f"Сколько бы вопросов ни было, работа будет объёмом "
+            f"{min_pages}-{max_pages} страниц.\n\n"
+            "📌 <b>Образец:</b>\n<pre>1. [Первый вопрос]\n2. [Второй вопрос]\n"
+            "3. [Третий вопрос]</pre>\n"
+            "Или нажмите кнопку ниже — план составит ИИ."
+        )
+    if language == "en":
+        return (
+            f"✏️ Write <b>the whole plan in one message</b> — "
+            f"<b>{_IW_MIN_QUESTIONS} to {limit}</b> questions (for "
+            f"{min_pages}-{max_pages} pages).\n"
+            "One question per line, numbered. The introduction, conclusion and "
+            "references are added automatically.\n"
+            f"However many questions you write, the work will be "
+            f"{min_pages}-{max_pages} pages long.\n\n"
+            "📌 <b>Sample:</b>\n<pre>1. [First question]\n2. [Second question]\n"
+            "3. [Third question]</pre>\n"
+            "Or press the button below and AI will write the plan."
+        )
+    return (
+        f"✏️ <b>Butun rejani bitta xabarda</b> yozing — <b>{_IW_MIN_QUESTIONS} "
+        f"tadan {limit} tagacha</b> savol ({min_pages}-{max_pages} varoq uchun).\n"
+        "Har bir savolni yangi qatordan, raqami bilan yozing. Kirish, xulosa "
+        "va adabiyotlar ro'yxati o'zi qo'shiladi.\n"
+        f"Savollar nechta bo'lmasin, ish {min_pages}-{max_pages} varoq "
+        "hajmida chiqadi.\n\n"
+        "📌 <b>Namuna:</b>\n<pre>1. [Birinchi savol]\n2. [Ikkinchi savol]\n"
+        "3. [Uchinchi savol]</pre>\n"
+        "Yoki pastdagi tugmani bosing — rejani AI tuzib beradi."
+    )
+
+
+def _format_iw_plan(questions: list, language: str, by_ai: bool) -> str:
+    if by_ai:
+        heading = {"uz": "🤖 <b>AI tuzgan reja:</b>",
+                   "ru": "🤖 <b>План, составленный ИИ:</b>",
+                   "en": "🤖 <b>The plan written by AI:</b>"}
+    else:
+        heading = {"uz": "📋 <b>Reja tekshirildi</b> — imlo va uslub tuzatildi:",
+                   "ru": "📋 <b>План проверен</b> — исправлены орфография и стиль:",
+                   "en": "📋 <b>The plan has been checked</b> — spelling and wording fixed:"}
+    footer = {
+        "uz": "Tasdiqlang, tahrirlang yoki AI yangi reja tuzsin.",
+        "ru": "Подтвердите, отредактируйте или пусть ИИ составит новый план.",
+        "en": "Confirm, edit, or let AI write a new plan.",
+    }
+    lines = [heading.get(language, heading["uz"]), ""]
+    for index, question in enumerate(questions, 1):
+        lines.append(f"<b>{index}.</b> {html.escape(str(question), quote=False)}")
+    lines += ["", f"<i>{footer.get(language, footer['uz'])}</i>"]
+    return "\n".join(lines)
+
+
+async def _ask_iw_plan(message: Message, state: FSMContext, user_lang: str) -> None:
+    data = await state.get_data()
+    await state.set_state(DocumentStates.waiting_for_iw_plan_text)
+    await message.answer(
+        _iw_plan_prompt(user_lang, data.get("min_pages", 10), data.get("max_pages", 15)),
+        parse_mode="HTML",
+        reply_markup=get_iw_plan_prompt_keyboard(user_lang),
+    )
+
+
+async def _show_iw_plan(message: Message, state: FSMContext, user_lang: str,
+                        questions: list, by_ai: bool) -> None:
+    await state.update_data(iw_plan=questions)
+    await state.set_state(DocumentStates.waiting_for_iw_plan_confirm)
+    await message.answer(
+        _format_iw_plan(questions, user_lang, by_ai),
+        parse_mode="HTML",
+        reply_markup=get_iw_plan_confirm_keyboard(user_lang),
+    )
+
+
+@router.message(DocumentStates.waiting_for_iw_plan_text)
+async def handle_iw_plan_text(message: Message, state: FSMContext, user_lang: str):
+    data = await state.get_data()
+    limit = _iw_question_limit(data.get("max_pages", 15))
+    questions = _parse_manual_questions(message.text or "", limit=None)
+
+    if not _IW_MIN_QUESTIONS <= len(questions) <= limit:
+        err = {
+            "uz": (f"❌ Rejada {_IW_MIN_QUESTIONS} tadan {limit} tagacha savol "
+                   f"bo'lishi kerak (sizda {len(questions)} ta). Har bir savolni "
+                   "yangi qatordan, raqami bilan yozib, qaytadan yuboring."),
+            "ru": (f"❌ В плане должно быть от {_IW_MIN_QUESTIONS} до {limit} "
+                   f"вопросов (у вас {len(questions)}). Каждый вопрос с новой "
+                   "строки, с номером — отправьте заново."),
+            "en": (f"❌ The plan needs {_IW_MIN_QUESTIONS} to {limit} questions "
+                   f"(you have {len(questions)}). One question per line, "
+                   "numbered — please send it again."),
+        }
+        await message.answer(err.get(user_lang, err["uz"]),
+                             reply_markup=get_iw_plan_prompt_keyboard(user_lang))
+        return
+
+    thinking = {"uz": "🔍 Reja tekshirilmoqda...", "ru": "🔍 Проверяем план...",
+                "en": "🔍 Checking the plan..."}
+    notice = await message.answer(thinking.get(user_lang, thinking["uz"]))
+    try:
+        questions = await get_ai_service().review_manual_questions(
+            questions, data.get("topic", ""), data.get("doc_language", user_lang))
+    except Exception as exc:
+        logger.warning(f"Mustaqil ish rejasi tahriri o'tmadi, mijoznikida qoldi: {exc}")
+    try:
+        await notice.delete()
+    except Exception:
+        pass
+    await _show_iw_plan(message, state, user_lang, questions, by_ai=False)
+
+
+@router.callback_query(F.data == "iw_plan_ai",
+                       StateFilter(DocumentStates.waiting_for_iw_plan_text,
+                                   DocumentStates.waiting_for_iw_plan_confirm))
+async def handle_iw_plan_ai(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    await callback.answer()
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    data = await state.get_data()
+    topic = data.get("topic", "")
+    thinking = {"uz": "🤖 AI reja tuzmoqda...", "ru": "🤖 ИИ составляет план...",
+                "en": "🤖 AI is writing the plan..."}
+    notice = await callback.message.answer(thinking.get(user_lang, thinking["uz"]))
+    questions = []
+    try:
+        questions = await get_ai_service().plan_independent_work(
+            topic, _iw_ai_question_count(data.get("max_pages", 15)),
+            data.get("doc_language", user_lang))
+    except Exception as exc:
+        logger.warning(f"Mustaqil ish rejasini AI tuza olmadi: {exc}")
+    try:
+        await notice.delete()
+    except Exception:
+        pass
+
+    # Xato bo'lsa AI mavzuning o'zini yagona savol qilib qaytaradi.
+    if len(questions) < _IW_MIN_QUESTIONS:
+        fail = {
+            "uz": "⚠️ AI hozir reja tuza olmadi. Qayta urinib ko'ring yoki rejani o'zingiz yozing.",
+            "ru": "⚠️ ИИ сейчас не смог составить план. Попробуйте ещё раз или напишите план сами.",
+            "en": "⚠️ AI could not write the plan right now. Try again or write it yourself.",
+        }
+        await state.set_state(DocumentStates.waiting_for_iw_plan_text)
+        await callback.message.answer(fail.get(user_lang, fail["uz"]),
+                                      reply_markup=get_iw_plan_prompt_keyboard(user_lang))
+        return
+    await _show_iw_plan(callback.message, state, user_lang, questions, by_ai=True)
+
+
+@router.callback_query(F.data == "iw_plan_edit", DocumentStates.waiting_for_iw_plan_confirm)
+async def handle_iw_plan_edit(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Rejani nusxa olinadigan ko'rinishda qaytaradi — mijoz tuzatib yuboradi."""
+    await callback.answer()
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    data = await state.get_data()
+    plan = "\n".join(f"{index}. {question}"
+                     for index, question in enumerate(data.get("iw_plan") or [], 1))
+    note = {
+        "uz": "✏️ Rejani nusxalab, tuzatib, bitta xabarda qaytadan yuboring:",
+        "ru": "✏️ Скопируйте план, исправьте и отправьте одним сообщением:",
+        "en": "✏️ Copy the plan, edit it and send it back in one message:",
+    }
+    await state.set_state(DocumentStates.waiting_for_iw_plan_text)
+    await callback.message.answer(
+        f"{note.get(user_lang, note['uz'])}\n\n<pre>{html.escape(plan, quote=False)}</pre>",
+        parse_mode="HTML",
+        reply_markup=get_iw_plan_prompt_keyboard(user_lang),
+    )
+
+
+@router.callback_query(F.data == "iw_plan_back", DocumentStates.waiting_for_iw_plan_text)
+async def handle_iw_plan_back(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    await callback.answer()
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    from bot.keyboards import get_outline_choice_keyboard
+    await state.set_state(DocumentStates.waiting_for_outline_choice)
+    await callback.message.answer(get_text(user_lang, "outline_choice"),
+                                  reply_markup=get_outline_choice_keyboard(user_lang))
+
+
+@router.callback_query(F.data == "iw_plan_confirm", DocumentStates.waiting_for_iw_plan_confirm)
+async def handle_iw_plan_confirm(callback: CallbackQuery, state: FSMContext, db: Database,
+                                 user_lang: str, user):
+    await callback.answer()
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    data = await state.get_data()
+    await state.update_data(manual_outline=list(data.get("iw_plan") or []))
+    await callback.message.answer(get_text(user_lang, "outline_complete"),
+                                  reply_markup=get_main_keyboard(user_lang))
+    await callback.message.answer("⏳ " + get_text(user_lang, "generating"))
+    await generate_independent_work_manual(callback, state, db, user_lang, user)
+
+
 @router.callback_query(F.data == "outline_manual", DocumentStates.waiting_for_outline_choice)
 async def handle_outline_manual(callback: CallbackQuery, state: FSMContext, user_lang: str):
     """Handle manual outline entry"""
@@ -3490,6 +3714,10 @@ async def handle_outline_manual(callback: CallbackQuery, state: FSMContext, user
 
     data = await state.get_data()
     document_type = data.get('document_type')
+
+    if document_type == "independent_work":
+        await _ask_iw_plan(callback.message, state, user_lang)
+        return
 
     # Calculate how many sections/slides needed
     if document_type == "presentation":

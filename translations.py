@@ -35,7 +35,7 @@ TRANSLATIONS = {
         "subscription_verified": "✅ A'zolik tasdiqlandi! Botdan foydalanishingiz mumkin.",
         "subscription_not_verified": "❌ Siz hali kanallarga a'zo bo'lmagan. Iltimos, a'zo bo'ling va qayta tekshiring.",
         "main_menu": {
-            "premium_presentation": "⭐ Premium taqdimot",
+            "premium_presentation": "✨ Zamonaviy taqdimot",
             "presentation": "🌟 Taqdimot",
             "independent_work": "💥 Mustaqil ish",
             "referat": "⚡ Referat",
@@ -344,7 +344,7 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
         "subscription_verified": "✅ Подписка подтверждена! Вы можете использовать бота.",
         "subscription_not_verified": "❌ Вы еще не подписались на каналы. Пожалуйста, подпишитесь и проверьте снова.",
         "main_menu": {
-            "premium_presentation": "⭐ Премиум презентация",
+            "premium_presentation": "✨ Современная презентация",
             "presentation": "🌟 Презентация",
             "independent_work": "💥 Самостоятельная работа",
             "referat": "⚡ Реферат",
@@ -650,7 +650,7 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
         "subscription_verified": "✅ Subscription verified! You can use the bot.",
         "subscription_not_verified": "❌ You haven't subscribed to the channels yet. Please subscribe and check again.",
         "main_menu": {
-            "premium_presentation": "⭐ Premium presentation",
+            "premium_presentation": "✨ Modern presentation",
             "presentation": "🌟 Presentation",
             "independent_work": "💥 Independent Work",
             "referat": "⚡ Research Paper",

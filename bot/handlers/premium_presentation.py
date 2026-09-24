@@ -162,7 +162,7 @@ def _order_summary(data: dict, language: str) -> str:
         # o'zbekcha jumla "Ko&#x27;proq" bo'lib ko'rinardi.
         return _html.escape(str(value or "").strip(), quote=False)[:limit]
 
-    lines = ["📊 <b>Premium taqdimot</b>"]
+    lines = ["📊 <b>Zamonaviy taqdimot</b>"]
     topic = clean(data.get("topic"), 200)
     if topic:
         lines.append(f"📝 Mavzu: <b>{topic}</b>")
@@ -195,7 +195,12 @@ class _MessageCallbackAdapter:
 
 # ──────────────────────────────────────────────────────────────── ENTRY POINT
 
-@router.message(F.text.in_(["⭐ Premium taqdimot", "⭐ Премиум презентация", "⭐ Premium presentation"]))
+# Eski nomlar ham qabul qilinadi: Telegram eski menyu klaviaturasini
+# mijozda saqlab qoladi va u /start bosmaguncha eski tugmani yuboradi.
+@router.message(F.text.in_([
+    "✨ Zamonaviy taqdimot", "✨ Современная презентация", "✨ Modern presentation",
+    "⭐ Premium taqdimot", "⭐ Премиум презентация", "⭐ Premium presentation",
+]))
 async def premium_presentation_start(message: Message, state: FSMContext, db: Database):
     """Premium taqdimot tugmasi bosilganda"""
     await state.clear()
@@ -206,16 +211,16 @@ async def premium_presentation_start(message: Message, state: FSMContext, db: Da
 
     msgs = {
         "uz": (
-            "⭐ <b>Premium Taqdimot</b>\n\n"
+            "✨ <b>Zamonaviy taqdimot</b>\n\n"
             "AI yordamida tayyor professional PowerPoint taqdimot yaratadi:\n\n"
             "✅ Tayyor .pptx fayl\n"
             "✅ 16:9 professional format\n"
-            "✅ Har slayd uchun alohida premium tuzilma\n"
+            "✅ Har slayd uchun alohida tuzilma\n"
             "✅ Matn, dizayn va diagrammalar AI tomonidan tayyorlanadi\n\n"
             "🌍 <b>Taqdimot tilini tanlang:</b>"
         ),
         "ru": (
-            "⭐ <b>Премиум Презентация</b>\n\n"
+            "✨ <b>Современная презентация</b>\n\n"
             "Создаёт готовую профессиональную презентацию PowerPoint с помощью AI:\n\n"
             "✅ Готовый файл .pptx\n"
             "✅ Профессиональный формат 16:9\n"
@@ -224,7 +229,7 @@ async def premium_presentation_start(message: Message, state: FSMContext, db: Da
             "🌍 <b>Выберите язык презентации:</b>"
         ),
         "en": (
-            "⭐ <b>Premium Presentation</b>\n\n"
+            "✨ <b>Modern presentation</b>\n\n"
             "Creates a ready-to-use professional PowerPoint presentation with AI:\n\n"
             "✅ Ready .pptx file\n"
             "✅ Professional 16:9 format\n"
@@ -724,7 +729,7 @@ async def _show_payment_summary(callback: CallbackQuery, state: FSMContext,
     }
     msgs = {
         "uz": (
-            f"⭐ <b>Premium Taqdimot</b>\n\n"
+            f"✨ <b>Zamonaviy taqdimot</b>\n\n"
             f"📋 Mavzu: <b>{topic}</b>\n"
             f"{name_line['uz']}"
             f"{preference_line['uz']}"
@@ -735,7 +740,7 @@ async def _show_payment_summary(callback: CallbackQuery, state: FSMContext,
             f"Hisobingizdan yechiladi. Tasdiqlaysizmi?"
         ),
         "ru": (
-            f"⭐ <b>Премиум Презентация</b>\n\n"
+            f"✨ <b>Современная презентация</b>\n\n"
             f"📋 Тема: <b>{topic}</b>\n"
             f"{name_line['ru']}"
             f"{preference_line['ru']}"
@@ -746,7 +751,7 @@ async def _show_payment_summary(callback: CallbackQuery, state: FSMContext,
             f"Будет списано с вашего баланса. Подтверждаете?"
         ),
         "en": (
-            f"⭐ <b>Premium Presentation</b>\n\n"
+            f"✨ <b>Modern presentation</b>\n\n"
             f"📋 Topic: <b>{topic}</b>\n"
             f"{name_line['en']}"
             f"{preference_line['en']}"
@@ -897,8 +902,8 @@ async def premium_ppt_pay_stars(callback: CallbackQuery, state: FSMContext, db: 
     slide_count = int(data.get("slide_count", 10))
     sent = await pay.send_invoice(
         callback.message, CHECKOUT, lang, price,
-        title="Premium taqdimot",
-        description=f"{slide_count} ta slayd uchun premium taqdimot",
+        title="Zamonaviy taqdimot",
+        description=f"{slide_count} ta slaydli zamonaviy taqdimot",
     )
     if sent:
         try:
@@ -1151,7 +1156,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
     # Admin paneldagi yangilash tugmasi shu ro'yxatga qaraydi: taqdimot
     # navbatdan tashqarida yaratiladi, sanalmasa "hech narsa bajarilmayapti"
     # deb ko'rinardi va qayta ishga tushirish uni uzib qo'yardi.
-    work_id = workload.begin("premium taqdimot")
+    work_id = workload.begin("zamonaviy taqdimot")
     html_pages: list = []
     try:
         # Premium taqdimot modeli admin panelda alohida tanlanadi.
@@ -1290,7 +1295,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
     except Exception:
         pass
 
-    filename = f"Premium_{topic[:30].replace(' ', '_')}.pptx"
+    filename = f"Taqdimot_{topic[:30].replace(' ', '_')}.pptx"
     try:
         from aiogram.types import FSInputFile
         document = FSInputFile(final_path, filename=filename)
@@ -1354,7 +1359,7 @@ async def _warn_admins_no_credits(bot, detail: str) -> None:
     if time.monotonic() - _last_credit_warning < 600:
         return
     _last_credit_warning = time.monotonic()
-    text = ("⚠️ OpenRouter hisobida mablag' tugadi — premium taqdimot "
+    text = ("⚠️ OpenRouter hisobida mablag' tugadi — zamonaviy taqdimot "
             "yaratilmayapti, mijozlarga pul qaytarilmoqda.\n"
             "To'ldirish: https://openrouter.ai/settings/credits\n\n"
             f"{detail[:200]}")
