@@ -549,6 +549,24 @@ def _unusable(data: dict) -> str:
     return ""
 
 
+# Gemini 2.5 Flash va Pro javobdan oldin "o'ylaydi" va bu tokenlar
+# `max_tokens` ichidan ketadi. Murakkab mavzuda o'ylash butun chegarani
+# yeb qo'yadi: HTML chala yoki bo'sh keladi. Flash Lite sukut bo'yicha
+# o'ylamaydi, shuning uchun u ishlab, Flash yiqilardi. O'ylashga alohida
+# kichik chegara beriladi, javob chegarasi esa shunchaga oshiriladi.
+_THINKING = re.compile(r"^google/gemini-2\.5-(?:flash|pro)(?!-lite)")
+_THINKING_BUDGET = 1024
+
+
+def _body(payload: dict, model: str) -> dict:
+    body = {**payload, "model": model}
+    if _THINKING.match(model) and "reasoning" not in body:
+        body["reasoning"] = {"max_tokens": _THINKING_BUDGET, "exclude": True}
+        if body.get("max_tokens"):
+            body["max_tokens"] = int(body["max_tokens"]) + _THINKING_BUDGET
+    return body
+
+
 def _request(kind: str, payload: dict, timeout: int = 180,
              accept: Optional[Callable[[str], bool]] = None) -> dict:
     """So'rovni ro'yxatdagi modellar bilan navbatma-navbat bajaradi.
@@ -580,7 +598,7 @@ def _request(kind: str, payload: dict, timeout: int = 180,
     for index, model in enumerate(chain):
         try:
             resp = requests.post(config.OPENROUTER_URL, headers=headers,
-                                 json={**payload, "model": model}, timeout=timeout)
+                                 json=_body(payload, model), timeout=timeout)
             afford = _affordable(resp, payload)
             if afford:
                 # Hisobdagi mablag' so'ralgan javob uzunligini qoplamaydi.
@@ -591,7 +609,7 @@ def _request(kind: str, payload: dict, timeout: int = 180,
                             payload.get("max_tokens"))
                 resp = requests.post(
                     config.OPENROUTER_URL, headers=headers,
-                    json={**payload, "model": model, "max_tokens": afford},
+                    json=_body({**payload, "max_tokens": afford}, model),
                     timeout=timeout)
             resp.raise_for_status()
             data = resp.json()
