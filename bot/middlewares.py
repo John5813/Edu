@@ -72,3 +72,28 @@ class BlockedUserMiddleware(BaseMiddleware):
             return
 
         return await handler(event, data)
+
+class CommandResetMiddleware(BaseMiddleware):
+    """Buyruq kelsa, tugallanmagan suhbat holatini bekor qiladi.
+
+    Har bir xizmat o'z holatida hamma xabarni ushlaydi: kitob tarjimasi
+    fayl kutayotganda `/admin` yozilsa ham "fayl turi to'g'ri kelmadi"
+    derdi va mijoz fayl tashlamaguncha undan chiqolmasdi. Buyruq esa
+    doim yangi harakat — oldingisi bekor qilinadi.
+
+    `outer_middleware` sifatida ulanadi: holat filtrlari tekshirilishidan
+    oldin ishlaydi.
+    """
+
+    # Shu buyruqlar aynan holat ichida ishlaydi (do'kon: nashrni bekor qilish).
+    KEEP = {"bekor"}
+
+    async def __call__(self, handler, event: Message, data: Dict[str, Any]) -> Any:
+        text = (getattr(event, "text", None) or "").strip()
+        state = data.get("state")
+        if text.startswith("/") and state is not None and data.get("raw_state"):
+            command = text[1:].split(maxsplit=1)[0].split("@", 1)[0].lower() if len(text) > 1 else ""
+            if command and command not in self.KEEP:
+                await state.clear()
+                data["raw_state"] = None
+        return await handler(event, data)

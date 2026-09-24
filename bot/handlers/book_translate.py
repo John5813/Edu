@@ -97,6 +97,14 @@ async def handle_book_translate_file(message: Message, state: FSMContext, user_l
     # Telegram bot'ga 20 MB dan kattasini bermaydi (mahalliy serversiz).
     # Bunday fayl yuklab olinmaydi — mijozga saytga yuklash havolasi beriladi.
     document = message.document
+    if document is None and (message.text or "").strip():
+        # Fayl o'rniga menyu tugmasi yoki matn — mijoz boshqa ishga o'tdi.
+        # Kutish bekor qilinadi va xabar keyingi handlerlarga beriladi.
+        from aiogram.dispatcher.event.bases import SkipHandler
+
+        await _cleanup_temp_file(state)
+        await state.clear()
+        raise SkipHandler()
     size = (document.file_size or 0) if document else 0
     if size > BOOK_MAX_UPLOAD_MB * _MB:
         await message.answer(get_text(user_lang, "book_too_big", size=round(size / _MB),
@@ -207,6 +215,13 @@ book_upload.ON_UPLOAD = _on_web_upload
 @router.message(BookTranslateStates.waiting_for_line_range)
 async def handle_line_range_input(message: Message, state: FSMContext, user_lang: str, db: Database, user):
     text = (message.text or "").strip()
+    if text and not re.search(r"\d", text):
+        # Raqamsiz matn — menyu tugmasi: mijoz boshqa ishga o'tdi.
+        from aiogram.dispatcher.event.bases import SkipHandler
+
+        await _cleanup_temp_file(state)
+        await state.clear()
+        raise SkipHandler()
     data = await state.get_data()
     total_pages = data.get("total_pages", 0)
     word_count = data.get("word_count", 0)

@@ -290,6 +290,104 @@ async def client_tests():
         ok = True
     check("402 da darhol to'xtaydi", ok)
 asyncio.run(client_tests())
+# ── Buyruq va menyu tugmasi kutish holatidan chiqaradi
+import datetime
+print("\nHolatlar:")
+from aiogram import Bot, Dispatcher, Router, F
+from aiogram.client.session.base import BaseSession
+from aiogram.filters import Command, StateFilter
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.fsm.storage.base import StorageKey
+from aiogram.fsm.context import FSMContext
+from aiogram.types import Update, Message
+from aiogram.methods import SendMessage
+from bot.handlers import book_translate
+from bot.middlewares import CommandResetMiddleware
+from bot.states import BookTranslateStates, StorePublishStates
+
+replies = []
+class FakeSession(BaseSession):
+    async def make_request(self, bot, method, timeout=None):
+        if isinstance(method, SendMessage):
+            replies.append(method.text)
+            return Message.model_validate({"message_id": 1, "date": 0, "chat": {"id": 5, "type": "private"}, "text": method.text})
+        from aiogram.methods import GetMe
+        from aiogram.types import User
+        if isinstance(method, GetMe):
+            return User(id=123, is_bot=True, first_name="B", username="edufaylbot")
+        return True
+    async def stream_content(self, *a, **k):
+        yield b""
+    async def close(self): pass
+
+handled = []
+tail = Router()
+@tail.message(Command("admin"))
+async def admin(m): handled.append("admin")
+@tail.message(Command("bekor"), StateFilter(StorePublishStates))
+async def bekor(m): handled.append("bekor")
+@tail.message(F.text == "📄 Referat")
+async def menu(m): handled.append("menu")
+@tail.message()
+async def catch(m): handled.append("catch")
+
+async def state_main():
+    bot = Bot("123:abc", session=FakeSession())
+    dp = Dispatcher(storage=MemoryStorage())
+    async def inject(handler, event, data):
+        data.update(user_lang="uz", db=None, user=None); return await handler(event, data)
+    dp.message.outer_middleware(CommandResetMiddleware())
+    dp.message.middleware(inject)
+    dp.include_router(book_translate.router)
+    dp.include_router(tail)
+    state = FSMContext(storage=dp.storage, key=StorageKey(bot_id=123, chat_id=5, user_id=5))
+    n = [0]
+    async def send(**msg):
+        n[0] += 1
+        base = {"message_id": n[0], "date": int(datetime.datetime.now().timestamp()),
+                "chat": {"id": 5, "type": "private"}, "from": {"id": 5, "is_bot": False, "first_name": "T"}}
+        base.update(msg)
+        await dp.feed_update(bot, Update.model_validate({"update_id": n[0], "message": base}))
+    ok = True
+    def check(name, cond, detail=""):
+        nonlocal ok
+        if not cond: FAILS.append(name)
+        print(("  ok   " if cond else "  XATO ") + name + ("" if cond else f" — {detail}"))
+        ok &= bool(cond)
+
+    for cmd in ("/admin", "/admin@edufaylbot"):
+        await state.set_state(BookTranslateStates.waiting_for_file); replies.clear(); handled.clear()
+        await send(text=cmd, entities=[{"type": "bot_command", "offset": 0, "length": len(cmd)}])
+        check(f"{cmd} fayl kutilayotganda ham ishlaydi", handled == ["admin"] and not replies, (handled, replies))
+        check("... va kutish bekor bo'ldi", await state.get_state() is None)
+
+    await state.set_state(BookTranslateStates.waiting_for_line_range); handled.clear()
+    await send(text="/admin", entities=[{"type": "bot_command", "offset": 0, "length": 6}])
+    check("/admin varoq oralig'i kutilayotganda ham ishlaydi", handled == ["admin"], handled)
+
+    await state.set_state(BookTranslateStates.waiting_for_file); replies.clear(); handled.clear()
+    await send(text="📄 Referat")
+    check("menyu tugmasi o'z ishini qiladi", handled == ["menu"] and not replies, (handled, replies))
+    check("... kutish bekor bo'ldi", await state.get_state() is None)
+
+    await state.set_state(BookTranslateStates.waiting_for_line_range); replies.clear(); handled.clear()
+    await send(text="📄 Referat")
+    check("varoq oralig'i kutilayotganda ham menyu tugmasi ishlaydi",
+          handled == ["menu"] and not replies and await state.get_state() is None, (handled, replies))
+
+    await state.set_state(BookTranslateStates.waiting_for_file); replies.clear(); handled.clear()
+    await send(photo=[{"file_id": "x", "file_unique_id": "y", "width": 10, "height": 10}])
+    check("rasm yuborilsa fayl turi haqida aytiladi, kutish qoladi",
+          replies and "fayl turi" in replies[0].lower() and await state.get_state() == BookTranslateStates.waiting_for_file.state,
+          (replies, await state.get_state()))
+
+    await state.set_state(StorePublishStates.waiting_for_file) if hasattr(StorePublishStates, "waiting_for_file") else await state.set_state(list(StorePublishStates.__states__)[0])
+    handled.clear()
+    await send(text="/bekor", entities=[{"type": "bot_command", "offset": 0, "length": 6}])
+    check("/bekor do'kon holatida ishlaydi (holat saqlanadi)", handled == ["bekor"], handled)
+    await bot.session.close()
+asyncio.run(state_main())
+
 import shutil
 shutil.rmtree(SCR, ignore_errors=True)
 print("\n" + ("✅ hammasi o'tdi" if not FAILS else f"❌ {len(FAILS)} ta xato: {FAILS}"))
