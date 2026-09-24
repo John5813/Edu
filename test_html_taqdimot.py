@@ -2695,6 +2695,72 @@ def check_blocked_replies():
           "so'zma-so'z" in html_slides.shell_rules(theme, "uz"))
 
 
+def check_cover_credit():
+    """Muqovada o'ylab topilgan ism, fan va yil bo'lmasin.
+
+    Model namunadagi "Tayyorladi: ... | Fan: ... | 2026" qatorini
+    to'ldirib, mijoz ism kiritmagan bo'lsa ham begona ism yozardi va u
+    do'konga ham chiqib ketardi.
+    """
+    print("\n35) Muqovada faqat mijoz kiritgan ism")
+    theme = themes.get("ko'k")
+    cover = ('<section class="slide dark"><div class="body">'
+             '<h1 class="title big">Pandemiya davrida himoya</h1>'
+             '<div class="rule"></div><p class="lead">Taqdimot choralarni tahlil qiladi.</p>'
+             '<p class="note">Tayyorladi: Abdug\'aniyeva M.M. | Fan: Ijtimoiy himoya | 2026</p>'
+             '<p>Fan: Iqtisodiyot</p></div></section>')
+    bare = html_slides._cover_credit(cover, "", "uz")
+    check("ism kiritilmasa muqovada ism, fan va yil yo'q",
+          "Abdug" not in bare and "Fan" not in bare and "2026" not in bare
+          and "Tayyorladi" not in bare, bare)
+    check("muqovaning asosiy matni qoladi",
+          "Taqdimot choralarni tahlil qiladi." in bare and "title big" in bare)
+    named = html_slides._cover_credit(cover, "Temirbaeva Nuriya", "uz")
+    check("ism kiritilsa faqat o'sha ism qo'yiladi",
+          named.count("Tayyorladi: Temirbaeva Nuriya") == 1
+          and "Abdug" not in named and "2026" not in named, named)
+    check("ism muqova ichida turadi",
+          named.index("Temirbaeva") < named.rindex("</div>"))
+    rules = html_slides.shell_rules(theme, "uz")
+    check("namunada fan va yil yo'q", "Fan: ..." not in rules and "| 2026" not in rules)
+    prompt = html_slides._user_prompt("M", 1, 3, 9, [{"brief": "b", "category": "muqova"}],
+                                      [], 2, "", "", "Temirbaeva Nuriya", "umumiy")
+    check("ism AI ga berilmaydi (uni kod qo'yadi)", "Temirbaeva" not in prompt)
+
+    saved = (html_slides.plan_outline, html_slides._write_chunk)
+    try:
+        html_slides.plan_outline = lambda *a, **k: {
+            "family": "umumiy",
+            "slides": [{"brief": "b", "category": "kartalar"}] * 4}
+        block = ('<div class="list"><div class="item"><span class="item-dot">'
+                 '</span><div class="item-text">Band.</div></div></div>')
+        html_slides._write_chunk = lambda system, user, count: (
+            [cover] + [_page("Slayd", block)] * (count - 1)
+            if "1-slayddan" in user else [_page("Slayd", block)] * count)
+        pages = html_slides.write_slides("Mavzu", 4, theme)
+    finally:
+        html_slides.plan_outline, html_slides._write_chunk = saved
+    check("butun oqimda ham muqova tozalanadi",
+          "Abdug" not in pages[0] and "2026" not in html_slides.source_of(pages[0]))
+
+    import tempfile
+    from pptx import Presentation
+    from pptx.util import Inches
+    from services import store_publisher
+    deck = Presentation()
+    slide = deck.slides.add_slide(deck.slide_layouts[6])
+    box = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(6), Inches(1))
+    box.text_frame.text = "Tayyorladi: Abdug'aniyeva M.M. | Fan: Ijtimoiy himoya | 2026"
+    keep = slide.shapes.add_textbox(Inches(1), Inches(3), Inches(6), Inches(1))
+    keep.text_frame.text = "Kitob muallifi Alisher Navoiy hayoti haqida"
+    src = os.path.join(tempfile.mkdtemp(), "t.pptx")
+    deck.save(src)
+    clean = Presentation(store_publisher.anonymize(src, ""))
+    texts = [sh.text_frame.text for sh in clean.slides[0].shapes if sh.has_text_frame]
+    check("do'konda o'ylab topilgan ism qatori ham o'chiriladi",
+          "Abdug" not in " ".join(texts) and "Alisher Navoiy" in " ".join(texts), str(texts))
+
+
 def main():
     check_handler_names()
     check_prompt()
@@ -2740,6 +2806,7 @@ def main():
     check_formula_rich()
     check_no_half_decks()
     check_blocked_replies()
+    check_cover_credit()
 
     print()
     if FAILS:

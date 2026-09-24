@@ -476,7 +476,6 @@ BLOKLAR:
     <h1 class="title big">Mavzu nomi</h1>
     <div class="rule"></div>
     <p class="lead">Bir jumlalik izoh.</p>
-    <p class="note">Tayyorladi: ... | Fan: ... | 2026</p>
   </div>
 </section>
 

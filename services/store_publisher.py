@@ -49,7 +49,12 @@ def _looks_like_person(text: str) -> bool:
     if any(ch.isdigit() for ch in value):
         return False
     words = value.split()
-    return 1 <= len(words) <= 4 and all(w.replace("'", "").replace("`", "").isalpha() for w in words)
+    # "Abdug'aniyeva M.M." — bosh harflar nuqtali, apostrof turlicha yoziladi.
+    def plain(word: str) -> str:
+        for mark in ("'", "`", "ʻ", "ʼ", "’", "‘", ".", "-"):
+            word = word.replace(mark, "")
+        return word
+    return 1 <= len(words) <= 4 and all(plain(w).isalpha() for w in words)
 
 
 def _iter_shapes(shapes):
@@ -93,7 +98,8 @@ def _scrub_paragraphs(paragraphs, name_re) -> int:
             hit = True
         else:
             match = _LABEL_VALUE_RE.match(text)
-            if match and _looks_like_person(match.group(1)):
+            # "Tayyorladi: Ism | Fan: ... | 2026" — ism birinchi bo'lakda.
+            if match and _looks_like_person(re.split(r"[|;,/]", match.group(1))[0]):
                 hit = True
             elif after_label and _looks_like_person(text):
                 # "Tayyorladi:" alohida satrda, ism esa undan keyin turadi.
