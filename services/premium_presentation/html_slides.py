@@ -217,7 +217,10 @@ QAT'IY QOIDALAR:
    tushuncha kiritilgan slaydda uning formulasi `formula` blokida
    ko'rsatiladi — so'z bilan tasvirlab qo'yish yetmaydi. Formulani
    matn ichiga tiqmang va LaTeX bilan yozing — tizim uni belgilarga
-   o'giradi. Mavzuda formula yo'q bo'lsa, bu blok ishlatilmaydi."""
+   o'giradi. Mavzuda formula yo'q bo'lsa, bu blok ishlatilmaydi.
+15. Qonun, farmon, qaror, nutq yoki dastur matnini so'zma-so'z
+   KO'CHIRMANG. Hujjatning nomi, raqami va yilini ayting, mazmunini
+   o'z so'zlaringiz bilan qisqa bayon qiling."""
 
 
 def _user_prompt(topic: str, start: int, count: int, total: int,
@@ -654,6 +657,14 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
                                   used, level, source_text, preferences,
                                   author, family)
             one = _write_chunk(system, single, 1)
+            if not one:
+                # Oxirgi chora: kichik JSON so'rov, slaydni kod yig'adi.
+                # Katta HTML javobni filtr kesadigan mavzularda ham u
+                # odatda o'tadi — mijoz taqdimotsiz qolmaydi.
+                item = outline[number - 1] if number <= len(outline) else {}
+                plain = _plain_slide(topic, item.get("brief") or topic,
+                                     number, slide_count, language, author)
+                one = [plain] if plain else []
             if one:
                 chunk.append(one[0])
             else:
@@ -1073,9 +1084,64 @@ def _restore(html: str, theme) -> str:
 
 def _write_chunk(system: str, user: str, count: int) -> List[str]:
     try:
+        # Birorta ham yopilgan slayd bo'lmagan javob (filtr kesgan, token
+        # chegarasida uzilgan) keyingi modelga o'tkaziladi.
         raw = llm_client._call_openrouter_text(
-            system, user, temperature=0.75, max_tokens=4200 * count)
+            system, user, temperature=0.75, max_tokens=4200 * count,
+            accept=lambda text: bool(split_slides(text)))
     except Exception as exc:
         log.error("Slayd bo'lagi olinmadi: %s", exc)
         return []
     return split_slides(raw)
+
+
+def _plain_slide(topic: str, brief: str, number: int, total: int,
+                 language: str = "uz", author: str = "") -> str:
+    """Hech bir model HTML slayd bermaganda — oddiy ro'yxatli slayd.
+
+    Muqovaga AI kerak emas: u mavzu va muallifdan yig'iladi.
+    """
+    if number == 1:
+        note = f'<p class="note">{_escape(author)}</p>' if author else ""
+        return ('<section class="slide dark"><div class="body">'
+                f'<h1 class="title big">{_escape(topic)}</h1>'
+                f'<div class="rule"></div>{note}</div></section>')
+    target = _LANGUAGE.get(language, _LANGUAGE["uz"])
+    kind = "xulosa" if number == total else "mazmun"
+    prompt = (
+        f'Mavzu: "{topic}". Taqdimotning {number}-slaydi ({kind}): {brief}\n\n'
+        f"Matn {target}. Hujjat yoki nutq matnini so'zma-so'z ko'chirmang, "
+        "o'z so'zlaringiz bilan yozing.\n"
+        'Faqat JSON: {"title": "slayd sarlavhasi (2-7 so\'z)", '
+        '"points": [{"key": "kalit so\'z", "text": "bir-ikki to\'liq gap"}]} '
+        "— 3 tadan 5 tagacha band."
+    )
+    try:
+        data = llm_client._call_openrouter(
+            "Sen taqdimot slaydi matnini yozasan. Faqat JSON qaytar.",
+            prompt, temperature=0.5, max_tokens=1500)
+    except Exception as exc:
+        log.error("%d-slayd zaxira yo'li bilan ham yozilmadi: %s", number, exc)
+        return ""
+    if not isinstance(data, dict):
+        data = {}
+    title = str(data.get("title") or brief).strip()
+    items = []
+    for point in data.get("points") or []:
+        if not isinstance(point, dict):
+            continue
+        text = str(point.get("text") or "").strip()
+        if not text:
+            continue
+        key = str(point.get("key") or "").strip()
+        lead = f"<b>{_escape(key)}.</b> " if key else ""
+        items.append('<div class="item"><span class="item-dot"></span>'
+                     f'<div class="item-text">{lead}{_escape(text)}</div></div>')
+    if len(items) < 2:
+        log.error("%d-slayd zaxira javobi bo'sh", number)
+        return ""
+    log.warning("%d-slayd zaxira yo'li bilan yozildi", number)
+    return ('<section class="slide"><div class="head">'
+            f'<h2 class="title">{_escape(title)}</h2><div class="rule"></div>'
+            '</div><div class="body"><div class="list">'
+            + "".join(items[:5]) + '</div></div></section>')
