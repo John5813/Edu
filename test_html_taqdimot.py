@@ -2617,6 +2617,18 @@ def check_blocked_replies():
         llm_client._preferred.clear()
         llm_client._preferred.update(saved[4])
 
+    flash = llm_client._body({"max_tokens": 4200}, "google/gemini-2.5-flash")
+    check("Gemini 2.5 Flash o'ylashi chegaralanadi, javob joyi saqlanadi",
+          flash.get("reasoning", {}).get("max_tokens") == 1024
+          and flash["max_tokens"] == 4200 + 1024, str(flash))
+    check("Gemini 2.5 Pro ham chegaralanadi",
+          "reasoning" in llm_client._body({}, "google/gemini-2.5-pro"))
+    lite = llm_client._body({"max_tokens": 4200}, "google/gemini-2.5-flash-lite")
+    other = llm_client._body({"max_tokens": 4200}, "anthropic/claude-sonnet-4.5")
+    check("Flash Lite va boshqa modellarga tegilmaydi",
+          "reasoning" not in lite and "reasoning" not in other
+          and lite["max_tokens"] == other["max_tokens"] == 4200)
+
     theme = themes.get("ko'k")
     saved = (html_slides.plan_outline, html_slides._write_chunk,
              llm_client._call_openrouter)
