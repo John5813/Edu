@@ -1912,18 +1912,18 @@ class DocumentService:
                     para.add_run().add_picture(path, width=Cm(width_cm))
                 return para
 
-            picture('gerb_bayroq.png', 13.5, after=0)
+            picture('gerb_bayroq.jpg', 12.0, after=0)
             line(texts['country'], after=4)
             line(texts['ministry'], after=14)
-            line('_' * 32 + ' ' + texts['university'], after=10)
-            line('_' * 36 + ' ' + texts['faculty'], after=10)
-            line('_' * 36 + ' ' + texts['direction'], after=10)
+            line('_' * 46 + ' ' + texts['university'], after=10)
+            line('_' * 50 + ' ' + texts['faculty'], after=10)
+            line('_' * 50 + ' ' + texts['direction'], after=10)
             line(texts['course_group'], after=10)
             if name:
                 line(texts['student_of'].format(name=name.upper()), after=10)
             else:
-                line('_' * 50 + texts['student_blank'], after=10)
-            line('_' * 30 + ' ' + texts['from_subject'], after=18)
+                line('_' * 58 + texts['student_blank'], after=10)
+            line('_' * 42 + ' ' + texts['from_subject'], after=18)
 
             picture('kitoblar.png', 5.2, after=14)
 
@@ -1966,7 +1966,7 @@ class DocumentService:
                 'university': 'УНИВЕРСИТЕТ',
                 'faculty': 'ФАКУЛЬТЕТ',
                 'direction': 'НАПРАВЛЕНИЕ',
-                'course_group': 'СТУДЕНТА ____ КУРСА ____ ГРУППЫ',
+                'course_group': 'СТУДЕНТА ________ КУРСА ________ ГРУППЫ',
                 'student_of': '{name}',
                 'student_blank': '',
                 'from_subject': 'ПО ПРЕДМЕТУ',
@@ -1982,7 +1982,7 @@ class DocumentService:
                 'university': 'UNIVERSITY',
                 'faculty': 'FACULTY',
                 'direction': 'PROGRAMME',
-                'course_group': '____-YEAR ____-GROUP STUDENT',
+                'course_group': '________-YEAR ________-GROUP STUDENT',
                 'student_of': '{name}',
                 'student_blank': '',
                 'from_subject': 'SUBJECT',
@@ -1998,7 +1998,7 @@ class DocumentService:
                 'university': 'UNIVERSITETI',
                 'faculty': 'FAKULTETI',
                 'direction': "YO'NALISHI",
-                'course_group': '____-KURS ____-GURUH TALABASI',
+                'course_group': '________-KURS ________-GURUH TALABASI',
                 'student_of': '{name}NING',
                 'student_blank': 'NING',
                 'from_subject': 'FANIDAN TAYYORLAGAN',
