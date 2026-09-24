@@ -5,6 +5,8 @@ import aiohttp
 import asyncio
 import base64
 import httpx
+import time
+import uuid
 from typing import Optional, Dict
 from together import Together
 from openai import AsyncOpenAI
@@ -20,9 +22,8 @@ class TogetherImageService:
         if not self.api_key:
             raise ValueError("TOGETHER_API_KEY environment variable is required")
         self.client = Together(api_key=self.api_key)
-        # FLUX.1-schnell hisobimizning model ro'yxatida yo'q edi — so'rovlar
-        # HTTP 400, keyin 429 bilan yiqilardi va rasmlar umuman chiqmasdi.
-        self.model = os.getenv("TOGETHER_IMAGE_MODEL", "black-forest-labs/FLUX.2-pro")
+        # Rasm modeli har xizmat uchun alohida tanlanadi (admin panel) —
+        # qarang: `chosen_image_model`.
         
         self.ai_client = AsyncOpenAI(
             api_key=os.environ.get("AI_INTEGRATIONS_OPENROUTER_API_KEY") or "dummy-key",
@@ -64,14 +65,91 @@ class TogetherImageService:
             logger.error(f"Error generating image prompt: {e}")
             return f"Professional photograph related to {topic}, {slide_title}, realistic style, no text"
     
-    async def generate_image(self, prompt: str, aspect_ratio: str = "16:9", steps: int = 4) -> Optional[str]:
-        """Generate image using Together AI FLUX model
-        
+    async def _render(self, prompt: str, target: str, stem: str) -> Optional[str]:
+        """Promptni rasmga aylantiradi va fayl yo'lini qaytaradi.
+
+        Avval `target` xizmati uchun tanlangan model, u ishlamasa zaxira
+        modellar sinaladi — mijoz to'lagan ishda rasmsiz qolmaslik muhimroq.
+        """
+        for model in await image_model_chain(target):
+            response = await self._call_model(prompt, model)
+            if response is None:
+                continue
+            path = await self._save_response(response, stem)
+            if path:
+                logger.info(f"Image generated with {model} ({target}): {path}")
+                return path
+            logger.error(f"No image data from {model}")
+        return None
+
+    async def _call_model(self, prompt: str, model: str):
+        """Bitta modelga so'rov. Vaqtinchalik xatoda (429/5xx) qayta uradi,
+        boshqa xatoda None qaytaradi — shunda keyingi modelga o'tiladi."""
+        extra = {}
+        steps = _model_steps(model)
+        if steps:
+            extra["steps"] = steps
+
+        # Wrap the SDK call with a hard timeout (Together can hang on transient
+        # backend issues) and a small retry loop for 429/5xx-style errors.
+        async def _call():
+            return await asyncio.to_thread(
+                functools.partial(
+                    self.client.images.generate,
+                    prompt=prompt,
+                    model=model,
+                    n=1,
+                    **extra,
+                )
+            )
+
+        for attempt in range(3):
+            try:
+                return await asyncio.wait_for(_call(), timeout=60)
+            except (asyncio.TimeoutError, Exception) as ex:
+                msg = str(ex).lower()
+                transient = isinstance(ex, asyncio.TimeoutError) or any(
+                    s in msg for s in ("429", "rate", "timeout", "503", "502", "504", "temporar")
+                )
+                if not transient:
+                    logger.error(f"Together image model {model} failed: {ex}")
+                    _mark_unavailable(model, msg)
+                    return None
+                if attempt == 2:
+                    logger.error(f"Together image model {model} kept failing: {ex}")
+                    return None
+                backoff = 1.5 * (2 ** attempt)
+                logger.warning(f"Together image transient error ({model}, attempt {attempt+1}): {ex}; retrying in {backoff}s")
+                await asyncio.sleep(backoff)
+        return None
+
+    async def _save_response(self, response, stem: str) -> Optional[str]:
+        if not response.data:
+            return None
+        filename = f"{stem}_{uuid.uuid4().hex[:12]}.png"
+        item = response.data[0]
+        if getattr(item, "url", None):
+            path = await self._download_image(item.url, filename)
+            if path:
+                return path
+        if getattr(item, "b64_json", None):
+            filepath = os.path.join("temp", filename)
+            os.makedirs("temp", exist_ok=True)
+            with open(filepath, "wb") as f:
+                f.write(base64.b64decode(item.b64_json))
+            return filepath
+        return None
+
+    async def generate_image(self, prompt: str, aspect_ratio: str = "16:9", steps: int = 4,
+                             target: str = "docs") -> Optional[str]:
+        """Generate image using the Together AI model chosen for `target`.
+
         Args:
             prompt: English description of the image (detailed, high quality)
             aspect_ratio: Image aspect ratio (16:9 for slides, 21:9 for panoramic)
-            steps: Number of generation steps (4 for fast, more for quality)
-        
+            steps: kept for compatibility; each model's own step count is used
+            target: "docs", "presentation" or "premium" — whose model to use
+
         Returns:
             Path to downloaded image or None if failed
         """
@@ -90,101 +168,20 @@ class TogetherImageService:
             except Exception as _ex:
                 logger.warning(f"Image prompt sanitizer unavailable: {_ex}")
 
-            logger.info(f"Generating image with prompt: {prompt[:100]}...")
+            logger.info(f"Generating image ({target}) with prompt: {prompt[:100]}...")
+            return await self._render(prompt, target, "together_image")
 
-            # `steps` ni hamma model qabul qilmaydi: FLUX.2-pro uni noma'lum
-            # parametr deb rad etadi, Schnell esa 4 dan ortig'ini rad etadi.
-            model_name = self.model.lower()
-            extra = {}
-            if any(family in model_name for family in ("schnell", "dev", "flex")):
-                extra["steps"] = max(1, min(int(steps), 4)) if "schnell" in model_name else int(steps)
-
-            # Wrap the SDK call with a hard timeout (Together can hang on transient
-            # backend issues) and a small retry loop for 429/5xx-style errors.
-            async def _call():
-                return await asyncio.to_thread(
-                    functools.partial(
-                        self.client.images.generate,
-                        prompt=prompt,
-                        model=self.model,
-                        n=1,
-                        **extra,
-                    )
-                )
-
-            last_exc = None
-            response = None
-            for attempt in range(3):
-                try:
-                    response = await asyncio.wait_for(_call(), timeout=60)
-                    break
-                except (asyncio.TimeoutError, Exception) as ex:
-                    last_exc = ex
-                    msg = str(ex).lower()
-                    transient = isinstance(ex, asyncio.TimeoutError) or any(
-                        s in msg for s in ("429", "rate", "timeout", "503", "502", "504", "temporar")
-                    )
-                    if not transient or attempt == 2:
-                        raise
-                    backoff = 1.5 * (2 ** attempt)
-                    logger.warning(f"Together image transient error (attempt {attempt+1}): {ex}; retrying in {backoff}s")
-                    await asyncio.sleep(backoff)
-            if response is None:
-                raise last_exc or RuntimeError("Together image generation failed")
-            
-            if response.data and len(response.data) > 0:
-                image_url = response.data[0].url
-                if image_url:
-                    filename = f"together_image_{hash(prompt) % 100000}.png"
-                    image_path = await self._download_image(image_url, filename)
-                    if image_path:
-                        logger.info(f"Image generated and saved: {image_path}")
-                        return image_path
-                    
-                if response.data[0].b64_json:
-                    import base64
-                    filename = f"together_image_{hash(prompt) % 100000}.png"
-                    filepath = os.path.join("temp", filename)
-                    os.makedirs("temp", exist_ok=True)
-                    
-                    with open(filepath, "wb") as f:
-                        f.write(base64.b64decode(response.data[0].b64_json))
-                    
-                    logger.info(f"Image generated from base64: {filepath}")
-                    return filepath
-            
-            logger.error("No image data in response")
-            return None
-            
         except Exception as e:
             logger.error(f"Error generating image: {e}")
             return None
     
     async def generate_slide_image(self, topic: str, slide_title: str, language: str, text_overlay: str = None) -> Optional[str]:
-        """Generate image for presentation slide using DeepSeek-generated prompt
-        
-        Args:
-            topic: Main presentation topic
-            slide_title: Title of current slide
-            language: Language (uz, ru, en)
-            text_overlay: Ignored - no text in images
-        
-        Returns:
-            Path to generated image
-        """
+        """Oddiy taqdimot slaydi uchun rasm (rasmda matn bo'lmaydi)."""
         prompt = await self._generate_image_prompt(topic, slide_title)
-        return await self.generate_image(prompt, aspect_ratio="16:9")
+        return await self.generate_image(prompt, aspect_ratio="16:9", target="presentation")
     
     async def generate_cover_image(self, topic: str, language: str) -> Optional[str]:
-        """Generate beautiful cover image matching topic using FLUX.2-pro (no text in image)
-        
-        Args:
-            topic: Presentation topic
-            language: Language for context
-        
-        Returns:
-            Path to generated image
-        """
+        """Oddiy taqdimot muqovasi uchun mavzuga mos rasm (rasmda matn yo'q)."""
         try:
             # Create prompt for beautiful topic-related image WITHOUT any text
             prompt = f"""Stunning professional photograph related to "{topic}".
@@ -195,56 +192,20 @@ NO TEXT, NO WORDS, NO LETTERS in the image - purely visual.
 The image should clearly represent the theme of {topic}.
 Corporate presentation quality, inspiring and engaging visual."""
 
-            pro_model = "black-forest-labs/FLUX.2-pro"
-            logger.info(f"Generating beautiful cover image for topic using FLUX.2-pro...")
-            
-            response = await asyncio.to_thread(
-                self.client.images.generate,
-                prompt=prompt,
-                model=pro_model,
-                n=1
-            )
-            
-            if response.data and len(response.data) > 0:
-                image_url = response.data[0].url
-                if image_url:
-                    filename = f"cover_image_{hash(topic) % 100000}.png"
-                    image_path = await self._download_image(image_url, filename)
-                    if image_path:
-                        logger.info(f"Cover image generated: {image_path}")
-                        return image_path
-                
-                if response.data[0].b64_json:
-                    filename = f"cover_image_{hash(topic) % 100000}.png"
-                    filepath = os.path.join("temp", filename)
-                    os.makedirs("temp", exist_ok=True)
-                    
-                    with open(filepath, "wb") as f:
-                        f.write(base64.b64decode(response.data[0].b64_json))
-                    
-                    return filepath
-            
-            return None
-            
+            logger.info("Generating cover image for presentation...")
+            path = await self._render(prompt, "presentation", "cover_image")
+            if path:
+                return path
         except Exception as e:
             logger.error(f"Error generating cover image: {e}")
-            # Fallback to regular image generation
-            prompt = await self._generate_image_prompt(topic, topic)
-            return await self.generate_image(prompt, aspect_ratio="1:1")
+        # Fallback to regular image generation
+        prompt = await self._generate_image_prompt(topic, topic)
+        return await self.generate_image(prompt, aspect_ratio="1:1", target="presentation")
     
     async def generate_panoramic_image(self, topic: str, slide_title: str, language: str) -> Optional[str]:
-        """Generate panoramic image using DeepSeek-generated prompt
-        
-        Args:
-            topic: Presentation topic
-            slide_title: Slide title for context
-            language: Language (ignored - no text)
-        
-        Returns:
-            Path to generated image
-        """
+        """Oddiy taqdimotning keng (panorama) slaydi uchun rasm."""
         prompt = await self._generate_image_prompt(topic, slide_title)
-        return await self.generate_image(prompt, aspect_ratio="16:9")
+        return await self.generate_image(prompt, aspect_ratio="16:9", target="presentation")
     
     async def _download_image(self, image_url: str, filename: str) -> Optional[str]:
         """Download image from URL with timeout + small retry loop."""
@@ -279,7 +240,7 @@ Corporate presentation quality, inspiring and engaging visual."""
         language: str = 'uz',
         image_type: str = 'infographic',
     ) -> tuple:
-        """Generate high-quality image using Together AI FLUX 2 Pro for course work.
+        """Hujjat (kurs ishi, referat va h.k.) uchun rasm — hujjatlar modeli bilan.
 
         Args:
             topic: Main course work topic
@@ -296,33 +257,10 @@ Corporate presentation quality, inspiring and engaging visual."""
                 topic, subsection_title, language, image_type=image_type
             )
 
-            pro_model = "black-forest-labs/FLUX.2-pro"
-            logger.info(f"Generating {image_type} image with Together AI {pro_model}...")
-
-            response = await asyncio.to_thread(
-                self.client.images.generate,
-                prompt=image_prompt,
-                model=pro_model,
-                n=1
-            )
-
-            if response.data and len(response.data) > 0:
-                image_url = response.data[0].url
-                if image_url:
-                    filename = f"course_work_{image_type}_{hash(subsection_title) % 100000}.png"
-                    image_path = await self._download_image(image_url, filename)
-                    if image_path:
-                        logger.info(f"Course work {image_type} image generated: {image_path}")
-                        return image_path, image_prompt
-
-                if response.data[0].b64_json:
-                    filename = f"course_work_{image_type}_{hash(subsection_title) % 100000}.png"
-                    filepath = os.path.join("temp", filename)
-                    os.makedirs("temp", exist_ok=True)
-                    with open(filepath, "wb") as f:
-                        f.write(base64.b64decode(response.data[0].b64_json))
-                    logger.info(f"Course work {image_type} image from base64: {filepath}")
-                    return filepath, image_prompt
+            logger.info(f"Generating {image_type} image for a document...")
+            image_path = await self._render(image_prompt, "docs", f"course_work_{image_type}")
+            if image_path:
+                return image_path, image_prompt
 
             logger.error("No image data in Together AI response")
             return None, None
@@ -548,6 +486,118 @@ Start with "This image shows..."."""
                 return f"На данном изображении представлены основные элементы темы {subsection_title}."
             else:
                 return f"This image illustrates the main elements of {subsection_title}."
+
+
+# ── Har xizmat uchun tanlangan rasm modeli
+#
+# Tanlov bazada saqlanadi (admin panel), bu yerda qisqa muddat eslab
+# qolinadi: har rasm uchun bazaga borilmasin, lekin admin almashtirgach
+# bir daqiqa ichida hamma jarayonga yetib borsin.
+IMAGE_TARGETS = ("docs", "presentation", "premium")
+_CHOICE_TTL = 60.0
+_choice_cache: Dict[str, tuple] = {}
+# Hisobda ochiq bo'lmagan / nomi o'zgargan model har rasmda qayta
+# sinalmasin — bir muddat chetlab o'tiladi.
+_UNAVAILABLE_TTL = 600.0
+_unavailable: Dict[str, float] = {}
+
+
+def _catalog_entry(model_id: str) -> dict:
+    from config import IMAGE_MODELS
+
+    for info in IMAGE_MODELS.values():
+        if info["id"].lower() == (model_id or "").lower():
+            return info
+    return {}
+
+
+def _model_steps(model_id: str) -> Optional[int]:
+    """Faqat `steps` ni qabul qiladigan modellarga qiymat qaytaradi."""
+    steps = _catalog_entry(model_id).get("steps")
+    if steps:
+        return int(steps)
+    if "schnell" in (model_id or "").lower():
+        return 4
+    return None
+
+
+def _mark_unavailable(model_id: str, message: str) -> None:
+    if any(s in message for s in ("model", "not found", "404", "not available",
+                                  "unavailable", "access", "permission")):
+        _unavailable[model_id] = time.monotonic() + _UNAVAILABLE_TTL
+
+
+def _env_default(target: str) -> str:
+    from config import IMAGE_MODELS, DEFAULT_IMAGE_MODEL
+
+    if target == "premium" and os.getenv("PREMIUM_TOGETHER_IMAGE_MODEL"):
+        return os.environ["PREMIUM_TOGETHER_IMAGE_MODEL"]
+    return os.getenv("TOGETHER_IMAGE_MODEL") or IMAGE_MODELS[DEFAULT_IMAGE_MODEL]["id"]
+
+
+async def chosen_image_model(target: str) -> str:
+    """`target` xizmati uchun tanlangan model ID'si (bazadan, keshlab)."""
+    from config import IMAGE_MODELS
+
+    cached = _choice_cache.get(target)
+    if cached and cached[1] > time.monotonic():
+        return cached[0]
+    model_id = _env_default(target)
+    try:
+        from database.database import Database
+
+        key = await Database.get_image_model(target)
+        if key in IMAGE_MODELS:
+            model_id = IMAGE_MODELS[key]["id"]
+    except Exception as e:
+        logger.warning(f"Image model choice unavailable ({target}): {e}")
+    _choice_cache[target] = (model_id, time.monotonic() + _CHOICE_TTL)
+    return model_id
+
+
+def forget_image_model_choice(target: Optional[str] = None) -> None:
+    """Admin modelni almashtirgach keshni tozalaydi."""
+    if target is None:
+        _choice_cache.clear()
+        _unavailable.clear()
+    else:
+        model = _choice_cache.pop(target, (None,))[0]
+        _unavailable.pop(model, None)
+
+
+async def image_model_chain(target: str) -> list:
+    """Tanlangan model, keyin zaxiralar; yaqinda ishlamaganlar oxiriga."""
+    from config import IMAGE_MODEL_FALLBACKS
+
+    chain = []
+    for model in [await chosen_image_model(target), *IMAGE_MODEL_FALLBACKS]:
+        if model and model not in chain:
+            chain.append(model)
+    now = time.monotonic()
+    alive = [m for m in chain if _unavailable.get(m, 0) <= now]
+    return alive + [m for m in chain if m not in alive]
+
+
+def list_account_image_models() -> Optional[set]:
+    """Together hisobida ochiq rasm modellari (ID'lar, kichik harfda).
+
+    Ro'yxatni olib bo'lmasa None — shunda chaqiruvchi tekshiruvsiz davom
+    etadi. Bu so'rov bepul: rasm chizilmaydi.
+    """
+    api_key = os.getenv("TOGETHER_API_KEY")
+    if not api_key:
+        return None
+    try:
+        models = Together(api_key=api_key).models.list()
+    except Exception as e:
+        logger.warning(f"Together model list unavailable: {e}")
+        return None
+    ids = set()
+    for model in models:
+        kind = str(getattr(model, "type", "") or "").lower()
+        if not kind or "image" in kind:
+            ids.add(str(getattr(model, "id", "")).lower())
+    return ids
 
 
 _together_service_instance: "TogetherImageService | None" = None

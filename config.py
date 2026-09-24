@@ -290,6 +290,151 @@ AI_MODEL_FALLBACKS = [
 # ketardi — `main.py` uni bir marta yangilaydi.
 PREVIOUS_DEFAULT_AI_MODEL = "gemini_25_flash"
 
+# ── Rasm modellari (Together AI)
+#
+# Uchta xizmat uchun alohida tanlanadi: hujjatlar (mustaqil ish, referat,
+# kurs ishi va h.k.), oddiy taqdimot va zamonaviy taqdimot. Narx — bitta
+# ~1 megapikselli rasm uchun taxminiy qiymat (Together narxlari o'zgarib
+# turadi). Admin modelni tanlaganda u Together hisobidagi ro'yxatdan
+# tekshiriladi; ishlab chiqarishda tanlangani ishlamasa
+# IMAGE_MODEL_FALLBACKS bo'yicha keyingisiga o'tiladi.
+#
+# `steps` faqat uni qabul qiladigan modellarga yoziladi: FLUX.2-pro va
+# boshqa "pro" modellar uni noma'lum parametr deb rad etadi, Schnell esa
+# 4 dan ortig'ini rad etadi. Yozilmagan modelda sukut qiymati ishlaydi.
+IMAGE_MODELS = {
+    "flux2_pro": {
+        "id": "black-forest-labs/FLUX.2-pro",
+        "name": "FLUX.2 Pro",
+        "price": "~$0.03",
+        "description": "Eng aniq va realistik FLUX, hozirgi sukut",
+    },
+    "flux2_flex": {
+        "id": "black-forest-labs/FLUX.2-flex",
+        "name": "FLUX.2 Flex",
+        "price": "~$0.03",
+        "description": "FLUX.2 — mayda detallar va matnsiz kompozitsiyada yaxshi",
+    },
+    "flux2_dev": {
+        "id": "black-forest-labs/FLUX.2-dev",
+        "name": "FLUX.2 Dev",
+        "price": "~$0.015",
+        "description": "FLUX.2 ning arzonroq ochiq versiyasi",
+    },
+    "flux11_pro": {
+        "id": "black-forest-labs/FLUX.1.1-pro",
+        "name": "FLUX 1.1 Pro",
+        "price": "~$0.04",
+        "description": "Barqaror, yuqori sifatli fotosurat",
+    },
+    "flux1_kontext_max": {
+        "id": "black-forest-labs/FLUX.1-kontext-max",
+        "name": "FLUX Kontext Max",
+        "price": "~$0.08",
+        "description": "FLUX 1 oilasining eng kuchlisi, qimmat",
+    },
+    "flux1_kontext_pro": {
+        "id": "black-forest-labs/FLUX.1-kontext-pro",
+        "name": "FLUX Kontext Pro",
+        "price": "~$0.04",
+        "description": "Kuchli, kompozitsiyani yaxshi ushlaydi",
+    },
+    "flux1_krea_dev": {
+        "id": "black-forest-labs/FLUX.1-krea-dev",
+        "name": "FLUX Krea Dev",
+        "price": "~$0.025",
+        "description": "Tabiiy, \"AI ko'rinishisiz\" fotosurat uslubi",
+    },
+    "flux1_dev": {
+        "id": "black-forest-labs/FLUX.1-dev",
+        "name": "FLUX.1 Dev",
+        "price": "~$0.025",
+        "description": "O'rtacha sifat va narx",
+    },
+    "flux1_schnell": {
+        "id": "black-forest-labs/FLUX.1-schnell",
+        "name": "FLUX.1 Schnell",
+        "price": "~$0.003",
+        "description": "Juda arzon va tez, sifati oddiyroq",
+        "steps": 4,
+    },
+    "imagen4_ultra": {
+        "id": "google/imagen-4.0-ultra",
+        "name": "Google Imagen 4 Ultra",
+        "price": "~$0.06",
+        "description": "Google'ning eng sifatli rasm modeli",
+    },
+    "imagen4": {
+        "id": "google/imagen-4.0-preview",
+        "name": "Google Imagen 4",
+        "price": "~$0.04",
+        "description": "Realistik, ranglari tabiiy",
+    },
+    "imagen4_fast": {
+        "id": "google/imagen-4.0-fast",
+        "name": "Google Imagen 4 Fast",
+        "price": "~$0.02",
+        "description": "Imagen 4 ning tez va arzon varianti",
+    },
+    "nano_banana": {
+        "id": "google/flash-image-2.5",
+        "name": "Gemini 2.5 Flash Image (Nano Banana)",
+        "price": "~$0.04",
+        "description": "Mavzuni yaxshi tushunadi, infografikaga ham mos",
+    },
+    "seedream4": {
+        "id": "ByteDance-Seed/Seedream-4.0",
+        "name": "ByteDance Seedream 4.0",
+        "price": "~$0.03",
+        "description": "Kuchli, yuqori aniqlikdagi rasm",
+    },
+    "seedream3": {
+        "id": "ByteDance-Seed/Seedream-3.0",
+        "name": "ByteDance Seedream 3.0",
+        "price": "~$0.018",
+        "description": "Yaxshi sifat, arzonroq",
+    },
+    "ideogram3": {
+        "id": "ideogram/ideogram-3.0",
+        "name": "Ideogram 3.0",
+        "price": "~$0.06",
+        "description": "Dizaynli, plakat uslubidagi rasmlar",
+    },
+    "qwen_image": {
+        "id": "Qwen/Qwen-Image",
+        "name": "Qwen Image",
+        "price": "~$0.006",
+        "description": "Arzon, sifati yaxshi",
+    },
+    "hidream_full": {
+        "id": "HiDream-ai/HiDream-I1-Full",
+        "name": "HiDream I1 Full",
+        "price": "~$0.009",
+        "description": "Arzon va sifatli ochiq model",
+    },
+    "hidream_dev": {
+        "id": "HiDream-ai/HiDream-I1-Dev",
+        "name": "HiDream I1 Dev",
+        "price": "~$0.005",
+        "description": "Juda arzon, sifati o'rtacha",
+    },
+    "juggernaut_pro": {
+        "id": "RunDiffusion/Juggernaut-pro-flux",
+        "name": "Juggernaut Pro Flux",
+        "price": "~$0.005",
+        "description": "Arzon fotorealistik FLUX varianti",
+    },
+}
+
+DEFAULT_IMAGE_MODEL = "flux2_pro"
+
+# Tanlangan model ishlamasa shu tartibda keyingisi sinaladi.
+IMAGE_MODEL_FALLBACKS = [
+    "black-forest-labs/FLUX.2-pro",
+    "black-forest-labs/FLUX.1.1-pro",
+    "black-forest-labs/FLUX.1-schnell",
+]
+
 # File paths
 DOCUMENTS_DIR = "generated_documents"
 TEMP_DIR = "temp"

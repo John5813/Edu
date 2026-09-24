@@ -2761,6 +2761,99 @@ def check_cover_credit():
           "Abdug" not in " ".join(texts) and "Alisher Navoiy" in " ".join(texts), str(texts))
 
 
+def check_image_models():
+    print("\n37) Rasm modeli har xizmat uchun alohida tanlanadi")
+    import base64 as _b64
+    import types
+
+    from bot.keyboards import IMAGE_TARGET_TITLES, get_image_model_selection_keyboard
+    from config import IMAGE_MODELS
+    from database.database import Database
+    from services import together_service as ts
+
+    choices = {"docs": "flux1_schnell", "presentation": "qwen_image", "premium": "imagen4_ultra"}
+    calls = []
+    broken = {"google/imagen-4.0-ultra"}
+
+    class Images:
+        def generate(self, prompt, model, n=1, **extra):
+            calls.append((model, extra))
+            if model in broken:
+                raise RuntimeError("Error code: 404 - model not available")
+            item = types.SimpleNamespace(url=None, b64_json=_b64.b64encode(b"png").decode())
+            return types.SimpleNamespace(data=[item])
+
+    async def fake_get(target):
+        return choices.get(target)
+
+    old_get = Database.get_image_model
+    Database.get_image_model = staticmethod(fake_get)
+    service = object.__new__(ts.TogetherImageService)
+    service.client = types.SimpleNamespace(images=Images())
+    ts.forget_image_model_choice()
+    made = []
+    try:
+        for target in ("docs", "presentation", "premium"):
+            calls.clear()
+            path = asyncio.run(service.generate_image("a quiet library", target=target))
+            made.append(path)
+            check(f"{target}: tanlangan model ishlatiladi",
+                  calls and calls[0][0] == IMAGE_MODELS[choices[target]]["id"], str(calls))
+        calls.clear()
+        asyncio.run(service.generate_image("x", target="docs"))
+        schnell_steps = calls[0][1].get("steps")
+        calls.clear()
+        asyncio.run(service.generate_image("x", target="presentation"))
+        check("steps faqat qabul qiladigan modelga",
+              schnell_steps == 4 and "steps" not in calls[0][1], str(calls))
+        check("ishlamagan model o'rniga zaxira chizadi",
+              made[2] is not None, str(made))
+        calls.clear()
+        asyncio.run(service.generate_image("x", target="premium"))
+        check("ishlamagan model keyingi safar birinchi sinalmaydi",
+              calls and calls[0][0] == "black-forest-labs/FLUX.2-pro", str(calls))
+        choices["docs"] = "flux2_dev"
+        ts.forget_image_model_choice("docs")
+        calls.clear()
+        asyncio.run(service.generate_image("x", target="docs"))
+        check("admin almashtirgach yangi model darhol ishlaydi",
+              calls and calls[0][0] == "black-forest-labs/FLUX.2-dev", str(calls))
+    finally:
+        Database.get_image_model = old_get
+        ts.forget_image_model_choice()
+        for path in made:
+            if path and os.path.exists(path):
+                os.remove(path)
+
+    too_long = [b.callback_data for target in IMAGE_TARGET_TITLES
+                for row in get_image_model_selection_keyboard(None, target).inline_keyboard
+                for b in row if len(b.callback_data.encode()) > 64]
+    check("tugma ma'lumoti 64 baytdan oshmaydi", not too_long, str(too_long))
+
+    seen = []
+
+    class FakeTogether:
+        async def generate_image(self, prompt, aspect_ratio="16:9", target="docs"):
+            seen.append(target)
+            return None
+
+    old_factory = ts.get_together_service
+    old_flag = os.environ.get("PREMIUM_PHOTOS")
+    ts.get_together_service = lambda: FakeTogether()
+    os.environ["PREMIUM_PHOTOS"] = "1"
+    try:
+        page = _page(extra='<div class="rasm" data-prompt="city skyline at dusk">'
+                           '<p>matn</p></div>')
+        asyncio.run(html_images.fill_photos([page]))
+    finally:
+        ts.get_together_service = old_factory
+        if old_flag is None:
+            os.environ.pop("PREMIUM_PHOTOS", None)
+        else:
+            os.environ["PREMIUM_PHOTOS"] = old_flag
+    check("zamonaviy taqdimot rasmlari o'z modelida", seen == ["premium"], str(seen))
+
+
 def check_inline_math_in_pptx():
     """Misol qadamlari PowerPointda ham brauzerdagidek tursin.
 
@@ -2886,6 +2979,7 @@ def main():
     check_blocked_replies()
     check_cover_credit()
     check_inline_math_in_pptx()
+    check_image_models()
 
     print()
     if FAILS:

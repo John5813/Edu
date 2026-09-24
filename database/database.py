@@ -1316,6 +1316,19 @@ class Database:
     async def set_premium_ai_model(model_key: str) -> bool:
         return await Database.set_bot_setting("premium_ai_model", model_key)
 
+    @staticmethod
+    async def get_image_model(target: str) -> Optional[str]:
+        """Rasm modeli kaliti: "docs", "presentation" yoki "premium" uchun.
+
+        Tanlanmagan bo'lsa None — shunda muhit o'zgaruvchisidagi yoki
+        sukut modeli ishlaydi.
+        """
+        return await Database.get_bot_setting(f"image_model_{target}")
+
+    @staticmethod
+    async def set_image_model(target: str, model_key: str) -> bool:
+        return await Database.set_bot_setting(f"image_model_{target}", model_key)
+
     # ── Do'kon katalogi ────────────────────────────────────────────────────
 
     @staticmethod
