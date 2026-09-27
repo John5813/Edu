@@ -127,8 +127,15 @@ def validate_topic_length(text: str, min_length: int = 3, max_length: int = 200)
 # har prompt matndan tozalanadi va oxiriga qat'iy taqiq qo'shiladi.
 _NO_TEXT_SUFFIX = (
     ", no text, no letters, no words, no numbers, no captions, no labels, "
-    "no watermark, no signage, no typography, purely visual"
+    "no watermark, no signage, no typography, all surfaces plain and unmarked, "
+    "purely visual"
 )
+
+# Qo'shtirnoq ichidagi ibora (masalan mavzu nomi) — model uni aynan yozuv
+# qilib chizadi: "Mavzu: Sinf boshqarishning..." kitob muqovasiga tushgan.
+# Rus/o'zbek kirill so'zlari ham xuddi shunday yozuvga aylanadi.
+_QUOTED = re.compile(r'["“”«»„][^"“”«»„]{0,200}["“”«»„]')
+_CYRILLIC_WORD = re.compile(r"[\w'ʻʼ-]*[А-Яа-яЁёЎўҚқҒғҲҳ][\w'ʻʼ-]*")
 
 _TEXT_REQUEST = re.compile(
     r"\b(?:with|containing|showing|including)?\s*(?:the\s+)?"
@@ -140,7 +147,9 @@ _TEXT_REQUEST = re.compile(
 
 def strip_text_requests(prompt: str) -> str:
     """Promptdan matn so'rovlarini olib tashlab, taqiqni qo'shadi."""
-    cleaned = _TEXT_REQUEST.sub("", prompt or "")
+    cleaned = _QUOTED.sub("", prompt or "")
+    cleaned = _CYRILLIC_WORD.sub("", cleaned)
+    cleaned = _TEXT_REQUEST.sub("", cleaned)
     cleaned = re.sub(r"\s+([,;.])", r"\1", cleaned)
     cleaned = re.sub(r"([,;])\s*[,;]+", r"\1", cleaned)
     cleaned = re.sub(r"\s{2,}", " ", cleaned).strip(" ,;")
