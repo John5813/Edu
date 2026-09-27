@@ -41,10 +41,14 @@ class TogetherImageService:
                 f"Slide section: \"{slide_title}\"\n\n"
                 f"Rules:\n"
                 f"1. The image MUST visually represent BOTH the main topic AND the slide section together.\n"
-                f"2. Be very specific — mention real objects, places, or scenes directly related to \"{topic}\".\n"
+                f"2. Be very specific — describe real people, objects, places or scenes, in English only.\n"
                 f"3. Maximum 25 words.\n"
-                f"4. NO text, letters, numbers, or signs in the image.\n"
-                f"5. Professional photography or realistic illustration style.\n\n"
+                f"4. NO text, letters, numbers, or signs in the image. Never quote the topic or any title, "
+                f"never use non-English words.\n"
+                f"5. Do NOT include objects that normally carry writing: books or book covers, posters, "
+                f"signs, banners, whiteboards or blackboards with writing, screens, papers, documents, "
+                f"labels, logos, packaging.\n"
+                f"6. Professional photography or realistic illustration style.\n\n"
                 f"Output ONLY the prompt, nothing else."
             )
 
@@ -63,14 +67,31 @@ class TogetherImageService:
 
         except Exception as e:
             logger.error(f"Error generating image prompt: {e}")
-            return f"Professional photograph related to {topic}, {slide_title}, realistic style, no text"
+            # Mavzu so'zlari promptga qo'yilmaydi — model ularni yozuv qilib chizadi.
+            return ("Professional realistic photograph of people engaged in thoughtful work, "
+                    "natural light, calm modern interior, shallow depth of field")
     
     async def _render(self, prompt: str, target: str, stem: str) -> Optional[str]:
         """Promptni rasmga aylantiradi va fayl yo'lini qaytaradi.
 
         Avval `target` xizmati uchun tanlangan model, u ishlamasa zaxira
         modellar sinaladi — mijoz to'lagan ishda rasmsiz qolmaslik muhimroq.
+
+        Har prompt shu yerda tozalanadi (hamma yo'l uchun bitta joy): taqiqlangan
+        mavzu rad etiladi, yozuv so'rovlari, qo'shtirnoqdagi iboralar va kirill
+        so'zlari olib tashlanadi, oxiriga "yozuvsiz" taqiqi qo'shiladi. Arzon
+        modellar (Qwen Image) aks holda mavzu nomini buzuq harflar bilan chizadi.
         """
+        try:
+            from utils.security import sanitize_image_prompt, strip_text_requests
+
+            cleaned = sanitize_image_prompt(prompt)
+            if cleaned is None:
+                logger.warning("Image prompt rejected by sanitizer; skipping generation")
+                return None
+            prompt = strip_text_requests(cleaned)
+        except Exception as _ex:
+            logger.warning(f"Image prompt sanitizer unavailable: {_ex}")
         for model in await image_model_chain(target):
             response = await self._call_model(prompt, model)
             if response is None:
@@ -154,20 +175,6 @@ class TogetherImageService:
             Path to downloaded image or None if failed
         """
         try:
-            # Defence in depth: block NSFW / extremist prompts before they
-            # reach Together's billable API.
-            try:
-                from utils.security import sanitize_image_prompt, strip_text_requests
-                cleaned = sanitize_image_prompt(prompt)
-                if cleaned is None:
-                    logger.warning("Image prompt rejected by sanitizer; skipping generation")
-                    return None
-                # Arzon modellar harflarni buzib chizadi, shuning uchun promptdan
-                # matn so'rovlari olib tashlanadi va taqiq qo'shiladi.
-                prompt = strip_text_requests(cleaned)
-            except Exception as _ex:
-                logger.warning(f"Image prompt sanitizer unavailable: {_ex}")
-
             logger.info(f"Generating image ({target}) with prompt: {prompt[:100]}...")
             return await self._render(prompt, target, "together_image")
 
@@ -181,26 +188,15 @@ class TogetherImageService:
         return await self.generate_image(prompt, aspect_ratio="16:9", target="presentation")
     
     async def generate_cover_image(self, topic: str, language: str) -> Optional[str]:
-        """Oddiy taqdimot muqovasi uchun mavzuga mos rasm (rasmda matn yo'q)."""
-        try:
-            # Create prompt for beautiful topic-related image WITHOUT any text
-            prompt = f"""Stunning professional photograph related to "{topic}".
-Beautiful high-quality image with perfect lighting and composition.
-Modern, clean aesthetic suitable for professional presentation cover.
-Vibrant colors, sharp focus, professional photography style.
-NO TEXT, NO WORDS, NO LETTERS in the image - purely visual.
-The image should clearly represent the theme of {topic}.
-Corporate presentation quality, inspiring and engaging visual."""
+        """Oddiy taqdimot muqovasi uchun mavzuga mos rasm (rasmda matn yo'q).
 
-            logger.info("Generating cover image for presentation...")
-            path = await self._render(prompt, "presentation", "cover_image")
-            if path:
-                return path
-        except Exception as e:
-            logger.error(f"Error generating cover image: {e}")
-        # Fallback to regular image generation
+        Ilgari promptga mavzu qo'shtirnoqda yozilib, "presentation cover"
+        deyilardi — model mavzu nomini kitob muqovasiga buzuq harflar bilan
+        chizardi. Endi mavzu AI orqali inglizcha manzaraga aylantiriladi.
+        """
         prompt = await self._generate_image_prompt(topic, topic)
-        return await self.generate_image(prompt, aspect_ratio="1:1", target="presentation")
+        prompt += ", wide cinematic composition, soft natural light, high quality photograph"
+        return await self.generate_image(prompt, aspect_ratio="16:9", target="presentation")
     
     async def generate_panoramic_image(self, topic: str, slide_title: str, language: str) -> Optional[str]:
         """Oddiy taqdimotning keng (panorama) slaydi uchun rasm."""
