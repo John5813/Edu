@@ -14,6 +14,7 @@ from bot.keyboards import (
     get_test_question_count_keyboard,
     get_test_source_keyboard,
 )
+from bot import checkout as pay
 from bot import uploads
 from bot.states import TestStates
 from database.database import Database
@@ -31,6 +32,41 @@ TEST_FILE_PRICE = 0  # Fayl orqali mavjud testlarni yaratish bepul
 
 def _test_price(count: int) -> int:
     return count * TEST_PRICE_PER_QUESTION
+
+
+# Mablag' yetmasa buyurtma to'lovni kutib turadi: mijoz balansni to'ldiradi
+# yoki Stars bilan to'laydi va test o'sha buyurtma ustida yaratiladi.
+CHECKOUT = pay.Checkout(service="test", back_callback="test_cancel")
+
+
+@pay.describes(CHECKOUT.service)
+def _order_summary(data: dict, language: str) -> str:
+    import html as _html
+
+    topic = _html.escape(str(data.get("test_topic") or ""), quote=False)[:150]
+    fmt = "DOCX" if data.get("test_format") == "file" else "Poll"
+    return (f"📝 <b>Test</b>\n📌 Mavzu: <b>{topic}</b>\n"
+            f"🔢 Savollar: {data.get('test_count', 10)} ta\n📋 Format: {fmt}")
+
+
+async def _order(user_id: int, state: FSMContext) -> dict:
+    """Buyurtmani FSM dan, u yo'q bo'lsa saqlangan nusxadan oladi."""
+    data = await state.get_data()
+    if data.get("test_topic") and data.get("test_format") and not pay.is_expired(data):
+        return data
+    saved = pay.recall(user_id, CHECKOUT.service)
+    if saved:
+        await state.set_data(saved)
+        await state.set_state(TestStates.waiting_for_format)
+    return saved
+
+
+async def _shortfall(message, state: FSMContext, user_id: int, user_lang: str,
+                     price: int, balance: int) -> None:
+    """Buyurtmani saqlab, to'lov yo'llarini ko'rsatadi (berk ko'cha emas)."""
+    data = await state.get_data()
+    pay.remember(user_id, CHECKOUT.service, pay.start(data))
+    await pay.send_shortfall(message, CHECKOUT, user_lang, price, balance)
 
 
 def _build_test_docx(topic: str, questions: list, language: str) -> bytes:
@@ -308,13 +344,12 @@ async def test_got_format(call: CallbackQuery, state: FSMContext, db: Database, 
     balance = user.balance if user else 0
 
     if balance < price:
-        insuf = {
-            "uz": f"❌ Hisobingizda mablag' yetarli emas.\n\n💰 Balans: <b>{balance:,} so'm</b>\n💳 Kerak: <b>{price:,} so'm</b>",
-            "ru": f"❌ Недостаточно средств.\n\n💰 Баланс: <b>{balance:,} сум</b>\n💳 Нужно: <b>{price:,} сум</b>",
-            "en": f"❌ Insufficient balance.\n\n💰 Balance: <b>{balance:,} sum</b>\n💳 Required: <b>{price:,} sum</b>",
-        }.get(user_lang, "❌ Insufficient balance.")
-        await call.message.edit_text(insuf, parse_mode="HTML")
         await call.answer()
+        try:
+            await call.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        await _shortfall(call.message, state, call.from_user.id, user_lang, price, balance)
         return
 
     price_labels = {
@@ -367,21 +402,84 @@ async def test_cancel(call: CallbackQuery, state: FSMContext, user_lang: str = "
 
 @router.callback_query(F.data == "test_confirm")
 async def test_confirm_handler(call: CallbackQuery, state: FSMContext, db: Database, user_lang: str = "uz"):
-    data = await state.get_data()
+    data = await _order(call.from_user.id, state)
+    if not data:
+        await call.answer()
+        await call.message.edit_text(get_text(user_lang, "order_expired"))
+        return
+    count = data.get("test_count", 10)
+    price = data.get("test_price", _test_price(count))
+
+    user = await db.get_user(call.from_user.id)
+    balance = (user.balance if user else 0) or 0
+    if balance < price:
+        await call.answer()
+        await _shortfall(call.message, state, call.from_user.id, user_lang, price, balance)
+        return
+
+    await call.answer()
+    pay.forget(call.from_user.id)
+    await call.message.edit_text(get_text(user_lang, "test_generating"), parse_mode="HTML")
+    await _run_test(call.bot, call.from_user.id, call.message, state, db, user_lang, data,
+                    charge=True)
+
+
+@router.callback_query(F.data == CHECKOUT.recheck)
+async def test_recheck(call: CallbackQuery, state: FSMContext, db: Database, user_lang: str = "uz"):
+    """Balans to'ldirilgach — test o'sha buyurtma ustida yaratiladi."""
+    await call.answer()
+    data = await _order(call.from_user.id, state)
+    if not data:
+        await call.message.answer(get_text(user_lang, "order_expired"))
+        return
+    price = data.get("test_price", 0)
+    fresh = await db.get_user(call.from_user.id)
+    balance = (fresh.balance if fresh else 0) or 0
+    if balance < price:
+        await call.answer(get_text(user_lang, "pay_still_short", balance=balance, price=price),
+                          show_alert=True)
+        return
+    pay.forget(call.from_user.id)
+    status = await call.message.answer(get_text(user_lang, "test_generating"), parse_mode="HTML")
+    await _run_test(call.bot, call.from_user.id, status, state, db, user_lang, data, charge=True)
+
+
+@router.callback_query(F.data == CHECKOUT.pay_stars)
+async def test_pay_with_stars(call: CallbackQuery, state: FSMContext, user_lang: str = "uz"):
+    """Stars — buyurtma narxicha balans to'ldiriladi, keyin bot o'zi eslatadi."""
+    await call.answer()
+    data = await _order(call.from_user.id, state)
+    if not data:
+        await call.message.answer(get_text(user_lang, "order_expired"))
+        return
+    pay.remember(call.from_user.id, CHECKOUT.service, pay.start(data))
+    await pay.send_topup_invoice(call.message, user_lang, data.get("test_price", 0))
+
+
+@router.callback_query(F.data.in_({CHECKOUT.pay_other, CHECKOUT.pay_back}))
+async def test_other_methods(call: CallbackQuery, state: FSMContext, user_lang: str = "uz"):
+    await call.answer()
+    data = await _order(call.from_user.id, state)
+    if not data:
+        await call.message.answer(get_text(user_lang, "order_expired"))
+        return
+    price = data.get("test_price", 0)
+    await call.message.edit_text(
+        get_text(user_lang, "pay_other_title", price=price), parse_mode="HTML",
+        reply_markup=pay.other_methods_keyboard(CHECKOUT, user_lang, price))
+
+
+async def _run_test(bot, user_id: int, status, state: FSMContext, db: Database,
+                    user_lang: str, data: dict, charge: bool) -> None:
+    """Testni yaratib yuboradi. `charge` — balansdan yechish (Stars'da yo'q)."""
     topic = data.get("test_topic", "")
     count = data.get("test_count", 10)
     price = data.get("test_price", _test_price(count))
     fmt = data.get("test_format", "file")
     source = data.get("test_source", "ai")
 
-    user = await db.get_user(call.from_user.id)
-    if not user or user.balance < price:
-        await call.answer("❌ Yetarli mablag' yo'q.", show_alert=True)
-        return
-
-    await db.update_user_balance(call.from_user.id, -price)
-    await call.message.edit_text(get_text(user_lang, "test_generating"), parse_mode="HTML")
-    await call.answer()
+    if charge:
+        await db.update_user_balance(user_id, -price)
     await state.set_state(TestStates.generating)
 
     if source == "file":
@@ -392,8 +490,9 @@ async def test_confirm_handler(call: CallbackQuery, state: FSMContext, db: Datab
         questions = await generate_test_questions(topic, count, user_lang)
 
     if not questions:
-        await db.update_user_balance(call.from_user.id, price)
-        await call.message.edit_text(get_text(user_lang, "test_error"))
+        if charge:
+            await db.update_user_balance(user_id, price)
+        await status.edit_text(get_text(user_lang, "test_error"))
         await state.clear()
         return
 
@@ -403,8 +502,8 @@ async def test_confirm_handler(call: CallbackQuery, state: FSMContext, db: Datab
             safe_name = topic[:30].replace(" ", "_").replace("/", "_")
             file = BufferedInputFile(docx_bytes, filename=f"test_{safe_name}.docx")
             caption = get_text(user_lang, "test_ready_file").format(topic=topic, count=len(questions))
-            await call.message.answer_document(file, caption=caption, parse_mode="HTML")
-            await call.message.delete()
+            await bot.send_document(user_id, file, caption=caption, parse_mode="HTML")
+            await status.delete()
         else:
             letters = ["A", "B", "C", "D"]
             for i, q in enumerate(questions, 1):
@@ -413,8 +512,8 @@ async def test_confirm_handler(call: CallbackQuery, state: FSMContext, db: Datab
                 correct_idx = q.get("correct_index", 0)
                 explanation = q.get("explanation", "")
 
-                await call.bot.send_poll(
-                    chat_id=call.from_user.id,
+                await bot.send_poll(
+                    chat_id=user_id,
                     question=question_text[:300],
                     options=[f"{letters[j]}) {opt}"[:100] for j, opt in enumerate(options)],
                     type="quiz",
@@ -424,12 +523,13 @@ async def test_confirm_handler(call: CallbackQuery, state: FSMContext, db: Datab
                 )
 
             done_text = get_text(user_lang, "test_ready_poll").format(count=len(questions), topic=topic)
-            await call.message.edit_text(done_text, parse_mode="HTML")
+            await status.edit_text(done_text, parse_mode="HTML")
 
-        logger.info(f"Test generated: user={call.from_user.id}, topic={topic}, count={count}, fmt={fmt}")
+        logger.info(f"Test generated: user={user_id}, topic={topic}, count={count}, fmt={fmt}")
     except Exception as e:
         logger.error(f"Test delivery error: {e}")
-        await db.update_user_balance(call.from_user.id, price)
-        await call.message.edit_text(get_text(user_lang, "test_error"))
+        if charge:
+            await db.update_user_balance(user_id, price)
+        await status.edit_text(get_text(user_lang, "test_error"))
 
     await state.clear()
