@@ -6,12 +6,12 @@ from aiogram.types import Message, CallbackQuery, FSInputFile, InlineKeyboardBut
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from bot import checkout as pay
 from bot import uploads
 from bot.states import BookTranslateStates, DocumentStates
 from bot.keyboards import (
     get_main_keyboard,
     get_book_translate_lang_keyboard,
-    get_book_translate_payment_keyboard,
     get_post_translation_keyboard,
     get_doc_language_keyboard,
 )
@@ -33,6 +33,23 @@ from services.book_translate_service import (
 )
 
 _MB = 1024 * 1024
+
+# Mablag' yetmasa buyurtma (yuklangan kitob bilan) to'lovni kutib turadi.
+CHECKOUT = pay.Checkout(service="book", back_callback="bt_back_from_payment")
+
+_TARGET_NAMES = {"uz": "O'zbek", "ru": "Rus", "en": "Ingliz"}
+
+
+@pay.describes(CHECKOUT.service)
+def _order_summary(data: dict, language: str) -> str:
+    import html as _html
+
+    name = _html.escape(str(data.get("original_filename") or "kitob"), quote=False)[:120]
+    page_from, page_to = data.get("page_from"), data.get("page_to")
+    pages = f"{page_from}–{page_to}" if page_from and page_to else f"{data.get('total_pages', '?')} (butun)"
+    target = _TARGET_NAMES.get(data.get("target_lang"), data.get("target_lang") or "")
+    return (f"📚 <b>Kitob tarjimasi</b>\n📎 Fayl: <b>{name}</b>\n📖 Betlar: {pages}\n"
+            f"🌍 Til: {target}")
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -315,7 +332,7 @@ async def handle_bt_lang_selection(callback: CallbackQuery, state: FSMContext, u
     price = data.get("price", 15000)
     balance = user.balance if user else 0
 
-    await state.update_data(target_lang=target_lang)
+    await state.set_data(pay.start({**data, "target_lang": target_lang}))
     await state.set_state(BookTranslateStates.waiting_for_payment)
 
     try:
@@ -325,7 +342,7 @@ async def handle_bt_lang_selection(callback: CallbackQuery, state: FSMContext, u
 
     await callback.message.answer(
         get_text(user_lang, "payment_choose", price=price, balance=balance),
-        reply_markup=get_book_translate_payment_keyboard(user_lang, price, balance)
+        reply_markup=pay.payment_keyboard(CHECKOUT, user_lang, price)
     )
 
 
@@ -343,33 +360,138 @@ async def handle_bt_back_from_payment(callback: CallbackQuery, state: FSMContext
     await state.set_state(BookTranslateStates.waiting_for_target_lang)
 
 
-@router.callback_query(F.data == "pay_balance_book_translate", BookTranslateStates.waiting_for_payment)
-async def handle_bt_pay_balance(callback: CallbackQuery, state: FSMContext, user_lang: str, db: Database, user):
-    await callback.answer()
+async def _order(user_id: int, state: FSMContext) -> dict:
+    """Buyurtmani FSM dan, u yo'q bo'lsa saqlangan nusxadan oladi.
+
+    Balansni to'ldirish oqimi FSM ni tozalaydi — mijoz to'lab qaytganda
+    buyurtma (yuklangan kitob bilan) shu nusxadan tiklanadi.
+    """
     data = await state.get_data()
+    if data.get("target_lang") and data.get("price") and not pay.is_expired(data):
+        return data
+    saved = pay.recall(user_id, CHECKOUT.service)
+    if saved:
+        await state.set_data(saved)
+        await state.set_state(BookTranslateStates.waiting_for_payment)
+    return saved
+
+
+def _book_alive(data: dict) -> bool:
+    path = data.get("pdf_path") or data.get("local_path")
+    return bool(path) and os.path.exists(path)
+
+
+async def _report_expired(message: Message, state: FSMContext, user_lang: str) -> None:
+    await state.clear()
+    pay.forget(message.chat.id)
+    await message.answer(get_text(user_lang, "order_expired"),
+                         reply_markup=get_main_keyboard(user_lang))
+
+
+async def _start_translation(event, state: FSMContext, user_lang: str, db: Database, user,
+                             data: dict, charge: bool) -> bool:
+    """Tarjimani boshlaydi."""
     price = data.get("price", 15000)
-    balance = user.balance if user else 0
-
-    if balance < price:
-        await callback.message.answer(get_text(user_lang, "insufficient_balance"))
-        return
-
     await state.set_state(BookTranslateStates.translating)
-    try:
-        await callback.message.delete()
-    except Exception:
-        pass
-
     pdf_path = data.get("pdf_path")
     if pdf_path and os.path.exists(pdf_path):
         from services import book_jobs
 
         if book_jobs.pending_for(user.telegram_id):
-            await callback.message.answer(get_text(user_lang, "book_job_busy"))
-            return
-        await _translate_pdf_book(callback, state, user_lang, db, user, data, price)
+            await event.message.answer(get_text(user_lang, "book_job_busy"))
+            return False
+        await _translate_pdf_book(event, state, user_lang, db, user, data, price, charge=charge)
     else:
-        await _translate_docx_book(callback, state, user_lang, db, user, data, price)
+        await _translate_docx_book(event, state, user_lang, db, user, data, price, charge=charge)
+    return True
+
+
+# Holat filtri yo'q: mijoz balansni to'ldirishga o'tib qaytgan bo'lishi mumkin.
+@router.callback_query(F.data.in_({CHECKOUT.pay_balance, "pay_balance_book_translate"}))
+async def handle_bt_pay_balance(callback: CallbackQuery, state: FSMContext, user_lang: str, db: Database, user):
+    await callback.answer()
+    data = await _order(callback.from_user.id, state)
+    if not data or not _book_alive(data):
+        await _report_expired(callback.message, state, user_lang)
+        return
+    price = data.get("price", 15000)
+    balance = (user.balance if user else 0) or 0
+
+    if balance < price:
+        # Buyurtma o'chmaydi: to'lov yo'llari ko'rsatiladi, balans to'lishi
+        # bilan bot o'zi eslatadi.
+        pay.remember(callback.from_user.id, CHECKOUT.service, data)
+        await pay.send_shortfall(callback.message, CHECKOUT, user_lang, price, balance)
+        return
+
+    pay.forget(callback.from_user.id)
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    await _start_translation(callback, state, user_lang, db, user, data, charge=True)
+
+
+@router.callback_query(F.data == CHECKOUT.recheck)
+async def handle_bt_recheck(callback: CallbackQuery, state: FSMContext, user_lang: str, db: Database):
+    """Balans to'ldirilgach — tarjima o'sha buyurtma ustida boshlanadi."""
+    await callback.answer()
+    data = await _order(callback.from_user.id, state)
+    if not data or not _book_alive(data):
+        await _report_expired(callback.message, state, user_lang)
+        return
+    fresh = await db.get_user(callback.from_user.id)
+    balance = (fresh.balance if fresh else 0) or 0
+    price = data.get("price", 15000)
+    if balance < price:
+        await callback.answer(get_text(user_lang, "pay_still_short", balance=balance, price=price),
+                              show_alert=True)
+        return
+    pay.forget(callback.from_user.id)
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    await _start_translation(callback, state, user_lang, db, fresh, data, charge=True)
+
+
+@router.callback_query(F.data == CHECKOUT.pay_other)
+async def handle_bt_other_methods(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    await callback.answer()
+    data = await _order(callback.from_user.id, state)
+    if not data:
+        await _report_expired(callback.message, state, user_lang)
+        return
+    price = data.get("price", 15000)
+    await callback.message.edit_text(
+        get_text(user_lang, "pay_other_title", price=price), parse_mode="HTML",
+        reply_markup=pay.other_methods_keyboard(CHECKOUT, user_lang, price))
+
+
+@router.callback_query(F.data == CHECKOUT.pay_back)
+async def handle_bt_back_to_payment(callback: CallbackQuery, state: FSMContext, user_lang: str, user):
+    await callback.answer()
+    data = await _order(callback.from_user.id, state)
+    if not data:
+        await _report_expired(callback.message, state, user_lang)
+        return
+    price = data.get("price", 15000)
+    await callback.message.edit_text(
+        get_text(user_lang, "payment_choose", price=price, balance=(user.balance if user else 0)),
+        reply_markup=pay.payment_keyboard(CHECKOUT, user_lang, price))
+
+
+@router.callback_query(F.data == CHECKOUT.pay_stars)
+async def handle_bt_pay_stars(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Stars — buyurtma narxicha balans to'ldiriladi, keyin bot o'zi eslatadi."""
+    await callback.answer()
+    data = await _order(callback.from_user.id, state)
+    if not data or not _book_alive(data):
+        await _report_expired(callback.message, state, user_lang)
+        return
+    # Buyurtma to'lov tugagunicha saqlanadi (fayl ham temp tozalanishidan).
+    pay.remember(callback.from_user.id, CHECKOUT.service, data)
+    await pay.send_topup_invoice(callback.message, user_lang, data.get("price", 15000))
 
 
 def _out_name(original_filename: str, target_lang: str, page_from, page_to, ext: str) -> str:
@@ -383,7 +505,8 @@ def _out_name(original_filename: str, target_lang: str, page_from, page_to, ext:
 
 
 async def _translate_pdf_book(callback: CallbackQuery, state: FSMContext, user_lang: str,
-                              db: Database, user, data: dict, price: int) -> None:
+                              db: Database, user, data: dict, price: int,
+                              charge: bool = True) -> None:
     """PDF kitob: matni qismlarga bo'lib, fonda tarjima qilinadi (`book_jobs`).
 
     Handler ish tugashini kutmaydi — mijoz shu orada botdan foydalanaveradi.
@@ -398,7 +521,8 @@ async def _translate_pdf_book(callback: CallbackQuery, state: FSMContext, user_l
     page_from, page_to = data.get("page_from"), data.get("page_to")
     start = (page_from - 1) if page_from else 0
     stop = page_to if page_to else total
-    await db.update_user_balance(user.telegram_id, -price)
+    if charge:
+        await db.update_user_balance(user.telegram_id, -price)
     try:
         job = book_jobs.create_job(
             user_id=user.telegram_id, chat_id=callback.message.chat.id, lang=user_lang,
@@ -407,6 +531,7 @@ async def _translate_pdf_book(callback: CallbackQuery, state: FSMContext, user_l
             source_lang=data.get("source_lang") or "ru",
             start=start, stop=stop, price=price, charged=price)
     except Exception as e:
+        # Stars bilan to'langan bo'lsa ham pul balansga qaytadi.
         await db.update_user_balance(user.telegram_id, price)
         logger.exception("Kitob tarjimasi ishi yaratilmadi: %s", e)
         await callback.message.answer(get_text(user_lang, "book_translate_error"),
@@ -421,7 +546,8 @@ async def _translate_pdf_book(callback: CallbackQuery, state: FSMContext, user_l
 
 
 async def _translate_docx_book(callback: CallbackQuery, state: FSMContext, user_lang: str,
-                               db: Database, user, data: dict, price: int) -> None:
+                               db: Database, user, data: dict, price: int,
+                               charge: bool = True) -> None:
     local_path = data.get("local_path")
     target_lang = data.get("target_lang", "en")
     original_filename = data.get("original_filename", "document.docx")
@@ -441,7 +567,8 @@ async def _translate_docx_book(callback: CallbackQuery, state: FSMContext, user_
 
         logger.info(f"Starting translation for user {user.telegram_id}: lang={target_lang}, pages={page_from}-{page_to or 'ALL'}")
         out_path = await translate_docx(translate_path, target_lang)
-        await db.update_user_balance(user.telegram_id, -price)
+        if charge:
+            await db.update_user_balance(user.telegram_id, -price)
         logger.info(f"Translation complete for user {user.telegram_id}: {out_path}")
 
         out_filename = _out_name(original_filename, target_lang, page_from, page_to, ".docx")

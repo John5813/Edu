@@ -4059,6 +4059,23 @@ async def pay_balance_doc_handler(callback: CallbackQuery, state: FSMContext, db
     await _run_doc_step(callback, state, db, user_lang, user, data)
 
 
+@router.callback_query(F.data == DOC_CHECKOUT.pay_stars)
+async def doc_pay_stars_handler(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """Stars — buyurtma narxicha balans to'ldiriladi, keyin bot o'zi eslatadi.
+
+    Ilgari bu tugmaning handleri yo'q edi va u hech narsa qilmasdi.
+    """
+    await callback.answer()
+    data = await state.get_data()
+    price = data.get("price") or (_pay.recall(callback.from_user.id, DOC_CHECKOUT.service)
+                                  .get("price", 0))
+    if not price:
+        await callback.message.answer(get_text(user_lang, "order_expired"),
+                                      reply_markup=get_main_keyboard(user_lang))
+        return
+    await _pay.send_topup_invoice(callback.message, user_lang, price)
+
+
 # Holat filtri yo'q: balansni to'ldirish FSM ni tozalaydi va tugma
 # shundan keyin bosiladi.
 @router.callback_query(F.data == DOC_CHECKOUT.recheck)

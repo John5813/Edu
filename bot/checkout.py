@@ -10,6 +10,7 @@ Buyurtma botda joy egallab turgani uchun ikki soatdan keyin eskiradi.
 """
 
 import logging
+import os
 import time
 from dataclasses import dataclass
 
@@ -143,6 +144,24 @@ async def offer_continue(bot, user_id: int, balance: int,
     except Exception as exc:
         logger.warning("Buyurtma eslatmasi yuborilmadi (%s): %s", user_id, exc)
         return False
+
+
+def protected_paths() -> set:
+    """Kutayotgan buyurtmalardagi fayllar (`..._path` maydonlari).
+
+    Yuklangan kitob yoki PDF buyurtma bilan birga to'lovni kutadi. temp/
+    har soatda tozalanadi, buyurtma esa ikki soat yashaydi — himoyalanmasa,
+    mijoz to'lab qaytganda fayli o'chib ketgan bo'lardi.
+    """
+    now = time.time()
+    paths = set()
+    for entry in _PENDING.values():
+        if now - entry["at"] > ORDER_TTL_SECONDS:
+            continue
+        for key, value in entry["data"].items():
+            if key.endswith("_path") and isinstance(value, str) and value:
+                paths.add(os.path.abspath(value))
+    return paths
 
 
 def purge_expired() -> int:
@@ -298,6 +317,36 @@ async def send_shortfall(
         parse_mode="HTML",
         reply_markup=shortfall_keyboard(checkout, language, price),
     )
+
+
+async def send_topup_invoice(message: Message, language: str, price: int) -> bool:
+    """Buyurtma narxicha Stars bilan balansni to'ldirish hisob-fakturasi.
+
+    Umumiy to'lov handleri (payments.py) pulni balansga yozadi va darhol
+    kutayotgan buyurtmani eslatadi (`offer_continue`) — mijoz «Davom etish»
+    ni bosadi va buyurtma o'sha joyidan bajariladi. Bu yo'l xizmat routeri
+    qayerda turishidan qat'i nazar ishlaydi.
+    """
+    from config import STARS_RATE
+
+    stars = som_to_stars(price)
+    som = stars * STARS_RATE
+    title = get_text(language, "stars_invoice_title")
+    try:
+        await message.answer_invoice(
+            title=title[:32],
+            description=get_text(language, "stars_invoice_description",
+                                 stars=stars, som=som)[:255],
+            payload=f"topup_{stars}_{som}",
+            provider_token="",
+            currency="XTR",
+            prices=[LabeledPrice(label=title[:32], amount=stars)],
+        )
+        return True
+    except Exception as e:
+        logger.exception("Stars to'ldirish hisob-fakturasi yuborilmadi: %s", e)
+        await message.answer(get_text(language, "pay_stars_failed"))
+        return False
 
 
 async def send_invoice(

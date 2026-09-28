@@ -68,6 +68,12 @@ def _prune_temp(now: float) -> int:
     temp_dir = TEMP_DIR
     icon_dir = os.path.join(temp_dir, "icons")
     removed = 0
+    # To'lovni kutayotgan buyurtmaning fayli (kitob, PDF) o'chirilmaydi.
+    try:
+        from bot import checkout
+        protected = checkout.protected_paths()
+    except Exception:
+        protected = set()
 
     for root, dirs, files in os.walk(temp_dir, topdown=False):
         if os.path.abspath(root) == os.path.abspath(icon_dir):
@@ -78,6 +84,8 @@ def _prune_temp(now: float) -> int:
             if name in _TEMP_KEEP:
                 continue
             path = os.path.join(root, name)
+            if os.path.abspath(path) in protected:
+                continue
             try:
                 if now - os.path.getmtime(path) < _TEMP_MAX_AGE:
                     continue
