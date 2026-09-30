@@ -1160,7 +1160,7 @@ async def show_template_selection(message: Message, state: FSMContext, user_lang
         from aiogram.types import FSInputFile
 
         # Send the overview image showing all 20 templates
-        overview_image_path = "attached_assets/1777534399422_1779186783751.png"
+        overview_image_path = "attached_assets/shablonlar_raqamli.png"
 
         photo_msg = None
         if os.path.exists(overview_image_path):
