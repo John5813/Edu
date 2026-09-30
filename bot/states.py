@@ -117,6 +117,8 @@ class TestStates(StatesGroup):
     generating = State()
 
 class PremiumPresentationStates(StatesGroup):
+    # Birinchi qadam: ko'rinish uslubi (yoki "Chiroyli orqa fonlar" — oddiy oqim).
+    waiting_for_style = State()
     waiting_for_topic = State()
     waiting_for_topic_text = State()
     # Taqdimot mijoz bergan hujjatga tayanishi ham mumkin.

@@ -403,9 +403,14 @@ def stylesheet(theme) -> str:
         **{f"TONE{i + 1}": tone for i, tone in enumerate(tones)},
         **{f"TINT{i + 1}": _mix(tone, "FFFFFF", 0.87)
            for i, tone in enumerate(tones)},
+        **{f"DEEP{i + 1}": _mix(tone, "000000", 0.32)
+           for i, tone in enumerate(tones)},
         "SOFTINK": soft_ink,
+        "EDGE": _mix(theme.background, theme.heading, 0.18),
     }
-    css = _CSS
+    from . import deck_styles
+
+    css = _CSS + deck_styles.css(getattr(theme, "style", ""))
     # Uzun kalitlar avval almashtiriladi: "BACKGROUND" ichida "BAND"
     # yo'q, lekin "BANDCARD" ichida "BAND" bor.
     for key in sorted(swap, key=len, reverse=True):
@@ -491,7 +496,7 @@ BLOKLAR:
 chiqsa `rasm-matn` o'rniga rasm turadi; chiqmasa matn qoladi —
 shuning uchun u to'liq, mazmunli bo'lsin.
 
-3. KARTOCHKALAR (2, 3 yoki 4 ta; reja ham shu):
+3. KARTOCHKALAR (faqat 2-4 ta teng huquqli element; reja ham shu):
 <div class="cols cols-3">
   <div class="card line">
     <div class="ikon-dot"><img class="ikon" data-icon="NOM" alt=""></div>

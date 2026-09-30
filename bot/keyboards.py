@@ -121,9 +121,8 @@ def get_main_keyboard(language: str, presentation_enabled: bool = True, independ
 
     keyboard.add(KeyboardButton(text=get_text(language, "main_menu.other_services")))
 
-    # Premium taqdimot — yangi tizim (Ustalar loyihasidan)
-    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.premium_presentation")))
-
+    # "Zamonaviy taqdimot" alohida tugma emas: hammasi bitta "Taqdimot"
+    # tugmasida (uslub shu yerda tanlanadi).
     if presentation_enabled:
         keyboard.add(KeyboardButton(text=get_text(language, "main_menu.presentation")))
     if independent_work_enabled:

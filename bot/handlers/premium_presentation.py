@@ -12,7 +12,7 @@ from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import (
     Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton,
-    LabeledPrice,
+    LabeledPrice, FSInputFile,
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -195,23 +195,146 @@ class _MessageCallbackAdapter:
 
 # ──────────────────────────────────────────────────────────────── ENTRY POINT
 
-# Eski nomlar ham qabul qilinadi: Telegram eski menyu klaviaturasini
-# mijozda saqlab qoladi va u /start bosmaguncha eski tugmani yuboradi.
-@router.message(F.text.in_([
+# Bitta katalog: oddiy va zamonaviy taqdimot ajratilmaydi. Avval ko'rinish
+# uslubi tanlanadi; "Chiroyli orqa fonlar" tanlansa hozirgi oddiy oqim
+# (tayyor rasmli fonlar) boshidan ishlaydi. Eski nomlar ham qabul
+# qilinadi: Telegram eski menyu klaviaturasini mijozda saqlab qoladi va u
+# /start bosmaguncha eski tugmani yuboradi.
+ENTRY_TEXTS = [
+    "🌟 Taqdimot", "🌟 Презентация", "🌟 Presentation",
     "✨ Zamonaviy taqdimot", "✨ Современная презентация", "✨ Modern presentation",
     "⭐ Premium taqdimot", "⭐ Премиум презентация", "⭐ Premium presentation",
-]))
+]
+
+STYLE_PREVIEW = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))), "assets", "taqdimot_uslublari.jpg")
+SIMPLE_STYLE = "fon"
+
+_STYLE_LABELS = {
+    "toza": {"uz": "Toza", "ru": "Чистый", "en": "Clean"},
+    "jurnal": {"uz": "Jurnal", "ru": "Журнал", "en": "Journal"},
+    "blok": {"uz": "Blok", "ru": "Блок", "en": "Block"},
+    "kontur": {"uz": "Kontur", "ru": "Контур", "en": "Outline"},
+    "qorongu": {"uz": "Qorong'u", "ru": "Тёмный", "en": "Dark"},
+    SIMPLE_STYLE: {"uz": "Chiroyli orqa fonlar", "ru": "Красивые фоны",
+                   "en": "Beautiful backgrounds"},
+}
+_STYLE_NOTES = {
+    "toza": {"uz": "qutisiz, ingichka chiziqlar, ko'p bo'sh joy",
+             "ru": "без рамок, тонкие линии, много воздуха",
+             "en": "no boxes, thin lines, lots of space"},
+    "jurnal": {"uz": "serif shrift, qog'oz foni, ramkalar",
+               "ru": "шрифт с засечками, бумажный фон, рамки",
+               "en": "serif type, paper background, frames"},
+    "blok": {"uz": "rangli tasma va to'la rangli kartalar",
+             "ru": "цветная шапка и цветные карточки",
+             "en": "colour header band and solid cards"},
+    "kontur": {"uz": "kontur ramkalar, texnik ko'rinish",
+               "ru": "контурные рамки, технический вид",
+               "en": "outline frames, technical look"},
+    "qorongu": {"uz": "to'q fon, yorqin urg'u",
+                "ru": "тёмный фон, яркий акцент",
+                "en": "dark background, bright accent"},
+    SIMPLE_STYLE: {"uz": "tayyor rasmli fonlar (20 ta shablon)",
+                   "ru": "готовые фоновые рисунки (20 шаблонов)",
+                   "en": "ready-made picture backgrounds (20 templates)"},
+}
+_STYLE_ORDER = ["toza", "jurnal", "blok", "kontur", "qorongu", SIMPLE_STYLE]
+_DIGITS = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
+
+
+def _style_label(key: str, lang: str) -> str:
+    return _STYLE_LABELS.get(key, {}).get(lang) or _STYLE_LABELS.get(key, {}).get("uz", key)
+
+
+def _style_keyboard(lang: str) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    for index, key in enumerate(_STYLE_ORDER):
+        builder.button(text=f"{_DIGITS[index]} {_style_label(key, lang)}",
+                       callback_data=f"ppt_style:{key}")
+    builder.button(text=_back_text(lang), callback_data="prem_ppt_back")
+    builder.adjust(2, 2, 2, 1)
+    return builder.as_markup()
+
+
+def _style_text(lang: str) -> str:
+    head = {
+        "uz": "✨ <b>Taqdimot</b>\n\nKo'rinish uslubini tanlang:\n",
+        "ru": "✨ <b>Презентация</b>\n\nВыберите стиль оформления:\n",
+        "en": "✨ <b>Presentation</b>\n\nChoose a visual style:\n",
+    }
+    foot = {
+        "uz": "\nTayyor fayl — tahrirlanadigan PowerPoint (.pptx).",
+        "ru": "\nГотовый файл — редактируемый PowerPoint (.pptx).",
+        "en": "\nThe result is an editable PowerPoint (.pptx) file.",
+    }
+    lines = [f"{_DIGITS[i]} <b>{_style_label(key, lang)}</b> — "
+             f"{_STYLE_NOTES[key].get(lang, _STYLE_NOTES[key]['uz'])}"
+             for i, key in enumerate(_STYLE_ORDER)]
+    return head.get(lang, head["uz"]) + "\n".join(lines) + foot.get(lang, foot["uz"])
+
+
+@router.message(F.text.in_(ENTRY_TEXTS))
 async def premium_presentation_start(message: Message, state: FSMContext, db: Database):
-    """Premium taqdimot tugmasi bosilganda"""
+    """"Taqdimot" tugmasi: avval ko'rinish uslubi tanlanadi."""
     await state.clear()
     # Buyurtma boshlangan vaqti — bir soatdan keyin eskirishini hisoblash uchun.
     await state.set_data(pay.start({}))
     user = await db.get_user(message.from_user.id)
     lang = user.language if user else "uz"
 
+    # Kanalga obuna talabi oddiy oqimda ham shunday edi.
+    try:
+        channels = await db.get_active_channels()
+        if channels:
+            from services.channel_service import ChannelService
+            from bot.keyboards import get_subscription_check_keyboard
+            if not await ChannelService(message.bot).check_user_subscription(
+                    message.from_user.id, channels):
+                await message.answer(get_text(lang, "subscription_required"),
+                                     reply_markup=get_subscription_check_keyboard(lang, channels))
+                return
+    except Exception as e:
+        logger.warning("Obuna tekshiruvi o'tmadi: %s", e)
+
+    await state.set_state(PremiumPresentationStates.waiting_for_style)
+    text, keyboard = _style_text(lang), _style_keyboard(lang)
+    if os.path.isfile(STYLE_PREVIEW):
+        try:
+            await message.answer_photo(FSInputFile(STYLE_PREVIEW), caption=text,
+                                       parse_mode="HTML", reply_markup=keyboard)
+            return
+        except Exception as e:
+            logger.warning("Uslublar rasmi yuborilmadi: %s", e)
+    await message.answer(text, parse_mode="HTML", reply_markup=keyboard)
+
+
+@router.callback_query(F.data.startswith("ppt_style:"),
+                       PremiumPresentationStates.waiting_for_style)
+async def premium_ppt_style_selected(callback: CallbackQuery, state: FSMContext, db: Database):
+    """Uslub tanlandi: "Chiroyli orqa fonlar" — oddiy oqim, qolgani — zamonaviy oqim."""
+    await callback.answer()
+    key = callback.data.split(":", 1)[1]
+    user = await db.get_user(callback.from_user.id)
+    lang = user.language if user else "uz"
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+
+    if key == SIMPLE_STYLE:
+        from bot.handlers import documents as _documents
+        await _documents.start_simple_presentation(callback.message, state, lang)
+        return
+
+    from services.premium_presentation import deck_styles
+    if key not in deck_styles.STYLES:
+        key = "toza"
+    await state.update_data(style=key)
+
     msgs = {
         "uz": (
-            "✨ <b>Zamonaviy taqdimot</b>\n\n"
+            "✨ <b>Taqdimot — {style}</b>\n\n"
             "AI yordamida tayyor professional PowerPoint taqdimot yaratadi:\n\n"
             "✅ Tayyor .pptx fayl\n"
             "✅ 16:9 professional format\n"
@@ -220,7 +343,7 @@ async def premium_presentation_start(message: Message, state: FSMContext, db: Da
             "🌍 <b>Taqdimot tilini tanlang:</b>"
         ),
         "ru": (
-            "✨ <b>Современная презентация</b>\n\n"
+            "✨ <b>Презентация — {style}</b>\n\n"
             "Создаёт готовую профессиональную презентацию PowerPoint с помощью AI:\n\n"
             "✅ Готовый файл .pptx\n"
             "✅ Профессиональный формат 16:9\n"
@@ -229,7 +352,7 @@ async def premium_presentation_start(message: Message, state: FSMContext, db: Da
             "🌍 <b>Выберите язык презентации:</b>"
         ),
         "en": (
-            "✨ <b>Modern presentation</b>\n\n"
+            "✨ <b>Presentation — {style}</b>\n\n"
             "Creates a ready-to-use professional PowerPoint presentation with AI:\n\n"
             "✅ Ready .pptx file\n"
             "✅ Professional 16:9 format\n"
@@ -238,10 +361,9 @@ async def premium_presentation_start(message: Message, state: FSMContext, db: Da
             "🌍 <b>Choose the presentation language:</b>"
         ),
     }
-
     await state.set_state(PremiumPresentationStates.waiting_for_topic)
-    await message.answer(
-        msgs.get(lang, msgs["uz"]),
+    await callback.message.answer(
+        msgs.get(lang, msgs["uz"]).format(style=_style_label(key, lang)),
         parse_mode="HTML",
         reply_markup=get_doc_language_keyboard(lang, back_callback="prem_ppt_back"),
     )
@@ -1181,6 +1303,8 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
 
         theme = themes.get(data.get("theme_key", "")) if data.get("theme_key") \
             else themes.suggest(topic)
+        # Tanlangan ko'rinish uslubi (bo'lmasa — sukut dizayn).
+        theme = themes.with_style(theme, data.get("style", ""))
 
         # 1 — AI butun slaydni HTML/CSS/SVG qilib chizadi. Kod unga
         # faqat qobiq shartlarini (o'lcham, shrift, rang, tashqi fayl
