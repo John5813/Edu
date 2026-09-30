@@ -212,6 +212,58 @@ def is_rate_limit_error(exception: BaseException) -> bool:
         or (hasattr(exception, "status_code") and exception.status_code == 429)
     )
 
+_PLACEHOLDER_CELL = re.compile(
+    r"^(?:\.{2,}|…|-+|—|n/?a|tbd|x+|[a-d]|"
+    r"(?:ustun|col(?:umn)?|столбец|qator|row|строка|ma'lumot|value)\s*\d*)$",
+    re.IGNORECASE,
+)
+
+
+def _strip_fence(text: str) -> str:
+    """```json ... ``` o'ramini olib tashlaydi."""
+    content = (text or "").strip()
+    for prefix in ("```json", "```"):
+        if content.startswith(prefix):
+            content = content[len(prefix):]
+    if content.endswith("```"):
+        content = content[:-3]
+    return content.strip()
+
+
+def _clean_table(result, max_cols: int = 4, max_rows: int = 6, min_rows: int = 3):
+    """AI jadvalini tekshiradi. Yaroqsiz bo'lsa None.
+
+    Rad etiladi: sarlavhasi 2 tadan kam yoki "Ustun 1" kabi shablon;
+    kataklari "..." yoki bo'sh; mazmunli qatorlari `min_rows` dan kam.
+    """
+    if not isinstance(result, dict):
+        return None
+    headers = [str(h).strip() for h in (result.get("headers") or []) if str(h).strip()]
+    headers = headers[:max_cols]
+    if len(headers) < 2 or any(_PLACEHOLDER_CELL.match(h) for h in headers):
+        return None
+    rows = []
+    for raw in result.get("rows") or []:
+        if not isinstance(raw, (list, tuple)):
+            continue
+        cells = [str(c).strip() for c in raw][:len(headers)]
+        cells += [""] * (len(headers) - len(cells))
+        real = [c for c in cells if c and not _PLACEHOLDER_CELL.match(c)]
+        if len(real) < max(2, len(headers) - 1):
+            continue
+        rows.append(cells)
+        if len(rows) >= max_rows:
+            break
+    if len(rows) < min_rows:
+        return None
+    table = {"headers": headers, "rows": rows}
+    for key in ("description", "title"):
+        value = str(result.get(key) or "").strip()
+        if value:
+            table[key] = value
+    return table
+
+
 class AIService:
     """AI Service using OpenRouter with dynamic model selection"""
     
@@ -3598,55 +3650,39 @@ Create only one reference. Should look realistic."""
                         f"Respond only in JSON:\n{json_template}"
                     )
 
-            response = await self._make_request(
-                messages=[
-                    {"role": "system", "content": "Respond with valid JSON only. No markdown, no extra text."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=1200,
-                temperature=0.5
-            )
-            
-            content = response.strip()
-            if content.startswith("```json"): content = content[7:]
-            if content.startswith("```"): content = content[3:]
-            if content.endswith("```"): content = content[:-3]
-            content = content.strip()
-            
-            result = self._parse_json_safely(content)
-            
-            headers = result.get('headers', [])
-            rows = result.get('rows', [])
-            description = result.get('description', '')
-            
-            if not headers or len(headers) < 2:
-                headers = ["Omil", "Xususiyati", "Ta'siri", "Natija"]
-            # Trim to max 4 columns
-            if len(headers) > 4:
-                headers = headers[:4]
-            # Trim to max 6 rows, pad if fewer
-            rows = [r[:len(headers)] for r in rows[:6]]
-            if not rows:
-                rows = [["—"] * len(headers)]
-            if not description:
-                description = f"Ushbu jadvalda {topic} mavzusiga oid asosiy ko'rsatkichlar keltirilgan."
+            # Gemini 2.5 Flash javobdan oldin "o'ylaydi" va bu limitning bir
+            # qismini yeydi: 1200 token bilan JSON o'rtasida kesilib qolardi va
+            # hujjatga "Asosiy omil / Muhim xususiyat" kabi soxta jadval tushardi.
+            # Endi joy yetarli, bitta qayta urinish bor, yaroqsiz javob esa
+            # jadvalsiz qoldiriladi — soxta ma'lumot mijozga bormaydi.
+            for attempt in range(2):
+                try:
+                    response = await self._make_request(
+                        messages=[
+                            {"role": "system", "content": "Respond with valid JSON only. No markdown, no extra text. Fill every cell with real, specific content — never placeholders."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        max_tokens=3000,
+                        temperature=0.5 if attempt == 0 else 0.3,
+                    )
+                    table = _clean_table(self._parse_json_safely(_strip_fence(response)),
+                                         max_cols=4, max_rows=6, min_rows=3)
+                except Exception as e:
+                    logger.warning(f"Table attempt {attempt + 1} failed: {e}")
+                    table = None
+                if table:
+                    if not table.get("description"):
+                        table["description"] = (
+                            f"Ushbu jadvalda {clean_topic} mavzusiga oid asosiy ko'rsatkichlar keltirilgan.")
+                    logger.info(f"Table generated: {len(table['headers'])} headers, "
+                                f"{len(table['rows'])} rows")
+                    return table
+            logger.error("Table not generated after 2 attempts — document goes without it")
+            return {}
 
-            logger.info(f"Table generated: {len(headers)} headers, {len(rows)} rows")
-            return {"headers": headers, "rows": rows, "description": description}
-            
         except Exception as e:
             logger.error(f"Error generating table data: {e}")
-            return {
-                "headers": ["Omil", "Xususiyati", "Ta'siri", "Natija"],
-                "rows": [
-                    ["Asosiy omil", "Muhim xususiyat", "Sezilarli ta'sir", "Ijobiy"],
-                    ["Ikkinchi omil", "Muhim jihat", "O'rta darajada", "Barqaror"],
-                    ["Uchinchi omil", "Asosiy belgi", "Yuqori ta'sir", "Samarali"],
-                    ["To'rtinchi omil", "Muhim ko'rsatkich", "Sezilarli o'zgarish", "Yaxshi"],
-                    ["Beshinchi omil", "Asosiy jihat", "O'rta ta'sir", "Muvaffaqiyatli"]
-                ],
-                "description": f"Ushbu jadvalda {topic} mavzusiga oid asosiy ko'rsatkichlar keltirilgan."
-            }
+            return {}
 
     async def _web_search(self, query: str, max_results: int = 5) -> str:
         """Search the web and return results as text."""
@@ -4620,22 +4656,23 @@ In JSON format:
             f'{{"headers": ["Col1","Col2","Col3","Col4"], "rows": [["a","b","c","d"], ...]}}\n'
             f"Provide exactly 4 header columns and exactly 3 data rows."
         )
-        try:
-            response = await self._make_request(
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=800,
-                temperature=0.3,
-            )
-            content_str = response.strip()
-            for prefix in ("```json", "```"):
-                if content_str.startswith(prefix):
-                    content_str = content_str[len(prefix):]
-            if content_str.endswith("```"):
-                content_str = content_str[:-3]
-            return json.loads(content_str.strip())
-        except Exception as e:
-            logger.error(f"Error generating comparison table for '{section_title}': {e}")
-            return {}
+        # Limit kichik bo'lsa (800) "o'ylaydigan" modellarda JSON kesilardi.
+        for attempt in range(2):
+            try:
+                response = await self._make_request(
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=2500,
+                    temperature=0.3,
+                )
+                table = _clean_table(self._parse_json_safely(_strip_fence(response)),
+                                     max_cols=4, max_rows=3, min_rows=2)
+                if table:
+                    return table
+            except Exception as e:
+                logger.warning(f"Comparison table attempt {attempt + 1} failed "
+                               f"for '{section_title}': {e}")
+        logger.error(f"Comparison table not generated for '{section_title}'")
+        return {}
 
     async def generate_glossary(self, topic: str, lang: str) -> list:
         """Generate a glossary of 8-12 key terms for a document topic."""
