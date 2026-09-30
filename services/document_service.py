@@ -164,6 +164,78 @@ def _toc_layout(entries) -> tuple:
     return 11, 1.0
 
 
+def _is_page_break_only(element) -> bool:
+    """Faqat bet uzilishidan iborat bo'sh paragraf (`doc.add_page_break()`)."""
+    if element.tag != qn("w:p"):
+        return False
+    if not any(br.get(qn("w:type")) == "page" for br in element.iter(qn("w:br"))):
+        return False
+    if "".join(t.text or "" for t in element.iter(qn("w:t"))).strip():
+        return False
+    for tag in ("w:drawing", "w:pict", "w:sectPr", "w:object"):
+        if next(element.iter(qn(tag)), None) is not None:
+            return False
+    return True
+
+
+def _break_before(element) -> None:
+    """Paragraf (yoki jadvalning birinchi paragrafi) yangi betdan boshlanadi."""
+    if element.tag == qn("w:tbl"):
+        element = next(element.iter(qn("w:p")), None)
+        if element is None:
+            return
+    ppr = element.get_or_add_pPr()
+    if ppr.find(qn("w:pageBreakBefore")) is None:
+        ppr.insert_element_before(
+            OxmlElement("w:pageBreakBefore"),
+            "w:framePr", "w:widowControl", "w:keepNext", "w:keepLines",
+            "w:numPr", "w:suppressLineNumbers", "w:pBdr", "w:shd", "w:tabs",
+            "w:suppressAutoHyphens", "w:kinsoku", "w:wordWrap", "w:overflowPunct",
+            "w:topLinePunct", "w:autoSpaceDE", "w:autoSpaceDN", "w:bidi",
+            "w:adjustRightInd", "w:snapToGrid", "w:spacing", "w:ind",
+            "w:contextualSpacing", "w:mirrorIndents", "w:suppressOverlap", "w:jc",
+            "w:textDirection", "w:textAlignment", "w:textboxTightWrap",
+            "w:outlineLvl", "w:divId", "w:cnfStyle", "w:rPr", "w:sectPr",
+            "w:pPrChange",
+        )
+
+
+def collapse_page_breaks(doc) -> int:
+    """Bo'sh varaqlarni yo'qotadi. Olib tashlangan uzilishlar sonini qaytaradi.
+
+    `doc.add_page_break()` bet uzilishini alohida paragrafga qo'yadi. Rasm
+    yoki jadval betni to'liq to'ldirsa, bu paragraf yangi betga tushadi va
+    o'zi yana bir bet ochadi — bo'sh varaq qoladi. Ikki uzilish ketma-ket
+    kelsa (rasmdan keyin va bob oxirida) bo'sh varaq har doim chiqardi.
+
+    Endi bunday paragraflar olib tashlanadi va keyingi paragrafga "yangi
+    betdan boshlansin" belgisi qo'yiladi. Word bu belgini bet allaqachon
+    yangi bo'lsa e'tiborsiz qoldiradi, ketma-ket uzilishlar bittaga aylanadi.
+    """
+    body = doc.element.body
+    pending = False
+    removed = 0
+    for element in list(body.iterchildren()):
+        if _is_page_break_only(element):
+            body.remove(element)
+            removed += 1
+            pending = True
+            continue
+        if pending and element.tag in (qn("w:p"), qn("w:tbl")):
+            _break_before(element)
+            pending = False
+    return removed
+
+
+def _save_docx(doc, path: str) -> None:
+    """Saqlashdan oldin bo'sh varaqlarni tozalaydi."""
+    try:
+        collapse_page_breaks(doc)
+    except Exception as exc:
+        logger.warning("Bet uzilishlarini tozalab bo'lmadi: %s", exc)
+    doc.save(path)
+
+
 def _extras_for_cycle(extras: list, section_num: int) -> list:
     """Return the subset of extras for this section based on a 3-step cycle.
 
@@ -1623,7 +1695,7 @@ class DocumentService:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"independent_work_{timestamp}.docx"
             file_path = os.path.join(self.documents_dir, filename)
-            await asyncio.to_thread(doc.save, file_path)
+            await asyncio.to_thread(_save_docx, doc, file_path)
             await toc_plan.fill(doc, file_path)
             logger.info(f"Independent work saved: {file_path}")
             return file_path
@@ -1756,7 +1828,7 @@ class DocumentService:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"referat_{timestamp}.docx"
             file_path = os.path.join(self.documents_dir, filename)
-            await asyncio.to_thread(doc.save, file_path)
+            await asyncio.to_thread(_save_docx, doc, file_path)
             await toc_plan.fill(doc, file_path)
             logger.info(f"Referat saved: {file_path}")
             return file_path
@@ -2702,7 +2774,7 @@ class DocumentService:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"thesis_{timestamp}.docx"
             file_path = os.path.join(self.documents_dir, filename)
-            await asyncio.to_thread(doc.save, file_path)
+            await asyncio.to_thread(_save_docx, doc, file_path)
             return file_path
         except Exception as e:
             logger.error(f"Error creating thesis: {e}")
@@ -3026,7 +3098,7 @@ class DocumentService:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"diplom_ishi_{timestamp}.docx"
             file_path = os.path.join(self.documents_dir, filename)
-            await asyncio.to_thread(doc.save, file_path)
+            await asyncio.to_thread(_save_docx, doc, file_path)
             await toc_plan.fill(doc, file_path)
             logger.info(f"Diploma work saved: {file_path}")
             return file_path
@@ -3466,7 +3538,7 @@ class DocumentService:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"kurs_ishi_{timestamp}.docx"
             file_path = os.path.join(self.documents_dir, filename)
-            await asyncio.to_thread(doc.save, file_path)
+            await asyncio.to_thread(_save_docx, doc, file_path)
             await toc_plan.fill(doc, file_path)
             logger.info(f"Course work saved: {file_path}")
             return file_path
@@ -3939,7 +4011,7 @@ class DocumentService:
         safe_topic = re.sub(r'[^\w\s-]', '', topic)[:40].strip()
         filename = f"maqola_{safe_topic}_{author_name[:15] if author_name else 'anon'}.docx"
         file_path = os.path.join(TEMP_DIR, filename)
-        await asyncio.to_thread(doc.save, file_path)
+        await asyncio.to_thread(_save_docx, doc, file_path)
         logger.info(f"Article DOCX saved: {file_path}")
         return file_path
 
@@ -4172,7 +4244,7 @@ class DocumentService:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"mahsus_ishlanma_{timestamp}.docx"
         file_path = os.path.join(self.documents_dir, filename)
-        await asyncio.to_thread(doc.save, file_path)
+        await asyncio.to_thread(_save_docx, doc, file_path)
         await toc_plan.fill(doc, file_path)
         logger.info(f"Mahsus ishlanma saved: {file_path}")
         return file_path
@@ -4478,7 +4550,7 @@ class DocumentService:
             safe_topic = "".join(c if c.isalnum() else "_" for c in topic[:30])
             filename = f"dissertatsiya_{safe_topic}_{timestamp}.docx"
             file_path = os.path.join(self.documents_dir, filename)
-            await asyncio.to_thread(doc.save, file_path)
+            await asyncio.to_thread(_save_docx, doc, file_path)
             await toc_plan.fill(doc, file_path)
             logger.info(f"Dissertation saved: {file_path}")
             return file_path
@@ -4889,7 +4961,7 @@ class DocumentService:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"bitiruv_ishi_{timestamp}.docx"
             file_path = os.path.join(self.documents_dir, filename)
-            await asyncio.to_thread(doc.save, file_path)
+            await asyncio.to_thread(_save_docx, doc, file_path)
             await toc_plan.fill(doc, file_path)
             logger.info(f"Graduation work saved: {file_path}")
             return file_path
