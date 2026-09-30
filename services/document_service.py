@@ -236,6 +236,68 @@ def _save_docx(doc, path: str) -> None:
     doc.save(path)
 
 
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?…])\s+")
+
+
+def split_into_columns(text: str, parts: int) -> list:
+    """Matnni gap chegarasida `parts` ta teng uzunlikdagi bo'lakka bo'ladi.
+
+    Gap yetmasa, kamroq bo'lak qaytadi (bo'sh ustun hosil qilinmaydi).
+    """
+    text = (text or "").strip()
+    if not text:
+        return []
+    sentences = [x.strip() for x in _SENTENCE_SPLIT.split(text) if x.strip()]
+    if parts <= 1 or len(sentences) < 2:
+        return [text]
+    parts = min(parts, len(sentences))
+    total = sum(len(x) for x in sentences)
+    columns, current, size = [], [], 0
+    for index, sentence in enumerate(sentences):
+        current.append(sentence)
+        size += len(sentence)
+        left_sentences = len(sentences) - index - 1
+        left_columns = parts - len(columns) - 1
+        due = size >= total * (len(columns) + 1) / parts
+        if left_columns > 0 and left_sentences >= left_columns and (due or left_sentences == left_columns):
+            columns.append(" ".join(current))
+            current = []
+    if current:
+        columns.append(" ".join(current))
+    return columns
+
+
+def resolve_columns(slide_data: dict, count: int) -> list:
+    """Ikki/uch ustunli slayd uchun haqiqiy ustunlar ro'yxati (1..count ta).
+
+    Model `columns` bermasa (yetishmagan slaydlarni qo'shimcha so'raganda
+    shunday bo'ladi) yoki ba'zi ustunlar bo'sh kelsa, matn gaplar bo'yicha
+    ustunlarga taqsimlanadi. Ilgari butun matn birinchi ustunga tushib,
+    qolgani bo'sh qolardi: yarim bo'sh slayd va mayda shrift chiqardi.
+    """
+    def read(col):
+        if isinstance(col, dict):
+            return (str(col.get("keyword", "") or "").strip(),
+                    str(col.get("column_content", col.get("text", col.get("content", ""))) or "").strip())
+        return "", str(col or "").strip()
+
+    given = [read(c) for c in (slide_data.get("columns") or [])]
+    given = [(k, t) for k, t in given if clean_text(t).strip()]
+    if len(given) >= count:
+        return [{"keyword": k, "column_content": t} for k, t in given[:count]]
+
+    content = slide_data.get("content", "")
+    if isinstance(content, dict):
+        content = content.get("text", content.get("content", ""))
+    if isinstance(content, list):
+        content = " ".join(str(x) for x in content)
+    combined = " ".join(t for _, t in given) if given else str(content or "")
+    texts = split_into_columns(combined, count)
+    keywords = [k for k, _ in given]
+    return [{"keyword": keywords[i] if i < len(keywords) else "", "column_content": t}
+            for i, t in enumerate(texts)]
+
+
 def _extras_for_cycle(extras: list, section_num: int) -> list:
     """Return the subset of extras for this section based on a 3-step cycle.
 
@@ -667,23 +729,18 @@ class DocumentService:
             used_icons = set()
         self._add_slide_title(slide, slide_data.get('title', ''))
 
-        columns = slide_data.get('columns', [])
-        content = slide_data.get('content', '')
+        columns = resolve_columns(slide_data, 2)
+        if len(columns) < 2:
+            # Ikkinchi ustunga matn yetmaydi — bo'sh yarim slayd o'rniga
+            # matn butun kenglikda.
+            text = columns[0]["column_content"] if columns else ""
+            self._add_justified_content(slide, text, PptxInches(0.5), PptxInches(2),
+                                        PptxInches(12.3), PptxInches(4.5), align_left=True)
+            return
+        self._fill_two_columns(slide, columns, language, used_icons)
 
-        if isinstance(content, dict):
-            content = content.get('text', content.get('content', str(content)))
-        if isinstance(content, list):
-            content = ' '.join(str(item) for item in content)
-        if not isinstance(content, str):
-            content = str(content)
-
-        if not columns and content:
-            logger.warning("two_column slide missing 'columns' array - using content as fallback")
-            columns = [
-                {'text': content},
-                {'text': ''}
-            ]
-
+    def _fill_two_columns(self, slide, columns: list, language: str, used_icons: set):
+        """Ikki ustunni ikonkalar bilan chizadi (sarlavha allaqachon qo'yilgan)."""
         max_font = 23 if language in ['ru', 'en'] else 24
         width_in = 5.8
         icon_size = 1.0        # icon width & height in inches
@@ -806,23 +863,17 @@ class DocumentService:
             used_icons = set()
         self._add_slide_title(slide, slide_data.get('title', ''))
 
-        columns = slide_data.get('columns', [])
-        content = slide_data.get('content', '')
-
-        if isinstance(content, dict):
-            content = content.get('text', content.get('content', str(content)))
-        if isinstance(content, list):
-            content = ' '.join(str(item) for item in content)
-        if not isinstance(content, str):
-            content = str(content)
-
-        if not columns and content:
-            logger.warning("three_column slide missing 'columns' array - using content as fallback")
-            columns = [
-                {'column_content': content},
-                {'column_content': ''},
-                {'column_content': ''}
-            ]
+        columns = resolve_columns(slide_data, 3)
+        if len(columns) < 3:
+            # Uchta ustunga matn yetmasa ikki ustunli (yoki oddiy) ko'rinishga
+            # o'tiladi; sarlavha allaqachon qo'yilgan.
+            if len(columns) == 2:
+                self._fill_two_columns(slide, columns, language, used_icons)
+            else:
+                text = columns[0]["column_content"] if columns else ""
+                self._add_justified_content(slide, text, PptxInches(0.5), PptxInches(2),
+                                            PptxInches(12.3), PptxInches(4.5), align_left=True)
+            return
 
         max_font = 22 if language in ['ru', 'en'] else 23
         width_in = 4.0
