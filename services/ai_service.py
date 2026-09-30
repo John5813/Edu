@@ -581,16 +581,22 @@ class AIService:
                    f'{known_uz}.\n'
                    f'Har slaydda: "title" (sarlavha), "content" (4 ta to\'liq gap), '
                    f'"layout" — {layouts_line} dan biri.\n'
+                   f'"two_column" da qo\'shimcha "columns": ikkita {{"column_content": "..."}} '
+                   f'(har biri 2 ta gap), "three_column" da uchta shunday ustun.\n'
                    f'Faqat JSON: {{"slides": [...]}}'),
             'ru': (f'Напишите ЕЩЁ {missing} основных слайдов для презентации на тему '
                    f'"{topic}". Уже есть, не повторяйте: {known_ru}.\n'
                    f'В каждом слайде: "title", "content" (4 полных предложения), '
                    f'"layout" — один из {layouts_line}.\n'
+                   f'Для "two_column" добавьте "columns": две записи {{"column_content": "..."}} '
+                   f'(по 2 предложения), для "three_column" — три такие колонки.\n'
                    f'Только JSON: {{"slides": [...]}}'),
             'en': (f'Write {missing} MORE main slides for a presentation on "{topic}". '
                    f'Already present, do not repeat: {known_en}.\n'
                    f'Each slide: "title", "content" (4 full sentences), "layout" — '
                    f'one of {layouts_line}.\n'
+                   f'For "two_column" add "columns": two {{"column_content": "..."}} entries '
+                   f'(2 sentences each), for "three_column" three such columns.\n'
                    f'JSON only: {{"slides": [...]}}'),
         }
         logger.warning("Taqdimotda %s ta asosiy slayd yetishmadi — qo'shimcha so'raldi",

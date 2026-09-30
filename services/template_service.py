@@ -19,9 +19,9 @@ class TemplateService:
     def __init__(self):
         self.templates = {
             'template_1': {
-                'name': {'uz': 'Oltin Naqsh', 'ru': 'Золотой Узор', 'en': 'Gold Ornamental'},
-                'file': '1777532829029_1779186936497.png',
-                'colors': {'title': RGBColor(102, 51, 0), 'text': RGBColor(51, 25, 0)}
+                'name': {'uz': 'Qum Mandala', 'ru': 'Песочная Мандала', 'en': 'Sand Mandala'},
+                'file': 'fon_qum_mandala.png',
+                'colors': {'title': RGBColor(120, 84, 48), 'text': RGBColor(72, 56, 40)}
             },
             'template_2': {
                 'name': {'uz': 'Yashil To\'lqin', 'ru': 'Зелёная Волна', 'en': 'Green Wave'},
@@ -39,9 +39,9 @@ class TemplateService:
                 'colors': {'title': RGBColor(0, 102, 102), 'text': RGBColor(0, 77, 77)}
             },
             'template_5': {
-                'name': {'uz': 'Binafsha To\'lqin', 'ru': 'Фиолетовая Волна', 'en': 'Purple Wave'},
-                'file': '1777531410805_1779186936575.png',
-                'colors': {'title': RGBColor(255, 255, 255), 'text': RGBColor(230, 200, 255)}
+                'name': {'uz': 'Lavanda Mandala', 'ru': 'Лавандовая Мандала', 'en': 'Lavender Mandala'},
+                'file': 'fon_lavanda_mandala.png',
+                'colors': {'title': RGBColor(88, 66, 140), 'text': RGBColor(52, 44, 72)}
             },
             'template_6': {
                 'name': {'uz': 'Moviy Bokeh', 'ru': 'Голубой Боке', 'en': 'Blue Bokeh'},

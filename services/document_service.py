@@ -236,6 +236,68 @@ def _save_docx(doc, path: str) -> None:
     doc.save(path)
 
 
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?…])\s+")
+
+
+def split_into_columns(text: str, parts: int) -> list:
+    """Matnni gap chegarasida `parts` ta teng uzunlikdagi bo'lakka bo'ladi.
+
+    Gap yetmasa, kamroq bo'lak qaytadi (bo'sh ustun hosil qilinmaydi).
+    """
+    text = (text or "").strip()
+    if not text:
+        return []
+    sentences = [x.strip() for x in _SENTENCE_SPLIT.split(text) if x.strip()]
+    if parts <= 1 or len(sentences) < 2:
+        return [text]
+    parts = min(parts, len(sentences))
+    total = sum(len(x) for x in sentences)
+    columns, current, size = [], [], 0
+    for index, sentence in enumerate(sentences):
+        current.append(sentence)
+        size += len(sentence)
+        left_sentences = len(sentences) - index - 1
+        left_columns = parts - len(columns) - 1
+        due = size >= total * (len(columns) + 1) / parts
+        if left_columns > 0 and left_sentences >= left_columns and (due or left_sentences == left_columns):
+            columns.append(" ".join(current))
+            current = []
+    if current:
+        columns.append(" ".join(current))
+    return columns
+
+
+def resolve_columns(slide_data: dict, count: int) -> list:
+    """Ikki/uch ustunli slayd uchun haqiqiy ustunlar ro'yxati (1..count ta).
+
+    Model `columns` bermasa (yetishmagan slaydlarni qo'shimcha so'raganda
+    shunday bo'ladi) yoki ba'zi ustunlar bo'sh kelsa, matn gaplar bo'yicha
+    ustunlarga taqsimlanadi. Ilgari butun matn birinchi ustunga tushib,
+    qolgani bo'sh qolardi: yarim bo'sh slayd va mayda shrift chiqardi.
+    """
+    def read(col):
+        if isinstance(col, dict):
+            return (str(col.get("keyword", "") or "").strip(),
+                    str(col.get("column_content", col.get("text", col.get("content", ""))) or "").strip())
+        return "", str(col or "").strip()
+
+    given = [read(c) for c in (slide_data.get("columns") or [])]
+    given = [(k, t) for k, t in given if clean_text(t).strip()]
+    if len(given) >= count:
+        return [{"keyword": k, "column_content": t} for k, t in given[:count]]
+
+    content = slide_data.get("content", "")
+    if isinstance(content, dict):
+        content = content.get("text", content.get("content", ""))
+    if isinstance(content, list):
+        content = " ".join(str(x) for x in content)
+    combined = " ".join(t for _, t in given) if given else str(content or "")
+    texts = split_into_columns(combined, count)
+    keywords = [k for k, _ in given]
+    return [{"keyword": keywords[i] if i < len(keywords) else "", "column_content": t}
+            for i, t in enumerate(texts)]
+
+
 def _extras_for_cycle(extras: list, section_num: int) -> list:
     """Return the subset of extras for this section based on a 3-step cycle.
 
@@ -541,6 +603,16 @@ class DocumentService:
         if used_icons is None:
             used_icons = set()
 
+        # Ikonkalar shablonning sarlavha rangiga bo'yaladi: yorqin ko'k ikonka
+        # pastel fonda begona ko'rinardi. Rang slayd ma'lumotiga qo'yiladi —
+        # xizmat ob'ekti bir necha buyurtma orasida umumiy, unda holat saqlanmaydi.
+        if template_service and template_id:
+            try:
+                slide_data = {**slide_data,
+                              '_accent': str(template_service.get_readable_colors(template_id)['title'])}
+            except Exception as e:
+                logger.warning(f"Icon accent not resolved: {e}")
+
         if layout == 'cover':
             await self._create_cover_slide(slide, slide_data, author_name, topic, language, pre_fetched_image=pre_fetched_image)
         elif layout == 'plan':
@@ -667,30 +739,63 @@ class DocumentService:
             used_icons = set()
         self._add_slide_title(slide, slide_data.get('title', ''))
 
-        columns = slide_data.get('columns', [])
-        content = slide_data.get('content', '')
+        columns = resolve_columns(slide_data, 2)
+        if len(columns) < 2:
+            # Ikkinchi ustunga matn yetmaydi — bo'sh yarim slayd o'rniga
+            # matn butun kenglikda.
+            text = columns[0]["column_content"] if columns else ""
+            self._add_justified_content(slide, text, PptxInches(0.5), PptxInches(2),
+                                        PptxInches(12.3), PptxInches(4.5), align_left=True)
+            return
+        self._fill_two_columns(slide, columns, language, used_icons, slide_data.get('_accent'))
 
-        if isinstance(content, dict):
-            content = content.get('text', content.get('content', str(content)))
-        if isinstance(content, list):
-            content = ' '.join(str(item) for item in content)
-        if not isinstance(content, str):
-            content = str(content)
+    def _add_icon_badge(self, slide, icon_path: str, left: float, top: float,
+                        size: float, accent: str | None) -> None:
+        """Ikonkani yumshoq doira ichida, shablon rangida chizadi.
 
-        if not columns and content:
-            logger.warning("two_column slide missing 'columns' array - using content as fallback")
-            columns = [
-                {'text': content},
-                {'text': ''}
-            ]
+        Doira yarim shaffof oq, halqasi shablon rangida; ikonka o'zi
+        shablonning sarlavha rangida bo'yaladi — fon bilan uyg'un turadi.
+        """
+        from pptx.enum.shapes import MSO_SHAPE
+        from pptx.oxml.ns import qn
+        from services.premium_presentation import icon_render
 
+        accent = (accent or "2563EB").lstrip("#")
+        circle = slide.shapes.add_shape(
+            MSO_SHAPE.OVAL, PptxInches(left), PptxInches(top), PptxInches(size), PptxInches(size))
+        # Yarim shaffof oq doira + ingichka rangli halqa: naqshli fonda ham
+        # (Mandala) ikonka loyqalanmaydi, sodda fonda esa yumshoq turadi.
+        circle.fill.solid()
+        circle.fill.fore_color.rgb = RGBColor(255, 255, 255)
+        colour = circle.fill._xPr.find(qn("a:solidFill")).find(qn("a:srgbClr"))
+        colour.append(colour.makeelement(qn("a:alpha"), {"val": "78000"}))
+        circle.line.color.rgb = RGBColor.from_string(accent.upper())
+        circle.line.width = PptxPt(1.25)
+        ring = circle.line._ln.find(qn("a:solidFill")).find(qn("a:srgbClr"))
+        ring.append(ring.makeelement(qn("a:alpha"), {"val": "45000"}))
+        try:
+            circle.shadow.inherit = False
+        except Exception:
+            pass
+
+        glyph = icon_render.tinted(icon_path, accent) or icon_path
+        inner = size * 0.56
+        slide.shapes.add_picture(
+            glyph, PptxInches(left + (size - inner) / 2), PptxInches(top + (size - inner) / 2),
+            PptxInches(inner), PptxInches(inner))
+
+    def _fill_two_columns(self, slide, columns: list, language: str, used_icons: set,
+                          accent: str | None = None):
+        """Ikki ustunni ikonkalar bilan chizadi (sarlavha allaqachon qo'yilgan)."""
         max_font = 23 if language in ['ru', 'en'] else 24
-        width_in = 5.8
-        icon_size = 1.0        # icon width & height in inches
-        icon_y = 1.40          # icon top position
-        text_y = 2.55          # text box top (shifted down to make room for icon)
-        height_in = 3.9        # text box height (reduced)
-        column_positions = [0.5, 6.8]
+        width_in = 5.6
+        icon_size = 1.0        # doira diametri (dyuym)
+        icon_y = 1.40          # doira yuqori chetining o'rni
+        text_y = 2.55          # matn qutisi yuqorisi (doira ostida)
+        height_in = 3.9        # matn qutisi balandligi
+        # Naqshli fonlarda (Mandala) chet-hoshiya ustiga tushmasligi uchun
+        # ustunlar chetdan 0.8" ichkarida.
+        column_positions = [0.8, 6.9]
 
         for i, col in enumerate(columns[:2]):
             x_start = column_positions[i]
@@ -705,17 +810,13 @@ class DocumentService:
 
             col_text = clean_text(col_text)
 
-            # --- Icon (deduplicated across the whole presentation) ---
+            # --- Icon: matn chap chetiga tekislangan yumshoq doirada ---
             if getattr(self, 'use_icons', True):
                 try:
                     icon_path = find_icon_path_for_column(col_keyword, col_text, used=used_icons)
                     if icon_path and os.path.isfile(icon_path):
-                        icon_x = PptxInches(x_start + (width_in - icon_size) / 2)
-                        slide.shapes.add_picture(
-                            icon_path,
-                            icon_x, PptxInches(icon_y),
-                            PptxInches(icon_size), PptxInches(icon_size)
-                        )
+                        self._add_icon_badge(slide, icon_path, x_start + 0.1, icon_y,
+                                             icon_size, accent)
                         used_icons.add(os.path.basename(icon_path))
                 except Exception as e:
                     logger.warning(f"Could not add icon to two_column slide: {e}")
@@ -806,32 +907,26 @@ class DocumentService:
             used_icons = set()
         self._add_slide_title(slide, slide_data.get('title', ''))
 
-        columns = slide_data.get('columns', [])
-        content = slide_data.get('content', '')
-
-        if isinstance(content, dict):
-            content = content.get('text', content.get('content', str(content)))
-        if isinstance(content, list):
-            content = ' '.join(str(item) for item in content)
-        if not isinstance(content, str):
-            content = str(content)
-
-        if not columns and content:
-            logger.warning("three_column slide missing 'columns' array - using content as fallback")
-            columns = [
-                {'column_content': content},
-                {'column_content': ''},
-                {'column_content': ''}
-            ]
+        columns = resolve_columns(slide_data, 3)
+        if len(columns) < 3:
+            # Uchta ustunga matn yetmasa ikki ustunli (yoki oddiy) ko'rinishga
+            # o'tiladi; sarlavha allaqachon qo'yilgan.
+            if len(columns) == 2:
+                self._fill_two_columns(slide, columns, language, used_icons, slide_data.get('_accent'))
+            else:
+                text = columns[0]["column_content"] if columns else ""
+                self._add_justified_content(slide, text, PptxInches(0.5), PptxInches(2),
+                                            PptxInches(12.3), PptxInches(4.5), align_left=True)
+            return
 
         max_font = 22 if language in ['ru', 'en'] else 23
-        width_in = 4.0
-        icon_size = 0.7        # smaller icon for 3-column layout
+        width_in = 3.7
+        icon_size = 0.85       # doira diametri (3 ustunli)
         icon_y = 1.45
-        text_y = 2.40
+        text_y = 2.45
         height_in = 4.0        # reduced height to fit icon above
 
-        column_positions = [0.3, 4.5, 8.7]
+        column_positions = [0.7, 4.85, 9.0]
 
         for i, col in enumerate(columns[:3]):
             x_start = column_positions[i]
@@ -847,17 +942,13 @@ class DocumentService:
             keyword = clean_text(keyword)
             col_text = clean_text(col_text)
 
-            # --- Icon (deduplicated across the whole presentation) ---
+            # --- Icon: matn chap chetiga tekislangan yumshoq doirada ---
             if getattr(self, 'use_icons', True):
                 try:
                     icon_path = find_icon_path_for_column(keyword, col_text, used=used_icons)
                     if icon_path and os.path.isfile(icon_path):
-                        icon_x = PptxInches(x_start + (width_in - icon_size) / 2)
-                        slide.shapes.add_picture(
-                            icon_path,
-                            icon_x, PptxInches(icon_y),
-                            PptxInches(icon_size), PptxInches(icon_size)
-                        )
+                        self._add_icon_badge(slide, icon_path, x_start + 0.1, icon_y,
+                                             icon_size, slide_data.get('_accent'))
                         used_icons.add(os.path.basename(icon_path))
                 except Exception as e:
                     logger.warning(f"Could not add icon to three_column slide: {e}")
