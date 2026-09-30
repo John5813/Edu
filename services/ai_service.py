@@ -539,6 +539,10 @@ class AIService:
 
             content = self._normalize_slide_structure(content, slide_count, language)
 
+            # Kirish, xulosa yoki reja bo'sh kelsa (javob uzilganda shunday
+            # bo'ladi) mijozga bo'sh varaq ketmasin.
+            content = await self._fill_empty_fixed_slides(content, topic, language)
+
             for slide in content.get('slides', []):
                 if slide.get('layout') == 'table' and not slide.get('table_data', {}).get('rows'):
                     try:
@@ -558,6 +562,101 @@ class AIService:
     # qo'yilmaydi — uning o'rni asosiy slaydga beriladi.
     _FIXED_LAYOUTS = {'cover', 'plan', 'intro', 'conclusion', 'references',
                       'thanks', 'table'}
+
+    @staticmethod
+    def _first_sentence(text: str, limit: int = 220) -> str:
+        text = re.sub(r"\s+", " ", str(text or "")).strip()
+        match = re.match(r"(.+?[.!?…])(\s|$)", text)
+        sentence = (match.group(1) if match else text)[:limit].strip()
+        return sentence
+
+    def _fallback_fixed_text(self, kind: str, topic: str, mains: list, language: str) -> str:
+        """AI ishlamaganda taqdimotning o'z slaydlaridan yig'ilgan matn."""
+        titles = [str(m.get('title') or '').strip() for m in mains if m.get('title')]
+        if kind == 'conclusion':
+            parts = [self._first_sentence(m.get('content')) for m in mains[-4:]]
+            parts = [x for x in parts if x]
+            if parts:
+                return " ".join(parts)
+        lead = {
+            'uz': f"Ushbu taqdimotda \"{topic}\" mavzusi ko'rib chiqiladi.",
+            'ru': f"В этой презентации рассматривается тема «{topic}».",
+            'en': f"This presentation covers the topic \"{topic}\".",
+        }.get(language, "")
+        listed = ", ".join(titles[:4])
+        tail = {
+            'uz': f" Asosiy masalalar: {listed}." if listed else "",
+            'ru': f" Основные вопросы: {listed}." if listed else "",
+            'en': f" Key questions: {listed}." if listed else "",
+        }.get(language, "")
+        return (lead + tail).strip()
+
+    async def _fill_empty_fixed_slides(self, content: Dict, topic: str, language: str) -> Dict:
+        """Bo'sh kirish, xulosa va reja bandlarini to'ldiradi.
+
+        Xulosa slaydi matnsiz ketgan hollar bo'lgan: model JSON'i uzilganda
+        `_normalize_slide_structure` uni bo'sh joy bilan to'ldirardi va hech
+        kim keyin qaytib yozmasdi.
+        """
+        slides = content.get('slides', [])
+
+        def empty(slide) -> bool:
+            return not str(slide.get('content') or '').strip()
+
+        intro = [s for s in slides if s.get('layout') == 'intro' and empty(s)]
+        conclusion = [s for s in slides if s.get('layout') == 'conclusion' and empty(s)]
+        plans = [s for s in slides if s.get('layout') == 'plan'
+                 and not [i for i in (s.get('plan_items') or []) if str(i).strip()]]
+        if not (intro or conclusion or plans):
+            return content
+
+        mains = [s for s in slides if s.get('layout') not in self._FIXED_LAYOUTS]
+        logger.warning("Taqdimotda bo'sh slaydlar: kirish=%d xulosa=%d reja=%d — to'ldirilmoqda",
+                       len(intro), len(conclusion), len(plans))
+
+        for slide in plans:
+            items = [self._shorten_plan_item(str(m.get('title') or '')) for m in mains]
+            slide['plan_items'] = [i for i in items if i][:4]
+
+        wanted = []
+        if intro:
+            wanted.append('"intro"')
+        if conclusion:
+            wanted.append('"conclusion"')
+        written = {}
+        if wanted and mains:
+            digest = "\n".join(f"- {m.get('title', '')}: {self._first_sentence(m.get('content'))}"
+                               for m in mains[:12])
+            prompts = {
+                'uz': (f'"{topic}" mavzusidagi taqdimotning slaydlari:\n{digest}\n\n'
+                       f'Shu slaydlar asosida quyidagilarni yozing: {", ".join(wanted)}. '
+                       f'Har biri 3-4 ta to\'liq gap (taxminan 50 so\'z), slaydlardagi '
+                       f'fikrlardan foydalaning, yangi raqam yoki fakt qo\'shmang.\n'
+                       f'Faqat JSON: {{"intro": "...", "conclusion": "..."}}'),
+                'ru': (f'Слайды презентации по теме "{topic}":\n{digest}\n\n'
+                       f'На их основе напишите: {", ".join(wanted)}. Каждый по 3-4 полных '
+                       f'предложения (около 50 слов), опирайтесь на мысли слайдов, не '
+                       f'добавляйте новых цифр и фактов.\n'
+                       f'Только JSON: {{"intro": "...", "conclusion": "..."}}'),
+                'en': (f'Slides of a presentation on "{topic}":\n{digest}\n\n'
+                       f'Based on them write: {", ".join(wanted)}. Each 3-4 full sentences '
+                       f'(about 50 words), use the ideas on the slides, add no new numbers '
+                       f'or facts.\nJSON only: {{"intro": "...", "conclusion": "..."}}'),
+            }
+            try:
+                response = await self._make_request(
+                    messages=[{"role": "user", "content": prompts.get(language, prompts['uz'])}],
+                    max_tokens=1500, temperature=0.5,
+                )
+                written = self._parse_json_safely(response.strip().strip('`').lstrip('json'))
+            except Exception as e:
+                logger.error(f"Bo'sh slaydlar matni olinmadi: {e}")
+
+        for kind, group in (('intro', intro), ('conclusion', conclusion)):
+            for slide in group:
+                text = str(written.get(kind) or "").strip() if isinstance(written, dict) else ""
+                slide['content'] = text or self._fallback_fixed_text(kind, topic, mains, language)
+        return content
 
     async def _top_up_main_slides(self, content: Dict, topic: str,
                                   slide_count: int, language: str) -> Dict:
