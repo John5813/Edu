@@ -12,6 +12,10 @@ sys.path.insert(0, HERE); os.chdir(HERE)
 os.environ.setdefault("BOT_TOKEN", "1:x")
 
 from pptx import Presentation
+from services import slide_layouts
+# Bu test eski shablonlarning chizilishini tekshiradi: shablon tanlash o'chirilgan
+# (tanlash alohida test_oddiy_shablonlar.py da tekshiriladi).
+slide_layouts.assign = lambda slides, *a, **k: slides
 from services.document_service import DocumentService, resolve_columns, split_into_columns
 
 FAILS = []

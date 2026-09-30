@@ -26,6 +26,9 @@ from services import uzbekistan
 from services import course_work
 from utils.heading_guard import strip_leading_numbering
 from services.icon_service import find_icon_path_for_column
+from services import slide_fit
+from services import slide_kit
+from services import slide_layouts
 
 _TITLE_ASSETS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                              'assets', 'title_page')
@@ -236,35 +239,7 @@ def _save_docx(doc, path: str) -> None:
     doc.save(path)
 
 
-_SENTENCE_SPLIT = re.compile(r"(?<=[.!?…])\s+")
-
-
-def split_into_columns(text: str, parts: int) -> list:
-    """Matnni gap chegarasida `parts` ta teng uzunlikdagi bo'lakka bo'ladi.
-
-    Gap yetmasa, kamroq bo'lak qaytadi (bo'sh ustun hosil qilinmaydi).
-    """
-    text = (text or "").strip()
-    if not text:
-        return []
-    sentences = [x.strip() for x in _SENTENCE_SPLIT.split(text) if x.strip()]
-    if parts <= 1 or len(sentences) < 2:
-        return [text]
-    parts = min(parts, len(sentences))
-    total = sum(len(x) for x in sentences)
-    columns, current, size = [], [], 0
-    for index, sentence in enumerate(sentences):
-        current.append(sentence)
-        size += len(sentence)
-        left_sentences = len(sentences) - index - 1
-        left_columns = parts - len(columns) - 1
-        due = size >= total * (len(columns) + 1) / parts
-        if left_columns > 0 and left_sentences >= left_columns and (due or left_sentences == left_columns):
-            columns.append(" ".join(current))
-            current = []
-    if current:
-        columns.append(" ".join(current))
-    return columns
+from services.slide_fit import split_into_columns  # noqa: E402  (test va boshqa modullar shu yerdan oladi)
 
 
 def resolve_columns(slide_data: dict, count: int) -> list:
@@ -413,10 +388,10 @@ class DocumentService:
             layout = slide_data.get('layout', 'text')
             if layout == 'cover':
                 tasks[f'cover_{i}'] = (i, 'cover', _bounded(self.together.generate_cover_image(topic, language)))
-            elif layout in ('right_image', 'left_image'):
+            elif slide_layouts.image_kind(layout) == 'slide':
                 tasks[f'slide_{i}'] = (i, 'slide', _bounded(self.together.generate_slide_image(
                     topic, slide_data.get('title', ''), language)))
-            elif layout == 'horizontal_image':
+            elif slide_layouts.image_kind(layout) == 'panorama':
                 tasks[f'horiz_{i}'] = (i, 'horiz', _bounded(self.together.generate_panoramic_image(
                     topic, slide_data.get('title', ''), language)))
 
@@ -452,7 +427,12 @@ class DocumentService:
             prs.slide_width = PptxInches(13.333)
             prs.slide_height = PptxInches(7.5)
 
-            slides_data = content.get('slides', [])
+            # Uzun matn sig'maydigan slaydlar ikki ustunga yoki keyingi slaydga
+            # bo'linadi (qirqilmaydi); rasm tanlangandan OLDIN, chunki layout
+            # o'zgarsa rasm ham kerak bo'lmay qoladi.
+            planned = slide_layouts.assign(content.get('slides', []), topic, language,
+                                           images=bool(self.together))
+            slides_data = slide_fit.prepare(planned, language)
 
             # Pre-generate ALL images in parallel before building slides
             logger.info("Pre-fetching all slide images in parallel...")
@@ -584,6 +564,8 @@ class DocumentService:
                     continue
                 if not getattr(shape, "has_text_frame", False):
                     continue
+                if (shape.name or "").startswith("fixed:"):
+                    continue          # slide_kit: rangi palitradan, karta fonini hisobga olgan
                 for paragraph in shape.text_frame.paragraphs:
                     size = paragraph.font.size
                     for run in paragraph.runs:
@@ -639,8 +621,39 @@ class DocumentService:
             self._create_thanks_slide(slide, language)
         elif layout == 'table':
             await self._create_table_slide(slide, slide_data, topic, language)
+        elif layout in slide_layouts.KIT_LAYOUTS:
+            self._create_kit_slide(slide, slide_data, layout, language, template_service,
+                                   template_id, pre_fetched_image, used_icons)
         else:
             self._create_default_slide(slide, slide_data)
+
+    def _create_kit_slide(self, slide, slide_data: Dict, layout: str, language: str,
+                          template_service, template_id, pre_fetched_image, used_icons):
+        """slide_layouts dagi yangi shablonlar (native shakllar, shablon ranglarida)."""
+        spec = slide_layouts.CATALOG[layout]
+        data = slide_layouts.render_data(slide_data)
+        image = pre_fetched_image[0] if isinstance(pre_fetched_image, tuple) else pre_fetched_image
+        has_image = bool(image) and os.path.isfile(str(image))
+
+        if spec.image and not has_image:
+            # Rasm chiqmadi: bo'sh joy qolmasin — matn butun kenglikda.
+            self._add_slide_title(slide, slide_data.get('title', ''))
+            lines = [f"{i['head']}: {i['text']}" if i['head'] else i['text'] for i in data['items']]
+            body = "\n".join(lines) if spec.slots else data['text']
+            self._add_justified_content(slide, body, PptxInches(0.5), PptxInches(2),
+                                        PptxInches(12.3), PptxInches(4.5), align_left=True)
+            return
+
+        if not spec.own_title:
+            self._add_slide_title(slide, slide_data.get('title', ''))
+        ctx = slide_kit.Ctx(
+            slide=slide, pal=slide_kit.palette_for(template_service, template_id), language=language,
+            used_icons=used_icons, use_icons=getattr(self, 'use_icons', True),
+            image=str(image) if has_image else None, icon_finder=find_icon_path_for_column)
+        spec.render(ctx, data)
+        if ctx.overflow:
+            logger.warning("Slayd %s shablonida matn sig'masligi mumkin: %r", layout,
+                           (slide_data.get('title') or '')[:40])
 
     async def _create_cover_slide(self, slide, slide_data: Dict, author_name: str, topic: str, language: str, pre_fetched_image=None):
         """1-varoq: Chap 50% rasm, O'ng mavzu + ism"""
@@ -649,11 +662,7 @@ class DocumentService:
             try:
                 image_path = pre_fetched_image if pre_fetched_image else await self.together.generate_cover_image(topic, language)
                 if image_path and os.path.exists(image_path):
-                    slide.shapes.add_picture(
-                        image_path,
-                        PptxInches(0), PptxInches(0),
-                        PptxInches(6.666), PptxInches(7.5)
-                    )
+                    self._add_cropped_picture(slide, image_path, 0, 0, 6.666, 7.5, bias=0.5)
                     has_image = True
                     if not pre_fetched_image:
                         try:
@@ -729,9 +738,7 @@ class DocumentService:
     def _create_intro_slide(self, slide, slide_data: Dict):
         """3-varoq: Kirish - ~50 so'z"""
         self._add_slide_title(slide, slide_data.get('title', 'Kirish'))
-        self._add_justified_content(slide, slide_data.get('content', ''), 
-                                    PptxInches(1), PptxInches(2), 
-                                    PptxInches(11), PptxInches(5))
+        self._add_body_text(slide, slide_data)
 
     def _create_two_column_slide(self, slide, slide_data: Dict, language: str = 'uz', used_icons: set | None = None):
         """Shablon 1: 2 ustunli - har ustun 30 so'z + ikonka"""
@@ -858,8 +865,7 @@ class DocumentService:
             if not image_path or not os.path.exists(image_path):
                 return False
             left, top, width, height = rect
-            slide.shapes.add_picture(image_path, PptxInches(left), PptxInches(top),
-                                     PptxInches(width), PptxInches(height))
+            self._add_cropped_picture(slide, image_path, left, top, width, height)
             if not pre_fetched_image:
                 try:
                     os.remove(image_path)
@@ -991,7 +997,7 @@ class DocumentService:
 
         has_image = await self._place_slide_image(
             slide, slide_data, topic, language, pre_fetched_image,
-            (0.3, 4.0, 12.7, 3.3), panoramic=True)
+            (2.17, 4.0, 9.0, 3.3), panoramic=True)
 
         # Rasmsiz qolsa matn pastdagi bo'sh joyni ham egallaydi.
         height = 2.0 if has_image else 5.3
@@ -1002,16 +1008,12 @@ class DocumentService:
     def _create_text_with_numbers_slide(self, slide, slide_data: Dict):
         """Shablon 6: Oddiy matn, raqamlar bilan - 50 so'z"""
         self._add_slide_title(slide, slide_data.get('title', ''))
-        self._add_justified_content(slide, slide_data.get('content', ''),
-                                    PptxInches(1), PptxInches(2),
-                                    PptxInches(11), PptxInches(5))
+        self._add_body_text(slide, slide_data)
 
     def _create_conclusion_slide(self, slide, slide_data: Dict):
         """Xulosa slayd - ~50 so'z"""
         self._add_slide_title(slide, slide_data.get('title', 'Xulosa'))
-        self._add_justified_content(slide, slide_data.get('content', ''),
-                                    PptxInches(1), PptxInches(2),
-                                    PptxInches(11), PptxInches(5))
+        self._add_body_text(slide, slide_data)
 
     def _create_references_slide(self, slide, slide_data: Dict):
         """Adabiyotlar ro'yxati slayd"""
@@ -1189,9 +1191,7 @@ class DocumentService:
     def _create_default_slide(self, slide, slide_data: Dict):
         """Default text slide"""
         self._add_slide_title(slide, slide_data.get('title', ''))
-        self._add_justified_content(slide, slide_data.get('content', ''),
-                                    PptxInches(1), PptxInches(2),
-                                    PptxInches(11), PptxInches(5))
+        self._add_body_text(slide, slide_data)
 
     def _add_slide_title(self, slide, title: str):
         """Add title to slide - qalin qora, auto-size 42→18pt Times New Roman"""
@@ -1217,6 +1217,60 @@ class DocumentService:
         p.font.color.rgb = RGBColor(0, 0, 0)
         p.alignment = PP_ALIGN.CENTER
 
+    @staticmethod
+    def _measured_font(text: str, width_in: float, height_in: float,
+                       max_pt: int = 24, min_pt: int = 14) -> int:
+        """Matn qutiga sig'adigan eng katta shrift (haqiqiy o'lchov bilan)."""
+        for pt in range(int(max_pt), int(min_pt) - 1, -1):
+            if slide_fit.fits(text, width_in, height_in, pt):
+                return pt
+        return int(min_pt)
+
+    def _add_body_text(self, slide, slide_data: Dict) -> None:
+        """Asosiy matn: bitta blok yoki (uzun bo'lsa) yonma-yon ikki ustun."""
+        columns = slide_data.get('_columns_text')
+        if columns and len(columns) == 2:
+            width, height = slide_fit.COLUMN_W, slide_fit.BODY_H
+            pt = min(self._measured_font(c, width, height, 22, 16) for c in columns)
+            for left, text in zip((1.0, 6.6), columns):
+                box = slide.shapes.add_textbox(PptxInches(left), PptxInches(2),
+                                               PptxInches(width), PptxInches(height))
+                tf = box.text_frame
+                tf.word_wrap = True
+                tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+                p = tf.paragraphs[0]
+                p.text = text
+                p.font.size = PptxPt(pt)
+                p.font.name = 'Times New Roman'
+                p.alignment = PP_ALIGN.LEFT
+            return
+        self._add_justified_content(slide, slide_data.get('content', ''),
+                                    PptxInches(1), PptxInches(2),
+                                    PptxInches(11), PptxInches(5))
+
+    def _add_cropped_picture(self, slide, image_path: str, left: float, top: float,
+                             width: float, height: float, bias: float = 0.4):
+        """Rasmni joyiga nisbatini saqlab qo'yadi: ortiqcha qismi qirqiladi.
+
+        Ilgari rasm joy o'lchamiga cho'zilardi: 4:3 rasm 3.8:1 chiziqqa
+        siqilib, odamlar yassi ko'rinardi. `bias` — vertikal qirqishda
+        yuqoridan qancha saqlanadi (0.4: yuzlar odatda o'rtadan biroz tepada).
+        """
+        from PIL import Image
+        with Image.open(image_path) as img:
+            iw, ih = img.size
+        pic = slide.shapes.add_picture(image_path, PptxInches(left), PptxInches(top),
+                                       PptxInches(width), PptxInches(height))
+        if iw and ih:
+            target, actual = width / height, iw / ih
+            if actual > target:            # rasm kengroq: yon tomonlar qirqiladi
+                extra = 1 - target / actual
+                pic.crop_left = pic.crop_right = extra / 2
+            elif actual < target:          # rasm balandroq: yuqori-past qirqiladi
+                extra = 1 - actual / target
+                pic.crop_top, pic.crop_bottom = extra * bias, extra * (1 - bias)
+        return pic
+
     def _add_justified_content(self, slide, content, left: float, top: float, width: float, height: float, align_left: bool = False, max_font: int = 24, min_font: int = 14):
         """Add justified content text with auto-fit font sizing.
         
@@ -1231,7 +1285,7 @@ class DocumentService:
         width_inches = width / 914400 if width > 100 else width
         height_inches = height / 914400 if height > 100 else height
         
-        optimal_font = self._calculate_auto_font_size(content, width_inches, height_inches, max_font, min_font)
+        optimal_font = self._measured_font(content, width_inches, height_inches, max_font, min_font)
             
         content_box = slide.shapes.add_textbox(left, top, width, height)
         tf = content_box.text_frame
