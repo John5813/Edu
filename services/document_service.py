@@ -27,6 +27,8 @@ from services import course_work
 from utils.heading_guard import strip_leading_numbering
 from services.icon_service import find_icon_path_for_column
 from services import slide_fit
+from services import slide_kit
+from services import slide_layouts
 
 _TITLE_ASSETS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                              'assets', 'title_page')
@@ -386,10 +388,10 @@ class DocumentService:
             layout = slide_data.get('layout', 'text')
             if layout == 'cover':
                 tasks[f'cover_{i}'] = (i, 'cover', _bounded(self.together.generate_cover_image(topic, language)))
-            elif layout in ('right_image', 'left_image'):
+            elif slide_layouts.image_kind(layout) == 'slide':
                 tasks[f'slide_{i}'] = (i, 'slide', _bounded(self.together.generate_slide_image(
                     topic, slide_data.get('title', ''), language)))
-            elif layout == 'horizontal_image':
+            elif slide_layouts.image_kind(layout) == 'panorama':
                 tasks[f'horiz_{i}'] = (i, 'horiz', _bounded(self.together.generate_panoramic_image(
                     topic, slide_data.get('title', ''), language)))
 
@@ -428,7 +430,9 @@ class DocumentService:
             # Uzun matn sig'maydigan slaydlar ikki ustunga yoki keyingi slaydga
             # bo'linadi (qirqilmaydi); rasm tanlangandan OLDIN, chunki layout
             # o'zgarsa rasm ham kerak bo'lmay qoladi.
-            slides_data = slide_fit.prepare(content.get('slides', []), language)
+            planned = slide_layouts.assign(content.get('slides', []), topic, language,
+                                           images=bool(self.together))
+            slides_data = slide_fit.prepare(planned, language)
 
             # Pre-generate ALL images in parallel before building slides
             logger.info("Pre-fetching all slide images in parallel...")
@@ -560,6 +564,8 @@ class DocumentService:
                     continue
                 if not getattr(shape, "has_text_frame", False):
                     continue
+                if (shape.name or "").startswith("fixed:"):
+                    continue          # slide_kit: rangi palitradan, karta fonini hisobga olgan
                 for paragraph in shape.text_frame.paragraphs:
                     size = paragraph.font.size
                     for run in paragraph.runs:
@@ -615,8 +621,39 @@ class DocumentService:
             self._create_thanks_slide(slide, language)
         elif layout == 'table':
             await self._create_table_slide(slide, slide_data, topic, language)
+        elif layout in slide_layouts.KIT_LAYOUTS:
+            self._create_kit_slide(slide, slide_data, layout, language, template_service,
+                                   template_id, pre_fetched_image, used_icons)
         else:
             self._create_default_slide(slide, slide_data)
+
+    def _create_kit_slide(self, slide, slide_data: Dict, layout: str, language: str,
+                          template_service, template_id, pre_fetched_image, used_icons):
+        """slide_layouts dagi yangi shablonlar (native shakllar, shablon ranglarida)."""
+        spec = slide_layouts.CATALOG[layout]
+        data = slide_layouts.render_data(slide_data)
+        image = pre_fetched_image[0] if isinstance(pre_fetched_image, tuple) else pre_fetched_image
+        has_image = bool(image) and os.path.isfile(str(image))
+
+        if spec.image and not has_image:
+            # Rasm chiqmadi: bo'sh joy qolmasin — matn butun kenglikda.
+            self._add_slide_title(slide, slide_data.get('title', ''))
+            lines = [f"{i['head']}: {i['text']}" if i['head'] else i['text'] for i in data['items']]
+            body = "\n".join(lines) if spec.slots else data['text']
+            self._add_justified_content(slide, body, PptxInches(0.5), PptxInches(2),
+                                        PptxInches(12.3), PptxInches(4.5), align_left=True)
+            return
+
+        if not spec.own_title:
+            self._add_slide_title(slide, slide_data.get('title', ''))
+        ctx = slide_kit.Ctx(
+            slide=slide, pal=slide_kit.palette_for(template_service, template_id), language=language,
+            used_icons=used_icons, use_icons=getattr(self, 'use_icons', True),
+            image=str(image) if has_image else None, icon_finder=find_icon_path_for_column)
+        spec.render(ctx, data)
+        if ctx.overflow:
+            logger.warning("Slayd %s shablonida matn sig'masligi mumkin: %r", layout,
+                           (slide_data.get('title') or '')[:40])
 
     async def _create_cover_slide(self, slide, slide_data: Dict, author_name: str, topic: str, language: str, pre_fetched_image=None):
         """1-varoq: Chap 50% rasm, O'ng mavzu + ism"""

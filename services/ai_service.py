@@ -11,6 +11,7 @@ from utils.ai_text import token_budget, trim_to_last_sentence
 from utils.heading_guard import heading_rule, strip_echoed_heading, strip_leading_numbering
 
 from services import timeframe
+from services import slide_layouts
 from services import uzbekistan
 from services import course_work
 
@@ -487,7 +488,7 @@ class AIService:
 
             response = await self._make_request(
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=8192,
+                max_tokens=10000,
                 temperature=0.7
             )
 
@@ -504,7 +505,7 @@ class AIService:
                 logger.warning("Empty AI response for presentation, retrying once...")
                 response = await self._make_request(
                     messages=[{"role": "user", "content": prompt}],
-                    max_tokens=8192,
+                    max_tokens=10000,
                     temperature=0.7
                 )
                 content_str = response.strip()
@@ -527,6 +528,7 @@ class AIService:
             for idx, slide in enumerate(content['slides']):
                 if 'title' not in slide:
                     slide['title'] = f"Slayd {idx + 1}"
+                slide_layouts.ensure_content(slide)
                 if 'content' not in slide:
                     slide['content'] = ""
                     
@@ -672,30 +674,29 @@ class AIService:
         known_uz = "; ".join(titles) or "yo'q"
         known_ru = "; ".join(titles) or "нет"
         known_en = "; ".join(titles) or "none"
-        layouts_line = ('"two_column", "right_image", "left_image", '
-                        '"three_column", "horizontal_image", "text_with_numbers"')
+        catalog = {lang: slide_layouts.describe(lang) for lang in ('uz', 'ru', 'en')}
         prompts = {
             'uz': (f'"{topic}" mavzusidagi taqdimot uchun YANA {missing} ta asosiy '
                    f'slayd yozing. Quyidagilar allaqachon bor, ularni takrorlamang: '
                    f'{known_uz}.\n'
-                   f'Har slaydda: "title" (sarlavha), "content" (4 ta to\'liq gap), '
-                   f'"layout" — {layouts_line} dan biri.\n'
-                   f'"two_column" da qo\'shimcha "columns": ikkita {{"column_content": "..."}} '
-                   f'(har biri 2 ta gap), "three_column" da uchta shunday ustun.\n'
+                   f'Har slaydda: "title", "layout" (quyidagilardan mazmunga mosini tanlang, '
+                   f'slaydlar bir-biridan farq qilsin), "items" — har biri '
+                   f'{{"head": 1-4 so\'zli sarlavha, "text": bitta to\'liq gap, 15-25 so\'z}} '
+                   f'(soni shablonga qarab).\n{catalog["uz"]}\n'
                    f'Faqat JSON: {{"slides": [...]}}'),
             'ru': (f'Напишите ЕЩЁ {missing} основных слайдов для презентации на тему '
                    f'"{topic}". Уже есть, не повторяйте: {known_ru}.\n'
-                   f'В каждом слайде: "title", "content" (4 полных предложения), '
-                   f'"layout" — один из {layouts_line}.\n'
-                   f'Для "two_column" добавьте "columns": две записи {{"column_content": "..."}} '
-                   f'(по 2 предложения), для "three_column" — три такие колонки.\n'
+                   f'В каждом слайде: "title", "layout" (выберите подходящий по смыслу из списка, '
+                   f'слайды должны отличаться), "items" — каждый '
+                   f'{{"head": заголовок из 1-4 слов, "text": одно полное предложение, 15-25 слов}} '
+                   f'(количество зависит от шаблона).\n{catalog["ru"]}\n'
                    f'Только JSON: {{"slides": [...]}}'),
             'en': (f'Write {missing} MORE main slides for a presentation on "{topic}". '
                    f'Already present, do not repeat: {known_en}.\n'
-                   f'Each slide: "title", "content" (4 full sentences), "layout" — '
-                   f'one of {layouts_line}.\n'
-                   f'For "two_column" add "columns": two {{"column_content": "..."}} entries '
-                   f'(2 sentences each), for "three_column" three such columns.\n'
+                   f'Each slide: "title", "layout" (pick what fits the content from the list, '
+                   f'slides must differ), "items" — each '
+                   f'{{"head": 1-4 word heading, "text": one full sentence of 15-25 words}} '
+                   f'(count depends on the layout).\n{catalog["en"]}\n'
                    f'JSON only: {{"slides": [...]}}'),
         }
         logger.warning("Taqdimotda %s ta asosiy slayd yetishmadi — qo'shimcha so'raldi",
@@ -716,6 +717,7 @@ class AIService:
                 continue
             if slide.get('layout') in self._FIXED_LAYOUTS:
                 continue
+            slide_layouts.ensure_content(slide)
             if not (slide.get('title') or '').strip() and not (slide.get('content') or '').strip():
                 continue
             slide.setdefault('content', '')
@@ -779,8 +781,6 @@ class AIService:
                 thanks_slide = slide
             elif layout == 'table':
                 pass
-            elif layout in ['two_column', 'right_image', 'left_image', 'three_column', 'horizontal_image', 'text_with_numbers']:
-                main_slides.append(slide)
             else:
                 main_slides.append(slide)
 
@@ -794,7 +794,6 @@ class AIService:
         target_main = max(slide_count - 5, 1)
         if slide_count == 10:
             target_main += 1
-        layouts = ['two_column', 'right_image', 'left_image', 'three_column', 'horizontal_image', 'text_with_numbers']
 
         # Yetishmagan slaydlar BO'SH kataklar bilan to'ldirilmaydi. Ilgari
         # shunday qilinardi: model kelishilgan sondan kam slayd qaytarsa
@@ -827,8 +826,10 @@ class AIService:
 
         slide_counter = 0
         for i, slide in enumerate(main_slides):
-            if slide.get('layout') not in layouts:
-                slide['layout'] = layouts[i % len(layouts)]
+            # Shablonni `slide_layouts.assign` tanlaydi (mazmun va mavzuga qarab);
+            # noma'lum nom bo'lsa taklif sifatida qaralmaydi.
+            if slide.get('layout') not in slide_layouts.CATALOG:
+                slide['layout'] = ''
             if slide.get('title'):
                 slide['title'] = self._strip_leading_numbering(slide['title'])
             normalized.append(slide)
@@ -858,42 +859,34 @@ class AIService:
 
         return {'slides': normalized}
 
+    # Misol: turli shablonlar ketma-ketligi. Model ketma-ketlikni ko'chirmasin
+    # deb matnlar shartli; tartibni baribir `slide_layouts.assign` o'zi aralashtiradi.
+    _EXAMPLE_LAYOUTS = ('four_cards', 'timeline', 'image_left_bullets', 'pillars', 'stats_row',
+                        'quote_focus', 'comparison', 'glossary_rows', 'hub_spoke', 'numbered_list')
+
     def _build_example_slides_json(self, topic: str, main_count: int, lang: str) -> str:
         """Build dynamic example JSON with exactly main_count main slides"""
-        layouts = ['two_column', 'right_image', 'left_image', 'three_column', 'horizontal_image', 'text_with_numbers']
-        # Misoldagi yil ham bugungidan olinadi: model misolni ko'rib, o'sha
-        # yilni o'z javobiga ko'chirardi.
-        last_year = timeframe.last_full_year()
-
-        uz_examples = [
-            '{"title": "Sarlavha", "content": "", "layout": "two_column", "columns": [{"column_content": "Birinchi jihat haqida uchta aniq tushuntiruvchi gap. Bu ustun mustaqil mavzuni yoritadi. Har bir gap tugallangan fikr bildiradi."}, {"column_content": "Ikkinchi jihat haqida uchta alohida gap. Bu ustun boshqa mavzuni yoritadi. Har bir gap mustaqil fikrga ega."}]}',
-            '{"title": "Sarlavha", "content": "Mavzuning muhim jihati haqida birinchi gap. Ikkinchi gapda statistik malumot keltirilgan. Uchinchi gapda amaliy misol berilgan. Tortinchi gapda xulosa qilingan.", "layout": "right_image"}',
-            '{"title": "Sarlavha", "content": "Mavzuning boshqa jihati haqida birinchi gap. Ikkinchi gapda ilmiy malumot keltirilgan. Uchinchi gapda tahlil berilgan. Tortinchi gapda natija korsatilgan.", "layout": "left_image"}',
-            '{"title": "Sarlavha", "content": "", "layout": "three_column", "columns": [{"keyword": "Birinchi", "column_content": "Birinchi tushuncha haqida yigirmaga yaqin sozdan iborat tugallangan tarif gapi."}, {"keyword": "Ikkinchi", "column_content": "Ikkinchi tushuncha haqida yigirmaga yaqin sozdan iborat alohida tarif gapi."}, {"keyword": "Uchinchi", "column_content": "Uchinchi tushuncha haqida yigirmaga yaqin sozdan iborat mustaqil tarif gapi."}]}',
-            '{"title": "Sarlavha", "content": "Mavzuning ushbu qirrasi haqida birinchi aniq gap. Ikkinchi gapda statistika va dalillar keltirilgan. Uchinchi gapda amaliy ahamiyati korsatilgan.", "layout": "horizontal_image"}',
-            '{"title": "Sarlavha", "content": "1. Birinchi korsatkich — 85% samaradorlik. Batafsil izoh va tahlil.\\n2. Ikkinchi malumot — 3,2 marta osish. Sabablar va oqibatlar.\\n3. Uchinchi statistika — 47 ta davlatda qollaniladi. Tarqalish sabablari.\\n4. Tortinchi fakt — {last_year} yilda 15% osish kuzatilgan. Tendentsiya.\\n5. Beshinchi korsatkich — 92% ijobiy baho. Amaliy natijalar.", "layout": "text_with_numbers"}',
-        ]
-
-        ru_examples = [
-            '{"title": "Заголовок", "content": "", "layout": "two_column", "columns": [{"column_content": "Три чётких пояснительных предложения о первом аспекте. Эта колонка раскрывает свою тему самостоятельно. Каждое предложение выражает законченную мысль."}, {"column_content": "Три отдельных предложения о втором аспекте. Эта колонка раскрывает другую тему. Каждое предложение самостоятельно и информативно."}]}',
-            '{"title": "Заголовок", "content": "Первое предложение о важном аспекте темы. Второе предложение со статистическими данными. Третье предложение с практическим примером. Четвёртое предложение с выводом.", "layout": "right_image"}',
-            '{"title": "Заголовок", "content": "Первое предложение о другом аспекте темы. Второе предложение с научными данными. Третье предложение с анализом. Четвёртое предложение с результатом.", "layout": "left_image"}',
-            '{"title": "Заголовок", "content": "", "layout": "three_column", "columns": [{"keyword": "Первое", "column_content": "Описание первого понятия в одном предложении около двадцати слов."}, {"keyword": "Второе", "column_content": "Описание второго понятия в одном предложении около двадцати слов."}, {"keyword": "Третье", "column_content": "Описание третьего понятия в одном предложении около двадцати слов."}]}',
-            '{"title": "Заголовок", "content": "Первое точное предложение о данном аспекте темы. Второе предложение со статистикой и фактами. Третье предложение о практическом значении.", "layout": "horizontal_image"}',
-            '{"title": "Заголовок", "content": "1. Первый показатель — 85% эффективности. Подробный анализ.\\n2. Второй показатель — рост в 3,2 раза. Причины и последствия.\\n3. Третий факт — применяется в 47 странах. Распространение.\\n4. Четвёртый факт — рост 15% в {last_year} году. Тенденция.\\n5. Пятый показатель — 92% положительных оценок. Результаты.", "layout": "text_with_numbers"}',
-        ]
-
-        en_examples = [
-            '{"title": "Title", "content": "", "layout": "two_column", "columns": [{"column_content": "Three clear explanatory sentences about the first aspect. This column covers its own independent topic. Each sentence expresses a complete thought."}, {"column_content": "Three separate sentences about the second aspect. This column covers a different topic independently. Each sentence is self-contained and informative."}]}',
-            '{"title": "Title", "content": "First sentence about an important aspect of the topic. Second sentence with statistical data and evidence. Third sentence with a practical example. Fourth sentence with a concluding thought.", "layout": "right_image"}',
-            '{"title": "Title", "content": "First sentence about another aspect of the topic. Second sentence with scientific data and research. Third sentence with detailed analysis. Fourth sentence with key results.", "layout": "left_image"}',
-            '{"title": "Title", "content": "", "layout": "three_column", "columns": [{"keyword": "First", "column_content": "A complete description of the first concept in about twenty words."}, {"keyword": "Second", "column_content": "A complete description of the second concept in about twenty words."}, {"keyword": "Third", "column_content": "A complete description of the third concept in about twenty words."}]}',
-            '{"title": "Title", "content": "First precise sentence about this aspect of the topic. Second sentence with statistics and evidence. Third sentence about practical significance.", "layout": "horizontal_image"}',
-            '{"title": "Title", "content": "1. First indicator — 85% efficiency. Detailed analysis.\\n2. Second metric — 3.2x growth. Causes and implications.\\n3. Third statistic — used in 47 countries. Reasons for spread.\\n4. Fourth fact — 15% growth in {last_year}. Development trend.\\n5. Fifth indicator — 92% positive rating. Practical results.", "layout": "text_with_numbers"}',
-        ]
-
-        lang_map = {'uz': uz_examples, 'ru': ru_examples, 'en': en_examples}
-        examples = lang_map.get(lang, uz_examples)
+        samples = {
+            'uz': ("Sarlavha", ["Birinchi jihat", "Ikkinchi jihat", "Uchinchi jihat", "To'rtinchi jihat", "Beshinchi jihat"],
+                   "{head} haqida bitta to'liq, aniq va tugallangan gap yoziladi."),
+            'ru': ("Заголовок", ["Первый аспект", "Второй аспект", "Третий аспект", "Четвёртый аспект", "Пятый аспект"],
+                   "О разделе «{head}» пишется одно полное, точное и законченное предложение."),
+            'en': ("Title", ["First aspect", "Second aspect", "Third aspect", "Fourth aspect", "Fifth aspect"],
+                   "One complete, precise and finished sentence about {head} is written here."),
+        }
+        title, heads, template = samples.get(lang, samples['uz'])
+        examples = []
+        for i in range(main_count):
+            name = self._EXAMPLE_LAYOUTS[i % len(self._EXAMPLE_LAYOUTS)]
+            lo, hi = slide_layouts.CATALOG[name].slots or (4, 4)
+            items = []
+            for k in range(lo):
+                item = {"head": heads[k], "text": template.format(head=heads[k])}
+                if name == 'stats_row':
+                    item["value"] = ["85%", "3,2", "47"][k % 3]
+                items.append(item)
+            slide = {"title": title, "layout": name, "items": items}
+            examples.append(json.dumps(slide, ensure_ascii=False))
 
         headers = {
             'uz': [
@@ -929,15 +922,12 @@ class AIService:
         }
 
         slides = list(headers.get(lang, headers['uz']))
-        for i in range(main_count):
-            slides.append(examples[i % 6])
+        slides.extend(examples)
         slides.extend(footers.get(lang, footers['uz']))
 
         entries = ',\n        '.join(slides)
         example = '{\n    "slides": [\n        ' + entries + '\n    ]\n}'
-        # Misol satrlari f-string emas (ichida JSON qavslari bor), shuning
-        # uchun yil shu yerda qo'yiladi.
-        return example.replace('{last_year}', str(last_year))
+        return example
 
     def _get_presentation_prompt_uz(self, topic: str, slide_count: int) -> str:
         """Get Uzbek prompt for presentation generation"""
@@ -947,6 +937,8 @@ class AIService:
         if slide_count == 10:
             main_count += 1
         example_json = self._build_example_slides_json(topic, main_count, 'uz')
+        catalog = slide_layouts.describe('uz')
+        kinds = min(main_count, 8)
         return f"""O'zbek tilida "{topic}" mavzusida professional taqdimot yarating.
 
 STRUKTURA (jami {slide_count} slayd):
@@ -957,29 +949,21 @@ STRUKTURA (jami {slide_count} slayd):
 {slide_count - 1}. Xulosa slayd (~50 so'z)
 {slide_count}. Rahmat slayd ("E'tiboringiz uchun rahmat!")
 
-ASOSIY SLAIDLAR UCHUN 6 TA SHABLON (tartib bilan takrorlanadi):
-1. two_column - 2 MUSTAQIL ustun, har birida ~3 ta aniq tushuntiruvchi manoli gap
-2. right_image - o'ngda rasm, chapda mavzuga mos 4 ta o'rta darajadagi gap
-3. left_image - chapda rasm, o'ngda mavzuga mos 4 ta o'rta darajadagi gap
-4. three_column - 3 MUSTAQIL ustun, har birida: 1 ta kalit so'z iborasi + ~20 so'zli 1 ta gap
-5. horizontal_image - pastda rasm, ustida o'rtacha hajmdagi va aniq ma'lumotli 3 ta gap
-6. text_with_numbers - 5 ta raqamlab joylangan aniq faktlar va raqamlardan iborat gaplar
+ASOSIY SLAYDLAR: har biri uchun mazmuniga eng mos SHABLON ("layout") tanlang. Mavjud 25 ta shablon (qavs ichida "items" soni):
+{catalog}
 
-JUDA MUHIM QOIDA - USTUNLAR UCHUN:
-- two_column va three_column da har bir ustun O'Z ALOHIDA MAVZUSI bo'lishi kerak!
-- Bir ustundagi gap BOSHQA ustunda davom etmasin!
-- Har bir ustun TUGALLANGAN, MUSTAQIL paragraf bo'lsin!
+SHABLON TANLASH QOIDALARI:
+- Slaydlar bir-biriga o'xshamasin: kamida {kinds} xil shablon ishlating, ketma-ket ikki slaydda bir xil shablon bo'lmasin, bitta shablon ko'pi bilan 2 marta.
+- Mazmunga qarang: jarayon, bosqich yoki tarix — timeline, staircase, chevron_process; ikki narsani taqqoslash — comparison; raqamli ma'lumotlar — stats_row (har elementda "value") yoki stat_hero (slaydda "stat"); tushuncha va atamalar — glossary_rows, quote_focus; tur va guruhlar — pillars, four_cards, icon_row; tarkib va omillar — hub_spoke.
+- Rasmli shablonlar (right_image, left_image, horizontal_image, image_top_columns, image_left_bullets, image_right_cards, image_overlay) asosiy slaydlarning taxminan uchdan biridan ko'pida bo'lmasin.
 
-RASM SLAYDLAR UCHUN QOIDA:
-- right_image va left_image uchun aniq 4 ta gap yozing!
-- horizontal_image uchun aniq 3 ta gap yozing!
-- Placeholder ([...]) YOZMANG - HAQIQIY to'liq matn yozing!
-
-Har bir slayd uchun:
-- title: Slayd sarlavhasi
-- content: Asosiy mazmun (FAQAT ustunli bo'lmagan slaidlar uchun)
-- layout: shablon turi
-- columns: MAJBURIY two_column va three_column uchun
+HAR ASOSIY SLAYD UCHUN:
+- "title": slayd sarlavhasi
+- "layout": yuqoridagi nomlardan biri
+- "items": shablondagi sondagi elementlar; har element {{"head": 1-4 so'zli qisqa sarlavha (MAJBURIY), "text": BITTA to'liq gap, 15-25 so'z}}
+- ixtiyoriy: elementda "value" (raqam, masalan "85%"); slaydda "stat": {{"value": "85%", "label": "qisqa izoh"}}
+- Har elementning matni MUSTAQIL bo'lsin: bir element gapi boshqasida davom etmasin.
+- Placeholder ([...]) YOZMANG — HAQIQIY, mavzuga oid matn yozing!
 
 {timeframe.year_rule('uz')}
 
@@ -994,6 +978,8 @@ MUHIM: Faqat JSON formatda javob bering! Jami {slide_count} ta slayd bo'lishi SH
         if slide_count == 10:
             main_count += 1
         example_json = self._build_example_slides_json(topic, main_count, 'ru')
+        catalog = slide_layouts.describe('ru')
+        kinds = min(main_count, 8)
         return f"""Создайте профессиональную презентацию на тему "{topic}" на русском языке.
 
 СТРУКТУРА (всего {slide_count} слайдов):
@@ -1004,29 +990,21 @@ MUHIM: Faqat JSON formatda javob bering! Jami {slide_count} ta slayd bo'lishi SH
 {slide_count - 1}. Заключение (~50 слов)
 {slide_count}. Слайд благодарности ("Спасибо за внимание!")
 
-ШАБЛОНЫ ДЛЯ ОСНОВНЫХ СЛАЙДОВ (чередуются по порядку):
-1. two_column - 2 НЕЗАВИСИМЫЕ колонки, каждая содержит ~3 чётких пояснительных предложения
-2. right_image - справа изображение, слева 4 предложения средней длины по теме
-3. left_image - слева изображение, справа 4 предложения средней длины по теме
-4. three_column - 3 НЕЗАВИСИМЫЕ колонки, каждая: ключевое слово-фраза + 1 предложение ~20 слов
-5. horizontal_image - внизу изображение, сверху 3 точных информативных предложения
-6. text_with_numbers - 5 пронумерованных предложений с конкретными фактами и цифрами
+ОСНОВНЫЕ СЛАЙДЫ: для каждого выберите ШАБЛОН ("layout"), лучше всего подходящий по смыслу. Доступно 25 шаблонов (в скобках — число "items"):
+{catalog}
 
-ОЧЕНЬ ВАЖНОЕ ПРАВИЛО - ДЛЯ КОЛОНОК:
-- В two_column и three_column каждая колонка должна иметь СВОЮ ОТДЕЛЬНУЮ ТЕМУ!
-- Предложение из одной колонки НЕ ДОЛЖНО продолжаться в другой!
-- Каждая колонка — ЗАКОНЧЕННЫЙ, НЕЗАВИСИМЫЙ абзац!
+ПРАВИЛА ВЫБОРА ШАБЛОНА:
+- Слайды не должны быть похожи друг на друга: используйте не менее {kinds} разных шаблонов, два слайда подряд не должны иметь один шаблон, один шаблон — не более 2 раз.
+- Смотрите на смысл: процесс, этапы или история — timeline, staircase, chevron_process; сравнение двух вещей — comparison; числовые данные — stats_row (в каждом элементе "value") или stat_hero ("stat" в слайде); понятия и термины — glossary_rows, quote_focus; виды и группы — pillars, four_cards, icon_row; состав и факторы — hub_spoke.
+- Шаблоны с изображением (right_image, left_image, horizontal_image, image_top_columns, image_left_bullets, image_right_cards, image_overlay) — не более трети основных слайдов.
 
-ПРАВИЛО ДЛЯ СЛАЙДОВ С ИЗОБРАЖЕНИЯМИ:
-- Для right_image и left_image — ровно 4 предложения!
-- Для horizontal_image — ровно 3 предложения!
-- НЕ пишите placeholder в скобках — пишите НАСТОЯЩИЙ текст!
-
-Для каждого слайда:
-- title: Заголовок слайда
-- content: Основной текст (ТОЛЬКО для слайдов без колонок)
-- layout: тип шаблона
-- columns: ОБЯЗАТЕЛЬНО для two_column и three_column
+ДЛЯ КАЖДОГО ОСНОВНОГО СЛАЙДА:
+- "title": заголовок слайда
+- "layout": одно из названий выше
+- "items": столько элементов, сколько указано для шаблона; каждый {{"head": короткий заголовок из 1-4 слов (ОБЯЗАТЕЛЬНО), "text": ОДНО полное предложение, 15-25 слов}}
+- по желанию: в элементе "value" (число, например "85%"); в слайде "stat": {{"value": "85%", "label": "краткое пояснение"}}
+- Текст каждого элемента НЕЗАВИСИМ: предложение из одного элемента не продолжается в другом.
+- НЕ пишите placeholder в скобках — пишите НАСТОЯЩИЙ текст по теме!
 
 {timeframe.year_rule('ru')}
 
@@ -1041,6 +1019,8 @@ MUHIM: Faqat JSON formatda javob bering! Jami {slide_count} ta slayd bo'lishi SH
         if slide_count == 10:
             main_count += 1
         example_json = self._build_example_slides_json(topic, main_count, 'en')
+        catalog = slide_layouts.describe('en')
+        kinds = min(main_count, 8)
         return f"""Create a professional presentation on "{topic}" in English.
 
 STRUCTURE (total {slide_count} slides):
@@ -1051,29 +1031,21 @@ STRUCTURE (total {slide_count} slides):
 {slide_count - 1}. Conclusion (~50 words)
 {slide_count}. Thank you slide ("Thank you for your attention!")
 
-TEMPLATES FOR MAIN SLIDES (rotate in order):
-1. two_column - 2 INDEPENDENT columns, each containing ~3 clear explanatory meaningful sentences
-2. right_image - image on right, 4 medium-length sentences matching the topic on left
-3. left_image - image on left, 4 medium-length sentences matching the topic on right
-4. three_column - 3 INDEPENDENT columns, each: 1 keyword phrase + 1 sentence of ~20 words
-5. horizontal_image - image at bottom, 3 precise medium-sized informative sentences on top
-6. text_with_numbers - 5 numbered sentences with specific facts and figures
+MAIN SLIDES: for each one choose the LAYOUT ("layout") that best fits its content. 25 layouts are available (number of "items" in brackets):
+{catalog}
 
-CRITICAL RULE - FOR COLUMNS:
-- In two_column and three_column, each column must have its OWN SEPARATE TOPIC!
-- A sentence from one column must NOT continue in another!
-- Each column must be a COMPLETE, INDEPENDENT paragraph!
+LAYOUT CHOICE RULES:
+- Slides must not look alike: use at least {kinds} different layouts, never the same layout on two slides in a row, each layout at most 2 times.
+- Look at the content: process, stages or history — timeline, staircase, chevron_process; comparing two things — comparison; numeric data — stats_row (a "value" in every item) or stat_hero (a "stat" on the slide); concepts and terms — glossary_rows, quote_focus; types and groups — pillars, four_cards, icon_row; composition and factors — hub_spoke.
+- Image layouts (right_image, left_image, horizontal_image, image_top_columns, image_left_bullets, image_right_cards, image_overlay) on no more than about a third of the main slides.
 
-RULE FOR IMAGE SLIDES:
-- For right_image and left_image — exactly 4 sentences!
-- For horizontal_image — exactly 3 sentences!
-- Do NOT write placeholder text in brackets — write REAL content!
-
-For each slide:
-- title: Slide title
-- content: Main text (ONLY for non-column slides)
-- layout: template type
-- columns: REQUIRED for two_column and three_column
+FOR EACH MAIN SLIDE:
+- "title": slide title
+- "layout": one of the names above
+- "items": as many items as the layout lists; each {{"head": short heading of 1-4 words (REQUIRED), "text": ONE full sentence of 15-25 words}}
+- optional: "value" in an item (a number such as "85%"); "stat" on the slide: {{"value": "85%", "label": "short note"}}
+- Each item's text must be INDEPENDENT: a sentence in one item must not continue in another.
+- Do NOT write placeholder text in brackets — write REAL content about the topic!
 
 {timeframe.year_rule('en')}
 
@@ -1898,14 +1870,14 @@ Output only the image prompt, nothing else. Make it detailed and specific for be
                 'layout': 'intro'
             })
             
-            layouts = ['two_column', 'right_image', 'left_image', 'three_column', 'horizontal_image', 'text_with_numbers']
             for i, title in enumerate(manual_titles):
-                layout = layouts[i % len(layouts)]
-                content = await self._generate_slide_content(topic, title, language, layout)
+                # ~75 so'zli matn; shablonni hujjat yig'ilayotganda
+                # `slide_layouts.assign` mazmun va mavzuga qarab tanlaydi.
+                content = await self._generate_slide_content(topic, title, language, 'right_image')
                 slides.append({
                     'title': title,
                     'content': content,
-                    'layout': layout
+                    'layout': ''
                 })
             
             slides.append({

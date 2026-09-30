@@ -13,6 +13,10 @@ from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from services import slide_fit
 from services.ai_service import AIService
+from services import slide_layouts
+# Bu test eski shablonlarning chizilishini tekshiradi: shablon tanlash o'chirilgan
+# (tanlash alohida test_oddiy_shablonlar.py da tekshiriladi).
+slide_layouts.assign = lambda slides, *a, **k: slides
 from services.document_service import DocumentService
 
 FAILS = []
