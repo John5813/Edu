@@ -62,5 +62,43 @@ check("bitta gap: bitta quti, butun kenglikda", len(b1) == 1 and b1[0].width / 9
 check("bo'sh ustun yarim bo'sh slayd qoldirmaydi", all(b.width / 914400 > 5 for b in be) and
       (len(be) == 2 or be[0].width / 914400 > 11), [(b.left, b.width) for b in be])
 
+# ── Ikonkalar shablon rangida va doira ichida, matn chetiga tekislangan
+import io
+import numpy as np
+from PIL import Image
+from pptx.enum.shapes import MSO_SHAPE_TYPE
+from services.template_service import TemplateService
+
+async def build_with_template(tid):
+    svc = DocumentService.__new__(DocumentService)
+    svc.documents_dir = tempfile.mkdtemp(); svc.together = None
+    svc.use_icons = True; svc._last_used_icons = set()
+    slides = [{"title": "", "content": "", "layout": "cover"},
+              {"title": "Ikki ustun", "content": "", "layout": "two_column",
+               "columns": [{"column_content": "Bozor tendensiyalari va raqobatchilar talablari muhimdir. Mahsulot maqsadi aniq."},
+                           {"column_content": "Ma'lumotlar bazasi tahlili mahsulotni rivojlantirishga yordam beradi."}]}]
+    return Presentation(await svc.create_presentation_with_smart_images(
+        "Sinov", {"slides": slides}, "Talaba", "uz",
+        template_service=TemplateService(), template_id=tid))
+
+ts = TemplateService()
+for tid in ("template_10", "template_5"):
+    slide = list(asyncio.run(build_with_template(tid)).slides)[1]
+    accent = tuple(ts.get_readable_colors(tid)["title"])
+    circles = [sh for sh in slide.shapes if sh.shape_type == MSO_SHAPE_TYPE.AUTO_SHAPE]
+    icons = [sh for sh in slide.shapes if sh.shape_type == MSO_SHAPE_TYPE.PICTURE
+             and sh.width / 914400 < 1.5]
+    check(f"{tid}: har ikonka doira ichida", len(circles) == 2 and len(icons) == 2, (len(circles), len(icons)))
+    colours = []
+    for icon in icons:
+        arr = np.asarray(Image.open(io.BytesIO(icon.image.blob)).convert("RGBA"))
+        colours.append(tuple(int(x) for x in np.median(arr[arr[..., 3] > 200][:, :3], axis=0)))
+    check(f"{tid}: ikonka shablon rangida (ko'k emas)", all(c == accent for c in colours), (colours, accent))
+    text_left = [sh.left for sh in slide.shapes if sh.has_text_frame and sh.text_frame.text.strip()
+                 and sh.top / 914400 >= 1.9]
+    check(f"{tid}: doira ustun matni bilan bir chapdan", min(abs(c.left - (t + 91440)) for c in circles for t in text_left) < 20000,
+          [(c.left, t) for c in circles for t in text_left][:2])
+
+
 print("\n" + ("✅ hammasi o'tdi" if not FAILS else f"❌ {len(FAILS)} ta xato: {FAILS}"))
 sys.exit(1 if FAILS else 0)

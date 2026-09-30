@@ -603,6 +603,16 @@ class DocumentService:
         if used_icons is None:
             used_icons = set()
 
+        # Ikonkalar shablonning sarlavha rangiga bo'yaladi: yorqin ko'k ikonka
+        # pastel fonda begona ko'rinardi. Rang slayd ma'lumotiga qo'yiladi —
+        # xizmat ob'ekti bir necha buyurtma orasida umumiy, unda holat saqlanmaydi.
+        if template_service and template_id:
+            try:
+                slide_data = {**slide_data,
+                              '_accent': str(template_service.get_readable_colors(template_id)['title'])}
+            except Exception as e:
+                logger.warning(f"Icon accent not resolved: {e}")
+
         if layout == 'cover':
             await self._create_cover_slide(slide, slide_data, author_name, topic, language, pre_fetched_image=pre_fetched_image)
         elif layout == 'plan':
@@ -737,17 +747,55 @@ class DocumentService:
             self._add_justified_content(slide, text, PptxInches(0.5), PptxInches(2),
                                         PptxInches(12.3), PptxInches(4.5), align_left=True)
             return
-        self._fill_two_columns(slide, columns, language, used_icons)
+        self._fill_two_columns(slide, columns, language, used_icons, slide_data.get('_accent'))
 
-    def _fill_two_columns(self, slide, columns: list, language: str, used_icons: set):
+    def _add_icon_badge(self, slide, icon_path: str, left: float, top: float,
+                        size: float, accent: str | None) -> None:
+        """Ikonkani yumshoq doira ichida, shablon rangida chizadi.
+
+        Doira yarim shaffof oq, halqasi shablon rangida; ikonka o'zi
+        shablonning sarlavha rangida bo'yaladi — fon bilan uyg'un turadi.
+        """
+        from pptx.enum.shapes import MSO_SHAPE
+        from pptx.oxml.ns import qn
+        from services.premium_presentation import icon_render
+
+        accent = (accent or "2563EB").lstrip("#")
+        circle = slide.shapes.add_shape(
+            MSO_SHAPE.OVAL, PptxInches(left), PptxInches(top), PptxInches(size), PptxInches(size))
+        # Yarim shaffof oq doira + ingichka rangli halqa: naqshli fonda ham
+        # (Mandala) ikonka loyqalanmaydi, sodda fonda esa yumshoq turadi.
+        circle.fill.solid()
+        circle.fill.fore_color.rgb = RGBColor(255, 255, 255)
+        colour = circle.fill._xPr.find(qn("a:solidFill")).find(qn("a:srgbClr"))
+        colour.append(colour.makeelement(qn("a:alpha"), {"val": "78000"}))
+        circle.line.color.rgb = RGBColor.from_string(accent.upper())
+        circle.line.width = PptxPt(1.25)
+        ring = circle.line._ln.find(qn("a:solidFill")).find(qn("a:srgbClr"))
+        ring.append(ring.makeelement(qn("a:alpha"), {"val": "45000"}))
+        try:
+            circle.shadow.inherit = False
+        except Exception:
+            pass
+
+        glyph = icon_render.tinted(icon_path, accent) or icon_path
+        inner = size * 0.56
+        slide.shapes.add_picture(
+            glyph, PptxInches(left + (size - inner) / 2), PptxInches(top + (size - inner) / 2),
+            PptxInches(inner), PptxInches(inner))
+
+    def _fill_two_columns(self, slide, columns: list, language: str, used_icons: set,
+                          accent: str | None = None):
         """Ikki ustunni ikonkalar bilan chizadi (sarlavha allaqachon qo'yilgan)."""
         max_font = 23 if language in ['ru', 'en'] else 24
-        width_in = 5.8
-        icon_size = 1.0        # icon width & height in inches
-        icon_y = 1.40          # icon top position
-        text_y = 2.55          # text box top (shifted down to make room for icon)
-        height_in = 3.9        # text box height (reduced)
-        column_positions = [0.5, 6.8]
+        width_in = 5.6
+        icon_size = 1.0        # doira diametri (dyuym)
+        icon_y = 1.40          # doira yuqori chetining o'rni
+        text_y = 2.55          # matn qutisi yuqorisi (doira ostida)
+        height_in = 3.9        # matn qutisi balandligi
+        # Naqshli fonlarda (Mandala) chet-hoshiya ustiga tushmasligi uchun
+        # ustunlar chetdan 0.8" ichkarida.
+        column_positions = [0.8, 6.9]
 
         for i, col in enumerate(columns[:2]):
             x_start = column_positions[i]
@@ -762,17 +810,13 @@ class DocumentService:
 
             col_text = clean_text(col_text)
 
-            # --- Icon (deduplicated across the whole presentation) ---
+            # --- Icon: matn chap chetiga tekislangan yumshoq doirada ---
             if getattr(self, 'use_icons', True):
                 try:
                     icon_path = find_icon_path_for_column(col_keyword, col_text, used=used_icons)
                     if icon_path and os.path.isfile(icon_path):
-                        icon_x = PptxInches(x_start + (width_in - icon_size) / 2)
-                        slide.shapes.add_picture(
-                            icon_path,
-                            icon_x, PptxInches(icon_y),
-                            PptxInches(icon_size), PptxInches(icon_size)
-                        )
+                        self._add_icon_badge(slide, icon_path, x_start + 0.1, icon_y,
+                                             icon_size, accent)
                         used_icons.add(os.path.basename(icon_path))
                 except Exception as e:
                     logger.warning(f"Could not add icon to two_column slide: {e}")
@@ -868,7 +912,7 @@ class DocumentService:
             # Uchta ustunga matn yetmasa ikki ustunli (yoki oddiy) ko'rinishga
             # o'tiladi; sarlavha allaqachon qo'yilgan.
             if len(columns) == 2:
-                self._fill_two_columns(slide, columns, language, used_icons)
+                self._fill_two_columns(slide, columns, language, used_icons, slide_data.get('_accent'))
             else:
                 text = columns[0]["column_content"] if columns else ""
                 self._add_justified_content(slide, text, PptxInches(0.5), PptxInches(2),
@@ -876,13 +920,13 @@ class DocumentService:
             return
 
         max_font = 22 if language in ['ru', 'en'] else 23
-        width_in = 4.0
-        icon_size = 0.7        # smaller icon for 3-column layout
+        width_in = 3.7
+        icon_size = 0.85       # doira diametri (3 ustunli)
         icon_y = 1.45
-        text_y = 2.40
+        text_y = 2.45
         height_in = 4.0        # reduced height to fit icon above
 
-        column_positions = [0.3, 4.5, 8.7]
+        column_positions = [0.7, 4.85, 9.0]
 
         for i, col in enumerate(columns[:3]):
             x_start = column_positions[i]
@@ -898,17 +942,13 @@ class DocumentService:
             keyword = clean_text(keyword)
             col_text = clean_text(col_text)
 
-            # --- Icon (deduplicated across the whole presentation) ---
+            # --- Icon: matn chap chetiga tekislangan yumshoq doirada ---
             if getattr(self, 'use_icons', True):
                 try:
                     icon_path = find_icon_path_for_column(keyword, col_text, used=used_icons)
                     if icon_path and os.path.isfile(icon_path):
-                        icon_x = PptxInches(x_start + (width_in - icon_size) / 2)
-                        slide.shapes.add_picture(
-                            icon_path,
-                            icon_x, PptxInches(icon_y),
-                            PptxInches(icon_size), PptxInches(icon_size)
-                        )
+                        self._add_icon_badge(slide, icon_path, x_start + 0.1, icon_y,
+                                             icon_size, slide_data.get('_accent'))
                         used_icons.add(os.path.basename(icon_path))
                 except Exception as e:
                     logger.warning(f"Could not add icon to three_column slide: {e}")
