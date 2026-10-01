@@ -950,12 +950,39 @@ def get_promocode_keyboard() -> InlineKeyboardMarkup:
     keyboard.adjust(1)
     return keyboard.as_markup()
 
-def get_broadcast_buttons_keyboard() -> InlineKeyboardMarkup:
-    """Reklama ostiga tugma qo'shish yoki o'tkazib yuborish"""
+def get_broadcast_buttons_keyboard(count: int = 0) -> InlineKeyboardMarkup:
+    """Reklama tugmalari: qo'shish / o'tkazib yuborish / tayyor"""
     keyboard = InlineKeyboardBuilder()
-    keyboard.add(InlineKeyboardButton(text="➕ Tugma qo'shish", callback_data="adbtn_add"))
-    keyboard.add(InlineKeyboardButton(text="⏭ Tugmasiz davom etish", callback_data="adbtn_skip"))
+    keyboard.add(InlineKeyboardButton(
+        text="➕ Yana tugma" if count else "➕ Tugma qo'shish", callback_data="adbtn_add"))
+    if count:
+        keyboard.add(InlineKeyboardButton(text="🗑 Oxirgisini o'chirish", callback_data="adbtn_undo"))
+        keyboard.add(InlineKeyboardButton(text="✅ Tayyor — ko'rinishini ko'rish", callback_data="adbtn_done"))
+    else:
+        keyboard.add(InlineKeyboardButton(text="⏭ Tugmasiz davom etish", callback_data="adbtn_skip"))
     keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
+def get_broadcast_button_type_keyboard() -> InlineKeyboardMarkup:
+    """Tugma turi: havola yoki botning ichki bo'limi"""
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(text="🔗 Havola (sayt, kanal, bot)", callback_data="adbtn_type_url"))
+    keyboard.add(InlineKeyboardButton(text="📲 Botning ichki bo'limi", callback_data="adbtn_type_menu"))
+    keyboard.add(InlineKeyboardButton(text="⬅️ Orqaga", callback_data="adbtn_back"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
+def get_broadcast_sections_keyboard() -> InlineKeyboardMarkup:
+    """Botning ichki bo'limlari ro'yxati (admin bittasini tanlaydi)"""
+    from bot import ad_buttons
+
+    keyboard = InlineKeyboardBuilder()
+    for key in ad_buttons.TARGETS:
+        keyboard.add(InlineKeyboardButton(text=ad_buttons.target_name(key), callback_data=f"adbtn_pick:{key}"))
+    keyboard.adjust(2)
+    keyboard.row(InlineKeyboardButton(text="⬅️ Orqaga", callback_data="adbtn_add"))
     return keyboard.as_markup()
 
 
