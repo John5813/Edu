@@ -161,8 +161,13 @@ check("prompt: iqtibos faqat haqiqiy", "IQTIBOS faqat HAQIQIY" in html_slides.sh
 
 # ── Rasm: oddiy realistik foto, diagramma va yozuvsiz
 pp = html_images.photo_prompt("an infographic diagram of a population pyramid with labels, wide shot")
-check("rasm tavsifi: diagramma/infografika so'zlari yo'q", not re.search(r"infographic diagram|labels,", pp.split("no ")[0]), pp)
-check("rasm tavsifi: realistik foto va yozuvsiz", pp.startswith("realistic natural photograph") and "no text" in pp and "no diagram" in pp, pp)
+check("diagramma so'ralsa — umumiy realistik sahna", "infographic" not in pp and "diagram" not in pp and pp.startswith(html_images._FALLBACK_SCENE), pp)
+pp = html_images.photo_prompt("documentary photograph of a crowded street in Tashkent")
+check("oddiy tavsif o'zgarmaydi, yumshoq foto uslubi qo'shiladi", pp.startswith("documentary photograph of a crowded street in Tashkent") and "realistic natural photograph" in pp, pp)
+check("rasm tavsifida taqiqlar ro'yxati yo'q (uni _render qo'shadi)", " no " not in pp, pp)
+from utils.security import strip_text_requests
+final = strip_text_requests(pp)
+check("oxirgi prompt qisqa va buzilmagan", len(final) < 300 and ", ," not in final and final.count("no text") == 1, final)
 check("prompt: rasm faqat oddiy foto", "FAQAT oddiy, realistik" in deck_style.BLOCKS)
 
 from services.premium_presentation import html_render

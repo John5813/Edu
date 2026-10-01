@@ -125,11 +125,7 @@ def validate_topic_length(text: str, min_length: int = 3, max_length: int = 200)
 # Arzon rasm modellari harflarni to'g'ri chizmaydi — chiqqan "matn" o'qib
 # bo'lmaydigan belgilar to'plami bo'ladi va slaydni buzadi. Shuning uchun
 # har prompt matndan tozalanadi va oxiriga qat'iy taqiq qo'shiladi.
-_NO_TEXT_SUFFIX = (
-    ", no text, no letters, no words, no numbers, no captions, no labels, "
-    "no watermark, no signage, no typography, all surfaces plain and unmarked, "
-    "purely visual"
-)
+_NO_TEXT_SUFFIX = ", no text, no letters, no numbers, no watermark, purely visual"
 
 # Qo'shtirnoq ichidagi ibora (masalan mavzu nomi) — model uni aynan yozuv
 # qilib chizadi: "Mavzu: Sinf boshqarishning..." kitob muqovasiga tushgan.
