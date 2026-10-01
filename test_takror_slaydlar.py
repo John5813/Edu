@@ -74,6 +74,25 @@ try:
 finally:
     llm_client._call_openrouter_text = original
 
+# ── Oldingi bo'laklarda ishlatilgan shakllar keyingi so'rovga aytiladi
+prompts = []
+def fake_chunk(system, user, **kw):
+    prompts.append(user)
+    pages = [slide(f"Slayd {len(prompts)}.{i}", LIST_IMG) for i in range(3)]
+    return f"\n{hs.MARKER}\n".join(pages)
+def fake_plan(system, user, **kw):
+    return {"slides": [{"brief": str(i), "category": "kartalar"} for i in range(1, 7)]}
+orig_json, orig_reworks = llm_client._call_openrouter, hs.MAX_REWORKS
+try:
+    llm_client._call_openrouter_text, llm_client._call_openrouter = fake_chunk, fake_plan
+    hs.MAX_REWORKS = 0
+    hs.write_slides("Mavzu", 6, TH, "uz")
+finally:
+    llm_client._call_openrouter_text, llm_client._call_openrouter, hs.MAX_REWORKS = original, orig_json, orig_reworks
+check("birinchi bo'lakda shakllar ro'yxati yo'q (hali slayd yo'q)", "HARD CONSTRAINT" not in prompts[0])
+check("ikkinchi bo'lakka ishlatilgan shakllar va qat'iy taqiq (inglizcha) berildi",
+      "HARD CONSTRAINT" in prompts[1] and "list+rasm+split" in prompts[1] and "FORBIDDEN" in prompts[1], prompts[1][-700:])
+
 check("reja promptida takror cheklovi bor", "2 martadan ko'p takrorlanmasin" in open("services/premium_presentation/html_slides.py", encoding="utf-8").read())
 
 print("\n" + ("✅ hammasi o'tdi" if not FAILS else f"❌ {len(FAILS)} ta xato: {FAILS}"))

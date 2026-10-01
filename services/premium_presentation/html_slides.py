@@ -262,10 +262,45 @@ QAT'IY QOIDALAR:
    ("Kiritish" emas), atamalar fan darsliklaridagidek."""
 
 
+def _shapes_note(shapes: Optional[List[tuple]], start: int, count: int) -> str:
+    """Oldingi slaydlarda ISHLATILGAN blok kombinatsiyalari — modelga ko'rsatiladi.
+
+    Slaydlar bo'laklab yoziladi va har bo'lak oldingilarning HTML'ini
+    ko'rmaydi: "takrorlama" degan qoida modelga nimani takrorlamaslikni
+    bilmasdan beriladi. Til sabab emas — ko'rinmaslik sabab. Shuning uchun
+    aynan nima ishlatilgani (haqiqiy sinf nomlari bilan) aytiladi.
+    Qoida inglizcha va qat'iy: model uni aniqroq bajaradi.
+    """
+    if not shapes:
+        return ""
+    names = lambda sig: "+".join(sig) if sig else "plain text"
+    lines = [f"  slide {i}: {names(sig)}" for i, sig in enumerate(shapes, 1)]
+    counts: Dict[tuple, int] = {}
+    for sig in shapes[1:]:           # muqova hisobga olinmaydi
+        if sig:
+            counts[sig] = counts.get(sig, 0) + 1
+    banned = [names(sig) for sig, n in counts.items() if n >= MAX_SAME_SHAPE]
+    last = names(shapes[-1]) if shapes[-1] else ""
+    rules = [
+        f"HARD CONSTRAINT for slides {start}-{start + count - 1}: every slide must use a DIFFERENT "
+        "block combination (the CSS classes you write inside <div class=\"body\">) from the slide "
+        "right before it and from the other slides in this batch."]
+    if last:
+        rules.append(f"The previous slide already uses [{last}] — do NOT use it again.")
+    if banned:
+        rules.append("These combinations are already used " + str(MAX_SAME_SHAPE) +
+                     " times and are FORBIDDEN now: " + "; ".join(f"[{b}]" for b in banned) + ".")
+    rules.append("If the content seems to fit a used shape, express it with another block "
+                 "(steps, timeline, table, two-column compare, quote, cards, plain list without photo). "
+                 "Content comes first, but never repeat a shape without a real reason.")
+    return ("Block combinations used so far:\n" + "\n".join(lines) + "\n" + " ".join(rules))
+
+
 def _user_prompt(topic: str, start: int, count: int, total: int,
                  outline: List[Dict], used: List[str], level: int,
                  source: str, preferences: str, author: str,
-                 family: str = "umumiy") -> str:
+                 family: str = "umumiy",
+                 shapes: Optional[List[tuple]] = None) -> str:
     depth = {
         1: "Tinglovchi — maktab o'quvchisi: sodda til, kundalik misollar.",
         2: "Tinglovchi — talaba: akademik, lekin ravon til.",
@@ -301,6 +336,9 @@ def _user_prompt(topic: str, start: int, count: int, total: int,
     if used:
         parts.append("Oldingi slaydlarda ochilgan fikrlar (ularni qayta "
                      "aytmang): " + "; ".join(used[-5:]))
+    note = _shapes_note(shapes, start, count)
+    if note:
+        parts.append(note)
     if preferences:
         parts.append(f"Mijoz istagi: {preferences}")
     if source:
@@ -736,7 +774,7 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
 
         user = _user_prompt(topic, start, count, slide_count, outline,
                             used, level, source_text, preferences, author,
-                            family)
+                            family, shapes=[shape_signature(b) for b in slides])
         chunk = _write_chunk(system, user, count)
         if len(chunk) < count:
             # Bir marta qayta so'raymiz: chala javob har safar emas,
@@ -755,7 +793,9 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
         for number in range(start + len(chunk), start + count):
             single = _user_prompt(topic, number, 1, slide_count, outline,
                                   used, level, source_text, preferences,
-                                  author, family)
+                                  author, family,
+                                  shapes=[shape_signature(b) for b in slides]
+                                  + [shape_signature(b) for b in chunk])
             one = _write_chunk(system, single, 1)
             if not one:
                 # Oxirgi chora: kichik JSON so'rov, slaydni kod yig'adi.
