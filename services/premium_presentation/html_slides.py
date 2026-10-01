@@ -224,6 +224,13 @@ QAT'IY QOIDALAR:
    izohida uning manbasi aytiladi (masalan: Statistika agentligi,
    2024) — manbasini ayta olmaydigan raqam yozilmaydi.
 9. Bir slaydda bir xil matnni ikki marta yozma.
+9a. IQTIBOS faqat HAQIQIY, mashhur va muallifi aniq so'z bo'lsa
+   (masalan, tarixiy shaxs, olim yoki davlat rahbarining ma'lum
+   gapi). "Tashkilot hisobotidan", "BMT hisobotida aytilgan" kabi
+   iqtibos YOZILMAYDI — bunday gap o'ylab topilgan bo'ladi. Aniq
+   iqtibosni eslay olmasangiz iqtibos blokini ishlatmang: fikrni
+   o'z so'zingiz bilan, oddiy matn qilib yozing. Manba yilini
+   o'ylab topmang.
 10. Yorliqlar qisqa: kartochka sarlavhasi 1-4 so'z, vaqt o'qidagi
    izoh bir jumla.
 11. Birinchi slayd — MUQOVA: unda muallif ismi, fan va yil
@@ -600,6 +607,31 @@ def _decorate(body: str) -> str:
     return _DARK_SLIDE.sub(lambda m: m.group(1) + bits, body, count=1)
 
 
+# `quote-by`dagi "— Tashkilot, 2026-yil hisobotidan": yil bugungi yoki
+# kelgusi bo'lsa, bu o'ylab topilgan manba — yil va hisobot nomi olib
+# tashlanadi, muallif nomi qoladi.
+_QUOTE_BY = re.compile(
+    r'(<p\b[^>]*class\s*=\s*["\'][^"\']*quote-by[^"\']*["\'][^>]*>)(.*?)(</p>)',
+    re.IGNORECASE | re.DOTALL)
+_BY_YEAR = re.compile(r",?\s*(?:\w+\s+)?((?:19|20)\d\d)\b[^<]*$")
+
+
+def guard_quote_sources(body: str) -> str:
+    """Iqtibos muallifidagi bugungi/kelgusi yilli "hisobot"ni olib tashlaydi."""
+    from services import timeframe
+
+    limit = timeframe.current_year()
+
+    def swap(match):
+        found = _BY_YEAR.search(match.group(2))
+        if not found or int(found.group(1)) < limit:
+            return match.group(0)
+        return match.group(1) + match.group(2)[:found.start()].rstrip(" ,") \
+            + match.group(3)
+
+    return _QUOTE_BY.sub(swap, body)
+
+
 # "(BMT, 2026)" — model bugungi yil ma'lumotini bilmaydi, shuning uchun bunday
 # manba o'ylab topilgan bo'ladi. Yil o'rniga "taxminiy" yoziladi.
 _SOURCE_YEAR = re.compile(r"\(([^()<>]{2,60}?),\s*((?:19|20)\d\d)\)")
@@ -632,7 +664,7 @@ def build_pages(bodies: List[str], theme, language: str = "uz") -> List[str]:
     drawn = [deck_charts.draw(
         _half_charts(deck_math.render(deck_styles.decorate(
             _whiten_icons(_auto_icons(_decorate(
-                guard_source_years(deck_calc.apply(body), language)))), theme))),
+                guard_quote_sources(guard_source_years(deck_calc.apply(body), language))))), theme))),
         theme)
              for body in bodies]
     try:
@@ -1003,6 +1035,10 @@ def fix_slide(html: str, problems: List[str], theme, language: str = "uz") -> st
         "- matn ustiga matn tushgan bo'lsa — ikkalasidan biri keraksiz "
         "bo'lsa o'chiring, aks holda ikkalasini qisqartiring;\n"
         "- matn ikki marta yozilgan bo'lsa — nusxasini o'chiring;\n"
+        "- matn juda mayda bo'lib qolgan bo'lsa — slaydda mazmun ortiqcha: "
+        "har matnni 1-2 qisqa gapga keltiring, uzun izohlarni o'chiring, "
+        "kerak bo'lsa 1-2 ta band yoki kartochkani olib tashlang (blok "
+        "turi o'zgarmasin);\n"
         "- varaqda katta bo'sh joy qolgan bo'lsa — mavjud izohlarni "
         "to'liqroq yozing, yangi blok qo'shmang.\n\n"
         "Javobda faqat bitta <section class=\"slide\"> ... </section> "
@@ -1020,7 +1056,8 @@ def fix_slide(html: str, problems: List[str], theme, language: str = "uz") -> st
     fixed = split_slides(raw)
     if not fixed:
         return html
-    reason = _rewritten(source, fixed[0])
+    reason = _rewritten(source, fixed[0],
+                        any("mayda" in item for item in problems))
     if reason:
         log.warning("Tuzatish qabul qilinmadi — slayd qayta yozilgan: %s",
                     reason)
@@ -1046,7 +1083,7 @@ def _shape(body: str) -> Dict[str, int]:
     return counts
 
 
-def _rewritten(before: str, after: str) -> str:
+def _rewritten(before: str, after: str, shrunk: bool = False) -> str:
     """Tuzatilgan slayd asl slaydning o'zimi. Bo'lmasa — sababi."""
     import difflib
 
@@ -1062,7 +1099,9 @@ def _rewritten(before: str, after: str) -> str:
     first, second = words(before), words(after)
     if first:
         kept = difflib.SequenceMatcher(None, first, second).ratio()
-        if kept < 0.55:
+        # Mayda matn xatosida mazmunni sezilarli qisqartirish — aynan
+        # kerakli tuzatish, shuning uchun chegara pastroq.
+        if kept < (0.3 if shrunk else 0.55):
             return f"matnning faqat {kept:.0%} i qolgan"
     return ""
 

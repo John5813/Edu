@@ -766,7 +766,7 @@ def check_layout_guard():
     justify-content:space-between}}
     h2{{font-size:48px;color:#{theme.heading}}}
     .row{{display:flex;gap:40px}}
-    .card{{flex:1;background:#{theme.accent_soft};padding:30px}}
+    .card{{flex:1;background:#{theme.accent_soft};padding:30px;font-size:32px}}
     .foot{{font-size:20px;color:#{theme.muted}}}
     </style></head><body><h2>To'g'ri joylashgan slayd</h2>
     <div class="row"><div class="card"><b>2022</b><div>Birinchi voqea.</div></div>

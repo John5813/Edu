@@ -293,6 +293,34 @@ def photo_blocks(page: str) -> List[Tuple[int, int, str]]:
     return found
 
 
+# Foydalanuvchi talabi: rasm faqat oddiy realistik fotosurat bo'lsin —
+# diagramma, sxema, infografika va yozuvsiz. Arzon model "diagram"
+# so'zini ko'rsa inglizcha yozuvli chizma chizadi, shuning uchun bunday
+# so'zlar tavsifdan olib tashlanadi.
+_DIAGRAM_WORDS = re.compile(
+    r"\b(?:diagrams?|infographics?|charts?|graphs?|schemes?|schematics?|"
+    r"flow\s?charts?|mind\s?maps?|maps?|tables?|illustrations?|icons?|"
+    r"vector|cartoon|drawing|sketch|blueprint|poster|slide|presentation|"
+    r"labell?ed|labels?|annotated|formulas?|equations?|text|captions?|"
+    r"infographic-style)\b", re.IGNORECASE)
+
+_PHOTO_PREFIX = "realistic natural photograph, real-life scene, "
+_PHOTO_SUFFIX = (", shot on a professional camera, natural light, "
+                 "no diagram, no chart, no infographic")
+
+
+def photo_prompt(prompt: str) -> str:
+    """Rasm tavsifini oddiy realistik fotosuratga majburlaydi."""
+    from utils.security import strip_text_requests
+
+    text = _DIAGRAM_WORDS.sub("", prompt or "")
+    text = re.sub(r"\s{2,}", " ", text).strip(" ,;")
+    # `strip_text_requests` matn so'rovlarini ham tozalaydi va o'z
+    # taqiq qo'shimchasini qo'shadi.
+    text = strip_text_requests(text)
+    return _PHOTO_PREFIX + text + _PHOTO_SUFFIX
+
+
 async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
                       generate=None) -> Tuple[List[str], int]:
     """Rasm bloklariga rasm qo'yadi. (slaydlar, qo'yilgan rasmlar soni).
@@ -326,7 +354,7 @@ async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
     async def one(prompt):
         async with gate:
             try:
-                path = await generate(prompt + ", no text, no letters")
+                path = await generate(photo_prompt(prompt))
             except Exception as exc:
                 log.warning("Rasm chizilmadi (%s): %s", prompt[:50], exc)
                 return None

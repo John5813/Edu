@@ -143,7 +143,14 @@ _NEUTRAL = {"/": "⁄", ",": ",", ".": ".", "'": "′"}
 
 
 def _scripted(mark: str, body: str) -> str:
-    """Daraja yoki indeksni yuqori/quyi belgiga o'giradi."""
+    """Daraja yoki indeksni yuqori/quyi belgiga o'giradi.
+
+    Qisqa indeks (x_i, P_x, x_{n+1}) Unicode quyi belgi bo'ladi. So'zli
+    indeks (A_{o'sish}) esa o'qib bo'lmas "ₒ′ₛᵢₛₕ" bo'lib qolardi — u
+    "A_(o'sish)" deb yoziladi.
+    """
+    if mark == "_" and sum(char.isalpha() for char in body) > 3:
+        return "_(" + body + ")"
     table = _SUP if mark == "^" else _SUB
     if "<" not in body and any(char in table for char in body) and all(
             char in table or char in _NEUTRAL for char in body):
@@ -229,6 +236,17 @@ def _fraction(numerator: str, denominator: str) -> str:
             f'<span class="dn">{denominator.strip()}</span></span>')
 
 
+# Model ba'zan teskari chiziqni ikki marta yozadi ("\\\\frac", "\\\\times"): JSON
+# qochirishidan qolgan. LaTeX da "\\\\" + harf deyarli uchramaydi, shuning uchun
+# buyruq deb o'qiladi; aks holda "\\\\frac" qator ko'chirish bo'lib, "fracDP times"
+# yozuvi chiqardi.
+_DOUBLED = re.compile(r"\\\\(?=[A-Za-z])")
+
+
+def _undouble(text: str) -> str:
+    return _DOUBLED.sub(lambda _: "\\", str(text or ""))
+
+
 def formula(text: str) -> str:
     """Bitta formulani belgilarga o'giradi.
 
@@ -236,7 +254,7 @@ def formula(text: str) -> str:
     `\\frac{\\sum_{i=1}^{n} x_i}{n}` kasr deb tanilmay, "∑ᵢ₌₁ⁿ xᵢn" bo'lib
     qolardi, `\\bar{x}` esa oddiy "x" ga aylanardi.
     """
-    out = _convert(str(text or ""))
+    out = _convert(_undouble(text))
     # `\\prime` allaqachon yuqorida turadigan belgi — uning oldidagi
     # "^" ortiqcha.
     out = out.replace("^′", "′").replace("^'", "′").replace("^(′)", "′")
@@ -249,7 +267,7 @@ def render(html_body: str) -> str:
     Faqat teglar ORASIDAGI matn tegiladi — sinf nomlari va
     atributlarga tegilmaydi.
     """
-    parts = _TAGS.split(str(html_body or ""))
+    parts = _TAGS.split(_undouble(html_body))
     for index, part in enumerate(parts):
         if index % 2:
             continue

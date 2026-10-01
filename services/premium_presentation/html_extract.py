@@ -805,6 +805,26 @@ _CHECK_SCRIPT = r"""
       + "yorliq qisqartirilsin" + examples(spillAt));
   }
 
+  // Matn juda mayda bo'lib qolganmi. Mazmun sig'masa `fit` shriftni
+  // kichraytiradi; 10 pt (20 px) dan kichik matnni zalda ham, telefonda
+  // ham o'qib bo'lmaydi. Bunday slaydda mazmun ko'p — uni qisqartirish
+  // kerak (kamaytirib sig'dirish emas).
+  let tiny = 0;
+  const tinyAt = [];
+  for (const t of texts) {
+    if (t.el.closest("svg, sup, sub, .bezak")) continue;
+    const size = parseFloat(getComputedStyle(t.el).fontSize) || 0;
+    if (size && size < 20) {
+      tiny += 1;
+      tinyAt.push(label(t.el));
+    }
+  }
+  if (tiny) {
+    problems.push(tiny + " ta matn juda mayda (10 pt dan kichik) — "
+      + "slaydda mazmun ortiqcha: matnlarni qisqartiring yoki kamroq "
+      + "band/blok qoldiring" + examples(tinyAt));
+  }
+
   // Pastki yarmi butunlay bo'sh qolganmi.
   if (texts.length && lowest < H * 0.62) {
     problems.push("mazmun slaydning yuqori qismiga to'plangan, pastki "
