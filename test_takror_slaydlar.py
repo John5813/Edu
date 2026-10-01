@@ -1,0 +1,80 @@
+"""Bir xil shakldagi slaydlar: aniqlanadi va boshqa blok bilan qayta yozdiriladi.
+
+    python test_takror_slaydlar.py
+"""
+import os, sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE); os.chdir(HERE)
+os.environ.setdefault("BOT_TOKEN", "1:x")
+
+FAILS = []
+def check(name, cond, detail=""):
+    print(("  ok   " if cond else "  XATO ") + name + ("" if cond else f" — {detail}"))
+    if not cond: FAILS.append(name)
+
+from services.premium_presentation import html_slides as hs, llm_client, themes
+TH = themes.get("ko'k")
+
+def slide(title, body):
+    return (f'<section class="slide"><div class="head"><h2 class="title">{title}</h2><div class="rule"></div></div>'
+            f'<div class="body">{body}</div></section>')
+
+LIST_IMG = ('<div class="split"><div class="list"><div class="item">Virus genetik materiali RNK dan iborat</div>'
+            '<div class="item">Replikatsiya hujayra ichida ketadi</div></div>'
+            '<div class="rasm" data-prompt="virus"><p class="rasm-matn">Qo\'shimcha matn.</p></div></div>')
+CARDS = ('<div class="cols cols-2"><div class="card"><div class="card-title">A</div><div class="card-note">izoh bir</div></div>'
+         '<div class="card"><div class="card-title">B</div><div class="card-note">izoh ikki</div></div></div>')
+STEPS = ('<div class="steps"><div class="step"><div class="step-title">Kirish</div><div class="step-text">hujayraga kiradi</div></div></div>')
+PLAIN = '<div class="list"><div class="item">Yakuniy xulosa matni birinchi</div></div>'
+
+cover = slide("Muqova", '<div class="lead">Mavzu</div>')
+deck = [cover, slide("Ta'rif", LIST_IMG), slide("Tasnif", LIST_IMG), slide("Jarayon", STEPS),
+        slide("Ebola", LIST_IMG), slide("Xulosa", PLAIN)]
+
+check("shakl imzosi: ro'yxat + rasm", hs.shape_signature(deck[1]) == ("list", "rasm", "split"), hs.shape_signature(deck[1]))
+flag = hs.repeated_slides(deck)
+check("ketma-ket takror (3-slayd) va uchinchi marta takror (5-slayd) topiladi", flag == [2, 4], flag)
+check("muqova va yakun hech qachon belgilanmaydi", 0 not in flag and 5 not in flag)
+check("xilma-xil taqdimotda takror yo'q", hs.repeated_slides([cover, slide("a", LIST_IMG), slide("b", CARDS), slide("c", STEPS), slide("d", LIST_IMG), slide("e", PLAIN)]) == [])
+
+calls = []
+def fake_ok(system, user, **kw):
+    calls.append(user)
+    # Xuddi shu fikrlar, kartochkalarda.
+    return slide("Tasnif", '<div class="cols cols-2"><div class="card"><div class="card-title">Genetik material</div>'
+                 '<div class="card-note">Virus genetik materiali RNK dan iborat</div></div>'
+                 '<div class="card"><div class="card-title">Replikatsiya</div>'
+                 '<div class="card-note">Replikatsiya hujayra ichida ketadi</div></div></div>')
+
+def fake_same(system, user, **kw):
+    calls.append(user)
+    return slide("Tasnif", LIST_IMG)
+
+original = llm_client._call_openrouter_text
+try:
+    llm_client._call_openrouter_text = fake_ok
+    out = hs.diversify(deck, TH)
+    check("takror slayd boshqa blok bilan almashdi", hs.shape_signature(out[2]) == ("cols",), hs.shape_signature(out[2]))
+    check("muqova, yakun va boshqa slaydlarga tegilmadi", out[0] == deck[0] and out[3] == deck[3] and out[5] == deck[5])
+    check("so'rovda ishlatilgan shakllar va 'qaytarmang' aytilgan", any("QAYTARMANG" in c and "ro'yxat" in c for c in calls))
+    check("qayta yozishlar soni cheklangan", len(calls) <= hs.MAX_REWORKS, len(calls))
+
+    calls.clear()
+    llm_client._call_openrouter_text = fake_same
+    out = hs.diversify(deck, TH)
+    check("model baribir bir xil shakl qaytarsa — slayd o'zgarmaydi", out == deck)
+
+    llm_client._call_openrouter_text = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("tarmoq"))
+    check("model xato qilsa — taqdimot buzilmaydi", hs.diversify(deck, TH) == deck)
+
+    llm_client._call_openrouter_text = lambda *a, **k: slide("Boshqa", CARDS.replace("izoh bir", "butunlay boshqa matn").replace("izoh ikki", "yana boshqa").replace(">A<", ">Q<").replace(">B<", ">W<")).replace("Boshqa", "Mutlaqo boshqa mavzu haqida")
+    kept = hs.rework_slide(deck[2], hs.shape_signature(deck[2]), [hs.shape_signature(deck[3])], TH)
+    check("mazmuni yo'qolgan qayta yozish rad etiladi", kept == deck[2])
+finally:
+    llm_client._call_openrouter_text = original
+
+check("reja promptida takror cheklovi bor", "2 martadan ko'p takrorlanmasin" in open("services/premium_presentation/html_slides.py", encoding="utf-8").read())
+
+print("\n" + ("✅ hammasi o'tdi" if not FAILS else f"❌ {len(FAILS)} ta xato: {FAILS}"))
+sys.exit(1 if FAILS else 0)

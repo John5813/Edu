@@ -335,7 +335,10 @@ def plan_outline(topic: str, count: int, language: str,
         "ikki narsa → qiyoslash, tasnif → jadval, ta'rif yoki bitta fikr "
         "→ matn_rasm yoki iqtibos. 'kartalar' faqat 3-4 ta teng huquqli "
         "element uchun; unga qaytaverma. Ketma-ket ikki slayd bir xil "
-        "kategoriyada bo'lmasin (mantiq buni majburlamasa). Mavzu raqam "
+        "kategoriyada bo'lmasin (mantiq buni majburlamasa); bir kategoriya "
+        "butun rejada 2 martadan ko'p takrorlanmasin — mazmunga mos boshqa "
+        "kategoriya bor bo'lsa, o'shani tanlang. Ayniqsa 'matn_rasm' (ro'yxat "
+        "+ rasm) ni har bo'limga qo'ymang. Mavzu raqam "
         "talab qilmasa, diagramma va statistika kategoriyalarini umuman "
         "ishlatmang.\n\n"
         + ("Bu HISOB-KITOB mavzusi: rejada formula, ishlangan misol va "
@@ -790,7 +793,120 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
     if len(slides) < _enough(slide_count):
         raise RuntimeError(
             f"AI {slide_count} ta slayddan faqat {len(slides)} tasini yozdi")
+    slides = diversify(slides, theme, language)
     return build_pages(slides, theme, language)
+
+
+# ───────────────────────────────────────────── bir xil slaydlarga qarshi
+
+# Taqdimot bir xil ko'rinadigan bo'lib qolsa (masalan, uch slayd "ro'yxat +
+# rasm"), mijoz buni darhol payqaydi. Prompt va reja modelga "takrorlama"
+# deydi, lekin model baribir eng oson shaklga qaytadi. Shuning uchun yozib
+# bo'lingach slaydlar shakli solishtiriladi va takrorlangan slayd boshqa blok
+# bilan QAYTA yozdiriladi — mazmuni saqlanadi, faqat shakl o'zgaradi.
+# Bu qat'iy kvota emas: mazmun uchun boshqa shakl topilmasa, qayta yozish
+# rad etiladi va slayd o'zgarmaydi.
+MAX_SAME_SHAPE = 2          # bir shakl butun taqdimotda ko'pi bilan shuncha
+MAX_REWORKS = 3             # bitta taqdimotda ko'pi bilan shuncha qayta yozish
+
+_SHAPE_NAMES = {
+    "split": "matn+rasm yoki ikki ustun", "list": "ro'yxat", "cols": "kartochkalar",
+    "steps": "qadamlar", "timeline": "vaqt o'qi", "table": "jadval", "kpi": "ko'rsatkichlar",
+    "quote": "iqtibos", "chart": "diagramma", "calc": "diagramma", "formula": "formula",
+    "misol": "misol", "rasm": "rasm", "lead": "asosiy fikr",
+}
+
+
+def shape_signature(body: str) -> tuple:
+    """Slaydning asosiy bloklari (masalan, ('list', 'rasm', 'split'))."""
+    counts = _shape(body)
+    return tuple(sorted(name for name, n in counts.items() if n and name != "ikon-row"))
+
+
+def repeated_slides(bodies: List[str]) -> List[int]:
+    """Shakli takrorlangan slaydlar indekslari (muqova va yakundan tashqari)."""
+    flagged, seen = [], {}
+    last = len(bodies) - 1
+    previous = None
+    for index, body in enumerate(bodies):
+        signature = shape_signature(body)
+        if index in (0, last) or not signature:
+            previous = None
+            continue
+        seen[signature] = seen.get(signature, 0) + 1
+        if signature == previous or seen[signature] > MAX_SAME_SHAPE:
+            flagged.append(index)
+        previous = signature
+    return flagged
+
+
+def _shape_label(signature: tuple) -> str:
+    return " + ".join(dict.fromkeys(_SHAPE_NAMES.get(n, n) for n in signature)) or "oddiy matn"
+
+
+def rework_slide(body: str, signature: tuple, used: List[tuple], theme,
+                 language: str = "uz") -> str:
+    """Takrorlangan slaydni boshqa blok bilan qayta yozdiradi (yoki o'zini qaytaradi)."""
+    import difflib
+
+    taken = "; ".join(sorted({_shape_label(u) for u in used if u}))
+    user = (
+        f"Bu slayd boshqa slaydlar bilan bir xil shaklda ({_shape_label(signature)}) "
+        "va taqdimot bir xil ko'rinib qolmoqda.\n\n"
+        "SHU SLAYDNING O'ZINI qayta yozing: sarlavha va MAZMUN (fikrlar, faktlar) "
+        "saqlansin, lekin ularni BOSHQA blok bilan ifodalang.\n"
+        f"Bu taqdimotda allaqachon ishlatilgan shakllar (ularni QAYTARMANG): {taken}.\n"
+        "Mazmunga mos tanlang: ketma-ketlik → qadamlar yoki vaqt o'qi; ikki narsa → "
+        "qiyoslash (ikki ustun) yoki jadval; tasnif → jadval; 2-4 teng element → "
+        "kartochkalar (agar ular ko'p ishlatilmagan bo'lsa); bitta chuqur fikr → "
+        "kartochkasiz oddiy ro'yxat yoki iqtibos. Yangi fakt o'ylab topmang, "
+        "raqam qo'shmang. Rasm ixtiyoriy.\n\n"
+        "Javobda faqat bitta <section class=\"slide\"> ... </section> bo'lsin.\n\n"
+        "Slayd:\n" + (source_of(body) or body)
+    )
+    try:
+        raw = llm_client._call_openrouter_text(
+            shell_rules(theme, language), user, temperature=0.6,
+            max_tokens=max(2600, len(body) // 2))
+    except Exception as exc:
+        log.warning("Takrorlangan slayd qayta yozilmadi: %s", exc)
+        return body
+
+    fresh = split_slides(raw)
+    if not fresh:
+        return body
+    new_signature = shape_signature(fresh[0])
+    if not new_signature or new_signature == signature or new_signature in used:
+        log.info("Qayta yozish qabul qilinmadi: shakl baribir takror (%s)", _shape_label(new_signature))
+        return body
+    if bool(_DARK_SLIDE.search(body)) != bool(_DARK_SLIDE.search(fresh[0])):
+        return body
+    words = lambda text: _plain(text, 100000).lower().split()
+    before, after = words(body), words(fresh[0])
+    if before and difflib.SequenceMatcher(None, before, after).ratio() < 0.3:
+        log.info("Qayta yozish qabul qilinmadi: mazmun yo'qolgan")
+        return body
+    return fresh[0]
+
+
+def diversify(bodies: List[str], theme, language: str = "uz") -> List[str]:
+    """Bir xil shakldagi slaydlarni boshqa blok bilan almashtiradi."""
+    result = list(bodies)
+    reworked = 0
+    for index in repeated_slides(result):
+        if reworked >= MAX_REWORKS:
+            break
+        # Oldingi qayta yozish bu slaydni allaqachon hal qilgan bo'lishi mumkin.
+        if index not in repeated_slides(result):
+            continue
+        signature = shape_signature(result[index])
+        used = [shape_signature(b) for i, b in enumerate(result) if i != index]
+        updated = rework_slide(result[index], signature, used, theme, language)
+        if updated is not result[index]:
+            result[index] = updated
+            reworked += 1
+            log.info("%d-slayd boshqa shaklda qayta yozildi", index + 1)
+    return result
 
 
 # Muqovadagi "Tayyorladi: ... | Fan: ... | 2026" qatori. Model uni namunadan

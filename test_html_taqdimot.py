@@ -544,13 +544,18 @@ def check_writer():
                            for i in range(1, 7)]}
 
     orig_text, orig_json = llm_client._call_openrouter_text, llm_client._call_openrouter
+    orig_reworks = html_slides.MAX_REWORKS
     try:
         llm_client._call_openrouter_text = fake
         llm_client._call_openrouter = fake_plan
+        # Bu yerda bo'laklash sinaladi; bir xil slaydlarni qayta yozish
+        # (diversify) alohida testda — shuning uchun o'chirib qo'yiladi.
+        html_slides.MAX_REWORKS = 0
         pages = html_slides.write_slides("Mavzu", 6, themes.get("ko'k"), "uz")
     finally:
         llm_client._call_openrouter_text = orig_text
         llm_client._call_openrouter = orig_json
+        html_slides.MAX_REWORKS = orig_reworks
 
     check("so'ralgan slayd soni chiqdi", len(pages) == 6, str(len(pages)))
     check("bo'laklab so'raldi", len(calls) == 2, f"{len(calls)} ta so'rov")
