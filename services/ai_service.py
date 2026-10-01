@@ -1069,19 +1069,15 @@ IMPORTANT: Respond ONLY in JSON format! Total {slide_count} slides REQUIRED (mai
 
             references = await self._generate_references(topic, language)
             
-            # Generate table data for section 3 (mustaqil ish)
-            table_data_3 = None
-            if section_count >= 4:
-                table_data_3 = await self.generate_table_data(topic, 3, language)
-
+            # Jadval, rasm va sxema faqat mijoz "qo'shimchalar"da tanlaganda
+            # qo'shiladi (document_service._add_section_extras): qo'shimchasiz
+            # mustaqil ish oddiy matn. Ilgari bu yerda har safar katta jadval
+            # ham yaratilardi va ikkinchi varaqqa o'tib ketardi.
             result = {
                 "title": topic,
                 "sections": sections,
                 "references": references
             }
-            
-            if table_data_3:
-                result["table_data_3"] = table_data_3
 
             await self.add_uzbek_opening(result, topic, language)
 
@@ -2152,10 +2148,6 @@ In JSON format:
             "sections": sections,
             "references": await self._generate_references(topic, language),
         }
-        if len(titles) >= 3:
-            table = await self.generate_table_data(topic, 3, language)
-            if table:
-                result["table_data_3"] = table
         await self.add_uzbek_opening(result, topic, language)
         return result
 
@@ -4598,7 +4590,7 @@ In JSON format:
             ensure_ascii=False)
 
         prompt = (
-            f'Kurs ishi mavzusi: "{topic}"\n\n'
+            f'Ish mavzusi: "{topic}"\n\n'
             f"Bo'limlar:\n{listing}\n\n"
             f"Shu ro'yxatdan {charts} ta bo'limga diagramma, {tables} ta "
             f"bo'limga jadval va {formulas} ta bo'limga hisob formulasi "
