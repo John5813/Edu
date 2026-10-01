@@ -1529,6 +1529,28 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
             _GEN_INFLIGHT.discard(_rl_uid)
             _GEN_LAST_AT[_rl_uid] = _rl_time.time()
 
+async def prompt_simple_payment(message: Message, state: FSMContext, user_lang: str, user,
+                                slide_count: int) -> None:
+    """Oddiy taqdimot: hajm tanlangach narx va to'lov usuli so'raladi.
+
+    Shu yerdan oddiy oqim o'zgarishsiz davom etadi: to'lovdan keyin 20 ta
+    fon shabloni, ikonka tanlovi va yaratish. "Taqdimot" katalogidagi
+    "Chiroyli orqa fonlar" uslubi ham shu yerga keladi.
+    """
+    await state.update_data(slide_count=slide_count)
+    price = get_document_price("presentation", {"slide_count": slide_count})
+
+    # Always show payment choice — balance shown inline
+    stars = som_to_stars(price)
+    balance = user.balance if user else 0
+    await state.update_data(price=price, doc_next_step="presentation_template")
+    await state.set_state(DocumentStates.waiting_for_payment)
+    await message.answer(
+        get_text(user_lang, "payment_choose", price=price, stars=stars, balance=balance),
+        reply_markup=get_payment_choice_keyboard(user_lang, price, stars, balance, "pay_balance_doc", back_callback="back_from_doc_payment")
+    )
+
+
 @router.callback_query(F.data.startswith("slides_"), DocumentStates.waiting_for_slide_count)
 async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Handle slide count selection"""
@@ -1548,24 +1570,11 @@ async def handle_slide_count(callback: CallbackQuery, state: FSMContext, db: Dat
             return
 
         slide_count = int(callback.data.split("_")[1])
-        await state.update_data(slide_count=slide_count)
-
-        # Calculate price based on slide count
-        price = get_document_price("presentation", {"slide_count": slide_count})
-
-        # Always show payment choice — balance shown inline
-        stars = som_to_stars(price)
-        balance = user.balance if user else 0
-        await state.update_data(price=price, doc_next_step="presentation_template")
-        await state.set_state(DocumentStates.waiting_for_payment)
         try:
             await callback.message.delete()
         except Exception:
             pass
-        await callback.message.answer(
-            get_text(user_lang, "payment_choose", price=price, stars=stars, balance=balance),
-            reply_markup=get_payment_choice_keyboard(user_lang, price, stars, balance, "pay_balance_doc", back_callback="back_from_doc_payment")
-        )
+        await prompt_simple_payment(callback.message, state, user_lang, user, slide_count)
     except Exception as e:
         logger.error(f"handle_slide_count error: {e}", exc_info=True)
 
