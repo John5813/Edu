@@ -293,32 +293,34 @@ def photo_blocks(page: str) -> List[Tuple[int, int, str]]:
     return found
 
 
-# Foydalanuvchi talabi: rasm faqat oddiy realistik fotosurat bo'lsin —
-# diagramma, sxema, infografika va yozuvsiz. Arzon model "diagram"
-# so'zini ko'rsa inglizcha yozuvli chizma chizadi, shuning uchun bunday
-# so'zlar tavsifdan olib tashlanadi.
+# Rasm faqat oddiy realistik fotosurat bo'lsin: diagramma, sxema va
+# infografika emas. Arzon model "diagram" so'zini ko'rsa yozuvli chizma
+# chizadi, shuning uchun bunday so'zlar tavsifdan olib tashlanadi.
+# Ro'yxat ataylab qisqa: "map", "table", "poster" kabi oddiy so'zlar
+# real fotoda ham bo'ladi — ularni olib tashlash tavsifni buzadi.
+#
+# Yozuv taqiqini `TogetherService._render` o'zi qo'shadi; bu yerda
+# qo'shilsa taqiq ikki marta, uzun va buzilgan holda chiqadi — rasm
+# bo'sh yoki g'alati bo'lib qoladi.
 _DIAGRAM_WORDS = re.compile(
     r"\b(?:diagrams?|infographics?|charts?|graphs?|schemes?|schematics?|"
-    r"flow\s?charts?|mind\s?maps?|maps?|tables?|illustrations?|icons?|"
-    r"vector|cartoon|drawing|sketch|blueprint|poster|slide|presentation|"
-    r"labell?ed|labels?|annotated|formulas?|equations?|text|captions?|"
-    r"infographic-style)\b", re.IGNORECASE)
+    r"flow\s?charts?|mind\s?maps?|blueprints?|formulas?|equations?|"
+    r"labell?ed|annotated)\b", re.IGNORECASE)
 
-_PHOTO_PREFIX = "realistic natural photograph, real-life scene, "
-_PHOTO_SUFFIX = (", shot on a professional camera, natural light, "
-                 "no diagram, no chart, no infographic")
+# Tavsif tozalangach deyarli hech narsa qolmasa — umumiy sahna.
+_FALLBACK_SCENE = "people working together in a bright modern space"
+_PHOTO_STYLE = "realistic natural photograph, natural light"
 
 
 def photo_prompt(prompt: str) -> str:
-    """Rasm tavsifini oddiy realistik fotosuratga majburlaydi."""
-    from utils.security import strip_text_requests
-
-    text = _DIAGRAM_WORDS.sub("", prompt or "")
-    text = re.sub(r"\s{2,}", " ", text).strip(" ,;")
-    # `strip_text_requests` matn so'rovlarini ham tozalaydi va o'z
-    # taqiq qo'shimchasini qo'shadi.
-    text = strip_text_requests(text)
-    return _PHOTO_PREFIX + text + _PHOTO_SUFFIX
+    """Rasm tavsifini oddiy realistik fotosuratga yo'naltiradi (yumshoq)."""
+    text = re.sub(r"\s{2,}", " ", prompt or "").strip(" ,;.")
+    # Diagramma so'ralgan tavsifning bir qismini olib tashlash uni
+    # buzadi ("an of a pyramid"); fotosi bo'lmaydigan narsa o'rniga
+    # umumiy sahna chiziladi.
+    if _DIAGRAM_WORDS.search(text) or len(re.findall(r"[A-Za-z]{3,}", text)) < 3:
+        text = _FALLBACK_SCENE
+    return f"{text}, {_PHOTO_STYLE}"
 
 
 async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
