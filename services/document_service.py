@@ -1752,6 +1752,32 @@ class DocumentService:
                 t_def.font.size = Pt(13)
                 t_def.font.name = "Times New Roman"
 
+    # Mustaqil ishda "jadval", "statistika" (diagramma) va "formula" qo'shimchalari
+    # kurs ishidagidek mavzuga qarab rejalashtiriladi: AI butun ishni ko'rib,
+    # qaysi bo'limga diagramma, jadval yoki formula MANTIQAN mos ekanini o'zi
+    # tanlaydi. Ilgari ular qat'iy sikl bo'yicha har bo'limga qo'yilardi.
+    _PLANNED_EXTRAS = ("tables", "statistics", "formulas")
+
+    async def _plan_independent_visuals(self, topic: str, content: Dict, extras: list, language: str) -> list:
+        wanted = [e for e in (extras or []) if e in self._PLANNED_EXTRAS]
+        sections = content.get('sections', [])[1:-1]       # kirish va xulosadan tashqari
+        if not wanted or len(sections) < 2:
+            return []
+        try:
+            from services.ai_service import get_ai_service
+
+            main = len(sections)
+            plan = await get_ai_service().plan_document_visuals(
+                topic, [(str(i), s['title']) for i, s in enumerate(sections, 1)], language,
+                charts=min(3, max(1, main // 2)) if "statistics" in wanted else 0,
+                tables=min(2, max(1, main // 3)) if "tables" in wanted else 0,
+                formulas=min(2, max(1, main // 3)) if "formulas" in wanted else 0)
+        except Exception as exc:
+            logger.warning(f"Mustaqil ish vizual rejasi olinmadi: {exc}")
+            return []
+        allowed = {"chart": "statistics", "table": "tables", "formula": "formulas"}
+        return [item for item in plan if allowed.get(str(item.get("kind")).lower()) in wanted]
+
     async def create_independent_work(self, topic: str, content: Dict, extras: list = None) -> str:
         """Create independent work document with professional footnotes (snoska)"""
         try:
@@ -1774,6 +1800,9 @@ class DocumentService:
 
             user_lang = content.get('language', 'uz')
             author_name = content.get('author_name', '')
+            planned = {str(item.get('subsection')): item for item in
+                       await self._plan_independent_visuals(topic, content, extras, user_lang)}
+            use_planned = bool(planned)
             await self._create_independent_work_title_page(doc, topic, user_lang, author_name)
 
             doc.add_page_break()
@@ -1852,41 +1881,18 @@ class DocumentService:
                 # Add extras only to main body sections, not kirish/xulosa
                 # Use cycling pattern: pos1→formulas, pos2→image+table, pos3→table
                 if extras and is_main:
+                    # Rejalashtirilgan diagramma/jadval/formula shu bo'limga tegishli bo'lsa — qo'yiladi.
+                    visual = planned.pop(str(numbered_section_count), None)
+                    if visual:
+                        await self._add_planned_visual(doc, visual, user_lang)
                     cycle_extras = _extras_for_cycle(extras, numbered_section_count)
+                    if use_planned:
+                        # Reja olingan: jadval/statistika/formula endi rejadagi joylarda,
+                        # qat'iy sikl bo'yicha qayta qo'yilmaydi.
+                        cycle_extras = [e for e in cycle_extras if e not in self._PLANNED_EXTRAS]
                     if cycle_extras:
                         await self._add_section_extras(doc, title, topic, user_lang, cycle_extras, section_idx=idx)
-                elif numbered_section_count == 2 and self.together:
-                    # Fallback: old Together image only when no extras selected
-                    try:
-                        image_path, image_prompt = await self.together.generate_flux_pro_image(
-                            topic, title, user_lang
-                        )
-                        if image_path and os.path.exists(image_path):
-                            doc.add_page_break()
-                            img_para = doc.add_paragraph()
-                            img_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                            img_run = img_para.add_run()
-                            img_run.add_picture(image_path, width=Inches(5.0))
-                            numbering = doc_visuals.of(doc, user_lang)
-                            numbering.figure_caption(doc, title)
-                            image_description = await self.together.generate_image_description(
-                                topic, title, user_lang, image_path
-                            )
-                            if image_description:
-                                numbering.note(doc, clean_text(image_description))
-                            doc.add_page_break()
-                            try:
-                                os.remove(image_path)
-                            except Exception:
-                                pass
-                    except Exception as img_error:
-                        logger.warning(f"Could not add image for independent work: {img_error}")
-
-                # Add informational table after section 3 (on separate page, only when no extras)
-                if not extras and numbered_section_count == 3:
-                    table_data = content.get('table_data_3', content.get('table_data_2', []))
-                    if table_data:
-                        self._add_info_table(doc, topic, table_data, user_lang)
+                # Qo'shimcha tanlanmagan bo'lsa — oddiy matn: rasm ham, jadval ham yo'q.
 
             if content.get('references'):
                 doc.add_page_break()

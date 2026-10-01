@@ -1448,19 +1448,24 @@ _EXTRAS_META = {
 }
 
 
-def get_extras_keyboard(lang: str, selected: list, base_price: int) -> InlineKeyboardMarkup:
-    """Multi-select keyboard for document extras (shown after page count selection)."""
+def get_extras_keyboard(lang: str, selected: list, base_price: int, free: bool = False) -> InlineKeyboardMarkup:
+    """Multi-select keyboard for document extras (shown after page count selection).
+
+    `free=True` — qo'shimchalar narxga qo'shilmaydi (mustaqil ishda shunday).
+    """
     keyboard = InlineKeyboardBuilder()
+    free_word = {"uz": "bepul", "ru": "бесплатно", "en": "free"}.get(lang, "bepul")
     for key, labels in _EXTRAS_META.items():
         add_price = EXTRAS_PRICES[key]
         icon = "✅" if key in selected else "⬜"
         label = labels.get(lang, labels["uz"])
-        btn_text = f"{icon} {label}  +{add_price:,} so'm"
+        suffix = f"🆓 {free_word}" if free else f"+{add_price:,} so'm"
+        btn_text = f"{icon} {label}  {suffix}"
         keyboard.add(InlineKeyboardButton(
             text=btn_text,
             callback_data=f"extras_toggle_{key}"
         ))
-    extras_total = sum(EXTRAS_PRICES[k] for k in selected)
+    extras_total = 0 if free else sum(EXTRAS_PRICES[k] for k in selected)
     total = base_price + extras_total
     if lang == "ru":
         confirm_text = f"Итого: {total:,} сум | Продолжить ➡️"

@@ -1670,12 +1670,16 @@ async def handle_page_count(callback: CallbackQuery, state: FSMContext, db: Data
 
     # Show extras panel for supported document types
     if document_type in ("independent_work", "referat", "mahsus_ishlanma"):
-        await state.update_data(base_price=price, doc_next_step="outline_choice")
+        # Mustaqil ishda qo'shimchalarni tanlash BEPUL (referat va mahsus
+        # ishlanmada pullik).
+        free = _extras_are_free(document_type)
+        await state.update_data(base_price=price, doc_next_step="outline_choice",
+                                extras_free=free, selected_extras=[])
         await state.set_state(DocumentStates.waiting_for_extras_choice)
         panel_title = get_text(user_lang, "extras_panel_title")
         await callback.message.answer(
             panel_title,
-            reply_markup=get_extras_keyboard(user_lang, [], price)
+            reply_markup=get_extras_keyboard(user_lang, [], price, free=free)
         )
     else:
         # Non-extras types: go straight to payment
@@ -2417,6 +2421,11 @@ async def handle_plan_redo(callback: CallbackQuery, state: FSMContext, db: Datab
     await callback.message.answer(again.get(user_lang, again["uz"]))
 
 
+def _extras_are_free(document_type: str) -> bool:
+    """Qo'shimchalar (jadval, rasm, sxema, formula...) narxga qo'shilmaydigan hujjat turi."""
+    return document_type == "independent_work"
+
+
 @router.callback_query(F.data.startswith("extras_toggle_"), DocumentStates.waiting_for_extras_choice)
 async def handle_extras_toggle(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Toggle an extra on/off in the extras multi-select panel."""
@@ -2432,7 +2441,8 @@ async def handle_extras_toggle(callback: CallbackQuery, state: FSMContext, db: D
     await callback.answer()
     try:
         await callback.message.edit_reply_markup(
-            reply_markup=get_extras_keyboard(user_lang, selected, base_price)
+            reply_markup=get_extras_keyboard(user_lang, selected, base_price,
+                                             free=bool(data.get("extras_free")))
         )
     except Exception:
         pass
@@ -2449,7 +2459,7 @@ async def handle_extras_confirm(callback: CallbackQuery, state: FSMContext, db: 
     data = await state.get_data()
     selected: list = list(data.get("selected_extras", []))
     base_price: int = data.get("base_price", 0)
-    extras_total = sum(EXTRAS_PRICES.get(k, 0) for k in selected)
+    extras_total = 0 if data.get("extras_free") else sum(EXTRAS_PRICES.get(k, 0) for k in selected)
     final_price = base_price + extras_total
 
     await state.update_data(doc_extras=selected, price=final_price)
