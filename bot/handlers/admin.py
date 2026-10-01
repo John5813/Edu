@@ -1,12 +1,13 @@
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+from aiogram import Router, F, Dispatcher
+from aiogram.types import Message, CallbackQuery, Update
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import Command
 
 from bot.states import AdminStates
+from bot import ad_buttons
 from bot.keyboards import (
     get_admin_keyboard,
     get_payment_review_keyboard,
@@ -14,6 +15,7 @@ from bot.keyboards import (
     get_channels_list_keyboard,
     get_promocode_keyboard,
     get_broadcast_target_keyboard,
+    get_broadcast_buttons_keyboard,
     get_main_keyboard,
     get_feature_management_keyboard,
     get_client_action_keyboard,
@@ -1636,11 +1638,127 @@ async def handle_broadcast_message(message: Message, state: FSMContext):
         await message.answer("❌ Ushbu turdagi kontent qo'llab-quvvatlanmaydi.")
         return
 
+    await state.update_data(buttons=[])
+    await message.answer(
+        "🔘 Reklama ostiga tugma qo'shasizmi?\n\n"
+        "Tugma sayt, kanal, bot yoki botning o'z bo'limiga olib borishi mumkin.",
+        reply_markup=get_broadcast_buttons_keyboard()
+    )
+    await state.set_state(AdminStates.waiting_for_broadcast_buttons)
+
+
+_BUTTONS_HELP = (
+    "🔘 Tugmalarni yuboring — har qatorga bitta tugma:\n\n"
+    "<code>Tugma matni | havola yoki bo'lim</code>\n\n"
+    "Misollar:\n"
+    "<code>Botga o'tish | @slaydtopbot</code>\n"
+    "<code>Saytimiz | https://example.uz</code>\n"
+    "<code>Kanalimiz | https://t.me/kanal</code>\n"
+    "<code>Taqdimot yaratish | taqdimot</code>\n\n"
+    "Botning ichki bo'limlari (bosganda shu bo'lim ochiladi):\n"
+    "<code>{keys}</code>\n\n"
+    "Eng ko'pi bilan {max} ta tugma."
+)
+
+
+@router.callback_query(F.data == "adbtn_add", AdminStates.waiting_for_broadcast_buttons)
+async def handle_broadcast_buttons_add(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id):
+        return
+    await callback.answer()
+    await callback.message.answer(
+        _BUTTONS_HELP.format(keys=ad_buttons.keys_help(), max=ad_buttons.MAX_BUTTONS),
+        parse_mode="HTML",
+        reply_markup=get_broadcast_buttons_keyboard())
+
+
+@router.callback_query(F.data == "adbtn_skip", AdminStates.waiting_for_broadcast_buttons)
+async def handle_broadcast_buttons_skip(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id):
+        return
+    await callback.answer()
+    await _ask_broadcast_target(callback.message, state)
+
+
+@router.message(AdminStates.waiting_for_broadcast_buttons, F.text)
+async def handle_broadcast_buttons_text(message: Message, state: FSMContext):
+    """Admin yozgan tugmalar tekshiriladi va reklama ko'rinishi (preview) yuboriladi."""
+    if not is_admin(message.from_user.id):
+        return
+    buttons, errors = ad_buttons.parse(message.text)
+    if errors or not buttons:
+        problems = "\n".join(f"• {e}" for e in errors) or "• Birorta tugma topilmadi"
+        await message.answer(
+            f"❌ Tugmalarni o'qib bo'lmadi:\n{problems}\n\nTo'g'rilab qaytadan yuboring.",
+            reply_markup=get_broadcast_buttons_keyboard())
+        return
+
+    data = await state.get_data()
+    try:
+        await _send_ad(message.bot, message.chat.id, data, ad_buttons.markup(buttons))
+    except Exception as exc:
+        # Masalan, Telegram havolani qabul qilmagan: foydalanuvchilarga ketguncha bilinadi.
+        await message.answer(
+            f"❌ Telegram tugmalarni qabul qilmadi: {exc}\n\nHavolalarni tekshirib, qaytadan yuboring.",
+            reply_markup=get_broadcast_buttons_keyboard())
+        return
+    await state.update_data(buttons=buttons)
+    await message.answer("👆 Reklama shunday ko'rinadi. Tugmalar saqlandi.")
+    await _ask_broadcast_target(message, state)
+
+
+async def _ask_broadcast_target(message: Message, state: FSMContext):
     await message.answer(
         "📢 Kimga reklama yuborilsin?",
         reply_markup=get_broadcast_target_keyboard()
     )
     await state.set_state(AdminStates.waiting_for_broadcast_target)
+
+
+async def _send_ad(bot, chat_id: int, data: dict, markup=None):
+    """Reklamani bitta chatga yuboradi (turiga qarab); xato bo'lsa — istisno."""
+    kind = data.get('message_type', 'text')
+    caption = data.get('caption')
+    if kind == "text":
+        return await bot.send_message(chat_id, data['message_text'], reply_markup=markup)
+    senders = {
+        "photo": (bot.send_photo, "photo", "photo_id"),
+        "video": (bot.send_video, "video", "video_id"),
+        "document": (bot.send_document, "document", "document_id"),
+        "animation": (bot.send_animation, "animation", "animation_id"),
+        "voice": (bot.send_voice, "voice", "voice_id"),
+        "audio": (bot.send_audio, "audio", "audio_id"),
+    }
+    send, param, key = senders[kind]
+    return await send(chat_id, **{param: data[key]}, caption=caption, reply_markup=markup)
+
+
+@router.callback_query(F.data.startswith("ad:"))
+async def handle_ad_menu_button(callback: CallbackQuery, state: FSMContext, db: Database,
+                                dispatcher: Dispatcher):
+    """Reklamadagi ichki tugma: foydalanuvchi uchun botning shu bo'limi ochiladi.
+
+    Pastki menyudagi tugma bosilgandek ishlaydi: tugma matni foydalanuvchi
+    yozgan xabar sifatida botning o'z oqimiga beriladi — obuna tekshiruvi,
+    to'lov va boshqa hamma qoidalar o'zgarishsiz qo'llanadi.
+    """
+    key = callback.data.split(":", 1)[1]
+    user = await db.get_user(callback.from_user.id)
+    text = ad_buttons.menu_text(key, user.language if user else "uz")
+    await callback.answer()
+    # Eski (48 soatdan oshgan) xabarda `message` ochilmaydi — bunday tugmani bosib bo'lmaydi.
+    if not text or not isinstance(callback.message, Message):
+        return
+    await state.clear()
+    fake = callback.message.model_copy(update={
+        "from_user": callback.from_user,
+        "text": text,
+        "date": datetime.now(),
+        "reply_markup": None,
+    })
+    update = Update(update_id=int(datetime.now().timestamp() * 1000) % 2_000_000_000, message=fake)
+    await dispatcher.feed_update(callback.bot, update)
+
 
 @router.callback_query(F.data.startswith("broadcast_"), AdminStates.waiting_for_broadcast_target)
 async def handle_broadcast_target(callback: CallbackQuery, state: FSMContext, db: Database):
@@ -1670,50 +1788,10 @@ async def handle_broadcast_target(callback: CallbackQuery, state: FSMContext, db
     failed_count = 0
     message_type = data.get('message_type', 'text')
 
+    markup = ad_buttons.markup(data.get('buttons') or [])
     for user in target_users:
         try:
-            if message_type == "text":
-                await callback.bot.send_message(
-                    user.telegram_id,
-                    data['message_text']
-                )
-            elif message_type == "photo":
-                await callback.bot.send_photo(
-                    user.telegram_id,
-                    photo=data['photo_id'],
-                    caption=data.get('caption')
-                )
-            elif message_type == "video":
-                await callback.bot.send_video(
-                    user.telegram_id,
-                    video=data['video_id'],
-                    caption=data.get('caption')
-                )
-            elif message_type == "document":
-                await callback.bot.send_document(
-                    user.telegram_id,
-                    document=data['document_id'],
-                    caption=data.get('caption')
-                )
-            elif message_type == "animation":
-                await callback.bot.send_animation(
-                    user.telegram_id,
-                    animation=data['animation_id'],
-                    caption=data.get('caption')
-                )
-            elif message_type == "voice":
-                await callback.bot.send_voice(
-                    user.telegram_id,
-                    voice=data['voice_id'],
-                    caption=data.get('caption')
-                )
-            elif message_type == "audio":
-                await callback.bot.send_audio(
-                    user.telegram_id,
-                    audio=data['audio_id'],
-                    caption=data.get('caption')
-                )
-
+            await _send_ad(callback.bot, user.telegram_id, data, markup)
             sent_count += 1
         except Exception as e:
             logger.error(f"Failed to send {message_type} to {user.telegram_id}: {e}")

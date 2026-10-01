@@ -950,6 +950,15 @@ def get_promocode_keyboard() -> InlineKeyboardMarkup:
     keyboard.adjust(1)
     return keyboard.as_markup()
 
+def get_broadcast_buttons_keyboard() -> InlineKeyboardMarkup:
+    """Reklama ostiga tugma qo'shish yoki o'tkazib yuborish"""
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(text="➕ Tugma qo'shish", callback_data="adbtn_add"))
+    keyboard.add(InlineKeyboardButton(text="⏭ Tugmasiz davom etish", callback_data="adbtn_skip"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
 def get_broadcast_target_keyboard() -> InlineKeyboardMarkup:
     """Broadcast target selection keyboard"""
     keyboard = InlineKeyboardBuilder()
