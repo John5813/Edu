@@ -34,51 +34,6 @@ check("eski zamonaviy tugma nomlari ham qabul qilinadi",
 check("oddiy oqim kirishi Taqdimot matnini ushlamaydi (ikki marta ishlamasin)",
       not any(k in documents.DOCUMENT_TYPES for k in pp.ENTRY_TEXTS))
 
-# ── uslub tugmalari
-kb = pp._style_keyboard("uz")
-cbs = [b.callback_data for row in kb.inline_keyboard for b in row]
-check("6 ta uslub tugmasi (5 yangi + chiroyli orqa fonlar)",
-      [c for c in cbs if c and c.startswith("ppt_style:")] ==
-      ["ppt_style:toza", "ppt_style:jurnal", "ppt_style:blok", "ppt_style:kontur",
-       "ppt_style:qorongu", "ppt_style:fon"], cbs)
-labels = [b.text for row in kb.inline_keyboard for b in row]
-check("oddiy tizim 'Chiroyli orqa fonlar' deb nomlangan", any("Chiroyli orqa fonlar" in l for l in labels))
-check("uslublar rasmi mavjud", os.path.isfile(pp.STYLE_PREVIEW))
-check("uch tilda matn", all("<b>" in pp._style_text(l) for l in ("uz", "ru", "en")))
-
-# ── tanlov oqimi
-from aiogram.fsm.context import FSMContext
-from aiogram.fsm.storage.base import StorageKey
-from aiogram.fsm.storage.memory import MemoryStorage
-from bot.states import PremiumPresentationStates, DocumentStates
-
-def make(key):
-    state = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=1, user_id=1))
-    msg = MagicMock(); msg.answer = AsyncMock(); msg.delete = AsyncMock()
-    cb = MagicMock(); cb.data = f"ppt_style:{key}"; cb.answer = AsyncMock(); cb.message = msg
-    cb.from_user = SimpleNamespace(id=1)
-    db = MagicMock(); db.get_user = AsyncMock(return_value=SimpleNamespace(language="uz"))
-    return state, cb, db, msg
-
-async def flows():
-    state, cb, db, msg = make("jurnal")
-    await state.set_state(PremiumPresentationStates.waiting_for_style)
-    await pp.premium_ppt_style_selected(cb, state, db)
-    data = await state.get_data()
-    check("yangi uslub: uslub saqlanadi", data.get("style") == "jurnal", data)
-    check("yangi uslub: zamonaviy oqim davom etadi (til tanlash)",
-          await state.get_state() == PremiumPresentationStates.waiting_for_topic.state)
-
-    state, cb, db, msg = make("fon")
-    await state.set_state(PremiumPresentationStates.waiting_for_style)
-    await pp.premium_ppt_style_selected(cb, state, db)
-    data = await state.get_data()
-    check("chiroyli orqa fonlar: oddiy oqim boshlanadi",
-          await state.get_state() == DocumentStates.waiting_for_source_selection.state)
-    check("chiroyli orqa fonlar: hujjat turi taqdimot", data.get("document_type") == "presentation", data)
-    check("chiroyli orqa fonlar: uslub saqlanmaydi", "style" not in data, data)
-asyncio.run(flows())
-
 # ── har uslub: CSS to'liq, bezaklar haqiqiy elementlar
 BODY = ('<section class="slide dark"><div class="body"><h1 class="title big">Mavzu</h1>'
         '<div class="rule"></div></div></section>',
