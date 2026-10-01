@@ -1756,6 +1756,7 @@ class DocumentService:
         """Create independent work document with professional footnotes (snoska)"""
         try:
             doc = Document()
+            _use_a4(doc)
             style = doc.styles['Normal']
             font = style.font
             font.name = 'Times New Roman'
@@ -1920,6 +1921,7 @@ class DocumentService:
         """Create referat document"""
         try:
             doc = Document()
+            _use_a4(doc)
             style = doc.styles['Normal']
             font = style.font
             font.name = 'Times New Roman'
@@ -2996,6 +2998,7 @@ class DocumentService:
         """
         try:
             doc = Document()
+            _use_a4(doc)
 
             for section in doc.sections:
                 section.top_margin = Inches(0.79)
@@ -3338,6 +3341,7 @@ class DocumentService:
         """
         try:
             doc = Document()
+            _use_a4(doc)
             
             # Set document margins
             for section in doc.sections:
@@ -4244,6 +4248,7 @@ class DocumentService:
 
         # ── Build document ─────────────────────────────────────────────────────
         doc = Document()
+        _use_a4(doc)
 
         # Page margins (like independent work)
         for section in doc.sections:
@@ -4373,6 +4378,7 @@ class DocumentService:
         try:
             import re as _re
             doc = Document()
+            _use_a4(doc)
             for section in doc.sections:
                 section.top_margin = Inches(0.79)      # ~2cm
                 section.bottom_margin = Inches(0.79)   # ~2cm
@@ -4777,6 +4783,7 @@ class DocumentService:
         try:
             import re as _re
             doc = Document()
+            _use_a4(doc)
             for section in doc.sections:
                 section.top_margin = Inches(0.79)
                 section.bottom_margin = Inches(0.79)

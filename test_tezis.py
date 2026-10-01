@@ -103,6 +103,23 @@ check("maqola: sarlavha bosh harflarda", texts[0] == "UFQ ROMANI TILIDA IBORALAR
 check("maqola: adabiyotlar raqamlangan, alifbo tartibida", texts[-2:] == ["1. Ahmad S. Ufq.", "2. Yoqubov U. Lug\u02bbat."], texts[-2:])
 check("maqola: 'Kalit soʻzlar' yorlig'i bitta tutuq belgisi bilan", any(t.startswith("Kalit soʻzlar:") for t in texts), texts[:8])
 
+# ── Maqola hajmi varoqqa moslanadi
+from services.ai_service import AIService
+base = """"abstract": "A (150-200 so'z)"\n"introduction": "K (200-300 so'z)"\n"results_and_discussion": "N (300-400 so'z)\""""
+def words(a, b):
+    out, tokens = AIService._scale_article_prompt(base, a, b)
+    nums = [tuple(map(int, m)) for m in re.findall(r"\((\d+)-(\d+) so'z\)", out)]
+    return nums, tokens
+small, t1 = words(4, 5); mid, t2 = words(5, 7); big, t3 = words(7, 10)
+check("annotatsiya hajmi o'zgarmaydi", small[0] == mid[0] == big[0] == (150, 200))
+check("7-10 varoqda bo'limlar 4-5 varoqdagidan ancha katta", big[1][1] > mid[1][1] > small[1][1] and big[2][0] >= 2 * small[2][0] - 20, (small, mid, big))
+check("katta maqolada max_tokens yetarli", t3 > t2 > t1 and t3 >= 9000, (t1, t2, t3))
+
+# ── Hamma hujjat A4
+src = open("services/document_service.py", encoding="utf-8").read()
+check("hamma `Document()` dan keyin A4 o'rnatiladi",
+      len(re.findall(r"doc = Document\(\)\n\s*_use_a4\(doc\)", src)) == len(re.findall(r"doc = Document\(\)", src)))
+
 # ── Narxlar
 import config
 from bot import keyboards

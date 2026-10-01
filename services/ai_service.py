@@ -4247,6 +4247,35 @@ ROW5: text | text | text | text"""
             logger.error(f"Error translating topic: {e}")
             return topic
 
+    @staticmethod
+    def _scale_article_prompt(prompt: str, min_pages: int, max_pages: int):
+        """Maqola bo'limlari so'z chegaralarini varoq soniga qarab o'zgartiradi.
+
+        Qaytaradi: (yangi prompt, max_tokens). Annotatsiya (abstract) hajmi
+        o'zgarmaydi — u har doim qisqa.
+        """
+        base_words = 1500   # promptdagi bo'limlar o'rtachasining yig'indisi
+        pages = (float(min_pages) + float(max_pages)) / 2
+        target = max(900.0, (pages - 0.5) * 330)
+        factor = target / base_words
+
+        pattern = re.compile(r"\((\d+)-(\d+) (so'z|слов|words)\)")
+
+        def scale_line(line: str) -> str:
+            if '"abstract"' in line:
+                return line
+
+            def swap(match):
+                low = max(50, int(round(int(match.group(1)) * factor / 10.0)) * 10)
+                high = max(low + 20, int(round(int(match.group(2)) * factor / 10.0)) * 10)
+                return f"({low}-{high} {match.group(3)})"
+
+            return pattern.sub(swap, line)
+
+        scaled = "\n".join(scale_line(line) for line in prompt.split("\n"))
+        tokens = int(min(16000, max(6000, target * 3.2 + 1800)))
+        return scaled, tokens
+
     async def generate_article_content(self, topic: str, min_pages: int, max_pages: int, language: str) -> dict:
         """Generate a full IMRAD-structured academic article as JSON"""
         try:
@@ -4368,12 +4397,18 @@ Strictly follow the IMRAD structure. Respond only in JSON format:
 
 Return only JSON, nothing else."""
 
+            # Bo'lim hajmlari (so'z) buyurtma qilingan varoqqa moslanadi. Ilgari
+            # ular qat'iy edi (jami ~1500 so'z): 7-10 varoq so'ralsa ham ~4 bet
+            # chiqardi. Bir bet ~330 so'z (TNR 14, 1,5 interval); sarlavha,
+            # annotatsiya, jadval va adabiyotlar ~0,5 bet oladi.
+            prompt, token_budget = self._scale_article_prompt(prompt, min_pages, max_pages)
+
             response = await self._make_request(
                 messages=[
                     {"role": "system", "content": "You are an academic writer. Respond with valid JSON only. No markdown, no extra text."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=6000,
+                max_tokens=token_budget,
                 temperature=0.7
             )
 
