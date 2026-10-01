@@ -93,6 +93,36 @@ check("birinchi bo'lakda shakllar ro'yxati yo'q (hali slayd yo'q)", "HARD CONSTR
 check("ikkinchi bo'lakka ishlatilgan shakllar va qat'iy taqiq (inglizcha) berildi",
       "HARD CONSTRAINT" in prompts[1] and "list+rasm+split" in prompts[1] and "FORBIDDEN" in prompts[1], prompts[1][-700:])
 
+# ── Reja (outline): "reja" faqat 2-slayd, oxirgi slayd — xulosa, chala reja qayta so'raladi
+def plan_with(items, calls):
+    def fake(system, user, **kw):
+        calls.append(user)
+        return {"fan": "tibbiyot", "slides": items(len(calls))}
+    orig = llm_client._call_openrouter
+    llm_client._call_openrouter = fake
+    try:
+        return hs.plan_outline("Endoskopik xirurgiya", 12, "uz")["slides"]
+    finally:
+        llm_client._call_openrouter = orig
+
+full = [{"brief": f"b{i}", "category": "matn_rasm"} for i in range(1, 13)]
+full[1]["category"] = "reja"; full[10]["category"] = "reja"; full[11]["brief"] = "Endoskopik xirurgiya ta'rifi"
+calls = []
+outline = plan_with(lambda n: full, calls)
+check("'reja' faqat 2-slaydda qoladi", [i + 1 for i, o in enumerate(outline) if o["category"] == "reja"] == [2], [o["category"] for o in outline])
+check("oxirgi slayd — yakun va xulosa mazmuni (ta'rif emas)", outline[-1]["category"] == "yakun" and "Xulosa" in outline[-1]["brief"], outline[-1])
+check("xulosa so'zli reja o'zgarishsiz", plan_with(lambda n: [dict(o, brief="Xulosa va natijalar") if i == 11 else o for i, o in enumerate(full)], [])[-1]["brief"] == "Xulosa va natijalar")
+
+calls = []
+outline = plan_with(lambda n: full[:8] if n == 1 else full, calls)
+check("chala reja bir marta qayta so'raladi", len(calls) == 2 and len(outline) == 12, len(calls))
+calls = []
+outline = plan_with(lambda n: full[:8], calls)
+check("qayta ham chala bo'lsa — yetmagan o'rinlar oddiy mavzu nomi bilan emas, 'yangi jihat' topshirig'i bilan to'ldiriladi",
+      len(calls) == 2 and "YANGI" in outline[9]["brief"] and outline[9]["brief"] != "Endoskopik xirurgiya", outline[9])
+check("so'nggi bo'lak so'rovida 'faqat XULOSA' aytilgan", "faqat XULOSA" in hs._user_prompt("M", 10, 3, 12, outline, [], 2, "", "", ""))
+check("oxirgi bo'lak bo'lmasa bu qoida yo'q", "faqat XULOSA" not in hs._user_prompt("M", 4, 3, 12, outline, [], 2, "", "", ""))
+
 check("reja promptida takror cheklovi bor", "2 martadan ko'p takrorlanmasin" in open("services/premium_presentation/html_slides.py", encoding="utf-8").read())
 
 print("\n" + ("✅ hammasi o'tdi" if not FAILS else f"❌ {len(FAILS)} ta xato: {FAILS}"))

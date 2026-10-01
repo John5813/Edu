@@ -84,8 +84,8 @@ _LANGUAGE = {
 _CATEGORIES = (
     ("muqova", "katta sarlavha, ostida ingichka aksent chiziq, pastda "
                "muallif va fan qatori"),
-    ("reja", "01, 02, 03 deb raqamlangan kartalar — ustun yoki panjara "
-             "ko'rinishida, har birida qisqa izoh"),
+    ("reja", "TAQDIMOT REJASI (mundarija): 01, 02, 03 deb raqamlangan "
+             "kartalar. FAQAT 2-slaydda; boshqa joyda ishlatilmaydi"),
     ("matn_rasm", "bir tomonda fikrni ochgan matn, bir tomonda rasm "
                   "(rasm chiqmasa o'rnida qo'shimcha matn)"),
     ("ikki_ustun", "chapda matn, o'ngda kartalar yoki jadval"),
@@ -336,6 +336,10 @@ def _user_prompt(topic: str, start: int, count: int, total: int,
     if used:
         parts.append("Oldingi slaydlarda ochilgan fikrlar (ularni qayta "
                      "aytmang): " + "; ".join(used[-5:]))
+    if start + count - 1 >= total:
+        parts.append("Oxirgi slayd — faqat XULOSA: taqdimotdagi asosiy fikrlar va "
+                     "yakuniy fikr. Taqdimot rejasini yoki mavzu ta'rifini "
+                     "qaytarmang, yangi mavzu ochmang.")
     note = _shapes_note(shapes, start, count)
     if note:
         parts.append(note)
@@ -349,6 +353,18 @@ def _user_prompt(topic: str, start: int, count: int, total: int,
 
 
 # ────────────────────────────────────────────────────────────── reja
+
+_CONCLUSION_WORDS = re.compile(
+    r"xulosa|yakun|natija|conclusion|summary|takeaway|заключен|вывод|итог", re.IGNORECASE)
+_CONCLUSION_BRIEF = {
+    "uz": "Xulosa: taqdimotdagi asosiy fikrlarni umumlashtirish va yakuniy xulosa "
+          "(yangi mavzu ochmang, ta'rif yoki rejani takrorlamang)",
+    "ru": "Заключение: обобщение главных мыслей и итоговый вывод "
+          "(не открывайте новых тем, не повторяйте определения и план)",
+    "en": "Conclusion: summary of the key points and a final takeaway "
+          "(no new topics, do not repeat definitions or the agenda)",
+}
+
 
 def plan_outline(topic: str, count: int, language: str,
                  level: int = 2) -> Dict:
@@ -364,7 +380,11 @@ def plan_outline(topic: str, count: int, language: str,
         "uchun bir qatorli mazmun va unga mos joylashuv kategoriyasini "
         "ayt.\n\n"
         "Kategoriyalar:\n" + catalogue_text() + "\n\n"
-        "Birinchisi — muqova, oxirgisi — yakun. Qolganlari mavzuni "
+        "Birinchisi — muqova, oxirgisi — yakun (XULOSA: shu mavzu bo'yicha "
+        "asosiy fikrlar va yakuniy fikr). Xulosa FAQAT oxirgi slaydda: undan "
+        "oldin xulosa yoki yakunlovchi slayd bo'lmasin. 'reja' kategoriyasi — "
+        "faqat 2-slayd (taqdimot rejasi), boshqa slaydda ishlatilmasin. "
+        "Qolganlari mavzuni "
         "MANTIQIY ketma-ketlikda ochsin: nimadan boshlash, nima bilan "
         "davom etish va qayerda yakunlash kerakligini mavzuning o'zi "
         "aytadi.\n"
@@ -389,17 +409,25 @@ def plan_outline(topic: str, count: int, language: str,
         'Faqat JSON: {"fan": "...", '
         '"slides": [{"brief": "...", "category": "..."}]}'
     )
-    try:
-        data = llm_client._call_openrouter(
-            "Sen taqdimot rejasini tuzasan. Faqat JSON qaytar.",
-            prompt, temperature=0.6, max_tokens=600 + 160 * count)
-        raw = data.get("slides") or []
-        hint = data.get("fan") or ""
-    except llm_client.NoCredits:
-        raise
-    except Exception as exc:
-        log.warning("Reja olinmadi, kategoriyalar o'zimiz tanlaymiz: %s", exc)
-        raw, hint = [], ""
+    raw, hint = [], ""
+    for attempt in range(2):
+        try:
+            data = llm_client._call_openrouter(
+                "Sen taqdimot rejasini tuzasan. Faqat JSON qaytar.",
+                prompt, temperature=0.6, max_tokens=600 + 160 * count)
+            raw = data.get("slides") or []
+            hint = data.get("fan") or ""
+        except llm_client.NoCredits:
+            raise
+        except Exception as exc:
+            log.warning("Reja olinmadi, kategoriyalar o'zimiz tanlaymiz: %s", exc)
+            raw, hint = [], ""
+        # Chala reja (kam slayd) bir marta qayta so'raladi: yetmagan o'rinlar
+        # mavzu nomi bilan to'ldirilsa, model o'sha slaydlarda mavzuning
+        # ta'rifini qayta yozib yuboradi.
+        if len(raw) >= count:
+            break
+        log.warning("Reja %d ta slayd uchun keldi, %d kerak", len(raw), count)
 
     family = deck_shape.of(topic, hint)
     log.info("Mavzu oilasi: %s", family)
@@ -415,9 +443,20 @@ def plan_outline(topic: str, count: int, language: str,
             category = "muqova"
         elif index == count - 1:
             category = "yakun"
+            # Oxirgi slayd — XULOSA. Reja boshqa narsa yozgan bo'lsa (masalan
+            # mavzu nomi), model uni shunday yozib yuboradi: ta'rif qayta chiqadi.
+            if not _CONCLUSION_WORDS.search(brief):
+                brief = _CONCLUSION_BRIEF.get(language, _CONCLUSION_BRIEF["uz"])
         elif category in ("muqova", "yakun"):
             category = _fallback_category(index, count)
-        outline.append({"brief": brief or topic, "category": category})
+        elif category == "reja" and index != 1:
+            # "Taqdimot rejasi" faqat 2-slayd; boshqa joyda u xulosa oldidan
+            # yoki oxirida reja slaydini takrorlab yuborardi.
+            category = _fallback_category(index, count)
+        if not brief:
+            brief = (f"{topic} — {index + 1}-slayd: mavzuning oldingi slaydlarda "
+                     "ochilmagan YANGI jihati (ta'rif yoki rejani takrorlamang)")
+        outline.append({"brief": brief, "category": category})
 
     # Kod darajasida kategoriya almashtirilmaydi (ilgari shunday edi va
     # mantiqan ketma-ket kelishi kerak bo'lgan ikki ro'yxatni ajratib,
