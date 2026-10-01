@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from aiogram import Router, F, Dispatcher
 from aiogram.types import Message, CallbackQuery, Update
 from aiogram.fsm.context import FSMContext
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
 
 from bot.states import AdminStates
 from bot import ad_buttons
@@ -16,6 +16,8 @@ from bot.keyboards import (
     get_promocode_keyboard,
     get_broadcast_target_keyboard,
     get_broadcast_buttons_keyboard,
+    get_broadcast_button_type_keyboard,
+    get_broadcast_sections_keyboard,
     get_main_keyboard,
     get_feature_management_keyboard,
     get_client_action_keyboard,
@@ -1647,29 +1649,48 @@ async def handle_broadcast_message(message: Message, state: FSMContext):
     await state.set_state(AdminStates.waiting_for_broadcast_buttons)
 
 
-_BUTTONS_HELP = (
-    "🔘 Tugmalarni yuboring — har qatorga bitta tugma:\n\n"
-    "<code>Tugma matni | havola yoki bo'lim</code>\n\n"
-    "Misollar:\n"
-    "<code>Botga o'tish | @slaydtopbot</code>\n"
-    "<code>Saytimiz | https://example.uz</code>\n"
-    "<code>Kanalimiz | https://t.me/kanal</code>\n"
-    "<code>Taqdimot yaratish | taqdimot</code>\n\n"
-    "Botning ichki bo'limlari (bosganda shu bo'lim ochiladi):\n"
-    "<code>{keys}</code>\n\n"
-    "Eng ko'pi bilan {max} ta tugma."
-)
+def _buttons_summary(buttons: list) -> str:
+    if not buttons:
+        return "Hozircha tugma yo'q."
+    lines = []
+    for number, item in enumerate(buttons, 1):
+        where = (item["value"] if item["kind"] == "url"
+                 else "botning «" + ad_buttons.target_name(item["value"]) + "» bo'limi")
+        lines.append(f"{number}. {item['text']}  →  {where}")
+    return "Tugmalar:\n" + "\n".join(lines)
 
 
-@router.callback_query(F.data == "adbtn_add", AdminStates.waiting_for_broadcast_buttons)
+async def _show_buttons_menu(message: Message, state: FSMContext):
+    """Hozirgi tugmalar ro'yxati va keyingi amal tugmalari."""
+    data = await state.get_data()
+    buttons = data.get("buttons") or []
+    await state.set_state(AdminStates.waiting_for_broadcast_buttons)
+    await message.answer(_buttons_summary(buttons),
+                         reply_markup=get_broadcast_buttons_keyboard(len(buttons)))
+
+
+@router.callback_query(F.data == "adbtn_add", StateFilter(
+    AdminStates.waiting_for_broadcast_buttons, AdminStates.waiting_for_ad_button_url,
+    AdminStates.waiting_for_ad_button_label))
 async def handle_broadcast_buttons_add(callback: CallbackQuery, state: FSMContext):
+    """Tugma turini tanlash: havola yoki ichki bo'lim."""
     if not is_admin(callback.from_user.id):
         return
     await callback.answer()
-    await callback.message.answer(
-        _BUTTONS_HELP.format(keys=ad_buttons.keys_help(), max=ad_buttons.MAX_BUTTONS),
-        parse_mode="HTML",
-        reply_markup=get_broadcast_buttons_keyboard())
+    data = await state.get_data()
+    if len(data.get("buttons") or []) >= ad_buttons.MAX_BUTTONS:
+        await callback.message.answer(f"❌ Tugmalar {ad_buttons.MAX_BUTTONS} tadan oshmasin.")
+        return
+    await state.set_state(AdminStates.waiting_for_broadcast_buttons)
+    await callback.message.answer("Tugma nimaga olib borsin?", reply_markup=get_broadcast_button_type_keyboard())
+
+
+@router.callback_query(F.data == "adbtn_back", AdminStates.waiting_for_broadcast_buttons)
+async def handle_broadcast_buttons_back(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id):
+        return
+    await callback.answer()
+    await _show_buttons_menu(callback.message, state)
 
 
 @router.callback_query(F.data == "adbtn_skip", AdminStates.waiting_for_broadcast_buttons)
@@ -1680,31 +1701,135 @@ async def handle_broadcast_buttons_skip(callback: CallbackQuery, state: FSMConte
     await _ask_broadcast_target(callback.message, state)
 
 
-@router.message(AdminStates.waiting_for_broadcast_buttons, F.text)
-async def handle_broadcast_buttons_text(message: Message, state: FSMContext):
-    """Admin yozgan tugmalar tekshiriladi va reklama ko'rinishi (preview) yuboriladi."""
+@router.callback_query(F.data == "adbtn_type_url", AdminStates.waiting_for_broadcast_buttons)
+async def handle_broadcast_button_url_type(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id):
+        return
+    await callback.answer()
+    me = await callback.bot.me()
+    await state.set_state(AdminStates.waiting_for_ad_button_url)
+    await callback.message.answer(
+        "🔗 Manzilni yuboring (sayt, kanal yoki bot):\n\n"
+        "• Sayt: <code>https://example.uz</code>\n"
+        "• Kanal: <code>https://t.me/kanal_nomi</code>\n"
+        f"• Bot: <code>@{me.username}</code>",
+        parse_mode="HTML")
+
+
+@router.message(AdminStates.waiting_for_ad_button_url, F.text)
+async def handle_broadcast_button_url(message: Message, state: FSMContext):
     if not is_admin(message.from_user.id):
         return
-    buttons, errors = ad_buttons.parse(message.text)
-    if errors or not buttons:
-        problems = "\n".join(f"• {e}" for e in errors) or "• Birorta tugma topilmadi"
-        await message.answer(
-            f"❌ Tugmalarni o'qib bo'lmadi:\n{problems}\n\nTo'g'rilab qaytadan yuboring.",
-            reply_markup=get_broadcast_buttons_keyboard())
+    url = ad_buttons.normalize_link(message.text)
+    if not url:
+        await message.answer("❌ Manzil tushunarsiz. Sayt (https://...), kanal (t.me/...) yoki @nom yuboring.")
         return
+    await state.update_data(pending={"kind": "url", "value": url})
+    await state.set_state(AdminStates.waiting_for_ad_button_label)
+    await message.answer(
+        "✏️ Tugma ustiga yoziladigan nomni yozing.\n"
+        "Foydalanuvchi faqat shu nomni ko'radi, manzilni emas.\n\n"
+        "Masalan: «Saytga o'tish», «Kanalga obuna bo'lish»")
 
+
+@router.callback_query(F.data == "adbtn_type_menu", AdminStates.waiting_for_broadcast_buttons)
+async def handle_broadcast_button_menu_type(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id):
+        return
+    await callback.answer()
+    await callback.message.answer("📲 Qaysi bo'limga olib borsin?", reply_markup=get_broadcast_sections_keyboard())
+
+
+@router.callback_query(F.data.startswith("adbtn_pick:"), AdminStates.waiting_for_broadcast_buttons)
+async def handle_broadcast_button_pick(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id):
+        return
+    key = callback.data.split(":", 1)[1]
+    if key not in ad_buttons.TARGETS:
+        await callback.answer("Bunday bo'lim yo'q", show_alert=True)
+        return
+    await callback.answer()
+    kind = "menu" if ad_buttons.TARGETS[key][0] == "menu" else "cb"
+    await state.update_data(pending={"kind": kind, "value": key})
+    await state.set_state(AdminStates.waiting_for_ad_button_label)
+    name = ad_buttons.target_name(key)
+    kb = InlineKeyboardBuilder()
+    kb.add(InlineKeyboardButton(text=f"«{name}» deb qoldirish", callback_data="adbtn_defname"))
+    await callback.message.answer(
+        f"✏️ Tugma ustiga yoziladigan nomni yozing yoki bo'lim nomini qoldiring:",
+        reply_markup=kb.as_markup())
+
+
+async def _finish_button(message: Message, state: FSMContext, label: str):
     data = await state.get_data()
+    pending = data.get("pending")
+    if not pending:
+        return await _show_buttons_menu(message, state)
+    buttons = list(data.get("buttons") or [])
+    buttons.append({"text": label, "kind": pending["kind"], "value": pending["value"]})
+    await state.update_data(buttons=buttons, pending=None)
+    await message.answer("✅ Tugma qo'shildi.")
+    await _show_buttons_menu(message, state)
+
+
+@router.callback_query(F.data == "adbtn_defname", AdminStates.waiting_for_ad_button_label)
+async def handle_broadcast_button_defname(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id):
+        return
+    await callback.answer()
+    pending = (await state.get_data()).get("pending") or {}
+    key = pending.get("value")
+    if key not in ad_buttons.TARGETS:
+        return await _show_buttons_menu(callback.message, state)
+    await _finish_button(callback.message, state, ad_buttons.target_name(key)[:ad_buttons.MAX_LABEL])
+
+
+@router.message(AdminStates.waiting_for_ad_button_label, F.text)
+async def handle_broadcast_button_label(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        return
+    label = message.text.strip()
+    if not label or len(label) > ad_buttons.MAX_LABEL:
+        await message.answer(f"❌ Nom 1–{ad_buttons.MAX_LABEL} belgi bo'lsin. Qaytadan yozing.")
+        return
+    await _finish_button(message, state, label)
+
+
+@router.callback_query(F.data == "adbtn_undo", AdminStates.waiting_for_broadcast_buttons)
+async def handle_broadcast_button_undo(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id):
+        return
+    await callback.answer()
+    data = await state.get_data()
+    buttons = list(data.get("buttons") or [])
+    if buttons:
+        buttons.pop()
+        await state.update_data(buttons=buttons)
+    await _show_buttons_menu(callback.message, state)
+
+
+@router.callback_query(F.data == "adbtn_done", AdminStates.waiting_for_broadcast_buttons)
+async def handle_broadcast_buttons_done(callback: CallbackQuery, state: FSMContext):
+    """Reklama ko'rinishi (preview) tugmalar bilan yuboriladi, so'ng auditoriya so'raladi."""
+    if not is_admin(callback.from_user.id):
+        return
+    await callback.answer()
+    data = await state.get_data()
+    buttons = data.get("buttons") or []
+    if not buttons:
+        await callback.message.answer("Avval kamida bitta tugma qo'shing yoki «Tugmasiz davom etish»ni bosing.")
+        return
     try:
-        await _send_ad(message.bot, message.chat.id, data, ad_buttons.markup(buttons))
+        await _send_ad(callback.bot, callback.message.chat.id, data, ad_buttons.markup(buttons))
     except Exception as exc:
         # Masalan, Telegram havolani qabul qilmagan: foydalanuvchilarga ketguncha bilinadi.
-        await message.answer(
-            f"❌ Telegram tugmalarni qabul qilmadi: {exc}\n\nHavolalarni tekshirib, qaytadan yuboring.",
-            reply_markup=get_broadcast_buttons_keyboard())
+        await callback.message.answer(
+            f"❌ Telegram tugmalarni qabul qilmadi: {exc}\n\n"
+            "Oxirgi tugmani o'chirib, to'g'ri manzil bilan qayta qo'shing.",
+            reply_markup=get_broadcast_buttons_keyboard(len(buttons)))
         return
-    await state.update_data(buttons=buttons)
-    await message.answer("👆 Reklama shunday ko'rinadi. Tugmalar saqlandi.")
-    await _ask_broadcast_target(message, state)
+    await callback.message.answer("👆 Reklama shunday ko'rinadi.")
+    await _ask_broadcast_target(callback.message, state)
 
 
 async def _ask_broadcast_target(message: Message, state: FSMContext):
