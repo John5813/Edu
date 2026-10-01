@@ -20,7 +20,7 @@ import os
 import re
 from typing import Callable, Dict, List, Optional
 
-from . import (deck_charts, deck_math, deck_shape, deck_style, deck_styles,
+from . import (deck_calc, deck_charts, deck_math, deck_shape, deck_style, deck_styles,
                llm_client)
 
 log = logging.getLogger("html_slides")
@@ -204,14 +204,25 @@ QAT'IY QOIDALAR:
    bo'lsin" deb tanlamang: avval mazmun, keyin shakl.
    Slayd NAFAS OLSIN: matn kam, bo'sh joy ko'p; bir blokda bitta
    fikr; uzun matn bo'lsa ikki slaydga bo'ling.
-8. RAQAMNI O'YLAB TOPMANG. Foiz, statistika, o'sish sur'ati va
-   kelajak prognozi faqat siz ishonadigan HAQIQIY ma'lumot bo'lsa
-   yoziladi. Ishonchingiz komil bo'lmasa diagramma ham,
-   ko'rsatkich ham qo'ymang — o'sha fikrni matn bilan ayting.
-   Mavzu raqam talab qilmasa, butun taqdimotda birorta diagramma
-   bo'lmasligi ham mumkin va bu TO'G'RI. Ko'rsatkich (kpi) raqami
-   izohida uning manbasi va yili aytiladi (masalan: Statistika
-   agentligi, 2024) — manbasini ayta olmaydigan raqam yozilmaydi.
+8. RAQAMNI O'YLAB TOPMANG. Raqam ikki xil bo'ladi:
+   a) HISOBLANGAN raqam — formuladan va boshlang'ich qiymatdan
+      kelgan. U RUXSAT: uni o'zingiz hisoblamang, `calc` yoki
+      `data-calc` bilan bering — kod hisoblaydi. Boshlang'ich qiymat
+      haqiqiy statistika bo'lmasa, slaydda "shartli misol" deb
+      belgilang.
+   b) STATISTIK FAKT — foiz, o'sish sur'ati, aholi soni, prognoz:
+      faqat siz ishonadigan HAQIQIY ma'lumot bo'lsa. Ishonchingiz
+      komil bo'lmasa uni yozmang: fikrni matn bilan ayting yoki
+      hisoblangan misol qiling.
+   Manba nomini yozing, lekin YIL qo'shmang, agar o'sha yil
+   ma'lumotini bilmasangiz: bugungi va kelgusi yillar uchun "BMT,
+   2026" kabi manba YOZILMAYDI — bunday raqam "taxminiy" deyiladi.
+   Mavzu hisob-kitob talab qilmasa, butun taqdimotda
+   birorta diagramma bo'lmasligi ham mumkin va bu TO'G'RI. Hisob-kitob
+   mavzusida esa aksincha: formulaning natijasi diagramma yoki
+   ko'rsatkich bilan ko'rsatiladi. Ko'rsatkich (kpi) raqami
+   izohida uning manbasi aytiladi (masalan: Statistika agentligi,
+   2024) — manbasini ayta olmaydigan raqam yozilmaydi.
 9. Bir slaydda bir xil matnni ikki marta yozma.
 10. Yorliqlar qisqa: kartochka sarlavhasi 1-4 so'z, vaqt o'qidagi
    izoh bir jumla.
@@ -320,7 +331,11 @@ def plan_outline(topic: str, count: int, language: str,
         "kategoriyada bo'lmasin (mantiq buni majburlamasa). Mavzu raqam "
         "talab qilmasa, diagramma va statistika kategoriyalarini umuman "
         "ishlatmang.\n\n"
-        "Shuningdek mavzu qaysi oilaga tegishli ekanini ayting: "
+        + ("Bu HISOB-KITOB mavzusi: rejada formula, ishlangan misol va "
+           "diagramma kategoriyalari ham bo'lsin — har formula misol bilan "
+           "tasdiqlansin, natijalar diagramma bilan ko'rsatilsin.\n"
+           if deck_shape.is_calculation(topic) else "")
+        + "Shuningdek mavzu qaysi oilaga tegishli ekanini ayting: "
         + deck_shape.names() + "\n\n"
         f"Matn {_LANGUAGE.get(language, _LANGUAGE['uz'])}.\n"
         'Faqat JSON: {"fan": "...", '
@@ -585,16 +600,39 @@ def _decorate(body: str) -> str:
     return _DARK_SLIDE.sub(lambda m: m.group(1) + bits, body, count=1)
 
 
-def build_pages(bodies: List[str], theme) -> List[str]:
+# "(BMT, 2026)" — model bugungi yil ma'lumotini bilmaydi, shuning uchun bunday
+# manba o'ylab topilgan bo'ladi. Yil o'rniga "taxminiy" yoziladi.
+_SOURCE_YEAR = re.compile(r"\(([^()<>]{2,60}?),\s*((?:19|20)\d\d)\)")
+_ESTIMATE = {"uz": "taxminiy", "ru": "оценка", "en": "estimate"}
+
+
+def guard_source_years(body: str, language: str = "uz") -> str:
+    """Manbaga yozilgan bugungi/kelgusi yilni "taxminiy" ga almashtiradi."""
+    from services import timeframe
+
+    limit = timeframe.current_year()
+    label = _ESTIMATE.get(language, _ESTIMATE["uz"])
+
+    def swap(match):
+        return (f"({match.group(1)}, {label})" if int(match.group(2)) >= limit
+                else match.group(0))
+
+    return _SOURCE_YEAR.sub(swap, body)
+
+
+def build_pages(bodies: List[str], theme, language: str = "uz") -> List[str]:
     """Slayd mazmunlarini chizishga tayyor HTML hujjatlarga aylantiradi.
 
     Diagrammalar shu yerda chiziladi: model faqat ma'lumot beradi,
     SVG ni kod yasaydi — shunda ustunning balandligi ham, yozuvning
     o'rni ham har safar to'g'ri chiqadi.
     """
+    # Hisob-kitobni kod bajaradi: `calc` va `data-calc` shu yerda raqamga
+    # aylanadi, so'ng diagramma chiziladi.
     drawn = [deck_charts.draw(
         _half_charts(deck_math.render(deck_styles.decorate(
-            _whiten_icons(_auto_icons(_decorate(body))), theme))),
+            _whiten_icons(_auto_icons(_decorate(
+                guard_source_years(deck_calc.apply(body), language)))), theme))),
         theme)
              for body in bodies]
     try:
@@ -720,7 +758,7 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
     if len(slides) < _enough(slide_count):
         raise RuntimeError(
             f"AI {slide_count} ta slayddan faqat {len(slides)} tasini yozdi")
-    return build_pages(slides, theme)
+    return build_pages(slides, theme, language)
 
 
 # Muqovadagi "Tayyorladi: ... | Fan: ... | 2026" qatori. Model uni namunadan
@@ -987,13 +1025,13 @@ def fix_slide(html: str, problems: List[str], theme, language: str = "uz") -> st
         log.warning("Tuzatish qabul qilinmadi — slayd qayta yozilgan: %s",
                     reason)
         return html
-    return build_pages(fixed[:1], theme)[0]
+    return build_pages(fixed[:1], theme, language)[0]
 
 
 # Slaydning tuzilishini belgilaydigan bloklar. Tuzatishda ularning
 # biri yo'qolsa yoki yangisi paydo bo'lsa — bu tuzatish emas.
 _BLOCK_CLASSES = ("cols", "steps", "list", "timeline", "split", "formula",
-                  "misol", "chart", "kpi", "quote", "ikon-row", "lead",
+                  "misol", "chart", "calc", "kpi", "quote", "ikon-row", "lead",
                   "rasm")
 _CLASS_ATTR = re.compile(r'class\s*=\s*["\']([^"\']*)["\']', re.IGNORECASE)
 

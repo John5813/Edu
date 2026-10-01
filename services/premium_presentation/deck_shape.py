@@ -117,6 +117,29 @@ _FAMILIES: Dict[str, Dict[str, str]] = {
             "manbasi aytiladi. Aks holda usulni misol bilan "
             "tushuntiring — o'ylab topilgan foiz ishonchni yo'qotadi."),
     },
+    "hisob": {
+        "name": "hisob-kitob mavzulari (formula, prognoz, statistik hisob, moliyaviy hisob)",
+        "shape": (
+            "- Mavzu HISOB-KITOB talab qiladi: har tushuncha formula bilan\n"
+            "  beriladi, formula esa ISHLANGAN MISOL bilan tasdiqlanadi.\n"
+            "- Zanjir: tushuncha → formula (`formula` bloki, belgilari\n"
+            "  izohi) → ishlangan misol (`misol` bloki: shart, qadamlar,\n"
+            "  javob) → natija diagrammada → xulosa.\n"
+            "- Hisob natijasi ko'rsatiladigan joyda DIAGRAMMA bo'lsin va\n"
+            "  mazmunga mos turda: o'sish yoki prognoz — chiziqli (X o'qi\n"
+            "  vaqt, Y o'qi qiymat), bir necha qiymatni solishtirish —\n"
+            "  ustunli, butunning ulushlari — halqa. \"O'sdi\" deb faqat\n"
+            "  matn bilan qo'ymang: raqamni ko'rsating.\n"
+            "- Raqamlarni O'ZINGIZ hisoblamang: formulani `calc` (diagramma)\n"
+            "  yoki `data-calc` (bitta raqam) bilan bering — kod hisoblaydi.\n"
+            "- Ko'rsatkich (kpi) ham hisoblangan natijadan olinadi."),
+        "numbers": (
+            "Formuladan va boshlang'ich qiymatdan kelgan HISOBLANGAN raqam "
+            "o'ylab topilgan emas — u ruxsat etilgan. Boshlang'ich qiymat "
+            "haqiqiy statistika bo'lmasa, uni \"shartli misol\" deb belgilang. "
+            "Haqiqiy statistik faktni (aholi soni, YIM) faqat ishonchli "
+            "bilsangiz yozing va manbaga bugungi yoki kelgusi YIL qo'ymang."),
+    },
     "umumiy": {
         "name": "umumiy",
         "shape": (
@@ -149,6 +172,22 @@ _BY_SUBJECT = {
 }
 
 
+# Mavzuning o'zi hisob-kitob so'rasa (formula, prognoz, hisoblash) — fan nomidan
+# qat'i nazar "hisob" oilasi: "Demografik hisob-kitoblar" sotsiologiyaga
+# tushsa-da, undan kutiladigani formula, ishlangan misol va diagramma.
+_CALC_WORDS = (
+    "hisob", "formula", "prognoz", "proagnoz", "bashorat", "koeffitsiyent",
+    "hisoblash", "statistik tahlil", "regressiya", "korrelyatsiya",
+    "расчёт", "расчет", "формул", "прогноз", "вычисл", "коэффициент",
+    "calculat", "formula", "forecast", "projection", "computation",
+)
+
+
+def is_calculation(topic: str) -> bool:
+    text = (topic or "").lower()
+    return any(word in text for word in _CALC_WORDS)
+
+
 def of(topic: str, hint: Optional[str] = None) -> str:
     """Mavzu qaysi oilaga tegishli.
 
@@ -156,6 +195,8 @@ def of(topic: str, hint: Optional[str] = None) -> str:
     o'qigan. Kelmasa yoki tanish bo'lmasa, do'kon tasnifidagi kalit
     so'zlardan foydalaniladi.
     """
+    if is_calculation(topic):
+        return "hisob"
     guess = str(hint or "").strip().lower()
     if guess in _FAMILIES:
         return guess

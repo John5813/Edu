@@ -967,6 +967,22 @@ _HIDE_SCRIPT = r"""
     el.style.setProperty("visibility", "hidden", "important");
   }
   window.__pptxHidden = hidden;
+
+  // Diagramma o'z ostidagi fonni (to'q gradient, bezak doiralar) suratga
+  // olmasin: aks holda PowerPointda fon va surat chegarasi "quti" bo'lib
+  // ko'rinadi. Ota-ona fonlari va bezaklar suratga olish vaqtida
+  // vaqtincha tozalanadi (uslub `style` atributiga qaytariladi).
+  const saved = [];
+  const clear = (el) => {
+    saved.push([el, el.getAttribute("style")]);
+    el.style.setProperty("background", "none", "important");
+  };
+  for (let node = target.parentElement; node; node = node.parentElement) clear(node);
+  for (const el of document.querySelectorAll(".bezak, .blok-bar")) {
+    saved.push([el, el.getAttribute("style")]);
+    el.style.setProperty("visibility", "hidden", "important");
+  }
+  window.__pptxBg = saved;
   return hidden.length;
 }
 """
@@ -979,6 +995,11 @@ _SHOW_SCRIPT = r"""
     else el.style.removeProperty("visibility");
   }
   window.__pptxHidden = [];
+  for (const item of (window.__pptxBg || [])) {
+    if (item[1] === null) item[0].removeAttribute("style");
+    else item[0].setAttribute("style", item[1]);
+  }
+  window.__pptxBg = [];
 }
 """
 

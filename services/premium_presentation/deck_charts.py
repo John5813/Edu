@@ -130,23 +130,100 @@ def _text(x, y, value, size, colour, anchor="middle", weight="400"):
 
 # ────────────────────────────────────────────────────────── turlari
 
-def _bar(rows, labels, theme, unit, W, H) -> str:
-    """Ustunli diagramma. Bir nechta qator yonma-yon turadi."""
-    top, bottom, left, right = 48, 64, 24, 24
+def _nice_ticks(lo: float, hi: float, target: int = 5) -> List[float]:
+    """[lo, hi] ni qoplaydigan "chiroyli" qadamli bo'linmalar (1, 2, 2.5, 5, 10 x 10^n)."""
+    import math
+
+    span = hi - lo
+    if span <= 0:
+        span = abs(hi) or 1.0
+    raw = span / max(target, 1)
+    magnitude = 10 ** math.floor(math.log10(raw))
+    step = magnitude * 10
+    for factor in (1, 2, 2.5, 5, 10):
+        if factor * magnitude >= raw:
+            step = factor * magnitude
+            break
+    start = math.floor(lo / step + 1e-9) * step
+    ticks, value = [], start
+    while value < hi + step * 0.999 and len(ticks) < 12:
+        ticks.append(round(value, 10))
+        value += step
+        if ticks[-1] >= hi - 1e-9:
+            break
+    return ticks
+
+
+def _tick_text(value: float) -> str:
+    text = _fmt(value)
+    # Minglik bo'shliq: 12000 → "12 000" (o'qish osonroq).
+    head, sep, tail = text.partition(",")
+    if len(head.lstrip("-")) > 4:
+        head = f"{int(head):,}".replace(",", "\u00a0")
+    return head + sep + tail
+
+
+def _y_scale(rows, zero_based: bool):
+    """(ticks, lo, hi): Y o'qi. Ustunlar har doim noldan; chiziq — qiymatlar
+    tor oraliqda bo'lsa (7,9 → 8,3) noldan emas, aks holda tekis chiziq chiqadi."""
+    values = [v for _, vals in rows for v in vals]
+    low, high = min(values), max(values)
+    if zero_based or low <= 0 or (high - low) > 0.6 * high:
+        low = min(low, 0.0)
+        ticks = _nice_ticks(low, high)
+    else:
+        pad = (high - low) * 0.15 or high * 0.05
+        ticks = _nice_ticks(low - pad, high + pad)
+    return ticks, ticks[0], ticks[-1] if ticks[-1] > ticks[0] else ticks[0] + 1
+
+
+def _axes(parts, theme, ticks, lo, hi, left, top, plot_w, plot_h, xlabel, H):
+    """Gorizontal to'r, Y o'qi imzolari, X o'qi sarlavhasi."""
+    for tick in ticks:
+        y = top + plot_h - plot_h * (tick - lo) / ((hi - lo) or 1.0)
+        parts.append(f'<line x1="{left}" y1="{y:.0f}" x2="{left + plot_w}" '
+                     f'y2="{y:.0f}" stroke="#{theme.muted}" stroke-opacity="0.28" '
+                     f'stroke-width="1.5"/>')
+        parts.append(_text(left - 14, y + 8, _tick_text(tick), 24, theme.muted,
+                           anchor="end"))
+    parts.append(f'<line x1="{left}" y1="{top}" x2="{left}" y2="{top + plot_h}" '
+                 f'stroke="#{theme.muted}" stroke-width="2"/>')
+    parts.append(f'<line x1="{left}" y1="{top + plot_h}" x2="{left + plot_w}" '
+                 f'y2="{top + plot_h}" stroke="#{theme.muted}" stroke-width="2"/>')
+    if xlabel:
+        parts.append(_text(left + plot_w / 2, H - 10, xlabel, 24, theme.muted))
+
+
+def _thin(count: int, limit: int = 8) -> set:
+    """Ko'p nuqtada yorliqning har k-sini qoldiradi (oxirgisi doim)."""
+    if count <= limit:
+        return set(range(count))
+    k = -(-count // limit)
+    keep = set(range(0, count, k))
+    keep.add(count - 1)
+    return keep
+
+
+def _left_margin(ticks) -> int:
+    width = max(len(_tick_text(t)) for t in ticks) * 14 + 30
+    return max(96, min(width, 190))
+
+
+def _bar(rows, labels, theme, unit, W, H, xlabel="") -> str:
+    """Ustunli diagramma: Y o'qi shkalasi bilan, noldan boshlanadi."""
+    ticks, lo, hi = _y_scale(rows, zero_based=True)
+    left = _left_margin(ticks)
+    top, right = 48, 24
+    bottom = 64 + (34 if xlabel else 0) + (22 if len([n for n, _ in rows if n]) > 1 else 0)
     plot_h = H - top - bottom
     plot_w = W - left - right
     count = max(len(labels), max(len(values) for _, values in rows))
-    peak = max(max(values) for _, values in rows) or 1.0
-
     group = plot_w / count
     pad = group * 0.22
     bar_w = (group - pad) / len(rows)
-
+    show = _thin(count)
     parts = []
-    # Asos chizig'i.
-    parts.append(f'<line x1="{left}" y1="{top + plot_h}" '
-                 f'x2="{left + plot_w}" y2="{top + plot_h}" '
-                 f'stroke="#{theme.muted}" stroke-width="2"/>')
+    _axes(parts, theme, ticks, lo, hi, left, top, plot_w, plot_h, xlabel, H)
 
     for index in range(count):
         base = left + group * index + pad / 2
@@ -154,63 +231,88 @@ def _bar(rows, labels, theme, unit, W, H) -> str:
             if index >= len(values):
                 continue
             value = values[index]
-            height = max(plot_h * value / peak, 3)
+            height = max(plot_h * (value - lo) / ((hi - lo) or 1.0), 3)
             x = base + bar_w * order
             y = top + plot_h - height
             colour = theme.chart[order % len(theme.chart)]
             parts.append(
-                f'<rect x="{x:.0f}" y="{y:.0f}" width="{bar_w - 6:.0f}" '
+                f'<rect x="{x:.0f}" y="{y:.0f}" width="{max(bar_w - 6, 4):.0f}" '
                 f'height="{height:.0f}" rx="6" fill="#{colour}"/>')
-            parts.append(_text(x + (bar_w - 6) / 2, y - 12, _fmt(value),
-                               27, theme.heading, weight="700"))
-        if index < len(labels):
+            if count <= 10 or index in (0, count - 1):
+                parts.append(_text(x + (bar_w - 6) / 2, y - 12, _fmt(value),
+                                   25 if count <= 8 else 21, theme.heading,
+                                   weight="700"))
+        if index < len(labels) and index in show:
             parts.append(_text(left + group * index + group / 2,
-                               top + plot_h + 38, labels[index], 27,
+                               top + plot_h + 36, labels[index], 25 if count <= 8 else 22,
                                theme.body, weight="700"))
 
-    parts.append(_legend(rows, theme, top + plot_h + 58))
+    parts.append(_legend(rows, theme, H - 12 - (34 if xlabel else 0)))
     return _svg(parts, unit, theme, W, H)
 
 
-def _line(rows, labels, theme, unit, W, H) -> str:
-    """Chiziqli diagramma."""
-    top, bottom, left, right = 48, 64, 48, 48
+def _line(rows, labels, theme, unit, W, H, xlabel="") -> str:
+    """Chiziqli diagramma: X va Y o'qlari, shkala, nuqtalarda qiymat."""
+    ticks, lo, hi = _y_scale(rows, zero_based=False)
+    left = _left_margin(ticks) + 12
+    top, right = 56, 48
+    bottom = 64 + (34 if xlabel else 0) + (22 if len([n for n, _ in rows if n]) > 1 else 0)
     plot_h = H - top - bottom
     plot_w = W - left - right
     count = max(len(labels), max(len(values) for _, values in rows))
-    peak = max(max(values) for _, values in rows) or 1.0
-    step = plot_w / max(count - 1, 1)
-
-    parts = [f'<line x1="{left}" y1="{top + plot_h}" '
-             f'x2="{left + plot_w}" y2="{top + plot_h}" '
-             f'stroke="#{theme.muted}" stroke-width="2"/>']
+    step = (plot_w - 40) / max(count - 1, 1)
+    x0 = left + 20
+    show = _thin(count)
+    parts = []
+    _axes(parts, theme, ticks, lo, hi, left, top, plot_w, plot_h, xlabel, H)
+    radius = 9 if count <= 12 else 6
 
     for order, (_, values) in enumerate(rows):
         colour = theme.chart[order % len(theme.chart)]
         points = []
         for index, value in enumerate(values[:count]):
-            x = left + step * index
-            y = top + plot_h - plot_h * value / peak
+            x = x0 + step * index
+            y = top + plot_h - plot_h * (value - lo) / ((hi - lo) or 1.0)
             points.append((x, y))
         path = " ".join(f"{'M' if i == 0 else 'L'}{x:.0f},{y:.0f}"
                         for i, (x, y) in enumerate(points))
         parts.append(f'<path d="{path}" fill="none" stroke="#{colour}" '
                      f'stroke-width="5" stroke-linejoin="round"/>')
+        labelled = {0, len(points) - 1}
+        if values:
+            labelled.update({values.index(max(values)), values.index(min(values))})
         for index, (x, y) in enumerate(points):
-            parts.append(f'<circle cx="{x:.0f}" cy="{y:.0f}" r="9" '
+            parts.append(f'<circle cx="{x:.0f}" cy="{y:.0f}" r="{radius}" '
                          f'fill="#{colour}"/>')
-            parts.append(_text(x, y - 24, _fmt(values[index]), 27,
-                               theme.heading, weight="700"))
+            if not (count <= 8 or index in labelled):
+                continue
+            # Bir necha qatorda yozuvlar to'qnashmasin: shu nuqtada eng
+            # yuqori qiymat tepada, eng pasti ostida; o'rtadagilar yozilmaydi.
+            column = [vals[index] for _, vals in rows if index < len(vals)]
+            value = values[index]
+            if len(column) > 1 and max(column) != min(column):
+                if value == max(column):
+                    above = True
+                elif value == min(column):
+                    above = False
+                else:
+                    continue
+            else:
+                above = order % 2 == 0
+            parts.append(_text(x, y - 22 if above else y + 40, _fmt(value),
+                               25 if count <= 8 else 22, theme.heading,
+                               weight="700"))
 
     for index, label in enumerate(labels[:count]):
-        parts.append(_text(left + step * index, top + plot_h + 38, label,
-                           27, theme.body, weight="700"))
+        if index in show:
+            parts.append(_text(x0 + step * index, top + plot_h + 36, label,
+                               25 if count <= 8 else 22, theme.body, weight="700"))
 
-    parts.append(_legend(rows, theme, top + plot_h + 58))
+    parts.append(_legend(rows, theme, H - 12 - (34 if xlabel else 0)))
     return _svg(parts, unit, theme, W, H)
 
 
-def _donut(rows, labels, theme, unit, W, H) -> str:
+def _donut(rows, labels, theme, unit, W, H, xlabel="") -> str:
     """Halqa diagramma — ulushlar."""
     values = rows[0][1]
     total = sum(values) or 1.0
@@ -287,6 +389,36 @@ def _svg(parts, unit, theme, W, H) -> str:
             + "".join(parts) + "</svg>")
 
 
+def _scale_groups(rows, ratio: float = 6.0):
+    """Qatorlar kattaligi keskin farq qilsa (milliard va foiz) bitta o'qqa
+    sig'maydi: ular ikkita alohida diagrammaga ajratiladi. Bir birlik —
+    bir diagramma."""
+    if len(rows) < 2:
+        return [rows]
+    peaks = [max(values) if values else 0.0 for _, values in rows]
+    big = max(peaks)
+    if big <= 0:
+        return [rows]
+    large = [row for row, peak in zip(rows, peaks) if peak * ratio >= big]
+    small = [row for row, peak in zip(rows, peaks) if peak * ratio < big]
+    return [large, small] if large and small else [rows]
+
+
+def _stack(kind, groups, labels, theme, unit, width, height, xlabel) -> str:
+    """Har guruh o'z o'qi va birligi bilan, bir-birining ostida."""
+    panels = []
+    each = max(height // len(groups), 240)
+    for number, group in enumerate(groups):
+        names = [name for name, _ in group if name]
+        found = re.search(r"\(([^)]{1,24})\)", names[0]) if names else None
+        label = found.group(1) if found else (unit if number == 0 else "")
+        last = number == len(groups) - 1
+        body = kind(group, labels, theme, label, width, each + (40 if last and xlabel else 0),
+                    xlabel=xlabel if last else "")
+        panels.append(f'<div class="chart">{body}</div>')
+    return '<div class="chart-stack">' + "".join(panels) + "</div>"
+
+
 _KINDS = {"bar": _bar, "ustun": _bar, "column": _bar,
           "line": _line, "chiziq": _line,
           "donut": _donut, "pie": _donut, "halqa": _donut}
@@ -299,7 +431,7 @@ def draw(html_body: str, theme) -> str:
 
     def swap(match):
         tag = match.group(0)
-        data: Dict[str, str] = {key.lower(): value
+        data: Dict[str, str] = {key.lower(): html.unescape(value)
                                 for key, _, value in _ATTR.findall(tag)}
         raw = data.get("series") or data.get("values") or ""
         pair_labels, pair_values = _pairs(raw)
@@ -347,9 +479,13 @@ def draw(html_body: str, theme) -> str:
         half = (data.get("size") or "").strip().lower() in ("half", "yarim")
         width, height = ((HALF_W, HALF_H) if half or kind is _donut
                          else (W, H))
+        unit = (data.get("ylabel") or data.get("unit") or "").strip()
+        xlabel = (data.get("xlabel") or "").strip()
+        groups = [] if kind is _donut else _scale_groups(rows)
         try:
-            body = kind(rows, labels, theme, (data.get("unit") or "").strip(),
-                        width, height)
+            if len(groups) > 1:
+                return _stack(kind, groups, labels, theme, unit, width, height, xlabel)
+            body = kind(rows, labels, theme, unit, width, height, xlabel=xlabel)
         except Exception as exc:
             log.warning("Diagramma chizilmadi (%s): %s", data.get("kind"), exc)
             return ""
