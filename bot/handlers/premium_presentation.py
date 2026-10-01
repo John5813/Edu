@@ -181,6 +181,8 @@ _STYLE_NAMES = {
     "blok": {"uz": "Blok", "ru": "Блок", "en": "Block"},
     "kontur": {"uz": "Kontur", "ru": "Контур", "en": "Outline"},
     "qorongu": {"uz": "Qorong'u", "ru": "Тёмный", "en": "Dark"},
+    SIMPLE_STYLE: {"uz": "Chiroyli orqa fonlar", "ru": "Красивые фоны",
+                   "en": "Beautiful backgrounds"},
 }
 _LANG_BUTTONS = {"uz": "🇺🇿 O'zbek", "ru": "🇷🇺 Русский", "en": "🇬🇧 English"}
 
@@ -218,25 +220,25 @@ _TXT = {
         "uz": "🖌 <b>Ko‘rinish uslubini tanlang</b>",
         "ru": "🖌 <b>Выберите стиль оформления</b>",
         "en": "🖌 <b>Choose a visual style</b>"},
-    "price_modern": {
-        "uz": "💰 Zamonaviy uslublar: <b>{price} so'm</b>",
-        "ru": "💰 Современные стили: <b>{price} сум</b>",
-        "en": "💰 Modern styles: <b>{price} soʻm</b>"},
-    "price_fon": {
-        "uz": "🖼 Chiroyli orqa fonlar: <b>{price}</b>",
-        "ru": "🖼 Красивые фоны: <b>{price}</b>",
-        "en": "🖼 Beautiful backgrounds: <b>{price}</b>"},
-    "fon_sizes": {
-        "uz": "faqat 10, 15 yoki 20 slaydda", "ru": "только 10, 15 или 20 слайдов",
-        "en": "only 10, 15 or 20 slides"},
+    "count_style": {
+        "uz": "🖌 Uslub: <b>{style}</b>", "ru": "🖌 Стиль: <b>{style}</b>",
+        "en": "🖌 Style: <b>{style}</b>"},
+    "count_balance": {
+        "uz": "💳 Balansingiz: <b>{balance} so'm</b>",
+        "ru": "💳 Ваш баланс: <b>{balance} сум</b>",
+        "en": "💳 Your balance: <b>{balance} soʻm</b>"},
+    "count_hint": {
+        "uz": "<i>Narx slaydlar soniga qarab. Tanlagach xulosa ko‘rsatiladi.</i>",
+        "ru": "<i>Цена зависит от числа слайдов. После выбора покажем итог.</i>",
+        "en": "<i>Price depends on the slide count. A summary follows.</i>"},
+    "count_hint_fon": {
+        "uz": "<i>Tayyor rasmli shablonlar 10, 15 yoki 20 slaydda tayyorlanadi.</i>",
+        "ru": "<i>Шаблоны с рисунками делаются на 10, 15 или 20 слайдов.</i>",
+        "en": "<i>Picture templates come in 10, 15 or 20 slides.</i>"},
     "style_hint": {
-        "uz": "<i>Zamonaviy uslubda keyingi qadamda rang tanlanadi, orqa fonlarda — 20 ta shablon.</i>",
-        "ru": "<i>В современных стилях дальше выбирается цвет, в красивых фонах — 20 шаблонов.</i>",
-        "en": "<i>Modern styles ask for a colour next; backgrounds offer 20 templates.</i>"},
-    "fon_count": {
-        "uz": "🖼 <b>Chiroyli orqa fonlar</b> taqdimoti 10, 15 yoki 20 slaydda tayyorlanadi.\nHajmni tanlang:",
-        "ru": "🖼 Презентация <b>«Красивые фоны»</b> делается на 10, 15 или 20 слайдов.\nВыберите объём:",
-        "en": "🖼 <b>Beautiful backgrounds</b> come in 10, 15 or 20 slides.\nChoose the size:"},
+        "uz": "<i>Zamonaviy uslubda keyingi qadamda rang tanlanadi, orqa fonlarda — 20 ta shablon. Narx keyingi qadamda hajm bilan ko‘rsatiladi.</i>",
+        "ru": "<i>В современных стилях дальше выбирается цвет, в красивых фонах — 20 шаблонов. Цена — на следующем шаге вместе с объёмом.</i>",
+        "en": "<i>Modern styles ask for a colour next; backgrounds offer 20 templates. Prices come with the size.</i>"},
     "skip": {"uz": "⏭ O‘tkazib yuborish", "ru": "⏭ Пропустить", "en": "⏭ Skip"},
     "confirm": {"uz": "✅ Buyurtmani tasdiqlash", "ru": "✅ Подтвердить заказ", "en": "✅ Confirm order"},
     "source_input_back": {"uz": "🔙 Orqaga", "ru": "🔙 Назад", "en": "🔙 Back"},
@@ -262,8 +264,16 @@ def _topic_line(data: dict, lang: str) -> str:
 
 # Orqaga: har qadamning oldingisi. Birinchi qadamdan — bosh menyu.
 _PREVIOUS = {"name": "topic", "prefs": "name", "source": "prefs",
-             "source_input": "source", "count": "source", "style": "count",
-             "fon_count": "style", "theme": "style", "summary": "theme"}
+             "source_input": "source", "style": "source", "theme": "style",
+             "summary": "count"}
+
+
+def _previous_step(data: dict):
+    """Orqaga qadam: hajmdan oldin — rang (zamonaviy) yoki uslub (orqa fonlar)."""
+    step = data.get("step") or ""
+    if step == "count":
+        return "style" if data.get("style") == SIMPLE_STYLE else "theme"
+    return _PREVIOUS.get(step)
 
 
 def _markup(rows) -> InlineKeyboardMarkup:
@@ -445,7 +455,7 @@ async def premium_ppt_chose_source(callback: CallbackQuery, state: FSMContext, d
     if kind == source_module.KIND_AI:
         await state.update_data(source_kind=source_module.KIND_AI,
                                 source_text="", source_label="")
-        await _step_count(callback.message, state, lang)
+        await _step_style(callback.message, state, lang)
         return
 
     prompts = {
@@ -529,38 +539,10 @@ async def _store_source(message: Message, state: FSMContext, lang: str, material
             get_text(lang, "pw_source_ok", label=material.label,
                      words=len(material.text.split())),
             parse_mode="HTML")
-    await _step_count(message, state, lang)
+    await _step_style(message, state, lang)
 
 
-# ── 5. Hajm
-
-def _count_keyboard(lang: str) -> InlineKeyboardMarkup:
-    word = {"uz": "ta slayd", "ru": "слайдов", "en": "slides"}.get(lang, "ta slayd")
-    builder = InlineKeyboardBuilder()
-    for n in [5, 8, 10, 12, 15, 20, 25, 30]:
-        builder.button(text=f"{n} {word}", callback_data=f"prem_ppt_count:{n}")
-    builder.adjust(2)
-    builder.row(*_back_row(lang))
-    return builder.as_markup()
-
-
-async def _step_count(message: Message, state: FSMContext, lang: str) -> None:
-    data = await state.get_data()
-    await _prompt(message, state, _topic_line(data, lang) + _t(lang, "ask_count"),
-                  _count_keyboard(lang), "count", PremiumPresentationStates.waiting_for_count)
-
-
-@router.callback_query(F.data.startswith("prem_ppt_count:"),
-                       PremiumPresentationStates.waiting_for_count)
-async def premium_ppt_got_count(callback: CallbackQuery, state: FSMContext, db: Database):
-    await callback.answer()
-    lang = await _lang_of(callback.from_user.id, db)
-    count = max(MIN_SLIDES, min(int(callback.data.split(":")[1]), MAX_SLIDES))
-    await state.update_data(slide_count=count)
-    await _step_style(callback.message, state, lang)
-
-
-# ── 6. Uslub
+# ── 5. Uslub
 
 def _simple_price(count: int):
     from config import PRESENTATION_PRICES
@@ -579,14 +561,9 @@ def _style_keyboard(lang: str) -> InlineKeyboardMarkup:
 
 async def _step_style(message: Message, state: FSMContext, lang: str) -> None:
     data = await state.get_data()
-    count = int(data.get("slide_count") or MIN_SLIDES)
-    simple = _simple_price(count)
-    lines = [_t(lang, "ask_style"), "",
-             _t(lang, "price_modern", price=f"{_get_price(count):,}"),
-             _t(lang, "price_fon", price=(f"{simple:,} so'm" if simple else _t(lang, "fon_sizes"))),
-             "", _t(lang, "style_hint")]
-    await _prompt(message, state, _topic_line(data, lang) + "\n".join(lines),
-                  _style_keyboard(lang), "style", PremiumPresentationStates.waiting_for_style)
+    text = _topic_line(data, lang) + _t(lang, "ask_style") + "\n\n" + _t(lang, "style_hint")
+    await _prompt(message, state, text, _style_keyboard(lang), "style",
+                  PremiumPresentationStates.waiting_for_style)
 
 
 @router.callback_query(F.data.startswith("ppt_style:"),
@@ -596,23 +573,10 @@ async def premium_ppt_style_selected(callback: CallbackQuery, state: FSMContext,
     await callback.answer()
     lang = await _lang_of(callback.from_user.id, db)
     key = callback.data.split(":", 1)[1]
-    data = await state.get_data()
 
     if key == SIMPLE_STYLE:
-        count = int(data.get("slide_count") or MIN_SLIDES)
-        if _simple_price(count):
-            await _handoff_simple(callback, state, db, lang, count)
-            return
-        # Orqa fonlar faqat 10/15/20 slaydda: hajm qayta so'raladi.
-        from config import PRESENTATION_PRICES
-        builder = InlineKeyboardBuilder()
-        word = {"uz": "ta slayd", "ru": "слайдов", "en": "slides"}.get(lang, "ta slayd")
-        for n, price in sorted(PRESENTATION_PRICES.items()):
-            builder.button(text=f"{n} {word} | {price:,} so'm", callback_data=f"ppt_fon:{n}")
-        builder.adjust(1)
-        builder.row(*_back_row(lang))
-        await _prompt(callback.message, state, _t(lang, "fon_count"), builder.as_markup(),
-                      "fon_count", PremiumPresentationStates.waiting_for_style)
+        await state.update_data(style=SIMPLE_STYLE)
+        await _step_count(callback.message, state, lang, db)
         return
 
     from services.premium_presentation import deck_styles
@@ -622,12 +586,69 @@ async def premium_ppt_style_selected(callback: CallbackQuery, state: FSMContext,
     await _step_theme(callback.message, state, lang)
 
 
+# ── 6. Hajm — narxlar tanlangan uslubga qarab ko'rsatiladi
+
+def _count_options(style: str):
+    """[(slaydlar soni, narx)] — orqa fonlarda faqat 10/15/20."""
+    if style == SIMPLE_STYLE:
+        from config import PRESENTATION_PRICES
+        return sorted(PRESENTATION_PRICES.items())
+    return [(n, _get_price(n)) for n in (5, 8, 10, 12, 15, 20, 25, 30)]
+
+
+def _count_keyboard(lang: str, style: str = "") -> InlineKeyboardMarkup:
+    word = {"uz": "ta slayd", "ru": "слайдов", "en": "slides"}.get(lang, "ta slayd")
+    som = {"uz": "so'm", "ru": "сум", "en": "soʻm"}.get(lang, "so'm")
+    prefix = "ppt_fon" if style == SIMPLE_STYLE else "prem_ppt_count"
+    builder = InlineKeyboardBuilder()
+    for count, price in _count_options(style):
+        builder.button(text=f"{count} {word} | {price:,} {som}",
+                       callback_data=f"{prefix}:{count}")
+    builder.adjust(2 if style != SIMPLE_STYLE else 1)
+    builder.row(*_back_row(lang))
+    return builder.as_markup()
+
+
+async def _balance_of(db: Database, user_id: int) -> int:
+    with contextlib.suppress(Exception):
+        user = await db.get_user(user_id)
+        return int(getattr(user, "balance", 0) or 0)
+    return 0
+
+
+async def _step_count(message: Message, state: FSMContext, lang: str, db: Database) -> None:
+    data = await state.get_data()
+    style = data.get("style") or ""
+    balance = await _balance_of(db, message.chat.id)
+    style_name = _style_name(style or "toza", lang)
+    lines = [_t(lang, "ask_count"), "", _t(lang, "count_style", style=style_name),
+             _t(lang, "count_balance", balance=f"{balance:,}"), "",
+             _t(lang, "count_hint_fon" if style == SIMPLE_STYLE else "count_hint")]
+    await _prompt(message, state, _topic_line(data, lang) + "\n".join(lines),
+                  _count_keyboard(lang, style), "count",
+                  PremiumPresentationStates.waiting_for_count)
+
+
+@router.callback_query(F.data.startswith("prem_ppt_count:"),
+                       PremiumPresentationStates.waiting_for_count)
+async def premium_ppt_got_count(callback: CallbackQuery, state: FSMContext, db: Database):
+    await callback.answer()
+    lang = await _lang_of(callback.from_user.id, db)
+    count = max(MIN_SLIDES, min(int(callback.data.split(":")[1]), MAX_SLIDES))
+    await state.update_data(slide_count=count)
+    await _step_summary(callback.message, state, lang)
+
+
 @router.callback_query(F.data.startswith("ppt_fon:"),
-                       PremiumPresentationStates.waiting_for_style)
+                       PremiumPresentationStates.waiting_for_count)
 async def premium_ppt_fon_count(callback: CallbackQuery, state: FSMContext, db: Database):
     await callback.answer()
     lang = await _lang_of(callback.from_user.id, db)
-    await _handoff_simple(callback, state, db, lang, int(callback.data.split(":")[1]))
+    count = int(callback.data.split(":")[1])
+    if not _simple_price(count):
+        await _step_count(callback.message, state, lang, db)
+        return
+    await _handoff_simple(callback, state, db, lang, count)
 
 
 async def _handoff_simple(callback: CallbackQuery, state: FSMContext, db: Database,
@@ -660,7 +681,7 @@ async def _handoff_simple(callback: CallbackQuery, state: FSMContext, db: Databa
     await _documents.prompt_simple_payment(callback.message, state, lang, user, count)
 
 
-# ── 6b. Rang (faqat zamonaviy uslublarda)
+# ── 5b. Rang (faqat zamonaviy uslublarda)
 
 def _theme_prompt(lang: str, topic: str) -> str:
     from services.premium_presentation import themes as _themes
@@ -708,7 +729,7 @@ async def _step_theme(message: Message, state: FSMContext, lang: str) -> None:
 @router.callback_query(F.data.startswith("prem_ppt_theme:"),
                        PremiumPresentationStates.waiting_for_theme)
 async def premium_ppt_got_theme(callback: CallbackQuery, state: FSMContext, db: Database):
-    """Rang tanlandi — buyurtma xulosasi."""
+    """Rang tanlandi — hajm (narxlar bilan)."""
     await callback.answer()
     lang = await _lang_of(callback.from_user.id, db)
     data = await state.get_data()
@@ -718,7 +739,7 @@ async def premium_ppt_got_theme(callback: CallbackQuery, state: FSMContext, db: 
     theme = (_themes.suggest(data.get("topic", "")) if choice == "auto"
              else _themes.get(choice))
     await state.update_data(theme_key=theme.key)
-    await _step_summary(callback.message, state, lang)
+    await _step_count(callback.message, state, lang, db)
 
 
 # ── Buyurtma xulosasi va tasdiqlash
@@ -808,13 +829,16 @@ async def premium_ppt_previous(callback: CallbackQuery, state: FSMContext, db: D
     await callback.answer()
     lang = await _lang_of(callback.from_user.id, db)
     data = await state.get_data()
-    previous = _PREVIOUS.get(data.get("step") or "")
+    previous = _previous_step(data)
     if previous is None:
         await premium_ppt_back(callback, state, db)
         return
     steps = {"topic": _step_topic, "name": _step_name, "prefs": _step_prefs,
              "source": _step_source, "count": _step_count, "style": _step_style,
              "theme": _step_theme}
+    if previous == "count":
+        await _step_count(callback.message, state, lang, db)
+        return
     await steps[previous](callback.message, state, lang)
 
 

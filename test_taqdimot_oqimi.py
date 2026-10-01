@@ -1,4 +1,5 @@
-"""Bitta "Taqdimot" tugmasi: mavzu → ism → AI ga tushuntirish → manba → hajm → uslub.
+"""Bitta "Taqdimot" tugmasi: mavzu → ism → AI ga tushuntirish → manba → uslub → (rang) → hajm.
+Hajm bosqichida narxlar tanlangan uslubga qarab va mijoz balansi bilan ko'rsatiladi.
 
 Zamonaviy uslublarda keyin rang, "Chiroyli orqa fonlar" tanlansa hozirgi
 oddiy oqim ishlaydi. Har so'rov javob olingach oynadan o'chadi.
@@ -111,13 +112,8 @@ async def full_flow():
     check("manba: AI/matn/fayl/sayt tugmalari", all(f"prem_ppt_source:{k}" in cbs for k in ("ai", "text", "file", "url")), cbs)
     await pp.premium_ppt_chose_source(callback(chat, "prem_ppt_source:ai"), state, db)
 
-    # 5. Hajm — narxsiz, uslubdan oldin
-    check("5-qadam: hajm so'raladi", await state.get_state() == PS.waiting_for_count.state)
-    check("hajm tugmalarida narx yo'q (u uslubga bog'liq)", all("so'm" not in b.text for b in buttons(chat.last()[2])))
-    await pp.premium_ppt_got_count(callback(chat, "prem_ppt_count:12"), state, db)
-
-    # 6. Uslub
-    check("6-qadam: uslub so'raladi", await state.get_state() == PS.waiting_for_style.state)
+    # 5. Uslub (hajmdan oldin)
+    check("5-qadam: uslub so'raladi", await state.get_state() == PS.waiting_for_style.state)
     text, markup = chat.last()[1], chat.last()[2]
     style_cbs = [b.callback_data for b in buttons(markup) if b.callback_data and b.callback_data.startswith("ppt_style:")]
     check("6 ta uslub tugmasi (5 zamonaviy + chiroyli orqa fonlar)",
@@ -125,14 +121,22 @@ async def full_flow():
                         "ppt_style:qorongu", "ppt_style:fon"], style_cbs)
     check("tugmalar chiroyli nomlangan", any("Chiroyli orqa fonlar" in b.text for b in buttons(markup))
           and any("Qorong'u" in b.text for b in buttons(markup)))
-    check("uslub oynasi rasmsiz (matn + tugmalar)", "so'm" in text and chat.last()[1])
-    check("narx ko'rsatilgan: zamonaviy va orqa fonlar", "Zamonaviy" in text and "orqa fonlar" in text.lower())
+    check("uslub oynasida narx yo'q (u hajm bilan ko'rsatiladi)", "so'm" not in text.split("keyingi qadamda")[0])
 
-    # 6a. Zamonaviy uslub -> rang -> xulosa
+    # 5a. Zamonaviy uslub -> rang -> hajm (narx + balans) -> xulosa
     await pp.premium_ppt_style_selected(callback(chat, "ppt_style:jurnal"), state, db)
     check("zamonaviy uslub: rang so'raladi", await state.get_state() == PS.waiting_for_theme.state)
     check("uslub saqlandi", (await state.get_data())["style"] == "jurnal")
     await pp.premium_ppt_got_theme(callback(chat, "prem_ppt_theme:qizil"), state, db)
+    check("6-qadam: hajm so'raladi", await state.get_state() == PS.waiting_for_count.state)
+    text, markup = chat.last()[1], chat.last()[2]
+    count_btns = [b for b in buttons(markup) if b.callback_data.startswith("prem_ppt_count:")]
+    check("zamonaviy hajm: har tugmada narx", all("so'm" in b.text for b in count_btns)
+          and any(b.callback_data == "prem_ppt_count:12" and "8,000" in b.text for b in count_btns),
+          [b.text for b in count_btns])
+    check("hajm oynasida mijoz balansi ko'rinadi", "Balansingiz" in text and "100,000" in text, text)
+    check("hajm oynasida tanlangan uslub nomi", "Jurnal" in text, text)
+    await pp.premium_ppt_got_count(callback(chat, "prem_ppt_count:12"), state, db)
     data = await state.get_data()
     check("xulosa: holat va narx", await state.get_state() == PS.waiting_for_slide_count.state and data["price"] == 8000, data.get("price"))
     summary = chat.last()[1]
@@ -142,17 +146,24 @@ async def full_flow():
     await pp.premium_ppt_change_language(callback(chat, "prem_ppt_lang:en"), state, db)
     check("til almashtirildi", (await state.get_data())["presentation_language"] == "en")
 
-    # Orqaga: xulosa -> rang -> uslub -> hajm
-    for expect in (PS.waiting_for_theme, PS.waiting_for_style, PS.waiting_for_count):
+    # Orqaga: xulosa -> hajm -> rang -> uslub
+    for expect in (PS.waiting_for_count, PS.waiting_for_theme, PS.waiting_for_style):
         await pp.premium_ppt_previous(callback(chat, "prem_ppt_prev"), state, db)
         check(f"orqaga: {expect.state.split(':')[1]}", await state.get_state() == expect.state, await state.get_state())
 
-    # 6b. "Chiroyli orqa fonlar", hajm 12 (oddiyda yo'q) -> hajm qayta so'raladi
-    await pp.premium_ppt_got_count(callback(chat, "prem_ppt_count:12"), state, db)
+    # 5b. "Chiroyli orqa fonlar" -> hajm faqat 10/15/20, narxlar va balans bilan
     await pp.premium_ppt_style_selected(callback(chat, "ppt_style:fon"), state, db)
-    fon_cbs = [b.callback_data for b in buttons(chat.last()[2])]
-    check("orqa fonlar 12 slaydda yo'q: 10/15/20 taklif qilinadi",
-          [c for c in fon_cbs if c.startswith("ppt_fon:")] == ["ppt_fon:10", "ppt_fon:15", "ppt_fon:20"], fon_cbs)
+    check("orqa fonlar: rang emas, hajm so'raladi", await state.get_state() == PS.waiting_for_count.state, await state.get_state())
+    fon_btns = [b for b in buttons(chat.last()[2]) if b.callback_data.startswith("ppt_fon:")]
+    check("orqa fonlar: faqat 10/15/20", [b.callback_data for b in fon_btns] == ["ppt_fon:10", "ppt_fon:15", "ppt_fon:20"], fon_btns)
+    check("orqa fonlar: oddiy narxlar (5 000 / 7 000 / 10 000)",
+          [("5,000" in fon_btns[0].text), ("7,000" in fon_btns[1].text), ("10,000" in fon_btns[2].text)] == [True] * 3,
+          [b.text for b in fon_btns])
+    check("orqa fonlar: balans va uslub nomi ko'rinadi",
+          "Balansingiz" in chat.last()[1] and "Chiroyli orqa fonlar" in chat.last()[1], chat.last()[1])
+    await pp.premium_ppt_previous(callback(chat, "prem_ppt_prev"), state, db)
+    check("orqa fonlar hajmidan orqaga: uslub (rang emas)", await state.get_state() == PS.waiting_for_style.state, await state.get_state())
+    await pp.premium_ppt_style_selected(callback(chat, "ppt_style:fon"), state, db)
     await pp.premium_ppt_fon_count(callback(chat, "ppt_fon:15"), state, db)
     data = await state.get_data()
     check("oddiy oqim: to'lov bosqichiga o'tildi", await state.get_state() == DocumentStates.waiting_for_payment.state, await state.get_state())
@@ -163,18 +174,20 @@ async def full_flow():
     check("oddiy oqim: to'lovdan keyin shablonlar bosqichi", data.get("doc_next_step") == "presentation_template")
     check("oddiy oqim: premium ma'lumotlari qolmadi", "style" not in data and "prompt_mid" not in data, data.keys())
 
-    # 6c. Hajm oddiyga mos (10) — to'g'ridan-to'g'ri
+    # 5c. Kam balans ham ko'rinadi
     chat2, state2 = Chat(), await new_state()
-    await pp.premium_presentation_start(chat2.message("🌟 Taqdimot"), state2, db)
-    await pp.premium_ppt_got_topic(chat2.message("Сельское хозяйство России"), state2, db)
+    low_db = make_db(balance=1500)
+    await pp.premium_presentation_start(chat2.message("🌟 Taqdimot"), state2, low_db)
+    await pp.premium_ppt_got_topic(chat2.message("Сельское хозяйство России"), state2, low_db)
     check("ruscha mavzu: til aniqlandi", (await state2.get_data())["presentation_language"] == "ru")
-    await pp.premium_ppt_skip_name(callback(chat2, "prem_ppt_skip_name"), state2, db)
-    await pp.premium_ppt_got_preferences(chat2.message("Qisqa va vizual"), state2, db)
-    await pp.premium_ppt_chose_source(callback(chat2, "prem_ppt_source:ai"), state2, db)
-    await pp.premium_ppt_got_count(callback(chat2, "prem_ppt_count:10"), state2, db)
-    await pp.premium_ppt_style_selected(callback(chat2, "ppt_style:fon"), state2, db)
+    await pp.premium_ppt_skip_name(callback(chat2, "prem_ppt_skip_name"), state2, low_db)
+    await pp.premium_ppt_got_preferences(chat2.message("Qisqa va vizual"), state2, low_db)
+    await pp.premium_ppt_chose_source(callback(chat2, "prem_ppt_source:ai"), state2, low_db)
+    await pp.premium_ppt_style_selected(callback(chat2, "ppt_style:fon"), state2, low_db)
+    check("kam balans hajm oynasida ko'rinadi", "1,500" in chat2.last()[1], chat2.last()[1])
+    await pp.premium_ppt_fon_count(callback(chat2, "ppt_fon:10"), state2, low_db)
     data2 = await state2.get_data()
-    check("10 slayd: oddiy oqimga to'g'ridan-to'g'ri o'tadi",
+    check("10 slayd: oddiy oqimga o'tadi",
           await state2.get_state() == DocumentStates.waiting_for_payment.state and data2.get("price") == 5000, data2)
     check("o'tkazib yuborilgan ism o'rniga foydalanuvchi ismi", data2.get("author_name") == "Ali", data2.get("author_name"))
     check("AI ga tushuntirish oddiy oqimga o'tdi", data2.get("book_context") == "Qisqa va vizual", data2.get("book_context"))
