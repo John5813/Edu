@@ -16,6 +16,7 @@ SVG ni esa shu modul chizadi. Hisob har safar to'g'ri bo'ladi:
 ustunlar o'lchovli, yozuvlar ustma-ust tushmaydi, o'q imzolangan.
 """
 
+import colorsys
 import html
 import logging
 import re
@@ -27,6 +28,48 @@ _TAG = re.compile(r'<div\b[^>]*\bclass\s*=\s*(["\'])[^"\']*\bchart\b[^"\']*\1'
                   r'[^>]*>\s*</div>', re.IGNORECASE | re.DOTALL)
 _ATTR = re.compile(r'\bdata-([a-z]+)\s*=\s*(["\'])(.*?)\2',
                    re.IGNORECASE | re.DOTALL)
+
+# Qatorlarni bir-biridan ajratish uchun turli RANGLAR. Sxemaning o'z
+# `chart` ro'yxati bitta rangning tuslari — ustunlar/chiziqlar/bo'laklar
+# bir-biriga o'xshab, ajratib bo'lmasdi. Birinchisi sxemaning asosiy
+# rangi, qolganlari undan uzoq (tus burchagi bo'yicha) rang-barang.
+_DISTINCT = ("F59E0B", "10B981", "E11D48", "8B5CF6", "06B6D4", "EAB308",
+             "EC4899", "64748B")
+_MIN_HUE_GAP = 0.07   # ~25 daraja
+
+
+def _colour(theme, index: int) -> str:
+    colours = palette(theme)
+    return colours[index % len(colours)]
+
+
+def _hue(colour: str) -> float:
+    r, g, b = (int(colour[i:i + 2], 16) / 255 for i in (0, 2, 4))
+    return colorsys.rgb_to_hsv(r, g, b)[0]
+
+
+def _hue_gap(a: str, b: str) -> float:
+    gap = abs(_hue(a) - _hue(b))
+    return min(gap, 1 - gap)
+
+
+def _lift(colour: str, share: float) -> str:
+    parts = (int(colour[i:i + 2], 16) for i in (0, 2, 4))
+    return "".join(f"{round(c + (255 - c) * share):02X}" for c in parts)
+
+
+def palette(theme) -> Tuple[str, ...]:
+    """Diagramma ranglari: asosiy rang + bir-biridan aniq farq qiladigan ranglar."""
+    base = (theme.chart or (theme.accent,))[0]
+    dark = bool(getattr(theme, "style", "") == "qorongu")
+    picked = [base]
+    for colour in _DISTINCT:
+        if dark:
+            colour = _lift(colour, 0.25)
+        if all(_hue_gap(colour, other) >= _MIN_HUE_GAP for other in picked):
+            picked.append(colour)
+    return tuple(picked)
+
 
 # Chizma maydoni. Kengligi slaydning ichki eniga teng (1920 - 2*96),
 # balandligi esa yarmidan sal kam — ostida izoh uchun joy qoladi.
@@ -234,7 +277,7 @@ def _bar(rows, labels, theme, unit, W, H, xlabel="") -> str:
             height = max(plot_h * (value - lo) / ((hi - lo) or 1.0), 3)
             x = base + bar_w * order
             y = top + plot_h - height
-            colour = theme.chart[order % len(theme.chart)]
+            colour = _colour(theme, order)
             parts.append(
                 f'<rect x="{x:.0f}" y="{y:.0f}" width="{max(bar_w - 6, 4):.0f}" '
                 f'height="{height:.0f}" rx="6" fill="#{colour}"/>')
@@ -268,7 +311,7 @@ def _line(rows, labels, theme, unit, W, H, xlabel="") -> str:
     radius = 9 if count <= 12 else 6
 
     for order, (_, values) in enumerate(rows):
-        colour = theme.chart[order % len(theme.chart)]
+        colour = _colour(theme, order)
         points = []
         for index, value in enumerate(values[:count]):
             x = x0 + step * index
@@ -323,7 +366,7 @@ def _donut(rows, labels, theme, unit, W, H, xlabel="") -> str:
     angle = -90.0
     for index, value in enumerate(values):
         span = 360.0 * value / total
-        colour = theme.chart[index % len(theme.chart)]
+        colour = _colour(theme, index)
         parts.append(_arc(cx, cy, radius, thickness, angle, angle + span,
                           colour))
         angle += span
@@ -331,7 +374,7 @@ def _donut(rows, labels, theme, unit, W, H, xlabel="") -> str:
     # Yonida imzolar: halqaning ichiga yozuv sig'maydi.
     line_y = cy - len(values) * 27 + 27
     for index, value in enumerate(values):
-        colour = theme.chart[index % len(theme.chart)]
+        colour = _colour(theme, index)
         label = labels[index] if index < len(labels) else ""
         share = 100.0 * value / total
         left = cx + radius + 56
@@ -372,7 +415,7 @@ def _legend(rows, theme, y) -> str:
     for order, (name, _) in enumerate(rows):
         if not name:
             continue
-        colour = theme.chart[order % len(theme.chart)]
+        colour = _colour(theme, order)
         parts.append(f'<rect x="{x}" y="{y - 16:.0f}" width="20" height="20" '
                      f'rx="5" fill="#{colour}"/>')
         parts.append(_text(x + 30, y, name, 27, theme.body, anchor="start"))

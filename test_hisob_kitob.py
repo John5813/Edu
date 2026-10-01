@@ -135,6 +135,16 @@ f = deck_math.formula("A_{o'sish} = (T - O) + M")
 check("so'zli pastki indeks o'qiladigan matn bo'lib qoladi", "A_(o'sish)" in f, f)
 check("raqamli indeks Unicode bo'lib qoladi", "x₁" in deck_math.formula("x_1") or "₁" in deck_math.formula("x_1"))
 
+# ── Diagramma ranglari bir-biridan ajraladi
+for key in ("ko'k", "yashil", "to'q sariq", "qizil"):
+    colours = deck_charts.palette(themes.get(key))
+    check(f"diagramma ranglari turli: {key}", len(set(colours)) == len(colours) >= 5
+          and all(deck_charts._hue_gap(a, b) >= deck_charts._MIN_HUE_GAP
+                  for i, a in enumerate(colours) for b in colours[i + 1:]), colours)
+check("birinchi rang sxemaning asosiy rangi", deck_charts.palette(themes.get("ko'k"))[0] == themes.get("ko'k").chart[0])
+night = deck_charts.palette(themes.with_style(themes.get("ko'k"), "qorongu"))
+check("qorong'u uslubda ranglar ochroq va turli", len(set(night)) >= 5 and night[1] != "F59E0B", night)
+
 # ── Mayda matn: brauzer topadi, tuzatish qisqartirishga ruxsat beradi
 check("mayda matn qoidasi tekshiruvda bor", "juda mayda" in __import__("services.premium_presentation.html_extract", fromlist=["x"])._CHECK_SCRIPT)
 before = '<section class="slide"><div class="body"><p>' + "so'z " * 40 + "</p></div></section>"
