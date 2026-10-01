@@ -105,10 +105,12 @@ BOOK_TRANSLATE_MODELS = [
 ]
 
 # Article prices (in som)
+# Maqola va tezis — qisqa ishlar, narxi arzon: 7-10 varoq 3 000 so'm
+# (avval 10 000), qolgan zinapoyalar shu nisbatda (x0,3, 500 ga yaxlitlangan).
 ARTICLE_PRICES = {
-    "4_5": 5000,
-    "5_7": 7000,
-    "7_10": 10000,
+    "4_5": 1500,
+    "5_7": 2000,
+    "7_10": 3000,
 }
 
 # Dynamic pricing based on slide/page count (in som)
@@ -123,7 +125,7 @@ DOCUMENT_PRICES = {
     "15_20": 7000,
     "20_25": 10000,
     "25_30": 12000,
-    "tezis": 5000
+    "tezis": 3000
 }
 
 # Course work prices (with chapters)

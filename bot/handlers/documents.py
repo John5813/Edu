@@ -1036,7 +1036,7 @@ async def handle_group_input(message: Message, state: FSMContext, user_lang: str
         await state.update_data(group=group.strip())
 
         from config import DOCUMENT_PRICES
-        price = DOCUMENT_PRICES.get("tezis", 5000)
+        price = DOCUMENT_PRICES.get("tezis", 3000)
         stars = som_to_stars(price)
         balance = user.balance if user else 0
         await state.update_data(price=price, doc_next_step="tezis_gen")
@@ -1128,7 +1128,7 @@ def get_document_price(document_type: str, count_data: dict) -> int:
         min_pages = count_data.get('min_pages', 4)
         max_pages = count_data.get('max_pages', 5)
         page_key = f"{min_pages}_{max_pages}"
-        return ARTICLE_PRICES.get(page_key, 5000)
+        return ARTICLE_PRICES.get(page_key, 1500)
     else:  # independent_work or referat
         min_pages = count_data.get('min_pages', 10)
         max_pages = count_data.get('max_pages', 15)

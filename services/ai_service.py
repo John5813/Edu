@@ -3998,95 +3998,80 @@ ROW5: text | text | text | text"""
                 }
 
     async def generate_thesis_content(self, topic: str, language: str) -> Dict:
-        """Generate thesis content with trilingual annotation/keywords/intro and rest in selected language"""
+        """Konferensiya tezisi: ixcham (taxminan 3 bet), qoidaga mos tuzilma.
+
+        Qoida (O'zbekiston konferensiyalari talablari): sarlavha, muallif,
+        3-5 qatorli annotatsiya va 3-6 ta kalit so'z (ko'p konferensiyada
+        uch tilda), so'ng dolzarblik, maqsad, asosiy qism va xulosa — uzluksiz
+        matn; jadval bo'lsa raqamlangan va nomlangan; adabiyotlar oxirida,
+        alifbo tartibida. Matnda havola [1] ko'rinishida, snoska emas.
+        """
         try:
             target_lang = "Russian" if language == "ru" else "English" if language == "en" else "Uzbek"
-            
-            prompt = f"""Create a professional academic thesis (tezis) on topic: "{topic}".
+            year = timeframe.current_year()
 
-            CRITICAL LANGUAGE RULE:
-            - Annotation and Keywords must be written in THREE languages: Uzbek, then Russian, then English.
-            - Each language block has: annotation (~100 words) + 10 keywords in that same language.
-            - Introduction is in {target_lang} ONLY (not trilingual).
-            - ALL OTHER SECTIONS (literature_review, main_intro, analysis, conclusion, references) must be written ONLY in {target_lang}.
-            
-            STRUCTURE:
-            1. Topic title translated into 3 languages: Uzbek, Russian, English.
-            2. Annotation + Keywords in 3 languages (each pair together):
-               - Uzbek: Annotation (~100 words) followed by 10 keywords in Uzbek
-               - Russian: Annotation (~100 words) followed by 10 keywords in Russian
-               - English: Annotation (~100 words) followed by 10 keywords in English
-            3. Introduction - ~100 words in {target_lang} ONLY (not trilingual). Include ONE footnote mark [1].
-            4. Literature Review (in {target_lang} only) - ~400-500 words. Analyze what has been written about this topic in academic literature. For EACH of the 5-6 references, write a separate paragraph (60-80 words) explaining what that specific author/source contributes to the topic. Mention the author name and key findings from their work. Include ONE footnote mark [2] in this section.
-            5. Main Part Introduction (in {target_lang} only) - ~100 words introducing the analysis and main discussion points.
-            6. Main Part (in {target_lang} only) - A continuous, cohesive academic text (~800-1000 words) analyzing the topic comprehensively. Write as flowing paragraphs (4-5 paragraphs), NOT as bullet points or numbered lists. Each paragraph should smoothly transition into the next. Include footnote marks [3] and [4] naturally within the text.
-            7. Conclusion (in {target_lang} only) - ~400 words providing final findings, summary and recommendations. Include ONE footnote mark [6] in this section.
-            8. References - 6 real academic sources with actual authors, titles, publishers and years. These MUST match the sources discussed in the Literature Review section.
-            
-            RULES:
-            - Professional academic tone throughout.
-            - Total content must be around 5-6 pages (~2000-2500 words total).
-            - No markdown formatting except bullets in main part.
-            - Use plain text for content.
-            - Footnote marks: Exactly 4 total: [1] in intro, [2] in literature review, [3] and [4] in main part. Plus [5] will be in table analysis and [6] in conclusion.
-            - References must be realistic academic sources and must match the literature review.
-            - YOU MUST RETURN ONLY VALID JSON.
-            
-            Respond in this EXACT JSON format:
-            {{
-                "topic_uz": "Topic title in Uzbek...",
-                "topic_ru": "Topic title in Russian...",
-                "topic_en": "Topic title in English...",
-                "annotation_uz": "100 words annotation in Uzbek...",
-                "keywords_uz": ["kalit1", "kalit2", ..., "kalit10"],
-                "annotation_ru": "100 words annotation in Russian...",
-                "keywords_ru": ["ключ1", "ключ2", ..., "ключ10"],
-                "annotation_en": "100 words annotation in English...",
-                "keywords_en": ["key1", "key2", ..., "key10"],
-                "introduction": "100 words introduction in {target_lang} with [1]...",
-                "literature_review": "400-500 words in {target_lang} analyzing each source with [2]...",
-                "main_intro": "100 words in {target_lang} introducing the main analysis...",
-                "analysis": "800-1000 words continuous academic text in {target_lang} with [3] and [4] footnotes...",
-                "conclusion": "400 words in {target_lang} of final summary with [6]...",
-                "references": ["Author. Title. City: Publisher, Year.", ...]
-            }}"""
+            prompt = f"""Write a conference THESIS (tezis, a short abstract paper) on the topic: "{topic}".
+
+A thesis is SHORT: the whole text is about 3 pages (about 650-800 words in total). It states the problem,
+the aim, the main argument with key facts, and the conclusion. Do not pad it.
+
+LANGUAGE:
+- title, introduction, main_part, conclusion, table texts and references: {target_lang} ONLY.
+- annotation + keywords: THREE languages (Uzbek, Russian, English), each in its own language.
+
+CONTENT RULES:
+- title: precise, not longer than 15 words, no quotes, no trailing dot.
+- annotation_xx: 35-55 words (3-5 lines): the problem, the aim, the method and the main result. One paragraph.
+- keywords_xx: exactly 5 keywords per language.
+- introduction (90-110 words): why the topic matters (relevance), the problem and the AIM of the work. Cite [1] once.
+- main_part (360-440 words): 3 paragraphs of continuous academic prose (NOT lists, NOT headings): (1) what the sources say and
+  the research approach, (2) the main analysis with concrete, well-known facts, (3) the meaning of the table below.
+  Cite sources in the text as [1], [2], [3] (numbers match the references list). In the 3rd paragraph refer to the table as
+  "Table 1" ("1-jadval" in Uzbek, "Таблица 1" in Russian).
+- table: ONE small table (3-4 columns, 3-4 data rows) that supports the analysis. Every cell must be filled with real,
+  meaningful content. Do not put a table into the text with "|" characters.
+- conclusion (80-100 words): the findings and one practical recommendation. No new facts.
+- references: 4-5 sources that REALLY exist (real authors, titles, publishers, years not later than {year - 1}). If you are not
+  sure that a source exists, write fewer sources — never invent. Order them ALPHABETICALLY by the author's surname,
+  and number the in-text citations according to this same order.
+- Never invent statistics, quotations, survey results or the number of examples "found". If you do not know a figure, describe
+  the idea without a number.
+- Plain text only: no markdown, no bullet points, no footnote marks.
+- YOU MUST RETURN ONLY VALID JSON.
+
+Respond in this EXACT JSON format:
+{{
+    "title": "Thesis title in {target_lang}",
+    "annotation_uz": "...", "keywords_uz": ["", "", "", "", ""],
+    "annotation_ru": "...", "keywords_ru": ["", "", "", "", ""],
+    "annotation_en": "...", "keywords_en": ["", "", "", "", ""],
+    "introduction": "...",
+    "main_part": "paragraph 1\\n\\nparagraph 2\\n\\nparagraph 3",
+    "table": {{"caption": "Table title in {target_lang} without the word Table and the number",
+               "headers": ["...", "...", "..."],
+               "rows": [["...", "...", "..."], ["...", "...", "..."], ["...", "...", "..."]]}},
+    "conclusion": "...",
+    "references": ["Surname I.O. Title. City: Publisher, Year. - 000 p.", "..."]
+}}"""
 
             messages = [
-                {"role": "system", "content": "You are an academic researcher writing a thesis. You must output a valid JSON object following the provided structure strictly. Do not include any thought process (COT), just the JSON."},
+                {"role": "system", "content": "You are an academic researcher writing a conference thesis. Output a valid JSON object only, following the structure strictly. No thought process."},
                 {"role": "user", "content": prompt}
             ]
             content_str = await self._make_request(
                 messages=messages,
-                max_tokens=8000,
+                max_tokens=4500,
                 temperature=0.4,
                 response_format={"type": "json_object"}
             )
-            
+
             if content_str.startswith("```json"): content_str = content_str[7:]
             if content_str.startswith("```"): content_str = content_str[3:]
             if content_str.endswith("```"): content_str = content_str[:-3]
-            
-            result = self._parse_json_safely(content_str.strip())
 
-            is_book_mode = any(marker in topic for marker in self._BOOK_MODE_MARKERS)
-            
-            table1 = await self.generate_table_data(topic, 1, language)
-            if is_book_mode:
-                table2 = await self.generate_table_data(topic, 2, language)
-            else:
-                table2 = await self.generate_stats_table(topic, language)
-            
-            table1_analysis = await self._generate_table_analysis(topic, table1, language)
-            table2_analysis = await self._generate_table_analysis(topic, table2, language)
-            
-            logger.info(f"Thesis table1: {len(table1.get('headers', []))} cols, {len(table1.get('rows', []))} rows")
-            logger.info(f"Thesis table2: {len(table2.get('headers', []))} cols, {len(table2.get('rows', []))} rows")
-            
-            result['table'] = table1
-            result['table2'] = table2
-            result['table_explanation'] = table1_analysis
-            result['table2_explanation'] = table2_analysis
-            
+            result = self._parse_json_safely(content_str.strip())
+            logger.info("Thesis content: %d words main part, %d refs",
+                        len(str(result.get('main_part', '')).split()), len(result.get('references', []) or []))
             return result
         except Exception as e:
             logger.error(f"Error generating thesis content: {e}")
@@ -4262,6 +4247,35 @@ ROW5: text | text | text | text"""
             logger.error(f"Error translating topic: {e}")
             return topic
 
+    @staticmethod
+    def _scale_article_prompt(prompt: str, min_pages: int, max_pages: int):
+        """Maqola bo'limlari so'z chegaralarini varoq soniga qarab o'zgartiradi.
+
+        Qaytaradi: (yangi prompt, max_tokens). Annotatsiya (abstract) hajmi
+        o'zgarmaydi — u har doim qisqa.
+        """
+        base_words = 1500   # promptdagi bo'limlar o'rtachasining yig'indisi
+        pages = (float(min_pages) + float(max_pages)) / 2
+        target = max(900.0, (pages - 0.5) * 330)
+        factor = target / base_words
+
+        pattern = re.compile(r"\((\d+)-(\d+) (so'z|слов|words)\)")
+
+        def scale_line(line: str) -> str:
+            if '"abstract"' in line:
+                return line
+
+            def swap(match):
+                low = max(50, int(round(int(match.group(1)) * factor / 10.0)) * 10)
+                high = max(low + 20, int(round(int(match.group(2)) * factor / 10.0)) * 10)
+                return f"({low}-{high} {match.group(3)})"
+
+            return pattern.sub(swap, line)
+
+        scaled = "\n".join(scale_line(line) for line in prompt.split("\n"))
+        tokens = int(min(16000, max(6000, target * 3.2 + 1800)))
+        return scaled, tokens
+
     async def generate_article_content(self, topic: str, min_pages: int, max_pages: int, language: str) -> dict:
         """Generate a full IMRAD-structured academic article as JSON"""
         try:
@@ -4269,6 +4283,8 @@ ROW5: text | text | text | text"""
                 prompt = f"""Sen tajribali akademik yozuvchisan. "{topic}" mavzusida {min_pages}-{max_pages} varoqlik ilmiy maqola yoz.
 
 JADVAL BO'YICHA QOIDA: "table" maydonida mavzuga ENG MOS va ENG FOYDALI jadvalni o'zing belgilagancha yaratgin. Ustun soni, qator soni va sarlavhalar — hammasi erkin. Barcha kataklar haqiqiy, mazmunli ma'lumotlar bilan to'ldirilsin. Bo'sh yoki "..." qoldirma.
+
+MUHIM: jadvalni matn ichiga "|" belgilari bilan yozma — u faqat "table" maydonida bo'lsin. Statistik raqam, iqtibos, so'rovnoma natijasi va "topilgan misollar soni"ni o'ylab topma; aniq bilmasang raqamsiz, umumiy yoz. Manbalar haqiqatan mavjud bo'lsin.
 
 IMRAD tuzilmasiga qat'iy rioya qil. Faqat JSON formatda javob ber:
 
@@ -4307,6 +4323,8 @@ Faqat JSON qaytargin, boshqa hech narsa yozma."""
 
 ПРАВИЛО ДЛЯ ТАБЛИЦЫ: В поле "table" создай НАИБОЛЕЕ ПОДХОДЯЩУЮ и ПОЛЕЗНУЮ таблицу для данной темы. Количество строк, столбцов и их заголовки выбираешь сам — никаких ограничений. Все ячейки должны быть заполнены реальными, содержательными данными. Не оставляй пустых или "..." значений.
 
+ВАЖНО: не пиши таблицу в тексте через "|" — она только в поле "table". Не выдумывай статистику, цитаты, результаты опросов и «количество найденных примеров»; если не знаешь точно — пиши без цифр. Источники должны реально существовать.
+
 Строго придерживайся структуры IMRAD. Отвечай только в формате JSON:
 
 {{
@@ -4344,6 +4362,8 @@ Faqat JSON qaytargin, boshqa hech narsa yozma."""
 
 TABLE RULE: In the "table" field, create the MOST APPROPRIATE and INFORMATIVE table for this topic. You freely choose the number of columns, rows, and headers — no constraints. Fill every cell with real, meaningful data. Do not leave empty or "..." values.
 
+IMPORTANT: never write a table inside the text with "|" characters — it belongs only in the "table" field. Do not invent statistics, quotations, survey results or a "number of examples found"; if you do not know a figure, write without numbers. Sources must really exist.
+
 Strictly follow the IMRAD structure. Respond only in JSON format:
 
 {{
@@ -4377,12 +4397,18 @@ Strictly follow the IMRAD structure. Respond only in JSON format:
 
 Return only JSON, nothing else."""
 
+            # Bo'lim hajmlari (so'z) buyurtma qilingan varoqqa moslanadi. Ilgari
+            # ular qat'iy edi (jami ~1500 so'z): 7-10 varoq so'ralsa ham ~4 bet
+            # chiqardi. Bir bet ~330 so'z (TNR 14, 1,5 interval); sarlavha,
+            # annotatsiya, jadval va adabiyotlar ~0,5 bet oladi.
+            prompt, token_budget = self._scale_article_prompt(prompt, min_pages, max_pages)
+
             response = await self._make_request(
                 messages=[
                     {"role": "system", "content": "You are an academic writer. Respond with valid JSON only. No markdown, no extra text."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=6000,
+                max_tokens=token_budget,
                 temperature=0.7
             )
 
