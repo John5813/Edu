@@ -127,6 +127,34 @@ check("quvur: javob hisoblanadi, manba yili himoyalanadi", "17,9" in page and "B
 check("quvur: model yozgan asl slayd (calc) tuzatish uchun saqlanadi",
       'class="calc"' in html_slides.source_of(page))
 
+# ── Formula: model qo'sh teskari chiziq yozsa ham, so'zli pastki indeks ham o'qiladi
+from services.premium_presentation import deck_math, html_images
+f = deck_math.formula(r"CDR = \\frac{D}{P} \\times 1000")
+check("qo'sh teskari chiziqli kasr to'g'ri chiqadi", 'class="frac"' in f and "×" in f and "\\" not in f, f)
+f = deck_math.formula("A_{o'sish} = (T - O) + M")
+check("so'zli pastki indeks o'qiladigan matn bo'lib qoladi", "A_(o'sish)" in f, f)
+check("raqamli indeks Unicode bo'lib qoladi", "x₁" in deck_math.formula("x_1") or "₁" in deck_math.formula("x_1"))
+
+# ── Mayda matn: brauzer topadi, tuzatish qisqartirishga ruxsat beradi
+check("mayda matn qoidasi tekshiruvda bor", "juda mayda" in __import__("services.premium_presentation.html_extract", fromlist=["x"])._CHECK_SCRIPT)
+before = '<section class="slide"><div class="body"><p>' + "so'z " * 40 + "</p></div></section>"
+after = '<section class="slide"><div class="body"><p>' + "so'z " * 8 + "</p></div></section>"
+check("oddiy tuzatishda matn 80% yo'qolsa rad", html_slides._rewritten(before, after) != "")
+check("mayda matn tuzatishida qisqartirish qabul", html_slides._rewritten(before, after, True) == "")
+
+# ── O'ylab topilgan iqtibos manbasi
+g = html_slides.guard_quote_sources('<p class="quote-by">— BMT Aholi Jamg\'armasi (UNFPA), 2026-yil hisobotidan</p>')
+check("kelgusi yilli 'hisobotidan' iqtibos manbasi olib tashlanadi", "2026" not in g and "UNFPA" in g, g)
+g = html_slides.guard_quote_sources('<p class="quote-by">— Amir Temur</p>')
+check("haqiqiy muallif tegilmaydi", "Amir Temur" in g)
+check("prompt: iqtibos faqat haqiqiy", "IQTIBOS faqat HAQIQIY" in html_slides.shell_rules(TH, "uz"))
+
+# ── Rasm: oddiy realistik foto, diagramma va yozuvsiz
+pp = html_images.photo_prompt("an infographic diagram of a population pyramid with labels, wide shot")
+check("rasm tavsifi: diagramma/infografika so'zlari yo'q", not re.search(r"infographic diagram|labels,", pp.split("no ")[0]), pp)
+check("rasm tavsifi: realistik foto va yozuvsiz", pp.startswith("realistic natural photograph") and "no text" in pp and "no diagram" in pp, pp)
+check("prompt: rasm faqat oddiy foto", "FAQAT oddiy, realistik" in deck_style.BLOCKS)
+
 from services.premium_presentation import html_render
 if html_render.available():
     from pptx import Presentation

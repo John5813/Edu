@@ -496,7 +496,11 @@ BLOKLAR:
     matn: shu mavzuni to'ldiruvchi 2-3 gap (misol, sabab yoki ahamiyat).</p>
   </div>
 </div>
-`data-prompt` — rasmning inglizcha tavsifi (matn va yozuvsiz). Rasm
+`data-prompt` — rasmning inglizcha tavsifi: FAQAT oddiy, realistik
+fotosurat (odamlar, joy, buyum, tabiat). Diagramma, sxema, infografika,
+jadval, xarita, chizma, formula yoki yozuv so'ralmaydi — ular fotoda
+buziladi (bunday ma'lumot uchun diagramma/kartochka bloklarini
+ishlating). Rasm
 chiqsa `rasm-matn` o'rniga rasm turadi; chiqmasa matn qoladi —
 shuning uchun u to'liq, mazmunli bo'lsin.
 
@@ -564,7 +568,8 @@ Chiziq o'zi chiziladi — siz chizmaysiz.
 <table><tr><th>Ustun</th><th>Ustun</th></tr>
 <tr><td>Qiymat</td><td>Qiymat</td></tr></table>
 
-11. IQTIBOS:
+11. IQTIBOS (faqat haqiqiy, mashhur, muallifi aniq so'z; "hisobotdan"
+    iqtibos yo'q — eslay olmasangiz bu blokni ishlatmang):
 <div>
   <div class="quote-mark">&#8220;</div>
   <p class="quote">Iqtibos matni.</p>
@@ -598,6 +603,10 @@ $\to$ → →, $\infty$ → ∞, $\sqrt{x}$ → √(x), $a_1$ → a₁.
   </div>
   <div class="misol-answer">Javob: ...</div>
 </div>
+
+Misol sig'imi: shart 1-2 gap, qadamlar 4 tadan oshmasin, har qadam
+bir qator formula yoki bir gap; qadam ichida ro'yxat/kartochka yo'q.
+Murakkab misolni ikki slaydga bo'ling — mayda yozuv o'qilmaydi.
 
 DIAGRAMMA — siz chizmaysiz, faqat ma'lumot berasiz. Diagrammali
 slaydda faqat diagramma va uni tushuntiradigan matn bo'ladi —
