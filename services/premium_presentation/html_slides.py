@@ -20,7 +20,7 @@ import os
 import re
 from typing import Callable, Dict, List, Optional
 
-from . import (deck_charts, deck_math, deck_shape, deck_style,
+from . import (deck_charts, deck_math, deck_shape, deck_style, deck_styles,
                llm_client)
 
 log = logging.getLogger("html_slides")
@@ -183,11 +183,27 @@ QAT'IY QOIDALAR:
    qolganlarini kamroq ustunga joyla. Slayd sarlavha va bitta
    jumladan iborat bo'lib qolmasin — sarlavhadagi fikr slaydda
    ochilsin; fikr bitta bo'lsa MATN VA RASM bloki bor.
-7. BLOKNI MAZMUN TANLAYDI, xilma-xillik emas. Ketma-ketlik bo'lsa
-   qadam yoki vaqt o'qi, tasnif bo'lsa jadval yoki kartochka,
-   taqqoslash bo'lsa ikki ustun.
-   Ikki slayd ketma-ket bir xil shaklda bo'lishi MUMKIN. Blokni
-   "boshqacha bo'lsin" deb almashtirmang.
+7. BLOKNI TO'G'RI TANLANG va bir xillikka tushib qolmang. Har
+   slayddan oldin o'ylang: "bu fikr qanday ko'rinishda eng yaxshi
+   ochiladi?" Tanlov mazmunga qarab:
+   - raqam, foiz yoki o'lchov bor fikr → ko'rsatkich (faqat
+     8-qoidadagi HAQIQIY raqam bo'lsa);
+   - ketma-ketlik, bosqich, tarix → qadamlar yoki vaqt o'qi;
+   - ikki narsani qiyoslash → qiyoslash (ikki ustun) yoki jadval;
+   - tasnif, turlar, ko'p belgili taqqoslash → jadval;
+   - ta'rif, atama, bitta chuqur fikr → matn va rasm yoki oddiy
+     ro'yxat (kartochkasiz);
+   - mashhur so'z yoki ta'rif parchasi → iqtibos;
+   - kartochka — faqat 3-4 ta teng huquqli, bir-biriga o'xshash
+     element bo'lganda.
+   Kartochkaga qaytaverish — xato: u eng oson yo'l, lekin taqdimot
+   bir xil chiqadi. Ketma-ket ikki slayd bir xil blokdan iborat
+   bo'lmasin va butun taqdimotda bitta blok qayta-qayta
+   chiqmasin. Ikki slayd bir xil shaklni talab qilsa, birini
+   boshqa blok bilan ifodalang. Lekin blokni faqat "boshqacha
+   bo'lsin" deb tanlamang: avval mazmun, keyin shakl.
+   Slayd NAFAS OLSIN: matn kam, bo'sh joy ko'p; bir blokda bitta
+   fikr; uzun matn bo'lsa ikki slaydga bo'ling.
 8. RAQAMNI O'YLAB TOPMANG. Foiz, statistika, o'sish sur'ati va
    kelajak prognozi faqat siz ishonadigan HAQIQIY ma'lumot bo'lsa
    yoziladi. Ishonchingiz komil bo'lmasa diagramma ham,
@@ -244,11 +260,14 @@ def _user_prompt(topic: str, start: int, count: int, total: int,
         f"Hozir {start}-slayddan boshlab {count} ta slayd kerak.",
         depth,
         deck_shape.guidance(family),
-        "SHAKL MAZMUNDAN KELIB CHIQSIN. Blokni fikrga qarab tanlang: "
-        "ketma-ketlik bo'lsa qadam yoki vaqt o'qi, tasnif bo'lsa jadval "
-        "yoki kartochka, taqqoslash bo'lsa ikki ustun. Xilma-xillik "
-        "uchun blok almashtirmang — ikki slayd ketma-ket bir xil "
-        "shaklda bo'lishi MUMKIN, agar mazmun shuni talab qilsa.",
+        "BLOKNI TO'G'RI TANLANG: raqam bo'lsa ko'rsatkich, ketma-ketlik "
+        "bo'lsa qadam yoki vaqt o'qi, ikki narsa qiyoslansa ikki ustun "
+        "yoki jadval, tasnif bo'lsa jadval, ta'rif yoki bitta fikr bo'lsa "
+        "matn va rasm yoki kartochkasiz ro'yxat, mashhur so'z bo'lsa "
+        "iqtibos. Kartochka faqat 3-4 ta teng huquqli element uchun — "
+        "unga qaytaverma. Ketma-ket ikki slayd bir xil shaklda bo'lmasin "
+        "va bitta blok qayta-qayta chiqmasin; lekin mazmun birinchi, "
+        "shakl ikkinchi.",
     ]
 
     if outline:
@@ -293,10 +312,14 @@ def plan_outline(topic: str, count: int, language: str,
         "MANTIQIY ketma-ketlikda ochsin: nimadan boshlash, nima bilan "
         "davom etish va qayerda yakunlash kerakligini mavzuning o'zi "
         "aytadi.\n"
-        "Kategoriyani xilma-xillik uchun emas, MAZMUNGA QARAB tanlang. "
-        "Ikki slayd ketma-ket bir xil kategoriyada bo'lishi mumkin. "
-        "Mavzu raqam talab qilmasa, diagramma va statistika "
-        "kategoriyalarini umuman ishlatmang.\n\n"
+        "Kategoriyani MAZMUNGA QARAB tanlang va bir xillikdan qoching: "
+        "raqam → korsatkichlar, ketma-ketlik → jarayon yoki vaqt_oqi, "
+        "ikki narsa → qiyoslash, tasnif → jadval, ta'rif yoki bitta fikr "
+        "→ matn_rasm yoki iqtibos. 'kartalar' faqat 3-4 ta teng huquqli "
+        "element uchun; unga qaytaverma. Ketma-ket ikki slayd bir xil "
+        "kategoriyada bo'lmasin (mantiq buni majburlamasa). Mavzu raqam "
+        "talab qilmasa, diagramma va statistika kategoriyalarini umuman "
+        "ishlatmang.\n\n"
         "Shuningdek mavzu qaysi oilaga tegishli ekanini ayting: "
         + deck_shape.names() + "\n\n"
         f"Matn {_LANGUAGE.get(language, _LANGUAGE['uz'])}.\n"
@@ -333,11 +356,10 @@ def plan_outline(topic: str, count: int, language: str,
             category = _fallback_category(index, count)
         outline.append({"brief": brief or topic, "category": category})
 
-    # Ilgari bu yerda ketma-ket takrorlangan kategoriya kod darajasida
-    # almashtirilardi. Bu xato edi: mantiqan ketma-ket kelishi kerak
-    # bo'lgan ikki ro'yxat sun'iy ravishda ajratilib, taqdimotning
-    # fikri uzilardi. Endi takror ruxsat etiladi — shaklni mazmun
-    # tanlaydi.
+    # Kod darajasida kategoriya almashtirilmaydi (ilgari shunday edi va
+    # mantiqan ketma-ket kelishi kerak bo'lgan ikki ro'yxatni ajratib,
+    # fikrni uzardi). Bir xillikdan qochishni model promptdagi yo'riqnoma
+    # bo'yicha o'zi qiladi.
     return {"family": family, "slides": outline}
 
 
@@ -571,8 +593,8 @@ def build_pages(bodies: List[str], theme) -> List[str]:
     o'rni ham har safar to'g'ri chiqadi.
     """
     drawn = [deck_charts.draw(
-        _half_charts(deck_math.render(
-            _whiten_icons(_auto_icons(_decorate(body))))),
+        _half_charts(deck_math.render(deck_styles.decorate(
+            _whiten_icons(_auto_icons(_decorate(body))), theme))),
         theme)
              for body in bodies]
     try:

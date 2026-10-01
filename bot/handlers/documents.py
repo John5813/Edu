@@ -351,10 +351,10 @@ def _create_edited_pptx(content: str, original_path: str) -> str:
 # Promokod handlers moved to settings
 
 # Document type mapping
+# "🌟 Taqdimot" bu yerda yo'q: u bitta katalog bo'lib, `premium_presentation`
+# handleridan boshlanadi (uslub tanlanadi). "Chiroyli orqa fonlar" tanlansa,
+# oddiy oqim `start_simple_presentation` bilan shu yerdan davom etadi.
 DOCUMENT_TYPES = {
-    "🌟 Taqdimot": "presentation",
-    "🌟 Презентация": "presentation",
-    "🌟 Presentation": "presentation",
     "💥 Mustaqil ish": "independent_work",
     "💥 Самостоятельная работа": "independent_work",
     "💥 Independent Work": "independent_work",
@@ -377,6 +377,17 @@ DOCUMENT_TYPES = {
     "🔬 Специальная разработка": "mahsus_ishlanma",
     "🔬 Special Project": "mahsus_ishlanma",
 }
+
+async def start_simple_presentation(message: Message, state: FSMContext, user_lang: str) -> None:
+    """"Chiroyli orqa fonlar" — oddiy taqdimot oqimini boshidan boshlaydi."""
+    await state.clear()
+    await state.update_data(document_type="presentation", source_step_visited=True)
+    await message.answer(
+        get_text(user_lang, "select_source"),
+        reply_markup=get_source_selection_keyboard(user_lang)
+    )
+    await state.set_state(DocumentStates.waiting_for_source_selection)
+
 
 @router.message(F.text.in_(list(DOCUMENT_TYPES.keys())))
 async def handle_document_type_selection(message: Message, state: FSMContext, user_lang: str, db: Database, user):

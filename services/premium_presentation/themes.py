@@ -32,6 +32,7 @@ class Theme:
     invert: str = "FFFFFF"    # to'q fon ustidagi matn
     dark: str = ""            # to'q bezak (ajratkich slayd foni)
     chart: Tuple[str, ...] = ()
+    style: str = ""           # uslub kaliti (`deck_styles`); "" — sukut dizayn
 
     @property
     def band(self) -> str:
@@ -118,3 +119,10 @@ def suggest(topic: str) -> Theme:
 def choices() -> List[Theme]:
     """Mijozga ko'rsatiladigan ro'yxat."""
     return list(THEMES.values())
+
+
+def with_style(theme: Theme, style: str) -> Theme:
+    """Rang sxemasini tanlangan uslubga moslaydi (uslub bo'lmasa — o'zgarmaydi)."""
+    from . import deck_styles
+
+    return deck_styles.adapt(theme, (style or "").strip().lower())

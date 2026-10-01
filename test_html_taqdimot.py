@@ -398,16 +398,17 @@ def check_no_quotas():
 
     # Aksincha — shaklni mazmun tanlashi AYTILGAN bo'lsin.
     rules = pieces["qoidalar"]
-    check("blokni mazmun tanlashi aytilgan",
-          "BLOKNI MAZMUN TANLAYDI" in rules)
-    check("ketma-ket takror ruxsat etilgan",
-          "bir xil shaklda bo'lishi MUMKIN" in rules)
+    check("blokni TO'G'RI tanlash aytilgan (mazmunga qarab)",
+          "BLOKNI TO'G'RI TANLANG" in rules and "avval mazmun, keyin shakl" in rules)
+    check("ketma-ket bir xil blokdan va kartochkaga qaytaverishdan qochish aytilgan",
+          "Ketma-ket ikki slayd bir xil blokdan iborat" in rules
+          and "Kartochkaga qaytaverish" in rules)
     check("raqam o'ylab topish taqiqlangan",
           "RAQAMNI O'YLAB TOPMANG" in rules)
     check("diagrammasiz taqdimot ham to'g'ri",
           "birorta diagramma" in rules and "TO'G'RI" in rules)
-    check("so'rovda shakl mazmundan kelishi aytilgan",
-          "SHAKL MAZMUNDAN KELIB CHIQSIN" in pieces["slayd so'rovi"])
+    check("so'rovda to'g'ri blok tanlash aytilgan",
+          "BLOKNI TO'G'RI TANLANG" in pieces["slayd so'rovi"])
 
     # Formula va misol — imkoniyat, talab emas.
     exact = pieces["oila:aniq"]
