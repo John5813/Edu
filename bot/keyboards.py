@@ -97,20 +97,16 @@ def get_settings_keyboard(language: str) -> InlineKeyboardMarkup:
     return keyboard.as_markup()
 
 def get_article_page_keyboard(language: str = "uz") -> InlineKeyboardMarkup:
-    """Article page count selection keyboard"""
+    """Article page count selection keyboard (narxlar config.ARTICLE_PRICES dan)"""
+    from config import ARTICLE_PRICES
+
     keyboard = InlineKeyboardBuilder()
-    if language == "uz":
-        keyboard.add(InlineKeyboardButton(text="4-5 varoq - 5000 so'm", callback_data="art_pages_4_5"))
-        keyboard.add(InlineKeyboardButton(text="5-7 varoq - 7000 so'm", callback_data="art_pages_5_7"))
-        keyboard.add(InlineKeyboardButton(text="7-10 varoq - 10000 so'm", callback_data="art_pages_7_10"))
-    elif language == "ru":
-        keyboard.add(InlineKeyboardButton(text="4-5 страниц - 5000 сум", callback_data="art_pages_4_5"))
-        keyboard.add(InlineKeyboardButton(text="5-7 страниц - 7000 сум", callback_data="art_pages_5_7"))
-        keyboard.add(InlineKeyboardButton(text="7-10 страниц - 10000 сум", callback_data="art_pages_7_10"))
-    else:
-        keyboard.add(InlineKeyboardButton(text="4-5 pages - 5000 som", callback_data="art_pages_4_5"))
-        keyboard.add(InlineKeyboardButton(text="5-7 pages - 7000 som", callback_data="art_pages_5_7"))
-        keyboard.add(InlineKeyboardButton(text="7-10 pages - 10000 som", callback_data="art_pages_7_10"))
+    word, currency = {"uz": ("varoq", "so'm"), "ru": ("страниц", "сум")}.get(language, ("pages", "som"))
+    for key in ("4_5", "5_7", "7_10"):
+        low, high = key.split("_")
+        keyboard.add(InlineKeyboardButton(
+            text=f"{low}-{high} {word} - {ARTICLE_PRICES[key]} {currency}",
+            callback_data=f"art_pages_{key}"))
     keyboard.add(InlineKeyboardButton(text=_back_text(language), callback_data="back_to_author_name"))
     keyboard.adjust(1)
     return keyboard.as_markup()

@@ -230,6 +230,73 @@ def collapse_page_breaks(doc) -> int:
     return removed
 
 
+def _use_a4(doc) -> None:
+    """A4 sahifa. python-docx shabloni Letter (21,59 x 27,94 sm) beradi — bizda
+    esa rasmiy ishlar A4 (21 x 29,7 sm) talabi bilan topshiriladi."""
+    for section in doc.sections:
+        section.page_width = Cm(21.0)
+        section.page_height = Cm(29.7)
+
+
+# Model ba'zan matn ichiga markdown jadval (| a | b |) yozib yuboradi, jadval
+# esa alohida chiziladi — natijada Word'da xom "|---|" qatorlari chiqadi.
+_PIPE_ROW = re.compile(r"^\s*\|.*\|\s*$")
+
+
+def _plain_paragraphs(text) -> list:
+    """Matnni abzatslarga ajratadi: markdown jadval, sarlavha belgisi va ** olib tashlanadi."""
+    result = []
+    for raw in str(text or "").split("\n"):
+        line = raw.strip()
+        if not line or _PIPE_ROW.match(line):
+            continue
+        line = re.sub(r"^#{1,6}\s*", "", line).replace("**", "").replace("__", "")
+        if line:
+            result.append(line)
+    return result
+
+
+# O'zbek lotin yozuvida o' va g' dagi tutuq — bitta belgi (oʻ, gʻ). Model
+# ‘ ’ ' ` ni aralashtirib yozadi: sarlavhada bir xil, matnda boshqacha chiqardi.
+_UZ_APOSTROPHE = re.compile("(?<=[oOgG])[\u2018\u2019'`\u00b4\u02bc\u02bb]")
+
+
+def _uz_quotes(text, language: str = "uz"):
+    if language != "uz" or not isinstance(text, str):
+        return text
+    return _UZ_APOSTROPHE.sub("\u02bb", text)
+
+
+_CAPTION_PREFIX = re.compile(
+    r"^\s*(?:(?:\d+\s*[-\u2013\u2014]?\s*(?:jadval|таблица|table))|(?:jadval|таблица|table)\s*\d*)\s*[.:\u2013\u2014-]?\s*",
+    re.IGNORECASE)
+
+
+def _caption_title(caption, fallback: str = "") -> str:
+    """"Jadval 1. Nomi" -> "Nomi": raqamni jadval nomi oldiga hujjatning o'zi qo'yadi."""
+    title = _CAPTION_PREFIX.sub("", str(caption or "")).strip()
+    return title or fallback
+
+
+def _sort_references(refs: list, *texts: str):
+    """Adabiyotlarni alifbo tartibiga soladi va matndagi [n] havolalarni moslaydi.
+
+    Qaytaradi: (tartiblangan ro'yxat, [yangilangan matnlar]).
+    """
+    clean = [re.sub(r"^\s*\d+[.)]\s*", "", str(r)).strip() for r in refs or [] if str(r).strip()]
+    order = sorted(range(len(clean)),
+                   key=lambda i: (bool(re.match(r"[\u0400-\u04FF]", clean[i])), clean[i].casefold()))
+    new_number = {old + 1: new + 1 for new, old in enumerate(order)}
+
+    def remap(match):
+        numbers = [n.strip() for n in match.group(1).split(",")]
+        mapped = [str(new_number.get(int(n), n)) if n.isdigit() else n for n in numbers]
+        return "[" + ", ".join(mapped) + "]"
+
+    pattern = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
+    return [clean[i] for i in order], [pattern.sub(remap, t or "") for t in texts]
+
+
 def _save_docx(doc, path: str) -> None:
     """Saqlashdan oldin bo'sh varaqlarni tozalaydi."""
     try:
@@ -2692,230 +2759,129 @@ class DocumentService:
         return result
 
     async def create_thesis(self, topic: str, content: Dict, author_name: str, university: str, language: str = 'uz', faculty: str = '', group: str = '') -> str:
-        """Create thesis document (4 pages) with specific formatting"""
+        """Konferensiya tezisi (taxminan 3 bet), rasmiy talablar bo'yicha.
+
+        A4; Times New Roman 14; satr oralig'i 1,5; chekkalar: yuqori, past, chap
+        2,5 sm, o'ng 1,5 sm; abzats 1,25 sm. Tartib: sarlavha (bosh harflar,
+        o'rtada) -> muallif va tashkilot -> annotatsiya (kursiv) va kalit so'zlar
+        -> uzluksiz matn ([1] ko'rinishidagi havolalar) -> raqamlangan jadval
+        -> adabiyotlar (alifbo tartibida).
+        """
         try:
             doc = Document()
-            
-            # Set margins
+            _use_a4(doc)
             for section in doc.sections:
-                section.top_margin = Inches(0.79)
-                section.bottom_margin = Inches(0.79)
-                section.left_margin = Inches(1.18)
-                section.right_margin = Inches(0.59)
-            
-            # 1. Title Page (Mavzu, Author, University)
-            title_para = doc.add_paragraph()
-            title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            topic_uz = content.get('topic_uz', topic)
-            topic_ru = content.get('topic_ru', '')
-            topic_en = content.get('topic_en', '')
-            title_lines = [topic_uz.upper()]
-            if topic_ru:
-                title_lines.append(topic_ru.upper())
-            if topic_en:
-                title_lines.append(topic_en.upper())
-            title_run = title_para.add_run('\n'.join(title_lines))
-            title_run.font.size = Pt(18)
-            title_run.font.bold = True
-            title_run.font.name = 'Times New Roman'
-            
-            doc.add_paragraph() # Spacing
-            
-            info_para = doc.add_paragraph()
-            info_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-            student_label = {'uz': 'guruhi talabasi', 'ru': 'группы студент', 'en': 'group student'}
-            label = student_label.get(language, student_label['uz'])
-            info_lines = [university]
-            if faculty:
-                info_lines.append(faculty)
-            if group:
-                info_lines.append(f"{group} {label} {author_name}")
-            else:
-                info_lines.append(author_name)
-            info_run = info_para.add_run('\n'.join(info_lines))
-            info_run.font.size = Pt(14)
-            info_run.font.name = 'Times New Roman'
-            info_run.font.italic = True
-            
-            doc.add_paragraph() # Spacing
-            
-            # 2. Trilingual Annotation, Keywords, Introduction
-            labels = {
-                'uz': {'lit_review': 'Adabiyotlar tahlili:', 'anal': 'Asosiy qism:', 'ref': 'Adabiyotlar roʻyxati:'},
-                'ru': {'lit_review': 'Обзор литературы:', 'anal': 'Основная часть:', 'ref': 'Список литературы:'},
-                'en': {'lit_review': 'Literature Review:', 'anal': 'Main Part:', 'ref': 'References:'}
-            }
-            l = labels.get(language, labels['uz'])
-            
-            FONT_SIZE = Pt(14)
+                section.top_margin = Cm(2.5)
+                section.bottom_margin = Cm(2.5)
+                section.left_margin = Cm(2.5)
+                section.right_margin = Cm(1.5)
+
             FONT_NAME = 'Times New Roman'
-            FIRST_LINE_INDENT = Inches(0.49)
-            
-            refs = content.get('references', [])
-            
-            def add_heading_para(doc, text):
-                p = doc.add_paragraph()
-                p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-                run = p.add_run(text)
-                run.font.bold = True
-                run.font.size = FONT_SIZE
+            FONT_SIZE = Pt(14)
+
+            def q(text):
+                return _uz_quotes(text, language)
+
+            def style(run, bold=False, italic=False, size=FONT_SIZE):
                 run.font.name = FONT_NAME
-                return p
-            
-            def add_body_para(doc, text='', justify=True):
+                run.font.size = size
+                run.font.bold = bold
+                run.font.italic = italic
+
+            def para(text='', align=WD_ALIGN_PARAGRAPH.JUSTIFY, indent=True, bold=False,
+                     italic=False, after=0, before=0, spacing=1.5):
                 p = doc.add_paragraph()
-                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY if justify else WD_ALIGN_PARAGRAPH.LEFT
-                p.paragraph_format.first_line_indent = FIRST_LINE_INDENT
+                p.alignment = align
+                pf = p.paragraph_format
+                pf.line_spacing = spacing
+                pf.space_after = Pt(after)
+                pf.space_before = Pt(before)
+                if indent:
+                    pf.first_line_indent = Cm(1.25)
                 if text:
-                    run = p.add_run(text)
-                    run.font.size = FONT_SIZE
-                    run.font.name = FONT_NAME
+                    style(p.add_run(text), bold=bold, italic=italic)
                 return p
-            
-            kw_labels = {'uz': 'Kalit so\u02bbzlar:', 'ru': 'Ключевые слова:', 'en': 'Keywords:'}
-            add_heading_para(doc, 'Annotatsiya:')
-            for lang_code in ['uz', 'ru', 'en']:
-                annotation_text = content.get(f'annotation_{lang_code}', content.get('annotation', ''))
-                if annotation_text:
-                    p = add_body_para(doc)
-                    run = p.add_run(annotation_text)
-                    run.font.size = FONT_SIZE
-                    run.font.name = FONT_NAME
-                
-                keywords_list = content.get(f'keywords_{lang_code}', content.get('keywords', []))
-                if isinstance(keywords_list, list):
-                    keywords_text = ', '.join(keywords_list)
-                else:
-                    keywords_text = str(keywords_list)
-                p = doc.add_paragraph()
-                run = p.add_run(f"{kw_labels[lang_code]} ")
-                run.font.bold = True
-                run.font.size = FONT_SIZE
-                run.font.name = FONT_NAME
-                run = p.add_run(keywords_text)
-                run.font.size = FONT_SIZE
-                run.font.name = FONT_NAME
-                p.paragraph_format.first_line_indent = FIRST_LINE_INDENT
-            
-            intro_heading = {'uz': 'Kirish:', 'ru': 'Введение:', 'en': 'Introduction:'}
-            add_heading_para(doc, intro_heading.get(language, 'Kirish:'))
-            intro_text = content.get('introduction', content.get(f'intro_{language}', ''))
-            if intro_text:
-                p = add_body_para(doc)
-                self._add_text_with_footnotes(p, intro_text, refs)
-            
-            add_heading_para(doc, l['lit_review'])
-            p = add_body_para(doc)
-            self._add_text_with_footnotes(p, content.get('literature_review', ''), refs)
-            
-            add_heading_para(doc, l['anal'])
-            
-            main_intro = content.get('main_intro', '')
-            if main_intro:
-                p = add_body_para(doc)
-                self._add_text_with_footnotes(p, main_intro, refs)
-            
-            analysis = content.get('analysis', '')
-            if isinstance(analysis, list):
-                combined = ' '.join(f"{p.get('title', '')}. {p.get('content', '')}" for p in analysis if isinstance(p, dict))
-                analysis = combined
-            if analysis:
-                paragraphs = [par.strip() for par in analysis.split('\n') if par.strip()]
-                if len(paragraphs) <= 1:
-                    paragraphs = [analysis]
-                for para_text in paragraphs:
-                    p = add_body_para(doc)
-                    self._add_text_with_footnotes(p, para_text, refs)
-            
-            table_data = content.get('table', {})
-            logger.info(f"Thesis table_data keys: {table_data.keys() if isinstance(table_data, dict) else type(table_data)}, has rows: {bool(table_data.get('rows') if isinstance(table_data, dict) else False)}")
-            if table_data and isinstance(table_data, dict) and table_data.get('rows'):
-                doc.add_paragraph()
-                headers = table_data.get('headers', [])
-                rows = table_data.get('rows', [])
-                num_cols = len(headers) if headers else 1
+
+            # 1. Sarlavha: bosh harflar, qalin, o'rtada.
+            title = q(str(content.get('title') or content.get('topic_uz') or topic)).strip().rstrip('.')
+            para(title.upper(), WD_ALIGN_PARAGRAPH.CENTER, indent=False, bold=True, after=12, spacing=1.0)
+
+            # 2. Muallif va tashkilot (ism, keyin guruh/fakultet/universitet).
+            if author_name:
+                para(q(author_name), WD_ALIGN_PARAGRAPH.CENTER, indent=False, bold=True, spacing=1.0)
+            # Guruh nomi odatda "21-guruh" ko'rinishida — "guruhi" qo'shilsa takrorlanadi.
+            if not group:
+                member = ''
+            elif language == 'ru':
+                member = f"студент {group}"
+            elif language == 'en':
+                member = f"student of group {group}"
+            else:
+                member = f"{group} talabasi"
+            affiliation = ', '.join(x for x in (member, faculty, university) if x)
+            if affiliation:
+                para(q(affiliation), WD_ALIGN_PARAGRAPH.CENTER, indent=False, italic=True, spacing=1.0)
+            para('', indent=False, spacing=1.0)
+
+            # 3. Annotatsiya (3-5 qator, kursiv) va kalit so'zlar — uch tilda.
+            ann_label = {'uz': 'Annotatsiya', 'ru': 'Аннотация', 'en': 'Abstract'}
+            kw_label = {'uz': 'Kalit so\u02bbzlar', 'ru': 'Ключевые слова', 'en': 'Keywords'}
+            for code in ('uz', 'ru', 'en'):
+                annotation = str(content.get(f'annotation_{code}', '') or '').strip()
+                if not annotation:
+                    continue
+                p = para('', indent=True, spacing=1.0, after=2)
+                style(p.add_run(f"{ann_label[code]}. "), bold=True, italic=True)
+                style(p.add_run(_uz_quotes(annotation, code)), italic=True)
+                words = content.get(f'keywords_{code}', [])
+                words = ', '.join(str(w).strip() for w in words if str(w).strip()) if isinstance(words, list) else str(words)
+                if words:
+                    p = para('', indent=True, spacing=1.0, after=8)
+                    style(p.add_run(f"{kw_label[code]}: "), bold=True, italic=True)
+                    style(p.add_run(_uz_quotes(words, code)), italic=True)
+
+            # 4. Matn: dolzarblik va maqsad, asosiy qism, xulosa — uzluksiz.
+            main_raw = content.get('main_part') or content.get('analysis', '')
+            if isinstance(main_raw, list):
+                main_raw = '\n'.join(str(x) for x in main_raw)
+            refs, (intro, main_part, conclusion) = _sort_references(
+                content.get('references', []),
+                content.get('introduction', ''), main_raw, content.get('conclusion', ''))
+            for block in (intro, main_part):
+                for text in _plain_paragraphs(block):
+                    para(q(text))
+
+            # 5. Jadval: nomi ustida, "1-jadval. Nomi".
+            table_data = content.get('table') or {}
+            headers = table_data.get('headers') or []
+            rows = table_data.get('rows') or []
+            if headers and rows:
                 doc_visuals.of(doc, language).table_caption(
-                    doc, table_data.get('title') or topic)
-                table = doc.add_table(rows=len(rows) + 1, cols=num_cols)
+                    doc, q(_caption_title(table_data.get('caption') or table_data.get('title'), title)))
+                table = doc.add_table(rows=len(rows) + 1, cols=len(headers))
                 table.style = 'Table Grid'
-                
-                for i, header in enumerate(headers):
-                    cell = table.cell(0, i)
-                    cell.text = str(header)
-                    for para in cell.paragraphs:
-                        for run in para.runs:
-                            run.font.bold = True
-                            run.font.size = Pt(11)
-                            run.font.name = FONT_NAME
-                
-                for i, row in enumerate(rows):
-                    for j, val in enumerate(row):
-                        if j < num_cols:
-                            cell = table.cell(i + 1, j)
-                            cell.text = str(val)
-                            for para in cell.paragraphs:
-                                for run in para.runs:
-                                    run.font.size = Pt(11)
-                                    run.font.name = FONT_NAME
+                for j, header in enumerate(headers):
+                    cell = table.cell(0, j)
+                    cell.text = ''
+                    style(cell.paragraphs[0].add_run(q(str(header))), bold=True, size=Pt(12))
+                for i, row in enumerate(rows, 1):
+                    for j in range(len(headers)):
+                        cell = table.cell(i, j)
+                        cell.text = ''
+                        style(cell.paragraphs[0].add_run(q(str(row[j]) if j < len(row) else '')), size=Pt(12))
+                para('', indent=False, spacing=1.0)
 
-                explanation = content.get('table_explanation', '')
-                if explanation:
-                    p = add_body_para(doc)
-                    p.paragraph_format.space_before = Pt(12)
-                    self._add_text_with_footnotes(p, explanation, refs)
+            for text in _plain_paragraphs(conclusion):
+                para(q(text))
 
-            table2_data = content.get('table2', {})
-            if table2_data and table2_data.get('rows'):
-                doc.add_paragraph()
-                headers2 = table2_data.get('headers', [])
-                rows2 = table2_data.get('rows', [])
-                num_cols2 = len(headers2) if headers2 else 1
-                doc_visuals.of(doc, language).table_caption(
-                    doc, table2_data.get('title') or topic)
-                table2 = doc.add_table(rows=len(rows2) + 1, cols=num_cols2)
-                table2.style = 'Table Grid'
-                
-                for i, header in enumerate(headers2):
-                    cell = table2.cell(0, i)
-                    cell.text = str(header)
-                    for para in cell.paragraphs:
-                        for run in para.runs:
-                            run.font.bold = True
-                            run.font.size = Pt(11)
-                            run.font.name = FONT_NAME
-                
-                for i, row in enumerate(rows2):
-                    for j, val in enumerate(row):
-                        if j < num_cols2:
-                            cell = table2.cell(i + 1, j)
-                            cell.text = str(val)
-                            for para in cell.paragraphs:
-                                for run in para.runs:
-                                    run.font.size = Pt(11)
-                                    run.font.name = FONT_NAME
+            # 6. Adabiyotlar — alifbo tartibida.
+            if refs:
+                label = {'uz': 'Adabiyotlar', 'ru': 'Литература', 'en': 'References'}.get(language, 'Adabiyotlar')
+                para(label, WD_ALIGN_PARAGRAPH.CENTER, indent=False, bold=True, before=8, after=4, spacing=1.0)
+                for number, ref in enumerate(refs, 1):
+                    p = para('', indent=False, spacing=1.0, after=2)
+                    style(p.add_run(f"{number}. {q(ref)}"), size=Pt(12))
 
-                explanation2 = content.get('table2_explanation', '')
-                if explanation2:
-                    p = add_body_para(doc)
-                    p.paragraph_format.space_before = Pt(12)
-                    self._add_text_with_footnotes(p, explanation2, refs)
-
-            conclusion = content.get('conclusion', '')
-            if conclusion:
-                label_xulosa = {'uz': 'Xulosa:', 'ru': 'Заключение:', 'en': 'Conclusion:'}.get(language, 'Xulosa:')
-                add_heading_para(doc, label_xulosa)
-                p = add_body_para(doc)
-                self._add_text_with_footnotes(p, conclusion, refs)
-
-            doc.add_page_break()
-            add_heading_para(doc, l['ref'])
-            
-            for i, ref in enumerate(content.get('references', []), 1):
-                p = doc.add_paragraph()
-                run = p.add_run(f"{i}. {ref}")
-                run.font.size = FONT_SIZE
-                run.font.name = FONT_NAME
-            
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"thesis_{timestamp}.docx"
             file_path = os.path.join(self.documents_dir, filename)
@@ -3993,12 +3959,19 @@ class DocumentService:
     async def create_article(self, topic: str, content: dict, author_name: str, language: str = "uz") -> str:
         """Create an IMRAD-structured academic article as a DOCX file"""
         doc = Document()
+        _use_a4(doc)
 
         for section in doc.sections:
             section.top_margin = Cm(2)
             section.bottom_margin = Cm(2)
             section.left_margin = Cm(2.5)
             section.right_margin = Cm(1.5)
+
+        # Matnlardagi tutuq belgilari bir xil bo'lsin (oʻ, gʻ).
+        content = {k: (_uz_quotes(v, language) if isinstance(v, str) else
+                       [_uz_quotes(x, language) for x in v] if isinstance(v, list) and all(isinstance(x, str) for x in v)
+                       else v)
+                   for k, v in dict(content).items()}
 
         def _set_run(run, bold=False, size=14, italic=False):
             run.font.name = 'Times New Roman'
@@ -4027,7 +4000,7 @@ class DocumentService:
 
         p_title = doc.add_paragraph()
         p_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run_t = p_title.add_run(content.get("title", topic))
+        run_t = p_title.add_run(str(content.get("title") or topic).upper())
         _set_run(run_t, bold=True, size=14)
 
         if author_name:
@@ -4041,7 +4014,7 @@ class DocumentService:
         if language == "uz":
             labels = {
                 "abstract": "ANNOTATSIYA",
-                "keywords": "Kalit so'zlar",
+                "keywords": "Kalit so\u02bbzlar",
                 "introduction": "KIRISH",
                 "literature_review": "ADABIYOTLAR SHARHI",
                 "methodology": "METODOLOGIYA",
@@ -4076,7 +4049,8 @@ class DocumentService:
             }
 
         _section_header(labels["abstract"])
-        _add_body(content.get("abstract", ""), indent=False)
+        for para in _plain_paragraphs(content.get("abstract", "")):
+            _add_body(para, indent=False)
 
         kw_list = content.get("keywords", [])
         if kw_list:
@@ -4099,12 +4073,8 @@ class DocumentService:
 
         for key, label in imrad_sections:
             _section_header(label)
-            text = content.get(key, "")
-            if text:
-                for para in text.split("\n"):
-                    para = para.strip()
-                    if para:
-                        _add_body(para)
+            for para in _plain_paragraphs(content.get(key, "")):
+                _add_body(para)
             if key == "results_and_discussion":
                 table_data = content.get("table", {})
                 headers = table_data.get("headers", [])
@@ -4112,8 +4082,11 @@ class DocumentService:
                 caption = table_data.get("caption", "")
                 if headers and rows:
                     doc.add_paragraph()
+                    # Nom BIR marta, jadval ustida: "1-jadval. Nomi". Ilgari u
+                    # ostida ham takrorlanardi, ustidagisi esa foydalanuvchi
+                    # yozgan xom mavzu bo'lib chiqardi.
                     doc_visuals.of(doc, language).table_caption(
-                        doc, table_data.get("title") or topic)
+                        doc, _caption_title(caption or table_data.get("title"), str(content.get("title") or topic)))
                     tbl = doc.add_table(rows=1, cols=len(headers))
                     tbl.style = 'Table Grid'
                     hdr_cells = tbl.rows[0].cells
@@ -4127,28 +4100,24 @@ class DocumentService:
                             row_cells[i].text = str(val)
                             for run in row_cells[i].paragraphs[0].runs:
                                 _set_run(run, size=12)
-                    # Jadval ostidagi izoh — bir abzats.
-                    doc_visuals.of(doc, language).note(doc, caption)
 
         _section_header(labels["conclusion"])
-        for para in content.get("conclusion", "").split("\n"):
-            para = para.strip()
-            if para:
-                _add_body(para)
+        for para in _plain_paragraphs(content.get("conclusion", "")):
+            _add_body(para)
 
         recommendations = content.get("recommendations", "")
         if recommendations:
             _section_header(labels["recommendations"])
-            for para in recommendations.split("\n"):
-                para = para.strip()
-                if para:
-                    _add_body(para)
+            for para in _plain_paragraphs(recommendations):
+                _add_body(para)
 
         _section_header(labels["references"])
-        for ref in content.get("references", []):
+        # Adabiyotlar muallif familiyasi bo'yicha alifbo tartibida (OAK talabi).
+        sorted_refs, _ = _sort_references(content.get("references", []))
+        for number, ref in enumerate(sorted_refs, 1):
             p = doc.add_paragraph()
             p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-            run = p.add_run(ref)
+            run = p.add_run(f"{number}. {ref}")
             _set_run(run, size=12)
             p.paragraph_format.space_after = Pt(2)
 
