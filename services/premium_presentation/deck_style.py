@@ -304,6 +304,10 @@ border-top:3px solid #ACCENT;padding-top:20px}
 justify-content:center;min-height:0}
 .chart svg{display:block;width:auto;height:auto;max-width:100%;
 max-height:100%}
+.chart-stack{width:100%;display:flex;flex-direction:column;gap:6px;
+min-height:0}
+.chart-stack>.chart{flex:1 1 0}
+.slide>.body>.chart-stack{flex:1 1 auto}
 
 /* ── Pastki qator ──────────────────────────────────────────────── */
 .foot{font-size:24px;color:#MUTED;flex:none}
@@ -615,4 +619,48 @@ boshqa ro'yxat, kartochka yoki rasm qo'shilmaydi:
   donut uchun bitta qator bering: data-series="Ulush: 45,30,25"
   va nomlarini data-labels ga yozing: data-labels="AQSh,Yevropa,Osiyo".
   Yagona raqamdan diagramma chiqmaydi — u uchun ko'rsatkich (kpi)
-  bloki bor."""
+  bloki bor.
+
+DIAGRAMMA TURINI MAZMUNGA QARAB TANLANG (slaydda bittasi):
+  line  — vaqt bo'yicha o'zgarish va prognoz: X o'qi vaqt, Y o'qi qiymat;
+  bar   — bir necha qiymatni solishtirish;
+  donut — butunning ulushlari (yosh tarkibi, tarkib foizi, ulush).
+  Har diagramma BITTA birlikda. Ikki xil birlik (masalan milliard va
+  foiz) bo'lsa qator nomiga birlikni qavsda yozing — tizim ularni
+  alohida o'q bilan ikkita diagrammaga ajratadi:
+  data-series="Aholi (mlrd): 7.9,8.0|Urbanizatsiya (%): 57,58".
+  data-xlabel="Yil" — X o'qi sarlavhasi, data-unit — Y o'qi birligi.
+  Uch tur namunasi:
+  <div class="chart" data-kind="line" data-labels="2020,2021,2022"
+       data-series="Aholi: 7.8,7.9,8.0" data-unit="mlrd" data-xlabel="Yil"></div>
+  <div class="chart" data-kind="bar" data-labels="A,B,C"
+       data-series="Qiymat: 12,18,24" data-unit="ming dona"></div>
+  <div class="chart" data-kind="donut" data-labels="0-14,15-64,65+"
+       data-series="Ulush: 25,65,10"></div>
+
+HISOB-KITOB — raqamlarni O'ZINGIZ hisoblamang, formulani bering,
+KOD hisoblaydi (model arifmetikada xato qiladi):
+  a) Formuladan diagramma. x qiymatlari data-range="boshi:oxiri:qadam"
+     (oxiri kiradi), formulada o'zgaruvchi `t` (yoki data-var="x"):
+  <div class="calc" data-kind="line" data-range="0:10:2"
+       data-vars="P0=8.1;r=0.009"
+       data-labels="2025,2027,2029,2031,2033,2035"
+       data-series="Past: P0*(1+r)**t|Yuqori: P0*(1+2*r)**t"
+       data-unit="mlrd kishi" data-xlabel="Yil"></div>
+  b) Bir necha formula natijasini solishtirish (x yo'q — har ustun
+     o'z formulasidan; halqa uchun ham shunday):
+  <div class="calc" data-kind="bar" data-vars="T=140;O=60;A=7800"
+       data-series="Tug'ilish: (T/A)*1000|O'lim: (O/A)*1000"
+       data-unit="promille"></div>
+  v) Bitta raqam (javob, ko'rsatkich). data-fmt — verguldan keyin
+     nechta xona, data-suffix — oxiriga yoziladigan matn:
+  <div class="kpi-value" data-calc="(T/A)*1000" data-vars="T=140;A=7800"
+       data-fmt="1" data-suffix=" ‰">?</div>
+  Ishlangan misolning javobini ham shunday yozing:
+  <div class="misol-answer">Javob: <span data-calc="(T/A)*1000"
+       data-vars="T=140;A=7800" data-fmt="1">?</span> promille</div>
+  Formulada: + - * / ** (daraja) ( ) ln() exp() sqrt() log() abs()
+  min() max() pi e. O'nlik — nuqta (0.9), foiz — 5% yoki 0.05.
+  O'zgaruvchilar data-vars da: "nom=qiymat;nom2=qiymat2".
+  Boshlang'ich qiymat haqiqiy statistika bo'lmasa, slaydda
+  "shartli misol" deb yozing."""
