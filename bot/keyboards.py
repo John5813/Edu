@@ -960,6 +960,7 @@ def get_broadcast_buttons_keyboard(count: int = 0) -> InlineKeyboardMarkup:
         keyboard.add(InlineKeyboardButton(text="✅ Tayyor — ko'rinishini ko'rish", callback_data="adbtn_done"))
     else:
         keyboard.add(InlineKeyboardButton(text="⏭ Tugmasiz davom etish", callback_data="adbtn_skip"))
+    keyboard.add(InlineKeyboardButton(text="❌ Bekor qilish", callback_data="adcancel"))
     keyboard.adjust(1)
     return keyboard.as_markup()
 
@@ -991,7 +992,8 @@ def get_broadcast_target_keyboard() -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
     keyboard.add(InlineKeyboardButton(text="👥 Hamma", callback_data="broadcast_all"))
     keyboard.add(InlineKeyboardButton(text="🟢 Faqat faollar", callback_data="broadcast_active"))
-    keyboard.adjust(2)
+    keyboard.add(InlineKeyboardButton(text="❌ Bekor qilish", callback_data="adcancel"))
+    keyboard.adjust(2, 1)
     return keyboard.as_markup()
 
 def get_promocode_option_keyboard(language: str) -> InlineKeyboardMarkup:
