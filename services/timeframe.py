@@ -113,3 +113,25 @@ def year_headers(language: str = "uz") -> list:
     first = {"ru": "Показатель", "en": "Indicator"}.get(language, "Ko'rsatkich")
     change = {"ru": "Изменение", "en": "Change"}.get(language, "O'zgarish")
     return [first, str(previous), str(last), change]
+
+
+def prose_year_rule(language: str = "uz") -> str:
+    """Oddiy matn bo'limlari (kirish, asosiy qism, xulosa) uchun yil qoidasi.
+
+    `year_rule` ma'lumot qatorlari uchun: u "ma'lumot oxirgi to'liq yilgacha,
+    prognoz kelgusi yillarga" deydi. Matn bo'limlariga qo'yilganda model har
+    bo'limga "2023-2026 yillarda tadqiqotlar..., kelgusi 2026-2028 yillarda..."
+    deb yozib yuborardi — adabiyot yoki falsafa mavzusida ham, o'ylab topilgan.
+    """
+    now = current_year()
+    if language == "ru":
+        return (f"Сегодня {today_text('ru')}. Годы указывайте только для точных исторических фактов. "
+                f"Не выдумывайте общих утверждений вроде «в {now - 3}-{now} годах исследования показали…» "
+                f"или «в ближайшие годы…» — если нет точного факта, пишите без дат.")
+    if language == "en":
+        return (f"Today is {today_text('en')}. Give years only for precise historical facts. "
+                f"Do not invent generic claims such as \"studies in {now - 3}-{now} showed...\" or "
+                f"\"in the coming years...\" — without an exact fact, write without dates.")
+    return (f"Bugun {today_text('uz')}. Yilni faqat aniq tarixiy fakt uchun yozing. "
+            f"\"{now - 3}-{now} yillarda tadqiqotlar ... ko'rsatdi\" yoki \"kelgusi yillarda ...\" kabi "
+            f"umumiy, o'ylab topilgan gaplarni yozmang — aniq fakt bo'lmasa, sanasiz yozing.")

@@ -265,6 +265,28 @@ def _clean_table(result, max_cols: int = 4, max_rows: int = 6, min_rows: int = 3
     return table
 
 
+_INVENTED_CHART = re.compile(
+    r"taxminiy|nisbiy|shartli|illustrativ|namunaviy|daraja(si)?\b|\bball|reyting|rating|"
+    r"approximate|illustrative|relative|score|level\b|приблизит|условн|относительн|уровен|балл",
+    re.IGNORECASE)
+
+
+def _chart_is_grounded(item: dict) -> bool:
+    """Diagramma real ma'lumotga tayanadimi.
+
+    Model `basis` (manba)ni bermasa yoki sarlavha/qator/manbada "taxminiy",
+    "nisbiy daraja", "ball" kabi o'ylab topilganini bildiradigan so'z bo'lsa,
+    diagramma qo'yilmaydi: adabiyot kabi mavzuda "qadimgi davrda 75%" degan
+    soxta raqamlar ilmiy ishni buzadi.
+    """
+    basis = str(item.get("basis") or "").strip()
+    if len(basis) < 6 or _INVENTED_CHART.search(basis):
+        return False
+    names = [str(item.get("title") or ""), str(item.get("y_label") or ""), str(item.get("x_label") or "")]
+    names += [str(sr.get("name") or "") for sr in (item.get("series") or []) if isinstance(sr, dict)]
+    return not any(_INVENTED_CHART.search(n) for n in names)
+
+
 class AIService:
     """AI Service using OpenRouter with dynamic model selection"""
     
@@ -443,7 +465,20 @@ class AIService:
             if response_format:
                 params["response_format"] = response_format
             resp = await self.client.chat.completions.create(**params)
-            return resp.choices[0].message.content.strip()
+            choice = resp.choices[0]
+            answer = (choice.message.content or "").strip()
+            if not answer and getattr(choice, "finish_reason", "") == "length":
+                # Fikrlovchi modellar tokenni "o'ylashga" sarflab, matn yozishga
+                # yetkazmaydi: bir marta kattaroq limit bilan qayta so'raymiz.
+                params["max_tokens"] = min(int(max_tokens) * 2 + 1500, 16000)
+                resp = await self.client.chat.completions.create(**params)
+                answer = (resp.choices[0].message.content or "").strip()
+            if not answer:
+                # Bo'sh javob muvaffaqiyat emas: keyingi modelga o'tiladi.
+                # Ilgari u jimgina qabul qilinib, hujjatda bo'lim matni
+                # bo'sh qolardi (sarlavha va to'g'ridan-to'g'ri rasm).
+                raise ValueError(f"{model}: bo'sh javob qaytardi")
+            return answer
 
         # Tanlangan model ishlamasa zaxira ro'yxati bo'yicha keyingisiga
         # o'tiladi. Ilgari bitta zaxira bor edi va u faqat 502/503/504 da
@@ -1365,7 +1400,7 @@ QOIDALAR:
 - Markdown formatlash ishlatmang (**, *, _, __ va h.k.)
 - Professional akademik til ishlating
 - Faqat sof matn, ro'yxatlar yoki raqamli punktlar bo'lmasin
-{timeframe.year_rule("uz")}"""
+{timeframe.prose_year_rule("uz")}"""
 
             common_rules_ru = f"""
 ПРАВИЛА:
@@ -1375,7 +1410,7 @@ QOIDALAR:
 - Не используйте форматирование Markdown (**, *, _, __ и т.д.)
 - Используйте профессиональный академический язык
 - Только чистый текст без списков и нумерации
-{timeframe.year_rule("ru")}"""
+{timeframe.prose_year_rule("ru")}"""
 
             common_rules_en = f"""
 RULES:
@@ -1385,7 +1420,7 @@ RULES:
 - Do not use Markdown formatting (**, *, _, __, etc.)
 - Use professional academic language
 - Only plain text without lists or numbered points
-{timeframe.year_rule("en")}"""
+{timeframe.prose_year_rule("en")}"""
 
             if language == "uz":
                 if section_num == 1:
@@ -1437,24 +1472,35 @@ EXACTLY {conclusion_words} words — no more. Present main conclusions, results 
 EXACTLY {body_words} words — no more. Fully cover the topic with examples and arguments.
 {common_rules_en}"""
 
-            response = await self._make_request(
-                messages=[
-                    {"role": "system", "content": "You are an academic writer. The section heading is already printed in the document above your text; you produce only the body text that goes underneath it. Write clear, well-structured content as plain text only. Never use special characters, markdown, or formatting."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=token_budget(
-                    body_words if 1 < section_num < total_sections
-                    else (intro_words if section_num == 1 else conclusion_words),
-                    language,
-                ),
-                temperature=0.8
-            )
+            target = (body_words if 1 < section_num < total_sections
+                      else (intro_words if section_num == 1 else conclusion_words))
+            minimum_words = max(40, int(int(target.split("-")[0]) * 0.5))
+            budget = token_budget(target, language)
+            result = ""
+            # Bo'lim matni bo'sh yoki juda qisqa chiqsa — qayta so'raladi (2 marta).
+            # Ilgari bunday bo'lim bo'sh qolib, hujjatda sarlavhadan keyin darhol
+            # rasm turardi; endi hujjat xato bilan to'xtaydi va to'lov olinmaydi.
+            for attempt in range(3):
+                response = await self._make_request(
+                    messages=[
+                        {"role": "system", "content": "You are an academic writer. The section heading is already printed in the document above your text; you produce only the body text that goes underneath it. Write clear, well-structured content as plain text only. Never use special characters, markdown, or formatting."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    max_tokens=int(budget * (1 + 0.5 * attempt)),
+                    temperature=0.8 if attempt == 0 else 0.6
+                )
 
-            matn = strip_echoed_heading(response, [section_title, topic])
-            matn = matn.replace('\n\n', ' ')
-            matn = matn.replace('\n', ' ')
-            matn = clean_text(matn)
-            return trim_to_last_sentence(matn)
+                matn = strip_echoed_heading(response, [section_title, topic])
+                matn = matn.replace('\n\n', ' ')
+                matn = matn.replace('\n', ' ')
+                matn = clean_text(matn)
+                result = trim_to_last_sentence(matn)
+                if len(result.split()) >= minimum_words:
+                    return result
+                logger.warning(
+                    "Bo'lim matni qisqa (%d so'z, kamida %d): %s — qayta so'raladi (%d/3)",
+                    len(result.split()), minimum_words, section_title[:50], attempt + 1)
+            raise ValueError(f"«{section_title[:60]}» bo'limi matni yozilmadi (model bo'sh yoki juda qisqa javob qaytardi)")
 
         except Exception as e:
             logger.error(f"Error generating section content: {e}")
@@ -1723,21 +1769,47 @@ EXACTLY {body_words} words — no more. Fully cover the topic with examples and 
             logger.error(f"Error generating presidential opening: {e}")
             return {}
 
+    @staticmethod
+    def _sort_references_alphabetically(refs: List[str]) -> List[str]:
+        """Adabiyotlar muallif familiyasi bo'yicha alifbo tartibida (OAK talabi).
+
+        Lotin yozuvidagilar avval, kirill yozuvidagilar keyin. Raqam va nuqtani
+        olib tashlab solishtiriladi; o'zbekcha tutuq belgilari farq qilmaydi.
+        """
+        def key(ref: str):
+            plain = re.sub(r"^\s*\d+[.)]\s*", "", ref)
+            plain = re.sub(r"[\u02bb\u02bc\u2018\u2019'`]", "", plain).casefold()
+            return (bool(re.match(r"[\u0400-\u04FF]", plain)), plain)
+
+        return sorted(dict.fromkeys(refs), key=key)
+
     async def _generate_references(self, topic: str, language: str) -> List[str]:
         """Generate academic references for course work"""
         try:
             target_lang_name = "Russian" if language == "ru" else "English" if language == "en" else "Uzbek"
-            prompt = f"""Create a list of 7-9 realistic academic references for a course work on the topic: "{topic}".
+            labels = {
+                "uz": ("№3", "B. 45-52"),
+                "ru": ("№3", "С. 45-52"),
+            }.get(language, ("No. 3", "pp. 45-52"))
+            prompt = f"""Create a list of 6-8 academic references for a student paper on the topic: "{topic}".
 THE ENTIRE LIST MUST BE IN {target_lang_name.upper()} LANGUAGE.
 
-STRICT COMPOSITION RULES:
-- At least 4-5 must be BOOKS or TEXTBOOKS: Author(s). Title. City: Publisher, Year. — e.g. "Ivanov A.B. Ekonomika. Toshkent: Fan nashriyoti, {timeframe.current_year() - 5}."
-- At least 2 must be JOURNAL ARTICLES: Author(s). Article title // Journal name. Year. No.X. Pages X-X.
-- Maximum 1-2 legal/regulatory documents (laws, decrees) — do NOT make these the majority
-- NO duplicate authors or titles
-- All years must be between {timeframe.current_year() - 20} and {timeframe.current_year()}, and at least three of them from the last five years
-- DO NOT include category headers, numbering, or bullet points in the output
-- ALWAYS write city names IN FULL — NEVER use abbreviations like "T.", "T:", "M.", "M:", "B.", "B:" etc. Write "Toshkent", "Moskva", "Bishkek", "London" in full.
+RELEVANCE AND TRUTH (most important):
+- Every source must be DIRECTLY about this topic or its subject area. A paper on world/Western literature needs the real primary
+  works and authoritative studies about that literature (e.g. Aristotle's Poetics, Horace, Boileau, Lessing, Belinsky, Auerbach,
+  Wellek and similar), NOT general works about another literature.
+- Include ONLY sources you are confident really exist (classic works, well-known textbooks and monographs). If you are not sure
+  that a source exists, leave it out: a shorter honest list is better than an invented one. Never invent authors, titles or pages.
+- Include a law, decree or other legal document ONLY when the topic itself is about law, state policy or a specific country's
+  regulation. Otherwise include none.
+
+FORMAT:
+- BOOKS (at least 4): Author(s). Title. City: Publisher, Year.
+- JOURNAL ARTICLES (0-2, only real ones): Author(s). Article title // Journal name. Year. {labels[0]}. {labels[1]}.
+  Write the "{labels[0]}" and the pages label in {target_lang_name} exactly as in this example (do not use English words in a non-English list).
+- Years: use the real year of the edition you know; do not force recent years.
+- NO duplicate authors or titles; no category headers, numbering or bullet points.
+- Write city names IN FULL ("Toshkent", "Moskva", "London") — never abbreviate them ("T.", "M." ...).
 
 Return as a JSON list:
 {{"references": ["Reference 1", "Reference 2", ...]}}"""
@@ -1757,7 +1829,8 @@ Return as a JSON list:
                 content_str = content_str[:-3]
             
             data = json.loads(content_str.strip())
-            return [self._expand_city_abbrevs(r) for r in data.get('references', [])]
+            refs = [self._expand_city_abbrevs(str(r).strip()) for r in data.get('references', []) if str(r).strip()]
+            return self._sort_references_alphabetically(refs)
             
         except Exception as e:
             logger.error(f"Error generating references: {e}")
@@ -4597,11 +4670,23 @@ In JSON format:
             f"tanlang. Faqat raqam yoki qiyoslash bilan ko'rsatish MANTIQIY "
             f"bo'lgan bo'limni tanlang — sof nazariy bo'limga diagramma "
             f"qo'ymang. Bitta bo'limga bittadan ortiq element bermang.\n\n"
-            f"Diagramma turlari: {types}. Ma'lumot mavzuga oid, real "
-            f"kattalikdagi sonlar bo'lsin (o'ylab topilgan bo'lsa ham ishonarli). "
-            f"Kamida 3 ta kategoriya bering.\n"
+            f"MUHIM — HAQIQIY MA'LUMOT: diagramma va jadvaldagi har bir son "
+            f"HAQIQIY, tekshirib bo'ladigan ma'lumot bo'lishi shart (rasmiy "
+            f"statistika, sanab bo'ladigan miqdor: yillar, nashr soni, hajm...). "
+            f"Adabiyot, falsafa, tarix, til, huquq kabi nazariy yoki gumanitar "
+            f"mavzuda o'lchab bo'lmaydigan narsani raqamlashtirish MAN ETILADI: "
+            f"\"rivojlanish darajasi\", \"ahamiyat balli\", \"nisbiy o'zgarish "
+            f"(taxminiy)\", foiz bilan \"ta'sir kuchi\" kabilar o'ylab topilgan "
+            f"bo'ladi. Bunday mavzuda DIAGRAMMA TANLAMANG — jadval tanlang: "
+            f"matnli qiyoslash (davr / vakil / asosiy g'oya / asar). "
+            f"Diagramma tanlasangiz, 'basis' maydoniga ma'lumot qaysi real "
+            f"manbaga tayanishini yozing; ishonchingiz komil bo'lmasa diagramma "
+            f"o'rniga jadval bering. Hech narsa mos kelmasa, kamroq element "
+            f"qaytaring yoki bo'sh ro'yxat bering — majburan to'ldirmang.\n"
+            f"Diagramma turlari: {types}. Kamida 3 ta kategoriya bering.\n"
             f"Jadvalda 3-4 ta ustun va 4-6 ta qator bo'lsin; ustun "
-            f"sarlavhalari mavzudan kelib chiqsin.\n"
+            f"sarlavhalari mavzudan kelib chiqsin. Nazariy mavzuda jadval "
+            f"kataklari raqam emas, qisqa matn bo'lsin.\n"
             f"Formulada latex dollarsiz yoziladi.\n"
             f"Har bir elementda 'explanation' — diagramma, jadval yoki "
             f"formula ostiga tushadigan IZOH. U 3-5 ta to'liq gapdan iborat "
@@ -4616,6 +4701,7 @@ In JSON format:
             f'"title": "Diagramma nomi", "x_label": "Yil", "y_label": "%", '
             f'"categories": {json.dumps([str(y) for y in timeframe.history_years(3)], ensure_ascii=False)}, '
             f'"series": [{{"name": "Ko\'rsatkich", "values": [9.1, 8.7, 8.2]}}], '
+            f'"basis": "Real manba nomi", '
             f'"explanation": "Izoh"}},\n'
             f'  {{"subsection": "1.3", "kind": "table", "title": "Jadval nomi", '
             f'"headers": {table_headers}, '
@@ -4661,6 +4747,9 @@ In JSON format:
             if kind == "formula" and not str(item.get("latex") or "").strip():
                 continue
             if kind == "table" and not (item.get("headers") and item.get("rows")):
+                continue
+            if kind == "chart" and not _chart_is_grounded(item):
+                logger.info("Diagramma rad etildi (manbasiz yoki o'ylab topilgan): %s", item.get("title"))
                 continue
             seen.add(number)
             plan.append(item)
@@ -4796,6 +4885,45 @@ In JSON format:
             return []
 
 
+    async def describe_image_file(self, image_path: str, section_title: str, topic: str,
+                                  lang: str) -> str:
+        """Rasm ostidagi izohni rasmning O'ZIGA qarab yozadi (vision modeli).
+
+        Ilgari izoh rasmni ko'rmasdan, faqat sarlavhadan yozilardi va unda rasmda
+        yo'q narsalar ("monastirda kitob ko'chirayotgan olimlar") tasvirlanardi.
+        Vision ishlamasa bo'sh qaytadi: chaqiruvchi oddiy izohga o'tadi.
+        """
+        try:
+            import base64
+
+            with open(image_path, "rb") as handle:
+                encoded = base64.b64encode(handle.read()).decode("utf-8")
+            mime = "image/png" if image_path.lower().endswith(".png") else "image/jpeg"
+            task = {
+                "ru": (f'Раздел: "{section_title}" (тема работы: "{topic}"). Посмотрите на изображение и напишите '
+                       "3-5 полных предложений на русском: сначала ТОЧНО что на нём видно (предметы, обстановка), "
+                       "затем осторожно свяжите это с темой раздела. Не упоминайте то, чего на изображении нет. "
+                       "Только сплошной текст, без списков и markdown."),
+                "en": (f'Section: "{section_title}" (work topic: "{topic}"). Look at the image and write 3-5 '
+                       "complete English sentences: first EXACTLY what is visible (objects, setting), then carefully "
+                       "connect it to the section's subject. Do not mention anything that is not in the image. "
+                       "Continuous prose only, no lists or markdown."),
+            }.get(lang, (f'Bo\'lim: "{section_title}" (ish mavzusi: "{topic}"). Rasmga qarab o\'zbek tilida 3-5 ta to\'liq '
+                         "gap yozing: avval rasmda ANIQ nima ko'ringani (buyumlar, muhit), so'ng buni bo'lim mavzusi bilan "
+                         "ehtiyotkorlik bilan bog'lang. Rasmda yo'q narsani tilga olmang. Faqat yaxlit matn, ro'yxatsiz va markdownsiz."))
+            response = await self.client.chat.completions.create(
+                model="openai/gpt-4o-mini",
+                messages=[{"role": "user", "content": [
+                    {"type": "text", "text": task},
+                    {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{encoded}"}},
+                ]}],
+                max_tokens=450, temperature=0.4)
+            text = clean_text(((response.choices[0].message.content) or "").strip())
+            return text if len(text.split()) >= 15 else ""
+        except Exception as exc:
+            logger.warning(f"Rasm izohi rasmga qarab olinmadi: {exc}")
+            return ""
+
     async def describe_visual(self, kind: str, section_title: str, topic: str,
                               lang: str) -> str:
         """Rasm, jadval yoki sxema ostiga tushadigan 3-5 gaplik izoh.
@@ -4850,6 +4978,14 @@ In JSON format:
                 "matn — sarlavhasiz, ro'yxatsiz, markdownsiz."
             )
 
+        if kind == "image":
+            prompt += {
+                "ru": "\n\nВы САМО изображение не видите: не описывайте конкретные предметы, людей или сцены на нём. "
+                      "Напишите, чему оно служит иллюстрацией и почему уместно в этом разделе.",
+                "en": "\n\nYou cannot see the image itself: do not describe specific objects, people or scenes in it. "
+                      "Write what it illustrates and why it fits this section.",
+            }.get(lang, "\n\nRasmning O'ZINI ko'rmayapsiz: undagi aniq narsalarni (odam, bino, kitob, sahna) tasvirlamang. "
+                        "Faqat u nimaning tasviri ekanini va nega shu bo'limda turganini yozing.")
         try:
             response = await self._make_request(
                 messages=[{"role": "user", "content": prompt}],

@@ -297,6 +297,19 @@ def _sort_references(refs: list, *texts: str):
     return [clean[i] for i in order], [pattern.sub(remap, t or "") for t in texts]
 
 
+def _require_section_text(sections: list) -> None:
+    """Bo'limlarning birortasi bo'sh bo'lsa hujjat yig'ilmaydi.
+
+    Bo'sh bo'lim hujjatda sarlavhadan keyin darhol rasm yoki keyingi sarlavha
+    bo'lib chiqadi — mantiq buzilgan, mijoz esa pul to'lagan. Bunday holda
+    xato ko'tariladi: buyurtma muvaffaqiyatsiz bo'ladi va to'lov olinmaydi.
+    """
+    empty = [str(sec.get("title", ""))[:60] for sec in sections
+             if len(str(sec.get("content") or "").split()) < 20]
+    if empty:
+        raise ValueError("Bo'lim matni bo'sh: " + "; ".join(empty))
+
+
 def _save_docx(doc, path: str) -> None:
     """Saqlashdan oldin bo'sh varaqlarni tozalaydi."""
     try:
@@ -1417,7 +1430,7 @@ class DocumentService:
             p.paragraph_format.space_after = Pt(2)
             p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             r = p.add_run(text)
-            r.font.size = Pt(13)
+            r.font.size = Pt(14)
             r.font.name = "Times New Roman"
 
         async def _add_note(kind: str) -> None:
@@ -1452,7 +1465,13 @@ class DocumentService:
                 if img_path and os.path.exists(img_path):
                     await _add_bridge(bridge_key)
                     await _embed_image(img_path, cap)
-                    await _add_note("image")
+                    # Izoh rasmning o'ziga qarab yoziladi (rasmda yo'q narsa
+                    # tasvirlanmasin); vision ishlamasa — umumiy izoh.
+                    seen = await ai.describe_image_file(img_path, section_title, topic, lang)
+                    if seen:
+                        numbering.note(doc, seen)
+                    else:
+                        await _add_note("image")
                     try:
                         os.remove(img_path)
                     except Exception:
@@ -1815,6 +1834,7 @@ class DocumentService:
             toc_run.font.size = Pt(14)
             toc_run.font.bold = True
             all_sections = content.get('sections', [])
+            _require_section_text(all_sections)
 
             toc_plan = self._toc_plan(doc)
             toc_plan.line(doc, toc_texts['kirish'], toc_texts['kirish'])
@@ -1959,6 +1979,7 @@ class DocumentService:
             toc_run.font.size = Pt(14)
             toc_run.font.bold = True
             all_sections = content.get('sections', [])
+            _require_section_text(all_sections)
 
             toc_plan = self._toc_plan(doc)
             toc_plan.line(doc, toc_texts['kirish'], toc_texts['kirish'])
