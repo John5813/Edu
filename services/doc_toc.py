@@ -159,14 +159,46 @@ class TocPlan:
             logger.warning("Reja tozalangandan keyin saqlanmadi: %s", exc)
 
 
-def _page_lines(docx_path: str) -> list:
+# Reja raqami to'g'ri chiqishi uchun LibreOffice hujjatni Word'dagidek chizishi
+# kerak, ya'ni "Times New Roman" bilan o'lchamdosh shrift topishi shart. Ko'p
+# serverda u yo'q va LibreOffice kengroq shriftga (DejaVu Serif) o'tadi: hujjat
+# ~20% ko'p varaq bo'lib, reja "Xulosa — 10-varaq" deydi, Word'da esa u 8-varaq.
+# Shuning uchun loyihaning o'zida Liberation Serif (SIL OFL, Times New Roman
+# bilan harf kengligi bir xil) turadi va o'lchov shu bilan olinadi.
+_FONTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                          "assets", "fonts")
+
+
+def _fontconfig(work_dir: str, include_system: bool = True):
+    """Times New Roman -> Liberation Serif almashtiradigan fontconfig fayli."""
+    if not os.path.exists(os.path.join(_FONTS_DIR, "LiberationSerif-Regular.ttf")):
+        return None
+    system = ('<include ignore_missing="yes">/etc/fonts/fonts.conf</include>'
+              if include_system else "")
+    config = os.path.join(work_dir, "fonts.conf")
+    with open(config, "w", encoding="utf-8") as handle:
+        handle.write(
+            '<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd"><fontconfig>'
+            f"{system}<dir>{_FONTS_DIR}</dir><cachedir>{work_dir}/fccache</cachedir>"
+            '<match target="pattern"><test qual="any" name="family">'
+            "<string>Times New Roman</string></test>"
+            '<edit name="family" mode="assign" binding="strong">'
+            "<string>Liberation Serif</string></edit></match></fontconfig>")
+    return config
+
+
+def _page_lines(docx_path: str, include_system: bool = True) -> list:
     """Har varaqdagi matn qatorlarini soddalashtirilgan ko'rinishda qaytaradi."""
     work_dir = tempfile.mkdtemp(prefix="toc_")
     try:
+        env = dict(os.environ)
+        config = _fontconfig(work_dir, include_system)
+        if config:
+            env["FONTCONFIG_FILE"] = config
         subprocess.run(
-            ["soffice", "--headless", "--convert-to", "pdf",
-             "--outdir", work_dir, docx_path],
-            check=True, timeout=_CONVERT_TIMEOUT, capture_output=True,
+            ["soffice", f"-env:UserInstallation=file://{work_dir}/profile",
+             "--headless", "--convert-to", "pdf", "--outdir", work_dir, docx_path],
+            check=True, timeout=_CONVERT_TIMEOUT, capture_output=True, env=env,
         )
         produced = glob.glob(os.path.join(work_dir, "*.pdf"))
         if not produced:
