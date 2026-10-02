@@ -5,7 +5,7 @@
 import asyncio, os, sys
 from datetime import datetime
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE); os.chdir(HERE)
@@ -73,88 +73,205 @@ async def sending():
 
 asyncio.run(sending())
 
-# ── admin oqimi (tugmalar bilan, matn sintaksisisiz)
+# ── admin oqimi: kontent → matn → tugmalar → kimga → tasdiqlash → yuborish
+from datetime import datetime, timedelta
+from aiogram.exceptions import TelegramForbiddenError, TelegramRetryAfter
+from aiogram.methods import SendMessage
+
+def users(n, old=0):
+    now = datetime.now()
+    return [SimpleNamespace(telegram_id=1000 + i, updated_at=now - timedelta(days=60 if i < old else 1)) for i in range(n)]
+
+def make_db(n=5, old=2):
+    db = MagicMock(); db.get_all_users = AsyncMock(return_value=users(n, old)); return db
+
 async def flow():
     state = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=1, user_id=1))
     sent = []
     msg = MagicMock(); msg.from_user = SimpleNamespace(id=1); msg.chat = SimpleNamespace(id=1)
-    msg.bot = MagicMock(); msg.bot.send_message = AsyncMock()
+    msg.bot = MagicMock()
+    for name in ("send_message", "send_photo", "send_video", "send_document", "send_animation", "send_voice", "send_audio"):
+        setattr(msg.bot, name, AsyncMock())
     msg.bot.me = AsyncMock(return_value=SimpleNamespace(username="Edufayl_bot"))
-    async def answer(text, **kw): sent.append((text, kw.get("reply_markup"))); 
+    async def answer(text, **kw):
+        sent.append((text, kw.get("reply_markup")))
+        return SimpleNamespace(edit_text=AsyncMock())
     msg.answer = answer
+    db = make_db()
 
     def callback(data):
         cb = MagicMock(); cb.data = data; cb.answer = AsyncMock(); cb.from_user = msg.from_user
         cb.message = msg; cb.bot = msg.bot
+        cb.message.edit_reply_markup = AsyncMock(); cb.message.edit_text = AsyncMock()
         return cb
     cbs = lambda i=-1: [b.callback_data for row in sent[i][1].inline_keyboard for b in row]
+    st = lambda: state.get_state()
 
-    msg.text = "Reklama matni"
+    # 0) admin menyusi tugmasi reklama matni bo'lib qolmaydi
+    msg.text = "📤 Reklama yuborish"; msg.html_text = "📤 Reklama yuborish"
+    await state.set_state(AdminStates.waiting_for_broadcast_message)
     await admin.handle_broadcast_message(msg, state)
-    check("kontent kiritilgach tugma so'raladi", await state.get_state() == AdminStates.waiting_for_broadcast_buttons.state)
-    check("`Tugma qo'shish` va `Tugmasiz davom etish`", cbs() == ["adbtn_add", "adbtn_skip"], cbs())
+    check("admin menyusi tugmasi reklama bo'lmaydi", "admin menyusi" in sent[-1][0] and await st() == AdminStates.waiting_for_broadcast_message.state, sent[-1][0])
 
+    # 1) matn reklama: ko'rinish + "to'g'rimi?"
+    msg.text = "Reklama matni"; msg.html_text = "<b>Reklama</b> matni"; msg.photo = None
+    await admin.handle_broadcast_message(msg, state)
+    check("matn: holat — matnni tekshirish", await st() == AdminStates.waiting_for_broadcast_text.state)
+    check("matn: reklama ko'rinishi adminga yuborildi (HTML formatlash saqlangan)",
+          msg.bot.send_message.await_args.args[1] == "<b>Reklama</b> matni" and msg.bot.send_message.await_args.kwargs["parse_mode"] == "HTML")
+    check("matn: to'g'ri / tahrirlash / bekor (matnsiz tugmasi yo'q)", cbs() == ["adtxt_ok", "adtxt_edit", "adcancel"], cbs())
+
+    # 2) tahrirlash
+    await admin.handle_ad_text_edit(callback("adtxt_edit"), state)
+    check("tahrirlashda yangi matn so'raladi", "Yangi matn" in sent[-1][0] and "adtxt_back" in cbs(), sent[-1][0])
+    msg.text = "x" * 5000; msg.html_text = "x" * 5000
+    await admin.handle_ad_text_input(msg, state)
+    check("juda uzun matn rad etiladi, eskisi qoladi", "juda uzun" in sent[-1][0] and (await state.get_data())["message_text"] == "<b>Reklama</b> matni", sent[-1][0])
+    msg.text = "Yangi matn"; msg.html_text = "Yangi <i>matn</i>"
+    await admin.handle_ad_text_input(msg, state)
+    check("yangi matn saqlandi va qayta ko'rsatildi", (await state.get_data())["message_text"] == "Yangi <i>matn</i>"
+          and msg.bot.send_message.await_args.args[1] == "Yangi <i>matn</i>" and cbs() == ["adtxt_ok", "adtxt_edit", "adcancel"])
+    msg.text = None; msg.html_text = ""
+    await admin.handle_ad_text_input(msg, state)
+    check("matn o'rniga rasm yuborilsa — xato", "Matn yuboring" in sent[-1][0])
+
+    # 3) tasdiqlangach tugma so'raladi
+    await admin.handle_ad_text_ok(callback("adtxt_ok"), state, db)
+    check("matn to'g'ri: tugma so'raladi", await st() == AdminStates.waiting_for_broadcast_buttons.state and cbs() == ["adbtn_add", "adbtn_skip", "adcancel"], cbs())
+
+    # 4) tugma qo'shish (havola)
     await admin.handle_broadcast_buttons_add(callback("adbtn_add"), state)
-    check("tugma turi so'raladi: havola yoki ichki bo'lim", cbs() == ["adbtn_type_url", "adbtn_type_menu", "adbtn_back"], cbs())
-
-    # 1) Havola: manzil -> nom
+    check("tugma turi so'raladi", cbs() == ["adbtn_type_url", "adbtn_type_menu", "adbtn_back"], cbs())
     await admin.handle_broadcast_button_url_type(callback("adbtn_type_url"), state)
-    check("manzil so'raladi va misolda ADMINNING o'z boti ko'rsatiladi", "@Edufayl_bot" in sent[-1][0] and "slaydtop" not in sent[-1][0].lower(), sent[-1][0])
+    check("manzil so'raladi va misolda adminning o'z boti", "@Edufayl_bot" in sent[-1][0] and "slaydtop" not in sent[-1][0].lower(), sent[-1][0])
     msg.text = "nimadir"
     await admin.handle_broadcast_button_url(msg, state)
-    check("yaroqsiz manzilda xato aytiladi", "❌" in sent[-1][0] and await state.get_state() == AdminStates.waiting_for_ad_button_url.state)
+    check("yaroqsiz manzilda xato", "❌" in sent[-1][0] and await st() == AdminStates.waiting_for_ad_button_url.state)
     msg.text = "https://example.uz/aksiya"
     await admin.handle_broadcast_button_url(msg, state)
-    check("manzildan keyin tugma nomi so'raladi", await state.get_state() == AdminStates.waiting_for_ad_button_label.state and "nom" in sent[-1][0])
     msg.text = "Aksiyani ko'rish"
     await admin.handle_broadcast_button_label(msg, state)
     buttons = (await state.get_data())["buttons"]
-    check("havola tugma admin yozgan nom bilan saqlandi (manzil ko'rinmaydi)",
-          buttons == [{"text": "Aksiyani ko'rish", "kind": "url", "value": "https://example.uz/aksiya"}], buttons)
-    check("tugma qo'shilgach: yana / o'chirish / tayyor", cbs() == ["adbtn_add", "adbtn_undo", "adbtn_done"], cbs())
-    check("ro'yxatda manzil adminga ko'rinadi", "https://example.uz/aksiya" in sent[-1][0] and "Aksiyani ko'rish" in sent[-1][0], sent[-1][0])
+    check("havola tugma admin yozgan nom bilan saqlandi", buttons == [{"text": "Aksiyani ko'rish", "kind": "url", "value": "https://example.uz/aksiya"}], buttons)
+    check("tugma qo'shilgach: yana / o'chirish / tayyor / bekor", cbs() == ["adbtn_add", "adbtn_undo", "adbtn_done", "adcancel"], cbs())
 
-    # 2) Ichki bo'lim: ro'yxatdan tanlash -> nom
+    # 5) ichki bo'lim tugmasi
     await admin.handle_broadcast_buttons_add(callback("adbtn_add"), state)
     await admin.handle_broadcast_button_menu_type(callback("adbtn_type_menu"), state)
-    check("ichki bo'limlar ro'yxati chiqadi", "adbtn_pick:taqdimot" in cbs() and "adbtn_pick:tezis" in cbs(), cbs())
     await admin.handle_broadcast_button_pick(callback("adbtn_pick:taqdimot"), state)
-    check("bo'lim tanlangach nom so'raladi, standart nom taklif qilinadi", cbs() == ["adbtn_defname"] and await state.get_state() == AdminStates.waiting_for_ad_button_label.state, cbs())
     await admin.handle_broadcast_button_defname(callback("adbtn_defname"), state)
-    check("standart nom: bo'lim nomi", (await state.get_data())["buttons"][-1] == {"text": "🌟 Taqdimot", "kind": "menu", "value": "taqdimot"}, (await state.get_data())["buttons"])
-
-    await admin.handle_broadcast_buttons_add(callback("adbtn_add"), state)
-    await admin.handle_broadcast_button_menu_type(callback("adbtn_type_menu"), state)
-    await admin.handle_broadcast_button_pick(callback("adbtn_pick:tezis"), state)
-    msg.text = "Tezisni arzonga yozdiring"
-    await admin.handle_broadcast_button_label(msg, state)
-    last = (await state.get_data())["buttons"][-1]
-    check("`Boshqa xizmatlar` bo'limi (tezis) o'z nomi bilan", last == {"text": "Tezisni arzonga yozdiring", "kind": "cb", "value": "tezis"}, last)
-
+    check("ichki bo'lim tugmasi standart nom bilan", (await state.get_data())["buttons"][-1] == {"text": "🌟 Taqdimot", "kind": "menu", "value": "taqdimot"})
     await admin.handle_broadcast_button_undo(callback("adbtn_undo"), state)
-    check("oxirgi tugmani o'chirish", len((await state.get_data())["buttons"]) == 2)
+    check("oxirgi tugmani o'chirish", len((await state.get_data())["buttons"]) == 1)
 
-    # 3) Tayyor -> preview -> auditoriya
-    await admin.handle_broadcast_buttons_done(callback("adbtn_done"), state)
-    check("tayyor: reklama ko'rinishi tugmalar bilan yuborildi, auditoriya so'raladi",
-          msg.bot.send_message.await_args.kwargs["reply_markup"] is not None
-          and await state.get_state() == AdminStates.waiting_for_broadcast_target.state)
+    # 6) tayyor → kimga so'raladi (hali yuborilmaydi)
+    msg.bot.send_message.reset_mock()
+    await admin.handle_broadcast_buttons_done(callback("adbtn_done"), state, db)
+    check("tugmalar tayyor: auditoriya so'raladi, hech narsa yuborilmadi",
+          await st() == AdminStates.waiting_for_broadcast_target.state and not msg.bot.send_message.await_count)
+    check("auditoriya tugmalarida bekor qilish bor", "adcancel" in cbs() and "broadcast_all" in cbs(), cbs())
 
-    # Telegram havolani rad etsa, auditoriyaga o'tilmaydi
+    # 7) auditoriya tanlandi → YUBORILMAYDI, tasdiqlash so'raladi
+    await admin.handle_broadcast_target(callback("broadcast_active"), state, db)
+    check("auditoriya tanlangach tasdiqlash holati", await st() == AdminStates.waiting_for_broadcast_confirm.state)
+    check("tasdiqlashda yakuniy ko'rinish (tugmalar bilan) adminning o'ziga yuborildi, 1 ta xabar",
+          msg.bot.send_message.await_count == 1 and msg.bot.send_message.await_args.args[0] == 1 and msg.bot.send_message.await_args.kwargs["reply_markup"] is not None)
+    summary = sent[-1][0]
+    check("xulosada tur, tugma soni va faol foydalanuvchilar soni (3 ta)", "Matn" in summary and "1 ta" in summary and "<b>3</b>" in summary, summary)
+    check("tasdiqlash tugmalari", cbs() == ["adok", "adedit_text", "adedit_btn", "adedit_aud", "adcancel"], cbs())
+
+    # 8) tasdiqlashdan tahrirlash → qaytib tasdiqlashga keladi
+    await admin.handle_ad_edit_text(callback("adedit_text"), state)
+    check("tasdiqlashdan matn tahriri", await st() == AdminStates.waiting_for_broadcast_text.state)
+    msg.text = "Yakuniy matn"; msg.html_text = "Yakuniy matn"
+    await admin.handle_ad_text_input(msg, state)
+    await admin.handle_ad_text_ok(callback("adtxt_ok"), state, db)
+    check("tahrirdan keyin to'g'ridan-to'g'ri tasdiqlashga qaytdi (tugma/auditoriya qayta so'ralmadi)",
+          await st() == AdminStates.waiting_for_broadcast_confirm.state and "Yakuniy matn" in str(msg.bot.send_message.await_args.args[1]))
+    await admin.handle_ad_edit_audience(callback("adedit_aud"), state)
+    await admin.handle_broadcast_target(callback("broadcast_all"), state, db)
+    check("auditoriya o'zgartirildi: hammasi (5 ta)", "<b>5</b>" in sent[-1][0], sent[-1][0])
+
+    # 9) tasdiqlandi → yuboriladi, holat darhol tozalanadi
+    msg.bot.send_message.reset_mock()
+    async def fake_sleep(*a, **k): return None
+    with patch("bot.handlers.admin.asyncio.sleep", fake_sleep):
+        await admin.handle_ad_confirmed(callback("adok"), state, db)
+    check("tasdiqlangach 5 ta foydalanuvchiga yuborildi", msg.bot.send_message.await_count == 5, msg.bot.send_message.await_count)
+    check("tugma bilan yuborildi", all(c.kwargs["reply_markup"] is not None for c in msg.bot.send_message.await_args_list))
+    check("holat tozalandi (ikkinchi bosish qayta yubormaydi)", await st() is None)
+
+    # 10) bekor qilish
     state2 = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=2, user_id=1))
-    await state2.set_state(AdminStates.waiting_for_broadcast_buttons)
-    await state2.update_data(message_type="text", message_text="x", buttons=[{"text": "A", "kind": "url", "value": "https://a.uz"}])
-    msg.bot.send_message = AsyncMock(side_effect=RuntimeError("BUTTON_URL_INVALID"))
-    await admin.handle_broadcast_buttons_done(callback("adbtn_done"), state2)
-    check("Telegram rad etsa — xato aytiladi, foydalanuvchilarga yuborilmaydi",
-          "BUTTON_URL_INVALID" in sent[-1][0] and await state2.get_state() == AdminStates.waiting_for_broadcast_buttons.state)
+    await state2.set_state(AdminStates.waiting_for_broadcast_confirm); await state2.update_data(message_type="text", message_text="x")
+    msg.bot.send_message.reset_mock()
+    await admin.handle_ad_cancel(callback("adcancel"), state2)
+    check("bekor qilish: hech kimga yuborilmaydi, holat tozalanadi", not msg.bot.send_message.await_count and await state2.get_state() is None and "bekor" in sent[-1][0])
 
-    # Tugmasiz davom etish
+    # 11) Telegram havolani rad etsa — tasdiqlashgacha bilinadi
     state3 = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=3, user_id=1))
-    await state3.set_state(AdminStates.waiting_for_broadcast_buttons)
-    await state3.update_data(message_type="text", message_text="x", buttons=[])
-    await admin.handle_broadcast_buttons_skip(callback("adbtn_skip"), state3)
-    check("tugmasiz davom etish: to'g'ridan-to'g'ri auditoriya", await state3.get_state() == AdminStates.waiting_for_broadcast_target.state)
+    await state3.set_state(AdminStates.waiting_for_broadcast_target)
+    await state3.update_data(message_type="text", message_text="x", target="all", buttons=[{"text": "A", "kind": "url", "value": "https://a.uz"}])
+    msg.bot.send_message = AsyncMock(side_effect=RuntimeError("BUTTON_URL_INVALID"))
+    await admin.handle_broadcast_target(callback("broadcast_all"), state3, db)
+    check("Telegram rad etsa — xato aytiladi, tugmalar bosqichiga qaytadi, tasdiqlash ko'rsatilmaydi",
+          "BUTTON_URL_INVALID" in sent[-1][0] and await state3.get_state() == AdminStates.waiting_for_broadcast_buttons.state)
+    msg.bot.send_message = AsyncMock()
+
+    # 12) tugmasiz → to'g'ridan-to'g'ri kimga
+    state4 = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=4, user_id=1))
+    await state4.set_state(AdminStates.waiting_for_broadcast_buttons); await state4.update_data(message_type="text", message_text="x", buttons=[])
+    await admin.handle_broadcast_buttons_skip(callback("adbtn_skip"), state4, db)
+    check("tugmasiz davom etish: auditoriya so'raladi", await state4.get_state() == AdminStates.waiting_for_broadcast_target.state)
+
+    # 13) RASM: izohsiz → "matn qo'shasizmi?"; izoh qo'shiladi; izohli → tuzatish
+    state5 = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=5, user_id=1))
+    await state5.set_state(AdminStates.waiting_for_broadcast_message)
+    m = MagicMock(); m.from_user = msg.from_user; m.chat = msg.chat; m.bot = msg.bot; m.answer = answer
+    m.text = None; m.photo = [SimpleNamespace(file_id="small"), SimpleNamespace(file_id="BIG")]; m.html_text = ""
+    await admin.handle_broadcast_message(m, state5)
+    d = await state5.get_data()
+    check("rasm saqlandi (eng katta o'lcham), izoh bo'sh", d["message_type"] == "photo" and d["photo_id"] == "BIG" and d["caption"] == "", d)
+    check("rasm ostiga matn qo'shasizmi? — qo'shish / matnsiz", "matn qo'shasizmi" in sent[-1][0] and cbs() == ["adtxt_edit", "adtxt_ok", "adcancel"], (sent[-1][0], cbs()))
+    await admin.handle_ad_text_edit(callback("adtxt_edit"), state5)
+    m.text = "Rasm tagidagi matn"; m.html_text = "Rasm tagidagi <b>matn</b>"
+    await admin.handle_ad_text_input(m, state5)
+    check("rasm izohi saqlandi va rasm shu izoh bilan ko'rsatildi",
+          (await state5.get_data())["caption"] == "Rasm tagidagi <b>matn</b>" and msg.bot.send_photo.await_args.kwargs["caption"] == "Rasm tagidagi <b>matn</b>" and msg.bot.send_photo.await_args.kwargs["parse_mode"] == "HTML")
+    check("izohli rasm: to'g'ri / tahrirlash / matnsiz", cbs() == ["adtxt_ok", "adtxt_edit", "adtxt_none", "adcancel"], cbs())
+    m.text = "x" * 1100; m.html_text = "x" * 1100
+    await admin.handle_ad_text_input(m, state5)
+    check("izoh 1024 belgidan oshsa rad etiladi", "juda uzun" in sent[-1][0] and "1024" in sent[-1][0])
+    await admin.handle_ad_text_ok(callback("adtxt_none"), state5, db)
+    check("«Matnsiz yuborish»: izoh tozalanadi va tugmalarga o'tiladi", (await state5.get_data())["caption"] == "" and await state5.get_state() == AdminStates.waiting_for_broadcast_buttons.state)
+
+    # 14) VIDEO / FAYL izoh bilan keladi
+    for attr, kind, ident in (("video", "video", "video_id"), ("document", "document", "document_id")):
+        stx = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=6, user_id=1))
+        mm = MagicMock(); mm.from_user = msg.from_user; mm.chat = msg.chat; mm.bot = msg.bot; mm.answer = answer
+        mm.text = None; mm.photo = None; mm.video = None; mm.document = None
+        setattr(mm, attr, SimpleNamespace(file_id="F1")); mm.html_text = "Izoh bor"
+        await admin.handle_broadcast_message(mm, stx)
+        dd = await stx.get_data()
+        check(f"{kind}: fayl va izoh saqlandi, matnni tekshirish so'raladi", dd[ident] == "F1" and dd["caption"] == "Izoh bor" and "adtxt_none" in cbs(), dd)
+
+    # 15) _deliver: to'sib qo'ygan / xato / flood alohida sanaladi
+    class Blocked(TelegramForbiddenError):
+        def __init__(self): pass
+    class Flood(TelegramRetryAfter):
+        def __init__(self): self.retry_after = 0
+    calls = {"n": 0}
+    async def flaky(chat_id, *a, **k):
+        calls["n"] += 1
+        if chat_id == 1000: raise Blocked()
+        if chat_id == 1001: raise RuntimeError("boom")
+        if chat_id == 1002 and calls.get("flood") is None:
+            calls["flood"] = 1; raise Flood()
+        return None
+    bot = MagicMock(); bot.send_message = flaky
+    with patch("bot.handlers.admin.asyncio.sleep", fake_sleep):
+        res = await admin._deliver(bot, users(4), {"message_type": "text", "message_text": "x"})
+    check("_deliver: yuborildi 2 (flooddan keyin qayta urinish bilan), to'sgan 1, xato 1", res == (2, 1, 1), res)
 
 asyncio.run(flow())
 
