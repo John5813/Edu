@@ -74,7 +74,7 @@ class BlockedUserMiddleware(BaseMiddleware):
         return await handler(event, data)
 
 class CommandResetMiddleware(BaseMiddleware):
-    """Buyruq kelsa, tugallanmagan suhbat holatini bekor qiladi.
+    """Buyruq yoki menyu tugmasi kelsa, tugallanmagan suhbat holatini bekor qiladi.
 
     Har bir xizmat o'z holatida hamma xabarni ushlaydi: kitob tarjimasi
     fayl kutayotganda `/admin` yozilsa ham "fayl turi to'g'ri kelmadi"
@@ -88,12 +88,38 @@ class CommandResetMiddleware(BaseMiddleware):
     # Shu buyruqlar aynan holat ichida ishlaydi (do'kon: nashrni bekor qilish).
     KEEP = {"bekor"}
 
+    _menu_labels = None
+
+    @classmethod
+    def menu_labels(cls) -> set:
+        """Asosiy menyu tugmalarining barcha tillardagi yozuvi."""
+        if cls._menu_labels is None:
+            labels = set()
+            try:
+                from bot.keyboards import get_main_keyboard
+
+                for lang in ("uz", "ru", "en"):
+                    for row in get_main_keyboard(lang).keyboard:
+                        labels.update(button.text.strip() for button in row)
+            except Exception as exc:
+                logger.warning("Menyu tugmalari yig'ilmadi: %s", exc)
+            cls._menu_labels = labels
+        return cls._menu_labels
+
     async def __call__(self, handler, event: Message, data: Dict[str, Any]) -> Any:
         text = (getattr(event, "text", None) or "").strip()
         state = data.get("state")
-        if text.startswith("/") and state is not None and data.get("raw_state"):
-            command = text[1:].split(maxsplit=1)[0].split("@", 1)[0].lower() if len(text) > 1 else ""
-            if command and command not in self.KEEP:
+        if state is not None and data.get("raw_state"):
+            # Asosiy menyu tugmasi ham yangi harakat: ilgari "Professional
+            # xizmatlar" tugmasi taqdimot mavzusi bo'lib qolgan edi.
+            # Admin reklama tugmasiga "📞 Yordam" kabi nom yozishi mumkin —
+            # uning holatlariga tegilmaydi.
+            if text in self.menu_labels() and not str(data["raw_state"]).startswith("AdminStates"):
                 await state.clear()
                 data["raw_state"] = None
+            elif text.startswith("/"):
+                command = text[1:].split(maxsplit=1)[0].split("@", 1)[0].lower() if len(text) > 1 else ""
+                if command and command not in self.KEEP:
+                    await state.clear()
+                    data["raw_state"] = None
         return await handler(event, data)
