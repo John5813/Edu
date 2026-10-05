@@ -211,8 +211,7 @@ def _row_card(ctx, item, index, x, y, w, h, badge: float, pt: int, use_icon: boo
     """Karta: chapda raqam (yoki ikonka), o'ngda sarlavha + matn."""
     kit.card(ctx, x, y, w, h)
     bx, by = x + 0.22, y + (h - badge) / 2 if h < 2.0 else y + 0.22
-    if not (use_icon and kit.icon_badge(ctx, item.get("head", ""), item["text"], bx, by, badge)):
-        kit.number_badge(ctx, bx, by, badge, str(index + 1))
+    kit.marker(ctx, item.get("head", ""), item["text"], bx, by, badge, str(index + 1))
     _hb(ctx, item, x + badge + 0.45, y + 0.08, w - badge - 0.65, h - 0.16, pt, anchor=MSO_ANCHOR.MIDDLE)
 
 
@@ -240,8 +239,8 @@ def r_numbered_list(ctx, d):
     pt = _hb_pt(ctx, [(i, bw, bh) for i in items], 20, 14)
     for k, item in enumerate(items):
         y = T + 0.05 + k * rh
-        kit.text(ctx, L, y, 1.4, rh, f"{k + 1:02d}", pt=40, bold=True, colour=ctx.pal.accent,
-                 align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE, name="num")
+        size = min(0.9, rh - 0.2)
+        kit.marker(ctx, item["head"], item["text"], L + (1.4 - size) / 2, y + (rh - size) / 2, size, f"{k + 1:02d}")
         _hb(ctx, item, L + 1.6, y + 0.04, bw, bh, pt, anchor=MSO_ANCHOR.MIDDLE)
         if k < n - 1:
             kit.line(ctx, L + 0.2, y + rh, R - 0.2, y + rh, width=1.0, alpha=45)
@@ -257,8 +256,7 @@ def r_bullets_icons(ctx, d):
     for k, item in enumerate(items):
         y = T + 0.05 + k * rh
         kit.card(ctx, L, y + 0.05, W, rh - 0.1)
-        if not kit.icon_badge(ctx, item["head"], item["text"], L + 0.25, y + (rh - badge) / 2, badge):
-            kit.number_badge(ctx, L + 0.25, y + (rh - badge) / 2, badge, str(k + 1))
+        kit.marker(ctx, item["head"], item["text"], L + 0.25, y + (rh - badge) / 2, badge, str(k + 1))
         _hb(ctx, item, L + 1.4, y + 0.1, bw, bh, pt, anchor=MSO_ANCHOR.MIDDLE)
 
 
@@ -278,7 +276,7 @@ def r_timeline(ctx, d):
         if value:
             kit.text(ctx, x, T + 0.05, cw, 0.5, value, pt=_one_line_pt(value, cw, 22, 14), bold=True,
                      colour=ctx.pal.accent, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE, name="year")
-        kit.number_badge(ctx, centers[k] - 0.3, line_y - 0.3, 0.6, str(k + 1))
+        kit.marker(ctx, item["head"], item["text"], centers[k] - 0.3, line_y - 0.3, 0.6, str(k + 1))
         kit.card(ctx, x, line_y + 0.55, cw, H - 1.6)
         _hb(ctx, item, x + 0.15, line_y + 0.65, bw, bh - 0.05, pt)
 
@@ -294,7 +292,7 @@ def r_staircase(ctx, d):
     for k, item in enumerate(items):
         x, y = L + k * shift, T + 0.05 + k * rh
         kit.card(ctx, x, y + 0.05, W - k * shift, rh - 0.1)
-        kit.number_badge(ctx, x + 0.22, y + (rh - badge) / 2, badge, str(k + 1))
+        kit.marker(ctx, item["head"], item["text"], x + 0.22, y + (rh - badge) / 2, badge, str(k + 1))
         _hb(ctx, item, x + badge + 0.5, y + 0.13, bw, bh, pt, anchor=MSO_ANCHOR.MIDDLE)
 
 
@@ -451,8 +449,7 @@ def r_icon_row(ctx, d):
         kit.card(ctx, x, y, cw, H - 0.2)
         size = 1.25
         bx = x + (cw - size) / 2
-        if not kit.icon_badge(ctx, item["head"], item["text"], bx, y + 0.3, size):
-            kit.number_badge(ctx, bx, y + 0.3, size, str(k + 1))
+        kit.marker(ctx, item["head"], item["text"], bx, y + 0.3, size, str(k + 1))
         if item["head"]:
             kit.text(ctx, x + 0.15, y + 1.75, cw - 0.3, 1.0, item["head"], bold=True, colour=ctx.pal.accent,
                      align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE, min_pt=15, max_pt=22, name="head")
@@ -525,7 +522,7 @@ def r_image_left_bullets(ctx, d):
     pt = _hb_pt(ctx, [(i, bw, bh) for i in items], 19, 14)
     for k, item in enumerate(items):
         y = T + 0.05 + k * rh
-        kit.number_badge(ctx, x0, y + (rh - 0.6) / 2, 0.6, str(k + 1))
+        kit.marker(ctx, item["head"], item["text"], x0, y + (rh - 0.6) / 2, 0.6, str(k + 1))
         _hb(ctx, item, x0 + 0.8, y + 0.05, bw, bh, pt, anchor=MSO_ANCHOR.MIDDLE)
 
 

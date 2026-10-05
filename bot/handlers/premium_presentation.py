@@ -26,6 +26,7 @@ from config import som_to_stars, STARS_RATE
 from bot import uploads
 from bot.keyboards import get_project_source_keyboard
 from services import workload
+from services import uz_script
 
 # Har bosqich uchun vaqt chegarasi (soniya). Chegarasiz bosqich tashqi
 # xizmat javob bermay qolganda cheksiz osilib qolardi: mijoz "tayyorlanmoqda"
@@ -114,7 +115,7 @@ def _order_summary(data: dict, language: str) -> str:
         lines.append(f"📄 Slaydlar: {int(data['slide_count'])} ta")
     name = clean(data.get("client_name"))
     lines.append(f"👤 Ism: {name}" if name else "👤 Ism: ko'rsatilmagan")
-    lines.append(f"🌐 Til: {clean(data.get('presentation_language', 'uz')).upper()}")
+    lines.append(f"🌐 Til: {clean(_language_label(data.get('presentation_language', 'uz')))}")
     if data.get("style"):
         lines.append(f"🖌 Uslub: {clean(data.get('style'))}")
     wishes = clean(data.get("preferences"), 150)
@@ -184,13 +185,30 @@ _STYLE_NAMES = {
     SIMPLE_STYLE: {"uz": "Chiroyli orqa fonlar", "ru": "Красивые фоны",
                    "en": "Beautiful backgrounds"},
 }
-_LANG_BUTTONS = {"uz": "🇺🇿 O'zbek", "ru": "🇷🇺 Русский", "en": "🇬🇧 English"}
+_LANG_BUTTONS = {"uz": "🇺🇿 O'zbek (lotin)", uz_script.UZ_CYRILLIC_LANG: "🇺🇿 Ўзбек (кирилл)",
+                 "ru": "🇷🇺 Русский", "en": "🇬🇧 English"}
+
+
+def _language_label(code: str) -> str:
+    """Buyurtma xulosasidagi til yozuvi."""
+    if code == uz_script.UZ_CYRILLIC_LANG:
+        return "UZ (кирилл)"
+    return "UZ (lotin)" if code == "uz" else str(code or "uz").upper()
 
 _TXT = {
     "ask_topic": {
         "uz": "📝 <b>Taqdimot mavzusini kiriting:</b>",
         "ru": "📝 <b>Введите тему презентации:</b>",
         "en": "📝 <b>Enter the presentation topic:</b>"},
+    "ask_script": {
+        "uz": ("🔤 <b>Taqdimot qaysi yozuvda bo‘lsin?</b>\n"
+               "<i>Matnning hammasi (sarlavhalar ham) tanlangan yozuvda chiqadi, ikki yozuv aralashmaydi.</i>"),
+        "ru": ("🔤 <b>Каким алфавитом написать презентацию?</b>\n"
+               "<i>Весь текст (включая заголовки) будет в выбранном алфавите, без смешения.</i>"),
+        "en": ("🔤 <b>Which script should the presentation use?</b>\n"
+               "<i>All text, headings included, will use the chosen script without mixing.</i>")},
+    "script_latin": {"uz": "🇺🇿 Lotin (O‘zbek)", "ru": "🇺🇿 Латиница (узб.)", "en": "🇺🇿 Latin (Uzbek)"},
+    "script_cyrillic": {"uz": "🇺🇿 Кирилл (Ўзбек)", "ru": "🇺🇿 Кириллица (узб.)", "en": "🇺🇿 Cyrillic (Uzbek)"},
     "topic_short": {
         "uz": "❌ Mavzu juda qisqa. Kamida 3 ta belgi kiriting.",
         "ru": "❌ Тема слишком короткая. Введите минимум 3 символа.",
@@ -228,13 +246,19 @@ _TXT = {
         "ru": "💳 Ваш баланс: <b>{balance} сум</b>",
         "en": "💳 Your balance: <b>{balance} soʻm</b>"},
     "count_hint": {
-        "uz": "<i>Narx slaydlar soniga qarab. Tanlagach xulosa ko‘rsatiladi.</i>",
-        "ru": "<i>Цена зависит от числа слайдов. После выбора покажем итог.</i>",
-        "en": "<i>Price depends on the slide count. A summary follows.</i>"},
+        "uz": ("<i>Narx slaydlar soniga qarab. Muqova va reja slaydi bu songa kirmaydi "
+               "(kirish va xulosa kiradi). Tanlagach xulosa ko‘rsatiladi.</i>"),
+        "ru": ("<i>Цена зависит от числа слайдов. Титульный слайд и план в число не входят "
+               "(введение и заключение входят). После выбора покажем итог.</i>"),
+        "en": ("<i>Price depends on the slide count. The cover and agenda are not counted "
+               "(the introduction and conclusion are). A summary follows.</i>")},
     "count_hint_fon": {
-        "uz": "<i>Tayyor rasmli shablonlar 10, 15 yoki 20 slaydda tayyorlanadi.</i>",
-        "ru": "<i>Шаблоны с рисунками делаются на 10, 15 или 20 слайдов.</i>",
-        "en": "<i>Picture templates come in 10, 15 or 20 slides.</i>"},
+        "uz": ("<i>Tayyor rasmli shablonlar 10, 15 yoki 20 slaydda tayyorlanadi. "
+               "Muqova va reja slaydi bu songa kirmaydi (kirish va xulosa kiradi).</i>"),
+        "ru": ("<i>Шаблоны с рисунками делаются на 10, 15 или 20 слайдов. Титульный слайд "
+               "и план в число не входят (введение и заключение входят).</i>"),
+        "en": ("<i>Picture templates come in 10, 15 or 20 slides. The cover and agenda "
+               "are not counted (the introduction and conclusion are).</i>")},
     "style_hint": {
         "uz": "<i>Zamonaviy uslubda keyingi qadamda rang tanlanadi, orqa fonlarda — 20 ta shablon. Narx keyingi qadamda hajm bilan ko‘rsatiladi.</i>",
         "ru": "<i>В современных стилях дальше выбирается цвет, в красивых фонах — 20 шаблонов. Цена — на следующем шаге вместе с объёмом.</i>",
@@ -263,7 +287,7 @@ def _topic_line(data: dict, lang: str) -> str:
 
 
 # Orqaga: har qadamning oldingisi. Birinchi qadamdan — bosh menyu.
-_PREVIOUS = {"name": "topic", "prefs": "name", "source": "prefs",
+_PREVIOUS = {"script": "topic", "name": "topic", "prefs": "name", "source": "prefs",
              "source_input": "source", "style": "source", "theme": "style",
              "summary": "count"}
 
@@ -271,6 +295,8 @@ _PREVIOUS = {"name": "topic", "prefs": "name", "source": "prefs",
 def _previous_step(data: dict):
     """Orqaga qadam: hajmdan oldin — rang (zamonaviy) yoki uslub (orqa fonlar)."""
     step = data.get("step") or ""
+    if step == "name" and data.get("script_asked"):
+        return "script"
     if step == "count":
         return "style" if data.get("style") == SIMPLE_STYLE else "theme"
     return _PREVIOUS.get(step)
@@ -373,8 +399,40 @@ async def premium_ppt_got_topic(message: Message, state: FSMContext, db: Databas
         await message.answer(_t(lang, "topic_short"))
         return
     await _drop_prompt(message.bot, message.chat.id, state)
-    await state.update_data(topic=topic, presentation_language=_detect_language(topic))
+    language = _detect_language(topic)
+    await state.update_data(topic=topic, presentation_language=language, script_asked=False)
+    # O'zbekcha mavzu kirillda yozilgan bo'lsa yozuv mijozdan so'raladi:
+    # ilgari sarlavhalar lotinda, qolgani kirillda chiqib aralashib ketardi.
+    if language == "uz" and uz_script.has_cyrillic(topic):
+        await _step_script(message, state, lang)
+        return
     await _step_name(message, state, lang)
+
+
+async def _step_script(message: Message, state: FSMContext, lang: str) -> None:
+    markup = _markup([[InlineKeyboardButton(text=_t(lang, "script_latin"), callback_data="prem_ppt_script:latin"),
+                       InlineKeyboardButton(text=_t(lang, "script_cyrillic"), callback_data="prem_ppt_script:cyrillic")],
+                      _back_row(lang)])
+    data = await state.get_data()
+    await _prompt(message, state, _topic_line(data, lang) + _t(lang, "ask_script"), markup,
+                  "script", PremiumPresentationStates.waiting_for_script)
+
+
+@router.callback_query(F.data.startswith("prem_ppt_script:"),
+                       PremiumPresentationStates.waiting_for_script)
+async def premium_ppt_got_script(callback: CallbackQuery, state: FSMContext, db: Database):
+    await callback.answer()
+    lang = await _lang_of(callback.from_user.id, db)
+    choice = callback.data.split(":", 1)[1]
+    data = await state.get_data()
+    topic = data.get("topic", "")
+    if choice == uz_script.LATIN:
+        topic, language = uz_script.to_latin(topic), "uz"
+    else:
+        language = uz_script.UZ_CYRILLIC_LANG
+    await _drop_prompt(callback.bot, callback.message.chat.id, state)
+    await state.update_data(topic=topic, presentation_language=language, script_asked=True)
+    await _step_name(callback.message, state, lang)
 
 
 # ── 2. Ism
@@ -666,12 +724,15 @@ async def _handoff_simple(callback: CallbackQuery, state: FSMContext, db: Databa
 
     name = (data.get("client_name") or "").strip() or (getattr(user, "first_name", "") or "")
     preferences = (data.get("preferences") or "").strip()
+    language = data.get("presentation_language") or "uz"
     await state.clear()
     await state.set_data({
         "document_type": "presentation",
         "source_step_visited": True,
-        "doc_language": data.get("presentation_language") or "uz",
-        "topic": data.get("topic", ""),
+        "doc_language": "uz" if uz_script.script_of_language(language) else language,
+        "uz_script": uz_script.script_of_language(language) or "",
+        "topic": uz_script.convert(data.get("topic", ""), uz_script.LATIN)
+        if language == "uz" else data.get("topic", ""),
         "author_name": name,
         # Fayl yoki sayt matni va mijoz istagi oddiy oqimda ham ishlatiladi.
         "book_content": data.get("source_text") or "",
@@ -746,10 +807,10 @@ async def premium_ppt_got_theme(callback: CallbackQuery, state: FSMContext, db: 
 
 def _confirm_keyboard(lang: str, current_language: str) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    for code in ("uz", "ru", "en"):
+    for code in ("uz", uz_script.UZ_CYRILLIC_LANG, "ru", "en"):
         mark = "✓ " if code == current_language else ""
         builder.button(text=f"{mark}{_LANG_BUTTONS[code]}", callback_data=f"prem_ppt_lang:{code}")
-    builder.adjust(3)
+    builder.adjust(2)
     builder.row(InlineKeyboardButton(text=_t(lang, "confirm"), callback_data="prem_ppt_confirm"))
     builder.row(*_back_row(lang))
     return builder.as_markup()
@@ -833,7 +894,7 @@ async def premium_ppt_previous(callback: CallbackQuery, state: FSMContext, db: D
     if previous is None:
         await premium_ppt_back(callback, state, db)
         return
-    steps = {"topic": _step_topic, "name": _step_name, "prefs": _step_prefs,
+    steps = {"topic": _step_topic, "script": _step_script, "name": _step_name, "prefs": _step_prefs,
              "source": _step_source, "count": _step_count, "style": _step_style,
              "theme": _step_theme}
     if previous == "count":
@@ -1359,7 +1420,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
 
             schedule_publish(callback.bot, final_path, topic, "premium_taqdimot",
                              customer_name=client_name,
-                             language=presentation_language)
+                             language="uz" if uz_script.script_of_language(presentation_language) else presentation_language)
         except Exception as store_err:
             logger.warning("Katalogga yo'naltirilmadi (premium): %s", store_err)
     except Exception as send_err:

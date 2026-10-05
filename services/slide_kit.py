@@ -260,6 +260,20 @@ def icon_badge(ctx: Ctx, head: str, body: str, left, top, size) -> bool:
     ctx.used_icons.add(os.path.basename(path))
     return True
 
+def marker(ctx: Ctx, head: str, body: str, left, top, size, label: str = "") -> None:
+    """Raqam o'rniga ikonka. Mavzuga mos ikonka band bo'lsa ham takrorlanishiga
+    yo'l qo'yiladi; ikonka umuman topilmasa (fayllar yo'q) — oxirgi chora raqam."""
+    if icon_badge(ctx, head, body, left, top, size):
+        return
+    used = ctx.used_icons
+    ctx.used_icons = set()
+    try:
+        found = icon_badge(ctx, head, body, left, top, size)
+    finally:
+        ctx.used_icons = used | ctx.used_icons
+    if not found:
+        number_badge(ctx, left, top, size, label or "•")
+
 
 def picture(ctx: Ctx, left, top, width, height, bias: float = 0.4, rounded: bool = True):
     """Rasmni nisbatini saqlab qo'yadi (ortiqchasi qirqiladi). Rasm bo'lmasa False."""

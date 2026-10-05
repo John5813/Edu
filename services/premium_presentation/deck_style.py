@@ -89,7 +89,7 @@ color:#INVERT}
 .slide.dark .frac .dn{border-top-color:#INVERT}
 .slide.dark .timeline .stop{border-top-color:#BANDCARD}
 .slide.dark tr:nth-child(even) td{background:#BANDCARD}
-.slide.dark td{border-bottom-color:#BANDCARD}
+.slide.dark th,.slide.dark td{border-color:#BANDGRID}
 
 /* Bezak: to'q varaqqa chuqurlik beradigan yumshoq doiralar. Ular
    `position:fixed` — joylashuvga tegmaydi, matnning orqasida
@@ -259,8 +259,9 @@ color:#ACCENT;opacity:1}
 table{width:100%;border-collapse:collapse;font-size:30px}
 th{background:#ACCENT;color:#INVERT;font-weight:700;text-align:left;
 padding:20px 24px}
-td{padding:18px 24px;border-bottom:1px solid #SOFT;color:#BODY;
-vertical-align:top}
+td{padding:18px 24px;color:#BODY;vertical-align:top}
+/* Katakchalar aniq ko'rinsin: to'liq to'r (ilgari faqat och pastki chiziq edi). */
+th,td{border:2px solid #GRID}
 tr:nth-child(even) td{background:#SOFT}
 
 /* ── Formula ───────────────────────────────────────────────────── */
@@ -411,6 +412,8 @@ def stylesheet(theme) -> str:
            for i, tone in enumerate(tones)},
         "SOFTINK": soft_ink,
         "EDGE": _mix(theme.background, theme.heading, 0.18),
+        "GRID": _mix(theme.background, theme.heading, 0.42),
+        "BANDGRID": _mix(theme.band, theme.invert, 0.45),
     }
     from . import deck_styles
 

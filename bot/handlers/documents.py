@@ -15,7 +15,7 @@ import re as _re_plan
 from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard, get_outline_review_keyboard, get_references_choice_keyboard, get_doc_language_keyboard, get_plan_slide_keyboard, get_icon_choice_keyboard, get_course_work_page_keyboard, get_diploma_work_page_keyboard, get_graduation_work_page_keyboard, get_dissertation_page_keyboard, get_payment_choice_keyboard, get_insufficient_balance_keyboard, get_back_inline_keyboard, get_article_page_keyboard, get_source_selection_keyboard, get_other_services_keyboard, get_extras_keyboard, get_gw_outline_choice_keyboard, get_plan_confirm_keyboard, get_plan_style_keyboard, get_iw_plan_prompt_keyboard, get_iw_plan_confirm_keyboard
 from database.database import Database
 from utils.security import sanitize_user_input, validate_topic_length
-from services import course_work, document_source
+from services import course_work, document_source, uz_script
 from services.ai_service import AIService, get_ai_service
 from services.document_service import DocumentService, get_document_service
 from services.template_service import TemplateService
@@ -377,6 +377,28 @@ DOCUMENT_TYPES = {
     "🔬 Специальная разработка": "mahsus_ishlanma",
     "🔬 Special Project": "mahsus_ishlanma",
 }
+
+_COUNT_NOTES = {
+    "slides": {
+        "uz": "\n\n(Muqova va reja slaydi bu songa kirmaydi; kirish va xulosa kiradi.)",
+        "ru": "\n\n(Титульный слайд и план в это число не входят; введение и заключение входят.)",
+        "en": "\n\n(The cover and agenda slides are not counted; the introduction and conclusion are.)",
+    },
+    "pages": {
+        "uz": "\n\n(Titul va reja varag'i bu songa kirmaydi; kirish, xulosa va adabiyotlar ro'yxati kiradi.)",
+        "ru": "\n\n(Титульный лист и план в это число не входят; введение, заключение и список литературы входят.)",
+        "en": "\n\n(The title and plan pages are not counted; the introduction, conclusion and references are.)",
+    },
+}
+
+
+def _count_prompt(lang: str, kind: str) -> str:
+    """Hajm so'rovi: nima hisobga kirishi mijozga aytiladi."""
+    key = "select_slide_count" if kind == "slides" else "select_page_count"
+    note = _COUNT_NOTES[kind].get(lang) or _COUNT_NOTES[kind]["uz"]
+    return get_text(lang, key) + note
+
+
 
 async def start_simple_presentation(message: Message, state: FSMContext, user_lang: str) -> None:
     """"Chiroyli orqa fonlar" — oddiy taqdimot oqimini boshidan boshlaydi."""
@@ -930,7 +952,7 @@ async def handle_author_name_input(message: Message, state: FSMContext, user_lan
         # Ask for slide/page count based on document type
         if doc_type == "presentation":
             await message.answer(
-                get_text(doc_lang, "select_slide_count"),
+                _count_prompt(doc_lang, "slides"),
                 reply_markup=get_slide_count_keyboard(doc_lang)
             )
             await state.set_state(DocumentStates.waiting_for_slide_count)
@@ -971,7 +993,7 @@ async def handle_author_name_input(message: Message, state: FSMContext, user_lan
             await state.set_state(DocumentStates.waiting_for_page_count)
         else:  # referat or independent_work
             await message.answer(
-                get_text(doc_lang, "select_page_count"),
+                _count_prompt(doc_lang, "pages"),
                 reply_markup=get_page_count_keyboard(doc_type, doc_lang)
             )
             await state.set_state(DocumentStates.waiting_for_page_count)
@@ -1385,6 +1407,7 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         return
     if _rl_uid:
         _GEN_INFLIGHT.add(_rl_uid)
+    _script_token = None
     try:
         data = await state.get_data()
         topic = data['topic']
@@ -1404,6 +1427,15 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         add_icons = data.get('add_icons', True)
         author_name = data.get('author_name', user.first_name or "")
         doc_lang = data.get('doc_language', user_lang)
+        # O'zbekcha taqdimotda yozuv (lotin/kirill): modelga ham, tayyor faylga ham
+        # qo'llanadi — ikki yozuv aralashib ketmasin.
+        script = None
+        if doc_lang == "uz":
+            script = data.get("uz_script") or (uz_script.CYRILLIC if uz_script.has_cyrillic(topic) else uz_script.LATIN)
+            _script_token = uz_script.use(script)
+            if script == uz_script.LATIN:
+                topic = uz_script.to_latin(topic)
+                ai_topic = uz_script.to_latin(ai_topic)
 
         # Create order record
         specifications = json.dumps({
@@ -1469,6 +1501,9 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
             logger.error(f"Presentation file not created or not found: {file_path}")
             raise Exception(f"File not created: {file_path}")
 
+        if script:
+            await asyncio.to_thread(uz_script.normalize_pptx, file_path, script)
+
         # Get template name for caption
         template_name = template_service.get_template_name(template_id, user_lang)
 
@@ -1525,6 +1560,8 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         _safe_remove_file(locals().get("file_path"))
         await state.clear()
     finally:
+        if _script_token is not None:
+            uz_script.reset(_script_token)
         if _rl_uid:
             _GEN_INFLIGHT.discard(_rl_uid)
             _GEN_LAST_AT[_rl_uid] = _rl_time.time()
@@ -3071,10 +3108,13 @@ async def generate_referat_manual(callback: CallbackQuery, state: FSMContext, db
         ai_service = get_ai_service()
 
         # Generate content for each manually entered section
+        from services.ai_service import document_word_plan
+        word_plan = document_word_plan(min_pages, max_pages, max(len(manual_outline) - 2, 1))
         sections = []
         for i, section_title in enumerate(manual_outline):
             section_content = await ai_service._generate_section_content(
-                ai_topic, section_title, i + 1, len(manual_outline), "referat", doc_lang
+                ai_topic, section_title, i + 1, len(manual_outline), "referat", doc_lang,
+                word_plan=word_plan
             )
             sections.append({
                 "title": section_title,
@@ -3179,7 +3219,8 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
         # Generate content with AI using old professional service - use doc_lang
         ai_service = get_ai_service()
         content = await ai_service.generate_document_content(
-            ai_topic, section_count, "independent_work", doc_lang
+            ai_topic, section_count, "independent_work", doc_lang,
+            min_pages=min_pages, max_pages=max_pages
         )
 
         # Add language and author info to content for template
@@ -3271,7 +3312,8 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
         # Generate content with AI using old professional service - use doc_lang
         ai_service = get_ai_service()
         content = await ai_service.generate_document_content(
-            ai_topic, section_count, "referat", doc_lang
+            ai_topic, section_count, "referat", doc_lang,
+            min_pages=min_pages, max_pages=max_pages
         )
 
         # Add language and author info to content for template
@@ -3494,13 +3536,13 @@ async def back_from_doc_payment_handler(callback: CallbackQuery, state: FSMConte
     if doc_next_step == "presentation_template":
         await state.set_state(DocumentStates.waiting_for_slide_count)
         await callback.message.answer(
-            get_text(doc_lang, "select_slide_count"),
+            _count_prompt(doc_lang, "slides"),
             reply_markup=get_slide_count_keyboard(doc_lang)
         )
     elif doc_next_step == "outline_choice":
         await state.set_state(DocumentStates.waiting_for_page_count)
         await callback.message.answer(
-            get_text(doc_lang, "select_page_count"),
+            _count_prompt(doc_lang, "pages"),
             reply_markup=get_page_count_keyboard(doc_type, doc_lang)
         )
     elif doc_next_step == "course_work_gen":
@@ -3829,7 +3871,9 @@ async def handle_outline_manual(callback: CallbackQuery, state: FSMContext, user
 
     # Calculate how many sections/slides needed
     if document_type == "presentation":
-        slide_count = data.get('slide_count', 10)
+        # Muqova va reja hisobdan tashqari; kirish va xulosa avtomatik. Mijoz
+        # sarlavhasini yozadigan asosiy slaydlar soni:
+        slide_count = max(data.get('slide_count', 10) - 2, 1)
         await state.update_data(manual_outline=[], current_section=1, total_sections=slide_count)
 
         # Show instruction with total count
@@ -3966,7 +4010,7 @@ async def handle_edit_outline(callback: CallbackQuery, state: FSMContext, user_l
 
     # Reset outline and start over
     if document_type == "presentation":
-        slide_count = data.get('slide_count', 10)
+        slide_count = max(data.get('slide_count', 10) - 2, 1)
         total_sections = slide_count
         await state.update_data(manual_outline=[], current_section=1, total_sections=total_sections)
 

@@ -126,6 +126,8 @@ class PremiumPresentationStates(StatesGroup):
     waiting_for_style = State()
     waiting_for_topic = State()
     waiting_for_topic_text = State()
+    # O'zbekcha kirill mavzu: taqdimot lotinda yoki kirillda bo'lishi.
+    waiting_for_script = State()
     # Taqdimot mijoz bergan hujjatga tayanishi ham mumkin.
     waiting_for_source_kind = State()
     waiting_for_instructions = State()

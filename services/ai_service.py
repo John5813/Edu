@@ -11,6 +11,7 @@ from utils.ai_text import token_budget, trim_to_last_sentence
 from utils.heading_guard import heading_rule, strip_echoed_heading, strip_leading_numbering
 
 from services import timeframe
+from services import uz_script
 from services import slide_layouts
 from services import uzbekistan
 from services import course_work
@@ -83,6 +84,36 @@ def _subsection_word_target(total_subsections: int, min_pages: int, max_pages: i
     return f"{low}-{high}"
 
 
+# Mustaqil ish va referatda tanlangan hajm — titul va reja varag'idan KEYINGI
+# varaqlar soni: kirish, asosiy bo'limlar, xulosa va adabiyotlar shu hajmga
+# kiradi. Ilgari titul, reja va boshqa "qat'iy" varaqlar hajmdan ayirilardi,
+# shuning uchun 10 varaq buyurtma qilgan mijoz asosiy matnga bir necha varaq
+# olardi. 14 pt, 1,5 oraliq, A4 hujjatda o'lchangan: bir varaqqa ~245 so'z
+# sig'adi; xulosa va adabiyotlar yangi varaqdan boshlanadi, bo'lim sarlavhalari
+# ham joy oladi — bular ~1,9 varaq (asosiy matn varaqlariga qo'shimcha).
+_DOC_WORDS_PER_PAGE = 245
+_DOC_OVERHEAD_PAGES = 1.9
+
+
+def document_word_plan(min_pages: int, max_pages: int, bodies: int) -> dict:
+    """Tanlangan hajm uchun bo'limlar matn uzunligi ("180-230" ko'rinishida).
+
+    `bodies` — kirish va xulosadan tashqari asosiy bo'limlar soni.
+    """
+    target_pages = (min_pages + max_pages) / 2
+    total = max(target_pages - _DOC_OVERHEAD_PAGES, 3) * _DOC_WORDS_PER_PAGE
+    intro = min(max(total * 0.07, 150), 300)
+    conclusion = min(max(total * 0.08, 180), 350)
+    body = max((total - intro - conclusion) / max(bodies, 1), 150)
+
+    def span(value: float, spread: float = 0.1) -> str:
+        low = int(value * (1 - spread)) // 10 * 10
+        high = int(value * (1 + spread)) // 10 * 10
+        return f"{low}-{max(high, low + 20)}"
+
+    return {"intro": span(intro), "body": span(body), "conclusion": span(conclusion)}
+
+
 # Bitta so'rovda yoziladigan matnning amaliy chegarasi. Model javobi
 # 8000 tokendan oshmaydi, o'zbekcha matnda bu ~1900 so'z; shunga yaqin
 # so'ralsa javob chala kelib, oxirgi gapigacha qirqilardi.
@@ -106,10 +137,6 @@ _WORDS_PER_REQUEST = 1200
 # model qisqa javob berishda davom etsa, ish bir joyda qotib qolmasin.
 _MAX_SUBSECTION_PARTS = 8
 _MAX_SUBSECTION_REQUESTS = 10
-
-# Mustaqil ishda asosiy matndan tashqari varaqlar: titul, reja, kirish,
-# xulosa, adabiyotlar va jadval varag'i.
-_IW_FIXED_PAGES = 6
 
 
 def _target_bounds(word_target: str) -> tuple:
@@ -448,6 +475,9 @@ class AIService:
         current_model = model_id or await self._get_current_model_id()
         logger.info(f"Using AI model: {current_model}")
 
+        # O'zbekcha taqdimotda mijoz tanlagan yozuv (lotin/kirill) har so'rovga qo'shiladi.
+        messages = uz_script.with_rule(messages)
+
         has_book = any(
             any(marker in msg.get("content", "") for marker in self._BOOK_MODE_MARKERS)
             for msg in messages if msg.get("role") == "user"
@@ -521,9 +551,12 @@ class AIService:
             else:
                 prompt = self._get_presentation_prompt_en(topic, slide_count)
 
+            # Kirill matn lotinga qaraganda ancha ko'p token oladi: javob
+            # o'rtada uzilib, slaydlar bo'sh qolmasin.
+            token_limit = 16000 if uz_script.current() == uz_script.CYRILLIC else 12000
             response = await self._make_request(
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=10000,
+                max_tokens=token_limit,
                 temperature=0.7
             )
 
@@ -540,7 +573,7 @@ class AIService:
                 logger.warning("Empty AI response for presentation, retrying once...")
                 response = await self._make_request(
                     messages=[{"role": "user", "content": prompt}],
-                    max_tokens=10000,
+                    max_tokens=token_limit,
                     temperature=0.7
                 )
                 content_str = response.strip()
@@ -599,6 +632,17 @@ class AIService:
     # qo'yilmaydi — uning o'rni asosiy slaydga beriladi.
     _FIXED_LAYOUTS = {'cover', 'plan', 'intro', 'conclusion', 'references',
                       'thanks', 'table'}
+
+    @staticmethod
+    def main_slide_count(slide_count: int) -> int:
+        """Asosiy slaydlar soni.
+
+        Mijoz tanlagan son — muqova va rejadan KEYINGI slaydlar: kirish, asosiy
+        slaydlar va xulosa shu songa kiradi (rahmat slaydi ham qo'shimcha).
+        Ilgari muqova, reja, kirish, xulosa va rahmat ham hisobga kirardi va
+        10 slaydlik taqdimotda asosiy mavzuga atigi 6 ta slayd qolardi.
+        """
+        return max(int(slide_count) - 2, 1)
 
     @staticmethod
     def _first_sentence(text: str, limit: int = 220) -> str:
@@ -700,7 +744,7 @@ class AIService:
         """Yetishmagan asosiy slaydlarni modeldan qo'shimcha so'rab oladi."""
         slides = content.get('slides', [])
         main = [s for s in slides if s.get('layout') not in self._FIXED_LAYOUTS]
-        target = max(slide_count - 5, 1) + (1 if slide_count == 10 else 0)
+        target = self.main_slide_count(slide_count)
         missing = target - len(main)
         if missing <= 0:
             return content
@@ -786,8 +830,8 @@ class AIService:
         return item
 
     def _normalize_slide_structure(self, content: Dict, slide_count: int, language: str) -> Dict:
-        """Ensure slides follow the mandatory structure and enforce exact slide_count.
-        Structure: cover + plan + intro + N main + conclusion + thanks = slide_count.
+        """Ensure slides follow the mandatory structure and enforce the ordered count.
+        Structure: cover + plan + (intro + N main + conclusion = slide_count) + thanks.
         Adabiyotlar ro'yxati qo'yilmaydi — model yozgan bo'lsa ham tashlanadi.
         Table slides are EXTRA and do NOT count toward slide_count."""
         slides = content.get('slides', [])
@@ -826,9 +870,7 @@ class AIService:
         }
         labels = title_labels.get(language, title_labels['uz'])
 
-        target_main = max(slide_count - 5, 1)
-        if slide_count == 10:
-            target_main += 1
+        target_main = self.main_slide_count(slide_count)
 
         # Yetishmagan slaydlar BO'SH kataklar bilan to'ldirilmaydi. Ilgari
         # shunday qilinardi: model kelishilgan sondan kam slayd qaytarsa
@@ -966,23 +1008,20 @@ class AIService:
 
     def _get_presentation_prompt_uz(self, topic: str, slide_count: int) -> str:
         """Get Uzbek prompt for presentation generation"""
-        main_count = slide_count - 5
-        if main_count < 1:
-            main_count = 1
-        if slide_count == 10:
-            main_count += 1
+        main_count = self.main_slide_count(slide_count)
+        total_slides = main_count + 5
         example_json = self._build_example_slides_json(topic, main_count, 'uz')
         catalog = slide_layouts.describe('uz')
         kinds = min(main_count, 8)
         return f"""O'zbek tilida "{topic}" mavzusida professional taqdimot yarating.
 
-STRUKTURA (jami {slide_count} slayd):
+STRUKTURA (jami {total_slides} slayd; muqova va reja hisobdan tashqari {slide_count} ta):
 1. Muqova slayd (mavzu nomi va muallif uchun joy)
 2. Reja slayd (4 ta reja punkti — har biri 2-4 so'zlik QISQA IBORA, jumlasiz, nuqtasiz)
 3. Kirish slayd (~50 so'z, mavzuga umumiy kirish)
 4-{3 + main_count}. Asosiy slaidlar ({main_count} ta) - har biri mavzuning turli jihatlarini yoritadi
-{slide_count - 1}. Xulosa slayd (~50 so'z)
-{slide_count}. Rahmat slayd ("E'tiboringiz uchun rahmat!")
+{total_slides - 1}. Xulosa slayd (~50 so'z)
+{total_slides}. Rahmat slayd ("E'tiboringiz uchun rahmat!")
 
 ASOSIY SLAYDLAR: har biri uchun mazmuniga eng mos SHABLON ("layout") tanlang. Mavjud 25 ta shablon (qavs ichida "items" soni):
 {catalog}
@@ -1002,28 +1041,25 @@ HAR ASOSIY SLAYD UCHUN:
 
 {timeframe.year_rule('uz')}
 
-MUHIM: Faqat JSON formatda javob bering! Jami {slide_count} ta slayd bo'lishi SHART (asosiy slaidlar soni: {main_count} ta)!
+MUHIM: Faqat JSON formatda javob bering! Jami {total_slides} ta slayd bo'lishi SHART (asosiy slaidlar soni: {main_count} ta)!
 {example_json}"""
 
     def _get_presentation_prompt_ru(self, topic: str, slide_count: int) -> str:
         """Get Russian prompt for presentation generation"""
-        main_count = slide_count - 5
-        if main_count < 1:
-            main_count = 1
-        if slide_count == 10:
-            main_count += 1
+        main_count = self.main_slide_count(slide_count)
+        total_slides = main_count + 5
         example_json = self._build_example_slides_json(topic, main_count, 'ru')
         catalog = slide_layouts.describe('ru')
         kinds = min(main_count, 8)
         return f"""Создайте профессиональную презентацию на тему "{topic}" на русском языке.
 
-СТРУКТУРА (всего {slide_count} слайдов):
+СТРУКТУРА (всего {total_slides} слайдов; титульный и план не входят в {slide_count}):
 1. Титульный слайд (название темы и место для автора)
 2. Слайд с планом (4 пункта — каждый КРАТКАЯ ФРАЗА из 2-4 слов, без запятых и точек)
 3. Введение (~50 слов, общее введение в тему)
 4-{3 + main_count}. Основные слайды ({main_count} шт) - каждый освещает разные аспекты темы
-{slide_count - 1}. Заключение (~50 слов)
-{slide_count}. Слайд благодарности ("Спасибо за внимание!")
+{total_slides - 1}. Заключение (~50 слов)
+{total_slides}. Слайд благодарности ("Спасибо за внимание!")
 
 ОСНОВНЫЕ СЛАЙДЫ: для каждого выберите ШАБЛОН ("layout"), лучше всего подходящий по смыслу. Доступно 25 шаблонов (в скобках — число "items"):
 {catalog}
@@ -1043,28 +1079,25 @@ MUHIM: Faqat JSON formatda javob bering! Jami {slide_count} ta slayd bo'lishi SH
 
 {timeframe.year_rule('ru')}
 
-ВАЖНО: Отвечайте ТОЛЬКО в формате JSON! Всего {slide_count} слайдов ОБЯЗАТЕЛЬНО (основных слайдов: {main_count})!
+ВАЖНО: Отвечайте ТОЛЬКО в формате JSON! Всего {total_slides} слайдов ОБЯЗАТЕЛЬНО (основных слайдов: {main_count})!
 {example_json}"""
 
     def _get_presentation_prompt_en(self, topic: str, slide_count: int) -> str:
         """Get English prompt for presentation generation"""
-        main_count = slide_count - 5
-        if main_count < 1:
-            main_count = 1
-        if slide_count == 10:
-            main_count += 1
+        main_count = self.main_slide_count(slide_count)
+        total_slides = main_count + 5
         example_json = self._build_example_slides_json(topic, main_count, 'en')
         catalog = slide_layouts.describe('en')
         kinds = min(main_count, 8)
         return f"""Create a professional presentation on "{topic}" in English.
 
-STRUCTURE (total {slide_count} slides):
+STRUCTURE (total {total_slides} slides; the cover and agenda are not counted in the {slide_count} ordered):
 1. Cover slide (topic name and author placeholder)
 2. Agenda slide (4 points — each a SHORT PHRASE of 2-4 words, no full sentences, no punctuation)
 3. Introduction (~50 words, general intro to topic)
 4-{3 + main_count}. Main slides ({main_count} total) - each covers different aspects
-{slide_count - 1}. Conclusion (~50 words)
-{slide_count}. Thank you slide ("Thank you for your attention!")
+{total_slides - 1}. Conclusion (~50 words)
+{total_slides}. Thank you slide ("Thank you for your attention!")
 
 MAIN SLIDES: for each one choose the LAYOUT ("layout") that best fits its content. 25 layouts are available (number of "items" in brackets):
 {catalog}
@@ -1084,18 +1117,29 @@ FOR EACH MAIN SLIDE:
 
 {timeframe.year_rule('en')}
 
-IMPORTANT: Respond ONLY in JSON format! Total {slide_count} slides REQUIRED (main slides: {main_count})!
+IMPORTANT: Respond ONLY in JSON format! Total {total_slides} slides REQUIRED (main slides: {main_count})!
 {example_json}"""
 
-    async def generate_document_content(self, topic: str, section_count: int, document_type: str, language: str) -> Dict:
-        """Generate document content with AI - each section separately"""
+    async def generate_document_content(self, topic: str, section_count: int, document_type: str, language: str,
+                                        min_pages: int = None, max_pages: int = None) -> Dict:
+        """Generate document content with AI - each section separately.
+
+        `min_pages`/`max_pages` berilsa, bo'lim uzunligi tanlangan hajmdan (titul va
+        rejadan keyingi varaqlar) hisoblanadi.
+        """
         try:
             outline = await self._generate_document_outline(topic, section_count, document_type, language)
-            
+
+            word_plan = None
+            if min_pages and max_pages:
+                word_plan = document_word_plan(min_pages, max_pages, max(len(outline['sections']) - 2, 1))
+                logger.info("%s: %s-%s varaq, bo'lim uzunligi %s", document_type, min_pages, max_pages, word_plan)
+
             sections = []
             for i, section_title in enumerate(outline['sections']):
                 section_content = await self._generate_section_content(
-                    topic, section_title, i + 1, section_count, document_type, language
+                    topic, section_title, i + 1, len(outline['sections']), document_type, language,
+                    word_plan=word_plan
                 )
                 sections.append({
                     "title": section_title,
@@ -1375,11 +1419,19 @@ Respond in JSON format:
             logger.error(f"Error generating document outline: {e}")
             raise
 
-    async def _generate_section_content(self, topic: str, section_title: str, section_num: int, total_sections: int, document_type: str, language: str) -> str:
-        """Generate content for a specific section"""
+    async def _generate_section_content(self, topic: str, section_title: str, section_num: int, total_sections: int, document_type: str, language: str, word_plan: dict = None) -> str:
+        """Generate content for a specific section.
+
+        `word_plan` — tanlangan varaq soniga qarab hisoblangan so'z chegaralari
+        (`document_word_plan`); berilmasa bo'limlar soniga qarab taxmin qilinadi.
+        """
         try:
             # Determine word targets based on section count (proxy for page target)
-            if total_sections <= 6:  # 10-15 pages
+            if word_plan:
+                intro_words = word_plan["intro"]
+                body_words = word_plan["body"]
+                conclusion_words = word_plan["conclusion"]
+            elif total_sections <= 6:  # 10-15 pages
                 intro_words = "150-200"
                 body_words = "280-350"
                 conclusion_words = "200-250"
@@ -2181,21 +2233,21 @@ In JSON format:
         """
         titles = [self._tidy_title(str(q)) for q in (questions or [])]
         titles = [t for t in titles if t] or [topic]
-        word_target = _subsection_word_target(len(titles), min_pages, max_pages,
-                                              fixed_pages=_IW_FIXED_PAGES)
+        # Hajm — titul va rejadan keyingi varaqlar (kirish, xulosa va adabiyotlar
+        # shu hajmga kiradi).
+        word_plan = document_word_plan(min_pages, max_pages, len(titles))
+        word_target = word_plan["body"]
         logger.info("Mustaqil ish (mijoz rejasi): %d savol, har biriga %s so'z",
                     len(titles), word_target)
 
         labels = {"ru": ("Введение", "Заключение"),
                   "en": ("Introduction", "Conclusion")}.get(
                       language, ("Kirish", "Xulosa"))
-        # Kirish va xulosa hajmi varaq soniga qarab (bo'limlar soni emas).
-        size = 6 if max_pages <= 15 else 9 if max_pages <= 20 else 12
-
         sections = [{
             "title": labels[0],
             "content": await self._generate_section_content(
-                topic, labels[0], 1, size, "independent_work", language),
+                topic, labels[0], 1, len(titles) + 2, "independent_work", language,
+                word_plan=word_plan),
         }]
         previous = ""
         for index, title in enumerate(titles):
@@ -2213,7 +2265,8 @@ In JSON format:
         sections.append({
             "title": labels[1],
             "content": await self._generate_section_content(
-                topic, labels[1], size, size, "independent_work", language),
+                topic, labels[1], len(titles) + 2, len(titles) + 2, "independent_work", language,
+                word_plan=word_plan),
         })
 
         result = {
