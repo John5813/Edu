@@ -401,6 +401,7 @@ _SCRIPT = r"""
       const widths = [];
       const heights = [];
       let headerFill = null, headerColor = null, bodyColor = null, size = 12;
+      let gridColor = null, gridWidth = 0;
       for (const tr of el.querySelectorAll("tr")) {
         const cells = [];
         const cs = tr.querySelectorAll("th, td");
@@ -416,6 +417,10 @@ _SCRIPT = r"""
             bodyColor = rgbOver(style.color, cell);
           }
           size = parseFloat(style.fontSize) || size;
+          if (!gridColor && (parseFloat(style.borderBottomWidth) || 0) > 0) {
+            gridColor = rgbOver(style.borderBottomColor, cell);
+            gridWidth = parseFloat(style.borderBottomWidth) || 0;
+          }
           cells.push({
             text: (cell.innerText || "").replace(/\s+/g, " ").trim(),
             bold: (parseInt(style.fontWeight, 10) || 400) >= 600,
@@ -426,7 +431,7 @@ _SCRIPT = r"""
       }
       if (rows.length) {
         out.push({kind: "table", rows, widths, heights, size,
-                  headerFill, headerColor, bodyColor, ...r});
+                  headerFill, headerColor, bodyColor, gridColor, gridWidth, ...r});
       }
       return;
     }

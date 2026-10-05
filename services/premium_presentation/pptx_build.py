@@ -216,6 +216,28 @@ def _add_text(slide, block: Dict) -> None:
         font.color.rgb = colour
 
 
+def _cell_borders(cell, colour: str, width) -> None:
+    """Katakchaning to'rt tomoniga chiziq (to'r ko'rinsin).
+
+    Jadval uslubi chegarani oq qilib qo'yadi — tahrirlovchilarda katakchalar
+    ko'rinmay qolardi. `a:ln*` elementlari sxema bo'yicha to'ldirishdan oldin turadi.
+    """
+    from lxml import etree
+
+    ns = "http://schemas.openxmlformats.org/drawingml/2006/main"
+    properties = cell._tc.get_or_add_tcPr()
+    for tag in ("lnL", "lnR", "lnT", "lnB"):
+        for old in properties.findall(f"{{{ns}}}{tag}"):
+            properties.remove(old)
+    for position, tag in enumerate(("lnL", "lnR", "lnT", "lnB")):
+        line = etree.Element(f"{{{ns}}}{tag}", w=str(int(width)), cap="flat",
+                             cmpd="sng", algn="ctr")
+        fill = etree.SubElement(line, f"{{{ns}}}solidFill")
+        etree.SubElement(fill, f"{{{ns}}}srgbClr", val=_colour(colour).__str__())
+        etree.SubElement(line, f"{{{ns}}}prstDash", val="solid")
+        properties.insert(position, line)
+
+
 def _add_table(slide, block: Dict) -> None:
     rows = [row for row in (block.get("rows") or []) if row]
     if not rows:
@@ -244,6 +266,9 @@ def _add_table(slide, block: Dict) -> None:
     header_colour = block.get("headerColor")
     body_colour = block.get("bodyColor")
 
+    grid = block.get("gridColor")
+    grid_width = Pt(max(_pt(block.get("gridWidth") or 1.5), 0.75))
+
     for row_index, row in enumerate(rows):
         for column_index in range(columns):
             cell = table.cell(row_index, column_index)
@@ -258,6 +283,9 @@ def _add_table(slide, block: Dict) -> None:
                 cell.fill.fore_color.rgb = _colour(header_fill)
             else:
                 cell.fill.background()
+
+            if grid:
+                _cell_borders(cell, grid, grid_width)
 
             for paragraph in cell.text_frame.paragraphs:
                 paragraph.alignment = _ALIGN.get(source.get("align"),

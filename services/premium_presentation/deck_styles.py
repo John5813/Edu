@@ -252,7 +252,6 @@ padding:22px 30px}
 .timeline .bead{width:26px;height:26px;margin-top:-15px}
 .timeline .when{font-size:46px}
 th{color:#BACKGROUND}
-td{border-bottom:2px solid #EDGE}
 tr:nth-child(even) td{background:#SOFT}
 .slide.dark{background:linear-gradient(160deg,#BAND 0%,#BANDDEEP 100%)}
 .bezak{display:block}
