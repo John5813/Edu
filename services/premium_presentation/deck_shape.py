@@ -1,21 +1,17 @@
 """Taqdimotning shakli MAVZUDAN kelib chiqsin.
 
-Muammo shunda ediki, biz yozgan qoidalarning o'zi modelga prompt
-bo'lib ketardi. Masalan "har uch slaydning birida diagramma bo'lsin"
-degan qoida tufayli adabiyot mavzusida ham, matematikada ham model
-statistika o'ylab topib chizardi — mavzuga umuman kerak bo'lmagan
-raqamlar, prognozlar va yillar paydo bo'lardi. "Kamida oltita turli
-kategoriya ishlatilsin" degan kvota esa mantiqan ketma-ket kelishi
-kerak bo'lgan ikki ro'yxatni sun'iy ravishda ajratib yuborardi.
+Mavzu OILASI aniqlanadi va har oilaga o'ziga xos yo'riqnoma beriladi:
+tarix vaqt o'qi va sabab-oqibat bilan ochiladi; matematikada ta'rif, isbot
+va misol bo'ladi; adabiyotda iqtibos va matn tahlili.
 
-Ya'ni qoidalar mazmunni boshqarib qo'ygan edi. Aslida teskarisi
-bo'lishi kerak: mavzu qanday shakl talab qilsa — shunday bo'lsin.
-
-Shuning uchun kvotalar olib tashlandi, o'rniga mavzu OILASI aniqlanadi
-va har oilaga o'ziga xos yo'riqnoma beriladi. Tarix taqdimoti vaqt
-o'qi va sabab-oqibat bilan ochiladi; matematikada ta'rif, isbot va
-misol bo'ladi; adabiyotda iqtibos va matn tahlili. Statistika esa
-faqat mavzuning o'zida haqiqiy raqam bo'lganda paydo bo'ladi.
+Diagramma haqida: oldingi yo'riqnomalar "statistika bu yerda kerak emas,
+diagramma yozmang" deb taqiqlar edi. Model taqiqni "diagrammani butunlay
+chetlab o't" deb tushundi va taqdimotlarda halqa, chiziqli va ustunli
+diagrammalar yo'qolib ketdi. Endi har oilada diagramma MUMKIN va mazmunga
+mos turi ko'rsatiladi; o'ylab topilgan raqam esa taqiqlanmaydi, balki
+halol belgilanadi: haqiqiy ma'lumot — manbasi bilan, aks holda slaydda
+"Shartli misol" deb yoziladi. Diagramma soni kod darajasida ham
+kafolatlanadi (`html_slides.ensure_charts`).
 """
 
 import logging
@@ -36,9 +32,14 @@ _FAMILIES: Dict[str, Dict[str, str]] = {
             "  ishlaydi.\n"
             "- Taqqoslash: davrdan davrga, yoki ikki hududning holati."),
         "numbers": (
-            "Raqam — bu yerda SANA va tarixiy miqdor (qo'shin soni, "
-            "hudud maydoni). Foiz va o'sish diagrammasi tarixga deyarli "
-            "kerak emas — prognoz esa umuman yozilmaydi."),
+            "Raqam — bu yerda SANA va tarixiy miqdor (aholi, qo'shin, "
+            "hudud, ishlab chiqarish). DIAGRAMMA o'rinli: davrlar bo'yicha "
+            "miqdor — ustunli yoki chiziqli (X o'qi yillar), tarkib "
+            "(millatlar, hududlar, sohalar ulushi) — halqa. Aniq tarixiy "
+            "raqamni bilsangiz manbasi bilan yozing; aniq bilmasangiz "
+            "diagrammani \"Shartli misol\" deb belgilang. Diagramma "
+            "o'tmishdagi ma'lumotni ko'rsatadi (kelajak prognozi tarixga "
+            "mos emas)."),
     },
     "aniq": {
         "name": "aniq fanlar (matematika, fizika, informatika, texnika)",
@@ -52,26 +53,32 @@ _FAMILIES: Dict[str, Dict[str, str]] = {
             "- Tushunchani misol bilan ko'rsatish mumkin bo'lsa,\n"
             "  `misol` bloki bor: masala sharti, qadamma-qadam\n"
             "  yechim va javob.\n"
-            "- Tasnif va shartlar uchun jadval qulay."),
+            "- Tasnif va shartlar uchun kartochkalar yoki qiyoslash qulay."),
         "numbers": (
-            "STATISTIKA BU YERDA KERAK EMAS. Diagramma faqat funksiya "
-            "grafigi yoki o'lchov natijasi bo'lsa mazmunli. "
-            "\"Foydalanish o'sishi\", \"bozor ulushi\" kabi o'ylab "
-            "topilgan raqamlar mavzuni buzadi."),
+            "DIAGRAMMA bu yerda tabiiy: funksiya grafigi — chiziqli "
+            "(X–Y o'qli, `calc` bilan formuladan), natijalarni solishtirish "
+            "— ustunli, butunning qismlari — halqa. Formuladan hisoblangan "
+            "raqam ruxsat etilgan. Statistik faktni (\"bozor ulushi\", "
+            "\"foydalanish o'sishi\") faqat haqiqiy bo'lsa yozing; aks "
+            "holda diagrammani \"Shartli misol\" deb belgilang."),
     },
     "tabiiy": {
         "name": "tabiiy fanlar (biologiya, kimyo, geografiya, ekologiya)",
         "shape": (
             "- JARAYON va TUZILMA asosiy: bosqichlar, tarkibiy qismlar,\n"
             "  tasnif, aylanish (sikl).\n"
-            "- Turlar va guruhlarni taqqoslash uchun jadval qulay.\n"
+            "- Turlar va guruhlarni taqqoslash uchun qiyoslash, kartochkalar\n"
+            "  yoki diagramma qulay.\n"
             "- Sabab va oqibat (masalan omil → natija) yaxshi ishlaydi.\n"
             "- Misol aniq bo'lsin: qaysi organizm, qaysi modda, qayerda."),
         "numbers": (
-            "Raqam faqat haqiqiy o'lchov bo'lsa yoziladi (harorat, "
-            "miqdor, tarkib foizi) — uni O'YLAB TOPMANG. Ishonchingiz "
-            "komil bo'lmasa raqam o'rniga sifat tavsifini bering; "
-            "prognoz diagrammasi bu yerda kerak emas."),
+            "DIAGRAMMA o'rinli: tarkib foizi (modda, havo, hujayra, "
+            "oziq tarkibi) — halqa; turlar yoki ko'rsatkichlarni "
+            "solishtirish — ustunli; harorat, miqdor yoki o'sishning "
+            "vaqt bo'yicha o'zgarishi — chiziqli. Haqiqiy o'lchovni "
+            "bilsangiz manbasi bilan yozing; aniq bilmasangiz diagrammani "
+            "tushunchani ko'rsatuvchi \"Shartli misol\" qilib tuzing va "
+            "slaydda shunday deb yozing."),
     },
     "ijtimoiy": {
         "name": "ijtimoiy fanlar (iqtisodiyot, huquq, sotsiologiya, siyosat)",
@@ -85,9 +92,12 @@ _FAMILIES: Dict[str, Dict[str, str]] = {
             "- Qonun, hujjat va institutlar nomi aniq ko'rsatilsin.\n"
             "- Muammo va yechim juftligi kuchli ishlaydi."),
         "numbers": (
-            "Raqam o'rinli, lekin FAQAT siz ishonadigan haqiqiy "
-            "ko'rsatkich bo'lsa. Kelajak prognozini o'ylab topmang — "
-            "u taqdimotni ishonchsiz qiladi."),
+            "Raqam va DIAGRAMMA o'rinli: tarkib (ulushlar) — halqa, "
+            "dinamika — chiziqli (X o'qi yillar), solishtirish — ustunli. "
+            "Haqiqiy ko'rsatkichni manbasi bilan yozing; aniq bilmasangiz "
+            "diagrammani \"Shartli misol\" deb belgilang. Kelajak "
+            "prognozi faqat formuladan hisoblansa (`calc`) va shartli "
+            "deb aytilsa yoziladi."),
     },
     "gumanitar": {
         "name": "gumanitar fanlar (adabiyot, tilshunoslik, san'at, falsafa)",
@@ -99,10 +109,13 @@ _FAMILIES: Dict[str, Dict[str, str]] = {
             "- Ikki asar, ikki qarash yoki ikki davrni qiyoslash kuchli.\n"
             "- Iqtibos bloki bu yerda eng ta'sirli vosita."),
         "numbers": (
-            "DIAGRAMMA VA STATISTIKA YOZMANG. \"Asarning mashhurligi "
-            "foizi\" kabi raqamlarni o'ylab topmang — ular soxta "
-            "chiqadi. Prognoz ham yo'q. Sana faqat asar yozilgan yil "
-            "yoki muallif umri kabi aniq faktda bo'ladi."),
+            "Matn va ma'no asosiy, lekin bitta-ikkita DIAGRAMMA "
+            "taqdimotni jonlantiradi: asar yoki ijod tarkibi (qismlar, "
+            "janrlar ulushi) — halqa; yillar kesimida asarlar soni — "
+            "ustunli (faqat aniq fakt bo'lsa); ikki muallif yoki davrni "
+            "solishtirish — ustunli. Aniq raqamni bilmasangiz diagrammani "
+            "\"Shartli misol\" deb belgilang. Sana asar yozilgan yil yoki "
+            "muallif umri kabi aniq faktda bo'ladi."),
     },
     "amaliy": {
         "name": "amaliy sohalar (pedagogika, psixologiya, tibbiyot, menejment)",
@@ -110,12 +123,14 @@ _FAMILIES: Dict[str, Dict[str, str]] = {
             "- USUL va QADAM asosiy: nima qilinadi, qanday tartibda,\n"
             "  qanday natija kutiladi.\n"
             "- Real misol va vaziyat tahlili juda qimmatli.\n"
-            "- Usullarni jadvalda taqqoslash qulay.\n"
+            "- Usullarni qiyoslash yoki diagramma bilan taqqoslash qulay.\n"
             "- Muammo → sabab → tavsiya zanjiri tabiiy."),
         "numbers": (
-            "Raqam faqat haqiqiy tadqiqot natijasi bo'lsa yoziladi va "
-            "manbasi aytiladi. Aks holda usulni misol bilan "
-            "tushuntiring — o'ylab topilgan foiz ishonchni yo'qotadi."),
+            "DIAGRAMMA o'rinli: usullar samaradorligini solishtirish — "
+            "ustunli, bosqich yoki omillar ulushi — halqa, natija "
+            "dinamikasi — chiziqli. Haqiqiy tadqiqot natijasini manbasi "
+            "bilan yozing; aniq bilmasangiz diagrammani \"Shartli misol\" "
+            "deb belgilang."),
     },
     "hisob": {
         "name": "hisob-kitob mavzulari (formula, prognoz, statistik hisob, moliyaviy hisob)",
@@ -148,8 +163,10 @@ _FAMILIES: Dict[str, Dict[str, str]] = {
             "- Har slayd bitta savolga javob bersin va uni to'la\n"
             "  ochsin."),
         "numbers": (
-            "Raqamni o'ylab topmang. Ishonchingiz komil bo'lmasa "
-            "diagramma o'rniga matn bilan tushuntiring."),
+            "DIAGRAMMA o'rinli: ulushlar — halqa, dinamika — chiziqli "
+            "(X o'qi vaqt), solishtirish — ustunli. Haqiqiy raqamni "
+            "manbasi bilan yozing; aniq bilmasangiz diagrammani "
+            "\"Shartli misol\" deb belgilang."),
     },
 }
 

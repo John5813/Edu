@@ -57,7 +57,8 @@ for key in deck_styles.STYLE_KEYS:
     pages = html_slides.build_pages(list(BODY), theme)
     text = "".join(pages)
     if key == "jurnal":
-        check("jurnal: ro'yxat raqamlari (01, 02)", 'item-num">01' in text and 'item-num">02' in text)
+        # Ilgari bandlar 01, 02 deb raqamlanardi — sun'iy ko'rinardi; endi belgi (nuqta).
+        check("jurnal: ro'yxat bandlari raqamlanmaydi", 'item-num">' not in text)
     if key == "kontur":
         check("kontur: burchak belgilari haqiqiy element", text.count('class="kor kor-a"') == 3)
         check("kontur: sarlavha chizig'i haqiqiy element", 'class="kbar"' in text)

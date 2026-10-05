@@ -20,7 +20,7 @@ import os
 import re
 from typing import Callable, Dict, List, Optional
 
-from . import (deck_calc, deck_charts, deck_math, deck_shape, deck_style, deck_styles,
+from . import (deck_calc, deck_charts, deck_logic, deck_math, deck_shape, deck_style, deck_styles,
                llm_client)
 from services import uz_script
 
@@ -99,7 +99,8 @@ _CATEGORIES = (
     ("jarayon", "o'qlar bilan bog'langan qadamlar qatori"),
     ("vaqt_oqi", "gorizontal chiziq ustidagi sana va voqealar"),
     ("qiyoslash", "ikki ustunli qiyos yoki 2×2 matritsa (masalan SWOT)"),
-    ("jadval", "HTML jadval — sarlavha qatori aksent rangda"),
+    ("jadval", "QISQA jadval (ko'pi bilan 4 qator, 3 ustun, har katak 1-5 "
+               "so'z) — faqat boshqa mazmun bilan birga; zich jadval emas"),
     ("diagramma", "faqat diagramma (chiziqli, ustunli yoki halqa) va uni "
                   "tushuntiradigan matn"),
     ("tuzilma", "qutilar va ularni bog'lovchi chiziqlar — ierarxiya yoki "
@@ -172,8 +173,10 @@ QAT'IY QOIDALAR:
 3. `<img>` faqat ikonka uchun: `<img class="ikon" data-icon="NOM" alt="">`.
    Rasm faqat MATN VA RASM blokidagi `rasm` orqali so'raladi.
    Tashqi havola, emoji — yo'q.
-4. Diagrammani O'ZING chizma. `<svg>` yozma. Faqat `.chart` blokiga
-   ma'lumot ber — qolganini tizim chizadi.
+4. DIAGRAMMA uchun faqat ma'lumot ber: `.chart` blokiga yorliqlar va
+   qiymatlarni yoz — halqa, chiziqli va ustunli diagrammani tizim
+   o'zi chiroyli chizadi (o'q, shkala, ranglar bilan). Shu sababli
+   diagrammadan qo'rqma, undan keng foydalan; faqat `<svg>` yozma.
 5. Bir varaqqa qancha sig'ishining YUQORI chegarasi (bu talab
    emas — shuncha bo'lishi kerak emas, shundan OSHMASIN):
    - kartochka 4 tadan oshmasin, izohi 2 gapdan oshmasin;
@@ -194,8 +197,14 @@ QAT'IY QOIDALAR:
    - raqam, foiz yoki o'lchov bor fikr → ko'rsatkich (faqat
      8-qoidadagi HAQIQIY raqam bo'lsa);
    - ketma-ketlik, bosqich, tarix → qadamlar yoki vaqt o'qi;
-   - ikki narsani qiyoslash → qiyoslash (ikki ustun) yoki jadval;
-   - tasnif, turlar, ko'p belgili taqqoslash → jadval;
+   - ikki narsani qiyoslash → qiyoslash (ikki ustun);
+   - tasnif, turlar → kartochkalar yoki qiyoslash; JADVAL faqat
+     QISQA bo'lsa (ko'pi bilan 4 qator va 3 ustun, har katak 1-5
+     so'z) va boshqa mazmun bilan birga — butun slaydni egallovchi,
+     "tahlil jadvali" kabi zich jadval YOZILMAYDI: tinglovchi uni
+     auditoriyada o'qiy olmaydi;
+   - ulushlar, dinamika yoki solishtirish → diagramma (halqa,
+     chiziqli, ustunli);
    - ta'rif, atama, bitta chuqur fikr → matn va rasm yoki oddiy
      ro'yxat (kartochkasiz);
    - mashhur so'z yoki ta'rif parchasi → iqtibos;
@@ -209,25 +218,30 @@ QAT'IY QOIDALAR:
    bo'lsin" deb tanlamang: avval mazmun, keyin shakl.
    Slayd NAFAS OLSIN: matn kam, bo'sh joy ko'p; bir blokda bitta
    fikr; uzun matn bo'lsa ikki slaydga bo'ling.
-8. RAQAMNI O'YLAB TOPMANG. Raqam ikki xil bo'ladi:
+8. RAQAM VA DIAGRAMMA — taqdimotni jonlantiradi, ulardan
+   foydalaning. Raqam uch xil bo'ladi:
    a) HISOBLANGAN raqam — formuladan va boshlang'ich qiymatdan
       kelgan. U RUXSAT: uni o'zingiz hisoblamang, `calc` yoki
-      `data-calc` bilan bering — kod hisoblaydi. Boshlang'ich qiymat
-      haqiqiy statistika bo'lmasa, slaydda "shartli misol" deb
-      belgilang.
-   b) STATISTIK FAKT — foiz, o'sish sur'ati, aholi soni, prognoz:
-      faqat siz ishonadigan HAQIQIY ma'lumot bo'lsa. Ishonchingiz
-      komil bo'lmasa uni yozmang: fikrni matn bilan ayting yoki
-      hisoblangan misol qiling.
-   Manba nomini yozing, lekin YIL qo'shmang, agar o'sha yil
-   ma'lumotini bilmasangiz: bugungi va kelgusi yillar uchun "BMT,
-   2026" kabi manba YOZILMAYDI — bunday raqam "taxminiy" deyiladi.
-   Mavzu hisob-kitob talab qilmasa, butun taqdimotda
-   birorta diagramma bo'lmasligi ham mumkin va bu TO'G'RI. Hisob-kitob
-   mavzusida esa aksincha: formulaning natijasi diagramma yoki
+      `data-calc` bilan bering — kod hisoblaydi.
+   b) HAQIQIY statistik fakt — siz ishonadigan va manbasini ayta
+      oladigan ma'lumot. Manba nomini yozing; manbaga
+      bugungi va kelgusi yillar uchun "BMT, 2026" kabi yil
+      qo'yilmaydi (bunday raqam "taxminiy" deyiladi).
+   v) SHARTLI MISOL — haqiqiy raqamni bilmasangiz, tushunchani
+      ko'rsatadigan, mavzuga mos taxminiy ma'lumot bilan diagramma
+      tuzing va slaydning izohi oxiriga "Shartli misol." deb yozing.
+      Shartli misolni haqiqiy statistika kabi ko'rsatmang (manba,
+      yil yoki "tadqiqotlar ko'rsatdi" demang).
+   Diagramma soni: kamida 6 slaydli taqdimotda bittadan kam
+   bo'lmasin, 10 va undan ko'pida ikkitadan; ulardan biri halqa
+   (ulushlar) bo'lsa yaxshi. Turini mazmun tanlaydi: ulush → halqa,
+   vaqt bo'yicha o'zgarish → chiziqli (X o'qi yil), solishtirish →
+   ustunli. Diagramma slaydida diagramma va uni tushuntiradigan 2-4
+   gap bo'ladi: nima ko'rsatilgani va qanday xulosa chiqishi.
+   Hisob-kitob mavzusida formulaning natijasi diagramma yoki
    ko'rsatkich bilan ko'rsatiladi. Ko'rsatkich (kpi) raqami
-   izohida uning manbasi aytiladi (masalan: Statistika agentligi,
-   2024) — manbasini ayta olmaydigan raqam yozilmaydi.
+   izohida manbasi aytiladi (masalan: Statistika agentligi, 2024)
+   yoki "Shartli misol" deyiladi.
 9. Bir slaydda bir xil matnni ikki marta yozma.
 9a. IQTIBOS faqat HAQIQIY, mashhur va muallifi aniq so'z bo'lsa
    (masalan, tarixiy shaxs, olim yoki davlat rahbarining ma'lum
@@ -264,7 +278,21 @@ QAT'IY QOIDALAR:
    KO'CHIRMANG. Hujjatning nomi, raqami va yilini ayting, mazmunini
    o'z so'zlaringiz bilan qisqa bayon qiling.
 16. Imlo adabiy tilda: kirish qismi "Kirish" deb yoziladi
-   ("Kiritish" emas), atamalar fan darsliklaridagidek."""
+   ("Kiritish" emas), atamalar fan darsliklaridagidek.
+17. HAR SLAYDDA UMUMLASHTIRUVCHI GAP BO'LSIN. Sarlavhadan keyin
+   `<p class="lead">` — slaydning bosh fikri (bitta jumla, 12-25
+   so'z): nima haqida va nima uchun muhim. Undan keyin dalil,
+   misol va tafsilotlar. Slayd faqat qisqa bandlardan iborat
+   bo'lmasin — har band avvalgi gapni davom ettirsin.
+18. RAQAMLASH FAQAT KERAK JOYDA: bandlarni "01, 02, 03" yoki
+   "1, 2, 3" deb sanab chiqish — sun'iy matnning belgisi. Raqam
+   faqat haqiqiy tartib bo'lganda (qadamlar, bosqichlar, reja)
+   qo'yiladi; kartochka va ro'yxat bandlariga raqam YOZILMAYDI.
+   Fikrni ba'zan ravon abzats, ba'zan misol, ba'zan qiyoslash bilan
+   ifodalang — hamma slayd ro'yxat bo'lmasin.
+19. HAR SLAYD BOSHQA FIKRNI OCHSIN. Oldingi slaydlarda aytilgan
+   fakt, sana yoki ta'rifni qayta yozmang; taqdimot rejasidagi har
+   slayd o'z sarlavhasidagi masalani ochadi, boshqasini emas."""
 
 
 def _shapes_note(shapes: Optional[List[tuple]], start: int, count: int) -> str:
@@ -305,7 +333,8 @@ def _user_prompt(topic: str, start: int, count: int, total: int,
                  outline: List[Dict], used: List[str], level: int,
                  source: str, preferences: str, author: str,
                  family: str = "umumiy",
-                 shapes: Optional[List[tuple]] = None) -> str:
+                 shapes: Optional[List[tuple]] = None,
+                 written: Optional[List[str]] = None) -> str:
     depth = {
         1: "Tinglovchi — maktab o'quvchisi: sodda til, kundalik misollar.",
         2: "Tinglovchi — talaba: akademik, lekin ravon til.",
@@ -335,12 +364,25 @@ def _user_prompt(topic: str, start: int, count: int, total: int,
                 mark = "  →"
             else:
                 mark = "   "
-            lines.append(f"{mark} {index}. [{item['category']}] {item['brief']}")
+            title = item.get("title") or ""
+            lines.append(f"{mark} {index}. [{item['category']}] "
+                         + (f"«{title}» — " if title else "") + item["brief"])
         parts.append("Taqdimot rejasi (→ bilan belgilangani hozir "
-                     "yoziladi):\n" + "\n".join(lines))
+                     "yoziladi). Slayd sarlavhasi rejadagi «sarlavha» bilan bir "
+                     "xil bo'lsin; har slayd faqat o'z sarlavhasidagi masalani "
+                     "ochsin:\n" + "\n".join(lines))
+    if written:
+        parts.append("Yozib bo'lingan slaydlar sarlavhalari (mazmunini "
+                     "takrorlamang, ularning davomi bo'ling): "
+                     + "; ".join(f"{i}. {t}" for i, t in enumerate(written, 1) if t))
     if used:
         parts.append("Oldingi slaydlarda ochilgan fikrlar (ularni qayta "
                      "aytmang): " + "; ".join(used[-5:]))
+    if start <= 2 < start + count:
+        parts.append("2-slayd — REJA: uni tizim yozilgan slaydlar sarlavhalaridan "
+                     "o'zi yig'adi, shuning uchun bu o'rinda faqat bitta "
+                     "<section class=\"slide\"> ichida «Taqdimot rejasi» "
+                     "sarlavhasini yozing.")
     if start + count - 1 >= total:
         parts.append("Oxirgi slayd — faqat XULOSA: taqdimotdagi asosiy fikrlar va "
                      "yakuniy fikr. Taqdimot rejasini yoki mavzu ta'rifini "
@@ -375,37 +417,48 @@ _CONCLUSION_BRIEF = {
 
 def plan_outline(topic: str, count: int, language: str,
                  level: int = 2) -> Dict:
-    """Har slayd uchun bir qatorli mazmun va joylashuv kategoriyasi.
+    """Har slayd uchun sarlavha, bir qatorli mazmun va joylashuv kategoriyasi.
 
     Slaydlar bo'laklab yoziladi va har bo'lak avvalgisining HTML'ini
     ko'rmaydi. Reja oldindan tuzilsa, har bo'lak o'z o'rnini biladi va
-    bir mavzu ikki slaydda takrorlanmaydi.
+    bir mavzu ikki slaydda takrorlanmaydi. Sarlavhalar shu yerda
+    belgilanadi: slaydlar ularni aynan ishlatadi, reja slaydi esa
+    yozilgan slaydlarning sarlavhalaridan yig'iladi — shunda reja bilan
+    taqdimot bir-biriga zid kelmaydi.
     """
+    quota = deck_logic.chart_quota(count)
+    chart_rule = (
+        f"Rejada kamida {quota} ta slayd 'diagramma' kategoriyasida bo'lsin"
+        + (" (ulardan biri ulushlar uchun halqa)" if quota >= 2 else "")
+        + ": diagramma taqdimotni jonlantiradi. Ma'lumot haqiqiy bo'lsa "
+          "manbasi bilan, bo'lmasa shartli misol sifatida beriladi.\n"
+        if quota else "")
     prompt = (
         f'Mavzu: "{topic}"\n\n'
         f"Shu mavzuda {count} slaydli taqdimot rejasini tuz. Har slayd "
-        "uchun bir qatorli mazmun va unga mos joylashuv kategoriyasini "
-        "ayt.\n\n"
+        "uchun qisqa sarlavha (2-6 so'z), bir qatorli mazmun va unga mos "
+        "joylashuv kategoriyasini ayt.\n\n"
         "Kategoriyalar:\n" + catalogue_text() + "\n\n"
-        "Birinchisi — muqova, oxirgisi — yakun (XULOSA: shu mavzu bo'yicha "
-        "asosiy fikrlar va yakuniy fikr). Xulosa FAQAT oxirgi slaydda: undan "
-        "oldin xulosa yoki yakunlovchi slayd bo'lmasin. 'reja' kategoriyasi — "
-        "faqat 2-slayd (taqdimot rejasi), boshqa slaydda ishlatilmasin. "
-        "Qolganlari mavzuni "
-        "MANTIQIY ketma-ketlikda ochsin: nimadan boshlash, nima bilan "
-        "davom etish va qayerda yakunlash kerakligini mavzuning o'zi "
-        "aytadi.\n"
+        "MANTIQIY KETMA-KETLIK: slaydlar bir-biridan keyin tabiiy kelsin — "
+        "har slayd oldingisining davomi. Har slayd mavzuning BOSHQA jihatini "
+        "ochsin: ikki slaydda bir xil voqea, ta'rif yoki fakt "
+        "takrorlanmasin va ikkita sarlavha bir narsani aytmasin. Nimadan "
+        "boshlash, nima bilan davom etish va qayerda yakunlash kerakligini "
+        "mavzuning o'zi aytadi.\n"
+        "Birinchisi — muqova, ikkinchisi — 'reja' (uning mazmunini tizim "
+        "o'zi yig'adi), oxirgisi — yakun (XULOSA: shu mavzu bo'yicha asosiy "
+        "fikrlar va yakuniy fikr). Xulosa FAQAT oxirgi slaydda. 'reja' "
+        "kategoriyasi faqat 2-slayd.\n"
         "Kategoriyani MAZMUNGA QARAB tanlang va bir xillikdan qoching: "
         "raqam → korsatkichlar, ketma-ketlik → jarayon yoki vaqt_oqi, "
-        "ikki narsa → qiyoslash, tasnif → jadval, ta'rif yoki bitta fikr "
-        "→ matn_rasm yoki iqtibos. 'kartalar' faqat 3-4 ta teng huquqli "
-        "element uchun; unga qaytaverma. Ketma-ket ikki slayd bir xil "
-        "kategoriyada bo'lmasin (mantiq buni majburlamasa); bir kategoriya "
-        "butun rejada 2 martadan ko'p takrorlanmasin — mazmunga mos boshqa "
-        "kategoriya bor bo'lsa, o'shani tanlang. Ayniqsa 'matn_rasm' (ro'yxat "
-        "+ rasm) ni har bo'limga qo'ymang. Mavzu raqam "
-        "talab qilmasa, diagramma va statistika kategoriyalarini umuman "
-        "ishlatmang.\n\n"
+        "ikki narsa → qiyoslash, ulush yoki dinamika → diagramma, ta'rif "
+        "yoki bitta fikr → matn_rasm yoki iqtibos. 'kartalar' faqat 3-4 ta "
+        "teng huquqli element uchun; unga qaytaverma. Ketma-ket ikki slayd "
+        "bir xil kategoriyada bo'lmasin (mantiq buni majburlamasa); bir "
+        "kategoriya butun rejada 2 martadan ko'p takrorlanmasin. 'jadval' "
+        "kategoriyasi faqat qisqa (3-4 qator) taqqoslash uchun, 'matn_rasm' "
+        "(ro'yxat + rasm) ni har bo'limga qo'ymang.\n"
+        + chart_rule
         + ("Bu HISOB-KITOB mavzusi: rejada formula, ishlangan misol va "
            "diagramma kategoriyalari ham bo'lsin — har formula misol bilan "
            "tasdiqlansin, natijalar diagramma bilan ko'rsatilsin.\n"
@@ -414,14 +467,14 @@ def plan_outline(topic: str, count: int, language: str,
         + deck_shape.names() + "\n\n"
         f"Matn {_LANGUAGE.get(language, _LANGUAGE['uz'])}.\n"
         'Faqat JSON: {"fan": "...", '
-        '"slides": [{"brief": "...", "category": "..."}]}'
+        '"slides": [{"title": "...", "brief": "...", "category": "..."}]}'
     )
     raw, hint = [], ""
     for attempt in range(2):
         try:
             data = llm_client._call_openrouter(
                 "Sen taqdimot rejasini tuzasan. Faqat JSON qaytar.",
-                prompt, temperature=0.6, max_tokens=600 + 160 * count)
+                prompt, temperature=0.6, max_tokens=900 + 200 * count)
             raw = data.get("slides") or []
             hint = data.get("fan") or ""
         except llm_client.NoCredits:
@@ -443,11 +496,15 @@ def plan_outline(topic: str, count: int, language: str,
     for index in range(count):
         item = raw[index] if index < len(raw) and isinstance(raw[index], dict) else {}
         brief = str(item.get("brief") or "").strip()
+        title = deck_logic.short_title(str(item.get("title") or ""))
         category = str(item.get("category") or "").strip().lower()
         if category not in CATEGORY_KEYS:
             category = _fallback_category(index, count)
         if index == 0:
             category = "muqova"
+        elif index == 1:
+            category = "reja"
+            title = deck_logic.PLAN_LABEL.get(language, deck_logic.PLAN_LABEL["uz"])
         elif index == count - 1:
             category = "yakun"
             # Oxirgi slayd — XULOSA. Reja boshqa narsa yozgan bo'lsa (masalan
@@ -456,20 +513,64 @@ def plan_outline(topic: str, count: int, language: str,
                 brief = _CONCLUSION_BRIEF.get(language, _CONCLUSION_BRIEF["uz"])
         elif category in ("muqova", "yakun"):
             category = _fallback_category(index, count)
-        elif category == "reja" and index != 1:
+        elif category == "reja":
             # "Taqdimot rejasi" faqat 2-slayd; boshqa joyda u xulosa oldidan
             # yoki oxirida reja slaydini takrorlab yuborardi.
             category = _fallback_category(index, count)
         if not brief:
             brief = (f"{topic} — {index + 1}-slayd: mavzuning oldingi slaydlarda "
                      "ochilmagan YANGI jihati (ta'rif yoki rejani takrorlamang)")
-        outline.append({"brief": brief, "category": category})
+        if not title:
+            title = deck_logic.short_title(deck_logic.short_note(brief, 60))
+        outline.append({"title": title, "brief": brief, "category": category})
 
+    outline = ensure_charts(outline, language)
     # Kod darajasida kategoriya almashtirilmaydi (ilgari shunday edi va
     # mantiqan ketma-ket kelishi kerak bo'lgan ikki ro'yxatni ajratib,
     # fikrni uzardi). Bir xillikdan qochishni model promptdagi yo'riqnoma
-    # bo'yicha o'zi qiladi.
+    # bo'yicha o'zi qiladi. Faqat diagramma soni kafolatlanadi.
     return {"family": family, "slides": outline}
+
+
+# Diagramma soni promptdagi iltimosga qoldirilmaydi: ilgari "raqam
+# bo'lmasa diagramma yozmang" qoidasi modelni diagrammani butunlay
+# chetlab o'tishga olib kelgan edi. Reja yetarli diagramma bermasa, mos
+# slaydlar shu yerda diagrammali qilib belgilanadi.
+_CHART_CANDIDATES = ("korsatkichlar", "kartalar", "ikki_ustun", "qiyoslash",
+                     "jadval", "matn_rasm", "tuzilma")
+
+
+def ensure_charts(outline: List[Dict], language: str = "uz") -> List[Dict]:
+    count = len(outline)
+    want = deck_logic.chart_quota(count)
+    have = [i for i, item in enumerate(outline) if item["category"] == "diagramma"]
+    need = want - len(have)
+    if need <= 0:
+        return outline
+    candidates = [i for i in range(2, count - 1)
+                  if outline[i]["category"] in _CHART_CANDIDATES]
+    if len(candidates) < need:       # mos kategoriya yetmasa boshqa oddiy slaydlardan
+        extra = [i for i in range(2, count - 1)
+                 if outline[i]["category"] not in ("diagramma", "formula", "misol", "iqtibos")
+                 and i not in candidates]
+        candidates += extra
+    candidates = [i for i in candidates if i not in have]
+    if not candidates:
+        return outline
+    chosen = deck_logic.pick_even(candidates, min(need, len(candidates)))
+    for order, index in enumerate(chosen):
+        item = outline[index]
+        kind = deck_logic.chart_kind_for(f"{item['title']} {item['brief']}",
+                                         order + len(have))
+        if want >= 2 and order == 0 and not any(i.get("chart_kind") == "halqa" for i in outline):
+            kind = "halqa"            # bir nechta diagrammadan biri halqa bo'lsin
+        item["category"] = "diagramma"
+        item["brief"] = (f"{item['brief']} — DIAGRAMMA bilan ko'rsating: "
+                         f"{deck_logic.KIND_TEXT[kind]}. Ma'lumot haqiqiy "
+                         "bo'lmasa izohda \"Shartli misol\" deb yozing.")
+        item["chart_kind"] = kind
+        log.info("%d-slayd diagrammali qilib belgilandi (%s)", index + 1, kind)
+    return outline
 
 
 # Reja kelmaganda ishlatiladigan zaxira. Unda raqamga tayanadigan
@@ -829,7 +930,8 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
 
         user = _user_prompt(topic, start, count, slide_count, outline,
                             used, level, source_text, preferences, author,
-                            family, shapes=[shape_signature(b) for b in slides])
+                            family, shapes=[shape_signature(b) for b in slides],
+                            written=[deck_logic.title_of(b) for b in slides])
         chunk = _write_chunk(system, user, count)
         if len(chunk) < count:
             # Bir marta qayta so'raymiz: chala javob har safar emas,
@@ -850,7 +952,8 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
                                   used, level, source_text, preferences,
                                   author, family,
                                   shapes=[shape_signature(b) for b in slides]
-                                  + [shape_signature(b) for b in chunk])
+                                  + [shape_signature(b) for b in chunk],
+                                  written=[deck_logic.title_of(b) for b in slides + chunk])
             one = _write_chunk(system, single, 1)
             if not one:
                 # Oxirgi chora: kichik JSON so'rov, slaydni kod yig'adi.
@@ -888,8 +991,190 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
     if len(slides) < _enough(slide_count):
         raise RuntimeError(
             f"AI {slide_count} ta slayddan faqat {len(slides)} tasini yozdi")
+    ctx = _Deck(topic, slide_count, outline, family, system, theme, language, level,
+                source_text, preferences, author)
+    slides = repair_deck(slides, ctx)
     slides = diversify(slides, theme, language)
     return build_pages(slides, theme, language)
+
+
+# ───────────────────────────────────────────── mantiq va sifat tekshiruvi
+
+MAX_FIXES = 6               # bitta taqdimotda ko'pi bilan shuncha slayd qayta yoziladi
+
+
+class _Deck:
+    """Taqdimotni yozishda ishlatilgan sozlamalar (qayta yozish uchun kerak)."""
+
+    def __init__(self, topic, total, outline, family, system, theme, language, level,
+                 source_text, preferences, author):
+        self.topic, self.total, self.outline, self.family = topic, total, outline, family
+        self.system, self.theme, self.language, self.level = system, theme, language, level
+        self.source_text, self.preferences, self.author = source_text, preferences, author
+
+
+def _rewrite_slide(slides: List[str], index: int, note: str, ctx: "_Deck") -> Optional[str]:
+    """`index`-slaydni ko'rsatma bilan qayta yozdiradi; yaroqli natija bo'lmasa None."""
+    number = index + 1
+    others = [b for i, b in enumerate(slides) if i != index]
+    user = _user_prompt(
+        ctx.topic, number, 1, ctx.total, ctx.outline,
+        [o.get("brief", "") for i, o in enumerate(ctx.outline) if i != index][:8],
+        ctx.level, ctx.source_text, ctx.preferences, ctx.author, ctx.family,
+        shapes=[shape_signature(b) for b in others],
+        written=[deck_logic.title_of(b) for i, b in enumerate(slides) if i != index])
+    user += "\n\n" + note
+    try:
+        fresh = _write_chunk(ctx.system, user, 1)
+    except Exception as exc:
+        log.warning("%d-slayd qayta yozilmadi: %s", number, exc)
+        return None
+    if not fresh:
+        return None
+    return fresh[0]
+
+
+def repair_deck(slides: List[str], ctx: "_Deck") -> List[str]:
+    """Yozilgan slaydlarni mantiq jihatidan tekshiradi va nuqsonlisini qayta yozdiradi.
+
+    1. O'rtada yoki oxirda takrorlangan "reja" slaydi;
+    2. avvalgi slaydning takrori (bir xil sarlavha yoki bir xil matn);
+    3. zich jadval (butun varaq jadval — auditoriyada o'qib bo'lmaydi);
+    4. diagramma bo'lishi kerak edi, lekin yozilmagan;
+    keyin: umumlashtiruvchi gap, kartochka raqamlarini olib tashlash va reja
+    slaydini HAQIQIY sarlavhalardan yig'ish.
+    """
+    result = list(slides)
+    count = len(result)
+    if count < 4:
+        return result
+    fixes = 0
+    last = count - 1
+
+    def fix(index: int, note: str, accept) -> bool:
+        nonlocal fixes
+        if fixes >= MAX_FIXES:
+            return False
+        fixes += 1
+        fresh = _rewrite_slide(result, index, note, ctx)
+        if fresh and accept(fresh):
+            result[index] = fresh
+            log.info("%d-slayd mantiq tekshiruvi bo'yicha qayta yozildi", index + 1)
+            return True
+        log.info("%d-slaydning qayta yozilishi qabul qilinmadi", index + 1)
+        return False
+
+    def own_brief(index: int) -> str:
+        item = ctx.outline[index] if index < len(ctx.outline) else {}
+        title = item.get("title") or ""
+        return (f"«{title}» — " if title else "") + (item.get("brief") or "")
+
+    # 1) Boshqa joydagi "reja" slaydlari
+    for index in deck_logic.stray_plans(result):
+        if index == last:
+            continue
+        fix(index,
+            "BU SLAYD TAQDIMOT REJASINI TAKRORLAYAPTI — reja faqat 2-slayd. "
+            "Quyidagi mavzu bo'yicha MAZMUNLI slayd yozing (reja yoki mundarija "
+            "emas): " + own_brief(index),
+            lambda body: not deck_logic.is_plan_title(deck_logic.title_of(body)))
+
+    # 2) Takrorlangan slaydlar
+    for later, earlier in sorted(deck_logic.duplicates(result).items()):
+        before = deck_logic.title_of(result[earlier])
+        fix(later,
+            f"BU SLAYD {earlier + 1}-slaydni («{before}») TAKRORLAYAPTI: bir xil mavzu va "
+            "bir xil faktlar. Uni BUTUNLAY BOSHQA masalaga bag'ishlang — rejadagi shu "
+            "o'rin uchun belgilangan mavzu: " + own_brief(later) +
+            ". Oldingi slaydlardagi sana, nom va faktlarni qaytarmang.",
+            lambda body, e=earlier: not (
+                deck_logic.similar_titles(deck_logic.title_of(body), deck_logic.title_of(result[e]))
+                or deck_logic.same_content(body, result[e])))
+
+    # 3) Zich jadval
+    for index in range(2, last):
+        if deck_logic.oversized_table(result[index]):
+            fix(index,
+                "BU SLAYDDA ZICH JADVAL BOR — tinglovchi uni auditoriyada o'qiy olmaydi. "
+                "Xuddi shu mazmunni JADVALSIZ ifodalang: kartochkalar, qiyoslash (ikki "
+                "ustun), qadamlar yoki oddiy ro'yxat bilan; slayd oxirida bitta umumlashtiruvchi "
+                "gap bo'lsin. Zarur bo'lsa faqat QISQA jadval (ko'pi bilan 4 qator, 3 ustun, "
+                "har katak 1-5 so'z) qoldiring. Slayd:\n" + (source_of(result[index]) or result[index]),
+                lambda body: not deck_logic.oversized_table(body))
+
+    # 4) Diagramma bo'lishi kerak bo'lgan slaydlar
+    for index in range(2, last):
+        item = ctx.outline[index] if index < len(ctx.outline) else {}
+        if item.get("category") == "diagramma" and not deck_logic.has_chart(result[index]):
+            kind = item.get("chart_kind") or deck_logic.chart_kind_for(own_brief(index), index)
+            fix(index,
+                "BU SLAYD DIAGRAMMALI BO'LISHI SHART (rejada shunday belgilangan). "
+                f"Tur: {deck_logic.KIND_TEXT[kind]}. Slaydda `.chart` bloki (yoki hisob uchun "
+                "`.calc`) va uni tushuntiruvchi 2-4 gap bo'lsin. Ma'lumot haqiqiy "
+                "bo'lmasa, izoh oxiriga «Shartli misol.» deb yozing. Mavzu: " + own_brief(index),
+                deck_logic.has_chart)
+
+    # 5) Umumlashtiruvchi gap
+    result = add_leads(result, ctx)
+
+    # 6) Kartochka raqamlari (faqat reja slaydida qoladi)
+    result = [deck_logic.strip_numbering(b) for b in result]
+
+    # 7) Reja slaydi — yozilgan slaydlarning haqiqiy sarlavhalaridan
+    items = []
+    for index in range(2, last):
+        title = deck_logic.title_of(result[index]) or (
+            ctx.outline[index].get("title", "") if index < len(ctx.outline) else "")
+        brief = ctx.outline[index].get("brief", "") if index < len(ctx.outline) else ""
+        if title:
+            items.append((title, brief))
+    if items:
+        result[1] = deck_logic.plan_slide(items, ctx.language)
+    return result
+
+
+def add_leads(slides: List[str], ctx: "_Deck") -> List[str]:
+    """Umumlashtiruvchi gapi yo'q slaydlarga bitta bosh fikr jumlasi qo'shadi.
+
+    Model slaydni faqat bandlar bilan to'ldirib qo'ysa, tinglovchi nima
+    haqida ekanini bilmay qoladi va matn sun'iy ko'rinadi. Jumla slaydning
+    o'z matnidan olinadi: yangi fakt qo'shilmaydi.
+    """
+    last = len(slides) - 1
+    wanted = [i for i in range(2, last) if deck_logic.needs_lead(slides[i])]
+    if not wanted:
+        return slides
+    listing = "\n\n".join(
+        f"{i + 1}. Sarlavha: {deck_logic.title_of(slides[i])}\nMatn: {deck_logic.plain(slides[i])[:420]}"
+        for i in wanted[:20])
+    prompt = (
+        f'Taqdimot mavzusi: "{ctx.topic}".\n'
+        "Quyidagi slaydlarning har biri uchun BITTA umumlashtiruvchi gap yozing: slaydning "
+        "bosh fikri (12-25 so'z) — nima haqida va nima uchun muhim. Gap slaydning o'z matniga "
+        "tayansin, yangi fakt, sana yoki raqam qo'shmang va sarlavhani so'zma-so'z "
+        "takrorlamang. Bandlarni sanab chiqmang.\n"
+        f"Matn {_LANGUAGE.get(ctx.language, _LANGUAGE['uz'])}.\n\n{listing}\n\n"
+        'Faqat JSON: {"leads": [{"n": 3, "lead": "..."}]}')
+    try:
+        data = llm_client._call_openrouter(
+            "Sen taqdimot muharririsan. Faqat JSON qaytar.", prompt,
+            temperature=0.4, max_tokens=300 + 120 * len(wanted[:20]))
+    except Exception as exc:
+        log.warning("Umumlashtiruvchi gaplar olinmadi: %s", exc)
+        return slides
+    result = list(slides)
+    added = 0
+    for item in (data.get("leads") or []):
+        try:
+            index = int(item.get("n")) - 1
+        except (TypeError, ValueError, AttributeError):
+            continue
+        lead = str(item.get("lead") or "").strip()
+        if index in wanted and lead and 4 <= len(lead.split()) <= 40:
+            result[index] = deck_logic.insert_lead(result[index], lead)
+            added += 1
+    log.info("Umumlashtiruvchi gap: %d ta slaydga qo'shildi", added)
+    return result
 
 
 # ───────────────────────────────────────────── bir xil slaydlarga qarshi
@@ -925,7 +1210,7 @@ def repeated_slides(bodies: List[str]) -> List[int]:
     previous = None
     for index, body in enumerate(bodies):
         signature = shape_signature(body)
-        if index in (0, last) or not signature:
+        if index in (0, 1, last) or not signature:
             previous = None
             continue
         seen[signature] = seen.get(signature, 0) + 1
@@ -995,7 +1280,8 @@ def diversify(bodies: List[str], theme, language: str = "uz") -> List[str]:
         if index not in repeated_slides(result):
             continue
         signature = shape_signature(result[index])
-        used = [shape_signature(b) for i, b in enumerate(result) if i != index]
+        # Muqova va reja slaydi (kartochkalar) o'zgartirish uchun taqiqlangan shakllarga kirmaydi.
+        used = [shape_signature(b) for i, b in enumerate(result) if i not in (index, 0, 1)]
         updated = rework_slide(result[index], signature, used, theme, language)
         if updated is not result[index]:
             result[index] = updated

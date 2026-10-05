@@ -1321,6 +1321,13 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
             logger.warning("Rasmlar qo'yilmadi: %s", e)
             photos = 0
 
+        # Muqovaga mavzuga oid rasm (oddiy taqdimotdagi kabi).
+        try:
+            html_pages, cover_done = await html_images.fill_cover(html_pages, topic)
+            photos += 1 if cover_done else 0
+        except Exception as e:
+            logger.warning("Muqova rasmi qo'yilmadi: %s", e)
+
         step2 = {
             "uz": (f"⚙️ <b>{topic}</b>\n"
                    f"✅ Slaydlar: {len(html_pages)} ta, rasm: {photos} ta\n"

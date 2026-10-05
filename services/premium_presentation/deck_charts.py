@@ -157,11 +157,22 @@ def _labels(text: str) -> List[str]:
 def _fmt(value: float) -> str:
     # Kichik qiymatlar (Gini 0.29, stavka 2.75) ikki xonagacha
     # yoziladi — aks holda 0.29 va 0.28 ikkalasi "0,3" bo'lib qolardi.
-    if abs(value - round(value)) < 0.005:
+    # 1 dan kichik qiymatlar (chastota 0.004) esa nolga yaxlitlanmaydi:
+    # ilgari 0.004 va 0.002 ikkalasi "0" bo'lib, grafik ma'nosiz qolardi.
+    if value == 0:
+        return "0"
+    magnitude = abs(value)
+    if magnitude >= 1 and abs(value - round(value)) < 0.005:
         return str(int(round(value)))
-    if abs(value) < 10:
-        return f"{value:.2f}".rstrip("0").replace(".", ",")
-    return f"{value:.1f}".replace(".", ",")
+    if magnitude >= 10:
+        return f"{value:.1f}".replace(".", ",")
+    if magnitude >= 0.1:
+        return f"{value:.2f}".rstrip("0").replace(".", ",").rstrip(",")
+    for digits in (3, 4, 5, 6):
+        text = f"{value:.{digits}f}".rstrip("0")
+        if float(text) != 0:
+            return text.replace(".", ",").rstrip(",")
+    return "0"
 
 
 def _text(x, y, value, size, colour, anchor="middle", weight="400"):

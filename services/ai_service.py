@@ -833,7 +833,7 @@ class AIService:
         """Ensure slides follow the mandatory structure and enforce the ordered count.
         Structure: cover + plan + (intro + N main + conclusion = slide_count) + thanks.
         Adabiyotlar ro'yxati qo'yilmaydi — model yozgan bo'lsa ham tashlanadi.
-        Table slides are EXTRA and do NOT count toward slide_count."""
+        Jadval slaydi qo'shilmaydi: zich "tahlil jadvali" auditoriyada o'qilmaydi."""
         slides = content.get('slides', [])
 
         cover_slide = None
@@ -911,20 +911,6 @@ class AIService:
                 slide['title'] = self._strip_leading_numbering(slide['title'])
             normalized.append(slide)
             slide_counter += 1
-
-            table_after = 3 if slide_count == 10 else 5
-            if slide_counter == table_after and (slide_count == 10 or slide_counter < len(main_slides)):
-                table_title = {
-                    'uz': "Tahlil jadvali",
-                    'ru': "Аналитическая таблица",
-                    'en': "Analysis Table"
-                }
-                normalized.append({
-                    'title': table_title.get(language, table_title['uz']),
-                    'content': '',
-                    'layout': 'table',
-                    'table_data': {}
-                })
 
         if not conclusion_slide:
             conclusion_slide = {'title': labels['conclusion'], 'content': '', 'layout': 'conclusion'}

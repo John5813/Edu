@@ -66,6 +66,18 @@ justify-content:safe center;gap:48px;min-height:0}
 .timeline .stop{justify-content:flex-start}
 
 /* ── To'q sirt ─────────────────────────────────────────────────── */
+/* Rasmli muqova: chapda mavzuga oid rasm, o'ngda sarlavha. */
+.slide.cover-photo{padding:0}
+.slide.cover-photo>.body.cover-split{display:grid;grid-template-columns:44% 1fr;
+gap:0;align-items:stretch;justify-content:stretch}
+.rasm.cover-img{border:0;border-radius:0;padding:0;min-height:0;height:100%;
+background:none;overflow:hidden}
+.rasm.cover-img .photo{width:100%;height:100%;min-height:0;border-radius:0;
+object-fit:cover}
+.cover-text{display:flex;flex-direction:column;justify-content:center;
+gap:40px;padding:96px 96px 96px 90px}
+.cover-photo .title.big{font-size:74px;line-height:1.1}
+
 /* Ajratkich, muqova va to'q kartochka. Ichidagi HAMMA matn ochiq
    rangga o'tishi kerak: bitta sinf unutilsa, to'q ko'k fonda qora
    matn qolib, umuman o'qilmaydi. Shuning uchun ro'yxat to'liq
@@ -473,6 +485,7 @@ BLOCKS = """VARAQNING TUZILISHI (har slayd shunday boshlanadi):
     <div class="rule"></div>
   </div>
   <div class="body">
+    <p class="lead">Slaydning bosh fikri — bitta umumlashtiruvchi gap.</p>
     ... shu yerga quyidagi bloklardan bir-ikkitasi ...
   </div>
 </section>
@@ -511,7 +524,6 @@ shuning uchun u to'liq, mazmunli bo'lsin.
 <div class="cols cols-3">
   <div class="card line">
     <div class="ikon-dot"><img class="ikon" data-icon="NOM" alt=""></div>
-    <div class="card-num">01</div>
     <div class="card-title">Qisqa sarlavha</div>
     <div class="card-note">Ikki qatorlik izoh.</div>
   </div>
@@ -567,7 +579,8 @@ Chiziq o'zi chiziladi — siz chizmaysiz.
     <div class="list"> ... </div></div>
 </div>
 
-10. JADVAL:
+10. QISQA JADVAL (faqat boshqa mazmun bilan birga, ko'pi bilan 4 qator
+    va 3 ustun, har katak 1-5 so'z; zich "tahlil jadvali" yozilmaydi):
 <table><tr><th>Ustun</th><th>Ustun</th></tr>
 <tr><td>Qiymat</td><td>Qiymat</td></tr></table>
 

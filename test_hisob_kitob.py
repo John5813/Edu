@@ -100,10 +100,11 @@ check("boshqa mavzuda bu talab yo'q", "HISOB-KITOB mavzusi" not in plan_other)
 
 # ── 2, 3, 5. Prompt
 rules = html_slides.shell_rules(TH, "uz")
-check("prompt: hisoblangan va statistik raqam ajratilgan", "a) HISOBLANGAN raqam" in rules and "b) STATISTIK FAKT" in rules)
+check("prompt: hisoblangan va statistik raqam ajratilgan", "a) HISOBLANGAN raqam" in rules and "b) HAQIQIY statistik fakt" in rules and "v) SHARTLI MISOL" in rules)
 check("prompt: hisoblangan raqam RUXSAT, kod hisoblaydi", "RUXSAT" in rules and "calc" in rules)
 check("prompt: manba yili (bugungi va kelgusi) yozilmaydi", "bugungi va kelgusi yillar" in rules)
-check("prompt: raqam to'qish taqiqi saqlangan", "RAQAMNI O'YLAB TOPMANG" in rules)
+check("prompt: o'ylab topilgan raqam haqiqiy statistika kabi ko'rsatilmaydi",
+      "haqiqiy statistika kabi ko'rsatmang" in rules)
 blocks = deck_style.BLOCKS
 check("namunalar: line, bar va donut", all(f'data-kind="{k}"' in blocks for k in ("line", "bar", "donut")))
 check("namunalar: calc diagramma va data-calc", 'class="calc"' in blocks and 'data-calc=' in blocks)
