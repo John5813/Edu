@@ -486,3 +486,9 @@ class ProjectWorkBuilder:
         caption_run.font.name = "Times New Roman"
         doc.add_paragraph()
 
+
+
+# Qozoq tili ("kk"): tayyor fayldagi ruscha sarlavhalar va yorliqlar qozoqchaga o'giriladi.
+from services import kazakh_doc  # noqa: E402
+
+kazakh_doc.wrap_class(ProjectWorkBuilder, file_methods=("build",))

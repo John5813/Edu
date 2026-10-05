@@ -286,6 +286,7 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
         "book_translate_lang_uz": "🇺🇿 O'zbek tiliga",
         "book_translate_lang_ru": "🇷🇺 Rus tiliga",
         "book_translate_lang_en": "🇬🇧 Ingliz tiliga",
+        "book_translate_lang_kk": "🇰🇿 Qozoq tiliga",
         "book_translate_checking": "⏳ Fayl tekshirilmoqda...",
         "book_translate_main_menu": "📋 Asosiy menyu",
         "book_translate_converting_pdf": "🔄 PDF faylingiz DOCX formatiga aylantirilmoqda...",
@@ -608,6 +609,7 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
         "book_translate_lang_uz": "🇺🇿 На узбекский",
         "book_translate_lang_ru": "🇷🇺 На русский",
         "book_translate_lang_en": "🇬🇧 На английский",
+        "book_translate_lang_kk": "🇰🇿 На казахский",
         "book_translate_checking": "⏳ Файл проверяется...",
         "book_translate_main_menu": "📋 Главное меню",
         "book_translate_converting_pdf": "🔄 Конвертация PDF файла в DOCX...",
@@ -932,6 +934,7 @@ This document was created with AI assistance and serves as your helper.
         "book_translate_lang_uz": "🇺🇿 To Uzbek",
         "book_translate_lang_ru": "🇷🇺 To Russian",
         "book_translate_lang_en": "🇬🇧 To English",
+        "book_translate_lang_kk": "🇰🇿 To Kazakh",
         "book_translate_checking": "⏳ Checking file...",
         "book_translate_main_menu": "📋 Main menu",
         "book_translate_converting_pdf": "🔄 Converting PDF to DOCX...",
@@ -1065,26 +1068,114 @@ This document was created with AI assistance and serves as your helper.
     }
 }
 
+# ── Qozoq tili (interfeys) ────────────────────────────────────────────────
+#
+# Botdagi yuzlab joyda til "ru"/"en"/"uz" bilan solishtiriladi
+# (`if language == "ru"`, `{...}.get(lang)`). Qozoq tilini ularning
+# hammasiga qo'shish o'rniga qozoq foydalanuvchi uchun `user.language`
+# "ru" bo'lib qoladi (ular rus tilini bilishadi), "qozoqcha" belgisi esa
+# alohida (`User.kazakh`). `get_text` shu belgini o'qib, matn qozoqchada
+# bo'lsa uni, bo'lmasa ruscha matnni beradi. Belgi har xabar/tugma
+# uchun middleware'da o'rnatiladi (`kazakh_scope`).
+import contextvars as _contextvars
+from contextlib import contextmanager as _contextmanager
+
+from translations_kk import KK as _KK
+
+TRANSLATIONS["kk"] = _KK
+LANGUAGES = ("uz", "ru", "en", "kk")
+
+_KAZAKH = _contextvars.ContextVar("ui_kazakh", default=False)
+
+
+def legacy_language(code: str):
+    """Saqlangan til kodi → (eski kod, qozoqchami). "kk" → ("ru", True)."""
+    return ("ru", True) if code == "kk" else (code, False)
+
+
+def stored_language(language: str, kazakh: bool = False) -> str:
+    """Bazaga yoziladigan kod: qozoq foydalanuvchi uchun "kk"."""
+    return "kk" if kazakh and language == "ru" else language
+
+
+@_contextmanager
+def kazakh_scope(flag: bool):
+    """Shu blok ichida `get_text("ru", ...)` qozoqcha javob beradi."""
+    token = _KAZAKH.set(bool(flag))
+    try:
+        yield
+    finally:
+        _KAZAKH.reset(token)
+
+
+def set_kazakh(flag: bool):
+    """Middleware uchun: belgini o'rnatadi, `reset_kazakh` uchun token qaytaradi."""
+    return _KAZAKH.set(bool(flag))
+
+
+def reset_kazakh(token) -> None:
+    try:
+        _KAZAKH.reset(token)
+    except (ValueError, LookupError):
+        pass
+
+
+def is_kazakh() -> bool:
+    return _KAZAKH.get()
+
+
+def _lookup(table, keys):
+    text = table
+    for k in keys:
+        if isinstance(text, dict) and k in text:
+            text = text[k]
+        else:
+            return None
+    return None if isinstance(text, dict) else text
+
+
+def label_variants(key: str):
+    """Tugma yozuvi barcha tillarda (filtrlar uchun): uz, ru, en va qozoqcha."""
+    found = []
+    for code in LANGUAGES:
+        text = _lookup(TRANSLATIONS.get(code, {}), key.split("."))
+        if text and text not in found:
+            found.append(text)
+    return found
+
+
 def get_text(lang: str, key: str, **kwargs) -> str:
-    """Get translated text by language and key"""
+    """Get translated text by language and key.
+
+    Qozoqcha ("kk" yoki qozoq foydalanuvchining "ru"si): avval qozoqcha
+    matn, yo'q bo'lsa ruscha, undan keyin o'zbekcha. Kalit uch tilli
+    `{"uz":..,"ru":..,"en":..}` ko'rinishida (jadval oxiridagilar) ham bo'lishi mumkin.
+    """
     keys = key.split('.')
 
-    # Use user's language, fallback to Uzbek if not found
-    if lang not in TRANSLATIONS:
+    if lang == "ru" and _KAZAKH.get():
+        lang = "kk"
+    if lang not in TRANSLATIONS or lang not in LANGUAGES:
         lang = 'uz'
 
-    text = TRANSLATIONS[lang]
-
-    for k in keys:
-        if isinstance(text, dict):
-            text = text.get(k, key)
-        else:
-            return key
+    chain = {"kk": ("kk", "ru", "uz")}.get(lang, (lang, "uz"))
+    text = None
+    for code in chain:
+        text = _lookup(TRANSLATIONS[code], keys)
+        if text is None:
+            # Jadval oxiridagi {"uz","ru","en"} ko'rinishidagi kalitlar.
+            flat = TRANSLATIONS.get(key)
+            if isinstance(flat, dict) and flat:
+                text = flat.get(code) or (flat.get("ru") if code == "kk" else None)
+        if text is not None:
+            break
+    if text is None:
+        return key
 
     if kwargs:
         try:
             return text.format(**kwargs)
-        except:
+        except Exception:
             return text
 
     return text

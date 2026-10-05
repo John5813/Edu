@@ -33,13 +33,15 @@ CONCURRENCY = 5
 
 # Shundan kichik matn (izoh belgilari va h.k.) tegilmaydi.
 MIN_FONT = 4.0
-_CYRILLIC = re.compile(r"[а-яёА-ЯЁўқғҳЎҚҒҲ]")
+_CYRILLIC = re.compile(r"[а-яёА-ЯЁўқғҳЎҚҒҲәіңүұөһӘІҢҮҰӨҺ]")
+_KK_SPECIFIC = re.compile(r"[әіңүұөһӘІҢҮҰӨҺ]")
 _LATIN = re.compile(r"[A-Za-z]")
 _LETTER = re.compile(r"[^\W\d_]")
 _BULLET = re.compile(r"^\s*(?:[•●▪■◦\-–—*]|\d{1,3}[.)]|[а-яa-z][.)])\s")
 _MARK = re.compile(r"\[\[(\d+)\]\]")
 
-LANG_NAMES = {"uz": "Uzbek (Latin script)", "ru": "Russian", "en": "English"}
+LANG_NAMES = {"uz": "Uzbek (Latin script)", "ru": "Russian", "en": "English",
+              "kk": "Kazakh (Cyrillic script, with the Kazakh letters ә ғ қ ң ө ұ ү һ і)"}
 
 
 class BookTranslateError(RuntimeError):
@@ -108,6 +110,8 @@ def detect_language(text: str) -> str:
     sample = text[:20000]
     cyr = len(_CYRILLIC.findall(sample))
     lat = len(_LATIN.findall(sample))
+    if cyr > lat and len(_KK_SPECIFIC.findall(sample)) > 25:
+        return "kk"                  # qozoq alifbosiga xos harflar
     return "ru" if cyr > lat else "en"
 
 
@@ -223,7 +227,7 @@ def _wanted(text: str, source_lang: str) -> bool:
     """Tarjimaga muhtojmi: manba tili harflari bormi."""
     if len(_LETTER.findall(text)) < 2:
         return False
-    if source_lang == "ru":
+    if source_lang in ("ru", "kk"):
         return bool(_CYRILLIC.search(text))
     return bool(_LATIN.search(text))
 

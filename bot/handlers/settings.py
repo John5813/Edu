@@ -6,7 +6,7 @@ from aiogram.filters import StateFilter
 
 from bot.keyboards import get_settings_keyboard, get_language_keyboard, get_main_keyboard
 from bot.states import SettingsStates
-from translations import get_text
+from translations import get_text, kazakh_scope, legacy_language, label_variants
 from database.database import Database
 from datetime import datetime
 
@@ -14,7 +14,8 @@ router = Router()
 logger = logging.getLogger(__name__)
 
 # Settings menu items in different languages
-SETTINGS_TEXTS = ["⚙️ Sozlamalar", "⚙️ Настройки", "⚙️ Settings"]
+SETTINGS_TEXTS = ["⚙️ Sozlamalar", "⚙️ Настройки", "⚙️ Settings"] + [
+    text for text in label_variants("main_menu.settings") if text not in ("⚙️ Sozlamalar", "⚙️ Настройки", "⚙️ Settings")]
 
 @router.message(F.text.in_(SETTINGS_TEXTS))
 async def handle_settings_request(message: Message, state: FSMContext, user_lang: str):
@@ -49,17 +50,18 @@ async def handle_language_change(callback: CallbackQuery, db: Database):
     # Update user language
     await db.update_user_language(user_id, new_language)
 
-    await callback.message.edit_text(
-        get_text(new_language, "language_changed"),
-        reply_markup=None
-    )
-
+    legacy, kazakh = legacy_language(new_language)       # "kk" → ("ru", True)
     media_enabled = await db.get_feature_status("media")
     book_translate_enabled = await db.get_feature_status("book_translate")
-    await callback.message.answer(
-        "🎓 Bot ishga tayyor!",
-        reply_markup=get_main_keyboard(new_language, media_enabled=media_enabled, book_translate_enabled=book_translate_enabled)
-    )
+    with kazakh_scope(kazakh):
+        await callback.message.edit_text(
+            get_text(legacy, "language_changed"),
+            reply_markup=None
+        )
+        await callback.message.answer(
+            "🎓 Қазақша бот дайын!" if kazakh else "🎓 Bot ishga tayyor!",
+            reply_markup=get_main_keyboard(legacy, media_enabled=media_enabled, book_translate_enabled=book_translate_enabled)
+        )
 
 @router.callback_query(F.data == "retry_promocode")
 async def handle_retry_promocode(callback: CallbackQuery, state: FSMContext, user_lang: str):

@@ -1062,3 +1062,9 @@ Respond with JSON only:
             if match:
                 return json.loads(match.group(0))
             raise
+
+
+# Qozoq tili ("kk"): ruscha yo'l bilan ishlaydi, model so'rovlariga qozoq qoidasi qo'shiladi.
+from services import kazakh_doc  # noqa: E402
+
+kazakh_doc.wrap_class(ProjectContentBuilder)

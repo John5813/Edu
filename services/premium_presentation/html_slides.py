@@ -77,6 +77,9 @@ def strip_shadows(html: str) -> str:
 _LANGUAGE = {
     "ru": "русском языке",
     "en": "in English",
+    # Qozoq tili: kirill, qozoq harflari bilan; o'zbek yoki rus so'zlari aralashmasin.
+    "kk": "qozoq tilida, kirill alifbosida (ә, ғ, қ, ң, ө, ұ, ү, һ, і harflari bilan; "
+          "masalan «Қорытынды», «Тарих», «Экономика»). Rus yoki o'zbek jumlalarini aralashtirmang",
     "uz": "o'zbek tilida (FAQAT lotin alifbosida, kirill harflarisiz)",
     # Kirill yozuvi: sarlavhalar va barcha so'zlar kirillda, ikki yozuv aralashmasin.
     "uz-cyrl": "o'zbek tilida, FAQAT KIRILL alifbosida (ў, қ, ғ, ҳ harflari bilan; "
@@ -410,6 +413,8 @@ _CONCLUSION_BRIEF = {
           "(не открывайте новых тем, не повторяйте определения и план)",
     "en": "Conclusion: summary of the key points and a final takeaway "
           "(no new topics, do not repeat definitions or the agenda)",
+    "kk": "Қорытынды: презентациядағы негізгі ойларды жинақтау және түпкілікті тұжырым "
+          "(жаңа тақырып ашпаңыз, анықтама мен жоспарды қайталамаңыз). Қазақ тілінде.",
     "uz-cyrl": "Хулоса: тақдимотдаги асосий фикрларни умумлаштириш ва якуний хулоса "
                "(янги мавзу очманг, таъриф ёки режани такрорламанг). Кирилл ёзувида.",
 }
@@ -823,7 +828,7 @@ def guard_quote_sources(body: str) -> str:
 # "(BMT, 2026)" — model bugungi yil ma'lumotini bilmaydi, shuning uchun bunday
 # manba o'ylab topilgan bo'ladi. Yil o'rniga "taxminiy" yoziladi.
 _SOURCE_YEAR = re.compile(r"\(([^()<>]{2,60}?),\s*((?:19|20)\d\d)\)")
-_ESTIMATE = {"uz": "taxminiy", "uz-cyrl": "тахминий", "ru": "оценка", "en": "estimate"}
+_ESTIMATE = {"uz": "taxminiy", "uz-cyrl": "тахминий", "ru": "оценка", "en": "estimate", "kk": "болжамды"}
 
 
 def guard_source_years(body: str, language: str = "uz") -> str:
@@ -1294,7 +1299,7 @@ def diversify(bodies: List[str], theme, language: str = "uz") -> List[str]:
 # ko'chirib, ism, fan va yilni o'zi o'ylab topardi — mijoz ism kiritmagan
 # bo'lsa ham muqovada begona ism turardi. Endi bunday qator kod bilan
 # olib tashlanadi, ism esa faqat mijoz kiritgan bo'lsa qo'yiladi.
-_CREDIT_LABEL = {"uz": "Tayyorladi", "uz-cyrl": "Тайёрлади", "ru": "Подготовил(а)", "en": "Prepared by"}
+_CREDIT_LABEL = {"uz": "Tayyorladi", "uz-cyrl": "Тайёрлади", "ru": "Подготовил(а)", "en": "Prepared by", "kk": "Дайындаған"}
 _CREDIT_LINE = re.compile(
     r"<(p|div|span)\b[^>]*>(?:(?!</?\1\b).)*?"
     r"(?:tayyorladi|bajardi|muallif|topshirdi|fan\s*:|yo.nalish\s*:|"

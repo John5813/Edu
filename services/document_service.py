@@ -23,6 +23,7 @@ from services import doc_visuals
 from services import timeframe
 from services.doc_toc import TocPlan
 from services import uzbekistan
+from services import kazakh_doc
 from services import course_work
 from utils.heading_guard import strip_leading_numbering
 from services.icon_service import find_icon_path_for_column
@@ -2162,7 +2163,8 @@ class DocumentService:
                     para.add_run().add_picture(path, width=Cm(width_cm))
                 return para
 
-            picture('gerb_bayroq.jpg', 11.0, after=0)
+            if not kazakh_doc.active():          # O'zbekiston gerbi qozoq hujjatiga mos emas
+                picture('gerb_bayroq.jpg', 11.0, after=0)
             line(texts['country'], after=4)
             line(texts['ministry'], after=14)
             line('_' * 46 + ' ' + texts['university'], after=10)
@@ -5206,6 +5208,11 @@ class DocumentService:
                     '8. Ishning tarkibiy tuzilishi:',
                 ]
             }
+
+
+# Qozoq tili ("kk"): hujjat ruscha yo'l bilan yasaladi, tayyor fayldagi qat'iy
+# ruscha yorliqlar qozoqchaga o'giriladi (kazakh_doc.py).
+kazakh_doc.wrap_class(DocumentService, file_prefix="create_")
 
 
 _document_service_instance: "DocumentService | None" = None

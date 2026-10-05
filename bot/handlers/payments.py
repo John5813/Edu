@@ -9,16 +9,22 @@ from bot.states import PaymentStates
 from bot.keyboards import get_payment_amount_keyboard, get_main_keyboard
 from bot import checkout
 from database.database import Database
-from translations import get_text
+from translations import get_text, label_variants
 from config import PAYMENT_CARD, PAYMENT_CARD_2, PAYMENT_CARD_OWNER, ADMIN_IDS, STARS_RATE, som_to_stars
 
 router = Router()
 logger = logging.getLogger(__name__)
 
 # Payment menu items in different languages
-PAYMENT_TEXTS = ["💳 To'lov qilish", "💳 Оплата", "💳 Payment"]
-ACCOUNT_TEXTS = ["💎 Mening hisobim", "💎 Мой счет", "💎 My Account"]
-REFERRAL_TEXTS = ["💰 Pul ishlab topish", "👥 Реферальная программа", "👥 Referral Program"]
+def _with_variants(texts, key):
+    """Qo'lda yozilgan yozuvlarga barcha tillardagi (qozoqcha ham) tugma yozuvini qo'shadi."""
+    return list(texts) + [text for text in label_variants(key) if text not in texts]
+
+
+PAYMENT_TEXTS = _with_variants(["💳 To'lov qilish", "💳 Оплата", "💳 Payment"], "main_menu.payment")
+ACCOUNT_TEXTS = _with_variants(["💎 Mening hisobim", "💎 Мой счет", "💎 My Account"], "main_menu.my_account")
+REFERRAL_TEXTS = _with_variants(["💰 Pul ishlab topish", "👥 Реферальная программа", "👥 Referral Program"],
+                                "main_menu.referral")
 
 @router.message(F.text.in_(PAYMENT_TEXTS))
 async def handle_payment_request(message: Message, state: FSMContext, user_lang: str):

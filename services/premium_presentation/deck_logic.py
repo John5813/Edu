@@ -29,6 +29,7 @@ _WORD = re.compile(r"[^\W\d_]{4,}", re.UNICODE)
 _PLAN_TITLE = re.compile(
     r"^(?:taqdimot\s+|ish\s+)?(?:reja\w*|mundarija\w*|mazmun\w*|"
     r"(?:тақдимот\s+)?(?:режа\w*|мундарижа\w*)|"
+    r"(?:презентация\s+)?(?:жоспар\w*|мазмұн\w*)|"
     r"(?:план\w*|содержани\w*|оглавлени\w*)(?:\s+презентации)?|"
     r"agenda|outline|contents|table\s+of\s+contents|presentation\s+(?:plan|outline))$",
     re.IGNORECASE)
@@ -36,6 +37,7 @@ _PLAN_TITLE = re.compile(
 PLAN_LABEL = {
     "uz": "Taqdimot rejasi",
     "uz-cyrl": "Тақдимот режаси",
+    "kk": "Презентация жоспары",
     "ru": "План презентации",
     "en": "Presentation outline",
 }

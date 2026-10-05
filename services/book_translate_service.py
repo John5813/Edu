@@ -20,12 +20,14 @@ LANG_NAMES = {
     "uz": "Uzbek",
     "ru": "Russian",
     "en": "English",
+    "kk": "Kazakh (Cyrillic script, with the Kazakh letters ә ғ қ ң ө ұ ү һ і)",
 }
 
 LANG_SUFFIXES = {
     "uz": "_uz",
     "ru": "_ru",
     "en": "_en",
+    "kk": "_kk",
 }
 
 
@@ -75,6 +77,8 @@ WORDS_PER_PAGE = 300  # Bir standart kitob varogi uchun so'zlar soni
 
 # Russian-specific Cyrillic letters that don't appear in Uzbek
 _RU_SPECIFIC = re.compile(r'[ыЫёЁэЭъЪ]')
+# Letters that exist only in Kazakh (not in Russian or Uzbek Cyrillic)
+_KK_SPECIFIC = re.compile(r'[әіңүұөһӘІҢҮҰӨҺ]')
 # General Cyrillic
 _CYRILLIC = re.compile(r'[а-яА-ЯёЁ]')
 # Latin
@@ -95,6 +99,9 @@ def detect_source_language(file_path: str) -> str:
         ru_specific = len(_RU_SPECIFIC.findall(sample))
         cyrillic = len(_CYRILLIC.findall(sample))
         latin = len(_LATIN.findall(sample))
+        # Qozoq alifbosiga xos harflar ko'p bo'lsa → qozoq tili
+        if len(_KK_SPECIFIC.findall(sample)) > 25 and cyrillic > latin:
+            return "kk"
         # Agar rus-xos harflar ko'p bo'lsa → albatta rus
         if ru_specific > 10:
             return "ru"

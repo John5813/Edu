@@ -29,7 +29,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from database.database import Database
 from services.channel_service import ChannelService
-from translations import get_text
+from translations import get_text, kazakh_scope
 from config import ADMIN_IDS
 import string
 import random
@@ -816,9 +816,11 @@ async def reject_payment(callback: CallbackQuery, db: Database):
         user = await db.get_user_by_id(payment.user_id)
 
         # Notify user with simple message (no retry button)
+        with kazakh_scope(user.kazakh):          # xabar mijoz tilida, admin tilida emas
+            rejected_text = get_text(user.language, "payment_rejected")
         await callback.bot.send_message(
             user.telegram_id,
-            get_text(user.language, "payment_rejected"),
+            rejected_text,
             parse_mode="Markdown"
         )
 

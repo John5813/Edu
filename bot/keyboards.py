@@ -21,6 +21,7 @@ def get_language_keyboard() -> InlineKeyboardMarkup:
     keyboard.add(InlineKeyboardButton(text="🇺🇿 O'zbek", callback_data="lang_uz"))
     keyboard.add(InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang_ru"))
     keyboard.add(InlineKeyboardButton(text="🇬🇧 English", callback_data="lang_en"))
+    keyboard.add(InlineKeyboardButton(text="🇰🇿 Қазақша", callback_data="lang_kk"))
     keyboard.adjust(1)
     return keyboard.as_markup()
 
@@ -44,6 +45,7 @@ def get_doc_language_keyboard(lang: str = "uz", back_callback: str = "back_to_ma
     keyboard.add(InlineKeyboardButton(text="🇺🇿 O'zbek", callback_data="doc_lang_uz"))
     keyboard.add(InlineKeyboardButton(text="🇷🇺 Русский", callback_data="doc_lang_ru"))
     keyboard.add(InlineKeyboardButton(text="🇬🇧 English", callback_data="doc_lang_en"))
+    keyboard.add(InlineKeyboardButton(text="🇰🇿 Қазақша", callback_data="doc_lang_kk"))
     keyboard.add(InlineKeyboardButton(text=_back_text(lang), callback_data=back_callback))
     keyboard.adjust(1)
     return keyboard.as_markup()
@@ -583,6 +585,10 @@ def get_book_translate_lang_keyboard(language: str) -> InlineKeyboardMarkup:
     keyboard.add(InlineKeyboardButton(
         text=get_text(language, "book_translate_lang_en"),
         callback_data="bt_lang_en"
+    ))
+    keyboard.add(InlineKeyboardButton(
+        text=get_text(language, "book_translate_lang_kk"),
+        callback_data="bt_lang_kk"
     ))
     keyboard.add(InlineKeyboardButton(text=_back_text(language), callback_data="bt_back_to_menu"))
     keyboard.adjust(1)
@@ -1478,3 +1484,39 @@ def get_extras_keyboard(lang: str, selected: list, base_price: int, free: bool =
     keyboard.add(InlineKeyboardButton(text=confirm_text, callback_data="extras_confirm"))
     keyboard.adjust(1)
     return keyboard.as_markup()
+
+# ── Qozoq tili ("kk") ───────────────────────────────────────────────────────
+# Klaviaturalar ichida til "ru"/"en" bilan solishtiriladi. Hujjat tili qozoqcha
+# bo'lganda (`get_slide_count_keyboard("kk")` va h.k.) ular ruscha yo'l bilan,
+# lekin `get_text` orqali keladigan yozuvlar qozoqchada chiqadi (translations.py).
+def _kazakh_aware_keyboards() -> None:
+    import functools
+    import inspect
+
+    from translations import kazakh_scope
+
+    def wrap(func, name, position):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            value = kwargs.get(name) if name in kwargs else (args[position] if len(args) > position else None)
+            if value != "kk":
+                return func(*args, **kwargs)
+            if name in kwargs:
+                kwargs[name] = "ru"
+            else:
+                args = args[:position] + ("ru",) + args[position + 1:]
+            with kazakh_scope(True):
+                return func(*args, **kwargs)
+        return wrapper
+
+    for key, func in list(globals().items()):
+        if not key.startswith("get_") or not inspect.isfunction(func) or func.__module__ != __name__:
+            continue
+        params = list(inspect.signature(func).parameters)
+        for index, param in enumerate(params):
+            if param in ("language", "lang"):
+                globals()[key] = wrap(func, param, index)
+                break
+
+
+_kazakh_aware_keyboards()

@@ -25,6 +25,13 @@ Ikki usul:
 import re
 from typing import Dict, List
 
+from services import kazakh_doc
+
+
+def _lang(language: str) -> str:
+    """Qozoqcha hujjat ruscha yo'l bilan ishlaydi; ana shu yerda yorliqlar qozoqchaga o'tadi."""
+    return "kk" if language == "ru" and kazakh_doc.active() else language
+
 SIMPLE = "oddiy"
 COMPLEX = "murakkab"
 STYLES = (SIMPLE, COMPLEX)
@@ -55,6 +62,14 @@ _LEAD = {
         "tasks": "Исходя из цели курсовой работы определены следующие задачи:",
         "structure": "Структура курсовой работы.",
     },
+    "kk": {
+        "relevance": "Тақырыптың өзектілігі.",
+        "subject": "Курстық жұмыстың пәні.",
+        "object": "Курстық жұмыстың объектісі.",
+        "goal": "Курстық жұмыстың мақсаты.",
+        "tasks": "Курстық жұмыстың мақсатынан туындайтын мынадай міндеттер айқындалды:",
+        "structure": "Курстық жұмыстың құрылымы.",
+    },
     "en": {
         "relevance": "Relevance of the topic.",
         "subject": "Subject of the course work.",
@@ -74,7 +89,7 @@ _ORDER = {
 
 
 def lead(language: str, key: str) -> str:
-    return _LEAD.get(language, _LEAD["uz"]).get(key, "")
+    return _LEAD.get(_lang(language), _LEAD["uz"]).get(key, "")
 
 
 def point_keys(style: str) -> tuple:
@@ -91,10 +106,15 @@ _UZ_NUMBERS = ("bitta", "ikkita", "uchta", "to'rtta", "beshta", "oltita",
                "yettita", "sakkizta", "to'qqizta", "o'nta")
 _EN_NUMBERS = ("one", "two", "three", "four", "five", "six", "seven",
                "eight", "nine", "ten")
+_KK_NUMBERS = ("бір", "екі", "үш", "төрт", "бес", "алты", "жеті", "сегіз",
+               "тоғыз", "он")
 
 
 def _number_word(count: int, language: str) -> str:
     """Sonni so'z bilan: "beshta savol" — akademik matnda shunday yoziladi."""
+    language = _lang(language)
+    if language == "kk":
+        return _KK_NUMBERS[count - 1] if 1 <= count <= len(_KK_NUMBERS) else str(count)
     if language == "ru":
         return str(count)
     words = _EN_NUMBERS if language == "en" else _UZ_NUMBERS
@@ -116,6 +136,23 @@ def structure_sentence(language: str, style: str, count: int) -> str:
     """
     count = max(1, int(count or 1))
     number = _number_word(count, language)
+    language = _lang(language)
+
+    if language == "kk":
+        if normalize(style) == SIMPLE:
+            return (f"Курстық жұмыс кіріспеден, {number} сұрақтан, ұсыныстары бар "
+                    "қорытындыдан және пайдаланылған әдебиеттер тізімінен тұрады. "
+                    "Кіріспеде тақырыптың өзектілігі, мақсаты және осы мақсаттан "
+                    "туындайтын міндеттер көрсетілген. Сұрақтарда тақырып бірізді "
+                    "қарастырылып, теориялық тәсілдер практикалық деректермен "
+                    "салыстырылады, статистикалық көрсеткіштер мен мысалдар келтіріледі. "
+                    "Қорытындыда жұмыстың нәтижелері жинақталып, практикалық ұсыныстар берілген.")
+        return (f"Курстық жұмыс кіріспеден, {number} тараудан, қорытындыдан және "
+                "пайдаланылған әдебиеттер тізімінен тұрады. Кіріспеде тақырыптың "
+                "өзектілігі, мақсаты және осы мақсаттан туындайтын міндеттер көрсетілген. "
+                "Тараулар тармақтарға бөлінген: тақырып теориялық негіздерден "
+                "практикалық талдау мен ұсыныстарға қарай бірізді ашылады. "
+                "Қорытындыда жұмыстың нәтижелері жинақталып, практикалық ұсыныстар берілген.")
 
     if normalize(style) == SIMPLE:
         if language == "ru":

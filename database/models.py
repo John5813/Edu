@@ -17,6 +17,15 @@ class User:
     created_at: Union[datetime, str]
     updated_at: Union[datetime, str]
     free_service_used: int = 0
+    kazakh: bool = False
+
+    def __post_init__(self):
+        # Bazada qozoq foydalanuvchi uchun "kk" yoziladi. Botning qolgan qismi
+        # uni "ru" deb ko'radi (ruscha zaxira), matnlar esa `kazakh` belgisi
+        # bilan qozoqchada chiqadi — translations.py dagi izohga qarang.
+        if self.language == "kk":
+            self.language = "ru"
+            self.kazakh = True
 
 @dataclass
 class Payment:

@@ -142,7 +142,7 @@ async def full_flow():
     summary = chat.last()[1]
     check("xulosada mavzu, ism, uslub, slayd soni", all(w in summary for w in ("Falsafa", "Aliyev Jasur", "Jurnal", "12")), summary)
     langs = [b.callback_data for b in buttons(chat.last()[2]) if b.callback_data.startswith("prem_ppt_lang:")]
-    check("xulosada tilni o'zgartirish tugmalari (o'zbek lotin va kirill alohida)", langs == ["prem_ppt_lang:uz", "prem_ppt_lang:uz-cyrl", "prem_ppt_lang:ru", "prem_ppt_lang:en"], langs)
+    check("xulosada tilni o'zgartirish tugmalari (o'zbek lotin va kirill alohida)", langs == ["prem_ppt_lang:uz", "prem_ppt_lang:uz-cyrl", "prem_ppt_lang:ru", "prem_ppt_lang:en", "prem_ppt_lang:kk"], langs)
     await pp.premium_ppt_change_language(callback(chat, "prem_ppt_lang:en"), state, db)
     check("til almashtirildi", (await state.get_data())["presentation_language"] == "en")
 
