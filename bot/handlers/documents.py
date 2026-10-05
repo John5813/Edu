@@ -15,7 +15,7 @@ import re as _re_plan
 from bot.keyboards import get_slide_count_keyboard, get_page_count_keyboard, get_main_keyboard, get_template_keyboard, get_manual_input_keyboard, get_outline_review_keyboard, get_references_choice_keyboard, get_doc_language_keyboard, get_plan_slide_keyboard, get_icon_choice_keyboard, get_course_work_page_keyboard, get_diploma_work_page_keyboard, get_graduation_work_page_keyboard, get_dissertation_page_keyboard, get_payment_choice_keyboard, get_insufficient_balance_keyboard, get_back_inline_keyboard, get_article_page_keyboard, get_source_selection_keyboard, get_other_services_keyboard, get_extras_keyboard, get_gw_outline_choice_keyboard, get_plan_confirm_keyboard, get_plan_style_keyboard, get_iw_plan_prompt_keyboard, get_iw_plan_confirm_keyboard
 from database.database import Database
 from utils.security import sanitize_user_input, validate_topic_length
-from services import course_work, document_source
+from services import course_work, document_source, uz_script
 from services.ai_service import AIService, get_ai_service
 from services.document_service import DocumentService, get_document_service
 from services.template_service import TemplateService
@@ -1385,6 +1385,7 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         return
     if _rl_uid:
         _GEN_INFLIGHT.add(_rl_uid)
+    _script_token = None
     try:
         data = await state.get_data()
         topic = data['topic']
@@ -1404,6 +1405,15 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         add_icons = data.get('add_icons', True)
         author_name = data.get('author_name', user.first_name or "")
         doc_lang = data.get('doc_language', user_lang)
+        # O'zbekcha taqdimotda yozuv (lotin/kirill): modelga ham, tayyor faylga ham
+        # qo'llanadi — ikki yozuv aralashib ketmasin.
+        script = None
+        if doc_lang == "uz":
+            script = data.get("uz_script") or (uz_script.CYRILLIC if uz_script.has_cyrillic(topic) else uz_script.LATIN)
+            _script_token = uz_script.use(script)
+            if script == uz_script.LATIN:
+                topic = uz_script.to_latin(topic)
+                ai_topic = uz_script.to_latin(ai_topic)
 
         # Create order record
         specifications = json.dumps({
@@ -1469,6 +1479,9 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
             logger.error(f"Presentation file not created or not found: {file_path}")
             raise Exception(f"File not created: {file_path}")
 
+        if script:
+            await asyncio.to_thread(uz_script.normalize_pptx, file_path, script)
+
         # Get template name for caption
         template_name = template_service.get_template_name(template_id, user_lang)
 
@@ -1525,6 +1538,8 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         _safe_remove_file(locals().get("file_path"))
         await state.clear()
     finally:
+        if _script_token is not None:
+            uz_script.reset(_script_token)
         if _rl_uid:
             _GEN_INFLIGHT.discard(_rl_uid)
             _GEN_LAST_AT[_rl_uid] = _rl_time.time()

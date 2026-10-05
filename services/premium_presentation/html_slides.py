@@ -22,6 +22,7 @@ from typing import Callable, Dict, List, Optional
 
 from . import (deck_calc, deck_charts, deck_math, deck_shape, deck_style, deck_styles,
                llm_client)
+from services import uz_script
 
 log = logging.getLogger("html_slides")
 
@@ -76,7 +77,11 @@ def strip_shadows(html: str) -> str:
 _LANGUAGE = {
     "ru": "русском языке",
     "en": "in English",
-    "uz": "o'zbek tilida",
+    "uz": "o'zbek tilida (FAQAT lotin alifbosida, kirill harflarisiz)",
+    # Kirill yozuvi: sarlavhalar va barcha so'zlar kirillda, ikki yozuv aralashmasin.
+    "uz-cyrl": "o'zbek tilida, FAQAT KIRILL alifbosida (ў, қ, ғ, ҳ harflari bilan; "
+               "masalan «Таҳлил», «Ўзбекистон»). Lotin harflarini ishlatmang va "
+               "ikki yozuvni aralashtirmang",
 }
 
 # Joylashuv kategoriyalari — qat'iy shablon emas, lug'at. AI ulardan
@@ -363,6 +368,8 @@ _CONCLUSION_BRIEF = {
           "(не открывайте новых тем, не повторяйте определения и план)",
     "en": "Conclusion: summary of the key points and a final takeaway "
           "(no new topics, do not repeat definitions or the agenda)",
+    "uz-cyrl": "Хулоса: тақдимотдаги асосий фикрларни умумлаштириш ва якуний хулоса "
+               "(янги мавзу очманг, таъриф ёки режани такрорламанг). Кирилл ёзувида.",
 }
 
 
@@ -715,7 +722,7 @@ def guard_quote_sources(body: str) -> str:
 # "(BMT, 2026)" — model bugungi yil ma'lumotini bilmaydi, shuning uchun bunday
 # manba o'ylab topilgan bo'ladi. Yil o'rniga "taxminiy" yoziladi.
 _SOURCE_YEAR = re.compile(r"\(([^()<>]{2,60}?),\s*((?:19|20)\d\d)\)")
-_ESTIMATE = {"uz": "taxminiy", "ru": "оценка", "en": "estimate"}
+_ESTIMATE = {"uz": "taxminiy", "uz-cyrl": "тахминий", "ru": "оценка", "en": "estimate"}
 
 
 def guard_source_years(body: str, language: str = "uz") -> str:
@@ -739,6 +746,12 @@ def build_pages(bodies: List[str], theme, language: str = "uz") -> List[str]:
     SVG ni kod yasaydi — shunda ustunning balandligi ham, yozuvning
     o'rni ham har safar to'g'ri chiqadi.
     """
+    # O'zbekcha taqdimotda barcha matn tanlangan yozuvda bo'ladi: model
+    # adashib boshqa yozuvda yozgan yoki kod qo'ygan so'zlar shu yerda tuzatiladi.
+    script = uz_script.script_of_language(language)
+    if script:
+        bodies = [uz_script.normalize_html(body, script) for body in bodies]
+
     # Hisob-kitobni kod bajaradi: `calc` va `data-calc` shu yerda raqamga
     # aylanadi, so'ng diagramma chiziladi.
     drawn = [deck_charts.draw(
@@ -992,7 +1005,7 @@ def diversify(bodies: List[str], theme, language: str = "uz") -> List[str]:
 # ko'chirib, ism, fan va yilni o'zi o'ylab topardi — mijoz ism kiritmagan
 # bo'lsa ham muqovada begona ism turardi. Endi bunday qator kod bilan
 # olib tashlanadi, ism esa faqat mijoz kiritgan bo'lsa qo'yiladi.
-_CREDIT_LABEL = {"uz": "Tayyorladi", "ru": "Подготовил(а)", "en": "Prepared by"}
+_CREDIT_LABEL = {"uz": "Tayyorladi", "uz-cyrl": "Тайёрлади", "ru": "Подготовил(а)", "en": "Prepared by"}
 _CREDIT_LINE = re.compile(
     r"<(p|div|span)\b[^>]*>(?:(?!</?\1\b).)*?"
     r"(?:tayyorladi|bajardi|muallif|topshirdi|fan\s*:|yo.nalish\s*:|"

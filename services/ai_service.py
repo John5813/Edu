@@ -11,6 +11,7 @@ from utils.ai_text import token_budget, trim_to_last_sentence
 from utils.heading_guard import heading_rule, strip_echoed_heading, strip_leading_numbering
 
 from services import timeframe
+from services import uz_script
 from services import slide_layouts
 from services import uzbekistan
 from services import course_work
@@ -448,6 +449,9 @@ class AIService:
         current_model = model_id or await self._get_current_model_id()
         logger.info(f"Using AI model: {current_model}")
 
+        # O'zbekcha taqdimotda mijoz tanlagan yozuv (lotin/kirill) har so'rovga qo'shiladi.
+        messages = uz_script.with_rule(messages)
+
         has_book = any(
             any(marker in msg.get("content", "") for marker in self._BOOK_MODE_MARKERS)
             for msg in messages if msg.get("role") == "user"
@@ -521,9 +525,12 @@ class AIService:
             else:
                 prompt = self._get_presentation_prompt_en(topic, slide_count)
 
+            # Kirill matn lotinga qaraganda ancha ko'p token oladi: javob
+            # o'rtada uzilib, slaydlar bo'sh qolmasin.
+            token_limit = 16000 if uz_script.current() == uz_script.CYRILLIC else 10000
             response = await self._make_request(
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=10000,
+                max_tokens=token_limit,
                 temperature=0.7
             )
 
@@ -540,7 +547,7 @@ class AIService:
                 logger.warning("Empty AI response for presentation, retrying once...")
                 response = await self._make_request(
                     messages=[{"role": "user", "content": prompt}],
-                    max_tokens=10000,
+                    max_tokens=token_limit,
                     temperature=0.7
                 )
                 content_str = response.strip()
