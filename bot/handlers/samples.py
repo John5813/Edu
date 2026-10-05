@@ -1,12 +1,15 @@
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from database.database import Database
 from bot.keyboards import get_help_keyboard, get_sample_management_keyboard, get_samples_list_keyboard
 from translations import get_text
 from config import ADMIN_IDS
+import asyncio
 import logging
+import re
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -14,8 +17,6 @@ router = Router()
 
 class SampleStates(StatesGroup):
     waiting_for_file = State()
-    waiting_for_title = State()
-    waiting_for_description = State()
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
@@ -118,70 +119,134 @@ async def handle_samples_management(message: Message):
 
 @router.callback_query(F.data == "add_sample")
 async def handle_add_sample(callback: CallbackQuery, state: FSMContext):
-    """Start adding a new sample"""
+    """Namuna qo'shishni boshlaydi: fayllar ketma-ket (albom bilan ham) yuboriladi."""
     if not is_admin(callback.from_user.id):
         await callback.answer("❌ Ruxsat yo'q", show_alert=True)
         return
-    
+
     await callback.answer()
-    await callback.message.edit_text("📎 Namuna faylini yuboring (hujjat, rasm yoki video):")
+    await callback.message.edit_text(
+        "📎 Namuna fayllarini yuboring — bittadan ham, bir nechtasini birdaniga (albom) ham bo'ladi.\n\n"
+        "Nom so'ralmaydi: fayl nomi yoki izohi nom bo'lib yoziladi. "
+        "Hammasini yuborib bo'lgach «✅ Tayyor» ni bosing.",
+        reply_markup=_done_keyboard(),
+    )
     await state.set_state(SampleStates.waiting_for_file)
+    _BATCH[callback.from_user.id] = _Batch()
+
+
+def _done_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="✅ Tayyor", callback_data="sample_batch_done")]])
+
+
+class _Batch:
+    """Admin yuborayotgan namunalar hisobi (bir vaqtda kelgan albom fayllari uchun)."""
+
+    def __init__(self) -> None:
+        self.count = 0
+        self.failed = 0
+        self.lock = asyncio.Lock()
+        self.status_mid = None
+        self.last_edit = 0.0
+        self.refresh_scheduled = False
+
+
+_BATCH: dict = {}
+
+
+def sample_title(message: Message) -> str:
+    """Namuna nomi: izoh, bo'lmasa fayl nomi (kengaytmasiz), bo'lmasa "Namuna"."""
+    caption = (message.caption or "").strip().splitlines()
+    if caption and caption[0].strip():
+        return caption[0].strip()[:120]
+    name = ""
+    if message.document and message.document.file_name:
+        name = message.document.file_name
+    elif message.video and message.video.file_name:
+        name = message.video.file_name
+    name = re.sub(r"\.[A-Za-z0-9]{1,5}$", "", name)
+    name = re.sub(r"[_]+", " ", name).strip()
+    return name[:120] or "Namuna"
+
 
 @router.message(SampleStates.waiting_for_file, F.document | F.photo | F.video)
-async def handle_sample_file(message: Message, state: FSMContext):
-    """Receive sample file from admin"""
+async def handle_sample_file(message: Message, state: FSMContext, db: Database):
+    """Yuborilgan fayl darhol saqlanadi; holat keyingi fayl uchun ochiq qoladi."""
     if not is_admin(message.from_user.id):
         return
-    
-    file_id = None
-    file_type = None
-    
+
     if message.document:
-        file_id = message.document.file_id
-        file_type = 'document'
+        file_id, file_type = message.document.file_id, 'document'
     elif message.photo:
-        file_id = message.photo[-1].file_id
-        file_type = 'photo'
-    elif message.video:
-        file_id = message.video.file_id
-        file_type = 'video'
-    
-    await state.update_data(file_id=file_id, file_type=file_type)
-    await message.answer("📝 Namuna nomini kiriting:")
-    await state.set_state(SampleStates.waiting_for_title)
-
-@router.message(SampleStates.waiting_for_title)
-async def handle_sample_title(message: Message, state: FSMContext):
-    """Receive sample title from admin"""
-    if not is_admin(message.from_user.id):
-        return
-    
-    await state.update_data(title=message.text)
-    await message.answer("📄 Namuna tavsifini kiriting (yoki /skip bosing):")
-    await state.set_state(SampleStates.waiting_for_description)
-
-@router.message(SampleStates.waiting_for_description)
-async def handle_sample_description(message: Message, state: FSMContext, db: Database):
-    """Receive sample description and save to database"""
-    if not is_admin(message.from_user.id):
-        return
-    
-    data = await state.get_data()
-    description = "" if message.text == "/skip" else message.text
-    
-    success = await db.add_sample_file(
-        title=data['title'],
-        description=description,
-        file_id=data['file_id'],
-        file_type=data['file_type']
-    )
-    
-    if success:
-        await message.answer("✅ Namuna muvaffaqiyatli qo'shildi!")
+        file_id, file_type = message.photo[-1].file_id, 'photo'
     else:
-        await message.answer("❌ Xatolik yuz berdi. Qayta urinib ko'ring.")
-    
+        file_id, file_type = message.video.file_id, 'video'
+
+    batch = _BATCH.setdefault(message.from_user.id, _Batch())
+    async with batch.lock:
+        ok = await db.add_sample_file(title=sample_title(message), description="",
+                                      file_id=file_id, file_type=file_type)
+        if ok:
+            batch.count += 1
+        else:
+            batch.failed += 1
+        await _show_progress(message, batch)
+
+
+async def _show_progress(message: Message, batch: "_Batch") -> None:
+    """Bitta holat xabari yangilanadi: albomdagi har fayl uchun alohida xabar chiqmaydi."""
+    text = f"✅ Qo'shildi: {batch.count} ta namuna"
+    if batch.failed:
+        text += f"\n❌ Saqlanmadi: {batch.failed} ta"
+    text += "\n\nYana fayl yuboring yoki «✅ Tayyor» ni bosing."
+    now = time.monotonic()
+    if batch.status_mid and now - batch.last_edit < 1.0:
+        # Telegram tez-tez tahrirlashni cheklaydi: oxirgi son keyinroq yangilanadi.
+        if not batch.refresh_scheduled:
+            batch.refresh_scheduled = True
+            asyncio.create_task(_refresh_later(message, batch))
+        return
+    try:
+        if batch.status_mid:
+            await message.bot.edit_message_text(text, chat_id=message.chat.id, message_id=batch.status_mid,
+                                                reply_markup=_done_keyboard())
+        else:
+            sent = await message.answer(text, reply_markup=_done_keyboard())
+            batch.status_mid = sent.message_id
+        batch.last_edit = now
+    except Exception as exc:
+        logger.debug("Namuna holati yangilanmadi: %s", exc)
+
+
+async def _refresh_later(message: Message, batch: "_Batch") -> None:
+    await asyncio.sleep(1.2)
+    batch.refresh_scheduled = False
+    async with batch.lock:
+        await _show_progress(message, batch)
+
+
+@router.callback_query(F.data == "sample_batch_done", SampleStates.waiting_for_file)
+async def handle_sample_batch_done(callback: CallbackQuery, state: FSMContext):
+    """Yuborish tugadi: yakuniy son ko'rsatiladi."""
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Ruxsat yo'q", show_alert=True)
+        return
+    await callback.answer()
+    batch = _BATCH.pop(callback.from_user.id, None)
     await state.clear()
+    count = batch.count if batch else 0
+    failed = batch.failed if batch else 0
+    text = f"✅ Tayyor: {count} ta namuna qo'shildi." if count else "Hech narsa qo'shilmadi."
+    if failed:
+        text += f"\n❌ Saqlanmadi: {failed} ta."
+    try:
+        await callback.message.edit_text(text)
+    except Exception:
+        await callback.message.answer(text)
+    await callback.message.answer("📁 Namunalar boshqaruvi\n\nTanlang:",
+                                  reply_markup=get_sample_management_keyboard())
+
 
 @router.callback_query(F.data == "delete_sample")
 async def handle_delete_sample(callback: CallbackQuery, db: Database):
