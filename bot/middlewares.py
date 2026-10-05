@@ -106,6 +106,20 @@ class CommandResetMiddleware(BaseMiddleware):
             cls._menu_labels = labels
         return cls._menu_labels
 
+    _admin_labels = None
+
+    @classmethod
+    def admin_labels(cls) -> set:
+        if cls._admin_labels is None:
+            try:
+                from bot.keyboards import get_admin_keyboard
+
+                cls._admin_labels = {b.text.strip() for row in get_admin_keyboard().keyboard for b in row}
+            except Exception as exc:
+                logger.warning("Admin tugmalari yig'ilmadi: %s", exc)
+                cls._admin_labels = set()
+        return cls._admin_labels
+
     async def __call__(self, handler, event: Message, data: Dict[str, Any]) -> Any:
         text = (getattr(event, "text", None) or "").strip()
         state = data.get("state")
@@ -115,6 +129,11 @@ class CommandResetMiddleware(BaseMiddleware):
             # Admin reklama tugmasiga "📞 Yordam" kabi nom yozishi mumkin —
             # uning holatlariga tegilmaydi.
             if text in self.menu_labels() and not str(data["raw_state"]).startswith("AdminStates"):
+                await state.clear()
+                data["raw_state"] = None
+            # Namuna fayllarini kutayotgan admin boshqa admin tugmasini bossa,
+            # kutish bekor bo'ladi (aks holda keyingi fayl namuna bo'lib qolardi).
+            elif str(data["raw_state"]).startswith("SampleStates") and text in self.admin_labels():
                 await state.clear()
                 data["raw_state"] = None
             elif text.startswith("/"):
