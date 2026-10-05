@@ -27,7 +27,7 @@ sys.path.insert(0, ".")
 os.environ.setdefault("BOT_TOKEN", "test")
 
 from services.premium_presentation import (  # noqa: E402
-    deck_charts, deck_math, deck_shape, deck_style, html_extract, html_images, html_render,
+    deck_charts, deck_logic, deck_math, deck_shape, deck_style, html_extract, html_images, html_render,
     html_slides, llm_client, themes)
 
 FAILS = []
@@ -385,7 +385,7 @@ def check_no_quotas():
 
     # Miqdor talab qiladigan iboralar. "Yuqori chegara" qoladi —
     # u varaqqa sig'ish uchun, tuzilishni buyurish uchun emas.
-    banned = ("kamida", "majburiy", "har uch slayd", "bo'lishi shart",
+    banned = ("majburiy", "har uch slayd", "bo'lishi shart",
               "har slaydda bo'lsin", "tagacha", "albatta",
               "har slaydda bitta", "3-6 ta")
     # "Har 4-5 slaydda bitta" kabi davriy talab.
@@ -403,10 +403,18 @@ def check_no_quotas():
     check("ketma-ket bir xil blokdan va kartochkaga qaytaverishdan qochish aytilgan",
           "Ketma-ket ikki slayd bir xil blokdan iborat" in rules
           and "Kartochkaga qaytaverish" in rules)
-    check("raqam o'ylab topish taqiqlangan",
-          "RAQAMNI O'YLAB TOPMANG" in rules)
-    check("diagrammasiz taqdimot ham to'g'ri",
-          "birorta diagramma" in rules and "TO'G'RI" in rules)
+    # Diagramma taqiq tilida emas, ijobiy aytiladi: ilgari "diagramma bo'lmasligi
+    # ham to'g'ri" va "statistika yozmang" qoidalari modelni diagrammani butunlay
+    # chetlab o'tishga olib kelgan edi.
+    check("diagramma ijobiy qoida bilan aytilgan (turi va shartli misol)",
+          "SHARTLI MISOL" in rules and "halqa" in rules and "Diagramma soni" in rules)
+    check("diagrammani butunlay chetlab o'tishga ruxsat yo'q",
+          "birorta diagramma bo'lmasligi" not in rules and "STATISTIKA BU YERDA KERAK EMAS" not in
+          " ".join(pieces[f"oila:{key}"] for key in deck_shape.FAMILY_KEYS))
+    check("har oilada diagramma o'rinli deyilgan",
+          all("DIAGRAMMA" in pieces[f"oila:{key}"] for key in deck_shape.FAMILY_KEYS if key != "hisob"))
+    check("reja so'rovida diagramma kvotasi ijobiy aytilgan",
+          "diagramma" in pieces["reja so'rovi"].lower() and "kamida" in pieces["reja so'rovi"].lower())
     check("so'rovda to'g'ri blok tanlash aytilgan",
           "BLOKNI TO'G'RI TANLANG" in pieces["slayd so'rovi"])
 
@@ -458,15 +466,20 @@ def check_outline():
           plan["family"])
 
     # Kvota yo'q: model bir xil kategoriya bersa, u saqlanadi.
-    middle = [o["category"] for o in outline[1:-1]]
+    # (Faqat diagramma kvotasi kod tomonidan belgilanadi — qolgani tegilmaydi.)
+    middle = [o["category"] for o in outline[2:-1]]
     check("ketma-ket takror majburan almashtirilmadi",
-          middle == ["kartalar"] * len(middle), str(middle))
+          [c for c in middle if c != "diagramma"] == ["kartalar"] * len([c for c in middle if c != "diagramma"]),
+          str(middle))
+    check("model diagramma bermasa ham kvota to'ldiriladi",
+          sum(1 for c in middle if c == "diagramma") == deck_logic.chart_quota(8), str(middle))
     check("rejada xilma-xillik kvotasi yo'q",
           "kamida oltita" not in seen["prompt"], "")
     check("rejada mazmunga qarab tanlash aytilgan",
           "MAZMUNGA QARAB" in seen["prompt"])
-    check("raqamsiz mavzu eslatilgan",
-          "raqam talab qilmasa" in seen["prompt"])
+    check("diagramma kvotasi ijobiy aytilgan (shartli misol bilan)",
+          "diagramma" in seen["prompt"].lower() and "shartli misol" in seen["prompt"].lower())
+    check("reja so'rovida sarlavha so'raladi", '"title"' in seen["prompt"])
 
     # AI javob bermasa ham reja tuzilishi kerak.
     def broken(*a, **k):
@@ -485,8 +498,10 @@ def check_outline():
     # Zaxira rejada raqamga tayanadigan kategoriya bo'lmasin: mavzuni
     # bilmay turib diagramma so'rash — statistika o'ylab toptirishdir.
     kinds = {o["category"] for o in fallback["slides"]}
-    check("zaxirada statistika kategoriyasi yo'q",
-          not (kinds & {"diagramma", "korsatkichlar", "jadval", "vaqt_oqi"}),
+    check("zaxirada raqamga tayanadigan boshqa kategoriya yo'q",
+          not (kinds & {"korsatkichlar", "jadval", "vaqt_oqi"}), str(kinds))
+    check("zaxirada ham diagramma kvotasi bor",
+          sum(1 for o in fallback["slides"] if o["category"] == "diagramma") == deck_logic.chart_quota(6),
           str(kinds))
 
 
@@ -507,22 +522,19 @@ def check_family_shape():
     check("notanish taxmin yiqitmaydi",
           deck_shape.of("Mavzu", "allaqanday") == "umumiy")
 
-    # Gumanitar mavzuda statistika TAQIQLANADI, ijtimoiyda ruxsat.
+    # Hamma oilada diagramma mumkin; aniq raqam bilmasa "Shartli misol" deyiladi.
     human = deck_shape.guidance("gumanitar")
     social = deck_shape.guidance("ijtimoiy")
     exact = deck_shape.guidance("aniq")
-    check("adabiyotda diagramma taqiqlangan",
-          "DIAGRAMMA VA STATISTIKA YOZMANG" in human)
+    check("adabiyotda diagramma ham mumkin (shartli misol bilan)",
+          "DIAGRAMMA" in human and "Shartli misol" in human and "YOZMANG" not in human)
     check("adabiyotda iqtibos tavsiya qilingan", "Iqtibos bloki" in human)
-    check("matematikada statistika kerak emas",
-          "STATISTIKA BU YERDA KERAK EMAS" in exact)
+    check("matematikada diagramma tabiiy (grafik)",
+          "DIAGRAMMA bu yerda tabiiy" in exact and "STATISTIKA BU YERDA KERAK EMAS" not in exact)
     check("matematikada isbot aytilgan", "isbot" in exact)
     check("iqtisodda ko'rsatkich o'rinli", "o'rinli" in social)
-    check("hamma oilada prognoz cheklangan",
-          all("prognoz" in deck_shape.guidance(k).lower()
-              or "o'ylab topmang" in deck_shape.guidance(k)
-              or "o'ylab topilgan" in deck_shape.guidance(k)
-              for k in deck_shape.FAMILY_KEYS),
+    check("hamma oilada raqam halol belgilanadi (manba yoki shartli misol)",
+          all("shartli" in deck_shape.guidance(k).lower() for k in deck_shape.FAMILY_KEYS),
           str(deck_shape.FAMILY_KEYS))
 
 
@@ -558,7 +570,9 @@ def check_writer():
         html_slides.MAX_REWORKS = orig_reworks
 
     check("so'ralgan slayd soni chiqdi", len(pages) == 6, str(len(pages)))
-    check("bo'laklab so'raldi", len(calls) == 2, f"{len(calls)} ta so'rov")
+    # (Birinchi ikkitasi bo'laklar; undan keyingilari mantiq tekshiruvi qayta yozishlari.)
+    check("bo'laklab so'raldi", len(calls) >= 2 and "1-slayddan" in calls[0]
+          and "4-slayddan" in calls[1], f"{len(calls)} ta so'rov")
     check("rejadagi o'rin ko'rsatilgan", "→" in calls[0], calls[0][:60])
     check("ikkinchi bo'lak avvalgisini biladi",
           "qayta aytmang" in calls[1].lower(), calls[1][:80])
@@ -2127,7 +2141,7 @@ def check_no_sections_and_photo_text():
             "family": "umumiy",
             "slides": [{"brief": "b", "category": "kartalar"}] * 4}
         html_slides._write_chunk = lambda system, user, count: (
-            [cover, divider, listed][:count] if "1-slayddan" in user
+            [cover, listed, divider][:count] if "1-slayddan" in user
             else [listed])
         html_slides._thicken = lambda body, system, theme: (
             calls.append(body) or photo)
@@ -2137,7 +2151,8 @@ def check_no_sections_and_photo_text():
          html_slides._thicken) = saved
     sources = [html_slides.source_of(page) for page in pages]
     check("muqova tegilmaydi", sources[0] == cover)
-    check("ajratkich o'rniga matn va rasm", sources[1] == photo
+    check("2-slayd — yozilgan slaydlardan yig'ilgan reja", "Taqdimot rejasi" in pages[1])
+    check("ajratkich o'rniga matn va rasm", sources[2] == photo
           and calls == [divider], str(len(calls)))
 
     # Rasm: yoqilmagan bo'lsa matn qoladi; chiqsa rasm qo'yiladi.
@@ -2227,7 +2242,7 @@ def check_conclusion_only():
         html_slides.plan_outline, html_slides._write_chunk = saved
     sources = [html_slides.source_of(page) for page in pages]
     check("oxirgi varaq tozalanadi", "rahmat" not in sources[-1].lower())
-    check("boshqa varaqlarga tegilmaydi", sources[1] == thanks)
+    check("boshqa varaqlarga tegilmaydi", sources[2] == thanks)
 
 
 def check_chart_formats():
@@ -2303,7 +2318,7 @@ def check_chart_formats():
         html_slides.plan_outline, html_slides._write_chunk = saved
     sources = [html_slides.source_of(page) for page in pages]
     check("faqat xulosadan rasm olinadi",
-          'class="rasm"' in sources[1] and 'class="rasm"' not in sources[-1])
+          'class="rasm"' in sources[2] and 'class="rasm"' not in sources[-1])
 
 
 def check_fit_to_slide():
@@ -2312,7 +2327,7 @@ def check_fit_to_slide():
     theme = themes.get("ko'k")
     rules = html_slides.shell_rules(theme, "uz")
     check("ko'rsatkichga manba talab qilinadi",
-          "manbasini ayta olmaydigan raqam" in rules)
+          "manbasi aytiladi" in rules and "SHARTLI MISOL" in rules)
     check("yarim ustunga ko'p narsa sig'masligi aytilgan",
           "yarim ustunga ko'p narsa sig'maydi" in rules)
     if not html_render.available():
@@ -2496,7 +2511,7 @@ def check_no_half_decks():
     check("katta bo'lak xato bersa slaydlar bittadan yoziladi",
           len(pages) == 10 and not error, f"{len(pages)} {error}")
     check("bittadan so'rov faqat yetmaganlariga",
-          calls.count(1) == 10, str(calls))
+          calls.count(1) >= 10 and calls.count(3) == 6, str(calls))
     pages, error, calls = run(lambda count: [slide] * (count - 1),
                               lambda: [slide])
     check("chala bo'lakning yetmagani to'ldiriladi", len(pages) == 10,
@@ -2696,7 +2711,7 @@ def check_blocked_replies():
           "Pandemiya davrida himoya" in pages[0]
           and "Temirbaeva Nuriya" in pages[0])
     check("zaxira slayd matni HTML sifatida xavfsiz",
-          "&lt;nafaqasi&gt;" in pages[1] and "To'lov muddati" in pages[1])
+          "&lt;nafaqasi&gt;" in pages[2] and "To'lov muddati" in pages[2])
     check("promptda hujjatni ko'chirmaslik qoidasi",
           "so'zma-so'z" in html_slides.shell_rules(theme, "uz"))
 

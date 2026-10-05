@@ -162,7 +162,17 @@ def _add_text(slide, block: Dict) -> None:
     # taqsimlanadi — shunda matn ko'zga ko'rinib siljimaydi.
     single = int(block.get("lines") or 1) <= 1
     size_px = float(block.get("size") or 16)
-    slack = max(area["w"] * 0.02, size_px * 0.4, 6.0) if single else 2.0
+    # Telefon va WPS'da "Times New Roman" bo'lmasa o'rniga keng shrift keladi
+    # (10-15% kengroq): tor quti matnni bir qator pastga tushirib, formulaning
+    # oxiri ("= 1") yoki kartochka sarlavhasi quyidagi matn ustiga chiqib ketardi.
+    # Zaxira shuning uchun ancha keng, lekin varaq chetidan chiqmaydi.
+    slack = max(area["w"] * 0.10, size_px * 0.8, 8.0) if single else 2.0
+    # Zaxira qo'shni matn qutisiga tegmasin (kasr, yonma-yon yorliqlar) va
+    # varaq chetidan chiqmasin.
+    room = block.get("_room")
+    if room is not None:
+        slack = min(slack, max(float(room) - 4.0, 2.0))
+    slack = min(slack, max(SLIDE_W_PX - area["x"] - area["w"], 2.0))
     align = block.get("align")
     shift = slack / 2 if align == "center" else slack if align == "right" else 0
     frame_box = slide.shapes.add_textbox(
@@ -320,6 +330,26 @@ def _background(slide, colour: str, ramp=None) -> None:
     fill.fore_color.rgb = _colour(colour or "FFFFFF")
 
 
+def _measure_room(blocks: List[Dict]) -> None:
+    """Har matn qutisining o'ng tomonidagi bo'sh joy (qo'shni matn qutisigacha)."""
+    texts = [b for b in blocks if b.get("kind") == "text" and str(b.get("text") or "").strip()]
+    for block in texts:
+        x, y = float(block.get("x", 0)), float(block.get("y", 0))
+        right, bottom = x + float(block.get("w", 0)), y + float(block.get("h", 0))
+        room = None
+        for other in texts:
+            if other is block:
+                continue
+            ox, oy = float(other.get("x", 0)), float(other.get("y", 0))
+            oh = float(other.get("h", 0))
+            overlap = min(bottom, oy + oh) - max(y, oy)
+            if overlap > 0.3 * min(float(block.get("h", 0)), oh) and ox >= right - 1.0:
+                gap = ox - right
+                room = gap if room is None else min(room, gap)
+        if room is not None:
+            block["_room"] = room
+
+
 def add_slide(presentation, layout: Dict) -> None:
     """Bitta slaydni tahrirlanadigan elementlardan yig'adi."""
     slide = presentation.slides.add_slide(presentation.slide_layouts[6])
@@ -332,6 +362,7 @@ def add_slide(presentation, layout: Dict) -> None:
     blocks = sorted(layout.get("blocks") or [],
                     key=lambda item: order.get(item.get("kind"), 3))
 
+    _measure_room(blocks)
     for block in blocks:
         kind = block.get("kind")
         try:

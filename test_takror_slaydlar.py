@@ -29,14 +29,16 @@ STEPS = ('<div class="steps"><div class="step"><div class="step-title">Kirish</d
 PLAIN = '<div class="list"><div class="item">Yakuniy xulosa matni birinchi</div></div>'
 
 cover = slide("Muqova", '<div class="lead">Mavzu</div>')
-deck = [cover, slide("Ta'rif", LIST_IMG), slide("Tasnif", LIST_IMG), slide("Jarayon", STEPS),
+# 2-slayd — reja (kod yig'adi): u takror tekshiruviga kirmaydi.
+reja = slide("Taqdimot rejasi", CARDS).replace('<section class="slide">', '<section class="slide reja">', 1)
+deck = [cover, reja, slide("Ta'rif", LIST_IMG), slide("Tasnif", LIST_IMG), slide("Jarayon", STEPS),
         slide("Ebola", LIST_IMG), slide("Xulosa", PLAIN)]
 
-check("shakl imzosi: ro'yxat + rasm", hs.shape_signature(deck[1]) == ("list", "rasm", "split"), hs.shape_signature(deck[1]))
+check("shakl imzosi: ro'yxat + rasm", hs.shape_signature(deck[2]) == ("list", "rasm", "split"), hs.shape_signature(deck[2]))
 flag = hs.repeated_slides(deck)
-check("ketma-ket takror (3-slayd) va uchinchi marta takror (5-slayd) topiladi", flag == [2, 4], flag)
-check("muqova va yakun hech qachon belgilanmaydi", 0 not in flag and 5 not in flag)
-check("xilma-xil taqdimotda takror yo'q", hs.repeated_slides([cover, slide("a", LIST_IMG), slide("b", CARDS), slide("c", STEPS), slide("d", LIST_IMG), slide("e", PLAIN)]) == [])
+check("ketma-ket takror (4-slayd) va uchinchi marta takror (6-slayd) topiladi", flag == [3, 5], flag)
+check("muqova, reja va yakun hech qachon belgilanmaydi", not ({0, 1, 6} & set(flag)))
+check("xilma-xil taqdimotda takror yo'q", hs.repeated_slides([cover, reja, slide("a", LIST_IMG), slide("b", CARDS), slide("c", STEPS), slide("d", LIST_IMG), slide("e", PLAIN)]) == [])
 
 calls = []
 def fake_ok(system, user, **kw):
@@ -55,8 +57,8 @@ original = llm_client._call_openrouter_text
 try:
     llm_client._call_openrouter_text = fake_ok
     out = hs.diversify(deck, TH)
-    check("takror slayd boshqa blok bilan almashdi", hs.shape_signature(out[2]) == ("cols",), hs.shape_signature(out[2]))
-    check("muqova, yakun va boshqa slaydlarga tegilmadi", out[0] == deck[0] and out[3] == deck[3] and out[5] == deck[5])
+    check("takror slayd boshqa blok bilan almashdi", hs.shape_signature(out[3]) == ("cols",), hs.shape_signature(out[3]))
+    check("muqova, yakun va boshqa slaydlarga tegilmadi", out[0] == deck[0] and out[4] == deck[4] and out[6] == deck[6])
     check("so'rovda ishlatilgan shakllar va 'qaytarmang' aytilgan", any("QAYTARMANG" in c and "ro'yxat" in c for c in calls))
     check("qayta yozishlar soni cheklangan", len(calls) <= hs.MAX_REWORKS, len(calls))
 
@@ -69,8 +71,8 @@ try:
     check("model xato qilsa — taqdimot buzilmaydi", hs.diversify(deck, TH) == deck)
 
     llm_client._call_openrouter_text = lambda *a, **k: slide("Boshqa", CARDS.replace("izoh bir", "butunlay boshqa matn").replace("izoh ikki", "yana boshqa").replace(">A<", ">Q<").replace(">B<", ">W<")).replace("Boshqa", "Mutlaqo boshqa mavzu haqida")
-    kept = hs.rework_slide(deck[2], hs.shape_signature(deck[2]), [hs.shape_signature(deck[3])], TH)
-    check("mazmuni yo'qolgan qayta yozish rad etiladi", kept == deck[2])
+    kept = hs.rework_slide(deck[3], hs.shape_signature(deck[3]), [hs.shape_signature(deck[4])], TH)
+    check("mazmuni yo'qolgan qayta yozish rad etiladi", kept == deck[3])
 finally:
     llm_client._call_openrouter_text = original
 

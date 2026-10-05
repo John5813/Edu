@@ -105,8 +105,8 @@ border-radius:0;justify-content:flex-start}
 .cols:has(>.card>.ikon-dot:first-child),
 .steps:has(>.card>.ikon-dot:first-child){padding-top:0}
 .ikon-dot,.item-ikon{display:none}
-.card-num{font-family:SERIF;font-size:88px;font-weight:400;color:#ACCENT;
-line-height:1}
+.card-num{font-family:SERIF;font-size:64px;font-weight:400;color:#ACCENT;
+line-height:1.2}
 .card-title{font-size:44px;font-style:italic}
 .card-note{font-family:SERIF;font-size:32px}
 .list{gap:30px}
@@ -349,7 +349,10 @@ def decorate(body: str, theme) -> str:
         body = body.replace('data-icon-color="FFFFFF"',
                             f'data-icon-color="{theme.accent.lstrip("#")}"')
     if key == "jurnal":
-        return _number_items(body)
+        # Ilgari bandlar 01, 02, 03 deb raqamlanardi: har slayd sanab
+        # chiqilgan ro'yxatga o'xshab, matn sun'iy ko'rinardi. Endi oddiy
+        # belgi (nuqta) turadi; raqam faqat haqiqiy tartibda (reja, qadam).
+        return _ITEM_ICON.sub('<span class="item-dot"></span>', body)
     if key == "blok":
         return _SLIDE_OPEN.sub(lambda m: m.group(1) + '<div class="blok-bar"></div>'
                                if 'dark' in m.group(1) else m.group(1), body)

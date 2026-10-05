@@ -45,6 +45,7 @@ for n in (10, 15, 20):
     counted = [k for k in kinds if k not in ("cover", "plan", "thanks", "table")]
     check(f"{n} slayd: asosiy {n - 2} ta", len(mains) == n - 2, len(mains))
     check(f"{n} slayd: muqova va rejadan keyingi (kirish + asosiy + xulosa) = {n}", len(counted) == n, len(counted))
+    check(f"{n} slayd: zich 'Tahlil jadvali' slaydi qo'shilmaydi", "table" not in kinds, kinds)
     check(f"{n} slayd: muqova birinchi, reja ikkinchi, xulosa va rahmat oxirida",
           kinds[:2] == ["cover", "plan"] and kinds[-2:] == ["conclusion", "thanks"], kinds)
 

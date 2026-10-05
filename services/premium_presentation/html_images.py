@@ -383,3 +383,82 @@ async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
     log.info("Rasm bloklari: %d tasi sinaldi, %d tasiga rasm qo'yildi",
              tried, placed)
     return result, placed
+
+
+# ───────────────────────────────────────────────── muqova rasmi
+
+_COVER_SECTION = re.compile(
+    r'(<section\b[^>]*\bclass\s*=\s*")([^"]*\bslide\b[^"]*)(")', re.IGNORECASE)
+_COVER_BODY = re.compile(r'<div\b([^>]*)\bclass\s*=\s*"([^"]*\bbody\b[^"]*)"([^>]*)>', re.IGNORECASE)
+_COVER_END = re.compile(r"</div>\s*</section>\s*(?=<!--|</body>|$)", re.IGNORECASE)
+
+
+_HAS_COVER_PHOTO = re.compile(r'<section\b[^>]*\bclass\s*=\s*"[^"]*\bcover-photo\b', re.IGNORECASE)
+
+
+def with_cover_photo(page: str, uri: str) -> str:
+    """Muqova sahifasini rasmli qiladi: chapda rasm, o'ngda sarlavha va izoh.
+
+    Oddiy taqdimot muqovasi ham shunday (chap yarmi rasm). Rasm bo'lmasa bu
+    funksiya chaqirilmaydi — muqova avvalgidek matnli qoladi.
+    """
+    opening = _COVER_SECTION.search(page)
+    body = _COVER_BODY.search(page, opening.end() if opening else 0)
+    end = None
+    for end in _COVER_END.finditer(page):
+        pass
+    if not opening or not body or end is None or end.start() < body.end():
+        return page
+    photo = ('<div class="rasm photo-in cover-img"><img class="photo" '
+             f'src="{uri}" alt=""></div><div class="cover-text">')
+    result = (page[:opening.start()]
+              + opening.group(1) + opening.group(2) + " cover-photo" + opening.group(3)
+              + page[opening.end():body.start()]
+              + f'<div{body.group(1)}class="{body.group(2)} cover-split"{body.group(3)}>' + photo
+              + page[body.end():end.start()]
+              + "</div></div></section>" + page[end.end():])
+    return result
+
+
+async def fill_cover(pages: List[str], topic: str, generate=None) -> Tuple[List[str], bool]:
+    """Muqovaga mavzuga oid rasm qo'yadi (oddiy taqdimotdagi kabi).
+
+    Rasm AI orqali mavzudan inglizcha sahnaga aylantirilib chizdiriladi. Rasm
+    chiqmasa — muqova o'zgarishsiz qoladi (xato ko'tarilmaydi).
+    """
+    if not pages or _HAS_COVER_PHOTO.search(pages[0]) or not topic:
+        return pages, False
+    if generate is None:
+        if not photos_enabled():
+            return pages, False
+        try:
+            from services.together_service import get_together_service
+
+            together = get_together_service()
+        except Exception as exc:
+            log.error("Together xizmati mavjud emas: %s", exc)
+            return pages, False
+
+        async def generate(subject):
+            scene = await together._generate_image_prompt(subject, subject)
+            return await together.generate_image(
+                scene + ", wide cinematic composition, soft natural light, high quality photograph",
+                aspect_ratio="4:3", target="premium")
+
+    try:
+        path = await generate(topic)
+    except Exception as exc:
+        log.warning("Muqova rasmi chizilmadi: %s", exc)
+        return pages, False
+    uri = _data_uri(path) if path and os.path.exists(path) else None
+    if path and os.path.exists(path):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+    if not uri:
+        return pages, False
+    updated = with_cover_photo(pages[0], uri)
+    if updated == pages[0]:
+        return pages, False
+    return [updated] + list(pages[1:]), True
