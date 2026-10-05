@@ -177,6 +177,9 @@ if html_render.available():
         check("sarlavha o'qiladi", any("Dorivor" in t for t in texts), str(texts))
         images = [b for b in layout["blocks"] if b["kind"] == "image"]
         check("rasm chap tomonda", images and images[0]["x"] < 50 and images[0]["w"] < 1000, str(images[:1]))
+        level = html_render.fit(handle)
+        size = handle.evaluate("parseFloat(getComputedStyle(document.querySelector('.title.big')).fontSize)")
+        check("rasmli muqovada sarlavha mayda shriftga tushmaydi (fit sezmaydi)", level == 0 and size >= 90, (level, size))
         out = os.environ.get("MUQOVA_OUT")
         if out:
             handle.screenshot(path=out)

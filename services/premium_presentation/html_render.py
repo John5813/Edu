@@ -356,6 +356,8 @@ _FIT_SCRIPT = r"""
   for (const el of slide.querySelectorAll(".head *, .body *")) {
     const r = el.getBoundingClientRect();
     if (r.width < 2 || r.height < 2) continue;
+    // Muqovadagi to'liq balandlikdagi rasm varaq chetigacha boradi — bu sig'masligi emas.
+    if (el.closest(".cover-img") || el.classList.contains("cover-text")) continue;
     low = Math.max(low, r.bottom);
   }
   return low;

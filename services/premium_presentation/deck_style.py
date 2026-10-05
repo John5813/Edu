@@ -68,15 +68,16 @@ justify-content:safe center;gap:48px;min-height:0}
 /* ── To'q sirt ─────────────────────────────────────────────────── */
 /* Rasmli muqova: chapda mavzuga oid rasm, o'ngda sarlavha. */
 .slide.cover-photo{padding:0}
-.slide.cover-photo>.body.cover-split{display:grid;grid-template-columns:44% 1fr;
-gap:0;align-items:stretch;justify-content:stretch}
-.rasm.cover-img{border:0;border-radius:0;padding:0;min-height:0;height:100%;
-background:none;overflow:hidden}
-.rasm.cover-img .photo{width:100%;height:100%;min-height:0;border-radius:0;
-object-fit:cover}
+.slide.cover-photo>.body.cover-split{display:grid;grid-template-columns:40% 1fr;
+grid-template-rows:minmax(0,1fr);gap:0;align-items:stretch;justify-content:stretch}
+.rasm.cover-img{position:relative;border:0;border-radius:0;padding:0;min-height:0;
+height:100%;background:none;overflow:hidden}
+/* Rasm o'z o'lchami bilan qatorni cho'zmasin: aks holda varaq "sig'madi" deb
+   hisoblanib, sarlavha mayda shriftga tushib ketadi. */
+.rasm.cover-img .photo{position:absolute;left:0;top:0;width:100%;height:100%;
+min-height:0;border-radius:0;object-fit:cover}
 .cover-text{display:flex;flex-direction:column;justify-content:center;
-gap:40px;padding:96px 96px 96px 90px}
-.cover-photo .title.big{font-size:74px;line-height:1.1}
+gap:40px;padding:96px 90px 96px 90px}
 
 /* Ajratkich, muqova va to'q kartochka. Ichidagi HAMMA matn ochiq
    rangga o'tishi kerak: bitta sinf unutilsa, to'q ko'k fonda qora
