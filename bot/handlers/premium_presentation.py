@@ -246,13 +246,19 @@ _TXT = {
         "ru": "💳 Ваш баланс: <b>{balance} сум</b>",
         "en": "💳 Your balance: <b>{balance} soʻm</b>"},
     "count_hint": {
-        "uz": "<i>Narx slaydlar soniga qarab. Tanlagach xulosa ko‘rsatiladi.</i>",
-        "ru": "<i>Цена зависит от числа слайдов. После выбора покажем итог.</i>",
-        "en": "<i>Price depends on the slide count. A summary follows.</i>"},
+        "uz": ("<i>Narx slaydlar soniga qarab. Muqova va reja slaydi bu songa kirmaydi "
+               "(kirish va xulosa kiradi). Tanlagach xulosa ko‘rsatiladi.</i>"),
+        "ru": ("<i>Цена зависит от числа слайдов. Титульный слайд и план в число не входят "
+               "(введение и заключение входят). После выбора покажем итог.</i>"),
+        "en": ("<i>Price depends on the slide count. The cover and agenda are not counted "
+               "(the introduction and conclusion are). A summary follows.</i>")},
     "count_hint_fon": {
-        "uz": "<i>Tayyor rasmli shablonlar 10, 15 yoki 20 slaydda tayyorlanadi.</i>",
-        "ru": "<i>Шаблоны с рисунками делаются на 10, 15 или 20 слайдов.</i>",
-        "en": "<i>Picture templates come in 10, 15 or 20 slides.</i>"},
+        "uz": ("<i>Tayyor rasmli shablonlar 10, 15 yoki 20 slaydda tayyorlanadi. "
+               "Muqova va reja slaydi bu songa kirmaydi (kirish va xulosa kiradi).</i>"),
+        "ru": ("<i>Шаблоны с рисунками делаются на 10, 15 или 20 слайдов. Титульный слайд "
+               "и план в число не входят (введение и заключение входят).</i>"),
+        "en": ("<i>Picture templates come in 10, 15 or 20 slides. The cover and agenda "
+               "are not counted (the introduction and conclusion are).</i>")},
     "style_hint": {
         "uz": "<i>Zamonaviy uslubda keyingi qadamda rang tanlanadi, orqa fonlarda — 20 ta shablon. Narx keyingi qadamda hajm bilan ko‘rsatiladi.</i>",
         "ru": "<i>В современных стилях дальше выбирается цвет, в красивых фонах — 20 шаблонов. Цена — на следующем шаге вместе с объёмом.</i>",

@@ -807,7 +807,10 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
                  author: str = "",
                  progress_cb: Optional[Callable] = None) -> List[str]:
     """Butun taqdimotni HTML hujjatlar ro'yxati qilib qaytaradi."""
-    slide_count = max(4, int(slide_count or 8))
+    # Mijoz tanlagan son — muqova va rejadan KEYINGI slaydlar (xulosa shu songa
+    # kiradi). Muqova va reja slaydi qo'shimcha yoziladi: ilgari ular ham
+    # hisobga kirar, 10 slaydda asosiy mavzuga 8 tadan kam slayd qolardi.
+    slide_count = max(4, int(slide_count or 8)) + 2
     plan = plan_outline(topic, slide_count, language, level)
     outline = plan["slides"]
     family = plan["family"]

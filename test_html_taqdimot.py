@@ -551,7 +551,7 @@ def check_writer():
         # Bu yerda bo'laklash sinaladi; bir xil slaydlarni qayta yozish
         # (diversify) alohida testda — shuning uchun o'chirib qo'yiladi.
         html_slides.MAX_REWORKS = 0
-        pages = html_slides.write_slides("Mavzu", 6, themes.get("ko'k"), "uz")
+        pages = html_slides.write_slides("Mavzu", 4, themes.get("ko'k"), "uz")
     finally:
         llm_client._call_openrouter_text = orig_text
         llm_client._call_openrouter = orig_json
@@ -2482,7 +2482,7 @@ def check_no_half_decks():
             html_slides._write_chunk = chunk
             html_slides._plain_slide = lambda *a, **k: ""
             try:
-                pages = html_slides.write_slides("Mavzu", 10, theme)
+                pages = html_slides.write_slides("Mavzu", 8, theme)
                 error = ""
             except RuntimeError as exc:
                 pages, error = [], str(exc)
@@ -2685,7 +2685,7 @@ def check_blocked_replies():
             "title": "Ishsizlik <nafaqasi>",
             "points": [{"key": "Nafaqa", "text": "To'lov muddati uzaytirildi."},
                        {"key": "Kredit", "text": "Soliq ta'tili berildi."}]}
-        pages = html_slides.write_slides("Pandemiya davrida himoya", 6, theme,
+        pages = html_slides.write_slides("Pandemiya davrida himoya", 4, theme,
                                          author="Temirbaeva Nuriya")
     finally:
         (html_slides.plan_outline, html_slides._write_chunk,
