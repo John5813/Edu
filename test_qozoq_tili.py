@@ -230,5 +230,25 @@ check("qozoq tili ro'yxatda", "kk" in bts.LANG_NAMES and "kk" in bts.LANG_SUFFIX
 check("qozoqcha matn manba tili sifatida aniqlanadi", bpt.detect_language("Қазақстанның ғылыми дамуы әлемдік үрдістерге сәйкес келеді. " * 40) == "kk")
 check("ruscha matn 'ru' qoladi", bpt.detect_language("Развитие экономики страны определяется множеством факторов. " * 40) == "ru")
 
+print("\n12) Test yaratish")
+from bot.handlers import test as test_handler
+quiz_prompts = []
+async def quiz_create(**kw):
+    quiz_prompts.append("\n".join(m["content"] for m in kw["messages"]))
+    out = json.dumps([{"question": "Қазақстанның астанасы қай қала?", "options": ["Астана", "Алматы", "Шымкент", "Қарағанды"],
+                       "correct_index": 0, "explanation": "Астана — елорда."}], ensure_ascii=False)
+    return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=out), finish_reason="stop")])
+quiz_ai = ais.AIService.__new__(ais.AIService)
+quiz_ai.client = MagicMock(); quiz_ai.client.chat.completions.create = quiz_create
+quiz_ai._get_current_model_id = AsyncMock(return_value="m")
+ais._ai_service_instance = quiz_ai
+questions = asyncio.run(ais.generate_test_questions("Қазақстан", 1, "kk"))
+check("test savollari qozoq tilida so'raladi", questions and "казахский" in quiz_prompts[0] and kazakh_doc.RULE in quiz_prompts[0], quiz_prompts[:1])
+docx_bytes = test_handler._build_test_docx("Қазақстан", questions, "kk")
+import io
+quiz_doc = Document(io.BytesIO(docx_bytes))
+check("test fayli qozoqcha sarlavhali", quiz_doc.paragraphs[0].text.startswith("Тест:") and any("Жауаптар" in p.text for p in quiz_doc.paragraphs), [p.text for p in quiz_doc.paragraphs][:3])
+ais._ai_service_instance = None
+
 print("\n" + ("✅ hammasi o'tdi" if not FAILS else f"❌ {len(FAILS)} ta xato: {FAILS}"))
 sys.exit(1 if FAILS else 0)

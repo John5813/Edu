@@ -5229,6 +5229,11 @@ async def generate_test_questions_from_source(source_text: str, count: int, lang
         return []
 
 
+# Qozoq tili: test savollari ham qozoqcha yoziladi (kazakh_doc.py).
+generate_test_questions = kazakh_doc.aware(generate_test_questions)
+generate_test_questions_from_source = kazakh_doc.aware(generate_test_questions_from_source)
+
+
 async def close_ai_service() -> None:
     """Close the singleton's HTTP client on bot shutdown."""
     global _ai_service_instance
