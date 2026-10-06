@@ -121,22 +121,21 @@ async def main():
           not [m for m in bot.sent if m.chat.id == ADMIN and "TAKRORIY" in m.text] and not [c for c in bot.copied if c[3].get("disable_notification") is False] ,
           [m.text[:40] for m in bot.sent if m.chat.id == ADMIN])
     check("to'lov yozuvi yaratilmadi", out3.payment_id is None and len(await Database.get_pending_payments()) == 0)
-    check("1-urinish hisoblandi", await store.fraud_strikes(200) == 1, await store.fraud_strikes(200))
 
     print("4) ID tahrirlangan chek (soat va batareya o'sha)")
     QUEUE[:] = [raw(rid="5333277999")]
     out4, msg4 = await send(200, b"B")
     check("ushlandi (summa+vaqt+yuboruvchi/skrinshot belgisi)", out4.verdict == rules.DUPLICATE, (out4.verdict, out4))
-    check("2-urinish", await store.fraud_strikes(200) == 2)
-    check("3-urinishdan oldin ogohlantirish", "bloklanishiga" in msg4.answers[-1][0], msg4.answers[-1][0])
 
-    print("5) Ko'p soxta chek — avtomatik bloklash")
-    QUEUE[:] = [raw(rid="5333277111")]
-    out5, msg5 = await send(200, b"C")
-    check("3-urinishda bloklandi", await Database.is_user_blocked(200))
-    texts_to_user = [m.text for m in bot.sent if m.chat.id == 200]
-    check("mijozga «adminga murojaat qiling» xabari", any("bloklandi" in t and config.ADMIN_CONTACT in t for t in texts_to_user), texts_to_user)
-    check("adminga faqat blok haqida bitta xabar", [m.text[:30] for m in bot.sent if m.chat.id == ADMIN and "bloklandi" in m.text] != [])
+    print("5) Ko'p takroriy/soxta urinish — mijoz BLOKLANMAYDI, adminga ham bormaydi")
+    admin_before = len([m for m in bot.sent if m.chat.id == ADMIN])
+    for i in range(6):
+        QUEUE[:] = [raw(rid="5333277111", date=(10, 6, 20, 4), clock="20:04", battery=28)]
+        out5, msg5 = await send(200, b"C" + bytes([i]))
+    check("6 ta takroriy urinishdan keyin ham bloklanmadi", not await Database.is_user_blocked(200))
+    check("har safar oddiy rad javobi", out5.verdict == rules.DUPLICATE and "avval ishlatilgan" in msg5.answers[-1][0], (out5.verdict, msg5.answers[-1][0]))
+    check("adminga hech narsa bormadi", len([m for m in bot.sent if m.chat.id == ADMIN]) == admin_before)
+    check("«bloklandi» xabari yo'q", not [m for m in bot.sent if m.chat.id == 200 and "bloklandi" in m.text])
 
     print("6) Eski chek (3 kun) — admin, mijozga admin manzili")
     QUEUE[:] = [raw(rid="7000000001", date=(10, 3, 12, 0), clock=None, battery=None)]
@@ -188,7 +187,6 @@ async def main():
     reader.prepare = _old_prepare
     check("fayl izida Photoshop bor chek: rad, to'lov yo'q", out_f.verdict == rules.FAKE and out_f.payment_id is None and "tahrirlangan" in msg_f.answers[-1][0], (out_f.verdict, msg_f.answers[-1][0]))
     check("faqat boshqa karta cheki adminga bordi, tahrirlangani bormadi", len(bot.copied) == copied_before + 1 and len([m for m in bot.sent if m.chat.id == ADMIN]) == sent_before + 1)
-    check("jazo hisoblanmadi (xato bo'lishi mumkin)", await store.fraud_strikes(300) == 0)
 
     print("7d) Click «O'tkazma amalga oshirildi» ekrani: qabul qiluvchi telefon raqami, karta/ism/ID yo'q")
     config.RECEIPT_AUTO = False

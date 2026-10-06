@@ -82,19 +82,6 @@ async def attach_payment(receipt_id: int, payment_id: int, verdict: Optional[str
         await db.commit()
 
 
-async def fraud_strikes(user_tg: int, days: int = 30) -> int:
-    """Foydalanuvchining oxirgi kunlardagi tasdiqlanmagan soxta/takroriy cheklari soni."""
-    async with aiosqlite.connect(_file()) as db:
-        async with db.execute(
-            "SELECT COUNT(*) FROM payment_receipts r LEFT JOIN payments p ON p.id = r.payment_id "
-            "WHERE r.user_tg = ? AND r.fraud = 1 AND COALESCE(p.status, '') != 'approved' "
-            "AND r.created_at >= datetime('now', ?)",
-            (user_tg, f"-{int(days)} days")
-        ) as cursor:
-            row = await cursor.fetchone()
-    return int(row[0] or 0)
-
-
 async def get_receipt(receipt_id: int) -> Optional[dict]:
     async with aiosqlite.connect(_file()) as db:
         db.row_factory = aiosqlite.Row

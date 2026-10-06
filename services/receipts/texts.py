@@ -30,7 +30,6 @@ _USER: Dict[str, Dict[str, str]] = {
         "own_done": "ℹ️ Bu chek allaqachon qabul qilingan va summa hisobingizga qo'shilgan.",
         "duplicate": ("⚠️ Bu chek avval ishlatilgan. Takroriy chek bilan to'lov qabul qilinmaydi.\n\n"
                       "Agar xato bo'lgan deb o'ylasangiz, adminga murojaat qiling: " + ADMIN_CONTACT),
-        "duplicate_warn": "\n\n❗ Takroriy yoki soxta chek yuborish hisobingiz bloklanishiga olib keladi.",
         "stale": ("⏳ Chek eski ko'rinadi ({age} oldin). Agar bu hozirgi to'lovingiz bo'lsa, adminga murojaat "
                   "qiling: " + ADMIN_CONTACT + "\nChek unga yuborildi."),
         "wrong_receiver": ("❌ Chekdagi qabul qiluvchi bizning kartalar emas. To'lovni ko'rsatilgan karta "
@@ -39,8 +38,6 @@ _USER: Dict[str, Dict[str, str]] = {
                  "to'lov tarixidan asl chekni qayta yuboring yoki adminga murojaat qiling: " + ADMIN_CONTACT),
         "review": ("📨 Chek adminga tekshirish uchun yuborildi. Tasdiqlangach hisobingizga qo'shiladi.\n"
                    "Savol bo'lsa: " + ADMIN_CONTACT),
-        "blocked": ("🚫 Ko'p marta takroriy yoki soxta chek yuborilgani uchun hisobingiz bloklandi.\n"
-                    "Adminga murojaat qiling: " + ADMIN_CONTACT),
     },
     "ru": {
         "checking": "⏳ Проверяю чек...",
@@ -67,7 +64,6 @@ _USER: Dict[str, Dict[str, str]] = {
         "own_done": "ℹ️ Этот чек уже принят, сумма зачислена на ваш счёт.",
         "duplicate": ("⚠️ Этот чек уже использовался. Повторный чек не принимается.\n\n"
                       "Если считаете, что это ошибка, обратитесь к админу: " + ADMIN_CONTACT),
-        "duplicate_warn": "\n\n❗ Повторные или поддельные чеки приведут к блокировке аккаунта.",
         "stale": ("⏳ Чек выглядит старым ({age} назад). Если это ваш текущий платёж, обратитесь к админу: "
                   + ADMIN_CONTACT + "\nЧек ему отправлен."),
         "wrong_receiver": ("❌ Получатель в чеке — не наша карта. Переведите деньги на указанные номера карт. "
@@ -76,8 +72,6 @@ _USER: Dict[str, Dict[str, str]] = {
                  "истории платежей или обратитесь к админу: " + ADMIN_CONTACT),
         "review": ("📨 Чек отправлен админу на проверку. После подтверждения сумма будет зачислена.\n"
                    "Вопросы: " + ADMIN_CONTACT),
-        "blocked": ("🚫 Ваш аккаунт заблокирован из-за повторных или поддельных чеков.\n"
-                    "Обратитесь к админу: " + ADMIN_CONTACT),
     },
     "en": {
         "checking": "⏳ Checking the receipt...",
@@ -104,7 +98,6 @@ _USER: Dict[str, Dict[str, str]] = {
         "own_done": "ℹ️ This receipt was already accepted and the amount is on your balance.",
         "duplicate": ("⚠️ This receipt was already used. Repeated receipts are not accepted.\n\n"
                       "If you think this is a mistake, contact the admin: " + ADMIN_CONTACT),
-        "duplicate_warn": "\n\n❗ Sending repeated or fake receipts will get your account blocked.",
         "stale": ("⏳ The receipt looks old ({age} ago). If this is your current payment, contact the admin: "
                   + ADMIN_CONTACT + "\nThe receipt was forwarded to them."),
         "wrong_receiver": ("❌ The receiver in the receipt is not our card. Please transfer to the card numbers "
@@ -113,8 +106,6 @@ _USER: Dict[str, Dict[str, str]] = {
                  "receipt from your payment history or contact the admin: " + ADMIN_CONTACT),
         "review": ("📨 The receipt was sent to the admin for review. The amount will be added once approved.\n"
                    "Questions: " + ADMIN_CONTACT),
-        "blocked": ("🚫 Your account was blocked because of repeated or fake receipts.\n"
-                    "Contact the admin: " + ADMIN_CONTACT),
     },
 }
 
