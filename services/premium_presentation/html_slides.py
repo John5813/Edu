@@ -236,7 +236,9 @@ QAT'IY QOIDALAR:
    shu raqamlardan kelib chiqadigan 2-4 gaplik izoh yozasiz: nima
    ko'rsatilgani, eng muhim o'zgarish va xulosa. Rejada diagramma
    bo'lmagan slaydni matn, kartochka, ko'rsatkich yoki rasm bilan
-   oching. Ko'rsatkich (kpi) raqami izohida manbasi aytiladi
+   oching. Agar tahlilchi ishonchli ma'lumot topa olmagani aytilsa,
+   diagramma uchun tushunchani ko'rsatuvchi namunaviy ma'lumot
+   tuzing va slaydning izohi oxiriga «Shartli misol.» deb yozing. Ko'rsatkich (kpi) raqami izohida manbasi aytiladi
    (masalan: Statistika agentligi, 2024).
 9. Bir slaydda bir xil matnni ikki marta yozma.
 9a. IQTIBOS faqat HAQIQIY, mashhur va muallifi aniq so'z bo'lsa
@@ -1015,7 +1017,7 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
                 body = _cover_credit(body, author, language)
             if number == slide_count:
                 body = _drop_thanks(body)
-            body = chart_data.enforce(body, outline[number - 1] if number <= len(outline) else None)
+            body = chart_data.enforce(body, outline[number - 1] if number <= len(outline) else None, language)
             if 1 < number and _thin(body):
                 body = _thicken(body, system, theme)
             if number == slide_count:
@@ -1039,7 +1041,7 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
     slides = diversify(slides, theme, language)
     # Diagramma raqamlari faqat Claude bergan ma'lumot: qayta yozish va xilma-xillashtirish
     # davomida paydo bo'lgan to'qima raqamlar shu yerda tozalanadi.
-    slides = [chart_data.enforce(b, outline[i] if i < len(outline) else None)
+    slides = [chart_data.enforce(b, outline[i] if i < len(outline) else None, language)
               for i, b in enumerate(slides)]
     return build_pages(slides, theme, language)
 
@@ -1151,11 +1153,20 @@ def repair_deck(slides: List[str], ctx: "_Deck") -> List[str]:
     # 4) Diagramma bo'lishi kerak bo'lgan slaydlar (faqat Claude haqiqiy ma'lumot bergan)
     for index in range(2, last):
         item = ctx.outline[index] if index < len(ctx.outline) else {}
-        if item.get("chart") and not deck_logic.has_chart(result[index]):
+        if (item.get("chart") or item.get("chart_fallback")) and not deck_logic.has_chart(result[index]):
             fix(index,
                 "BU SLAYD DIAGRAMMALI BO'LISHI SHART (rejada shunday belgilangan). "
                 + item.get("chart_note", "") + " Mavzu: " + own_brief(index),
                 deck_logic.has_chart)
+
+    # 4c) Reja diagramma demagan, lekin model diagramma yozgan slaydlar: avval Claude'dan haqiqiy
+    # ma'lumot so'raladi; topilsa slayd shu ma'lumot bilan qayta yoziladi (matn raqamlarga mos bo'lsin).
+    for index in chart_data.research_strays(result, ctx.outline, ctx.topic, ctx.language):
+        item = ctx.outline[index]
+        fix(index,
+            "Bu slayddagi diagramma ma'lumoti almashtirildi. " + item.get("chart_note", "")
+            + " Mavzu: " + own_brief(index),
+            deck_logic.has_chart)
 
     # 4b) Rasmli bo'lishi kerak bo'lgan slaydlar
     for index in range(2, last):
