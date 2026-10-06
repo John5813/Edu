@@ -165,3 +165,7 @@ class StorePublishStates(StatesGroup):
     waiting_for_category = State()
     waiting_for_description = State()
 
+
+
+class AbsStates(StatesGroup):
+    waiting_for_file = State()

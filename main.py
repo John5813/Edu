@@ -19,6 +19,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from bot.handlers import start, documents, payments, admin, settings, samples, media
 from bot.handlers import converter
 from bot.handlers import pptx_converter
+from bot.handlers import abs_converter
 from bot.handlers import book_translate
 from bot.handlers import test as test_handler
 from bot.handlers import premium_presentation as premium_presentation_handler
@@ -557,6 +558,7 @@ async def main():
     dp.include_router(settings.router)  # Handle settings buttons
     dp.include_router(converter.router)  # Handle PDF → DOCX conversion (before payments to keep state-specific callbacks)
     dp.include_router(pptx_converter.router)  # Handle PPTX → PDF conversion
+    dp.include_router(abs_converter.router)  # Yashirin /abs — PPTX lotin ↔ kirill
     # Premium presentation must precede the generic successful_payment handler,
     # otherwise Stars payments are credited as balance instead of starting the deck.
     dp.include_router(premium_presentation_handler.router)  # Premium taqdimot — Ustalar tizimi
