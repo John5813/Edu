@@ -310,8 +310,9 @@ async def _process(message, state_data: dict, db, user, lang: str, source: str,
         await store.mark(rid, rules.DUPLICATE, True)
         return await _rejected(message, bot, db, user, lang, decision, rid, keyboard)
 
-    # ── takroriy, boshqa karta, tahrirlangan: mijozga rad javobi; ADMINGA BORMAYDI
-    if verdict in (rules.DUPLICATE, rules.WRONG_RECEIVER, rules.FAKE):
+    # ── takroriy yoki tahrirlangan (fayl izida Photoshop): mijozga rad javobi; ADMINGA BORMAYDI.
+    # Boshqa karta, ID/qabul qiluvchi ko'rinmaydigan chek kabi noaniq hollar adminga boradi: yakuniy qaror odamda.
+    if verdict in (rules.DUPLICATE, rules.FAKE):
         rid, _ = await store.save_receipt(user.telegram_id, verdict, decision.fraud, receipt.amount, claimed,
                                           decision.reasons, snapshot, decision.keys)
         return await _rejected(message, bot, db, user, lang, decision, rid, keyboard)

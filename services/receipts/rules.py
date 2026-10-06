@@ -112,8 +112,18 @@ def norm_name(value: str) -> str:
 
 
 def card_tail(value: str) -> str:
-    digits = re.sub(r"\D", "", str(value or ""))
-    return digits[-4:] if len(digits) >= 4 else ""
+    """Karta raqamining oxirgi 4 raqami. Telefon raqami ("99890*****58", "998901234567") karta emas.
+
+    Karta oxiri satr OXIRIDAGI ketma-ket 4+ raqam: "**** 6655", "986016****6655", "•6655".
+    Yulduzchadan keyin 2 raqam qolgan niqoblangan telefon yoki 998 bilan boshlanuvchi 12 xonali raqam —
+    kartaga o'xshamaydi, shuning uchun bo'sh qaytadi.
+    """
+    text = str(value or "").strip()
+    digits = re.sub(r"\D", "", text)
+    if re.fullmatch(r"998\d{9}", digits):
+        return ""                                   # to'liq telefon raqami
+    match = re.search(r"(\d{4,})\s*$", text)
+    return match.group(1)[-4:] if match else ""
 
 
 def _minute(dt: datetime, shift: int = 0) -> str:

@@ -142,6 +142,14 @@ check("karta oxiri ko'rinmasa, faqat ism — admin", d.verdict == rules.REVIEW a
 d = rules.evaluate(rec(receiver_tail="", receiver_name=""), ctx())
 check("qabul qiluvchi yo'q — admin", d.verdict == rules.REVIEW and "no_receiver" in d.reasons)
 
+print("5b) Karta oxiri va telefon raqami")
+check("karta oxiri formatlari", [rules.card_tail(x) for x in ("**** **** **** 6655", "986016****6655", "•6655", "*2378", "9860 1606 0613 6655")] == ["6655", "6655", "6655", "2378", "6655"])
+check("niqoblangan telefon raqami karta emas", rules.card_tail("99890*****58") == "")
+check("to'liq telefon raqami karta emas", rules.card_tail("998901234567") == "" and rules.card_tail("+998 90 123-45-67") == "")
+d = rules.evaluate(rec(ids=[], sender_name="", sender_tail="", receiver_name="", receiver_tail=rules.card_tail("99890*****58"),
+                       status_time="20:05", battery=None, dt=NOW - timedelta(minutes=5)), ctx())
+check("telefon raqamli chek «boshqa karta» emas — adminga (aniqlanmagan qabul qiluvchi)", d.verdict == rules.REVIEW and "no_receiver" in d.reasons, (d.verdict, d.reasons))
+
 print("6) Shubhali belgilar va chegaralar")
 d = rules.evaluate(rec(tamper="high"), ctx())
 check("AI «tahrirlangan» desa (arzon model adashishi mumkin) — rad emas, adminga ogohlantirish bilan", d.verdict == rules.REVIEW and "tamper_high" in d.reasons, (d.verdict, d.reasons))
