@@ -179,15 +179,31 @@ async def main():
     copied_before, sent_before = len(bot.copied), len([m for m in bot.sent if m.chat.id == ADMIN])
     QUEUE[:] = [raw(rid="6100000001", receiver="986016****1234", date=(10, 6, 19, 50), clock="19:50", battery=12)]
     out_w, msg_w = await send(300, b"W1")
-    check("boshqa karta: rad, to'lov yo'q", out_w.verdict == rules.WRONG_RECEIVER and out_w.payment_id is None and "bizning kartalar emas" in msg_w.answers[-1][0], (out_w.verdict, msg_w.answers[-1][0]))
+    check("boshqa karta: adminga tekshirish uchun boradi (qaror odamda)", out_w.verdict == rules.WRONG_RECEIVER and out_w.payment_id is not None
+          and "adminga yuborildi" in msg_w.answers[-1][0], (out_w.verdict, msg_w.answers[-1][0]))
     QUEUE[:] = [raw(rid="6100000002", date=(10, 6, 19, 48), clock="19:48", battery=13)]
     _old_prepare = reader.prepare
     reader.prepare = lambda data, filename="", mime="": reader.Prepared(images=[b"img"], meta_flags=["exif:Adobe Photoshop 25"])
     out_f, msg_f = await send(300, b"W2")
     reader.prepare = _old_prepare
     check("fayl izida Photoshop bor chek: rad, to'lov yo'q", out_f.verdict == rules.FAKE and out_f.payment_id is None and "tahrirlangan" in msg_f.answers[-1][0], (out_f.verdict, msg_f.answers[-1][0]))
-    check("ikkalasi ham adminga bormadi", len(bot.copied) == copied_before and len([m for m in bot.sent if m.chat.id == ADMIN]) == sent_before)
+    check("faqat boshqa karta cheki adminga bordi, tahrirlangani bormadi", len(bot.copied) == copied_before + 1 and len([m for m in bot.sent if m.chat.id == ADMIN]) == sent_before + 1)
     check("jazo hisoblanmadi (xato bo'lishi mumkin)", await store.fraud_strikes(300) == 0)
+
+    print("7d) Click «O'tkazma amalga oshirildi» ekrani: qabul qiluvchi telefon raqami, karta/ism/ID yo'q")
+    config.RECEIPT_AUTO = False
+    QUEUE[:] = [{"doc_type": "transfer", "status": "success", "readable": True, "amount": 5000, "currency": "UZS",
+                 "date": {"year": None, "month": 10, "day": 6, "hour": 20, "minute": 5},
+                 "ids": [], "sender_name": "", "sender_card": "", "receiver_name": "", "receiver_card": "99890*****58",
+                 "app": "click", "screenshot": {"is_screenshot": True, "clock": "20:05", "battery": None},
+                 "cropped": False, "tamper": "none", "confidence": 0.9}]
+    a_before = len([m for m in bot.sent if m.chat.id == ADMIN])
+    out_ph, msg_ph = await send(300, b"PH1", claimed=5000)
+    config.RECEIPT_AUTO = True
+    check("telefon raqami karta deb olinmadi — «boshqa karta» deb rad etilmadi", out_ph.verdict == rules.REVIEW, out_ph.verdict)
+    card_ph = [m for m in bot.sent if m.chat.id == ADMIN][-1]
+    check("adminga tugmalar bilan uzatildi", len([m for m in bot.sent if m.chat.id == ADMIN]) == a_before + 1 and card_ph.kw.get("reply_markup") is not None)
+    check("kartada «qabul qiluvchi aniqlanmadi» ogohlantirishi", "Qabul qiluvchi aniqlanmadi" in card_ph.text, card_ph.text)
 
     print("8) Ikkinchi o'qish mos kelmasa — admin")
     QUEUE[:] = [raw(rid="8000000001", date=(10, 6, 20, 6), clock="20:06", battery=33), raw(rid="8000000001", amount=18_000, date=(10, 6, 20, 6), clock="20:06", battery=33)]
