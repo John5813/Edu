@@ -215,7 +215,7 @@ check("qoidalarda diagramma soni va turi aytilgan",
       "Diagramma soni" in everything and "ulush → halqa" in everything)
 check("jadval faqat qisqa bo'lsin deyilgan", "QISQA bo'lsa" in everything and "tahlil jadvali" in everything.lower())
 check("umumlashtiruvchi gap talabi bor", "UMUMLASHTIRUVCHI GAP" in everything)
-check("raqamlash cheklangan", "RAQAMLASH FAQAT KERAK JOYDA" in everything)
+check("raqam faqat haqiqiy tartib uchun (ijobiy aytilgan)", "RAQAM — HAQIQIY TARTIB UCHUN" in everything)
 
 print("\n" + ("✅ hammasi o'tdi" if not FAILS else f"❌ {len(FAILS)} ta xato: {FAILS}"))
 sys.exit(1 if FAILS else 0)

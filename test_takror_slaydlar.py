@@ -36,7 +36,7 @@ deck = [cover, reja, slide("Ta'rif", LIST_IMG), slide("Tasnif", LIST_IMG), slide
 
 check("shakl imzosi: ro'yxat + rasm", hs.shape_signature(deck[2]) == ("list", "rasm", "split"), hs.shape_signature(deck[2]))
 flag = hs.repeated_slides(deck)
-check("ketma-ket takror (4-slayd) va uchinchi marta takror (6-slayd) topiladi", flag == [3, 5], flag)
+check("ketma-ket takror (4-slayd) topiladi; rasmli slaydlar uchinchi marta kelsa ham kvota bo'yicha qoladi", flag == [3], flag)
 check("muqova, reja va yakun hech qachon belgilanmaydi", not ({0, 1, 6} & set(flag)))
 check("xilma-xil taqdimotda takror yo'q", hs.repeated_slides([cover, reja, slide("a", LIST_IMG), slide("b", CARDS), slide("c", STEPS), slide("d", LIST_IMG), slide("e", PLAIN)]) == [])
 

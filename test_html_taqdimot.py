@@ -466,11 +466,15 @@ def check_outline():
           plan["family"])
 
     # Kvota yo'q: model bir xil kategoriya bersa, u saqlanadi.
-    # (Faqat diagramma kvotasi kod tomonidan belgilanadi — qolgani tegilmaydi.)
+    # (Kod faqat diagramma va rasm kvotasini belgilaydi — qolgani tegilmaydi.)
     middle = [o["category"] for o in outline[2:-1]]
     check("ketma-ket takror majburan almashtirilmadi",
-          [c for c in middle if c != "diagramma"] == ["kartalar"] * len([c for c in middle if c != "diagramma"]),
-          str(middle))
+          all(c in ("kartalar", "diagramma", "matn_rasm") for c in middle)
+          and sum(1 for c in middle if c == "kartalar") >= 1, str(middle))
+    check("rasm kvotasi: har 10 slaydga 3 ta (8 slayd — 2 ta rasmli)",
+          sum(1 for c in middle if c == "matn_rasm") == deck_logic.photo_quota(8) == 2, str(middle))
+    check("rasmli slaydlar ketma-ket kelmaydi",
+          all(not (a == "matn_rasm" == b) for a, b in zip(middle, middle[1:])), str(middle))
     check("model diagramma bermasa ham kvota to'ldiriladi",
           sum(1 for c in middle if c == "diagramma") == deck_logic.chart_quota(8), str(middle))
     check("rejada xilma-xillik kvotasi yo'q",
@@ -2091,8 +2095,8 @@ def check_no_sections_and_photo_text():
     check("bayonot bloki yo'q",
           "BAYONOT" not in rules and "bayonot" not in catalogue
           and "lead huge" not in rules)
-    check("bo'limlarga ajratmaslik aytilgan",
-          "bo'limlarga\n   ajratilmaydi" in rules)
+    check("har varaq mazmun berishi aytilgan (bo'lim nomli bo'sh varaq yo'q)",
+          "Har varaq mazmun beradi" in rules)
     check("matn va rasm bloki bor",
           "MATN VA RASM" in rules and 'class="rasm"' in rules
           and "matn_rasm" in catalogue)
@@ -2211,8 +2215,8 @@ def check_conclusion_only():
     print("\n29) Xulosa — faqat xulosa matni")
     theme = themes.get("ko'k")
     rules = html_slides.shell_rules(theme, "uz")
-    check("xulosada rahmat yozilmasligi aytilgan",
-          "faqat xulosa\n   matni" in rules and "yozilmaydi" in rules)
+    check("taqdimot xulosa slaydi bilan tugashi aytilgan",
+          "XULOSA slaydi bilan" in rules and "faqat xulosa matni" in rules)
     check("yakun kategoriyasida rahmat yo'q",
           "rahmat qatori" not in html_slides.catalogue_text())
 
@@ -2304,7 +2308,7 @@ def check_chart_formats():
           'class="rasm"' not in out and "data-prompt" not in out)
     check("rasm o'rnidagi matn saqlanadi", "Oxirgi fikr." in out
           and 'class="split"' not in out and "Band." in out, out)
-    check("xulosada rasm yo'qligi aytilgan", "Xulosada rasm" in rules)
+    check("xulosa rasmsiz ekani aytilgan", "rasmsiz" in rules)
 
     saved = (html_slides.plan_outline, html_slides._write_chunk)
     try:

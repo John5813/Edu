@@ -215,7 +215,7 @@ from services.premium_presentation import html_slides, llm_client, deck_logic
 check("til talabi: qozoqcha", "kk" in html_slides._LANGUAGE and "kk" in llm_client.PRESENTATION_LANGUAGE_INSTRUCTIONS)
 check("xulosa, reja, muallif yorlig'i qozoqcha", "kk" in html_slides._CONCLUSION_BRIEF and "kk" in deck_logic.PLAN_LABEL
       and "kk" in html_slides._CREDIT_LABEL and "kk" in html_slides._ESTIMATE)
-check("reja slaydi qozoqcha sarlavhali", "Презентация жоспары" in deck_logic.plan_slide([("Бірінші бөлім", "Мәтін")], "kk"))
+check("reja slaydi qozoqcha sarlavhali", "Жоспар" in deck_logic.plan_slide([("Бірінші бөлім", "Мәтін")], "kk"))
 check("reja sarlavhasi qozoqcha tanilmaydi → takror emas", deck_logic.is_plan_title("Жоспар") and deck_logic.is_plan_title("Презентация жоспары"))
 from services import timeframe
 check("yil qoidasi 'kk' da ham ishlaydi", "2026" in timeframe.year_rule("kk") or str(timeframe.current_year()) in timeframe.year_rule("kk"))

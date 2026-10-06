@@ -159,6 +159,14 @@ border-radius:18px;display:block}
 .split>div:not([class]){display:flex;flex-direction:column;gap:24px}
 .split:has(>.chart)>div:not([class])>.note,
 .split:has(>.chart)>.note{font-size:34px;line-height:1.5;color:#BODY}
+/* Diagramma bitta ustunda, qolgan HAMMA bola (ortiqcha `.note` ham) ikkinchi
+   ustunda ustma-ust turadi — model izohni split'ning to'g'ridan-to'g'ri bolasi
+   qilib yozsa ham u diagramma tagida yoki ustida qolib ketmasin. */
+.split:has(>.chart:first-child)>.chart{grid-column:1;grid-row:1 / span 6}
+.split:has(>.chart:first-child)>:not(.chart){grid-column:2}
+.split:has(>.chart:last-child)>.chart{grid-column:2;grid-row:1 / span 6}
+.split:has(>.chart:last-child)>:not(.chart){grid-column:1}
+.split:has(>.chart)>:not(.chart){align-self:center}
 
 /* ── Kartochka ─────────────────────────────────────────────────── */
 .card{background:linear-gradient(160deg,#SOFT 0%,#SOFTER 100%);
@@ -344,6 +352,21 @@ padding:36px}
 .slide.fit1 .cols:has(>.card>.ikon-dot:first-child),
 .slide.fit2 .cols:has(>.card>.ikon-dot:first-child){row-gap:64px}
 .slide.fit3 .cols:has(>.card>.ikon-dot:first-child){row-gap:52px}
+
+/* Reja slaydi: 4-8 ta kartochka bir varaqda, shuning uchun ixcham o'lchamlar
+   (uslub qoidalaridan ustun turishi uchun selektor aniqroq). Shrift kichraytirishga
+   o'tmasdan sig'sin. */
+section.slide.reja .cols>.card{padding:30px 34px;gap:10px;min-height:0}
+section.slide.reja .cols>.card .card-num{font-size:38px;line-height:1}
+section.slide.reja .cols>.card .card-title{font-size:36px;line-height:1.2}
+section.slide.reja .cols>.card .card-note{font-size:28px;line-height:1.35}
+section.slide.reja .cols{row-gap:36px;column-gap:28px}
+
+/* Rasmli bo'linmada mazmun sig'masa rasm torayadi, matn kengayadi: matn
+   shrift kichraymasdan sig'sin (rasm ham kichik bo'lsa bo'ladi, matn emas). */
+.slide.fit1 .split:has(>.rasm),.slide.fit2 .split:has(>.rasm){grid-template-columns:1.45fr 1fr}
+.slide.fit3 .split:has(>.rasm){grid-template-columns:1.8fr 1fr}
+.slide.fit3 .rasm .photo{min-height:260px}
 
 .slide.fit2 .title{font-size:58px}
 .slide.fit2 .item-text{font-size:32px}
