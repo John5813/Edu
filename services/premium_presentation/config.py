@@ -64,6 +64,24 @@ OPENROUTER_VISION_MODELS = _chain(
     os.getenv("OPENROUTER_VISION_FALLBACKS", _DEFAULT_VISION_CHAIN)
 )
 
+# Diagramma ma'lumotlari FAQAT Claude modellaridan olinadi. Boshqa modellar
+# ("oddiy AI"lar) raqamni o'ylab topib, har narsadan diagramma yasab yuborardi.
+# Ro'yxat Anthropic modellari bilan cheklangan: ular ishlamasa diagramma
+# qo'yilmaydi (boshqa provayderga o'tilmaydi). Sonnet — Opus'dan arzon, lekin
+# bilimi yangi; Haiku — eng arzon zaxira. `PREMIUM_CHART_MODEL` birinchi
+# o'ringa model qo'yadi (masalan `anthropic/claude-sonnet-5:online` — veb-qidiruv bilan).
+_DEFAULT_CHART_CHAIN = (
+    "anthropic/claude-sonnet-5,"
+    "anthropic/claude-sonnet-4.5,"
+    "anthropic/claude-haiku-4.5"
+)
+OPENROUTER_CHART_MODELS = [
+    model for model in _chain(
+        os.getenv("PREMIUM_CHART_MODEL", "") + "," +
+        os.getenv("PREMIUM_CHART_FALLBACKS", _DEFAULT_CHART_CHAIN))
+    if model.startswith("anthropic/")
+] or _chain(_DEFAULT_CHART_CHAIN)
+
 # Eski nom bilan foydalanadigan joylar uchun — ro'yxatning birinchisi.
 OPENROUTER_TEXT_MODEL = OPENROUTER_TEXT_MODELS[0]
 OPENROUTER_VISION_MODEL = OPENROUTER_VISION_MODELS[0]
