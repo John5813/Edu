@@ -23,6 +23,7 @@ REVIEW = "review"                # admin tugmalar bilan hal qiladi
 DUPLICATE = "duplicate"          # takroriy chek (admin ko'radi, mijoz ogohlantiriladi)
 WRONG_RECEIVER = "wrong_receiver"
 NOT_RECEIPT = "not_receipt"      # chek emas: qayta yuborish so'raladi
+FAKE = "fake"                    # tahrirlangan ko'rinadi: qabul qilinmaydi (adminga bormaydi)
 OWN_PENDING = "own_pending"      # o'zining tekshirilayotgan cheki qayta yuborildi
 
 STRONG_KINDS = ("id", "cmp", "file", "scr")     # bularning mos kelishi — takroriy chek
@@ -268,8 +269,6 @@ def evaluate(r: Receipt, ctx: Context, file_sha: str = "",
             d.reasons.append("stale")
         elif age < -10:
             d.reasons.append("future")
-    if r.dt and ctx.started_at and r.dt < ctx.started_at - timedelta(minutes=3):
-        d.reasons.append("before_request")
     shot_age = clock_age_min(r.status_time, ctx.now)
     if shot_age is not None and abs(shot_age) > ctx.max_age_min and "stale" not in d.reasons:
         d.reasons.append("screenshot_old")
@@ -314,6 +313,9 @@ def evaluate(r: Receipt, ctx: Context, file_sha: str = "",
     d.credit = r.amount or 0
     if "wrong_receiver" in d.reasons:
         d.verdict = WRONG_RECEIVER
+        return d
+    if "tamper_high" in d.reasons or "tamper_meta" in d.reasons:
+        d.verdict = FAKE
         return d
     soft = {"receiver_by_name", "no_date"}        # o'zi to'siq emas
     blocking = [x for x in d.reasons if x not in soft]

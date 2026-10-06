@@ -331,6 +331,31 @@ async def handle_receipt_resend(callback: CallbackQuery, state: FSMContext, user
         logger.error(f"handle_receipt_resend error: {e}", exc_info=True)
 
 
+_UPLOAD_BUTTONS = {"📤 To'lov chekini yuborish", "📤 Отправить чек", "📤 Upload receipt"}
+_BACK_BUTTONS = {"🔙 Orqaga qaytish", "🔙 Назад", "🔙 Back"}
+
+
+@router.message(PaymentStates.waiting_for_screenshot, F.text.in_(_UPLOAD_BUTTONS))
+async def handle_upload_button(message: Message, state: FSMContext, user_lang: str):
+    """«To'lov chekini yuborish» tugmasi: bot o'zi chiqargan tugmani tanimay qolmasin — chek so'raladi."""
+    from services.receipts import texts as receipt_texts
+    await message.answer(receipt_texts.user_text(user_lang, "resend_prompt"))
+
+
+@router.message(PaymentStates.waiting_for_screenshot, F.text.in_(_BACK_BUTTONS))
+async def handle_back_button(message: Message, state: FSMContext, user_lang: str):
+    """«Orqaga» tugmasi: to'lov bekor qilinadi, asosiy menyu va summa tanlash qaytadi."""
+    await state.clear()
+    await message.answer("↩️", reply_markup=get_main_keyboard(user_lang))
+    if user_lang == "uz":
+        text = "💳 To'lov miqdorini tanlang:"
+    elif user_lang == "ru":
+        text = "💳 Выберите сумму платежа:"
+    else:
+        text = "💳 Select payment amount:"
+    await message.answer(text, reply_markup=get_payment_amount_keyboard(user_lang))
+
+
 @router.message(PaymentStates.waiting_for_screenshot, F.content_type.in_([ContentType.PHOTO, ContentType.DOCUMENT]))
 async def handle_payment_screenshot(message: Message, state: FSMContext, db: Database, user_lang: str, user=None):
     """Handle payment screenshot"""

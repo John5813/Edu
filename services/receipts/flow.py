@@ -245,9 +245,8 @@ async def _process(message, state_data: dict, db, user, lang: str, source: str,
         key = decision.reasons[0] if decision.reasons[0] in (
             "tax_receipt", "too_little", "not_payment", "unreadable", "status_failed", "status_pending") else "not_payment"
         # Qayta yuborish so'ralgan har xabar «Chekni qayta yuborish» tugmasi bilan boradi.
-        await message.answer(texts.user_text(lang, key), reply_markup=resend_keyboard(lang, claimed, started))
-        await _to_admins(bot, user, message, card_text(user, verdict, receipt, decision, claimed, rid, None),
-                         silent=True)
+        await message.answer(texts.user_text(lang, key) + _debug(user, decision),
+                             reply_markup=resend_keyboard(lang, claimed, started))
         return Outcome(verdict, clear_state=False, receipt_id=rid)
 
     # ── o'zining kutilayotgan cheki qayta yuborildi
@@ -256,8 +255,6 @@ async def _process(message, state_data: dict, db, user, lang: str, source: str,
                                           decision.reasons, snapshot, [])
         await message.answer(texts.user_text(lang, "own_done" if "own_done" in decision.reasons else "own_pending"),
                              reply_markup=keyboard)
-        await _to_admins(bot, user, message, card_text(user, verdict, receipt, decision, claimed, rid, None),
-                         silent=True, copy=False)
         return Outcome(verdict, receipt_id=rid)
 
     # ── avtomatik tasdiq
@@ -292,35 +289,54 @@ async def _process(message, state_data: dict, db, user, lang: str, source: str,
         # Poyga: shu kalit bir lahza oldin boshqa chek bilan band qilindi.
         decision.verdict, decision.fraud = rules.DUPLICATE, True
         decision.reasons.append("race")
-        verdict = rules.DUPLICATE
-        await store.mark(rid, verdict, True)
-        payment_id = await db.create_payment(user.id, amount_for_payment, file_id, source)
-        await store.attach_payment(rid, payment_id)
-        return await _flagged(message, bot, db, user, lang, receipt, decision, claimed, rid, payment_id, keyboard)
+        await store.mark(rid, rules.DUPLICATE, True)
+        return await _rejected(message, bot, db, user, lang, decision, rid, keyboard)
 
-    # ── admin hal qiladigan holatlar (takroriy, boshqa karta, shubhali, eski ...)
-    rid, _ = await store.save_receipt(user.telegram_id, verdict, decision.fraud, receipt.amount, claimed,
+    # ── takroriy, boshqa karta, tahrirlangan: mijozga rad javobi; ADMINGA BORMAYDI
+    if verdict in (rules.DUPLICATE, rules.WRONG_RECEIVER, rules.FAKE):
+        rid, _ = await store.save_receipt(user.telegram_id, verdict, decision.fraud, receipt.amount, claimed,
+                                          decision.reasons, snapshot, decision.keys)
+        return await _rejected(message, bot, db, user, lang, decision, rid, keyboard)
+
+    # ── haqiqiy chek, lekin odam qarori kerak (eski, katta summa, shubhali tafsilot ...): adminga
+    rid, _ = await store.save_receipt(user.telegram_id, verdict, False, receipt.amount, claimed,
                                       decision.reasons, snapshot, decision.keys)
     payment_id = await db.create_payment(user.id, amount_for_payment, file_id, source)
     await store.attach_payment(rid, payment_id)
     return await _flagged(message, bot, db, user, lang, receipt, decision, claimed, rid, payment_id, keyboard)
 
 
-async def _flagged(message, bot, db, user, lang, receipt, decision, claimed, rid, payment_id,
-                   keyboard=None) -> Outcome:
+def _debug(user, decision) -> str:
+    """Admin o'zi sinab ko'rayotganda sabablar mijoz xabariga qo'shiladi (oddiy mijozda ko'rinmaydi)."""
+    if user.telegram_id not in config.ADMIN_IDS:
+        return ""
+    return "\n\n🛠 (admin ko'rinishi) " + "; ".join(texts.REASONS.get(c, c) for c in decision.reasons)
+
+
+async def _rejected(message, bot, db, user, lang, decision, rid, keyboard=None) -> Outcome:
+    """Takroriy, noto'g'ri qabul qiluvchi yoki tahrirlangan chek: faqat mijozga javob, adminga xabar yo'q."""
     verdict = decision.verdict
-    strikes = 0
     is_admin = user.telegram_id in config.ADMIN_IDS
+    strikes = 0
     if verdict == rules.DUPLICATE and decision.fraud and not is_admin:
         strikes = await store.fraud_strikes(user.telegram_id)
+    key = {rules.DUPLICATE: "duplicate", rules.WRONG_RECEIVER: "wrong_receiver", rules.FAKE: "fake"}[verdict]
+    text = texts.user_text(lang, key)
+    if verdict == rules.DUPLICATE and strikes and strikes >= config.RECEIPT_FRAUD_STRIKES - 1:
+        text += texts.user_text(lang, "duplicate_warn")
+    try:
+        await message.answer(text + _debug(user, decision), reply_markup=keyboard)
+    except Exception:
+        pass
+    if strikes >= config.RECEIPT_FRAUD_STRIKES:
+        await _block(bot, db, user, lang, strikes)      # adminga faqat blok haqida bitta xabar boradi
+    return Outcome(verdict, receipt_id=rid)
 
-    if verdict == rules.DUPLICATE:
-        text = texts.user_text(lang, "duplicate")
-        if strikes and strikes >= config.RECEIPT_FRAUD_STRIKES - 1:
-            text += texts.user_text(lang, "duplicate_warn")
-    elif verdict == rules.WRONG_RECEIVER:
-        text = texts.user_text(lang, "wrong_receiver")
-    elif any(code in decision.reasons for code in ("stale", "before_request", "screenshot_old")):
+
+async def _flagged(message, bot, db, user, lang, receipt, decision, claimed, rid, payment_id,
+                   keyboard=None) -> Outcome:
+    """Haqiqiy chek, lekin admin qarori kerak: kartochka tugmalar bilan boradi."""
+    if any(code in decision.reasons for code in ("stale", "screenshot_old")):
         text = texts.user_text(lang, "stale", age=rules.fmt_age(decision.age_min) or "—")
     else:
         text = texts.user_text(lang, "review")
@@ -328,11 +344,7 @@ async def _flagged(message, bot, db, user, lang, receipt, decision, claimed, rid
         await message.answer(text, reply_markup=keyboard)
     except Exception:
         pass
-
-    extra = f"⚠️ Soxta/takroriy urinishlar: {strikes}" if strikes else ""
     await _to_admins(bot, user, message,
-                     card_text(user, verdict, receipt, decision, claimed, rid, payment_id, extra=extra),
+                     card_text(user, decision.verdict, receipt, decision, claimed, rid, payment_id),
                      payment_id, buttons=True)
-    if strikes >= config.RECEIPT_FRAUD_STRIKES:
-        await _block(bot, db, user, lang, strikes)
-    return Outcome(verdict, payment_id=payment_id, receipt_id=rid)
+    return Outcome(decision.verdict, payment_id=payment_id, receipt_id=rid)
