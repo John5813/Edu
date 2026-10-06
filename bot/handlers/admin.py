@@ -645,16 +645,18 @@ async def confirm_adjusted_payment(callback: CallbackQuery, db: Database):
 
         # Keep the message with payment info
         user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
+        admin_name = callback.from_user.username or callback.from_user.full_name
         await callback.message.edit_text(
-            f"✅ To'lov #{payment_id} tasdiqlandi.\n"
-            f"👤 Foydalanuvchi: {user_link}\n"
-            f"💵 {payment.amount:,} so'm foydalanuvchi hisobiga qo'shildi.\n"
-            f"📅 {datetime.now().strftime('%d.%m.%Y %H:%M')}",
+            await decided_card_text(
+                payment_id, callback.message, payment_verdict_line(True, admin_name, payment.amount),
+                f"✅ To'lov #{payment_id} tasdiqlandi.\n"
+                f"👤 Foydalanuvchi: {user_link}\n"
+                f"💵 {payment.amount:,} so'm foydalanuvchi hisobiga qo'shildi.\n"
+                f"📅 {datetime.now().strftime('%d.%m.%Y %H:%M')}"),
             parse_mode=None
         )
 
         # Qolgan adminlarning kartochkasi ham yopiladi va qaror yoziladi.
-        admin_name = callback.from_user.username or callback.from_user.full_name
         updated = await close_payment_buttons(
             callback.bot, payment_id,
             verdict=payment_verdict_line(True, admin_name, payment.amount,
@@ -668,6 +670,95 @@ async def confirm_adjusted_payment(callback: CallbackQuery, db: Database):
     except Exception as e:
         logger.error(f"Error confirming adjusted payment: {e}")
         await callback.answer("❌ Xatolik yuz berdi.")
+
+async def decided_card_text(payment_id: int, message, verdict_line: str, fallback: str) -> str:
+    """Qaror chiqqan kartochkaning matni.
+
+    AI tekshirgan chekda o'qilgan ma'lumot (summa, ID, sabablar) kartochkada QOLADI va ostiga qaror
+    yoziladi; oddiy to'lovda esa avvalgi qisqa matn ishlatiladi.
+    """
+    try:
+        from services.receipts import store as receipt_store
+        if not await receipt_store.by_payment(payment_id):
+            return fallback
+        for entry in await Database.get_payment_admin_messages(payment_id):
+            if (entry["chat"], entry["msg"]) == (message.chat.id, message.message_id) and entry.get("text"):
+                return f"{entry['text']}\n\n{verdict_line}"
+    except Exception as exc:
+        logger.debug(f"Chek kartochkasi matni olinmadi: {exc}")
+    return fallback
+
+
+async def credit_approved_payment(bot, db, payment, user_message: str = None, reply_markup=None):
+    """To'lovni tasdiqlangan holatga o'tkazadi va pulni mijoz hisobiga qo'shadi.
+
+    Admin tugmasi ham, avtomatik chek tekshiruvi ham shu yerdan o'tadi: balans, kutayotgan
+    buyurtma eslatmasi, taklif bonusi va mijozga xabar bir joyda. Mijoz (`User`) qaytariladi.
+    """
+    # Update payment status
+    await db.update_payment_status(payment.id, "approved")
+
+    # Add balance to user
+    user = await db.get_user_by_id(payment.user_id)
+    await db.update_user_balance(user.telegram_id, payment.amount)
+    await _nudge_pending_order(bot, db, user.telegram_id)
+
+    # Check if this is user's first payment and if they were referred
+    # If yes, give payment bonus to referrer
+    PAYMENT_BONUS = 1000
+    if user.referred_by:
+        try:
+            # Check if referral exists and payment bonus not given yet
+            referral = await db.get_referral(user.referred_by, user.telegram_id)
+            if referral and not referral.payment_bonus_given:
+                # Count approved payments for this user AFTER this approval
+                from database.database import DATABASE_FILE
+                import aiosqlite
+                async with aiosqlite.connect(DATABASE_FILE) as db_conn:
+                    async with db_conn.execute(
+                        "SELECT COUNT(*) FROM payments WHERE user_id = ? AND status = 'approved'",
+                        (user.id,)
+                    ) as cursor:
+                        approved_count = (await cursor.fetchone())[0]
+
+                # If this is the first approved payment (count = 1 after approval)
+                if approved_count == 1:
+                    # Give payment bonus to referrer
+                    await db.update_user_balance(user.referred_by, PAYMENT_BONUS)
+                    await db.update_referral_earnings(user.referred_by, user.telegram_id, PAYMENT_BONUS)
+                    await db.update_payment_bonus(user.referred_by, user.telegram_id, True)
+
+                    # Notify referrer
+                    referrer = await db.get_user(user.referred_by)
+                    if referrer:
+                        bonus_text = {
+                            'uz': f"💰 Sizning tavsiyangiz bo'yicha foydalanuvchi birinchi to'lovni amalga oshirdi!\n💵 +{PAYMENT_BONUS:,} so'm hisobingizga qo'shildi.",
+                            'ru': f"💰 Пользователь по вашей рекомендации совершил первый платеж!\n💵 +{PAYMENT_BONUS:,} сум добавлено на ваш счет.",
+                            'en': f"💰 Your referral made their first payment!\n💵 +{PAYMENT_BONUS:,} som added to your balance."
+                        }
+                        try:
+                            await bot.send_message(
+                                user.referred_by,
+                                bonus_text.get(referrer.language, bonus_text['uz'])
+                            )
+                        except Exception as e:
+                            logger.error(f"Failed to notify referrer {user.referred_by}: {e}")
+
+                    logger.info(f"✅ Payment bonus given: referrer={user.referred_by}, referred={user.telegram_id}, amount={PAYMENT_BONUS}")
+        except Exception as e:
+            logger.error(f"Error processing payment referral bonus: {e}")
+
+    # Notify user
+    try:
+        await bot.send_message(
+            user.telegram_id,
+            user_message or f"✅ To'lovingiz tasdiqlandi! {payment.amount:,} so'm hisobingizga qo'shildi.",
+            reply_markup=reply_markup
+        )
+    except Exception as notify_error:
+        logger.error(f"Failed to notify user {user.telegram_id} about payment approval: {notify_error}")
+    return user
+
 
 @router.callback_query(F.data.startswith("approve_payment_"))
 async def approve_payment(callback: CallbackQuery, db: Database):
@@ -695,67 +786,7 @@ async def approve_payment(callback: CallbackQuery, db: Database):
                 pass
             return
 
-        # Update payment status
-        await db.update_payment_status(payment_id, "approved")
-
-        # Add balance to user
-        user = await db.get_user_by_id(payment.user_id)
-        await db.update_user_balance(user.telegram_id, payment.amount)
-        await _nudge_pending_order(callback.bot, db, user.telegram_id)
-
-        # Check if this is user's first payment and if they were referred
-        # If yes, give payment bonus to referrer
-        PAYMENT_BONUS = 1000
-        if user.referred_by:
-            try:
-                # Check if referral exists and payment bonus not given yet
-                referral = await db.get_referral(user.referred_by, user.telegram_id)
-                if referral and not referral.payment_bonus_given:
-                    # Count approved payments for this user AFTER this approval
-                    from database.database import DATABASE_FILE
-                    import aiosqlite
-                    async with aiosqlite.connect(DATABASE_FILE) as db_conn:
-                        async with db_conn.execute(
-                            "SELECT COUNT(*) FROM payments WHERE user_id = ? AND status = 'approved'",
-                            (user.id,)
-                        ) as cursor:
-                            approved_count = (await cursor.fetchone())[0]
-
-                    # If this is the first approved payment (count = 1 after approval)
-                    if approved_count == 1:
-                        # Give payment bonus to referrer
-                        await db.update_user_balance(user.referred_by, PAYMENT_BONUS)
-                        await db.update_referral_earnings(user.referred_by, user.telegram_id, PAYMENT_BONUS)
-                        await db.update_payment_bonus(user.referred_by, user.telegram_id, True)
-
-                        # Notify referrer
-                        referrer = await db.get_user(user.referred_by)
-                        if referrer:
-                            bonus_text = {
-                                'uz': f"💰 Sizning tavsiyangiz bo'yicha foydalanuvchi birinchi to'lovni amalga oshirdi!\n💵 +{PAYMENT_BONUS:,} so'm hisobingizga qo'shildi.",
-                                'ru': f"💰 Пользователь по вашей рекомендации совершил первый платеж!\n💵 +{PAYMENT_BONUS:,} сум добавлено на ваш счет.",
-                                'en': f"💰 Your referral made their first payment!\n💵 +{PAYMENT_BONUS:,} som added to your balance."
-                            }
-                            try:
-                                await callback.bot.send_message(
-                                    user.referred_by,
-                                    bonus_text.get(referrer.language, bonus_text['uz'])
-                                )
-                            except Exception as e:
-                                logger.error(f"Failed to notify referrer {user.referred_by}: {e}")
-                        
-                        logger.info(f"✅ Payment bonus given: referrer={user.referred_by}, referred={user.telegram_id}, amount={PAYMENT_BONUS}")
-            except Exception as e:
-                logger.error(f"Error processing payment referral bonus: {e}")
-
-        # Notify user
-        try:
-            await callback.bot.send_message(
-                user.telegram_id,
-                f"✅ To'lovingiz tasdiqlandi! {payment.amount:,} so'm hisobingizga qo'shildi."
-            )
-        except Exception as notify_error:
-            logger.error(f"Failed to notify user {user.telegram_id} about payment approval: {notify_error}")
+        user = await credit_approved_payment(callback.bot, db, payment)
 
         # Keep the message with payment info
         user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
@@ -826,17 +857,19 @@ async def reject_payment(callback: CallbackQuery, db: Database):
 
         # Keep the message with payment info
         user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
+        admin_name = callback.from_user.username or callback.from_user.full_name
         await callback.message.edit_text(
-            f"❌ To'lov #{payment_id} rad etildi.\n"
-            f"👤 Foydalanuvchi: {user_link}\n"
-            f"💵 Summa: {payment.amount:,} so'm\n"
-            f"📅 {datetime.now().strftime('%d.%m.%Y %H:%M')}\n\n"
-            f"Foydalanuvchiga xabar yuborildi.",
+            await decided_card_text(
+                payment_id, callback.message, payment_verdict_line(False, admin_name, payment.amount),
+                f"❌ To'lov #{payment_id} rad etildi.\n"
+                f"👤 Foydalanuvchi: {user_link}\n"
+                f"💵 Summa: {payment.amount:,} so'm\n"
+                f"📅 {datetime.now().strftime('%d.%m.%Y %H:%M')}\n\n"
+                f"Foydalanuvchiga xabar yuborildi."),
             parse_mode=None
         )
 
         # Qolgan adminlarning kartochkasi ham yopiladi va qaror yoziladi.
-        admin_name = callback.from_user.username or callback.from_user.full_name
         updated = await close_payment_buttons(
             callback.bot, payment_id,
             verdict=payment_verdict_line(False, admin_name, payment.amount),

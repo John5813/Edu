@@ -484,7 +484,9 @@ def set_text_model(model_id: str) -> None:
 def _models(kind: str) -> list:
     """Sinaladigan modellar — avval tanlangani, keyin ishlagani ma'lum bo'lgani."""
     chain = {"text": config.OPENROUTER_TEXT_MODELS,
-             "chart": config.OPENROUTER_CHART_MODELS}.get(kind, config.OPENROUTER_VISION_MODELS)
+             "chart": config.OPENROUTER_CHART_MODELS,
+             "receipt": config.OPENROUTER_RECEIPT_MODELS,
+             "receipt2": config.OPENROUTER_RECEIPT_VERIFY_MODELS}.get(kind, config.OPENROUTER_VISION_MODELS)
     chain = list(chain)
     for model in (_WORKING.get(kind), _preferred.get(kind)):
         if not model:
@@ -660,7 +662,7 @@ def _request(kind: str, payload: dict, timeout: int = 180,
         # eslab qolinmaydi: keyingi so'rovlar yana tanlangan modeldan
         # boshlanadi (zaxira odatda qimmatroq).
         if not rejected and _WORKING.get(kind) != model:
-            log.info("%s modeli: %s", {"text": "Matn", "chart": "Diagramma"}.get(kind, "Vision"), model)
+            log.info("%s modeli: %s", {"text": "Matn", "chart": "Diagramma", "receipt": "Chek", "receipt2": "Chek (tasdiq)"}.get(kind, "Vision"), model)
             _WORKING[kind] = model
         return data
     if partial is not None:

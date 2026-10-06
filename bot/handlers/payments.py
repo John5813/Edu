@@ -15,6 +15,12 @@ from config import PAYMENT_CARD, PAYMENT_CARD_2, PAYMENT_CARD_OWNER, ADMIN_IDS, 
 router = Router()
 logger = logging.getLogger(__name__)
 
+
+def _started_at() -> str:
+    """To'lov summasi tanlangan payt (Toshkent vaqti): chek shundan oldin o'tkazilgan bo'lmasligi kerak."""
+    from services.receipts.rules import now_tashkent
+    return now_tashkent().isoformat()
+
 # Payment menu items in different languages
 def _with_variants(texts, key):
     """Qo'lda yozilgan yozuvlarga barcha tillardagi (qozoqcha ham) tugma yozuvini qo'shadi."""
@@ -76,7 +82,7 @@ async def handle_payment_amount_selection(callback: CallbackQuery, state: FSMCon
 
     try:
         amount = int(callback.data.split("_")[1])
-        await state.update_data(payment_amount=amount)
+        await state.update_data(payment_amount=amount, payment_started_at=_started_at())
 
         card1_fmt = f"{PAYMENT_CARD[:4]} {PAYMENT_CARD[4:8]} {PAYMENT_CARD[8:12]} {PAYMENT_CARD[12:]}"
         card2_fmt = f"{PAYMENT_CARD_2[:4]} {PAYMENT_CARD_2[4:8]} {PAYMENT_CARD_2[8:12]} {PAYMENT_CARD_2[12:]}"
@@ -245,7 +251,7 @@ async def handle_custom_amount_input(callback_message: Message, state: FSMContex
             await callback_message.answer("❌ Minimum payment amount is 1,000 som.")
         return
 
-    await state.update_data(payment_amount=amount)
+    await state.update_data(payment_amount=amount, payment_started_at=_started_at())
 
     card1_fmt = f"{PAYMENT_CARD[:4]} {PAYMENT_CARD[4:8]} {PAYMENT_CARD[8:12]} {PAYMENT_CARD[12:]}"
     card2_fmt = f"{PAYMENT_CARD_2[:4]} {PAYMENT_CARD_2[4:8]} {PAYMENT_CARD_2[8:12]} {PAYMENT_CARD_2[12:]}"
@@ -308,6 +314,7 @@ async def handle_custom_amount_input(callback_message: Message, state: FSMContex
 @router.message(PaymentStates.waiting_for_screenshot, F.content_type.in_([ContentType.PHOTO, ContentType.DOCUMENT]))
 async def handle_payment_screenshot(message: Message, state: FSMContext, db: Database, user_lang: str, user=None):
     """Handle payment screenshot"""
+    skip_state_clear = False
     try:
         # Get user from database if not provided by middleware
         if not user:
@@ -346,6 +353,17 @@ async def handle_payment_screenshot(message: Message, state: FSMContext, db: Dat
             file_id = message.photo[-1].file_id
         else:
             file_id = message.document.file_id
+
+        # AI chekni o'qiydi va tekshiradi: ishonchli cheklar avtomatik tasdiqlanadi, qolganlari
+        # (eski, takroriy, shubhali) o'qilgan ma'lumoti bilan adminga boradi. AI ishlamasa —
+        # quyidagi avvalgi qo'lda tekshiruvga o'tiladi.
+        from services.receipts import flow as receipt_flow
+        outcome = await receipt_flow.process(message, data, db, user, user_lang, source,
+                                             keyboard=get_main_keyboard(user_lang))
+        if outcome is not None:
+            if not outcome.clear_state:
+                skip_state_clear = True
+            return
 
         # Create payment record with source
         payment_id = await db.create_payment(user.id, amount, file_id, source)
@@ -399,7 +417,8 @@ async def handle_payment_screenshot(message: Message, state: FSMContext, db: Dat
         await message.answer(error_text, reply_markup=get_main_keyboard(user_lang))
 
     finally:
-        await state.clear()
+        if not skip_state_clear:
+            await state.clear()
 
 async def notify_admins_about_payment(bot, user, amount, message_id, payment_id, source=""):
     """Notify admins about new payment"""

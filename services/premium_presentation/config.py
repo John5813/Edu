@@ -82,6 +82,22 @@ OPENROUTER_CHART_MODELS = [
     if model.startswith("anthropic/")
 ] or _chain(_DEFAULT_CHART_CHAIN)
 
+# To'lov cheklarini o'qish (services/receipts): faqat Claude. Birinchi o'qish — arzon va tez
+# Haiku; tasdiqlovchi ikkinchi o'qish — kuchliroq Sonnet (raqamlarni adashtirmaslik uchun).
+OPENROUTER_RECEIPT_MODELS = [
+    model for model in _chain(
+        os.getenv("RECEIPT_MODEL", "") + "," +
+        os.getenv("RECEIPT_FALLBACKS", "anthropic/claude-haiku-4.5,anthropic/claude-sonnet-4.5"))
+    if model.startswith("anthropic/")
+] or ["anthropic/claude-haiku-4.5", "anthropic/claude-sonnet-4.5"]
+OPENROUTER_RECEIPT_VERIFY_MODELS = [
+    model for model in _chain(
+        os.getenv("RECEIPT_VERIFY_MODEL", "") + "," +
+        os.getenv("RECEIPT_VERIFY_FALLBACKS",
+                  "anthropic/claude-sonnet-4.5,anthropic/claude-sonnet-5,anthropic/claude-haiku-4.5"))
+    if model.startswith("anthropic/")
+] or ["anthropic/claude-sonnet-4.5", "anthropic/claude-haiku-4.5"]
+
 # Eski nom bilan foydalanadigan joylar uchun — ro'yxatning birinchisi.
 OPENROUTER_TEXT_MODEL = OPENROUTER_TEXT_MODELS[0]
 OPENROUTER_VISION_MODEL = OPENROUTER_VISION_MODELS[0]

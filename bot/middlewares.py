@@ -2,7 +2,7 @@ from typing import Callable, Dict, Any, Awaitable
 from aiogram import BaseMiddleware
 from aiogram.types import Message, CallbackQuery
 from database.database import Database
-from config import ADMIN_IDS
+from config import ADMIN_IDS, ADMIN_CONTACT
 from translations import set_kazakh, reset_kazakh, kazakh_scope
 import logging
 
@@ -75,9 +75,11 @@ class BlockedUserMiddleware(BaseMiddleware):
         if is_blocked:
             # Don't process the message/callback for blocked users
             if isinstance(event, Message):
-                await event.answer("🚫 Siz botdan foydalanish huquqiga ega emassiz.")
+                await event.answer("🚫 Siz botdan foydalanish huquqiga ega emassiz. "
+                                   f"Adminga murojaat qiling: {ADMIN_CONTACT}")
             elif isinstance(event, CallbackQuery):
-                await event.answer("🚫 Siz botdan foydalanish huquqiga ega emassiz.", show_alert=True)
+                await event.answer("🚫 Siz botdan foydalanish huquqiga ega emassiz. "
+                                   f"Adminga murojaat qiling: {ADMIN_CONTACT}", show_alert=True)
             return
 
         return await handler(event, data)
