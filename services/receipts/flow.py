@@ -149,23 +149,6 @@ def _snapshot(receipt: rules.Receipt, file_sha: str) -> dict:
             "meta_flags": receipt.meta_flags, "confidence": receipt.confidence, "file_sha": file_sha}
 
 
-async def _block(bot, db, user, lang: str, strikes: int) -> None:
-    admin = config.ADMIN_IDS[0] if config.ADMIN_IDS else 0
-    await db.block_user(user.telegram_id, getattr(user, "username", "") or "", admin,
-                        f"Takroriy/soxta cheklar ({strikes})")
-    try:
-        await bot.send_message(user.telegram_id, texts.user_text(lang, "blocked"))
-    except Exception:
-        pass
-    link = f"@{user.username}" if getattr(user, "username", None) else f"tg://user?id={user.telegram_id}"
-    for admin_id in config.ADMIN_IDS:
-        try:
-            await bot.send_message(admin_id, f"🚫 {link} (id {user.telegram_id}) avtomatik bloklandi: "
-                                             f"{strikes} ta takroriy/soxta chek.\nBloklanganlar ro'yxatidan ochish mumkin.")
-        except Exception:
-            pass
-
-
 # ──────────────────────────────────────────────────────────────── asosiy oqim
 
 async def process(message, state_data: dict, db, user, lang: str, source: str = "",
@@ -345,23 +328,13 @@ def _debug(user, decision) -> str:
 
 
 async def _rejected(message, bot, db, user, lang, decision, rid, keyboard=None) -> Outcome:
-    """Takroriy, noto'g'ri qabul qiluvchi yoki tahrirlangan chek: faqat mijozga javob, adminga xabar yo'q."""
-    verdict = decision.verdict
-    is_admin = user.telegram_id in config.ADMIN_IDS
-    strikes = 0
-    if verdict == rules.DUPLICATE and decision.fraud and not is_admin:
-        strikes = await store.fraud_strikes(user.telegram_id)
-    key = {rules.DUPLICATE: "duplicate", rules.WRONG_RECEIVER: "wrong_receiver", rules.FAKE: "fake"}[verdict]
-    text = texts.user_text(lang, key)
-    if verdict == rules.DUPLICATE and strikes and strikes >= config.RECEIPT_FRAUD_STRIKES - 1:
-        text += texts.user_text(lang, "duplicate_warn")
+    """Takroriy yoki tahrirlangan chek: faqat mijozga javob. Adminga xabar yo'q, mijoz bloklanmaydi."""
+    key = {rules.DUPLICATE: "duplicate", rules.WRONG_RECEIVER: "wrong_receiver", rules.FAKE: "fake"}[decision.verdict]
     try:
-        await message.answer(text + _debug(user, decision), reply_markup=keyboard)
+        await message.answer(texts.user_text(lang, key) + _debug(user, decision), reply_markup=keyboard)
     except Exception:
         pass
-    if strikes >= config.RECEIPT_FRAUD_STRIKES:
-        await _block(bot, db, user, lang, strikes)      # adminga faqat blok haqida bitta xabar boradi
-    return Outcome(verdict, receipt_id=rid)
+    return Outcome(decision.verdict, receipt_id=rid)
 
 
 async def _flagged(message, bot, db, user, lang, receipt, decision, claimed, rid, payment_id,
