@@ -249,19 +249,18 @@ QAT'IY QOIDALAR:
 9a. IQTIBOS faqat HAQIQIY, mashhur va muallifi aniq so'z bo'lsa
    (masalan, tarixiy shaxs, olim yoki davlat rahbarining ma'lum
    gapi). "Tashkilot hisobotidan", "BMT hisobotida aytilgan" kabi
-   iqtibos YOZILMAYDI — bunday gap o'ylab topilgan bo'ladi. Aniq
-   iqtibosni eslay olmasangiz iqtibos blokini ishlatmang: fikrni
-   o'z so'zingiz bilan, oddiy matn qilib yozing. Manba yilini
-   o'ylab topmang.
+   gap iqtibos emas — uni o'z so'zingiz bilan, manbasiz yozing.
+   Aniq iqtibosni eslay olmasangiz iqtibos bloki shart emas: fikrni
+   oddiy matn qilib yozing. Manba yili faqat aniq bilganingizda
+   qo'yiladi.
 10. Yorliqlar qisqa: kartochka sarlavhasi 1-4 so'z, vaqt o'qidagi
-   izoh bir jumla.
-11. Birinchi slayd — MUQOVA: unda muallif ismi, fan va yil
-   YOZILMAYDI (ismni tizim o'zi qo'yadi). Oxirgisi — XULOSA: unda faqat xulosa
-   matni bo'ladi, "Rahmat", "E'tiboringiz uchun rahmat", "Savollar"
-   yozilmaydi va ular uchun alohida varaq ham yo'q. Xulosada rasm
-   bloki ishlatilmaydi. Taqdimot bo'limlarga
-   ajratilmaydi: faqat bo'lim nomi yozilgan alohida varaq bo'lmaydi,
-   har varaq mazmun beradi.
+   izoh bir jumla. Sarlavhalar oddiy gap kabi yoziladi — faqat birinchi
+   so'z va atoqli otlar bosh harf bilan: «Iqtisodiy o'sish omillari»,
+   «Факторы экономического роста», «Экономикалық өсу факторлары».
+11. Birinchi slayd — MUQOVA: sarlavha va bir jumlalik izoh (muallif ismi,
+   fan va yilni tizim o'zi qo'yadi). Taqdimot XULOSA slaydi bilan
+   tugaydi: unda faqat xulosa matni, rasmsiz. Har varaq mazmun beradi
+   (bo'lim nomi yozilgan alohida varaq kerak emas).
 12. Matn haqiqiy va aniq bo'lsin: nom, misol, manba bilan. "Lorem
    ipsum", "Matn shu yerda" kabi o'rin egallovchi yozma.
 13. SARLAVHADA VA'DA QILINGAN NARSA SLAYDDA BO'LSIN. Sarlavhada
@@ -287,12 +286,11 @@ QAT'IY QOIDALAR:
    so'z): nima haqida va nima uchun muhim. Undan keyin dalil,
    misol va tafsilotlar. Slayd faqat qisqa bandlardan iborat
    bo'lmasin — har band avvalgi gapni davom ettirsin.
-18. RAQAMLASH FAQAT KERAK JOYDA: bandlarni "01, 02, 03" yoki
-   "1, 2, 3" deb sanab chiqish — sun'iy matnning belgisi. Raqam
-   faqat haqiqiy tartib bo'lganda (qadamlar, bosqichlar, reja)
-   qo'yiladi; kartochka va ro'yxat bandlariga raqam YOZILMAYDI.
-   Fikrni ba'zan ravon abzats, ba'zan misol, ba'zan qiyoslash bilan
-   ifodalang — hamma slayd ro'yxat bo'lmasin.
+18. RAQAM — HAQIQIY TARTIB UCHUN: qadamlar, bosqichlar va reja
+   raqamlanadi; kartochka va ro'yxat bandlari raqamsiz, bosh fikr bilan
+   boshlanadi — shunda matn tabiiy o'qiladi. Fikrni ba'zan ravon
+   abzats, ba'zan misol, ba'zan qiyoslash bilan ifodalang — slaydlar
+   bir-biridan farq qilsin.
 19. HAR SLAYD BOSHQA FIKRNI OCHSIN. Oldingi slaydlarda aytilgan
    fakt, sana yoki ta'rifni qayta yozmang; taqdimot rejasidagi har
    slayd o'z sarlavhasidagi masalani ochadi, boshqasini emas."""
@@ -460,9 +458,10 @@ def plan_outline(topic: str, count: int, language: str,
         "yoki bitta fikr → matn_rasm yoki iqtibos. 'kartalar' faqat 3-4 ta "
         "teng huquqli element uchun; unga qaytaverma. Ketma-ket ikki slayd "
         "bir xil kategoriyada bo'lmasin (mantiq buni majburlamasa); bir "
-        "kategoriya butun rejada 2 martadan ko'p takrorlanmasin. 'jadval' "
-        "kategoriyasi faqat qisqa (3-4 qator) taqqoslash uchun, 'matn_rasm' "
-        "(ro'yxat + rasm) ni har bo'limga qo'ymang.\n"
+        "kategoriya butun rejada 2 martadan ko'p takrorlanmasin ('matn_rasm' "
+        "bundan mustasno). 'jadval' kategoriyasi faqat qisqa (3-4 qator) "
+        "taqqoslash uchun. Har 10 ta slaydning taxminan 3 tasi 'matn_rasm' "
+        "(matn + rasm) bo'lsin, ular bir-biriga ketma-ket kelmasin.\n"
         + chart_rule
         + ("Bu HISOB-KITOB mavzusi: rejada formula, ishlangan misol va "
            "diagramma kategoriyalari ham bo'lsin — har formula misol bilan "
@@ -530,6 +529,7 @@ def plan_outline(topic: str, count: int, language: str,
         outline.append({"title": title, "brief": brief, "category": category})
 
     outline = ensure_charts(outline, language)
+    outline = ensure_photos(outline)
     # Kod darajasida kategoriya almashtirilmaydi (ilgari shunday edi va
     # mantiqan ketma-ket kelishi kerak bo'lgan ikki ro'yxatni ajratib,
     # fikrni uzardi). Bir xillikdan qochishni model promptdagi yo'riqnoma
@@ -542,7 +542,7 @@ def plan_outline(topic: str, count: int, language: str,
 # chetlab o'tishga olib kelgan edi. Reja yetarli diagramma bermasa, mos
 # slaydlar shu yerda diagrammali qilib belgilanadi.
 _CHART_CANDIDATES = ("korsatkichlar", "kartalar", "ikki_ustun", "qiyoslash",
-                     "jadval", "matn_rasm", "tuzilma")
+                     "jadval", "tuzilma")
 
 
 def ensure_charts(outline: List[Dict], language: str = "uz") -> List[Dict]:
@@ -556,7 +556,7 @@ def ensure_charts(outline: List[Dict], language: str = "uz") -> List[Dict]:
                   if outline[i]["category"] in _CHART_CANDIDATES]
     if len(candidates) < need:       # mos kategoriya yetmasa boshqa oddiy slaydlardan
         extra = [i for i in range(2, count - 1)
-                 if outline[i]["category"] not in ("diagramma", "formula", "misol", "iqtibos")
+                 if outline[i]["category"] not in ("diagramma", "formula", "misol", "iqtibos", "matn_rasm")
                  and i not in candidates]
         candidates += extra
     candidates = [i for i in candidates if i not in have]
@@ -575,6 +575,46 @@ def ensure_charts(outline: List[Dict], language: str = "uz") -> List[Dict]:
                          "bo'lmasa izohda \"Shartli misol\" deb yozing.")
         item["chart_kind"] = kind
         log.info("%d-slayd diagrammali qilib belgilandi (%s)", index + 1, kind)
+    return outline
+
+
+# Rasmli slaydlar soni ham promptga qoldirilmaydi: har 10 ta asosiy slaydning
+# 3 tasida rasm bo'lsin (deck_logic.photo_quota). Reja kam rasmli slayd bersa,
+# mos slaydlar shu yerda "matn_rasm" qilib belgilanadi.
+_PHOTO_CANDIDATES = ("kartalar", "ikki_ustun", "qiyoslash", "tuzilma", "jarayon")
+
+
+def ensure_photos(outline: List[Dict]) -> List[Dict]:
+    count = len(outline)
+    want = deck_logic.photo_quota(count)
+    have = [i for i, item in enumerate(outline) if item["category"] == "matn_rasm"]
+    need = want - len(have)
+    if need <= 0:
+        return outline
+    candidates = [i for i in range(2, count - 1)
+                  if outline[i]["category"] in _PHOTO_CANDIDATES and i not in have]
+    if len(candidates) < need:
+        extra = [i for i in range(2, count - 1)
+                 if outline[i]["category"] not in ("diagramma", "formula", "misol", "iqtibos",
+                                                   "korsatkichlar", "jadval", "vaqt_oqi", "matn_rasm")
+                 and i not in candidates]
+        candidates += extra
+    if not candidates:
+        return outline
+    # Rasmli slaydlar bir-biriga tegib turmasin: mavjudlardan uzoqroqlar afzal.
+    chosen = []
+    pool = list(candidates)
+    while pool and len(chosen) < need:
+        taken = have + chosen
+        best = max(pool, key=lambda i: min([abs(i - t) for t in taken] or [99]))
+        chosen.append(best)
+        pool.remove(best)
+    for index in sorted(chosen):
+        item = outline[index]
+        item["category"] = "matn_rasm"
+        item["brief"] = (f"{item['brief']} — MATN VA RASM bloki bilan ko'rsating: bir tomonda "
+                         "fikrni ochgan matn, bir tomonda mavzuga mos real fotosurat.")
+        log.info("%d-slayd rasmli qilib belgilandi", index + 1)
     return outline
 
 
@@ -1119,11 +1159,27 @@ def repair_deck(slides: List[str], ctx: "_Deck") -> List[str]:
                 "bo'lmasa, izoh oxiriga «Shartli misol.» deb yozing. Mavzu: " + own_brief(index),
                 deck_logic.has_chart)
 
+    # 4b) Rasmli bo'lishi kerak bo'lgan slaydlar
+    for index in range(2, last):
+        item = ctx.outline[index] if index < len(ctx.outline) else {}
+        if item.get("category") == "matn_rasm" and not deck_logic.has_photo(result[index]):
+            fix(index,
+                "BU SLAYDDA RASM BO'LISHI SHART (rejada shunday belgilangan). Slaydni "
+                "MATN VA RASM bloki bilan yozing: bir tomonda fikrni ochgan matn, bir "
+                "tomonda `.rasm` bloki (`data-prompt` — rasmning inglizcha tavsifi: "
+                "oddiy realistik fotosurat). Mavzu: " + own_brief(index),
+                deck_logic.has_photo)
+
     # 5) Umumlashtiruvchi gap
     result = add_leads(result, ctx)
 
     # 6) Kartochka raqamlari (faqat reja slaydida qoladi)
     result = [deck_logic.strip_numbering(b) for b in result]
+
+    # 6b) Sarlavha harflari (birinchi so'z bosh harf) va yolg'iz qolgan kartochka (3+1).
+    # Bu ikki narsa kod bilan tuzatiladi: modelga "shunday yozma" deyish o'rniga natija to'g'rilanadi.
+    result = [b if i == 0 else deck_logic.fix_columns(deck_logic.fix_title_case(b))
+              for i, b in enumerate(result)]
 
     # 7) Reja slaydi — yozilgan slaydlarning haqiqiy sarlavhalaridan
     items = []
@@ -1219,7 +1275,10 @@ def repeated_slides(bodies: List[str]) -> List[int]:
             previous = None
             continue
         seen[signature] = seen.get(signature, 0) + 1
-        if signature == previous or seen[signature] > MAX_SAME_SHAPE:
+        # Rasmli slaydlar soni kvota bilan belgilanadi (har 10 tada 3 ta): ularni
+        # "bir xil shakl" deb qayta yozish rasmni yo'qotardi. Faqat ketma-ket kelsa belgilanadi.
+        repeated_too_often = seen[signature] > MAX_SAME_SHAPE and "rasm" not in signature
+        if signature == previous or repeated_too_often:
             flagged.append(index)
         previous = signature
     return flagged

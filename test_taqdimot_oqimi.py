@@ -132,13 +132,13 @@ async def full_flow():
     text, markup = chat.last()[1], chat.last()[2]
     count_btns = [b for b in buttons(markup) if b.callback_data.startswith("prem_ppt_count:")]
     check("zamonaviy hajm: har tugmada narx", all("so'm" in b.text for b in count_btns)
-          and any(b.callback_data == "prem_ppt_count:12" and "8,000" in b.text for b in count_btns),
+          and any(b.callback_data == "prem_ppt_count:12" and "6,000" in b.text for b in count_btns),
           [b.text for b in count_btns])
     check("hajm oynasida mijoz balansi ko'rinadi", "Balansingiz" in text and "100,000" in text, text)
     check("hajm oynasida tanlangan uslub nomi", "Jurnal" in text, text)
     await pp.premium_ppt_got_count(callback(chat, "prem_ppt_count:12"), state, db)
     data = await state.get_data()
-    check("xulosa: holat va narx", await state.get_state() == PS.waiting_for_slide_count.state and data["price"] == 8000, data.get("price"))
+    check("xulosa: holat va narx", await state.get_state() == PS.waiting_for_slide_count.state and data["price"] == 6000, data.get("price"))
     summary = chat.last()[1]
     check("xulosada mavzu, ism, uslub, slayd soni", all(w in summary for w in ("Falsafa", "Aliyev Jasur", "Jurnal", "12")), summary)
     langs = [b.callback_data for b in buttons(chat.last()[2]) if b.callback_data.startswith("prem_ppt_lang:")]

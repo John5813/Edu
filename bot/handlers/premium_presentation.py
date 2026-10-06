@@ -59,22 +59,35 @@ logger = logging.getLogger(__name__)
 MIN_SLIDES = 5
 MAX_SLIDES = 30
 
-# Narx har varaqdan hisoblanadi va butun mingga yaxlitlanadi (pastga):
-# 10 varaq — 7 000, 15 varaq — 10 000, 20 varaq — 14 000, 30 varaq — 21 000.
-# Ilgari uchta keng zinapoya bor edi (10 gacha 7 500, 20 gacha 12 500),
-# ya'ni 11 varaq ham, 20 varaq ham bir xil turardi.
-PRICE_PER_SLIDE = 700
+# Narx oddiy taqdimot bilan BIR XIL: 10 varaq — 5 000, 15 — 7 000, 20 — 10 000
+# (config.PRESENTATION_PRICES). Oraliq sonlar shu nuqtalar orasida chiziqli
+# hisoblanib 500 so'mgacha yaxlitlanadi (12 varaq — 6 000), 10 dan kamida
+# birinchi qadam narxi (500 so'm/varaq), 20 dan keyin oxirgi qadam narxi
+# (600 so'm/varaq) ishlaydi.
 MIN_PRICE = 3000
 
 
 def _get_price(slide_count: int) -> int:
-    """Varaq soniga qarab narx (so'm)."""
+    """Varaq soniga qarab narx (so'm) — oddiy taqdimot narxlari bilan mos."""
+    from config import PRESENTATION_PRICES
+
     try:
         count = int(slide_count or 0)
     except (TypeError, ValueError):
         count = MIN_SLIDES
     count = max(MIN_SLIDES, min(count, MAX_SLIDES))
-    return max(MIN_PRICE, count * PRICE_PER_SLIDE // 1000 * 1000)
+    if count in PRESENTATION_PRICES:
+        return int(PRESENTATION_PRICES[count])
+    points = sorted((int(k), int(v)) for k, v in PRESENTATION_PRICES.items())
+    if count < points[0][0]:
+        value = points[0][1] / points[0][0] * count
+    elif count > points[-1][0]:
+        (x1, y1), (x2, y2) = points[-2], points[-1]
+        value = y2 + (y2 - y1) / (x2 - x1) * (count - x2)
+    else:
+        (x1, y1), (x2, y2) = next((a, b) for a, b in zip(points, points[1:]) if a[0] <= count <= b[0])
+        value = y1 + (y2 - y1) / (x2 - x1) * (count - x1)
+    return max(MIN_PRICE, int(value / 500 + 0.5) * 500)
 
 
 def _back_text(lang: str) -> str:

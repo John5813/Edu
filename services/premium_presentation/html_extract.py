@@ -811,21 +811,22 @@ _CHECK_SCRIPT = r"""
   }
 
   // Matn juda mayda bo'lib qolganmi. Mazmun sig'masa `fit` shriftni
-  // kichraytiradi; 10 pt (20 px) dan kichik matnni zalda ham, telefonda
+  // kichraytiradi; 12 pt (24 px) dan kichik matnni zalda ham, telefonda
   // ham o'qib bo'lmaydi. Bunday slaydda mazmun ko'p — uni qisqartirish
   // kerak (kamaytirib sig'dirish emas).
   let tiny = 0;
   const tinyAt = [];
   for (const t of texts) {
-    if (t.el.closest("svg, sup, sub, .bezak")) continue;
+    // Manba qatori (`.foot`) va rasm muallifi yozuvi tabiiy ravishda kichik.
+    if (t.el.closest("svg, sup, sub, .bezak, .foot")) continue;
     const size = parseFloat(getComputedStyle(t.el).fontSize) || 0;
-    if (size && size < 20) {
+    if (size && size < 24) {
       tiny += 1;
       tinyAt.push(label(t.el));
     }
   }
   if (tiny) {
-    problems.push(tiny + " ta matn juda mayda (10 pt dan kichik) — "
+    problems.push(tiny + " ta matn juda mayda (12 pt dan kichik) — "
       + "slaydda mazmun ortiqcha: matnlarni qisqartiring yoki kamroq "
       + "band/blok qoldiring" + examples(tinyAt));
   }

@@ -366,11 +366,47 @@ def _line(rows, labels, theme, unit, W, H, xlabel="") -> str:
     return _svg(parts, unit, theme, W, H)
 
 
+def _wrap_label(text: str, size: int, room: float) -> List[str]:
+    """Imzoni `room` pikselga sig'dirib bir yoki ikki qatorga bo'ladi (qalin harf ~0.6 em)."""
+    limit = max(8, int(room / (size * 0.6)))
+    if len(text) <= limit:
+        return [text]
+    cut = text.rfind(" ", 0, limit + 1)
+    if cut < limit * 0.4:
+        cut = limit
+    first, rest = text[:cut].rstrip(), text[cut:].strip()
+    if len(rest) > limit:
+        rest = rest[:max(limit - 1, 1)].rstrip() + "…"
+    return [first, rest] if rest else [first]
+
+
 def _donut(rows, labels, theme, unit, W, H, xlabel="") -> str:
-    """Halqa diagramma — ulushlar."""
+    """Halqa diagramma — ulushlar.
+
+    Imzolar halqaning yonida, diagramma kengligiga SIG'ISHI shart: uzun
+    nomlar (qozoqcha, ruscha) ilgari o'ng chetda kesilib qolardi. Shuning
+    uchun shrift kichraytiriladi, kerak bo'lsa halqa ixchamlashadi va imzo
+    ikki qatorga bo'linadi.
+    """
     values = rows[0][1]
     total = sum(values) or 1.0
+    texts = []
+    for index, value in enumerate(values):
+        label = labels[index] if index < len(labels) else ""
+        texts.append(f"{label} — {_fmt(100.0 * value / total)}%")
+    longest = max((len(t) for t in texts), default=0)
+
     radius = min(H * 0.42, W * 0.22)
+    size = 30
+    for shrink in (1.0, 0.88, 0.76):
+        radius = min(H * 0.42, W * 0.22) * shrink
+        room = W - (radius * 2 + 40 + 56 + 38) - 24         # imzo uchun qolgan eni
+        size = 30
+        while size > 22 and longest * size * 0.6 > room:
+            size -= 2
+        if longest * size * 0.6 <= room:
+            break
+    room = W - (radius * 2 + 40 + 56 + 38) - 24
     cx, cy, thickness = radius + 40, H / 2, radius * 0.33
 
     parts = []
@@ -383,17 +419,19 @@ def _donut(rows, labels, theme, unit, W, H, xlabel="") -> str:
         angle += span
 
     # Yonida imzolar: halqaning ichiga yozuv sig'maydi.
-    line_y = cy - len(values) * 27 + 27
-    for index, value in enumerate(values):
+    wrapped = [_wrap_label(t, size, room) for t in texts]
+    step = size * 1.8
+    heights = [step + (len(w) - 1) * size * 1.15 for w in wrapped]
+    line_y = cy - sum(heights) / 2 + size
+    for index, lines in enumerate(wrapped):
         colour = _colour(theme, index)
-        label = labels[index] if index < len(labels) else ""
-        share = 100.0 * value / total
         left = cx + radius + 56
         parts.append(f'<rect x="{left:.0f}" y="{line_y - 18:.0f}" width="22" '
                      f'height="22" rx="5" fill="#{colour}"/>')
-        parts.append(_text(left + 38, line_y, f"{label} — {_fmt(share)}%", 30,
-                           theme.body, anchor="start", weight="700"))
-        line_y += 54
+        for number, line in enumerate(lines):
+            parts.append(_text(left + 38, line_y + number * size * 1.15, line, size,
+                               theme.body, anchor="start", weight="700"))
+        line_y += heights[index]
 
     return _svg(parts, unit, theme, W, H)
 

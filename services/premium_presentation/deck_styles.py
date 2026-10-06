@@ -60,6 +60,9 @@ justify-content:flex-start;border-top:3px solid #ACCENT}
 .steps:has(>.card>.ikon-dot:first-child){padding-top:0;row-gap:40px}
 .cols>.card>.ikon-dot:first-child,.steps>.card>.ikon-dot:first-child{
 margin-top:0;align-self:flex-start}
+/* fit3 ikonkani kartochkadan -74px yuqoriga olib chiqadi (asosiy dizayn); bu uslubda ikonka
+   kartochka ichida — shuning uchun siqilgan varaqda ham joyida qoladi. */
+.slide.fit3 .cols>.card>.ikon-dot:first-child,.slide.fit3 .steps>.card>.ikon-dot:first-child{margin-top:0}
 .ikon-dot{background:none!important;width:64px;height:64px;
 justify-content:flex-start}
 .ikon-dot .ikon{width:56px;height:56px}
@@ -158,6 +161,9 @@ justify-content:flex-start}
 .steps:has(>.card>.ikon-dot:first-child){padding-top:0}
 .cols>.card>.ikon-dot:first-child,.steps>.card>.ikon-dot:first-child{
 margin-top:0;align-self:flex-start}
+/* fit3 ikonkani kartochkadan -74px yuqoriga olib chiqadi (asosiy dizayn); bu uslubda ikonka
+   kartochka ichida — shuning uchun siqilgan varaqda ham joyida qoladi. */
+.slide.fit3 .cols>.card>.ikon-dot:first-child,.slide.fit3 .steps>.card>.ikon-dot:first-child{margin-top:0}
 .ikon-dot{background:none!important;width:72px;height:72px;
 justify-content:flex-start}
 .ikon-dot .ikon{width:64px;height:64px}
@@ -204,6 +210,9 @@ border-radius:4px;justify-content:flex-start}
 .steps:has(>.card>.ikon-dot:first-child){padding-top:0}
 .cols>.card>.ikon-dot:first-child,.steps>.card>.ikon-dot:first-child{
 margin-top:0;align-self:flex-start}
+/* fit3 ikonkani kartochkadan -74px yuqoriga olib chiqadi (asosiy dizayn); bu uslubda ikonka
+   kartochka ichida — shuning uchun siqilgan varaqda ham joyida qoladi. */
+.slide.fit3 .cols>.card>.ikon-dot:first-child,.slide.fit3 .steps>.card>.ikon-dot:first-child{margin-top:0}
 .kor{position:absolute;width:34px;height:34px;z-index:2}
 .kor-a{top:-6px;left:-6px;border-top:8px solid #ACCENT;
 border-left:8px solid #ACCENT}
@@ -244,6 +253,9 @@ border-radius:26px;justify-content:flex-start}
 .steps:has(>.card>.ikon-dot:first-child){padding-top:0}
 .cols>.card>.ikon-dot:first-child,.steps>.card>.ikon-dot:first-child{
 margin-top:0;align-self:flex-start}
+/* fit3 ikonkani kartochkadan -74px yuqoriga olib chiqadi (asosiy dizayn); bu uslubda ikonka
+   kartochka ichida — shuning uchun siqilgan varaqda ham joyida qoladi. */
+.slide.fit3 .cols>.card>.ikon-dot:first-child,.slide.fit3 .steps>.card>.ikon-dot:first-child{margin-top:0}
 .ikon-dot,.item-ikon{background:linear-gradient(135deg,#ACCENT,#TONE2)!important}
 .card-num{font-size:34px;letter-spacing:4px}
 .list>.item{background:#SOFT;border:2px solid #EDGE;border-radius:22px;

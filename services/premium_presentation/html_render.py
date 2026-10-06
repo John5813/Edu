@@ -367,6 +367,10 @@ _FIT_SCRIPT = r"""
 # Varaq pastida qoldiriladigan eng kam chet (px).
 _FIT_MARGIN = 40
 
+# Oxirgi chora (bir tekis kichraytirish): qadam va qadamlar soni.
+_SHRINK_FACTOR = 0.95
+_SHRINK_STEPS = 7
+
 # Oxirgi chora: uch bosqichdan keyin ham sig'magan mazmun bir tekis
 # kichraytiriladi — shrift, qator oralig'i, bo'shliqlar va rasmlar.
 # Ilgari bunday varaq shundayligicha qolib, pastki kartochka izohi
@@ -429,11 +433,14 @@ def fit(page) -> int:
                 if level:
                     log.info("Varaq sig'dirildi: %d-bosqich", level)
                 return level
-        for step in range(1, 6):
-            low = page.evaluate(_SHRINK_SCRIPT, 0.9)
+        # Mayda qadamlar: ilgari 0.9 ning 5 qadami (jami 59%) bor edi — mazmun
+        # sig'ishi bilan ham shrift 12 pt gacha tushib, varaqning yarmi bo'sh
+        # qolardi. Endi sig'ishi bilanoq to'xtaydi va 70% dan pastga tushmaydi.
+        for step in range(1, _SHRINK_STEPS + 1):
+            low = page.evaluate(_SHRINK_SCRIPT, _SHRINK_FACTOR)
             if low <= SLIDE_H_PX - _FIT_MARGIN:
                 log.info("Varaq sig'dirildi: mazmun %d%% ga kichraytirildi",
-                         round(100 - 100 * 0.9 ** step))
+                         round(100 - 100 * _SHRINK_FACTOR ** step))
                 return 4
         log.warning("Varaq kichraytirilgandan keyin ham to'liq sig'madi")
         return 4

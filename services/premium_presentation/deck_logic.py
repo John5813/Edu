@@ -37,7 +37,7 @@ _PLAN_TITLE = re.compile(
 PLAN_LABEL = {
     "uz": "Taqdimot rejasi",
     "uz-cyrl": "Тақдимот режаси",
-    "kk": "Презентация жоспары",
+    "kk": "Жоспар",
     "ru": "План презентации",
     "en": "Presentation outline",
 }
@@ -144,6 +144,28 @@ def oversized_table(body: str) -> bool:
     return rows > 5 or cols > 3 or longest > 8
 
 
+# ───────────────────────────────────────────────────────────────── rasm
+
+_PHOTO = re.compile(r'<div\b[^>]*\bclass\s*=\s*["\'][^"\']*(?<![-\w])rasm(?![-\w])[^"\']*["\'][^>]*\bdata-prompt'
+                    r'|<div\b[^>]*\bdata-prompt[^>]*\bclass\s*=\s*["\'][^"\']*(?<![-\w])rasm(?![-\w])'
+                    r'|<img\b[^>]*\bdata-prompt', re.IGNORECASE)
+
+
+def has_photo(body: str) -> bool:
+    """Slaydda rasm bloki (data-prompt bilan) bormi."""
+    return bool(_PHOTO.search(body or ""))
+
+
+def photo_quota(total: int) -> int:
+    """Nechta slaydda rasm bo'lishi kerak: har 10 ta asosiy slaydga 3 ta (yuqoriga yaxlitlanadi).
+
+    `total` — muqova va reja bilan birga slaydlar soni; muqova va reja hisobga kirmaydi
+    (muqovaga rasm alohida qo'yiladi).
+    """
+    main = max(int(total or 0) - 2, 0)
+    return -(-main * 3 // 10)
+
+
 # ─────────────────────────────────────────────────────────── diagramma
 
 _CHART = re.compile(r'class\s*=\s*["\'][^"\']*\b(?:chart|calc)\b', re.IGNORECASE)
@@ -211,6 +233,11 @@ def short_note(brief: str, limit: int = 90) -> str:
     clause = re.split(r"(?<=[.!?])\s|\s[—–-]\s|;\s", brief, maxsplit=1)[0]
     if len(clause) > limit:
         clause = clause[:limit].rsplit(" ", 1)[0]
+        # Qisqartirilgan gap "...принциптері мен" kabi bog'lovchida uzilib qolmasin.
+        words = clause.split()
+        while len(words) > 3 and len(words[-1].strip(",.;:")) <= 3:
+            words.pop()
+        clause = " ".join(words)
     return clause.rstrip(" .,;:—–-")
 
 
@@ -229,7 +256,11 @@ def pick_even(items: List, count: int) -> List:
 
 def plan_slide(items: List[Tuple[str, str]], language: str = "uz") -> str:
     """HAQIQIY slayd sarlavhalaridan reja slaydi. items = [(sarlavha, izoh), ...]."""
-    items = pick_even([(short_title(t), short_note(n)) for t, n in items if short_title(t)], 8)
+    # Kartochka qancha ko'p bo'lsa, izoh shuncha qisqa: telefondagi shrift kengroq bo'lib,
+    # ortiqcha qator kartochka chetidan chiqib ketmasin.
+    total = len([1 for t, _ in items if short_title(t)])
+    limit = 90 if total <= 4 else 70 if total <= 6 else 56
+    items = pick_even([(short_title(t), short_note(n, limit)) for t, n in items if short_title(t)], 8)
     count = len(items)
     columns = 2 if count == 4 else 4 if count >= 7 else 3
     cards = []
@@ -254,6 +285,134 @@ def strip_numbering(body: str) -> str:
     if re.search(r'<section\b[^>]*class\s*=\s*["\'][^"\']*\breja\b', body or "", re.IGNORECASE):
         return body
     return _CARD_NUM.sub("", body)
+
+
+# ──────────────────────────────────────── sarlavha harflari va ustunlar soni
+
+# Davlat, qit'a va shahar nomlari: bosh harf bilan qoladi.
+_PROPER_ROOTS = (
+    "қазақстан", "өзбекстан", "ўзбекистан", "ресей", "қытай", "еуропа", "азия", "америка",
+    "африка", "астана", "алматы", "ташкент", "ақш", "бнұ", "ұлыбритания",
+    "o'zbekiston", "oʻzbekiston", "qozog'iston", "qozogʻiston", "rossiya", "xitoy",
+    "yevropa", "osiyo", "amerika", "afrika", "toshkent", "samarqand", "buxoro",
+    "россия", "казахстан", "узбекистан", "китай", "европа", "америка", "африка", "ташкент",
+    "москва", "сша", "оон", "украина", "германия", "франция", "япония",
+    "kazakhstan", "uzbekistan", "russia", "china", "europe", "asia", "america", "africa",
+)
+_TITLE_ELEMENT = re.compile(
+    r'(<(h1|h2|h3|div|p|span)\b[^>]*\bclass\s*=\s*["\'][^"\']*(?<![-\w])(?:title|card-title|step-title)'
+    r'(?![-\w])[^"\']*["\'][^>]*>)([^<]+)(</\2>)', re.IGNORECASE)
+_WORD_TOKEN = re.compile(r"[^\W\d_][^\s]*", re.UNICODE)
+
+
+def _is_proper(word: str, body_text: str) -> bool:
+    core = word.strip(".,;:!?()«»\"'—–-").lower()
+    if any(core.startswith(root) for root in _PROPER_ROOTS):
+        return True
+    # Matn ichida gap o'rtasida bosh harf bilan uchrasa — atoqli ot.
+    for match in re.finditer(r"(?<![.!?]\s)(?<!^)(?<=\s)" + re.escape(word.strip(".,;:!?()«»\"'")), body_text or ""):
+        return True
+    return False
+
+
+def sentence_case(title: str, body_text: str = "") -> str:
+    """"Негізгі Макроэкономикалық Көрсеткіштер" → "Негізгі макроэкономикалық көрсеткіштер".
+
+    Sarlavhaning deyarli har so'zi bosh harfda (inglizcha "Title Case") bo'lsa — qozoq, rus va
+    o'zbek imlosida bunday yozilmaydi: faqat birinchi so'z va atoqli otlar bosh harf bilan. Qisqartma
+    (ЖІӨ, ООН), raqamli va atoqli so'zlar o'zgarmaydi; oddiy sarlavhaga tegilmaydi.
+    """
+    text = (title or "").strip()
+    words = text.split()
+    if len(words) < 2:
+        return title
+    tail = [w for w in words[1:] if _WORD_TOKEN.match(w)]
+    capitalised = [w for w in tail if w[:1].isupper() and not w.isupper() and not any(c.isdigit() for c in w)
+                   and any(c.islower() for c in w[1:])]
+    needed = 1 if len(words) == 2 else 2
+    if len(capitalised) < needed or len(capitalised) < 0.6 * len(tail):
+        return title
+    out = [words[0]]
+    for word in words[1:]:
+        if word in capitalised and not _is_proper(word, body_text):
+            word = word[:1].lower() + word[1:]
+        out.append(word)
+    return " ".join(out)
+
+
+def fix_title_case(body: str) -> str:
+    """Slayd sarlavhalari va kartochka sarlavhalarini adabiy yozuvga (birinchi so'z bosh harf) keltiradi."""
+    if not body:
+        return body
+    # Atoqli otni aniqlash uchun sarlavhalarning o'zi hisobga olinmaydi (ular hammasi bosh harfda).
+    text = plain(_TITLE_ELEMENT.sub(" ", body))
+
+    def swap(match):
+        original = match.group(3)
+        fixed = sentence_case(html.unescape(original), text)
+        if fixed == html.unescape(original):
+            return match.group(0)
+        return match.group(1) + html.escape(fixed, quote=False) + match.group(4)
+
+    return _TITLE_ELEMENT.sub(swap, body)
+
+
+_COLS_OPEN = re.compile(r'<div\b[^>]*\bclass\s*=\s*"([^"]*)"[^>]*>', re.IGNORECASE)
+_DIV_TAG = re.compile(r"<div\b[^>]*>|</div\s*>", re.IGNORECASE)
+_CARD_CHILD = re.compile(r'<div\b[^>]*\bclass\s*=\s*"[^"]*(?<![-\w])card(?![-\w])', re.IGNORECASE)
+
+
+def _card_count(body: str, start: int) -> int:
+    """`start` dagi `.cols` blokining bevosita `.card` bolalari soni."""
+    depth, count = 0, 0
+    for tag in _DIV_TAG.finditer(body, start):
+        if tag.group(0).startswith("</"):
+            depth -= 1
+            if depth <= 0:
+                break
+        else:
+            depth += 1
+            if depth == 2 and _CARD_CHILD.match(tag.group(0)):
+                count += 1
+    return count
+
+
+def balanced_columns(count: int, current: int) -> int:
+    """`count` ta kartochka uchun ustun soni: oxirgi qatorda yolg'iz kartochka qolmasin."""
+    if count <= 1:
+        return max(current, 1)
+    options = [n for n in (2, 3, 4) if count <= n or count % n != 1]
+    if count <= 4:
+        options = [n for n in options if n <= max(count, 2)] or options
+    if current in options and (current <= count or count <= 2):
+        return current
+    return min(options, key=lambda n: (abs(n - current), n)) if options else current
+
+
+def fix_columns(body: str) -> str:
+    """`cols-3` da 4 ta kartochka (3+1) kabi yolg'iz qolgan kartochkani ustun sonini o'zgartirib tuzatadi."""
+    result, pos = [], 0
+    for match in _COLS_OPEN.finditer(body or ""):
+        classes = match.group(1)
+        if "cols" not in classes.split():
+            continue
+        number = re.search(r"(?<![-\w])cols-(\d)(?![-\w])", classes)
+        if not number:
+            continue
+        current = int(number.group(1))
+        count = _card_count(body, match.start())
+        if count < 2:
+            continue
+        wanted = balanced_columns(count, current)
+        if wanted == current:
+            continue
+        opening = match.group(0)
+        fixed = re.sub(r"(?<![-\w])cols-\d(?![-\w])", f"cols-{wanted}", opening, count=1)
+        result.append(body[pos:match.start()])
+        result.append(fixed)
+        pos = match.end()
+    result.append(body[pos:])
+    return "".join(result)
 
 
 # ───────────────────────────────────────────────────── umumlashtiruvchi gap

@@ -31,7 +31,7 @@ log = logging.getLogger("html_images")
 # Taqdimotda nechta fotosurat bo'lishi. Pastki chegara mijoz so'ragani —
 # rasmsiz taqdimot quruq ko'rinadi; yuqorisi narx va vaqt uchun.
 MIN_PHOTOS = 3
-MAX_PHOTOS = 6
+MAX_PHOTOS = 10
 
 _IMG_TAG = re.compile(r"<img\b[^>]*\bdata-prompt\s*=\s*([\"'])(.*?)\1[^>]*>",
                       re.IGNORECASE | re.DOTALL)
