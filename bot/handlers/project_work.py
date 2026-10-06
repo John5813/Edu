@@ -38,13 +38,15 @@ from services.project_work.specs import (
 )
 from services import document_source, workload
 from services.project_work import source as source_module
-from translations import get_text
+from translations import get_text, label_variants
+from services import kazakh_doc
 from utils.security import sanitize_user_input, validate_topic_length
 
 router = Router()
 logger = logging.getLogger(__name__)
 
-MENU_TEXTS = ["📐 Loyiha ishi", "📐 Проектная работа", "📐 Project Work"]
+MENU_TEXTS = ["📐 Loyiha ishi", "📐 Проектная работа", "📐 Project Work"] + [
+    text for text in label_variants("main_menu.project_work") if text not in ("📐 Loyiha ishi", "📐 Проектная работа", "📐 Project Work")]
 
 _SOURCE_NAMES = {
     source_module.KIND_AI: {"uz": "AI o'zi yozgan", "ru": "AI написал сам", "en": "Written by AI"},
@@ -301,6 +303,7 @@ async def _block_limits(data: dict) -> tuple:
     # Hujjat tili muhim: o'zbekcha so'zlar inglizchadan uzun, ya'ni bir xil
     # varoq soniga kamroq so'z sig'adi.
     language = data.get("doc_language", "uz")
+    language = "ru" if language == "kk" else language       # qozoqcha: ruscha yo'l (kazakh_doc.py)
     return (pw_layout.min_blocks(field_key, pages, language),
             pw_layout.max_blocks(field_key, pages, language))
 
@@ -442,7 +445,8 @@ async def _show_summary(message: Message, state: FSMContext, user_lang: str, use
     summary = get_text(
         user_lang, "pw_summary",
         topic=data.get("topic", ""),
-        field=field_label(data.get("field_key", ""), doc_language),
+        field=(kazakh_doc.translate(field_label(data.get("field_key", ""), "ru")) if doc_language == "kk"
+               else field_label(data.get("field_key", ""), doc_language)),
         source=_label(_SOURCE_NAMES, data.get("source_kind", source_module.KIND_AI), user_lang),
         depth=project_size_label(data.get("size_key", ""), user_lang),
         blocks=", ".join(block_label(key, user_lang) for key in (data.get("blocks") or []))

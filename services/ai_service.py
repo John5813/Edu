@@ -12,6 +12,7 @@ from utils.heading_guard import heading_rule, strip_echoed_heading, strip_leadin
 
 from services import timeframe
 from services import uz_script
+from services import kazakh_doc
 from services import slide_layouts
 from services import uzbekistan
 from services import course_work
@@ -477,6 +478,8 @@ class AIService:
 
         # O'zbekcha taqdimotda mijoz tanlagan yozuv (lotin/kirill) har so'rovga qo'shiladi.
         messages = uz_script.with_rule(messages)
+        # Qozoqcha hujjat: matn qozoq tilida yozilsin (kazakh_doc.py).
+        messages = kazakh_doc.with_rule(messages)
 
         has_book = any(
             any(marker in msg.get("content", "") for marker in self._BOOK_MODE_MARKERS)
@@ -5125,6 +5128,10 @@ In JSON format:
             return fallbacks.get(lang, fallbacks["uz"]).get(block_type, ":")
 
 
+# Qozoq tili ("kk"): metodlar ichkarida ruscha yo'l bilan ishlaydi (kazakh_doc.py).
+kazakh_doc.wrap_class(AIService, skip=("_make_request", "_get_current_model_id"))
+
+
 _ai_service_instance: "AIService | None" = None
 
 
@@ -5220,6 +5227,11 @@ async def generate_test_questions_from_source(source_text: str, count: int, lang
     except Exception as e:
         logger.error(f"Error converting uploaded tests: {e}")
         return []
+
+
+# Qozoq tili: test savollari ham qozoqcha yoziladi (kazakh_doc.py).
+generate_test_questions = kazakh_doc.aware(generate_test_questions)
+generate_test_questions_from_source = kazakh_doc.aware(generate_test_questions_from_source)
 
 
 async def close_ai_service() -> None:

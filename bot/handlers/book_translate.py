@@ -16,7 +16,7 @@ from bot.keyboards import (
     get_doc_language_keyboard,
 )
 from database.database import Database
-from translations import get_text
+from translations import get_text, label_variants
 from config import BOOK_MAX_UPLOAD_MB, TELEGRAM_DOWNLOAD_LIMIT
 from services import book_pdf_translate
 from services import workload
@@ -37,7 +37,7 @@ _MB = 1024 * 1024
 # Mablag' yetmasa buyurtma (yuklangan kitob bilan) to'lovni kutib turadi.
 CHECKOUT = pay.Checkout(service="book", back_callback="bt_back_from_payment")
 
-_TARGET_NAMES = {"uz": "O'zbek", "ru": "Rus", "en": "Ingliz"}
+_TARGET_NAMES = {"uz": "O'zbek", "ru": "Rus", "en": "Ingliz", "kk": "Qozoq"}
 
 
 @pay.describes(CHECKOUT.service)
@@ -59,6 +59,10 @@ BOOK_TRANSLATE_TEXTS = {
     "ru": "\U0001f4da \u041f\u0435\u0440\u0435\u0432\u043e\u0434 \u043a\u043d\u0438\u0433\u0438",
     "en": "\U0001f4da Book Translation",
 }
+# Qozoqcha tugma yozuvi (bosh menyudagi "📚 Кітап аудармасы").
+for _text in label_variants("main_menu.book_translate"):
+    if _text not in BOOK_TRANSLATE_TEXTS.values():
+        BOOK_TRANSLATE_TEXTS["kk"] = _text
 
 
 async def _cleanup_temp_file(state: FSMContext):
@@ -322,7 +326,7 @@ async def handle_bt_lang_selection(callback: CallbackQuery, state: FSMContext, u
     source_lang = data.get("source_lang", "unknown")
 
     # Agar kitob ruscha bo'lib, foydalanuvchi ham rus tilini tanlasa — bekor qilish
-    if source_lang == "ru" and target_lang == "ru":
+    if source_lang in ("ru", "kk") and target_lang == source_lang:
         await callback.message.answer(
             get_text(user_lang, "book_translate_same_lang_warning"),
             reply_markup=get_book_translate_lang_keyboard(user_lang)

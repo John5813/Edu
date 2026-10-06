@@ -7,7 +7,7 @@ from aiogram.fsm.context import FSMContext
 from bot.keyboards import get_language_keyboard, get_main_keyboard, get_subscription_check_keyboard
 from database.database import Database
 from services.channel_service import ChannelService
-from translations import get_text
+from translations import get_text, kazakh_scope, legacy_language
 from config import ADMIN_IDS
 
 router = Router()
@@ -128,8 +128,8 @@ async def start_command(message: Message, state: FSMContext, db: Database):
         # New user - show language selection
         await message.answer(
             "@EDUfail_bot sizga mustaqil ish referat va taqdimotlarni tez va sifatli yaratib beradi.\n"
-            "3 tilda\n\n"
-            "Tilni tanlang / Выберите язык / Choose language:",
+            "4 tilda: o'zbek, rus, ingliz, qozoq\n\n"
+            "Tilni tanlang / Выберите язык / Choose language / Тілді таңдаңыз:",
             reply_markup=get_language_keyboard()
         )
     else:
@@ -140,7 +140,10 @@ async def start_command(message: Message, state: FSMContext, db: Database):
             'en': "👋 Welcome back! @Edufayl_bot — academic document creation bot.",
         }
         lang = user.language if user.language in welcome_texts else 'uz'
-        await message.answer(welcome_texts[lang])
+        welcome = welcome_texts[lang]
+        if getattr(user, "kazakh", False):
+            welcome = "👋 Қош келдіңіз! @Edufayl_bot — академиялық құжаттар жасау боты."
+        await message.answer(welcome)
         await check_subscription_and_show_menu(message, user, db)
 
 @router.callback_query(F.data.startswith("lang_"))
@@ -167,14 +170,16 @@ async def language_selected(callback: CallbackQuery, state: FSMContext, db: Data
     
     # Update language preference
     await db.update_user_language(user_id, language)
-    user.language = language
+    # Qozoq tili bazada "kk", botning qolgan qismida "ru" + qozoq belgisi.
+    user.language, user.kazakh = legacy_language(language)
     logger.info(f"✅ Language updated: user_id={user_id}, new_language={language}")
 
     # Delete the language selection message
     await callback.message.delete()
 
     # Check channel subscription
-    await check_subscription_and_show_menu(callback.message, user, db)
+    with kazakh_scope(user.kazakh):
+        await check_subscription_and_show_menu(callback.message, user, db)
 
 async def check_subscription_and_show_menu(message: Message, user, db: Database):
     """Check channel subscription and show main menu"""

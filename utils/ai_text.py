@@ -13,6 +13,7 @@ import re
 # bo'linadi, shuning uchun so'ziga ketadigan token ancha ko'p.
 _TOKENS_PER_WORD = {"uz": 4.0, "ru": 3.5, "en": 2.0}
 _DEFAULT_TOKENS_PER_WORD = 4.0
+_KAZAKH_TOKENS_PER_WORD = 4.5
 
 # Model ko'pincha so'ralgan hajmdan sal ko'proq yozadi; shuning uchun zaxira.
 _HEADROOM_TOKENS = 300
@@ -33,6 +34,11 @@ def token_budget(word_target: str, language: str) -> int:
     except (AttributeError, ValueError):
         upper = 500
     per_word = _TOKENS_PER_WORD.get(language, _DEFAULT_TOKENS_PER_WORD)
+    from services import kazakh_doc
+
+    if kazakh_doc.active():
+        # Qozoqcha so'zlar rus so'zlaridan ko'proq bo'lakka bo'linadi (ko'p qo'shimchali).
+        per_word = max(per_word, _KAZAKH_TOKENS_PER_WORD)
     return min(int(upper * per_word) + _HEADROOM_TOKENS, _MAX_TOKENS)
 
 

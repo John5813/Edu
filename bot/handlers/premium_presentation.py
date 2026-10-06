@@ -21,7 +21,7 @@ from bot import checkout as pay
 from bot import checkout as pay
 from bot.states import PremiumPresentationStates
 from database.database import Database
-from translations import get_text
+from translations import get_text, label_variants
 from config import som_to_stars, STARS_RATE
 from bot import uploads
 from bot.keyboards import get_project_source_keyboard
@@ -155,6 +155,8 @@ ENTRY_TEXTS = [
     "✨ Zamonaviy taqdimot", "✨ Современная презентация", "✨ Modern presentation",
     "⭐ Premium taqdimot", "⭐ Премиум презентация", "⭐ Premium presentation",
 ]
+for _key in ("main_menu.presentation", "main_menu.premium_presentation"):
+    ENTRY_TEXTS += [text for text in label_variants(_key) if text not in ENTRY_TEXTS]
 
 SIMPLE_STYLE = "fon"
 _STYLE_ORDER = ["toza", "jurnal", "blok", "kontur", "qorongu", SIMPLE_STYLE]
@@ -186,7 +188,7 @@ _STYLE_NAMES = {
                    "en": "Beautiful backgrounds"},
 }
 _LANG_BUTTONS = {"uz": "🇺🇿 O'zbek (lotin)", uz_script.UZ_CYRILLIC_LANG: "🇺🇿 Ўзбек (кирилл)",
-                 "ru": "🇷🇺 Русский", "en": "🇬🇧 English"}
+                 "ru": "🇷🇺 Русский", "en": "🇬🇧 English", "kk": "🇰🇿 Қазақша"}
 
 
 def _language_label(code: str) -> str:
@@ -807,7 +809,7 @@ async def premium_ppt_got_theme(callback: CallbackQuery, state: FSMContext, db: 
 
 def _confirm_keyboard(lang: str, current_language: str) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    for code in ("uz", uz_script.UZ_CYRILLIC_LANG, "ru", "en"):
+    for code in ("uz", uz_script.UZ_CYRILLIC_LANG, "ru", "en", "kk"):
         mark = "✓ " if code == current_language else ""
         builder.button(text=f"{mark}{_LANG_BUTTONS[code]}", callback_data=f"prem_ppt_lang:{code}")
     builder.adjust(2)

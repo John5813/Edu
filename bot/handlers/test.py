@@ -21,7 +21,7 @@ from database.database import Database
 from config import TEMP_DIR
 from services.ai_service import generate_test_questions, generate_test_questions_from_source
 from services.test_file_service import extract_numbered_tests
-from translations import get_text
+from translations import get_text, is_kazakh
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -78,6 +78,7 @@ def _build_test_docx(topic: str, questions: list, language: str) -> bytes:
     labels = {
         "uz": ("Test", "Javoblar", "Izoh"),
         "ru": ("Тест", "Ответы", "Пояснение"),
+        "kk": ("Тест", "Жауаптар", "Түсініктеме"),
         "en": ("Test", "Answers", "Explanation"),
     }
     title_word, answers_word, explanation_word = labels.get(language, labels["uz"])
@@ -482,12 +483,14 @@ async def _run_test(bot, user_id: int, status, state: FSMContext, db: Database,
         await db.update_user_balance(user_id, -price)
     await state.set_state(TestStates.generating)
 
+    # Qozoq foydalanuvchi: savollar qozoq tilida yoziladi.
+    quiz_lang = "kk" if user_lang == "ru" and is_kazakh() else user_lang
     if source == "file":
         questions = await generate_test_questions_from_source(
-            data.get("test_source_text", ""), count, user_lang
+            data.get("test_source_text", ""), count, quiz_lang
         )
     else:
-        questions = await generate_test_questions(topic, count, user_lang)
+        questions = await generate_test_questions(topic, count, quiz_lang)
 
     if not questions:
         if charge:
@@ -498,7 +501,7 @@ async def _run_test(bot, user_id: int, status, state: FSMContext, db: Database,
 
     try:
         if fmt == "file":
-            docx_bytes = _build_test_docx(topic, questions, user_lang)
+            docx_bytes = _build_test_docx(topic, questions, quiz_lang)
             safe_name = topic[:30].replace(" ", "_").replace("/", "_")
             file = BufferedInputFile(docx_bytes, filename=f"test_{safe_name}.docx")
             caption = get_text(user_lang, "test_ready_file").format(topic=topic, count=len(questions))

@@ -787,6 +787,7 @@ PRESENTATION_LANGUAGE_INSTRUCTIONS = {
     "uz": "Barcha slayd matnlari, sarlavhalari va izohlari faqat o‘zbek tilida bo‘lsin.",
     "ru": "Весь текст слайдов, заголовки и подписи должны быть только на русском языке.",
     "en": "All slide text, headings, and captions must be written only in English.",
+    "kk": "Слайдтардың барлық мәтіні, тақырыптары мен жазулары тек қазақ тілінде (кирилл, ә, ғ, қ, ң, ө, ұ, ү, һ, і әріптерімен) болсын.",
     "uz-cyrl": "Барча слайд матнлари, сарлавҳалари ва изоҳлари фақат ўзбек тилида, КИРИЛЛ ёзувида бўлсин (лотин ҳарфларисиз).",
 }
 

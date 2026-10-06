@@ -3,6 +3,7 @@ from aiogram import BaseMiddleware
 from aiogram.types import Message, CallbackQuery
 from database.database import Database
 from config import ADMIN_IDS
+from translations import set_kazakh, reset_kazakh, kazakh_scope
 import logging
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ class LanguageMiddleware(BaseMiddleware):
         data: Dict[str, Any]
     ) -> Any:
         db = data.get("db")
+        kazakh_token = None
         if db:
             user_id = event.from_user.id
             user = await db.get_user(user_id)
@@ -38,12 +40,19 @@ class LanguageMiddleware(BaseMiddleware):
 
             data["user_lang"] = user.language if user else "uz"
             data["user"] = user
+            # Qozoq foydalanuvchi: `user_lang` "ru" bo'lib qoladi, matnlar esa
+            # qozoqchada chiqadi (translations.py dagi izohga qarang).
+            kazakh_token = set_kazakh(bool(user and getattr(user, "kazakh", False)))
 
             # Add feature statuses
             data["presentation_enabled"] = await db.get_feature_status("presentation")
             data["independent_work_enabled"] = await db.get_feature_status("independent_work")
             data["referat_enabled"] = await db.get_feature_status("referat")
-        return await handler(event, data)
+        try:
+            return await handler(event, data)
+        finally:
+            if kazakh_token is not None:
+                reset_kazakh(kazakh_token)
 
 class BlockedUserMiddleware(BaseMiddleware):
     """Middleware to check if user is blocked"""
@@ -98,9 +107,10 @@ class CommandResetMiddleware(BaseMiddleware):
             try:
                 from bot.keyboards import get_main_keyboard
 
-                for lang in ("uz", "ru", "en"):
-                    for row in get_main_keyboard(lang).keyboard:
-                        labels.update(button.text.strip() for button in row)
+                for lang, kazakh in (("uz", False), ("ru", False), ("en", False), ("ru", True)):
+                    with kazakh_scope(kazakh):       # ("ru", True) — qozoqcha menyu
+                        for row in get_main_keyboard(lang).keyboard:
+                            labels.update(button.text.strip() for button in row)
             except Exception as exc:
                 logger.warning("Menyu tugmalari yig'ilmadi: %s", exc)
             cls._menu_labels = labels

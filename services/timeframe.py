@@ -59,6 +59,7 @@ _MONTHS = {
 
 def today_text(language: str = "uz") -> str:
     """Bugungi sana — promptda aytiladigan ko'rinishda."""
+    language = "ru" if language == "kk" else language      # qozoqcha hujjat: ruscha yo'l (kazakh_doc.py)
     now = today()
     month = _MONTHS.get(language, _MONTHS["uz"])[now.month - 1]
     if language == "ru":
@@ -70,6 +71,7 @@ def today_text(language: str = "uz") -> str:
 
 def year_rule(language: str = "uz") -> str:
     """Promptga qo'shiladigan qoida: yillar bugungi kundan kelib chiqsin."""
+    language = "ru" if language == "kk" else language      # qozoqcha hujjat: ruscha yo'l (kazakh_doc.py)
     now = current_year()
     last = last_full_year()
     history = history_years()
@@ -109,6 +111,7 @@ def year_rule(language: str = "uz") -> str:
 
 def year_headers(language: str = "uz") -> list:
     """Jadval ustunlari uchun zaxira sarlavhalar — yillari bugungidan."""
+    language = "ru" if language == "kk" else language      # qozoqcha hujjat: ruscha yo'l (kazakh_doc.py)
     previous, last = last_full_year() - 1, last_full_year()
     first = {"ru": "Показатель", "en": "Indicator"}.get(language, "Ko'rsatkich")
     change = {"ru": "Изменение", "en": "Change"}.get(language, "O'zgarish")
@@ -123,6 +126,7 @@ def prose_year_rule(language: str = "uz") -> str:
     bo'limga "2023-2026 yillarda tadqiqotlar..., kelgusi 2026-2028 yillarda..."
     deb yozib yuborardi — adabiyot yoki falsafa mavzusida ham, o'ylab topilgan.
     """
+    language = "ru" if language == "kk" else language      # qozoqcha hujjat: ruscha yo'l (kazakh_doc.py)
     now = current_year()
     if language == "ru":
         return (f"Сегодня {today_text('ru')}. Годы указывайте только для точных исторических фактов. "

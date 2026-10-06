@@ -4,7 +4,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from database.database import Database
 from bot.keyboards import get_help_keyboard, get_sample_management_keyboard, get_samples_list_keyboard
-from translations import get_text
+from translations import get_text, label_variants
 from config import ADMIN_IDS
 import asyncio
 import logging
@@ -21,7 +21,8 @@ class SampleStates(StatesGroup):
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
 
-SAMPLES_TEXTS = ["📁 Namunalar", "📁 Образцы", "📁 Samples"]
+SAMPLES_TEXTS = ["📁 Namunalar", "📁 Образцы", "📁 Samples"] + [
+    text for text in label_variants("main_menu.samples") if text not in ("📁 Namunalar", "📁 Образцы", "📁 Samples")]
 
 @router.message(F.text.in_(SAMPLES_TEXTS))
 async def handle_samples_from_main_menu(message: Message, db: Database, user_lang: str):

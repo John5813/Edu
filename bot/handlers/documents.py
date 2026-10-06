@@ -20,7 +20,7 @@ from services.ai_service import AIService, get_ai_service
 from services.document_service import DocumentService, get_document_service
 from services.template_service import TemplateService
 from services.channel_service import ChannelService
-from translations import get_text
+from translations import get_text, label_variants
 from config import PRESENTATION_PRICES, DOCUMENT_PRICES, COURSE_WORK_PRICES, DIPLOMA_WORK_PRICES, GRADUATION_WORK_PRICES, DISSERTATION_PRICES, ARTICLE_PRICES, EXTRAS_PRICES, som_to_stars, TEMP_DIR
 
 def _friendly_error(e: Exception) -> str:
@@ -177,10 +177,10 @@ def _is_comparative_topic(topic: str) -> bool:
 
 
 def _build_book_topic(topic: str, book_content: str, doc_lang: str) -> str:
-    instructions = _BOOK_MODE_INSTRUCTIONS.get(doc_lang, _BOOK_MODE_INSTRUCTIONS["uz"])
+    instructions = _BOOK_MODE_INSTRUCTIONS.get("ru" if doc_lang == "kk" else doc_lang, _BOOK_MODE_INSTRUCTIONS["uz"])
     extra = ""
     if _is_comparative_topic(topic):
-        extra = _COMPARATIVE_EXTRA.get(doc_lang, _COMPARATIVE_EXTRA["uz"])
+        extra = _COMPARATIVE_EXTRA.get("ru" if doc_lang == "kk" else doc_lang, _COMPARATIVE_EXTRA["uz"])
     return f"{topic}\n\n{instructions}{extra}\n\nBOOK CONTENT:\n{book_content}"
 
 _EDIT_BTN_TEXT = {"uz": "✏️ Faylni tahrirlash", "ru": "✏️ Редактировать файл", "en": "✏️ Edit file"}
@@ -377,17 +377,25 @@ DOCUMENT_TYPES = {
     "🔬 Специальная разработка": "mahsus_ishlanma",
     "🔬 Special Project": "mahsus_ishlanma",
 }
+# Qozoqcha tugma yozuvlari (translations_kk.py dagi bosh menyu).
+for _key, _kind in (("independent_work", "independent_work"), ("referat", "referat"),
+                    ("course_work", "course_work"), ("diploma_work", "bitiruv_ishi"),
+                    ("tezis", "tezis"), ("maqola", "maqola"), ("mahsus_ishlanma", "mahsus_ishlanma")):
+    for _label in label_variants("main_menu." + _key):
+        DOCUMENT_TYPES.setdefault(_label, _kind)
 
 _COUNT_NOTES = {
     "slides": {
         "uz": "\n\n(Muqova va reja slaydi bu songa kirmaydi; kirish va xulosa kiradi.)",
         "ru": "\n\n(Титульный слайд и план в это число не входят; введение и заключение входят.)",
         "en": "\n\n(The cover and agenda slides are not counted; the introduction and conclusion are.)",
+        "kk": "\n\n(Титул және жоспар слайдтары бұл санға кірмейді; кіріспе мен қорытынды кіреді.)",
     },
     "pages": {
         "uz": "\n\n(Titul va reja varag'i bu songa kirmaydi; kirish, xulosa va adabiyotlar ro'yxati kiradi.)",
         "ru": "\n\n(Титульный лист и план в это число не входят; введение, заключение и список литературы входят.)",
         "en": "\n\n(The title and plan pages are not counted; the introduction, conclusion and references are.)",
+        "kk": "\n\n(Титул және жоспар беттері бұл санға кірмейді; кіріспе, қорытынды және әдебиеттер тізімі кіреді.)",
     },
 }
 
@@ -771,7 +779,8 @@ async def handle_doc_language_selection(callback: CallbackQuery, state: FSMConte
         name_prompts = {
             "uz": "👤 Ism va Familiyangizni to'liq kiriting:\n\n(Masalan: Aliyev Jasur)",
             "ru": "👤 Введите ваше полное имя и фамилию:\n\n(Например: Иванов Иван)",
-            "en": "👤 Enter your full name:\n\n(Example: John Smith)"
+            "en": "👤 Enter your full name:\n\n(Example: John Smith)",
+            "kk": "👤 Аты-жөніңізді толық енгізіңіз:\n\n(Мысалы: Серіков Алмас)",
         }
         await callback.message.answer(
             name_prompts.get(doc_lang, name_prompts["uz"]),
@@ -783,7 +792,8 @@ async def handle_doc_language_selection(callback: CallbackQuery, state: FSMConte
     topic_prompts = {
         "uz": "📝 Mavzuni kiriting:",
         "ru": "📝 Введите тему:",
-        "en": "📝 Enter the topic:"
+        "en": "📝 Enter the topic:",
+        "kk": "📝 Тақырыпты енгізіңіз:",
     }
     await callback.message.answer(
         topic_prompts.get(doc_lang, topic_prompts["uz"]),
@@ -795,6 +805,8 @@ async def handle_doc_language_selection(callback: CallbackQuery, state: FSMConte
 # yozsa, ish o'zbekcha yozilar, muqovada esa ruscha mavzu qolardi — mijoz
 # "taqdimot rus tilidan o'zbekchaga aylanib ketdi" deb ko'rardi.
 _UZ_CYRILLIC = set("ўқғҳЎҚҒҲ")
+# Qozoq alifbosiga xos harflar (o'zbek va rus kirillida bunday emas).
+_KK_CYRILLIC = set("әіңүұөһӘІҢҮҰӨҺ")
 _UZ_LATIN = _re_plan.compile(
     r"[og][ʻ'`’‘]|\b(?:va|uchun|bo'yicha|haqida|hamda|tahlili|ahamiyati|"
     r"asoslari|xususiyatlari|rivojlanishi|tarixi|o'rni)\b", _re_plan.IGNORECASE)
@@ -808,6 +820,8 @@ def _topic_language(text: str):
     cyrillic = sum(1 for char in letters if "\u0400" <= char <= "\u04ff")
     latin = sum(1 for char in letters if char.isascii())
     if cyrillic / len(letters) > 0.6:
+        if any(char in _KK_CYRILLIC for char in text):
+            return "kk"
         return "uz" if any(char in _UZ_CYRILLIC for char in text) else "ru"
     if latin / len(letters) > 0.6 and _UZ_LATIN.search(text):
         return "uz"
@@ -815,11 +829,11 @@ def _topic_language(text: str):
 
 
 _LANG_NAMES = {
-    "uz": {"uz": "o'zbek", "ru": "rus", "en": "ingliz"},
-    "ru": {"uz": "узбекском", "ru": "русском", "en": "английском"},
-    "en": {"uz": "Uzbek", "ru": "Russian", "en": "English"},
+    "uz": {"uz": "o'zbek", "ru": "rus", "en": "ingliz", "kk": "qozoq"},
+    "ru": {"uz": "узбекском", "ru": "русском", "en": "английском", "kk": "казахском"},
+    "en": {"uz": "Uzbek", "ru": "Russian", "en": "English", "kk": "Kazakh"},
 }
-_LANG_FLAGS = {"uz": "🇺🇿", "ru": "🇷🇺", "en": "🇬🇧"}
+_LANG_FLAGS = {"uz": "🇺🇿", "ru": "🇷🇺", "en": "🇬🇧", "kk": "🇰🇿"}
 
 
 @router.message(DocumentStates.waiting_for_topic)
@@ -876,7 +890,7 @@ async def handle_topic_language(callback: CallbackQuery, state: FSMContext, user
     except Exception:
         pass
     doc_lang = callback.data.split(":", 1)[1]
-    if doc_lang not in ("uz", "ru", "en"):
+    if doc_lang not in ("uz", "ru", "en", "kk"):
         doc_lang = "uz"
     data = await state.get_data()
     topic = data.get("pending_topic", "")
@@ -914,7 +928,8 @@ async def _accept_topic(message: Message, state: FSMContext, user_lang: str,
     name_prompts = {
         "uz": "👤 Ism va Familiyangizni to'liq kiriting:\n\n(Masalan: Aliyev Jasur)",
         "ru": "👤 Введите ваше полное имя и фамилию:\n\n(Например: Иванов Иван)",
-        "en": "👤 Enter your full name:\n\n(Example: John Smith)"
+        "en": "👤 Enter your full name:\n\n(Example: John Smith)",
+            "kk": "👤 Аты-жөніңізді толық енгізіңіз:\n\n(Мысалы: Серіков Алмас)",
     }
     await message.answer(
         name_prompts.get(doc_lang, name_prompts["uz"]),
@@ -984,7 +999,8 @@ async def handle_author_name_input(message: Message, state: FSMContext, user_lan
             maqola_page_prompts = {
                 "uz": "📄 Maqola hajmini tanlang:",
                 "ru": "📄 Выберите объём статьи:",
-                "en": "📄 Select article size:"
+                "en": "📄 Select article size:",
+                "kk": "📄 Мақала көлемін таңдаңыз:",
             }
             await message.answer(
                 maqola_page_prompts.get(doc_lang, maqola_page_prompts["uz"]),
@@ -3458,7 +3474,8 @@ async def back_to_topic_handler(callback: CallbackQuery, state: FSMContext, user
     topic_prompts = {
         "uz": "📝 Mavzuni kiriting:",
         "ru": "📝 Введите тему:",
-        "en": "📝 Enter the topic:"
+        "en": "📝 Enter the topic:",
+        "kk": "📝 Тақырыпты енгізіңіз:",
     }
     await state.set_state(DocumentStates.waiting_for_topic)
     await callback.message.answer(
@@ -3479,7 +3496,8 @@ async def back_to_author_name_handler(callback: CallbackQuery, state: FSMContext
     name_prompts = {
         "uz": "👤 Ism va Familiyangizni to'liq kiriting:\n\n(Masalan: Aliyev Jasur)",
         "ru": "👤 Введите ваше полное имя и фамилию:\n\n(Например: Иванов Иван)",
-        "en": "👤 Enter your full name:\n\n(Example: John Smith)"
+        "en": "👤 Enter your full name:\n\n(Example: John Smith)",
+            "kk": "👤 Аты-жөніңізді толық енгізіңіз:\n\n(Мысалы: Серіков Алмас)",
     }
     back_cb = "back_to_doc_lang" if data.get("book_content") or data.get("book_context") else "back_to_topic"
     await state.set_state(DocumentStates.waiting_for_author_name)
@@ -4049,9 +4067,7 @@ async def handle_edit_outline(callback: CallbackQuery, state: FSMContext, user_l
 # qo'lda takrorlanar va bittasini o'zgartirish tugmani o'lik qilardi.
 # Eski 💬 variantlari ham qoldirilgan: Telegram klaviaturani foydalanuvchida
 # saqlab qoladi va u /start bosmaguncha eski tugmani yuborishda davom etadi.
-HELP_BUTTON_TEXTS = [
-    get_text(language, "main_menu.help") for language in ("uz", "ru", "en")
-] + ["💬 Yordam", "💬 Помощь", "💬 Help"]
+HELP_BUTTON_TEXTS = list(label_variants("main_menu.help")) + ["💬 Yordam", "💬 Помощь", "💬 Help"]
 
 # Hujjat xizmatlari ham umumiy to'lov oqimidan foydalanadi: mablag'
 # yetmasa buyurtma saqlanib qoladi va balans to'lgach o'zi eslatiladi.
@@ -4304,7 +4320,9 @@ OTHER_SERVICES_BUTTON_TEXTS = [
     "🟩 Boshqa professional xizmatlar",
     "🟩 Другие профессиональные услуги",
     "🟩 Other Professional Services",
-]
+] + [text for text in label_variants("main_menu.other_services")
+     if text not in ("🟩 Boshqa professional xizmatlar", "🟩 Другие профессиональные услуги",
+                     "🟩 Other Professional Services")]
 
 
 @router.message(F.text.in_(OTHER_SERVICES_BUTTON_TEXTS))
