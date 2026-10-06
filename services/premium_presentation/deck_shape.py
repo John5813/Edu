@@ -8,10 +8,9 @@ Diagramma haqida: oldingi yo'riqnomalar "statistika bu yerda kerak emas,
 diagramma yozmang" deb taqiqlar edi. Model taqiqni "diagrammani butunlay
 chetlab o't" deb tushundi va taqdimotlarda halqa, chiziqli va ustunli
 diagrammalar yo'qolib ketdi. Endi har oilada diagramma MUMKIN va mazmunga
-mos turi ko'rsatiladi; o'ylab topilgan raqam esa taqiqlanmaydi, balki
-halol belgilanadi: haqiqiy ma'lumot — manbasi bilan, aks holda slaydda
-"Shartli misol" deb yoziladi. Diagramma soni kod darajasida ham
-kafolatlanadi (`html_slides.ensure_charts`).
+mos turi ko'rsatiladi. Diagramma raqamlarini slayd yozuvchi model
+to'qimaydi: ular alohida Claude chaqiruvidan haqiqiy ma'lumot sifatida
+keladi (`chart_data`); ishonchli ma'lumot bo'lmasa diagramma qo'yilmaydi.
 """
 
 import logging
@@ -35,9 +34,8 @@ _FAMILIES: Dict[str, Dict[str, str]] = {
             "Raqam — bu yerda SANA va tarixiy miqdor (aholi, qo'shin, "
             "hudud, ishlab chiqarish). DIAGRAMMA o'rinli: davrlar bo'yicha "
             "miqdor — ustunli yoki chiziqli (X o'qi yillar), tarkib "
-            "(millatlar, hududlar, sohalar ulushi) — halqa. Aniq tarixiy "
-            "raqamni bilsangiz manbasi bilan yozing; aniq bilmasangiz "
-            "diagrammani \"Shartli misol\" deb belgilang. Diagramma "
+            "(millatlar, hududlar, sohalar ulushi) — halqa. "
+            "Diagramma ma'lumotini o'zingiz yozmaysiz: reja diagramma deb belgilagan slaydga tayyor, haqiqiy ma'lumot (manbasi bilan) beriladi — uni blokka ko'chirib, izohini yozasiz. Diagramma "
             "o'tmishdagi ma'lumotni ko'rsatadi (kelajak prognozi tarixga "
             "mos emas)."),
     },
@@ -58,9 +56,8 @@ _FAMILIES: Dict[str, Dict[str, str]] = {
             "DIAGRAMMA bu yerda tabiiy: funksiya grafigi — chiziqli "
             "(X–Y o'qli, `calc` bilan formuladan), natijalarni solishtirish "
             "— ustunli, butunning qismlari — halqa. Formuladan hisoblangan "
-            "raqam ruxsat etilgan. Statistik faktni (\"bozor ulushi\", "
-            "\"foydalanish o'sishi\") faqat haqiqiy bo'lsa yozing; aks "
-            "holda diagrammani \"Shartli misol\" deb belgilang."),
+            "raqam ruxsat etilgan. "
+            "Diagramma ma'lumotini o'zingiz yozmaysiz: reja diagramma deb belgilagan slaydga tayyor, haqiqiy ma'lumot (manbasi bilan) beriladi — uni blokka ko'chirib, izohini yozasiz."),
     },
     "tabiiy": {
         "name": "tabiiy fanlar (biologiya, kimyo, geografiya, ekologiya)",
@@ -75,10 +72,8 @@ _FAMILIES: Dict[str, Dict[str, str]] = {
             "DIAGRAMMA o'rinli: tarkib foizi (modda, havo, hujayra, "
             "oziq tarkibi) — halqa; turlar yoki ko'rsatkichlarni "
             "solishtirish — ustunli; harorat, miqdor yoki o'sishning "
-            "vaqt bo'yicha o'zgarishi — chiziqli. Haqiqiy o'lchovni "
-            "bilsangiz manbasi bilan yozing; aniq bilmasangiz diagrammani "
-            "tushunchani ko'rsatuvchi \"Shartli misol\" qilib tuzing va "
-            "slaydda shunday deb yozing."),
+            "vaqt bo'yicha o'zgarishi — chiziqli. "
+            "Diagramma ma'lumotini o'zingiz yozmaysiz: reja diagramma deb belgilagan slaydga tayyor, haqiqiy ma'lumot (manbasi bilan) beriladi — uni blokka ko'chirib, izohini yozasiz."),
     },
     "ijtimoiy": {
         "name": "ijtimoiy fanlar (iqtisodiyot, huquq, sotsiologiya, siyosat)",
@@ -94,10 +89,9 @@ _FAMILIES: Dict[str, Dict[str, str]] = {
         "numbers": (
             "Raqam va DIAGRAMMA o'rinli: tarkib (ulushlar) — halqa, "
             "dinamika — chiziqli (X o'qi yillar), solishtirish — ustunli. "
-            "Haqiqiy ko'rsatkichni manbasi bilan yozing; aniq bilmasangiz "
-            "diagrammani \"Shartli misol\" deb belgilang. Kelajak "
-            "prognozi faqat formuladan hisoblansa (`calc`) va shartli "
-            "deb aytilsa yoziladi."),
+            "Diagramma ma'lumotini o'zingiz yozmaysiz: reja diagramma deb belgilagan slaydga tayyor, haqiqiy ma'lumot (manbasi bilan) beriladi — uni blokka ko'chirib, izohini yozasiz. Kelajak "
+            "prognozi faqat formuladan hisoblansa (`calc`) yoki rasmiy "
+            "prognoz sifatida manbasi bilan beriladi."),
     },
     "gumanitar": {
         "name": "gumanitar fanlar (adabiyot, tilshunoslik, san'at, falsafa)",
@@ -113,8 +107,8 @@ _FAMILIES: Dict[str, Dict[str, str]] = {
             "taqdimotni jonlantiradi: asar yoki ijod tarkibi (qismlar, "
             "janrlar ulushi) — halqa; yillar kesimida asarlar soni — "
             "ustunli (faqat aniq fakt bo'lsa); ikki muallif yoki davrni "
-            "solishtirish — ustunli. Aniq raqamni bilmasangiz diagrammani "
-            "\"Shartli misol\" deb belgilang. Sana asar yozilgan yil yoki "
+            "solishtirish — ustunli. "
+            "Diagramma ma'lumotini o'zingiz yozmaysiz: reja diagramma deb belgilagan slaydga tayyor, haqiqiy ma'lumot (manbasi bilan) beriladi — uni blokka ko'chirib, izohini yozasiz. Sana asar yozilgan yil yoki "
             "muallif umri kabi aniq faktda bo'ladi."),
     },
     "amaliy": {
@@ -128,9 +122,8 @@ _FAMILIES: Dict[str, Dict[str, str]] = {
         "numbers": (
             "DIAGRAMMA o'rinli: usullar samaradorligini solishtirish — "
             "ustunli, bosqich yoki omillar ulushi — halqa, natija "
-            "dinamikasi — chiziqli. Haqiqiy tadqiqot natijasini manbasi "
-            "bilan yozing; aniq bilmasangiz diagrammani \"Shartli misol\" "
-            "deb belgilang."),
+            "dinamikasi — chiziqli. "
+            "Diagramma ma'lumotini o'zingiz yozmaysiz: reja diagramma deb belgilagan slaydga tayyor, haqiqiy ma'lumot (manbasi bilan) beriladi — uni blokka ko'chirib, izohini yozasiz."),
     },
     "hisob": {
         "name": "hisob-kitob mavzulari (formula, prognoz, statistik hisob, moliyaviy hisob)",
@@ -164,9 +157,8 @@ _FAMILIES: Dict[str, Dict[str, str]] = {
             "  ochsin."),
         "numbers": (
             "DIAGRAMMA o'rinli: ulushlar — halqa, dinamika — chiziqli "
-            "(X o'qi vaqt), solishtirish — ustunli. Haqiqiy raqamni "
-            "manbasi bilan yozing; aniq bilmasangiz diagrammani "
-            "\"Shartli misol\" deb belgilang."),
+            "(X o'qi vaqt), solishtirish — ustunli. "
+            "Diagramma ma'lumotini o'zingiz yozmaysiz: reja diagramma deb belgilagan slaydga tayyor, haqiqiy ma'lumot (manbasi bilan) beriladi — uni blokka ko'chirib, izohini yozasiz."),
     },
 }
 

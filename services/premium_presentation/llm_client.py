@@ -483,8 +483,8 @@ def set_text_model(model_id: str) -> None:
 
 def _models(kind: str) -> list:
     """Sinaladigan modellar — avval tanlangani, keyin ishlagani ma'lum bo'lgani."""
-    chain = (config.OPENROUTER_TEXT_MODELS if kind == "text"
-             else config.OPENROUTER_VISION_MODELS)
+    chain = {"text": config.OPENROUTER_TEXT_MODELS,
+             "chart": config.OPENROUTER_CHART_MODELS}.get(kind, config.OPENROUTER_VISION_MODELS)
     chain = list(chain)
     for model in (_WORKING.get(kind), _preferred.get(kind)):
         if not model:
@@ -660,7 +660,7 @@ def _request(kind: str, payload: dict, timeout: int = 180,
         # eslab qolinmaydi: keyingi so'rovlar yana tanlangan modeldan
         # boshlanadi (zaxira odatda qimmatroq).
         if not rejected and _WORKING.get(kind) != model:
-            log.info("%s modeli: %s", "Matn" if kind == "text" else "Vision", model)
+            log.info("%s modeli: %s", {"text": "Matn", "chart": "Diagramma"}.get(kind, "Vision"), model)
             _WORKING[kind] = model
         return data
     if partial is not None:
@@ -701,7 +701,7 @@ def _with_today(system_prompt: str) -> str:
 
 
 def _call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 0.7,
-                     max_tokens: int = 16000) -> dict:
+                     max_tokens: int = 16000, kind: str = "text") -> dict:
     payload = {
         "temperature": temperature,
         "max_tokens": max_tokens,
@@ -711,7 +711,7 @@ def _call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 
             {"role": "user", "content": user_prompt},
         ],
     }
-    raw = _request("text", payload)["choices"][0]["message"]["content"]
+    raw = _request(kind, payload)["choices"][0]["message"]["content"]
     cleaned = _clean_json(raw)
     try:
         return json.loads(cleaned)

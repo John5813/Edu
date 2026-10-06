@@ -532,7 +532,17 @@ def _scale_groups(rows, ratio: float = 6.0, hard_ratio: float = 40.0):
     return [large, small] if large and small else [rows]
 
 
-def _stack(kind, groups, labels, theme, unit, width, height, xlabel) -> str:
+def _with_source(svg: str, source: str, unit: str, theme, width: int) -> str:
+    """Diagramma o'ng yuqori burchagiga manba yozuvini qo'shadi (haqiqiy ma'lumot belgisi)."""
+    if not source:
+        return svg
+    room = int((width - 48 - len(unit) * 16 - 40) / 12.5)
+    text = source if len(source) <= room else source[:max(room - 1, 10)].rstrip() + "…"
+    note = _text(width - 24, 24, text, 22, theme.muted, anchor="end")
+    return svg.replace("</svg>", note + "</svg>", 1)
+
+
+def _stack(kind, groups, labels, theme, unit, width, height, xlabel, source="") -> str:
     """Har guruh o'z o'qi va birligi bilan, bir-birining ostida."""
     panels = []
     each = max(height // len(groups), 240)
@@ -545,6 +555,8 @@ def _stack(kind, groups, labels, theme, unit, width, height, xlabel) -> str:
         last = number == len(groups) - 1
         body = kind(group, labels, theme, label, width, each + (40 if last and xlabel else 0),
                     xlabel=xlabel if last else "")
+        if number == 0:
+            body = _with_source(body, source, label, theme, width)
         panels.append(f'<div class="chart">{body}</div>')
     return '<div class="chart-stack">' + "".join(panels) + "</div>"
 
@@ -612,10 +624,12 @@ def draw(html_body: str, theme) -> str:
         unit = (data.get("ylabel") or data.get("unit") or "").strip()
         xlabel = (data.get("xlabel") or "").strip()
         groups = [] if kind is _donut else _scale_groups(rows)
+        source = (data.get("source") or "").strip()
         try:
             if len(groups) > 1:
-                return _stack(kind, groups, labels, theme, unit, width, height, xlabel)
-            body = kind(rows, labels, theme, unit, width, height, xlabel=xlabel)
+                return _stack(kind, groups, labels, theme, unit, width, height, xlabel, source)
+            body = _with_source(kind(rows, labels, theme, unit, width, height, xlabel=xlabel),
+                                source, unit, theme, width)
         except Exception as exc:
             log.warning("Diagramma chizilmadi (%s): %s", data.get("kind"), exc)
             return ""

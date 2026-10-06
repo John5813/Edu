@@ -406,8 +406,8 @@ def check_no_quotas():
     # Diagramma taqiq tilida emas, ijobiy aytiladi: ilgari "diagramma bo'lmasligi
     # ham to'g'ri" va "statistika yozmang" qoidalari modelni diagrammani butunlay
     # chetlab o'tishga olib kelgan edi.
-    check("diagramma ijobiy qoida bilan aytilgan (turi va shartli misol)",
-          "SHARTLI MISOL" in rules and "halqa" in rules and "Diagramma soni" in rules)
+    check("diagramma ma'lumoti alohida tahlilchidan: tayyor blok ko'chiriladi",
+          "ma'lumotini siz yozmaysiz" in rules and "TAYYOR blok" in rules and "SHARTLI MISOL" not in rules)
     check("diagrammani butunlay chetlab o'tishga ruxsat yo'q",
           "birorta diagramma bo'lmasligi" not in rules and "STATISTIKA BU YERDA KERAK EMAS" not in
           " ".join(pieces[f"oila:{key}"] for key in deck_shape.FAMILY_KEYS))
@@ -481,8 +481,9 @@ def check_outline():
           "kamida oltita" not in seen["prompt"], "")
     check("rejada mazmunga qarab tanlash aytilgan",
           "MAZMUNGA QARAB" in seen["prompt"])
-    check("diagramma kvotasi ijobiy aytilgan (shartli misol bilan)",
-          "diagramma" in seen["prompt"].lower() and "shartli misol" in seen["prompt"].lower())
+    check("diagramma kvotasi ijobiy aytilgan (haqiqiy ma'lumot bilan)",
+          "diagramma" in seen["prompt"].lower() and "haqiqiy statistik" in seen["prompt"].lower()
+          and "shartli misol" not in seen["prompt"].lower())
     check("reja so'rovida sarlavha so'raladi", '"title"' in seen["prompt"])
 
     # AI javob bermasa ham reja tuzilishi kerak.
@@ -530,15 +531,16 @@ def check_family_shape():
     human = deck_shape.guidance("gumanitar")
     social = deck_shape.guidance("ijtimoiy")
     exact = deck_shape.guidance("aniq")
-    check("adabiyotda diagramma ham mumkin (shartli misol bilan)",
-          "DIAGRAMMA" in human and "Shartli misol" in human and "YOZMANG" not in human)
+    check("adabiyotda diagramma ham mumkin (tayyor haqiqiy ma'lumot bilan)",
+          "DIAGRAMMA" in human and "haqiqiy ma'lumot" in human and "Shartli misol" not in human
+          and "YOZMANG" not in human)
     check("adabiyotda iqtibos tavsiya qilingan", "Iqtibos bloki" in human)
     check("matematikada diagramma tabiiy (grafik)",
           "DIAGRAMMA bu yerda tabiiy" in exact and "STATISTIKA BU YERDA KERAK EMAS" not in exact)
     check("matematikada isbot aytilgan", "isbot" in exact)
     check("iqtisodda ko'rsatkich o'rinli", "o'rinli" in social)
-    check("hamma oilada raqam halol belgilanadi (manba yoki shartli misol)",
-          all("shartli" in deck_shape.guidance(k).lower() for k in deck_shape.FAMILY_KEYS),
+    check("hamma oilada diagramma ma'lumoti tayyor va haqiqiy (o'zi to'qimaydi)",
+          all("haqiqiy" in deck_shape.guidance(k).lower() for k in deck_shape.FAMILY_KEYS),
           str(deck_shape.FAMILY_KEYS))
 
 
@@ -2332,7 +2334,7 @@ def check_fit_to_slide():
     theme = themes.get("ko'k")
     rules = html_slides.shell_rules(theme, "uz")
     check("ko'rsatkichga manba talab qilinadi",
-          "manbasi aytiladi" in rules and "SHARTLI MISOL" in rules)
+          "manbasi aytiladi" in rules)
     check("yarim ustunga ko'p narsa sig'masligi aytilgan",
           "yarim ustunga ko'p narsa sig'maydi" in rules)
     if not html_render.available():

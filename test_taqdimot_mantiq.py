@@ -62,7 +62,8 @@ charts = [i for i, o in enumerate(filled) if o["category"] == "diagramma"]
 check("model diagramma bermasa 2 ta belgilandi", len(charts) == 2, str(charts))
 check("muqova, reja va yakun tegilmadi", all(i not in charts for i in (0, 1, 11)), str(charts))
 check("biri halqa", any(o.get("chart_kind") == "halqa" for o in filled), str([o.get("chart_kind") for o in filled]))
-check("shartli misol eslatilgan", all("Shartli misol" in filled[i]["brief"] for i in charts))
+check("diagramma slaydlar avvalgi kategoriyasini eslab qoladi (ma'lumot topilmasa qaytariladi)",
+      all(filled[i].get("was") for i in charts) and all("Shartli" not in filled[i]["brief"] for i in charts))
 check("allaqachon yetarli bo'lsa o'zgarmaydi", html_slides.ensure_charts(
       [dict(o, category="diagramma") if 3 <= i <= 5 else dict(o) for i, o in enumerate(outline)], "uz")
       == [dict(o, category="diagramma") if 3 <= i <= 5 else dict(o) for i, o in enumerate(outline)])
@@ -103,6 +104,9 @@ outline = [{"title": t, "brief": f"{t} jihati", "category": c} for t, c in (
     ("Mustaqil fikr", "kartalar"), ("Siyosiy tizim", "kartalar"), ("Valyuta tizimi", "kartalar"),
     ("Aholi tarkibi", "diagramma"), ("Xulosa", "yakun"))]
 outline[7]["chart_kind"] = "halqa"
+outline[7]["chart"] = {"kind": "donut", "labels": ["A", "B"], "series": [("Ulush", [60.0, 40.0])], "unit": "%",
+                       "xlabel": "", "source": "BMT, 2023", "approx": False, "forecast": False, "label": "Manba:", "lang": "uz"}
+outline[7]["chart_note"] = "TAYYOR DIAGRAMMA: Ulush A=60, B=40."
 prompts = []
 def rewriter(system, user, count):
     prompts.append(user)
@@ -211,8 +215,8 @@ check("diagrammani butunlay chetlab o'tishga undaydigan ibora yo'q",
       not [p for p in suppressing if p in low], str([p for p in suppressing if p in low]))
 check("reja so'rovi kamida bitta diagramma talab qiladi (12 slaydda 2 ta)", "kamida 2 ta slayd 'diagramma'" in seen["plan"])
 check("reja so'rovi halqani eslatadi", "halqa" in seen["plan"])
-check("qoidalarda diagramma soni va turi aytilgan",
-      "Diagramma soni" in everything and "ulush → halqa" in everything)
+check("qoidalarda diagramma turi va tayyor ma'lumot aytilgan",
+      "ma'lumotini siz yozmaysiz" in everything and "halqa" in everything and "chiziqli" in everything)
 check("jadval faqat qisqa bo'lsin deyilgan", "QISQA bo'lsa" in everything and "tahlil jadvali" in everything.lower())
 check("umumlashtiruvchi gap talabi bor", "UMUMLASHTIRUVCHI GAP" in everything)
 check("raqam faqat haqiqiy tartib uchun (ijobiy aytilgan)", "RAQAM — HAQIQIY TARTIB UCHUN" in everything)

@@ -20,7 +20,7 @@ import os
 import re
 from typing import Callable, Dict, List, Optional
 
-from . import (deck_calc, deck_charts, deck_logic, deck_math, deck_shape, deck_style, deck_styles,
+from . import (chart_data, deck_calc, deck_charts, deck_logic, deck_math, deck_shape, deck_style, deck_styles,
                llm_client)
 from services import uz_script
 
@@ -221,8 +221,7 @@ QAT'IY QOIDALAR:
    bo'lsin" deb tanlamang: avval mazmun, keyin shakl.
    Slayd NAFAS OLSIN: matn kam, bo'sh joy ko'p; bir blokda bitta
    fikr; uzun matn bo'lsa ikki slaydga bo'ling.
-8. RAQAM VA DIAGRAMMA — taqdimotni jonlantiradi, ulardan
-   foydalaning. Raqam uch xil bo'ladi:
+8. RAQAM VA DIAGRAMMA — taqdimotni jonlantiradi. Raqam ikki xil bo'ladi:
    a) HISOBLANGAN raqam — formuladan va boshlang'ich qiymatdan
       kelgan. U RUXSAT: uni o'zingiz hisoblamang, `calc` yoki
       `data-calc` bilan bering — kod hisoblaydi.
@@ -230,21 +229,15 @@ QAT'IY QOIDALAR:
       oladigan ma'lumot. Manba nomini yozing; manbaga
       bugungi va kelgusi yillar uchun "BMT, 2026" kabi yil
       qo'yilmaydi (bunday raqam "taxminiy" deyiladi).
-   v) SHARTLI MISOL — haqiqiy raqamni bilmasangiz, tushunchani
-      ko'rsatadigan, mavzuga mos taxminiy ma'lumot bilan diagramma
-      tuzing va slaydning izohi oxiriga "Shartli misol." deb yozing.
-      Shartli misolni haqiqiy statistika kabi ko'rsatmang (manba,
-      yil yoki "tadqiqotlar ko'rsatdi" demang).
-   Diagramma soni: kamida 6 slaydli taqdimotda bittadan kam
-   bo'lmasin, 10 va undan ko'pida ikkitadan; ulardan biri halqa
-   (ulushlar) bo'lsa yaxshi. Turini mazmun tanlaydi: ulush → halqa,
-   vaqt bo'yicha o'zgarish → chiziqli (X o'qi yil), solishtirish →
-   ustunli. Diagramma slaydida diagramma va uni tushuntiradigan 2-4
-   gap bo'ladi: nima ko'rsatilgani va qanday xulosa chiqishi.
-   Hisob-kitob mavzusida formulaning natijasi diagramma yoki
-   ko'rsatkich bilan ko'rsatiladi. Ko'rsatkich (kpi) raqami
-   izohida manbasi aytiladi (masalan: Statistika agentligi, 2024)
-   yoki "Shartli misol" deyiladi.
+   DIAGRAMMA (`.chart`) ma'lumotini siz yozmaysiz: rejada slayd
+   "diagramma" deb belgilangan bo'lsa, unga alohida tahlilchi
+   tayyorlagan HAQIQIY ma'lumot (manbasi bilan) rejada TAYYOR blok
+   sifatida beriladi. Siz o'sha blokni aynan ko'chirasiz va ostiga
+   shu raqamlardan kelib chiqadigan 2-4 gaplik izoh yozasiz: nima
+   ko'rsatilgani, eng muhim o'zgarish va xulosa. Rejada diagramma
+   bo'lmagan slaydni matn, kartochka, ko'rsatkich yoki rasm bilan
+   oching. Ko'rsatkich (kpi) raqami izohida manbasi aytiladi
+   (masalan: Statistika agentligi, 2024).
 9. Bir slaydda bir xil matnni ikki marta yozma.
 9a. IQTIBOS faqat HAQIQIY, mashhur va muallifi aniq so'z bo'lsa
    (masalan, tarixiy shaxs, olim yoki davlat rahbarining ma'lum
@@ -367,7 +360,9 @@ def _user_prompt(topic: str, start: int, count: int, total: int,
                 mark = "   "
             title = item.get("title") or ""
             lines.append(f"{mark} {index}. [{item['category']}] "
-                         + (f"«{title}» — " if title else "") + item["brief"])
+                         + (f"«{title}» — " if title else "") + item["brief"]
+                         + (" " + item["chart_note"]
+                            if mark.strip() and item.get("chart_note") else ""))
         parts.append("Taqdimot rejasi (→ bilan belgilangani hozir "
                      "yoziladi). Slayd sarlavhasi rejadagi «sarlavha» bilan bir "
                      "xil bo'lsin; har slayd faqat o'z sarlavhasidagi masalani "
@@ -433,8 +428,10 @@ def plan_outline(topic: str, count: int, language: str,
     chart_rule = (
         f"Rejada kamida {quota} ta slayd 'diagramma' kategoriyasida bo'lsin"
         + (" (ulardan biri ulushlar uchun halqa)" if quota >= 2 else "")
-        + ": diagramma taqdimotni jonlantiradi. Ma'lumot haqiqiy bo'lsa "
-          "manbasi bilan, bo'lmasa shartli misol sifatida beriladi.\n"
+        + ": diagramma taqdimotni jonlantiradi. Diagramma uchun alohida tahlilchi "
+          "HAQIQIY statistik ma'lumot (rasmiy manba, so'nggi yillar) topadi, shuning "
+          "uchun diagramma faqat real raqamlar mavjud mavzuga qo'yilsin: iqtisod, "
+          "demografiya, ta'lim, sog'liqni saqlash, ekologiya, texnologiya va h.k.\n"
         if quota else "")
     prompt = (
         f'Mavzu: "{topic}"\n\n'
@@ -569,10 +566,8 @@ def ensure_charts(outline: List[Dict], language: str = "uz") -> List[Dict]:
                                          order + len(have))
         if want >= 2 and order == 0 and not any(i.get("chart_kind") == "halqa" for i in outline):
             kind = "halqa"            # bir nechta diagrammadan biri halqa bo'lsin
+        item["was"] = item["category"]      # haqiqiy ma'lumot topilmasa shu kategoriyaga qaytadi
         item["category"] = "diagramma"
-        item["brief"] = (f"{item['brief']} — DIAGRAMMA bilan ko'rsating: "
-                         f"{deck_logic.KIND_TEXT[kind]}. Ma'lumot haqiqiy "
-                         "bo'lmasa izohda \"Shartli misol\" deb yozing.")
         item["chart_kind"] = kind
         log.info("%d-slayd diagrammali qilib belgilandi (%s)", index + 1, kind)
     return outline
@@ -959,7 +954,7 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
     # hisobga kirar, 10 slaydda asosiy mavzuga 8 tadan kam slayd qolardi.
     slide_count = max(4, int(slide_count or 8)) + 2
     plan = plan_outline(topic, slide_count, language, level)
-    outline = plan["slides"]
+    outline = chart_data.ground(plan["slides"], topic, language, level)
     family = plan["family"]
     system = shell_rules(theme, language)
 
@@ -1020,6 +1015,7 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
                 body = _cover_credit(body, author, language)
             if number == slide_count:
                 body = _drop_thanks(body)
+            body = chart_data.enforce(body, outline[number - 1] if number <= len(outline) else None)
             if 1 < number and _thin(body):
                 body = _thicken(body, system, theme)
             if number == slide_count:
@@ -1041,6 +1037,10 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
                 source_text, preferences, author)
     slides = repair_deck(slides, ctx)
     slides = diversify(slides, theme, language)
+    # Diagramma raqamlari faqat Claude bergan ma'lumot: qayta yozish va xilma-xillashtirish
+    # davomida paydo bo'lgan to'qima raqamlar shu yerda tozalanadi.
+    slides = [chart_data.enforce(b, outline[i] if i < len(outline) else None)
+              for i, b in enumerate(slides)]
     return build_pages(slides, theme, language)
 
 
@@ -1148,16 +1148,13 @@ def repair_deck(slides: List[str], ctx: "_Deck") -> List[str]:
                 "har katak 1-5 so'z) qoldiring. Slayd:\n" + (source_of(result[index]) or result[index]),
                 lambda body: not deck_logic.oversized_table(body))
 
-    # 4) Diagramma bo'lishi kerak bo'lgan slaydlar
+    # 4) Diagramma bo'lishi kerak bo'lgan slaydlar (faqat Claude haqiqiy ma'lumot bergan)
     for index in range(2, last):
         item = ctx.outline[index] if index < len(ctx.outline) else {}
-        if item.get("category") == "diagramma" and not deck_logic.has_chart(result[index]):
-            kind = item.get("chart_kind") or deck_logic.chart_kind_for(own_brief(index), index)
+        if item.get("chart") and not deck_logic.has_chart(result[index]):
             fix(index,
                 "BU SLAYD DIAGRAMMALI BO'LISHI SHART (rejada shunday belgilangan). "
-                f"Tur: {deck_logic.KIND_TEXT[kind]}. Slaydda `.chart` bloki (yoki hisob uchun "
-                "`.calc`) va uni tushuntiruvchi 2-4 gap bo'lsin. Ma'lumot haqiqiy "
-                "bo'lmasa, izoh oxiriga «Shartli misol.» deb yozing. Mavzu: " + own_brief(index),
+                + item.get("chart_note", "") + " Mavzu: " + own_brief(index),
                 deck_logic.has_chart)
 
     # 4b) Rasmli bo'lishi kerak bo'lgan slaydlar
