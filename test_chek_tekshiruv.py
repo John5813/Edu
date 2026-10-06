@@ -58,6 +58,13 @@ d = rules.evaluate(rec(amount=17_000, fee=170), ctx(claimed=10_000))
 check("summa farq qilsa chekdagi summa qo'shiladi va belgilanadi", d.verdict == rules.AUTO and d.credit == 17_000 and "amount_differs" in d.reasons, (d.verdict, d.credit, d.reasons))
 check("ikkinchi o'qish talab qilinadi", d.needs_verify)
 
+d = rules.evaluate(rec(amount=7_000, fee=49, ids=["99470842600"], sender_name="MALIKOV SHUXRAT", sender_tail="2043",
+                       receiver_name="Javlonbek M", receiver_tail="6655", app="payme", status_time="23:27", battery=74,
+                       dt=datetime(2026, 10, 6, 23, 27)), ctx(now=datetime(2026, 10, 6, 23, 32), claimed=10_000,
+                       started_at=datetime(2026, 10, 6, 23, 32)))
+check("haqiqiy chek: 7 049 yuborildi (7 000 + komissiya 49), so'rovdan 5 daqiqa oldin — qabul, 7 000 qo'shiladi",
+      d.verdict == rules.AUTO and d.credit == 7_000, (d.verdict, d.reasons))
+
 print("2) Chek emas")
 d = rules.evaluate(Receipt(doc_type="tax_receipt", amount=26), ctx())
 check("soliq cheki (Savdo cheki/MXIK) — chek emas", d.verdict == rules.NOT_RECEIPT and d.reasons == ["tax_receipt"], d.reasons)
@@ -115,8 +122,8 @@ d = rules.evaluate(rec(dt=NOW - timedelta(minutes=50)), ctx())
 check("50 daqiqa oldingi chek eski (chegara 45)", "stale" in d.reasons)
 d = rules.evaluate(rec(dt=NOW - timedelta(minutes=30)), ctx(started_at=NOW - timedelta(minutes=40)))
 check("30 daqiqa oldingi chek yaroqli", d.verdict == rules.AUTO, (d.verdict, d.reasons))
-d = rules.evaluate(rec(dt=NOW - timedelta(minutes=25)), ctx(started_at=NOW - timedelta(minutes=10)))
-check("chek to'lov so'rovidan OLDIN o'tkazilgan — admin", "before_request" in d.reasons and d.verdict == rules.REVIEW)
+d = rules.evaluate(rec(dt=NOW - timedelta(minutes=25), status_time="19:47"), ctx(started_at=NOW - timedelta(minutes=10)))
+check("avval o'tkazib, keyin so'rov boshlagan mijoz (45 daqiqa ichida) — qabul", d.verdict == rules.AUTO, (d.verdict, d.reasons))
 d = rules.evaluate(rec(dt=NOW + timedelta(hours=2)), ctx())
 check("kelajakdagi vaqt — admin", "future" in d.reasons)
 d = rules.evaluate(rec(status_time="08:15", dt=NOW - timedelta(minutes=5)), ctx())
@@ -136,9 +143,9 @@ d = rules.evaluate(rec(receiver_tail="", receiver_name=""), ctx())
 check("qabul qiluvchi yo'q — admin", d.verdict == rules.REVIEW and "no_receiver" in d.reasons)
 
 print("6) Shubhali belgilar va chegaralar")
-check("AI «tahrirlangan» desa — admin", rules.evaluate(rec(tamper="high"), ctx()).verdict == rules.REVIEW)
+check("AI «tahrirlangan» desa — rad (adminga bormaydi)", rules.evaluate(rec(tamper="high"), ctx()).verdict == rules.FAKE)
 check("kuchsiz tahrir belgisi (low) — o'tadi", rules.evaluate(rec(tamper="low"), ctx()).verdict == rules.AUTO)
-check("fayl metama'lumotida Photoshop izi — admin", rules.evaluate(rec(meta_flags=["exif:Adobe Photoshop"]), ctx()).verdict == rules.REVIEW)
+check("fayl metama'lumotida Photoshop izi — rad (adminga bormaydi)", rules.evaluate(rec(meta_flags=["exif:Adobe Photoshop"]), ctx()).verdict == rules.FAKE)
 check("qirqilgan chek — admin", rules.evaluate(rec(cropped=True), ctx()).verdict == rules.REVIEW)
 check("AI ishonchi past — admin", rules.evaluate(rec(confidence=0.4), ctx()).verdict == rules.REVIEW)
 check("summa avto-chegaradan katta — admin", rules.evaluate(rec(amount=250_000), ctx(claimed=250_000)).verdict == rules.REVIEW)

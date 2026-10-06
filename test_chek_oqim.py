@@ -116,11 +116,10 @@ async def main():
     check("takroriy deb topildi, pul qo'shilmadi", out3.verdict == rules.DUPLICATE and await balance(200) == 0, (out3.verdict, await balance(200)))
     last = msg3.answers[-1][0]
     check("mijoz ogohlantirildi va admin manzili berildi", "avval ishlatilgan" in last and config.ADMIN_CONTACT in last, last)
-    cards = [m for m in bot.sent if m.chat.id == ADMIN and "TAKRORIY CHEK" in m.text]
-    check("adminga alohida karta: avvalgi chek, tugmalar bilan", cards and "Avval: chek" in cards[-1].text and cards[-1].kw.get("reply_markup") is not None, cards[-1].text if cards else "")
-    pay3 = await Database.get_payment_by_id(out3.payment_id)
-    check("to'lov kutilmoqda (admin hal qiladi)", pay3.status == "pending")
-    check("karta xabari saqlandi (qaror chiqqach matn qoladi)", any(e["text"] for e in await Database.get_payment_admin_messages(out3.payment_id)))
+    check("adminga HECH NARSA bormadi (karta ham, tugma ham, fayl nusxasi ham)",
+          not [m for m in bot.sent if m.chat.id == ADMIN and "TAKRORIY" in m.text] and not [c for c in bot.copied if c[3].get("disable_notification") is False] ,
+          [m.text[:40] for m in bot.sent if m.chat.id == ADMIN])
+    check("to'lov yozuvi yaratilmadi", out3.payment_id is None and len(await Database.get_pending_payments()) == 0)
     check("1-urinish hisoblandi", await store.fraud_strikes(200) == 1, await store.fraud_strikes(200))
 
     print("4) ID tahrirlangan chek (soat va batareya o'sha)")
@@ -136,7 +135,7 @@ async def main():
     check("3-urinishda bloklandi", await Database.is_user_blocked(200))
     texts_to_user = [m.text for m in bot.sent if m.chat.id == 200]
     check("mijozga «adminga murojaat qiling» xabari", any("bloklandi" in t and config.ADMIN_CONTACT in t for t in texts_to_user), texts_to_user)
-    check("adminga blok haqida xabar", any("avtomatik bloklandi" in m.text for m in bot.sent if m.chat.id == ADMIN))
+    check("adminga faqat blok haqida bitta xabar", [m.text[:30] for m in bot.sent if m.chat.id == ADMIN and "bloklandi" in m.text] != [])
 
     print("6) Eski chek (3 kun) — admin, mijozga admin manzili")
     QUEUE[:] = [raw(rid="7000000001", date=(10, 3, 12, 0), clock=None, battery=None)]
@@ -155,7 +154,7 @@ async def main():
     check("to'lov yaratilmadi, holat saqlanadi (qayta yuboradi)", out7.verdict == rules.NOT_RECEIPT and not out7.clear_state
           and len(await Database.get_pending_payments()) == n_payments)
     check("mijozga tushuntirish", "to'lov cheki emas" in msg7.answers[-1][0])
-    check("admin chatida bu fayl ham qoldi (jim)", bot.copied[-1][2] == msg7.message_id and bot.sent[-1].kw.get("disable_notification"))
+    check("soliq cheki adminga bormadi", all(c[2] != msg7.message_id for c in bot.copied))
 
     print("7b) Faqat summa va brend — asl chek so'raladi, «Chekni qayta yuborish» tugmasi bilan")
     QUEUE[:] = [{"doc_type": "payment", "status": "success", "readable": True, "amount": 10000, "app": "click",
@@ -174,6 +173,17 @@ async def main():
         _, m_ = await send(300, b"E3")
         mk = m_.answers[-1][1].get("reply_markup")
         check(f"qayta so'rash tugmasi: {q.get('doc_type')}/{q.get('status', '')}", mk and mk.inline_keyboard[0][0].callback_data.startswith("rcpt_resend:"), m_.answers[-1])
+
+    print("7c) Boshqa karta, tahrirlangan chek — adminga bormaydi")
+    copied_before, sent_before = len(bot.copied), len([m for m in bot.sent if m.chat.id == ADMIN])
+    QUEUE[:] = [raw(rid="6100000001", receiver="986016****1234", date=(10, 6, 19, 50), clock="19:50", battery=12)]
+    out_w, msg_w = await send(300, b"W1")
+    check("boshqa karta: rad, to'lov yo'q", out_w.verdict == rules.WRONG_RECEIVER and out_w.payment_id is None and "bizning kartalar emas" in msg_w.answers[-1][0], (out_w.verdict, msg_w.answers[-1][0]))
+    QUEUE[:] = [raw(rid="6100000002", date=(10, 6, 19, 48), clock="19:48", battery=13, tamper="high", tamper_reason="raqam shrifti boshqa")]
+    out_f, msg_f = await send(300, b"W2")
+    check("tahrirlangan chek: rad, to'lov yo'q", out_f.verdict == rules.FAKE and out_f.payment_id is None and "tahrirlangan" in msg_f.answers[-1][0], (out_f.verdict, msg_f.answers[-1][0]))
+    check("ikkalasi ham adminga bormadi", len(bot.copied) == copied_before and len([m for m in bot.sent if m.chat.id == ADMIN]) == sent_before)
+    check("jazo hisoblanmadi (xato bo'lishi mumkin)", await store.fraud_strikes(300) == 0)
 
     print("8) Ikkinchi o'qish mos kelmasa — admin")
     QUEUE[:] = [raw(rid="8000000001", date=(10, 6, 20, 6), clock="20:06", battery=33), raw(rid="8000000001", amount=18_000, date=(10, 6, 20, 6), clock="20:06", battery=33)]
@@ -236,6 +246,12 @@ async def main():
         QUEUE[:] = [raw(rid="9300000001", date=(10, 6, 20, 5), clock="20:05", battery=70)]
         await send(ADMIN, b"T" + bytes([i]))
     check("adminga blok qo'llanmaydi", not await Database.is_user_blocked(ADMIN))
+    QUEUE[:] = [raw()]                       # 1-chek (mijoz 100 ishlatgan) — admin uchun takroriy
+    _, admin_msg = await send(ADMIN, b"T9")
+    check("admin sinab ko'rsa sababni ko'radi (oddiy mijoz ko'rmaydi)", "admin ko'rinishi" in admin_msg.answers[-1][0] and "ID avval ishlatilgan" in admin_msg.answers[-1][0], admin_msg.answers[-1][0])
+    QUEUE[:] = [raw()]
+    _, plain_msg = await send(300, b"T10")
+    check("oddiy mijozda sabab ko'rinmaydi", "admin ko'rinishi" not in plain_msg.answers[-1][0])
 
     print("15) To'lov handleri: AI yo'li va avvalgi yo'lga qaytish")
     from aiogram.fsm.context import FSMContext
@@ -263,6 +279,20 @@ async def main():
     check("handler: AI ishlamasa avvalgidek qo'lda tekshiruv (to'lov yaratildi, admin xabardor)",
           len(await Database.get_pending_payments()) == n_before + 1 and await st.get_state() is None
           and any("Yangi to'lov" in x.text for x in bot.sent if x.chat.id == ADMIN))
+
+    print("17) Reply-tugmalar («To'lov chekini yuborish», «Orqaga»)")
+    up_state = FSMContext(storage=MemoryStorage(), key=StorageKey(bot_id=1, chat_id=300, user_id=300))
+    await up_state.set_state(PaymentStates.waiting_for_screenshot)
+    out_msgs = []
+    class BtnMsg:
+        def __init__(self, text): self.text = text
+        async def answer(self, text, **kw): out_msgs.append((text, kw))
+    await pay_handlers.handle_upload_button(BtnMsg("📤 To'lov chekini yuborish"), up_state, "uz")
+    check("«yuborish» tugmasi: chek so'raydi va holat saqlanadi", "Chekni yuboring" in out_msgs[-1][0] and await up_state.get_state() == PaymentStates.waiting_for_screenshot.state)
+    await pay_handlers.handle_back_button(BtnMsg("🔙 Orqaga qaytish"), up_state, "uz")
+    check("«orqaga» tugmasi: holat tozalandi, asosiy menyu va summa tanlash", await up_state.get_state() is None and len(out_msgs) >= 3 and "miqdorini tanlang" in out_msgs[-1][0], out_msgs[-1][0])
+    router_src = [h for h in pay_handlers.router.message.handlers if h.callback.__name__ in ("handle_upload_button", "handle_back_button")]
+    check("ikkala tugma handleri ro'yxatdan o'tgan", len(router_src) == 2)
 
     print("16) «Chekni qayta yuborish» tugmasi holatni tiklaydi")
     rs_state = FSMContext(storage=MemoryStorage(), key=StorageKey(bot_id=1, chat_id=300, user_id=300))

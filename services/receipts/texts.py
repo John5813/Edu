@@ -33,8 +33,10 @@ _USER: Dict[str, Dict[str, str]] = {
         "duplicate_warn": "\n\n❗ Takroriy yoki soxta chek yuborish hisobingiz bloklanishiga olib keladi.",
         "stale": ("⏳ Chek eski ko'rinadi ({age} oldin). Agar bu hozirgi to'lovingiz bo'lsa, adminga murojaat "
                   "qiling: " + ADMIN_CONTACT + "\nChek unga yuborildi."),
-        "wrong_receiver": ("❌ Chekdagi qabul qiluvchi bizning kartalar emas. Agar adashmagan bo'lsangiz, "
-                           "adminga murojaat qiling: " + ADMIN_CONTACT + "\nChek unga yuborildi."),
+        "wrong_receiver": ("❌ Chekdagi qabul qiluvchi bizning kartalar emas. To'lovni ko'rsatilgan karta "
+                           "raqamlariga o'tkazing. Savol bo'lsa, adminga murojaat qiling: " + ADMIN_CONTACT),
+        "fake": ("⚠️ Chek tahrirlangan ko'rinadi, shuning uchun qabul qilinmadi. Agar chek haqiqiy bo'lsa, "
+                 "to'lov tarixidan asl chekni qayta yuboring yoki adminga murojaat qiling: " + ADMIN_CONTACT),
         "review": ("📨 Chek adminga tekshirish uchun yuborildi. Tasdiqlangach hisobingizga qo'shiladi.\n"
                    "Savol bo'lsa: " + ADMIN_CONTACT),
         "blocked": ("🚫 Ko'p marta takroriy yoki soxta chek yuborilgani uchun hisobingiz bloklandi.\n"
@@ -68,8 +70,10 @@ _USER: Dict[str, Dict[str, str]] = {
         "duplicate_warn": "\n\n❗ Повторные или поддельные чеки приведут к блокировке аккаунта.",
         "stale": ("⏳ Чек выглядит старым ({age} назад). Если это ваш текущий платёж, обратитесь к админу: "
                   + ADMIN_CONTACT + "\nЧек ему отправлен."),
-        "wrong_receiver": ("❌ Получатель в чеке — не наша карта. Если вы не ошиблись, обратитесь к админу: "
-                           + ADMIN_CONTACT + "\nЧек ему отправлен."),
+        "wrong_receiver": ("❌ Получатель в чеке — не наша карта. Переведите деньги на указанные номера карт. "
+                           "Вопросы: " + ADMIN_CONTACT),
+        "fake": ("⚠️ Чек выглядит изменённым, поэтому не принят. Если чек настоящий, отправьте исходный чек из "
+                 "истории платежей или обратитесь к админу: " + ADMIN_CONTACT),
         "review": ("📨 Чек отправлен админу на проверку. После подтверждения сумма будет зачислена.\n"
                    "Вопросы: " + ADMIN_CONTACT),
         "blocked": ("🚫 Ваш аккаунт заблокирован из-за повторных или поддельных чеков.\n"
@@ -103,8 +107,10 @@ _USER: Dict[str, Dict[str, str]] = {
         "duplicate_warn": "\n\n❗ Sending repeated or fake receipts will get your account blocked.",
         "stale": ("⏳ The receipt looks old ({age} ago). If this is your current payment, contact the admin: "
                   + ADMIN_CONTACT + "\nThe receipt was forwarded to them."),
-        "wrong_receiver": ("❌ The receiver in the receipt is not our card. If this is not a mistake, contact "
-                           "the admin: " + ADMIN_CONTACT + "\nThe receipt was forwarded to them."),
+        "wrong_receiver": ("❌ The receiver in the receipt is not our card. Please transfer to the card numbers "
+                           "shown. Questions: " + ADMIN_CONTACT),
+        "fake": ("⚠️ The receipt looks edited, so it was not accepted. If it is genuine, send the original "
+                 "receipt from your payment history or contact the admin: " + ADMIN_CONTACT),
         "review": ("📨 The receipt was sent to the admin for review. The amount will be added once approved.\n"
                    "Questions: " + ADMIN_CONTACT),
         "blocked": ("🚫 Your account was blocked because of repeated or fake receipts.\n"
@@ -139,7 +145,6 @@ REASONS: Dict[str, str] = {
     "no_time": "Chek vaqtini aniqlab bo'lmadi",
     "stale": "Chek eski",
     "future": "Chek vaqti kelajakda",
-    "before_request": "Chek to'lov so'rovidan OLDIN o'tkazilgan",
     "screenshot_old": "Skrinshot soati hozirgi vaqtdan juda farq qiladi",
     "clock_mismatch": "Skrinshot soati chek vaqtiga mos emas",
     "tamper_high": "Tahrirlanganga o'xshaydi (AI)",
@@ -166,6 +171,7 @@ VERDICT_LABEL = {
     "review": "🟡 TEKSHIRISH KERAK",
     "duplicate": "🔴 TAKRORIY CHEK",
     "wrong_receiver": "🟠 QABUL QILUVCHI BOSHQA",
+    "fake": "🔴 TAHRIRLANGAN CHEK",
     "not_receipt": "ℹ️ CHEK EMAS (qayta so'raldi)",
     "own_pending": "ℹ️ Qayta yuborilgan chek",
     "ai_error": "⚪ AI ishlamadi",
