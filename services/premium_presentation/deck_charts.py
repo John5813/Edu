@@ -268,7 +268,7 @@ def _bar(rows, labels, theme, unit, W, H, xlabel="") -> str:
     ticks, lo, hi = _y_scale(rows, zero_based=True)
     left = _left_margin(ticks)
     top, right = 48, 24
-    bottom = 64 + (34 if xlabel else 0) + (22 if len([n for n, _ in rows if n]) > 1 else 0)
+    bottom = 64 + (34 if xlabel else 0) + _legend_height(rows, W)
     plot_h = H - top - bottom
     plot_w = W - left - right
     count = max(len(labels), max(len(values) for _, values in rows))
@@ -301,7 +301,7 @@ def _bar(rows, labels, theme, unit, W, H, xlabel="") -> str:
                                top + plot_h + 36, labels[index], 25 if count <= 8 else 22,
                                theme.body, weight="700"))
 
-    parts.append(_legend(rows, theme, H - 12 - (34 if xlabel else 0)))
+    parts.append(_legend(rows, theme, H - 12 - (34 if xlabel else 0), W))
     return _svg(parts, unit, theme, W, H)
 
 
@@ -310,7 +310,7 @@ def _line(rows, labels, theme, unit, W, H, xlabel="") -> str:
     ticks, lo, hi = _y_scale(rows, zero_based=False)
     left = _left_margin(ticks) + 12
     top, right = 56, 48
-    bottom = 64 + (34 if xlabel else 0) + (22 if len([n for n, _ in rows if n]) > 1 else 0)
+    bottom = 64 + (34 if xlabel else 0) + _legend_height(rows, W)
     plot_h = H - top - bottom
     plot_w = W - left - right
     count = max(len(labels), max(len(values) for _, values in rows))
@@ -362,7 +362,7 @@ def _line(rows, labels, theme, unit, W, H, xlabel="") -> str:
             parts.append(_text(x0 + step * index, top + plot_h + 36, label,
                                25 if count <= 8 else 22, theme.body, weight="700"))
 
-    parts.append(_legend(rows, theme, H - 12 - (34 if xlabel else 0)))
+    parts.append(_legend(rows, theme, H - 12 - (34 if xlabel else 0), W))
     return _svg(parts, unit, theme, W, H)
 
 
@@ -455,20 +455,43 @@ def _arc(cx, cy, radius, thickness, start, end, colour) -> str:
             f'{big} 0 {x4:.1f},{y4:.1f} Z" fill="#{colour}"/>')
 
 
-def _legend(rows, theme, y) -> str:
-    named = [name for name, _ in rows if name]
-    if len(named) < 2:
-        return ""
-    parts = []
+_LEGEND_ROW = 36
+
+
+def _legend_lines(rows, width) -> List[List[Tuple[int, str, int]]]:
+    """Izoh qatorlari: har yozuvning haqiqiy kengligiga qarab, sig'masa keyingi qatorga."""
+    lines: List[List[Tuple[int, str, int]]] = [[]]
     x = 24
     for order, (name, _) in enumerate(rows):
         if not name:
             continue
-        colour = _colour(theme, order)
-        parts.append(f'<rect x="{x}" y="{y - 16:.0f}" width="20" height="20" '
-                     f'rx="5" fill="#{colour}"/>')
-        parts.append(_text(x + 30, y, name, 27, theme.body, anchor="start"))
-        x += 44 + len(name) * 12
+        size = 30 + len(name) * 16 + 34          # kvadrat + matn (27px) + oraliq
+        if lines[-1] and x + size > width - 24:
+            lines.append([])
+            x = 24
+        lines[-1].append((order, name, x))
+        x += size
+    return lines if lines[0] else []
+
+
+def _legend_height(rows, width) -> int:
+    """Izoh egallaydigan balandlik (nomi bor qator 2 tadan kam bo'lsa — izoh yo'q)."""
+    if len([name for name, _ in rows if name]) < 2:
+        return 0
+    return 22 + _LEGEND_ROW * max(len(_legend_lines(rows, width)) - 1, 0)
+
+
+def _legend(rows, theme, y, width=W) -> str:
+    if len([name for name, _ in rows if name]) < 2:
+        return ""
+    lines = _legend_lines(rows, width)
+    parts = []
+    for number, line in enumerate(lines):
+        row_y = y - _LEGEND_ROW * (len(lines) - 1 - number)
+        for order, name, x in line:
+            parts.append(f'<rect x="{x}" y="{row_y - 16:.0f}" width="20" height="20" '
+                         f'rx="5" fill="#{_colour(theme, order)}"/>')
+            parts.append(_text(x + 30, row_y, name, 27, theme.body, anchor="start"))
     return "".join(parts)
 
 
@@ -481,18 +504,31 @@ def _svg(parts, unit, theme, W, H) -> str:
             + "".join(parts) + "</svg>")
 
 
-def _scale_groups(rows, ratio: float = 6.0):
+_UNIT_IN_NAME = re.compile(r"\(([^)]{1,24})\)")
+
+
+def _scale_groups(rows, ratio: float = 6.0, hard_ratio: float = 40.0):
     """Qatorlar kattaligi keskin farq qilsa (milliard va foiz) bitta o'qqa
     sig'maydi: ular ikkita alohida diagrammaga ajratiladi. Bir birlik —
-    bir diagramma."""
+    bir diagramma.
+
+    "Aholi (mlrd)" va "Urbanizatsiya (%)" kabi turli birlik qavsda yozilgan bo'lsa,
+    kattaligi 6 baravardan farq qiluvchi qatorlar ajratiladi. Birlik ko'rsatilmagan yoki
+    bir xil bo'lsa (masalan, uchta ham foiz: 85, 15 va 10) — bitta diagramma:
+    kichik qator ayrim diagrammaga tushib, nomi va izohisiz qolmasin. Faqat o'lchamlar
+    benihoya farq qilsa (40 baravardan ko'p) ajratiladi.
+    """
     if len(rows) < 2:
         return [rows]
     peaks = [max(values) if values else 0.0 for _, values in rows]
     big = max(peaks)
     if big <= 0:
         return [rows]
-    large = [row for row, peak in zip(rows, peaks) if peak * ratio >= big]
-    small = [row for row, peak in zip(rows, peaks) if peak * ratio < big]
+    units = {found.group(1).strip().lower()
+             for name, _ in rows if name for found in [_UNIT_IN_NAME.search(name)] if found}
+    limit = ratio if len(units) >= 2 else hard_ratio
+    large = [row for row, peak in zip(rows, peaks) if peak * limit >= big]
+    small = [row for row, peak in zip(rows, peaks) if peak * limit < big]
     return [large, small] if large and small else [rows]
 
 
@@ -504,6 +540,8 @@ def _stack(kind, groups, labels, theme, unit, width, height, xlabel) -> str:
         names = [name for name, _ in group if name]
         found = re.search(r"\(([^)]{1,24})\)", names[0]) if names else None
         label = found.group(1) if found else (unit if number == 0 else "")
+        if not label and len(names) == 1:
+            label = names[0]               # yolg'iz qator nomsiz qolmasin
         last = number == len(groups) - 1
         body = kind(group, labels, theme, label, width, each + (40 if last and xlabel else 0),
                     xlabel=xlabel if last else "")
