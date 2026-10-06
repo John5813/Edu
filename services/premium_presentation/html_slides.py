@@ -94,8 +94,8 @@ _CATEGORIES = (
                "muallif va fan qatori"),
     ("reja", "TAQDIMOT REJASI (mundarija): 01, 02, 03 deb raqamlangan "
              "kartalar. FAQAT 2-slaydda; boshqa joyda ishlatilmaydi"),
-    ("matn_rasm", "bir tomonda fikrni ochgan matn, bir tomonda rasm "
-                  "(rasm chiqmasa o'rnida qo'shimcha matn)"),
+    ("matn_rasm", "bir tomonda 2-3 yaxlit abzats (to'liq, bog'langan gaplar), "
+                  "bir tomonda rasm (rasm chiqmasa o'rnida qo'shimcha matn)"),
     ("ikki_ustun", "chapda matn, o'ngda kartalar yoki jadval"),
     ("korsatkichlar", "2-4 ta juda yirik raqam, har birining ostida qisqa "
                       "izoh"),
@@ -613,7 +613,8 @@ def ensure_photos(outline: List[Dict]) -> List[Dict]:
         item = outline[index]
         item["category"] = "matn_rasm"
         item["brief"] = (f"{item['brief']} — MATN VA RASM bloki bilan ko'rsating: bir tomonda "
-                         "fikrni ochgan matn, bir tomonda mavzuga mos real fotosurat.")
+                         "fikrni ochgan 2-3 yaxlit abzats (to'liq, bog'langan gaplar), bir tomonda "
+                         "mavzuga mos real fotosurat.")
         log.info("%d-slayd rasmli qilib belgilandi", index + 1)
     return outline
 
@@ -1165,7 +1166,8 @@ def repair_deck(slides: List[str], ctx: "_Deck") -> List[str]:
         if item.get("category") == "matn_rasm" and not deck_logic.has_photo(result[index]):
             fix(index,
                 "BU SLAYDDA RASM BO'LISHI SHART (rejada shunday belgilangan). Slaydni "
-                "MATN VA RASM bloki bilan yozing: bir tomonda fikrni ochgan matn, bir "
+                "MATN VA RASM bloki bilan yozing: bir tomonda fikrni ochgan 2-3 yaxlit "
+                "abzats (`par-col` ichida `par`; to'liq, bog'langan gaplar), bir "
                 "tomonda `.rasm` bloki (`data-prompt` — rasmning inglizcha tavsifi: "
                 "oddiy realistik fotosurat). Mavzu: " + own_brief(index),
                 deck_logic.has_photo)
@@ -1180,6 +1182,8 @@ def repair_deck(slides: List[str], ctx: "_Deck") -> List[str]:
     # Bu ikki narsa kod bilan tuzatiladi: modelga "shunday yozma" deyish o'rniga natija to'g'rilanadi.
     result = [b if i == 0 else deck_logic.fix_columns(deck_logic.fix_title_case(b))
               for i, b in enumerate(result)]
+    # 6c) Rasmli slayd: matn yaxlit abzatslar bo'lsin (mayda bandlar va ikonkali qatorlar emas).
+    result = [b if i == 0 else deck_logic.flow_photo_text(b) for i, b in enumerate(result)]
 
     # 7) Reja slaydi — yozilgan slaydlarning haqiqiy sarlavhalaridan
     items = []
@@ -1518,7 +1522,7 @@ def _thicken(body: str, system: str, theme) -> str:
         "(yoki faqat bo'lim nomi yozilgan ajratkich). Bunday varaq "
         "taqdimotda kerak emas.\n\n"
         "Shu slaydni MATN VA RASM bloki bilan qayta yozing: sarlavhadagi "
-        "fikr o'sha qolsin, chap tomonda u ro'yxat bilan ochilsin, o'ng "
+        "fikr o'sha qolsin, chap tomonda u 2-3 yaxlit abzats bilan ochilsin, o'ng "
         "tomonda `rasm` bloki (ichida rasm chiqmasa turadigan qo'shimcha "
         "matn) bo'lsin. Oddiy `<section class=\"slide\">` — `dark` va "
         "`title big` emas.\n\n"
