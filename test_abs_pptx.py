@@ -102,6 +102,18 @@ try:
 except AbsError as e:
     check("buzuq fayl rad etildi", e.code == "bad_file", e.code)
 
+print("3b) Eski .ppt format")
+import subprocess, shutil
+from services.pptx_script import convert_file
+d = os.path.join(TMP, "oldppt"); os.makedirs(d)
+subprocess.run(["soffice", f"-env:UserInstallation=file://{d}/p", "--headless", "--convert-to", "ppt", "--outdir", d, src], check=True, capture_output=True, timeout=180)
+old = os.path.join(d, "lat.ppt")
+check(".ppt tayyorlandi", os.path.exists(old))
+newp = os.path.join(TMP, "from_ppt.pptx")
+rr = convert_file(old, newp)
+tt = texts(newp)
+check(".ppt → kirill .pptx", rr.script == uz_script.CYRILLIC and "Иқтисодий ўсиш омиллари" in tt, tt)
+
 print("4) Bot oqimi")
 from bot.handlers import abs_converter as ac
 from bot.states import AbsStates

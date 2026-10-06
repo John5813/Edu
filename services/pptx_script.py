@@ -3,7 +3,12 @@
 Faqat ko'rinadigan matn (slayd, jadval, guruh, diagramma yorliqlari, izohlar) o'giriladi.
 Rasm, joylashuv, shrift, rang, animatsiya va boshqa hamma narsa o'z holicha qoladi.
 """
+import glob
+import os
 import re
+import shutil
+import subprocess
+import tempfile
 from dataclasses import dataclass
 from typing import Callable, Iterator, List, Optional
 
@@ -153,3 +158,35 @@ def convert_pptx(src: str, dst: str, script: Optional[str] = None) -> AbsResult:
 
     prs.save(dst)
     return AbsResult(script=target, runs=changed, skipped=skipped)
+
+
+def ppt_to_pptx(src: str, dst: str, timeout: int = 120) -> None:
+    """Eski .ppt faylni LibreOffice orqali .pptx ga o'tkazadi (dst — natija yo'li)."""
+    work = tempfile.mkdtemp(prefix="abs_ppt_")
+    try:
+        shutil.copy(src, os.path.join(work, "in.ppt"))
+        subprocess.run(
+            ["soffice", f"-env:UserInstallation=file://{work}/profile", "--headless",
+             "--convert-to", "pptx", "--outdir", work, os.path.join(work, "in.ppt")],
+            check=True, timeout=timeout, capture_output=True)
+        produced = os.path.join(work, "in.pptx")
+        if not os.path.exists(produced):
+            raise AbsError("bad_file")
+        shutil.move(produced, dst)
+    except (subprocess.SubprocessError, OSError) as exc:
+        raise AbsError("bad_file") from exc
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def convert_file(src: str, dst: str) -> AbsResult:
+    """.pptx yoki eski .ppt faylni o'giradi; natija har doim .pptx."""
+    if src.lower().endswith(".ppt"):
+        mid = dst + ".mid.pptx"
+        try:
+            ppt_to_pptx(src, mid)
+            return convert_pptx(mid, dst)
+        finally:
+            if os.path.exists(mid):
+                os.remove(mid)
+    return convert_pptx(src, dst)
