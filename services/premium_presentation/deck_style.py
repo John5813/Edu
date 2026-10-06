@@ -76,6 +76,7 @@ height:100%;background:none;overflow:hidden}
    hisoblanib, sarlavha mayda shriftga tushib ketadi. */
 .rasm.cover-img .photo{position:absolute;left:0;top:0;width:100%;height:100%;
 min-height:0;border-radius:0;object-fit:cover}
+.photo-credit{font-size:20px;line-height:1.3;opacity:.75}
 .cover-text{display:flex;flex-direction:column;justify-content:center;
 gap:40px;padding:96px 90px 96px 90px}
 
@@ -508,7 +509,7 @@ BLOKLAR:
 2. MATN VA RASM (bir tomonda matn, bir tomonda rasm):
 <div class="split">
   <div class="list"> ... </div>
-  <div class="rasm" data-prompt="english description of a documentary photo">
+  <div class="rasm" data-prompt="english description of a documentary photo" data-wiki="English Wikipedia article title">
     <p class="rasm-matn">Rasm chiqmasa uning o'rnida turadigan qo'shimcha
     matn: shu mavzuni to'ldiruvchi 2-3 gap (misol, sabab yoki ahamiyat).</p>
   </div>
@@ -520,6 +521,12 @@ buziladi (bunday ma'lumot uchun diagramma/kartochka bloklarini
 ishlating). Rasm
 chiqsa `rasm-matn` o'rniga rasm turadi; chiqmasa matn qoladi —
 shuning uchun u to'liq, mazmunli bo'lsin.
+`data-wiki` (ixtiyoriy) — rasm HAQIQIY, aniq ob'ekt bo'lsa (tarixiy bino,
+shahar, mashhur joy, vafot etgan tarixiy shaxs, mashhur asar yoki
+hodisa), uning Vikipediyadagi INGLIZCHA maqola nomini yozing, masalan
+`data-wiki="Registan"`: shunda kod o'sha ob'ektning haqiqiy fotosini
+topadi. Umumiy tushuncha yoki tirik odam uchun `data-wiki` yozilmaydi —
+u holda `data-prompt` bo'yicha rasm chiziladi.
 
 3. KARTOCHKALAR (faqat 2-4 ta teng huquqli element; reja ham shu):
 <div class="cols cols-3">
