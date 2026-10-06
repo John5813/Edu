@@ -86,11 +86,17 @@ outline = [{"title": "Mavzu", "brief": "m", "category": "muqova"},
            {"title": "Xulosa", "brief": "x", "category": "yakun"}]
 def researcher(topic, title, brief, kind, language):
     return chart_data.validate(GOOD, language) if title == "YaIM" else None
+outline.append({"title": "Reja bergan", "brief": "reja o'zi diagramma dedi", "category": "diagramma"})
 out = chart_data.ground([dict(o) for o in outline], "Iqtisodiyot", "uz", 2, researcher=researcher)
 check("ma'lumot topilgan slaydda diagramma qoldi", out[2]["category"] == "diagramma" and out[2]["chart"]["source"] == "Jahon banki")
 check("yozuvchiga tayyor blok va manba beriladi", "TAYYOR DIAGRAMMA" in out[2]["chart_note"] and 'class="chart"' in out[2]["chart_note"]
       and "Manba: Jahon banki" in out[2]["chart_note"])
 check("ma'lumot topilmagan slayd diagrammasiz kategoriyaga qaytdi", out[3]["category"] == "ikki_ustun" and "chart" not in out[3], out[3])
+
+planned = out[5]
+check("reja o'zi belgilagan diagramma: Claude bermasa ham diagramma qoladi (oddiy AI namuna tuzadi)",
+      planned["category"] == "diagramma" and planned.get("chart_fallback") and "chart" not in planned
+      and "Shartli misol" in planned["chart_note"], planned)
 
 print("5) Slaydga majburlash (enforce)")
 invented = ('<section class="slide"><div class="body"><div class="chart" data-kind="bar" data-labels="a,b" '
@@ -99,8 +105,18 @@ invented = ('<section class="slide"><div class="body"><div class="chart" data-ki
 fixed = chart_data.enforce(invented, out[2])
 check("model to'qigan raqamlar tayyor ma'lumotga almashdi, ortiqcha diagramma tushdi",
       fixed.count('class="chart"') == 1 and "5.2,6,5.7,6.5" in fixed and "X: 1,2" not in fixed, fixed)
-check("rejada ma'lumot yo'q slaydda to'qima diagramma olib tashlandi",
-      "chart" not in chart_data.enforce(invented, out[3]) and "Izoh." in chart_data.enforce(invented, out[3]))
+marked = chart_data.enforce(invented, out[3], "uz")
+check("Claude ma'lumoti yo'q: model diagrammasi o'chmaydi, 'Shartli misol' deb belgilanadi",
+      marked.count('class="chart"') == 2 and marked.count('data-source="Shartli misol"') == 2 and "Izoh." in marked, marked)
+check("'Shartli misol' belgisi tilga mos", 'data-source="Условный пример"' in chart_data.enforce(invented, None, "ru"))
+svg_marked = deck_charts.draw(chart_data.enforce(invented, None, "uz"), THEME)
+check("namunaviy diagramma chizilganda 'Shartli misol' ko'rinadi va manba yo'q", "Shartli misol" in svg_marked and "Manba:" not in svg_marked)
+no_chart = ('<section class="slide"><div class="head"><h2 class="title">YaIM</h2></div><div class="body">'
+            '<p class="lead">Bosh fikr.</p><p class="note">Yuqoridagi diagramma o\'sishni ko\'rsatadi.</p></div></section>')
+inserted = chart_data.enforce(no_chart, out[2])
+check("model diagramma yozmasa, Claude ma'lumoti bilan blok kod qo'yadi (bosh gapdan keyin)",
+      inserted.count('class="chart"') == 1 and inserted.index('class="lead"') < inserted.index('class="chart"') < inserted.index('class="note"'), inserted)
+check("ma'lumot yo'q slaydga diagramma qo'yilmaydi", chart_data.enforce(no_chart, out[3]) == no_chart)
 calc = '<div class="calc" data-kind="line" data-series="a: t"></div>'
 check("hisob (calc) bloki tegilmaydi", chart_data.enforce(calc, None) == calc)
 
@@ -115,8 +131,9 @@ body = lambda title, extra: (f'<section class="slide"><div class="head"><h2 clas
 cover = '<section class="slide dark"><div class="body"><h1 class="title big">Mavzu</h1></div></section>'
 chart_fake = '<div class="chart" data-kind="bar" data-labels="a,b,c" data-series="To\'qima: 11,22,33"></div>'
 card = '<div class="cols cols-2"><div class="card"><div class="card-title">Bir</div><div class="card-note">Izoh bir.</div></div><div class="card"><div class="card-title">Ikki</div><div class="card-note">Izoh ikki.</div></div></div>'
+card_chart = '<div class="chart" data-kind="bar" data-labels="a,b" data-series="Yetim: 7,8"></div>'
 slides_fake = [cover, body("Reja", ""), body("YaIM o'sishi", chart_fake + '<p class="note">Bu diagramma o\'sishni ko\'rsatadi.</p>'),
-               body("Hudud", chart_fake + '<p class="note">Hududlar.</p>'), body("Qo'shimcha", card),
+               body("Hudud", chart_fake.replace("To'qima", "Namuna") + '<p class="note">Hududlar.</p>'), body("Qo'shimcha", card_chart + '<p class="note">Qo\'shimcha izoh.</p>'),
                body("Yana", card), body("Xulosa", '<p class="note">Xulosa matni bu yerda yoziladi.</p>')]
 saved = (html_slides.plan_outline, html_slides._write_chunk, html_slides._thicken, chart_data.research)
 try:
@@ -125,7 +142,7 @@ try:
         {"title": "Taqdimot rejasi", "brief": "r", "category": "reja"},
         {"title": "YaIM o'sishi", "brief": "o'sish", "category": "diagramma", "was": "kartalar", "chart_kind": "chiziqli"},
         {"title": "Hudud", "brief": "hudud", "category": "diagramma", "was": "ikki_ustun"},
-        {"title": "Qo'shimcha", "brief": "q", "category": "kartalar"},
+        {"title": "Qo'shimcha", "brief": "q", "category": "kartalar"},   # model o'zi diagramma yozadi (yetim)
         {"title": "Yana", "brief": "y", "category": "kartalar"},
         {"title": "Xulosa", "brief": "Xulosa: asosiy fikrlar", "category": "yakun"}]}
     prompts = []
@@ -136,15 +153,17 @@ try:
     html_slides._write_chunk = chunk
     html_slides._thicken = lambda b, s, t: b
     chart_data.research = lambda topic, title, brief, kind, language: (
-        chart_data.validate(GOOD, language) if title == "YaIM o'sishi" else None)
+        chart_data.validate(GOOD, language) if title in ("YaIM o'sishi", "Qo'shimcha") else None)
     pages = html_slides.write_slides("Iqtisodiyot", 5, THEME)
 finally:
     html_slides.plan_outline, html_slides._write_chunk, html_slides._thicken, chart_data.research = saved
 joined = "\n".join(pages)
 check("yozuvchi so'rovida tayyor diagramma ma'lumoti bor", any("TAYYOR DIAGRAMMA" in p for p in prompts))
-check("to'qima raqamlar sahifada yo'q", "To'qima" not in joined and ">33<" not in joined)
+check("model to'qigan raqamlar (rejadagi Claude slaydlarida) sahifada yo'q", "To'qima" not in joined and "Yetim" not in joined)
 check("Claude bergan raqam va manba sahifada bor", "Manba: Jahon banki" in joined and ">6,5<" in joined or "6.5" in joined)
-check("ma'lumot topilmagan slaydda diagramma yo'q (diagramma soni 1)", joined.count('class="chart"') == 1, joined.count('class="chart"'))
+check("uchta diagramma: ikkitasi Claude ma'lumoti, bittasi 'Shartli misol'",
+      joined.count("Manba: Jahon banki") >= 2 and joined.count("Shartli misol") >= 1
+      and joined.count('class="chart"') == 3, (joined.count("Manba: Jahon banki"), joined.count("Shartli misol"), joined.count('class="chart"')))
 
 print("\nXATO:" if FAILS else "\nHAMMASI YAXSHI", FAILS or "")
 sys.exit(1 if FAILS else 0)

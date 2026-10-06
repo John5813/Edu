@@ -24,6 +24,14 @@ SOURCE_LABEL = {
     "uz": "Manba:", "ru": "Источник:", "en": "Source:",
     "kk": "Дереккөз:", "uz-cyrl": "Манба:",
 }
+# Claude ishonchli ma'lumot bermagan diagramma: oddiy model tuzgan namunaviy raqamlar halol belgilanadi.
+ILLUSTRATIVE = {"uz": "Shartli misol", "ru": "Условный пример", "en": "Illustrative example",
+                "kk": "Шартты мысал", "uz-cyrl": "Шартли мисол"}
+FALLBACK_NOTE = (
+    "Bu mavzu uchun ishonchli statistik ma'lumot topilmadi, shuning uchun diagramma uchun mavzuga mos, "
+    "tushunchani ko'rsatuvchi NAMUNAVIY ma'lumotni o'zingiz tuzing (3-6 yorliq, bitta birlik; haqiqiy "
+    "statistika deb ko'rsatmang, manba yoki 'tadqiqotlar ko'rsatdi' yozmang) va slaydning izohi oxiriga "
+    "«Shartli misol.» deb yozing. Diagramma bloki slaydda bo'lishi shart.")
 _APPROX = {"uz": "taxminiy", "ru": "оценка", "en": "estimate", "kk": "болжам", "uz-cyrl": "тахминий"}
 _KIND = {"line": "line", "chiziqli": "line", "bar": "bar", "ustunli": "bar",
          "donut": "donut", "halqa": "donut", "pie": "donut"}
@@ -207,33 +215,118 @@ def ground(outline: List[Dict], topic: str, language: str = "uz", level: int = 2
                 item["chart"] = data
                 item["chart_note"] = note_for(data)
                 log.info("%d-slayd diagrammasi: haqiqiy ma'lumot (%s)", index + 1, data["source"])
-            else:
-                item["category"] = item.pop("was", None) or _FALLBACK
+            elif item.get("was"):
+                # Kvota bo'yicha qo'shilgan diagramma: ma'lumot yo'q — slayd o'z kategoriyasida qoladi.
+                item["category"] = item.pop("was")
                 item.pop("chart_kind", None)
                 log.info("%d-slayd: ishonchli ma'lumot yo'q — diagrammasiz (%s)",
                          index + 1, item["category"])
+            else:
+                # Reja o'zi diagramma deb belgilagan slayd: diagramma yo'qolmasin — oddiy model namunaviy
+                # ma'lumot tuzadi, u "Shartli misol" deb belgilanadi.
+                item["chart_fallback"] = True
+                item["chart_note"] = FALLBACK_NOTE
+                log.info("%d-slayd: Claude ma'lumot bermadi — namunaviy diagramma (Shartli misol)", index + 1)
     return outline
 
 
 # ───────────────────────────────────────────────────────── slayd bosqichi
 
-def enforce(body: str, item: Optional[Dict]) -> str:
-    """Slayddagi diagramma raqamlari faqat Claude bergan ma'lumot bo'lsin.
+_DATA_SOURCE = re.compile(r'\sdata-source\s*=\s*(["\']).*?\1', re.IGNORECASE | re.DOTALL)
 
-    Rejada ma'lumot bor: slayddagi birinchi blok tayyor blokka almashadi, ortiqchalari tushadi.
-    Rejada ma'lumot yo'q: model o'zi yozib qo'ygan diagramma (to'qilgan raqamli) olib tashlanadi.
+
+def _label_illustrative(tag: str, language: str) -> str:
+    """Model tuzgan diagramma blokiga "Shartli misol" belgisini qo'yadi (eski manba o'chadi)."""
+    tag = _DATA_SOURCE.sub("", tag)
+    label = ILLUSTRATIVE.get(language, ILLUSTRATIVE["uz"])
+    return re.sub(r"\s*>\s*</div>\s*$", f' data-source="{_attr(label)}"></div>', tag, count=1) \
+        if re.search(r">\s*</div>\s*$", tag) else tag
+
+
+_LEAD_END = re.compile(r'(<p\b[^>]*\bclass\s*=\s*["\'][^"\']*\blead\b[^"\']*["\'][^>]*>.*?</p>)',
+                       re.IGNORECASE | re.DOTALL)
+
+
+def _is_cover(body: str) -> bool:
+    return bool(re.search(r'<section\b[^>]*class\s*=\s*["\'][^"\']*\bdark\b', body, re.IGNORECASE))
+
+
+def _insert(body: str, chart: str) -> str:
+    """Diagramma blokini bosh gapdan keyin (bo'lmasa `body` boshiga) qo'yadi."""
+    found = _LEAD_END.search(body)
+    if found:
+        return body[:found.end()] + chart + body[found.end():]
+    opening = deck_logic._BODY_OPEN.search(body)
+    if opening:
+        return body[:opening.end()] + chart + body[opening.end():]
+    return body
+
+
+def enforce(body: str, item: Optional[Dict], language: str = "uz") -> str:
+    """Slayddagi diagramma raqamlari: Claude bergan ma'lumot yoki halol belgilangan namuna.
+
+    Rejada Claude ma'lumoti bor: slayddagi birinchi blok tayyor blokka almashadi, ortiqchalari tushadi.
+    Ma'lumot yo'q: model tuzgan diagramma o'chirilmaydi (izohi unga tayanadi), balki "Shartli misol"
+    deb belgilanadi — haqiqiy statistika kabi ko'rinmaydi.
     """
     if not body:
         return body
     data = (item or {}).get("chart")
     found = list(_CHART_BLOCK.finditer(body))
     if not found:
-        return body
+        # Model diagramma yozmadi (yoki qayta yozish qabul qilinmadi), lekin Claude ma'lumot bergan:
+        # blok kod tomonidan qo'yiladi — izohi "yuqoridagi diagramma" deb turib, diagramma yo'q qolmasin.
+        return _insert(body, block(data)) if data and not _is_cover(body) else body
     out, pos = [], 0
     for number, match in enumerate(found):
         out.append(body[pos:match.start()])
-        if data and number == 0:
-            out.append(block(data))
+        if data:
+            if number == 0:
+                out.append(block(data))
+        else:
+            out.append(_label_illustrative(match.group(0), language))
         pos = match.end()
     out.append(body[pos:])
     return "".join(out)
+
+
+# ──────────────────────────────────────── rejasiz yozilgan ("yetim") diagrammalar
+
+def strays(slides: List[str], outline: List[Dict]) -> List[int]:
+    """Diagramma yozilgan, lekin Claude ma'lumoti hali yo'q va urinilmagan slaydlar."""
+    result = []
+    for index, body in enumerate(slides):
+        item = outline[index] if index < len(outline) else None
+        if index == 0 or item is None or item.get("chart") or item.get("chart_tried"):
+            continue
+        if _CHART_BLOCK.search(body or ""):
+            result.append(index)
+    return result
+
+
+def research_strays(slides: List[str], outline: List[Dict], topic: str, language: str = "uz",
+                    researcher=None) -> List[int]:
+    """Yetim diagrammalar uchun Claude'dan ma'lumot so'raydi; topilganlar indekslari qaytadi."""
+    researcher = researcher or research
+    todo = strays(slides, outline)
+    if not todo:
+        return []
+
+    def job(index: int):
+        item = outline[index]
+        title = deck_logic.title_of(slides[index]) or item.get("title", "")
+        brief = deck_logic.plain(slides[index])[:400] or item.get("brief", "")
+        return index, researcher(topic, title, brief, "", language)
+
+    found = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+        for index, data in pool.map(job, todo):
+            item = outline[index]
+            item["chart_tried"] = True
+            if data:
+                item["chart"], item["chart_note"] = data, note_for(data)
+                found.append(index)
+                log.info("%d-slayddagi diagramma uchun Claude haqiqiy ma'lumot berdi", index + 1)
+            else:
+                item["chart_fallback"] = True
+    return found
