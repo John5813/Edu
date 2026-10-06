@@ -2156,7 +2156,8 @@ def check_no_sections_and_photo_text():
     sources = [html_slides.source_of(page) for page in pages]
     check("muqova tegilmaydi", sources[0] == cover)
     check("2-slayd — yozilgan slaydlardan yig'ilgan reja", "Taqdimot rejasi" in pages[1])
-    check("ajratkich o'rniga matn va rasm", sources[2] == photo
+    check("ajratkich o'rniga matn va rasm (matn tomoni yaxlit abzats)",
+          sources[2] == html_slides.deck_logic.flow_photo_text(photo) and 'class="rasm"' in sources[2]
           and calls == [divider], str(len(calls)))
 
     # Rasm: yoqilmagan bo'lsa matn qoladi; chiqsa rasm qo'yiladi.
