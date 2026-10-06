@@ -48,6 +48,16 @@ PAYMENT_CARD = os.getenv("PAYMENT_CARD", "9860160606136655")
 PAYMENT_CARD_2 = os.getenv("PAYMENT_CARD_2", "9860160104562378")
 PAYMENT_CARD_OWNER = os.getenv("PAYMENT_CARD_OWNER", "Moʻydinov Javlonbek")
 
+# Chekni AI bilan avtomatik tekshirish (services/receipts).
+# Mijoz adminga shu manzil orqali murojaat qiladi (eski chek, takroriy chek, bloklangan hisob).
+ADMIN_CONTACT = os.getenv("ADMIN_CONTACT", "@javlon58_02")
+RECEIPT_AI = os.getenv("RECEIPT_AI", "1").lower() in {"1", "true", "yes"}       # 0 — avvalgidek qo'lda
+RECEIPT_AUTO = os.getenv("RECEIPT_AUTO", "1").lower() in {"1", "true", "yes"}   # 0 — soya rejimi: hammasi adminga
+RECEIPT_MAX_AGE_MIN = int(os.getenv("RECEIPT_MAX_AGE_MIN", "45"))               # chek shuncha daqiqadan eski bo'lmasin
+RECEIPT_AUTO_MAX = int(os.getenv("RECEIPT_AUTO_MAX", "100000"))                 # shundan katta summa — admin tasdig'i
+RECEIPT_AUTO_MAX_NOID = int(os.getenv("RECEIPT_AUTO_MAX_NOID", "30000"))        # ID'siz chek uchun chegara
+RECEIPT_FRAUD_STRIKES = int(os.getenv("RECEIPT_FRAUD_STRIKES", "3"))            # shuncha soxta/takroriy chekdan keyin blok
+
 # Payment amounts with descriptions (for reference - actual values in keyboards.py)
 PAYMENT_OPTIONS_REFERENCE = [
     (10000, "10,000 so'm"),

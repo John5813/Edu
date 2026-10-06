@@ -179,6 +179,33 @@ async def init_db():
             )
         """)
 
+        # AI tekshirgan cheklar: har chek (soxtasi ham) o'qilgan ma'lumoti bilan saqlanadi.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS payment_receipts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                payment_id INTEGER,
+                user_tg INTEGER NOT NULL,
+                verdict TEXT NOT NULL,
+                fraud INTEGER DEFAULT 0,
+                amount INTEGER,
+                claimed INTEGER,
+                reasons TEXT DEFAULT '[]',
+                data TEXT DEFAULT '{}',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_payment_receipts_user ON payment_receipts (user_tg, created_at)")
+        # Takrorlanmas kalitlar: har ID, fayl hash'i, kompozit va skrinshot belgisi bir marta ishlatiladi.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS receipt_keys (
+                key TEXT PRIMARY KEY,
+                receipt_id INTEGER NOT NULL,
+                kind TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         # Bot settings table (for AI model selection, etc.)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS bot_settings (
