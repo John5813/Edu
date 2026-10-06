@@ -19,12 +19,13 @@ blok qoladi — slaydda teshik ochilmaydi va joylashuv buzilmaydi.
 """
 
 import asyncio
+import html
 import base64
 import logging
 import mimetypes
 import os
 import re
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 log = logging.getLogger("html_images")
 
@@ -323,56 +324,87 @@ def photo_prompt(prompt: str) -> str:
     return f"{text}, {_PHOTO_STYLE}"
 
 
+_WIKI_ATTR = re.compile(r"\bdata-wiki\s*=\s*([\"'])(.*?)\1", re.IGNORECASE | re.DOTALL)
+_SLIDE_TAIL = re.compile(r"</div>\s*</section>\s*$", re.IGNORECASE)
+
+
+def photo_wiki(page: str, start: int) -> str:
+    """Rasm blokining `data-wiki` qiymati (Vikipediya maqola nomi), yo'q bo'lsa bo'sh."""
+    opening = _RASM_OPEN.match(page, start)
+    found = _WIKI_ATTR.search(opening.group(0)) if opening else None
+    return found.group(2).strip() if found else ""
+
+
+def add_credit(page: str, text: str) -> str:
+    """Slayd pastiga rasm muallifi yozuvi (CC BY uchun) qo'shadi."""
+    if not text or text in page:
+        return page
+    line = f'<p class="note photo-credit">{html.escape(text, quote=False)}</p>'
+    match = _SLIDE_TAIL.search(page.rstrip())
+    if not match:
+        return page
+    body = page.rstrip()
+    return body[:match.start()] + line + body[match.start():]
+
+
 async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
-                      generate=None) -> Tuple[List[str], int]:
+                      generate=None, wiki=None) -> Tuple[List[str], int]:
     """Rasm bloklariga rasm qo'yadi. (slaydlar, qo'yilgan rasmlar soni).
 
+    `data-wiki` bor blok uchun avval Vikipediya/Commons'dan haqiqiy foto
+    qidiriladi (`wiki(query)` → WikiPhoto yoki None); topilmasa AI rasm chiziladi.
     Rasm chiqmagan blok tegilmaydi — unda qo'shimcha matn qoladi.
     """
+    if wiki is None:
+        from services.premium_presentation import wiki_photos
+
+        wiki = wiki_photos.find if wiki_photos.enabled() else None
     if generate is None:
-        if not photos_enabled():
-            return pages, 0
-        try:
-            from services.together_service import get_together_service
+        generate = _together_generator() if photos_enabled() else None
 
-            together = get_together_service()
-        except Exception as exc:
-            log.error("Together xizmati mavjud emas: %s", exc)
-            return pages, 0
-
-        async def generate(prompt):
-            return await together.generate_image(prompt, aspect_ratio="4:3",
-                                                target="premium")
-
-    # Rasmlar bir vaqtda chizdiriladi: ketma-ket bo'lsa har biri
+    # Rasmlar bir vaqtda olinadi: ketma-ket bo'lsa har biri
     # bir daqiqagacha kutadi va taqdimot juda sekinlashadi.
     wanted = []
     for index, page in enumerate(pages):
         for start, end, prompt in photo_blocks(page):
-            wanted.append((index, start, end, prompt))
+            wanted.append((index, start, end, prompt, photo_wiki(page, start)))
     wanted = wanted[:max(0, int(limit))]
+    if not wanted or (generate is None and wiki is None):
+        return pages, 0
     gate = asyncio.Semaphore(3)
 
-    async def one(prompt):
+    async def one(prompt, query):
+        """(rasm manzili, muallif yozuvi) yoki (None, "")."""
         async with gate:
+            if query and wiki is not None:
+                try:
+                    found = await wiki(query)
+                except Exception as exc:
+                    log.warning("Wikimedia rasmi olinmadi (%s): %s", query, exc)
+                    found = None
+                if found:
+                    return found.uri, found.credit
+            if generate is None:
+                return None, ""
             try:
                 path = await generate(photo_prompt(prompt))
             except Exception as exc:
                 log.warning("Rasm chizilmadi (%s): %s", prompt[:50], exc)
-                return None
+                return None, ""
         uri = _data_uri(path) if path and os.path.exists(path) else None
         if path and os.path.exists(path):
             try:
                 os.remove(path)
             except OSError:
                 pass
-        return uri
+        return uri, ""
 
-    uris = await asyncio.gather(*(one(item[3]) for item in wanted))
+    results = await asyncio.gather(*(one(item[3], item[4]) for item in wanted))
     result, placed, tried = list(pages), 0, len(wanted)
+    credits: Dict[int, List[str]] = {}
     # Oxiridan boshlab almashtiriladi — oldingi o'rinlar siljimaydi.
-    for (index, start, end, prompt), uri in sorted(
-            zip(wanted, uris), key=lambda pair: (pair[0][0], -pair[0][1])):
+    for (index, start, end, prompt, query), (uri, credit) in sorted(
+            zip(wanted, results), key=lambda pair: (pair[0][0], -pair[0][1])):
         if not uri:
             continue
         page = result[index]
@@ -380,9 +412,28 @@ async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
                          f'class="photo" src="{uri}" alt=""></div>'
                          + page[end:])
         placed += 1
-    log.info("Rasm bloklari: %d tasi sinaldi, %d tasiga rasm qo'yildi",
-             tried, placed)
+        if credit:
+            credits.setdefault(index, []).append(credit)
+    for index, lines in credits.items():
+        result[index] = add_credit(result[index], "; ".join(dict.fromkeys(lines)))
+    log.info("Rasm bloklari: %d tasi sinaldi, %d tasiga rasm qo'yildi", tried, placed)
     return result, placed
+
+
+def _together_generator():
+    """AI rasm chizuvchi (Together); xizmat yo'q bo'lsa None."""
+    try:
+        from services.together_service import get_together_service
+
+        together = get_together_service()
+    except Exception as exc:
+        log.error("Together xizmati mavjud emas: %s", exc)
+        return None
+
+    async def generate(prompt):
+        return await together.generate_image(prompt, aspect_ratio="4:3", target="premium")
+
+    return generate
 
 
 # ───────────────────────────────────────────────── muqova rasmi
