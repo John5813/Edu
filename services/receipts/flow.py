@@ -84,9 +84,12 @@ def card_text(user, verdict: str, receipt: rules.Receipt, decision: rules.Decisi
         lines.append(f"📤 {receipt.sender_name or '?'} ••{receipt.sender_tail or '????'}")
     if receipt.receiver_name or receipt.receiver_tail:
         lines.append(f"📥 {receipt.receiver_name or '?'} ••{receipt.receiver_tail or '????'}")
-    if decision.reasons:
-        lines.append("⚠️ Sabablar:")
-        lines += [f" • {texts.REASONS.get(code, code)}" for code in decision.reasons]
+    # Qo'lda tasdiqlash rejimida avto-tasdiq chegaralari haqidagi sabablar admin uchun shovqin.
+    hidden = set() if config.RECEIPT_AUTO else {"over_limit", "over_limit_noid", "no_unique_key", "receiver_by_name"}
+    shown = [code for code in decision.reasons if code not in hidden]
+    if shown:
+        lines.append("⚠️ Diqqat:")
+        lines += [f" • {texts.REASONS.get(code, code)}" for code in shown]
     for prior in decision.priors[:3]:
         status = {"approved": "✅ tasdiqlangan", "rejected": "❌ rad etilgan",
                   "pending": "⏳ kutilmoqda"}.get(prior.payment_status, prior.verdict)
@@ -206,6 +209,21 @@ async def _process(message, state_data: dict, db, user, lang: str, source: str,
     file_sha = hashlib.sha256(data).hexdigest()
     now = rules.now_tashkent()
     loop = asyncio.get_running_loop()
+
+    # Aynan shu fayl avval kelgan bo'lsa AI'siz, bepul aniqlanadi (pul sarflanmaydi).
+    same_file = await store.find_priors([("file", file_sha)])
+    if same_file:
+        priors = list(same_file.values())
+        verdict, reason, fraud = rules.classify_priors(priors, user.telegram_id)
+        decision = rules.Decision(verdict=verdict, fraud=fraud, priors=priors,
+                                  reasons=[reason if verdict == rules.OWN_PENDING else "duplicate_file"])
+        rid, _ = await store.save_receipt(user.telegram_id, verdict, fraud, None, claimed, decision.reasons,
+                                          {"file_sha": file_sha, "ai_skipped": True}, [("file", file_sha)])
+        if verdict == rules.OWN_PENDING:
+            await message.answer(texts.user_text(lang, "own_done" if reason == "own_done" else "own_pending"),
+                                 reply_markup=keyboard)
+            return Outcome(verdict, receipt_id=rid)
+        return await _rejected(message, bot, db, user, lang, decision, rid, keyboard)
     try:
         receipt, prepared = await loop.run_in_executor(None, partial(reader.read, data, filename, mime, now))
     except reader.Unsupported:
@@ -306,6 +324,18 @@ async def _process(message, state_data: dict, db, user, lang: str, source: str,
     return await _flagged(message, bot, db, user, lang, receipt, decision, claimed, rid, payment_id, keyboard)
 
 
+def _sent_to_admin_text(lang: str) -> str:
+    """Avvalgi qo'lda tekshiruvdagi xabar: «adminga yuborildi» + kunduzgi/kechki eslatma."""
+    try:
+        from translations import get_text
+        text = get_text(lang, "payment_sent_to_admin")
+        hour = datetime.now().hour
+        return text + "\n\n" + get_text(lang, "payment_reminder_daytime" if 7 <= hour < 22
+                                          else "payment_reminder_nighttime")
+    except Exception:
+        return texts.user_text(lang, "review")
+
+
 def _debug(user, decision) -> str:
     """Admin o'zi sinab ko'rayotganda sabablar mijoz xabariga qo'shiladi (oddiy mijozda ko'rinmaydi)."""
     if user.telegram_id not in config.ADMIN_IDS:
@@ -336,14 +366,16 @@ async def _rejected(message, bot, db, user, lang, decision, rid, keyboard=None) 
 async def _flagged(message, bot, db, user, lang, receipt, decision, claimed, rid, payment_id,
                    keyboard=None) -> Outcome:
     """Haqiqiy chek, lekin admin qarori kerak: kartochka tugmalar bilan boradi."""
-    if any(code in decision.reasons for code in ("stale", "screenshot_old")):
-        text = texts.user_text(lang, "stale", age=rules.fmt_age(decision.age_min) or "—")
-    else:
-        text = texts.user_text(lang, "review")
+    legacy = not any(code in decision.reasons for code in ("stale", "screenshot_old"))
+    text = _sent_to_admin_text(lang) if legacy else texts.user_text(
+        lang, "stale", age=rules.fmt_age(decision.age_min) or "—")
     try:
-        await message.answer(text, reply_markup=keyboard)
+        await message.answer(text, reply_markup=keyboard, parse_mode="Markdown" if legacy else None)
     except Exception:
-        pass
+        try:
+            await message.answer(text.replace("*", ""), reply_markup=keyboard)
+        except Exception:
+            pass
     await _to_admins(bot, user, message,
                      card_text(user, decision.verdict, receipt, decision, claimed, rid, payment_id),
                      payment_id, buttons=True)

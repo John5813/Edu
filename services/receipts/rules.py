@@ -187,6 +187,21 @@ def editor_flag(software: str) -> bool:
     return bool(_PHOTO_EDITORS.search(str(software or "")))
 
 
+def classify_priors(priors: List[Prior], user_tg: int) -> Tuple[str, str, bool]:
+    """Avval ishlatilgan chek: (verdict, sabab, jazo bormi).
+
+    Mijozning o'zi shu chekni yaqinda yuborgan (ikki marta bosdi, sabrsizlik qildi): soxtalik emas —
+    jazosiz, faqat "allaqachon qabul qilingan/tekshirilmoqda" deyiladi.
+    """
+    own = all(p.user_tg == user_tg and (
+        p.payment_status == "pending" or (p.payment_status == "approved" and p.age_min <= 30))
+        for p in priors)
+    if own:
+        done = all(p.payment_status == "approved" for p in priors)
+        return OWN_PENDING, "own_done" if done else "own_pending", False
+    return DUPLICATE, "duplicate", True
+
+
 # ───────────────────────────────────────────────────────────────── qaror
 
 def evaluate(r: Receipt, ctx: Context, file_sha: str = "",
@@ -226,14 +241,9 @@ def evaluate(r: Receipt, ctx: Context, file_sha: str = "",
     if strong:
         priors = list({p.receipt_id: p for _, p in strong}.values())
         d.priors = priors
-        # Mijozning o'zi shu chekni yaqinda yuborgan (ikki marta bosdi, sabrsizlik qildi): bu soxtalik
-        # emas — jazosiz, faqat "allaqachon qabul qilingan" deyiladi.
-        own = all(p.user_tg == ctx.user_tg and (
-            p.payment_status == "pending" or (p.payment_status == "approved" and p.age_min <= 30))
-            for p in priors)
-        if own:
-            done = all(p.payment_status == "approved" for p in priors)
-            d.verdict, d.reasons = OWN_PENDING, ["own_done" if done else "own_pending"]
+        verdict, reason, fraud = classify_priors(priors, ctx.user_tg)
+        if verdict == OWN_PENDING:
+            d.verdict, d.reasons = OWN_PENDING, [reason]
             return d
         d.verdict, d.fraud = DUPLICATE, True
         d.reasons.append("duplicate_" + strong[0][0][0])
@@ -314,15 +324,15 @@ def evaluate(r: Receipt, ctx: Context, file_sha: str = "",
     if "wrong_receiver" in d.reasons:
         d.verdict = WRONG_RECEIVER
         return d
-    if "tamper_high" in d.reasons or "tamper_meta" in d.reasons:
+    # Fayl metama'lumotida tahrirlovchi dastur izi — qat'iy belgi. AI "tahrirlangan" deb gumon qilsa
+    # (arzon model adashishi mumkin) rad etilmaydi: adminga ogohlantirish bilan boradi.
+    if "tamper_meta" in d.reasons:
         d.verdict = FAKE
         return d
     soft = {"receiver_by_name", "no_date"}        # o'zi to'siq emas
     blocking = [x for x in d.reasons if x not in soft]
     if blocking or not ctx.auto_enabled:
         d.verdict = REVIEW
-        if not ctx.auto_enabled and not blocking:
-            d.reasons.append("shadow_mode")
         return d
     if "receiver_by_name" in d.reasons:         # karta oxiri ko'rinmagan: faqat ism — admin
         d.verdict = REVIEW
