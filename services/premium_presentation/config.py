@@ -82,14 +82,13 @@ OPENROUTER_CHART_MODELS = [
     if model.startswith("anthropic/")
 ] or _chain(_DEFAULT_CHART_CHAIN)
 
-# To'lov cheklarini o'qish (services/receipts): faqat Claude. Birinchi o'qish — arzon va tez
-# Haiku; tasdiqlovchi ikkinchi o'qish — kuchliroq Sonnet (raqamlarni adashtirmaslik uchun).
-OPENROUTER_RECEIPT_MODELS = [
-    model for model in _chain(
-        os.getenv("RECEIPT_MODEL", "") + "," +
-        os.getenv("RECEIPT_FALLBACKS", "anthropic/claude-haiku-4.5,anthropic/claude-sonnet-4.5"))
-    if model.startswith("anthropic/")
-] or ["anthropic/claude-haiku-4.5", "anthropic/claude-sonnet-4.5"]
+# To'lov cheklarini o'qish (services/receipts): BITTA arzon o'qish. Birinchi model — eng arzon ko'rish
+# modeli (chek bu yerda faqat "chekmi yoki yo'qmi" va admin kartasi uchun o'qiladi, qaror odamda);
+# u ishlamasa keyingisiga o'tiladi. `RECEIPT_MODEL` bilan almashtiriladi.
+OPENROUTER_RECEIPT_MODELS = _chain(
+    os.getenv("RECEIPT_MODEL", "") + "," +
+    os.getenv("RECEIPT_FALLBACKS", "google/gemini-2.5-flash-lite,anthropic/claude-haiku-4.5"))
+# Faqat RECEIPT_AUTO=1 (avtomatik tasdiq) bo'lsa ishlatiladigan tasdiqlovchi ikkinchi o'qish.
 OPENROUTER_RECEIPT_VERIFY_MODELS = [
     model for model in _chain(
         os.getenv("RECEIPT_VERIFY_MODEL", "") + "," +

@@ -24,6 +24,7 @@ dbmod.DATABASE_FILE = os.path.join(TMP, "test.db")
 NOW = datetime(2026, 10, 6, 20, 10)
 rules.now_tashkent = lambda: NOW
 ADMIN = config.ADMIN_IDS[0]
+config.RECEIPT_AUTO = True          # ixtiyoriy avto-tasdiq rejimi shu qismda sinaladi (sukut — qo'lda tasdiqlash)
 
 # ── soxta Telegram
 class Sent:
@@ -179,9 +180,12 @@ async def main():
     QUEUE[:] = [raw(rid="6100000001", receiver="986016****1234", date=(10, 6, 19, 50), clock="19:50", battery=12)]
     out_w, msg_w = await send(300, b"W1")
     check("boshqa karta: rad, to'lov yo'q", out_w.verdict == rules.WRONG_RECEIVER and out_w.payment_id is None and "bizning kartalar emas" in msg_w.answers[-1][0], (out_w.verdict, msg_w.answers[-1][0]))
-    QUEUE[:] = [raw(rid="6100000002", date=(10, 6, 19, 48), clock="19:48", battery=13, tamper="high", tamper_reason="raqam shrifti boshqa")]
+    QUEUE[:] = [raw(rid="6100000002", date=(10, 6, 19, 48), clock="19:48", battery=13)]
+    _old_prepare = reader.prepare
+    reader.prepare = lambda data, filename="", mime="": reader.Prepared(images=[b"img"], meta_flags=["exif:Adobe Photoshop 25"])
     out_f, msg_f = await send(300, b"W2")
-    check("tahrirlangan chek: rad, to'lov yo'q", out_f.verdict == rules.FAKE and out_f.payment_id is None and "tahrirlangan" in msg_f.answers[-1][0], (out_f.verdict, msg_f.answers[-1][0]))
+    reader.prepare = _old_prepare
+    check("fayl izida Photoshop bor chek: rad, to'lov yo'q", out_f.verdict == rules.FAKE and out_f.payment_id is None and "tahrirlangan" in msg_f.answers[-1][0], (out_f.verdict, msg_f.answers[-1][0]))
     check("ikkalasi ham adminga bormadi", len(bot.copied) == copied_before and len([m for m in bot.sent if m.chat.id == ADMIN]) == sent_before)
     check("jazo hisoblanmadi (xato bo'lishi mumkin)", await store.fraud_strikes(300) == 0)
 
@@ -235,7 +239,7 @@ async def main():
     out13, _ = await send(300, b"S")
     config.RECEIPT_AUTO = True
     check("hamma narsa joyida bo'lsa ham admin tasdiqlaydi", out13.verdict == rules.REVIEW and await balance(300) == b0, (out13, await balance(300), b0))
-    check("kartada soya rejimi izohi", any("Soya rejimi" in m.text for m in bot.sent if m.chat.id == ADMIN))
+    check("soya/qo'lda rejimda karta adminga tugmalar bilan boradi", [m for m in bot.sent if m.chat.id == ADMIN][-1].kw.get("reply_markup") is not None)
 
     print("14) Admin o'zi sinab ko'rsa bloklanmaydi")
     admin_user = await Database.create_user(ADMIN, "adm", "Adm", "uz")
@@ -308,6 +312,44 @@ async def main():
     check("summa va to'lov boshlangan vaqt tiklandi", data16.get("payment_amount") == 15000
           and data16.get("payment_started_at") == (NOW - timedelta(minutes=12)).isoformat(), data16)
     check("mijozga «chekni yuboring» deyildi", answers16 and "Chekni yuboring" in answers16[0], answers16)
+
+    print("18) SUKUT REJIM: qo'lda tasdiqlash, bitta arzon o'qish")
+    config.RECEIPT_AUTO = False
+    reads = {"n": 0}
+    _orig_call = reader._call
+    def counting_call(kind, images, text, now):
+        reads["n"] += 1
+        return _orig_call(kind, images, text, now)
+    reader._call = counting_call
+    admin_before = len([m for m in bot.sent if m.chat.id == ADMIN]); copied_before = len(bot.copied)
+    bal0 = await balance(100)
+    QUEUE[:] = [raw(rid="6600000001", date=(10, 6, 20, 0), clock="20:00", battery=77)]
+    reads["n"] = 0
+    out_m, msg_m = await send(100, b"M1")
+    check("haqiqiy chek adminga tugmalar bilan boradi, pul avtomatik qo'shilmadi", out_m.verdict == rules.REVIEW and await balance(100) == bal0
+          and (await Database.get_payment_by_id(out_m.payment_id)).status == "pending", (out_m.verdict, await balance(100) - bal0))
+    check("AI faqat BIR marta chaqirildi", reads["n"] == 1, reads["n"])
+    card = [m for m in bot.sent if m.chat.id == ADMIN][-1]
+    check("admin kartasi: tugmalar bor, avto-tasdiq shovqini yo'q", card.kw.get("reply_markup") is not None and "avto-tasdiq" not in card.text and "chegarasidan" not in card.text, card.text)
+    check("mijozga avvalgi «adminga yuborildi» xabari", "adminga yuborildi" in msg_m.answers[-1][0] and msg_m.answers[-1][1].get("parse_mode") == "Markdown", msg_m.answers[-1])
+    # bekorchi narsalar adminga bormaydi
+    for junk in ({"doc_type": "other", "readable": True}, {"doc_type": "tax_receipt", "readable": True},
+                 {"doc_type": "transfer", "status": "failed", "readable": True}):
+        QUEUE[:] = [junk]
+        a0, c0 = len([m for m in bot.sent if m.chat.id == ADMIN]), len(bot.copied)
+        out_j, _ = await send(100, b"J" + bytes([len(str(junk))]))
+        check(f"{junk['doc_type']}: adminga bormadi", out_j.verdict == rules.NOT_RECEIPT and len([m for m in bot.sent if m.chat.id == ADMIN]) == a0 and len(bot.copied) == c0)
+    # aynan o'sha fayl: AI chaqirilmaydi (bepul)
+    reads["n"] = 0
+    QUEUE[:] = []
+    out_d, msg_d = await send(200, b"M1")          # boshqa mijoz o'sha faylni yubordi
+    check("takroriy fayl AI'siz aniqlandi (pul sarflanmadi)", reads["n"] == 0 and out_d.verdict == rules.DUPLICATE, (reads["n"], out_d.verdict))
+    check("takroriy fayl adminga bormadi", len([m for m in bot.sent if m.chat.id == ADMIN]) == len([m for m in bot.sent if m.chat.id == ADMIN]) and
+          all(c[2] != msg_d.message_id for c in bot.copied))
+    out_own, msg_own = await send(100, b"M1")      # mijozning o'zi qayta yubordi (tekshirilmoqda)
+    check("o'zining kutilayotgan cheki AI'siz: «tekshirilmoqda»", reads["n"] == 0 and out_own.verdict == rules.OWN_PENDING and "tekshirilmoqda" in msg_own.answers[-1][0], (reads["n"], msg_own.answers[-1][0]))
+    reader._call = _orig_call
+    config.RECEIPT_AUTO = True
 
 asyncio.run(main())
 print("\nXATO:" if FAILS else "\nOqim HAMMASI YAXSHI", FAILS or "")
