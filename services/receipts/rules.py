@@ -206,6 +206,12 @@ def evaluate(r: Receipt, ctx: Context, file_sha: str = "",
     if r.status in ("failed", "pending"):
         d.verdict, d.reasons = NOT_RECEIPT, [f"status_{r.status}"]
         return d
+    # Faqat summa va ilova nomi ko'rinadigan "chek" (qabul qiluvchi, yuboruvchi, sana va ID yo'q) hech narsani
+    # isbotlamaydi — qabul qilinmaydi, mijozdan to'lov tarixidagi asl chek so'raladi.
+    identified = bool(r.receiver_tail or norm_name(r.receiver_name) or r.sender_tail or norm_name(r.sender_name))
+    if not identified and not [i for i in r.ids if len(norm_id(i)) >= 7] and r.dt is None:
+        d.verdict, d.reasons = NOT_RECEIPT, ["too_little"]
+        return d
     if r.currency and r.currency.upper() not in ("UZS", "SUM", "SO'M", "СУМ"):
         d.verdict, d.reasons = REVIEW, ["currency"]
         return d

@@ -157,6 +157,24 @@ async def main():
     check("mijozga tushuntirish", "to'lov cheki emas" in msg7.answers[-1][0])
     check("admin chatida bu fayl ham qoldi (jim)", bot.copied[-1][2] == msg7.message_id and bot.sent[-1].kw.get("disable_notification"))
 
+    print("7b) Faqat summa va brend — asl chek so'raladi, «Chekni qayta yuborish» tugmasi bilan")
+    QUEUE[:] = [{"doc_type": "payment", "status": "success", "readable": True, "amount": 10000, "app": "click",
+                 "screenshot": {"is_screenshot": True, "clock": "20:05", "battery": 90}}]
+    out7b, msg7b = await send(300, b"E2")
+    text7b, kw7b = msg7b.answers[-1]
+    check("qabul qilinmadi, holat saqlanadi", out7b.verdict == rules.NOT_RECEIPT and not out7b.clear_state and await balance(300) == 0)
+    check("mijozga: to'lov tarixidan asl chek so'raldi", "To'lov tarixidan" in text7b and "faqat summa" in text7b, text7b)
+    markup = kw7b.get("reply_markup")
+    button = markup.inline_keyboard[0][0] if markup else None
+    check("«Chekni qayta yuborish» tugmasi bor", button and "qayta yuborish" in button.text and button.callback_data.startswith("rcpt_resend:10000:"), button)
+    check("tugma ma'lumoti Telegram chegarasida (64 bayt)", button and len(button.callback_data.encode()) <= 64)
+    for q in ({"doc_type": "tax_receipt", "readable": True}, {"doc_type": "other", "readable": True},
+              {"doc_type": "transfer", "status": "failed", "readable": True}, {"doc_type": "transfer", "readable": False}):
+        QUEUE[:] = [q]
+        _, m_ = await send(300, b"E3")
+        mk = m_.answers[-1][1].get("reply_markup")
+        check(f"qayta so'rash tugmasi: {q.get('doc_type')}/{q.get('status', '')}", mk and mk.inline_keyboard[0][0].callback_data.startswith("rcpt_resend:"), m_.answers[-1])
+
     print("8) Ikkinchi o'qish mos kelmasa — admin")
     QUEUE[:] = [raw(rid="8000000001", date=(10, 6, 20, 6), clock="20:06", battery=33), raw(rid="8000000001", amount=18_000, date=(10, 6, 20, 6), clock="20:06", battery=33)]
     out8, _ = await send(300, b"F")
@@ -245,6 +263,21 @@ async def main():
     check("handler: AI ishlamasa avvalgidek qo'lda tekshiruv (to'lov yaratildi, admin xabardor)",
           len(await Database.get_pending_payments()) == n_before + 1 and await st.get_state() is None
           and any("Yangi to'lov" in x.text for x in bot.sent if x.chat.id == ADMIN))
+
+    print("16) «Chekni qayta yuborish» tugmasi holatni tiklaydi")
+    rs_state = FSMContext(storage=MemoryStorage(), key=StorageKey(bot_id=1, chat_id=300, user_id=300))
+    answers16 = []
+    async def cb_answer(*a, **k): pass
+    async def msg_answer(text, **k): answers16.append(text)
+    epoch = int((NOW - timedelta(minutes=12)).replace(tzinfo=rules.TASHKENT).timestamp())
+    callback = types.SimpleNamespace(data=f"rcpt_resend:15000:{epoch}", answer=cb_answer,
+                                     message=types.SimpleNamespace(answer=msg_answer))
+    await pay_handlers.handle_receipt_resend(callback, rs_state, "uz")
+    data16 = await rs_state.get_data()
+    check("holat: chek kutilmoqda", await rs_state.get_state() == PaymentStates.waiting_for_screenshot.state)
+    check("summa va to'lov boshlangan vaqt tiklandi", data16.get("payment_amount") == 15000
+          and data16.get("payment_started_at") == (NOW - timedelta(minutes=12)).isoformat(), data16)
+    check("mijozga «chekni yuboring» deyildi", answers16 and "Chekni yuboring" in answers16[0], answers16)
 
 asyncio.run(main())
 print("\nXATO:" if FAILS else "\nOqim HAMMASI YAXSHI", FAILS or "")

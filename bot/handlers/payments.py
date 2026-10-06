@@ -311,6 +311,26 @@ async def handle_custom_amount_input(callback_message: Message, state: FSMContex
     await state.set_state(PaymentStates.waiting_for_screenshot)
 
 
+@router.callback_query(F.data.regexp(r"^rcpt_resend:\d+:\d+$"))
+async def handle_receipt_resend(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """«Chekni qayta yuborish» tugmasi: chek kutish holatiga qaytaradi (summa va vaqt tugmadan tiklanadi)."""
+    try:
+        await callback.answer()
+    except Exception:
+        pass
+    try:
+        from datetime import datetime
+        from services.receipts import texts as receipt_texts
+        from services.receipts.rules import TASHKENT
+        _, amount, epoch = callback.data.split(":")
+        started = datetime.fromtimestamp(int(epoch), TASHKENT).replace(tzinfo=None)
+        await state.set_state(PaymentStates.waiting_for_screenshot)
+        await state.update_data(payment_amount=int(amount), payment_started_at=started.isoformat())
+        await callback.message.answer(receipt_texts.user_text(user_lang, "resend_prompt"))
+    except Exception as e:
+        logger.error(f"handle_receipt_resend error: {e}", exc_info=True)
+
+
 @router.message(PaymentStates.waiting_for_screenshot, F.content_type.in_([ContentType.PHOTO, ContentType.DOCUMENT]))
 async def handle_payment_screenshot(message: Message, state: FSMContext, db: Database, user_lang: str, user=None):
     """Handle payment screenshot"""

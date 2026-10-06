@@ -48,6 +48,17 @@ def _money(value) -> str:
     return f"{int(value):,}".replace(",", " ") if value is not None else "—"
 
 
+# ─────────────────────────────────────────────────────── qayta yuborish tugmasi
+
+def resend_keyboard(lang: str, claimed: int, started: Optional[datetime]):
+    """«Chekni qayta yuborish» tugmasi: summa va boshlanish vaqti tugma ichida, holat yo'qolsa ham tiklanadi."""
+    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+    moment = started or rules.now_tashkent()
+    epoch = int(moment.replace(tzinfo=rules.TASHKENT).timestamp())
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
+        text=texts.user_text(lang, "resend_btn"), callback_data=f"rcpt_resend:{int(claimed)}:{epoch}")]])
+
+
 # ───────────────────────────────────────────────────────────── admin kartasi
 
 def card_text(user, verdict: str, receipt: rules.Receipt, decision: rules.Decision, claimed: int,
@@ -198,7 +209,8 @@ async def _process(message, state_data: dict, db, user, lang: str, source: str,
     try:
         receipt, prepared = await loop.run_in_executor(None, partial(reader.read, data, filename, mime, now))
     except reader.Unsupported:
-        await message.answer(texts.user_text(lang, "unsupported"))
+        await message.answer(texts.user_text(lang, "unsupported"),
+                             reply_markup=resend_keyboard(lang, claimed, started))
         return Outcome(rules.NOT_RECEIPT, clear_state=False)
 
     ctx = rules.Context(now=now, claimed=claimed, cards=card_tails(), owner_names=owner_keys(),
@@ -231,8 +243,9 @@ async def _process(message, state_data: dict, db, user, lang: str, source: str,
         rid, _ = await store.save_receipt(user.telegram_id, verdict, False, receipt.amount, claimed,
                                           decision.reasons, snapshot, [])
         key = decision.reasons[0] if decision.reasons[0] in (
-            "tax_receipt", "not_payment", "unreadable", "status_failed", "status_pending") else "not_payment"
-        await message.answer(texts.user_text(lang, key))
+            "tax_receipt", "too_little", "not_payment", "unreadable", "status_failed", "status_pending") else "not_payment"
+        # Qayta yuborish so'ralgan har xabar «Chekni qayta yuborish» tugmasi bilan boradi.
+        await message.answer(texts.user_text(lang, key), reply_markup=resend_keyboard(lang, claimed, started))
         await _to_admins(bot, user, message, card_text(user, verdict, receipt, decision, claimed, rid, None),
                          silent=True)
         return Outcome(verdict, clear_state=False, receipt_id=rid)

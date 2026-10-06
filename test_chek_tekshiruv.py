@@ -66,6 +66,16 @@ check("o'qib bo'lmagan chek", rules.evaluate(rec(readable=False), ctx()).verdict
 check("muvaffaqiyatsiz to'lov", rules.evaluate(rec(status="failed"), ctx()).verdict == rules.NOT_RECEIPT)
 check("yakunlanmagan to'lov", rules.evaluate(rec(status="pending"), ctx()).verdict == rules.NOT_RECEIPT)
 
+print("2b) Faqat summa va ilova nomi ko'rinadigan chek qabul qilinmaydi")
+bare = Receipt(doc_type="payment", status="success", amount=10_000, app="click", status_time="20:04", battery=91)
+d = rules.evaluate(bare, ctx())
+check("faqat summa+brend (soat/batareya bor bo'lsa ham) — chek emas, asl chek so'raladi",
+      d.verdict == rules.NOT_RECEIPT and d.reasons == ["too_little"] and not d.fraud, (d.verdict, d.reasons))
+check("faqat summa+brend, hech narsa yo'q", rules.evaluate(Receipt(doc_type="transfer", amount=5000, app="payme"), ctx()).reasons == ["too_little"])
+check("qabul qiluvchi ko'rinsa — to'liq emas, lekin chek", rules.evaluate(rec(ids=[], sender_name="", sender_tail="", dt=None, status_time="20:05"), ctx()).verdict != rules.NOT_RECEIPT)
+check("faqat sana bor — chek", rules.evaluate(Receipt(doc_type="transfer", amount=5000, app="payme", dt=NOW - timedelta(minutes=3)), ctx()).verdict != rules.NOT_RECEIPT)
+check("faqat ID bor — chek", rules.evaluate(Receipt(doc_type="transfer", amount=5000, app="uzum", ids=["c67a416a-e4eb-4a60"]), ctx()).verdict != rules.NOT_RECEIPT)
+
 print("3) Takroriy cheklar (ID tahrirlangan holatlar ham)")
 same = rec()
 found = {("id", "5333277563"): prior()}
