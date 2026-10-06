@@ -118,6 +118,7 @@ line-height:1.2}
 width:92px;flex:none;line-height:1}
 .item-text{font-family:SERIF;font-size:38px}
 .item-text b{font-style:italic}
+.par{font-family:SERIF}
 .timeline .stop{border-top:2px solid #HEADING}
 .timeline .bead{border-radius:0;width:16px;height:16px;margin-top:-9px}
 .timeline .when{font-size:54px;font-style:italic;font-weight:400;color:#ACCENT}

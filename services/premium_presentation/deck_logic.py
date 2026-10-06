@@ -415,6 +415,156 @@ def fix_columns(body: str) -> str:
     return "".join(result)
 
 
+# ──────────────────────────────────────── rasmli slayd: yaxlit abzats
+
+_SPLIT_OPEN = re.compile(r'<div\b[^>]*\bclass\s*=\s*"([^"]*)"[^>]*>', re.IGNORECASE)
+_KEEP_INLINE = re.compile(r"<(?!/?(?:sub|sup|i|em)\b)[^>]+>", re.IGNORECASE)
+_BOLD_HEAD = re.compile(r"^\s*<b>(.*?)</b>\s*(.*)$", re.IGNORECASE | re.DOTALL)
+_PIECE = re.compile(r"(?<![-\w])(?:item-text|card)(?![-\w])")
+_END_MARK = ".!?…:;»\")"
+
+
+def _children(body: str, start: int, stop: int) -> List[Tuple[int, int, str]]:
+    """`body[start:stop]` ichidagi bevosita `<div>` bolalari: (boshi, oxiri, sinflari)."""
+    out, depth, begin, classes = [], 0, 0, ""
+    for tag in _DIV_TAG.finditer(body, start, stop):
+        if tag.group(0).startswith("</"):
+            depth -= 1
+            if depth == 0:
+                out.append((begin, tag.end(), classes))
+        else:
+            if depth == 0:
+                begin = tag.start()
+                found = _SPLIT_OPEN.match(tag.group(0))
+                classes = found.group(1) if found else ""
+            depth += 1
+    return out
+
+
+def _inner(fragment: str) -> str:
+    """`<div ...>ICHKI</div>` ning ichki qismi."""
+    opening = _DIV_TAG.match(fragment)
+    return fragment[opening.end():fragment.rfind("</")] if opening else fragment
+
+
+def _piece_texts(fragment: str) -> List[str]:
+    """Ro'yxat bandlari va kartochkalardagi matnlar (hujjat tartibida, ichma-ich emas)."""
+    texts, pos = [], 0
+    inside = _inner(fragment)
+    for start, end, classes in _children_deep(inside):
+        block = inside[start:end]
+        if _PIECE.search(classes):
+            texts.append(_piece_text(block, classes))
+    return [t for t in texts if t]
+
+
+def _children_deep(inside: str) -> List[Tuple[int, int, str]]:
+    """Eng yuqori darajadagi `item-text` / `card` bloklari (qaysi chuqurlikda bo'lmasin)."""
+    out, depth, stack = [], 0, []
+    for tag in _DIV_TAG.finditer(inside):
+        if tag.group(0).startswith("</"):
+            depth -= 1
+            if stack and stack[-1][0] == depth:
+                begin, classes = stack.pop()[1:]
+                if not stack:                       # eng tashqi bo'lak yopildi
+                    out.append((begin, tag.end(), classes))
+        else:
+            found = _SPLIT_OPEN.match(tag.group(0))
+            classes = found.group(1) if found else ""
+            if not stack and _PIECE.search(classes):
+                stack.append((depth, tag.start(), classes))
+            depth += 1
+    return out
+
+
+def _clean_text(fragment: str) -> str:
+    text = _KEEP_INLINE.sub(" ", fragment)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _join(head: str, rest: str) -> str:
+    head, rest = _clean_text(head), _clean_text(rest)
+    if not head:
+        return rest
+    if not rest:
+        return head
+    if head[-1] in _END_MARK:
+        return f"{head} {rest}"
+    return f"{head}. {rest}" if rest[:1].isupper() else f"{head} — {rest}"
+
+
+def _piece_text(block: str, classes: str) -> str:
+    if re.search(r"(?<![-\w])card(?![-\w])", classes):
+        def one(name):
+            found = re.search(r'<div\b[^>]*\bclass\s*=\s*"[^"]*(?<![-\w])' + name +
+                              r'(?![-\w])[^"]*"[^>]*>(.*?)</div>', block, re.IGNORECASE | re.DOTALL)
+            return found.group(1) if found else ""
+        title, note = one("card-title"), one("card-note")
+        return _join(title, note) if (title or note) else _clean_text(_inner(block))
+    inner = _inner(block)
+    bold = _BOLD_HEAD.match(inner)
+    return _join(bold.group(1), bold.group(2)) if bold else _clean_text(inner)
+
+
+def _paragraphs(texts: List[str], limit: int = 3) -> List[str]:
+    """Bandlar sonini `limit` ta yaxlit abzatsgacha birlashtiradi (ketma-ket bo'laklar)."""
+    fixed = [t if t[-1:] in _END_MARK else t + "." for t in texts if t]
+    if len(fixed) <= limit:
+        return fixed
+    size, extra = divmod(len(fixed), limit)
+    out, at = [], 0
+    for index in range(limit):
+        take = size + (1 if index < extra else 0)
+        out.append(" ".join(fixed[at:at + take]))
+        at += take
+    return out
+
+
+def flow_photo_text(body: str) -> str:
+    """Rasmli slayddagi matn tomonini yaxlit abzatslarga aylantiradi.
+
+    Rasm yonidagi ro'yxat bandlari, ikonkali qatorlar va kartochkalar fikrni mayda
+    bo'laklarga bo'ladi. Ular 2-3 ta yaxlit abzatsga (`par-col`) birlashtiriladi;
+    sarlavha, bosh gap, rasm va allaqachon abzats bo'lgan matn o'zgarmaydi.
+    """
+    if not body or not has_photo(body) or "cover-img" in body or "cover-photo" in body:
+        return body
+    result, pos = body, 0
+    for opening in list(_SPLIT_OPEN.finditer(body)):
+        if "split" not in opening.group(1).split():
+            continue
+        close = _split_close(body, opening)
+        if close < 0:
+            continue
+        kids = _children(body, opening.end(), close)
+        if not any("rasm" in k[2].split() for k in kids):
+            continue
+        for start, end, classes in kids:
+            names = classes.split()
+            if "rasm" in names or "par-col" in names:
+                continue
+            texts = _piece_texts(body[start:end])
+            if len(texts) < 2 and "list" not in names and "ikon-row" not in names:
+                continue
+            paragraphs = _paragraphs(texts)
+            if not paragraphs:
+                continue
+            html_text = '<div class="par-col">' + "".join(
+                f'<p class="par">{p}</p>' for p in paragraphs) + "</div>"
+            result = result.replace(body[start:end], html_text, 1)
+    return result
+
+
+def _split_close(body: str, opening) -> int:
+    """`split` ochuvchi tegining yopuvchi `</div>` boshlanishi (-1 — yo'q)."""
+    depth = 1
+    for tag in _DIV_TAG.finditer(body, opening.end()):
+        depth += -1 if tag.group(0).startswith("</") else 1
+        if depth == 0:
+            return tag.start()
+    return -1
+
+
 # ───────────────────────────────────────────────────── umumlashtiruvchi gap
 
 _HAS_LEAD = re.compile(r'class\s*=\s*["\'][^"\']*\blead\b', re.IGNORECASE)

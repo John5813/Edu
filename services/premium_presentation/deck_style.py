@@ -148,6 +148,10 @@ justify-content:center;gap:24px;border-radius:18px;padding:48px;
 background:linear-gradient(160deg,#SOFT 0%,#SOFTER 100%);
 border-left:8px solid #ACCENT;min-height:420px}
 .rasm-matn{font-size:36px;line-height:1.5;color:#BODY}
+/* Rasm yonidagi matn: yaxlit abzatslar (ro'yxat bandlari va kartochkalarga bo'linmaydi). */
+.par-col{display:flex;flex-direction:column;justify-content:safe center;gap:30px}
+.par{font-size:36px;line-height:1.6;color:#BODY}
+.slide.dark .par{color:#FFFFFF}
 .rasm.photo-in{padding:0;border:0;background:none;overflow:hidden}
 .rasm .photo{width:100%;height:100%;min-height:420px;object-fit:cover;
 border-radius:18px;display:block}
@@ -344,6 +348,7 @@ min-height:0}
 padding:32px;gap:12px}
 .slide.fit1 .cols,.slide.fit2 .cols,.slide.fit3 .cols{gap:28px}
 .slide.fit1 .list,.slide.fit2 .list,.slide.fit3 .list{gap:20px}
+.slide.fit1 .par-col,.slide.fit2 .par-col,.slide.fit3 .par-col{gap:20px}
 .slide.fit1 .rasm,.slide.fit2 .rasm,.slide.fit3 .rasm{min-height:0;
 padding:36px}
 /* Ikonkali kartochkalar ikki qator bo'lsa, pastki qatorning doirasi
@@ -370,6 +375,7 @@ section.slide.reja .cols{row-gap:36px;column-gap:28px}
 
 .slide.fit2 .title{font-size:58px}
 .slide.fit2 .item-text{font-size:32px}
+.slide.fit2 .par{font-size:31px}
 .slide.fit2 .card-title{font-size:36px}
 .slide.fit2 .card-note,.slide.fit2 .rasm-matn{font-size:29px}
 .slide.fit2 .card-num{font-size:42px}
@@ -385,6 +391,7 @@ section.slide.reja .cols{row-gap:36px;column-gap:28px}
 
 .slide.fit3 .title{font-size:50px}
 .slide.fit3 .item-text{font-size:27px}
+.slide.fit3 .par{font-size:26px}
 .slide.fit3 .card-title{font-size:31px}
 .slide.fit3 .card-note,.slide.fit3 .rasm-matn{font-size:25px}
 .slide.fit3 .card-num{font-size:36px}
@@ -530,12 +537,20 @@ BLOKLAR:
 
 2. MATN VA RASM (bir tomonda matn, bir tomonda rasm):
 <div class="split">
-  <div class="list"> ... </div>
+  <div class="par-col">
+    <p class="par">Birinchi abzats: fikrni ochadigan 2-3 to'liq, bog'langan gap.</p>
+    <p class="par">Ikkinchi abzats: sabab, misol yoki ahamiyat — yana 2-3 gap.</p>
+  </div>
   <div class="rasm" data-prompt="english description of a documentary photo">
     <p class="rasm-matn">Rasm chiqmasa uning o'rnida turadigan qo'shimcha
     matn: shu mavzuni to'ldiruvchi 2-3 gap (misol, sabab yoki ahamiyat).</p>
   </div>
 </div>
+Rasm yonidagi matn — YAXLIT ABZATS: 2-3 ta abzats, har biri to'liq,
+bir-biriga bog'langan gaplardan iborat, xuddi kitob yoki oddiy
+taqdimotdagi matn kabi. Bu slaydda ro'yxat bandlari, ikonkali
+qatorlar va kartochkalar yo'q: ular fikrni mayda bo'laklarga bo'lib
+yuboradi, rasmli slaydda esa fikr bir butun o'qilishi kerak.
 `data-prompt` — rasmning inglizcha tavsifi: FAQAT oddiy, realistik
 fotosurat (odamlar, joy, buyum, tabiat). Diagramma, sxema, infografika,
 jadval, xarita, chizma, formula yoki yozuv so'ralmaydi — ular fotoda
