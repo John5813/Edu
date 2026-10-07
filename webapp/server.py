@@ -1271,7 +1271,8 @@ async def handle_save_api(request: web.Request) -> web.Response:
 async def handle_root(request: web.Request) -> web.StreamResponse:
     # Domen ildiziga oddiy tashrifchi keladi — bosh sahifa (promptdan boshlanadigan sayt).
     # Tahrirlovchi esa Mini App ichidan to'g'ridan-to'g'ri /edit?token=... bilan ochiladi.
-    return web.FileResponse(Path(__file__).parent / "site" / "index.html", headers={"Cache-Control": "no-cache"})
+    from webapp.api import site_page
+    return site_page("index.html")
 
 
 def create_web_app() -> web.Application:

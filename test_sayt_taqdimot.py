@@ -217,6 +217,25 @@ async def main():
     ais.get_ai_service, dss.get_document_service = real_ai, real_docs
     uz_script.normalize_pptx = real_norm
 
+
+    print("8) Sayt fayllari yangilangach brauzer eskisini ushlab turmasin")
+    import re as _re
+    page_html = await (await client.get("/app")).text()
+    check("/app sahifasida app.js va site.css versiya belgisi bilan", _re.search(r'/static/app\.js\?v=[0-9a-f]+"', page_html)
+          and _re.search(r'/static/site\.css\?v=[0-9a-f]+"', page_html), _re.findall(r"/static/[^\"]+", page_html))
+    root_html = await (await client.get("/")).text()
+    check("bosh sahifada ham", _re.search(r'/static/site\.js\?v=[0-9a-f]+"', root_html) is not None)
+    r = await client.get("/app")
+    check("sahifaning o'zi keshlanmaydi", "no-cache" in r.headers.get("Cache-Control", ""))
+    v1 = await (await client.get("/api/v1/version")).json()
+    check("/api/v1/version: commit raqami ko'rinadi", v1["ok"] and v1["commit"] and v1["app_js"], v1)
+    path = api.SITE_DIR / "static" / "app.js"
+    old = os.stat(path).st_mtime_ns
+    os.utime(path, ns=(old + 5_000_000_000, old + 5_000_000_000))
+    v2 = await (await client.get("/api/v1/version")).json()
+    os.utime(path, ns=(old, old))
+    check("fayl o'zgarsa versiya belgisi ham o'zgaradi", v1["app_js"] != v2["app_js"], (v1, v2))
+
     await client.close()
 
 
