@@ -1,9 +1,14 @@
 """Saytda buyurtma qilinadigan xizmatlar (har biri `web_jobs.register` orqali ulanadi)."""
+import asyncio
+import logging
 import re
+import tempfile
 from typing import Dict, Tuple
 
 from services import uz_script
 from services.web_jobs import JobError, Kind, Report, register
+
+log = logging.getLogger(__name__)
 
 LANGUAGES = ("uz", uz_script.UZ_CYRILLIC_LANG, "ru", "en", "kk")
 MODERN_STYLES = ("toza", "jurnal", "blok", "kontur", "qorongu")
@@ -11,6 +16,30 @@ MODERN_STYLES = ("toza", "jurnal", "blok", "kontur", "qorongu")
 
 def _text(raw: Dict, key: str, limit: int) -> str:
     return re.sub(r"[ \t]+", " ", str(raw.get(key) or "")).strip()[:limit]
+
+
+SOURCE_LIMIT = 60_000       # bot manbasi bilan bir xil (`project_work.source`)
+
+
+def _long_text(raw: Dict, key: str, limit: int) -> str:
+    """Qator uzilishlari saqlanadigan uzun matn (mijoz manbasi)."""
+    text = str(raw.get(key) or "").replace("\r\n", "\n").replace("\x00", "")
+    return re.sub(r"[ \t]+", " ", text).strip()[:limit]
+
+
+def detect_language(topic: str) -> str:
+    """Mavzuning tilidan taqdimot tili — botdagi qoida (`premium_presentation._detect_language`)."""
+    from bot.handlers.premium_presentation import _detect_language
+
+    language = _detect_language(topic)
+    if language == "uz" and uz_script.has_cyrillic(topic):
+        return uz_script.UZ_CYRILLIC_LANG
+    return language
+
+
+def _pick_language(raw: Dict, topic: str) -> str:
+    language = raw.get("language")
+    return language if language in LANGUAGES else detect_language(topic)
 
 
 # ───────────────────────────────────────────────────────── zamonaviy (premium) taqdimot
@@ -25,12 +54,14 @@ def _premium_normalize(raw: Dict) -> Dict:
         count = int(raw.get("slide_count") or 10)
     except (TypeError, ValueError):
         count = 10
-    language = raw.get("language") if raw.get("language") in LANGUAGES else "uz"
     style = raw.get("style") if raw.get("style") in MODERN_STYLES else "toza"
     theme = str(raw.get("theme") or "").strip().lower()
     return {"topic": topic, "slide_count": max(pipeline.MIN_SLIDES, min(count, pipeline.MAX_SLIDES)),
-            "language": language, "style": style, "theme": theme if theme in themes.THEMES else "",
-            "author": _text(raw, "author", 80), "preferences": _text(raw, "preferences", 1000)}
+            "language": _pick_language(raw, topic), "style": style,
+            "theme": theme if theme in themes.THEMES else "",
+            "author": _text(raw, "author", 80), "preferences": _text(raw, "preferences", 1000),
+            "source_text": _long_text(raw, "source_text", SOURCE_LIMIT),
+            "source_label": _text(raw, "source_label", 120)}
 
 
 def _premium_price(params: Dict) -> int:
@@ -58,10 +89,20 @@ async def _premium_run(params: Dict, report: Report) -> Tuple[str, str]:
         report(name, {"writing": 5, "images": 78, "render": 90}.get(name, 5))
 
     topic = params["topic"]
+    job_id = params.get("_job_id") or ""
+    # Taqdimot saytda varaqlanadi va sahifalari qayta yozdiriladi: yakuniy sahifalar va suratlar saqlanadi.
+    deck_out: dict = {"shots_dir": tempfile.mkdtemp(prefix="deckshots_")} if job_id else {}
     path, _slides, _photos = await pipeline.build_deck(
         topic, params["slide_count"], language=params["language"], preferences=params["preferences"],
         author=params["author"], theme_key=params["theme"], style=params["style"],
-        progress_cb=on_progress, stage_cb=on_stage)
+        source_text=params.get("source_text", ""), progress_cb=on_progress, stage_cb=on_stage,
+        deck_out=deck_out if job_id else None)
+    if job_id and deck_out.get("pages"):
+        try:
+            from services import web_decks
+            await asyncio.to_thread(web_decks.create, job_id, params, deck_out)
+        except Exception as exc:        # ko'rib chiqish ishlamasa ham fayl mijozga yetadi
+            log.warning("Taqdimot nusxasi saqlanmadi (%s): %s", job_id, exc)
     stem = re.sub(r"[^\w-]+", "_", topic)[:30].strip("_") or "fayl"
     return path, f"Taqdimot_{stem}.pptx"
 
@@ -296,9 +337,12 @@ def _simple_normalize(raw: Dict) -> Dict:
         count = min(PRESENTATION_PRICES, key=lambda n: abs(n - count))
     template = raw.get("template") if raw.get("template") in _simple_templates() else "template_20"
     return {"topic": topic, "slide_count": count, "template": template,
-            "language": raw.get("language") if raw.get("language") in DOC_LANGUAGES else "uz",
+            "language": _pick_language(raw, topic),
             "author": _text(raw, "author", 80) or _text(raw, "_default_author", 80),
-            "icons": raw.get("icons") is not False, "plan_slide": bool(raw.get("plan_slide"))}
+            "icons": raw.get("icons") is not False, "plan_slide": bool(raw.get("plan_slide")),
+            "preferences": _text(raw, "preferences", 1000),
+            "source_text": _long_text(raw, "source_text", SOURCE_LIMIT),
+            "source_label": _text(raw, "source_label", 120)}
 
 
 def _simple_price(params: Dict) -> int:
@@ -314,23 +358,32 @@ async def _simple_run(params: Dict, report: Report) -> Tuple[str, str]:
     from services.document_service import get_document_service
     from services.template_service import TemplateService
 
-    topic, lang = params["topic"], params["language"]
-    script, token = None, None
-    if lang == "uz":
-        script = uz_script.CYRILLIC if uz_script.has_cyrillic(topic) else uz_script.LATIN
+    topic, language = params["topic"], params["language"]
+    # Botdagi qoida: o'zbekcha taqdimotda yozuv (lotin/kirill) tanlanadi, ikkisi aralashmaydi.
+    script = uz_script.script_of_language(language)
+    lang = "uz" if script else language
+    token = None
+    ai_topic = topic
+    if params.get("source_text"):
+        from bot.handlers.documents import _build_book_topic
+        ai_topic = _build_book_topic(topic, params["source_text"], lang)
+    if params.get("preferences"):
+        ai_topic = f"{ai_topic}\n\nClient wishes for this presentation: {params['preferences']}"
+    if script:
         token = uz_script.use(script)
         if script == uz_script.LATIN:
             topic = uz_script.to_latin(topic)
+            ai_topic = uz_script.to_latin(ai_topic)
     ticker = asyncio.ensure_future(_ticker(report, 100))
     try:
         ai = get_ai_service()
-        content = await ai.generate_presentation_in_batches(topic, params["slide_count"], lang)
+        content = await ai.generate_presentation_in_batches(ai_topic, params["slide_count"], lang)
         if not content or not content.get("slides"):
-            content = await ai.generate_presentation_in_batches(topic, params["slide_count"], lang)
+            content = await ai.generate_presentation_in_batches(ai_topic, params["slide_count"], lang)
         if not content or not content.get("slides"):
             raise RuntimeError("AI taqdimot mazmunini qaytarmadi")
         content["slides"] = [x for x in content["slides"] if x.get("layout") != "references"]
-        plan_items = await ai.generate_plan_items(topic, lang) if params["plan_slide"] else []
+        plan_items = await ai.generate_plan_items(ai_topic, lang) if params["plan_slide"] else []
         docs = get_document_service()
         docs.use_icons = params["icons"]
         path = await docs.create_presentation_with_template_background(
@@ -343,6 +396,13 @@ async def _simple_run(params: Dict, report: Report) -> Tuple[str, str]:
             uz_script.reset(token)
     if not path or not os.path.exists(path):
         raise RuntimeError("Fayl yaratilmadi")
+    job_id = params.get("_job_id") or ""
+    if job_id:      # saytda ochib ko'rish uchun (xato bo'lsa ham fayl mijozga yetadi)
+        try:
+            from services import web_decks
+            await asyncio.to_thread(web_decks.create_view, job_id, params, path)
+        except Exception as exc:
+            log.warning("Taqdimot ko'rinishi tayyorlanmadi (%s): %s", job_id, exc)
     stem = re.sub(r"[^\w-]+", "_", topic)[:30].strip("_") or "fayl"
     return path, f"Taqdimot_{stem}.pptx"
 
@@ -357,3 +417,97 @@ register(Kind(key="simple_presentation", label="Taqdimot (chiroyli orqa fonlar)"
               price=_simple_price, title=lambda p: p["topic"], run=_simple_run, publish_as="taqdimot",
               options=_simple_options()))
 KINDS_ORDER = ("premium_presentation", "simple_presentation") + KINDS_ORDER[1:]
+
+
+# ───────────────────────────────────── taqdimotning bitta sahifasini AI ga qayta yozdirish
+
+def _rewrite_normalize(raw: Dict) -> Dict:
+    parent = str(raw.get("parent") or "")
+    if not re.fullmatch(r"[0-9a-f]{32}", parent):
+        raise JobError("Taqdimot topilmadi.")
+    try:
+        index = int(raw.get("index"))
+    except (TypeError, ValueError):
+        raise JobError("Sahifani tanlang.")
+    instruction = re.sub(r"\s+", " ", str(raw.get("instruction") or "")).strip()[:500]
+    if len(instruction) < 3:
+        raise JobError("Sahifa qanday bo'lishini yozing.")
+    return {"parent": parent, "index": index, "instruction": instruction,
+            "owner": int(raw.get("_telegram_id") or 0)}
+
+
+def _rewrite_price(_params: Dict) -> int:
+    from config import SLIDE_REWRITE_PRICE
+    return int(SLIDE_REWRITE_PRICE)
+
+
+async def _rewrite_run(params: Dict, report: Report) -> Tuple[str, str]:
+    import os
+    import shutil
+
+    from database import web_store
+    from services import web_decks
+    from services.premium_presentation import llm_client, slide_edit
+
+    parent = params["parent"]
+    index = params["index"]
+    job = await web_store.get_job(parent, params.get("owner") or None)
+    if not job or job["kind"] != "premium_presentation" or job["status"] != "done" or not job.get("result_path"):
+        raise RuntimeError("Taqdimot topilmadi yoki muddati o'tgan")
+    try:
+        from config import AI_MODELS
+        from database.database import Database
+        key = await Database.get_premium_ai_model()
+        if key in AI_MODELS:
+            llm_client.set_text_model(AI_MODELS[key]["id"])
+    except Exception:
+        pass
+    llm_client.reset_usage()
+
+    shots = tempfile.mkdtemp(prefix="editshots_")
+    work = tempfile.mkdtemp(prefix="editdeck_")
+    try:
+        async with web_decks.lock(parent):
+            deck = web_decks.load(parent)
+            if not deck:
+                raise RuntimeError("Taqdimot nusxasi topilmadi")
+            try:
+                result = await slide_edit.rewrite(deck, index, params["instruction"], shots, progress=report)
+            except slide_edit.SlideEditError as exc:
+                raise RuntimeError(str(exc)) from None
+            pages = list(deck["pages"])
+            for number, html in result["pages"].items():
+                pages[number] = html
+            report("render", 84)
+            pptx = await asyncio.to_thread(slide_edit.build_pptx, pages, work)
+
+            outline = list(deck.get("outline") or [])
+            while len(outline) < len(pages):
+                outline.append({"title": "", "brief": "", "category": ""})
+            for number, item in result["outline"].items():
+                outline[number] = item
+            deck.update(pages=pages, outline=outline, titles=web_decks.titles_of(pages),
+                        version=int(deck.get("version") or 1) + 1)
+            deck.setdefault("history", []).append(
+                {"index": index + 1, "instruction": params["instruction"], "title": result["title"],
+                 "at": __import__("time").time()})
+            await asyncio.to_thread(web_decks.store_shots, parent, result["shots"])
+            web_decks.save(parent, deck)
+
+            # Mijoz "Yuklab olish" bosganda endi o'zgartirilgan taqdimotni oladi.
+            target = job["result_path"]
+            tmp = target + ".new"
+            shutil.copyfile(pptx, tmp)
+            os.replace(tmp, target)
+            handle, final = tempfile.mkstemp(prefix="yangi_", suffix=".pptx")
+            os.close(handle)
+            shutil.copyfile(pptx, final)
+    finally:
+        shutil.rmtree(shots, ignore_errors=True)
+        shutil.rmtree(work, ignore_errors=True)
+    return final, job.get("result_name") or "Taqdimot.pptx"
+
+
+register(Kind(key="slide_rewrite", label="Sahifani o'zgartirish", normalize=_rewrite_normalize,
+              price=_rewrite_price, title=lambda p: f"{p['index'] + 1}-sahifa: {p['instruction'][:40]}",
+              run=_rewrite_run, quiet=True))
