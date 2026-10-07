@@ -36,6 +36,17 @@ async def start_command(message: Message, state: FSMContext, db: Database):
                 referred_by_id = referrer.telegram_id
                 await state.update_data(referred_by=referred_by_id)
 
+    # Sayt (edufayl.org) orqali kirish: /start weblogin_<token>
+    if message.text and len(message.text.split()) > 1 and message.text.split()[1].startswith("weblogin_"):
+        try:
+            from database import web_store
+
+            confirmed = await web_store.confirm_login(message.text.split()[1][len("weblogin_"):], user_id)
+            await message.answer("✅ Saytga kirish tasdiqlandi. Brauzerga qayting." if confirmed
+                                 else "⌛ Kirish havolasi eskirgan. Saytdan qaytadan urinib ko'ring.")
+        except Exception as web_err:
+            logger.warning("Sayt orqali kirishni tasdiqlab bo'lmadi: %s", web_err)
+
     if not user:
         # Check if admin pre-added this user by username (temp negative ID record)
         temp_balance = 0

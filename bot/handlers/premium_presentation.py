@@ -68,26 +68,10 @@ MIN_PRICE = 3000
 
 
 def _get_price(slide_count: int) -> int:
-    """Varaq soniga qarab narx (so'm) — oddiy taqdimot narxlari bilan mos."""
-    from config import PRESENTATION_PRICES
+    """Varaq soniga qarab narx (so'm) — oddiy taqdimot narxlari bilan mos (sayt bilan umumiy)."""
+    from services.premium_presentation import pipeline
 
-    try:
-        count = int(slide_count or 0)
-    except (TypeError, ValueError):
-        count = MIN_SLIDES
-    count = max(MIN_SLIDES, min(count, MAX_SLIDES))
-    if count in PRESENTATION_PRICES:
-        return int(PRESENTATION_PRICES[count])
-    points = sorted((int(k), int(v)) for k, v in PRESENTATION_PRICES.items())
-    if count < points[0][0]:
-        value = points[0][1] / points[0][0] * count
-    elif count > points[-1][0]:
-        (x1, y1), (x2, y2) = points[-2], points[-1]
-        value = y2 + (y2 - y1) / (x2 - x1) * (count - x2)
-    else:
-        (x1, y1), (x2, y2) = next((a, b) for a, b in zip(points, points[1:]) if a[0] <= count <= b[0])
-        value = y1 + (y2 - y1) / (x2 - x1) * (count - x1)
-    return max(MIN_PRICE, int(value / 500 + 0.5) * 500)
+    return pipeline.price_for(slide_count)
 
 
 def _back_text(lang: str) -> str:
@@ -1299,78 +1283,37 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         except Exception as e:
             logger.error("Premium model tanlovini o'qib bo'lmadi: %s", e)
 
-        from services.premium_presentation import (html_images, html_render,
-                                                    html_slides, llm_client,
-                                                    themes)
+        from services.premium_presentation import llm_client, pipeline
 
         # Token hisobi shu taqdimot uchun noldan boshlansin.
         llm_client.reset_usage()
 
-        theme = themes.get(data.get("theme_key", "")) if data.get("theme_key") \
-            else themes.suggest(topic)
-        # Tanlangan ko'rinish uslubi (bo'lmasa — sukut dizayn).
-        theme = themes.with_style(theme, data.get("style", ""))
+        def on_stage(name: str, info: dict) -> None:
+            # Slaydlar yozilib bo'lgach holat xabari yangilanadi.
+            if name != "render":
+                return
+            photos_now = info.get("photos", 0)
+            step2 = {
+                "uz": (f"⚙️ <b>{topic}</b>\n"
+                       f"✅ Slaydlar: {info.get('slides', 0)} ta, rasm: {photos_now} ta\n"
+                       f"⏳ PowerPointga o'tkazilmoqda..."),
+                "ru": (f"⚙️ <b>{topic}</b>\n"
+                       f"✅ Слайдов: {info.get('slides', 0)}, изображений: {photos_now}\n"
+                       f"⏳ Переносим в PowerPoint..."),
+                "en": (f"⚙️ <b>{topic}</b>\n"
+                       f"✅ Slides: {info.get('slides', 0)}, images: {photos_now}\n"
+                       f"⏳ Building the PowerPoint file..."),
+            }
+            asyncio.ensure_future(status.edit_text(step2.get(lang, step2["uz"]), parse_mode="HTML"))
 
-        # 1 — AI butun slaydni HTML/CSS/SVG qilib chizadi. Kod unga
-        # faqat qobiq shartlarini (o'lcham, shrift, rang, tashqi fayl
-        # yo'qligi) va joylashuv kategoriyalarini beradi — ichki
-        # kompozitsiyani har safar o'zi o'ylab topadi.
-        html_pages = await _run_step(
-            loop,
-            lambda: html_slides.write_slides(
-                topic, slide_count, theme, language=presentation_language,
-                level=level, preferences=preferences,
-                source_text=source_text, author=client_name,
-                progress_cb=progress_cb),
-            step="brief", label="Slaydlarni yozish")
-
-        # 2 — Slaydlar tayyor. Dizayn CSS da qat'iy turibdi,
-        # diagrammalarni kod chizdi, ikonkalar qo'yildi — bu yerda
-        # tashqi xizmat ham, kutish ham yo'q.
-        icons = sum(page.count("data-icon") for page in html_pages)
-        # "Matn va rasm" bloklariga rasm qo'yiladi (yoqilgan bo'lsa).
-        # Rasm chiqmagan joyda qo'shimcha matn qoladi.
-        try:
-            html_pages, photos = await html_images.fill_photos(html_pages)
-        except Exception as e:
-            logger.warning("Rasmlar qo'yilmadi: %s", e)
-            photos = 0
-
-        # Muqovaga mavzuga oid rasm (oddiy taqdimotdagi kabi).
-        try:
-            html_pages, cover_done = await html_images.fill_cover(html_pages, topic)
-            photos += 1 if cover_done else 0
-        except Exception as e:
-            logger.warning("Muqova rasmi qo'yilmadi: %s", e)
-
-        step2 = {
-            "uz": (f"⚙️ <b>{topic}</b>\n"
-                   f"✅ Slaydlar: {len(html_pages)} ta, rasm: {photos} ta\n"
-                   f"⏳ PowerPointga o'tkazilmoqda..."),
-            "ru": (f"⚙️ <b>{topic}</b>\n"
-                   f"✅ Слайдов: {len(html_pages)}, изображений: {photos}\n"
-                   f"⏳ Переносим в PowerPoint..."),
-            "en": (f"⚙️ <b>{topic}</b>\n"
-                   f"✅ Slides: {len(html_pages)}, images: {photos}\n"
-                   f"⏳ Building the PowerPoint file..."),
-        }
-        await status.edit_text(step2.get(lang, step2["uz"]), parse_mode="HTML")
-
-        # 3 — Brauzerda 1920×1080 joylashtiriladi va PPTX ga yig'iladi.
-        # Brauzer nima ko'rsatsa, PowerPointda ham aynan o'sha turadi.
-        # Joylashuvi buzilgan slayd bir marta qayta chizdiriladi:
-        # buzilganini faqat brauzer ko'radi, AI esa uni ko'rmaydi.
-        # Bir yoni bo'sh qolgan slayd esa qayta chizilmaydi — o'sha
-        # joyga diagrammani tushuntiruvchi matn qo'yiladi.
-        final_path = await _run_step(
-            loop,
-            lambda: html_render.render(
-                html_pages,
-                repair=lambda page, problems: html_slides.fix_slide(
-                    page, problems, theme, presentation_language),
-                explain=lambda page, area: html_slides.fill_gap(
-                    page, area, theme, presentation_language)),
-            step="render", label="Slaydlarni suratga olish")
+        # AI slaydlarni HTML/CSS/SVG qilib chizadi, brauzer 1920×1080 joylashtiradi va PPTX
+        # ga yig'adi: brauzer nima ko'rsatsa, PowerPointda ham aynan o'sha turadi.
+        final_path, ready_slides, _photos = await pipeline.build_deck(
+            topic, slide_count, language=presentation_language, level=level,
+            preferences=preferences, source_text=source_text, author=client_name,
+            theme_key=data.get("theme_key", ""), style=data.get("style", ""),
+            progress_cb=progress_cb, stage_cb=on_stage)
+        html_pages = [None] * ready_slides
 
     except Exception as e:
         logger.exception("Premium taqdimot generatsiyasida xato: %s", e)

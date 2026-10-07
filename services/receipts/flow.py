@@ -110,7 +110,12 @@ async def _to_admins(bot, user, message, text: str, payment_id: Optional[int] = 
     from bot.keyboards import get_payment_review_keyboard
     for admin_id in config.ADMIN_IDS:
         try:
-            if copy:
+            if copy and hasattr(message, "send_copy"):
+                # Sayt orqali kelgan chek: fayl bevosita yuboriladi (Telegramda asl xabar yo'q).
+                file_id = await message.send_copy(bot, admin_id, silent)
+                if file_id and payment_id:
+                    await Database.set_payment_screenshot(payment_id, file_id)
+            elif copy:
                 await bot.copy_message(chat_id=admin_id, from_chat_id=message.chat.id,
                                        message_id=message.message_id, disable_notification=silent)
             sent = await bot.send_message(
@@ -177,18 +182,36 @@ async def process(message, state_data: dict, db, user, lang: str, source: str = 
                     pass
 
 
+async def process_web(message, state_data: dict, db, user, lang: str) -> Optional[Outcome]:
+    """Sayt orqali yuklangan chek (`services.receipts.web.WebMessage`): `process` bilan bir xil qoidalar."""
+    if not config.RECEIPT_AI:
+        return None
+    lang = _lang(lang)
+    lock = _locks.setdefault(user.telegram_id, asyncio.Lock())
+    async with lock:
+        try:
+            return await _process(message, state_data, db, user, lang, "web", None)
+        except Exception as exc:
+            log.error("Sayt chekini AI bilan tekshirib bo'lmadi, qo'lda tekshiruvga o'tildi: %s", exc, exc_info=True)
+            return None
+
+
 async def _process(message, state_data: dict, db, user, lang: str, source: str,
                    keyboard=None) -> Optional[Outcome]:
     bot = message.bot
     claimed = int(state_data.get("payment_amount") or 0)
-    file_id, filename, mime, size = _file_of(message)
+    web_data = getattr(message, "web_data", None)
+    if web_data is not None:
+        file_id, filename, mime, size = "", message.web_name, message.web_mime, len(web_data)
+    else:
+        file_id, filename, mime, size = _file_of(message)
     started = None
     try:
         started = datetime.fromisoformat(state_data["payment_started_at"]) if state_data.get("payment_started_at") else None
     except (TypeError, ValueError):
         started = None
 
-    data = await _download(bot, file_id)
+    data = web_data if web_data is not None else await _download(bot, file_id)
     file_sha = hashlib.sha256(data).hexdigest()
     now = rules.now_tashkent()
     loop = asyncio.get_running_loop()

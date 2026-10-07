@@ -1268,10 +1268,10 @@ async def handle_save_api(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
 
-async def handle_root(request: web.Request) -> web.Response:
-    # Domen ildiziga oddiy tashrifchi keladi — tahrirlovchi esa Mini App
-    # ichidan to'g'ridan-to'g'ri /edit?token=... bilan ochiladi.
-    raise web.HTTPFound("/shop")
+async def handle_root(request: web.Request) -> web.StreamResponse:
+    # Domen ildiziga oddiy tashrifchi keladi — bosh sahifa (promptdan boshlanadigan sayt).
+    # Tahrirlovchi esa Mini App ichidan to'g'ridan-to'g'ri /edit?token=... bilan ochiladi.
+    return web.FileResponse(Path(__file__).parent / "site" / "index.html", headers={"Cache-Control": "no-cache"})
 
 
 def create_web_app() -> web.Application:
@@ -1288,6 +1288,8 @@ def create_web_app() -> web.Application:
     app.router.add_get("/api/template-image/{tid}", handle_template_image_api)
     setup_store_routes(app)
     setup_book_routes(app)
+    from webapp.api import setup_api_routes
+    setup_api_routes(app)
     return app
 
 

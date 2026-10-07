@@ -367,6 +367,12 @@ async def init_db():
         except Exception as mig_err:
             logger.warning(f"Migration document_orders -> document_stats skipped: {mig_err}")
 
+        try:
+            from database import web_store
+            await web_store.create_tables(db)
+        except Exception as web_err:
+            logger.warning("Sayt jadvallari yaratilmadi: %s", web_err)
+
         await db.commit()
         logger.info("Database initialized successfully")
 
@@ -461,6 +467,24 @@ class Database:
             await db.commit()
 
     @staticmethod
+    async def charge_balance(telegram_id: int, amount: int) -> bool:
+        """Balansdan atomik yechadi: yetarli bo'lmasa hech narsa o'zgarmaydi (False).
+
+        Ikkita bir vaqtdagi buyurtma balansni manfiyga tushira olmasligi uchun
+        tekshiruv va yechish bitta UPDATE ichida bajariladi.
+        """
+        amount = int(amount)
+        if amount <= 0:
+            return True
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            cursor = await db.execute(
+                "UPDATE users SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP "
+                "WHERE telegram_id = ? AND balance >= ?",
+                (amount, telegram_id, amount))
+            await db.commit()
+            return cursor.rowcount == 1
+
+    @staticmethod
     async def update_user_balance(telegram_id: int, amount: int):
         """Update user balance"""
         async with aiosqlite.connect(DATABASE_FILE) as db:
@@ -481,6 +505,26 @@ class Database:
             )
             await db.commit()
             return cursor.lastrowid
+
+    @staticmethod
+    async def get_recent_payments(user_id: int, limit: int = 10) -> List[Dict]:
+        """Mijozning oxirgi to'lovlari (user_id — ichki raqam, telegram_id emas)."""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT id, amount, status, created_at, source FROM payments WHERE user_id = ? "
+                "ORDER BY created_at DESC, id DESC LIMIT ?", (user_id, limit)
+            ) as cursor:
+                return [dict(row) for row in await cursor.fetchall()]
+
+    @staticmethod
+    async def set_payment_screenshot(payment_id: int, file_id: str) -> None:
+        """Sayt orqali kelgan to'lovga chek rasmining Telegram `file_id` sini yozadi (bo'sh bo'lsagina)."""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            await db.execute(
+                "UPDATE payments SET screenshot_file_id = ? WHERE id = ? "
+                "AND (screenshot_file_id IS NULL OR screenshot_file_id = '')", (file_id, payment_id))
+            await db.commit()
 
     @staticmethod
     async def get_payment_by_id(payment_id: int) -> Optional[Payment]:
