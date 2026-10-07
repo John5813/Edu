@@ -340,6 +340,35 @@ async def main():
         check("kurs ishi tayyor", res["job"]["status"] == "done" and res["job"]["file_name"] == "Kurs_ishi.docx", res["job"])
     check("katta hujjatlar birin-ketin bajarildi (navbat)", [o[0] for o in order] == ["start", "end", "start", "end"], order)
 
+    print("13) Majburiy kanal va statistika")
+    import aiosqlite
+    async with aiosqlite.connect(dbmod.DATABASE_FILE) as conn:
+        cnt = (await (await conn.execute("SELECT COUNT(*) FROM document_stats")).fetchone())[0]
+        kinds_logged = [r[0] for r in await (await conn.execute("SELECT document_type FROM document_stats")).fetchall()]
+    check("tayyor ishlar statistikaga shaxsiy ma'lumotsiz yozildi", cnt >= 3 and "presentation" in kinds_logged
+          and "course_work" in kinds_logged, kinds_logged)
+    from services.channel_service import ChannelService
+    from database.models import Channel
+    async def fake_channels(): return [Channel(1, "-100", "@kanal_test", "Kanal", True, None)]
+    orig_ch, orig_chk = Database.get_active_channels, ChannelService.check_user_subscription
+    Database.get_active_channels = staticmethod(fake_channels)
+    async def not_member(self, uid, ch): return False
+    ChannelService.check_user_subscription = not_member
+    web_jobs._subscribed.clear(); web_api._hits.clear()
+    before = (await Database.get_user(100)).balance
+    r = await client.post("/api/v1/jobs", json={"kind": "premium_presentation", "params": {"topic": "Kanalsiz"}}, headers=origin)
+    body = await r.json()
+    check("kanalga a'zo bo'lmagan mijoz buyurtma bera olmaydi, pul yechilmaydi",
+          r.status == 400 and body["code"] == "subscribe" and "@kanal_test" in body["error"]
+          and (await Database.get_user(100)).balance == before, body)
+    async def member(self, uid, ch): return True
+    ChannelService.check_user_subscription = member
+    r = await client.post("/api/v1/jobs", json={"kind": "premium_presentation", "params": {"topic": "Kanalli"}}, headers=origin)
+    check("a'zo bo'lgach buyurtma qabul qilinadi", r.status == 200, await r.text())
+    Database.get_active_channels, ChannelService.check_user_subscription = orig_ch, orig_chk
+    for job in await web_store.list_jobs(100, 5):
+        await wait_job(client, job["id"])
+
     await client.close()
     print("\n" + ("✅ hammasi o'tdi" if not FAILS else f"❌ {len(FAILS)} ta xato: {FAILS}"))
     sys.exit(1 if FAILS else 0)

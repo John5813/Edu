@@ -69,6 +69,34 @@ def _get_semaphore() -> asyncio.Semaphore:
     return _semaphore
 
 
+# Majburiy kanallar: botdagi kabi saytda ham buyurtma berishdan oldin tekshiriladi (60 soniya keshlanadi).
+_subscribed: Dict[int, float] = {}
+
+STAT_TYPE = {"premium_presentation": "presentation", "simple_presentation": "presentation",
+             "article": "maqola", "thesis": "tezis"}
+
+
+async def _require_subscription(telegram_id: int) -> None:
+    import webapp
+
+    if _subscribed.get(telegram_id, 0) > time.time() or webapp.BOT is None:
+        return
+    try:
+        channels = await Database.get_active_channels()
+        if not channels:
+            return
+        from services.channel_service import ChannelService
+
+        if await ChannelService(webapp.BOT).check_user_subscription(telegram_id, channels):
+            _subscribed[telegram_id] = time.time() + 60
+            return
+    except Exception as exc:          # tekshiruv ishlamasa mijoz to'sib qo'yilmaydi (botdagi qoida)
+        log.warning("Kanal obunasini tekshirib bo'lmadi: %s", exc)
+        return
+    names = ", ".join(("@" + c.channel_username.lstrip("@")) if c.channel_username else c.title for c in channels)
+    raise JobError(f"Avval majburiy kanallarga a'zo bo'ling: {names}. Keyin shu yerda qayta urining.", "subscribe")
+
+
 # ─────────────────────────────────────────────────────────────── ommaviy ko'rinish
 
 _STAGE_TEXT = {"queued": "Navbatda", "writing": "Matn yozilmoqda", "images": "Rasmlar tanlanmoqda",
@@ -96,6 +124,7 @@ async def submit(telegram_id: int, kind_key: str, raw: Dict) -> Dict:
     user = await Database.get_user(telegram_id)
     if not user:
         raise JobError("Avval botda /start bosing, so'ng saytga qayta kiring.", "no_user")
+    await _require_subscription(telegram_id)
     raw = dict(raw or {})
     raw["_default_author"] = (user.first_name or "")[:80]
     params = kind.normalize(raw)
@@ -181,6 +210,10 @@ async def _execute(job_id: str, telegram_id: int, kind: Kind, params: Dict, pric
         async with _get_semaphore():
             await core()
     if outcome:
+        try:    # admin statistikasiga shaxsiy ma'lumotsiz qator (faqat tur va vaqt)
+            await Database.record_document_stat(STAT_TYPE.get(kind.key, kind.key))
+        except Exception as exc:
+            log.debug("Statistika yozilmadi: %s", exc)
         await _after_done(job_id, telegram_id, kind, params, outcome["path"], outcome["name"])
 
 

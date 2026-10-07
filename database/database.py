@@ -844,6 +844,15 @@ class Database:
             return cursor.lastrowid
 
     @staticmethod
+    async def record_document_stat(document_type: str) -> None:
+        """Tayyor hujjat haqida shaxsiy ma'lumotsiz qator (admin statistikasi uchun)."""
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            await db.execute(
+                "INSERT INTO document_stats (document_type, completed_at) VALUES (?, CURRENT_TIMESTAMP)",
+                (document_type,))
+            await db.commit()
+
+    @staticmethod
     async def get_document_order(order_id: int) -> Optional[DocumentOrder]:
         """Get document order by ID"""
         async with aiosqlite.connect(DATABASE_FILE) as db:
