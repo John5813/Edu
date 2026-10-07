@@ -36,7 +36,7 @@ _PHOTO_EDITORS = re.compile(
 
 @dataclass
 class Receipt:
-    """Claude o'qigan va kod normallashtirgan chek ma'lumoti."""
+    """AI o'qigan va kod normallashtirgan chek ma'lumoti."""
     doc_type: str = "other"                  # transfer | payment | tax_receipt | other
     status: str = "unknown"                  # success | failed | pending | unknown
     readable: bool = True
@@ -57,7 +57,7 @@ class Receipt:
     tamper_reason: str = ""
     meta_flags: List[str] = field(default_factory=list)   # EXIF/PDF: tahrirlovchi dastur izi
     is_screenshot: bool = False
-    confidence: float = 1.0                  # Claude o'qishga ishonchi (0..1)
+    confidence: float = 1.0                  # AI o'qishga ishonchi (0..1)
     raw: Dict = field(default_factory=dict)
 
 

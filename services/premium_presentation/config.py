@@ -64,38 +64,26 @@ OPENROUTER_VISION_MODELS = _chain(
     os.getenv("OPENROUTER_VISION_FALLBACKS", _DEFAULT_VISION_CHAIN)
 )
 
-# Diagramma ma'lumotlari FAQAT Claude modellaridan olinadi. Boshqa modellar
-# ("oddiy AI"lar) raqamni o'ylab topib, har narsadan diagramma yasab yuborardi.
-# Ro'yxat Anthropic modellari bilan cheklangan: ular ishlamasa diagramma
-# qo'yilmaydi (boshqa provayderga o'tilmaydi). Sonnet — Opus'dan arzon, lekin
-# bilimi yangi; Haiku — eng arzon zaxira. `PREMIUM_CHART_MODEL` birinchi
-# o'ringa model qo'yadi (masalan `anthropic/claude-sonnet-5:online` — veb-qidiruv bilan).
-_DEFAULT_CHART_CHAIN = (
-    "anthropic/claude-sonnet-5,"
-    "anthropic/claude-sonnet-4.5,"
-    "anthropic/claude-haiku-4.5"
-)
-OPENROUTER_CHART_MODELS = [
-    model for model in _chain(
-        os.getenv("PREMIUM_CHART_MODEL", "") + "," +
-        os.getenv("PREMIUM_CHART_FALLBACKS", _DEFAULT_CHART_CHAIN))
-    if model.startswith("anthropic/")
-] or _chain(_DEFAULT_CHART_CHAIN)
+# Diagramma ma'lumoti ham admin tanlagan matn modelidan olinadi (matn zanjiri bilan bir xil).
 
 # To'lov cheklarini o'qish (services/receipts): BITTA arzon o'qish. Birinchi model — eng arzon ko'rish
 # modeli (chek bu yerda faqat "chekmi yoki yo'qmi" va admin kartasi uchun o'qiladi, qaror odamda);
 # u ishlamasa keyingisiga o'tiladi. `RECEIPT_MODEL` bilan almashtiriladi.
-OPENROUTER_RECEIPT_MODELS = _chain(
+# Chek o'qishda Claude ISHTIROK ETMAYDI: `anthropic/` modellari ro'yxatdan chiqarib tashlanadi
+# (muhit o'zgaruvchisi orqali kiritilsa ham).
+def _no_claude(models: list) -> list:
+    return [m for m in models if not m.startswith("anthropic/")]
+
+
+OPENROUTER_RECEIPT_MODELS = _no_claude(_chain(
     os.getenv("RECEIPT_MODEL", "") + "," +
-    os.getenv("RECEIPT_FALLBACKS", "google/gemini-2.5-flash-lite,anthropic/claude-haiku-4.5"))
+    os.getenv("RECEIPT_FALLBACKS", "google/gemini-2.5-flash-lite,openai/gpt-4o-mini"))) \
+    or ["google/gemini-2.5-flash-lite", "openai/gpt-4o-mini"]
 # Faqat RECEIPT_AUTO=1 (avtomatik tasdiq) bo'lsa ishlatiladigan tasdiqlovchi ikkinchi o'qish.
-OPENROUTER_RECEIPT_VERIFY_MODELS = [
-    model for model in _chain(
-        os.getenv("RECEIPT_VERIFY_MODEL", "") + "," +
-        os.getenv("RECEIPT_VERIFY_FALLBACKS",
-                  "anthropic/claude-sonnet-4.5,anthropic/claude-sonnet-5,anthropic/claude-haiku-4.5"))
-    if model.startswith("anthropic/")
-] or ["anthropic/claude-sonnet-4.5", "anthropic/claude-haiku-4.5"]
+OPENROUTER_RECEIPT_VERIFY_MODELS = _no_claude(_chain(
+    os.getenv("RECEIPT_VERIFY_MODEL", "") + "," +
+    os.getenv("RECEIPT_VERIFY_FALLBACKS", "google/gemini-2.5-flash,openai/gpt-4.1-mini"))) \
+    or ["google/gemini-2.5-flash", "openai/gpt-4.1-mini"]
 
 # Eski nom bilan foydalanadigan joylar uchun — ro'yxatning birinchisi.
 OPENROUTER_TEXT_MODEL = OPENROUTER_TEXT_MODELS[0]

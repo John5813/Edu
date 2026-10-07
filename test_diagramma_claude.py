@@ -1,4 +1,4 @@
-"""Diagramma ma'lumotlari FAQAT Claude'dan va haqiqiy: boshqa model to'qimaydi.
+"""Diagramma ma'lumotlari admin tanlagan AI dan, haqiqiy va tekshirilgan holda.
 
     python test_diagramma_claude.py
 """
@@ -22,15 +22,16 @@ GOOD = {"ok": True, "kind": "line", "labels": [str(YEAR - 4 + i) for i in range(
         "series": [{"name": "YaIM o'sishi (%)", "values": [5.2, 6.0, 5.7, 6.5]}],
         "unit": "%", "xlabel": "Yil", "source": "Jahon banki", "approx": False, "forecast": False}
 
-print("1) Model faqat Claude")
-check("diagramma ro'yxati faqat Anthropic", config.OPENROUTER_CHART_MODELS
-      and all(m.startswith("anthropic/") for m in config.OPENROUTER_CHART_MODELS), config.OPENROUTER_CHART_MODELS)
+print("1) Diagramma ma'lumoti admin tanlagan AI dan")
+check("alohida Claude ro'yxati yo'q", not hasattr(config, "OPENROUTER_CHART_MODELS"))
 llm_client.set_text_model("google/gemini-2.5-pro")          # admin boshqa model tanladi
-chain = llm_client._models("chart")
-check("admin tanlagan boshqa model diagramma uchun ishlatilmaydi",
-      chain and all(m.startswith("anthropic/") for m in chain), chain)
-check("matn uchun admin tanlovi saqlanadi", llm_client._models("text")[0] == "google/gemini-2.5-pro")
+chain = llm_client._models("text")
+check("admin tanlagan model matn zanjirida birinchi", chain[0] == "google/gemini-2.5-pro", chain)
 llm_client._preferred.pop("text", None); llm_client._WORKING.pop("text", None)
+check("chek o'qishda Claude yo'q (asosiy va tasdiq)",
+      not any(m.startswith("anthropic/") for m in config.OPENROUTER_RECEIPT_MODELS + config.OPENROUTER_RECEIPT_VERIFY_MODELS),
+      (config.OPENROUTER_RECEIPT_MODELS, config.OPENROUTER_RECEIPT_VERIFY_MODELS))
+check("chek zanjirlari bo'sh emas", config.OPENROUTER_RECEIPT_MODELS and config.OPENROUTER_RECEIPT_VERIFY_MODELS)
 
 print("2) Tekshiruv (validate)")
 v = chart_data.validate(GOOD, "uz")
@@ -54,7 +55,7 @@ donut = chart_data.validate({**GOOD, "kind": "donut", "labels": ["A", "B", "C"],
                              "series": [{"name": "Ulush", "values": [50, 30, 20]}]}, "uz")
 check("halqa yig'indisi 100 bo'lsa qabul", donut and donut["kind"] == "donut")
 
-print("3) Claude'ga so'rov (kind='chart')")
+print("3) Tanlangan AI ga so'rov (kind='text')")
 seen = {}
 orig = llm_client._call_openrouter
 def fake_call(system, user, temperature=0.7, max_tokens=16000, kind="text"):
@@ -65,7 +66,7 @@ try:
     got = chart_data.research("Iqtisodiyot", "YaIM o'sishi", "Yillik o'sish", "chiziqli", "uz")
 finally:
     llm_client._call_openrouter = orig
-check("so'rov 'chart' turi bilan ketdi", seen.get("kind") == "chart", seen.get("kind"))
+check("so'rov matn (tanlangan AI) turi bilan ketdi", seen.get("kind") == "text", seen.get("kind"))
 check("so'rov haqiqiy raqam, manba va yangi yillarni talab qiladi",
       "rasmiy" in seen["user"] and "manba" in seen["user"].lower() and "YANGI yillar" in seen["user"]
       and str(YEAR) in seen["user"], "")
