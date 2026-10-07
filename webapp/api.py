@@ -25,6 +25,7 @@ log = logging.getLogger(__name__)
 SITE_DIR = Path(__file__).parent / "site"
 COOKIE = "edu_session"
 _MAX_JSON = 64 * 1024
+_MAX_JOB_JSON = 400 * 1024       # buyurtma: mijoz manbasi (60 000 belgigacha, kirillda 2 bayt) bilan birga
 
 _hits: Dict[str, Deque[float]] = defaultdict(deque)
 
@@ -57,9 +58,9 @@ def _error(message: str, status: int = 400, code: str = "error") -> web.Response
     return web.json_response({"ok": False, "error": message, "code": code}, status=status)
 
 
-async def _json(request: web.Request) -> Dict:
-    if request.content_length and request.content_length > _MAX_JSON:
-        raise web.HTTPRequestEntityTooLarge(max_size=_MAX_JSON, actual_size=request.content_length)
+async def _json(request: web.Request, limit: int = _MAX_JSON) -> Dict:
+    if request.content_length and request.content_length > limit:
+        raise web.HTTPRequestEntityTooLarge(max_size=limit, actual_size=request.content_length)
     try:
         data = await request.json()
     except Exception:
@@ -142,10 +143,13 @@ async def me(request: web.Request) -> web.Response:
 
 # ──────────────────────────────────────────────────────────────────── katalog va narx
 
+STYLE_NOTES = {"toza": "Yengil va ixcham", "jurnal": "Klassik va nafis", "blok": "Yorqin va kuchli",
+               "kontur": "Aniq va texnik", "qorongu": "Zamonaviy va jasur"}
+
+
 def _catalog() -> Dict:
     from services.premium_presentation import pipeline, themes
 
-    sizes = [5, 8, 10, 12, 15, 20, 25, 30]
     return {
         "bot": webapp.BOT_USERNAME or "Edufayl_bot",
         "kinds": [{"key": kind.key, "label": kind.label, "heavy": kind.heavy, "options": kind.options or {}}
@@ -153,14 +157,17 @@ def _catalog() -> Dict:
         "languages": [{"key": "uz", "label": "O'zbek (lotin)"}, {"key": "uz-cyrl", "label": "Ўзбек (кирилл)"},
                       {"key": "ru", "label": "Русский"}, {"key": "en", "label": "English"},
                       {"key": "kk", "label": "Қазақша"}],
-        "styles": [{"key": "toza", "label": "Toza"}, {"key": "jurnal", "label": "Jurnal"},
-                   {"key": "blok", "label": "Blok"}, {"key": "kontur", "label": "Kontur"},
-                   {"key": "qorongu", "label": "Qorong'u"}],
+        "styles": [{"key": key, "label": label, "note": STYLE_NOTES[key]} for key, label in
+                   (("toza", "Toza"), ("jurnal", "Jurnal"), ("blok", "Blok"), ("kontur", "Kontur"),
+                    ("qorongu", "Qorong'u"))],
         "themes": [{"key": t.key, "label": t.name, "background": "#" + t.background, "accent": "#" + t.accent,
                     "heading": "#" + t.heading} for t in themes.choices()],
         "templates": [{"id": tid, "name": t["name"].get("uz", tid), "url": f"/api/template-image/{tid}"}
                       for tid, t in web_kinds._simple_templates().items()],
-        "premium_prices": [{"slides": n, "price": pipeline.price_for(n)} for n in sizes],
+        # Slayd sonini mijoz o'zi belgilaydi (5–30): har son uchun narx.
+        "premium_prices": [{"slides": n, "price": pipeline.price_for(n)}
+                           for n in range(pipeline.MIN_SLIDES, pipeline.MAX_SLIDES + 1)],
+        "premium_range": {"min": pipeline.MIN_SLIDES, "max": pipeline.MAX_SLIDES, "popular": [5, 8, 10, 12, 15, 20, 25, 30]},
     }
 
 
@@ -170,7 +177,7 @@ async def catalog(request: web.Request) -> web.Response:
 
 async def quote(request: web.Request) -> web.Response:
     telegram_id = await _require(request)
-    data = await _json(request)
+    data = await _json(request, _MAX_JOB_JSON)
     kind = web_jobs.KINDS.get(str(data.get("kind")))
     if not kind:
         return _error("Bunday xizmat yo'q", 404, "unknown_kind")
@@ -185,13 +192,83 @@ async def quote(request: web.Request) -> web.Response:
                               "missing": max(price - balance, 0)})
 
 
+async def suggest(request: web.Request) -> web.Response:
+    """Mavzuga qarab til va rang tavsiyasi (bot ham shunday tavsiya qiladi)."""
+    from services.premium_presentation import themes
+
+    data = await _json(request)
+    topic = str(data.get("topic") or "").strip()[:300]
+    theme = themes.suggest(topic)
+    language = web_kinds.detect_language(topic) if len(topic) >= 3 else ""
+    return web.json_response({"ok": True, "language": language,
+                              "theme": {"key": theme.key, "label": theme.name}})
+
+
+SOURCE_EXTS = (".pdf", ".docx", ".pptx")
+SOURCE_MAX_BYTES = 10 * 1024 * 1024
+
+
+async def source(request: web.Request) -> web.Response:
+    """Mijoz manbasi: fayl (PDF/DOCX/PPTX) yoki sayt havolalari → matn (bot bilan bir xil o'qish)."""
+    import tempfile
+
+    from services import document_source
+    from services.project_work import source as source_module
+
+    telegram_id = await _require(request)
+    if _limited(f"source:{telegram_id}", 8, 60):
+        return _error("Juda tez-tez yuborildi. Bir daqiqa kuting.", 429, "rate")
+    try:
+        if (request.content_type or "").startswith("multipart/"):
+            reader = await request.multipart()
+            part = await reader.next()
+            name = (getattr(part, "filename", "") or "").strip()
+            if part is None or part.name != "file" or not name.lower().endswith(SOURCE_EXTS):
+                return _error("PDF, DOCX yoki PPTX fayl yuboring.", 415, "type")
+            folder = tempfile.mkdtemp(prefix="websrc_")
+            path = os.path.join(folder, "source" + os.path.splitext(name.lower())[1])
+            try:
+                size = 0
+                with open(path, "wb") as handle:
+                    while True:
+                        chunk = await part.read_chunk(256 * 1024)
+                        if not chunk:
+                            break
+                        size += len(chunk)
+                        if size > SOURCE_MAX_BYTES:
+                            return _error("Fayl 10 MB dan katta.", 413, "too_big")
+                        handle.write(chunk)
+                material = await source_module.from_file(path, name)
+            finally:
+                import shutil
+                shutil.rmtree(folder, ignore_errors=True)
+        else:
+            data = await _json(request)
+            from services.url_book_service import extract_urls_from_text, validate_url
+            urls = [u for u in extract_urls_from_text(str(data.get("urls") or "")[:2000]) if validate_url(u)[0]]
+            if not urls:
+                return _error("To'g'ri sayt havolasini kiriting (https://...).", 400, "urls")
+            material = await source_module.from_urls(urls[:5])
+    except document_source.SourceTooLarge:
+        return _error("Fayl 10 MB dan katta.", 413, "too_big")
+    except document_source.SourceUnreadable:
+        return _error("Fayldan yetarli matn o'qib bo'lmadi. Matnli PDF yoki DOCX yuboring.", 422, "unreadable")
+    except web.HTTPException:
+        raise
+    except Exception as exc:
+        log.warning("Manba o'qilmadi: %s", exc)
+        return _error("Manbadan matn olib bo'lmadi. Boshqa fayl yoki havola sinab ko'ring.", 422, "source")
+    return web.json_response({"ok": True, "kind": material.kind, "label": material.label,
+                              "words": len(material.text.split()), "text": material.text})
+
+
 # ───────────────────────────────────────────────────────────────────────── ishlar
 
 async def jobs_create(request: web.Request) -> web.Response:
     telegram_id = await _require(request)
     if _limited(f"job:{telegram_id}", 6, 60):
         return _error("Juda tez-tez buyurtma. Bir daqiqa kuting.", 429, "rate")
-    data = await _json(request)
+    data = await _json(request, _MAX_JOB_JSON)
     try:
         job = await web_jobs.submit(telegram_id, str(data.get("kind")), dict(data.get("params") or {}))
     except web_jobs.JobError as exc:
@@ -313,6 +390,8 @@ def setup_api_routes(app: web.Application) -> None:
     add("GET", "/api/v1/me", me)
     add("GET", "/api/v1/catalog", catalog)
     add("POST", "/api/v1/quote", quote)
+    add("POST", "/api/v1/suggest", suggest)
+    add("POST", "/api/v1/source", source)
     add("POST", "/api/v1/jobs", jobs_create)
     add("GET", "/api/v1/jobs", jobs_list)
     add("GET", "/api/v1/jobs/{id}", jobs_get)

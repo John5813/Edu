@@ -13,6 +13,30 @@ def _text(raw: Dict, key: str, limit: int) -> str:
     return re.sub(r"[ \t]+", " ", str(raw.get(key) or "")).strip()[:limit]
 
 
+SOURCE_LIMIT = 60_000       # bot manbasi bilan bir xil (`project_work.source`)
+
+
+def _long_text(raw: Dict, key: str, limit: int) -> str:
+    """Qator uzilishlari saqlanadigan uzun matn (mijoz manbasi)."""
+    text = str(raw.get(key) or "").replace("\r\n", "\n").replace("\x00", "")
+    return re.sub(r"[ \t]+", " ", text).strip()[:limit]
+
+
+def detect_language(topic: str) -> str:
+    """Mavzuning tilidan taqdimot tili — botdagi qoida (`premium_presentation._detect_language`)."""
+    from bot.handlers.premium_presentation import _detect_language
+
+    language = _detect_language(topic)
+    if language == "uz" and uz_script.has_cyrillic(topic):
+        return uz_script.UZ_CYRILLIC_LANG
+    return language
+
+
+def _pick_language(raw: Dict, topic: str) -> str:
+    language = raw.get("language")
+    return language if language in LANGUAGES else detect_language(topic)
+
+
 # ───────────────────────────────────────────────────────── zamonaviy (premium) taqdimot
 
 def _premium_normalize(raw: Dict) -> Dict:
@@ -25,12 +49,14 @@ def _premium_normalize(raw: Dict) -> Dict:
         count = int(raw.get("slide_count") or 10)
     except (TypeError, ValueError):
         count = 10
-    language = raw.get("language") if raw.get("language") in LANGUAGES else "uz"
     style = raw.get("style") if raw.get("style") in MODERN_STYLES else "toza"
     theme = str(raw.get("theme") or "").strip().lower()
     return {"topic": topic, "slide_count": max(pipeline.MIN_SLIDES, min(count, pipeline.MAX_SLIDES)),
-            "language": language, "style": style, "theme": theme if theme in themes.THEMES else "",
-            "author": _text(raw, "author", 80), "preferences": _text(raw, "preferences", 1000)}
+            "language": _pick_language(raw, topic), "style": style,
+            "theme": theme if theme in themes.THEMES else "",
+            "author": _text(raw, "author", 80), "preferences": _text(raw, "preferences", 1000),
+            "source_text": _long_text(raw, "source_text", SOURCE_LIMIT),
+            "source_label": _text(raw, "source_label", 120)}
 
 
 def _premium_price(params: Dict) -> int:
@@ -61,7 +87,7 @@ async def _premium_run(params: Dict, report: Report) -> Tuple[str, str]:
     path, _slides, _photos = await pipeline.build_deck(
         topic, params["slide_count"], language=params["language"], preferences=params["preferences"],
         author=params["author"], theme_key=params["theme"], style=params["style"],
-        progress_cb=on_progress, stage_cb=on_stage)
+        source_text=params.get("source_text", ""), progress_cb=on_progress, stage_cb=on_stage)
     stem = re.sub(r"[^\w-]+", "_", topic)[:30].strip("_") or "fayl"
     return path, f"Taqdimot_{stem}.pptx"
 
@@ -296,9 +322,12 @@ def _simple_normalize(raw: Dict) -> Dict:
         count = min(PRESENTATION_PRICES, key=lambda n: abs(n - count))
     template = raw.get("template") if raw.get("template") in _simple_templates() else "template_20"
     return {"topic": topic, "slide_count": count, "template": template,
-            "language": raw.get("language") if raw.get("language") in DOC_LANGUAGES else "uz",
+            "language": _pick_language(raw, topic),
             "author": _text(raw, "author", 80) or _text(raw, "_default_author", 80),
-            "icons": raw.get("icons") is not False, "plan_slide": bool(raw.get("plan_slide"))}
+            "icons": raw.get("icons") is not False, "plan_slide": bool(raw.get("plan_slide")),
+            "preferences": _text(raw, "preferences", 1000),
+            "source_text": _long_text(raw, "source_text", SOURCE_LIMIT),
+            "source_label": _text(raw, "source_label", 120)}
 
 
 def _simple_price(params: Dict) -> int:
@@ -314,23 +343,32 @@ async def _simple_run(params: Dict, report: Report) -> Tuple[str, str]:
     from services.document_service import get_document_service
     from services.template_service import TemplateService
 
-    topic, lang = params["topic"], params["language"]
-    script, token = None, None
-    if lang == "uz":
-        script = uz_script.CYRILLIC if uz_script.has_cyrillic(topic) else uz_script.LATIN
+    topic, language = params["topic"], params["language"]
+    # Botdagi qoida: o'zbekcha taqdimotda yozuv (lotin/kirill) tanlanadi, ikkisi aralashmaydi.
+    script = uz_script.script_of_language(language)
+    lang = "uz" if script else language
+    token = None
+    ai_topic = topic
+    if params.get("source_text"):
+        from bot.handlers.documents import _build_book_topic
+        ai_topic = _build_book_topic(topic, params["source_text"], lang)
+    if params.get("preferences"):
+        ai_topic = f"{ai_topic}\n\nClient wishes for this presentation: {params['preferences']}"
+    if script:
         token = uz_script.use(script)
         if script == uz_script.LATIN:
             topic = uz_script.to_latin(topic)
+            ai_topic = uz_script.to_latin(ai_topic)
     ticker = asyncio.ensure_future(_ticker(report, 100))
     try:
         ai = get_ai_service()
-        content = await ai.generate_presentation_in_batches(topic, params["slide_count"], lang)
+        content = await ai.generate_presentation_in_batches(ai_topic, params["slide_count"], lang)
         if not content or not content.get("slides"):
-            content = await ai.generate_presentation_in_batches(topic, params["slide_count"], lang)
+            content = await ai.generate_presentation_in_batches(ai_topic, params["slide_count"], lang)
         if not content or not content.get("slides"):
             raise RuntimeError("AI taqdimot mazmunini qaytarmadi")
         content["slides"] = [x for x in content["slides"] if x.get("layout") != "references"]
-        plan_items = await ai.generate_plan_items(topic, lang) if params["plan_slide"] else []
+        plan_items = await ai.generate_plan_items(ai_topic, lang) if params["plan_slide"] else []
         docs = get_document_service()
         docs.use_icons = params["icons"]
         path = await docs.create_presentation_with_template_background(
