@@ -4,6 +4,7 @@ Mijoz ma'lumotlari bot bilan bir xil: kirish Telegram ID bilan bo'ladi, balans e
 turadi. Parol yo'q: brauzer bir martalik token oladi, bot uni `/start weblogin_<token>` bilan
 tasdiqlaydi, brauzer so'rab turib sessiya cookie'sini oladi.
 """
+import json
 import logging
 import os
 import time
@@ -143,6 +144,27 @@ async def me(request: web.Request) -> web.Response:
 
 # ──────────────────────────────────────────────────────────────────── katalog va narx
 
+# «Sahifani o'zgartirish» da chat ostida turadigan tayyor iltimoslar (bosilsa, yuboriladi).
+REWRITE_PROMPTS = [
+    {"icon": "📊", "text": "Sahifani doirasimon diagrammali qilib ber"},
+    {"icon": "📈", "text": "Ustunli diagramma bilan ko'rsat"},
+    {"icon": "🖼", "text": "Rasm va matn qo'yib ber"},
+    {"icon": "🧩", "text": "Kartochkalar ko'rinishida qilib ber"},
+    {"icon": "🪜", "text": "Qadamma-qadam jarayon ko'rinishida yoz"},
+    {"icon": "⚖️", "text": "Ikki ustunli taqqoslash qilib ber"},
+    {"icon": "⏳", "text": "Vaqt o'qi (xronologiya) ko'rinishida yoz"},
+    {"icon": "🔢", "text": "Asosiy raqamlarni yirik ko'rsat"},
+    {"icon": "✨", "text": "Qisqaroq va ta'sirliroq qilib ber"},
+    {"icon": "📚", "text": "Ko'proq tafsilot va misol qo'sh"},
+    {"icon": "💬", "text": "Mashhur iqtibos bilan boshla"},
+]
+
+
+def _rewrite_price() -> int:
+    from config import SLIDE_REWRITE_PRICE
+    return int(SLIDE_REWRITE_PRICE)
+
+
 STYLE_NOTES = {"toza": "Yengil va ixcham", "jurnal": "Klassik va nafis", "blok": "Yorqin va kuchli",
                "kontur": "Aniq va texnik", "qorongu": "Zamonaviy va jasur"}
 
@@ -167,6 +189,7 @@ def _catalog() -> Dict:
         # Slayd sonini mijoz o'zi belgilaydi (5–30): har son uchun narx.
         "premium_prices": [{"slides": n, "price": pipeline.price_for(n)}
                            for n in range(pipeline.MIN_SLIDES, pipeline.MAX_SLIDES + 1)],
+        "rewrite": {"price": _rewrite_price(), "prompts": REWRITE_PROMPTS},
         "premium_range": {"min": pipeline.MIN_SLIDES, "max": pipeline.MAX_SLIDES, "popular": [5, 8, 10, 12, 15, 20, 25, 30]},
     }
 
@@ -280,7 +303,7 @@ async def jobs_create(request: web.Request) -> web.Response:
 
 async def jobs_list(request: web.Request) -> web.Response:
     telegram_id = await _require(request)
-    jobs = await web_store.list_jobs(telegram_id, 30)
+    jobs = [job for job in await web_store.list_jobs(telegram_id, 40) if job["kind"] != "slide_rewrite"][:30]
     return web.json_response({"ok": True, "jobs": [web_jobs.public(job) for job in jobs],
                               "ttl_hours": web_store.JOB_TTL_HOURS})
 
@@ -305,6 +328,94 @@ async def jobs_file(request: web.Request) -> web.StreamResponse:
     return web.FileResponse(path, headers={
         "Content-Disposition": f"attachment; filename*=UTF-8''{url_quote(name)}",
         "Cache-Control": "private, no-store"})
+
+
+# ───────────────────────────────────────────────── taqdimotni ko'rish va sahifani qayta yozish
+
+async def _own_deck(request: web.Request):
+    """(telegram_id, buyurtma, taqdimot) — faqat egasiga va faqat tayyor zamonaviy taqdimotga."""
+    from services import web_decks
+
+    telegram_id = await _require(request)
+    job_id = request.match_info["id"]
+    job = await web_store.get_job(job_id, telegram_id)
+    if not job or job["kind"] not in ("premium_presentation", "simple_presentation"):
+        raise web.HTTPNotFound(text='{"ok": false, "error": "Topilmadi", "code": "not_found"}',
+                               content_type="application/json")
+    deck = web_decks.load(job_id) if job["status"] == "done" else None
+    return telegram_id, job, deck
+
+
+async def _active_rewrite(telegram_id: int, parent: str) -> Optional[dict]:
+    for row in await web_store.list_jobs(telegram_id, 20):
+        if row["kind"] != "slide_rewrite" or row["status"] not in ("queued", "running"):
+            continue
+        try:
+            if json.loads(row.get("params") or "{}").get("parent") == parent:
+                return row
+        except ValueError:
+            continue
+    return None
+
+
+async def deck_info(request: web.Request) -> web.Response:
+    from services import web_decks
+
+    telegram_id, job, deck = await _own_deck(request)
+    if not deck:
+        return web.json_response({"ok": True, "available": False, "status": job["status"]})
+    busy = await _active_rewrite(telegram_id, job["id"])
+    return web.json_response({"ok": True, "available": True, "status": job["status"],
+                              "deck": web_decks.public(job["id"], deck), "price": _rewrite_price(),
+                              "busy": busy["id"] if busy else None,
+                              "file_name": job.get("result_name") or "",
+                              "expires_at": job["created_at"] + web_store.JOB_TTL_HOURS * 3600})
+
+
+async def deck_slide(request: web.Request) -> web.StreamResponse:
+    from services import web_decks
+
+    _, job, deck = await _own_deck(request)
+    try:
+        number = int(request.match_info["n"])
+    except ValueError:
+        return web.Response(status=404)
+    path = web_decks.preview_path(job["id"], number) if deck and 1 <= number <= web_decks.count(deck) else ""
+    if not path or not os.path.exists(path):
+        return web.Response(status=404)
+    return web.FileResponse(path, headers={"Cache-Control": "private, max-age=3600"})
+
+
+async def deck_rewrite(request: web.Request) -> web.Response:
+    """Tanlangan sahifani AI ga qayta yozdirish (pulli: har urinish uchun SLIDE_REWRITE_PRICE)."""
+    telegram_id, job, deck = await _own_deck(request)
+    if not deck:
+        return _error("Bu taqdimotni qayta yozib bo'lmaydi (yangi buyurtmalarda ishlaydi).", 404, "no_deck")
+    if deck.get("view_only"):
+        return _error("Sahifani AI ga qayta yozdirish «Zamonaviy taqdimot» da mavjud.", 400, "view_only")
+    data = await _json(request)
+    try:
+        index = int(data.get("index")) - 1
+    except (TypeError, ValueError):
+        return _error("Sahifani tanlang.", 400, "bad_request")
+    pages = len(deck["pages"])
+    if not 0 <= index < pages:
+        return _error("Bunday sahifa yo'q.", 400, "bad_request")
+    if index == 1 and pages > 3:
+        return _error("Reja sahifasi boshqa sahifalar sarlavhalaridan o'zi yig'iladi. "
+                      "Kerakli sahifani o'zgartiring — reja o'zi yangilanadi.", 400, "plan_slide")
+    if _limited(f"rewrite:{telegram_id}", 10, 60):
+        return _error("Juda tez-tez yuborildi. Bir daqiqa kuting.", 429, "rate")
+    if await _active_rewrite(telegram_id, job["id"]):
+        return _error("Avvalgi o'zgartirish tugashini kuting.", 409, "busy")
+    try:
+        row = await web_jobs.submit(telegram_id, "slide_rewrite", {
+            "parent": job["id"], "index": index, "instruction": str(data.get("instruction") or "")})
+    except web_jobs.JobError as exc:
+        status = 402 if exc.code == "no_balance" else 409 if exc.code == "busy" else 400
+        return _error(str(exc), status, exc.code)
+    user = await Database.get_user(telegram_id)
+    return web.json_response({"ok": True, "job": row, "balance": int(getattr(user, "balance", 0) or 0)})
 
 
 # ──────────────────────────────────────────────────────────────────────── hamyon
@@ -396,6 +507,9 @@ def setup_api_routes(app: web.Application) -> None:
     add("GET", "/api/v1/jobs", jobs_list)
     add("GET", "/api/v1/jobs/{id}", jobs_get)
     add("GET", "/api/v1/jobs/{id}/file", jobs_file)
+    add("GET", "/api/v1/jobs/{id}/deck", deck_info)
+    add("GET", "/api/v1/jobs/{id}/slide/{n}", deck_slide)
+    add("POST", "/api/v1/jobs/{id}/rewrite", deck_rewrite)
     add("GET", "/api/v1/wallet", wallet)
     add("POST", "/api/v1/wallet/receipt", wallet_receipt)
     add("GET", "/app", _page("app.html"))

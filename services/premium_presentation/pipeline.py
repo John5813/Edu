@@ -58,12 +58,17 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
                      preferences: str = "", source_text: str = "", author: str = "",
                      theme_key: str = "", style: str = "",
                      progress_cb: Optional[Callable[[int, int], None]] = None,
-                     stage_cb: Optional[Callable[[str, dict], None]] = None) -> Tuple[str, int, int]:
+                     stage_cb: Optional[Callable[[str, dict], None]] = None,
+                     deck_out: Optional[dict] = None) -> Tuple[str, int, int]:
     """Taqdimotni yaratadi va PPTX yo'lini qaytaradi: (yo'l, slaydlar soni, rasmlar soni).
 
     `progress_cb(tayyor_bo'lak, jami)` — kontent yozilayotganda (boshqa oqimdan chaqirilishi mumkin);
     `stage_cb(nom, ma'lumot)` — bosqich almashganda: "writing", "images", "render".
     Xatoda istisno ko'tariladi; pulni qaytarish chaqiruvchining ishi.
+
+    `deck_out` berilsa (sayt): unga taqdimotning yakuniy sahifalari (`pages`), rang kaliti, reja va
+    sahifa suratlari papkasi (`shots_dir`, agar berilgan bo'lsa) yoziladi — taqdimotni saytda
+    varaqlash va bitta sahifani qayta yozish uchun.
     """
     from services.premium_presentation import html_images, html_render, html_slides, themes
 
@@ -80,11 +85,12 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
     theme = themes.with_style(chosen, style)
 
     stage("writing")
+    outline_out: dict = {}
     pages = await run_step(
         loop,
         lambda: html_slides.write_slides(
             topic, slide_count, theme, language=language, level=level, preferences=preferences,
-            source_text=source_text, author=author, progress_cb=progress_cb),
+            source_text=source_text, author=author, progress_cb=progress_cb, outline_out=outline_out),
         step="brief", label="Slaydlarni yozish")
 
     stage("images", slides=len(pages))
@@ -100,11 +106,17 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
         log.warning("Muqova rasmi qo'yilmadi: %s", exc)
 
     stage("render", slides=len(pages), photos=photos)
+    final: list = []
+    shots = (deck_out or {}).get("shots_dir")
     path = await run_step(
         loop,
         lambda: html_render.render(
             pages,
             repair=lambda page, problems: html_slides.fix_slide(page, problems, theme, language),
-            explain=lambda page, area: html_slides.fill_gap(page, area, theme, language)),
+            explain=lambda page, area: html_slides.fill_gap(page, area, theme, language),
+            collect=final if deck_out is not None else None, shots_dir=shots),
         step="render", label="Slaydlarni suratga olish")
+    if deck_out is not None:
+        deck_out.update(pages=final if len(final) == len(pages) else pages, theme_key=chosen.key,
+                        family=outline_out.get("family", ""), outline=outline_out.get("outline", []))
     return path, len(pages), photos

@@ -962,8 +962,13 @@ def source_of(page: str) -> str:
 def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
                  level: int = 2, preferences: str = "", source_text: str = "",
                  author: str = "",
-                 progress_cb: Optional[Callable] = None) -> List[str]:
-    """Butun taqdimotni HTML hujjatlar ro'yxati qilib qaytaradi."""
+                 progress_cb: Optional[Callable] = None,
+                 outline_out: Optional[dict] = None) -> List[str]:
+    """Butun taqdimotni HTML hujjatlar ro'yxati qilib qaytaradi.
+
+    `outline_out` berilsa, unga reja (`outline`: sarlavha, mazmun, kategoriya) va mavzu oilasi
+    (`family`) yoziladi — keyin bitta sahifani qayta yozishda kerak bo'ladi.
+    """
     # Mijoz tanlagan son — muqova va rejadan KEYINGI slaydlar (xulosa shu songa
     # kiradi). Muqova va reja slaydi qo'shimcha yoziladi: ilgari ular ham
     # hisobga kirar, 10 slaydda asosiy mavzuga 8 tadan kam slayd qolardi.
@@ -1050,6 +1055,10 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
             f"AI {slide_count} ta slayddan faqat {len(slides)} tasini yozdi")
     ctx = _Deck(topic, slide_count, outline, family, system, theme, language, level,
                 source_text, preferences, author)
+    if outline_out is not None:
+        outline_out["family"] = family
+        outline_out["outline"] = [{"title": str(o.get("title") or ""), "brief": str(o.get("brief") or ""),
+                                   "category": str(o.get("category") or "")} for o in outline]
     slides = repair_deck(slides, ctx)
     slides = diversify(slides, theme, language)
     # Diagramma raqamlari faqat Claude bergan ma'lumot: qayta yozish va xilma-xillashtirish

@@ -110,6 +110,10 @@ BOOK_OCR_MIN_PRICE = int(os.getenv("BOOK_OCR_MIN_PRICE", "2000"))
 BOOK_OCR_MAX_PAGES = int(os.getenv("BOOK_OCR_MAX_PAGES", "500"))
 
 
+# Saytda taqdimotning bitta sahifasini AI ga qayta yozdirish narxi (har bir urinish uchun).
+SLIDE_REWRITE_PRICE = int(os.getenv("SLIDE_REWRITE_PRICE", "900"))
+
+
 def book_ocr_price(pages: int) -> int:
     """Skaner kitobni matnga o'tkazish narxi (500 so'mga yuqoriga yaxlitlanadi)."""
     raw = max(int(pages), 1) * BOOK_OCR_PRICE_PER_PAGE

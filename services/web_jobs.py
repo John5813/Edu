@@ -52,6 +52,7 @@ class Kind:
     publish_as: str = ""          # do'kon katalogi uchun ish turi ("" — qo'yilmaydi)
     heavy: bool = False           # katta hujjat: botdagi umumiy navbatda birin-ketin bajariladi
     options: Optional[Dict] = None  # sahifadagi forma uchun: hajmlar, qo'shimchalar, maydonlar
+    quiet: bool = False           # yordamchi ish (masalan sahifani qayta yozish): Telegramga yuborilmaydi, statistikaga kirmaydi
 
 
 KINDS: Dict[str, Kind] = {}
@@ -127,6 +128,7 @@ async def submit(telegram_id: int, kind_key: str, raw: Dict) -> Dict:
     await _require_subscription(telegram_id)
     raw = dict(raw or {})
     raw["_default_author"] = (user.first_name or "")[:80]
+    raw["_telegram_id"] = int(telegram_id)
     params = kind.normalize(raw)
     price = int(kind.price(params))
 
@@ -173,7 +175,7 @@ async def _execute(job_id: str, telegram_id: int, kind: Kind, params: Dict, pric
         work_id = workload.begin(f"sayt: {kind.key}")
         try:
             await web_store.update_job(job_id, status="running", stage="writing", progress=3)
-            path, name = await kind.run(params, report)
+            path, name = await kind.run({**params, "_job_id": job_id}, report)
             os.makedirs(RESULTS_DIR, exist_ok=True)
             stored = os.path.join(RESULTS_DIR, f"{job_id}{os.path.splitext(path)[1]}")
             shutil.move(path, stored)
@@ -209,7 +211,7 @@ async def _execute(job_id: str, telegram_id: int, kind: Kind, params: Dict, pric
     else:
         async with _get_semaphore():
             await core()
-    if outcome:
+    if outcome and not kind.quiet:
         try:    # admin statistikasiga shaxsiy ma'lumotsiz qator (faqat tur va vaqt)
             await Database.record_document_stat(STAT_TYPE.get(kind.key, kind.key))
         except Exception as exc:
@@ -273,6 +275,11 @@ async def recover() -> int:
 
 async def purge() -> int:
     paths = await web_store.purge_expired()
+    try:
+        from services import web_decks
+        await web_decks.purge_orphans()
+    except Exception as exc:
+        log.warning("Taqdimot nusxalarini tozalab bo'lmadi: %s", exc)
     removed = 0
     for path in paths:
         try:

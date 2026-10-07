@@ -24,7 +24,7 @@ import subprocess
 import sys
 import tempfile
 import threading
-from typing import List
+from typing import List, Optional
 
 log = logging.getLogger("html_render")
 
@@ -528,7 +528,9 @@ def _severity(problems: List[str]) -> int:
 
 
 def render(html_slides: List[str], out_dir: str = "temp",
-           name: str = "taqdimot", repair=None, explain=None) -> str:
+           name: str = "taqdimot", repair=None, explain=None,
+           collect: Optional[List[str]] = None,
+           shots_dir: Optional[str] = None) -> str:
     """HTML → tahrirlanadigan PPTX.
 
     Har slayd brauzerda ochiladi, joylashuvi o'qiladi va PowerPointning
@@ -545,6 +547,11 @@ def render(html_slides: List[str], out_dir: str = "temp",
     slaydning o'sha maydoniga diagrammani tushuntiruvchi matn
     qo'yiladi. Bunda slayd QAYTA CHIZILMAYDI — mavjud joylashuvga
     tegilmaydi, faqat bo'sh joy to'ldiriladi.
+
+    `collect` berilsa, har slaydning YAKUNIY HTML i (tuzatish va izohdan
+    keyingi) shu ro'yxatga tartib bilan qo'shiladi; `shots_dir` berilsa,
+    har slaydning aynan shu ko'rinishi `shot_01.png` ... bo'lib saqlanadi
+    (saytda ko'rib chiqish uchun: PPTX bilan bir xil ko'rinish).
     """
     from playwright.sync_api import sync_playwright
 
@@ -568,6 +575,7 @@ def render(html_slides: List[str], out_dir: str = "temp",
             try:
                 for index, html in enumerate(html_slides, 1):
                     page = None
+                    final_html = html
                     try:
                         page = _open_page(context, html)
 
@@ -584,6 +592,7 @@ def render(html_slides: List[str], out_dir: str = "temp",
                                 filled = explain(html, area)
                                 if filled and filled != html:
                                     html = filled
+                                    final_html = html
                                     page.close()
                                     page = _open_page(context, html)
 
@@ -605,8 +614,11 @@ def render(html_slides: List[str], out_dir: str = "temp",
                                         page.close()
                                         page = _open_page(context, html)
                                     else:
+                                        final_html = fixed
                                         log.info("%d-slayd tuzatildi", index)
 
+                        if shots_dir:
+                            _shot(page, shots_dir, index)
                         layout = html_extract.read_layout(page)
                         blocks = layout.get("blocks") or []
                         if not blocks:
@@ -624,6 +636,8 @@ def render(html_slides: List[str], out_dir: str = "temp",
                         _picture_fallback(presentation, page, out_dir,
                                           index, temporary)
                     finally:
+                        if collect is not None:
+                            collect.append(final_html)
                         if page is not None:
                             try:
                                 page.close()
@@ -644,6 +658,16 @@ def render(html_slides: List[str], out_dir: str = "temp",
                 os.remove(path)
             except OSError:
                 pass
+
+
+def _shot(page, shots_dir: str, index: int) -> None:
+    """Slaydning hozirgi ko'rinishini `shot_NN.png` qilib saqlaydi (xato bo'lsa jim)."""
+    try:
+        os.makedirs(shots_dir, exist_ok=True)
+        page.screenshot(path=os.path.join(shots_dir, f"shot_{index:02d}.png"), type="png",
+                        clip={"x": 0, "y": 0, "width": SLIDE_W_PX, "height": SLIDE_H_PX})
+    except Exception as exc:
+        log.warning("%d-slayd surati olinmadi: %s", index, exc)
 
 
 def _picture_fallback(presentation, page, out_dir: str, index: int,

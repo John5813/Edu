@@ -1,9 +1,14 @@
 """Saytda buyurtma qilinadigan xizmatlar (har biri `web_jobs.register` orqali ulanadi)."""
+import asyncio
+import logging
 import re
+import tempfile
 from typing import Dict, Tuple
 
 from services import uz_script
 from services.web_jobs import JobError, Kind, Report, register
+
+log = logging.getLogger(__name__)
 
 LANGUAGES = ("uz", uz_script.UZ_CYRILLIC_LANG, "ru", "en", "kk")
 MODERN_STYLES = ("toza", "jurnal", "blok", "kontur", "qorongu")
@@ -84,10 +89,20 @@ async def _premium_run(params: Dict, report: Report) -> Tuple[str, str]:
         report(name, {"writing": 5, "images": 78, "render": 90}.get(name, 5))
 
     topic = params["topic"]
+    job_id = params.get("_job_id") or ""
+    # Taqdimot saytda varaqlanadi va sahifalari qayta yozdiriladi: yakuniy sahifalar va suratlar saqlanadi.
+    deck_out: dict = {"shots_dir": tempfile.mkdtemp(prefix="deckshots_")} if job_id else {}
     path, _slides, _photos = await pipeline.build_deck(
         topic, params["slide_count"], language=params["language"], preferences=params["preferences"],
         author=params["author"], theme_key=params["theme"], style=params["style"],
-        source_text=params.get("source_text", ""), progress_cb=on_progress, stage_cb=on_stage)
+        source_text=params.get("source_text", ""), progress_cb=on_progress, stage_cb=on_stage,
+        deck_out=deck_out if job_id else None)
+    if job_id and deck_out.get("pages"):
+        try:
+            from services import web_decks
+            await asyncio.to_thread(web_decks.create, job_id, params, deck_out)
+        except Exception as exc:        # ko'rib chiqish ishlamasa ham fayl mijozga yetadi
+            log.warning("Taqdimot nusxasi saqlanmadi (%s): %s", job_id, exc)
     stem = re.sub(r"[^\w-]+", "_", topic)[:30].strip("_") or "fayl"
     return path, f"Taqdimot_{stem}.pptx"
 
@@ -381,6 +396,13 @@ async def _simple_run(params: Dict, report: Report) -> Tuple[str, str]:
             uz_script.reset(token)
     if not path or not os.path.exists(path):
         raise RuntimeError("Fayl yaratilmadi")
+    job_id = params.get("_job_id") or ""
+    if job_id:      # saytda ochib ko'rish uchun (xato bo'lsa ham fayl mijozga yetadi)
+        try:
+            from services import web_decks
+            await asyncio.to_thread(web_decks.create_view, job_id, params, path)
+        except Exception as exc:
+            log.warning("Taqdimot ko'rinishi tayyorlanmadi (%s): %s", job_id, exc)
     stem = re.sub(r"[^\w-]+", "_", topic)[:30].strip("_") or "fayl"
     return path, f"Taqdimot_{stem}.pptx"
 
@@ -395,3 +417,97 @@ register(Kind(key="simple_presentation", label="Taqdimot (chiroyli orqa fonlar)"
               price=_simple_price, title=lambda p: p["topic"], run=_simple_run, publish_as="taqdimot",
               options=_simple_options()))
 KINDS_ORDER = ("premium_presentation", "simple_presentation") + KINDS_ORDER[1:]
+
+
+# ───────────────────────────────────── taqdimotning bitta sahifasini AI ga qayta yozdirish
+
+def _rewrite_normalize(raw: Dict) -> Dict:
+    parent = str(raw.get("parent") or "")
+    if not re.fullmatch(r"[0-9a-f]{32}", parent):
+        raise JobError("Taqdimot topilmadi.")
+    try:
+        index = int(raw.get("index"))
+    except (TypeError, ValueError):
+        raise JobError("Sahifani tanlang.")
+    instruction = re.sub(r"\s+", " ", str(raw.get("instruction") or "")).strip()[:500]
+    if len(instruction) < 3:
+        raise JobError("Sahifa qanday bo'lishini yozing.")
+    return {"parent": parent, "index": index, "instruction": instruction,
+            "owner": int(raw.get("_telegram_id") or 0)}
+
+
+def _rewrite_price(_params: Dict) -> int:
+    from config import SLIDE_REWRITE_PRICE
+    return int(SLIDE_REWRITE_PRICE)
+
+
+async def _rewrite_run(params: Dict, report: Report) -> Tuple[str, str]:
+    import os
+    import shutil
+
+    from database import web_store
+    from services import web_decks
+    from services.premium_presentation import llm_client, slide_edit
+
+    parent = params["parent"]
+    index = params["index"]
+    job = await web_store.get_job(parent, params.get("owner") or None)
+    if not job or job["kind"] != "premium_presentation" or job["status"] != "done" or not job.get("result_path"):
+        raise RuntimeError("Taqdimot topilmadi yoki muddati o'tgan")
+    try:
+        from config import AI_MODELS
+        from database.database import Database
+        key = await Database.get_premium_ai_model()
+        if key in AI_MODELS:
+            llm_client.set_text_model(AI_MODELS[key]["id"])
+    except Exception:
+        pass
+    llm_client.reset_usage()
+
+    shots = tempfile.mkdtemp(prefix="editshots_")
+    work = tempfile.mkdtemp(prefix="editdeck_")
+    try:
+        async with web_decks.lock(parent):
+            deck = web_decks.load(parent)
+            if not deck:
+                raise RuntimeError("Taqdimot nusxasi topilmadi")
+            try:
+                result = await slide_edit.rewrite(deck, index, params["instruction"], shots, progress=report)
+            except slide_edit.SlideEditError as exc:
+                raise RuntimeError(str(exc)) from None
+            pages = list(deck["pages"])
+            for number, html in result["pages"].items():
+                pages[number] = html
+            report("render", 84)
+            pptx = await asyncio.to_thread(slide_edit.build_pptx, pages, work)
+
+            outline = list(deck.get("outline") or [])
+            while len(outline) < len(pages):
+                outline.append({"title": "", "brief": "", "category": ""})
+            for number, item in result["outline"].items():
+                outline[number] = item
+            deck.update(pages=pages, outline=outline, titles=web_decks.titles_of(pages),
+                        version=int(deck.get("version") or 1) + 1)
+            deck.setdefault("history", []).append(
+                {"index": index + 1, "instruction": params["instruction"], "title": result["title"],
+                 "at": __import__("time").time()})
+            await asyncio.to_thread(web_decks.store_shots, parent, result["shots"])
+            web_decks.save(parent, deck)
+
+            # Mijoz "Yuklab olish" bosganda endi o'zgartirilgan taqdimotni oladi.
+            target = job["result_path"]
+            tmp = target + ".new"
+            shutil.copyfile(pptx, tmp)
+            os.replace(tmp, target)
+            handle, final = tempfile.mkstemp(prefix="yangi_", suffix=".pptx")
+            os.close(handle)
+            shutil.copyfile(pptx, final)
+    finally:
+        shutil.rmtree(shots, ignore_errors=True)
+        shutil.rmtree(work, ignore_errors=True)
+    return final, job.get("result_name") or "Taqdimot.pptx"
+
+
+register(Kind(key="slide_rewrite", label="Sahifani o'zgartirish", normalize=_rewrite_normalize,
+              price=_rewrite_price, title=lambda p: f"{p['index'] + 1}-sahifa: {p['instruction'][:40]}",
+              run=_rewrite_run, quiet=True))

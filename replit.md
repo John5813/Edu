@@ -57,6 +57,8 @@ Users select a language, work type, topic, length, and optional extras in Telegr
 - Every service the site offers is registered as a `Kind` in `services/web_kinds.py` (price comes from `config.py`, so it always matches the bot). Heavy documents go through the same single queue as the bot (`bot/queue_service.py`).
 - Finished files are kept for 72 hours and then deleted (the bot keeps no documents either). Orders are removed with them.
 - Balance top-up on the site: receipt upload checked by the same rules as the bot (`services/receipts/web.py`). Click/Payme/Uzum are listed as "soon" in `receipts.web.methods()`.
+- Presentations can be paged through in the browser before download (`#/job/<id>`): the final HTML pages and JPEG previews of a modern presentation are kept in `temp/web_jobs/decks/<job_id>/` (`services/web_decks.py`, removed with the order); ordinary template presentations are view-only (LibreOffice previews).
+- Per-slide rewrite (modern presentation only): `POST /api/v1/jobs/<id>/rewrite` → `slide_rewrite` job (`config.SLIDE_REWRITE_PRICE`, default 900 so'm, refunded on failure). `services/premium_presentation/slide_edit.py` plans the page from the client's free-text request, researches chart data with the selected AI, writes the page with the other slides as context, rebuilds the plan slide when a title changes and re-assembles the PPTX. The "AI is working" animation (`aiw*` in `app.js`) is shown while any presentation is being written or rewritten.
 - Not on the site yet: loyiha ishi and book translation (bot only; book upload page exists at `/book/upload/...`).
 
 ## User preferences
