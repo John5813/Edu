@@ -219,6 +219,10 @@ check("qoidalarda diagramma turi va tayyor ma'lumot aytilgan",
       "ma'lumotini siz yozmaysiz" in everything and "halqa" in everything and "chiziqli" in everything)
 check("jadval faqat qisqa bo'lsin deyilgan", "QISQA bo'lsa" in everything and "tahlil jadvali" in everything.lower())
 check("umumlashtiruvchi gap talabi bor", "UMUMLASHTIRUVCHI GAP" in everything)
+check("reja prompti hikoya yo'nalishini beradi (qolipni mavzu belgilaydi)",
+      "HIKOYA YO'NALISHI" in seen["plan"] and "mavzuning o'zi belgilaydi" in seen["plan"])
+check("sarlavha fikr sifatida, 2-6 so'z, raqam asoslangan", "SARLAVHA — FIKR" in seen["plan"]
+      and "2-6 so'z" in seen["plan"] and "asoslansin" in seen["plan"])
 check("raqam faqat haqiqiy tartib uchun (ijobiy aytilgan)", "RAQAM — HAQIQIY TARTIB UCHUN" in everything)
 
 print("\n" + ("✅ hammasi o'tdi" if not FAILS else f"❌ {len(FAILS)} ta xato: {FAILS}"))
