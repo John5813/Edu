@@ -393,6 +393,37 @@ async def main():
     reader._call = _orig_call
     config.RECEIPT_AUTO = True
 
+    print("21) Admin «Funksiyalar boshqaruvi»: To'lovda AI tekshiruvni butunlay o'chirish")
+    from bot.keyboards import get_feature_management_keyboard
+    from bot.handlers import admin as admin_handlers
+    db_inst = Database()
+    on_kb = get_feature_management_keyboard(True, True, True)
+    off_kb = get_feature_management_keyboard(True, True, False)
+    label = lambda kb: [b.text for row in kb.inline_keyboard for b in row if "AI tekshiruv" in b.text][0]
+    cb_data = lambda kb: [b.callback_data for row in kb.inline_keyboard for b in row if "AI tekshiruv" in b.text][0]
+    check("tugma funksiyalar panelida: yoqilganda «o'chirish» chaqiradi", "Yoqilgan" in label(on_kb) and cb_data(on_kb) == "toggle_receipt_ai_off", label(on_kb))
+    check("o'chiqda «yoqish» chaqiradi", "O'chirilgan" in label(off_kb) and cb_data(off_kb) == "toggle_receipt_ai_on")
+    check("sukut — yoqilgan", await db_inst.get_feature_status("receipt_ai") is True or await db_inst.get_feature_status("receipt_ai") == 1)
+    class CB:
+        def __init__(self, data): self.data, self.from_user, self.answers = data, types.SimpleNamespace(id=ADMIN), []; self.message = self
+        async def answer(self, text="", **kw): self.answers.append(text)
+        async def edit_text(self, text, reply_markup=None): self.kb = reply_markup
+    cb = CB("toggle_receipt_ai_off")
+    await admin_handlers.toggle_receipt_ai(cb, db_inst)
+    check("admin tugmani bosdi: saqlandi, yangilangan klaviatura qaytdi", not await db_inst.get_feature_status("receipt_ai")
+          and "O'chirilgan" in label(cb.kb) and "to'g'ridan-to'g'ri adminga" in cb.answers[0], cb.answers)
+    stranger = CB("toggle_receipt_ai_on"); stranger.from_user = types.SimpleNamespace(id=123456789)
+    await admin_handlers.toggle_receipt_ai(stranger, db_inst)
+    check("admin bo'lmagan odam o'zgartira olmaydi", not await db_inst.get_feature_status("receipt_ai"))
+    reads["n"] = 0
+    reader._call = lambda *a, **k: (_ for _ in ()).throw(AssertionError("AI chaqirilmasligi kerak"))
+    out_off = await flow.process(FakeMessage(bot, 100, b"OFF1"), {**state, "payment_amount": 10_000}, Database, users[100], "uz")
+    check("o'chiqda process None qaytaradi: bot avvalgi qo'lda tekshiruvga o'tadi, AI chaqirilmadi", out_off is None)
+    check("web tomoni ham shunday", await flow.process_web(FakeMessage(bot, 100, b"OFF2"), state, Database, users[100], "uz") is None)
+    await db_inst.set_feature_status("receipt_ai", True)
+    reader._call = _orig_call
+    check("qayta yoqilganda AI ishlaydi", await flow.ai_enabled() is True)
+
 asyncio.run(main())
 print("\nXATO:" if FAILS else "\nOqim HAMMASI YAXSHI", FAILS or "")
 sys.exit(1 if FAILS else 0)

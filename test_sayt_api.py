@@ -259,6 +259,17 @@ async def main():
     r = await client.post("/api/v1/wallet/receipt", data=form(10_000, b""), headers=origin)
     check("bo'sh fayl rad etiladi", r.status == 400)
 
+    import webapp.api as _wa
+    _wa._hits.clear()                 # chek yuborish tezlik chegarasi oldingi sinovlardan to'lgan
+    await Database().set_feature_status("receipt_ai", False)
+    pend_before = len(await Database.get_pending_payments())
+    QUEUE[:] = []
+    r = await client.post("/api/v1/wallet/receipt", data=form(10_000, b"CHEK-OFF"), headers=origin)
+    res = await r.json()
+    check("admin AI tekshiruvni o'chirsa: sayt cheki AI'siz to'g'ridan-to'g'ri adminga boradi",
+          res["verdict"] == "review" and res["pending"] and len(await Database.get_pending_payments()) == pend_before + 1, res)
+    await Database().set_feature_status("receipt_ai", True)
+
     print("10) Botdagi /start weblogin tugmasi")
     src = open("bot/handlers/start.py", encoding="utf8").read()
     check("start handler weblogin_ ni tasdiqlaydi", "weblogin_" in src and "confirm_login" in src)

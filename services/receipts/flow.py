@@ -156,10 +156,27 @@ def _snapshot(receipt: rules.Receipt, file_sha: str) -> dict:
 
 # ──────────────────────────────────────────────────────────────── asosiy oqim
 
+FEATURE = "receipt_ai"          # admin «Funksiyalar boshqaruvi»dagi kalit (sukut — yoqilgan)
+
+
+async def ai_enabled() -> bool:
+    """AI tekshiruv yoqilganmi: muhit (`RECEIPT_AI`) va admin paneldagi tugma ikkalasi ham ruxsat berishi kerak.
+
+    Tugma har chekda o'qiladi, shuning uchun admin o'chirgach qayta ishga tushirish shart emas.
+    O'chiq bo'lsa barcha cheklar avvalgidek to'g'ridan-to'g'ri adminga boradi.
+    """
+    if not config.RECEIPT_AI:
+        return False
+    try:
+        return bool(await Database().get_feature_status(FEATURE))
+    except Exception as exc:                      # tugma holatini o'qib bo'lmasa muhit qiymati ishlaydi
+        log.warning("Chek AI tugmasi o'qilmadi: %s", exc)
+        return True
+
 async def process(message, state_data: dict, db, user, lang: str, source: str = "",
                   keyboard=None) -> Optional[Outcome]:
     """Chekni tekshiradi. None — AI/tarmoq ishlamadi (avvalgi qo'lda tekshiruvga o'tiladi)."""
-    if not config.RECEIPT_AI:
+    if not await ai_enabled():
         return None
     lang = _lang(lang)
     lock = _locks.setdefault(user.telegram_id, asyncio.Lock())
@@ -184,7 +201,7 @@ async def process(message, state_data: dict, db, user, lang: str, source: str = 
 
 async def process_web(message, state_data: dict, db, user, lang: str) -> Optional[Outcome]:
     """Sayt orqali yuklangan chek (`services.receipts.web.WebMessage`): `process` bilan bir xil qoidalar."""
-    if not config.RECEIPT_AI:
+    if not await ai_enabled():
         return None
     lang = _lang(lang)
     lock = _locks.setdefault(user.telegram_id, asyncio.Lock())
