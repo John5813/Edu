@@ -18,7 +18,7 @@ import webapp
 from database import web_store
 from database.database import Database
 from services import web_jobs
-from services import web_kinds  # noqa: F401  (xizmatlarni ro'yxatga oladi)
+from services import web_kinds  # xizmatlarni ro'yxatga oladi
 
 log = logging.getLogger(__name__)
 
@@ -148,7 +148,8 @@ def _catalog() -> Dict:
     sizes = [5, 8, 10, 12, 15, 20, 25, 30]
     return {
         "bot": webapp.BOT_USERNAME or "Edufayl_bot",
-        "kinds": [{"key": kind.key, "label": kind.label} for kind in web_jobs.KINDS.values()],
+        "kinds": [{"key": kind.key, "label": kind.label, "heavy": kind.heavy, "options": kind.options or {}}
+                  for kind in (web_jobs.KINDS[key] for key in web_kinds.KINDS_ORDER if key in web_jobs.KINDS)],
         "languages": [{"key": "uz", "label": "O'zbek (lotin)"}, {"key": "uz-cyrl", "label": "Ўзбек (кирилл)"},
                       {"key": "ru", "label": "Русский"}, {"key": "en", "label": "English"},
                       {"key": "kk", "label": "Қазақша"}],

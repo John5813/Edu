@@ -30,73 +30,113 @@
   }
 
   // ───────────────────────────────────────────────────────────── Yaratish
+  const BOT_ONLY = ['Loyiha ishi', 'Kitob tarjimasi'];
+  const TOPIC_HINT = {
+    premium_presentation: "Masalan: Kiberxavfsizlik va shaxsiy ma'lumotlar himoyasi",
+    independent_work: "Masalan: Iqtisodiyotda raqamlashtirish", referat: "Masalan: Globallashuv va iqtisodiyot",
+    article: "Masalan: Sun'iy intellektning ta'limdagi o'rni", thesis: "Masalan: Yoshlar tadbirkorligini qo'llab-quvvatlash",
+    course_work: "Masalan: Korxonada xarajatlarni boshqarish", diploma_work: "Masalan: Bank xizmatlarini raqamlashtirish",
+    bitiruv_ishi: "Masalan: Kichik biznesni rivojlantirish yo'llari",
+    dissertatsiya: "Masalan: Innovatsion iqtisodiyotning nazariy asoslari",
+  };
+  const LANG_LABEL = {uz: "O'zbek (lotin)", ru: 'Русский', en: 'English'};
+
   function create() {
-    const topic0 = (() => { try { const t = sessionStorage.getItem('edu_topic'); sessionStorage.removeItem('edu_topic'); return t || ''; } catch (e) { return ''; } })();
-    const s = {style: 'toza', theme: '', count: 10};
+    let topic0 = '';
+    try { topic0 = sessionStorage.getItem('edu_topic') || ''; sessionStorage.removeItem('edu_topic'); } catch (e) {}
+    const kinds = catalog.kinds;
+    let active = (location.hash.split('?')[1] || '').replace('kind=', '') || 'premium_presentation';
+    if (!kinds.find((k) => k.key === active)) active = 'premium_presentation';
+    renderForm(active, topic0);
+  }
+
+  function renderForm(key, topic0) {
+    const kind = catalog.kinds.find((k) => k.key === key);
+    const opt = kind.options || {};
+    const s = {style: 'toza', theme: '', count: 10, size: (opt.sizes && opt.sizes[0] && opt.sizes[0].key) || '', extras: new Set()};
     const bot = catalog.bot;
+    const $ = (id) => document.getElementById(id);
+
+    const chips = catalog.kinds.map((k) => `<button type="button" class="chip ${k.key === key ? 'on' : ''}" data-kind="${E.esc(k.key)}">${E.esc(k.label)}</button>`).join('') +
+      BOT_ONLY.map((t) => `<a class="chip soon" target="_blank" rel="noopener" href="https://t.me/${E.esc(bot)}">${t} <small>botda</small></a>`).join('');
+
+    const langSel = (langs) => `<div style="flex:1;min-width:150px"><label class="lab" for="lang">Til</label>
+      <select class="fld" id="lang">${langs.map((l) => `<option value="${E.esc(l.key || l)}">${E.esc(l.label || LANG_LABEL[l] || l)}</option>`).join('')}</select></div>`;
+    const field = (id, label, hint, extra) => `<div style="margin-top:18px"><label class="lab" for="${id}">${label}${hint ? ` <span style="font-weight:500;color:var(--mute)">(${hint})</span>` : ''}</label>${extra}</div>`;
+
+    let fields = `<label class="lab" for="topic">Mavzu</label>
+      <textarea class="fld" id="topic" rows="3" maxlength="300" placeholder="${E.esc(TOPIC_HINT[key] || '')}" required>${E.esc(topic0)}</textarea>`;
+
+    if (opt.form === 'presentation') {
+      fields += `<div class="row" style="margin-top:18px;align-items:flex-start">${langSel(catalog.languages)}
+        <div style="flex:2;min-width:250px"><label class="lab" for="size">Slaydlar soni</label>
+          <select class="fld" id="size">${catalog.premium_prices.map((p) => `<option value="${p.slides}" ${p.slides === s.count ? 'selected' : ''}>${p.slides} slayd — ${E.fmt(p.price)} so‘m</option>`).join('')}</select></div></div>
+        <div style="margin-top:18px"><div class="lab">Uslub</div>
+          <div class="styles" id="styles">${catalog.styles.map((st) => `<button type="button" class="styl ${st.key === s.style ? 'on' : ''}" data-k="${E.esc(st.key)}"><div class="sl" style="${STYLE_LOOK[st.key] || ''}"></div>${E.esc(st.label)}</button>`).join('')}</div></div>
+        <div style="margin-top:18px"><div class="lab">Rang <span style="font-weight:500;color:var(--mute)">(ixtiyoriy: bo'sh qolsa mavzuga mos tanlanadi)</span></div>
+          <div class="swatches" id="themes"><button type="button" class="sw auto on" data-k="" title="Avtomatik">Avto</button>${catalog.themes.map((t) => `<button type="button" class="sw" data-k="${E.esc(t.key)}" title="${E.esc(t.label)}" style="background:linear-gradient(135deg,${E.esc(t.background)} 50%,${E.esc(t.accent)} 50%)"></button>`).join('')}</div></div>`
+        + field('author', 'Muallif ismi', 'muqovaga yoziladi', '<input class="fld" id="author" maxlength="80" placeholder="Ism Familiya">')
+        + field('prefs', 'Istaklar', 'ixtiyoriy', '<textarea class="fld" id="prefs" rows="2" maxlength="1000" placeholder="Masalan: investorlar uchun, ko\'proq vizual, qisqa va ta\'sirli"></textarea>');
+    } else if (opt.form === 'thesis') {
+      fields += `<div class="row" style="margin-top:18px">${langSel(opt.languages)}</div>`
+        + field('author', 'Muallif ismi', '', '<input class="fld" id="author" maxlength="80" placeholder="Ism Familiya" required>')
+        + field('univ', 'Universitet', '', '<input class="fld" id="univ" maxlength="120" required>')
+        + field('fac', 'Fakultet', 'ixtiyoriy', '<input class="fld" id="fac" maxlength="120">')
+        + field('grp', 'Guruh', 'ixtiyoriy', '<input class="fld" id="grp" maxlength="40">');
+    } else {
+      fields += `<div class="row" style="margin-top:18px;align-items:flex-start">${langSel(opt.languages)}
+        <div style="flex:2;min-width:250px"><label class="lab" for="size">Hajmi</label>
+          <select class="fld" id="size">${opt.sizes.map((z) => `<option value="${E.esc(z.key)}">${E.esc(z.label)} — ${E.fmt(z.price)} so‘m</option>`).join('')}</select></div></div>`
+        + (opt.plan_styles ? field('pstyle', 'Reja usuli', '', `<select class="fld" id="pstyle">${opt.plan_styles.map((p) => `<option value="${E.esc(p.key)}" ${p.key === 'murakkab' ? 'selected' : ''}>${E.esc(p.label)}</option>`).join('')}</select>`) : '')
+        + (opt.extras && opt.extras.length ? `<div style="margin-top:18px"><div class="lab">Qo'shimchalar</div><div class="row" id="extras">${opt.extras.map((x) => `<button type="button" class="chip" data-x="${E.esc(x.key)}">${E.esc(x.label)}${x.price ? ` <small>+${E.fmt(x.price)}</small>` : ''}</button>`).join('')}</div></div>` : '')
+        + field('author', 'Muallif ismi', 'muqovaga yoziladi', '<input class="fld" id="author" maxlength="80" placeholder="Ism Familiya">');
+    }
 
     view.innerHTML = `
-      <div class="types">
-        <span class="chip on">Taqdimot</span>
-        ${['Kurs ishi', 'Mustaqil ish', 'Loyiha ishi', 'Tezis', 'Kitob tarjimasi'].map((t) => `<a class="chip soon" target="_blank" rel="noopener" href="https://t.me/${E.esc(bot)}">${t} <small>botda</small></a>`).join('')}
-      </div>
+      <div class="types" id="types">${chips}</div>
       <form class="cols" id="cf" autocomplete="off">
-        <div class="card panel">
-          <label class="lab" for="topic">Mavzu</label>
-          <textarea class="fld" id="topic" rows="3" maxlength="300" placeholder="Masalan: Kiberxavfsizlik va shaxsiy ma'lumotlar himoyasi" required>${E.esc(topic0)}</textarea>
-
-          <div class="row" style="margin-top:18px;align-items:flex-start">
-            <div style="flex:1;min-width:200px"><label class="lab" for="lang">Til</label>
-              <select class="fld" id="lang">${catalog.languages.map((l) => `<option value="${E.esc(l.key)}">${E.esc(l.label)}</option>`).join('')}</select></div>
-            <div style="flex:1;min-width:200px"><label class="lab" for="count">Slaydlar soni</label>
-              <select class="fld" id="count">${catalog.premium_prices.map((p) => `<option value="${p.slides}" ${p.slides === s.count ? 'selected' : ''}>${p.slides} slayd — ${E.fmt(p.price)} so‘m</option>`).join('')}</select></div>
-          </div>
-
-          <div style="margin-top:18px"><div class="lab">Uslub</div>
-            <div class="styles" id="styles">${catalog.styles.map((st) => `<button type="button" class="styl ${st.key === s.style ? 'on' : ''}" data-k="${E.esc(st.key)}"><div class="sl" style="${STYLE_LOOK[st.key] || ''}"></div>${E.esc(st.label)}</button>`).join('')}</div></div>
-
-          <div style="margin-top:18px"><div class="lab">Rang <span style="font-weight:500;color:var(--mute)">(ixtiyoriy: bo'sh qolsa mavzuga mos tanlanadi)</span></div>
-            <div class="swatches" id="themes"><button type="button" class="sw auto on" data-k="" title="Avtomatik">Avto</button>${catalog.themes.map((t) => `<button type="button" class="sw" data-k="${E.esc(t.key)}" title="${E.esc(t.label)}" style="background:linear-gradient(135deg,${E.esc(t.background)} 50%,${E.esc(t.accent)} 50%)"></button>`).join('')}</div></div>
-
-          <div style="margin-top:18px"><label class="lab" for="author">Muallif ismi <span style="font-weight:500;color:var(--mute)">(muqovaga yoziladi)</span></label>
-            <input class="fld" id="author" maxlength="80" placeholder="Ism Familiya"></div>
-          <div style="margin-top:18px"><label class="lab" for="prefs">Istaklar <span style="font-weight:500;color:var(--mute)">(ixtiyoriy)</span></label>
-            <textarea class="fld" id="prefs" rows="2" maxlength="1000" placeholder="Masalan: investorlar uchun, ko'proq vizual, qisqa va ta'sirli"></textarea></div>
-        </div>
-
+        <div class="card panel">${fields}</div>
         <div class="card panel" style="position:sticky;top:90px">
           <b style="font-size:17px">Buyurtma</b>
           <div style="margin-top:14px">
-            <div class="sum"><span style="color:var(--mute)">Zamonaviy taqdimot</span><b id="s-count"></b></div>
+            <div class="sum"><span style="color:var(--mute)">${E.esc(kind.label)}</span><b id="s-count"></b></div>
             <div class="sum"><span style="color:var(--mute)">Narx</span><b id="s-price"></b></div>
             <div class="sum"><span style="color:var(--mute)">Balansingiz</span><b id="s-bal"></b></div>
           </div>
           <div id="s-note" style="margin-top:12px"></div>
           <button class="btn block" id="go" type="submit" style="margin-top:16px">Yaratish</button>
-          <p class="hint" style="text-align:center;margin-top:12px">Odatda bir necha daqiqa. Tayyor fayl Telegramga ham yuboriladi.</p>
+          <p class="hint" style="text-align:center;margin-top:12px">Taxminan ${opt.eta_minutes || 3} daqiqa${kind.heavy ? ' (katta hujjatlar navbat bilan tayyorlanadi)' : ''}. Tayyor fayl Telegramga ham yuboriladi.</p>
         </div>
       </form>`;
 
-    const $ = (id) => document.getElementById(id);
-    const priceOf = (n) => (catalog.premium_prices.find((p) => p.slides === n) || {}).price || 0;
+    const price = () => {
+      if (opt.form === 'presentation') return (catalog.premium_prices.find((p) => p.slides === s.count) || {}).price || 0;
+      if (opt.form === 'thesis') return opt.price;
+      const z = opt.sizes.find((x) => x.key === s.size) || opt.sizes[0];
+      return z.price + (opt.extras || []).filter((x) => s.extras.has(x.key)).reduce((a, x) => a + x.price, 0);
+    };
     function summary() {
-      const price = priceOf(s.count), bal = me.balance;
-      $('s-count').textContent = s.count + ' slayd';
-      $('s-price').textContent = E.fmt(price) + ' so‘m';
+      const p = price(), bal = me.balance;
+      $('s-count').textContent = opt.form === 'presentation' ? s.count + ' slayd' : opt.form === 'thesis' ? 'Tezis' : ((opt.sizes.find((x) => x.key === s.size) || {}).label || '');
+      $('s-price').textContent = E.fmt(p) + ' so‘m';
       $('s-bal').textContent = E.fmt(bal) + ' so‘m';
-      $('s-note').innerHTML = bal >= price ? '' :
-        `<div class="note wait">Yetmaydi: yana <b>${E.fmt(price - bal)} so‘m</b> kerak. <a class="link" href="#/wallet">Hamyonni to‘ldirish</a></div>`;
+      $('s-note').innerHTML = bal >= p ? '' :
+        `<div class="note wait">Yetmaydi: yana <b>${E.fmt(p - bal)} so‘m</b> kerak. <a class="link" href="#/wallet">Hamyonni to‘ldirish</a></div>`;
     }
-    $('count').onchange = (e) => { s.count = parseInt(e.target.value, 10); summary(); };
-    $('styles').onclick = (e) => {
-      const b = e.target.closest('.styl'); if (!b) return;
-      s.style = b.dataset.k;
+    $('types').onclick = (e) => { const b = e.target.closest('[data-kind]'); if (b) renderForm(b.dataset.kind, ($('topic') || {}).value || ''); };
+    if ($('size')) $('size').onchange = (e) => { if (opt.form === 'presentation') s.count = parseInt(e.target.value, 10); else s.size = e.target.value; summary(); };
+    if ($('styles')) $('styles').onclick = (e) => {
+      const b = e.target.closest('.styl'); if (!b) return; s.style = b.dataset.k;
       document.querySelectorAll('#styles .styl').forEach((x) => x.classList.toggle('on', x === b));
     };
-    $('themes').onclick = (e) => {
-      const b = e.target.closest('.sw'); if (!b) return;
-      s.theme = b.dataset.k;
+    if ($('themes')) $('themes').onclick = (e) => {
+      const b = e.target.closest('.sw'); if (!b) return; s.theme = b.dataset.k;
       document.querySelectorAll('#themes .sw').forEach((x) => x.classList.toggle('on', x === b));
+    };
+    if ($('extras')) $('extras').onclick = (e) => {
+      const b = e.target.closest('[data-x]'); if (!b) return;
+      s.extras.has(b.dataset.x) ? s.extras.delete(b.dataset.x) : s.extras.add(b.dataset.x);
+      b.classList.toggle('on', s.extras.has(b.dataset.x)); summary();
     };
     summary();
 
@@ -104,10 +144,13 @@
       ev.preventDefault();
       const btn = $('go');
       btn.disabled = true; btn.innerHTML = '<span class="spin" style="width:16px;height:16px;border-width:2px;border-top-color:#fff;border-color:rgba(255,255,255,.4)"></span>&nbsp; Yuborilmoqda…';
+      const val = (id) => ($(id) ? $(id).value : '');
+      let params = {topic: val('topic'), language: val('lang'), author: val('author')};
+      if (opt.form === 'presentation') Object.assign(params, {slide_count: s.count, style: s.style, theme: s.theme, preferences: val('prefs')});
+      else if (opt.form === 'thesis') Object.assign(params, {university: val('univ'), faculty: val('fac'), group: val('grp')});
+      else Object.assign(params, {size: s.size, extras: [...s.extras], plan_style: val('pstyle')});
       try {
-        const res = await E.api('/jobs', {json: {kind: 'premium_presentation', params: {
-          topic: $('topic').value, language: $('lang').value, slide_count: s.count, style: s.style,
-          theme: s.theme, author: $('author').value, preferences: $('prefs').value}}});
+        const res = await E.api('/jobs', {json: {kind: key, params}});
         me.balance = res.balance;
         E.header('app');
         E.toast('Buyurtma qabul qilindi');

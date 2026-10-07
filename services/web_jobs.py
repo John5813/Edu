@@ -50,6 +50,8 @@ class Kind:
     title: Callable[[Dict], str]
     run: Runner
     publish_as: str = ""          # do'kon katalogi uchun ish turi ("" — qo'yilmaydi)
+    heavy: bool = False           # katta hujjat: botdagi umumiy navbatda birin-ketin bajariladi
+    options: Optional[Dict] = None  # sahifadagi forma uchun: hajmlar, qo'shimchalar, maydonlar
 
 
 KINDS: Dict[str, Kind] = {}
@@ -91,16 +93,17 @@ async def submit(telegram_id: int, kind_key: str, raw: Dict) -> Dict:
     kind = KINDS.get(kind_key)
     if not kind:
         raise JobError("Bunday xizmat yo'q", "unknown_kind")
-    params = kind.normalize(dict(raw or {}))
+    user = await Database.get_user(telegram_id)
+    if not user:
+        raise JobError("Avval botda /start bosing, so'ng saytga qayta kiring.", "no_user")
+    raw = dict(raw or {})
+    raw["_default_author"] = (user.first_name or "")[:80]
+    params = kind.normalize(raw)
     price = int(kind.price(params))
 
     active = [job for job in await web_store.list_jobs(telegram_id, 10) if job["status"] in ("queued", "running")]
     if len(active) >= MAX_ACTIVE_PER_USER:
         raise JobError("Avvalgi buyurtmalaringiz tayyor bo'lishini kuting (bir vaqtda 2 tagacha).", "busy")
-
-    user = await Database.get_user(telegram_id)
-    if not user:
-        raise JobError("Avval botda /start bosing, so'ng saytga qayta kiring.", "no_user")
     if not await Database.charge_balance(telegram_id, price):
         raise JobError(f"Balans yetarli emas: {price:,} so'm kerak, sizda {int(user.balance or 0):,} so'm.".replace(",", " "),
                        "no_balance")
@@ -129,6 +132,7 @@ async def _execute(job_id: str, telegram_id: int, kind: Kind, params: Dict, pric
     from services import workload
 
     loop = asyncio.get_running_loop()
+    outcome: Dict = {}
 
     def report(stage: str, progress: int) -> None:
         """Istalgan oqimdan chaqirish mumkin."""
@@ -136,7 +140,7 @@ async def _execute(job_id: str, telegram_id: int, kind: Kind, params: Dict, pric
             web_store.update_job(job_id, stage=stage, progress=max(0, min(int(progress), 99))), loop)
         fut.add_done_callback(lambda f: f.exception())
 
-    async with _get_semaphore():
+    async def core() -> None:
         work_id = workload.begin(f"sayt: {kind.key}")
         try:
             await web_store.update_job(job_id, status="running", stage="writing", progress=3)
@@ -146,6 +150,7 @@ async def _execute(job_id: str, telegram_id: int, kind: Kind, params: Dict, pric
             shutil.move(path, stored)
             await web_store.update_job(job_id, status="done", stage="done", progress=100, result_path=stored,
                                        result_name=name, finished_at=time.time(), params={})
+            outcome.update(path=stored, name=name)
         except asyncio.CancelledError:
             await _refund(job_id, telegram_id, price)
             await web_store.update_job(job_id, status="failed", stage="failed",
@@ -158,10 +163,25 @@ async def _execute(job_id: str, telegram_id: int, kind: Kind, params: Dict, pric
             await web_store.update_job(job_id, status="failed", stage="failed",
                                        error=f"{message} {price:,} so'm hisobingizga qaytarildi.".replace(",", " "),
                                        finished_at=time.time(), params={})
-            return
         finally:
             workload.end(work_id)
-    await _after_done(job_id, telegram_id, kind, params, stored, name)
+
+    if kind.heavy:
+        # Katta hujjatlar botdagi bilan BIR navbatda: server xotirasi bir vaqtda faqat bittasiga yetadi.
+        from bot.queue_service import HeavyDocTask, get_doc_queue
+
+        done = asyncio.Event()
+        task = HeavyDocTask(task_id=f"web-{job_id}", coro_factory=core, user_telegram_id=telegram_id,
+                            chat_id=telegram_id, lang="uz", doc_type=kind.key, topic=params.get("topic", ""),
+                            bot=None, done_event=done)
+        position = await get_doc_queue().enqueue(task)
+        await web_store.update_job(job_id, stage="queued", progress=1 if position > 1 else 2)
+        await done.wait()
+    else:
+        async with _get_semaphore():
+            await core()
+    if outcome:
+        await _after_done(job_id, telegram_id, kind, params, outcome["path"], outcome["name"])
 
 
 async def _friendly(exc: Exception) -> str:

@@ -29,11 +29,14 @@
 
       <form class="card promptbox" id="prompt-form">
         <div class="row" style="margin-bottom:14px" id="kind-chips">
-          <span class="chip on">Taqdimot</span>
-          <a class="chip soon" data-bot href="#">Kurs ishi <small>botda</small></a>
-          <a class="chip soon" data-bot href="#">Mustaqil ish <small>botda</small></a>
+          <button type="button" class="chip on" data-kind="premium_presentation">Taqdimot</button>
+          <button type="button" class="chip" data-kind="course_work">Kurs ishi</button>
+          <button type="button" class="chip" data-kind="independent_work">Mustaqil ish</button>
+          <button type="button" class="chip" data-kind="referat">Referat</button>
+          <button type="button" class="chip" data-kind="article">Maqola</button>
+          <button type="button" class="chip" data-kind="thesis">Tezis</button>
+          <button type="button" class="chip" data-kind="diploma_work">Diplom ishi</button>
           <a class="chip soon" data-bot href="#">Loyiha ishi <small>botda</small></a>
-          <a class="chip soon" data-bot href="#">Tezis <small>botda</small></a>
           <a class="chip soon" data-bot href="#">Kitob tarjimasi <small>botda</small></a>
         </div>
         <div class="inner">
@@ -59,21 +62,30 @@
         <a class="card svc" href="/app#/create"><span class="tag pill ok">Saytda</span>
           <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></div>
           <b>Zamonaviy taqdimot</b><span class="d">Diagramma, rasm va hisob-kitob bilan. Tahrirlanadigan PPTX.</span></a>
-        <a class="card svc" data-bot href="#"><span class="tag pill soon">Botda</span>
+        <a class="card svc" href="/app#/create?kind=course_work"><span class="tag pill ok">Saytda</span>
           <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7M9 8h3"/></svg></div>
           <b>Kurs ishi</b><span class="d">Reja, boblar, mundarija va adabiyotlar ro'yxati bilan to'liq hujjat.</span></a>
-        <a class="card svc" data-bot href="#"><span class="tag pill soon">Botda</span>
+        <a class="card svc" href="/app#/create?kind=independent_work"><span class="tag pill ok">Saytda</span>
           <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5"/></svg></div>
           <b>Mustaqil ish va referat</b><span class="d">Hajmini tanlang: 10–15 dan 25–30 varaqqacha.</span></a>
+        <a class="card svc" href="/app#/create?kind=article"><span class="tag pill ok">Saytda</span>
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5"/></svg></div>
+          <b>Maqola va tezis</b><span class="d">IMRAD tuzilmali maqola va konferensiya tezisi.</span></a>
+        <a class="card svc" href="/app#/create?kind=diploma_work"><span class="tag pill ok">Saytda</span>
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-5 9 5-9 5z"/><path d="M7 12v4c0 1.500 2.200 3 5 3s5-1.500 5-3v-4"/></svg></div>
+          <b>Diplom va bitiruv ishi</b><span class="d">Boblarga bo'lingan katta ish, qo'shimchalar bilan.</span></a>
+        <a class="card svc" href="/app#/create?kind=dissertatsiya"><span class="tag pill ok">Saytda</span>
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h7v14H4zM13 5h7v14h-7z"/></svg></div>
+          <b>Magistrlik dissertatsiyasi</b><span class="d">60–100 varaqli ilmiy ish.</span></a>
         <a class="card svc" data-bot href="#"><span class="tag pill soon">Botda</span>
           <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18M6 16V9M12 16V5M18 16v-4"/></svg></div>
           <b>Loyiha ishi</b><span class="d">Iqtisodiy tahlil, jadval va diagrammalar bilan.</span></a>
         <a class="card svc" data-bot href="#"><span class="tag pill soon">Botda</span>
-          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14v16H5z"/><path d="M9 8h6M9 12h6"/></svg></div>
-          <b>Tezis</b><span class="d">Konferensiya talablariga mos qisqa matn.</span></a>
-        <a class="card svc" data-bot href="#"><span class="tag pill soon">Botda</span>
           <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h7v14H4zM13 5h7v14h-7z"/></svg></div>
           <b>Kitob tarjimasi</b><span class="d">PDF joyida tarjima qilinadi, rasmlar saqlanadi.</span></a>
+        <a class="card svc" href="/shop"><span class="tag pill ok">Saytda</span>
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h16l-1.500 11h-13zM8 8a4 4 0 018 0"/></svg></div>
+          <b>Tayyor mavzular</b><span class="d">Tayyor ishlar do'koni: ko'ring va darhol oling.</span></a>
       </div>
     </div>
   </section>
@@ -135,14 +147,21 @@
     const f = document.getElementById('foot-bot'); if (f) f.textContent = '@' + cat.bot;
   } catch (e) {}
 
+  let kind = 'premium_presentation';
+  document.getElementById('kind-chips').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-kind]'); if (!b) return;
+    kind = b.dataset.kind;
+    document.querySelectorAll('#kind-chips [data-kind]').forEach((x) => x.classList.toggle('on', x === b));
+  });
   // Mavzu yozilgach: kirgan bo'lsa ilovaga, kirmagan bo'lsa avval Telegram orqali kirish.
   document.getElementById('prompt-form').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const topic = document.getElementById('topic').value.trim();
     if (topic.length < 3) { E.toast('Mavzu kamida 3 ta belgidan iborat bo‘lsin'); return; }
     try { sessionStorage.setItem('edu_topic', topic); } catch (e) {}
+    const target = '/app#/create' + (kind === 'premium_presentation' ? '' : '?kind=' + kind);
     const me = await E.me();
-    if (me) location.href = '/app#/create'; else E.login('/app#/create');
+    if (me) location.href = target; else E.login(target);
   });
 
   // Do'kondan bir nechta mavzu ko'rsatiladi (bo'sh bo'lsa blok yashiriladi)

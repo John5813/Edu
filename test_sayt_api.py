@@ -279,6 +279,59 @@ async def main():
     r = await client.get("/shop")
     check("do'kon sahifasi avvalgidek ishlaydi", r.status == 200 and "/static/logo.jpg" in await r.text())
 
+    print("12) Hujjatlar: narx botdagi bilan bir xil, katta hujjat umumiy navbatda")
+    from bot.handlers.documents import get_document_price
+    bot_type = {"independent_work": "independent_work", "referat": "referat", "article": "maqola",
+                "course_work": "course_work", "diploma_work": "diploma_work", "bitiruv_ishi": "bitiruv_ishi",
+                "dissertatsiya": "dissertatsiya"}
+    mismatch = []
+    for key, btype in bot_type.items():
+        kind = web_jobs.KINDS[key]
+        for size in kind.options["sizes"]:
+            params = kind.normalize({"topic": "Narx sinovi", "size": size["key"]})
+            parts = size["key"].split("_")
+            expected = get_document_price(btype, {"min_pages": int(parts[0]), "max_pages": int(parts[1]),
+                                                  "chapters": int(parts[2]) if len(parts) > 2 else 0})
+            if kind.price(params) != expected:
+                mismatch.append((key, size["key"], kind.price(params), expected))
+    check("barcha hujjat turlari va hajmlarida narx botdagi bilan teng", not mismatch, mismatch)
+    ref = web_jobs.KINDS["referat"]
+    check("qo'shimchalar narxga qo'shiladi (referat), mustaqil ishda bepul",
+          ref.price(ref.normalize({"topic": "Mavzu", "extras": ["formulas", "tables", "yo'q"]})) == 5000 + 2000
+          and web_jobs.KINDS["independent_work"].price(
+              web_jobs.KINDS["independent_work"].normalize({"topic": "Mavzu", "extras": ["images"]})) == 5000)
+    cat = await (await client.get("/api/v1/catalog")).json()
+    keys = [k["key"] for k in cat["kinds"]]
+    check("katalogda barcha xizmatlar tartib bilan", keys[0] == "premium_presentation" and "course_work" in keys
+          and "thesis" in keys and len(keys) == 9, keys)
+    cw = next(k for k in cat["kinds"] if k["key"] == "course_work")
+    check("kurs ishida hajm, reja usuli va qo'shimchalar bor", cw["heavy"] and cw["options"]["sizes"] and cw["options"]["plan_styles"]
+          and cw["options"]["extras"], cw["options"].keys())
+    try:
+        web_jobs.KINDS["thesis"].normalize({"topic": "Mavzu uchun"})
+        check("tezisda universitet majburiy", False)
+    except web_jobs.JobError as exc:
+        check("tezisda universitet majburiy", "Universitet" in str(exc))
+    from bot.queue_service import get_doc_queue
+    import webapp.api as web_api
+    web_api._hits.clear()            # tezlik chegarasi oldingi sinovlardan to'lib qolgan
+    get_doc_queue().start()
+    order = []
+    async def heavy_run(params, report):
+        order.append(("start", params["topic"])); await asyncio.sleep(0.4); order.append(("end", params["topic"]))
+        path = os.path.join(TMP, f"cw_{time.time_ns()}.docx"); open(path, "wb").write(b"DOCX"); return path, "Kurs_ishi.docx"
+    web_jobs.KINDS["course_work"].run = heavy_run
+    await Database.update_user_balance(100, 100_000)
+    ids = []
+    for topic in ("Birinchi katta", "Ikkinchi katta"):
+        r = await client.post("/api/v1/jobs", json={"kind": "course_work", "params": {"topic": topic, "size": "15_20_3"}}, headers=origin)
+        body = await r.json(); ids.append(body["job"]["id"])
+        check(f"kurs ishi qabul qilindi ({topic})", r.status == 200 and body["job"]["price"] == 10_000, body)
+    for job_id in ids:
+        res = await wait_job(client, job_id)
+        check("kurs ishi tayyor", res["job"]["status"] == "done" and res["job"]["file_name"] == "Kurs_ishi.docx", res["job"])
+    check("katta hujjatlar birin-ketin bajarildi (navbat)", [o[0] for o in order] == ["start", "end", "start", "end"], order)
+
     await client.close()
     print("\n" + ("✅ hammasi o'tdi" if not FAILS else f"❌ {len(FAILS)} ta xato: {FAILS}"))
     sys.exit(1 if FAILS else 0)
