@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Edufayl — taqdimot va hujjatlar</title>
+<meta name="description" content="Mavzuni yozing — AI taqdimot, kurs ishi, mustaqil ish va boshqa hujjatlarni tahrirlanadigan fayl qilib tayyorlaydi. Tayyor mavzular do'koni ham shu yerda.">
+<link rel="icon" href="/static/logo.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="/static/site.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="logo" href="/" aria-label="Edufayl"><img src="/static/logo.jpg" alt="Edufayl" width="54" height="54"></a>
+    <nav class="nav">
+      <a href="#yaratish">Yaratish</a><a href="#xizmatlar">Xizmatlar</a><a href="#uslublar">Uslublar</a><a href="#mavzular">Tayyor mavzular</a>
+    </nav>
+    <div class="actions" id="actions"></div>
+  </div>
+</header>
+
+<main>
+  <section class="hero" id="yaratish">
+    <div class="wrap">
+      <h1>Mavzuni yozing, taqdimot va hujjat tayyor</h1>
+      <p>AI reja, matn, diagramma va rasmlarni tayyorlaydi. Natijani tahrirlab, PPTX yoki DOCX qilib olasiz.</p>
+
+      <form class="card promptbox" id="prompt-form">
+        <div class="row" style="margin-bottom:14px" id="kind-chips">
+          <button type="button" class="chip on" data-kind="premium_presentation">Taqdimot</button>
+          <button type="button" class="chip" data-kind="course_work">Kurs ishi</button>
+          <button type="button" class="chip" data-kind="independent_work">Mustaqil ish</button>
+          <button type="button" class="chip" data-kind="referat">Referat</button>
+          <button type="button" class="chip" data-kind="article">Maqola</button>
+          <button type="button" class="chip" data-kind="thesis">Tezis</button>
+          <button type="button" class="chip" data-kind="diploma_work">Diplom ishi</button>
+          <a class="chip soon" data-bot href="#">Loyiha ishi <small>botda</small></a>
+          <a class="chip soon" data-bot href="#">Kitob tarjimasi <small>botda</small></a>
+        </div>
+        <div class="inner">
+          <label class="lab" for="topic" style="margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;font-size:12px;color:#6B7399">Mavzu</label>
+          <textarea id="topic" rows="2" maxlength="300" placeholder="Masalan: Kiberxavfsizlik va shaxsiy ma'lumotlar himoyasi" required></textarea>
+        </div>
+        <div class="row" style="justify-content:space-between;margin-top:14px">
+          <div class="row"><span class="chip">O'zbekcha</span><span class="chip">12 slayd</span><span class="chip">Diagramma bilan</span></div>
+          <button class="btn" type="submit">Yaratish
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+        <div class="hint" style="text-align:center;margin-top:12px">Tayyor bo'lgach: tahrirlash · PPTX yuklash. Sozlamalarni keyingi oynada o'zgartirasiz.</div>
+      </form>
+    </div>
+  </section>
+
+  <section id="xizmatlar" style="padding:56px 0 8px">
+    <div class="wrap">
+      <h2 class="sec">Xizmatlar</h2>
+      <p class="sub">Qaysi turdagi ish kerak bo'lsa, shuni tanlang.</p>
+      <div class="grid3" style="margin-top:26px">
+        <a class="card svc" href="/app#/create"><span class="tag pill ok">Saytda</span>
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></div>
+          <b>Zamonaviy taqdimot</b><span class="d">Diagramma, rasm va hisob-kitob bilan. Tahrirlanadigan PPTX.</span></a>
+        <a class="card svc" href="/app#/create?kind=course_work"><span class="tag pill ok">Saytda</span>
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7M9 8h3"/></svg></div>
+          <b>Kurs ishi</b><span class="d">Reja, boblar, mundarija va adabiyotlar ro'yxati bilan to'liq hujjat.</span></a>
+        <a class="card svc" href="/app#/create?kind=independent_work"><span class="tag pill ok">Saytda</span>
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5"/></svg></div>
+          <b>Mustaqil ish va referat</b><span class="d">Hajmini tanlang: 10–15 dan 25–30 varaqqacha.</span></a>
+        <a class="card svc" href="/app#/create?kind=article"><span class="tag pill ok">Saytda</span>
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5"/></svg></div>
+          <b>Maqola va tezis</b><span class="d">IMRAD tuzilmali maqola va konferensiya tezisi.</span></a>
+        <a class="card svc" href="/app#/create?kind=diploma_work"><span class="tag pill ok">Saytda</span>
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-5 9 5-9 5z"/><path d="M7 12v4c0 1.500 2.200 3 5 3s5-1.500 5-3v-4"/></svg></div>
+          <b>Diplom va bitiruv ishi</b><span class="d">Boblarga bo'lingan katta ish, qo'shimchalar bilan.</span></a>
+        <a class="card svc" href="/app#/create?kind=dissertatsiya"><span class="tag pill ok">Saytda</span>
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h7v14H4zM13 5h7v14h-7z"/></svg></div>
+          <b>Magistrlik dissertatsiyasi</b><span class="d">60–100 varaqli ilmiy ish.</span></a>
+        <a class="card svc" data-bot href="#"><span class="tag pill soon">Botda</span>
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18M6 16V9M12 16V5M18 16v-4"/></svg></div>
+          <b>Loyiha ishi</b><span class="d">Iqtisodiy tahlil, jadval va diagrammalar bilan.</span></a>
+        <a class="card svc" data-bot href="#"><span class="tag pill soon">Botda</span>
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h7v14H4zM13 5h7v14h-7z"/></svg></div>
+          <b>Kitob tarjimasi</b><span class="d">PDF joyida tarjima qilinadi, rasmlar saqlanadi.</span></a>
+        <a class="card svc" href="/shop"><span class="tag pill ok">Saytda</span>
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h16l-1.500 11h-13zM8 8a4 4 0 018 0"/></svg></div>
+          <b>Tayyor mavzular</b><span class="d">Tayyor ishlar do'koni: ko'ring va darhol oling.</span></a>
+      </div>
+    </div>
+  </section>
+
+  <section id="uslublar" style="padding:56px 0 8px">
+    <div class="wrap">
+      <h2 class="sec">Uslublar</h2>
+      <p class="sub">Yoqqan ko'rinishni tanlang. Mavzu yozsangiz, uslub o'zi to'ladi.</p>
+      <div class="grid4" style="margin-top:26px">
+        <div><div class="slide" style="background:#fff"><div style="position:absolute;inset:0;padding:14px"><div style="width:40%;height:8px;background:#0C1226;border-radius:4px"></div><div style="margin-top:12px;height:5px;background:#D5DAEE;border-radius:3px"></div><div style="margin-top:6px;height:5px;width:85%;background:#D5DAEE;border-radius:3px"></div><div style="position:absolute;right:14px;bottom:14px;width:34%;height:44%;background:#E8EDFF;border-radius:8px"></div></div></div><div style="margin-top:10px;font-weight:700">Toza</div><div class="hint" style="margin:0">Matn va rasm</div></div>
+        <div><div class="slide" style="background:#F4EFE6"><div style="position:absolute;inset:0;padding:14px"><div style="width:55%;height:9px;background:#2B2118;border-radius:2px"></div><div style="margin-top:6px;height:2px;background:#2B2118"></div><div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px"><div style="height:36px;background:#E5DCCB"></div><div style="height:36px;background:#E5DCCB"></div></div></div></div><div style="margin-top:10px;font-weight:700">Jurnal</div><div class="hint" style="margin:0">Ustunlar, nashr ko'rinishi</div></div>
+        <div><div class="slide" style="background:#0F2A3F"><div style="position:absolute;inset:0;padding:14px"><div style="width:50%;height:9px;background:#fff;border-radius:4px"></div><div style="margin-top:14px;display:flex;gap:8px"><div style="flex:1;height:44px;background:rgba(255,255,255,.14);border-radius:6px"></div><div style="flex:1;height:44px;background:rgba(255,255,255,.14);border-radius:6px"></div><div style="flex:1;height:44px;background:rgba(255,255,255,.14);border-radius:6px"></div></div></div></div><div style="margin-top:10px;font-weight:700">Blok</div><div class="hint" style="margin:0">Rangli kartochkalar</div></div>
+        <div><div class="slide" style="background:#111"><div style="position:absolute;inset:0;padding:14px"><div style="width:42%;height:8px;background:#34D9C3;border-radius:4px"></div><div style="position:absolute;left:14px;right:14px;bottom:14px;height:50%;display:flex;align-items:flex-end;gap:7px"><div style="flex:1;height:35%;background:#1F5A52"></div><div style="flex:1;height:62%;background:#2BAE9E"></div><div style="flex:1;height:100%;background:#34D9C3"></div></div></div></div><div style="margin-top:10px;font-weight:700">Qorong'u</div><div class="hint" style="margin:0">Diagramma va ko'rsatkichlar</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="qadam" style="padding:56px 0 8px">
+    <div class="wrap">
+      <h2 class="sec" style="margin-bottom:24px">Uch qadamda tayyor</h2>
+      <div class="steps">
+        <div class="card" style="padding:26px"><div style="color:var(--brand);font-weight:800;font-size:14px">1-qadam</div><b style="display:block;margin-top:8px;font-size:19px">Mavzu va turni tanlang</b><p style="margin:8px 0 0;color:#4A5272">Til, hajm va uslubni belgilang. Kerak bo'lsa o'z istagingizni yozing.</p></div>
+        <div class="card" style="padding:26px"><div style="color:var(--brand);font-weight:800;font-size:14px">2-qadam</div><b style="display:block;margin-top:8px;font-size:19px">AI tayyorlaydi</b><p style="margin:8px 0 0;color:#4A5272">Reja, matn, diagramma va rasmlar. Jarayon sahifada ko'rinib turadi.</p></div>
+        <div class="card" style="padding:26px"><div style="color:var(--brand);font-weight:800;font-size:14px">3-qadam</div><b style="display:block;margin-top:8px;font-size:19px">Tahrirlang va yuklang</b><p style="margin:8px 0 0;color:#4A5272">Faylni PowerPointda tahrirlang. Nusxa Telegramga ham yuboriladi.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="mavzular" style="padding:56px 0 0">
+    <div class="wrap">
+      <div class="band">
+        <div style="max-width:560px">
+          <h2 class="sec" style="color:#fff;font-size:28px">Tayyor mavzular</h2>
+          <p style="margin:12px 0 22px;color:#B7BFDD;font-size:16px">Mavzu bo'yicha tayyor taqdimot va hujjatlar. Kerakkisini ko'rib chiqing va darhol oling.</p>
+          <a class="btn" style="background:#fff;color:var(--ink)" href="/shop">Tayyor mavzularni ochish</a>
+        </div>
+        <div id="shop-peek" style="flex:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-width:420px;width:100%"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap row" style="justify-content:space-between">
+    <span><b style="color:var(--ink)">Edufayl</b> · edufayl.org</span>
+    <span>Telegram bot va yordam: <a href="#" data-bot id="foot-bot">@Edufayl_bot</a> · <a href="https://t.me/javlon58_02">@javlon58_02</a></span>
+  </div>
+</footer>
+
+<script src="/static/site.js"></script>
+<script>
+(async function () {
+  const E = window.Edu;
+  E.header('home');
+  // Botdagi xizmatlar uchun havola
+  try {
+    const cat = await E.api('/catalog');
+    document.querySelectorAll('[data-bot]').forEach((a) => { a.href = 'https://t.me/' + cat.bot; a.target = '_blank'; a.rel = 'noopener'; });
+    const f = document.getElementById('foot-bot'); if (f) f.textContent = '@' + cat.bot;
+  } catch (e) {}
+
+  let kind = 'premium_presentation';
+  document.getElementById('kind-chips').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-kind]'); if (!b) return;
+    kind = b.dataset.kind;
+    document.querySelectorAll('#kind-chips [data-kind]').forEach((x) => x.classList.toggle('on', x === b));
+  });
+  // Mavzu yozilgach: kirgan bo'lsa ilovaga, kirmagan bo'lsa avval Telegram orqali kirish.
+  document.getElementById('prompt-form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const topic = document.getElementById('topic').value.trim();
+    if (topic.length < 3) { E.toast('Mavzu kamida 3 ta belgidan iborat bo‘lsin'); return; }
+    try { sessionStorage.setItem('edu_topic', topic); } catch (e) {}
+    const target = '/app#/create' + (kind === 'premium_presentation' ? '' : '?kind=' + kind);
+    const me = await E.me();
+    if (me) location.href = target; else E.login(target);
+  });
+
+  // Do'kondan bir nechta mavzu ko'rsatiladi (bo'sh bo'lsa blok yashiriladi)
+  try {
+    const res = await fetch('/api/shop/items?sort=new');
+    const data = await res.json();
+    const box = document.getElementById('shop-peek');
+    (data.items || []).slice(0, 4).forEach((it) => {
+      const a = document.createElement('a');
+      a.href = '/shop/' + encodeURIComponent(it.code);
+      a.style.cssText = 'background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:10px;color:#fff;display:block';
+      a.innerHTML = '<div style="aspect-ratio:16/9;border-radius:8px;background:#1b2440 center/cover no-repeat;margin-bottom:8px;background-image:url(' + E.esc(it.preview) + ')"></div>' +
+        '<div style="font-weight:700;font-size:14px;line-height:1.3;max-height:2.6em;overflow:hidden">' + E.esc(it.title) + '</div>' +
+        '<div style="color:#B7BFDD;font-size:12px;margin-top:4px">' + E.esc(it.work_label || '') + '</div>';
+      box.appendChild(a);
+    });
+    if (!box.children.length) box.style.display = 'none';
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>

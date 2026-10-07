@@ -36,7 +36,8 @@ The bot defaults to a local SQLite database (`bot.db`) unless `DATABASE_URL` is 
 - `bot/handlers/` — Telegram feature flows
 - `services/` — AI, document, media, presentation, translation, and store services
 - `database/` — SQLite schema and migrations
-- `webapp/` — browser editor and store pages
+- `webapp/` — site (`site/`: home page and cabinet), `/api/v1` (`api.py`), browser editor and store pages
+- `services/web_jobs.py`, `services/web_kinds.py` — site orders: price check, atomic balance charge, background job, refund on failure
 - `config.py` — environment-backed settings and service pricing
 
 ## Architecture decisions
@@ -49,6 +50,14 @@ The bot defaults to a local SQLite database (`bot.db`) unless `DATABASE_URL` is 
 ## Product
 
 Users select a language, work type, topic, length, and optional extras in Telegram. The bot generates educational documents and presentations, supports file conversion and translation, and can deliver generated files after payment or balance checks.
+
+## Site (edufayl.org)
+
+- Login is through the bot: the browser gets a one-time token, the bot confirms it with `/start weblogin_<token>`, the browser receives a session cookie. Balance and users are the same as in the bot.
+- Every service the site offers is registered as a `Kind` in `services/web_kinds.py` (price comes from `config.py`, so it always matches the bot). Heavy documents go through the same single queue as the bot (`bot/queue_service.py`).
+- Finished files are kept for 72 hours and then deleted (the bot keeps no documents either). Orders are removed with them.
+- Balance top-up on the site: receipt upload checked by the same rules as the bot (`services/receipts/web.py`). Click/Payme/Uzum are listed as "soon" in `receipts.web.methods()`.
+- Not on the site yet: loyiha ishi and book translation (bot only; book upload page exists at `/book/upload/...`).
 
 ## User preferences
 

@@ -622,6 +622,8 @@ async def main():
 
     polling_task = asyncio.create_task(dp.start_polling(bot))
     web_task     = asyncio.create_task(start_web_server(port=5000))
+    from services import web_jobs
+    web_jobs_task = asyncio.create_task(web_jobs.housekeeping())
     cleanup_task = asyncio.create_task(periodic_cleanup(storage=dp.storage))
     report_task  = asyncio.create_task(daily_user_report(bot))
 
@@ -629,9 +631,10 @@ async def main():
         await stop_event.wait()
     finally:
         logger.info("Cancelling tasks...")
-        for task in (polling_task, web_task, cleanup_task, report_task):
+        for task in (polling_task, web_task, cleanup_task, report_task, web_jobs_task):
             task.cancel()
-        await asyncio.gather(polling_task, web_task, cleanup_task, report_task, return_exceptions=True)
+        await asyncio.gather(polling_task, web_task, cleanup_task, report_task, web_jobs_task,
+                             return_exceptions=True)
 
         await bot.session.close()
         from services.ai_service import close_ai_service

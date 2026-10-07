@@ -1,0 +1,110 @@
+"""Zamonaviy (premium) taqdimotni yaratishning yagona yo'li — bot ham, sayt ham shuni chaqiradi.
+
+Ilgari bu ketma-ketlik faqat bot handleri ichida edi. Sayt qo'shilgach nusxa ko'chirish o'rniga
+shu modulga ajratildi: slaydlarni yozish → rasmlar → muqova → PPTX.
+"""
+import asyncio
+import logging
+from typing import Callable, Optional, Tuple
+
+log = logging.getLogger(__name__)
+
+MIN_SLIDES = 5
+MAX_SLIDES = 30
+MIN_PRICE = 3000
+
+# Og'ir bosqichlar chegaralangan vaqt ichida bajariladi.
+STEP_TIMEOUTS = {"brief": 15 * 60, "render": 8 * 60}
+
+
+def price_for(slide_count: int) -> int:
+    """Varaq soniga qarab narx (so'm) — oddiy taqdimot narxlari bilan mos.
+
+    10 varaq — 5 000, 15 — 7 000, 20 — 10 000 (config.PRESENTATION_PRICES). Oraliq sonlar
+    shu nuqtalar orasida chiziqli hisoblanib 500 so'mgacha yaxlitlanadi.
+    """
+    from config import PRESENTATION_PRICES
+
+    try:
+        count = int(slide_count or 0)
+    except (TypeError, ValueError):
+        count = MIN_SLIDES
+    count = max(MIN_SLIDES, min(count, MAX_SLIDES))
+    if count in PRESENTATION_PRICES:
+        return int(PRESENTATION_PRICES[count])
+    points = sorted((int(k), int(v)) for k, v in PRESENTATION_PRICES.items())
+    if count < points[0][0]:
+        value = points[0][1] / points[0][0] * count
+    elif count > points[-1][0]:
+        (x1, y1), (x2, y2) = points[-2], points[-1]
+        value = y2 + (y2 - y1) / (x2 - x1) * (count - x2)
+    else:
+        (x1, y1), (x2, y2) = next((a, b) for a, b in zip(points, points[1:]) if a[0] <= count <= b[0])
+        value = y1 + (y2 - y1) / (x2 - x1) * (count - x1)
+    return max(MIN_PRICE, int(value / 500 + 0.5) * 500)
+
+
+async def run_step(loop, func, *, step: str, label: str):
+    """Og'ir bosqichni chegaralangan vaqt ichida bajaradi."""
+    timeout = STEP_TIMEOUTS[step]
+    try:
+        return await asyncio.wait_for(loop.run_in_executor(None, func), timeout)
+    except (asyncio.TimeoutError, TimeoutError):
+        raise RuntimeError(f"{label} {int(timeout // 60)} daqiqada tugamadi — "
+                           f"tashqi xizmat javob bermadi") from None
+
+
+async def build_deck(topic: str, slide_count: int, *, language: str = "uz", level: int = 2,
+                     preferences: str = "", source_text: str = "", author: str = "",
+                     theme_key: str = "", style: str = "",
+                     progress_cb: Optional[Callable[[int, int], None]] = None,
+                     stage_cb: Optional[Callable[[str, dict], None]] = None) -> Tuple[str, int, int]:
+    """Taqdimotni yaratadi va PPTX yo'lini qaytaradi: (yo'l, slaydlar soni, rasmlar soni).
+
+    `progress_cb(tayyor_bo'lak, jami)` — kontent yozilayotganda (boshqa oqimdan chaqirilishi mumkin);
+    `stage_cb(nom, ma'lumot)` — bosqich almashganda: "writing", "images", "render".
+    Xatoda istisno ko'tariladi; pulni qaytarish chaqiruvchining ishi.
+    """
+    from services.premium_presentation import html_images, html_render, html_slides, themes
+
+    loop = asyncio.get_running_loop()
+
+    def stage(name: str, **info) -> None:
+        if stage_cb:
+            try:
+                stage_cb(name, info)
+            except Exception:  # holat yangilanmasa ham yaratish to'xtamasin
+                log.debug("stage_cb xatosi", exc_info=True)
+
+    chosen = themes.get(theme_key) if theme_key else themes.suggest(topic)
+    theme = themes.with_style(chosen, style)
+
+    stage("writing")
+    pages = await run_step(
+        loop,
+        lambda: html_slides.write_slides(
+            topic, slide_count, theme, language=language, level=level, preferences=preferences,
+            source_text=source_text, author=author, progress_cb=progress_cb),
+        step="brief", label="Slaydlarni yozish")
+
+    stage("images", slides=len(pages))
+    photos = 0
+    try:
+        pages, photos = await html_images.fill_photos(pages)
+    except Exception as exc:
+        log.warning("Rasmlar qo'yilmadi: %s", exc)
+    try:
+        pages, cover_done = await html_images.fill_cover(pages, topic)
+        photos += 1 if cover_done else 0
+    except Exception as exc:
+        log.warning("Muqova rasmi qo'yilmadi: %s", exc)
+
+    stage("render", slides=len(pages), photos=photos)
+    path = await run_step(
+        loop,
+        lambda: html_render.render(
+            pages,
+            repair=lambda page, problems: html_slides.fix_slide(page, problems, theme, language),
+            explain=lambda page, area: html_slides.fill_gap(page, area, theme, language)),
+        step="render", label="Slaydlarni suratga olish")
+    return path, len(pages), photos
