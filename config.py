@@ -110,6 +110,11 @@ BOOK_OCR_MIN_PRICE = int(os.getenv("BOOK_OCR_MIN_PRICE", "2000"))
 BOOK_OCR_MAX_PAGES = int(os.getenv("BOOK_OCR_MAX_PAGES", "500"))
 
 
+# Saytda Google bilan kirish (Google Cloud Console → APIs & Services → Credentials → OAuth client ID, "Web application").
+# Ruxsat etilgan yo'naltirish manzili: https://<domen>/api/v1/auth/google/callback. Ikkalasi ham bo'sh bo'lsa tugma ko'rinmaydi.
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "").strip()
+
 # Saytda taqdimotning bitta sahifasini AI ga qayta yozdirish narxi (har bir urinish uchun).
 SLIDE_REWRITE_PRICE = int(os.getenv("SLIDE_REWRITE_PRICE", "900"))
 

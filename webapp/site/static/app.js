@@ -26,6 +26,8 @@
     if (name.startsWith('job/')) return jobPage(name.slice(4));
     if (name === 'docs') return docs();
     if (name === 'wallet') return wallet();
+    if (name === 'profile') return profile();
+    if (name === 'welcome') return welcome();
     return create();
   }
 
@@ -470,7 +472,7 @@
     const typed = root.querySelector('.typed'), page = root.querySelector('.aiw-page'), cur = root.querySelector('.aiw-cursor');
     if (!typed || !page || !cur) return () => {};
     const base = (topic || 'mavzu').trim().slice(0, 34);
-    const queries = [base + ' statistika', base + ' tadqiqotlar', base + ' rivojlanishi', base + ' misollar', base + ' rasmlar'];
+    const queries = ['statistika', 'tadqiqotlar', 'rivojlanishi', 'misollar', 'rasmlar'].map((w) => base + ' ' + E.tr(w));
     let alive = true, qi = 0, ci = 0, dir = 1, timer = null;
     function tick() {
       if (!alive) return;
@@ -712,6 +714,122 @@
     }
   }
 
+
+  // ───────────────────────────────────────────── Xush kelibsiz (birinchi kirish) va Profil
+  const AUTH_ERRORS = {
+    cancelled: 'Kirish bekor qilindi.', state: 'Kirish seansi eskirgan. Qaytadan urinib ko‘ring.',
+    google_failed: 'Google bilan kirib bo‘lmadi. Birozdan keyin qayta urining.', email: 'Google akkauntingizdagi email tasdiqlanmagan.',
+    google_off: 'Google bilan kirish hozircha yoqilmagan.', rate: 'Juda ko‘p urinish. Bir daqiqadan keyin qayta urining.',
+    google_taken: 'Bu Google akkaunt boshqa akkauntga ulangan.', has_google: 'Sizga allaqachon Google akkaunt ulangan.', auth: 'Avval saytga kiring.'};
+
+  function authErrorToast() {
+    const q = new URLSearchParams(location.search), h = (location.hash.split('?')[1] || '');
+    const code = q.get('auth_error') || new URLSearchParams(h).get('auth_error');
+    if (!code) return;
+    E.toast(AUTH_ERRORS[code] || 'Kirishda xatolik yuz berdi.');
+    const clean = location.pathname + location.hash.split('?')[0];
+    try { history.replaceState(null, '', clean); } catch (e) { /* muhim emas */ }
+  }
+
+  function langBlock(current, id) {
+    return `<div class="bigl" id="${id}">${E.langs().map((l) => `<button type="button" class="chip ${l.key === current ? 'on' : ''}" data-lang="${l.key}">${l.name}</button>`).join('')}</div>`;
+  }
+
+  async function welcome() {
+    const cfgMe = await E.me(true);
+    if (!cfgMe) { view.innerHTML = ''; return loginCard(); }
+    view.innerHTML = `<div class="card panel welcome">
+      <h2>Xush kelibsiz!</h2>
+      <p style="color:#4A5272;margin:0 0 6px">Hisobingiz ochildi. Qulay tilni tanlang va ismingizni tekshiring: ism taqdimot muqovasiga yoziladi.</p>
+      ${langBlock(E.lang(), 'w-langs')}
+      <div style="text-align:left"><label class="lab" for="w-name">Ismingiz</label>
+        <input class="fld" id="w-name" maxlength="80" value="${E.esc(cfgMe.name)}"></div>
+      <button class="btn block" id="w-go" style="margin-top:18px">Davom etish</button>
+      <p class="hint" style="margin-top:12px">Telegramni keyinroq profilingizdan ulashingiz mumkin: balans va hujjatlaringiz birlashadi.</p></div>`;
+    document.getElementById('w-langs').onclick = (e) => {
+      const b = e.target.closest('[data-lang]'); if (!b) return;
+      E.setLang(b.dataset.lang);
+      document.querySelectorAll('#w-langs [data-lang]').forEach((x) => x.classList.toggle('on', x === b));
+    };
+    document.getElementById('w-go').onclick = async () => {
+      const btn = document.getElementById('w-go'); btn.disabled = true;
+      try {
+        await E.api('/profile', {json: {name: document.getElementById('w-name').value, language: E.lang()}});
+        await refreshBalance();
+        location.hash = '#/create';
+      } catch (e) { btn.disabled = false; E.toast(e.message); }
+    };
+  }
+
+  async function profile() {
+    view.innerHTML = '<span class="spin"></span>';
+    let data;
+    try { data = (await E.api('/profile')).profile; } catch (e) {
+      if (e.code === 'auth' || e.status === 401) { view.innerHTML = ''; return loginCard(); }
+      view.innerHTML = `<div class="note bad">${E.esc(e.message)}</div>`; return;
+    }
+    const tgRow = data.telegram
+      ? `<div class="prow"><div class="who"><span class="ic">${E.TG.replace('currentColor', '#229ED9')}</span><div><b>Telegram</b><small>${data.username ? '@' + E.esc(data.username) : 'Ulangan'}</small></div></div><span class="pill ok">Ulangan</span></div>`
+      : `<div class="prow"><div class="who"><span class="ic">${E.TG.replace('currentColor', '#229ED9')}</span><div><b>Telegram</b><small>Ulanmagan: fayl Telegramga ham keladi, bot bilan umumiy balans</small></div></div><button type="button" class="btn sm out" id="p-tg">Telegramni ulash</button></div>`;
+    const gRow = data.google
+      ? `<div class="prow"><div class="who"><span class="ic">${E.GOOGLE_G}</span><div><b>Google</b><small>${E.esc(data.email)}</small></div></div><span class="pill ok">Ulangan</span></div>`
+      : `<div class="prow"><div class="who"><span class="ic">${E.GOOGLE_G}</span><div><b>Google</b><small>Ulanmagan</small></div></div>${data.google_enabled ? '<a class="btn sm out" id="p-g" href="#">Google ni ulash</a>' : '<span class="pill soon">Tez orada</span>'}</div>`;
+    view.innerHTML = `<div class="profile">
+      <div class="card panel"><b style="font-size:18px">Profil</b>
+        <div style="margin-top:16px"><label class="lab" for="p-name">Ism</label>
+          <div class="row"><input class="fld" id="p-name" maxlength="80" value="${E.esc(data.name)}" style="flex:1;min-width:180px"><button class="btn sm" id="p-save" type="button">Saqlash</button></div></div>
+        <div style="margin-top:20px"><div class="lab">Til</div>${langBlock(data.language, 'p-langs')}
+          <div class="hint" style="margin-top:-4px">Sayt va bot shu tilda ochiladi.</div></div>
+        <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <span><span class="hint" style="margin:0">Balans</span> <b>${E.fmt(data.balance)} so‘m</b></span>
+          <a class="btn sm out" href="#/wallet">Hamyonni to‘ldirish</a></div>
+      </div>
+      <div class="card panel"><b style="font-size:18px">Ulangan akkauntlar</b>
+        <div style="margin-top:6px">${gRow}${tgRow}</div>
+        <div id="p-note" style="margin-top:10px"></div>
+        <button class="btn ghost block" id="p-out" type="button" style="margin-top:16px">Chiqish</button>
+      </div></div>`;
+    const $ = (x) => document.getElementById(x);
+    $('p-save').onclick = async () => {
+      try { await E.api('/profile', {json: {name: $('p-name').value}}); await refreshBalance(); E.toast('Saqlandi'); }
+      catch (e) { E.toast(e.message); }
+    };
+    $('p-langs').onclick = async (e) => {
+      const b = e.target.closest('[data-lang]'); if (!b) return;
+      document.querySelectorAll('#p-langs [data-lang]').forEach((x) => x.classList.toggle('on', x === b));
+      await E.chooseLang(b.dataset.lang);
+      E.toast('Til saqlandi');
+    };
+    $('p-out').onclick = () => E.logout();
+    if ($('p-g')) $('p-g').onclick = (e) => { e.preventDefault(); location.href = '/api/v1/auth/google/start?intent=attach&lang=' + E.lang(); };
+    if ($('p-tg')) $('p-tg').onclick = async () => {
+      const note = $('p-note'); note.innerHTML = '<span class="spin"></span>';
+      let link;
+      try { link = await E.api('/profile/telegram-link', {method: 'POST'}); } catch (e) { note.innerHTML = `<div class="note bad">${E.esc(e.message)}</div>`; return; }
+      note.innerHTML = `<div class="note wait">Telegramda botni oching va <b>Start</b> hamda «Ha, ulash» tugmasini bosing. Bu sahifa o‘zi yangilanadi. <a class="link" target="_blank" rel="noopener" href="${E.esc(link.url)}">Botni ochish</a></div>`;
+      window.open(link.url, '_blank', 'noopener');
+      const until = Date.now() + link.expires_in * 1000;
+      const check = async () => {
+        if (location.hash !== '#/profile') return;
+        try {
+          const d = (await E.api('/profile')).profile;
+          if (d.telegram) { await refreshBalance(); E.toast('Telegram ulandi'); return profile(); }
+        } catch (e) { /* tarmoq: keyingi urinishda */ }
+        if (Date.now() < until) pollTimer = setTimeout(check, 3000);
+      };
+      pollTimer = setTimeout(check, 3000);
+    };
+  }
+
+  function loginCard() {
+    view.innerHTML = `<div class="card panel" style="max-width:520px;margin:20px auto;text-align:center">
+      <h2 style="margin:0 0 8px">Kirish yoki ro‘yxatdan o‘tish</h2>
+      <p style="color:#4A5272;margin:0 0 18px">Google yoki Telegram bilan kiring. Hisobingiz bo‘lmasa, birinchi kirishda o‘zi ochiladi.</p>
+      <button class="btn" id="lg">Davom etish</button></div>`;
+    document.getElementById('lg').onclick = () => E.login();
+    E.header('app');
+  }
+
   // ─────────────────────────────────────────────────────────── Hujjatlarim
   async function docs() {
     view.innerHTML = '<span class="spin"></span>';
@@ -826,15 +944,8 @@
   // ───────────────────────────────────────────────────────────────── boshlash
   (async function init() {
     me = await E.me();
-    if (!me) {
-      view.innerHTML = `<div class="card panel" style="max-width:520px;margin:20px auto;text-align:center">
-        <h2 style="margin:0 0 8px">Telegram orqali kiring</h2>
-        <p style="color:#4A5272;margin:0 0 18px">Balans, buyurtmalar va fayllar bot bilan umumiy. Parol kerak emas.</p>
-        <button class="btn" id="lg">Telegram orqali kirish</button></div>`;
-      document.getElementById('lg').onclick = () => E.login();
-      E.header('app');
-      return;
-    }
+    authErrorToast();
+    if (!me) { loginCard(); return; }
     try { catalog = await E.api('/catalog'); } catch (e) { view.innerHTML = `<div class="note bad">${E.esc(e.message)}</div>`; return; }
     E.header('app');
     window.addEventListener('hashchange', route);

@@ -5,6 +5,7 @@ Muhim tamoyillar:
 - pul faqat hamma qoidadan o'tgan va ikki marta bir xil o'qilgan chek uchun avtomatik qo'shiladi;
 - AI yoki tarmoq ishlamasa `process` None qaytaradi — chaqiruvchi avvalgi qo'lda tekshiruvga o'tadi.
 """
+from database import web_accounts as _web_accounts
 import asyncio
 import hashlib
 import logging
@@ -63,7 +64,7 @@ def resend_keyboard(lang: str, claimed: int, started: Optional[datetime]):
 
 def card_text(user, verdict: str, receipt: rules.Receipt, decision: rules.Decision, claimed: int,
               receipt_id: int, payment_id: Optional[int], extra: str = "") -> str:
-    link = f"@{user.username}" if getattr(user, "username", None) else f"tg://user?id={user.telegram_id}"
+    link = _web_accounts.label(user)
     lines = [texts.VERDICT_LABEL.get(verdict, verdict.upper()),
              f"🧾 Chek #{receipt_id}" + (f" · To'lov #{payment_id}" if payment_id else ""),
              f"👤 {link} (id {user.telegram_id})",

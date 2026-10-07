@@ -79,7 +79,11 @@ STAT_TYPE = {"premium_presentation": "presentation", "simple_presentation": "pre
 
 async def _require_subscription(telegram_id: int) -> None:
     import webapp
+    from database import web_accounts
 
+    # Telegramsiz (Google bilan kirgan) akkaunt kanalga a'zo bo'la olmaydi: tekshiruv o'tkazilmaydi.
+    if web_accounts.is_web_only(telegram_id):
+        return
     if _subscribed.get(telegram_id, 0) > time.time() or webapp.BOT is None:
         return
     try:
@@ -244,9 +248,10 @@ async def _after_done(job_id: str, telegram_id: int, kind: Kind, params: Dict, p
     """Tayyor faylni Telegramga ham yuboradi va katalogga qo'yadi (ikkalasi ham ixtiyoriy)."""
     try:
         import webapp
+        from database import web_accounts
         bot = webapp.BOT
-        if bot is None:
-            return
+        if bot is None or web_accounts.is_web_only(telegram_id):
+            return          # Telegramsiz akkaunt: fayl faqat saytdan yuklab olinadi
         from aiogram.types import FSInputFile
 
         await bot.send_document(telegram_id, FSInputFile(path, filename=name),
