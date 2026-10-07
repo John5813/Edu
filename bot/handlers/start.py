@@ -47,6 +47,10 @@ async def start_command(message: Message, state: FSMContext, db: Database):
         except Exception as web_err:
             logger.warning("Sayt orqali kirishni tasdiqlab bo'lmadi: %s", web_err)
 
+    # Saytdagi Google akkauntni shu Telegramga ulash: /start weblink_<token> (avval aniq tasdiq so'raladi)
+    if message.text and len(message.text.split()) > 1 and message.text.split()[1].startswith("weblink_"):
+        await _offer_web_link(message, message.text.split()[1][len("weblink_"):], user)
+
     if not user:
         # Check if admin pre-added this user by username (temp negative ID record)
         temp_balance = 0
@@ -373,3 +377,92 @@ async def handle_stale_button(callback: CallbackQuery, state: FSMContext, db: Da
     if user and await state.get_state() is None and callback.message:
         await callback.message.answer(
             "👇", reply_markup=await _main_keyboard(language, db))
+
+
+# ───────────────────────────────────────── saytdagi Google akkauntni Telegramga ulash
+
+_LINK_TEXT = {
+    "uz": {"ask": "🔗 Saytdagi Google akkaunt ({email}) shu Telegram akkauntingizga ulansinmi?\n\n"
+                  "Saytdagi balans ({balance} so'm) va buyurtmalar shu akkauntga qo'shiladi.\n"
+                  "Bu siz boshlagan amal bo'lmasa, «Yo'q» ni bosing.",
+           "yes": "✅ Ha, ulash", "no": "❌ Yo'q",
+           "done": "✅ Ulandi! Saytdagi balans ({moved} so'm) hisobingizga qo'shildi. Saytga qayting.",
+           "cancel": "Bekor qilindi. Hech narsa ulanmadi.",
+           "old": "⌛ Havola eskirgan. Saytdagi profildan qaytadan urinib ko'ring."},
+    "ru": {"ask": "🔗 Подключить Google-аккаунт с сайта ({email}) к этому Telegram-аккаунту?\n\n"
+                  "Баланс с сайта ({balance} сум) и заказы будут добавлены в этот аккаунт.\n"
+                  "Если это не вы, нажмите «Нет».",
+           "yes": "✅ Да, подключить", "no": "❌ Нет",
+           "done": "✅ Подключено! Баланс с сайта ({moved} сум) добавлен на ваш счёт. Вернитесь на сайт.",
+           "cancel": "Отменено. Ничего не подключено.",
+           "old": "⌛ Ссылка устарела. Повторите попытку в профиле на сайте."},
+    "en": {"ask": "🔗 Link the website Google account ({email}) to this Telegram account?\n\n"
+                  "The website balance ({balance} som) and orders will be added to this account.\n"
+                  "If this wasn't you, press “No”.",
+           "yes": "✅ Yes, link", "no": "❌ No",
+           "done": "✅ Linked! The website balance ({moved} som) was added to your account. Go back to the site.",
+           "cancel": "Cancelled. Nothing was linked.",
+           "old": "⌛ The link has expired. Try again from your profile on the website."},
+}
+
+
+def _link_text(language: str, key: str, **kw) -> str:
+    table = _LINK_TEXT.get(language) or _LINK_TEXT["uz"]
+    return table[key].format(**kw) if kw else table[key]
+
+
+async def _offer_web_link(message: Message, token: str, user) -> None:
+    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+    from database import web_accounts
+
+    language = (user.language if user else None) or (message.from_user.language_code or "uz")[:2]
+    language = language if language in _LINK_TEXT else "uz"
+    try:
+        info = await web_accounts.link_preview(token)
+    except Exception as exc:
+        logger.warning("Telegramni ulash havolasi o'qilmadi: %s", exc)
+        info = None
+    if not info:
+        await message.answer(_link_text(language, "old"))
+        return
+    markup = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text=_link_text(language, "yes"), callback_data=f"weblink_ok:{token}"),
+        InlineKeyboardButton(text=_link_text(language, "no"), callback_data="weblink_no")]])
+    await message.answer(_link_text(language, "ask", email=info["email"] or info["name"] or "Google",
+                                    balance=f"{info['balance']:,}"), reply_markup=markup)
+
+
+@router.callback_query(F.data == "weblink_no")
+async def web_link_declined(callback: CallbackQuery, db: Database):
+    await callback.answer()
+    user = await db.get_user(callback.from_user.id)
+    language = user.language if user and user.language in _LINK_TEXT else "uz"
+    try:
+        await callback.message.edit_text(_link_text(language, "cancel"))
+    except Exception:
+        pass
+
+
+@router.callback_query(F.data.startswith("weblink_ok:"))
+async def web_link_confirmed(callback: CallbackQuery, db: Database):
+    from database import web_accounts
+
+    await callback.answer()
+    token = callback.data.split(":", 1)[1]
+    user = await db.get_user(callback.from_user.id)
+    language = user.language if user and user.language in _LINK_TEXT else "uz"
+    if not user:
+        await callback.message.edit_text(_link_text(language, "old"))
+        return
+    try:
+        moved = await web_accounts.complete_link(token, callback.from_user.id)
+        text = _link_text(language, "done", moved=f"{moved:,}")
+    except web_accounts.MergeError as exc:
+        text = f"⚠️ {exc}"
+    except Exception as exc:
+        logger.error("Telegramni ulab bo'lmadi: %s", exc)
+        text = _link_text(language, "old")
+    try:
+        await callback.message.edit_text(text)
+    except Exception:
+        pass

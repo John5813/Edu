@@ -132,15 +132,20 @@ async def auth_logout(request: web.Request) -> web.Response:
 
 
 async def me(request: web.Request) -> web.Response:
+    from database import web_accounts
+
     telegram_id = await _user_id(request)
     if telegram_id is None:
         return web.json_response({"ok": True, "user": None})
     user = await Database.get_user(telegram_id)
     if not user:
         return web.json_response({"ok": True, "user": None, "needs_bot": True})
+    identity = await web_accounts.identity_of(telegram_id)
     return web.json_response({"ok": True, "user": {
         "id": telegram_id, "name": user.first_name or user.username or "Foydalanuvchi",
-        "username": user.username or "", "balance": int(user.balance or 0), "language": user.language}})
+        "username": user.username or "", "balance": int(user.balance or 0),
+        "language": web_accounts.user_language(user), "telegram": not web_accounts.is_web_only(telegram_id),
+        "email": (identity or {}).get("email", "")}})
 
 
 # ──────────────────────────────────────────────────────────────────── katalog va narx
@@ -538,6 +543,8 @@ async def static_file(request: web.Request) -> web.StreamResponse:
 
 def setup_api_routes(app: web.Application) -> None:
     app.middlewares.append(guard)
+    from webapp import account_api
+    account_api.setup(app)
     add = app.router.add_route
     add("POST", "/api/v1/auth/start", auth_start)
     add("GET", "/api/v1/auth/poll", auth_poll)

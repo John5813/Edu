@@ -1,4 +1,5 @@
 import asyncio
+from database import web_accounts as _web_accounts
 import html as _html
 import logging
 import re
@@ -64,7 +65,7 @@ async def notify_admins_about_payment(bot, user, amount, message_id, payment_id,
     """Notify admins about new payment"""
     from bot.keyboards import get_payment_review_keyboard
 
-    user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
+    user_link = await _web_accounts.admin_label(user)
 
     # Add source indicator if payment is from help section
     source_label = "📞 Yordam bo'limi orqali" if source == "help" else ""
@@ -269,7 +270,7 @@ async def handle_orders_request(message: Message, db: Database):
 
     for payment in pending_payments[:5]:  # Show first 5 payments
         user = await db.get_user_by_id(payment.user_id)
-        user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
+        user_link = await _web_accounts.admin_label(user)
 
         # Handle both datetime and string formats
         if isinstance(payment.created_at, str):
@@ -550,7 +551,7 @@ async def cancel_adjustment(callback: CallbackQuery, db: Database):
             return
 
         user = await db.get_user_by_id(payment.user_id)
-        user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
+        user_link = await _web_accounts.admin_label(user)
 
         text = (
             f"🧾 To'lov #{payment.id}\n"
@@ -644,7 +645,7 @@ async def confirm_adjusted_payment(callback: CallbackQuery, db: Database):
             logger.error(f"Failed to notify user {user.telegram_id} about payment approval: {notify_error}")
 
         # Keep the message with payment info
-        user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
+        user_link = await _web_accounts.admin_label(user)
         admin_name = callback.from_user.username or callback.from_user.full_name
         await callback.message.edit_text(
             await decided_card_text(
@@ -789,7 +790,7 @@ async def approve_payment(callback: CallbackQuery, db: Database):
         user = await credit_approved_payment(callback.bot, db, payment)
 
         # Keep the message with payment info
-        user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
+        user_link = await _web_accounts.admin_label(user)
         await callback.message.edit_text(
             f"✅ To'lov #{payment_id} tasdiqlandi.\n"
             f"👤 Foydalanuvchi: {user_link}\n"
@@ -849,14 +850,18 @@ async def reject_payment(callback: CallbackQuery, db: Database):
         # Notify user with simple message (no retry button)
         with kazakh_scope(user.kazakh):          # xabar mijoz tilida, admin tilida emas
             rejected_text = get_text(user.language, "payment_rejected")
-        await callback.bot.send_message(
-            user.telegram_id,
-            rejected_text,
-            parse_mode="Markdown"
-        )
+        if not _web_accounts.is_web_only(user.telegram_id):     # Telegramsiz sayt akkauntiga xabar yuborib bo'lmaydi
+            try:
+                await callback.bot.send_message(
+                    user.telegram_id,
+                    rejected_text,
+                    parse_mode="Markdown"
+                )
+            except Exception as notify_error:
+                logger.error(f"Failed to notify user {user.telegram_id} about rejection: {notify_error}")
 
         # Keep the message with payment info
-        user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
+        user_link = await _web_accounts.admin_label(user)
         admin_name = callback.from_user.username or callback.from_user.full_name
         await callback.message.edit_text(
             await decided_card_text(
@@ -2040,7 +2045,8 @@ async def _send_ad(bot, chat_id: int, data: dict, markup=None):
 # ───────── 4. Auditoriya va yakuniy tasdiqlash
 
 async def _target_users(db: Database, target: str) -> list:
-    users = await db.get_all_users()
+    # Telegramsiz (sayt) akkauntlar va admin qo'shgan vaqtinchalik qatorlarga xabar yuborib bo'lmaydi.
+    users = [u for u in await db.get_all_users() if u.telegram_id > 0]
     if target == "active":      # oxirgi 30 kunda botdan foydalanganlar
         cutoff = datetime.now() - timedelta(days=30)
         return [u for u in users if u.updated_at >= cutoff]

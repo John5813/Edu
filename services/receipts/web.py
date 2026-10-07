@@ -4,6 +4,7 @@ To'lov tizimlari (Click, Payme, Uzum) keyinroq ulanadi: shu uchun usullar ro'yxa
 turadi va har biri `enabled` bayrog'i bilan keladi. Telegram orqali to'lash shart emas: chek
 saytdan yuklanadi, admin kartochkasi esa avvalgidek adminga boradi.
 """
+from database import web_accounts as _web_accounts
 import logging
 from datetime import datetime
 from types import SimpleNamespace
@@ -96,6 +97,8 @@ async def submit(bot, telegram_id: int, amount, started_iso: str, data: bytes, f
     if not user:
         raise ValueError("Avval botda /start bosing.")
     lang = user.language if user.language in ("uz", "ru", "en") else "uz"
+    if _web_accounts.is_web_only(telegram_id):      # admin kartasida email ko'rinsin
+        user.web_email = ((await _web_accounts.identity_of(telegram_id)) or {}).get("email", "")
     try:
         datetime.fromisoformat(started_iso)
     except (TypeError, ValueError):
@@ -121,7 +124,7 @@ async def _manual(web: WebMessage, bot, user, amount: int, lang: str) -> Dict:
     from bot.keyboards import get_payment_review_keyboard
 
     payment_id = await Database.create_payment(user.id, amount, "", "web")
-    link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
+    link = await _web_accounts.admin_label(user)
     text = (f"🧾 Yangi to'lov (sayt):\n👤 Foydalanuvchi: {link}\n💵 Summasi: {amount:,} so'm\n"
             f"📅 To'lov ID: {payment_id}\n\n⬆️ Yuqoridagi chekni tekshiring va to'lovni tasdiqlang:")
     sent_any = False

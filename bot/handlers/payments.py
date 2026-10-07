@@ -1,4 +1,5 @@
 import logging
+from database import web_accounts as _web_accounts
 import os
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, ContentType, LabeledPrice, PreCheckoutQuery
@@ -469,7 +470,7 @@ async def notify_admins_about_payment(bot, user, amount, message_id, payment_id,
     """Notify admins about new payment"""
     from bot.keyboards import get_payment_review_keyboard
 
-    user_link = f"@{user.username}" if user.username else f"tg://user?id={user.telegram_id}"
+    user_link = await _web_accounts.admin_label(user)
 
     # Add source info if present
     source_text = ""
