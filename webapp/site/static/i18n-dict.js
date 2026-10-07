@@ -1,6 +1,12 @@
 /* Edufayl sayti: tarjima lug'ati (o'zbekcha matn → ru, en, kk). Mexanizm: i18n.js */
 window.EDU_DICT = {
 "ru": {
+"Mavzuni yozing —": "Напишите тему —",
+"taqdimot tayyor": "презентация готова",
+"Haqiqiy natija": "Настоящий результат",
+"Tahrirlanadi": "Редактируется",
+"Ramka va chiziqlar, texnik ko'rinish": "Рамки и линии, технический вид",
+"Masalan: Kiberxavfsizlik va shaxsiy ma'lumotlar himoyasi": "Например: Кибербезопасность и защита персональных данных",
 "(20 ta tayyor rasmli shablon)": "(20 готовых шаблонов с рисунками)",
 "(Avto: mavzuga mos rang tanlanadi)": "(Авто: цвет подбирается по теме)",
 "(ixtiyoriy)": "(необязательно)",
@@ -452,6 +458,12 @@ window.EDU_DICT = {
 ]
 },
 "en": {
+"Mavzuni yozing —": "Type a topic —",
+"taqdimot tayyor": "get your slides",
+"Haqiqiy natija": "Real output",
+"Tahrirlanadi": "Editable",
+"Ramka va chiziqlar, texnik ko'rinish": "Frames and lines, technical look",
+"Masalan: Kiberxavfsizlik va shaxsiy ma'lumotlar himoyasi": "For example: Cybersecurity and personal data protection",
 "(20 ta tayyor rasmli shablon)": "(20 ready picture templates)",
 "(Avto: mavzuga mos rang tanlanadi)": "(Auto: a colour matching the topic is chosen)",
 "(ixtiyoriy)": "(optional)",
@@ -903,6 +915,12 @@ window.EDU_DICT = {
 ]
 },
 "kk": {
+"Mavzuni yozing —": "Тақырыпты жазыңыз —",
+"taqdimot tayyor": "презентация дайын",
+"Haqiqiy natija": "Нақты нәтиже",
+"Tahrirlanadi": "Өңделеді",
+"Ramka va chiziqlar, texnik ko'rinish": "Жақтау мен сызықтар, техникалық көрініс",
+"Masalan: Kiberxavfsizlik va shaxsiy ma'lumotlar himoyasi": "Мысалы: Киберқауіпсіздік және дербес деректерді қорғау",
 "(20 ta tayyor rasmli shablon)": "(20 дайын суретті үлгі)",
 "(Avto: mavzuga mos rang tanlanadi)": "(Авто: тақырыпқа сай түс таңдалады)",
 "(ixtiyoriy)": "(міндетті емес)",

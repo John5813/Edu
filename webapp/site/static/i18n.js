@@ -81,7 +81,8 @@
       if (out !== n.data) { shown.set(n, out); n.data = out; } else shown.delete(n);
       return;
     }
-    if (n.nodeType !== 1 || SKIP[n.nodeName]) return;
+    if (n.nodeType !== 1) return;
+    if (SKIP[n.nodeName]) { if (n.nodeName === 'TEXTAREA') attrs(n); return; }   // mavzu oynasining namunasi (placeholder) ham tarjima qilinadi
     attrs(n);
     for (let c = n.firstChild; c; c = c.nextSibling) node(c);
   }
