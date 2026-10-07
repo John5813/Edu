@@ -2236,7 +2236,8 @@ async def _feature_keyboard(db):
     from bot.keyboards import get_feature_management_keyboard as _kb
     startup = await db.get_feature_status("startup_bonus")
     mahsus = await db.get_feature_status("mahsus_ishlanma")
-    return _kb(startup, mahsus)
+    receipt_ai = await db.get_feature_status("receipt_ai")
+    return _kb(startup, mahsus, receipt_ai)
 
 _FEATURES_TITLE = (
     "🎛 Funksiyalar boshqaruvi\n\n"
@@ -2263,6 +2264,23 @@ async def toggle_startup_bonus(callback: CallbackQuery, db: Database):
     await callback.answer(f"🎁 Start bonus {status_text}!")
     kb = await _feature_keyboard(db)
     await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
+
+@router.callback_query(F.data.startswith("toggle_receipt_ai_"))
+async def toggle_receipt_ai(callback: CallbackQuery, db: Database):
+    """To'lov cheklarini AI bilan tekshirishni butunlay yoqish/o'chirish.
+
+    O'chiq: har chek (bot ham, sayt ham) AI'siz to'g'ridan-to'g'ri adminga tugmalar bilan boradi.
+    """
+    if not is_admin(callback.from_user.id):
+        return
+    new_status = callback.data.split("_")[-1] == "on"
+    await db.set_feature_status("receipt_ai", new_status)
+    await callback.answer("🧾 To'lovda AI tekshiruv yoqildi!" if new_status
+                          else "🧾 AI tekshiruv o'chirildi: cheklar to'g'ridan-to'g'ri adminga boradi.",
+                          show_alert=not new_status)
+    kb = await _feature_keyboard(db)
+    await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
+
 
 @router.callback_query(F.data.startswith("toggle_mahsus_ishlanma_"))
 async def toggle_mahsus_ishlanma(callback: CallbackQuery, db: Database):

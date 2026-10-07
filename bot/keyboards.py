@@ -1127,6 +1127,7 @@ def get_back_to_features_keyboard() -> InlineKeyboardMarkup:
 def get_feature_management_keyboard(
     startup_bonus_enabled: bool,
     mahsus_ishlanma_enabled: bool = True,
+    receipt_ai_enabled: bool = True,
 ) -> InlineKeyboardMarkup:
     """Feature management keyboard for admin"""
     keyboard = InlineKeyboardBuilder()
@@ -1145,6 +1146,14 @@ def get_feature_management_keyboard(
     keyboard.add(InlineKeyboardButton(
         text=f"🔬 Mahsus ishlanma: {mi_status}",
         callback_data=f"toggle_mahsus_ishlanma_{mi_action}"
+    ))
+
+    # To'lovda AI chek tekshiruvi: o'chiq bo'lsa barcha cheklar to'g'ridan-to'g'ri adminga boradi
+    ai_status = "🟢 Yoqilgan" if receipt_ai_enabled else "🔴 O'chirilgan"
+    ai_action = "off" if receipt_ai_enabled else "on"
+    keyboard.add(InlineKeyboardButton(
+        text=f"🧾 To'lovda AI tekshiruv: {ai_status}",
+        callback_data=f"toggle_receipt_ai_{ai_action}"
     ))
 
     # Mass gift button
