@@ -32,7 +32,7 @@
   // ───────────────────────────────────────────────────────────── Yaratish
   const BOT_ONLY = ['Loyiha ishi', 'Kitob tarjimasi'];
   const TOPIC_HINT = {
-    premium_presentation: "Masalan: Kiberxavfsizlik va shaxsiy ma'lumotlar himoyasi",
+    premium_presentation: "Masalan: Kiberxavfsizlik va shaxsiy ma'lumotlar himoyasi", simple_presentation: 'Masalan: Amir Temur davri',
     independent_work: "Masalan: Iqtisodiyotda raqamlashtirish", referat: "Masalan: Globallashuv va iqtisodiyot",
     article: "Masalan: Sun'iy intellektning ta'limdagi o'rni", thesis: "Masalan: Yoshlar tadbirkorligini qo'llab-quvvatlash",
     course_work: "Masalan: Korxonada xarajatlarni boshqarish", diploma_work: "Masalan: Bank xizmatlarini raqamlashtirish",
@@ -53,7 +53,7 @@
   function renderForm(key, topic0) {
     const kind = catalog.kinds.find((k) => k.key === key);
     const opt = kind.options || {};
-    const s = {style: 'toza', theme: '', count: 10, size: (opt.sizes && opt.sizes[0] && opt.sizes[0].key) || '', extras: new Set()};
+    const s = {style: 'toza', theme: '', count: 10, template: 'template_20', icons: true, plan: false, size: (opt.sizes && opt.sizes[0] && opt.sizes[0].key) || '', extras: new Set()};
     const bot = catalog.bot;
     const $ = (id) => document.getElementById(id);
 
@@ -77,6 +77,14 @@
           <div class="swatches" id="themes"><button type="button" class="sw auto on" data-k="" title="Avtomatik">Avto</button>${catalog.themes.map((t) => `<button type="button" class="sw" data-k="${E.esc(t.key)}" title="${E.esc(t.label)}" style="background:linear-gradient(135deg,${E.esc(t.background)} 50%,${E.esc(t.accent)} 50%)"></button>`).join('')}</div></div>`
         + field('author', 'Muallif ismi', 'muqovaga yoziladi', '<input class="fld" id="author" maxlength="80" placeholder="Ism Familiya">')
         + field('prefs', 'Istaklar', 'ixtiyoriy', '<textarea class="fld" id="prefs" rows="2" maxlength="1000" placeholder="Masalan: investorlar uchun, ko\'proq vizual, qisqa va ta\'sirli"></textarea>');
+    } else if (opt.form === 'simple_presentation') {
+      fields += `<div class="row" style="margin-top:18px;align-items:flex-start">${langSel(opt.languages)}
+        <div style="flex:2;min-width:250px"><label class="lab" for="size">Slaydlar soni</label>
+          <select class="fld" id="size">${opt.sizes.map((z) => `<option value="${E.esc(z.key)}">${E.esc(z.label)} — ${E.fmt(z.price)}</option>`).join('')}</select></div></div>
+        <div style="margin-top:18px"><div class="lab">Orqa fon</div>
+          <div class="tpls" id="tpls">${catalog.templates.map((t) => `<button type="button" class="tpl ${t.id === s.template ? 'on' : ''}" data-id="${E.esc(t.id)}" title="${E.esc(t.name)}"><img loading="lazy" alt="${E.esc(t.name)}" src="${E.esc(t.url)}"><span>${E.esc(t.name)}</span></button>`).join('')}</div></div>
+        <div class="row" style="margin-top:18px"><button type="button" class="chip on" id="t-icons">Ikonkalar</button><button type="button" class="chip" id="t-plan">Reja slaydi</button></div>`
+        + field('author', 'Muallif ismi', 'muqovaga yoziladi', '<input class="fld" id="author" maxlength="80" placeholder="Ism Familiya">');
     } else if (opt.form === 'thesis') {
       fields += `<div class="row" style="margin-top:18px">${langSel(opt.languages)}</div>`
         + field('author', 'Muallif ismi', '', '<input class="fld" id="author" maxlength="80" placeholder="Ism Familiya" required>')
@@ -112,6 +120,7 @@
     const price = () => {
       if (opt.form === 'presentation') return (catalog.premium_prices.find((p) => p.slides === s.count) || {}).price || 0;
       if (opt.form === 'thesis') return opt.price;
+      if (opt.form === 'simple_presentation') return (opt.sizes.find((x) => x.key === s.size) || opt.sizes[0]).price;
       const z = opt.sizes.find((x) => x.key === s.size) || opt.sizes[0];
       return z.price + (opt.extras || []).filter((x) => s.extras.has(x.key)).reduce((a, x) => a + x.price, 0);
     };
@@ -133,6 +142,12 @@
       const b = e.target.closest('.sw'); if (!b) return; s.theme = b.dataset.k;
       document.querySelectorAll('#themes .sw').forEach((x) => x.classList.toggle('on', x === b));
     };
+    if ($('tpls')) $('tpls').onclick = (e) => {
+      const b = e.target.closest('.tpl'); if (!b) return; s.template = b.dataset.id;
+      document.querySelectorAll('#tpls .tpl').forEach((x) => x.classList.toggle('on', x === b));
+    };
+    if ($('t-icons')) $('t-icons').onclick = (e) => { s.icons = !s.icons; e.currentTarget.classList.toggle('on', s.icons); };
+    if ($('t-plan')) $('t-plan').onclick = (e) => { s.plan = !s.plan; e.currentTarget.classList.toggle('on', s.plan); };
     if ($('extras')) $('extras').onclick = (e) => {
       const b = e.target.closest('[data-x]'); if (!b) return;
       s.extras.has(b.dataset.x) ? s.extras.delete(b.dataset.x) : s.extras.add(b.dataset.x);
@@ -147,6 +162,7 @@
       const val = (id) => ($(id) ? $(id).value : '');
       let params = {topic: val('topic'), language: val('lang'), author: val('author')};
       if (opt.form === 'presentation') Object.assign(params, {slide_count: s.count, style: s.style, theme: s.theme, preferences: val('prefs')});
+      else if (opt.form === 'simple_presentation') Object.assign(params, {slide_count: parseInt(s.size || (opt.sizes[0] || {}).key, 10), template: s.template, icons: s.icons, plan_slide: s.plan});
       else if (opt.form === 'thesis') Object.assign(params, {university: val('univ'), faculty: val('fac'), group: val('grp')});
       else Object.assign(params, {size: s.size, extras: [...s.extras], plan_style: val('pstyle')});
       try {

@@ -135,3 +135,8 @@ table.hist th{color:var(--mute);font-size:12px;font-weight:700;border-top:0}
   .top .wrap{height:64px}.logo img{width:46px;height:46px}.actions .btn.sm{padding:9px 11px;font-size:13px}
 }
 .short{display:none}
+
+.tpls{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;max-height:340px;overflow:auto;padding:4px}
+.tpl{border:1.5px solid var(--line);border-radius:10px;background:#fff;padding:6px;text-align:center;font-size:12px;font-weight:700}
+.tpl img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:6px;margin-bottom:5px}
+.tpl.on{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}

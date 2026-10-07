@@ -295,6 +295,14 @@ async def main():
             if kind.price(params) != expected:
                 mismatch.append((key, size["key"], kind.price(params), expected))
     check("barcha hujjat turlari va hajmlarida narx botdagi bilan teng", not mismatch, mismatch)
+    simple = web_jobs.KINDS["simple_presentation"]
+    import config as _cfg
+    check("oddiy taqdimot narxi botdagi bilan teng, shablon sukutga tushadi",
+          all(simple.price(simple.normalize({"topic": "Mavzu x", "slide_count": n})) == _cfg.PRESENTATION_PRICES[n]
+              for n in _cfg.PRESENTATION_PRICES)
+          and simple.normalize({"topic": "Mavzu x", "template": "yo'q"})["template"] == "template_20")
+    cat0 = await (await client.get("/api/v1/catalog")).json()
+    check("katalogda orqa fonlar rasmi bilan beriladi", len(cat0["templates"]) >= 20 and cat0["templates"][0]["url"].startswith("/api/template-image/"))
     ref = web_jobs.KINDS["referat"]
     check("qo'shimchalar narxga qo'shiladi (referat), mustaqil ishda bepul",
           ref.price(ref.normalize({"topic": "Mavzu", "extras": ["formulas", "tables", "yo'q"]})) == 5000 + 2000
@@ -303,7 +311,7 @@ async def main():
     cat = await (await client.get("/api/v1/catalog")).json()
     keys = [k["key"] for k in cat["kinds"]]
     check("katalogda barcha xizmatlar tartib bilan", keys[0] == "premium_presentation" and "course_work" in keys
-          and "thesis" in keys and len(keys) == 9, keys)
+          and "thesis" in keys and "simple_presentation" in keys and len(keys) == 10, keys)
     cw = next(k for k in cat["kinds"] if k["key"] == "course_work")
     check("kurs ishida hajm, reja usuli va qo'shimchalar bor", cw["heavy"] and cw["options"]["sizes"] and cw["options"]["plan_styles"]
           and cw["options"]["extras"], cw["options"].keys())

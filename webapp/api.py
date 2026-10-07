@@ -158,6 +158,8 @@ def _catalog() -> Dict:
                    {"key": "qorongu", "label": "Qorong'u"}],
         "themes": [{"key": t.key, "label": t.name, "background": "#" + t.background, "accent": "#" + t.accent,
                     "heading": "#" + t.heading} for t in themes.choices()],
+        "templates": [{"id": tid, "name": t["name"].get("uz", tid), "url": f"/api/template-image/{tid}"}
+                      for tid, t in web_kinds._simple_templates().items()],
         "premium_prices": [{"slides": n, "price": pipeline.price_for(n)} for n in sizes],
     }
 

@@ -273,3 +273,87 @@ register(Kind(key="thesis", label="Tezis", normalize=_thesis_normalize, price=_t
                        "eta_minutes": 1}))
 KINDS_ORDER = ("premium_presentation", "independent_work", "referat", "article", "thesis", "course_work",
                "diploma_work", "bitiruv_ishi", "dissertatsiya")
+
+
+# ─────────────────────────────────────────── oddiy taqdimot (chiroyli orqa fonlar)
+
+def _simple_templates():
+    from services.template_service import TemplateService
+    return TemplateService().templates
+
+
+def _simple_normalize(raw: Dict) -> Dict:
+    from config import PRESENTATION_PRICES
+
+    topic = _text(raw, "topic", 300)
+    if len(topic) < 3:
+        raise JobError("Mavzu kamida 3 ta belgidan iborat bo'lsin.")
+    try:
+        count = int(raw.get("slide_count") or 10)
+    except (TypeError, ValueError):
+        count = 10
+    if count not in PRESENTATION_PRICES:
+        count = min(PRESENTATION_PRICES, key=lambda n: abs(n - count))
+    template = raw.get("template") if raw.get("template") in _simple_templates() else "template_20"
+    return {"topic": topic, "slide_count": count, "template": template,
+            "language": raw.get("language") if raw.get("language") in DOC_LANGUAGES else "uz",
+            "author": _text(raw, "author", 80) or _text(raw, "_default_author", 80),
+            "icons": raw.get("icons") is not False, "plan_slide": bool(raw.get("plan_slide"))}
+
+
+def _simple_price(params: Dict) -> int:
+    from config import PRESENTATION_PRICES
+    return int(PRESENTATION_PRICES[params["slide_count"]])
+
+
+async def _simple_run(params: Dict, report: Report) -> Tuple[str, str]:
+    import asyncio
+    import os
+
+    from services.ai_service import get_ai_service
+    from services.document_service import get_document_service
+    from services.template_service import TemplateService
+
+    topic, lang = params["topic"], params["language"]
+    script, token = None, None
+    if lang == "uz":
+        script = uz_script.CYRILLIC if uz_script.has_cyrillic(topic) else uz_script.LATIN
+        token = uz_script.use(script)
+        if script == uz_script.LATIN:
+            topic = uz_script.to_latin(topic)
+    ticker = asyncio.ensure_future(_ticker(report, 100))
+    try:
+        ai = get_ai_service()
+        content = await ai.generate_presentation_in_batches(topic, params["slide_count"], lang)
+        if not content or not content.get("slides"):
+            content = await ai.generate_presentation_in_batches(topic, params["slide_count"], lang)
+        if not content or not content.get("slides"):
+            raise RuntimeError("AI taqdimot mazmunini qaytarmadi")
+        content["slides"] = [x for x in content["slides"] if x.get("layout") != "references"]
+        plan_items = await ai.generate_plan_items(topic, lang) if params["plan_slide"] else []
+        docs = get_document_service()
+        docs.use_icons = params["icons"]
+        path = await docs.create_presentation_with_template_background(
+            topic, content, params["author"], params["template"], TemplateService(), lang, [], plan_items)
+        if path and script:
+            await asyncio.to_thread(uz_script.normalize_pptx, path, script)
+    finally:
+        ticker.cancel()
+        if token is not None:
+            uz_script.reset(token)
+    if not path or not os.path.exists(path):
+        raise RuntimeError("Fayl yaratilmadi")
+    stem = re.sub(r"[^\w-]+", "_", topic)[:30].strip("_") or "fayl"
+    return path, f"Taqdimot_{stem}.pptx"
+
+
+def _simple_options() -> Dict:
+    from config import PRESENTATION_PRICES
+    return {"form": "simple_presentation", "languages": list(DOC_LANGUAGES), "eta_minutes": 2,
+            "sizes": [{"key": str(n), "label": f"{n} slayd", "price": int(p)} for n, p in sorted(PRESENTATION_PRICES.items())]}
+
+
+register(Kind(key="simple_presentation", label="Taqdimot (chiroyli orqa fonlar)", normalize=_simple_normalize,
+              price=_simple_price, title=lambda p: p["topic"], run=_simple_run, publish_as="taqdimot",
+              options=_simple_options()))
+KINDS_ORDER = ("premium_presentation", "simple_presentation") + KINDS_ORDER[1:]
