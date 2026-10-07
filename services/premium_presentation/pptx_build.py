@@ -213,8 +213,7 @@ def _add_text(slide, block: Dict) -> None:
     # (10-15% kengroq): tor quti matnni bir qator pastga tushirib, formulaning
     # oxiri ("= 1") yoki kartochka sarlavhasi quyidagi matn ustiga chiqib ketardi.
     # Zaxira shuning uchun ancha keng, lekin varaq chetidan chiqmaydi.
-    slack = (max(area["w"] * 0.10, size_px * 0.8, 8.0) if single
-             else max(area["w"] * 0.03, 2.0))
+    slack = max(area["w"] * 0.10, size_px * 0.8, 8.0) if single else 2.0
     # Zaxira qo'shni matn qutisiga tegmasin (kasr, yonma-yon yorliqlar) va
     # varaq chetidan chiqmasin.
     room = block.get("_room")
