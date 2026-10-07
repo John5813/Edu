@@ -136,6 +136,53 @@ def _add_rect(slide, block: Dict) -> None:
     shape.text_frame.text = ""
 
 
+_ANCHOR = {"middle": MSO_ANCHOR.MIDDLE, "bottom": MSO_ANCHOR.BOTTOM}
+
+
+def _merge_flows(blocks: List[Dict]) -> List[Dict]:
+    """Bir ustundagi abzatslarni (`flow`) bitta matn qutisiga birlashtiradi.
+
+    Alohida-alohida quti bo'lsa, telefondagi kengroq shrift birinchi abzatsni
+    uzaytirib, uni ikkinchisining ustiga chiqarardi. Bitta quti ichida esa
+    abzatslar ketma-ket pastga siljiydi — ustma-ust tushmaydi. Abzatslar
+    orasidagi bo'sh joy brauzerdagidek saqlanadi.
+    """
+    groups: Dict[int, List[Dict]] = {}
+    for block in blocks:
+        flow = int(block.get("flow") or 0)
+        if (block.get("kind") == "text" and flow
+                and str(block.get("text") or "").strip()):
+            groups.setdefault(flow, []).append(block)
+    merged: Dict[int, Dict] = {}
+    for flow, items in groups.items():
+        if len(items) < 2:
+            continue
+        items.sort(key=lambda b: float(b.get("y", 0)))
+        left = min(float(b.get("x", 0)) for b in items)
+        right = max(float(b.get("x", 0)) + float(b.get("w", 0)) for b in items)
+        top = float(items[0].get("y", 0))
+        bottom = max(float(b.get("y", 0)) + float(b.get("h", 0)) for b in items)
+        parts, prev_end = [], None
+        for item in items:
+            y = float(item.get("y", 0))
+            parts.append(dict(item, gap=max(y - prev_end, 0.0)
+                              if prev_end is not None else 0.0))
+            prev_end = y + float(item.get("h", 0))
+        merged[flow] = dict(items[0], x=left, y=top, w=right - left,
+                            h=bottom - top, lines=2, parts=parts,
+                            valign="top")
+    out, done = [], set()
+    for block in blocks:
+        flow = int(block.get("flow") or 0)
+        if flow in merged and block.get("kind") == "text":
+            if flow not in done:
+                done.add(flow)
+                out.append(merged[flow])
+            continue
+        out.append(block)
+    return out
+
+
 def _add_text(slide, block: Dict) -> None:
     text = str(block.get("text") or "").strip()
     if not text:
@@ -182,8 +229,7 @@ def _add_text(slide, block: Dict) -> None:
     frame.word_wrap = True
     frame.margin_left = frame.margin_right = 0
     frame.margin_top = frame.margin_bottom = 0
-    frame.vertical_anchor = (MSO_ANCHOR.MIDDLE if block.get("valign") == "middle"
-                             else MSO_ANCHOR.TOP)
+    frame.vertical_anchor = _ANCHOR.get(block.get("valign"), MSO_ANCHOR.TOP)
 
     # Tik yozilgan o'q yozuvi PowerPointda ham burilgan bo'lsin.
     # Aks holda ingichka qutiga tushib, har harfi alohida qatorga
@@ -192,38 +238,47 @@ def _add_text(slide, block: Dict) -> None:
     if abs(turn) >= 5:
         frame_box.rotation = turn
 
-    size = _pt(block.get("size") or 16)
-    # Qator oralig'i AYNAN punktda beriladi. Nisbat bilan berilsa
-    # ("1.15") PowerPoint uni o'zining bir qator balandligiga ko'paytiradi
-    # va qatorlar brauzerdagidan baland chiqib, matn quyidagi bezakka
-    # minib qolardi.
-    line_height = float(block.get("lineHeight") or 0)
-    spacing = Pt(_pt(line_height)) if line_height > 0 else None
+    # Birlashtirilgan ustunda har abzats o'z shrifti va oralig'i bilan.
+    parts = block.get("parts") or [block]
+    first = True
+    for part in parts:
+        size = _pt(part.get("size") or 16)
+        # Qator oralig'i AYNAN punktda beriladi. Nisbat bilan berilsa
+        # ("1.15") PowerPoint uni o'zining bir qator balandligiga ko'paytiradi
+        # va qatorlar brauzerdagidan baland chiqib, matn quyidagi bezakka
+        # minib qolardi.
+        line_height = float(part.get("lineHeight") or 0)
+        spacing = Pt(_pt(line_height)) if line_height > 0 else None
+        gap = float(part.get("gap") or 0)
 
-    alignment = _ALIGN.get(block.get("align"), PP_ALIGN.LEFT)
-    name = font_name(block.get("family"))
-    bold = int(block.get("weight") or 400) >= 600
-    italic = bool(block.get("italic"))
-    colour = _colour(block.get("color") or "000000")
+        alignment = _ALIGN.get(part.get("align"), PP_ALIGN.LEFT)
+        name = font_name(part.get("family"))
+        bold = int(part.get("weight") or 400) >= 600
+        italic = bool(part.get("italic"))
+        colour = _colour(part.get("color") or "000000")
+        body = str(part.get("text") or "").strip()
+        if part.get("upper"):
+            body = body.upper()
 
-    # <br> bilan ajratilgan satrlar alohida abzats bo'ladi — ular
-    # bir-biriga yopishib qolmasin.
-    for index, line in enumerate(text.split("\n")):
-        paragraph = (frame.paragraphs[0] if index == 0
-                     else frame.add_paragraph())
-        paragraph.alignment = alignment
-        paragraph.space_before = Pt(0)
-        paragraph.space_after = Pt(0)
-        if spacing is not None:
-            paragraph.line_spacing = spacing
-        run = paragraph.add_run()
-        run.text = line
-        font = run.font
-        font.size = Pt(max(size, 6))
-        font.bold = bold
-        font.italic = italic
-        font.name = name
-        font.color.rgb = colour
+        # <br> bilan ajratilgan satrlar alohida abzats bo'ladi — ular
+        # bir-biriga yopishib qolmasin.
+        for index, line in enumerate(body.split("\n")):
+            paragraph = frame.paragraphs[0] if first else frame.add_paragraph()
+            paragraph.alignment = alignment
+            paragraph.space_before = Pt(_pt(gap) if index == 0 and not first
+                                        else 0)
+            paragraph.space_after = Pt(0)
+            first = False
+            if spacing is not None:
+                paragraph.line_spacing = spacing
+            run = paragraph.add_run()
+            run.text = line
+            font = run.font
+            font.size = Pt(max(size, 6))
+            font.bold = bold
+            font.italic = italic
+            font.name = name
+            font.color.rgb = colour
 
 
 def _cell_borders(cell, colour: str, width) -> None:
@@ -362,6 +417,7 @@ def add_slide(presentation, layout: Dict) -> None:
     blocks = sorted(layout.get("blocks") or [],
                     key=lambda item: order.get(item.get("kind"), 3))
 
+    blocks = _merge_flows(blocks)
     _measure_room(blocks)
     for block in blocks:
         kind = block.get("kind")

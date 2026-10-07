@@ -167,3 +167,22 @@ VERDICT_LABEL = {
     "own_pending": "ℹ️ Qayta yuborilgan chek",
     "ai_error": "⚪ AI ishlamadi",
 }
+
+
+def daily_stats_text(counts: dict) -> str:
+    """Kunlik statistika uchun cheklar bloki: adminga yetgan va yetmagan (rad etilgan) cheklar."""
+    c = lambda *keys: sum(int(counts.get(k, 0)) for k in keys)
+    to_admin = c("review", "wrong_receiver")
+    auto = c("auto")
+    junk, dup, fake, own = c("not_receipt"), c("duplicate"), c("fake"), c("own_pending")
+    rejected = junk + dup + fake + own
+    lines = ["🧾 Bugungi cheklar (AI tekshiruvi):",
+             f"  • Adminga yuborilgan: {to_admin} ta"]
+    if auto:
+        lines.append(f"  • Avtomatik tasdiqlangan: {auto} ta")
+    lines += [f"  • 🚫 Adminga yetmagan (rad etilgan): {rejected} ta",
+              f"      – chek emas / bekorchi fayl: {junk} ta",
+              f"      – takroriy: {dup} ta",
+              f"      – tahrirlangan: {fake} ta",
+              f"      – o'zi qayta yuborgan: {own} ta"]
+    return "\n".join(lines)

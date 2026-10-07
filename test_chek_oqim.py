@@ -298,6 +298,30 @@ async def main():
           len(await Database.get_pending_payments()) == n_before + 1 and await st.get_state() is None
           and any("Yangi to'lov" in x.text for x in bot.sent if x.chat.id == ADMIN))
 
+    print("19) Kunlik statistika: adminga yetmagan (rad etilgan) cheklar hisobi")
+    from services.receipts import texts as receipt_texts
+    import aiosqlite
+    counts = await store.today_counts()
+    async with aiosqlite.connect(dbmod.DATABASE_FILE) as conn:
+        async with conn.execute("SELECT verdict, COUNT(*) FROM payment_receipts GROUP BY verdict") as cur:
+            direct = {r[0]: r[1] for r in await cur.fetchall()}
+    check("bugungi sonlar bazadagi cheklarga teng", counts == direct and counts.get("duplicate", 0) >= 7 and counts.get("not_receipt", 0) >= 5, (counts, direct))
+    stats = receipt_texts.daily_stats_text({"review": 4, "wrong_receiver": 1, "auto": 2, "not_receipt": 3, "duplicate": 5, "fake": 1, "own_pending": 2})
+    check("statistika matni: adminga yuborilgan 5, rad etilgan 11", "Adminga yuborilgan: 5 ta" in stats and "Adminga yetmagan (rad etilgan): 11 ta" in stats, stats)
+    check("statistika matni: sabablar bo'yicha", all(x in stats for x in ("chek emas / bekorchi fayl: 3 ta", "takroriy: 5 ta", "tahrirlangan: 1 ta", "o'zi qayta yuborgan: 2 ta")), stats)
+    check("avto-tasdiq qatori faqat bo'lsa chiqadi", "Avtomatik tasdiqlangan: 2 ta" in stats and "Avtomatik" not in receipt_texts.daily_stats_text({"review": 1}))
+    check("bo'sh kun nol ko'rsatadi", "rad etilgan): 0 ta" in receipt_texts.daily_stats_text({}))
+
+    print("20) Admin «Kunlik statistika» tugmasi cheklar blokini ko'rsatadi")
+    from bot.handlers.admin import handle_daily_statistics
+    stat_out = []
+    class StatMsg:
+        from_user = types.SimpleNamespace(id=ADMIN)
+        async def answer(self, text, **kw): stat_out.append(text)
+    await handle_daily_statistics(StatMsg(), Database)
+    check("kunlik statistikada cheklar bloki bor", stat_out and "Bugungi cheklar (AI tekshiruvi)" in stat_out[0]
+          and "Adminga yetmagan (rad etilgan)" in stat_out[0] and "Bugungi daromad" in stat_out[0], stat_out[:1])
+
     print("17) Reply-tugmalar («To'lov chekini yuborish», «Orqaga»)")
     up_state = FSMContext(storage=MemoryStorage(), key=StorageKey(bot_id=1, chat_id=300, user_id=300))
     await up_state.set_state(PaymentStates.waiting_for_screenshot)

@@ -263,19 +263,54 @@ def _left_margin(ticks) -> int:
     return max(96, min(width, 190))
 
 
+def _wrap_lines(text: str, size: int, room: float, max_lines: int = 3) -> List[str]:
+    """X o'qi imzosini `room` pikselga sig'dirib 1-3 qatorga bo'ladi (sig'masa «…» bilan qisqartiriladi)."""
+    limit = max(6, int(room / (size * 0.6)))
+    words, lines, current = str(text).split(), [], ""
+    for word in words:
+        while len(word) > limit:                         # juda uzun so'z — bo'laklanadi
+            head, word = word[:limit], word[limit:]
+            if current:
+                lines.append(current)
+                current = ""
+            lines.append(head)
+        if not current:
+            current = word
+        elif len(current) + 1 + len(word) <= limit:
+            current += " " + word
+        else:
+            lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
+    if len(lines) > max_lines:
+        lines = lines[:max_lines]
+        lines[-1] = lines[-1][:max(limit - 1, 1)].rstrip() + "…"
+    return lines or [""]
+
+
+def _x_labels(labels, show, size: int, room: float):
+    """Ko'rinadigan X imzolarining qatorlari va qo'shimcha balandlik."""
+    wrapped = {i: _wrap_lines(labels[i], size, room) for i in show if i < len(labels)}
+    extra = (max((len(v) for v in wrapped.values()), default=1) - 1) * int(size * 1.15)
+    return wrapped, extra
+
+
 def _bar(rows, labels, theme, unit, W, H, xlabel="") -> str:
     """Ustunli diagramma: Y o'qi shkalasi bilan, noldan boshlanadi."""
     ticks, lo, hi = _y_scale(rows, zero_based=True)
     left = _left_margin(ticks)
     top, right = 48, 24
-    bottom = 64 + (34 if xlabel else 0) + _legend_height(rows, W)
-    plot_h = H - top - bottom
     plot_w = W - left - right
     count = max(len(labels), max(len(values) for _, values in rows))
     group = plot_w / count
+    label_size = 25 if count <= 8 else 22
+    show = _thin(count)
+    wrapped, extra = _x_labels(labels, show, label_size, group - 10)
+    bottom = 64 + extra + (34 if xlabel else 0) + _legend_height(rows, W)
+    plot_h = H - top - bottom
     pad = group * 0.22
     bar_w = (group - pad) / len(rows)
-    show = _thin(count)
     parts = []
     _axes(parts, theme, ticks, lo, hi, left, top, plot_w, plot_h, xlabel, H)
 
@@ -297,9 +332,10 @@ def _bar(rows, labels, theme, unit, W, H, xlabel="") -> str:
                                    25 if count <= 8 else 21, theme.heading,
                                    weight="700"))
         if index < len(labels) and index in show:
-            parts.append(_text(left + group * index + group / 2,
-                               top + plot_h + 36, labels[index], 25 if count <= 8 else 22,
-                               theme.body, weight="700"))
+            for row, line in enumerate(wrapped.get(index, [labels[index]])):
+                parts.append(_text(left + group * index + group / 2,
+                                   top + plot_h + 36 + row * int(label_size * 1.15), line,
+                                   label_size, theme.body, weight="700"))
 
     parts.append(_legend(rows, theme, H - 12 - (34 if xlabel else 0), W))
     return _svg(parts, unit, theme, W, H)
@@ -310,13 +346,15 @@ def _line(rows, labels, theme, unit, W, H, xlabel="") -> str:
     ticks, lo, hi = _y_scale(rows, zero_based=False)
     left = _left_margin(ticks) + 12
     top, right = 56, 48
-    bottom = 64 + (34 if xlabel else 0) + _legend_height(rows, W)
-    plot_h = H - top - bottom
     plot_w = W - left - right
     count = max(len(labels), max(len(values) for _, values in rows))
     step = (plot_w - 40) / max(count - 1, 1)
     x0 = left + 20
     show = _thin(count)
+    label_size = 25 if count <= 8 else 22
+    wrapped, extra = _x_labels(labels, show, label_size, step * 0.95 if count > 1 else plot_w)
+    bottom = 64 + extra + (34 if xlabel else 0) + _legend_height(rows, W)
+    plot_h = H - top - bottom
     parts = []
     _axes(parts, theme, ticks, lo, hi, left, top, plot_w, plot_h, xlabel, H)
     radius = 9 if count <= 12 else 6
@@ -359,8 +397,9 @@ def _line(rows, labels, theme, unit, W, H, xlabel="") -> str:
 
     for index, label in enumerate(labels[:count]):
         if index in show:
-            parts.append(_text(x0 + step * index, top + plot_h + 36, label,
-                               25 if count <= 8 else 22, theme.body, weight="700"))
+            for row, line in enumerate(wrapped.get(index, [label])):
+                parts.append(_text(x0 + step * index, top + plot_h + 36 + row * int(label_size * 1.15), line,
+                                   label_size, theme.body, weight="700"))
 
     parts.append(_legend(rows, theme, H - 12 - (34 if xlabel else 0), W))
     return _svg(parts, unit, theme, W, H)

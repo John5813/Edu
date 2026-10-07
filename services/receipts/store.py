@@ -108,3 +108,12 @@ async def by_payment(payment_id: int) -> Optional[dict]:
                               (payment_id,)) as cursor:
             row = await cursor.fetchone()
     return dict(row) if row else None
+
+
+async def today_counts() -> dict:
+    """Bugungi cheklar soni verdict bo'yicha (kunlik statistika uchun; sana boshqa statistikalardagidek)."""
+    async with aiosqlite.connect(_file()) as db:
+        async with db.execute(
+            "SELECT verdict, COUNT(*) FROM payment_receipts WHERE date(created_at) = date('now') GROUP BY verdict"
+        ) as cursor:
+            return {row[0]: row[1] for row in await cursor.fetchall()}
