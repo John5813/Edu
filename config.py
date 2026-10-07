@@ -103,6 +103,19 @@ BOOK_MAX_UPLOAD_MB = int(os.getenv("BOOK_MAX_UPLOAD_MB", "150"))
 # bo'lishi bilan yuboriladi. Qism xotiraga sig'masa, avtomatik kichrayadi.
 BOOK_PART_PAGES = int(os.getenv("BOOK_PART_PAGES", "20"))
 
+# Skaner qilingan kitob (betlar faqat rasm): ko'rish AI orqali matnga o'tkaziladi (OCR).
+# Narx betiga; tannarx taxminan 8-40 so'm/bet (model va rasm hajmiga qarab), shuning uchun 100 so'm.
+BOOK_OCR_PRICE_PER_PAGE = int(os.getenv("BOOK_OCR_PRICE_PER_PAGE", "100"))
+BOOK_OCR_MIN_PRICE = int(os.getenv("BOOK_OCR_MIN_PRICE", "2000"))
+BOOK_OCR_MAX_PAGES = int(os.getenv("BOOK_OCR_MAX_PAGES", "500"))
+
+
+def book_ocr_price(pages: int) -> int:
+    """Skaner kitobni matnga o'tkazish narxi (500 so'mga yuqoriga yaxlitlanadi)."""
+    raw = max(int(pages), 1) * BOOK_OCR_PRICE_PER_PAGE
+    return max(BOOK_OCR_MIN_PRICE, -(-raw // 500) * 500)
+
+
 # Katta PDF kitob tarjimasi uchun modellar zanjiri: birinchisi ishlamasa
 # keyingisi. `BOOK_TRANSLATE_MODEL` muhit o'zgaruvchisi bilan boshqasini
 # birinchi qo'yish mumkin. Gemini 2.5 Flash — sifat/narx bo'yicha eng mosi:

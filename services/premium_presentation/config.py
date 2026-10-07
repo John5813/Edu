@@ -79,6 +79,12 @@ OPENROUTER_RECEIPT_MODELS = _no_claude(_chain(
     os.getenv("RECEIPT_MODEL", "") + "," +
     os.getenv("RECEIPT_FALLBACKS", "google/gemini-2.5-flash-lite,openai/gpt-4o-mini"))) \
     or ["google/gemini-2.5-flash-lite", "openai/gpt-4o-mini"]
+# Skaner kitob sahifalarini matnga o'tkazish (OCR): arzon ko'rish modeli birinchi, zaxiralar keyin.
+# `OCR_MODEL` bilan boshqasini birinchi qo'yish mumkin.
+OPENROUTER_OCR_MODELS = _chain(
+    os.getenv("OCR_MODEL", "") + "," +
+    os.getenv("OCR_FALLBACKS", "google/gemini-2.5-flash-lite,google/gemini-2.5-flash,openai/gpt-4o-mini"))
+
 # Faqat RECEIPT_AUTO=1 (avtomatik tasdiq) bo'lsa ishlatiladigan tasdiqlovchi ikkinchi o'qish.
 OPENROUTER_RECEIPT_VERIFY_MODELS = _no_claude(_chain(
     os.getenv("RECEIPT_VERIFY_MODEL", "") + "," +

@@ -14,10 +14,12 @@ from bot.keyboards import (
     get_book_translate_lang_keyboard,
     get_post_translation_keyboard,
     get_doc_language_keyboard,
+    _back_text,
 )
 from database.database import Database
 from translations import get_text, label_variants
-from config import BOOK_MAX_UPLOAD_MB, TELEGRAM_DOWNLOAD_LIMIT
+from config import (BOOK_MAX_UPLOAD_MB, BOOK_OCR_MAX_PAGES, BOOK_OCR_MIN_PRICE,
+                    BOOK_OCR_PRICE_PER_PAGE, TELEGRAM_DOWNLOAD_LIMIT, book_ocr_price)
 from services import book_pdf_translate
 from services import workload
 from webapp import book_upload
@@ -47,8 +49,11 @@ def _order_summary(data: dict, language: str) -> str:
     name = _html.escape(str(data.get("original_filename") or "kitob"), quote=False)[:120]
     page_from, page_to = data.get("page_from"), data.get("page_to")
     pages = f"{page_from}–{page_to}" if page_from and page_to else f"{data.get('total_pages', '?')} (butun)"
+    if data.get("scanned") and data.get("ocr_mode") == "ocr":
+        return (f"📚 <b>Kitobni matnga o'tkazish</b>\n📎 Fayl: <b>{name}</b>\n📖 Betlar: {pages}")
     target = _TARGET_NAMES.get(data.get("target_lang"), data.get("target_lang") or "")
-    return (f"📚 <b>Kitob tarjimasi</b>\n📎 Fayl: <b>{name}</b>\n📖 Betlar: {pages}\n"
+    title = "Kitobni matnga o'tkazib tarjima qilish" if data.get("scanned") else "Kitob tarjimasi"
+    return (f"📚 <b>{title}</b>\n📎 Fayl: <b>{name}</b>\n📖 Betlar: {pages}\n"
             f"🌍 Til: {target}")
 
 router = Router()
@@ -166,10 +171,16 @@ async def _accept_book(bot, chat_id: int, state: FSMContext, user_lang: str,
             info = await asyncio.to_thread(book_pdf_translate.inspect_pdf, local_path)
             if info.is_scanned:
                 await wait_msg.delete()
-                await bot.send_message(chat_id, get_text(user_lang, "book_scanned"),
-                                       reply_markup=get_main_keyboard(user_lang))
-                os.remove(local_path)
-                await state.clear()
+                await state.update_data(
+                    pdf_path=local_path, local_path=None, original_filename=file_name,
+                    word_count=0, total_pages=info.total_pages, source_lang="unknown",
+                    scanned=True, ocr_mode=None)
+                await bot.send_message(
+                    chat_id,
+                    get_text(user_lang, "book_scanned", price=BOOK_OCR_PRICE_PER_PAGE,
+                             min=f"{BOOK_OCR_MIN_PRICE:,}", max=BOOK_OCR_MAX_PAGES),
+                    reply_markup=_ocr_mode_keyboard(user_lang))
+                await state.set_state(BookTranslateStates.waiting_for_ocr_mode)
                 return
             total_pages, word_count, source_lang = info.total_pages, info.words, info.source_lang
             await state.update_data(
@@ -179,6 +190,7 @@ async def _accept_book(bot, chat_id: int, state: FSMContext, user_lang: str,
                 word_count=word_count,
                 total_pages=total_pages,
                 source_lang=source_lang,
+                scanned=False,
             )
         else:
             docx_path = local_path
@@ -209,6 +221,86 @@ async def _accept_book(bot, chat_id: int, state: FSMContext, user_lang: str,
         if os.path.exists(local_path):
             os.remove(local_path)
         await state.clear()
+
+
+def _ocr_mode_keyboard(user_lang: str):
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(text=get_text(user_lang, "book_ocr_btn_text"),
+                                      callback_data="bt_ocr_ocr"))
+    keyboard.add(InlineKeyboardButton(text=get_text(user_lang, "book_ocr_btn_translate"),
+                                      callback_data="bt_ocr_ocr_translate"))
+    keyboard.add(InlineKeyboardButton(text=_back_text(user_lang), callback_data="bt_back_to_menu"))
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
+@router.callback_query(F.data.in_({"bt_ocr_ocr", "bt_ocr_ocr_translate"}),
+                       BookTranslateStates.waiting_for_ocr_mode)
+async def handle_ocr_mode(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    await callback.answer()
+    data = await state.get_data()
+    if not _book_alive(data):
+        await _report_expired(callback.message, state, user_lang)
+        return
+    await state.update_data(ocr_mode=callback.data.replace("bt_ocr_", "", 1))
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    await callback.message.answer(
+        get_text(user_lang, "book_ocr_enter_range", total=data.get("total_pages", 0),
+                 max=BOOK_OCR_MAX_PAGES),
+        parse_mode="Markdown")
+    await state.set_state(BookTranslateStates.waiting_for_line_range)
+
+
+async def _to_payment(message: Message, state: FSMContext, user_lang: str, user, data: dict) -> None:
+    price = data.get("price", 15000)
+    balance = (user.balance if user else 0) or 0
+    await state.set_data(pay.start(data))
+    await state.set_state(BookTranslateStates.waiting_for_payment)
+    await message.answer(get_text(user_lang, "payment_choose", price=price, balance=balance),
+                         reply_markup=pay.payment_keyboard(CHECKOUT, user_lang, price))
+
+
+async def _ocr_range(message: Message, state: FSMContext, user_lang: str, user, data: dict,
+                     text: str) -> None:
+    """Skaner kitob: bet oralig'i, narx. Faqat matn bo'lsa to'lovga, tarjima bo'lsa tilni tanlashga o'tadi."""
+    from services.book_translate_service import WORDS_PER_PAGE
+
+    total = data.get("total_pages", 0)
+    if text == "0":
+        from_p, to_p = 1, min(total, BOOK_OCR_MAX_PAGES)
+    else:
+        match = re.match(r"^(\d+)\s*[-–\s]\s*(\d+)$", text)
+        if not match:
+            await message.answer(get_text(user_lang, "book_translate_range_invalid"))
+            return
+        from_p, to_p = int(match.group(1)), int(match.group(2))
+        if from_p < 1 or to_p < 1 or from_p > total or to_p > total or from_p > to_p:
+            await message.answer(get_text(user_lang, "book_translate_range_out", total=total),
+                                 parse_mode="Markdown")
+            return
+    pages = to_p - from_p + 1
+    if pages > BOOK_OCR_MAX_PAGES:
+        await message.answer(get_text(user_lang, "book_ocr_too_many", max=BOOK_OCR_MAX_PAGES))
+        return
+    ocr_price = book_ocr_price(pages)
+    translate = data.get("ocr_mode") == "ocr_translate"
+    price = ocr_price
+    if translate:
+        words = pages * WORDS_PER_PAGE
+        price = ocr_price + get_book_translate_price(words)
+    await state.update_data(price=price, page_from=from_p, page_to=to_p, range_words=pages * WORDS_PER_PAGE)
+    await message.answer(get_text(user_lang, "book_ocr_range_info", from_p=from_p, to_p=to_p,
+                                  pages=pages, price=price), parse_mode="Markdown")
+    if translate:
+        await message.answer(get_text(user_lang, "book_translate_select_lang"),
+                             reply_markup=get_book_translate_lang_keyboard(user_lang))
+        await state.set_state(BookTranslateStates.waiting_for_target_lang)
+        return
+    data = await state.get_data()
+    await _to_payment(message, state, user_lang, user, {**data, "target_lang": "text"})
 
 
 async def _on_web_upload(record: dict, path: str, file_name: str) -> None:
@@ -247,6 +339,10 @@ async def handle_line_range_input(message: Message, state: FSMContext, user_lang
     total_pages = data.get("total_pages", 0)
     word_count = data.get("word_count", 0)
     local_path = data.get("local_path", "")
+
+    if data.get("scanned"):
+        await _ocr_range(message, state, user_lang, user, data, text)
+        return
 
     if text == "0":
         # Butun kitob
@@ -525,6 +621,7 @@ async def _translate_pdf_book(callback: CallbackQuery, state: FSMContext, user_l
     page_from, page_to = data.get("page_from"), data.get("page_to")
     start = (page_from - 1) if page_from else 0
     stop = page_to if page_to else total
+    mode = (data.get("ocr_mode") or "ocr") if data.get("scanned") else "translate"
     if charge:
         await db.update_user_balance(user.telegram_id, -price)
     try:
@@ -533,7 +630,7 @@ async def _translate_pdf_book(callback: CallbackQuery, state: FSMContext, user_l
             pdf_path=pdf_path, file_name=data.get("original_filename") or "kitob.pdf",
             target_lang=data.get("target_lang", "uz"),
             source_lang=data.get("source_lang") or "ru",
-            start=start, stop=stop, price=price, charged=price)
+            start=start, stop=stop, price=price, charged=price, mode=mode)
     except Exception as e:
         # Stars bilan to'langan bo'lsa ham pul balansga qaytadi.
         await db.update_user_balance(user.telegram_id, price)
@@ -544,7 +641,8 @@ async def _translate_pdf_book(callback: CallbackQuery, state: FSMContext, user_l
         return
 
     await state.clear()
-    await callback.message.answer(get_text(user_lang, "book_job_started", part=BOOK_PART_PAGES),
+    started = "book_ocr_job_started" if mode != "translate" else "book_job_started"
+    await callback.message.answer(get_text(user_lang, started, part=BOOK_PART_PAGES),
                                   reply_markup=get_main_keyboard(user_lang))
     book_jobs.start(callback.bot, job)
 
