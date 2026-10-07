@@ -28,6 +28,7 @@ header{background:var(--card);border-bottom:1px solid var(--line);position:stick
 .logo{font-size:18px;font-weight:700;letter-spacing:-.02em;white-space:nowrap;cursor:pointer;
       background:none;border:0;color:var(--text);font-family:inherit;text-decoration:none}
 .logo span{color:var(--accent)}
+.logo img{display:block;width:44px;height:44px;border-radius:50%}
 .search{flex:1;min-width:200px;position:relative}
 .search input{
   width:100%;padding:11px 14px 11px 40px;font-size:15px;font-family:inherit;

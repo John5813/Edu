@@ -147,6 +147,7 @@ def _catalog() -> Dict:
 
     sizes = [5, 8, 10, 12, 15, 20, 25, 30]
     return {
+        "bot": webapp.BOT_USERNAME or "Edufayl_bot",
         "kinds": [{"key": kind.key, "label": kind.label} for kind in web_jobs.KINDS.values()],
         "languages": [{"key": "uz", "label": "O'zbek (lotin)"}, {"key": "uz-cyrl", "label": "Ўзбек (кирилл)"},
                       {"key": "ru", "label": "Русский"}, {"key": "en", "label": "English"},

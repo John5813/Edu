@@ -263,6 +263,22 @@ async def main():
     src = open("bot/handlers/start.py", encoding="utf8").read()
     check("start handler weblogin_ ni tasdiqlaydi", "weblogin_" in src and "confirm_login" in src)
 
+    print("11) Sahifalar")
+    home = await client.get("/")
+    html = await home.text()
+    check("bosh sahifa ochiladi: logotip, Tayyor mavzular, kirish", home.status == 200 and "/static/logo.jpg" in html
+          and "Tayyor mavzular" in html and 'id="actions"' in html)
+    check("'Botdagi hamma xizmat' kabi ortiqcha gaplar yo'q", "brauzerda ham" not in html and "bir xil natija" not in html)
+    r = await client.get("/app")
+    check("kabinet sahifasi ochiladi", r.status == 200 and "app.js" in await r.text())
+    for name, kind in (("site.css", "css"), ("site.js", "javascript"), ("app.js", "javascript"), ("logo.jpg", "image")):
+        r = await client.get(f"/static/{name}")
+        check(f"/static/{name} beriladi", r.status == 200 and kind in r.headers["Content-Type"], r.headers.get("Content-Type"))
+    r = await client.get("/static/..%2f..%2fapi.py")
+    check("papkadan tashqariga chiqib bo'lmaydi", r.status == 404, r.status)
+    r = await client.get("/shop")
+    check("do'kon sahifasi avvalgidek ishlaydi", r.status == 200 and "/static/logo.jpg" in await r.text())
+
     await client.close()
     print("\n" + ("✅ hammasi o'tdi" if not FAILS else f"❌ {len(FAILS)} ta xato: {FAILS}"))
     sys.exit(1 if FAILS else 0)
