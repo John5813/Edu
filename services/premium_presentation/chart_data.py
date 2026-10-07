@@ -1,13 +1,13 @@
-"""Diagramma ma'lumotlari — FAQAT Claude'dan, haqiqiy raqamlar bilan.
+"""Diagramma ma'lumotlari — admin tanlagan AI dan, haqiqiy raqamlar bilan.
 
 Ilgari slaydni yozgan model diagramma raqamlarini o'zi to'qirdi: har mavzuda diagramma
 chiqar, lekin raqamlar real emas edi. Endi tartib boshqacha:
 
-1. Reja diagramma deb belgilagan slayd uchun Claude'dan (alohida chaqiruv) ma'lumot so'raladi:
+1. Reja diagramma deb belgilagan slayd uchun AI dan (alohida chaqiruv) ma'lumot so'raladi:
    haqiqiy raqamlar, manbasi va yili bilan. Boshqa provayderlarga o'tilmaydi (`config`).
 2. Ishonchli ma'lumot bo'lmasa — diagramma qo'yilmaydi, slayd boshqa blok bilan ochiladi.
 3. Slayd yozuvchi modelga tayyor ma'lumot beriladi (u faqat izoh yozadi), keyin kod
-   diagramma raqamlarini Claude bergan qiymatlarga majburan almashtiradi.
+   diagramma raqamlarini AI bergan qiymatlarga majburan almashtiradi.
 """
 import concurrent.futures
 import html
@@ -24,7 +24,7 @@ SOURCE_LABEL = {
     "uz": "Manba:", "ru": "Источник:", "en": "Source:",
     "kk": "Дереккөз:", "uz-cyrl": "Манба:",
 }
-# Claude ishonchli ma'lumot bermagan diagramma: oddiy model tuzgan namunaviy raqamlar halol belgilanadi.
+# AI ishonchli ma'lumot bermagan diagramma: oddiy model tuzgan namunaviy raqamlar halol belgilanadi.
 ILLUSTRATIVE = {"uz": "Shartli misol", "ru": "Условный пример", "en": "Illustrative example",
                 "kk": "Шартты мысал", "uz-cyrl": "Шартли мисол"}
 FALLBACK_NOTE = (
@@ -90,7 +90,7 @@ def _number(value) -> Optional[float]:
 
 
 def validate(raw: dict, language: str = "uz") -> Optional[Dict]:
-    """Claude javobini tekshirib, tayyor ma'lumotga aylantiradi (yaroqsiz bo'lsa None)."""
+    """AI javobini tekshirib, tayyor ma'lumotga aylantiradi (yaroqsiz bo'lsa None)."""
     from services import timeframe
     if not isinstance(raw, dict) or raw.get("ok") is not True:
         return None
@@ -129,10 +129,10 @@ def validate(raw: dict, language: str = "uz") -> Optional[Dict]:
 
 
 def research(topic: str, title: str, brief: str, kind: str, language: str = "uz") -> Optional[Dict]:
-    """Claude'dan bitta diagramma uchun haqiqiy ma'lumot so'raydi (bo'lmasa None)."""
+    """Tanlangan AI dan bitta diagramma uchun haqiqiy ma'lumot so'raydi (bo'lmasa None)."""
     try:
         raw = llm_client._call_openrouter(SYSTEM, _prompt(topic, title, brief, kind, language),
-                                          temperature=0.2, max_tokens=1500, kind="chart")
+                                          temperature=0.2, max_tokens=1500, kind="text")
     except llm_client.NoCredits:
         raise
     except Exception as exc:
@@ -179,7 +179,7 @@ def note_for(data: Dict) -> str:
                      for name, values in data["series"])
     extra = " Raqamlar taxminiy (yaxlitlangan)." if data.get("approx") else ""
     extra += " Bu rasmiy prognoz." if data.get("forecast") else ""
-    return (f"TAYYOR DIAGRAMMA (Claude bergan HAQIQIY ma'lumot): {rows}"
+    return (f"TAYYOR DIAGRAMMA (AI bergan HAQIQIY ma'lumot): {rows}"
             f"{' ' + data['unit'] if data.get('unit') else ''}. Manba: {data['source']}.{extra} "
             f"Slaydda aynan shu blokni qo'ying (raqamlarni o'zgartirmang): {block(data)} "
             "va ostiga shu raqamlardan kelib chiqadigan 2-4 gaplik izoh yozing: nima ko'rsatilgani, "
@@ -193,7 +193,7 @@ _FALLBACK = "ikki_ustun"
 
 def ground(outline: List[Dict], topic: str, language: str = "uz", level: int = 2,
            researcher=None) -> List[Dict]:
-    """Rejadagi har diagramma slayd uchun Claude'dan haqiqiy ma'lumot olinadi.
+    """Rejadagi har diagramma slayd uchun AI dan haqiqiy ma'lumot olinadi.
 
     Ma'lumot topilsa — `item["chart"]` va `item["chart_note"]` (yozuvchi modelga ko'rsatma);
     topilmasa — slayd diagrammasiz kategoriyaga qaytariladi (`was` yoki `ikki_ustun`).
@@ -227,7 +227,7 @@ def ground(outline: List[Dict], topic: str, language: str = "uz", level: int = 2
                 # ma'lumot tuzadi, u "Shartli misol" deb belgilanadi.
                 item["chart_fallback"] = True
                 item["chart_note"] = FALLBACK_NOTE
-                log.info("%d-slayd: Claude ma'lumot bermadi — namunaviy diagramma (Shartli misol)", index + 1)
+                log.info("%d-slayd: AI ma'lumot bermadi — namunaviy diagramma (Shartli misol)", index + 1)
     return outline
 
 
@@ -264,9 +264,9 @@ def _insert(body: str, chart: str) -> str:
 
 
 def enforce(body: str, item: Optional[Dict], language: str = "uz") -> str:
-    """Slayddagi diagramma raqamlari: Claude bergan ma'lumot yoki halol belgilangan namuna.
+    """Slayddagi diagramma raqamlari: AI bergan ma'lumot yoki halol belgilangan namuna.
 
-    Rejada Claude ma'lumoti bor: slayddagi birinchi blok tayyor blokka almashadi, ortiqchalari tushadi.
+    Rejada AI ma'lumoti bor: slayddagi birinchi blok tayyor blokka almashadi, ortiqchalari tushadi.
     Ma'lumot yo'q: model tuzgan diagramma o'chirilmaydi (izohi unga tayanadi), balki "Shartli misol"
     deb belgilanadi — haqiqiy statistika kabi ko'rinmaydi.
     """
@@ -275,7 +275,7 @@ def enforce(body: str, item: Optional[Dict], language: str = "uz") -> str:
     data = (item or {}).get("chart")
     found = list(_CHART_BLOCK.finditer(body))
     if not found:
-        # Model diagramma yozmadi (yoki qayta yozish qabul qilinmadi), lekin Claude ma'lumot bergan:
+        # Model diagramma yozmadi (yoki qayta yozish qabul qilinmadi), lekin AI ma'lumot bergan:
         # blok kod tomonidan qo'yiladi — izohi "yuqoridagi diagramma" deb turib, diagramma yo'q qolmasin.
         return _insert(body, block(data)) if data and not _is_cover(body) else body
     out, pos = [], 0
@@ -294,7 +294,7 @@ def enforce(body: str, item: Optional[Dict], language: str = "uz") -> str:
 # ──────────────────────────────────────── rejasiz yozilgan ("yetim") diagrammalar
 
 def strays(slides: List[str], outline: List[Dict]) -> List[int]:
-    """Diagramma yozilgan, lekin Claude ma'lumoti hali yo'q va urinilmagan slaydlar."""
+    """Diagramma yozilgan, lekin AI ma'lumoti hali yo'q va urinilmagan slaydlar."""
     result = []
     for index, body in enumerate(slides):
         item = outline[index] if index < len(outline) else None
@@ -307,7 +307,7 @@ def strays(slides: List[str], outline: List[Dict]) -> List[int]:
 
 def research_strays(slides: List[str], outline: List[Dict], topic: str, language: str = "uz",
                     researcher=None) -> List[int]:
-    """Yetim diagrammalar uchun Claude'dan ma'lumot so'raydi; topilganlar indekslari qaytadi."""
+    """Yetim diagrammalar uchun AI dan ma'lumot so'raydi; topilganlar indekslari qaytadi."""
     researcher = researcher or research
     todo = strays(slides, outline)
     if not todo:
@@ -327,7 +327,7 @@ def research_strays(slides: List[str], outline: List[Dict], topic: str, language
             if data:
                 item["chart"], item["chart_note"] = data, note_for(data)
                 found.append(index)
-                log.info("%d-slayddagi diagramma uchun Claude haqiqiy ma'lumot berdi", index + 1)
+                log.info("%d-slayddagi diagramma uchun AI haqiqiy ma'lumot berdi", index + 1)
             else:
                 item["chart_fallback"] = True
     return found
