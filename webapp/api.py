@@ -7,6 +7,7 @@ tasdiqlaydi, brauzer so'rab turib sessiya cookie'sini oladi.
 import json
 import logging
 import os
+import re
 import time
 from collections import defaultdict, deque
 from pathlib import Path
@@ -478,10 +479,53 @@ async def wallet_receipt(request: web.Request) -> web.Response:
 
 # ──────────────────────────────────────────────────────────────────────── sahifalar
 
+_ASSET = re.compile(r'(/static/[\w.-]+\.(?:js|css|jpg|png))(?=["\'])')
+
+
+def _asset_tag(name: str) -> str:
+    """Fayl o'zgarganda o'zgaradigan belgi (yangilangandan keyin brauzer/CDN eski faylni ushlab turmasin)."""
+    try:
+        return format((SITE_DIR / "static" / name).stat().st_mtime_ns // 1000, "x")
+    except OSError:
+        return "0"
+
+
+def versioned_html(name: str) -> str:
+    """Sahifadagi /static/... havolalariga `?v=<belgi>` qo'shadi."""
+    text = (SITE_DIR / name).read_text(encoding="utf-8")
+    return _ASSET.sub(lambda m: f"{m.group(1)}?v={_asset_tag(m.group(1).rsplit('/', 1)[1])}", text)
+
+
+def site_page(name: str) -> web.Response:
+    return web.Response(text=versioned_html(name), content_type="text/html", charset="utf-8",
+                        headers={"Cache-Control": "no-cache"})
+
+
 def _page(name: str):
     async def handler(request: web.Request) -> web.StreamResponse:
-        return web.FileResponse(SITE_DIR / name, headers={"Cache-Control": "no-cache"})
+        return site_page(name)
     return handler
+
+
+_COMMIT = ""
+
+
+def _commit() -> str:
+    """Ishlab turgan kodning commit raqami (yangilash bajarilganini tekshirish uchun)."""
+    global _COMMIT
+    if not _COMMIT:
+        import subprocess
+        try:
+            _COMMIT = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=str(SITE_DIR.parent.parent),
+                                     capture_output=True, text=True, timeout=5).stdout.strip() or "noma'lum"
+        except Exception:
+            _COMMIT = "noma'lum"
+    return _COMMIT
+
+
+async def version(request: web.Request) -> web.Response:
+    return web.json_response({"ok": True, "commit": _commit(), "app_js": _asset_tag("app.js"),
+                              "site_css": _asset_tag("site.css")}, headers={"Cache-Control": "no-store"})
 
 
 async def static_file(request: web.Request) -> web.StreamResponse:
@@ -499,6 +543,7 @@ def setup_api_routes(app: web.Application) -> None:
     add("GET", "/api/v1/auth/poll", auth_poll)
     add("POST", "/api/v1/auth/logout", auth_logout)
     add("GET", "/api/v1/me", me)
+    add("GET", "/api/v1/version", version)
     add("GET", "/api/v1/catalog", catalog)
     add("POST", "/api/v1/quote", quote)
     add("POST", "/api/v1/suggest", suggest)
