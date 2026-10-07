@@ -67,7 +67,7 @@ def _save(job: dict) -> None:
 
 def create_job(*, user_id: int, chat_id: int, lang: str, pdf_path: str, file_name: str,
                target_lang: str, source_lang: str, start: int, stop: int,
-               price: int, charged: int = 0) -> dict:
+               price: int, charged: int = 0, mode: str = "translate") -> dict:
     """Yangi ish. Kitob fayli ish papkasiga ko'chiriladi (temp tozalanishidan
     himoyalangan joyga)."""
     job_id = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
@@ -81,7 +81,7 @@ def create_job(*, user_id: int, chat_id: int, lang: str, pdf_path: str, file_nam
         "source_lang": source_lang, "start": start, "stop": stop, "next": start,
         "price": int(price), "charged": int(charged), "parts": [],
         "failed": 0, "segments": 0, "created": time.time(), "status": "queued",
-        "status_message": None,
+        "status_message": None, "mode": mode,
     }
     _save(job)
     return job
@@ -151,11 +151,46 @@ async def _delete_status(bot, job: dict) -> None:
 
 # ─────────────────────────────────────────────── Bitta qism
 
+def _ocr_only(job: dict) -> bool:
+    return job.get("mode") == "ocr"
+
+
+async def _read_part(bot, job: dict, start: int, stop: int) -> List[dict]:
+    """Qism abzatslarini oladi: skaner kitobda — ko'rish AI orqali o'qiladi (mablag' tugasa kutiladi)."""
+    if job.get("mode") not in ("ocr", "ocr_translate"):
+        return await asyncio.to_thread(bpt.extract_paragraphs, job["src"], start, stop,
+                                       job["source_lang"])
+    from services import book_ocr
+
+    credit_tries = 0
+    while True:
+        try:
+            items, unreadable = await asyncio.to_thread(book_ocr.read_pages, job["src"], start, stop,
+                                                        job["source_lang"])
+            break
+        except bpt.BookNoCredits as exc:
+            credit_tries += 1
+            if credit_tries == 1:
+                from bot.handlers.premium_presentation import _warn_admins_no_credits
+
+                await _warn_admins_no_credits(bot, f"Kitob o'qish (OCR): {exc}")
+                await _status(bot, job, get_text(job["lang"], "book_job_waiting_credits"))
+            if credit_tries >= CREDIT_TRIES:
+                raise
+            await asyncio.sleep(CREDIT_WAIT)
+    if len(unreadable) > (stop - start) * MAX_FAILED_SHARE:
+        raise bpt.BookTranslateError(
+            f"{start + 1}-{stop} betlarda {len(unreadable)}/{stop - start} bet o'qilmadi")
+    job["unreadable"] = job.get("unreadable", 0) + len(unreadable)
+    if job["source_lang"] in (None, "", "unknown") and items:
+        job["source_lang"] = book_ocr.guess_language(items)
+    return items
+
+
 async def _translate_part(bot, job: dict, start: int, stop: int) -> dict:
-    """Qism abzatslarini oladi, tarjima qiladi va diskka yozadi."""
-    items = await asyncio.to_thread(bpt.extract_paragraphs, job["src"], start, stop,
-                                    job["source_lang"])
-    wanted = [i for i, item in enumerate(items) if item["translate"]]
+    """Qism abzatslarini oladi (kerak bo'lsa o'qiydi), tarjima qiladi va diskka yozadi."""
+    items = await _read_part(bot, job, start, stop)
+    wanted = [] if _ocr_only(job) else [i for i, item in enumerate(items) if item["translate"]]
     texts = [items[i]["text"] for i in wanted]
     translated: List[Optional[str]] = []
     if texts:
@@ -209,11 +244,13 @@ async def _deliver(bot, job: dict, partial: bool = False) -> Optional[str]:
     done = job["next"] - job["start"]
     total = job["stop"] - job["start"]
     suffix = f"_{job['start'] + 1}-{job['next']}" if partial else ""
-    name = f"{base}_{job['target_lang']}{suffix}.docx"
+    label = "matn" if _ocr_only(job) else job["target_lang"]
+    name = f"{base}_{label}{suffix}.docx"
     out = os.path.join(TEMP_DIR, f"book_{uuid.uuid4().hex[:8]}.docx")
     await asyncio.to_thread(bpt.build_docx, items, out)
     caption = (get_text(job["lang"], "book_partial_caption", done=done, total=total)
-               if partial else get_text(job["lang"], "book_docx_caption"))
+               if partial else get_text(job["lang"], "book_ocr_caption" if _ocr_only(job)
+                                        else "book_docx_caption"))
     await bot.send_document(job["chat_id"], FSInputFile(out, filename=name),
                             caption=caption, request_timeout=600)
     return out
@@ -254,7 +291,8 @@ async def _run(bot, job: dict) -> None:
         stop = min(start + BOOK_PART_PAGES, job["stop"])
         number = (start - job["start"]) // BOOK_PART_PAGES + 1
         await _status(bot, job, get_text(
-            lang, "book_part_status", part=number, parts=parts, first=start + 1,
+            lang, "book_ocr_part_status" if _ocr_only(job) or job.get("mode") == "ocr_translate"
+            else "book_part_status", part=number, parts=parts, first=start + 1,
             last=stop, done=start - job["start"], pages=total,
             percent=int((start - job["start"]) * 100 / max(total, 1))))
         try:
@@ -281,7 +319,11 @@ async def _run(bot, job: dict) -> None:
     if job["failed"]:
         await bot.send_message(job["chat_id"], get_text(lang, "book_pdf_partial",
                                                         failed=job["failed"]))
-    await bot.send_message(job["chat_id"], get_text(lang, "book_pdf_note"))
+    if job.get("unreadable"):
+        await bot.send_message(job["chat_id"], get_text(lang, "book_ocr_unreadable",
+                                                        pages=job["unreadable"]))
+    await bot.send_message(job["chat_id"], get_text(
+        lang, "book_ocr_note" if job.get("mode") in ("ocr", "ocr_translate") else "book_pdf_note"))
     job["status"] = "done"
     _save(job)
     if path:
@@ -316,8 +358,8 @@ async def _fail(bot, job: dict, exc: Exception) -> None:
     if isinstance(exc, bpt.BookNoCredits):
         text = get_text(lang, "book_no_credits")
     else:
-        text = get_text(lang, "book_job_failed", done=job["next"] - job["start"],
-                        refund=refund)
+        key = "book_ocr_failed" if job.get("mode") in ("ocr", "ocr_translate") else "book_job_failed"
+        text = get_text(lang, key, done=job["next"] - job["start"], refund=refund)
     try:
         await bot.send_message(job["chat_id"], text)
     except Exception:
@@ -336,7 +378,8 @@ async def run(bot, job: dict) -> None:
         async with _lock:
             job["status"] = "running"
             _save(job)
-            key = workload.begin(f"Kitob tarjimasi ({job['stop'] - job['start']} bet)")
+            kind = "Kitobni matnga o'tkazish" if job.get("mode") in ("ocr", "ocr_translate") else "Kitob tarjimasi"
+            key = workload.begin(f"{kind} ({job['stop'] - job['start']} bet)")
             try:
                 await _run(bot, job)
             except Exception as exc:
@@ -353,7 +396,7 @@ async def run(bot, job: dict) -> None:
 async def _tell_admins(bot, job: dict, exc: Exception, refund: int) -> None:
     from config import ADMIN_IDS
 
-    text = (f"⚠️ Kitob tarjimasi to'xtadi: {job.get('file_name')}\n"
+    text = (f"⚠️ Kitob ishi ({job.get('mode', 'translate')}) to'xtadi: {job.get('file_name')}\n"
             f"Foydalanuvchi: {job['user_id']}, {job['next'] - job['start']}/"
             f"{job['stop'] - job['start']} bet tayyor, {refund:,} so'm qaytarildi.\n"
             f"Sabab: {str(exc)[:300]}")

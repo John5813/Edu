@@ -104,6 +104,7 @@ class PptxToPdfStates(StatesGroup):
 
 class BookTranslateStates(StatesGroup):
     waiting_for_file = State()
+    waiting_for_ocr_mode = State()
     waiting_for_line_range = State()
     waiting_for_target_lang = State()
     waiting_for_payment = State()
