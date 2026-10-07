@@ -139,7 +139,7 @@ REASONS: Dict[str, str] = {
     "screenshot_old": "Skrinshot soati hozirgi vaqtdan juda farq qiladi",
     "clock_mismatch": "Skrinshot soati chek vaqtiga mos emas",
     "tamper_high": "Tahrirlanganga o'xshaydi (AI)",
-    "tamper_meta": "Fayl metama'lumotida tahrirlovchi dastur izi",
+    "tamper_meta": "⚠️ Fayl metama'lumotida tahrirlovchi dastur izi — chekni diqqat bilan tekshiring",
     "cropped": "Chek qirqilgan",
     "no_amount": "Summa o'qilmadi",
     "tiny_amount": "Summa juda kichik",

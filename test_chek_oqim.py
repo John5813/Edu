@@ -185,8 +185,12 @@ async def main():
     reader.prepare = lambda data, filename="", mime="": reader.Prepared(images=[b"img"], meta_flags=["exif:Adobe Photoshop 25"])
     out_f, msg_f = await send(300, b"W2")
     reader.prepare = _old_prepare
-    check("fayl izida Photoshop bor chek: rad, to'lov yo'q", out_f.verdict == rules.FAKE and out_f.payment_id is None and "tahrirlangan" in msg_f.answers[-1][0], (out_f.verdict, msg_f.answers[-1][0]))
-    check("faqat boshqa karta cheki adminga bordi, tahrirlangani bormadi", len(bot.copied) == copied_before + 1 and len([m for m in bot.sent if m.chat.id == ADMIN]) == sent_before + 1)
+    check("fayl izida Photoshop bor chek: RAD ETILMAYDI — adminga ogohlantirish bilan boradi",
+          out_f.verdict == rules.REVIEW and out_f.payment_id is not None and "tahrirlangan" not in msg_f.answers[-1][0],
+          (out_f.verdict, msg_f.answers[-1][0]))
+    card = [m for m in bot.sent if m.chat.id == ADMIN][-1].text
+    check("admin kartochkasida fayl belgisi ko'rsatilgan", "exif:Adobe Photoshop 25" in card and "metama'lumot" in card, card)
+    check("ikkala cheki ham adminga bordi", len(bot.copied) == copied_before + 2 and len([m for m in bot.sent if m.chat.id == ADMIN]) == sent_before + 2)
 
     print("7d) Click «O'tkazma amalga oshirildi» ekrani: qabul qiluvchi telefon raqami, karta/ism/ID yo'q")
     config.RECEIPT_AUTO = False

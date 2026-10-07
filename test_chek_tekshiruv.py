@@ -154,7 +154,8 @@ print("6) Shubhali belgilar va chegaralar")
 d = rules.evaluate(rec(tamper="high"), ctx())
 check("AI «tahrirlangan» desa (arzon model adashishi mumkin) — rad emas, adminga ogohlantirish bilan", d.verdict == rules.REVIEW and "tamper_high" in d.reasons, (d.verdict, d.reasons))
 check("kuchsiz tahrir belgisi (low) — o'tadi", rules.evaluate(rec(tamper="low"), ctx()).verdict == rules.AUTO)
-check("fayl metama'lumotida Photoshop izi — rad (adminga bormaydi)", rules.evaluate(rec(meta_flags=["exif:Adobe Photoshop"]), ctx()).verdict == rules.FAKE)
+d = rules.evaluate(rec(meta_flags=["exif:Adobe Photoshop"]), ctx())
+check("fayl metama'lumotida Photoshop izi — rad EMAS, adminga ogohlantirish bilan", d.verdict == rules.REVIEW and "tamper_meta" in d.reasons, (d.verdict, d.reasons))
 check("qirqilgan chek — admin", rules.evaluate(rec(cropped=True), ctx()).verdict == rules.REVIEW)
 check("AI ishonchi past — admin", rules.evaluate(rec(confidence=0.4), ctx()).verdict == rules.REVIEW)
 check("summa avto-chegaradan katta — admin", rules.evaluate(rec(amount=250_000), ctx(claimed=250_000)).verdict == rules.REVIEW)
@@ -188,6 +189,26 @@ check("ikki o'qish solishtiriladi: summa farqi", reader.compare(a, b) == ["amoun
 check("ikki o'qish solishtiriladi: ID raqami adashtirilsa", "id" in reader.compare(a, reader.parse({**raw, "ids": ["5333277568"]}, now=NOW)))
 check("bir xil o'qish — farq yo'q", reader.compare(a, reader.parse(raw, now=NOW)) == [])
 
+print("7b) Paynet cheklari (haqiqiy mijoz skrinshotlari)")
+paynet_now = datetime(2026, 10, 7, 17, 8)
+full = reader.parse({"doc_type": "transfer", "status": "success", "readable": True, "amount": "10 000", "fee": 0,
+                     "date": {"year": 2026, "month": 10, "day": 7, "hour": 17, "minute": 3}, "ids": ["99557272450"],
+                     "sender_name": "SHOHJAHON ISMADIYAROV", "sender_card": "**** **** **** 9180",
+                     "receiver_name": "JAVLONBEK M", "receiver_card": "**** **** **** 6655", "app": "paynet",
+                     "screenshot": {"is_screenshot": True, "clock": "17:08", "battery": 36}, "confidence": 0.9},
+                    [], paynet_now)
+d = rules.evaluate(full, ctx(now=paynet_now, started_at=paynet_now - timedelta(minutes=6), auto_enabled=False))
+check("Paynet to'liq cheki (PDF/ekran) adminga boradi, rad etilmaydi (qo'lda tasdiq rejimi)", d.verdict == rules.REVIEW
+      and not d.reasons, (d.verdict, d.reasons))
+short = reader.parse({"doc_type": "transfer", "status": "success", "readable": True, "amount": 10000, "fee": 0,
+                      "ids": [], "sender_name": "", "sender_card": "", "receiver_name": "Javlonbek M",
+                      "receiver_card": "• 6655", "app": "paynet",
+                      "screenshot": {"is_screenshot": True, "clock": "17:03", "battery": 38}, "confidence": 0.9},
+                     [], paynet_now)
+d2 = rules.evaluate(short, ctx(now=paynet_now, started_at=paynet_now - timedelta(minutes=6), auto_enabled=False))
+check("«O'tkazma yuborildi» ekrani (summa, qabul qiluvchi, karta oxiri) ham adminga boradi", d2.verdict == rules.REVIEW,
+      (d2.verdict, d2.reasons))
+
 print("8) Fayllarni tayyorlash (rasm, PDF, DOCX)")
 from PIL import Image
 buf = io.BytesIO(); Image.new("RGB", (600, 1200), "white").save(buf, "JPEG"); plain = buf.getvalue()
@@ -196,6 +217,13 @@ check("oddiy rasm: bitta rasm, tahrir belgisi yo'q", len(p.images) == 1 and not 
 img = Image.new("RGB", (600, 1200), "white"); ex = img.getexif(); ex[305] = "Adobe Photoshop 25.0"
 buf = io.BytesIO(); img.save(buf, "JPEG", exif=ex); edited_jpg = buf.getvalue()
 check("EXIF'da Photoshop — belgilanadi", any("Photoshop" in f for f in reader.prepare(edited_jpg, "b.jpg").meta_flags))
+# Siqilgan rasm ichida tasodifan «gimp» kabi harflar chiqsa ham haqiqiy chek «tahrirlangan» bo'lmasin
+noisy = Image.new("RGB", (600, 1200), "white")
+buf = io.BytesIO(); noisy.save(buf, "PNG"); png = buf.getvalue()
+body = png + b"xxgimpxx photoshop canva affinity"                          # fayl oxiridagi tasodifiy baytlar (metama'lumot emas)
+check("rasm baytlari orasidagi tasodifiy so'z belgi emas", not reader.prepare(body, "c.png").meta_flags)
+xmp = png + b'<x:xmpmeta xmlns:x="adobe:ns:meta/"><xmp:CreatorTool>Adobe Photoshop 25</xmp:CreatorTool></x:xmpmeta>'
+check("XMP ichidagi tahrirlovchi dastur belgilanadi", reader.prepare(xmp, "d.png").meta_flags)
 import pymupdf
 pdf = pymupdf.open(); page = pdf.new_page(); page.insert_text((72, 72), "Receipt 10000 UZS  Transaction ID 123456789"); pdf_bytes = pdf.tobytes()
 pp = reader.prepare(pdf_bytes, "chek.pdf")

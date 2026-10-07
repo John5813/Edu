@@ -260,6 +260,10 @@ async def _process(message, state_data: dict, db, user, lang: str, source: str,
 
     snapshot = _snapshot(receipt, file_sha)
     verdict = decision.verdict
+    # Tashxis uchun jurnal (ism va karta raqamlarisiz): nega chek shu qarorga keldi.
+    log.info("Chek hukmi: %s | sabablar=%s | hujjat=%s holat=%s ilova=%s summa=%s o'qildi=%s fayl_belgisi=%s",
+             verdict, decision.reasons, receipt.doc_type, receipt.status, receipt.app, receipt.amount,
+             receipt.raw.get("readable"), receipt.meta_flags)
     amount_for_payment = receipt.amount if receipt.amount and receipt.amount >= 1000 else claimed
 
     # ── chek emas: qayta so'raladi, admin jim xabar oladi
