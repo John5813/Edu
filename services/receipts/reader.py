@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
+from .rules import _PHOTO_EDITORS as _PHOTO_EDITOR_WORD
 from .rules import Receipt, card_tail, editor_flag, now_tashkent
 
 logger = logging.getLogger(__name__)
@@ -45,10 +46,21 @@ def _jpeg(img) -> bytes:
 
 
 def _raw_editor_flag(data: bytes) -> Optional[str]:
-    head = data[:300_000] + data[-60_000:]
-    match = re.search(rb"(photoshop|gimp|snapseed|picsart|canva|lightroom|pixlr|photopea|facetune|"
-                      rb"remini|fotor|polarr|paint\.net|affinity)", head, re.IGNORECASE)
-    return match.group(1).decode("latin-1") if match else None
+    """Rasm faylidagi tahrirlovchi dastur izi: faqat metama'lumot bo'laklarida (XMP va PNG matn qismi).
+
+    Ilgari butun fayl baytlari qidirilardi: siqilgan rasm ichida «gimp» kabi harf ketma-ketligi tasodifan
+    uchrab (taxminan 600 ta fayldan bittasida), haqiqiy chek «tahrirlangan» deb rad etilardi.
+    """
+    for match in re.finditer(rb"<x:xmpmeta.{0,60000}?</x:xmpmeta>", data[:400_000] + data[-100_000:], re.DOTALL):
+        found = _PHOTO_EDITOR_WORD.search(match.group(0).decode("utf-8", "ignore"))
+        if found:
+            return found.group(0)
+    text = re.search(rb"(?:tEXt|iTXt)(?:Software|Creator)\x00([\x20-\x7e]{1,80})", data[:300_000])
+    if text:
+        found = _PHOTO_EDITOR_WORD.search(text.group(1).decode("latin-1"))
+        if found:
+            return found.group(0)
+    return None
 
 
 def prepare(data: bytes, filename: str = "", mime: str = "") -> Prepared:
@@ -132,16 +144,20 @@ SYSTEM = ("Sen to'lov cheklarini o'qiysan: faqat chekda yozilganini ko'chirasan,
 def _prompt(text: str, now: datetime) -> str:
     return (
         f"Bugun (Toshkent): {now:%Y-%m-%d %H:%M}. Fayl O'zbekiston bank/ilovasidan (Click, Payme, Uzum, Hamkor, "
-        "SQB, Humo...) o'tkazma cheki, skrinshoti yoki kvitansiyasi bo'lishi kerak. FAQAT JSON qaytar:\n"
+        "SQB, Humo, Paynet, Apelsin, Anorbank, Milliy...) o'tkazma cheki, skrinshoti yoki kvitansiyasi bo'lishi kerak. "
+        "FAQAT JSON qaytar:\n"
         '{"doc_type":"transfer|payment|tax_receipt|other","status":"success|failed|pending|unknown","readable":true,'
         '"amount":0,"fee":0,"currency":"UZS","date":{"year":2026,"month":10,"day":6,"hour":20,"minute":0},'
         '"ids":[],"sender_name":"","sender_card":"","receiver_name":"","receiver_card":"",'
-        '"app":"click|payme|uzum|hamkor|sqb|humo|other","screenshot":{"is_screenshot":true,"clock":"20:00","battery":91},'
+        '"app":"click|payme|uzum|hamkor|sqb|humo|paynet|other","screenshot":{"is_screenshot":true,"clock":"20:00","battery":91},'
         '"cropped":false,"tamper":"none|low|high","confidence":0.9}\n'
         "• doc_type: kartadan kartaga o'tkazma/to'lov tasdig'i — transfer/payment. Do'kon/soliq cheki (Savdo cheki, "
         "MXIK, QQS, STIR, fiskal) — tax_receipt. Chek bo'lmasa (matn, oddiy rasm, boshqa hujjat) — other.\n"
-        "• status: «Muvaffaqiyatli», «Operatsiya bajarildi», «Выполнено», «Success» — success; jarayonda — pending; "
-        "rad/xato — failed.\n"
+        "• status: «Muvaffaqiyatli», «Operatsiya bajarildi», «O'tkazma yuborildi», «Bajarildi», «Выполнено», «Success» "
+        "— success; jarayonda — pending; rad/xato — failed.\n"
+        "• Ilovalarda yozuvlar turlicha: «Tranzaksiya raqami»/«Chek raqami» — ids; «Karta orqali to'landi **** 9180» "
+        "— yuboruvchi karta; «Kartaga o'tkazildi **** 6655» yoki «• 6655» — qabul qiluvchi karta; «Yuboruvchining F.I.SH» "
+        "va «Qabul qiluvchining F.I.SH» — ismlar.\n"
         "• amount: o'tkazilgan summa KOMISSIYASIZ, butun so'm (7 049 = Summa 7 000 + komissiya 49 → 7000). "
         "Raqamlarni aniq ko'chir; ko'rinmasa null — taxmin qilma.\n"
         "• date: chekdagi operatsiya sanasi/vaqti (telefon soati emas); «07 okt 00:19» → month 10, day 7, hour 0, "

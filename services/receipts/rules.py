@@ -334,11 +334,10 @@ def evaluate(r: Receipt, ctx: Context, file_sha: str = "",
     if "wrong_receiver" in d.reasons:
         d.verdict = WRONG_RECEIVER
         return d
-    # Fayl metama'lumotida tahrirlovchi dastur izi — qat'iy belgi. AI "tahrirlangan" deb gumon qilsa
-    # (arzon model adashishi mumkin) rad etilmaydi: adminga ogohlantirish bilan boradi.
-    if "tamper_meta" in d.reasons:
-        d.verdict = FAKE
-        return d
+    # Fayl metama'lumotida tahrirlovchi dastur izi: ogohlantirish, lekin RAD ETISH EMAS. Ilgari bunday chek
+    # mijozga «tahrirlangan» deb qaytarilib, adminga bormasdi; haqiqiy cheklar ham shunday rad etilgan
+    # (belgi tasodifan topilishi yoki PDF yaratuvchi dastur nomi). Yakuniy qaror adminda — kartochkada
+    # belgi ko'rsatiladi.
     soft = {"receiver_by_name", "no_date"}        # o'zi to'siq emas
     blocking = [x for x in d.reasons if x not in soft]
     if blocking or not ctx.auto_enabled:
