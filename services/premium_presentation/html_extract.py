@@ -371,6 +371,17 @@ _SCRIPT = r"""
     return value;
   };
 
+  // Bir ustundagi abzatslar (`par-col`) PowerPointda BITTA matn qutisi
+  // bo'lib chiqadi: shrift kengroq bo'lsa ular bir-birining ustiga emas,
+  // ketma-ket pastga siljiydi. Ustun raqami shu yerda beriladi.
+  const flows = new Map();
+  const flowOf = (el) => {
+    const host = el.closest && el.closest(".par-col");
+    if (!host) return 0;
+    if (!flows.has(host)) flows.set(host, flows.size + 1);
+    return flows.get(host);
+  };
+
   const walk = (el, soft) => {
     const r = box(el);
     const s = getComputedStyle(el);
@@ -571,6 +582,10 @@ _SCRIPT = r"""
       // haqiqiy o'rni olinadi.
       let textAlign = align(s.textAlign);
       let valign = "top";
+      // Muqova sarlavhasi pastdan tayanadi: shrift kengroq bo'lib qator
+      // ko'paysa, matn izohning ustiga emas, yuqoriga qarab o'sadi.
+      if (!turn && el.classList && el.classList.contains("big")
+          && el.classList.contains("title")) valign = "bottom";
       if (!turn && whole && /flex|grid/.test(s.display || "")) {
         const middle = (value) => /center/.test(value || "");
         if (middle(s.alignItems) && middle(s.justifyContent)) {
@@ -601,6 +616,7 @@ _SCRIPT = r"""
         upper: s.textTransform === "uppercase",
         letterSpacing: parseFloat(s.letterSpacing) || 0,
         lines: lineCount(el, tr),
+        flow: turn ? 0 : flowOf(el),
       });
     }
 
