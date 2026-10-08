@@ -57,6 +57,17 @@ class Kind:
 
 KINDS: Dict[str, Kind] = {}
 
+# Ishlayotgan buyurtmaning jonli tafsiloti (faqat xotirada: jarayon shu protsessda ishlaydi, server
+# qayta ishga tushsa buyurtma ham to'xtaydi). Kutish animatsiyasi shundan haqiqiy reja sarlavhalarini
+# va nechta slayd yozilganini oladi: {"plan": [{title, category}], "done": 3, "total": 12}.
+LIVE: Dict[str, Dict] = {}
+
+
+def note(job_id: str, **info) -> None:
+    """Jonli tafsilotni yangilaydi; istalgan oqimdan chaqirish mumkin."""
+    if job_id:
+        LIVE[job_id] = {**LIVE.get(job_id, {}), **info}
+
 
 def register(kind: Kind) -> Kind:
     KINDS[kind.key] = kind
@@ -117,7 +128,8 @@ def public(job: Dict) -> Dict:
             "progress": 100 if status == "done" else int(job["progress"] or 0),
             "price": int(job["price"] or 0), "ready": status == "done" and bool(job.get("result_path")),
             "file_name": job.get("result_name") or "", "error": job.get("error") or "",
-            "created_at": job["created_at"], "expires_at": job["created_at"] + web_store.JOB_TTL_HOURS * 3600}
+            "created_at": job["created_at"], "expires_at": job["created_at"] + web_store.JOB_TTL_HOURS * 3600,
+            "live": LIVE.get(job["id"], {}) if status in ("queued", "running") else {}}
 
 
 # ───────────────────────────────────────────────────────────────────────── buyurtma
@@ -200,6 +212,7 @@ async def _execute(job_id: str, telegram_id: int, kind: Kind, params: Dict, pric
                                        finished_at=time.time(), params={})
         finally:
             workload.end(work_id)
+            LIVE.pop(job_id, None)
 
     if kind.heavy:
         # Katta hujjatlar botdagi bilan BIR navbatda: server xotirasi bir vaqtda faqat bittasiga yetadi.

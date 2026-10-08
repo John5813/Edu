@@ -154,21 +154,30 @@ async def main():
                 got[name] = await page.evaluate(COLLECT)
 
             if not tid:
-                await page.goto(BASE + "/"); await page.wait_for_selector("#kind-chips"); await snap("bosh sahifa")
+                await page.goto(BASE + "/"); await page.wait_for_selector("#kind-chips [data-kind=thesis]"); await snap("bosh sahifa")
+                await page.fill("#topic", "Raqamli iqtisodiyot"); await page.wait_for_selector("#studio .st-main"); await page.wait_for_timeout(700)
+                await snap("yaratish oynasi (mehmon)")
                 await page.goto(BASE + "/app"); await page.wait_for_selector("#lg"); await snap("kirish kartasi")
                 await page.click("#lg"); await page.wait_for_selector(".modal .box"); await page.wait_for_selector("#lg-gbtn"); await snap("kirish oynasi")
                 await page.click("#lg-tg"); await page.wait_for_selector("#lg-body a.btn", timeout=15000); await snap("telegram kirish")
             else:
                 await page.goto(BASE + "/app#/welcome"); await page.wait_for_selector("#w-go"); await snap("xush kelibsiz")
-                await page.goto(BASE + "/app#/create"); await page.wait_for_selector("#topic"); await snap("taqdimot formasi")
+                # Yaratish bosh sahifada: mavzu yozilgach oyna kattalashib, tanlangan xizmatning sozlamalari ochiladi
+                await page.goto(BASE + "/app#/create"); await page.wait_for_url("**/#yaratish"); await page.wait_for_selector("#kind-chips [data-kind=thesis]")
+                await page.fill("#topic", "Raqamli iqtisodiyot"); await page.wait_for_selector("#studio .st-main"); await page.wait_for_timeout(700)
+                await snap("taqdimot: mavzu yozilgan")
                 await page.click("#srcs [data-k=text]"); await snap("manba: matn")
                 await page.click("#srcs [data-k=file]"); await snap("manba: fayl")
                 await page.click("#srcs [data-k=url]"); await snap("manba: havola")
-                await page.fill("#topic", "Raqamli iqtisodiyot"); await page.wait_for_timeout(700); await snap("taqdimot: mavzu yozilgan")
+                await page.click("#srcs [data-k=ai]")
+                await page.click("#styles [data-k=jurnal]"); await page.click("#themes [data-k='yashil']"); await snap("taqdimot: uslub va rang")
                 await page.fill("#topic", "ab"); await page.click("#go"); await snap("taqdimot: xato")
-                await page.click("#types [data-kind=simple_presentation]"); await page.wait_for_selector("#tpls"); await snap("oddiy taqdimot")
+                await page.fill("#topic", "Raqamli iqtisodiyot")
                 for kind in ("independent_work", "referat", "article", "thesis", "course_work", "diploma_work", "bitiruv_ishi", "dissertatsiya"):
-                    await page.click(f"#types [data-kind={kind}]"); await page.wait_for_selector("#cf"); await snap("forma: " + kind)
+                    await page.click(f"#kind-chips [data-kind={kind}]"); await page.wait_for_selector("#studio .st-main"); await snap("forma: " + kind)
+                if tid == wid:      # tayyorlanayotgan buyurtmalar: «Slaydlar ustaxonasi» animatsiyasi
+                    await page.goto(BASE + "/app#/job/" + "b" * 32); await page.wait_for_selector(".forge .fg-card"); await snap("ustaxona: hujjat yozilmoqda")
+                    await page.goto(BASE + "/app#/job/" + "c" * 32); await page.wait_for_selector(".forge .fg-card"); await snap("ustaxona: navbatda")
                 await page.goto(BASE + "/app#/docs"); await page.wait_for_selector("#view .card"); await snap("hujjatlarim")
                 await page.goto(BASE + "/app#/wallet"); await page.wait_for_selector("#presets"); await snap("hamyon")
                 await page.click("#presets .chip >> nth=0"); await snap("hamyon: summa tanlandi")

@@ -5,7 +5,7 @@ import re
 import tempfile
 from typing import Dict, Tuple
 
-from services import uz_script
+from services import uz_script, web_jobs
 from services.web_jobs import JobError, Kind, Report, register
 
 log = logging.getLogger(__name__)
@@ -82,14 +82,21 @@ async def _premium_run(params: Dict, report: Report) -> Tuple[str, str]:
         pass
     llm_client.reset_usage()
 
-    def on_progress(done: int, total: int) -> None:
-        report("writing", 5 + int(70 * done / max(total, 1)))
-
-    def on_stage(name: str, info: dict) -> None:
-        report(name, {"writing": 5, "images": 78, "render": 90}.get(name, 5))
-
     topic = params["topic"]
     job_id = params.get("_job_id") or ""
+
+    def on_progress(done: int, total: int) -> None:
+        report("writing", 5 + int(70 * done / max(total, 1)))
+        web_jobs.note(job_id, done=done, total=total)
+
+    def on_stage(name: str, info: dict) -> None:
+        if name == "plan":      # reja tayyor: kutish animatsiyasi haqiqiy sarlavhalarni ko'rsatadi
+            web_jobs.note(job_id, plan=[{"title": o["title"][:90], "category": o["category"]}
+                                        for o in info.get("outline", [])][:40])
+            return
+        if name in ("images", "render"):
+            web_jobs.note(job_id, done=web_jobs.LIVE.get(job_id, {}).get("total", 0))
+        report(name, {"writing": 5, "images": 78, "render": 90}.get(name, 5))
     # Taqdimot saytda varaqlanadi va sahifalari qayta yozdiriladi: yakuniy sahifalar va suratlar saqlanadi.
     deck_out: dict = {"shots_dir": tempfile.mkdtemp(prefix="deckshots_")} if job_id else {}
     path, _slides, _photos = await pipeline.build_deck(
@@ -416,7 +423,8 @@ def _simple_options() -> Dict:
 register(Kind(key="simple_presentation", label="Taqdimot (chiroyli orqa fonlar)", normalize=_simple_normalize,
               price=_simple_price, title=lambda p: p["topic"], run=_simple_run, publish_as="taqdimot",
               options=_simple_options()))
-KINDS_ORDER = ("premium_presentation", "simple_presentation") + KINDS_ORDER[1:]
+# Oddiy taqdimot (chiroyli orqa fonlar) saytda ko'rsatilmaydi: «Taqdimot» faqat zamonaviy tizim orqali
+# ishlaydi. Xizmat ro'yxatda qoladi — ilgari berilgan buyurtmalar va API mos bo'lib qoladi.
 
 
 # ───────────────────────────────────── taqdimotning bitta sahifasini AI ga qayta yozdirish

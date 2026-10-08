@@ -322,7 +322,9 @@ async def main():
     cat = await (await client.get("/api/v1/catalog")).json()
     keys = [k["key"] for k in cat["kinds"]]
     check("katalogda barcha xizmatlar tartib bilan", keys[0] == "premium_presentation" and "course_work" in keys
-          and "thesis" in keys and "simple_presentation" in keys and len(keys) == 10, keys)
+          and "thesis" in keys and len(keys) == 9, keys)
+    # Saytda «Taqdimot» faqat zamonaviy tizim orqali: oddiy taqdimot katalogga chiqmaydi (API eski buyurtmalar uchun qoladi)
+    check("oddiy taqdimot saytdagi katalogda yo'q", "simple_presentation" not in keys and "simple_presentation" in web_jobs.KINDS, keys)
     cw = next(k for k in cat["kinds"] if k["key"] == "course_work")
     check("kurs ishida hajm, reja usuli va qo'shimchalar bor", cw["heavy"] and cw["options"]["sizes"] and cw["options"]["plan_styles"]
           and cw["options"]["extras"], cw["options"].keys())

@@ -56,8 +56,10 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </button>
         </div>
-        <div class="hint">Tayyor bo'lgach: tahrirlash · PPTX yuklash. Sozlamalarni keyingi oynada o'zgartirasiz.</div>
+        <div class="hint pb-hint">Mavzuni yozing: kerakli sozlamalar shu yerning o'zida ochiladi.</div>
+        <div class="studio" id="studio"></div>
       </form>
+      <div class="forge-box" id="forge-box" hidden></div>
     </div>
   </section>
 
@@ -150,33 +152,20 @@
 <script src="/static/i18n-dict.js"></script>
 <script src="/static/i18n.js"></script>
 <script src="/static/site.js"></script>
+<script src="/static/forge.js"></script>
+<script src="/static/studio.js"></script>
 <script>
 (async function () {
   const E = window.Edu;
   E.header('home');
+  // Yaratish oynasi: mavzu yozilgach kattalashadi, buyurtma va tayyorlanish shu yerda (studio.js, forge.js)
+  E.studio.init();
   // Botdagi xizmatlar uchun havola
   try {
     const cat = await E.api('/catalog');
     document.querySelectorAll('[data-bot]').forEach((a) => { a.href = 'https://t.me/' + cat.bot; a.target = '_blank'; a.rel = 'noopener'; });
     const f = document.getElementById('foot-bot'); if (f) f.textContent = '@' + cat.bot;
   } catch (e) {}
-
-  let kind = 'premium_presentation';
-  document.getElementById('kind-chips').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-kind]'); if (!b) return;
-    kind = b.dataset.kind;
-    document.querySelectorAll('#kind-chips [data-kind]').forEach((x) => x.classList.toggle('on', x === b));
-  });
-  // Mavzu yozilgach: kirgan bo'lsa ilovaga, kirmagan bo'lsa avval Telegram orqali kirish.
-  document.getElementById('prompt-form').addEventListener('submit', async (ev) => {
-    ev.preventDefault();
-    const topic = document.getElementById('topic').value.trim();
-    if (topic.length < 3) { E.toast('Mavzu kamida 3 ta belgidan iborat bo‘lsin'); return; }
-    try { sessionStorage.setItem('edu_topic', topic); } catch (e) {}
-    const target = '/app#/create' + (kind === 'premium_presentation' ? '' : '?kind=' + kind);
-    const me = await E.me();
-    if (me) location.href = target; else E.login(target);
-  });
 
   // Do'kondan bir nechta mavzu ko'rsatiladi (bo'sh bo'lsa blok yashiriladi)
   try {

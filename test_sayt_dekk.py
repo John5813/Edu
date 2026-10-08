@@ -52,7 +52,7 @@ OUTLINE = [{"title": t, "brief": f"{t} haqida bir gap", "category": "kartalar"} 
 
 
 def fake_write_slides(topic, count, theme, language="uz", level=2, preferences="", source_text="", author="",
-                      progress_cb=None, outline_out=None):
+                      progress_cb=None, outline_out=None, plan_cb=None):
     if outline_out is not None:
         outline_out.update(family="umumiy", outline=OUTLINE)
     return html_slides.build_pages(BODIES, theme, language)

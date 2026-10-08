@@ -963,11 +963,14 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
                  level: int = 2, preferences: str = "", source_text: str = "",
                  author: str = "",
                  progress_cb: Optional[Callable] = None,
-                 outline_out: Optional[dict] = None) -> List[str]:
+                 outline_out: Optional[dict] = None,
+                 plan_cb: Optional[Callable[[List[Dict]], None]] = None) -> List[str]:
     """Butun taqdimotni HTML hujjatlar ro'yxati qilib qaytaradi.
 
     `outline_out` berilsa, unga reja (`outline`: sarlavha, mazmun, kategoriya) va mavzu oilasi
     (`family`) yoziladi — keyin bitta sahifani qayta yozishda kerak bo'ladi.
+    `plan_cb([{title, category}, ...])` — reja tayyor bo'lishi bilan (slaydlar yozilishidan oldin)
+    chaqiriladi: sayt kutish animatsiyasida haqiqiy sarlavhalarni ko'rsatadi.
     """
     # Mijoz tanlagan son — muqova va rejadan KEYINGI slaydlar (xulosa shu songa
     # kiradi). Muqova va reja slaydi qo'shimcha yoziladi: ilgari ular ham
@@ -976,6 +979,11 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
     plan = plan_outline(topic, slide_count, language, level)
     outline = chart_data.ground(plan["slides"], topic, language, level)
     family = plan["family"]
+    if plan_cb:
+        try:
+            plan_cb([{"title": str(o.get("title") or ""), "category": str(o.get("category") or "")} for o in outline])
+        except Exception:
+            log.debug("plan_cb xatosi", exc_info=True)
     system = shell_rules(theme, language)
 
     slides: List[str] = []

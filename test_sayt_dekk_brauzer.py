@@ -1,4 +1,4 @@
-"""Sayt interfeysi haqiqiy brauzerda: «AI ishlayapti» animatsiyasi, taqdimotni varaqlash (tugma, klaviatura),
+"""Sayt interfeysi haqiqiy brauzerda: bosh sahifada yaratish va «Slaydlar ustaxonasi» animatsiyasi, taqdimotni varaqlash (tugma, klaviatura),
 sahifani o'zgartirish chati va tayyor iltimoslar, qayta yozish jarayoni, telefon o'lchami.
 
 AI soxta; sahifalar va PPTX haqiqiy brauzerda yig'iladi.
@@ -49,8 +49,14 @@ BODIES = [slide(TITLES[0], "Mavzu", True), slide(TITLES[1], "Reja")] + [slide(t,
 SLOW = {"s": 3}
 
 def fake_write(topic, count, theme, language="uz", level=2, preferences="", source_text="", author="",
-               progress_cb=None, outline_out=None):
-    time.sleep(SLOW["s"])
+               progress_cb=None, outline_out=None, plan_cb=None):
+    # Haqiqiy generator kabi: avval reja, keyin slaydlar bo'lak-bo'lak yoziladi (kutish animatsiyasi shundan oziqlanadi).
+    if plan_cb:
+        plan_cb([{"title": t, "category": "diagramma" if i == 3 else "kartalar"} for i, t in enumerate(TITLES)])
+    for done in range(len(TITLES)):
+        if progress_cb:
+            progress_cb(done, len(TITLES))
+        time.sleep(SLOW["s"] / len(TITLES))
     if outline_out is not None:
         outline_out.update(family="umumiy", outline=[{"title": t, "brief": t, "category": "kartalar"} for t in TITLES])
     return html_slides.build_pages(BODIES, theme, language)
@@ -97,21 +103,27 @@ async def main():
             page.on("pageerror", lambda e: errors.append(str(e)))
             page.on("console", lambda m: errors.append(m.text) if m.type == "error" and "ERR_CERT" not in m.text else None)
             SLOW["s"] = 8 if name == "kompyuter" else 1
-            await page.goto(base + "/app#/create"); await page.wait_for_selector("#topic")
+            # Yaratish bosh sahifada: mavzu yozilgach oyna kattalashadi, buyurtmadan keyin shu yerda «Slaydlar ustaxonasi»
+            await page.goto(base + "/"); await page.wait_for_selector("#kind-chips [data-kind=premium_presentation]")
             await page.fill("#topic", "Raqamli iqtisodiyot")
+            await page.wait_for_selector("#studio #go")
+            check("mavzu yozilgach oyna kattalashdi (uslub, slaydlar soni, narx)", await page.locator("#styles .st-sty").count() == 5
+                  and await page.locator("#c-num").count() == 1 and "so" in await page.inner_text("#s-price"))
             await page.click("#go")
-
-            await page.wait_for_selector(".aiw", timeout=20000)
+            await page.wait_for_selector(".forge .fg-card", timeout=20000)
             if name == "kompyuter":
-                await page.wait_for_timeout(1200)
-                a = await page.evaluate("[document.querySelector('.aiw-cursor').style.transform, document.querySelector('.typed').textContent, document.querySelector('.aiw-feedin').getBoundingClientRect().top]")
-                await page.wait_for_timeout(1500)
-                b = await page.evaluate("[document.querySelector('.aiw-cursor').style.transform, document.querySelector('.typed').textContent, document.querySelector('.aiw-feedin').getBoundingClientRect().top]")
-                check("kutish animatsiyasi: kursor harakatlanadi", a[0] and a[0] != b[0], (a, b))
-                check("qidiruv matni yoziladi", bool(a[1]) and a[1] != b[1], (a[1], b[1]))
-                check("faoliyat ro'yxati tinimsiz aylanadi", a[2] != b[2], (a[2], b[2]))
-                shown = (await page.inner_text('.aiw')).lower()
+                await page.wait_for_function("[...document.querySelectorAll('.fg-ttl')].some((t) => t.textContent.includes('Kirish va tushunchalar'))", timeout=15000)
+                check("animatsiyada rejadagi haqiqiy sarlavhalar", await page.locator(".fg-card").count() == len(TITLES))
+                a = await page.locator(".fg-card.built").count()
+                await page.wait_for_timeout(3500)
+                b = await page.locator(".fg-card.built").count()
+                check("yozilgan slaydlar soni bilan kartochkalar to'ladi", b > a, (a, b))
+                check("faol kartochkada skaner nuri", await page.locator(".fg-card.writing").count() >= 1)
+                shown = (await page.inner_text('.forge')).lower()
                 check("animatsiyada haqiqiy sayt nomlari yo'q", not any(x in shown for x in ("wikipedia", "google", ".com", ".org")))
+            await page.wait_for_selector(".forge-act a.btn", timeout=180000)
+            check("tayyor bo'lgach natija bosh sahifaning o'zida", "PPTX" in await page.inner_text(".fg-final"))
+            await page.click(".forge-act a.btn >> nth=0")
             await page.wait_for_selector("#simg", timeout=180000)
             await page.wait_for_function("document.getElementById('simg').complete && document.getElementById('simg').naturalWidth > 0")
             check("tayyor taqdimot varaqlash ko'rinishida ochildi", (await page.inner_text("#snum")) == "1 / 6", await page.inner_text("#snum"))

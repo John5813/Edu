@@ -63,7 +63,8 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
     """Taqdimotni yaratadi va PPTX yo'lini qaytaradi: (yo'l, slaydlar soni, rasmlar soni).
 
     `progress_cb(tayyor_bo'lak, jami)` — kontent yozilayotganda (boshqa oqimdan chaqirilishi mumkin);
-    `stage_cb(nom, ma'lumot)` — bosqich almashganda: "writing", "images", "render".
+    `stage_cb(nom, ma'lumot)` — bosqich almashganda: "writing", "plan" (reja tayyor: `outline`),
+    "images", "render".
     Xatoda istisno ko'tariladi; pulni qaytarish chaqiruvchining ishi.
 
     `deck_out` berilsa (sayt): unga taqdimotning yakuniy sahifalari (`pages`), rang kaliti, reja va
@@ -90,7 +91,8 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
         loop,
         lambda: html_slides.write_slides(
             topic, slide_count, theme, language=language, level=level, preferences=preferences,
-            source_text=source_text, author=author, progress_cb=progress_cb, outline_out=outline_out),
+            source_text=source_text, author=author, progress_cb=progress_cb, outline_out=outline_out,
+            plan_cb=lambda outline: stage("plan", outline=outline)),
         step="brief", label="Slaydlarni yozish")
 
     stage("images", slides=len(pages))

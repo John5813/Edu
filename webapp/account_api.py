@@ -156,7 +156,7 @@ async def google_callback(request: web.Request) -> web.Response:
     else:
         telegram_id = int(identity["telegram_id"])
     session = await web_accounts.create_session(telegram_id)
-    response = web.HTTPFound("/app#/welcome" if created else "/app#/create")
+    response = web.HTTPFound("/app#/welcome" if created else "/#yaratish")   # yaratish bosh sahifada
     response.del_cookie(STATE_COOKIE, path="/")
     response.set_cookie(api.COOKIE, session, max_age=web_store.SESSION_TTL, httponly=True, samesite="Lax",
                         secure=api._secure(request), path="/")
