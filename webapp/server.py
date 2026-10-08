@@ -1271,8 +1271,13 @@ async def handle_save_api(request: web.Request) -> web.Response:
 async def handle_root(request: web.Request) -> web.StreamResponse:
     # Domen ildiziga oddiy tashrifchi keladi — bosh sahifa (promptdan boshlanadigan sayt).
     # Tahrirlovchi esa Mini App ichidan to'g'ridan-to'g'ri /edit?token=... bilan ochiladi.
-    from webapp.api import site_page
-    return site_page("index.html")
+    from webapp.api import versioned_html
+    from webapp.store import _origin
+
+    # Qidiruv tizimlari uchun to'liq manzillar (canonical, og, JSON-LD) — domen so'rovdan olinadi.
+    text = versioned_html("index.html").replace("__ORIGIN__", _origin(request))
+    return web.Response(text=text, content_type="text/html", charset="utf-8",
+                        headers={"Cache-Control": "no-cache"})
 
 
 def create_web_app() -> web.Application:
@@ -1288,6 +1293,8 @@ def create_web_app() -> web.Application:
     app.router.add_get("/api/templates", handle_templates_api)
     app.router.add_get("/api/template-image/{tid}", handle_template_image_api)
     setup_store_routes(app)
+    from webapp.landing import setup_landing_routes
+    setup_landing_routes(app)
     setup_book_routes(app)
     from webapp.api import setup_api_routes
     setup_api_routes(app)

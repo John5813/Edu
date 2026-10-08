@@ -24,6 +24,8 @@
   const norm = (t) => String(t).replace(/[ʻʼ‘’`´]/g, "'");
 
   function detect() {
+    // Qidiruv botlari (Googlebot inglizcha brauzer) sahifani asl o'zbekcha matnida ko'rsin.
+    if (/bot|crawl|spider|slurp|bingpreview|yandex|google-|lighthouse/i.test(navigator.userAgent || '')) return 'uz';
     let saved = '';
     try { saved = localStorage.getItem('edu_lang') || ''; } catch (e) { /* maxfiy rejim */ }
     if (LANGS.indexOf(saved) >= 0) return saved;
@@ -138,12 +140,7 @@
     document.documentElement.lang = next;
     prepare();
     if (document.body) { node(document.body); }
-    if (!orig.has(document.head)) { /* sarlavha */ }
-    const title = document.querySelector('title');
-    if (title) {
-      if (title._uz === undefined) title._uz = title.textContent;
-      title.textContent = tr(title._uz);
-    }
+    title();
     observe();
     document.dispatchEvent(new CustomEvent('edu:lang', {detail: next}));
   };
@@ -152,6 +149,12 @@
   lang = detect();
   document.documentElement.lang = lang;
   prepare();
-  if (document.body) { node(document.body); observe(); }
-  else document.addEventListener('DOMContentLoaded', () => { node(document.body); observe(); const t = document.querySelector('title'); if (t) { t._uz = t.textContent; t.textContent = tr(t._uz); } });
+  function title() {
+    const t = document.querySelector('title');
+    if (!t) return;
+    if (t._uz === undefined) t._uz = t.textContent;
+    t.textContent = tr(t._uz);
+  }
+  if (document.body) { node(document.body); title(); observe(); }
+  else document.addEventListener('DOMContentLoaded', () => { node(document.body); title(); observe(); });
 })();
