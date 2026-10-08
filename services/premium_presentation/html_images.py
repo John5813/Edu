@@ -33,6 +33,17 @@ log = logging.getLogger("html_images")
 MIN_PHOTOS = 3
 MAX_PHOTOS = 10
 
+
+def photo_limit(slide_count: int, volume: str = "kop") -> int:
+    """Bitta taqdimotda chizdiriladigan rasmlar chegarasi: kvota (`deck_logic.photo_quota`) va ozgina zaxira.
+
+    `slide_count` — mijoz tanlagan son (muqova va reja bunga kirmaydi). Kam matnli taqdimotda rasm ko'p:
+    30 slaydda 18 tagacha, shuning uchun eski qat'iy 10 ta chegarasi kvotaga qarab kengayadi.
+    """
+    from . import deck_logic
+
+    return max(MAX_PHOTOS, deck_logic.photo_quota(int(slide_count or 0) + 2, volume) + 2)
+
 _IMG_TAG = re.compile(r"<img\b[^>]*\bdata-prompt\s*=\s*([\"'])(.*?)\1[^>]*>",
                       re.IGNORECASE | re.DOTALL)
 _ICON_TAG = re.compile(r"<img\b[^>]*\bdata-icon\s*=\s*([\"'])(.*?)\1[^>]*>",

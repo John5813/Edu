@@ -113,7 +113,7 @@ def create(job_id: str, params: dict, data: dict) -> None:
             shots[index] = path
     deck = {
         "topic": params.get("topic", ""), "language": params.get("language", "uz"), "style": params.get("style", ""),
-        "theme_key": data.get("theme_key", ""), "author": params.get("author", ""),
+        "volume": params.get("volume", "kop"), "theme_key": data.get("theme_key", ""), "author": params.get("author", ""),
         "preferences": params.get("preferences", ""), "source_text": (params.get("source_text") or "")[:4000],
         "level": 2, "family": data.get("family", ""), "outline": data.get("outline") or [],
         "pages": pages, "titles": titles_of(pages), "version": 1, "history": [], "created": time.time()}

@@ -471,10 +471,8 @@ def check_outline():
     check("ketma-ket takror majburan almashtirilmadi",
           all(c in ("kartalar", "diagramma", "matn_rasm") for c in middle)
           and sum(1 for c in middle if c == "kartalar") >= 1, str(middle))
-    check("rasm kvotasi: har 10 slaydga 3 ta (8 slayd — 2 ta rasmli)",
-          sum(1 for c in middle if c == "matn_rasm") == deck_logic.photo_quota(8) == 2, str(middle))
-    check("rasmli slaydlar ketma-ket kelmaydi",
-          all(not (a == "matn_rasm" == b) for a, b in zip(middle, middle[1:])), str(middle))
+    check("rasm kvotasi: har 10 slaydga 4 ta (8 slayd — 3 ta rasmli)",
+          sum(1 for c in middle if c == "matn_rasm") == deck_logic.photo_quota(8) == 3, str(middle))
     check("model diagramma bermasa ham kvota to'ldiriladi",
           sum(1 for c in middle if c == "diagramma") == deck_logic.chart_quota(8), str(middle))
     check("rejada xilma-xillik kvotasi yo'q",

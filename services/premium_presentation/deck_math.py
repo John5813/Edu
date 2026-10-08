@@ -203,6 +203,21 @@ def _convert(text: str, depth: int = 0) -> str:
                     inner = _convert(body, depth + 1)
                 out.append(sign + (inner if alone or _SIMPLE.fullmatch(inner)
                                    else f"({inner})"))
+            elif name in _BIG_OPS and depth == 0 and _has_limits(text, i):
+                # ∑ va ∏ chegaralari bilan: pastki va yuqori chegara belgining ostida va ustida turadi.
+                # Ilgari ular belgidan keyin mayda indeks bo'lib, "∑ᵢ₌₁ⁿ" qiyshiq chiqardi.
+                lower = upper = ""
+                for _ in range(2):
+                    j = i
+                    while j < n and text[j] == " ":
+                        j += 1
+                    if j < n and text[j] in "_^":
+                        body, i = _group(text, j + 1)
+                        if text[j] == "_":
+                            lower = _convert(body, depth + 1)
+                        else:
+                            upper = _convert(body, depth + 1)
+                out.append(_big_operator(_WORDS["\\" + name], lower, upper))
             elif name in _ACCENTS:
                 body, i = _group(text, i)
                 out.append(_accent(_convert(body, depth + 1), _ACCENTS[name]))
@@ -223,6 +238,24 @@ def _convert(text: str, depth: int = 0) -> str:
             out.append(char)
             i += 1
     return "".join(out)
+
+
+_BIG_OPS = ("sum", "prod")
+
+
+def _has_limits(text: str, i: int) -> bool:
+    while i < len(text) and text[i] == " ":
+        i += 1
+    return i < len(text) and text[i] in "_^"
+
+
+def _big_operator(sign: str, lower: str, upper: str) -> str:
+    """Chegarali yig'indi/ko'paytma: yuqori chegara, belgi, pastki chegara — ustma-ust.
+
+    Kasr kabi (`frac`) alohida elementlar: chizuvchi ularni PowerPointda ham ustma-ust qo'yadi.
+    """
+    return (f'<span class="frac op"><span class="up">{upper.strip()}</span>'
+            f'<span class="mid">{sign}</span><span class="dn">{lower.strip()}</span></span>')
 
 
 def _fraction(numerator: str, denominator: str) -> str:

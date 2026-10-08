@@ -308,6 +308,10 @@ color:#HEADING}
 margin:0 8px}
 .frac .up{padding:0 10px 6px}
 .frac .dn{padding:6px 10px 0;border-top:3px solid #HEADING}
+/* Chegarali ∑ va ∏: chegaralar belgining ustida va ostida (chiziqsiz). */
+.frac.op{margin:0 6px 0 2px}
+.frac.op .up,.frac.op .dn{font-size:max(0.5em,24px);line-height:1.15;padding:0;border:0}
+.frac.op .mid{font-size:1.45em;line-height:1.2}
 
 /* ── Ishlangan misol ───────────────────────────────────────────── */
 .misol{background:#SOFT;border-radius:18px;padding:40px;
@@ -457,10 +461,17 @@ def stylesheet(theme) -> str:
         "EDGE": _mix(theme.background, theme.heading, 0.18),
         "GRID": _mix(theme.background, theme.heading, 0.42),
         "BANDGRID": _mix(theme.band, theme.invert, 0.45),
+        # Kam matnli kompozitsiyalar: to'q fondagi yorqin urg'u va sarlavha shrifti (jurnal — serif).
+        "GLOWINK": _mix(theme.accent, "FFFFFF", 0.38),
+        "HEADFONT": SERIF if getattr(theme, "style", "") == "jurnal" else SANS,
     }
     from . import deck_styles
 
     css = _CSS + deck_styles.css(getattr(theme, "style", ""))
+    if getattr(theme, "layout", "") == "kam":
+        from . import deck_compose
+
+        css += deck_compose.CSS
     # Uzun kalitlar avval almashtiriladi: "BACKGROUND" ichida "BAND"
     # yo'q, lekin "BANDCARD" ichida "BAND" bor.
     for key in sorted(swap, key=len, reverse=True):
@@ -538,15 +549,15 @@ BLOKLAR:
 2. MATN VA RASM (bir tomonda matn, bir tomonda rasm):
 <div class="split">
   <div class="par-col">
-    <p class="par">Birinchi abzats: fikrni ochadigan 2-3 to'liq, bog'langan gap.</p>
-    <p class="par">Ikkinchi abzats: sabab, misol yoki ahamiyat — yana 2-3 gap.</p>
+    <p class="par">Fikrni ochadigan 2-3 to'liq, bog'langan gap.</p>
+    <p class="par">Ixtiyoriy ikkinchi abzats: o'sha fikrning davomi — sabab, misol yoki natija.</p>
   </div>
   <div class="rasm" data-prompt="english description of a documentary photo">
     <p class="rasm-matn">Rasm chiqmasa uning o'rnida turadigan qo'shimcha
     matn: shu mavzuni to'ldiruvchi 2-3 gap (misol, sabab yoki ahamiyat).</p>
   </div>
 </div>
-Rasm yonidagi matn — YAXLIT ABZATS: 2-3 ta abzats, har biri to'liq,
+Rasm yonidagi matn — YAXLIT ABZATS: 1-2 ta abzats (jami 70 so'zgacha), bitta fikrni ochadi, har biri to'liq,
 bir-biriga bog'langan gaplardan iborat, xuddi kitob yoki oddiy
 taqdimotdagi matn kabi. Bu slaydda ro'yxat bandlari, ikonkali
 qatorlar va kartochkalar yo'q: ular fikrni mayda bo'laklarga bo'lib

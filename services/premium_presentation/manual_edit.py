@@ -141,8 +141,8 @@ def with_source(page: str, body: str) -> str:
 
 
 def theme_of(deck: dict):
-    chosen = themes.get(deck["theme_key"]) if deck.get("theme_key") else themes.suggest(deck.get("topic", ""))
-    return themes.with_style(chosen, deck.get("style", ""))
+    return themes.for_deck(deck.get("topic", ""), deck.get("style", ""), deck.get("volume", ""),
+                           deck.get("theme_key", ""))
 
 
 def _browser_eval(steps: List[Tuple[str, str, object]]) -> List[object]:

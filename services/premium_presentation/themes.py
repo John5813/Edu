@@ -9,6 +9,7 @@ Mijoz sxemani o'zi tanlaydi; tanlamasa mavzuga qarab mos keladigani
 olinadi (masalan tibbiyot mavzusiga yashil, moliyaga to'q ko'k).
 """
 
+import dataclasses
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
@@ -33,6 +34,7 @@ class Theme:
     dark: str = ""            # to'q bezak (ajratkich slayd foni)
     chart: Tuple[str, ...] = ()
     style: str = ""           # uslub kaliti (`deck_styles`); "" — sukut dizayn
+    layout: str = ""          # "kam" — kam matnli taqdimot (`deck_compose` kompozitsiyalari); "" — ko'p matnli
 
     @property
     def band(self) -> str:
@@ -126,3 +128,13 @@ def with_style(theme: Theme, style: str) -> Theme:
     from . import deck_styles
 
     return deck_styles.adapt(theme, (style or "").strip().lower())
+
+
+def for_deck(topic: str, style: str = "", volume: str = "", key: str = "") -> Theme:
+    """Taqdimot uchun to'liq sxema: rang (mavzuga qarab yoki saqlangan kalit), uslub va matn hajmi.
+
+    Rang mijozdan so'ralmaydi — uslub ko'rinishni, matn hajmi esa kompozitsiyani belgilaydi.
+    """
+    chosen = get(key) if key else suggest(topic)
+    theme = with_style(chosen, style)
+    return dataclasses.replace(theme, layout="kam") if volume == "kam" else theme

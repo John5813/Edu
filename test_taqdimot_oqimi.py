@@ -1,7 +1,7 @@
-"""Bitta "Taqdimot" tugmasi: mavzu → ism → AI ga tushuntirish → manba → uslub → (rang) → hajm.
+"""Bitta "Taqdimot" tugmasi: mavzu → ism → AI ga tushuntirish → manba → uslub → (matn hajmi) → hajm.
 Hajm bosqichida narxlar tanlangan uslubga qarab va mijoz balansi bilan ko'rsatiladi.
 
-Zamonaviy uslublarda keyin rang, "Chiroyli orqa fonlar" tanlansa hozirgi
+Zamonaviy uslublarda keyin matn hajmi (ko'p yoki kam matnli), "Chiroyli orqa fonlar" tanlansa hozirgi
 oddiy oqim ishlaydi. Har so'rov javob olingach oynadan o'chadi.
 
     python test_taqdimot_oqimi.py
@@ -123,11 +123,15 @@ async def full_flow():
           and any("Qorong'u" in b.text for b in buttons(markup)))
     check("uslub oynasida narx yo'q (u hajm bilan ko'rsatiladi)", "so'm" not in text.split("keyingi qadamda")[0])
 
-    # 5a. Zamonaviy uslub -> rang -> hajm (narx + balans) -> xulosa
+    # 5a. Zamonaviy uslub -> matn hajmi (rang so'ralmaydi) -> hajm (narx + balans) -> xulosa
     await pp.premium_ppt_style_selected(callback(chat, "ppt_style:jurnal"), state, db)
-    check("zamonaviy uslub: rang so'raladi", await state.get_state() == PS.waiting_for_theme.state)
+    check("zamonaviy uslub: matn hajmi so'raladi (rang emas)", await state.get_state() == PS.waiting_for_volume.state)
     check("uslub saqlandi", (await state.get_data())["style"] == "jurnal")
-    await pp.premium_ppt_got_theme(callback(chat, "prem_ppt_theme:qizil"), state, db)
+    vol_cbs = [b.callback_data for b in buttons(chat.last()[2]) if b.callback_data.startswith("prem_ppt_vol:")]
+    check("matn hajmi: ko'p va kam matnli tugmalari", vol_cbs == ["prem_ppt_vol:kop", "prem_ppt_vol:kam"], vol_cbs)
+    check("rang tugmalari yo'q", not any("prem_ppt_theme" in (b.callback_data or "") for b in buttons(chat.last()[2])))
+    await pp.premium_ppt_got_volume(callback(chat, "prem_ppt_vol:kam"), state, db)
+    check("matn hajmi saqlandi", (await state.get_data())["volume"] == "kam")
     check("6-qadam: hajm so'raladi", await state.get_state() == PS.waiting_for_count.state)
     text, markup = chat.last()[1], chat.last()[2]
     count_btns = [b for b in buttons(markup) if b.callback_data.startswith("prem_ppt_count:")]
@@ -140,20 +144,21 @@ async def full_flow():
     data = await state.get_data()
     check("xulosa: holat va narx", await state.get_state() == PS.waiting_for_slide_count.state and data["price"] == 6000, data.get("price"))
     summary = chat.last()[1]
-    check("xulosada mavzu, ism, uslub, slayd soni", all(w in summary for w in ("Falsafa", "Aliyev Jasur", "Jurnal", "12")), summary)
+    check("xulosada mavzu, ism, uslub, matn hajmi, slayd soni",
+          all(w in summary for w in ("Falsafa", "Aliyev Jasur", "Jurnal", "Kam matnli", "12")), summary)
     langs = [b.callback_data for b in buttons(chat.last()[2]) if b.callback_data.startswith("prem_ppt_lang:")]
     check("xulosada tilni o'zgartirish tugmalari (o'zbek lotin va kirill alohida)", langs == ["prem_ppt_lang:uz", "prem_ppt_lang:uz-cyrl", "prem_ppt_lang:ru", "prem_ppt_lang:en", "prem_ppt_lang:kk"], langs)
     await pp.premium_ppt_change_language(callback(chat, "prem_ppt_lang:en"), state, db)
     check("til almashtirildi", (await state.get_data())["presentation_language"] == "en")
 
-    # Orqaga: xulosa -> hajm -> rang -> uslub
-    for expect in (PS.waiting_for_count, PS.waiting_for_theme, PS.waiting_for_style):
+    # Orqaga: xulosa -> hajm -> matn hajmi -> uslub
+    for expect in (PS.waiting_for_count, PS.waiting_for_volume, PS.waiting_for_style):
         await pp.premium_ppt_previous(callback(chat, "prem_ppt_prev"), state, db)
         check(f"orqaga: {expect.state.split(':')[1]}", await state.get_state() == expect.state, await state.get_state())
 
     # 5b. "Chiroyli orqa fonlar" -> hajm faqat 10/15/20, narxlar va balans bilan
     await pp.premium_ppt_style_selected(callback(chat, "ppt_style:fon"), state, db)
-    check("orqa fonlar: rang emas, hajm so'raladi", await state.get_state() == PS.waiting_for_count.state, await state.get_state())
+    check("orqa fonlar: matn hajmi emas, slaydlar soni so'raladi", await state.get_state() == PS.waiting_for_count.state, await state.get_state())
     fon_btns = [b for b in buttons(chat.last()[2]) if b.callback_data.startswith("ppt_fon:")]
     check("orqa fonlar: faqat 10/15/20", [b.callback_data for b in fon_btns] == ["ppt_fon:10", "ppt_fon:15", "ppt_fon:20"], fon_btns)
     check("orqa fonlar: oddiy narxlar (5 000 / 7 000 / 10 000)",
@@ -162,7 +167,7 @@ async def full_flow():
     check("orqa fonlar: balans va uslub nomi ko'rinadi",
           "Balansingiz" in chat.last()[1] and "Chiroyli orqa fonlar" in chat.last()[1], chat.last()[1])
     await pp.premium_ppt_previous(callback(chat, "prem_ppt_prev"), state, db)
-    check("orqa fonlar hajmidan orqaga: uslub (rang emas)", await state.get_state() == PS.waiting_for_style.state, await state.get_state())
+    check("orqa fonlar hajmidan orqaga: uslub (matn hajmi emas)", await state.get_state() == PS.waiting_for_style.state, await state.get_state())
     await pp.premium_ppt_style_selected(callback(chat, "ppt_style:fon"), state, db)
     await pp.premium_ppt_fon_count(callback(chat, "ppt_fon:15"), state, db)
     data = await state.get_data()

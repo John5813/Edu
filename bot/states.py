@@ -140,8 +140,8 @@ class PremiumPresentationStates(StatesGroup):
     waiting_for_count = State()
     # Buyurtma xulosasi va tasdiqlash (to'lovdan oldin).
     waiting_for_slide_count = State()
-    # Mijoz rang sxemasini tanlaydi.
-    waiting_for_theme = State()
+    # Mijoz matn hajmini tanlaydi (ko'p / kam matnli).
+    waiting_for_volume = State()
     waiting_for_payment = State()
     generating = State()
 

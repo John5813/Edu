@@ -232,7 +232,8 @@ check("reja so'rovi halqani eslatadi", "halqa" in seen["plan"])
 check("qoidalarda diagramma turi va tayyor ma'lumot aytilgan",
       "ma'lumotini siz yozmaysiz" in everything and "halqa" in everything and "chiziqli" in everything)
 check("jadval faqat qisqa bo'lsin deyilgan", "QISQA bo'lsa" in everything and "tahlil jadvali" in everything.lower())
-check("umumlashtiruvchi gap talabi bor", "UMUMLASHTIRUVCHI GAP" in everything)
+check("har slayd bitta fikr: bosh gap va uni ochadigan yaxlit matn talabi bor",
+      "BITTA FIKR" in everything and 'class="lead"' in everything and "yaxlit" in everything)
 check("reja prompti hikoya yo'nalishini beradi (qolipni mavzu belgilaydi)",
       "HIKOYA YO'NALISHI" in seen["plan"] and "mavzuning o'zi belgilaydi" in seen["plan"])
 check("sarlavha fikr sifatida, 2-6 so'z, raqam asoslangan", "SARLAVHA — FIKR" in seen["plan"]

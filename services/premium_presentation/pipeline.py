@@ -14,6 +14,10 @@ MIN_SLIDES = 5
 MAX_SLIDES = 30
 MIN_PRICE = 3000
 
+# Matn hajmi: "kop" — ko'p matnli (fikr batafsil, har 10 slaydda 4 ta rasm), "kam" — kam matnli
+# (qisqa aniq fikrlar, kompozitsiyalar, rasm ko'proq). Rang mijozdan so'ralmaydi — mavzuga qarab.
+VOLUMES = ("kop", "kam")
+
 # Og'ir bosqichlar chegaralangan vaqt ichida bajariladi.
 STEP_TIMEOUTS = {"brief": 15 * 60, "render": 8 * 60}
 
@@ -59,7 +63,7 @@ async def run_step(loop, func, *, step: str, label: str):
 
 async def build_deck(topic: str, slide_count: int, *, language: str = "uz", level: int = 2,
                      preferences: str = "", source_text: str = "", author: str = "",
-                     theme_key: str = "", style: str = "", photos: bool = True,
+                     theme_key: str = "", style: str = "", volume: str = "kop", photos: bool = True,
                      progress_cb: Optional[Callable[[int, int], None]] = None,
                      stage_cb: Optional[Callable[[str, dict], None]] = None,
                      deck_out: Optional[dict] = None) -> Tuple[str, int, int]:
@@ -75,6 +79,8 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
     varaqlash va bitta sahifani qayta yozish uchun.
 
     `photos=False` (bepul sinov): rasm chizdirilmaydi — rasm o'rnida qo'shimcha matn qoladi, muqova rasmsiz.
+    `volume` — matn hajmi (`VOLUMES`); `theme_key` faqat saqlangan taqdimotni qayta yig'ish uchun (bo'sh —
+    rang mavzuga qarab).
     """
     from services.premium_presentation import prompts
 
@@ -82,11 +88,11 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
     with prompts.use(language):
         return await _build_deck(topic, slide_count, language=language, level=level, preferences=preferences,
                                  source_text=source_text, author=author, theme_key=theme_key, style=style,
-                                 photos=photos, progress_cb=progress_cb, stage_cb=stage_cb, deck_out=deck_out)
+                                 volume=volume if volume in VOLUMES else "kop", photos=photos, progress_cb=progress_cb, stage_cb=stage_cb, deck_out=deck_out)
 
 
 async def _build_deck(topic, slide_count, *, language, level, preferences, source_text, author, theme_key,
-                      style, photos, progress_cb, stage_cb, deck_out) -> Tuple[str, int, int]:
+                      style, volume, photos, progress_cb, stage_cb, deck_out) -> Tuple[str, int, int]:
     from services.premium_presentation import html_images, html_render, html_slides, themes
 
     loop = asyncio.get_running_loop()
@@ -98,8 +104,7 @@ async def _build_deck(topic, slide_count, *, language, level, preferences, sourc
             except Exception:  # holat yangilanmasa ham yaratish to'xtamasin
                 log.debug("stage_cb xatosi", exc_info=True)
 
-    chosen = themes.get(theme_key) if theme_key else themes.suggest(topic)
-    theme = themes.with_style(chosen, style)
+    theme = themes.for_deck(topic, style, volume, theme_key)
 
     stage("writing")
     outline_out: dict = {}
@@ -115,7 +120,7 @@ async def _build_deck(topic, slide_count, *, language, level, preferences, sourc
     placed = 0
     if photos:
         try:
-            pages, placed = await html_images.fill_photos(pages)
+            pages, placed = await html_images.fill_photos(pages, limit=html_images.photo_limit(slide_count, volume))
         except Exception as exc:
             log.warning("Rasmlar qo'yilmadi: %s", exc)
         try:
@@ -132,10 +137,11 @@ async def _build_deck(topic, slide_count, *, language, level, preferences, sourc
         lambda: html_render.render(
             pages,
             repair=lambda page, problems: html_slides.fix_slide(page, problems, theme, language),
-            explain=lambda page, area: html_slides.fill_gap(page, area, theme, language),
+            # Kam matnli kompozitsiyalarda bo'sh joy ataylab qoldirilgan — u matn bilan to'ldirilmaydi.
+            explain=None if volume == "kam" else (lambda page, area: html_slides.fill_gap(page, area, theme, language)),
             collect=final if deck_out is not None else None, shots_dir=shots),
         step="render", label="Slaydlarni suratga olish")
     if deck_out is not None:
-        deck_out.update(pages=final if len(final) == len(pages) else pages, theme_key=chosen.key,
+        deck_out.update(pages=final if len(final) == len(pages) else pages, theme_key=theme.key, volume=volume,
                         family=outline_out.get("family", ""), outline=outline_out.get("outline", []))
     return path, len(pages), placed

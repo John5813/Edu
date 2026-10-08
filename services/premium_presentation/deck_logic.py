@@ -156,14 +156,19 @@ def has_photo(body: str) -> bool:
     return bool(_PHOTO.search(body or ""))
 
 
-def photo_quota(total: int) -> int:
-    """Nechta slaydda rasm bo'lishi kerak: har 10 ta asosiy slaydga 3 ta (yuqoriga yaxlitlanadi).
+# Har 10 ta asosiy slaydga nechta rasmli slayd: ko'p matnlida 4 ta, kam matnlida 6 ta.
+PHOTOS_PER_10 = {"kop": 4, "kam": 6}
+
+
+def photo_quota(total: int, volume: str = "kop") -> int:
+    """Nechta slaydda rasm bo'lishi kerak: har 10 ta asosiy slaydga `PHOTOS_PER_10` (yuqoriga yaxlitlanadi).
 
     `total` — muqova va reja bilan birga slaydlar soni; muqova va reja hisobga kirmaydi
     (muqovaga rasm alohida qo'yiladi).
     """
     main = max(int(total or 0) - 2, 0)
-    return -(-main * 3 // 10)
+    per = PHOTOS_PER_10.get(volume, PHOTOS_PER_10["kop"])
+    return -(-main * per // 10)
 
 
 # ─────────────────────────────────────────────────────────── diagramma

@@ -156,15 +156,17 @@ def _fmt(value: float) -> str:
     return str(int(value)) if float(value).is_integer() else f"{value:.4g}"
 
 
-def note_for(data: Dict, language: str = "") -> str:
-    """Slayd yozuvchi modelga beriladigan tayyor ma'lumot tavsifi (taqdimot tilida)."""
+def note_for(data: Dict, language: str = "", sentences: str = "2-3") -> str:
+    """Slayd yozuvchi modelga beriladigan tayyor ma'lumot tavsifi (taqdimot tilida).
+
+    `sentences` — diagramma ostidagi izoh necha gap bo'lishi (kam matnli taqdimotda "1-2")."""
     C = prompts.get(language or data.get("lang") or "uz").CHART
     rows = "; ".join(f"{name or C['value']}: " + ", ".join(f"{l}={_fmt(v)}" for l, v in zip(data["labels"], values))
                      for name, values in data["series"])
     extra = C["approx"] if data.get("approx") else ""
     extra += C["forecast"] if data.get("forecast") else ""
     return prompts.fill(C["note"], rows=rows, unit=(" " + data["unit"]) if data.get("unit") else "",
-                        source=data["source"], extra=extra, block=block(data))
+                        source=data["source"], extra=extra, block=block(data), sentences=sentences)
 
 
 # ──────────────────────────────────────────────────────────── reja bosqichi
@@ -173,7 +175,7 @@ _FALLBACK = "ikki_ustun"
 
 
 def ground(outline: List[Dict], topic: str, language: str = "uz", level: int = 2,
-           researcher=None) -> List[Dict]:
+           researcher=None, sentences: str = "2-3") -> List[Dict]:
     """Rejadagi har diagramma slayd uchun AI dan haqiqiy ma'lumot olinadi.
 
     Ma'lumot topilsa — `item["chart"]` va `item["chart_note"]` (yozuvchi modelga ko'rsatma);
@@ -195,7 +197,7 @@ def ground(outline: List[Dict], topic: str, language: str = "uz", level: int = 2
             item = outline[index]
             if data:
                 item["chart"] = data
-                item["chart_note"] = note_for(data, language)
+                item["chart_note"] = note_for(data, language, sentences)
                 log.info("%d-slayd diagrammasi: haqiqiy ma'lumot (%s)", index + 1, data["source"])
             elif item.get("was"):
                 # Kvota bo'yicha qo'shilgan diagramma: ma'lumot yo'q — slayd o'z kategoriyasida qoladi.
