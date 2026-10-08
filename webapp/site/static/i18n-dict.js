@@ -1,6 +1,15 @@
 /* Edufayl sayti: tarjima lug'ati (o'zbekcha matn → ru, en, kk). Mexanizm: i18n.js */
 window.EDU_DICT = {
 "ru": {
+"🎁 Imtiyoz yoqildi": "🎁 Льгота включена",
+"{n} slaydli taqdimot bepul. Rasmlar qo‘yilmaydi, slaydlar sonini o‘zgartirib bo‘lmaydi. Keyin slaydni AI ga qayta yozdirish alohida pullik.": "Презентация на {n} слайдов бесплатно. Без картинок, количество слайдов изменить нельзя. Переписать слайд с помощью ИИ потом можно за отдельную плату.",
+"🎁 Bepul sinov taqdimoti": "🎁 Бесплатная пробная презентация",
+"Har bir foydalanuvchiga bir marta: {n} slaydli taqdimot bepul (rasmsiz).": "Один раз для каждого пользователя: презентация на {n} слайдов бесплатно (без картинок).",
+"Imtiyozdan foydalanish": "Воспользоваться льготой",
+"Bepul sinovda slaydlar soni o‘zgarmaydi. Boshqa son kerak bo‘lsa, imtiyozni bekor qiling.": "В пробной версии количество слайдов не меняется. Если нужно другое количество, отмените льготу.",
+"Bepul yaratish": "Создать бесплатно",
+"Yo‘q (bepul sinov)": "Нет (пробная версия)",
+"Bepul sinov taqdimotidan avval foydalangansiz. Endi oddiy buyurtma bering.": "Вы уже использовали бесплатную пробную презентацию. Оформите обычный заказ.",
 "Edufayl — taqdimot, mustaqil ish, referat va kurs ishi tayyorlash": "Edufayl — презентации, самостоятельные работы, рефераты и курсовые",
 "Edufayl — AI yordamida taqdimot (prezentatsiya), mustaqil ish, referat, kurs ishi, maqola, tezis va diplom ishlarini tayyorlaydigan sayt va Telegram bot.": "Edufayl — сайт и Telegram-бот, который с помощью ИИ готовит презентации, самостоятельные работы, рефераты, курсовые, статьи, тезисы и дипломные работы.",
 "Asosiy qism": "Основная часть",
@@ -553,6 +562,15 @@ window.EDU_DICT = {
 ]
 },
 "en": {
+"🎁 Imtiyoz yoqildi": "🎁 Free trial applied",
+"{n} slaydli taqdimot bepul. Rasmlar qo‘yilmaydi, slaydlar sonini o‘zgartirib bo‘lmaydi. Keyin slaydni AI ga qayta yozdirish alohida pullik.": "A {n}-slide presentation for free. No images, and the number of slides can't be changed. Rewriting a slide with AI later is paid separately.",
+"🎁 Bepul sinov taqdimoti": "🎁 Free trial presentation",
+"Har bir foydalanuvchiga bir marta: {n} slaydli taqdimot bepul (rasmsiz).": "Once per user: a {n}-slide presentation for free (no images).",
+"Imtiyozdan foydalanish": "Use the free trial",
+"Bepul sinovda slaydlar soni o‘zgarmaydi. Boshqa son kerak bo‘lsa, imtiyozni bekor qiling.": "The number of slides is fixed in the free trial. Cancel the trial if you need a different number.",
+"Bepul yaratish": "Create for free",
+"Yo‘q (bepul sinov)": "None (free trial)",
+"Bepul sinov taqdimotidan avval foydalangansiz. Endi oddiy buyurtma bering.": "You have already used the free trial presentation. Please place a regular order.",
 "Edufayl — taqdimot, mustaqil ish, referat va kurs ishi tayyorlash": "Edufayl — presentations, assignments, essays and course papers",
 "Edufayl — AI yordamida taqdimot (prezentatsiya), mustaqil ish, referat, kurs ishi, maqola, tezis va diplom ishlarini tayyorlaydigan sayt va Telegram bot.": "Edufayl is a website and Telegram bot that uses AI to prepare presentations, independent assignments, essays, course papers, articles, theses and diploma works.",
 "Asosiy qism": "Main part",
@@ -1105,6 +1123,15 @@ window.EDU_DICT = {
 ]
 },
 "kk": {
+"🎁 Imtiyoz yoqildi": "🎁 Жеңілдік қосылды",
+"{n} slaydli taqdimot bepul. Rasmlar qo‘yilmaydi, slaydlar sonini o‘zgartirib bo‘lmaydi. Keyin slaydni AI ga qayta yozdirish alohida pullik.": "{n} слайдтық презентация тегін. Суреттер қойылмайды, слайд санын өзгертуге болмайды. Кейін слайдты ЖИ-ге қайта жаздыру бөлек ақылы.",
+"🎁 Bepul sinov taqdimoti": "🎁 Тегін сынақ презентациясы",
+"Har bir foydalanuvchiga bir marta: {n} slaydli taqdimot bepul (rasmsiz).": "Әр пайдаланушыға бір рет: {n} слайдтық презентация тегін (суретсіз).",
+"Imtiyozdan foydalanish": "Жеңілдікті пайдалану",
+"Bepul sinovda slaydlar soni o‘zgarmaydi. Boshqa son kerak bo‘lsa, imtiyozni bekor qiling.": "Тегін сынақта слайд саны өзгермейді. Басқа сан керек болса, жеңілдіктен бас тартыңыз.",
+"Bepul yaratish": "Тегін жасау",
+"Yo‘q (bepul sinov)": "Жоқ (тегін сынақ)",
+"Bepul sinov taqdimotidan avval foydalangansiz. Endi oddiy buyurtma bering.": "Тегін сынақ презентациясын бұрын пайдаландыңыз. Енді әдеттегі тапсырыс беріңіз.",
 "Edufayl — taqdimot, mustaqil ish, referat va kurs ishi tayyorlash": "Edufayl — презентация, өзіндік жұмыс, реферат және курстық жұмыс",
 "Edufayl — AI yordamida taqdimot (prezentatsiya), mustaqil ish, referat, kurs ishi, maqola, tezis va diplom ishlarini tayyorlaydigan sayt va Telegram bot.": "Edufayl — ЖИ көмегімен презентация, өзіндік жұмыс, реферат, курстық жұмыс, мақала, тезис және диплом жұмыстарын дайындайтын сайт пен Telegram бот.",
 "Asosiy qism": "Негізгі бөлім",

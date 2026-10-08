@@ -684,3 +684,12 @@ input[type=range]{accent-color:var(--brand)}
 .foot-seo p{margin:0 0 10px;font-size:13.5px;max-width:80ch}
 .foot-links{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13.5px}
 .foot-links a{color:inherit;text-decoration:none;border-bottom:1px dotted currentColor}
+
+/* Bepul sinov taqdimoti (studiya tepasida) */
+.trial{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  padding:14px 16px;border-radius:14px;border:1px dashed #2457FF;background:rgba(36,87,255,.06);margin-bottom:16px}
+.trial .tx{display:flex;flex-direction:column;gap:3px;flex:1;min-width:220px}
+.trial .tx b{font-size:15px}
+.trial .tx span{font-size:13.5px;color:#4A5272}
+.trial.on{border-style:solid;background:rgba(22,163,74,.08);border-color:#16a34a}
+.st-count.locked .cval b{color:#16a34a}

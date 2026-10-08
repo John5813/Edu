@@ -140,8 +140,11 @@ async def me(request: web.Request) -> web.Response:
     user = await Database.get_user(telegram_id)
     if not user:
         return web.json_response({"ok": True, "user": None, "needs_bot": True})
+    from database import free_trial
+
     identity = await web_accounts.identity_of(telegram_id)
     return web.json_response({"ok": True, "user": {
+        "free_trial": await free_trial.available(telegram_id),
         "id": telegram_id, "name": user.first_name or user.username or "Foydalanuvchi",
         "username": user.username or "", "balance": int(user.balance or 0),
         "language": web_accounts.user_language(user), "telegram": not web_accounts.is_web_only(telegram_id),
@@ -176,6 +179,7 @@ STYLE_NOTES = {"toza": "Yengil va ixcham", "jurnal": "Klassik va nafis", "blok":
 
 
 def _catalog() -> Dict:
+    from database import free_trial
     from services.premium_presentation import pipeline, themes
 
     return {
@@ -197,6 +201,8 @@ def _catalog() -> Dict:
                            for n in range(pipeline.MIN_SLIDES, pipeline.MAX_SLIDES + 1)],
         "rewrite": {"price": _rewrite_price(), "prompts": REWRITE_PROMPTS},
         "premium_range": {"min": pipeline.MIN_SLIDES, "max": pipeline.MAX_SLIDES, "popular": [5, 8, 10, 12, 15, 20, 25, 30]},
+        # Bepul sinov: har akkauntga bir marta, varaq soni qat'iy, rasmsiz (kimda borligi — /me da `free_trial`).
+        "free_trial": {"slides": free_trial.SLIDES, "photos": False},
     }
 
 
@@ -301,7 +307,7 @@ async def jobs_create(request: web.Request) -> web.Response:
     try:
         job = await web_jobs.submit(telegram_id, str(data.get("kind")), dict(data.get("params") or {}))
     except web_jobs.JobError as exc:
-        status = 402 if exc.code == "no_balance" else 409 if exc.code == "busy" else 400
+        status = 402 if exc.code == "no_balance" else 409 if exc.code in ("busy", "trial_used") else 400
         return _error(str(exc), status, exc.code)
     user = await Database.get_user(telegram_id)
     return web.json_response({"ok": True, "job": job, "balance": int(getattr(user, "balance", 0) or 0)})

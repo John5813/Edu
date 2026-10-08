@@ -1,3 +1,5 @@
+import contextlib
+import contextvars
 import json
 import logging
 import random
@@ -481,6 +483,21 @@ def set_text_model(model_id: str) -> None:
     log.info("Premium taqdimot matn modeli: %s", model_id)
 
 
+# Bitta buyurtma uchun matn modeli (bepul sinov taqdimoti — arzon model). Global `_preferred` dan farqli
+# o'laroq faqat shu buyurtmaning oqimida amal qiladi: bir vaqtda ketayotgan pullik taqdimotlarga ta'sir qilmaydi.
+_TEXT_OVERRIDE: contextvars.ContextVar = contextvars.ContextVar("premium_text_model", default="")
+
+
+@contextlib.contextmanager
+def text_model(model_id: str):
+    """`with text_model("google/gemini-2.5-flash-lite"):` — ichidagi matn so'rovlari shu modeldan boshlanadi."""
+    token = _TEXT_OVERRIDE.set((model_id or "").strip())
+    try:
+        yield
+    finally:
+        _TEXT_OVERRIDE.reset(token)
+
+
 def _models(kind: str) -> list:
     """Sinaladigan modellar — avval tanlangani, keyin ishlagani ma'lum bo'lgani."""
     chain = {"text": config.OPENROUTER_TEXT_MODELS,
@@ -492,6 +509,9 @@ def _models(kind: str) -> list:
         if not model:
             continue
         chain = [model] + [item for item in chain if item != model]
+    override = _TEXT_OVERRIDE.get() if kind == "text" else ""
+    if override:
+        chain = [override] + [item for item in chain if item != override]
     return chain
 
 
@@ -661,7 +681,8 @@ def _request(kind: str, payload: dict, timeout: int = 180,
         # Oldingi model mazmun sababli yiqilgan bo'lsa, zaxira model
         # eslab qolinmaydi: keyingi so'rovlar yana tanlangan modeldan
         # boshlanadi (zaxira odatda qimmatroq).
-        if not rejected and _WORKING.get(kind) != model:
+        # Bitta buyurtmaga tanlangan model (bepul sinov) eslab qolinmaydi — boshqalarning taqdimotiga o'tmasin.
+        if not rejected and _WORKING.get(kind) != model and not (kind == "text" and _TEXT_OVERRIDE.get()):
             log.info("%s modeli: %s", {"text": "Matn", "receipt": "Chek", "ocr": "OCR", "receipt2": "Chek (tasdiq)"}.get(kind, "Vision"), model)
             _WORKING[kind] = model
         return data

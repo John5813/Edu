@@ -10,6 +10,7 @@ chiqar, lekin raqamlar real emas edi. Endi tartib boshqacha:
    diagramma raqamlarini AI bergan qiymatlarga majburan almashtiradi.
 """
 import concurrent.futures
+import contextvars
 import html
 import logging
 import math
@@ -19,6 +20,13 @@ from typing import Dict, List, Optional
 from . import deck_logic, llm_client
 
 log = logging.getLogger(__name__)
+
+
+def _in_context(func):
+    """Oqim ichida ham chaqiruvchining konteksti amal qilsin (bepul sinovning matn modeli)."""
+    parent = contextvars.copy_context()
+    return lambda *args: parent.copy().run(func, *args)
+
 
 SOURCE_LABEL = {
     "uz": "Manba:", "ru": "Источник:", "en": "Source:",
@@ -210,7 +218,7 @@ def ground(outline: List[Dict], topic: str, language: str = "uz", level: int = 2
         return index, researcher(topic, item["title"], item["brief"], kind, language)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-        for index, data in pool.map(job, indices):
+        for index, data in pool.map(_in_context(job), indices):
             item = outline[index]
             if data:
                 item["chart"] = data
@@ -321,7 +329,7 @@ def research_strays(slides: List[str], outline: List[Dict], topic: str, language
 
     found = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-        for index, data in pool.map(job, todo):
+        for index, data in pool.map(_in_context(job), todo):
             item = outline[index]
             item["chart_tried"] = True
             if data:
