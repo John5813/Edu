@@ -5,6 +5,7 @@ katalogga yozuv. Faylning o'zi hech qachon saytda turmaydi; sayt faqat
 rasmlarni ko'rsatadi, fayl esa kanaldan `file_id` orqali olinadi.
 """
 
+import asyncio
 import logging
 import os
 import re
@@ -490,6 +491,11 @@ async def publish_work(
         if not preview_count:
             raise RuntimeError("ko'rgazma rasmlari tayyorlanmadi")
 
+        # Reja va parcha — ish sahifasidagi matn (Google shu matn bo'yicha topadi).
+        from services import store_seo
+
+        seo = await asyncio.to_thread(store_seo.extract, cleaned_path, title)
+
         message = await bot.send_document(
             chat_id=STORE_VAULT_CHAT_ID,
             document=FSInputFile(
@@ -516,6 +522,8 @@ async def publish_work(
             slide_count=_slide_count(cleaned_path, page_count),
             file_type=file_type,
             preview_count=preview_count,
+            outline=seo["outline"],
+            excerpt=seo["excerpt"],
         )
     except Exception:
         # Yarim qolgan nashrdan rasm qolib ketmasin.
@@ -529,6 +537,12 @@ async def publish_work(
                 pass
 
     logger.info("Katalogga qo'shildi: %s — %s (%s)", public_code, title, file_type)
+    # Yandex va Bing yangi sahifani darhol bilsin (Google sitemap.xml orqali topadi).
+    try:
+        asyncio.get_running_loop().create_task(store_seo.ping(
+            [store_seo.item_path(public_code, title, work_type), "/shop"]))
+    except RuntimeError:
+        pass
     return {
         "public_code": public_code,
         "title": title,

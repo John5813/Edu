@@ -3,13 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tayyor taqdimotlar va ishlar — do'kon</title>
-<meta name="description" content="Tayyor taqdimot va ishlar to'plami: fan bo'yicha tanlang, barcha slaydlarni ko'ring va darhol yuklab oling. Mavzu topilmasa, yangisini buyurtma qiling.">
+<title>{{PAGE_TITLE}}</title>
+<meta name="description" content="{{META_DESC}}">
+<meta name="robots" content="{{ROBOTS}},max-image-preview:large">
 <link rel="canonical" href="{{CANONICAL}}">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Tayyor taqdimotlar va ishlar">
-<meta property="og:description" content="Fan bo'yicha tayyor ishlar: barcha slaydlarni ko'rib, darhol yuklab oling.">
+<meta property="og:site_name" content="Edufayl">
+<meta property="og:title" content="{{PAGE_TITLE}}">
+<meta property="og:description" content="{{META_DESC}}">
 <meta property="og:url" content="{{CANONICAL}}">
+<meta property="og:image" content="{{OG_IMAGE}}">
+<script type="application/ld+json">{{JSONLD}}</script>
 <link rel="stylesheet" href="/shop/style.css">
 </head>
 <body>
@@ -21,16 +25,21 @@
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
         <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
       </svg>
-      <input id="q" type="search" placeholder="Mavzu bo'yicha qidiring..." autocomplete="off">
+      <form action="" method="get" role="search"><input id="q" name="q" type="search" value="{{Q}}" placeholder="Mavzu bo'yicha qidiring..." autocomplete="off" aria-label="Mavzu bo'yicha qidirish"></form>
     </div>
     <a class="create" id="create-top" href="__BOT_URL__" target="_blank" rel="noopener">+ Yangi yaratish</a>
   </div>
 </header>
 
 <main class="wrap">
-  <nav class="kinds" id="kinds"></nav>
+  {{CRUMBS}}
+  <div class="cat-head">
+    <h1>{{H1}}</h1>
+    <p class="cat-intro">{{INTRO}}</p>
+  </div>
+  <nav class="kinds" id="kinds" aria-label="Ish turlari">{{KINDS}}</nav>
   <div class="filters">
-    <div class="chips" id="cats"></div>
+    <nav class="chips" id="cats" aria-label="Fanlar">{{CATS}}</nav>
     <select id="sort" aria-label="Saralash">
       <option value="new">Yangi qo'shilgan</option>
       <option value="popular">Ommabop</option>
@@ -38,17 +47,19 @@
       <option value="expensive">Qimmat avval</option>
     </select>
   </div>
-  <div id="notice"></div>
-  <div class="count" id="count"></div>
-  <div class="grid" id="grid"></div>
-  <button class="more" id="more" hidden>Yana ko'rsatish</button>
+  <div id="notice">{{NOTICE}}</div>
+  <div class="count" id="count">{{COUNT}}</div>
+  <div class="grid" id="grid">{{GRID}}</div>
+  <button class="more" id="more" {{MORE_HIDDEN}}>Yana ko'rsatish</button>
+  {{PAGER}}
 </main>
 
 <footer class="wrap">Har bir ish mijoz ma'lumotlaridan tozalangan holda joylanadi.</footer>
 
+<script type="application/json" id="init">{{INIT}}</script>
 <script>
 const $ = s => document.querySelector(s);
-const money = n => (n || 0).toLocaleString('ru-RU').replace(/ /g, ' ') + " so'm";
+const money = n => (n || 0).toLocaleString('ru-RU').replace(/ /g, ' ') + " so'm";
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -65,26 +76,23 @@ const createBtn = label => HAS_BOT
   ? `<a class="create" href="${esc(BOT_URL)}" target="_blank" rel="noopener">${label}</a>`
   : '';
 
-/* Havoladan boshlang'ich holat — /shop?q=...&category=... ulashsa bo'ladi. */
-const startup = new URLSearchParams(location.search);
+/* Birinchi sahifa serverda chizilgan (qidiruv tizimlari ro'yxatni JavaScriptsiz ko'rsin).
+   Tur va fan — oddiy havolalar (har biri o'z sahifasi); bu yerda faqat qidiruv, saralash va
+   «Yana ko'rsatish» ishlaydi. */
+const init = JSON.parse($('#init').textContent || '{}');
 const state = {
-  q: startup.get('q') || '',
-  category: startup.get('category') || '',
-  type: startup.get('type') || '',
-  sort: startup.get('sort') || 'new',
-  page: 1, total: 0, loaded: 0,
+  q: init.q || '', category: init.category || '', type: init.type || '',
+  sort: init.sort || 'new', page: init.page || 1,
+  total: init.total || 0, loaded: init.loaded || 0, base: init.base || '/shop',
 };
-$('#q').value = state.q;
 $('#sort').value = state.sort;
 
 function syncUrl() {
   const p = new URLSearchParams();
   if (state.q) p.set('q', state.q);
-  if (state.type) p.set('type', state.type);
-  if (state.category) p.set('category', state.category);
   if (state.sort !== 'new') p.set('sort', state.sort);
   const qs = p.toString();
-  history.replaceState({}, '', '/shop' + (qs ? '?' + qs : ''));
+  history.replaceState({}, '', state.base + (qs ? '?' + qs : ''));
 }
 
 /* ── Katalog ─────────────────────────────── */
@@ -141,8 +149,8 @@ const skeletons = n => '<div class="skel"></div>'.repeat(n);
 /* Kartochka — haqiqiy havola: qidiruv tizimlari indekslay olsin va
    yangi oynada ochish ishlasin. */
 function card(it) {
-  return `<a class="card" href="/shop/${esc(it.code)}">
-    <img class="thumb" src="${esc(it.preview)}" alt="${esc(it.title)}" loading="lazy">
+  return `<a class="card" href="${esc(it.url)}">
+    <img class="thumb" src="${esc(it.preview)}" alt="${esc(it.title)}${it.work_label ? ' — ' + esc(it.work_label.toLowerCase()) : ''}" loading="lazy" width="480" height="270">
     <div class="card-b">
       ${it.work_label ? `<div class="card-kind">${esc(it.work_label)}</div>` : ''}
       <div class="card-t">${esc(it.title)}</div>
@@ -155,84 +163,30 @@ function card(it) {
   </a>`;
 }
 
-/* ── Ish turlari: katalogning asosiy bo'linishi ─ */
-async function loadKinds() {
-  let kinds = [];
-  try {
-    const r = await fetch('/api/shop/types');
-    if (r.ok) kinds = (await r.json()).types || [];
-  } catch (e) { /* turlarsiz ham ishlayveradi */ }
-
-  if (!kinds.length) { $('#kinds').innerHTML = ''; return; }
-  const on = k => k === state.type ? ' on' : '';
-  $('#kinds').innerHTML =
-    `<a class="kind-tab${on('')}" href="/shop" data-k="">Hammasi</a>` +
-    kinds.map(k => `<a class="kind-tab${on(k.key)}" data-k="${esc(k.key)}"
-        href="/shop?type=${encodeURIComponent(k.key)}">${esc(k.label)} <i>${k.count}</i></a>`).join('');
-  showActive($('#kinds'));
-}
-
 /* Tanlangan tugma yonga suriladigan qatorning ko'rinmas qismida qolmasin. */
 function showActive(row) {
-  const on = row.querySelector('.on');
+  const on = row && row.querySelector('.on');
   if (!on || on === row.firstElementChild) return;
   row.scrollLeft = on.offsetLeft - (row.clientWidth - on.offsetWidth) / 2;
 }
-
-/* ── Fanlar ──────────────────────────────── */
-async function loadCats() {
-  let cats = [];
-  try {
-    // Tanlangan tur ichidagi fanlar — bo'sh bo'lim ko'rsatilmasin
-    const url = '/api/shop/categories' + (state.type ? '?type=' + encodeURIComponent(state.type) : '');
-    const r = await fetch(url);
-    if (r.ok) cats = (await r.json()).categories || [];
-  } catch (e) { /* fansiz ham ishlayveradi */ }
-
-  const on = c => c === state.category ? ' on' : '';
-  $('#cats').innerHTML =
-    `<a class="chip${on('')}" href="/shop" data-c="">Hammasi</a>` +
-    cats.map(c => `<a class="chip${on(c.name)}" href="/shop?category=${encodeURIComponent(c.name)}"
-        data-c="${esc(c.name)}">${esc(c.name)} (${c.count})</a>`).join('');
-  showActive($('#cats'));
-}
+showActive($('#kinds'));
+showActive($('#cats'));
 
 /* ── Hodisalar ───────────────────────────── */
+const pager = () => { const p = $('#pager'); if (p) p.hidden = true; };
 let timer;
+$('#q').closest('form').onsubmit = e => e.preventDefault();
 $('#q').oninput = e => {
   clearTimeout(timer);
   timer = setTimeout(() => {
     state.q = e.target.value.trim();
     syncUrl();
+    pager();
     load(true);
   }, 280);
 };
-$('#sort').onchange = e => { state.sort = e.target.value; syncUrl(); load(true); };
-$('#cats').onclick = e => {
-  const chip = e.target.closest('.chip');
-  if (!chip) return;
-  e.preventDefault();
-  state.category = chip.dataset.c;
-  $('#cats').querySelectorAll('.chip').forEach(n => n.classList.toggle('on', n === chip));
-  syncUrl();
-  load(true);
-};
-$('#kinds').onclick = e => {
-  const tab = e.target.closest('.kind-tab');
-  if (!tab) return;
-  e.preventDefault();
-  state.type = tab.dataset.k;
-  $('#kinds').querySelectorAll('.kind-tab').forEach(n => n.classList.toggle('on', n === tab));
-  syncUrl();
-  // Tur o'zgarganda fanlar ro'yxati ham o'zgaradi
-  loadCats();
-  load(true);
-};
-$('#more').onclick = () => { state.page++; load(false); };
-
-loadKinds();
-loadCats();
-load(true);
+$('#sort').onchange = e => { state.sort = e.target.value; syncUrl(); pager(); load(true); };
+$('#more').onclick = () => { state.page++; pager(); load(false); };
 </script>
 </body>
 </html>

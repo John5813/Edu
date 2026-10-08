@@ -619,6 +619,9 @@ async def main():
     # Bot qayta ishga tushganda to'xtab qolgan kitob tarjimalari davom etadi.
     from services import book_jobs
     asyncio.create_task(book_jobs.resume_all(bot))
+    # Do'kondagi eski ishlarning rejasi (sahifa matni) fonda to'ldiriladi, keyin Yandex/Bing'ga e'lon qilinadi.
+    from services import store_seo
+    asyncio.create_task(store_seo.startup(bot))
 
     polling_task = asyncio.create_task(dp.start_polling(bot))
     web_task     = asyncio.create_task(start_web_server(port=5000))
