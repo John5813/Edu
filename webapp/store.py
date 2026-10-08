@@ -720,7 +720,10 @@ async def handle_sitemap(request: web.Request) -> web.Response:
 
     origin = html.escape(_origin(request))
     rows = await Database.all_store_codes()
+    from webapp.landing import LANDINGS
+
     urls = [f"  <url><loc>{origin}/</loc></url>", f"  <url><loc>{origin}/shop</loc></url>"]
+    urls += [f"  <url><loc>{origin}/{slug}</loc></url>" for slug in LANDINGS]
 
     types = Counter(r["work_type"] for r in rows if r["work_type"])
     cats = Counter(r["category"] for r in rows if r["category"])

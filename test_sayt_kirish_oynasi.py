@@ -100,6 +100,18 @@ async def main():
         # 4) Qidiruv botlari — oyna yo'q, sahifa matni ochiq
         ctx, page, _ = await visit(ua=GOOGLEBOT_UA, real=True)
         check("Googlebot'ga chiqmaydi", await page.locator(".modal").count() == 0)
+        # Googlebot inglizcha brauzer — sahifa baribir asl o'zbekcha matnda ko'rinishi kerak.
+        check("Googlebot sahifani o'zbekcha ko'radi",
+              (await page.title()).startswith("Edufayl — taqdimot, mustaqil ish")
+              and await page.locator('.foot-links a[href="/mustaqil-ish"]').inner_text() == "Mustaqil ish",
+              await page.title())
+        html = await page.content()
+        check("bosh sahifa: to'liq canonical va JSON-LD (Organization, WebSite)",
+              f'href="{BASE}/"' in html and '"@type":"Organization"' in html and "__ORIGIN__" not in html)
+        await ctx.close()
+        ctx, page, _ = await visit()
+        check("oddiy inglizcha brauzerda sayt tarjima qilinadi (foydalanuvchilar uchun o'zgarmadi)",
+              (await page.title()).startswith("Edufayl — presentations"), await page.title())
         await ctx.close()
         ctx, page, _ = await visit(ua="Mozilla/5.0 (compatible; YandexBot/3.0; +http://yandex.com/bots)")
         check("YandexBot'ga chiqmaydi", await page.locator(".modal").count() == 0)

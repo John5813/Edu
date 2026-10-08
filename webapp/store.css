@@ -188,3 +188,23 @@ footer{border-top:1px solid var(--line);padding:26px 0;color:var(--muted);font-s
   max-width:80ch}
 .related{padding:12px 0 48px}
 .slides img{height:auto}
+
+/* ── Xizmat sahifalari (/taqdimot, /kurs-ishi ...) ─ */
+.landing .hero-l{padding:18px 0 22px}
+.landing h1{font-size:28px;font-weight:800;line-height:1.2;letter-spacing:-.01em;max-width:24ch}
+.landing .lead{font-size:16px;color:var(--muted);margin-top:10px;max-width:70ch}
+.cta-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}
+.cta-row .buy{flex:0 1 auto;text-decoration:none;text-align:center}
+.ghost{padding:14px 22px;border-radius:11px;border:1px solid var(--line);background:var(--card);
+  font-weight:600;font-size:15px;text-decoration:none}
+.ghost:hover{border-color:var(--accent);color:var(--accent)}
+.ghost[hidden]{display:none}
+.steps{padding-left:20px;display:flex;flex-direction:column;gap:10px;font-size:15px}
+.steps b{display:block}
+.steps span{color:var(--muted)}
+.faq details{border-top:1px solid var(--line);padding:10px 0}
+.faq details:first-of-type{border-top:0}
+.faq summary{cursor:pointer;font-weight:600;font-size:15px}
+.faq p{color:var(--muted);font-size:14.5px;margin-top:6px;max-width:80ch}
+.more-link{color:var(--accent);font-weight:600;text-decoration:none}
+.others a{color:var(--accent);text-decoration:none}

@@ -1,6 +1,8 @@
 /* Edufayl sayti: tarjima lug'ati (o'zbekcha matn → ru, en, kk). Mexanizm: i18n.js */
 window.EDU_DICT = {
 "ru": {
+"Edufayl — taqdimot, mustaqil ish, referat va kurs ishi tayyorlash": "Edufayl — презентации, самостоятельные работы, рефераты и курсовые",
+"Edufayl — AI yordamida taqdimot (prezentatsiya), mustaqil ish, referat, kurs ishi, maqola, tezis va diplom ishlarini tayyorlaydigan sayt va Telegram bot.": "Edufayl — сайт и Telegram-бот, который с помощью ИИ готовит презентации, самостоятельные работы, рефераты, курсовые, статьи, тезисы и дипломные работы.",
 "Asosiy qism": "Основная часть",
 "Annotatsiya": "Аннотация",
 "Usullar": "Методы",
@@ -551,6 +553,8 @@ window.EDU_DICT = {
 ]
 },
 "en": {
+"Edufayl — taqdimot, mustaqil ish, referat va kurs ishi tayyorlash": "Edufayl — presentations, assignments, essays and course papers",
+"Edufayl — AI yordamida taqdimot (prezentatsiya), mustaqil ish, referat, kurs ishi, maqola, tezis va diplom ishlarini tayyorlaydigan sayt va Telegram bot.": "Edufayl is a website and Telegram bot that uses AI to prepare presentations, independent assignments, essays, course papers, articles, theses and diploma works.",
 "Asosiy qism": "Main part",
 "Annotatsiya": "Abstract",
 "Usullar": "Methods",
@@ -1101,6 +1105,8 @@ window.EDU_DICT = {
 ]
 },
 "kk": {
+"Edufayl — taqdimot, mustaqil ish, referat va kurs ishi tayyorlash": "Edufayl — презентация, өзіндік жұмыс, реферат және курстық жұмыс",
+"Edufayl — AI yordamida taqdimot (prezentatsiya), mustaqil ish, referat, kurs ishi, maqola, tezis va diplom ishlarini tayyorlaydigan sayt va Telegram bot.": "Edufayl — ЖИ көмегімен презентация, өзіндік жұмыс, реферат, курстық жұмыс, мақала, тезис және диплом жұмыстарын дайындайтын сайт пен Telegram бот.",
 "Asosiy qism": "Негізгі бөлім",
 "Annotatsiya": "Аңдатпа",
 "Usullar": "Әдістер",

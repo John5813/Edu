@@ -202,6 +202,8 @@ async def main():
 
     app = web.Application()
     store.setup_store_routes(app)
+    from webapp.landing import setup_landing_routes
+    setup_landing_routes(app)
     client = TestClient(TestServer(app))
     await client.start_server()
     try:
@@ -331,6 +333,30 @@ async def http_checks(client, items):
     item = await (await client.get("/api/shop/items/KURS0001")).json()
     check("API ish: nomli rasmlar", item["previews"][0].endswith("-kurs-ishi-1.jpg"))
 
+    # ── xizmat sahifalari (/taqdimot, /kurs-ishi ...)
+    from webapp.landing import LANDINGS
+    for slug in LANDINGS:
+        r = await client.get("/" + slug)
+        check(f"/{slug} ochiladi", r.status == 200)
+    r = await client.get("/kurs-ishi")
+    page = await r.text()
+    title = re.search(r"<title>(.*?)</title>", page).group(1)
+    check("xizmat sahifasi: sarlavha va h1", "Kurs ishi tayyorlash" in title and "Edufayl" in title
+          and "<h1>Kurs ishi tayyorlash" in page, title)
+    check("xizmat sahifasi: «Hoziroq yaratish» shu xizmat bilan", 'href="/#yaratish?kind=course_work"' in page)
+    check("xizmat sahifasi: shu turdagi tayyor ishlar", "Tayyor kurs ishlari" in page
+          and "/shop/KURS0001/bank-tizimi-va-uning-ahamiyati-kurs-ishi" in page and 'href="/shop/tur/kurs-ishi"' in page)
+    check("xizmat sahifasi: boshqa xizmatlarga havolalar", 'href="/taqdimot"' in page and 'href="/mustaqil-ish"' in page)
+    ld = json.loads(re.search(r'<script type="application/ld\+json">(.*?)</script>', page, re.S).group(1))
+    types = [n["@type"] for n in ld["@graph"]]
+    faq = next(n for n in ld["@graph"] if n["@type"] == "FAQPage")
+    check("xizmat sahifasi JSON-LD: Service, FAQPage, BreadcrumbList",
+          types == ["Service", "FAQPage", "BreadcrumbList"] and len(faq["mainEntity"]) >= 3, types)
+    page = await (await client.get("/taqdimot")).text()
+    check("/taqdimot: ikkala taqdimot turi va «prezentatsiya» so'zi", "prezentatsiya" in page and "Tayyor taqdimotlar" in page)
+    page = await (await client.get("/tezis")).text()
+    check("tayyor ishi yo'q xizmat sahifasi ham to'liq (bo'limsiz)", "Qanday ishlaydi" in page and "Tayyor tezislar" not in page)
+
     # ── sitemap, robots, IndexNow
     r = await client.get("/sitemap.xml")
     body = await r.text()
@@ -338,6 +364,8 @@ async def http_checks(client, items):
     ns = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9", "i": "http://www.google.com/schemas/sitemap-image/1.1"}
     locs = [u.find("s:loc", ns).text for u in root.findall("s:url", ns)]
     check("sitemap: to'g'ri XML", r.status == 200 and len(locs) == len(set(locs)))
+    check("sitemap: bosh sahifa va xizmat sahifalari", any(l.endswith("/taqdimot") for l in locs)
+          and any(l.endswith("/mustaqil-ish") for l in locs) and locs[0].endswith("/"))
     check("sitemap: hamma ish nomli manzil bilan", sum(1 for l in locs if re.search(r"/shop/[A-Z0-9]{8}/", l)) == 35)
     check("sitemap: tur, fan va tur+fan bo'limlari",
           any(l.endswith("/shop/tur/kurs-ishi") for l in locs) and any(l.endswith("/shop/fan/ekologiya") for l in locs)
