@@ -1,6 +1,12 @@
 /* Edufayl sayti: tarjima lug'ati (o'zbekcha matn → ru, en, kk). Mexanizm: i18n.js */
 window.EDU_DICT = {
 "ru": {
+"Asosiy qism": "Основная часть",
+"Annotatsiya": "Аннотация",
+"Usullar": "Методы",
+"Natijalar": "Результаты",
+"Muhokama": "Обсуждение",
+"Sarlavha": "Заголовок",
 "✍️ Matnni tahrirlash": "✍️ Редактировать текст",
 "bepul": "бесплатно",
 "Bepul": "Бесплатно",
@@ -540,6 +546,12 @@ window.EDU_DICT = {
 ]
 },
 "en": {
+"Asosiy qism": "Main part",
+"Annotatsiya": "Abstract",
+"Usullar": "Methods",
+"Natijalar": "Results",
+"Muhokama": "Discussion",
+"Sarlavha": "Title",
 "✍️ Matnni tahrirlash": "✍️ Edit text",
 "bepul": "free",
 "Bepul": "Free",
@@ -1079,6 +1091,12 @@ window.EDU_DICT = {
 ]
 },
 "kk": {
+"Asosiy qism": "Негізгі бөлім",
+"Annotatsiya": "Аңдатпа",
+"Usullar": "Әдістер",
+"Natijalar": "Нәтижелер",
+"Muhokama": "Талқылау",
+"Sarlavha": "Тақырып",
 "✍️ Matnni tahrirlash": "✍️ Мәтінді өңдеу",
 "bepul": "тегін",
 "Bepul": "Тегін",

@@ -22,7 +22,15 @@
     vaqt_oqi: 'time', qiyoslash: 'split', jadval: 'table', diagramma: 'chart', tuzilma: 'tree', iqtibos: 'quote',
     formula: 'formula', misol: 'list', kartalar: 'cards', yakun: 'end',
   };
-  const PAGE_PARTS = ['Titul varaq', 'Mundarija', 'Kirish qismi', '1-bob', '1-bob', '2-bob', '2-bob', '3-bob', 'Xulosa', 'Adabiyotlar'];
+  // Hujjatning tuzilishi (turiga qarab). Varaqlar soni oldindan ma'lum emas: kartochka — bo'lim, varaq emas.
+  const BOB = ['Titul varaq', 'Mundarija', 'Kirish qismi', '1-bob', '1-bob', '2-bob', '2-bob', '3-bob', 'Xulosa', 'Adabiyotlar'];
+  const PAGE_PARTS = {
+    course_work: BOB, diploma_work: BOB, bitiruv_ishi: BOB, dissertatsiya: BOB,
+    independent_work: ['Titul varaq', 'Mundarija', 'Kirish qismi', 'Asosiy qism', 'Asosiy qism', 'Asosiy qism', 'Asosiy qism', 'Xulosa', 'Adabiyotlar'],
+    referat: ['Titul varaq', 'Mundarija', 'Kirish qismi', 'Asosiy qism', 'Asosiy qism', 'Asosiy qism', 'Asosiy qism', 'Xulosa', 'Adabiyotlar'],
+    article: ['Annotatsiya', 'Kirish qismi', 'Usullar', 'Natijalar', 'Muhokama', 'Xulosa', 'Adabiyotlar'],
+    thesis: ['Sarlavha', 'Kirish qismi', 'Asosiy qism', 'Xulosa', 'Adabiyotlar'],
+  };
 
   function skel(kind) {
     const l = (w) => `<i class="l" style="width:${w}%"></i>`;
@@ -121,7 +129,8 @@
     opts = opts || {};
     const pages = opts.mode === 'pages';
     // Taqdimotda muqova va reja slaydi tanlangan songa qo'shimcha yoziladi (generator ham shunday hisoblaydi).
-    let count = pages ? 10 : Math.max(4, Math.min(40, (parseInt(opts.count, 10) || 10) + 2));
+    const parts = PAGE_PARTS[opts.kind] || BOB;
+    let count = pages ? parts.length : Math.max(4, Math.min(40, (parseInt(opts.count, 10) || 10) + 2));
     const unit = pages ? 'sahifa' : 'slayd';
     root.innerHTML = `<div class="forge${pages ? ' pages' : ''}">
       <canvas class="fg-sky" aria-hidden="true"></canvas>
@@ -145,7 +154,7 @@
       count = n;
       grid.style.setProperty('--n', n);
       grid.innerHTML = Array.from({length: n}, (_, i) => {
-        const part = pages ? PAGE_PARTS[i] || '' : '';
+        const part = pages ? parts[i] || '' : '';
         return `<div class="fg-card" style="--i:${i}"><span class="fg-no">${i + 1}</span><div class="fg-ttl">${esc(part)}</div>${skel(pages ? 'page' : i === 0 ? 'cover' : i === 1 ? 'plan' : 'cards')}<span class="fg-ok" aria-hidden="true"></span></div>`;
       }).join('');
       cards = Array.from(grid.children);
@@ -175,7 +184,8 @@
         c.classList.toggle('writing', i >= built && i < active);
       });
       const pct = Math.round((built / count) * 100);
-      cnt.textContent = tr(`${built} / ${count} ${unit}`);
+      // Hujjatda varaqlar soni oldindan ma'lum emas — foiz ko'rsatiladi (taqdimotda slaydlar soni aniq).
+      cnt.textContent = pages ? pct + '%' : tr(`${built} / ${count} ${unit}`);
       bar.style.width = Math.max(3, pct) + '%';
     }
 
@@ -232,7 +242,7 @@
         stage = 'done'; built = count; active = -1; paint();
         st.textContent = LABEL.done; forge.dataset.stage = 'done';
         $('.fg-ext').textContent = ext || 'PPTX';
-        $('.fg-file span').textContent = tr(`${count} ${unit}`);
+        $('.fg-file span').textContent = pages ? (opts.label || '') : tr(`${count} ${unit}`);
         if (REDUCED) { $('.fg-final').hidden = false; return resolve(); }
         const g = grid.getBoundingClientRect();
         cards.forEach((c) => {
