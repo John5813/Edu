@@ -1,17 +1,23 @@
 <!DOCTYPE html>
-<html lang="uz">
+<html lang="{{LANG}}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{{TITLE}} — tayyor taqdimot</title>
+<title>{{PAGE_TITLE}}</title>
 <meta name="description" content="{{META_DESC}}">
 <link rel="canonical" href="{{CANONICAL}}">
+<meta name="robots" content="index,follow,max-image-preview:large">
 <meta property="og:type" content="product">
-<meta property="og:title" content="{{TITLE}}">
+<meta property="og:site_name" content="Edufayl">
+<meta property="og:locale" content="uz_UZ">
+<meta property="og:title" content="{{PAGE_TITLE}}">
 <meta property="og:description" content="{{META_DESC}}">
 <meta property="og:image" content="{{OG_IMAGE}}">
+<meta property="og:image:alt" content="{{OG_ALT}}">
 <meta property="og:url" content="{{CANONICAL}}">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="{{OG_IMAGE}}">
+<link rel="preload" as="image" href="{{OG_IMAGE}}">
 <link rel="stylesheet" href="/shop/style.css">
 <script type="application/ld+json">{{JSONLD}}</script>
 </head>
@@ -50,6 +56,8 @@
 
   <div class="slides">{{SLIDES}}</div>
   {{MORE_PAGES}}
+  {{ABOUT}}
+  {{RELATED}}
 </main>
 
 <footer class="wrap">Har bir ish mijoz ma'lumotlaridan tozalangan holda joylanadi.</footer>

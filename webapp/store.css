@@ -107,7 +107,7 @@ select{
 }
 .card:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
 /* Slaydlar 16:9 — kartochka ham shunday, aks holda sarlavha chetidan qirqiladi. */
-.thumb{width:100%;aspect-ratio:16/9;object-fit:cover;background:var(--bg);display:block;border-bottom:1px solid var(--line)}
+.thumb{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;background:var(--bg);display:block;border-bottom:1px solid var(--line)}
 .card-b{padding:13px 14px 15px;display:flex;flex-direction:column;gap:8px;flex:1}
 .card-t{font-size:14.5px;font-weight:600;line-height:1.35;
         display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -163,3 +163,28 @@ select{
 .more-pages span{font-size:13px;color:var(--muted);max-width:60ch;margin:0 auto}
 
 footer{border-top:1px solid var(--line);padding:26px 0;color:var(--muted);font-size:13px;text-align:center}
+
+/* ── Katalog sarlavhasi va sahifalar ─────── */
+.cat-head{padding:18px 0 4px}
+.cat-head h1{font-size:24px;font-weight:700;line-height:1.25;letter-spacing:-.01em}
+.cat-intro{color:var(--muted);font-size:14px;margin-top:6px;max-width:80ch}
+.search form{display:block}
+.pager{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:0 0 48px}
+.pager[hidden]{display:none}
+.pager a,.pager b,.pager span{min-width:38px;padding:8px 12px;border-radius:9px;text-align:center;
+  font-size:14px;text-decoration:none;border:1px solid var(--line);background:var(--card)}
+.pager b{background:var(--accent);border-color:var(--accent);color:#fff}
+.pager span{border-color:transparent;background:none;color:var(--muted)}
+.pager a:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── Ish sahifasi: ish haqida, reja, parcha, o'xshash ishlar ─ */
+.about{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:18px 20px;margin:0 0 16px}
+.about h2,.related h2{font-size:18px;font-weight:700;margin-bottom:8px}
+.about p{font-size:15px;max-width:80ch}
+.outline{list-style:none;font-size:15px;display:flex;flex-direction:column;gap:5px}
+.outline li{padding-left:12px;border-left:2px solid var(--line)}
+.excerpt{font-size:15px;color:var(--muted);border-left:3px solid var(--accent);padding:2px 0 2px 14px;
+  max-width:80ch}
+.related{padding:12px 0 48px}
+.slides img{height:auto}

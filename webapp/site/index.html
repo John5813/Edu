@@ -147,6 +147,7 @@
           <h2 class="sec">Tayyor mavzular</h2>
           <p>Mavzu bo'yicha tayyor taqdimot va hujjatlar. Kerakkisini ko'rib chiqing va darhol oling.</p>
           <a class="btn light" href="/shop">Tayyor mavzularni ochish</a>
+          <nav id="shop-kinds" class="shop-kinds" aria-label="Tayyor mavzular"></nav>
         </div>
         <div id="shop-peek" class="peek"></div>
       </div>
@@ -187,7 +188,7 @@
     const box = document.getElementById('shop-peek');
     (data.items || []).slice(0, 4).forEach((it) => {
       const a = document.createElement('a');
-      a.href = '/shop/' + encodeURIComponent(it.code);
+      a.href = it.url || ('/shop/' + encodeURIComponent(it.code));
       a.className = 'pk';
       a.innerHTML = '<div class="pk-img" style="background-image:url(' + E.esc(it.preview) + ')"></div>' +
         '<div class="pk-t">' + E.esc(it.title) + '</div>' +
@@ -195,6 +196,18 @@
       box.appendChild(a);
     });
     if (!box.children.length) box.style.display = 'none';
+  } catch (e) {}
+
+  // Ish turlari bo'yicha bo'limlar (har biri o'z sahifasi: /shop/tur/kurs-ishi)
+  try {
+    const kinds = (await (await fetch('/api/shop/types')).json()).types || [];
+    const nav = document.getElementById('shop-kinds');
+    kinds.forEach((k) => {
+      const a = document.createElement('a');
+      a.href = k.url;
+      a.textContent = k.label;
+      nav.appendChild(a);
+    });
   } catch (e) {}
 })();
 

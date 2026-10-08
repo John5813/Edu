@@ -569,6 +569,8 @@ async def publish_got_description(message: Message, state: FSMContext):
         except OSError:
             pass
 
+    from services.store_seo import item_path
+
     code = result["public_code"]
     unit = "varaq" if result["file_type"] == "docx" else "slayd"
     await status.edit_text(
@@ -576,7 +578,7 @@ async def publish_got_description(message: Message, state: FSMContext):
         f"🔖 Kod: <code>{code}</code>\n"
         f"📄 Jami {result['slide_count']} {unit}; saytda dastlabki "
         f"{result['preview_count']} tasi ko'rinadi\n"
-        f"🌐 {webapp.public_url('/shop/' + code)}\n\n"
+        f"🌐 {webapp.public_url(item_path(code, result['title'], data.get('pub_work_type', '')))}\n\n"
         f"Olib tashlash: <code>/nashr_ochir {code}</code>",
         parse_mode="HTML",
     )

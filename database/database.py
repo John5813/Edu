@@ -288,7 +288,11 @@ async def init_db():
             pass  # Column already exists
 
         # Do'kon ustunlari — jadval ilgari ularsiz yaratilgan bo'lishi mumkin.
-        for column in ("search_text TEXT DEFAULT ''", "work_type TEXT DEFAULT ''"):
+        # outline/excerpt — fayldan olingan reja va parcha (ish sahifasidagi matn, qidiruv tizimlari uchun),
+        # outline_text — rejaning qidiruvga mos ko'rinishi, seo_state: 0 — hali o'qilmagan, 1 — o'qildi, 2 — o'qib bo'lmadi.
+        for column in ("search_text TEXT DEFAULT ''", "work_type TEXT DEFAULT ''",
+                       "outline TEXT DEFAULT ''", "excerpt TEXT DEFAULT ''",
+                       "outline_text TEXT DEFAULT ''", "seo_state INTEGER DEFAULT 0"):
             try:
                 await db.execute(f"ALTER TABLE store_items ADD COLUMN {column}")
                 await db.commit()
@@ -1439,6 +1443,8 @@ class Database:
         slide_count: int = 0,
         file_type: str = "pptx",
         preview_count: int = 0,
+        outline: Optional[List[str]] = None,
+        excerpt: str = "",
     ) -> int:
         from config import work_label
         from services.store_taxonomy import normalize
@@ -1452,11 +1458,12 @@ class Database:
                 """INSERT INTO store_items
                    (public_code, title, description, category, work_type, language,
                     keywords, search_text, slide_count, price, file_id, file_type,
-                    preview_count)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    preview_count, outline, excerpt, outline_text, seo_state)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (public_code, title, description, category, work_type, language,
                  keywords, search_text, slide_count, price, file_id, file_type,
-                 preview_count),
+                 preview_count, json.dumps(outline or [], ensure_ascii=False), excerpt or "",
+                 normalize(" ".join(outline or [])), 1 if outline is not None else 0),
             )
             await db.commit()
             return cursor.lastrowid
@@ -1513,13 +1520,16 @@ class Database:
         rank = ""
         match_params: list = []
         if likes:
+            # Mavzu reja (bo'lim sarlavhalari) ichida bo'lsa ham topiladi, lekin sarlavhasida
+            # mos kelgan ish yuqorida turadi.
             where.append("(" + " OR ".join(
-                ["search_text LIKE ? ESCAPE '\\'"] * len(likes)) + ")")
+                ["search_text LIKE ? ESCAPE '\\' OR outline_text LIKE ? ESCAPE '\\'"] * len(likes)) + ")")
             # Ko'proq so'zi mos kelgan ish yuqorida tursin.
             rank = " + ".join(
-                ["(CASE WHEN search_text LIKE ? ESCAPE '\\' THEN 1 ELSE 0 END)"] * len(likes)
+                ["(CASE WHEN search_text LIKE ? ESCAPE '\\' THEN 3 "
+                 "WHEN outline_text LIKE ? ESCAPE '\\' THEN 1 ELSE 0 END)"] * len(likes)
             ) + " DESC, "
-            match_params = likes
+            match_params = [like for like in likes for _ in (0, 1)]
 
         clause = " AND ".join(where)
         where_params = base_params + match_params
@@ -1607,14 +1617,64 @@ class Database:
 
     @staticmethod
     async def all_store_codes() -> List[Dict]:
-        """Sayt xaritasi uchun — barcha ochiq ishlarning kodi va sanasi."""
+        """Sayt xaritasi uchun — barcha ochiq ishlarning kodi, nomi, turi, fani, sanasi va rasmlar soni."""
         async with aiosqlite.connect(DATABASE_FILE) as db:
             async with db.execute(
-                "SELECT public_code, created_at FROM store_items "
-                "WHERE is_active = 1 ORDER BY created_at DESC"
+                "SELECT public_code, created_at, title, work_type, category, preview_count "
+                "FROM store_items WHERE is_active = 1 ORDER BY created_at DESC"
             ) as cursor:
                 rows = await cursor.fetchall()
-        return [{"code": r[0], "created_at": r[1]} for r in rows]
+        return [{"code": r[0], "created_at": r[1], "title": r[2] or "", "work_type": r[3] or "",
+                 "category": r[4] or "", "preview_count": r[5] or 0} for r in rows]
+
+    @staticmethod
+    async def related_store_items(public_code: str, work_type: str, category: str,
+                                  limit: int = 8) -> List[Dict]:
+        """Ish sahifasidagi «O'xshash ishlar»: avval shu tur va fandagilar, keyin shu fandagilar."""
+        FIELDS = ("public_code, title, description, category, work_type, language, "
+                  "file_type, slide_count, price, preview_count, sale_count, created_at")
+        found: List[Dict] = []
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            db.row_factory = aiosqlite.Row
+            for where, params in (
+                    ("work_type = ? AND category = ?", [work_type, category]),
+                    ("category = ?", [category]),
+                    ("work_type = ?", [work_type])):
+                if len(found) >= limit or not all(params):
+                    continue
+                skip = [public_code] + [r["public_code"] for r in found]
+                holes = ",".join("?" * len(skip))
+                async with db.execute(
+                    f"SELECT {FIELDS} FROM store_items WHERE is_active = 1 AND {where} "
+                    f"AND public_code NOT IN ({holes}) ORDER BY sale_count DESC, created_at DESC LIMIT ?",
+                    params + skip + [limit - len(found)],
+                ) as cursor:
+                    found += [dict(r) for r in await cursor.fetchall()]
+        return found
+
+    @staticmethod
+    async def store_items_without_seo(limit: int = 20) -> List[Dict]:
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT public_code, title, file_id, file_type FROM store_items "
+                "WHERE is_active = 1 AND (seo_state IS NULL OR seo_state = 0) ORDER BY id DESC LIMIT ?",
+                (limit,),
+            ) as cursor:
+                return [dict(r) for r in await cursor.fetchall()]
+
+    @staticmethod
+    async def set_store_seo(public_code: str, outline: List[str], excerpt: str, state: int = 1) -> None:
+        from services.store_taxonomy import normalize
+
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            await db.execute(
+                "UPDATE store_items SET outline = ?, excerpt = ?, outline_text = ?, seo_state = ? "
+                "WHERE public_code = ?",
+                (json.dumps(outline or [], ensure_ascii=False), excerpt or "",
+                 normalize(" ".join(outline or [])), state, public_code),
+            )
+            await db.commit()
 
     @staticmethod
     async def get_store_work_types() -> List[Dict]:
