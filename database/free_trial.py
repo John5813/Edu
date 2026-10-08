@@ -1,0 +1,60 @@
+"""Bepul sinov taqdimoti: har akkauntga BIR MARTA, 5 slayd (arzon model, rasmsiz).
+
+Imkoniyat buyurtma berilganda «band qilinadi» (`claim`) — bir vaqtda ikki marta bosilsa ham faqat bittasi
+o'tadi (jadvalda telegram_id — asosiy kalit). Taqdimot tayyorlanmay qolsa (xato, bekor qilish, server qayta
+ishga tushishi), imkoniyat qaytariladi (`release`) — xuddi pul qaytarilgandek.
+"""
+import time
+from typing import Optional
+
+import aiosqlite
+
+from database import database as _db
+
+SLIDES = 5
+MODEL = "google/gemini-2.5-flash-lite"
+
+SCHEMA = (
+    """CREATE TABLE IF NOT EXISTS free_trials (
+        telegram_id INTEGER PRIMARY KEY,
+        job_id TEXT NOT NULL DEFAULT '',
+        created_at REAL NOT NULL
+    )""",
+)
+
+
+async def _create(conn) -> None:
+    for statement in SCHEMA:
+        await conn.execute(statement)
+
+
+async def available(telegram_id: int) -> bool:
+    async with aiosqlite.connect(_db.DATABASE_FILE) as conn:
+        await _create(conn)
+        async with conn.execute("SELECT 1 FROM free_trials WHERE telegram_id = ?", (int(telegram_id),)) as cursor:
+            return await cursor.fetchone() is None
+
+
+async def claim(telegram_id: int, job_id: str) -> bool:
+    """Imkoniyatni shu buyurtmaga band qiladi. Avval ishlatilgan bo'lsa — False."""
+    async with aiosqlite.connect(_db.DATABASE_FILE) as conn:
+        await _create(conn)
+        try:
+            await conn.execute("INSERT INTO free_trials (telegram_id, job_id, created_at) VALUES (?, ?, ?)",
+                               (int(telegram_id), job_id, time.time()))
+            await conn.commit()
+        except aiosqlite.IntegrityError:
+            return False
+    return True
+
+
+async def release(telegram_id: int, job_id: Optional[str]) -> bool:
+    """Tayyorlanmay qolgan buyurtmaning imkoniyatini qaytaradi (faqat aynan shu buyurtma band qilgan bo'lsa)."""
+    if not job_id:
+        return False
+    async with aiosqlite.connect(_db.DATABASE_FILE) as conn:
+        await _create(conn)
+        cursor = await conn.execute("DELETE FROM free_trials WHERE telegram_id = ? AND job_id = ?",
+                                    (int(telegram_id), job_id))
+        await conn.commit()
+        return cursor.rowcount > 0

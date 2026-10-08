@@ -72,8 +72,10 @@ async def ensure_tables() -> None:
 
 
 async def _create(conn) -> None:
+    from database import free_trial
+
     await web_store.create_tables(conn)
-    for statement in _SCHEMA:
+    for statement in _SCHEMA + free_trial.SCHEMA:
         await conn.execute(statement)
 
 
@@ -190,6 +192,9 @@ async def merge(src_tid: int, dst_tid: int) -> int:
             await conn.execute("UPDATE web_jobs SET telegram_id = ? WHERE telegram_id = ?", (dst_tid, src_tid))
             await conn.execute("UPDATE web_sessions SET telegram_id = ? WHERE telegram_id = ?", (dst_tid, src_tid))
             await conn.execute("UPDATE web_identities SET telegram_id = ? WHERE telegram_id = ?", (dst_tid, src_tid))
+            # Bepul sinov bir odamga bir marta: ikkalasidan birida ishlatilgan bo'lsa — birlashganda ham ishlatilgan.
+            await conn.execute("UPDATE OR IGNORE free_trials SET telegram_id = ? WHERE telegram_id = ?", (dst_tid, src_tid))
+            await conn.execute("DELETE FROM free_trials WHERE telegram_id = ?", (src_tid,))
             await conn.execute("DELETE FROM web_link WHERE web_telegram_id = ?", (src_tid,))
             await conn.execute("DELETE FROM users WHERE telegram_id = ?", (src_tid,))
             await conn.commit()

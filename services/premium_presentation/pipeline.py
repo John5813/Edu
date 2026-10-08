@@ -4,6 +4,7 @@ Ilgari bu ketma-ketlik faqat bot handleri ichida edi. Sayt qo'shilgach nusxa ko'
 shu modulga ajratildi: slaydlarni yozish → rasmlar → muqova → PPTX.
 """
 import asyncio
+import contextvars
 import logging
 from typing import Callable, Optional, Tuple
 
@@ -47,8 +48,10 @@ def price_for(slide_count: int) -> int:
 async def run_step(loop, func, *, step: str, label: str):
     """Og'ir bosqichni chegaralangan vaqt ichida bajaradi."""
     timeout = STEP_TIMEOUTS[step]
+    # Oqimga joriy kontekst (masalan, bepul sinovning matn modeli) ham o'tadi — `run_in_executor` uni o'zi o'tkazmaydi.
+    context = contextvars.copy_context()
     try:
-        return await asyncio.wait_for(loop.run_in_executor(None, func), timeout)
+        return await asyncio.wait_for(loop.run_in_executor(None, context.run, func), timeout)
     except (asyncio.TimeoutError, TimeoutError):
         raise RuntimeError(f"{label} {int(timeout // 60)} daqiqada tugamadi — "
                            f"tashqi xizmat javob bermadi") from None
@@ -56,7 +59,7 @@ async def run_step(loop, func, *, step: str, label: str):
 
 async def build_deck(topic: str, slide_count: int, *, language: str = "uz", level: int = 2,
                      preferences: str = "", source_text: str = "", author: str = "",
-                     theme_key: str = "", style: str = "",
+                     theme_key: str = "", style: str = "", photos: bool = True,
                      progress_cb: Optional[Callable[[int, int], None]] = None,
                      stage_cb: Optional[Callable[[str, dict], None]] = None,
                      deck_out: Optional[dict] = None) -> Tuple[str, int, int]:
@@ -70,6 +73,8 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
     `deck_out` berilsa (sayt): unga taqdimotning yakuniy sahifalari (`pages`), rang kaliti, reja va
     sahifa suratlari papkasi (`shots_dir`, agar berilgan bo'lsa) yoziladi — taqdimotni saytda
     varaqlash va bitta sahifani qayta yozish uchun.
+
+    `photos=False` (bepul sinov): rasm chizdirilmaydi — rasm o'rnida qo'shimcha matn qoladi, muqova rasmsiz.
     """
     from services.premium_presentation import html_images, html_render, html_slides, themes
 
@@ -96,18 +101,19 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
         step="brief", label="Slaydlarni yozish")
 
     stage("images", slides=len(pages))
-    photos = 0
-    try:
-        pages, photos = await html_images.fill_photos(pages)
-    except Exception as exc:
-        log.warning("Rasmlar qo'yilmadi: %s", exc)
-    try:
-        pages, cover_done = await html_images.fill_cover(pages, topic)
-        photos += 1 if cover_done else 0
-    except Exception as exc:
-        log.warning("Muqova rasmi qo'yilmadi: %s", exc)
+    placed = 0
+    if photos:
+        try:
+            pages, placed = await html_images.fill_photos(pages)
+        except Exception as exc:
+            log.warning("Rasmlar qo'yilmadi: %s", exc)
+        try:
+            pages, cover_done = await html_images.fill_cover(pages, topic)
+            placed += 1 if cover_done else 0
+        except Exception as exc:
+            log.warning("Muqova rasmi qo'yilmadi: %s", exc)
 
-    stage("render", slides=len(pages), photos=photos)
+    stage("render", slides=len(pages), photos=placed)
     final: list = []
     shots = (deck_out or {}).get("shots_dir")
     path = await run_step(
@@ -121,4 +127,4 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
     if deck_out is not None:
         deck_out.update(pages=final if len(final) == len(pages) else pages, theme_key=chosen.key,
                         family=outline_out.get("family", ""), outline=outline_out.get("outline", []))
-    return path, len(pages), photos
+    return path, len(pages), placed

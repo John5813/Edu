@@ -151,15 +151,26 @@ async def submit(telegram_id: int, kind_key: str, raw: Dict) -> Dict:
     active = [job for job in await web_store.list_jobs(telegram_id, 10) if job["status"] in ("queued", "running")]
     if len(active) >= MAX_ACTIVE_PER_USER:
         raise JobError("Avvalgi buyurtmalaringiz tayyor bo'lishini kuting (bir vaqtda 2 tagacha).", "busy")
-    if not await Database.charge_balance(telegram_id, price):
+
+    job_id = uuid.uuid4().hex
+    trial = bool(params.get("trial"))
+    if trial:
+        # Bepul sinov — har akkauntga bir marta. Band qilish atomar: ikki marta bosilsa ham bittasi o'tadi.
+        from database import free_trial
+        if not await free_trial.claim(telegram_id, job_id):
+            raise JobError("Bepul sinov taqdimotidan avval foydalangansiz. Endi oddiy buyurtma bering.", "trial_used")
+    elif not await Database.charge_balance(telegram_id, price):
         raise JobError(f"Balans yetarli emas: {price:,} so'm kerak, sizda {int(user.balance or 0):,} so'm.".replace(",", " "),
                        "no_balance")
 
-    job_id = uuid.uuid4().hex
     try:
         await web_store.create_job(job_id, telegram_id, kind.key, kind.title(params), params, price, charged=True)
     except Exception:
-        await Database.update_user_balance(telegram_id, price)
+        if trial:
+            from database import free_trial
+            await free_trial.release(telegram_id, job_id)
+        else:
+            await Database.update_user_balance(telegram_id, price)
         raise
     task = asyncio.get_running_loop().create_task(_execute(job_id, telegram_id, kind, params, price))
     _tasks.add(task)
@@ -168,11 +179,18 @@ async def submit(telegram_id: int, kind_key: str, raw: Dict) -> Dict:
 
 
 async def _refund(job_id: str, telegram_id: int, price: int) -> None:
-    """Pulni bir marta qaytaradi (`charged` bayrog'i qayta qaytarishdan saqlaydi)."""
+    """Pulni bir marta qaytaradi (`charged` bayrog'i qayta qaytarishdan saqlaydi).
+
+    Bepul sinov buyurtmasida pul yo'q — uning o'rniga sinov imkoniyati qaytariladi.
+    """
+    from database import free_trial
+
     job = await web_store.get_job(job_id)
     if job and job["charged"]:
         await web_store.update_job(job_id, charged=0)
-        await Database.update_user_balance(telegram_id, price)
+        if price:
+            await Database.update_user_balance(telegram_id, price)
+        await free_trial.release(telegram_id, job_id)
 
 
 async def _execute(job_id: str, telegram_id: int, kind: Kind, params: Dict, price: int) -> None:
@@ -207,8 +225,9 @@ async def _execute(job_id: str, telegram_id: int, kind: Kind, params: Dict, pric
             log.exception("Sayt buyurtmasi bajarilmadi (%s): %s", kind.key, exc)
             message = await _friendly(exc)
             await _refund(job_id, telegram_id, price)
-            await web_store.update_job(job_id, status="failed", stage="failed",
-                                       error=f"{message} {price:,} so'm hisobingizga qaytarildi.".replace(",", " "),
+            back = (f"{price:,} so'm hisobingizga qaytarildi.".replace(",", " ") if price
+                    else "Bepul sinov imkoniyati sizda qoldi — qayta urinib ko'ring.")
+            await web_store.update_job(job_id, status="failed", stage="failed", error=f"{message} {back}",
                                        finished_at=time.time(), params={})
         finally:
             workload.end(work_id)
@@ -269,7 +288,7 @@ async def _after_done(job_id: str, telegram_id: int, kind: Kind, params: Dict, p
 
         await bot.send_document(telegram_id, FSInputFile(path, filename=name),
                                 caption="✅ Saytda buyurtma qilingan fayl tayyor.")
-        if kind.publish_as:
+        if kind.publish_as and not params.get("trial"):     # bepul sinov (rasmsiz) katalogga qo'yilmaydi
             from services.store_publisher import schedule_publish
             schedule_publish(bot, path, kind.title(params), kind.publish_as,
                              customer_name=params.get("author", ""), language=params.get("language", "uz"))

@@ -32,12 +32,16 @@
 
   let catalog = null, me = null, timer = null, seq = 0, pollTimer = null, forge = null;
   const S = {kind: 'premium_presentation', topic: '', lang: '', src: {kind: 'ai', text: '', label: '', words: 0},
-    style: 'toza', theme: '', count: 10, author: '', prefs: '', size: '', extras: [], pstyle: 'murakkab',
+    style: 'toza', theme: '', count: 10, author: '', prefs: '', size: '', extras: [], pstyle: 'murakkab', trial: false,
     univ: '', fac: '', grp: '', suggest: {language: '', theme: null}};
 
   const kindOf = (k) => catalog && catalog.kinds.find((x) => x.key === k);
   const opt = () => (kindOf(S.kind) || {}).options || {};
   const premium = () => opt().form === 'presentation';
+  // Bepul sinov taqdimoti: har akkauntga bir marta (kirmagan mehmonga ham taklif qilinadi — kirgach tekshiriladi).
+  const canTrial = () => premium() && !!(catalog && catalog.free_trial) && (!me || me.free_trial);
+  const trialOn = () => S.trial && canTrial();
+  const trialSlides = () => ((catalog && catalog.free_trial) || {}).slides || 5;
   const trunc = (t, n) => (t.length > n ? t.slice(0, n - 1) + '…' : t);
   const spin = '<span class="spin" style="width:16px;height:16px;border-width:2px;border-top-color:#fff;border-color:rgba(255,255,255,.4)"></span>';
 
@@ -82,6 +86,11 @@
     let html = '';
     if (premium()) {
       const range = catalog.premium_range || {min: 5, max: 30, popular: [10, 15, 20]};
+      if (canTrial()) {
+        html += trialOn()
+          ? `<div class="trial on" id="trial"><div class="tx"><b>🎁 Imtiyoz yoqildi</b><span>${trialSlides()} slaydli taqdimot bepul. Rasmlar qo‘yilmaydi, slaydlar sonini o‘zgartirib bo‘lmaydi. Keyin slaydni AI ga qayta yozdirish alohida pullik.</span></div><button type="button" class="link" id="trial-off">Bekor qilish</button></div>`
+          : `<div class="trial" id="trial"><div class="tx"><b>🎁 Bepul sinov taqdimoti</b><span>Har bir foydalanuvchiga bir marta: ${trialSlides()} slaydli taqdimot bepul (rasmsiz).</span></div><button type="button" class="btn sm" id="trial-on">Imtiyozdan foydalanish</button></div>`;
+      }
       html += section('Taqdimot tili', '', chipRow('st-lang', [{key: '', label: 'Avto'}].concat(catalog.languages), S.lang) + '<div class="hint" id="auto-note"></div>');
       html += section('Manba', 'AI nimaga tayanadi', `<div class="srcs" id="srcs">${SOURCES.map((x) =>
         `<button type="button" class="src${x.key === S.src.kind ? ' on' : ''}" data-k="${x.key}"><b>${x.label}</b><small>${x.note}</small></button>`).join('')}</div><div id="src-panel"></div>`);
@@ -89,7 +98,8 @@
         `<button type="button" class="st-sty${st.key === S.style ? ' on' : ''}" data-k="${E.esc(st.key)}"><img src="/static/home-style-${E.esc(st.key)}.jpg" alt="" loading="lazy" width="960" height="540"><b>${E.esc(st.label)}</b></button>`).join('')}</div>`);
       html += section('Rang sxemasi', '(Avto: mavzuga mos rang tanlanadi)', `<div class="st-sw" id="themes"><button type="button" class="sw-b${S.theme ? '' : ' on'}" data-k="" title="Avto"><i class="auto">✨</i></button>${catalog.themes.map((t) =>
         `<button type="button" class="sw-b${t.key === S.theme ? ' on' : ''}" data-k="${E.esc(t.key)}" title="${E.esc(t.label.split(' — ')[0])}"><i style="background:linear-gradient(135deg,${E.esc(t.background)} 50%,${E.esc(t.accent)} 50%)"></i></button>`).join('')}<span class="sw-name" id="theme-name"></span></div>`);
-      html += section('Slaydlar soni', '', `<div class="st-count"><button type="button" class="cbtn" id="c-minus" aria-label="Kamaytirish">−</button>
+      html += trialOn() ? section('Slaydlar soni', '', `<div class="st-count locked"><div class="cval"><b id="c-num">${trialSlides()}</b><span>slayd</span></div></div>
+        <div class="hint">Bepul sinovda slaydlar soni o‘zgarmaydi. Boshqa son kerak bo‘lsa, imtiyozni bekor qiling.</div>`) : section('Slaydlar soni', '', `<div class="st-count"><button type="button" class="cbtn" id="c-minus" aria-label="Kamaytirish">−</button>
           <div class="cval"><b id="c-num">${S.count}</b><span>slayd</span></div><button type="button" class="cbtn" id="c-plus" aria-label="Ko‘paytirish">+</button>
           <input type="range" id="c-range" min="${range.min}" max="${range.max}" value="${S.count}"></div>
         <div class="st-chips" id="c-pop">${(range.popular || []).map((n) => `<button type="button" class="chip sm${n === S.count ? ' on' : ''}" data-n="${n}">${n}</button>`).join('')}</div>
@@ -121,7 +131,7 @@
         ${premium() ? '<div class="pv" id="pv"></div><div class="hint" id="pv-note"></div>' : ''}
         <div class="st-sum" id="sum"></div>
         <div class="st-go"><div class="st-total"><span>Narx</span><b id="s-price"></b></div>
-          <button class="btn block" id="go" type="submit">Yaratish</button></div>
+          <button class="btn block" id="go" type="submit">${trialOn() ? 'Bepul yaratish' : 'Yaratish'}</button></div>
         <div id="s-note"></div>
         <p class="hint st-eta">${(o.eta_minutes && k && k.heavy) ? `Taxminan ${o.eta_minutes} daqiqa (katta hujjatlar navbat bilan tayyorlanadi). Tayyor fayl Telegramga ham yuboriladi.` : `Taxminan ${o.eta_minutes || 3} daqiqa. Tayyor fayl Telegramga ham yuboriladi.`}</p>
       </aside>`;
@@ -143,6 +153,8 @@
     const inp = (id, key, after) => { if ($(id)) $(id).oninput = (e) => { S[key] = e.target.value; if (after) after(); save(); }; };
     inp('author', 'author', () => { if (premium()) preview(); summary(); });
     inp('prefs', 'prefs'); inp('univ', 'univ'); inp('fac', 'fac'); inp('grp', 'grp');
+    if ($('trial-on')) $('trial-on').onclick = () => { S.trial = true; render(); save(); };
+    if ($('trial-off')) $('trial-off').onclick = () => { S.trial = false; render(); save(); };
     oneOf('st-lang', (v) => { S.lang = v; autoNotes(); save(); });
     oneOf('st-size', (v) => { S.size = v; save(); });
     oneOf('st-pstyle', (v) => { S.pstyle = v; save(); });
@@ -279,6 +291,7 @@
   // ───────────────────────────────────────────── narx va xulosa
   function price() {
     const o = opt();
+    if (trialOn()) return 0;
     if (premium()) return (catalog.premium_prices.find((p) => p.slides === S.count) || {}).price || 0;
     if (o.form === 'thesis') return o.price || 0;
     const z = (o.sizes || []).find((x) => x.key === S.size) || (o.sizes || [])[0] || {price: 0};
@@ -292,13 +305,14 @@
       rows = [['Til', S.lang ? langLabel(S.lang) : (S.suggest.language ? langLabel(S.suggest.language) + ' (avto)' : 'Avto')],
         ['Manba', S.src.kind === 'ai' ? 'AI o‘zi yozadi' : (S.src.label || (S.src.text ? 'Sizning matningiz' : '—'))],
         ['Uslub', ((catalog.styles.find((x) => x.key === S.style) || {}).label) || ''],
-        ['Slaydlar', S.count + ' ta']];
+        ['Slaydlar', (trialOn() ? trialSlides() : S.count) + ' ta']];
+      if (trialOn()) rows.push(['Rasmlar', 'Yo‘q (bepul sinov)']);
     } else if (o.form !== 'thesis') {
       rows = [['Hajmi', ((o.sizes || []).find((x) => x.key === S.size) || {}).label || '']];
     }
     $('sum').innerHTML = rows.map((r) => `<div class="sum"><span>${r[0]}</span><b>${E.esc(r[1])}</b></div>`).join('') +
       (me ? `<div class="sum"><span>Balansingiz</span><b>${E.fmt(me.balance)} so‘m</b></div>` : '');
-    $('s-price').textContent = E.fmt(p) + ' so‘m';
+    $('s-price').textContent = trialOn() ? 'Bepul' : E.fmt(p) + ' so‘m';
     $('s-note').innerHTML = !me ? '<div class="note">Yaratish uchun kiring: hisob birinchi kirishda o‘zi ochiladi. Tanlovlaringiz saqlanib qoladi.</div>'
       : me.balance >= p ? '' : `<div class="note wait">Yetmaydi: yana <b>${E.fmt(p - me.balance)} so‘m</b> kerak. <a class="link" href="/app#/wallet">Hamyonni to‘ldirish</a></div>`;
   }
@@ -320,8 +334,9 @@
     const o = opt();
     const p = {topic: S.topic.trim(), language: S.lang, author: S.author.trim()};
     if (premium()) {
-      Object.assign(p, {preferences: S.prefs.trim(), slide_count: S.count, style: S.style, theme: S.theme,
+      Object.assign(p, {preferences: S.prefs.trim(), slide_count: trialOn() ? trialSlides() : S.count, style: S.style, theme: S.theme,
         source_text: S.src.kind === 'ai' ? '' : S.src.text, source_label: S.src.kind === 'ai' ? '' : S.src.label});
+      if (trialOn()) p.trial = true;
     } else if (o.form === 'thesis') {
       Object.assign(p, {university: S.univ.trim(), faculty: S.fac.trim(), group: S.grp.trim()});
     } else {
@@ -336,7 +351,7 @@
     S.topic = $('topic').value;
     if (S.topic.trim().length < 3) { E.toast('Mavzu kamida 3 ta belgidan iborat bo‘lsin'); $('topic').focus(); return; }
     if (!isOpen()) { open(); return; }
-    const note = $('s-note'), btn = $('go');
+    let note = $('s-note'), btn = $('go');
     const fail = (msg) => { note.innerHTML = `<div class="note bad">${E.esc(msg)}</div>`; };
     if (premium()) {
       if (S.src.kind === 'text' && S.src.text.trim().length < 20) return fail('Matn juda qisqa. Ko‘proq yozing yoki «AI o‘zi yozadi» ni tanlang.');
@@ -347,13 +362,18 @@
     if (!me) { E.login(); return; }
     btn.disabled = true; btn.innerHTML = spin + '&nbsp; Yuborilmoqda…';
     try {
-      const res = await E.api('/jobs', {json: {kind: S.kind, params: params()}});
+      const sent = params();
+      const res = await E.api('/jobs', {json: {kind: S.kind, params: sent}});
       me.balance = res.balance;
+      if (sent.trial) { me.free_trial = false; S.trial = false; }
+      const count = sent.slide_count || S.count;
       E.header('home');
-      try { sessionStorage.removeItem(DRAFT); sessionStorage.setItem(LIVE, JSON.stringify({id: res.job.id, kind: S.kind, count: S.count})); } catch (e) { /* ixtiyoriy */ }
-      watch(res.job, S.kind, S.count);
+      try { sessionStorage.removeItem(DRAFT); sessionStorage.setItem(LIVE, JSON.stringify({id: res.job.id, kind: S.kind, count})); } catch (e) { /* ixtiyoriy */ }
+      watch(res.job, S.kind, count);
     } catch (e) {
-      btn.disabled = false; btn.textContent = 'Yaratish';
+      btn.disabled = false; btn.textContent = trialOn() ? 'Bepul yaratish' : 'Yaratish';
+      if (e.code === 'trial_used') { me.free_trial = false; S.trial = false; render(); }
+      note = $('s-note');
       note.innerHTML = `<div class="note bad">${E.esc(e.message)}${e.code === 'no_balance' ? ' <a class="link" href="/app#/wallet">Hamyonni to‘ldirish</a>' : ''}</div>`;
       if (e.code === 'auth') E.login();
     }
