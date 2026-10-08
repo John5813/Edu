@@ -3,7 +3,7 @@
   'use strict';
   const E = window.Edu;
   const view = document.getElementById('view');
-  let me = null, catalog = null, pollTimer = null;
+  let me = null, catalog = null, pollTimer = null, reopenAt = 0;
 
 
   function setTab(name) {
@@ -178,10 +178,15 @@
             <span class="num" id="snum"></span><button type="button" class="full" id="sfull" aria-label="To‘liq ekran">⛶</button>
             <div class="stage-ai" id="sai" hidden></div></div>
           <div class="thumbs" id="thumbs"></div>
-          <div class="row" style="margin-top:14px;justify-content:space-between">
-            ${deck.editable ? `<button type="button" class="btn out" id="edit">✏️ Sahifani o‘zgartirish <small style="opacity:.7;font-weight:700">· ${E.fmt(price)} so‘m</small></button>`
-              : '<span class="hint" style="margin:0">Ko‘rinish taxminiy: PowerPoint da biroz farq qilishi mumkin. Sahifani AI ga qayta yozdirish «Zamonaviy taqdimot» da mavjud.</span>'}
-            <span class="hint" style="margin:0">Fayl ${Math.max(0, Math.round((info.expires_at * 1000 - Date.now()) / 3600000))} soat saqlanadi.</span></div>
+          ${deck.editable ? `<div class="vtools" id="vtools">
+              <button type="button" class="btn out sm" id="t-text">✍️ Matnni tahrirlash <small>bepul</small></button>
+              <button type="button" class="btn out sm" id="t-chart">📊 Diagramma raqamlari <small>bepul</small></button>
+              <button type="button" class="btn out sm" id="t-order">⇅ Slaydlar tartibi <small>bepul</small></button>
+              <button type="button" class="btn sm" id="edit">✨ AI bilan o‘zgartirish <small>· ${E.fmt(price)} so‘m</small></button></div>
+            <div class="vtools edbar" id="edbar" hidden></div>
+            <div class="card panel ed-panel" id="edpanel" hidden></div>`
+            : '<p class="hint" style="margin:14px 0 0">Ko‘rinish taxminiy: PowerPoint da biroz farq qilishi mumkin. Sahifani AI ga qayta yozdirish «Zamonaviy taqdimot» da mavjud.</p>'}
+          <p class="hint" style="margin:10px 0 0">Fayl ${Math.max(0, Math.round((info.expires_at * 1000 - Date.now()) / 3600000))} soat saqlanadi.</p>
         </div>
         ${deck.editable ? `<aside class="vside card" id="vside" hidden>
           <div class="chathead"><b>AI bilan sahifani o‘zgartirish</b><button type="button" class="link" id="vclose" aria-label="Yopish">✕</button></div>
@@ -208,6 +213,10 @@
       if ($('edit')) {
         $('edit').disabled = plan || !!st.busy;
         $('edit').title = plan ? 'Reja sahifasi boshqa sahifalar sarlavhalaridan o‘zi yig‘iladi' : '';
+        $('t-text').disabled = plan || !!st.busy;
+        $('t-chart').disabled = !!st.busy || !((st.slides[st.n - 1] || {}).charts > 0);
+        $('t-chart').title = $('t-chart').disabled && !st.busy ? 'Bu sahifada diagramma yo‘q' : '';
+        $('t-order').disabled = !!st.busy || total < 3;
       }
       overlay();
       if (st.panel && !st.busy && ctxFor !== st.n) context();
@@ -256,12 +265,30 @@
       if (flag) { if (!$('chat').children.length) history(); if (ctxFor !== st.n) context(); setTimeout(() => $('vtext').focus({preventScroll: false}), 50); }
     }
     $('edit').onclick = () => open(!st.panel);
+    // ----- qo'lda tahrirlash (bepul): matn, diagramma, tartib — deckedit.js
+    function manual(kind) {
+      if (st.busy) return;
+      if (st.panel) open(false);
+      $('vtools').hidden = true; $('edbar').hidden = false; $('vgrid').classList.add('editing');
+      E.deckEdit[kind]({id, n: st.n, version: st.version, slides: st.slides, hasPlan: deck.has_plan,
+        stage: $('stage'), panel: $('edpanel'), bar: $('edbar'),
+        done: (n) => { reopenAt = n; jobPage(id); },
+        cancel: () => { $('vtools').hidden = false; $('edbar').hidden = true; $('edbar').innerHTML = ''; $('vgrid').classList.remove('editing'); }});
+    }
+    $('t-text').onclick = () => manual('text');
+    $('t-chart').onclick = () => manual('chart');
+    $('t-order').onclick = () => manual('order');
     $('vclose').onclick = () => open(false);
     $('vprompts').onclick = (e) => { const b = e.target.closest('[data-t]'); if (!b) return; $('vtext').value = b.dataset.t; send(); };
     $('vform').onsubmit = (e) => { e.preventDefault(); send(); };
     $('vtext').onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } };
 
-    function lock(on) { $('vsend').disabled = on; $('vtext').disabled = on; document.querySelectorAll('#vprompts .chip').forEach((c) => (c.disabled = on)); $('edit').disabled = on || (st.n === 2 && total > 3); }
+    function lock(on) {
+      $('vsend').disabled = on; $('vtext').disabled = on; document.querySelectorAll('#vprompts .chip').forEach((c) => (c.disabled = on));
+      $('edit').disabled = on || (st.n === 2 && total > 3);
+      ['t-text', 't-chart', 't-order'].forEach((b) => { if (on) $(b).disabled = true; });
+      if (!on) show(st.n);
+    }
 
     async function send() {
       const text = $('vtext').value.trim();
@@ -308,7 +335,7 @@
     }
 
     teardown = () => { document.removeEventListener('keydown', onKey); if (stopAnim) stopAnim(); };
-    show(1);
+    show(Math.min(total, reopenAt || 1)); reopenAt = 0;
     if (st.busy) {   // sahifa qayta ochilganda davom etayotgan o'zgartirish bo'lsa
       lock(true);
       const rid = st.busy; rewritingN = 0; bubble('ai', '<span class="aiw-dots"><i></i><i></i><i></i></span> Avvalgi o‘zgartirish davom etmoqda…');

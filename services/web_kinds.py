@@ -495,7 +495,7 @@ async def _rewrite_run(params: Dict, report: Report) -> Tuple[str, str]:
             for number, item in result["outline"].items():
                 outline[number] = item
             deck.update(pages=pages, outline=outline, titles=web_decks.titles_of(pages),
-                        version=int(deck.get("version") or 1) + 1)
+                        version=int(deck.get("version") or 1) + 1, pptx_stale=False)   # PPTX shu yerda yig'ildi
             deck.setdefault("history", []).append(
                 {"index": index + 1, "instruction": params["instruction"], "title": result["title"],
                  "at": __import__("time").time()})

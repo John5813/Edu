@@ -331,6 +331,14 @@ async def jobs_file(request: web.Request) -> web.StreamResponse:
     if not job or job["status"] != "done" or not path or not os.path.exists(path):
         return _error("Fayl topilmadi yoki muddati o'tgan", 404, "not_found")
     name = job.get("result_name") or os.path.basename(path)
+    if job["kind"] == "premium_presentation":
+        from services import web_decks
+        deck = web_decks.load(job["id"])
+        if deck and deck.get("pptx_stale"):      # qo'lda tahrirdan keyin PPTX hali yig'ilmagan bo'lsa
+            try:
+                await web_decks.ensure_pptx(job["id"], path)
+            except Exception as exc:
+                log.warning("PPTX yuklashdan oldin yig'ilmadi (%s): %s", job["id"], exc)
     return web.FileResponse(path, headers={
         "Content-Disposition": f"attachment; filename*=UTF-8''{url_quote(name)}",
         "Cache-Control": "private, no-store"})
@@ -422,6 +430,72 @@ async def deck_rewrite(request: web.Request) -> web.Response:
         return _error(str(exc), status, exc.code)
     user = await Database.get_user(telegram_id)
     return web.json_response({"ok": True, "job": row, "balance": int(getattr(user, "balance", 0) or 0)})
+
+
+async def deck_page(request: web.Request) -> web.Response:
+    """Qo'lda tahrirlash uchun sahifaning o'zi (HTML), tahrirlanadigan bloklar qoidasi va diagrammalari."""
+    from services.premium_presentation import manual_edit
+
+    _, job, deck = await _own_deck(request)
+    if not deck or deck.get("view_only"):
+        return _error("Bu taqdimotni tahrirlab bo'lmaydi.", 404, "no_deck")
+    try:
+        index = int(request.match_info["n"]) - 1
+    except ValueError:
+        index = -1
+    if not 0 <= index < len(deck["pages"]):
+        return _error("Bunday sahifa yo'q.", 404, "not_found")
+    info = manual_edit.text_info(deck, index)
+    return web.json_response({"ok": True, "version": int(deck.get("version") or 1), "html": info["html"],
+                              "selector": info["selector"], "locked": info["locked"],
+                              "charts": manual_edit.charts(deck, index)},
+                             headers={"Cache-Control": "private, no-store"})
+
+
+async def deck_edit(request: web.Request) -> web.Response:
+    """Qo'lda tahrirlash — bepul: matn (`text`), diagramma raqamlari (`chart`), sahifalar tartibi (`order`)."""
+    from services import web_decks
+    from services.premium_presentation import manual_edit
+
+    telegram_id, job, deck = await _own_deck(request)
+    if not deck or deck.get("view_only"):
+        return _error("Bu taqdimotni tahrirlab bo'lmaydi.", 404, "no_deck")
+    data = await _json(request, _MAX_JOB_JSON)
+    if _limited(f"manual:{telegram_id}", 30, 60):
+        return _error("Juda tez-tez saqlandi. Bir daqiqa kuting.", 429, "rate")
+    if await _active_rewrite(telegram_id, job["id"]):
+        return _error("AI sahifani o'zgartirib bo'lishini kuting.", 409, "busy")
+    op = str(data.get("op") or "")
+    kw = {}
+    try:
+        if op in ("text", "chart"):
+            kw["index"] = int(data.get("n")) - 1
+        if op == "text":
+            edits = data.get("edits")
+            if not isinstance(edits, list):
+                return _error("O'zgarish yo'q.", 400, "bad_request")
+            kw.update(edits=edits, count=int(data.get("count")))
+        elif op == "chart":
+            if not isinstance(data.get("chart"), dict):
+                return _error("Diagramma ma'lumoti yo'q.", 400, "bad_request")
+            kw.update(k=int(data.get("k") or 0), spec=data["chart"])
+        elif op == "order":
+            if not isinstance(data.get("order"), list):
+                return _error("Tartib noto'g'ri.", 400, "bad_request")
+            kw["order"] = [int(x) - 1 for x in data["order"]]
+        else:
+            return _error("Noma'lum amal.", 400, "bad_request")
+        version = int(data.get("version") or 0)
+    except (TypeError, ValueError):
+        return _error("Noto'g'ri so'rov.", 400, "bad_request")
+    try:
+        fresh = await web_decks.manual(job["id"], job.get("result_path") or "", op, version, **kw)
+    except manual_edit.ManualEditError as exc:
+        return _error(str(exc), 409 if "boshqa joyda" in str(exc) else 400, "manual")
+    except Exception as exc:
+        log.exception("Qo'lda tahrirlash bajarilmadi (%s): %s", job["id"], exc)
+        return _error("Saqlab bo'lmadi. Qayta urinib ko'ring.", 500, "failed")
+    return web.json_response({"ok": True, "deck": web_decks.public(job["id"], fresh)})
 
 
 # ──────────────────────────────────────────────────────────────────────── hamyon
@@ -562,6 +636,8 @@ def setup_api_routes(app: web.Application) -> None:
     add("GET", "/api/v1/jobs/{id}/deck", deck_info)
     add("GET", "/api/v1/jobs/{id}/slide/{n}", deck_slide)
     add("POST", "/api/v1/jobs/{id}/rewrite", deck_rewrite)
+    add("GET", "/api/v1/jobs/{id}/page/{n}", deck_page)
+    add("POST", "/api/v1/jobs/{id}/edit", deck_edit)
     add("GET", "/api/v1/wallet", wallet)
     add("POST", "/api/v1/wallet/receipt", wallet_receipt)
     add("GET", "/app", _page("app.html"))
