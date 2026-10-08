@@ -17,7 +17,7 @@ import shutil
 import tempfile
 from typing import Callable, Dict, List, Optional
 
-from . import chart_data, deck_logic, html_images, html_render, html_slides, llm_client, themes
+from . import chart_data, deck_logic, html_images, html_render, html_slides, llm_client, prompts, themes
 
 log = logging.getLogger(__name__)
 
@@ -85,7 +85,7 @@ def _outline(deck: dict) -> List[Dict]:
 
 
 def _shape(deck: dict, index: int) -> str:
-    return html_slides._shape_label(html_slides.shape_signature(_source(deck, index)))
+    return html_slides._shape_label(html_slides.shape_signature(_source(deck, index)), deck.get("language", "uz"))
 
 
 # ─────────────────────────────────────────────────────────────── 1. reja
@@ -97,30 +97,14 @@ def plan_edit(deck: dict, index: int, instruction: str) -> Dict[str, str]:
     outline = _outline(deck)
     current = outline[index]
     lines = "\n".join(f"  {i + 1}. «{item['title']}» — {_shape(deck, i)}" for i, item in enumerate(outline))
-    prompt = (
-        f'Deck subject: "{deck.get("topic", "")}". The deck has {total} slides:\n{lines}\n\n'
-        f"The client wants slide {index + 1} («{current['title']}», now: {_shape(deck, index)}) redone.\n"
-        f"Client's request (any language): «{instruction}»\n\n"
-        "Turn the request into a plan for that ONE slide. Layout categories:\n"
-        + html_slides.catalogue_text() + "\n\n"
-        "Guidance:\n"
-        "- Pick the category that best delivers what the client describes: a circular / doughnut / pie "
-        "chart, a bar chart or a line chart → 'diagramma' with chart_kind 'halqa' / 'ustunli' / 'chiziqli'; "
-        "a picture together with text → 'matn_rasm'; steps → 'jarayon'; dates → 'vaqt_oqi'; "
-        "comparison → 'qiyoslash'; and so on. If the request is about wording or tone only, keep the "
-        "current layout category.\n"
-        "- Keep the slide's subject (it belongs to this deck's story) unless the client asks for another "
-        "one; the title stays the same when the subject stays.\n"
-        "- 'reja' is only for slide 2 and 'muqova' only for slide 1.\n"
-        f"- Text language: {html_slides._LANGUAGE.get(language, html_slides._LANGUAGE['uz'])}.\n"
-        'Reply with JSON only: {"category": "...", "title": "2-6 words", "brief": "one sentence: what the '
-        'slide says", "chart_kind": "halqa|ustunli|chiziqli|"}'
-    )
+    E = prompts.get(language).EDIT
+    prompt = prompts.fill(E["plan"], topic=deck.get("topic", ""), total=total, lines=lines, n=index + 1,
+                          title=current["title"], shape=_shape(deck, index), instruction=instruction,
+                          categories=html_slides.catalogue_text(language), target=prompts.target(language))
     plan: Dict[str, str] = {}
     try:
-        data = llm_client._call_openrouter(
-            "You are the art director of a slide deck. You plan slides. Reply with JSON only.",
-            prompt, temperature=0.3, max_tokens=500)
+        with prompts.use(language):
+            data = llm_client._call_openrouter(E["system"], prompt, temperature=0.3, max_tokens=500)
         if isinstance(data, dict):
             plan = {key: str(data.get(key) or "").strip() for key in ("category", "title", "brief", "chart_kind")}
     except llm_client.NoCredits:
@@ -157,17 +141,6 @@ def _current_category(deck: dict, index: int) -> str:
 
 # ────────────────────────────────────────────────────────────── 2-3. yozish
 
-_CATEGORY_NOTE = dict(html_slides._CATEGORIES)
-
-_PHOTO_NOTE = (
-    "Write the slide as TEXT + PHOTO: a `.rasm` block carrying `data-prompt` (an English description of a "
-    "plain realistic photograph, no text inside the picture) on one side and 2-3 flowing paragraphs "
-    "(`par-col` with `par`; full, connected sentences) on the other.")
-_CHART_RETRY = (
-    "The slide must contain the chart block (class `chart`) described above, placed right after the lead "
-    "sentence, with a 2-4 sentence explanation of what the chart shows.")
-
-
 def _write(deck: dict, index: int, plan: Dict, instruction: str, retry: str = "") -> str:
     theme = _theme(deck)
     language = deck.get("language", "uz")
@@ -189,17 +162,18 @@ def _write(deck: dict, index: int, plan: Dict, instruction: str, retry: str = ""
         deck.get("source_text", ""), deck.get("preferences", ""), deck.get("author", ""),
         deck.get("family", "umumiy") or "umumiy",
         shapes=[html_slides.shape_signature(_source(deck, i)) for i in others],
-        written=[outline[i]["title"] for i in others])
+        written=[outline[i]["title"] for i in others], language=language)
     previous = outline[index - 1]["title"] if index > 0 else ""
     following = outline[index + 1]["title"] if index + 1 < total else ""
+    P = prompts.get(language)
+    E = P.EDIT
     parts = [
-        f"CLIENT REQUEST FOR THIS SLIDE — it comes first, do exactly what it asks: «{instruction}».",
-        f"Slide {index + 1} of {total} is being REDONE. Layout category: [{plan['category']}] — "
-        f"{_CATEGORY_NOTE.get(plan['category'], '')}.",
-        f"Neighbours: previous «{previous}», next «{following}». Keep the deck's subject, tone and language; "
-        "say something the other slides do not already say, and make it flow between its neighbours."]
+        prompts.fill(E["request"], instruction=instruction),
+        prompts.fill(E["redo"], n=index + 1, total=total, category=plan["category"],
+                     note=P.CATEGORIES.get(plan["category"], "")),
+        prompts.fill(E["neighbours"], previous=previous, next=following)]
     if plan["category"] == "matn_rasm":
-        parts.append(_PHOTO_NOTE)
+        parts.append(E["photo"])
     if retry:
         parts.append(retry)
     chunk = html_slides._write_chunk(system, user + "\n\n" + "\n".join(parts), 1)
@@ -258,8 +232,14 @@ async def rewrite(deck: dict, index: int, instruction: str, shots_dir: str,
                   progress: Progress = None) -> Dict:
     """Sahifani qayta yozadi. Qaytaradi: {pages: {indeks: html}, shots: {indeks: png}, outline: {indeks: {...}}}.
 
-    `deck` o'zgartirilmaydi; natijani chaqiruvchi saqlaydi.
+    `deck` o'zgartirilmaydi; natijani chaqiruvchi saqlaydi. Promptlar taqdimot tilida (prompts/*.py).
     """
+    with prompts.use(deck.get("language", "uz")):
+        return await _rewrite(deck, index, instruction, shots_dir, progress)
+
+
+async def _rewrite(deck: dict, index: int, instruction: str, shots_dir: str,
+                   progress: Progress = None) -> Dict:
     def report(stage: str, value: int) -> None:
         if progress:
             try:
@@ -304,7 +284,8 @@ async def rewrite(deck: dict, index: int, instruction: str, shots_dir: str,
     if not acceptable(body):
         log.info("%d-sahifa: so'ralgan ko'rinish chiqmadi, qayta so'raladi", index + 1)
         report("writing", 44)
-        retry = _CHART_RETRY if plan["category"] == "diagramma" else _PHOTO_NOTE
+        E = prompts.get(language).EDIT
+        retry = E["chart_retry"] if plan["category"] == "diagramma" else E["photo"]
         body = await asyncio.to_thread(_write, deck, index, plan, instruction, retry)
     if not acceptable(body):
         raise SlideEditError("AI so'ralgan ko'rinishdagi sahifani yarata olmadi. Iltimosni boshqacha yozib ko'ring.")

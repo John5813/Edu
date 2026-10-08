@@ -62,7 +62,7 @@ STATE = {"writer": "chart", "planner": "chart", "calls": []}
 
 def fake_openrouter(system, user, temperature=0.7, max_tokens=1000, **kw):
     STATE["calls"].append(("json", system[:30]))
-    if "art director" in system:
+    if "art director" in system or "art-direktor" in system:     # promptlar taqdimot tilida (prompts/*.py)
         if STATE["planner"] == "broken":
             raise RuntimeError("model javob bermadi")
         return {"category": "diagramma", "title": "Raqamli xizmatlar ulushi", "brief": "Xizmatlar ulushi", "chart_kind": "halqa"}
@@ -195,7 +195,7 @@ async def main():
     check("Telegramga qayta yuborilmadi", len(BOT.docs) == docs_before, (len(BOT.docs), docs_before))
     me = await (await client.get("/api/v1/me")).json()
     check("hisobdan aynan 900 so'm yechilgan", me["user"]["balance"] == balance0 - 900, me["user"]["balance"])
-    check("AI ga iltimos va qo'shni sahifalar berildi", any("doirasimon" in c[1] and "Neighbours" in c[1] for c in STATE["calls"] if c[0] == "text"),
+    check("AI ga iltimos va qo'shni sahifalar berildi", any("doirasimon" in c[1] and "Qo'shni slaydlar" in c[1] for c in STATE["calls"] if c[0] == "text"),
           [c for c in STATE["calls"] if c[0] == "text"][:1])
 
     print("5) Reja AI dan kelmasa ham iltimos kalit so'zlardan tushuniladi")

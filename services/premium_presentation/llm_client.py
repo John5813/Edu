@@ -720,7 +720,8 @@ def _with_today(system_prompt: str) -> str:
     history = timeframe.history_years()
     prompt = system_prompt.replace("{LAST_YEAR}", str(timeframe.last_full_year()))
     prompt = prompt.replace("{YEAR_SPAN}", f"{history[0]}–{history[-1]}")
-    return prompt + "\n\n" + timeframe.year_rule("uz")
+    from . import prompts
+    return prompt + "\n\n" + prompts.year_rule(prompts.current())
 
 
 def _call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 0.7,

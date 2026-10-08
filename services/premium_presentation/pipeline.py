@@ -76,6 +76,17 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
 
     `photos=False` (bepul sinov): rasm chizdirilmaydi — rasm o'rnida qo'shimcha matn qoladi, muqova rasmsiz.
     """
+    from services.premium_presentation import prompts
+
+    # Hamma so'rovlardagi umumiy qoidalar (bugungi sana va h.k.) ham taqdimot tilida — oqimlarga ham o'tadi.
+    with prompts.use(language):
+        return await _build_deck(topic, slide_count, language=language, level=level, preferences=preferences,
+                                 source_text=source_text, author=author, theme_key=theme_key, style=style,
+                                 photos=photos, progress_cb=progress_cb, stage_cb=stage_cb, deck_out=deck_out)
+
+
+async def _build_deck(topic, slide_count, *, language, level, preferences, source_text, author, theme_key,
+                      style, photos, progress_cb, stage_cb, deck_out) -> Tuple[str, int, int]:
     from services.premium_presentation import html_images, html_render, html_slides, themes
 
     loop = asyncio.get_running_loop()
