@@ -134,7 +134,7 @@ async def main():
     check("username bo'sh (admin vaqtinchalik qatorlari bilan aralashmaydi)", user.username is None and user.language == "ru")
     check("referal kodi bor, balans 0", bool(user.referral_code) and user.balance == 0)
     r = await sign_in(client, "uz")
-    check("ikkinchi kirish — o'sha akkaunt, yangi qator ochilmaydi", r.headers["Location"] == "/app#/create"
+    check("ikkinchi kirish — o'sha akkaunt, yangi qator ochilmaydi", r.headers["Location"] == "/#yaratish"
           and len(await Database.get_all_users()) == 1 and (await (await client.get("/api/v1/me")).json())["user"]["id"] == wid)
     check("tilni ikkinchi kirish o'zgartirmaydi (profil saqlaydi)", (await Database.get_user(wid)).language == "ru")
 
@@ -227,7 +227,7 @@ async def main():
     check("Telegrami bor akkaunt qayta ulay olmaydi", r.status == 409, r.status)
     client.session.cookie_jar.clear()
     r = await sign_in(client)
-    check("Google bilan kirish endi Telegram akkauntiga olib boradi", r.headers["Location"] == "/app#/create"
+    check("Google bilan kirish endi Telegram akkauntiga olib boradi", r.headers["Location"] == "/#yaratish"
           and (await (await client.get("/api/v1/me")).json())["user"]["id"] == 555)
 
     print("8) Telegramli akkauntga Google ulash, mavjud sayt akkaunti qo'shiladi")
