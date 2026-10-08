@@ -608,3 +608,51 @@ input[type=range]{accent-color:var(--brand)}
   .st-chips .chip{flex:0 0 auto;white-space:nowrap}
   #pref-ex,#extras{flex-wrap:wrap}
 }
+
+/* ───────── taqdimotni qo'lda tahrirlash (bepul): matn, diagramma, tartib — deckedit.js */
+.vtools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px}
+.vtools .btn small{font-weight:700;opacity:.7;font-size:12px}
+.vtools .btn.out small{color:var(--ok)}
+.vtools #edit{margin-left:auto}
+.vtools .btn:disabled{opacity:.45}
+.edbar{min-height:44px;padding:8px 10px;border:1.5px dashed var(--brand-line);border-radius:14px;background:#F7F9FF}
+.edbar .note{padding:8px 12px}
+.edbar .ed-hint{margin:0;flex:1 1 220px}
+.stage.editing .nav,.stage.editing .num,.stage.editing .full{display:none}
+.vgrid.editing .thumbs{pointer-events:none;opacity:.5}
+.ed-frame{position:absolute;left:0;top:0;width:1920px;height:1080px;border:0;transform-origin:0 0;z-index:5;background:#fff}
+.ed-panel{margin-top:14px;padding:18px}
+.ed-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;font-size:16px}
+.ed-scroll{overflow-x:auto;margin:10px 0 0}
+.ed-tbl{border-collapse:separate;border-spacing:6px 6px;margin:-6px}
+.ed-tbl th{font-size:12px;color:var(--mute);text-align:left;font-weight:700;white-space:nowrap}
+.ed-tbl th .fld{display:inline-block;width:150px}
+.ed-tbl .fld{padding:8px 10px;font-size:14px;width:150px}
+.ed-tbl .fld.num{width:110px;text-align:right;font-variant-numeric:tabular-nums}
+.ed-del{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--mute);font-size:13px;padding:0}
+.ed-del:hover:not(:disabled){color:var(--bad);border-color:var(--bad)}
+.ed-del:disabled{opacity:.35}
+.ed-two{display:grid;grid-template-columns:1fr 1.6fr;gap:12px;margin-top:14px}
+.ed-two .lab{margin-bottom:6px}
+.ed-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:520px;overflow:auto}
+.ed-row{display:flex;align-items:center;gap:12px;padding:6px 8px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.ed-row img{width:96px;aspect-ratio:16/9;border-radius:6px;border:1px solid var(--line);flex:0 0 auto;object-fit:cover}
+.ed-row .t{flex:1;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ed-row.locked{background:#F7F8FC}
+.ed-acts{display:flex;gap:4px;flex:0 0 auto}
+.ed-acts button{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:#fff;font-size:15px;padding:0}
+.ed-acts button:hover:not(:disabled){border-color:var(--brand);color:var(--brand)}
+.ed-acts button[data-a=del]:hover:not(:disabled){border-color:var(--bad);color:var(--bad)}
+.ed-acts button:disabled{opacity:.3}
+@media (max-width:620px){
+  .vtools .btn{flex:1 1 calc(50% - 4px);padding:9px 8px;font-size:12.5px}
+  .vtools #edit{flex-basis:100%;margin-left:0}
+  .ed-two{grid-template-columns:1fr}
+  .edbar .ed-hint{flex:1 1 100%}
+  .vtools .btn{flex:1 1 auto}
+  .ed-tbl .fld{width:104px;padding:7px 8px}.ed-tbl .fld.num{width:76px}.ed-tbl th .fld{width:84px}
+  .ed-panel{padding:14px}
+  .ed-row img{width:64px}
+  .ed-acts button{width:30px;height:30px}
+  .ed-row.locked .pill{display:none}
+}

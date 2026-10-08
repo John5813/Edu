@@ -13,6 +13,7 @@ import logging
 import os
 import re
 import shutil
+import tempfile
 import time
 from typing import Dict, List, Optional
 
@@ -131,10 +132,132 @@ def public(job_id: str, deck: dict) -> dict:
     count_ = count(deck)
     titles = list(deck.get("titles") or [])
     shown = [os.path.exists(preview_path(job_id, n + 1)) for n in range(count_)]
-    return {"count": count_, "version": int(deck.get("version") or 1), "editable": not deck.get("view_only"),
-            "slides": [{"n": n + 1, "title": titles[n] if n < len(titles) else "", "image": shown[n]}
-                       for n in range(count_)],
-            "history": list(deck.get("history") or [])[-30:]}
+    editable = not deck.get("view_only")
+    charts = [0] * count_
+    if editable:
+        from services.premium_presentation import manual_edit
+        charts = [manual_edit.count_charts(deck, n) for n in range(count_)]
+    plan = editable and bool(deck.get("has_plan", count_ > 3))
+    return {"count": count_, "version": int(deck.get("version") or 1), "editable": editable, "has_plan": plan,
+            "slides": [{"n": n + 1, "title": titles[n] if n < len(titles) else "", "image": shown[n],
+                        "charts": charts[n]} for n in range(count_)],
+            "history": [h for h in list(deck.get("history") or []) if not h.get("manual")][-30:]}
+
+
+# ─────────────────────────────────────────── qo'lda tahrirlash (bepul): matn, diagramma, tartib
+
+_pptx_gen: Dict[str, int] = {}
+
+
+async def manual(job_id: str, target: str, op: str, version: int, **kw) -> dict:
+    """Qo'lda o'zgarishni qo'llab saqlaydi; PPTX biroz keyin fonda qayta yig'iladi. Yangi `deck` ni qaytaradi."""
+    from services.premium_presentation import manual_edit
+
+    async with lock(job_id):
+        deck = load(job_id)
+        if not deck:
+            raise manual_edit.ManualEditError("Taqdimot topilmadi.")
+        if deck.get("view_only"):
+            raise manual_edit.ManualEditError("Bu taqdimotni tahrirlab bo'lmaydi.")
+        if int(version or 0) != int(deck.get("version") or 1):
+            raise manual_edit.ManualEditError("Taqdimot boshqa joyda o'zgargan. Sahifani yangilab, qaytadan urinib ko'ring.")
+        deck.setdefault("has_plan", len(deck["pages"]) > 3)
+        if op == "text":
+            result = await asyncio.to_thread(manual_edit.apply_text, deck, kw["index"], kw["edits"], kw["count"])
+        elif op == "chart":
+            result = await asyncio.to_thread(manual_edit.apply_chart, deck, kw["index"], kw["k"], kw["spec"])
+        elif op == "order":
+            result = await asyncio.to_thread(manual_edit.apply_order, deck, kw["order"])
+        else:
+            raise manual_edit.ManualEditError("Noma'lum amal.")
+        try:
+            if op == "order":
+                _reorder(job_id, deck, result)
+            else:
+                pages = list(deck["pages"])
+                for index, page in result["pages"].items():
+                    pages[index] = page
+                deck["pages"] = pages
+                await asyncio.to_thread(store_shots, job_id, result["shots"])
+                if result.get("title_changed"):
+                    outline = list(deck.get("outline") or [])
+                    if kw["index"] < len(outline) and isinstance(outline[kw["index"]], dict):
+                        outline[kw["index"]] = {**outline[kw["index"]], "title": result["title"]}
+                        deck["outline"] = outline
+            deck.update(titles=titles_of(deck["pages"]), version=int(deck.get("version") or 1) + 1, pptx_stale=True)
+            deck.setdefault("history", []).append({"index": (kw.get("index") or 0) + 1, "instruction": op,
+                                                   "manual": True, "at": time.time()})
+            save(job_id, deck)
+        finally:
+            if result.get("work"):
+                shutil.rmtree(result["work"], ignore_errors=True)
+    schedule_pptx(job_id, target)
+    return deck
+
+
+def _reorder(job_id: str, deck: dict, result: dict) -> None:
+    """Sahifalar yangi tartibda: suratlar ham shu tartibga ko'chiriladi, reja (bo'lsa) yangisi."""
+    mapping = result["mapping"]
+    old = {}
+    for index in set(i for i in mapping if i is not None):
+        try:
+            with open(preview_path(job_id, index + 1), "rb") as handle:
+                old[index] = handle.read()
+        except OSError:
+            pass
+    outline = list(deck.get("outline") or [])
+    for position, index in enumerate(mapping):
+        path = preview_path(job_id, position + 1)
+        if index is not None and index in old:
+            with open(path + ".tmp", "wb") as handle:
+                handle.write(old[index])
+            os.replace(path + ".tmp", path)
+    store_shots(job_id, result["shots"])
+    for extra in range(len(mapping), len(deck["pages"])):
+        try:
+            os.remove(preview_path(job_id, extra + 1))
+        except OSError:
+            pass
+    blank = {"title": "", "brief": "", "category": ""}
+    deck["outline"] = [dict(outline[i]) if i is not None and i < len(outline) else
+                       dict(outline[1]) if i is None and len(outline) > 1 else dict(blank) for i in mapping]
+    deck["pages"] = result["pages"]
+
+
+def schedule_pptx(job_id: str, target: str, delay: float = 5.0) -> None:
+    """Ketma-ket tahrirlarda PPTX bir marta, oxirgi o'zgarishdan keyin yig'iladi."""
+    _pptx_gen[job_id] = _pptx_gen.get(job_id, 0) + 1
+    gen = _pptx_gen[job_id]
+
+    async def later():
+        await asyncio.sleep(delay)
+        if _pptx_gen.get(job_id) == gen:
+            try:
+                await ensure_pptx(job_id, target)
+            except Exception as exc:
+                log.warning("%s: PPTX qayta yig'ilmadi: %s", job_id, exc)
+
+    asyncio.get_running_loop().create_task(later())
+
+
+async def ensure_pptx(job_id: str, target: str) -> None:
+    """Qo'lda tahrirdan keyin PPTX hali yig'ilmagan bo'lsa — hozir yig'adi (yuklab olishdan oldin ham)."""
+    from services.premium_presentation import slide_edit
+
+    async with lock(job_id):
+        deck = load(job_id)
+        if not deck or not deck.get("pptx_stale") or not target:
+            return
+        work = tempfile.mkdtemp(prefix="manualpptx_")
+        try:
+            path = await asyncio.to_thread(slide_edit.build_pptx, deck["pages"], work)
+            tmp = target + ".new"
+            shutil.copyfile(path, tmp)
+            os.replace(tmp, target)
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
+        deck["pptx_stale"] = False
+        save(job_id, deck)
 
 
 def _pptx_titles(pptx_path: str) -> List[str]:

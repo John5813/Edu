@@ -51,6 +51,9 @@ def slide(title, text, dark=False):
 
 TITLES = ["Raqamli iqtisodiyot", "Taqdimot rejasi", "Kirish", "Rivojlanish", "Natijalar", "Xulosa"]
 BODIES = [slide(TITLES[0], "Mavzu", True), slide(TITLES[1], "Reja")] + [slide(t, "Matn " + t) for t in TITLES[2:]]
+# «Natijalar» sahifasida diagramma: qo'lda tahrirlash (diagramma raqamlari) ekrani ham tekshiriladi
+BODIES[4] = BODIES[4][:-len("</div></section>")] + '<div class="chart" data-kind="bar" data-labels="2022,2023,2024" '\
+    'data-series="1,2,3"></div></div></section>'
 html_slides.write_slides = lambda topic, count, theme, language="uz", **kw: (
     kw.get("outline_out") is not None and kw["outline_out"].update(family="umumiy", outline=[{"title": t, "brief": t, "category": "kartalar"} for t in TITLES]),
     html_slides.build_pages(BODIES, theme, language))[1]
@@ -216,6 +219,11 @@ async def main():
             LONG["s"] = 0
             await page.wait_for_function("document.querySelector('#chat').innerText.length > 80", timeout=30000)
             got["chat: natija"] = await page.evaluate(COLLECT)
+            # Qo'lda tahrirlash (bepul): diagramma raqamlari, slaydlar tartibi, matn
+            await page.click("#thumbs .th[data-n='5']"); await page.click("#t-chart"); await page.wait_for_selector(".ed-tbl")
+            got["qo'lda: diagramma"] = await page.evaluate(COLLECT); await page.click("#ed-x")
+            await page.click("#t-order"); await page.wait_for_selector(".ed-list"); got["qo'lda: tartib"] = await page.evaluate(COLLECT); await page.click("#ed-x")
+            await page.click("#t-text"); await page.wait_for_selector("#ed-ok"); got["qo'lda: matn"] = await page.evaluate(COLLECT); await page.click("#ed-x")
             await ctx.close()
             return got
 
