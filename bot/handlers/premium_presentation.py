@@ -287,17 +287,17 @@ def _topic_line(data: dict, lang: str) -> str:
 
 # Orqaga: har qadamning oldingisi. Birinchi qadamdan — bosh menyu.
 _PREVIOUS = {"script": "topic", "name": "topic", "prefs": "name", "source": "prefs",
-             "source_input": "source", "style": "source", "theme": "style",
+             "source_input": "source", "style": "source", "volume": "style",
              "summary": "count"}
 
 
 def _previous_step(data: dict):
-    """Orqaga qadam: hajmdan oldin — rang (zamonaviy) yoki uslub (orqa fonlar)."""
+    """Orqaga qadam: slaydlar sonidan oldin — matn hajmi (zamonaviy) yoki uslub (orqa fonlar)."""
     step = data.get("step") or ""
     if step == "name" and data.get("script_asked"):
         return "script"
     if step == "count":
-        return "style" if data.get("style") == SIMPLE_STYLE else "theme"
+        return "style" if data.get("style") == SIMPLE_STYLE else "volume"
     return _PREVIOUS.get(step)
 
 
@@ -640,7 +640,7 @@ async def premium_ppt_style_selected(callback: CallbackQuery, state: FSMContext,
     if key not in deck_styles.STYLES:
         key = "toza"
     await state.update_data(style=key)
-    await _step_theme(callback.message, state, lang)
+    await _step_volume(callback.message, state, lang)
 
 
 # ── 6. Hajm — narxlar tanlangan uslubga qarab ko'rsatiladi
@@ -741,64 +741,73 @@ async def _handoff_simple(callback: CallbackQuery, state: FSMContext, db: Databa
     await _documents.prompt_simple_payment(callback.message, state, lang, user, count)
 
 
-# ── 5b. Rang (faqat zamonaviy uslublarda)
+# ── 5b. Matn hajmi (faqat zamonaviy uslublarda)
+# Rang alohida so'ralmaydi: uni mavzuga qarab tizim tanlaydi, uslub esa ko'rinishni belgilaydi.
 
-def _theme_prompt(lang: str, topic: str) -> str:
-    from services.premium_presentation import themes as _themes
-    suggested = _themes.suggest(topic)
+VOLUMES = ("kop", "kam")
+_VOLUME_BUTTONS = {
+    "kop": {"uz": "📝 Ko'p matnli — batafsil, har 10 slaydda 4 ta rasm",
+            "ru": "📝 Больше текста — подробно, 4 фото на 10 слайдов",
+            "en": "📝 More text — detailed, 4 photos per 10 slides",
+            "kk": "📝 Мәтіні көп — толық, әр 10 слайдқа 4 сурет"},
+    "kam": {"uz": "🖼 Kam matnli — aniq qisqa fikrlar, rasm ko'p",
+            "ru": "🖼 Меньше текста — чёткие мысли, больше фото",
+            "en": "🖼 Less text — sharp ideas, more photos",
+            "kk": "🖼 Мәтіні аз — нақты ойлар, сурет көп"},
+}
+_VOLUME_NAMES = {
+    "kop": {"uz": "Ko'p matnli", "ru": "Больше текста", "en": "More text", "kk": "Мәтіні көп"},
+    "kam": {"uz": "Kam matnli", "ru": "Меньше текста", "en": "Less text", "kk": "Мәтіні аз"},
+}
+
+
+def _volume_name(key: str, lang: str) -> str:
+    names = _VOLUME_NAMES.get(key) or _VOLUME_NAMES["kop"]
+    return names.get(lang) or names["uz"]
+
+
+def _volume_prompt(lang: str) -> str:
     msgs = {
-        "uz": (f"🎨 <b>Rang sxemasini tanlang</b>\n\n"
-               f"Mavzuga mos keladigani — <b>{suggested.name}</b>.\n"
-               f"Xohlagan rangni tanlashingiz mumkin:"),
-        "ru": (f"🎨 <b>Выберите цветовую схему</b>\n\n"
-               f"По теме подходит — <b>{suggested.name}</b>.\n"
-               f"Можно выбрать любую:"),
-        "en": (f"🎨 <b>Choose a colour scheme</b>\n\n"
-               f"Suggested for this topic — <b>{suggested.name}</b>.\n"
-               f"Pick any you like:"),
+        "uz": ("📏 <b>Matn hajmini tanlang</b>\n\n"
+               "• <b>Ko'p matnli</b> — har slaydda fikr batafsil ochiladi.\n"
+               "• <b>Kam matnli</b> — qisqa va aniq fikrlar, rasmlar ko'proq."),
+        "ru": ("📏 <b>Выберите объём текста</b>\n\n"
+               "• <b>Больше текста</b> — мысль на каждом слайде раскрыта подробно.\n"
+               "• <b>Меньше текста</b> — короткие чёткие мысли, больше фотографий."),
+        "en": ("📏 <b>Choose the amount of text</b>\n\n"
+               "• <b>More text</b> — each slide explains its idea in detail.\n"
+               "• <b>Less text</b> — short, sharp ideas and more photos."),
+        "kk": ("📏 <b>Мәтін көлемін таңдаңыз</b>\n\n"
+               "• <b>Мәтіні көп</b> — әр слайдта ой толық ашылады.\n"
+               "• <b>Мәтіні аз</b> — қысқа әрі нақты ойлар, сурет көбірек."),
     }
     return msgs.get(lang, msgs["uz"])
 
 
-def _theme_keyboard(lang: str, topic: str):
-    from services.premium_presentation import themes as _themes
-    suggested = _themes.suggest(topic)
+def _volume_keyboard(lang: str):
     builder = InlineKeyboardBuilder()
-    auto = {"uz": "✨ AI mavzuga qarab tanlasin",
-            "ru": "✨ Пусть AI выберет по теме",
-            "en": "✨ Let the AI choose"}
-    builder.add(InlineKeyboardButton(text=auto.get(lang, auto["uz"]),
-                                     callback_data="prem_ppt_theme:auto"))
-    for theme in _themes.choices():
-        mark = "  ✓" if theme.key == suggested.key else ""
-        builder.add(InlineKeyboardButton(
-            text=f"{theme.name}{mark}",
-            callback_data=f"prem_ppt_theme:{theme.key}"))
+    for key in VOLUMES:
+        builder.add(InlineKeyboardButton(text=_VOLUME_BUTTONS[key].get(lang) or _VOLUME_BUTTONS[key]["uz"],
+                                         callback_data=f"prem_ppt_vol:{key}"))
     builder.adjust(1)
     builder.row(*_back_row(lang))
     return builder.as_markup()
 
 
-async def _step_theme(message: Message, state: FSMContext, lang: str) -> None:
+async def _step_volume(message: Message, state: FSMContext, lang: str) -> None:
     data = await state.get_data()
-    topic = data.get("topic", "")
-    await _prompt(message, state, _theme_prompt(lang, topic), _theme_keyboard(lang, topic),
-                  "theme", PremiumPresentationStates.waiting_for_theme)
+    await _prompt(message, state, _topic_line(data, lang) + _volume_prompt(lang), _volume_keyboard(lang),
+                  "volume", PremiumPresentationStates.waiting_for_volume)
 
 
-@router.callback_query(F.data.startswith("prem_ppt_theme:"),
-                       PremiumPresentationStates.waiting_for_theme)
-async def premium_ppt_got_theme(callback: CallbackQuery, state: FSMContext, db: Database):
-    """Rang tanlandi — hajm (narxlar bilan)."""
+@router.callback_query(F.data.startswith("prem_ppt_vol:"),
+                       PremiumPresentationStates.waiting_for_volume)
+async def premium_ppt_got_volume(callback: CallbackQuery, state: FSMContext, db: Database):
+    """Matn hajmi tanlandi — slaydlar soni (narxlar bilan)."""
     await callback.answer()
     lang = await _lang_of(callback.from_user.id, db)
-    data = await state.get_data()
-
-    from services.premium_presentation import themes as _themes
     choice = callback.data.split(":", 1)[1]
-    theme = (_themes.suggest(data.get("topic", "")) if choice == "auto"
-             else _themes.get(choice))
-    await state.update_data(theme_key=theme.key)
+    await state.update_data(volume=choice if choice in VOLUMES else "kop")
     await _step_count(callback.message, state, lang, db)
 
 
@@ -817,15 +826,13 @@ def _confirm_keyboard(lang: str, current_language: str) -> InlineKeyboardMarkup:
 
 def _summary(data: dict, lang: str):
     """(matn, klaviatura) — to'lovdan oldingi xulosa."""
-    from services.premium_presentation import themes as _themes
-
     def esc(value, limit=160):
         import html as _html
         return _html.escape(str(value or "").strip(), quote=False)[:limit]
 
     slide_count = int(data.get("slide_count") or MIN_SLIDES)
     price = _get_price(slide_count)
-    theme_name = _themes.get(data["theme_key"]).name if data.get("theme_key") else ""
+    volume = _volume_name(data.get("volume") or "kop", lang) if data.get("style") != SIMPLE_STYLE else ""
     style = _style_name(data.get("style") or "toza", lang)
     language = data.get("presentation_language") or "uz"
     none = {"uz": "ko‘rsatilmagan", "ru": "не указано", "en": "not provided"}.get(lang, "—")
@@ -833,14 +840,17 @@ def _summary(data: dict, lang: str):
     if not source and data.get("source_text"):
         source = {"uz": "mijoz matni", "ru": "текст клиента", "en": "client text"}.get(lang, "")
     labels = {
-        "uz": ("Taqdimot", "Mavzu", "Ism", "Istaklar", "Manba", "Uslub", "Rang", "Slaydlar", "Narx",
+        "uz": ("Taqdimot", "Mavzu", "Ism", "Istaklar", "Manba", "Uslub", "Matn hajmi", "Slaydlar", "Narx",
                "so'm", "Hisobingizdan yechiladi. Tasdiqlaysizmi?", "Til"),
-        "ru": ("Презентация", "Тема", "Имя", "Пожелания", "Источник", "Стиль", "Цвет", "Слайдов",
+        "ru": ("Презентация", "Тема", "Имя", "Пожелания", "Источник", "Стиль", "Объём текста", "Слайдов",
                "Цена", "сум", "Будет списано с вашего баланса. Подтверждаете?", "Язык"),
-        "en": ("Presentation", "Topic", "Name", "Preferences", "Source", "Style", "Colour", "Slides",
+        "en": ("Presentation", "Topic", "Name", "Preferences", "Source", "Style", "Text amount", "Slides",
                "Price", "soʻm", "Will be deducted from your balance. Confirm?", "Language"),
-    }.get(lang)
-    head, topic_l, name_l, pref_l, src_l, style_l, color_l, slides_l, price_l, cur, ask, lang_l = labels
+        "kk": ("Презентация", "Тақырып", "Аты", "Тілектер", "Дереккөз", "Стиль", "Мәтін көлемі", "Слайдтар",
+               "Бағасы", "сом", "Балансыңыздан шегеріледі. Растайсыз ба?", "Тіл"),
+    }
+    head, topic_l, name_l, pref_l, src_l, style_l, volume_l, slides_l, price_l, cur, ask, lang_l = \
+        labels.get(lang) or labels["uz"]
     lines = [f"✨ <b>{head}</b>", "",
              f"📋 {topic_l}: <b>{esc(data.get('topic'), 200)}</b>",
              f"👤 {name_l}: {esc(data.get('client_name')) or none}"]
@@ -849,8 +859,8 @@ def _summary(data: dict, lang: str):
     if source:
         lines.append(f"📎 {src_l}: {esc(source, 80)}")
     lines.append(f"🖌 {style_l}: <b>{esc(style)}</b>")
-    if theme_name:
-        lines.append(f"🎨 {color_l}: <b>{esc(theme_name)}</b>")
+    if volume:
+        lines.append(f"📏 {volume_l}: <b>{esc(volume)}</b>")
     lines += [f"📊 {slides_l}: <b>{slide_count}</b>",
               f"💰 {price_l}: <b>{price:,} {cur}</b>", "", ask]
     return "\n".join(lines), _confirm_keyboard(lang, language)
@@ -895,7 +905,7 @@ async def premium_ppt_previous(callback: CallbackQuery, state: FSMContext, db: D
         return
     steps = {"topic": _step_topic, "script": _step_script, "name": _step_name, "prefs": _step_prefs,
              "source": _step_source, "count": _step_count, "style": _step_style,
-             "theme": _step_theme}
+             "volume": _step_volume}
     if previous == "count":
         await _step_count(callback.message, state, lang, db)
         return
@@ -1311,7 +1321,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         final_path, ready_slides, _photos = await pipeline.build_deck(
             topic, slide_count, language=presentation_language, level=level,
             preferences=preferences, source_text=source_text, author=client_name,
-            theme_key=data.get("theme_key", ""), style=data.get("style", ""),
+            style=data.get("style", ""), volume=data.get("volume", "kop"),
             progress_cb=progress_cb, stage_cb=on_stage)
         html_pages = [None] * ready_slides
 

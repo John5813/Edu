@@ -1,6 +1,14 @@
 /* Edufayl sayti: tarjima lug'ati (o'zbekcha matn → ru, en, kk). Mexanizm: i18n.js */
 window.EDU_DICT = {
 "ru": {
+"Matn hajmi": "Объём текста",
+"(rang mavzuga qarab avtomatik tanlanadi)": "(цвет подбирается по теме автоматически)",
+"📝 Ko‘p matnli": "📝 Больше текста",
+"🖼 Kam matnli": "🖼 Меньше текста",
+"Har slaydda fikr batafsil ochiladi, har 10 slaydda 4 ta rasm": "Мысль на каждом слайде раскрыта подробно, 4 фото на 10 слайдов",
+"Qisqa va aniq fikrlar, rasmlar ko‘proq": "Короткие чёткие мысли, больше фотографий",
+"ko‘p matnli": "больше текста",
+"kam matnli": "меньше текста",
 "🎁 Imtiyoz yoqildi": "🎁 Льгота включена",
 "{n} slaydli taqdimot bepul. Rasmlar qo‘yilmaydi, slaydlar sonini o‘zgartirib bo‘lmaydi. Keyin slaydni AI ga qayta yozdirish alohida pullik.": "Презентация на {n} слайдов бесплатно. Без картинок, количество слайдов изменить нельзя. Переписать слайд с помощью ИИ потом можно за отдельную плату.",
 "🎁 Bepul sinov taqdimoti": "🎁 Бесплатная пробная презентация",
@@ -562,6 +570,14 @@ window.EDU_DICT = {
 ]
 },
 "en": {
+"Matn hajmi": "Amount of text",
+"(rang mavzuga qarab avtomatik tanlanadi)": "(the colour is chosen automatically from the topic)",
+"📝 Ko‘p matnli": "📝 More text",
+"🖼 Kam matnli": "🖼 Less text",
+"Har slaydda fikr batafsil ochiladi, har 10 slaydda 4 ta rasm": "Each slide explains its idea in detail, 4 photos per 10 slides",
+"Qisqa va aniq fikrlar, rasmlar ko‘proq": "Short, sharp ideas and more photos",
+"ko‘p matnli": "more text",
+"kam matnli": "less text",
 "🎁 Imtiyoz yoqildi": "🎁 Free trial applied",
 "{n} slaydli taqdimot bepul. Rasmlar qo‘yilmaydi, slaydlar sonini o‘zgartirib bo‘lmaydi. Keyin slaydni AI ga qayta yozdirish alohida pullik.": "A {n}-slide presentation for free. No images, and the number of slides can't be changed. Rewriting a slide with AI later is paid separately.",
 "🎁 Bepul sinov taqdimoti": "🎁 Free trial presentation",
@@ -1123,6 +1139,14 @@ window.EDU_DICT = {
 ]
 },
 "kk": {
+"Matn hajmi": "Мәтін көлемі",
+"(rang mavzuga qarab avtomatik tanlanadi)": "(түс тақырыпқа қарай автоматты таңдалады)",
+"📝 Ko‘p matnli": "📝 Мәтіні көп",
+"🖼 Kam matnli": "🖼 Мәтіні аз",
+"Har slaydda fikr batafsil ochiladi, har 10 slaydda 4 ta rasm": "Әр слайдта ой толық ашылады, әр 10 слайдқа 4 сурет",
+"Qisqa va aniq fikrlar, rasmlar ko‘proq": "Қысқа әрі нақты ойлар, сурет көбірек",
+"ko‘p matnli": "мәтіні көп",
+"kam matnli": "мәтіні аз",
 "🎁 Imtiyoz yoqildi": "🎁 Жеңілдік қосылды",
 "{n} slaydli taqdimot bepul. Rasmlar qo‘yilmaydi, slaydlar sonini o‘zgartirib bo‘lmaydi. Keyin slaydni AI ga qayta yozdirish alohida pullik.": "{n} слайдтық презентация тегін. Суреттер қойылмайды, слайд санын өзгертуге болмайды. Кейін слайдты ЖИ-ге қайта жаздыру бөлек ақылы.",
 "🎁 Bepul sinov taqdimoti": "🎁 Тегін сынақ презентациясы",

@@ -28,11 +28,16 @@
     {key: 'file', label: '📎 Fayl yuklayman', note: 'PDF, DOCX yoki PPTX'},
     {key: 'url', label: '🔗 Sayt havolasi', note: 'Maqola yoki sahifa'},
   ];
+  // Matn hajmi: rang alohida tanlanmaydi (mavzuga qarab), uslub ko'rinishni, hajm esa matn va rasm nisbatini belgilaydi.
+  const VOLUMES = [
+    {key: 'kop', label: '📝 Ko‘p matnli', short: 'ko‘p matnli', note: 'Har slaydda fikr batafsil ochiladi, har 10 slaydda 4 ta rasm'},
+    {key: 'kam', label: '🖼 Kam matnli', short: 'kam matnli', note: 'Qisqa va aniq fikrlar, rasmlar ko‘proq'},
+  ];
   const PREF_EXAMPLES = ['Investorlar uchun ishonchli', 'Ko‘proq vizual', 'Qisqa va ta’sirli', 'Talabalar uchun sodda tilda', 'Raqam va faktlar ko‘proq'];
 
   let catalog = null, me = null, timer = null, seq = 0, pollTimer = null, forge = null;
   const S = {kind: 'premium_presentation', topic: '', lang: '', src: {kind: 'ai', text: '', label: '', words: 0},
-    style: 'toza', theme: '', count: 10, author: '', prefs: '', size: '', extras: [], pstyle: 'murakkab', trial: false,
+    style: 'toza', volume: 'kop', count: 10, author: '', prefs: '', size: '', extras: [], pstyle: 'murakkab', trial: false,
     univ: '', fac: '', grp: '', suggest: {language: '', theme: null}};
 
   const kindOf = (k) => catalog && catalog.kinds.find((x) => x.key === k);
@@ -96,8 +101,8 @@
         `<button type="button" class="src${x.key === S.src.kind ? ' on' : ''}" data-k="${x.key}"><b>${x.label}</b><small>${x.note}</small></button>`).join('')}</div><div id="src-panel"></div>`);
       html += section('Ko‘rinish uslubi', '', `<div class="st-styles" id="styles">${catalog.styles.map((st) =>
         `<button type="button" class="st-sty${st.key === S.style ? ' on' : ''}" data-k="${E.esc(st.key)}"><img src="/static/home-style-${E.esc(st.key)}.jpg" alt="" loading="lazy" width="960" height="540"><b>${E.esc(st.label)}</b></button>`).join('')}</div>`);
-      html += section('Rang sxemasi', '(Avto: mavzuga mos rang tanlanadi)', `<div class="st-sw" id="themes"><button type="button" class="sw-b${S.theme ? '' : ' on'}" data-k="" title="Avto"><i class="auto">✨</i></button>${catalog.themes.map((t) =>
-        `<button type="button" class="sw-b${t.key === S.theme ? ' on' : ''}" data-k="${E.esc(t.key)}" title="${E.esc(t.label.split(' — ')[0])}"><i style="background:linear-gradient(135deg,${E.esc(t.background)} 50%,${E.esc(t.accent)} 50%)"></i></button>`).join('')}<span class="sw-name" id="theme-name"></span></div>`);
+      if (!trialOn()) html += section('Matn hajmi', '(rang mavzuga qarab avtomatik tanlanadi)', `<div class="srcs" id="volumes">${VOLUMES.map((x) =>
+        `<button type="button" class="src${x.key === S.volume ? ' on' : ''}" data-k="${x.key}"><b>${x.label}</b><small>${x.note}</small></button>`).join('')}</div>`);
       html += trialOn() ? section('Slaydlar soni', '', `<div class="st-count locked"><div class="cval"><b id="c-num">${trialSlides()}</b><span>slayd</span></div></div>
         <div class="hint">Bepul sinovda slaydlar soni o‘zgarmaydi. Boshqa son kerak bo‘lsa, imtiyozni bekor qiling.</div>`) : section('Slaydlar soni', '', `<div class="st-count"><button type="button" class="cbtn" id="c-minus" aria-label="Kamaytirish">−</button>
           <div class="cval"><b id="c-num">${S.count}</b><span>slayd</span></div><button type="button" class="cbtn" id="c-plus" aria-label="Ko‘paytirish">+</button>
@@ -174,9 +179,9 @@
       const b = e.target.closest('.st-sty'); if (!b) return; S.style = b.dataset.k;
       document.querySelectorAll('#styles .st-sty').forEach((x) => x.classList.toggle('on', x === b)); preview(); summary(); save();
     };
-    if ($('themes')) $('themes').onclick = (e) => {
-      const b = e.target.closest('.sw-b'); if (!b) return; S.theme = b.dataset.k;
-      document.querySelectorAll('#themes .sw-b').forEach((x) => x.classList.toggle('on', x === b)); preview(); summary(); save();
+    if ($('volumes')) $('volumes').onclick = (e) => {
+      const b = e.target.closest('.src'); if (!b) return; S.volume = b.dataset.k;
+      document.querySelectorAll('#volumes .src').forEach((x) => x.classList.toggle('on', x === b)); preview(); summary(); save();
     };
     if ($('c-minus')) {
       $('c-minus').onclick = () => setCount(S.count - 1);
@@ -202,7 +207,8 @@
   // ───────────────────────────────────────────── taqdimot: tavsiya, ko'rinish, manba
   const langLabel = (k) => ((catalog.languages.find((l) => l.key === k)) || {}).label || k;
   const themeOf = (k) => catalog.themes.find((t) => t.key === k);
-  const activeTheme = () => themeOf(S.theme) || themeOf((S.suggest.theme || {}).key) || catalog.themes[0];
+  const activeTheme = () => themeOf((S.suggest.theme || {}).key) || catalog.themes[0];
+  const volumeOf = (k) => VOLUMES.find((x) => x.key === k) || VOLUMES[0];
 
   function suggest() {
     clearTimeout(timer);
@@ -221,8 +227,6 @@
   function autoNotes() {
     const n = $('auto-note'); if (!n) return;
     n.textContent = !S.lang && S.suggest.language ? `Mavzuga qarab aniqlandi: ${langLabel(S.suggest.language)}. Kerak bo‘lsa, yuqoridan o‘zgartiring.` : '';
-    const tn = $('theme-name');
-    if (tn) { const th = activeTheme(); tn.textContent = th ? th.label.split(' — ')[0] + (S.theme ? '' : ' (avto)') : ''; }
   }
   function preview() {
     const pv = $('pv'); if (!pv) return;
@@ -238,7 +242,7 @@
     pv.innerHTML = `${extra}<div class="pvbar" style="background:${th.accent}"></div>
       <div class="pvt" style="color:${white ? '#fff' : ink}">${E.esc(title)}${by ? `<small style="color:${white ? '#fff' : th.accent}">${E.esc(by)}</small>` : ''}</div>`;
     const st = catalog.styles.find((x) => x.key === S.style);
-    $('pv-note').textContent = `${st ? st.label : ''} uslubi · ${th.label.split(' — ')[0]}${S.theme ? '' : ' (avto)'}`;
+    $('pv-note').textContent = `${st ? st.label : ''} uslubi · ${volumeOf(S.volume).short}`;
     autoNotes();
   }
 
@@ -305,6 +309,7 @@
       rows = [['Til', S.lang ? langLabel(S.lang) : (S.suggest.language ? langLabel(S.suggest.language) + ' (avto)' : 'Avto')],
         ['Manba', S.src.kind === 'ai' ? 'AI o‘zi yozadi' : (S.src.label || (S.src.text ? 'Sizning matningiz' : '—'))],
         ['Uslub', ((catalog.styles.find((x) => x.key === S.style) || {}).label) || ''],
+        ['Matn hajmi', trialOn() ? volumeOf('kop').short : volumeOf(S.volume).short],
         ['Slaydlar', (trialOn() ? trialSlides() : S.count) + ' ta']];
       if (trialOn()) rows.push(['Rasmlar', 'Yo‘q (bepul sinov)']);
     } else if (o.form !== 'thesis') {
@@ -326,6 +331,7 @@
     try { d = JSON.parse(sessionStorage.getItem(DRAFT) || 'null'); } catch (e) { d = null; }
     if (!d || Date.now() - (d.t || 0) > 6 * 3600 * 1000) return false;
     Object.keys(S).forEach((k) => { if (k !== 'suggest' && d[k] !== undefined) S[k] = d[k]; });
+    if (!VOLUMES.some((x) => x.key === S.volume)) S.volume = 'kop';
     return !!S.topic;
   }
 
@@ -334,7 +340,7 @@
     const o = opt();
     const p = {topic: S.topic.trim(), language: S.lang, author: S.author.trim()};
     if (premium()) {
-      Object.assign(p, {preferences: S.prefs.trim(), slide_count: trialOn() ? trialSlides() : S.count, style: S.style, theme: S.theme,
+      Object.assign(p, {preferences: S.prefs.trim(), slide_count: trialOn() ? trialSlides() : S.count, style: S.style, volume: trialOn() ? 'kop' : S.volume,
         source_text: S.src.kind === 'ai' ? '' : S.src.text, source_label: S.src.kind === 'ai' ? '' : S.src.label});
       if (trialOn()) p.trial = true;
     } else if (o.form === 'thesis') {

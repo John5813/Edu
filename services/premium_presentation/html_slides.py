@@ -20,8 +20,8 @@ import os
 import re
 from typing import Callable, Dict, List, Optional
 
-from . import (chart_data, deck_calc, deck_charts, deck_logic, deck_math, deck_shape, deck_style, deck_styles,
-               llm_client, prompts)
+from . import (chart_data, deck_calc, deck_charts, deck_compose, deck_logic, deck_math, deck_shape, deck_style,
+               deck_styles, llm_client, prompts)
 from services import uz_script
 
 log = logging.getLogger("html_slides")
@@ -157,16 +157,18 @@ def _user_prompt(topic: str, start: int, count: int, total: int,
                  family: str = "umumiy",
                  shapes: Optional[List[tuple]] = None,
                  written: Optional[List[str]] = None,
-                 language: str = "uz") -> str:
+                 language: str = "uz", volume: str = "kop") -> str:
     P = prompts.get(language)
     U = P.USER
+    kam = volume == "kam"
     parts = [
         prompts.fill(U["topic"], topic=topic),
         prompts.fill(U["total"], total=total),
         prompts.fill(U["chunk"], start=start, count=count),
         P.DEPTH.get(level, P.DEPTH[2]),
         deck_shape.guidance(family, language),
-        U["blocks"],
+        # Kam matnlida shaklni kompozitsiya (kod) belgilaydi — blok tanlash haqidagi yo'riqnoma kerak emas.
+        P.KAM["user"] if kam else U["blocks"],
     ]
 
     if outline:
@@ -177,7 +179,8 @@ def _user_prompt(topic: str, start: int, count: int, total: int,
             else:
                 mark = "   "
             title = item.get("title") or ""
-            lines.append(f"{mark} {index}. [{item['category']}] "
+            shape = item.get("layout") if kam and item.get("layout") else item["category"]
+            lines.append(f"{mark} {index}. [{shape}] "
                          + (f"«{title}» — " if title else "") + item["brief"]
                          + (" " + item["chart_note"]
                             if mark.strip() and item.get("chart_note") else ""))
@@ -190,7 +193,7 @@ def _user_prompt(topic: str, start: int, count: int, total: int,
         parts.append(prompts.fill(U["plan_slide"], label=deck_logic.PLAN_LABEL.get(language, deck_logic.PLAN_LABEL["uz"])))
     if start + count - 1 >= total:
         parts.append(U["last"])
-    note = _shapes_note(shapes, start, count, language)
+    note = "" if kam else _shapes_note(shapes, start, count, language)
     if note:
         parts.append(note)
     if preferences:
@@ -215,7 +218,7 @@ _CONCLUSION_BRIEF = {code: _conclusion_brief(code) for code in ("uz", "uz-cyrl",
 
 
 def plan_outline(topic: str, count: int, language: str,
-                 level: int = 2) -> Dict:
+                 level: int = 2, volume: str = "kop") -> Dict:
     """Har slayd uchun sarlavha, bir qatorli mazmun va joylashuv kategoriyasi.
 
     Slaydlar bo'laklab yoziladi va har bo'lak avvalgisining HTML'ini
@@ -230,7 +233,9 @@ def plan_outline(topic: str, count: int, language: str,
     quota = deck_logic.chart_quota(count)
     chart_rule = prompts.fill(T["chart"], quota=quota, donut=T["donut"] if quota >= 2 else "") if quota else ""
     prompt = (
-        prompts.fill(T["main"], topic=topic, count=count, categories=catalogue_text(language))
+        prompts.fill(T["main"], topic=topic, count=count, categories=catalogue_text(language),
+                     photos=deck_logic.PHOTOS_PER_10.get(volume, deck_logic.PHOTOS_PER_10["kop"]))
+        + (P.KAM["plan"] if volume == "kam" else "")
         + chart_rule
         + (T["calc"] if deck_shape.is_calculation(topic) else "")
         + prompts.fill(T["family"], names=deck_shape.names())
@@ -291,7 +296,7 @@ def plan_outline(topic: str, count: int, language: str,
         outline.append({"title": title, "brief": brief, "category": category})
 
     outline = ensure_charts(outline, language)
-    outline = ensure_photos(outline)
+    outline = ensure_photos(outline, volume, language)
     # Kod darajasida kategoriya almashtirilmaydi (ilgari shunday edi va
     # mantiqan ketma-ket kelishi kerak bo'lgan ikki ro'yxatni ajratib,
     # fikrni uzardi). Bir xillikdan qochishni model promptdagi yo'riqnoma
@@ -339,15 +344,17 @@ def ensure_charts(outline: List[Dict], language: str = "uz") -> List[Dict]:
 
 
 # Rasmli slaydlar soni ham promptga qoldirilmaydi: har 10 ta asosiy slaydning
-# 3 tasida rasm bo'lsin (deck_logic.photo_quota). Reja kam rasmli slayd bersa,
-# mos slaydlar shu yerda "matn_rasm" qilib belgilanadi.
+# 4 tasida (kam matnlida 6 tasida) rasm bo'lsin (deck_logic.photo_quota). Reja kam
+# rasmli slayd bersa, mos slaydlar shu yerda "matn_rasm" qilib belgilanadi.
 _PHOTO_CANDIDATES = ("kartalar", "ikki_ustun", "qiyoslash", "tuzilma", "jarayon")
 
 
-def ensure_photos(outline: List[Dict]) -> List[Dict]:
+def ensure_photos(outline: List[Dict], volume: str = "kop", language: str = "uz") -> List[Dict]:
     count = len(outline)
-    want = deck_logic.photo_quota(count)
-    have = [i for i, item in enumerate(outline) if item["category"] == "matn_rasm"]
+    want = deck_logic.photo_quota(count, volume)
+    # Kam matnlida iqtibos kompozitsiyasi ham rasmli.
+    photo_categories = ("matn_rasm", "iqtibos") if volume == "kam" else ("matn_rasm",)
+    have = [i for i, item in enumerate(outline) if item["category"] in photo_categories]
     need = want - len(have)
     if need <= 0:
         return outline
@@ -369,12 +376,11 @@ def ensure_photos(outline: List[Dict]) -> List[Dict]:
         best = max(pool, key=lambda i: min([abs(i - t) for t in taken] or [99]))
         chosen.append(best)
         pool.remove(best)
+    P = prompts.get(language)
     for index in sorted(chosen):
         item = outline[index]
         item["category"] = "matn_rasm"
-        item["brief"] = (f"{item['brief']} — MATN VA RASM bloki bilan ko'rsating: bir tomonda "
-                         "fikrni ochgan 2-3 yaxlit abzats (to'liq, bog'langan gaplar), bir tomonda "
-                         "mavzuga mos real fotosurat.")
+        item["brief"] = item["brief"] + (P.KAM["photo_brief"] if volume == "kam" else P.PHOTO_BRIEF)
         log.info("%d-slayd rasmli qilib belgilandi", index + 1)
     return outline
 
@@ -734,15 +740,22 @@ def _write_slides(topic, slide_count, theme, language, level, preferences, sourc
     # kiradi). Muqova va reja slaydi qo'shimcha yoziladi: ilgari ular ham
     # hisobga kirar, 10 slaydda asosiy mavzuga 8 tadan kam slayd qolardi.
     slide_count = max(4, int(slide_count or 8)) + 2
-    plan = plan_outline(topic, slide_count, language, level)
-    outline = chart_data.ground(plan["slides"], topic, language, level)
+    # Matn hajmi rang sxemasida turadi: "kam" — kompozitsiyalar (deck_compose), aks holda ko'p matnli bloklar.
+    volume = "kam" if getattr(theme, "layout", "") == "kam" else "kop"
+    kam = volume == "kam"
+    plan = plan_outline(topic, slide_count, language, level, volume)
+    outline = chart_data.ground(plan["slides"], topic, language, level, sentences="1-2" if kam else "2-3")
+    if kam:
+        # Kompozitsiya diagramma ma'lumoti aniqlangandan keyin beriladi: ma'lumot topilmasa slayd o'z
+        # kategoriyasiga qaytadi.
+        outline = deck_compose.assign(outline, topic)
     family = plan["family"]
     if plan_cb:
         try:
             plan_cb([{"title": str(o.get("title") or ""), "category": str(o.get("category") or "")} for o in outline])
         except Exception:
             log.debug("plan_cb xatosi", exc_info=True)
-    system = shell_rules(theme, language)
+    system = deck_compose.shell(language, MARKER) if kam else shell_rules(theme, language)
 
     slides: List[str] = []
     used: List[str] = []
@@ -758,7 +771,8 @@ def _write_slides(topic, slide_count, theme, language, level, preferences, sourc
         user = _user_prompt(topic, start, count, slide_count, outline,
                             used, level, source_text, preferences, author,
                             family, shapes=[shape_signature(b) for b in slides],
-                            written=[deck_logic.title_of(b) for b in slides], language=language)
+                            written=[deck_logic.title_of(b) for b in slides], language=language,
+                            volume=volume)
         chunk = _write_chunk(system, user, count)
         if len(chunk) < count:
             # Bir marta qayta so'raymiz: chala javob har safar emas,
@@ -781,7 +795,7 @@ def _write_slides(topic, slide_count, theme, language, level, preferences, sourc
                                   shapes=[shape_signature(b) for b in slides]
                                   + [shape_signature(b) for b in chunk],
                                   written=[deck_logic.title_of(b) for b in slides + chunk],
-                                  language=language)
+                                  language=language, volume=volume)
             one = _write_chunk(system, single, 1)
             if not one:
                 # Oxirgi chora: kichik JSON so'rov, slaydni kod yig'adi.
@@ -803,7 +817,7 @@ def _write_slides(topic, slide_count, theme, language, level, preferences, sourc
             if number == slide_count:
                 body = _drop_thanks(body)
             body = chart_data.enforce(body, outline[number - 1] if number <= len(outline) else None, language)
-            if 1 < number and _thin(body):
+            if 1 < number and not kam and _thin(body):
                 body = _thicken(body, system, theme)
             if number == slide_count:
                 body = _no_photo(body)
@@ -821,13 +835,15 @@ def _write_slides(topic, slide_count, theme, language, level, preferences, sourc
         raise RuntimeError(
             f"AI {slide_count} ta slayddan faqat {len(slides)} tasini yozdi")
     ctx = _Deck(topic, slide_count, outline, family, system, theme, language, level,
-                source_text, preferences, author)
+                source_text, preferences, author, volume)
     if outline_out is not None:
         outline_out["family"] = family
         outline_out["outline"] = [{"title": str(o.get("title") or ""), "brief": str(o.get("brief") or ""),
-                                   "category": str(o.get("category") or "")} for o in outline]
+                                   "category": str(o.get("category") or ""), "layout": str(o.get("layout") or "")}
+                                  for o in outline]
     slides = repair_deck(slides, ctx)
-    slides = diversify(slides, theme, language)
+    if not kam:     # kam matnlida xilma-xillikni kompozitsiyalar navbati beradi
+        slides = diversify(slides, theme, language)
     # Diagramma raqamlari faqat Claude bergan ma'lumot: qayta yozish va xilma-xillashtirish
     # davomida paydo bo'lgan to'qima raqamlar shu yerda tozalanadi.
     slides = [chart_data.enforce(b, outline[i] if i < len(outline) else None, language)
@@ -844,10 +860,11 @@ class _Deck:
     """Taqdimotni yozishda ishlatilgan sozlamalar (qayta yozish uchun kerak)."""
 
     def __init__(self, topic, total, outline, family, system, theme, language, level,
-                 source_text, preferences, author):
+                 source_text, preferences, author, volume="kop"):
         self.topic, self.total, self.outline, self.family = topic, total, outline, family
         self.system, self.theme, self.language, self.level = system, theme, language, level
         self.source_text, self.preferences, self.author = source_text, preferences, author
+        self.volume = volume
 
 
 def _rewrite_slide(slides: List[str], index: int, note: str, ctx: "_Deck") -> Optional[str]:
@@ -859,7 +876,8 @@ def _rewrite_slide(slides: List[str], index: int, note: str, ctx: "_Deck") -> Op
         [o.get("brief", "") for i, o in enumerate(ctx.outline) if i != index][:8],
         ctx.level, ctx.source_text, ctx.preferences, ctx.author, ctx.family,
         shapes=[shape_signature(b) for b in others],
-        written=[deck_logic.title_of(b) for i, b in enumerate(slides) if i != index], language=ctx.language)
+        written=[deck_logic.title_of(b) for i, b in enumerate(slides) if i != index], language=ctx.language,
+        volume=getattr(ctx, "volume", "kop"))
     user += "\n\n" + note
     try:
         fresh = _write_chunk(ctx.system, user, 1)
@@ -946,16 +964,23 @@ def repair_deck(slides: List[str], ctx: "_Deck") -> List[str]:
             prompts.fill(prompts.get(ctx.language).REPAIR["chart_replaced"], note=item.get("chart_note", ""), brief=own_brief(index)),
             deck_logic.has_chart)
 
+    kam = getattr(ctx, "volume", "kop") == "kam"
+    P = prompts.get(ctx.language)
+
     # 4b) Rasmli bo'lishi kerak bo'lgan slaydlar
     for index in range(2, last):
         item = ctx.outline[index] if index < len(ctx.outline) else {}
         if item.get("category") == "matn_rasm" and not deck_logic.has_photo(result[index]):
-            fix(index,
-                prompts.fill(prompts.get(ctx.language).REPAIR["photo"], brief=own_brief(index)),
-                deck_logic.has_photo)
+            note = (prompts.fill(P.KAM["photo"], layout=item.get("layout") or "", brief=own_brief(index)) if kam
+                    else prompts.fill(P.REPAIR["photo"], brief=own_brief(index)))
+            fix(index, note, deck_logic.has_photo)
 
-    # 5) Umumlashtiruvchi gap
-    result = add_leads(result, ctx)
+    # 4d) Juda uzun slaydlar: matn kichraytirilmaydi, slaydning o'zi qisqaroq qayta yoziladi.
+    result = shorten_long(result, ctx)
+
+    # 5) Umumlashtiruvchi gap (kam matnlida bosh gap kompozitsiya qolipida bor)
+    if not kam:
+        result = add_leads(result, ctx)
 
     # 6) Kartochka raqamlari (faqat reja slaydida qoladi)
     result = [deck_logic.strip_numbering(b) for b in result]
@@ -965,7 +990,8 @@ def repair_deck(slides: List[str], ctx: "_Deck") -> List[str]:
     result = [b if i == 0 else deck_logic.fix_columns(deck_logic.fix_title_case(b))
               for i, b in enumerate(result)]
     # 6c) Rasmli slayd: matn yaxlit abzatslar bo'lsin (mayda bandlar va ikonkali qatorlar emas).
-    result = [b if i == 0 else deck_logic.flow_photo_text(b) for i, b in enumerate(result)]
+    if not kam:
+        result = [b if i == 0 else deck_logic.flow_photo_text(b) for i, b in enumerate(result)]
 
     # 7) Reja slaydi — yozilgan slaydlarning haqiqiy sarlavhalaridan
     items = []
@@ -977,6 +1003,39 @@ def repair_deck(slides: List[str], ctx: "_Deck") -> List[str]:
             items.append((title, brief))
     if items:
         result[1] = deck_logic.plan_slide(items, ctx.language)
+    return result
+
+
+MAX_SHORTEN = 6             # bitta taqdimotda ko'pi bilan shuncha uzun slayd qisqartiriladi
+
+
+def shorten_long(slides: List[str], ctx: "_Deck") -> List[str]:
+    """Matni chegaradan uzun slaydlarni (`deck_compose.WORD_LIMIT`) qisqaroq qayta yozdiradi.
+
+    Ilgari uzun matn sig'masa shrift kichraytirilardi va varaq mayda yozuv bilan to'lib ketardi.
+    Endi uzunlik yozilgan zahoti o'lchanadi: eng uzun slaydlar birinchi, natija qisqaroq bo'lsagina
+    qabul qilinadi (aks holda eski slayd qoladi, `html_render.fit` uni sig'diradi).
+    """
+    volume = getattr(ctx, "volume", "kop")
+    limit = deck_compose.WORD_LIMIT.get(volume, deck_compose.WORD_LIMIT["kop"])
+    last = len(slides) - 1
+    long = sorted((i for i in range(2, last) if deck_compose.too_long(slides[i], volume)),
+                  key=lambda i: -deck_compose.words(slides[i]))[:MAX_SHORTEN]
+    if not long:
+        return slides
+    result = list(slides)
+    P = prompts.get(ctx.language)
+    for index in long:
+        before = deck_compose.words(result[index])
+        note = prompts.fill(P.REPAIR["long"], n=before, limit=limit, slide=source_of(result[index]) or result[index])
+        fresh = _rewrite_slide(result, index, note, ctx)
+        if fresh and deck_compose.words(fresh) < before and (
+                not deck_logic.has_photo(result[index]) or deck_logic.has_photo(fresh)) and (
+                not deck_logic.has_chart(result[index]) or deck_logic.has_chart(fresh)):
+            result[index] = fresh
+            log.info("%d-slayd qisqartirildi: %d → %d so'z", index + 1, before, deck_compose.words(fresh))
+        else:
+            log.info("%d-slaydning qisqa varianti qabul qilinmadi (%d so'z)", index + 1, before)
     return result
 
 

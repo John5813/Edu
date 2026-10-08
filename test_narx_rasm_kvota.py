@@ -30,10 +30,14 @@ check("narx tugmalarida oddiy va zamonaviy bir xil (10/15/20)",
       all(dict(pp._count_options("jurnal"))[n] == dict(pp._count_options(pp.SIMPLE_STYLE))[n] for n in (10, 15, 20)))
 
 print("\n2) Rasm kvotasi")
-check("kvota: 10 → 3, 15 → 5, 20 → 6 (muqova va reja hisobsiz)",
-      [deck_logic.photo_quota(n + 2) for n in (10, 15, 20)] == [3, 5, 6], [deck_logic.photo_quota(n + 2) for n in (10, 15, 20)])
+check("kvota: 10 → 4, 15 → 6, 20 → 8 (muqova va reja hisobsiz)",
+      [deck_logic.photo_quota(n + 2) for n in (10, 15, 20)] == [4, 6, 8], [deck_logic.photo_quota(n + 2) for n in (10, 15, 20)])
+check("kam matnli kvota: 10 → 6, 20 → 12",
+      [deck_logic.photo_quota(n + 2, "kam") for n in (10, 20)] == [6, 12])
 check("kichik taqdimot ham rasm oladi (5 slayd — 2)", deck_logic.photo_quota(7) == 2)
-check("rasm chegarasi kvotadan kam emas (30 slayd — 9)", html_images.MAX_PHOTOS >= deck_logic.photo_quota(32))
+check("rasm chegarasi kvotadan kam emas (30 slayd — 12, kam matnli — 18)",
+      html_images.photo_limit(30) >= deck_logic.photo_quota(32) == 12
+      and html_images.photo_limit(30, "kam") >= deck_logic.photo_quota(32, "kam") == 18)
 
 def outline(categories):
     items = [{"title": f"S{i}", "brief": f"mavzu {i}", "category": c} for i, c in enumerate(categories)]
@@ -48,7 +52,7 @@ for main in (10, 15, 20):
     check(f"{main} slayd: rasmli slaydlar ketma-ket emas", all(b - a > 1 for a, b in zip(photos, photos[1:])), photos)
     check(f"{main} slayd: muqova, reja, yakunga rasm tegmadi", all(result[i]["category"] == c for i, c in ((0, "muqova"), (1, "reja"), (len(result) - 1, "yakun"))))
 
-planned = outline(["muqova", "reja", "matn_rasm", "kartalar", "matn_rasm", "kartalar", "matn_rasm", "kartalar", "kartalar", "kartalar", "kartalar", "yakun"])
+planned = outline(["muqova", "reja", "matn_rasm", "kartalar", "matn_rasm", "kartalar", "matn_rasm", "kartalar", "kartalar", "matn_rasm", "kartalar", "yakun"])
 check("reja o'zi yetarli rasm bergan bo'lsa tegilmaydi", [i["category"] for i in html_slides.ensure_photos([dict(x) for x in planned])] == [i["category"] for i in planned])
 tough = outline(["muqova", "reja", "korsatkichlar", "diagramma", "iqtibos", "jadval", "vaqt_oqi", "formula", "misol", "kartalar", "yakun"])
 res = html_slides.ensure_photos([dict(x) for x in tough])
@@ -60,7 +64,8 @@ import inspect
 from services.premium_presentation import prompts as _prompts
 # Prompt matni taqdimot tilidagi faylda (prompts/uz.py) — o'zbekcha nusxasi tekshiriladi.
 src = inspect.getsource(html_slides.plan_outline) + str(_prompts.get("uz").PLAN)
-check("rejada rasm nisbati ijobiy aytilgan", "10 ta slaydning taxminan 3 tasi" in src)
+check("rejada rasm nisbati ijobiy aytilgan (ko'p matnli 4, kam matnli 6)",
+      "10 ta slaydning taxminan ⟨photos⟩ tasi" in src and deck_logic.PHOTOS_PER_10 == {"kop": 4, "kam": 6})
 check("'matn_rasm' takror chegarasidan mustasno", "'matn_rasm' bundan mustasno" in src or "bundan mustasno" in src)
 with_photo = '<section class="slide"><div class="body"><div class="split"><div class="rasm" data-prompt="old city street"><p class="rasm-matn">x</p></div></div></div></section>'
 without = '<section class="slide"><div class="body"><div class="list"><div class="item">x</div></div></div></section>'

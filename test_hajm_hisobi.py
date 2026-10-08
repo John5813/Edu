@@ -53,7 +53,7 @@ print("\n2) Premium oqim")
 from services.premium_presentation import html_slides
 seen = {}
 orig_plan = html_slides.plan_outline
-def fake_plan(topic, count, language, level=2):
+def fake_plan(topic, count, language, level=2, volume="kop"):
     seen["count"] = count
     raise RuntimeError("stop")
 html_slides.plan_outline = fake_plan

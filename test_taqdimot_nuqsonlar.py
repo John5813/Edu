@@ -142,7 +142,7 @@ for banned in ("TAQIQLANGAN", "QATTIQ TAQIQ", "QILMA", "hech qachon", "mutlaqo",
     check(f"qattiq taqiq iborasi yo'q: {banned}", banned not in everything)
 features = {
     "diagramma (halqa/chiziqli/ustunli)": "halqa, chiziqli va ustunli diagrammani tizim",
-    "rasmli slayd (har 10 tada 3 ta)": "10 ta slaydning taxminan 3 tasi",
+    "rasmli slayd (har 10 tada ⟨photos⟩ ta: ko'p matnlida 4, kam matnlida 6)": "10 ta slaydning taxminan ⟨photos⟩ tasi",
     "ikonka": "IKONKA nomlari",
     "qisqa jadval": "QISQA bo'lsa",
     "sarlavha — oddiy gap harflari": "faqat birinchi\\n   so'z va atoqli otlar bosh harf",

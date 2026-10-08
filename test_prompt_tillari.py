@@ -20,14 +20,14 @@ def check(name, cond, detail=""):
     print(("  ok   " if cond else "  XATO ") + name + ("" if cond else f" — {detail}"))
     if not cond: FAILS.append(name)
 
-from services.premium_presentation import (chart_data, deck_shape, html_slides, llm_client, prompts, slide_edit,
-                                           themes)
+from services.premium_presentation import (chart_data, deck_compose, deck_shape, html_slides, llm_client, prompts,
+                                           slide_edit, themes)
 
 LANGS = ("uz", "ru", "en", "kk")
 MODULES = {l: prompts.get(l) for l in LANGS}
 NAMES = ("TARGET", "SHELL", "BLOCKS", "CATEGORIES", "SHAPE_NAMES", "FAMILIES", "GUIDANCE", "DEPTH", "USER",
          "SHAPES", "CONCLUSION_BRIEF", "BRIEF_FALLBACK", "PLAN", "REPAIR", "LEADS", "REWORK", "THICKEN", "FIX",
-         "PROBLEM_WORDS", "EXPLAIN", "PLAIN", "CHART", "EDIT", "YEAR_RULE")
+         "PROBLEM_WORDS", "EXPLAIN", "PLAIN", "CHART", "EDIT", "YEAR_RULE", "KAM", "PHOTO_BRIEF")
 SLOT = re.compile(r"⟨(\w+)⟩")
 
 
@@ -44,14 +44,16 @@ for name in NAMES:
     check(f"{name} hamma tilda bor", all(hasattr(MODULES[l], name) for l in LANGS),
           [l for l in LANGS if not hasattr(MODULES[l], name)])
 for name in ("USER", "SHAPES", "PLAN", "REPAIR", "LEADS", "EXPLAIN", "PLAIN", "CHART", "EDIT", "DEPTH",
-             "CATEGORIES", "FAMILIES", "SHAPE_NAMES"):
+             "CATEGORIES", "FAMILIES", "SHAPE_NAMES", "KAM"):
     keys = {l: sorted(getattr(MODULES[l], name)) for l in LANGS}
     check(f"{name}: bo'limlar bir xil", all(keys[l] == keys["uz"] for l in LANGS), keys)
 for name in ("SHELL", "GUIDANCE", "USER", "SHAPES", "PLAN", "REPAIR", "LEADS", "REWORK", "THICKEN", "FIX",
-             "EXPLAIN", "PLAIN", "CHART", "EDIT", "BRIEF_FALLBACK"):
+             "EXPLAIN", "PLAIN", "CHART", "EDIT", "BRIEF_FALLBACK", "KAM", "PHOTO_BRIEF"):
     shape = {l: slots(getattr(MODULES[l], name)) for l in LANGS}
     check(f"{name}: ⟨o'rinlar⟩ bir xil", all(shape[l] == shape["uz"] for l in LANGS),
           {l: shape[l] for l in LANGS if shape[l] != shape["uz"]})
+check("kam matnli kompozitsiyalar tavsifi hamma tilda bir xil",
+      all(sorted(MODULES[l].KAM["layouts"]) == sorted(MODULES["uz"].KAM["layouts"]) for l in LANGS))
 check("kategoriya kalitlari hamma tilda bir xil (lotin)",
       all(set(MODULES[l].CATEGORIES) == set(html_slides.CATEGORY_KEYS) for l in LANGS))
 check("muammo iboralari: har tilda bir xil kalitlar",
@@ -71,7 +73,14 @@ def everything(language):
                                       language=language),
              html_slides._user_prompt("Topic", 7, 3, 9, outline, [], 1, "", "", "", "hisob", language=language),
              deck_shape.guidance("aniq", language), html_slides.catalogue_text(language),
-             html_slides._conclusion_brief(language)]
+             html_slides._conclusion_brief(language),
+             # Kam matnli taqdimot: qobiq (kompozitsiyalar), slayd so'rovi, rasm talabi.
+             deck_compose.shell(language, html_slides.MARKER),
+             html_slides._user_prompt("Topic", 3, 3, 9, [dict(o, layout=deck_compose.CATEGORY_LAYOUT.get(o["category"], ""))
+                                                        for o in outline] + [{"title": "P", "brief": "b",
+                                                        "category": "matn_rasm", "layout": "rasm_fon"}],
+                                      ["idea"], 2, "", "", "", "tarix", language=language, volume="kam"),
+             prompts.fill(P.KAM["photo"], layout="rasm_chap", brief="b"), P.KAM["photo_brief"], P.PHOTO_BRIEF]
     captured = []
     real_json, real_text = llm_client._call_openrouter, llm_client._call_openrouter_text
 
@@ -85,6 +94,13 @@ def everything(language):
     llm_client._call_openrouter, llm_client._call_openrouter_text = fake_json, fake_text
     try:
         html_slides.plan_outline("Topic about economic growth and forecast calculation", 9, language)
+        html_slides.plan_outline("Topic about economic growth and forecast calculation", 9, language, volume="kam")
+        long = ('<section class="slide"><div class="head"><h2 class="title">A</h2></div><div class="body">'
+                + "<p>" + " ".join(["12"] * 140) + "</p></div></section>")
+        for volume in ("kop", "kam"):
+            ctx_long = html_slides._Deck("Topic", 5, outline + outline[:2], "umumiy", "", theme, language, 2, "", "", "",
+                                         volume)
+            html_slides.shorten_long([long] * 5, ctx_long)
         slide = '<section class="slide"><div class="head"><h2 class="title">A</h2></div><div class="body"><p>t</p></div></section>'
         ctx = html_slides._Deck("Topic", 9, outline, "umumiy", "", theme, language, 2, "", "", "")
         html_slides.add_leads([slide] * 5, ctx)
@@ -99,6 +115,8 @@ def everything(language):
         deck = {"topic": "Topic", "language": language, "pages": [slide] * 4,
                 "outline": [{"title": f"S{i}", "brief": "b", "category": "kartalar"} for i in range(4)]}
         slide_edit.plan_edit(deck, 2, "make it a donut chart")
+        slide_edit._write(dict(deck, volume="kam"), 2, {"category": "matn_rasm", "title": "T", "brief": "b"},
+                          "add a photo")
     finally:
         llm_client._call_openrouter, llm_client._call_openrouter_text = real_json, real_text
     data = {"kind": "bar", "labels": ["2020", "2021"], "series": [("", [1.0, 2.0])], "unit": "%", "xlabel": "",
@@ -119,6 +137,7 @@ UZBEK = re.compile(r"(?<![\w-])(va|uchun|bilan|slayd\w*|mavzu\w*|yoz\w*|kerak|em
 TECHNICAL = re.compile(
     r"`[^`]*`|<[^>]+>|\{[^{}]*\}|\[[^\]]*\]|'[a-z_]+'|data-[a-z-]+=\"[^\"]*\"|\b(" + "|".join(
         list(html_slides.CATEGORY_KEYS) + list(deck_shape.FAMILY_KEYS)
+        + list(deck_compose.LAYOUTS)
         + ["halqa", "ustunli", "chiziqli", "chart_kind", "ikon", "rasm-matn", "par-col", "misol", "fan",
            "kpi", "lead", "note", "calc", "steps", "timeline", "split", "cols", "list", "quote", "chart", "table",
            "formula", "ikon-dot", "ikon-row"]) + r")\b")

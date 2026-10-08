@@ -17,7 +17,7 @@ import shutil
 import tempfile
 from typing import Callable, Dict, List, Optional
 
-from . import chart_data, deck_logic, html_images, html_render, html_slides, llm_client, prompts, themes
+from . import chart_data, deck_compose, deck_logic, html_images, html_render, html_slides, llm_client, prompts, themes
 
 log = logging.getLogger(__name__)
 
@@ -60,8 +60,8 @@ def guess(instruction: str) -> Dict[str, str]:
 
 
 def _theme(deck: dict):
-    chosen = themes.get(deck["theme_key"]) if deck.get("theme_key") else themes.suggest(deck.get("topic", ""))
-    return themes.with_style(chosen, deck.get("style", ""))
+    return themes.for_deck(deck.get("topic", ""), deck.get("style", ""), deck.get("volume", ""),
+                           deck.get("theme_key", ""))
 
 
 def _source(deck: dict, index: int) -> str:
@@ -155,14 +155,20 @@ def _write(deck: dict, index: int, plan: Dict, instruction: str, retry: str = ""
     outline[index] = item
 
     others = [i for i in range(total) if i != index]
-    system = html_slides.shell_rules(theme, language)
+    kam = getattr(theme, "layout", "") == "kam"
+    if kam:
+        # Kam matnli taqdimot: sahifa kompozitsiyada qayta yoziladi, rasm joyi qo'shnilaridan farq qiladi.
+        neighbours = [deck_compose.layout_of(_source(deck, i)) for i in (index - 1, index + 1) if 0 <= i < total]
+        item["layout"] = deck_compose.layout_for(plan["category"], neighbours)
+        plan["layout"] = item["layout"]
+    system = deck_compose.shell(language, html_slides.MARKER) if kam else html_slides.shell_rules(theme, language)
     user = html_slides._user_prompt(
         deck.get("topic", ""), index + 1, 1, total, outline,
         [outline[i].get("brief", "") for i in others][:8], int(deck.get("level") or 2),
         deck.get("source_text", ""), deck.get("preferences", ""), deck.get("author", ""),
         deck.get("family", "umumiy") or "umumiy",
         shapes=[html_slides.shape_signature(_source(deck, i)) for i in others],
-        written=[outline[i]["title"] for i in others], language=language)
+        written=[outline[i]["title"] for i in others], language=language, volume="kam" if kam else "kop")
     previous = outline[index - 1]["title"] if index > 0 else ""
     following = outline[index + 1]["title"] if index + 1 < total else ""
     P = prompts.get(language)
@@ -173,7 +179,8 @@ def _write(deck: dict, index: int, plan: Dict, instruction: str, retry: str = ""
                      note=P.CATEGORIES.get(plan["category"], "")),
         prompts.fill(E["neighbours"], previous=previous, next=following)]
     if plan["category"] == "matn_rasm":
-        parts.append(E["photo"])
+        parts.append(prompts.fill(P.KAM["photo"], layout=item.get("layout", ""), brief=plan["brief"]) if kam
+                     else E["photo"])
     if retry:
         parts.append(retry)
     chunk = html_slides._write_chunk(system, user + "\n\n" + "\n".join(parts), 1)
@@ -184,19 +191,22 @@ def _finish(deck: dict, index: int, body: str, item: Dict) -> str:
     """Yozilgan sahifaga taqdimot yaratishdagi barcha tuzatishlar (muqova, xulosa, diagramma, sarlavha)."""
     theme, language = _theme(deck), deck.get("language", "uz")
     total = len(deck["pages"])
+    kam = getattr(theme, "layout", "") == "kam"
     system = html_slides.shell_rules(theme, language)
     if index == 0:
         body = html_slides._cover_credit(body, deck.get("author", ""), language)
     if index == total - 1:
         body = html_slides._drop_thanks(body)
     body = chart_data.enforce(body, item, language)
-    if index >= 1 and html_slides._thin(body):
+    if index >= 1 and not kam and html_slides._thin(body):
         body = html_slides._thicken(body, system, theme)
     if index == total - 1:
         body = html_slides._no_photo(body)
     body = deck_logic.strip_numbering(body)
     if index != 0:
-        body = deck_logic.flow_photo_text(deck_logic.fix_columns(deck_logic.fix_title_case(body)))
+        body = deck_logic.fix_columns(deck_logic.fix_title_case(body))
+        if not kam:
+            body = deck_logic.flow_photo_text(body)
     return body
 
 
@@ -210,7 +220,8 @@ def _settle(pages: List[str], theme, language: str, shots_dir: str) -> List[str]
         path = html_render.render(
             pages, out_dir=work, name="sahifa",
             repair=lambda page, problems: html_slides.fix_slide(page, problems, theme, language),
-            explain=lambda page, area: html_slides.fill_gap(page, area, theme, language),
+            explain=None if getattr(theme, "layout", "") == "kam"
+            else (lambda page, area: html_slides.fill_gap(page, area, theme, language)),
             collect=final, shots_dir=shots_dir)
         try:
             os.remove(path)
@@ -285,7 +296,9 @@ async def _rewrite(deck: dict, index: int, instruction: str, shots_dir: str,
         log.info("%d-sahifa: so'ralgan ko'rinish chiqmadi, qayta so'raladi", index + 1)
         report("writing", 44)
         E = prompts.get(language).EDIT
-        retry = E["chart_retry"] if plan["category"] == "diagramma" else E["photo"]
+        retry = E["chart_retry"] if plan["category"] == "diagramma" else (
+            prompts.fill(prompts.get(language).KAM["photo"], layout=plan.get("layout", ""), brief=plan["brief"])
+            if getattr(theme, "layout", "") == "kam" else E["photo"])
         body = await asyncio.to_thread(_write, deck, index, plan, instruction, retry)
     if not acceptable(body):
         raise SlideEditError("AI so'ralgan ko'rinishdagi sahifani yarata olmadi. Iltimosni boshqacha yozib ko'ring.")
@@ -306,7 +319,8 @@ async def _rewrite(deck: dict, index: int, instruction: str, shots_dir: str,
     outline = _outline(deck)
     old_title = outline[index]["title"]
     new_title = deck_logic.title_of(body) or plan["title"]
-    updates = {index: {"title": new_title, "brief": plan["brief"], "category": plan["category"]}}
+    updates = {index: {"title": new_title, "brief": plan["brief"], "category": plan["category"],
+                       "layout": plan.get("layout", "")}}
 
     targets = [(index, page)]
     if new_title != old_title and total > 3:

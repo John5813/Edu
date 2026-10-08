@@ -45,7 +45,7 @@ def _pick_language(raw: Dict, topic: str) -> str:
 # ───────────────────────────────────────────────────────── zamonaviy (premium) taqdimot
 
 def _premium_normalize(raw: Dict) -> Dict:
-    from services.premium_presentation import pipeline, themes
+    from services.premium_presentation import pipeline
 
     topic = _text(raw, "topic", 300)
     if len(topic) < 3:
@@ -55,7 +55,8 @@ def _premium_normalize(raw: Dict) -> Dict:
     except (TypeError, ValueError):
         count = 10
     style = raw.get("style") if raw.get("style") in MODERN_STYLES else "toza"
-    theme = str(raw.get("theme") or "").strip().lower()
+    # Rang alohida tanlanmaydi (mavzuga qarab); mijoz matn hajmini tanlaydi: ko'p yoki kam matnli.
+    volume = str(raw.get("volume") or "").strip().lower()
     # Bepul sinov: varaq soni qat'iy (o'zgartirib bo'lmaydi), arzon model, rasmsiz.
     trial = raw.get("trial") is True
     if trial:
@@ -63,7 +64,7 @@ def _premium_normalize(raw: Dict) -> Dict:
         count = free_trial.SLIDES
     return {"topic": topic, "slide_count": max(pipeline.MIN_SLIDES, min(count, pipeline.MAX_SLIDES)), "trial": trial,
             "language": _pick_language(raw, topic), "style": style,
-            "theme": theme if theme in themes.THEMES else "",
+            "volume": "kop" if trial else (volume if volume in pipeline.VOLUMES else "kop"),
             "author": _text(raw, "author", 80), "preferences": _text(raw, "preferences", 1000),
             "source_text": _long_text(raw, "source_text", SOURCE_LIMIT),
             "source_label": _text(raw, "source_label", 120)}
@@ -114,7 +115,7 @@ async def _premium_run(params: Dict, report: Report) -> Tuple[str, str]:
     with (llm_client.text_model(free_trial.MODEL) if trial else contextlib.nullcontext()):
         path, _slides, _photos = await pipeline.build_deck(
             topic, params["slide_count"], language=params["language"], preferences=params["preferences"],
-            author=params["author"], theme_key=params["theme"], style=params["style"], photos=not trial,
+            author=params["author"], style=params["style"], volume=params.get("volume") or "kop", photos=not trial,
             source_text=params.get("source_text", ""), progress_cb=on_progress, stage_cb=on_stage,
             deck_out=deck_out if job_id else None)
     if job_id and deck_out.get("pages"):

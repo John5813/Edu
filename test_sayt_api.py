@@ -170,9 +170,9 @@ async def main():
     check("boshqa mijoz bu ishni ko'ra olmaydi", stranger is None)
 
     norm = web_jobs.KINDS["premium_presentation"].normalize({"topic": "  Yaxshi   mavzu ", "style": "noma'lum",
-                                                             "language": "xx", "slide_count": "999", "theme": "yo'q"})
-    check("noto'g'ri uslub, til, rang va son sukutga tushadi", norm["style"] == "toza" and norm["language"] == "uz"
-          and norm["theme"] == "" and norm["slide_count"] == 30 and norm["topic"] == "Yaxshi mavzu", norm)
+                                                             "language": "xx", "slide_count": "999", "volume": "yo'q"})
+    check("noto'g'ri uslub, til, matn hajmi va son sukutga tushadi", norm["style"] == "toza" and norm["language"] == "uz"
+          and norm["volume"] == "kop" and norm["slide_count"] == 30 and norm["topic"] == "Yaxshi mavzu", norm)
 
     print("5) Xato: pul to'liq qaytariladi")
     CALLS["fail"] = True
