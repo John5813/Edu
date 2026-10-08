@@ -368,7 +368,8 @@
     $('prompt-form').hidden = true;
     box.innerHTML = '<div id="forge-anim"></div><div id="forge-out" class="forge-out"></div>';
     box.scrollIntoView({behavior: 'smooth', block: 'start'});
-    forge = E.forge($('forge-anim'), {topic: job.title, mode: isDeck ? 'slides' : 'pages', count, startedAt: job.created_at});
+    forge = E.forge($('forge-anim'), {topic: job.title, mode: isDeck ? 'slides' : 'pages', count, kind,
+      label: (kindOf(kind) || {}).label || '', startedAt: job.created_at});
     forge.update(job);
     $('forge-out').innerHTML = '<p class="hint" style="text-align:center">Bu sahifani yopib ketishingiz mumkin: tayyor bo‘lgach «Hujjatlarim» da ko‘rinadi va Telegramga ham keladi.</p>';
     const poll = async () => {
@@ -439,6 +440,15 @@
       } catch (e) { try { sessionStorage.removeItem(LIVE); } catch (x) { /* ixtiyoriy */ } }
     }
     if (want || restored) document.getElementById('yaratish').scrollIntoView({block: 'start'});
+    // Sahifadagi xizmat kartochkalari (#yaratish?kind=...): sahifa qayta yuklanmaydi, oyna o'sha xizmat bilan ochiladi.
+    window.addEventListener('hashchange', () => {
+      const k = (location.hash.split('kind=')[1] || '').split('&')[0];
+      if (!k || !kindOf(k) || !$('forge-box').hidden) return;
+      pickKind(k); save();
+      try { history.replaceState(null, '', '#yaratish'); } catch (e) { /* ixtiyoriy */ }   // keyingi bosishda ham ishlasin
+      document.getElementById('yaratish').scrollIntoView({behavior: 'smooth', block: 'start'});
+      setTimeout(() => topic.focus({preventScroll: true}), 350);
+    });
   }
   E.studio = {init};
 })();

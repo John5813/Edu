@@ -145,6 +145,7 @@
       <div id="forge-anim"></div>
       <p class="hint" style="text-align:center;margin-top:12px">Bu sahifani yopib ketishingiz mumkin: tayyor bo‘lgach «Hujjatlarim» da ko‘rinadi va Telegramga ham keladi.</p></div>`;
     const f = E.forge(document.getElementById('forge-anim'), {topic: job.title, mode: isDeck ? 'slides' : 'pages',
+      kind: job.kind, label: kindLabel(job.kind),
       count: (job.live && job.live.plan && job.live.plan.length - 2) || 10, startedAt: job.created_at});
     f.update(job);
     teardown = () => f.stop();
