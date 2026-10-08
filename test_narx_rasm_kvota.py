@@ -57,7 +57,9 @@ check("rasmga yaroqsiz kategoriyalar (diagramma, formula...) rasmli qilinmaydi",
 
 print("\n3) Prompt va tekshiruv")
 import inspect
-src = inspect.getsource(html_slides.plan_outline)
+from services.premium_presentation import prompts as _prompts
+# Prompt matni taqdimot tilidagi faylda (prompts/uz.py) — o'zbekcha nusxasi tekshiriladi.
+src = inspect.getsource(html_slides.plan_outline) + str(_prompts.get("uz").PLAN)
 check("rejada rasm nisbati ijobiy aytilgan", "10 ta slaydning taxminan 3 tasi" in src)
 check("'matn_rasm' takror chegarasidan mustasno", "'matn_rasm' bundan mustasno" in src or "bundan mustasno" in src)
 with_photo = '<section class="slide"><div class="body"><div class="split"><div class="rasm" data-prompt="old city street"><p class="rasm-matn">x</p></div></div></div></section>'

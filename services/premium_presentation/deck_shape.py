@@ -222,12 +222,13 @@ def of(topic: str, hint: Optional[str] = None) -> str:
     return _BY_SUBJECT.get(subject, "umumiy")
 
 
-def guidance(family: str) -> str:
-    """Shu oila uchun promptga qo'yiladigan yo'riqnoma."""
-    item = _FAMILIES.get(family) or _FAMILIES["umumiy"]
-    return (f"MAVZU OILASI: {item['name']}.\n"
-            f"Shu oilada mazmun qanday ochiladi:\n{item['shape']}\n\n"
-            f"RAQAMGA MUNOSABAT: {item['numbers']}")
+def guidance(family: str, language: str = "uz") -> str:
+    """Shu oila uchun promptga qo'yiladigan yo'riqnoma (taqdimot tilida)."""
+    from . import prompts
+
+    P = prompts.get(language)
+    item = P.FAMILIES.get(family) or P.FAMILIES["umumiy"]
+    return prompts.fill(P.GUIDANCE, name=item["name"], shape=item["shape"], numbers=item["numbers"])
 
 
 def names() -> str:

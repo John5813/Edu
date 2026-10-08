@@ -76,7 +76,7 @@ check("haqiqiy slaydda abzatslar bitta qutida", len(pars) == 1 and len(pars[0].t
 
 # 4. Diagramma promptida qisqa yorliq ko'rsatmasi bor
 check("diagramma promptida qisqa yorliq ko'rsatmasi bor", "1-3 so'z" in open(
-    "services/premium_presentation/chart_data.py", encoding="utf8").read())
+    "services/premium_presentation/prompts/uz.py", encoding="utf8").read())
 
 print("\nXATO:" if FAILS else "\nHAMMASI YAXSHI", FAILS or "")
 sys.exit(1 if FAILS else 0)

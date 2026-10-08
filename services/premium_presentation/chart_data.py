@@ -17,7 +17,7 @@ import math
 import re
 from typing import Dict, List, Optional
 
-from . import deck_logic, llm_client
+from . import deck_logic, llm_client, prompts
 
 log = logging.getLogger(__name__)
 
@@ -35,16 +35,15 @@ SOURCE_LABEL = {
 # AI ishonchli ma'lumot bermagan diagramma: oddiy model tuzgan namunaviy raqamlar halol belgilanadi.
 ILLUSTRATIVE = {"uz": "Shartli misol", "ru": "Условный пример", "en": "Illustrative example",
                 "kk": "Шартты мысал", "uz-cyrl": "Шартли мисол"}
-FALLBACK_NOTE = (
-    "Bu mavzu uchun ishonchli statistik ma'lumot topilmadi, shuning uchun diagramma uchun mavzuga mos, "
-    "tushunchani ko'rsatuvchi NAMUNAVIY ma'lumotni o'zingiz tuzing (3-6 yorliq, bitta birlik; haqiqiy "
-    "statistika deb ko'rsatmang, manba yoki 'tadqiqotlar ko'rsatdi' yozmang) va slaydning izohi oxiriga "
-    "«Shartli misol.» deb yozing. Diagramma bloki slaydda bo'lishi shart.")
+def fallback_note(language: str = "uz") -> str:
+    """Ishonchli ma'lumot topilmaganda yozuvchi modelga ko'rsatma (taqdimot tilida)."""
+    return prompts.fill(prompts.get(language).CHART["fallback"],
+                        illustrative=ILLUSTRATIVE.get(language, ILLUSTRATIVE["uz"]))
+
+
 _APPROX = {"uz": "taxminiy", "ru": "оценка", "en": "estimate", "kk": "болжам", "uz-cyrl": "тахминий"}
 _KIND = {"line": "line", "chiziqli": "line", "bar": "bar", "ustunli": "bar",
          "donut": "donut", "halqa": "donut", "pie": "donut"}
-_KIND_HINT = {"halqa": "donut (butunning ulushlari)", "chiziqli": "line (vaqt bo'yicha o'zgarish)",
-              "ustunli": "bar (qiymatlarni solishtirish)"}
 # Rejada diagramma bo'lmagan slaydga model o'zi yozib qo'ygan "yetim" diagramma.
 _CHART_BLOCK = re.compile(
     r'<div\b[^>]*\bclass\s*=\s*(["\'])[^"\']*(?<![-\w])chart(?![-\w])[^"\']*\1[^>]*>\s*</div>',
@@ -52,39 +51,13 @@ _CHART_BLOCK = re.compile(
 MAX_WORKERS = 3
 _YEAR = re.compile(r"^\D*((?:19|20)\d{2})\D*$")
 
-SYSTEM = (
-    "Sen statistik ma'lumotlar bo'yicha tahlilchisan: taqdimot slaydidagi diagramma uchun "
-    "HAQIQIY raqamlarni berasan. Javobing faqat JSON."
-)
 
 
 def _prompt(topic: str, title: str, brief: str, kind: str, language: str) -> str:
-    from services import timeframe
-    return (
-        f'Taqdimot mavzusi: "{topic}"\n'
-        f'Slayd sarlavhasi: "{title}"\n'
-        f"Slayd mazmuni: {brief}\n"
-        f"Taxminiy diagramma turi: {_KIND_HINT.get(kind, kind)}\n\n"
-        "Shu slayd uchun BITTA diagramma ma'lumotini ber.\n"
-        "• Raqamlar rasmiy yoki taniqli manbalardan bo'lsin: milliy statistika organlari "
-        "(O'zbekiston Statistika agentligi va h.k.), Jahon banki, BMT va uning agentliklari, XVF, "
-        "OECD, Eurostat, yetakchi tadqiqot markazlari. Har qiymat sen bilgan haqiqiy ma'lumotga mos "
-        "kelsin; aniq raqamni bilmasang yaxlitlangan qiymat ber va `approx` ni true qil.\n"
-        "• Eng YANGI yillarni ol — sening bilimingdagi oxirgi yilgacha. Kelajak yillar faqat "
-        "rasmiy prognoz bo'lsa beriladi va `forecast` true bo'ladi.\n"
-        "• Mavzu O'zbekiston bilan bog'liq bo'lsa — O'zbekiston ma'lumoti; aks holda mavzuning "
-        "o'z qamrovi (dunyo, mintaqa, soha).\n"
-        "• Bu mavzuda ishonchli, tekshirsa bo'ladigan raqam yo'q bo'lsa `ok` ni false qil va "
-        "`reason` ga sababini yoz: bunday slayd matn bilan ochiladi. Raqamni o'ylab topma.\n"
-        "• 3-7 ta yorliq; har yorliq qisqa — 1-3 so'z (\"Qadimgi Rim\", \"2021\"), izoh qavs ichida emas; "
-        "ko'pi bilan 3 ta qator; bir diagrammada bitta birlik. `donut` uchun bitta "
-        "qator, qiymatlar yig'indisi ≈ 100 (%). Qiymatlar oddiy sonlar.\n"
-        f"{timeframe.year_rule(language)}\n"
-        f"TIL TALABI (yorliqlar, qator nomlari, birlik, manba): {llm_client._language_instruction(language)}\n"
-        'Faqat JSON: {"ok": true, "kind": "line|bar|donut", "labels": ["2019", "2020"], '
-        '"series": [{"name": "...", "values": [1.5, 2.0]}], "unit": "%", "xlabel": "Yil", '
-        '"source": "Tashkilot nomi, yil", "approx": false, "forecast": false, "reason": ""}'
-    )
+    C = prompts.get(language).CHART
+    return prompts.fill(C["prompt"], topic=topic, title=title, brief=brief, kind=C["kind_hint"].get(kind, kind),
+                        year_rule=prompts.year_rule(language),
+                        language_rule=llm_client._language_instruction(language))
 
 
 def _number(value) -> Optional[float]:
@@ -139,8 +112,10 @@ def validate(raw: dict, language: str = "uz") -> Optional[Dict]:
 def research(topic: str, title: str, brief: str, kind: str, language: str = "uz") -> Optional[Dict]:
     """Tanlangan AI dan bitta diagramma uchun haqiqiy ma'lumot so'raydi (bo'lmasa None)."""
     try:
-        raw = llm_client._call_openrouter(SYSTEM, _prompt(topic, title, brief, kind, language),
-                                          temperature=0.2, max_tokens=1500, kind="text")
+        with prompts.use(language):
+            raw = llm_client._call_openrouter(prompts.get(language).CHART["system"],
+                                              _prompt(topic, title, brief, kind, language),
+                                              temperature=0.2, max_tokens=1500, kind="text")
     except llm_client.NoCredits:
         raise
     except Exception as exc:
@@ -181,17 +156,15 @@ def _fmt(value: float) -> str:
     return str(int(value)) if float(value).is_integer() else f"{value:.4g}"
 
 
-def note_for(data: Dict) -> str:
-    """Slayd yozuvchi modelga beriladigan tayyor ma'lumot tavsifi."""
-    rows = "; ".join(f"{name or 'qiymat'}: " + ", ".join(f"{l}={_fmt(v)}" for l, v in zip(data["labels"], values))
+def note_for(data: Dict, language: str = "") -> str:
+    """Slayd yozuvchi modelga beriladigan tayyor ma'lumot tavsifi (taqdimot tilida)."""
+    C = prompts.get(language or data.get("lang") or "uz").CHART
+    rows = "; ".join(f"{name or C['value']}: " + ", ".join(f"{l}={_fmt(v)}" for l, v in zip(data["labels"], values))
                      for name, values in data["series"])
-    extra = " Raqamlar taxminiy (yaxlitlangan)." if data.get("approx") else ""
-    extra += " Bu rasmiy prognoz." if data.get("forecast") else ""
-    return (f"TAYYOR DIAGRAMMA (AI bergan HAQIQIY ma'lumot): {rows}"
-            f"{' ' + data['unit'] if data.get('unit') else ''}. Manba: {data['source']}.{extra} "
-            f"Slaydda aynan shu blokni qo'ying (raqamlarni o'zgartirmang): {block(data)} "
-            "va ostiga shu raqamlardan kelib chiqadigan 2-4 gaplik izoh yozing: nima ko'rsatilgani, "
-            "eng muhim o'zgarish va xulosa.")
+    extra = C["approx"] if data.get("approx") else ""
+    extra += C["forecast"] if data.get("forecast") else ""
+    return prompts.fill(C["note"], rows=rows, unit=(" " + data["unit"]) if data.get("unit") else "",
+                        source=data["source"], extra=extra, block=block(data))
 
 
 # ──────────────────────────────────────────────────────────── reja bosqichi
@@ -222,7 +195,7 @@ def ground(outline: List[Dict], topic: str, language: str = "uz", level: int = 2
             item = outline[index]
             if data:
                 item["chart"] = data
-                item["chart_note"] = note_for(data)
+                item["chart_note"] = note_for(data, language)
                 log.info("%d-slayd diagrammasi: haqiqiy ma'lumot (%s)", index + 1, data["source"])
             elif item.get("was"):
                 # Kvota bo'yicha qo'shilgan diagramma: ma'lumot yo'q — slayd o'z kategoriyasida qoladi.
@@ -234,7 +207,7 @@ def ground(outline: List[Dict], topic: str, language: str = "uz", level: int = 2
                 # Reja o'zi diagramma deb belgilagan slayd: diagramma yo'qolmasin — oddiy model namunaviy
                 # ma'lumot tuzadi, u "Shartli misol" deb belgilanadi.
                 item["chart_fallback"] = True
-                item["chart_note"] = FALLBACK_NOTE
+                item["chart_note"] = fallback_note(language)
                 log.info("%d-slayd: AI ma'lumot bermadi — namunaviy diagramma (Shartli misol)", index + 1)
     return outline
 

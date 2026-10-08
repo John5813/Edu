@@ -91,9 +91,11 @@ try:
     hs.write_slides("Mavzu", 6, TH, "uz")
 finally:
     llm_client._call_openrouter_text, llm_client._call_openrouter, hs.MAX_REWORKS = original, orig_json, orig_reworks
-check("birinchi bo'lakda shakllar ro'yxati yo'q (hali slayd yo'q)", "HARD CONSTRAINT" not in prompts[0])
-check("ikkinchi bo'lakka ishlatilgan shakllar va qat'iy taqiq (inglizcha) berildi",
-      "HARD CONSTRAINT" in prompts[1] and "list+rasm+split" in prompts[1] and "FORBIDDEN" in prompts[1], prompts[1][-700:])
+check("birinchi bo'lakda shakllar ro'yxati yo'q (hali slayd yo'q)", "QAT'IY TALAB" not in prompts[0])
+# Ko'rsatma taqdimot tilida (bu yerda o'zbekcha): ishlatilgan shakllar, qat'iy talab va "boshqasini tanlang".
+check("ikkinchi bo'lakka ishlatilgan shakllar va qat'iy talab (taqdimot tilida) berildi",
+      "QAT'IY TALAB" in prompts[1] and "list+rasm+split" in prompts[1] and "boshqasini tanlang" in prompts[1],
+      prompts[1][-700:])
 
 # ── Reja (outline): "reja" faqat 2-slayd, oxirgi slayd — xulosa, chala reja qayta so'raladi
 def plan_with(items, calls):
@@ -125,7 +127,7 @@ check("qayta ham chala bo'lsa — yetmagan o'rinlar oddiy mavzu nomi bilan emas,
 check("so'nggi bo'lak so'rovida 'faqat XULOSA' aytilgan", "faqat XULOSA" in hs._user_prompt("M", 10, 3, 12, outline, [], 2, "", "", ""))
 check("oxirgi bo'lak bo'lmasa bu qoida yo'q", "faqat XULOSA" not in hs._user_prompt("M", 4, 3, 12, outline, [], 2, "", "", ""))
 
-check("reja promptida takror cheklovi bor", "2 martadan ko'p takrorlanmasin" in open("services/premium_presentation/html_slides.py", encoding="utf-8").read())
+check("reja promptida takror cheklovi bor", "2 martadan ko'p takrorlanmasin" in open("services/premium_presentation/prompts/uz.py", encoding="utf-8").read())
 
 print("\n" + ("✅ hammasi o'tdi" if not FAILS else f"❌ {len(FAILS)} ta xato: {FAILS}"))
 sys.exit(1 if FAILS else 0)

@@ -132,9 +132,11 @@ check("muqova sarlavhasiga tegilmadi", out[0] == deck[0])
 check("reja slaydi tuzatilgan sarlavhalardan yig'ildi", "Негізгі экономикалық мәселелер" in out[1] and "Негізгі Экономикалық Мәселелер" not in out[1])
 
 print("\n4) Modelga beriladigan matn: taqiqlar xususiyatni o'chirib yubormasin")
-rules = hs.shell_rules(theme, "kk")
+# Ko'rsatmalar o'zbekcha nusxada tekshiriladi (qolgan tillar — uning tarjimasi, test_prompt_tillari.py).
+rules = hs.shell_rules(theme, "uz")
 import inspect
-outline_prompt = inspect.getsource(hs.plan_outline)
+from services.premium_presentation import prompts as _prompts
+outline_prompt = inspect.getsource(hs.plan_outline) + str(_prompts.get("uz").PLAN)
 everything = rules + outline_prompt
 for banned in ("TAQIQLANGAN", "QATTIQ TAQIQ", "QILMA", "hech qachon", "mutlaqo", "umuman"):
     check(f"qattiq taqiq iborasi yo'q: {banned}", banned not in everything)
