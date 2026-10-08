@@ -136,6 +136,23 @@
     location.href = '/';
   };
 
+  // Kirmagan odamga bosh sahifada kirish/ro'yxatdan o'tish oynasi o'zi ochiladi — har tashrifda bir marta
+  // (yopsa, shu tashrif davomida qayta chiqmaydi). Qidiruv botlariga ko'rsatilmaydi: Google sahifani
+  // oyna bilan yopilgan holda ko'rmasin.
+  const BOT_UA = /bot|crawl|spider|slurp|lighthouse|headless|bingpreview|yandex|google-|facebookexternalhit/i;
+  function offerLogin() {
+    if (Edu._loginOffered) return;
+    Edu._loginOffered = true;
+    if (navigator.webdriver || BOT_UA.test(navigator.userAgent || '')) return;
+    if (document.querySelector('.modal')) return;
+    try {
+      if (sessionStorage.getItem('edu_login_offered')) return;
+      sessionStorage.setItem('edu_login_offered', '1');
+    } catch (e) { /* maxfiy rejim: baribir bir marta ko'rsatiladi */ }
+    Edu.login(null);
+  }
+  Edu.offerLogin = offerLogin;
+
   // Sarlavhadagi tugmalar: til tanlagich, kirgan bo'lsa balans va kabinet, aks holda "Kirish".
   Edu.header = async function (active) {
     const box = document.getElementById('actions');
@@ -150,6 +167,7 @@
         : '<button class="btn sm" id="hd-login"><span class="full">Kirish / Ro‘yxatdan o‘tish</span><span class="short">Kirish</span></button>');
     const b = document.getElementById('hd-login');
     if (b) b.onclick = () => Edu.login(active === 'home' ? '/app' : null);
+    if (!me && active === 'home') offerLogin();
     const menu = document.getElementById('langmenu');
     document.getElementById('langbtn').onclick = (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; };
     menu.onclick = (e) => {
