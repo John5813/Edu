@@ -1,0 +1,9 @@
+shop_html/
+shop_prev/
+rec_*/
+out/
+session.txt
+audio/*.wav
+audio/cues.json
+audio/spans.json
+__pycache__/

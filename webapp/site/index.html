@@ -37,6 +37,18 @@
         <span class="filetag"><i>PPTX</i> Tahrirlanadi</span>
       </div>
 
+      <!-- Kirgan foydalanuvchiga «Haqiqiy natija» o'rnida tanishtiruv videosi (telefonda — tik varianti, butun ekranda) -->
+      <div class="intro" id="intro" hidden>
+        <div class="intro-frame">
+          <video id="intro-video" preload="none" playsinline poster="/static/intro-wide.jpg"></video>
+          <button class="intro-play" id="intro-play" type="button" aria-label="Videoni ko‘rish">
+            <span class="ip-ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg></span>
+            <span class="ip-t"><b>Edufayl qanday ishlaydi</b><small>2 daqiqalik video · o‘zbekcha ovoz bilan</small></span>
+          </button>
+        </div>
+        <span class="sticker">Tanishtiruv videosi</span>
+      </div>
+
       <form class="card promptbox" id="prompt-form">
         <div class="kinds" id="kind-chips">
           <button type="button" class="chip on" data-kind="premium_presentation">Taqdimot</button>
@@ -160,6 +172,7 @@
   E.header('home');
   // Yaratish oynasi: mavzu yozilgach kattalashadi, buyurtma va tayyorlanish shu yerda (studio.js, forge.js)
   E.studio.init();
+  intro();
   // Botdagi xizmatlar uchun havola
   try {
     const cat = await E.api('/catalog');
@@ -184,6 +197,45 @@
     if (!box.children.length) box.style.display = 'none';
   } catch (e) {}
 })();
+
+// Tanishtiruv videosi: faqat kirgan foydalanuvchiga. Kompyuterda shu oynaning o'zida, telefonda butun ekranda (tik video).
+async function intro() {
+  const E = window.Edu, box = document.getElementById('intro');
+  if (!(await E.me())) return;
+  const hero = document.querySelector('.hero'), video = document.getElementById('intro-video'), play = document.getElementById('intro-play');
+  document.querySelector('.fan').hidden = true;
+  box.hidden = false;
+  const tall = () => window.matchMedia('(max-width: 620px), (max-aspect-ratio: 3/4)').matches;
+  let modal = null;
+  function close() {
+    if (!modal) return;
+    modal.querySelector('video').pause();
+    modal.remove(); modal = null;
+    document.removeEventListener('keydown', onKey);
+  }
+  function onKey(e) { if (e.key === 'Escape') close(); }
+  play.addEventListener('click', () => {
+    if (tall()) {
+      modal = document.createElement('div');
+      modal.className = 'intro-modal';
+      modal.innerHTML = '<video src="/static/intro-tall.mp4" poster="/static/intro-tall.jpg" playsinline controls autoplay></video>' +
+        '<button type="button" class="intro-x" aria-label="Yopish">×</button>';
+      modal.addEventListener('click', (e) => { if (e.target === modal || e.target.closest('.intro-x')) close(); });
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(modal);
+      modal.querySelector('video').addEventListener('ended', close);
+      return;
+    }
+    if (!video.src) video.src = '/static/intro-wide.mp4';
+    video.controls = true;
+    box.classList.add('playing');
+    video.play().catch(() => {});
+  });
+  video.addEventListener('ended', () => { box.classList.remove('playing'); video.controls = false; video.load(); });
+  // Yaratish oynasi ochilsa video to'xtaydi (oyna o'rnini egallaydi)
+  new MutationObserver(() => { if (hero.classList.contains('studio-on')) { video.pause(); close(); } })
+    .observe(hero, {attributes: true, attributeFilter: ['class']});
+}
 </script>
 </body>
 </html>
