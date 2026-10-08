@@ -215,6 +215,24 @@ def chart_kind_for(text: str, order: int = 0) -> str:
 
 # ───────────────────────────────────────────────────────────── reja slaydi
 
+# Bog'lovchi va ko'makchilar: qisqartirilgan matn shular bilan tugasa, gap chala qoladi.
+_CONNECTORS = {
+    "va", "hamda", "bilan", "yoki", "uchun", "ham", "esa", "ning", "kabi", "orqali",
+    "и", "или", "в", "во", "на", "с", "со", "для", "по", "к", "от", "из", "о", "об", "а",
+    "мен", "пен", "бен", "және", "немесе", "үшін", "men", "and", "or", "of", "the", "for", "to", "in", "with", "a",
+}
+# Gapni faqat vergulda bo'lamiz: "va" oldidan kesish "mis va tosh qurollar" kabi juftlikni uzib qo'yardi.
+_PHRASE_BREAK = re.compile(r",\s+")
+# Gap oxiri: nuqta/undov/so'roq va undan keyin bosh harf. "Mil. avv.", "6." kabi qisqartmalar gap oxiri emas.
+_SENTENCE_END = re.compile(r"[.!?…](?=\s+[«\"'(]?[A-ZА-ЯЁЎҚҒҲІҢӘӨҰҮҺ0-9])")
+
+
+def _drop_tail_connectors(words: List[str]) -> List[str]:
+    while len(words) > 1 and words[-1].strip(",.;:").lower() in _CONNECTORS:
+        words.pop()
+    return words
+
+
 def short_title(text: str, limit: int = 7) -> str:
     """Reja bandi uchun qisqa sarlavha: ikki nuqtadan keyingi izoh va ortiqcha so'zlar tushadi."""
     text = plain(text)
@@ -223,22 +241,43 @@ def short_title(text: str, limit: int = 7) -> str:
         text = head
     words = text.split()
     if len(words) > limit:
-        text = " ".join(words[:limit])
+        text = " ".join(_drop_tail_connectors(words[:limit]))
     return text.rstrip(" .,;:—–-")
 
 
+def _first_sentence(text: str) -> str:
+    for match in _SENTENCE_END.finditer(text):
+        before = text[:match.start()].split()
+        last = before[-1].strip("(«\"'") if before else ""
+        if match.group() == "." and (len(last) <= 4 or last[-1:].isdigit()):
+            continue                      # qisqartma yoki raqam: "Mil.", "avv.", "XX asr." emas
+        return text[:match.start() + 1]
+    return text
+
+
 def short_note(brief: str, limit: int = 90) -> str:
+    """Reja kartochkasi izohi: birinchi gap (yoki uning tugal bo'lagi).
+
+    Ilgari izoh harf soni bo'yicha qirqilardi va "…qadimgi davrlardagi" kabi chala gap, qisqartmadagi
+    nuqtada esa "Mil" bo'lib qolardi. Endi: gap `limit` dan 1,5 baravargacha uzun bo'lsa ham to'liq
+    (8 kartochkada 84 belgi — uch qator, hamma uslubda sig'adi, varaq o'zi zichlanadi); undan uzun
+    bo'lsa — vergul oldidagi tugal bo'lagi; tugal bo'lak chiqmasa — izoh qo'yilmaydi (chala gapdan ko'ra yaxshi).
+    """
     brief = plain(brief)
     brief = re.sub(r"^\s*(?:\[[^\]]*\]|\([^)]*\))\s*", "", brief)
-    clause = re.split(r"(?<=[.!?])\s|\s[—–-]\s|;\s", brief, maxsplit=1)[0]
-    if len(clause) > limit:
-        clause = clause[:limit].rsplit(" ", 1)[0]
-        # Qisqartirilgan gap "...принциптері мен" kabi bog'lovchida uzilib qolmasin.
-        words = clause.split()
-        while len(words) > 3 and len(words[-1].strip(",.;:")) <= 3:
-            words.pop()
-        clause = " ".join(words)
-    return clause.rstrip(" .,;:—–-")
+    clause = _first_sentence(brief)
+    clause = re.split(r"\s[—–-]\s|;\s", clause, maxsplit=1)[0].strip()
+    clause = clause.rstrip(" .,;:—–-")
+    if len(clause) <= limit * 1.5:
+        return clause
+    cut = ""
+    for match in _PHRASE_BREAK.finditer(clause):
+        if match.start() > limit * 1.5:
+            break
+        head = " ".join(_drop_tail_connectors(clause[:match.start()].split()))
+        if len(head.split()) >= 3:
+            cut = head
+    return cut.rstrip(" .,;:—–-")
 
 
 def pick_even(items: List, count: int) -> List:

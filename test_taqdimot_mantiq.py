@@ -81,6 +81,20 @@ plan = deck_logic.plan_slide(items, "uz")
 check("reja sarlavhasi", ">Taqdimot rejasi<" in plan)
 check("sarlavhalar qisqartirilgan (ikki nuqtadan keyin tashlandi)", "Davlat ramzlari<" in plan and "bayroq, gerb" not in plan.split("card-title")[1])
 check("raqamlangan kartalar faqat rejada", plan.count("card-num") == 3)
+# Reja izohi chala qolmaydi (foydalanuvchi taqdimotidagi holatlar: "…qadimgi davrlardagi", "Mil", "…davrlarining asosiy")
+real = [("O'rta Osiyo", "Mintaqaning geografik joylashuvi va qadimgi davrlardagi strategik ahamiyati."),
+        ("Enolit davri", "Mil. avv. VI–IV ming yilliklarda mis va tosh qurollarning birga qo'llanilishi va ilk dehqonchilik madaniyatlari."),
+        ("Tarixiy davrlar qiyosida", "Enolit, Bronza va Ilk Temir davrlarining asosiy xususiyatlarini qiyoslash."),
+        ("Bronza davri iqtisodiyoti", "Dehqonchilik, chorvachilik va metallurgiyaning rivojlanishi, hunarmandchilik markazlari va savdo yo'llarining paydo bo'lishi jarayoni."),
+        ("A", "x"), ("B", "y"), ("C", "z"), ("D", "w")]
+notes = [deck_logic.short_note(n, 56) for _, n in real[:4]]
+check("izoh 84 belgigacha to'liq gap", notes[0] == "Mintaqaning geografik joylashuvi va qadimgi davrlardagi strategik ahamiyati"
+      and notes[2].endswith("xususiyatlarini qiyoslash"), notes)
+check("qisqartmadagi nuqta gap oxiri emas («Mil» qolmaydi)", notes[1] != "Mil" and not notes[1].startswith("Mil."), notes[1])
+check("juda uzun izoh — vergulgacha tugal bo'lak", notes[3] == "Dehqonchilik, chorvachilik va metallurgiyaning rivojlanishi", notes[3])
+check("izoh bog'lovchi bilan tugamaydi", all(not n or n.split()[-1].lower() not in ("va", "hamda", "bilan", "men", "и") for n in notes))
+plan8 = deck_logic.plan_slide(real, "uz")
+check("reja slaydida chala izoh yo'q", ">Mil<" not in plan8 and "davrlardagi<" not in plan8 and "asosiy<" not in plan8)
 many = deck_logic.plan_slide([(f"Mavzu {i}", "") for i in range(1, 18)], "uz")
 check("17 sarlavhadan 8 tasi tanlanadi", many.count("card-title") == 8)
 check("kartochka raqami reja bo'lmagan slaydda olib tashlanadi",
