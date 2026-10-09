@@ -1133,6 +1133,7 @@ def get_feature_management_keyboard(
     receipt_ai_enabled: bool = True,
     reengage_enabled: bool = True,
     reengage_old_enabled: bool = True,
+    thanks_anim_enabled: bool = False,
 ) -> InlineKeyboardMarkup:
     """Feature management keyboard for admin"""
     keyboard = InlineKeyboardBuilder()
@@ -1168,6 +1169,13 @@ def get_feature_management_keyboard(
             text=f"{label}: {'🟢 Yoqilgan' if enabled else '🔴 Ochirilgan'}".replace("Ochirilgan", "O'chirilgan"),
             callback_data=f"toggle_{name}_{'off' if enabled else 'on'}"
         ))
+
+    # Taqdimot yuborilgach "🎬 Oxiriga animatsiya qo'shish" tugmasi (services/thanks_anim)
+    keyboard.add(InlineKeyboardButton(
+        text=f"🎬 Rahmat animatsiyasi: {'🟢 Yoqilgan' if thanks_anim_enabled else '🔴 Ochirilgan'}".replace(
+            "Ochirilgan", "O'chirilgan"),
+        callback_data=f"toggle_thanks_anim_{'off' if thanks_anim_enabled else 'on'}"
+    ))
 
     # Mass gift button
     keyboard.add(InlineKeyboardButton(

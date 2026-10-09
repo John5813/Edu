@@ -1481,6 +1481,8 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         document = FSInputFile(final_path, filename=filename)
         await callback.message.answer_document(document=document)
         logger.info("Premium taqdimot yuborildi: %s → %s", final_path, callback.from_user.id)
+        await _offer_thanks_anim(callback, db, final_path, topic=topic, data=data, language=presentation_language,
+                                 author=client_name, filename=filename, lang=lang)
         try:
             from services.store_publisher import schedule_publish
 
@@ -1525,6 +1527,23 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
             pass
 
     await state.clear()
+
+
+async def _offer_thanks_anim(callback: CallbackQuery, db: Database, final_path: str, *, topic: str, data: dict,
+                             language: str, author: str, filename: str, lang: str) -> None:
+    """Admin yoqqan bo'lsa: taqdimot oxiriga "Rahmat" animatsiyasini qo'shish tugmasi (yaratish oqimidan tashqarida)."""
+    from services import thanks_anim
+
+    try:
+        if not await db.get_feature_status(thanks_anim.FEATURE, default=False):
+            return
+        kb = thanks_anim.offer(final_path, topic=topic, style=data.get("style", ""), volume=data.get("volume", "kop"),
+                               language=language, author=author, filename=filename,
+                               user_id=callback.from_user.id, chat_id=callback.message.chat.id, user_lang=lang)
+        if kb:
+            await callback.message.answer(thanks_anim.offer_text(lang), reply_markup=kb)
+    except Exception as exc:  # taklif chiqmasa ham taqdimot allaqachon yuborilgan
+        logger.warning("Rahmat animatsiyasi tugmasi chiqmadi: %s", exc)
 
 
 _last_credit_warning = 0.0
