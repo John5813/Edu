@@ -1400,7 +1400,13 @@ async def handle_daily_statistics(message: Message, db: Database):
         from database.database import DATABASE_FILE
         import aiosqlite
 
-        today = datetime.now()
+        from services import daily_stats
+
+        today = daily_stats.now_uzt()
+        # Kun O'zbekiston vaqti bilan: bugun /start bosganlar, ulardan to'lov qilganlar, eski mijozlar to'lovlari.
+        day = daily_stats.today_uzt()
+        pay = await daily_stats.payment_breakdown(day)
+        doc_day = daily_stats._day("completed_at")
 
         # Get today's detailed statistics
         async with aiosqlite.connect(DATABASE_FILE) as db_conn:
@@ -1408,32 +1414,8 @@ async def handle_daily_statistics(message: Message, db: Database):
             async with db_conn.execute("SELECT COUNT(*) FROM users") as cursor:
                 total_users = (await cursor.fetchone())[0]
 
-            # Users who started bot today (/start command)
             async with db_conn.execute(
-                "SELECT COUNT(*) FROM users WHERE date(created_at) = date('now')"
-            ) as cursor:
-                users_started_today = (await cursor.fetchone())[0]
-
-            # Users who made payment today
-            async with db_conn.execute(
-                "SELECT COUNT(DISTINCT user_id) FROM payments WHERE status = 'approved' AND date(created_at) = date('now')"
-            ) as cursor:
-                users_paid_today = (await cursor.fetchone())[0]
-
-            # Number of payments today
-            async with db_conn.execute(
-                "SELECT COUNT(*) FROM payments WHERE status = 'approved' AND date(created_at) = date('now')"
-            ) as cursor:
-                payments_count_today = (await cursor.fetchone())[0]
-
-            # Revenue today
-            async with db_conn.execute(
-                "SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved' AND date(created_at) = date('now')"
-            ) as cursor:
-                revenue_today = (await cursor.fetchone())[0]
-
-            async with db_conn.execute(
-                "SELECT COUNT(*) FROM document_stats WHERE date(completed_at) = date('now')"
+                f"SELECT COUNT(*) FROM document_stats WHERE {doc_day} = ?", (day,)
             ) as cursor:
                 documents_today = (await cursor.fetchone())[0]
 
@@ -1450,8 +1432,8 @@ async def handle_daily_statistics(message: Message, db: Database):
             }
             for dtype in doc_types_today:
                 async with db_conn.execute(
-                    "SELECT COUNT(*) FROM document_stats WHERE date(completed_at) = date('now') AND document_type = ?",
-                    (dtype,)
+                    f"SELECT COUNT(*) FROM document_stats WHERE {doc_day} = ? AND document_type = ?",
+                    (day, dtype)
                 ) as cursor:
                     count = (await cursor.fetchone())[0]
                     label = doc_types_today[dtype][0]
@@ -1468,10 +1450,7 @@ async def handle_daily_statistics(message: Message, db: Database):
         text = (
             f"📈 Kunlik statistika ({today.strftime('%d.%m.%Y')})\n\n"
             f"👥 Jami foydalanuvchilar: {total_users} ta\n\n"
-            f"🆕 Bugun /start bosganlar: {users_started_today} ta\n"
-            f"💳 Bugun to'lov qilganlar: {users_paid_today} ta\n"
-            f"📊 Bugun to'lovlar soni: {payments_count_today} ta\n"
-            f"💰 Bugungi daromad: {revenue_today:,} so'm\n\n"
+            f"{daily_stats.summary_text(pay)}\n"
             f"{receipts_block}"
             f"📄 Bugun yaratilgan hujjatlar: {documents_today} ta\n"
             f"{doc_lines}\n\n"
