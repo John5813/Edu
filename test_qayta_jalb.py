@@ -344,6 +344,28 @@ async def handler_tests(ids):
         await handler.nudge_button(cb, state, db, MagicMock())
     check("boshqa tugma botning bo'limini ochadi («Pul ishlab topish»)", opened == ["pul"], opened)
 
+    print("9b) Bot yangilansa (qayta ishga tushsa) tizim noldan boshlanmaydi")
+    async with aiosqlite.connect(dbmod.DATABASE_FILE) as conn:
+        before = (await (await conn.execute("SELECT COUNT(*) FROM nudges")).fetchone())[0]
+        job = (await (await conn.execute("SELECT job_id FROM free_trials WHERE telegram_id = 102")).fetchone())[0]
+    check("yetkazilgan sovg'a «yuborildi» deb belgilandi", job.startswith(free_trial.BOT_DONE), job)
+    # Qayta ishga tushish: xotiradagi hamma narsa yo'qoladi, faqat baza qoladi.
+    R._BONUS_CACHE.clear(); R._PHOTO_IDS.clear()
+    await free_trial.claim(105, free_trial.BOT_PENDING + "uzildi")      # tayyorlanayotgan payt bot to'xtadi
+    restored = await free_trial.release_unfinished_bot()
+    check("uzilgan sovg'a mijozga qaytdi, yetkazilgani qaytmadi", restored == 1 and await free_trial.available(105)
+          and not await free_trial.available(102))
+    repeat = Bot()
+    with patch.object(R, "SEND_PAUSE", 0):
+        await R.tick(repeat, now=NOON + 4 * D + 2 * H)          # oxirgi aylanishdan 2 soat keyin, qayta ishga tushgach
+    check("qayta ishga tushgach hech kimga takror xabar ketmadi", repeat.sent == [], [c for c, *_ in repeat.sent])
+    _, _, extra = R.message_for("trial", 1, (await R.load(NOON))[0][0].__class__(104), NOON + 3 * D)
+    check("bonus muddati bazadan tiklandi (yangi 7 kun boshlanmaydi)", extra["bonus_until"] < NOON + 3 * D + 7 * D
+          and extra["bonus_until"] == R._BONUS_CACHE.get(104), (extra, R._BONUS_CACHE.get(104)))
+    async with aiosqlite.connect(dbmod.DATABASE_FILE) as conn:
+        after = (await (await conn.execute("SELECT COUNT(*) FROM nudges")).fetchone())[0]
+    check("yuborilganlar tarixi saqlanib qoldi", after == before, (before, after))
+
     print("10) Admin")
     from bot.keyboards import get_admin_keyboard, get_feature_management_keyboard
     kb = get_feature_management_keyboard(True, True, True, True, False)

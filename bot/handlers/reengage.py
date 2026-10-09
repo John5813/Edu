@@ -131,7 +131,7 @@ async def gift_topic(message: Message, state: FSMContext, db: Database):
     if telegram_id in _RUNNING:
         await message.answer(_t("busy", language))
         return
-    job_id = "bot-" + uuid.uuid4().hex
+    job_id = free_trial.BOT_PENDING + uuid.uuid4().hex
     if not await free_trial.claim(telegram_id, job_id):
         await state.clear()
         await message.answer(_t("used", language), reply_markup=_offer_keyboard(language))
@@ -146,6 +146,7 @@ async def gift_topic(message: Message, state: FSMContext, db: Database):
 
         stem = "".join(ch if ch.isalnum() else "_" for ch in topic)[:30].strip("_") or "Taqdimot"
         await message.answer_document(FSInputFile(path, filename=f"Taqdimot_{stem}.pptx"))
+        await free_trial.mark_delivered(telegram_id, job_id)
         with contextlib.suppress(Exception):
             await status.delete()
         await message.answer(_t("done", language), parse_mode="HTML", reply_markup=_offer_keyboard(language))

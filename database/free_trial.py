@@ -93,3 +93,32 @@ async def release(telegram_id: int, job_id: Optional[str]) -> bool:
                                     (int(telegram_id), job_id))
         await conn.commit()
         return cursor.rowcount > 0
+
+
+# Botdagi sovg'a taqdimoti shu belgi bilan band qilinadi; mijozga yetib borgach belgi `BOT_DONE` ga almashadi.
+BOT_PENDING = "bot-"
+BOT_DONE = "bot-sent-"
+
+
+async def mark_delivered(telegram_id: int, job_id: str) -> None:
+    """Botdagi sovg'a taqdimoti mijozga yetdi — endi u qayta ishga tushganda qaytarilmaydi."""
+    async with aiosqlite.connect(_db.DATABASE_FILE) as conn:
+        await _create(conn)
+        await conn.execute("UPDATE free_trials SET job_id = ? WHERE telegram_id = ? AND job_id = ?",
+                           (BOT_DONE + job_id[len(BOT_PENDING):], int(telegram_id), job_id))
+        await conn.commit()
+
+
+async def release_unfinished_bot() -> int:
+    """Bot qayta ishga tushganda: tayyorlanayotgan paytda uzilib qolgan sovg'alar mijozga qaytariladi.
+
+    Sovg'a taqdimoti bot jarayonining ichida tayyorlanadi — bot yangilansa yoki qayta ishga tushsa ish yo'qoladi.
+    Imkoniyat qaytarilmasa, mijoz taqdimotni olmay turib sovg'asidan ayrilardi.
+    """
+    async with aiosqlite.connect(_db.DATABASE_FILE) as conn:
+        await _create(conn)
+        cursor = await conn.execute("DELETE FROM free_trials WHERE job_id LIKE ? AND job_id NOT LIKE ?",
+                                    (BOT_PENDING + "%", BOT_DONE + "%"))
+        await conn.commit()
+        return cursor.rowcount
+
