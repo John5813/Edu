@@ -53,7 +53,7 @@ QAT'IY QOIDALAR:
      yolg'iz yorliq emas, raqamning ma'nosi va sababini
      tushuntiruvchi 1-2 to'liq gap bo'lsin;
    - vaqt o'qida 5 tadan ortiq to'xtash bo'lmasin;
-   - butun slayd matni (sarlavhasiz) 90 so'zdan oshmasin; abzats
+   - butun slayd matni (sarlavhasiz) ⟨words⟩ so'zdan oshmasin; abzats
      45 so'zdan, kartochka izohi va ro'yxat bandi 20 so'zdan oshmasin.
    Varaq 1920x1080 — bundan ko'pi sig'maydi va kesiladi.
 6. BO'SH BLOK QOLDIRMA. Har kartochkaning sarlavhasi ham, izohi ham
@@ -80,12 +80,10 @@ QAT'IY QOIDALAR:
    - mashhur so'z yoki ta'rif parchasi → iqtibos;
    - kartochka — faqat 3-4 ta teng huquqli, bir-biriga o'xshash
      element bo'lganda.
-   Kartochkaga qaytaverish — xato: u eng oson yo'l, lekin taqdimot
-   bir xil chiqadi. Ketma-ket ikki slayd bir xil blokdan iborat
-   bo'lmasin va butun taqdimotda bitta blok qayta-qayta
-   chiqmasin. Ikki slayd bir xil shaklni talab qilsa, birini
-   boshqa blok bilan ifodalang. Lekin blokni faqat "boshqacha
-   bo'lsin" deb tanlamang: avval mazmun, keyin shakl.
+   Kartochka eng oson yo'l — unga qaytaverish taqdimotni bir xil
+   qiladi. Ketma-ket ikki slayd bir xil blokdan iborat bo'lmasin;
+   lekin avval mazmun, keyin shakl: blokni faqat "boshqacha
+   bo'lsin" deb tanlamang.
    Slayd NAFAS OLSIN: matn kam, bo'sh joy ko'p; bir blokda bitta
    fikr; uzun matn bo'lsa ikki slaydga bo'ling.
 8. RAQAM VA DIAGRAMMA — taqdimotni jonlantiradi. Raqam ikki xil bo'ladi:
@@ -103,18 +101,16 @@ QAT'IY QOIDALAR:
    shu raqamlardan kelib chiqadigan 2-3 gaplik izoh yozasiz: nima
    ko'rsatilgani, eng muhim o'zgarish va xulosa. Rejada diagramma
    bo'lmagan slaydni matn, kartochka, ko'rsatkich yoki rasm bilan
-   oching. Agar tahlilchi ishonchli ma'lumot topa olmagani aytilsa,
-   diagramma uchun tushunchani ko'rsatuvchi namunaviy ma'lumot
-   tuzing va slaydning izohi oxiriga «Shartli misol.» deb yozing. Ko'rsatkich (kpi) raqami izohida manbasi aytiladi
-   (masalan: Statistika agentligi, 2024).
+   oching. Mavzuda siz aniq biladigan raqam (aholi, yil, foiz, o'lchov)
+   bo'lsa, uni ko'rsatkich (kpi) bilan ko'rsating — bu slaydni
+   jonlantiradi; izohida manbasi aytiladi (masalan: Statistika
+   agentligi, 2024).
 9. Bir slaydda bir xil matnni ikki marta yozma.
-9a. IQTIBOS faqat HAQIQIY, mashhur va muallifi aniq so'z bo'lsa
-   (masalan, tarixiy shaxs, olim yoki davlat rahbarining ma'lum
-   gapi). "Tashkilot hisobotidan", "BMT hisobotida aytilgan" kabi
-   gap iqtibos emas — uni o'z so'zingiz bilan, manbasiz yozing.
-   Aniq iqtibosni eslay olmasangiz iqtibos bloki shart emas: fikrni
-   oddiy matn qilib yozing. Manba yili faqat aniq bilganingizda
-   qo'yiladi.
+9a. IQTIBOS — mavzuga oid mashhur so'z (tarixiy shaxs, olim, yozuvchi
+   yoki davlat rahbarining ma'lum gapi) slaydni kuchaytiradi: aniq
+   bilsangiz, ishlating. So'z haqiqiy va muallifi aniq bo'lsin;
+   "BMT hisobotida aytilgan" kabi gap iqtibos emas — uni oddiy matn
+   qilib yozing. Manba yili faqat aniq bilganingizda qo'yiladi.
 10. Yorliqlar qisqa: kartochka sarlavhasi 1-4 so'z, vaqt o'qidagi
    izoh bir jumla. Sarlavhalar oddiy gap kabi yoziladi — faqat birinchi
    so'z va atoqli otlar bosh harf bilan: «Iqtisodiy o'sish omillari»,
@@ -227,8 +223,8 @@ USER = {
                "yoki jadval, tasnif bo'lsa jadval, ta'rif yoki bitta fikr bo'lsa "
                "matn va rasm yoki kartochkasiz ro'yxat, mashhur so'z bo'lsa "
                "iqtibos. Kartochka faqat 3-4 ta teng huquqli element uchun — "
-               "unga qaytaverma. Ketma-ket ikki slayd bir xil shaklda bo'lmasin "
-               "va bitta blok qayta-qayta chiqmasin; lekin mazmun birinchi, "
+               "unga qaytaverma. Ketma-ket ikki slayd bir xil shaklda bo'lmasin; "
+               "lekin mazmun birinchi, "
                "shakl ikkinchi."),
     "outline": ("Taqdimot rejasi (→ bilan belgilangani hozir "
                 "yoziladi). Slayd sarlavhasi rejadagi «sarlavha» bilan bir "
@@ -257,9 +253,9 @@ SHAPES = {
     "plain": "oddiy matn",
     "header": "Hozirgacha ishlatilgan blok birikmalari:",
     "line": "  ⟨n⟩-slayd: ⟨shape⟩",
-    "hard": ("QAT'IY TALAB (⟨start⟩–⟨end⟩-slaydlar): har slayd `<div class=\"body\">` ichidagi "
-             "bloklar birikmasi (CSS sinflari) bo'yicha o'zidan oldingi slayddan va shu "
-             "bo'lakdagi boshqa slaydlardan FARQ qilsin."),
+    "hard": ("⟨start⟩–⟨end⟩-slaydlar: har slaydning bloklar birikmasi (`<div class=\"body\">` ichidagi "
+             "CSS sinflari) o'zidan oldingi slayddan farq qilsin; shu bo'lakdagi boshqa slaydlardan ham "
+             "iloji boricha farq qilsin."),
     "previous": "Oldingi slaydda allaqachon [⟨shape⟩] bor — uni yana ishlatmang.",
     "banned": "Bu birikmalar allaqachon ⟨n⟩ martadan ishlatilgan — endi boshqasini tanlang: ⟨list⟩.",
     "advice": ("Mazmun ishlatilgan shaklga mos kelib qolsa, uni boshqa blok bilan ifodalang "
@@ -281,17 +277,18 @@ BRIEF_FALLBACK = ("⟨topic⟩ — ⟨n⟩-slayd: mavzuning oldingi slaydlarda "
 
 PLAN = {
     "system": "Sen taqdimot rejasini tuzasan. Faqat JSON qaytar.",
-    "chart": ("Diagramma IXTIYORIY. 'diagramma' kategoriyasini faqat mavzuning o'zida rasmiy "
-              "statistikasi bor, o'lchanadigan ko'rsatkich (ulush, yillar dinamikasi, solishtirish) ochiladigan "
-              "slaydga qo'ying — butun rejada ko'pi bilan ⟨quota⟩ ta⟨donut⟩. Diagramma uchun alohida tahlilchi "
-              "HAQIQIY ma'lumot (rasmiy manba, o'tgan yillar) topadi. Ikki diagramma bir xil ko'rsatkichni "
-              "ko'rsatmasin; kelajak prognozi, reyting yoki baho uchun diagramma qo'yilmaydi. Mavzu bunday "
-              "raqamlar haqida bo'lmasa (tarix, madaniyat, adabiyot, tushuncha, jarayon ...) — diagramma "
-              "qo'ymang: raqamni faqat raqam o'rinli bo'lsa kiritish kerak.\n"),
+    "chart": ("DIAGRAMMA taqdimotni jonlantiradi: slaydda mavzuning o'lchanadigan raqami — ulush, yillar "
+              "dinamikasi yoki solishtirish — ochilsa, unga 'diagramma' kategoriyasini qo'ying (masalan: "
+              "yillar bo'yicha aholi soni, eksport tarkibi, mamlakatlar solishtirmasi). Butun rejada ko'pi "
+              "bilan ⟨quota⟩ ta⟨donut⟩, har biri boshqa ko'rsatkich haqida. Raqamlarni alohida tahlilchi "
+              "rasmiy manbadan topadi (o'tgan yillar, prognoz emas); topilmasa slayd o'zi oddiy slaydga "
+              "aylanadi — shuning uchun raqamdan qochmang. Mavzuda o'lchanadigan raqam bo'lmasa, "
+              "diagrammasiz reja ham to'g'ri.\n"),
     "narrative": ("Bu mavzu voqealar, shaxslar va g'oyalar rivoji haqida: rejani xronologik yoki mantiqiy "
                   "ketma-ketlikda tuzing — har slayd oldingisidan kelib chiqsin va mavzuning o'ziga "
-                  "(davrlari, harakatlari, shaxslari, hujjatlari, g'oyalari) bag'ishlansin. Diagramma o'rniga "
-                  "vaqt o'qi, bosqichlar, qiyoslash va iqtiboslardan foydalaning.\n"),
+                  "(davrlari, harakatlari, shaxslari, hujjatlari, g'oyalari) bag'ishlansin. Asosiy shakllar — vaqt "
+                  "o'qi, bosqichlar, qiyoslash va iqtiboslar; diagramma esa davrlar bo'yicha miqdor (aholi, "
+                  "ishlab chiqarish, hudud) ko'rsatilsa va xronologiyada o'z o'rnida tursa o'rinli.\n"),
     "donut": " (ulushlar bo'lsa — biri halqa)",
     "main": (
         'Mavzu: "⟨topic⟩"\n\n'
@@ -328,10 +325,11 @@ PLAN = {
         "yoki bitta fikr → matn_rasm yoki iqtibos. 'kartalar' faqat 3-4 ta "
         "teng huquqli element uchun; unga qaytaverma. Ketma-ket ikki slayd "
         "bir xil kategoriyada bo'lmasin (mantiq buni majburlamasa); bir "
-        "kategoriya butun rejada 2 martadan ko'p takrorlanmasin ('matn_rasm' "
+        "kategoriya butun rejada ⟨repeat⟩ martadan ko'p takrorlanmasin ('matn_rasm' "
         "bundan mustasno). 'jadval' kategoriyasi faqat qisqa (3-4 qator) "
         "taqqoslash uchun. Har 10 ta slaydning taxminan ⟨photos⟩ tasi 'matn_rasm' "
-        "(matn + rasm) bo'lsin, ular bir-biriga ketma-ket kelmasin.\n"),
+        "(matn + rasm) bo'lsin.\n"),
+    "apart": "Rasmli ('matn_rasm') slaydlar bir-biriga ketma-ket kelmasin.\n",
     "calc": ("Bu HISOB-KITOB mavzusi: rejada formula, ishlangan misol va "
              "diagramma kategoriyalari ham bo'lsin — har formula misol bilan "
              "tasdiqlansin, natijalar diagramma bilan ko'rsatilsin.\n"),
@@ -541,7 +539,7 @@ EDIT = {
 KAM = {
     "shell": """Sen taqdimot muallifisan. Matnni ⟨target⟩ yozasan.
 
-Bu KAM MATNLI taqdimot: har slayd — bitta aniq fikr, qisqa va ravon matn, rasmlar ko'p.
+Bu KAM MATNLI taqdimot: har slayd — bitta aniq fikr, qisqa va ravon matn, infografika va rasmlar.
 Dizayn TAYYOR: har slayd quyidagi kompozitsiyalardan biri bo'yicha yoziladi — joylashuv,
 shrift va rang CSS da qat'iy. Sen CSS yozmaysan, faqat qolipdagi «…» o'rinlarini to'ldirasan.
 
@@ -559,8 +557,9 @@ QAT'IY QOIDALAR:
    misol yoki ahamiyat. Har gap avvalgisining davomi — slayd bir-biriga bog'lanmagan
    bo'laklar to'plami bo'lmasin. Bo'laklar (qadam, karta, band) faqat mavzuning o'zida haqiqiy
    qismlar bo'lsa va qolip shuni talab qilsa ishlatiladi.
-4. MATN HAJMI har o'rin uchun yuqorida aytilgan — undan oshmasin: joy aynan shuncha matnga
-   mo'ljallangan. Butun slayd (sarlavhasiz) 100 so'zdan oshmasin.
+4. MATN HAJMI har o'rin uchun yuqorida aytilgan — bu YUQORI chegara: undan oshmasin, lekin
+   fikr tugagan joyda to'xtang — so'z sonini to'ldirish uchun gap qo'shmang. Butun slayd
+   (sarlavhasiz) ⟨words⟩ so'zdan oshmasin.
 5. Sarlavha 2-6 so'z va fikrni aytadi; oddiy gap kabi yoziladi — faqat birinchi so'z va atoqli
    otlar bosh harf bilan.
 6. Rasm (`div.rasm`): `data-prompt` — rasmning inglizcha tavsifi: slayd fikriga mos oddiy
@@ -578,23 +577,23 @@ QAT'IY QOIDALAR:
 12. Matn haqiqiy va aniq bo'lsin — nom, misol, raqam bilan; «Matn shu yerda» kabi o'rin
    egallovchi so'z yozilmaydi.""",
     "layouts": {
-        "muqova": "birinchi slayd: h1 — mavzu nomi; lead — bitta qisqa izoh (6-12 so'z). Muallif va yilni "
+        "muqova": "birinchi slayd: h1 — mavzu nomi; lead — bitta qisqa izoh (12 so'zgacha). Muallif va yilni "
                   "tizim o'zi qo'yadi.",
-        "rasm_chap": "chapda katta rasm, o'ngda matn: sarlavha; lead — slaydning bosh fikri (10-18 so'z); "
-                     "k-p — o'sha fikrni misol yoki sabab bilan ochadigan 2 gap (25-40 so'z).",
-        "rasm_ong": "chapda matn, o'ngda tor baland rasm: sarlavha; k-p — bitta yaxlit abzats (30-45 so'z).",
-        "rasm_tepa": "tepada keng rasm, pastda chapda sarlavha, o'ngda k-p — bitta yaxlit abzats (25-40 so'z).",
-        "rasm_fon": "butun varaq rasm, ustida karta: sarlavha; k-p — 1-2 gap (20-35 so'z). Rasm keng sahna "
+        "rasm_chap": "chapda katta rasm, o'ngda matn: sarlavha; lead — slaydning bosh fikri (18 so'zgacha); "
+                     "k-p — o'sha fikrni misol yoki sabab bilan ochadigan 2 gap (40 so'zgacha).",
+        "rasm_ong": "chapda matn, o'ngda tor baland rasm: sarlavha; k-p — bitta yaxlit abzats (45 so'zgacha).",
+        "rasm_tepa": "tepada keng rasm, pastda chapda sarlavha, o'ngda k-p — bitta yaxlit abzats (40 so'zgacha).",
+        "rasm_fon": "butun varaq rasm, ustida karta: sarlavha; k-p — 1-2 gap (35 so'zgacha). Rasm keng sahna "
                     "bo'lsin (manzara, jarayon, joy).",
         "iqtibos": "chapda rasm, o'ngda mashhur iqtibos: title — kichik yorliq (2-5 so'z); quote — "
                    "iqtibosning o'zi (30 so'zgacha); quote-by — muallif; k-p — iqtibos nega muhimligi, "
-                   "1-2 gap (15-30 so'z).",
+                   "1-2 gap (30 so'zgacha).",
         "raqamlar": "to'q fonda 2-4 ta yirik raqam: k-v — faqat son (6 belgigacha); k-u — birligi (%, "
-                    "mlrd $, mln); k-l — nima (1-3 so'z); k-d — raqamning ma'nosi va sababi (12-20 so'z); k-src — manba.",
+                    "mlrd $, mln); k-l — nima (1-3 so'z); k-d — raqamning ma'nosi va sababi (20 so'zgacha); k-src — manba.",
         "bosqichlar": "haqiqiy ketma-ketlik (jarayon, bosqichlar): lead — bitta gap (15 so'zgacha); 3-5 ta "
-                      "k-step: k-n — 01, 02 ...; k-h — 1-3 so'z; k-d — bosqichda nima qilinadi va nega, 12-20 so'z.",
+                      "k-step: k-n — 01, 02 ...; k-h — 1-3 so'z; k-d — bosqichda nima qilinadi va nega, 20 so'zgacha.",
         "vaqt": "chapda rasm (portret yoki tarixiy sahna), o'ngda vaqt o'qi: 3-5 ta k-stop: k-y — yil yoki "
-                "sana; k-yd — nima bo'lgani va ahamiyati (12-20 so'z).",
+                "sana; k-yd — nima bo'lgani va ahamiyati (20 so'zgacha).",
         "qiyos": "ikki yarim varaq — ikki narsani qiyoslash: title — kichik yorliq (2-5 so'z); har yarimda "
                  "k-q — savol yoki yo'nalish (2-6 so'z), k-h2 — tomon nomi (1-3 so'z), 3 ta k-li (har biri "
                  "8 so'zgacha).",
@@ -605,16 +604,18 @@ QAT'IY QOIDALAR:
         "misol": "ishlangan misol: misol-tag — «Misol»; misol-task — shart (25 so'zgacha); 2-4 qadam (har biri "
                  "bitta formula yoki 12 so'zgacha gap); misol-answer — javob. O'ngda tor rasm.",
         "kartalar": "faqat 3-5 ta TENG HUQUQLI element (turlar, tarkib): lead — umumlashtiruvchi gap (15 "
-                    "so'zgacha); har k-card: k-h — 1-4 so'z, k-d — mazmunli izoh, 12-20 so'z.",
+                    "so'zgacha); har k-card: k-h — 1-4 so'z, k-d — mazmunli izoh, 20 so'zgacha.",
         "yakun": "oxirgi slayd, to'q fonda: title — «Xulosa»; lead — butun taqdimotning asosiy xulosasi (18 "
                  "so'zgacha); 3 ta k-ln — asosiy fikrlar (har biri 12 so'zgacha). Rasm yo'q.",
     },
     "chart_slot": "(rejadagi TAYYOR .chart bloki aynan shu yerga ko'chiriladi)",
     "user": ("Har slaydni rejadagi [kompozitsiya] qolipi bo'yicha yozing — boshqa qolip tanlamang. Matn "
              "qisqa: har o'rin uchun aytilgan so'z chegarasidan oshmang."),
-    "plan": ("Bu KAM MATNLI taqdimot: har slayd bitta aniq fikrni qisqa aytadi va slaydlarning ko'pida rasm "
-             "bo'ladi. Fikr bitta bo'lsa — 'matn_rasm'; 'kartalar' faqat haqiqiy teng qismlar uchun. Rasmli "
-             "slaydlar ketma-ket kelishi mumkin — ularning ko'rinishini tizim almashtiradi.\n"),
+    "plan": ("Bu KAM MATNLI (infografik) taqdimot: har slayd bitta aniq fikrni qisqa aytadi. Mazmunni iloji "
+             "boricha infografika bilan bering — raqamlar ('korsatkichlar'), bosqichlar ('jarayon'), "
+             "'qiyoslash', 'vaqt_oqi', 'diagramma', 'kartalar' (faqat haqiqiy teng qismlar uchun); 'matn_rasm' "
+             "— fikr bitta va uni infografikaga solib bo'lmasa. Rasmli slaydlar ketma-ket kelishi mumkin — "
+             "ularning ko'rinishini tizim almashtiradi.\n"),
     "photo": ("BU SLAYDDA RASM BO'LISHI SHART: uni rejadagi [⟨layout⟩] kompozitsiyasi bo'yicha, `div.rasm` "
               "bloki (`data-prompt` — rasmning inglizcha tavsifi) bilan yozing. Mavzu: ⟨brief⟩"),
     "photo_brief": " — bitta aniq fikr va mavzuga mos real fotosurat.",

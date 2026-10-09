@@ -197,7 +197,7 @@ check("brauzer xatolari tilda", "выходят за слайд" in html_slides.
 
 print("\n4) O'zbekcha promptlar avvalgidek")
 uz = html_slides.shell_rules(themes.get("ko'k"), "uz")
-check("o'zbekcha qobiq", uz.startswith("Sen taqdimot muallifi") and "IQTIBOS faqat HAQIQIY" in uz
+check("o'zbekcha qobiq", uz.startswith("Sen taqdimot muallifi") and "haqiqiy va muallifi aniq" in uz
       and "so'zma-so'z" in uz)
 check("kirill o'zbekcha: kirill qoidasi", "KIRILL" in html_slides.shell_rules(themes.get("ko'k"), "uz-cyrl"))
 check("o'zbekcha slayd so'rovi", "faqat XULOSA" in html_slides._user_prompt("M", 7, 3, 9, [], [], 2, "", "", ""))

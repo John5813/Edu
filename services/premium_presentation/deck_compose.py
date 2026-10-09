@@ -182,9 +182,10 @@ CATEGORY_LAYOUT = {
     "jadval": "kartalar",
 }
 
-# Bitta slayddagi matn (sarlavhasiz) shundan oshsa — slayd qisqartirib qayta yoziladi.
-# Kam matnli sahifaning punktlari vektor infografikada keng joy oladi: izoh 12-20 so'z (ilgari 12-15
-# so'z — slayd bo'sh ko'rinardi).
+# Bitta slayddagi matn (sarlavhasiz) shundan oshsa — slayd qisqartirib qayta yoziladi. Promptdagi chegara
+# ham shu son (`shell`, `html_slides.shell_rules`). Kam matnli sahifaning punktlari vektor infografikada keng
+# joy oladi: izoh 20 so'zgacha (ilgari 15 — slayd bo'sh ko'rinardi). Promptda faqat yuqori chegara aytiladi:
+# "12-20 so'z" kabi pastki chegara modelni fikr tugagach ham gap qo'shishga majburlardi.
 WORD_LIMIT = {"kam": 110, "kop": 100}
 
 
@@ -245,7 +246,7 @@ def shell(language: str, marker: str) -> str:
 
     K = prompts.get(language).KAM
     return prompts.fill(K["shell"], target=prompts.target(language), layouts=catalogue(language),
-                        marker=marker)
+                        marker=marker, words=WORD_LIMIT["kam"])
 
 
 _TITLE_BLOCK = re.compile(r"<h[12]\b[^>]*>.*?</h[12]>", re.IGNORECASE | re.DOTALL)

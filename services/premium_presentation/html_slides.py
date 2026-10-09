@@ -119,11 +119,13 @@ def shell_rules(theme, language: str) -> str:
     qanday matn.
     """
     P = prompts.get(language)
+    # So'z chegarasi koddagi tekshiruv bilan bir xil (`deck_compose.WORD_LIMIT`): ilgari promptda 90, kodda 100 edi.
     return prompts.fill(P.SHELL, target=prompts.target(language), blocks=P.BLOCKS, icons=icon_list(),
-                        marker=MARKER)
+                        marker=MARKER, words=deck_compose.WORD_LIMIT["kop"])
 
 
-def _shapes_note(shapes: Optional[List[tuple]], start: int, count: int, language: str = "uz") -> str:
+def _shapes_note(shapes: Optional[List[tuple]], start: int, count: int, language: str = "uz",
+                 total: int = 0) -> str:
     """Oldingi slaydlarda ISHLATILGAN blok kombinatsiyalari — modelga ko'rsatiladi.
 
     Slaydlar bo'laklab yoziladi va har bo'lak oldingilarning HTML'ini
@@ -140,13 +142,14 @@ def _shapes_note(shapes: Optional[List[tuple]], start: int, count: int, language
     for sig in shapes[1:]:           # muqova hisobga olinmaydi
         if sig:
             counts[sig] = counts.get(sig, 0) + 1
-    banned = [names(sig) for sig, n in counts.items() if n >= MAX_SAME_SHAPE]
+    limit = deck_logic.repeat_limit(total) if total else MAX_SAME_SHAPE
+    banned = [names(sig) for sig, n in counts.items() if n >= limit]
     last = names(shapes[-1]) if shapes[-1] else ""
     rules = [prompts.fill(T["hard"], start=start, end=start + count - 1)]
     if last:
         rules.append(prompts.fill(T["previous"], shape=last))
     if banned:
-        rules.append(prompts.fill(T["banned"], n=MAX_SAME_SHAPE, list="; ".join(f"[{b}]" for b in banned)))
+        rules.append(prompts.fill(T["banned"], n=limit, list="; ".join(f"[{b}]" for b in banned)))
     rules.append(T["advice"])
     return T["header"] + "\n" + "\n".join(lines) + "\n" + " ".join(rules)
 
@@ -193,7 +196,7 @@ def _user_prompt(topic: str, start: int, count: int, total: int,
         parts.append(prompts.fill(U["plan_slide"], label=deck_logic.PLAN_LABEL.get(language, deck_logic.PLAN_LABEL["uz"])))
     if start + count - 1 >= total:
         parts.append(U["last"])
-    note = "" if kam else _shapes_note(shapes, start, count, language)
+    note = "" if kam else _shapes_note(shapes, start, count, language, total)
     if note:
         parts.append(note)
     if preferences:
@@ -237,11 +240,14 @@ def plan_outline(topic: str, count: int, language: str,
     quota = deck_logic.chart_limit(count, guess)
     chart_rule = prompts.fill(T["chart"], quota=quota, donut=T["donut"] if quota >= 2 else "") if quota else ""
     if guess in deck_logic.NARRATIVE:
-        chart_rule = T["narrative"]
+        # Tarix va gumanitar mavzu: reja xronologik, diagramma (bitta) faqat xronologiyada o'z o'rnida.
+        chart_rule = T["narrative"] + chart_rule
     prompt = (
         prompts.fill(T["main"], topic=topic, count=count, categories=catalogue_text(language),
-                     photos=deck_logic.PHOTOS_PER_10.get(volume, deck_logic.PHOTOS_PER_10["kop"]))
-        + (P.KAM["plan"] if volume == "kam" else "")
+                     photos=deck_logic.PHOTOS_PER_10.get(volume, deck_logic.PHOTOS_PER_10["kop"]),
+                     repeat=deck_logic.repeat_limit(count))
+        # Kam matnlida rasmli slaydlar ketma-ket kelishi mumkin (rasm joyini kompozitsiya almashtiradi).
+        + (P.KAM["plan"] if volume == "kam" else T["apart"])
         + chart_rule
         + (T["calc"] if deck_shape.is_calculation(topic) else "")
         + prompts.fill(T["family"], names=deck_shape.names())
@@ -306,14 +312,16 @@ def plan_outline(topic: str, count: int, language: str,
     # Kod darajasida kategoriya almashtirilmaydi (ilgari shunday edi va
     # mantiqan ketma-ket kelishi kerak bo'lgan ikki ro'yxatni ajratib,
     # fikrni uzardi). Bir xillikdan qochishni model promptdagi yo'riqnoma
-    # bo'yicha o'zi qiladi. Diagramma soni faqat yuqoridan cheklanadi, rasm soni kafolatlanadi.
+    # bo'yicha o'zi qiladi. Diagramma soni faqat yuqoridan cheklanadi, rasm soni mo'ljalgacha faqat
+    # erkin shakllar (kartalar, ikki ustun, tuzilma) hisobidan to'ldiriladi.
     return {"family": family, "slides": outline}
 
 
 # Diagramma MAJBURLANMAYDI. Ilgari reja diagramma bermasa, kod "kamida N ta" kvota uchun mos slaydlarni
 # o'zi diagrammali qilardi — har mavzuga (tarix, turizm, adabiyot ...) statistika tiqilib, bir xil
 # ko'rsatkich ikki slaydda takrorlanardi. Endi diagrammani faqat reja (mavzuda haqiqiy raqam bo'lsa)
-# qo'yadi; kod faqat yuqori chegarani saqlaydi: ortiqchalari va tarixiy mavzudagilari oddiy slaydga qaytadi.
+# qo'yadi; kod faqat yuqori chegarani saqlaydi (tarix va gumanitar mavzuda — bitta): ortiqchalari oddiy
+# slaydga qaytadi.
 _CHART_FALLBACK = "ikki_ustun"
 
 
@@ -333,9 +341,12 @@ def ensure_charts(outline: List[Dict], language: str = "uz", family: str = "") -
 
 
 # Rasmli slaydlar soni ham promptga qoldirilmaydi: har 10 ta asosiy slaydning
-# 4 tasida (kam matnlida 6 tasida) rasm bo'lsin (deck_logic.photo_quota). Reja kam
-# rasmli slayd bersa, mos slaydlar shu yerda "matn_rasm" qilib belgilanadi.
-_PHOTO_CANDIDATES = ("kartalar", "ikki_ustun", "qiyoslash", "tuzilma", "jarayon")
+# 4 tasida rasm bo'lsin (deck_logic.photo_quota). Reja kam rasmli slayd bersa,
+# rasmga mos slaydlar shu yerda "matn_rasm" qilib belgilanadi. Faqat "erkin" shakllar
+# almashtiriladi: ilgari jarayon, qiyoslash va (ular yetmasa) deyarli har qanday slayd
+# rasmli matnga aylantirilardi — AI tanlagan bosqichlar va qiyos yo'qolib, infografika
+# o'rniga bir xil "rasm + matn" chiqardi. Mos slayd yetmasa kvota to'lmay qoladi.
+_PHOTO_CANDIDATES = ("kartalar", "ikki_ustun", "tuzilma")
 
 
 def ensure_photos(outline: List[Dict], volume: str = "kop", language: str = "uz") -> List[Dict]:
@@ -349,12 +360,6 @@ def ensure_photos(outline: List[Dict], volume: str = "kop", language: str = "uz"
         return outline
     candidates = [i for i in range(2, count - 1)
                   if outline[i]["category"] in _PHOTO_CANDIDATES and i not in have]
-    if len(candidates) < need:
-        extra = [i for i in range(2, count - 1)
-                 if outline[i]["category"] not in ("diagramma", "formula", "misol", "iqtibos",
-                                                   "korsatkichlar", "jadval", "vaqt_oqi", "matn_rasm")
-                 and i not in candidates]
-        candidates += extra
     if not candidates:
         return outline
     # Rasmli slaydlar bir-biriga tegib turmasin: mavjudlardan uzoqroqlar afzal.
@@ -1082,7 +1087,7 @@ def add_leads(slides: List[str], ctx: "_Deck") -> List[str]:
 # bilan QAYTA yozdiriladi — mazmuni saqlanadi, faqat shakl o'zgaradi.
 # Bu qat'iy kvota emas: mazmun uchun boshqa shakl topilmasa, qayta yozish
 # rad etiladi va slayd o'zgarmaydi.
-MAX_SAME_SHAPE = 2          # bir shakl butun taqdimotda ko'pi bilan shuncha
+MAX_SAME_SHAPE = 2          # bir shakl butun taqdimotda kamida shuncha marta mumkin (uzun taqdimotda — deck_logic.repeat_limit)
 MAX_REWORKS = 3             # bitta taqdimotda ko'pi bilan shuncha qayta yozish
 
 
@@ -1097,6 +1102,7 @@ def repeated_slides(bodies: List[str]) -> List[int]:
     """Shakli takrorlangan slaydlar indekslari (muqova va yakundan tashqari)."""
     flagged, seen = [], {}
     last = len(bodies) - 1
+    limit = max(MAX_SAME_SHAPE, deck_logic.repeat_limit(len(bodies)))
     previous = None
     for index, body in enumerate(bodies):
         signature = shape_signature(body)
@@ -1106,7 +1112,7 @@ def repeated_slides(bodies: List[str]) -> List[int]:
         seen[signature] = seen.get(signature, 0) + 1
         # Rasmli slaydlar soni kvota bilan belgilanadi (har 10 tada 3 ta): ularni
         # "bir xil shakl" deb qayta yozish rasmni yo'qotardi. Faqat ketma-ket kelsa belgilanadi.
-        repeated_too_often = seen[signature] > MAX_SAME_SHAPE and "rasm" not in signature
+        repeated_too_often = seen[signature] > limit and "rasm" not in signature
         if signature == previous or repeated_too_often:
             flagged.append(index)
         previous = signature

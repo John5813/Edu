@@ -65,11 +65,12 @@ capped = html_slides.ensure_charts([dict(o) for o in many], "uz")
 check("chegaradan ortiq diagramma oddiy slaydga qaytadi (12 slayd — ko'pi bilan 2)",
       [o["category"] for o in capped[3:7]] == ["diagramma", "diagramma", "korsatkichlar", "ikki_ustun"],
       [o["category"] for o in capped[3:7]])
-check("tarixiy mavzuda reja bergan diagramma ham olib tashlanadi",
-      not any(o["category"] == "diagramma" for o in html_slides.ensure_charts([dict(o) for o in many], "uz", "tarix")))
-check("reja so'rovida «kamida» yo'q, diagramma ixtiyoriy",
+check("tarixiy mavzuda reja bergan diagrammadan bittasi qoladi (0 emas — ilgari diagramma yo'qolib ketgan)",
+      sum(o["category"] == "diagramma" for o in html_slides.ensure_charts([dict(o) for o in many], "uz", "tarix")) == 1)
+check("reja so'rovida «kamida» yo'q, diagramma ijobiy aytilgan (taqiqlar ro'yxati emas)",
       all("kamida" not in prompts.get(l).PLAN["chart"].lower() and "⟨quota⟩" in prompts.get(l).PLAN["chart"]
-          for l in ("uz",)) and "IXTIYORIY" in prompts.get("uz").PLAN["chart"])
+          for l in ("uz",)) and "jonlantiradi" in prompts.get("uz").PLAN["chart"]
+      and "qo'ymang" not in prompts.get("uz").PLAN["chart"] and "Shartli misol" not in prompts.get("uz").SHELL)
 check("ulush so'zi → halqa, yil so'zi → chiziqli",
       deck_logic.chart_kind_for("tarkib ulushi") == "halqa" and deck_logic.chart_kind_for("yillar dinamikasi") == "chiziqli")
 

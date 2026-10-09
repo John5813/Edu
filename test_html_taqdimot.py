@@ -402,7 +402,7 @@ def check_no_quotas():
           "BLOKNI TO'G'RI TANLANG" in rules and "avval mazmun, keyin shakl" in rules)
     check("ketma-ket bir xil blokdan va kartochkaga qaytaverishdan qochish aytilgan",
           "Ketma-ket ikki slayd bir xil blokdan iborat" in rules
-          and "Kartochkaga qaytaverish" in rules)
+          and "Kartochka eng oson yo'l" in rules)
     # Diagramma taqiq tilida emas, ijobiy aytiladi: ilgari "diagramma bo'lmasligi
     # ham to'g'ri" va "statistika yozmang" qoidalari modelni diagrammani butunlay
     # chetlab o'tishga olib kelgan edi.
@@ -475,9 +475,9 @@ def check_outline():
     check("rasm kvotasi: har 10 slaydga 4 ta (8 slayd — 3 ta rasmli)",
           sum(1 for c in middle if c == "matn_rasm") == deck_logic.photo_quota(8) == 3, str(middle))
     # Gumanitar mavzuda diagramma majburlanmaydi: kvota uchun qo'yilgan begona statistika slaydi
-    # taqdimotning fikrini uzardi (raqamli mavzularda kvota avvalgidek — test_taqdimot_mantiq.py).
-    check("gumanitar mavzuda diagramma majburlanmaydi",
-          sum(1 for c in middle if c == "diagramma") == deck_logic.chart_limit(8, "gumanitar") == 0, str(middle))
+    # taqdimotning fikrini uzardi. Lekin taqiqlanmaydi ham: reja bersa bittasi qoladi (test_taqdimot_mantiq.py).
+    check("gumanitar mavzuda diagramma majburlanmaydi (kod o'zi qo'shmaydi, chegara 1)",
+          sum(1 for c in middle if c == "diagramma") == 0 and deck_logic.chart_limit(8, "gumanitar") == 1, str(middle))
     check("rejada xilma-xillik kvotasi yo'q",
           "kamida oltita" not in seen["prompt"], "")
     check("rejada mazmunga qarab tanlash aytilgan",
@@ -506,9 +506,8 @@ def check_outline():
     kinds = {o["category"] for o in fallback["slides"]}
     check("zaxirada raqamga tayanadigan boshqa kategoriya yo'q",
           not (kinds & {"korsatkichlar", "jadval", "vaqt_oqi"}), str(kinds))
-    check("zaxirada ham diagramma kvotasi mavzuga mos (gumanitar — majburiy emas)",
-          sum(1 for o in fallback["slides"] if o["category"] == "diagramma") == deck_logic.chart_limit(6, "gumanitar"),
-          str(kinds))
+    check("zaxira rejada diagramma yo'q (majburlanmaydi)",
+          sum(1 for o in fallback["slides"] if o["category"] == "diagramma") == 0, str(kinds))
 
 
 def check_family_shape():

@@ -33,7 +33,7 @@ FIRM RULES:
    - at most 4 key figures; the note under each one is not a bare label but
      1-2 full sentences explaining what the number means and why;
    - at most 5 stops on a timeline;
-   - the whole slide text (without the title) is at most 90 words; a paragraph
+   - the whole slide text (without the title) is at most ⟨words⟩ words; a paragraph
      at most 45 words, a card note or a list item at most 20 words.
    The slide is 1920x1080 — anything more does not fit and gets cut off.
 6. EVERY BLOCK IS FILLED. Every card has both a title and a note. If there is
@@ -56,11 +56,10 @@ FIRM RULES:
      (without cards);
    - a famous saying or a quoted definition → a quote;
    - cards — only for 3-4 equal, similar elements.
-   Going back to cards again and again makes the deck monotonous: they are the
-   easiest choice. Two slides in a row use different blocks, and no single
-   block appears over and over across the deck. If two slides need the same
-   shape, express one of them with another block. But do not pick a block just
-   "to be different": content first, then form.
+   Cards are the easiest choice, and going back to them again and again
+   makes the deck monotonous. Two slides in a row do not use the same block;
+   but content comes first, then form: do not pick a block just "to be
+   different".
    Let the slide BREATHE: little text, plenty of space; one idea per block;
    long text goes over two slides.
 8. NUMBERS AND CHARTS bring the deck to life. There are two kinds of numbers:
@@ -77,17 +76,16 @@ FIRM RULES:
    exactly and write a 2-4 sentence explanation below it based on these
    numbers: what is shown, the most important change and the conclusion. A
    slide that has no chart in the plan opens with text, cards, key figures or
-   a photo. If the analyst could not find reliable data, build illustrative
-   data that shows the concept and end the slide's note with «Illustrative
-   example.». The note of a key figure (kpi) names its source
+   a photo. If the topic has a number you know for certain (population, a
+   year, a percentage, a measure), show it as a key figure (kpi) — it brings
+   the slide to life; its note names the source
    (for example: National Statistics Committee, 2024).
 9. Each piece of text appears on a slide only once.
-9a. A QUOTE is used only for a REAL, well-known saying with a clear author
-   (for example, a known statement of a historical figure, a scientist or a
-   head of state). "From an organisation's report" or "the UN report says" is
-   not a quote — write it in your own words without a source. If you cannot
-   recall an exact quote, the quote block is not needed: write the idea as
-   plain text. The year of a source is given only when you know it exactly.
+9a. A QUOTE — famous words on the topic (by a historical figure, a
+   scientist, a writer or a head of state) strengthen a slide: if you know
+   them exactly, use them. The words are real and the author is clear; "the
+   UN report says" is not a quote — write it as plain text. The year of a
+   source is given only when you know it exactly.
 10. Labels are short: a card title is 1-4 words, a timeline note is one
    sentence. Titles are written like ordinary sentences — only the first word
    and proper nouns are capitalised: «Factors of economic growth».
@@ -527,7 +525,7 @@ USER = {
                "timeline, comparing two things → two columns or a table, a classification → a "
                "table, a definition or a single idea → text and photo or a list without cards, a "
                "famous saying → a quote. Cards only for 3-4 equal elements — keep them for that. "
-               "Two slides in a row take different shapes and no block repeats over and over; "
+               "Two slides in a row take different shapes; "
                "but content first, form second."),
     "outline": ("Presentation outline (the ones marked with → are written now). The slide title "
                 "matches the «title» in the outline; each slide covers only the question in its own "
@@ -550,9 +548,9 @@ SHAPES = {
     "plain": "plain text",
     "header": "Block combinations used so far:",
     "line": "  slide ⟨n⟩: ⟨shape⟩",
-    "hard": ("FIRM REQUIREMENT for slides ⟨start⟩-⟨end⟩: every slide uses a DIFFERENT block combination "
-             "(the CSS classes you write inside <div class=\"body\">) from the slide right before it and from "
-             "the other slides in this batch."),
+    "hard": ("Slides ⟨start⟩-⟨end⟩: each slide's block combination (the CSS classes inside "
+             "<div class=\"body\">) differs from the slide right before it, and where possible from the other "
+             "slides in this batch too."),
     "previous": "The previous slide already uses [⟨shape⟩] — choose another one.",
     "banned": "These combinations have already been used ⟨n⟩ times — choose others now: ⟨list⟩.",
     "advice": ("If the content seems to fit a used shape, express it with another block (steps, timeline, "
@@ -568,17 +566,18 @@ BRIEF_FALLBACK = ("⟨topic⟩ — slide ⟨n⟩: a NEW aspect of the topic not 
 
 PLAN = {
     "system": "You build presentation outlines. Reply with JSON only.",
-    "chart": ("A chart is NOT REQUIRED. Use the 'diagramma' category only for a slide that discusses a "
-              "measurable indicator of the topic itself with official statistics (shares, change over the "
-              "years, comparison) — at most ⟨quota⟩ in the whole outline⟨donut⟩. A separate analyst finds REAL "
-              "data for each chart (official source, past years). Two charts must not show the same indicator; "
-              "forecasts, rankings and ratings are not charted. If the topic is not about such numbers "
-              "(history, culture, literature, a concept, a process ...) — add no chart: numbers belong only "
-              "where they fit.\n"),
+    "chart": ("A CHART brings the deck to life: if a slide discusses a measurable figure of the topic — "
+              "shares, change over the years or a comparison — give it the 'diagramma' category (for example: "
+              "population by year, export structure, a comparison of countries). At most ⟨quota⟩ in the whole "
+              "outline⟨donut⟩, each about a different indicator. A separate analyst finds the numbers in official "
+              "sources (past years, not forecasts); if none are found, the slide simply becomes a regular one — "
+              "so do not avoid numbers. If the topic has no measurable figures, an outline without "
+              "charts is also right.\n"),
     "narrative": ("This topic is about how events, people and ideas developed: build the outline in chronological "
                   "or logical order — each slide grows out of the previous one and is devoted to the topic itself "
-                  "(its periods, movements, people, documents, ideas). Use a timeline, stages, comparisons and "
-                  "quotes in place of charts.\n"),
+                  "(its periods, movements, people, documents, ideas). The main forms are a timeline, stages, "
+                  "comparisons and quotes; a chart fits when it shows quantities by period (population, output, "
+                  "territory) and stands in its place in the chronology.\n"),
     "donut": " (if there are shares — one of them a donut)",
     "main": (
         'Topic: "⟨topic⟩"\n\n'
@@ -606,9 +605,10 @@ PLAN = {
         "jarayon or vaqt_oqi, two things → qiyoslash, shares or dynamics → diagramma, a definition or "
         "a single idea → matn_rasm or iqtibos. 'kartalar' only for 3-4 equal elements; keep it for "
         "that. Two slides in a row take different categories (unless the logic requires it); a "
-        "category appears at most twice in the whole outline ('matn_rasm' is the exception). The "
+        "category appears at most ⟨repeat⟩ times in the whole outline ('matn_rasm' is the exception). The "
         "'jadval' category is only for a short (3-4 rows) comparison. About ⟨photos⟩ out of every 10 slides "
-        "are 'matn_rasm' (text + photo), and they are not placed one after another.\n"),
+        "are 'matn_rasm' (text + photo).\n"),
+    "apart": "Photo slides ('matn_rasm') are not placed one after another.\n",
     "calc": ("This is a CALCULATION topic: the outline also includes formula, worked example and chart "
              "categories — every formula is confirmed by an example and results are shown in a chart.\n"),
     "family": "Also name the family the topic belongs to (one of these keys): ⟨names⟩\n\n",
@@ -815,8 +815,8 @@ EDIT = {
 KAM = {
     "shell": """You are the author of a presentation. You write the text ⟨target⟩.
 
-This is a LOW-TEXT presentation: every slide is one clear idea, short flowing text and
-plenty of photos. The design is READY: every slide is written in one of the compositions
+This is a LOW-TEXT presentation: every slide is one clear idea, short flowing text,
+infographics and photos. The design is READY: every slide is written in one of the compositions
 below — position, font and colour are fixed in the CSS. You do not write CSS; you only fill
 the «…» places of the template.
 
@@ -834,8 +834,9 @@ STRICT RULES:
    an example or the significance. Each sentence continues the previous one — a slide is not a
    set of unconnected fragments. Parts (steps, cards, items) are used only when the topic really
    has parts and the template asks for them.
-4. The AMOUNT OF TEXT is given above for every place — do not exceed it: the space is designed
-   for exactly that much text. The whole slide (without the title) is at most 100 words.
+4. The AMOUNT OF TEXT is given above for every place — it is an UPPER limit: do not exceed it,
+   but stop when the idea is said — do not add words to fill it. The whole slide (without the
+   title) is at most ⟨words⟩ words.
 5. The title is 2-6 words and states the idea; it is written like an ordinary sentence — only
    the first word and proper names are capitalised.
 6. Photo (`div.rasm`): `data-prompt` — an English description of the photo: a plain realistic
@@ -855,26 +856,26 @@ STRICT RULES:
 12. The text is real and specific — with names, examples, numbers; placeholders such as «Text
    here» are not written.""",
     "layouts": {
-        "muqova": "first slide: h1 — the topic's name; lead — one short note (6-12 words). The author and "
+        "muqova": "first slide: h1 — the topic's name; lead — one short note (up to 12 words). The author and "
                   "the year are added by the system.",
-        "rasm_chap": "a large photo on the left, text on the right: title; lead — the slide's main idea (10-18 "
-                     "words); k-p — 2 sentences that open the idea with an example or a reason (25-40 words).",
+        "rasm_chap": "a large photo on the left, text on the right: title; lead — the slide's main idea (up to 18 "
+                     "words); k-p — 2 sentences that open the idea with an example or a reason (up to 40 words).",
         "rasm_ong": "text on the left, a narrow tall photo on the right: title; k-p — one flowing paragraph "
-                    "(30-45 words).",
+                    "(up to 45 words).",
         "rasm_tepa": "a wide photo on top, below it the title on the left and k-p on the right — one flowing "
-                     "paragraph (25-40 words).",
-        "rasm_fon": "a full-slide photo with a card on top: title; k-p — 1-2 sentences (20-35 words). The photo "
+                     "paragraph (up to 40 words).",
+        "rasm_fon": "a full-slide photo with a card on top: title; k-p — 1-2 sentences (up to 35 words). The photo "
                     "is a wide scene (landscape, process, place).",
         "iqtibos": "a photo on the left, a famous quote on the right: title — a short label (2-5 words); quote — "
                    "the quote itself (up to 30 words); quote-by — the author; k-p — why the quote matters, 1-2 "
-                   "sentences (15-30 words).",
+                   "sentences (up to 30 words).",
         "raqamlar": "2-4 large numbers on a dark background: k-v — the number only (up to 6 characters); "
                     "k-u — the unit (%, bn $, mn); k-l — what it is (1-3 words); k-d — what the number means and why "
-                    "(12-20 words); k-src — the source.",
+                    "(up to 20 words); k-src — the source.",
         "bosqichlar": "a real sequence (process, stages): lead — one sentence (up to 15 words); 3-5 k-step: k-n — "
-                      "01, 02 ...; k-h — 1-3 words; k-d — what happens at the step and why, 12-20 words.",
+                      "01, 02 ...; k-h — 1-3 words; k-d — what happens at the step and why, up to 20 words.",
         "vaqt": "a photo on the left (portrait or historical scene), a timeline on the right: 3-5 k-stop: k-y — "
-                "a year or date; k-yd — what happened and why it matters (12-20 words).",
+                "a year or date; k-yd — what happened and why it matters (up to 20 words).",
         "qiyos": "two halves of the slide — a comparison of two things: title — a short label (2-5 words); in "
                  "each half k-q — a question or direction (2-6 words), k-h2 — the side's name (1-3 words), 3 "
                  "k-li (each up to 8 words).",
@@ -887,16 +888,18 @@ STRICT RULES:
                  "(each one formula or a sentence of up to 12 words); misol-answer — the answer. A narrow photo "
                  "on the right.",
         "kartalar": "only 3-5 EQUAL elements (kinds, parts): lead — a summarising sentence (up to 15 words); each "
-                    "k-card: k-h — 1-4 words, k-d — a meaningful note, 12-20 words.",
+                    "k-card: k-h — 1-4 words, k-d — a meaningful note, up to 20 words.",
         "yakun": "the last slide, on a dark background: title — «Conclusion»; lead — the main conclusion of the "
                  "whole presentation (up to 18 words); 3 k-ln — the key points (each up to 12 words). No photo.",
     },
     "chart_slot": "(the READY .chart block from the outline is copied here unchanged)",
     "user": ("Write every slide in the [composition] template given in the outline — do not choose another "
              "template. Keep the text short: do not exceed the word limit given for each place."),
-    "plan": ("This is a LOW-TEXT presentation: every slide briefly states one clear idea, and most slides have "
-             "a photo. If the idea is a single one — 'matn_rasm'; 'kartalar' only for real equal parts. Photo "
-             "slides may follow one another — the system varies their look.\n"),
+    "plan": ("This is a LOW-TEXT (infographic) presentation: every slide briefly states one clear idea. Give "
+             "the content as infographics wherever possible — numbers ('korsatkichlar'), stages ('jarayon'), "
+             "'qiyoslash', 'vaqt_oqi', 'diagramma', 'kartalar' (only for real equal parts); 'matn_rasm' — when "
+             "the idea is a single one and does not fit an infographic. Photo slides may follow one another — "
+             "the system varies their look.\n"),
     "photo": ("THIS SLIDE MUST HAVE A PHOTO: write it in the [⟨layout⟩] composition from the outline, with a "
               "`div.rasm` block (`data-prompt` — an English description of the photo). Topic: ⟨brief⟩"),
     "photo_brief": " — one clear idea and a real photograph that fits the topic.",

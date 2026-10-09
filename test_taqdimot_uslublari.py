@@ -73,7 +73,7 @@ check("mavzuga qarab uslub taklifi", deck_styles.suggest("Falsafa asoslari") == 
 
 # ── AI prompti: to'g'ri blok tanlash, bir xillikdan qochish
 rules = html_slides.shell_rules(themes.get("ko'k"), "uz")
-check("prompt: to'g'ri blok tanlash qoidasi bor", "BLOKNI TO'G'RI TANLANG" in rules and "Kartochkaga qaytaverish" in rules)
+check("prompt: to'g'ri blok tanlash qoidasi bor", "BLOKNI TO'G'RI TANLANG" in rules and "Kartochka eng oson yo'l" in rules)
 check("prompt: eski 'takror mumkin' qoidasi olib tashlangan",
       "xilma-xillik emas" not in rules and "MUMKIN, agar" not in html_slides._user_prompt("M", 1, 3, 10, [], [], 2, "", "", ""))
 check("prompt: kartochka soni bo'yicha kod cheklovi yo'q (faqat yo'riqnoma)",

@@ -32,12 +32,12 @@ check("narx tugmalarida oddiy va zamonaviy bir xil (10/15/20)",
 print("\n2) Rasm kvotasi")
 check("kvota: 10 → 4, 15 → 6, 20 → 8 (muqova va reja hisobsiz)",
       [deck_logic.photo_quota(n + 2) for n in (10, 15, 20)] == [4, 6, 8], [deck_logic.photo_quota(n + 2) for n in (10, 15, 20)])
-check("kam matnli kvota: 10 → 6, 20 → 12",
-      [deck_logic.photo_quota(n + 2, "kam") for n in (10, 20)] == [6, 12])
+check("kam matnli (infografik) kvota ham: 10 → 4, 20 → 8",
+      [deck_logic.photo_quota(n + 2, "kam") for n in (10, 20)] == [4, 8])
 check("kichik taqdimot ham rasm oladi (5 slayd — 2)", deck_logic.photo_quota(7) == 2)
-check("rasm chegarasi kvotadan kam emas (30 slayd — 12, kam matnli — 18)",
+check("rasm chegarasi kvotadan kam emas (30 slayd — 12, kam matnli ham 12)",
       html_images.photo_limit(30) >= deck_logic.photo_quota(32) == 12
-      and html_images.photo_limit(30, "kam") >= deck_logic.photo_quota(32, "kam") == 18)
+      and html_images.photo_limit(30, "kam") >= deck_logic.photo_quota(32, "kam") == 12)
 
 def outline(categories):
     items = [{"title": f"S{i}", "brief": f"mavzu {i}", "category": c} for i, c in enumerate(categories)]
@@ -58,14 +58,20 @@ tough = outline(["muqova", "reja", "korsatkichlar", "diagramma", "iqtibos", "jad
 res = html_slides.ensure_photos([dict(x) for x in tough])
 check("rasmga yaroqsiz kategoriyalar (diagramma, formula...) rasmli qilinmaydi",
       [i for i, x in enumerate(res) if x["category"] == "matn_rasm"] == [9], [x["category"] for x in res])
+# Bosqichlar va qiyos — AI tanlagan tuzilma (infografika): kvota to'lmasa ham rasmli matnga aylanmaydi.
+shaped = outline(["muqova", "reja", "jarayon", "qiyoslash", "jarayon", "vaqt_oqi", "qiyoslash", "kartalar", "yakun"])
+res = html_slides.ensure_photos([dict(x) for x in shaped], "kam")
+check("jarayon va qiyoslash rasm kvotasi uchun buzilmaydi",
+      [x["category"] for x in res] == [x["category"] for x in shaped[:7]] + ["matn_rasm", "yakun"],
+      [x["category"] for x in res])
 
 print("\n3) Prompt va tekshiruv")
 import inspect
 from services.premium_presentation import prompts as _prompts
 # Prompt matni taqdimot tilidagi faylda (prompts/uz.py) — o'zbekcha nusxasi tekshiriladi.
 src = inspect.getsource(html_slides.plan_outline) + str(_prompts.get("uz").PLAN)
-check("rejada rasm nisbati ijobiy aytilgan (ko'p matnli 4, kam matnli 6)",
-      "10 ta slaydning taxminan ⟨photos⟩ tasi" in src and deck_logic.PHOTOS_PER_10 == {"kop": 4, "kam": 6})
+check("rejada rasm nisbati ijobiy aytilgan (ikkala turda 4)",
+      "10 ta slaydning taxminan ⟨photos⟩ tasi" in src and deck_logic.PHOTOS_PER_10 == {"kop": 4, "kam": 4})
 check("'matn_rasm' takror chegarasidan mustasno", "'matn_rasm' bundan mustasno" in src or "bundan mustasno" in src)
 with_photo = '<section class="slide"><div class="body"><div class="split"><div class="rasm" data-prompt="old city street"><p class="rasm-matn">x</p></div></div></div></section>'
 without = '<section class="slide"><div class="body"><div class="list"><div class="item">x</div></div></div></section>'
