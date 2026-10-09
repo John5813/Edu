@@ -173,7 +173,7 @@ async def main():
                 await page.click("#srcs [data-k=file]"); await snap("manba: fayl")
                 await page.click("#srcs [data-k=url]"); await snap("manba: havola")
                 await page.click("#srcs [data-k=ai]")
-                await page.click("#styles [data-k=jurnal]"); await page.click("#volumes [data-k='kam']"); await snap("taqdimot: uslub va matn hajmi")
+                await page.click("#volumes [data-k='kop']"); await page.click("#styles [data-k=jurnal]"); await page.click("#volumes [data-k='kam']"); await snap("taqdimot: tur va uslub")
                 await page.fill("#topic", "ab"); await page.click("#go"); await snap("taqdimot: xato")
                 await page.fill("#topic", "Raqamli iqtisodiyot")
                 for kind in ("independent_work", "referat", "article", "thesis", "course_work", "diploma_work", "bitiruv_ishi", "dissertatsiya"):
