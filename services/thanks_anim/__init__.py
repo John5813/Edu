@@ -20,6 +20,7 @@ STORE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abs
 
 BUTTON = {"uz": "🎬 Oxiriga animatsiya qo'shish", "ru": "🎬 Добавить анимацию в конец",
           "en": "🎬 Add an animation at the end"}
+DECLINE = {"uz": "❌ Kerak emas", "ru": "❌ Не нужно", "en": "❌ No, thanks"}
 OFFER = {"uz": "✨ Taqdimotingiz oxiriga harakatlanuvchi personajli «Rahmat» sahifasini qo'shishingiz mumkin.",
          "ru": "✨ Можно добавить в конец презентации страницу «Спасибо» с анимированным персонажем.",
          "en": "✨ You can add a “Thank you” page with an animated character to the end of your deck."}
@@ -67,7 +68,25 @@ def offer(pptx_path: str, *, topic: str, style: str, volume: str, language: str,
         return None
     lang = user_lang if user_lang in BUTTON else "uz"
     url = webapp.public_url(f"/anim?token={token}&lang={lang}")
-    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=BUTTON[lang], web_app=WebAppInfo(url=url))]])
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=BUTTON[lang], web_app=WebAppInfo(url=url))],
+        [InlineKeyboardButton(text=DECLINE[lang], callback_data=f"tanim_no:{token}")],
+    ])
+
+
+def decline(token: str, user_id: int) -> None:
+    """Mijoz "Kerak emas" ni bosdi: token va saqlangan nusxa o'chiriladi (faqat egasi uchun)."""
+    import webapp
+
+    info = webapp.DOC_TOKENS.get(token)
+    if not info or info.get("kind") != "thanks_anim" or info.get("user_id") != user_id:
+        return
+    webapp.DOC_TOKENS.pop(token, None)
+    webapp.save_tokens_to_disk()
+    try:
+        os.remove(info.get("file_path", ""))
+    except OSError:
+        pass
 
 
 def offer_text(user_lang: str) -> str:

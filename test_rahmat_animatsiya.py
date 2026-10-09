@@ -151,6 +151,9 @@ btn = kb.inline_keyboard[0][0] if kb else None
 check("tugma mini oynani ochadi", btn and btn.web_app and btn.web_app.url.startswith("https://edufayl.uz/anim?token="),
       btn and btn.web_app)
 token = btn.web_app.url.split("token=")[1].split("&")[0]
+no = kb.inline_keyboard[1][0] if kb and len(kb.inline_keyboard) > 1 else None
+check("ostida \"Kerak emas\" tugmasi", no and no.text == "❌ Kerak emas" and no.callback_data == f"tanim_no:{token}",
+      no and no.text)
 info = webapp.DOC_TOKENS.get(token, {})
 check("asl taqdimot nusxasi saqlandi", info.get("kind") == "thanks_anim" and os.path.exists(info.get("file_path", "")))
 
@@ -166,6 +169,10 @@ def init_data(user_id):
 class FakeBot:
     def __init__(self):
         self.sent = []
+        self.messages = []
+
+    async def send_message(self, chat_id, text, **kw):
+        self.messages.append((chat_id, text))
 
     async def send_document(self, chat_id, document, caption=None, **kw):
         self.sent.append((chat_id, document.path, document.filename, caption,
@@ -214,10 +221,22 @@ check("noma'lum animatsiya — rad", unknown == 400)
 check("tanlov ishlaydi", ok1 == 200 and ok2 == 200, (ok1, ok2))
 sent = webapp.BOT.sent
 check("bot ikki marta yubordi, asl nomi bilan", len(sent) == 2 and all(s[2] == "Taqdimot_Moliya.pptx" for s in sent), sent)
-check("faylda PowerPoint slayd-shou haqida eslatma", all("Slayd-shou" in (x[3] or "") for x in sent))
+check("fayl izohida faqat nomi", all("Slayd-shou" not in (x[3] or "") for x in sent))
+check("ogohlantirish alohida xabar", len(webapp.BOT.messages) == 2
+      and all("Slayd-shou" in t for _, t in webapp.BOT.messages), webapp.BOT.messages)
 check("har tanlov asl taqdimotdan (ustma-ust emas)", [s[4] for s in sent] == [4, 4], [s[4] for s in sent])
 check("vaqtinchalik fayllar o'chirildi", not [f for f in os.listdir(thanks_anim.STORE) if "_" in f],
       os.listdir(thanks_anim.STORE))
+
+print("6) \"Kerak emas\"")
+kb2 = thanks_anim.offer(base, topic="T", style="", volume="kam", language="uz", author="", filename="T.pptx",
+                        user_id=42, chat_id=42)
+tok2 = kb2.inline_keyboard[1][0].callback_data.split(":", 1)[1]
+kept2 = webapp.DOC_TOKENS[tok2]["file_path"]
+thanks_anim.decline(tok2, 7)
+check("boshqa odam o'chira olmaydi", tok2 in webapp.DOC_TOKENS and os.path.exists(kept2))
+thanks_anim.decline(tok2, 42)
+check("egasi bosdi — token va nusxa o'chdi", tok2 not in webapp.DOC_TOKENS and not os.path.exists(kept2))
 
 shutil.rmtree(TMP, ignore_errors=True)
 print("\nNATIJA:", "HAMMASI O'TDI" if not FAILS else f"{len(FAILS)} ta xato: {FAILS}")

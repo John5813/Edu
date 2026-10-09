@@ -102,7 +102,11 @@ async def handle_choose(request: web.Request) -> web.Response:
 
         name = os.path.basename(info.get("filename") or "Taqdimot.pptx")
         await bot.send_document(info["chat_id"], FSInputFile(out, filename=name),
-                                caption=f"🎬 {anim.name(info.get('user_lang', 'uz'))}\n{_note(info.get('user_lang', 'uz'))}")
+                                caption=f"🎬 {anim.name(info.get('user_lang', 'uz'))}")
+        try:                                  # ogohlantirish fayl izohida emas, alohida xabar
+            await bot.send_message(info["chat_id"], _note(info.get("user_lang", "uz")))
+        except Exception as exc:
+            logger.warning("Animatsiya eslatmasi yuborilmadi: %s", exc)
         info["uses"] = info.get("uses", 0) + 1
         info["busy"] = False
         webapp.save_tokens_to_disk()
