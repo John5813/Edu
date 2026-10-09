@@ -164,6 +164,41 @@ plans = {d.choose({"kind": "plan", "items": items(5)}) for _ in range(20)}
 check("muqova faqat yangi muqova uslublarida", covers == {"cover_x", "cover_hex"}, covers)
 check("reja faqat yangi reja uslublarida", plans == {"plan_glass", "plan_wave"}, plans)
 
+print("4b) Mavzu oilasi va obrazi")
+from services.premium_presentation.designer import families
+check("obraz mavzudan topiladi", [families.mood_of(t) for t in (
+    "Ekologik muammolar va yechimlar", "Sun'iy intellekt va kelajak", "Bank tizimi va investitsiya",
+    "Maktabda o'qitish metodikasi", "Buyuk Ipak yo'li tarixi", "Dinamika qonunlari")] ==
+    ["tabiat", "texnika", "biznes", "talim", "madaniyat", ""],
+    [families.mood_of(t) for t in ("Ekologik muammolar va yechimlar", "Sun'iy intellekt va kelajak",
+                                   "Bank tizimi va investitsiya", "Maktabda o'qitish metodikasi",
+                                   "Buyuk Ipak yo'li tarixi", "Dinamika qonunlari")])
+
+
+def picks_for(topic, family="", kind="group", n=4, runs=200):
+    d = Designer(theme, topic, seed=11, family=family)
+    out = []
+    for _ in range(runs):
+        out.append(d.choose({"kind": kind, "items": items(n)}))
+    return out
+
+
+fin = picks_for("Moliya va bank tizimi", "ijtimoiy")
+check("moliya mavzusida barglar chiqmaydi", "leaves" not in fin, set(fin))
+hist = picks_for("Amir Temur davri tarixi", "tarix")
+check("tarix mavzusida tishli g'ildirak chiqmaydi", "gears" not in hist, set(hist))
+eco = picks_for("Ekologiya va tabiatni muhofaza qilish", "tabiiy")
+tech = picks_for("Raqamli texnologiyalar", "aniq")
+check("ekologiyada barg va daraxt ko'proq chiqadi",
+      eco.count("leaves") + eco.count("tree") > 2 * (tech.count("leaves") + tech.count("tree")),
+      (eco.count("leaves") + eco.count("tree"), tech.count("leaves") + tech.count("tree")))
+check("texnikada strelkali aylana va X ko'proq", tech.count("arrows") + tech.count("cross") >
+      eco.count("arrows") + eco.count("cross"), (tech.count("arrows"), eco.count("arrows")))
+check("obraz bilan ham xilma-xillik saqlanadi (takror yo'q)", all(a != b for a, b in zip(eco, eco[1:])))
+d = Designer(theme, "Moliya", seed=1, family="hisob")
+check("hamma mos uslub taqiqlansa ham tanlov ishlaydi",
+      d.choose({"kind": "group", "items": items(2), "old_ok": False}) in ("leaves",), d.chosen)
+
 print("5) Sahifa → slayd (Designer.draw)")
 prs = deck()
 d = Designer(theme, "Turizm", seed=1)

@@ -10,14 +10,16 @@ Qanday ishlaydi:
    - kam ishlatilgan uslub afzal (bitta uslub taqdimotni egallab olmaydi);
    - eski HTML kompozitsiyalar ham tanlov ichida (yangi uslublar ularga QO'SHIMCHA) — bunday
      sahifa avvalgidek HTML dan chiziladi.
-   Ranglar mavzuga qarab tanlangan temadan olinadi. Tasodif urug'i (`seed`) taqdimotda saqlanadi:
+   Tasodif mavzuga bog'langan (`families`): fan oilasi va mavzu obrazi (tabiat, texnika, biznes, ta'lim,
+   tibbiyot, madaniyat, sayohat) mos uslublarni ko'proq chiqaradi, mos kelmaydiganini (masalan, moliyada
+   barglar) umuman chiqarmaydi. Ranglar mavzuga qarab tanlangan temadan olinadi. Tasodif urug'i (`seed`) taqdimotda saqlanadi:
    saytda sahifa qayta yig'ilganda ham uslublar o'zgarmaydi.
 """
 import logging
 import random
 from typing import Dict, Optional
 
-from . import kit, parse, styles
+from . import families, kit, parse, styles
 
 log = logging.getLogger(__name__)
 
@@ -29,9 +31,12 @@ OLD = "html"
 
 
 class Designer:
-    def __init__(self, theme, topic: str = "", seed: Optional[int] = None):
+    def __init__(self, theme, topic: str = "", seed: Optional[int] = None, family: str = ""):
         self.theme = theme
         self.topic = topic or ""
+        self.family = family or ""
+        # Oila va obraz: mavzuga mos uslublar ko'proq chiqadi, mos kelmaydiganlari umuman chiqmaydi.
+        self.mult = families.multipliers(self.family, self.topic)
         self.seed = seed if seed is not None else random.randrange(1 << 30)
         self.rng = random.Random(self.seed)
         self.pal = styles.Palette.of(theme)
@@ -57,7 +62,11 @@ class Designer:
         n = len(spec.get("items") or spec.get("sides") or [])
         options = [s for s in styles.STYLES if kind in s.kinds and (kind in ("cover", "photo", "compare", "finale")
                                                                     or s.min_items <= n <= s.max_items)]
-        weights = [1.0 / (1 + self.uses.get(s.name, 0)) ** 2 for s in options]
+        fitting = [s for s in options if self.mult.get(s.name, 1.0) > 0]
+        if fitting:
+            options = fitting
+        weights = [self.mult.get(s.name, 1.0) / (1 + self.uses.get(s.name, 0)) ** 2 if fitting
+                   else 1.0 / (1 + self.uses.get(s.name, 0)) ** 2 for s in options]
         names = [s.name for s in options]
         old = OLD_WEIGHT.get(kind, 0.0)
         if spec.get("old_ok", True) and old:

@@ -511,6 +511,8 @@ class DocumentService:
             # Uzun matn sig'maydigan slaydlar ikki ustunga yoki keyingi slaydga
             # bo'linadi (qirqilmaydi); rasm tanlangandan OLDIN, chunki layout
             # o'zgarsa rasm ham kerak bo'lmay qoladi.
+            for slide in content.get('slides', []):
+                slide_layouts.ensure_content(slide)     # matn lug'at/ro'yxat yoki boshqa maydonda kelsa
             planned = slide_layouts.assign(content.get('slides', []), topic, language,
                                            images=bool(self.together))
             slides_data = slide_fit.prepare(planned, language)
@@ -1363,6 +1365,11 @@ class DocumentService:
         elif not isinstance(content, str):
             content = str(content) if content else ''
         
+        if not content.strip():
+            # Bo'sh quti qo'yilmaydi: PowerPoint/WPS unda "Double-tap to add text" ko'rsatadi.
+            logger.warning("Slayd matni bo'sh — matn qutisi qo'yilmadi")
+            return
+
         width_inches = width / 914400 if width > 100 else width
         height_inches = height / 914400 if height > 100 else height
         

@@ -615,6 +615,7 @@ class AIService:
             # Kirish, xulosa yoki reja bo'sh kelsa (javob uzilganda shunday
             # bo'ladi) mijozga bo'sh varaq ketmasin.
             content = await self._fill_empty_fixed_slides(content, topic, language)
+            content = await self._fill_empty_main_slides(content, topic, language)
 
             for slide in content.get('slides', []):
                 if slide.get('layout') == 'table' and not slide.get('table_data', {}).get('rows'):
@@ -674,6 +675,29 @@ class AIService:
             'en': f" Key questions: {listed}." if listed else "",
         }.get(language, "")
         return (lead + tail).strip()
+
+    async def _fill_empty_main_slides(self, content: Dict, topic: str, language: str) -> Dict:
+        """Matnsiz qolgan asosiy slaydlar uchun matn qayta so'raladi.
+
+        Model ba'zan slayd matnini kutilmagan maydonga yozadi yoki javob uzilib, sarlavhadan keyin
+        matn qolmaydi. Ilgari bunday slayd rasm (yoki raqam) bilan, lekin matnsiz chiqardi — mijoz
+        PowerPoint'da "Double-tap to add text" degan bo'sh qutini ko'rardi.
+        """
+        slides = content.get('slides', [])
+        for slide in slides:
+            slide_layouts.ensure_content(slide)
+        empty = [s for s in slides if s.get('layout') not in self._FIXED_LAYOUTS
+                 and not str(s.get('content') or '').strip() and str(s.get('title') or '').strip()]
+        if not empty:
+            return content
+        logger.warning("Matnsiz %d ta asosiy slayd — matn qayta so'ralmoqda", len(empty))
+        texts = await asyncio.gather(*(self._generate_slide_content(topic, s.get('title', ''), language,
+                                                                    s.get('layout') or 'right_image')
+                                       for s in empty), return_exceptions=True)
+        for slide, text in zip(empty, texts):
+            if isinstance(text, str) and text.strip():
+                slide['content'] = clean_text(text).strip()
+        return content
 
     async def _fill_empty_fixed_slides(self, content: Dict, topic: str, language: str) -> Dict:
         """Bo'sh kirish, xulosa va reja bandlarini to'ldiradi.
@@ -2001,8 +2025,8 @@ Output only the image prompt, nothing else. Make it detailed and specific for be
                 'content': '',
                 'layout': 'thanks'
             })
-            
-            return {'slides': slides}
+
+            return await self._fill_empty_main_slides({'slides': slides}, topic, language)
             
         except Exception as e:
             logger.error(f"Error generating presentation with manual titles: {e}")

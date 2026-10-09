@@ -244,7 +244,8 @@ def build_pptx(pages: List[str], out_dir: str, deck: Optional[dict] = None) -> s
     if deck and deck.get("volume") == "kam":
         from .designer import Designer
 
-        designer = Designer(_theme(deck), deck.get("topic", ""), seed=deck.get("design_seed"))
+        designer = Designer(_theme(deck), deck.get("topic", ""), seed=deck.get("design_seed"),
+                            family=deck.get("family", ""))
     try:
         return html_render.render(pages, out_dir=out_dir, name="taqdimot",
                                   native=designer.draw if designer else None)

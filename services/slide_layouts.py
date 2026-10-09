@@ -47,12 +47,45 @@ _NUMBER = re.compile(
 _YEAR = re.compile(r"\b(1[5-9]\d\d|20\d\d)\b")
 
 
-def _s(value) -> str:
+def _flatten(value) -> list:
+    """Har qanday JSON qiymatidan matn bo'laklari (lug'at va ro'yxat ichidagilari ham)."""
+    if value is None:
+        return []
     if isinstance(value, dict):
-        value = value.get("text", value.get("content", ""))
+        for key in ("text", "content"):
+            if _s(value.get(key)):
+                return [_s(value.get(key))]
+        out = []
+        for item in value.values():
+            out.extend(_flatten(item))
+        return out
+    if isinstance(value, (list, tuple)):
+        out = []
+        for item in value:
+            out.extend(_flatten(item))
+        return out
+    text = str(value).strip()
+    return [text] if text else []
+
+
+def _s(value) -> str:
+    """Qiymat matni. Model ba'zan matnni lug'at ({"points": [...]}) yoki lug'atlar ro'yxati qilib
+    qaytaradi — ilgari bunday slayd matnsiz qolib, PowerPoint'da "Double-tap to add text" chiqardi."""
+    if isinstance(value, dict):
+        if "text" in value or "content" in value:
+            value = value.get("text", value.get("content", ""))
+            if isinstance(value, (dict, list)):
+                return " ".join(_flatten(value)).strip()
+        else:
+            return " ".join(_flatten(value)).strip()
     if isinstance(value, list):
-        value = " ".join(str(x) for x in value)
+        return " ".join(_flatten(value)).strip()
     return str(value or "").strip()
+
+
+# Model matnni `content` o'rniga shu maydonlarga ham yozadi.
+_ALT_TEXT_KEYS = ("bullets", "points", "key_points", "bullet_points", "paragraphs", "body", "text",
+                  "description", "details", "list", "facts", "main_points")
 
 
 def _clean(value: str) -> str:
@@ -65,6 +98,10 @@ def _read_item(raw) -> Dict:
         head = raw.get("head") or raw.get("keyword") or raw.get("title") or raw.get("name") or ""
         body = raw.get("text") or raw.get("column_content") or raw.get("content") or raw.get("description") or ""
         value = raw.get("value") or raw.get("number") or ""
+        if not _s(body):
+            # Noma'lum kalit ({"point": "..."}): sarlavha va raqamdan boshqa hamma matn.
+            body = " ".join(_flatten({k: v for k, v in raw.items()
+                                      if k not in ("head", "keyword", "title", "name", "value", "number", "icon")}))
     else:
         head, body, value = "", raw, ""
     return {"head": _clean(_s(head)), "text": _clean(_s(body)), "value": _clean(_s(value))}
@@ -93,9 +130,20 @@ def text_of(slide: Dict) -> str:
 
 
 def ensure_content(slide: Dict) -> Dict:
-    """`items` bor-u `content` yo'q slaydga matnni to'ldiradi (AI qatlami uchun)."""
+    """Slayd matnini `content` ga yig'adi (AI qatlami uchun): lug'at yoki ro'yxat bo'lib kelgan matn
+    satrga aylanadi, `items` yoki boshqa maydonlardagi (`bullets`, `points` ...) matn ko'chiriladi."""
+    content = slide.get("content")
+    if isinstance(content, (dict, list)):
+        parts = _flatten(content)
+        slide["content"] = "\n".join(parts) if len(parts) > 1 else (parts[0] if parts else "")
     if not _s(slide.get("content")) and slide.get("items"):
         slide["content"] = " ".join(i["text"] for i in items_of(slide))
+    if not _s(slide.get("content")):
+        for key in _ALT_TEXT_KEYS:
+            parts = _flatten(slide.get(key))
+            if parts:
+                slide["content"] = "\n".join(parts) if len(parts) > 1 else parts[0]
+                break
     return slide
 
 

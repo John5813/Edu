@@ -138,7 +138,7 @@ async def _build_deck(topic, slide_count, *, language, level, preferences, sourc
     if volume == "kam":
         from services.premium_presentation.designer import Designer
 
-        designer = Designer(theme, topic)
+        designer = Designer(theme, topic, family=outline_out.get("family", ""))
     path = await run_step(
         loop,
         lambda: html_render.render(
