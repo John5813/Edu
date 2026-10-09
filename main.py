@@ -638,6 +638,14 @@ async def main():
     from services import store_seo
     asyncio.create_task(store_seo.startup(bot))
 
+    # Bot yangilanganda tayyorlanayotgan sovg'a taqdimotlari uzilgan bo'ladi — mijozlarga sovg'a qaytariladi.
+    try:
+        from database import free_trial
+        restored = await free_trial.release_unfinished_bot()
+        if restored:
+            logger.info("Uzilib qolgan %d ta sovg'a taqdimoti mijozlarga qaytarildi", restored)
+    except Exception as exc:
+        logger.warning("Uzilgan sovg'alar qaytarilmadi: %s", exc)
     polling_task = asyncio.create_task(dp.start_polling(bot))
     web_task     = asyncio.create_task(start_web_server(port=5000))
     from services import web_jobs
