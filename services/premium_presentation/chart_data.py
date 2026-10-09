@@ -175,11 +175,13 @@ _FALLBACK = "ikki_ustun"
 
 
 def ground(outline: List[Dict], topic: str, language: str = "uz", level: int = 2,
-           researcher=None, sentences: str = "2-3") -> List[Dict]:
+           researcher=None, sentences: str = "2-3", illustrative: bool = False) -> List[Dict]:
     """Rejadagi har diagramma slayd uchun AI dan haqiqiy ma'lumot olinadi.
 
     Ma'lumot topilsa — `item["chart"]` va `item["chart_note"]` (yozuvchi modelga ko'rsatma);
-    topilmasa — slayd diagrammasiz kategoriyaga qaytariladi (`was` yoki `ikki_ustun`).
+    topilmasa — slayd diagrammasiz kategoriyaga qaytariladi (`was` yoki `ikki_ustun`): taqdimotda
+    to'qilgan statistika bo'lmasin. `illustrative` — mijoz sahifani o'zi diagramma qilib so'ragan
+    (saytda sahifani qayta yozish): ma'lumot topilmasa namunaviy diagramma «Shartli misol» deb qo'yiladi.
     """
     researcher = researcher or research
     indices = [i for i, item in enumerate(outline) if item.get("category") == "diagramma"]
@@ -199,18 +201,17 @@ def ground(outline: List[Dict], topic: str, language: str = "uz", level: int = 2
                 item["chart"] = data
                 item["chart_note"] = note_for(data, language, sentences)
                 log.info("%d-slayd diagrammasi: haqiqiy ma'lumot (%s)", index + 1, data["source"])
-            elif item.get("was"):
-                # Kvota bo'yicha qo'shilgan diagramma: ma'lumot yo'q — slayd o'z kategoriyasida qoladi.
-                item["category"] = item.pop("was")
-                item.pop("chart_kind", None)
-                log.info("%d-slayd: ishonchli ma'lumot yo'q — diagrammasiz (%s)",
-                         index + 1, item["category"])
-            else:
-                # Reja o'zi diagramma deb belgilagan slayd: diagramma yo'qolmasin — oddiy model namunaviy
-                # ma'lumot tuzadi, u "Shartli misol" deb belgilanadi.
+            elif illustrative and not item.get("was"):
                 item["chart_fallback"] = True
                 item["chart_note"] = fallback_note(language)
                 log.info("%d-slayd: AI ma'lumot bermadi — namunaviy diagramma (Shartli misol)", index + 1)
+            else:
+                # Ma'lumot yo'q — namunaviy raqam to'qilmaydi, slayd diagrammasiz kategoriyaga qaytadi.
+                # (Ilgari reja o'zi belgilagan diagramma "Shartli misol" bilan to'qib qo'yilardi.)
+                item["category"] = item.pop("was", None) or _FALLBACK
+                item.pop("chart_kind", None)
+                log.info("%d-slayd: ishonchli ma'lumot yo'q — diagrammasiz (%s)",
+                         index + 1, item["category"])
     return outline
 
 

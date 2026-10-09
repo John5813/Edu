@@ -344,23 +344,54 @@ def _open_page(context, html: str):
     return page
 
 
-# Mazmunning eng past nuqtasi. `level` bosqichdagi zichlash sinfi
-# qo'yilgandan keyin o'lchanadi.
-_FIT_SCRIPT = r"""
-(level) => {
-  const slide = document.querySelector("section.slide");
-  if (!slide) return 0;
-  slide.classList.remove("fit1", "fit2", "fit3");
-  if (level) slide.classList.add("fit" + level);
+# Mazmunning eng past nuqtasi (px). Mazmun varaq TEPASIDAN chiqsa yoki katta sarlavhadagi so'z bir
+# qatorga sig'may bo'linib ketsa ("O'zbekistonnin / g") — varaq sig'madi deb hisoblanadi: muqovada matn
+# pastga tekislangan (`justify-content:flex-end`), uzun sarlavha esa yuqoriga, varaqdan tashqariga o'sardi.
+_MEASURE = r"""
+(slide) => {
+  const TOO_BIG = 100000;
+  // Telefon va WPS da Times New Roman o'rniga kengroq shrift keladi: so'z u yerda ham bir qatorga sig'sin.
+  const WORD_SLACK = 1.2;
   let low = 0;
   for (const el of slide.querySelectorAll(".head *, .body *")) {
     const r = el.getBoundingClientRect();
     if (r.width < 2 || r.height < 2) continue;
     // Muqovadagi to'liq balandlikdagi rasm varaq chetigacha boradi — bu sig'masligi emas.
     if (el.closest(".cover-img") || el.classList.contains("cover-text")) continue;
+    // Bezak doiralari ataylab varaq chetidan chiqib turadi.
+    if (el.closest(".bezak")) continue;
+    if (r.top < -1) return TOO_BIG;
     low = Math.max(low, r.bottom);
   }
+  for (const title of slide.querySelectorAll(".title.big")) {
+    const words = (title.textContent || "").split(/\s+/).filter(Boolean);
+    if (!words.length || !title.clientWidth) continue;
+    const probe = document.createElement("span");
+    probe.style.whiteSpace = "nowrap";
+    probe.style.font = "inherit";
+    probe.style.letterSpacing = "inherit";
+    title.appendChild(probe);
+    let widest = 0;
+    for (const word of words) {
+      probe.textContent = word;
+      widest = Math.max(widest, probe.getBoundingClientRect().width);
+    }
+    probe.remove();
+    if (widest * WORD_SLACK > title.clientWidth) return TOO_BIG;
+  }
   return low;
+}
+"""
+
+
+# `level` bosqichdagi zichlash sinfi qo'yilgandan keyin o'lchanadi.
+_FIT_SCRIPT = r"""
+(level) => {
+  const slide = document.querySelector("section.slide");
+  if (!slide) return 0;
+  slide.classList.remove("fit1", "fit2", "fit3");
+  if (level) slide.classList.add("fit" + level);
+  return (""" + _MEASURE + r""")(slide);
 }
 """
 
@@ -406,13 +437,7 @@ _SHRINK_SCRIPT = r"""
       st.width = (s.width * factor) + "px";
     }
   }
-  let low = 0;
-  for (const el of slide.querySelectorAll(".head *, .body *")) {
-    const r = el.getBoundingClientRect();
-    if (r.width < 2 || r.height < 2) continue;
-    low = Math.max(low, r.bottom);
-  }
-  return low;
+  return (""" + _MEASURE + r""")(slide);
 }
 """
 

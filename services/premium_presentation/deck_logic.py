@@ -184,19 +184,25 @@ def chart_count(bodies: List[str]) -> int:
     return sum(1 for b in bodies if has_chart(b))
 
 
-# Voqealar va g'oyalar rivoji haqidagi mavzular (deck_shape oilalari): ularda diagramma majburlanmaydi.
+# Voqealar va g'oyalar rivoji haqidagi mavzular (deck_shape oilalari): ularda diagramma qo'yilmaydi.
 # Ilgari "Mustaqillik g'oyalarining tarixiy asoslari" taqdimotiga kvota uchun YaIM va aholi diagrammalari
 # qo'yilib, sovet davri va mustaqillik davri orasiga tushib qolgan — xronologiya uzilgan edi.
 NARRATIVE = ("tarix", "gumanitar")
 
 
-def chart_quota(total: int, family: str = "") -> int:
-    """Taqdimotda kamida nechta diagramma bo'lishi kerak (tarixiy/gumanitar mavzuda — majburiy emas)."""
+def chart_limit(total: int, family: str = "") -> int:
+    """Taqdimotda KO'PI BILAN nechta diagramma bo'lishi mumkin (talab emas, yuqori chegara).
+
+    Ilgari bu son "kamida" edi: reja diagramma bermasa, kod mos slaydlarni o'zi diagrammali qilib
+    belgilardi va ma'lumot topilmasa namunaviy raqam to'qilardi. Natijada «Buyuk Ipak yo'li va
+    turizm» kabi mavzularga bir xil sayyohlar soni ikki diagrammada (dinamika va «prognoz») tiqilgan.
+    Endi diagramma faqat mavzuning o'zida haqiqiy statistika bo'lsa qo'yiladi.
+    """
     if family in NARRATIVE or total < 6:
         return 0
-    if total < 10:
+    if total < 12:
         return 1
-    if total < 16:
+    if total < 20:
         return 2
     return 3
 
@@ -266,13 +272,14 @@ def _first_sentence(text: str) -> str:
     return text
 
 
-def short_note(brief: str, limit: int = 90) -> str:
+def short_note(brief: str, limit: int = 90, whole: bool = False) -> str:
     """Reja kartochkasi izohi: birinchi gap (yoki uning tugal bo'lagi).
 
     Ilgari izoh harf soni bo'yicha qirqilardi va "…qadimgi davrlardagi" kabi chala gap, qisqartmadagi
     nuqtada esa "Mil" bo'lib qolardi. Endi: gap `limit` dan 1,5 baravargacha uzun bo'lsa ham to'liq
     (8 kartochkada 84 belgi — uch qator, hamma uslubda sig'adi, varaq o'zi zichlanadi); undan uzun
     bo'lsa — vergul oldidagi tugal bo'lagi; tugal bo'lak chiqmasa — izoh qo'yilmaydi (chala gapdan ko'ra yaxshi).
+    `whole` — vergulda kesilmaydi (sanoq o'rtasida «madaniy, ziyorat» bo'lib qolmasin): gap sig'masa "".
     """
     brief = plain(brief)
     brief = re.sub(r"^\s*(?:\[[^\]]*\]|\([^)]*\))\s*", "", brief)
@@ -281,6 +288,8 @@ def short_note(brief: str, limit: int = 90) -> str:
     clause = clause.rstrip(" .,;:—–-")
     if len(clause) <= limit * 1.5:
         return clause
+    if whole:
+        return ""
     cut = ""
     for match in _PHRASE_BREAK.finditer(clause):
         if match.start() > limit * 1.5:
@@ -310,7 +319,11 @@ def plan_slide(items: List[Tuple[str, str]], language: str = "uz") -> str:
     # ortiqcha qator kartochka chetidan chiqib ketmasin.
     total = len([1 for t, _ in items if short_title(t)])
     limit = 90 if total <= 4 else 70 if total <= 6 else 56
-    items = pick_even([(short_title(t), short_note(n, limit)) for t, n in items if short_title(t)], 8)
+    items = pick_even([(short_title(t), short_note(n, limit, whole=True)) for t, n in items if short_title(t)], 8)
+    # Izoh hammasida bo'lsa qo'yiladi, aks holda hech birida: ilgari bir kartochkada izoh bor, qo'shnisida
+    # yo'q, uchinchisida vergulda uzilgan chala izoh chiqib, reja notekis va pala-partish ko'rinardi.
+    if not all(note and note.lower() != title.lower() for title, note in items):
+        items = [(title, "") for title, _ in items]
     count = len(items)
     columns = 2 if count == 4 else 4 if count >= 7 else 3
     cards = []

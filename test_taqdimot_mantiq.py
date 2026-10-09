@@ -14,7 +14,7 @@ def check(name, cond, detail=""):
     if not cond: FAILS.append(name)
 
 from services.premium_presentation import (deck_charts, deck_logic, html_extract, html_images,
-                                           html_render, html_slides, llm_client, themes)
+                                           html_render, html_slides, llm_client, prompts, themes)
 THEME = themes.get("ko'k")
 
 def slide(title, body_html, dark=False):
@@ -52,21 +52,24 @@ big = ('<table>' + "<tr>" + "".join(f"<th>Ustun {i}</th>" for i in range(4)) + "
 check("qisqa jadval ruxsat", not deck_logic.oversized_table(slide("T", small)))
 check("zich jadval aniqlandi", deck_logic.oversized_table(slide("T", big)))
 
-print("\n3) Diagramma kvotasi")
-check("kvota: 5 slaydda 0, 8 da 1, 12 da 2, 20 da 3",
-      [deck_logic.chart_quota(n) for n in (5, 8, 12, 20)] == [0, 1, 2, 3])
+print("\n3) Diagramma — majburiy emas, faqat yuqori chegara")
+check("chegara: 5 slaydda 0, 8 da 1, 12 da 2, 20 da 3",
+      [deck_logic.chart_limit(n) for n in (5, 8, 12, 20)] == [0, 1, 2, 3])
 outline = [{"title": f"S{i}", "brief": "mavzu jihati", "category": "kartalar"} for i in range(12)]
 outline[0]["category"], outline[1]["category"], outline[-1]["category"] = "muqova", "reja", "yakun"
-filled = html_slides.ensure_charts([dict(o) for o in outline], "uz")
-charts = [i for i, o in enumerate(filled) if o["category"] == "diagramma"]
-check("model diagramma bermasa 2 ta belgilandi", len(charts) == 2, str(charts))
-check("muqova, reja va yakun tegilmadi", all(i not in charts for i in (0, 1, 11)), str(charts))
-check("biri halqa", any(o.get("chart_kind") == "halqa" for o in filled), str([o.get("chart_kind") for o in filled]))
-check("diagramma slaydlar avvalgi kategoriyasini eslab qoladi (ma'lumot topilmasa qaytariladi)",
-      all(filled[i].get("was") for i in charts) and all("Shartli" not in filled[i]["brief"] for i in charts))
-check("allaqachon yetarli bo'lsa o'zgarmaydi", html_slides.ensure_charts(
-      [dict(o, category="diagramma") if 3 <= i <= 5 else dict(o) for i, o in enumerate(outline)], "uz")
-      == [dict(o, category="diagramma") if 3 <= i <= 5 else dict(o) for i, o in enumerate(outline)])
+check("model diagramma bermasa kod o'zi qo'shmaydi",
+      html_slides.ensure_charts([dict(o) for o in outline], "uz") == outline)
+many = [dict(o, category="diagramma") if 3 <= i <= 6 else dict(o) for i, o in enumerate(outline)]
+many[5]["was"] = "korsatkichlar"
+capped = html_slides.ensure_charts([dict(o) for o in many], "uz")
+check("chegaradan ortiq diagramma oddiy slaydga qaytadi (12 slayd — ko'pi bilan 2)",
+      [o["category"] for o in capped[3:7]] == ["diagramma", "diagramma", "korsatkichlar", "ikki_ustun"],
+      [o["category"] for o in capped[3:7]])
+check("tarixiy mavzuda reja bergan diagramma ham olib tashlanadi",
+      not any(o["category"] == "diagramma" for o in html_slides.ensure_charts([dict(o) for o in many], "uz", "tarix")))
+check("reja so'rovida «kamida» yo'q, diagramma ixtiyoriy",
+      all("kamida" not in prompts.get(l).PLAN["chart"].lower() and "⟨quota⟩" in prompts.get(l).PLAN["chart"]
+          for l in ("uz",)) and "IXTIYORIY" in prompts.get("uz").PLAN["chart"])
 check("ulush so'zi → halqa, yil so'zi → chiziqli",
       deck_logic.chart_kind_for("tarkib ulushi") == "halqa" and deck_logic.chart_kind_for("yillar dinamikasi") == "chiziqli")
 
@@ -95,6 +98,18 @@ check("juda uzun izoh — vergulgacha tugal bo'lak", notes[3] == "Dehqonchilik, 
 check("izoh bog'lovchi bilan tugamaydi", all(not n or n.split()[-1].lower() not in ("va", "hamda", "bilan", "men", "и") for n in notes))
 plan8 = deck_logic.plan_slide(real, "uz")
 check("reja slaydida chala izoh yo'q", ">Mil<" not in plan8 and "davrlardagi<" not in plan8 and "asosiy<" not in plan8)
+# Ipak yo'li taqdimoti: bir kartochkada izoh bor, qo'shnisida yo'q, uchinchisida «madaniy, ziyorat» bo'lib uzilgan.
+silk = [("Ipak yo'li", "Buyuk Ipak yo'li madaniyatlar chorrahasi bo'lib, asrlar davomida Sharq va G'arbni bog'lagan, savdo, "
+         "g'oya va an'analar almashinuvi yo'li sifatida xizmat qilgan qadimiy marshrut."),
+        ("O'zbekiston: Ipak yo'li yuragi", "O'zbekistonning Buyuk Ipak yo'lidagi markaziy o'rni va boy merosi"),
+        ("Turizm turlari", "Ipak yo'li bilan bog'liq madaniy, ziyorat, ekoturizm, gastronomik va boshqa ko'plab turdagi "
+         "turizm yo'nalishlari hamda ularning o'ziga xos jihatlari"),
+        ("Kelajak prognozlari", "Kelajak prognozlari")]
+silk_plan = deck_logic.plan_slide(silk, "uz")
+check("reja izohi yo hamma kartochkada, yo hech birida (notekis va chala izoh yo'q)",
+      silk_plan.count("card-title") == 4 and "card-note" not in silk_plan and "ziyorat" not in silk_plan, silk_plan)
+full = deck_logic.plan_slide([("A", "Birinchi qisqa izoh"), ("B", "Ikkinchi qisqa izoh"), ("C", "Uchinchi izoh")], "uz")
+check("hamma izoh to'liq bo'lsa — qoladi", full.count("card-note") == 3)
 many = deck_logic.plan_slide([(f"Mavzu {i}", "") for i in range(1, 18)], "uz")
 check("17 sarlavhadan 8 tasi tanlanadi", many.count("card-title") == 8)
 check("kartochka raqami reja bo'lmagan slaydda olib tashlanadi",
@@ -229,7 +244,8 @@ suppressing = ("diagramma bo'lmasligi", "statistika kategoriyalarini umuman", "d
                "diagramma o'rniga matn", "umuman ishlatmang", "diagrammasiz taqdimot")
 check("diagrammani butunlay chetlab o'tishga undaydigan ibora yo'q",
       not [p for p in suppressing if p in low], str([p for p in suppressing if p in low]))
-check("reja so'rovi kamida bitta diagramma talab qiladi (12 slaydda 2 ta)", "kamida 2 ta slayd 'diagramma'" in seen["plan"])
+check("reja so'rovi diagrammani talab qilmaydi, faqat chegara aytadi (12 slaydda ko'pi bilan 2 ta)",
+      "ko'pi bilan 2 ta" in seen["plan"] and "kamida 2" not in seen["plan"])
 check("reja so'rovi halqani eslatadi", "halqa" in seen["plan"])
 check("qoidalarda diagramma turi va tayyor ma'lumot aytilgan",
       "ma'lumotini siz yozmaysiz" in everything and "halqa" in everything and "chiziqli" in everything)

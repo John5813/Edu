@@ -95,9 +95,12 @@ check("yozuvchiga tayyor blok va manba beriladi", "TAYYOR DIAGRAMMA" in out[2]["
 check("ma'lumot topilmagan slayd diagrammasiz kategoriyaga qaytdi", out[3]["category"] == "ikki_ustun" and "chart" not in out[3], out[3])
 
 planned = out[5]
-check("reja o'zi belgilagan diagramma: Claude bermasa ham diagramma qoladi (oddiy AI namuna tuzadi)",
-      planned["category"] == "diagramma" and planned.get("chart_fallback") and "chart" not in planned
-      and "Shartli misol" in planned["chart_note"], planned)
+check("reja o'zi belgilagan diagramma: ma'lumot topilmasa raqam to'qilmaydi, oddiy slaydga qaytadi",
+      planned["category"] == "ikki_ustun" and not planned.get("chart_fallback") and "chart" not in planned, planned)
+asked = chart_data.ground([{"title": "Sahifa", "brief": "mijoz diagramma so'radi", "category": "diagramma"}],
+                          "Iqtisodiyot", "uz", 2, researcher=researcher, illustrative=True)[0]
+check("mijoz sahifani o'zi diagramma qilib so'rasa — namunaviy diagramma «Shartli misol» bilan",
+      asked["category"] == "diagramma" and asked.get("chart_fallback") and "Shartli misol" in asked["chart_note"], asked)
 
 print("5) Slaydga majburlash (enforce)")
 invented = ('<section class="slide"><div class="body"><div class="chart" data-kind="bar" data-labels="a,b" '

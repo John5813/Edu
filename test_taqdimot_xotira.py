@@ -158,8 +158,8 @@ check("ruscha: tarixli so'rovda ruscha yo'riqnoma", any(prompts.get("ru").USER["
 check("ruscha: tarixdagi navbat ham ruscha", any("слайд" in c["history"][0]["content"] for c in ru_chunks if c["history"]))
 
 print("7) Tarixiy va gumanitar mavzuda diagramma majburlanmaydi")
-check("kvota: tarix va gumanitar — 0, boshqalar avvalgidek",
-      [deck_logic.chart_quota(12, f) for f in ("tarix", "gumanitar", "ijtimoiy", "")] == [0, 0, 2, 2])
+check("chegara: tarix va gumanitar — 0, boshqalar avvalgidek",
+      [deck_logic.chart_limit(12, f) for f in ("tarix", "gumanitar", "ijtimoiy", "")] == [0, 0, 2, 2])
 run("O'zbekistonda mustaqillik g'oyalarining tarixiy asoslari")
 check("reja so'rovida diagramma kvotasi yo'q, xronologik tartib so'ralgan",
       PLAN_PROMPTS and "kamida" not in PLAN_PROMPTS[0] and prompts.get("uz").PLAN["narrative"] in PLAN_PROMPTS[0],
@@ -167,8 +167,8 @@ check("reja so'rovida diagramma kvotasi yo'q, xronologik tartib so'ralgan",
 outline = [{"title": f"T{i}", "brief": "b", "category": c} for i, c in enumerate(CATS)]
 check("tarixiy rejaga diagramma qo'shilmaydi",
       not any(o["category"] == "diagramma" for o in html_slides.ensure_charts([dict(o) for o in outline], "uz", "tarix")))
-check("iqtisodiy rejaga diagramma avvalgidek qo'shiladi",
-      sum(o["category"] == "diagramma" for o in html_slides.ensure_charts([dict(o) for o in outline], "uz", "ijtimoiy")) == 2)
+check("boshqa mavzuda ham kod diagramma qo'shmaydi (faqat reja qo'ysa)",
+      not any(o["category"] == "diagramma" for o in html_slides.ensure_charts([dict(o) for o in outline], "uz", "ijtimoiy")))
 PLAN_PROMPTS.clear()
 real = llm_client._call_openrouter
 llm_client._call_openrouter = fake_json
@@ -176,7 +176,8 @@ try:
     html_slides.plan_outline("Inflyatsiya va uning oqibatlari", 12, "uz")
 finally:
     llm_client._call_openrouter = real
-check("iqtisodiy mavzu rejasida diagramma qoidasi bor", PLAN_PROMPTS and "kamida 2 ta" in PLAN_PROMPTS[0])
+check("iqtisodiy mavzu rejasida diagramma ixtiyoriy (ko'pi bilan 2 ta)",
+      PLAN_PROMPTS and "ko'pi bilan 2 ta" in PLAN_PROMPTS[0] and "kamida 2" not in PLAN_PROMPTS[0])
 
 print("\nNATIJA:", "HAMMASI O'TDI" if not FAILS else f"{len(FAILS)} ta xato: {FAILS}")
 sys.exit(1 if FAILS else 0)
