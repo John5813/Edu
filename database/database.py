@@ -822,15 +822,15 @@ class Database:
                 result = await cursor.fetchone()
                 return result[0] if result else 0
 
-    async def get_feature_status(self, feature_name: str) -> bool:
-        """Get feature toggle status"""
+    async def get_feature_status(self, feature_name: str, default: bool = True) -> bool:
+        """Get feature toggle status (`default` — admin hali tanlamagan bo'lsa)."""
         async with aiosqlite.connect(DATABASE_FILE) as db:
             async with db.execute(
                 "SELECT is_enabled FROM feature_toggles WHERE feature_name = ?",
                 (feature_name,)
             ) as cursor:
                 result = await cursor.fetchone()
-                return result[0] if result else True  # Default to enabled
+                return bool(result[0]) if result else default
 
     async def set_feature_status(self, feature_name: str, is_enabled: bool):
         """Set feature toggle status"""

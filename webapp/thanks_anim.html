@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Animatsiya tanlang</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root { --bg: #0c101c; --muted: #96a0b9; --green: #2ea05a; --chip: #283046; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: #fff; font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; overflow: hidden; }
+  header { position: fixed; top: 0; left: 0; right: 0; z-index: 5; padding: 18px 16px 12px;
+           background: linear-gradient(var(--bg) 70%, transparent); display: flex; align-items: flex-start; gap: 12px; }
+  header h1 { font-size: 20px; }
+  header p { color: var(--muted); font-size: 13px; margin-top: 3px; }
+  header .count { margin-left: auto; background: var(--chip); border-radius: 20px; padding: 5px 12px; font-weight: 700; font-size: 14px; white-space: nowrap; }
+  #feed { height: 100%; overflow-y: scroll; scroll-snap-type: y mandatory; -webkit-overflow-scrolling: touch; }
+  .reel { height: 100%; scroll-snap-align: start; scroll-snap-stop: always; display: flex; flex-direction: column;
+          justify-content: center; padding: 90px 0 24px; position: relative; }
+  .frame { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; }
+  .frame video, .frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .sound { position: absolute; right: 10px; bottom: 10px; background: rgba(0,0,0,.55); border-radius: 18px;
+           padding: 6px 12px; font-size: 13px; pointer-events: none; }
+  .info { padding: 18px 16px 0; }
+  .info h2 { font-size: 20px; }
+  .info p { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  .pick { margin: 26px 16px 0; padding: 16px; border: 0; border-radius: 40px; background: var(--green); color: #fff;
+          font-size: 18px; font-weight: 700; width: calc(100% - 32px); cursor: pointer; }
+  .pick:disabled { opacity: .6; }
+  .hint { text-align: center; color: var(--muted); font-size: 13px; margin-top: 16px; }
+  #toast { position: fixed; left: 16px; right: 16px; bottom: 24px; z-index: 9; background: #1f2740; border-radius: 14px;
+           padding: 14px 16px; font-size: 15px; display: none; text-align: center; }
+  .empty { padding: 140px 24px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <div><h1 id="t-title"></h1><p id="t-sub"></p></div>
+  <div class="count" id="count">–</div>
+</header>
+<main id="feed"></main>
+<div id="toast"></div>
+<script>
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) { tg.ready(); tg.expand(); try { tg.disableVerticalSwipes && tg.disableVerticalSwipes(); } catch (e) {} }
+const params = new URLSearchParams(location.search);
+const token = params.get('token') || '';
+const lang = (params.get('lang') || (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.language_code) || 'uz').slice(0, 2);
+const TEXTS = {
+  uz: { title: 'Animatsiya tanlang', sub: "Taqdimotingiz oxiriga qo'shiladi", desc: 'Yozuv chiqib keladi, personaj ovoz bilan harakatlanadi',
+        pick: '✓ Shuni tanlash', hint: '▲ Keyingisi uchun yuqoriga suring', tap: '🔇 Ovoz uchun bosing', busy: 'Tayyorlanmoqda…',
+        done: '✅ Tayyor! Taqdimot botga yuborildi.', fail: "❌ Xatolik. Qayta urinib ko'ring.", limit: "Bu taqdimotga animatsiya qo'shish chegarasi tugadi.",
+        expired: 'Muddat tugagan. Taqdimotni qayta yarating.', empty: "Hozircha animatsiyalar yo'q." },
+  ru: { title: 'Выберите анимацию', sub: 'Добавится в конец презентации', desc: 'Надпись появляется, персонаж двигается со звуком',
+        pick: '✓ Выбрать', hint: '▲ Листайте вверх', tap: '🔇 Нажмите для звука', busy: 'Готовим…',
+        done: '✅ Готово! Презентация отправлена в бот.', fail: '❌ Ошибка. Попробуйте ещё раз.', limit: 'Лимит анимаций для этой презентации исчерпан.',
+        expired: 'Срок истёк. Создайте презентацию заново.', empty: 'Пока нет анимаций.' },
+  en: { title: 'Choose an animation', sub: 'It will be added to the end of your deck', desc: 'The text appears, the character moves with sound',
+        pick: '✓ Choose this one', hint: '▲ Swipe up for the next one', tap: '🔇 Tap for sound', busy: 'Preparing…',
+        done: '✅ Done! The presentation was sent to the bot.', fail: '❌ Something went wrong. Try again.', limit: 'The animation limit for this deck is reached.',
+        expired: 'This link has expired. Create the presentation again.', empty: 'No animations yet.' },
+};
+const S = TEXTS[lang] || TEXTS.uz;
+document.getElementById('t-title').textContent = S.title;
+document.getElementById('t-sub').textContent = S.sub;
+
+let soundOn = false;
+const feed = document.getElementById('feed');
+const toast = document.getElementById('toast');
+function say(text, ms) {
+  toast.textContent = text; toast.style.display = 'block';
+  clearTimeout(say.t); if (ms) say.t = setTimeout(() => (toast.style.display = 'none'), ms);
+}
+
+function headers() {
+  const h = { 'Content-Type': 'application/json' };
+  if (tg && tg.initData) h['X-Telegram-Init-Data'] = tg.initData;
+  return h;
+}
+
+async function choose(key, btn) {
+  document.querySelectorAll('.pick').forEach((b) => (b.disabled = true));
+  btn.textContent = S.busy; say(S.busy);
+  try {
+    const r = await fetch('/api/anim/' + encodeURIComponent(token), { method: 'POST', headers: headers(), body: JSON.stringify({ key }) });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok && j.ok) {
+      say(S.done);
+      if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      setTimeout(() => tg ? tg.close() : null, 1400);
+      return;
+    }
+    say(j.error === 'limit' ? S.limit : j.error === 'expired' ? S.expired : S.fail, 4000);
+  } catch (e) { say(S.fail, 4000); }
+  document.querySelectorAll('.pick').forEach((b) => { b.disabled = false; b.textContent = S.pick; });
+}
+
+function build(items) {
+  if (!items.length) { feed.innerHTML = '<div class="empty">' + S.empty + '</div>'; return; }
+  items.forEach((it, i) => {
+    const reel = document.createElement('section');
+    reel.className = 'reel'; reel.dataset.index = i;
+    reel.innerHTML =
+      '<div class="frame"><img alt=""><video playsinline loop muted preload="none"></video><div class="sound"></div></div>' +
+      '<div class="info"><h2></h2><p></p></div><button class="pick"></button>' +
+      (i < items.length - 1 ? '<div class="hint"></div>' : '');
+    reel.querySelector('img').src = it.poster;
+    const v = reel.querySelector('video');
+    v.dataset.src = it.preview; v.poster = it.poster;
+    reel.querySelector('h2').textContent = it.name;
+    reel.querySelector('.info p').textContent = S.desc;
+    reel.querySelector('.sound').textContent = S.tap;
+    const b = reel.querySelector('.pick'); b.textContent = S.pick; b.onclick = () => choose(it.key, b);
+    const h = reel.querySelector('.hint'); if (h) h.textContent = S.hint;
+    reel.querySelector('.frame').onclick = () => {
+      soundOn = true; document.querySelectorAll('video').forEach((x) => (x.muted = !soundOn));
+      document.querySelectorAll('.sound').forEach((x) => (x.style.display = 'none'));
+      v.play().catch(() => {});
+    };
+    feed.appendChild(reel);
+  });
+  const count = document.getElementById('count');
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      const v = e.target.querySelector('video');
+      if (e.isIntersecting && e.intersectionRatio > 0.6) {
+        count.textContent = (+e.target.dataset.index + 1) + ' / ' + items.length;
+        // shu va keyingi videoni yuklaymiz
+        [e.target, e.target.nextElementSibling].forEach((r) => {
+          const x = r && r.querySelector('video'); if (x && !x.src) { x.src = x.dataset.src; x.load(); }
+        });
+        v.muted = !soundOn; v.currentTime = 0;
+        v.play().then(() => (e.target.querySelector('img').style.display = 'none')).catch(() => {});
+      } else { v.pause(); }
+    });
+  }, { threshold: [0, 0.6, 1] });
+  document.querySelectorAll('.reel').forEach((r) => io.observe(r));
+}
+
+fetch('/api/anim/list?lang=' + lang).then((r) => r.json()).then((j) => build(j.items || [])).catch(() => say(S.fail));
+</script>
+</body>
+</html>

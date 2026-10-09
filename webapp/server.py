@@ -1296,6 +1296,8 @@ def create_web_app() -> web.Application:
     from webapp.landing import setup_landing_routes
     setup_landing_routes(app)
     setup_book_routes(app)
+    from webapp.thanks_anim import setup_thanks_anim_routes
+    setup_thanks_anim_routes(app)
     from webapp.api import setup_api_routes
     setup_api_routes(app)
     return app
