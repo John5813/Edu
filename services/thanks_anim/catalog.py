@@ -36,6 +36,9 @@ def _a(key, uz, ru, en, source, **kw):
 
 
 ANIMATIONS: List[Animation] = [
+    # Mini oynada shu tartibda: birinchi ikkitasi kirganda birinchi ko'rinadi.
+    _a("paxmoq", "Paxmoq", "Пушистик", "Fluffy", "m09.mp4"),
+    _a("qizcha", "Qizcha", "Девочка", "Little girl", "m13.mp4"),
     _a("anime_qiz", "Anime qiz", "Аниме-девочка", "Anime girl", "m16.mp4"),
     _a("pul_mushuk", "Pul sanayotgan mushuk", "Кот считает деньги", "Cat counting money", "m10.mp4"),
     _a("hamster", "Hamster", "Хомяк", "Hamster", "m01.mp4"),
@@ -43,14 +46,12 @@ ANIMATIONS: List[Animation] = [
     _a("raqs_mushuk", "Raqsga tushayotgan mushuk", "Танцующий кот", "Dancing cat", "m06.mp4"),
     _a("mushukchalar", "Ikki mushukcha", "Два котёнка", "Two kittens", "m11.mp4"),
     _a("kuchukcha", "Raqqosa kuchukcha", "Танцующий щенок", "Dancing puppy", "m12.mp4"),
-    _a("paxmoq", "Paxmoq", "Пушистик", "Fluffy", "m09.mp4"),
     _a("timsoh", "Raqsga tushayotgan timsoh", "Танцующий крокодил", "Dancing crocodile", "m14.mp4"),
     _a("robot", "Robot", "Робот", "Robot", "m05.mp4"),
     _a("pul_yomgiri", "Pul yomg'iri", "Денежный дождь", "Money rain", "m15.mp4"),
     _a("kok_bolakay", "Ko'k bolakay", "Малыш в синем", "Kid in blue", "m02.mp4"),
     _a("oshpaz", "Oshpaz", "Повар", "Chef", "m07.mp4"),
     _a("qahramon", "Qahramon", "Герой", "Hero", "m08.mp4"),
-    _a("qizcha", "Qizcha", "Девочка", "Little girl", "m13.mp4"),
 ]
 BY_KEY = {a.key: a for a in ANIMATIONS}
 
