@@ -1604,14 +1604,62 @@ async def handle_database_management(message: Message, db: Database):
 
     await message.answer(text, reply_markup=get_admin_keyboard())
 
+# ───────── Reklama oqimi: har bosqichda oldingi savol va javoblar o'chadi
+#
+# Reklama bir necha bosqichda tayyorlanadi (material → matn → tugmalar → kimga → tasdiq). Ilgari har
+# bosqichning savoli, ko'rinishi va adminning javoblari chatda qolib, ekran to'lib ketardi. Endi oqimdagi
+# har xabar (botniki ham, adminniki ham) FSM da eslab qolinadi va keyingi bosqich boshlanishida o'chiriladi:
+# ekranda faqat joriy savol turadi. Reklama materiali file_id bilan saqlanadi — xabarni o'chirish unga
+# ta'sir qilmaydi.
+
+async def _track(state: FSMContext, *messages) -> None:
+    """Oqim xabarlarini eslab qoladi (keyingi bosqichda o'chiriladi)."""
+    ids = [m.message_id for m in messages if m is not None and getattr(m, "message_id", None)]
+    if ids:
+        data = await state.get_data()
+        await state.update_data(ad_msgs=list(data.get("ad_msgs") or []) + ids)
+
+
+async def _forget(bot, chat_id: int, state: FSMContext) -> None:
+    """Oldingi bosqichlarning xabarlarini o'chiradi."""
+    data = await state.get_data()
+    ids = list(data.get("ad_msgs") or [])
+    if not ids:
+        return
+    await state.update_data(ad_msgs=[])
+    for message_id in ids:
+        try:
+            await bot.delete_message(chat_id, message_id)
+        except Exception:           # allaqachon o'chirilgan yoki 48 soatdan eski
+            pass
+
+
+async def _say(message: Message, state: FSMContext, text: str, **kwargs) -> Message:
+    """Yangi bosqich: eski savol-javoblar o'chadi, yangi savol yuboriladi."""
+    await _forget(message.bot, message.chat.id, state)
+    sent = await message.answer(text, **kwargs)
+    await _track(state, sent)
+    return sent
+
+
+async def _note(message: Message, state: FSMContext, text: str, **kwargs) -> Message:
+    """Shu bosqich ichidagi izoh yoki xato: keyingi bosqichda o'chadi."""
+    sent = await message.answer(text, **kwargs)
+    await _track(state, sent)
+    return sent
+
+
 @router.message(F.text == "📤 Reklama yuborish")
 async def handle_broadcast_start(message: Message, state: FSMContext):
     """Start advertisement broadcast"""
     if not is_admin(message.from_user.id):
         return
 
+    await _forget(message.bot, message.chat.id, state)
     await state.clear()
-    await message.answer(
+    await _track(state, message)
+    await _note(
+        message, state,
         "📢 Reklama yuborish\n\n"
         "Reklama materialini yuboring:\n"
         "📝 Matn\n🖼 Rasm\n🎥 Video\n📄 Fayl\n🎞 GIF\n🎙 Ovozli xabar / 🎵 Audio\n\n"
@@ -1652,12 +1700,13 @@ async def handle_broadcast_message(message: Message, state: FSMContext):
     """Reklama materiali: matn, rasm, video, fayl, GIF, ovoz yoki audio."""
     if not is_admin(message.from_user.id):
         return
+    await _track(state, message)
 
     # Admin menyusidagi tugma (masalan "📊 Statistika") reklama matni bo'lib
     # qolmasin: ilgari shunday xabar hammaga ketib qolgan.
     if message.text and message.text.strip() in _admin_menu_labels():
-        await message.answer("⚠️ Bu admin menyusi tugmasi, reklama matni emas. Reklama materialini yuboring "
-                             "yoki /start bosib chiqing.")
+        await _note(message, state, "⚠️ Bu admin menyusi tugmasi, reklama matni emas. Reklama materialini "
+                                    "yuboring yoki /start bosib chiqing.")
         return
 
     # Matn va izoh HTML ko'rinishida saqlanadi: qalin, havola va boshqa
@@ -1678,7 +1727,7 @@ async def handle_broadcast_message(message: Message, state: FSMContext):
     elif message.audio:
         kind, fields = "audio", {"audio_id": message.audio.file_id, "caption": rich}
     else:
-        await message.answer("❌ Ushbu turdagi kontent qo'llab-quvvatlanmaydi.")
+        await _note(message, state, "❌ Ushbu turdagi kontent qo'llab-quvvatlanmaydi.")
         return
 
     await state.update_data(message_type=kind, buttons=[], target=None,
@@ -1709,12 +1758,12 @@ async def _text_step(message: Message, state: FSMContext):
     kind = data.get("message_type", "text")
     text = _ad_text(data)
     await state.set_state(AdminStates.waiting_for_broadcast_text)
+    await _forget(message.bot, message.chat.id, state)
     try:
-        await _send_ad(message.bot, message.chat.id, data)
+        await _track(state, await _send_ad(message.bot, message.chat.id, data))
     except Exception as exc:
-        await message.answer(f"❌ Matnda xato (Telegram qabul qilmadi): {exc}\n\n"
-                             "Matnni qaytadan yuboring.")
-        return await _ask_new_text(message, state)
+        return await _ask_new_text(message, state,
+                                   f"❌ Matnda xato (Telegram qabul qilmadi): {exc}\n\n")
     if kind == "text":
         prompt = "👆 Reklama matni shunday ko'rinadi. To'g'rimi yoki tahrirlaysizmi?"
     elif text:
@@ -1722,10 +1771,10 @@ async def _text_step(message: Message, state: FSMContext):
                   "To'g'rimi, tahrirlaysizmi yoki matnsiz yuboramizmi?")
     else:
         prompt = f"👆 {_KIND_LABEL[kind]} ostiga matn qo'shasizmi? Hozir matn yo'q."
-    await message.answer(prompt, reply_markup=_text_keyboard(kind, bool(text)))
+    await _note(message, state, prompt, reply_markup=_text_keyboard(kind, bool(text)))
 
 
-async def _ask_new_text(message: Message, state: FSMContext):
+async def _ask_new_text(message: Message, state: FSMContext, prefix: str = ""):
     data = await state.get_data()
     kind = data.get("message_type", "text")
     limit = TEXT_LIMIT if kind == "text" else CAPTION_LIMIT
@@ -1735,10 +1784,10 @@ async def _ask_new_text(message: Message, state: FSMContext):
     kb.adjust(1)
     hint = ("Yuqoridagi xabarni nusxalab, o'zgartirib yuborishingiz mumkin. "
             if _ad_text(data) else "")
-    await message.answer(
-        f"✏️ Yangi matnni yuboring (eng ko'pi bilan {limit} belgi).\n"
-        f"{hint}Qalin, kursiv va havolalar saqlanadi.",
-        reply_markup=kb.as_markup())
+    await _say(message, state,
+               f"{prefix}✏️ Yangi matnni yuboring (eng ko'pi bilan {limit} belgi).\n"
+               f"{hint}Qalin, kursiv va havolalar saqlanadi.",
+               reply_markup=kb.as_markup())
 
 
 @router.callback_query(F.data == "adtxt_edit", AdminStates.waiting_for_broadcast_text)
@@ -1762,16 +1811,18 @@ async def handle_ad_text_input(message: Message, state: FSMContext):
     """Admin yangi matn yubordi: tekshiriladi, saqlanadi va natija ko'rsatiladi."""
     if not is_admin(message.from_user.id):
         return
+    await _track(state, message)
     if not message.text:
-        await message.answer("❌ Matn yuboring (rasm yoki fayl emas). Reklama materialini o'zgartirish uchun "
-                             "«❌ Bekor qilish» va qayta boshlang.")
+        await _note(message, state, "❌ Matn yuboring (rasm yoki fayl emas). Reklama materialini o'zgartirish "
+                                    "uchun «❌ Bekor qilish» va qayta boshlang.")
         return
     data = await state.get_data()
     kind = data.get("message_type", "text")
     limit = TEXT_LIMIT if kind == "text" else CAPTION_LIMIT
     rich = message.html_text or ""
     if _plain_len(rich) > limit:
-        await message.answer(f"❌ Matn juda uzun: {_plain_len(rich)} belgi, ruxsat — {limit}. Qisqartirib qayta yuboring.")
+        await _note(message, state,
+                    f"❌ Matn juda uzun: {_plain_len(rich)} belgi, ruxsat — {limit}. Qisqartirib qayta yuboring.")
         return
     field = "message_text" if kind == "text" else "caption"
     await state.update_data(**{field: rich})
@@ -1795,7 +1846,7 @@ async def handle_ad_text_ok(callback: CallbackQuery, state: FSMContext, db: Data
         await state.update_data(caption="")
     data = await state.get_data()
     if data.get("message_type") == "text" and not _plain_len(data.get("message_text")):
-        await callback.message.answer("❌ Matn bo'sh bo'lmasin.")
+        await _note(callback.message, state, "❌ Matn bo'sh bo'lmasin.")
         return
     await _after_text(callback.message, state, db)
 
@@ -1811,7 +1862,7 @@ async def _ask_buttons(message: Message, state: FSMContext):
     else:
         text = ("🔘 Reklama ostiga tugma qo'shasizmi?\n\n"
                 "Tugma sayt, kanal, bot yoki botning o'z bo'limiga olib borishi mumkin.")
-    await message.answer(text, reply_markup=get_broadcast_buttons_keyboard(len(buttons)))
+    await _say(message, state, text, reply_markup=get_broadcast_buttons_keyboard(len(buttons)))
 
 
 def _buttons_summary(buttons: list) -> str:
@@ -1825,13 +1876,13 @@ def _buttons_summary(buttons: list) -> str:
     return "Tugmalar:\n" + "\n".join(lines)
 
 
-async def _show_buttons_menu(message: Message, state: FSMContext):
+async def _show_buttons_menu(message: Message, state: FSMContext, header: str = ""):
     """Hozirgi tugmalar ro'yxati va keyingi amal tugmalari."""
     data = await state.get_data()
     buttons = data.get("buttons") or []
     await state.set_state(AdminStates.waiting_for_broadcast_buttons)
-    await message.answer(_buttons_summary(buttons),
-                         reply_markup=get_broadcast_buttons_keyboard(len(buttons)))
+    await _say(message, state, header + _buttons_summary(buttons),
+               reply_markup=get_broadcast_buttons_keyboard(len(buttons)))
 
 
 @router.callback_query(F.data == "adbtn_add", StateFilter(
@@ -1844,10 +1895,10 @@ async def handle_broadcast_buttons_add(callback: CallbackQuery, state: FSMContex
     await callback.answer()
     data = await state.get_data()
     if len(data.get("buttons") or []) >= ad_buttons.MAX_BUTTONS:
-        await callback.message.answer(f"❌ Tugmalar {ad_buttons.MAX_BUTTONS} tadan oshmasin.")
+        await _note(callback.message, state, f"❌ Tugmalar {ad_buttons.MAX_BUTTONS} tadan oshmasin.")
         return
     await state.set_state(AdminStates.waiting_for_broadcast_buttons)
-    await callback.message.answer("Tugma nimaga olib borsin?", reply_markup=get_broadcast_button_type_keyboard())
+    await _say(callback.message, state, "Tugma nimaga olib borsin?", reply_markup=get_broadcast_button_type_keyboard())
 
 
 @router.callback_query(F.data == "adbtn_back", AdminStates.waiting_for_broadcast_buttons)
@@ -1874,7 +1925,8 @@ async def handle_broadcast_button_url_type(callback: CallbackQuery, state: FSMCo
     await callback.answer()
     me = await callback.bot.me()
     await state.set_state(AdminStates.waiting_for_ad_button_url)
-    await callback.message.answer(
+    await _say(
+        callback.message, state,
         "🔗 Manzilni yuboring (sayt, kanal yoki bot):\n\n"
         "• Sayt: <code>https://example.uz</code>\n"
         "• Kanal: <code>https://t.me/kanal_nomi</code>\n"
@@ -1886,13 +1938,15 @@ async def handle_broadcast_button_url_type(callback: CallbackQuery, state: FSMCo
 async def handle_broadcast_button_url(message: Message, state: FSMContext):
     if not is_admin(message.from_user.id):
         return
+    await _track(state, message)
     url = ad_buttons.normalize_link(message.text)
     if not url:
-        await message.answer("❌ Manzil tushunarsiz. Sayt (https://...), kanal (t.me/...) yoki @nom yuboring.")
+        await _note(message, state, "❌ Manzil tushunarsiz. Sayt (https://...), kanal (t.me/...) yoki @nom yuboring.")
         return
     await state.update_data(pending={"kind": "url", "value": url})
     await state.set_state(AdminStates.waiting_for_ad_button_label)
-    await message.answer(
+    await _say(
+        message, state,
         "✏️ Tugma ustiga yoziladigan nomni yozing.\n"
         "Foydalanuvchi faqat shu nomni ko'radi, manzilni emas.\n\n"
         "Masalan: «Saytga o'tish», «Kanalga obuna bo'lish»")
@@ -1903,7 +1957,7 @@ async def handle_broadcast_button_menu_type(callback: CallbackQuery, state: FSMC
     if not is_admin(callback.from_user.id):
         return
     await callback.answer()
-    await callback.message.answer("📲 Qaysi bo'limga olib borsin?", reply_markup=get_broadcast_sections_keyboard())
+    await _say(callback.message, state, "📲 Qaysi bo'limga olib borsin?", reply_markup=get_broadcast_sections_keyboard())
 
 
 @router.callback_query(F.data.startswith("adbtn_pick:"), AdminStates.waiting_for_broadcast_buttons)
@@ -1921,9 +1975,9 @@ async def handle_broadcast_button_pick(callback: CallbackQuery, state: FSMContex
     name = ad_buttons.target_name(key)
     kb = InlineKeyboardBuilder()
     kb.add(InlineKeyboardButton(text=f"«{name}» deb qoldirish", callback_data="adbtn_defname"))
-    await callback.message.answer(
-        f"✏️ Tugma ustiga yoziladigan nomni yozing yoki bo'lim nomini qoldiring:",
-        reply_markup=kb.as_markup())
+    await _say(callback.message, state,
+               "✏️ Tugma ustiga yoziladigan nomni yozing yoki bo'lim nomini qoldiring:",
+               reply_markup=kb.as_markup())
 
 
 async def _finish_button(message: Message, state: FSMContext, label: str):
@@ -1934,8 +1988,7 @@ async def _finish_button(message: Message, state: FSMContext, label: str):
     buttons = list(data.get("buttons") or [])
     buttons.append({"text": label, "kind": pending["kind"], "value": pending["value"]})
     await state.update_data(buttons=buttons, pending=None)
-    await message.answer("✅ Tugma qo'shildi.")
-    await _show_buttons_menu(message, state)
+    await _show_buttons_menu(message, state, "✅ Tugma qo'shildi.\n\n")
 
 
 @router.callback_query(F.data == "adbtn_defname", AdminStates.waiting_for_ad_button_label)
@@ -1954,9 +2007,10 @@ async def handle_broadcast_button_defname(callback: CallbackQuery, state: FSMCon
 async def handle_broadcast_button_label(message: Message, state: FSMContext):
     if not is_admin(message.from_user.id):
         return
+    await _track(state, message)
     label = message.text.strip()
     if not label or len(label) > ad_buttons.MAX_LABEL:
-        await message.answer(f"❌ Nom 1–{ad_buttons.MAX_LABEL} belgi bo'lsin. Qaytadan yozing.")
+        await _note(message, state, f"❌ Nom 1–{ad_buttons.MAX_LABEL} belgi bo'lsin. Qaytadan yozing.")
         return
     await _finish_button(message, state, label)
 
@@ -1982,7 +2036,8 @@ async def handle_broadcast_buttons_done(callback: CallbackQuery, state: FSMConte
     await callback.answer()
     data = await state.get_data()
     if not (data.get("buttons") or []):
-        await callback.message.answer("Avval kamida bitta tugma qo'shing yoki «Tugmasiz davom etish»ni bosing.")
+        await _note(callback.message, state,
+                    "Avval kamida bitta tugma qo'shing yoki «Tugmasiz davom etish»ni bosing.")
         return
     await _after_buttons(callback.message, state, db)
 
@@ -1996,10 +2051,7 @@ async def _after_buttons(message: Message, state: FSMContext, db: Database):
 
 
 async def _ask_broadcast_target(message: Message, state: FSMContext):
-    await message.answer(
-        "👥 Kimga reklama yuborilsin?",
-        reply_markup=get_broadcast_target_keyboard()
-    )
+    await _say(message, state, "👥 Kimga reklama yuborilsin?", reply_markup=get_broadcast_target_keyboard())
     await state.set_state(AdminStates.waiting_for_broadcast_target)
 
 
@@ -2064,11 +2116,13 @@ async def _show_confirm(message: Message, state: FSMContext, db: Database):
     """Yakuniy ko'rinish (tugmalar bilan) + xulosa + «Tasdiqlash»."""
     data = await state.get_data()
     buttons = data.get("buttons") or []
+    await _forget(message.bot, message.chat.id, state)
     try:
-        await _send_ad(message.bot, message.chat.id, data, ad_buttons.markup(buttons))
+        await _track(state, await _send_ad(message.bot, message.chat.id, data, ad_buttons.markup(buttons)))
     except Exception as exc:
         # Masalan, Telegram havolani qabul qilmagan: foydalanuvchilarga ketguncha bilinadi.
-        await message.answer(
+        await _note(
+            message, state,
             f"❌ Telegram reklamani qabul qilmadi: {exc}\n\n"
             "Odatda sabab — noto'g'ri tugma manzili yoki matndagi xato. Tugmalarni tekshiring.",
             reply_markup=get_broadcast_buttons_keyboard(len(buttons)))
@@ -2080,7 +2134,8 @@ async def _show_confirm(message: Message, state: FSMContext, db: Database):
     text = _ad_text(data)
     await state.update_data(return_confirm=True)
     await state.set_state(AdminStates.waiting_for_broadcast_confirm)
-    await message.answer(
+    await _note(
+        message, state,
         "📢 <b>Reklamani tasdiqlang</b>\n\n"
         f"📎 Tur: {_KIND_LABEL.get(kind, kind)}\n"
         f"📝 Matn: {'bor, ' + str(_plain_len(text)) + ' belgi' if text else 'yo‘q'}\n"
@@ -2122,6 +2177,7 @@ async def handle_ad_edit_audience(callback: CallbackQuery, state: FSMContext):
 async def handle_ad_cancel(callback: CallbackQuery, state: FSMContext):
     if not is_admin(callback.from_user.id):
         return
+    await _forget(callback.bot, callback.message.chat.id, state)
     await state.clear()
     await callback.answer("Bekor qilindi")
     await callback.message.answer("❌ Reklama bekor qilindi. Hech kimga yuborilmadi.")
@@ -2135,10 +2191,12 @@ async def handle_ad_confirmed(callback: CallbackQuery, state: FSMContext, db: Da
     data = await state.get_data()
     await state.clear()
     await callback.answer()
-    try:
-        await callback.message.edit_reply_markup(reply_markup=None)
-    except Exception:
-        pass
+    # Tayyorlash bosqichlarining xabarlari o'chadi: chatda faqat yuborish natijasi qoladi.
+    for message_id in data.get("ad_msgs") or []:
+        try:
+            await callback.bot.delete_message(callback.message.chat.id, message_id)
+        except Exception:
+            pass
     users = await _target_users(db, data.get("target") or "all")
     progress = await callback.message.answer(f"📢 Yuborilmoqda... 0/{len(users)}")
     sent, failed, blocked = await _deliver(callback.bot, users, data, progress)
