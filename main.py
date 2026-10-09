@@ -153,67 +153,73 @@ def cleanup_temp_files() -> int:
 
 
 async def generate_daily_excel(date_str: str) -> bytes:
-    """Generate Excel file of users who registered on date_str (YYYY-MM-DD)."""
+    """Kunlik hisobot Excel (date_str — YYYY-MM-DD, O'zbekiston vaqti bilan).
+
+    1-varaq: shu kuni ro'yxatdan o'tganlar — balansi va alohida ustunlarda qancha to'lov qilgani.
+    2-varaq: shu kungi barcha tasdiqlangan to'lovlar — mijoz yangi (shu kuni /start bosgan) yoki eski.
+    """
     import openpyxl
     from openpyxl.styles import Font, PatternFill, Alignment
-    from database.database import DATABASE_FILE
-    import aiosqlite
+    from services import daily_stats
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = f"Yangi foydalanuvchilar"
-
-    # Header style
     header_font = Font(bold=True, color="FFFFFF")
     header_fill = PatternFill("solid", fgColor="2E86C1")
-    headers = ["№", "Telegram ID", "Ism", "Username", "Til", "Balans (so'm)", "Ro'yxatdan o'tgan vaqt"]
-    col_widths = [5, 15, 20, 20, 6, 15, 22]
-
-    for col_idx, (header, width) in enumerate(zip(headers, col_widths), 1):
-        cell = ws.cell(row=1, column=col_idx, value=header)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = Alignment(horizontal="center", vertical="center")
-        ws.column_dimensions[ws.cell(row=1, column=col_idx).column_letter].width = width
-
-    ws.row_dimensions[1].height = 20
-
-    # Fetch users
-    async with aiosqlite.connect(DATABASE_FILE) as db_conn:
-        db_conn.row_factory = aiosqlite.Row
-        async with db_conn.execute(
-            "SELECT telegram_id, first_name, username, language, balance, created_at "
-            "FROM users WHERE date(created_at) = ? ORDER BY created_at",
-            (date_str,)
-        ) as cursor:
-            rows = await cursor.fetchall()
-
     even_fill = PatternFill("solid", fgColor="EBF5FB")
-    for row_idx, row in enumerate(rows, 2):
-        username = f"@{row['username']}" if row['username'] else "—"
-        created = row['created_at'] or ""
-        # Trim microseconds if present
-        if "." in created:
-            created = created[:19]
-        values = [
-            row_idx - 1,
-            row['telegram_id'],
-            row['first_name'] or "—",
-            username,
-            (row['language'] or "uz").upper(),
-            row['balance'] or 0,
-            created,
-        ]
-        for col_idx, val in enumerate(values, 1):
-            cell = ws.cell(row=row_idx, column=col_idx, value=val)
-            cell.alignment = Alignment(horizontal="left", vertical="center")
-            if row_idx % 2 == 0:
-                cell.fill = even_fill
+    paid_fill = PatternFill("solid", fgColor="D5F5E3")
+    bold = Font(bold=True)
 
-    # Summary row
-    summary_row = len(rows) + 2
-    ws.cell(row=summary_row, column=1, value="Jami:").font = Font(bold=True)
-    ws.cell(row=summary_row, column=2, value=len(rows)).font = Font(bold=True)
+    def table(ws, headers, widths, rows, highlight=None):
+        for col_idx, (header, width) in enumerate(zip(headers, widths), 1):
+            cell = ws.cell(row=1, column=col_idx, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            ws.column_dimensions[cell.column_letter].width = width
+        ws.row_dimensions[1].height = 30
+        ws.freeze_panes = "A2"
+        for row_idx, values in enumerate(rows, 2):
+            for col_idx, val in enumerate(values, 1):
+                cell = ws.cell(row=row_idx, column=col_idx, value=val)
+                cell.alignment = Alignment(horizontal="left", vertical="center")
+                if highlight and highlight(values):
+                    cell.fill = paid_fill
+                elif row_idx % 2 == 0:
+                    cell.fill = even_fill
+        return len(rows) + 3          # jamlanma qatori shu yerdan boshlanadi
+
+    def total(ws, row, label, value):
+        ws.cell(row=row, column=1, value=label).font = bold
+        ws.cell(row=row, column=3, value=value).font = bold
+
+    wb = openpyxl.Workbook()
+
+    # 1) Yangi foydalanuvchilar va ularning to'lovlari
+    ws = wb.active
+    ws.title = "Yangi foydalanuvchilar"
+    users = await daily_stats.new_users(date_str)
+    rows = [[i, u["telegram_id"], u["first_name"] or "—", f"@{u['username']}" if u["username"] else "—",
+             (u["language"] or "uz").upper(), u["balance"] or 0, u["paid_count"], u["paid_sum"],
+             (u["joined"] or "")[:19]] for i, u in enumerate(users, 1)]
+    at = table(ws, ["№", "Telegram ID", "Ism", "Username", "Til", "Balans (so'm)", "To'lovlar soni",
+                    "To'lagan (so'm)", "Ro'yxatdan o'tgan vaqt"],
+               [5, 15, 20, 20, 6, 14, 12, 15, 22], rows, highlight=lambda v: v[7] > 0)
+    paid = [u for u in users if u["paid_count"]]
+    total(ws, at, "Jami ro'yxatdan o'tganlar:", len(users))
+    total(ws, at + 1, "Shulardan to'lov qilganlar:", len(paid))
+    total(ws, at + 2, "Ular to'lagan summa (so'm):", sum(u["paid_sum"] for u in paid))
+
+    # 2) Kunning barcha to'lovlari: yangi va eski mijozlar
+    ws = wb.create_sheet("Bugungi to'lovlar")
+    payments = await daily_stats.payments_of_day(date_str)
+    rows = [[i, p["telegram_id"], p["first_name"] or "—", f"@{p['username']}" if p["username"] else "—",
+             p["amount"], "Yangi" if p["is_new"] else "Eski", "Sayt" if p["source"] == "web" else "Bot",
+             (p["paid_at"] or "")[:19]] for i, p in enumerate(payments, 1)]
+    at = table(ws, ["№", "Telegram ID", "Ism", "Username", "Summa (so'm)", "Mijoz", "Qayerdan", "To'lov vaqti"],
+               [5, 15, 20, 20, 14, 10, 10, 22], rows, highlight=lambda v: v[5] == "Yangi")
+    stats = await daily_stats.payment_breakdown(date_str)
+    total(ws, at, "Jami to'lovlar:", f"{stats['payments']} ta — {stats['revenue']:,} so'm")
+    total(ws, at + 1, "Yangi mijozlardan:", f"{stats['new_payments']} ta — {stats['new_sum']:,} so'm")
+    total(ws, at + 2, "Eski mijozlardan:", f"{stats['old_payments']} ta — {stats['old_sum']:,} so'm")
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -250,9 +256,16 @@ async def daily_user_report(bot: Bot):
             continue
 
         filename = f"yangi_foydalanuvchilar_{report_date}.xlsx"
+        try:
+            from services import daily_stats
+            summary = daily_stats.summary_text(await daily_stats.payment_breakdown(report_date))
+        except Exception as exc:
+            logger.warning(f"Kunlik to'lov statistikasi olinmadi: {exc}")
+            summary = ""
         caption = (
             f"📊 <b>Kunlik hisobot — {display_date}</b>\n\n"
-            f"Bugun ro'yxatdan o'tgan foydalanuvchilar ro'yxati."
+            f"{summary}\n"
+            f"Faylda: yangi foydalanuvchilar (har birining to'lovi alohida ustunda) va bugungi to'lovlar."
         )
         from config import ADMIN_IDS
         for admin_id in ADMIN_IDS:
