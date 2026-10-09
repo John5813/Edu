@@ -1547,8 +1547,10 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
     try:
         from aiogram.types import FSInputFile
         document = FSInputFile(final_path, filename=filename)
-        await callback.message.answer_document(
-            document=document, caption=anim_note(lang) if _text_anim_choice(data) else None)
+        await callback.message.answer_document(document=document)
+        if _text_anim_choice(data):          # ogohlantirish fayl izohida emas, alohida xabar
+            with contextlib.suppress(Exception):
+                await callback.message.answer(anim_note(lang))
         logger.info("Premium taqdimot yuborildi: %s → %s", final_path, callback.from_user.id)
         await _offer_thanks_anim(callback, db, final_path, topic=topic, data=data, language=presentation_language,
                                  author=client_name, filename=filename, lang=lang)
@@ -1623,6 +1625,17 @@ async def _offer_thanks_anim(callback: CallbackQuery, db: Database, final_path: 
             await callback.message.answer(thanks_anim.offer_text(lang), reply_markup=kb)
     except Exception as exc:  # taklif chiqmasa ham taqdimot allaqachon yuborilgan
         logger.warning("Rahmat animatsiyasi tugmasi chiqmadi: %s", exc)
+
+
+@router.callback_query(F.data.startswith("tanim_no:"))
+async def premium_ppt_thanks_anim_decline(callback: CallbackQuery):
+    """"❌ Kerak emas": taklif xabari o'chadi, saqlangan nusxa ham o'chiriladi."""
+    from services import thanks_anim
+
+    await callback.answer()
+    thanks_anim.decline(callback.data.split(":", 1)[1], callback.from_user.id)
+    with contextlib.suppress(Exception):
+        await callback.message.delete()
 
 
 _last_credit_warning = 0.0
