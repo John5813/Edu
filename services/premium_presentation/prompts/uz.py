@@ -43,8 +43,8 @@ QAT'IY QOIDALAR:
    Tashqi havola, emoji — yo'q.
 4. DIAGRAMMA uchun faqat ma'lumot ber: `.chart` blokiga yorliqlar va
    qiymatlarni yoz — halqa, chiziqli va ustunli diagrammani tizim
-   o'zi chiroyli chizadi (o'q, shkala, ranglar bilan). Shu sababli
-   diagrammadan qo'rqma, undan keng foydalan; faqat `<svg>` yozma.
+   o'zi chiroyli chizadi (o'q, shkala, ranglar bilan); `<svg>` yozma.
+   Diagramma faqat rejada "diagramma" deb belgilangan slaydda bo'ladi.
 5. Bir varaqqa qancha sig'ishining YUQORI chegarasi (bu talab
    emas — shuncha bo'lishi kerak emas, shundan OSHMASIN):
    - kartochka 4 tadan oshmasin, izohi 2 gapdan oshmasin;
@@ -281,18 +281,18 @@ BRIEF_FALLBACK = ("⟨topic⟩ — ⟨n⟩-slayd: mavzuning oldingi slaydlarda "
 
 PLAN = {
     "system": "Sen taqdimot rejasini tuzasan. Faqat JSON qaytar.",
-    "chart": ("Rejada kamida ⟨quota⟩ ta slayd 'diagramma' kategoriyasida bo'lsin⟨donut⟩"
-              ": diagramma taqdimotni jonlantiradi. Diagramma uchun alohida tahlilchi "
-              "HAQIQIY statistik ma'lumot (rasmiy manba, so'nggi yillar) topadi, shuning "
-              "uchun diagramma faqat real raqamlar mavjud mavzuga qo'yilsin: iqtisod, "
-              "demografiya, ta'lim, sog'liqni saqlash, ekologiya, texnologiya va h.k. Diagramma "
-              "taqdimot mavzusining o'zi haqidagi raqamlarni ko'rsatsin va rejada mazmunan o'z "
-              "o'rnida — o'sha masala ochiladigan joyda tursin.\n"),
+    "chart": ("Diagramma IXTIYORIY. 'diagramma' kategoriyasini faqat mavzuning o'zida rasmiy "
+              "statistikasi bor, o'lchanadigan ko'rsatkich (ulush, yillar dinamikasi, solishtirish) ochiladigan "
+              "slaydga qo'ying — butun rejada ko'pi bilan ⟨quota⟩ ta⟨donut⟩. Diagramma uchun alohida tahlilchi "
+              "HAQIQIY ma'lumot (rasmiy manba, o'tgan yillar) topadi. Ikki diagramma bir xil ko'rsatkichni "
+              "ko'rsatmasin; kelajak prognozi, reyting yoki baho uchun diagramma qo'yilmaydi. Mavzu bunday "
+              "raqamlar haqida bo'lmasa (tarix, madaniyat, adabiyot, tushuncha, jarayon ...) — diagramma "
+              "qo'ymang: raqamni faqat raqam o'rinli bo'lsa kiritish kerak.\n"),
     "narrative": ("Bu mavzu voqealar, shaxslar va g'oyalar rivoji haqida: rejani xronologik yoki mantiqiy "
                   "ketma-ketlikda tuzing — har slayd oldingisidan kelib chiqsin va mavzuning o'ziga "
                   "(davrlari, harakatlari, shaxslari, hujjatlari, g'oyalari) bag'ishlansin. Diagramma o'rniga "
                   "vaqt o'qi, bosqichlar, qiyoslash va iqtiboslardan foydalaning.\n"),
-    "donut": " (ulardan biri ulushlar uchun halqa)",
+    "donut": " (ulushlar bo'lsa — biri halqa)",
     "main": (
         'Mavzu: "⟨topic⟩"\n\n'
         "Shu mavzuda ⟨count⟩ slaydli taqdimot rejasini tuz. Har slayd "

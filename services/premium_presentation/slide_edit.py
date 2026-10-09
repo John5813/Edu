@@ -279,7 +279,7 @@ async def _rewrite(deck: dict, index: int, instruction: str, shots_dir: str,
     if plan["category"] == "diagramma":
         report("writing", 18)
         await asyncio.to_thread(chart_data.ground, [item], deck.get("topic", ""), language,
-                                int(deck.get("level") or 2))
+                                int(deck.get("level") or 2), illustrative=True)
         plan.update({k: item[k] for k in ("chart", "chart_note", "chart_fallback") if k in item})
 
     report("writing", 32)

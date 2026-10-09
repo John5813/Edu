@@ -231,9 +231,10 @@ def plan_outline(topic: str, count: int, language: str,
     P = prompts.get(language)
     T = P.PLAN
     # Oila reja kelgunga qadar mavzu nomidan taxmin qilinadi: tarixiy va gumanitar mavzuda reja voqealar
-    # ketma-ketligi bo'yicha tuziladi, diagramma kvotasi so'ralmaydi.
+    # ketma-ketligi bo'yicha tuziladi, diagramma so'ralmaydi. Boshqa mavzularda diagramma ixtiyoriy:
+    # promptda faqat yuqori chegara aytiladi.
     guess = deck_shape.of(topic)
-    quota = deck_logic.chart_quota(count, guess)
+    quota = deck_logic.chart_limit(count, guess)
     chart_rule = prompts.fill(T["chart"], quota=quota, donut=T["donut"] if quota >= 2 else "") if quota else ""
     if guess in deck_logic.NARRATIVE:
         chart_rule = T["narrative"]
@@ -305,46 +306,29 @@ def plan_outline(topic: str, count: int, language: str,
     # Kod darajasida kategoriya almashtirilmaydi (ilgari shunday edi va
     # mantiqan ketma-ket kelishi kerak bo'lgan ikki ro'yxatni ajratib,
     # fikrni uzardi). Bir xillikdan qochishni model promptdagi yo'riqnoma
-    # bo'yicha o'zi qiladi. Faqat diagramma soni kafolatlanadi.
+    # bo'yicha o'zi qiladi. Diagramma soni faqat yuqoridan cheklanadi, rasm soni kafolatlanadi.
     return {"family": family, "slides": outline}
 
 
-# Diagramma soni promptdagi iltimosga qoldirilmaydi: ilgari "raqam
-# bo'lmasa diagramma yozmang" qoidasi modelni diagrammani butunlay
-# chetlab o'tishga olib kelgan edi. Reja yetarli diagramma bermasa, mos
-# slaydlar shu yerda diagrammali qilib belgilanadi.
-_CHART_CANDIDATES = ("korsatkichlar", "kartalar", "ikki_ustun", "qiyoslash",
-                     "jadval", "tuzilma")
+# Diagramma MAJBURLANMAYDI. Ilgari reja diagramma bermasa, kod "kamida N ta" kvota uchun mos slaydlarni
+# o'zi diagrammali qilardi — har mavzuga (tarix, turizm, adabiyot ...) statistika tiqilib, bir xil
+# ko'rsatkich ikki slaydda takrorlanardi. Endi diagrammani faqat reja (mavzuda haqiqiy raqam bo'lsa)
+# qo'yadi; kod faqat yuqori chegarani saqlaydi: ortiqchalari va tarixiy mavzudagilari oddiy slaydga qaytadi.
+_CHART_FALLBACK = "ikki_ustun"
 
 
 def ensure_charts(outline: List[Dict], language: str = "uz", family: str = "") -> List[Dict]:
-    count = len(outline)
-    want = deck_logic.chart_quota(count, family)
-    have = [i for i, item in enumerate(outline) if item["category"] == "diagramma"]
-    need = want - len(have)
-    if need <= 0:
-        return outline
-    candidates = [i for i in range(2, count - 1)
-                  if outline[i]["category"] in _CHART_CANDIDATES]
-    if len(candidates) < need:       # mos kategoriya yetmasa boshqa oddiy slaydlardan
-        extra = [i for i in range(2, count - 1)
-                 if outline[i]["category"] not in ("diagramma", "formula", "misol", "iqtibos", "matn_rasm")
-                 and i not in candidates]
-        candidates += extra
-    candidates = [i for i in candidates if i not in have]
-    if not candidates:
-        return outline
-    chosen = deck_logic.pick_even(candidates, min(need, len(candidates)))
-    for order, index in enumerate(chosen):
-        item = outline[index]
-        kind = deck_logic.chart_kind_for(f"{item['title']} {item['brief']}",
-                                         order + len(have))
-        if want >= 2 and order == 0 and not any(i.get("chart_kind") == "halqa" for i in outline):
-            kind = "halqa"            # bir nechta diagrammadan biri halqa bo'lsin
-        item["was"] = item["category"]      # haqiqiy ma'lumot topilmasa shu kategoriyaga qaytadi
-        item["category"] = "diagramma"
-        item["chart_kind"] = kind
-        log.info("%d-slayd diagrammali qilib belgilandi (%s)", index + 1, kind)
+    limit = deck_logic.chart_limit(len(outline), family)
+    kept = 0
+    for index, item in enumerate(outline):
+        if item["category"] != "diagramma":
+            continue
+        if kept < limit:
+            kept += 1
+            continue
+        item["category"] = item.pop("was", None) or _CHART_FALLBACK
+        item.pop("chart_kind", None)
+        log.info("%d-slayd: diagramma chegaradan ortiq yoki mavzuga mos emas — %s", index + 1, item["category"])
     return outline
 
 

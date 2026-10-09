@@ -24,8 +24,8 @@ FIRM RULES:
    External links and emoji are not used.
 4. For a CHART give only the data: write labels and values into the `.chart`
    block — the system itself draws beautiful donut, line and bar charts
-   (with axes, scales and colours). So use charts freely; just do not write
-   `<svg>`.
+   (with axes, scales and colours); do not write `<svg>`. A chart appears
+   only on a slide the plan marks as "diagramma".
 5. The UPPER limit of what fits on one slide (this is a ceiling, not a target —
    stay within it):
    - at most 4 cards, each note at most 2 sentences;
@@ -568,16 +568,18 @@ BRIEF_FALLBACK = ("⟨topic⟩ — slide ⟨n⟩: a NEW aspect of the topic not 
 
 PLAN = {
     "system": "You build presentation outlines. Reply with JSON only.",
-    "chart": ("At least ⟨quota⟩ slides in the outline are in the 'diagramma' category⟨donut⟩: charts bring "
-              "the deck to life. A separate analyst finds REAL statistical data for each chart (official "
-              "sources, recent years), so charts go to topics where real numbers exist: economics, "
-              "demography, education, health, ecology, technology and so on. A chart shows figures about the "
-              "deck's own topic and sits in the outline where its question is discussed.\n"),
+    "chart": ("A chart is NOT REQUIRED. Use the 'diagramma' category only for a slide that discusses a "
+              "measurable indicator of the topic itself with official statistics (shares, change over the "
+              "years, comparison) — at most ⟨quota⟩ in the whole outline⟨donut⟩. A separate analyst finds REAL "
+              "data for each chart (official source, past years). Two charts must not show the same indicator; "
+              "forecasts, rankings and ratings are not charted. If the topic is not about such numbers "
+              "(history, culture, literature, a concept, a process ...) — add no chart: numbers belong only "
+              "where they fit.\n"),
     "narrative": ("This topic is about how events, people and ideas developed: build the outline in chronological "
                   "or logical order — each slide grows out of the previous one and is devoted to the topic itself "
                   "(its periods, movements, people, documents, ideas). Use a timeline, stages, comparisons and "
                   "quotes in place of charts.\n"),
-    "donut": " (one of them a donut for shares)",
+    "donut": " (if there are shares — one of them a donut)",
     "main": (
         'Topic: "⟨topic⟩"\n\n'
         "Build the outline of a ⟨count⟩-slide presentation on this topic. For each slide give a short "

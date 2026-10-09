@@ -369,7 +369,7 @@ section.slide.reja .cols>.card{padding:30px 34px;gap:10px;min-height:0}
 section.slide.reja .cols>.card .card-num{font-size:38px;line-height:1}
 section.slide.reja .cols>.card .card-title{font-size:36px;line-height:1.2}
 section.slide.reja .cols>.card .card-note{font-size:28px;line-height:1.35}
-section.slide.reja .cols{row-gap:36px;column-gap:28px}
+section.slide.reja .cols{row-gap:36px;column-gap:28px;grid-auto-rows:1fr}
 
 /* Rasmli bo'linmada mazmun sig'masa rasm torayadi, matn kengayadi: matn
    shrift kichraymasdan sig'sin (rasm ham kichik bo'lsa bo'ladi, matn emas). */

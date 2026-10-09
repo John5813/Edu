@@ -393,6 +393,10 @@ transform:translateY(-6px)}
 padding:110px 96px 120px;gap:40px;justify-content:flex-end;
 background:linear-gradient(160deg,#BAND 0%,#BANDDEEP 100%)}
 .slide.cover-photo .title.big{font-size:112px;line-height:1.15;color:#INVERT}
+/* Uzun mavzu nomi: sig'dirish bosqichlarida sarlavha kichrayadi (umumiy `.fit2 .title` bu yerga yetmaydi). */
+.slide.cover-photo.fit1 .title.big{font-size:96px}
+.slide.cover-photo.fit2 .title.big{font-size:84px}
+.slide.cover-photo.fit3 .title.big{font-size:72px}
 .slide.cover-photo .cover-text .lead,.slide.cover-photo .cover-text .sub,
 .slide.cover-photo .cover-text .note{color:#SOFTINK;font-size:40px;line-height:1.4}
 .slide.cover-photo .cover-text .rule{background:#GLOWINK;width:120px;height:8px}

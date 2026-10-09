@@ -413,8 +413,9 @@ def check_no_quotas():
           " ".join(pieces[f"oila:{key}"] for key in deck_shape.FAMILY_KEYS))
     check("har oilada diagramma o'rinli deyilgan",
           all("DIAGRAMMA" in pieces[f"oila:{key}"] for key in deck_shape.FAMILY_KEYS if key != "hisob"))
-    check("reja so'rovida diagramma kvotasi ijobiy aytilgan",
-          "diagramma" in pieces["reja so'rovi"].lower() and "kamida" in pieces["reja so'rovi"].lower())
+    check("reja so'rovida diagramma ixtiyoriy, faqat yuqori chegara",
+          "diagramma" in pieces["reja so'rovi"].lower() and "ko'pi bilan" in pieces["reja so'rovi"].lower()
+          and "kamida 1" not in pieces["reja so'rovi"].lower())
     check("so'rovda to'g'ri blok tanlash aytilgan",
           "BLOKNI TO'G'RI TANLANG" in pieces["slayd so'rovi"])
 
@@ -476,7 +477,7 @@ def check_outline():
     # Gumanitar mavzuda diagramma majburlanmaydi: kvota uchun qo'yilgan begona statistika slaydi
     # taqdimotning fikrini uzardi (raqamli mavzularda kvota avvalgidek — test_taqdimot_mantiq.py).
     check("gumanitar mavzuda diagramma majburlanmaydi",
-          sum(1 for c in middle if c == "diagramma") == deck_logic.chart_quota(8, "gumanitar") == 0, str(middle))
+          sum(1 for c in middle if c == "diagramma") == deck_logic.chart_limit(8, "gumanitar") == 0, str(middle))
     check("rejada xilma-xillik kvotasi yo'q",
           "kamida oltita" not in seen["prompt"], "")
     check("rejada mazmunga qarab tanlash aytilgan",
@@ -506,7 +507,7 @@ def check_outline():
     check("zaxirada raqamga tayanadigan boshqa kategoriya yo'q",
           not (kinds & {"korsatkichlar", "jadval", "vaqt_oqi"}), str(kinds))
     check("zaxirada ham diagramma kvotasi mavzuga mos (gumanitar — majburiy emas)",
-          sum(1 for o in fallback["slides"] if o["category"] == "diagramma") == deck_logic.chart_quota(6, "gumanitar"),
+          sum(1 for o in fallback["slides"] if o["category"] == "diagramma") == deck_logic.chart_limit(6, "gumanitar"),
           str(kinds))
 
 
