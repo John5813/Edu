@@ -234,9 +234,23 @@ def _settle(pages: List[str], theme, language: str, shots_dir: str) -> List[str]
     return final
 
 
-def build_pptx(pages: List[str], out_dir: str) -> str:
-    """Taqdimotning yakuniy sahifalaridan tahrirlanadigan PPTX (tuzatishsiz: sahifalar allaqachon yakuniy)."""
-    return html_render.render(pages, out_dir=out_dir, name="taqdimot")
+def build_pptx(pages: List[str], out_dir: str, deck: Optional[dict] = None) -> str:
+    """Taqdimotning yakuniy sahifalaridan tahrirlanadigan PPTX (tuzatishsiz: sahifalar allaqachon yakuniy).
+
+    Kam matnli taqdimot vektor dizayner bilan yig'iladi — saqlangan urug' (`design_seed`) bilan, shunda
+    qayta yig'ilganda ham sahifalar o'sha uslublarda chiqadi.
+    """
+    designer = None
+    if deck and deck.get("volume") == "kam":
+        from .designer import Designer
+
+        designer = Designer(_theme(deck), deck.get("topic", ""), seed=deck.get("design_seed"))
+    try:
+        return html_render.render(pages, out_dir=out_dir, name="taqdimot",
+                                  native=designer.draw if designer else None)
+    finally:
+        if designer:
+            designer.close()
 
 
 async def rewrite(deck: dict, index: int, instruction: str, shots_dir: str,

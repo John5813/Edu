@@ -149,7 +149,7 @@ LAYOUTS: Dict[str, str] = {
     <p class="lead">…</p>
     <div class="k-row">
       <div class="k-card"><p class="k-h">…</p><p class="k-d">…</p></div>
-      … (2-4 × k-card)
+      … (3-5 × k-card)
     </div>
   </div>
 </section>""",
@@ -164,7 +164,10 @@ LAYOUTS: Dict[str, str] = {
 }
 
 # Rasm joyi navbatma-navbat almashadigan kompozitsiyalar ("matn_rasm" kategoriyasi).
-PHOTO_LAYOUTS = ("rasm_chap", "rasm_fon", "rasm_ong", "rasm_tepa")
+PHOTO_LAYOUTS = ("rasm_chap", "rasm_ong", "rasm_tepa")
+# Endi yozilmaydigan kompozitsiyalar: "butun fon rasm, ustida oq karta" juda oddiy ko'rinardi. Qolipi
+# faqat avval saqlangan taqdimotlarni o'qish uchun turadi; modelga taklif qilinmaydi.
+RETIRED = ("rasm_fon",)
 # Rasmi bo'lgan kompozitsiyalar (rasm kvotasini hisoblashda).
 WITH_PHOTO = PHOTO_LAYOUTS + ("iqtibos",)
 # Rasm ixtiyoriy kompozitsiyalar: rasm kvotasidan ortiq bo'lsa rasm bloki olib tashlanadi.
@@ -226,6 +229,8 @@ def catalogue(language: str = "uz") -> str:
     texts_chart = prompts.get(language).KAM["chart_slot"]
     parts = []
     for key, html in LAYOUTS.items():
+        if key in RETIRED:
+            continue
         note = texts.get(key)
         if note:
             parts.append(f"[{key}] — {note}\n" + html.replace("⟨chart⟩", texts_chart))

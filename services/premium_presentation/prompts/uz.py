@@ -604,7 +604,7 @@ QAT'IY QOIDALAR:
                    "tushuncha nima (15 so'zgacha) va k-p — qanday ishlatiladi, 1-2 gap (30 so'zgacha).",
         "misol": "ishlangan misol: misol-tag — «Misol»; misol-task — shart (25 so'zgacha); 2-4 qadam (har biri "
                  "bitta formula yoki 12 so'zgacha gap); misol-answer — javob. O'ngda tor rasm.",
-        "kartalar": "faqat 2-4 ta TENG HUQUQLI element (turlar, tarkib): lead — umumlashtiruvchi gap (15 "
+        "kartalar": "faqat 3-5 ta TENG HUQUQLI element (turlar, tarkib): lead — umumlashtiruvchi gap (15 "
                     "so'zgacha); har k-card: k-h — 1-4 so'z, k-d — 15 so'zgacha.",
         "yakun": "oxirgi slayd, to'q fonda: title — «Xulosa»; lead — butun taqdimotning asosiy xulosasi (18 "
                  "so'zgacha); 3 ta k-ln — asosiy fikrlar (har biri 12 so'zgacha). Rasm yo'q.",

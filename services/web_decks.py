@@ -116,7 +116,8 @@ def create(job_id: str, params: dict, data: dict) -> None:
         "volume": params.get("volume", "kop"), "theme_key": data.get("theme_key", ""), "author": params.get("author", ""),
         "preferences": params.get("preferences", ""), "source_text": (params.get("source_text") or "")[:4000],
         "level": 2, "family": data.get("family", ""), "outline": data.get("outline") or [],
-        "pages": pages, "titles": titles_of(pages), "version": 1, "history": [], "created": time.time()}
+        "pages": pages, "titles": titles_of(pages), "version": 1, "history": [], "created": time.time(),
+        "design_seed": data.get("design_seed")}
     store_shots(job_id, shots)
     save(job_id, deck)
     if folder:
@@ -250,7 +251,7 @@ async def ensure_pptx(job_id: str, target: str) -> None:
             return
         work = tempfile.mkdtemp(prefix="manualpptx_")
         try:
-            path = await asyncio.to_thread(slide_edit.build_pptx, deck["pages"], work)
+            path = await asyncio.to_thread(slide_edit.build_pptx, deck["pages"], work, deck)
             tmp = target + ".new"
             shutil.copyfile(path, tmp)
             os.replace(tmp, target)

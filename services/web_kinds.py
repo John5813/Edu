@@ -501,7 +501,7 @@ async def _rewrite_run(params: Dict, report: Report) -> Tuple[str, str]:
             for number, html in result["pages"].items():
                 pages[number] = html
             report("render", 84)
-            pptx = await asyncio.to_thread(slide_edit.build_pptx, pages, work)
+            pptx = await asyncio.to_thread(slide_edit.build_pptx, pages, work, deck)
 
             outline = list(deck.get("outline") or [])
             while len(outline) < len(pages):

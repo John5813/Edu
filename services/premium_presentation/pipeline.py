@@ -133,6 +133,12 @@ async def _build_deck(topic, slide_count, *, language, level, preferences, sourc
     stage("render", slides=len(pages), photos=placed)
     final: list = []
     shots = (deck_out or {}).get("shots_dir")
+    # Kam matnli taqdimot: sahifalar vektor uslublar bilan (eski kompozitsiyalar bilan aralash) chiziladi.
+    designer = None
+    if volume == "kam":
+        from services.premium_presentation.designer import Designer
+
+        designer = Designer(theme, topic)
     path = await run_step(
         loop,
         lambda: html_render.render(
@@ -140,9 +146,13 @@ async def _build_deck(topic, slide_count, *, language, level, preferences, sourc
             repair=lambda page, problems: html_slides.fix_slide(page, problems, theme, language),
             # Kam matnli kompozitsiyalarda bo'sh joy ataylab qoldirilgan — u matn bilan to'ldirilmaydi.
             explain=None if volume == "kam" else (lambda page, area: html_slides.fill_gap(page, area, theme, language)),
-            collect=final if deck_out is not None else None, shots_dir=shots),
+            collect=final if deck_out is not None else None, shots_dir=shots,
+            native=designer.draw if designer else None),
         step="render", label="Slaydlarni suratga olish")
+    if designer:
+        designer.close()
     if deck_out is not None:
         deck_out.update(pages=final if len(final) == len(pages) else pages, theme_key=theme.key, volume=volume,
-                        family=outline_out.get("family", ""), outline=outline_out.get("outline", []))
+                        family=outline_out.get("family", ""), outline=outline_out.get("outline", []),
+                        design_seed=designer.seed if designer else None)
     return path, len(pages), placed

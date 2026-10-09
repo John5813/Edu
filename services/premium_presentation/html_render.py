@@ -555,7 +555,7 @@ def _severity(problems: List[str]) -> int:
 def render(html_slides: List[str], out_dir: str = "temp",
            name: str = "taqdimot", repair=None, explain=None,
            collect: Optional[List[str]] = None,
-           shots_dir: Optional[str] = None) -> str:
+           shots_dir: Optional[str] = None, native=None) -> str:
     """HTML → tahrirlanadigan PPTX.
 
     Har slayd brauzerda ochiladi, joylashuvi o'qiladi va PowerPointning
@@ -577,6 +577,9 @@ def render(html_slides: List[str], out_dir: str = "temp",
     keyingi) shu ro'yxatga tartib bilan qo'shiladi; `shots_dir` berilsa,
     har slaydning aynan shu ko'rinishi `shot_01.png` ... bo'lib saqlanadi
     (saytda ko'rib chiqish uchun: PPTX bilan bir xil ko'rinish).
+
+    `native(presentation, html, indeks, jami) -> bool` berilsa (kam matnli taqdimot, `designer`), sahifa
+    avval vektor dizaynerga beriladi: u slaydni o'zi chizsa (True), HTML o'qilmaydi va tuzatilmaydi.
     """
     from playwright.sync_api import sync_playwright
 
@@ -601,6 +604,20 @@ def render(html_slides: List[str], out_dir: str = "temp",
                 for index, html in enumerate(html_slides, 1):
                     page = None
                     final_html = html
+                    if native is not None and _native(native, presentation, html, index, len(html_slides)):
+                        editable += 1
+                        if collect is not None:
+                            collect.append(html)
+                        if shots_dir:
+                            try:
+                                page = _open_page(context, html)
+                                _shot(page, shots_dir, index)
+                            except Exception as exc:
+                                log.warning("%d-slayd surati olinmadi: %s", index, exc)
+                            finally:
+                                if page is not None:
+                                    page.close()
+                        continue
                     try:
                         page = _open_page(context, html)
 
@@ -683,6 +700,14 @@ def render(html_slides: List[str], out_dir: str = "temp",
                 os.remove(path)
             except OSError:
                 pass
+
+
+def _native(native, presentation, html: str, index: int, total: int) -> bool:
+    try:
+        return bool(native(presentation, html, index - 1, total))
+    except Exception as exc:
+        log.warning("%d-slayd vektor dizaynda chizilmadi: %s", index, exc)
+        return False
 
 
 def _shot(page, shots_dir: str, index: int) -> None:
