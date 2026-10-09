@@ -817,6 +817,9 @@ def get_admin_keyboard() -> ReplyKeyboardMarkup:
     keyboard.add(KeyboardButton(text="🎛 Funksiyalar boshqaruvi"))
     keyboard.add(KeyboardButton(text="📁 Namunalar boshqaruvi"))
 
+    # Faol bo'lmagan mijozlarni qaytarish xabarlari: natijalar
+    keyboard.add(KeyboardButton(text="🔁 Qayta jalb"))
+
     # Block user management
     keyboard.add(KeyboardButton(text="🚫 Foydalanuvchilarni bloklash"))
     
@@ -1128,6 +1131,8 @@ def get_feature_management_keyboard(
     startup_bonus_enabled: bool,
     mahsus_ishlanma_enabled: bool = True,
     receipt_ai_enabled: bool = True,
+    reengage_enabled: bool = True,
+    reengage_old_enabled: bool = True,
 ) -> InlineKeyboardMarkup:
     """Feature management keyboard for admin"""
     keyboard = InlineKeyboardBuilder()
@@ -1155,6 +1160,14 @@ def get_feature_management_keyboard(
         text=f"🧾 To'lovda AI tekshiruv: {ai_status}",
         callback_data=f"toggle_receipt_ai_{ai_action}"
     ))
+
+    # Faol bo'lmagan mijozlarga qayta jalb xabarlari (services/reengage.py)
+    for label, enabled, name in (("🔁 Qayta jalb xabarlari", reengage_enabled, "reengage"),
+                                 ("🗂 Eski bazaga xabarlar", reengage_old_enabled, "reengage_old")):
+        keyboard.add(InlineKeyboardButton(
+            text=f"{label}: {'🟢 Yoqilgan' if enabled else '🔴 Ochirilgan'}".replace("Ochirilgan", "O'chirilgan"),
+            callback_data=f"toggle_{name}_{'off' if enabled else 'on'}"
+        ))
 
     # Mass gift button
     keyboard.add(InlineKeyboardButton(

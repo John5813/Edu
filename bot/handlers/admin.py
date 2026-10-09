@@ -12,6 +12,7 @@ from aiogram.exceptions import TelegramForbiddenError, TelegramRetryAfter
 
 from bot.states import AdminStates
 from bot import ad_buttons
+from services import reengage
 from bot.keyboards import (
     get_admin_keyboard,
     get_payment_review_keyboard,
@@ -418,6 +419,7 @@ async def payment_amount_entered(message: Message, state: FSMContext, db: Databa
         # 2. Add balance
         user = await db.get_user_by_id(payment.user_id)
         await db.update_user_balance(user.telegram_id, new_amount)
+        await reengage.on_payment_approved(message.bot, db, user, new_amount)
         # Bu MATN ishlovchisi — bu yerda `callback` yo'q. Ilgari shu satrda
         # `callback.bot` turardi: summani o'zgartirib tasdiqlagan admin
         # har safar "❌ Xatolik yuz berdi" xabarini olardi. Balans allaqachon
@@ -594,6 +596,7 @@ async def confirm_adjusted_payment(callback: CallbackQuery, db: Database):
         # Add balance to user with the adjusted amount
         user = await db.get_user_by_id(payment.user_id)
         await db.update_user_balance(user.telegram_id, payment.amount)
+        await reengage.on_payment_approved(callback.bot, db, user, payment.amount)
         await _nudge_pending_order(callback.bot, db, user.telegram_id)
 
         # Check referral bonus (same as original approve logic)
@@ -702,6 +705,8 @@ async def credit_approved_payment(bot, db, payment, user_message: str = None, re
     # Add balance to user
     user = await db.get_user_by_id(payment.user_id)
     await db.update_user_balance(user.telegram_id, payment.amount)
+    # Bepul taqdimotdan keyin berilgan +20% bonus (birinchi to'lov, muddat ichida).
+    await reengage.on_payment_approved(bot, db, user, payment.amount)
     await _nudge_pending_order(bot, db, user.telegram_id)
 
     # Check if this is user's first payment and if they were referred
@@ -2260,20 +2265,8 @@ async def handle_ad_menu_button(callback: CallbackQuery, state: FSMContext, db: 
     """
     key = callback.data.split(":", 1)[1]
     user = await db.get_user(callback.from_user.id)
-    text = ad_buttons.menu_text(key, user.language if user else "uz")
     await callback.answer()
-    # Eski (48 soatdan oshgan) xabarda `message` ochilmaydi — bunday tugmani bosib bo'lmaydi.
-    if not text or not isinstance(callback.message, Message):
-        return
-    await state.clear()
-    fake = callback.message.model_copy(update={
-        "from_user": callback.from_user,
-        "text": text,
-        "date": datetime.now(),
-        "reply_markup": None,
-    })
-    update = Update(update_id=int(datetime.now().timestamp() * 1000) % 2_000_000_000, message=fake)
-    await dispatcher.feed_update(callback.bot, update)
+    await ad_buttons.open_section(callback, state, dispatcher, key, user.language if user else "uz")
 
 
 async def _feature_keyboard(db):
@@ -2282,7 +2275,8 @@ async def _feature_keyboard(db):
     startup = await db.get_feature_status("startup_bonus")
     mahsus = await db.get_feature_status("mahsus_ishlanma")
     receipt_ai = await db.get_feature_status("receipt_ai")
-    return _kb(startup, mahsus, receipt_ai)
+    return _kb(startup, mahsus, receipt_ai, await db.get_feature_status(reengage.FEATURE),
+               await db.get_feature_status(reengage.FEATURE_OLD))
 
 _FEATURES_TITLE = (
     "🎛 Funksiyalar boshqaruvi\n\n"
@@ -2309,6 +2303,33 @@ async def toggle_startup_bonus(callback: CallbackQuery, db: Database):
     await callback.answer(f"🎁 Start bonus {status_text}!")
     kb = await _feature_keyboard(db)
     await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
+
+@router.callback_query(F.data.startswith(("toggle_reengage_on", "toggle_reengage_off",
+                                          "toggle_reengage_old_on", "toggle_reengage_old_off")))
+async def toggle_reengage(callback: CallbackQuery, db: Database):
+    """Qayta jalb xabarlari (hammasi) yoki faqat eski bazaga to'lqinni yoqish/o'chirish."""
+    if not is_admin(callback.from_user.id):
+        return
+    name, action = callback.data[len("toggle_"):].rsplit("_", 1)
+    await db.set_feature_status(name, action == "on")
+    label = "Eski bazaga xabarlar" if name == reengage.FEATURE_OLD else "Qayta jalb xabarlari"
+    await callback.answer(f"🔁 {label} {'yoqildi' if action == 'on' else 'ochirildi'}".replace("ochirildi", "o'chirildi"))
+    kb = await _feature_keyboard(db)
+    await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
+
+
+@router.message(F.text == "🔁 Qayta jalb")
+async def handle_reengage_report(message: Message, db: Database):
+    """Faol bo'lmagan mijozlarga ketgan xabarlar natijasi (30 kun)."""
+    if not is_admin(message.from_user.id):
+        return
+    on = await db.get_feature_status(reengage.FEATURE)
+    old = await db.get_feature_status(reengage.FEATURE_OLD)
+    head = (f"Holat: {'🟢 yoqilgan' if on else '🔴 ochirilgan'}; eski baza: "
+            f"{'🟢 yoqilgan' if old else '🔴 ochirilgan'} (kuniga {reengage.OLD_DAILY} kishigacha)\n"
+            "Yoqish/o'chirish — «🎛 Funksiyalar boshqaruvi».\n\n").replace("ochirilgan", "o'chirilgan")
+    await message.answer(head + await reengage.report(), parse_mode="HTML")
+
 
 @router.callback_query(F.data.startswith("toggle_receipt_ai_"))
 async def toggle_receipt_ai(callback: CallbackQuery, db: Database):
