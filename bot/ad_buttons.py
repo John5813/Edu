@@ -26,6 +26,7 @@ TARGETS: Dict[str, Tuple[str, str, str]] = {
     "loyiha": ("menu", "main_menu.project_work", "main_menu.project_work"),
     "hisob": ("menu", "main_menu.my_account", "main_menu.my_account"),
     "tolov": ("menu", "main_menu.payment", "main_menu.payment"),
+    "pul": ("menu", "main_menu.referral", "main_menu.referral"),      # to'lov bo'limidagi «Pul ishlab topish»
     "namunalar": ("menu", "main_menu.samples", "main_menu.samples"),
     "yordam": ("menu", "main_menu.help", "main_menu.help"),
     "boshqa": ("menu", "main_menu.other_services", "main_menu.other_services"),
