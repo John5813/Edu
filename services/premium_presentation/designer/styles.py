@@ -299,7 +299,7 @@ def _band_text(c: Ctx, spec: Dict, x, w):
             paras.append([(spec["lead"], 34, WHITE, True)])
         if spec.get("text"):
             paras.append([(spec["text"], 28, soft)])
-    text(s, x, 150, w, 780, paras, anchor=MIDDLE, gap=26, line_spacing=1.12)
+    text(s, x, 150, w, 780, paras, anchor=MIDDLE, gap=26, line_spacing=1.12, grow=True)
 
 
 def _band_photo(c: Ctx, spec: Dict, x, y, w, h):
@@ -376,7 +376,7 @@ def info_swirl(c: Ctx, spec: Dict):
         on_left = i < left
         k = i if on_left else i - left
         m = left if on_left else n - left
-        y = spread(m, 330, 900)[k] - 80
+        y = spread(m, 380, 900)[k] - 80
         num = item.get("value") or str(i + 1)
         if on_left:
             text(s, 500, y, 150, 160, [[(num if not item.get("value") else str(i + 1), 110, p.on_dark, False, SANS)]],
@@ -420,7 +420,7 @@ def info_tree(c: Ctx, spec: Dict):
         y = spread(m, 330, 860)[k] - 30
         x = 110 if on_left else 1430
         icon(s, item["_icon"], x + 380 - 26 if on_left else x + 26, y - 6, 48, ramp[i])
-        label(c, x - (70 if on_left else 0), y + 30, 470, 240, item, align=RIGHT if on_left else LEFT, dark=True, tsize=34, nsize=30)
+        label(c, x - (70 if on_left else 0), y + 30, 470, 200, item, align=RIGHT if on_left else LEFT, dark=True, tsize=34, nsize=30)
 
 
 def info_fan(c: Ctx, spec: Dict):
@@ -749,7 +749,7 @@ def finale(c: Ctx, spec: Dict):
         shadow(o, blur=14, dist=4, alpha=40)
         text(s, 170, y - 30, 60, 60, [[(str(i + 1), 28, WHITE, True, p.head_font)]], align=CENTER, anchor=MIDDLE,
              fit=False)
-        text(s, 270, y - 40, 1380, 80, [[(t, 32, p.on_dark)]], anchor=MIDDLE)
+        text(s, 270, y - 40, 1380, 80, [[(t, 32, p.on_dark)]], anchor=MIDDLE, grow=True)
 
 
 # ═════════════════════════════════════════════ ro'yxat
