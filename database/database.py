@@ -113,6 +113,18 @@ async def init_db():
             )
         ''')
 
+        # Balansdan har bir yechim (hujjat, taqdimot, do'kon ...): kim va qancha — mazmunsiz. Admin statistikasida
+        # yangi foydalanuvchilarning "foydalangan / foydalanmagan" hisobi shundan olinadi.
+        await db.execute('''
+            CREATE TABLE IF NOT EXISTS balance_spends (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_id INTEGER NOT NULL,
+                amount INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_balance_spends_user ON balance_spends (telegram_id)")
+
         # Broadcast messages table
         await db.execute('''
             CREATE TABLE IF NOT EXISTS broadcast_messages (
@@ -380,6 +392,14 @@ async def init_db():
         await db.commit()
         logger.info("Database initialized successfully")
 
+async def _log_spend(db, telegram_id: int, amount: int) -> None:
+    """Balansdan yechimni yozadi (foydalanish statistikasi uchun); yozilmasa ham yechim bekor bo'lmaydi."""
+    try:
+        await db.execute("INSERT INTO balance_spends (telegram_id, amount) VALUES (?, ?)", (telegram_id, int(amount)))
+    except Exception as exc:          # eski bazada jadval hali yaratilmagan bo'lishi mumkin
+        logger.warning(f"Balans yechimi yozilmadi: {exc}")
+
+
 class Database:
     @staticmethod
     async def get_user(telegram_id: int) -> Optional[User]:
@@ -485,17 +505,22 @@ class Database:
                 "UPDATE users SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP "
                 "WHERE telegram_id = ? AND balance >= ?",
                 (amount, telegram_id, amount))
+            charged = cursor.rowcount == 1
+            if charged:
+                await _log_spend(db, telegram_id, amount)
             await db.commit()
-            return cursor.rowcount == 1
+            return charged
 
     @staticmethod
     async def update_user_balance(telegram_id: int, amount: int):
         """Update user balance"""
         async with aiosqlite.connect(DATABASE_FILE) as db:
-            await db.execute(
+            cursor = await db.execute(
                 "UPDATE users SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP WHERE telegram_id = ?",
                 (amount, telegram_id)
             )
+            if amount < 0 and cursor.rowcount == 1:
+                await _log_spend(db, telegram_id, -amount)
             await db.commit()
 
 

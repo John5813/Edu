@@ -5,7 +5,9 @@
 - har kuni yuboriladigan Excel: yangi foydalanuvchilarda alohida «To'lovlar soni» va «To'lagan (so'm)»
   ustunlari, ikkinchi varaqda kunning barcha to'lovlari (yangi/eski mijoz);
 - kun O'zbekiston vaqti bilan: UTC 20:00 dagi /start ertangi kunga tegishli;
-- kutilayotgan yoki rad etilgan to'lov hisobga kirmaydi.
+- kutilayotgan yoki rad etilgan to'lov hisobga kirmaydi;
+- umumiy statistikada 7 va 30 kunlik yangi foydalanuvchilar: to'lov qilganlar, to'lab foydalanganlar,
+  to'lovsiz foydalanganlar va umuman foydalanmaganlar (balansdan yechimlar `balance_spends` da yoziladi).
 
     python test_kunlik_statistika.py
 """
@@ -124,6 +126,53 @@ async def main():
     totals = [c for r in ws2.iter_rows(values_only=True) for c in r if isinstance(c, str)]
     check("jamlanma: yangi va eski mijozlardan", "3 ta — 35,000 so'm" in totals and "3 ta — 60,000 so'm" in totals, totals[-6:])
 
+async def cohorts():
+    print("4) 7 va 30 kunlik yangi foydalanuvchilar")
+    from database import free_trial
+    async with aiosqlite.connect(dbmod.DATABASE_FILE) as db:
+        # Balanslar haqiqiydek: tasdiqlangan to'lov balansga tushgan.
+        for tg, bal in ((1, 15000), (2, 20000), (3, 0), (4, 30000), (5, 30000), (6, 50000)):
+            await db.execute("UPDATE users SET balance = ? WHERE telegram_id = ?", (bal, tg))
+        for tg, name, created, bal in ((7, "Hafta", at(-24 * 5), 10000), (8, "Bonusli", at(-24 * 10), 5000),
+                                       (9, "Jim", at(-24 * 20), 0), (10, "Sinov", at(-24 * 3), 0)):
+            await db.execute("INSERT INTO users (telegram_id, first_name, language, balance, created_at) "
+                             "VALUES (?, ?, 'uz', ?, ?)", (tg, name, bal, created))
+        await db.commit()
+        uid7 = (await (await db.execute("SELECT id FROM users WHERE telegram_id = 7")).fetchone())[0]
+        await db.execute("INSERT INTO payments (user_id, amount, status, created_at) VALUES (?, 10000, 'approved', ?)",
+                         (uid7, at(-24 * 5 + 1)))
+        await db.commit()
+    check("balansdan yechim yoziladi (atomik yechish)", await Database.charge_balance(1, 5000))
+    await Database.charge_balance(7, 10000)
+    await Database.update_user_balance(8, -5000)          # bonus bilan foydalandi
+    await Database.update_user_balance(2, 3000)           # balansga qo'shish — yechim emas
+    await free_trial.claim(10, "job-x")                   # saytdagi bepul sinov
+    async with aiosqlite.connect(dbmod.DATABASE_FILE) as db:
+        spends = await (await db.execute("SELECT telegram_id, amount FROM balance_spends ORDER BY id")).fetchall()
+    check("yechimlar jadvali: faqat yechimlar (1, 7, 8)", spends == [(1, 5000), (7, 10000), (8, 5000)], spends)
+
+    week = await daily_stats.cohort(7, DAY)
+    check("7 kun: /start bosganlar 7 ta", week["started"] == 7, week)
+    check("7 kun: to'lov qilganlar 5 ta, 125 000 so'm", (week["paid_users"], week["paid_sum"]) == (5, 125000), week)
+    check("7 kun: to'lab foydalanganlar 2, to'lab foydalanmaganlar 3", (week["paid_used"], week["paid_unused"]) == (2, 3), week)
+    check("7 kun: to'lovsiz foydalangan 1 (bepul sinov), umuman foydalanmagan 1",
+          (week["free_used"], week["unused"]) == (1, 1), week)
+    month = await daily_stats.cohort(30, DAY)
+    check("30 kun: 9 ta, bonus bilan foydalangan va jim qolgan ham kiradi, 40 kunlik kirmaydi",
+          (month["started"], month["free_used"], month["unused"], month["paid_users"]) == (9, 2, 2, 5), month)
+    text = daily_stats.cohort_text(week)
+    check("matn", "Oxirgi 7 kun — /start bosganlar: 7 ta" in text and "To'lov qilib foydalanganlar: 2 ta" in text
+          and "Umuman foydalanmaganlar: 1 ta" in text, text)
+
+    from bot.handlers import admin
+    sent = []
+    msg = types.SimpleNamespace(from_user=types.SimpleNamespace(id=1), answer=lambda t, **k: sent.append(t) or asyncio.sleep(0))
+    await admin.handle_statistics(msg, None)
+    check("«📊 Statistika»: 7 va 30 kunlik bo'limlar", sent and "Oxirgi 7 kun" in sent[0] and "Oxirgi 30 kun" in sent[0]
+          and "Umuman foydalanmaganlar" in sent[0], sent[:1])
+
+
 asyncio.run(main())
+asyncio.run(cohorts())
 print("\nNATIJA:", "HAMMASI O'TDI" if not FAILS else f"{len(FAILS)} ta xato: {FAILS}")
 sys.exit(1 if FAILS else 0)

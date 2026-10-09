@@ -1319,28 +1319,22 @@ async def handle_statistics(message: Message, db: Database):
         from database.database import DATABASE_FILE
         import aiosqlite
 
+        from services import daily_stats
+
+        # Bugungi kun O'zbekiston vaqti bilan (kunlik statistika bilan bir xil).
+        today_pay = await daily_stats.payment_breakdown()
+        joined_today, revenue_today = today_pay["started"], today_pay["revenue"]
+
         async with aiosqlite.connect(DATABASE_FILE) as db_conn:
             # Total users
             async with db_conn.execute("SELECT COUNT(*) FROM users") as cursor:
                 total_users = (await cursor.fetchone())[0]
-
-            # Users who joined today
-            async with db_conn.execute(
-                "SELECT COUNT(*) FROM users WHERE date(created_at) = date('now')"
-            ) as cursor:
-                joined_today = (await cursor.fetchone())[0]
 
             # Total users who made at least one payment
             async with db_conn.execute(
                 "SELECT COUNT(DISTINCT user_id) FROM payments WHERE status = 'approved'"
             ) as cursor:
                 total_paid_users = (await cursor.fetchone())[0]
-
-            # Today's revenue
-            async with db_conn.execute(
-                "SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved' AND date(created_at) = date('now')"
-            ) as cursor:
-                revenue_today = (await cursor.fetchone())[0]
 
             async with db_conn.execute(
                 "SELECT COUNT(*) FROM document_stats"
@@ -1373,6 +1367,13 @@ async def handle_statistics(message: Message, db: Database):
                 total_revenue = (await cursor.fetchone())[0]
 
         doc_lines = "\n".join(f"  • {label}: {count} ta" for label, count in doc_types.values())
+        # Yangi foydalanuvchilar: 7 va 30 kunda kelganlardan kim to'lov qildi, kim foydalandi.
+        try:
+            cohorts = "\n".join([daily_stats.cohort_text(await daily_stats.cohort(7)),
+                                 daily_stats.cohort_text(await daily_stats.cohort(30))]) + "\n"
+        except Exception as exc:
+            logger.warning(f"Yangi foydalanuvchilar statistikasi olinmadi: {exc}")
+            cohorts = ""
         text = (
             f"📈 Bot statistikasi:\n\n"
             f"👥 Jami foydalanuvchilar: {total_users} ta\n"
@@ -1380,6 +1381,7 @@ async def handle_statistics(message: Message, db: Database):
             f"💳 To'lov qilganlar: {total_paid_users} ta\n"
             f"💰 Bugungi daromad: {revenue_today:,} so'm\n"
             f"💵 Jami daromad: {total_revenue:,} so'm\n\n"
+            f"{cohorts}"
             f"📄 Yaratilgan hujjatlar: {total_documents} ta\n"
             f"{doc_lines}\n"
         )
