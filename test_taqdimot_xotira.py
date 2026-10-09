@@ -158,8 +158,8 @@ check("ruscha: tarixli so'rovda ruscha yo'riqnoma", any(prompts.get("ru").USER["
 check("ruscha: tarixdagi navbat ham ruscha", any("слайд" in c["history"][0]["content"] for c in ru_chunks if c["history"]))
 
 print("7) Tarixiy va gumanitar mavzuda diagramma majburlanmaydi")
-check("chegara: tarix va gumanitar — 0, boshqalar avvalgidek",
-      [deck_logic.chart_limit(12, f) for f in ("tarix", "gumanitar", "ijtimoiy", "")] == [0, 0, 2, 2])
+check("chegara: tarix va gumanitar — ko'pi bilan 1 (taqiq emas), boshqalar avvalgidek",
+      [deck_logic.chart_limit(12, f) for f in ("tarix", "gumanitar", "ijtimoiy", "")] == [1, 1, 2, 2])
 run("O'zbekistonda mustaqillik g'oyalarining tarixiy asoslari")
 check("reja so'rovida diagramma kvotasi yo'q, xronologik tartib so'ralgan",
       PLAN_PROMPTS and "kamida" not in PLAN_PROMPTS[0] and prompts.get("uz").PLAN["narrative"] in PLAN_PROMPTS[0],

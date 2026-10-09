@@ -25,8 +25,9 @@ from services.premium_presentation import (chart_data, deck_compose, deck_logic,
 
 print("1) Rasm kvotasi va chegarasi")
 check("ko'p matnli: 10 slaydga 4 ta rasm", deck_logic.photo_quota(12) == 4 and deck_logic.photo_quota(12, "kop") == 4)
-check("kam matnli: 10 slaydga 6 ta rasm", deck_logic.photo_quota(12, "kam") == 6)
-check("20 slayd: 8 va 12", (deck_logic.photo_quota(22), deck_logic.photo_quota(22, "kam")) == (8, 12))
+# Kam matnli (infografik) taqdimotda ham 4 ta: ilgari 6 ta edi va infografikaga joy qolmasdi.
+check("kam matnli: 10 slaydga 4 ta rasm (qolgani infografika)", deck_logic.photo_quota(12, "kam") == 4)
+check("20 slayd: 8 va 8", (deck_logic.photo_quota(22), deck_logic.photo_quota(22, "kam")) == (8, 8))
 check("rasm chegarasi kvotadan kam emas (30 slayd, kam matnli)",
       html_images.photo_limit(30, "kam") >= deck_logic.photo_quota(32, "kam"), html_images.photo_limit(30, "kam"))
 check("rasm chegarasi eski 10 tadan kam emas", html_images.photo_limit(5, "kop") >= html_images.MAX_PHOTOS)
@@ -143,7 +144,7 @@ saved = [o.get("layout") for o in outline_out.get("outline", [])]
 check("har slayd rejadagi kompozitsiyada", all(g == s for g, s in zip(got[2:-1], saved[2:-1]) if s not in ("reja",)),
       list(zip(got, saved)))
 photos = sum(1 for b in written if deck_logic.has_photo(b))
-check("rasmli slaydlar kvotadan kam emas (10 slayd — 6)", photos >= deck_logic.photo_quota(12, "kam"), photos)
+check("rasmli slaydlar kvotadan kam emas (10 slayd — 4)", photos >= deck_logic.photo_quota(12, "kam"), photos)
 check("uzun slayd qisqartirildi (so'rov yuborildi)", CALLS["long_notes"] >= 1, CALLS["long_notes"])
 check("hech bir slayd chegaradan uzun emas", not any(deck_compose.too_long(b, "kam") for b in written[2:-1]),
       [deck_compose.words(b) for b in written])

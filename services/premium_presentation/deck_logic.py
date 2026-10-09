@@ -156,12 +156,16 @@ def has_photo(body: str) -> bool:
     return bool(_PHOTO.search(body or ""))
 
 
-# Har 10 ta asosiy slaydga nechta rasmli slayd: ko'p matnlida 4 ta, kam matnlida 6 ta.
-PHOTOS_PER_10 = {"kop": 4, "kam": 6}
+# Har 10 ta asosiy slaydga nechta rasmli slayd: ikkala turda 4 ta. Kam matnli (infografik) taqdimotda
+# ilgari 6 ta edi: 10 slaydli taqdimotning 9 ta o'rta slaydidan 6 tasi oddiy "rasm + matn" bo'lib,
+# raqam, bosqich, qiyos va diagramma kabi infografikaga 3 ta joy qolardi.
+PHOTOS_PER_10 = {"kop": 4, "kam": 4}
 
 
 def photo_quota(total: int, volume: str = "kop") -> int:
-    """Nechta slaydda rasm bo'lishi kerak: har 10 ta asosiy slaydga `PHOTOS_PER_10` (yuqoriga yaxlitlanadi).
+    """Nechta slaydda rasm bo'lishi mo'ljallanadi: har 10 ta asosiy slaydga `PHOTOS_PER_10` (yuqoriga
+    yaxlitlanadi). Bu mo'ljal: reja uni rasmga mos slaydlar (`html_slides.ensure_photos`) hisobidan to'ldiradi,
+    tuzilmali slaydlar (jarayon, qiyos, raqam) rasm uchun buzilmaydi.
 
     `total` — muqova va reja bilan birga slaydlar soni; muqova va reja hisobga kirmaydi
     (muqovaga rasm alohida qo'yiladi).
@@ -184,9 +188,12 @@ def chart_count(bodies: List[str]) -> int:
     return sum(1 for b in bodies if has_chart(b))
 
 
-# Voqealar va g'oyalar rivoji haqidagi mavzular (deck_shape oilalari): ularda diagramma qo'yilmaydi.
+# Voqealar va g'oyalar rivoji haqidagi mavzular (deck_shape oilalari): ularda ko'pi bilan bitta diagramma.
 # Ilgari "Mustaqillik g'oyalarining tarixiy asoslari" taqdimotiga kvota uchun YaIM va aholi diagrammalari
-# qo'yilib, sovet davri va mustaqillik davri orasiga tushib qolgan — xronologiya uzilgan edi.
+# qo'yilib, sovet davri va mustaqillik davri orasiga tushib qolgan — xronologiya uzilgan edi. Keyin chegara
+# 0 qilindi, lekin bu ham xato bo'ldi: tarixda ham davrlar bo'yicha miqdor (aholi, ishlab chiqarish) bor,
+# oila yo'riqnomasi esa diagrammani "o'rinli" deydi. Endi bitta diagramma mumkin, reja promptida esa u
+# xronologiyada o'z o'rnida turishi aytiladi (`PLAN["narrative"]`).
 NARRATIVE = ("tarix", "gumanitar")
 
 
@@ -198,13 +205,25 @@ def chart_limit(total: int, family: str = "") -> int:
     turizm» kabi mavzularga bir xil sayyohlar soni ikki diagrammada (dinamika va «prognoz») tiqilgan.
     Endi diagramma faqat mavzuning o'zida haqiqiy statistika bo'lsa qo'yiladi.
     """
-    if family in NARRATIVE or total < 6:
+    if total < 6:
         return 0
     if total < 12:
-        return 1
-    if total < 20:
-        return 2
-    return 3
+        limit = 1
+    elif total < 20:
+        limit = 2
+    else:
+        limit = 3
+    return min(limit, 1) if family in NARRATIVE else limit
+
+
+def repeat_limit(total: int) -> int:
+    """Bitta kategoriya (shakl) butun taqdimotda necha martagacha takrorlanishi mumkin.
+
+    Ilgari har qanday uzunlikda 2 edi: 20-30 slaydli taqdimotda model mazmunga mos kelmaydigan shakllarga
+    (tarixda formula, ro'yxat o'rniga sun'iy qiyos) itarilardi. Endi o'rta slaydlar soniga qarab o'sadi:
+    10 slaydda 2, 20 da 3, 30 da 4.
+    """
+    return max(2, int((int(total or 0) - 3) / 7 + 0.5))
 
 
 _SHARE = re.compile(r"ulush|foiz|tarkib|tuzilma|tasnif|turlari|guruh|tuzilish|состав|доля|структур|вид[ыа]|"

@@ -158,7 +158,8 @@ g = html_slides.guard_quote_sources('<p class="quote-by">— BMT Aholi Jamg\'arm
 check("kelgusi yilli 'hisobotidan' iqtibos manbasi olib tashlanadi", "2026" not in g and "UNFPA" in g, g)
 g = html_slides.guard_quote_sources('<p class="quote-by">— Amir Temur</p>')
 check("haqiqiy muallif tegilmaydi", "Amir Temur" in g)
-check("prompt: iqtibos faqat haqiqiy", "IQTIBOS faqat HAQIQIY" in html_slides.shell_rules(TH, "uz"))
+rules_uz = html_slides.shell_rules(TH, "uz")
+check("prompt: iqtibos haqiqiy va muallifi aniq", "IQTIBOS" in rules_uz and "haqiqiy va muallifi aniq" in rules_uz)
 
 # ── Rasm: oddiy realistik foto, diagramma va yozuvsiz
 pp = html_images.photo_prompt("an infographic diagram of a population pyramid with labels, wide shot")

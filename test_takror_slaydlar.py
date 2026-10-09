@@ -13,7 +13,7 @@ def check(name, cond, detail=""):
     print(("  ok   " if cond else "  XATO ") + name + ("" if cond else f" — {detail}"))
     if not cond: FAILS.append(name)
 
-from services.premium_presentation import html_slides as hs, llm_client, themes
+from services.premium_presentation import deck_logic, html_slides as hs, llm_client, themes
 TH = themes.get("ko'k")
 
 def slide(title, body):
@@ -91,10 +91,12 @@ try:
     hs.write_slides("Mavzu", 6, TH, "uz")
 finally:
     llm_client._call_openrouter_text, llm_client._call_openrouter, hs.MAX_REWORKS = original, orig_json, orig_reworks
-check("birinchi bo'lakda shakllar ro'yxati yo'q (hali slayd yo'q)", "QAT'IY TALAB" not in prompts[0])
-# Ko'rsatma taqdimot tilida (bu yerda o'zbekcha): ishlatilgan shakllar, qat'iy talab va "boshqasini tanlang".
-check("ikkinchi bo'lakka ishlatilgan shakllar va qat'iy talab (taqdimot tilida) berildi",
-      "QAT'IY TALAB" in prompts[1] and "list+rasm+split" in prompts[1] and "boshqasini tanlang" in prompts[1],
+check("birinchi bo'lakda shakllar ro'yxati yo'q (hali slayd yo'q)", "Hozirgacha ishlatilgan blok" not in prompts[0])
+# Ko'rsatma taqdimot tilida (bu yerda o'zbekcha): ishlatilgan shakllar, oldingidan farq va "boshqasini tanlang".
+# "QAT'IY TALAB" endi yo'q: faqat oldingi slayddan farq talab qilinadi, bo'lakdagi boshqalardan — iloji boricha.
+check("ikkinchi bo'lakka ishlatilgan shakllar va oldingi slayddan farq (taqdimot tilida) berildi",
+      "Hozirgacha ishlatilgan blok" in prompts[1] and "QAT'IY TALAB" not in prompts[1] and "iloji boricha" in prompts[1]
+      and "list+rasm+split" in prompts[1] and "boshqasini tanlang" in prompts[1],
       prompts[1][-700:])
 
 # ── Reja (outline): "reja" faqat 2-slayd, oxirgi slayd — xulosa, chala reja qayta so'raladi
@@ -127,7 +129,13 @@ check("qayta ham chala bo'lsa — yetmagan o'rinlar oddiy mavzu nomi bilan emas,
 check("so'nggi bo'lak so'rovida 'faqat XULOSA' aytilgan", "faqat XULOSA" in hs._user_prompt("M", 10, 3, 12, outline, [], 2, "", "", ""))
 check("oxirgi bo'lak bo'lmasa bu qoida yo'q", "faqat XULOSA" not in hs._user_prompt("M", 4, 3, 12, outline, [], 2, "", "", ""))
 
-check("reja promptida takror cheklovi bor", "2 martadan ko'p takrorlanmasin" in open("services/premium_presentation/prompts/uz.py", encoding="utf-8").read())
+check("reja promptida takror cheklovi bor (uzunlikka qarab)", "⟨repeat⟩ martadan ko'p takrorlanmasin" in open("services/premium_presentation/prompts/uz.py", encoding="utf-8").read())
+check("takror chegarasi: 10 slaydda 2, 20 da 3, 30 da 4",
+      [deck_logic.repeat_limit(n + 2) for n in (10, 20, 30)] == [2, 3, 4], [deck_logic.repeat_limit(n + 2) for n in (10, 20, 30)])
+# Uzun taqdimotda shakl 3 marta takrorlansa (ketma-ket emas) qayta yozilmaydi; qisqada — qayta yoziladi.
+long_deck = ["c", "r"] + [slide(str(i), CARDS if i % 3 == 0 else (STEPS if i % 3 == 1 else LIST_IMG)) for i in range(18)] + ["y"]
+check("uzun taqdimotda 3-takror qayta yozilmaydi",
+      not [i for i in hs.repeated_slides(long_deck) if i < 2 + 9], hs.repeated_slides(long_deck))
 
 print("\n" + ("✅ hammasi o'tdi" if not FAILS else f"❌ {len(FAILS)} ta xato: {FAILS}"))
 sys.exit(1 if FAILS else 0)
