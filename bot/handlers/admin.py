@@ -2275,10 +2275,12 @@ async def _feature_keyboard(db):
     startup = await db.get_feature_status("startup_bonus")
     mahsus = await db.get_feature_status("mahsus_ishlanma")
     receipt_ai = await db.get_feature_status("receipt_ai")
+    from services.premium_presentation.slide_anim import FEATURE as TEXT_ANIM
     from services.thanks_anim import FEATURE as THANKS_ANIM
     return _kb(startup, mahsus, receipt_ai, await db.get_feature_status(reengage.FEATURE),
                await db.get_feature_status(reengage.FEATURE_OLD),
-               await db.get_feature_status(THANKS_ANIM, default=False))
+               await db.get_feature_status(THANKS_ANIM, default=False),
+               await db.get_feature_status(TEXT_ANIM, default=False))
 
 _FEATURES_TITLE = (
     "🎛 Funksiyalar boshqaruvi\n\n"
@@ -2361,6 +2363,21 @@ async def toggle_thanks_anim(callback: CallbackQuery, db: Database):
     await db.set_feature_status(THANKS_ANIM, new_status)
     await callback.answer("🎬 Rahmat animatsiyasi yoqildi!" if new_status
                           else "🎬 Rahmat animatsiyasi o'chirildi: tugma mijozlarga ko'rinmaydi.")
+    kb = await _feature_keyboard(db)
+    await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("toggle_text_anim_"))
+async def toggle_text_anim(callback: CallbackQuery, db: Database):
+    """Buyurtma xulosasida mijozga "✨ Yozuv animatsiyasi" tanlovini ko'rsatish (sukut bo'yicha o'chiq)."""
+    if not is_admin(callback.from_user.id):
+        return
+    from services.premium_presentation.slide_anim import FEATURE as TEXT_ANIM
+
+    new_status = callback.data.split("_")[-1] == "on"
+    await db.set_feature_status(TEXT_ANIM, new_status)
+    await callback.answer("✨ Yozuv animatsiyasi yoqildi: mijozlar xulosada tanlaydi!" if new_status
+                          else "✨ Yozuv animatsiyasi o'chirildi: taqdimotlar animatsiyasiz.")
     kb = await _feature_keyboard(db)
     await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
 

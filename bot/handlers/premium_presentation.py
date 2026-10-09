@@ -899,12 +899,26 @@ async def premium_ppt_got_volume(callback: CallbackQuery, state: FSMContext, db:
 
 # ── Buyurtma xulosasi va tasdiqlash
 
-def _confirm_keyboard(lang: str, current_language: str) -> InlineKeyboardMarkup:
+_TEXT_ANIM_LABEL = {"uz": ("✨ Yozuv animatsiyasi", "✅ Bor", "❌ Yo'q"),
+                    "ru": ("✨ Анимация текста", "✅ Есть", "❌ Нет"),
+                    "en": ("✨ Text animation", "✅ On", "❌ Off"),
+                    "kk": ("✨ Мәтін анимациясы", "✅ Бар", "❌ Жоқ")}
+
+
+def _text_anim_label(lang: str, on: bool) -> str:
+    name, yes, no = _TEXT_ANIM_LABEL.get(lang) or _TEXT_ANIM_LABEL["uz"]
+    return f"{name}: {yes if on else no}"
+
+
+def _confirm_keyboard(lang: str, current_language: str, text_anim=None) -> InlineKeyboardMarkup:
+    """`text_anim` — None: tanlov ko'rsatilmaydi (admin o'chirgan); True/False — mijoz tanlovi."""
     builder = InlineKeyboardBuilder()
     for code in ("uz", uz_script.UZ_CYRILLIC_LANG, "ru", "en", "kk"):
         mark = "✓ " if code == current_language else ""
         builder.button(text=f"{mark}{_LANG_BUTTONS[code]}", callback_data=f"prem_ppt_lang:{code}")
     builder.adjust(2)
+    if text_anim is not None:
+        builder.row(InlineKeyboardButton(text=_text_anim_label(lang, text_anim), callback_data="prem_ppt_anim"))
     builder.row(InlineKeyboardButton(text=_t(lang, "confirm"), callback_data="prem_ppt_confirm"))
     builder.row(*_back_row(lang))
     return builder.as_markup()
@@ -952,15 +966,34 @@ def _summary(data: dict, lang: str):
         lines.append(f"🖌 {style_l}: <b>{esc(style)}</b>")
     if volume:
         lines.append(f"📏 {volume_l}: <b>{esc(volume)}</b>")
+    text_anim = _text_anim_choice(data)
+    if text_anim is not None:
+        lines.append(_text_anim_label(lang, text_anim))
     lines += [f"📊 {slides_l}: <b>{slide_count}</b>",
               f"💰 {price_l}: <b>{price:,} {cur}</b>", "", ask]
-    return "\n".join(lines), _confirm_keyboard(lang, language)
+    return "\n".join(lines), _confirm_keyboard(lang, language, text_anim)
+
+
+def _text_anim_choice(data: dict):
+    """Yozuv animatsiyasi: None — taklif qilinmaydi; aks holda mijoz tanlovi (sukut — bor)."""
+    if not data.get("text_anim_offer"):
+        return None
+    return bool(data.get("text_anim", True))
 
 
 async def _step_summary(message: Message, state: FSMContext, lang: str) -> None:
+    from services.premium_presentation import slide_anim
+
     data = await state.get_data()
     price = _get_price(int(data.get("slide_count") or MIN_SLIDES))
-    await state.update_data(price=price)
+    # Yozuv animatsiyasi — admin "🎛 Funksiyalar boshqaruvi" dan yoqqan bo'lsa, xulosada tanlov sifatida.
+    try:
+        offer = await Database().get_feature_status(slide_anim.FEATURE, default=False)
+    except Exception as exc:  # baza o'qilmasa — tanlovsiz (animatsiyasiz) davom etadi
+        logger.warning("Yozuv animatsiyasi holati o'qilmadi: %s", exc)
+        offer = False
+    await state.update_data(price=price, text_anim_offer=offer)
+    data = await state.get_data()
     text, markup = _summary({**data, "price": price}, lang)
     await _prompt(message, state, text, markup, "summary",
                   PremiumPresentationStates.waiting_for_slide_count)
@@ -977,6 +1010,20 @@ async def premium_ppt_change_language(callback: CallbackQuery, state: FSMContext
     await callback.answer()
     lang = await _lang_of(callback.from_user.id, db)
     await state.update_data(presentation_language=code)
+    text, markup = _summary(await state.get_data(), lang)
+    with contextlib.suppress(Exception):
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=markup)
+
+
+@router.callback_query(F.data == "prem_ppt_anim", PremiumPresentationStates.waiting_for_slide_count)
+async def premium_ppt_toggle_text_anim(callback: CallbackQuery, state: FSMContext, db: Database):
+    """Xulosadagi "✨ Yozuv animatsiyasi" tugmasi: bor ↔ yo'q."""
+    await callback.answer()
+    data = await state.get_data()
+    if not data.get("text_anim_offer"):
+        return
+    await state.update_data(text_anim=not data.get("text_anim", True))
+    lang = await _lang_of(callback.from_user.id, db)
     text, markup = _summary(await state.get_data(), lang)
     with contextlib.suppress(Exception):
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=markup)
@@ -1415,6 +1462,8 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
             style=data.get("style", ""), volume=data.get("volume", "kop"),
             progress_cb=progress_cb, stage_cb=on_stage)
         html_pages = [None] * ready_slides
+        if _text_anim_choice(data):
+            await _animate(final_path)
 
     except Exception as e:
         logger.exception("Premium taqdimot generatsiyasida xato: %s", e)
@@ -1527,6 +1576,16 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
             pass
 
     await state.clear()
+
+
+async def _animate(path: str) -> None:
+    """Yozuv animatsiyasi: har sahifa ochilganda mazmuni o'zi navbat bilan chiqadi. Xato — animatsiyasiz qoladi."""
+    from services.premium_presentation import slide_anim
+
+    try:
+        await asyncio.get_running_loop().run_in_executor(None, slide_anim.apply, path)
+    except Exception as exc:
+        logger.warning("Yozuv animatsiyasi qo'shilmadi: %s", exc)
 
 
 async def _offer_thanks_anim(callback: CallbackQuery, db: Database, final_path: str, *, topic: str, data: dict,

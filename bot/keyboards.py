@@ -1134,6 +1134,7 @@ def get_feature_management_keyboard(
     reengage_enabled: bool = True,
     reengage_old_enabled: bool = True,
     thanks_anim_enabled: bool = False,
+    text_anim_enabled: bool = False,
 ) -> InlineKeyboardMarkup:
     """Feature management keyboard for admin"""
     keyboard = InlineKeyboardBuilder()
@@ -1175,6 +1176,13 @@ def get_feature_management_keyboard(
         text=f"🎬 Rahmat animatsiyasi: {'🟢 Yoqilgan' if thanks_anim_enabled else '🔴 Ochirilgan'}".replace(
             "Ochirilgan", "O'chirilgan"),
         callback_data=f"toggle_thanks_anim_{'off' if thanks_anim_enabled else 'on'}"
+    ))
+
+    # Buyurtma xulosasida mijozga "✨ Yozuv animatsiyasi" tanlovi (services/premium_presentation/slide_anim.py)
+    keyboard.add(InlineKeyboardButton(
+        text=f"✨ Yozuv animatsiyasi: {'🟢 Yoqilgan' if text_anim_enabled else '🔴 Ochirilgan'}".replace(
+            "Ochirilgan", "O'chirilgan"),
+        callback_data=f"toggle_text_anim_{'off' if text_anim_enabled else 'on'}"
     ))
 
     # Mass gift button
