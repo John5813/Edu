@@ -20,7 +20,7 @@ import os
 import re
 from typing import Callable, Dict, List, Optional
 
-from . import (chart_data, deck_calc, deck_charts, deck_compose, deck_logic, deck_math, deck_shape, deck_style,
+from . import (chart_data, deck_calc, deck_charts, deck_compose, deck_logic, deck_math, deck_memory, deck_shape, deck_style,
                deck_styles, llm_client, prompts)
 from services import uz_script
 
@@ -230,8 +230,13 @@ def plan_outline(topic: str, count: int, language: str,
     """
     P = prompts.get(language)
     T = P.PLAN
-    quota = deck_logic.chart_quota(count)
+    # Oila reja kelgunga qadar mavzu nomidan taxmin qilinadi: tarixiy va gumanitar mavzuda reja voqealar
+    # ketma-ketligi bo'yicha tuziladi, diagramma kvotasi so'ralmaydi.
+    guess = deck_shape.of(topic)
+    quota = deck_logic.chart_quota(count, guess)
     chart_rule = prompts.fill(T["chart"], quota=quota, donut=T["donut"] if quota >= 2 else "") if quota else ""
+    if guess in deck_logic.NARRATIVE:
+        chart_rule = T["narrative"]
     prompt = (
         prompts.fill(T["main"], topic=topic, count=count, categories=catalogue_text(language),
                      photos=deck_logic.PHOTOS_PER_10.get(volume, deck_logic.PHOTOS_PER_10["kop"]))
@@ -295,7 +300,7 @@ def plan_outline(topic: str, count: int, language: str,
             title = deck_logic.short_title(deck_logic.short_note(brief, 60))
         outline.append({"title": title, "brief": brief, "category": category})
 
-    outline = ensure_charts(outline, language)
+    outline = ensure_charts(outline, language, guess if guess in deck_logic.NARRATIVE else family)
     outline = ensure_photos(outline, volume, language)
     # Kod darajasida kategoriya almashtirilmaydi (ilgari shunday edi va
     # mantiqan ketma-ket kelishi kerak bo'lgan ikki ro'yxatni ajratib,
@@ -312,9 +317,9 @@ _CHART_CANDIDATES = ("korsatkichlar", "kartalar", "ikki_ustun", "qiyoslash",
                      "jadval", "tuzilma")
 
 
-def ensure_charts(outline: List[Dict], language: str = "uz") -> List[Dict]:
+def ensure_charts(outline: List[Dict], language: str = "uz", family: str = "") -> List[Dict]:
     count = len(outline)
-    want = deck_logic.chart_quota(count)
+    want = deck_logic.chart_quota(count, family)
     have = [i for i, item in enumerate(outline) if item["category"] == "diagramma"]
     need = want - len(have)
     if need <= 0:
@@ -729,7 +734,8 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
     chaqiriladi: sayt kutish animatsiyasida haqiqiy sarlavhalarni ko'rsatadi.
     """
     # Hamma so'rovlarga qo'shiladigan umumiy qoidalar (bugungi sana) ham taqdimot tilida bo'lsin.
-    with prompts.use(language):
+    # Taqdimot xotirasi: har bo'lak oldingi slaydlarni suhbat tarixi sifatida ko'radi (deck_memory).
+    with prompts.use(language), deck_memory.session():
         return _write_slides(topic, slide_count, theme, language, level, preferences, source_text, author,
                              progress_cb, outline_out, plan_cb)
 
@@ -782,6 +788,8 @@ def _write_slides(topic, slide_count, theme, language, level, preferences, sourc
             retry = _write_chunk(system, user, count)
             if len(retry) > len(chunk):
                 chunk = retry
+        # Yozilgani darhol xotiraga: bittadan so'raladigan slaydlar ham ularni ko'radi.
+        deck_memory.remember(start, chunk[:count], _turn(start, count, language))
         # Hali ham yetmasa — yetmaganlari BITTADAN so'raladi. Uch
         # slaydlik katta so'rov vaqt chegarasiga, hisobdagi mablag'
         # chegarasiga yoki model javob uzunligi chegarasiga urilishi
@@ -806,6 +814,7 @@ def _write_slides(topic, slide_count, theme, language, level, preferences, sourc
                                      number, slide_count, language, author)
                 one = [plain] if plain else []
             if one:
+                deck_memory.remember(number, one[:1], _turn(number, 1, language))
                 chunk.append(one[0])
             else:
                 log.error("%d-slayd yozilmadi", number)
@@ -821,6 +830,7 @@ def _write_slides(topic, slide_count, theme, language, level, preferences, sourc
                 body = _thicken(body, system, theme)
             if number == slide_count:
                 body = _no_photo(body)
+            deck_memory.update(number, body)
             slides.append(body)
         used.extend(item["brief"] for item in outline[start - 1:start - 1 + count])
         start += count
@@ -914,6 +924,7 @@ def repair_deck(slides: List[str], ctx: "_Deck") -> List[str]:
         fresh = _rewrite_slide(result, index, note, ctx)
         if fresh and accept(fresh):
             result[index] = fresh
+            deck_memory.update(index + 1, fresh)
             log.info("%d-slayd mantiq tekshiruvi bo'yicha qayta yozildi", index + 1)
             return True
         log.info("%d-slaydning qayta yozilishi qabul qilinmadi", index + 1)
@@ -1033,6 +1044,7 @@ def shorten_long(slides: List[str], ctx: "_Deck") -> List[str]:
                 not deck_logic.has_photo(result[index]) or deck_logic.has_photo(fresh)) and (
                 not deck_logic.has_chart(result[index]) or deck_logic.has_chart(fresh)):
             result[index] = fresh
+            deck_memory.update(index + 1, fresh)
             log.info("%d-slayd qisqartirildi: %d → %d so'z", index + 1, before, deck_compose.words(fresh))
         else:
             log.info("%d-slaydning qisqa varianti qabul qilinmadi (%d so'z)", index + 1, before)
@@ -1131,7 +1143,7 @@ def rework_slide(body: str, signature: tuple, used: List[tuple], theme,
     user = prompts.fill(prompts.get(language).REWORK, shape=_shape_label(signature, language), taken=taken,
                         slide=source_of(body) or body)
     try:
-        raw = llm_client._call_openrouter_text(
+        raw = _ask(
             shell_rules(theme, language), user, temperature=0.6,
             max_tokens=max(2600, len(body) // 2))
     except Exception as exc:
@@ -1171,6 +1183,7 @@ def diversify(bodies: List[str], theme, language: str = "uz") -> List[str]:
         updated = rework_slide(result[index], signature, used, theme, language)
         if updated is not result[index]:
             result[index] = updated
+            deck_memory.update(index + 1, updated)
             reworked += 1
             log.info("%d-slayd boshqa shaklda qayta yozildi", index + 1)
     return result
@@ -1337,7 +1350,7 @@ def _thicken(body: str, system: str, theme, language: str = "") -> str:
     """Yupqa varaqni MATN VA RASM varag'iga aylantiradi (til — joriy taqdimot tili, `prompts.use`)."""
     user = prompts.fill(prompts.get(language or prompts.current()).THICKEN, slide=body)
     try:
-        raw = llm_client._call_openrouter_text(
+        raw = _ask(
             system, user, temperature=0.5, max_tokens=3000)
     except Exception as exc:
         log.warning("Yupqa slayd to'ldirilmadi: %s", exc)
@@ -1483,7 +1496,7 @@ def explain_visual(html: str, theme, language: str = "uz") -> str:
     user = prompts.fill(E["prompt"], words=_GAP_WORDS, slide=parked)
 
     try:
-        raw = llm_client._call_openrouter_text(
+        raw = _ask(
             system, user, temperature=0.5, max_tokens=400)
     except Exception as exc:
         log.warning("Diagramma izohi olinmadi: %s", exc)
@@ -1568,11 +1581,29 @@ def _restore(html: str, theme) -> str:
         return html
 
 
+def _turn(start: int, count: int, language: str) -> str:
+    """Xotiradagi foydalanuvchi navbati: qaysi slaydlar so'ralgani (taqdimot tilida)."""
+    return prompts.fill(prompts.get(language).USER["chunk"], start=start, count=count)
+
+
+def _ask(system: str, user: str, **kwargs) -> str:
+    """Matn so'rovi. Taqdimot xotirasi bo'lsa — oldin yozilgan slaydlar suhbat tarixi bo'lib oldidan ketadi.
+
+    Model 10-slaydni yozayotganda 9-slaydda nima deyilganini aynan ko'radi: fikr o'sha joydan davom etadi,
+    sana va raqamlar bir-biriga mos keladi.
+    """
+    history = deck_memory.history()
+    if not history:
+        return llm_client._call_openrouter_text(system, user, **kwargs)
+    note = prompts.get(prompts.current()).USER["memory"]
+    return llm_client._call_openrouter_text(system, user + "\n\n" + note, history=history, **kwargs)
+
+
 def _write_chunk(system: str, user: str, count: int) -> List[str]:
     try:
         # Birorta ham yopilgan slayd bo'lmagan javob (filtr kesgan, token
         # chegarasida uzilgan) keyingi modelga o'tkaziladi.
-        raw = llm_client._call_openrouter_text(
+        raw = _ask(
             system, user, temperature=0.75, max_tokens=4200 * count,
             accept=lambda text: bool(split_slides(text)))
     except llm_client.NoCredits:

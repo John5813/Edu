@@ -236,6 +236,11 @@ USER = {
                 "ochsin:\n⟨lines⟩"),
     "written": ("Yozib bo'lingan slaydlar sarlavhalari (mazmunini "
                 "takrorlamang, ularning davomi bo'ling): ⟨titles⟩"),
+    "memory": ("Yuqoridagi suhbatda shu taqdimotning oldin yozilgan slaydlari turibdi. Yangi slaydlarni ularning "
+               "bevosita davomi qilib yozing: fikrni oldingi slayd to'xtagan joydan davom ettiring, "
+               "rejadagi tartibni (davrlar ketma-ketligi, sabab → natija) saqlang, oldingi slaydlardagi nom, "
+               "sana va raqamlarga tayaning va ularni aynan shunday ishlating, har slaydga mavzuning yangi "
+               "jihatini olib keling."),
     "used": "Oldingi slaydlarda ochilgan fikrlar (ularni qayta aytmang): ⟨ideas⟩",
     "plan_slide": ("2-slayd — REJA: uni tizim yozilgan slaydlar sarlavhalaridan "
                    "o'zi yig'adi, shuning uchun bu o'rinda faqat bitta "
@@ -280,7 +285,13 @@ PLAN = {
               ": diagramma taqdimotni jonlantiradi. Diagramma uchun alohida tahlilchi "
               "HAQIQIY statistik ma'lumot (rasmiy manba, so'nggi yillar) topadi, shuning "
               "uchun diagramma faqat real raqamlar mavjud mavzuga qo'yilsin: iqtisod, "
-              "demografiya, ta'lim, sog'liqni saqlash, ekologiya, texnologiya va h.k.\n"),
+              "demografiya, ta'lim, sog'liqni saqlash, ekologiya, texnologiya va h.k. Diagramma "
+              "taqdimot mavzusining o'zi haqidagi raqamlarni ko'rsatsin va rejada mazmunan o'z "
+              "o'rnida — o'sha masala ochiladigan joyda tursin.\n"),
+    "narrative": ("Bu mavzu voqealar, shaxslar va g'oyalar rivoji haqida: rejani xronologik yoki mantiqiy "
+                  "ketma-ketlikda tuzing — har slayd oldingisidan kelib chiqsin va mavzuning o'ziga "
+                  "(davrlari, harakatlari, shaxslari, hujjatlari, g'oyalari) bag'ishlansin. Diagramma o'rniga "
+                  "vaqt o'qi, bosqichlar, qiyoslash va iqtiboslardan foydalaning.\n"),
     "donut": " (ulardan biri ulushlar uchun halqa)",
     "main": (
         'Mavzu: "⟨topic⟩"\n\n'

@@ -209,11 +209,13 @@ print("\n8) Promptlar: taqiq diagrammani butunlay o'chirib yubormaydi")
 seen = {}
 def catch(system, user, temperature=0.7, max_tokens=16000):
     seen["plan"] = user
-    return {"fan": "gumanitar", "slides": []}
+    return {"fan": "ijtimoiy", "slides": []}
 orig = llm_client._call_openrouter
 llm_client._call_openrouter = catch
 try:
-    html_slides.plan_outline("Alisher Navoiy ijodi", 12, "uz")
+    # Diagramma kvotasi raqamli mavzuda tekshiriladi (tarixiy/gumanitar mavzuda u majburlanmaydi —
+    # test_taqdimot_xotira.py).
+    html_slides.plan_outline("Iqtisodiyot asoslari", 12, "uz")
 finally:
     llm_client._call_openrouter = orig
 from services.premium_presentation import deck_shape

@@ -533,6 +533,10 @@ USER = {
                 "matches the «title» in the outline; each slide covers only the question in its own "
                 "title:\n⟨lines⟩"),
     "written": "Titles of the slides already written (do not repeat their content, continue them): ⟨titles⟩",
+    "memory": ("The conversation above holds the slides of this deck written so far. Write the new slides as "
+               "their direct continuation: pick up the thought where the previous slide stopped, keep the order "
+               "of the outline (sequence of periods, cause → effect), rely on the names, dates and figures of the "
+               "earlier slides and use them exactly the same way, and let each slide bring a new aspect of the topic."),
     "used": "Ideas already covered on earlier slides (do not say them again): ⟨ideas⟩",
     "plan_slide": ("Slide 2 is the OUTLINE: the system assembles it from the titles of the written slides, "
                    "so here write only one <section class=\"slide\"> with the title «⟨label⟩»."),
@@ -567,7 +571,12 @@ PLAN = {
     "chart": ("At least ⟨quota⟩ slides in the outline are in the 'diagramma' category⟨donut⟩: charts bring "
               "the deck to life. A separate analyst finds REAL statistical data for each chart (official "
               "sources, recent years), so charts go to topics where real numbers exist: economics, "
-              "demography, education, health, ecology, technology and so on.\n"),
+              "demography, education, health, ecology, technology and so on. A chart shows figures about the "
+              "deck's own topic and sits in the outline where its question is discussed.\n"),
+    "narrative": ("This topic is about how events, people and ideas developed: build the outline in chronological "
+                  "or logical order — each slide grows out of the previous one and is devoted to the topic itself "
+                  "(its periods, movements, people, documents, ideas). Use a timeline, stages, comparisons and "
+                  "quotes in place of charts.\n"),
     "donut": " (one of them a donut for shares)",
     "main": (
         'Topic: "⟨topic⟩"\n\n'
