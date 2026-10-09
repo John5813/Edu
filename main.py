@@ -26,6 +26,7 @@ from bot.handlers import premium_presentation as premium_presentation_handler
 from bot.handlers import project_work
 from bot.handlers import store
 from bot.handlers import emoji as emoji_handler
+from bot.handlers import reengage as reengage_handler
 from bot.middlewares import LanguageMiddleware, DatabaseMiddleware
 from database.database import init_db
 from config import ADMIN_IDS, BOT_TOKEN, DOCUMENTS_DIR, TEMP_DIR
@@ -568,6 +569,7 @@ async def main():
     
     # Register handlers - important order: specific handlers first, catch-all last!
     dp.include_router(admin.router)  # Admin commands first
+    dp.include_router(reengage_handler.router)  # Qayta jalb xabarlari tugmalari va sovg'a (bepul taqdimot)
     dp.include_router(settings.router)  # Handle settings buttons
     dp.include_router(converter.router)  # Handle PDF → DOCX conversion (before payments to keep state-specific callbacks)
     dp.include_router(pptx_converter.router)  # Handle PPTX → PDF conversion
@@ -642,14 +644,17 @@ async def main():
     web_jobs_task = asyncio.create_task(web_jobs.housekeeping())
     cleanup_task = asyncio.create_task(periodic_cleanup(storage=dp.storage))
     report_task  = asyncio.create_task(daily_user_report(bot))
+    # Faol bo'lmagan mijozlarga qayta jalb xabarlari (har 10 daqiqada; admin «Funksiyalar boshqaruvi»da o'chiradi).
+    from services import reengage
+    reengage_task = asyncio.create_task(reengage.run(bot))
 
     try:
         await stop_event.wait()
     finally:
         logger.info("Cancelling tasks...")
-        for task in (polling_task, web_task, cleanup_task, report_task, web_jobs_task):
+        for task in (polling_task, web_task, cleanup_task, report_task, web_jobs_task, reengage_task):
             task.cancel()
-        await asyncio.gather(polling_task, web_task, cleanup_task, report_task, web_jobs_task,
+        await asyncio.gather(polling_task, web_task, cleanup_task, report_task, web_jobs_task, reengage_task,
                              return_exceptions=True)
 
         await bot.session.close()

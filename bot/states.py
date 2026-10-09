@@ -170,3 +170,9 @@ class StorePublishStates(StatesGroup):
 
 class AbsStates(StatesGroup):
     waiting_for_file = State()
+
+
+class GiftStates(StatesGroup):
+    """Faol bo'lmagan mijozga sovg'a: 5 slaydli bepul taqdimot (qayta jalb xabarlaridan)."""
+    waiting_for_topic = State()
+    generating = State()

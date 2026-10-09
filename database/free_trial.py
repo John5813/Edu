@@ -20,6 +20,12 @@ SCHEMA = (
         job_id TEXT NOT NULL DEFAULT '',
         created_at REAL NOT NULL
     )""",
+    # Sovg'a muddati: faol bo'lmagan mijozga «sovg'angiz 48 soatda tugaydi» deyilgan bo'lsa, shu vaqtdan keyin
+    # imkoniyat yopiladi (bot ham, sayt ham) — xabardagi muddat haqiqiy bo'lsin.
+    """CREATE TABLE IF NOT EXISTS free_trial_deadlines (
+        telegram_id INTEGER PRIMARY KEY,
+        expires_at REAL NOT NULL
+    )""",
 )
 
 
@@ -28,17 +34,46 @@ async def _create(conn) -> None:
         await conn.execute(statement)
 
 
+async def _expired(conn, telegram_id: int) -> bool:
+    async with conn.execute("SELECT expires_at FROM free_trial_deadlines WHERE telegram_id = ?",
+                            (int(telegram_id),)) as cursor:
+        row = await cursor.fetchone()
+    return bool(row) and row[0] <= time.time()
+
+
 async def available(telegram_id: int) -> bool:
     async with aiosqlite.connect(_db.DATABASE_FILE) as conn:
         await _create(conn)
         async with conn.execute("SELECT 1 FROM free_trials WHERE telegram_id = ?", (int(telegram_id),)) as cursor:
-            return await cursor.fetchone() is None
+            if await cursor.fetchone() is not None:
+                return False
+        return not await _expired(conn, telegram_id)
+
+
+async def set_deadline(telegram_id: int, expires_at: float) -> None:
+    """Sovg'a shu vaqtgacha amal qiladi (avval qo'yilgan muddat uzaytirilmaydi)."""
+    async with aiosqlite.connect(_db.DATABASE_FILE) as conn:
+        await _create(conn)
+        await conn.execute("INSERT OR IGNORE INTO free_trial_deadlines (telegram_id, expires_at) VALUES (?, ?)",
+                           (int(telegram_id), float(expires_at)))
+        await conn.commit()
+
+
+async def deadline(telegram_id: int) -> Optional[float]:
+    async with aiosqlite.connect(_db.DATABASE_FILE) as conn:
+        await _create(conn)
+        async with conn.execute("SELECT expires_at FROM free_trial_deadlines WHERE telegram_id = ?",
+                                (int(telegram_id),)) as cursor:
+            row = await cursor.fetchone()
+    return row[0] if row else None
 
 
 async def claim(telegram_id: int, job_id: str) -> bool:
-    """Imkoniyatni shu buyurtmaga band qiladi. Avval ishlatilgan bo'lsa — False."""
+    """Imkoniyatni shu buyurtmaga band qiladi. Avval ishlatilgan yoki muddati o'tgan bo'lsa — False."""
     async with aiosqlite.connect(_db.DATABASE_FILE) as conn:
         await _create(conn)
+        if await _expired(conn, telegram_id):
+            return False
         try:
             await conn.execute("INSERT INTO free_trials (telegram_id, job_id, created_at) VALUES (?, ?, ?)",
                                (int(telegram_id), job_id, time.time()))

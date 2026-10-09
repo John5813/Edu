@@ -85,3 +85,30 @@ def menu_text(key: str, language: str):
     if not target or target[0] != "menu":
         return None
     return get_text(language, target[1])
+
+
+async def open_section(callback, state, dispatcher, key: str, language: str) -> bool:
+    """Ichki tugma bosilganda botning shu bo'limini ochadi (pastki menyudagi tugma bosilgandek).
+
+    Tugma matni foydalanuvchi yozgan xabar sifatida botning o'z oqimiga beriladi — obuna tekshiruvi,
+    to'lov va boshqa hamma qoidalar o'zgarishsiz qo'llanadi. Reklama tugmalari ham, qayta jalb xabarlari
+    tugmalari ham shu yerdan o'tadi.
+    """
+    from datetime import datetime
+
+    from aiogram.types import Message, Update
+
+    text = menu_text(key, language)
+    # Eski (48 soatdan oshgan) xabarda `message` ochilmaydi — bunday tugmani bosib bo'lmaydi.
+    if not text or not isinstance(callback.message, Message):
+        return False
+    await state.clear()
+    fake = callback.message.model_copy(update={
+        "from_user": callback.from_user,
+        "text": text,
+        "date": datetime.now(),
+        "reply_markup": None,
+    })
+    update = Update(update_id=int(datetime.now().timestamp() * 1000) % 2_000_000_000, message=fake)
+    await dispatcher.feed_update(callback.bot, update)
+    return True
