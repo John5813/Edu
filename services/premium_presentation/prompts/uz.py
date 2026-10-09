@@ -560,7 +560,7 @@ QAT'IY QOIDALAR:
    bo'laklar to'plami bo'lmasin. Bo'laklar (qadam, karta, band) faqat mavzuning o'zida haqiqiy
    qismlar bo'lsa va qolip shuni talab qilsa ishlatiladi.
 4. MATN HAJMI har o'rin uchun yuqorida aytilgan — undan oshmasin: joy aynan shuncha matnga
-   mo'ljallangan. Butun slayd (sarlavhasiz) 60 so'zdan oshmasin.
+   mo'ljallangan. Butun slayd (sarlavhasiz) 100 so'zdan oshmasin.
 5. Sarlavha 2-6 so'z va fikrni aytadi; oddiy gap kabi yoziladi — faqat birinchi so'z va atoqli
    otlar bosh harf bilan.
 6. Rasm (`div.rasm`): `data-prompt` — rasmning inglizcha tavsifi: slayd fikriga mos oddiy
@@ -590,11 +590,11 @@ QAT'IY QOIDALAR:
                    "iqtibosning o'zi (30 so'zgacha); quote-by — muallif; k-p — iqtibos nega muhimligi, "
                    "1-2 gap (15-30 so'z).",
         "raqamlar": "to'q fonda 2-4 ta yirik raqam: k-v — faqat son (6 belgigacha); k-u — birligi (%, "
-                    "mlrd $, mln); k-l — nima (1-3 so'z); k-d — raqamning ma'nosi (12 so'zgacha); k-src — manba.",
+                    "mlrd $, mln); k-l — nima (1-3 so'z); k-d — raqamning ma'nosi va sababi (12-20 so'z); k-src — manba.",
         "bosqichlar": "haqiqiy ketma-ketlik (jarayon, bosqichlar): lead — bitta gap (15 so'zgacha); 3-5 ta "
-                      "k-step: k-n — 01, 02 ...; k-h — 1-3 so'z; k-d — 12 so'zgacha.",
+                      "k-step: k-n — 01, 02 ...; k-h — 1-3 so'z; k-d — bosqichda nima qilinadi va nega, 12-20 so'z.",
         "vaqt": "chapda rasm (portret yoki tarixiy sahna), o'ngda vaqt o'qi: 3-5 ta k-stop: k-y — yil yoki "
-                "sana; k-yd — nima bo'lgani (12 so'zgacha).",
+                "sana; k-yd — nima bo'lgani va ahamiyati (12-20 so'z).",
         "qiyos": "ikki yarim varaq — ikki narsani qiyoslash: title — kichik yorliq (2-5 so'z); har yarimda "
                  "k-q — savol yoki yo'nalish (2-6 so'z), k-h2 — tomon nomi (1-3 so'z), 3 ta k-li (har biri "
                  "8 so'zgacha).",
@@ -605,7 +605,7 @@ QAT'IY QOIDALAR:
         "misol": "ishlangan misol: misol-tag — «Misol»; misol-task — shart (25 so'zgacha); 2-4 qadam (har biri "
                  "bitta formula yoki 12 so'zgacha gap); misol-answer — javob. O'ngda tor rasm.",
         "kartalar": "faqat 3-5 ta TENG HUQUQLI element (turlar, tarkib): lead — umumlashtiruvchi gap (15 "
-                    "so'zgacha); har k-card: k-h — 1-4 so'z, k-d — 15 so'zgacha.",
+                    "so'zgacha); har k-card: k-h — 1-4 so'z, k-d — mazmunli izoh, 12-20 so'z.",
         "yakun": "oxirgi slayd, to'q fonda: title — «Xulosa»; lead — butun taqdimotning asosiy xulosasi (18 "
                  "so'zgacha); 3 ta k-ln — asosiy fikrlar (har biri 12 so'zgacha). Rasm yo'q.",
     },

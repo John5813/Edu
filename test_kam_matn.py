@@ -57,9 +57,10 @@ body = ('<section class="slide k k-rasm-chap"><div class="rasm" data-prompt="a b
 check("sarlavha, rasm tavsifi va zaxira matni sanalmaydi", deck_compose.words(body) == 6, deck_compose.words(body))
 check("kompozitsiya nomi slayddan o'qiladi", deck_compose.layout_of(body) == "rasm_chap")
 long_kop = "<section class=\"slide\"><div class=\"body\"><p>" + " so'z" * 110 + "</p></div></section>"
-check("ko'p matnli chegarasi 100 so'z, kam matnliniki 70",
+check("ko'p matnli chegarasi 100 so'z, kam matnliniki 110 (infografika punktlari 12-20 so'z)",
       deck_compose.too_long(long_kop, "kop") and not deck_compose.too_long(long_kop.replace(" so'z" * 110, " so'z" * 80), "kop")
-      and deck_compose.too_long(long_kop.replace(" so'z" * 110, " so'z" * 80), "kam"))
+      and not deck_compose.too_long(long_kop.replace(" so'z" * 110, " so'z" * 105), "kam")
+      and deck_compose.too_long(long_kop.replace(" so'z" * 110, " so'z" * 115), "kam"))
 
 print("4) Rang sxemasi o'rniga matn hajmi")
 kam_theme = themes.for_deck("Iqtisodiyot", "jurnal", "kam")
@@ -116,7 +117,7 @@ def fake_text(system, user, *a, **k):
         html = FILL.get(layout, FILL["kartalar"]).replace("{n}", number)
         if number == "4" and "JUDA UZUN" not in user:
             # 4-slayd ataylab juda uzun: qisqartirish so'ralishi kerak
-            html = html.replace("</h2>", "</h2><p class=\"k-p\">" + "iqtisodiyot o'smoqda " * 45 + "</p>", 1)
+            html = html.replace("</h2>", "</h2><p class=\"k-p\">" + "iqtisodiyot o'smoqda " * 60 + "</p>", 1)
         if "JUDA UZUN" in user:
             CALLS["long_notes"] += 1
         out.append(html)

@@ -835,7 +835,7 @@ STRICT RULES:
    set of unconnected fragments. Parts (steps, cards, items) are used only when the topic really
    has parts and the template asks for them.
 4. The AMOUNT OF TEXT is given above for every place — do not exceed it: the space is designed
-   for exactly that much text. The whole slide (without the title) is at most 60 words.
+   for exactly that much text. The whole slide (without the title) is at most 100 words.
 5. The title is 2-6 words and states the idea; it is written like an ordinary sentence — only
    the first word and proper names are capitalised.
 6. Photo (`div.rasm`): `data-prompt` — an English description of the photo: a plain realistic
@@ -869,12 +869,12 @@ STRICT RULES:
                    "the quote itself (up to 30 words); quote-by — the author; k-p — why the quote matters, 1-2 "
                    "sentences (15-30 words).",
         "raqamlar": "2-4 large numbers on a dark background: k-v — the number only (up to 6 characters); "
-                    "k-u — the unit (%, bn $, mn); k-l — what it is (1-3 words); k-d — what the number means "
-                    "(up to 12 words); k-src — the source.",
+                    "k-u — the unit (%, bn $, mn); k-l — what it is (1-3 words); k-d — what the number means and why "
+                    "(12-20 words); k-src — the source.",
         "bosqichlar": "a real sequence (process, stages): lead — one sentence (up to 15 words); 3-5 k-step: k-n — "
-                      "01, 02 ...; k-h — 1-3 words; k-d — up to 12 words.",
+                      "01, 02 ...; k-h — 1-3 words; k-d — what happens at the step and why, 12-20 words.",
         "vaqt": "a photo on the left (portrait or historical scene), a timeline on the right: 3-5 k-stop: k-y — "
-                "a year or date; k-yd — what happened (up to 12 words).",
+                "a year or date; k-yd — what happened and why it matters (12-20 words).",
         "qiyos": "two halves of the slide — a comparison of two things: title — a short label (2-5 words); in "
                  "each half k-q — a question or direction (2-6 words), k-h2 — the side's name (1-3 words), 3 "
                  "k-li (each up to 8 words).",
@@ -887,7 +887,7 @@ STRICT RULES:
                  "(each one formula or a sentence of up to 12 words); misol-answer — the answer. A narrow photo "
                  "on the right.",
         "kartalar": "only 3-5 EQUAL elements (kinds, parts): lead — a summarising sentence (up to 15 words); each "
-                    "k-card: k-h — 1-4 words, k-d — up to 15 words.",
+                    "k-card: k-h — 1-4 words, k-d — a meaningful note, 12-20 words.",
         "yakun": "the last slide, on a dark background: title — «Conclusion»; lead — the main conclusion of the "
                  "whole presentation (up to 18 words); 3 k-ln — the key points (each up to 12 words). No photo.",
     },
