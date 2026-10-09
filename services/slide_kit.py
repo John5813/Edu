@@ -176,6 +176,9 @@ def text(ctx: Ctx, left, top, width, height, paragraphs, pt: Optional[float] = N
     if isinstance(paragraphs, str):
         paragraphs = [(paragraphs, {})]
     paragraphs = [(t, o) for t, o in paragraphs if t is not None]
+    if not any(str(t).strip() for t, _ in paragraphs):
+        # Bo'sh matn qutisi qo'yilmaydi: PowerPoint/WPS unda "Double-tap to add text" ko'rsatadi.
+        return pt or min_pt
 
     if pt is None:
         pt = min_pt

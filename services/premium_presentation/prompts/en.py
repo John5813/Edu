@@ -886,7 +886,7 @@ STRICT RULES:
         "misol": "a worked example: misol-tag — «Example»; misol-task — the problem (up to 25 words); 2-4 steps "
                  "(each one formula or a sentence of up to 12 words); misol-answer — the answer. A narrow photo "
                  "on the right.",
-        "kartalar": "only 2-4 EQUAL elements (kinds, parts): lead — a summarising sentence (up to 15 words); each "
+        "kartalar": "only 3-5 EQUAL elements (kinds, parts): lead — a summarising sentence (up to 15 words); each "
                     "k-card: k-h — 1-4 words, k-d — up to 15 words.",
         "yakun": "the last slide, on a dark background: title — «Conclusion»; lead — the main conclusion of the "
                  "whole presentation (up to 18 words); 3 k-ln — the key points (each up to 12 words). No photo.",
