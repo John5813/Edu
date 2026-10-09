@@ -746,18 +746,15 @@ async def _handoff_simple(callback: CallbackQuery, state: FSMContext, db: Databa
 
 VOLUMES = ("kop", "kam")
 _VOLUME_BUTTONS = {
-    "kop": {"uz": "📝 Ko'p matnli — batafsil, har 10 slaydda 4 ta rasm",
-            "ru": "📝 Больше текста — подробно, 4 фото на 10 слайдов",
-            "en": "📝 More text — detailed, 4 photos per 10 slides",
-            "kk": "📝 Мәтіні көп — толық, әр 10 слайдқа 4 сурет"},
-    "kam": {"uz": "🖼 Kam matnli — aniq qisqa fikrlar, rasm ko'p",
-            "ru": "🖼 Меньше текста — чёткие мысли, больше фото",
-            "en": "🖼 Less text — sharp ideas, more photos",
-            "kk": "🖼 Мәтіні аз — нақты ойлар, сурет көп"},
+    "kop": {"uz": "📝 Matn hajmi: Ko'p", "ru": "📝 Объём текста: большой",
+            "en": "📝 Amount of text: large", "kk": "📝 Мәтін көлемі: көп"},
+    "kam": {"uz": "🖼 Matn hajmi: O'rtacha", "ru": "🖼 Объём текста: средний",
+            "en": "🖼 Amount of text: medium", "kk": "🖼 Мәтін көлемі: орташа"},
 }
+# Xulosadagi "Matn hajmi: ..." qatori uchun. Ichki kalit "kam" o'zgarmaydi (saqlangan taqdimotlar, sayt).
 _VOLUME_NAMES = {
-    "kop": {"uz": "Ko'p matnli", "ru": "Больше текста", "en": "More text", "kk": "Мәтіні көп"},
-    "kam": {"uz": "Kam matnli", "ru": "Меньше текста", "en": "Less text", "kk": "Мәтіні аз"},
+    "kop": {"uz": "Ko'p", "ru": "Большой", "en": "Large", "kk": "Көп"},
+    "kam": {"uz": "O'rtacha", "ru": "Средний", "en": "Medium", "kk": "Орташа"},
 }
 
 
@@ -768,18 +765,18 @@ def _volume_name(key: str, lang: str) -> str:
 
 def _volume_prompt(lang: str) -> str:
     msgs = {
-        "uz": ("📏 <b>Matn hajmini tanlang</b>\n\n"
-               "• <b>Ko'p matnli</b> — har slaydda fikr batafsil ochiladi.\n"
-               "• <b>Kam matnli</b> — qisqa va aniq fikrlar, rasmlar ko'proq."),
-        "ru": ("📏 <b>Выберите объём текста</b>\n\n"
-               "• <b>Больше текста</b> — мысль на каждом слайде раскрыта подробно.\n"
-               "• <b>Меньше текста</b> — короткие чёткие мысли, больше фотографий."),
-        "en": ("📏 <b>Choose the amount of text</b>\n\n"
-               "• <b>More text</b> — each slide explains its idea in detail.\n"
-               "• <b>Less text</b> — short, sharp ideas and more photos."),
-        "kk": ("📏 <b>Мәтін көлемін таңдаңыз</b>\n\n"
-               "• <b>Мәтіні көп</b> — әр слайдта ой толық ашылады.\n"
-               "• <b>Мәтіні аз</b> — қысқа әрі нақты ойлар, сурет көбірек."),
+        "uz": ("📏 <b>Matn hajmini belgilang</b>\n\n"
+               "Ko'p — har slaydda fikr batafsil ochiladi.\n"
+               "O'rtacha — aniq fikrlar, infografika va rasmlar ko'proq."),
+        "ru": ("📏 <b>Укажите объём текста</b>\n\n"
+               "Большой — мысль на каждом слайде раскрыта подробно.\n"
+               "Средний — чёткие мысли, больше инфографики и фотографий."),
+        "en": ("📏 <b>Set the amount of text</b>\n\n"
+               "Large — each slide explains its idea in detail.\n"
+               "Medium — sharp ideas, more infographics and photos."),
+        "kk": ("📏 <b>Мәтін көлемін белгілеңіз</b>\n\n"
+               "Көп — әр слайдта ой толық ашылады.\n"
+               "Орташа — нақты ойлар, инфографика мен сурет көбірек."),
     }
     return msgs.get(lang, msgs["uz"])
 
