@@ -202,11 +202,11 @@ check("sayt: noma'lum qiymat — ko'p matnli", norm({"topic": "Iqtisodiyot", "vo
 check("sayt: bepul sinov — ko'p matnli", norm({"topic": "Iqtisodiyot", "volume": "kam", "trial": True})["volume"] == "kop")
 check("sayt: eski `theme` parametri e'tiborsiz", "theme" not in norm({"topic": "Iqtisodiyot", "theme": "qizil"}))
 js = open("webapp/site/static/studio.js", encoding="utf-8").read()
-check("sayt: rang sxemasi tanlovi yo'q, matn hajmi bor", "Rang sxemasi" not in js and "Matn hajmi" in js
+check("sayt: rang sxemasi tanlovi yo'q, taqdimot turi bor", "Rang sxemasi" not in js and "Taqdimot turi" in js
       and "volume:" in js and "theme: S.theme" not in js)
 from bot.handlers import premium_presentation as bot
 text, _ = bot._summary({"topic": "Iqtisodiyot", "style": "jurnal", "volume": "kam", "slide_count": 10}, "uz")
-check("bot: xulosada matn hajmi (o'rtacha), rang yo'q", "Matn hajmi" in text and "O'rtacha" in text and "Rang" not in text)
+check("bot: xulosada tur (infografik), rang yo'q", "Turi" in text and "Infografik" in text and "Rang" not in text)
 kb_uz = bot._volume_keyboard("uz")
 check("bot: tugmalar «Matn hajmi: Ko'p / O'rtacha», izohsiz",
       "Matn hajmi: Ko'p" in str(kb_uz) and "Matn hajmi: O'rtacha" in str(kb_uz) and "rasm" not in str(kb_uz))

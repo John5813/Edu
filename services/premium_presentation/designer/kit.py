@@ -247,8 +247,12 @@ def _widest_word(paras) -> float:
     return widest
 
 
+BOOST = 4          # px (= 2 pt): matn va yorliqlarga qo'shimcha o'lcham
+MAX_GROW = 1.3     # joy bo'lsa matn shuncha martagacha kattalashadi
+
+
 def text(s, x, y, w, h, paras, align=LEFT, anchor=TOP, gap: float = 0, line_spacing: float = 1.15,
-         fit: bool = True, min_scale: float = 0.55):
+         fit: bool = True, min_scale: float = 0.55, grow: bool = False):
     """paras: [[(matn, px o'lcham, rang, qalin, shrift, harf oralig'i, kursiv), ...], ...].
 
     `fit` — matn qutiga sig'maguncha hamma o'lcham birdek kichraytiriladi (taxminiy o'lchov bilan):
@@ -258,10 +262,15 @@ def text(s, x, y, w, h, paras, align=LEFT, anchor=TOP, gap: float = 0, line_spac
     paras = [p for p in paras if p]
     if not paras:
         return None
+    # Oddiy matn (sarlavha emas) +2 pt: mijozlar telefonda shriftni mayda deb topdi.
+    paras = [[(r[0], r[1] + BOOST if r[1] <= 44 else r[1]) + tuple(r[2:]) for r in para] for para in paras]
     scale = 1.0
     if fit:
         measured = [(p, line_spacing * 1.18) for p in paras]
         widest = _widest_word(paras)
+        # Matn kam bo'lsa — kattalashadi (joy bo'sh qolmasin), ko'p bo'lsa — kichrayadi.
+        if grow and max(r[1] for para in paras for r in para) <= 48:   # sarlavhalar kattalashmaydi
+            scale = MAX_GROW
         while scale > min_scale:
             need = _estimate(measured, w, scale) + gap * scale * (len(paras) - 1)
             # Eng uzun so'z ham bir qatorga sig'sin — aks holda PowerPoint uni o'rtasidan bo'ladi.

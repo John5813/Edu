@@ -142,6 +142,8 @@ class PremiumPresentationStates(StatesGroup):
     waiting_for_slide_count = State()
     # Mijoz matn hajmini tanlaydi (ko'p / kam matnli).
     waiting_for_volume = State()
+    # Taqdimot turi: infografik / zamonaviy / klassik (manbadan keyin, uslubdan oldin).
+    waiting_for_kind = State()
     waiting_for_payment = State()
     generating = State()
 

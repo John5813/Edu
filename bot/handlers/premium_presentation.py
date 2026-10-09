@@ -287,7 +287,7 @@ def _topic_line(data: dict, lang: str) -> str:
 
 # Orqaga: har qadamning oldingisi. Birinchi qadamdan — bosh menyu.
 _PREVIOUS = {"script": "topic", "name": "topic", "prefs": "name", "source": "prefs",
-             "source_input": "source", "style": "source", "volume": "style",
+             "source_input": "source", "kind": "source", "style": "kind", "volume": "style",
              "summary": "count"}
 
 
@@ -297,7 +297,8 @@ def _previous_step(data: dict):
     if step == "name" and data.get("script_asked"):
         return "script"
     if step == "count":
-        return "style" if data.get("style") == SIMPLE_STYLE else "volume"
+        # Zamonaviy — uslubga, infografik va klassik — tur tanloviga qaytadi.
+        return "style" if _kind_of(data) == KIND_MODERN else "kind"
     return _PREVIOUS.get(step)
 
 
@@ -512,7 +513,7 @@ async def premium_ppt_chose_source(callback: CallbackQuery, state: FSMContext, d
     if kind == source_module.KIND_AI:
         await state.update_data(source_kind=source_module.KIND_AI,
                                 source_text="", source_label="")
-        await _step_style(callback.message, state, lang)
+        await _step_kind(callback.message, state, lang)
         return
 
     prompts = {
@@ -596,7 +597,89 @@ async def _store_source(message: Message, state: FSMContext, lang: str, material
             get_text(lang, "pw_source_ok", label=material.label,
                      words=len(material.text.split())),
             parse_mode="HTML")
-    await _step_style(message, state, lang)
+    await _step_kind(message, state, lang)
+
+
+# ── 4b. Taqdimot turi: infografik / zamonaviy / klassik
+# Ilgari uch xil mahsulot bitta uslub ro'yxatida aralashgan edi: eng yangi infografik dizayn uslub va
+# "matn hajmi" qadamlari ortida yashirinardi. Endi mijoz turini birinchi tanlaydi; tur keraksiz
+# qadamlarni o'zi belgilaydi (infografik — uslub va hajm so'ralmaydi, klassik — shablonlarga o'tadi).
+# Faqat tugmalar — namuna rasm yuborilmaydi.
+
+KIND_INFO, KIND_MODERN, KIND_CLASSIC = "info", "modern", "classic"
+KINDS = (KIND_INFO, KIND_MODERN, KIND_CLASSIC)
+# Infografik tur uchun uslub so'ralmaydi: vektor dizayner ko'rinishni o'zi tanlaydi.
+INFO_STYLE = "toza"
+_KIND_BUTTONS = {
+    KIND_INFO: {"uz": "🎨 Infografik — yangi", "ru": "🎨 Инфографика — новинка",
+                "en": "🎨 Infographic — new", "kk": "🎨 Инфографика — жаңа"},
+    KIND_MODERN: {"uz": "📝 Zamonaviy — batafsil matn", "ru": "📝 Современная — подробный текст",
+                  "en": "📝 Modern — detailed text", "kk": "📝 Заманауи — толық мәтін"},
+    KIND_CLASSIC: {"uz": "📄 Klassik — tayyor shablonlar", "ru": "📄 Классическая — готовые шаблоны",
+                   "en": "📄 Classic — ready templates", "kk": "📄 Классикалық — дайын үлгілер"},
+}
+_KIND_NAMES = {
+    KIND_INFO: {"uz": "Infografik", "ru": "Инфографика", "en": "Infographic", "kk": "Инфографика"},
+    KIND_MODERN: {"uz": "Zamonaviy", "ru": "Современная", "en": "Modern", "kk": "Заманауи"},
+    KIND_CLASSIC: {"uz": "Klassik", "ru": "Классическая", "en": "Classic", "kk": "Классикалық"},
+}
+_KIND_PROMPT = {
+    "uz": "🖼 <b>Taqdimot turini tanlang</b>",
+    "ru": "🖼 <b>Выберите тип презентации</b>",
+    "en": "🖼 <b>Choose the presentation type</b>",
+    "kk": "🖼 <b>Презентация түрін таңдаңыз</b>",
+}
+
+
+def _kind_name(key: str, lang: str) -> str:
+    names = _KIND_NAMES.get(key) or _KIND_NAMES[KIND_MODERN]
+    return names.get(lang) or names["uz"]
+
+
+def _kind_of(data: dict) -> str:
+    """Buyurtma turi (eski buyurtmalarda tur yo'q — uslub va hajmdan aniqlanadi)."""
+    kind = data.get("kind")
+    if kind in KINDS:
+        return kind
+    if data.get("style") == SIMPLE_STYLE:
+        return KIND_CLASSIC
+    return KIND_INFO if data.get("volume") == "kam" else KIND_MODERN
+
+
+def _kind_keyboard(lang: str) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    for key in KINDS:
+        builder.button(text=_KIND_BUTTONS[key].get(lang) or _KIND_BUTTONS[key]["uz"],
+                       callback_data=f"prem_ppt_kind:{key}")
+    builder.adjust(1)
+    builder.row(*_back_row(lang))
+    return builder.as_markup()
+
+
+async def _step_kind(message: Message, state: FSMContext, lang: str) -> None:
+    data = await state.get_data()
+    text = _topic_line(data, lang) + (_KIND_PROMPT.get(lang) or _KIND_PROMPT["uz"])
+    await _prompt(message, state, text, _kind_keyboard(lang), "kind", PremiumPresentationStates.waiting_for_kind)
+
+
+@router.callback_query(F.data.startswith("prem_ppt_kind:"), PremiumPresentationStates.waiting_for_kind)
+async def premium_ppt_kind_selected(callback: CallbackQuery, state: FSMContext, db: Database):
+    """Tur tanlandi: infografik — darhol hajm (slaydlar soni), zamonaviy — uslub, klassik — shablonlar."""
+    await callback.answer()
+    lang = await _lang_of(callback.from_user.id, db)
+    kind = callback.data.split(":", 1)[1]
+    if kind not in KINDS:
+        kind = KIND_INFO
+    await state.update_data(kind=kind)
+    if kind == KIND_CLASSIC:
+        await state.update_data(style=SIMPLE_STYLE, volume="")
+        await _step_count(callback.message, state, lang, db)
+    elif kind == KIND_INFO:
+        await state.update_data(style=INFO_STYLE, volume="kam")
+        await _step_count(callback.message, state, lang, db)
+    else:
+        await state.update_data(volume="kop")
+        await _step_style(callback.message, state, lang)
 
 
 # ── 5. Uslub
@@ -609,6 +692,8 @@ def _simple_price(count: int):
 def _style_keyboard(lang: str) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for key in _STYLE_ORDER:
+        if key == SIMPLE_STYLE:
+            continue        # "Chiroyli orqa fonlar" endi alohida tur — "Klassik"
         builder.button(text=_STYLE_BUTTONS[key].get(lang) or _STYLE_BUTTONS[key]["uz"],
                        callback_data=f"ppt_style:{key}")
     builder.adjust(1)
@@ -618,7 +703,7 @@ def _style_keyboard(lang: str) -> InlineKeyboardMarkup:
 
 async def _step_style(message: Message, state: FSMContext, lang: str) -> None:
     data = await state.get_data()
-    text = _topic_line(data, lang) + _t(lang, "ask_style") + "\n\n" + _t(lang, "style_hint")
+    text = _topic_line(data, lang) + _t(lang, "ask_style")
     await _prompt(message, state, text, _style_keyboard(lang), "style",
                   PremiumPresentationStates.waiting_for_style)
 
@@ -639,8 +724,9 @@ async def premium_ppt_style_selected(callback: CallbackQuery, state: FSMContext,
     from services.premium_presentation import deck_styles
     if key not in deck_styles.STYLES:
         key = "toza"
-    await state.update_data(style=key)
-    await _step_volume(callback.message, state, lang)
+    # Matn hajmi alohida so'ralmaydi: "Zamonaviy" turi — batafsil matn.
+    await state.update_data(style=key, kind=KIND_MODERN, volume="kop")
+    await _step_count(callback.message, state, lang, db)
 
 
 # ── 6. Hajm — narxlar tanlangan uslubga qarab ko'rsatiladi
@@ -677,7 +763,8 @@ async def _step_count(message: Message, state: FSMContext, lang: str, db: Databa
     data = await state.get_data()
     style = data.get("style") or ""
     balance = await _balance_of(db, message.chat.id)
-    style_name = _style_name(style or "toza", lang)
+    kind = _kind_of(data)
+    style_name = _kind_name(kind, lang) + (f" · {_style_name(style or 'toza', lang)}" if kind == KIND_MODERN else "")
     lines = [_t(lang, "ask_count"), "", _t(lang, "count_style", style=style_name),
              _t(lang, "count_balance", balance=f"{balance:,}"), "",
              _t(lang, "count_hint_fon" if style == SIMPLE_STYLE else "count_hint")]
@@ -741,7 +828,9 @@ async def _handoff_simple(callback: CallbackQuery, state: FSMContext, db: Databa
     await _documents.prompt_simple_payment(callback.message, state, lang, user, count)
 
 
-# ── 5b. Matn hajmi (faqat zamonaviy uslublarda)
+# ── 5b. Matn hajmi — endi alohida so'ralmaydi (tur belgilaydi: zamonaviy — "kop", infografik — "kam").
+# Qadam eski suhbatlar uchun qoldirildi: yangilanishdan oldin shu savolda turgan mijoz tugmani bossa ham
+# buyurtma davom etadi.
 # Rang alohida so'ralmaydi: uni mavzuga qarab tizim tanlaydi, uslub esa ko'rinishni belgilaydi.
 
 VOLUMES = ("kop", "kam")
@@ -829,8 +918,10 @@ def _summary(data: dict, lang: str):
 
     slide_count = int(data.get("slide_count") or MIN_SLIDES)
     price = _get_price(slide_count)
-    volume = _volume_name(data.get("volume") or "kop", lang) if data.get("style") != SIMPLE_STYLE else ""
-    style = _style_name(data.get("style") or "toza", lang)
+    kind = _kind_of(data)
+    volume = ""
+    # Infografikda uslub so'ralmaydi — xulosada uslub o'rniga tur yoziladi.
+    style = _style_name(data.get("style") or "toza", lang) if kind == KIND_MODERN else ""
     language = data.get("presentation_language") or "uz"
     none = {"uz": "ko‘rsatilmagan", "ru": "не указано", "en": "not provided"}.get(lang, "—")
     source = data.get("source_label") or ""
@@ -855,7 +946,10 @@ def _summary(data: dict, lang: str):
         lines.append(f"✍️ {pref_l}: <i>{esc(data.get('preferences'), 150)}</i>")
     if source:
         lines.append(f"📎 {src_l}: {esc(source, 80)}")
-    lines.append(f"🖌 {style_l}: <b>{esc(style)}</b>")
+    kind_l = {"uz": "Turi", "ru": "Тип", "en": "Type", "kk": "Түрі"}.get(lang, "Turi")
+    lines.append(f"🎨 {kind_l}: <b>{esc(_kind_name(kind, lang))}</b>")
+    if style:
+        lines.append(f"🖌 {style_l}: <b>{esc(style)}</b>")
     if volume:
         lines.append(f"📏 {volume_l}: <b>{esc(volume)}</b>")
     lines += [f"📊 {slides_l}: <b>{slide_count}</b>",
@@ -902,7 +996,7 @@ async def premium_ppt_previous(callback: CallbackQuery, state: FSMContext, db: D
         return
     steps = {"topic": _step_topic, "script": _step_script, "name": _step_name, "prefs": _step_prefs,
              "source": _step_source, "count": _step_count, "style": _step_style,
-             "volume": _step_volume}
+             "volume": _step_volume, "kind": _step_kind}
     if previous == "count":
         await _step_count(callback.message, state, lang, db)
         return

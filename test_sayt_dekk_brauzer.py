@@ -107,8 +107,11 @@ async def main():
             await page.goto(base + "/"); await page.wait_for_selector("#kind-chips [data-kind=premium_presentation]")
             await page.fill("#topic", "Raqamli iqtisodiyot")
             await page.wait_for_selector("#studio #go")
-            check("mavzu yozilgach oyna kattalashdi (uslub, slaydlar soni, narx)", await page.locator("#styles .st-sty").count() == 5
+            check("mavzu yozilgach oyna kattalashdi (tur, slaydlar soni, narx; infografikda uslub so'ralmaydi)",
+                  await page.locator("#volumes .src").count() == 2 and await page.locator("#styles .st-sty").count() == 0
                   and await page.locator("#c-num").count() == 1 and "so" in await page.inner_text("#s-price"))
+            await page.click("#volumes [data-k='kop']")
+            check("zamonaviy turida 5 ta uslub chiqadi", await page.locator("#styles .st-sty").count() == 5)
             await page.click("#go")
             await page.wait_for_selector(".forge .fg-card", timeout=20000)
             if name == "kompyuter":
