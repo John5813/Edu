@@ -30,8 +30,8 @@
   ];
   // Matn hajmi: rang alohida tanlanmaydi (mavzuga qarab), uslub ko'rinishni, hajm esa matn va rasm nisbatini belgilaydi.
   const VOLUMES = [
-    {key: 'kop', label: '📝 Ko‘p matnli', short: 'ko‘p matnli', note: 'Har slaydda fikr batafsil ochiladi, har 10 slaydda 4 ta rasm'},
-    {key: 'kam', label: '🖼 Kam matnli', short: 'kam matnli', note: 'Qisqa va aniq fikrlar, rasmlar ko‘proq'},
+    {key: 'kop', label: '📝 Matn hajmi: ko‘p', short: 'ko‘p', note: 'Har slaydda fikr batafsil ochiladi, har 10 slaydda 4 ta rasm'},
+    {key: 'kam', label: '🖼 Matn hajmi: o‘rtacha', short: 'o‘rtacha', note: 'Aniq fikrlar, infografika va rasmlar ko‘proq'},
   ];
   const PREF_EXAMPLES = ['Investorlar uchun ishonchli', 'Ko‘proq vizual', 'Qisqa va ta’sirli', 'Talabalar uchun sodda tilda', 'Raqam va faktlar ko‘proq'];
 

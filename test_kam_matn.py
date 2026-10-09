@@ -206,11 +206,15 @@ check("sayt: rang sxemasi tanlovi yo'q, matn hajmi bor", "Rang sxemasi" not in j
       and "volume:" in js and "theme: S.theme" not in js)
 from bot.handlers import premium_presentation as bot
 text, _ = bot._summary({"topic": "Iqtisodiyot", "style": "jurnal", "volume": "kam", "slide_count": 10}, "uz")
-check("bot: xulosada matn hajmi, rang yo'q", "Matn hajmi" in text and "Kam matnli" in text and "Rang" not in text)
+check("bot: xulosada matn hajmi (o'rtacha), rang yo'q", "Matn hajmi" in text and "O'rtacha" in text and "Rang" not in text)
+kb_uz = bot._volume_keyboard("uz")
+check("bot: tugmalar «Matn hajmi: Ko'p / O'rtacha», izohsiz",
+      "Matn hajmi: Ko'p" in str(kb_uz) and "Matn hajmi: O'rtacha" in str(kb_uz) and "rasm" not in str(kb_uz))
+check("bot: xabar «Matn hajmini belgilang»", "Matn hajmini belgilang" in bot._volume_prompt("uz"))
 kb = bot._volume_keyboard("ru")
 data = [b.callback_data for row in kb.inline_keyboard for b in row]
 check("bot: ikki tugma (ko'p / kam) va orqaga", "prem_ppt_vol:kop" in data and "prem_ppt_vol:kam" in data, data)
-check("bot: ruscha tugmalar ruscha", "Меньше текста" in str(kb))
+check("bot: ruscha tugmalar ruscha", "Объём текста: средний" in str(kb))
 check("pipeline: matn hajmi qiymatlari", pipeline.VOLUMES == ("kop", "kam"))
 
 print("\nNATIJA:", "HAMMASI O'TDI" if not FAILS else f"{len(FAILS)} ta xato: {FAILS}")
