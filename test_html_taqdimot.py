@@ -28,7 +28,7 @@ os.environ.setdefault("BOT_TOKEN", "test")
 
 from services.premium_presentation import (  # noqa: E402
     deck_charts, deck_logic, deck_math, deck_shape, deck_style, html_extract, html_images, html_render,
-    html_slides, llm_client, themes)
+    html_slides, llm_client, prompts, themes)
 
 FAILS = []
 
@@ -473,14 +473,16 @@ def check_outline():
           and sum(1 for c in middle if c == "kartalar") >= 1, str(middle))
     check("rasm kvotasi: har 10 slaydga 4 ta (8 slayd — 3 ta rasmli)",
           sum(1 for c in middle if c == "matn_rasm") == deck_logic.photo_quota(8) == 3, str(middle))
-    check("model diagramma bermasa ham kvota to'ldiriladi",
-          sum(1 for c in middle if c == "diagramma") == deck_logic.chart_quota(8), str(middle))
+    # Gumanitar mavzuda diagramma majburlanmaydi: kvota uchun qo'yilgan begona statistika slaydi
+    # taqdimotning fikrini uzardi (raqamli mavzularda kvota avvalgidek — test_taqdimot_mantiq.py).
+    check("gumanitar mavzuda diagramma majburlanmaydi",
+          sum(1 for c in middle if c == "diagramma") == deck_logic.chart_quota(8, "gumanitar") == 0, str(middle))
     check("rejada xilma-xillik kvotasi yo'q",
           "kamida oltita" not in seen["prompt"], "")
     check("rejada mazmunga qarab tanlash aytilgan",
           "MAZMUNGA QARAB" in seen["prompt"])
-    check("diagramma kvotasi ijobiy aytilgan (haqiqiy ma'lumot bilan)",
-          "diagramma" in seen["prompt"].lower() and "haqiqiy statistik" in seen["prompt"].lower()
+    check("gumanitar rejada voqealar/g'oyalar ketma-ketligi ijobiy aytilgan",
+          prompts.get("uz").PLAN["narrative"] in seen["prompt"]
           and "shartli misol" not in seen["prompt"].lower())
     check("reja so'rovida sarlavha so'raladi", '"title"' in seen["prompt"])
 
@@ -503,8 +505,8 @@ def check_outline():
     kinds = {o["category"] for o in fallback["slides"]}
     check("zaxirada raqamga tayanadigan boshqa kategoriya yo'q",
           not (kinds & {"korsatkichlar", "jadval", "vaqt_oqi"}), str(kinds))
-    check("zaxirada ham diagramma kvotasi bor",
-          sum(1 for o in fallback["slides"] if o["category"] == "diagramma") == deck_logic.chart_quota(6),
+    check("zaxirada ham diagramma kvotasi mavzuga mos (gumanitar — majburiy emas)",
+          sum(1 for o in fallback["slides"] if o["category"] == "diagramma") == deck_logic.chart_quota(6, "gumanitar"),
           str(kinds))
 
 
@@ -546,7 +548,7 @@ def check_writer():
     print("\n4) Slaydlarni bo'laklab yozish")
     calls = []
 
-    def fake(system, user, temperature=0.7, max_tokens=1800, accept=None):
+    def fake(system, user, temperature=0.7, max_tokens=1800, accept=None, history=None):
         calls.append(user)
         # Mazmunli varaq: yupqa varaq qo'shimcha so'rov bilan
         # to'ldiriladi, bu yerda esa faqat bo'laklash sinaladi.
@@ -2024,7 +2026,7 @@ def check_repair_edits_same_slide():
     seen = {}
 
     def reply(text):
-        def call(system, user, temperature=0.7, max_tokens=4000, accept=None):
+        def call(system, user, temperature=0.7, max_tokens=4000, accept=None, history=None):
             seen["user"] = user
             return text
         return call

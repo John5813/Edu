@@ -751,18 +751,21 @@ def _call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 
 def _call_openrouter_text(system_prompt: str, user_prompt: str,
                           temperature: float = 0.3,
                           max_tokens: int = 1800,
-                          accept: Optional[Callable[[str], bool]] = None) -> str:
+                          accept: Optional[Callable[[str], bool]] = None,
+                          history: Optional[list] = None) -> str:
     """Oddiy matn so'raydi — JSON rejimisiz.
 
     Manbani siqishda javob JSON emas, nasr bo'lishi kerak; `_call_openrouter`
     esa har doim `json_object` rejimida so'raydi. `accept` javobni rad
-    etsa, keyingi model sinaladi.
+    etsa, keyingi model sinaladi. `history` — oldingi suhbat
+    ([{"role": "user"|"assistant", "content": ...}]): system va joriy so'rov orasiga qo'yiladi.
     """
     payload = {
         "temperature": temperature,
         "max_tokens": max_tokens,
         "messages": [
             {"role": "system", "content": _with_today(system_prompt)},
+            *(history or []),
             {"role": "user", "content": user_prompt},
         ],
     }

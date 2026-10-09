@@ -82,10 +82,11 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
     `volume` — matn hajmi (`VOLUMES`); `theme_key` faqat saqlangan taqdimotni qayta yig'ish uchun (bo'sh —
     rang mavzuga qarab).
     """
-    from services.premium_presentation import prompts
+    from services.premium_presentation import deck_memory, prompts
 
     # Hamma so'rovlardagi umumiy qoidalar (bugungi sana va h.k.) ham taqdimot tilida — oqimlarga ham o'tadi.
-    with prompts.use(language):
+    # Taqdimot xotirasi (AI oldin yozgan slaydlar) taqdimot tayyor bo'lguncha turadi, keyin o'chadi.
+    with prompts.use(language), deck_memory.session():
         return await _build_deck(topic, slide_count, language=language, level=level, preferences=preferences,
                                  source_text=source_text, author=author, theme_key=theme_key, style=style,
                                  volume=volume if volume in VOLUMES else "kop", photos=photos, progress_cb=progress_cb, stage_cb=stage_cb, deck_out=deck_out)

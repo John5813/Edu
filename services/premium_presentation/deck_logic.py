@@ -184,9 +184,15 @@ def chart_count(bodies: List[str]) -> int:
     return sum(1 for b in bodies if has_chart(b))
 
 
-def chart_quota(total: int) -> int:
-    """Taqdimotda kamida nechta diagramma bo'lishi kerak."""
-    if total < 6:
+# Voqealar va g'oyalar rivoji haqidagi mavzular (deck_shape oilalari): ularda diagramma majburlanmaydi.
+# Ilgari "Mustaqillik g'oyalarining tarixiy asoslari" taqdimotiga kvota uchun YaIM va aholi diagrammalari
+# qo'yilib, sovet davri va mustaqillik davri orasiga tushib qolgan — xronologiya uzilgan edi.
+NARRATIVE = ("tarix", "gumanitar")
+
+
+def chart_quota(total: int, family: str = "") -> int:
+    """Taqdimotda kamida nechta diagramma bo'lishi kerak (tarixiy/gumanitar mavzuda — majburiy emas)."""
+    if family in NARRATIVE or total < 6:
         return 0
     if total < 10:
         return 1
