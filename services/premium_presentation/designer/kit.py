@@ -13,7 +13,7 @@ from typing import List, Optional, Sequence, Tuple
 from lxml import etree
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
-from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
+from pptx.enum.text import MSO_ANCHOR, MSO_AUTO_SIZE, PP_ALIGN
 from pptx.oxml.ns import qn
 from pptx.util import Emu, Pt
 
@@ -271,6 +271,9 @@ def text(s, x, y, w, h, paras, align=LEFT, anchor=TOP, gap: float = 0, line_spac
     tb = s.shapes.add_textbox(px(x), px(y), px(w), px(h))
     tf = tb.text_frame
     tf.word_wrap = True
+    # "Matnga qarab kattalash" o'chiq: WPS uni ko'rib matnni o'ramasdan qutini o'ngga cho'zardi
+    # va izoh slayd chetidan chiqib ketardi.
+    tf.auto_size = MSO_AUTO_SIZE.NONE
     tf.vertical_anchor = anchor
     for side in ("margin_left", "margin_right", "margin_top", "margin_bottom"):
         setattr(tf, side, 0)

@@ -23,8 +23,9 @@ from . import families, kit, parse, styles
 
 log = logging.getLogger(__name__)
 
-# "Eski kompozitsiya" (HTML) tanlovdagi og'irligi: yangi uslublarning bittasiga nisbatan.
-OLD_WEIGHT = {"cover": 0.0, "plan": 0.0, "photo": 1.2, "group": 2.5, "sequence": 1.5, "numbers": 1.2,
+# "Eski kompozitsiya" (HTML) tanlovdagi og'irligi: yangi uslublarning bittasiga nisbatan. Raqamlar — 0:
+# eski kompozitsiyada katta raqam ("1,2 mlrd") telefonning kengroq shriftida ikki qatorga bo'linardi.
+OLD_WEIGHT = {"cover": 0.0, "plan": 0.0, "photo": 1.2, "group": 2.5, "sequence": 1.5, "numbers": 0.0,
               "compare": 0.6, "finale": 0.5}
 # Muqovadagi va rejadagi yangi uslublar har doim ishlatiladi (birinchi to'rt uslub — faqat shular uchun).
 OLD = "html"

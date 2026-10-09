@@ -183,7 +183,9 @@ CATEGORY_LAYOUT = {
 }
 
 # Bitta slayddagi matn (sarlavhasiz) shundan oshsa — slayd qisqartirib qayta yoziladi.
-WORD_LIMIT = {"kam": 70, "kop": 100}
+# Kam matnli sahifaning punktlari vektor infografikada keng joy oladi: izoh 12-20 so'z (ilgari 12-15
+# so'z — slayd bo'sh ko'rinardi).
+WORD_LIMIT = {"kam": 110, "kop": 100}
 
 
 def assign(outline: List[Dict], topic: str = "") -> List[Dict]:

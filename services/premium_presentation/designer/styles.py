@@ -96,13 +96,13 @@ def heading(c: Ctx, title: str, lead: str = "", dark: bool = False, align=LEFT, 
     text(c.slide, x, 52, w, 96, [[(title, 60, WHITE if dark else p.ink, True, p.head_font)]],
          align=align, anchor=BOTTOM)
     if lead:
-        text(c.slide, x, 154, w, 70, [[(lead, 27, p.on_dark if dark else p.muted)]], align=align)
+        text(c.slide, x, 154, w, 70, [[(lead, 30, p.on_dark if dark else p.muted)]], align=align)
         return 240
     fill(rect(c.slide, x if align == LEFT else x + w / 2 - 60, 160, 120, 6), p.accent if not dark else p.glowing)
     return 200
 
 
-def label(c: Ctx, x, y, w, h, item: Dict, align=LEFT, dark=False, tsize=28, nsize=21, anchor=TOP):
+def label(c: Ctx, x, y, w, h, item: Dict, align=LEFT, dark=False, tsize=35, nsize=31, anchor=TOP):
     p = c.pal
     paras = []
     if item.get("value"):
@@ -277,7 +277,7 @@ def plan_wave(c: Ctx, spec: Dict):
             ty, th, anchor = cy + r + 22, min(150, 1050 - (cy + r + 22)), TOP
         else:
             ty, th, anchor = 215, cy - r - 14 - 215, BOTTOM
-        text(s, cx - tw / 2, ty, tw, th, [[(item["title"].upper(), 24, p.ink, True, SANS, 30)]],
+        text(s, cx - tw / 2, ty, tw, th, [[(item["title"].upper(), 28, p.ink, True, SANS, 30)]],
              align=CENTER, anchor=anchor, line_spacing=1.08)
 
 
@@ -296,9 +296,9 @@ def _band_text(c: Ctx, spec: Dict, x, w):
     else:
         paras = [[(spec["title"].upper(), 62, WHITE, True, p.head_font)]]
         if spec.get("lead"):
-            paras.append([(spec["lead"], 30, WHITE, True)])
+            paras.append([(spec["lead"], 34, WHITE, True)])
         if spec.get("text"):
-            paras.append([(spec["text"], 24, soft)])
+            paras.append([(spec["text"], 28, soft)])
     text(s, x, 150, w, 780, paras, anchor=MIDDLE, gap=26, line_spacing=1.12)
 
 
@@ -381,11 +381,11 @@ def info_swirl(c: Ctx, spec: Dict):
         if on_left:
             text(s, 500, y, 150, 160, [[(num if not item.get("value") else str(i + 1), 110, p.on_dark, False, SANS)]],
                  align=CENTER, anchor=MIDDLE, fit=False)
-            label(c, 110, y, 380, 160, item, align=RIGHT, dark=True, tsize=26, nsize=20, anchor=MIDDLE)
+            label(c, 40, y - 45, 470, 250, item, align=RIGHT, dark=True, tsize=34, nsize=30, anchor=MIDDLE)
         else:
             text(s, 1270, y, 150, 160, [[(str(i + 1), 110, p.on_dark, False, SANS)]],
                  align=CENTER, anchor=MIDDLE, fit=False)
-            label(c, 1430, y, 380, 160, item, align=LEFT, dark=True, tsize=26, nsize=20, anchor=MIDDLE)
+            label(c, 1410, y - 45, 480, 250, item, align=LEFT, dark=True, tsize=34, nsize=30, anchor=MIDDLE)
 
 
 def info_tree(c: Ctx, spec: Dict):
@@ -420,7 +420,7 @@ def info_tree(c: Ctx, spec: Dict):
         y = spread(m, 330, 860)[k] - 30
         x = 110 if on_left else 1430
         icon(s, item["_icon"], x + 380 - 26 if on_left else x + 26, y - 6, 48, ramp[i])
-        label(c, x, y + 30, 380, 200, item, align=RIGHT if on_left else LEFT, dark=True, tsize=26, nsize=20)
+        label(c, x - (70 if on_left else 0), y + 30, 470, 240, item, align=RIGHT if on_left else LEFT, dark=True, tsize=34, nsize=30)
 
 
 def info_fan(c: Ctx, spec: Dict):
@@ -442,11 +442,15 @@ def info_fan(c: Ctx, spec: Dict):
         grad(half2, [(0, mix(tones[i], WHITE, 0.15)), (100, mix(tones[i], p.dark, 0.3))], angle=90 - mid)
         shadow(half2, blur=30, dist=10, angle=270, alpha=50)
         rr = 640 if n <= 4 else 650
-        lx, ly = cx + rr * math.cos(math.radians(mid)), cy - (rr - 20) * math.sin(math.radians(mid))
-        w = 400 if n <= 4 else 330 if n <= 5 else 290
+        # Yozuv pat uchidan YUQORIDA turadi (pastki cheti uchdan 20 px tepada) — patga tegmaydi.
+        lx = cx + rr * math.cos(math.radians(mid))
+        bottom = min(tip[1] - 20, 1040)
+        w = 470 if n <= 4 else 390 if n <= 5 else 330
+        h = 230
+        bx = max(40, min(lx - w / 2, 1880 - w))
         ic = c.icon_for(item.get("title", ""), item.get("note", ""))
-        icon(s, ic, lx, ly - 130, 54, p.glowing)
-        label(c, lx - w / 2, ly - 92, w, 190, item, align=CENTER, dark=True, tsize=25, nsize=19)
+        icon(s, ic, bx + w / 2, bottom - h - 30, 54, p.glowing)
+        label(c, bx, bottom - h, w, h, item, align=CENTER, dark=True, tsize=33, nsize=29, anchor=BOTTOM)
     hub = oval(s, cx, cy, 175)
     grad(hub, [(0, mix(p.accent, p.dark, 0.35)), (100, p.deep)], angle=90)
     shadow(hub, blur=40, dist=0, alpha=70)
@@ -500,7 +504,7 @@ def info_pencil(c: Ctx, spec: Dict):
         note = item.get("note") or ""
         if item.get("value"):
             note = (item.get("title", "") + ". " + note).strip(". ")
-        text(s, bx, y - 40, 400, 130, [[(note, 22, p.muted)]], align=LEFT if side > 0 else RIGHT)
+        text(s, bx - (0 if side > 0 else 40), y - 44, 460, 160, [[(note, 30, p.body)]], align=LEFT if side > 0 else RIGHT)
 
 
 def info_leaves(c: Ctx, spec: Dict):
@@ -551,7 +555,7 @@ def info_leaves(c: Ctx, spec: Dict):
         x = 140 if on_left else 1380
         ic = c.icon_for(item.get("title", ""), item.get("note", ""))
         icon(s, ic, x + (400 - 28 if on_left else 28), y - 30, 50, p.accent)
-        label(c, x, y + 6, 400, 200, item, align=RIGHT if on_left else LEFT, tsize=26, nsize=20)
+        label(c, x - (90 if on_left else 0), y + 6, 490, 250, item, align=RIGHT if on_left else LEFT, tsize=35, nsize=31)
 
 
 def info_arcs(c: Ctx, spec: Dict):
@@ -576,7 +580,7 @@ def info_arcs(c: Ctx, spec: Dict):
         num = f"{i + 1:02d}"
         text(s, 970, y, 130, step, [[(num, 58, p.glowing, True, p.head_font)]], anchor=MIDDLE, fit=False)
         sub = dict(item)
-        label(c, 1100, y + 4, 720, step - 8, sub, dark=True, tsize=26 if n <= 5 else 23, nsize=21 if n <= 5 else 18,
+        label(c, 1100, y + 4, 720, step - 8, sub, dark=True, tsize=34 if n <= 5 else 29, nsize=30 if n <= 5 else 25,
               anchor=MIDDLE)
         if i < n - 1:
             ln_ = rect(s, 1100, y + step - 1, 700, 2)
@@ -606,11 +610,11 @@ def info_arrows(c: Ctx, spec: Dict):
         lx, ly = cx + 470 * math.cos(am), cy - 360 * math.sin(am)
         cs = math.cos(am)
         al = LEFT if cs > 0.25 else RIGHT if cs < -0.25 else CENTER
-        w = 420 if al != CENTER else 520
+        w = 470 if al != CENTER else 600
         bx = lx - 10 if al == LEFT else lx - w + 10 if al == RIGHT else lx - w / 2
         bx = max(60, min(bx, 1860 - w))
-        by = max(230, min(ly - 70, 900))
-        label(c, bx, by, w, 150, item, align=al, tsize=24, nsize=19, anchor=MIDDLE)
+        by = max(225, min(ly - 90, 880))
+        label(c, bx, by, w, 190, item, align=al, tsize=32, nsize=29, anchor=MIDDLE)
     hub = oval(s, cx, cy, 165)
     fill(hub, WHITE); shadow(hub, blur=30, dist=0, alpha=25)
     icon(s, c.topic_icon, cx, cy, 130, p.accent)
@@ -640,8 +644,8 @@ def info_pie(c: Ctx, spec: Dict):
         right = math.cos(mid) >= 0
         ly = cy - 330 * math.sin(mid)
         bx = 1340 if right else 110
-        label(c, bx, max(230, min(ly - 80, 880)), 470, 160, item, align=LEFT if right else RIGHT, anchor=MIDDLE,
-              tsize=25, nsize=20)
+        label(c, bx - (0 if right else 40), max(225, min(ly - 100, 850)), 510, 210, item, align=LEFT if right else RIGHT,
+              anchor=MIDDLE, tsize=34, nsize=30)
     hub = oval(s, cx, cy, 110); fill(hub, WHITE); shadow(hub, blur=20, dist=0, alpha=30)
     icon(s, c.topic_icon, cx, cy, 90, p.accent)
 
@@ -662,7 +666,7 @@ def info_cross(c: Ctx, spec: Dict):
         ic = c.icon_for(item.get("title", ""), item.get("note", ""))
         icon(s, ic, cx + sx * 215, cy + sy * 215, 64, WHITE)
         x = cx + sx * 380 + (0 if sx > 0 else -520)
-        label(c, x, cy + sy * 250 - 90, 520, 200, item, align=LEFT if sx > 0 else RIGHT, anchor=MIDDLE)
+        label(c, x - (0 if sx > 0 else 30), cy + sy * 250 - 125, 560, 250, item, align=LEFT if sx > 0 else RIGHT, anchor=MIDDLE)
 
 
 def info_diamond(c: Ctx, spec: Dict):
@@ -670,21 +674,21 @@ def info_diamond(c: Ctx, spec: Dict):
     items = spec["items"]
     bg_light(c)
     heading(c, spec["title"], spec.get("lead", ""), align=CENTER)
-    cx, cy = 960, 650
+    cx, cy = 960, 660
     for i, item in enumerate(items):
         a = 90 - i * 90
-        x, y = cx + 150 * math.cos(math.radians(a)), cy - 150 * math.sin(math.radians(a))
-        d = box(s, x - 110, y - 110, 220, 220, SHAPE.ROUNDED_RECTANGLE, rot=45, adj=[0.22])
+        x, y = cx + 130 * math.cos(math.radians(a)), cy - 130 * math.sin(math.radians(a))
+        d = box(s, x - 95, y - 95, 190, 190, SHAPE.ROUNDED_RECTANGLE, rot=45, adj=[0.22])
         grad(d, [(0, mix(p.accent, WHITE, 0.35)), (100, p.accent if i % 2 == 0 else mix(p.accent, p.dark, 0.3))],
              angle=45)
         shadow(d, blur=24, dist=8, alpha=30)
         ic = c.icon_for(item.get("title", ""), item.get("note", ""))
-        icon(s, ic, x, y, 80, WHITE)
-    oval_ = oval(s, cx, cy, 34); fill(oval_, WHITE)
-    spots = [(cx - 300, 240, 600, 150, CENTER, BOTTOM), (1330, cy - 100, 480, 200, LEFT, MIDDLE),
-             (cx - 300, 920, 600, 140, CENTER, TOP), (110, cy - 100, 480, 200, RIGHT, MIDDLE)]
+        icon(s, ic, x, y, 70, WHITE)
+    oval_ = oval(s, cx, cy, 30); fill(oval_, WHITE)
+    spots = [(cx - 420, 222, 840, 160, CENTER, BOTTOM), (1260, cy - 130, 600, 260, LEFT, MIDDLE),
+             (cx - 420, 935, 840, 135, CENTER, TOP), (60, cy - 130, 600, 260, RIGHT, MIDDLE)]
     for item, (x, y, w, h, al, an) in zip(items, spots):
-        label(c, x, y, w, h, item, align=al, anchor=an, tsize=25, nsize=20)
+        label(c, x, y, w, h, item, align=al, anchor=an, tsize=34, nsize=30)
 
 
 # ═════════════════════════════════════════════ QIYOS
@@ -708,7 +712,7 @@ def compare_gears(c: Ctx, spec: Dict):
                  align=CENTER, fit=False)
             ic = c.icon_for(t)
             icon(s, ic, hx, hy - 32, 46, mix(p.dark, WHITE, 0.15))
-            text(s, hx - 92, hy + 2, 184, 90, [[(t, 18, p.ink, True)]], align=CENTER, anchor=TOP, line_spacing=1.05)
+            text(s, hx - 100, hy, 200, 100, [[(t, 25, p.ink, True)]], align=CENTER, anchor=TOP, line_spacing=1.05)
         g = box(s, gx - 140, 430, 280, 280, SHAPE.GEAR_9)
         grad(g, [(0, mix(p.accent, WHITE, 0.35)), (100, mix(p.accent, p.dark, 0.25))], angle=45)
         shadow(g, blur=30, dist=8, alpha=60)
@@ -769,7 +773,7 @@ STYLES = [
     Style("band_chevron", ("photo",), 0, 99, band_chevron),
     Style("swirl", ("group", "numbers"), 4, 6, info_swirl),
     Style("tree", ("group",), 3, 6, info_tree),
-    Style("fan", ("group", "sequence", "numbers"), 3, 6, info_fan),
+    Style("fan", ("group", "sequence", "numbers"), 3, 4, info_fan),   # 5+ punktda yozuvlar ustma-ust tushadi
     Style("pencil", ("sequence", "group"), 3, 5, info_pencil),
     Style("leaves", ("group",), 2, 4, info_leaves),
     Style("arcs", ("group", "sequence", "numbers"), 3, 7, info_arcs),
