@@ -44,6 +44,20 @@ async def handle_media(request: web.Request) -> web.StreamResponse:
                                                       "Cache-Control": "public, max-age=86400"})
 
 
+NOTE = {
+    "uz": "ℹ️ Personaj, ovoz va yozuvlar PowerPoint'da «Slayd-shou» rejimida harakatlanadi. Telefon ilovalari "
+          "va PDF'da sahifa harakatsiz ko'rinishi mumkin.",
+    "ru": "ℹ️ Персонаж, звук и надписи оживают в PowerPoint в режиме «Показ слайдов». В мобильных приложениях "
+          "и PDF страница может быть статичной.",
+    "en": "ℹ️ The character, sound and text come alive in PowerPoint Slide Show mode. Phone apps and PDF may "
+          "show the page static.",
+}
+
+
+def _note(lang: str) -> str:
+    return NOTE.get(lang) or NOTE["uz"]
+
+
 def _build(info: dict, anim) -> str:
     from services.premium_presentation import themes
     from services.thanks_anim.slide import add_thanks_slide
@@ -88,7 +102,7 @@ async def handle_choose(request: web.Request) -> web.Response:
 
         name = os.path.basename(info.get("filename") or "Taqdimot.pptx")
         await bot.send_document(info["chat_id"], FSInputFile(out, filename=name),
-                                caption=f"🎬 {anim.name(info.get('user_lang', 'uz'))}")
+                                caption=f"🎬 {anim.name(info.get('user_lang', 'uz'))}\n{_note(info.get('user_lang', 'uz'))}")
         info["uses"] = info.get("uses", 0) + 1
         info["busy"] = False
         webapp.save_tokens_to_disk()

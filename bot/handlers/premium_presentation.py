@@ -905,6 +905,23 @@ _TEXT_ANIM_LABEL = {"uz": ("✨ Yozuv animatsiyasi", "✅ Bor", "❌ Yo'q"),
                     "kk": ("✨ Мәтін анимациясы", "✅ Бар", "❌ Жоқ")}
 
 
+# Animatsiya tanlangan bo'lsa mijozga albatta aytiladi: u faqat PowerPoint slayd-shousida ko'rinadi.
+ANIM_NOTE = {
+    "uz": "ℹ️ Animatsiya PowerPoint'da «Slayd-shou» rejimida ko'rinadi. Telefon ilovalari va PDF'da sahifalar "
+          "animatsiyasiz, to'liq holida chiqadi.",
+    "ru": "ℹ️ Анимация видна в PowerPoint в режиме «Показ слайдов». В мобильных приложениях и PDF страницы "
+          "показываются целиком, без анимации.",
+    "en": "ℹ️ The animation plays in PowerPoint in Slide Show mode. Phone apps and PDF show the pages complete, "
+          "without animation.",
+    "kk": "ℹ️ Анимация PowerPoint-та «Слайд-шоу» режимінде көрінеді. Телефон қосымшалары мен PDF-те беттер "
+          "анимациясыз, толық күйінде шығады.",
+}
+
+
+def anim_note(lang: str) -> str:
+    return ANIM_NOTE.get(lang) or ANIM_NOTE["uz"]
+
+
 def _text_anim_label(lang: str, on: bool) -> str:
     name, yes, no = _TEXT_ANIM_LABEL.get(lang) or _TEXT_ANIM_LABEL["uz"]
     return f"{name}: {yes if on else no}"
@@ -969,6 +986,8 @@ def _summary(data: dict, lang: str):
     text_anim = _text_anim_choice(data)
     if text_anim is not None:
         lines.append(_text_anim_label(lang, text_anim))
+        if text_anim:
+            lines.append(f"<i>{esc(anim_note(lang), 400)}</i>")
     lines += [f"📊 {slides_l}: <b>{slide_count}</b>",
               f"💰 {price_l}: <b>{price:,} {cur}</b>", "", ask]
     return "\n".join(lines), _confirm_keyboard(lang, language, text_anim)
@@ -1528,7 +1547,8 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
     try:
         from aiogram.types import FSInputFile
         document = FSInputFile(final_path, filename=filename)
-        await callback.message.answer_document(document=document)
+        await callback.message.answer_document(
+            document=document, caption=anim_note(lang) if _text_anim_choice(data) else None)
         logger.info("Premium taqdimot yuborildi: %s → %s", final_path, callback.from_user.id)
         await _offer_thanks_anim(callback, db, final_path, topic=topic, data=data, language=presentation_language,
                                  author=client_name, filename=filename, lang=lang)

@@ -148,9 +148,11 @@ text_on, kb_on = pp._summary({**base, "text_anim_offer": True}, "uz")
 btn = [b for r in kb_on.inline_keyboard for b in r if b.callback_data == "prem_ppt_anim"]
 check("yoqilgan — tanlov bor, sukut 'Bor'", btn and btn[0].text == "✨ Yozuv animatsiyasi: ✅ Bor" and "✅ Bor" in text_on,
       btn and btn[0].text)
-_, kb_no = pp._summary({**base, "text_anim_offer": True, "text_anim": False}, "uz")
+check("tanlansa — PowerPoint slayd-shou haqida aytiladi", "Slayd-shou" in text_on)
+text_no, kb_no = pp._summary({**base, "text_anim_offer": True, "text_anim": False}, "uz")
 btn = [b for r in kb_no.inline_keyboard for b in r if b.callback_data == "prem_ppt_anim"]
 check("mijoz o'chirsa — 'Yo'q'", btn and btn[0].text.endswith("❌ Yo'q"))
+check("o'chirsa — eslatma yo'q", "Slayd-shou" not in text_no)
 check("generatsiyada: tanlov hisobga olinadi",
       pp._text_anim_choice({"text_anim_offer": True}) is True
       and pp._text_anim_choice({"text_anim_offer": True, "text_anim": False}) is False

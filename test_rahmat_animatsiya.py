@@ -214,6 +214,7 @@ check("noma'lum animatsiya — rad", unknown == 400)
 check("tanlov ishlaydi", ok1 == 200 and ok2 == 200, (ok1, ok2))
 sent = webapp.BOT.sent
 check("bot ikki marta yubordi, asl nomi bilan", len(sent) == 2 and all(s[2] == "Taqdimot_Moliya.pptx" for s in sent), sent)
+check("faylda PowerPoint slayd-shou haqida eslatma", all("Slayd-shou" in (x[3] or "") for x in sent))
 check("har tanlov asl taqdimotdan (ustma-ust emas)", [s[4] for s in sent] == [4, 4], [s[4] for s in sent])
 check("vaqtinchalik fayllar o'chirildi", not [f for f in os.listdir(thanks_anim.STORE) if "_" in f],
       os.listdir(thanks_anim.STORE))
