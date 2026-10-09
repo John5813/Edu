@@ -110,3 +110,68 @@ async def payments_of_day(day: str = "") -> List[Dict]:
             "WHERE p.status = 'approved' AND " + _day("p.created_at") + " = ? ORDER BY p.created_at")
         async with db.execute(query, (day, day)) as cur:
             return [dict(row) for row in await cur.fetchall()]
+
+
+async def _has_table(db, name: str) -> bool:
+    async with db.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (name,)) as cur:
+        return await cur.fetchone() is not None
+
+
+async def cohort(days: int, day: str = "") -> Dict[str, int]:
+    """Oxirgi `days` kunda (bugun bilan) /start bosgan yangi foydalanuvchilar: kim to'lov qildi, kim foydalandi.
+
+    "Foydalangan" — balansdan pul yechilgan (hujjat, taqdimot, do'kon; `balance_spends`), saytda buyurtmasi
+    bor yoki bepul sinovdan foydalangan. Yechimlar jadvali paydo bo'lishidan oldingilar uchun qo'shimcha
+    belgi: to'lagan summasidan balansi kam qolgan (demak sarflagan).
+
+    Qaytaradi: started; paid_users, paid_sum; paid_used (to'lab foydalangan), paid_unused (to'lagan, hali
+    foydalanmagan); free_used (to'lovsiz — bonus/sinov bilan foydalangan); unused (umuman foydalanmagan).
+    """
+    from database.database import DATABASE_FILE
+
+    day = day or today_uzt()
+    async with aiosqlite.connect(DATABASE_FILE) as db:
+        used = ["(u.balance < COALESCE(p.paid_sum, 0))"]
+        if await _has_table(db, "balance_spends"):
+            used.append("EXISTS (SELECT 1 FROM balance_spends s WHERE s.telegram_id = u.telegram_id)")
+        if await _has_table(db, "web_jobs"):
+            used.append("EXISTS (SELECT 1 FROM web_jobs j WHERE j.telegram_id = u.telegram_id "
+                        "AND j.status IN ('done', 'running', 'queued'))")
+        if await _has_table(db, "free_trials"):
+            used.append("EXISTS (SELECT 1 FROM free_trials f WHERE f.telegram_id = u.telegram_id)")
+        query = (
+            "SELECT COALESCE(p.paid_sum, 0) > 0 AS paid, COALESCE(p.paid_sum, 0) AS paid_sum, "
+            "(" + " OR ".join(used) + ") AS used "
+            "FROM users u LEFT JOIN (SELECT user_id, SUM(amount) AS paid_sum FROM payments "
+            "WHERE status = 'approved' GROUP BY user_id) p ON p.user_id = u.id "
+            "WHERE " + _day("u.created_at") + " BETWEEN date(?, ?) AND ?")
+        async with db.execute(query, (day, f"-{max(int(days), 1) - 1} days", day)) as cur:
+            rows = await cur.fetchall()
+    result = {"days": int(days), "started": len(rows), "paid_users": 0, "paid_sum": 0,
+              "paid_used": 0, "paid_unused": 0, "free_used": 0, "unused": 0}
+    for paid, paid_sum, used_flag in rows:
+        if paid:
+            result["paid_users"] += 1
+            result["paid_sum"] += paid_sum
+            result["paid_used" if used_flag else "paid_unused"] += 1
+        else:
+            result["free_used" if used_flag else "unused"] += 1
+    return result
+
+
+def _share(part: int, whole: int) -> str:
+    return f"{part * 100 / whole:.0f}%" if whole else "—"
+
+
+def cohort_text(stats: Dict[str, int]) -> str:
+    """Umumiy statistikadagi bo'lim: N kunlik yangi foydalanuvchilar."""
+    n = stats["started"]
+    return (
+        f"📅 Oxirgi {stats['days']} kun — /start bosganlar: {n} ta\n"
+        f"   💳 To'lov qilganlar: {stats['paid_users']} ta ({_share(stats['paid_users'], n)}) — "
+        f"{stats['paid_sum']:,} so'm\n"
+        f"   ✅ To'lov qilib foydalanganlar: {stats['paid_used']} ta\n"
+        f"   ⏳ To'lagan, hali foydalanmagan: {stats['paid_unused']} ta\n"
+        f"   🎁 To'lovsiz foydalanganlar (bonus/bepul): {stats['free_used']} ta\n"
+        f"   💤 Umuman foydalanmaganlar: {stats['unused']} ta ({_share(stats['unused'], n)})\n"
+    )
