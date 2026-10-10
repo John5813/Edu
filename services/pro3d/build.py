@@ -171,6 +171,16 @@ def place(slide, picture: Optional[Picture], name: str, x, y, w, h, *, valign: s
     pw, ph = (w, w / ratio) if w / h < ratio else (h * ratio, h)
     px = x + {"left": 0, "right": w - pw}.get(halign, (w - pw) / 2)
     py = y + {"top": 0, "bottom": h - ph}.get(valign, (h - ph) / 2)
+    if picture.model is not None and picture.crop:
+        # Haqiqiy 3D model: ramka — kamera ko'radigan kvadrat; obyektning o'zi (crop) aynan (px, py, pw, ph) ga
+        # tushadigan qilib kattalashtiriladi va suriladi. Nomi `!!obj_<id>` — Morph uni slayddan slaydga aylantiradi.
+        from . import model3d
+
+        x0, y0, x1, y1 = picture.crop
+        size = pw / max(x1 - x0, 1e-6)
+        model3d.add(slide, picture.model, f"!!obj_{picture.model.key}", px - x0 * size, py - y0 * size, size,
+                    picture.rot)
+        return px, py, pw, ph
     shape = slide.shapes.add_picture(picture.path, Inches(px), Inches(py), Inches(pw), Inches(ph))
     shape.name = name
     if not picture.transparent:
@@ -231,7 +241,12 @@ class Ctx:
 
 
 def _picture(ctx: Ctx, slide_data: Dict) -> Optional[Picture]:
-    return ctx.pictures.get((slide_data.get("object") or {}).get("id", ""))
+    picture = ctx.pictures.get((slide_data.get("object") or {}).get("id", ""))
+    if picture is not None and picture.views:
+        # 3D model: shu slayd burchagidagi ko'rinish (burchak berilmagan bo'lsa — birinchisi).
+        rot = tuple(slide_data.get("rot") or ()) or next(iter(picture.views))
+        picture = picture.views.get(rot) or next(iter(picture.views.values()))
+    return picture
 
 
 def _page(slide, ctx: Ctx, index: int, on_panel: bool) -> None:
@@ -336,7 +351,7 @@ def slide_callouts(slide, s: Dict, ctx: Ctx, index: int) -> List:
         group = [i for i in range(n) if sides[i] == side]
         if not group:
             continue
-        ys = _callout_slots([anchors[i] for i in group], [heights[i] for i in group], 1.55, H - 0.55)
+        ys = _callout_slots([anchors[i] for i in group], [heights[i] for i in group], 1.55, H - 0.85)
         for i, top in zip(group, ys):
             c = callouts[i]
             ax, ay = anchors[i]

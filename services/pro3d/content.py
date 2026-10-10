@@ -222,6 +222,11 @@ def normalize(data: Dict, topic: str, count: int) -> Dict:
         if slide["layout"] in ("cover", "conclusion"):
             slide["layout"] = "points"
             slide.setdefault("points", [{"head": "", "text": slide.get("subtitle") or slide["title"]}])
+    # Xulosa obyekt bermagan bo'lsa — muqova obyekti qaytadi (yangi rasm chizilmaydi, Morph uni olib keladi).
+    if len(slides) >= 2 and slides[-1]["layout"] == "conclusion":
+        given = raw[len(slides) - 1].get("object") if len(raw) >= len(slides) else None
+        if not (isinstance(given, dict) and given.get("id")):
+            slides[-1]["object"] = dict(slides[0]["object"])
     # "focus" — oldingi obyektga yaqinlashish: id oldingi slaydniki bo'lsin.
     for index, slide in enumerate(slides):
         if slide["layout"] == "focus" and index > 0:

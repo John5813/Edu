@@ -61,6 +61,12 @@ class Picture:
     height: int
     transparent: bool
     alpha: Optional[np.ndarray] = field(default=None, repr=False)   # 0..255, kichraytirilgan niqob
+    # Haqiqiy 3D model (GLB): `model` — `model3d.Model`, `views` — burchak → shu burchakdan chizilgan
+    # ko'rinish (Picture: `path` — obyekt chegarasigacha kesilgan rasm, `crop` — u kvadrat kadrning qaysi qismi).
+    model: object = field(default=None, repr=False)
+    rot: Optional[tuple] = None
+    crop: Optional[tuple] = None
+    views: Optional[dict] = field(default=None, repr=False)
 
 
 def key_for(obj: str) -> str:
