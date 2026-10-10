@@ -116,8 +116,9 @@ async def full_flow():
     check("5-qadam: tur so'raladi", await state.get_state() == PS.waiting_for_kind.state, await state.get_state())
     text, markup = chat.last()[1], chat.last()[2]
     kind_cbs = [b.callback_data for b in buttons(markup) if b.callback_data and b.callback_data.startswith("prem_ppt_kind:")]
-    check("uch tur: infografik, zamonaviy, klassik", kind_cbs == ["prem_ppt_kind:info", "prem_ppt_kind:modern",
-                                                                  "prem_ppt_kind:classic"], kind_cbs)
+    check("to'rt tur: 3D Pro (birinchi), infografik, zamonaviy, klassik",
+          kind_cbs == ["prem_ppt_kind:pro3d", "prem_ppt_kind:info", "prem_ppt_kind:modern", "prem_ppt_kind:classic"],
+          kind_cbs)
     check("tur tugmalari nomlangan", any("Infografik" in b.text for b in buttons(markup))
           and any("Klassik" in b.text for b in buttons(markup)) and any("Zamonaviy" in b.text for b in buttons(markup)))
     check("tur so'rovi rasmsiz, faqat tugma", "Taqdimot turini tanlang" in text)
@@ -170,6 +171,25 @@ async def full_flow():
     await pp.premium_ppt_previous(callback(chat, "prem_ppt_prev"), state, db)
     await pp.premium_ppt_previous(callback(chat, "prem_ppt_prev"), state, db)
     check("infografik hajmidan orqaga: tur tanlovi", await state.get_state() == PS.waiting_for_kind.state, await state.get_state())
+
+    # 5b'. 3D Pro -> uslub ham, matn hajmi ham so'ralmaydi; narx o'ziniki (rasmlar qimmat), 20 slaydgacha
+    await pp.premium_ppt_kind_selected(callback(chat, "prem_ppt_kind:pro3d"), state, db)
+    data = await state.get_data()
+    check("3D Pro: darhol slaydlar soni", await state.get_state() == PS.waiting_for_count.state, await state.get_state())
+    check("3D Pro: tur saqlandi", data["kind"] == "pro3d", data)
+    counts = [b.callback_data for b in buttons(chat.last()[2]) if b.callback_data.startswith("prem_ppt_count:")]
+    check("3D Pro: slayd soni 5..20", counts == [f"prem_ppt_count:{n}" for n in (5, 8, 10, 12, 15, 20)], counts)
+    check("3D Pro: hajm oynasida tur nomi va o'z narxi", "3D Pro" in chat.last()[1] and "15,000" in str(chat.last()[2]),
+          (chat.last()[1], str(chat.last()[2])[:300]))
+    await pp.premium_ppt_got_count(callback(chat, "prem_ppt_count:10"), state, db)
+    summary = chat.last()[1]
+    data = await state.get_data()
+    check("3D Pro xulosa: tur, Morph izohi, narx 15 000", "3D Pro" in summary and "Morph" in summary
+          and "15,000" in summary and data["price"] == 15000, summary)
+    check("3D Pro: yozuv animatsiyasi taklif qilinmaydi", not data.get("text_anim_offer"), data)
+    await pp.premium_ppt_previous(callback(chat, "prem_ppt_prev"), state, db)
+    await pp.premium_ppt_previous(callback(chat, "prem_ppt_prev"), state, db)
+    check("3D Pro hajmidan orqaga: tur tanlovi", await state.get_state() == PS.waiting_for_kind.state, await state.get_state())
 
     # 5c. Klassik -> hajm faqat 10/15/20, narxlar va balans bilan
     await pp.premium_ppt_kind_selected(callback(chat, "prem_ppt_kind:classic"), state, db)
