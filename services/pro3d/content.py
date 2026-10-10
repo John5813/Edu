@@ -51,7 +51,7 @@ LAYOUTS:
 - "stats": 2-3 big numbers: [{"value": number only, max 6 characters, "unit": "%"/"mln"/"km"/"" ,
   "label": 1-4 words, "text": max 16 words}] plus "text" (1 sentence, max 25 words). ONLY real, well-known
   figures you are sure about; otherwise do not use this layout.
-- "focus": a close-up of the PREVIOUS slide's object (reuse its object id — the camera zooms in):
+- "focus": a close-up of the PREVIOUS slide's object (same object id — the camera zooms in):
   "lead" (max 14 words) and "text" (max 40 words) about one important detail.
 - "timeline": 3-5 steps in time or order: [{"when": year/date/stage, max 3 words, "text": max 16 words}].
 - "conclusion": title, "points": 3 key takeaways (max 16 words each); object: reuse the cover object id.
@@ -63,8 +63,13 @@ OBJECTS:
 - For abstract ideas use a symbolic object (economy → stack of gold coins with a rising arrow sculpture;
   law → bronze scales of justice; literature → open antique book with a quill; history → the actual
   artefact, building or weapon of the period).
-- Use a NEW object id for most slides; use the same id only for "focus" (previous object) and
-  "conclusion" (cover object).
+- MOTION — the most important rule. Slides change with PowerPoint Morph, which moves an object ONLY when
+  the SAME object id is on the next slide: it glides from the centre to the left, grows into a close-up,
+  shrinks into a corner. So the deck is a camera moving around a few objects: use each object id on 2-3
+  CONSECUTIVE slides with different layouts (e.g. skull: "callouts" → "points" → "focus"; spine: "callouts"
+  → "table"), then switch to the next object. A new object appears about every 2-3 slides; never put the same
+  layout twice in a row. "focus" always reuses the previous slide's object; "conclusion" reuses the cover
+  object.
 - "render_style": "realistic" (science, medicine, technology, history, nature) or "stylized" (cute glossy
   clay-like 3D, for young children or playful topics).
 - "palette": one of indigo, emerald, violet, crimson, teal, amber, graphite — the one that suits the topic.
@@ -94,6 +99,46 @@ def _short(text, chars: int) -> str:
     return text if len(text) <= chars else text[:chars - 1].rstrip() + "…"
 
 
+# AI maydon nomlarini ba'zan boshqacha yozadi ("steps" o'rniga "items", "text" o'rniga "description").
+# Ilgari bunday slayd bo'sh qolardi: vaqt o'qi o'rnida faqat sarlavha turardi.
+_LIST_KEYS = {
+    "callouts": ("callouts", "labels", "parts", "items", "points"),
+    "points": ("points", "items", "bullets", "list", "steps", "callouts"),
+    "stats": ("stats", "numbers", "figures", "items", "metrics"),
+    "steps": ("steps", "timeline", "events", "items", "stages", "milestones", "points"),
+    "rows": ("rows", "data", "table", "items"),
+}
+_FIELD_KEYS = {
+    "label": ("label", "title", "name", "head", "heading"),
+    "head": ("head", "title", "heading", "label", "name"),
+    "text": ("text", "description", "desc", "detail", "details", "body", "content", "event", "value_text"),
+    "part": ("part", "target", "where", "anchor", "label", "name"),
+    "when": ("when", "year", "date", "period", "stage", "time", "label", "title", "head"),
+    "value": ("value", "number", "figure", "num"),
+    "unit": ("unit", "units", "suffix"),
+}
+
+
+def _items(item: Dict, kind: str) -> List:
+    for key in _LIST_KEYS[kind]:
+        value = item.get(key)
+        if isinstance(value, list) and value:
+            return value
+    return []
+
+
+def _field(entry, name: str) -> str:
+    if isinstance(entry, str):
+        return entry if name in ("text", "label", "part") else ""
+    if not isinstance(entry, dict):
+        return ""
+    for key in _FIELD_KEYS[name]:
+        value = entry.get(key)
+        if value not in (None, "", []):
+            return str(value)
+    return ""
+
+
 def _object(raw, fallback_id: str, topic: str) -> Dict:
     raw = raw if isinstance(raw, dict) else {}
     oid = re.sub(r"[^A-Za-z0-9_-]", "", str(raw.get("id") or "")) or fallback_id
@@ -117,31 +162,34 @@ def normalize(data: Dict, topic: str, count: int) -> Dict:
         if layout == "cover":
             slide["subtitle"] = _words(item.get("subtitle"), 16)
         elif layout == "callouts":
-            slide["callouts"] = [{"label": _short(c.get("label"), 28), "text": _words(c.get("text"), 18),
-                                  "part": _short(c.get("part") or c.get("label"), 60)}
-                                 for c in (item.get("callouts") or [])[:4] if isinstance(c, dict) and c.get("label")]
+            slide["callouts"] = [{"label": _short(_field(c, "label"), 28), "text": _words(_field(c, "text"), 18),
+                                  "part": _short(_field(c, "part"), 60)}
+                                 for c in _items(item, "callouts")[:4] if _field(c, "label")]
         elif layout == "points":
-            slide["points"] = [{"head": _short(p.get("head"), 40), "text": _words(p.get("text"), 26)}
-                               for p in (item.get("points") or [])[:4] if isinstance(p, dict) and p.get("text")]
+            slide["points"] = [{"head": _short(_field(p, "head"), 40), "text": _words(_field(p, "text"), 26)}
+                               for p in _items(item, "points")[:4] if _field(p, "text") or _field(p, "head")]
         elif layout == "table":
-            columns = [_short(c, 30) for c in (item.get("columns") or [])][:2]
-            rows = [[_words(c, 9) for c in r][:2] for r in (item.get("rows") or [])[:5]
-                    if isinstance(r, (list, tuple)) and len(r) >= 2]
+            columns = [_short(c, 30) for c in (item.get("columns") or item.get("headers") or [])][:2]
+            rows = []
+            for r in _items(item, "rows")[:5]:
+                if isinstance(r, dict):
+                    r = list(r.values())
+                if isinstance(r, (list, tuple)) and len(r) >= 2:
+                    rows.append([_words(c, 9) for c in r][:2])
             slide["columns"], slide["rows"] = (columns + ["", ""])[:2], rows
         elif layout == "stats":
-            slide["stats"] = [{"value": _short(s.get("value"), 7), "unit": _short(s.get("unit"), 8),
-                               "label": _short(s.get("label"), 32), "text": _words(s.get("text"), 16)}
-                              for s in (item.get("stats") or [])[:3] if isinstance(s, dict) and s.get("value")]
-            slide["text"] = _words(item.get("text"), 28)
+            slide["stats"] = [{"value": _short(_field(s, "value"), 7), "unit": _short(_field(s, "unit"), 8),
+                               "label": _short(_field(s, "label"), 32), "text": _words(_field(s, "text"), 16)}
+                              for s in _items(item, "stats")[:3] if _field(s, "value")]
+            slide["text"] = _words(item.get("text") or item.get("description"), 28)
         elif layout == "focus":
             slide["lead"] = _words(item.get("lead"), 16)
             slide["text"] = _words(item.get("text"), 42)
         elif layout == "timeline":
-            slide["steps"] = [{"when": _short(s.get("when"), 18), "text": _words(s.get("text"), 16)}
-                              for s in (item.get("steps") or [])[:5] if isinstance(s, dict) and s.get("text")]
+            slide["steps"] = [{"when": _short(_field(s, "when"), 18), "text": _words(_field(s, "text"), 16)}
+                              for s in _items(item, "steps")[:5] if _field(s, "text")]
         elif layout == "conclusion":
-            slide["points"] = [_words(p if isinstance(p, str) else (p or {}).get("text"), 16)
-                               for p in (item.get("points") or [])[:3]]
+            slide["points"] = [_words(_field(p, "text") or _field(p, "head"), 16) for p in _items(item, "points")[:3]]
         slides.append(slide)
 
     # Kam element bo'lsa joylashuv o'zgaradi (bo'sh ko'rinmasin).

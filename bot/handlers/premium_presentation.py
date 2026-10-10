@@ -294,20 +294,19 @@ def _topic_line(data: dict, lang: str) -> str:
     return f"📋 {label}: <b>{topic}</b>\n\n" if topic else ""
 
 
-# Orqaga: har qadamning oldingisi. Birinchi qadamdan — bosh menyu.
-_PREVIOUS = {"script": "topic", "name": "topic", "prefs": "name", "source": "prefs",
-             "source_input": "source", "kind": "source", "style": "kind", "volume": "style",
-             "summary": "count"}
+# Orqaga: har qadamning oldingisi. Birinchi qadamdan (taqdimot turi) — bosh menyu.
+# Tartib: tur → mavzu → (yozuv) → ism → istaklar → manba → (zamonaviyda uslub) → slaydlar soni → xulosa.
+_PREVIOUS = {"topic": "kind", "script": "topic", "name": "topic", "prefs": "name", "source": "prefs",
+             "source_input": "source", "style": "source", "volume": "style", "summary": "count"}
 
 
 def _previous_step(data: dict):
-    """Orqaga qadam: slaydlar sonidan oldin — matn hajmi (zamonaviy) yoki uslub (orqa fonlar)."""
+    """Orqaga qadam: slaydlar sonidan oldin — uslub (zamonaviy) yoki manba (qolgan turlar)."""
     step = data.get("step") or ""
     if step == "name" and data.get("script_asked"):
         return "script"
     if step == "count":
-        # Zamonaviy — uslubga, infografik va klassik — tur tanloviga qaytadi.
-        return "style" if _kind_of(data) == KIND_MODERN else "kind"
+        return "style" if _kind_of(data) == KIND_MODERN else "source"
     return _PREVIOUS.get(step)
 
 
@@ -370,14 +369,20 @@ def _detect_language(topic: str) -> str:
 # ── 1. Mavzu
 
 async def _step_topic(message: Message, state: FSMContext, lang: str) -> None:
-    await _prompt(message, state, _t(lang, "ask_topic"),
-                  _markup([_back_row(lang, "prem_ppt_back")]), "topic",
+    # Mavzudan oldin tur tanlangan: so'rov ustida tur nomi, "Orqaga" — tur tanloviga.
+    data = await state.get_data()
+    head = ""
+    if data.get("kind") in KINDS:
+        label = {"uz": "Turi", "ru": "Тип", "en": "Type", "kk": "Түрі"}.get(lang, "Turi")
+        head = f"🎨 {label}: <b>{_kind_name(data['kind'], lang)}</b>\n\n"
+    await _prompt(message, state, head + _t(lang, "ask_topic"),
+                  _markup([_back_row(lang)]), "topic",
                   PremiumPresentationStates.waiting_for_topic_text)
 
 
 @router.message(F.text.in_(ENTRY_TEXTS))
 async def premium_presentation_start(message: Message, state: FSMContext, db: Database):
-    """"Taqdimot" tugmasi: birinchi savol — mavzu."""
+    """"Taqdimot" tugmasi: birinchi savol — taqdimot turi (3D Pro / Infografik / Zamonaviy / Klassik), keyin mavzu."""
     await state.clear()
     # Buyurtma boshlangan vaqti — bir soatdan keyin eskirishini hisoblash uchun.
     await state.set_data(pay.start({}))
@@ -397,7 +402,7 @@ async def premium_presentation_start(message: Message, state: FSMContext, db: Da
     except Exception as e:
         logger.warning("Obuna tekshiruvi o'tmadi: %s", e)
 
-    await _step_topic(message, state, lang)
+    await _step_kind(message, state, lang)
 
 
 @router.message(PremiumPresentationStates.waiting_for_topic_text)
@@ -522,7 +527,7 @@ async def premium_ppt_chose_source(callback: CallbackQuery, state: FSMContext, d
     if kind == source_module.KIND_AI:
         await state.update_data(source_kind=source_module.KIND_AI,
                                 source_text="", source_label="")
-        await _step_kind(callback.message, state, lang)
+        await _after_source(callback.message, state, lang, db)
         return
 
     prompts = {
@@ -546,7 +551,7 @@ async def premium_ppt_got_instructions(message: Message, state: FSMContext, db: 
     if not material.has_content:
         await message.answer(get_text(lang, "prem_ppt_ask_instructions"), parse_mode="HTML")
         return
-    await _store_source(message, state, lang, material)
+    await _store_source(message, state, lang, material, db)
 
 
 @router.message(PremiumPresentationStates.waiting_for_source_file, F.document)
@@ -570,7 +575,7 @@ async def premium_ppt_got_source_file(message: Message, state: FSMContext, db: D
         uploads.discard(upload)
 
     await status.delete()
-    await _store_source(message, state, lang, material)
+    await _store_source(message, state, lang, material, db)
 
 
 @router.message(PremiumPresentationStates.waiting_for_source_urls, F.text)
@@ -594,10 +599,10 @@ async def premium_ppt_got_source_urls(message: Message, state: FSMContext, db: D
         return
 
     await status.delete()
-    await _store_source(message, state, lang, material)
+    await _store_source(message, state, lang, material, db)
 
 
-async def _store_source(message: Message, state: FSMContext, lang: str, material):
+async def _store_source(message: Message, state: FSMContext, lang: str, material, db: Database):
     await _drop_prompt(message.bot, message.chat.id, state)
     await state.update_data(source_kind=material.kind, source_text=material.text,
                             source_label=material.label)
@@ -606,7 +611,15 @@ async def _store_source(message: Message, state: FSMContext, lang: str, material
             get_text(lang, "pw_source_ok", label=material.label,
                      words=len(material.text.split())),
             parse_mode="HTML")
-    await _step_kind(message, state, lang)
+    await _after_source(message, state, lang, db)
+
+
+async def _after_source(message: Message, state: FSMContext, lang: str, db: Database) -> None:
+    """Manbadan keyin: zamonaviyda — uslub, qolgan turlarda — darhol slaydlar soni (tur boshida tanlangan)."""
+    if _kind_of(await state.get_data()) == KIND_MODERN:
+        await _step_style(message, state, lang)
+    else:
+        await _step_count(message, state, lang, db)
 
 
 # ── 4b. Taqdimot turi: infografik / zamonaviy / klassik
@@ -678,7 +691,8 @@ async def _step_kind(message: Message, state: FSMContext, lang: str) -> None:
 
 @router.callback_query(F.data.startswith("prem_ppt_kind:"), PremiumPresentationStates.waiting_for_kind)
 async def premium_ppt_kind_selected(callback: CallbackQuery, state: FSMContext, db: Database):
-    """Tur tanlandi: infografik — darhol hajm (slaydlar soni), zamonaviy — uslub, klassik — shablonlar."""
+    """Tur tanlandi (birinchi qadam) — keyin mavzu. Tur keyingi qadamlarni belgilaydi: zamonaviyda manbadan
+    keyin uslub so'raladi, infografik, 3D Pro va klassikda — darhol slaydlar soni."""
     await callback.answer()
     lang = await _lang_of(callback.from_user.id, db)
     kind = callback.data.split(":", 1)[1]
@@ -687,7 +701,6 @@ async def premium_ppt_kind_selected(callback: CallbackQuery, state: FSMContext, 
     await state.update_data(kind=kind)
     if kind == KIND_CLASSIC:
         await state.update_data(style=SIMPLE_STYLE, volume="")
-        await _step_count(callback.message, state, lang, db)
     elif kind == KIND_PRO3D:
         # Uslub ham, matn hajmi ham so'ralmaydi: rang va ko'rinishni AI mavzuga qarab tanlaydi.
         await state.update_data(style="", volume="")
@@ -695,13 +708,12 @@ async def premium_ppt_kind_selected(callback: CallbackQuery, state: FSMContext, 
             from services.pro3d import cutout
 
             cutout.warm()
-        await _step_count(callback.message, state, lang, db)
     elif kind == KIND_INFO:
         await state.update_data(style=INFO_STYLE, volume="kam")
-        await _step_count(callback.message, state, lang, db)
     else:
-        await state.update_data(volume="kop")
-        await _step_style(callback.message, state, lang)
+        await state.update_data(style="", volume="kop")
+    # Mavzu allaqachon yozilgan bo'lsa (orqaga qaytib turni almashtirgan) — u saqlanadi, so'rov qayta chiqadi.
+    await _step_topic(callback.message, state, lang)
 
 
 # ── 5. Uslub

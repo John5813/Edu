@@ -73,9 +73,9 @@ async def main():
             "chat": {"id": 5, "type": "private"}, "from": {"id": 5, "is_bot": False, "first_name": "T"},
             "text": text}}))
 
-    # Taqdimot tugmasi → mavzu so'raladi
+    # Taqdimot tugmasi → avval taqdimot turi so'raladi (mavzu tur tanlangach)
     await send(LABELS["uz"][1] if "Taqdimot" in LABELS["uz"][1] else "🌟 Taqdimot")
-    check("taqdimot mavzu so'raydi", await state.get_state() == PS.waiting_for_topic_text.state, await state.get_state())
+    check("taqdimot avval turini so'raydi", await state.get_state() == PS.waiting_for_kind.state, await state.get_state())
 
     for lang in ("uz", "ru", "en"):
         for label in LABELS[lang]:

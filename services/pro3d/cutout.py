@@ -1,7 +1,9 @@
 """3D obyekt rasmining fonini olib tashlash (shaffof PNG).
 
-Rasm modeli obyektni toza oq fonda chizadi. Fon shu serverning o'zida olib tashlanadi — tashqi pullik
-xizmat (fal va h.k.) kerak emas:
+Rasm modeli obyektni bir xil rangli fonda chizadi: odatda yashil ("chroma key", kinodagi yashil ekran),
+obyektning o'zi yashil bo'lsa (barg, salat, qurbaqa) — pushti (magenta). Fon rangi bo'yicha o'chiriladi:
+oq suyak, oq sut yoki yumshoq soya oq fondagidek fon bilan adashmaydi, obyekt ichidagi teshiklar ham
+tozalanadi. Chetdagi yashil "nur" (spill) olib tashlanadi. Model fon rangini bermasa — eski yo'l:
 
 1. ISNet (`isnet-general-use.onnx`, rembg loyihasining ochiq modeli) — sun'iy intellekt obyektni fondan
    ajratadi; oq suyak yoki oq tishli obyekt ham oq fonga "erib" ketmaydi. Model birinchi ishlatilganda
@@ -154,6 +156,70 @@ def _white_background(rgb: np.ndarray) -> np.ndarray:
         return seen
 
 
+# ───────────────────────────────────────── rangli fon (chroma key)
+
+KEYS = {"green": "#00B140", "magenta": "#FF00FF"}
+KEY_LOW, KEY_HIGH = 18.0, 60.0        # "fon rangliligi" shundan past — obyekt, yuqori — fon
+BORDER_SHARE = 0.6                   # rasm chetining shuncha qismi fon rangida bo'lsa — rangli fon usuli
+
+
+def _key_score(rgb: np.ndarray, key: str) -> np.ndarray:
+    """Piksel fon rangiga qanchalik yaqin: yashilda G − max(R, B), pushtida min(R, B) − G."""
+    r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    if key == "magenta":
+        return np.minimum(r, b) - g
+    return g - np.maximum(r, b)
+
+
+def _border_is_key(score: np.ndarray) -> bool:
+    edge = np.concatenate([score[:3].ravel(), score[-3:].ravel(), score[:, :3].ravel(), score[:, -3:].ravel()])
+    return float((edge > KEY_HIGH * 0.7).mean()) >= BORDER_SHARE
+
+
+def _despill(rgb: np.ndarray, key: str) -> np.ndarray:
+    """Obyekt chetiga tushgan fon rangini olib tashlaydi."""
+    out = rgb.copy()
+    r, g, b = out[..., 0], out[..., 1], out[..., 2]
+    if key == "magenta":
+        excess = np.clip(np.minimum(r, b) - g, 0, None)
+        out[..., 0], out[..., 2] = r - excess, b - excess
+    else:
+        out[..., 1] = np.minimum(g, np.maximum(r, b))
+    return out
+
+
+def _drop_specks(alpha: np.ndarray, share: float = 0.002) -> np.ndarray:
+    """Asosiy obyektdan ajralgan mayda dog'larni (fon qoldig'i) o'chiradi."""
+    try:
+        import cv2
+    except Exception:
+        return alpha
+    solid = (alpha > 0.5).astype(np.uint8)
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(solid, connectivity=8)
+    if count <= 2:
+        return alpha
+    areas = stats[1:, cv2.CC_STAT_AREA]
+    keep = np.zeros(count, dtype=bool)
+    keep[1:] = areas >= max(alpha.size * share, areas.max() * 0.02)
+    grown = cv2.dilate((keep[labels]).astype(np.uint8), np.ones((5, 5), np.uint8))
+    return alpha * grown
+
+
+def _chroma(image: Image.Image, key: str) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    """(rgb, alpha 0..1) yoki None — rasm chetida fon rangi bo'lmasa."""
+    rgb = np.asarray(image.convert("RGB"), dtype=np.float32)
+    score = _key_score(rgb, key)
+    if not _border_is_key(score):
+        return None
+    alpha = np.clip((KEY_HIGH - score) / (KEY_HIGH - KEY_LOW), 0.0, 1.0)
+    mask = _model_mask(image)
+    if mask is not None:
+        # Model aniq "fon" degan joy (rangli fondan tashqari qolgan pol, devor) ham o'chadi.
+        alpha = np.where(mask < 0.08, alpha * mask / 0.08, alpha)
+    alpha = _drop_specks(alpha)
+    return _despill(rgb, key), alpha
+
+
 def _decontaminate(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
     """Yarim shaffof chetdagi oq aralashmani ajratadi: c = (c - (1-a)·255) / a."""
     a = alpha[..., None]
@@ -162,8 +228,20 @@ def _decontaminate(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
     return np.clip(clean, 0, 255)
 
 
-def cut(image: Image.Image) -> Tuple[Image.Image, str]:
-    """(shaffof RGBA rasm, usul nomi). Usul: "model", "oq fon" yoki "" (fon olib tashlanmadi)."""
+def cut(image: Image.Image, key: Optional[str] = None) -> Tuple[Image.Image, str]:
+    """(shaffof RGBA rasm, usul nomi). Usul: "yashil fon"/"pushti fon", "model", "oq fon" yoki ""
+    (fon olib tashlanmadi). `key` — rasm qaysi rangli fonda chizilgan ("green" | "magenta")."""
+    if key in KEYS:
+        keyed = _chroma(image, key)
+        if keyed is not None:
+            rgb, mask = keyed
+            coverage = float((mask > 0.5).mean())
+            if 0.02 <= coverage <= 0.97:
+                rgba = np.dstack([rgb, mask * 255.0]).astype(np.uint8)
+                return Image.fromarray(rgba, "RGBA"), "yashil fon" if key == "green" else "pushti fon"
+            log.warning("Rangli fon ajratilmadi (obyekt ulushi %.1f%%)", coverage * 100)
+        else:
+            log.warning("Rasm chetida %s fon yo'q — oddiy usul", key)
     rgb = np.asarray(image.convert("RGB"), dtype=np.float32)
     background = _white_background(rgb.astype(np.uint8))
     mask = _model_mask(image)
@@ -177,6 +255,7 @@ def cut(image: Image.Image) -> Tuple[Image.Image, str]:
     else:
         # Model ishonchsiz joyda (0.1-0.6) chetga tutashgan toza oq piksel — fon.
         mask = np.where(background & (mask < 0.6), 0.0, mask)
+    mask = _drop_specks(mask)
     coverage = float((mask > 0.5).mean())
     if coverage < 0.02 or coverage > 0.97:
         log.warning("Fon ajratilmadi (obyekt ulushi %.1f%%) — rasm o'zgarishsiz", coverage * 100)
