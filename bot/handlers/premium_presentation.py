@@ -74,6 +74,15 @@ def _get_price(slide_count: int) -> int:
     return pipeline.price_for(slide_count)
 
 
+def _price_of(data: dict, slide_count: int) -> int:
+    """Buyurtma narxi: 3D Pro — o'z narxi (rasmlar qimmat), qolgan turlar — zamonaviy taqdimot narxi."""
+    if data.get("kind") == KIND_PRO3D:
+        import services.pro3d as pro3d
+
+        return pro3d.price_for(slide_count)
+    return _get_price(slide_count)
+
+
 def _back_text(lang: str) -> str:
     if lang == "ru": return "🔙 Назад"
     if lang == "en": return "🔙 Back"
@@ -607,10 +616,14 @@ async def _store_source(message: Message, state: FSMContext, lang: str, material
 # Faqat tugmalar — namuna rasm yuborilmaydi.
 
 KIND_INFO, KIND_MODERN, KIND_CLASSIC = "info", "modern", "classic"
-KINDS = (KIND_INFO, KIND_MODERN, KIND_CLASSIC)
+# 3D Pro: har slaydda fonsiz 3D obyekt, yorliq-chiziqlar va PowerPoint Morph o'tishlari (`services.pro3d`).
+KIND_PRO3D = "pro3d"
+KINDS = (KIND_PRO3D, KIND_INFO, KIND_MODERN, KIND_CLASSIC)
 # Infografik tur uchun uslub so'ralmaydi: vektor dizayner ko'rinishni o'zi tanlaydi.
 INFO_STYLE = "toza"
 _KIND_BUTTONS = {
+    KIND_PRO3D: {"uz": "🧊 3D Pro — animatsiyali, yangi", "ru": "🧊 3D Pro — с анимацией, новинка",
+                 "en": "🧊 3D Pro — animated, new", "kk": "🧊 3D Pro — анимациялы, жаңа"},
     KIND_INFO: {"uz": "🎨 Infografik — yangi", "ru": "🎨 Инфографика — новинка",
                 "en": "🎨 Infographic — new", "kk": "🎨 Инфографика — жаңа"},
     KIND_MODERN: {"uz": "📝 Zamonaviy — batafsil matn", "ru": "📝 Современная — подробный текст",
@@ -619,6 +632,7 @@ _KIND_BUTTONS = {
                    "en": "📄 Classic — ready templates", "kk": "📄 Классикалық — дайын үлгілер"},
 }
 _KIND_NAMES = {
+    KIND_PRO3D: {"uz": "3D Pro", "ru": "3D Pro", "en": "3D Pro", "kk": "3D Pro"},
     KIND_INFO: {"uz": "Infografik", "ru": "Инфографика", "en": "Infographic", "kk": "Инфографика"},
     KIND_MODERN: {"uz": "Zamonaviy", "ru": "Современная", "en": "Modern", "kk": "Заманауи"},
     KIND_CLASSIC: {"uz": "Klassik", "ru": "Классическая", "en": "Classic", "kk": "Классикалық"},
@@ -673,6 +687,14 @@ async def premium_ppt_kind_selected(callback: CallbackQuery, state: FSMContext, 
     await state.update_data(kind=kind)
     if kind == KIND_CLASSIC:
         await state.update_data(style=SIMPLE_STYLE, volume="")
+        await _step_count(callback.message, state, lang, db)
+    elif kind == KIND_PRO3D:
+        # Uslub ham, matn hajmi ham so'ralmaydi: rang va ko'rinishni AI mavzuga qarab tanlaydi.
+        await state.update_data(style="", volume="")
+        with contextlib.suppress(Exception):     # fon olib tashlash modeli oldindan tayyorlansin
+            from services.pro3d import cutout
+
+            cutout.warm()
         await _step_count(callback.message, state, lang, db)
     elif kind == KIND_INFO:
         await state.update_data(style=INFO_STYLE, volume="kam")
@@ -731,20 +753,24 @@ async def premium_ppt_style_selected(callback: CallbackQuery, state: FSMContext,
 
 # ── 6. Hajm — narxlar tanlangan uslubga qarab ko'rsatiladi
 
-def _count_options(style: str):
-    """[(slaydlar soni, narx)] — orqa fonlarda faqat 10/15/20."""
+def _count_options(style: str, kind: str = ""):
+    """[(slaydlar soni, narx)] — orqa fonlarda faqat 10/15/20, 3D Pro da 20 tagacha."""
     if style == SIMPLE_STYLE:
         from config import PRESENTATION_PRICES
         return sorted(PRESENTATION_PRICES.items())
+    if kind == KIND_PRO3D:
+        import services.pro3d as pro3d
+
+        return [(n, pro3d.price_for(n)) for n in pro3d.SLIDE_OPTIONS]
     return [(n, _get_price(n)) for n in (5, 8, 10, 12, 15, 20, 25, 30)]
 
 
-def _count_keyboard(lang: str, style: str = "") -> InlineKeyboardMarkup:
+def _count_keyboard(lang: str, style: str = "", kind: str = "") -> InlineKeyboardMarkup:
     word = {"uz": "ta slayd", "ru": "слайдов", "en": "slides"}.get(lang, "ta slayd")
     som = {"uz": "so'm", "ru": "сум", "en": "soʻm"}.get(lang, "so'm")
     prefix = "ppt_fon" if style == SIMPLE_STYLE else "prem_ppt_count"
     builder = InlineKeyboardBuilder()
-    for count, price in _count_options(style):
+    for count, price in _count_options(style, kind):
         builder.button(text=f"{count} {word} | {price:,} {som}",
                        callback_data=f"{prefix}:{count}")
     builder.adjust(2 if style != SIMPLE_STYLE else 1)
@@ -769,7 +795,7 @@ async def _step_count(message: Message, state: FSMContext, lang: str, db: Databa
              _t(lang, "count_balance", balance=f"{balance:,}"), "",
              _t(lang, "count_hint_fon" if style == SIMPLE_STYLE else "count_hint")]
     await _prompt(message, state, _topic_line(data, lang) + "\n".join(lines),
-                  _count_keyboard(lang, style), "count",
+                  _count_keyboard(lang, style, kind), "count",
                   PremiumPresentationStates.waiting_for_count)
 
 
@@ -922,6 +948,37 @@ def anim_note(lang: str) -> str:
     return ANIM_NOTE.get(lang) or ANIM_NOTE["uz"]
 
 
+PRO3D_NOTE = {
+    "uz": "🧊 Har slaydda fonsiz 3D obyekt, unga yo'nalgan izohlar va «Morph» o'tishlari. Harakat PowerPoint "
+          "2019/2021/365 da «Slayd-shou» rejimida ko'rinadi; eski versiyada va telefonda slaydlar oddiy almashadi.",
+    "ru": "🧊 На каждом слайде 3D-объект без фона, подписи к его частям и переходы «Трансформация» (Morph). "
+          "Движение видно в PowerPoint 2019/2021/365 в режиме «Показ слайдов»; в старых версиях и на телефоне "
+          "слайды просто сменяются.",
+    "en": "🧊 Every slide has a background-free 3D object, labels pointing to its parts and Morph transitions. "
+          "The motion plays in PowerPoint 2019/2021/365 in Slide Show; older versions and phones simply switch slides.",
+    "kk": "🧊 Әр слайдта фонсыз 3D нысан, оның бөліктеріне бағытталған жазбалар және «Morph» ауысулары. Қозғалыс "
+          "PowerPoint 2019/2021/365-те «Слайд-шоу» режимінде көрінеді; ескі нұсқада және телефонда слайдтар жай ауысады.",
+}
+
+
+def pro3d_note(lang: str) -> str:
+    return PRO3D_NOTE.get(lang) or PRO3D_NOTE["uz"]
+
+
+# 3D Pro bosqichlari holat xabarida.
+_PRO3D_STAGES = {
+    "uz": {"plan": "AI taqdimot rejasini tuzmoqda...", "images": "3D obyektlar chizilmoqda (0/{total})...",
+           "image": "3D obyektlar chizilmoqda: {done}/{total}", "anchors": "Izoh chiziqlari joylashtirilmoqda...",
+           "render": "PowerPoint yig'ilmoqda: {slides} slayd, {photos} ta 3D obyekt"},
+    "ru": {"plan": "AI составляет план презентации...", "images": "Рисуем 3D-объекты (0/{total})...",
+           "image": "Рисуем 3D-объекты: {done}/{total}", "anchors": "Размещаем подписи...",
+           "render": "Собираем PowerPoint: {slides} слайдов, 3D-объектов: {photos}"},
+    "en": {"plan": "AI is planning the presentation...", "images": "Drawing 3D objects (0/{total})...",
+           "image": "Drawing 3D objects: {done}/{total}", "anchors": "Placing the labels...",
+           "render": "Building the PowerPoint: {slides} slides, {photos} 3D objects"},
+}
+
+
 def _text_anim_label(lang: str, on: bool) -> str:
     name, yes, no = _TEXT_ANIM_LABEL.get(lang) or _TEXT_ANIM_LABEL["uz"]
     return f"{name}: {yes if on else no}"
@@ -948,7 +1005,7 @@ def _summary(data: dict, lang: str):
         return _html.escape(str(value or "").strip(), quote=False)[:limit]
 
     slide_count = int(data.get("slide_count") or MIN_SLIDES)
-    price = _get_price(slide_count)
+    price = _price_of(data, slide_count)
     kind = _kind_of(data)
     volume = ""
     # Infografikda uslub so'ralmaydi — xulosada uslub o'rniga tur yoziladi.
@@ -983,6 +1040,8 @@ def _summary(data: dict, lang: str):
         lines.append(f"🖌 {style_l}: <b>{esc(style)}</b>")
     if volume:
         lines.append(f"📏 {volume_l}: <b>{esc(volume)}</b>")
+    if kind == KIND_PRO3D:
+        lines.append(f"<i>{esc(pro3d_note(lang), 400)}</i>")
     text_anim = _text_anim_choice(data)
     if text_anim is not None:
         lines.append(_text_anim_label(lang, text_anim))
@@ -1004,12 +1063,14 @@ async def _step_summary(message: Message, state: FSMContext, lang: str) -> None:
     from services.premium_presentation import slide_anim
 
     data = await state.get_data()
-    price = _get_price(int(data.get("slide_count") or MIN_SLIDES))
+    price = _price_of(data, int(data.get("slide_count") or MIN_SLIDES))
     # Yozuv animatsiyasi — admin "🎛 Funksiyalar boshqaruvi" dan yoqqan bo'lsa, xulosada tanlov sifatida.
     try:
         offer = await Database().get_feature_status(slide_anim.FEATURE, default=False)
     except Exception as exc:  # baza o'qilmasa — tanlovsiz (animatsiyasiz) davom etadi
         logger.warning("Yozuv animatsiyasi holati o'qilmadi: %s", exc)
+        offer = False
+    if _kind_of(data) == KIND_PRO3D:       # 3D Pro ning o'z animatsiyasi bor (Morph va yorliqlar)
         offer = False
     await state.update_data(price=price, text_anim_offer=offer)
     data = await state.get_data()
@@ -1380,6 +1441,8 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
     }
     fact_index = 0
     animation_task = None
+    # 3D Pro: joriy bosqich ("3D obyektlar chizilmoqda: 4/9") — aylanuvchi holat xabarida ham ko'rinadi.
+    stage_line = {"text": ""}
 
     async def rotate_status():
         nonlocal fact_index
@@ -1393,7 +1456,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
                     f"📄 {slide_count} "
                     f"{'ta slayd' if lang == 'uz' else 'слайдов' if lang == 'ru' else 'slides'} "
                     f"{preparing_labels.get(lang, preparing_labels['uz'])[1]}\n\n"
-                    f"⏳ <b>{preparing_labels.get(lang, preparing_labels['uz'])[0]}</b>\n"
+                    f"⏳ <b>{stage_line['text'] or preparing_labels.get(lang, preparing_labels['uz'])[0]}</b>\n"
                     f"💡 {facts[fact_index]}",
                     parse_mode="HTML",
                 )
@@ -1473,16 +1536,40 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
             }
             asyncio.ensure_future(status.edit_text(step2.get(lang, step2["uz"]), parse_mode="HTML"))
 
-        # AI slaydlarni HTML/CSS/SVG qilib chizadi, brauzer 1920×1080 joylashtiradi va PPTX
-        # ga yig'adi: brauzer nima ko'rsatsa, PowerPointda ham aynan o'sha turadi.
-        final_path, ready_slides, _photos = await pipeline.build_deck(
-            topic, slide_count, language=presentation_language, level=level,
-            preferences=preferences, source_text=source_text, author=client_name,
-            style=data.get("style", ""), volume=data.get("volume", "kop"),
-            progress_cb=progress_cb, stage_cb=on_stage)
-        html_pages = [None] * ready_slides
-        if _text_anim_choice(data):
-            await _animate(final_path)
+        if _kind_of(data) == KIND_PRO3D:
+            import services.pro3d as pro3d
+
+            labels = _PRO3D_STAGES.get(lang) or _PRO3D_STAGES["uz"]
+
+            def on_pro_stage(name: str, info: dict) -> None:
+                if name == "image":
+                    stage_line["text"] = labels["image"].format(done=info.get("done", 0), total=info.get("total", 0))
+                elif name in labels:
+                    stage_line["text"] = labels[name].format(**{k: info.get(k, "") for k in ("total", "slides", "photos")})
+                else:
+                    return
+
+                async def _show():
+                    with contextlib.suppress(Exception):
+                        await status.edit_text(f"⚙️ <b>{topic}</b>\n📄 {slide_count}\n\n⏳ <b>{stage_line['text']}</b>",
+                                               parse_mode="HTML")
+                asyncio.run_coroutine_threadsafe(_show(), loop)
+
+            final_path, ready_slides, _photos = await pro3d.build_deck(
+                topic, slide_count, language=presentation_language, level=level,
+                preferences=preferences, source_text=source_text, author=client_name, stage_cb=on_pro_stage)
+            html_pages = [None] * ready_slides
+        else:
+            # AI slaydlarni HTML/CSS/SVG qilib chizadi, brauzer 1920×1080 joylashtiradi va PPTX
+            # ga yig'adi: brauzer nima ko'rsatsa, PowerPointda ham aynan o'sha turadi.
+            final_path, ready_slides, _photos = await pipeline.build_deck(
+                topic, slide_count, language=presentation_language, level=level,
+                preferences=preferences, source_text=source_text, author=client_name,
+                style=data.get("style", ""), volume=data.get("volume", "kop"),
+                progress_cb=progress_cb, stage_cb=on_stage)
+            html_pages = [None] * ready_slides
+            if _text_anim_choice(data):
+                await _animate(final_path)
 
     except Exception as e:
         logger.exception("Premium taqdimot generatsiyasida xato: %s", e)
@@ -1551,9 +1638,14 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         if _text_anim_choice(data):          # ogohlantirish fayl izohida emas, alohida xabar
             with contextlib.suppress(Exception):
                 await callback.message.answer(anim_note(lang))
+        if _kind_of(data) == KIND_PRO3D:
+            with contextlib.suppress(Exception):
+                await callback.message.answer(pro3d_note(lang))
         logger.info("Premium taqdimot yuborildi: %s → %s", final_path, callback.from_user.id)
-        await _offer_thanks_anim(callback, db, final_path, topic=topic, data=data, language=presentation_language,
-                                 author=client_name, filename=filename, lang=lang)
+        if _kind_of(data) != KIND_PRO3D:     # "Rahmat" animatsiyasi zamonaviy taqdimot sahifalari uchun
+            await _offer_thanks_anim(callback, db, final_path, topic=topic, data=data,
+                                     language=presentation_language, author=client_name, filename=filename,
+                                     lang=lang)
         try:
             from services.store_publisher import schedule_publish
 

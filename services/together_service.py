@@ -103,6 +103,36 @@ class TogetherImageService:
             logger.error(f"No image data from {model}")
         return None
 
+    async def generate_with_models(self, prompt: str, models: list, stem: str = "together_image",
+                                   clean: bool = True) -> Optional[str]:
+        """Berilgan modellar ro'yxati bilan chizadi (admin tanlovidan mustaqil xizmatlar uchun, masalan 3D Pro).
+
+        `clean` — `_render` dagidek prompt tozalanadi (taqiqlangan mavzu, yozuv so'rovlari).
+        """
+        if clean:
+            try:
+                from utils.security import sanitize_image_prompt, strip_text_requests
+
+                cleaned = sanitize_image_prompt(prompt, max_length=1200)
+                if cleaned is None:
+                    logger.warning("Image prompt rejected by sanitizer; skipping generation")
+                    return None
+                prompt = strip_text_requests(cleaned)
+            except Exception as _ex:
+                logger.warning(f"Image prompt sanitizer unavailable: {_ex}")
+        now = time.monotonic()
+        chain = [m for m in models if m and _unavailable.get(m, 0) <= now] or [m for m in models if m]
+        for model in chain:
+            response = await self._call_model(prompt, model)
+            if response is None:
+                continue
+            path = await self._save_response(response, stem)
+            if path:
+                logger.info(f"Image generated with {model} ({stem}): {path}")
+                return path
+            logger.error(f"No image data from {model}")
+        return None
+
     async def _call_model(self, prompt: str, model: str):
         """Bitta modelga so'rov. Vaqtinchalik xatoda (429/5xx) qayta uradi,
         boshqa xatoda None qaytaradi — shunda keyingi modelga o'tiladi."""
