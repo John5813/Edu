@@ -12,6 +12,7 @@ o'tishini ko'rsatadi (`mc:Fallback`) — hech narsa buzilmaydi.
 import logging
 import math
 import os
+import re
 import uuid
 from typing import Dict, List, Optional, Tuple
 
@@ -570,6 +571,28 @@ def slide_conclusion(slide, s: Dict, ctx: Ctx, index: int) -> List:
     return steps
 
 
+def _object_motion(slide, data: Dict, previous: str, steps: List) -> List:
+    """Obyekt harakati.
+
+    Obyekt nomi `!!obj_<id>`: PowerPoint Morph faqat BIR XIL obyektni qo'shni slaydlarda harakatlantiradi —
+    joyidan siljitadi, kattalashtiradi. Ilgari hamma obyekt `!!obj` deb atalardi va bosh suyagi umurtqaga
+    shunchaki "erib" o'tardi (harakat ko'rinmasdi). Yangi obyekt esa yondan uchib, kattalashib kiradi —
+    bu oddiy animatsiya, Morph'ni bilmaydigan dasturlarda (WPS, eski PowerPoint) ham ishlaydi. Keyin obyekt
+    sekin "suzib" turadi (sahna ustidagi eksponat kabi).
+    """
+    oid = (data.get("object") or {}).get("id", "")
+    shape = next((sh for sh in slide.shapes if sh.name == "!!obj"), None)
+    if shape is None:
+        return steps
+    shape.name = f"!!obj_{re.sub(r'[^A-Za-z0-9_-]', '', oid) or 'x'}"
+    hover = [(shape, "hover", 1300)]
+    if oid and oid == previous:
+        return steps + hover                       # Morph o'zi olib o'tadi
+    centre = (int(shape.left) + int(shape.width) / 2) / Emu(Inches(W))
+    fly = (shape, "fly_left" if centre < 0.5 else "fly_right", 0)
+    return [fly] + [(sh, kind, delay + 450) for sh, kind, delay in steps] + hover
+
+
 RENDER = {"cover": slide_cover, "callouts": slide_callouts, "points": slide_points, "table": slide_table,
           "stats": slide_stats, "focus": slide_focus, "timeline": slide_timeline,
           "conclusion": slide_conclusion}
@@ -586,6 +609,7 @@ def build(deck: Dict, pictures: Dict[str, Picture], anchors: Dict[int, list], *,
     blank = prs.slide_layouts[6]
     slides = deck["slides"]
     ctx = Ctx(pal, pictures, anchors, author, year, len(slides))
+    previous = ""
     for index, data in enumerate(slides):
         slide = prs.slides.add_slide(blank)
         slide.background.fill.solid()
@@ -596,6 +620,9 @@ def build(deck: Dict, pictures: Dict[str, Picture], anchors: Dict[int, list], *,
         except Exception:
             log.exception("%d-slayd chizilmadi (%s)", index + 1, data["layout"])
             raise
+        steps = _object_motion(slide, data, previous, steps)
+        previous = (data.get("object") or {}).get("id", "") if ctx.pictures.get(
+            (data.get("object") or {}).get("id", "")) else ""
         if index:
             _page(slide, ctx, index, data["layout"] in ON_PANEL)
         if morph and index:

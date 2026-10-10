@@ -1,7 +1,8 @@
 """3D obyektlar: Together modeli chizadi → fon olib tashlanadi → yorliq chiziqlari uchun nuqtalar topiladi.
 
-Rasm modeli (sukut — FLUX.2 Pro, keyin Imagen 4 Ultra va boshqalar) obyektni toza oq fonda, studiya
-yorug'ida chizadi. Fon serverning o'zida olib tashlanadi (`cutout`). "callouts" slaydida chiziq obyektning
+Rasm modeli (sukut — FLUX.2 Pro, keyin Seedream 4 va boshqalar) obyektni bir xil yashil fonda ("chroma key";
+obyekt yashil bo'lsa — pushti fonda), studiya yorug'ida chizadi. Fon serverning o'zida rang bo'yicha olib
+tashlanadi (`cutout`). Oq fonda oq suyak, sut yoki soya fon bilan adashib, chetida oq bo'laklar qolardi. "callouts" slaydida chiziq obyektning
 qaysi joyiga borishini vision modeli (rasmni "ko'radigan" AI) aytadi; u javob bermasa — nuqta obyektning
 o'sha tomondagi chetidan olinadi, shunda chiziq har doim obyektga tegadi.
 """
@@ -11,6 +12,7 @@ import io
 import json
 import logging
 import os
+import re
 import uuid
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Tuple
@@ -22,22 +24,29 @@ from . import cutout
 
 log = logging.getLogger(__name__)
 
-DEFAULT_MODELS = ("black-forest-labs/FLUX.2-pro,google/imagen-4.0-ultra,black-forest-labs/FLUX.1.1-pro,"
-                  "ByteDance-Seed/Seedream-4.0,black-forest-labs/FLUX.2-dev")
+# Imagen 4 hisobda ochiq emas (404). FLUX moderatsiyasi suyak/bosh suyagini ba'zan rad etadi — Seedream o'tkazadi.
+DEFAULT_MODELS = ("black-forest-labs/FLUX.2-pro,ByteDance-Seed/Seedream-4.0,black-forest-labs/FLUX.2-flex,"
+                  "black-forest-labs/FLUX.1.1-pro,black-forest-labs/FLUX.2-dev")
 PARALLEL = 3            # bir vaqtda chiziladigan rasmlar
 OUT_DIR = os.path.join("temp", "pro3d")
 
 STYLE_PROMPT = {
-    "realistic": ("Photorealistic high-detail 3D render of {obj}. A single isolated object, the whole object "
-                  "fully visible and centred with a generous empty margin around it, on a plain pure white "
-                  "background (#FFFFFF). Soft even studio lighting, subtle ambient occlusion, physically based "
-                  "materials, sharp focus, no floor, no cast shadow on the background, no text, no labels, "
-                  "no watermark."),
+    "realistic": ("Photorealistic high-detail 3D render of {obj}, clean and non-graphic, like a museum-quality "
+                  "educational model for a school textbook. A single isolated object, the whole object fully "
+                  "visible and centred with a generous empty margin around it, on a perfectly flat uniform solid "
+                  "{bg} background, evenly lit, no gradient. Soft studio lighting on the object, subtle ambient "
+                  "occlusion, physically based materials, sharp focus. No floor, no shadow, no reflection, no "
+                  "text, no labels, no watermark."),
     "stylized": ("Cute stylized 3D render of {obj}, glossy clay-like materials, soft rounded shapes, Pixar-like "
-                 "quality. A single isolated object, the whole object fully visible and centred with a generous "
-                 "empty margin, on a plain pure white background (#FFFFFF). Soft studio lighting, no floor, no "
-                 "cast shadow on the background, no text, no labels, no watermark."),
+                 "quality, friendly and non-graphic. A single isolated object, the whole object fully visible and "
+                 "centred with a generous empty margin, on a perfectly flat uniform solid {bg} background, evenly "
+                 "lit, no gradient. No floor, no shadow, no reflection, no text, no labels, no watermark."),
 }
+BACKGROUND = {"green": "chroma-key green (#00B140)", "magenta": "chroma-key magenta (#FF00FF)"}
+# Obyektning o'zi yashil bo'lsa yashil fon u bilan birga o'chib ketadi — unda pushti fon.
+_GREENISH = re.compile(r"green|leaf|leaves|plant|grass|tree|forest|lettuce|cabbage|broccoli|spinach|herb|"
+                       r"salad|vegetable|cucumber|lime|kiwi|avocado|olive|mint|moss|cactus|algae|fern|frog|"
+                       r"lizard|turtle|parrot|caterpillar|emerald|jade|pea\b|chlorophyll|leafy", re.IGNORECASE)
 
 
 def models() -> List[str]:
@@ -54,11 +63,18 @@ class Picture:
     alpha: Optional[np.ndarray] = field(default=None, repr=False)   # 0..255, kichraytirilgan niqob
 
 
-def prompt_for(obj: str, style: str) -> str:
-    return STYLE_PROMPT.get(style, STYLE_PROMPT["realistic"]).format(obj=obj.strip().rstrip("."))
+def key_for(obj: str) -> str:
+    """Fon rangi: odatda yashil, yashil obyekt uchun pushti."""
+    return "magenta" if _GREENISH.search(obj or "") else "green"
 
 
-def _finish(raw_path: str) -> Optional[Picture]:
+def prompt_for(obj: str, style: str, key: Optional[str] = None) -> str:
+    key = key or key_for(obj)
+    return STYLE_PROMPT.get(style, STYLE_PROMPT["realistic"]).format(obj=obj.strip().rstrip("."),
+                                                                      bg=BACKGROUND[key])
+
+
+def _finish(raw_path: str, key: Optional[str] = None) -> Optional[Picture]:
     """Chizilgan rasm → shaffof, chetlari kesilgan PNG."""
     try:
         image = Image.open(raw_path)
@@ -66,7 +82,7 @@ def _finish(raw_path: str) -> Optional[Picture]:
     except Exception as exc:
         log.warning("Rasm ochilmadi (%s): %s", raw_path, exc)
         return None
-    cut, method = cutout.cut(image)
+    cut, method = cutout.cut(image, key)
     transparent = bool(method) and cutout.is_transparent(cut)
     final = cutout.trim(cut) if transparent else image.convert("RGB")
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -97,9 +113,10 @@ async def draw(objects: Dict[str, str], style: str,
         async with gate:
             raw = None
             try:
-                raw = await service.generate_with_models(prompt_for(obj, style), chain, stem="pro3d_raw")
+                key = key_for(obj)
+                raw = await service.generate_with_models(prompt_for(obj, style, key), chain, stem="pro3d_raw")
                 if raw:
-                    picture = await loop.run_in_executor(None, _finish, raw)
+                    picture = await loop.run_in_executor(None, _finish, raw, key)
                     if picture:
                         result[oid] = picture
             except Exception as exc:

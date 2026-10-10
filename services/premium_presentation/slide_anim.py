@@ -64,6 +64,24 @@ def _effect(cid: int, spid: int, kind: str, delay: int) -> Tuple[str, int]:
         body = (_visible(cid + 1, spid) + _anim(cid + 2, spid, dur, "ppt_w", "0", "#ppt_w")
                 + _anim(cid + 3, spid, dur, "ppt_h", "0", "#ppt_h") + _fade(cid + 4, spid, dur))
         used = 5
+    elif kind in ("fly_left", "fly_right"):   # "Uchib kirish": yondan siljib, kattalashib (3D Pro obyekti)
+        preset, sub, dur = 2, 8 if kind == "fly_left" else 2, 1100
+        shift = "-0.22" if kind == "fly_left" else "+0.22"
+        body = (_visible(cid + 1, spid) + _fade(cid + 2, spid, 700)
+                + _anim(cid + 3, spid, dur, "ppt_x", f"#ppt_x{shift}", "#ppt_x")
+                + _anim(cid + 4, spid, dur, "ppt_y", "#ppt_y+0.04", "#ppt_y")
+                + _anim(cid + 5, spid, dur, "ppt_w", "#ppt_w*0.75", "#ppt_w")
+                + _anim(cid + 6, spid, dur, "ppt_h", "#ppt_h*0.75", "#ppt_h"))
+        used = 7
+    elif kind == "hover":      # Sekin "suzib turish": ozgina tepaga-pastga, cheksiz (3D Pro obyekti)
+        xml = (f'<p:par><p:cTn id="{cid}" presetID="0" presetClass="path" presetSubtype="0" accel="50000" '
+               f'decel="50000" autoRev="1" repeatCount="indefinite" fill="hold" grpId="1" nodeType="withEffect">'
+               f'<p:stCondLst><p:cond delay="{delay}"/></p:stCondLst><p:childTnLst>'
+               f'<p:animMotion origin="layout" path="M 0 0 L 0 -0.018 E" pathEditMode="relative" ptsTypes="AA">'
+               f'<p:cBhvr><p:cTn id="{cid + 1}" dur="2400" fill="hold"/>{_tgt(spid)}<p:attrNameLst>'
+               f'<p:attrName>ppt_x</p:attrName><p:attrName>ppt_y</p:attrName></p:attrNameLst></p:cBhvr>'
+               f'<p:rCtr x="0" y="-900"/></p:animMotion></p:childTnLst></p:cTn></p:par>')
+        return xml, 2
     else:                      # "Paydo bo'lish"
         preset, sub, dur = 10, 0, 500
         body = _visible(cid + 1, spid) + _fade(cid + 2, spid, dur)

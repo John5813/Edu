@@ -34,9 +34,9 @@ cutout._session_failed = True          # testda 180 MB model yuklanmasin — zax
 TMP = tempfile.mkdtemp()
 
 
-def sample(path, color=(200, 60, 80)):
-    """Oq fonda "3D obyekt": soyali doira va tayoqcha."""
-    im = Image.new("RGB", (512, 512), (255, 255, 255))
+def sample(path, color=(200, 60, 80), bg=(255, 255, 255)):
+    """Bir xil fonda "3D obyekt": soyali doira va tayoqcha."""
+    im = Image.new("RGB", (512, 512), bg)
     d = ImageDraw.Draw(im)
     for r in range(150, 0, -6):
         k = r / 150
@@ -77,6 +77,20 @@ long = content.normalize({"slides": [{"layout": "cover", "title": "T", "object":
                                      {"layout": "conclusion", "title": "X", "points": ["a"]}]}, "T", 3)
 check("yorliq matni 18 so'zgacha qisqaradi", len(long["slides"][1]["callouts"][0]["text"].split()) <= 18,
       long["slides"][1]["callouts"][0]["text"])
+alias = content.normalize({"slides": [
+    {"layout": "cover", "title": "T", "object": {"id": "a", "prompt": "p"}},
+    {"layout": "timeline", "title": "Bosqichlar", "object": {"id": "b", "prompt": "p"},
+     "items": [{"year": "1628", "description": "Garvey qon aylanishini tushuntirdi"},
+               {"stage": "1967", "event": "Birinchi yurak ko'chirib o'tkazildi"}]},
+    {"layout": "points", "title": "P", "object": {"id": "c", "prompt": "p"},
+     "items": [{"title": "Himoya", "description": "Miyani asraydi"}, "Oddiy satr"]},
+    {"layout": "conclusion", "title": "X", "points": [{"head": "Bir"}, "Ikki"]}]}, "T", 4)
+check("boshqa nomli maydonlar ham olinadi (items/year/description)",
+      alias["slides"][1]["layout"] == "timeline" and alias["slides"][1]["steps"][0]["when"] == "1628"
+      and "Garvey" in alias["slides"][1]["steps"][0]["text"], alias["slides"][1])
+check("punktlar: title/description va oddiy satr", [p["head"] for p in alias["slides"][2]["points"]] == ["Himoya", ""]
+      and alias["slides"][2]["points"][1]["text"] == "Oddiy satr", alias["slides"][2]["points"])
+check("xulosa punktlari: dict va satr", alias["slides"][3]["points"] == ["Bir", "Ikki"], alias["slides"][3]["points"])
 objs = content.objects(deck)
 check("noyob obyektlar (takror chizilmaydi)", len(objs) == len(set(objs)) and "zzz" not in objs, objs)
 
@@ -107,6 +121,32 @@ same, method = cutout.cut(white)
 check("bo'sh (faqat oq) rasm — fon olib tashlanmaydi", method == "", method)
 pic = images._finish(src)
 check("Picture: shaffof PNG va kichik niqob", pic and pic.transparent and pic.alpha is not None and os.path.exists(pic.path))
+
+print("\n2b) Rangli fon (chroma key): oq obyekt, ichki teshik, soya")
+green = Image.new("RGB", (512, 512), (0, 177, 64))
+d = ImageDraw.Draw(green)
+d.ellipse((96, 96, 416, 416), fill=(246, 244, 238))          # oq obyekt (oq fonda adashib ketardi)
+d.ellipse((216, 216, 296, 296), fill=(0, 177, 64))            # ichki teshik — fon ko'rinadi
+d.ellipse((150, 440, 360, 480), fill=(0, 92, 33))             # to'q yashil soya
+d.ellipse((20, 20, 30, 30), fill=(250, 250, 250))             # mayda dog' (chiqindi)
+cut, method = cutout.cut(green, "green")
+a = np.asarray(cut.split()[-1])
+check("yashil fon usuli ishladi", method == "yashil fon", method)
+check("oq obyekt to'liq qoldi", a[150, 256] > 240 and a[400, 256] > 240, (a[150, 256], a[400, 256]))
+check("ichki teshik shaffof", a[256, 256] < 10, a[256, 256])
+check("soya va burchak shaffof", a[460, 256] < 60 and a[5, 5] == 0, (a[460, 256], a[5, 5]))
+check("mayda dog' o'chdi", a[25, 25] < 10, a[25, 25])
+edge = np.asarray(cut.convert("RGB"))[256, 97]
+check("chetda yashil nur qolmadi (despill)", edge[1] <= max(edge[0], edge[2]) + 2, edge)
+leafy = Image.new("RGB", (512, 512), (255, 0, 255))
+ImageDraw.Draw(leafy).ellipse((96, 96, 416, 416), fill=(40, 170, 60))
+cut, method = cutout.cut(leafy, "magenta")
+check("yashil obyekt pushti fonda butun qoladi", method == "pushti fon" and np.asarray(cut.split()[-1])[256, 256] > 240,
+      method)
+check("fon rangi: odatda yashil, yashil obyektga pushti",
+      images.key_for("human skull") == "green" and images.key_for("fresh green lettuce leaves") == "magenta")
+cut, method = cutout.cut(Image.open(src), "green")
+check("model yashil fon bermasa — oddiy usulga o'tadi", method == "oq fon", method)
 
 print("\n3) Yorliq nuqtalari")
 def fake_request(kind, payload, **kw):
@@ -157,8 +197,24 @@ prs = Presentation(path)
 check("8 ta slayd, 16:9", len(prs.slides) == 8 and abs(prs.slide_width / prs.slide_height - 16 / 9) < 0.01)
 names = [[sh.name for sh in s.shapes] for s in prs.slides]
 check("har slaydda !!panel va !!title", all("!!panel" in n and "!!title" in n for n in names), names[0])
-check("obyekt bor slaydlarda !!obj (chizilmagan 'd' — obyektsiz)",
-      all(("!!obj" in n) == (s["object"]["id"] in pictures) for n, s in zip(names, full["slides"])))
+check("obyekt bor slaydlarda !!obj_<id> (chizilmagan 'd' — obyektsiz)",
+      all((f"!!obj_{s['object']['id']}" in n) == (s["object"]["id"] in pictures) for n, s in zip(names, full["slides"])),
+      names)
+import lxml.etree as _et
+def timing_of(slide):
+    node = slide._element.find(qn("p:timing"))
+    return _et.tostring(node).decode() if node is not None else ""
+def spid(slide, name):
+    return next(sh.shape_id for sh in slide.shapes if sh.name == name)
+slides_list = list(prs.slides)
+# 1-slayd (muqova, obyekt "a"): yangi obyekt — uchib kiradi; 2-slayd ham "a" — Morph olib o'tadi, uchmaydi.
+cover_t, call_t = timing_of(slides_list[0]), timing_of(slides_list[1])
+check("yangi obyekt yondan uchib, kattalashib kiradi", f'spid="{spid(slides_list[0], "!!obj_a")}"' in cover_t
+      and 'presetID="2"' in cover_t and "#ppt_w*0.75" in cover_t, cover_t[:400])
+check("o'sha obyekt keyingi slaydda uchmaydi (Morph siljitadi), faqat suzib turadi",
+      'presetID="2"' not in call_t and 'presetClass="path"' in call_t and 'repeatCount="indefinite"' in call_t)
+check("hamma obyektli slaydda suzish harakati", all('presetClass="path"' in timing_of(s) for s, d in
+                                                    zip(slides_list, full["slides"]) if d["object"]["id"] in pictures))
 check("bir slaydda !! nom takrorlanmaydi", all(len([x for x in n if x.startswith("!!")]) ==
                                               len({x for x in n if x.startswith("!!")}) for n in names))
 morphs = []
@@ -223,13 +279,34 @@ for fail in (False, True):
         check("bosqichlar: reja → rasmlar → yig'ish", stages[0] == "plan" and "images" in stages and stages[-1] == "render",
               stages)
         prompt, models = service.prompts[0]
-        check("rasm so'rovi: oq fon, bitta obyekt, Together modellari", "pure white background" in prompt
-              and "single isolated object" in prompt.lower() and models and "FLUX.2-pro" in models[0], (prompt, models))
+        check("rasm so'rovi: yashil fon, bitta obyekt, ta'limiy, Together modellari",
+              "chroma-key green" in prompt and "single isolated object" in prompt.lower() and "non-graphic" in prompt
+              and models and "FLUX.2-pro" in models[0] and not any("imagen" in m for m in models), (prompt, models))
     else:
         check("rasm chizilmasa — xato (mijozga pul qaytariladi)", isinstance(error, RuntimeError)
               and "3D" in str(error), error)
 
-print("\n6) Narx")
+print("\n6) Together: moderatsiya rad etsa qayta urilmaydi")
+from services.together_service import TogetherImageService
+svc = TogetherImageService.__new__(TogetherImageService)
+calls = []
+class Refusing:
+    class images:
+        @staticmethod
+        def generate(**kw):
+            calls.append(kw["model"])
+            raise RuntimeError("Error code: 400 - {'message': 'Invalid content detected. The generated content was "
+                               "flagged and rejected by Black Forest Labs's content moderation system.', "
+                               "'code': 'content_policy_violation'}")
+svc.client = Refusing
+import time as _time
+t0 = _time.monotonic()
+result = asyncio.run(svc._call_model("a skull", "black-forest-labs/FLUX.2-pro"))
+check("moderatsiya: bitta urinish, kutishsiz, keyingi modelga o'tiladi",
+      result is None and calls == ["black-forest-labs/FLUX.2-pro"] and _time.monotonic() - t0 < 1, (calls, result))
+check("moderatsiya modelni 'ishlamaydi' deb belgilamaydi", "black-forest-labs/FLUX.2-pro" not in ts._unavailable)
+
+print("\n7) Narx")
 check("10 slayd — 15 000 so'm (zamonaviydan 3 baravar)", pro3d.price_for(10) == 15000, pro3d.price_for(10))
 check("narx 500 ga yaxlit", all(pro3d.price_for(n) % 500 == 0 for n in pro3d.SLIDE_OPTIONS))
 

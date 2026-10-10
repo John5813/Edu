@@ -159,8 +159,15 @@ class TogetherImageService:
                 return await asyncio.wait_for(_call(), timeout=60)
             except (asyncio.TimeoutError, Exception) as ex:
                 msg = str(ex).lower()
+                # Moderatsiya rad etgani (FLUX: "content_policy_violation", "NSFW") — qayta urish foydasiz:
+                # xuddi shu prompt yana rad etiladi. Ilgari "moderation" so'zidagi "rate" uni "vaqtinchalik"
+                # deb ko'rsatib, har rasmda ~70 soniya behuda kutilardi.
+                if any(s in msg for s in ("content_policy", "moderation", "nsfw", "flagged")):
+                    logger.warning(f"Together image model {model} rejected the prompt (moderation): {ex}")
+                    return None
                 transient = isinstance(ex, asyncio.TimeoutError) or any(
-                    s in msg for s in ("429", "rate", "timeout", "503", "502", "504", "temporar")
+                    s in msg for s in ("429", "rate limit", "rate_limit", "too many", "timeout", "503", "502",
+                                       "504", "temporar")
                 )
                 if not transient:
                     logger.error(f"Together image model {model} failed: {ex}")
