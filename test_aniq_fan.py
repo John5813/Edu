@@ -5,7 +5,9 @@
 - rejadagi misol/formula bloki slaydda bo'lmasa — qayta so'raladi;
 - 1-slayd muqova bo'lmasa (oddiy slayd yoki reja yozilgan) — muqova kod bilan yig'iladi;
 - aniq fanda formulali/grafikli rasmlar ruxsat, slayd skrinshotlari esa yo'q;
-- to'qima iqtibos ("mutaxassislar") oddiy gapga aylanadi.
+- to'qima iqtibos ("mutaxassislar") oddiy gapga aylanadi;
+- formulada «$D < 0$» xom qolmaydi, «b^2» daraja bo'ladi;
+- aniq fanda «(2026)» ko'rsatkich/prognoz slaydi o'rniga amaliy masala; takror slayd — masala.
 
     python test_aniq_fan.py
 """
@@ -27,6 +29,7 @@ print("1) Mavzu oilasi")
 for topic, hint, want in [("Kvadrat tenglamalar va ularni yechish usullari", "umumiy", "aniq"),
                           ("Nyutonning harakat qonunlari", "", "aniq"),
                           ("Trigonometrik funksiyalar", "umumiy", "aniq"),
+                          ("Kvadrat tenglamalar va ularni yechish usullari", "hisob", "aniq"),
                           ("Amir Temur saltanati", "tarix", "tarix")]:
     got = deck_shape.of(topic, hint)
     check(f"«{topic}» → {want}", got == want, got)
@@ -83,6 +86,17 @@ check("aniq fan: tanlovchiga formulali rasm ruxsati aytiladi",
       photo_search._PICK_FORMULAS in photo_search._pick_prompt("t", ["s"], [], formulas=True)
       and photo_search._PICK_FORMULAS not in photo_search._pick_prompt("t", ["s"], []))
 
+import asyncio
+from services.premium_presentation import html_images
+page = '<section class="slide"><div class="body"><div class="rasm" data-prompt="parabola graph"></div></div></section>'
+async def _found(topic, slots, **kw):
+    return ["/nonexistent.jpg"] * len(slots)
+with __import__("unittest.mock").mock.patch.object(html_images, "_take_uri", lambda p: "data:image/jpeg;base64,AA"):
+    got, n = asyncio.run(html_images.fill_photos([page], topic="Kvadrat tenglama", find=_found, formulas=True))
+    plain_got, _ = asyncio.run(html_images.fill_photos([page], topic="Tarix", find=_found))
+check("aniq fanda rasm kesilmaydi (fit), boshqa fanda — kesib to'ldiriladi",
+      n == 1 and 'class="photo fit"' in got[0] and 'class="photo"' in plain_got[0], (got, plain_got))
+
 print("\n6) To'qima iqtibos")
 fake = ('<div class="body"><div><div class="quote-mark">&#8220;</div><p class="quote">Kelajakda markaz bo\'ladi.</p>'
         '<p class="quote-by">— Turizm sohasi mutaxassislari</p></div></div>')
@@ -120,6 +134,51 @@ check("ro'yxatdan keyingi matn o'z abzatsida (tegsiz qolmaydi)",
       '<p class="note">Agar D=0' in fixed, fixed)
 plain = '<section class="slide"><div class="body"><p class="lead">L</p></div></section>'
 check("ro'yxatsiz slaydga tegilmaydi", html_slides._fix_html_lists(plain) == plain)
+
+print("\n9) Formulalar: matndagi «<» va $ siz daraja")
+from services.premium_presentation import deck_math
+got = deck_math.render("<p>Agar $D < 0$ bo'lsa, ildiz yo'q.</p>")
+check("«$D < 0$» xom qolmaydi", "$" not in got and "D < 0" in got, got)
+got = deck_math.render('<div class="formula-body">D = b^2 - 4ac</div>')
+check("«b^2» → b²", "b² - 4ac" in got and "^" not in got, got)
+check("teglar buzilmaydi", deck_math.render('<p class="x">a < b</p>') == '<p class="x">a < b</p>')
+
+print("\n10) Aniq fanda to'qima statistika va prognoz yo'q")
+out = html_slides.exact_rules([{"title": "M", "brief": "", "category": "muqova"}, {"title": "R", "brief": "", "category": "reja"},
+                               {"title": "Qo'llanilish sohalari (2026)", "brief": "x", "category": "korsatkichlar"},
+                               {"title": "Kelajak prognozi (2026-2028)", "brief": "x", "category": "ikki_ustun"},
+                               {"title": "Diskriminant formulasi", "brief": "x", "category": "formula"},
+                               {"title": "Y", "brief": "", "category": "yakun"}], "aniq", "Kvadrat tenglamalar")
+check("ko'rsatkich va prognoz — amaliy masala", [o["category"] for o in out[2:4]] == ["misol", "misol"]
+      and out[2]["title"].startswith("Amaliy masala") and "O'YLAB TOPILMASIN" in out[3]["brief"], out[2:4])
+out2 = html_slides.exact_rules([{"title": "M", "brief": "", "category": "muqova"}, {"title": "R", "brief": "", "category": "reja"},
+                                {"title": "Mashhur matematiklar fikri", "brief": "x", "category": "kartalar"},
+                                {"title": "Y", "brief": "", "category": "yakun"}], "aniq", "Kvadrat tenglamalar")
+check("«mashhur matematiklar fikri» (to'qima iqtibos) — amaliy masala", out2[2]["category"] == "misol", out2[2])
+check("formula slaydiga tegilmaydi", out[4]["category"] == "formula" and out[4]["title"] == "Diskriminant formulasi")
+out = html_slides.exact_rules([{"title": "M", "brief": "", "category": "muqova"}, {"title": "R", "brief": "", "category": "reja"},
+                               {"title": "Viet teoremasi", "brief": "x", "category": "iqtibos"},
+                               {"title": "Qiziqarli jihatlar", "brief": "x", "category": "iqtibos"},
+                               {"title": "Y", "brief": "", "category": "yakun"}], "aniq")
+check("aniq fanda to'qima iqtibos yo'q (teorema — formula)", [o["category"] for o in out[2:4]] == ["formula", "kartalar"], out)
+fixed = html_slides._retitle('<section class="slide"><div class="head"><h2 class="title">Eski</h2></div></section>', "Masala: X")
+check("takror slayd sarlavhasi almashadi", '<h2 class="title">Masala: X</h2>' in fixed, fixed)
+
+print("\n11) Bir xil masala ikki slaydda")
+from services.premium_presentation import deck_logic
+def ms(title, task, extra=""):
+    return (f'<section class="slide"><div class="head"><h2 class="title">{title}</h2></div><div class="body">'
+            f'<p class="lead">{extra}</p><div class="misol"><div class="misol-task">{task}</div></div></div></section>')
+viet = ms("Misol: Viet teoremasi", "Berilgan tenglama: x² - 7x + 10 = 0. Ildizlarini toping.", "Tez aniqlash.")
+viet2 = ms("Viet bo'yicha mashq", "Tenglama x² − 7x + 10 = 0 ning ildizlarini Viet teoremasi bilan toping.", "Boshqa izoh matni.")
+other = ms("Misol: Diskriminant", "2x² + 5x - 3 = 0 ni yeching.")
+check("bir xil tenglama — takror", deck_logic.same_task(viet, viet2))
+check("boshqa tenglama — takror emas", not deck_logic.same_task(viet, other))
+theory = ('<section class="slide"><div class="head"><h2 class="title">Viet teoremasi</h2></div><div class="body">'
+          '<p class="lead">Ildizlar yig\'indisi va ko\'paytmasi koeffitsientlar bilan bog\'liq.</p></div></section>')
+deck = ["<section></section>", "<section></section>", theory, viet, other, viet2, "<section></section>"]
+check("nazariya + shu mavzudagi misol takror emas; bir xil masala — takror", deck_logic.duplicates(deck) == {5: 3},
+      deck_logic.duplicates(deck))
 
 print("\nNATIJA:", "HAMMASI O'TDI" if not FAILS else f"{len(FAILS)} ta xato: {FAILS}")
 sys.exit(1 if FAILS else 0)

@@ -93,6 +93,45 @@ def same_content(first: str, second: str) -> bool:
     return len(a & b) / len(a | b) >= 0.5
 
 
+_TASK = re.compile(r'<[^>]*class="[^"]*\bmisol-task\b[^"]*"[^>]*>(.*?)</(?:div|p)>', re.IGNORECASE | re.DOTALL)
+# Masala shartidagi tenglama/ifoda: "x² - 7x + 10 = 0" — bo'shliqsiz, kichik harfda.
+_MATH_TOKEN = re.compile(r"^[0-9a-zA-Z²³⁰-⁹₀-₉().,+\-−*/·=:]{1,14}$")
+
+
+def _equations(text: str) -> List[str]:
+    out, run = [], []
+    for token in text.split() + [""]:
+        if token and _MATH_TOKEN.match(token) and not re.search(r"[a-zA-Z]{3,}", token):
+            run.append(token)
+            continue
+        expr = "".join(run).rstrip(".,:").lower().replace("−", "-")
+        if "=" in expr and any(c.isdigit() for c in expr) and len(expr) >= 5:
+            out.append(expr)
+        run = []
+    return out
+
+
+def _task_key(body: str) -> str:
+    found = _TASK.search(body or "")
+    if not found:
+        return ""
+    text = plain(found.group(1))
+    exprs = _equations(text)
+    return max(exprs, key=len) if exprs else _norm(text)
+
+
+def same_task(first: str, second: str) -> bool:
+    """Ikki slaydda bir xil masala yechilganmi (bir xil tenglama yoki shart).
+
+    Arzon model ikki "misol" slaydida bitta x² - 7x + 10 = 0 ni yechardi; atrofdagi matn biroz farq
+    qilgani uchun so'zlar o'xshashligi buni ushlamasdi.
+    """
+    a, b = _task_key(first), _task_key(second)
+    if not a or not b:
+        return False
+    return a == b or difflib.SequenceMatcher(None, a, b).ratio() >= 0.9
+
+
 def duplicates(bodies: List[str], skip: Tuple[int, ...] = ()) -> Dict[int, int]:
     """{keyingi_takror_indeksi: avvalgisi}. Muqova (0), reja (1) va yakun tekshirilmaydi."""
     last = len(bodies) - 1
@@ -101,7 +140,19 @@ def duplicates(bodies: List[str], skip: Tuple[int, ...] = ()) -> Dict[int, int]:
         if later in skip:
             continue
         for earlier in range(2, later):
+            if same_task(bodies[earlier], bodies[later]):
+                found[later] = earlier
+                break
             if earlier in found:
+                continue
+            # Ikkalasi ham masala: takror faqat masalaning o'zi bir xil bo'lsa ("Amaliy masala 1" va
+            # "Amaliy masala 2" sarlavhasi o'xshash, lekin masalalari boshqa).
+            if _TASK.search(bodies[earlier]) and _TASK.search(bodies[later]):
+                continue
+            # Nazariya slaydi va undan keyingi shu mavzudagi masala ("Viet teoremasi" → "Misol: Viet
+            # teoremasi") — takror emas, aniq fandagi to'g'ri zanjir.
+            if bool(_TASK.search(bodies[earlier])) != bool(_TASK.search(bodies[later])) \
+                    and not same_content(bodies[earlier], bodies[later]):
                 continue
             if similar_titles(title_of(bodies[earlier]), title_of(bodies[later])) \
                     or same_content(bodies[earlier], bodies[later]):

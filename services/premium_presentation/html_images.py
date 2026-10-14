@@ -447,8 +447,11 @@ async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
         if not uri:
             continue
         page = result[index]
+        # Aniq fanda formula/grafikli rasm kesilmaydi: "Form of a Quadratic Equation" yozuvi chetidan
+        # "rm of a Quadratic..." bo'lib qolardi — butunligicha sig'diriladi.
+        fit = " fit" if formulas else ""
         result[index] = (page[:start] + '<div class="rasm photo-in"><img '
-                         f'class="photo" src="{uri}" alt=""></div>'
+                         f'class="photo{fit}" src="{uri}" alt=""></div>'
                          + page[end:])
         placed += 1
     log.info("Rasm bloklari: %d tasi sinaldi, %d tasiga rasm qo'yildi",

@@ -335,7 +335,9 @@ _TEXT_CHECK_FORMULAS = (
     "You check images for a math/physics/computer-science presentation. Formulas, equations, graphs, geometric "
     "figures and labelled scientific diagrams are WELCOME. For EACH numbered image decide if it must be REJECTED "
     "because it is a screenshot of a presentation slide, a document or book page, a website, a poster, a "
-    "worksheet, or mostly paragraphs of prose text, or has a text watermark. Answer JSON: "
+    "worksheet, or mostly paragraphs of prose text, or has a text watermark, OR is a video thumbnail / ad / "
+    "banner with a big headline (e.g. \"How to Solve ...\"), a brand or school logo, or text cut off at the "
+    "image edge. Answer JSON: "
     "{\"reject\": [numbers of rejected images]}"
 )
 
