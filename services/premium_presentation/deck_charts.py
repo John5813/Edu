@@ -33,8 +33,9 @@ _ATTR = re.compile(r'\bdata-([a-z]+)\s*=\s*(["\'])(.*?)\2',
 # `chart` ro'yxati bitta rangning tuslari — ustunlar/chiziqlar/bo'laklar
 # bir-biriga o'xshab, ajratib bo'lmasdi. Birinchisi sxemaning asosiy
 # rangi, qolganlari undan uzoq (tus burchagi bo'yicha) rang-barang.
-_DISTINCT = ("F59E0B", "10B981", "E11D48", "8B5CF6", "06B6D4", "EAB308",
-             "EC4899", "64748B")
+# Faqat to'q, qat'iy ranglar (sariq, pushti, och qizil yo'q): to'q yashil, binafsha, firuza, to'q qizil,
+# to'q ko'k, jigarrang, grafit.
+_DISTINCT = ("166534", "5B21B6", "0F766E", "991B1B", "1E3A8A", "78350F", "334155")
 _MIN_HUE_GAP = 0.07   # ~25 daraja
 
 

@@ -610,10 +610,28 @@ _QUOTE_BY = re.compile(
 _BY_YEAR = re.compile(r",?\s*(?:\w+\s+)?((?:19|20)\d\d)\b[^<]*$")
 
 
+# Muallifi aniq odam emas, umumiy guruh ("mutaxassislar", "ekspertlar") — bunday iqtibosni model to'qib
+# chiqargan bo'ladi. U oddiy bosh gapga aylantiriladi (muallifsiz, qo'shtirnoqsiz).
+_FAKE_AUTHOR = re.compile(
+    r"mutaxassis|ekspert|olimlar|tadqiqotchilar|sohasi\s+vakil|specialist|expert|analyst|researchers|"
+    r"специалист|эксперт|аналитик|исследовател|маман|сарапшы", re.IGNORECASE)
+_QUOTE_BLOCK = re.compile(
+    r'<div>\s*<div\b[^>]*class\s*=\s*["\'][^"\']*quote-mark[^"\']*["\'][^>]*>.*?</div>\s*'
+    r'(<p\b[^>]*class\s*=\s*["\'][^"\']*(?<![\w-])quote(?![\w-])[^"\']*["\'][^>]*>)(.*?)</p>\s*'
+    r'<p\b[^>]*class\s*=\s*["\'][^"\']*quote-by[^"\']*["\'][^>]*>(.*?)</p>\s*</div>',
+    re.IGNORECASE | re.DOTALL)
+
+
 def guard_quote_sources(body: str) -> str:
-    """Iqtibos muallifidagi bugungi/kelgusi yilli "hisobot"ni olib tashlaydi."""
+    """Iqtibos muallifidagi bugungi/kelgusi yilli "hisobot"ni olib tashlaydi; to'qima iqtibosni oddiy gapga aylantiradi."""
     from services import timeframe
 
+    def unquote(match):
+        if not _FAKE_AUTHOR.search(re.sub(r"<[^>]+>", " ", match.group(3))):
+            return match.group(0)
+        return f'<p class="lead">{match.group(2).strip()}</p>'
+
+    body = _QUOTE_BLOCK.sub(unquote, body)
     limit = timeframe.current_year()
 
     def swap(match):
@@ -662,9 +680,9 @@ def build_pages(bodies: List[str], theme, language: str = "uz") -> List[str]:
     # Hisob-kitobni kod bajaradi: `calc` va `data-calc` shu yerda raqamga
     # aylanadi, so'ng diagramma chiziladi.
     drawn = [deck_charts.draw(
-        _half_charts(deck_math.render(deck_styles.decorate(
+        _half_charts(_chart_beside_text(deck_math.render(deck_styles.decorate(
             _whiten_icons(_auto_icons(_decorate(
-                guard_quote_sources(guard_source_years(deck_calc.apply(body), language))))), theme))),
+                guard_quote_sources(guard_source_years(deck_calc.apply(body), language))))), theme)))),
         theme)
              for body in bodies]
     try:
@@ -1305,6 +1323,25 @@ def _no_photo(body: str) -> str:
 _CHART_OPEN = re.compile(
     r'<div\b(?=[^>]*\bclass\s*=\s*["\'][^"\']*\bchart\b)'
     r'(?![^>]*\bdata-size\s*=)', re.IGNORECASE)
+
+
+# Varaq bo'yi diagramma va uning ostidagi izoh abzatslari (varaq oxirida).
+_CHART_THEN_TEXT = re.compile(
+    r'(<div\b[^>]*\bclass\s*=\s*["\'](?:[^"\']*\s)?chart(?:\s[^"\']*)?["\'][^>]*>\s*</div>)\s*'
+    r'((?:<p\b[^>]*>.*?</p>\s*){1,3})(?=</div>\s*</section>)', re.IGNORECASE | re.DOTALL)
+
+
+def _chart_beside_text(body: str) -> str:
+    """Varaq bo'yi diagramma ostida izoh bo'lsa — ikkalasi yonma-yon (diagramma chapda, izoh o'ngda).
+
+    To'liq enli diagramma 1728×520 nisbatda chiziladi; ostidagi izoh joy olgani uchun u siqilib, varaqning
+    uchdan bir qismidagi past chiziqqa aylanardi. Yonma-yon bo'lsa diagramma yarim o'lchamda (840×520),
+    ancha baland chiqadi va varaq to'ladi. Diagramma allaqachon ikki ustunli joyda bo'lsa — tegilmaydi.
+    """
+    if _SPLIT_OPEN.search(body):
+        return body
+    return _CHART_THEN_TEXT.sub(lambda m: f'<div class="split wide-left">{m.group(1)}<div>{m.group(2)}</div></div>',
+                                body, count=1)
 
 
 def _half_charts(body: str) -> str:
