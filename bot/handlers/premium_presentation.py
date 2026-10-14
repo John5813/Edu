@@ -974,6 +974,32 @@ _PHOTO_SOURCE_LINE = {
 }
 PHOTO_SOURCES = ("web", "ai", "mix")
 
+# Rang sxemasi — mijoz tanlaydi (xulosadagi «🎨 Rang» tugmasi). Faqat to'q, qat'iy ranglar (sariq va och qizil
+# taklif qilinmaydi); "auto" — mavzuga qarab (`themes.suggest`).
+COLOR_KEYS = ("auto", "ko'k", "to'q ko'k", "yashil", "zumrad", "binafsha", "kulrang")
+_COLOR_NAMES = {
+    "uz": ("✨ Avto (mavzuga qarab)", "🔵 Ko'k", "🔷 To'q ko'k", "🟢 Yashil", "💠 Zumrad", "🟣 Binafsha", "⚫ Kulrang"),
+    "ru": ("✨ Авто (по теме)", "🔵 Синий", "🔷 Тёмно-синий", "🟢 Зелёный", "💠 Изумрудный", "🟣 Фиолетовый",
+           "⚫ Графит"),
+    "en": ("✨ Auto (by topic)", "🔵 Blue", "🔷 Navy", "🟢 Green", "💠 Emerald", "🟣 Purple", "⚫ Graphite"),
+    "kk": ("✨ Авто (тақырыпқа қарай)", "🔵 Көк", "🔷 Қою көк", "🟢 Жасыл", "💠 Зүмірет", "🟣 Күлгін", "⚫ Сұр"),
+}
+_COLOR_LABEL = {"uz": ("🎨 Rang", "🎨 Rangni tanlang:"), "ru": ("🎨 Цвет", "🎨 Выберите цвет:"),
+                "en": ("🎨 Colour", "🎨 Choose a colour:"), "kk": ("🎨 Түс", "🎨 Түсті таңдаңыз:")}
+
+
+def _color(data: dict):
+    """Rang tanlovi: None — taklif qilinmaydi (3D Pro, oddiy taqdimot); aks holda COLOR_KEYS dan biri."""
+    if _kind_of(data) not in (KIND_MODERN, KIND_INFO):
+        return None
+    value = data.get("theme_key") or "auto"
+    return value if value in COLOR_KEYS else "auto"
+
+
+def _color_name(key: str, lang: str) -> str:
+    names = _COLOR_NAMES.get(lang) or _COLOR_NAMES["uz"]
+    return names[COLOR_KEYS.index(key)]
+
 
 def _photo_source(data: dict):
     """Rasm manbasi: None — tanlov yo'q (3D Pro o'z obyektlarini chizadi); aks holda mijoz tanlovi."""
@@ -1042,7 +1068,8 @@ def _text_anim_label(lang: str, on: bool) -> str:
     return f"{name}: {yes if on else no}"
 
 
-def _confirm_keyboard(lang: str, current_language: str, text_anim=None, photo_source=None) -> InlineKeyboardMarkup:
+def _confirm_keyboard(lang: str, current_language: str, text_anim=None, photo_source=None,
+                      color=None) -> InlineKeyboardMarkup:
     """`text_anim` — None: tanlov ko'rsatilmaydi (admin o'chirgan); True/False — mijoz tanlovi.
     `photo_source` — None: rasm manbasi tanlovi yo'q; "web"/"ai"/"mix" — tanlangani ✓ bilan."""
     builder = InlineKeyboardBuilder()
@@ -1054,6 +1081,9 @@ def _confirm_keyboard(lang: str, current_language: str, text_anim=None, photo_so
         names = _PHOTO_SOURCE_BUTTONS.get(lang) or _PHOTO_SOURCE_BUTTONS["uz"]
         builder.row(*[InlineKeyboardButton(text=("✓ " if key == photo_source else "") + names[key],
                                            callback_data=f"prem_ppt_img:{key}") for key in PHOTO_SOURCES])
+    if color is not None:
+        label = (_COLOR_LABEL.get(lang) or _COLOR_LABEL["uz"])[0]
+        builder.row(InlineKeyboardButton(text=f"{label}: {_color_name(color, lang)}", callback_data="prem_ppt_color"))
     if text_anim is not None:
         builder.row(InlineKeyboardButton(text=_text_anim_label(lang, text_anim), callback_data="prem_ppt_anim"))
     builder.row(InlineKeyboardButton(text=_t(lang, "confirm"), callback_data="prem_ppt_confirm"))
@@ -1105,6 +1135,9 @@ def _summary(data: dict, lang: str):
         lines.append(f"📏 {volume_l}: <b>{esc(volume)}</b>")
     if kind == KIND_PRO3D:
         lines.append(f"<i>{esc(pro3d_note(lang), 400)}</i>")
+    color = _color(data)
+    if color is not None:
+        lines.append(f"{(_COLOR_LABEL.get(lang) or _COLOR_LABEL['uz'])[0]}: <b>{esc(_color_name(color, lang))}</b>")
     photo_source = _photo_source(data)
     if photo_source is not None:
         name, kinds = _PHOTO_SOURCE_LINE.get(lang) or _PHOTO_SOURCE_LINE["uz"]
@@ -1116,7 +1149,7 @@ def _summary(data: dict, lang: str):
             lines.append(f"<i>{esc(anim_note(lang), 400)}</i>")
     lines += [f"📊 {slides_l}: <b>{slide_count}</b>",
               f"💰 {price_l}: <b>{price:,} {cur}</b>", "", ask]
-    return "\n".join(lines), _confirm_keyboard(lang, language, text_anim, photo_source)
+    return "\n".join(lines), _confirm_keyboard(lang, language, text_anim, photo_source, color)
 
 
 def _text_anim_choice(data: dict):
@@ -1185,6 +1218,41 @@ async def premium_ppt_photo_source(callback: CallbackQuery, state: FSMContext, d
     if value not in PHOTO_SOURCES or _photo_source(data) in (None, value):
         return
     await state.update_data(photo_source=value)
+    lang = await _lang_of(callback.from_user.id, db)
+    text, markup = _summary(await state.get_data(), lang)
+    with contextlib.suppress(Exception):
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=markup)
+
+
+@router.callback_query(F.data == "prem_ppt_color", PremiumPresentationStates.waiting_for_slide_count)
+async def premium_ppt_color_menu(callback: CallbackQuery, state: FSMContext, db: Database):
+    """«🎨 Rang» — ranglar ro'yxati (tanlangani ✓); tanlangach xulosaga qaytadi."""
+    await callback.answer()
+    data = await state.get_data()
+    current = _color(data)
+    if current is None:
+        return
+    lang = await _lang_of(callback.from_user.id, db)
+    builder = InlineKeyboardBuilder()
+    for index, key in enumerate(COLOR_KEYS):
+        builder.button(text=("✓ " if key == current else "") + _color_name(key, lang),
+                       callback_data=f"prem_ppt_clr:{index}")
+    builder.adjust(1, 2, 2, 2)
+    with contextlib.suppress(Exception):
+        await callback.message.edit_text((_COLOR_LABEL.get(lang) or _COLOR_LABEL["uz"])[1],
+                                         reply_markup=builder.as_markup())
+
+
+@router.callback_query(F.data.startswith("prem_ppt_clr:"), PremiumPresentationStates.waiting_for_slide_count)
+async def premium_ppt_color_chosen(callback: CallbackQuery, state: FSMContext, db: Database):
+    await callback.answer()
+    try:
+        key = COLOR_KEYS[int(callback.data.split(":", 1)[1])]
+    except (ValueError, IndexError):
+        return
+    if _color(await state.get_data()) is None:
+        return
+    await state.update_data(theme_key="" if key == "auto" else key)
     lang = await _lang_of(callback.from_user.id, db)
     text, markup = _summary(await state.get_data(), lang)
     with contextlib.suppress(Exception):
@@ -1649,6 +1717,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
                 preferences=preferences, source_text=source_text, author=client_name,
                 style=data.get("style", ""), volume=data.get("volume", "kop"),
                 photo_source=_photo_source(data) or "mix",
+                theme_key=data.get("theme_key", "") if _color(data) not in (None, "auto") else "",
                 progress_cb=progress_cb, stage_cb=on_stage)
             html_pages = [None] * ready_slides
             if _text_anim_choice(data):

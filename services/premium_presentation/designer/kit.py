@@ -316,17 +316,29 @@ def text(s, x, y, w, h, paras, align=LEFT, anchor=TOP, gap: float = 0, line_spac
 class Photo:
     """Slayd rasmi (bayt). `crop(w, h)` — markazdan kesilgan JPEG fayl yo'li (vaqtinchalik)."""
 
-    def __init__(self, raw: bytes):
+    def __init__(self, raw: bytes, fit: bool = False):
         from PIL import Image
 
         self.image = Image.open(io.BytesIO(raw)).convert("RGB")
+        # Formula/grafikli rasm (aniq fan) kesilmaydi: maydonga butunligicha, oq hoshiya bilan sig'diriladi
+        # (ilgari "Quadratic Equation" yozuvi chetidan kesilib qolardi).
+        self.fit = fit
         self._files: List[str] = []
 
     def crop(self, w: float, h: float) -> str:
+        from PIL import Image
+
         im = self.image
         sw, sh = im.size
         target = w / h
-        if sw / sh > target:
+        if self.fit:
+            if sw / sh > target:
+                canvas = Image.new("RGB", (sw, max(sh, int(sw / target))), (255, 255, 255))
+            else:
+                canvas = Image.new("RGB", (max(sw, int(sh * target)), sh), (255, 255, 255))
+            canvas.paste(im, ((canvas.width - sw) // 2, (canvas.height - sh) // 2))
+            im = canvas
+        elif sw / sh > target:
             nw = int(sh * target)
             im = im.crop(((sw - nw) // 2, 0, (sw - nw) // 2 + nw, sh))
         else:

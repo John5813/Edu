@@ -135,6 +135,8 @@ async def _build_deck(topic, slide_count, *, language, level, preferences, sourc
             placed += 1 if cover_done else 0
         except Exception as exc:
             log.warning("Muqova rasmi qo'yilmadi: %s", exc)
+        if volume != "kam":    # infografikada fon rasmini dizayner o'zi qo'yadi
+            pages = html_images.add_backdrops(pages)
 
     stage("render", slides=len(pages), photos=placed)
     final: list = []

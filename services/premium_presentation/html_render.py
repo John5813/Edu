@@ -358,6 +358,9 @@ _MEASURE = r"""
     if (r.width < 2 || r.height < 2) continue;
     // Muqovadagi to'liq balandlikdagi rasm varaq chetigacha boradi — bu sig'masligi emas.
     if (el.closest(".cover-img") || el.classList.contains("cover-text")) continue;
+    // Rasmli varaqda rasm varaqning butun bo'yi bo'ylab chetda turadi (deck_style) — bu ham sig'masligi emas.
+    const side = el.closest(".rasm.photo-in");
+    if (side && getComputedStyle(side).position === "absolute") continue;
     // Bezak doiralari ataylab varaq chetidan chiqib turadi.
     if (el.closest(".bezak")) continue;
     if (r.top < -1) return TOO_BIG;

@@ -160,6 +160,26 @@ border-radius:18px;display:block}
 .slide.dark .rasm{background:#BANDCARD}
 .slide.dark .rasm-matn{color:#FFFFFF}
 .split.wide-right{grid-template-columns:1fr 1.25fr}
+/* Rasmli varaq: rasm varaqning BUTUN BO'YI bo'ylab bir chetga chiqadi (ilgari ikki ustunning yarmida,
+   sarlavha va kirish gapidan pastda kichik qolardi). Sarlavha va matn qolgan kenglikda. */
+.slide:has(>.body>.split>.rasm.photo-in){position:relative}
+.slide:has(>.body>.split>.rasm.photo-in:last-child){padding-right:calc(44% + 80px)}
+.slide:has(>.body>.split>.rasm.photo-in:first-child){padding-left:calc(44% + 80px)}
+.slide:has(>.body>.split>.rasm.photo-in)>.body{position:static}
+.slide>.body>.split:has(>.rasm.photo-in){grid-template-columns:1fr;position:static}
+.slide>.body>.split>.rasm.photo-in{position:absolute;top:0;bottom:0;width:44%;min-height:0;
+padding:0;border-radius:0;z-index:0}
+.slide>.body>.split>.rasm.photo-in:last-child{right:0}
+.slide>.body>.split>.rasm.photo-in:first-child{left:0}
+.slide>.body>.split>.rasm.photo-in>.photo{min-height:0;height:100%;border-radius:0}
+/* Ba'zi matnli och varaqlarda fon: taqdimotdagi rasmlardan biri, xira (infografikadagi kabi). */
+.slide:has(>.backdrop){position:relative}
+.slide>.backdrop{position:absolute;inset:0;overflow:hidden}
+.slide>.backdrop>.photo{width:100%;height:100%;object-fit:cover;display:block;
+filter:blur(6px) saturate(.9);transform:scale(1.05)}
+.slide>.backdrop::after{content:"";position:absolute;inset:0;
+background:radial-gradient(ellipse at center,color-mix(in srgb,#BACKGROUND 86%,transparent) 0%,
+color-mix(in srgb,#BACKGROUND 80%,transparent) 65%,color-mix(in srgb,#BACKGROUND 70%,transparent) 100%)}
 /* Diagramma yonidagi tushuntirish: o'qiladigan o'lchamda, bosh
    jumla bilan izoh orasida nafas. */
 .split>div:not([class]){display:flex;flex-direction:column;gap:24px}
@@ -467,6 +487,10 @@ def stylesheet(theme) -> str:
     # jonli ko'rinadigan narsa shu edi. Birinchisi mavzu aksenti.
     tones = [theme.accent] + [t for t in _TONES
                               if _far(t, theme.accent)][:4]
+    # Har doim 5 ta tus: aksentga yaqin tuslar tashlangach yashil, kulrang, to'q ko'k va zumrad sxemalarida
+    # 2-4 tasi qolib, #TONE3... almashtirilmay qolardi — 3-kartochka va undan keyingilari rangsiz, ikonkasi
+    # ko'rinmas edi. Yetmasa qolgan tuslar (aksentga yaqinroq bo'lsa ham) qo'shiladi.
+    tones += [t for t in _TONES if t not in tones][:5 - len(tones)]
     swap = {
         "SANS": SANS,
         "SERIF": SERIF,
