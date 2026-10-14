@@ -70,6 +70,7 @@ class Ctx:
     cover: Optional[Photo] = None
     topic_icon: str = "globe"
     backdrop: Optional[Photo] = None      # xira fon rasmi (ba'zi infografik varaqlarda)
+    clear_backdrop: bool = False          # matn oq kartalarda — rasm aniqroq ko'rinadi
 
     def icon_for(self, *texts: str) -> str:
         from .. import html_slides
@@ -90,10 +91,14 @@ def bg_dark(c: Ctx, focus=(50, 45)):
 
 def bg_light(c: Ctx):
     if c.backdrop is not None:
-        # Xira rasm ustida oq parda: o'rtasi ochroq (infografika), chetlarida rasm ko'proq ko'rinadi.
+        # Rasm ustida oq parda: o'rtasi qalinroq (infografika), chetlarida rasm ko'proq ko'rinadi. Matn oq
+        # kartalarda bo'lsa (kartalar, vaqt chizig'i) parda yupqa; yozuv to'g'ridan-to'g'ri fonda bo'lsa —
+        # qalinroq, aks holda kulrang izohlar rasm ustida o'qilmaydi.
         photo(c.slide, c.backdrop, 0, 0, 1920, 1080)
         r = rect(c.slide, 0, 0, 1920, 1080)
-        grad(r, [(0, WHITE, 90), (70, WHITE, 84), (100, mix(WHITE, c.pal.accent, 0.08), 76)], radial=True)
+        veil = (74, 62, 48) if c.clear_backdrop else (86, 80, 70)
+        grad(r, [(0, WHITE, veil[0]), (65, WHITE, veil[1]), (100, mix(WHITE, c.pal.accent, 0.08), veil[2])],
+             radial=True)
         return
     r = rect(c.slide, 0, 0, 1920, 1080)
     grad(r, [(0, WHITE), (100, mix(WHITE, c.pal.accent, 0.07))], radial=True)
@@ -822,3 +827,5 @@ STYLES = [
 BY_NAME = {s.name: s for s in STYLES}
 # Och fonli uslublar — faqat ularga xira fon rasmi qo'yiladi (to'q fonga kerak emas).
 LIGHT = frozenset({"cards", "timeline", "leaves", "arrows", "pie", "cross", "diamond"})
+# Ulardan matni oq kartalarda turadiganlari — fon rasmi aniqroq ko'rsatiladi.
+CLEAR = frozenset({"cards", "timeline"})

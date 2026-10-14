@@ -339,13 +339,13 @@ class Photo:
         return path
 
     @classmethod
-    def soft(cls, raw: bytes, radius: float = 7) -> "Photo":
+    def soft(cls, raw: bytes, radius: float = 2.5) -> "Photo":
         """Fon uchun xira nusxa: yumshoq blur va biroz kamaytirilgan to'yinganlik."""
         from PIL import Image, ImageEnhance, ImageFilter
 
         image = Image.open(io.BytesIO(raw)).convert("RGB")
         image.thumbnail((1280, 1280))
-        image = ImageEnhance.Color(image.filter(ImageFilter.GaussianBlur(radius))).enhance(0.75)
+        image = ImageEnhance.Color(image.filter(ImageFilter.GaussianBlur(radius))).enhance(0.9)
         buffer = io.BytesIO()
         image.save(buffer, "JPEG", quality=80)
         return cls(buffer.getvalue())
