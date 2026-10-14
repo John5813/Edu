@@ -16,7 +16,9 @@ murojaat (muqova, slaydni qayta yaratish, boshqa mijoz) Brave'ga yangi
 so'rov yubormaydi va oldin ishlatilgan rasmlarni qayta bermaydi.
 """
 import asyncio
+import contextlib
 import io
+import json
 import logging
 import os
 import re
@@ -47,8 +49,23 @@ _BLOCKED = (
     "bigstockphoto", "agefotostock", "superstock", "pond5", "colourbox", "stockfresh",
     "shootplanet", "amazon.", "ebay.", "aliexpress", "etsy.", "walmart.", "temu.",
     "pinimg.com", "pinterest.", "lookaside.fbsbx", "fbcdn", "instagram",
+    # Slayd, hujjat va konspekt saytlari: rasmlari — birovning taqdimoti yoki matnli bet.
+    "slideplayer", "slideshare", "slideserve", "slidetodoc", "slidesgo", "pdfslide", "scribd", "docplayer",
+    "studfile", "studylib", "studopedia", "myshared", "present5", "ppt-online", "coursehero", "quizlet",
+    "vdocuments", "fliphtml5", "issuu", "yumpu", "dokumen.pub", "prezi.", "academia.edu", "researchgate",
+    "semanticscholar", "infourok", "multiurok", "nsportal", "znanio", "videouroki", "showme.", "brainly",
+    # Ilmiy jurnallar: rasmlari — grafik, jadval va sxemalar ("Figure 2").
+    "ncbi.nlm.nih.gov", "europepmc", "sciencedirect", "elsevier", "springer", "wiley.com", "tandfonline",
+    "frontiersin", "mdpi.com", "jacc.org", "ahajournals", "bmj.com", "thelancet", "nejm.org", "plos",
+    "revportcardiol", "cureus", "hindawi", "karger", "sagepub", "oup.com", "biomedcentral", "jamanetwork",
 )
 _BAD_EXT = (".svg", ".gif", ".ico")
+# Sarlavhasi shunday so'zli natija — slayd, jadval, sxema yoki matnli bet bo'lishi ehtimoli katta.
+_TEXTY = re.compile(
+    r"(?<![a-z])(?:slides?|figs?|figures?|ppt|pptx|powerpoint|presentation|lecture|chart|diagram|infographic|table|"
+    r"graph|flowchart|worksheet|poster|quote|screenshot|text|template|slayd|taqdimot|jadval|sxema|"
+    r"слайд\w*|презентац\w*|лекци\w*|схем\w*|таблиц\w*|диаграмм\w*|инфографи\w*)(?![a-z])",
+    re.IGNORECASE)
 
 
 def api_key() -> str:
@@ -118,6 +135,8 @@ def usable(results: Sequence[dict]) -> List[dict]:
             continue
         if urlparse(url).path.lower().endswith(_BAD_EXT):
             continue
+        if _TEXTY.search(f"{item.get('title') or ''} {_slug(str(item.get('url') or ''))}"):
+            continue
         width, height = int(props.get("width") or 0), int(props.get("height") or 0)
         if width and width < MIN_WIDTH:
             continue
@@ -182,9 +201,10 @@ _PICK_SYSTEM = (
     "- For every slot give up to 3 ids, best first.\n"
     "- Also give \"spare\": up to 15 other ids that are good general photos of the topic "
     "(used when a slot's photo fails to download).\n"
-    "- Skip results that look like: posters, book covers, products for sale, logos, "
-    "screenshots, video games, memes, or a different topic. Maps and diagrams only when "
-    "the slot is about geography, territory or structure.\n"
+    "- NEVER pick anything that is likely to contain text: presentation slides or slide "
+    "screenshots, document or book pages, tables, charts, diagrams, infographics, posters, "
+    "book covers, screenshots, quotes. Also skip products for sale, logos, video games, "
+    "memes and other topics. Pick real photographs only.\n"
     "- Every id may be used only once in the whole answer.\n"
     "- Leave a slot empty only when no remaining result is about the topic at all.\n"
     "Answer JSON: {\"picks\": [{\"slot\": 1, \"ids\": [12, 40]}, ...], \"spare\": [3, 7]}"
@@ -288,6 +308,68 @@ async def _download(session: aiohttp.ClientSession, url: str) -> Optional[str]:
     return await asyncio.to_thread(_save_image, bytes(raw))
 
 
+# ───────────────────────────────────────────── matnli rasmni ko'z bilan tekshirish
+
+_TEXT_CHECK = (
+    "You check photos for presentation slides. For EACH numbered image decide if it must be REJECTED because it "
+    "contains readable text: words, letters, captions, labels, titles, tables, charts, graphs, diagrams, "
+    "schemes, screenshots of slides/documents/websites, posters, book pages, or text watermarks. A real photo "
+    "where text is absent or only tiny and incidental (a distant sign) is OK. Answer JSON: "
+    "{\"reject\": [numbers of rejected images]}"
+)
+
+
+def _thumb_b64(path: str) -> str:
+    import base64
+
+    from PIL import Image
+
+    with Image.open(path) as image:
+        image = image.convert("RGB")
+        image.thumbnail((640, 640))
+        buffer = io.BytesIO()
+        image.save(buffer, "JPEG", quality=80)
+    return base64.b64encode(buffer.getvalue()).decode()
+
+
+def _ask_text_check(paths: Sequence[str]) -> set:
+    from services.premium_presentation import llm_client
+
+    content = [{"type": "text", "text": _TEXT_CHECK}]
+    for number, path in enumerate(paths, 1):
+        content.append({"type": "text", "text": f"Image {number}:"})
+        content.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + _thumb_b64(path)}})
+    payload = {"temperature": 0.0, "max_tokens": 300, "response_format": {"type": "json_object"},
+               "messages": [{"role": "user", "content": content}]}
+    raw = llm_client._content(llm_client._request("photo", payload, timeout=90))
+    data = json.loads(llm_client._clean_json(raw))
+    out = set()
+    for value in (data or {}).get("reject") or []:
+        try:
+            number = int(value)
+        except (TypeError, ValueError):
+            continue
+        if 1 <= number <= len(paths):
+            out.add(number - 1)
+    return out
+
+
+async def text_heavy(paths: Sequence[str], check=None) -> set:
+    """Matnli (slayd, jadval, sxema, yozuvli) rasmlarning tartib raqamlari. Bitta arzon vision so'rovi.
+
+    Tekshiruv ishlamasa — bo'sh to'plam (rasmlar sarlavha va manba filtridan o'tgan).
+    """
+    if not paths:
+        return set()
+    try:
+        if check is not None:
+            return set(await check(list(paths)))
+        return await asyncio.to_thread(_ask_text_check, list(paths))
+    except Exception as exc:
+        log.warning("Rasmdagi matn tekshirilmadi: %s", exc)
+        return set()
+
+
 # ─────────────────────────────────────────────────────────── asosiy kirish
 
 async def _pool(topic: str, search=None) -> _Pool:
@@ -317,10 +399,10 @@ async def _pool(topic: str, search=None) -> _Pool:
 
 
 async def find_photos(topic: str, slots: Sequence[str], *, search=None,
-                      choose=None) -> List[Optional[str]]:
+                      choose=None, check=None) -> List[Optional[str]]:
     """Har slot (sarlavha/rasm tavsifi) uchun yuklangan rasm yo'li yoki None.
 
-    `search(query)` va `choose(system, user)` — testlarda almashtiriladi.
+    `search(query)`, `choose(system, user)` va `check(paths)` (matnli rasmlar) — testlarda almashtiriladi.
     """
     result: List[Optional[str]] = [None] * len(slots)
     if not slots or not (topic or "").strip() or (search is None and not enabled()):
@@ -342,38 +424,44 @@ async def find_photos(topic: str, slots: Sequence[str], *, search=None,
     picks = parse_picks(data, len(slots), len(candidates))
 
     timeout = aiohttp.ClientTimeout(total=20, connect=8)
-    headers = _DOWNLOAD_HEADERS
     gate = asyncio.Semaphore(4)
+    queues = [list(picks[slot]) for slot in range(len(slots))]
+    spare = parse_spare(data, picks, len(candidates))
 
-    async with aiohttp.ClientSession(timeout=timeout, headers=headers, trust_env=True) as session:
-        async def one(slot: int) -> None:
+    async def next_photo(session, slot: int) -> Optional[str]:
+        """Slotning navbatdagi nomzodi (avval o'z tanlovi, keyin zaxira) — yuklangan fayl yoki None."""
+        while queues[slot] or spare:
+            ident = queues[slot].pop(0) if queues[slot] else spare.pop(0)
+            url = candidates[ident]["url"]
+            if url in pool.used:
+                continue
+            pool.used.add(url)
             async with gate:
-                for ident in picks[slot]:
-                    url = candidates[ident]["url"]
-                    if url in pool.used:
-                        continue
-                    path = await _download(session, url)
-                    if path:
-                        pool.used.add(url)
-                        result[slot] = path
-                        return
-
-        await asyncio.gather(*(one(slot) for slot in range(len(slots)) if picks[slot]))
-
-        # Tanlangani yuklanmagan yoki AI bo'sh qoldirgan slotlarga zaxira rasmlar.
-        spare = iter(parse_spare(data, picks, len(candidates)))
-        for slot in range(len(slots)):
-            while result[slot] is None:
-                ident = next(spare, None)
-                if ident is None:
-                    break
-                url = candidates[ident]["url"]
-                if url in pool.used:
-                    continue
                 path = await _download(session, url)
-                if path:
-                    pool.used.add(url)
+            if path:
+                return path
+        return None
+
+    # Yuklangan rasmlar ko'z bilan tekshiriladi: ichida matn, jadval, sxema yoki slayd bo'lsa tashlanadi va
+    # slotga navbatdagi nomzod olinadi (3 davragacha). Qolgan bo'sh slotni AI chizadi.
+    async with aiohttp.ClientSession(timeout=timeout, headers=_DOWNLOAD_HEADERS, trust_env=True) as session:
+        for _ in range(3):
+            empty = [slot for slot in range(len(slots)) if result[slot] is None and (queues[slot] or spare)]
+            if not empty:
+                break
+            got = await asyncio.gather(*(next_photo(session, slot) for slot in empty))
+            fresh = [(slot, path) for slot, path in zip(empty, got) if path]
+            if not fresh:
+                break
+            bad = await text_heavy([path for _, path in fresh], check)
+            for k, (slot, path) in enumerate(fresh):
+                if k in bad:
+                    with contextlib.suppress(OSError):
+                        os.remove(path)
+                else:
                     result[slot] = path
+            if bad:
+                log.info("Matnli %d ta rasm tashlandi", len(bad))
 
     found = sum(1 for path in result if path)
     if found:

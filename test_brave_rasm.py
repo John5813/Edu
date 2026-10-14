@@ -101,6 +101,7 @@ photo_search._download = fake_download
 try:
     first = asyncio.run(photo_search.find_photos("Inson yuragi", ["Yurak tuzilishi", "Qon aylanishi"],
                                                  search=search, choose=choose_first))
+    first_downloads = list(downloads)
     second = asyncio.run(photo_search.find_photos("  inson YURAGI ", ["Muqova"],
                                                   search=search, choose=choose_first))
 finally:
@@ -109,9 +110,8 @@ check("ikkala murojaatga Brave'ga bitta so'rov", len(calls) == 1, calls)
 check("1-slot: birinchi rasm yuklanmasa keyingisi olinadi", bool(first[0]) and downloads[0].endswith("img0.jpg")
       and downloads[1].endswith("img1.jpg"), downloads)
 check("ikkala slotga rasm topildi", all(first), first)
-used_urls = {u for u in downloads[1:4]}
-check("keyingi murojaat oldin ishlatilgan rasmni qayta bermaydi",
-      bool(second[0]) and downloads[-1] not in used_urls, downloads)
+check("keyingi murojaat oldin sinalgan rasmni qayta bermaydi",
+      bool(second[0]) and not set(downloads[len(first_downloads):]) & set(first_downloads), downloads)
 for path in first + second:
     if path:
         os.remove(path)
@@ -159,6 +159,51 @@ nameless = photo_search.usable([{"title": "", "source": "travel.uz", "url": "htt
                                  "properties": {"url": "https://travel.uz/i/1.jpg", "width": 1200, "height": 800}}])
 check("nomsiz natijaga sahifa manzilidan ishora", "gur e amir mausoleum" in photo_search._pick_prompt("t", ["s"], nameless),
       nameless)
+
+print("\n3c) Matnli rasmlar (birovning slaydi, jadval, sxema) qo'yilmaydi")
+texty = photo_search.usable([
+    _result(20, source="slideplayer.com", title="Levosimendan mechanism"),
+    _result(21, source="www.slideshare.net"),
+    _result(22, title="Mechanism of action - PowerPoint presentation"),
+    _result(23, title="Heart failure treatment diagram"),
+    _result(24, title="Схема кровообращения"),
+    _result(25, title="Doctor talking with patient in hospital"),
+])
+check("slayd saytlari va «slide/ppt/diagram/схема» sarlavhalari tashlanadi",
+      [c["url"].rsplit("/", 1)[1] for c in texty] == ["img25.jpg"], [c["url"] for c in texty])
+check("AI ga slayd va matnli rasm tanlamaslik aytilgan", "presentation slides" in photo_search._PICK_SYSTEM)
+
+photo_search.reset(); downloads.clear()
+checked = []
+
+
+async def reject_first(paths):
+    checked.append(len(paths))
+    return {0} if len(checked) == 1 else set()   # birinchi davrada 1-rasm matnli
+
+
+async def choose_two(system, user):
+    return {"picks": [{"slot": 1, "ids": [1, 2]}, {"slot": 2, "ids": [3]}], "spare": [4]}
+
+photo_search._download = fake_download
+try:
+    got = asyncio.run(photo_search.find_photos("Yurak yetishmovchiligi", ["Davolash", "Klinik sinov"],
+                                               search=search, choose=choose_two, check=reject_first))
+finally:
+    photo_search._download = real_download
+check("matnli rasm tashlandi, slotga navbatdagi nomzod qo'yildi",
+      all(got) and checked == [2, 1] and [d.rsplit("/", 1)[1] for d in downloads] == ["img1.jpg", "img3.jpg", "img2.jpg"],
+      (checked, downloads))
+for path in got:
+    if path:
+        os.remove(path)
+
+
+async def broken_check(paths):
+    raise RuntimeError("vision yo'q")
+
+check("tekshiruv ishlamasa rasmlar qoladi (manba va sarlavha filtridan o'tgan)",
+      asyncio.run(photo_search.text_heavy(["a.jpg"], broken_check)) == set())
 
 os.environ.pop("BRAVE_API_KEY", None); os.environ.pop("BRAVE_SEARCH_API_KEY", None)
 check("kalit yo'q bo'lsa qidiruv o'chiq", not photo_search.enabled())
