@@ -2032,7 +2032,8 @@ Output only the image prompt, nothing else. Make it detailed and specific for be
                 'layout': 'thanks'
             })
 
-            return await self._fill_empty_main_slides({'slides': slides}, topic, language)
+            content = await self._fill_empty_main_slides({'slides': slides}, topic, language)
+            return await self._fill_empty_fixed_slides(content, topic, language)
             
         except Exception as e:
             logger.error(f"Error generating presentation with manual titles: {e}")

@@ -448,6 +448,65 @@ class DocumentService:
         
         return min_font_pt
 
+    def _images_available(self) -> bool:
+        """Rasm manbasi bormi: AI (Together) yoki internet qidiruvi (Brave)."""
+        if self.together:
+            return True
+        try:
+            from services import photo_search
+            return photo_search.enabled()
+        except Exception:
+            return False
+
+    _TEXT_BODY_LAYOUTS = ('intro', 'conclusion')
+
+    @staticmethod
+    def _ensure_body_text(slides: list, topic: str, language: str) -> None:
+        """Kirish, xulosa va asosiy slaydlar sarlavha bilan yolg'iz qolmasin.
+
+        AI javobi uzilsa yoki xato bersa (`_generate_intro_content` "" qaytaradi),
+        slayd faqat sarlavha bilan chiqardi — mijoz bo'sh varaqni ko'rardi.
+        Bu oxirgi himoya: taqdimotning o'z sarlavhalaridan qisqa matn yig'iladi.
+        """
+        def has_text(slide) -> bool:
+            if str(slide.get('content') or '').strip():
+                return True
+            return any(i['text'] for i in slide_layouts.items_of(slide))
+
+        mains = [s for s in slides if (s.get('layout') or '') not in slide_layouts.FIXED]
+        titles = [str(m.get('title') or '').strip() for m in mains if str(m.get('title') or '').strip()]
+        listed = ", ".join(titles[:4])
+        for slide in slides:
+            layout = slide.get('layout') or ''
+            if has_text(slide):
+                continue
+            if layout in DocumentService._TEXT_BODY_LAYOUTS:
+                if layout == 'conclusion':
+                    firsts = [slide_fit.sentences(str(m.get('content') or ''))[:1] for m in mains[-4:]]
+                    text = " ".join(x[0] for x in firsts if x)
+                else:
+                    text = ""
+                if not text:
+                    text = {
+                        'uz': f"Ushbu taqdimotda \"{topic}\" mavzusi ko'rib chiqiladi."
+                              + (f" Asosiy masalalar: {listed}." if listed else ""),
+                        'ru': f"В этой презентации рассматривается тема «{topic}»."
+                              + (f" Основные вопросы: {listed}." if listed else ""),
+                        'en': f"This presentation covers the topic \"{topic}\"."
+                              + (f" Key questions: {listed}." if listed else ""),
+                    }.get(language) or f"\"{topic}\"."
+            elif layout not in slide_layouts.FIXED and layout != 'title' and str(slide.get('title') or '').strip():
+                title = str(slide.get('title')).strip()
+                text = {
+                    'uz': f"\"{topic}\" mavzusining muhim qismi — {title}. Bu bo'lim mavzuning asosiy jihatlarini ochib beradi.",
+                    'ru': f"Важная часть темы «{topic}» — {title}. Этот раздел раскрывает её ключевые аспекты.",
+                    'en': f"An important part of \"{topic}\" is {title}. This section covers its key aspects.",
+                }.get(language) or title
+            else:
+                continue
+            logger.warning("Slayd matni bo'sh (%s %r) — zaxira matn qo'yildi", layout, slide.get('title'))
+            slide['content'] = text
+
     async def _prefetch_slide_images(self, slides_data: list, topic: str, language: str) -> dict:
         """Pre-generate slide images with bounded parallelism (max 4 concurrent).
 
@@ -507,11 +566,35 @@ class DocumentService:
             if isinstance(result, Exception):
                 logger.error(f"Image prefetch failed for {key}: {result}")
                 continue
+            if not result:
+                continue
             slide_idx = tasks[key][0]
             image_map[slide_idx if key != 'infographic' else 'infographic'] = result
 
+        # AI chiza olmagan joylar uchun internetdan BIR marta qayta qidiruv (kengroq so'rov).
+        # Zanjir shu yerda tugaydi: Brave → AI → Brave, keyin rasmsiz (matn butun kenglikda).
+        missing = [(i, kind, title) for i, kind, title in wanted if i not in image_map]
+        if missing:
+            image_map.update(await self._brave_retry(topic, missing))
+
         logger.info(f"Prefetched {len(image_map)} images (max 4 concurrent)")
         return image_map
+
+    async def _brave_retry(self, topic: str, missing: list) -> dict:
+        """AI rasm bermagan slotlar uchun bitta Brave qidiruvi (takrorlanmaydi)."""
+        try:
+            from services import photo_search
+            if not photo_search.enabled():
+                return {}
+            slots = [f"{topic}: {title}" if kind != 'cover' else f"Wide photo about «{topic}»"
+                     for _, kind, title in missing]
+            paths = await photo_search.find_photos(topic, slots)
+            got = {i: path for (i, _, _), path in zip(missing, paths) if path}
+            logger.info("AI rasm bermadi: %d ta joydan %d tasi internetdan topildi", len(missing), len(got))
+            return got
+        except Exception as exc:
+            logger.warning(f"Internetdan qayta qidiruv bo'lmadi: {exc}")
+            return {}
 
     async def create_presentation_with_smart_images(self, topic: str, content: Dict, author_name: str, language: str = "uz", template_service=None, template_id: str = None) -> str:
         """Create PowerPoint presentation with new layout system and Together AI images
@@ -535,8 +618,9 @@ class DocumentService:
             # o'zgarsa rasm ham kerak bo'lmay qoladi.
             for slide in content.get('slides', []):
                 slide_layouts.ensure_content(slide)     # matn lug'at/ro'yxat yoki boshqa maydonda kelsa
+            self._ensure_body_text(content.get('slides', []), topic, language)
             planned = slide_layouts.assign(content.get('slides', []), topic, language,
-                                           images=bool(self.together))
+                                           images=self._images_available())
             slides_data = slide_fit.prepare(planned, language)
 
             # Pre-generate ALL images in parallel before building slides
@@ -763,7 +847,7 @@ class DocumentService:
     async def _create_cover_slide(self, slide, slide_data: Dict, author_name: str, topic: str, language: str, pre_fetched_image=None):
         """1-varoq: Chap 50% rasm, O'ng mavzu + ism"""
         has_image = False
-        if self.together:
+        if pre_fetched_image or self.together:
             try:
                 image_path = pre_fetched_image if pre_fetched_image else await self.together.generate_cover_image(topic, language)
                 if image_path and os.path.exists(image_path):
@@ -956,11 +1040,12 @@ class DocumentService:
         varag'i yarim bo'sh ketardi. Endi chaqiruvchi buni biladi va
         matnni butun kenglikka yoyadi.
         """
-        if not self.together:
+        if not pre_fetched_image and not self.together:
             return False
         try:
             image_path = pre_fetched_image
             if not image_path:
+                # Oldindan yuklashda AI ham, Brave ham bo'sh qaytgan: yana BIR AI urinish.
                 if panoramic:
                     image_path = await self.together.generate_panoramic_image(
                         topic, slide_data.get('title', ''), language)
