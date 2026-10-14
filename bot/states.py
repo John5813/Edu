@@ -138,6 +138,9 @@ class PremiumPresentationStates(StatesGroup):
     waiting_for_preferences = State()
     # Hajm (slaydlar soni) — uslubdan OLDIN so'raladi; narx uslubga bog'liq.
     waiting_for_count = State()
+    # Rasm manbasi (internet / AI / aralash) va yozuv animatsiyasi — slaydlar sonidan keyin, alohida bosqichlar.
+    waiting_for_photo_source = State()
+    waiting_for_text_anim = State()
     # Buyurtma xulosasi va tasdiqlash (to'lovdan oldin).
     waiting_for_slide_count = State()
     # Mijoz matn hajmini tanlaydi (ko'p / kam matnli).
