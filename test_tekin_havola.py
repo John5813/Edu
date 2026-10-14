@@ -2,7 +2,7 @@
 
 - admin «Funksiyalar boshqaruvi»da havola yaratadi, ko'radi (bosganlar / olganlar), o'chiradi;
 - havola orqali kelgan mijoz — bazada avvaldan bo'lsa ham, bepul sinovni ishlatgan bo'lsa ham — bir marta
-  5 slaydli tekin taqdimot oladi; ikkinchi marta olmaydi, o'chirilgan havola ishlamaydi;
+  10 slaydli rasmli tekin taqdimot oladi; ikkinchi marta olmaydi, o'chirilgan havola ishlamaydi;
 - taqdimot tayyorlanmasa imkoniyat qaytadi; bot qayta ishga tushganda uzilganlar qaytariladi.
 
     python test_tekin_havola.py
@@ -73,6 +73,8 @@ async def main():
     with patch.object(handler, "_build", AsyncMock(return_value=tmp.name)) as build:
         await handler.gift_topic(topic, state, db)
     check("taqdimot yuborildi", build.await_count == 1 and topic.answer_document.await_count == 1)
+    check("10 slayd, rasmli", build.await_args.args[1:] == (10, True), build.await_args)
+    check("mavzu so'rovi va jarayon matnida 10 slayd", any("10 slaydli rasmli" in m[0] for m in said), said)
     check("havoladan olindi (bepul sinov hisobiga tegilmadi)",
           not await gift_links.available(code, 500) and (await gift_links.links())[0]["delivered"] == 1)
 

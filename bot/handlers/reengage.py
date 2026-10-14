@@ -153,7 +153,7 @@ async def start_gift(message: Message, state: FSMContext, db: Database, telegram
     await state.clear()
     await state.set_state(GiftStates.waiting_for_topic)
     await state.update_data(gift_link=link)
-    await message.answer(_t("ask", language), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(
+    await message.answer(_t("link_ask" if link else "ask", language), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(text=_t("cancel", language), callback_data="gift:cancel")]]))
 
 
@@ -180,10 +180,12 @@ async def gift_topic(message: Message, state: FSMContext, db: Database):
         return
     await state.set_state(GiftStates.generating)
     _RUNNING.add(telegram_id)
-    status = await message.answer(_t("working", language).replace("{topic}", html.escape(topic)), parse_mode="HTML")
+    status = await message.answer(_t("link_working" if link else "working", language).replace(
+        "{topic}", html.escape(topic)), parse_mode="HTML")
     path = ""
     try:
-        path = await _build(topic)
+        path = (await _build(topic, gift_links.SLIDES, gift_links.PHOTOS) if link
+                else await _build(topic))
         from aiogram.types import FSInputFile
 
         stem = "".join(ch if ch.isalnum() else "_" for ch in topic)[:30].strip("_") or "Taqdimot"
@@ -214,8 +216,11 @@ async def gift_topic(message: Message, state: FSMContext, db: Database):
                 os.remove(path)
 
 
-async def _build(topic: str) -> str:
-    """5 slaydli bepul taqdimot (saytdagi bepul sinov bilan bir xil: arzon model, rasmsiz)."""
+async def _build(topic: str, slides: int = 0, photos: bool = False) -> str:
+    """Bepul taqdimot: arzon model, sukut bo'yicha 5 slayd va rasmsiz (saytdagi bepul sinov bilan bir xil).
+
+    Tekin taqdimot havolasi orqali — 10 slayd, rasmli (`database.gift_links`).
+    """
     from bot.handlers.premium_presentation import _detect_language
     from database import free_trial
     from services import workload
@@ -226,8 +231,8 @@ async def _build(topic: str) -> str:
         try:
             with llm_client.text_model(free_trial.MODEL):
                 path, _slides, _photos = await pipeline.build_deck(
-                    topic, free_trial.SLIDES, language=_detect_language(topic), style="toza", volume="kop",
-                    photos=False)
+                    topic, slides or free_trial.SLIDES, language=_detect_language(topic), style="toza",
+                    volume="kop", photos=photos)
             return path
         finally:
             workload.end(work_id)

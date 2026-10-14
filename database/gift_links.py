@@ -2,7 +2,7 @@
 
 Admin «🎛 Funksiyalar boshqaruvi» → «🔗 Tekin taqdimot havolalari» da havola yaratadi. Havola orqali kelgan har
 bir mijoz — YANGI bo'lsa ham, bazada avvaldan bo'lsa ham, bepul sinovni ishlatgan bo'lsa ham — shu havoladan
-BIR MARTA 5 slaydli tekin taqdimot oladi (botdagi sovg'a oqimi, `bot/handlers/reengage.py`).
+BIR MARTA 10 slaydli rasmli tekin taqdimot oladi (botdagi sovg'a oqimi, `bot/handlers/reengage.py`).
 
 Imkoniyat buyurtma berilganda band qilinadi (`claim`; jadvalda (kod, telegram_id) — asosiy kalit, ikki marta
 bosilsa ham bittasi o'tadi). Taqdimot tayyorlanmay qolsa qaytariladi (`release`), mijozga yetgach belgilanadi
@@ -17,6 +17,10 @@ from typing import Dict, List, Optional
 import aiosqlite
 
 from database import database as _db
+
+# Havola orqali beriladigan taqdimot: 10 slayd, rasmli (qayta jalb sovg'asi va bepul sinov — 5 slayd, rasmsiz).
+SLIDES = 10
+PHOTOS = True
 
 PREFIX = "g_"
 PENDING = "bot-"

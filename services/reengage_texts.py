@@ -266,15 +266,29 @@ GIFT = {
     },
     # Tekin taqdimot havolasi (Instagram avtojavobi va h.k.) orqali kelganlar uchun.
     "link_offer": {
-        "uz": ("🎁 <b>Sizga sovg'a — 1 ta tekin taqdimot!</b>\n\nPastdagi tugmani bosing, mavzuni yozing va 5 slaydli "
-               "taqdimot bir necha daqiqada tayyor bo'ladi."),
+        "uz": ("🎁 <b>Sizga sovg'a — 1 ta tekin taqdimot!</b>\n\nPastdagi tugmani bosing, mavzuni yozing va "
+               "<b>10 slaydli, rasmli</b> taqdimot bir necha daqiqada tayyor bo'ladi."),
         "ru": ("🎁 <b>Вам подарок — 1 бесплатная презентация!</b>\n\nНажмите кнопку ниже, напишите тему, и "
-               "презентация на 5 слайдов будет готова за несколько минут."),
+               "<b>презентация на 10 слайдов с изображениями</b> будет готова за несколько минут."),
         "en": ("🎁 <b>A gift for you — 1 free presentation!</b>\n\nTap the button below, type the topic and your "
-               "5-slide presentation will be ready in a few minutes."),
+               "<b>10-slide presentation with images</b> will be ready in a few minutes."),
         "kk": ("🎁 <b>Сізге сыйлық — 1 тегін презентация!</b>\n\nТөмендегі түймені басып, тақырыпты жазыңыз — "
-               "5 слайдты презентация бірнеше минутта дайын болады."),
+               "<b>суретті 10 слайдты</b> презентация бірнеше минутта дайын болады."),
     },
+    "link_ask": {
+        "uz": ("🎁 <b>10 slaydli rasmli tekin taqdimot</b>\n\nTaqdimot mavzusini yozing (masalan: «Amir Temur davlati» "
+               "yoki «Suv aylanishi»). Taqdimot mavzu yozilgan tilda tayyorlanadi."),
+        "ru": ("🎁 <b>Бесплатная презентация на 10 слайдов с изображениями</b>\n\nНапишите тему презентации "
+               "(например: «Круговорот воды»). Презентация будет на языке темы."),
+        "en": ("🎁 <b>Free 10-slide presentation with images</b>\n\nType the presentation topic (for example: "
+               "«The water cycle»). The presentation is made in the language of the topic."),
+        "kk": ("🎁 <b>Суретті 10 слайдты тегін презентация</b>\n\nПрезентация тақырыбын жазыңыз (мысалы: «Су "
+               "айналымы»). Презентация тақырып жазылған тілде дайындалады."),
+    },
+    "link_working": {"uz": "⏳ <b>{topic}</b>\n10 slaydli rasmli taqdimot tayyorlanmoqda (5–8 daqiqa)...",
+                     "ru": "⏳ <b>{topic}</b>\nГотовим презентацию на 10 слайдов с изображениями (5–8 минут)...",
+                     "en": "⏳ <b>{topic}</b>\nPreparing your 10-slide presentation with images (5–8 minutes)...",
+                     "kk": "⏳ <b>{topic}</b>\nСуретті 10 слайдты презентация дайындалуда (5–8 минут)..."},
     "link_button": {"uz": "🎁 Tekin taqdimot olish", "ru": "🎁 Получить бесплатно", "en": "🎁 Get it free",
                     "kk": "🎁 Тегін алу"},
     "link_used": {
