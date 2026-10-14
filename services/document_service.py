@@ -455,8 +455,29 @@ class DocumentService:
         trip Together AI's concurrency limits. A semaphore keeps at most 4
         in-flight requests at once while preserving the parallelism win.
         """
+        wanted = []     # (slayd raqami, turi, sarlavha)
+        for i, slide_data in enumerate(slides_data):
+            layout = slide_data.get('layout', 'text')
+            if layout == 'cover':
+                wanted.append((i, 'cover', topic))
+            elif slide_layouts.image_kind(layout) in ('slide', 'panorama'):
+                wanted.append((i, slide_layouts.image_kind(layout), slide_data.get('title', '')))
+
+        # Avval internetdan haqiqiy foto (mavzuga bitta Brave so'rovi), topilmaganini AI chizadi.
+        found = {}
+        try:
+            from services import photo_search
+
+            if wanted and photo_search.enabled():
+                slots = [f"Cover: the most iconic, wide photo of the whole topic «{topic}»" if kind == 'cover'
+                         else title for _, kind, title in wanted]
+                paths = await photo_search.find_photos(topic, slots)
+                found = {i: path for (i, _, _), path in zip(wanted, paths) if path}
+        except Exception as exc:
+            logger.warning(f"Internetdan rasm qidirilmadi: {exc}")
+
         if not self.together:
-            return {}
+            return found
 
         sem = asyncio.Semaphore(4)
 
@@ -465,22 +486,23 @@ class DocumentService:
                 return await coro
 
         tasks = {}
-        for i, slide_data in enumerate(slides_data):
-            layout = slide_data.get('layout', 'text')
-            if layout == 'cover':
+        for i, kind, title in wanted:
+            if i in found:
+                continue
+            if kind == 'cover':
                 tasks[f'cover_{i}'] = (i, 'cover', _bounded(self.together.generate_cover_image(topic, language)))
-            elif slide_layouts.image_kind(layout) == 'slide':
+            elif kind == 'slide':
                 tasks[f'slide_{i}'] = (i, 'slide', _bounded(self.together.generate_slide_image(
-                    topic, slide_data.get('title', ''), language)))
-            elif slide_layouts.image_kind(layout) == 'panorama':
+                    topic, title, language)))
+            else:
                 tasks[f'horiz_{i}'] = (i, 'horiz', _bounded(self.together.generate_panoramic_image(
-                    topic, slide_data.get('title', ''), language)))
+                    topic, title, language)))
 
         keys = list(tasks.keys())
         coros = [tasks[k][2] for k in keys]
         results = await asyncio.gather(*coros, return_exceptions=True)
 
-        image_map = {}
+        image_map = dict(found)
         for key, result in zip(keys, results):
             if isinstance(result, Exception):
                 logger.error(f"Image prefetch failed for {key}: {result}")

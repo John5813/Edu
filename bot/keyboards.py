@@ -809,6 +809,9 @@ def get_admin_keyboard() -> ReplyKeyboardMarkup:
     keyboard.add(KeyboardButton(text="📈 Kunlik statistika"))
     keyboard.add(KeyboardButton(text="💳 To'lovlar"))
 
+    # Rasm manbalari (sayt / AI) va AI modellar ulushi — kunlik
+    keyboard.add(KeyboardButton(text="🧠 AI nazorati"))
+
     # Kanallar va promokod boshqaruvi
     keyboard.add(KeyboardButton(text="📢 Kanallar"))
     keyboard.add(KeyboardButton(text="🎟 Promokod boshqaruvi"))

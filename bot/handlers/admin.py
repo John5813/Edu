@@ -1470,6 +1470,21 @@ async def handle_daily_statistics(message: Message, db: Database):
         logger.error(f"Error in daily statistics: {e}")
         await message.answer("❌ Kunlik statistikani olishda xatolik yuz berdi.")
 
+@router.message(F.text == "🧠 AI nazorati")
+async def handle_ai_control(message: Message):
+    """Bugun nechta rasm saytdan, nechtasi AI dan olindi va qaysi AI modellar ko'p ishladi (foizda)."""
+    if not is_admin(message.from_user.id):
+        return
+    try:
+        from services import ai_usage
+
+        today = await ai_usage.day_counts()
+        week = await ai_usage.photo_days(7)
+        await message.answer(ai_usage.report_text(today, week))
+    except Exception as e:
+        logger.error(f"AI nazorati xatosi: {e}")
+        await message.answer("❌ AI nazorati ma'lumotini olishda xatolik yuz berdi.")
+
 @router.message(F.text == "💰 Narxlar sozlamalari")
 async def handle_price_settings(message: Message):
     """Handle price settings request"""

@@ -1,4 +1,5 @@
-"""Slayddagi fotosurat o'rinlarini Together bilan to'ldiradi.
+"""Slayddagi fotosurat o'rinlarini to'ldiradi: avval internetdan haqiqiy
+foto (Brave, `services/photo_search.py`), topilmasa Together chizadi.
 
 AI slaydni HTML qilib chizadi va rasm kerak joyga shunchaki belgi
 qo'yadi:
@@ -334,52 +335,110 @@ def photo_prompt(prompt: str) -> str:
     return f"{text}, {_PHOTO_STYLE}"
 
 
+def _take_uri(path: Optional[str]) -> Optional[str]:
+    """Rasm faylini data URI ga aylantirib, faylni o'chiradi."""
+    if not path or not os.path.exists(path):
+        return None
+    uri = _data_uri(path)
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+    return uri
+
+
+_HEADING = re.compile(r"<h[1-3]\b[^>]*>(.*?)</h[1-3]\s*>", re.IGNORECASE | re.DOTALL)
+_TAG = re.compile(r"<[^>]+>")
+
+
+def slide_heading(page: str) -> str:
+    """Slayd sarlavhasi (birinchi h1–h3 matni)."""
+    match = _HEADING.search(page or "")
+    if not match:
+        return ""
+    return re.sub(r"\s+", " ", _TAG.sub(" ", match.group(1))).strip()[:120]
+
+
+async def _search_photos(topic: str, slots: List[str], find=None) -> List[Optional[str]]:
+    """Avval internetdan (Brave) haqiqiy foto: topilmagan slot — None."""
+    empty: List[Optional[str]] = [None] * len(slots)
+    if not slots or not topic:
+        return empty
+    try:
+        if find is None:
+            from services import photo_search
+
+            if not photo_search.enabled():
+                return empty
+            find = photo_search.find_photos
+        found = list(await find(topic, slots))
+        return (found + empty)[:len(slots)]
+    except Exception as exc:
+        log.warning("Internetdan rasm qidirilmadi: %s", exc)
+        return empty
+
+
+def _together_generate(aspect: str = "4:3"):
+    """Together bilan chizuvchi funksiya yoki None (o'chiq/kalit yo'q)."""
+    if not photos_enabled():
+        return None
+    try:
+        from services.together_service import get_together_service
+
+        together = get_together_service()
+    except Exception as exc:
+        log.error("Together xizmati mavjud emas: %s", exc)
+        return None
+
+    async def generate(prompt):
+        return await together.generate_image(prompt, aspect_ratio=aspect, target="premium")
+
+    return generate
+
+
 async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
-                      generate=None) -> Tuple[List[str], int]:
+                      generate=None, topic: str = "", find=None) -> Tuple[List[str], int]:
     """Rasm bloklariga rasm qo'yadi. (slaydlar, qo'yilgan rasmlar soni).
 
-    Rasm chiqmagan blok tegilmaydi — unda qo'shimcha matn qoladi.
+    `topic` berilsa avval internetdan haqiqiy foto qidiriladi (mavzuga bitta
+    Brave so'rovi); topilmagan blokka rasm AI bilan chiziladi. Rasm chiqmagan
+    blok tegilmaydi — unda qo'shimcha matn qoladi.
     """
-    if generate is None:
-        if not photos_enabled():
-            return pages, 0
-        try:
-            from services.together_service import get_together_service
-
-            together = get_together_service()
-        except Exception as exc:
-            log.error("Together xizmati mavjud emas: %s", exc)
-            return pages, 0
-
-        async def generate(prompt):
-            return await together.generate_image(prompt, aspect_ratio="4:3",
-                                                target="premium")
-
-    # Rasmlar bir vaqtda chizdiriladi: ketma-ket bo'lsa har biri
-    # bir daqiqagacha kutadi va taqdimot juda sekinlashadi.
     wanted = []
     for index, page in enumerate(pages):
         for start, end, prompt in photo_blocks(page):
             wanted.append((index, start, end, prompt))
     wanted = wanted[:max(0, int(limit))]
+
+    searched: List[Optional[str]] = [None] * len(wanted)
+    if topic and (find is not None or generate is None):
+        slots = []
+        for index, _, _, prompt in wanted:
+            heading = slide_heading(pages[index])
+            slots.append(f"{heading} — {prompt}" if heading else prompt)
+        searched = await _search_photos(topic, slots, find)
+
+    if generate is None:
+        generate = _together_generate("4:3")
+
+    # Rasmlar bir vaqtda chizdiriladi: ketma-ket bo'lsa har biri
+    # bir daqiqagacha kutadi va taqdimot juda sekinlashadi.
     gate = asyncio.Semaphore(3)
 
-    async def one(prompt):
+    async def one(prompt, found):
+        if found:
+            return _take_uri(found)
+        if generate is None:
+            return None
         async with gate:
             try:
                 path = await generate(photo_prompt(prompt))
             except Exception as exc:
                 log.warning("Rasm chizilmadi (%s): %s", prompt[:50], exc)
                 return None
-        uri = _data_uri(path) if path and os.path.exists(path) else None
-        if path and os.path.exists(path):
-            try:
-                os.remove(path)
-            except OSError:
-                pass
-        return uri
+        return _take_uri(path)
 
-    uris = await asyncio.gather(*(one(item[3]) for item in wanted))
+    uris = await asyncio.gather(*(one(item[3], found) for item, found in zip(wanted, searched)))
     result, placed, tried = list(pages), 0, len(wanted)
     # Oxiridan boshlab almashtiriladi — oldingi o'rinlar siljimaydi.
     for (index, start, end, prompt), uri in sorted(
@@ -431,42 +490,40 @@ def with_cover_photo(page: str, uri: str) -> str:
     return result
 
 
-async def fill_cover(pages: List[str], topic: str, generate=None) -> Tuple[List[str], bool]:
+async def fill_cover(pages: List[str], topic: str, generate=None,
+                     find=None) -> Tuple[List[str], bool]:
     """Muqovaga mavzuga oid rasm qo'yadi (oddiy taqdimotdagi kabi).
 
-    Rasm AI orqali mavzudan inglizcha sahnaga aylantirilib chizdiriladi. Rasm
+    Avval internetdan (Brave) haqiqiy foto qidiriladi; topilmasa rasm AI
+    orqali mavzudan inglizcha sahnaga aylantirilib chizdiriladi. Rasm
     chiqmasa — muqova o'zgarishsiz qoladi (xato ko'tarilmaydi).
     """
     if not pages or _HAS_COVER_PHOTO.search(pages[0]) or not topic:
         return pages, False
-    if generate is None:
-        if not photos_enabled():
-            return pages, False
+    uri = None
+    if find is not None or generate is None:
+        found = await _search_photos(
+            topic, [f"Cover: the most iconic, wide photo of the whole topic «{topic}»"], find)
+        uri = _take_uri(found[0])
+    if not uri and generate is None and photos_enabled():
         try:
             from services.together_service import get_together_service
 
             together = get_together_service()
+
+            async def generate(subject):
+                scene = await together._generate_image_prompt(subject, subject)
+                return await together.generate_image(
+                    scene + ", wide cinematic composition, soft natural light, high quality photograph",
+                    aspect_ratio="4:3", target="premium")
         except Exception as exc:
             log.error("Together xizmati mavjud emas: %s", exc)
-            return pages, False
-
-        async def generate(subject):
-            scene = await together._generate_image_prompt(subject, subject)
-            return await together.generate_image(
-                scene + ", wide cinematic composition, soft natural light, high quality photograph",
-                aspect_ratio="4:3", target="premium")
-
-    try:
-        path = await generate(topic)
-    except Exception as exc:
-        log.warning("Muqova rasmi chizilmadi: %s", exc)
-        return pages, False
-    uri = _data_uri(path) if path and os.path.exists(path) else None
-    if path and os.path.exists(path):
+    if not uri and generate is not None:
         try:
-            os.remove(path)
-        except OSError:
-            pass
+            uri = _take_uri(await generate(topic))
+        except Exception as exc:
+            log.warning("Muqova rasmi chizilmadi: %s", exc)
+            return pages, False
     if not uri:
         return pages, False
     updated = with_cover_photo(pages[0], uri)

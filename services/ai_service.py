@@ -530,6 +530,12 @@ class AIService:
             try:
                 answer = await _do_request(model)
                 AIService._last_served_model = model
+                try:
+                    from services import ai_usage
+
+                    ai_usage.record("text", model)  # AI nazorati
+                except Exception:
+                    pass
                 if model != current_model:
                     logger.warning(f"Zaxira model ishlatildi: {model}")
                 return answer
