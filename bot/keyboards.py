@@ -1138,6 +1138,7 @@ def get_feature_management_keyboard(
     reengage_old_enabled: bool = True,
     thanks_anim_enabled: bool = False,
     text_anim_enabled: bool = False,
+    reengage_weekly_enabled: bool = True,
 ) -> InlineKeyboardMarkup:
     """Feature management keyboard for admin"""
     keyboard = InlineKeyboardBuilder()
@@ -1168,7 +1169,8 @@ def get_feature_management_keyboard(
 
     # Faol bo'lmagan mijozlarga qayta jalb xabarlari (services/reengage.py)
     for label, enabled, name in (("🔁 Qayta jalb xabarlari", reengage_enabled, "reengage"),
-                                 ("🗂 Eski bazaga xabarlar", reengage_old_enabled, "reengage_old")):
+                                 ("🗂 Eski bazaga xabarlar", reengage_old_enabled, "reengage_old"),
+                                 ("💎 Juma bonusi (hammaga)", reengage_weekly_enabled, "reengage_weekly")):
         keyboard.add(InlineKeyboardButton(
             text=f"{label}: {'🟢 Yoqilgan' if enabled else '🔴 Ochirilgan'}".replace("Ochirilgan", "O'chirilgan"),
             callback_data=f"toggle_{name}_{'off' if enabled else 'on'}"

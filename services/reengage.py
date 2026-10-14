@@ -12,10 +12,16 @@ Guruhlar (har mijoz bittasiga tushadi):
   * paid_unused  — to'lagan, lekin foydalanmagan: «hisobingizda X so'm turibdi» (3 xabar);
   * trial        — bepul taqdimotni olgan, to'lamagan: birinchi to'lovga +20% bonus, 7 kun (3 xabar);
   * lapsed       — foydalangan (to'lab yoki bonus bilan), 14 kundan beri kelmagan (2 xabar).
+Bulardan tashqari har juma hammaga «💎 Juma bonusi» (`weekly_plan`): 20 000 so'mdan +25%, 30 000 so'mdan +30%;
+mijozlarning yarmiga ertalab, qolgan yarmiga kechqurun.
+
+Bonus FAQAT xabardagi maxsus tugma bosilganda faollashadi (`arm_offer`) va admin TASDIQLAGAN summaga hisoblanadi:
+mijoz 20 000 deb 5 000 to'lasa, admin 5 000 ni tasdiqlaydi — bonus 5 000 dan. Admin bonusni ko'rmaydi, u
+mijoz hisobiga alohida qo'shiladi.
 
 Qoidalar: xabar faqat 10:00–21:00 (O'zbekiston vaqti), bir mijozga ikki xabar orasi kamida 20 soat, mijoz
-foydalansa yoki to'lasa ketma-ketlik o'zi to'xtaydi (u boshqa guruhga o'tadi), botni to'sgan mijozga boshqa
-xabar bormaydi, admin bloklaganlar va adminlar chetda. Har xabarda tugma bor; bosilgani yoziladi (hisobot).
+foydalansa yoki to'lasa ketma-ketlik o'zi to'xtaydi (u boshqa guruhga o'tadi), xabar yetib bormagan (to'sgan
+yoki yuborib bo'lmagan) mijozga u qayta faol bo'lmaguncha boshqa xabar bormaydi, admin bloklaganlar va adminlar chetda. Har xabarda tugma bor; bosilgani yoziladi (hisobot).
 """
 import asyncio
 import calendar
@@ -49,11 +55,12 @@ OFFSETS = {                      # har xabar guruh boshlanishidan necha soat key
     "trial": (24, 72, 168),
     "lapsed": (336, 720),
 }
-STEPS = {"new": "inactive", "old": "inactive", "paid_unused": "paid_unused", "trial": "trial", "lapsed": "lapsed"}
+STEPS = {"new": "inactive", "old": "inactive", "paid_unused": "paid_unused", "trial": "trial", "lapsed": "lapsed",
+         "weekly": "weekly"}
 PRIORITY = ("trial", "paid_unused", "new", "lapsed", "old")
 FLOW_NAMES = {"new": "🆕 Yangi, foydalanmagan", "old": "🗂 Eski baza, foydalanmagan",
               "paid_unused": "⏳ To'lagan, foydalanmagan", "trial": "🎁 Bepul sinovdan keyin",
-              "lapsed": "💤 Foydalangan, 14+ kun kelmagan"}
+              "lapsed": "💤 Foydalangan, 14+ kun kelmagan", "weekly": "💎 Juma bonusi (hammaga)"}
 LAPSE = 14 * DAY
 MIN_BALANCE = 3000               # "hisobingizda X so'm" — shundan kam bo'lsa xabar ma'nosiz
 OLD_DAILY = 2500                 # eski bazadan kuniga shuncha kishi ketma-ketlikni boshlaydi
@@ -65,9 +72,15 @@ PAUSE_MIN = 200                  # ulush shuncha xabardan keyin baholanadi
 GIFT_HOURS = 48                  # oxirgi xabardagi sovg'a muddati
 BONUS_PERCENT = 20
 BONUS_DAYS = 7
+WEEKLY_DAY = 4                   # juma (dushanba = 0)
+WEEKLY_SLOTS = ((10, 13), (18, 21))   # mijozlarning 1-yarmi ertalab, 2-yarmi kechqurun (O'zbekiston vaqti)
+WEEKLY_TIERS = ((30000, 30), (20000, 25))   # (to'lov kamida, bonus %) — kattasidan boshlab
+WEEKLY_TICK = 1500               # juma xabari: bir aylanishda ko'pi bilan
+UNDELIVERED = ("blocked", "failed")
 
 FEATURE = "reengage"             # hammasi (admin «Funksiyalar boshqaruvi»da yoqadi/o'chiradi)
 FEATURE_OLD = "reengage_old"     # eski baza to'lqini
+FEATURE_WEEKLY = "reengage_weekly"   # har juma hammaga bonus xabari
 
 SCHEMA = (
     """CREATE TABLE IF NOT EXISTS nudges (
@@ -90,6 +103,22 @@ SCHEMA = (
         amount INTEGER NOT NULL DEFAULT 0
     )""",
     "CREATE TABLE IF NOT EXISTS reengage_state (key TEXT PRIMARY KEY, value REAL)",
+    # Bonus takliflari: trial (birinchi to'lovga +20%) va weekly (juma bonusi). Tugma bosilgach armed_at yoziladi.
+    """CREATE TABLE IF NOT EXISTS reengage_offers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        telegram_id INTEGER NOT NULL,
+        kind TEXT NOT NULL,
+        granted_at REAL NOT NULL,
+        expires_at REAL NOT NULL,
+        armed_at REAL,
+        used_at REAL,
+        amount INTEGER NOT NULL DEFAULT 0,
+        UNIQUE (telegram_id, kind, granted_at)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_offers_user ON reengage_offers (telegram_id)",
+    # Eski jadvaldagi bonuslar (tugmasiz berilgan) — bir marta ko'chiriladi.
+    """INSERT OR IGNORE INTO reengage_offers (telegram_id, kind, granted_at, expires_at, used_at, amount)
+       SELECT telegram_id, 'trial', granted_at, expires_at, used_at, amount FROM reengage_bonus""",
 )
 
 
@@ -199,17 +228,50 @@ def segment(now: float, person: Person, rows: List[Row]) -> Tuple[str, float]:
     return "old", 0.0
 
 
+def silenced(person: Person, rows: List[Row]) -> bool:
+    """Xabar yetib bormagan (to'sgan yoki yuborib bo'lmagan) va shundan keyin faol bo'lmagan mijoz."""
+    activity = person.activity_at or 0
+    return any(r.status in UNDELIVERED and r.sent_at > activity for r in rows)
+
+
+def weekly_half(telegram_id: int) -> int:
+    """Juma xabari: 0 — ertalab, 1 — kechqurun (mijozlar teng ikkiga bo'linadi)."""
+    return int(telegram_id) % 2
+
+
+def weekly_plan(now: float, people: List[Person], history: Dict[int, List[Row]],
+                limit: int = WEEKLY_TICK) -> List[Due]:
+    """Juma bonusi xabari: hozir (juma, o'z yarmining vaqti) kimga ketadi."""
+    local = uzt(now)
+    if local.weekday() != WEEKLY_DAY:
+        return []
+    half = next((i for i, (start, end) in enumerate(WEEKLY_SLOTS) if start <= local.hour < end), None)
+    if half is None:
+        return []
+    day_start = _uzt_day_start(now)
+    result: List[Due] = []
+    for person in people:
+        if len(result) >= limit:
+            break
+        if person.excluded or weekly_half(person.telegram_id) != half:
+            continue
+        rows = history.get(person.telegram_id, [])
+        if silenced(person, rows) or any(r.flow == "weekly" and r.sent_at >= day_start for r in rows):
+            continue
+        result.append(Due(person, "weekly", 0))
+    return result
+
+
 def plan(now: float, people: List[Person], history: Dict[int, List[Row]], *,
-         old_budget: int = OLD_DAILY, limit: int = TICK_LIMIT, old_enabled: bool = True) -> List[Due]:
+         old_budget: int = OLD_DAILY, limit: int = TICK_LIMIT, old_enabled: bool = True,
+         skip: frozenset = frozenset()) -> List[Due]:
     """Hozir kimga qaysi xabar ketishi kerak (sof hisob — yuborish alohida)."""
     found: List[Tuple[int, Due]] = []
     for person in people:
         if person.excluded:
             continue
         rows = history.get(person.telegram_id, [])
-        activity = person.activity_at or 0
-        # Botni to'sgan (keyin qaytib foydalanmagan) mijozga boshqa xabar yo'q.
-        if any(r.status == "blocked" and r.sent_at > activity for r in rows):
+        if silenced(person, rows) or person.telegram_id in skip:
             continue
         sent = [r.sent_at for r in rows if r.status in ("sent", "pending")]
         if sent and now - max(sent) < MIN_GAP:
@@ -292,6 +354,9 @@ def message_for(flow: str, step: int, person: Person, now: float) -> Tuple[str, 
     item = T.STEPS[STEPS[flow]][step]
     extra: Dict = {}
     values = {"balance": f"{int(person.balance):,}".replace(",", " "), "bonus": BONUS_PERCENT}
+    if flow == "weekly":
+        extra["weekly_until"] = weekly_until(now)
+        values["date"] = _date(extra["weekly_until"], language)
     if item.get("deadline"):
         extra["gift_until"] = now + GIFT_HOURS * HOUR
         values["date"] = _date(extra["gift_until"], language)
@@ -300,6 +365,8 @@ def message_for(flow: str, step: int, person: Person, now: float) -> Tuple[str, 
         values["date"] = _date(extra["bonus_until"], language)
     template = (item.get("old") or {}).get(language) if flow == "old" else None
     text = _fill(template or item[language], name=clean_name(person.name), language=language, **values)
+    if item.get("icon") and not text.startswith(item["icon"]):
+        text = f"{item['icon']} {text}"
     buttons = [(target, labels.get(language) or labels["uz"]) for target, labels in item["buttons"]]
     if item.get("sample"):
         extra["sample"] = True
@@ -312,6 +379,21 @@ _BONUS_CACHE: Dict[int, float] = {}
 
 def person_bonus_until(person: Person, now: float) -> float:
     return _BONUS_CACHE.get(person.telegram_id) or now + BONUS_DAYS * DAY
+
+
+def weekly_until(now: float) -> float:
+    """Juma bonusi yakshanba 23:59 gacha (O'zbekiston vaqti)."""
+    days_left = 6 - uzt(now).weekday()
+    return _uzt_day_start(now) + (days_left + 1) * DAY - 60
+
+
+def offer_percent(kind: str, amount: int) -> int:
+    """Taklif turi va tasdiqlangan summa bo'yicha bonus foizi (0 — bonus yo'q)."""
+    if kind == "trial":
+        return BONUS_PERCENT
+    if kind == "weekly":
+        return next((percent for floor, percent in WEEKLY_TIERS if amount >= floor), 0)
+    return 0
 
 
 # ─────────────────────────────────────────────────────────────── baza
@@ -359,7 +441,8 @@ async def load(now: float) -> Tuple[List[Person], Dict[int, List[Row]]]:
         async with conn.execute("SELECT id, telegram_id, flow, step, sent_at, status, clicked_at FROM nudges") as cur:
             async for row in cur:
                 history.setdefault(int(row[1]), []).append(Row(*row))
-        async with conn.execute("SELECT telegram_id, expires_at FROM reengage_bonus") as cur:
+        async with conn.execute("SELECT telegram_id, MAX(expires_at) FROM reengage_offers WHERE kind = 'trial' "
+                                "GROUP BY telegram_id") as cur:
             async for tg, expires in cur:
                 _BONUS_CACHE[int(tg)] = float(expires)
     return list(people.values()), history
@@ -391,37 +474,73 @@ async def clicked(row_id: int) -> Optional[Tuple[int, str, int]]:
     return tuple(row) if row else None
 
 
-async def grant_bonus(telegram_id: int, now: float, until: float, percent: int = BONUS_PERCENT) -> None:
+async def grant_bonus(telegram_id: int, now: float, until: float, kind: str = "trial") -> None:
+    """Taklif beriladi (hali faol emas — mijoz xabardagi tugmani bosishi kerak). trial — bir marta."""
     async with aiosqlite.connect(_db_file()) as conn:
         await _create(conn)
-        await conn.execute("INSERT OR IGNORE INTO reengage_bonus (telegram_id, percent, granted_at, expires_at) "
-                           "VALUES (?, ?, ?, ?)", (telegram_id, percent, now, until))
+        if kind == "trial":
+            async with conn.execute("SELECT 1 FROM reengage_offers WHERE telegram_id = ? AND kind = 'trial'",
+                                    (telegram_id,)) as cur:
+                if await cur.fetchone():
+                    return
+        await conn.execute("INSERT OR IGNORE INTO reengage_offers (telegram_id, kind, granted_at, expires_at) "
+                           "VALUES (?, ?, ?, ?)", (telegram_id, kind, now, until))
         await conn.commit()
-    _BONUS_CACHE.setdefault(telegram_id, until)
+    if kind == "trial":
+        _BONUS_CACHE.setdefault(telegram_id, until)
 
 
-async def take_bonus(telegram_id: int, user_db_id: int, amount: int, now: Optional[float] = None) -> int:
-    """Tasdiqlangan to'lov uchun bonus summasi (0 — bonus yo'q). Faqat birinchi to'lov, muddat ichida, bir marta."""
+async def arm_offer(telegram_id: int, kind: str = "", now: Optional[float] = None) -> Optional[Tuple[str, float]]:
+    """Mijoz bonus tugmasini bosdi: amaldagi taklif faollashadi. (tur, muddat) yoki None (taklif yo'q/tugagan)."""
     now = now or time.time()
     async with aiosqlite.connect(_db_file()) as conn:
         await _create(conn)
-        async with conn.execute("SELECT percent, expires_at, used_at FROM reengage_bonus WHERE telegram_id = ?",
-                                (telegram_id,)) as cur:
-            row = await cur.fetchone()
-        if not row or row[2] is not None or row[1] < now:
+        query = ("SELECT id, kind, expires_at FROM reengage_offers WHERE telegram_id = ? AND used_at IS NULL "
+                 "AND expires_at >= ?")
+        args: tuple = (telegram_id, now)
+        if kind:
+            query += " AND kind = ?"
+            args += (kind,)
+        async with conn.execute(query + " ORDER BY expires_at DESC", args) as cur:
+            rows = await cur.fetchall()
+        if not rows:
+            return None
+        await conn.executemany("UPDATE reengage_offers SET armed_at = COALESCE(armed_at, ?) WHERE id = ?",
+                               [(now, row[0]) for row in rows])
+        await conn.commit()
+    return rows[0][1], float(rows[0][2])
+
+
+async def take_bonus(telegram_id: int, user_db_id: int, amount: int, now: Optional[float] = None) -> int:
+    """Tasdiqlangan to'lov uchun bonus summasi (0 — bonus yo'q).
+
+    Faqat tugma bilan faollashtirilgan, muddati o'tmagan, ishlatilmagan taklif; trial — faqat birinchi to'lov.
+    Bir nechta taklif bo'lsa, eng kattasi ishlatiladi (bir to'lovga bitta bonus).
+    """
+    now = now or time.time()
+    async with aiosqlite.connect(_db_file()) as conn:
+        await _create(conn)
+        async with conn.execute("SELECT id, kind FROM reengage_offers WHERE telegram_id = ? AND used_at IS NULL "
+                                "AND armed_at IS NOT NULL AND expires_at >= ?", (telegram_id, now)) as cur:
+            offers = await cur.fetchall()
+        if not offers:
             return 0
         async with conn.execute("SELECT COUNT(*) FROM payments WHERE user_id = ? AND status = 'approved'",
                                 (user_db_id,)) as cur:
             approved = (await cur.fetchone())[0]
-        if approved != 1:                   # faqat birinchi to'lov (shu to'lov allaqachon tasdiqlangan)
+        best, best_id = 0, None
+        for offer_id, kind in offers:
+            if kind == "trial" and approved != 1:     # faqat birinchi to'lov (shu to'lov allaqachon tasdiqlangan)
+                continue
+            bonus = int(amount) * offer_percent(kind, int(amount)) // 100
+            if bonus > best:
+                best, best_id = bonus, offer_id
+        if not best_id:
             return 0
-        bonus = int(amount) * int(row[0]) // 100
-        if bonus <= 0:
-            return 0
-        cur = await conn.execute("UPDATE reengage_bonus SET used_at = ?, amount = ? WHERE telegram_id = ? AND used_at IS NULL",
-                                 (now, bonus, telegram_id))
+        cur = await conn.execute("UPDATE reengage_offers SET used_at = ?, amount = ? WHERE id = ? AND used_at IS NULL",
+                                 (now, best, best_id))
         await conn.commit()
-        return bonus if cur.rowcount else 0
+        return best if cur.rowcount else 0
 
 
 async def on_payment_approved(bot, db, user, amount: int) -> int:
@@ -508,6 +627,8 @@ async def deliver(bot, due: Due, now: float) -> str:
             await free_trial.set_deadline(due.person.telegram_id, extra["gift_until"])
         if extra.get("bonus_until") and due.step == 0:
             await grant_bonus(due.person.telegram_id, now, extra["bonus_until"])
+        if extra.get("weekly_until"):
+            await grant_bonus(due.person.telegram_id, now, extra["weekly_until"], kind="weekly")
     return status
 
 
@@ -579,7 +700,9 @@ async def tick(bot, now: Optional[float] = None) -> Dict[str, int]:
         return result
     old_enabled = await _enabled(FEATURE_OLD)
     people, history = await load(now)
-    due = plan(now, people, history, old_budget=max(0, OLD_DAILY - await _old_today(now)), old_enabled=old_enabled)
+    weekly = weekly_plan(now, people, history) if await _enabled(FEATURE_WEEKLY) else []
+    due = weekly + plan(now, people, history, old_budget=max(0, OLD_DAILY - await _old_today(now)),
+                        old_enabled=old_enabled, skip=frozenset(d.person.telegram_id for d in weekly))
     for item in due:
         status = await deliver(bot, item, now if fixed else time.time())
         result[status] = result.get(status, 0) + 1
@@ -627,9 +750,9 @@ async def report(days: int = 30, now: Optional[float] = None) -> str:
         async with conn.execute("SELECT telegram_id, flow, step, sent_at, status, clicked_at FROM nudges "
                                 "WHERE sent_at >= ? ORDER BY sent_at", (since,)) as cur:
             rows = await cur.fetchall()
-        async with conn.execute("SELECT COUNT(*), COALESCE(SUM(amount), 0) FROM reengage_bonus WHERE used_at >= ?",
-                                (since,)) as cur:
-            bonus_count, bonus_sum = await cur.fetchone()
+        async with conn.execute("SELECT kind, COUNT(*), COALESCE(SUM(amount), 0) FROM reengage_offers "
+                                "WHERE used_at >= ? GROUP BY kind", (since,)) as cur:
+            bonuses = {kind: (int(count), int(total)) for kind, count, total in await cur.fetchall()}
     stats: Dict[Tuple[str, int], Dict[str, int]] = {}
     for tg, flow, step, sent_at, status, clicked_at in rows:
         item = stats.setdefault((flow, step), {"sent": 0, "blocked": 0, "clicked": 0, "trial": 0, "paid": 0, "sum": 0})
@@ -648,7 +771,7 @@ async def report(days: int = 30, now: Optional[float] = None) -> str:
             item["sum"] += sum(paid)
     lines = [f"🔁 <b>Qayta jalb xabarlari — oxirgi {days} kun</b>",
              "<i>yuborildi / to'sdi / bosdi / bepul oldi / 7 kunda to'ladi</i>", ""]
-    for flow in PRIORITY:
+    for flow in PRIORITY + ("weekly",):
         steps = sorted(s for f, s in stats if f == flow)
         if not steps:
             continue
@@ -663,5 +786,8 @@ async def report(days: int = 30, now: Optional[float] = None) -> str:
     total = {k: sum(s[k] for s in stats.values()) for k in ("sent", "blocked", "clicked", "trial", "paid", "sum")}
     lines.append(f"Jami: {total['sent']} yuborildi, {total['blocked']} to'sdi, {total['clicked']} bosdi, "
                  f"{total['trial']} bepul oldi, {total['paid']} to'ladi — {total['sum']:,} so'm")
-    lines.append(f"🎁 +{BONUS_PERCENT}% bonus berildi: {bonus_count} ta, {int(bonus_sum):,} so'm")
+    count, total_sum = bonuses.get("trial", (0, 0))
+    lines.append(f"🎁 Birinchi to'lovga +{BONUS_PERCENT}% bonus: {count} ta, {total_sum:,} so'm")
+    count, total_sum = bonuses.get("weekly", (0, 0))
+    lines.append(f"💎 Juma bonusi: {count} ta, {total_sum:,} so'm")
     return "\n".join(lines)

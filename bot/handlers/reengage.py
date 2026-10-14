@@ -54,15 +54,39 @@ async def nudge_button(callback: CallbackQuery, state: FSMContext, db: Database,
     """Qayta jalb xabaridagi tugma."""
     parts = callback.data.split(":", 2)
     target = parts[2] if len(parts) == 3 else ""
+    row = None
     with contextlib.suppress(Exception):
-        await reengage.clicked(int(parts[1]))
+        row = await reengage.clicked(int(parts[1]))
     await callback.answer()
     if target == "gift":
         await start_gift(callback.message, state, db, callback.from_user.id)
         return
     language = await _language(db, callback.from_user.id)
+    flow = row[1] if row else ""
+    # Bonus faqat shu tugma orqali: bosilganda taklif faollashadi, so'ng to'lov bo'limi ochiladi.
+    # (Eski xabarlardagi «💳 Hisobni to'ldirish» ham bonusli guruhda xuddi shunday ishlaydi.)
+    if target == "bonus" or (target == "tolov" and flow in ("trial", "weekly")):
+        await _arm_bonus(callback, callback.from_user.id, flow, language)
+        target = "tolov"
     if target in ad_buttons.TARGETS:
         await ad_buttons.open_section(callback, state, dispatcher, target, "ru" if language == "kk" else language)
+
+
+async def _arm_bonus(callback: CallbackQuery, telegram_id: int, flow: str, language: str) -> None:
+    from services.reengage_texts import BONUS_ARMED
+
+    try:
+        armed = await reengage.arm_offer(telegram_id, flow if flow in ("trial", "weekly") else "")
+    except Exception as exc:
+        logger.warning("Bonus faollashmadi (%s): %s", telegram_id, exc)
+        return
+    key = armed[0] if armed else "expired"
+    text = BONUS_ARMED[key].get(language) or BONUS_ARMED[key]["uz"]
+    if armed:
+        text = text.replace("{date}", reengage._date(armed[1], language)).replace(
+            "{bonus}", str(reengage.BONUS_PERCENT))
+    with contextlib.suppress(Exception):
+        await callback.message.answer(text, parse_mode="HTML")
 
 
 @router.callback_query(F.data.startswith("gift:start"))
