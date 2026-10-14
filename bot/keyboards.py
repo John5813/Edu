@@ -1188,6 +1188,12 @@ def get_feature_management_keyboard(
         callback_data=f"toggle_text_anim_{'off' if text_anim_enabled else 'on'}"
     ))
 
+    # Tekin taqdimot havolalari (Instagram avtojavobi uchun): database/gift_links.py
+    keyboard.add(InlineKeyboardButton(
+        text="🔗 Tekin taqdimot havolalari",
+        callback_data="giftlinks"
+    ))
+
     # Mass gift button
     keyboard.add(InlineKeyboardButton(
         text="🎁 Barchaga sovg'a yuborish",

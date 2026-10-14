@@ -642,6 +642,8 @@ async def main():
     try:
         from database import free_trial
         restored = await free_trial.release_unfinished_bot()
+        from database import gift_links
+        restored += await gift_links.release_unfinished_bot()
         if restored:
             logger.info("Uzilib qolgan %d ta sovg'a taqdimoti mijozlarga qaytarildi", restored)
     except Exception as exc:
