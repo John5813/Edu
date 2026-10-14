@@ -420,7 +420,9 @@ def _cell_borders(cell, color: str, width_pt: float = 0.75) -> None:
 def slide_table(slide, s: Dict, ctx: Ctx, index: int) -> List:
     pal = ctx.pal
     picture = _picture(ctx, s)
-    box(slide, "!!panel", 8.9, -1.6, 9.6, 9.6, pal["panel"], round_=0.5)
+    # Doira sarlavha qatoridan pastda boshlanadi: ilgari u yuqori o'ng burchakda turib, uzun sarlavhaning
+    # oxiri ("Yurakning Elektr Tizimi") to'q rangli doira ustida o'qilmay qolardi.
+    box(slide, "!!panel", 8.9, 2.2, 9.6, 9.6, pal["panel"], round_=0.5)
     _stripe(slide, ctx, -0.6, on_panel=False)
     place(slide, picture, "!!obj", 0.3, 0.9, 4.55, 6.2)
     x0 = 5.2 if picture else 0.8

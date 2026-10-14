@@ -54,12 +54,16 @@ LAYOUTS:
 - "focus": a close-up of the PREVIOUS slide's object (same object id — the camera zooms in):
   "lead" (max 14 words) and "text" (max 40 words) about one important detail.
 - "timeline": 3-5 steps in time or order: [{"when": year/date/stage, max 3 words, "text": max 16 words}].
+  "when" is a REAL past date you are sure of, or a stage name ("1-bosqich", "Diastola"). NEVER future years,
+  forecasts or invented recent years ("2027-2028 prognoz") — use stages instead.
 - "conclusion": title, "points": 3 key takeaways (max 16 words each); object: reuse the cover object id.
 
 OBJECTS:
 - "object": {"id": "o1", "prompt": "..."} — ONE concrete, physical, photogenic object, fully visible,
   described in English in 8-25 words (material, colour, key details). No scenes, no people crowds, no
-  text, no logos, no flags with writing, no diagrams, no screens with text.
+  text, no logos, no flags with writing, no diagrams, no screens with text. No visual effects around the
+  object: no glow, aura, halo, light rays, energy lines, sparks or particles (they stay as rings after the
+  background is removed).
 - For abstract ideas use a symbolic object (economy → stack of gold coins with a rising arrow sculpture;
   law → bronze scales of justice; literature → open antique book with a quill; history → the actual
   artefact, building or weapon of the period).
