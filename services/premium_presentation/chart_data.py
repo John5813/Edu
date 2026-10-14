@@ -315,3 +315,157 @@ def research_strays(slides: List[str], outline: List[Dict], topic: str, language
             else:
                 item["chart_fallback"] = True
     return found
+
+
+# ───────────────────────────────────────────── raqamli kartochkalar ("korsatkichlar")
+#
+# Diagrammadagi kabi: "2-4 ta yirik raqam" slaydini yozuvchi model raqamlarni o'zi to'qirdi ("100+ tadqiqot",
+# "2023-2026", "30+ mlrd"). Endi reja bosqichida AI dan HAQIQIY raqamlar manbasi bilan so'raladi; topilmasa
+# slayd raqamsiz kartochkalarga aylanadi, topilsa yozilgan slayddagi raqamlar kod bilan shu qiymatlarga
+# almashtiriladi.
+
+KPI_CATEGORY = "korsatkichlar"
+_KPI_FALLBACK = "kartalar"
+_KPI_SYSTEM = ("You are a fact-checking statistics analyst. You give REAL, verifiable key figures for a "
+               "presentation slide. Reply with JSON only.")
+_KPI_PROMPT = (
+    'Presentation topic: "{topic}"\nSlide title: "{title}"\nSlide content: {brief}\n\n'
+    "Give 2-4 key figures for this slide (big numbers with a short label).\n"
+    "• Only real figures you are sure of, from official or well-known sources (national statistics, World Bank, "
+    "UN agencies, encyclopaedias, peer-reviewed science). Scientific constants and well-established facts count "
+    "(e.g. a human cell has 46 chromosomes). If unsure of the exact value give a rounded one and set approx true.\n"
+    "• NEVER invent numbers, counts of studies, growth percentages or future years. If there are no reliable "
+    "figures for this slide, answer ok=false with a reason — the slide will be written without numbers.\n"
+    "• source: the NAMED organisation, publication or reference (\"Human Genome Project\", \"World Bank, 2023\") — "
+    "generic phrases like \"research and scientific publications\" are not a source.\n"
+    "• value: digits only with optional decimal comma, max 7 characters (\"46\", \"36,8\", \"1441\"); unit: short "
+    "(\"%\", \"mln\", \"km\", \"yil\" or empty); label: 1-4 words; year: the year of the figure if it changes over time.\n"
+    "{language_rule}\n"
+    'JSON only: {{"ok": true, "items": [{{"value": "46", "unit": "", "label": "...", "year": ""}}], '
+    '"source": "Organisation or reference, year", "approx": false, "reason": ""}}')
+_KPI_NOTE = ("READY KEY FIGURES (real, checked, with source): {rows}. Source: {source}.{approx} Use EXACTLY these "
+             "figures in this order in the big-number blocks (value, unit, label) — do not change them and do not "
+             "add other numbers; write only a short explanation under each and show the source line.")
+_DIGIT = re.compile(r"\d")
+# Manba emas, umumiy ibora: "Tadqiqotlar va ilmiy nashrlar", "Statistik ma'lumotlar", "Various studies".
+_VAGUE_WORDS = {
+    "tadqiqot", "tadqiqotlar", "ilmiy", "nashr", "nashrlar", "manba", "manbalar", "ma'lumot", "ma'lumotlar",
+    "malumotlar", "statistika", "statistik", "turli", "ochiq", "xalqaro", "mutaxassislar", "ekspertlar",
+    "hisobot", "hisobotlar", "va", "zamonaviy", "rasmiy", "research", "researches", "studies", "study",
+    "scientific", "publications", "publication", "sources", "source", "data", "various", "and", "experts",
+    "reports", "report", "official", "statistics", "literature", "исследования", "исследование", "научные",
+    "публикации", "источники", "данные", "и", "различные", "эксперты", "отчёты", "отчеты", "статистика",
+    "официальные", "литература", "статистические", "научных", "исследований", "статистических", "открытые",
+}
+
+
+def vague_source(source: str) -> bool:
+    words = [w for w in re.findall(r"[^\W\d_]+(?:['’ʻ][^\W\d_]+)?", (source or "").lower())]
+    return not words or all(w.replace("’", "'").replace("ʻ", "'") in _VAGUE_WORDS for w in words)
+
+
+def validate_kpis(raw: dict) -> Optional[Dict]:
+    from services import timeframe
+    if not isinstance(raw, dict) or raw.get("ok") is not True:
+        return None
+    source = re.sub(r"\s+", " ", str(raw.get("source") or "")).strip()
+    items = []
+    for row in (raw.get("items") or [])[:4]:
+        if not isinstance(row, dict):
+            continue
+        value = re.sub(r"\s+", " ", str(row.get("value") or "")).strip()
+        unit = re.sub(r"\s+", " ", str(row.get("unit") or "")).strip()[:10]
+        label = re.sub(r"\s+", " ", str(row.get("label") or "")).strip()[:48]
+        year = str(row.get("year") or "").strip()
+        if not value or not _DIGIT.search(value) or len(value) > 8 or not label:
+            continue
+        found = _YEAR.match(year) if year else None
+        if found and int(found.group(1)) > timeframe.current_year():
+            return None        # kelajak yili — prognoz, raqamli kartochkada qo'yilmaydi
+        items.append({"value": value, "unit": unit, "label": label, "year": year if found else ""})
+    if len(items) < 2 or not source or vague_source(source):
+        return None
+    return {"items": items, "source": source[:90], "approx": bool(raw.get("approx"))}
+
+
+def research_kpis(topic: str, title: str, brief: str, language: str = "uz") -> Optional[Dict]:
+    try:
+        raw = llm_client._call_openrouter(
+            _KPI_SYSTEM, _KPI_PROMPT.format(topic=topic, title=title, brief=brief,
+                                            language_rule=llm_client._language_instruction(language)),
+            temperature=0.2, max_tokens=900, kind="text")
+    except llm_client.NoCredits:
+        raise
+    except Exception as exc:
+        log.warning("Ko'rsatkichlar olinmadi (%s): %s", title, exc)
+        return None
+    data = validate_kpis(raw)
+    if data is None:
+        log.info("«%s» uchun ishonchli raqamlar yo'q: %s", title,
+                 (raw or {}).get("reason") if isinstance(raw, dict) else "yaroqsiz javob")
+    return data
+
+
+def kpi_note(data: Dict) -> str:
+    rows = "; ".join(f"{i}) {x['value']}{(' ' + x['unit']) if x['unit'] else ''} — {x['label']}"
+                     + (f" ({x['year']})" if x["year"] else "") for i, x in enumerate(data["items"], 1))
+    return _KPI_NOTE.format(rows=rows, source=data["source"], approx=" Values are rounded." if data["approx"] else "")
+
+
+def ground_kpis(outline: List[Dict], topic: str, language: str = "uz", researcher=None) -> List[Dict]:
+    """Rejadagi raqamli slaydlar uchun haqiqiy raqamlar; topilmasa — raqamsiz kartochkalar."""
+    researcher = researcher or research_kpis
+    indices = [i for i, item in enumerate(outline) if item.get("category") == KPI_CATEGORY]
+    if not indices:
+        return outline
+
+    def job(index: int):
+        item = outline[index]
+        return index, researcher(topic, item.get("title") or "", item.get("brief") or "", language)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+        for index, data in pool.map(_in_context(job), indices):
+            item = outline[index]
+            if data:
+                item["kpi"] = data
+                item["chart_note"] = kpi_note(data)       # yozuvchi modelga rejada ko'rsatiladi
+                log.info("%d-slayd ko'rsatkichlari: haqiqiy raqamlar (%s)", index + 1, data["source"])
+            else:
+                item["category"] = _KPI_FALLBACK
+                item["brief"] = (item.get("brief") or "").rstrip(". ") + ". (Write it WITHOUT numbers or percentages.)"
+                log.info("%d-slayd: ishonchli raqam yo'q — raqamsiz kartochkalar", index + 1)
+    return outline
+
+
+def _set_texts(body: str, css_class: str, values: List[str]) -> str:
+    """`css_class` sinfli elementlarning matnini tartib bilan `values` ga almashtiradi (ortig'iga tegilmaydi)."""
+    pattern = re.compile(r'(<(\w+)\b[^>]*\bclass\s*=\s*["\'](?:[^"\']*\s)?' + re.escape(css_class)
+                         + r'(?:\s[^"\']*)?["\'][^>]*>)(.*?)(</\2>)', re.IGNORECASE | re.DOTALL)
+    queue = list(values)
+
+    def swap(match):
+        if not queue:
+            return match.group(0)
+        return match.group(1) + html.escape(queue.pop(0), quote=False) + match.group(4)
+
+    return pattern.sub(swap, body)
+
+
+def enforce_kpis(body: str, item: Optional[Dict], language: str = "uz") -> str:
+    """Raqamli slayddagi qiymatlar AI bergan haqiqiy raqamlarga majburan almashtiriladi."""
+    data = (item or {}).get("kpi")
+    if not body or not data:
+        return body
+    items = data["items"]
+    source = f'{SOURCE_LABEL.get(language, SOURCE_LABEL["uz"])} {data["source"]}'
+    if data.get("approx"):
+        source += f' ({_APPROX.get(language, _APPROX["uz"])})'
+    if "k-kpi" in body:                       # kam matnli kompozitsiya
+        body = _set_texts(body, "k-v", [x["value"] for x in items])
+        body = _set_texts(body, "k-u", [x["unit"] for x in items])
+        body = _set_texts(body, "k-l", [x["label"] for x in items])
+        body = _set_texts(body, "k-src", [source])
+    elif "kpi-value" in body:                 # ko'p matnli
+        body = _set_texts(body, "kpi-value", [f"{x['value']} {x['unit']}".strip() for x in items])
+        body = _set_texts(body, "kpi-label", [x["label"] for x in items])
+    return body

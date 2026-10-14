@@ -915,6 +915,7 @@ def _write_slides(topic, slide_count, theme, language, level, preferences, sourc
     kam = volume == "kam"
     plan = plan_outline(topic, slide_count, language, level, volume)
     outline = chart_data.ground(plan["slides"], topic, language, level, sentences="1-2" if kam else "2-3")
+    outline = chart_data.ground_kpis(outline, topic, language)
     if kam:
         # Kompozitsiya diagramma ma'lumoti aniqlangandan keyin beriladi: ma'lumot topilmasa slayd o'z
         # kategoriyasiga qaytadi.
@@ -1005,6 +1006,7 @@ def _write_slides(topic, slide_count, theme, language, level, preferences, sourc
             if number == slide_count:
                 body = _drop_thanks(body)
             body = chart_data.enforce(body, outline[number - 1] if number <= len(outline) else None, language)
+            body = chart_data.enforce_kpis(body, outline[number - 1] if number <= len(outline) else None, language)
             if 1 < number and not kam and _thin(body):
                 body = _thicken(body, system, theme)
             if number == slide_count:
@@ -1035,7 +1037,8 @@ def _write_slides(topic, slide_count, theme, language, level, preferences, sourc
         slides = diversify(slides, theme, language)
     # Diagramma raqamlari faqat Claude bergan ma'lumot: qayta yozish va xilma-xillashtirish
     # davomida paydo bo'lgan to'qima raqamlar shu yerda tozalanadi.
-    slides = [chart_data.enforce(b, outline[i] if i < len(outline) else None, language)
+    slides = [chart_data.enforce_kpis(chart_data.enforce(b, outline[i] if i < len(outline) else None, language),
+                                      outline[i] if i < len(outline) else None, language)
               for i, b in enumerate(slides)]
     return build_pages(slides, theme, language)
 
@@ -1552,6 +1555,9 @@ _CHART_THEN_TEXT = re.compile(
     r'((?:<p\b[^>]*>.*?</p>\s*){1,3})(?=</div>\s*</section>)', re.IGNORECASE | re.DOTALL)
 
 
+_COMPOSITION = re.compile(r'<section\b[^>]*\bclass\s*=\s*["\'](?:[^"\']*\s)?k(?:\s[^"\']*)?["\']', re.IGNORECASE)
+
+
 def _chart_beside_text(body: str) -> str:
     """Varaq bo'yi diagramma ostida izoh bo'lsa — ikkalasi yonma-yon (diagramma chapda, izoh o'ngda).
 
@@ -1559,7 +1565,9 @@ def _chart_beside_text(body: str) -> str:
     uchdan bir qismidagi past chiziqqa aylanardi. Yonma-yon bo'lsa diagramma yarim o'lchamda (840×520),
     ancha baland chiqadi va varaq to'ladi. Diagramma allaqachon ikki ustunli joyda bo'lsa — tegilmaydi.
     """
-    if _SPLIT_OPEN.search(body):
+    # Kam matnli kompozitsiyaning (`slide k k-diagramma`) o'z joylashuvi bor: unda ikki ustun matnni so'zma-so'z
+    # tor ustunga siqib qo'yardi.
+    if _SPLIT_OPEN.search(body) or _COMPOSITION.search(body):
         return body
     return _CHART_THEN_TEXT.sub(lambda m: f'<div class="split wide-left">{m.group(1)}<div>{m.group(2)}</div></div>',
                                 body, count=1)
