@@ -122,7 +122,13 @@ def _slug(page_url: str) -> str:
     return re.sub(r"\s+", " ", words).strip()[-90:]
 
 
-def usable(results: Sequence[dict]) -> List[dict]:
+# Aniq fanlar (formulalar ruxsat): faqat slayd, ma'ruza va shablon tashlanadi — formula, grafik, sxema qoladi.
+_TEXTY_SLIDES = re.compile(
+    r"(?<![a-z])(?:slides?|ppt|pptx|powerpoint|presentation|lecture|screenshot|template|worksheet|poster|"
+    r"slayd|taqdimot|слайд\w*|презентац\w*|лекци\w*)(?![a-z])", re.IGNORECASE)
+
+
+def usable(results: Sequence[dict], formulas: bool = False) -> List[dict]:
     """Brave natijalaridan yaroqlilarini ajratadi: {url, title, source, width, height}."""
     seen, out = set(), []
     for item in results or []:
@@ -135,7 +141,7 @@ def usable(results: Sequence[dict]) -> List[dict]:
             continue
         if urlparse(url).path.lower().endswith(_BAD_EXT):
             continue
-        if _TEXTY.search(f"{item.get('title') or ''} {_slug(str(item.get('url') or ''))}"):
+        if (_TEXTY_SLIDES if formulas else _TEXTY).search(f"{item.get('title') or ''} {_slug(str(item.get('url') or ''))}"):
             continue
         width, height = int(props.get("width") or 0), int(props.get("height") or 0)
         if width and width < MIN_WIDTH:
@@ -212,8 +218,13 @@ _PICK_SYSTEM = (
 )
 
 
-def _pick_prompt(topic: str, slots: Sequence[str], candidates: Sequence[dict]) -> str:
-    lines = [f"Presentation topic: {topic}", "", "Slots:"]
+_PICK_FORMULAS = ("Exception for this exact-science presentation: images with formulas, equations, graphs, "
+                  "geometric figures and scientific diagrams ARE allowed and welcome; still never pick slides, "
+                  "document pages, screenshots or posters.")
+
+
+def _pick_prompt(topic: str, slots: Sequence[str], candidates: Sequence[dict], formulas: bool = False) -> str:
+    lines = [f"Presentation topic: {topic}"] + ([_PICK_FORMULAS] if formulas else []) + ["", "Slots:"]
     lines += [f"{n}. {text}" for n, text in enumerate(slots, 1)]
     lines += ["", "Search results:"]
     lines += [f"{i}. {c['title'] or c.get('hint') or '(no title)'} [{c['source']}]"
@@ -320,6 +331,15 @@ _TEXT_CHECK = (
 )
 
 
+_TEXT_CHECK_FORMULAS = (
+    "You check images for a math/physics/computer-science presentation. Formulas, equations, graphs, geometric "
+    "figures and labelled scientific diagrams are WELCOME. For EACH numbered image decide if it must be REJECTED "
+    "because it is a screenshot of a presentation slide, a document or book page, a website, a poster, a "
+    "worksheet, or mostly paragraphs of prose text, or has a text watermark. Answer JSON: "
+    "{\"reject\": [numbers of rejected images]}"
+)
+
+
 def _thumb_b64(path: str) -> str:
     import base64
 
@@ -333,10 +353,10 @@ def _thumb_b64(path: str) -> str:
     return base64.b64encode(buffer.getvalue()).decode()
 
 
-def _ask_text_check(paths: Sequence[str]) -> set:
+def _ask_text_check(paths: Sequence[str], formulas: bool = False) -> set:
     from services.premium_presentation import llm_client
 
-    content = [{"type": "text", "text": _TEXT_CHECK}]
+    content = [{"type": "text", "text": _TEXT_CHECK_FORMULAS if formulas else _TEXT_CHECK}]
     for number, path in enumerate(paths, 1):
         content.append({"type": "text", "text": f"Image {number}:"})
         content.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + _thumb_b64(path)}})
@@ -355,7 +375,7 @@ def _ask_text_check(paths: Sequence[str]) -> set:
     return out
 
 
-async def text_heavy(paths: Sequence[str], check=None) -> set:
+async def text_heavy(paths: Sequence[str], check=None, formulas: bool = False) -> set:
     """Matnli (slayd, jadval, sxema, yozuvli) rasmlarning tartib raqamlari. Bitta arzon vision so'rovi.
 
     Tekshiruv ishlamasa — bo'sh to'plam (rasmlar sarlavha va manba filtridan o'tgan).
@@ -365,7 +385,7 @@ async def text_heavy(paths: Sequence[str], check=None) -> set:
     try:
         if check is not None:
             return set(await check(list(paths)))
-        return await asyncio.to_thread(_ask_text_check, list(paths))
+        return await asyncio.to_thread(_ask_text_check, list(paths), formulas)
     except Exception as exc:
         log.warning("Rasmdagi matn tekshirilmadi: %s", exc)
         return set()
@@ -373,7 +393,7 @@ async def text_heavy(paths: Sequence[str], check=None) -> set:
 
 # ─────────────────────────────────────────────────────────── asosiy kirish
 
-async def _pool(topic: str, search=None) -> _Pool:
+async def _pool(topic: str, search=None, formulas: bool = False) -> _Pool:
     """Mavzu natijalari: birinchi murojaatda Brave'ga BITTA so'rov, keyin xotiradan."""
     key = _topic_key(topic)
     lock = _locks.setdefault(key, asyncio.Lock())
@@ -385,7 +405,7 @@ async def _pool(topic: str, search=None) -> _Pool:
         try:
             query = await search_query(topic)
             results = await (search or _brave)(query)
-            candidates = usable(results)
+            candidates = usable(results, formulas)
             log.info("Brave: «%s» → %d natija, %d tasi yaroqli", query, len(results), len(candidates))
         except Exception as exc:
             # Xato ham eslab qolinadi: mavzuga ikkinchi so'rov yuborilmaydi.
@@ -400,25 +420,26 @@ async def _pool(topic: str, search=None) -> _Pool:
 
 
 async def find_photos(topic: str, slots: Sequence[str], *, search=None,
-                      choose=None, check=None) -> List[Optional[str]]:
+                      choose=None, check=None, formulas: bool = False) -> List[Optional[str]]:
     """Har slot (sarlavha/rasm tavsifi) uchun yuklangan rasm yo'li yoki None.
 
     `search(query)`, `choose(system, user)` va `check(paths)` (matnli rasmlar) — testlarda almashtiriladi.
+    `formulas` — aniq fanlar: formulali, grafikli rasmlar ruxsat (slayd va hujjat skrinshotlari baribir yo'q).
     """
     result: List[Optional[str]] = [None] * len(slots)
     if not slots or not (topic or "").strip() or (search is None and not enabled()):
         return result
-    pool = await _pool(topic, search)
+    pool = await _pool(topic, search, formulas)
     candidates = [c for c in pool.candidates if c["url"] not in pool.used][:MAX_CANDIDATES]
     if not candidates:
         return result
 
     try:
         if choose is not None:
-            data = await choose(_PICK_SYSTEM, _pick_prompt(topic, slots, candidates))
+            data = await choose(_PICK_SYSTEM, _pick_prompt(topic, slots, candidates, formulas))
         else:
             data = await asyncio.to_thread(_ask_json, _PICK_SYSTEM,
-                                           _pick_prompt(topic, slots, candidates), 1500)
+                                           _pick_prompt(topic, slots, candidates, formulas), 1500)
     except Exception as exc:
         log.warning("AI rasm tanlamadi: %s", exc)
         return result
@@ -454,7 +475,7 @@ async def find_photos(topic: str, slots: Sequence[str], *, search=None,
             fresh = [(slot, path) for slot, path in zip(empty, got) if path]
             if not fresh:
                 break
-            bad = await text_heavy([path for _, path in fresh], check)
+            bad = await text_heavy([path for _, path in fresh], check, formulas)
             for k, (slot, path) in enumerate(fresh):
                 if k in bad:
                     with contextlib.suppress(OSError):

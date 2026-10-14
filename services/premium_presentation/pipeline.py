@@ -122,7 +122,8 @@ async def _build_deck(topic, slide_count, *, language, level, preferences, sourc
     if photos:
         try:
             pages, placed = await html_images.fill_photos(pages, limit=html_images.photo_limit(slide_count, volume),
-                                                            topic=topic)
+                                                            topic=topic,
+                                                            formulas=outline_out.get("family") in ("aniq", "hisob"))
         except Exception as exc:
             log.warning("Rasmlar qo'yilmadi: %s", exc)
         try:

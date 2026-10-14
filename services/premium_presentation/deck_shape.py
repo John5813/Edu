@@ -14,6 +14,7 @@ keladi (`chart_data`); ishonchli ma'lumot bo'lmasa diagramma qo'yilmaydi.
 """
 
 import logging
+import re
 from typing import Dict, Optional
 
 log = logging.getLogger("deck_shape")
@@ -197,6 +198,20 @@ def is_calculation(topic: str) -> bool:
     return any(word in text for word in _CALC_WORDS)
 
 
+# Mavzu nomidagi aniq fan belgilari: model "umumiy" desa ham matematika/fizika mavzusi aniq fanlarga tushsin
+# (ilgari "Kvadrat tenglamalar" umumiy deb olinib, formula va misol qoidalari ishlamasdi).
+_EXACT = re.compile(
+    r"tenglam|tengsizlik|algebra|geometri|trigonometr|funksiya|integral|hosila|differensial|logarifm|"
+    r"matritsa|vektor|ehtimollar|kombinatorika|progressiya|ko'phad|ko‘phad|teorema|matematik|fizika|mexanika|"
+    r"kinematika|dinamika|termodinamika|elektr|magnit|optika|kvant|algoritm|dasturlash|informatika|"
+    r"nyuton|harakat qonun|tezlanish|impuls|gravitats|tortishish|to'lqin|to‘lqin|atom|yadro|"
+    r"уравнен|неравенств|алгебр|геометр|тригонометр|функци|интеграл|производн|логарифм|матриц|вектор|"
+    r"вероятност|математ|физик|механик|алгоритм|программирован|"
+    r"equation|algebra|geometry|trigonometr|calculus|integral|derivative|logarithm|matrix|vector|"
+    r"probability|mathemat|physics|mechanics|algorithm|programming",
+    re.IGNORECASE)
+
+
 def of(topic: str, hint: Optional[str] = None) -> str:
     """Mavzu qaysi oilaga tegishli.
 
@@ -207,10 +222,12 @@ def of(topic: str, hint: Optional[str] = None) -> str:
     if is_calculation(topic):
         return "hisob"
     guess = str(hint or "").strip().lower()
-    if guess in _FAMILIES:
+    if guess in _FAMILIES and guess != "umumiy":
         return guess
     if guess in _BY_SUBJECT:
         return _BY_SUBJECT[guess]
+    if _EXACT.search(topic or ""):
+        return "aniq"
 
     try:
         from services import store_taxonomy

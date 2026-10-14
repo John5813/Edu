@@ -275,6 +275,7 @@ def plan_outline(topic: str, count: int, language: str,
 
     family = deck_shape.of(topic, hint)
     log.info("Mavzu oilasi: %s", family)
+    raw = _stretch(raw, count)
 
     outline: List[Dict] = []
     for index in range(count):
@@ -301,14 +302,18 @@ def plan_outline(topic: str, count: int, language: str,
             # "Taqdimot rejasi" faqat 2-slayd; boshqa joyda u xulosa oldidan
             # yoki oxirida reja slaydini takrorlab yuborardi.
             category = _fallback_category(index, count)
+        padded = not brief and not title
         if not brief:
             brief = prompts.fill(P.BRIEF_FALLBACK, topic=topic, n=index + 1)
         if not title:
             title = deck_logic.short_title(deck_logic.short_note(brief, 60))
-        outline.append({"title": title, "brief": brief, "category": category})
+        outline.append({"title": title, "brief": brief, "category": category, **({"padded": True} if padded else {})})
 
     outline = ensure_charts(outline, language, guess if guess in deck_logic.NARRATIVE else family)
     outline = ensure_photos(outline, volume, language)
+    outline = exact_rules(outline, family, topic)
+    for item in outline:
+        item.pop("padded", None)
     # Kod darajasida kategoriya almashtirilmaydi (ilgari shunday edi va
     # mantiqan ketma-ket kelishi kerak bo'lgan ikki ro'yxatni ajratib,
     # fikrni uzardi). Bir xillikdan qochishni model promptdagi yo'riqnoma
@@ -379,12 +384,61 @@ def ensure_photos(outline: List[Dict], volume: str = "kop", language: str = "uz"
     return outline
 
 
+# Aniq fanlarda (matematika, fizika, informatika) masala va mashq slaydi ishlangan misol bilan bo'lsin.
+# Rasmlar soni kamaytirilmaydi (mijoz talabi): aniq fanlarda rasm formulali ham bo'lishi mumkin
+# (`photo_search.find_photos(formulas=True)`).
+_EXERCISE_WORDS = re.compile(r"masala|mashq|misol|amaliy|test|exercise|problem|example|practice|задач|пример|упражнен",
+                             re.IGNORECASE)
+
+
+_EXERCISE_BRIEF = "Shu mavzuda bitta masala: shart, qadamma-qadam yechim va javob (misol bloki)."
+
+
+def exact_rules(outline: List[Dict], family: str, topic: str = "") -> List[Dict]:
+    if family != "aniq":
+        return outline
+    # Reja qisqa kelib to'ldirilgan o'rinlar (sarlavhasi mavzu nomining takrori) — aniq fanda qo'shimcha masala.
+    extra = 0
+    for index, item in enumerate(outline):
+        if item.get("padded") and 1 < index < len(outline) - 1:
+            extra += 1
+            item["category"] = "misol"
+            item["title"] = f"Masala {extra}"
+            item["brief"] = f"«{topic}» bo'yicha yana bir masala (oldingilardan farqli). " + _EXERCISE_BRIEF
+            log.info("%d-slayd (aniq fan): to'ldiruvchi slayd — qo'shimcha masala", index + 1)
+    # Masala/mashq slaydi — ishlangan misol bilan (ilgari "Testlar va mashqlar" kartalarda masalasiz qolardi).
+    for index, item in enumerate(outline):
+        if 1 < index < len(outline) - 1 and item["category"] not in ("misol", "diagramma") \
+                and _EXERCISE_WORDS.search(str(item.get("title") or "")):
+            item["category"] = "misol"
+            item["brief"] = item["brief"].rstrip(". ") + ". " + _EXERCISE_BRIEF
+            log.info("%d-slayd (aniq fan): masala slaydi — misol", index + 1)
+    return outline
+
+
 # Reja kelmaganda ishlatiladigan zaxira. Unda raqamga tayanadigan
 # kategoriyalar YO'Q: mavzu qanday ekanini bilmay turib diagramma yoki
 # ko'rsatkich so'rash — modelni statistika o'ylab topishga majburlash
 # demakdir. Zaxira har doim mazmunga neytral bloklardan boshlanadi.
-_SAFE_CATEGORIES = ("kartalar", "matn_rasm", "ikki_ustun", "reja",
+# "reja" bu yerda yo'q: u faqat 2-slayd (ilgari qisqa reja to'ldirilganda o'rtada ikkinchi "Taqdimot rejasi" chiqardi).
+_SAFE_CATEGORIES = ("kartalar", "matn_rasm", "ikki_ustun",
                     "jarayon", "tuzilma", "qiyoslash", "iqtibos")
+
+
+def _stretch(raw: List, count: int) -> List:
+    """Qisqa rejani `count` gacha cho'zadi: modelning xulosasi oxirida qoladi, bo'sh o'rinlar undan OLDIN.
+
+    Ilgari bo'sh o'rinlar xulosadan keyin qo'shilib, oxirgi slayd yana majburan xulosa qilinardi —
+    taqdimotda ikkita xulosa chiqardi.
+    """
+    raw = list(raw or [])
+    if len(raw) >= count or len(raw) < 3:
+        return raw
+    last = raw[-1] if isinstance(raw[-1], dict) else {}
+    text = f"{last.get('title') or ''} {last.get('brief') or ''} {last.get('category') or ''}"
+    if not (str(last.get("category") or "").lower() == "yakun" or _CONCLUSION_WORDS.search(text)):
+        return raw
+    return raw[:-1] + [{} for _ in range(count - len(raw))] + [last]
 
 
 def _fallback_category(index: int, count: int) -> str:
@@ -664,6 +718,63 @@ def guard_source_years(body: str, language: str = "uz") -> str:
     return _SOURCE_YEAR.sub(swap, body)
 
 
+_HTML_LIST = re.compile(r"<(?:ul|ol|li)\b", re.IGNORECASE)
+_BLOCK_TAGS = {"div", "ul", "ol", "table", "section", "p", "h1", "h2", "h3"}
+
+
+def _fix_html_lists(body: str) -> str:
+    """Model yozgan `<ul>/<ol>/<li>` — botning ro'yxat blokiga; abzats ichidagi ro'yxat abzatsdan ajratiladi.
+
+    `<p>` ichida `<ul>` bo'lishi mumkin emas: brauzer abzatsni ro'yxatdan oldin yopadi, keyingi matn hech
+    qanday tegsiz qoladi. Brauzerda u joyida ko'rinadi, PowerPoint'ga o'tishda esa butun varaq tanasining
+    qutisiga yozilib, sarlavha ustiga tushardi. Ro'yxatsiz slaydga tegilmaydi.
+    """
+    if not _HTML_LIST.search(body or ""):
+        return body
+    try:
+        from lxml import etree, html as lxml_html
+
+        root = lxml_html.fromstring(body)
+    except Exception:
+        return body
+    for lst in root.xpath("//ul|//ol"):
+        lst.tag = "div"
+        lst.attrib.clear()
+        lst.set("class", "list")
+        for li in lst.xpath("./li"):
+            li.tag = "div"
+            li.attrib.clear()
+            li.set("class", "item")
+            text = etree.SubElement(li, "div")
+            text.set("class", "item-text")
+            text.text, li.text = li.text, None
+            for child in list(li):
+                if child is not text:
+                    text.append(child)
+            dot = etree.Element("span")
+            dot.set("class", "item-dot")
+            li.insert(0, dot)
+    # Bo'sh qolgan abzatslar va tegsiz matn.
+    for p in root.xpath("//p"):
+        if not (p.text or "").strip() and not len(p):
+            p.getparent().remove(p)
+    for box in root.xpath("//div"):
+        if not any(child.tag in _BLOCK_TAGS for child in box):
+            continue
+        if (box.text or "").strip():
+            para = etree.Element("p")
+            para.set("class", "note")
+            para.text, box.text = box.text.strip(), None
+            box.insert(0, para)
+        for child in list(box):
+            if (child.tail or "").strip():
+                para = etree.Element("p")
+                para.set("class", "note")
+                para.text, child.tail = child.tail.strip(), None
+                child.addnext(para)
+    return lxml_html.tostring(root, encoding="unicode")
+
+
 def build_pages(bodies: List[str], theme, language: str = "uz") -> List[str]:
     """Slayd mazmunlarini chizishga tayyor HTML hujjatlarga aylantiradi.
 
@@ -682,7 +793,7 @@ def build_pages(bodies: List[str], theme, language: str = "uz") -> List[str]:
     drawn = [deck_charts.draw(
         _half_charts(_chart_beside_text(deck_math.render(deck_styles.decorate(
             _whiten_icons(_auto_icons(_decorate(
-                guard_quote_sources(guard_source_years(deck_calc.apply(body), language))))), theme)))),
+                guard_quote_sources(guard_source_years(deck_calc.apply(_fix_html_lists(body)), language))))), theme)))),
         theme)
              for body in bodies]
     try:
@@ -745,6 +856,25 @@ def write_slides(topic: str, slide_count: int, theme, language: str = "uz",
     with prompts.use(language), deck_memory.session():
         return _write_slides(topic, slide_count, theme, language, level, preferences, source_text, author,
                              progress_cb, outline_out, plan_cb)
+
+
+# Rejada aytilgan blok slaydda bo'lishi shart: arzon model kategoriyani e'tiborsiz qoldirib, "misol" slaydini
+# matn + rasm qilib yozardi (matematik taqdimotda birorta ham masala chiqmasdi).
+_REQUIRED_BLOCK = {
+    "misol": ('class="misol"', 'This slide MUST contain a worked example block <div class="misol"> with misol-tag, '
+              'misol-task (the problem statement), 2-4 misol-step steps with formulas and misol-answer. '
+              'Do NOT use a photo block (rasm) on this slide.'),
+    "formula": ('class="formula"', 'This slide MUST contain a formula block <div class="formula"> with formula-body '
+                '(LaTeX) and formula-note explaining the symbols. Do NOT use a photo block (rasm) on this slide.'),
+}
+
+
+def _missing_block(body: str, item: Optional[Dict]) -> str:
+    """Rejadagi blok slaydda yo'q bo'lsa — qayta so'rash uchun ko'rsatma, aks holda ""."""
+    need = _REQUIRED_BLOCK.get((item or {}).get("category", ""))
+    if not need or re.search(need[0].replace('"', '["\']'), body or "", re.IGNORECASE):
+        return ""
+    return need[1]
 
 
 def _write_slides(topic, slide_count, theme, language, level, preferences, source_text, author,
@@ -828,7 +958,22 @@ def _write_slides(topic, slide_count, theme, language, level, preferences, sourc
 
         for offset, body in enumerate(chunk[:count]):
             number = start + offset
+            item = outline[number - 1] if number <= len(outline) else None
+            demand = "" if kam else _missing_block(body, item)
+            if demand:
+                log.warning("%d-slayd: rejadagi «%s» bloki yo'q — qayta so'raladi", number, item["category"])
+                single = _user_prompt(topic, number, 1, slide_count, outline, used, level, source_text,
+                                      preferences, author, family,
+                                      shapes=[shape_signature(b) for b in slides],
+                                      written=[deck_logic.title_of(b) for b in slides], language=language,
+                                      volume=volume) + "\n\n" + demand
+                again = _write_chunk(system, single, 1)
+                if again and not _missing_block(again[0], item):
+                    body = again[0]
+                else:
+                    log.warning("%d-slayd: qayta so'ralganda ham «%s» bloki chiqmadi", number, item["category"])
             if number == 1:
+                body = _ensure_cover(body, topic, outline[0] if outline else None)
                 body = _cover_credit(body, author, language)
             if number == slide_count:
                 body = _drop_thanks(body)
@@ -1210,6 +1355,36 @@ _CREDIT_LINE = re.compile(
     re.IGNORECASE | re.DOTALL)
 _NOTE_LINE = re.compile(r"<p\b[^>]*\bclass\s*=\s*[\"'][^\"']*\bnote\b[^\"']*[\"'][^>]*>.*?</p>",
                         re.IGNORECASE | re.DOTALL)
+
+
+_COVER_OK = re.compile(r'<section\b[^>]*class\s*=\s*["\'][^"\']*(?<![\w-])dark(?![\w-])', re.IGNORECASE)
+
+
+def _ensure_cover(body: str, topic: str, item: Optional[dict] = None) -> str:
+    """1-slayd har doim muqova bo'lsin.
+
+    Arzon model ba'zan muqova o'rniga oddiy matnli slayd yoki rejani yozadi — taqdimot oq varaqdagi mayda
+    sarlavha bilan boshlanib qolardi. Bunday bo'lsa muqova mavzu va reja izohidan kod bilan yig'iladi.
+    """
+    if _COVER_OK.search(body or "") and re.search(r'class\s*=\s*["\'][^"\']*title', body or ""):
+        return body
+    lead = ""
+    if item:
+        brief = str(item.get("brief") or "").strip()
+        if brief and "\n" not in brief and len(brief) <= 220:
+            lead = brief
+    title = re.search(r'class\s*=\s*["\'][^"\']*title[^"\']*["\'][^>]*>(.*?)<', body or "", re.IGNORECASE | re.DOTALL)
+    was_plan = bool(title and re.search(r"reja|план|plan|outline", title.group(1), re.IGNORECASE))
+    if not lead and not was_plan:
+        found = re.search(r'<p\b[^>]*class\s*=\s*["\'][^"\']*lead[^"\']*["\'][^>]*>(.*?)</p>', body or "",
+                          re.IGNORECASE | re.DOTALL)
+        text = re.sub(r"<[^>]+>", " ", found.group(1)).strip() if found else ""
+        lead = text if text and not re.search(r"taqdimot\s*rejasi|reja\b|план", text, re.IGNORECASE) else ""
+    log.warning("1-slayd muqova emas edi — muqova kod bilan yig'ildi")
+    return ('<section class="slide dark">\n  <div class="body">\n'
+            f'    <h1 class="title big">{_escape(topic.strip())}</h1>\n    <div class="rule"></div>\n'
+            + (f'    <p class="lead">{_escape(re.sub(r"\\s+", " ", lead))}</p>\n' if lead else "")
+            + '  </div>\n</section>')
 
 
 def _cover_credit(body: str, author: str = "", language: str = "uz") -> str:

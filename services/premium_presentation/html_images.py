@@ -359,7 +359,7 @@ def slide_heading(page: str) -> str:
     return re.sub(r"\s+", " ", _TAG.sub(" ", match.group(1))).strip()[:120]
 
 
-async def _search_photos(topic: str, slots: List[str], find=None) -> List[Optional[str]]:
+async def _search_photos(topic: str, slots: List[str], find=None, formulas: bool = False) -> List[Optional[str]]:
     """Avval internetdan (Brave) haqiqiy foto: topilmagan slot — None."""
     empty: List[Optional[str]] = [None] * len(slots)
     if not slots or not topic:
@@ -370,8 +370,9 @@ async def _search_photos(topic: str, slots: List[str], find=None) -> List[Option
 
             if not photo_search.enabled():
                 return empty
-            find = photo_search.find_photos
-        found = list(await find(topic, slots))
+            found = list(await photo_search.find_photos(topic, slots, formulas=formulas))
+        else:
+            found = list(await find(topic, slots))
         return (found + empty)[:len(slots)]
     except Exception as exc:
         log.warning("Internetdan rasm qidirilmadi: %s", exc)
@@ -397,7 +398,7 @@ def _together_generate(aspect: str = "4:3"):
 
 
 async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
-                      generate=None, topic: str = "", find=None) -> Tuple[List[str], int]:
+                      generate=None, topic: str = "", find=None, formulas: bool = False) -> Tuple[List[str], int]:
     """Rasm bloklariga rasm qo'yadi. (slaydlar, qo'yilgan rasmlar soni).
 
     `topic` berilsa avval internetdan haqiqiy foto qidiriladi (mavzuga bitta
@@ -416,7 +417,7 @@ async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
         for index, _, _, prompt in wanted:
             heading = slide_heading(pages[index])
             slots.append(f"{heading} — {prompt}" if heading else prompt)
-        searched = await _search_photos(topic, slots, find)
+        searched = await _search_photos(topic, slots, find, formulas)
 
     if generate is None:
         generate = _together_generate("4:3")

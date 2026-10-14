@@ -301,7 +301,7 @@ color:#ACCENT;opacity:1}
 border-left:14px solid #ACCENT;border-radius:0 28px 28px 0;padding:80px 96px;
 display:flex;flex-direction:column;gap:10px}
 .slide>.body>div:has(>.quote)>.quote{font-size:54px;line-height:1.35;max-width:none}
-.slide>.body>div:has(>.quote)>.quote-mark{font-size:180px;line-height:0.75;height:100px}
+.slide>.body>div:has(>.quote)>.quote-mark{font-size:150px;line-height:1;height:auto;margin-bottom:-40px}
 .slide>.body>div:has(>.quote)>.quote-by{font-size:34px;font-weight:700;color:#ACCENT}
 
 /* ── Jadval ────────────────────────────────────────────────────── */
