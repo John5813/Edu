@@ -673,11 +673,24 @@ def _kind_of(data: dict) -> str:
     return KIND_INFO if data.get("volume") == "kam" else KIND_MODERN
 
 
-def _kind_keyboard(lang: str) -> InlineKeyboardMarkup:
+# 3D Pro hozircha faqat adminlar uchun: boshqalarga tugmada «tez orada» yoziladi va u ishlamaydi.
+_PRO3D_SOON_BUTTON = {"uz": "🧊 3D Pro — ⏳ tez orada", "ru": "🧊 3D Pro — ⏳ скоро",
+                      "en": "🧊 3D Pro — ⏳ coming soon", "kk": "🧊 3D Pro — ⏳ жақында"}
+_PRO3D_SOON_ALERT = {"uz": "⏳ 3D Pro tez orada ishga tushadi!", "ru": "⏳ 3D Pro скоро будет доступен!",
+                     "en": "⏳ 3D Pro is coming soon!", "kk": "⏳ 3D Pro жақында іске қосылады!"}
+
+
+def _pro3d_open(user_id: int) -> bool:
+    import config
+
+    return user_id in config.ADMIN_IDS
+
+
+def _kind_keyboard(lang: str, pro3d: bool = True) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for key in KINDS:
-        builder.button(text=_KIND_BUTTONS[key].get(lang) or _KIND_BUTTONS[key]["uz"],
-                       callback_data=f"prem_ppt_kind:{key}")
+        labels = _KIND_BUTTONS[key] if pro3d or key != KIND_PRO3D else _PRO3D_SOON_BUTTON
+        builder.button(text=labels.get(lang) or labels["uz"], callback_data=f"prem_ppt_kind:{key}")
     builder.adjust(1)
     builder.row(*_back_row(lang))
     return builder.as_markup()
@@ -686,16 +699,21 @@ def _kind_keyboard(lang: str) -> InlineKeyboardMarkup:
 async def _step_kind(message: Message, state: FSMContext, lang: str) -> None:
     data = await state.get_data()
     text = _topic_line(data, lang) + (_KIND_PROMPT.get(lang) or _KIND_PROMPT["uz"])
-    await _prompt(message, state, text, _kind_keyboard(lang), "kind", PremiumPresentationStates.waiting_for_kind)
+    # Shaxsiy chatda chat id = foydalanuvchi id (orqaga qaytishda xabar botniki bo'ladi).
+    keyboard = _kind_keyboard(lang, _pro3d_open(message.chat.id))
+    await _prompt(message, state, text, keyboard, "kind", PremiumPresentationStates.waiting_for_kind)
 
 
 @router.callback_query(F.data.startswith("prem_ppt_kind:"), PremiumPresentationStates.waiting_for_kind)
 async def premium_ppt_kind_selected(callback: CallbackQuery, state: FSMContext, db: Database):
     """Tur tanlandi (birinchi qadam) — keyin mavzu. Tur keyingi qadamlarni belgilaydi: zamonaviyda manbadan
     keyin uslub so'raladi, infografik, 3D Pro va klassikda — darhol slaydlar soni."""
-    await callback.answer()
     lang = await _lang_of(callback.from_user.id, db)
     kind = callback.data.split(":", 1)[1]
+    if kind == KIND_PRO3D and not _pro3d_open(callback.from_user.id):
+        await callback.answer(_PRO3D_SOON_ALERT.get(lang) or _PRO3D_SOON_ALERT["uz"], show_alert=True)
+        return
+    await callback.answer()
     if kind not in KINDS:
         kind = KIND_INFO
     await state.update_data(kind=kind)
