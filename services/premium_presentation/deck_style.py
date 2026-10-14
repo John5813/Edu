@@ -362,6 +362,9 @@ max-height:100%}
 min-height:0}
 .chart-stack>.chart{flex:1 1 0}
 .slide>.body>.chart-stack{flex:1 1 auto}
+/* Varaqda yolg'iz turgan diagramma bo'sh joyni egallaydi (doiraviy diagramma varaq choragida qolardi). */
+.slide>.body>.chart{flex:1 1 auto}
+.slide>.body>.chart>svg{height:100%;width:auto;max-width:100%}
 /* Ikki qavatli diagramma yonma-yon joylashuvda ham bo'y olsin (aks holda balandligi nolga tushardi). */
 .split>.chart-stack{align-self:stretch;min-height:560px;grid-column:1}
 .split:has(>.chart-stack)>:not(.chart-stack){grid-column:2;align-self:center}
