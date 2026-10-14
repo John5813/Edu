@@ -34,14 +34,17 @@ _ATTR = re.compile(r'\bdata-([a-z]+)\s*=\s*(["\'])(.*?)\2',
 # bir-biriga o'xshab, ajratib bo'lmasdi. Birinchisi sxemaning asosiy
 # rangi, qolganlari undan uzoq (tus burchagi bo'yicha) rang-barang.
 # Faqat to'q, qat'iy ranglar (sariq, pushti, och qizil yo'q): to'q yashil, binafsha, firuza, to'q qizil,
-# to'q ko'k, jigarrang, grafit.
-_DISTINCT = ("166534", "5B21B6", "0F766E", "991B1B", "1E3A8A", "78350F", "334155")
+# zaytun, to'q ko'k, grafit.
+_DISTINCT = ("166534", "5B21B6", "0F766E", "991B1B", "3F6212", "1E3A8A", "334155")
 _MIN_HUE_GAP = 0.07   # ~25 daraja
 
 
 def _colour(theme, index: int) -> str:
+    """Ranglar tugasa takrorlanayotgani ochroq tusda — qo'shni bo'laklar bir xil rangda qolmasin."""
     colours = palette(theme)
-    return colours[index % len(colours)]
+    colour = colours[index % len(colours)]
+    rounds = index // len(colours)
+    return _lift(colour, min(0.3 * rounds, 0.6)) if rounds else colour
 
 
 def _hue(colour: str) -> float:

@@ -301,7 +301,7 @@ color:#ACCENT;opacity:1}
 border-left:14px solid #ACCENT;border-radius:0 28px 28px 0;padding:80px 96px;
 display:flex;flex-direction:column;gap:10px}
 .slide>.body>div:has(>.quote)>.quote{font-size:54px;line-height:1.35;max-width:none}
-.slide>.body>div:has(>.quote)>.quote-mark{font-size:180px;line-height:0.75;height:100px}
+.slide>.body>div:has(>.quote)>.quote-mark{font-size:150px;line-height:1;height:auto;margin-bottom:-40px}
 .slide>.body>div:has(>.quote)>.quote-by{font-size:34px;font-weight:700;color:#ACCENT}
 
 /* ── Jadval ────────────────────────────────────────────────────── */
@@ -362,6 +362,9 @@ max-height:100%}
 min-height:0}
 .chart-stack>.chart{flex:1 1 0}
 .slide>.body>.chart-stack{flex:1 1 auto}
+/* Varaqda yolg'iz turgan diagramma bo'sh joyni egallaydi (doiraviy diagramma varaq choragida qolardi). */
+.slide>.body>.chart{flex:1 1 auto}
+.slide>.body>.chart>svg{height:100%;width:auto;max-width:100%}
 /* Ikki qavatli diagramma yonma-yon joylashuvda ham bo'y olsin (aks holda balandligi nolga tushardi). */
 .split>.chart-stack{align-self:stretch;min-height:560px;grid-column:1}
 .split:has(>.chart-stack)>:not(.chart-stack){grid-column:2;align-self:center}
