@@ -174,8 +174,9 @@ def _ask_json(system: str, user: str, max_tokens: int) -> dict:
 _QUERY_SYSTEM = (
     "You turn a presentation topic (any language) into ONE short English image-search "
     "query (2-6 words) that finds real photographs of its main subject. Keep proper "
-    "names of places and people (transliterated to English). No quotes, no words like "
-    "'presentation' or 'slide'. Answer JSON: {\"query\": \"...\"}"
+    "names of places and people (transliterated to English). No quotes, and never words that "
+    "bring images with text: presentation, slide, map, diagram, chart, infographic, scheme, "
+    "table, poster. Answer JSON: {\"query\": \"...\"}"
 )
 
 
