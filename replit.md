@@ -17,6 +17,7 @@ Optional secrets used by feature areas:
 
 - `OPENROUTER_API_KEY` — text generation and premium presentation briefs
 - `TOGETHER_API_KEY` — image generation
+- `BRAVE_API_KEY` (yoki `BRAVE_SEARCH_API_KEY`) — taqdimot rasmlari avval internetdan (Brave Image Search) qidiriladi: mavzuga bitta so'rov, topilmagan slaydni AI chizadi. `PHOTO_SEARCH=0` — o'chirish
 - `FAL_API_KEY` — media and infographic generation
 - `OPENAI_API_KEY` — selected media and presentation helpers
 

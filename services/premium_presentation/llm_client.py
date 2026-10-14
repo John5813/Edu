@@ -538,6 +538,16 @@ def _count(data: dict) -> None:
     USAGE["output"] += int(usage.get("completion_tokens") or 0)
 
 
+def _count_model(model: str) -> None:
+    """AI nazorati: muvaffaqiyatli javob bergan matn modeli."""
+    try:
+        from services import ai_usage
+
+        ai_usage.record("text", model)
+    except Exception:
+        pass
+
+
 class NoCredits(RuntimeError):
     """OpenRouter hisobida mablag' tugagan (HTTP 402)."""
 
@@ -685,6 +695,7 @@ def _request(kind: str, payload: dict, timeout: int = 180,
         if not rejected and _WORKING.get(kind) != model and not (kind == "text" and _TEXT_OVERRIDE.get()):
             log.info("%s modeli: %s", {"text": "Matn", "receipt": "Chek", "ocr": "OCR", "receipt2": "Chek (tasdiq)"}.get(kind, "Vision"), model)
             _WORKING[kind] = model
+        _count_model(model)
         return data
     if partial is not None:
         log.warning("Hech bir model to'liq javob bermadi — qisman javob olindi")

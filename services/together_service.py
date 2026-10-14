@@ -99,6 +99,7 @@ class TogetherImageService:
             path = await self._save_response(response, stem)
             if path:
                 logger.info(f"Image generated with {model} ({target}): {path}")
+                _count_image(model)
                 return path
             logger.error(f"No image data from {model}")
         return None
@@ -129,6 +130,7 @@ class TogetherImageService:
             path = await self._save_response(response, stem)
             if path:
                 logger.info(f"Image generated with {model} ({stem}): {path}")
+                _count_image(model)
                 return path
             logger.error(f"No image data from {model}")
         return None
@@ -533,6 +535,17 @@ _choice_cache: Dict[str, tuple] = {}
 # sinalmasin — bir muddat chetlab o'tiladi.
 _UNAVAILABLE_TTL = 600.0
 _unavailable: Dict[str, float] = {}
+
+
+def _count_image(model: str) -> None:
+    """AI nazorati: chizilgan rasm va uni chizgan model hisobi."""
+    try:
+        from services import ai_usage
+
+        ai_usage.record("image", model)
+        ai_usage.record("photo", ai_usage.PHOTO_AI)
+    except Exception:
+        pass
 
 
 def _catalog_entry(model_id: str) -> dict:

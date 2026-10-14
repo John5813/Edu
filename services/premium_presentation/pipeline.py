@@ -121,7 +121,8 @@ async def _build_deck(topic, slide_count, *, language, level, preferences, sourc
     placed = 0
     if photos:
         try:
-            pages, placed = await html_images.fill_photos(pages, limit=html_images.photo_limit(slide_count, volume))
+            pages, placed = await html_images.fill_photos(pages, limit=html_images.photo_limit(slide_count, volume),
+                                                            topic=topic)
         except Exception as exc:
             log.warning("Rasmlar qo'yilmadi: %s", exc)
         try:

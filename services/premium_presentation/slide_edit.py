@@ -323,7 +323,7 @@ async def _rewrite(deck: dict, index: int, instruction: str, shots_dir: str,
 
     report("images", 55)
     try:
-        pages, _ = await html_images.fill_photos([page], limit=2)
+        pages, _ = await html_images.fill_photos([page], limit=2, topic=deck.get("topic", ""))
         page = pages[0]
         if index == 0:
             pages, _ = await html_images.fill_cover([page], deck.get("topic", ""))
