@@ -175,7 +175,9 @@ def text(ctx: Ctx, left, top, width, height, paragraphs, pt: Optional[float] = N
     """
     if isinstance(paragraphs, str):
         paragraphs = [(paragraphs, {})]
-    paragraphs = [(t, o) for t, o in paragraphs if t is not None]
+    # Model ba'zan raqam/ro'yxat qaytaradi: `run.text` faqat satr qabul qiladi, aks holda
+    # TypeError bilan bo'sh <a:t/> qoladi (slaydda bo'sh quti).
+    paragraphs = [(t if isinstance(t, str) else str(t), o) for t, o in paragraphs if t is not None]
     if not any(str(t).strip() for t, _ in paragraphs):
         # Bo'sh matn qutisi qo'yilmaydi: PowerPoint/WPS unda "Double-tap to add text" ko'rsatadi.
         return pt or min_pt
