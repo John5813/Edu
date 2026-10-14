@@ -397,8 +397,18 @@ def _together_generate(aspect: str = "4:3"):
     return generate
 
 
+# Rasm manbasi (mijoz tanlaydi): "web" — faqat internetdagi haqiqiy foto (topilmasa o'rnida matn qoladi),
+# "ai" — hammasini AI chizadi (internetga qaralmaydi), "mix" — avval internet, topilmasa AI (sukut).
+PHOTO_SOURCES = ("mix", "web", "ai")
+
+
+def _source(value: str) -> str:
+    return value if value in PHOTO_SOURCES else "mix"
+
+
 async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
-                      generate=None, topic: str = "", find=None, formulas: bool = False) -> Tuple[List[str], int]:
+                      generate=None, topic: str = "", find=None, formulas: bool = False,
+                      source: str = "mix") -> Tuple[List[str], int]:
     """Rasm bloklariga rasm qo'yadi. (slaydlar, qo'yilgan rasmlar soni).
 
     `topic` berilsa avval internetdan haqiqiy foto qidiriladi (mavzuga bitta
@@ -411,15 +421,18 @@ async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
             wanted.append((index, start, end, prompt))
     wanted = wanted[:max(0, int(limit))]
 
+    source = _source(source)
     searched: List[Optional[str]] = [None] * len(wanted)
-    if topic and (find is not None or generate is None):
+    if topic and source != "ai" and (find is not None or generate is None):
         slots = []
         for index, _, _, prompt in wanted:
             heading = slide_heading(pages[index])
             slots.append(f"{heading} — {prompt}" if heading else prompt)
         searched = await _search_photos(topic, slots, find, formulas)
 
-    if generate is None:
+    if source == "web":
+        generate = None
+    elif generate is None:
         generate = _together_generate("4:3")
 
     # Rasmlar bir vaqtda chizdiriladi: ketma-ket bo'lsa har biri
@@ -495,7 +508,7 @@ def with_cover_photo(page: str, uri: str) -> str:
 
 
 async def fill_cover(pages: List[str], topic: str, generate=None,
-                     find=None) -> Tuple[List[str], bool]:
+                     find=None, source: str = "mix") -> Tuple[List[str], bool]:
     """Muqovaga mavzuga oid rasm qo'yadi (oddiy taqdimotdagi kabi).
 
     Avval internetdan (Brave) haqiqiy foto qidiriladi; topilmasa rasm AI
@@ -504,12 +517,15 @@ async def fill_cover(pages: List[str], topic: str, generate=None,
     """
     if not pages or _HAS_COVER_PHOTO.search(pages[0]) or not topic:
         return pages, False
+    source = _source(source)
+    if source == "web":
+        generate = None
     uri = None
-    if find is not None or generate is None:
+    if source != "ai" and (find is not None or generate is None):
         found = await _search_photos(
             topic, [f"Cover: the most iconic, wide photo of the whole topic «{topic}»"], find)
         uri = _take_uri(found[0])
-    if not uri and generate is None and photos_enabled():
+    if not uri and generate is None and source != "web" and photos_enabled():
         try:
             from services.together_service import get_together_service
 

@@ -158,14 +158,12 @@ def cover_x(c: Ctx, spec: Dict):
     navy = p.dark
     fill(rect(s, 0, 0, 1920, 1080), navy)
     pic = spec.get("photo_obj")
+    # Rasm faqat panel yopmaydigan joyda: ilgari u 700 dan boshlanib, ustidan oq uchburchaklar va katta "X"
+    # chiziqlar o'tardi — tabiiy rasm (bemor, tish) to'silib qolardi.
     if pic:
-        photo(s, pic, 700, 0, 1220, 1080)
+        photo(s, pic, 900, 0, 1020, 1080)
     else:
-        no_photo_fill(c, 700, 0, 1220, 1080)
-    fill(poly(s, [(1300, 0), (1920, 0), (1920, 380)]), WHITE, 10)
-    fill(poly(s, [(1180, 1080), (1560, 520), (1920, 1080)]), WHITE, 8)
-    fill(poly(s, [(1150, 0), (1192, 0), (1720, 1080), (1678, 1080)]), navy)
-    fill(poly(s, [(1520, 0), (1562, 0), (1012, 1080), (970, 1080)]), navy)
+        no_photo_fill(c, 900, 0, 1020, 1080)
     left = poly(s, [(0, 0), (760, 0), (1060, 480), (830, 1080), (0, 1080)])
     grad(left, [(0, mix(navy, WHITE, 0.08)), (100, mix(navy, "000000", 0.15))], angle=90)
     shadow(left, blur=40, dist=0, alpha=55)
@@ -343,24 +341,31 @@ def band_plain(c: Ctx, spec: Dict):
          line_spacing=1.15, grow=True)
 
 
+def _panel_accent(c: Ctx, x, y):
+    """Panel ichidagi kichik urg'u chizig'i (rasm ustiga hech narsa chizilmaydi)."""
+    bar = box(c.slide, x, y, 120, 8, SHAPE.ROUNDED_RECTANGLE, adj=[0.5])
+    fill(bar, c.pal.glowing, 80)
+
+
 def _band_photo(c: Ctx, spec: Dict, x, y, w, h):
     photo(c.slide, spec["photo_obj"], x, y, w, h)
 
 
 # Rasm va matn taxminan teng bo'linadi: matn paneli ~52%, rasm ~48% ko'rinadi (ilgari panel rasmning
 # ko'p qismini yopardi, matn esa tor ustunga siqilardi).
+# Rasm faqat o'z yarmiga qo'yiladi (ilgari butun varaq bo'ylab qo'yilib markazdan kesilardi — rasmning asosiy
+# qismi panel ostida qolardi); rasm ustidan chiziq va chetlik chizilmaydi.
 def band_right(c: Ctx, spec: Dict):
     if not spec.get("photo_obj"):
         return band_plain(c, spec)
     s, p = c.slide, c.pal
     slant = c.rng.randint(150, 230)
-    _band_photo(c, spec, 0, 0, 1920, 1080)
     left = 900
+    _band_photo(c, spec, 0, 0, left, 1080)
     band = poly(s, [(left, 0), (1920, 0), (1920, 1080), (left - slant, 1080)])
-    grad(band, [(0, p.accent, 95), (100, mix(p.accent, p.dark, 0.4), 97)], angle=90)
+    grad(band, [(0, p.accent), (100, mix(p.accent, p.dark, 0.4))], angle=90)
     shadow(band, blur=40, dist=0, alpha=40)
-    edge = poly(s, [(left - 22, 0), (left - 4, 0), (left - slant - 4, 1080), (left - slant - 22, 1080)])
-    fill(edge, p.glowing, 70)
+    _panel_accent(c, left + 70, 1080 - 110)
     _band_text(c, spec, left + 70, 1920 - left - 70 - 110)
 
 
@@ -369,13 +374,12 @@ def band_left(c: Ctx, spec: Dict):
         return band_plain(c, spec)
     s, p = c.slide, c.pal
     slant = c.rng.randint(150, 230)
-    _band_photo(c, spec, 0, 0, 1920, 1080)
     right = 1020
+    _band_photo(c, spec, right - slant, 0, 1920 - right + slant, 1080)
     band = poly(s, [(0, 0), (right, 0), (right - slant, 1080), (0, 1080)])
-    grad(band, [(0, p.dark, 95), (100, mix(p.dark, p.accent, 0.35), 94)], angle=90)
+    grad(band, [(0, p.dark), (100, mix(p.dark, p.accent, 0.35))], angle=90)
     shadow(band, blur=40, dist=0, alpha=40)
-    edge = poly(s, [(right, 0), (right + 22, 0), (right - slant + 22, 1080), (right - slant, 1080)])
-    fill(edge, p.accent, 85)
+    _panel_accent(c, 110, 1080 - 110)
     _band_text(c, spec, 110, right - slant - 170)
 
 
@@ -384,13 +388,11 @@ def band_chevron(c: Ctx, spec: Dict):
         return band_plain(c, spec)
     s, p = c.slide, c.pal
     tip = c.rng.randint(700, 760)
-    _band_photo(c, spec, 0, 0, 1920, 1080)
+    _band_photo(c, spec, 0, 0, tip + 200, 1080)
     band = poly(s, [(tip + 200, 0), (1920, 0), (1920, 1080), (tip + 200, 1080), (tip, 540)])
-    grad(band, [(0, mix(p.accent, p.dark, 0.15), 95), (100, p.dark, 97)], angle=135)
+    grad(band, [(0, mix(p.accent, p.dark, 0.15)), (100, p.dark)], angle=135)
     shadow(band, blur=40, dist=0, alpha=45)
-    for k, a in ((0, 70), (60, 35)):
-        ch = poly(s, [(tip + 140 - k, 0), (tip - 60 - k, 540), (tip + 140 - k, 1080)], close=False)
-        nofill(ch); line(ch, p.glowing, 6, a)
+    _panel_accent(c, tip + 250, 1080 - 110)
     _band_text(c, spec, tip + 250, 1920 - tip - 250 - 110)
 
 
