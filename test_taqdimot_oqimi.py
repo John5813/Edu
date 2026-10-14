@@ -23,6 +23,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
 from aiogram.fsm.storage.memory import MemoryStorage
 from bot.handlers import premium_presentation as pp
+import config
+config.ADMIN_IDS = [1]          # soxta suhbat foydalanuvchisi (id=1) — admin: 3D Pro ochiq
 from bot.states import DocumentStates, PremiumPresentationStates as PS
 
 
@@ -292,7 +294,36 @@ async def full_flow():
     await pp.premium_ppt_previous(callback(chat5, "prem_ppt_prev"), state5, db)
     check("fayl so'rovidan orqaga: manba tanlovi", await state5.get_state() == PS.waiting_for_source_kind.state)
 
+async def pro3d_admin_only():
+    """3D Pro faqat adminlar uchun: boshqalarga «tez orada», bosilsa ishlamaydi."""
+    print("\n3D Pro — faqat admin")
+    config.ADMIN_IDS = [999]
+    try:
+        chat, db, state = Chat(), make_db(), await new_state()
+        await pp.premium_presentation_start(chat.message("🌟 Taqdimot"), state, db)
+        labels = [b.text for b in buttons(chat.last()[2]) if b.callback_data == "prem_ppt_kind:pro3d"]
+        check("oddiy foydalanuvchiga tugmada «tez orada»", labels == ["🧊 3D Pro — ⏳ tez orada"], labels)
+        cb = callback(chat, "prem_ppt_kind:pro3d")
+        await pp.premium_ppt_kind_selected(cb, state, db)
+        alert = cb.answer.await_args
+        check("bosilsa «tez orada» ogohlantirishi", alert and "tez orada" in alert.args[0]
+              and alert.kwargs.get("show_alert"), alert)
+        check("bosilsa ishlamaydi: tur saqlanmadi, mavzu so'ralmadi",
+              "kind" not in await state.get_data() and await state.get_state() == PS.waiting_for_kind.state,
+              (await state.get_data(), await state.get_state()))
+        await pp.premium_ppt_kind_selected(callback(chat, "prem_ppt_kind:info"), state, db)
+        check("boshqa turlar ishlaydi", (await state.get_data()).get("kind") == "info")
+        config.ADMIN_IDS = [1]
+        chat2, state2 = Chat(), await new_state()
+        await pp.premium_presentation_start(chat2.message("🌟 Taqdimot"), state2, db)
+        labels = [b.text for b in buttons(chat2.last()[2]) if b.callback_data == "prem_ppt_kind:pro3d"]
+        check("adminga oddiy 3D Pro tugmasi", labels == ["🧊 3D Pro — animatsiyali, yangi"], labels)
+    finally:
+        config.ADMIN_IDS = [1]
+
+
 asyncio.run(full_flow())
+asyncio.run(pro3d_admin_only())
 
 print("\n" + ("✅ hammasi o'tdi" if not FAILS else f"❌ {len(FAILS)} ta xato: {FAILS}"))
 sys.exit(1 if FAILS else 0)
