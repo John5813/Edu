@@ -95,6 +95,16 @@ def _host(url: str) -> str:
         return ""
 
 
+def _slug(page_url: str) -> str:
+    """Sahifa manzilidan so'zlar: nomi bo'sh natija uchun AI ga ishora (".../gur-e-amir-mausoleum")."""
+    try:
+        path = urlparse(page_url).path
+    except ValueError:
+        return ""
+    words = re.sub(r"[^A-Za-z]+", " ", path.rsplit(".", 1)[0] if "." in path[-6:] else path)
+    return re.sub(r"\s+", " ", words).strip()[-90:]
+
+
 def usable(results: Sequence[dict]) -> List[dict]:
     """Brave natijalaridan yaroqlilarini ajratadi: {url, title, source, width, height}."""
     seen, out = set(), []
@@ -115,6 +125,7 @@ def usable(results: Sequence[dict]) -> List[dict]:
             continue
         seen.add(url)
         out.append({"url": url, "title": str(item.get("title") or "").strip()[:140],
+                    "hint": _slug(str(item.get("url") or "")),
                     "source": str(item.get("source") or _host(url))[:60],
                     "width": width, "height": height})
     return out
@@ -162,17 +173,21 @@ async def search_query(topic: str) -> str:
 
 
 _PICK_SYSTEM = (
-    "You pick photos for presentation slides from a numbered list of image-search "
-    "results (each has a title and a source site). For every slot choose up to 3 "
-    "result ids, best first, whose title shows that the image clearly depicts the "
-    "slot's subject. Rules:\n"
-    "- Prefer real photographs. Avoid posters, book covers, products for sale, logos, "
-    "screenshots, collages, maps, and text-heavy infographics. A clean labelled "
-    "diagram is acceptable only when the slot is about anatomy/structure and no photo fits.\n"
-    "- Every id may be used in only ONE slot.\n"
-    "- If nothing really fits a slot, return an empty list for it — a wrong image is "
-    "worse than none.\n"
-    "Answer JSON: {\"picks\": [{\"slot\": 1, \"ids\": [12, 40]}, ...]}"
+    "You fill presentation slides with photos from a numbered list of image-search "
+    "results (each has a title or page words, and a source site). Goal: fill AS MANY "
+    "slots as possible — ideally every slot.\n"
+    "- An image fits a slot when it is about the presentation topic and relates to the "
+    "slot (same person, place, building, object, era, activity or idea). An exact match "
+    "is not required: a relevant photo of the topic is much better than no photo.\n"
+    "- For every slot give up to 3 ids, best first.\n"
+    "- Also give \"spare\": up to 15 other ids that are good general photos of the topic "
+    "(used when a slot's photo fails to download).\n"
+    "- Skip results that look like: posters, book covers, products for sale, logos, "
+    "screenshots, video games, memes, or a different topic. Maps and diagrams only when "
+    "the slot is about geography, territory or structure.\n"
+    "- Every id may be used only once in the whole answer.\n"
+    "- Leave a slot empty only when no remaining result is about the topic at all.\n"
+    "Answer JSON: {\"picks\": [{\"slot\": 1, \"ids\": [12, 40]}, ...], \"spare\": [3, 7]}"
 )
 
 
@@ -180,7 +195,8 @@ def _pick_prompt(topic: str, slots: Sequence[str], candidates: Sequence[dict]) -
     lines = [f"Presentation topic: {topic}", "", "Slots:"]
     lines += [f"{n}. {text}" for n, text in enumerate(slots, 1)]
     lines += ["", "Search results:"]
-    lines += [f"{i}. {c['title'] or '(no title)'} [{c['source']}]" for i, c in enumerate(candidates)]
+    lines += [f"{i}. {c['title'] or c.get('hint') or '(no title)'} [{c['source']}]"
+              for i, c in enumerate(candidates)]
     return "\n".join(lines)
 
 
@@ -204,6 +220,21 @@ def parse_picks(data: dict, slots: int, candidates: int) -> List[List[int]]:
                 taken.add(ident)
                 picks[slot].append(ident)
     return picks
+
+
+def parse_spare(data: dict, picks: List[List[int]], candidates: int) -> List[int]:
+    """Zaxira rasmlar: slotlarga tanlanmaganlari, takrorsiz."""
+    taken = {ident for slot in picks for ident in slot}
+    spare: List[int] = []
+    for raw in (data or {}).get("spare") or []:
+        try:
+            ident = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if 0 <= ident < candidates and ident not in taken:
+            taken.add(ident)
+            spare.append(ident)
+    return spare
 
 
 # ─────────────────────────────────────────────────────────── yuklab olish
@@ -304,7 +335,7 @@ async def find_photos(topic: str, slots: Sequence[str], *, search=None,
             data = await choose(_PICK_SYSTEM, _pick_prompt(topic, slots, candidates))
         else:
             data = await asyncio.to_thread(_ask_json, _PICK_SYSTEM,
-                                           _pick_prompt(topic, slots, candidates), 1200)
+                                           _pick_prompt(topic, slots, candidates), 1500)
     except Exception as exc:
         log.warning("AI rasm tanlamadi: %s", exc)
         return result
@@ -328,6 +359,21 @@ async def find_photos(topic: str, slots: Sequence[str], *, search=None,
                         return
 
         await asyncio.gather(*(one(slot) for slot in range(len(slots)) if picks[slot]))
+
+        # Tanlangani yuklanmagan yoki AI bo'sh qoldirgan slotlarga zaxira rasmlar.
+        spare = iter(parse_spare(data, picks, len(candidates)))
+        for slot in range(len(slots)):
+            while result[slot] is None:
+                ident = next(spare, None)
+                if ident is None:
+                    break
+                url = candidates[ident]["url"]
+                if url in pool.used:
+                    continue
+                path = await _download(session, url)
+                if path:
+                    pool.used.add(url)
+                    result[slot] = path
 
     found = sum(1 for path in result if path)
     if found:

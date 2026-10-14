@@ -134,6 +134,32 @@ photo_search.reset()
 none = asyncio.run(photo_search.find_photos("Ko'llar", ["Orol"], search=search, choose=choose_none))
 check("AI mos rasm topmasa — None (keyin AI chizadi)", none == [None], none)
 
+print("\n3b) Zaxira rasmlar: yuklanmagan yoki bo'sh qolgan slot to'ldiriladi")
+check("zaxira ro'yxati slotlardagilarni takrorlamaydi",
+      photo_search.parse_spare({"spare": [1, 4, 4, "x", 50, 5]}, [[1, 2], [3]], 10) == [4, 5])
+photo_search.reset(); downloads.clear()
+
+
+async def choose_with_spare(system, user):
+    return {"picks": [{"slot": 1, "ids": [0]}, {"slot": 2, "ids": []}], "spare": [5, 6]}
+
+photo_search._download = fake_download
+try:
+    got = asyncio.run(photo_search.find_photos("Amir Temur", ["Saltanat", "Me'morchilik"],
+                                               search=search, choose=choose_with_spare))
+finally:
+    photo_search._download = real_download
+check("1-slot rasmi yuklanmadi → zaxira, 2-slot bo'sh → keyingi zaxira",
+      all(got) and [d.rsplit("/", 1)[1] for d in downloads] == ["img0.jpg", "img5.jpg", "img6.jpg"], downloads)
+for path in got:
+    if path:
+        os.remove(path)
+
+nameless = photo_search.usable([{"title": "", "source": "travel.uz", "url": "https://travel.uz/tours/gur-e-amir-mausoleum",
+                                 "properties": {"url": "https://travel.uz/i/1.jpg", "width": 1200, "height": 800}}])
+check("nomsiz natijaga sahifa manzilidan ishora", "gur e amir mausoleum" in photo_search._pick_prompt("t", ["s"], nameless),
+      nameless)
+
 os.environ.pop("BRAVE_API_KEY", None); os.environ.pop("BRAVE_SEARCH_API_KEY", None)
 check("kalit yo'q bo'lsa qidiruv o'chiq", not photo_search.enabled())
 os.environ["BRAVE_API_KEY"] = "k"; os.environ["PHOTO_SEARCH"] = "0"
