@@ -129,7 +129,8 @@ class Designer:
         slide = presentation.slides.add_slide(presentation.slide_layouts[6])
         backdrop = self._backdrop(spec["kind"], index, name in styles.LIGHT)
         ctx = styles.Ctx(slide=slide, pal=self.pal, rng=self.rng, used_icons=self.used_icons, photo=photo,
-                         cover=self.cover, topic_icon=self.topic_icon, backdrop=backdrop)
+                         cover=self.cover, topic_icon=self.topic_icon, backdrop=backdrop,
+                         clear_backdrop=name in styles.CLEAR)
         try:
             styles.BY_NAME[name].draw(ctx, spec)
         except Exception as exc:
