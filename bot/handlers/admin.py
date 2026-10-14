@@ -2906,7 +2906,7 @@ async def _gift_links_view(bot):
     lines = ["🔗 <b>Tekin taqdimot havolalari</b>",
              "",
              "Havolani Instagram avtojavobiga qo'ying. Uni bosgan har bir mijoz (yangi yoki bazada avvaldan "
-             "bo'lsa ham) shu havoladan <b>bir marta</b> 5 slaydli tekin taqdimot oladi."]
+             "bo'lsa ham) shu havoladan <b>bir marta</b> 10 slaydli rasmli tekin taqdimot oladi."]
     kb = InlineKeyboardBuilder()
     if not items:
         lines += ["", "Hozircha faol havola yo'q."]
