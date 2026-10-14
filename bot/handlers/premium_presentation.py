@@ -955,6 +955,34 @@ async def premium_ppt_got_volume(callback: CallbackQuery, state: FSMContext, db:
 
 # ── Buyurtma xulosasi va tasdiqlash
 
+# Rasm manbasi — mijoz tanlaydi (xulosa ekranida). Sukut: aralash (avval internet, topilmasa AI).
+_PHOTO_SOURCE_BUTTONS = {
+    "uz": {"web": "🌐 Internetdan", "ai": "🎨 AI chizadi", "mix": "🔀 Aralash"},
+    "ru": {"web": "🌐 Из интернета", "ai": "🎨 Рисует ИИ", "mix": "🔀 Смешанно"},
+    "en": {"web": "🌐 From the web", "ai": "🎨 AI-drawn", "mix": "🔀 Mixed"},
+    "kk": {"web": "🌐 Интернеттен", "ai": "🎨 ЖИ салады", "mix": "🔀 Аралас"},
+}
+_PHOTO_SOURCE_LINE = {
+    "uz": ("🖼 Rasmlar", {"web": "internetdagi haqiqiy fotosuratlar", "ai": "AI chizgan rasmlar",
+                         "mix": "avval internetdan, topilmasa AI chizadi"}),
+    "ru": ("🖼 Изображения", {"web": "настоящие фото из интернета", "ai": "рисует ИИ",
+                             "mix": "сначала из интернета, если нет — рисует ИИ"}),
+    "en": ("🖼 Images", {"web": "real photos from the web", "ai": "drawn by AI",
+                        "mix": "from the web first, AI draws the rest"}),
+    "kk": ("🖼 Суреттер", {"web": "интернеттегі нақты фотолар", "ai": "ЖИ салған суреттер",
+                          "mix": "алдымен интернеттен, болмаса ЖИ салады"}),
+}
+PHOTO_SOURCES = ("web", "ai", "mix")
+
+
+def _photo_source(data: dict):
+    """Rasm manbasi: None — tanlov yo'q (3D Pro o'z obyektlarini chizadi); aks holda mijoz tanlovi."""
+    if _kind_of(data) == KIND_PRO3D:
+        return None
+    value = data.get("photo_source") or "mix"
+    return value if value in PHOTO_SOURCES else "mix"
+
+
 _TEXT_ANIM_LABEL = {"uz": ("✨ Yozuv animatsiyasi", "✅ Bor", "❌ Yo'q"),
                     "ru": ("✨ Анимация текста", "✅ Есть", "❌ Нет"),
                     "en": ("✨ Text animation", "✅ On", "❌ Off"),
@@ -1014,13 +1042,18 @@ def _text_anim_label(lang: str, on: bool) -> str:
     return f"{name}: {yes if on else no}"
 
 
-def _confirm_keyboard(lang: str, current_language: str, text_anim=None) -> InlineKeyboardMarkup:
-    """`text_anim` — None: tanlov ko'rsatilmaydi (admin o'chirgan); True/False — mijoz tanlovi."""
+def _confirm_keyboard(lang: str, current_language: str, text_anim=None, photo_source=None) -> InlineKeyboardMarkup:
+    """`text_anim` — None: tanlov ko'rsatilmaydi (admin o'chirgan); True/False — mijoz tanlovi.
+    `photo_source` — None: rasm manbasi tanlovi yo'q; "web"/"ai"/"mix" — tanlangani ✓ bilan."""
     builder = InlineKeyboardBuilder()
     for code in ("uz", uz_script.UZ_CYRILLIC_LANG, "ru", "en", "kk"):
         mark = "✓ " if code == current_language else ""
         builder.button(text=f"{mark}{_LANG_BUTTONS[code]}", callback_data=f"prem_ppt_lang:{code}")
     builder.adjust(2)
+    if photo_source is not None:
+        names = _PHOTO_SOURCE_BUTTONS.get(lang) or _PHOTO_SOURCE_BUTTONS["uz"]
+        builder.row(*[InlineKeyboardButton(text=("✓ " if key == photo_source else "") + names[key],
+                                           callback_data=f"prem_ppt_img:{key}") for key in PHOTO_SOURCES])
     if text_anim is not None:
         builder.row(InlineKeyboardButton(text=_text_anim_label(lang, text_anim), callback_data="prem_ppt_anim"))
     builder.row(InlineKeyboardButton(text=_t(lang, "confirm"), callback_data="prem_ppt_confirm"))
@@ -1072,6 +1105,10 @@ def _summary(data: dict, lang: str):
         lines.append(f"📏 {volume_l}: <b>{esc(volume)}</b>")
     if kind == KIND_PRO3D:
         lines.append(f"<i>{esc(pro3d_note(lang), 400)}</i>")
+    photo_source = _photo_source(data)
+    if photo_source is not None:
+        name, kinds = _PHOTO_SOURCE_LINE.get(lang) or _PHOTO_SOURCE_LINE["uz"]
+        lines.append(f"{name}: <b>{esc(kinds[photo_source])}</b>")
     text_anim = _text_anim_choice(data)
     if text_anim is not None:
         lines.append(_text_anim_label(lang, text_anim))
@@ -1079,7 +1116,7 @@ def _summary(data: dict, lang: str):
             lines.append(f"<i>{esc(anim_note(lang), 400)}</i>")
     lines += [f"📊 {slides_l}: <b>{slide_count}</b>",
               f"💰 {price_l}: <b>{price:,} {cur}</b>", "", ask]
-    return "\n".join(lines), _confirm_keyboard(lang, language, text_anim)
+    return "\n".join(lines), _confirm_keyboard(lang, language, text_anim, photo_source)
 
 
 def _text_anim_choice(data: dict):
@@ -1133,6 +1170,21 @@ async def premium_ppt_toggle_text_anim(callback: CallbackQuery, state: FSMContex
     if not data.get("text_anim_offer"):
         return
     await state.update_data(text_anim=not data.get("text_anim", True))
+    lang = await _lang_of(callback.from_user.id, db)
+    text, markup = _summary(await state.get_data(), lang)
+    with contextlib.suppress(Exception):
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=markup)
+
+
+@router.callback_query(F.data.startswith("prem_ppt_img:"), PremiumPresentationStates.waiting_for_slide_count)
+async def premium_ppt_photo_source(callback: CallbackQuery, state: FSMContext, db: Database):
+    """Xulosadagi rasm manbasi tugmalari: internetdan / AI chizadi / aralash."""
+    await callback.answer()
+    value = callback.data.split(":", 1)[1]
+    data = await state.get_data()
+    if value not in PHOTO_SOURCES or _photo_source(data) in (None, value):
+        return
+    await state.update_data(photo_source=value)
     lang = await _lang_of(callback.from_user.id, db)
     text, markup = _summary(await state.get_data(), lang)
     with contextlib.suppress(Exception):
@@ -1596,6 +1648,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
                 topic, slide_count, language=presentation_language, level=level,
                 preferences=preferences, source_text=source_text, author=client_name,
                 style=data.get("style", ""), volume=data.get("volume", "kop"),
+                photo_source=_photo_source(data) or "mix",
                 progress_cb=progress_cb, stage_cb=on_stage)
             html_pages = [None] * ready_slides
             if _text_anim_choice(data):

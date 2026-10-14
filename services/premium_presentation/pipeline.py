@@ -64,6 +64,7 @@ async def run_step(loop, func, *, step: str, label: str):
 async def build_deck(topic: str, slide_count: int, *, language: str = "uz", level: int = 2,
                      preferences: str = "", source_text: str = "", author: str = "",
                      theme_key: str = "", style: str = "", volume: str = "kop", photos: bool = True,
+                     photo_source: str = "mix",
                      progress_cb: Optional[Callable[[int, int], None]] = None,
                      stage_cb: Optional[Callable[[str, dict], None]] = None,
                      deck_out: Optional[dict] = None) -> Tuple[str, int, int]:
@@ -78,6 +79,7 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
     sahifa suratlari papkasi (`shots_dir`, agar berilgan bo'lsa) yoziladi — taqdimotni saytda
     varaqlash va bitta sahifani qayta yozish uchun.
 
+    `photo_source` — rasm manbasi (mijoz tanlovi): "web" (faqat internet), "ai" (faqat AI), "mix" (sukut).
     `photos=False` (bepul sinov): rasm chizdirilmaydi — rasm o'rnida qo'shimcha matn qoladi, muqova rasmsiz.
     `volume` — matn hajmi (`VOLUMES`); `theme_key` faqat saqlangan taqdimotni qayta yig'ish uchun (bo'sh —
     rang mavzuga qarab).
@@ -89,11 +91,13 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
     with prompts.use(language), deck_memory.session():
         return await _build_deck(topic, slide_count, language=language, level=level, preferences=preferences,
                                  source_text=source_text, author=author, theme_key=theme_key, style=style,
-                                 volume=volume if volume in VOLUMES else "kop", photos=photos, progress_cb=progress_cb, stage_cb=stage_cb, deck_out=deck_out)
+                                 volume=volume if volume in VOLUMES else "kop", photos=photos, photo_source=photo_source,
+                                 progress_cb=progress_cb, stage_cb=stage_cb, deck_out=deck_out)
 
 
 async def _build_deck(topic, slide_count, *, language, level, preferences, source_text, author, theme_key,
-                      style, volume, photos, progress_cb, stage_cb, deck_out) -> Tuple[str, int, int]:
+                      style, volume, photos, progress_cb, stage_cb, deck_out,
+                      photo_source="mix") -> Tuple[str, int, int]:
     from services.premium_presentation import html_images, html_render, html_slides, themes
 
     loop = asyncio.get_running_loop()
@@ -122,12 +126,12 @@ async def _build_deck(topic, slide_count, *, language, level, preferences, sourc
     if photos:
         try:
             pages, placed = await html_images.fill_photos(pages, limit=html_images.photo_limit(slide_count, volume),
-                                                            topic=topic,
+                                                            topic=topic, source=photo_source,
                                                             formulas=outline_out.get("family") in ("aniq", "hisob"))
         except Exception as exc:
             log.warning("Rasmlar qo'yilmadi: %s", exc)
         try:
-            pages, cover_done = await html_images.fill_cover(pages, topic)
+            pages, cover_done = await html_images.fill_cover(pages, topic, source=photo_source)
             placed += 1 if cover_done else 0
         except Exception as exc:
             log.warning("Muqova rasmi qo'yilmadi: %s", exc)
