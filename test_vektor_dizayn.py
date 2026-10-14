@@ -210,5 +210,33 @@ print("6) Eski 'fon rasm + oq karta' modelga taklif qilinmaydi")
 check("rasm_fon katalogda yo'q", "[rasm_fon]" not in deck_compose.catalogue("uz"))
 check("rasmli kompozitsiyalar: chap, o'ng, tepa", deck_compose.PHOTO_LAYOUTS == ("rasm_chap", "rasm_ong", "rasm_tepa"))
 
+print("7) Ba'zi infografik varaqlarda xira fon rasmi")
+import base64 as _b64
+photo_page = ('<html><body><section class="slide"><img class="photo" src="data:image/jpeg;base64,'
+              + _b64.b64encode(jpeg()).decode() + '"></section></body></html>')
+d = Designer(theme, "Turizm", seed=7, pages=[photo_page, "<html></html>", photo_page])
+check("taqdimotdagi rasmlar fon to'plamiga olindi", len(d.backdrops) == 2, len(d.backdrops))
+got = [d._backdrop("group", i) for i in range(40)]
+share = sum(1 for g in got if g is not None) / len(got)
+check("infografik varaqlarning bir qismida (taxminan yarmida) fon bor", 0.25 <= share <= 0.75, share)
+check("muqova va rasmli varaqda fon yo'q", d._backdrop("cover", 1) is None and d._backdrop("photo", 1) is None)
+again = Designer(theme, "Turizm", seed=7, pages=[photo_page])
+check("qaror urug' va sahifa raqamiga bog'liq (qayta yig'ilganda o'zgarmaydi)",
+      [g is not None for g in got[:10]] == [again._backdrop("group", i) is not None for i in range(10)])
+check("to'q fonli uslubda fon rasmi yo'q", all(d._backdrop("group", i, light=False) is None for i in range(20)))
+check("och fonli uslublar ro'yxati to'g'ri", styles.LIGHT <= set(styles.BY_NAME) and "arcs" not in styles.LIGHT
+      and "swirl" not in styles.LIGHT)
+check("rasmsiz taqdimotda fon yo'q", Designer(theme, "Turizm", seed=7, pages=["<html></html>"])._backdrop("group", 0) is None)
+for g in got:
+    if g is not None:
+        g.cleanup()
+prs = deck()
+slide = prs.slides.add_slide(prs.slide_layouts[6])
+pic = kit.Photo.soft(jpeg())
+styles.BY_NAME["cards"].draw(styles.Ctx(slide=slide, pal=styles.Palette.of(theme), rng=__import__("random").Random(1),
+                                        topic_icon="globe", backdrop=pic), {"title": "S", "lead": "", "items": items(4)})
+check("fonli varaqda birinchi shakl — rasm", slide.shapes[0].shape_type == 13, slide.shapes[0].shape_type)
+pic.cleanup()
+
 print("\nNATIJA:", "HAMMASI O'TDI" if not FAILS else f"{len(FAILS)} ta xato: {FAILS}")
 sys.exit(1 if FAILS else 0)

@@ -17,7 +17,7 @@ Qanday ishlaydi:
 """
 import logging
 import random
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from . import families, kit, parse, styles
 
@@ -29,10 +29,14 @@ OLD_WEIGHT = {"cover": 0.0, "plan": 0.0, "photo": 1.2, "group": 2.5, "sequence":
               "compare": 0.6, "finale": 0.5}
 # Muqovadagi va rejadagi yangi uslublar har doim ishlatiladi (birinchi to'rt uslub — faqat shular uchun).
 OLD = "html"
+# Infografik varaqlarning qancha qismi fonida taqdimotdagi rasmlardan biri xira turadi.
+BACKDROP_SHARE = 0.5
+BACKDROP_KINDS = ("group", "sequence", "numbers", "compare", "finale")
 
 
 class Designer:
-    def __init__(self, theme, topic: str = "", seed: Optional[int] = None, family: str = ""):
+    def __init__(self, theme, topic: str = "", seed: Optional[int] = None, family: str = "",
+                 pages: Optional[List[str]] = None):
         self.theme = theme
         self.topic = topic or ""
         self.family = family or ""
@@ -47,6 +51,12 @@ class Designer:
         self.used_icons: set = set()
         self.topic_icon = self._topic_icon()
         self.chosen: list = []
+        # Fon uchun rasmlar: taqdimotdagi muqova va rasmli varaqlar rasmlari (qo'shimcha so'rov yo'q).
+        self.backdrops: List[bytes] = []
+        for page in pages or []:
+            raw = parse.page_photo(page)
+            if raw:
+                self.backdrops.append(raw)
 
     def _topic_icon(self) -> str:
         try:
@@ -117,8 +127,9 @@ class Designer:
             return False
         spec["photo_obj"] = photo
         slide = presentation.slides.add_slide(presentation.slide_layouts[6])
+        backdrop = self._backdrop(spec["kind"], index, name in styles.LIGHT)
         ctx = styles.Ctx(slide=slide, pal=self.pal, rng=self.rng, used_icons=self.used_icons, photo=photo,
-                         cover=self.cover, topic_icon=self.topic_icon)
+                         cover=self.cover, topic_icon=self.topic_icon, backdrop=backdrop)
         try:
             styles.BY_NAME[name].draw(ctx, spec)
         except Exception as exc:
@@ -128,8 +139,26 @@ class Designer:
         finally:
             if photo is not None and photo is not self.cover:
                 photo.cleanup()
+            if backdrop is not None:
+                backdrop.cleanup()
         log.info("%d-sahifa: %s uslubi", index + 1, name)
         return True
+
+    def _backdrop(self, kind: str, index: int, light: bool = True) -> Optional[kit.Photo]:
+        """Och fonli infografik varaqning yarmiga yaqinida fon — taqdimotdagi rasmlardan biri, xiralashtirilgan.
+
+        Qaror sahifa raqami va urug'dan chiqadi (asosiy tasodif ketma-ketligiga tegmaydi): sahifa
+        saytda qayta yig'ilganda ham fon o'sha-o'sha bo'ladi. Rasmlar navbat bilan almashadi.
+        """
+        if kind not in BACKDROP_KINDS or not self.backdrops or not light:
+            return None
+        if random.Random(self.seed * 1009 + index).random() >= BACKDROP_SHARE:
+            return None
+        try:
+            return kit.Photo.soft(self.backdrops[index % len(self.backdrops)])
+        except Exception as exc:
+            log.warning("%d-sahifa fon rasmi tayyorlanmadi: %s", index + 1, exc)
+            return None
 
     def close(self) -> None:
         if self.cover is not None:

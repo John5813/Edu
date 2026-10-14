@@ -48,6 +48,12 @@ def _photo(root) -> Optional[bytes]:
     return None
 
 
+def page_photo(page: str) -> Optional[bytes]:
+    """Sahifadagi rasm (bo'lsa) — fon rasmlari to'plami uchun."""
+    section = _section(page)
+    return _photo(section) if section is not None else None
+
+
 def _section(page: str):
     try:
         doc = lxml_html.fromstring(page)
