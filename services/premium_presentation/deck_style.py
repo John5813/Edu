@@ -156,6 +156,7 @@ background:linear-gradient(150deg,#ACCENT 0%,#BAND 100%);min-height:420px}
 .rasm.photo-in{padding:0;border:0;background:none;overflow:hidden}
 .rasm .photo{width:100%;height:100%;min-height:420px;object-fit:cover;
 border-radius:18px;display:block}
+.rasm .photo.fit{object-fit:contain;background:#FFFFFF}
 .slide.dark .rasm{background:#BANDCARD}
 .slide.dark .rasm-matn{color:#FFFFFF}
 .split.wide-right{grid-template-columns:1fr 1.25fr}

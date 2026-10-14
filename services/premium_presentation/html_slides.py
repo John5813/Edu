@@ -392,6 +392,15 @@ _EXERCISE_WORDS = re.compile(r"masala|mashq|misol|amaliy|test|exercise|problem|e
 
 
 _EXERCISE_BRIEF = "Shu mavzuda bitta masala: shart, qadamma-qadam yechim va javob (misol bloki)."
+# "Mashhur matematiklar fikri" — model Chebishev va Dekart nomidan gap to'qirdi.
+_FAKE_STATS_TITLE = re.compile(r"\b20\d\d\b|prognoz|kelajak|fikr|iqtibos|so'zlari|прогноз|будущ|цитат|высказыван|"
+                               r"forecast|future|quote", re.IGNORECASE)
+_LAW_WORDS = re.compile(r"teorem|formula|qonun|tenglama|theorem|law|теорем|закон|формул", re.IGNORECASE)
+_TITLE_TAG = re.compile(r'(<h[12][^>]*class="title[^"]*"[^>]*>)(.*?)(</h[12]>)', re.DOTALL)
+
+
+def _retitle(body: str, title: str) -> str:
+    return _TITLE_TAG.sub(lambda m: m.group(1) + _escape(title) + m.group(3), body, count=1)
 
 
 def exact_rules(outline: List[Dict], family: str, topic: str = "") -> List[Dict]:
@@ -406,6 +415,24 @@ def exact_rules(outline: List[Dict], family: str, topic: str = "") -> List[Dict]
             item["title"] = f"Masala {extra}"
             item["brief"] = f"«{topic}» bo'yicha yana bir masala (oldingilardan farqli). " + _EXERCISE_BRIEF
             log.info("%d-slayd (aniq fan): to'ldiruvchi slayd — qo'shimcha masala", index + 1)
+    # Iqtibos: model "Fransua Viet" nomidan o'ylab topilgan gap yozardi ("Har bir narsaning o'z vaqti bor").
+    # Aniq fanda iqtibos o'rniga teorema/qonun — formula, boshqasi — kartochkalar.
+    for index, item in enumerate(outline):
+        if 1 < index < len(outline) - 1 and item["category"] == "iqtibos":
+            item["category"] = "formula" if _LAW_WORDS.search(str(item.get("title") or "")) else "kartalar"
+            log.info("%d-slayd (aniq fan): iqtibos o'rniga %s", index + 1, item["category"])
+    applied = 0
+    # To'qima statistika: "Qo'llanilish sohalari (2026)" — 85% muhandislik..., "Kelajak prognozi (2026-2028)".
+    # Matematikada bunday raqamlar o'ylab topiladi — o'rniga hayotiy amaliy masala.
+    for index, item in enumerate(outline):
+        if 1 < index < len(outline) - 1 and item["category"] not in ("misol", "formula") and (
+                item["category"] == "korsatkichlar" or _FAKE_STATS_TITLE.search(str(item.get("title") or ""))):
+            applied += 1
+            item["category"] = "misol"
+            item["title"] = f"Amaliy masala {applied}"
+            item["brief"] = (f"«{topic}» ning hayotda qo'llanishiga oid amaliy masala (fizika, geometriya yoki "
+                             "iqtisoddan). Foiz va statistika O'YLAB TOPILMASIN. " + _EXERCISE_BRIEF)
+            log.info("%d-slayd (aniq fan): ko'rsatkich/prognoz o'rniga amaliy masala", index + 1)
     # Masala/mashq slaydi — ishlangan misol bilan (ilgari "Testlar va mashqlar" kartalarda masalasiz qolardi).
     for index, item in enumerate(outline):
         if 1 < index < len(outline) - 1 and item["category"] not in ("misol", "diagramma") \
@@ -1096,13 +1123,32 @@ def repair_deck(slides: List[str], ctx: "_Deck") -> List[str]:
             lambda body: not deck_logic.is_plan_title(deck_logic.title_of(body)))
 
     # 2) Takrorlangan slaydlar
+    exercises = 0
     for later, earlier in sorted(deck_logic.duplicates(result).items()):
         before = deck_logic.title_of(result[earlier])
-        fix(later,
-            prompts.fill(prompts.get(ctx.language).REPAIR["duplicate"], n=earlier + 1, title=before, brief=own_brief(later)),
-            lambda body, e=earlier: not (
-                deck_logic.similar_titles(deck_logic.title_of(body), deck_logic.title_of(result[e]))
-                or deck_logic.same_content(body, result[e])))
+        if fix(later,
+               prompts.fill(prompts.get(ctx.language).REPAIR["duplicate"], n=earlier + 1, title=before, brief=own_brief(later)),
+               lambda body, e=earlier: not (
+                   deck_logic.similar_titles(deck_logic.title_of(body), deck_logic.title_of(result[e]))
+                   or deck_logic.same_content(body, result[e]) or deck_logic.same_task(body, result[e]))):
+            continue
+        # Aniq fanda rejaning o'zi mavzuni ikki marta bergan bo'lsa ("Diskriminant yordamida yechish" va
+        # "Diskriminant formulasi"), qayta yozish yana o'sha matnni berardi. Takror o'rniga — shu mavzuda masala.
+        if ctx.family == "aniq" and fixes < MAX_FIXES:
+            fixes += 1
+            fresh = _rewrite_slide(result, later, f"«{before}» mavzusi {earlier + 1}-slaydda yoritilgan. Bu slaydda "
+                                   f"uni TAKRORLAMANG — shu mavzu bo'yicha bitta masala yeching (boshqa slaydlardagi "
+                                   f"masalalardan BOSHQA sonlar bilan). " + _EXERCISE_BRIEF + " "
+                                   + _REQUIRED_BLOCK["misol"][1], ctx)
+            if fresh and not _missing_block(fresh, {"category": "misol"}) and not any(
+                    deck_logic.same_content(fresh, other) or deck_logic.same_task(fresh, other)
+                    for i, other in enumerate(result) if i != later):
+                exercises += 1
+                if deck_logic.similar_titles(deck_logic.title_of(fresh), before) and not _EXERCISE_WORDS.search(before):
+                    fresh = _retitle(fresh, f"Masala: {before}" if len(before) < 50 else f"Masala {exercises}")
+                result[later] = fresh
+                deck_memory.update(later + 1, fresh)
+                log.info("%d-slayd takror edi — masala bilan almashtirildi", later + 1)
 
     # 3) Zich jadval
     for index in range(2, last):

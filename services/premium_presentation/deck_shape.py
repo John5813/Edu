@@ -222,6 +222,10 @@ def of(topic: str, hint: Optional[str] = None) -> str:
     if is_calculation(topic):
         return "hisob"
     guess = str(hint or "").strip().lower()
+    # Matematika/fizika mavzusini model "umumiy" yoki "hisob" deb ham belgilardi — unda masala va formula
+    # qoidalari ishlamay, "(2026) prognoz" kabi to'qima raqamli slaydlar chiqardi. "Tarix" kabi taxmin o'z holicha.
+    if guess in ("", "umumiy", "hisob") and _EXACT.search(topic or ""):
+        return "aniq"
     if guess in _FAMILIES and guess != "umumiy":
         return guess
     if guess in _BY_SUBJECT:

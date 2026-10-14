@@ -81,7 +81,11 @@ _SUB = {
 
 _MATH = re.compile(r"\$\$(.+?)\$\$|\$([^$]+)\$|\\\((.+?)\\\)|\\\[(.+?)\\\]",
                    re.DOTALL)
-_TAGS = re.compile(r"(<[^>]+>)")
+# Faqat haqiqiy teg: "<" dan keyin harf, "/" yoki "!". Matndagi "D < 0" teg
+# emas — ilgari "< 0$ bo'lsa ... </p" teg deb o'qilib, "$D < 0$" xom qolardi.
+_TAGS = re.compile(r"(<[A-Za-z/!][^>]*>)")
+# `$` siz yozilgan daraja: "b^2", "x^{n-1}" → b², xⁿ⁻¹.
+_BARE_POWER = re.compile(r"(?<=[\w)\]])\^(\{[^{}<>$]{1,12}\}|[0-9]{1,3}|[a-z](?![a-z]))")
 _COMMAND = re.compile(r"\\([a-zA-Z]+)")
 
 # Harf ustidagi belgi: \bar{x} → x̄ (o'rtacha), \hat{y} → ŷ (baho).
@@ -311,6 +315,9 @@ def render(html_body: str) -> str:
             # Chegarasiz yozilgan buyruqlar ham tuzatiladi.
             if "\\" in parts[index]:
                 parts[index] = formula(parts[index])
+        if "^" in parts[index]:
+            parts[index] = _BARE_POWER.sub(
+                lambda m: _scripted("^", m.group(1).strip("{}")), parts[index])
     return "".join(parts)
 
 
