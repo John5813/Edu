@@ -2295,7 +2295,8 @@ async def _feature_keyboard(db):
     return _kb(startup, mahsus, receipt_ai, await db.get_feature_status(reengage.FEATURE),
                await db.get_feature_status(reengage.FEATURE_OLD),
                await db.get_feature_status(THANKS_ANIM, default=False),
-               await db.get_feature_status(TEXT_ANIM, default=False))
+               await db.get_feature_status(TEXT_ANIM, default=False),
+               await db.get_feature_status(reengage.FEATURE_WEEKLY))
 
 _FEATURES_TITLE = (
     "🎛 Funksiyalar boshqaruvi\n\n"
@@ -2324,14 +2325,16 @@ async def toggle_startup_bonus(callback: CallbackQuery, db: Database):
     await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
 
 @router.callback_query(F.data.startswith(("toggle_reengage_on", "toggle_reengage_off",
-                                          "toggle_reengage_old_on", "toggle_reengage_old_off")))
+                                          "toggle_reengage_old_on", "toggle_reengage_old_off",
+                                          "toggle_reengage_weekly_on", "toggle_reengage_weekly_off")))
 async def toggle_reengage(callback: CallbackQuery, db: Database):
     """Qayta jalb xabarlari (hammasi) yoki faqat eski bazaga to'lqinni yoqish/o'chirish."""
     if not is_admin(callback.from_user.id):
         return
     name, action = callback.data[len("toggle_"):].rsplit("_", 1)
     await db.set_feature_status(name, action == "on")
-    label = "Eski bazaga xabarlar" if name == reengage.FEATURE_OLD else "Qayta jalb xabarlari"
+    label = {reengage.FEATURE_OLD: "Eski bazaga xabarlar",
+             reengage.FEATURE_WEEKLY: "Juma bonusi"}.get(name, "Qayta jalb xabarlari")
     await callback.answer(f"🔁 {label} {'yoqildi' if action == 'on' else 'ochirildi'}".replace("ochirildi", "o'chirildi"))
     kb = await _feature_keyboard(db)
     await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
@@ -2344,8 +2347,10 @@ async def handle_reengage_report(message: Message, db: Database):
         return
     on = await db.get_feature_status(reengage.FEATURE)
     old = await db.get_feature_status(reengage.FEATURE_OLD)
+    weekly = await db.get_feature_status(reengage.FEATURE_WEEKLY)
     head = (f"Holat: {'🟢 yoqilgan' if on else '🔴 ochirilgan'}; eski baza: "
             f"{'🟢 yoqilgan' if old else '🔴 ochirilgan'} (kuniga {reengage.OLD_DAILY} kishigacha)\n"
+            f"💎 Juma bonusi: {'🟢 yoqilgan' if weekly else '🔴 ochirilgan'} (yarmiga ertalab, yarmiga kechqurun)\n"
             "Yoqish/o'chirish — «🎛 Funksiyalar boshqaruvi».\n\n").replace("ochirilgan", "o'chirilgan")
     await message.answer(head + await reengage.report(), parse_mode="HTML")
 

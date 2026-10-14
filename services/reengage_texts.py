@@ -56,6 +56,7 @@ STEPS = {
                    "first presentation (5 slides) is our gift."),
             "kk": ("{name}, міне Edufayl-да жасалған презентациялардың бірі. Сіздікі де осындай болуы мүмкін — "
                    "алғашқы презентацияңыз (5 слайд) бізден сыйлық."),
+            "icon": "🖼",
             "buttons": [("gift", {"uz": "🎁 Sinab ko'rish", "ru": "🎁 Попробовать", "en": "🎁 Try it",
                                   "kk": "🎁 Байқап көру"}),
                         ("namunalar", {"uz": "📁 Namunalar", "ru": "📁 Образцы", "en": "📁 Samples",
@@ -73,6 +74,7 @@ STEPS = {
                    "ready as Word files in a few minutes too.\n\nStart with your gift: a 5-slide presentation for free."),
             "kk": ("{name}, Edufayl тек презентация емес: өзіндік жұмыс, реферат, курстық жұмыс пен тесттер де бірнеше "
                    "минутта Word файлында дайын болады.\n\nСыйлығыңыздан бастаңыз: 5 слайдты презентация тегін."),
+            "icon": "✨",
             "buttons": [("gift", {"uz": "🎁 Bepul taqdimot", "ru": "🎁 Бесплатная презентация",
                                   "en": "🎁 Free presentation", "kk": "🎁 Тегін презентация"}),
                         ("mustaqil", {"uz": "📝 Mustaqil ish", "ru": "📝 Самостоятельная работа",
@@ -91,6 +93,7 @@ STEPS = {
             "kk": ("{name}, достарыңызды Edufayl-ға шақырыңыз: әр жаңа досыңыз үшін шотыңызға <b>2 500 сум</b>, ол "
                    "алғашқы төлемін жасағанда тағы <b>1 000 сум</b> түседі. Осы ақшаға презентация мен өзіндік "
                    "жұмыстар дайындайсыз."),
+            "icon": "💰",
             "buttons": [("pul", {"uz": "💰 Pul ishlab topish", "ru": "💰 Заработать", "en": "💰 Earn money",
                                  "kk": "💰 Ақша табу"}),
                         ("gift", {"uz": "🎁 Bepul taqdimot", "ru": "🎁 Бесплатная презентация",
@@ -105,6 +108,7 @@ STEPS = {
                    "{date}). Type a topic — the presentation is ready in a few minutes."),
             "kk": ("{name}, соңғы еске салу: 5 слайдты тегін презентация сыйлығыңыз <b>48 сағаттан кейін</b> ({date} "
                    "дейін) жабылады. Тақырыпты жазыңыз — презентация бірнеше минутта дайын."),
+            "icon": "⏰",
             "buttons": [("gift", {"uz": "🎁 Sovg'ani olish", "ru": "🎁 Забрать подарок", "en": "🎁 Claim the gift",
                                   "kk": "🎁 Сыйлықты алу"})],
             "deadline": True,
@@ -121,6 +125,7 @@ STEPS = {
                    "independent work or essay is ready in a few minutes."),
             "kk": ("{name}, шотыңызда <b>{balance} сум</b> тұр, бірақ сіз оны әлі пайдаланбадыңыз. Презентация, "
                    "өзіндік жұмыс немесе реферат — бірнеше минутта дайын."),
+            "icon": "💳",
             "buttons": [("taqdimot", {"uz": "📊 Taqdimot", "ru": "📊 Презентация", "en": "📊 Presentation",
                                       "kk": "📊 Презентация"}),
                         ("mustaqil", {"uz": "📝 Mustaqil ish", "ru": "📝 Самостоятельная работа",
@@ -131,6 +136,7 @@ STEPS = {
             "ru": "{name}, {balance} сум ждут вас на счёте. Напишите тему — остальное сделает Edufayl.",
             "en": "{name}, {balance} soʻm is waiting on your balance. Type a topic — Edufayl does the rest.",
             "kk": "{name}, {balance} сум шотыңызда сізді күтуде. Тақырыпты жазыңыз — қалғанын Edufayl жасайды.",
+            "icon": "📚",
             "buttons": [("taqdimot", {"uz": "📊 Taqdimot", "ru": "📊 Презентация", "en": "📊 Presentation",
                                       "kk": "📊 Презентация"}),
                         ("referat", {"uz": "📄 Referat", "ru": "📄 Реферат", "en": "📄 Essay", "kk": "📄 Реферат"})],
@@ -144,6 +150,7 @@ STEPS = {
                    "tap whenever you need it."),
             "kk": ("{name}, еске саламыз: шотыңыздағы {balance} сум сақтаулы тұр. Қажет болғанда бір батырмамен "
                    "жұмыс тапсырыс беріңіз."),
+            "icon": "🔔",
             "buttons": [("hisob", {"uz": "👤 Hisobim", "ru": "👤 Мой счёт", "en": "👤 My account",
                                    "kk": "👤 Менің шотым"}),
                         ("taqdimot", {"uz": "📊 Taqdimot", "ru": "📊 Презентация", "en": "📊 Presentation",
@@ -154,15 +161,20 @@ STEPS = {
     "trial": [
         {
             "uz": ("{name}, bepul taqdimotingiz yoqdimi? To'liq taqdimotda rasmlar, diagrammalar va istalgan slayd "
-                   "soni bor.\n\n🎁 Siz uchun: birinchi to'lovingizga <b>+{bonus}% bonus</b> — {date} gacha."),
+                   "soni bor.\n\n🎁 Siz uchun: birinchi to'lovingizga <b>+{bonus}% bonus</b> — {date} gacha. Bonus pastdagi "
+                   "«🎁 +20% bonus» tugmasi orqali to'ldirilganda qo'shiladi."),
             "ru": ("{name}, понравилась бесплатная презентация? В полной версии — изображения, диаграммы и любое "
-                   "число слайдов.\n\n🎁 Для вас: <b>+{bonus}% бонус</b> к первому пополнению — до {date}."),
+                   "число слайдов.\n\n🎁 Для вас: <b>+{bonus}% бонус</b> к первому пополнению — до {date}. Бонус начисляется при "
+                   "пополнении через кнопку «🎁 +20% бонус»."),
             "en": ("{name}, did you like your free presentation? The full version has images, charts and any number "
-                   "of slides.\n\n🎁 For you: <b>+{bonus}% bonus</b> on your first top-up — until {date}."),
+                   "of slides.\n\n🎁 For you: <b>+{bonus}% bonus</b> on your first top-up — until {date}. Use the «🎁 +20% bonus» "
+                   "button below to get it."),
             "kk": ("{name}, тегін презентацияңыз ұнады ма? Толық нұсқада суреттер, диаграммалар және кез келген "
-                   "слайд саны бар.\n\n🎁 Сіз үшін: алғашқы төлеміңізге <b>+{bonus}% бонус</b> — {date} дейін."),
-            "buttons": [("tolov", {"uz": "💳 Hisobni to'ldirish", "ru": "💳 Пополнить счёт", "en": "💳 Top up",
-                                   "kk": "💳 Шотты толтыру"}),
+                   "слайд саны бар.\n\n🎁 Сіз үшін: алғашқы төлеміңізге <b>+{bonus}% бонус</b> — {date} дейін. "
+                   "Бонус «🎁 +20% бонус» батырмасы арқылы толтырғанда қосылады."),
+            "icon": "🎉",
+            "buttons": [("bonus", {"uz": "🎁 +20% bonus bilan to'ldirish", "ru": "🎁 Пополнить с бонусом +20%",
+                                   "en": "🎁 Top up with +20% bonus", "kk": "🎁 +20% бонуспен толтыру"}),
                         ("taqdimot", {"uz": "📊 To'liq taqdimot", "ru": "📊 Полная презентация",
                                       "en": "📊 Full presentation", "kk": "📊 Толық презентация"})],
             "bonus": True,
@@ -176,17 +188,19 @@ STEPS = {
                    "on your balance."),
             "kk": ("{name}, +{bonus}% бонус әлі күшінде ({date} дейін): мысалы, 20 000 сум төлесеңіз, шотыңызға "
                    "24 000 сум түседі."),
-            "buttons": [("tolov", {"uz": "💳 Hisobni to'ldirish", "ru": "💳 Пополнить счёт", "en": "💳 Top up",
-                                   "kk": "💳 Шотты толтыру"})],
+            "icon": "🔥",
+            "buttons": [("bonus", {"uz": "🎁 +20% bonus bilan to'ldirish", "ru": "🎁 Пополнить с бонусом +20%",
+                                   "en": "🎁 Top up with +20% bonus", "kk": "🎁 +20% бонуспен толтыру"})],
         },
         {
-            "uz": ("{name}, +{bonus}% bonus muddati {date} da tugaydi. Hisobni to'ldiring — bonus avtomatik "
-                   "qo'shiladi."),
-            "ru": "{name}, срок бонуса +{bonus}% истекает {date}. Пополните счёт — бонус начислится автоматически.",
-            "en": "{name}, the +{bonus}% bonus ends on {date}. Top up — the bonus is added automatically.",
-            "kk": "{name}, +{bonus}% бонус мерзімі {date} аяқталады. Шотты толтырыңыз — бонус автоматты қосылады.",
-            "buttons": [("tolov", {"uz": "💳 Hisobni to'ldirish", "ru": "💳 Пополнить счёт", "en": "💳 Top up",
-                                   "kk": "💳 Шотты толтыру"}),
+            "uz": ("{name}, +{bonus}% bonus muddati {date} da tugaydi. Pastdagi «🎁 +20% bonus» tugmasi orqali "
+                   "to'ldiring — to'lov tasdiqlangach bonus qo'shiladi."),
+            "ru": "{name}, срок бонуса +{bonus}% истекает {date}. Пополните через кнопку «🎁 +20% бонус» — бонус начислится после подтверждения.",
+            "en": "{name}, the +{bonus}% bonus ends on {date}. Top up via the «🎁 +20% bonus» button — it's added once the payment is confirmed.",
+            "kk": "{name}, +{bonus}% бонус мерзімі {date} аяқталады. «🎁 +20% бонус» батырмасы арқылы толтырыңыз — төлем расталғанда бонус қосылады.",
+            "icon": "⏳",
+            "buttons": [("bonus", {"uz": "🎁 +20% bonus bilan to'ldirish", "ru": "🎁 Пополнить с бонусом +20%",
+                                   "en": "🎁 Top up with +20% bonus", "kk": "🎁 +20% бонуспен толтыру"}),
                         ("taqdimot", {"uz": "📊 Taqdimot", "ru": "📊 Презентация", "en": "📊 Presentation",
                                       "kk": "📊 Презентация"})],
         },
@@ -202,6 +216,7 @@ STEPS = {
                    "ready in a few minutes."),
             "kk": ("{name}, Edufayl сізді күтуде! Презентация, өзіндік жұмыс немесе реферат керек болса — бәрі "
                    "бірнеше минутта дайын."),
+            "icon": "👋",
             "buttons": [("taqdimot", {"uz": "📊 Taqdimot", "ru": "📊 Презентация", "en": "📊 Presentation",
                                       "kk": "📊 Презентация"}),
                         ("mustaqil", {"uz": "📝 Mustaqil ish", "ru": "📝 Самостоятельная работа",
@@ -216,11 +231,64 @@ STEPS = {
                    "handle your next paper."),
             "kk": ("{name}, Edufayl-дағы жаңалықтар: мәтіні көп немесе аз презентациялар, суреттер мен "
                    "диаграммалармен. Келесі жұмысыңызды бізге тапсырыңыз."),
+            "icon": "🆕",
             "buttons": [("taqdimot", {"uz": "📊 Taqdimot", "ru": "📊 Презентация", "en": "📊 Presentation",
                                       "kk": "📊 Презентация"}),
                         ("referat", {"uz": "📄 Referat", "ru": "📄 Реферат", "en": "📄 Essay", "kk": "📄 Реферат"})],
         },
     ],
+}
+
+# Har juma hammaga: hisobni to'ldirsa +25% / +30% (services.reengage.WEEKLY_TIERS). {date} — yakshanba 23:59.
+STEPS["weekly"] = [
+    {
+        "uz": ("💎 {hello}\n\n<b>Juma bonusi!</b> Hisobingizni to'ldiring — biz ustiga qo'shib beramiz:\n\n"
+               "💰 20 000 so'mdan — <b>+25%</b>\n🔥 30 000 so'm va undan ko'p — <b>+30%</b>\n\n"
+               "Masalan: 30 000 so'm to'lasangiz, hisobingizga <b>39 000 so'm</b> tushadi.\n"
+               "⏳ {date} gacha. Bonus pastdagi «💎 Bonus bilan to'ldirish» tugmasi orqali to'ldirilganda qo'shiladi."),
+        "ru": ("💎 {hello}\n\n<b>Бонус пятницы!</b> Пополните счёт — мы добавим сверху:\n\n"
+               "💰 от 20 000 сум — <b>+25%</b>\n🔥 от 30 000 сум — <b>+30%</b>\n\n"
+               "Например: пополните на 30 000 сум — на счёт поступит <b>39 000 сум</b>.\n"
+               "⏳ До {date}. Бонус начисляется при пополнении через кнопку «💎 Пополнить с бонусом»."),
+        "en": ("💎 {hello}\n\n<b>Friday bonus!</b> Top up your balance — we add extra on top:\n\n"
+               "💰 from 20,000 soʻm — <b>+25%</b>\n🔥 from 30,000 soʻm — <b>+30%</b>\n\n"
+               "Example: top up 30,000 soʻm and get <b>39,000 soʻm</b> on your balance.\n"
+               "⏳ Until {date}. The bonus applies when you top up via the «💎 Top up with bonus» button."),
+        "kk": ("💎 {hello}\n\n<b>Жұма бонусы!</b> Шотыңызды толтырыңыз — біз үстіне қосамыз:\n\n"
+               "💰 20 000 сумнан — <b>+25%</b>\n🔥 30 000 сум және одан көп — <b>+30%</b>\n\n"
+               "Мысалы: 30 000 сум төлесеңіз, шотыңызға <b>39 000 сум</b> түседі.\n"
+               "⏳ {date} дейін. Бонус «💎 Бонуспен толтыру» батырмасы арқылы толтырғанда қосылады."),
+        "buttons": [("bonus", {"uz": "💎 Bonus bilan to'ldirish", "ru": "💎 Пополнить с бонусом",
+                               "en": "💎 Top up with bonus", "kk": "💎 Бонуспен толтыру"}),
+                    ("taqdimot", {"uz": "📊 Taqdimot tayyorlash", "ru": "📊 Сделать презентацию",
+                                  "en": "📊 Make a presentation", "kk": "📊 Презентация жасау"})],
+    },
+]
+
+# Bonus tugmasi bosilganda (taklif faollashdi yoki tugagan).
+BONUS_ARMED = {
+    "trial": {
+        "uz": "✅ <b>+{bonus}% bonus faollashdi</b> ({date} gacha). Hisobni to'ldiring — to'lov tasdiqlangach bonus qo'shiladi.",
+        "ru": "✅ <b>Бонус +{bonus}% активирован</b> (до {date}). Пополните счёт — бонус начислится после подтверждения.",
+        "en": "✅ <b>+{bonus}% bonus activated</b> (until {date}). Top up — it's added once the payment is confirmed.",
+        "kk": "✅ <b>+{bonus}% бонус іске қосылды</b> ({date} дейін). Шотты толтырыңыз — төлем расталғанда қосылады.",
+    },
+    "weekly": {
+        "uz": ("✅ <b>Juma bonusi faollashdi</b> ({date} gacha): 20 000 so'mdan +25%, 30 000 so'mdan +30%. "
+               "Hisobni to'ldiring — to'lov tasdiqlangach bonus qo'shiladi."),
+        "ru": ("✅ <b>Бонус пятницы активирован</b> (до {date}): от 20 000 сум +25%, от 30 000 сум +30%. "
+               "Пополните счёт — бонус начислится после подтверждения."),
+        "en": ("✅ <b>Friday bonus activated</b> (until {date}): +25% from 20,000 soʻm, +30% from 30,000 soʻm. "
+               "Top up — it's added once the payment is confirmed."),
+        "kk": ("✅ <b>Жұма бонусы іске қосылды</b> ({date} дейін): 20 000 сумнан +25%, 30 000 сумнан +30%. "
+               "Шотты толтырыңыз — төлем расталғанда қосылады."),
+    },
+    "expired": {
+        "uz": "ℹ️ Bu bonus muddati tugagan yoki allaqachon ishlatilgan. Hisobni odatdagidek to'ldirishingiz mumkin.",
+        "ru": "ℹ️ Срок этого бонуса истёк или он уже использован. Пополнить счёт можно как обычно.",
+        "en": "ℹ️ This bonus has expired or was already used. You can still top up as usual.",
+        "kk": "ℹ️ Бұл бонустың мерзімі өтті немесе ол пайдаланылған. Шотты әдеттегідей толтыруға болады.",
+    },
 }
 
 # Sovg'a (bepul taqdimot) oqimi matnlari.
@@ -312,8 +380,8 @@ GIFT = {
 
 # Birinchi to'lovga qo'shilgan bonus haqida mijozga xabar.
 BONUS_PAID = {
-    "uz": "🎁 Birinchi to'lovingiz uchun bonus: +{amount} so'm hisobingizga qo'shildi.",
-    "ru": "🎁 Бонус за первое пополнение: +{amount} сум добавлено на ваш счёт.",
-    "en": "🎁 First top-up bonus: +{amount} soʻm added to your balance.",
-    "kk": "🎁 Алғашқы төлем бонусы: +{amount} сум шотыңызға қосылды.",
+    "uz": "🎁 Bonus: +{amount} so'm hisobingizga qo'shildi.",
+    "ru": "🎁 Бонус: +{amount} сум добавлено на ваш счёт.",
+    "en": "🎁 Bonus: +{amount} soʻm added to your balance.",
+    "kk": "🎁 Бонус: +{amount} сум шотыңызға қосылды.",
 }

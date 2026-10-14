@@ -97,7 +97,7 @@ check("ism faqat haqiqiy bo'lsa (emoji, raqam, «user» — ismsiz)", got == nam
 print("3) Matnlar: 4 tilda, har biri tugmali")
 problems = []
 for flow, key in R.STEPS.items():
-    for step in range(len(R.OFFSETS[flow])):
+    for step in range(len(T.STEPS[key])):
         for lang in T.LANGS:
             for name in ("Javlonbek", ""):
                 person = P(name=name, language=lang, balance=15000)
@@ -110,7 +110,7 @@ for flow, key in R.STEPS.items():
                     problems.append((flow, step, lang, "ism yo'q"))
                 if not name and (text.startswith(",") or ", ," in text):
                     problems.append((flow, step, lang, "ismsiz vergul", text[:40]))
-                if any(t != "gift" and t not in __import__("bot.ad_buttons", fromlist=["x"]).TARGETS for t, _ in buttons):
+                if any(t not in ("gift", "bonus") and t not in __import__("bot.ad_buttons", fromlist=["x"]).TARGETS for t, _ in buttons):
                     problems.append((flow, step, lang, "noma'lum tugma"))
 check("hamma xabar: o'rinlar to'ldirilgan, tugma bor, ism to'g'ri", not problems, problems[:5])
 text, buttons, extra = R.message_for("new", 4, P(name="Ali"), NOON)
@@ -151,6 +151,8 @@ def sql_time(epoch):
 
 async def setup():
     await init_db()
+    # Juma bonusi sana bo'yicha ishlaydi (test kuni juma bo'lishi mumkin) — alohida 6b) da sinanadi.
+    await Database().set_feature_status(R.FEATURE_WEEKLY, False)
     users = [  # tg, ism, yaratilgan, balans
         (101, "Javlonbek", NOON - 5 * H, 0),          # yangi, foydalanmagan
         (102, "user777", NOON - 200 * D, 0),          # eski baza, ismsiz
@@ -195,9 +197,10 @@ async def flow_tests():
           and all(c.startswith("nz:") for c in callbacks), callbacks)
     async with aiosqlite.connect(dbmod.DATABASE_FILE) as db:
         rows = await (await db.execute("SELECT telegram_id, flow, status FROM nudges ORDER BY telegram_id")).fetchall()
-        bonus = await (await db.execute("SELECT telegram_id, percent FROM reengage_bonus")).fetchall()
+        bonus = await (await db.execute("SELECT telegram_id, kind, armed_at FROM reengage_offers")).fetchall()
     check("bazaga yozildi (to'sgan — blocked)", (106, "old", "blocked") in rows and (101, "new", "sent") in rows, rows)
-    check("sinovdan keyingiga +20% bonus berildi", bonus == [(104, 20)], bonus)
+    check("sinovdan keyingiga +20% bonus taklifi berildi (tugma bosilmaguncha faol emas)",
+          bonus == [(104, "trial", None)], bonus)
 
     bot2 = Bot()
     with patch.object(R, "SEND_PAUSE", 0):
@@ -226,18 +229,68 @@ async def flow_tests():
         await conn.execute("INSERT INTO payments (user_id, amount, status) VALUES (?, 20000, 'approved')", (ids[104],))
         await conn.commit()
     notify = Bot()
+    check("tugma bosilmasa bonus yo'q", await R.on_payment_approved(notify, db, user, 20000) == 0 and not notify.sent)
+    armed = await R.arm_offer(104, "trial")
+    check("bonus tugmasi taklifni faollashtiradi", armed and armed[0] == "trial", armed)
     bonus = await R.on_payment_approved(notify, db, user, 20000)
     fresh = await db.get_user(104)
     check("20 000 so'm to'lovga +4 000 so'm, mijozga xabar", bonus == 4000 and fresh.balance == 4000
           and notify.sent and "4 000" in notify.sent[0][2], (bonus, fresh.balance, notify.sent))
     check("ikkinchi marta bonus yo'q", await R.on_payment_approved(notify, db, user, 20000) == 0)
     await R.grant_bonus(103, NOON, time.time() + D)
+    await R.arm_offer(103)
     async with aiosqlite.connect(dbmod.DATABASE_FILE) as conn:      # 103 ilgari ham to'lagan — bu ikkinchi to'lov
         await conn.execute("INSERT INTO payments (user_id, amount, status) VALUES (?, 10000, 'approved')", (ids[103],))
         await conn.commit()
     check("birinchi bo'lmagan to'lovga bonus yo'q", await R.take_bonus(103, ids[103], 10000) == 0)
     await R.grant_bonus(101, NOON - 10 * D, time.time() - 60)
-    check("muddati o'tgan bonus yo'q", await R.take_bonus(101, ids[101], 10000) == 0)
+    check("muddati o'tgan bonus faollashmaydi va berilmaydi", await R.arm_offer(101) is None
+          and await R.take_bonus(101, ids[101], 10000) == 0)
+
+    print("6b) Juma bonusi va yetib bormagan xabar")
+    check("foizlar: 15 000 → 0, 20 000 → 25%, 30 000 → 30%", (R.offer_percent("weekly", 15000),
+          R.offer_percent("weekly", 20000), R.offer_percent("weekly", 30000), R.offer_percent("weekly", 50000))
+          == (0, 25, 30, 30))
+    friday = NOON + ((R.WEEKLY_DAY - R.uzt(NOON).weekday()) % 7) * D        # juma 12:00
+    people = [P(tg=i) for i in range(1, 11)]
+    morning = R.weekly_plan(friday, people, {})
+    evening = R.weekly_plan(friday + 7 * H, people, {})
+    check("juma: yarmi ertalab, yarmi kechqurun, hech kim ikki marta emas",
+          len(morning) == 5 and len(evening) == 5
+          and not {d.person.telegram_id for d in morning} & {d.person.telegram_id for d in evening},
+          (len(morning), len(evening)))
+    check("boshqa kunlarda va tushda juma xabari yo'q", R.weekly_plan(friday + D, people, {}) == []
+          and R.weekly_plan(friday + 3 * H, people, {}) == [])
+    sent_before = {2: [row("weekly", 0, friday - H)]}
+    check("bugun olgan mijozga qayta yo'q", all(d.person.telegram_id != 2 for d in R.weekly_plan(friday, people, sent_before)))
+    failed = {4: [R.Row(1, 4, "new", 0, friday - 3 * D, "failed")]}
+    check("xabar yetib bormagan mijozga juma xabari ham yo'q",
+          all(d.person.telegram_id != 4 for d in R.weekly_plan(friday, people, failed)))
+    check("xabar yetib bormagan mijozga navbatdagi xabar yo'q", due(P(tg=4, created_at=friday - 5 * D), failed[4], now=friday) == [])
+    active = P(tg=4, created_at=friday - 5 * D, last_spend=friday - D)
+    check("u qayta faol bo'lsa — yana yuboriladi", any(d.person.telegram_id == 4 for d in R.weekly_plan(friday, [active], failed)))
+    until = R.weekly_until(friday)
+    check("juma bonusi yakshanba 23:59 gacha", R.uzt(until).weekday() == 6 and R.uzt(until).strftime("%H:%M") == "23:59",
+          R.uzt(until))
+    await R.grant_bonus(105, time.time(), time.time() + D, kind="weekly")
+    check("juma bonusi ham tugmasiz ishlamaydi", await R.take_bonus(105, ids[105], 30000) == 0)
+    await R.arm_offer(105, "weekly")
+    check("admin tasdiqlagan summa 15 000 — bonus yo'q (taklif saqlanadi)", await R.take_bonus(105, ids[105], 15000) == 0)
+    check("admin tasdiqlagan summa 30 000 — +9 000 (30%)", await R.take_bonus(105, ids[105], 30000) == 9000)
+    check("bir taklif bir marta", await R.take_bonus(105, ids[105], 30000) == 0)
+    await db.set_feature_status(R.FEATURE_WEEKLY, True)
+    weekly_bot = Bot()
+    with patch.object(R, "SEND_PAUSE", 0):
+        await R.tick(weekly_bot, now=friday - H)
+    weekly_sent = [(c, t) for c, _, t, _ in weekly_bot.sent if "Juma bonusi" in (t or "")]
+    check("tick: juma ertalab juft ID li mijozlarga juma xabari, tugmasi bilan",
+          weekly_sent and all(c % 2 == 0 for c, _ in weekly_sent)
+          and all(m and any(b.callback_data.endswith(":bonus") for r in m.inline_keyboard for b in r)
+                  for c, _, t, m in weekly_bot.sent if "Juma bonusi" in (t or "")), weekly_sent)
+    await db.set_feature_status(R.FEATURE_WEEKLY, False)
+    async with aiosqlite.connect(dbmod.DATABASE_FILE) as conn:      # keyingi testlar uchun tozalash
+        await conn.execute("DELETE FROM nudges WHERE flow = 'weekly'")
+        await conn.commit()
 
     print("7) Eski bazada to'sganlar ko'paysa ham to'xtamaydi, adminga ma'lumot")
     async with aiosqlite.connect(dbmod.DATABASE_FILE) as conn:
@@ -285,7 +338,7 @@ async def flow_tests():
         await conn.commit()
     text = await R.report(now=NOON + 6 * D)
     check("hisobotda guruhlar, bosilganlar va bonus", "Yangi, foydalanmagan" in text and "1-xabar" in text
-          and "bonus berildi: 1 ta, 4,000 so'm" in text, text)
+          and "+20% bonus: 1 ta, 4,000 so'm" in text and "Juma bonusi: 1 ta, 9,000 so'm" in text, text)
     return ids
 
 
@@ -347,6 +400,26 @@ async def handler_tests(ids):
                              from_user=SimpleNamespace(id=102), bot=MagicMock())
         await handler.nudge_button(cb, state, db, MagicMock())
     check("boshqa tugma botning bo'limini ochadi («Pul ishlab topish»)", opened == ["pul"], opened)
+
+    await R.grant_bonus(102, time.time(), time.time() + D, kind="weekly")
+    async with aiosqlite.connect(dbmod.DATABASE_FILE) as conn:
+        cur = await conn.execute("INSERT INTO nudges (telegram_id, flow, step, sent_at, status) VALUES (102, 'weekly', 0, ?, 'sent')",
+                                 (time.time(),))
+        weekly_row = cur.lastrowid
+        await conn.commit()
+    opened.clear(); said.clear()
+    with patch("bot.ad_buttons.open_section", AsyncMock(side_effect=lambda *a, **k: opened.append(a[3]))):
+        cb = SimpleNamespace(data=f"nz:{weekly_row}:bonus", answer=AsyncMock(), message=message,
+                             from_user=SimpleNamespace(id=102), bot=MagicMock())
+        await handler.nudge_button(cb, state, db, MagicMock())
+    async with aiosqlite.connect(dbmod.DATABASE_FILE) as conn:
+        armed = (await (await conn.execute("SELECT armed_at FROM reengage_offers WHERE telegram_id = 102 "
+                                           "AND kind = 'weekly'")).fetchone())[0]
+    check("bonus tugmasi: taklif faollashdi, mijozga aytildi, to'lov bo'limi ochildi",
+          armed is not None and opened == ["tolov"] and said and "faollashdi" in said[-1][0], (armed, opened, said[-1:]))
+    async with aiosqlite.connect(dbmod.DATABASE_FILE) as conn:
+        await conn.execute("DELETE FROM nudges WHERE id = ?", (weekly_row,))
+        await conn.commit()
 
     print("9b) Bot yangilansa (qayta ishga tushsa) tizim noldan boshlanmaydi")
     async with aiosqlite.connect(dbmod.DATABASE_FILE) as conn:
