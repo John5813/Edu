@@ -264,6 +264,31 @@ GIFT = {
         "kk": ("✅ Тегін презентацияңыз дайын!\n\nТолық заманауи презентацияда: <b>суреттер, диаграммалар, 5 стиль "
                "және кез келген слайд саны</b> (30-ға дейін). Келесі презентацияңызды осылай тапсырыс беріңіз:"),
     },
+    # Tekin taqdimot havolasi (Instagram avtojavobi va h.k.) orqali kelganlar uchun.
+    "link_offer": {
+        "uz": ("🎁 <b>Sizga sovg'a — 1 ta tekin taqdimot!</b>\n\nPastdagi tugmani bosing, mavzuni yozing va 5 slaydli "
+               "taqdimot bir necha daqiqada tayyor bo'ladi."),
+        "ru": ("🎁 <b>Вам подарок — 1 бесплатная презентация!</b>\n\nНажмите кнопку ниже, напишите тему, и "
+               "презентация на 5 слайдов будет готова за несколько минут."),
+        "en": ("🎁 <b>A gift for you — 1 free presentation!</b>\n\nTap the button below, type the topic and your "
+               "5-slide presentation will be ready in a few minutes."),
+        "kk": ("🎁 <b>Сізге сыйлық — 1 тегін презентация!</b>\n\nТөмендегі түймені басып, тақырыпты жазыңыз — "
+               "5 слайдты презентация бірнеше минутта дайын болады."),
+    },
+    "link_button": {"uz": "🎁 Tekin taqdimot olish", "ru": "🎁 Получить бесплатно", "en": "🎁 Get it free",
+                    "kk": "🎁 Тегін алу"},
+    "link_used": {
+        "uz": "Bu havola orqali tekin taqdimotni allaqachon olgansiz. Navbatdagisini buyurtma qiling:",
+        "ru": "Вы уже получили бесплатную презентацию по этой ссылке. Закажите следующую:",
+        "en": "You have already received the free presentation from this link. Order your next one:",
+        "kk": "Бұл сілтеме арқылы тегін презентацияны алғансыз. Келесісін тапсырыс беріңіз:",
+    },
+    "link_off": {
+        "uz": "Bu sovg'a havolasining muddati tugagan. To'liq taqdimot buyurtma qiling:",
+        "ru": "Срок действия этой подарочной ссылки истёк. Закажите полную презентацию:",
+        "en": "This gift link has expired. Order a full presentation:",
+        "kk": "Бұл сыйлық сілтемесінің мерзімі өтті. Толық презентация тапсырыс беріңіз:",
+    },
     "retry": {"uz": "🔄 Qayta urinish", "ru": "🔄 Попробовать снова", "en": "🔄 Try again", "kk": "🔄 Қайта көру"},
     "cancel": {"uz": "⬅️ Bekor qilish", "ru": "⬅️ Отмена", "en": "⬅️ Cancel", "kk": "⬅️ Болдырмау"},
     "full": {"uz": "📊 To'liq taqdimot", "ru": "📊 Полная презентация", "en": "📊 Full presentation",

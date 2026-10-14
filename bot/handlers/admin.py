@@ -2897,6 +2897,65 @@ async def mass_gift_start(callback: CallbackQuery, state: FSMContext):
     )
     await state.set_state(AdminStates.waiting_for_gift_amount)
 
+async def _gift_links_view(bot):
+    """«🔗 Tekin taqdimot havolalari» oynasi: faol havolalar, bosganlar va taqdimot olganlar soni."""
+    from database import gift_links
+
+    username = (await bot.get_me()).username
+    items = await gift_links.links()
+    lines = ["🔗 <b>Tekin taqdimot havolalari</b>",
+             "",
+             "Havolani Instagram avtojavobiga qo'ying. Uni bosgan har bir mijoz (yangi yoki bazada avvaldan "
+             "bo'lsa ham) shu havoladan <b>bir marta</b> 5 slaydli tekin taqdimot oladi."]
+    kb = InlineKeyboardBuilder()
+    if not items:
+        lines += ["", "Hozircha faol havola yo'q."]
+    for i, item in enumerate(items, 1):
+        created = datetime.fromtimestamp(item["created_at"]).strftime("%d.%m.%Y")
+        lines += ["", f"{i}. <code>{gift_links.url(username, item['code'])}</code>",
+                  f"   📅 {created} · 👆 bosganlar: {item['clicks']} · 🎁 olganlar: {item['delivered']}"]
+        kb.row(InlineKeyboardButton(text=f"⛔ {i}-havolani o'chirish", callback_data=f"giftlink_off:{item['code']}"))
+    kb.row(InlineKeyboardButton(text="➕ Yangi havola yaratish", callback_data="giftlink_new"))
+    kb.row(InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_features"))
+    return "\n".join(lines), kb.as_markup()
+
+
+@router.callback_query(F.data == "giftlinks")
+async def gift_links_menu(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        return
+    await callback.answer()
+    text, kb = await _gift_links_view(callback.bot)
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML", disable_web_page_preview=True)
+
+
+@router.callback_query(F.data == "giftlink_new")
+async def gift_link_new(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        return
+    from database import gift_links
+
+    code = await gift_links.create()
+    await callback.answer("✅ Yangi havola yaratildi")
+    text, kb = await _gift_links_view(callback.bot)
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML", disable_web_page_preview=True)
+    # Nusxa olish oson bo'lsin: havola alohida xabarda ham yuboriladi.
+    username = (await callback.bot.get_me()).username
+    await callback.message.answer(gift_links.url(username, code), disable_web_page_preview=True)
+
+
+@router.callback_query(F.data.startswith("giftlink_off:"))
+async def gift_link_off(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        return
+    from database import gift_links
+
+    await gift_links.deactivate(callback.data.split(":", 1)[1])
+    await callback.answer("⛔ Havola o'chirildi")
+    text, kb = await _gift_links_view(callback.bot)
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML", disable_web_page_preview=True)
+
+
 @router.callback_query(F.data == "back_to_features")
 async def back_to_features_handler(callback: CallbackQuery, db: Database):
     """Go back to feature management menu"""

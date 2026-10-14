@@ -47,6 +47,13 @@ async def start_command(message: Message, state: FSMContext, db: Database):
         except Exception as web_err:
             logger.warning("Sayt orqali kirishni tasdiqlab bo'lmadi: %s", web_err)
 
+    # Tekin taqdimot havolasi (Instagram avtojavobi): /start g_<kod> — menyudan keyin sovg'a tugmasi beriladi.
+    gift_code = None
+    if message.text and len(message.text.split()) > 1:
+        from database import gift_links
+
+        gift_code = gift_links.code_of(message.text.split()[1])
+
     # Saytdagi Google akkauntni shu Telegramga ulash: /start weblink_<token> (avval aniq tasdiq so'raladi)
     if message.text and len(message.text.split()) > 1 and message.text.split()[1].startswith("weblink_"):
         await _offer_web_link(message, message.text.split()[1][len("weblink_"):], user)
@@ -160,6 +167,14 @@ async def start_command(message: Message, state: FSMContext, db: Database):
             welcome = "👋 Қош келдіңіз! @Edufayl_bot — академиялық құжаттар жасау боты."
         await message.answer(welcome)
         await check_subscription_and_show_menu(message, user, db)
+
+    if gift_code:
+        try:
+            from bot.handlers.reengage import offer_link_gift
+
+            await offer_link_gift(message, db, gift_code)
+        except Exception as gift_err:
+            logger.warning("Tekin taqdimot havolasi ishlamadi (%s): %s", gift_code, gift_err)
 
 @router.callback_query(F.data.startswith("lang_"))
 async def language_selected(callback: CallbackQuery, state: FSMContext, db: Database):
