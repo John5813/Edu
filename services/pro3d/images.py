@@ -36,11 +36,12 @@ STYLE_PROMPT = {
                   "visible and centred with a generous empty margin around it, on a perfectly flat uniform solid "
                   "{bg} background, evenly lit, no gradient. Soft studio lighting on the object, subtle ambient "
                   "occlusion, physically based materials, sharp focus. No floor, no shadow, no reflection, no "
-                  "text, no labels, no watermark."),
+                  "glow, no halo, no outline around the object, no text, no labels, no watermark."),
     "stylized": ("Cute stylized 3D render of {obj}, glossy clay-like materials, soft rounded shapes, Pixar-like "
                  "quality, friendly and non-graphic. A single isolated object, the whole object fully visible and "
                  "centred with a generous empty margin, on a perfectly flat uniform solid {bg} background, evenly "
-                 "lit, no gradient. No floor, no shadow, no reflection, no text, no labels, no watermark."),
+                 "lit, no gradient. No floor, no shadow, no reflection, no glow, no halo, no text, no labels, "
+                 "no watermark."),
 }
 BACKGROUND = {"green": "chroma-key green (#00B140)", "magenta": "chroma-key magenta (#FF00FF)"}
 # Obyektning o'zi yashil bo'lsa yashil fon u bilan birga o'chib ketadi — unda pushti fon.
@@ -68,9 +69,28 @@ def key_for(obj: str) -> str:
     return "magenta" if _GREENISH.search(obj or "") else "green"
 
 
+# Obyekt atrofidagi effektlar ("glowing ... with energy lines emanating") fon olib tashlangach obyekt
+# atrofida halqa-izlar bo'lib qolardi — tavsifdan olib tashlanadi.
+_EFFECTS = (
+    re.compile(r"\b(?:glowing|luminous|neon|radiant)\s+", re.IGNORECASE),
+    # Faqat butun bo'lak vergul yoki oxirgacha bo'lsa: ", with subtle energy lines emanating,"
+    re.compile(r",?\s*\bwith\s+(?:an?\s+)?(?:(?:subtle|soft|bright|faint)\s+)?(?:energy\s+lines|light\s+rays|sparks|"
+               r"sparkles|particles|an?\s+aura|aura|halo|glow)(?:\s+(?:emanating|radiating)(?:\s+(?:from|around)\s+it)?)?"
+               r"(?=\s*[,.]|\s*$)", re.IGNORECASE),
+)
+
+
+def clean_object(obj: str) -> str:
+    text = obj or ""
+    for pattern in _EFFECTS:
+        text = pattern.sub("", text)
+    text = re.sub(r"\s+,", ",", re.sub(r",\s*,", ",", text))
+    return re.sub(r"\s{2,}", " ", text).strip(" ,.") or (obj or "").strip()
+
+
 def prompt_for(obj: str, style: str, key: Optional[str] = None) -> str:
     key = key or key_for(obj)
-    return STYLE_PROMPT.get(style, STYLE_PROMPT["realistic"]).format(obj=obj.strip().rstrip("."),
+    return STYLE_PROMPT.get(style, STYLE_PROMPT["realistic"]).format(obj=clean_object(obj),
                                                                       bg=BACKGROUND[key])
 
 
@@ -141,6 +161,8 @@ async def draw(objects: Dict[str, str], style: str,
 # ───────────────────────────────────────────── yorliq chiziqlari qayerga boradi
 
 LOCATE_PROMPT = """The image shows: {obj}.
+Anatomical left/right: an organ or body facing the viewer has its LEFT side on the RIGHT of the image
+(e.g. the left ventricle of a heart is on the image's right).
 For each part below, give the point on the image where a label line should touch that part
 (a clearly visible spot ON the part itself). Coordinates are normalised 0-1000: x from the left edge,
 y from the top edge of the image. If a part is hidden, give the closest visible spot of the object where it

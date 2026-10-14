@@ -261,8 +261,19 @@ def cut(image: Image.Image, key: Optional[str] = None) -> Tuple[Image.Image, str
         log.warning("Fon ajratilmadi (obyekt ulushi %.1f%%) — rasm o'zgarishsiz", coverage * 100)
         return image.convert("RGBA"), ""
     clean = _decontaminate(rgb, mask)
+    if key in KEYS and _tinted_border(rgb, key):
+        # Fon xira yashil (pushti) bo'lib chizilgan: rangli fon usuli ishlamadi, lekin fon rangi shaffof
+        # (shisha, suv) obyekt orqali ko'rinib, uni yashil qilib qo'yardi — o'sha rang olib tashlanadi.
+        clean = _despill(clean, key)
     rgba = np.dstack([clean, mask * 255.0]).astype(np.uint8)
     return Image.fromarray(rgba, "RGBA"), method
+
+
+def _tinted_border(rgb: np.ndarray, key: str) -> bool:
+    """Rasm cheti fon rangiga moyilmi (toza rangli fon chegarasidan past, lekin aniq tusli)."""
+    score = _key_score(rgb, key)
+    edge = np.concatenate([score[:3].ravel(), score[-3:].ravel(), score[:, :3].ravel(), score[:, -3:].ravel()])
+    return float(np.median(edge)) >= KEY_LOW
 
 
 def trim(image: Image.Image, margin: float = 0.02, max_side: int = 1400) -> Image.Image:

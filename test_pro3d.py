@@ -310,5 +310,14 @@ print("\n7) Narx")
 check("10 slayd — 15 000 so'm (zamonaviydan 3 baravar)", pro3d.price_for(10) == 15000, pro3d.price_for(10))
 check("narx 500 ga yaxlit", all(pro3d.price_for(n) % 500 == 0 for n in pro3d.SLIDE_OPTIONS))
 
+print("\n8) Obyekt atrofida effekt yo'q (halqa-izlar qolmasin)")
+from services.pro3d import images as _img, content as _content
+got = _img.clean_object("A stylized, glowing 3D rendering of a human heart, with subtle energy lines emanating, translucent")
+check("«glowing» va «energy lines» olib tashlanadi, obyekt qoladi",
+      "glow" not in got.lower() and "energy" not in got.lower() and "human heart" in got, got)
+check("oddiy tavsifga tegilmaydi", _img.clean_object("a vintage microscope with brass details") == "a vintage microscope with brass details")
+check("rasm so'rovida «no glow, no halo»", "no glow, no halo" in _img.prompt_for("heart", "realistic"))
+check("rejada effekt va kelajak yillari taqiqlangan", "no glow" in _content.PROMPT.lower() and "NEVER future years" in _content.PROMPT)
+
 print("\nNATIJA:", "HAMMASI O'TDI" if not FAILS else f"{len(FAILS)} ta xato: {FAILS}")
 sys.exit(1 if FAILS else 0)
