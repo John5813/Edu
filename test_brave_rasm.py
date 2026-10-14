@@ -24,6 +24,10 @@ def check(name, cond, detail=""):
 
 import database.database as dbmod
 
+# Testlarda vizual tekshiruv (AI) o'tkazuvchi — maxsus `check=` bilan beriladiganlar bundan mustasno.
+from services import photo_search as _ps_default
+_ps_default._ask_text_check = lambda paths, formulas=False: set()
+
 _db_dir = tempfile.mkdtemp()
 dbmod.DATABASE_FILE = os.path.join(_db_dir, "test.db")
 
@@ -202,8 +206,8 @@ for path in got:
 async def broken_check(paths):
     raise RuntimeError("vision yo'q")
 
-check("tekshiruv ishlamasa rasmlar qoladi (manba va sarlavha filtridan o'tgan)",
-      asyncio.run(photo_search.text_heavy(["a.jpg"], broken_check)) == set())
+check("tekshiruv ishlamasa rasmlar tashlanadi (fail-closed: skrinshot o'tib ketmasin)",
+      asyncio.run(photo_search.text_heavy(["a.jpg", "b.jpg"], broken_check)) == {0, 1})
 
 os.environ.pop("BRAVE_API_KEY", None); os.environ.pop("BRAVE_SEARCH_API_KEY", None)
 check("kalit yo'q bo'lsa qidiruv o'chiq", not photo_search.enabled())

@@ -325,8 +325,10 @@ async def _download(session: aiohttp.ClientSession, url: str) -> Optional[str]:
 _TEXT_CHECK = (
     "You check photos for presentation slides. For EACH numbered image decide if it must be REJECTED because it "
     "contains readable text: words, letters, captions, labels, titles, tables, charts, graphs, diagrams, "
-    "schemes, screenshots of slides/documents/websites, posters, book pages, or text watermarks. A real photo "
-    "where text is absent or only tiny and incidental (a distant sign) is OK. Answer JSON: "
+    "schemes, screenshots of slides/documents/websites, phone or computer screenshots of any kind, photos of "
+    "printed pages or book/document pages with paragraphs of text, posters, or text watermarks. Even if only "
+    "part of the page is visible, a page of printed or typed text is REJECTED. A real photo where text is absent "
+    "or only tiny and incidental (a distant sign) is OK. Answer JSON: "
     "{\"reject\": [numbers of rejected images]}"
 )
 
@@ -380,7 +382,8 @@ def _ask_text_check(paths: Sequence[str], formulas: bool = False) -> set:
 async def text_heavy(paths: Sequence[str], check=None, formulas: bool = False) -> set:
     """Matnli (slayd, jadval, sxema, yozuvli) rasmlarning tartib raqamlari. Bitta arzon vision so'rovi.
 
-    Tekshiruv ishlamasa — bo'sh to'plam (rasmlar sarlavha va manba filtridan o'tgan).
+    Tekshiruv ishlamasa — HAMMASI rad etiladi (fail-closed): matnli skrinshot ko'z bilan tekshirilmay
+    slaydga tushib qolmasin. Slotlar AI rasmi bilan to'ldiriladi.
     """
     if not paths:
         return set()
@@ -389,8 +392,8 @@ async def text_heavy(paths: Sequence[str], check=None, formulas: bool = False) -
             return set(await check(list(paths)))
         return await asyncio.to_thread(_ask_text_check, list(paths), formulas)
     except Exception as exc:
-        log.warning("Rasmdagi matn tekshirilmadi: %s", exc)
-        return set()
+        log.warning("Rasmdagi matn tekshirilmadi — hammasi tashlandi: %s", exc)
+        return set(range(len(paths)))
 
 
 # ─────────────────────────────────────────────────────────── asosiy kirish
