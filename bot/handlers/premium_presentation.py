@@ -307,6 +307,12 @@ def _previous_step(data: dict):
         return "script"
     if step == "count":
         return "style" if _kind_of(data) == KIND_MODERN else "source"
+    # Slaydlar sonidan keyin: rasm manbasi → yozuv animatsiyasi → xulosa (taklif qilinmaganlari o'tkazib yuboriladi).
+    photos = "photos" if _photo_source(data) is not None else "count"
+    if step == "anim":
+        return photos
+    if step == "summary":
+        return "anim" if data.get("text_anim_offer") else photos
     return _PREVIOUS.get(step)
 
 
@@ -836,6 +842,100 @@ async def premium_ppt_got_count(callback: CallbackQuery, state: FSMContext, db: 
     lang = await _lang_of(callback.from_user.id, db)
     count = max(MIN_SLIDES, min(int(callback.data.split(":")[1]), MAX_SLIDES))
     await state.update_data(slide_count=count)
+    await _after_count(callback.message, state, lang)
+
+
+async def _after_count(message: Message, state: FSMContext, lang: str) -> None:
+    """Slaydlar sonidan keyin: rasm manbasi (zamonaviy, infografika), so'ng yozuv animatsiyasi, so'ng xulosa."""
+    if _photo_source(await state.get_data()) is not None:
+        await _step_photos(message, state, lang)
+    else:
+        await _after_photos(message, state, lang)
+
+
+_PHOTO_STEP = {
+    "uz": ("🖼 <b>Taqdimotdagi rasmlar qayerdan olinsin?</b>",
+           {"web": "internetdagi haqiqiy fotosuratlar (topilmagan joyda rasm o'rniga matn)",
+            "ai": "rasmlarni sun'iy intellekt chizadi — har slaydga mos",
+            "mix": "avval internetdan, topilmaganini AI chizadi (tavsiya)"}),
+    "ru": ("🖼 <b>Откуда брать изображения?</b>",
+           {"web": "настоящие фото из интернета (где не найдено — текст)",
+            "ai": "изображения рисует ИИ — под каждый слайд",
+            "mix": "сначала из интернета, недостающие рисует ИИ (рекомендуем)"}),
+    "en": ("🖼 <b>Where should the images come from?</b>",
+           {"web": "real photos from the web (text where none is found)",
+            "ai": "AI draws the images to fit each slide",
+            "mix": "web first, AI draws the rest (recommended)"}),
+    "kk": ("🖼 <b>Суреттер қайдан алынсын?</b>",
+           {"web": "интернеттегі нақты фотолар (табылмаса — мәтін)",
+            "ai": "суреттерді ЖИ салады — әр слайдқа сай",
+            "mix": "алдымен интернеттен, қалғанын ЖИ салады (ұсынамыз)"}),
+}
+_ANIM_STEP = {"uz": "✨ <b>Slaydlardagi yozuvlar animatsiya bilan chiqsinmi?</b>",
+              "ru": "✨ <b>Добавить анимацию текста на слайдах?</b>",
+              "en": "✨ <b>Animate the text on the slides?</b>",
+              "kk": "✨ <b>Слайдтардағы мәтін анимациямен шықсын ба?</b>"}
+
+
+async def _step_photos(message: Message, state: FSMContext, lang: str) -> None:
+    data = await state.get_data()
+    head, notes = _PHOTO_STEP.get(lang) or _PHOTO_STEP["uz"]
+    names = _PHOTO_SOURCE_BUTTONS.get(lang) or _PHOTO_SOURCE_BUTTONS["uz"]
+    lines = [head, ""] + [f"{names[key]} — {notes[key]}" for key in ("mix", "web", "ai")]
+    rows = [[InlineKeyboardButton(text=names[key], callback_data=f"prem_ppt_img:{key}")] for key in ("mix", "web", "ai")]
+    await _prompt(message, state, _topic_line(data, lang) + "\n".join(lines), _markup(rows + [_back_row(lang)]),
+                  "photos", PremiumPresentationStates.waiting_for_photo_source)
+
+
+async def _anim_offer(data: dict) -> bool:
+    """Yozuv animatsiyasi taklif qilinadimi: admin «🎛 Funksiyalar boshqaruvi» dan yoqqan va 3D Pro emas."""
+    from services.premium_presentation import slide_anim
+
+    if _kind_of(data) == KIND_PRO3D:       # 3D Pro ning o'z animatsiyasi bor (Morph va yorliqlar)
+        return False
+    try:
+        return bool(await Database().get_feature_status(slide_anim.FEATURE, default=False))
+    except Exception as exc:  # baza o'qilmasa — tanlovsiz (animatsiyasiz) davom etadi
+        logger.warning("Yozuv animatsiyasi holati o'qilmadi: %s", exc)
+        return False
+
+
+async def _after_photos(message: Message, state: FSMContext, lang: str) -> None:
+    offer = await _anim_offer(await state.get_data())
+    await state.update_data(text_anim_offer=offer)
+    if offer:
+        await _step_anim(message, state, lang)
+    else:
+        await _step_summary(message, state, lang)
+
+
+async def _step_anim(message: Message, state: FSMContext, lang: str) -> None:
+    data = await state.get_data()
+    _, yes, no = _TEXT_ANIM_LABEL.get(lang) or _TEXT_ANIM_LABEL["uz"]
+    text = _topic_line(data, lang) + (_ANIM_STEP.get(lang) or _ANIM_STEP["uz"]) + "\n\n<i>" + anim_note(lang) + "</i>"
+    rows = [[InlineKeyboardButton(text=yes, callback_data="prem_ppt_anim:1"),
+             InlineKeyboardButton(text=no, callback_data="prem_ppt_anim:0")], _back_row(lang)]
+    await _prompt(message, state, text, _markup(rows), "anim", PremiumPresentationStates.waiting_for_text_anim)
+
+
+@router.callback_query(F.data.startswith("prem_ppt_img:"), PremiumPresentationStates.waiting_for_photo_source)
+async def premium_ppt_photo_source(callback: CallbackQuery, state: FSMContext, db: Database):
+    """Rasm manbasi bosqichi: internetdan / AI chizadi / aralash."""
+    await callback.answer()
+    value = callback.data.split(":", 1)[1]
+    if value not in PHOTO_SOURCES:
+        return
+    await state.update_data(photo_source=value)
+    lang = await _lang_of(callback.from_user.id, db)
+    await _after_photos(callback.message, state, lang)
+
+
+@router.callback_query(F.data.startswith("prem_ppt_anim:"), PremiumPresentationStates.waiting_for_text_anim)
+async def premium_ppt_text_anim(callback: CallbackQuery, state: FSMContext, db: Database):
+    """Yozuv animatsiyasi bosqichi: bor / yo'q."""
+    await callback.answer()
+    await state.update_data(text_anim=callback.data.endswith(":1"))
+    lang = await _lang_of(callback.from_user.id, db)
     await _step_summary(callback.message, state, lang)
 
 
@@ -1068,24 +1168,17 @@ def _text_anim_label(lang: str, on: bool) -> str:
     return f"{name}: {yes if on else no}"
 
 
-def _confirm_keyboard(lang: str, current_language: str, text_anim=None, photo_source=None,
-                      color=None) -> InlineKeyboardMarkup:
-    """`text_anim` — None: tanlov ko'rsatilmaydi (admin o'chirgan); True/False — mijoz tanlovi.
-    `photo_source` — None: rasm manbasi tanlovi yo'q; "web"/"ai"/"mix" — tanlangani ✓ bilan."""
+def _confirm_keyboard(lang: str, current_language: str, color=None) -> InlineKeyboardMarkup:
+    """Xulosa tugmalari: til, rang (None — taklif qilinmaydi), tasdiqlash va orqaga.
+    Rasm manbasi va yozuv animatsiyasi o'z bosqichlarida tanlanadi — xulosada faqat yozuv bo'lib turadi."""
     builder = InlineKeyboardBuilder()
     for code in ("uz", uz_script.UZ_CYRILLIC_LANG, "ru", "en", "kk"):
         mark = "✓ " if code == current_language else ""
         builder.button(text=f"{mark}{_LANG_BUTTONS[code]}", callback_data=f"prem_ppt_lang:{code}")
     builder.adjust(2)
-    if photo_source is not None:
-        names = _PHOTO_SOURCE_BUTTONS.get(lang) or _PHOTO_SOURCE_BUTTONS["uz"]
-        builder.row(*[InlineKeyboardButton(text=("✓ " if key == photo_source else "") + names[key],
-                                           callback_data=f"prem_ppt_img:{key}") for key in PHOTO_SOURCES])
     if color is not None:
         label = (_COLOR_LABEL.get(lang) or _COLOR_LABEL["uz"])[0]
         builder.row(InlineKeyboardButton(text=f"{label}: {_color_name(color, lang)}", callback_data="prem_ppt_color"))
-    if text_anim is not None:
-        builder.row(InlineKeyboardButton(text=_text_anim_label(lang, text_anim), callback_data="prem_ppt_anim"))
     builder.row(InlineKeyboardButton(text=_t(lang, "confirm"), callback_data="prem_ppt_confirm"))
     builder.row(*_back_row(lang))
     return builder.as_markup()
@@ -1149,7 +1242,7 @@ def _summary(data: dict, lang: str):
             lines.append(f"<i>{esc(anim_note(lang), 400)}</i>")
     lines += [f"📊 {slides_l}: <b>{slide_count}</b>",
               f"💰 {price_l}: <b>{price:,} {cur}</b>", "", ask]
-    return "\n".join(lines), _confirm_keyboard(lang, language, text_anim, photo_source, color)
+    return "\n".join(lines), _confirm_keyboard(lang, language, color)
 
 
 def _text_anim_choice(data: dict):
@@ -1160,18 +1253,10 @@ def _text_anim_choice(data: dict):
 
 
 async def _step_summary(message: Message, state: FSMContext, lang: str) -> None:
-    from services.premium_presentation import slide_anim
-
     data = await state.get_data()
     price = _price_of(data, int(data.get("slide_count") or MIN_SLIDES))
-    # Yozuv animatsiyasi — admin "🎛 Funksiyalar boshqaruvi" dan yoqqan bo'lsa, xulosada tanlov sifatida.
-    try:
-        offer = await Database().get_feature_status(slide_anim.FEATURE, default=False)
-    except Exception as exc:  # baza o'qilmasa — tanlovsiz (animatsiyasiz) davom etadi
-        logger.warning("Yozuv animatsiyasi holati o'qilmadi: %s", exc)
-        offer = False
-    if _kind_of(data) == KIND_PRO3D:       # 3D Pro ning o'z animatsiyasi bor (Morph va yorliqlar)
-        offer = False
+    # Yozuv animatsiyasi taklifi o'z bosqichida aniqlangan (`_after_photos`); xulosaga to'g'ridan kelinsa — shu yerda.
+    offer = data["text_anim_offer"] if "text_anim_offer" in data else await _anim_offer(data)
     await state.update_data(price=price, text_anim_offer=offer)
     data = await state.get_data()
     text, markup = _summary({**data, "price": price}, lang)
@@ -1190,35 +1275,6 @@ async def premium_ppt_change_language(callback: CallbackQuery, state: FSMContext
     await callback.answer()
     lang = await _lang_of(callback.from_user.id, db)
     await state.update_data(presentation_language=code)
-    text, markup = _summary(await state.get_data(), lang)
-    with contextlib.suppress(Exception):
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=markup)
-
-
-@router.callback_query(F.data == "prem_ppt_anim", PremiumPresentationStates.waiting_for_slide_count)
-async def premium_ppt_toggle_text_anim(callback: CallbackQuery, state: FSMContext, db: Database):
-    """Xulosadagi "✨ Yozuv animatsiyasi" tugmasi: bor ↔ yo'q."""
-    await callback.answer()
-    data = await state.get_data()
-    if not data.get("text_anim_offer"):
-        return
-    await state.update_data(text_anim=not data.get("text_anim", True))
-    lang = await _lang_of(callback.from_user.id, db)
-    text, markup = _summary(await state.get_data(), lang)
-    with contextlib.suppress(Exception):
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=markup)
-
-
-@router.callback_query(F.data.startswith("prem_ppt_img:"), PremiumPresentationStates.waiting_for_slide_count)
-async def premium_ppt_photo_source(callback: CallbackQuery, state: FSMContext, db: Database):
-    """Xulosadagi rasm manbasi tugmalari: internetdan / AI chizadi / aralash."""
-    await callback.answer()
-    value = callback.data.split(":", 1)[1]
-    data = await state.get_data()
-    if value not in PHOTO_SOURCES or _photo_source(data) in (None, value):
-        return
-    await state.update_data(photo_source=value)
-    lang = await _lang_of(callback.from_user.id, db)
     text, markup = _summary(await state.get_data(), lang)
     with contextlib.suppress(Exception):
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=markup)
@@ -1273,7 +1329,7 @@ async def premium_ppt_previous(callback: CallbackQuery, state: FSMContext, db: D
         return
     steps = {"topic": _step_topic, "script": _step_script, "name": _step_name, "prefs": _step_prefs,
              "source": _step_source, "count": _step_count, "style": _step_style,
-             "volume": _step_volume, "kind": _step_kind}
+             "volume": _step_volume, "kind": _step_kind, "photos": _step_photos, "anim": _step_anim}
     if previous == "count":
         await _step_count(callback.message, state, lang, db)
         return
