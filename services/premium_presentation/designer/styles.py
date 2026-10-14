@@ -69,6 +69,7 @@ class Ctx:
     photo: Optional[Photo] = None
     cover: Optional[Photo] = None
     topic_icon: str = "globe"
+    backdrop: Optional[Photo] = None      # xira fon rasmi (ba'zi infografik varaqlarda)
 
     def icon_for(self, *texts: str) -> str:
         from .. import html_slides
@@ -82,11 +83,18 @@ class Ctx:
 
 def bg_dark(c: Ctx, focus=(50, 45)):
     p = c.pal
+    # To'q fonga xira rasm qo'yilmaydi (faqat och fonli varaqlarga) — `backdrop` bu yerda e'tiborsiz.
     r = rect(c.slide, 0, 0, 1920, 1080)
     grad(r, [(0, mix(p.dark, p.accent, 0.28)), (60, p.dark), (100, p.deep)], radial=True, focus=focus)
 
 
 def bg_light(c: Ctx):
+    if c.backdrop is not None:
+        # Xira rasm ustida oq parda: o'rtasi ochroq (infografika), chetlarida rasm ko'proq ko'rinadi.
+        photo(c.slide, c.backdrop, 0, 0, 1920, 1080)
+        r = rect(c.slide, 0, 0, 1920, 1080)
+        grad(r, [(0, WHITE, 90), (70, WHITE, 84), (100, mix(WHITE, c.pal.accent, 0.08), 76)], radial=True)
+        return
     r = rect(c.slide, 0, 0, 1920, 1080)
     grad(r, [(0, WHITE), (100, mix(WHITE, c.pal.accent, 0.07))], radial=True)
 
@@ -812,3 +820,5 @@ STYLES = [
     Style("finale", ("finale",), 0, 99, finale),
 ]
 BY_NAME = {s.name: s for s in STYLES}
+# Och fonli uslublar — faqat ularga xira fon rasmi qo'yiladi (to'q fonga kerak emas).
+LIGHT = frozenset({"cards", "timeline", "leaves", "arrows", "pie", "cross", "diamond"})
