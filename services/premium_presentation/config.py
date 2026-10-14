@@ -91,6 +91,14 @@ OPENROUTER_RECEIPT_VERIFY_MODELS = _no_claude(_chain(
     os.getenv("RECEIPT_VERIFY_FALLBACKS", "google/gemini-2.5-flash,openai/gpt-4.1-mini"))) \
     or ["google/gemini-2.5-flash", "openai/gpt-4.1-mini"]
 
+# Internetdan topilgan rasmlarni slaydlarga tanlash (services/photo_search): faqat rasm nomlari
+# o'qiladi, shuning uchun eng arzon modellar yetarli. Claude ishtirok etmaydi (qimmat).
+# `PHOTO_PICK_MODEL` bilan boshqasini birinchi qo'yish mumkin.
+OPENROUTER_PHOTO_MODELS = _no_claude(_chain(
+    os.getenv("PHOTO_PICK_MODEL", "") + "," +
+    os.getenv("PHOTO_PICK_FALLBACKS", "google/gemini-2.5-flash-lite,openai/gpt-4.1-nano,openai/gpt-4o-mini"))) \
+    or ["google/gemini-2.5-flash-lite", "openai/gpt-4.1-nano", "openai/gpt-4o-mini"]
+
 # Eski nom bilan foydalanadigan joylar uchun — ro'yxatning birinchisi.
 OPENROUTER_TEXT_MODEL = OPENROUTER_TEXT_MODELS[0]
 OPENROUTER_VISION_MODEL = OPENROUTER_VISION_MODELS[0]

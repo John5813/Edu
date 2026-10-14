@@ -283,6 +283,12 @@ counts = asyncio.run(ai_usage.day_counts())
 check("chizilgan rasm modeli va «AI chizgan» hisobga tushadi",
       counts["image"].get("test/flux") == 1 and counts["photo"].get("ai") == 2, counts)
 
+print("\n6b) Rasm tanlash modeli — arzon, Claude'siz")
+from services.premium_presentation import config as pconfig
+chain = llm_client._models("photo")
+check("birinchi model gemini-2.5-flash-lite", chain[0] == "google/gemini-2.5-flash-lite", chain)
+check("zanjirda Claude yo'q", not any(m.startswith("anthropic/") for m in chain), chain)
+
 print("\n7) Admin panel")
 from bot.keyboards import get_admin_keyboard
 from bot.handlers import admin
