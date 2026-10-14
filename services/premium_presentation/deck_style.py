@@ -185,11 +185,11 @@ border-radius:18px 18px 0 0}
    oq bo'lib turadi, kartochka shu rangning och tusida, pastida shu
    rangdagi tasma. Eski tizimda aynan shunday edi va eng jonli
    ko'rinadigan qismi shu edi. */
-.cols>*:nth-child(5n+1),.ikon-row>*:nth-child(5n+1){--tone:#TONE1;--tint:#TINT1}
-.cols>*:nth-child(5n+2),.ikon-row>*:nth-child(5n+2){--tone:#TONE2;--tint:#TINT2}
-.cols>*:nth-child(5n+3),.ikon-row>*:nth-child(5n+3){--tone:#TONE3;--tint:#TINT3}
-.cols>*:nth-child(5n+4),.ikon-row>*:nth-child(5n+4){--tone:#TONE4;--tint:#TINT4}
-.cols>*:nth-child(5n+5),.ikon-row>*:nth-child(5n+5){--tone:#TONE5;--tint:#TINT5}
+.cols>*:nth-child(5n+1),.ikon-row>*:nth-child(5n+1){--tone:#TONE1;--tint:#TINT1;--ink:#DEEP1}
+.cols>*:nth-child(5n+2),.ikon-row>*:nth-child(5n+2){--tone:#TONE2;--tint:#TINT2;--ink:#DEEP2}
+.cols>*:nth-child(5n+3),.ikon-row>*:nth-child(5n+3){--tone:#TONE3;--tint:#TINT3;--ink:#DEEP3}
+.cols>*:nth-child(5n+4),.ikon-row>*:nth-child(5n+4){--tone:#TONE4;--tint:#TINT4;--ink:#DEEP4}
+.cols>*:nth-child(5n+5),.ikon-row>*:nth-child(5n+5){--tone:#TONE5;--tint:#TINT5;--ink:#DEEP5}
 .cols>.card{background:var(--tint)}
 /* Ikonka kartochkaning tepa chetiga yarim chiqib turadi. */
 .cols>.card>.ikon-dot:first-child{margin-top:-96px;align-self:center}
@@ -227,8 +227,12 @@ letter-spacing:-2px}
 /* Ko'rsatkichlar qatorda: har biri o'z rangidagi kartada (bo'sh varaqda
    mayda raqamlar suzib yurmasin). */
 .cols>.kpi{background:var(--tint,#SOFT);border-left:0;border-top:10px solid var(--tone,#ACCENT);
-border-radius:0 0 22px 22px;padding:52px 46px;min-height:340px;justify-content:center}
-.cols>.kpi>.kpi-value{color:var(--tone,#ACCENT);font-size:112px}
+border-radius:0 0 22px 22px;padding:52px 46px;min-height:340px;justify-content:flex-start}
+/* Raqam kartaning to'q tusida: och kartadagi yorqin rang (sariq, to'q sariq) PowerPoint'ga o'tishda
+   kontrast nazoratidan o'tmay qora bo'lib qolardi. */
+.cols>.kpi>.kpi-value{color:var(--ink,#ACCENT);font-size:100px;line-height:1.15}
+/* Uzun qiymat ("1 milliondan ortiq", "250,000+") kartaga sig'sin — `deck_styles.decorate` belgilaydi. */
+.cols>.kpi>.kpi-value.kpi-long{font-size:64px;letter-spacing:-1px}
 .kpi-label{font-size:36px;font-weight:700;color:#HEADING}
 .kpi-note{font-size:32px;line-height:1.5;color:#MUTED}
 
@@ -296,8 +300,8 @@ color:#ACCENT;opacity:1}
 .slide>.body>div:has(>.quote){background:linear-gradient(150deg,#SOFT 0%,#SOFTER 100%);
 border-left:14px solid #ACCENT;border-radius:0 28px 28px 0;padding:80px 96px;
 display:flex;flex-direction:column;gap:10px}
-.slide>.body>div:has(>.quote)>.quote{font-size:68px;line-height:1.3;max-width:none}
-.slide>.body>div:has(>.quote)>.quote-mark{font-size:220px;height:110px}
+.slide>.body>div:has(>.quote)>.quote{font-size:54px;line-height:1.35;max-width:none}
+.slide>.body>div:has(>.quote)>.quote-mark{font-size:180px;line-height:0.75;height:100px}
 .slide>.body>div:has(>.quote)>.quote-by{font-size:34px;font-weight:700;color:#ACCENT}
 
 /* ── Jadval ────────────────────────────────────────────────────── */
@@ -358,6 +362,9 @@ max-height:100%}
 min-height:0}
 .chart-stack>.chart{flex:1 1 0}
 .slide>.body>.chart-stack{flex:1 1 auto}
+/* Ikki qavatli diagramma yonma-yon joylashuvda ham bo'y olsin (aks holda balandligi nolga tushardi). */
+.split>.chart-stack{align-self:stretch;min-height:560px;grid-column:1}
+.split:has(>.chart-stack)>:not(.chart-stack){grid-column:2;align-self:center}
 
 /* ── Pastki qator ──────────────────────────────────────────────── */
 .foot{font-size:24px;color:#MUTED;flex:none}
@@ -451,7 +458,7 @@ def stylesheet(theme) -> str:
     # Kartochka foni ham bir tusdan ikkinchisiga ozgina o'tsin —
     # yassi rang quruq ko'rinadi.
     softer = _mix(theme.accent_soft, theme.background, 0.55)
-    # Ikonka ranglari: sariq, ko'k, marjon, yashil, binafsha. Ular
+    # Ikonka ranglari: to'q ko'k, firuza, yashil, binafsha, grafit. Ular
     # mavzu rangidan mustaqil — eski tizimda ham shunday edi va eng
     # jonli ko'rinadigan narsa shu edi. Birinchisi mavzu aksenti.
     tones = [theme.accent] + [t for t in _TONES
@@ -499,7 +506,9 @@ def stylesheet(theme) -> str:
     return css
 
 
-_TONES = ("E8A33D", "2F7BE0", "EE6C3A", "1FAE7A", "7B61FF", "D6457A")
+# Faqat to'q, qat'iy ranglar: to'q ko'k, firuza, to'q yashil, binafsha, grafit, to'q havorang.
+# Sariq, to'q sariq, marjon va pushti ishlatilmaydi (mijoz talabi) — och kartalari ham sariq/pushti bo'lmaydi.
+_TONES = ("1E3A8A", "0F766E", "166534", "5B21B6", "334155", "155E75")
 
 
 def _far(one: str, two: str) -> bool:

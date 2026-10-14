@@ -95,7 +95,8 @@ _HINTS = (
     ("binafsha", ("ta'lim", "pedagog", "maktab", "talaba", "san'at", "madaniyat",
                   "adabiyot", "образован", "педагог", "искусств", "educat",
                   "school", "art", "culture")),
-    ("to'q sariq", ("tadbirkor", "biznes", "marketing", "savdo", "reklama",
+    # Biznes mavzulari to'q ko'kda: sariq/to'q sariq rang avtomatik tanlanmaydi (mijoz talabi).
+    ("to'q ko'k", ("tadbirkor", "biznes", "marketing", "savdo", "reklama",
                     "startap", "бизнес", "маркетинг", "business", "startup")),
     ("qizil", ("xavfsizlik", "favqulodda", "inqiroz", "jinoyat", "harbiy",
                "безопасн", "кризис", "security", "crisis", "emergency")),

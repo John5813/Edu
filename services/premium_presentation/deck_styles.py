@@ -256,6 +256,7 @@ th{color:#BACKGROUND}
 tr:nth-child(even) td{background:#SOFT}
 .cols>.kpi,.timeline .what,.slide>.body>div:has(>.quote){background:#SOFT;border-color:#EDGE}
 .cols>.kpi{border-top-color:var(--tone,#ACCENT)}
+.cols>.kpi>.kpi-value{color:var(--tone,#ACCENT)}
 .slide.dark{background:linear-gradient(160deg,#BAND 0%,#BANDDEEP 100%)}
 .bezak{display:block}
 .bezak-a{background:#BANDGLOW}
@@ -344,8 +345,22 @@ _ITEM_ICON = re.compile(_tag("span", "item-ikon").pattern + r'.*?</span>',
 _CARD_NUM = re.compile(r'(' + _tag("div", "card-num").pattern + r')\s*([^<]+)', re.IGNORECASE)
 
 
+_KPI_VALUE = re.compile(r'<div\b([^>]*)\bclass\s*=\s*"([^"]*(?<![\w-])kpi-value(?![\w-])[^"]*)"([^>]*)>([^<]*)</div>',
+                        re.IGNORECASE)
+
+
+def _mark_long_kpis(body: str) -> str:
+    """Ko'rsatkichdagi uzun qiymat (7 belgidan ko'p) kichikroq shriftda — katta raqam kartadan chiqmasin."""
+    def mark(match):
+        if len(match.group(4).strip()) <= 7 or "kpi-long" in match.group(2):
+            return match.group(0)
+        return f'<div{match.group(1)}class="{match.group(2)} kpi-long"{match.group(3)}>{match.group(4)}</div>'
+    return _KPI_VALUE.sub(mark, body)
+
+
 def decorate(body: str, theme) -> str:
     """Uslubga kerakli HAQIQIY elementlarni qo'shadi (pseudo-element emas)."""
+    body = _mark_long_kpis(body)
     key = getattr(theme, "style", "")
     if key in ("toza", "kontur"):
         # Bu uslublarda ikonka rangli doirasiz turadi: oq ikonka ko'rinmaydi.
