@@ -48,6 +48,12 @@ def _photo(root) -> Optional[bytes]:
     return None
 
 
+def _photo_fit(root) -> bool:
+    """Rasm kesilmasin (aniq fandagi formula/grafikli rasm — `class="photo fit"`)."""
+    return bool(root.xpath(".//img[contains(concat(' ', normalize-space(@class), ' '), ' photo ') and "
+                           "contains(concat(' ', normalize-space(@class), ' '), ' fit ')]"))
+
+
 def page_photo(page: str) -> Optional[bytes]:
     """Sahifadagi rasm (bo'lsa) — fon rasmlari to'plami uchun."""
     section = _section(page)
@@ -87,10 +93,12 @@ def spec_of(page: str, index: int, total: int) -> Optional[Dict]:
     photo = _photo(section)
 
     if layout in deck_compose.PHOTO_LAYOUTS or layout == "rasm_fon":
-        return {"kind": "photo", "layout": layout, "title": title, "lead": lead, "text": para, "photo": photo}
+        return {"kind": "photo", "layout": layout, "title": title, "lead": lead, "text": para, "photo": photo,
+                "photo_fit": _photo_fit(section)}
     if layout == "iqtibos":
         return {"kind": "photo", "title": title, "quote": _first(section, "quote"),
-                "by": _first(section, "quote-by").lstrip("—– ").strip(), "text": para, "photo": photo}
+                "by": _first(section, "quote-by").lstrip("—– ").strip(), "text": para, "photo": photo,
+                "photo_fit": _photo_fit(section)}
     if layout == "kartalar":
         items = [{"title": _first(c, "k-h"), "note": _first(c, "k-d")} for c in _all(section, "k-card")]
         return _items("group", title, lead, items)

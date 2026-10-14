@@ -3,7 +3,8 @@
 - "web": faqat internet qidiruvi, AI chizmaydi (topilmagan joyda matn qoladi);
 - "ai": internetga qaralmaydi, hammasini AI chizadi;
 - "mix" (sukut): avval internet, topilmaganini AI chizadi;
-- xulosa ekranida uchta tugma, tanlangani ✓; 3D Pro'da tanlov yo'q.
+- xulosa ekranida uchta tugma, tanlangani ✓; 3D Pro'da tanlov yo'q;
+- rang: «🎨 Rang» tugmasi ranglar ro'yxatini ochadi (faqat to'q ranglar va «Avto»).
 
     python test_rasm_manbasi.py
 """
@@ -112,6 +113,85 @@ edit = asyncio.run(tap("ai"))
 check("tugma bosilsa tanlov saqlanadi va xulosa yangilanadi", stored.get("photo_source") == "ai" and edit.await_count == 1)
 edit = asyncio.run(tap("xyz"))
 check("noto'g'ri qiymat e'tiborsiz", edit.await_count == 0)
+
+print("\n4) Rang tanlash")
+info = {**data, "kind": h.KIND_INFO}
+text, markup = h._summary(info, "uz")
+check("xulosada «🎨 Rang: Avto» tugmasi", any(b.callback_data == "prem_ppt_color" and "Avto" in b.text
+      for row in markup.inline_keyboard for b in row) and "🎨 Rang" in text, text)
+check("3D Pro'da rang tanlovi yo'q", h._color(pro) is None and "prem_ppt_color" not in str(h._summary(pro, "uz")[1]))
+check("taklif qilinadigan ranglarda sariq va qizil yo'q", "to'q sariq" not in h.COLOR_KEYS and "qizil" not in h.COLOR_KEYS)
+from services.premium_presentation import themes
+import re as _re
+from services.premium_presentation import deck_style as _ds
+bad = {k: _re.findall(r"#(?:TONE|TINT|DEEP)\d", _ds.stylesheet(themes.get(k))) for k in themes.THEME_KEYS}
+check("har bir rangda kartochka tuslari to'liq (#TONE3 kabi almashtirilmagan qolmaydi)",
+      not any(bad.values()), {k: v for k, v in bad.items() if v})
+check("har bir rang kaliti mavjud sxema", all(themes.get(k).key == k for k in h.COLOR_KEYS if k != "auto"))
+
+async def pick(index):
+    from aiogram.fsm.context import FSMContext
+    from aiogram.fsm.storage.base import StorageKey
+    from aiogram.fsm.storage.memory import MemoryStorage
+    state = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=6, user_id=6))
+    await state.update_data(**info)
+    menu = AsyncMock()
+    cb = SimpleNamespace(data="prem_ppt_color", answer=AsyncMock(), from_user=SimpleNamespace(id=6),
+                         message=SimpleNamespace(edit_text=menu))
+    with patch.object(h, "_lang_of", AsyncMock(return_value="uz")):
+        await h.premium_ppt_color_menu(cb, state, None)
+        cb.data = f"prem_ppt_clr:{index}"
+        edit = AsyncMock(); cb.message = SimpleNamespace(edit_text=edit)
+        await h.premium_ppt_color_chosen(cb, state, None)
+    return menu, edit, await state.get_data()
+menu, edit, got = asyncio.run(pick(h.COLOR_KEYS.index("yashil")))
+colors = [b.callback_data for row in menu.await_args.kwargs["reply_markup"].inline_keyboard for b in row]
+check("ranglar ro'yxati ochiladi (7 ta)", len(colors) == 7, colors)
+check("yashil tanlandi va xulosa yangilandi", got.get("theme_key") == "yashil" and edit.await_count == 1
+      and "Yashil" in edit.await_args.args[0], got)
+menu, edit, got = asyncio.run(pick(0))
+check("«Avto» — kalit bo'sh (mavzuga qarab)", got.get("theme_key") == "")
+
+print("\n5) Zamonaviy: xira fon rasmi va katta rasm")
+CSS = "<style>.rasm.photo-in{} .backdrop{}</style>"
+def pg(body, dark=False):
+    return f'<html><head>{CSS}</head><body><section class="slide{" dark" if dark else ""}">{body}</section></body></html>'
+photo = '<div class="split"><div class="par-col"></div><div class="rasm photo-in"><img class="photo" src="data:image/jpeg;base64,QQ" alt=""></div></div>'
+formula = photo.replace('class="photo"', 'class="photo fit"').replace("QQ", "Rg")
+text = '<div class="body"><p class="lead">Matn</p><div class="list"></div></div>'
+icon = '<div class="body"><img class="ikon" src="data:image/png;base64,SQ"></div>'
+pages = [pg(""), pg(photo), pg(text), pg(text), pg(text, dark=True), pg(icon), pg(text), pg(text), pg(text)]
+out = html_images.add_backdrops(pages)
+marked = [i for i, p in enumerate(out) if 'class="backdrop"' in p]
+check("rasmsiz och matnli varaqlarning bir qismiga xira fon", marked and all(i in (2, 3, 6, 7, 8) for i in marked), marked)
+check("to'q, ikonkali va rasmli varaqqa qo'yilmaydi", not any(i in marked for i in (0, 1, 4, 5)), marked)
+check("CSS ichidagi «photo-in» so'zi varaqni rad etmaydi", bool(marked))
+only_formula = html_images.add_backdrops([pg(""), pg(formula), pg(text), pg(text), pg(text)])
+check("formulali rasm fon bo'lmaydi", not any('class="backdrop"' in p for p in only_formula))
+from services.premium_presentation import deck_style, html_render
+css = deck_style.stylesheet(themes.get("ko'k"))
+check("rasm varaqning butun bo'yi bo'ylab (absolute, 44%)", "rasm.photo-in{position:absolute;top:0;bottom:0;width:44%" in css)
+check("sig'ish o'lchovi chetdagi rasmni hisobga olmaydi", 'closest(".rasm.photo-in")' in html_render._MEASURE)
+
+print("\n6) Infografika: rasm topilmasa bo'sh blok yo'q, formula rasmi kesilmaydi")
+from services.premium_presentation.designer import Designer, kit
+import io as _io
+from PIL import Image as _Image
+buf = _io.BytesIO(); _Image.new("RGB", (400, 100), (200, 0, 0)).save(buf, "JPEG")
+cut = _Image.open(kit.Photo(buf.getvalue(), fit=True).crop(200, 200))
+check("fit: keng rasm kvadratga kesilmay, oq hoshiya bilan", cut.size[0] == cut.size[1] == 400
+      and cut.getpixel((200, 10))[0] > 240 and cut.getpixel((200, 200))[0] > 150, cut.size)
+from pptx import Presentation as _Prs
+nophoto = ('<html><body><section class="slide k k-rasm-chap"><div class="rasm" data-prompt="cell">'
+           '<p class="rasm-matn">Hujayra mikroskopda.</p></div><div class="k-text"><h2 class="title">Hujayra</h2>'
+           '<p class="lead">Hayotning birligi</p><p class="k-p">Har bir tirik organizm hujayralardan tashkil topgan.</p>'
+           '</div></section></body></html>')
+chosen = set()
+for seed in range(12):
+    designer = Designer(themes.for_deck("Hujayra", "", "kam"), "Hujayra", seed=seed)
+    designer.draw(_Prs(), nophoto, 3, 10)
+    chosen.update(designer.chosen)
+check("rasmsiz rasmli sahifaga eski HTML qolip (bo'sh ko'k blok) tanlanmaydi", chosen and "html" not in chosen, chosen)
 
 print("\nNATIJA:", "HAMMASI O'TDI" if not FAILS else f"{len(FAILS)} ta xato: {FAILS}")
 sys.exit(1 if FAILS else 0)

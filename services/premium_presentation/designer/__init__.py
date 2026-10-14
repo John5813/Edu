@@ -110,7 +110,7 @@ class Designer:
         raw = spec.get("photo")
         if raw:
             try:
-                photo = kit.Photo(raw)
+                photo = kit.Photo(raw, fit=bool(spec.get("photo_fit")))
             except Exception as exc:
                 log.warning("%d-sahifa rasmi o'qilmadi: %s", index + 1, exc)
         if spec["kind"] == "cover" and photo is not None:
@@ -118,6 +118,10 @@ class Designer:
         # Eski kompozitsiya ham tanlovda, lekin: "butun fon rasm + oq karta" endi chiqmaydi, 4 tadan ko'p
         # punktli eski kartalar esa torayib so'zlari bo'linadi — bunday sahifa doim yangi uslubda.
         if spec["kind"] == "photo" and spec.get("layout") == "rasm_fon":
+            spec["old_ok"] = False
+        # Rasm topilmagan rasmli sahifa eski kompozitsiyada bo'sh ko'k blok bo'lib qolardi (ichida bitta
+        # qisqa jumla) — yangi uslublarning rasmsiz ko'rinishi (keng matnli bezakli sahifa) chiziladi.
+        if spec["kind"] == "photo" and photo is None:
             spec["old_ok"] = False
         if len(spec.get("items") or []) > 4:
             spec["old_ok"] = False

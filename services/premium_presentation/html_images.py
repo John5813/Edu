@@ -472,6 +472,48 @@ async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
     return result, placed
 
 
+# ───────────────────────────────────────────────── xira fon
+
+# Fon uchun faqat oddiy foto: formulali/grafikli rasm (`photo fit`) fonda yozuvlari bilan chalkash ko'rinadi.
+_PLACED_PHOTO = re.compile(r'<img class="photo" src="(data:image/[^"]+)"')
+_SECTION_OPEN = re.compile(r"<section\b[^>]*>", re.IGNORECASE)
+# Ikonka va boshqa rasmli varaqqa ham qo'yilmaydi: ikonka suratga olinganda tagidagi fon bilan birga
+# olinib, PowerPointda ikonka atrofida kvadrat dog' qolardi.
+_NO_BACKDROP = re.compile(r'<img\b|photo-in|cover-photo|backdrop|<svg|<table|class="chart|\bslide dark\b|'
+                          r'class="slide\s+dark', re.IGNORECASE)
+BACKDROP_EVERY = 3        # rasmsiz och varaqlarning har uchinchisida
+BACKDROP_LIMIT = 4
+
+
+def add_backdrops(pages: List[str]) -> List[str]:
+    """Rasmsiz och matnli varaqlarning bir qismiga taqdimotdagi rasmlardan birini xira fon qilib qo'yadi.
+
+    To'q varaqlar, diagramma va jadvalli varaqlarga qo'yilmaydi. Rasmlar navbat bilan almashadi.
+    """
+    uris: List[str] = []
+    for page in pages:
+        for uri in _PLACED_PHOTO.findall(page):
+            if uri not in uris:
+                uris.append(uri)
+    if not uris:
+        return pages
+    def plain(page: str) -> bool:
+        opening = _SECTION_OPEN.search(page)      # sahifadagi CSS emas, faqat slaydning o'zi tekshiriladi
+        return bool(opening) and not _NO_BACKDROP.search(page, opening.start())
+
+    candidates = [i for i, page in enumerate(pages) if 0 < i and plain(page)]
+    chosen = candidates[1::BACKDROP_EVERY][:BACKDROP_LIMIT]
+    result = list(pages)
+    for k, index in enumerate(chosen):
+        page = result[index]
+        opening = _SECTION_OPEN.search(page)
+        result[index] = (page[:opening.end()] + '<div class="backdrop"><img class="photo" src="'
+                         + uris[k % len(uris)] + '" alt=""></div>' + page[opening.end():])
+    if chosen:
+        log.info("Xira fon rasmi: %d ta varaqqa", len(chosen))
+    return result
+
+
 # ───────────────────────────────────────────────── muqova rasmi
 
 _COVER_SECTION = re.compile(

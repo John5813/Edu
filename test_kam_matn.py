@@ -207,7 +207,9 @@ check("sayt: rang sxemasi tanlovi yo'q, taqdimot turi bor", "Rang sxemasi" not i
       and "volume:" in js and "theme: S.theme" not in js)
 from bot.handlers import premium_presentation as bot
 text, _ = bot._summary({"topic": "Iqtisodiyot", "style": "jurnal", "volume": "kam", "slide_count": 10}, "uz")
-check("bot: xulosada tur (infografik), rang yo'q", "Turi" in text and "Infografik" in text and "Rang" not in text)
+# Rangni endi mijoz o'zi tanlay oladi (xulosadagi «🎨 Rang» tugmasi; sukut — mavzuga qarab «Avto»).
+check("bot: xulosada tur (infografik) va rang tanlovi", "Turi" in text and "Infografik" in text
+      and "🎨 Rang" in text and "Avto" in text)
 kb_uz = bot._volume_keyboard("uz")
 check("bot: tugmalar «Matn hajmi: Ko'p / O'rtacha», izohsiz",
       "Matn hajmi: Ko'p" in str(kb_uz) and "Matn hajmi: O'rtacha" in str(kb_uz) and "rasm" not in str(kb_uz))
