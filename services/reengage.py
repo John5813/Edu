@@ -7,7 +7,8 @@ Guruhlar (har mijoz bittasiga tushadi):
   * new          — so'nggi 30 kunda kelgan, hech narsadan foydalanmagan va to'lamagan: 5 xabar (2 soat, 1, 3, 7,
                    14 kun) — sovg'a, namuna, boshqa xizmatlar, «Pul ishlab topish», sovg'a muddati (48 soat);
   * old          — eski bazadagi shunday mijozlar: o'sha 5 xabar, kuniga ko'pi bilan `OLD_DAILY` kishi boshlaydi;
-                   botni to'sganlar ulushi `PAUSE_RATE` dan oshsa o'zi to'xtaydi va adminga xabar beradi;
+                   botni to'sganlar ko'p bo'lsa ham TO'XTAMAYDI (to'sganlarga baribir qayta xabar bormaydi) —
+                   ulush `PAUSE_RATE` dan oshsa adminga kuniga bir marta ma'lumot beriladi;
   * paid_unused  — to'lagan, lekin foydalanmagan: «hisobingizda X so'm turibdi» (3 xabar);
   * trial        — bepul taqdimotni olgan, to'lamagan: birinchi to'lovga +20% bonus, 7 kun (3 xabar);
   * lapsed       — foydalangan (to'lab yoki bonus bilan), 14 kundan beri kelmagan (2 xabar).
@@ -59,7 +60,7 @@ OLD_DAILY = 2500                 # eski bazadan kuniga shuncha kishi ketma-ketli
 TICK_LIMIT = 600                 # bir aylanishda (10 daqiqa) ko'pi bilan shuncha xabar
 TICK_SECONDS = 600
 SEND_PAUSE = 0.05                # ~20 xabar/soniya — Telegram chegarasidan past
-PAUSE_RATE = 0.20                # eski bazada to'sganlar ulushi shundan oshsa — to'xtash
+PAUSE_RATE = 0.20                # eski bazada to'sganlar ulushi shundan oshsa — adminga ma'lumot (to'xtamaydi)
 PAUSE_MIN = 200                  # ulush shuncha xabardan keyin baholanadi
 GIFT_HOURS = 48                  # oxirgi xabardagi sovg'a muddati
 BONUS_PERCENT = 20
@@ -88,6 +89,7 @@ SCHEMA = (
         used_at REAL,
         amount INTEGER NOT NULL DEFAULT 0
     )""",
+    "CREATE TABLE IF NOT EXISTS reengage_state (key TEXT PRIMARY KEY, value REAL)",
 )
 
 
@@ -537,18 +539,33 @@ async def _old_block_rate(now: float) -> Tuple[int, float]:
     return total, (int(blocked or 0) / total if total else 0.0)
 
 
-async def _pause_old(bot, total: int, rate: float) -> None:
-    from config import ADMIN_IDS
-    from database.database import Database
+async def _warn_old(bot, now: float, total: int, rate: float) -> None:
+    """To'sganlar ko'p — adminga kuniga bir marta MA'LUMOT. Yuborish to'xtamaydi.
 
-    await Database().set_feature_status(FEATURE_OLD, False)
-    log.warning("Eski bazaga qayta jalb to'xtatildi: %d xabardan %.0f%% to'sildi", total, rate * 100)
+    Ilgari bunda eski baza to'lqini o'zi o'chirilardi: xabar hammaga yetib bormasa ham
+    yetib borganlari orasida qaytib, to'lab ketayotganlar bor edi, to'xtash ularni yo'qotardi.
+    To'sgan mijozga baribir qayta xabar bormaydi (`plan`).
+    """
+    day = _uzt_day_start(now)
+    # Kun bazada eslanadi: bot qayta ishga tushsa ham ma'lumot takrorlanmaydi.
+    async with aiosqlite.connect(_db_file()) as conn:
+        await _create(conn)
+        async with conn.execute("SELECT value FROM reengage_state WHERE key = 'old_warned_day'") as cur:
+            row = await cur.fetchone()
+        if row and row[0] == day:
+            return
+        await conn.execute("INSERT OR REPLACE INTO reengage_state (key, value) VALUES ('old_warned_day', ?)", (day,))
+        await conn.commit()
+    from config import ADMIN_IDS
+
+    log.warning("Eski bazada to'sganlar ko'p: %d xabardan %.0f%% (yuborish davom etadi)", total, rate * 100)
     for admin_id in ADMIN_IDS:
         try:
             await bot.send_message(admin_id, (
-                "⚠️ Eski bazaga qayta jalb xabarlari to'xtatildi: oxirgi 24 soatda "
-                f"{total} ta xabardan {rate * 100:.0f}% botni to'sib qo'ydi.\n"
-                "«🎛 Funksiyalar boshqaruvi» → «🗂 Eski bazaga xabarlar» orqali qayta yoqish mumkin."))
+                "ℹ️ Eski bazaga qayta jalb: oxirgi 24 soatda "
+                f"{total} ta xabardan {(1 - rate) * 100:.0f}% yetib bordi, {rate * 100:.0f}% botni to'sgan.\n"
+                "Yuborish davom etadi — to'sganlarga boshqa xabar bormaydi.\n"
+                "To'xtatish kerak bo'lsa: «🎛 Funksiyalar boshqaruvi» → «🗂 Eski bazaga xabarlar»."))
         except Exception:
             pass
 
@@ -561,25 +578,16 @@ async def tick(bot, now: Optional[float] = None) -> Dict[str, int]:
     if quiet(now) or not await _enabled(FEATURE):
         return result
     old_enabled = await _enabled(FEATURE_OLD)
-    paused = False
     people, history = await load(now)
     due = plan(now, people, history, old_budget=max(0, OLD_DAILY - await _old_today(now)), old_enabled=old_enabled)
-    for index, item in enumerate(due):
-        if item.flow == "old" and not old_enabled:      # aylanish o'rtasida to'xtatilgan bo'lsa
-            continue
+    for item in due:
         status = await deliver(bot, item, now if fixed else time.time())
         result[status] = result.get(status, 0) + 1
         await asyncio.sleep(SEND_PAUSE)
-        if item.flow == "old" and old_enabled and index % 50 == 49:
-            total, rate = await _old_block_rate(now)
-            if total >= PAUSE_MIN and rate > PAUSE_RATE:
-                await _pause_old(bot, total, rate)
-                old_enabled = False
-                paused = True
-    if old_enabled and not paused:
+    if old_enabled:
         total, rate = await _old_block_rate(now)
         if total >= PAUSE_MIN and rate > PAUSE_RATE:
-            await _pause_old(bot, total, rate)
+            await _warn_old(bot, now, total, rate)
     if any(result.values()):
         log.info("Qayta jalb: %s", result)
     return result

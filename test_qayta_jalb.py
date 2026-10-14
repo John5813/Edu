@@ -239,7 +239,7 @@ async def flow_tests():
     await R.grant_bonus(101, NOON - 10 * D, time.time() - 60)
     check("muddati o'tgan bonus yo'q", await R.take_bonus(101, ids[101], 10000) == 0)
 
-    print("7) Eski bazada to'sganlar ko'paysa o'zi to'xtaydi")
+    print("7) Eski bazada to'sganlar ko'paysa ham to'xtamaydi, adminga ma'lumot")
     async with aiosqlite.connect(dbmod.DATABASE_FILE) as conn:
         for i in range(R.PAUSE_MIN + 50):
             await conn.execute("INSERT INTO nudges (telegram_id, flow, step, sent_at, status) VALUES (?, 'old', 0, ?, ?)",
@@ -248,8 +248,12 @@ async def flow_tests():
     admin = Bot()
     with patch.object(R, "SEND_PAUSE", 0):
         await R.tick(admin, now=NOON + 6 * D)
-    check("eski baza to'lqini o'chirildi va adminga aytildi", not await db.get_feature_status(R.FEATURE_OLD)
-          and any(chat == 1 and "to'xtatildi" in text for chat, _, text, _ in admin.sent), admin.sent[-1:])
+    check("eski baza to'lqini yoqiq qoldi, adminga ma'lumot berildi", await db.get_feature_status(R.FEATURE_OLD)
+          and any(chat == 1 and "davom etadi" in text for chat, _, text, _ in admin.sent), admin.sent[-1:])
+    again = Bot()
+    with patch.object(R, "SEND_PAUSE", 0):
+        await R.tick(again, now=NOON + 6 * D + 600)
+    check("ma'lumot kuniga bir marta", not any(chat == 1 and "davom etadi" in text for chat, _, text, _ in again.sent))
     await db.set_feature_status(R.FEATURE, False)
     off = Bot()
     with patch.object(R, "SEND_PAUSE", 0):
@@ -358,7 +362,8 @@ async def handler_tests(ids):
     repeat = Bot()
     with patch.object(R, "SEND_PAUSE", 0):
         await R.tick(repeat, now=NOON + 4 * D + 2 * H)          # oxirgi aylanishdan 2 soat keyin, qayta ishga tushgach
-    check("qayta ishga tushgach hech kimga takror xabar ketmadi", repeat.sent == [], [c for c, *_ in repeat.sent])
+    to_clients = [c for c, _, text, _ in repeat.sent if "davom etadi" not in text]     # admin ma'lumoti hisobga kirmaydi
+    check("qayta ishga tushgach hech kimga takror xabar ketmadi", to_clients == [], to_clients)
     _, _, extra = R.message_for("trial", 1, (await R.load(NOON))[0][0].__class__(104), NOON + 3 * D)
     check("bonus muddati bazadan tiklandi (yangi 7 kun boshlanmaydi)", extra["bonus_until"] < NOON + 3 * D + 7 * D
           and extra["bonus_until"] == R._BONUS_CACHE.get(104), (extra, R._BONUS_CACHE.get(104)))
