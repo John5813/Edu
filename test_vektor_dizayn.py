@@ -189,9 +189,8 @@ hist = picks_for("Amir Temur davri tarixi", "tarix")
 check("tarix mavzusida tishli g'ildirak chiqmaydi", "gears" not in hist, set(hist))
 eco = picks_for("Ekologiya va tabiatni muhofaza qilish", "tabiiy")
 tech = picks_for("Raqamli texnologiyalar", "aniq")
-check("ekologiyada barg va daraxt ko'proq chiqadi",
-      eco.count("leaves") + eco.count("tree") > 2 * (tech.count("leaves") + tech.count("tree")),
-      (eco.count("leaves") + eco.count("tree"), tech.count("leaves") + tech.count("tree")))
+check("ekologiyada barglar ko'proq chiqadi",
+      eco.count("leaves") > 2 * tech.count("leaves"), (eco.count("leaves"), tech.count("leaves")))
 check("texnikada strelkali aylana va X ko'proq", tech.count("arrows") + tech.count("cross") >
       eco.count("arrows") + eco.count("cross"), (tech.count("arrows"), eco.count("arrows")))
 check("obraz bilan ham xilma-xillik saqlanadi (takror yo'q)", all(a != b for a, b in zip(eco, eco[1:])))

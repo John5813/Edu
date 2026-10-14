@@ -121,11 +121,21 @@ def spread(n: int, a: float, b: float) -> List[float]:
 
 
 def no_photo_fill(c: Ctx, x, y, w, h):
-    """Rasm yo'q (bepul sinov yoki rasm chizilmadi): o'rnida rangli maydon va katta ikonka."""
+    """Rasm yo'q (bepul sinov yoki rasm topilmadi): o'rnida rangli maydon va yumshoq halqalar.
+
+    Ilgari o'rtada katta xira ikonka (lampochka, globus) turardi — u "rasm chiqmay qolgan"
+    bo'lib ko'rinardi. Endi bu bezakli fon: halqalar maydon ichida qoladi.
+    """
     p = c.pal
     r = rect(c.slide, x, y, w, h)
-    grad(r, [(0, mix(p.accent, p.dark, 0.2)), (100, p.deep)], angle=60)
-    icon(c.slide, c.topic_icon, x + w / 2, y + h / 2, min(w, h) * 0.45, mix(p.dark, WHITE, 0.18))
+    grad(r, [(0, mix(p.accent, p.dark, 0.15)), (100, p.deep)], angle=60)
+    side = min(w, h)
+    cx, cy = x + w * 0.6, y + h * 0.5
+    glow_ = oval(c.slide, cx, cy, side * 0.42)
+    grad(glow_, [(0, p.glowing, 45), (100, p.accent, 0)], radial=True)
+    for k, a in ((0.46, 22), (0.34, 16), (0.22, 12)):
+        ring = oval(c.slide, cx, cy, side * k)
+        nofill(ring); line(ring, WHITE, 3, a)
 
 
 # ═════════════════════════════════════════════ MUQOVA
@@ -146,7 +156,6 @@ def cover_x(c: Ctx, spec: Dict):
     left = poly(s, [(0, 0), (760, 0), (1060, 480), (830, 1080), (0, 1080)])
     grad(left, [(0, mix(navy, WHITE, 0.08)), (100, mix(navy, "000000", 0.15))], angle=90)
     shadow(left, blur=40, dist=0, alpha=55)
-    icon(s, c.topic_icon, 250, 230, 480, mix(navy, WHITE, 0.12))
     t = text(s, 110, 170, 860, 440, [[(spec["title"].upper(), 104, WHITE, True, p.head_font, -60)]],
              anchor=BOTTOM, line_spacing=1.0, min_scale=0.38)
     shadow(t, blur=18, dist=8, alpha=55)
@@ -283,67 +292,93 @@ def plan_wave(c: Ctx, spec: Dict):
 
 # ═════════════════════════════════════════════ RASMLI VARAQ (tasodifiy shakl)
 
-def _band_text(c: Ctx, spec: Dict, x, w):
-    s, p = c.slide, c.pal
-    soft = mix(p.accent, WHITE, 0.82)
+def _band_paras(c: Ctx, spec: Dict, title_pt=70, body_pt=36):
+    """Sarlavha + bitta matn qatlami (ilgari uch qatlam edi: sarlavha, qalin gap, mayda matn)."""
+    p = c.pal
+    soft = mix(p.accent, WHITE, 0.85)
     if spec.get("quote"):
         paras = [[(spec["title"].upper(), 24, soft, True, SANS, 200)],
-                 [("“" + spec["quote"] + "”", 42, WHITE, False, SERIF, 0, True)]]
+                 [("“" + spec["quote"] + "”", 46, WHITE, False, SERIF, 0, True)]]
         if spec.get("by"):
-            paras.append([("— " + spec["by"], 24, soft, True)])
+            paras.append([("— " + spec["by"], 26, soft, True)])
         if spec.get("text"):
-            paras.append([(spec["text"], 22, soft)])
-    else:
-        paras = [[(spec["title"].upper(), 62, WHITE, True, p.head_font)]]
-        if spec.get("lead"):
-            paras.append([(spec["lead"], 34, WHITE, True)])
-        if spec.get("text"):
-            paras.append([(spec["text"], 28, soft)])
-    text(s, x, 150, w, 780, paras, anchor=MIDDLE, gap=26, line_spacing=1.12, grow=True)
+            paras.append([(spec["text"], body_pt - 4, soft)])
+        return paras
+    paras = [[(spec["title"].upper(), title_pt, WHITE, True, p.head_font)]]
+    body = " ".join(t for t in (spec.get("lead"), spec.get("text")) if t)
+    if body:
+        paras.append([(body, body_pt, soft)])
+    return paras
+
+
+def _band_text(c: Ctx, spec: Dict, x, w):
+    text(c.slide, x, 140, w, 800, _band_paras(c, spec), anchor=MIDDLE, gap=30, line_spacing=1.15, grow=True)
+
+
+def band_plain(c: Ctx, spec: Dict):
+    """Rasm topilmagan rasmli varaq: rasm o'rnida bo'sh maydon emas — keng matnli bezakli sahifa."""
+    s, p = c.slide, c.pal
+    bg_dark(c, focus=(80, 40))
+    for r, a in ((620, 18), (470, 14), (320, 10)):
+        ring = oval(s, 1720, 900, r)
+        nofill(ring); line(ring, p.glowing, 3, a)
+    blob = oval(s, 1720, 900, 260)
+    grad(blob, [(0, p.accent, 45), (100, p.accent, 0)], radial=True)
+    bar = box(s, 110, 300, 12, 480, SHAPE.ROUNDED_RECTANGLE, adj=[0.5])
+    grad(bar, [(0, p.glowing), (100, p.accent)], angle=90)
+    text(s, 170, 120, 1300, 840, _band_paras(c, spec, title_pt=80, body_pt=40), anchor=MIDDLE, gap=36,
+         line_spacing=1.15, grow=True)
 
 
 def _band_photo(c: Ctx, spec: Dict, x, y, w, h):
-    if spec.get("photo_obj"):
-        photo(c.slide, spec["photo_obj"], x, y, w, h)
-    else:
-        no_photo_fill(c, x, y, w, h)
+    photo(c.slide, spec["photo_obj"], x, y, w, h)
 
 
+# Rasm va matn taxminan teng bo'linadi: matn paneli ~52%, rasm ~48% ko'rinadi (ilgari panel rasmning
+# ko'p qismini yopardi, matn esa tor ustunga siqilardi).
 def band_right(c: Ctx, spec: Dict):
+    if not spec.get("photo_obj"):
+        return band_plain(c, spec)
     s, p = c.slide, c.pal
-    slant = c.rng.randint(330, 470)
+    slant = c.rng.randint(150, 230)
     _band_photo(c, spec, 0, 0, 1920, 1080)
-    band = poly(s, [(800, 0), (1920, 0), (1920, 1080), (800 + slant, 1080)])
-    grad(band, [(0, p.accent, 93), (100, mix(p.accent, p.dark, 0.4), 96)], angle=90)
+    left = 900
+    band = poly(s, [(left, 0), (1920, 0), (1920, 1080), (left - slant, 1080)])
+    grad(band, [(0, p.accent, 95), (100, mix(p.accent, p.dark, 0.4), 97)], angle=90)
     shadow(band, blur=40, dist=0, alpha=40)
-    edge = poly(s, [(770, 0), (790, 0), (790 + slant, 1080), (770 + slant, 1080)])
+    edge = poly(s, [(left - 22, 0), (left - 4, 0), (left - slant - 4, 1080), (left - slant - 22, 1080)])
     fill(edge, p.glowing, 70)
-    _band_text(c, spec, 800 + slant + 40, 1920 - (800 + slant + 40) - 100)
+    _band_text(c, spec, left + 70, 1920 - left - 70 - 110)
 
 
 def band_left(c: Ctx, spec: Dict):
+    if not spec.get("photo_obj"):
+        return band_plain(c, spec)
     s, p = c.slide, c.pal
-    slant = c.rng.randint(330, 470)
+    slant = c.rng.randint(150, 230)
     _band_photo(c, spec, 0, 0, 1920, 1080)
-    band = poly(s, [(0, 0), (1120 - slant, 0), (1120, 1080), (0, 1080)])
-    grad(band, [(0, p.dark, 94), (100, mix(p.dark, p.accent, 0.35), 92)], angle=90)
+    right = 1020
+    band = poly(s, [(0, 0), (right, 0), (right - slant, 1080), (0, 1080)])
+    grad(band, [(0, p.dark, 95), (100, mix(p.dark, p.accent, 0.35), 94)], angle=90)
     shadow(band, blur=40, dist=0, alpha=40)
-    edge = poly(s, [(1120 - slant, 0), (1144 - slant, 0), (1144, 1080), (1120, 1080)])
+    edge = poly(s, [(right, 0), (right + 22, 0), (right - slant + 22, 1080), (right - slant, 1080)])
     fill(edge, p.accent, 85)
-    _band_text(c, spec, 110, 1120 - slant - 160)
+    _band_text(c, spec, 110, right - slant - 170)
 
 
 def band_chevron(c: Ctx, spec: Dict):
+    if not spec.get("photo_obj"):
+        return band_plain(c, spec)
     s, p = c.slide, c.pal
-    tip = c.rng.randint(760, 860)
+    tip = c.rng.randint(700, 760)
     _band_photo(c, spec, 0, 0, 1920, 1080)
     band = poly(s, [(tip + 200, 0), (1920, 0), (1920, 1080), (tip + 200, 1080), (tip, 540)])
-    grad(band, [(0, mix(p.accent, p.dark, 0.15), 94), (100, p.dark, 96)], angle=135)
+    grad(band, [(0, mix(p.accent, p.dark, 0.15), 95), (100, p.dark, 97)], angle=135)
     shadow(band, blur=40, dist=0, alpha=45)
     for k, a in ((0, 70), (60, 35)):
         ch = poly(s, [(tip + 140 - k, 0), (tip - 60 - k, 540), (tip + 140 - k, 1080)], close=False)
         nofill(ch); line(ch, p.glowing, 6, a)
-    _band_text(c, spec, tip + 260, 1920 - tip - 360)
+    _band_text(c, spec, tip + 250, 1920 - tip - 250 - 110)
 
 
 # ═════════════════════════════════════════════ INFOGRAFIKALAR
@@ -388,39 +423,43 @@ def info_swirl(c: Ctx, spec: Dict):
             label(c, 1410, y - 45, 480, 250, item, align=LEFT, dark=True, tsize=34, nsize=30, anchor=MIDDLE)
 
 
-def info_tree(c: Ctx, spec: Dict):
+def info_cards(c: Ctx, spec: Dict):
+    """Ikonkali kartalar: oq kartalar, yumaloq ikonka, raqam va yozuv (3-6 punkt)."""
     s, p = c.slide, c.pal
     items = spec["items"]
     n = len(items)
-    bg_dark(c)
-    heading(c, spec["title"], spec.get("lead", ""), dark=True, align=CENTER, x=110, w=1700)
-    trunk = poly(s, [(925, 1060), (995, 1060), (980, 840), (1060, 660), (1040, 650), (972, 790), (966, 580),
-                     (950, 580), (946, 780), (870, 630), (850, 642), (938, 840)])
-    grad(trunk, [(0, "8D6E63"), (100, "5D4037")], angle=0)
-    for x, y, r in [(790, 540, 60), (870, 450, 68), (1060, 440, 64), (1150, 540, 58), (960, 380, 62),
-                    (720, 660, 46), (1210, 670, 44), (1000, 580, 54), (900, 590, 48), (1100, 350, 42)]:
-        o = oval(s, x, y, r)
-        grad(o, [(0, WHITE), (100, mix(WHITE, p.dark, 0.15))], angle=60)
-        shadow(o, blur=26, dist=8, alpha=45)
-    spots = [(700, 490, 74), (880, 320, 76), (1080, 290, 74), (1240, 450, 76), (1020, 490, 70), (820, 660, 68)]
-    ramp = p.ramp(n, 0.35, 0.35)
+    bg_light(c)
+    top = heading(c, spec["title"], spec.get("lead", ""))
+    cols = n if n <= 4 else 3
+    rows = math.ceil(n / cols)
+    gap = 36
+    x0, x1 = 110, 1810
+    cw = (x1 - x0 - gap * (cols - 1)) / cols
+    area_top, area_bottom = top + 40, 1010
+    ch = min(420, (area_bottom - area_top - gap * (rows - 1)) / rows)
+    y0 = area_top + (area_bottom - area_top - rows * ch - gap * (rows - 1)) / 2
+    ramp = p.ramp(n, 0.2, 0.35)
     for i, item in enumerate(items):
-        x, y, r = spots[i]
-        o = oval(s, x, y, r)
-        grad(o, [(0, mix(ramp[i], WHITE, 0.25)), (100, ramp[i])], angle=45)
-        shadow(o, blur=30, dist=10, alpha=50)
-        ic = c.icon_for(item.get("title", ""), item.get("note", ""))
-        item["_icon"] = ic
-        icon(s, ic, x, y, r * 0.95, WHITE)
-    left = math.ceil(n / 2)
-    for i, item in enumerate(items):
-        on_left = i < left
-        k = i if on_left else i - left
-        m = left if on_left else n - left
-        y = spread(m, 330, 860)[k] - 30
-        x = 110 if on_left else 1430
-        icon(s, item["_icon"], x + 380 - 26 if on_left else x + 26, y - 6, 48, ramp[i])
-        label(c, x - (70 if on_left else 0), y + 30, 470, 200, item, align=RIGHT if on_left else LEFT, dark=True, tsize=34, nsize=30)
+        row, col = divmod(i, cols)
+        in_row = min(cols, n - row * cols)
+        shift = (cols - in_row) * (cw + gap) / 2          # oxirgi qatordagi kartalar o'rtada
+        x = x0 + shift + col * (cw + gap)
+        y = y0 + row * (ch + gap)
+        card = box(s, x, y, cw, ch, SHAPE.ROUNDED_RECTANGLE, adj=[0.06])
+        fill(card, WHITE)
+        line(card, mix(WHITE, p.accent, 0.14), 1.5)
+        shadow(card, blur=34, dist=10, alpha=16)
+        fill(rect(s, x + 32, y, cw - 64, 7), ramp[i])
+        r = min(48.0, ch * 0.13)
+        badge = oval(s, x + 40 + r, y + 40 + r, r)
+        grad(badge, [(0, mix(ramp[i], WHITE, 0.2)), (100, ramp[i])], angle=90)
+        shadow(badge, blur=16, dist=6, alpha=30)
+        icon(s, c.icon_for(item.get("title", ""), item.get("note", "")), x + 40 + r, y + 40 + r, r * 1.05, WHITE)
+        text(s, x + cw - 150, y + 30, 120, 2 * r + 20, [[(f"{i + 1:02d}", 44, mix(WHITE, p.accent, 0.3), True,
+                                                          p.head_font)]], align=RIGHT, anchor=MIDDLE, fit=False)
+        ty = y + 60 + 2 * r
+        label(c, x + 40, ty, cw - 80, y + ch - ty - 30, item, tsize=36 if cols <= 3 else 32,
+              nsize=32 if cols <= 3 else 28)
 
 
 def info_fan(c: Ctx, spec: Dict):
@@ -458,53 +497,41 @@ def info_fan(c: Ctx, spec: Dict):
          anchor=MIDDLE, fit=False)
 
 
-def info_pencil(c: Ctx, spec: Dict):
+def info_timeline(c: Ctx, spec: Dict):
+    """Vaqt chizig'i: gorizontal chiziq, raqamli tugunlar va navbat bilan tepada/pastda kartalar."""
     s, p = c.slide, c.pal
     items = spec["items"]
     n = len(items)
     bg_light(c)
-    heading(c, spec["title"], spec.get("lead", ""))
-    cx = 960
-    ys = spread(n, 330, 820)
-    tones = [p.accent, mix(p.accent, p.dark, 0.3)]
-    for i, y in enumerate(ys):
-        side = -1 if i % 2 == 0 else 1
-        x0, x1 = cx - side * 70, cx + side * 10
-        fold = poly(s, [(x0, y - 20), (x1, y - 50), (x1, y + 20), (x0, y + 50)])
-        grad(fold, [(0, mix(WHITE, p.ink, 0.15)), (100, mix(WHITE, p.ink, 0.45))], angle=0 if side > 0 else 180)
-    top, bottom = 250, 880
-    for x, w, a, b in [(cx - 40, 27, "F9C74F", "F3A712"), (cx - 13, 26, "FFE08A", "F9C74F"),
-                       (cx + 13, 27, "F3A712", "D98C00")]:
-        grad(rect(s, x, top, w, bottom - top), [(0, a), (100, b)], angle=0)
-    grad(box(s, cx - 40, top - 90, 80, 50, SHAPE.ROUNDED_RECTANGLE, adj=[0.3]), [(0, "F48FB1"), (100, "D81B60")], angle=0)
-    grad(rect(s, cx - 42, top - 45, 84, 50), [(0, "9EA4AA"), (50, "F2F4F6"), (100, "7D838A")], angle=0)
-    for k in range(3):
-        fill(rect(s, cx - 42, top - 36 + k * 13, 84, 3), "6D737A", 70)
-    grad(poly(s, [(cx - 40, bottom), (cx + 40, bottom), (cx + 10, bottom + 85), (cx - 10, bottom + 85)]),
-         [(0, "F1D3A8"), (100, "C99A62")], angle=0)
-    fill(poly(s, [(cx - 10, bottom + 85), (cx + 10, bottom + 85), (cx, bottom + 115)]), "2F2F2F")
-    for i, (item, y) in enumerate(zip(items, ys)):
-        side = -1 if i % 2 == 0 else 1
-        L, hgt, head = 400, 76, 56
-        base = cx + side * 30
-        tipx = cx + side * L
-        pts = [(base, y - hgt / 2), (tipx - side * head, y - hgt / 2), (tipx - side * head, y - hgt / 2 - 14),
-               (tipx, y), (tipx - side * head, y + hgt / 2 + 14), (tipx - side * head, y + hgt / 2), (base, y + hgt / 2)]
-        arr = poly(s, pts)
-        col = tones[i % 2]
-        grad(arr, [(0, mix(col, WHITE, 0.2)), (100, col)], angle=90)
-        shadow(arr, blur=20, dist=8, alpha=35)
-        tx = base + (34 if side > 0 else -330)
-        text(s, tx, y - 34, 300, 68, [[(f"{i + 1:02d}  ", 30, WHITE, True, p.head_font),
-                                       ((item.get("value") or item.get("title", "")).upper(), 21, WHITE, True, SANS, 40)]],
-             align=LEFT if side > 0 else RIGHT, anchor=MIDDLE, line_spacing=1.0)
-        bx = tipx + 50 if side > 0 else tipx - 50 - 400
-        ic = c.icon_for(item.get("title", ""), item.get("note", ""))
-        icon(s, ic, bx + (28 if side > 0 else 372), y - 74, 50, mix(p.muted, WHITE, 0.2))
-        note = item.get("note") or ""
-        if item.get("value"):
-            note = (item.get("title", "") + ". " + note).strip(". ")
-        text(s, bx - (0 if side > 0 else 40), y - 44, 460, 160, [[(note, 30, p.body)]], align=LEFT if side > 0 else RIGHT)
+    top = heading(c, spec["title"], spec.get("lead", ""))
+    y = 625 if top > 210 else 610
+    xs = spread(n, 250, 1670)
+    step = (xs[1] - xs[0]) if n > 1 else 800
+    cw = min(470.0, step * 1.8 - 40)
+    bar = box(s, 130, y - 7, 1660, 14, SHAPE.ROUNDED_RECTANGLE, adj=[0.5])
+    grad(bar, [(0, mix(p.accent, WHITE, 0.6)), (100, p.accent)], angle=0)
+    ramp = p.ramp(n, 0.25, 0.35)
+    up_top, up_bottom = top + 30, y - 46 - 44
+    down_top, down_bottom = y + 46 + 44, 1030
+    for i, (item, x) in enumerate(zip(items, xs)):
+        up = i % 2 == 0
+        cy0, cy1 = (up_top, up_bottom) if up else (down_top, down_bottom)
+        cx0 = max(40, min(x - cw / 2, 1880 - cw))
+        stem = rect(s, x - 2, cy1 if up else y + 46, 4, 44)
+        fill(stem, ramp[i], 80)
+        card = box(s, cx0, cy0, cw, cy1 - cy0, SHAPE.ROUNDED_RECTANGLE, adj=[0.07])
+        fill(card, WHITE)
+        line(card, mix(WHITE, p.accent, 0.14), 1.5)
+        shadow(card, blur=30, dist=10, alpha=16)
+        fill(rect(s, cx0 + 28, cy0 if up else cy1 - 7, cw - 56, 7), ramp[i])
+        label(c, cx0 + 28, cy0 + 22, cw - 56, cy1 - cy0 - 44, item, align=CENTER, anchor=MIDDLE,
+              tsize=34 if n <= 4 else 30, nsize=30 if n <= 4 else 27)
+        node = oval(s, x, y, 46)
+        grad(node, [(0, mix(ramp[i], WHITE, 0.2)), (100, ramp[i])], angle=90)
+        line(node, WHITE, 6)
+        shadow(node, blur=18, dist=6, alpha=30)
+        text(s, x - 46, y - 46, 92, 92, [[(f"{i + 1:02d}", 30, WHITE, True, p.head_font)]], align=CENTER,
+             anchor=MIDDLE, fit=False)
 
 
 def info_leaves(c: Ctx, spec: Dict):
@@ -772,9 +799,9 @@ STYLES = [
     Style("band_left", ("photo",), 0, 99, band_left),
     Style("band_chevron", ("photo",), 0, 99, band_chevron),
     Style("swirl", ("group", "numbers"), 4, 6, info_swirl),
-    Style("tree", ("group",), 3, 6, info_tree),
+    Style("cards", ("group", "numbers"), 3, 6, info_cards),
     Style("fan", ("group", "sequence", "numbers"), 3, 4, info_fan),   # 5+ punktda yozuvlar ustma-ust tushadi
-    Style("pencil", ("sequence", "group"), 3, 5, info_pencil),
+    Style("timeline", ("sequence", "group"), 3, 6, info_timeline),
     Style("leaves", ("group",), 2, 4, info_leaves),
     Style("arcs", ("group", "sequence", "numbers"), 3, 7, info_arcs),
     Style("arrows", ("sequence", "group"), 3, 8, info_arrows),
