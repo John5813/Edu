@@ -50,12 +50,12 @@ _TOZA = """
 .title{font-size:60px;font-weight:600;letter-spacing:-1px}
 .title.big{font-size:104px;font-weight:600;letter-spacing:-3px}
 .rule{width:72px;height:4px;border-radius:0}
-.cols>.card,.steps>.card{background:none;border-radius:0;padding:30px 0 0;
-min-height:0;border-top:3px solid #ACCENT;border-bottom:0;
+.cols>.card,.steps>.card{background:var(--tint,#SOFT);border-radius:0 0 18px 18px;
+padding:40px 38px;min-height:0;border-top:6px solid var(--tone,#ACCENT);border-bottom:0;
 justify-content:flex-start;gap:14px}
 .cols>.card:has(>.ikon-dot:first-child),
-.steps>.card:has(>.ikon-dot:first-child){border-bottom:0;border-radius:0;
-justify-content:flex-start;border-top:3px solid #ACCENT}
+.steps>.card:has(>.ikon-dot:first-child){border-bottom:0;border-radius:0 0 18px 18px;
+justify-content:flex-start;border-top:6px solid var(--tone,#ACCENT)}
 .cols:has(>.card>.ikon-dot:first-child),
 .steps:has(>.card>.ikon-dot:first-child){padding-top:0;row-gap:40px}
 .cols>.card>.ikon-dot:first-child,.steps>.card>.ikon-dot:first-child{
@@ -73,22 +73,14 @@ justify-content:flex-start}
 .list>.item:first-child{border-top:2px solid #SOFT}
 .item-ikon{background:none!important;width:64px;height:64px}
 .item-ikon .ikon{width:54px;height:54px}
-.timeline .stop{border-top:2px solid #HEADING;align-items:flex-start;
+.timeline .stop{border-top:4px solid #SOFT;align-items:flex-start;
 text-align:left;padding:0 28px 0 0}
-.timeline .bead{width:14px;height:14px;margin-top:-8px;background:#HEADING}
-.timeline .when{font-size:44px;font-weight:600;color:#HEADING;margin-top:10px}
-.slide.dark{background:#BACKGROUND;color:#HEADING}
-.slide.dark .title,.slide.dark .lead{color:#HEADING}
-.slide.dark .lead{color:#MUTED;font-size:40px}
-.slide.dark .card,.slide.dark .formula,.slide.dark .misol{background:#SOFT}
-.slide.dark .card-title,.slide.dark .item-text,.slide.dark .item-text b,
-.slide.dark .kpi-value,.slide.dark .kpi-label,.slide.dark .misol-task,
-.slide.dark .misol-answer,.slide.dark .formula-body,.slide.dark .quote,
-.slide.dark .when,.slide.dark .what{color:#HEADING}
-.slide.dark .card-note,.slide.dark .kpi-note,.slide.dark .misol-text,
-.slide.dark .formula-note,.slide.dark .quote-by,.slide.dark .note{color:#MUTED}
-.slide.dark .kpi-value{color:#ACCENT}
+.timeline .when{font-size:46px;font-weight:700;margin-top:6px}
+/* Muqova va xulosa — to'q varaq (ilgari oq bo'lib, oddiy matn sahifasidek qolardi). */
+.slide.dark .lead{font-size:40px}
+.slide.dark .rule{background:#ACCENT;width:120px;height:6px}
 .bezak{display:none}
+.slide.dark .bezak{display:block}
 """
 
 # ── 2. Jurnal ──────────────────────────────────────────────────────────────
@@ -125,18 +117,14 @@ width:92px;flex:none;line-height:1}
 .timeline .what{font-family:SERIF;font-size:30px}
 .kpi{border-left:0;border-top:3px solid #HEADING;padding:24px 0 0}
 .quote-mark,.quote{color:#HEADING}
-.slide.dark{background:#BACKGROUND;color:#HEADING}
-.slide.dark .title{color:#HEADING}
-.slide.dark .lead{color:#BODY;font-style:italic;font-size:44px}
-.slide.dark .card,.slide.dark .formula,.slide.dark .misol{background:#SOFT}
-.slide.dark .card-title,.slide.dark .item-text,.slide.dark .item-text b,
-.slide.dark .kpi-value,.slide.dark .kpi-label,.slide.dark .misol-task,
-.slide.dark .misol-answer,.slide.dark .formula-body,.slide.dark .quote,
-.slide.dark .when,.slide.dark .what{color:#HEADING}
-.slide.dark .card-note,.slide.dark .kpi-note,.slide.dark .misol-text,
-.slide.dark .formula-note,.slide.dark .quote-by,.slide.dark .note{color:#MUTED}
-.slide.dark .kpi-value,.slide.dark .quote-mark{color:#ACCENT}
-.slide.dark .head{border-bottom-color:#HEADING}
+/* Muqova va xulosa: to'q siyoh rangli varaq, krem rangli serif matn — kitob muqovasidek. */
+.slide.dark{background:linear-gradient(150deg,#HEADING 0%,#BAND 100%);color:#FBF7EE}
+.slide.dark .title,.slide.dark .card-title,.slide.dark .item-text,.slide.dark .item-text b,
+.slide.dark .when,.slide.dark .what{color:#FBF7EE}
+.slide.dark .lead{color:#E9DFC9;font-style:italic;font-size:44px}
+.slide.dark .note,.slide.dark .card-note,.slide.dark .quote-by{color:#CFC4AC}
+.slide.dark .head{border-bottom-color:#E9DFC9}
+.slide.dark .item-dot{background:#E9DFC9}
 .bezak{display:none}
 """
 
@@ -266,6 +254,8 @@ padding:22px 30px}
 .timeline .when{font-size:46px}
 th{color:#BACKGROUND}
 tr:nth-child(even) td{background:#SOFT}
+.cols>.kpi,.timeline .what,.slide>.body>div:has(>.quote){background:#SOFT;border-color:#EDGE}
+.cols>.kpi{border-top-color:var(--tone,#ACCENT)}
 .slide.dark{background:linear-gradient(160deg,#BAND 0%,#BANDDEEP 100%)}
 .bezak{display:block}
 .bezak-a{background:#BANDGLOW}
@@ -374,6 +364,10 @@ def decorate(body: str, theme) -> str:
         body = _CARD_OPEN.sub(lambda m: m.group(0)
                               + '<i class="kor kor-a"></i><i class="kor kor-b"></i>', body)
         return _CARD_NUM.sub(lambda m: m.group(1) + "// " + m.group(2).strip(), body)
+    if key == "toza":
+        glow = '<div class="bezak bezak-a"></div><div class="bezak bezak-b"></div>'
+        return _SLIDE_OPEN.sub(lambda m: m.group(1) + glow if "dark" in m.group(1) and "bezak-a" not in body
+                               else m.group(1), body, count=1)
     if key == "qorongu":
         glow = '<div class="bezak bezak-a"></div><div class="bezak bezak-b"></div>'
         if "bezak-a" in body:

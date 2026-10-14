@@ -143,11 +143,12 @@ align-items:safe center}
 .split.wide-left{grid-template-columns:1.25fr 1fr}
 /* Matn va rasm. Rasm chiqmasa o'rnida qo'shimcha matn turadi —
    kartochka ko'rinishida, chap tomonidagi matn bilan teng bo'yda. */
+/* Rasm chiqmasa o'rnida rangli "fakt kartasi" turadi: urg'u rangidan to'q
+   rangga gradient, oq matn. Ilgari och, bo'sh rasm qutisiga o'xshab qolardi. */
 .rasm{align-self:stretch;display:flex;flex-direction:column;
-justify-content:center;gap:24px;border-radius:18px;padding:48px;
-background:linear-gradient(160deg,#SOFT 0%,#SOFTER 100%);
-border-left:8px solid #ACCENT;min-height:420px}
-.rasm-matn{font-size:36px;line-height:1.5;color:#BODY}
+justify-content:center;gap:24px;border-radius:24px;padding:64px 60px;
+background:linear-gradient(150deg,#ACCENT 0%,#BAND 100%);min-height:420px}
+.rasm-matn{font-size:38px;line-height:1.5;color:#FFFFFF;font-weight:500}
 /* Rasm yonidagi matn: yaxlit abzatslar (ro'yxat bandlari va kartochkalarga bo'linmaydi). */
 .par-col{display:flex;flex-direction:column;justify-content:safe center;gap:30px}
 .par{font-size:36px;line-height:1.6;color:#BODY}
@@ -223,6 +224,11 @@ display:flex;align-items:center;justify-content:center;flex:none}
 border-left:6px solid #ACCENT;padding-left:32px}
 .kpi-value{font-size:96px;line-height:1;font-weight:700;color:#ACCENT;
 letter-spacing:-2px}
+/* Ko'rsatkichlar qatorda: har biri o'z rangidagi kartada (bo'sh varaqda
+   mayda raqamlar suzib yurmasin). */
+.cols>.kpi{background:var(--tint,#SOFT);border-left:0;border-top:10px solid var(--tone,#ACCENT);
+border-radius:0 0 22px 22px;padding:52px 46px;min-height:340px;justify-content:center}
+.cols>.kpi>.kpi-value{color:var(--tone,#ACCENT);font-size:112px}
 .kpi-label{font-size:36px;font-weight:700;color:#HEADING}
 .kpi-note{font-size:32px;line-height:1.5;color:#MUTED}
 
@@ -268,10 +274,17 @@ justify-content:center;color:#ACCENT;font-size:38px;font-weight:700}
 .timeline .stop{flex:1;display:flex;flex-direction:column;gap:18px;
 align-items:center;text-align:center;justify-content:flex-start;
 border-top:4px solid #SOFT;padding:0 24px}
-.timeline .bead{width:22px;height:22px;border-radius:50%;
-background:#ACCENT;flex:none;margin-top:-13px}
-.timeline .when{font-size:36px;font-weight:700;color:#ACCENT}
-.timeline .what{font-size:30px;line-height:1.5;color:#BODY}
+.timeline .bead{width:40px;height:40px;border-radius:50%;
+background:var(--tone,#ACCENT);flex:none;margin-top:-22px;border:8px solid #BACKGROUND}
+.timeline .when{font-size:48px;font-weight:800;color:var(--tone,#ACCENT)}
+.timeline .what{font-size:31px;line-height:1.45;color:#BODY;background:var(--tint,#SOFT);
+border-radius:18px;padding:28px 26px;align-self:stretch;flex:1}
+.timeline .stop{border-top-width:6px}
+.timeline>.stop:nth-child(5n+1){--tone:#TONE1;--tint:#TINT1}
+.timeline>.stop:nth-child(5n+2){--tone:#TONE2;--tint:#TINT2}
+.timeline>.stop:nth-child(5n+3){--tone:#TONE3;--tint:#TINT3}
+.timeline>.stop:nth-child(5n+4){--tone:#TONE4;--tint:#TINT4}
+.timeline>.stop:nth-child(5n+5){--tone:#TONE5;--tint:#TINT5}
 
 /* ── Iqtibos ───────────────────────────────────────────────────── */
 .quote{font-family:SERIF;font-size:48px;line-height:1.45;font-style:italic;
@@ -279,6 +292,13 @@ color:#HEADING;max-width:1500px}
 .quote-by{font-size:28px;color:#MUTED;margin-top:28px}
 .quote-mark{font-family:SERIF;font-size:120px;line-height:0.7;
 color:#ACCENT;opacity:1}
+/* Iqtibos yolg'iz turgan varaqda: katta rangli karta ichida, yirik shrift. */
+.slide>.body>div:has(>.quote){background:linear-gradient(150deg,#SOFT 0%,#SOFTER 100%);
+border-left:14px solid #ACCENT;border-radius:0 28px 28px 0;padding:80px 96px;
+display:flex;flex-direction:column;gap:10px}
+.slide>.body>div:has(>.quote)>.quote{font-size:68px;line-height:1.3;max-width:none}
+.slide>.body>div:has(>.quote)>.quote-mark{font-size:220px;height:110px}
+.slide>.body>div:has(>.quote)>.quote-by{font-size:34px;font-weight:700;color:#ACCENT}
 
 /* ── Jadval ────────────────────────────────────────────────────── */
 table{width:100%;border-collapse:collapse;font-size:30px}
