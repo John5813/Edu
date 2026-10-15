@@ -42,7 +42,10 @@ doc, binary = glb.read_glb(data)
 check("GLB sarlavhasi va uzunligi to'g'ri", data[:4] == b"glTF" and len(data) % 4 == 0)
 lo, hi = glb.bounds(data)
 check("anchor chegara qutisini belgilaydi", list(lo) == [-2, -3, -4] and list(hi) == [5, 6, 7], (lo, hi))
-check("anchor uchburchagi nol yuzali (ko'rinmaydi)", doc["accessors"][2]["count"] == 6)
+pts = np.frombuffer(binary, np.float32, 6 * 3, doc["bufferViews"][0]["byteLength"] - 6 * 12).reshape(6, 3)
+areas = [np.linalg.norm(np.cross(t[1] - t[0], t[2] - t[0])) / 2 for t in (pts[:3], pts[3:])]
+check("anchor: ikkita haqiqiy (PowerPoint tashlab yubormaydi), lekin piksel ulushicha uchburchak",
+      doc["accessors"][-1]["count"] == 9 and all(0 < a < 1e-4 * 11 ** 2 for a in areas), areas)
 check("material suyak rangida", doc["materials"][0]["pbrMetallicRoughness"]["baseColorFactor"][:3] == [0.9, 0.8, 0.7])
 
 print("2) Tayyor sahna")
@@ -146,8 +149,12 @@ check("12 slayd", sum(1 for n in z.namelist() if n.startswith("ppt/slides/slide"
 all_frames = {i: frames(i)[1] for i in range(1, 13)}
 check("ramkalar MAX_FRAME dan katta emas",
       all(v["size"] <= MAX_FRAME + 1e-3 for f in all_frames.values() for v in f.values()))
+on_slide = lambda f: {n for n, v in f.items() if -v["size"] < v["x"] < W and -v["size"] < v["y"] < H}
 check("og'iz slaydi o'z sahnasida (Morph boshqa sahnaga ulanmaydi)",
-      set(all_frames[3]) == {"!!m3d_digestive_head_ogiz"}, list(all_frames[3]))
+      on_slide(all_frames[3]) == {"!!m3d_digestive_head_ogiz"}, on_slide(all_frames[3]))
+check("sahna almashganda eskilari slayddan tashqariga uchadi, yangilari tashqaridan keladi",
+      "!!m3d_jigar" in all_frames[3] and "!!m3d_jigar" not in on_slide(all_frames[3])
+      and "!!m3d_digestive_head_ogiz" in all_frames[2] and "!!m3d_digestive_head_ogiz" not in on_slide(all_frames[2]))
 check("7-slayd: jigar yuqoriga chiqib ketadi, o't pufagi qoladi",
       all_frames[7]["!!m3d_digestive_abdomen_jigar"]["y"] + all_frames[7]["!!m3d_digestive_abdomen_jigar"]["size"] < 0
       and "!!m3d_digestive_abdomen_ot" in all_frames[7])

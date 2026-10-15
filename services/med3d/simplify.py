@@ -36,11 +36,43 @@ def _cluster(pos: np.ndarray, nrm: np.ndarray, idx: np.ndarray, cell: float):
             remap[tri].reshape(-1).astype(np.uint32))
 
 
+def vertex_normals(pos: np.ndarray, idx: np.ndarray) -> np.ndarray:
+    """Uchburchak yuzasiga qarab o'rtachalangan nuqta normallari."""
+    tri = idx.reshape(-1, 3)
+    face = np.cross(pos[tri[:, 1]] - pos[tri[:, 0]], pos[tri[:, 2]] - pos[tri[:, 0]])
+    out = np.zeros_like(pos, dtype=np.float64)
+    for k in range(3):
+        for axis in range(3):
+            out[:, axis] += np.bincount(tri[:, k], weights=face[:, axis], minlength=len(pos))
+    lens = np.linalg.norm(out, axis=1, keepdims=True)
+    return np.where(lens > 1e-12, out / np.maximum(lens, 1e-12), [0.0, 1.0, 0.0]).astype(np.float32)
+
+
+def _quadric(pos: np.ndarray, idx: np.ndarray, target: int):
+    """Sifatli soddalashtirish (quadric edge collapse, `fast_simplification`): shakl, egat va burmalar saqlanadi.
+
+    Vertex clustering yaqin nuqtalarni bittaga yopishtiradi — miya kabi burmali yuzada teshik va dog'lar
+    paydo bo'ladi. Kutubxona o'rnatilmagan bo'lsa — None (oddiy usul ishlaydi).
+    """
+    try:
+        import fast_simplification
+    except ImportError:
+        return None
+    faces = idx.reshape(-1, 3).astype(np.int32)
+    p, f = fast_simplification.simplify(pos.astype(np.float32), faces, target_reduction=1 - target / len(faces))
+    p = p.astype(np.float32)
+    i = f.reshape(-1).astype(np.uint32)
+    return p, vertex_normals(p, i), i
+
+
 def simplify(pos: np.ndarray, nrm: np.ndarray, idx: np.ndarray, target: int
              ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Uchburchaklar soni `target` dan oshmaydigan qilib soddalashtiradi (kerak bo'lmasa — o'zgarishsiz)."""
     if len(idx) // 3 <= target or len(pos) < 4:
         return pos, nrm, idx
+    result = _quadric(pos, idx, target)
+    if result is not None and len(result[2]):
+        return result
     size = float((pos.max(axis=0) - pos.min(axis=0)).max()) or 1.0
     low, high = size / 4000, size / 20             # katak o'lchami: kichik — sifatli, katta — soddaroq
     best = None

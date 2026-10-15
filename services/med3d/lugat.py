@@ -8,6 +8,9 @@ emas, shu tekshirilgan ro'yxat bilan ishlaydi. `tools/med3d_lugat.py` qoidalarni
 Qoida yozilishi: "regex" — nomda qidiriladi (katta-kichik harf farqsiz); "tizim:regex" — faqat shu
 tizimdagi qismlar ("skeletal|borrowed:..." — bir nechta tizim); "id:FJ2823" — aniq bitta qism.
 `m` — erkak, `f` — ayol; bo'sh bo'lsa — shu tanada yo'q. `union` — boshqa organlar yig'indisi.
+`tones` — organ ichidagi qismlarga alohida rang [(regex, rang)]; `union` organ esa tarkibidagi organlar
+rangida chiziladi (masalan, yurak: bo'lmachalar och, qorinchalar to'q).
+`shade` — soyadagi (egat, chuqurlik) rang: sukut bo'yicha organ rangining to'qrog'i.
 `inside` — bu organni o'rab turgan organlar: kamera shu organga yaqinlashsa, ular slayddan chiqariladi
 (aks holda organ ko'rinmaydi, masalan klapanlar yurak ichida).
 """
@@ -16,7 +19,7 @@ from typing import Dict, List
 BONE, TOOTH, CARTILAGE = "#DDD0B3", "#F1ECDF", "#A9C3D1"
 MUSCLE, TENDON = "#B0423C", "#D8C9A8"
 ARTERY, VEIN, HEART = "#C0282D", "#2F5DA8", "#9E2B2B"
-NERVE, BRAIN = "#E3C35A", "#E2A9A3"
+NERVE, BRAIN = "#E3C35A", "#D9927E"
 FAT, SKIN = "#E7C47C", "#D9A98C"
 
 _SKULL = r"^(left |right )?(frontal bone|parietal bone|occipital bone|temporal bone|sphenoid bone|ethmoid|maxilla|" \
@@ -99,7 +102,7 @@ ORGANS: List[Dict] = [
          f=["donor-muscle:(gastrocnemius|soleus|tibialis|peroneus|plantaris|popliteus)"]),
 
     # ── Yurak va qon tomirlari
-    dict(id="yurak_bolmachalari", uz="Yurak bo'lmachalari", en="Atria of the heart", color="#B23A3A",
+    dict(id="yurak_bolmachalari", uz="Yurak bo'lmachalari", en="Atria of the heart", color="#C9605A",
          m=["cardiac:^wall of (left|right) atrium$"], f=["cardiac:cardiac atrium"]),
     dict(id="yurak_qorinchalari", uz="Yurak qorinchalari", en="Ventricles of the heart", color=HEART,
          m=["cardiac:^wall of ventricle$"], f=["cardiac:(^(left |right )?ventricle|interventricular septum)"]),
@@ -179,6 +182,8 @@ ORGANS: List[Dict] = [
     dict(id="buyraklar", uz="Buyraklar", en="Kidneys", color="#8C3B2E",
          m=["urinary:" + _LR + "kidney$"], f=["urinary:^kidney capsule"]),
     dict(id="buyrak_ichki", inside=['buyraklar'], uz="Buyrakning ichki tuzilishi", en="Internal structure of the kidney",
+         tones=[("renal pyramid", "#7E2A26"), ("renal papilla", "#B5523F"), ("calyx|renal pelvis", "#D9B05A"),
+                ("renal column", "#C98B7A")],
          color="#A7493A", m=[], f=["urinary:(renal pyramid|renal papilla|calyx|renal pelvis|renal column)"]),
     dict(id="siydik_naylari", uz="Siydik naylari", en="Ureters", color="#D6B25E",
          m=["urinary:" + _LR + "ureter$"], f=["urinary:^ureter"]),
@@ -222,11 +227,14 @@ ORGANS: List[Dict] = [
          f=["integumentary:(mammary lobes|lactiferous|nipple|areola)"]),
 
     # ── Nerv tizimi
-    dict(id="bosh_miya", uz="Bosh miya", en="Brain", color=BRAIN,
+    # Bosh miya: katta yarimsharlar iliq pushti-qo'ng'ir, miyacha to'qroq jigarrang, miya ustuni och sarg'ish;
+    # egatlar qizg'ish-qoramtir soyada (shade) — tabiiy miya ko'rinishiga yaqin.
+    dict(id="bosh_miya", uz="Bosh miya", en="Brain", color=BRAIN, shade="#4A1622",
+         tones=[("cerebell", "#9A6048"), ("pons|medulla|midbrain|peduncle|tegmentum", "#CFA27C")],
          m=["nervous:(gyrus|lobe$|lobule|^(left |right )?insula$|white matter of cerebral hemisphere|"
             "corpus callosum|^cerebellum$|medulla oblongata|^pons$|^midbrain$)"],
          f=["brain:.*"]),
-    dict(id="miyacha", uz="Miyacha", en="Cerebellum", color="#D98C86",
+    dict(id="miyacha", uz="Miyacha", en="Cerebellum", color="#9A6048", shade="#3A1418",
          m=["nervous:^cerebellum$"], f=["brain:(cerebell)"]),
     dict(id="miya_ustuni", uz="Miya ustuni", en="Brainstem", color="#CFA36A",
          m=["nervous:^(medulla oblongata|pons|midbrain)$"],

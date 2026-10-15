@@ -9,11 +9,13 @@
 4. Organ modellari so'rov paytida atlasdan yig'iladi (katta organlar soddalashtiriladi) va `deck.build` ga beriladi.
 """
 import asyncio
+import hashlib
 import json
 import logging
 import os
 import re
 import tempfile
+import zlib
 from functools import lru_cache
 from typing import Callable, Dict, List, Optional, Tuple
 
@@ -23,8 +25,9 @@ from . import ASSETS_DIR, manba
 from .camera import Camera
 from .catalog import srgb
 from .glb import Primitive, write_glb
-from .lugat import BY_ID, ORGANS, SOURCES
+from .lugat import BONE, BY_ID, CARTILAGE, ORGANS, SOURCES, TOOTH
 from .simplify import simplify
+from . import ao
 
 log = logging.getLogger(__name__)
 
@@ -33,10 +36,16 @@ log = logging.getLogger(__name__)
 MODEL = os.getenv("MED3D_MODEL") or "anthropic/claude-sonnet-5"
 SLIDE_OPTIONS = (5, 8, 10, 12, 15)
 MIN_SLIDES, MAX_SLIDES = 3, 15
-ORGAN_MAX_TRIS = 60000           # bitta organ modeli shundan katta bo'lsa soddalashtiriladi
-SLIDE_MAX_TRIS = 160000          # bir slayddagi hamma organlar birga
+# Sifat — imkon qadar maksimal: atlasdagi asl model (100%). Kamaytirish faqat ikki sababdan:
+ORGAN_MAX_TRIS = 600000          # atlasdagi eng og'ir organdan ham katta — amalda hamma organ to'liq
+SLIDE_MAX_TRIS = 1500000         # bir slayddagi hamma organlar birga (eng og'ir slayd ham to'liq sig'adi)
+FILE_LIMIT_MB = float(os.getenv("MED3D_MAX_MB") or 45)   # Telegram bot 50 MB dan kattasini yubormaydi
+TURN_MAX = 45                    # qo'shni slaydlar orasida eng katta burilish (gradus) — Morph silliq bo'lsin
 MAX_SHOW, MAX_LABELS = 8, 6
 LEXICON = os.path.join(ASSETS_DIR, "lugat.json")
+CONTACT = 0.015                  # metr: organlar shu masofadan yaqin bo'lsa — tegib turibdi, bir-biriga soya tushiradi
+HARD = (BONE, TOOTH, CARTILAGE)
+WRAPPERS = {"skelet", "mushaklar", "teri", "arteriyalar", "venalar"}   # butun tana bo'ylab tizimlar
 
 
 class NotAnatomy(RuntimeError):
@@ -100,18 +109,21 @@ RULES
 5. "show": 1-8 organs. Never put an organ together with an organ that contains it (e.g. "skelet" with
    "bosh_suyagi", "bosh_miya" with "miyacha", "yurak" with "yurak_bolmachalari", "mushaklar" with one muscle).
    "teri" (skin) hides everything inside it — show it only alone.
-6. "rot" degrees: x tilts (positive = seen from above, keep within -60..60); y turns around the vertical axis
+6. Group the slides by body region: finish one organ system before moving to the next and never jump back and
+   forth between distant regions (every jump to a far region breaks the smooth motion).
+7. "rot" degrees: x tilts (positive = seen from above, keep within -60..60); y turns around the vertical axis
    (0 = front view, 90 = the body's right side faces the viewer, -90 = its left side, 180 = back view);
-   z = 0. Change the view by 20-90 degrees between neighbouring slides; never repeat the same view twice in a row.
-7. "labels": 0-6 organ ids from "show" to point at with lines; do not label organs hidden behind others.
-8. Heart topics: use "aorta_yoyi" and "yuqori_kovak_vena" (the parts next to the heart); "aorta" and
+   z = 0. Turn the view by 15-45 degrees between neighbouring slides, mostly in one direction (like walking
+   around the body); never repeat the same view twice in a row.
+8. "labels": 0-6 organ ids from "show" to point at with lines; do not label organs hidden behind others.
+9. Heart topics: use "aorta_yoyi" and "yuqori_kovak_vena" (the parts next to the heart); "aorta" and
    "kovak_venalar" run through the whole trunk and make the heart look tiny — use them only for circulation of
    the whole body. Valves ("yurak_klapanlari") lie INSIDE the heart: to show them, view the heart from above
    (x 40-60) or remove "yurak"/"yurak_qorinchalari" from that slide.
-9. "title": at most 6 words. "text": 2-4 sentences, at most 380 characters, accurate textbook facts, clear for the
+10. "title": at most 6 words. "text": 2-4 sentences, at most 380 characters, accurate textbook facts, clear for the
    requested level. No diagnosis or treatment advice, no invented statistics, never mention the current year
    or dates.
-10. "names": for EVERY organ id you use, its correct anatomical name in the presentation language.
+11. "names": for EVERY organ id you use, its correct anatomical name in the presentation language.
 """
 
 USER = """Topic: {topic}
@@ -133,7 +145,37 @@ def _plan_ai(topic: str, count: int, language: str, level: int, preferences: str
     user = USER.format(topic=topic, count=count, level=LEVELS.get(level, LEVELS[2]),
                        language_rule=llm_client._language_instruction(language), extra=extra, table=organ_table())
     with prompts.use(language), llm_client.text_model(MODEL):
-        return llm_client._call_openrouter(SYSTEM, user, temperature=0.4, max_tokens=3000 + 800 * count)
+        return _call_json(SYSTEM, user, answer_tokens=3000 + 800 * count)
+
+
+THINK_TOKENS = 2000     # Claude Sonnet 5 o'ylashga cheklovsiz token sarflaydi va javob bo'sh qaytadi — chegaralanadi
+
+
+def _call_json(system: str, user: str, answer_tokens: int) -> dict:
+    """JSON so'rov: o'ylash (reasoning) uchun alohida cheklangan byudjet, javob uchun to'liq joy.
+
+    Umumiy `_call_openrouter` Claude uchun o'ylashni cheklamaydi: model hamma tokenni o'ylashga sarflab,
+    "token chegarasida kesildi, bo'sh javob" bilan qaytadi va zaxira modelga o'tiladi (vaqt va pul behuda).
+    """
+    from services.premium_presentation import llm_client
+
+    payload = {
+        "temperature": 0.4,
+        "max_tokens": answer_tokens + THINK_TOKENS,
+        "reasoning": {"max_tokens": THINK_TOKENS, "exclude": True},
+        "response_format": {"type": "json_object"},
+        "messages": [{"role": "system", "content": llm_client._with_today(system)},
+                     {"role": "user", "content": user}],
+    }
+    raw = llm_client._request("text", payload)["choices"][0]["message"]["content"]
+    cleaned = llm_client._clean_json(raw)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        salvaged = llm_client._salvage_partial_json(cleaned)
+        if salvaged:
+            return salvaged
+        raise
 
 
 def _num(value, low: float, high: float) -> float:
@@ -187,6 +229,7 @@ def normalize(data: dict, count: int, language: str) -> dict:
         })
     if len(slides) < max(MIN_SLIDES, count - 1):
         raise ValueError(f"reja {len(slides)} slayd, {count} kerak")
+    smooth_turns(slides)
     names = {}
     ai_names = data.get("names") if isinstance(data.get("names"), dict) else {}
     for organ in {o for s in slides for o in s["show"]}:
@@ -195,6 +238,27 @@ def normalize(data: dict, count: int, language: str) -> dict:
         else:
             names[organ] = str(ai_names.get(organ) or BY_ID[organ]["en"]).strip()[:40]
     return {"body": body, "slides": slides, "names": names}
+
+
+def smooth_turns(slides: List[dict]) -> None:
+    """Burilishlarni silliqlaydi: qo'shni slaydlar orasida TURN_MAX dan ko'p emas, keskin teskari burilmaydi.
+
+    AI ba'zan 30° → −60° → 180° → −120° kabi sakraydi: Morph modelni har o'tishda teskari aylantiradi va
+    ko'z charchaydi. Har slayd oldingisidan AI so'ragan tomonga, lekin ko'pi bilan TURN_MAX ga buriladi.
+    """
+    prev = None
+    for s in slides:
+        x, y, z = s["rot"]
+        y = (y + 180) % 360 - 180
+        y = max(-100.0, min(100.0, y))               # orqadan ko'rinish deyarli kerak emas — old va yon tomonlar
+        x = max(-45.0, min(45.0, x))
+        if prev is not None:
+            px, py = prev
+            dy = (y - py + 180) % 360 - 180          # eng qisqa yo'l bilan
+            y = py + max(-TURN_MAX, min(TURN_MAX, dy))
+            x = px + max(-30.0, min(30.0, x - px))
+        s["rot"] = [round(x, 1), round(y, 1), 0.0]
+        prev = (x, y)
 
 
 def plan(topic: str, count: int, language: str = "uz", level: int = 2, preferences: str = "") -> dict:
@@ -277,13 +341,111 @@ def _mesh(atlas, part_ids):
     return np.vstack(pos), np.vstack(nrm), np.concatenate(idx)
 
 
-def build_scenes(body_key: str, plan_: dict, atlas=None) -> Tuple[dict, Dict[str, dict]]:
-    """Reja → (deck rejasi, xotiradagi sahnalar). atlas — test uchun almashtirsa bo'ladi."""
+def _pieces(atlas, body: dict, organ: str) -> List[Tuple[str, list]]:
+    """Organ → [(rang, qism id lari)]: union — tarkibidagi organlar rangida, `tones` — qism nomiga qarab."""
+    info = BY_ID[organ]
+    if info.get("union"):
+        out = [(BY_ID[c]["color"], body[c]["parts"]) for c in info["union"] if c in body]
+    else:
+        out = [(info["color"], body[organ]["parts"])]
+    tones = info.get("tones") or []
+    if tones:
+        split: Dict[str, list] = {}
+        for color, ids in out:
+            for pid in ids:
+                name = str(atlas.by_id.get(pid, {}).get("name", ""))
+                hue = next((c for rx, c in tones if re.search(rx, name, re.I)), color)
+                split.setdefault(hue, []).append(pid)
+        out = list(split.items())
+    merged: Dict[str, list] = {}
+    for color, ids in out:                        # bir xil rang — bitta material
+        merged.setdefault(color, []).extend(i for i in ids if i not in merged.get(color, []))
+    return [(c, ids) for c, ids in merged.items() if ids]
+
+
+def organ_geometry(atlas, body: dict, organ: str, target: int) -> List[tuple]:
+    """Organ → [(rang, nuqtalar, normallar, indekslar)]: soddalashtirilgan (sifatli usulda), hali soyasiz."""
+    pieces = _pieces(atlas, body, organ)
+    total = sum(sum(atlas._one(atlas.by_id[p])[2].size for p in ids) // 3 for _, ids in pieces) or 1
+    meshes = []
+    for color, ids in pieces:
+        pos, nrm, idx = _mesh(atlas, ids)
+        share = max(2000, int(target * (len(idx) // 3) / total))
+        meshes.append((color, *simplify(pos, nrm, idx, share)))
+    return meshes
+
+
+def _joined(meshes: List[tuple]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, List[int]]:
+    offsets, base, pos, nrm, idx = [], 0, [], [], []
+    for _, p, n, i in meshes:
+        offsets.append(base)
+        pos.append(p)
+        nrm.append(n)
+        idx.append(i + base)
+        base += len(p)
+    return np.vstack(pos), np.vstack(nrm), np.concatenate(idx), offsets
+
+
+def shaded_primitives(organ: str, meshes: List[tuple], neighbours: List[List[tuple]] = ()) -> List[Primitive]:
+    """Soya butun organ bo'yicha (bo'lmacha qorinchaga soya tushiradi) va unga tegib turgan qo'shni organlar
+    bilan birga (yurak aorta ildiziga) — yig'ilgan organlar bitta jismdek, bir xil yorug'likda ko'rinadi."""
+    allpos, allnrm, allidx, offsets = _joined(meshes)
+    others = None
+    if neighbours:
+        opos, _, oidx, _ = _joined([m for group in neighbours for m in group])
+        others = (opos, oidx)
+    info = BY_ID[organ]
+    base = np.array(srgb(info["color"]))
+    tint = np.array(srgb(info["shade"])) / np.maximum(base, 1e-3) if info.get("shade") else (0.55, 0.45, 0.45)
+    hard = info["color"] in HARD    # suyak va tog'ay — xira, yumshoq a'zolar — nam yaltiroq
+    shade = ao.colors(allpos, allnrm, allidx, tint=np.clip(tint, 0, 1), mottle=0.04 if hard else 0.12,
+                      others=others)
+    prims = []
+    for (color, pos, nrm, idx), start in zip(meshes, offsets):
+        prims.append(Primitive(pos, nrm, idx, srgb(color), roughness=0.75 if hard else 0.38, name=organ,
+                               colors=shade[start:start + len(pos)]))
+    return prims
+
+
+def organ_primitives(atlas, body: dict, organ: str, target: int) -> List[Primitive]:
+    """Organ modeli: soddalashtirilgan va soyasi hisoblangan (egat, chuqurliklar qorong'i)."""
+    return shaded_primitives(organ, organ_geometry(atlas, body, organ, target))
+
+
+def neighbours(body: dict, organ: str, slides: List[dict]) -> List[str]:
+    """Organga soya tushiradigan qo'shnilar: u bilan bir slaydda turadigan va unga TEGIB turgan organlar.
+
+    Bir-birining ichidagisi (klapan — yurak), butun tizimlar (skelet, teri), suyak ↔ yumshoq to'qima olinmaydi:
+    aks holda qo'shni uchib ketgan slaydda organda keraksiz qora dog' qoladi.
+    """
+    nested = _contains()
+    hard = BY_ID[organ]["color"] in HARD
+    together = {o for s in slides if organ in s["show"] for o in s["show"]} - {organ}
+    mine = np.asarray(body[organ]["samples"], float)
+    out = []
+    for other in sorted(together):
+        if (other in WRAPPERS or organ in WRAPPERS or other in nested.get(organ, ()) or organ in nested.get(other, ())
+                or other in BY_ID[organ].get("inside", ()) or organ in BY_ID[other].get("inside", ())
+                or (BY_ID[other]["color"] in HARD) != hard):
+            continue
+        theirs = np.asarray(body[other]["samples"], float)
+        gap = np.sqrt(((mine[:, None, :] - theirs[None, :, :]) ** 2).sum(axis=2)).min()
+        if gap < CONTACT:
+            out.append(other)
+    return out
+
+
+def build_scenes(body_key: str, plan_: dict, atlas=None, quality: float = 1.0) -> Tuple[dict, Dict[str, dict]]:
+    """Reja → (deck rejasi, xotiradagi sahnalar). atlas — test uchun almashtirsa bo'ladi.
+
+    quality — uchburchaklar ulushi (1 — imkon qadar to'liq); fayl juda katta chiqsa `make_deck` kamaytiradi.
+    """
     body = lexicon()["bodies"][body_key]
     slides = plan_["slides"]
     reveal_hidden(body, slides)
     atlas = atlas or manba.atlas(body_key)
-    meshes: Dict[Tuple[str, int], tuple] = {}
+    geometry: Dict[Tuple[str, int], list] = {}
+    shaded: Dict[tuple, list] = {}
     scenes: Dict[str, dict] = {}
     deck_slides = []
     for number, (members, lo, hi) in enumerate(split_runs(body, slides)):
@@ -291,16 +453,20 @@ def build_scenes(body_key: str, plan_: dict, atlas=None) -> Tuple[dict, Dict[str
         organs = list(dict.fromkeys(o for i in members for o in slides[i]["show"]))
         heaviest = max(sum(min(body[o]["tris"], ORGAN_MAX_TRIS) for o in slides[i]["show"]) for i in members)
         scale = min(1.0, SLIDE_MAX_TRIS / max(heaviest, 1))
-        groups, labels = {}, {}
+        targets = {o: int(max(6000, min(body[o]["tris"], ORGAN_MAX_TRIS) * scale * quality)) for o in organs}
         for organ in organs:
-            target = int(max(6000, min(body[organ]["tris"], ORGAN_MAX_TRIS) * scale))
-            cache_key = (organ, target)
-            if cache_key not in meshes:
-                meshes[cache_key] = simplify(*_mesh(atlas, body[organ]["parts"]), target)
-            pos, nrm, idx = meshes[cache_key]
-            prim = Primitive(pos, nrm, idx, srgb(BY_ID[organ]["color"]), roughness=0.55, name=organ)
+            if (organ, targets[organ]) not in geometry:
+                geometry[(organ, targets[organ])] = organ_geometry(atlas, body, organ, targets[organ])
+        groups, labels = {}, {}
+        run_slides = [slides[i] for i in members]
+        for organ in organs:
+            near = tuple(neighbours(body, organ, run_slides))
+            cache_key = (organ, targets[organ], tuple((o, targets[o]) for o in near))
+            if cache_key not in shaded:
+                shaded[cache_key] = shaded_primitives(organ, geometry[(organ, targets[organ])],
+                                                      [geometry[(o, targets[o])] for o in near])
             groups[organ] = {"samples": body[organ]["samples"],
-                             "glb": write_glb([prim], anchors=(lo, hi), name=organ)}
+                             "glb": write_glb(shaded[cache_key], anchors=(lo, hi), name=organ)}
             labels[organ] = {"uz": plan_["names"].get(organ, BY_ID[organ]["uz"]), "group": organ,
                              "samples": body[organ]["samples"]}
         scenes[key] = {"bbox_min": lo.tolist(), "bbox_max": hi.tolist(), "source": SOURCES[body_key],
@@ -315,10 +481,33 @@ def _safe(name: str) -> str:
     return re.sub(r"[^\w\-]+", "_", name, flags=re.UNICODE).strip("_")[:40] or "taqdimot"
 
 
-def make_deck(topic: str, plan_: dict, out_dir: Optional[str] = None, atlas=None) -> str:
+def models_size(scenes: Dict[str, dict]) -> int:
+    """Taqdimotdagi 3D modellar hajmi (bayt, PPTX ichidagidek siqilgan): bir xil GLB faylga bir marta yoziladi."""
+    unique = {}
+    for scene in scenes.values():
+        for info in scene["groups"].values():
+            key = hashlib.sha1(info["glb"]).hexdigest()
+            if key not in unique:
+                unique[key] = len(zlib.compress(info["glb"], 6))
+    return sum(unique.values())
+
+
+def make_deck(topic: str, plan_: dict, out_dir: Optional[str] = None, atlas=None,
+              limit_mb: Optional[float] = None) -> str:
+    """Taqdimot fayli. Avval eng yuqori sifatda yig'iladi; fayl `limit_mb` dan oshsa — og'ir organlar
+    kerakli ulushga kamaytirilib qayta yig'iladi (yengillari to'liq qoladi)."""
     from .deck import build
 
-    deck_plan, scenes = build_scenes(plan_["body"], plan_, atlas)
+    limit = (limit_mb or FILE_LIMIT_MB) * 1e6
+    quality = 1.0
+    for attempt in range(5):
+        deck_plan, scenes = build_scenes(plan_["body"], plan_, atlas, quality)
+        size = models_size(scenes)
+        if size <= limit:
+            break
+        quality *= limit / size * 0.92            # hajm uchburchaklar soniga deyarli mutanosib
+        log.info("3D Anatomiya: modellar %.1f MB > %.0f MB — sifat %.0f%% ga tushiriladi",
+                 size / 1e6, limit / 1e6, quality * 100)
     out_dir = out_dir or tempfile.mkdtemp(prefix="med3d_")
     return build(deck_plan, os.path.join(out_dir, f"3D_{_safe(topic)}.pptx"), scenes=scenes)
 
