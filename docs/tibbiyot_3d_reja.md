@@ -45,3 +45,17 @@ Barcha a'zolarni oldindan GLB qilmaymiz va har safar GitHub'dan ham chaqirmaymiz
 2. Yangi sahnalar: yurak, miya, skelet, o'pka, ko'z...
 3. AI rejasi: mavzu → sahna, slaydlar, burchaklar, yorliqlar (faqat katalogdan).
 4. Botga ulash: "kompyuterda oching" ogohlantirishi bilan.
+
+## Kelishuv: to'liq avtomatlashtirish (qabul qilindi)
+Sahnalarni qo'lda tayyorlash shart emas — tizim mavzu so'ralgan zahoti 3D taqdimotni o'zi yasaydi:
+1. Atlas (siqilgan ~33 MB) serverda turadi; GLB yig'ish yengil (bosh suyagi ~0.5 s) — hostda so'rov paytida.
+2. **Organlar lug'ati** (bir marta): atlas qismlari organlarga guruhlanadi (chap/o'ng, bo'laklar, takrorlar
+   birlashtiriladi), har biriga tekshirilgan o'zbekcha nom va rang. Sabab: atlas nomlari doim mantiqiy emas
+   (jigar "Hepatovenous segment" deb vena tizimida; "liver" tushunchasida faqat tomirlar; takror id lar).
+3. Har so'rovda AI shu lug'atdan organlarni tanlaydi, slaydlar rejasini yozadi; mayda organlar uchun
+   kichikroq sahna (chegara qutisi) avtomatik; natija keshlanadi.
+4. Botda yangi tur sifatida (pro3d kabi): mos organ topilmasa — oldindan aytiladi, pul yechilmaydi.
+Holat: 2 sahna (skull, digestive) qo'lda; avtomatik tizim hali yozilmagan. Ranglar sRGB hex → linear.
+
+## Ayol tanasi
+BodyParts3D faqat erkak tanasi. Ayol modellari manbasi qidirilmoqda (ayol reproduktiv a'zolari va h.k.).
