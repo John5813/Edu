@@ -42,7 +42,10 @@ doc, binary = glb.read_glb(data)
 check("GLB sarlavhasi va uzunligi to'g'ri", data[:4] == b"glTF" and len(data) % 4 == 0)
 lo, hi = glb.bounds(data)
 check("anchor chegara qutisini belgilaydi", list(lo) == [-2, -3, -4] and list(hi) == [5, 6, 7], (lo, hi))
-check("anchor uchburchagi nol yuzali (ko'rinmaydi)", doc["accessors"][2]["count"] == 6)
+pts = np.frombuffer(binary, np.float32, 6 * 3, doc["bufferViews"][0]["byteLength"] - 6 * 12).reshape(6, 3)
+areas = [np.linalg.norm(np.cross(t[1] - t[0], t[2] - t[0])) / 2 for t in (pts[:3], pts[3:])]
+check("anchor: ikkita haqiqiy (PowerPoint tashlab yubormaydi), lekin piksel ulushicha uchburchak",
+      doc["accessors"][-1]["count"] == 9 and all(0 < a < 1e-4 * 11 ** 2 for a in areas), areas)
 check("material suyak rangida", doc["materials"][0]["pbrMetallicRoughness"]["baseColorFactor"][:3] == [0.9, 0.8, 0.7])
 
 print("2) Tayyor sahna")

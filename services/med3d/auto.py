@@ -39,6 +39,9 @@ SLIDE_MAX_TRIS = 220000          # bir slayddagi hamma organlar birga
 TURN_MAX = 45                    # qo'shni slaydlar orasida eng katta burilish (gradus) — Morph silliq bo'lsin
 MAX_SHOW, MAX_LABELS = 8, 6
 LEXICON = os.path.join(ASSETS_DIR, "lugat.json")
+CONTACT = 0.015                  # metr: organlar shu masofadan yaqin bo'lsa — tegib turibdi, bir-biriga soya tushiradi
+HARD = (BONE, TOOTH, CARTILAGE)
+WRAPPERS = {"skelet", "mushaklar", "teri", "arteriyalar", "venalar"}   # butun tana bo'ylab tizimlar
 
 
 class NotAnatomy(RuntimeError):
@@ -356,8 +359,8 @@ def _pieces(atlas, body: dict, organ: str) -> List[Tuple[str, list]]:
     return [(c, ids) for c, ids in merged.items() if ids]
 
 
-def organ_primitives(atlas, body: dict, organ: str, target: int) -> List[Primitive]:
-    """Organ modeli: soddalashtirilgan (sifatli usulda) va soyasi hisoblangan (egat, chuqurliklar qorong'i)."""
+def organ_geometry(atlas, body: dict, organ: str, target: int) -> List[tuple]:
+    """Organ → [(rang, nuqtalar, normallar, indekslar)]: soddalashtirilgan (sifatli usulda), hali soyasiz."""
     pieces = _pieces(atlas, body, organ)
     total = sum(sum(atlas._one(atlas.by_id[p])[2].size for p in ids) // 3 for _, ids in pieces) or 1
     meshes = []
@@ -365,25 +368,67 @@ def organ_primitives(atlas, body: dict, organ: str, target: int) -> List[Primiti
         pos, nrm, idx = _mesh(atlas, ids)
         share = max(2000, int(target * (len(idx) // 3) / total))
         meshes.append((color, *simplify(pos, nrm, idx, share)))
-    # Soya butun organ bo'yicha: masalan, bo'lmacha qorinchaga soya tushiradi.
-    allpos = np.vstack([m[1] for m in meshes])
-    allnrm = np.vstack([m[2] for m in meshes])
-    offsets, base, allidx = [], 0, []
-    for m in meshes:
+    return meshes
+
+
+def _joined(meshes: List[tuple]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, List[int]]:
+    offsets, base, pos, nrm, idx = [], 0, [], [], []
+    for _, p, n, i in meshes:
         offsets.append(base)
-        allidx.append(m[3] + base)
-        base += len(m[1])
+        pos.append(p)
+        nrm.append(n)
+        idx.append(i + base)
+        base += len(p)
+    return np.vstack(pos), np.vstack(nrm), np.concatenate(idx), offsets
+
+
+def shaded_primitives(organ: str, meshes: List[tuple], neighbours: List[List[tuple]] = ()) -> List[Primitive]:
+    """Soya butun organ bo'yicha (bo'lmacha qorinchaga soya tushiradi) va unga tegib turgan qo'shni organlar
+    bilan birga (yurak aorta ildiziga) — yig'ilgan organlar bitta jismdek, bir xil yorug'likda ko'rinadi."""
+    allpos, allnrm, allidx, offsets = _joined(meshes)
+    others = None
+    if neighbours:
+        opos, _, oidx, _ = _joined([m for group in neighbours for m in group])
+        others = (opos, oidx)
     info = BY_ID[organ]
     base = np.array(srgb(info["color"]))
     tint = np.array(srgb(info["shade"])) / np.maximum(base, 1e-3) if info.get("shade") else (0.55, 0.45, 0.45)
-    hard = info["color"] in (BONE, TOOTH, CARTILAGE)    # suyak va tog'ay — xira, yumshoq a'zolar — nam yaltiroq
-    shade = ao.colors(allpos, allnrm, np.concatenate(allidx), tint=np.clip(tint, 0, 1),
-                      mottle=0.04 if hard else 0.12)
+    hard = info["color"] in HARD    # suyak va tog'ay — xira, yumshoq a'zolar — nam yaltiroq
+    shade = ao.colors(allpos, allnrm, allidx, tint=np.clip(tint, 0, 1), mottle=0.04 if hard else 0.12,
+                      others=others)
     prims = []
     for (color, pos, nrm, idx), start in zip(meshes, offsets):
         prims.append(Primitive(pos, nrm, idx, srgb(color), roughness=0.75 if hard else 0.38, name=organ,
                                colors=shade[start:start + len(pos)]))
     return prims
+
+
+def organ_primitives(atlas, body: dict, organ: str, target: int) -> List[Primitive]:
+    """Organ modeli: soddalashtirilgan va soyasi hisoblangan (egat, chuqurliklar qorong'i)."""
+    return shaded_primitives(organ, organ_geometry(atlas, body, organ, target))
+
+
+def neighbours(body: dict, organ: str, slides: List[dict]) -> List[str]:
+    """Organga soya tushiradigan qo'shnilar: u bilan bir slaydda turadigan va unga TEGIB turgan organlar.
+
+    Bir-birining ichidagisi (klapan — yurak), butun tizimlar (skelet, teri), suyak ↔ yumshoq to'qima olinmaydi:
+    aks holda qo'shni uchib ketgan slaydda organda keraksiz qora dog' qoladi.
+    """
+    nested = _contains()
+    hard = BY_ID[organ]["color"] in HARD
+    together = {o for s in slides if organ in s["show"] for o in s["show"]} - {organ}
+    mine = np.asarray(body[organ]["samples"], float)
+    out = []
+    for other in sorted(together):
+        if (other in WRAPPERS or organ in WRAPPERS or other in nested.get(organ, ()) or organ in nested.get(other, ())
+                or other in BY_ID[organ].get("inside", ()) or organ in BY_ID[other].get("inside", ())
+                or (BY_ID[other]["color"] in HARD) != hard):
+            continue
+        theirs = np.asarray(body[other]["samples"], float)
+        gap = np.sqrt(((mine[:, None, :] - theirs[None, :, :]) ** 2).sum(axis=2)).min()
+        if gap < CONTACT:
+            out.append(other)
+    return out
 
 
 def build_scenes(body_key: str, plan_: dict, atlas=None) -> Tuple[dict, Dict[str, dict]]:
@@ -392,7 +437,8 @@ def build_scenes(body_key: str, plan_: dict, atlas=None) -> Tuple[dict, Dict[str
     slides = plan_["slides"]
     reveal_hidden(body, slides)
     atlas = atlas or manba.atlas(body_key)
-    meshes: Dict[Tuple[str, int], tuple] = {}
+    geometry: Dict[Tuple[str, int], list] = {}
+    shaded: Dict[tuple, list] = {}
     scenes: Dict[str, dict] = {}
     deck_slides = []
     for number, (members, lo, hi) in enumerate(split_runs(body, slides)):
@@ -400,14 +446,20 @@ def build_scenes(body_key: str, plan_: dict, atlas=None) -> Tuple[dict, Dict[str
         organs = list(dict.fromkeys(o for i in members for o in slides[i]["show"]))
         heaviest = max(sum(min(body[o]["tris"], ORGAN_MAX_TRIS) for o in slides[i]["show"]) for i in members)
         scale = min(1.0, SLIDE_MAX_TRIS / max(heaviest, 1))
-        groups, labels = {}, {}
+        targets = {o: int(max(6000, min(body[o]["tris"], ORGAN_MAX_TRIS) * scale)) for o in organs}
         for organ in organs:
-            target = int(max(6000, min(body[organ]["tris"], ORGAN_MAX_TRIS) * scale))
-            cache_key = (organ, target)
-            if cache_key not in meshes:
-                meshes[cache_key] = organ_primitives(atlas, body, organ, target)
+            if (organ, targets[organ]) not in geometry:
+                geometry[(organ, targets[organ])] = organ_geometry(atlas, body, organ, targets[organ])
+        groups, labels = {}, {}
+        run_slides = [slides[i] for i in members]
+        for organ in organs:
+            near = tuple(neighbours(body, organ, run_slides))
+            cache_key = (organ, targets[organ], tuple((o, targets[o]) for o in near))
+            if cache_key not in shaded:
+                shaded[cache_key] = shaded_primitives(organ, geometry[(organ, targets[organ])],
+                                                      [geometry[(o, targets[o])] for o in near])
             groups[organ] = {"samples": body[organ]["samples"],
-                             "glb": write_glb(meshes[cache_key], anchors=(lo, hi), name=organ)}
+                             "glb": write_glb(shaded[cache_key], anchors=(lo, hi), name=organ)}
             labels[organ] = {"uz": plan_["names"].get(organ, BY_ID[organ]["uz"]), "group": organ,
                              "samples": body[organ]["samples"]}
         scenes[key] = {"bbox_min": lo.tolist(), "bbox_max": hi.tolist(), "source": SOURCES[body_key],

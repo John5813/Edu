@@ -18,6 +18,7 @@ import logging
 import os
 from typing import Dict, List, Optional, Sequence, Tuple
 
+import numpy as np
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE
@@ -344,7 +345,12 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
                     add_model3d(slide, glbs[(k, g)], name, incoming.left, incoming.top, incoming.size,
                                 incoming.rot, parts)
                     placed.add(name)
-        for name, (k, g) in cur["names"].items():
+        # Har model alohida qatlam: PowerPoint ular orasida chuqurlikni solishtirmaydi. Uzoqdagisi avval
+        # (orqaga), yaqinidagisi keyin qo'yiladi — masalan, oldinda turgan aorta o'pka arteriyasini yopadi.
+        def depth(item):
+            k, g = item[1]
+            return float(np.median(cams[k].project(scenes[k]["groups"][g]["samples"], frame.rot)[1]))
+        for name, (k, g) in sorted(cur["names"].items(), key=depth):
             add_model3d(slide, glbs[(k, g)], name, frame.left, frame.top, frame.size, frame.rot, parts)
 
         groups = scene["groups"]

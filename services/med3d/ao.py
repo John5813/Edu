@@ -8,6 +8,8 @@ yoziladi — rang material rangiga ko'paytiriladi.
 Hisob: model fazoviy panjaraga (voksel) aylantiriladi; har nuqtadan normal tomonidagi yarim sfera
 bo'ylab nurlar chiqariladi; nur boshqa yuzaga urilsa — shu tomondan yorug'lik to'silgan. Faqat numpy.
 """
+from typing import Optional, Tuple
+
 import numpy as np
 
 GRID = 112            # panjara aniqligi (eng uzun tomon bo'yicha)
@@ -36,28 +38,40 @@ def _basis(normals: np.ndarray):
     return t, b, n
 
 
-def occlusion(pos: np.ndarray, nrm: np.ndarray, idx: np.ndarray) -> np.ndarray:
-    """Har nuqta uchun yorug'lik ko'paytuvchisi (0..1): 1 — ochiq joy, kichik — yopiq joy."""
+def occlusion(pos: np.ndarray, nrm: np.ndarray, idx: np.ndarray,
+              others: Optional[Tuple[np.ndarray, np.ndarray]] = None) -> np.ndarray:
+    """Har nuqta uchun yorug'lik ko'paytuvchisi (0..1): 1 — ochiq joy, kichik — yopiq joy.
+
+    others — (nuqtalar, indekslar): yonida turgan boshqa organlar. Ular ham yorug'likni to'sadi — masalan,
+    yurak aorta ildiziga soya tushiradi, aks holda yig'ilgan organlar tutashgan joyda yorug' "chok" qoladi.
+    """
     if len(pos) == 0:
         return np.ones(0)
     lo, hi = pos.min(axis=0), pos.max(axis=0)
     size = float((hi - lo).max()) or 1.0
     cell = size / GRID
+    reach = REACH * size
+    tri = pos[idx.reshape(-1, 3)]
+    if others is not None and len(others[1]):
+        near = others[0][others[1].reshape(-1, 3)]
+        mid = near.mean(axis=1)
+        keep = ((mid > lo - reach - cell) & (mid < hi + reach + cell)).all(axis=1)
+        if keep.any():
+            lo, hi = lo - reach - 2 * cell, hi + reach + 2 * cell          # panjara qo'shnilarni ham sig'dirsin
+            tri = np.concatenate([tri, near[keep]])
     dims = np.ceil((hi - lo) / cell).astype(int) + 3
     occ = np.zeros(dims, dtype=bool)
 
-    tri = pos[idx.reshape(-1, 3)]
     # Yuzani panjaraga "chizish": uchburchak ichidan bir nechta nuqta (katta uchburchaklar uchun ko'proq).
     weights = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 1], [2, 1, 1], [1, 2, 1], [1, 1, 2],
                         [1, 1, 0], [0, 1, 1], [1, 0, 1]], dtype=float)
     weights /= weights.sum(axis=1, keepdims=True)
     pts = np.einsum("wk,tkd->twd", weights, tri).reshape(-1, 3)
-    cells = np.floor((pts - lo) / cell).astype(int) + 1
+    cells = np.clip(np.floor((pts - lo) / cell).astype(int) + 1, 0, dims - 1)
     occ[cells[:, 0], cells[:, 1], cells[:, 2]] = True
 
     t, b, n = _basis(nrm.astype(float))
     dirs = _directions(RAYS)
-    reach = REACH * size
     steps = np.linspace(1.6 * cell, reach, STEPS)
     blocked = np.zeros((len(pos), RAYS), dtype=bool)
     start = pos + n * (0.6 * cell)               # o'z yuzasiga urilmaslik uchun biroz tashqaridan
@@ -115,14 +129,15 @@ def _mottle(pos: np.ndarray, amount: float) -> np.ndarray:
     return np.stack([red, other, other * 0.98], axis=1)
 
 
-def colors(pos: np.ndarray, nrm: np.ndarray, idx: np.ndarray, tint=(1.0, 1.0, 1.0), mottle: float = 0.0
-           ) -> np.ndarray:
+def colors(pos: np.ndarray, nrm: np.ndarray, idx: np.ndarray, tint=(1.0, 1.0, 1.0), mottle: float = 0.0,
+           others: Optional[Tuple[np.ndarray, np.ndarray]] = None) -> np.ndarray:
     """glTF COLOR_0 uchun N×4 uint8 (chiziqli rang; material rangiga ko'paytiriladi).
 
     tint — soyadagi rang ko'paytuvchisi (chiziqli, 0..1): ochiq joyda 1, to'liq yopiq joyda tint ga yaqinlashadi.
     Masalan, miya egatlari kulrang emas, qizg'ish-qoramtir bo'lsin: tint qizil kanali kattaroq.
+    others — qo'shni organlar geometriyasi (soya tushiradi, `occlusion` ga qarang).
     """
-    light = (occlusion(pos, nrm, idx) * cavity(pos, nrm, idx))[:, None]
+    light = (occlusion(pos, nrm, idx, others) * cavity(pos, nrm, idx))[:, None]
     shadow = np.asarray(tint, dtype=float)[None, :]
     dark = np.clip(1.0 - light, 0.0, 1.0)
     rgb = np.minimum(light, 1.0) + dark * shadow * np.sqrt(np.clip(light, 0, 1))  # soyada tint rangi

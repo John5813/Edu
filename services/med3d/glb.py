@@ -1,8 +1,10 @@
 """Oddiy GLB (glTF 2.0 binar) yozuvchi va o'quvchi — tashqi kutubxonasiz, faqat numpy.
 
 PowerPoint 3D modelni GLB dan oladi. Bitta faylda bir nechta "primitiv" bo'ladi: har biri o'z
-materiali (suyak, tish...) bilan. `anchors` — ko'rinmas nol yuzali uchburchak: u modelning
-chegara qutisini (bounding box) belgilaydi. Bir sahnadagi hamma qism (bosh suyagi tepasi, jag')
+materiali (suyak, tish...) bilan. `anchors` — qutining ikki qarama-qarshi burchagidagi ikkita juda kichik
+(piksel ulushidan ham kichik, qora) uchburchak: ular modelning chegara qutisini (bounding box) belgilaydi.
+Nol yuzali uchburchak yetmaydi — PowerPoint uni import paytida tashlab yuboradi va har modelni o'z
+geometriyasi bo'yicha markazlaydi (yurakdan uzilib qolgan tomirlar shundan edi). Bir sahnadagi hamma qism (bosh suyagi tepasi, jag')
 bir xil qutiga ega bo'lsa, PowerPoint ularni bir xil masshtab va markaz bilan chizadi — bir xil
 ramkaga qo'yilganda qismlar bir-biriga aniq yopishadi.
 """
@@ -14,6 +16,7 @@ import numpy as np
 
 _FLOAT, _U8, _U16, _U32 = 5126, 5121, 5123, 5125
 _ARRAY, _ELEMENTS = 34962, 34963
+ANCHOR_SIZE = 4e-4        # langar uchburchak tomoni — model o'lchamining ulushi (ekranda < 1 piksel)
 
 
 class Primitive:
@@ -40,14 +43,17 @@ def write_glb(primitives: List[Primitive], *, anchors: Optional[Tuple[Sequence[f
     prims = list(primitives)
     if anchors is not None:
         lo, hi = (np.asarray(a, dtype=np.float32) for a in anchors)
+        tiny = np.float32(ANCHOR_SIZE * max(float((hi - lo).max()), 1e-6))
+        ex, ey = np.array([tiny, 0, 0], np.float32), np.array([0, tiny, 0], np.float32)
+        corners = np.array([lo, lo + ex, lo + ey, hi, hi - ey, hi - ex], dtype=np.float32)  # quti ichida
         first = prims[0]
         base = len(first.positions)
         prims[0] = Primitive(
-            np.vstack([first.positions, lo[None], hi[None]]),
-            np.vstack([first.normals, [[0, 1, 0], [0, 1, 0]]]),
-            np.concatenate([first.indices, [base, base, base + 1]]),   # nol yuzali — ko'rinmaydi
+            np.vstack([first.positions, corners]),
+            np.vstack([first.normals, [[0, 0, 1]] * 6]),
+            np.concatenate([first.indices, base + np.arange(6)]),
             first.color, first.roughness, first.name,
-            None if first.colors is None else np.vstack([first.colors, [[255, 255, 255, 255]] * 2]))
+            None if first.colors is None else np.vstack([first.colors, [[0, 0, 0, 255]] * 6]))
 
     blob = bytearray()
     views, accessors, materials, gltf_prims = [], [], [], []

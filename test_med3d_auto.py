@@ -95,6 +95,14 @@ runs = auto.split_runs(MALE, plan["slides"])
 check("mayda organ (o't pufagi) uchun alohida sahna", len(runs) >= 2 and [2] in [m for m, _, _ in runs] or
       any(2 in m and 0 not in m for m, _, _ in runs), [m for m, _, _ in runs])
 
+heart = [{"show": ["skelet", "yurak", "aorta_yoyi", "opka_arteriyasi", "yuqori_kovak_vena"]},
+         {"show": ["yurak", "yurak_klapanlari", "buyraklar"]}]
+near = auto.neighbours(MALE, "yurak", heart)
+check("yurakka tegib turgan tomirlar unga soya tushiradi (bitta yorug'lik)",
+      {"aorta_yoyi", "opka_arteriyasi", "yuqori_kovak_vena"} <= set(near), near)
+check("skelet, ichidagi klapan va uzoqdagi buyrak soya tushirmaydi",
+      not {"skelet", "yurak_klapanlari", "buyraklar"} & set(near), near)
+
 
 class FakeAtlas:
     """Atlas o'rniga: har qism — organ chegarasidagi kichik kub (tarmoq va 130 MB atlas kerak emas)."""
