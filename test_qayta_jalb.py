@@ -306,7 +306,10 @@ async def flow_tests():
     again = Bot()
     with patch.object(R, "SEND_PAUSE", 0):
         await R.tick(again, now=NOON + 6 * D + 600)
-    check("ma'lumot kuniga bir marta", not any(chat == 1 and "davom etadi" in text for chat, _, text, _ in again.sent))
+        await R.tick(again, now=NOON + 6 * D + 1200.7)       # haqiqiy vaqt: kasr sekundlar bilan
+        await R.tick(again, now=NOON + 6 * D + 1800.3)
+    check("ma'lumot kuniga bir marta (kasr sekundli vaqtda ham)",
+          not any(chat == 1 and "davom etadi" in text for chat, _, text, _ in again.sent))
     await db.set_feature_status(R.FEATURE, False)
     off = Bot()
     with patch.object(R, "SEND_PAUSE", 0):
