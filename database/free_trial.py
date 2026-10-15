@@ -1,4 +1,4 @@
-"""Bepul sinov taqdimoti: har akkauntga BIR MARTA, 5 slayd (arzon model, rasmsiz).
+"""Bepul sinov taqdimoti: har akkauntga BIR MARTA, 5 slayd (arzon model, rasmlar faqat internetdan).
 
 Imkoniyat buyurtma berilganda «band qilinadi» (`claim`) — bir vaqtda ikki marta bosilsa ham faqat bittasi
 o'tadi (jadvalda telegram_id — asosiy kalit). Taqdimot tayyorlanmay qolsa (xato, bekor qilish, server qayta
