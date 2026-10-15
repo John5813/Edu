@@ -218,10 +218,8 @@ def plan_glass(c: Ctx, spec: Dict):
     s, p = c.slide, c.pal
     items = spec["items"]
     n = len(items)
-    if c.cover:
-        photo(s, c.cover, 0, 0, 1920, 1080)
-    else:
-        bg_dark(c, focus=(30, 50))
+    # Muqova rasmi bu varaqda qayta chiqmasin — Reja oddiy qoramtir fonda.
+    bg_dark(c, focus=(30, 50))
     shade = rect(s, 0, 0, 1920, 1080)
     grad(shade, [(0, p.deep, 88), (55, p.deep, 62), (100, p.deep, 38)], angle=0)
     for dx, a in [(0, 30), (120, 18)]:

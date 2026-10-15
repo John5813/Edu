@@ -210,7 +210,7 @@ print("6) Eski 'fon rasm + oq karta' modelga taklif qilinmaydi")
 check("rasm_fon katalogda yo'q", "[rasm_fon]" not in deck_compose.catalogue("uz"))
 check("rasmli kompozitsiyalar: chap, o'ng, tepa", deck_compose.PHOTO_LAYOUTS == ("rasm_chap", "rasm_ong", "rasm_tepa"))
 
-print("7) Ba'zi infografik varaqlarda xira fon rasmi")
+print("7) Takror rasm fon sifatida chiqmaydi")
 import base64 as _b64
 photo_page = ('<html><body><section class="slide"><img class="photo" src="data:image/jpeg;base64,'
               + _b64.b64encode(jpeg()).decode() + '"></section></body></html>')
@@ -218,7 +218,7 @@ d = Designer(theme, "Turizm", seed=7, pages=[photo_page, "<html></html>", photo_
 check("taqdimotdagi rasmlar fon to'plamiga olindi", len(d.backdrops) == 2, len(d.backdrops))
 got = [d._backdrop("group", i) for i in range(40)]
 share = sum(1 for g in got if g is not None) / len(got)
-check("infografik varaqlarning bir qismida (taxminan yarmida) fon bor", 0.25 <= share <= 0.75, share)
+check("infografik varaqlarda takror rasm fon bo'lib chiqmaydi", share == 0.0, share)
 check("muqova va rasmli varaqda fon yo'q", d._backdrop("cover", 1) is None and d._backdrop("photo", 1) is None)
 again = Designer(theme, "Turizm", seed=7, pages=[photo_page])
 check("qaror urug' va sahifa raqamiga bog'liq (qayta yig'ilganda o'zgarmaydi)",
