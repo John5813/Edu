@@ -7,11 +7,22 @@ shuning uchun "tepasi ajralib chiqib ketadi" effekti ikki alohida model bilan qi
 Yorliqlar (`labels`) — slaydda chiziq bilan ko'rsatiladigan qismlar. Kalit (masalan "frontal") AI
 rejasida ishlatiladi; `parts` — atlasdagi aniq nomlar (yorliq nuqtasi shu qismlar ustiga tushadi).
 """
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
-BONE = (0.89, 0.85, 0.75)
-TOOTH = (0.97, 0.96, 0.91)
-CARTILAGE = (0.80, 0.86, 0.90)
+
+def srgb(hex_color: str) -> Tuple[float, float, float]:
+    """Ekran rangi (#RRGGBB) → glTF baseColorFactor. glTF rangni chiziqli (linear) kutadi: ekran
+    rangini to'g'ridan-to'g'ri yozilsa, PowerPoint uni ancha och va rangsiz ko'rsatadi."""
+    out = []
+    for i in (1, 3, 5):
+        c = int(hex_color[i:i + 2], 16) / 255.0
+        out.append(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)
+    return tuple(round(x, 4) for x in out)
+
+
+BONE = srgb("#DDD0B3")
+TOOTH = srgb("#F1ECDF")
+CARTILAGE = srgb("#A9C3D1")
 
 _UPPER_TEETH = [f"{side} upper {t}" for side in ("Left", "Right") for t in (
     "central secondary incisor tooth", "lateral secondary incisor tooth", "secondary canine tooth",
@@ -74,16 +85,16 @@ SCENES: Dict[str, dict] = {
 }
 
 
-TONGUE = (0.80, 0.42, 0.44)
-GLAND = (0.93, 0.79, 0.52)
-GUT = (0.89, 0.58, 0.52)
-STOMACH = (0.86, 0.50, 0.46)
-LIVER = (0.52, 0.20, 0.17)
-BILE = (0.36, 0.60, 0.30)
-PANCREAS = (0.94, 0.77, 0.48)
-DUODENUM = (0.90, 0.63, 0.44)
-SMALL = (0.93, 0.67, 0.60)
-LARGE = (0.74, 0.50, 0.40)
+TONGUE = srgb("#B04F58")
+GLAND = srgb("#D29C4E")
+GUT = srgb("#B65A62")
+STOMACH = srgb("#BC5A62")
+LIVER = srgb("#74261F")
+BILE = srgb("#3F7F31")
+PANCREAS = srgb("#D29D47")
+DUODENUM = srgb("#C27650")
+SMALL = srgb("#C9706E")
+LARGE = srgb("#9C5843")
 
 _JEJUNUM = ["Proximal part of jejunum", "Middle part of jejunum", "Distal part of jejunum"]
 _ILEUM = ["Proximal part of ileum", "Middle part of ileum", "Distal part of ileum", "Ileocecal junction"]
