@@ -160,8 +160,10 @@ def quiet(now: float) -> bool:
 
 
 def _uzt_day_start(now: float) -> float:
+    """O'zbekiston vaqti bo'yicha kun boshi (butun soniya). Kasr qism qolsa, har aylanishda boshqa kalit bo'lib
+    kunlik «bugun yuborilgan» tekshiruvini buzardi."""
     local = uzt(now)
-    return now - (local.hour * HOUR + local.minute * 60 + local.second)
+    return float(int(now) - (local.hour * HOUR + local.minute * 60 + local.second))
 
 
 # ─────────────────────────────────────────────────────────────── kim kimga
