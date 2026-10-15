@@ -12,9 +12,10 @@ import numpy as np
 
 
 class Atlas:
-    def __init__(self, models_dir: str):
+    def __init__(self, models_dir: str, catalog: str = "atlas.json"):
+        """catalog: "atlas.json" — erkak (BodyParts3D), "atlas-female.json" — ayol (HRA, slorksmo/Human-Atlas)."""
         self.dir = models_dir
-        with open(os.path.join(models_dir, "atlas.json"), encoding="utf-8") as fh:
+        with open(os.path.join(models_dir, catalog), encoding="utf-8") as fh:
             self.meta = json.load(fh)
         # BodyParts3D bitta a'zoni bir nechta bo'lakka bo'ladi (masalan "Proximal part of ileum" — o'nlab
         # bo'lak): nom bo'yicha hammasi olinadi. Aniq bitta bo'lak kerak bo'lsa — uning id si ("FJ2823").

@@ -57,5 +57,16 @@ Sahnalarni qo'lda tayyorlash shart emas — tizim mavzu so'ralgan zahoti 3D taqd
 4. Botda yangi tur sifatida (pro3d kabi): mos organ topilmasa — oldindan aytiladi, pul yechilmaydi.
 Holat: 2 sahna (skull, digestive) qo'lda; avtomatik tizim hali yozilmagan. Ranglar sRGB hex → linear.
 
-## Ayol tanasi
-BodyParts3D faqat erkak tanasi. Ayol modellari manbasi qidirilmoqda (ayol reproduktiv a'zolari va h.k.).
+## Ayol tanasi (topildi)
+- Manba: https://github.com/slorksmo/Human-Atlas — human-atlas'ning ayol tanasi qo'shilgan versiyasi.
+  `public/models/atlas-female.json` + `female-N.bin` — biz o'qiydigan format bilan bir xil
+  (`Atlas(dir, "atlas-female.json")`). Ma'lumot: Human Reference Atlas female v1.10 (HuBMAP), NLM
+  Visible Human Female asosida, CC BY 4.0. Oyoq mushaklari: Andreassen et al. 2023, CC BY 4.0.
+- 1 220 tuzilma, ~2.77 mln uchburchak: reproduktiv (bachadon qismlari, naylar, tuxumdonlar, qin,
+  boylamlar — 38), homiladorlik (yo'ldosh, kindik tizimchasi, amnion — 8), yurak (bo'lmacha, qorincha,
+  klapanlar — 14), hazm (84; quloq oldi bezi, tanglay, ko'r ichak, sigmasimon ichak ham bor), miya (283),
+  buyrak (87).
+- Kamchilik: manbada bosh suyagi, qovurg'a, yelka, qo'l va oyoq panjasi suyaklari yo'q, mushak deyarli yo'q;
+  repo ularni erkak tanasidan olib to'ldirgan (`system: "borrowed"`) — ayolga xos emas.
+- Tekshirildi: bachadon+naylar+tuxumdonlar, yurak, yo'ldosh GLB qilib chizildi — sifat yaxshi.
+- Diqqat: nom bo'yicha qidirishda "Cervi" bo'yin umurtqalarini ham topadi — tizim (system) bo'yicha filtrlash shart.
