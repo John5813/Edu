@@ -9,11 +9,13 @@
 4. Organ modellari so'rov paytida atlasdan yig'iladi (katta organlar soddalashtiriladi) va `deck.build` ga beriladi.
 """
 import asyncio
+import hashlib
 import json
 import logging
 import os
 import re
 import tempfile
+import zlib
 from functools import lru_cache
 from typing import Callable, Dict, List, Optional, Tuple
 
@@ -34,8 +36,10 @@ log = logging.getLogger(__name__)
 MODEL = os.getenv("MED3D_MODEL") or "anthropic/claude-sonnet-5"
 SLIDE_OPTIONS = (5, 8, 10, 12, 15)
 MIN_SLIDES, MAX_SLIDES = 3, 15
-ORGAN_MAX_TRIS = 110000          # bitta organ modeli shundan katta bo'lsa soddalashtiriladi (sifatli usulda)
-SLIDE_MAX_TRIS = 220000          # bir slayddagi hamma organlar birga
+# Sifat — imkon qadar maksimal: atlasdagi asl model (100%). Kamaytirish faqat ikki sababdan:
+ORGAN_MAX_TRIS = 600000          # atlasdagi eng og'ir organdan ham katta — amalda hamma organ to'liq
+SLIDE_MAX_TRIS = 1500000         # bir slayddagi hamma organlar birga (eng og'ir slayd ham to'liq sig'adi)
+FILE_LIMIT_MB = float(os.getenv("MED3D_MAX_MB") or 45)   # Telegram bot 50 MB dan kattasini yubormaydi
 TURN_MAX = 45                    # qo'shni slaydlar orasida eng katta burilish (gradus) — Morph silliq bo'lsin
 MAX_SHOW, MAX_LABELS = 8, 6
 LEXICON = os.path.join(ASSETS_DIR, "lugat.json")
@@ -431,8 +435,11 @@ def neighbours(body: dict, organ: str, slides: List[dict]) -> List[str]:
     return out
 
 
-def build_scenes(body_key: str, plan_: dict, atlas=None) -> Tuple[dict, Dict[str, dict]]:
-    """Reja → (deck rejasi, xotiradagi sahnalar). atlas — test uchun almashtirsa bo'ladi."""
+def build_scenes(body_key: str, plan_: dict, atlas=None, quality: float = 1.0) -> Tuple[dict, Dict[str, dict]]:
+    """Reja → (deck rejasi, xotiradagi sahnalar). atlas — test uchun almashtirsa bo'ladi.
+
+    quality — uchburchaklar ulushi (1 — imkon qadar to'liq); fayl juda katta chiqsa `make_deck` kamaytiradi.
+    """
     body = lexicon()["bodies"][body_key]
     slides = plan_["slides"]
     reveal_hidden(body, slides)
@@ -446,7 +453,7 @@ def build_scenes(body_key: str, plan_: dict, atlas=None) -> Tuple[dict, Dict[str
         organs = list(dict.fromkeys(o for i in members for o in slides[i]["show"]))
         heaviest = max(sum(min(body[o]["tris"], ORGAN_MAX_TRIS) for o in slides[i]["show"]) for i in members)
         scale = min(1.0, SLIDE_MAX_TRIS / max(heaviest, 1))
-        targets = {o: int(max(6000, min(body[o]["tris"], ORGAN_MAX_TRIS) * scale)) for o in organs}
+        targets = {o: int(max(6000, min(body[o]["tris"], ORGAN_MAX_TRIS) * scale * quality)) for o in organs}
         for organ in organs:
             if (organ, targets[organ]) not in geometry:
                 geometry[(organ, targets[organ])] = organ_geometry(atlas, body, organ, targets[organ])
@@ -474,10 +481,33 @@ def _safe(name: str) -> str:
     return re.sub(r"[^\w\-]+", "_", name, flags=re.UNICODE).strip("_")[:40] or "taqdimot"
 
 
-def make_deck(topic: str, plan_: dict, out_dir: Optional[str] = None, atlas=None) -> str:
+def models_size(scenes: Dict[str, dict]) -> int:
+    """Taqdimotdagi 3D modellar hajmi (bayt, PPTX ichidagidek siqilgan): bir xil GLB faylga bir marta yoziladi."""
+    unique = {}
+    for scene in scenes.values():
+        for info in scene["groups"].values():
+            key = hashlib.sha1(info["glb"]).hexdigest()
+            if key not in unique:
+                unique[key] = len(zlib.compress(info["glb"], 6))
+    return sum(unique.values())
+
+
+def make_deck(topic: str, plan_: dict, out_dir: Optional[str] = None, atlas=None,
+              limit_mb: Optional[float] = None) -> str:
+    """Taqdimot fayli. Avval eng yuqori sifatda yig'iladi; fayl `limit_mb` dan oshsa — og'ir organlar
+    kerakli ulushga kamaytirilib qayta yig'iladi (yengillari to'liq qoladi)."""
     from .deck import build
 
-    deck_plan, scenes = build_scenes(plan_["body"], plan_, atlas)
+    limit = (limit_mb or FILE_LIMIT_MB) * 1e6
+    quality = 1.0
+    for attempt in range(5):
+        deck_plan, scenes = build_scenes(plan_["body"], plan_, atlas, quality)
+        size = models_size(scenes)
+        if size <= limit:
+            break
+        quality *= limit / size * 0.92            # hajm uchburchaklar soniga deyarli mutanosib
+        log.info("3D Anatomiya: modellar %.1f MB > %.0f MB — sifat %.0f%% ga tushiriladi",
+                 size / 1e6, limit / 1e6, quality * 100)
     out_dir = out_dir or tempfile.mkdtemp(prefix="med3d_")
     return build(deck_plan, os.path.join(out_dir, f"3D_{_safe(topic)}.pptx"), scenes=scenes)
 
