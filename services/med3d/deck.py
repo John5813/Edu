@@ -43,7 +43,7 @@ FILL = 0.9
 # 3D ramka tomoni (dyuym) — bundan katta ramkani PowerPoint juda katta tasvir sifatida chizadi
 # (sekin va xira bo'lishi mumkin). Mayda organ uchun alohida, kichikroq sahna ishlatiladi.
 MAX_FRAME = 26.0
-LABEL_H, LABEL_GAP, LABEL_MAX_W = 0.36, 0.5, 2.4
+LABEL_H, LABEL_GAP, LABEL_MAX_W = 0.36, 0.5, 3.0
 LABEL_X_MIN, LABEL_X_MAX = 5.15, W - 0.2
 EXITS = {"up": (0, -1), "down": (0, 1), "left": (-1, 0), "right": (1, 0)}
 
@@ -77,6 +77,31 @@ def fit_frame(cam: Camera, points, rot, region) -> Frame:
     rx, ry, rw, rh = region
     size = min(rw * FILL / max(u1 - u0, 1e-6), rh * FILL / max(v1 - v0, 1e-6), MAX_FRAME)
     return Frame(rx + rw / 2 - size * (u0 + u1) / 2, ry + rh / 2 - size * (v0 + v1) / 2, size, rot)
+
+
+TEXT_EDGE = 5.15            # chapdagi matn ustuni shu yerda tugaydi — 3D model undan chapga o'tmasin
+
+
+def keep_clear(cam: Camera, frame: Frame, focus_points, all_points, left: float = TEXT_EDGE) -> Frame:
+    """Kamera bitta organga yaqinlashganda yonidagi katta organ matn ustiga chiqmasin.
+
+    Avval ramka o'ngga suriladi (fokusdagi organ slayddan chiqib ketmaguncha), bo'lmasa — fokus atrofida
+    kichraytiriladi. Yuqori, pastki va o'ng chetdan chiqib turish mumkin (kesilgan "yaqin plan" ko'rinishi).
+    """
+    for _ in range(12):
+        u0 = cam.extent(all_points, frame.rot)[0]
+        x0 = frame.cx + u0 * frame.size
+        if x0 >= left - 1e-3:
+            return frame
+        f0, g0, f1, g1 = cam.extent(focus_points, frame.rot)
+        shift = left - x0
+        if frame.cx + f1 * frame.size + shift <= W - 0.25:
+            return Frame(frame.cx + shift, frame.cy, frame.size, frame.rot)
+        fu, fv = (f0 + f1) / 2, (g0 + g1) / 2
+        fx, fy = frame.cx + fu * frame.size, frame.cy + fv * frame.size
+        size = frame.size * 0.85
+        frame = Frame(fx - fu * size, fy - fv * size, size, frame.rot)
+    return frame
 
 
 def _spread(ys: List[float], top: float, bottom: float, gap: float) -> List[float]:
@@ -135,7 +160,8 @@ def _rgb(hex_color: str) -> RGBColor:
 
 def _label(slide, name: str, x: float, y: float, value: str, right_align: bool) -> Tuple[object, float, float]:
     """Yorliq kartochkasi. x — ustun cheti (o'ng ustunda chap cheti, chapda o'ng cheti). (shakl, chap, eni)."""
-    width = min(LABEL_MAX_W, max(1.0, len(value) * 11 * 0.56 / 72 + 0.36))
+    size = 11 if len(value) <= 24 else 10                # uzun nom — biroz kichik shrift va kengroq kartochka
+    width = min(LABEL_MAX_W, max(1.0, len(value) * size * 0.56 / 72 + 0.36))
     left = x - width if right_align else x
     shape = box(slide, name, left, y - LABEL_H / 2, width, LABEL_H, PAL["pill"], round_=0.5,
                 line=PAL["accent"], line_pt=0.75)
@@ -149,7 +175,7 @@ def _label(slide, name: str, x: float, y: float, value: str, right_align: bool) 
     run = para.add_run()
     run.text = value
     run.font.name = "Segoe UI"
-    run.font.size = Pt(11)
+    run.font.size = Pt(size)
     run.font.bold = True
     run.font.color.rgb = _rgb(PAL["pill_ink"])
     return shape, left, width
@@ -166,6 +192,9 @@ def _labels(slide, cam: Camera, scene: dict, frame: Frame, keys: Sequence[str], 
             continue
         others = [p for g in visible if g != info["group"] for p in scene["groups"][g]["samples"]]
         ax, ay = frame.to_slide(*cam.anchor(info["samples"], frame.rot, others, 0.12 / frame.size))
+        if not (TEXT_EDGE <= ax <= W - 0.1 and 0.15 <= ay <= H - 0.15):
+            log.info("med3d: yorliq nuqtasi slayddan tashqarida, qo'yilmadi: %s", key)
+            continue
         items.append((key, info["uz"], ax, ay))
     if not items:
         return []
@@ -229,20 +258,31 @@ def _model_name(scene_key: str, group: str, main: str) -> str:
     return f"!!m3d_{group}" if scene_key == main else f"!!m3d_{scene_key}_{group}"
 
 
-def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR) -> str:
-    """Reja → PPTX. Slayd o'z sahnasini `scene` bilan tanlashi mumkin (sukut — rejaning `scene`)."""
+def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Optional[Dict[str, dict]] = None,
+          share: bool = True) -> str:
+    """Reja → PPTX. Slayd o'z sahnasini `scene` bilan tanlashi mumkin (sukut — rejaning `scene`).
+
+    scenes — xotirada tayyorlangan sahnalar (avtomatik tizim): {kalit: {bbox_min, bbox_max, source,
+    groups: {g: {samples, glb}}, labels}}; berilmasa — `assets_dir` dagi tayyor sahnalar o'qiladi.
+    share — bir xil GLB slaydlar orasida bitta faylga yoziladi (taqdimot hajmi bir necha barobar kichik).
+    """
     main = plan["scene"]
-    scenes: Dict[str, dict] = {}
+    ready = scenes or {}
+    scenes = {}
     cams: Dict[str, Camera] = {}
     glbs: Dict[Tuple[str, str], bytes] = {}
+    parts: Optional[Dict] = {} if share else None
 
     def use(key: str) -> dict:
         if key not in scenes:
-            scenes[key] = load_scene(key, assets_dir)
+            scenes[key] = ready[key] if key in ready else load_scene(key, assets_dir)
             cams[key] = Camera(scenes[key]["bbox_min"], scenes[key]["bbox_max"])
             for g, info in scenes[key]["groups"].items():
-                with open(os.path.join(scenes[key]["dir"], info["file"]), "rb") as fh:
-                    glbs[(key, g)] = fh.read()
+                if "glb" in info:
+                    glbs[(key, g)] = info["glb"]
+                else:
+                    with open(os.path.join(scenes[key]["dir"], info["file"]), "rb") as fh:
+                        glbs[(key, g)] = fh.read()
         return scenes[key]
 
     prs = Presentation()
@@ -260,6 +300,7 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR) -> str:
         region = MODEL_REGION if labels else MODEL_REGION_WIDE
         points = [p for g in focus for p in groups[g]["samples"]]
         frame = fit_frame(cam, points, data.get("rot") or (0, 0, 0), region)
+        frame = keep_clear(cam, frame, points, [p for g in show for p in groups[g]["samples"]])
 
         slide = prs.slides.add_slide(layout)
         slide.background.fill.solid()
@@ -272,10 +313,10 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR) -> str:
             for g in prev_show:
                 if g not in show:
                     add_model3d(slide, glbs[(key, g)], _model_name(key, g, main), out.left, out.top, out.size,
-                                out.rot)
+                                out.rot, parts)
         for g in show:
             add_model3d(slide, glbs[(key, g)], _model_name(key, g, main), frame.left, frame.top, frame.size,
-                        frame.rot)
+                        frame.rot, parts)
 
         vis_points = [p for g in show for p in groups[g]["samples"]]
         u0, v0, u1, v1 = cam.extent(vis_points, frame.rot)

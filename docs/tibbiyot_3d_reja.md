@@ -55,7 +55,21 @@ Sahnalarni qo'lda tayyorlash shart emas — tizim mavzu so'ralgan zahoti 3D taqd
 3. Har so'rovda AI shu lug'atdan organlarni tanlaydi, slaydlar rejasini yozadi; mayda organlar uchun
    kichikroq sahna (chegara qutisi) avtomatik; natija keshlanadi.
 4. Botda yangi tur sifatida (pro3d kabi): mos organ topilmasa — oldindan aytiladi, pul yechilmaydi.
-Holat: 2 sahna (skull, digestive) qo'lda; avtomatik tizim hali yozilmagan. Ranglar sRGB hex → linear.
+Holat: YOZILDI (3D Anatomiya). Qo'lda sahnalar (skull, digestive) namuna sifatida qoldi.
+
+### Avtomatik tizim — qanday ishlaydi
+- `services/med3d/lugat.py` — ~100 organ: o'zbekcha nom, rang, erkak/ayol atlasidagi qoidalar, `inside`.
+  `tools/med3d_lugat.py` → `assets/med3d/lugat.json` (qism id lari, chegaralar, nuqtalar).
+- `services/med3d/manba.py` — atlas (slorksmo/Human-Atlas, aniq commit) birinchi so'rovda `data/med3d_atlas/`
+  ga yuklanadi (~130 MB, git'da emas). Oldindan: `python tools/med3d_lugat.py --yukla`.
+- `services/med3d/auto.py` — AI reja (MED3D_MODEL, sukut Claude Sonnet 5; zaxira — premium zanjiri):
+  mavzu anatomiya emasmi (NotAnatomy → pul qaytadi), tana, organlar, burchaklar, yorliqlar. Reja tekshiriladi;
+  yashirin organ ochiladi; slaydlar sahnalarga bo'linadi (3D ramka ≤ 26"); katta organ soddalashtiriladi
+  (`simplify.py`); bir xil GLB slaydlar orasida bitta fayl.
+- Bot: "🫀 3D Anatomiya" — bosilganda ogohlantirish (faqat tana tuzilishi, kompyuterda) + Ha/Yo'q;
+  manba so'ralmaydi; narx oddiy taqdimotdek; hozircha faqat adminlarga (hammaga: `MED3D_OCHIQ=1`).
+- Testlar: `python test_med3d.py`, `python test_med3d_auto.py`.
+- PowerPoint'da tekshirilishi kerak: aylanish yo'nalishi, yorug'lik, bir GLB ni bir necha slayd ulashishi.
 
 ## Ayol tanasi (topildi)
 - Manba: https://github.com/slorksmo/Human-Atlas — human-atlas'ning ayol tanasi qo'shilgan versiyasi.

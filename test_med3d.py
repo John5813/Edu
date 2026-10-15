@@ -81,8 +81,10 @@ z = zipfile.ZipFile(out)
 names = z.namelist()
 ct = z.read("[Content_Types].xml").decode()
 glbs = [n for n in names if n.endswith(".glb")]
-check("har slaydda har model alohida GLB (2+2+2)", len(glbs) == 6, glbs)
-check("GLB turi model/gltf.binary", ct.count('ContentType="model/gltf.binary"') == 6)
+check("bir xil GLB slaydlar orasida bitta faylda (6 ta model → 2 ta fayl)", len(glbs) == 2, glbs)
+check("GLB turi model/gltf.binary", ct.count('ContentType="model/gltf.binary"') == 2)
+rels = [z.read(f"ppt/slides/_rels/slide{i}.xml.rels").decode() for i in (1, 2, 3)]
+check("har slayd GLB ga bog'langan", all(r.count("relationships/model3d") == 2 for r in rels))
 
 def frames(i):
     root = etree.fromstring(z.read(f"ppt/slides/slide{i}.xml"))

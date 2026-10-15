@@ -101,8 +101,9 @@ async def full_flow():
           await state.get_state())
     text, markup = chat.last()[1], chat.last()[2]
     kind_cbs = [b.callback_data for b in buttons(markup) if b.callback_data and b.callback_data.startswith("prem_ppt_kind:")]
-    check("to'rt tur: 3D Pro (birinchi), infografik, zamonaviy, klassik",
-          kind_cbs == ["prem_ppt_kind:pro3d", "prem_ppt_kind:info", "prem_ppt_kind:modern", "prem_ppt_kind:classic"],
+    check("besh tur: 3D Anatomiya, 3D Pro, infografik, zamonaviy, klassik",
+          kind_cbs == ["prem_ppt_kind:med3d", "prem_ppt_kind:pro3d", "prem_ppt_kind:info", "prem_ppt_kind:modern",
+                       "prem_ppt_kind:classic"],
           kind_cbs)
     check("tur tugmalari nomlangan", any("Infografik" in b.text for b in buttons(markup))
           and any("Klassik" in b.text for b in buttons(markup)) and any("Zamonaviy" in b.text for b in buttons(markup))

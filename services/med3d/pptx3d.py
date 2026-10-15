@@ -8,9 +8,10 @@ modelni ochilganda o'zi chizadi.
 Morph uchun: qo'shni slaydlarda model nomi bir xil (`!!` bilan boshlanadi) bo'lishi va har slaydga
 GLB alohida qo'yilishi kerak (slaydni nusxalash modelni buzadi).
 """
+import hashlib
 import io
 import math
-from typing import Sequence
+from typing import Dict, Optional, Sequence
 
 import numpy as np
 from lxml import etree
@@ -25,8 +26,11 @@ AM3D_NS = "http://schemas.microsoft.com/office/drawing/2017/model3d"
 RT_MODEL3D = "http://schemas.microsoft.com/office/2017/06/relationships/model3d"
 CT_GLB = "model/gltf.binary"
 _FOV60K = 2700000
-_LIGHTS = (("100000", "75000", "50000", "9765625", "21959998", "70920001", "16344003"),
-           ("40000", "60000", "95000", "12250000", "-37964106", "51130435", "57631972"),
+# Yorug'lik: PowerPoint'ning odatiy uch nuqtali sxemasi, lekin atrof yorug'ligi pastroq va asosiy (iliq,
+# o'ng-tepa-old) chiroq kuchliroq — shakl soyalari aniqroq, ranglar to'qroq ko'rinadi.
+AMBIENT = "300000"
+_LIGHTS = (("100000", "88000", "72000", "15000000", "21959998", "70920001", "16344003"),
+           ("40000", "60000", "95000", "7000000", "-37964106", "51130435", "57631972"),
            ("86837", "72700", "100000", "3125000", "-37739122", "58056624", "-34769649"))
 
 
@@ -83,7 +87,7 @@ def _model_xml(sid: int, name: str, x: int, y: int, cx: int, cy: int, rid_model:
         f'<am3d:raster rName="Office3DRenderer" rVer="16.0.8326"><am3d:blip r:embed="{rid_png}"/></am3d:raster>'
         f'<am3d:objViewport viewportSz="{max(cx, cy)}"/>'
         '<am3d:ambientLight><am3d:clr><a:scrgbClr r="50000" g="50000" b="50000"/></am3d:clr>'
-        '<am3d:illuminance n="500000" d="1000000"/></am3d:ambientLight>'
+        f'<am3d:illuminance n="{AMBIENT}" d="1000000"/></am3d:ambientLight>'
         f'{lights}</am3d:model3d></a:graphicData></a:graphic></p:graphicFrame></mc:Choice>'
         '<mc:Fallback><p:pic xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
         'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
@@ -95,11 +99,20 @@ def _model_xml(sid: int, name: str, x: int, y: int, cx: int, cy: int, rid_model:
 
 
 def add_model3d(slide, data: bytes, name: str, x: float, y: float, size: float,
-                rot: Sequence[float] = (0, 0, 0)):
-    """Slaydga 3D model qo'yadi. x, y, size — dyuymda (kvadrat ramka); rot — gradus (X, Y, Z)."""
+                rot: Sequence[float] = (0, 0, 0), parts: Optional[Dict[str, Part]] = None):
+    """Slaydga 3D model qo'yadi. x, y, size — dyuymda (kvadrat ramka); rot — gradus (X, Y, Z).
+
+    parts — taqdimot bo'yicha umumiy lug'at: bir xil GLB bir necha slaydda bo'lsa, faylga BIR marta yoziladi
+    (rasmlar kabi). Aks holda 10 slaydli taqdimot o'nlab MB bo'lib ketadi.
+    """
     lo, hi = glb.bounds(data)
     package = slide.part.package
-    part = Part(package.next_partname("/ppt/media/model3d%d.glb"), CT_GLB, package, data)
+    key = hashlib.sha1(data).hexdigest()
+    part = parts.get(key) if parts is not None else None
+    if part is None:
+        part = Part(package.next_partname("/ppt/media/model3d%d.glb"), CT_GLB, package, data)
+        if parts is not None:
+            parts[key] = part
     rid_model = slide.part.relate_to(part, RT_MODEL3D)
     _, rid_png = slide.part.get_or_add_image_part(io.BytesIO(_PNG))
     tree = slide.shapes._spTree
