@@ -30,7 +30,7 @@ OLD_WEIGHT = {"cover": 0.0, "plan": 0.0, "photo": 1.2, "group": 2.5, "sequence":
 # Muqovadagi va rejadagi yangi uslublar har doim ishlatiladi (birinchi to'rt uslub — faqat shular uchun).
 OLD = "html"
 # Infografik varaqlarning qancha qismi fonida taqdimotdagi rasmlardan biri xira turadi.
-BACKDROP_SHARE = 0.5
+BACKDROP_SHARE = 0.0       # 0 — fon uchun taqdimotdagi rasm qayta ishlatilmaydi (takror chiqmasin)
 BACKDROP_KINDS = ("group", "sequence", "numbers", "compare", "finale")
 
 

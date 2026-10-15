@@ -482,14 +482,19 @@ _SECTION_OPEN = re.compile(r"<section\b[^>]*>", re.IGNORECASE)
 _NO_BACKDROP = re.compile(r'<img\b|photo-in|cover-photo|backdrop|<svg|<table|class="chart|\bslide dark\b|'
                           r'class="slide\s+dark', re.IGNORECASE)
 BACKDROP_EVERY = 3        # rasmsiz och varaqlarning har uchinchisida
-BACKDROP_LIMIT = 4
+BACKDROP_LIMIT = 0           # 0 — fon rasmi takrorlanmasin (boshqa varaq rasmi qayta ishlatilmaydi)
 
 
 def add_backdrops(pages: List[str]) -> List[str]:
     """Rasmsiz och matnli varaqlarning bir qismiga taqdimotdagi rasmlardan birini xira fon qilib qo'yadi.
 
     To'q varaqlar, diagramma va jadvalli varaqlarga qo'yilmaydi. Rasmlar navbat bilan almashadi.
+
+    O'chirilgan: fon uchun taqdimotdagi rasm qayta ishlatilardi (mijoz bir xil rasmni ikki varaqda ko'rardi).
+    Takrorlanmaydigan rasm yo'q, shuning uchun varaqlar o'zgarishsiz qaytadi.
     """
+    if not BACKDROP_LIMIT:
+        return pages
     uris: List[str] = []
     for page in pages:
         for uri in _PLACED_PHOTO.findall(page):
