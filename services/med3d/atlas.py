@@ -6,7 +6,7 @@ atlas kerak emas. Har qism uchun bin ichida: Float32 pozitsiyalar (metr), Int16 
 """
 import json
 import os
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 
@@ -16,9 +16,13 @@ class Atlas:
         self.dir = models_dir
         with open(os.path.join(models_dir, "atlas.json"), encoding="utf-8") as fh:
             self.meta = json.load(fh)
-        self.by_name: Dict[str, dict] = {}
+        # BodyParts3D bitta a'zoni bir nechta bo'lakka bo'ladi (masalan "Proximal part of ileum" — o'nlab
+        # bo'lak): nom bo'yicha hammasi olinadi. Aniq bitta bo'lak kerak bo'lsa — uning id si ("FJ2823").
+        self.by_name: Dict[str, List[dict]] = {}
+        self.by_id: Dict[str, dict] = {}
         for part in self.meta["parts"]:
-            self.by_name.setdefault(part["name"], part)   # takror nomlar (Cricoid...) — birinchisi
+            self.by_name.setdefault(part["name"], []).append(part)
+            self.by_id[part["id"]] = part
         self._chunks: Dict[int, bytes] = {}
 
     @property
@@ -32,18 +36,28 @@ class Atlas:
                 self._chunks[index] = fh.read()
         return self._chunks[index]
 
-    def part(self, name: str) -> dict:
-        try:
+    def parts(self, name: str) -> List[dict]:
+        if name in self.by_id:
+            return [self.by_id[name]]
+        if name in self.by_name:
             return self.by_name[name]
-        except KeyError:
-            raise KeyError(f"Atlasda bunday qism yo'q: {name!r}") from None
+        raise KeyError(f"Atlasda bunday qism yo'q: {name!r}")
 
-    def mesh(self, name: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """(pozitsiyalar N×3 float32, normallar N×3 float32, indekslar M uint32)."""
-        p = self.part(name)
+    def _one(self, p: dict) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         buf = self._chunk(p["chunk"])
         n = p["vertexCount"]
         pos = np.frombuffer(buf, dtype="<f4", count=n * 3, offset=p["positions"]).reshape(n, 3)
         nrm = np.frombuffer(buf, dtype="<i2", count=n * 3, offset=p["normals"]).reshape(n, 3)
         idx = np.frombuffer(buf, dtype="<u4", count=p["indexCount"], offset=p["indices"])
         return pos.astype(np.float32), (nrm.astype(np.float32) / 32767.0), idx.astype(np.uint32)
+
+    def mesh(self, name: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Nom (yoki id) bo'yicha hamma bo'laklar bitta mesh: (pozitsiyalar N×3, normallar N×3, indekslar M)."""
+        pos, nrm, idx, base = [], [], [], 0
+        for p in self.parts(name):
+            a, b, c = self._one(p)
+            pos.append(a)
+            nrm.append(b)
+            idx.append(c + base)
+            base += len(a)
+        return np.vstack(pos), np.vstack(nrm), np.concatenate(idx)

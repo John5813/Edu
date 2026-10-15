@@ -134,6 +134,27 @@ for i, slide in enumerate(prs.slides, 1):
     check(f"{i}-slayd: manba (CC BY) ko'rsatilgan", any("BodyParts3D" in (s.text_frame.text if s.has_text_frame else "")
                                                        for s in slide.shapes))
 
+print("5) Hazm organlari: 12 slayd, uchta sahna")
+from services.med3d.deck import MAX_FRAME
+from services.med3d.plans import DIGESTIVE_PLAN
+out2 = os.path.join(tempfile.mkdtemp(), "hazm.pptx")
+build(DIGESTIVE_PLAN, out2)
+z = zipfile.ZipFile(out2)
+check("12 slayd", sum(1 for n in z.namelist() if n.startswith("ppt/slides/slide") and n.endswith(".xml")) == 12)
+all_frames = {i: frames(i)[1] for i in range(1, 13)}
+check("ramkalar MAX_FRAME dan katta emas",
+      all(v["size"] <= MAX_FRAME + 1e-3 for f in all_frames.values() for v in f.values()))
+check("og'iz slaydi o'z sahnasida (Morph boshqa sahnaga ulanmaydi)",
+      set(all_frames[3]) == {"!!m3d_digestive_head_ogiz"}, list(all_frames[3]))
+check("7-slayd: jigar yuqoriga chiqib ketadi, o't pufagi qoladi",
+      all_frames[7]["!!m3d_digestive_abdomen_jigar"]["y"] + all_frames[7]["!!m3d_digestive_abdomen_jigar"]["size"] < 0
+      and "!!m3d_digestive_abdomen_ot" in all_frames[7])
+prs2 = Presentation(out2)
+for i, slide in enumerate(prs2.slides, 1):
+    pills = [s for s in slide.shapes if s.name.startswith("lbl_") and not s.name.endswith(("_line", "_dot"))]
+    if len(pills) != len(DIGESTIVE_PLAN["slides"][i - 1].get("labels") or []):
+        check(f"hazm {i}-slayd: hamma yorliq bor", False, len(pills))
+
 print()
 print("HAMMASI O'TDI" if not FAILS else f"XATOLAR: {len(FAILS)}")
 sys.exit(1 if FAILS else 0)

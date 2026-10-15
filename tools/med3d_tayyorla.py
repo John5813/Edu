@@ -58,9 +58,9 @@ def build_scene(atlas: Atlas, key: str, out_root: str = ASSETS_DIR) -> dict:
     groups = {}
     for seed, (gkey, group) in enumerate(spec["groups"].items()):
         prims = []
-        for color, part_names in group["materials"]:
+        for number, (color, part_names) in enumerate(group["materials"]):
             p, n, i = _merge([meshes[x] for x in part_names])
-            prims.append(Primitive(p - center, n, i, color, name="tooth" if color[0] > 0.95 else "bone"))
+            prims.append(Primitive(p - center, n, i, color, name=f"{gkey}_{number}"))
         data = write_glb(prims, anchors=(lo, hi), name=gkey)
         with open(os.path.join(out_dir, f"{gkey}.glb"), "wb") as fh:
             fh.write(data)

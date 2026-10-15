@@ -53,10 +53,21 @@ class Camera:
         (u0, v0), (u1, v1) = uv.min(axis=0), uv.max(axis=0)
         return float(u0), float(v0), float(u1), float(v1)
 
-    def anchor(self, points, rot) -> Tuple[float, float]:
-        """Qismning kameraga qaragan yuzasidagi, markaziga eng yaqin nuqta (yorliq chizig'i uchi)."""
+    def anchor(self, points, rot, occluders=None, radius: float = 0.01) -> Tuple[float, float]:
+        """Qismning kameraga qaragan yuzasidagi, markaziga eng yaqin nuqta (yorliq chizig'i uchi).
+
+        occluders — slayddagi boshqa organlarning nuqtalari: ular oldida turgan (yopib qo'yilgan) nuqta
+        tanlanmaydi. radius — ramka ulushida, shu masofadagi oldinroq nuqta "yopadi" deb hisoblanadi.
+        """
         uv, z = self.project(points, rot)
-        front = uv[z >= np.quantile(z, 0.7)]
+        keep = z >= np.quantile(z, 0.7)
+        front, fz = uv[keep], z[keep]
+        if occluders is not None and len(occluders):
+            ouv, oz = self.project(occluders, rot)
+            d2 = ((front[:, None, :] - ouv[None, :, :]) ** 2).sum(axis=2)
+            hidden = ((d2 < radius * radius) & (oz[None, :] > fz[:, None] + 1e-3)).any(axis=1)
+            if (~hidden).any():
+                front = front[~hidden]
         mid = front.mean(axis=0)
         best = front[np.argmin(((front - mid) ** 2).sum(axis=1))]
         return float(best[0]), float(best[1])
