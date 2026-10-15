@@ -80,7 +80,7 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
     varaqlash va bitta sahifani qayta yozish uchun.
 
     `photo_source` — rasm manbasi (mijoz tanlovi): "web" (faqat internet), "ai" (faqat AI), "mix" (sukut).
-    `photos=False` (bepul sinov): rasm chizdirilmaydi — rasm o'rnida qo'shimcha matn qoladi, muqova rasmsiz.
+    `photos=False`: rasm qo'yilmaydi — rasm o'rnida qo'shimcha matn qoladi, muqova rasmsiz.
     `volume` — matn hajmi (`VOLUMES`); `theme_key` faqat saqlangan taqdimotni qayta yig'ish uchun (bo'sh —
     rang mavzuga qarab).
     """
