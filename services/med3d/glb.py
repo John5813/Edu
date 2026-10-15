@@ -12,13 +12,16 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-_FLOAT, _U16, _U32 = 5126, 5123, 5125
+_FLOAT, _U8, _U16, _U32 = 5126, 5121, 5123, 5125
 _ARRAY, _ELEMENTS = 34962, 34963
 
 
 class Primitive:
     def __init__(self, positions: np.ndarray, normals: np.ndarray, indices: np.ndarray,
-                 color: Sequence[float], roughness: float = 0.62, name: str = ""):
+                 color: Sequence[float], roughness: float = 0.62, name: str = "",
+                 colors: Optional[np.ndarray] = None):
+        """colors — ixtiyoriy N×4 uint8 nuqta rangi (soya): material rangiga ko'paytiriladi."""
+        self.colors = None if colors is None else np.ascontiguousarray(colors, dtype=np.uint8).reshape(-1, 4)
         self.positions = np.ascontiguousarray(positions, dtype=np.float32).reshape(-1, 3)
         self.normals = np.ascontiguousarray(normals, dtype=np.float32).reshape(-1, 3)
         self.indices = np.ascontiguousarray(indices, dtype=np.uint32).reshape(-1)
@@ -43,7 +46,8 @@ def write_glb(primitives: List[Primitive], *, anchors: Optional[Tuple[Sequence[f
             np.vstack([first.positions, lo[None], hi[None]]),
             np.vstack([first.normals, [[0, 1, 0], [0, 1, 0]]]),
             np.concatenate([first.indices, [base, base, base + 1]]),   # nol yuzali — ko'rinmaydi
-            first.color, first.roughness, first.name)
+            first.color, first.roughness, first.name,
+            None if first.colors is None else np.vstack([first.colors, [[255, 255, 255, 255]] * 2]))
 
     blob = bytearray()
     views, accessors, materials, gltf_prims = [], [], [], []
@@ -65,6 +69,12 @@ def write_glb(primitives: List[Primitive], *, anchors: Optional[Tuple[Sequence[f
         v_nrm = add(nrm.tobytes(), _ARRAY)
         accessors.append({"bufferView": v_nrm, "componentType": _FLOAT, "count": len(nrm), "type": "VEC3"})
         a_nrm = len(accessors) - 1
+        attributes = {"POSITION": a_pos, "NORMAL": a_nrm}
+        if prim.colors is not None and len(prim.colors) == len(pos):
+            v_col = add(prim.colors.tobytes(), _ARRAY)
+            accessors.append({"bufferView": v_col, "componentType": _U8, "normalized": True, "count": len(pos),
+                              "type": "VEC4"})
+            attributes["COLOR_0"] = len(accessors) - 1
         small = len(pos) < 65535
         idx = prim.indices.astype(np.uint16 if small else np.uint32)
         v_idx = add(idx.tobytes(), _ELEMENTS)
@@ -74,7 +84,7 @@ def write_glb(primitives: List[Primitive], *, anchors: Optional[Tuple[Sequence[f
         materials.append({"name": prim.name or f"material{len(materials)}",
                           "pbrMetallicRoughness": {"baseColorFactor": [*prim.color[:3], 1.0],
                                                    "metallicFactor": 0.0, "roughnessFactor": prim.roughness}})
-        gltf_prims.append({"attributes": {"POSITION": a_pos, "NORMAL": a_nrm}, "indices": a_idx,
+        gltf_prims.append({"attributes": attributes, "indices": a_idx,
                            "material": len(materials) - 1, "mode": 4})
 
     doc = {

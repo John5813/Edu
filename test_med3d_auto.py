@@ -59,7 +59,11 @@ check("tana organlarga qarab almashtirildi (erkak → ayol)", p["body"] == "fema
 check("noma'lum organ tashlandi, yorliq faqat ko'rinayotganlardan", p["slides"][0]["show"] == ["bachadon", "tuxumdonlar"]
       and p["slides"][0]["labels"] == ["bachadon"], p["slides"][0])
 check("teri boshqa organ bilan birga bo'lmaydi", p["slides"][1]["show"] == ["bachadon"])
-check("burchak chegaralangan, exit tuzatilgan", p["slides"][0]["rot"][0] == 60 and p["slides"][2]["exit"] == "up")
+check("burchak chegaralangan, exit tuzatilgan", p["slides"][0]["rot"][0] == 45 and p["slides"][2]["exit"] == "up")
+turns = [{"rot": [0, y, 0]} for y in (0, 30, -60, 180, 90, -120)]
+auto.smooth_turns(turns)
+ys = [t["rot"][1] for t in turns]
+check("burilish silliq: qo'shni slaydlar orasida ≤ 45°", all(abs(b - a) <= auto.TURN_MAX + 1e-6 for a, b in zip(ys, ys[1:])), ys)
 check("o'zbekcha nom lug'atdan (AI nomi emas)", p["names"]["bachadon"] == "Bachadon")
 nested = auto.normalize({"anatomy": True, "body": "male", "slides": [
     {"title": "a", "text": "b", "show": ["skelet", "bosh_suyagi", "yurak"], "rot": [0, 0, 0]}] * 3}, 3, "en")

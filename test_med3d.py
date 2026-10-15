@@ -146,8 +146,12 @@ check("12 slayd", sum(1 for n in z.namelist() if n.startswith("ppt/slides/slide"
 all_frames = {i: frames(i)[1] for i in range(1, 13)}
 check("ramkalar MAX_FRAME dan katta emas",
       all(v["size"] <= MAX_FRAME + 1e-3 for f in all_frames.values() for v in f.values()))
+on_slide = lambda f: {n for n, v in f.items() if -v["size"] < v["x"] < W and -v["size"] < v["y"] < H}
 check("og'iz slaydi o'z sahnasida (Morph boshqa sahnaga ulanmaydi)",
-      set(all_frames[3]) == {"!!m3d_digestive_head_ogiz"}, list(all_frames[3]))
+      on_slide(all_frames[3]) == {"!!m3d_digestive_head_ogiz"}, on_slide(all_frames[3]))
+check("sahna almashganda eskilari slayddan tashqariga uchadi, yangilari tashqaridan keladi",
+      "!!m3d_jigar" in all_frames[3] and "!!m3d_jigar" not in on_slide(all_frames[3])
+      and "!!m3d_digestive_head_ogiz" in all_frames[2] and "!!m3d_digestive_head_ogiz" not in on_slide(all_frames[2]))
 check("7-slayd: jigar yuqoriga chiqib ketadi, o't pufagi qoladi",
       all_frames[7]["!!m3d_digestive_abdomen_jigar"]["y"] + all_frames[7]["!!m3d_digestive_abdomen_jigar"]["size"] < 0
       and "!!m3d_digestive_abdomen_ot" in all_frames[7])

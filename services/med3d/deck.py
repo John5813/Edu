@@ -104,6 +104,16 @@ def keep_clear(cam: Camera, frame: Frame, focus_points, all_points, left: float 
     return frame
 
 
+def _too_big(cam: Camera, frame: Frame, points) -> bool:
+    """Kamera boshqa organga yaqinlashganda bu organ slayddan bir yarim barobar katta bo'lib ketadimi.
+
+    Masalan, klapanlarga yaqinlashganda yonidagi aorta butun ekranni to'sib qo'yadi — bunday organ shu
+    slayddan chiqariladi (Morph uni uchirib yuboradi), keyingi umumiy ko'rinishda qaytadi.
+    """
+    u0, v0, u1, v1 = cam.extent(points, frame.rot)
+    return (u1 - u0) * frame.size > 1.5 * W or (v1 - v0) * frame.size > 1.5 * H
+
+
 def _spread(ys: List[float], top: float, bottom: float, gap: float) -> List[float]:
     """Yorliqlarni anchor balandligiga yaqin, lekin ustma-ust tushmaydigan qilib joylaydi."""
     out = [min(max(y, top), bottom) for y in ys]
@@ -285,12 +295,10 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
                         glbs[(key, g)] = fh.read()
         return scenes[key]
 
-    prs = Presentation()
-    prs.slide_width, prs.slide_height = Inches(W), Inches(H)
-    layout = prs.slide_layouts[6]
+    # 1-bosqich: har slaydning sahnasi, ramkasi va ko'rinadigan organlari.
     slides = plan["slides"]
-    prev: Optional[Tuple[str, Frame, List[str]]] = None
-    for index, data in enumerate(slides):
+    plans = []
+    for data in slides:
         key = data.get("scene") or main
         scene, cam = use(key), cams[key]
         groups = scene["groups"]
@@ -301,33 +309,54 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
         points = [p for g in focus for p in groups[g]["samples"]]
         frame = fit_frame(cam, points, data.get("rot") or (0, 0, 0), region)
         frame = keep_clear(cam, frame, points, [p for g in show for p in groups[g]["samples"]])
+        show = [g for g in show if g in focus or not _too_big(cam, frame, groups[g]["samples"])]
+        plans.append({"key": key, "scene": scene, "cam": cam, "frame": frame, "show": show,
+                      "labels": labels, "names": {_model_name(key, g, main): (key, g)
+                                                                            for g in show}})
 
+    # 2-bosqich: slaydlar. Har o'tishda harakat bo'lsin: ketayotgan organ slayddan uchib chiqadi, keladigani
+    # chetdan uchib kiradi (o'chib-yonmaydi). Sahna almashganda eskisi chapga ketadi, yangisi o'ngdan keladi.
+    prs = Presentation()
+    prs.slide_width, prs.slide_height = Inches(W), Inches(H)
+    layout = prs.slide_layouts[6]
+    for index, (data, cur) in enumerate(zip(slides, plans)):
+        key, scene, cam, frame, show = cur["key"], cur["scene"], cur["cam"], cur["frame"], cur["show"]
         slide = prs.slides.add_slide(layout)
         slide.background.fill.solid()
         slide.background.fill.fore_color.rgb = _rgb(PAL["bg"])
         _text_column(slide, data, index, len(slides), scene["source"])
 
-        if prev is not None and prev[0] == key:      # chiqib ketayotgan qismlar: oldingi joyidan tashqariga
-            _, prev_frame, prev_show = prev
-            out = prev_frame.moved_out(data.get("exit") or "up")
-            for g in prev_show:
-                if g not in show:
-                    add_model3d(slide, glbs[(key, g)], _model_name(key, g, main), out.left, out.top, out.size,
-                                out.rot, parts)
-        for g in show:
-            add_model3d(slide, glbs[(key, g)], _model_name(key, g, main), frame.left, frame.top, frame.size,
-                        frame.rot, parts)
+        placed = set(cur["names"])
+        if index:                                    # oldingi slayddan ketayotganlar
+            before = plans[index - 1]
+            way = (data.get("exit") or "up") if before["key"] == key else "left"
+            out = before["frame"].moved_out(way)
+            for name, (k, g) in before["names"].items():
+                if name not in placed:
+                    add_model3d(slide, glbs[(k, g)], name, out.left, out.top, out.size, out.rot, parts)
+                    placed.add(name)
+        if index + 1 < len(plans):                   # keyingi slaydda paydo bo'ladiganlar — hozircha slayd tashqarisida
+            after = plans[index + 1]
+            way = "down" if after["key"] == key else "right"
+            incoming = after["frame"].moved_out(way)
+            for name, (k, g) in after["names"].items():
+                if name not in placed:
+                    add_model3d(slide, glbs[(k, g)], name, incoming.left, incoming.top, incoming.size,
+                                incoming.rot, parts)
+                    placed.add(name)
+        for name, (k, g) in cur["names"].items():
+            add_model3d(slide, glbs[(k, g)], name, frame.left, frame.top, frame.size, frame.rot, parts)
 
+        groups = scene["groups"]
         vis_points = [p for g in show for p in groups[g]["samples"]]
         u0, v0, u1, v1 = cam.extent(vis_points, frame.rot)
         model_box = (*frame.to_slide(u0, v0), *frame.to_slide(u1, v1))
-        label_shapes = _labels(slide, cam, scene, frame, labels, show, model_box)
+        label_shapes = _labels(slide, cam, scene, frame, cur["labels"], show, model_box)
         steps = [(s, "fade", 250 + (i // 3) * 220) for i, s in enumerate(label_shapes)]
         if steps:
             add_entrances(slide, steps)
         if index:
             add_morph(slide, MORPH_MS)
-        prev = (key, frame, show)
 
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
     prs.save(out_path)
