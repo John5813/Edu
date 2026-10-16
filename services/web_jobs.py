@@ -288,7 +288,7 @@ async def _after_done(job_id: str, telegram_id: int, kind: Kind, params: Dict, p
 
         await bot.send_document(telegram_id, FSInputFile(path, filename=name),
                                 caption="✅ Saytda buyurtma qilingan fayl tayyor.")
-        if kind.publish_as and not params.get("trial"):     # bepul sinov katalogga qo'yilmaydi
+        if kind.publish_as and not params.get("trial"):     # bepul sinov (rasmsiz) katalogga qo'yilmaydi
             from services.store_publisher import schedule_publish
             schedule_publish(bot, path, kind.title(params), kind.publish_as,
                              customer_name=params.get("author", ""), language=params.get("language", "uz"))

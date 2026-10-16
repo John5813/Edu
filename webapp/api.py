@@ -201,7 +201,7 @@ def _catalog() -> Dict:
                            for n in range(pipeline.MIN_SLIDES, pipeline.MAX_SLIDES + 1)],
         "rewrite": {"price": _rewrite_price(), "prompts": REWRITE_PROMPTS},
         "premium_range": {"min": pipeline.MIN_SLIDES, "max": pipeline.MAX_SLIDES, "popular": [5, 8, 10, 12, 15, 20, 25, 30]},
-        # Bepul sinov: har akkauntga bir marta, varaq soni qat'iy, rasmlar internetdan (kimda borligi — /me da `free_trial`).
+        # Bepul sinov: har akkauntga bir marta, varaq soni qat'iy, rasmsiz (kimda borligi — /me da `free_trial`).
         "free_trial": {"slides": free_trial.SLIDES, "photos": False},
     }
 

@@ -101,9 +101,8 @@ async def full_flow():
           await state.get_state())
     text, markup = chat.last()[1], chat.last()[2]
     kind_cbs = [b.callback_data for b in buttons(markup) if b.callback_data and b.callback_data.startswith("prem_ppt_kind:")]
-    check("besh tur: 3D Anatomiya, 3D Pro, infografik, zamonaviy, klassik",
-          kind_cbs == ["prem_ppt_kind:med3d", "prem_ppt_kind:pro3d", "prem_ppt_kind:info", "prem_ppt_kind:modern",
-                       "prem_ppt_kind:classic"],
+    check("to'rt tur: 3D Pro (birinchi), infografik, zamonaviy, klassik",
+          kind_cbs == ["prem_ppt_kind:pro3d", "prem_ppt_kind:info", "prem_ppt_kind:modern", "prem_ppt_kind:classic"],
           kind_cbs)
     check("tur tugmalari nomlangan", any("Infografik" in b.text for b in buttons(markup))
           and any("Klassik" in b.text for b in buttons(markup)) and any("Zamonaviy" in b.text for b in buttons(markup))
@@ -173,10 +172,6 @@ async def full_flow():
     check("hajm oynasida mijoz balansi ko'rinadi", "Balansingiz" in text and "100,000" in text, text)
     check("hajm oynasida tur va uslub nomi", "Zamonaviy" in text and "Jurnal" in text, text)
     await pp.premium_ppt_got_count(callback(chat, "prem_ppt_count:12"), state, db)
-    # Slaydlar sonidan keyin: rasm manbasi (internet / AI / aralash) — #201 dan beri alohida qadam.
-    check("hajmdan keyin rasm manbasi so'raladi", await state.get_state() == PS.waiting_for_photo_source.state,
-          await state.get_state())
-    await pp.premium_ppt_photo_source(callback(chat, "prem_ppt_img:mix"), state, db)
     data = await state.get_data()
     check("xulosa: holat va narx", await state.get_state() == PS.waiting_for_slide_count.state and data["price"] == 6000, data.get("price"))
     summary = chat.last()[1]
@@ -187,8 +182,8 @@ async def full_flow():
     await pp.premium_ppt_change_language(callback(chat, "prem_ppt_lang:en"), state, db)
     check("til almashtirildi", (await state.get_data())["presentation_language"] == "en")
 
-    # Orqaga: xulosa -> rasm manbasi -> hajm -> uslub -> manba -> istaklar -> ism -> mavzu -> tur
-    for expect in (PS.waiting_for_photo_source, PS.waiting_for_count, PS.waiting_for_style, PS.waiting_for_source_kind, PS.waiting_for_preferences,
+    # Orqaga: xulosa -> hajm -> uslub -> manba -> istaklar -> ism -> mavzu -> tur
+    for expect in (PS.waiting_for_count, PS.waiting_for_style, PS.waiting_for_source_kind, PS.waiting_for_preferences,
                    PS.waiting_for_client_name, PS.waiting_for_topic_text, PS.waiting_for_kind):
         await pp.premium_ppt_previous(callback(chat, "prem_ppt_prev"), state, db)
         check(f"orqaga: {expect.state.split(':')[1]}", await state.get_state() == expect.state, await state.get_state())
@@ -203,11 +198,10 @@ async def full_flow():
     check("infografik: vektor dizayner rejimi (o'rtacha matn)", data["volume"] == "kam" and data["kind"] == "info", data)
     check("infografik: hajm oynasida tur nomi", "Infografik" in chat_i.last()[1], chat_i.last()[1])
     await pp.premium_ppt_got_count(callback(chat_i, "prem_ppt_count:10"), state_i, db_i)
-    await pp.premium_ppt_photo_source(callback(chat_i, "prem_ppt_img:web"), state_i, db_i)
     summary = chat_i.last()[1]
     check("infografik xulosa: tur bor, uslub yo'q", "Infografik" in summary and "Uslub" not in summary, summary)
-    for _ in range(3):              # xulosa → rasm manbasi → hajm → manba
-        await pp.premium_ppt_previous(callback(chat_i, "prem_ppt_prev"), state_i, db_i)
+    await pp.premium_ppt_previous(callback(chat_i, "prem_ppt_prev"), state_i, db_i)
+    await pp.premium_ppt_previous(callback(chat_i, "prem_ppt_prev"), state_i, db_i)
     check("infografik hajmidan orqaga: manba tanlovi", await state_i.get_state() == PS.waiting_for_source_kind.state,
           await state_i.get_state())
 

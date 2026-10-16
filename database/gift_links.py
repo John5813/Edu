@@ -18,7 +18,7 @@ import aiosqlite
 
 from database import database as _db
 
-# Havola orqali beriladigan taqdimot: 10 slayd, rasmli (qayta jalb sovg'asi va bepul sinov — 5 slayd, internet rasmlari bilan).
+# Havola orqali beriladigan taqdimot: 10 slayd, rasmli (qayta jalb sovg'asi va bepul sinov — 5 slayd, rasmsiz).
 SLIDES = 10
 PHOTOS = True
 
