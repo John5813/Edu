@@ -45,6 +45,9 @@ FILL = 0.9
 # (sekin va xira bo'lishi mumkin). Mayda organ uchun alohida, kichikroq sahna ishlatiladi.
 MAX_FRAME = 26.0
 LABEL_H, LABEL_GAP, LABEL_MAX_W = 0.36, 0.5, 3.0
+LABEL_H2, LABEL_GAP2 = 0.54, 0.66              # ikki qatorli yorliq: o'zbekcha nom + lotincha nom
+HIDDEN_SHARE = 0.08                            # organ yuzasining shundan kami ko'rinsa — yorliq qo'yilmaydi
+ZOOM_LIMIT = 1.6                               # fokusga yaqinlashish: butun ko'rinishdan ko'pi bilan shuncha katta
 LABEL_X_MIN, LABEL_X_MAX = 5.15, W - 0.2
 EXITS = {"up": (0, -1), "down": (0, 1), "left": (-1, 0), "right": (1, 0)}
 
@@ -169,12 +172,18 @@ def _rgb(hex_color: str) -> RGBColor:
     return RGBColor.from_string(hex_color)
 
 
-def _label(slide, name: str, x: float, y: float, value: str, right_align: bool) -> Tuple[object, float, float]:
-    """Yorliq kartochkasi. x — ustun cheti (o'ng ustunda chap cheti, chapda o'ng cheti). (shakl, chap, eni)."""
+def _label(slide, name: str, x: float, y: float, value: str, right_align: bool,
+           latin: str = "") -> Tuple[object, float, float]:
+    """Yorliq kartochkasi. x — ustun cheti (o'ng ustunda chap cheti, chapda o'ng cheti). (shakl, chap, eni).
+
+    latin berilsa — ikkinchi qatorda lotincha nom (kursiv, kichikroq): tibbiyotda a'zolar lotincha ataladi.
+    """
     size = 11 if len(value) <= 24 else 10                # uzun nom — biroz kichik shrift va kengroq kartochka
-    width = min(LABEL_MAX_W, max(1.0, len(value) * size * 0.56 / 72 + 0.36))
+    small = 9 if len(latin) <= 28 else 8
+    width = min(LABEL_MAX_W, max(1.0, len(value) * size * 0.56 / 72 + 0.36, len(latin) * small * 0.52 / 72 + 0.36))
+    height = LABEL_H2 if latin else LABEL_H
     left = x - width if right_align else x
-    shape = box(slide, name, left, y - LABEL_H / 2, width, LABEL_H, PAL["pill"], round_=0.5,
+    shape = box(slide, name, left, y - height / 2, width, height, PAL["pill"], round_=0.5 if not latin else 0.35,
                 line=PAL["accent"], line_pt=0.75)
     frame = shape.text_frame
     frame.margin_left = frame.margin_right = Inches(0.1)
@@ -189,6 +198,15 @@ def _label(slide, name: str, x: float, y: float, value: str, right_align: bool) 
     run.font.size = Pt(size)
     run.font.bold = True
     run.font.color.rgb = _rgb(PAL["pill_ink"])
+    if latin:
+        second = frame.add_paragraph()
+        second.alignment = PP_ALIGN.CENTER
+        lat = second.add_run()
+        lat.text = latin
+        lat.font.name = "Segoe UI"
+        lat.font.size = Pt(small)
+        lat.font.italic = True
+        lat.font.color.rgb = _rgb(PAL["muted"])
     return shape, left, width
 
 
@@ -203,11 +221,15 @@ def _labels(slide, cam: Camera, scene: dict, frame: Frame, keys: Sequence[str], 
             continue
         # Birlashgan modelda (bir nechta organ — bitta GLB) to'suvchilar yorliqning o'zida beriladi.
         others = info.get("occluders") or [p for g in visible if g != info["group"] for p in scene["groups"][g]["samples"]]
-        ax, ay = frame.to_slide(*cam.anchor(info["samples"], frame.rot, others, 0.12 / frame.size))
+        radius = 0.12 / frame.size
+        if others and cam.visible_share(info["samples"], frame.rot, others, radius) < HIDDEN_SHARE:
+            log.info("med3d: organ boshqasi orqasida yopilgan, yorliq qo'yilmadi: %s", key)
+            continue
+        ax, ay = frame.to_slide(*cam.anchor(info["samples"], frame.rot, others, radius))
         if not (TEXT_EDGE <= ax <= W - 0.1 and 0.15 <= ay <= H - 0.15):
             log.info("med3d: yorliq nuqtasi slayddan tashqarida, qo'yilmadi: %s", key)
             continue
-        items.append((key, info["uz"], ax, ay))
+        items.append((key, info["uz"], ax, ay, info.get("la", "")))
     if not items:
         return []
     left, top, right, bottom = model_box
@@ -215,21 +237,22 @@ def _labels(slide, cam: Camera, scene: dict, frame: Frame, keys: Sequence[str], 
     shapes = []
     for side in ("left", "right"):
         col = sorted((it for it in items if (it[2] < mid) == (side == "left")), key=lambda it: it[3])
-        ys = _spread([it[3] for it in col], 0.75, H - 0.75, LABEL_GAP)
+        gap = LABEL_GAP2 if any(it[4] for it in col) else LABEL_GAP
+        ys = _spread([it[3] for it in col], 0.75, H - 0.75, gap)
         if side == "left":
             edges = [max(LABEL_X_MIN + 1.0, min(left - 0.3, it[2] - 0.5)) for it in col]
         else:
             edges = [min(LABEL_X_MAX - 1.0, max(right + 0.3, it[2] + 0.5)) for it in col]
         ys = _untangle(edges, [(it[2], it[3]) for it in col], ys)
-        for (key, uz, ax, ay), ly, edge in zip(col, ys, edges):
+        for (key, uz, ax, ay, la), ly, edge in zip(col, ys, edges):
             if side == "left":
-                pill, px, pw = _label(slide, f"lbl_{key}", edge, ly, uz, right_align=True)
+                pill, px, pw = _label(slide, f"lbl_{key}", edge, ly, uz, right_align=True, latin=la)
                 if px < LABEL_X_MIN:
                     pill.left = Inches(LABEL_X_MIN)
                     px = LABEL_X_MIN
                 start = (px + pw, ly)
             else:
-                pill, px, pw = _label(slide, f"lbl_{key}", edge, ly, uz, right_align=False)
+                pill, px, pw = _label(slide, f"lbl_{key}", edge, ly, uz, right_align=False, latin=la)
                 if px + pw > LABEL_X_MAX:
                     px = LABEL_X_MAX - pw
                     pill.left = Inches(px)
@@ -312,8 +335,16 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
         if data.get("frame_of") is not None:         # kamera aynan oldingi slayddagidek (joyida almashish)
             frame = plans[data["frame_of"]]["frame"]
         else:
-            frame = fit_frame(cam, points, data.get("rot") or (0, 0, 0), region)
-            frame = keep_clear(cam, frame, points, [p for g in show for p in groups[g]["samples"]])
+            rot = data.get("rot") or (0, 0, 0)
+            everything = [p for g in show for p in groups[g]["samples"]]
+            frame = fit_frame(cam, points, rot, region)
+            whole = fit_frame(cam, everything, rot, region)
+            if frame.size > whole.size * ZOOM_LIMIT:     # haddan tashqari yaqin: qo'shni organlar kesilib qoladi
+                f0, g0, f1, g1 = cam.extent(points, rot)
+                fx, fy = frame.to_slide((f0 + f1) / 2, (g0 + g1) / 2)
+                size = whole.size * ZOOM_LIMIT
+                frame = Frame(fx - (f0 + f1) / 2 * size, fy - (g0 + g1) / 2 * size, size, rot)
+            frame = keep_clear(cam, frame, points, everything)
         show = [g for g in show if g in focus or not _too_big(cam, frame, groups[g]["samples"])]
         plans.append({"key": key, "scene": scene, "cam": cam, "frame": frame, "show": show,
                       "labels": labels, "names": {_model_name(key, g, main): (key, g)

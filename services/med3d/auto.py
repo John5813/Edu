@@ -435,8 +435,31 @@ def neighbours(body: dict, organ: str, slides: List[dict]) -> List[str]:
     return out
 
 
+OCCLUDER_POINTS = 2500           # yorliq uchun "qaysi organ yopilgan" hisobi: organ to'ridan shuncha nuqta
+
+
+def _dense(meshes: List[tuple]) -> list:
+    """Organ to'ridan teng tanlangan nuqtalar (to'suvchi sifatida): lug'atdagi 300 ta namuna katta organda siyrak."""
+    pos = np.vstack([m[1] for m in meshes])
+    step = max(1, len(pos) // OCCLUDER_POINTS)
+    return pos[::step].tolist()
+
+
+def set_id(organs) -> str:
+    return "set" + hashlib.sha1("+".join(sorted(organs)).encode()).hexdigest()[:8]
+
+
 def build_scenes(body_key: str, plan_: dict, atlas=None, quality: float = 1.0) -> Tuple[dict, Dict[str, dict]]:
     """Reja → (deck rejasi, xotiradagi sahnalar). atlas — test uchun almashtirsa bo'ladi.
+
+    Haqiqiy 3D: slayddagi hamma organ BITTA modelda. PowerPoint har 3D modelni alohida qatlam qilib chizadi va
+    modellar orasida chuqurlikni solishtirmaydi — alohida organlar bo'lsa tomir yurak orqasiga kirmay, ustiga
+    chiqib qolardi. Bitta modelda kim kimni yopishi to'g'ri hisoblanadi.
+
+    Harakat: organlar to'plami o'zgarmasa — bir xil nomli model, Morph uni silliq aylantiradi va yaqinlashtiradi.
+    To'plam o'zgarsa — oraga yordamchi slayd qo'yiladi (o'zi o'tadi, raqamga kirmaydi): kamera joyida turadi,
+    eski model so'nadi, yangisi o'sha joyda paydo bo'ladi (qolayotgan organlar ikkalasida bir xil — qimirlamaydi),
+    keyin yangi model burilib yangi joyiga keladi.
 
     quality — uchburchaklar ulushi (1 — imkon qadar to'liq); fayl juda katta chiqsa `make_deck` kamaytiradi.
     """
@@ -447,7 +470,7 @@ def build_scenes(body_key: str, plan_: dict, atlas=None, quality: float = 1.0) -
     geometry: Dict[Tuple[str, int], list] = {}
     shaded: Dict[tuple, list] = {}
     scenes: Dict[str, dict] = {}
-    deck_slides = []
+    placed = []
     for number, (members, lo, hi) in enumerate(split_runs(body, slides)):
         key = f"run{number}"
         organs = list(dict.fromkeys(o for i in members for o in slides[i]["show"]))
@@ -457,24 +480,42 @@ def build_scenes(body_key: str, plan_: dict, atlas=None, quality: float = 1.0) -
         for organ in organs:
             if (organ, targets[organ]) not in geometry:
                 geometry[(organ, targets[organ])] = organ_geometry(atlas, body, organ, targets[organ])
-        groups, labels = {}, {}
         run_slides = [slides[i] for i in members]
+        prims, dense = {}, {}
         for organ in organs:
+            # Soya organning o'zi va unga tegib turganlar bo'yicha — qaysi to'plamda bo'lmasin bir xil: almashishda
+            # qolayotgan organ piksellari o'zgarmaydi.
             near = tuple(neighbours(body, organ, run_slides))
             cache_key = (organ, targets[organ], tuple((o, targets[o]) for o in near))
             if cache_key not in shaded:
                 shaded[cache_key] = shaded_primitives(organ, geometry[(organ, targets[organ])],
                                                       [geometry[(o, targets[o])] for o in near])
-            groups[organ] = {"samples": body[organ]["samples"],
-                             "glb": write_glb(shaded[cache_key], anchors=(lo, hi), name=organ)}
-            labels[organ] = {"uz": plan_["names"].get(organ, BY_ID[organ]["uz"]), "group": organ,
-                             "samples": body[organ]["samples"]}
+            prims[organ] = shaded[cache_key]
+            dense[organ] = _dense(geometry[(organ, targets[organ])])
+        groups, labels = {}, {}
+        for i in members:
+            show = sorted(slides[i]["show"])
+            gid = set_id(show)
+            if gid not in groups:
+                groups[gid] = {"samples": [p for o in show for p in body[o]["samples"]],
+                               "glb": write_glb([p for o in show for p in prims[o]], anchors=(lo, hi), name=gid)}
+                for o in show:
+                    labels[f"{gid}:{o}"] = {"uz": plan_["names"].get(o, BY_ID[o]["uz"]), "la": BY_ID[o].get("la", ""),
+                                            "group": gid, "samples": body[o]["samples"],
+                                            "occluders": [p for x in show if x != o for p in dense[x]]}
+            focus = slides[i].get("focus") or slides[i]["show"]
+            placed.append((i, key, gid, dict(slides[i], scene=key, show=[gid], focus=None,
+                                              focus_points=[p for o in focus for p in body[o]["samples"]],
+                                              labels=[f"{gid}:{o}" for o in slides[i]["labels"] if o in show])))
         scenes[key] = {"bbox_min": lo.tolist(), "bbox_max": hi.tolist(), "source": SOURCES[body_key],
                        "groups": groups, "labels": labels}
-        for i in members:
-            deck_slides.append((i, dict(slides[i], scene=key)))
-    deck_slides.sort(key=lambda item: item[0])
-    return {"scene": "run0", "slides": [s for _, s in deck_slides]}, scenes
+    placed.sort(key=lambda item: item[0])
+    deck_slides: List[dict] = []
+    for k, (_, key, gid, data) in enumerate(placed):
+        if k and placed[k - 1][1] == key and placed[k - 1][2] != gid:
+            deck_slides.append(dict(data, labels=[], fade=True, auto=True, frame_of=len(deck_slides) - 1))
+        deck_slides.append(data)
+    return {"scene": "run0", "slides": deck_slides}, scenes
 
 
 def _safe(name: str) -> str:

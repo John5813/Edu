@@ -280,6 +280,44 @@ ORGANS: List[Dict] = [
          m=["integumentary:^skin$"], f=["integumentary:^skin$"]),
 ]
 
+# Lotincha nom (Terminologia Anatomica): tibbiyotda a'zolar lotincha ataladi — yorliqda o'zbekcha nom ostida.
+LATIN = {
+    "bosh_suyagi": "Cranium", "pastki_jag": "Mandibula", "tishlar": "Dentes", "umurtqa": "Columna vertebralis",
+    "umurtqa_disklari": "Disci intervertebrales", "qovurgalar": "Costae", "tosh_suyagi": "Sternum",
+    "umrov": "Clavicula", "kurak": "Scapula", "yelka_suyagi": "Humerus", "bilak_suyaklari": "Radius et ulna",
+    "qol_panja": "Ossa manus", "chanoq": "Pelvis", "son_suyagi": "Femur", "tizza_qopqogi": "Patella",
+    "boldir_suyaklari": "Tibia et fibula", "oyoq_panja": "Ossa pedis", "skelet": "Skeleton",
+    "tizza_boylamlari": "Ligamenta genus", "mushaklar": "Musculi", "diafragma": "Diaphragma",
+    "kokrak_mushagi": "Musculus pectoralis major", "deltasimon": "Musculus deltoideus",
+    "trapetsiyasimon": "Musculus trapezius", "qorin_mushaklari": "Musculi abdominis",
+    "qovurgalararo": "Musculi intercostales", "yelka_mushaklari": "Musculi brachii",
+    "dumba_mushaklari": "Musculi glutei", "son_mushaklari": "Musculi femoris", "boldir_mushaklari": "Musculi cruris",
+    "yurak_bolmachalari": "Atria cordis", "yurak_qorinchalari": "Ventriculi cordis",
+    "yurak_klapanlari": "Valvae cordis", "yurak": "Cor", "aorta": "Aorta",
+    "aorta_yoyi": "Aorta ascendens et arcus aortae", "yuqori_kovak_vena": "Vena cava superior",
+    "opka_arteriyasi": "Truncus pulmonalis", "kovak_venalar": "Venae cavae", "toj_arteriyalar": "Arteriae coronariae",
+    "arteriyalar": "Arteriae", "venalar": "Venae", "hiqildoq": "Larynx", "traxeya": "Trachea", "bronxlar": "Bronchi",
+    "opkalar": "Pulmones", "ong_opka": "Pulmo dexter", "chap_opka": "Pulmo sinister", "halqum": "Pharynx",
+    "til": "Lingua", "solak_bezlari": "Glandulae salivariae", "qizilongach": "Oesophagus", "oshqozon": "Gaster",
+    "jigar": "Hepar", "ot_pufagi": "Vesica biliaris", "ot_yollari": "Ductus biliferi", "oshqozon_osti": "Pancreas",
+    "onikki_barmoq": "Duodenum", "ingichka_ichak": "Intestinum tenue", "yogon_ichak": "Intestinum crassum",
+    "togri_ichak": "Rectum", "buyraklar": "Renes", "buyrak_ichki": "Medulla et calices renales",
+    "siydik_naylari": "Ureteres", "siydik_pufagi": "Vesica urinaria", "siydik_kanali": "Urethra",
+    "moyaklar": "Testes", "moyak_ortigi": "Epididymis", "urug_yoli": "Ductus deferens",
+    "urug_pufakchalari": "Vesiculae seminales", "prostata": "Prostata", "jinsiy_olat": "Penis",
+    "bachadon": "Uterus", "bachadon_boyni": "Cervix uteri", "bachadon_naylari": "Tubae uterinae",
+    "tuxumdonlar": "Ovaria", "qin": "Vagina", "bachadon_boylamlari": "Ligamenta uteri", "yoldosh": "Placenta",
+    "yoldosh_tomirlari": "Vasa placentae", "kindik": "Funiculus umbilicalis", "amnion": "Amnion",
+    "sut_bezi": "Glandula mammaria", "bosh_miya": "Encephalon", "miyacha": "Cerebellum",
+    "miya_ustuni": "Truncus encephali", "talamus": "Thalamus", "gippokamp": "Hippocampus",
+    "orqa_miya": "Medulla spinalis", "korish_nervi": "Nervus opticus", "koz_olmasi": "Bulbus oculi",
+    "koz_mushaklari": "Musculi bulbi", "koz_yosh": "Apparatus lacrimalis", "quloq_suprasi": "Auricula",
+    "gipofiz": "Hypophysis", "epifiz": "Glandula pinealis", "buyrak_usti": "Glandulae suprarenales",
+    "taloq": "Splen", "ayrisimon_bez": "Thymus", "limfa_tuguni": "Nodus lymphoideus", "teri": "Cutis",
+}
+for _organ in ORGANS:
+    _organ["la"] = LATIN[_organ["id"]]
+
 BY_ID = {o["id"]: o for o in ORGANS}
 SOURCES = {
     "male": "BodyParts3D 4.0 (DBCLS), CC BY 4.0",

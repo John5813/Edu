@@ -297,7 +297,8 @@ def _topic_line(data: dict, lang: str) -> str:
 # Orqaga: har qadamning oldingisi. Birinchi qadamdan (taqdimot turi) — bosh menyu.
 # Tartib: tur → mavzu → (yozuv) → ism → istaklar → manba → (zamonaviyda uslub) → slaydlar soni → xulosa.
 _PREVIOUS = {"topic": "kind", "script": "topic", "name": "topic", "prefs": "name", "source": "prefs",
-             "source_input": "source", "style": "source", "volume": "style", "summary": "count"}
+             "source_input": "source", "style": "source", "volume": "style", "summary": "count",
+             "photos": "count"}     # rasm manbasidan — slaydlar soniga (ilgari butun buyurtma tashlab yuborilardi)
 
 
 def _previous_step(data: dict):
@@ -1248,18 +1249,23 @@ def pro3d_note(lang: str) -> str:
 
 
 MED3D_NOTE = {
-    "uz": "🫀 Har slaydda haqiqiy 3D organ modeli: slaydlar orasida aylanadi, qismlarga ajraladi va qayta "
-          "yig'iladi. Faylni KOMPYUTERDAGI PowerPoint 2019/2021/365 da «Slayd-shou» rejimida oching — telefonda "
-          "va eski versiyalarda 3D ko'rinmaydi.",
-    "ru": "🫀 На каждом слайде настоящая 3D-модель органа: между слайдами вращается, разделяется на части и "
-          "собирается снова. Откройте файл в PowerPoint 2019/2021/365 НА КОМПЬЮТЕРЕ в режиме «Показ слайдов» — "
-          "на телефоне и в старых версиях 3D не видно.",
-    "en": "🫀 Every slide has a real 3D organ model that turns, splits into parts and reassembles between slides. "
-          "Open the file in PowerPoint 2019/2021/365 ON A COMPUTER in Slide Show — phones and older versions "
-          "do not show 3D.",
-    "kk": "🫀 Әр слайдта нақты 3D мүше моделі: слайдтар арасында айналады, бөліктерге бөлінеді және қайта "
-          "жиналады. Файлды КОМПЬЮТЕРДЕГІ PowerPoint 2019/2021/365-те «Слайд-шоу» режимінде ашыңыз — "
-          "телефонда 3D көрінбейді.",
+    "uz": "🫀 Har slaydda haqiqiy 3D model: a'zolar bir-biriga to'g'ri birikkan, slaydlar orasida aylanadi, yangi "
+          "a'zo o'z joyida asta paydo bo'ladi. Yorliqlarda o'zbekcha va lotincha nom. Faylni KOMPYUTERDAGI PowerPoint "
+          "2019/2021/365 da «Slayd-shou» rejimida (F5) oching — telefonda va eski versiyalarda 3D ko'rinmaydi. "
+          "Tahrirlash oynasidagi takrorlangandek slaydlar silliq o'tish uchun — ularni o'chirmang.",
+    "ru": "🫀 На каждом слайде настоящая 3D-модель: органы правильно соединены, между слайдами модель вращается, "
+          "новый орган плавно появляется на своём месте. На подписях — узбекское и латинское название. Откройте "
+          "файл в PowerPoint 2019/2021/365 НА КОМПЬЮТЕРЕ в режиме «Показ слайдов» (F5) — на телефоне и в старых "
+          "версиях 3D не видно. Похожие повторяющиеся слайды в режиме редактирования нужны для плавных переходов — "
+          "не удаляйте их.",
+    "en": "🫀 Every slide has a real 3D model: organs are joined correctly, the model turns between slides and a new "
+          "organ fades in at its place. Labels show the Uzbek and Latin names. Open the file in PowerPoint "
+          "2019/2021/365 ON A COMPUTER in Slide Show (F5) — phones and older versions do not show 3D. The "
+          "near-duplicate slides in the editor make the transitions smooth — do not delete them.",
+    "kk": "🫀 Әр слайдта нақты 3D модель: мүшелер дұрыс біріккен, слайдтар арасында модель айналады, жаңа мүше "
+          "өз орнында бірте-бірте пайда болады. Белгілерде өзбекше және латынша атау. Файлды КОМПЬЮТЕРДЕГІ "
+          "PowerPoint 2019/2021/365-те «Слайд-шоу» режимінде (F5) ашыңыз — телефонда 3D көрінбейді. Өңдеу "
+          "терезесіндегі қайталанған сияқты слайдтар тегіс өту үшін — оларды өшірмеңіз.",
 }
 
 
