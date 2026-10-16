@@ -582,7 +582,10 @@ def build_scenes(body_key: str, plan_: dict, atlas=None, quality: float = 1.0) -
             placed.append((i, key, ("set", gid), dict(slides[i], scene=key, show=[gid], focus=None,
                                                       focus_points=[p for o in focus for p in body[o]["samples"]],
                                                       labels=[f"{gid}:{o}" for o in slides[i]["labels"] if o in show])))
-        scenes[key] = {"bbox_min": lo.tolist(), "bbox_max": hi.tolist(), "source": SOURCES[body_key],
+        source = SOURCES[body_key]
+        if any(pid.startswith("ZA-") for o in organs for pid in body[o]["parts"]):
+            source += "; " + SOURCES["zanatomy"]
+        scenes[key] = {"bbox_min": lo.tolist(), "bbox_max": hi.tolist(), "source": source,
                        "groups": groups, "labels": labels}
     placed.sort(key=lambda item: item[0])
     deck_slides: List[dict] = []
