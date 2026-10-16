@@ -30,6 +30,8 @@ _FOOT = r"(talus|calcaneus|navicular bone of foot|cuboid bone|cuneiform bone|met
         r"phalanx of (big|second|third|fourth|little) toe|sesamoid bone of foot)"
 _LR = r"^(left |right )?"
 _ZA = "za-muscular:" + _LR
+_ZJ = "za-joint:"   # Z-Anatomy boylamlari: nomda [bo'g'im] — "Left anterior cruciate ligament [Knee joint]"
+_SOFT = [(r"meniscus|disc|labrum|symphysis|fat pad", CARTILAGE)]
 
 ORGANS: List[Dict] = [
     # ── Skelet
@@ -72,7 +74,8 @@ ORGANS: List[Dict] = [
                 "bilak_suyaklari", "qol_panja", "chanoq", "son_suyagi", "tizza_qopqogi", "boldir_suyaklari",
                 "oyoq_panja"]),
     dict(id="tizza_boylamlari", uz="Tizza bo'g'imi boylamlari va menisklar", en="Knee ligaments and menisci",
-         color=CARTILAGE, m=[], f=["connective:(cruciate|collateral ligament|anterolateral ligament|meniscus|"
+         color=CARTILAGE, m=[_ZJ + r"\[(knee joint|lateral meniscus|medial meniscus|tibial collateral ligament)"],
+         f=["connective:(cruciate|collateral ligament|anterolateral ligament|meniscus|"
                                    "articular cartilage of knee)"]),
 
     # ── Mushaklar
@@ -364,6 +367,60 @@ ORGANS: List[Dict] = [
                 "medial_togri_mushak", "lateral_togri_mushak", "yuqori_qiyshiq_mushak", "pastki_qiyshiq_mushak",
                 "qovoq_kotaruvchi", "qovoq_toglaylari",
                 "umumiy_pay_halqa", "iyak_til_mushagi", "til_osti_til_mushagi"]),
+
+    # ── Bo'g'imlar va boylamlar (Z-Anatomy, CC BY-SA 4.0 — erkak atlasiga moslangan)
+    dict(id="xochsimon_boylamlar", uz="Tizzaning xochsimon boylamlari", en="Cruciate ligaments of knee", color=TENDON,
+         m=[_ZJ + "cruciate ligament"], f=["connective:cruciate"], inside=["tizza_boylamlari"]),
+    dict(id="menisklar", uz="Tizza menisklari", en="Menisci of knee", color=CARTILAGE,
+         m=[_ZJ + "(meniscus|meniscotibial|transverse ligament of knee)"], f=["connective:meniscus"],
+         inside=["tizza_boylamlari"]),
+    dict(id="tizza_yon_boylamlari", uz="Tizzaning yon boylamlari", en="Collateral ligaments of knee", color=TENDON,
+         m=[_ZJ + "(fibular|tibial) collateral ligament"], f=["connective:collateral ligament"]),
+    dict(id="yelka_bogimi", uz="Yelka bo'g'imi (kapsula va boylamlar)", en="Shoulder (glenohumeral) joint capsule and ligaments",
+         color=TENDON, m=[_ZJ + r"\[(glenohumeral joint|glenohumeral ligaments)"], f=[], tones=_SOFT),
+    dict(id="yelka_kamari_boylamlari", uz="Yelka kamari boylamlari (o'mrov bo'g'imlari)",
+         en="Ligaments of shoulder girdle (acromioclavicular, sternoclavicular, coracoclavicular)", color=TENDON,
+         m=[_ZJ + r"\[(acromioclavicular joint|coracoclavicular ligament|sternoclavicular joint|fibrous joints of pectoral)"],
+         f=[], tones=_SOFT),
+    dict(id="tirsak_bogimi", uz="Tirsak bo'g'imi (kapsula va boylamlar)", en="Elbow joint capsule and ligaments",
+         color=TENDON, m=[_ZJ + r"(\[(elbow joint|radio-ulnar syndesmoses)|interosseous membrane of forearm)"], f=[]),
+    dict(id="bilak_kaft_bogimi", uz="Bilak-kaft (bilakuzuk) bo'g'imi boylamlari", en="Wrist joint and carpal ligaments",
+         color=TENDON, m=[_ZJ + r"\[(joints of hand; )?(radiocarpal|palmar radiocarpal|palmar ulnocarpal|"
+                              r"distal radio-ulnar|dorsal intercarpal|palmar intercarpal|interosseus intercarpal|"
+                              r"intercarpal joints|pisiform joint)"], f=[], tones=_SOFT),
+    dict(id="qol_panja_boylamlari", uz="Qo'l panjasi bo'g'imlari boylamlari", en="Ligaments of hand joints (metacarpal, finger)",
+         color=TENDON, m=[_ZJ + r"\[(carpometacarpal|intermetacarpal|metacarpophalangeal|interphalangeal joints of hand)"],
+         f=[]),
+    dict(id="chanoq_son_bogimi", uz="Chanoq-son bo'g'imi (kapsula va boylamlar)", en="Hip joint capsule and ligaments",
+         color=TENDON, m=[_ZJ + r"\[(hip joint|iliofemoral ligament)"], f=[], tones=_SOFT),
+    dict(id="chanoq_boylamlari", uz="Chanoq boylamlari va qov birikmasi", en="Pelvic ligaments and pubic symphysis",
+         color=TENDON, m=[_ZJ + r"\[(sacro-iliac joint|sacrotuberous ligament|pubic symphysis|obturator membrane|"
+                              r"fibrous joints of pelvic girdle|cartilaginous joints of pelvic girdle)"], f=[], tones=_SOFT),
+    dict(id="boldir_birikmalari", uz="Boldir suyaklari birikmalari", en="Tibiofibular joints and interosseous membrane of leg",
+         color=TENDON, m=[_ZJ + r"\[(superior tibiofibular joint|tibiofibular syndesmosis|fibrous joints of free lower limb)"],
+         f=[]),
+    dict(id="boldir_panja_bogimi", uz="Boldir-panja (to'piq) bo'g'imi boylamlari", en="Ankle joint ligaments (lateral, deltoid, subtalar)",
+         color=TENDON, m=[_ZJ + r"\[(lateral collateral ligament|medial collateral ligament|subtalar joint)"], f=[]),
+    dict(id="oyoq_panja_boylamlari", uz="Oyoq panjasi bo'g'imlari boylamlari", en="Ligaments of foot joints",
+         color=TENDON, m=[_ZJ + r"\[(bifurcate ligament|calcaneocuboid|cuboidonavicular|cuneocuboid|cuneonavicular|"
+                              r"intercuneiform|intermetatarsal|interphalangeal joints of foot|metatarsophalangeal|"
+                              r"talocalcaneonavicular|tarsometatarsal|transverse tarsal)"], f=[]),
+    dict(id="umurtqa_boylamlari", uz="Umurtqa pog'onasi boylamlari", en="Ligaments of vertebral column",
+         color=TENDON, m=[_ZJ + r"\[fibrous joints of vertebral column"], f=[]),
+    dict(id="qovurga_boylamlari", uz="Qovurg'a bo'g'imlari va qovurg'alararo pardalar", en="Costovertebral joints and intercostal membranes",
+         color=TENDON, m=[_ZJ + r"\[(joint of head of rib|costotransverse joint|fibrous joints of thorax)"], f=[]),
+    dict(id="chakka_jag_bogimi", uz="Chakka-pastki jag' bo'g'imi", en="Temporomandibular joint (capsule, disc, ligaments)",
+         color=TENDON, m=[_ZJ + r"\[(temporomandibular joint|cranial syndesmosis)"], f=[], tones=_SOFT),
+    dict(id="hiqildoq_boylamlari", uz="Hiqildoq boylamlari va pardalari", en="Laryngeal ligaments and membranes",
+         color=TENDON, m=[_ZJ + r"\[(crico-arythenoid joint|fibrous joints of larynx|thyrohyoid membrane|quadrangular membrane)"],
+         f=[]),
+    dict(id="pulpoz_yadro", uz="Umurtqalararo disklarning pulpoz yadrosi", en="Nucleus pulposus of intervertebral discs",
+         color="#E7B9A6", m=[_ZJ + "^nucleus pulposus"], f=[], inside=["umurtqa_disklari", "umurtqa"]),
+    dict(id="boylamlar", uz="Bo'g'imlar va boylamlar (hammasi)", en="All joints and ligaments of the skeleton",
+         color=TENDON, union=["tizza_boylamlari", "yelka_bogimi", "yelka_kamari_boylamlari", "tirsak_bogimi",
+                              "bilak_kaft_bogimi", "qol_panja_boylamlari", "chanoq_son_bogimi", "chanoq_boylamlari",
+                              "boldir_birikmalari", "boldir_panja_bogimi", "oyoq_panja_boylamlari", "umurtqa_boylamlari",
+                              "qovurga_boylamlari", "chakka_jag_bogimi", "hiqildoq_boylamlari"]),
 ]
 
 # Lotincha nom (Terminologia Anatomica): tibbiyotda a'zolar lotincha ataladi — yorliqda o'zbekcha nom ostida.
@@ -421,13 +478,25 @@ LATIN = {
     "qovoq_toglaylari": "Tarsus superior et inferior", "umumiy_pay_halqa": "Anulus tendineus communis",
     "iyak_til_mushagi": "Musculus genioglossus", "til_osti_til_mushagi": "Musculus hyoglossus",
     "bosh_mushaklari": "Musculi capitis",
+    "xochsimon_boylamlar": "Ligamenta cruciata genus", "menisklar": "Menisci articulares genus",
+    "tizza_yon_boylamlari": "Ligamenta collateralia genus", "yelka_bogimi": "Articulatio humeri",
+    "yelka_kamari_boylamlari": "Juncturae cinguli pectoralis", "tirsak_bogimi": "Articulatio cubiti",
+    "bilak_kaft_bogimi": "Articulatio radiocarpea", "qol_panja_boylamlari": "Juncturae manus",
+    "chanoq_son_bogimi": "Articulatio coxae", "chanoq_boylamlari": "Juncturae cinguli pelvici",
+    "boldir_birikmalari": "Juncturae tibiofibulares", "boldir_panja_bogimi": "Articulatio talocruralis",
+    "oyoq_panja_boylamlari": "Juncturae pedis", "umurtqa_boylamlari": "Ligamenta columnae vertebralis",
+    "qovurga_boylamlari": "Juncturae thoracis", "chakka_jag_bogimi": "Articulatio temporomandibularis",
+    "hiqildoq_boylamlari": "Ligamenta laryngis", "boylamlar": "Juncturae ossium", "pulpoz_yadro": "Nucleus pulposus",
 }
 for _organ in ORGANS:
     _organ["la"] = LATIN[_organ["id"]]
 
 BY_ID = {o["id"]: o for o in ORGANS}
+# Boylam va bo'g'im a'zolari: ular ikki suyakni bog'laydi — portlashda suyaklar ajralsa boylam "uziladi",
+# shuning uchun bunday slaydlarda portlash qilinmaydi (`director.direct`).
+JOINT_IDS = {o["id"] for o in ORGANS if any(r.startswith(_ZJ) for r in o.get("m", []))} | {"boylamlar", "umurtqa_disklari"}
 SOURCES = {
     "male": "BodyParts3D 4.0 (DBCLS), CC BY 4.0",
     "female": "Human Reference Atlas v1.10 (HuBMAP; NLM Visible Human), CC BY 4.0",
-    "zanatomy": "bosh mushaklari: Z-Anatomy, CC BY-SA 4.0",
+    "zanatomy": "Z-Anatomy, CC BY-SA 4.0",
 }

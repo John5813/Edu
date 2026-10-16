@@ -1,7 +1,9 @@
-# Bosh mushaklari — Z-Anatomy
+# Z-Anatomy qismlari
 
-`atlas-za.json` va `za-0.bin` — Z-Anatomy atlasidan olingan bosh mushaklari (chaynov, mimika, ko'z olmasi
-mushaklari, qovoq tog'aylari, iyak-til va til osti-til mushaklari), erkak atlasimizga (BodyParts3D) moslangan.
+Z-Anatomy atlasidan olingan qismlar, erkak atlasimizga (BodyParts3D) moslangan:
+
+- `atlas-za-head.json` + `za-head.bin` — bosh mushaklari (chaynov, mimika, ko'z olmasi mushaklari va boshqalar);
+- `atlas-za-joints.json` + `za-joints.bin` — bo'g'imlar: boylamlar, kapsulalar, menisklar, disklar.
 
 - Manba: Z-Anatomy — The libre 3D atlas of anatomy, https://github.com/Z-Anatomy/Models-of-human-anatomy
 - Asos: BodyParts3D, The Database Center for Life Science (DBCLS)
