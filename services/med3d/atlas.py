@@ -10,6 +10,8 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 
+from . import ZA_DIR
+
 
 class Atlas:
     def __init__(self, models_dir: str, catalog: str = "atlas.json"):
@@ -17,6 +19,8 @@ class Atlas:
         self.dir = models_dir
         with open(os.path.join(models_dir, catalog), encoding="utf-8") as fh:
             self.meta = json.load(fh)
+        if catalog == "atlas.json":
+            self._merge(os.path.join(ZA_DIR, "atlas-za.json"))
         # BodyParts3D bitta a'zoni bir nechta bo'lakka bo'ladi (masalan "Proximal part of ileum" — o'nlab
         # bo'lak): nom bo'yicha hammasi olinadi. Aniq bitta bo'lak kerak bo'lsa — uning id si ("FJ2823").
         self.by_name: Dict[str, List[dict]] = {}
@@ -26,14 +30,24 @@ class Atlas:
             self.by_id[part["id"]] = part
         self._chunks: Dict[int, bytes] = {}
 
+    def _merge(self, path: str) -> None:
+        """Qo'shimcha katalog (masalan Z-Anatomy bosh mushaklari) — o'z bo'laklari bilan, shu atlasga qo'shiladi."""
+        if not os.path.isfile(path):
+            return
+        with open(path, encoding="utf-8") as fh:
+            extra = json.load(fh)
+        base = len(self.meta["chunks"])
+        self.meta["chunks"] = self.meta["chunks"] + [dict(c, dir=os.path.dirname(path)) for c in extra["chunks"]]
+        self.meta["parts"] = self.meta["parts"] + [dict(p, chunk=p["chunk"] + base) for p in extra["parts"]]
+
     @property
     def version(self) -> str:
         return self.meta.get("version", "")
 
     def _chunk(self, index: int) -> bytes:
         if index not in self._chunks:
-            url = self.meta["chunks"][index]["url"]
-            with open(os.path.join(self.dir, os.path.basename(url)), "rb") as fh:
+            chunk = self.meta["chunks"][index]
+            with open(os.path.join(chunk.get("dir", self.dir), os.path.basename(chunk["url"])), "rb") as fh:
                 self._chunks[index] = fh.read()
         return self._chunks[index]
 

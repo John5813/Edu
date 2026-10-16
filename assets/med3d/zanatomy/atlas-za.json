@@ -1,0 +1,1850 @@
+{
+"version": "Z-Anatomy (CC BY-SA 4.0)",
+"chunks": [
+{
+"url": "za-0.bin"
+}
+],
+"parts": [
+{
+"id": "ZA-bucinator-l",
+"name": "Left bucinator",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 444,
+"indexCount": 2652,
+"bounds": [
+[
+0.020479999482631683,
+1.5197099447250366,
+0.03092999942600727
+],
+[
+0.0357699990272522,
+1.5567799806594849,
+0.0604499988257885
+]
+],
+"positions": 0,
+"normals": 5328,
+"indices": 7992
+},
+{
+"id": "ZA-bucinator-r",
+"name": "Right bucinator",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 444,
+"indexCount": 2652,
+"bounds": [
+[
+-0.03743999823927879,
+1.5197099447250366,
+0.03092999942600727
+],
+[
+-0.02215000055730343,
+1.5567799806594849,
+0.0604499988257885
+]
+],
+"positions": 18600,
+"normals": 23928,
+"indices": 26592
+},
+{
+"id": "ZA-common-tendinous-ring-l",
+"name": "Left common tendinous ring",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 181,
+"indexCount": 1086,
+"bounds": [
+[
+0.01257999986410141,
+1.6030399799346924,
+0.019610000774264336
+],
+[
+0.018969999626278877,
+1.6098699569702148,
+0.02558000013232231
+]
+],
+"positions": 37200,
+"normals": 39372,
+"indices": 40460
+},
+{
+"id": "ZA-common-tendinous-ring-r",
+"name": "Right common tendinous ring",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 181,
+"indexCount": 1086,
+"bounds": [
+[
+-0.0206300001591444,
+1.6030399799346924,
+0.019610000774264336
+],
+[
+-0.014240000396966934,
+1.6098699569702148,
+0.02558000013232231
+]
+],
+"positions": 44804,
+"normals": 46976,
+"indices": 48064
+},
+{
+"id": "ZA-corrugator-supercilii-l",
+"name": "Left corrugator supercilii",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 141,
+"indexCount": 834,
+"bounds": [
+[
+0.008259999565780163,
+1.6088800430297852,
+0.06654000282287598
+],
+[
+0.0313900001347065,
+1.6282600164413452,
+0.07372000068426132
+]
+],
+"positions": 52408,
+"normals": 54100,
+"indices": 54948
+},
+{
+"id": "ZA-corrugator-supercilii-r",
+"name": "Right corrugator supercilii",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 141,
+"indexCount": 834,
+"bounds": [
+[
+-0.03305000066757202,
+1.6088800430297852,
+0.06654000282287598
+],
+[
+-0.009929999709129333,
+1.6282600164413452,
+0.07372000068426132
+]
+],
+"positions": 58284,
+"normals": 59976,
+"indices": 60824
+},
+{
+"id": "ZA-deep-part-of-masseter-l",
+"name": "Left deep part of masseter",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 497,
+"indexCount": 2982,
+"bounds": [
+[
+0.03466999903321266,
+1.5183700323104858,
+-0.002360000042244792
+],
+[
+0.06227000057697296,
+1.5852299928665161,
+0.032979998737573624
+]
+],
+"positions": 64160,
+"normals": 70124,
+"indices": 73108
+},
+{
+"id": "ZA-deep-part-of-masseter-r",
+"name": "Right deep part of masseter",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 497,
+"indexCount": 2982,
+"bounds": [
+[
+-0.06394000351428986,
+1.5183700323104858,
+-0.002360000042244792
+],
+[
+-0.03633999824523926,
+1.5852299928665161,
+0.032979998737573624
+]
+],
+"positions": 85036,
+"normals": 91000,
+"indices": 93984
+},
+{
+"id": "ZA-depressor-anguli-oris-l",
+"name": "Left depressor anguli oris",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 299,
+"indexCount": 1782,
+"bounds": [
+[
+0.011130000464618206,
+1.5026299953460693,
+0.039719998836517334
+],
+[
+0.03596999868750572,
+1.5451600551605225,
+0.06419999897480011
+]
+],
+"positions": 105912,
+"normals": 109500,
+"indices": 111296
+},
+{
+"id": "ZA-depressor-anguli-oris-r",
+"name": "Right depressor anguli oris",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 299,
+"indexCount": 1782,
+"bounds": [
+[
+-0.03764000162482262,
+1.5026299953460693,
+0.039719998836517334
+],
+[
+-0.012790000066161156,
+1.5451600551605225,
+0.06419999897480011
+]
+],
+"positions": 118424,
+"normals": 122012,
+"indices": 123808
+},
+{
+"id": "ZA-depressor-labii-inferioris-l",
+"name": "Left depressor labii inferioris",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 418,
+"indexCount": 2496,
+"bounds": [
+[
+-0.00026000000070780516,
+1.5050300359725952,
+0.047540001571178436
+],
+[
+0.030980000272393227,
+1.5351500511169434,
+0.07536999881267548
+]
+],
+"positions": 130936,
+"normals": 135952,
+"indices": 138460
+},
+{
+"id": "ZA-depressor-labii-inferioris-r",
+"name": "Right depressor labii inferioris",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 418,
+"indexCount": 2496,
+"bounds": [
+[
+-0.03265000134706497,
+1.5050300359725952,
+0.047540001571178436
+],
+[
+-0.0014100000262260437,
+1.5351500511169434,
+0.07536999881267548
+]
+],
+"positions": 148444,
+"normals": 153460,
+"indices": 155968
+},
+{
+"id": "ZA-depressor-septi-nasi-l",
+"name": "Left depressor septi nasi",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 140,
+"indexCount": 828,
+"bounds": [
+[
+-0.0007800000021234155,
+1.5472700595855713,
+0.0713300034403801
+],
+[
+0.016209999099373817,
+1.5637400150299072,
+0.07906000316143036
+]
+],
+"positions": 165952,
+"normals": 167632,
+"indices": 168472
+},
+{
+"id": "ZA-depressor-septi-nasi-r",
+"name": "Right depressor septi nasi",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 140,
+"indexCount": 828,
+"bounds": [
+[
+-0.017880000174045563,
+1.5472700595855713,
+0.0713300034403801
+],
+[
+-0.0008800000068731606,
+1.5637400150299072,
+0.07906000316143036
+]
+],
+"positions": 171784,
+"normals": 173464,
+"indices": 174304
+},
+{
+"id": "ZA-epicranial-aponeurosis-l",
+"name": "Left epicranial aponeurosis",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 10055,
+"indexCount": 60354,
+"bounds": [
+[
+-0.0008200000156648457,
+1.6052700281143188,
+-0.11945000290870667
+],
+[
+0.06746000051498413,
+1.7166099548339844,
+0.07300999760627747
+]
+],
+"positions": 177616,
+"normals": 298276,
+"indices": 358608
+},
+{
+"id": "ZA-epicranial-aponeurosis-r",
+"name": "Right epicranial aponeurosis",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 10055,
+"indexCount": 60354,
+"bounds": [
+[
+-0.06913000345230103,
+1.6052700281143188,
+-0.11945000290870667
+],
+[
+-0.0008399999933317304,
+1.7166099548339844,
+0.07300999760627747
+]
+],
+"positions": 600024,
+"normals": 720684,
+"indices": 781016
+},
+{
+"id": "ZA-frontalis-muscle-l",
+"name": "Left frontalis muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 2933,
+"indexCount": 17622,
+"bounds": [
+[
+-0.0007900000200606883,
+1.6110800504684448,
+0.03147000074386597
+],
+[
+0.058880001306533813,
+1.6826800107955933,
+0.07932999730110168
+]
+],
+"positions": 1022432,
+"normals": 1057628,
+"indices": 1075228
+},
+{
+"id": "ZA-frontalis-muscle-r",
+"name": "Right frontalis muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 2933,
+"indexCount": 17622,
+"bounds": [
+[
+-0.06054000183939934,
+1.6110800504684448,
+0.03147000074386597
+],
+[
+-0.0008800000068731606,
+1.6826800107955933,
+0.07932999730110168
+]
+],
+"positions": 1145716,
+"normals": 1180912,
+"indices": 1198512
+},
+{
+"id": "ZA-genioglossus-muscle-l",
+"name": "Left genioglossus muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 1875,
+"indexCount": 11238,
+"bounds": [
+[
+0.0004299999854993075,
+1.5041999816894531,
+0.01988999918103218
+],
+[
+0.008190000429749489,
+1.541100025177002,
+0.06844999641180038
+]
+],
+"positions": 1269000,
+"normals": 1291500,
+"indices": 1302752
+},
+{
+"id": "ZA-genioglossus-muscle-r",
+"name": "Right genioglossus muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 1875,
+"indexCount": 11238,
+"bounds": [
+[
+-0.009859999641776085,
+1.5041999816894531,
+0.01988999918103218
+],
+[
+-0.002090000081807375,
+1.541100025177002,
+0.06844999641180038
+]
+],
+"positions": 1347704,
+"normals": 1370204,
+"indices": 1381456
+},
+{
+"id": "ZA-hyoglossus-muscle-l",
+"name": "Left hyoglossus muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 714,
+"indexCount": 4272,
+"bounds": [
+[
+0.0044200001284480095,
+1.5031700134277344,
+0.022190000861883163
+],
+[
+0.01245999988168478,
+1.529039978981018,
+0.05355000123381615
+]
+],
+"positions": 1426408,
+"normals": 1434976,
+"indices": 1439260
+},
+{
+"id": "ZA-hyoglossus-muscle-r",
+"name": "Right hyoglossus muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 714,
+"indexCount": 4272,
+"bounds": [
+[
+-0.01413000002503395,
+1.5031700134277344,
+0.022190000861883163
+],
+[
+-0.006089999806135893,
+1.529039978981018,
+0.05355000123381615
+]
+],
+"positions": 1456348,
+"normals": 1464916,
+"indices": 1469200
+},
+{
+"id": "ZA-inferior-head-of-lateral-pterygoid-muscle-l",
+"name": "Left inferior head of lateral pterygoid muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 164,
+"indexCount": 978,
+"bounds": [
+[
+0.0251499991863966,
+1.5609099864959717,
+-0.004110000096261501
+],
+[
+0.04317000135779381,
+1.5839099884033203,
+0.019220000132918358
+]
+],
+"positions": 1486288,
+"normals": 1488256,
+"indices": 1489240
+},
+{
+"id": "ZA-inferior-head-of-lateral-pterygoid-muscle-r",
+"name": "Right inferior head of lateral pterygoid muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 164,
+"indexCount": 978,
+"bounds": [
+[
+-0.044840000569820404,
+1.5609099864959717,
+-0.004110000096261501
+],
+[
+-0.026809999719262123,
+1.5839099884033203,
+0.019220000132918358
+]
+],
+"positions": 1493152,
+"normals": 1495120,
+"indices": 1496104
+},
+{
+"id": "ZA-inferior-oblique-muscle-l",
+"name": "Left inferior oblique muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 576,
+"indexCount": 3444,
+"bounds": [
+[
+0.013330000452697277,
+1.5817999839782715,
+0.041680000722408295
+],
+[
+0.04332999885082245,
+1.5982999801635742,
+0.0682699978351593
+]
+],
+"positions": 1500016,
+"normals": 1506928,
+"indices": 1510384
+},
+{
+"id": "ZA-inferior-oblique-muscle-r",
+"name": "Right inferior oblique muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 576,
+"indexCount": 3444,
+"bounds": [
+[
+-0.04500000178813934,
+1.5817999839782715,
+0.041680000722408295
+],
+[
+-0.014990000054240227,
+1.5982999801635742,
+0.0682699978351593
+]
+],
+"positions": 1524160,
+"normals": 1531072,
+"indices": 1534528
+},
+{
+"id": "ZA-inferior-rectus-muscle-l",
+"name": "Left inferior rectus muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 870,
+"indexCount": 5208,
+"bounds": [
+[
+0.012839999981224537,
+1.5827900171279907,
+0.019509999081492424
+],
+[
+0.03551999852061272,
+1.6050399541854858,
+0.061820000410079956
+]
+],
+"positions": 1548304,
+"normals": 1558744,
+"indices": 1563964
+},
+{
+"id": "ZA-inferior-rectus-muscle-r",
+"name": "Right inferior rectus muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 870,
+"indexCount": 5208,
+"bounds": [
+[
+-0.03719000145792961,
+1.5827900171279907,
+0.019509999081492424
+],
+[
+-0.014510000124573708,
+1.6050399541854858,
+0.061820000410079956
+]
+],
+"positions": 1584796,
+"normals": 1595236,
+"indices": 1600456
+},
+{
+"id": "ZA-inferior-tarsus-l",
+"name": "Left inferior tarsus",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 56,
+"indexCount": 324,
+"bounds": [
+[
+0.01906999945640564,
+1.5861300230026245,
+0.057670000940561295
+],
+[
+0.04332000017166138,
+1.594059944152832,
+0.06640999764204025
+]
+],
+"positions": 1621288,
+"normals": 1621960,
+"indices": 1622296
+},
+{
+"id": "ZA-inferior-tarsus-r",
+"name": "Right inferior tarsus",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 56,
+"indexCount": 324,
+"bounds": [
+[
+-0.0449800007045269,
+1.5861300230026245,
+0.057670000940561295
+],
+[
+-0.020740000531077385,
+1.594059944152832,
+0.06640999764204025
+]
+],
+"positions": 1623592,
+"normals": 1624264,
+"indices": 1624600
+},
+{
+"id": "ZA-lateral-rectus-muscle-l",
+"name": "Left lateral rectus muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 802,
+"indexCount": 4800,
+"bounds": [
+[
+0.01720999926328659,
+1.5921399593353271,
+0.019519999623298645
+],
+[
+0.044210001826286316,
+1.6089500188827515,
+0.06013000011444092
+]
+],
+"positions": 1625896,
+"normals": 1635520,
+"indices": 1640332
+},
+{
+"id": "ZA-lateral-rectus-muscle-r",
+"name": "Right lateral rectus muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 802,
+"indexCount": 4800,
+"bounds": [
+[
+-0.04586999863386154,
+1.5921399593353271,
+0.019519999623298645
+],
+[
+-0.018869999796152115,
+1.6089500188827515,
+0.06013000011444092
+]
+],
+"positions": 1659532,
+"normals": 1669156,
+"indices": 1673968
+},
+{
+"id": "ZA-levator-anguli-oris-l",
+"name": "Left levator anguli oris",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 165,
+"indexCount": 990,
+"bounds": [
+[
+0.011429999954998493,
+1.5480200052261353,
+0.05722999945282936
+],
+[
+0.028829999268054962,
+1.5684900283813477,
+0.07314000278711319
+]
+],
+"positions": 1693168,
+"normals": 1695148,
+"indices": 1696140
+},
+{
+"id": "ZA-levator-anguli-oris-r",
+"name": "Right levator anguli oris",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 165,
+"indexCount": 990,
+"bounds": [
+[
+-0.030500000342726707,
+1.5480200052261353,
+0.05722999945282936
+],
+[
+-0.013089999556541443,
+1.5684900283813477,
+0.07314000278711319
+]
+],
+"positions": 1700100,
+"normals": 1702080,
+"indices": 1703072
+},
+{
+"id": "ZA-levator-labii-superioris-l",
+"name": "Left levator labii superioris",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 272,
+"indexCount": 1620,
+"bounds": [
+[
+0.011250000447034836,
+1.5529799461364746,
+0.058400001376867294
+],
+[
+0.03880999982357025,
+1.5825300216674805,
+0.0735900029540062
+]
+],
+"positions": 1707032,
+"normals": 1710296,
+"indices": 1711928
+},
+{
+"id": "ZA-levator-labii-superioris-r",
+"name": "Right levator labii superioris",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 272,
+"indexCount": 1620,
+"bounds": [
+[
+-0.040470000356435776,
+1.5529799461364746,
+0.058400001376867294
+],
+[
+-0.012919999659061432,
+1.5825300216674805,
+0.0735900029540062
+]
+],
+"positions": 1718408,
+"normals": 1721672,
+"indices": 1723304
+},
+{
+"id": "ZA-levator-nasolabialis-l",
+"name": "Left levator nasolabialis",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 88,
+"indexCount": 516,
+"bounds": [
+[
+0.010029999539256096,
+1.5634499788284302,
+0.06671000272035599
+],
+[
+0.015589999966323376,
+1.5931600332260132,
+0.07408999651670456
+]
+],
+"positions": 1729784,
+"normals": 1730840,
+"indices": 1731368
+},
+{
+"id": "ZA-levator-nasolabialis-r",
+"name": "Right levator nasolabialis",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 88,
+"indexCount": 516,
+"bounds": [
+[
+-0.017260000109672546,
+1.5634499788284302,
+0.06671000272035599
+],
+[
+-0.01169000007212162,
+1.5931600332260132,
+0.07408999651670456
+]
+],
+"positions": 1733432,
+"normals": 1734488,
+"indices": 1735016
+},
+{
+"id": "ZA-levator-palpebrae-superioris-l",
+"name": "Left levator palpebrae superioris",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 1079,
+"indexCount": 6456,
+"bounds": [
+[
+0.012600000016391277,
+1.6000399589538574,
+0.019859999418258667
+],
+[
+0.04337000101804733,
+1.6162199974060059,
+0.06686999648809433
+]
+],
+"positions": 1737080,
+"normals": 1750028,
+"indices": 1756504
+},
+{
+"id": "ZA-levator-palpebrae-superioris-r",
+"name": "Right levator palpebrae superioris",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 1079,
+"indexCount": 6456,
+"bounds": [
+[
+-0.04504000023007393,
+1.6000399589538574,
+0.019859999418258667
+],
+[
+-0.014270000159740448,
+1.6162199974060059,
+0.06686999648809433
+]
+],
+"positions": 1782328,
+"normals": 1795276,
+"indices": 1801752
+},
+{
+"id": "ZA-medial-pterygoid-muscle-l",
+"name": "Left medial pterygoid muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 249,
+"indexCount": 1488,
+"bounds": [
+[
+0.013989999890327454,
+1.5320899486541748,
+-0.0005499999970197678
+],
+[
+0.03694000095129013,
+1.5823400020599365,
+0.03075999952852726
+]
+],
+"positions": 1827576,
+"normals": 1830564,
+"indices": 1832060
+},
+{
+"id": "ZA-medial-pterygoid-muscle-r",
+"name": "Right medial pterygoid muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 249,
+"indexCount": 1488,
+"bounds": [
+[
+-0.03861000016331673,
+1.5320899486541748,
+-0.0005499999970197678
+],
+[
+-0.015650000423192978,
+1.5823400020599365,
+0.03075999952852726
+]
+],
+"positions": 1838012,
+"normals": 1841000,
+"indices": 1842496
+},
+{
+"id": "ZA-medial-rectus-muscle-l",
+"name": "Left medial rectus muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 628,
+"indexCount": 3756,
+"bounds": [
+[
+0.011970000341534615,
+1.5914100408554077,
+0.021449999883770943
+],
+[
+0.022190000861883163,
+1.6083300113677979,
+0.06270000338554382
+]
+],
+"positions": 1848448,
+"normals": 1855984,
+"indices": 1859752
+},
+{
+"id": "ZA-medial-rectus-muscle-r",
+"name": "Right medial rectus muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 628,
+"indexCount": 3756,
+"bounds": [
+[
+-0.02384999953210354,
+1.5914100408554077,
+0.021449999883770943
+],
+[
+-0.013629999943077564,
+1.6083300113677979,
+0.06270000338554382
+]
+],
+"positions": 1874776,
+"normals": 1882312,
+"indices": 1886080
+},
+{
+"id": "ZA-mentalis-muscle-l",
+"name": "Left mentalis muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 85,
+"indexCount": 498,
+"bounds": [
+[
+-2.9999999242136255e-05,
+1.5027400255203247,
+0.06487999856472015
+],
+[
+0.013949999585747719,
+1.517799973487854,
+0.07210999727249146
+]
+],
+"positions": 1901104,
+"normals": 1902124,
+"indices": 1902636
+},
+{
+"id": "ZA-mentalis-muscle-r",
+"name": "Right mentalis muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 85,
+"indexCount": 498,
+"bounds": [
+[
+-0.015610000118613243,
+1.5027400255203247,
+0.06487999856472015
+],
+[
+-0.0016299999551847577,
+1.517799973487854,
+0.07210999727249146
+]
+],
+"positions": 1904628,
+"normals": 1905648,
+"indices": 1906160
+},
+{
+"id": "ZA-nasalis-muscle-l",
+"name": "Left nasalis muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 352,
+"indexCount": 2112,
+"bounds": [
+[
+0.0008099999977275729,
+1.5691900253295898,
+0.06787999719381332
+],
+[
+0.014340000227093697,
+1.6103500127792358,
+0.09013999998569489
+]
+],
+"positions": 1908152,
+"normals": 1912376,
+"indices": 1914488
+},
+{
+"id": "ZA-nasalis-muscle-r",
+"name": "Right nasalis muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 352,
+"indexCount": 2112,
+"bounds": [
+[
+-0.01600000075995922,
+1.5691900253295898,
+0.06787999719381332
+],
+[
+-0.002469999948516488,
+1.6103500127792358,
+0.09013999998569489
+]
+],
+"positions": 1922936,
+"normals": 1927160,
+"indices": 1929272
+},
+{
+"id": "ZA-occipitalis-muscle-l",
+"name": "Left occipitalis muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 1297,
+"indexCount": 7806,
+"bounds": [
+[
+0.014329999685287476,
+1.5916199684143066,
+-0.1189500018954277
+],
+[
+0.061889998614788055,
+1.6253600120544434,
+-0.0714000016450882
+]
+],
+"positions": 1937720,
+"normals": 1953284,
+"indices": 1961068
+},
+{
+"id": "ZA-occipitalis-muscle-r",
+"name": "Right occipitalis muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 1297,
+"indexCount": 7806,
+"bounds": [
+[
+-0.06356000155210495,
+1.5916199684143066,
+-0.1189500018954277
+],
+[
+-0.015990000218153,
+1.6253600120544434,
+-0.0714000016450882
+]
+],
+"positions": 1992292,
+"normals": 2007856,
+"indices": 2015640
+},
+{
+"id": "ZA-orbicularis-oris-muscle-l",
+"name": "Left orbicularis oris muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 940,
+"indexCount": 5640,
+"bounds": [
+[
+-0.0007900000200606883,
+1.513550043106079,
+0.05688000097870827
+],
+[
+0.031980000436306,
+1.5599000453948975,
+0.0850600004196167
+]
+],
+"positions": 2046864,
+"normals": 2058144,
+"indices": 2063784
+},
+{
+"id": "ZA-orbicularis-oris-muscle-r",
+"name": "Right orbicularis oris muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 940,
+"indexCount": 5640,
+"bounds": [
+[
+-0.033649999648332596,
+1.513550043106079,
+0.05688000097870827
+],
+[
+-0.0008699999889358878,
+1.5599000453948975,
+0.0850600004196167
+]
+],
+"positions": 2086344,
+"normals": 2097624,
+"indices": 2103264
+},
+{
+"id": "ZA-procerus-muscle-l",
+"name": "Left procerus muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 273,
+"indexCount": 1638,
+"bounds": [
+[
+-0.0007900000200606883,
+1.6004199981689453,
+0.07305999845266342
+],
+[
+0.022910000756382942,
+1.6377300024032593,
+0.07926999777555466
+]
+],
+"positions": 2125824,
+"normals": 2129100,
+"indices": 2130740
+},
+{
+"id": "ZA-procerus-muscle-r",
+"name": "Right procerus muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 273,
+"indexCount": 1638,
+"bounds": [
+[
+-0.024569999426603317,
+1.6004199981689453,
+0.07305999845266342
+],
+[
+-0.0008800000068731606,
+1.6377300024032593,
+0.07926999777555466
+]
+],
+"positions": 2137292,
+"normals": 2140568,
+"indices": 2142208
+},
+{
+"id": "ZA-risorius-muscle-l",
+"name": "Left risorius muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 296,
+"indexCount": 1776,
+"bounds": [
+[
+0.028459999710321426,
+1.5200400352478027,
+0.032710000872612
+],
+[
+0.04859999939799309,
+1.5477800369262695,
+0.06080999970436096
+]
+],
+"positions": 2148760,
+"normals": 2152312,
+"indices": 2154088
+},
+{
+"id": "ZA-risorius-muscle-r",
+"name": "Right risorius muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 296,
+"indexCount": 1776,
+"bounds": [
+[
+-0.050269998610019684,
+1.5200400352478027,
+0.032710000872612
+],
+[
+-0.03013000078499317,
+1.5477800369262695,
+0.06080999970436096
+]
+],
+"positions": 2161192,
+"normals": 2164744,
+"indices": 2166520
+},
+{
+"id": "ZA-orbital-part-of-orbicularis-oculi-l",
+"name": "Left orbital part of orbicularis oculi",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 1195,
+"indexCount": 7170,
+"bounds": [
+[
+0.008449999615550041,
+1.5735100507736206,
+0.044610001146793365
+],
+[
+0.05364999920129776,
+1.6242599487304688,
+0.07662999629974365
+]
+],
+"positions": 2173624,
+"normals": 2187964,
+"indices": 2195136
+},
+{
+"id": "ZA-orbital-part-of-orbicularis-oculi-r",
+"name": "Right orbital part of orbicularis oculi",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 1195,
+"indexCount": 7170,
+"bounds": [
+[
+-0.055319998413324356,
+1.5735100507736206,
+0.044610001146793365
+],
+[
+-0.010110000148415565,
+1.6242599487304688,
+0.07662999629974365
+]
+],
+"positions": 2223816,
+"normals": 2238156,
+"indices": 2245328
+},
+{
+"id": "ZA-palpebral-part-of-orbicularis-oculi-l",
+"name": "Left palpebral part of orbicularis oculi",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 415,
+"indexCount": 2490,
+"bounds": [
+[
+0.012190000154078007,
+1.5855400562286377,
+0.0529399998486042
+],
+[
+0.046509999781847,
+1.6102299690246582,
+0.07055000215768814
+]
+],
+"positions": 2274008,
+"normals": 2278988,
+"indices": 2281480
+},
+{
+"id": "ZA-palpebral-part-of-orbicularis-oculi-r",
+"name": "Right palpebral part of orbicularis oculi",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 415,
+"indexCount": 2490,
+"bounds": [
+[
+-0.048179998993873596,
+1.5855400562286377,
+0.0529399998486042
+],
+[
+-0.013849999755620956,
+1.6102299690246582,
+0.07055000215768814
+]
+],
+"positions": 2291440,
+"normals": 2296420,
+"indices": 2298912
+},
+{
+"id": "ZA-superficial-part-of-masseter-l",
+"name": "Left superficial part of masseter",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 702,
+"indexCount": 4212,
+"bounds": [
+[
+0.03604999929666519,
+1.5171400308609009,
+0.005489999894052744
+],
+[
+0.06317999958992004,
+1.5805599689483643,
+0.045809999108314514
+]
+],
+"positions": 2308872,
+"normals": 2317296,
+"indices": 2321508
+},
+{
+"id": "ZA-superficial-part-of-masseter-r",
+"name": "Right superficial part of masseter",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 702,
+"indexCount": 4212,
+"bounds": [
+[
+-0.06485000252723694,
+1.5171400308609009,
+0.005489999894052744
+],
+[
+-0.03771999850869179,
+1.5805599689483643,
+0.045809999108314514
+]
+],
+"positions": 2338356,
+"normals": 2346780,
+"indices": 2350992
+},
+{
+"id": "ZA-superior-head-of-lateral-pterygoid-muscle-l",
+"name": "Left superior head of lateral pterygoid muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 115,
+"indexCount": 678,
+"bounds": [
+[
+0.02133999951183796,
+1.5754599571228027,
+-0.0017800000496208668
+],
+[
+0.04301999881863594,
+1.5905100107192993,
+0.021059999242424965
+]
+],
+"positions": 2367840,
+"normals": 2369220,
+"indices": 2369912
+},
+{
+"id": "ZA-superior-head-of-lateral-pterygoid-muscle-r",
+"name": "Right superior head of lateral pterygoid muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 115,
+"indexCount": 678,
+"bounds": [
+[
+-0.044679999351501465,
+1.5754599571228027,
+-0.0017800000496208668
+],
+[
+-0.023000000044703484,
+1.5905100107192993,
+0.021059999242424965
+]
+],
+"positions": 2372624,
+"normals": 2374004,
+"indices": 2374696
+},
+{
+"id": "ZA-superior-oblique-muscle-l",
+"name": "Left superior oblique muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 877,
+"indexCount": 5250,
+"bounds": [
+[
+0.012070000171661377,
+1.6021000146865845,
+0.022549999877810478
+],
+[
+0.04058999940752983,
+1.6142300367355347,
+0.06673000007867813
+]
+],
+"positions": 2377408,
+"normals": 2387932,
+"indices": 2393196
+},
+{
+"id": "ZA-superior-oblique-muscle-r",
+"name": "Right superior oblique muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 877,
+"indexCount": 5250,
+"bounds": [
+[
+-0.042249999940395355,
+1.6021000146865845,
+0.022549999877810478
+],
+[
+-0.013729999773204327,
+1.6142300367355347,
+0.06673000007867813
+]
+],
+"positions": 2414196,
+"normals": 2424720,
+"indices": 2429984
+},
+{
+"id": "ZA-superior-rectus-muscle-l",
+"name": "Left superior rectus muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 644,
+"indexCount": 3852,
+"bounds": [
+[
+0.013369999825954437,
+1.6051000356674194,
+0.021479999646544456
+],
+[
+0.036740001291036606,
+1.6116900444030762,
+0.06294000148773193
+]
+],
+"positions": 2450984,
+"normals": 2458712,
+"indices": 2462576
+},
+{
+"id": "ZA-superior-rectus-muscle-r",
+"name": "Right superior rectus muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 644,
+"indexCount": 3852,
+"bounds": [
+[
+-0.0384100005030632,
+1.6051000356674194,
+0.021479999646544456
+],
+[
+-0.015030000358819962,
+1.6116900444030762,
+0.06294000148773193
+]
+],
+"positions": 2477984,
+"normals": 2485712,
+"indices": 2489576
+},
+{
+"id": "ZA-superior-tarsus-l",
+"name": "Left superior tarsus",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 91,
+"indexCount": 534,
+"bounds": [
+[
+0.017969999462366104,
+1.5984899997711182,
+0.05821000039577484
+],
+[
+0.04405000060796738,
+1.6101800203323364,
+0.0666700005531311
+]
+],
+"positions": 2504984,
+"normals": 2506076,
+"indices": 2506624
+},
+{
+"id": "ZA-superior-tarsus-r",
+"name": "Right superior tarsus",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 91,
+"indexCount": 534,
+"bounds": [
+[
+-0.0457100011408329,
+1.5984899997711182,
+0.05821000039577484
+],
+[
+-0.01962999999523163,
+1.6101800203323364,
+0.0666700005531311
+]
+],
+"positions": 2508760,
+"normals": 2509852,
+"indices": 2510400
+},
+{
+"id": "ZA-temporalis-muscle-l",
+"name": "Left temporalis muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 5126,
+"indexCount": 30780,
+"bounds": [
+[
+0.03771999850869179,
+1.551669955253601,
+-0.06363999843597412
+],
+[
+0.07761000096797943,
+1.6700600385665894,
+0.052650000900030136
+]
+],
+"positions": 2512536,
+"normals": 2574048,
+"indices": 2604804
+},
+{
+"id": "ZA-temporalis-muscle-r",
+"name": "Right temporalis muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 5126,
+"indexCount": 30780,
+"bounds": [
+[
+-0.07927999645471573,
+1.551669955253601,
+-0.06363999843597412
+],
+[
+-0.03937999904155731,
+1.6700600385665894,
+0.052650000900030136
+]
+],
+"positions": 2727924,
+"normals": 2789436,
+"indices": 2820192
+},
+{
+"id": "ZA-temporoparietalis-muscle-l",
+"name": "Left temporoparietalis muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 5974,
+"indexCount": 35916,
+"bounds": [
+[
+0.042249999940395355,
+1.581089973449707,
+-0.08545999974012375
+],
+[
+0.08126000314950943,
+1.686110019683838,
+0.033810000866651535
+]
+],
+"positions": 2943312,
+"normals": 3015000,
+"indices": 3050844
+},
+{
+"id": "ZA-temporoparietalis-muscle-r",
+"name": "Right temporoparietalis muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 5974,
+"indexCount": 35916,
+"bounds": [
+[
+-0.08292999863624573,
+1.581089973449707,
+-0.08545999974012375
+],
+[
+-0.04391999915242195,
+1.686110019683838,
+0.033810000866651535
+]
+],
+"positions": 3194508,
+"normals": 3266196,
+"indices": 3302040
+},
+{
+"id": "ZA-trochlea-of-superior-oblique-muscle-l",
+"name": "Left trochlea of superior oblique muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 98,
+"indexCount": 576,
+"bounds": [
+[
+0.011909999884665012,
+1.611989974975586,
+0.06347999721765518
+],
+[
+0.01621999964118004,
+1.6156799793243408,
+0.06648000329732895
+]
+],
+"positions": 3445704,
+"normals": 3446880,
+"indices": 3447468
+},
+{
+"id": "ZA-trochlea-of-superior-oblique-muscle-r",
+"name": "Right trochlea of superior oblique muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 98,
+"indexCount": 576,
+"bounds": [
+[
+-0.017890000715851784,
+1.611989974975586,
+0.06347999721765518
+],
+[
+-0.013570000417530537,
+1.6156799793243408,
+0.06648000329732895
+]
+],
+"positions": 3449772,
+"normals": 3450948,
+"indices": 3451536
+},
+{
+"id": "ZA-zygomaticus-major-muscle-l",
+"name": "Left zygomaticus major muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 397,
+"indexCount": 2394,
+"bounds": [
+[
+0.02580999955534935,
+1.529520034790039,
+0.0393499992787838
+],
+[
+0.055810000747442245,
+1.5851900577545166,
+0.06553000211715698
+]
+],
+"positions": 3453840,
+"normals": 3458604,
+"indices": 3460988
+},
+{
+"id": "ZA-zygomaticus-major-muscle-r",
+"name": "Right zygomaticus major muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 397,
+"indexCount": 2394,
+"bounds": [
+[
+-0.05747000128030777,
+1.529520034790039,
+0.0393499992787838
+],
+[
+-0.027470000088214874,
+1.5851900577545166,
+0.06553000211715698
+]
+],
+"positions": 3470564,
+"normals": 3475328,
+"indices": 3477712
+},
+{
+"id": "ZA-zygomaticus-minor-muscle-l",
+"name": "Left zygomaticus minor muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 218,
+"indexCount": 1296,
+"bounds": [
+[
+0.01217000000178814,
+1.5523300170898438,
+0.04924999922513962
+],
+[
+0.05056999996304512,
+1.5836199522018433,
+0.07438000291585922
+]
+],
+"positions": 3487288,
+"normals": 3489904,
+"indices": 3491212
+},
+{
+"id": "ZA-zygomaticus-minor-muscle-r",
+"name": "Right zygomaticus minor muscle",
+"system": "za-muscular",
+"chunk": 0,
+"vertexCount": 218,
+"indexCount": 1296,
+"bounds": [
+[
+-0.052230000495910645,
+1.5523300170898438,
+0.04924999922513962
+],
+[
+-0.01384000014513731,
+1.5836199522018433,
+0.07438000291585922
+]
+],
+"positions": 3496396,
+"normals": 3499012,
+"indices": 3500320
+}
+]
+}
