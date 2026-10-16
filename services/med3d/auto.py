@@ -445,6 +445,31 @@ def _dense(meshes: List[tuple]) -> list:
     return pos[::step].tolist()
 
 
+FOCUS_HIDDEN = 0.5               # fokusdagi organning shundan ko'pini boshqa organ yopsa — u shu slayddan olinadi
+
+
+def reveal_focus(cam: Camera, slides: List[dict], dense: Dict[str, list]) -> None:
+    """AI tanlagan burchakda fokusdagi organ boshqa organ ortida qolsa (o't yo'llari — jigar ortida), yopayotgan
+    organ shu slayddan olinadi: joyida almashishda u so'nadi va fokusdagi organ ochiladi. `reveal_hidden` ning
+    umumiy turi — u faqat lug'atdagi "ichida" munosabatini biladi, bu esa haqiqiy ko'rinishni tekshiradi."""
+    for s in slides:
+        focus = [o for o in (s.get("focus") or []) if o in dense]
+        if not focus:
+            continue
+        target = [p for o in focus for p in dense[o]]
+        drop = []
+        for other in s["show"]:
+            if other in focus or other not in dense:
+                continue
+            hidden = 1.0 - float(cam.visible_mask(target, s.get("rot") or (0, 0, 0), dense[other]).mean())
+            if hidden > FOCUS_HIDDEN:
+                drop.append(other)
+        if drop and len(drop) < len(s["show"]):
+            s["show"] = [o for o in s["show"] if o not in drop]
+            s["labels"] = [o for o in s["labels"] if o not in drop]
+            log.info("3D Anatomiya: %s ni yopib turgani uchun olib tashlandi: %s", focus, drop)
+
+
 def set_id(organs) -> str:
     return "set" + hashlib.sha1("+".join(sorted(organs)).encode()).hexdigest()[:8]
 
@@ -492,6 +517,7 @@ def build_scenes(body_key: str, plan_: dict, atlas=None, quality: float = 1.0) -
                                                       [geometry[(o, targets[o])] for o in near])
             prims[organ] = shaded[cache_key]
             dense[organ] = _dense(geometry[(organ, targets[organ])])
+        reveal_focus(Camera(lo, hi), [slides[i] for i in members], dense)
         groups, labels = {}, {}
         for i in members:
             show = sorted(slides[i]["show"])

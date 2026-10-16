@@ -225,7 +225,14 @@ def _labels(slide, cam: Camera, scene: dict, frame: Frame, keys: Sequence[str], 
         if others and cam.visible_share(info["samples"], frame.rot, others, radius) < HIDDEN_SHARE:
             log.info("med3d: organ boshqasi orqasida yopilgan, yorliq qo'yilmadi: %s", key)
             continue
-        ax, ay = frame.to_slide(*cam.anchor(info["samples"], frame.rot, others, radius))
+        # Uzun organ (qizilo'ngach, aorta) qisman slayddan chiqib turishi mumkin: nuqta slayd ichidagi qismidan.
+        pts = np.asarray(info["samples"], float)
+        uv, _ = cam.project(pts, frame.rot)
+        sx, sy = frame.cx + uv[:, 0] * frame.size, frame.cy + uv[:, 1] * frame.size
+        inside = (sx >= TEXT_EDGE) & (sx <= W - 0.1) & (sy >= 0.15) & (sy <= H - 0.15)
+        if inside.sum() >= 3:
+            pts = pts[inside]
+        ax, ay = frame.to_slide(*cam.anchor(pts, frame.rot, others, radius))
         if not (TEXT_EDGE <= ax <= W - 0.1 and 0.15 <= ay <= H - 0.15):
             log.info("med3d: yorliq nuqtasi slayddan tashqarida, qo'yilmadi: %s", key)
             continue

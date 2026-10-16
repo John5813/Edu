@@ -53,21 +53,18 @@ class Camera:
         (u0, v0), (u1, v1) = uv.min(axis=0), uv.max(axis=0)
         return float(u0), float(v0), float(u1), float(v1)
 
-    def visible_share(self, points, rot, occluders, radius: float = 0.01, grid: int = 0) -> float:
-        """Qismning kameraga qaragan yuzasining qancha ulushi boshqa organlar bilan to'silmagan (0..1).
+    def visible_mask(self, points, rot, occluders, grid: int = 0) -> np.ndarray:
+        """Har nuqta boshqa organlar bilan to'silmaganmi (True — ko'rinadi). O'zini o'zi to'sishi hisobga olinmaydi.
 
-        Namunaviy nuqtalar siyrak (organga ~300 ta): to'g'ridan-to'g'ri solishtirsa katta organ (o'pka) ortidagi
-        yurak "ko'rinadi" deb chiqadi. Shuning uchun to'suvchilar kichik chuqurlik xaritasiga (raster) chiziladi,
-        nuqtalar orasidagi bo'shliqlar yopiladi (dilatatsiya), keyin har nuqta xarita bilan solishtiriladi.
+        Namunaviy nuqtalar siyrak bo'lishi mumkin: to'suvchilar kichik chuqurlik xaritasiga (raster) chiziladi,
+        nuqtalar orasidagi bo'shliqlar yopiladi, keyin har nuqta xarita bilan solishtiriladi.
         """
-        # Butun organ olinadi (o'zini o'zi to'sishi hisobga olinmaydi): savol — organ siluetining qancha qismi
-        # boshqa organlar ortida qolgan.
-        front, fz = self.project(points, rot)
-        if occluders is None or not len(occluders) or not len(front):
-            return 1.0
+        uv, z = self.project(points, rot)
+        if occluders is None or not len(occluders) or not len(uv):
+            return np.ones(len(uv), dtype=bool)
         ouv, oz = self.project(occluders, rot)
-        lo = np.minimum(ouv.min(axis=0), front.min(axis=0))
-        hi = np.maximum(ouv.max(axis=0), front.max(axis=0))
+        lo = np.minimum(ouv.min(axis=0), uv.min(axis=0))
+        hi = np.maximum(ouv.max(axis=0), uv.max(axis=0))
         grid = grid or int(np.clip(np.sqrt(len(occluders)) * 1.1, 16, 48))   # katak — nuqtalar zichligiga qarab
         cell = float((hi - lo).max()) / grid or 1.0
         dims = np.ceil((hi - lo) / cell).astype(int) + 3
@@ -75,8 +72,7 @@ class Camera:
         ij = np.floor((ouv - lo) / cell).astype(int) + 1
         np.maximum.at(depth, (ij[:, 0], ij[:, 1]), oz)
         filled = np.isfinite(depth)
-        # Bo'shliqlarni yopish: atrofidagi 8 katakdan kamida 5 tasi band bo'lsa — katak ham band (eng yaqin chuqurlik).
-        for _ in range(2):
+        for _ in range(2):          # bo'shliqni yopish: 8 qo'shnidan kamida 5 tasi band bo'lsa — katak ham band
             pad = np.pad(depth, 1, constant_values=-np.inf)
             near = np.stack([pad[1 + dx:dims[0] + 1 + dx, 1 + dy:dims[1] + 1 + dy]
                              for dx in (-1, 0, 1) for dy in (-1, 0, 1) if dx or dy])
@@ -84,25 +80,27 @@ class Camera:
             fill = ~filled & (count >= 5)
             depth[fill] = near.max(axis=0)[fill]
             filled = np.isfinite(depth)
-        fij = np.floor((front - lo) / cell).astype(int) + 1
-        hidden = depth[fij[:, 0], fij[:, 1]] > fz + 1e-3
-        return float(1.0 - hidden.mean())
+        pij = np.floor((uv - lo) / cell).astype(int) + 1
+        return ~(depth[pij[:, 0], pij[:, 1]] > z + 1e-3)
+
+    def visible_share(self, points, rot, occluders, radius: float = 0.01, grid: int = 0) -> float:
+        """Organ siluetining qancha ulushi boshqa organlar ortida qolmagan (0..1)."""
+        if not len(points):
+            return 1.0
+        return float(self.visible_mask(points, rot, occluders, grid).mean())
 
     def anchor(self, points, rot, occluders=None, radius: float = 0.01) -> Tuple[float, float]:
         """Qismning kameraga qaragan yuzasidagi, markaziga eng yaqin nuqta (yorliq chizig'i uchi).
 
-        occluders — slayddagi boshqa organlarning nuqtalari: ular oldida turgan (yopib qo'yilgan) nuqta
-        tanlanmaydi. radius — ramka ulushida, shu masofadagi oldinroq nuqta "yopadi" deb hisoblanadi.
+        occluders — slayddagi boshqa organlarning nuqtalari: ular ortida qolgan (yopilgan) nuqta tanlanmaydi
+        (`visible_mask`). radius — eski chaqiruvlar uchun qoldirilgan.
         """
         uv, z = self.project(points, rot)
-        keep = z >= np.quantile(z, 0.7)
-        front, fz = uv[keep], z[keep]
         if occluders is not None and len(occluders):
-            ouv, oz = self.project(occluders, rot)
-            d2 = ((front[:, None, :] - ouv[None, :, :]) ** 2).sum(axis=2)
-            hidden = ((d2 < radius * radius) & (oz[None, :] > fz[:, None] + 1e-3)).any(axis=1)
-            if (~hidden).any():
-                front = front[~hidden]
+            seen = self.visible_mask(points, rot, occluders)
+            if seen.sum() >= 3:                 # faqat ko'rinib turgan joyga (boshqa organ ortiga emas)
+                uv, z = uv[seen], z[seen]
+        front = uv[z >= np.quantile(z, 0.7)]
         mid = front.mean(axis=0)
         best = front[np.argmin(((front - mid) ** 2).sum(axis=1))]
         return float(best[0]), float(best[1])

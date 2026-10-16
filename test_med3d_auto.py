@@ -111,6 +111,9 @@ cam = Camera([-0.5, -0.5, -0.5], [0.5, 0.5, 0.5])
 check("katta organ ortida to'liq yopilgan organ — ko'rinmaydi (yorliq qo'yilmaydi)",
       cam.visible_share(ball, (0, 0, 0), wall) < 0.05, cam.visible_share(ball, (0, 0, 0), wall))
 check("yonida turgan organ — ko'rinadi", cam.visible_share(ball + [0.7, 0, 0], (0, 0, 0), wall) > 0.9)
+one = {"show": ["devor", "shar"], "focus": ["shar"], "labels": ["devor", "shar"], "rot": [0, 0, 0]}
+auto.reveal_focus(cam, [one], {"devor": wall.tolist(), "shar": ball.tolist()})
+check("fokusdagi organni yopgan organ shu slayddan olinadi", one["show"] == ["shar"] and one["labels"] == ["shar"], one)
 
 
 class FakeAtlas:
