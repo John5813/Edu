@@ -25,6 +25,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
 from services.med3d import ZA_DIR, manba  # noqa: E402
+from services.med3d.simplify import simplify  # noqa: E402
 
 SYSTEMS = {"head": "za-muscular", "joints": "za-joint", "nerves": "za-nervous"}
 KINDS = {"head": "muscle", "joints": "joint", "nerves": "nerve"}
@@ -41,7 +42,11 @@ for _n, _w in enumerate(("first", "second", "third", "fourth", "fifth", "sixth",
     if _n <= 5:
         RENAME[f"vertebra l{_n}"] = f"{_w} lumbar vertebra"
 GENERIC = {"3: Joints", "Trunk", "Left lower limb", "Right lower limb", "Left upper limb", "Right upper limb",
-           "Left foot", "Right foot", "Left hand", "Right hand", "Back", "Thorax", "Abdomen", "Neck", "Head"}
+           "Left foot", "Right foot", "Left hand", "Right hand", "Back", "Thorax", "Abdomen", "Neck", "Head",
+           "Nerves", "Peripheral nervous system", "Central nervous system"}
+# Nervlar Z-Anatomy'da egri chiziqdan yasalgan zich naychalar (~1.1 mln uchburchak): har biri shu ulushgacha
+# soddalashtiriladi — shakli o'zgarmaydi, fayl ~4 baravar kichrayadi.
+NERVE_SHARE = 0.25
 
 
 def atlas_name(name: str, by_lower: dict):
@@ -128,6 +133,9 @@ def main(argv) -> int:
         for p in parts:
             if p["kind"] != KINDS[which]:
                 continue
+            if which == "nerves" and len(p["idx"]) > 3000:
+                q, nn, ii = simplify(p["pos"], p["nrm"], p["idx"], max(800, int(len(p["idx"]) // 3 * NERVE_SHARE)))
+                p = dict(p, pos=q, nrm=nn, idx=ii.astype(np.uint32))
             fix = local_shift(p["pos"].mean(0), scale, shift, pairs)
             pos = (p["pos"] * scale + shift + fix).astype("<f4")
             nrm = p["nrm"] / np.maximum(np.linalg.norm(p["nrm"], axis=1, keepdims=True), 1e-9)

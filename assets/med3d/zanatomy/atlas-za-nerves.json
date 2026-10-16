@@ -1,0 +1,5691 @@
+{
+"version": "Z-Anatomy (CC BY-SA 4.0)",
+"chunks": [
+{
+"url": "za-nerves.bin"
+}
+],
+"parts": [
+{
+"id": "ZA-left-communicating-branch-of-median-nerve-with-ulnar-nerve",
+"name": "Left (Communicating branch of median nerve with ulnar nerve) [Median nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 300,
+"indexCount": 1728,
+"bounds": [
+[
+0.23872999846935272,
+0.88086998462677,
+0.02831999957561493
+],
+[
+0.2501699924468994,
+0.8948400020599365,
+0.030710000544786453
+]
+],
+"positions": 0,
+"normals": 3600,
+"indices": 5400
+},
+{
+"id": "ZA-right-communicating-branch-of-median-nerve-with-ulnar-nerve",
+"name": "Right (Communicating branch of median nerve with ulnar nerve) [Median nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 300,
+"indexCount": 1728,
+"bounds": [
+[
+-0.25009000301361084,
+0.8808199763298035,
+0.0279300007969141
+],
+[
+-0.23864999413490295,
+0.8947799801826477,
+0.030319999903440475
+]
+],
+"positions": 12312,
+"normals": 15912,
+"indices": 17712
+},
+{
+"id": "ZA-left-abducens-nerve-vi",
+"name": "Left abducens nerve (VI) [Cranial nerves]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 635,
+"indexCount": 3702,
+"bounds": [
+[
+0.0005000000237487257,
+1.5807900428771973,
+-0.027780000120401382
+],
+[
+0.03181999921798706,
+1.6061300039291382,
+0.03480999916791916
+]
+],
+"positions": 24624,
+"normals": 32244,
+"indices": 36056
+},
+{
+"id": "ZA-right-abducens-nerve-vi",
+"name": "Right abducens nerve (VI) [Cranial nerves]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 632,
+"indexCount": 3699,
+"bounds": [
+[
+-0.03305000066757202,
+1.5807199478149414,
+-0.027710000053048134
+],
+[
+-0.0017300000181421638,
+1.6060600280761719,
+0.03488999977707863
+]
+],
+"positions": 50864,
+"normals": 58448,
+"indices": 62240
+},
+{
+"id": "ZA-left-accessory-nerve-xi",
+"name": "Left accessory nerve (XI) [Accessory nerve (XI); Cervical nerves; Cranial nerves]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 1971,
+"indexCount": 11538,
+"bounds": [
+[
+0.0023399998899549246,
+1.2948499917984009,
+-0.12206999957561493
+],
+[
+0.059220001101493835,
+1.5743399858474731,
+0.002240000059828162
+]
+],
+"positions": 77036,
+"normals": 100688,
+"indices": 112516
+},
+{
+"id": "ZA-right-accessory-nerve-xi",
+"name": "Right accessory nerve (XI) [Accessory nerve (XI); Cervical nerves; Cranial nerves]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 1988,
+"indexCount": 11535,
+"bounds": [
+[
+-0.0597199983894825,
+1.2948499917984009,
+-0.12210000306367874
+],
+[
+-0.002850000048056245,
+1.5743299722671509,
+0.0022299999836832285
+]
+],
+"positions": 158668,
+"normals": 182524,
+"indices": 194452
+},
+{
+"id": "ZA-left-anterior-branch-of-medial-antebrachial-cutaneous-nerve",
+"name": "Left anterior branch of medial antebrachial cutaneous nerve [Medial antebrachial cutaneous nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 407,
+"indexCount": 2397,
+"bounds": [
+[
+0.18066999316215515,
+0.9515100121498108,
+-0.015069999732077122
+],
+[
+0.22723999619483948,
+1.186210036277771,
+0.023189999163150787
+]
+],
+"positions": 240592,
+"normals": 245476,
+"indices": 247920
+},
+{
+"id": "ZA-right-anterior-branch-of-medial-antebrachial-cutaneous-nerve",
+"name": "Right anterior branch of medial antebrachial cutaneous nerve [Medial antebrachial cutaneous nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 407,
+"indexCount": 2397,
+"bounds": [
+[
+-0.22910000383853912,
+0.9419900178909302,
+-0.013319999910891056
+],
+[
+-0.1825300008058548,
+1.1766999959945679,
+0.024940000846982002
+]
+],
+"positions": 257508,
+"normals": 262392,
+"indices": 264836
+},
+{
+"id": "ZA-left-anterior-branch-of-obturator-nerve",
+"name": "Left anterior branch of obturator nerve [Anterior branch of obturator nerve; Lumbar plexus; Lumbosacral plexus; Obturator nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 406,
+"indexCount": 2397,
+"bounds": [
+[
+0.018459999933838844,
+0.5858399868011475,
+-0.016979999840259552
+],
+[
+0.045889999717473984,
+0.8901100158691406,
+0.036240000277757645
+]
+],
+"positions": 274424,
+"normals": 279296,
+"indices": 281732
+},
+{
+"id": "ZA-right-anterior-branch-of-obturator-nerve",
+"name": "Right anterior branch of obturator nerve [Anterior branch of obturator nerve; Lumbar plexus; Lumbosacral plexus; Obturator nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 406,
+"indexCount": 2397,
+"bounds": [
+[
+-0.04656999930739403,
+0.5865399837493896,
+-0.01696999929845333
+],
+[
+-0.01915000006556511,
+0.8908100128173828,
+0.036249998956918716
+]
+],
+"positions": 291320,
+"normals": 296192,
+"indices": 298628
+},
+{
+"id": "ZA-left-anterior-cutaneous-branches-of-femoral-nerve",
+"name": "Left anterior cutaneous branches of femoral nerve [Femoral nerve; Lumbar plexus; Lumbosacral plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 407,
+"indexCount": 2400,
+"bounds": [
+[
+0.04806999862194061,
+0.5282300114631653,
+0.02112000063061714
+],
+[
+0.06202999874949455,
+0.8891100287437439,
+0.03861000016331673
+]
+],
+"positions": 308216,
+"normals": 313100,
+"indices": 315544
+},
+{
+"id": "ZA-right-anterior-cutaneous-branches-of-femoral-nerve",
+"name": "Right anterior cutaneous branches of femoral nerve [Femoral nerve; Lumbar plexus; Lumbosacral plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 407,
+"indexCount": 2400,
+"bounds": [
+[
+-0.06272000074386597,
+0.5309500098228455,
+0.021150000393390656
+],
+[
+-0.04876000061631203,
+0.8918300271034241,
+0.03863999992609024
+]
+],
+"positions": 325144,
+"normals": 330028,
+"indices": 332472
+},
+{
+"id": "ZA-left-anterior-division-of-inferior-trunk-of-brachial-plexus",
+"name": "Left anterior division of inferior trunk of brachial plexus [Inferior trunk of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 300,
+"indexCount": 1728,
+"bounds": [
+[
+0.07868999987840652,
+1.4003700017929077,
+-0.016510000452399254
+],
+[
+0.09809000045061111,
+1.4198700189590454,
+-0.00795000046491623
+]
+],
+"positions": 342072,
+"normals": 345672,
+"indices": 347472
+},
+{
+"id": "ZA-right-anterior-division-of-inferior-trunk-of-brachial-plexus",
+"name": "Right anterior division of inferior trunk of brachial plexus [Inferior trunk of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 300,
+"indexCount": 1728,
+"bounds": [
+[
+-0.09920000284910202,
+1.4006600379943848,
+-0.017009999603033066
+],
+[
+-0.07980000227689743,
+1.4201699495315552,
+-0.008449999615550041
+]
+],
+"positions": 354384,
+"normals": 357984,
+"indices": 359784
+},
+{
+"id": "ZA-left-anterior-division-of-mandibular-nerve",
+"name": "Left anterior division of mandibular nerve [Cranial nerves; Trigeminal nerve (V)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 324,
+"indexCount": 1788,
+"bounds": [
+[
+0.02353999949991703,
+1.5721299648284912,
+0.00419999985024333
+],
+[
+0.031129999086260796,
+1.5854500532150269,
+0.011859999969601631
+]
+],
+"positions": 366696,
+"normals": 370584,
+"indices": 372528
+},
+{
+"id": "ZA-right-anterior-division-of-mandibular-nerve",
+"name": "Right anterior division of mandibular nerve [Cranial nerves; Trigeminal nerve (V)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 324,
+"indexCount": 1788,
+"bounds": [
+[
+-0.03237999975681305,
+1.5721100568771362,
+0.004399999976158142
+],
+[
+-0.024790000170469284,
+1.5854300260543823,
+0.012059999629855156
+]
+],
+"positions": 379680,
+"normals": 383568,
+"indices": 385512
+},
+{
+"id": "ZA-left-anterior-division-of-middle-trunk-of-brachial-plexus",
+"name": "Left anterior division of middle trunk of brachial plexus [Middle trunk of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 156,
+"indexCount": 864,
+"bounds": [
+[
+0.07975000143051147,
+1.4005199670791626,
+-0.023520000278949738
+],
+[
+0.10773000121116638,
+1.4225599765777588,
+-0.012120000086724758
+]
+],
+"positions": 392664,
+"normals": 394536,
+"indices": 395472
+},
+{
+"id": "ZA-right-anterior-division-of-middle-trunk-of-brachial-plexus",
+"name": "Right anterior division of middle trunk of brachial plexus [Middle trunk of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 156,
+"indexCount": 864,
+"bounds": [
+[
+-0.10886000096797943,
+1.4008300304412842,
+-0.02402999997138977
+],
+[
+-0.0808899998664856,
+1.422860026359558,
+-0.012629999779164791
+]
+],
+"positions": 398928,
+"normals": 400800,
+"indices": 401736
+},
+{
+"id": "ZA-left-anterior-division-of-superior-trunk-of-brachial-plexus",
+"name": "Left anterior division of superior trunk of brachial plexus [Superior trunk of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 156,
+"indexCount": 864,
+"bounds": [
+[
+0.08315999805927277,
+1.4007200002670288,
+-0.02759999968111515
+],
+[
+0.10760000348091125,
+1.421280026435852,
+-0.01221999991685152
+]
+],
+"positions": 405192,
+"normals": 407064,
+"indices": 408000
+},
+{
+"id": "ZA-right-anterior-division-of-superior-trunk-of-brachial-plexus",
+"name": "Right anterior division of superior trunk of brachial plexus [Superior trunk of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 156,
+"indexCount": 864,
+"bounds": [
+[
+-0.10875999927520752,
+1.4010299444198608,
+-0.028109999373555183
+],
+[
+-0.08432000130414963,
+1.421589970588684,
+-0.012729999609291553
+]
+],
+"positions": 411456,
+"normals": 413328,
+"indices": 414264
+},
+{
+"id": "ZA-left-anterior-interosseous-nerve-of-forearm",
+"name": "Left anterior interosseous nerve of forearm [Median nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 412,
+"indexCount": 2400,
+"bounds": [
+[
+0.2054000049829483,
+0.9114300012588501,
+-0.020640000700950623
+],
+[
+0.2442999929189682,
+1.1210399866104126,
+0.014510000124573708
+]
+],
+"positions": 417720,
+"normals": 422664,
+"indices": 425136
+},
+{
+"id": "ZA-right-anterior-interosseous-nerve-of-forearm",
+"name": "Right anterior interosseous nerve of forearm [Median nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 412,
+"indexCount": 2400,
+"bounds": [
+[
+-0.24571000039577484,
+0.903190016746521,
+-0.019619999453425407
+],
+[
+-0.20680999755859375,
+1.1128000020980835,
+0.015530000440776348
+]
+],
+"positions": 434736,
+"normals": 439680,
+"indices": 442152
+},
+{
+"id": "ZA-left-anterior-root-of-posterior-femoral-cutaneous-nerve",
+"name": "Left anterior root of posterior femoral cutaneous nerve [Lumbosacral plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 430,
+"indexCount": 2397,
+"bounds": [
+[
+0.01640000008046627,
+0.9203900098800659,
+-0.07440000027418137
+],
+[
+0.0414699986577034,
+1.0020899772644043,
+-0.03317999839782715
+]
+],
+"positions": 451752,
+"normals": 456912,
+"indices": 459492
+},
+{
+"id": "ZA-right-anterior-root-of-posterior-femoral-cutaneous-nerve",
+"name": "Right anterior root of posterior femoral cutaneous nerve [Lumbosacral plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 430,
+"indexCount": 2397,
+"bounds": [
+[
+-0.04253000020980835,
+0.9200699925422668,
+-0.07417000085115433
+],
+[
+-0.01745999976992607,
+1.0017800331115723,
+-0.03296000137925148
+]
+],
+"positions": 469080,
+"normals": 474240,
+"indices": 476820
+},
+{
+"id": "ZA-left-anterior-root-of-spinal-nerve",
+"name": "Left anterior root of spinal nerve [Meninges; Spinal dura]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 917,
+"indexCount": 4965,
+"bounds": [
+[
+-9.999999747378752e-06,
+1.0712900161743164,
+-0.07247000187635422
+],
+[
+0.024940000846982002,
+1.5385700464248657,
+-0.0061900001019239426
+]
+],
+"positions": 486408,
+"normals": 497412,
+"indices": 502916
+},
+{
+"id": "ZA-right-anterior-root-of-spinal-nerve",
+"name": "Right anterior root of spinal nerve [Meninges; Spinal dura]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 917,
+"indexCount": 4965,
+"bounds": [
+[
+-0.026079999282956123,
+1.0712900161743164,
+-0.07247000187635422
+],
+[
+-0.001129999989643693,
+1.5385700464248657,
+-0.0061900001019239426
+]
+],
+"positions": 522776,
+"normals": 533780,
+"indices": 539284
+},
+{
+"id": "ZA-left-axillary-nerve",
+"name": "Left axillary nerve [Axillary nerve; Infraclavicular part of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 412,
+"indexCount": 2400,
+"bounds": [
+[
+0.10734999924898148,
+1.3553600311279297,
+-0.032839998602867126
+],
+[
+0.16103999316692352,
+1.4052900075912476,
+-0.007770000025629997
+]
+],
+"positions": 559144,
+"normals": 564088,
+"indices": 566560
+},
+{
+"id": "ZA-right-axillary-nerve",
+"name": "Right axillary nerve [Axillary nerve; Infraclavicular part of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 412,
+"indexCount": 2400,
+"bounds": [
+[
+-0.16196000576019287,
+1.3552500009536743,
+-0.032660000026226044
+],
+[
+-0.10825999826192856,
+1.4051799774169922,
+-0.007590000052005053
+]
+],
+"positions": 576160,
+"normals": 581104,
+"indices": 583576
+},
+{
+"id": "ZA-left-buccal-nerve",
+"name": "Left buccal nerve [Cranial nerves; Trigeminal nerve (V)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 414,
+"indexCount": 2394,
+"bounds": [
+[
+0.028680000454187393,
+1.5383199453353882,
+0.007089999970048666
+],
+[
+0.03296000137925148,
+1.5737199783325195,
+0.04808000102639198
+]
+],
+"positions": 593176,
+"normals": 598144,
+"indices": 600628
+},
+{
+"id": "ZA-right-buccal-nerve",
+"name": "Right buccal nerve [Cranial nerves; Trigeminal nerve (V)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 414,
+"indexCount": 2394,
+"bounds": [
+[
+-0.03426999971270561,
+1.5384999513626099,
+0.006779999937862158
+],
+[
+-0.029980000108480453,
+1.5738999843597412,
+0.047770000994205475
+]
+],
+"positions": 610204,
+"normals": 615172,
+"indices": 617656
+},
+{
+"id": "ZA-cauda-equina",
+"name": "Cauda equina [Meninges; Spinal dura]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 1803,
+"indexCount": 10365,
+"bounds": [
+[
+-0.04874999821186066,
+0.8976100087165833,
+-0.09748999774456024
+],
+[
+0.04726000130176544,
+1.1664199829101562,
+-0.02850000001490116
+]
+],
+"positions": 627232,
+"normals": 648868,
+"indices": 659688
+},
+{
+"id": "ZA-central-canal",
+"name": "Central canal' [Central structures of spinal cord]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 300,
+"indexCount": 1728,
+"bounds": [
+[
+-0.00203000009059906,
+1.536370038986206,
+-0.04320000112056732
+],
+[
+0.0009699999936856329,
+1.5738199949264526,
+-0.035930000245571136
+]
+],
+"positions": 701148,
+"normals": 704748,
+"indices": 706548
+},
+{
+"id": "ZA-left-chorda-tympani",
+"name": "Left chorda tympani [Chorda tympani; Cranial nerves]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 416,
+"indexCount": 2400,
+"bounds": [
+[
+0.0272000003606081,
+1.5648200511932373,
+-0.01623000018298626
+],
+[
+0.038120001554489136,
+1.588860034942627,
+0.007120000198483467
+]
+],
+"positions": 713460,
+"normals": 718452,
+"indices": 720948
+},
+{
+"id": "ZA-right-chorda-tympani",
+"name": "Right chorda tympani [Chorda tympani; Cranial nerves]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 418,
+"indexCount": 2400,
+"bounds": [
+[
+-0.03937999904155731,
+1.5648399591445923,
+-0.016009999439120293
+],
+[
+-0.028459999710321426,
+1.5888700485229492,
+0.007340000011026859
+]
+],
+"positions": 730548,
+"normals": 735564,
+"indices": 738072
+},
+{
+"id": "ZA-left-cochlear-nerve",
+"name": "Left cochlear nerve [Cranial nerves; Vestibulocochlear nerve (VIII)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 468,
+"indexCount": 2652,
+"bounds": [
+[
+0.021479999646544456,
+1.5870399475097656,
+-0.014259999617934227
+],
+[
+0.041200000792741776,
+1.5904300212860107,
+-0.006930000148713589
+]
+],
+"positions": 747672,
+"normals": 753288,
+"indices": 756096
+},
+{
+"id": "ZA-left-common-fibular-nerve",
+"name": "Left common fibular nerve [Common fibular nerve; Lumbosacral plexus; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 406,
+"indexCount": 2394,
+"bounds": [
+[
+0.0727899968624115,
+0.40224000811576843,
+-0.057509999722242355
+],
+[
+0.11992000043392181,
+0.5573999881744385,
+-0.03519999980926514
+]
+],
+"positions": 766704,
+"normals": 771576,
+"indices": 774012
+},
+{
+"id": "ZA-right-common-fibular-nerve",
+"name": "Right common fibular nerve [Common fibular nerve; Lumbosacral plexus; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 406,
+"indexCount": 2394,
+"bounds": [
+[
+-0.11958000063896179,
+0.4006200134754181,
+-0.057440001517534256
+],
+[
+-0.0724399983882904,
+0.5557799935340881,
+-0.03513000160455704
+]
+],
+"positions": 783588,
+"normals": 788460,
+"indices": 790896
+},
+{
+"id": "ZA-left-common-palmar-digital-branches-of-median-nerve",
+"name": "Left common palmar digital branches of median nerve [Median nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 417,
+"indexCount": 2397,
+"bounds": [
+[
+0.25380000472068787,
+0.8081099987030029,
+0.034279998391866684
+],
+[
+0.29065001010894775,
+0.8673700094223022,
+0.04513999819755554
+]
+],
+"positions": 800472,
+"normals": 805476,
+"indices": 807980
+},
+{
+"id": "ZA-right-common-palmar-digital-branches-of-median-nerve",
+"name": "Right common palmar digital branches of median nerve [Median nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 417,
+"indexCount": 2397,
+"bounds": [
+[
+-0.2907100021839142,
+0.8083000183105469,
+0.034699998795986176
+],
+[
+-0.2538500130176544,
+0.8675600290298462,
+0.045559998601675034
+]
+],
+"positions": 817568,
+"normals": 822572,
+"indices": 825076
+},
+{
+"id": "ZA-left-common-palmar-digital-branches-of-ulnar-nerve",
+"name": "Left common palmar digital branches of ulnar nerve [Superficial branch of ulnar nerve; Ulnar nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 420,
+"indexCount": 2400,
+"bounds": [
+[
+0.23964999616146088,
+0.8057299852371216,
+0.03533000126481056
+],
+[
+0.25812000036239624,
+0.8720200061798096,
+0.04554000124335289
+]
+],
+"positions": 834664,
+"normals": 839704,
+"indices": 842224
+},
+{
+"id": "ZA-right-common-palmar-digital-branches-of-ulnar-nerve",
+"name": "Right common palmar digital branches of ulnar nerve [Superficial branch of ulnar nerve; Ulnar nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 420,
+"indexCount": 2400,
+"bounds": [
+[
+-0.2579500079154968,
+0.8072900176048279,
+0.035420000553131104
+],
+[
+-0.23949000239372253,
+0.8735799789428711,
+0.04562000185251236
+]
+],
+"positions": 851824,
+"normals": 856864,
+"indices": 859384
+},
+{
+"id": "ZA-left-common-plantar-digital-branches-of-lateral-plantar-nerve",
+"name": "Left common plantar digital branches of lateral plantar nerve [Lateral plantar nerve; Lumbosacral plexus; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 422,
+"indexCount": 2397,
+"bounds": [
+[
+0.10689999908208847,
+0.011970000341534615,
+0.0032099999953061342
+],
+[
+0.14574000239372253,
+0.02160000056028366,
+0.06746000051498413
+]
+],
+"positions": 868984,
+"normals": 874048,
+"indices": 876580
+},
+{
+"id": "ZA-right-common-plantar-digital-branches-of-lateral-plantar-nerve",
+"name": "Right common plantar digital branches of lateral plantar nerve [Lateral plantar nerve; Lumbosacral plexus; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 422,
+"indexCount": 2397,
+"bounds": [
+[
+-0.14564000070095062,
+0.011780000291764736,
+0.0036100000143051147
+],
+[
+-0.10681000351905823,
+0.02142000012099743,
+0.06785999983549118
+]
+],
+"positions": 886168,
+"normals": 891232,
+"indices": 893764
+},
+{
+"id": "ZA-left-common-plantar-digital-branches-of-medial-plantar-nerve",
+"name": "Left common plantar digital branches of medial plantar nerve [Lumbosacral plexus; Medial plantar nerve; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 421,
+"indexCount": 2397,
+"bounds": [
+[
+0.07594999670982361,
+0.01128000020980835,
+0.030419999733567238
+],
+[
+0.1145699992775917,
+0.028370000422000885,
+0.08229999989271164
+]
+],
+"positions": 903352,
+"normals": 908404,
+"indices": 910932
+},
+{
+"id": "ZA-left-deep-branch-of-radial-nerve",
+"name": "Left deep branch of radial nerve [Deep branch of radial nerve; Radial nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 408,
+"indexCount": 2394,
+"bounds": [
+[
+0.22418999671936035,
+0.8743199706077576,
+-0.03232000023126602
+],
+[
+0.25694000720977783,
+1.1208200454711914,
+0.013319999910891056
+]
+],
+"positions": 920520,
+"normals": 925416,
+"indices": 927864
+},
+{
+"id": "ZA-right-deep-branch-of-radial-nerve",
+"name": "Right deep branch of radial nerve [Deep branch of radial nerve; Radial nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 408,
+"indexCount": 2394,
+"bounds": [
+[
+-0.2583500146865845,
+0.8659899830818176,
+-0.031380001455545425
+],
+[
+-0.225600004196167,
+1.1124900579452515,
+0.014259999617934227
+]
+],
+"positions": 937440,
+"normals": 942336,
+"indices": 944784
+},
+{
+"id": "ZA-left-deep-branch-of-ulnar-nerve",
+"name": "Left deep branch of ulnar nerve [Ulnar nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 409,
+"indexCount": 2397,
+"bounds": [
+[
+0.23939000070095062,
+0.858240008354187,
+0.027890000492334366
+],
+[
+0.2768799960613251,
+0.8773400187492371,
+0.03440000116825104
+]
+],
+"positions": 954360,
+"normals": 959268,
+"indices": 961724
+},
+{
+"id": "ZA-right-deep-branch-of-ulnar-nerve",
+"name": "Right deep branch of ulnar nerve [Ulnar nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 409,
+"indexCount": 2397,
+"bounds": [
+[
+-0.2771100103855133,
+0.8586300015449524,
+0.02792000025510788
+],
+[
+-0.23962000012397766,
+0.8777300119400024,
+0.03443000093102455
+]
+],
+"positions": 971312,
+"normals": 976220,
+"indices": 978676
+},
+{
+"id": "ZA-left-deep-fibular-nerve",
+"name": "Left deep fibular nerve [Deep fibular nerve; Lumbosacral plexus; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 543,
+"indexCount": 3237,
+"bounds": [
+[
+0.06499999761581421,
+0.04148000106215477,
+-0.03539999946951866
+],
+[
+0.11965999752283096,
+0.38343000411987305,
+0.0676800012588501
+]
+],
+"positions": 988264,
+"normals": 994780,
+"indices": 998040
+},
+{
+"id": "ZA-right-deep-fibular-nerve",
+"name": "Right deep fibular nerve [Deep fibular nerve; Lumbosacral plexus; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 543,
+"indexCount": 3237,
+"bounds": [
+[
+-0.12025000154972076,
+0.04115999862551689,
+-0.03525000065565109
+],
+[
+-0.06559000164270401,
+0.383109986782074,
+0.06784000247716904
+]
+],
+"positions": 1010988,
+"normals": 1017504,
+"indices": 1020764
+},
+{
+"id": "ZA-left-dorsal-branch-of-ulnar-nerve",
+"name": "Left dorsal branch of ulnar nerve [Dorsal branch of ulnar nerve; Ulnar nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 416,
+"indexCount": 2397,
+"bounds": [
+[
+0.22205999493598938,
+0.8096699714660645,
+0.013140000402927399
+],
+[
+0.23910999298095703,
+0.9110400080680847,
+0.037220001220703125
+]
+],
+"positions": 1033712,
+"normals": 1038704,
+"indices": 1041200
+},
+{
+"id": "ZA-right-dorsal-branch-of-ulnar-nerve",
+"name": "Right dorsal branch of ulnar nerve [Dorsal branch of ulnar nerve; Ulnar nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 416,
+"indexCount": 2397,
+"bounds": [
+[
+-0.23948000371456146,
+0.8093199729919434,
+0.013249999843537807
+],
+[
+-0.2224300056695938,
+0.9106900095939636,
+0.03733000159263611
+]
+],
+"positions": 1050788,
+"normals": 1055780,
+"indices": 1058276
+},
+{
+"id": "ZA-left-dorsal-digital-branches-of-deep-fibular-nerve",
+"name": "Left dorsal digital branches of deep fibular nerve [Deep fibular nerve; Lumbosacral plexus; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 407,
+"indexCount": 2397,
+"bounds": [
+[
+0.09232000261545181,
+0.012140000239014626,
+0.06159999966621399
+],
+[
+0.11360999941825867,
+0.041689999401569366,
+0.13249999284744263
+]
+],
+"positions": 1067864,
+"normals": 1072748,
+"indices": 1075192
+},
+{
+"id": "ZA-right-dorsal-digital-branches-of-deep-fibular-nerve",
+"name": "Right dorsal digital branches of deep fibular nerve [Deep fibular nerve; Lumbosacral plexus; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 407,
+"indexCount": 2397,
+"bounds": [
+[
+-0.11365000158548355,
+0.01221999991685152,
+0.061489999294281006
+],
+[
+-0.09237000346183777,
+0.041770000010728836,
+0.13239000737667084
+]
+],
+"positions": 1084780,
+"normals": 1089664,
+"indices": 1092108
+},
+{
+"id": "ZA-left-dorsal-digital-branches-of-radial-nerve",
+"name": "Left dorsal digital branches of radial nerve [Radial nerve; Superficial branch of radial nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 1725,
+"indexCount": 10149,
+"bounds": [
+[
+0.2524000108242035,
+0.7329999804496765,
+0.013269999995827675
+],
+[
+0.32447999715805054,
+0.8655700087547302,
+0.09053000062704086
+]
+],
+"positions": 1101696,
+"normals": 1122396,
+"indices": 1132748
+},
+{
+"id": "ZA-right-dorsal-digital-branches-of-radial-nerve",
+"name": "Right dorsal digital branches of radial nerve [Radial nerve; Superficial branch of radial nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 1725,
+"indexCount": 10149,
+"bounds": [
+[
+-0.32455000281333923,
+0.7330399751663208,
+0.01370999962091446
+],
+[
+-0.2524699866771698,
+0.8656200170516968,
+0.09096000343561172
+]
+],
+"positions": 1173344,
+"normals": 1194044,
+"indices": 1204396
+},
+{
+"id": "ZA-left-dorsal-digital-branches-of-superficial-fibular-nerve",
+"name": "Left dorsal digital branches of superficial fibular nerve [Lumbosacral plexus; Sciatic nerve; Superficial fibular nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 1068,
+"indexCount": 6264,
+"bounds": [
+[
+0.07709000259637833,
+0.011540000326931477,
+0.04563000053167343
+],
+[
+0.15334999561309814,
+0.036079999059438705,
+0.12993000447750092
+]
+],
+"positions": 1244992,
+"normals": 1257808,
+"indices": 1264216
+},
+{
+"id": "ZA-right-dorsal-digital-branches-of-superficial-fibular-nerve",
+"name": "Right dorsal digital branches of superficial fibular nerve [Lumbosacral plexus; Sciatic nerve; Superficial fibular nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 1068,
+"indexCount": 6264,
+"bounds": [
+[
+-0.1534000039100647,
+0.01157000008970499,
+0.045579999685287476
+],
+[
+-0.07714000344276428,
+0.03610999882221222,
+0.12987999618053436
+]
+],
+"positions": 1289272,
+"normals": 1302088,
+"indices": 1308496
+},
+{
+"id": "ZA-left-dorsal-digital-branches-of-ulnar-nerve",
+"name": "Left dorsal digital branches of ulnar nerve [Dorsal branch of ulnar nerve; Ulnar nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 623,
+"indexCount": 3669,
+"bounds": [
+[
+0.21681000292301178,
+0.742110013961792,
+0.030750000849366188
+],
+[
+0.2459699958562851,
+0.8123000264167786,
+0.08975999802350998
+]
+],
+"positions": 1333552,
+"normals": 1341028,
+"indices": 1344768
+},
+{
+"id": "ZA-right-dorsal-digital-branches-of-ulnar-nerve",
+"name": "Right dorsal digital branches of ulnar nerve [Dorsal branch of ulnar nerve; Ulnar nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 623,
+"indexCount": 3669,
+"bounds": [
+[
+-0.24581000208854675,
+0.7437400221824646,
+0.03082999959588051
+],
+[
+-0.21663999557495117,
+0.8139399886131287,
+0.08984000235795975
+]
+],
+"positions": 1359444,
+"normals": 1366920,
+"indices": 1370660
+},
+{
+"id": "ZA-left-dorsal-scapular-nerve",
+"name": "Left dorsal scapular nerve [Dorsal scapular nerve; Supraclavicular branches of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 407,
+"indexCount": 2397,
+"bounds": [
+[
+0.02508999966084957,
+1.307289958000183,
+-0.1074099987745285
+],
+[
+0.058079998940229416,
+1.4859700202941895,
+-0.010130000300705433
+]
+],
+"positions": 1385336,
+"normals": 1390220,
+"indices": 1392664
+},
+{
+"id": "ZA-right-dorsal-scapular-nerve",
+"name": "Right dorsal scapular nerve [Dorsal scapular nerve; Supraclavicular branches of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 407,
+"indexCount": 2397,
+"bounds": [
+[
+-0.05911000072956085,
+1.307289958000183,
+-0.1074099987745285
+],
+[
+-0.026119999587535858,
+1.4859700202941895,
+-0.01013999991118908
+]
+],
+"positions": 1402252,
+"normals": 1407136,
+"indices": 1409580
+},
+{
+"id": "ZA-left-facial-nerve-vii",
+"name": "Left facial nerve (VII) [Cranial nerves; Facial nerve (VII)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 3536,
+"indexCount": 20481,
+"bounds": [
+[
+0.0011899999808520079,
+1.5172899961471558,
+-0.0279300007969141
+],
+[
+0.06663999706506729,
+1.633389949798584,
+0.07620999962091446
+]
+],
+"positions": 1419168,
+"normals": 1461600,
+"indices": 1482816
+},
+{
+"id": "ZA-right-facial-nerve-vii",
+"name": "Right facial nerve (VII) [Cranial nerves; Facial nerve (VII)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 3540,
+"indexCount": 20481,
+"bounds": [
+[
+-0.06774000078439713,
+1.516409993171692,
+-0.027559999376535416
+],
+[
+-0.002300000051036477,
+1.6325099468231201,
+0.0765800029039383
+]
+],
+"positions": 1564740,
+"normals": 1607220,
+"indices": 1628460
+},
+{
+"id": "ZA-left-femoral-branch-of-genitofemoral-nerve",
+"name": "Left femoral branch of genitofemoral nerve [Branches of anterior part of lumbar plexus; Lumbar plexus; Lumbosacral plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 407,
+"indexCount": 2397,
+"bounds": [
+[
+0.0357699990272522,
+0.822160005569458,
+0.004809999838471413
+],
+[
+0.05696000158786774,
+1.0392199754714966,
+0.03985999897122383
+]
+],
+"positions": 1710384,
+"normals": 1715268,
+"indices": 1717712
+},
+{
+"id": "ZA-right-femoral-branch-of-genitofemoral-nerve",
+"name": "Right femoral branch of genitofemoral nerve [Branches of anterior part of lumbar plexus; Lumbar plexus; Lumbosacral plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 407,
+"indexCount": 2397,
+"bounds": [
+[
+-0.057349998503923416,
+0.82191002368927,
+0.004989999812096357
+],
+[
+-0.036159999668598175,
+1.0389800071716309,
+0.040049999952316284
+]
+],
+"positions": 1727300,
+"normals": 1732184,
+"indices": 1734628
+},
+{
+"id": "ZA-left-femoral-nerve",
+"name": "Left femoral nerve [Branches of posterior part of lumbar plexus; Femoral nerve; Lumbar plexus; Lumbosacral plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 520,
+"indexCount": 3024,
+"bounds": [
+[
+0.012140000239014626,
+0.6525899767875671,
+-0.04320000112056732
+],
+[
+0.08928000181913376,
+1.1248699426651,
+0.029750000685453415
+]
+],
+"positions": 1744216,
+"normals": 1750456,
+"indices": 1753576
+},
+{
+"id": "ZA-right-femoral-nerve",
+"name": "Right femoral nerve [Branches of posterior part of lumbar plexus; Femoral nerve; Lumbar plexus; Lumbosacral plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 520,
+"indexCount": 3024,
+"bounds": [
+[
+-0.09015999734401703,
+0.6520599722862244,
+-0.042819999158382416
+],
+[
+-0.013030000030994415,
+1.1243400573730469,
+0.03013000078499317
+]
+],
+"positions": 1765672,
+"normals": 1771912,
+"indices": 1775032
+},
+{
+"id": "ZA-left-genital-branch-of-genitofemoral-nerve",
+"name": "Left genital branch of genitofemoral nerve [Branches of anterior part of lumbar plexus; Lumbar plexus; Lumbosacral plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 405,
+"indexCount": 2397,
+"bounds": [
+[
+0.016540000215172768,
+0.7829200029373169,
+0.004809999838471413
+],
+[
+0.045090001076459885,
+1.0391900539398193,
+0.038679998368024826
+]
+],
+"positions": 1787128,
+"normals": 1791988,
+"indices": 1794420
+},
+{
+"id": "ZA-right-genital-branch-of-genitofemoral-nerve",
+"name": "Right genital branch of genitofemoral nerve [Branches of anterior part of lumbar plexus; Lumbar plexus; Lumbosacral plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 405,
+"indexCount": 2397,
+"bounds": [
+[
+-0.045490000396966934,
+0.7827100157737732,
+0.0049600000493228436
+],
+[
+-0.016939999535679817,
+1.0389900207519531,
+0.038830000907182693
+]
+],
+"positions": 1804008,
+"normals": 1808868,
+"indices": 1811300
+},
+{
+"id": "ZA-left-genitofemoral-nerve",
+"name": "Left genitofemoral nerve [Branches of anterior part of lumbar plexus; Lumbar plexus; Lumbosacral plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 456,
+"indexCount": 2592,
+"bounds": [
+[
+0.01295000035315752,
+1.0362800359725952,
+-0.02621000073850155
+],
+[
+0.04109000042080879,
+1.1145999431610107,
+0.01964000053703785
+]
+],
+"positions": 1820888,
+"normals": 1826360,
+"indices": 1829096
+},
+{
+"id": "ZA-right-genitofemoral-nerve",
+"name": "Right genitofemoral nerve [Branches of anterior part of lumbar plexus; Lumbar plexus; Lumbosacral plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 456,
+"indexCount": 2592,
+"bounds": [
+[
+-0.0435900017619133,
+1.0362800359725952,
+-0.02621000073850155
+],
+[
+-0.015449999831616879,
+1.1145999431610107,
+0.01964000053703785
+]
+],
+"positions": 1839464,
+"normals": 1844936,
+"indices": 1847672
+},
+{
+"id": "ZA-left-glossopharyngeal-nerve-ix",
+"name": "Left glossopharyngeal nerve (IX) [Cranial nerves; Glossopharyngeal nerve (IX)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 1747,
+"indexCount": 10041,
+"bounds": [
+[
+0.0012199999764561653,
+1.4351099729537964,
+-0.03418000042438507
+],
+[
+0.04019000008702278,
+1.5825899839401245,
+0.020659999921917915
+]
+],
+"positions": 1858040,
+"normals": 1879004,
+"indices": 1889488
+},
+{
+"id": "ZA-right-glossopharyngeal-nerve-ix",
+"name": "Right glossopharyngeal nerve (IX) [Cranial nerves; Glossopharyngeal nerve (IX)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 1736,
+"indexCount": 10038,
+"bounds": [
+[
+-0.04120999947190285,
+1.4351099729537964,
+-0.03418000042438507
+],
+[
+-0.0022299999836832285,
+1.5825899839401245,
+0.020659999921917915
+]
+],
+"positions": 1929652,
+"normals": 1950484,
+"indices": 1960900
+},
+{
+"id": "ZA-left-hypoglossal-nerve-xii",
+"name": "Left hypoglossal nerve (XII) [Cranial nerves; Hypoglossal nerve (XII)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 2122,
+"indexCount": 12213,
+"bounds": [
+[
+0.0023300000466406345,
+1.5166900157928467,
+-0.03215000033378601
+],
+[
+0.02881000004708767,
+1.5812100172042847,
+0.043549999594688416
+]
+],
+"positions": 2001052,
+"normals": 2026516,
+"indices": 2039248
+},
+{
+"id": "ZA-right-hypoglossal-nerve-xii",
+"name": "Right hypoglossal nerve (XII) [Cranial nerves; Hypoglossal nerve (XII)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 2115,
+"indexCount": 12216,
+"bounds": [
+[
+-0.030169999226927757,
+1.5167499780654907,
+-0.03206999972462654
+],
+[
+-0.0036899999249726534,
+1.5812699794769287,
+0.04365000128746033
+]
+],
+"positions": 2088100,
+"normals": 2113480,
+"indices": 2126172
+},
+{
+"id": "ZA-left-ilio-inguinal-nerve",
+"name": "Left ilio-inguinal nerve [Ilio-inguinal nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 472,
+"indexCount": 2808,
+"bounds": [
+[
+0.03144000098109245,
+0.8710299730300903,
+-0.05601999908685684
+],
+[
+0.1230200007557869,
+1.1455299854278564,
+0.04187000170350075
+]
+],
+"positions": 2175036,
+"normals": 2180700,
+"indices": 2183532
+},
+{
+"id": "ZA-right-ilio-inguinal-nerve",
+"name": "Right ilio-inguinal nerve [Ilio-inguinal nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 472,
+"indexCount": 2808,
+"bounds": [
+[
+-0.12409000098705292,
+0.8705999851226807,
+-0.055709999054670334
+],
+[
+-0.032510001212358475,
+1.1450899839401245,
+0.042180001735687256
+]
+],
+"positions": 2194764,
+"normals": 2200428,
+"indices": 2203260
+},
+{
+"id": "ZA-left-iliohypogastric-nerve",
+"name": "Left iliohypogastric nerve [Iliohypogastric nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 412,
+"indexCount": 2397,
+"bounds": [
+[
+0.010490000247955322,
+1.0262399911880493,
+-0.0494999997317791
+],
+[
+0.11204999685287476,
+1.1532599925994873,
+0.008209999650716782
+]
+],
+"positions": 2214492,
+"normals": 2219436,
+"indices": 2221908
+},
+{
+"id": "ZA-right-iliohypogastric-nerve",
+"name": "Right iliohypogastric nerve [Iliohypogastric nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 412,
+"indexCount": 2397,
+"bounds": [
+[
+-0.11420000344514847,
+1.02593994140625,
+-0.04969999939203262
+],
+[
+-0.012640000320971012,
+1.152959942817688,
+0.008019999600946903
+]
+],
+"positions": 2231496,
+"normals": 2236440,
+"indices": 2238912
+},
+{
+"id": "ZA-left-inferior-alveolar-nerve",
+"name": "Left inferior alveolar nerve [Cranial nerves; Trigeminal nerve (V)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 2199,
+"indexCount": 12705,
+"bounds": [
+[
+0.0009800000116229057,
+1.5136499404907227,
+0.0022700000554323196
+],
+[
+0.03658000007271767,
+1.5585800409317017,
+0.068060003221035
+]
+],
+"positions": 2248500,
+"normals": 2274888,
+"indices": 2288084
+},
+{
+"id": "ZA-right-inferior-alveolar-nerve",
+"name": "Right inferior alveolar nerve [Cranial nerves; Trigeminal nerve (V)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 2199,
+"indexCount": 12705,
+"bounds": [
+[
+-0.037689998745918274,
+1.5138399600982666,
+0.001979999942705035
+],
+[
+-0.002090000081807375,
+1.558769941329956,
+0.06776999682188034
+]
+],
+"positions": 2338904,
+"normals": 2365292,
+"indices": 2378488
+},
+{
+"id": "ZA-left-inferior-lateral-brachial-cutaneous-nerve",
+"name": "Left inferior lateral brachial cutaneous nerve [Radial nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 300,
+"indexCount": 1728,
+"bounds": [
+[
+0.2004700005054474,
+1.2005300521850586,
+-0.04312000051140785
+],
+[
+0.23051999509334564,
+1.2480599880218506,
+-0.021090000867843628
+]
+],
+"positions": 2429308,
+"normals": 2432908,
+"indices": 2434708
+},
+{
+"id": "ZA-right-inferior-lateral-brachial-cutaneous-nerve",
+"name": "Right inferior lateral brachial cutaneous nerve [Radial nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 300,
+"indexCount": 1728,
+"bounds": [
+[
+-0.22599999606609344,
+1.2214200496673584,
+-0.04058999940752983
+],
+[
+-0.1959500014781952,
+1.2689599990844727,
+-0.018559999763965607
+]
+],
+"positions": 2441620,
+"normals": 2445220,
+"indices": 2447020
+},
+{
+"id": "ZA-left-inferior-subscapular-nerve",
+"name": "Left inferior subscapular nerve [Infraclavicular part of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 411,
+"indexCount": 2397,
+"bounds": [
+[
+0.09199000149965286,
+1.2940700054168701,
+-0.08765999972820282
+],
+[
+0.11587999761104584,
+1.3887100219726562,
+-0.022269999608397484
+]
+],
+"positions": 2453932,
+"normals": 2458864,
+"indices": 2461332
+},
+{
+"id": "ZA-right-inferior-subscapular-nerve",
+"name": "Right inferior subscapular nerve [Infraclavicular part of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 411,
+"indexCount": 2397,
+"bounds": [
+[
+-0.11666999757289886,
+1.2940599918365479,
+-0.08754999935626984
+],
+[
+-0.09278000146150589,
+1.388700008392334,
+-0.02216999977827072
+]
+],
+"positions": 2470920,
+"normals": 2475852,
+"indices": 2478320
+},
+{
+"id": "ZA-left-inferior-trunk-of-brachial-plexus",
+"name": "Left inferior trunk of brachial plexus [Inferior trunk of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 300,
+"indexCount": 1728,
+"bounds": [
+[
+0.05105999857187271,
+1.4172799587249756,
+-0.01858000084757805
+],
+[
+0.08076000213623047,
+1.4390699863433838,
+-0.010830000042915344
+]
+],
+"positions": 2487908,
+"normals": 2491508,
+"indices": 2493308
+},
+{
+"id": "ZA-right-inferior-trunk-of-brachial-plexus",
+"name": "Right inferior trunk of brachial plexus [Inferior trunk of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 300,
+"indexCount": 1728,
+"bounds": [
+[
+-0.0818599984049797,
+1.4175399541854858,
+-0.018969999626278877
+],
+[
+-0.05215999856591225,
+1.4393399953842163,
+-0.011230000294744968
+]
+],
+"positions": 2500220,
+"normals": 2503820,
+"indices": 2505620
+},
+{
+"id": "ZA-left-infrapatellar-branch-of-saphenous-nerve",
+"name": "Left infrapatellar branch of saphenous nerve [Lumbar plexus; Lumbosacral plexus; Saphenous nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 300,
+"indexCount": 1728,
+"bounds": [
+[
+0.04952000081539154,
+0.35030001401901245,
+-0.011250000447034836
+],
+[
+0.08443000167608261,
+0.362419992685318,
+0.019360000267624855
+]
+],
+"positions": 2512532,
+"normals": 2516132,
+"indices": 2517932
+},
+{
+"id": "ZA-right-infrapatellar-branch-of-saphenous-nerve",
+"name": "Right infrapatellar branch of saphenous nerve [Lumbar plexus; Lumbosacral plexus; Saphenous nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 300,
+"indexCount": 1728,
+"bounds": [
+[
+-0.08504000306129456,
+0.3476400077342987,
+-0.01116000022739172
+],
+[
+-0.05012999847531319,
+0.3597699999809265,
+0.019449999555945396
+]
+],
+"positions": 2524844,
+"normals": 2528444,
+"indices": 2530244
+},
+{
+"id": "ZA-left-intercostal-nerves",
+"name": "Left intercostal nerves [Intercostal nerves]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 6501,
+"indexCount": 38664,
+"bounds": [
+[
+0.008709999732673168,
+0.987280011177063,
+-0.0916299968957901
+],
+[
+0.1338299959897995,
+1.4408400058746338,
+0.10391999781131744
+]
+],
+"positions": 2537156,
+"normals": 2615168,
+"indices": 2654176
+},
+{
+"id": "ZA-right-intercostal-nerves",
+"name": "Right intercostal nerves [Intercostal nerves]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 6499,
+"indexCount": 38661,
+"bounds": [
+[
+-0.13547000288963318,
+0.9870499968528748,
+-0.09151999652385712
+],
+[
+-0.010350000113248825,
+1.4406100511550903,
+0.1040399968624115
+]
+],
+"positions": 2808832,
+"normals": 2886820,
+"indices": 2925816
+},
+{
+"id": "ZA-left-intermediate-dorsal-cutaneous-nerve-of-foot",
+"name": "Left intermediate dorsal cutaneous nerve of foot [Lumbosacral plexus; Sciatic nerve; Superficial fibular nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 410,
+"indexCount": 2400,
+"bounds": [
+[
+0.10959000140428543,
+0.026480000466108322,
+-0.025270000100135803
+],
+[
+0.12691999971866608,
+0.09249000251293182,
+0.05967000126838684
+]
+],
+"positions": 3080460,
+"normals": 3085380,
+"indices": 3087840
+},
+{
+"id": "ZA-right-intermediate-dorsal-cutaneous-nerve-of-foot",
+"name": "Right intermediate dorsal cutaneous nerve of foot [Lumbosacral plexus; Sciatic nerve; Superficial fibular nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 410,
+"indexCount": 2400,
+"bounds": [
+[
+-0.12717999517917633,
+0.026079999282956123,
+-0.024769999086856842
+],
+[
+-0.10984999686479568,
+0.09209000319242477,
+0.060169998556375504
+]
+],
+"positions": 3097440,
+"normals": 3102360,
+"indices": 3104820
+},
+{
+"id": "ZA-left-lateral-antebrachial-cutaneous-nerve",
+"name": "Left lateral antebrachial cutaneous nerve [Musculocutaneous nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 410,
+"indexCount": 2400,
+"bounds": [
+[
+0.21396000683307648,
+0.955020010471344,
+-0.015549999661743641
+],
+[
+0.26669999957084656,
+1.116960048675537,
+0.010660000145435333
+]
+],
+"positions": 3114420,
+"normals": 3119340,
+"indices": 3121800
+},
+{
+"id": "ZA-right-lateral-antebrachial-cutaneous-nerve",
+"name": "Right lateral antebrachial cutaneous nerve [Musculocutaneous nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 410,
+"indexCount": 2400,
+"bounds": [
+[
+-0.26851001381874084,
+0.9455000162124634,
+-0.013989999890327454
+],
+[
+-0.21577000617980957,
+1.107450008392334,
+0.01221999991685152
+]
+],
+"positions": 3131400,
+"normals": 3136320,
+"indices": 3138780
+},
+{
+"id": "ZA-left-lateral-femoral-cutaneous-nerve",
+"name": "Left lateral femoral cutaneous nerve [Branches of posterior part of lumbar plexus; Lumbar plexus; Lumbosacral plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 647,
+"indexCount": 3786,
+"bounds": [
+[
+0.08275999873876572,
+0.5824800133705139,
+0.0038499999791383743
+],
+[
+0.15063999593257904,
+1.082859992980957,
+0.05787999927997589
+]
+],
+"positions": 3148380,
+"normals": 3156144,
+"indices": 3160028
+},
+{
+"id": "ZA-right-lateral-femoral-cutaneous-nerve",
+"name": "Right lateral femoral cutaneous nerve [Branches of posterior part of lumbar plexus; Lumbar plexus; Lumbosacral plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 665,
+"indexCount": 3888,
+"bounds": [
+[
+-0.15082000195980072,
+0.584309995174408,
+0.0038900000508874655
+],
+[
+-0.08295000344514847,
+1.084689974784851,
+0.057920001447200775
+]
+],
+"positions": 3175172,
+"normals": 3183152,
+"indices": 3187144
+},
+{
+"id": "ZA-left-lateral-pectoral-nerve",
+"name": "Left lateral pectoral nerve [Lateral pectoral nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 926,
+"indexCount": 5397,
+"bounds": [
+[
+0.03265000134706497,
+1.2272000312805176,
+-0.012690000236034393
+],
+[
+0.13638000190258026,
+1.4004100561141968,
+0.12705999612808228
+]
+],
+"positions": 3202696,
+"normals": 3213808,
+"indices": 3219364
+},
+{
+"id": "ZA-right-lateral-pectoral-nerve",
+"name": "Right lateral pectoral nerve [Lateral pectoral nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 925,
+"indexCount": 5400,
+"bounds": [
+[
+-0.13788999617099762,
+1.2268699407577515,
+-0.012230000458657742
+],
+[
+-0.03415999934077263,
+1.4000799655914307,
+0.12752999365329742
+]
+],
+"positions": 3240952,
+"normals": 3252052,
+"indices": 3257604
+},
+{
+"id": "ZA-left-lateral-plantar-nerve",
+"name": "Left lateral plantar nerve [Lateral plantar nerve; Lumbosacral plexus; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 412,
+"indexCount": 2400,
+"bounds": [
+[
+0.055810000747442245,
+0.020360000431537628,
+-0.044270001351833344
+],
+[
+0.0941699966788292,
+0.05632999911904335,
+0.014700000174343586
+]
+],
+"positions": 3279204,
+"normals": 3284148,
+"indices": 3286620
+},
+{
+"id": "ZA-right-lateral-plantar-nerve",
+"name": "Right lateral plantar nerve [Lateral plantar nerve; Lumbosacral plexus; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 412,
+"indexCount": 2400,
+"bounds": [
+[
+-0.09467999637126923,
+0.0200399998575449,
+-0.0435900017619133
+],
+[
+-0.05632999911904335,
+0.05601000040769577,
+0.01537999976426363
+]
+],
+"positions": 3296220,
+"normals": 3301164,
+"indices": 3303636
+},
+{
+"id": "ZA-left-lingual-nerve",
+"name": "Left lingual nerve [Cranial nerves; Trigeminal nerve (V)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 407,
+"indexCount": 2394,
+"bounds": [
+[
+0.007350000087171793,
+1.5319700241088867,
+-0.0010100000072270632
+],
+[
+0.030160000547766685,
+1.5832799673080444,
+0.04493999853730202
+]
+],
+"positions": 3313236,
+"normals": 3318120,
+"indices": 3320564
+},
+{
+"id": "ZA-right-lingual-nerve",
+"name": "Right lingual nerve [Cranial nerves; Trigeminal nerve (V)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 407,
+"indexCount": 2394,
+"bounds": [
+[
+-0.031190000474452972,
+1.5318700075149536,
+-0.0008999999845400453
+],
+[
+-0.008379999548196793,
+1.5831799507141113,
+0.04504000023007393
+]
+],
+"positions": 3330140,
+"normals": 3335024,
+"indices": 3337468
+},
+{
+"id": "ZA-left-long-thoracic-nerve",
+"name": "Left long thoracic nerve [Long thoracic nerve; Supraclavicular branches of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 514,
+"indexCount": 3024,
+"bounds": [
+[
+0.020759999752044678,
+1.1953099966049194,
+-0.05119000002741814
+],
+[
+0.14138999581336975,
+1.4828100204467773,
+0.008940000087022781
+]
+],
+"positions": 3347044,
+"normals": 3353212,
+"indices": 3356296
+},
+{
+"id": "ZA-right-long-thoracic-nerve",
+"name": "Right long thoracic nerve [Long thoracic nerve; Supraclavicular branches of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 515,
+"indexCount": 3024,
+"bounds": [
+[
+-0.14313000440597534,
+1.1950199604034424,
+-0.0508899986743927
+],
+[
+-0.022509999573230743,
+1.4825199842453003,
+0.009170000441372395
+]
+],
+"positions": 3368392,
+"normals": 3374572,
+"indices": 3377664
+},
+{
+"id": "ZA-left-maxillary-nerve",
+"name": "Left maxillary nerve [Cranial nerves; Trigeminal nerve (V)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 1029,
+"indexCount": 5907,
+"bounds": [
+[
+0.010169999673962593,
+1.5478099584579468,
+-0.008419999852776527
+],
+[
+0.03254000097513199,
+1.603950023651123,
+0.06877999752759933
+]
+],
+"positions": 3389760,
+"normals": 3402108,
+"indices": 3408284
+},
+{
+"id": "ZA-right-maxillary-nerve",
+"name": "Right maxillary nerve [Cranial nerves; Trigeminal nerve (V)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 1028,
+"indexCount": 5907,
+"bounds": [
+[
+-0.03367999941110611,
+1.5493099689483643,
+-0.008620000444352627
+],
+[
+-0.011309999972581863,
+1.6054500341415405,
+0.06858000159263611
+]
+],
+"positions": 3431912,
+"normals": 3444248,
+"indices": 3450416
+},
+{
+"id": "ZA-left-medial-antebrachial-cutaneous-nerve",
+"name": "Left medial antebrachial cutaneous nerve [Medial antebrachial cutaneous nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 406,
+"indexCount": 2397,
+"bounds": [
+[
+0.11949999630451202,
+1.182229995727539,
+-0.017349999397993088
+],
+[
+0.1802700012922287,
+1.385740041732788,
+-0.00039000000106170774
+]
+],
+"positions": 3474044,
+"normals": 3478916,
+"indices": 3481352
+},
+{
+"id": "ZA-right-medial-antebrachial-cutaneous-nerve",
+"name": "Right medial antebrachial cutaneous nerve [Medial antebrachial cutaneous nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 406,
+"indexCount": 2397,
+"bounds": [
+[
+-0.17689000070095062,
+1.199120044708252,
+-0.015060000121593475
+],
+[
+-0.11612000316381454,
+1.4026299715042114,
+0.0018899999558925629
+]
+],
+"positions": 3490940,
+"normals": 3495812,
+"indices": 3498248
+},
+{
+"id": "ZA-left-medial-brachial-cutaneous-nerve",
+"name": "Left medial brachial cutaneous nerve [Branches of medial cord of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 408,
+"indexCount": 2400,
+"bounds": [
+[
+0.09375,
+1.20756995677948,
+-0.05104999989271164
+],
+[
+0.16519999504089355,
+1.4108099937438965,
+-0.0007600000244565308
+]
+],
+"positions": 3507836,
+"normals": 3512732,
+"indices": 3515180
+},
+{
+"id": "ZA-right-medial-brachial-cutaneous-nerve",
+"name": "Right medial brachial cutaneous nerve [Branches of medial cord of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 408,
+"indexCount": 2400,
+"bounds": [
+[
+-0.16356000304222107,
+1.2179499864578247,
+-0.049570001661777496
+],
+[
+-0.09211000055074692,
+1.4211900234222412,
+0.0007200000109151006
+]
+],
+"positions": 3524780,
+"normals": 3529676,
+"indices": 3532124
+},
+{
+"id": "ZA-left-medial-crural-cutaneous-branches-of-saphenous-nerve",
+"name": "Left medial crural cutaneous branches of saphenous nerve [Lumbar plexus; Lumbosacral plexus; Saphenous nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 300,
+"indexCount": 1728,
+"bounds": [
+[
+0.02701999992132187,
+0.786270022392273,
+0.01561999972909689
+],
+[
+0.06560000032186508,
+0.8870599865913391,
+0.0364999994635582
+]
+],
+"positions": 3541724,
+"normals": 3545324,
+"indices": 3547124
+},
+{
+"id": "ZA-right-medial-crural-cutaneous-branches-of-saphenous-nerve",
+"name": "Right medial crural cutaneous branches of saphenous nerve [Lumbar plexus; Lumbosacral plexus; Saphenous nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 300,
+"indexCount": 1728,
+"bounds": [
+[
+-0.06576000154018402,
+0.7851999998092651,
+0.01640000008046627
+],
+[
+-0.02717999927699566,
+0.8859900236129761,
+0.03728000074625015
+]
+],
+"positions": 3554036,
+"normals": 3557636,
+"indices": 3559436
+},
+{
+"id": "ZA-left-medial-dorsal-cutaneous-nerve-of-foot",
+"name": "Left medial dorsal cutaneous nerve of foot [Lumbosacral plexus; Sciatic nerve; Superficial fibular nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 520,
+"indexCount": 3024,
+"bounds": [
+[
+0.07733999937772751,
+0.02435999922454357,
+-0.02580999955534935
+],
+[
+0.12168999761343002,
+0.09245000034570694,
+0.08828999847173691
+]
+],
+"positions": 3566348,
+"normals": 3572588,
+"indices": 3575708
+},
+{
+"id": "ZA-right-medial-dorsal-cutaneous-nerve-of-foot",
+"name": "Right medial dorsal cutaneous nerve of foot [Lumbosacral plexus; Sciatic nerve; Superficial fibular nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 520,
+"indexCount": 3024,
+"bounds": [
+[
+-0.12168999761343002,
+0.024569999426603317,
+-0.026040000841021538
+],
+[
+-0.07733999937772751,
+0.09266000241041183,
+0.08805999904870987
+]
+],
+"positions": 3587804,
+"normals": 3594044,
+"indices": 3597164
+},
+{
+"id": "ZA-left-medial-pectoral-nerve",
+"name": "Left medial pectoral nerve [Inferior trunk of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 411,
+"indexCount": 2397,
+"bounds": [
+[
+0.05601999908685684,
+1.3406699895858765,
+-0.011180000379681587
+],
+[
+0.10138999670743942,
+1.4337600469589233,
+0.050450000911951065
+]
+],
+"positions": 3609260,
+"normals": 3614192,
+"indices": 3616660
+},
+{
+"id": "ZA-right-medial-pectoral-nerve",
+"name": "Right medial pectoral nerve [Inferior trunk of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 411,
+"indexCount": 2397,
+"bounds": [
+[
+-0.10260000079870224,
+1.340999960899353,
+-0.011739999987185001
+],
+[
+-0.05722999945282936,
+1.4340900182724,
+0.049890000373125076
+]
+],
+"positions": 3626248,
+"normals": 3631180,
+"indices": 3633648
+},
+{
+"id": "ZA-left-medial-plantar-nerve",
+"name": "Left medial plantar nerve [Lumbosacral plexus; Medial plantar nerve; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 424,
+"indexCount": 2400,
+"bounds": [
+[
+0.06392999738454819,
+0.023749999701976776,
+-0.047680001705884933
+],
+[
+0.0835300013422966,
+0.05601999908685684,
+0.03229999914765358
+]
+],
+"positions": 3643236,
+"normals": 3648324,
+"indices": 3650868
+},
+{
+"id": "ZA-right-medial-plantar-nerve",
+"name": "Right medial plantar nerve [Lumbosacral plexus; Medial plantar nerve; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 424,
+"indexCount": 2400,
+"bounds": [
+[
+-0.08364000171422958,
+0.023240000009536743,
+-0.0473099984228611
+],
+[
+-0.0640299990773201,
+0.05550000071525574,
+0.032669998705387115
+]
+],
+"positions": 3660468,
+"normals": 3665556,
+"indices": 3668100
+},
+{
+"id": "ZA-left-medial-sural-cutaneous-nerve",
+"name": "Left medial sural cutaneous nerve [Lumbosacral plexus; Saphenous nerve; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 156,
+"indexCount": 864,
+"bounds": [
+[
+0.06684999912977219,
+0.4272499978542328,
+-0.0868000015616417
+],
+[
+0.0737999975681305,
+0.5574899911880493,
+-0.035190001130104065
+]
+],
+"positions": 3677700,
+"normals": 3679572,
+"indices": 3680508
+},
+{
+"id": "ZA-right-medial-sural-cutaneous-nerve",
+"name": "Right medial sural cutaneous nerve [Lumbosacral plexus; Saphenous nerve; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 156,
+"indexCount": 864,
+"bounds": [
+[
+-0.0734499990940094,
+0.4256199896335602,
+-0.0867300033569336
+],
+[
+-0.06650999933481216,
+0.5558599829673767,
+-0.03513000160455704
+]
+],
+"positions": 3683964,
+"normals": 3685836,
+"indices": 3686772
+},
+{
+"id": "ZA-left-median-nerve",
+"name": "Left median nerve [Median nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 651,
+"indexCount": 3885,
+"bounds": [
+[
+0.10193999856710434,
+0.8578699827194214,
+-0.0269399993121624
+],
+[
+0.2551499903202057,
+1.4115699529647827,
+0.03449000045657158
+]
+],
+"positions": 3690228,
+"normals": 3698040,
+"indices": 3701948
+},
+{
+"id": "ZA-right-median-nerve",
+"name": "Right median nerve [Median nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 651,
+"indexCount": 3885,
+"bounds": [
+[
+-0.25718000531196594,
+0.8503999710083008,
+-0.0257399994879961
+],
+[
+-0.1039699986577034,
+1.404099941253662,
+0.035679999738931656
+]
+],
+"positions": 3717488,
+"normals": 3725300,
+"indices": 3729208
+},
+{
+"id": "ZA-left-meningeal-branch-of-maxillary-nerve",
+"name": "Left meningeal branch of maxillary nerve [Cranial nerves; Trigeminal nerve (V)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 797,
+"indexCount": 4578,
+"bounds": [
+[
+0.02457999996840954,
+1.565809965133667,
+-0.03302000090479851
+],
+[
+0.07816000282764435,
+1.6728500127792358,
+0.01882000081241131
+]
+],
+"positions": 3744748,
+"normals": 3754312,
+"indices": 3759096
+},
+{
+"id": "ZA-right-meningeal-branch-of-maxillary-nerve",
+"name": "Right meningeal branch of maxillary nerve [Cranial nerves; Trigeminal nerve (V)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 787,
+"indexCount": 4578,
+"bounds": [
+[
+-0.07930000126361847,
+1.565250039100647,
+-0.03271999955177307
+],
+[
+-0.02572000026702881,
+1.6722899675369263,
+0.019109999760985374
+]
+],
+"positions": 3777408,
+"normals": 3786852,
+"indices": 3791576
+},
+{
+"id": "ZA-left-mental-nerve",
+"name": "Left mental nerve [Cranial nerves; Trigeminal nerve (V)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 430,
+"indexCount": 2400,
+"bounds": [
+[
+0.016820000484585762,
+1.5159499645233154,
+0.05098000168800354
+],
+[
+0.021239999681711197,
+1.5278500318527222,
+0.05634000152349472
+]
+],
+"positions": 3809888,
+"normals": 3815048,
+"indices": 3817628
+},
+{
+"id": "ZA-right-mental-nerve",
+"name": "Right mental nerve [Cranial nerves; Trigeminal nerve (V)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 430,
+"indexCount": 2400,
+"bounds": [
+[
+-0.022369999438524246,
+1.5161499977111816,
+0.05067000165581703
+],
+[
+-0.01795000024139881,
+1.5280499458312988,
+0.05603000149130821
+]
+],
+"positions": 3827228,
+"normals": 3832388,
+"indices": 3834968
+},
+{
+"id": "ZA-left-middle-trunk-of-brachial-plexus",
+"name": "Left middle trunk of brachial plexus [Middle trunk of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 156,
+"indexCount": 864,
+"bounds": [
+[
+0.04820000007748604,
+1.4198499917984009,
+-0.028139999136328697
+],
+[
+0.08160000294446945,
+1.4449599981307983,
+-0.022679999470710754
+]
+],
+"positions": 3844568,
+"normals": 3846440,
+"indices": 3847376
+},
+{
+"id": "ZA-right-middle-trunk-of-brachial-plexus",
+"name": "Right middle trunk of brachial plexus [Middle trunk of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 156,
+"indexCount": 864,
+"bounds": [
+[
+-0.08270999789237976,
+1.4201200008392334,
+-0.028550000861287117
+],
+[
+-0.049309998750686646,
+1.4452300071716309,
+-0.023089999333024025
+]
+],
+"positions": 3850832,
+"normals": 3852704,
+"indices": 3853640
+},
+{
+"id": "ZA-left-muscular-branches-of-axillary-nerve",
+"name": "Left muscular branches of axillary nerve [Axillary nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 412,
+"indexCount": 2400,
+"bounds": [
+[
+0.157150000333786,
+1.3618500232696533,
+-0.03446999937295914
+],
+[
+0.19061000645160675,
+1.3833800554275513,
+-0.01295000035315752
+]
+],
+"positions": 3857096,
+"normals": 3862040,
+"indices": 3864512
+},
+{
+"id": "ZA-right-muscular-branches-of-axillary-nerve",
+"name": "Right muscular branches of axillary nerve [Axillary nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 412,
+"indexCount": 2400,
+"bounds": [
+[
+-0.18910999596118927,
+1.3704400062561035,
+-0.03311999887228012
+],
+[
+-0.15564000606536865,
+1.3919600248336792,
+-0.011599999852478504
+]
+],
+"positions": 3874112,
+"normals": 3879056,
+"indices": 3881528
+},
+{
+"id": "ZA-left-muscular-branches-of-deep-fibular-nerve",
+"name": "Left muscular branches of deep fibular nerve [Deep fibular nerve; Lumbosacral plexus; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 444,
+"indexCount": 2592,
+"bounds": [
+[
+0.0885699987411499,
+0.047759998589754105,
+-0.007720000110566616
+],
+[
+0.11063999682664871,
+0.07732000201940536,
+-0.003759999992325902
+]
+],
+"positions": 3891128,
+"normals": 3896456,
+"indices": 3899120
+},
+{
+"id": "ZA-right-muscular-branches-of-deep-fibular-nerve",
+"name": "Right muscular branches of deep fibular nerve [Deep fibular nerve; Lumbosacral plexus; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 444,
+"indexCount": 2592,
+"bounds": [
+[
+-0.11094000190496445,
+0.047370001673698425,
+-0.007180000189691782
+],
+[
+-0.08886999636888504,
+0.07693000137805939,
+-0.003229999914765358
+]
+],
+"positions": 3909488,
+"normals": 3914816,
+"indices": 3917480
+},
+{
+"id": "ZA-left-muscular-branches-of-median-nerve",
+"name": "Left muscular branches of median nerve [Median nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 428,
+"indexCount": 2397,
+"bounds": [
+[
+0.20354999601840973,
+1.0303699970245361,
+-0.011889999732375145
+],
+[
+0.22380000352859497,
+1.0872000455856323,
+0.010979999788105488
+]
+],
+"positions": 3927848,
+"normals": 3932984,
+"indices": 3935552
+},
+{
+"id": "ZA-right-muscular-branches-of-median-nerve",
+"name": "Right muscular branches of median nerve [Median nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 427,
+"indexCount": 2397,
+"bounds": [
+[
+-0.2256699949502945,
+1.0208499431610107,
+-0.010099999606609344
+],
+[
+-0.20542000234127045,
+1.077679991722107,
+0.012769999913871288
+]
+],
+"positions": 3945140,
+"normals": 3950264,
+"indices": 3952828
+},
+{
+"id": "ZA-left-muscular-branches-of-radial-nerve",
+"name": "Left muscular branches of radial nerve [Radial nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 437,
+"indexCount": 2400,
+"bounds": [
+[
+0.19202999770641327,
+1.115530014038086,
+-0.05463999882340431
+],
+[
+0.2540000081062317,
+1.1826200485229492,
+-0.01703999936580658
+]
+],
+"positions": 3962416,
+"normals": 3967660,
+"indices": 3970284
+},
+{
+"id": "ZA-right-muscular-branches-of-radial-nerve",
+"name": "Right muscular branches of radial nerve [Radial nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 437,
+"indexCount": 2400,
+"bounds": [
+[
+-0.2518700063228607,
+1.1238000392913818,
+-0.051819998770952225
+],
+[
+-0.1898999959230423,
+1.1908899545669556,
+-0.014220000244677067
+]
+],
+"positions": 3979884,
+"normals": 3985128,
+"indices": 3987752
+},
+{
+"id": "ZA-left-muscular-branches-of-ulnar-nerve",
+"name": "Left muscular branches of ulnar nerve [Ulnar nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 312,
+"indexCount": 1728,
+"bounds": [
+[
+0.18081000447273254,
+1.0169999599456787,
+-0.032349999994039536
+],
+[
+0.21222999691963196,
+1.070889949798584,
+-0.006850000005215406
+]
+],
+"positions": 3997352,
+"normals": 4001096,
+"indices": 4002968
+},
+{
+"id": "ZA-right-muscular-branches-of-ulnar-nerve",
+"name": "Right muscular branches of ulnar nerve [Ulnar nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 312,
+"indexCount": 1728,
+"bounds": [
+[
+-0.21410000324249268,
+1.0074900388717651,
+-0.030570000410079956
+],
+[
+-0.18267999589443207,
+1.0613700151443481,
+-0.005059999879449606
+]
+],
+"positions": 4009880,
+"normals": 4013624,
+"indices": 4015496
+},
+{
+"id": "ZA-left-musculocutaneous-nerve",
+"name": "Left musculocutaneous nerve [Musculocutaneous nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 412,
+"indexCount": 2400,
+"bounds": [
+[
+0.16582000255584717,
+1.1103700399398804,
+-0.026100000366568565
+],
+[
+0.21488000452518463,
+1.3295899629592896,
+-0.005200000014156103
+]
+],
+"positions": 4022408,
+"normals": 4027352,
+"indices": 4029824
+},
+{
+"id": "ZA-right-musculocutaneous-nerve",
+"name": "Right musculocutaneous nerve [Musculocutaneous nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 412,
+"indexCount": 2400,
+"bounds": [
+[
+-0.21198999881744385,
+1.12568998336792,
+-0.024049999192357063
+],
+[
+-0.16292999684810638,
+1.3449100255966187,
+-0.003160000080242753
+]
+],
+"positions": 4039424,
+"normals": 4044368,
+"indices": 4046840
+},
+{
+"id": "ZA-left-nerve-to-mylohyoid-muscle",
+"name": "Left nerve to mylohyoid muscle [Cranial nerves; Trigeminal nerve (V)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 455,
+"indexCount": 2622,
+"bounds": [
+[
+0.010610000230371952,
+1.5163700580596924,
+0.0020099999383091927
+],
+[
+0.0357000008225441,
+1.5595300197601318,
+0.03734999895095825
+]
+],
+"positions": 4056440,
+"normals": 4061900,
+"indices": 4064632
+},
+{
+"id": "ZA-right-nerve-to-mylohyoid-muscle",
+"name": "Right nerve to mylohyoid muscle [Cranial nerves; Trigeminal nerve (V)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 455,
+"indexCount": 2622,
+"bounds": [
+[
+-0.03669000044465065,
+1.5162999629974365,
+0.002090000081807375
+],
+[
+-0.011599999852478504,
+1.5594600439071655,
+0.03742999956011772
+]
+],
+"positions": 4075120,
+"normals": 4080580,
+"indices": 4083312
+},
+{
+"id": "ZA-left-nerve-to-piriformis-muscle",
+"name": "Left nerve to piriformis muscle [Lumbosacral plexus; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 421,
+"indexCount": 2400,
+"bounds": [
+[
+0.016699999570846558,
+0.9126499891281128,
+-0.07481999695301056
+],
+[
+0.0692799985408783,
+0.9564200043678284,
+-0.05130000039935112
+]
+],
+"positions": 4093800,
+"normals": 4098852,
+"indices": 4101380
+},
+{
+"id": "ZA-right-nerve-to-piriformis-muscle",
+"name": "Right nerve to piriformis muscle [Lumbosacral plexus; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 421,
+"indexCount": 2400,
+"bounds": [
+[
+-0.07020000368356705,
+0.9122300148010254,
+-0.07451999932527542
+],
+[
+-0.017629999667406082,
+0.9559999704360962,
+-0.05099000036716461
+]
+],
+"positions": 4110980,
+"normals": 4116032,
+"indices": 4118560
+},
+{
+"id": "ZA-left-nerve-to-quadratus-femoris-muscle",
+"name": "Left nerve to quadratus femoris muscle [Meninges; Spinal dura]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 556,
+"indexCount": 3240,
+"bounds": [
+[
+0.020479999482631683,
+0.836679995059967,
+-0.05762999877333641
+],
+[
+0.0906200036406517,
+1.0329699516296387,
+-0.01981000043451786
+]
+],
+"positions": 4128160,
+"normals": 4134832,
+"indices": 4138168
+},
+{
+"id": "ZA-right-nerve-to-quadratus-femoris-muscle",
+"name": "Right nerve to quadratus femoris muscle [Meninges; Spinal dura]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 556,
+"indexCount": 3240,
+"bounds": [
+[
+-0.091279998421669,
+0.8360099792480469,
+-0.05714000016450882
+],
+[
+-0.021139999851584435,
+1.0322999954223633,
+-0.01931999996304512
+]
+],
+"positions": 4151128,
+"normals": 4157800,
+"indices": 4161136
+},
+{
+"id": "ZA-left-obturator-nerve",
+"name": "Left obturator nerve [Lumbar plexus; Lumbosacral plexus; Obturator nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 448,
+"indexCount": 2589,
+"bounds": [
+[
+0.015449999831616879,
+0.8865799903869629,
+-0.030950000509619713
+],
+[
+0.05900000035762787,
+1.1044399738311768,
+0.00773000018671155
+]
+],
+"positions": 4174096,
+"normals": 4179472,
+"indices": 4182160
+},
+{
+"id": "ZA-right-obturator-nerve",
+"name": "Right obturator nerve [Lumbar plexus; Lumbosacral plexus; Obturator nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 448,
+"indexCount": 2589,
+"bounds": [
+[
+-0.06103000044822693,
+0.8865799903869629,
+-0.030950000509619713
+],
+[
+-0.017480000853538513,
+1.1044399738311768,
+0.00773000018671155
+]
+],
+"positions": 4192516,
+"normals": 4197892,
+"indices": 4200580
+},
+{
+"id": "ZA-left-oculomotor-nerve-iii",
+"name": "Left oculomotor nerve (III) [Cranial nerves; Oculomotor nerve (III)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 1142,
+"indexCount": 6585,
+"bounds": [
+[
+-0.0005300000193528831,
+1.5799100399017334,
+-0.02112000063061714
+],
+[
+0.03832000121474266,
+1.6139500141143799,
+0.060169998556375504
+]
+],
+"positions": 4210936,
+"normals": 4224640,
+"indices": 4231492
+},
+{
+"id": "ZA-right-oculomotor-nerve-iii",
+"name": "Right oculomotor nerve (III) [Cranial nerves; Oculomotor nerve (III)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 1155,
+"indexCount": 6582,
+"bounds": [
+[
+-0.03954999893903732,
+1.579800009727478,
+-0.021050000563263893
+],
+[
+-0.000699999975040555,
+1.6138800382614136,
+0.0602400004863739
+]
+],
+"positions": 4257832,
+"normals": 4271692,
+"indices": 4278624
+},
+{
+"id": "ZA-left-olfactory-nerve-i",
+"name": "Left olfactory nerve (I) [Cranial nerves; Olfactory nerve (I)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 3530,
+"indexCount": 20217,
+"bounds": [
+[
+-0.0007800000021234155,
+1.6022900342941284,
+0.007699999958276749
+],
+[
+0.022390000522136688,
+1.6200900077819824,
+0.05843000113964081
+]
+],
+"positions": 4304952,
+"normals": 4347312,
+"indices": 4368492
+},
+{
+"id": "ZA-right-olfactory-nerve-i",
+"name": "Right olfactory nerve (I) [Cranial nerves; Olfactory nerve (I)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 3523,
+"indexCount": 20217,
+"bounds": [
+[
+-0.023159999400377274,
+1.6020100116729736,
+0.00800000037997961
+],
+[
+9.999999747378752e-06,
+1.6198099851608276,
+0.05874999985098839
+]
+],
+"positions": 4449360,
+"normals": 4491636,
+"indices": 4512776
+},
+{
+"id": "ZA-left-ophthalmic-nerve",
+"name": "Left ophthalmic nerve [Cranial nerves; Trigeminal nerve (V)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 880,
+"indexCount": 5043,
+"bounds": [
+[
+0.009359999559819698,
+1.6024099588394165,
+-0.008709999732673168
+],
+[
+0.03864999860525131,
+1.6383600234985352,
+0.07732000201940536
+]
+],
+"positions": 4593644,
+"normals": 4604204,
+"indices": 4609484
+},
+{
+"id": "ZA-right-ophthalmic-nerve",
+"name": "Right ophthalmic nerve [Cranial nerves; Trigeminal nerve (V)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 884,
+"indexCount": 5040,
+"bounds": [
+[
+-0.03928999975323677,
+1.6035499572753906,
+-0.008070000447332859
+],
+[
+-0.009999999776482582,
+1.6395000219345093,
+0.07795999944210052
+]
+],
+"positions": 4629656,
+"normals": 4640264,
+"indices": 4645568
+},
+{
+"id": "ZA-left-optic-nerve-ii",
+"name": "Left optic nerve (II) [Cranial nerves; Optic nerve (II)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 412,
+"indexCount": 2400,
+"bounds": [
+[
+-0.0002300000051036477,
+1.596869945526123,
+0.007780000101774931
+],
+[
+0.030230000615119934,
+1.6136000156402588,
+0.05025999993085861
+]
+],
+"positions": 4665728,
+"normals": 4670672,
+"indices": 4673144
+},
+{
+"id": "ZA-right-optic-nerve-ii",
+"name": "Right optic nerve (II) [Cranial nerves; Optic nerve (II)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 410,
+"indexCount": 2400,
+"bounds": [
+[
+-0.031069999560713768,
+1.5981999635696411,
+0.008059999905526638
+],
+[
+-0.0006099999882280827,
+1.6149300336837769,
+0.05056000128388405
+]
+],
+"positions": 4682744,
+"normals": 4687664,
+"indices": 4690124
+},
+{
+"id": "ZA-left-palmar-branch-of-median-nerve",
+"name": "Left palmar branch of median nerve [Median nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 410,
+"indexCount": 2397,
+"bounds": [
+[
+0.23128999769687653,
+0.8666200041770935,
+0.012240000069141388
+],
+[
+0.26855000853538513,
+0.9651899933815002,
+0.046480000019073486
+]
+],
+"positions": 4699724,
+"normals": 4704644,
+"indices": 4707104
+},
+{
+"id": "ZA-right-palmar-branch-of-median-nerve",
+"name": "Right palmar branch of median nerve [Median nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 410,
+"indexCount": 2397,
+"bounds": [
+[
+-0.26912999153137207,
+0.8674399852752686,
+0.01221999991685152
+],
+[
+-0.2318599969148636,
+0.9660199880599976,
+0.046459998935461044
+]
+],
+"positions": 4716692,
+"normals": 4721612,
+"indices": 4724072
+},
+{
+"id": "ZA-left-palmar-branch-of-ulnar-nerve",
+"name": "Left palmar branch of ulnar nerve [Ulnar nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 412,
+"indexCount": 2400,
+"bounds": [
+[
+0.20652000606060028,
+0.8452900052070618,
+-0.00343000004068017
+],
+[
+0.2566800117492676,
+0.9720100164413452,
+0.04554000124335289
+]
+],
+"positions": 4733660,
+"normals": 4738604,
+"indices": 4741076
+},
+{
+"id": "ZA-right-palmar-branch-of-ulnar-nerve",
+"name": "Right palmar branch of ulnar nerve [Ulnar nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 412,
+"indexCount": 2400,
+"bounds": [
+[
+-0.2565999925136566,
+0.8452399969100952,
+-0.003809999907389283
+],
+[
+-0.20645000040531158,
+0.9719499945640564,
+0.045159999281167984
+]
+],
+"positions": 4750676,
+"normals": 4755620,
+"indices": 4758092
+},
+{
+"id": "ZA-left-posterior-antebrachial-cutaneous-nerve",
+"name": "Left posterior antebrachial cutaneous nerve [Radial nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 409,
+"indexCount": 2397,
+"bounds": [
+[
+0.2309200018644333,
+0.9107099771499634,
+-0.054659999907016754
+],
+[
+0.24642999470233917,
+1.1414799690246582,
+-0.0052200001664459705
+]
+],
+"positions": 4767692,
+"normals": 4772600,
+"indices": 4775056
+},
+{
+"id": "ZA-right-posterior-antebrachial-cutaneous-nerve",
+"name": "Right posterior antebrachial cutaneous nerve [Radial nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 409,
+"indexCount": 2397,
+"bounds": [
+[
+-0.24785999953746796,
+0.9025300145149231,
+-0.053530000150203705
+],
+[
+-0.2323399931192398,
+1.1333099603652954,
+-0.004089999943971634
+]
+],
+"positions": 4784644,
+"normals": 4789552,
+"indices": 4792008
+},
+{
+"id": "ZA-left-posterior-branch-of-medial-antebrachial-cutaneous-nerve",
+"name": "Left posterior branch of medial antebrachial cutaneous nerve [Medial antebrachial cutaneous nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 408,
+"indexCount": 2400,
+"bounds": [
+[
+0.17392000555992126,
+0.9585700035095215,
+-0.03525000065565109
+],
+[
+0.2184399962425232,
+1.1853400468826294,
+-0.009630000218749046
+]
+],
+"positions": 4801596,
+"normals": 4806492,
+"indices": 4808940
+},
+{
+"id": "ZA-right-posterior-branch-of-medial-antebrachial-cutaneous-nerve",
+"name": "Right posterior branch of medial antebrachial cutaneous nerve [Medial antebrachial cutaneous nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 408,
+"indexCount": 2400,
+"bounds": [
+[
+-0.2203100025653839,
+0.9490500092506409,
+-0.03344999998807907
+],
+[
+-0.1757899969816208,
+1.1758300065994263,
+-0.007819999940693378
+]
+],
+"positions": 4818540,
+"normals": 4823436,
+"indices": 4825884
+},
+{
+"id": "ZA-left-posterior-branch-of-obturator-nerve",
+"name": "Left posterior branch of obturator nerve [Lumbar plexus; Lumbosacral plexus; Obturator nerve; Posterior branch of obturator nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 412,
+"indexCount": 2400,
+"bounds": [
+[
+0.04022999852895737,
+0.7290700078010559,
+0.0007200000109151006
+],
+[
+0.05688000097870827,
+0.8879899978637695,
+0.012849999591708183
+]
+],
+"positions": 4835484,
+"normals": 4840428,
+"indices": 4842900
+},
+{
+"id": "ZA-right-posterior-branch-of-obturator-nerve",
+"name": "Right posterior branch of obturator nerve [Lumbar plexus; Lumbosacral plexus; Obturator nerve; Posterior branch of obturator nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 412,
+"indexCount": 2400,
+"bounds": [
+[
+-0.05728999897837639,
+0.7297999858856201,
+0.0011399999493733048
+],
+[
+-0.04064000025391579,
+0.8887199759483337,
+0.013269999995827675
+]
+],
+"positions": 4852500,
+"normals": 4857444,
+"indices": 4859916
+},
+{
+"id": "ZA-left-posterior-cord-of-brachial-plexus",
+"name": "Left posterior cord of brachial plexus [Infraclavicular part of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 300,
+"indexCount": 1728,
+"bounds": [
+[
+0.09703999757766724,
+1.3840899467468262,
+-0.02459000051021576
+],
+[
+0.11939000338315964,
+1.4059100151062012,
+-0.02199999988079071
+]
+],
+"positions": 4869516,
+"normals": 4873116,
+"indices": 4874916
+},
+{
+"id": "ZA-right-posterior-cord-of-brachial-plexus",
+"name": "Right posterior cord of brachial plexus [Infraclavicular part of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 300,
+"indexCount": 1728,
+"bounds": [
+[
+-0.12025000154972076,
+1.3840299844741821,
+-0.024550000205636024
+],
+[
+-0.09788999706506729,
+1.4058500528335571,
+-0.021959999576210976
+]
+],
+"positions": 4881828,
+"normals": 4885428,
+"indices": 4887228
+},
+{
+"id": "ZA-left-posterior-division-of-inferior-trunk-of-brachial-plexus",
+"name": "Left posterior division of inferior trunk of brachial plexus [Inferior trunk of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 156,
+"indexCount": 864,
+"bounds": [
+[
+0.07918000221252441,
+1.4016000032424927,
+-0.01655999943614006
+],
+[
+0.10723000019788742,
+1.420050024986267,
+-0.012199999764561653
+]
+],
+"positions": 4894140,
+"normals": 4896012,
+"indices": 4896948
+},
+{
+"id": "ZA-right-posterior-division-of-inferior-trunk-of-brachial-plexus",
+"name": "Right posterior division of inferior trunk of brachial plexus [Inferior trunk of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 156,
+"indexCount": 864,
+"bounds": [
+[
+-0.10835999995470047,
+1.401900053024292,
+-0.0170499999076128
+],
+[
+-0.08031000196933746,
+1.4203499555587769,
+-0.01269999984651804
+]
+],
+"positions": 4900404,
+"normals": 4902276,
+"indices": 4903212
+},
+{
+"id": "ZA-left-posterior-division-of-mandibular-nerve",
+"name": "Left posterior division of mandibular nerve [Cranial nerves; Trigeminal nerve (V)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 468,
+"indexCount": 2652,
+"bounds": [
+[
+0.023679999634623528,
+1.5539599657058716,
+0.004269999917596579
+],
+[
+0.037689998745918274,
+1.5855599641799927,
+0.009720000438392162
+]
+],
+"positions": 4906668,
+"normals": 4912284,
+"indices": 4915092
+},
+{
+"id": "ZA-right-posterior-division-of-mandibular-nerve",
+"name": "Right posterior division of mandibular nerve [Cranial nerves; Trigeminal nerve (V)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 468,
+"indexCount": 2652,
+"bounds": [
+[
+-0.03894000127911568,
+1.5539499521255493,
+0.004480000119656324
+],
+[
+-0.02493000030517578,
+1.5855400562286377,
+0.009940000250935555
+]
+],
+"positions": 4925700,
+"normals": 4931316,
+"indices": 4934124
+},
+{
+"id": "ZA-left-posterior-division-of-middle-trunk-of-brachial-plexus",
+"name": "Left posterior division of middle trunk of brachial plexus [Middle trunk of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 156,
+"indexCount": 864,
+"bounds": [
+[
+0.07988999783992767,
+1.4007099866867065,
+-0.026040000841021538
+],
+[
+0.09804999828338623,
+1.4224900007247925,
+-0.02005000039935112
+]
+],
+"positions": 4944732,
+"normals": 4946604,
+"indices": 4947540
+},
+{
+"id": "ZA-right-posterior-division-of-middle-trunk-of-brachial-plexus",
+"name": "Right posterior division of middle trunk of brachial plexus [Middle trunk of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 156,
+"indexCount": 864,
+"bounds": [
+[
+-0.09920000284910202,
+1.4010299444198608,
+-0.026580000296235085
+],
+[
+-0.08104000240564346,
+1.422819972038269,
+-0.020589999854564667
+]
+],
+"positions": 4950996,
+"normals": 4952868,
+"indices": 4953804
+},
+{
+"id": "ZA-left-posterior-division-of-superior-trunk-of-brachial-plexus",
+"name": "Left posterior division of superior trunk of brachial plexus [Superior trunk of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 156,
+"indexCount": 864,
+"bounds": [
+[
+0.08361999690532684,
+1.400670051574707,
+-0.027089999988675117
+],
+[
+0.09811999648809433,
+1.4209100008010864,
+-0.024049999192357063
+]
+],
+"positions": 4957260,
+"normals": 4959132,
+"indices": 4960068
+},
+{
+"id": "ZA-right-posterior-division-of-superior-trunk-of-brachial-plexus",
+"name": "Right posterior division of superior trunk of brachial plexus [Superior trunk of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 156,
+"indexCount": 864,
+"bounds": [
+[
+-0.09928999841213226,
+1.4010000228881836,
+-0.027639999985694885
+],
+[
+-0.08478999882936478,
+1.421239972114563,
+-0.02459999918937683
+]
+],
+"positions": 4963524,
+"normals": 4965396,
+"indices": 4966332
+},
+{
+"id": "ZA-right-posterior-femoral-cutaneous-nerve",
+"name": "Right posterior femoral cutaneous nerve [Lumbosacral plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 415,
+"indexCount": 2397,
+"bounds": [
+[
+-0.07412999868392944,
+0.6737099885940552,
+-0.10950999706983566
+],
+[
+-0.032329998910427094,
+0.9705700278282166,
+-0.03150999918580055
+]
+],
+"positions": 4969788,
+"normals": 4974768,
+"indices": 4977260
+},
+{
+"id": "ZA-left-posterior-interosseous-nerve-of-forearm",
+"name": "Left posterior interosseous nerve of forearm [Deep branch of radial nerve; Radial nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 410,
+"indexCount": 2400,
+"bounds": [
+[
+0.22950999438762665,
+0.9229000210762024,
+-0.0297200009226799
+],
+[
+0.24381999671459198,
+1.0901600122451782,
+0.0083600003272295
+]
+],
+"positions": 4986848,
+"normals": 4991768,
+"indices": 4994228
+},
+{
+"id": "ZA-right-posterior-interosseous-nerve-of-forearm",
+"name": "Right posterior interosseous nerve of forearm [Deep branch of radial nerve; Radial nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 410,
+"indexCount": 2400,
+"bounds": [
+[
+-0.2452400028705597,
+0.9146199822425842,
+-0.028669999912381172
+],
+[
+-0.23093000054359436,
+1.08187997341156,
+0.009399999864399433
+]
+],
+"positions": 5003828,
+"normals": 5008748,
+"indices": 5011208
+},
+{
+"id": "ZA-left-posterior-root-of-posterior-femoral-cutaneous-nerve",
+"name": "Left posterior root of posterior femoral cutaneous nerve",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 515,
+"indexCount": 3024,
+"bounds": [
+[
+0.01152000017464161,
+0.9085999727249146,
+-0.09205000102519989
+],
+[
+0.04473999887704849,
+1.0019700527191162,
+-0.046720001846551895
+]
+],
+"positions": 5020808,
+"normals": 5026988,
+"indices": 5030080
+},
+{
+"id": "ZA-right-posterior-root-of-posterior-femoral-cutaneous-nerve",
+"name": "Right posterior root of posterior femoral cutaneous nerve",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 515,
+"indexCount": 3024,
+"bounds": [
+[
+-0.045820001512765884,
+0.9083099961280823,
+-0.091839998960495
+],
+[
+-0.012609999626874924,
+1.0016900300979614,
+-0.046509999781847
+]
+],
+"positions": 5042176,
+"normals": 5048356,
+"indices": 5051448
+},
+{
+"id": "ZA-left-posterior-root-of-spinal-nerve",
+"name": "Left posterior root of spinal nerve [Meninges; Spinal dura]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 853,
+"indexCount": 4533,
+"bounds": [
+[
+-0.00044999999227002263,
+1.0712800025939941,
+-0.07631999999284744
+],
+[
+0.01655999943614006,
+1.538789987564087,
+-0.015599999576807022
+]
+],
+"positions": 5063544,
+"normals": 5073780,
+"indices": 5078900
+},
+{
+"id": "ZA-right-posterior-root-of-spinal-nerve",
+"name": "Right posterior root of spinal nerve [Meninges; Spinal dura]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 853,
+"indexCount": 4533,
+"bounds": [
+[
+-0.01860000006854534,
+1.0712800025939941,
+-0.07631999999284744
+],
+[
+-0.0015899999998509884,
+1.538789987564087,
+-0.015599999576807022
+]
+],
+"positions": 5097032,
+"normals": 5107268,
+"indices": 5112388
+},
+{
+"id": "ZA-left-proper-palmar-digital-branches-of-median-nerve",
+"name": "Left proper palmar digital branches of median nerve [Common palmar digital branches of median nerve; Median nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 1397,
+"indexCount": 8205,
+"bounds": [
+[
+0.25270000100135803,
+0.7329400181770325,
+0.03564999997615814
+],
+[
+0.3196699917316437,
+0.8590899705886841,
+0.0967399999499321
+]
+],
+"positions": 5130520,
+"normals": 5147284,
+"indices": 5155668
+},
+{
+"id": "ZA-right-proper-palmar-digital-branches-of-median-nerve",
+"name": "Right proper palmar digital branches of median nerve [Common palmar digital branches of median nerve; Median nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 1397,
+"indexCount": 8205,
+"bounds": [
+[
+-0.31972000002861023,
+0.7330399751663208,
+0.036070000380277634
+],
+[
+-0.25275999307632446,
+0.8591899871826172,
+0.09715999662876129
+]
+],
+"positions": 5188488,
+"normals": 5205252,
+"indices": 5213636
+},
+{
+"id": "ZA-left-proper-palmar-digital-branches-of-ulnar-nerve",
+"name": "Left proper palmar digital branches of ulnar nerve [Common palmar digital branches of ulnar nerve; Ulnar nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 735,
+"indexCount": 4320,
+"bounds": [
+[
+0.21649999916553497,
+0.7412899732589722,
+0.03175999969244003
+],
+[
+0.24675999581813812,
+0.8718699812889099,
+0.0945499986410141
+]
+],
+"positions": 5246456,
+"normals": 5255276,
+"indices": 5259688
+},
+{
+"id": "ZA-right-proper-palmar-digital-branches-of-ulnar-nerve",
+"name": "Right proper palmar digital branches of ulnar nerve [Common palmar digital branches of ulnar nerve; Ulnar nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 735,
+"indexCount": 4320,
+"bounds": [
+[
+-0.2465900033712387,
+0.742929995059967,
+0.0318400003015995
+],
+[
+-0.21633000671863556,
+0.8734999895095825,
+0.09463000297546387
+]
+],
+"positions": 5276968,
+"normals": 5285788,
+"indices": 5290200
+},
+{
+"id": "ZA-left-proper-plantar-digital-branches-of-lateral-plantar-nerve",
+"name": "Left proper plantar digital branches of lateral plantar nerve [Lateral plantar nerve; Lumbosacral plexus; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 958,
+"indexCount": 5616,
+"bounds": [
+[
+0.12105999886989594,
+0.005799999926239252,
+0.04692000150680542
+],
+[
+0.15845000743865967,
+0.02070000022649765,
+0.11855000257492065
+]
+],
+"positions": 5307480,
+"normals": 5318976,
+"indices": 5324724
+},
+{
+"id": "ZA-right-proper-plantar-digital-branches-of-lateral-plantar-nerve",
+"name": "Right proper plantar digital branches of lateral plantar nerve [Lateral plantar nerve; Lumbosacral plexus; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 958,
+"indexCount": 5616,
+"bounds": [
+[
+-0.1583700031042099,
+0.005499999970197678,
+0.04738999903202057
+],
+[
+-0.12098000198602676,
+0.020400000736117363,
+0.1190200001001358
+]
+],
+"positions": 5347188,
+"normals": 5358684,
+"indices": 5364432
+},
+{
+"id": "ZA-left-proper-plantar-digital-branches-of-medial-plantar-nerve",
+"name": "Left proper plantar digital branches of medial plantar nerve [Lumbosacral plexus; Medial plantar nerve; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 811,
+"indexCount": 4749,
+"bounds": [
+[
+0.07503999769687653,
+0.006560000125318766,
+0.06928999722003937
+],
+[
+0.13027000427246094,
+0.017550000920891762,
+0.13574999570846558
+]
+],
+"positions": 5386896,
+"normals": 5396628,
+"indices": 5401496
+},
+{
+"id": "ZA-right-proper-plantar-digital-branches-of-medial-plantar-nerve",
+"name": "Right proper plantar digital branches of medial plantar nerve [Lumbosacral plexus; Medial plantar nerve; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 811,
+"indexCount": 4749,
+"bounds": [
+[
+-0.1303199976682663,
+0.0066200001165270805,
+0.06920000165700912
+],
+[
+-0.07508999854326248,
+0.01761000044643879,
+0.13565999269485474
+]
+],
+"positions": 5420492,
+"normals": 5430224,
+"indices": 5435092
+},
+{
+"id": "ZA-left-radial-nerve",
+"name": "Left radial nerve [Radial nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 407,
+"indexCount": 2400,
+"bounds": [
+[
+0.11084999889135361,
+1.1124399900436401,
+-0.04448999837040901
+],
+[
+0.23413999378681183,
+1.4005000591278076,
+-0.012760000303387642
+]
+],
+"positions": 5454088,
+"normals": 5458972,
+"indices": 5461416
+},
+{
+"id": "ZA-right-radial-nerve",
+"name": "Right radial nerve [Radial nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 407,
+"indexCount": 2400,
+"bounds": [
+[
+-0.2302200049161911,
+1.1313799619674683,
+-0.042169999331235886
+],
+[
+-0.10694000124931335,
+1.419450044631958,
+-0.010440000332891941
+]
+],
+"positions": 5471016,
+"normals": 5475900,
+"indices": 5478344
+},
+{
+"id": "ZA-left-posterior-femoral-cutaneous-nerve",
+"name": "Left posterior femoral cutaneous nerve [Lumbosacral plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 415,
+"indexCount": 2397,
+"bounds": [
+[
+0.031780000776052475,
+0.6743000149726868,
+-0.10993999987840652
+],
+[
+0.07357999682426453,
+0.9711599946022034,
+-0.031939998269081116
+]
+],
+"positions": 5487944,
+"normals": 5492924,
+"indices": 5495416
+},
+{
+"id": "ZA-common-plantar-digital-branches-of-medial-plantar-nerve",
+"name": "Common plantar digital branches of medial plantar nerve [Lumbosacral plexus; Medial plantar nerve; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 421,
+"indexCount": 2397,
+"bounds": [
+[
+-0.11460000276565552,
+0.01143999956548214,
+0.030220000073313713
+],
+[
+-0.07597000151872635,
+0.028529999777674675,
+0.08208999782800674
+]
+],
+"positions": 5505004,
+"normals": 5510056,
+"indices": 5512584
+},
+{
+"id": "ZA-left-saphenous-nerve",
+"name": "Left saphenous nerve [Lumbar plexus; Lumbosacral plexus; Saphenous nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 838,
+"indexCount": 4968,
+"bounds": [
+[
+0.029020000249147415,
+0.1155799999833107,
+-0.09854000061750412
+],
+[
+0.07114999741315842,
+0.8753600120544434,
+0.05457000061869621
+]
+],
+"positions": 5522172,
+"normals": 5532228,
+"indices": 5537256
+},
+{
+"id": "ZA-right-saphenous-nerve",
+"name": "Right saphenous nerve [Lumbar plexus; Lumbosacral plexus; Saphenous nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 838,
+"indexCount": 4968,
+"bounds": [
+[
+-0.07122000306844711,
+0.11321999877691269,
+-0.09860000014305115
+],
+[
+-0.029079999774694443,
+0.873009979724884,
+0.054499998688697815
+]
+],
+"positions": 5557128,
+"normals": 5567184,
+"indices": 5572212
+},
+{
+"id": "ZA-left-sciatic-nerve",
+"name": "Left sciatic nerve [Lumbosacral plexus; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 624,
+"indexCount": 3669,
+"bounds": [
+[
+0.01664000004529953,
+0.5636399984359741,
+-0.0865899994969368
+],
+[
+0.08004000037908554,
+1.0016800165176392,
+-0.030869999900460243
+]
+],
+"positions": 5592084,
+"normals": 5599572,
+"indices": 5603316
+},
+{
+"id": "ZA-right-sciatic-nerve",
+"name": "Right sciatic nerve [Lumbosacral plexus; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 624,
+"indexCount": 3669,
+"bounds": [
+[
+-0.0804700031876564,
+0.5633800029754639,
+-0.08640000224113464
+],
+[
+-0.017069999128580093,
+1.001420021057129,
+-0.03068000078201294
+]
+],
+"positions": 5617992,
+"normals": 5625480,
+"indices": 5629224
+},
+{
+"id": "ZA-left-pudendal-nerve",
+"name": "Left pudendal nerve [Pelvis]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 483,
+"indexCount": 2808,
+"bounds": [
+[
+0.008779999800026417,
+0.8368200063705444,
+-0.09636999666690826
+],
+[
+0.028960000723600388,
+0.9531199932098389,
+0.008559999987483025
+]
+],
+"positions": 5643900,
+"normals": 5649696,
+"indices": 5652596
+},
+{
+"id": "ZA-right-pudendal-nerve",
+"name": "Right pudendal nerve [Pelvis]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 483,
+"indexCount": 2808,
+"bounds": [
+[
+-0.02947000041604042,
+0.8367099761962891,
+-0.09628999978303909
+],
+[
+-0.00930000003427267,
+0.9530100226402283,
+0.008630000054836273
+]
+],
+"positions": 5663828,
+"normals": 5669624,
+"indices": 5672524
+},
+{
+"id": "ZA-left-roots-of-brachial-plexus",
+"name": "Left roots of brachial plexus [Supraclavicular part of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 604,
+"indexCount": 3453,
+"bounds": [
+[
+0.01283000037074089,
+1.4383000135421753,
+-0.03951999917626381
+],
+[
+0.05558000132441521,
+1.5100200176239014,
+-0.009979999624192715
+]
+],
+"positions": 5683756,
+"normals": 5691004,
+"indices": 5694628
+},
+{
+"id": "ZA-right-roots-of-brachial-plexus",
+"name": "Right roots of brachial plexus [Supraclavicular part of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 605,
+"indexCount": 3456,
+"bounds": [
+[
+-0.05617000162601471,
+1.4383000135421753,
+-0.03951999917626381
+],
+[
+-0.013419999741017818,
+1.5100200176239014,
+-0.009979999624192715
+]
+],
+"positions": 5708440,
+"normals": 5715700,
+"indices": 5719332
+},
+{
+"id": "ZA-left-subclavian-nerve",
+"name": "Left subclavian nerve [Subclavian nerve; Supraclavicular branches of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 444,
+"indexCount": 2592,
+"bounds": [
+[
+0.05051000043749809,
+1.3978300094604492,
+-0.014360000379383564
+],
+[
+0.06350000202655792,
+1.4552199840545654,
+0.02776000089943409
+]
+],
+"positions": 5733156,
+"normals": 5738484,
+"indices": 5741148
+},
+{
+"id": "ZA-right-subclavian-nerve",
+"name": "Right subclavian nerve [Subclavian nerve; Supraclavicular branches of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 444,
+"indexCount": 2592,
+"bounds": [
+[
+-0.06463000178337097,
+1.398110032081604,
+-0.014790000393986702
+],
+[
+-0.05164000019431114,
+1.4555000066757202,
+0.027329999953508377
+]
+],
+"positions": 5751516,
+"normals": 5756844,
+"indices": 5759508
+},
+{
+"id": "ZA-left-superficial-branch-of-radial-nerve",
+"name": "Left superficial branch of radial nerve [Radial nerve; Superficial branch of radial nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 554,
+"indexCount": 3237,
+"bounds": [
+[
+0.2247599959373474,
+0.8499699831008911,
+-0.015939999371767044
+],
+[
+0.2932400107383728,
+1.1182500123977661,
+0.04631999880075455
+]
+],
+"positions": 5769876,
+"normals": 5776524,
+"indices": 5779848
+},
+{
+"id": "ZA-right-superficial-branch-of-radial-nerve",
+"name": "Right superficial branch of radial nerve [Radial nerve; Superficial branch of radial nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 555,
+"indexCount": 3240,
+"bounds": [
+[
+-0.2935299873352051,
+0.8506799936294556,
+-0.01582000032067299
+],
+[
+-0.2248300015926361,
+1.1189600229263306,
+0.04642999917268753
+]
+],
+"positions": 5792796,
+"normals": 5799456,
+"indices": 5802788
+},
+{
+"id": "ZA-left-superficial-branch-of-ulnar-nerve",
+"name": "Left superficial branch of ulnar nerve [Superficial branch of ulnar nerve; Ulnar nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 444,
+"indexCount": 2592,
+"bounds": [
+[
+0.22869999706745148,
+0.870639979839325,
+0.019610000774264336
+],
+[
+0.24195000529289246,
+0.9107400178909302,
+0.036490000784397125
+]
+],
+"positions": 5815748,
+"normals": 5821076,
+"indices": 5823740
+},
+{
+"id": "ZA-right-superficial-branch-of-ulnar-nerve",
+"name": "Right superficial branch of ulnar nerve [Superficial branch of ulnar nerve; Ulnar nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 444,
+"indexCount": 2592,
+"bounds": [
+[
+-0.24195000529289246,
+0.8705300092697144,
+0.01931999996304512
+],
+[
+-0.22869999706745148,
+0.9106400012969971,
+0.03621000051498413
+]
+],
+"positions": 5834108,
+"normals": 5839436,
+"indices": 5842100
+},
+{
+"id": "ZA-left-superficial-fibular-nerve",
+"name": "Left superficial fibular nerve [Lumbosacral plexus; Sciatic nerve; Superficial fibular nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 405,
+"indexCount": 2400,
+"bounds": [
+[
+0.09839999675750732,
+0.09425999969244003,
+-0.03725000098347664
+],
+[
+0.11868999898433685,
+0.384770005941391,
+-0.021700000390410423
+]
+],
+"positions": 5852468,
+"normals": 5857328,
+"indices": 5859760
+},
+{
+"id": "ZA-right-superficial-fibular-nerve",
+"name": "Right superficial fibular nerve [Lumbosacral plexus; Sciatic nerve; Superficial fibular nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 405,
+"indexCount": 2400,
+"bounds": [
+[
+-0.11946000158786774,
+0.09527000039815903,
+-0.03677000105381012
+],
+[
+-0.09916999936103821,
+0.38578000664711,
+-0.021220000460743904
+]
+],
+"positions": 5869360,
+"normals": 5874220,
+"indices": 5876652
+},
+{
+"id": "ZA-left-superior-gluteal-nerve",
+"name": "Left superior gluteal nerve [Lumbosacral plexus; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 442,
+"indexCount": 2592,
+"bounds": [
+[
+0.030470000579953194,
+0.9285799860954285,
+-0.055470000952482224
+],
+[
+0.11821000277996063,
+0.9892699718475342,
+-0.03629999980330467
+]
+],
+"positions": 5886252,
+"normals": 5891556,
+"indices": 5894208
+},
+{
+"id": "ZA-right-superior-gluteal-nerve",
+"name": "Right superior gluteal nerve [Lumbosacral plexus; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 442,
+"indexCount": 2592,
+"bounds": [
+[
+-0.11907000094652176,
+0.9280499815940857,
+-0.055080000311136246
+],
+[
+-0.03133000060915947,
+0.9887400269508362,
+-0.035920001566410065
+]
+],
+"positions": 5904576,
+"normals": 5909880,
+"indices": 5912532
+},
+{
+"id": "ZA-left-superior-lateral-brachial-cutaneous-nerve",
+"name": "Left superior lateral brachial cutaneous nerve [Axillary nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 406,
+"indexCount": 2397,
+"bounds": [
+[
+0.15670999884605408,
+1.3238400220870972,
+-0.08656000345945358
+],
+[
+0.22318999469280243,
+1.3798999786376953,
+-0.03215000033378601
+]
+],
+"positions": 5922900,
+"normals": 5927772,
+"indices": 5930208
+},
+{
+"id": "ZA-right-superior-lateral-brachial-cutaneous-nerve",
+"name": "Right superior lateral brachial cutaneous nerve [Axillary nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 406,
+"indexCount": 2397,
+"bounds": [
+[
+-0.22099000215530396,
+1.3345400094985962,
+-0.08501999825239182
+],
+[
+-0.15449999272823334,
+1.3905999660491943,
+-0.03061000071465969
+]
+],
+"positions": 5939796,
+"normals": 5944668,
+"indices": 5947104
+},
+{
+"id": "ZA-left-superior-subscapular-nerve",
+"name": "Left superior subscapular nerve [Infraclavicular part of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 412,
+"indexCount": 2400,
+"bounds": [
+[
+0.07728999853134155,
+1.3576200008392334,
+-0.08342000097036362
+],
+[
+0.10943999886512756,
+1.395400047302246,
+-0.020679999142885208
+]
+],
+"positions": 5956692,
+"normals": 5961636,
+"indices": 5964108
+},
+{
+"id": "ZA-right-superior-subscapular-nerve",
+"name": "Right superior subscapular nerve [Infraclavicular part of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 412,
+"indexCount": 2400,
+"bounds": [
+[
+-0.11028999835252762,
+1.3575299978256226,
+-0.0832500010728836
+],
+[
+-0.07813999801874161,
+1.395300030708313,
+-0.020509999245405197
+]
+],
+"positions": 5973708,
+"normals": 5978652,
+"indices": 5981124
+},
+{
+"id": "ZA-left-superior-trunk-of-brachial-plexus",
+"name": "Left superior trunk of brachial plexus [Superior trunk of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 156,
+"indexCount": 864,
+"bounds": [
+[
+0.04966999962925911,
+1.419350028038025,
+-0.029689999297261238
+],
+[
+0.08541999757289886,
+1.4561100006103516,
+-0.012319999746978283
+]
+],
+"positions": 5990724,
+"normals": 5992596,
+"indices": 5993532
+},
+{
+"id": "ZA-right-superior-trunk-of-brachial-plexus",
+"name": "Right superior trunk of brachial plexus [Superior trunk of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 156,
+"indexCount": 864,
+"bounds": [
+[
+-0.0865200012922287,
+1.419600009918213,
+-0.030079999938607216
+],
+[
+-0.05077999830245972,
+1.4563699960708618,
+-0.01271000038832426
+]
+],
+"positions": 5996988,
+"normals": 5998860,
+"indices": 5999796
+},
+{
+"id": "ZA-left-suprascapular-nerve",
+"name": "Left suprascapular nerve [Supraclavicular branches of brachial plexus; Suprascapular nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 634,
+"indexCount": 3672,
+"bounds": [
+[
+0.051910001784563065,
+1.3240300416946411,
+-0.08651000261306763
+],
+[
+0.14145000278949738,
+1.4613800048828125,
+-0.007710000034421682
+]
+],
+"positions": 6003252,
+"normals": 6010860,
+"indices": 6014664
+},
+{
+"id": "ZA-right-suprascapular-nerve",
+"name": "Right suprascapular nerve [Supraclavicular branches of brachial plexus; Suprascapular nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 634,
+"indexCount": 3672,
+"bounds": [
+[
+-0.14213000237941742,
+1.3239400386810303,
+-0.08636000007390976
+],
+[
+-0.05259000137448311,
+1.4612900018692017,
+-0.0075599998235702515
+]
+],
+"positions": 6029352,
+"normals": 6036960,
+"indices": 6040764
+},
+{
+"id": "ZA-left-sural-communicating-branch-of-common-fibular-nerve",
+"name": "Left sural communicating branch of common fibular nerve [Lumbosacral plexus; Saphenous nerve; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 411,
+"indexCount": 2400,
+"bounds": [
+[
+0.07423000037670135,
+0.3554899990558624,
+-0.09228000044822693
+],
+[
+0.1104699969291687,
+0.3997499942779541,
+-0.04495999962091446
+]
+],
+"positions": 6055452,
+"normals": 6060384,
+"indices": 6062852
+},
+{
+"id": "ZA-right-sural-communicating-branch-of-common-fibular-nerve",
+"name": "Right sural communicating branch of common fibular nerve [Lumbosacral plexus; Saphenous nerve; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 411,
+"indexCount": 2400,
+"bounds": [
+[
+-0.11101999878883362,
+0.353300005197525,
+-0.0921500027179718
+],
+[
+-0.07478000223636627,
+0.3975600004196167,
+-0.044829998165369034
+]
+],
+"positions": 6072452,
+"normals": 6077384,
+"indices": 6079852
+},
+{
+"id": "ZA-left-sural-nerve",
+"name": "Left sural nerve [Lumbosacral plexus; Saphenous nerve; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 512,
+"indexCount": 3024,
+"bounds": [
+[
+0.07100000232458115,
+0.010010000318288803,
+-0.09040000289678574
+],
+[
+0.14512999355793,
+0.40724998712539673,
+0.09167999774217606
+]
+],
+"positions": 6089452,
+"normals": 6095596,
+"indices": 6098668
+},
+{
+"id": "ZA-right-sural-nerve",
+"name": "Right sural nerve [Lumbosacral plexus; Saphenous nerve; Sciatic nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 511,
+"indexCount": 3024,
+"bounds": [
+[
+-0.14528000354766846,
+0.010230000130832195,
+-0.09025999903678894
+],
+[
+-0.07114999741315842,
+0.4074699878692627,
+0.09183000028133392
+]
+],
+"positions": 6110764,
+"normals": 6116896,
+"indices": 6119964
+},
+{
+"id": "ZA-left-sympathetic-nerves",
+"name": "Left sympathetic nerves [Sympathetic trunk]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 3138,
+"indexCount": 18357,
+"bounds": [
+[
+0.004100000020116568,
+1.164389967918396,
+-0.09164000302553177
+],
+[
+0.02377999946475029,
+1.4928300380706787,
+0.003930000122636557
+]
+],
+"positions": 6132060,
+"normals": 6169716,
+"indices": 6188544
+},
+{
+"id": "ZA-right-sympathetic-nerves",
+"name": "Right sympathetic nerves [Sympathetic trunk]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 3137,
+"indexCount": 18357,
+"bounds": [
+[
+-0.025709999725222588,
+1.1643099784851074,
+-0.0916299968957901
+],
+[
+-0.006039999891072512,
+1.4928300380706787,
+0.003930000122636557
+]
+],
+"positions": 6261972,
+"normals": 6299616,
+"indices": 6318440
+},
+{
+"id": "ZA-left-sympathetic-trunk",
+"name": "Left sympathetic trunk [Sympathetic trunk]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 3172,
+"indexCount": 19008,
+"bounds": [
+[
+0.0035800000187009573,
+1.1365000009536743,
+-0.06293000280857086
+],
+[
+0.02369000017642975,
+1.5074199438095093,
+0.004920000210404396
+]
+],
+"positions": 6391868,
+"normals": 6429932,
+"indices": 6448964
+},
+{
+"id": "ZA-right-sympathetic-trunk",
+"name": "Right sympathetic trunk [Sympathetic trunk]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 3172,
+"indexCount": 19008,
+"bounds": [
+[
+-0.025699999183416367,
+1.1365000009536743,
+-0.06293000280857086
+],
+[
+-0.00558000011369586,
+1.5074000358581543,
+0.0049299998208880424
+]
+],
+"positions": 6524996,
+"normals": 6563060,
+"indices": 6582092
+},
+{
+"id": "ZA-right-thoracodorsal-nerve",
+"name": "Right thoracodorsal nerve [Infraclavicular part of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 587,
+"indexCount": 3453,
+"bounds": [
+[
+-0.1483200043439865,
+1.22038996219635,
+-0.10371000319719315
+],
+[
+-0.08720000088214874,
+1.38086998462677,
+-0.024870000779628754
+]
+],
+"positions": 6658124,
+"normals": 6665168,
+"indices": 6668692
+},
+{
+"id": "ZA-left-thoracodorsal-nerve",
+"name": "Left thoracodorsal nerve [Infraclavicular part of brachial plexus]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 587,
+"indexCount": 3453,
+"bounds": [
+[
+0.08574000000953674,
+1.220579981803894,
+-0.10389000177383423
+],
+[
+0.1468600034713745,
+1.3810700178146362,
+-0.025049999356269836
+]
+],
+"positions": 6682504,
+"normals": 6689548,
+"indices": 6693072
+},
+{
+"id": "ZA-left-tibial-nerve",
+"name": "Left tibial nerve [Lumbosacral plexus; Sciatic nerve; Tibial nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 403,
+"indexCount": 2397,
+"bounds": [
+[
+0.05200999975204468,
+0.056609999388456345,
+-0.05575999990105629
+],
+[
+0.09177999943494797,
+0.5393099784851074,
+-0.027860000729560852
+]
+],
+"positions": 6706884,
+"normals": 6711720,
+"indices": 6714140
+},
+{
+"id": "ZA-right-tibial-nerve",
+"name": "Right tibial nerve [Lumbosacral plexus; Sciatic nerve; Tibial nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 403,
+"indexCount": 2397,
+"bounds": [
+[
+-0.09262999892234802,
+0.05626999959349632,
+-0.05538000166416168
+],
+[
+-0.05285999923944473,
+0.5389699935913086,
+-0.027480000630021095
+]
+],
+"positions": 6723728,
+"normals": 6728564,
+"indices": 6730984
+},
+{
+"id": "ZA-left-trigeminal-nerve-v",
+"name": "Left trigeminal nerve (V) [Cranial nerves; Trigeminal nerve (V)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 431,
+"indexCount": 2397,
+"bounds": [
+[
+0.005789999850094318,
+1.5848300457000732,
+-0.02696000039577484
+],
+[
+0.02452000044286251,
+1.608240008354187,
+0.00547999981790781
+]
+],
+"positions": 6740572,
+"normals": 6745744,
+"indices": 6748332
+},
+{
+"id": "ZA-right-trigeminal-nerve-v",
+"name": "Right trigeminal nerve (V) [Cranial nerves; Trigeminal nerve (V)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 428,
+"indexCount": 2397,
+"bounds": [
+[
+-0.025779999792575836,
+1.5848499536514282,
+-0.026760000735521317
+],
+[
+-0.007040000054985285,
+1.608240008354187,
+0.005679999943822622
+]
+],
+"positions": 6757920,
+"normals": 6763056,
+"indices": 6765624
+},
+{
+"id": "ZA-left-trochlear-nerve-iv",
+"name": "Left trochlear nerve (IV) [Cranial nerves]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 479,
+"indexCount": 2820,
+"bounds": [
+[
+-0.0009800000116229057,
+1.6022299528121948,
+-0.0257399994879961
+],
+[
+0.03102000057697296,
+1.6129399538040161,
+0.048170000314712524
+]
+],
+"positions": 6775212,
+"normals": 6780960,
+"indices": 6783836
+},
+{
+"id": "ZA-right-trochlear-nerve-iv",
+"name": "Right trochlear nerve (IV) [Cranial nerves]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 480,
+"indexCount": 2820,
+"bounds": [
+[
+-0.032260000705718994,
+1.6022800207138062,
+-0.02565000019967556
+],
+[
+-0.0002699999895412475,
+1.6130000352859497,
+0.048250000923871994
+]
+],
+"positions": 6795116,
+"normals": 6800876,
+"indices": 6803756
+},
+{
+"id": "ZA-left-ulnar-nerve",
+"name": "Left ulnar nerve [Ulnar nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 405,
+"indexCount": 2397,
+"bounds": [
+[
+0.09159000217914581,
+0.9047899842262268,
+-0.045249998569488525
+],
+[
+0.2285500019788742,
+1.4215699434280396,
+0.018890000879764557
+]
+],
+"positions": 6815036,
+"normals": 6819896,
+"indices": 6822328
+},
+{
+"id": "ZA-right-ulnar-nerve",
+"name": "Right ulnar nerve [Ulnar nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 405,
+"indexCount": 2397,
+"bounds": [
+[
+-0.2305999994277954,
+0.8975099921226501,
+-0.04408999904990196
+],
+[
+-0.09363999962806702,
+1.414289951324463,
+0.02005000039935112
+]
+],
+"positions": 6831916,
+"normals": 6836776,
+"indices": 6839208
+},
+{
+"id": "ZA-left-vagus-nerve-x",
+"name": "Left vagus nerve (X) [Cranial nerves; Vagus nerve (X)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 1879,
+"indexCount": 10905,
+"bounds": [
+[
+0.001230000052601099,
+1.3510099649429321,
+-0.05445000156760216
+],
+[
+0.028550000861287117,
+1.5805599689483643,
+0.019349999725818634
+]
+],
+"positions": 6848796,
+"normals": 6871344,
+"indices": 6882620
+},
+{
+"id": "ZA-right-vagus-nerve-x",
+"name": "Right vagus nerve (X) [Cranial nerves; Vagus nerve (X)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 5917,
+"indexCount": 34440,
+"bounds": [
+[
+-0.03152000159025192,
+1.1090999841690063,
+-0.045889999717473984
+],
+[
+0.06720999628305435,
+1.5799299478530884,
+0.0427200011909008
+]
+],
+"positions": 6926240,
+"normals": 6997244,
+"indices": 7032748
+},
+{
+"id": "ZA-left-vestibular-nerve",
+"name": "Left vestibular nerve [Cranial nerves; Vestibular nerve]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 613,
+"indexCount": 3513,
+"bounds": [
+[
+0.021940000355243683,
+1.5878000259399414,
+-0.014440000057220459
+],
+[
+0.043140001595020294,
+1.592560052871704,
+-0.011149999685585499
+]
+],
+"positions": 7170508,
+"normals": 7177864,
+"indices": 7181544
+},
+{
+"id": "ZA-right-vestibular-nerve",
+"name": "Right vestibular nerve [Cranial nerves; Vestibulocochlear nerve (VIII)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 604,
+"indexCount": 3513,
+"bounds": [
+[
+-0.04439999908208847,
+1.5879299640655518,
+-0.014229999855160713
+],
+[
+-0.02319999970495701,
+1.5926599502563477,
+-0.010950000025331974
+]
+],
+"positions": 7195596,
+"normals": 7202844,
+"indices": 7206468
+},
+{
+"id": "ZA-left-vestibulocochlear-nerve-viii",
+"name": "Left vestibulocochlear nerve (VIII) [Cranial nerves; Vestibulocochlear nerve (VIII)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 430,
+"indexCount": 2397,
+"bounds": [
+[
+0.008630000054836273,
+1.5844700336456299,
+-0.026040000841021538
+],
+[
+0.023000000044703484,
+1.589840054512024,
+-0.014779999852180481
+]
+],
+"positions": 7220520,
+"normals": 7225680,
+"indices": 7228260
+},
+{
+"id": "ZA-right-vestibulocochlear-nerve-viii",
+"name": "Right vestibulocochlear nerve (VIII) [Cranial nerves; Vestibulocochlear nerve (VIII)]",
+"system": "za-nervous",
+"chunk": 0,
+"vertexCount": 424,
+"indexCount": 2397,
+"bounds": [
+[
+-0.024229999631643295,
+1.5845600366592407,
+-0.02590000070631504
+],
+[
+-0.009859999641776085,
+1.5899200439453125,
+-0.014650000259280205
+]
+],
+"positions": 7237848,
+"normals": 7242936,
+"indices": 7245480
+}
+]
+}
