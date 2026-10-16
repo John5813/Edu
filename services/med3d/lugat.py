@@ -30,6 +30,7 @@ _FOOT = r"(talus|calcaneus|navicular bone of foot|cuboid bone|cuneiform bone|met
         r"phalanx of (big|second|third|fourth|little) toe|sesamoid bone of foot)"
 _LR = r"^(left |right )?"
 _ZA = "za-muscular:" + _LR
+_ZN = "za-nervous:"
 _ZJ = "za-joint:"   # Z-Anatomy boylamlari: nomda [bo'g'im] — "Left anterior cruciate ligament [Knee joint]"
 _SOFT = [(r"meniscus|disc|labrum|symphysis|fat pad", CARTILAGE)]
 
@@ -481,6 +482,43 @@ ORGANS: List[Dict] = [
          m=["venous:azygos vein$"], f=[]),
     dict(id="opka_venalari", uz="O'pka venalari", en="Pulmonary veins", color=VEIN,
          m=["venous:pulmonary vein$"], f=["venous:pulmonary vein$"]),
+
+    # ── Nervlar (Z-Anatomy, CC BY-SA 4.0 — erkak atlasiga moslangan)
+    dict(id="hidlov_nervi", uz="Hidlov nervi (I juft)", en="Olfactory nerve (CN I)", color=NERVE, m=[_ZN + r"olfactory nerve"], f=[]),
+    dict(id="koz_harakat_nervlari", uz="Ko'zni harakatlantiruvchi nervlar (III, IV, VI juft)", en="Oculomotor, trochlear and abducens nerves", color=NERVE, m=[_ZN + r"(oculomotor|trochlear|abducens) nerve"], f=[]),
+    dict(id="uch_shoxli_nerv", uz="Uch shoxli nerv (V juft)", en="Trigeminal nerve (CN V) and its branches", color=NERVE, m=[_ZN + r"\[cranial nerves; trigeminal"], f=[]),
+    dict(id="yuz_nervi", uz="Yuz nervi (VII juft)", en="Facial nerve (CN VII) and chorda tympani", color=NERVE, m=[_ZN + r"(facial nerve \(vii\)|chorda tympani)"], f=[]),
+    dict(id="dahliz_chiganoq_nervi", uz="Dahliz-chig'anoq nervi (VIII juft)", en="Vestibulocochlear nerve (CN VIII)", color=NERVE, m=[_ZN + r"(vestibul|cochlear nerve)"], f=[]),
+    dict(id="til_halqum_nervi", uz="Til-halqum nervi (IX juft)", en="Glossopharyngeal nerve (CN IX)", color=NERVE, m=[_ZN + r"glossopharyngeal nerve"], f=[]),
+    dict(id="adashgan_nerv", uz="Adashgan nerv (X juft)", en="Vagus nerve (CN X)", color=NERVE, m=[_ZN + r"vagus nerve"], f=[]),
+    dict(id="qoshimcha_nerv", uz="Qo'shimcha nerv (XI juft)", en="Accessory nerve (CN XI)", color=NERVE, m=[_ZN + r"accessory nerve \(xi\)"], f=[]),
+    dict(id="til_osti_nervi", uz="Til osti nervi (XII juft)", en="Hypoglossal nerve (CN XII)", color=NERVE, m=[_ZN + r"hypoglossal nerve"], f=[]),
+    dict(id="yelka_chigali", uz="Yelka chigali", en="Brachial plexus (roots, trunks, cords, short branches)", color=NERVE, m=[_ZN + r"(brachial plexus|lateral pectoral nerve)"], f=[]),
+    dict(id="qoltiq_nervi", uz="Qo'ltiq osti nervi", en="Axillary nerve", color=NERVE, m=[_ZN + r"\[axillary nerve"], f=[]),
+    dict(id="muskul_teri_nervi", uz="Muskul-teri nervi", en="Musculocutaneous nerve", color=NERVE, m=[_ZN + r"\[musculocutaneous nerve"], f=[]),
+    dict(id="orta_nerv", uz="O'rta nerv", en="Median nerve", color=NERVE, m=[_ZN + r"(\[median nerve|median nerve\])"], f=[]),
+    dict(id="tirsak_nervi", uz="Tirsak nervi", en="Ulnar nerve", color=NERVE, m=[_ZN + r"ulnar nerve(\]|;|$)"], f=[]),
+    dict(id="bilak_nervi", uz="Bilak nervi", en="Radial nerve", color=NERVE, m=[_ZN + r"\[(radial nerve|deep branch of radial nerve)"], f=[]),
+    dict(id="qol_teri_nervlari", uz="Yelka va bilakning medial teri nervlari", en="Medial brachial and antebrachial cutaneous nerves", color=NERVE, m=[_ZN + r"medial (antebrachial|brachial) cutaneous"], f=[]),
+    dict(id="qovurgalararo_nervlar", uz="Qovurg'alararo nervlar", en="Intercostal nerves", color=NERVE, m=[_ZN + r"intercostal nerves"], f=[]),
+    dict(id="simpatik_stvol", uz="Simpatik stvol", en="Sympathetic trunk", color=NERVE, m=[_ZN + r"sympathetic"], f=[]),
+    dict(id="orqa_miya_ildizlari", uz="Orqa miya nervlari ildizlari va ot dumi", en="Spinal nerve roots and cauda equina", color=NERVE, m=[_ZN + r"(root of spinal nerve|cauda equina)"], f=[]),
+    dict(id="bel_chigali", uz="Bel chigali", en="Lumbar plexus (femoral, obturator, genitofemoral and other nerves)", color=NERVE, m=[_ZN + r"(lumbar plexus|ilio-inguinal|iliohypogastric)"], f=[]),
+    dict(id="son_nervi", uz="Son nervi", en="Femoral nerve with saphenous nerve", color=NERVE, m=[_ZN + r"(\[femoral nerve|\[branches of posterior part of lumbar plexus; femoral nerve|saphenous nerve)"], f=[]),
+    dict(id="yopqich_nerv", uz="Yopqich nerv", en="Obturator nerve", color=NERVE, m=[_ZN + r"obturator nerve"], f=[]),
+    dict(id="quymich_nervi", uz="Quymich nervi", en="Sciatic nerve", color=NERVE, m=[_ZN + r"^(left |right )?sciatic nerve"], f=[]),
+    dict(id="katta_boldir_nervi", uz="Katta boldir nervi (oyoq kafti nervlari bilan)", en="Tibial nerve with plantar and sural nerves", color=NERVE, m=[_ZN + r"(tibial nerve|plantar|sural)"], f=[]),
+    dict(id="kichik_boldir_nervi", uz="Kichik boldir nervi", en="Common, deep and superficial fibular nerves", color=NERVE, m=[_ZN + r"(fibular nerve|dorsal cutaneous nerve of foot)"], f=[]),
+    dict(id="dumgaza_shoxlari", uz="Dumg'aza chigalining boshqa shoxlari", en="Gluteal, pudendal and posterior femoral cutaneous nerves", color=NERVE, m=[_ZN + r"(gluteal nerve|piriformis|quadratus femoris|posterior femoral cutaneous|pudendal)"], f=[]),
+    dict(id="bosh_miya_nervlari", uz="Bosh miya nervlari (12 juft)", en="Cranial nerves", color=NERVE,
+         union=["hidlov_nervi", "korish_nervi", "koz_harakat_nervlari", "uch_shoxli_nerv", "yuz_nervi",
+                "dahliz_chiganoq_nervi", "til_halqum_nervi", "adashgan_nerv", "qoshimcha_nerv", "til_osti_nervi"]),
+    dict(id="dumgaza_chigali", uz="Dumg'aza chigali", en="Sacral plexus (sciatic, tibial, fibular and other nerves)",
+         color=NERVE, union=["quymich_nervi", "katta_boldir_nervi", "kichik_boldir_nervi", "dumgaza_shoxlari"]),
+    dict(id="periferik_nervlar", uz="Periferik nervlar (hammasi)", en="All peripheral nerves", color=NERVE,
+         union=["bosh_miya_nervlari", "yelka_chigali", "qoltiq_nervi", "muskul_teri_nervi", "orta_nerv", "tirsak_nervi",
+                "bilak_nervi", "qol_teri_nervlari", "qovurgalararo_nervlar", "simpatik_stvol", "orqa_miya_ildizlari",
+                "bel_chigali", "son_nervi", "yopqich_nerv", "dumgaza_chigali"]),
 ]
 
 # Lotincha nom (Terminologia Anatomica): tibbiyotda a'zolar lotincha ataladi — yorliqda o'zbekcha nom ostida.
@@ -576,6 +614,33 @@ LATIN = {
     "qol_teri_osti_venalari": "Venae cephalica et basilica",
     "toq_vena": "Vena azygos et hemiazygos",
     "opka_venalari": "Venae pulmonales",
+    "hidlov_nervi": "Nervus olfactorius",
+    "koz_harakat_nervlari": "Nervi oculomotorius, trochlearis et abducens",
+    "uch_shoxli_nerv": "Nervus trigeminus",
+    "yuz_nervi": "Nervus facialis",
+    "dahliz_chiganoq_nervi": "Nervus vestibulocochlearis",
+    "til_halqum_nervi": "Nervus glossopharyngeus",
+    "adashgan_nerv": "Nervus vagus",
+    "qoshimcha_nerv": "Nervus accessorius",
+    "til_osti_nervi": "Nervus hypoglossus",
+    "yelka_chigali": "Plexus brachialis",
+    "qoltiq_nervi": "Nervus axillaris",
+    "muskul_teri_nervi": "Nervus musculocutaneus",
+    "orta_nerv": "Nervus medianus",
+    "tirsak_nervi": "Nervus ulnaris",
+    "bilak_nervi": "Nervus radialis",
+    "qol_teri_nervlari": "Nervi cutanei brachii et antebrachii mediales",
+    "qovurgalararo_nervlar": "Nervi intercostales",
+    "simpatik_stvol": "Truncus sympathicus",
+    "orqa_miya_ildizlari": "Radices nervorum spinalium et cauda equina",
+    "bel_chigali": "Plexus lumbalis",
+    "son_nervi": "Nervus femoralis",
+    "yopqich_nerv": "Nervus obturatorius",
+    "quymich_nervi": "Nervus ischiadicus",
+    "katta_boldir_nervi": "Nervus tibialis",
+    "kichik_boldir_nervi": "Nervus fibularis communis",
+    "dumgaza_shoxlari": "Nervus gluteus, pudendus et cutaneus femoris posterior",
+    "bosh_miya_nervlari": "Nervi craniales", "dumgaza_chigali": "Plexus sacralis", "periferik_nervlar": "Nervi periferici",
 }
 for _organ in ORGANS:
     _organ["la"] = LATIN[_organ["id"]]
