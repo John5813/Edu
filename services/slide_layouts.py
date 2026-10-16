@@ -828,9 +828,14 @@ def _seed(topic: str, count: int) -> int:
 
 
 def image_budget(main_count: int, allowed: bool = True) -> int:
+    """Asosiy slaydlardan nechtasida rasm bo'lishi mumkin (muqova rasmi alohida).
+
+    Ilgari 0.35 edi — 10 slayddan 3-4 ta rasm. Lekin ketma-ket cheklovi va matn
+    qisqa bo'lgan slaydlar rad etilishi tufayli amalda 1-2 ta chiqardi. Mijoz
+    taqdimoti deyarli rasmsiz ko'rinardi. Endi yarmi."""
     if not allowed or main_count <= 0:
         return 0
-    return max(1, int(main_count * 0.35 + 0.5))
+    return max(2, int(main_count * 0.5 + 0.5))
 
 
 def assign(slides: List[Dict], topic: str = "", language: str = "uz", seed: Optional[int] = None,
@@ -859,7 +864,7 @@ def assign(slides: List[Dict], topic: str = "", language: str = "uz", seed: Opti
         remaining = n - pos - 1
         ranked = []
         for spec in SPECS:
-            if spec.image and (used_images >= budget or (prev and prev.image)):
+            if spec.image and used_images >= budget:
                 continue
             data = _shape_for(spec, slide, f)
             if data is None:
@@ -874,7 +879,8 @@ def assign(slides: List[Dict], topic: str = "", language: str = "uz", seed: Opti
                 elif spec.family == prev.family:
                     score -= 1.2
             if spec.image:
-                score -= 0.3
+                if prev and prev.image:
+                    score -= 1.5                     # ketma-ket ikki rasm — kamroq, lekin umuman taqiq emas
                 if used_images < min_images and pos >= n / 3:
                     score += 1.0 + (4.0 if remaining <= 1 else 0.0)
             ranked.append((score, spec, data))
