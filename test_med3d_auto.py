@@ -9,7 +9,7 @@
 
     python test_med3d_auto.py
 """
-import asyncio, re, os, sys, tempfile, zipfile
+import asyncio, copy, re, os, sys, tempfile, zipfile
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -169,7 +169,8 @@ first = [g.find(".//p:cNvPr", NS).get("name") for g in etree.fromstring(z.read("
 check("1-slayd: 4 organ — bitta 3D model", len(first) == 1, first)
 labels = [s.text_frame.text for s in prs.slides[0].shapes if s.name.startswith("lbl_") and s.has_text_frame
           and s.text_frame.text]
-check("yorliqlar: o'zbekcha nom + lotincha nom", "Jigar\nHepar" in labels and "Oshqozon\nGaster" in labels, labels)
+joined = " ".join(labels).lower()
+check("yorliqlar: o'zbekcha nom + lotincha nom (uslubdan qat'i nazar)", all(w in joined for w in ("jigar", "hepar", "oshqozon", "gaster")), labels)
 source = [s.text_frame.text for s in prs.slides[0].shapes if s.has_text_frame and "BodyParts3D" in s.text_frame.text]
 check("manba (CC BY) ko'rsatilgan", bool(source))
 
@@ -185,9 +186,33 @@ pages = [[sh.text_frame.text for sh in s.shapes if sh.name == "!!page"][0] for s
 check("yordamchi slayd avtomatik o'tadi (advTm), boshqalari yo'q", 'advTm="0"' in xml[1]
       and "advTm" not in xml[2], [("advTm" in x) for x in xml])
 check("yordamchi raqamga kirmaydi", pages == ["01 / 02", "02 / 02", "02 / 02"], pages)
-offs = [int(m) for m in re.findall(r'<a:off x="(-?\d+)"', xml[1])]
-check("fade slaydida slayd tashqarisidagi (uchib keladigan) nusxa yo'q", all(-914400 < x < 13.4 * 914400 for x in offs), offs)
+offs = [int(m) for m in re.findall(r'<p:graphicFrame.*?<a:off x="(-?\d+)"', xml[1], re.S)]
+check("fade slaydida slayd tashqarisidagi (uchib keladigan) 3D model nusxasi yo'q",
+      offs and all(-914400 < x < 13.4 * 914400 for x in offs), offs)
 
+
+print("4b) Uslublar, rejissyor, savol slaydi")
+from services.med3d import design, director
+check("12 ta dizayn uslubi", len(design.STYLES) >= 12, list(design.STYLES))
+big = {k: v for k, v in plan.items() if k not in ("directed", "style")}
+big["slides"] = [dict(s, title=f"{s['title']} {k}") for k in range(2) for s in plan["slides"]]
+big["slides"] = [copy.deepcopy(s) for s in big["slides"]]
+big["slides"][0]["labels"] = list(big["slides"][0]["show"])     # savol uchun kamida 3 ta yorliqli umumiy ko'rinish
+path_q = auto.make_deck("Hazm a'zolari katta", big, tempfile.mkdtemp(), atlas=FakeAtlas(MALE), style="atlas")
+zq = zipfile.ZipFile(path_q)
+nq = sum(1 for n in zq.namelist() if n.startswith("ppt/slides/slide") and n.endswith(".xml"))
+xmls = [zq.read(f"ppt/slides/slide{i}.xml").decode() for i in range(1, nq + 1)]
+quiz = [x for x in xmls if "!!answers" in x]
+check("8+ slaydda xulosadan oldin savol slaydi (javoblar kartasi)", len(quiz) == 1, nq)
+check("javoblar bosilganda chiqadi (clickEffect)", quiz and 'nodeType="clickEffect"' in quiz[0])
+digits = re.findall(r'name="lbl_[^"]+".*?<a:t>(\d+)</a:t>', quiz[0], re.S) if quiz else []
+check("savol slaydida nomlar o'rnida raqamlar", len(digits) >= 3, digits)
+moves = big.get("directed") and [s.get("layout") for s in big["slides"]]
+check("kompozitsiyalar ketma-ket takrorlanmaydi", all(a != b for a, b in zip(moves, moves[1:])), moves)
+seen_moves = director.direct(MALE, copy.deepcopy(big["slides"]), "boshqa mavzu")
+check("kamera harakatlari ketma-ket takrorlanmaydi", all(a != b or a == "tinch" for a, b in
+                                                        zip(seen_moves[1:], seen_moves[2:])), seen_moves)
+check("uslub ochiq fonda: atlas (krem fon)", "F6F1E7" in xmls[0], xmls[0][:200])
 
 print("5) Bot: tugma → ogohlantirish → Ha / Yo'q")
 from aiogram.fsm.context import FSMContext

@@ -32,6 +32,26 @@ AMBIENT = "300000"
 _LIGHTS = (("100000", "88000", "72000", "15000000", "21959998", "70920001", "16344003"),
            ("40000", "60000", "95000", "7000000", "-37964106", "51130435", "57631972"),
            ("86837", "72700", "100000", "3125000", "-37739122", "58056624", "-34769649"))
+# Uslubga mos yorug'lik to'plamlari: (atrof yorug'ligi, [(r, g, b, kuch, x, y, z), ...]).
+# Koordinatalar PowerPoint'niki (36 000 000 — bir birlik): z musbat — kamera tomonda, manfiy — model ortida (kontur).
+LIGHT_SETS = {
+    "studio": (AMBIENT, _LIGHTS),
+    "soft": ("460000", (("100000", "96000", "90000", "10500000", "21959998", "70920001", "36344003"),
+                        ("80000", "88000", "100000", "7500000", "-37964106", "41130435", "57631972"),
+                        ("100000", "100000", "100000", "4000000", "-7739122", "58056624", "-44769649"))),
+    "rim": ("240000", (("100000", "86000", "66000", "13500000", "21959998", "60920001", "26344003"),
+                       ("100000", "62000", "30000", "11000000", "-30000000", "40000000", "-60000000"),
+                       ("60000", "75000", "100000", "3000000", "-37964106", "21130435", "57631972"))),
+    "spot": ("170000", (("100000", "95000", "84000", "19000000", "4000000", "90000000", "30000000"),
+                        ("70000", "70000", "80000", "2200000", "-37964106", "21130435", "57631972"),
+                        ("100000", "92000", "70000", "3500000", "0", "40000000", "-60000000"))),
+    "cool": ("260000", (("82000", "95000", "100000", "12000000", "21959998", "70920001", "36344003"),
+                        ("20000", "90000", "100000", "12000000", "-26000000", "30000000", "-60000000"),
+                        ("40000", "70000", "100000", "4000000", "-37964106", "51130435", "57631972"))),
+    "warm": ("330000", (("100000", "84000", "62000", "14000000", "21959998", "70920001", "26344003"),
+                        ("100000", "78000", "60000", "6000000", "-37964106", "51130435", "57631972"),
+                        ("90000", "80000", "100000", "3000000", "-37739122", "58056624", "-34769649"))),
+}
 
 
 def _placeholder_png() -> bytes:
@@ -49,7 +69,7 @@ def _next_id(spTree) -> int:
 
 
 def _model_xml(sid: int, name: str, x: int, y: int, cx: int, cy: int, rid_model: str, rid_png: str,
-               lo: np.ndarray, hi: np.ndarray, rot: Sequence[float]) -> str:
+               lo: np.ndarray, hi: np.ndarray, rot: Sequence[float], lights: str = "studio") -> str:
     half = (hi - lo) / 2
     center = (hi + lo) / 2
     max_ext = float((hi - lo).max()) or 1.0
@@ -58,10 +78,11 @@ def _model_xml(sid: int, name: str, x: int, y: int, cx: int, cy: int, rid_model:
     cam_z = int(radius / math.sin(math.radians(_FOV60K / 60000 / 2)) * 36000000)
     pre = [int(-c * mpu * 36000000) for c in center]
     ax, ay, az = (int(round(a * 60000)) for a in rot)
+    ambient, preset = LIGHT_SETS.get(lights, LIGHT_SETS["studio"])
     lights = "".join(
         f'<am3d:ptLight rad="0"><am3d:clr><a:scrgbClr r="{r}" g="{g}" b="{b}"/></am3d:clr>'
         f'<am3d:intensity n="{i}" d="1000000"/><am3d:pos x="{px}" y="{py}" z="{pz}"/></am3d:ptLight>'
-        for r, g, b, i, px, py, pz in _LIGHTS)
+        for r, g, b, i, px, py, pz in preset)
     esc = name.replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;")
     return (
         '<mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006">'
@@ -87,7 +108,7 @@ def _model_xml(sid: int, name: str, x: int, y: int, cx: int, cy: int, rid_model:
         f'<am3d:raster rName="Office3DRenderer" rVer="16.0.8326"><am3d:blip r:embed="{rid_png}"/></am3d:raster>'
         f'<am3d:objViewport viewportSz="{max(cx, cy)}"/>'
         '<am3d:ambientLight><am3d:clr><a:scrgbClr r="50000" g="50000" b="50000"/></am3d:clr>'
-        f'<am3d:illuminance n="{AMBIENT}" d="1000000"/></am3d:ambientLight>'
+        f'<am3d:illuminance n="{ambient}" d="1000000"/></am3d:ambientLight>'
         f'{lights}</am3d:model3d></a:graphicData></a:graphic></p:graphicFrame></mc:Choice>'
         '<mc:Fallback><p:pic xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
         'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
@@ -99,7 +120,7 @@ def _model_xml(sid: int, name: str, x: int, y: int, cx: int, cy: int, rid_model:
 
 
 def add_model3d(slide, data: bytes, name: str, x: float, y: float, size: float,
-                rot: Sequence[float] = (0, 0, 0), parts: Optional[Dict[str, Part]] = None):
+                rot: Sequence[float] = (0, 0, 0), parts: Optional[Dict[str, Part]] = None, lights: str = "studio"):
     """Slaydga 3D model qo'yadi. x, y, size — dyuymda (kvadrat ramka); rot — gradus (X, Y, Z).
 
     parts — taqdimot bo'yicha umumiy lug'at: bir xil GLB bir necha slaydda bo'lsa, faylga BIR marta yoziladi
@@ -118,7 +139,7 @@ def add_model3d(slide, data: bytes, name: str, x: float, y: float, size: float,
     tree = slide.shapes._spTree
     side = int(Inches(size))
     node = etree.fromstring(_model_xml(_next_id(tree), name, int(Inches(x)), int(Inches(y)), side, side,
-                                       rid_model, rid_png, lo, hi, rot))
+                                       rid_model, rid_png, lo, hi, rot, lights))
     # Eng orqa qatlamga (fondan keyin): katta shaffof ramka matnni bosishga xalaqit bermasin.
     after = tree.find(qn("p:grpSpPr"))
     models = [el for el in tree if etree.QName(el).localname == "AlternateContent"]
