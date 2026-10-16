@@ -1,5 +1,7 @@
 # Tibbiyot uchun 3D taqdimot — reja (hali amalga oshirilmagan)
 
+> Keyingi bosqich (dizayn uslublari, takrorlanmas harakatlar, a'zo skill kartalari): `docs/3d_taqdimot_kuchaytirish_reja.md`.
+
 Holat: 1-bosqich (prototip) tayyor — `services/med3d/`, demo: bosh suyagi (3 slayd). Botga hali ulanmagan.
 
 ## Maqsad
