@@ -298,7 +298,7 @@ def _topic_line(data: dict, lang: str) -> str:
 # Tartib: tur → mavzu → (yozuv) → ism → istaklar → manba → (zamonaviyda uslub) → slaydlar soni → xulosa.
 _PREVIOUS = {"topic": "kind", "script": "topic", "name": "topic", "prefs": "name", "source": "prefs",
              "source_input": "source", "style": "source", "volume": "style", "summary": "count",
-             "photos": "count"}     # rasm manbasidan — slaydlar soniga (ilgari butun buyurtma tashlab yuborilardi)
+             "photos": "count", "m3dstyle": "prefs"}     # rasm manbasidan — slaydlar soniga (ilgari butun buyurtma tashlab yuborilardi)
 
 
 def _previous_step(data: dict):
@@ -308,7 +308,7 @@ def _previous_step(data: dict):
         return "script"
     if step == "count":
         kind = _kind_of(data)
-        return "style" if kind == KIND_MODERN else ("prefs" if kind == KIND_MED3D else "source")
+        return "style" if kind == KIND_MODERN else ("m3dstyle" if kind == KIND_MED3D else "source")
     # Slaydlar sonidan keyin: rasm manbasi → yozuv animatsiyasi → xulosa (taklif qilinmaganlari o'tkazib yuboriladi).
     photos = "photos" if _photo_source(data) is not None else "count"
     if step == "anim":
@@ -519,7 +519,7 @@ async def _after_prefs(message: Message, state: FSMContext, lang: str, db: Datab
     """Istaklardan keyin — manba; 3D Anatomiyada manba kerak emas (organlar atlasdan) — darhol slaydlar soni."""
     if _kind_of(await state.get_data()) == KIND_MED3D:
         await state.update_data(source_text="", source_label="")
-        await _step_count(message, state, lang, db)
+        await _step_m3d_style(message, state, lang)
     else:
         await _step_source(message, state, lang)
 
@@ -755,6 +755,62 @@ MED3D_NOT_FOR_YOU = {
 }
 
 
+# 3D Anatomiya: dizayn uslubi (namuna rasmi bilan). «Avtomatik» — mavzuga qarab tizim tanlaydi.
+_M3D_STYLE_ASK = {
+    "uz": "🎨 <b>Dizayn uslubini tanlang</b>\nRasmda 12 uslubning namunasi. «🎲 Avtomatik» — mavzuga mos uslubni "
+          "tizim o'zi tanlaydi.",
+    "ru": "🎨 <b>Выберите стиль оформления</b>\nНа картинке — 12 стилей. «🎲 Автоматически» — стиль под тему "
+          "подберёт система.",
+    "en": "🎨 <b>Choose a design style</b>\nThe picture shows all 12 styles. «🎲 Automatic» lets the system pick a "
+          "style for the topic.",
+    "kk": "🎨 <b>Дизайн стилін таңдаңыз</b>\nСуретте 12 стиль үлгісі. «🎲 Автоматты» — тақырыпқа сай стильді жүйе "
+          "өзі таңдайды.",
+}
+_M3D_AUTO = {"uz": "🎲 Avtomatik", "ru": "🎲 Автоматически", "en": "🎲 Automatic", "kk": "🎲 Автоматты"}
+M3D_STYLES_PREVIEW = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                                  "assets", "med3d", "uslublar.jpg")
+
+
+async def _step_m3d_style(message: Message, state: FSMContext, lang: str) -> None:
+    from aiogram.types import FSInputFile
+    from services.med3d import design
+
+    rows, row = [], []
+    for key in design.STYLE_ORDER:
+        row.append(InlineKeyboardButton(text=f"{design.STYLE_EMOJI.get(key, '')} {design.style_name(key, lang)}",
+                                        callback_data=f"prem_m3d_style:{key}"))
+        if len(row) == 2:
+            rows.append(row)
+            row = []
+    if row:
+        rows.append(row)
+    rows.append([InlineKeyboardButton(text=_M3D_AUTO.get(lang) or _M3D_AUTO["uz"], callback_data="prem_m3d_style:auto")])
+    markup = _markup(rows + [_back_row(lang)])
+    data = await state.get_data()
+    text = _topic_line(data, lang) + (_M3D_STYLE_ASK.get(lang) or _M3D_STYLE_ASK["uz"])
+    await _drop_prompt(message.bot, message.chat.id, state)
+    await state.set_state(PremiumPresentationStates.waiting_for_style)
+    sent = None
+    if os.path.exists(M3D_STYLES_PREVIEW):
+        try:
+            sent = await message.answer_photo(FSInputFile(M3D_STYLES_PREVIEW), caption=text, parse_mode="HTML",
+                                              reply_markup=markup)
+        except Exception as exc:              # rasm ketmasa ham tanlov ishlasin
+            logger.warning("3D uslublar rasmi yuborilmadi: %s", exc)
+    if sent is None:
+        sent = await message.answer(text, parse_mode="HTML", reply_markup=markup)
+    await state.update_data(prompt_mid=sent.message_id, step="m3dstyle")
+
+
+def _m3d_style_label(data: dict, lang: str) -> str:
+    from services.med3d import design
+
+    key = data.get("m3d_style") or ""
+    if key in design.STYLES:
+        return f"{design.STYLE_EMOJI.get(key, '')} {design.style_name(key, lang)}"
+    return _M3D_AUTO.get(lang) or _M3D_AUTO["uz"]
+
+
 def _kind_keyboard(lang: str, pro3d: bool = True, med3d: bool = True) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for key in KINDS:
@@ -818,6 +874,17 @@ async def premium_ppt_kind_selected(callback: CallbackQuery, state: FSMContext, 
         await state.update_data(style="", volume="kop")
     # Mavzu allaqachon yozilgan bo'lsa (orqaga qaytib turni almashtirgan) — u saqlanadi, so'rov qayta chiqadi.
     await _step_topic(callback.message, state, lang)
+
+
+@router.callback_query(F.data.startswith("prem_m3d_style:"), PremiumPresentationStates.waiting_for_style)
+async def premium_m3d_style(callback: CallbackQuery, state: FSMContext, db: Database):
+    """3D Anatomiya uslubi tanlandi (yoki «Avtomatik») — keyin slaydlar soni."""
+    from services.med3d import design
+
+    await callback.answer()
+    key = callback.data.split(":", 1)[1]
+    await state.update_data(m3d_style=key if key in design.STYLES else "")
+    await _step_count(callback.message, state, await _lang_of(callback.from_user.id, db), db)
 
 
 @router.callback_query(F.data.startswith("prem_med3d:"), PremiumPresentationStates.waiting_for_kind)
@@ -1374,6 +1441,7 @@ def _summary(data: dict, lang: str):
     if kind == KIND_PRO3D:
         lines.append(f"<i>{esc(pro3d_note(lang), 400)}</i>")
     if kind == KIND_MED3D:
+        lines.append(f"🖌 {style_l}: <b>{esc(_m3d_style_label(data, lang))}</b>")
         lines.append(f"<i>{esc(med3d_note(lang), 400)}</i>")
     color = _color(data)
     if color is not None:
@@ -1476,7 +1544,8 @@ async def premium_ppt_previous(callback: CallbackQuery, state: FSMContext, db: D
         return
     steps = {"topic": _step_topic, "script": _step_script, "name": _step_name, "prefs": _step_prefs,
              "source": _step_source, "count": _step_count, "style": _step_style,
-             "volume": _step_volume, "kind": _step_kind, "photos": _step_photos, "anim": _step_anim}
+             "volume": _step_volume, "kind": _step_kind, "photos": _step_photos, "anim": _step_anim,
+             "m3dstyle": _step_m3d_style}
     if previous == "count":
         await _step_count(callback.message, state, lang, db)
         return
@@ -1930,7 +1999,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
 
             final_path, ready_slides = await med3d_auto.build_deck(
                 topic, slide_count, language=presentation_language, level=level, preferences=preferences,
-                stage_cb=on_med_stage)
+                stage_cb=on_med_stage, style=data.get("m3d_style") or None)
             html_pages = [None] * ready_slides
         else:
             # AI slaydlarni HTML/CSS/SVG qilib chizadi, brauzer 1920×1080 joylashtiradi va PPTX

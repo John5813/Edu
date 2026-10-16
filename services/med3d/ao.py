@@ -129,8 +129,39 @@ def _mottle(pos: np.ndarray, amount: float) -> np.ndarray:
     return np.stack([red, other, other * 0.98], axis=1)
 
 
+def _smooth(values: np.ndarray, idx: np.ndarray, rounds: int) -> np.ndarray:
+    tri = idx.reshape(-1, 3)
+    a = np.concatenate([tri[:, 0], tri[:, 1], tri[:, 2], tri[:, 1], tri[:, 2], tri[:, 0]])
+    b = np.concatenate([tri[:, 1], tri[:, 2], tri[:, 0], tri[:, 0], tri[:, 1], tri[:, 2]])
+    degree = np.maximum(np.bincount(a, minlength=len(values)), 1).astype(float)
+    for _ in range(rounds):
+        values = np.bincount(a, weights=values[b], minlength=len(values)) / degree
+    return values
+
+
+def pattern(pos: np.ndarray, idx: np.ndarray, kind: str) -> np.ndarray:
+    """To'qima naqshi (N ta ko'paytuvchi, ~0.85..1.05) — tekstura o'rniga nuqta rangiga yoziladi.
+
+    fiber — mushak tolalari (organ uzunligi bo'ylab ingichka chiziqlar), speckle — o'pkaning g'ovak, dog'li yuzasi,
+    grain — suyakning mayda donadorligi. Boshqalari — 1 (o'zgarishsiz)."""
+    if not len(pos) or kind not in ("fiber", "speckle", "grain"):
+        return np.ones(len(pos))
+    size = float((pos.max(axis=0) - pos.min(axis=0)).max()) or 1.0
+    if kind == "fiber":
+        c = pos - pos.mean(axis=0)
+        _, _, vt = np.linalg.svd(c[::max(1, len(c) // 4000)], full_matrices=False)
+        along, across, depth = c @ vt[0], c @ vt[1], c @ vt[2]
+        k = 2 * np.pi / size
+        wave = np.sin(across * k * 46 + 0.8 * np.sin(along * k * 4)) + 0.5 * np.sin(depth * k * 71 + along * k * 2)
+        return 0.93 + 0.055 * wave / 1.5
+    rng = np.random.default_rng(11)
+    noise = _smooth(rng.random(len(pos)), idx, 2 if kind == "speckle" else 1)
+    noise = (noise - noise.mean()) / (noise.std() or 1.0)
+    return 1.0 + (0.07 if kind == "speckle" else 0.035) * np.clip(noise, -2.5, 2.5)
+
+
 def colors(pos: np.ndarray, nrm: np.ndarray, idx: np.ndarray, tint=(1.0, 1.0, 1.0), mottle: float = 0.0,
-           others: Optional[Tuple[np.ndarray, np.ndarray]] = None) -> np.ndarray:
+           others: Optional[Tuple[np.ndarray, np.ndarray]] = None, texture: str = "") -> np.ndarray:
     """glTF COLOR_0 uchun N×4 uint8 (chiziqli rang; material rangiga ko'paytiriladi).
 
     tint — soyadagi rang ko'paytuvchisi (chiziqli, 0..1): ochiq joyda 1, to'liq yopiq joyda tint ga yaqinlashadi.
@@ -144,6 +175,8 @@ def colors(pos: np.ndarray, nrm: np.ndarray, idx: np.ndarray, tint=(1.0, 1.0, 1.
     rgb *= np.where(light > 1.0, light, 1.0)       # qavariq joy biroz yorug'roq
     if mottle:
         rgb = rgb * _mottle(pos, mottle)
+    if texture:
+        rgb = rgb * pattern(pos, idx, texture)[:, None]
     value = np.round(np.clip(rgb, 0, 1) * 255).astype(np.uint8)
     return np.concatenate([value, np.full((len(value), 1), 255, dtype=np.uint8)], axis=1)
 

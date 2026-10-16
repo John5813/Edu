@@ -120,13 +120,20 @@ check("3-slayd: qismlar qayta birlashadi (yon ko'rinish)",
       f3["!!m3d_cranium"] == f3["!!m3d_mandible"] and f3["!!m3d_cranium"]["rot"][1] == 90)
 check("Morph 1-slaydda yo'q, 2- va 3-slaydda bor",
       not root1.findall(".//p159:morph", NS) and root2.findall(".//p159:morph", NS) and root3.findall(".//p159:morph", NS))
-first = [etree.QName(el).localname for el in root1.find(".//p:spTree", NS)][:4]
-check("modellar eng orqa qatlamda (matn ustida emas)", first[2:4] == ["AlternateContent", "AlternateContent"], first)
+order = [(etree.QName(el).localname, (el.xpath("./*/p:cNvPr/@name|.//p:cNvPr/@name", namespaces=NS) or [""])[0])
+         for el in root1.find(".//p:spTree", NS)]
+models_at = [i for i, (kind, _) in enumerate(order) if kind == "AlternateContent"]
+title_at = next(i for i, (_, name) in enumerate(order) if name == "!!title")
+back_at = [i for i, (_, name) in enumerate(order) if name.startswith("!!deco_") or name in ("!!panel", "!!shadow")]
+check("modellar matn ortida, fon bezaklari esa modellar ortida",
+      models_at and max(models_at) < title_at and back_at and max(back_at) < min(models_at), order[:8])
 
 from pptx import Presentation
 prs = Presentation(out)
 for i, slide in enumerate(prs.slides, 1):
-    pills = [s for s in slide.shapes if s.name.startswith("lbl_") and not s.name.endswith(("_line", "_dot"))]
+    # Keyingi slayd yorliqlari bu slaydda chetda kutib turadi (Morph ularni suzib olib kiradi) — sanalmaydi.
+    pills = [s for s in slide.shapes if s.name.startswith("lbl_") and not s.name.endswith(("_line", "_dot", "_la"))
+             and 0 <= s.left / EMU < W]
     want = len(DEMO_PLAN["slides"][i - 1]["labels"])
     check(f"{i}-slayd: hamma yorliq bor ({want})", len(pills) == want, len(pills))
     inside = all(0 <= p.left / EMU and p.left / EMU + p.width / EMU <= W and 0 <= p.top / EMU
@@ -160,7 +167,8 @@ check("7-slayd: jigar yuqoriga chiqib ketadi, o't pufagi qoladi",
       and "!!m3d_digestive_abdomen_ot" in all_frames[7])
 prs2 = Presentation(out2)
 for i, slide in enumerate(prs2.slides, 1):
-    pills = [s for s in slide.shapes if s.name.startswith("lbl_") and not s.name.endswith(("_line", "_dot"))]
+    pills = [s for s in slide.shapes if s.name.startswith("lbl_") and not s.name.endswith(("_line", "_dot", "_la"))
+             and 0 <= s.left / EMU < W]
     if len(pills) != len(DIGESTIVE_PLAN["slides"][i - 1].get("labels") or []):
         check(f"hazm {i}-slayd: hamma yorliq bor", False, len(pills))
 

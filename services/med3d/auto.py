@@ -9,6 +9,7 @@
 4. Organ modellari so'rov paytida atlasdan yig'iladi (katta organlar soddalashtiriladi) va `deck.build` ga beriladi.
 """
 import asyncio
+import copy
 import hashlib
 import json
 import logging
@@ -25,7 +26,7 @@ from . import ASSETS_DIR, manba
 from .camera import Camera
 from .catalog import srgb
 from .glb import Primitive, write_glb
-from .lugat import BONE, BY_ID, CARTILAGE, ORGANS, SOURCES, TOOTH
+from .lugat import BONE, BY_ID, CARTILAGE, MUSCLE, ORGANS, SOURCES, TOOTH
 from .simplify import simplify
 from . import ao
 
@@ -237,7 +238,7 @@ def normalize(data: dict, count: int, language: str) -> dict:
             names[organ] = BY_ID[organ]["uz"]       # o'zbekcha nomlar — tekshirilgan lug'atdan
         else:
             names[organ] = str(ai_names.get(organ) or BY_ID[organ]["en"]).strip()[:40]
-    return {"body": body, "slides": slides, "names": names}
+    return {"body": body, "slides": slides, "names": names, "language": language}
 
 
 def smooth_turns(slides: List[dict]) -> None:
@@ -386,23 +387,51 @@ def _joined(meshes: List[tuple]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Li
     return np.vstack(pos), np.vstack(nrm), np.concatenate(idx), offsets
 
 
-def shaded_primitives(organ: str, meshes: List[tuple], neighbours: List[List[tuple]] = ()) -> List[Primitive]:
+LUNGS = ("opkalar", "ong_opka", "chap_opka")
+
+
+def texture_of(organ: str) -> str:
+    """Organ to'qimasi naqshi: mushak — tolali, o'pka — g'ovak, suyak — donador."""
+    info = BY_ID[organ]
+    if organ in LUNGS:
+        return "speckle"
+    if info["color"] in (MUSCLE,) or organ.endswith("mushaklar") or organ.endswith("mushaklari") or organ in (
+            "mushaklar", "diafragma", "deltasimon", "trapetsiyasimon", "kokrak_mushagi", "qovurgalararo"):
+        return "fiber"
+    if info["color"] in (BONE, TOOTH):
+        return "grain"
+    return ""
+
+
+def shaded_primitives(organ: str, meshes: List[tuple], neighbours: List[List[tuple]] = (),
+                      tone: str = "real") -> List[Primitive]:
     """Soya butun organ bo'yicha (bo'lmacha qorinchaga soya tushiradi) va unga tegib turgan qo'shni organlar
-    bilan birga (yurak aorta ildiziga) — yig'ilgan organlar bitta jismdek, bir xil yorug'likda ko'rinadi."""
+    bilan birga (yurak aorta ildiziga) — yig'ilgan organlar bitta jismdek, bir xil yorug'likda ko'rinadi.
+
+    tone — uslub ohangi (`design.tone`): real, pastel, ivory, xray, warm. Naqsh (tola, g'ovak) — organ turiga qarab."""
+    from .design import tone as recolor
+
     allpos, allnrm, allidx, offsets = _joined(meshes)
     others = None
     if neighbours:
         opos, _, oidx, _ = _joined([m for group in neighbours for m in group])
         others = (opos, oidx)
     info = BY_ID[organ]
-    base = np.array(srgb(info["color"]))
-    tint = np.array(srgb(info["shade"])) / np.maximum(base, 1e-3) if info.get("shade") else (0.55, 0.45, 0.45)
+    base = np.array(srgb(recolor(info["color"], tone)))
+    if info.get("shade"):
+        tint = np.array(srgb(recolor(info["shade"], tone))) / np.maximum(base, 1e-3)
+    else:
+        tint = (0.62, 0.56, 0.58) if tone == "pastel" else ((0.45, 0.62, 0.7) if tone == "xray" else (0.55, 0.45, 0.45))
     hard = info["color"] in HARD    # suyak va tog'ay — xira, yumshoq a'zolar — nam yaltiroq
-    shade = ao.colors(allpos, allnrm, allidx, tint=np.clip(tint, 0, 1), mottle=0.04 if hard else 0.12,
-                      others=others)
+    shade = ao.colors(allpos, allnrm, allidx, tint=np.clip(tint, 0, 1),
+                      mottle=0.04 if hard or tone in ("ivory", "xray") else (0.07 if organ == "jigar" else 0.12),
+                      others=others, texture=texture_of(organ))
+    rough = 0.75 if hard else 0.38
+    if tone == "ivory":
+        rough = 0.55
     prims = []
     for (color, pos, nrm, idx), start in zip(meshes, offsets):
-        prims.append(Primitive(pos, nrm, idx, srgb(color), roughness=0.75 if hard else 0.38, name=organ,
+        prims.append(Primitive(pos, nrm, idx, srgb(recolor(color, tone)), roughness=rough, name=organ,
                                colors=shade[start:start + len(pos)]))
     return prims
 
@@ -488,10 +517,13 @@ def build_scenes(body_key: str, plan_: dict, atlas=None, quality: float = 1.0) -
 
     quality — uchburchaklar ulushi (1 — imkon qadar to'liq); fayl juda katta chiqsa `make_deck` kamaytiradi.
     """
+    from .design import style as get_style
+
     body = lexicon()["bodies"][body_key]
     slides = plan_["slides"]
     reveal_hidden(body, slides)
     atlas = atlas or manba.atlas(body_key)
+    tone = get_style(plan_.get("style")).tone
     geometry: Dict[Tuple[str, int], list] = {}
     shaded: Dict[tuple, list] = {}
     scenes: Dict[str, dict] = {}
@@ -511,37 +543,68 @@ def build_scenes(body_key: str, plan_: dict, atlas=None, quality: float = 1.0) -
             # Soya organning o'zi va unga tegib turganlar bo'yicha — qaysi to'plamda bo'lmasin bir xil: almashishda
             # qolayotgan organ piksellari o'zgarmaydi.
             near = tuple(neighbours(body, organ, run_slides))
-            cache_key = (organ, targets[organ], tuple((o, targets[o]) for o in near))
+            cache_key = (organ, targets[organ], tuple((o, targets[o]) for o in near), tone)
             if cache_key not in shaded:
                 shaded[cache_key] = shaded_primitives(organ, geometry[(organ, targets[organ])],
-                                                      [geometry[(o, targets[o])] for o in near])
+                                                      [geometry[(o, targets[o])] for o in near], tone=tone)
             prims[organ] = shaded[cache_key]
             dense[organ] = _dense(geometry[(organ, targets[organ])])
         reveal_focus(Camera(lo, hi), [slides[i] for i in members], dense)
         groups, labels = {}, {}
         for i in members:
             show = sorted(slides[i]["show"])
+            focus = slides[i].get("focus") or slides[i]["show"]
+            names = plan_["names"]
+            if slides[i].get("explode") and len(show) >= 2:
+                # Portlash: har organ alohida model (bo'laklar bir-biridan ajraladi, keyin qayta yig'iladi).
+                parts = []
+                for o in show:
+                    pid = f"part_{o}"
+                    parts.append(pid)
+                    if pid not in groups:
+                        groups[pid] = {"samples": body[o]["samples"],
+                                       "glb": write_glb(prims[o], anchors=(lo, hi), name=pid)}
+                        labels[f"{pid}:{o}"] = {"uz": names.get(o, BY_ID[o]["uz"]), "la": BY_ID[o].get("la", ""),
+                                                "group": pid, "samples": body[o]["samples"]}
+                placed.append((i, key, ("parts", tuple(show)), dict(
+                    slides[i], scene=key, show=parts, focus=None,
+                    focus_points=[p for o in show for p in body[o]["samples"]],
+                    labels=[f"part_{o}:{o}" for o in slides[i]["labels"] if o in show])))
+                continue
             gid = set_id(show)
             if gid not in groups:
                 groups[gid] = {"samples": [p for o in show for p in body[o]["samples"]],
                                "glb": write_glb([p for o in show for p in prims[o]], anchors=(lo, hi), name=gid)}
                 for o in show:
-                    labels[f"{gid}:{o}"] = {"uz": plan_["names"].get(o, BY_ID[o]["uz"]), "la": BY_ID[o].get("la", ""),
+                    labels[f"{gid}:{o}"] = {"uz": names.get(o, BY_ID[o]["uz"]), "la": BY_ID[o].get("la", ""),
                                             "group": gid, "samples": body[o]["samples"],
                                             "occluders": [p for x in show if x != o for p in dense[x]]}
-            focus = slides[i].get("focus") or slides[i]["show"]
-            placed.append((i, key, gid, dict(slides[i], scene=key, show=[gid], focus=None,
-                                              focus_points=[p for o in focus for p in body[o]["samples"]],
-                                              labels=[f"{gid}:{o}" for o in slides[i]["labels"] if o in show])))
+            placed.append((i, key, ("set", gid), dict(slides[i], scene=key, show=[gid], focus=None,
+                                                      focus_points=[p for o in focus for p in body[o]["samples"]],
+                                                      labels=[f"{gid}:{o}" for o in slides[i]["labels"] if o in show])))
         scenes[key] = {"bbox_min": lo.tolist(), "bbox_max": hi.tolist(), "source": SOURCES[body_key],
                        "groups": groups, "labels": labels}
     placed.sort(key=lambda item: item[0])
     deck_slides: List[dict] = []
-    for k, (_, key, gid, data) in enumerate(placed):
-        if k and placed[k - 1][1] == key and placed[k - 1][2] != gid:
-            deck_slides.append(dict(data, labels=[], fade=True, auto=True, frame_of=len(deck_slides) - 1))
+
+    def helper(data: dict, show: list, frame_of: int) -> None:
+        """Yordamchi slayd (o'zi o'tadi, raqamga kirmaydi): kamera `frame_of` slayddagidek."""
+        deck_slides.append(dict(data, show=show, labels=[], fade=True, auto=True, explode=0, frame_of=frame_of))
+
+    for k, (_, key, form, data) in enumerate(placed):
+        if k and placed[k - 1][1] == key and placed[k - 1][2] != form:
+            prev_form, prev = placed[k - 1][2], deck_slides[-1]
+            if form[0] == "parts":
+                # yig'ilgan model → o'sha joyda alohida bo'laklar (so'nib almashadi) → bo'laklar ajraladi
+                helper(data, data["show"], len(deck_slides) - 1)
+            elif prev_form[0] == "parts":
+                # ajralgan bo'laklar o'sha joyda qayta yig'iladi → yaxlit modelga almashadi → yangi joyga
+                helper(data, prev["show"], len(deck_slides) - 1)
+                helper(data, data["show"], len(deck_slides) - 1)
+            else:
+                helper(data, data["show"], len(deck_slides) - 1)
         deck_slides.append(data)
-    return {"scene": "run0", "slides": deck_slides}, scenes
+    return {"scene": "run0", "slides": deck_slides, "style": plan_.get("style")}, scenes
 
 
 def _safe(name: str) -> str:
@@ -559,29 +622,77 @@ def models_size(scenes: Dict[str, dict]) -> int:
     return sum(unique.values())
 
 
-def make_deck(topic: str, plan_: dict, out_dir: Optional[str] = None, atlas=None,
-              limit_mb: Optional[float] = None) -> str:
-    """Taqdimot fayli. Avval eng yuqori sifatda yig'iladi; fayl `limit_mb` dan oshsa — og'ir organlar
-    kerakli ulushga kamaytirilib qayta yig'iladi (yengillari to'liq qoladi)."""
-    from .deck import build
+QUIZ_TEXT = {
+    "uz": ("O'zingizni tekshiring", "Raqamlar bilan belgilangan a'zolarni ayting. Javoblar — bosganda chiqadi."),
+    "uz-cyrl": ("Ўзингизни текширинг", "Рақамлар билан белгиланган аъзоларни айтинг. Жавоблар — босганда чиқади."),
+    "ru": ("Проверьте себя", "Назовите органы, отмеченные цифрами. Ответы появятся по щелчку."),
+    "en": ("Check yourself", "Name the organs marked with numbers. The answers appear on click."),
+    "kk": ("Өзіңізді тексеріңіз", "Сандармен белгіленген мүшелерді атаңыз. Жауаптар басқанда шығады."),
+}
+QUIZ_MIN_SLIDES = 8
 
+
+def add_quiz(plan_: dict) -> bool:
+    """Xulosadan oldin bonus savol slaydi: eng ko'p yorliqli umumiy ko'rinish, nomlar o'rnida raqamlar,
+    javoblar bosilganda chiqadi (o'qituvchi uchun tayyor mashq). 8 slayddan kam bo'lsa — qo'shilmaydi."""
+    slides = plan_["slides"]
+    if len(slides) < QUIZ_MIN_SLIDES or any(s.get("quiz") for s in slides):
+        return False
+    source = max(slides[:-1], key=lambda s: (len(s.get("labels") or []), len(s["show"])))
+    if len(source.get("labels") or []) < 3:
+        return False
+    from services import uz_script
+
+    lang = plan_.get("language") or "uz"
+    key = "uz-cyrl" if lang == getattr(uz_script, "UZ_CYRILLIC_LANG", "uz-cyrl") else lang
+    title, text = QUIZ_TEXT.get(key) or QUIZ_TEXT["en"]
+    quiz = dict(copy.deepcopy(source), title=title, text=text, quiz=True, focus=None)
+    slides.insert(len(slides) - 1, quiz)
+    return True
+
+
+def pick_style(topic: str) -> str:
+    """Mijoz uslub tanlamagan bo'lsa: mavzuga qarab (har mavzu o'z uslubida, lekin bir xil mavzu — bir xil)."""
+    from .design import STYLES
+
+    keys = sorted(STYLES)
+    return keys[int(hashlib.md5(topic.encode("utf-8")).hexdigest()[:6], 16) % len(keys)]
+
+
+def make_deck(topic: str, plan_: dict, out_dir: Optional[str] = None, atlas=None,
+              limit_mb: Optional[float] = None, style: Optional[str] = None) -> str:
+    """Taqdimot fayli. Avval eng yuqori sifatda yig'iladi; fayl `limit_mb` dan oshsa — og'ir organlar
+    kerakli ulushga kamaytirilib qayta yig'iladi (yengillari to'liq qoladi).
+
+    style — dizayn uslubi (`design.STYLES`); berilmasa — rejadagisi yoki mavzuga qarab tanlanadi. Rejissyor
+    (`director.direct`) har slaydga kompozitsiya va kamera harakatini bir marta beradi."""
+    from .deck import build
+    from .director import direct
+
+    plan_["style"] = style or plan_.get("style") or pick_style(topic)
+    if not plan_.get("directed"):
+        add_quiz(plan_)
+        moves = direct(lexicon()["bodies"][plan_["body"]], plan_["slides"], topic)
+        plan_["directed"] = True
+        log.info("3D Anatomiya: uslub %s, harakatlar: %s", plan_["style"], ", ".join(moves))
     limit = (limit_mb or FILE_LIMIT_MB) * 1e6
     quality = 1.0
     for attempt in range(5):
-        deck_plan, scenes = build_scenes(plan_["body"], plan_, atlas, quality)
+        deck_plan, scenes = build_scenes(plan_["body"], copy.deepcopy(plan_), atlas, quality)
         size = models_size(scenes)
         if size <= limit:
             break
         quality *= limit / size * 0.92            # hajm uchburchaklar soniga deyarli mutanosib
         log.info("3D Anatomiya: modellar %.1f MB > %.0f MB — sifat %.0f%% ga tushiriladi",
                  size / 1e6, limit / 1e6, quality * 100)
+    deck_plan["seed"] = int(hashlib.md5(topic.encode("utf-8")).hexdigest()[:4], 16)
     out_dir = out_dir or tempfile.mkdtemp(prefix="med3d_")
     return build(deck_plan, os.path.join(out_dir, f"3D_{_safe(topic)}.pptx"), scenes=scenes)
 
 
 async def build_deck(topic: str, slide_count: int, *, language: str = "uz", level: int = 2,
-                     preferences: str = "", stage_cb: Optional[Callable[[str, Dict], None]] = None
-                     ) -> Tuple[str, int]:
+                     preferences: str = "", stage_cb: Optional[Callable[[str, Dict], None]] = None,
+                     style: Optional[str] = None) -> Tuple[str, int]:
     """Bot uchun: (PPTX yo'li, slaydlar soni). Mavzu anatomiya bo'lmasa NotAnatomy, boshqa xatoda istisno."""
     def stage(name: str, **info) -> None:
         if stage_cb:
@@ -598,5 +709,5 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
     log.info("3D Anatomiya: %s tana, %d slayd, organlar: %s", plan_["body"], len(plan_["slides"]),
              sorted({o for s in plan_["slides"] for o in s["show"]}))
     stage("models", slides=len(plan_["slides"]))
-    path = await asyncio.wait_for(loop.run_in_executor(None, lambda: make_deck(topic, plan_)), 8 * 60)
+    path = await asyncio.wait_for(loop.run_in_executor(None, lambda: make_deck(topic, plan_, style=style)), 8 * 60)
     return path, len(plan_["slides"])
