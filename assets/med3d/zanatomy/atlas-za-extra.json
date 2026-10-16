@@ -1,0 +1,815 @@
+{
+"version": "Z-Anatomy (CC BY-SA 4.0)",
+"chunks": [
+{
+"url": "za-extra.bin"
+}
+],
+"parts": [
+{
+"id": "ZA-left-cochlea",
+"name": "Left cochlea [Cochlea; Sense organs]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 3110,
+"indexCount": 18504,
+"bounds": [
+[
+0.03886000066995621,
+1.5850900411605835,
+-0.013159999623894691
+],
+[
+0.04529999941587448,
+1.5930900573730469,
+-0.0033199999015778303
+]
+],
+"positions": 0,
+"normals": 37320,
+"indices": 55980
+},
+{
+"id": "ZA-right-cochlea",
+"name": "Right cochlea [Cochlea; Sense organs]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 3110,
+"indexCount": 18504,
+"bounds": [
+[
+-0.04648999869823456,
+1.5847500562667847,
+-0.012860000133514404
+],
+[
+-0.040059998631477356,
+1.5927599668502808,
+-0.0030300000216811895
+]
+],
+"positions": 129996,
+"normals": 167316,
+"indices": 185976
+},
+{
+"id": "ZA-greater-omentum",
+"name": "Greater omentum [Peritoneal structures]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 38986,
+"indexCount": 233904,
+"bounds": [
+[
+-0.10357999801635742,
+0.9047099947929382,
+0.011830000206828117
+],
+[
+0.1082099974155426,
+1.187940001487732,
+0.0812700018286705
+]
+],
+"positions": 259992,
+"normals": 727824,
+"indices": 961740
+},
+{
+"id": "ZA-left-incus",
+"name": "Left incus [Auditory ossicles; Axial skeleton; Bonus collection; Cranium]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 1268,
+"indexCount": 7596,
+"bounds": [
+[
+0.04812999814748764,
+1.5891900062561035,
+-0.01744000054895878
+],
+[
+0.0523499995470047,
+1.595420002937317,
+-0.012550000101327896
+]
+],
+"positions": 1897356,
+"normals": 1912572,
+"indices": 1920180
+},
+{
+"id": "ZA-right-incus",
+"name": "Right incus [Auditory ossicles; Axial skeleton; Bonus collection; Cranium]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 1268,
+"indexCount": 7596,
+"bounds": [
+[
+-0.05358000099658966,
+1.5889899730682373,
+-0.01713000051677227
+],
+[
+-0.0493599995970726,
+1.5952199697494507,
+-0.012230000458657742
+]
+],
+"positions": 1950564,
+"normals": 1965780,
+"indices": 1973388
+},
+{
+"id": "ZA-left-inferior-parathyroid-gland",
+"name": "Left inferior parathyroid gland",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 66,
+"indexCount": 384,
+"bounds": [
+[
+0.009150000289082527,
+1.4669899940490723,
+-0.01133000012487173
+],
+[
+0.010809999890625477,
+1.4699699878692627,
+-0.0075599998235702515
+]
+],
+"positions": 2003772,
+"normals": 2004564,
+"indices": 2004960
+},
+{
+"id": "ZA-right-inferior-parathyroid-gland",
+"name": "Right inferior parathyroid gland",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 66,
+"indexCount": 384,
+"bounds": [
+[
+-0.012000000104308128,
+1.467020034790039,
+-0.01140000019222498
+],
+[
+-0.010339999571442604,
+1.4700000286102295,
+-0.0076299998909235
+]
+],
+"positions": 2006496,
+"normals": 2007288,
+"indices": 2007684
+},
+{
+"id": "ZA-lesser-omentum",
+"name": "Lesser omentum [Peritoneal structures]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 2382,
+"indexCount": 14280,
+"bounds": [
+[
+-0.03483999893069267,
+1.15733003616333,
+0.016979999840259552
+],
+[
+0.025129999965429306,
+1.2153799533843994,
+0.08094999939203262
+]
+],
+"positions": 2009220,
+"normals": 2037804,
+"indices": 2052096
+},
+{
+"id": "ZA-left-malleus",
+"name": "Left malleus [Auditory ossicles; Axial skeleton; Bonus collection; Cranium]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 1993,
+"indexCount": 11946,
+"bounds": [
+[
+0.0493599995970726,
+1.587499976158142,
+-0.013279999606311321
+],
+[
+0.05299000069499016,
+1.5956799983978271,
+-0.010409999638795853
+]
+],
+"positions": 2109216,
+"normals": 2133132,
+"indices": 2145092
+},
+{
+"id": "ZA-right-malleus",
+"name": "Right malleus [Auditory ossicles; Axial skeleton; Bonus collection; Cranium]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 1993,
+"indexCount": 11946,
+"bounds": [
+[
+-0.05420999974012375,
+1.587249994277954,
+-0.012969999574124813
+],
+[
+-0.05056999996304512,
+1.5954300165176392,
+-0.010099999606609344
+]
+],
+"positions": 2192876,
+"normals": 2216792,
+"indices": 2228752
+},
+{
+"id": "ZA-left-palatine-tonsil",
+"name": "Left palatine tonsil [Lymphoid system]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 86,
+"indexCount": 504,
+"bounds": [
+[
+0.023010000586509705,
+1.5553900003433228,
+0.013290000148117542
+],
+[
+0.030540000647306442,
+1.5652799606323242,
+0.022989999502897263
+]
+],
+"positions": 2276536,
+"normals": 2277568,
+"indices": 2278084
+},
+{
+"id": "ZA-right-palatine-tonsil",
+"name": "Right palatine tonsil [Lymphoid system]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 86,
+"indexCount": 504,
+"bounds": [
+[
+-0.03197000175714493,
+1.5555100440979004,
+0.01307000033557415
+],
+[
+-0.02442999929189682,
+1.5653899908065796,
+0.022770000621676445
+]
+],
+"positions": 2280100,
+"normals": 2281132,
+"indices": 2281648
+},
+{
+"id": "ZA-left-pyramidalis-muscle",
+"name": "Left pyramidalis muscle [Abdominal part of muscular system; Muscles; Muscles of abdomen]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 554,
+"indexCount": 3336,
+"bounds": [
+[
+0.0030900000128895044,
+0.8740000128746033,
+0.03313000127673149
+],
+[
+0.030980000272393227,
+0.9456999897956848,
+0.06004999950528145
+]
+],
+"positions": 2283664,
+"normals": 2290312,
+"indices": 2293636
+},
+{
+"id": "ZA-right-pyramidalis-muscle",
+"name": "Right pyramidalis muscle [Abdominal part of muscular system; Muscles; Muscles of abdomen]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 554,
+"indexCount": 3336,
+"bounds": [
+[
+-0.0313900001347065,
+0.8739399909973145,
+0.03317999839782715
+],
+[
+-0.0035000001080334187,
+0.9456400275230408,
+0.060100000351667404
+]
+],
+"positions": 2306980,
+"normals": 2313628,
+"indices": 2316952
+},
+{
+"id": "ZA-left-quadratus-lumborum-muscle",
+"name": "Left quadratus lumborum muscle [Abdominal part of muscular system; Muscles; Muscles of abdomen]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 1416,
+"indexCount": 8496,
+"bounds": [
+[
+0.016529999673366547,
+0.9639700055122375,
+-0.07665000110864639
+],
+[
+0.06795000284910202,
+1.1703200340270996,
+-0.03144000098109245
+]
+],
+"positions": 2330296,
+"normals": 2347288,
+"indices": 2355784
+},
+{
+"id": "ZA-right-quadratus-lumborum-muscle",
+"name": "Right quadratus lumborum muscle [Abdominal part of muscular system; Muscles; Muscles of abdomen]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 1416,
+"indexCount": 8496,
+"bounds": [
+[
+-0.07027000188827515,
+0.9639700055122375,
+-0.07665000110864639
+],
+[
+-0.018850000575184822,
+1.1703200340270996,
+-0.03144000098109245
+]
+],
+"positions": 2389768,
+"normals": 2406760,
+"indices": 2415256
+},
+{
+"id": "ZA-left-rectus-abdominis-muscle",
+"name": "Left rectus abdominis muscle [Abdominal part of muscular system; Muscles; Muscles of abdomen]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 10304,
+"indexCount": 61812,
+"bounds": [
+[
+0.0022499999031424522,
+0.8696399927139282,
+0.04575999826192856
+],
+[
+0.08090999722480774,
+1.2780400514602661,
+0.12038999795913696
+]
+],
+"positions": 2449240,
+"normals": 2572888,
+"indices": 2634712
+},
+{
+"id": "ZA-right-rectus-abdominis-muscle",
+"name": "Right rectus abdominis muscle [Abdominal part of muscular system; Muscles; Muscles of abdomen]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 10304,
+"indexCount": 61812,
+"bounds": [
+[
+-0.0824199989438057,
+0.8696399927139282,
+0.04575999826192856
+],
+[
+-0.0037700000684708357,
+1.2780400514602661,
+0.12038999795913696
+]
+],
+"positions": 2881960,
+"normals": 3005608,
+"indices": 3067432
+},
+{
+"id": "ZA-rectus-abdominis-muscle-el",
+"name": "Rectus abdominis muscle.el",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+0.001120000029914081,
+0.8674600124359131,
+0.03993000090122223
+],
+[
+0.007189999800175428,
+1.259310007095337,
+0.10936000198125839
+]
+],
+"positions": 3314680,
+"normals": 3320464,
+"indices": 3323356
+},
+{
+"id": "ZA-rectus-abdominis-muscle-er",
+"name": "Rectus abdominis muscle.er",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.009440000168979168,
+0.8674600124359131,
+0.03993000090122223
+],
+[
+-0.003379999892786145,
+1.259310007095337,
+0.10936000198125839
+]
+],
+"positions": 3334876,
+"normals": 3340660,
+"indices": 3343552
+},
+{
+"id": "ZA-rectus-abdominis-muscle-ol",
+"name": "Rectus abdominis muscle.ol",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 2288,
+"indexCount": 13692,
+"bounds": [
+[
+0.00795000046491623,
+1.227970004081726,
+0.10400000214576721
+],
+[
+0.0803999975323677,
+1.267359972000122,
+0.11495999991893768
+]
+],
+"positions": 3355072,
+"normals": 3382528,
+"indices": 3396256
+},
+{
+"id": "ZA-rectus-abdominis-muscle-or",
+"name": "Rectus abdominis muscle.or",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 2288,
+"indexCount": 13692,
+"bounds": [
+[
+-0.07993999868631363,
+1.2279200553894043,
+0.10400000214576721
+],
+[
+-0.00749000022187829,
+1.2673100233078003,
+0.11495999991893768
+]
+],
+"positions": 3451024,
+"normals": 3478480,
+"indices": 3492208
+},
+{
+"id": "ZA-sinus-of-frontal-bone",
+"name": "Sinus of frontal bone [Axial skeleton; Cranium]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 770,
+"indexCount": 4512,
+"bounds": [
+[
+-0.026089999824762344,
+1.6072200536727905,
+0.06483999639749527
+],
+[
+0.024289999157190323,
+1.6384400129318237,
+0.07645999640226364
+]
+],
+"positions": 3546976,
+"normals": 3556216,
+"indices": 3560836
+},
+{
+"id": "ZA-sinus-of-sphenoid-bone",
+"name": "Sinus of sphenoid bone [Axial skeleton; Cranium]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 210,
+"indexCount": 1152,
+"bounds": [
+[
+-0.014670000411570072,
+1.588479995727539,
+0.010889999568462372
+],
+[
+0.013570000417530537,
+1.610159993171692,
+0.02848999947309494
+]
+],
+"positions": 3578884,
+"normals": 3581404,
+"indices": 3582664
+},
+{
+"id": "ZA-left-stapes",
+"name": "Left stapes [Auditory ossicles; Axial skeleton; Bonus collection; Cranium]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 2171,
+"indexCount": 13026,
+"bounds": [
+[
+0.04394000023603439,
+1.5892399549484253,
+-0.01432000007480383
+],
+[
+0.04799000173807144,
+1.591670036315918,
+-0.011269999668002129
+]
+],
+"positions": 3587272,
+"normals": 3613324,
+"indices": 3626352
+},
+{
+"id": "ZA-right-stapes",
+"name": "Right stapes [Auditory ossicles; Axial skeleton; Bonus collection; Cranium]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 2171,
+"indexCount": 13026,
+"bounds": [
+[
+-0.04927000030875206,
+1.5893800258636475,
+-0.01408000010997057
+],
+[
+-0.04521999880671501,
+1.5918099880218506,
+-0.011029999703168869
+]
+],
+"positions": 3678456,
+"normals": 3704508,
+"indices": 3717536
+},
+{
+"id": "ZA-left-superior-parathyroid-gland",
+"name": "Left superior parathyroid gland",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 66,
+"indexCount": 384,
+"bounds": [
+[
+0.013609999790787697,
+1.4868099689483643,
+-0.012509999796748161
+],
+[
+0.017500000074505806,
+1.4898899793624878,
+-0.009999999776482582
+]
+],
+"positions": 3769640,
+"normals": 3770432,
+"indices": 3770828
+},
+{
+"id": "ZA-right-superior-parathyroid-gland",
+"name": "Right superior parathyroid gland",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 66,
+"indexCount": 384,
+"bounds": [
+[
+-0.018710000440478325,
+1.4868199825286865,
+-0.012550000101327896
+],
+[
+-0.014820000156760216,
+1.48989999294281,
+-0.010029999539256096
+]
+],
+"positions": 3772364,
+"normals": 3773156,
+"indices": 3773552
+},
+{
+"id": "ZA-thyroid-gland",
+"name": "Thyroid gland [Endocrine glands]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 1302,
+"indexCount": 7800,
+"bounds": [
+[
+-0.025030000135302544,
+1.4629700183868408,
+-0.013249999843537807
+],
+[
+0.023590000346302986,
+1.4970799684524536,
+0.028310000896453857
+]
+],
+"positions": 3775088,
+"normals": 3790712,
+"indices": 3798524
+},
+{
+"id": "ZA-left-transversus-abdominis-muscle",
+"name": "Left transversus abdominis muscle [Abdominal part of muscular system; Muscles; Muscles of abdomen]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 17164,
+"indexCount": 102984,
+"bounds": [
+[
+-2.9999999242136255e-05,
+0.8610100150108337,
+-0.06863000243902206
+],
+[
+0.12941999733448029,
+1.2820500135421753,
+0.09877000004053116
+]
+],
+"positions": 3829724,
+"normals": 4035692,
+"indices": 4138676
+},
+{
+"id": "ZA-transversus-abdominis-muscle-ol",
+"name": "Transversus abdominis muscle.ol",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 614,
+"indexCount": 3672,
+"bounds": [
+[
+0.05696000158786774,
+0.9636800289154053,
+-0.07050000131130219
+],
+[
+0.12307000160217285,
+1.0372200012207031,
+0.042739998549222946
+]
+],
+"positions": 4550612,
+"normals": 4557980,
+"indices": 4561664
+},
+{
+"id": "ZA-transversus-abdominis-muscle-or",
+"name": "Transversus abdominis muscle.or",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 614,
+"indexCount": 3672,
+"bounds": [
+[
+-0.12416999787092209,
+0.9632700085639954,
+-0.07021000236272812
+],
+[
+-0.058070000261068344,
+1.036810040473938,
+0.04303000122308731
+]
+],
+"positions": 4576352,
+"normals": 4583720,
+"indices": 4587404
+},
+{
+"id": "ZA-right-transversus-abdominis-muscle",
+"name": "Right transversus abdominis muscle [Abdominal part of muscular system; Muscles; Muscles of abdomen]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 17164,
+"indexCount": 102984,
+"bounds": [
+[
+-0.13151000440120697,
+0.8606899976730347,
+-0.06881999969482422
+],
+[
+-0.0020699999295175076,
+1.2817200422286987,
+0.098580002784729
+]
+],
+"positions": 4602092,
+"normals": 4808060,
+"indices": 4911044
+},
+{
+"id": "ZA-left-tympanic-membrane",
+"name": "Left tympanic membrane [Sense organs; Tympanic membrane]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 788,
+"indexCount": 4716,
+"bounds": [
+[
+0.04868000000715256,
+1.5830199718475342,
+-0.01754000037908554
+],
+[
+0.05364000052213669,
+1.5915199518203735,
+-0.007060000207275152
+]
+],
+"positions": 5322980,
+"normals": 5332436,
+"indices": 5337164
+},
+{
+"id": "ZA-right-tympanic-membrane",
+"name": "Right tympanic membrane [Sense organs; Tympanic membrane]",
+"system": "za-organ",
+"chunk": 0,
+"vertexCount": 788,
+"indexCount": 4716,
+"bounds": [
+[
+-0.05485999956727028,
+1.5827800035476685,
+-0.017230000346899033
+],
+[
+-0.04989999905228615,
+1.5912799835205078,
+-0.006750000175088644
+]
+],
+"positions": 5356028,
+"normals": 5365484,
+"indices": 5370212
+}
+]
+}
