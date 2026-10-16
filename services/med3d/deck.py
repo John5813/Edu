@@ -201,7 +201,8 @@ def _labels(slide, cam: Camera, scene: dict, frame: Frame, keys: Sequence[str], 
         if not info or info["group"] not in visible:
             log.warning("med3d: yorliq tashlab ketildi: %s", key)
             continue
-        others = [p for g in visible if g != info["group"] for p in scene["groups"][g]["samples"]]
+        # Birlashgan modelda (bir nechta organ — bitta GLB) to'suvchilar yorliqning o'zida beriladi.
+        others = info.get("occluders") or [p for g in visible if g != info["group"] for p in scene["groups"][g]["samples"]]
         ax, ay = frame.to_slide(*cam.anchor(info["samples"], frame.rot, others, 0.12 / frame.size))
         if not (TEXT_EDGE <= ax <= W - 0.1 and 0.15 <= ay <= H - 0.15):
             log.info("med3d: yorliq nuqtasi slayddan tashqarida, qo'yilmadi: %s", key)
@@ -307,9 +308,12 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
         focus = [g for g in (data.get("focus") or show) if g in show] or show
         labels = list(data.get("labels") or [])
         region = MODEL_REGION if labels else MODEL_REGION_WIDE
-        points = [p for g in focus for p in groups[g]["samples"]]
-        frame = fit_frame(cam, points, data.get("rot") or (0, 0, 0), region)
-        frame = keep_clear(cam, frame, points, [p for g in show for p in groups[g]["samples"]])
+        points = data.get("focus_points") or [p for g in focus for p in groups[g]["samples"]]
+        if data.get("frame_of") is not None:         # kamera aynan oldingi slayddagidek (joyida almashish)
+            frame = plans[data["frame_of"]]["frame"]
+        else:
+            frame = fit_frame(cam, points, data.get("rot") or (0, 0, 0), region)
+            frame = keep_clear(cam, frame, points, [p for g in show for p in groups[g]["samples"]])
         show = [g for g in show if g in focus or not _too_big(cam, frame, groups[g]["samples"])]
         plans.append({"key": key, "scene": scene, "cam": cam, "frame": frame, "show": show,
                       "labels": labels, "names": {_model_name(key, g, main): (key, g)
@@ -325,10 +329,13 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
         slide = prs.slides.add_slide(layout)
         slide.background.fill.solid()
         slide.background.fill.fore_color.rgb = _rgb(PAL["bg"])
-        _text_column(slide, data, index, len(slides), scene["source"])
+        # Yordamchi (avtomatik o'tadigan) slaydlar raqamga kirmaydi: u keyingi slaydning raqamini ko'rsatadi.
+        number = sum(1 for s in slides[:index] if not s.get("auto"))
+        _text_column(slide, data, number, sum(1 for s in slides if not s.get("auto")), scene["source"])
 
         placed = set(cur["names"])
-        if index:                                    # oldingi slayddan ketayotganlar
+        # fade — bu slaydga o'tishda organlar uchib kelmaydi, o'z joyida asta almashadi (Morph o'zi so'ndiradi).
+        if index and not data.get("fade"):           # oldingi slayddan ketayotganlar
             before = plans[index - 1]
             way = (data.get("exit") or "up") if before["key"] == key else "left"
             out = before["frame"].moved_out(way)
@@ -336,7 +343,7 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
                 if name not in placed:
                     add_model3d(slide, glbs[(k, g)], name, out.left, out.top, out.size, out.rot, parts)
                     placed.add(name)
-        if index + 1 < len(plans):                   # keyingi slaydda paydo bo'ladiganlar — hozircha slayd tashqarisida
+        if index + 1 < len(plans) and not slides[index + 1].get("fade"):   # keyingilari — hozircha tashqarida
             after = plans[index + 1]
             way = "down" if after["key"] == key else "right"
             incoming = after["frame"].moved_out(way)
@@ -363,6 +370,10 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
             add_entrances(slide, steps)
         if index:
             add_morph(slide, MORPH_MS)
+            if data.get("auto"):                     # yordamchi slayd: o'tish tugashi bilan keyingisiga o'tadi
+                for node in slide._element.iter("{http://schemas.openxmlformats.org/presentationml/2006/main}transition"):
+                    node.set("advClick", "0")
+                    node.set("advTm", "0")
 
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
     prs.save(out_path)

@@ -9,7 +9,7 @@
 
     python test_med3d_auto.py
 """
-import asyncio, os, sys, tempfile, zipfile
+import asyncio, re, os, sys, tempfile, zipfile
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -152,6 +152,21 @@ labels = [s.text_frame.text for s in prs.slides[0].shapes if s.name.startswith("
 check("yorliqlar o'zbekcha nom bilan", "Jigar" in labels and "Oshqozon" in labels, labels)
 source = [s.text_frame.text for s in prs.slides[0].shapes if s.has_text_frame and "BodyParts3D" in s.text_frame.text]
 check("manba (CC BY) ko'rsatilgan", bool(source))
+
+# Joyida almashish: fade — organlar uchib kelmaydi; auto — yordamchi slayd o'zi o'tadi va raqamga kirmaydi.
+from services.med3d import deck as med3d_deck
+deck_plan, scenes = auto.build_scenes("male", plan, FakeAtlas(MALE))
+two = [dict(deck_plan["slides"][0], scene=deck_plan["slides"][0]["scene"]) for _ in range(3)]
+two[1].update(fade=True, auto=True, frame_of=0, labels=[])
+p2 = med3d_deck.build({"scene": deck_plan["scene"], "slides": two}, os.path.join(out_dir, "fade.pptx"), scenes=scenes)
+z2 = zipfile.ZipFile(p2)
+xml = [z2.read(f"ppt/slides/slide{i}.xml").decode() for i in (1, 2, 3)]
+pages = [[sh.text_frame.text for sh in s.shapes if sh.name == "!!page"][0] for s in Presentation(p2).slides]
+check("yordamchi slayd avtomatik o'tadi (advTm), boshqalari yo'q", 'advTm="0"' in xml[1]
+      and "advTm" not in xml[2], [("advTm" in x) for x in xml])
+check("yordamchi raqamga kirmaydi", pages == ["01 / 02", "02 / 02", "02 / 02"], pages)
+offs = [int(m) for m in re.findall(r'<a:off x="(-?\d+)"', xml[1])]
+check("fade slaydida slayd tashqarisidagi (uchib keladigan) nusxa yo'q", all(-914400 < x < 13.4 * 914400 for x in offs), offs)
 
 
 print("5) Bot: tugma → ogohlantirish → Ha / Yo'q")
