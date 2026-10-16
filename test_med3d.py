@@ -111,9 +111,13 @@ root3, f3 = frames(3)
 check("1-slayd: ikki model", set(f1) == {"!!m3d_cranium", "!!m3d_mandible"}, list(f1))
 check("model3d GLB ga bog'langan va kamerasi bor", all(v["linked"] and v["camera"] for f in (f1, f2, f3) for v in f.values()))
 check("1-slayd: tepa va jag' bir xil ramkada", f1["!!m3d_cranium"] == f1["!!m3d_mandible"])
+centre = lambda f: f["x"] + f["size"] / 2   # noqa: E731
 check("2-slayd: tepa slayddan yuqoriga chiqib ketadi",
       f2["!!m3d_cranium"]["y"] + f2["!!m3d_cranium"]["size"] < 0
-      and abs(f2["!!m3d_cranium"]["x"] - f1["!!m3d_cranium"]["x"]) < 1e-3, f2["!!m3d_cranium"])
+      and abs(centre(f2["!!m3d_cranium"]) - centre(f1["!!m3d_cranium"])) < 1e-3, f2["!!m3d_cranium"])
+check("2-slayd: chiqib ketayotgan tepa aylanib-buralib, kichrayib ketadi (3D ekani bilinadi)",
+      f2["!!m3d_cranium"]["rot"] != f1["!!m3d_cranium"]["rot"]
+      and f2["!!m3d_cranium"]["size"] < f1["!!m3d_cranium"]["size"], f2["!!m3d_cranium"])
 check("2-slayd: jag' aylanib kattalashadi",
       f2["!!m3d_mandible"]["rot"][0] == 70 and f2["!!m3d_mandible"]["size"] > f1["!!m3d_mandible"]["size"])
 check("3-slayd: qismlar qayta birlashadi (yon ko'rinish)",

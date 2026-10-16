@@ -53,6 +53,14 @@ HIDDEN_SHARE = 0.08                            # organ yuzasining shundan kami k
 ZOOM_LIMIT = 1.6                               # fokusga yaqinlashish: butun ko'rinishdan ko'pi bilan shuncha katta
 LABEL_X_MIN, LABEL_X_MAX = 5.15, W - 0.2
 EXITS = {"up": (0, -1), "down": (0, 1), "left": (-1, 0), "right": (1, 0)}
+# Chiqib ketishdagi qo'shimcha burilish (X, Y, Z gradus) va masshtab. Har burilish < 180° — Morph qaysi
+# yo'nalishda aylantirishidan qat'i nazar aylanish yaqqol ko'rinadi; Z (ekran tekisligida) — buralish (spiral).
+SPINS = {"down": ((55, -150, 165), 0.5), "up": ((-70, 120, -40), 0.7),
+         "left": ((25, -165, -35), 0.8), "right": ((25, 165, 35), 0.8)}
+
+
+def _wrap(angle: float) -> float:
+    return angle - 360.0 if angle > 359.0 else (angle + 360.0 if angle < -359.0 else angle)
 
 
 class Frame:
@@ -73,10 +81,17 @@ class Frame:
         return self.cx + u * self.size, self.cy + v * self.size
 
     def moved_out(self, direction: str) -> "Frame":
+        """Slayd tashqarisidagi joy — uchib chiqish/kirish uchun. Model to'g'ri chiziqda sirpanib ketmaydi: Morph
+        burilishni ham oraliqlaydi, shuning uchun tashqaridagi nusxa boshqa burchakda va kichikroq turadi —
+        pastga ketayotgan organ o'z o'qi atrofida buralib (spiral) uzoqlashadi, yon tomonga ketayotgani orqasiga
+        aylanib, qiyshayib chiqadi. Kirishda xuddi shu harakat teskari: aylanib kelib, o'z holatiga yoziladi."""
         dx, dy = EXITS.get(direction, EXITS["up"])
-        cx = self.cx + dx * (W + self.size) * 0.75 if dx else self.cx
-        cy = -self.size / 2 - 0.4 if dy < 0 else (H + self.size / 2 + 0.4 if dy > 0 else self.cy)
-        return Frame(cx, cy, self.size, self.rot)
+        spin, shrink = SPINS.get(direction, SPINS["up"])
+        size = self.size * shrink
+        cx = self.cx + dx * (W + size) * 0.75 if dx else self.cx
+        cy = -size / 2 - 0.4 if dy < 0 else (H + size / 2 + 0.4 if dy > 0 else self.cy)
+        rot = tuple(_wrap(a + d) for a, d in zip(self.rot, spin))
+        return Frame(cx, cy, size, rot)
 
 
 def fit_frame(cam: Camera, points, rot, region, fill: float = FILL) -> Frame:
