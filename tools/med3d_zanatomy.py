@@ -5,7 +5,7 @@ ularni to'liq beradi: chaynov, chakka, qanotsimon mushaklar, mimika mushaklari, 
 boshqalar. Ishlash tartibi:
 
     blender -b Z-Anatomy/Startup.blend --python tools/med3d_zanatomy_blender.py -- /tmp/za head
-    python tools/med3d_zanatomy.py /tmp/za head          # yoki: joints (boylamlar), nerves (nervlar)
+    python tools/med3d_zanatomy.py /tmp/za head          # yoki: joints (boylamlar), nerves (nervlar), extra
 
 Ikkinchi qadam Blender koordinatalarini atlasnikiga o'tkazadi (Z yuqori → Y yuqori, -Y old → +Z old),
 so'ng skelet suyaklari bo'yicha masshtab va siljishni hisoblaydi (eng kichik kvadratlar) va har qismni eng yaqin
@@ -27,8 +27,8 @@ sys.path.insert(0, os.path.dirname(HERE))
 from services.med3d import ZA_DIR, manba  # noqa: E402
 from services.med3d.simplify import simplify  # noqa: E402
 
-SYSTEMS = {"head": "za-muscular", "joints": "za-joint", "nerves": "za-nervous"}
-KINDS = {"head": "muscle", "joints": "joint", "nerves": "nerve"}
+SYSTEMS = {"head": "za-muscular", "joints": "za-joint", "nerves": "za-nervous", "extra": "za-organ"}
+KINDS = {"head": "muscle", "joints": "joint", "nerves": "nerve", "extra": "organ"}
 # Z-Anatomy suyak nomi → atlasdagi nomi (nomlar farq qiladiganlari)
 RENAME = {"atlas (c1)": "atlas", "axis (c2)": "axis", "navicular bone": "navicular bone of foot",
           "triquetrum bone": "triquetral", "manubrium of sternum": "manubrium"}

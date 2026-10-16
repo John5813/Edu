@@ -1,11 +1,12 @@
 """Z-Anatomy (Startup.blend) dan bosh mushaklarini xom holda chiqarish — Blender ichida ishlaydi.
 
-    blender -b Z-Anatomy/Startup.blend --python tools/med3d_zanatomy_blender.py -- chiqish_papka [head|joints|nerves]
+    blender -b Z-Anatomy/Startup.blend --python tools/med3d_zanatomy_blender.py -- chiqish_papka [head|joints|nerves|extra]
 
 Natija: `za_raw.json` + `za_raw.bin` (Blender koordinatalari: Z yuqoriga, -Y oldinga). Keyin
 `python tools/med3d_zanatomy.py chiqish_papka` ularni atlasimizga moslab `assets/med3d/zanatomy/` ga yozadi.
 To'plamlar: head — "Muscles of head" va "Facial muscles" dagi hamma mushak va mushakchalar; joints — "3: Joints"
 dagi boylamlar, kapsulalar, menisklar; nerves — "7: Nervous system" dagi nervlar (egri chiziqlar naycha sifatida).
+extra — atlasimizda yo'q, ko'p so'raladigan a'zolar (`EXTRA` ro'yxati: qalqonsimon bez, quloq, murtak va boshqalar).
 Moslash uchun skelet suyaklari ham chiqariladi.
 """
 import array
@@ -21,6 +22,10 @@ out_dir, which = args[0], (args[1] if len(args) > 1 else "head")
 os.makedirs(out_dir, exist_ok=True)
 HEAD_BONES = re.compile(r"^(Mandible|Frontal bone|Occipital bone|Sphenoid bone|Temporal bone|Parietal bone|Zygomatic bone|"
                         r"Maxilla|Nasal bone)(\.[lr])?$")
+EXTRA = re.compile(r"^(Thyroid gland|Superior parathyroid gland|Inferior parathyroid gland|Cochlea|Malleus|Incus|Stapes|"
+                   r"Tympanic membrane|Sinus of frontal bone|Sinus of sphenoid bone|Greater omentum|Lesser omentum|"
+                   r"Palatine tonsil|Rectus abdominis muscle|Transversus abdominis muscle|Pyramidalis muscle|"
+                   r"Internal oblique muscle|Quadratus lumborum muscle)(\.[a-z]+)?$")
 chosen = []
 for o in bpy.data.objects:
     cols = {c.name for c in o.users_collection}
@@ -37,6 +42,8 @@ for o in bpy.data.objects:
     else:
         if which == "joints" and "3: Joints" in cols:
             chosen.append(("joint", o))
+        elif which == "extra" and EXTRA.match(o.name):
+            chosen.append(("organ", o))
         elif "1: Skeletal system" in cols:
             chosen.append(("bone", o))
 

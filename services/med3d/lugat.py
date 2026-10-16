@@ -30,6 +30,7 @@ _FOOT = r"(talus|calcaneus|navicular bone of foot|cuboid bone|cuneiform bone|met
         r"phalanx of (big|second|third|fourth|little) toe|sesamoid bone of foot)"
 _LR = r"^(left |right )?"
 _ZA = "za-muscular:" + _LR
+_ZO = "za-organ:"
 _ZN = "za-nervous:"
 _ZJ = "za-joint:"   # Z-Anatomy boylamlari: nomda [bo'g'im] — "Left anterior cruciate ligament [Knee joint]"
 _SOFT = [(r"meniscus|disc|labrum|symphysis|fat pad", CARTILAGE)]
@@ -519,6 +520,38 @@ ORGANS: List[Dict] = [
          union=["bosh_miya_nervlari", "yelka_chigali", "qoltiq_nervi", "muskul_teri_nervi", "orta_nerv", "tirsak_nervi",
                 "bilak_nervi", "qol_teri_nervlari", "qovurgalararo_nervlar", "simpatik_stvol", "orqa_miya_ildizlari",
                 "bel_chigali", "son_nervi", "yopqich_nerv", "dumgaza_chigali"]),
+
+    # ── Ko'p so'raladigan qo'shimcha a'zolar (Z-Anatomy, CC BY-SA 4.0 — erkak atlasiga moslangan)
+    dict(id="qalqonsimon_bez", uz="Qalqonsimon bez", en="Thyroid gland", color="#B4574A",
+         m=[_ZO + "^thyroid gland"], f=[]),
+    dict(id="qalqonsimon_oldi_bezlari", uz="Qalqonsimon bez oldi bezlari", en="Parathyroid glands", color="#D9A441",
+         m=[_ZO + "parathyroid gland$"], f=[], inside=["qalqonsimon_bez"]),
+    dict(id="eshitish_suyakchalari", uz="Eshitish suyakchalari (bolg'acha, sandon, uzangi)",
+         en="Auditory ossicles (malleus, incus, stapes)", color=BONE, m=[_ZO + "^(left |right )?(malleus|incus|stapes) \\["],
+         f=[]),
+    dict(id="chiganoq", uz="Ichki quloq chig'anog'i", en="Cochlea", color="#E8D9B5", m=[_ZO + "^(left |right )?cochlea"],
+         f=[]),
+    dict(id="nogora_parda", uz="Nog'ora parda", en="Tympanic membrane", color="#E8B9A8",
+         m=[_ZO + "tympanic membrane"], f=[]),
+    dict(id="quloq", uz="Quloq (tashqi, o'rta va ichki quloq)", en="Ear (external, middle and inner)", color=SKIN,
+         union=["quloq_suprasi", "nogora_parda", "eshitish_suyakchalari", "chiganoq"]),
+    dict(id="burun_yondosh_bosh", uz="Peshona va ponasimon suyak bo'shliqlari", en="Frontal and sphenoidal sinuses",
+         color="#9FC7E0", m=[_ZO + "^sinus of (frontal|sphenoid) bone"], f=[], inside=["bosh_suyagi"]),
+    dict(id="charvi", uz="Katta va kichik charvi", en="Greater and lesser omentum", color=FAT,
+         m=[_ZO + "omentum"], f=[]),
+    dict(id="tanglay_murtagi", uz="Tanglay murtaklari (bodomsimon bezlar)", en="Palatine tonsils", color="#C77B7B",
+         m=[_ZO + "palatine tonsil"], f=[]),
+    dict(id="qorin_togri_mushagi", uz="Qorinning to'g'ri mushagi", en="Rectus abdominis", color=MUSCLE,
+         m=[_ZO + "^(left |right )?rectus abdominis muscle \\["], f=[]),
+    dict(id="qorin_kondalang_mushagi", uz="Qorinning ko'ndalang mushagi", en="Transversus abdominis", color=MUSCLE,
+         m=[_ZO + "^(left |right )?transversus abdominis muscle \\["], f=[]),
+    dict(id="piramidasimon_mushak", uz="Piramidasimon mushak", en="Pyramidalis", color=MUSCLE,
+         m=[_ZO + "^(left |right )?pyramidalis muscle \\["], f=[]),
+    dict(id="bel_kvadrat_mushagi", uz="Belning kvadrat mushagi", en="Quadratus lumborum", color=MUSCLE,
+         m=[_ZO + "^(left |right )?quadratus lumborum muscle \\["], f=[]),
+    dict(id="qorin_devori_mushaklari", uz="Qorin devori mushaklari", en="Muscles of the abdominal wall", color=MUSCLE,
+         union=["qorin_mushaklari", "qorin_togri_mushagi", "qorin_kondalang_mushagi", "piramidasimon_mushak",
+                "bel_kvadrat_mushagi"]),
 ]
 
 # Lotincha nom (Terminologia Anatomica): tibbiyotda a'zolar lotincha ataladi — yorliqda o'zbekcha nom ostida.
@@ -641,6 +674,12 @@ LATIN = {
     "kichik_boldir_nervi": "Nervus fibularis communis",
     "dumgaza_shoxlari": "Nervus gluteus, pudendus et cutaneus femoris posterior",
     "bosh_miya_nervlari": "Nervi craniales", "dumgaza_chigali": "Plexus sacralis", "periferik_nervlar": "Nervi periferici",
+    "qalqonsimon_bez": "Glandula thyroidea", "qalqonsimon_oldi_bezlari": "Glandulae parathyroideae",
+    "eshitish_suyakchalari": "Ossicula auditus", "chiganoq": "Cochlea", "nogora_parda": "Membrana tympani",
+    "quloq": "Auris", "burun_yondosh_bosh": "Sinus frontalis et sphenoidalis", "charvi": "Omentum majus et minus",
+    "tanglay_murtagi": "Tonsilla palatina", "qorin_togri_mushagi": "Musculus rectus abdominis",
+    "qorin_kondalang_mushagi": "Musculus transversus abdominis", "piramidasimon_mushak": "Musculus pyramidalis",
+    "bel_kvadrat_mushagi": "Musculus quadratus lumborum", "qorin_devori_mushaklari": "Musculi abdominis",
 }
 for _organ in ORGANS:
     _organ["la"] = LATIN[_organ["id"]]
