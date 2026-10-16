@@ -1,10 +1,10 @@
-"""Bepul sinov taqdimoti: har akkauntga bir marta, 5 slayd, Gemini 2.5 Flash Lite, rasmsiz.
+"""Bepul sinov taqdimoti: har akkauntga bir marta, 5 slayd, Gemini 2.5 Flash Lite, rasmlar faqat internetdan.
 
 - varaq soni qat'iy (mijoz boshqa son yuborsa ham 5), pul olinmaydi;
 - ikkinchi marta (hatto bir vaqtda ikki so'rov bo'lsa ham) — rad etiladi;
 - taqdimot tayyorlanmay qolsa, imkoniyat qaytariladi;
 - arzon model faqat shu buyurtmada (boshqa oqim/tarmoqlarda ham) — pullik taqdimotlarga ta'sir qilmaydi;
-- rasm chizdirilmaydi, katalogga (do'konga) qo'yilmaydi;
+- rasmlar faqat internetdan (AI chizmaydi — pul ketmaydi), katalogga (do'konga) qo'yilmaydi;
 - akkauntlar birlashganda ham bir marta;
 - saytda «Imtiyozdan foydalanish»: varaq soni qulflanadi, narx «Bepul», so'rovda `trial: true`.
 
@@ -55,7 +55,7 @@ async def fake_build_deck(topic, slide_count, **kw):
     import concurrent.futures
     with concurrent.futures.ThreadPoolExecutor(2) as pool:
         in_pool = list(pool.map(chart_data._in_context(lambda _: llm_client._models("text")[0]), [1, 2]))
-    SEEN.append({"slides": slide_count, "photos": kw.get("photos"), "main": llm_client._models("text")[0],
+    SEEN.append({"slides": slide_count, "photos": kw.get("photos", True), "source": kw.get("photo_source", "mix"), "main": llm_client._models("text")[0],
                  "step": in_step, "pool": in_pool})
     if MODE["fail"]:
         raise RuntimeError("sinov xatosi")
@@ -102,7 +102,7 @@ async def server_checks():
     check("tayyor bo'ldi", done["status"] == "done", done.get("error"))
     check("varaq soni 5 (mijoz 20 yuborgan bo'lsa ham)", seen["slides"] == 5, seen)
     check("narx 0, balansdan pul olinmadi", job["price"] == 0 and int(user.balance) == 10_000, (job["price"], user.balance))
-    check("rasm chizdirilmaydi", seen["photos"] is False, seen)
+    check("rasmli, lekin faqat internetdan (AI chizmaydi)", seen["photos"] is True and seen["source"] == "web", seen)
     check("Flash Lite — asosiy oqimda, run_step oqimida va chart_data oqimlarida",
           seen["main"] == LITE and seen["step"] == LITE and seen["pool"] == [LITE, LITE], seen)
     check("imkoniyat ishlatildi", not await free_trial.available(701))
@@ -121,6 +121,7 @@ async def server_checks():
     seen = SEEN[-1]
     user = await Database.get_user(701)
     check("pullik: 10 slayd, rasmlar yoqiq, pul olindi", seen["slides"] == 10 and seen["photos"] is True
+          and seen["source"] == "mix"
           and int(user.balance) == 10_000 - pipeline.price_for(10), (seen, user.balance))
     check("pullik: Flash Lite emas", seen["main"] != LITE and seen["step"] != LITE, seen)
     check("pullik taqdimot do'konga qo'yiladi", len(PUBLISHED) == 1)

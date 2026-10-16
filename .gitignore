@@ -78,3 +78,6 @@ store_previews/
 # Bular hech qachon repoga tushmasligi kerak.
 .env
 .env.*
+
+# 3D anatomiya atlasi (~130 MB) — serverda birinchi so'rovda yuklanadi
+data/med3d_atlas/
