@@ -6,7 +6,8 @@ joyi. Shuning uchun "harakat" — bu keyingi slaydning qanday tuzilgani:
 - kamera: orbita (40–80° aylanish), aylanish (150°+), yuqoridan/pastdan qarash, yaqinlashish, uzoqlashish;
 - kompozitsiya almashishi: matn chapdan o'ngga o'tadi — model slayd bo'ylab suzadi (sayohat), qahramon kadr
   (model katta), markaz, karta, pastki tasma;
-- portlash: organlar bir-biridan ajraladi va keyingi slaydda qayta yig'iladi;
+- portlash: organlar bir-biridan ajraladi va keyingi slaydda qayta yig'iladi (boylam bor slaydda — yo'q:
+  boylam ikki suyakni bog'lab turadi, ajratilsa uzilgandek ko'rinadi);
 - sahna almashganda: eski organlar bir tomonga uchib ketadi, yangilari boshqa tomondan kiradi (yo'nalish har
   safar boshqacha).
 
@@ -21,6 +22,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 from .camera import Camera
+from .lugat import JOINT_IDS
 
 CAMERA_MOVES = ("orbita", "aylanish", "yuqoridan", "pastdan", "yaqin", "uzoq", "tinch")
 LAYOUTS = ("chap_matn", "ong_matn", "markaz", "qahramon", "karta", "pastki")
@@ -114,7 +116,7 @@ def direct(body: dict, slides: List[dict], topic: str = "") -> List[str]:
             # Portlash: bir nechta organli slaydda (to'plam o'zgargan bo'lsa ham — yordamchi slayd o'sha joyda
             # bo'laklarga almashtiradi). 6+ slaydli taqdimotda kamida bittasi bo'ladi.
             can_explode = (exploded < (2 if n >= 10 else 1) and 2 <= len(show) <= 7 and labels >= 2
-                           and i < n - 1 and prev_move != "portlash")
+                           and i < n - 1 and prev_move != "portlash" and not JOINT_IDS.intersection(show))
             if can_explode and (rng.random() < 0.4 or (exploded == 0 and n >= 6 and i >= n // 2)):
                 move = "portlash"
             elif i == n - 1:

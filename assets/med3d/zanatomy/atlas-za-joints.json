@@ -1,0 +1,9440 @@
+{
+"version": "Z-Anatomy (CC BY-SA 4.0)",
+"chunks": [
+{
+"url": "za-joints.bin"
+}
+],
+"parts": [
+{
+"id": "ZA-left-acetabular-labrum",
+"name": "Left acetabular labrum [Hip joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 704,
+"indexCount": 4224,
+"bounds": [
+[
+0.06800000369548798,
+0.8650799989700317,
+-0.049559999257326126
+],
+[
+0.10329999774694443,
+0.9128900170326233,
+0.007720000110566616
+]
+],
+"positions": 0,
+"normals": 8448,
+"indices": 12672
+},
+{
+"id": "ZA-right-acetabular-labrum",
+"name": "Right acetabular labrum [Hip joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 704,
+"indexCount": 4224,
+"bounds": [
+[
+-0.10371000319719315,
+0.8643100261688232,
+-0.04899999871850014
+],
+[
+-0.06840000301599503,
+0.91211998462677,
+0.008290000259876251
+]
+],
+"positions": 29568,
+"normals": 38016,
+"indices": 42240
+},
+{
+"id": "ZA-left-acromioclavicular-ligament",
+"name": "Left acromioclavicular ligament [Acromioclavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 162,
+"indexCount": 960,
+"bounds": [
+[
+0.13612000644207,
+1.4213900566101074,
+-0.045579999685287476
+],
+[
+0.15974999964237213,
+1.4308600425720215,
+-0.029239999130368233
+]
+],
+"positions": 59136,
+"normals": 61080,
+"indices": 62052
+},
+{
+"id": "ZA-right-acromioclavicular-ligament",
+"name": "Right acromioclavicular ligament [Acromioclavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 162,
+"indexCount": 960,
+"bounds": [
+[
+-0.1605300009250641,
+1.421339988708496,
+-0.04554999992251396
+],
+[
+-0.13689999282360077,
+1.4308199882507324,
+-0.02920999936759472
+]
+],
+"positions": 65892,
+"normals": 67836,
+"indices": 68808
+},
+{
+"id": "ZA-left-annular-ligament-of-radius",
+"name": "Left annular ligament of radius [Elbow joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 190,
+"indexCount": 1128,
+"bounds": [
+[
+0.21708999574184418,
+1.0948699712753296,
+-0.039570000022649765
+],
+[
+0.24171000719070435,
+1.1122900247573853,
+-0.0175199992954731
+]
+],
+"positions": 72648,
+"normals": 74928,
+"indices": 76068
+},
+{
+"id": "ZA-right-annular-ligament-of-radius",
+"name": "Right annular ligament of radius [Elbow joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 190,
+"indexCount": 1128,
+"bounds": [
+[
+-0.24368999898433685,
+1.0854500532150269,
+-0.03787999972701073
+],
+[
+-0.21873000264167786,
+1.1027100086212158,
+-0.015799999237060547
+]
+],
+"positions": 80580,
+"normals": 82860,
+"indices": 84000
+},
+{
+"id": "ZA-left-anterior-cruciate-ligament",
+"name": "Left anterior cruciate ligament [Knee joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 840,
+"indexCount": 4728,
+"bounds": [
+[
+0.06360000371932983,
+0.43821001052856445,
+-0.039329998195171356
+],
+[
+0.0847800001502037,
+0.4679200053215027,
+-0.0147299999371171
+]
+],
+"positions": 88512,
+"normals": 98592,
+"indices": 103632
+},
+{
+"id": "ZA-right-anterior-cruciate-ligament",
+"name": "Right anterior cruciate ligament [Knee joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 840,
+"indexCount": 4728,
+"bounds": [
+[
+-0.08485999703407288,
+0.4351100027561188,
+-0.03937000036239624
+],
+[
+-0.06368999928236008,
+0.464819997549057,
+-0.014770000241696835
+]
+],
+"positions": 122544,
+"normals": 132624,
+"indices": 137664
+},
+{
+"id": "ZA-left-anterior-ligament-of-fibular-head",
+"name": "Left anterior ligament of fibular head [Superior tibiofibular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 54,
+"indexCount": 312,
+"bounds": [
+[
+0.10056000202894211,
+0.4014100134372711,
+-0.026920000091195107
+],
+[
+0.11586999893188477,
+0.4213300049304962,
+-0.016100000590085983
+]
+],
+"positions": 156576,
+"normals": 157224,
+"indices": 157548
+},
+{
+"id": "ZA-right-anterior-ligament-of-fibular-head",
+"name": "Right anterior ligament of fibular head [Superior tibiofibular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 54,
+"indexCount": 312,
+"bounds": [
+[
+-0.11618000268936157,
+0.3994300067424774,
+-0.026799999177455902
+],
+[
+-0.10086999833583832,
+0.4193499982357025,
+-0.01597999967634678
+]
+],
+"positions": 158796,
+"normals": 159444,
+"indices": 159768
+},
+{
+"id": "ZA-anterior-longitudinal-ligament",
+"name": "Anterior longitudinal ligament [Fibrous joints of vertebral column; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 2466,
+"indexCount": 14784,
+"bounds": [
+[
+-0.020239999517798424,
+0.9357900023460388,
+-0.04433999955654144
+],
+[
+0.01882000081241131,
+1.5471500158309937,
+0.020829999819397926
+]
+],
+"positions": 161016,
+"normals": 190608,
+"indices": 205404
+},
+{
+"id": "ZA-left-anterior-meniscotibial-ligament-lateral-meniscus",
+"name": "Left anterior meniscotibial ligament (Lateral meniscus) [Lateral meniscus]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 126,
+"indexCount": 744,
+"bounds": [
+[
+0.07058999687433243,
+0.4406700134277344,
+-0.026979999616742134
+],
+[
+0.07677999883890152,
+0.4437200129032135,
+-0.01566999964416027
+]
+],
+"positions": 264540,
+"normals": 266052,
+"indices": 266808
+},
+{
+"id": "ZA-right-anterior-meniscotibial-ligament-lateral-meniscus",
+"name": "Right anterior meniscotibial ligament (Lateral meniscus) [Lateral meniscus]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 126,
+"indexCount": 744,
+"bounds": [
+[
+-0.07683999836444855,
+0.4376699924468994,
+-0.02701999992132187
+],
+[
+-0.07064999639987946,
+0.44071999192237854,
+-0.015709999948740005
+]
+],
+"positions": 269784,
+"normals": 271296,
+"indices": 272052
+},
+{
+"id": "ZA-left-anterior-meniscotibial-ligament-medial-meniscus",
+"name": "Left anterior meniscotibial ligament (Medial meniscus) [Medial meniscus]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 66,
+"indexCount": 384,
+"bounds": [
+[
+0.0574599988758564,
+0.4416399896144867,
+-0.01840999908745289
+],
+[
+0.06751000136137009,
+0.4461899995803833,
+-0.01107999961823225
+]
+],
+"positions": 275028,
+"normals": 275820,
+"indices": 276216
+},
+{
+"id": "ZA-right-anterior-meniscotibial-ligament-medial-meniscus",
+"name": "Right anterior meniscotibial ligament (Medial meniscus) [Medial meniscus]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 66,
+"indexCount": 384,
+"bounds": [
+[
+-0.06755000352859497,
+0.4386799931526184,
+-0.01844000071287155
+],
+[
+-0.057509999722242355,
+0.443230003118515,
+-0.011110000312328339
+]
+],
+"positions": 277752,
+"normals": 278544,
+"indices": 278940
+},
+{
+"id": "ZA-left-anterior-sacro-iliac-ligament",
+"name": "Left anterior sacro-iliac ligament [Sacro-iliac joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 254,
+"indexCount": 1512,
+"bounds": [
+[
+0.03531000018119812,
+0.9368900060653687,
+-0.05187999829649925
+],
+[
+0.07551000267267227,
+1.0002100467681885,
+-0.020430000498890877
+]
+],
+"positions": 280476,
+"normals": 283524,
+"indices": 285048
+},
+{
+"id": "ZA-right-anterior-sacro-iliac-ligament",
+"name": "Right anterior sacro-iliac ligament [Sacro-iliac joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 254,
+"indexCount": 1512,
+"bounds": [
+[
+-0.07654000073671341,
+0.9364799857139587,
+-0.051580000668764114
+],
+[
+-0.03633999824523926,
+0.999809980392456,
+-0.02012999914586544
+]
+],
+"positions": 291096,
+"normals": 294144,
+"indices": 295668
+},
+{
+"id": "ZA-left-anterior-sternoclavicular-ligament",
+"name": "Left anterior sternoclavicular ligament [Sternoclavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 162,
+"indexCount": 960,
+"bounds": [
+[
+0.010520000010728836,
+1.3924399614334106,
+0.04335999861359596
+],
+[
+0.02662000060081482,
+1.414330005645752,
+0.05460000038146973
+]
+],
+"positions": 301716,
+"normals": 303660,
+"indices": 304632
+},
+{
+"id": "ZA-right-anterior-sternoclavicular-ligament",
+"name": "Right anterior sternoclavicular ligament [Sternoclavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 162,
+"indexCount": 960,
+"bounds": [
+[
+-0.026839999482035637,
+1.392680048942566,
+0.0430000014603138
+],
+[
+-0.010730000212788582,
+1.41457998752594,
+0.05423999950289726
+]
+],
+"positions": 308472,
+"normals": 310416,
+"indices": 311388
+},
+{
+"id": "ZA-left-anterior-talocalcaneal-ligament",
+"name": "Left anterior talocalcaneal ligament [Subtalar joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 54,
+"indexCount": 312,
+"bounds": [
+[
+0.08357000350952148,
+0.05177000164985657,
+-0.02507999911904335
+],
+[
+0.09133999794721603,
+0.0670899972319603,
+-0.0066999997943639755
+]
+],
+"positions": 315228,
+"normals": 315876,
+"indices": 316200
+},
+{
+"id": "ZA-right-anterior-talocalcaneal-ligament",
+"name": "Right anterior talocalcaneal ligament [Subtalar joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 54,
+"indexCount": 312,
+"bounds": [
+[
+-0.09176000207662582,
+0.05149000138044357,
+-0.024560000747442245
+],
+[
+-0.08399999886751175,
+0.06679999828338623,
+-0.006180000025779009
+]
+],
+"positions": 317448,
+"normals": 318096,
+"indices": 318420
+},
+{
+"id": "ZA-left-anterior-talofibular-ligament",
+"name": "Left anterior talofibular ligament [Lateral collateral ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 18,
+"indexCount": 96,
+"bounds": [
+[
+0.08895000070333481,
+0.05826999992132187,
+-0.02921999990940094
+],
+[
+0.0998699963092804,
+0.06939999759197235,
+-0.02142000012099743
+]
+],
+"positions": 319668,
+"normals": 319884,
+"indices": 319992
+},
+{
+"id": "ZA-right-anterior-talofibular-ligament",
+"name": "Right anterior talofibular ligament [Lateral collateral ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 18,
+"indexCount": 96,
+"bounds": [
+[
+-0.10028000175952911,
+0.05803000181913376,
+-0.028710000216960907
+],
+[
+-0.089369997382164,
+0.06915999948978424,
+-0.020910000428557396
+]
+],
+"positions": 320376,
+"normals": 320592,
+"indices": 320700
+},
+{
+"id": "ZA-left-anterior-tibiofibular-ligament",
+"name": "Left anterior tibiofibular ligament [Tibiofibular syndesmosis]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 126,
+"indexCount": 744,
+"bounds": [
+[
+0.09850999712944031,
+0.07068999856710434,
+-0.032180000096559525
+],
+[
+0.10863000154495239,
+0.0972599983215332,
+-0.01592000015079975
+]
+],
+"positions": 321084,
+"normals": 322596,
+"indices": 323352
+},
+{
+"id": "ZA-right-anterior-tibiofibular-ligament",
+"name": "Right anterior tibiofibular ligament [Tibiofibular syndesmosis]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 126,
+"indexCount": 744,
+"bounds": [
+[
+-0.10875999927520752,
+0.07033000141382217,
+-0.03195999935269356
+],
+[
+-0.09864000231027603,
+0.09690000116825104,
+-0.015690000727772713
+]
+],
+"positions": 326328,
+"normals": 327840,
+"indices": 328596
+},
+{
+"id": "ZA-left-arcuate-popliteal-ligament",
+"name": "Left arcuate popliteal ligament [Knee joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 648,
+"indexCount": 3864,
+"bounds": [
+[
+0.06644000113010406,
+0.41819000244140625,
+-0.05265999957919121
+],
+[
+0.11302000284194946,
+0.48965999484062195,
+-0.030640000477433205
+]
+],
+"positions": 331572,
+"normals": 339348,
+"indices": 343236
+},
+{
+"id": "ZA-right-arcuate-popliteal-ligament",
+"name": "Right arcuate popliteal ligament [Knee joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 648,
+"indexCount": 3864,
+"bounds": [
+[
+-0.11315000057220459,
+0.4149399995803833,
+-0.052710000425577164
+],
+[
+-0.06656999886035919,
+0.486409991979599,
+-0.030700000002980232
+]
+],
+"positions": 358692,
+"normals": 366468,
+"indices": 370356
+},
+{
+"id": "ZA-left-articular-capsule-of-acromioclavicular-joint",
+"name": "Left articular capsule of acromioclavicular joint [Acromioclavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 576,
+"indexCount": 3456,
+"bounds": [
+[
+0.13161000609397888,
+1.4141700267791748,
+-0.049630001187324524
+],
+[
+0.15862999856472015,
+1.4302899837493896,
+-0.020479999482631683
+]
+],
+"positions": 385812,
+"normals": 392724,
+"indices": 396180
+},
+{
+"id": "ZA-right-articular-capsule-of-acromioclavicular-joint",
+"name": "Right articular capsule of acromioclavicular joint [Acromioclavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 576,
+"indexCount": 3456,
+"bounds": [
+[
+-0.1594099998474121,
+1.4141299724578857,
+-0.04960000142455101
+],
+[
+-0.13239000737667084,
+1.4302500486373901,
+-0.02043999917805195
+]
+],
+"positions": 410004,
+"normals": 416916,
+"indices": 420372
+},
+{
+"id": "ZA-left-articular-capsule-of-elbow-joint",
+"name": "Left articular capsule of elbow joint [Elbow joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 864,
+"indexCount": 5184,
+"bounds": [
+[
+0.17896999418735504,
+1.1052199602127075,
+-0.05482000112533569
+],
+[
+0.24009999632835388,
+1.1584099531173706,
+-0.012550000101327896
+]
+],
+"positions": 434196,
+"normals": 444564,
+"indices": 449748
+},
+{
+"id": "ZA-right-articular-capsule-of-elbow-joint",
+"name": "Right articular capsule of elbow joint [Elbow joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 864,
+"indexCount": 5184,
+"bounds": [
+[
+-0.23943999409675598,
+1.106760025024414,
+-0.052560001611709595
+],
+[
+-0.17831000685691833,
+1.1599600315093994,
+-0.010289999656379223
+]
+],
+"positions": 470484,
+"normals": 480852,
+"indices": 486036
+},
+{
+"id": "ZA-left-articular-capsule-of-glenohumeral-joint",
+"name": "Left articular capsule of glenohumeral joint [Glenohumeral joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1616,
+"indexCount": 9696,
+"bounds": [
+[
+0.13560999929904938,
+1.355780005455017,
+-0.047520000487565994
+],
+[
+0.18283000588417053,
+1.4141199588775635,
+-0.0008699999889358878
+]
+],
+"positions": 506772,
+"normals": 526164,
+"indices": 535860
+},
+{
+"id": "ZA-right-articular-capsule-of-glenohumeral-joint",
+"name": "Right articular capsule of glenohumeral joint [Glenohumeral joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1616,
+"indexCount": 9696,
+"bounds": [
+[
+-0.18357999622821808,
+1.3555899858474731,
+-0.047240000218153
+],
+[
+-0.13636000454425812,
+1.413930058479309,
+-0.000590000010561198
+]
+],
+"positions": 574644,
+"normals": 594036,
+"indices": 603732
+},
+{
+"id": "ZA-left-articular-capsule-of-hip-joint",
+"name": "Left articular capsule of hip joint [Hip joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 630,
+"indexCount": 3360,
+"bounds": [
+[
+0.06786999851465225,
+0.8341100215911865,
+-0.04941999912261963
+],
+[
+0.12195000052452087,
+0.9127500057220459,
+0.00786999985575676
+]
+],
+"positions": 642516,
+"normals": 650076,
+"indices": 653856
+},
+{
+"id": "ZA-right-articular-capsule-of-hip-joint",
+"name": "Right articular capsule of hip joint [Hip joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 630,
+"indexCount": 3360,
+"bounds": [
+[
+-0.12238000333309174,
+0.8333699703216553,
+-0.04887999966740608
+],
+[
+-0.06830000132322311,
+0.9120100140571594,
+0.008410000242292881
+]
+],
+"positions": 667296,
+"normals": 674856,
+"indices": 678636
+},
+{
+"id": "ZA-left-articular-capsule-of-interphalangeal-joint-of-great-toe",
+"name": "Left articular capsule of interphalangeal joint of great toe [Interphalangeal joints of foot]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 216,
+"indexCount": 1152,
+"bounds": [
+[
+0.08470000326633453,
+0.0071000000461936,
+0.10525000095367432
+],
+[
+0.10580000281333923,
+0.02095000073313713,
+0.12456999719142914
+]
+],
+"positions": 692076,
+"normals": 694668,
+"indices": 695964
+},
+{
+"id": "ZA-right-articular-capsule-of-interphalangeal-joint-of-great-toe",
+"name": "Right articular capsule of interphalangeal joint of great toe [Interphalangeal joints of foot]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 216,
+"indexCount": 1152,
+"bounds": [
+[
+-0.10583999752998352,
+0.007199999876320362,
+0.10512000322341919
+],
+[
+-0.08473999798297882,
+0.021050000563263893,
+0.12443999946117401
+]
+],
+"positions": 700572,
+"normals": 703164,
+"indices": 704460
+},
+{
+"id": "ZA-left-articular-capsule-of-knee-joint",
+"name": "Left articular capsule of knee joint [Knee joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1671,
+"indexCount": 8832,
+"bounds": [
+[
+0.03300999850034714,
+0.4247100055217743,
+-0.0573900006711483
+],
+[
+0.1117200031876564,
+0.5105900168418884,
+0.018689999356865883
+]
+],
+"positions": 709068,
+"normals": 729120,
+"indices": 739148
+},
+{
+"id": "ZA-right-articular-capsule-of-knee-joint",
+"name": "Right articular capsule of knee joint [Knee joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1671,
+"indexCount": 8832,
+"bounds": [
+[
+-0.11174999922513962,
+0.42179998755455017,
+-0.057420000433921814
+],
+[
+-0.03303999826312065,
+0.5076799988746643,
+0.01865999959409237
+]
+],
+"positions": 774476,
+"normals": 794528,
+"indices": 804556
+},
+{
+"id": "ZA-left-articular-capsule-of-radiocarpal-joint",
+"name": "Left articular capsule of radiocarpal joint [Distal radio-ulnar joint; Joints of hand]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 759,
+"indexCount": 4026,
+"bounds": [
+[
+0.2294600009918213,
+0.8478299975395203,
+0.006339999847114086
+],
+[
+0.28439000248908997,
+0.9089499711990356,
+0.03663000091910362
+]
+],
+"positions": 839884,
+"normals": 848992,
+"indices": 853548
+},
+{
+"id": "ZA-right-articular-capsule-of-radiocarpal-joint",
+"name": "Right articular capsule of radiocarpal joint [Distal radio-ulnar joint; Joints of hand]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 759,
+"indexCount": 4026,
+"bounds": [
+[
+-0.2850300073623657,
+0.8487399816513062,
+0.006399999838322401
+],
+[
+-0.23010000586509705,
+0.9098600149154663,
+0.03669000044465065
+]
+],
+"positions": 869652,
+"normals": 878760,
+"indices": 883316
+},
+{
+"id": "ZA-left-articular-capsule-of-sternoclavicular-joint",
+"name": "Left articular capsule of sternoclavicular joint [Sternoclavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 504,
+"indexCount": 3024,
+"bounds": [
+[
+0.0055599999614059925,
+1.385390043258667,
+0.02230999991297722
+],
+[
+0.029170000925660133,
+1.4166200160980225,
+0.05307000130414963
+]
+],
+"positions": 899420,
+"normals": 905468,
+"indices": 908492
+},
+{
+"id": "ZA-right-articular-capsule-of-sternoclavicular-joint",
+"name": "Right articular capsule of sternoclavicular joint [Sternoclavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 504,
+"indexCount": 3024,
+"bounds": [
+[
+-0.029440000653266907,
+1.3856600522994995,
+0.021940000355243683
+],
+[
+-0.005830000154674053,
+1.4168800115585327,
+0.05268999934196472
+]
+],
+"positions": 920588,
+"normals": 926636,
+"indices": 929660
+},
+{
+"id": "ZA-left-articular-capsule-of-superior-tibiofibular-joint",
+"name": "Left articular capsule of superior tibiofibular joint [Superior tibiofibular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 280,
+"indexCount": 1680,
+"bounds": [
+[
+0.09369999915361404,
+0.4013800024986267,
+-0.042010001838207245
+],
+[
+0.11606000363826752,
+0.4284200072288513,
+-0.0163199994713068
+]
+],
+"positions": 941756,
+"normals": 945116,
+"indices": 946796
+},
+{
+"id": "ZA-right-articular-capsule-of-superior-tibiofibular-joint",
+"name": "Right articular capsule of superior tibiofibular joint [Superior tibiofibular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 280,
+"indexCount": 1680,
+"bounds": [
+[
+-0.1163100004196167,
+0.3977299928665161,
+-0.042089998722076416
+],
+[
+-0.09395000338554382,
+0.4247699975967407,
+-0.01640000008046627
+]
+],
+"positions": 953516,
+"normals": 956876,
+"indices": 958556
+},
+{
+"id": "ZA-left-articular-capsule-of-temporomandibular-joint",
+"name": "Left articular capsule of temporomandibular joint [Temporomandibular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 900,
+"indexCount": 5400,
+"bounds": [
+[
+0.03668000176548958,
+1.5763700008392334,
+-0.008440000005066395
+],
+[
+0.059530001133680344,
+1.5892599821090698,
+0.006240000016987324
+]
+],
+"positions": 965276,
+"normals": 976076,
+"indices": 981476
+},
+{
+"id": "ZA-right-articular-capsule-of-temporomandibular-joint",
+"name": "Right articular capsule of temporomandibular joint [Temporomandibular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 900,
+"indexCount": 5400,
+"bounds": [
+[
+-0.06071000173687935,
+1.5758299827575684,
+-0.008080000057816505
+],
+[
+-0.037859998643398285,
+1.5887199640274048,
+0.006599999964237213
+]
+],
+"positions": 1003076,
+"normals": 1013876,
+"indices": 1019276
+},
+{
+"id": "ZA-left-articular-capsules-of-distal-interphalangeal-joints-of-foot",
+"name": "Left articular capsules of distal interphalangeal joints of foot [Interphalangeal joints of foot]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 796,
+"indexCount": 4272,
+"bounds": [
+[
+0.11218000203371048,
+0.007519999984651804,
+0.08664000034332275
+],
+[
+0.16128000617027283,
+0.016179999336600304,
+0.13176000118255615
+]
+],
+"positions": 1040876,
+"normals": 1050428,
+"indices": 1055204
+},
+{
+"id": "ZA-right-articular-capsules-of-distal-interphalangeal-joints-of-foot",
+"name": "Right articular capsules of distal interphalangeal joints of foot [Interphalangeal joints of foot]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 796,
+"indexCount": 4272,
+"bounds": [
+[
+-0.1617099940776825,
+0.0071299998089671135,
+0.08720000088214874
+],
+[
+-0.11260999739170074,
+0.015790000557899475,
+0.13232000172138214
+]
+],
+"positions": 1072292,
+"normals": 1081844,
+"indices": 1086620
+},
+{
+"id": "ZA-left-articular-capsules-of-distal-interphalangeal-joints",
+"name": "Left articular capsules of distal interphalangeal joints [Interphalangeal joints of hand]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 846,
+"indexCount": 4512,
+"bounds": [
+[
+0.21626000106334686,
+0.7368800044059753,
+0.0531499981880188
+],
+[
+0.32155001163482666,
+0.8287100195884705,
+0.08620999753475189
+]
+],
+"positions": 1103708,
+"normals": 1113860,
+"indices": 1118936
+},
+{
+"id": "ZA-right-articular-capsules-of-distal-interphalangeal-joints",
+"name": "Right articular capsules of distal interphalangeal joints [Interphalangeal joints of hand]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 846,
+"indexCount": 4512,
+"bounds": [
+[
+-0.3215999901294708,
+0.7370200157165527,
+0.05355999991297722
+],
+[
+-0.21630999445915222,
+0.8288499712944031,
+0.08662000298500061
+]
+],
+"positions": 1136984,
+"normals": 1147136,
+"indices": 1152212
+},
+{
+"id": "ZA-left-articular-capsules-of-metacarpophalangeal-joints",
+"name": "Left articular capsules of metacarpophalangeal joints [Metacarpophalangeal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 880,
+"indexCount": 4704,
+"bounds": [
+[
+0.22130000591278076,
+0.79475998878479,
+0.02800999954342842
+],
+[
+0.3136900067329407,
+0.856190025806427,
+0.056620001792907715
+]
+],
+"positions": 1170260,
+"normals": 1180820,
+"indices": 1186100
+},
+{
+"id": "ZA-right-articular-capsules-of-metacarpophalangeal-joints",
+"name": "Right articular capsules of metacarpophalangeal joints [Metacarpophalangeal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 880,
+"indexCount": 4704,
+"bounds": [
+[
+-0.3137499988079071,
+0.7948499917984009,
+0.028440000489354134
+],
+[
+-0.2213599979877472,
+0.8562800288200378,
+0.05703999847173691
+]
+],
+"positions": 1204916,
+"normals": 1215476,
+"indices": 1220756
+},
+{
+"id": "ZA-left-articular-capsules-of-metatarsophalangeal-joints",
+"name": "Left articular capsules of metatarsophalangeal joints [Metatarsophalangeal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 984,
+"indexCount": 5256,
+"bounds": [
+[
+0.0741100013256073,
+0.007679999805986881,
+0.048820000141859055
+],
+[
+0.1548600047826767,
+0.03235999867320061,
+0.09425000101327896
+]
+],
+"positions": 1239572,
+"normals": 1251380,
+"indices": 1257284
+},
+{
+"id": "ZA-right-articular-capsules-of-metatarsophalangeal-joints",
+"name": "Right articular capsules of metatarsophalangeal joints [Metatarsophalangeal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 984,
+"indexCount": 5256,
+"bounds": [
+[
+-0.15528999269008636,
+0.007249999791383743,
+0.04941000044345856
+],
+[
+-0.07455000281333923,
+0.031929999589920044,
+0.09483999758958817
+]
+],
+"positions": 1278308,
+"normals": 1290116,
+"indices": 1296020
+},
+{
+"id": "ZA-left-articular-capsules-of-proximal-interphalangeal-joints-of-foot",
+"name": "Left articular capsules of proximal interphalangeal joints of foot [Interphalangeal joints of foot]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 818,
+"indexCount": 4392,
+"bounds": [
+[
+0.10831999778747559,
+0.007960000075399876,
+0.07750999927520752
+],
+[
+0.1599999964237213,
+0.02053000032901764,
+0.11834999918937683
+]
+],
+"positions": 1317044,
+"normals": 1326860,
+"indices": 1331768
+},
+{
+"id": "ZA-right-articular-capsules-of-proximal-interphalangeal-joints-of-foot",
+"name": "Right articular capsules of proximal interphalangeal joints of foot [Interphalangeal joints of foot]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 818,
+"indexCount": 4392,
+"bounds": [
+[
+-0.16043999791145325,
+0.0075599998235702515,
+0.07807999849319458
+],
+[
+-0.10875999927520752,
+0.02012999914586544,
+0.11891999840736389
+]
+],
+"positions": 1349336,
+"normals": 1359152,
+"indices": 1364060
+},
+{
+"id": "ZA-left-articular-capsules-of-proximal-interphalangeal-joints",
+"name": "Left articular capsules of proximal interphalangeal joints [Interphalangeal joints of hand]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 778,
+"indexCount": 4176,
+"bounds": [
+[
+0.21823999285697937,
+0.75559002161026,
+0.04690000042319298
+],
+[
+0.3069100081920624,
+0.7893700003623962,
+0.06846000254154205
+]
+],
+"positions": 1381628,
+"normals": 1390964,
+"indices": 1395632
+},
+{
+"id": "ZA-right-articular-capsules-of-proximal-interphalangeal-joints",
+"name": "Right articular capsules of proximal interphalangeal joints [Interphalangeal joints of hand]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 778,
+"indexCount": 4176,
+"bounds": [
+[
+-0.30695000290870667,
+0.7557399868965149,
+0.0473099984228611
+],
+[
+-0.21829000115394592,
+0.7895200252532959,
+0.06887000054121017
+]
+],
+"positions": 1412336,
+"normals": 1421672,
+"indices": 1426340
+},
+{
+"id": "ZA-left-articular-disc-of-acromioclavicular-joint",
+"name": "Left articular disc of acromioclavicular joint [Acromioclavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 90,
+"indexCount": 528,
+"bounds": [
+[
+0.14154000580310822,
+1.4140100479125977,
+-0.04879999905824661
+],
+[
+0.15324999392032623,
+1.4280600547790527,
+-0.020570000633597374
+]
+],
+"positions": 1443044,
+"normals": 1444124,
+"indices": 1444664
+},
+{
+"id": "ZA-right-articular-disc-of-acromioclavicular-joint",
+"name": "Right articular disc of acromioclavicular joint [Acromioclavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 90,
+"indexCount": 528,
+"bounds": [
+[
+-0.15401999652385712,
+1.4139699935913086,
+-0.0487699992954731
+],
+[
+-0.1423099935054779,
+1.4280200004577637,
+-0.02054000087082386
+]
+],
+"positions": 1446776,
+"normals": 1447856,
+"indices": 1448396
+},
+{
+"id": "ZA-left-articular-disc-of-distal-radio-ulnar-joint",
+"name": "Left articular disc of distal radio-ulnar joint [Distal radio-ulnar joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 16,
+"indexCount": 84,
+"bounds": [
+[
+0.2361299991607666,
+0.8858399987220764,
+0.01140000019222498
+],
+[
+0.2505500018596649,
+0.8922100067138672,
+0.023259999230504036
+]
+],
+"positions": 1450508,
+"normals": 1450700,
+"indices": 1450796
+},
+{
+"id": "ZA-right-articular-disc-of-distal-radio-ulnar-joint",
+"name": "Right articular disc of distal radio-ulnar joint [Distal radio-ulnar joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 16,
+"indexCount": 84,
+"bounds": [
+[
+-0.25067999958992004,
+0.8862500190734863,
+0.010889999568462372
+],
+[
+-0.2362699955701828,
+0.8926299810409546,
+0.022749999538064003
+]
+],
+"positions": 1451132,
+"normals": 1451324,
+"indices": 1451420
+},
+{
+"id": "ZA-left-articular-disc-of-sternoclavicular-joint",
+"name": "Left articular disc of sternoclavicular joint [Sternoclavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 90,
+"indexCount": 528,
+"bounds": [
+[
+0.008310000412166119,
+1.3910000324249268,
+0.02166000008583069
+],
+[
+0.02387000061571598,
+1.4108699560165405,
+0.05266999825835228
+]
+],
+"positions": 1451756,
+"normals": 1452836,
+"indices": 1453376
+},
+{
+"id": "ZA-right-articular-disc-of-sternoclavicular-joint",
+"name": "Right articular disc of sternoclavicular joint [Sternoclavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 90,
+"indexCount": 528,
+"bounds": [
+[
+-0.024140000343322754,
+1.391260027885437,
+0.02127999998629093
+],
+[
+-0.008580000139772892,
+1.4111299514770508,
+0.05229000002145767
+]
+],
+"positions": 1455488,
+"normals": 1456568,
+"indices": 1457108
+},
+{
+"id": "ZA-left-articular-disc-of-temporomandibular-joint",
+"name": "Left articular disc of temporomandibular joint [Temporomandibular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 146,
+"indexCount": 864,
+"bounds": [
+[
+0.03743999823927879,
+1.576930046081543,
+-0.007420000154525042
+],
+[
+0.05674999952316284,
+1.590399980545044,
+0.0065100002102553844
+]
+],
+"positions": 1459220,
+"normals": 1460972,
+"indices": 1461848
+},
+{
+"id": "ZA-right-articular-disc-of-temporomandibular-joint",
+"name": "Right articular disc of temporomandibular joint [Temporomandibular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 146,
+"indexCount": 864,
+"bounds": [
+[
+-0.05793000012636185,
+1.576490044593811,
+-0.007120000198483467
+],
+[
+-0.03861000016331673,
+1.589959979057312,
+0.006810000166296959
+]
+],
+"positions": 1465304,
+"normals": 1467056,
+"indices": 1467932
+},
+{
+"id": "ZA-left-calcaneocuboid-ligament",
+"name": "Left calcaneocuboid ligament [Bifurcate ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 18,
+"indexCount": 96,
+"bounds": [
+[
+0.09113000333309174,
+0.054110001772642136,
+-0.01355000026524067
+],
+[
+0.09967000037431717,
+0.05607999861240387,
+-0.0060800001956522465
+]
+],
+"positions": 1471388,
+"normals": 1471604,
+"indices": 1471712
+},
+{
+"id": "ZA-right-calcaneocuboid-ligament",
+"name": "Right calcaneocuboid ligament [Bifurcate ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 18,
+"indexCount": 96,
+"bounds": [
+[
+-0.09989999979734421,
+0.053619999438524246,
+-0.013159999623894691
+],
+[
+-0.09136000275611877,
+0.05559000000357628,
+-0.005690000019967556
+]
+],
+"positions": 1472096,
+"normals": 1472312,
+"indices": 1472420
+},
+{
+"id": "ZA-left-calcaneofibular-ligament",
+"name": "Left calcaneofibular ligament [Lateral collateral ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 18,
+"indexCount": 96,
+"bounds": [
+[
+0.08448000252246857,
+0.051100000739097595,
+-0.04978000000119209
+],
+[
+0.10253000259399414,
+0.06385000050067902,
+-0.043540000915527344
+]
+],
+"positions": 1472804,
+"normals": 1473020,
+"indices": 1473128
+},
+{
+"id": "ZA-right-calcaneofibular-ligament",
+"name": "Right calcaneofibular ligament [Lateral collateral ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 18,
+"indexCount": 96,
+"bounds": [
+[
+-0.10294000059366226,
+0.050930000841617584,
+-0.04926000162959099
+],
+[
+-0.08488000184297562,
+0.063680000603199,
+-0.04301999881863594
+]
+],
+"positions": 1473512,
+"normals": 1473728,
+"indices": 1473836
+},
+{
+"id": "ZA-left-calcaneonavicular-ligament",
+"name": "Left calcaneonavicular ligament [Bifurcate ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 50,
+"indexCount": 288,
+"bounds": [
+[
+0.08568999916315079,
+0.053040001541376114,
+-0.01295000035315752
+],
+[
+0.09538999944925308,
+0.0616299994289875,
+-0.0011699999449774623
+]
+],
+"positions": 1474220,
+"normals": 1474820,
+"indices": 1475120
+},
+{
+"id": "ZA-right-calcaneonavicular-ligament",
+"name": "Right calcaneonavicular ligament [Bifurcate ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 50,
+"indexCount": 288,
+"bounds": [
+[
+-0.09557999670505524,
+0.05257999897003174,
+-0.012609999626874924
+],
+[
+-0.08587999641895294,
+0.061170000582933426,
+-0.0008299999753944576
+]
+],
+"positions": 1476272,
+"normals": 1476872,
+"indices": 1477172
+},
+{
+"id": "ZA-left-capitohamate-interosseous-ligament",
+"name": "Left capitohamate interosseous ligament [Interosseus intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.24954000115394592,
+0.8689000010490417,
+0.013170000165700912
+],
+[
+0.25192001461982727,
+0.8695300221443176,
+0.017750000581145287
+]
+],
+"positions": 1478324,
+"normals": 1478420,
+"indices": 1478468
+},
+{
+"id": "ZA-right-capitohamate-interosseous-ligament",
+"name": "Right capitohamate interosseous ligament [Interosseus intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.25196000933647156,
+0.8694400191307068,
+0.012790000066161156
+],
+[
+-0.2495799958705902,
+0.8700699806213379,
+0.01737000048160553
+]
+],
+"positions": 1478612,
+"normals": 1478708,
+"indices": 1478756
+},
+{
+"id": "ZA-left-collateral-interphalangeal-ligaments-of-foot",
+"name": "Left collateral interphalangeal ligaments of foot [Interphalangeal joints of foot]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1384,
+"indexCount": 8088,
+"bounds": [
+[
+0.08347000181674957,
+0.00880999956279993,
+0.07724999636411667
+],
+[
+0.16147999465465546,
+0.018069999292492867,
+0.1316699981689453
+]
+],
+"positions": 1478900,
+"normals": 1495508,
+"indices": 1503812
+},
+{
+"id": "ZA-right-collateral-interphalangeal-ligaments-of-foot",
+"name": "Right collateral interphalangeal ligaments of foot [Interphalangeal joints of foot]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1384,
+"indexCount": 8088,
+"bounds": [
+[
+-0.16190999746322632,
+0.008419999852776527,
+0.07780999690294266
+],
+[
+-0.0839100033044815,
+0.017680000513792038,
+0.1322299987077713
+]
+],
+"positions": 1536164,
+"normals": 1552772,
+"indices": 1561076
+},
+{
+"id": "ZA-left-collateral-interphalangeal-ligaments-of-hand",
+"name": "Left collateral interphalangeal ligaments of hand [Interphalangeal joints of hand]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1020,
+"indexCount": 5904,
+"bounds": [
+[
+0.21616999804973602,
+0.7373800277709961,
+0.04788000136613846
+],
+[
+0.3209800124168396,
+0.8291599750518799,
+0.08597999811172485
+]
+],
+"positions": 1593428,
+"normals": 1605668,
+"indices": 1611788
+},
+{
+"id": "ZA-right-collateral-interphalangeal-ligaments-of-hand",
+"name": "Right collateral interphalangeal ligaments of hand [Interphalangeal joints of hand]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1020,
+"indexCount": 5904,
+"bounds": [
+[
+-0.32102999091148376,
+0.7375199794769287,
+0.04828999936580658
+],
+[
+-0.21622000634670258,
+0.8292999863624573,
+0.08639000356197357
+]
+],
+"positions": 1635404,
+"normals": 1647644,
+"indices": 1653764
+},
+{
+"id": "ZA-left-collateral-metacarpophalangeal-ligaments",
+"name": "Left collateral metacarpophalangeal ligaments [Metacarpophalangeal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 540,
+"indexCount": 3120,
+"bounds": [
+[
+0.22099000215530396,
+0.7951400279998779,
+0.03173999860882759
+],
+[
+0.31439000368118286,
+0.8566799759864807,
+0.055560000240802765
+]
+],
+"positions": 1677380,
+"normals": 1683860,
+"indices": 1687100
+},
+{
+"id": "ZA-right-collateral-metacarpophalangeal-ligaments",
+"name": "Right collateral metacarpophalangeal ligaments [Metacarpophalangeal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 540,
+"indexCount": 3120,
+"bounds": [
+[
+-0.3144499957561493,
+0.795229971408844,
+0.03217000141739845
+],
+[
+-0.22104999423027039,
+0.8567799925804138,
+0.055980000644922256
+]
+],
+"positions": 1699580,
+"normals": 1706060,
+"indices": 1709300
+},
+{
+"id": "ZA-left-collateral-metatarsophalangeal-ligaments",
+"name": "Left collateral metatarsophalangeal ligaments [Metatarsophalangeal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 828,
+"indexCount": 4848,
+"bounds": [
+[
+0.07246000319719315,
+0.011029999703168869,
+0.048829998821020126
+],
+[
+0.15456999838352203,
+0.029899999499320984,
+0.09125000238418579
+]
+],
+"positions": 1721780,
+"normals": 1731716,
+"indices": 1736684
+},
+{
+"id": "ZA-right-collateral-metatarsophalangeal-ligaments",
+"name": "Right collateral metatarsophalangeal ligaments [Metatarsophalangeal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 828,
+"indexCount": 4848,
+"bounds": [
+[
+-0.1549600064754486,
+0.01063000038266182,
+0.04944000020623207
+],
+[
+-0.0728600025177002,
+0.029489999637007713,
+0.09185999631881714
+]
+],
+"positions": 1756076,
+"normals": 1766012,
+"indices": 1770980
+},
+{
+"id": "ZA-left-conoid-ligament",
+"name": "Left conoid ligament [Coracoclavicular ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 30,
+"indexCount": 168,
+"bounds": [
+[
+0.09843000024557114,
+1.3983399868011475,
+-0.032979998737573624
+],
+[
+0.11202000081539154,
+1.4208199977874756,
+-0.016019999980926514
+]
+],
+"positions": 1790372,
+"normals": 1790732,
+"indices": 1790912
+},
+{
+"id": "ZA-right-conoid-ligament",
+"name": "Right conoid ligament [Coracoclavicular ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 30,
+"indexCount": 168,
+"bounds": [
+[
+-0.11288999766111374,
+1.3982800245285034,
+-0.03294000029563904
+],
+[
+-0.09929999709129333,
+1.4207500219345093,
+-0.01597999967634678
+]
+],
+"positions": 1791584,
+"normals": 1791944,
+"indices": 1792124
+},
+{
+"id": "ZA-left-coraco-acromial-ligament",
+"name": "Left coraco-acromial ligament [Fibrous joints of pectoral girdle]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.1287200003862381,
+1.4054299592971802,
+-0.028109999373555183
+],
+[
+0.1608700007200241,
+1.421239972114563,
+-0.0036800000816583633
+]
+],
+"positions": 1792796,
+"normals": 1792892,
+"indices": 1792940
+},
+{
+"id": "ZA-right-coraco-acromial-ligament",
+"name": "Right coraco-acromial ligament [Fibrous joints of pectoral girdle]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.16167999804019928,
+1.4053800106048584,
+-0.02806999906897545
+],
+[
+-0.12952999770641327,
+1.4211900234222412,
+-0.003640000009909272
+]
+],
+"positions": 1793084,
+"normals": 1793180,
+"indices": 1793228
+},
+{
+"id": "ZA-left-coracohumeral-ligament",
+"name": "Left coracohumeral ligament [Glenohumeral joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 102,
+"indexCount": 600,
+"bounds": [
+[
+0.13444000482559204,
+1.3965500593185425,
+-0.018400000408291817
+],
+[
+0.18100999295711517,
+1.4142199754714966,
+0.0023300000466406345
+]
+],
+"positions": 1793372,
+"normals": 1794596,
+"indices": 1795208
+},
+{
+"id": "ZA-right-coracohumeral-ligament",
+"name": "Right coracohumeral ligament [Glenohumeral joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 102,
+"indexCount": 600,
+"bounds": [
+[
+-0.18181000649929047,
+1.396340012550354,
+-0.0181099995970726
+],
+[
+-0.1352500021457672,
+1.4140100479125977,
+0.002630000002682209
+]
+],
+"positions": 1797608,
+"normals": 1798832,
+"indices": 1799444
+},
+{
+"id": "ZA-left-costoclavicular-ligament",
+"name": "Left costoclavicular ligament [Sternoclavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.02386000007390976,
+1.3904800415039062,
+0.03180000185966492
+],
+[
+0.036570001393556595,
+1.3997900485992432,
+0.0457100011408329
+]
+],
+"positions": 1801844,
+"normals": 1801940,
+"indices": 1801988
+},
+{
+"id": "ZA-right-costoclavicular-ligament",
+"name": "Right costoclavicular ligament [Sternoclavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.036090001463890076,
+1.3902299404144287,
+0.032839998602867126
+],
+[
+-0.02355000004172325,
+1.4014999866485596,
+0.041999999433755875
+]
+],
+"positions": 1802132,
+"normals": 1802228,
+"indices": 1802276
+},
+{
+"id": "ZA-left-costotransverse-ligament",
+"name": "Left costotransverse ligament [Costotransverse joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 220,
+"indexCount": 1188,
+"bounds": [
+[
+0.012389999814331532,
+1.181190013885498,
+-0.0802299976348877
+],
+[
+0.03249000012874603,
+1.4482699632644653,
+-0.027049999684095383
+]
+],
+"positions": 1802420,
+"normals": 1805060,
+"indices": 1806380
+},
+{
+"id": "ZA-right-costotransverse-ligament",
+"name": "Right costotransverse ligament [Costotransverse joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 220,
+"indexCount": 1188,
+"bounds": [
+[
+-0.034619998186826706,
+1.181190013885498,
+-0.0802299976348877
+],
+[
+-0.014519999735057354,
+1.4482699632644653,
+-0.027049999684095383
+]
+],
+"positions": 1811132,
+"normals": 1813772,
+"indices": 1815092
+},
+{
+"id": "ZA-left-cricopharyngeal-ligament",
+"name": "Left cricopharyngeal ligament [Crico-arythenoid joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1540,
+"indexCount": 9357,
+"bounds": [
+[
+5.999999848427251e-05,
+1.4697699546813965,
+-0.0017800000496208668
+],
+[
+0.008740000426769257,
+1.4825799465179443,
+0.016330000013113022
+]
+],
+"positions": 1819844,
+"normals": 1838324,
+"indices": 1847564
+},
+{
+"id": "ZA-right-cricopharyngeal-ligament",
+"name": "Right cricopharyngeal ligament [Crico-arythenoid joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1540,
+"indexCount": 9357,
+"bounds": [
+[
+-0.009879999794065952,
+1.4697699546813965,
+-0.0018100000452250242
+],
+[
+-0.0011899999808520079,
+1.4825799465179443,
+0.016300000250339508
+]
+],
+"positions": 1884992,
+"normals": 1903472,
+"indices": 1912712
+},
+{
+"id": "ZA-left-cuneocuboid-interosseous-ligament",
+"name": "Left cuneocuboid interosseous ligament [Cuneocuboid joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 42,
+"indexCount": 240,
+"bounds": [
+[
+0.09683000296354294,
+0.042569998651742935,
+0.008659999817609787
+],
+[
+0.10066000372171402,
+0.04656999930739403,
+0.011119999922811985
+]
+],
+"positions": 1950140,
+"normals": 1950644,
+"indices": 1950896
+},
+{
+"id": "ZA-right-cuneocuboid-interosseous-ligament",
+"name": "Right cuneocuboid interosseous ligament [Cuneocuboid joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 42,
+"indexCount": 240,
+"bounds": [
+[
+-0.10085000097751617,
+0.042180001735687256,
+0.009100000374019146
+],
+[
+-0.09702000021934509,
+0.04617999866604805,
+0.01155999954789877
+]
+],
+"positions": 1951856,
+"normals": 1952360,
+"indices": 1952612
+},
+{
+"id": "ZA-left-cuneometatarsal-interosseous-ligaments",
+"name": "Left cuneometatarsal interosseous ligaments [Tarsometatarsal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 24,
+"indexCount": 108,
+"bounds": [
+[
+0.07960999757051468,
+0.04224000126123428,
+0.023879999294877052
+],
+[
+0.10440000146627426,
+0.05254000052809715,
+0.035760000348091125
+]
+],
+"positions": 1953572,
+"normals": 1953860,
+"indices": 1954004
+},
+{
+"id": "ZA-right-cuneometatarsal-interosseous-ligaments",
+"name": "Right cuneometatarsal interosseous ligaments [Tarsometatarsal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 24,
+"indexCount": 108,
+"bounds": [
+[
+-0.10422000288963318,
+0.0422700010240078,
+0.02384999953210354
+],
+[
+-0.0794299989938736,
+0.052570000290870667,
+0.03573000058531761
+]
+],
+"positions": 1954436,
+"normals": 1954724,
+"indices": 1954868
+},
+{
+"id": "ZA-left-deep-part-of-tibial-collateral-ligament",
+"name": "Left deep part of tibial collateral ligament [Tibial collateral ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 132,
+"indexCount": 768,
+"bounds": [
+[
+0.031150000169873238,
+0.4029799997806549,
+-0.032180000096559525
+],
+[
+0.06513000279664993,
+0.4657500088214874,
+-0.00634999992325902
+]
+],
+"positions": 1955300,
+"normals": 1956884,
+"indices": 1957676
+},
+{
+"id": "ZA-right-deep-part-of-tibial-collateral-ligament",
+"name": "Right deep part of tibial collateral ligament [Tibial collateral ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 132,
+"indexCount": 768,
+"bounds": [
+[
+-0.06518000364303589,
+0.4007500112056732,
+-0.03223999962210655
+],
+[
+-0.031209999695420265,
+0.46351999044418335,
+-0.006409999914467335
+]
+],
+"positions": 1960748,
+"normals": 1962332,
+"indices": 1963124
+},
+{
+"id": "ZA-left-deep-transverse-metacarpal-ligament",
+"name": "Left deep transverse metacarpal ligament [Metacarpophalangeal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 36,
+"indexCount": 180,
+"bounds": [
+[
+0.23449000716209412,
+0.8020700216293335,
+0.041770000010728836
+],
+[
+0.2802099883556366,
+0.8186799883842468,
+0.04673000052571297
+]
+],
+"positions": 1966196,
+"normals": 1966628,
+"indices": 1966844
+},
+{
+"id": "ZA-right-deep-transverse-metacarpal-ligament",
+"name": "Right deep transverse metacarpal ligament [Metacarpophalangeal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 36,
+"indexCount": 180,
+"bounds": [
+[
+-0.28025001287460327,
+0.8022800087928772,
+0.042160000652074814
+],
+[
+-0.23452000319957733,
+0.818880021572113,
+0.047129999846220016
+]
+],
+"positions": 1967564,
+"normals": 1967996,
+"indices": 1968212
+},
+{
+"id": "ZA-left-deep-transverse-metatarsal-ligament",
+"name": "Left deep transverse metatarsal ligament [Metatarsophalangeal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 84,
+"indexCount": 456,
+"bounds": [
+[
+0.09255000203847885,
+0.008050000295042992,
+0.05894999951124191
+],
+[
+0.1466200053691864,
+0.014639999717473984,
+0.08773999661207199
+]
+],
+"positions": 1968932,
+"normals": 1969940,
+"indices": 1970444
+},
+{
+"id": "ZA-right-deep-transverse-metatarsal-ligament",
+"name": "Right deep transverse metatarsal ligament [Metatarsophalangeal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 84,
+"indexCount": 456,
+"bounds": [
+[
+-0.1470700055360794,
+0.007619999814778566,
+0.05954999849200249
+],
+[
+-0.09299000352621078,
+0.014209999702870846,
+0.08833999931812286
+]
+],
+"positions": 1972268,
+"normals": 1973276,
+"indices": 1973780
+},
+{
+"id": "ZA-left-descending-part-of-iliofemoral-ligament",
+"name": "Left descending part of iliofemoral ligament [Iliofemoral ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 306,
+"indexCount": 1824,
+"bounds": [
+[
+0.09116999804973602,
+0.8355699777603149,
+-0.01834999956190586
+],
+[
+0.09991999715566635,
+0.9106500148773193,
+0.0062699997797608376
+]
+],
+"positions": 1975604,
+"normals": 1979276,
+"indices": 1981112
+},
+{
+"id": "ZA-right-descending-part-of-iliofemoral-ligament",
+"name": "Right descending part of iliofemoral ligament [Iliofemoral ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 306,
+"indexCount": 1824,
+"bounds": [
+[
+-0.10042999684810638,
+0.8348100185394287,
+-0.017680000513792038
+],
+[
+-0.09167999774217606,
+0.9098799824714661,
+0.006930000148713589
+]
+],
+"positions": 1988408,
+"normals": 1992080,
+"indices": 1993916
+},
+{
+"id": "ZA-left-dorsal-calcaneocuboid-ligament",
+"name": "Left dorsal calcaneocuboid ligament [Calcaneocuboid joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.10219000279903412,
+0.044179998338222504,
+-0.023259999230504036
+],
+[
+0.10578999668359756,
+0.05164000019431114,
+-0.012570000253617764
+]
+],
+"positions": 2001212,
+"normals": 2001308,
+"indices": 2001356
+},
+{
+"id": "ZA-right-dorsal-calcaneocuboid-ligament",
+"name": "Right dorsal calcaneocuboid ligament [Calcaneocuboid joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.1062299981713295,
+0.04366999864578247,
+-0.02249000035226345
+],
+[
+-0.10262999683618546,
+0.05113000050187111,
+-0.011800000444054604
+]
+],
+"positions": 2001500,
+"normals": 2001596,
+"indices": 2001644
+},
+{
+"id": "ZA-left-dorsal-carpometacarpal-ligaments",
+"name": "Left dorsal carpometacarpal ligaments [Carpometacarpal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 86,
+"indexCount": 444,
+"bounds": [
+[
+0.23601999878883362,
+0.857479989528656,
+0.011370000429451466
+],
+[
+0.28275999426841736,
+0.8760600090026855,
+0.027210000902414322
+]
+],
+"positions": 2001788,
+"normals": 2002820,
+"indices": 2003336
+},
+{
+"id": "ZA-right-dorsal-carpometacarpal-ligaments",
+"name": "Right dorsal carpometacarpal ligaments [Carpometacarpal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 86,
+"indexCount": 444,
+"bounds": [
+[
+-0.2829299867153168,
+0.8578900098800659,
+0.011409999802708626
+],
+[
+-0.23617999255657196,
+0.8764600157737732,
+0.027249999344348907
+]
+],
+"positions": 2005112,
+"normals": 2006144,
+"indices": 2006660
+},
+{
+"id": "ZA-left-dorsal-cuboideonavicular-ligament",
+"name": "Left dorsal cuboideonavicular ligament [Cuboidonavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.0941699966788292,
+0.054179999977350235,
+-0.010289999656379223
+],
+[
+0.10129000246524811,
+0.06077999994158745,
+-0.0010900000343099236
+]
+],
+"positions": 2008436,
+"normals": 2008532,
+"indices": 2008580
+},
+{
+"id": "ZA-right-dorsal-cuboideonavicular-ligament",
+"name": "Right dorsal cuboideonavicular ligament [Cuboidonavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.10159999877214432,
+0.053769998252391815,
+-0.009739999659359455
+],
+[
+-0.09447000175714493,
+0.06036999821662903,
+-0.000539999979082495
+]
+],
+"positions": 2008724,
+"normals": 2008820,
+"indices": 2008868
+},
+{
+"id": "ZA-left-dorsal-cuneocuboid-ligament",
+"name": "Left dorsal cuneocuboid ligament [Cuneocuboid joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.10373999923467636,
+0.0492900013923645,
+0.0010300000431016088
+],
+[
+0.11049000173807144,
+0.0589900016784668,
+0.01331000030040741
+]
+],
+"positions": 2009012,
+"normals": 2009108,
+"indices": 2009156
+},
+{
+"id": "ZA-right-dorsal-cuneocuboid-ligament",
+"name": "Right dorsal cuneocuboid ligament [Cuneocuboid joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.11072999984025955,
+0.048909999430179596,
+0.001509999972768128
+],
+[
+-0.10397999733686447,
+0.05860000103712082,
+0.013799999840557575
+]
+],
+"positions": 2009300,
+"normals": 2009396,
+"indices": 2009444
+},
+{
+"id": "ZA-left-dorsal-cuneonavicular-ligaments",
+"name": "Left dorsal cuneonavicular ligaments [Cuneonavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 36,
+"indexCount": 180,
+"bounds": [
+[
+0.07337000221014023,
+0.05998999997973442,
+0.0006000000284984708
+],
+[
+0.1047699972987175,
+0.07011000066995621,
+0.021810000762343407
+]
+],
+"positions": 2009588,
+"normals": 2010020,
+"indices": 2010236
+},
+{
+"id": "ZA-right-dorsal-cuneonavicular-ligaments",
+"name": "Right dorsal cuneonavicular ligaments [Cuneonavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 36,
+"indexCount": 180,
+"bounds": [
+[
+-0.1046300008893013,
+0.06004999950528145,
+0.0006000000284984708
+],
+[
+-0.07322999835014343,
+0.07017000019550323,
+0.021800000220537186
+]
+],
+"positions": 2010956,
+"normals": 2011388,
+"indices": 2011604
+},
+{
+"id": "ZA-left-dorsal-intercarpal-ligaments",
+"name": "Left dorsal intercarpal ligaments [Dorsal intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 222,
+"indexCount": 1320,
+"bounds": [
+[
+0.23597000539302826,
+0.8626999855041504,
+0.010219999589025974
+],
+[
+0.27489998936653137,
+0.8798900246620178,
+0.021449999883770943
+]
+],
+"positions": 2012324,
+"normals": 2014988,
+"indices": 2016320
+},
+{
+"id": "ZA-right-dorsal-intercarpal-ligaments",
+"name": "Right dorsal intercarpal ligaments [Dorsal intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 222,
+"indexCount": 1320,
+"bounds": [
+[
+-0.27489998936653137,
+0.8632299900054932,
+0.009800000116229057
+],
+[
+-0.23597000539302826,
+0.8804299831390381,
+0.02102999947965145
+]
+],
+"positions": 2021600,
+"normals": 2024264,
+"indices": 2025596
+},
+{
+"id": "ZA-left-dorsal-intercuneiform-ligaments",
+"name": "Left dorsal intercuneiform ligaments [Intercuneiform joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 16,
+"indexCount": 72,
+"bounds": [
+[
+0.08250000327825546,
+0.05962999910116196,
+0.013439999893307686
+],
+[
+0.1047699972987175,
+0.06604000180959702,
+0.02928999997675419
+]
+],
+"positions": 2030876,
+"normals": 2031068,
+"indices": 2031164
+},
+{
+"id": "ZA-right-dorsal-intercuneiform-ligaments",
+"name": "Right dorsal intercuneiform ligaments [Intercuneiform joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 16,
+"indexCount": 72,
+"bounds": [
+[
+-0.10463999956846237,
+0.059700001031160355,
+0.013439999893307686
+],
+[
+-0.08236999809741974,
+0.06611000001430511,
+0.02930000051856041
+]
+],
+"positions": 2031452,
+"normals": 2031644,
+"indices": 2031740
+},
+{
+"id": "ZA-left-dorsal-metacarpal-ligaments",
+"name": "Left dorsal metacarpal ligaments [Intermetacarpal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 32,
+"indexCount": 144,
+"bounds": [
+[
+0.24018000066280365,
+0.851360023021698,
+0.014519999735057354
+],
+[
+0.28125,
+0.8635500073432922,
+0.025669999420642853
+]
+],
+"positions": 2032028,
+"normals": 2032412,
+"indices": 2032604
+},
+{
+"id": "ZA-right-dorsal-metacarpal-ligaments",
+"name": "Right dorsal metacarpal ligaments [Intermetacarpal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 32,
+"indexCount": 144,
+"bounds": [
+[
+-0.2814300060272217,
+0.8517400026321411,
+0.014550000429153442
+],
+[
+-0.24036000669002533,
+0.8639299869537354,
+0.025699999183416367
+]
+],
+"positions": 2033180,
+"normals": 2033564,
+"indices": 2033756
+},
+{
+"id": "ZA-left-dorsal-metatarsal-ligaments",
+"name": "Left dorsal metatarsal ligaments [Intermetatarsal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 36,
+"indexCount": 168,
+"bounds": [
+[
+0.08772999793291092,
+0.03440000116825104,
+0.013659999705851078
+],
+[
+0.12449999898672104,
+0.056529998779296875,
+0.045579999685287476
+]
+],
+"positions": 2034332,
+"normals": 2034764,
+"indices": 2034980
+},
+{
+"id": "ZA-right-dorsal-metatarsal-ligaments",
+"name": "Right dorsal metatarsal ligaments [Intermetatarsal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 36,
+"indexCount": 168,
+"bounds": [
+[
+-0.12432000041007996,
+0.034710001200437546,
+0.013399999588727951
+],
+[
+-0.08754000067710876,
+0.05683999881148338,
+0.045329999178647995
+]
+],
+"positions": 2035652,
+"normals": 2036084,
+"indices": 2036300
+},
+{
+"id": "ZA-left-dorsal-radio-ulnar-ligament",
+"name": "Left dorsal radio-ulnar ligament [Distal radio-ulnar joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.24049000442028046,
+0.8899000287055969,
+0.008089999668300152
+],
+[
+0.25165000557899475,
+0.8994200229644775,
+0.011420000344514847
+]
+],
+"positions": 2036972,
+"normals": 2037068,
+"indices": 2037116
+},
+{
+"id": "ZA-right-dorsal-radio-ulnar-ligament",
+"name": "Right dorsal radio-ulnar ligament [Distal radio-ulnar joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.25192999839782715,
+0.8903200030326843,
+0.007699999958276749
+],
+[
+-0.24076999723911285,
+0.8998399972915649,
+0.01104000024497509
+]
+],
+"positions": 2037260,
+"normals": 2037356,
+"indices": 2037404
+},
+{
+"id": "ZA-left-dorsal-radiocarpal-ligament",
+"name": "Left dorsal radiocarpal ligament [Joints of hand; Radiocarpal joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 126,
+"indexCount": 744,
+"bounds": [
+[
+0.23559999465942383,
+0.8735600113868713,
+0.008990000002086163
+],
+[
+0.26934000849723816,
+0.8880699872970581,
+0.015890000388026237
+]
+],
+"positions": 2037548,
+"normals": 2039060,
+"indices": 2039816
+},
+{
+"id": "ZA-right-dorsal-radiocarpal-ligament",
+"name": "Right dorsal radiocarpal ligament [Joints of hand; Radiocarpal joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 126,
+"indexCount": 744,
+"bounds": [
+[
+-0.26980000734329224,
+0.8743900060653687,
+0.00887999963015318
+],
+[
+-0.2360599935054779,
+0.8889099955558777,
+0.015780000016093254
+]
+],
+"positions": 2042792,
+"normals": 2044304,
+"indices": 2045060
+},
+{
+"id": "ZA-left-dorsal-scaphotriquetral-ligament",
+"name": "Left dorsal scaphotriquetral ligament [Dorsal intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 54,
+"indexCount": 312,
+"bounds": [
+[
+0.23845000565052032,
+0.8727800250053406,
+0.010820000432431698
+],
+[
+0.2593599855899811,
+0.8801500201225281,
+0.01706000044941902
+]
+],
+"positions": 2048036,
+"normals": 2048684,
+"indices": 2049008
+},
+{
+"id": "ZA-right-dorsal-scaphotriquetral-ligament",
+"name": "Right dorsal scaphotriquetral ligament [Dorsal intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 54,
+"indexCount": 312,
+"bounds": [
+[
+-0.2592400014400482,
+0.873449981212616,
+0.010130000300705433
+],
+[
+-0.23833000659942627,
+0.8808199763298035,
+0.016370000317692757
+]
+],
+"positions": 2050256,
+"normals": 2050904,
+"indices": 2051228
+},
+{
+"id": "ZA-left-dorsal-tarsometatarsal-ligaments",
+"name": "Left dorsal tarsometatarsal ligaments [Tarsometatarsal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 204,
+"indexCount": 1176,
+"bounds": [
+[
+0.07615000009536743,
+0.03210999816656113,
+0.0015300000086426735
+],
+[
+0.12027999758720398,
+0.06270000338554382,
+0.04255999997258186
+]
+],
+"positions": 2052476,
+"normals": 2054924,
+"indices": 2056148
+},
+{
+"id": "ZA-right-dorsal-tarsometatarsal-ligaments",
+"name": "Right dorsal tarsometatarsal ligaments [Tarsometatarsal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 204,
+"indexCount": 1176,
+"bounds": [
+[
+-0.12043000012636185,
+0.031849998980760574,
+0.0019099999917671084
+],
+[
+-0.0763000026345253,
+0.0624300017952919,
+0.0429299995303154
+]
+],
+"positions": 2060852,
+"normals": 2063300,
+"indices": 2064524
+},
+{
+"id": "ZA-left-dorsal-ulnocarpal-ligament",
+"name": "Left dorsal ulnocarpal ligament [Joints of hand; Radiocarpal joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 64,
+"indexCount": 360,
+"bounds": [
+[
+0.23458999395370483,
+0.8746500015258789,
+0.010879999957978725
+],
+[
+0.2517299950122833,
+0.8860300183296204,
+0.016200000420212746
+]
+],
+"positions": 2069228,
+"normals": 2069996,
+"indices": 2070380
+},
+{
+"id": "ZA-right-dorsal-ulnocarpal-ligament",
+"name": "Right dorsal ulnocarpal ligament [Joints of hand; Radiocarpal joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 64,
+"indexCount": 360,
+"bounds": [
+[
+-0.25137001276016235,
+0.8747900128364563,
+0.009999999776482582
+],
+[
+-0.23422999680042267,
+0.8861700296401978,
+0.015320000238716602
+]
+],
+"positions": 2071820,
+"normals": 2072588,
+"indices": 2072972
+},
+{
+"id": "ZA-left-external-intercostal-membrane",
+"name": "Left external intercostal membrane [Fibrous joints of thorax]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 3384,
+"indexCount": 20208,
+"bounds": [
+[
+0.016780000180006027,
+1.0898900032043457,
+0.019419999793171883
+],
+[
+0.13098999857902527,
+1.3670799732208252,
+0.11421000212430954
+]
+],
+"positions": 2074412,
+"normals": 2115020,
+"indices": 2135324
+},
+{
+"id": "ZA-right-external-intercostal-membrane",
+"name": "Right external intercostal membrane [Fibrous joints of thorax]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 3384,
+"indexCount": 20208,
+"bounds": [
+[
+-0.13061000406742096,
+1.0899200439453125,
+0.019349999725818634
+],
+[
+-0.01641000062227249,
+1.367110013961792,
+0.11413999646902084
+]
+],
+"positions": 2216156,
+"normals": 2256764,
+"indices": 2277068
+},
+{
+"id": "ZA-left-fibular-collateral-ligament",
+"name": "Left fibular collateral ligament [Knee joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 42,
+"indexCount": 240,
+"bounds": [
+[
+0.10814999788999557,
+0.41791000962257385,
+-0.036490000784397125
+],
+[
+0.11694999784231186,
+0.4704299867153168,
+-0.028300000354647636
+]
+],
+"positions": 2357900,
+"normals": 2358404,
+"indices": 2358656
+},
+{
+"id": "ZA-right-fibular-collateral-ligament",
+"name": "Right fibular collateral ligament [Knee joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 42,
+"indexCount": 240,
+"bounds": [
+[
+-0.11709000170230865,
+0.4146200120449066,
+-0.03655000030994415
+],
+[
+-0.10830000042915344,
+0.46713000535964966,
+-0.028349999338388443
+]
+],
+"positions": 2359616,
+"normals": 2360120,
+"indices": 2360372
+},
+{
+"id": "ZA-left-frenula-capsulae",
+"name": "Left frenula capsulae [Hip joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 495,
+"indexCount": 2592,
+"bounds": [
+[
+0.08172000199556351,
+0.8331999778747559,
+-0.03434000164270401
+],
+[
+0.11884000152349472,
+0.8748300075531006,
+0.0023499999660998583
+]
+],
+"positions": 2361332,
+"normals": 2367272,
+"indices": 2370244
+},
+{
+"id": "ZA-right-frenula-capsulae",
+"name": "Right frenula capsulae [Hip joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 495,
+"indexCount": 2592,
+"bounds": [
+[
+-0.11925999820232391,
+0.8327199816703796,
+-0.03407999873161316
+],
+[
+-0.0821399986743927,
+0.8743500113487244,
+0.0026100000832229853
+]
+],
+"positions": 2380612,
+"normals": 2386552,
+"indices": 2389524
+},
+{
+"id": "ZA-left-glenoid-labrum",
+"name": "Left glenoid labrum [Glenohumeral joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 424,
+"indexCount": 2544,
+"bounds": [
+[
+0.13596999645233154,
+1.3662999868392944,
+-0.04422999918460846
+],
+[
+0.1550000011920929,
+1.4020899534225464,
+-0.019020000472664833
+]
+],
+"positions": 2399892,
+"normals": 2404980,
+"indices": 2407524
+},
+{
+"id": "ZA-right-glenoid-labrum",
+"name": "Right glenoid labrum [Glenohumeral joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 424,
+"indexCount": 2544,
+"bounds": [
+[
+-0.15570999681949615,
+1.366129994392395,
+-0.04396999999880791
+],
+[
+-0.13666999340057373,
+1.4019099473953247,
+-0.01875000074505806
+]
+],
+"positions": 2417700,
+"normals": 2422788,
+"indices": 2425332
+},
+{
+"id": "ZA-left-iliolumbar-ligament",
+"name": "Left iliolumbar ligament [Fibrous joints of pelvic girdle]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 60,
+"indexCount": 336,
+"bounds": [
+[
+0.036329999566078186,
+1.0185799598693848,
+-0.05493000149726868
+],
+[
+0.08399999886751175,
+1.0471999645233154,
+-0.03339000046253204
+]
+],
+"positions": 2435508,
+"normals": 2436228,
+"indices": 2436588
+},
+{
+"id": "ZA-right-iliolumbar-ligament",
+"name": "Right iliolumbar ligament [Fibrous joints of pelvic girdle]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 60,
+"indexCount": 336,
+"bounds": [
+[
+-0.08604999631643295,
+1.0185799598693848,
+-0.05493000149726868
+],
+[
+-0.03838000074028969,
+1.0471999645233154,
+-0.03339000046253204
+]
+],
+"positions": 2437932,
+"normals": 2438652,
+"indices": 2439012
+},
+{
+"id": "ZA-left-inferior-glenohumeral-ligament",
+"name": "Left inferior glenohumeral ligament [Glenohumeral ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 162,
+"indexCount": 960,
+"bounds": [
+[
+0.1350100040435791,
+1.3720200061798096,
+-0.021950000897049904
+],
+[
+0.15886999666690826,
+1.3912700414657593,
+-0.005810000002384186
+]
+],
+"positions": 2440356,
+"normals": 2442300,
+"indices": 2443272
+},
+{
+"id": "ZA-right-inferior-glenohumeral-ligament",
+"name": "Right inferior glenohumeral ligament [Glenohumeral ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 162,
+"indexCount": 960,
+"bounds": [
+[
+-0.1596599966287613,
+1.371809959411621,
+-0.021649999544024467
+],
+[
+-0.13580000400543213,
+1.3910499811172485,
+-0.005510000046342611
+]
+],
+"positions": 2447112,
+"normals": 2449056,
+"indices": 2450028
+},
+{
+"id": "ZA-inferior-pubic-ligament",
+"name": "Inferior pubic ligament [Pubic symphysis]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 50,
+"indexCount": 288,
+"bounds": [
+[
+-0.016680000349879265,
+0.8583700060844421,
+0.025989999994635582
+],
+[
+0.016270000487565994,
+0.8645399808883667,
+0.03742999956011772
+]
+],
+"positions": 2453868,
+"normals": 2454468,
+"indices": 2454768
+},
+{
+"id": "ZA-left-inferior-transverse-scapular-ligament",
+"name": "Left inferior transverse scapular ligament [Fibrous joints of pectoral girdle]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.13625000417232513,
+1.3858799934387207,
+-0.058789998292922974
+],
+[
+0.1496499925851822,
+1.3933299779891968,
+-0.04377000033855438
+]
+],
+"positions": 2455920,
+"normals": 2456016,
+"indices": 2456064
+},
+{
+"id": "ZA-right-inferior-transverse-scapular-ligament",
+"name": "Right inferior transverse scapular ligament [Fibrous joints of pectoral girdle]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.1502700001001358,
+1.385740041732788,
+-0.058559998869895935
+],
+[
+-0.13686999678611755,
+1.3931900262832642,
+-0.043549999594688416
+]
+],
+"positions": 2456208,
+"normals": 2456304,
+"indices": 2456352
+},
+{
+"id": "ZA-left-infrapatellar-fat-pad",
+"name": "Left infrapatellar fat pad [Knee joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 386,
+"indexCount": 2304,
+"bounds": [
+[
+0.07129999995231628,
+0.43852999806404114,
+-0.018810000270605087
+],
+[
+0.08485999703407288,
+0.4531799852848053,
+0.005710000172257423
+]
+],
+"positions": 2456496,
+"normals": 2461128,
+"indices": 2463444
+},
+{
+"id": "ZA-right-infrapatellar-fat-pad",
+"name": "Right infrapatellar fat pad [Knee joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 386,
+"indexCount": 2304,
+"bounds": [
+[
+-0.0832199975848198,
+0.43490999937057495,
+-0.01844000071287155
+],
+[
+-0.0715700015425682,
+0.45153000950813293,
+0.005260000005364418
+]
+],
+"positions": 2472660,
+"normals": 2477292,
+"indices": 2479608
+},
+{
+"id": "ZA-left-interclavicular-ligament",
+"name": "Left interclavicular ligament [Sternoclavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 42,
+"indexCount": 240,
+"bounds": [
+[
+-0.0004400000034365803,
+1.4006400108337402,
+0.024720000103116035
+],
+[
+0.015879999846220016,
+1.412019968032837,
+0.03897000104188919
+]
+],
+"positions": 2488824,
+"normals": 2489328,
+"indices": 2489580
+},
+{
+"id": "ZA-right-interclavicular-ligament",
+"name": "Right interclavicular ligament [Sternoclavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 42,
+"indexCount": 240,
+"bounds": [
+[
+-0.016170000657439232,
+1.4005199670791626,
+0.024870000779628754
+],
+[
+0.0001500000071246177,
+1.411910057067871,
+0.03911000117659569
+]
+],
+"positions": 2490540,
+"normals": 2491044,
+"indices": 2491296
+},
+{
+"id": "ZA-left-intercornual-ligament",
+"name": "Left intercornual ligament [Fibrous joints of vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 30,
+"indexCount": 168,
+"bounds": [
+[
+0.009069999679923058,
+0.8777899742126465,
+-0.10429000109434128
+],
+[
+0.01319000031799078,
+0.8990200161933899,
+-0.09730999916791916
+]
+],
+"positions": 2492256,
+"normals": 2492616,
+"indices": 2492796
+},
+{
+"id": "ZA-right-intercornual-ligament",
+"name": "Right intercornual ligament [Fibrous joints of vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 30,
+"indexCount": 168,
+"bounds": [
+[
+-0.01372000016272068,
+0.8777499794960022,
+-0.10425999760627747
+],
+[
+-0.009589999914169312,
+0.8989800214767456,
+-0.09728000313043594
+]
+],
+"positions": 2493468,
+"normals": 2493828,
+"indices": 2494008
+},
+{
+"id": "ZA-left-intercuneiform-interosseous-ligaments",
+"name": "Left intercuneiform interosseous ligaments [Intercuneiform joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 16,
+"indexCount": 72,
+"bounds": [
+[
+0.08297000080347061,
+0.04826999828219414,
+0.015200000256299973
+],
+[
+0.10083000361919403,
+0.059859998524188995,
+0.027400000020861626
+]
+],
+"positions": 2494680,
+"normals": 2494872,
+"indices": 2494968
+},
+{
+"id": "ZA-right-intercuneiform-interosseous-ligaments",
+"name": "Right intercuneiform interosseous ligaments [Intercuneiform joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 16,
+"indexCount": 72,
+"bounds": [
+[
+-0.10074000060558319,
+0.04834999889135361,
+0.015239999629557133
+],
+[
+-0.08287999778985977,
+0.059950001537799835,
+0.02742999978363514
+]
+],
+"positions": 2495256,
+"normals": 2495448,
+"indices": 2495544
+},
+{
+"id": "ZA-left-internal-intercostal-membrane",
+"name": "Left internal intercostal membrane [Fibrous joints of thorax]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 2380,
+"indexCount": 14160,
+"bounds": [
+[
+0.026009999215602875,
+1.1453900337219238,
+-0.09165000170469284
+],
+[
+0.09277000278234482,
+1.4260400533676147,
+-0.026179999113082886
+]
+],
+"positions": 2495832,
+"normals": 2524392,
+"indices": 2538672
+},
+{
+"id": "ZA-right-internal-intercostal-membrane",
+"name": "Right internal intercostal membrane [Fibrous joints of thorax]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 2380,
+"indexCount": 14160,
+"bounds": [
+[
+-0.09395000338554382,
+1.1453200578689575,
+-0.0914900004863739
+],
+[
+-0.02718999981880188,
+1.4259599447250366,
+-0.026019999757409096
+]
+],
+"positions": 2595312,
+"normals": 2623872,
+"indices": 2638152
+},
+{
+"id": "ZA-left-interosseous-membrane-of-leg",
+"name": "Left interosseous membrane of leg [Fibrous joints of free lower limb]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 6321,
+"indexCount": 37926,
+"bounds": [
+[
+0.08348000049591064,
+0.10267999768257141,
+-0.03277000039815903
+],
+[
+0.10599999874830246,
+0.395330011844635,
+-0.01140000019222498
+]
+],
+"positions": 2694792,
+"normals": 2770644,
+"indices": 2808572
+},
+{
+"id": "ZA-right-interosseous-membrane-of-leg",
+"name": "Right interosseous membrane of leg [Fibrous joints of free lower limb]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 6321,
+"indexCount": 37926,
+"bounds": [
+[
+-0.10678999871015549,
+0.1035199984908104,
+-0.032269999384880066
+],
+[
+-0.0842600017786026,
+0.3961600065231323,
+-0.010889999568462372
+]
+],
+"positions": 2960276,
+"normals": 3036128,
+"indices": 3074056
+},
+{
+"id": "ZA-left-interosseous-metacarpal-ligaments",
+"name": "Left interosseous metacarpal ligaments [Intermetacarpal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 32,
+"indexCount": 144,
+"bounds": [
+[
+0.24240000545978546,
+0.853630006313324,
+0.019770000129938126
+],
+[
+0.27796998620033264,
+0.8634799718856812,
+0.029419999569654465
+]
+],
+"positions": 3225760,
+"normals": 3226144,
+"indices": 3226336
+},
+{
+"id": "ZA-right-interosseous-metacarpal-ligaments",
+"name": "Right interosseous metacarpal ligaments [Intermetacarpal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 32,
+"indexCount": 144,
+"bounds": [
+[
+-0.2781600058078766,
+0.8539999723434448,
+0.01979999989271164
+],
+[
+-0.24258999526500702,
+0.863860011100769,
+0.02944999933242798
+]
+],
+"positions": 3226912,
+"normals": 3227296,
+"indices": 3227488
+},
+{
+"id": "ZA-left-interosseous-sacro-iliac-ligament",
+"name": "Left interosseous sacro-iliac ligament [Sacro-iliac joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 102,
+"indexCount": 600,
+"bounds": [
+[
+0.03581000119447708,
+0.9381399750709534,
+-0.08692000061273575
+],
+[
+0.05152999982237816,
+0.9922299981117249,
+-0.06321000307798386
+]
+],
+"positions": 3228064,
+"normals": 3229288,
+"indices": 3229900
+},
+{
+"id": "ZA-right-interosseous-sacro-iliac-ligament",
+"name": "Right interosseous sacro-iliac ligament [Sacro-iliac joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 102,
+"indexCount": 600,
+"bounds": [
+[
+-0.05260999873280525,
+0.9378299713134766,
+-0.08669000118970871
+],
+[
+-0.036890000104904175,
+0.9919300079345703,
+-0.06298000365495682
+]
+],
+"positions": 3232300,
+"normals": 3233524,
+"indices": 3234136
+},
+{
+"id": "ZA-left-interosseous-membrane-of-forearm",
+"name": "Left interosseous membrane of forearm",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1385,
+"indexCount": 8298,
+"bounds": [
+[
+0.22758999466896057,
+0.9006900191307068,
+-0.031380001455545425
+],
+[
+0.25005999207496643,
+1.0621299743652344,
+0.01834999956190586
+]
+],
+"positions": 3236536,
+"normals": 3253156,
+"indices": 3261468
+},
+{
+"id": "ZA-right-interosseous-membrane-of-forearm",
+"name": "Right interosseous membrane of forearm",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1385,
+"indexCount": 8298,
+"bounds": [
+[
+-0.2512800097465515,
+0.893060028553009,
+-0.03060000017285347
+],
+[
+-0.22881999611854553,
+1.0544999837875366,
+0.019130000844597816
+]
+],
+"positions": 3294660,
+"normals": 3311280,
+"indices": 3319592
+},
+{
+"id": "ZA-interpubic-disc",
+"name": "Interpubic disc [Pubic symphysis]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 210,
+"indexCount": 1248,
+"bounds": [
+[
+-0.00482999999076128,
+0.8606500029563904,
+0.018459999933838844
+],
+[
+0.0044200001284480095,
+0.8750600218772888,
+0.03711999952793121
+]
+],
+"positions": 3352784,
+"normals": 3355304,
+"indices": 3356564
+},
+{
+"id": "ZA-left-intersesamoid-ligament",
+"name": "Left intersesamoid ligament [Intermetatarsal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 30,
+"indexCount": 168,
+"bounds": [
+[
+0.08826000243425369,
+0.00786999985575676,
+0.07248000055551529
+],
+[
+0.09713999927043915,
+0.011599999852478504,
+0.08062999695539474
+]
+],
+"positions": 3361556,
+"normals": 3361916,
+"indices": 3362096
+},
+{
+"id": "ZA-right-intersesamoid-ligament",
+"name": "Right intersesamoid ligament [Intermetatarsal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 30,
+"indexCount": 168,
+"bounds": [
+[
+-0.09717000275850296,
+0.00800000037997961,
+0.07231999933719635
+],
+[
+-0.08828999847173691,
+0.011730000376701355,
+0.0804700031876564
+]
+],
+"positions": 3362768,
+"normals": 3363128,
+"indices": 3363308
+},
+{
+"id": "ZA-interspinous-ligaments",
+"name": "Interspinous ligaments [Fibrous joints of vertebral column; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 294,
+"indexCount": 1752,
+"bounds": [
+[
+-0.0011099999537691474,
+0.9625899791717529,
+-0.10001000016927719
+],
+[
+-0.0006000000284984708,
+1.5436700582504272,
+-0.03150999918580055
+]
+],
+"positions": 3363980,
+"normals": 3367508,
+"indices": 3369272
+},
+{
+"id": "ZA-intervertebral-disc-c2-c3",
+"name": "Intervertebral disc C2-C3 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 426,
+"indexCount": 2544,
+"bounds": [
+[
+-0.012409999966621399,
+1.5191899538040161,
+-0.030629999935626984
+],
+[
+0.011509999632835388,
+1.5272899866104126,
+-0.013020000420510769
+]
+],
+"positions": 3376280,
+"normals": 3381392,
+"indices": 3383948
+},
+{
+"id": "ZA-intervertebral-disc-c3-c4",
+"name": "Intervertebral disc C3-C4 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 346,
+"indexCount": 2064,
+"bounds": [
+[
+-0.012480000033974648,
+1.5033299922943115,
+-0.0276699997484684
+],
+[
+0.011760000139474869,
+1.511970043182373,
+-0.01181000005453825
+]
+],
+"positions": 3394124,
+"normals": 3398276,
+"indices": 3400352
+},
+{
+"id": "ZA-intervertebral-disc-c4-c5",
+"name": "Intervertebral disc C4-C5 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 430,
+"indexCount": 2568,
+"bounds": [
+[
+-0.014229999855160713,
+1.4876799583435059,
+-0.024469999596476555
+],
+[
+0.01310999970883131,
+1.49931001663208,
+-0.009519999846816063
+]
+],
+"positions": 3408608,
+"normals": 3413768,
+"indices": 3416348
+},
+{
+"id": "ZA-intervertebral-disc-c5-c6",
+"name": "Intervertebral disc C5-C6 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 486,
+"indexCount": 2904,
+"bounds": [
+[
+-0.015850000083446503,
+1.4704999923706055,
+-0.024159999564290047
+],
+[
+0.015440000221133232,
+1.4823299646377563,
+-0.009270000271499157
+]
+],
+"positions": 3426620,
+"normals": 3432452,
+"indices": 3435368
+},
+{
+"id": "ZA-intervertebral-disc-c6-c7",
+"name": "Intervertebral disc C6-C7 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 415,
+"indexCount": 2502,
+"bounds": [
+[
+-0.015519999898970127,
+1.4553899765014648,
+-0.02687999978661537
+],
+[
+0.014929999597370625,
+1.466689944267273,
+-0.010329999960958958
+]
+],
+"positions": 3446984,
+"normals": 3451964,
+"indices": 3454456
+},
+{
+"id": "ZA-intervertebral-disc-c7-t1",
+"name": "Intervertebral disc C7-T1 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 586,
+"indexCount": 3504,
+"bounds": [
+[
+-0.017720000818371773,
+1.4405499696731567,
+-0.03108000010251999
+],
+[
+0.01621999964118004,
+1.4528000354766846,
+-0.013419999741017818
+]
+],
+"positions": 3464464,
+"normals": 3471496,
+"indices": 3475012
+},
+{
+"id": "ZA-intervertebral-disc-l1-l2",
+"name": "Intervertebral disc L1-L2 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1568,
+"indexCount": 9396,
+"bounds": [
+[
+-0.022579999640583992,
+1.111009955406189,
+-0.024660000577569008
+],
+[
+0.020570000633597374,
+1.126289963722229,
+0.01348000019788742
+]
+],
+"positions": 3489028,
+"normals": 3507844,
+"indices": 3517252
+},
+{
+"id": "ZA-intervertebral-disc-l2-l3",
+"name": "Intervertebral disc L2-L3 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1696,
+"indexCount": 10164,
+"bounds": [
+[
+-0.024219999089837074,
+1.0824400186538696,
+-0.020570000633597374
+],
+[
+0.021700000390410423,
+1.0926899909973145,
+0.017669999971985817
+]
+],
+"positions": 3554836,
+"normals": 3575188,
+"indices": 3585364
+},
+{
+"id": "ZA-intervertebral-disc-l3-l4",
+"name": "Intervertebral disc L3-L4 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1560,
+"indexCount": 9348,
+"bounds": [
+[
+-0.024170000106096268,
+1.047629952430725,
+-0.022339999675750732
+],
+[
+0.021959999576210976,
+1.0604000091552734,
+0.015259999781847
+]
+],
+"positions": 3626020,
+"normals": 3644740,
+"indices": 3654100
+},
+{
+"id": "ZA-intervertebral-disc-l4-l5",
+"name": "Intervertebral disc L4-L5 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1645,
+"indexCount": 9858,
+"bounds": [
+[
+-0.026329999789595604,
+1.0118900537490845,
+-0.03223999962210655
+],
+[
+0.024369999766349792,
+1.0315099954605103,
+0.0065100002102553844
+]
+],
+"positions": 3691492,
+"normals": 3711232,
+"indices": 3721104
+},
+{
+"id": "ZA-intervertebral-disc-l5-s1",
+"name": "Intervertebral disc L5-S1 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1795,
+"indexCount": 10758,
+"bounds": [
+[
+-0.02613000012934208,
+0.9715800285339355,
+-0.04608999937772751
+],
+[
+0.024550000205636024,
+1.0008699893951416,
+-0.005590000189840794
+]
+],
+"positions": 3760536,
+"normals": 3782076,
+"indices": 3792848
+},
+{
+"id": "ZA-intervertebral-disc-t1-t2",
+"name": "Intervertebral disc T1-T2 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 628,
+"indexCount": 3756,
+"bounds": [
+[
+-0.017720000818371773,
+1.422700047492981,
+-0.03669000044465065
+],
+[
+0.015879999846220016,
+1.4335700273513794,
+-0.016589999198913574
+]
+],
+"positions": 3835880,
+"normals": 3843416,
+"indices": 3847184
+},
+{
+"id": "ZA-intervertebral-disc-t10-t11",
+"name": "Intervertebral disc T10-T11 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1437,
+"indexCount": 8610,
+"bounds": [
+[
+-0.020740000531077385,
+1.1975599527359009,
+-0.04936999827623367
+],
+[
+0.019859999418258667,
+1.2134599685668945,
+-0.012649999931454659
+]
+],
+"positions": 3862208,
+"normals": 3879452,
+"indices": 3888076
+},
+{
+"id": "ZA-intervertebral-disc-t11-t12",
+"name": "Intervertebral disc T11-T12 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1698,
+"indexCount": 10176,
+"bounds": [
+[
+-0.021619999781250954,
+1.167799949645996,
+-0.042980000376701355
+],
+[
+0.020640000700950623,
+1.185829997062683,
+-0.0026499999221414328
+]
+],
+"positions": 3922516,
+"normals": 3942892,
+"indices": 3953080
+},
+{
+"id": "ZA-intervertebral-disc-t12-l1",
+"name": "Intervertebral disc T12-L1 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1666,
+"indexCount": 9984,
+"bounds": [
+[
+-0.022849999368190765,
+1.1381499767303467,
+-0.03378000110387802
+],
+[
+0.021609999239444733,
+1.1563199758529663,
+0.005900000222027302
+]
+],
+"positions": 3993784,
+"normals": 4013776,
+"indices": 4023772
+},
+{
+"id": "ZA-intervertebral-disc-t2-t3",
+"name": "Intervertebral disc T2-T3 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 664,
+"indexCount": 3972,
+"bounds": [
+[
+-0.017899999395012856,
+1.4007099866867065,
+-0.043060000985860825
+],
+[
+0.016529999673366547,
+1.414039969444275,
+-0.020490000024437904
+]
+],
+"positions": 4063708,
+"normals": 4071676,
+"indices": 4075660
+},
+{
+"id": "ZA-intervertebral-disc-t3-t4",
+"name": "Intervertebral disc T3-T4 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 682,
+"indexCount": 4080,
+"bounds": [
+[
+-0.016909999772906303,
+1.3805999755859375,
+-0.05222000181674957
+],
+[
+0.016359999775886536,
+1.3932600021362305,
+-0.026100000366568565
+]
+],
+"positions": 4091548,
+"normals": 4099732,
+"indices": 4103824
+},
+{
+"id": "ZA-intervertebral-disc-t4-t5",
+"name": "Intervertebral disc T4-T5 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 817,
+"indexCount": 4890,
+"bounds": [
+[
+-0.01665000058710575,
+1.3575400114059448,
+-0.06174999848008156
+],
+[
+0.0154600003734231,
+1.3707900047302246,
+-0.03200000151991844
+]
+],
+"positions": 4120144,
+"normals": 4129948,
+"indices": 4134852
+},
+{
+"id": "ZA-intervertebral-disc-t5-t6",
+"name": "Intervertebral disc T5-T6 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 871,
+"indexCount": 5214,
+"bounds": [
+[
+-0.017079999670386314,
+1.3334499597549438,
+-0.06583999842405319
+],
+[
+0.014990000054240227,
+1.3441400527954102,
+-0.03434000164270401
+]
+],
+"positions": 4154412,
+"normals": 4164864,
+"indices": 4170092
+},
+{
+"id": "ZA-intervertebral-disc-t6-t7",
+"name": "Intervertebral disc T6-T7 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1196,
+"indexCount": 7164,
+"bounds": [
+[
+-0.017969999462366104,
+1.3075100183486938,
+-0.06859999895095825
+],
+[
+0.015960000455379486,
+1.3169300556182861,
+-0.03347000107169151
+]
+],
+"positions": 4190948,
+"normals": 4205300,
+"indices": 4212476
+},
+{
+"id": "ZA-intervertebral-disc-t7-t8",
+"name": "Intervertebral disc T7-T8 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1331,
+"indexCount": 7974,
+"bounds": [
+[
+-0.018780000507831573,
+1.2793899774551392,
+-0.06560999900102615
+],
+[
+0.016979999840259552,
+1.2923599481582642,
+-0.028929999098181725
+]
+],
+"positions": 4241132,
+"normals": 4257104,
+"indices": 4265092
+},
+{
+"id": "ZA-intervertebral-disc-t8-t9",
+"name": "Intervertebral disc T8-T9 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1447,
+"indexCount": 8670,
+"bounds": [
+[
+-0.019829999655485153,
+1.2535699605941772,
+-0.060819998383522034
+],
+[
+0.018379999324679375,
+1.2669399976730347,
+-0.0254100002348423
+]
+],
+"positions": 4296988,
+"normals": 4314352,
+"indices": 4323036
+},
+{
+"id": "ZA-intervertebral-disc-t9-t10",
+"name": "Intervertebral disc T9-T10 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 626,
+"indexCount": 3744,
+"bounds": [
+[
+-0.019279999658465385,
+1.2254400253295898,
+-0.05525000020861626
+],
+[
+0.017750000581145287,
+1.2404099702835083,
+-0.02061999961733818
+]
+],
+"positions": 4357716,
+"normals": 4365228,
+"indices": 4368984
+},
+{
+"id": "ZA-intra-articular-ligament-of-head-of-rib",
+"name": "Intra-articular ligament of head of rib [Joint of head of rib; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 72,
+"indexCount": 324,
+"bounds": [
+[
+0.011939999647438526,
+1.2257699966430664,
+-0.06763000041246414
+],
+[
+0.019440000876784325,
+1.4296000003814697,
+-0.028510000556707382
+]
+],
+"positions": 4383960,
+"normals": 4384824,
+"indices": 4385256
+},
+{
+"id": "ZA-right-intra-articular-ligament-of-head-of-rib",
+"name": "Right intra-articular ligament of head of rib [Joint of head of rib; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 72,
+"indexCount": 324,
+"bounds": [
+[
+-0.02160000056028366,
+1.2257699966430664,
+-0.06763000041246414
+],
+[
+-0.014100000262260437,
+1.4296000003814697,
+-0.028510000556707382
+]
+],
+"positions": 4386552,
+"normals": 4387416,
+"indices": 4387848
+},
+{
+"id": "ZA-left-ischiofemoral-ligament",
+"name": "Left ischiofemoral ligament [Hip joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 338,
+"indexCount": 2016,
+"bounds": [
+[
+0.0770300030708313,
+0.8692899942398071,
+-0.050039999186992645
+],
+[
+0.1219400018453598,
+0.8859099745750427,
+-0.019169999286532402
+]
+],
+"positions": 4389144,
+"normals": 4393200,
+"indices": 4395228
+},
+{
+"id": "ZA-right-ischiofemoral-ligament",
+"name": "Right ischiofemoral ligament [Hip joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 338,
+"indexCount": 2016,
+"bounds": [
+[
+-0.12238000333309174,
+0.8685600161552429,
+-0.0494999997317791
+],
+[
+-0.07746999710798264,
+0.8851799964904785,
+-0.018629999831318855
+]
+],
+"positions": 4403292,
+"normals": 4407348,
+"indices": 4409376
+},
+{
+"id": "ZA-joints-g",
+"name": "Joints.g",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 282,
+"indexCount": 813,
+"bounds": [
+[
+-1.0032800436019897,
+1.1995899677276611,
+-0.0016899999463930726
+],
+[
+-0.0004600000102072954,
+1.49235999584198,
+0.030799999833106995
+]
+],
+"positions": 4417440,
+"normals": 4420824,
+"indices": 4422516
+},
+{
+"id": "ZA-left-lateral-meniscus",
+"name": "Left lateral meniscus [Knee joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 236,
+"indexCount": 1404,
+"bounds": [
+[
+0.07293999940156937,
+0.43623998761177063,
+-0.04202999919652939
+],
+[
+0.10676000267267227,
+0.4515500068664551,
+-0.0033100000582635403
+]
+],
+"positions": 4425768,
+"normals": 4428600,
+"indices": 4430016
+},
+{
+"id": "ZA-right-lateral-meniscus",
+"name": "Right lateral meniscus [Knee joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 236,
+"indexCount": 1404,
+"bounds": [
+[
+-0.10681000351905823,
+0.43327999114990234,
+-0.0420599989593029
+],
+[
+-0.07298000156879425,
+0.4485900104045868,
+-0.0033400000538676977
+]
+],
+"positions": 4435632,
+"normals": 4438464,
+"indices": 4439880
+},
+{
+"id": "ZA-left-lateral-talocalcaneal-ligament",
+"name": "Left lateral talocalcaneal ligament [Subtalar joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 30,
+"indexCount": 168,
+"bounds": [
+[
+0.08948999643325806,
+0.0435199998319149,
+-0.04814999923110008
+],
+[
+0.09302999824285507,
+0.056460000574588776,
+-0.03200000151991844
+]
+],
+"positions": 4445496,
+"normals": 4445856,
+"indices": 4446036
+},
+{
+"id": "ZA-right-lateral-talocalcaneal-ligament",
+"name": "Right lateral talocalcaneal ligament [Subtalar joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 30,
+"indexCount": 168,
+"bounds": [
+[
+-0.09344000369310379,
+0.043379999697208405,
+-0.047600001096725464
+],
+[
+-0.08990000188350677,
+0.05632000043988228,
+-0.031449999660253525
+]
+],
+"positions": 4446708,
+"normals": 4447068,
+"indices": 4447248
+},
+{
+"id": "ZA-left-lateral-temporomandibular-ligament",
+"name": "Left lateral temporomandibular ligament [Temporomandibular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 40,
+"indexCount": 228,
+"bounds": [
+[
+-0.06318999826908112,
+1.5662699937820435,
+-0.0020200000144541264
+],
+[
+-0.049240000545978546,
+1.5879499912261963,
+0.010870000347495079
+]
+],
+"positions": 4447920,
+"normals": 4448400,
+"indices": 4448640
+},
+{
+"id": "ZA-right-lateral-temporomandibular-ligament",
+"name": "Right lateral temporomandibular ligament [Temporomandibular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 40,
+"indexCount": 228,
+"bounds": [
+[
+0.048089999705553055,
+1.5669200420379639,
+-0.0023900000378489494
+],
+[
+0.06204000115394592,
+1.5886000394821167,
+0.01051000040024519
+]
+],
+"positions": 4449552,
+"normals": 4450032,
+"indices": 4450272
+},
+{
+"id": "ZA-left-lateral-thyrohyoid-ligament",
+"name": "Left lateral thyrohyoid ligament [Thyrohyoid membrane]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 458,
+"indexCount": 2736,
+"bounds": [
+[
+0.016349999234080315,
+1.5077500343322754,
+-0.016990000382065773
+],
+[
+0.01996999979019165,
+1.518339991569519,
+-0.012470000423491001
+]
+],
+"positions": 4451184,
+"normals": 4456680,
+"indices": 4459428
+},
+{
+"id": "ZA-right-lateral-thyrohyoid-ligament",
+"name": "Right lateral thyrohyoid ligament [Thyrohyoid membrane]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 458,
+"indexCount": 2736,
+"bounds": [
+[
+-0.02078000083565712,
+1.5077500343322754,
+-0.016990000382065773
+],
+[
+-0.017160000279545784,
+1.518339991569519,
+-0.012470000423491001
+]
+],
+"positions": 4470372,
+"normals": 4475868,
+"indices": 4478616
+},
+{
+"id": "ZA-left-ligament-of-head-of-femur",
+"name": "Left ligament of head of femur [Hip joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 429,
+"indexCount": 2340,
+"bounds": [
+[
+0.055470000952482224,
+0.8667299747467041,
+-0.0318400003015995
+],
+[
+0.06916999816894531,
+0.8911799788475037,
+0.0007099999929778278
+]
+],
+"positions": 4489560,
+"normals": 4494708,
+"indices": 4497284
+},
+{
+"id": "ZA-right-ligament-of-head-of-femur",
+"name": "Right ligament of head of femur [Hip joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 429,
+"indexCount": 2340,
+"bounds": [
+[
+-0.06955000013113022,
+0.8663700222969055,
+-0.03156999871134758
+],
+[
+-0.05584000051021576,
+0.8908100128173828,
+0.0009699999936856329
+]
+],
+"positions": 4506644,
+"normals": 4511792,
+"indices": 4514368
+},
+{
+"id": "ZA-ligamenta-flava",
+"name": "Ligamenta flava [Fibrous joints of vertebral column; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 2366,
+"indexCount": 14184,
+"bounds": [
+[
+-0.0142000000923872,
+0.9851899743080139,
+-0.08122000098228455
+],
+[
+0.01193000003695488,
+1.5428600311279297,
+-0.023269999772310257
+]
+],
+"positions": 4523728,
+"normals": 4552120,
+"indices": 4566316
+},
+{
+"id": "ZA-left-long-plantar-ligament",
+"name": "Left long plantar ligament [Transverse tarsal joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1741,
+"indexCount": 10458,
+"bounds": [
+[
+0.06931000202894211,
+0.01680999994277954,
+-0.06063999980688095
+],
+[
+0.12011999636888504,
+0.042180001735687256,
+0.039159998297691345
+]
+],
+"positions": 4623052,
+"normals": 4643944,
+"indices": 4654392
+},
+{
+"id": "ZA-right-long-plantar-ligament",
+"name": "Right long plantar ligament [Transverse tarsal joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1741,
+"indexCount": 10458,
+"bounds": [
+[
+-0.12054000049829483,
+0.016270000487565994,
+-0.05996000021696091
+],
+[
+-0.06973999738693237,
+0.04165000095963478,
+0.03985000029206276
+]
+],
+"positions": 4696224,
+"normals": 4717116,
+"indices": 4727564
+},
+{
+"id": "ZA-left-lunotriquetral-interosseous-ligament",
+"name": "Left lunotriquetral interosseous ligament [Interosseus intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.24028000235557556,
+0.8771299719810486,
+0.020269999280571938
+],
+[
+0.24247999489307404,
+0.8792999982833862,
+0.02290000021457672
+]
+],
+"positions": 4769396,
+"normals": 4769492,
+"indices": 4769540
+},
+{
+"id": "ZA-right-lunotriquetral-interosseous-ligament",
+"name": "Right lunotriquetral interosseous ligament [Interosseus intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.24220000207424164,
+0.8772500157356262,
+0.019460000097751617
+],
+[
+-0.23999999463558197,
+0.8794199824333191,
+0.022089999169111252
+]
+],
+"positions": 4769684,
+"normals": 4769780,
+"indices": 4769828
+},
+{
+"id": "ZA-left-medial-meniscus",
+"name": "Left medial meniscus [Lateral meniscus]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 144,
+"indexCount": 852,
+"bounds": [
+[
+0.03977999836206436,
+0.4305900037288666,
+-0.05449000000953674
+],
+[
+0.06558000296354294,
+0.4455299973487854,
+-0.009800000116229057
+]
+],
+"positions": 4769972,
+"normals": 4771700,
+"indices": 4772564
+},
+{
+"id": "ZA-right-medial-meniscus",
+"name": "Right medial meniscus [Lateral meniscus]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 144,
+"indexCount": 852,
+"bounds": [
+[
+-0.06564000248908997,
+0.42831000685691833,
+-0.05454999953508377
+],
+[
+-0.03984000161290169,
+0.44325000047683716,
+-0.009859999641776085
+]
+],
+"positions": 4775972,
+"normals": 4777700,
+"indices": 4778564
+},
+{
+"id": "ZA-left-medial-talocalcaneal-ligament",
+"name": "Left medial talocalcaneal ligament [Subtalar joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 70,
+"indexCount": 408,
+"bounds": [
+[
+0.0522099994122982,
+0.04952999949455261,
+-0.04058999940752983
+],
+[
+0.05711999908089638,
+0.06019999831914902,
+-0.02582000009715557
+]
+],
+"positions": 4781972,
+"normals": 4782812,
+"indices": 4783232
+},
+{
+"id": "ZA-right-medial-talocalcaneal-ligament",
+"name": "Right medial talocalcaneal ligament [Subtalar joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 70,
+"indexCount": 408,
+"bounds": [
+[
+-0.057440001517534256,
+0.04941000044345856,
+-0.04019999876618385
+],
+[
+-0.05254000052809715,
+0.06007999926805496,
+-0.025429999455809593
+]
+],
+"positions": 4784864,
+"normals": 4785704,
+"indices": 4786124
+},
+{
+"id": "ZA-median-cricothyroid-ligament",
+"name": "Median cricothyroid ligament [Fibrous joints of larynx]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1068,
+"indexCount": 5874,
+"bounds": [
+[
+-0.0033599999733269215,
+1.4696199893951416,
+0.010209999978542328
+],
+[
+0.0019399999873712659,
+1.482509970664978,
+0.01800999976694584
+]
+],
+"positions": 4787756,
+"normals": 4800572,
+"indices": 4806980
+},
+{
+"id": "ZA-median-thyrohyoid-ligament",
+"name": "Median thyrohyoid ligament [Thyrohyoid membrane]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1388,
+"indexCount": 8313,
+"bounds": [
+[
+-0.009859999641776085,
+1.4841400384902954,
+0.017920000478625298
+],
+[
+0.008489999920129776,
+1.5017600059509277,
+0.025429999455809593
+]
+],
+"positions": 4830476,
+"normals": 4847132,
+"indices": 4855460
+},
+{
+"id": "ZA-left-meniscopatellar-ligament",
+"name": "Left meniscopatellar ligament [Knee joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 80,
+"indexCount": 456,
+"bounds": [
+[
+0.05528999865055084,
+0.44571998715400696,
+-0.013340000063180923
+],
+[
+0.10238000005483627,
+0.4584699869155884,
+0.015709999948740005
+]
+],
+"positions": 4888712,
+"normals": 4889672,
+"indices": 4890152
+},
+{
+"id": "ZA-right-meniscopatellar-ligament",
+"name": "Right meniscopatellar ligament [Knee joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 80,
+"indexCount": 456,
+"bounds": [
+[
+-0.1022299975156784,
+0.4434399902820587,
+-0.013330000452697277
+],
+[
+-0.0551300011575222,
+0.45618999004364014,
+0.0157299991697073
+]
+],
+"positions": 4891976,
+"normals": 4892936,
+"indices": 4893416
+},
+{
+"id": "ZA-left-metatarsal-interosseous-ligaments",
+"name": "Left metatarsal interosseous ligaments [Intermetatarsal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 32,
+"indexCount": 144,
+"bounds": [
+[
+0.09043999761343002,
+0.030780000612139702,
+0.016850000247359276
+],
+[
+0.12011999636888504,
+0.05000000074505806,
+0.04179000109434128
+]
+],
+"positions": 4895240,
+"normals": 4895624,
+"indices": 4895816
+},
+{
+"id": "ZA-right-metatarsal-interosseous-ligaments",
+"name": "Right metatarsal interosseous ligaments [Intermetatarsal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 32,
+"indexCount": 144,
+"bounds": [
+[
+-0.11992000043392181,
+0.03109000064432621,
+0.016589999198913574
+],
+[
+-0.09025000035762787,
+0.05031000077724457,
+0.04152999818325043
+]
+],
+"positions": 4896392,
+"normals": 4896776,
+"indices": 4896968
+},
+{
+"id": "ZA-left-middle-glenohumeral-ligament",
+"name": "Left middle glenohumeral ligament [Glenohumeral ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 144,
+"indexCount": 840,
+"bounds": [
+[
+0.13380999863147736,
+1.387220025062561,
+-0.023590000346302986
+],
+[
+0.1607300043106079,
+1.4024100303649902,
+-0.0006600000197067857
+]
+],
+"positions": 4897544,
+"normals": 4899272,
+"indices": 4900136
+},
+{
+"id": "ZA-right-middle-glenohumeral-ligament",
+"name": "Right middle glenohumeral ligament [Glenohumeral ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 144,
+"indexCount": 840,
+"bounds": [
+[
+-0.161530002951622,
+1.3870099782943726,
+-0.0232900008559227
+],
+[
+-0.13459999859333038,
+1.4021999835968018,
+-0.0003699999942909926
+]
+],
+"positions": 4903496,
+"normals": 4905224,
+"indices": 4906088
+},
+{
+"id": "ZA-nuchal-ligament",
+"name": "Nuchal ligament [Fibrous joints of vertebral column; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 326,
+"indexCount": 1944,
+"bounds": [
+[
+-0.0007200000109151006,
+1.4539200067520142,
+-0.10891000181436539
+],
+[
+-0.00022000000171829015,
+1.5924099683761597,
+-0.05810999870300293
+]
+],
+"positions": 4909448,
+"normals": 4913360,
+"indices": 4915316
+},
+{
+"id": "ZA-nucleus-pulposus-c2-c3",
+"name": "Nucleus pulposus C2-C3 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.0024999999441206455,
+1.5206899642944336,
+-0.024150000885128975
+],
+[
+0.0016499999910593033,
+1.5248500108718872,
+-0.019990000873804092
+]
+],
+"positions": 4923092,
+"normals": 4928876,
+"indices": 4931768
+},
+{
+"id": "ZA-nucleus-pulposus-c3-c4",
+"name": "Nucleus pulposus C3-C4 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.0019199999514967203,
+1.5055999755859375,
+-0.021980000659823418
+],
+[
+0.001069999998435378,
+1.508579969406128,
+-0.01899000070989132
+]
+],
+"positions": 4943288,
+"normals": 4949072,
+"indices": 4951964
+},
+{
+"id": "ZA-nucleus-pulposus-c4-c5",
+"name": "Nucleus pulposus C4-C5 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.0021299999207258224,
+1.4915200471878052,
+-0.018219999969005585
+],
+[
+0.0010000000474974513,
+1.4946399927139282,
+-0.01508999988436699
+]
+],
+"positions": 4963484,
+"normals": 4969268,
+"indices": 4972160
+},
+{
+"id": "ZA-nucleus-pulposus-c5-c6",
+"name": "Nucleus pulposus C5-C6 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.002689999993890524,
+1.4733200073242188,
+-0.018799999728798866
+],
+[
+0.0022799998987466097,
+1.478279948234558,
+-0.013829999603331089
+]
+],
+"positions": 4983680,
+"normals": 4989464,
+"indices": 4992356
+},
+{
+"id": "ZA-nucleus-pulposus-c6-c7",
+"name": "Nucleus pulposus C6-C7 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.0020600000862032175,
+1.459089994430542,
+-0.021980000659823418
+],
+[
+0.0014799999771639705,
+1.462630033493042,
+-0.01844000071287155
+]
+],
+"positions": 5003876,
+"normals": 5009660,
+"indices": 5012552
+},
+{
+"id": "ZA-nucleus-pulposus-c7-t1",
+"name": "Nucleus pulposus C7-T1 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.00203999993391335,
+1.4439799785614014,
+-0.02525000087916851
+],
+[
+0.0005000000237487257,
+1.4465199708938599,
+-0.022709999233484268
+]
+],
+"positions": 5024072,
+"normals": 5029856,
+"indices": 5032748
+},
+{
+"id": "ZA-nucleus-pulposus-l1-l2",
+"name": "Nucleus pulposus L1-L2 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.004989999812096357,
+1.1130800247192383,
+-0.011939999647438526
+],
+[
+0.0029700000304728746,
+1.1210399866104126,
+-0.0039900001138448715
+]
+],
+"positions": 5044268,
+"normals": 5050052,
+"indices": 5052944
+},
+{
+"id": "ZA-nucleus-pulposus-l2-l3",
+"name": "Nucleus pulposus L2-L3 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.005979999899864197,
+1.082610011100769,
+-0.007939999923110008
+],
+[
+0.0034600000362843275,
+1.0920499563217163,
+0.001500000013038516
+]
+],
+"positions": 5064464,
+"normals": 5070248,
+"indices": 5073140
+},
+{
+"id": "ZA-nucleus-pulposus-l3-l4",
+"name": "Nucleus pulposus L3-L4 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.004240000154823065,
+1.0517200231552124,
+-0.0076299998909235
+],
+[
+0.00203000009059906,
+1.0579999685287476,
+-0.0013500000350177288
+]
+],
+"positions": 5084660,
+"normals": 5090444,
+"indices": 5093336
+},
+{
+"id": "ZA-nucleus-pulposus-l4-l5",
+"name": "Nucleus pulposus L4-L5 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.007199999876320362,
+1.0172200202941895,
+-0.018120000138878822
+],
+[
+0.005229999776929617,
+1.0296499729156494,
+-0.005690000019967556
+]
+],
+"positions": 5104856,
+"normals": 5110640,
+"indices": 5113532
+},
+{
+"id": "ZA-nucleus-pulposus-l5-s1",
+"name": "Nucleus pulposus L5-S1 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.007799999788403511,
+0.9806600213050842,
+-0.03545999899506569
+],
+[
+0.006209999788552523,
+0.9946699738502502,
+-0.02143999934196472
+]
+],
+"positions": 5125052,
+"normals": 5130836,
+"indices": 5133728
+},
+{
+"id": "ZA-nucleus-pulposus-t1-t2",
+"name": "Nucleus pulposus T1-T2 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.0028099999763071537,
+1.4268300533294678,
+-0.03058999963104725
+],
+[
+0.0009599999757483602,
+1.4306000471115112,
+-0.026809999719262123
+]
+],
+"positions": 5145248,
+"normals": 5151032,
+"indices": 5153924
+},
+{
+"id": "ZA-nucleus-pulposus-t10-t11",
+"name": "Nucleus pulposus T10-T11 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.003860000055283308,
+1.2019000053405762,
+-0.03666999936103821
+],
+[
+0.0029700000304728746,
+1.2087199687957764,
+-0.029850000515580177
+]
+],
+"positions": 5165444,
+"normals": 5171228,
+"indices": 5174120
+},
+{
+"id": "ZA-nucleus-pulposus-t11-t12",
+"name": "Nucleus pulposus T11-T12 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.004000000189989805,
+1.173200011253357,
+-0.028689999133348465
+],
+[
+0.0030300000216811895,
+1.1802200078964233,
+-0.02166000008583069
+]
+],
+"positions": 5185640,
+"normals": 5191424,
+"indices": 5194316
+},
+{
+"id": "ZA-nucleus-pulposus-t12-l1",
+"name": "Nucleus pulposus T12-L1 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.005059999879449606,
+1.1426399946212769,
+-0.021779999136924744
+],
+[
+0.003809999907389283,
+1.1515100002288818,
+-0.012900000438094139
+]
+],
+"positions": 5205836,
+"normals": 5211620,
+"indices": 5214512
+},
+{
+"id": "ZA-nucleus-pulposus-t2-t3",
+"name": "Nucleus pulposus T2-T3 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.0037899999879300594,
+1.4057400226593018,
+-0.03765000030398369
+],
+[
+0.002420000033453107,
+1.4119499921798706,
+-0.03142999857664108
+]
+],
+"positions": 5226032,
+"normals": 5231816,
+"indices": 5234708
+},
+{
+"id": "ZA-nucleus-pulposus-t3-t4",
+"name": "Nucleus pulposus T3-T4 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.0025599999353289604,
+1.384950041770935,
+-0.044210001826286316
+],
+[
+0.0020099999383091927,
+1.3895200490951538,
+-0.039639998227357864
+]
+],
+"positions": 5246228,
+"normals": 5252012,
+"indices": 5254904
+},
+{
+"id": "ZA-nucleus-pulposus-t4-t5",
+"name": "Nucleus pulposus T4-T5 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.003809999907389283,
+1.361340045928955,
+-0.05345999822020531
+],
+[
+0.0026199999265372753,
+1.3677699565887451,
+-0.047029998153448105
+]
+],
+"positions": 5266424,
+"normals": 5272208,
+"indices": 5275100
+},
+{
+"id": "ZA-nucleus-pulposus-t5-t6",
+"name": "Nucleus pulposus T5-T6 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.003800000064074993,
+1.3354099988937378,
+-0.05595000088214874
+],
+[
+0.0017000000225380063,
+1.3409099578857422,
+-0.050450000911951065
+]
+],
+"positions": 5286620,
+"normals": 5292404,
+"indices": 5295296
+},
+{
+"id": "ZA-nucleus-pulposus-t6-t7",
+"name": "Nucleus pulposus T6-T7 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.004110000096261501,
+1.3083499670028687,
+-0.05773000046610832
+],
+[
+0.0021100000012665987,
+1.314579963684082,
+-0.05150999873876572
+]
+],
+"positions": 5306816,
+"normals": 5312600,
+"indices": 5315492
+},
+{
+"id": "ZA-nucleus-pulposus-t7-t8",
+"name": "Nucleus pulposus T7-T8 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.004679999779909849,
+1.2824000120162964,
+-0.05293000116944313
+],
+[
+0.0028800000436604023,
+1.2899600267410278,
+-0.04537000134587288
+]
+],
+"positions": 5327012,
+"normals": 5332796,
+"indices": 5335688
+},
+{
+"id": "ZA-nucleus-pulposus-t8-t9",
+"name": "Nucleus pulposus T8-T9 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.0043299999088048935,
+1.25600004196167,
+-0.048820000141859055
+],
+[
+0.0028699999675154686,
+1.263200044631958,
+-0.04162000119686127
+]
+],
+"positions": 5347208,
+"normals": 5352992,
+"indices": 5355884
+},
+{
+"id": "ZA-nucleus-pulposus-t9-t10",
+"name": "Nucleus pulposus T9-T10 [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 482,
+"indexCount": 2880,
+"bounds": [
+[
+-0.0039900001138448715,
+1.2292100191116333,
+-0.04270000010728836
+],
+[
+0.002460000105202198,
+1.2356599569320679,
+-0.036240000277757645
+]
+],
+"positions": 5367404,
+"normals": 5373188,
+"indices": 5376080
+},
+{
+"id": "ZA-left-oblique-cord",
+"name": "Left oblique cord [Radio-ulnar syndesmoses]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.21637000143527985,
+1.063770055770874,
+-0.026890000328421593
+],
+[
+0.22800999879837036,
+1.0918699502944946,
+-0.019990000873804092
+]
+],
+"positions": 5387600,
+"normals": 5387696,
+"indices": 5387744
+},
+{
+"id": "ZA-right-oblique-cord",
+"name": "Right oblique cord [Radio-ulnar syndesmoses]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.22987000644207,
+1.054260015487671,
+-0.025119999423623085
+],
+[
+-0.2182299941778183,
+1.0823500156402588,
+-0.018219999969005585
+]
+],
+"positions": 5387888,
+"normals": 5387984,
+"indices": 5388032
+},
+{
+"id": "ZA-left-oblique-popliteal-ligament",
+"name": "Left oblique popliteal ligament [Knee joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 186,
+"indexCount": 1104,
+"bounds": [
+[
+0.05048000067472458,
+0.4218499958515167,
+-0.05821999907493591
+],
+[
+0.09404999762773514,
+0.492900013923645,
+-0.027799999341368675
+]
+],
+"positions": 5388176,
+"normals": 5390408,
+"indices": 5391524
+},
+{
+"id": "ZA-right-oblique-popliteal-ligament",
+"name": "Right oblique popliteal ligament [Knee joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 186,
+"indexCount": 1104,
+"bounds": [
+[
+-0.09418000280857086,
+0.4185999929904938,
+-0.05826999992132187
+],
+[
+-0.050609998404979706,
+0.48965001106262207,
+-0.02785000018775463
+]
+],
+"positions": 5395940,
+"normals": 5398172,
+"indices": 5399288
+},
+{
+"id": "ZA-left-obturator-membrane",
+"name": "Left obturator membrane [Obturator membrane]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 538,
+"indexCount": 3216,
+"bounds": [
+[
+0.025040000677108765,
+0.8431100249290466,
+-0.041099999099969864
+],
+[
+0.05299000069499016,
+0.8763399720191956,
+0.007230000104755163
+]
+],
+"positions": 5403704,
+"normals": 5410160,
+"indices": 5413388
+},
+{
+"id": "ZA-right-obturator-membrane",
+"name": "Right obturator membrane [Obturator membrane]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 538,
+"indexCount": 3216,
+"bounds": [
+[
+-0.05339999869465828,
+0.8429099917411804,
+-0.040950000286102295
+],
+[
+-0.025439999997615814,
+0.8761399984359741,
+0.007369999773800373
+]
+],
+"positions": 5426252,
+"normals": 5432708,
+"indices": 5435936
+},
+{
+"id": "ZA-left-palmar-capitohamate-ligament",
+"name": "Left palmar capitohamate ligament [Palmar intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.24974000453948975,
+0.8644899725914001,
+0.021740000694990158
+],
+[
+0.25468000769615173,
+0.869920015335083,
+0.0228899996727705
+]
+],
+"positions": 5448800,
+"normals": 5448896,
+"indices": 5448944
+},
+{
+"id": "ZA-right-palmar-capitohamate-ligament",
+"name": "Right palmar capitohamate ligament [Palmar intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.25494998693466187,
+0.8649100065231323,
+0.021779999136924744
+],
+[
+-0.25001999735832214,
+0.8703500032424927,
+0.022929999977350235
+]
+],
+"positions": 5449088,
+"normals": 5449184,
+"indices": 5449232
+},
+{
+"id": "ZA-left-palmar-carpometacarpal-ligaments",
+"name": "Left palmar carpometacarpal ligaments [Carpometacarpal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 220,
+"indexCount": 1248,
+"bounds": [
+[
+0.2399200052022934,
+0.85944002866745,
+0.02240999974310398
+],
+[
+0.28282999992370605,
+0.8746200203895569,
+0.03564000129699707
+]
+],
+"positions": 5449376,
+"normals": 5452016,
+"indices": 5453336
+},
+{
+"id": "ZA-right-palmar-carpometacarpal-ligaments",
+"name": "Right palmar carpometacarpal ligaments [Carpometacarpal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 220,
+"indexCount": 1248,
+"bounds": [
+[
+-0.28290998935699463,
+0.8602499961853027,
+0.022690000012516975
+],
+[
+-0.24000999331474304,
+0.8754299879074097,
+0.035920001566410065
+]
+],
+"positions": 5458328,
+"normals": 5460968,
+"indices": 5462288
+},
+{
+"id": "ZA-left-palmar-interphalangeal-ligaments",
+"name": "Left palmar interphalangeal ligaments [Interphalangeal joints of hand]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 450,
+"indexCount": 2592,
+"bounds": [
+[
+0.218189999461174,
+0.7422999739646912,
+0.0531499981880188
+],
+[
+0.3141300082206726,
+0.8256700038909912,
+0.08664000034332275
+]
+],
+"positions": 5467280,
+"normals": 5472680,
+"indices": 5475380
+},
+{
+"id": "ZA-right-palmar-interphalangeal-ligaments",
+"name": "Right palmar interphalangeal ligaments [Interphalangeal joints of hand]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 450,
+"indexCount": 2592,
+"bounds": [
+[
+-0.3141799867153168,
+0.7424399852752686,
+0.05355999991297722
+],
+[
+-0.21823999285697937,
+0.8258100152015686,
+0.08704999834299088
+]
+],
+"positions": 5485748,
+"normals": 5491148,
+"indices": 5493848
+},
+{
+"id": "ZA-left-palmar-lunotriquetral-ligament",
+"name": "Left palmar lunotriquetral ligament [Palmar intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.23613999783992767,
+0.8792499899864197,
+0.02119000069797039
+],
+[
+0.2404100000858307,
+0.88264000415802,
+0.024529999122023582
+]
+],
+"positions": 5504216,
+"normals": 5504312,
+"indices": 5504360
+},
+{
+"id": "ZA-right-palmar-lunotriquetral-ligament",
+"name": "Right palmar lunotriquetral ligament [Palmar intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.24032999575138092,
+0.8792300224304199,
+0.020759999752044678
+],
+[
+-0.23607000708580017,
+0.8826199769973755,
+0.02410000003874302
+]
+],
+"positions": 5504504,
+"normals": 5504600,
+"indices": 5504648
+},
+{
+"id": "ZA-left-palmar-metacarpal-ligaments",
+"name": "Left palmar metacarpal ligaments [Intermetacarpal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 32,
+"indexCount": 144,
+"bounds": [
+[
+0.24372999370098114,
+0.8548399806022644,
+0.023889999836683273
+],
+[
+0.27768999338150024,
+0.8645399808883667,
+0.03246000036597252
+]
+],
+"positions": 5504792,
+"normals": 5505176,
+"indices": 5505368
+},
+{
+"id": "ZA-right-palmar-metacarpal-ligaments",
+"name": "Right palmar metacarpal ligaments [Intermetacarpal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 32,
+"indexCount": 144,
+"bounds": [
+[
+-0.2778800129890442,
+0.8552200198173523,
+0.023919999599456787
+],
+[
+-0.24392999708652496,
+0.8649200201034546,
+0.03249000012874603
+]
+],
+"positions": 5505944,
+"normals": 5506328,
+"indices": 5506520
+},
+{
+"id": "ZA-left-palmar-radio-ulnar-ligament",
+"name": "Left palmar radio-ulnar ligament [Distal radio-ulnar joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 42,
+"indexCount": 240,
+"bounds": [
+[
+0.23135000467300415,
+0.8940399885177612,
+0.018230000510811806
+],
+[
+0.25053998827934265,
+0.9021599888801575,
+0.025189999490976334
+]
+],
+"positions": 5507096,
+"normals": 5507600,
+"indices": 5507852
+},
+{
+"id": "ZA-right-palmar-radio-ulnar-ligament",
+"name": "Right palmar radio-ulnar ligament [Distal radio-ulnar joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 42,
+"indexCount": 240,
+"bounds": [
+[
+-0.2512800097465515,
+0.8945900201797485,
+0.016090000048279762
+],
+[
+-0.23250000178813934,
+0.9026700258255005,
+0.025359999388456345
+]
+],
+"positions": 5508812,
+"normals": 5509316,
+"indices": 5509568
+},
+{
+"id": "ZA-left-palmar-scaphotriquetral-ligament",
+"name": "Left palmar scaphotriquetral ligament [Palmar intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 130,
+"indexCount": 768,
+"bounds": [
+[
+0.2391500025987625,
+0.8768600225448608,
+0.021900000050663948
+],
+[
+0.25883999466896057,
+0.884190022945404,
+0.02841000072658062
+]
+],
+"positions": 5510528,
+"normals": 5512088,
+"indices": 5512868
+},
+{
+"id": "ZA-right-palmar-scaphotriquetral-ligament",
+"name": "Right palmar scaphotriquetral ligament [Palmar intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 130,
+"indexCount": 768,
+"bounds": [
+[
+-0.258760005235672,
+0.8775399923324585,
+0.021250000223517418
+],
+[
+-0.23906999826431274,
+0.8848699927330017,
+0.02776999957859516
+]
+],
+"positions": 5515940,
+"normals": 5517500,
+"indices": 5518280
+},
+{
+"id": "ZA-left-palmar-trapezoideocapitate-ligament",
+"name": "Left palmar trapezoideocapitate ligament [Palmar intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.25953999161720276,
+0.8654699921607971,
+0.02525000087916851
+],
+[
+0.26440998911857605,
+0.8703100085258484,
+0.02686999924480915
+]
+],
+"positions": 5521352,
+"normals": 5521448,
+"indices": 5521496
+},
+{
+"id": "ZA-right-palmar-trapezoideocapitate-ligament",
+"name": "Right palmar trapezoideocapitate ligament [Palmar intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.26451000571250916,
+0.8662999868392944,
+0.025529999285936356
+],
+[
+-0.25964000821113586,
+0.8711400032043457,
+0.027149999514222145
+]
+],
+"positions": 5521640,
+"normals": 5521736,
+"indices": 5521784
+},
+{
+"id": "ZA-left-pisohamate-ligament",
+"name": "Left pisohamate ligament [Pisiform joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.2380799949169159,
+0.8693900108337402,
+0.0297200009226799
+],
+[
+0.2430800050497055,
+0.872409999370575,
+0.030899999663233757
+]
+],
+"positions": 5521928,
+"normals": 5522024,
+"indices": 5522072
+},
+{
+"id": "ZA-right-pisohamate-ligament",
+"name": "Right pisohamate ligament [Pisiform joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.2434999942779541,
+0.8689799904823303,
+0.029929999262094498
+],
+[
+-0.2384900003671646,
+0.871999979019165,
+0.031109999865293503
+]
+],
+"positions": 5522216,
+"normals": 5522312,
+"indices": 5522360
+},
+{
+"id": "ZA-left-pisometacarpal-ligament",
+"name": "Left pisometacarpal ligament [Pisiform joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.23353999853134155,
+0.8624100089073181,
+0.025359999388456345
+],
+[
+0.238769993185997,
+0.8697800040245056,
+0.03116000071167946
+]
+],
+"positions": 5522504,
+"normals": 5522600,
+"indices": 5522648
+},
+{
+"id": "ZA-right-pisometacarpal-ligament",
+"name": "Right pisometacarpal ligament [Pisiform joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.2389499992132187,
+0.8619099855422974,
+0.02582000009715557
+],
+[
+-0.23436999320983887,
+0.8695999979972839,
+0.03108000010251999
+]
+],
+"positions": 5522792,
+"normals": 5522888,
+"indices": 5522936
+},
+{
+"id": "ZA-left-pisotriquetral-ligament",
+"name": "Left pisotriquetral ligament [Palmar intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 140,
+"indexCount": 792,
+"bounds": [
+[
+0.2315399944782257,
+0.868690013885498,
+0.02645000070333481
+],
+[
+0.23906999826431274,
+0.8779699802398682,
+0.030969999730587006
+]
+],
+"positions": 5523080,
+"normals": 5524760,
+"indices": 5525600
+},
+{
+"id": "ZA-right-pisotriquetral-ligament",
+"name": "Right pisotriquetral ligament [Palmar intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 140,
+"indexCount": 792,
+"bounds": [
+[
+-0.23950999975204468,
+0.8682799935340881,
+0.02669999934732914
+],
+[
+-0.23196999728679657,
+0.877560019493103,
+0.031209999695420265
+]
+],
+"positions": 5528768,
+"normals": 5530448,
+"indices": 5531288
+},
+{
+"id": "ZA-left-plantar-calcaneocuboid-ligament",
+"name": "Left plantar calcaneocuboid ligament [Calcaneocuboid joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 70,
+"indexCount": 408,
+"bounds": [
+[
+0.0806099995970726,
+0.026639999821782112,
+-0.022949999198317528
+],
+[
+0.09764000028371811,
+0.0325700007379055,
+-0.008259999565780163
+]
+],
+"positions": 5534456,
+"normals": 5535296,
+"indices": 5535716
+},
+{
+"id": "ZA-right-plantar-calcaneocuboid-ligament",
+"name": "Right plantar calcaneocuboid ligament [Calcaneocuboid joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 70,
+"indexCount": 408,
+"bounds": [
+[
+-0.09809000045061111,
+0.026170000433921814,
+-0.022180000320076942
+],
+[
+-0.08105000108480453,
+0.03210999816656113,
+-0.00749000022187829
+]
+],
+"positions": 5537348,
+"normals": 5538188,
+"indices": 5538608
+},
+{
+"id": "ZA-left-plantar-cuneocuboid-ligament",
+"name": "Left plantar cuneocuboid ligament [Cuneocuboid joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 50,
+"indexCount": 288,
+"bounds": [
+[
+0.09184999763965607,
+0.03621000051498413,
+0.008129999972879887
+],
+[
+0.09822999686002731,
+0.03880000114440918,
+0.016610000282526016
+]
+],
+"positions": 5540240,
+"normals": 5540840,
+"indices": 5541140
+},
+{
+"id": "ZA-right-plantar-cuneocuboid-ligament",
+"name": "Right plantar cuneocuboid ligament [Cuneocuboid joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 50,
+"indexCount": 288,
+"bounds": [
+[
+-0.09848999977111816,
+0.03581000119447708,
+0.008630000054836273
+],
+[
+-0.09211000055074692,
+0.03840000182390213,
+0.01711999997496605
+]
+],
+"positions": 5542292,
+"normals": 5542892,
+"indices": 5543192
+},
+{
+"id": "ZA-left-plantar-cuneonavicular-ligaments",
+"name": "Left plantar cuneonavicular ligaments [Cuneonavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 32,
+"indexCount": 156,
+"bounds": [
+[
+0.07079000025987625,
+0.038839999586343765,
+0.003019999945536256
+],
+[
+0.09348999708890915,
+0.05116000026464462,
+0.012980000115931034
+]
+],
+"positions": 5544344,
+"normals": 5544728,
+"indices": 5544920
+},
+{
+"id": "ZA-right-plantar-cuneonavicular-ligaments",
+"name": "Right plantar cuneonavicular ligaments [Cuneonavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 32,
+"indexCount": 156,
+"bounds": [
+[
+-0.093299999833107,
+0.03886999934911728,
+0.0029800001066178083
+],
+[
+-0.0706000030040741,
+0.05119000002741814,
+0.0129399998113513
+]
+],
+"positions": 5545544,
+"normals": 5545928,
+"indices": 5546120
+},
+{
+"id": "ZA-left-plantar-intercuneiform-ligaments",
+"name": "Left plantar intercuneiform ligaments [Intercuneiform joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 16,
+"indexCount": 72,
+"bounds": [
+[
+0.08229999989271164,
+0.041120000183582306,
+0.015039999969303608
+],
+[
+0.09478999674320221,
+0.046720001846551895,
+0.022290000692009926
+]
+],
+"positions": 5546744,
+"normals": 5546936,
+"indices": 5547032
+},
+{
+"id": "ZA-right-plantar-intercuneiform-ligaments",
+"name": "Right plantar intercuneiform ligaments [Intercuneiform joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 16,
+"indexCount": 72,
+"bounds": [
+[
+-0.09459999948740005,
+0.04114999994635582,
+0.014990000054240227
+],
+[
+-0.08211000263690948,
+0.04675000160932541,
+0.02225000038743019
+]
+],
+"positions": 5547320,
+"normals": 5547512,
+"indices": 5547608
+},
+{
+"id": "ZA-left-plantar-interphalangeal-ligaments",
+"name": "Left plantar interphalangeal ligaments [Interphalangeal joints of foot]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 826,
+"indexCount": 4848,
+"bounds": [
+[
+0.0857200026512146,
+0.007170000113546848,
+0.07700999826192856
+],
+[
+0.15871000289916992,
+0.015169999562203884,
+0.131400004029274
+]
+],
+"positions": 5547896,
+"normals": 5557808,
+"indices": 5562764
+},
+{
+"id": "ZA-right-plantar-interphalangeal-ligaments",
+"name": "Right plantar interphalangeal ligaments [Interphalangeal joints of foot]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 826,
+"indexCount": 4848,
+"bounds": [
+[
+-0.15914000570774078,
+0.006779999937862158,
+0.07756000012159348
+],
+[
+-0.08614999800920486,
+0.014779999852180481,
+0.1319500058889389
+]
+],
+"positions": 5582156,
+"normals": 5592068,
+"indices": 5597024
+},
+{
+"id": "ZA-left-plantar-metatarsal-ligaments",
+"name": "Left plantar metatarsal ligaments [Intermetatarsal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 32,
+"indexCount": 144,
+"bounds": [
+[
+0.09138999879360199,
+0.024879999458789825,
+0.01075000036507845
+],
+[
+0.11643999814987183,
+0.0421999990940094,
+0.03401999920606613
+]
+],
+"positions": 5616416,
+"normals": 5616800,
+"indices": 5616992
+},
+{
+"id": "ZA-right-plantar-metatarsal-ligaments",
+"name": "Right plantar metatarsal ligaments [Intermetatarsal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 32,
+"indexCount": 144,
+"bounds": [
+[
+-0.11649999767541885,
+0.02491999976336956,
+0.01078999973833561
+],
+[
+-0.09144999831914902,
+0.04224000126123428,
+0.034060001373291016
+]
+],
+"positions": 5617568,
+"normals": 5617952,
+"indices": 5618144
+},
+{
+"id": "ZA-left-plantar-metatarsophalangeal-ligaments",
+"name": "Left plantar metatarsophalangeal ligaments [Metatarsophalangeal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 450,
+"indexCount": 2640,
+"bounds": [
+[
+0.08269000053405762,
+0.007340000011026859,
+0.04611000046133995
+],
+[
+0.15091000497341156,
+0.021740000694990158,
+0.09008999913930893
+]
+],
+"positions": 5618720,
+"normals": 5624120,
+"indices": 5626820
+},
+{
+"id": "ZA-right-plantar-metatarsophalangeal-ligaments",
+"name": "Right plantar metatarsophalangeal ligaments [Metatarsophalangeal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 450,
+"indexCount": 2640,
+"bounds": [
+[
+-0.1513500064611435,
+0.006909999996423721,
+0.04670000076293945
+],
+[
+-0.08313000202178955,
+0.021309999749064445,
+0.0906900018453598
+]
+],
+"positions": 5637380,
+"normals": 5642780,
+"indices": 5645480
+},
+{
+"id": "ZA-left-plantar-tarsometatarsal-ligaments",
+"name": "Left plantar tarsometatarsal ligaments [Tarsometatarsal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 60,
+"indexCount": 300,
+"bounds": [
+[
+0.0737299993634224,
+0.023339999839663506,
+-0.0005499999970197678
+],
+[
+0.11356999725103378,
+0.04600999876856804,
+0.03260999917984009
+]
+],
+"positions": 5656040,
+"normals": 5656760,
+"indices": 5657120
+},
+{
+"id": "ZA-right-plantar-tarsometatarsal-ligaments",
+"name": "Right plantar tarsometatarsal ligaments [Tarsometatarsal joints]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 60,
+"indexCount": 300,
+"bounds": [
+[
+-0.11381000280380249,
+0.02298000082373619,
+-7.000000186963007e-05
+],
+[
+-0.0739699974656105,
+0.04565000161528587,
+0.03308999910950661
+]
+],
+"positions": 5658320,
+"normals": 5659040,
+"indices": 5659400
+},
+{
+"id": "ZA-left-popliteofibular-ligament",
+"name": "Left popliteofibular ligament [Knee joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 450,
+"indexCount": 2688,
+"bounds": [
+[
+0.0870399996638298,
+0.41714000701904297,
+-0.055330000817775726
+],
+[
+0.11444000154733658,
+0.4471299946308136,
+-0.04056999832391739
+]
+],
+"positions": 5660600,
+"normals": 5666000,
+"indices": 5668700
+},
+{
+"id": "ZA-right-popliteofibular-ligament",
+"name": "Right popliteofibular ligament [Knee joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 450,
+"indexCount": 2688,
+"bounds": [
+[
+-0.11466000229120255,
+0.41356998682022095,
+-0.055410001426935196
+],
+[
+-0.08726000040769577,
+0.44356000423431396,
+-0.04064000025391579
+]
+],
+"positions": 5679452,
+"normals": 5684852,
+"indices": 5687552
+},
+{
+"id": "ZA-left-posterior-cruciate-ligament",
+"name": "Left posterior cruciate ligament [Knee joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 396,
+"indexCount": 2364,
+"bounds": [
+[
+0.05789000168442726,
+0.4250499904155731,
+-0.04764999821782112
+],
+[
+0.08121000230312347,
+0.4629800021648407,
+-0.029030000790953636
+]
+],
+"positions": 5698304,
+"normals": 5703056,
+"indices": 5705432
+},
+{
+"id": "ZA-right-posterior-cruciate-ligament",
+"name": "Right posterior cruciate ligament [Knee joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 396,
+"indexCount": 2364,
+"bounds": [
+[
+-0.0813400000333786,
+0.4217900037765503,
+-0.04769999906420708
+],
+[
+-0.05801999941468239,
+0.4597199857234955,
+-0.029079999774694443
+]
+],
+"positions": 5714888,
+"normals": 5719640,
+"indices": 5722016
+},
+{
+"id": "ZA-left-posterior-ligament-of-fibular-head",
+"name": "Left posterior ligament of fibular head [Superior tibiofibular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 90,
+"indexCount": 528,
+"bounds": [
+[
+0.09290000051259995,
+0.4060100018978119,
+-0.0422700010240078
+],
+[
+0.1132500022649765,
+0.4279100000858307,
+-0.030619999393820763
+]
+],
+"positions": 5731472,
+"normals": 5732552,
+"indices": 5733092
+},
+{
+"id": "ZA-right-posterior-ligament-of-fibular-head",
+"name": "Right posterior ligament of fibular head [Superior tibiofibular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 90,
+"indexCount": 528,
+"bounds": [
+[
+-0.11350999772548676,
+0.4023300111293793,
+-0.04235000163316727
+],
+[
+-0.09314999729394913,
+0.42423000931739807,
+-0.030700000002980232
+]
+],
+"positions": 5735204,
+"normals": 5736284,
+"indices": 5736824
+},
+{
+"id": "ZA-posterior-longitudinal-ligament",
+"name": "Posterior longitudinal ligament [Fibrous joints of vertebral column; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 3770,
+"indexCount": 22608,
+"bounds": [
+[
+-0.014720000326633453,
+0.9636399745941162,
+-0.06782999634742737
+],
+[
+0.01286999974399805,
+1.5332900285720825,
+-0.013790000230073929
+]
+],
+"positions": 5738936,
+"normals": 5784176,
+"indices": 5806796
+},
+{
+"id": "ZA-left-posterior-sacro-iliac-ligament",
+"name": "Left posterior sacro-iliac ligament [Sacro-iliac joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 2668,
+"indexCount": 16368,
+"bounds": [
+[
+0.010359999723732471,
+0.902239978313446,
+-0.10520000010728836
+],
+[
+0.061400000005960464,
+0.9973499774932861,
+-0.061769999563694
+]
+],
+"positions": 5897228,
+"normals": 5929244,
+"indices": 5945252
+},
+{
+"id": "ZA-right-posterior-sacro-iliac-ligament",
+"name": "Right posterior sacro-iliac ligament [Sacro-iliac joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 2668,
+"indexCount": 16368,
+"bounds": [
+[
+-0.06249000132083893,
+0.9019700288772583,
+-0.10499999672174454
+],
+[
+-0.01145000010728836,
+0.9970800280570984,
+-0.061569999903440475
+]
+],
+"positions": 6010724,
+"normals": 6042740,
+"indices": 6058748
+},
+{
+"id": "ZA-left-posterior-sternoclavicular-ligament",
+"name": "Left posterior sternoclavicular ligament [Sternoclavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 70,
+"indexCount": 408,
+"bounds": [
+[
+0.015850000083446503,
+1.3847399950027466,
+0.019770000129938126
+],
+[
+0.02394000068306923,
+1.4055700302124023,
+0.042169999331235886
+]
+],
+"positions": 6124220,
+"normals": 6125060,
+"indices": 6125480
+},
+{
+"id": "ZA-right-posterior-sternoclavicular-ligament",
+"name": "Right posterior sternoclavicular ligament [Sternoclavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 70,
+"indexCount": 408,
+"bounds": [
+[
+-0.029519999399781227,
+1.38618004322052,
+0.025189999490976334
+],
+[
+-0.01056000031530857,
+1.4061000347137451,
+0.03799000009894371
+]
+],
+"positions": 6127112,
+"normals": 6127952,
+"indices": 6128372
+},
+{
+"id": "ZA-left-posterior-talocalcaneal-ligament",
+"name": "Left posterior talocalcaneal ligament [Subtalar joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 42,
+"indexCount": 240,
+"bounds": [
+[
+0.05488000065088272,
+0.044179998338222504,
+-0.050939999520778656
+],
+[
+0.06352999806404114,
+0.05851000174880028,
+-0.041760001331567764
+]
+],
+"positions": 6130004,
+"normals": 6130508,
+"indices": 6130760
+},
+{
+"id": "ZA-right-posterior-talocalcaneal-ligament",
+"name": "Right posterior talocalcaneal ligament [Subtalar joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 42,
+"indexCount": 240,
+"bounds": [
+[
+-0.06387999653816223,
+0.04407000169157982,
+-0.05048999935388565
+],
+[
+-0.055229999125003815,
+0.058400001376867294,
+-0.04131000116467476
+]
+],
+"positions": 6131720,
+"normals": 6132224,
+"indices": 6132476
+},
+{
+"id": "ZA-left-posterior-talofibular-ligament",
+"name": "Left posterior talofibular ligament [Lateral collateral ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 18,
+"indexCount": 96,
+"bounds": [
+[
+0.08343999832868576,
+0.05821999907493591,
+-0.04764999821782112
+],
+[
+0.10115999728441238,
+0.06729999929666519,
+-0.04154999926686287
+]
+],
+"positions": 6133436,
+"normals": 6133652,
+"indices": 6133760
+},
+{
+"id": "ZA-right-posterior-talofibular-ligament",
+"name": "Right posterior talofibular ligament [Lateral collateral ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 18,
+"indexCount": 96,
+"bounds": [
+[
+-0.10154999792575836,
+0.0580499991774559,
+-0.04715000092983246
+],
+[
+-0.08382999897003174,
+0.06713999807834625,
+-0.04106000065803528
+]
+],
+"positions": 6134144,
+"normals": 6134360,
+"indices": 6134468
+},
+{
+"id": "ZA-left-posterior-tibiofibular-ligament",
+"name": "Left posterior tibiofibular ligament [Tibiofibular syndesmosis]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 126,
+"indexCount": 744,
+"bounds": [
+[
+0.07912000268697739,
+0.0812700018286705,
+-0.04992999881505966
+],
+[
+0.09549999982118607,
+0.10165999829769135,
+-0.04239000007510185
+]
+],
+"positions": 6134852,
+"normals": 6136364,
+"indices": 6137120
+},
+{
+"id": "ZA-right-posterior-tibiofibular-ligament",
+"name": "Right posterior tibiofibular ligament [Tibiofibular syndesmosis]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 126,
+"indexCount": 744,
+"bounds": [
+[
+-0.09588000178337097,
+0.0810599997639656,
+-0.049469999969005585
+],
+[
+-0.0794999971985817,
+0.10146000236272812,
+-0.041930001229047775
+]
+],
+"positions": 6140096,
+"normals": 6141608,
+"indices": 6142364
+},
+{
+"id": "ZA-left-pterygospinous-ligament",
+"name": "Left pterygospinous ligament [Cranial syndesmosis]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.02928999997675419,
+1.5728700160980225,
+-0.00139999995008111
+],
+[
+0.03240999951958656,
+1.577970027923584,
+0.011889999732375145
+]
+],
+"positions": 6145340,
+"normals": 6145436,
+"indices": 6145484
+},
+{
+"id": "ZA-right-pterygospinous-ligament",
+"name": "Right pterygospinous ligament [Cranial syndesmosis]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.03367000073194504,
+1.572849988937378,
+-0.0011899999808520079
+],
+[
+-0.030540000647306442,
+1.5779600143432617,
+0.012109999544918537
+]
+],
+"positions": 6145628,
+"normals": 6145724,
+"indices": 6145772
+},
+{
+"id": "ZA-pubic-symphysis",
+"name": "Pubic symphysis [Pubic symphysis]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 210,
+"indexCount": 1248,
+"bounds": [
+[
+-0.01735999993979931,
+0.858489990234375,
+0.015010000206530094
+],
+[
+0.016950000077486038,
+0.8776999711990356,
+0.040950000286102295
+]
+],
+"positions": 6145916,
+"normals": 6148436,
+"indices": 6149696
+},
+{
+"id": "ZA-left-pubofemoral-ligament",
+"name": "Left pubofemoral ligament [Hip joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 198,
+"indexCount": 1176,
+"bounds": [
+[
+0.06049000099301338,
+0.8301799893379211,
+-0.032749999314546585
+],
+[
+0.09474000334739685,
+0.8748199939727783,
+0.0006500000017695129
+]
+],
+"positions": 6154688,
+"normals": 6157064,
+"indices": 6158252
+},
+{
+"id": "ZA-right-pubofemoral-ligament",
+"name": "Right pubofemoral ligament [Hip joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 198,
+"indexCount": 1176,
+"bounds": [
+[
+-0.095210000872612,
+0.8295000195503235,
+-0.032249998301267624
+],
+[
+-0.0609700009226799,
+0.8741400241851807,
+0.0011500000255182385
+]
+],
+"positions": 6162956,
+"normals": 6165332,
+"indices": 6166520
+},
+{
+"id": "ZA-left-quadrangular-membrane",
+"name": "Left quadrangular membrane [Quadrangular membrane]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 2296,
+"indexCount": 13776,
+"bounds": [
+[
+0.004399999976158142,
+1.4941699504852295,
+-0.006719999946653843
+],
+[
+0.020400000736117363,
+1.5157400369644165,
+0.021730000153183937
+]
+],
+"positions": 6171224,
+"normals": 6198776,
+"indices": 6212552
+},
+{
+"id": "ZA-right-quadrangular-membrane",
+"name": "Right quadrangular membrane [Quadrangular membrane]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 2296,
+"indexCount": 13776,
+"bounds": [
+[
+-0.02151999995112419,
+1.4941999912261963,
+-0.006769999861717224
+],
+[
+-0.005520000122487545,
+1.5157699584960938,
+0.021689999848604202
+]
+],
+"positions": 6267656,
+"normals": 6295208,
+"indices": 6308984
+},
+{
+"id": "ZA-left-quadrate-ligament",
+"name": "Left quadrate ligament [Elbow joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.21862000226974487,
+1.090880036354065,
+-0.03237000107765198
+],
+[
+0.22398999333381653,
+1.1004300117492676,
+-0.027529999613761902
+]
+],
+"positions": 6364088,
+"normals": 6364184,
+"indices": 6364232
+},
+{
+"id": "ZA-right-quadrate-ligament",
+"name": "Right quadrate ligament [Elbow joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.22571000456809998,
+1.081380009651184,
+-0.03068999946117401
+],
+[
+-0.2204499989748001,
+1.09089994430542,
+-0.02572000026702881
+]
+],
+"positions": 6364376,
+"normals": 6364472,
+"indices": 6364520
+},
+{
+"id": "ZA-left-radial-collateral-ligament-of-wrist-joint",
+"name": "Left radial collateral ligament of wrist joint [Joints of hand; Radiocarpal joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 70,
+"indexCount": 432,
+"bounds": [
+[
+0.27184998989105225,
+0.8769400119781494,
+0.016839999705553055
+],
+[
+0.2775599956512451,
+0.8869199752807617,
+0.024739999324083328
+]
+],
+"positions": 6364664,
+"normals": 6365504,
+"indices": 6365924
+},
+{
+"id": "ZA-right-radial-collateral-ligament-of-wrist-joint",
+"name": "Right radial collateral ligament of wrist joint [Joints of hand; Radiocarpal joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 70,
+"indexCount": 432,
+"bounds": [
+[
+-0.27803999185562134,
+0.8775699734687805,
+0.01745999976992607
+],
+[
+-0.27233999967575073,
+0.8875499963760376,
+0.025359999388456345
+]
+],
+"positions": 6367652,
+"normals": 6368492,
+"indices": 6368912
+},
+{
+"id": "ZA-left-radial-collateral-ligament",
+"name": "Left radial collateral ligament [Elbow joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 50,
+"indexCount": 288,
+"bounds": [
+[
+0.23738999664783478,
+1.1095399856567383,
+-0.04019999876618385
+],
+[
+0.24191999435424805,
+1.1377700567245483,
+-0.021460000425577164
+]
+],
+"positions": 6370640,
+"normals": 6371240,
+"indices": 6371540
+},
+{
+"id": "ZA-right-radial-collateral-ligament",
+"name": "Right radial collateral ligament [Elbow joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 50,
+"indexCount": 288,
+"bounds": [
+[
+-0.24377000331878662,
+1.1000200510025024,
+-0.038520000874996185
+],
+[
+-0.23923000693321228,
+1.128250002861023,
+-0.019780000671744347
+]
+],
+"positions": 6372692,
+"normals": 6373292,
+"indices": 6373592
+},
+{
+"id": "ZA-left-radiate-carpal-ligament",
+"name": "Left radiate carpal ligament [Intercarpal joints; Joints of hand]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 206,
+"indexCount": 1224,
+"bounds": [
+[
+0.2465900033712387,
+0.8598499894142151,
+0.02094000019133091
+],
+[
+0.2666899859905243,
+0.8849800229072571,
+0.03058999963104725
+]
+],
+"positions": 6374744,
+"normals": 6377216,
+"indices": 6378452
+},
+{
+"id": "ZA-right-radiate-carpal-ligament",
+"name": "Right radiate carpal ligament [Intercarpal joints; Joints of hand]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 206,
+"indexCount": 1224,
+"bounds": [
+[
+-0.2669700086116791,
+0.8603600263595581,
+0.02101000025868416
+],
+[
+-0.24685999751091003,
+0.8854900002479553,
+0.030659999698400497
+]
+],
+"positions": 6383348,
+"normals": 6385820,
+"indices": 6387056
+},
+{
+"id": "ZA-left-radioscaphocapitate-ligament",
+"name": "Left radioscaphocapitate ligament [Joints of hand; Palmar radiocarpal ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 12,
+"indexCount": 60,
+"bounds": [
+[
+0.2565400004386902,
+0.8780500292778015,
+0.02143999934196472
+],
+[
+0.26965001225471497,
+0.8932300209999084,
+0.0236200001090765
+]
+],
+"positions": 6391952,
+"normals": 6392096,
+"indices": 6392168
+},
+{
+"id": "ZA-right-radioscaphocapitate-ligament",
+"name": "Right radioscaphocapitate ligament [Joints of hand; Palmar radiocarpal ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 12,
+"indexCount": 60,
+"bounds": [
+[
+-0.27070000767707825,
+0.879040002822876,
+0.02223999984562397
+],
+[
+-0.25758999586105347,
+0.8942199945449829,
+0.02442000061273575
+]
+],
+"positions": 6392408,
+"normals": 6392552,
+"indices": 6392624
+},
+{
+"id": "ZA-left-sacrospinous-ligament",
+"name": "Left sacrospinous ligament [Fibrous joints of pelvic girdle]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 142,
+"indexCount": 840,
+"bounds": [
+[
+0.009109999984502792,
+0.888979971408844,
+-0.09027999639511108
+],
+[
+0.04315999895334244,
+0.9332600235939026,
+-0.06334999948740005
+]
+],
+"positions": 6392864,
+"normals": 6394568,
+"indices": 6395420
+},
+{
+"id": "ZA-right-sacrospinous-ligament",
+"name": "Right sacrospinous ligament [Fibrous joints of pelvic girdle]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 142,
+"indexCount": 840,
+"bounds": [
+[
+-0.0464400015771389,
+0.8893700242042542,
+-0.08549000322818756
+],
+[
+-0.008539999835193157,
+0.9333199858665466,
+-0.06503999978303909
+]
+],
+"positions": 6398780,
+"normals": 6400484,
+"indices": 6401336
+},
+{
+"id": "ZA-left-sacrotuberous-ligament",
+"name": "Left sacrotuberous ligament [Sacrotuberous ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 330,
+"indexCount": 1968,
+"bounds": [
+[
+0.011389999650418758,
+0.8335999846458435,
+-0.09096000343561172
+],
+[
+0.057819999754428864,
+0.923009991645813,
+-0.06640999764204025
+]
+],
+"positions": 6404696,
+"normals": 6408656,
+"indices": 6410636
+},
+{
+"id": "ZA-right-sacrotuberous-ligament",
+"name": "Right sacrotuberous ligament [Sacrotuberous ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 330,
+"indexCount": 1968,
+"bounds": [
+[
+-0.06047999858856201,
+0.8342700004577637,
+-0.08693999797105789
+],
+[
+-0.009340000338852406,
+0.9223999977111816,
+-0.06577000021934509
+]
+],
+"positions": 6418508,
+"normals": 6422468,
+"indices": 6424448
+},
+{
+"id": "ZA-left-scaphocapitate-ligament",
+"name": "Left scaphocapitate ligament [Palmar intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.2554300129413605,
+0.8792300224304199,
+0.022029999643564224
+],
+[
+0.26015999913215637,
+0.8845999836921692,
+0.023770000785589218
+]
+],
+"positions": 6432320,
+"normals": 6432416,
+"indices": 6432464
+},
+{
+"id": "ZA-right-scaphocapitate-ligament",
+"name": "Right scaphocapitate ligament [Palmar intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.2611500024795532,
+0.8800699710845947,
+0.021709999069571495
+],
+[
+-0.2563300132751465,
+0.8852999806404114,
+0.024329999461770058
+]
+],
+"positions": 6432608,
+"normals": 6432704,
+"indices": 6432752
+},
+{
+"id": "ZA-left-scaphotrapeziotrapezoidal-ligament",
+"name": "Left scaphotrapeziotrapezoidal ligament [Palmar intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 74,
+"indexCount": 432,
+"bounds": [
+[
+0.2620899975299835,
+0.8707000017166138,
+0.02298000082373619
+],
+[
+0.26607000827789307,
+0.8793200254440308,
+0.027960000559687614
+]
+],
+"positions": 6432896,
+"normals": 6433784,
+"indices": 6434228
+},
+{
+"id": "ZA-right-scaphotrapeziotrapezoidal-ligament",
+"name": "Right scaphotrapeziotrapezoidal ligament [Palmar intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 74,
+"indexCount": 432,
+"bounds": [
+[
+-0.266510009765625,
+0.8712900280952454,
+0.023560000583529472
+],
+[
+-0.2625199854373932,
+0.8799200057983398,
+0.028540000319480896
+]
+],
+"positions": 6435956,
+"normals": 6436844,
+"indices": 6437288
+},
+{
+"id": "ZA-left-sphenomandibular-ligament",
+"name": "Left sphenomandibular ligament [Cranial syndesmosis]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 146,
+"indexCount": 864,
+"bounds": [
+[
+0.03260999917984009,
+1.5529500246047974,
+-0.0021299999207258224
+],
+[
+0.04335999861359596,
+1.5787099599838257,
+0.012109999544918537
+]
+],
+"positions": 6439016,
+"normals": 6440768,
+"indices": 6441644
+},
+{
+"id": "ZA-right-sphenomandibular-ligament",
+"name": "Right sphenomandibular ligament [Cranial syndesmosis]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 146,
+"indexCount": 864,
+"bounds": [
+[
+-0.044509999454021454,
+1.5522799491882324,
+-0.001769999973475933
+],
+[
+-0.03376000002026558,
+1.5780400037765503,
+0.01245999988168478
+]
+],
+"positions": 6445100,
+"normals": 6446852,
+"indices": 6447728
+},
+{
+"id": "ZA-left-plantar-calcaneonavicular-ligament",
+"name": "Left plantar calcaneonavicular ligament [Talocalcaneonavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 18,
+"indexCount": 96,
+"bounds": [
+[
+0.060499999672174454,
+0.04667000100016594,
+-0.018859999254345894
+],
+[
+0.06988999992609024,
+0.05144999921321869,
+0.002050000010058284
+]
+],
+"positions": 6451184,
+"normals": 6451400,
+"indices": 6451508
+},
+{
+"id": "ZA-right-plantar-calcaneonavicular-ligament",
+"name": "Right plantar calcaneonavicular ligament [Talocalcaneonavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 18,
+"indexCount": 96,
+"bounds": [
+[
+-0.0703200027346611,
+0.046390000730752945,
+-0.01834000088274479
+],
+[
+-0.06092999875545502,
+0.051180001348257065,
+0.002580000087618828
+]
+],
+"positions": 6451892,
+"normals": 6452108,
+"indices": 6452216
+},
+{
+"id": "ZA-left-plantar-cuboideonavicular-ligament",
+"name": "Left plantar cuboideonavicular ligament [Cuboidonavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.08079999685287476,
+0.04464999958872795,
+-0.0053900000639259815
+],
+[
+0.08776000142097473,
+0.05077999830245972,
+0.002199999988079071
+]
+],
+"positions": 6452600,
+"normals": 6452696,
+"indices": 6452744
+},
+{
+"id": "ZA-right-plantar-cuboideonavicular-ligament",
+"name": "Right plantar cuboideonavicular ligament [Cuboidonavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.08805999904870987,
+0.0442500002682209,
+-0.0048500001430511475
+],
+[
+-0.08110000193119049,
+0.05039000138640404,
+0.002749999985098839
+]
+],
+"positions": 6452888,
+"normals": 6452984,
+"indices": 6453032
+},
+{
+"id": "ZA-left-posterior-meniscotibial-ligament-lateral-meniscus",
+"name": "Left posterior meniscotibial ligament (Lateral meniscus) [Lateral meniscus]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 98,
+"indexCount": 576,
+"bounds": [
+[
+0.07289999723434448,
+0.44089001417160034,
+-0.03488000109791756
+],
+[
+0.0837400034070015,
+0.4447700083255768,
+-0.026830000802874565
+]
+],
+"positions": 6453176,
+"normals": 6454352,
+"indices": 6454940
+},
+{
+"id": "ZA-right-posterior-meniscotibial-ligament-lateral-meniscus",
+"name": "Right posterior meniscotibial ligament (Lateral meniscus) [Lateral meniscus]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 98,
+"indexCount": 576,
+"bounds": [
+[
+-0.08386000245809555,
+0.4377000033855438,
+-0.034929998219013214
+],
+[
+-0.07301999628543854,
+0.4415700137615204,
+-0.02687999978661537
+]
+],
+"positions": 6457244,
+"normals": 6458420,
+"indices": 6459008
+},
+{
+"id": "ZA-left-posterior-meniscotibial-ligament-medial-meniscus",
+"name": "Left posterior meniscotibial ligament (Medial meniscus) [Medial meniscus]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 154,
+"indexCount": 912,
+"bounds": [
+[
+0.05776999890804291,
+0.43320998549461365,
+-0.05139999836683273
+],
+[
+0.07129000127315521,
+0.4423600137233734,
+-0.031369999051094055
+]
+],
+"positions": 6461312,
+"normals": 6463160,
+"indices": 6464084
+},
+{
+"id": "ZA-right-posterior-meniscotibial-ligament-medial-meniscus",
+"name": "Right posterior meniscotibial ligament (Medial meniscus) [Medial meniscus]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 154,
+"indexCount": 912,
+"bounds": [
+[
+-0.07147999852895737,
+0.42976000905036926,
+-0.05146000161767006
+],
+[
+-0.05795999988913536,
+0.4388999938964844,
+-0.03144000098109245
+]
+],
+"positions": 6467732,
+"normals": 6469580,
+"indices": 6470504
+},
+{
+"id": "ZA-left-posterior-tibiotalar-ligament",
+"name": "Left posterior tibiotalar ligament [Medial collateral ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 30,
+"indexCount": 168,
+"bounds": [
+[
+0.0517599992454052,
+0.06363999843597412,
+-0.03375000134110451
+],
+[
+0.055629998445510864,
+0.07744999974966049,
+-0.020179999992251396
+]
+],
+"positions": 6474152,
+"normals": 6474512,
+"indices": 6474692
+},
+{
+"id": "ZA-right-posterior-tibiotalar-ligament",
+"name": "Right posterior tibiotalar ligament [Medial collateral ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 30,
+"indexCount": 168,
+"bounds": [
+[
+-0.055730000138282776,
+0.06384000182151794,
+-0.03369000181555748
+],
+[
+-0.05186000093817711,
+0.07765000313520432,
+-0.02012000046670437
+]
+],
+"positions": 6475364,
+"normals": 6475724,
+"indices": 6475904
+},
+{
+"id": "ZA-left-radiate-ligament-of-head-of-rib",
+"name": "Left radiate ligament of head of rib [Joint of head of rib; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1752,
+"indexCount": 10368,
+"bounds": [
+[
+0.011380000039935112,
+1.141819953918457,
+-0.0640999972820282
+],
+[
+0.024010000750422478,
+1.4466400146484375,
+-0.015549999661743641
+]
+],
+"positions": 6476576,
+"normals": 6497600,
+"indices": 6508112
+},
+{
+"id": "ZA-right-radiate-ligament-of-head-of-rib",
+"name": "Right radiate ligament of head of rib [Joint of head of rib; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 1752,
+"indexCount": 10368,
+"bounds": [
+[
+-0.02604999952018261,
+1.141819953918457,
+-0.0640999972820282
+],
+[
+-0.013419999741017818,
+1.4466400146484375,
+-0.015549999661743641
+]
+],
+"positions": 6549584,
+"normals": 6570608,
+"indices": 6581120
+},
+{
+"id": "ZA-left-radiocapitate-ligament",
+"name": "Left radiocapitate ligament [Joints of hand; Palmar radiocarpal ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.2542400062084198,
+0.8698899745941162,
+0.023010000586509705
+],
+[
+0.26642000675201416,
+0.89301997423172,
+0.02597999945282936
+]
+],
+"positions": 6622592,
+"normals": 6622688,
+"indices": 6622736
+},
+{
+"id": "ZA-right-radiocapitate-ligament",
+"name": "Right radiocapitate ligament [Joints of hand; Palmar radiocarpal ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.2674199938774109,
+0.8709200024604797,
+0.02377999946475029
+],
+[
+-0.25523999333381653,
+0.8940500020980835,
+0.026739999651908875
+]
+],
+"positions": 6622880,
+"normals": 6622976,
+"indices": 6623024
+},
+{
+"id": "ZA-sacrococcygeal-symphysis",
+"name": "Sacrococcygeal symphysis [Intervertebral disc; Vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 96,
+"indexCount": 564,
+"bounds": [
+[
+-0.010990000329911709,
+0.8840399980545044,
+-0.099590003490448
+],
+[
+0.010470000095665455,
+0.8893899917602539,
+-0.08893000334501266
+]
+],
+"positions": 6623168,
+"normals": 6624320,
+"indices": 6624896
+},
+{
+"id": "ZA-left-scapholunate-interosseous-ligament",
+"name": "Left scapholunate interosseous ligament [Interosseus intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.24807000160217285,
+0.8824300169944763,
+0.0134699996560812
+],
+[
+0.25018998980522156,
+0.8852099776268005,
+0.016620000824332237
+]
+],
+"positions": 6627152,
+"normals": 6627248,
+"indices": 6627296
+},
+{
+"id": "ZA-right-scapholunate-interosseous-ligament",
+"name": "Right scapholunate interosseous ligament [Interosseus intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.2505300045013428,
+0.8832299709320068,
+0.01322999969124794
+],
+[
+-0.2484000027179718,
+0.8859999775886536,
+0.01638999953866005
+]
+],
+"positions": 6627440,
+"normals": 6627536,
+"indices": 6627584
+},
+{
+"id": "ZA-left-stylohyoid-ligament",
+"name": "Left stylohyoid ligament [Cranial syndesmosis]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 314,
+"indexCount": 1872,
+"bounds": [
+[
+0.013779999688267708,
+1.5115599632263184,
+-0.012319999746978283
+],
+[
+0.03871000185608864,
+1.5585399866104126,
+0.01979999989271164
+]
+],
+"positions": 6627728,
+"normals": 6631496,
+"indices": 6633380
+},
+{
+"id": "ZA-right-stylohyoid-ligament",
+"name": "Right stylohyoid ligament [Cranial syndesmosis]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 314,
+"indexCount": 1872,
+"bounds": [
+[
+-0.04002000018954277,
+1.5114799737930298,
+-0.012240000069141388
+],
+[
+-0.01510000042617321,
+1.558459997177124,
+0.01988999918103218
+]
+],
+"positions": 6640868,
+"normals": 6644636,
+"indices": 6646520
+},
+{
+"id": "ZA-left-stylomandibular-ligament",
+"name": "Left stylomandibular ligament [Cranial syndesmosis]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 24,
+"indexCount": 132,
+"bounds": [
+[
+0.038100000470876694,
+1.5375200510025024,
+-0.011649999767541885
+],
+[
+0.041999999433755875,
+1.5666699409484863,
+-0.00018000000272877514
+]
+],
+"positions": 6654008,
+"normals": 6654296,
+"indices": 6654440
+},
+{
+"id": "ZA-right-stylomandibular-ligament",
+"name": "Right stylomandibular ligament [Cranial syndesmosis]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 24,
+"indexCount": 132,
+"bounds": [
+[
+-0.04323999956250191,
+1.5375200510025024,
+-0.01143999956548214
+],
+[
+-0.039340000599622726,
+1.5666699409484863,
+2.9999999242136255e-05
+]
+],
+"positions": 6654968,
+"normals": 6655256,
+"indices": 6655400
+},
+{
+"id": "ZA-left-superficial-part-of-tibial-collateral-ligament",
+"name": "Left superficial part of tibial collateral ligament [Knee joint; Tibial collateral ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 78,
+"indexCount": 456,
+"bounds": [
+[
+0.03067000024020672,
+0.40432998538017273,
+-0.028710000216960907
+],
+[
+0.06347999721765518,
+0.46606001257896423,
+-0.00622999994084239
+]
+],
+"positions": 6655928,
+"normals": 6656864,
+"indices": 6657332
+},
+{
+"id": "ZA-right-superficial-part-of-tibial-collateral-ligament",
+"name": "Right superficial part of tibial collateral ligament [Knee joint; Tibial collateral ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 250,
+"indexCount": 1488,
+"bounds": [
+[
+-0.06350000202655792,
+0.40198999643325806,
+-0.028790000826120377
+],
+[
+-0.03058999963104725,
+0.463919997215271,
+-0.0061900001019239426
+]
+],
+"positions": 6659156,
+"normals": 6662156,
+"indices": 6663656
+},
+{
+"id": "ZA-left-superior-glenohumeral-ligament",
+"name": "Left superior glenohumeral ligament [Glenohumeral ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 102,
+"indexCount": 600,
+"bounds": [
+[
+0.1363999992609024,
+1.3932199478149414,
+-0.02986999973654747
+],
+[
+0.16571000218391418,
+1.4096699953079224,
+-0.0016199999954551458
+]
+],
+"positions": 6669608,
+"normals": 6670832,
+"indices": 6671444
+},
+{
+"id": "ZA-right-superior-glenohumeral-ligament",
+"name": "Right superior glenohumeral ligament [Glenohumeral ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 102,
+"indexCount": 600,
+"bounds": [
+[
+-0.16649000346660614,
+1.3930100202560425,
+-0.029589999467134476
+],
+[
+-0.13718000054359436,
+1.4094599485397339,
+-0.001339999958872795
+]
+],
+"positions": 6673844,
+"normals": 6675068,
+"indices": 6675680
+},
+{
+"id": "ZA-superior-pubic-ligament",
+"name": "Superior pubic ligament [Pubic symphysis]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 50,
+"indexCount": 288,
+"bounds": [
+[
+-0.015709999948740005,
+0.8757299780845642,
+0.0276699997484684
+],
+[
+0.015309999696910381,
+0.8786500096321106,
+0.04044000059366226
+]
+],
+"positions": 6678080,
+"normals": 6678680,
+"indices": 6678980
+},
+{
+"id": "ZA-left-superior-transverse-scapular-ligament",
+"name": "Left superior transverse scapular ligament [Fibrous joints of pectoral girdle]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.10041999816894531,
+1.3981000185012817,
+-0.05138000100851059
+],
+[
+0.11095000058412552,
+1.4055999517440796,
+-0.035270001739263535
+]
+],
+"positions": 6680132,
+"normals": 6680228,
+"indices": 6680276
+},
+{
+"id": "ZA-right-superior-transverse-scapular-ligament",
+"name": "Right superior transverse scapular ligament [Fibrous joints of pectoral girdle]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.11170999705791473,
+1.398069977760315,
+-0.051350001245737076
+],
+[
+-0.10118000209331512,
+1.40556001663208,
+-0.03525000065565109
+]
+],
+"positions": 6680420,
+"normals": 6680516,
+"indices": 6680564
+},
+{
+"id": "ZA-supraspinous-ligament",
+"name": "Supraspinous ligament [Fibrous joints of vertebral column]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 436,
+"indexCount": 2616,
+"bounds": [
+[
+-0.004739999771118164,
+1.010450005531311,
+-0.10103999823331833
+],
+[
+0.0029800001066178083,
+1.4560099840164185,
+-0.06437999755144119
+]
+],
+"positions": 6680708,
+"normals": 6685940,
+"indices": 6688556
+},
+{
+"id": "ZA-left-talocalcaneal-interosseous-ligament",
+"name": "Left talocalcaneal interosseous ligament [Subtalar joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 216,
+"indexCount": 1272,
+"bounds": [
+[
+0.06185999885201454,
+0.046549998223781586,
+-0.029910000041127205
+],
+[
+0.08281999826431274,
+0.05967000126838684,
+-0.0185100007802248
+]
+],
+"positions": 6699020,
+"normals": 6701612,
+"indices": 6702908
+},
+{
+"id": "ZA-right-talocalcaneal-interosseous-ligament",
+"name": "Right talocalcaneal interosseous ligament [Subtalar joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 216,
+"indexCount": 1272,
+"bounds": [
+[
+-0.08312000334262848,
+0.0464400015771389,
+-0.029559999704360962
+],
+[
+-0.06216999888420105,
+0.05956000089645386,
+-0.018160000443458557
+]
+],
+"positions": 6707996,
+"normals": 6710588,
+"indices": 6711884
+},
+{
+"id": "ZA-left-talonavicular-ligament",
+"name": "Left talonavicular ligament [Talocalcaneonavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 70,
+"indexCount": 408,
+"bounds": [
+[
+0.06967999786138535,
+0.06634999811649323,
+-0.004530000034719706
+],
+[
+0.08433999866247177,
+0.07457000017166138,
+0.006719999946653843
+]
+],
+"positions": 6716972,
+"normals": 6717812,
+"indices": 6718232
+},
+{
+"id": "ZA-right-talonavicular-ligament",
+"name": "Right talonavicular ligament [Talocalcaneonavicular joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 70,
+"indexCount": 408,
+"bounds": [
+[
+-0.08421000093221664,
+0.06648000329732895,
+-0.004670000169426203
+],
+[
+-0.06955000013113022,
+0.0746999979019165,
+0.0065899998880922794
+]
+],
+"positions": 6719864,
+"normals": 6720704,
+"indices": 6721124
+},
+{
+"id": "ZA-left-tibiocalcaneal-ligament",
+"name": "Left tibiocalcaneal ligament [Medial collateral ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 30,
+"indexCount": 168,
+"bounds": [
+[
+0.04989999905228615,
+0.05056000128388405,
+-0.02806999906897545
+],
+[
+0.059220001101493835,
+0.0780399963259697,
+-0.013919999822974205
+]
+],
+"positions": 6722756,
+"normals": 6723116,
+"indices": 6723296
+},
+{
+"id": "ZA-right-tibiocalcaneal-ligament",
+"name": "Right tibiocalcaneal ligament [Medial collateral ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 30,
+"indexCount": 168,
+"bounds": [
+[
+-0.05931999906897545,
+0.05076000094413757,
+-0.028020000085234642
+],
+[
+-0.05000000074505806,
+0.07823999971151352,
+-0.013860000297427177
+]
+],
+"positions": 6723968,
+"normals": 6724328,
+"indices": 6724508
+},
+{
+"id": "ZA-left-tibionavicular-ligament",
+"name": "Left tibionavicular ligament [Medial collateral ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 120,
+"indexCount": 696,
+"bounds": [
+[
+0.053939998149871826,
+0.053369998931884766,
+-0.01923000067472458
+],
+[
+0.06019999831914902,
+0.08281999826431274,
+-0.005189999938011169
+]
+],
+"positions": 6725180,
+"normals": 6726620,
+"indices": 6727340
+},
+{
+"id": "ZA-right-tibionavicular-ligament",
+"name": "Right tibionavicular ligament [Medial collateral ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 120,
+"indexCount": 696,
+"bounds": [
+[
+-0.06030000001192093,
+0.05358000099658966,
+-0.019169999286532402
+],
+[
+-0.05403999984264374,
+0.08302000164985657,
+-0.0051299999468028545
+]
+],
+"positions": 6730124,
+"normals": 6731564,
+"indices": 6732284
+},
+{
+"id": "ZA-left-transverse-acetabular-ligament",
+"name": "Left transverse acetabular ligament [Hip joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 286,
+"indexCount": 1704,
+"bounds": [
+[
+0.05479000136256218,
+0.8662300109863281,
+-0.03815999999642372
+],
+[
+0.07282999902963638,
+0.8798199892044067,
+0.004240000154823065
+]
+],
+"positions": 6735068,
+"normals": 6738500,
+"indices": 6740216
+},
+{
+"id": "ZA-right-transverse-acetabular-ligament",
+"name": "Right transverse acetabular ligament [Hip joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 286,
+"indexCount": 1704,
+"bounds": [
+[
+-0.07321000099182129,
+0.8658900260925293,
+-0.03790999948978424
+],
+[
+-0.05516999959945679,
+0.8794800043106079,
+0.004480000119656324
+]
+],
+"positions": 6747032,
+"normals": 6750464,
+"indices": 6752180
+},
+{
+"id": "ZA-left-transverse-humeral-ligament",
+"name": "Left transverse humeral ligament [Glenohumeral joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 70,
+"indexCount": 408,
+"bounds": [
+[
+0.17114000022411346,
+1.3850799798965454,
+-0.008259999565780163
+],
+[
+0.1838800013065338,
+1.402940034866333,
+-0.0004900000058114529
+]
+],
+"positions": 6758996,
+"normals": 6759836,
+"indices": 6760256
+},
+{
+"id": "ZA-right-transverse-humeral-ligament",
+"name": "Right transverse humeral ligament [Glenohumeral joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 234,
+"indexCount": 1392,
+"bounds": [
+[
+-0.18449999392032623,
+1.3851200342178345,
+-0.007930000312626362
+],
+[
+-0.17215999960899353,
+1.4026199579238892,
+-0.0001500000071246177
+]
+],
+"positions": 6761888,
+"normals": 6764696,
+"indices": 6766100
+},
+{
+"id": "ZA-left-transverse-ligament-of-knee",
+"name": "Left transverse ligament of knee [Knee joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 218,
+"indexCount": 1296,
+"bounds": [
+[
+0.05305999889969826,
+0.44093000888824463,
+-0.01647000014781952
+],
+[
+0.097850002348423,
+0.448419988155365,
+-0.00419999985024333
+]
+],
+"positions": 6771668,
+"normals": 6774284,
+"indices": 6775592
+},
+{
+"id": "ZA-right-transverse-ligament-of-knee",
+"name": "Right transverse ligament of knee [Knee joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 218,
+"indexCount": 1296,
+"bounds": [
+[
+-0.09784000366926193,
+0.43814000487327576,
+-0.016489999368786812
+],
+[
+-0.053050000220537186,
+0.4456300139427185,
+-0.004209999926388264
+]
+],
+"positions": 6780776,
+"normals": 6783392,
+"indices": 6784700
+},
+{
+"id": "ZA-left-transverse-part-of-iliofemoral-ligament",
+"name": "Left transverse part of iliofemoral ligament [Iliofemoral ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 234,
+"indexCount": 1392,
+"bounds": [
+[
+0.09103000164031982,
+0.8622699975967407,
+-0.004339999984949827
+],
+[
+0.11619000136852264,
+0.9137200117111206,
+0.00872000027447939
+]
+],
+"positions": 6789884,
+"normals": 6792692,
+"indices": 6794096
+},
+{
+"id": "ZA-right-transverse-part-of-iliofemoral-ligament",
+"name": "Right transverse part of iliofemoral ligament [Iliofemoral ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 234,
+"indexCount": 1392,
+"bounds": [
+[
+-0.1165200024843216,
+0.8615400195121765,
+-0.0037799999117851257
+],
+[
+-0.09136000275611877,
+0.9129999876022339,
+0.009279999881982803
+]
+],
+"positions": 6799664,
+"normals": 6802472,
+"indices": 6803876
+},
+{
+"id": "ZA-left-transverse-tibiofibular-ligament",
+"name": "Left transverse tibiofibular ligament [Tibiofibular syndesmosis]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 54,
+"indexCount": 312,
+"bounds": [
+[
+0.054579999297857285,
+0.07970999926328659,
+-0.046859998255968094
+],
+[
+0.09380999952554703,
+0.08589000254869461,
+-0.0364999994635582
+]
+],
+"positions": 6809444,
+"normals": 6810092,
+"indices": 6810416
+},
+{
+"id": "ZA-right-transverse-tibiofibular-ligament",
+"name": "Right transverse tibiofibular ligament [Tibiofibular syndesmosis]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 54,
+"indexCount": 312,
+"bounds": [
+[
+-0.09414999932050705,
+0.07954999804496765,
+-0.046459998935461044
+],
+[
+-0.054910000413656235,
+0.08573000133037567,
+-0.03610000014305115
+]
+],
+"positions": 6811664,
+"normals": 6812312,
+"indices": 6812636
+},
+{
+"id": "ZA-left-trapeziotrapezoidal-interosseous-ligament",
+"name": "Left trapeziotrapezoidal interosseous ligament [Interosseus intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.26736000180244446,
+0.8701300024986267,
+0.02198999933898449
+],
+[
+0.2705099880695343,
+0.8723400235176086,
+0.025869999080896378
+]
+],
+"positions": 6813884,
+"normals": 6813980,
+"indices": 6814028
+},
+{
+"id": "ZA-right-trapeziotrapezoidal-interosseous-ligament",
+"name": "Right trapeziotrapezoidal interosseous ligament [Interosseus intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.27052000164985657,
+0.870930016040802,
+0.022299999371170998
+],
+[
+-0.2673799991607666,
+0.8731300234794617,
+0.026170000433921814
+]
+],
+"positions": 6814172,
+"normals": 6814268,
+"indices": 6814316
+},
+{
+"id": "ZA-left-trapezoid-ligament",
+"name": "Left trapezoid ligament [Coracoclavicular ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 30,
+"indexCount": 168,
+"bounds": [
+[
+0.11281999945640564,
+1.402250051498413,
+-0.023479999974370003
+],
+[
+0.12950000166893005,
+1.4250500202178955,
+-0.008489999920129776
+]
+],
+"positions": 6814460,
+"normals": 6814820,
+"indices": 6815000
+},
+{
+"id": "ZA-right-trapezoid-ligament",
+"name": "Right trapezoid ligament [Coracoclavicular ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 30,
+"indexCount": 168,
+"bounds": [
+[
+-0.1303499937057495,
+1.4021899700164795,
+-0.023439999669790268
+],
+[
+-0.11367999762296677,
+1.4249900579452515,
+-0.008449999615550041
+]
+],
+"positions": 6815672,
+"normals": 6816032,
+"indices": 6816212
+},
+{
+"id": "ZA-left-trapezoideocapitate-interosseous-ligament",
+"name": "Left trapezoideocapitate interosseous ligament [Interosseus intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.2612600028514862,
+0.8654099702835083,
+0.01616000011563301
+],
+[
+0.2649100124835968,
+0.8661100268363953,
+0.021239999681711197
+]
+],
+"positions": 6816884,
+"normals": 6816980,
+"indices": 6817028
+},
+{
+"id": "ZA-right-trapezoideocapitate-interosseous-ligament",
+"name": "Right trapezoideocapitate interosseous ligament [Interosseus intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.2649799883365631,
+0.8661400079727173,
+0.01638999953866005
+],
+[
+-0.2613300085067749,
+0.8668500185012817,
+0.021469999104738235
+]
+],
+"positions": 6817172,
+"normals": 6817268,
+"indices": 6817316
+},
+{
+"id": "ZA-left-triquetrocapitate-ligament",
+"name": "Left triquetrocapitate ligament [Palmar intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 12,
+"indexCount": 60,
+"bounds": [
+[
+0.24003000557422638,
+0.8701199889183044,
+0.023469999432563782
+],
+[
+0.25367000699043274,
+0.8773400187492371,
+0.026669999584555626
+]
+],
+"positions": 6817460,
+"normals": 6817604,
+"indices": 6817676
+},
+{
+"id": "ZA-right-triquetrocapitate-ligament",
+"name": "Right triquetrocapitate ligament [Palmar intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 12,
+"indexCount": 60,
+"bounds": [
+[
+-0.25345999002456665,
+0.870169997215271,
+0.022749999538064003
+],
+[
+-0.23982000350952148,
+0.8773900270462036,
+0.025949999690055847
+]
+],
+"positions": 6817916,
+"normals": 6818060,
+"indices": 6818132
+},
+{
+"id": "ZA-left-triquetrohamate-ligament",
+"name": "Left triquetrohamate ligament [Palmar intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.23805999755859375,
+0.8676199913024902,
+0.024550000205636024
+],
+[
+0.24413999915122986,
+0.8733400106430054,
+0.02790999971330166
+]
+],
+"positions": 6818372,
+"normals": 6818468,
+"indices": 6818516
+},
+{
+"id": "ZA-right-triquetrohamate-ligament",
+"name": "Right triquetrohamate ligament [Palmar intercarpal ligaments]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.2445099949836731,
+0.8672800064086914,
+0.024639999493956566
+],
+[
+-0.238429993391037,
+0.8730000257492065,
+0.02800000086426735
+]
+],
+"positions": 6818660,
+"normals": 6818756,
+"indices": 6818804
+},
+{
+"id": "ZA-left-triradiate-cartilage",
+"name": "Left triradiate cartilage [Cartilaginous joints of pelvic girdle]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 801,
+"indexCount": 4812,
+"bounds": [
+[
+0.05059000104665756,
+0.8725500106811523,
+-0.05925999954342842
+],
+[
+0.08839999884366989,
+0.908519983291626,
+0.008559999987483025
+]
+],
+"positions": 6818948,
+"normals": 6828560,
+"indices": 6833368
+},
+{
+"id": "ZA-right-triradiate-cartilage",
+"name": "Right triradiate cartilage [Cartilaginous joints of pelvic girdle]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 801,
+"indexCount": 4812,
+"bounds": [
+[
+-0.08874999731779099,
+0.8720499873161316,
+-0.058889999985694885
+],
+[
+-0.050939999520778656,
+0.90802001953125,
+0.00892999954521656
+]
+],
+"positions": 6852616,
+"normals": 6862228,
+"indices": 6867036
+},
+{
+"id": "ZA-left-ulnar-collateral-ligament-of-wrist-joint",
+"name": "Left ulnar collateral ligament of wrist joint [Joints of hand; Radiocarpal joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 66,
+"indexCount": 384,
+"bounds": [
+[
+0.23196999728679657,
+0.8710100054740906,
+0.012690000236034393
+],
+[
+0.23747000098228455,
+0.8868499994277954,
+0.031550001353025436
+]
+],
+"positions": 6886284,
+"normals": 6887076,
+"indices": 6887472
+},
+{
+"id": "ZA-right-ulnar-collateral-ligament-of-wrist-joint",
+"name": "Right ulnar collateral ligament of wrist joint [Joints of hand; Radiocarpal joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 66,
+"indexCount": 384,
+"bounds": [
+[
+-0.23739999532699585,
+0.870989978313446,
+0.012249999679625034
+],
+[
+-0.23190000653266907,
+0.8868399858474731,
+0.031120000407099724
+]
+],
+"positions": 6889008,
+"normals": 6889800,
+"indices": 6890196
+},
+{
+"id": "ZA-left-ulnar-collateral-ligament",
+"name": "Left ulnar collateral ligament [Elbow joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 78,
+"indexCount": 456,
+"bounds": [
+[
+0.18042999505996704,
+1.1011099815368652,
+-0.03308999910950661
+],
+[
+0.2269199937582016,
+1.1246800422668457,
+-0.015629999339580536
+]
+],
+"positions": 6891732,
+"normals": 6892668,
+"indices": 6893136
+},
+{
+"id": "ZA-right-ulnar-collateral-ligament",
+"name": "Right ulnar collateral ligament [Elbow joint]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 78,
+"indexCount": 456,
+"bounds": [
+[
+-0.22896000742912292,
+1.0937299728393555,
+-0.0319099985063076
+],
+[
+-0.18248000741004944,
+1.117300033569336,
+-0.014449999667704105
+]
+],
+"positions": 6894960,
+"normals": 6895896,
+"indices": 6896364
+},
+{
+"id": "ZA-left-ulnocapitate-ligament",
+"name": "Left ulnocapitate ligament [Joints of hand; Palmar ulnocarpal ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 66,
+"indexCount": 384,
+"bounds": [
+[
+0.2324099987745285,
+0.866599977016449,
+0.01803000085055828
+],
+[
+0.25951001048088074,
+0.9060099720954895,
+0.02701999992132187
+]
+],
+"positions": 6898188,
+"normals": 6898980,
+"indices": 6899376
+},
+{
+"id": "ZA-right-ulnocapitate-ligament",
+"name": "Right ulnocapitate ligament [Joints of hand; Palmar ulnocarpal ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 66,
+"indexCount": 384,
+"bounds": [
+[
+-0.26015999913215637,
+0.8666700124740601,
+0.01672999933362007
+],
+[
+-0.23342999815940857,
+0.9053300023078918,
+0.02865000069141388
+]
+],
+"positions": 6900912,
+"normals": 6901704,
+"indices": 6902100
+},
+{
+"id": "ZA-left-ulnolunate-ligament",
+"name": "Left ulnolunate ligament [Joints of hand; Palmar ulnocarpal ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 54,
+"indexCount": 312,
+"bounds": [
+[
+0.23294000327587128,
+0.8839899897575378,
+0.016930000856518745
+],
+[
+0.2555199861526489,
+0.9053300023078918,
+0.025299999862909317
+]
+],
+"positions": 6903636,
+"normals": 6904284,
+"indices": 6904608
+},
+{
+"id": "ZA-right-ulnolunate-ligament",
+"name": "Right ulnolunate ligament [Joints of hand; Palmar ulnocarpal ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 54,
+"indexCount": 312,
+"bounds": [
+[
+-0.2561500072479248,
+0.884090006351471,
+0.017710000276565552
+],
+[
+-0.2334199994802475,
+0.9053400158882141,
+0.023879999294877052
+]
+],
+"positions": 6905856,
+"normals": 6906504,
+"indices": 6906828
+},
+{
+"id": "ZA-ulnopisiform-ligament",
+"name": "Ulnopisiform ligament [Joints of hand; Palmar ulnocarpal ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+-0.23552000522613525,
+0.8756800293922424,
+0.016119999811053276
+],
+[
+-0.23250000178813934,
+0.8983700275421143,
+0.03084000013768673
+]
+],
+"positions": 6908076,
+"normals": 6908172,
+"indices": 6908220
+},
+{
+"id": "ZA-left-ulnopisiform-ligament",
+"name": "Left ulnopisiform ligament [Joints of hand; Palmar ulnocarpal ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 8,
+"indexCount": 36,
+"bounds": [
+[
+0.2313999980688095,
+0.874809980392456,
+0.018139999359846115
+],
+[
+0.23675000667572021,
+0.8995000123977661,
+0.028850000351667404
+]
+],
+"positions": 6908364,
+"normals": 6908460,
+"indices": 6908508
+},
+{
+"id": "ZA-left-ulnotriquetral-ligament",
+"name": "Left ulnotriquetral ligament [Joints of hand; Palmar ulnocarpal ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 30,
+"indexCount": 168,
+"bounds": [
+[
+0.2322400063276291,
+0.877839982509613,
+0.014469999819993973
+],
+[
+0.23635999858379364,
+0.8931499719619751,
+0.020339999347925186
+]
+],
+"positions": 6908652,
+"normals": 6909012,
+"indices": 6909192
+},
+{
+"id": "ZA-right-ulnotriquetral-ligament",
+"name": "Right ulnotriquetral ligament [Joints of hand; Palmar ulnocarpal ligament]",
+"system": "za-joint",
+"chunk": 0,
+"vertexCount": 30,
+"indexCount": 168,
+"bounds": [
+[
+-0.2358199954032898,
+0.8778300285339355,
+0.01319000031799078
+],
+[
+-0.23239000141620636,
+0.8932499885559082,
+0.021479999646544456
+]
+],
+"positions": 6909864,
+"normals": 6910224,
+"indices": 6910404
+}
+]
+}

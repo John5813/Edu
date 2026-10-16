@@ -19,8 +19,10 @@ class Atlas:
         self.dir = models_dir
         with open(os.path.join(models_dir, catalog), encoding="utf-8") as fh:
             self.meta = json.load(fh)
-        if catalog == "atlas.json":
-            self._merge(os.path.join(ZA_DIR, "atlas-za.json"))
+        if catalog == "atlas.json" and os.path.isdir(ZA_DIR):
+            for name in sorted(os.listdir(ZA_DIR)):
+                if name.startswith("atlas-za") and name.endswith(".json"):
+                    self._merge(os.path.join(ZA_DIR, name))
         # BodyParts3D bitta a'zoni bir nechta bo'lakka bo'ladi (masalan "Proximal part of ileum" — o'nlab
         # bo'lak): nom bo'yicha hammasi olinadi. Aniq bitta bo'lak kerak bo'lsa — uning id si ("FJ2823").
         self.by_name: Dict[str, List[dict]] = {}
