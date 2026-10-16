@@ -9,7 +9,7 @@
 
     python test_med3d_auto.py
 """
-import asyncio, os, sys, tempfile, zipfile
+import asyncio, re, os, sys, tempfile, zipfile
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -103,6 +103,18 @@ check("yurakka tegib turgan tomirlar unga soya tushiradi (bitta yorug'lik)",
 check("skelet, ichidagi klapan va uzoqdagi buyrak soya tushirmaydi",
       not {"skelet", "yurak_klapanlari", "buyraklar"} & set(near), near)
 
+from services.med3d.camera import Camera
+rng = np.random.default_rng(1)
+ball = rng.normal(size=(300, 3)) * 0.05                                  # orqadagi kichik organ
+wall = np.c_[rng.uniform(-0.4, 0.4, (3000, 2)), np.full(3000, 0.3)]     # oldidagi katta organ (z — kameraga)
+cam = Camera([-0.5, -0.5, -0.5], [0.5, 0.5, 0.5])
+check("katta organ ortida to'liq yopilgan organ — ko'rinmaydi (yorliq qo'yilmaydi)",
+      cam.visible_share(ball, (0, 0, 0), wall) < 0.05, cam.visible_share(ball, (0, 0, 0), wall))
+check("yonida turgan organ — ko'rinadi", cam.visible_share(ball + [0.7, 0, 0], (0, 0, 0), wall) > 0.9)
+one = {"show": ["devor", "shar"], "focus": ["shar"], "labels": ["devor", "shar"], "rot": [0, 0, 0]}
+auto.reveal_focus(cam, [one], {"devor": wall.tolist(), "shar": ball.tolist()})
+check("fokusdagi organni yopgan organ shu slayddan olinadi", one["show"] == ["shar"] and one["labels"] == ["shar"], one)
+
 
 class FakeAtlas:
     """Atlas o'rniga: har qism — organ chegarasidagi kichik kub (tarmoq va 130 MB atlas kerak emas)."""
@@ -128,7 +140,10 @@ out_dir = tempfile.mkdtemp()
 path = auto.make_deck("Hazm a'zolari", plan, out_dir, atlas=FakeAtlas(MALE))
 z = zipfile.ZipFile(path)
 names = z.namelist()
-check("4 slayd", sum(1 for n in names if n.startswith("ppt/slides/slide") and n.endswith(".xml")) == 4)
+slide_files = sum(1 for n in names if n.startswith("ppt/slides/slide") and n.endswith(".xml"))
+autos = ["advTm" in z.read(f"ppt/slides/slide{i}.xml").decode() for i in range(1, slide_files + 1)]
+check("4 ta asosiy slayd (+ o'zi o'tadigan yordamchilar)", autos.count(False) == 4 and not autos[0], autos)
+check("organlar to'plami o'zgarganda yordamchi slayd bor", any(autos), autos)
 from pptx import Presentation
 prs = Presentation(path)
 sizes, models = [], []
@@ -136,7 +151,7 @@ from lxml import etree
 NS = {"p": "http://schemas.openxmlformats.org/presentationml/2006/main",
       "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
       "p159": "http://schemas.microsoft.com/office/powerpoint/2015/09/main"}
-for i in range(1, 5):
+for i in range(1, slide_files + 1):
     root = etree.fromstring(z.read(f"ppt/slides/slide{i}.xml"))
     for gf in root.iterfind(".//p:graphicFrame", NS):
         sizes.append(int(gf.find("p:xfrm/a:ext", NS).get("cx")) / 914400)
@@ -145,13 +160,33 @@ check("3D ramkalar MAX_FRAME dan oshmaydi", max(sizes) <= MAX_FRAME + 1e-3, max(
 check("model nomlari Morph uchun (!!m3d_...)", all(m.startswith("!!m3d_") for m in models), models[:4])
 glbs = [n for n in names if n.endswith(".glb")]
 check("bir xil GLB bitta faylda (fayl soni < model soni)", 0 < len(glbs) < len(models), (len(glbs), len(models)))
-morphs = [bool(etree.fromstring(z.read(f"ppt/slides/slide{i}.xml")).findall(".//p159:morph", NS)) for i in range(1, 5)]
-check("Morph 2-slayddan boshlab", morphs == [False, True, True, True], morphs)
+morphs = [bool(etree.fromstring(z.read(f"ppt/slides/slide{i}.xml")).findall(".//p159:morph", NS))
+          for i in range(1, slide_files + 1)]
+check("Morph 2-slayddan boshlab", morphs == [False] + [True] * (slide_files - 1), morphs)
+# Haqiqiy 3D: slayddagi organlar bitta modelda (PowerPoint alohida modellarni ustma-ust qatlam qilib chizadi).
+first = [g.find(".//p:cNvPr", NS).get("name") for g in etree.fromstring(z.read("ppt/slides/slide1.xml")).iterfind(
+    ".//p:graphicFrame", NS) if 0 <= int(g.find("p:xfrm/a:off", NS).get("x")) < 13.4 * 914400]
+check("1-slayd: 4 organ — bitta 3D model", len(first) == 1, first)
 labels = [s.text_frame.text for s in prs.slides[0].shapes if s.name.startswith("lbl_") and s.has_text_frame
           and s.text_frame.text]
-check("yorliqlar o'zbekcha nom bilan", "Jigar" in labels and "Oshqozon" in labels, labels)
+check("yorliqlar: o'zbekcha nom + lotincha nom", "Jigar\nHepar" in labels and "Oshqozon\nGaster" in labels, labels)
 source = [s.text_frame.text for s in prs.slides[0].shapes if s.has_text_frame and "BodyParts3D" in s.text_frame.text]
 check("manba (CC BY) ko'rsatilgan", bool(source))
+
+# Joyida almashish: fade — organlar uchib kelmaydi; auto — yordamchi slayd o'zi o'tadi va raqamga kirmaydi.
+from services.med3d import deck as med3d_deck
+deck_plan, scenes = auto.build_scenes("male", plan, FakeAtlas(MALE))
+two = [dict(deck_plan["slides"][0], scene=deck_plan["slides"][0]["scene"]) for _ in range(3)]
+two[1].update(fade=True, auto=True, frame_of=0, labels=[])
+p2 = med3d_deck.build({"scene": deck_plan["scene"], "slides": two}, os.path.join(out_dir, "fade.pptx"), scenes=scenes)
+z2 = zipfile.ZipFile(p2)
+xml = [z2.read(f"ppt/slides/slide{i}.xml").decode() for i in (1, 2, 3)]
+pages = [[sh.text_frame.text for sh in s.shapes if sh.name == "!!page"][0] for s in Presentation(p2).slides]
+check("yordamchi slayd avtomatik o'tadi (advTm), boshqalari yo'q", 'advTm="0"' in xml[1]
+      and "advTm" not in xml[2], [("advTm" in x) for x in xml])
+check("yordamchi raqamga kirmaydi", pages == ["01 / 02", "02 / 02", "02 / 02"], pages)
+offs = [int(m) for m in re.findall(r'<a:off x="(-?\d+)"', xml[1])]
+check("fade slaydida slayd tashqarisidagi (uchib keladigan) nusxa yo'q", all(-914400 < x < 13.4 * 914400 for x in offs), offs)
 
 
 print("5) Bot: tugma → ogohlantirish → Ha / Yo'q")

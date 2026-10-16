@@ -84,3 +84,18 @@ Holat: YOZILDI (3D Anatomiya). Qo'lda sahnalar (skull, digestive) namuna sifatid
   repo ularni erkak tanasidan olib to'ldirgan (`system: "borrowed"`) — ayolga xos emas.
 - Tekshirildi: bachadon+naylar+tuxumdonlar, yurak, yo'ldosh GLB qilib chizildi — sifat yaxshi.
 - Diqqat: nom bo'yicha qidirishda "Cervi" bo'yin umurtqalarini ham topadi — tizim (system) bo'yicha filtrlash shart.
+
+## Haqiqiy 3D, joyida almashish, lotincha nomlar (2026-10)
+- Muammo: PowerPoint har 3D modelni alohida qatlam qilib chizadi, modellar orasida chuqurlikni solishtirmaydi —
+  alohida organlar bo'lsa tomir yurak orqasiga kirmay ustiga chiqib qolardi. Qaror: slayddagi hamma organ
+  BITTA GLB (`auto.build_scenes`, nomi organlar to'plamidan — `set_id`).
+- Harakat: to'plam o'zgarmasa — bir xil nomli model, Morph aylantiradi/yaqinlashtiradi. To'plam o'zgarsa —
+  yordamchi slayd (`fade`, `auto`: advTm=0, raqamga kirmaydi, `frame_of` — kamera joyida): eski model so'nadi,
+  yangisi o'sha joyda paydo bo'ladi (soya to'plamga bog'liq emas — qolayotgan organ piksellari bir xil), keyin
+  yangi model burilib yangi joyiga keladi. Sahna almashganda — avvalgidek uchib ketish/kelish.
+- Yorliq: o'zbekcha nom + lotincha nom (`lugat.LATIN`, Terminologia Anatomica). Boshqa organ ortida
+  yopilgan organga yorliq qo'yilmaydi (`Camera.visible_share` — to'suvchilar organ to'ridan olingan zich
+  nuqtalar bilan chuqurlik xaritasiga chiziladi).
+- Yaqinlashish cheklovi: fokus butun ko'rinishdan `ZOOM_LIMIT` (1.6) martadan katta bo'lmaydi.
+- Tekshiruv: PowerPoint Linux'da yo'q — Morph simulyatori (three.js, kadrma-kadr, MP4) bilan ko'rilgan;
+  haqiqiy PowerPoint'da tekshirish kerak: yordamchi slayd o'zi o'tishi, so'nish paytidagi xiralashish.
