@@ -99,3 +99,17 @@ Holat: YOZILDI (3D Anatomiya). Qo'lda sahnalar (skull, digestive) namuna sifatid
 - Yaqinlashish cheklovi: fokus butun ko'rinishdan `ZOOM_LIMIT` (1.6) martadan katta bo'lmaydi.
 - Tekshiruv: PowerPoint Linux'da yo'q — Morph simulyatori (three.js, kadrma-kadr, MP4) bilan ko'rilgan;
   haqiqiy PowerPoint'da tekshirish kerak: yordamchi slayd o'zi o'tishi, so'nish paytidagi xiralashish.
+
+## Dizayn tizimi va harakat rejissyori (2026-10)
+- `design.py`: 12 uslub (kobalt, atlas, vitrina, rentgen, pastel, laboratoriya, klinik, zumrad, okean, grafit,
+  oq, shafaq) — fon/gradient, shriftlar, yorliq turi (pill/tag/plain), chiziq (to'g'ri/tirsakli/egri), Morph
+  qiladigan fon bezaklari, model ostidagi soya, model ohangi (real/pastel/ivory/xray/warm), 3D yorug'lik to'plami.
+  6 kompozitsiya: chap_matn, ong_matn, markaz, qahramon, karta, pastki.
+- Hamma narsa Morph qiladi: sarlavha, matn, panel, bezaklar, soya; yorliqlar yondan suzib kiradi.
+- `director.py`: har slaydga kompozitsiya va kamera harakati (orbita, aylanish, yuqoridan/pastdan, yaqin/uzoq,
+  sayohat, portlash) — ketma-ket takrorlanmaydi; asosiy burchak — fokus yaxshi ko'rinadigan, old tomondagi.
+- Portlash: organlar alohida modelga almashadi, ajraladi, qayta yig'iladi, yaxlit modelga qaytadi.
+- Savol slaydi (8+ slayd): raqamli belgilar, javoblar bosilganda chiqadi.
+- To'qima naqshlari: mushak tolasi, o'pka g'ovakligi, suyak donadorligi (`ao.pattern`).
+- Botda uslub tanlash qadami (namuna rasm `assets/med3d/uslublar.jpg`, «Avtomatik» — mavzuga qarab).
+- Sifat nazorati (`deck.quality`): yorliqlar ustma-ust/matnga, model matnga tegmasligi — logga yoziladi.

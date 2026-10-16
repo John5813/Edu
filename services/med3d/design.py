@@ -86,7 +86,7 @@ STYLES: Dict[str, Style] = {s.key: s for s in [
     Style("pastel", "Pastel", bg="F6F0FF", bg2="FCE7F3", ink="3B1F4A", body="5E4A6B", muted="9A86A8",
           accent="DB2777", panel="FFFFFF", pill="FFFFFF", pill_ink="7E1D52", pill_line="F472B6", latin="9D6C8B",
           line="F472B6", connector="curve", label="tag", pill_round=0.5, deco="blob", deco_color="F9A8D4",
-          deco_alpha=0.25, shadow="7E3A6A", shadow_alpha=0.18, tone="pastel", lights="soft", light=True),
+          deco_alpha=0.16, shadow="7E3A6A", shadow_alpha=0.18, tone="pastel", lights="soft", light=True),
     Style("okean", "Okean", bg="0B3A47", bg2="137080", ink="F0FDFF", body="BFE6EC", muted="7FB4BE",
           accent="FF8A65", panel="0A3440", pill="F0FDFF", pill_ink="0B3A47", pill_line="FF8A65", latin="CDEBF0",
           line="FF8A65", connector="curve", label="tag", deco="band", deco_color="FFFFFF", deco_alpha=0.07),
@@ -103,6 +103,28 @@ STYLES: Dict[str, Style] = {s.key: s for s in [
           deco_alpha=0.12, tone="warm", lights="warm"),
 ]}
 DEFAULT_STYLE = "klinik"
+# Bot tugmalaridagi nomlar (o'zbekchasi — `Style.uz`).
+STYLE_NAMES = {
+    "ru": {"klinik": "Клинический тёмный", "kobalt": "Кобальт", "atlas": "Атлас (книга)", "rentgen": "Рентген",
+           "vitrina": "Музейная витрина", "laboratoriya": "Лаборатория", "zumrad": "Изумруд", "pastel": "Пастель",
+           "okean": "Океан", "grafit": "Графит", "oq": "Белый минимал", "shafaq": "Закат"},
+    "en": {"klinik": "Clinical dark", "kobalt": "Cobalt", "atlas": "Atlas (book)", "rentgen": "X-ray",
+           "vitrina": "Museum showcase", "laboratoriya": "Laboratory", "zumrad": "Emerald", "pastel": "Pastel",
+           "okean": "Ocean", "grafit": "Graphite", "oq": "White minimal", "shafaq": "Sunset"},
+    "kk": {"klinik": "Клиникалық қараңғы", "kobalt": "Кобальт", "atlas": "Атлас (кітап)", "rentgen": "Рентген",
+           "vitrina": "Мұражай витринасы", "laboratoriya": "Зертхана", "zumrad": "Зүмірет", "pastel": "Пастель",
+           "okean": "Мұхит", "grafit": "Графит", "oq": "Ақ минимал", "shafaq": "Шапақ"},
+}
+STYLE_EMOJI = {"klinik": "🌌", "kobalt": "🔷", "atlas": "📖", "rentgen": "🩻", "vitrina": "🏛", "laboratoriya": "🧪",
+               "zumrad": "💚", "pastel": "🌸", "okean": "🌊", "grafit": "⚫", "oq": "⚪", "shafaq": "🌅"}
+STYLE_ORDER = ("kobalt", "atlas", "vitrina", "rentgen", "pastel", "laboratoriya", "klinik", "zumrad", "okean",
+               "grafit", "oq", "shafaq")
+
+
+def style_name(key: str, lang: str = "uz") -> str:
+    if lang in STYLE_NAMES:
+        return STYLE_NAMES[lang].get(key, key)
+    return STYLES[key].uz if key in STYLES else key
 
 
 def style(key: Optional[str]) -> Style:

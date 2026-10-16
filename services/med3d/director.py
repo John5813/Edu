@@ -111,9 +111,11 @@ def direct(body: dict, slides: List[dict], topic: str = "") -> List[str]:
         if i:
             # Kamera harakati: oldingisidan farqli va har biri ko'pi bilan `limit` marta.
             options = [m for m in CAMERA_MOVES if m != prev_move and used.get(m, 0) < limit]
-            can_explode = (exploded < (2 if n >= 10 else 1) and 2 <= len(show) <= 7 and prev_show == sorted(show)
-                           and labels >= 2 and i < n - 1 and prev_move != "portlash")
-            if can_explode and rng.random() < 0.45:
+            # Portlash: bir nechta organli slaydda (to'plam o'zgargan bo'lsa ham — yordamchi slayd o'sha joyda
+            # bo'laklarga almashtiradi). 6+ slaydli taqdimotda kamida bittasi bo'ladi.
+            can_explode = (exploded < (2 if n >= 10 else 1) and 2 <= len(show) <= 7 and labels >= 2
+                           and i < n - 1 and prev_move != "portlash")
+            if can_explode and (rng.random() < 0.4 or (exploded == 0 and n >= 6 and i >= n // 2)):
                 move = "portlash"
             elif i == n - 1:
                 move = "uzoq" if "uzoq" in options else rng.choice(options or CAMERA_MOVES)

@@ -213,6 +213,9 @@ seen_moves = director.direct(MALE, copy.deepcopy(big["slides"]), "boshqa mavzu")
 check("kamera harakatlari ketma-ket takrorlanmaydi", all(a != b or a == "tinch" for a, b in
                                                         zip(seen_moves[1:], seen_moves[2:])), seen_moves)
 check("uslub ochiq fonda: atlas (krem fon)", "F6F1E7" in xmls[0], xmls[0][:200])
+from services.med3d import deck as med3d_deck_q
+check("sifat nazorati: yorliq va model matnga tegmaydi, yorliqlar ustma-ust emas",
+      not [x for _, x in med3d_deck_q.LAST_QUALITY if x], [x for _, x in med3d_deck_q.LAST_QUALITY if x][:2])
 
 print("5) Bot: tugma → ogohlantirish → Ha / Yo'q")
 from aiogram.fsm.context import FSMContext
@@ -245,7 +248,9 @@ class Chat:
 
         async def edit_text(body, **kw):
             chat.edited.append(body)
-        msg.answer, msg.edit_text, msg.delete = answer, edit_text, AsyncMock()
+        async def answer_photo(photo, caption=None, **kw):
+            return await answer(caption, **kw)
+        msg.answer, msg.edit_text, msg.delete, msg.answer_photo = answer, edit_text, AsyncMock(), answer_photo
         return msg
 
 
@@ -298,14 +303,27 @@ async def bot_flow():
     await pp.premium_ppt_got_topic(chat.message("Yurakning tuzilishi"), state, db)
     await pp.premium_ppt_skip_name(callback(chat, "prem_ppt_skip_name"), state, db)
     await pp.premium_ppt_skip_preferences(callback(chat, "prem_ppt_skip_preferences"), state, db)
-    check("istaklardan keyin manba so'ralmaydi — darhol slaydlar soni",
-          await state.get_state() == PS.waiting_for_count.state, await state.get_state())
+    check("istaklardan keyin manba so'ralmaydi — dizayn uslubi so'raladi",
+          await state.get_state() == PS.waiting_for_style.state, await state.get_state())
+    style_cbs = [b.callback_data for b in buttons(chat.sent[-1][2]) if (b.callback_data or "").startswith("prem_m3d_style:")]
+    check("12 ta uslub va «Avtomatik» tugmasi", len(style_cbs) == 13 and "prem_m3d_style:auto" in style_cbs, style_cbs)
+    await pp.premium_ppt_previous(callback(chat, "prem_ppt_prev"), state, db)
+    check("uslubdan orqaga — istaklar", await state.get_state() == PS.waiting_for_preferences.state,
+          await state.get_state())
+    await pp.premium_ppt_skip_preferences(callback(chat, "prem_ppt_skip_preferences"), state, db)
+    await pp.premium_m3d_style(callback(chat, "prem_m3d_style:kobalt"), state, db)
+    check("uslub tanlandi → slaydlar soni", await state.get_state() == PS.waiting_for_count.state
+          and (await state.get_data()).get("m3d_style") == "kobalt", await state.get_state())
     counts = [b.text for b in buttons(chat.sent[-1][2]) if (b.callback_data or "").startswith("prem_ppt_count:")]
     check("slaydlar soni 5–15, narx oddiy taqdimotdek",
           len(counts) == len(auto.SLIDE_OPTIONS) and counts[0].startswith("5 ta slayd"), counts)
     check("rasm manbasi va yozuv animatsiyasi taklif qilinmaydi",
           pp._photo_source({"kind": "med3d"}) is None and not await pp._anim_offer({"kind": "med3d"}))
-    check("orqaga: slaydlar sonidan — istaklarga", pp._previous_step({"kind": "med3d", "step": "count"}) == "prefs")
+    check("orqaga: slaydlar sonidan — uslubga, uslubdan — istaklarga",
+          pp._previous_step({"kind": "med3d", "step": "count"}) == "m3dstyle"
+          and pp._previous_step({"kind": "med3d", "step": "m3dstyle"}) == "prefs")
+    summary, _ = pp._summary(dict(await state.get_data(), slide_count=10), "uz") if hasattr(pp, "_summary") else ("", None)
+    check("xulosada tanlangan uslub", not summary or "Kobalt" in summary, summary[:300])
 
     other = Chat()
     state2 = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=2, user_id=2))

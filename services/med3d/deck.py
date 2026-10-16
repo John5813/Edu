@@ -37,6 +37,7 @@ log = logging.getLogger(__name__)
 
 W, H = 13.333, 7.5
 MORPH_MS = 2200
+HELPER_MS = 1300
 PAL = dict(bg="0B1220", ink="F3F6FB", muted="9FB0C8", accent="38BDF8", pill="14213A", pill_ink="E8F3FF",
            line="38BDF8")
 TEXT_BOX = (0.65, 0.75, 4.35)                  # x, y, eni — chapdagi matn ustuni
@@ -336,8 +337,9 @@ def _labels(cam: Camera, scene: dict, frame: Frame, keys: Sequence[str], visible
         if not col:
             continue
         sizes = [_label_size(st, it[1], it[4]) for it in col]
-        gap = max(h for _, h, _, _ in sizes) + 0.14
-        ys = _spread([it[3] for it in col], y_lo, y_hi, gap)
+        tallest = max(h for _, h, _, _ in sizes)
+        gap = tallest + 0.14
+        ys = _spread([it[3] for it in col], y_lo + tallest / 2, y_hi - tallest / 2, gap)   # yorliq to'liq chegarada
         widths = [w for w, _, _, _ in sizes]
         if side == "left":
             edges = [max(x_lo + wd, min(left - 0.3, it[2] - 0.5)) for it, wd in zip(col, widths)]
@@ -447,6 +449,28 @@ def _answer_card(slide, st, lay, items: List[Tuple[str, dict]]):
         run.font.name, run.font.size, run.font.bold = st.body_font, Pt(14), n >= 0
         run.font.color.rgb = _rgb(st.ink if not st.light else st.ink)
     return card
+
+
+def _overlap(a, b, pad: float = 0.0) -> bool:
+    return a[0] < b[2] - pad and b[0] < a[2] - pad and a[1] < b[3] - pad and b[1] < a[3] - pad
+
+
+def quality(lay, model_box, labels: List[Tuple[str, dict]], text_boxes) -> List[str]:
+    """Sifat nazorati (slayd yig'ilgach): yorliqlar bir-biriga, matnga tegmasin, model matn ustiga chiqmasin."""
+    issues = []
+    rects = [(k, (it["x"], it["y"] - it["h"] / 2, it["x"] + it["w"], it["y"] + it["h"] / 2)) for k, it in labels]
+    for i in range(len(rects)):
+        for j in range(i + 1, len(rects)):
+            if _overlap(rects[i][1], rects[j][1], 0.02):
+                issues.append(f"yorliqlar ustma-ust: {rects[i][0]} / {rects[j][0]}")
+    for k, r in rects:
+        for name, t in text_boxes:
+            if _overlap(r, t, 0.05):
+                issues.append(f"yorliq matnga tegadi: {k} / {name}")
+    for name, t in text_boxes:
+        if _overlap(model_box, t, 0.35):
+            issues.append(f"model matnga tegadi: {name}")
+    return issues
 
 
 def _send_back(slide) -> None:
@@ -570,6 +594,7 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
     prs.slide_width, prs.slide_height = Inches(W), Inches(H)
     blank = prs.slide_layouts[6]
     built = []
+    quality_log: List[Tuple[int, List[str]]] = []
     total = sum(1 for s in slides if not s.get("auto"))
     for index, (data, cur) in enumerate(zip(slides, plans)):
         key, scene, cam, frame, show = cur["key"], cur["scene"], cur["cam"], cur["frame"], cur["show"]
@@ -639,13 +664,21 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
                     continue
                 dx = -(item["x"] + item["w"] + 0.4) if item["side"] == "left" else (W - item["x"] + 0.4)
                 _draw_label(prev_slide, st, lkey, item, dx)
+        bx, by, bw, bh = lay.body
+        tx, ty, tw, th = lay.title
+        issues = quality(lay, model_box, placed_labels, [("sarlavha", (tx, ty, tx + tw, ty + th)),
+                                                          ("matn", (bx, by, bx + bw, by + bh))])
+        if issues and not data.get("auto"):
+            log.info("med3d sifat (%d-slayd, %s): %s", index + 1, lay.key, "; ".join(issues))
+        quality_log.append((index, issues))
         if data.get("quiz") and placed_labels:
             _answers_timing(slide, steps, [(_answer_card(slide, st, lay, placed_labels), "zoom", 0)])
         elif steps:
             add_entrances(slide, steps)
         _send_back(slide)
         if index:
-            add_morph(slide, MORPH_MS)
+            # Yordamchi (joyida almashish, yig'ilish) o'tishlar qisqaroq — ketma-ket kelganda harakat sust tuyulmasin.
+            add_morph(slide, HELPER_MS if data.get("auto") else MORPH_MS)
             if data.get("auto"):                     # yordamchi slayd: o'tish tugashi bilan keyingisiga o'tadi
                 for node in slide._element.iter("{http://schemas.openxmlformats.org/presentationml/2006/main}transition"):
                     node.set("advClick", "0")
@@ -654,7 +687,11 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
 
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
     prs.save(out_path)
+    LAST_QUALITY[:] = quality_log
     return out_path
+
+
+LAST_QUALITY: List[Tuple[int, List[str]]] = []     # oxirgi `build` ning sifat hisoboti (test va log uchun)
 
 
 DEMO_PLAN = {

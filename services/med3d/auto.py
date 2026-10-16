@@ -691,8 +691,8 @@ def make_deck(topic: str, plan_: dict, out_dir: Optional[str] = None, atlas=None
 
 
 async def build_deck(topic: str, slide_count: int, *, language: str = "uz", level: int = 2,
-                     preferences: str = "", stage_cb: Optional[Callable[[str, Dict], None]] = None
-                     ) -> Tuple[str, int]:
+                     preferences: str = "", stage_cb: Optional[Callable[[str, Dict], None]] = None,
+                     style: Optional[str] = None) -> Tuple[str, int]:
     """Bot uchun: (PPTX yo'li, slaydlar soni). Mavzu anatomiya bo'lmasa NotAnatomy, boshqa xatoda istisno."""
     def stage(name: str, **info) -> None:
         if stage_cb:
@@ -709,5 +709,5 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
     log.info("3D Anatomiya: %s tana, %d slayd, organlar: %s", plan_["body"], len(plan_["slides"]),
              sorted({o for s in plan_["slides"] for o in s["show"]}))
     stage("models", slides=len(plan_["slides"]))
-    path = await asyncio.wait_for(loop.run_in_executor(None, lambda: make_deck(topic, plan_)), 8 * 60)
+    path = await asyncio.wait_for(loop.run_in_executor(None, lambda: make_deck(topic, plan_, style=style)), 8 * 60)
     return path, len(plan_["slides"])
