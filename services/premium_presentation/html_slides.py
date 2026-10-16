@@ -120,8 +120,64 @@ def shell_rules(theme, language: str) -> str:
     """
     P = prompts.get(language)
     # So'z chegarasi koddagi tekshiruv bilan bir xil (`deck_compose.WORD_LIMIT`): ilgari promptda 90, kodda 100 edi.
-    return prompts.fill(P.SHELL, target=prompts.target(language), blocks=P.BLOCKS, icons=icon_list(),
-                        marker=MARKER, words=deck_compose.WORD_LIMIT["kop"])
+    rules = prompts.fill(P.SHELL, target=prompts.target(language), blocks=P.BLOCKS, icons=icon_list(),
+                         marker=MARKER, words=deck_compose.WORD_LIMIT["kop"])
+    return rules + "\n\n" + PROSE_RULE if prose_style(theme) else rules
+
+
+# ───────────────────────────────────────────── yaxlit matnli uslub (jurnal)
+# Jurnal uslubi — qog'oz foni, serif shrift, kitobdagidek matn. Unda o'q bilan bog'langan teng qutilar
+# (QADAMLAR bloki) "AI yasagani" bilinib turadi: ketma-ketlik ham yaxlit, bog'langan matn bilan yoziladi.
+PROSE_STYLES = ("jurnal",)
+PROSE_RULE = ("STYLE RULE (overrides the block list): this deck has a book-like design. NEVER use the steps block "
+              "(<div class=\"steps\">, cards joined by arrows). When a slide describes a sequence, stages or a process, "
+              "write it as continuous text: a lead sentence <p class=\"lead\"> and 2-3 connected paragraphs "
+              "<p class=\"par\"> inside <div class=\"par-col\">, naming the stages in order inside the sentences "
+              "(first..., then..., finally...).")
+PROSE_DEMAND = ("This slide must be ONE continuous text, like a page of a book: a lead sentence <p class=\"lead\"> and "
+                "2-3 connected paragraphs <p class=\"par\"> inside <div class=\"par-col\"> (80-100 words in total). "
+                "Describe the stages in order inside the sentences (first..., then..., finally...). Do NOT use steps, "
+                "arrows, cards, columns, lists or a photo block.")
+_STEPS = re.compile(r'<div\b[^>]*\bclass\s*=\s*["\'][^"\']*(?<![-\w])steps(?![-\w])', re.IGNORECASE)
+
+
+def prose_style(theme) -> bool:
+    return getattr(theme, "style", "") in PROSE_STYLES and getattr(theme, "layout", "") != "kam"
+
+
+def has_steps(body: str) -> bool:
+    return bool(_STEPS.search(body or ""))
+
+
+def steps_to_prose(body: str) -> str:
+    """Zaxira (AI qayta yozolmasa): qadamlar qutilari kod bilan yaxlit abzatslarga aylantiriladi."""
+    import lxml.html
+
+    try:
+        root = lxml.html.fromstring(body)
+    except Exception:
+        return body
+    changed = False
+    for block in root.xpath('//div[contains(concat(" ", normalize-space(@class), " "), " steps ")]'):
+        sentences = []
+        for card in block.xpath('./div[contains(concat(" ", normalize-space(@class), " "), " card ")]'):
+            title = " ".join(" ".join(card.xpath('.//*[contains(@class, "card-title")]//text()')).split())
+            note = " ".join(" ".join(card.xpath('.//*[contains(@class, "card-note")]//text()')).split())
+            if not note:
+                note = " ".join(" ".join(card.itertext()).split()).replace(title, "", 1).strip()
+            if title and note:
+                sentences.append(f"{title.rstrip('.:')} — {note[0].lower() + note[1:]}")
+            elif title or note:
+                sentences.append(title or note)
+        sentences = [s if s.endswith((".", "!", "?")) else s + "." for s in sentences]
+        half = (len(sentences) + 1) // 2
+        paragraphs = [" ".join(part) for part in (sentences[:half], sentences[half:]) if part]
+        html = '<div class="par-col">' + "".join(f'<p class="par">{_escape(t)}</p>' for t in paragraphs) + "</div>"
+        new = lxml.html.fragment_fromstring(html)
+        new.tail = block.tail
+        block.getparent().replace(block, new)
+        changed = True
+    return lxml.html.tostring(root, encoding="unicode") if changed else body
 
 
 def _shapes_note(shapes: Optional[List[tuple]], start: int, count: int, language: str = "uz",
@@ -927,6 +983,7 @@ def _write_slides(topic, slide_count, theme, language, level, preferences, sourc
         except Exception:
             log.debug("plan_cb xatosi", exc_info=True)
     system = deck_compose.shell(language, MARKER) if kam else shell_rules(theme, language)
+    prose = prose_style(theme)
 
     slides: List[str] = []
     used: List[str] = []
@@ -988,18 +1045,22 @@ def _write_slides(topic, slide_count, theme, language, level, preferences, sourc
             number = start + offset
             item = outline[number - 1] if number <= len(outline) else None
             demand = "" if kam else _missing_block(body, item)
+            if not demand and prose and has_steps(body):
+                demand = PROSE_DEMAND
             if demand:
-                log.warning("%d-slayd: rejadagi «%s» bloki yo'q — qayta so'raladi", number, item["category"])
+                log.warning("%d-slayd: rejadagi «%s» bloki yo'q yoki uslubga mos emas — qayta so'raladi",
+                            number, (item or {}).get("category", ""))
                 single = _user_prompt(topic, number, 1, slide_count, outline, used, level, source_text,
                                       preferences, author, family,
                                       shapes=[shape_signature(b) for b in slides],
                                       written=[deck_logic.title_of(b) for b in slides], language=language,
                                       volume=volume) + "\n\n" + demand
                 again = _write_chunk(system, single, 1)
-                if again and not _missing_block(again[0], item):
+                if again and not _missing_block(again[0], item) and not (prose and has_steps(again[0])):
                     body = again[0]
                 else:
-                    log.warning("%d-slayd: qayta so'ralganda ham «%s» bloki chiqmadi", number, item["category"])
+                    log.warning("%d-slayd: qayta so'ralganda ham «%s» bloki chiqmadi", number,
+                                (item or {}).get("category", ""))
             if number == 1:
                 body = _ensure_cover(body, topic, outline[0] if outline else None)
                 body = _cover_credit(body, author, language)
@@ -1035,6 +1096,8 @@ def _write_slides(topic, slide_count, theme, language, level, preferences, sourc
     slides = repair_deck(slides, ctx)
     if not kam:     # kam matnlida xilma-xillikni kompozitsiyalar navbati beradi
         slides = diversify(slides, theme, language)
+    if prose:       # qayta yozish yoki xilma-xillashtirish qadamlar qaytargan bo'lsa ham — yaxlit matn
+        slides = [steps_to_prose(b) if has_steps(b) else b for b in slides]
     # Diagramma raqamlari faqat Claude bergan ma'lumot: qayta yozish va xilma-xillashtirish
     # davomida paydo bo'lgan to'qima raqamlar shu yerda tozalanadi.
     slides = [chart_data.enforce_kpis(chart_data.enforce(b, outline[i] if i < len(outline) else None, language),

@@ -57,7 +57,7 @@ def _premium_normalize(raw: Dict) -> Dict:
     style = raw.get("style") if raw.get("style") in MODERN_STYLES else "toza"
     # Rang alohida tanlanmaydi (mavzuga qarab); mijoz matn hajmini tanlaydi: ko'p yoki kam matnli.
     volume = str(raw.get("volume") or "").strip().lower()
-    # Bepul sinov: varaq soni qat'iy (o'zgartirib bo'lmaydi), arzon model, rasmsiz.
+    # Bepul sinov: varaq soni qat'iy (o'zgartirib bo'lmaydi), arzon model, rasmlar faqat internetdan (AI chizmaydi).
     trial = raw.get("trial") is True
     if trial:
         from database import free_trial
@@ -115,7 +115,8 @@ async def _premium_run(params: Dict, report: Report) -> Tuple[str, str]:
     with (llm_client.text_model(free_trial.MODEL) if trial else contextlib.nullcontext()):
         path, _slides, _photos = await pipeline.build_deck(
             topic, params["slide_count"], language=params["language"], preferences=params["preferences"],
-            author=params["author"], style=params["style"], volume=params.get("volume") or "kop", photos=not trial,
+            author=params["author"], style=params["style"], volume=params.get("volume") or "kop",
+            photo_source="web" if trial else "mix",
             source_text=params.get("source_text", ""), progress_cb=on_progress, stage_cb=on_stage,
             deck_out=deck_out if job_id else None)
     if job_id and deck_out.get("pages"):
