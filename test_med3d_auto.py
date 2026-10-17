@@ -412,6 +412,18 @@ async def bot_flow():
           and "на телефоне" in pp.med3d_filename("x", "ru") and "Slide Show" in pp.med3d_filename("x", "en")
           and "телефонда кўринмайди" in pp.med3d_filename("x", _uzs.UZ_CYRILLIC_LANG)
           and ":" not in pp.med3d_filename("Yurak: tuzilishi", "uz") and pp.med3d_filename("x", "uz").endswith(".pptx"))
+    check("3D yo'riqnoma videosi bor (taqdimot bilan yuboriladi)", os.path.exists(pp.MED3D_GUIDE_VIDEO)
+          and os.path.getsize(pp.MED3D_GUIDE_VIDEO) < 10_000_000)
+    _msg = MagicMock()
+    _msg.answer_video = AsyncMock(return_value=SimpleNamespace(video=SimpleNamespace(file_id="VID1")))
+    _msg.answer = AsyncMock()
+    await pp._send_med3d_guide(_msg, "uz")
+    await pp._send_med3d_guide(_msg, "ru")
+    _calls = _msg.answer_video.await_args_list
+    check("yo'riqnoma: video izohi — ko'rish sharti, ikkinchi marta file_id bilan (qayta yuklanmaydi)",
+          len(_calls) == 2 and _calls[1].kwargs["video"] == "VID1" and "PowerPoint" in _calls[0].kwargs["caption"]
+          and not _msg.answer.await_args_list)
+    pp._med3d_guide_id = None
     state4 = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=4, user_id=4))
     await state4.update_data(topic="Qon tahlili", kind="med3d", slide_count=10, m3d_style="kobalt")
     await pp.premium_med3d_alternative(callback(Chat(), "prem_m3d_alt:ha", user=4), state4, db)
