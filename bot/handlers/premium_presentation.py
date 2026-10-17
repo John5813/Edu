@@ -1353,6 +1353,25 @@ MED3D_NOT_ANATOMY = {
 }
 
 
+# 3D Anatomiya fayli nomida ko'rish sharti: Morph va 3D — PowerPoint 2019+, telefonda ko'rinmaydi, kompyuterda
+# Slayd-shou rejimida ko'rish kerak. Taqdimot tilida (lotin/kirill o'zbekcha alohida).
+_MED3D_FILE_NOTE = {
+    "uz": "3D Morph - PowerPoint 2019+ kerak, telefonda ko'rinmaydi, kompyuterda Slayd-shou rejimida oching",
+    "uz_cyrl": "3D Morph - PowerPoint 2019+ керак, телефонда кўринмайди, компьютерда Слайд-шоу режимида очинг",
+    "ru": "3D Morph - нужен PowerPoint 2019+, на телефоне не виден, открыть на ПК в режиме слайд-шоу",
+    "en": "3D Morph - needs PowerPoint 2019+, not shown on phones, open on a PC in Slide Show mode",
+    "kk": "3D Morph - PowerPoint 2019+ керек, телефонда көрінбейді, компьютерде слайд-шоу режимінде ашыңыз",
+}
+
+
+def med3d_filename(topic: str, language: str) -> str:
+    """3D Anatomiya fayli nomi: mavzu va ko'rish sharti (mijoz tanlagan tilda)."""
+    key = "uz_cyrl" if language == uz_script.UZ_CYRILLIC_LANG else (language or "uz")
+    note = _MED3D_FILE_NOTE.get(key) or _MED3D_FILE_NOTE["en"]
+    name = re.sub(r'\s+', " ", re.sub(r'[\\/:*?"<>|]+', " ", topic or "")).strip()[:40].strip() or "3D"
+    return f"{name} ({note}).pptx"
+
+
 # 3D qilib bo'lmaydigan mavzu: shu mavzuda oddiy (zamonaviy) taqdimot taklif qilinadi.
 MED3D_ALT_ASK = {
     "uz": "Bu mavzuda oddiy zamonaviy taqdimot qilib beraylikmi?",
@@ -2161,6 +2180,8 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         pass
 
     filename = f"Taqdimot_{topic[:30].replace(' ', '_')}.pptx"
+    if _kind_of(data) == KIND_MED3D:         # ko'rish sharti fayl nomining o'zida — mijoz tanlagan tilda
+        filename = med3d_filename(topic, presentation_language)
     try:
         from aiogram.types import FSInputFile
         document = FSInputFile(final_path, filename=filename)

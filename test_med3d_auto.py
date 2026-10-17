@@ -406,6 +406,12 @@ async def bot_flow():
     os.environ.pop("MED3D_OCHIQ", None)
     check("MED3D_OCHIQ=0 — admin bo'lmaganga «tez orada»", cb3.answer.await_args is not None
           and cb3.answer.await_args.kwargs.get("show_alert"))
+    from services import uz_script as _uzs
+    check("3D fayl nomida ko'rish sharti — mijoz tanlagan tilda",
+          "PowerPoint 2019+" in pp.med3d_filename("Yurak: tuzilishi", "uz") and "telefonda" in pp.med3d_filename("x", "uz")
+          and "на телефоне" in pp.med3d_filename("x", "ru") and "Slide Show" in pp.med3d_filename("x", "en")
+          and "телефонда кўринмайди" in pp.med3d_filename("x", _uzs.UZ_CYRILLIC_LANG)
+          and ":" not in pp.med3d_filename("Yurak: tuzilishi", "uz") and pp.med3d_filename("x", "uz").endswith(".pptx"))
     state4 = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=4, user_id=4))
     await state4.update_data(topic="Qon tahlili", kind="med3d", slide_count=10, m3d_style="kobalt")
     await pp.premium_med3d_alternative(callback(Chat(), "prem_m3d_alt:ha", user=4), state4, db)
