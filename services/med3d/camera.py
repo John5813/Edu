@@ -138,3 +138,98 @@ class Camera:
         score = crowd - 0.5 * np.sqrt(((cand - mid) ** 2).sum(axis=1)) / reach
         pick = cand[int(np.argmax(score))]
         return float(pick[0]), float(pick[1])
+
+
+class IdBuffer:
+    """Slaydning "qaysi pikselda qaysi organ ko'rinadi" xaritasi: organ yuzasidan zich nuqtalar proyeksiya qilinadi
+    va har pikselda kameraga eng yaqini qoladi (z-bufer). Siyrak namunalar bo'yicha taxmin emas — yorliq nuqtasi
+    organning haqiqatan ko'rinib turgan joyiga tushadi, boshqa organ ostiga emas.
+
+    layers — [(kalit, slayddagi x, y dyuymda, chuqurlik)]: kalit odatda (guruh, organ).
+    """
+
+    def __init__(self, layers, width: float, height: float, dpi: float = 40.0):
+        self.dpi = dpi
+        self.w, self.h = int(width * dpi) + 1, int(height * dpi) + 1
+        self.keys = [key for key, *_ in layers]
+        xs, ys, zs, ids = [], [], [], []
+        for k, (_, x, y, z) in enumerate(layers):
+            xs.append(np.asarray(x, float))
+            ys.append(np.asarray(y, float))
+            zs.append(np.asarray(z, float))
+            ids.append(np.full(len(xs[-1]), k, dtype=np.int32))
+        self.ids = np.full((self.h, self.w), -1, dtype=np.int32)
+        self.depth = np.full((self.h, self.w), -np.inf)
+        if not xs:
+            return
+        x, y, z, idx = np.concatenate(xs), np.concatenate(ys), np.concatenate(zs), np.concatenate(ids)
+        col, row = np.floor(x * dpi).astype(int), np.floor(y * dpi).astype(int)
+        ok = (col >= 0) & (col < self.w) & (row >= 0) & (row < self.h)
+        col, row, z, idx = col[ok], row[ok], z[ok], idx[ok]
+        pix = row * self.w + col
+        order = np.lexsort((-z, pix))                  # har piksel ichida eng yaqini birinchi
+        pix, z, idx = pix[order], z[order], idx[order]
+        first = np.r_[True, pix[1:] != pix[:-1]]
+        flat_ids, flat_depth = self.ids.reshape(-1), self.depth.reshape(-1)
+        flat_ids[pix[first]] = idx[first]
+        flat_depth[pix[first]] = z[first]
+        self._close_holes()
+
+    def _close_holes(self) -> None:
+        """Nuqtalar orasidagi bo'sh piksel (8 qo'shnidan kamida 5 tasi band) eng yaqin qo'shni bilan to'ldiriladi."""
+        for _ in range(2):
+            pad_d = np.pad(self.depth, 1, constant_values=-np.inf)
+            pad_i = np.pad(self.ids, 1, constant_values=-1)
+            near_d = np.stack([pad_d[1 + dy:self.h + 1 + dy, 1 + dx:self.w + 1 + dx]
+                               for dy in (-1, 0, 1) for dx in (-1, 0, 1) if dy or dx])
+            near_i = np.stack([pad_i[1 + dy:self.h + 1 + dy, 1 + dx:self.w + 1 + dx]
+                               for dy in (-1, 0, 1) for dx in (-1, 0, 1) if dy or dx])
+            fill = (self.ids < 0) & (np.isfinite(near_d).sum(axis=0) >= 5)
+            if not fill.any():
+                return
+            best = np.argmax(near_d, axis=0)
+            rows, cols = np.nonzero(fill)
+            self.ids[rows, cols] = near_i[best[rows, cols], rows, cols]
+            self.depth[rows, cols] = near_d[best[rows, cols], rows, cols]
+
+    @staticmethod
+    def _erode(mask: np.ndarray) -> np.ndarray:
+        pad = np.pad(mask, 1, constant_values=False)
+        out = mask.copy()
+        h, w = mask.shape
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                out &= pad[1 + dy:h + 1 + dy, 1 + dx:w + 1 + dx]
+        return out
+
+    def visible_pixels(self, key) -> int:
+        if key not in self.keys:
+            return 0
+        return int((self.ids == self.keys.index(key)).sum())
+
+    def anchor(self, key, min_pixels: int = 6) -> Optional[Tuple[float, float]]:
+        """Organning ko'rinib turgan qismining eng "ichkari" nuqtasi (chetidan eng uzoq piksel) — slayd dyuymida.
+        Organ deyarli ko'rinmasa — None."""
+        if key not in self.keys:
+            return None
+        mask = self.ids == self.keys.index(key)
+        if mask.sum() < min_pixels:
+            return None
+        while True:                                     # eroziya: eng qalin joy qoladi
+            inner = self._erode(mask)
+            if not inner.any():
+                break
+            mask = inner
+        rows, cols = np.nonzero(mask)
+        cy, cx = rows.mean(), cols.mean()
+        k = int(np.argmin((rows - cy) ** 2 + (cols - cx) ** 2))
+        return (cols[k] + 0.5) / self.dpi, (rows[k] + 0.5) / self.dpi
+
+    def near_model(self, x: float, y: float, gap: float) -> bool:
+        """(x, y) dyuym nuqtasidan `gap` dyuym radiusda modelning biror pikseli bormi."""
+        r = max(1, int(round(gap * self.dpi)))
+        col, row = int(x * self.dpi), int(y * self.dpi)
+        r0, r1, c0, c1 = max(0, row - r), min(self.h, row + r + 1), max(0, col - r), min(self.w, col + r + 1)
+        if r0 >= r1 or c0 >= c1:
+            return False
+        return bool((self.ids[r0:r1, c0:c1] >= 0).any())

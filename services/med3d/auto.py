@@ -64,6 +64,11 @@ class NotAnatomy(RuntimeError):
     """Mavzu tana tuzilishiga oid emas — taqdimot qilinmaydi (pul qaytariladi)."""
 
 
+class PicturesUnavailable(RuntimeError):
+    """Kasallik mavzusi, lekin kasallik rasmini chizadigan xizmat ishlamayapti — 3D yig'ilmaydi, pul qaytariladi va
+    mijozga keyinroq urinib ko'rish aytiladi (rasmsiz kasallik taqdimoti to'lagan narxiga yarasha emas)."""
+
+
 @lru_cache(maxsize=1)
 def lexicon() -> dict:
     with open(LEXICON, encoding="utf-8") as fh:
@@ -104,7 +109,8 @@ Return ONLY a JSON object:
  "slides": [{"title": "...", "text": "...", "show": ["<organ_id>", ...], "focus": ["<organ_id>"],
              "rot": [x, y, z], "labels": ["<organ_id>", ...], "exit": "up" | "down" | "left" | "right",
              "stage": "anatomy" | "disease" | "diagnosis" | "treatment" | "summary",
-             "lesion": ["<organ_id>"], "picture": "<English image prompt or empty>"}]}
+             "lesion": ["<organ_id>"], "picture": "<English image prompt or empty>",
+             "latin": "<Latin medical term of the disease/procedure in the title, or empty>"}]}
 
 RULES
 1. "anatomy": false when the topic is NOT about the structure of the human body (history, economics, literature,
@@ -155,6 +161,9 @@ RULES
    e.g. "close-up of a full-thickness tear of the supraspinatus tendon at the greater tubercle of the humerus,
    frayed tendon fibres, inflamed subacromial bursa". One structure, close-up, no people's faces, never genitals
    or nudity. A slide with a picture has a shorter "text" (at most 230 characters) and exactly one "lesion".
+15. "latin" (disease topics): on every "disease", "diagnosis" and "treatment" slide whose title names a disease,
+   its form or a procedure — its Latin (international medical) term, e.g. "Ruptura manicae rotatorum",
+   "Tendinopathia musculi supraspinati", "Syndroma conflictus subacromialis", "Arthroscopia". Otherwise "".
 14. "side" = "right" for topics about one limb or joint (shoulder, elbow, wrist, hand, hip, knee, ankle, foot,
    their muscles and diseases): only the right side is shown, so the camera can come close to one joint.
    Otherwise null.
@@ -260,13 +269,14 @@ def normalize(data: dict, count: int, language: str) -> dict:
         labels = list(dict.fromkeys(lesion + labels))[:MAX_LABELS]
         stage = (s.get("stage") if s.get("stage") in STAGES else "disease") if disease else ""
         picture = re.sub(r"\s+", " ", str(s.get("picture") or "")).strip()[:400] if disease and lesion else ""
+        latin = re.sub(r"\s+", " ", str(s.get("latin") or "")).strip()[:80] if disease else ""
         slides.append({
             "title": str(s.get("title") or "").strip()[:90],
             "text": re.sub(r"\s+\n", "\n", str(s.get("text") or "").strip())[:520],
             "show": show, "focus": focus or None, "labels": list(dict.fromkeys(labels)), "support": support,
             "rot": [_num(rot[0], -60, 60), _num(rot[1], -180, 180), _num(rot[2], -30, 30)],
             "exit": s.get("exit") if s.get("exit") in ("up", "down", "left", "right") else "up",
-            "stage": stage, "lesion": lesion, "picture": picture,
+            "stage": stage, "lesion": lesion, "picture": picture, "latin": latin,
         })
     pictures = 0
     for s in slides:                              # rasm — ko'pi bilan MAX_PICTURES ta (generatsiya vaqti va narxi)
@@ -574,6 +584,31 @@ def neighbours(body: dict, organ: str, slides: List[dict]) -> List[str]:
     return out
 
 
+SURFACE_MAX, SURFACE_MIN = 60000, 6000   # yorliq nuqtasi uchun organ yuzasidan nuqtalar (`camera.IdBuffer`)
+
+
+def surface_points(meshes: List[tuple], count: int, seed: int = 0) -> np.ndarray:
+    """Organ yuzasidan maydoniga mutanosib tasodifiy nuqtalar (uchburchaklar ichida) — z-bufer uchun."""
+    pos, _, idx, _ = _joined(meshes)
+    tri = pos[idx.reshape(-1, 3)]
+    area = 0.5 * np.linalg.norm(np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0]), axis=1)
+    if not len(tri) or area.sum() <= 0:
+        return pos.astype(np.float32)
+    rng = np.random.default_rng(seed)
+    pick = rng.choice(len(tri), size=count, p=area / area.sum())
+    a, b = rng.random(count), rng.random(count)
+    flip = a + b > 1
+    a[flip], b[flip] = 1 - a[flip], 1 - b[flip]
+    t = tri[pick]
+    return (t[:, 0] + a[:, None] * (t[:, 1] - t[:, 0]) + b[:, None] * (t[:, 2] - t[:, 0])).astype(np.float32)
+
+
+def mesh_area(meshes: List[tuple]) -> float:
+    pos, _, idx, _ = _joined(meshes)
+    tri = pos[idx.reshape(-1, 3)]
+    return float(0.5 * np.linalg.norm(np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0]), axis=1).sum())
+
+
 OCCLUDER_POINTS = 2500           # yorliq uchun "qaysi organ yopilgan" hisobi: organ to'ridan shuncha nuqta
 
 
@@ -678,6 +713,11 @@ def build_scenes(body_key: str, plan_: dict, atlas=None, quality: float = 1.0) -
                                                          paint=LESION)
                 prims[(organ, "lesion")] = shaded[sick_key]
         reveal_focus(Camera(lo, hi), [slides[i] for i in members], dense)
+        areas = {o: mesh_area(geometry[(o, targets[o])]) for o in organs}
+        top = max(areas.values()) or 1.0
+        surface = {o: surface_points(geometry[(o, targets[o])],
+                                     int(np.clip(areas[o] / top * SURFACE_MAX, SURFACE_MIN, SURFACE_MAX)), seed=k)
+                   for k, o in enumerate(organs)}
         groups, labels = {}, {}
         for i in members:
             show = sorted(slides[i]["show"])
@@ -703,10 +743,11 @@ def build_scenes(body_key: str, plan_: dict, atlas=None, quality: float = 1.0) -
                     pid = part_of(o)
                     parts.append(pid)
                     if pid not in groups:
-                        groups[pid] = {"samples": body[o]["samples"],
+                        groups[pid] = {"samples": body[o]["samples"], "surface": [(o, surface[o])],
                                        "glb": write_glb(model_of(o), anchors=(lo, hi), name=pid)}
                         labels[f"{pid}:{o}"] = {"uz": names.get(o, BY_ID[o]["uz"]), "la": BY_ID[o].get("la", ""),
-                                                "group": pid, "samples": body[o]["samples"], "alert": o in sick}
+                                                "group": pid, "samples": body[o]["samples"], "alert": o in sick,
+                                                "organ": o}
                 placed.append((i, key, ("parts", tuple(show), tuple(sorted(sick))), dict(
                     slides[i], scene=key, show=parts, focus=None,
                     focus_points=[p for o in show for p in body[o]["samples"]],
@@ -715,10 +756,12 @@ def build_scenes(body_key: str, plan_: dict, atlas=None, quality: float = 1.0) -
             gid = set_id(show + [f"!{o}" for o in sorted(sick)] + (["~calm"] if sick else []))
             if gid not in groups:
                 groups[gid] = {"samples": [p for o in show for p in body[o]["samples"]],
+                               "surface": [(o, surface[o]) for o in show],
                                "glb": write_glb([p for o in show for p in model_of(o)], anchors=(lo, hi), name=gid)}
                 for o in show:
                     labels[f"{gid}:{o}"] = {"uz": names.get(o, BY_ID[o]["uz"]), "la": BY_ID[o].get("la", ""),
                                             "group": gid, "samples": body[o]["samples"], "alert": o in sick,
+                                            "organ": o,
                                             "occluders": [p for x in show if x != o for p in dense[x]]}
             support = set(slides[i].get("support") or ()) & set(show)
             placed.append((i, key, ("set", gid), dict(slides[i], scene=key, show=[gid], focus=None,
@@ -865,8 +908,11 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
     log.info("3D Anatomiya: %s tana, %d slayd, organlar: %s", plan_["body"], len(plan_["slides"]),
              sorted({o for s in plan_["slides"] for o in s["show"]}))
     if any(s.get("picture") for s in plan_["slides"]):
+        # Kasallik rasmlari 3D dan OLDIN: xizmat ishlamasa — mijozdan keyinroq urinib ko'rish so'raladi.
         stage("pictures")
-        await draw_pictures(plan_)
+        ready = await loop.run_in_executor(None, pictures_ready)
+        if not ready or not await draw_pictures(plan_):
+            raise PicturesUnavailable("kasallik rasmlari chizilmadi")
     stage("models", slides=len(plan_["slides"]))
     try:
         path = await asyncio.wait_for(loop.run_in_executor(None, lambda: make_deck(topic, plan_, style=style)),
@@ -879,6 +925,29 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
                 except OSError:
                     pass
     return path, len(plan_["slides"])
+
+
+# Kasallik rasmi uchun kuchli modellar (navbat bilan): Seedream 4 — realistik va tibbiy mavzuni moderatsiyada
+# rad etmaydi, Nano Banana — mavzuni eng yaxshi tushunadi, FLUX — zaxira. `MED3D_IMAGE_MODELS` bilan almashtiriladi.
+PICTURE_MODELS = ("ByteDance-Seed/Seedream-4.0,google/flash-image-2.5,black-forest-labs/FLUX.2-pro,"
+                  "black-forest-labs/FLUX.1.1-pro")
+
+
+def picture_models() -> List[str]:
+    raw = os.getenv("MED3D_IMAGE_MODELS") or PICTURE_MODELS
+    return [m.strip() for m in raw.split(",") if m.strip()]
+
+
+def pictures_ready() -> bool:
+    """Rasm xizmati ishga yaroqlimi (bepul tekshiruv: kalit bor va hisobda modellardan biri ochiq)."""
+    if not os.getenv("TOGETHER_API_KEY"):
+        return False
+    from services.together_service import list_account_image_models
+
+    have = list_account_image_models()
+    if have is None:                              # ro'yxatni olib bo'lmadi — chizishda ko'riladi
+        return True
+    return any(m.lower() in have for m in picture_models())
 
 
 PICTURE_STYLE = ("detailed medical textbook illustration, anatomically accurate, realistic 3D medical render, "
@@ -904,7 +973,7 @@ async def draw_pictures(plan_: dict, timeout: float = 150.0) -> int:
     async def one(slide: dict) -> None:
         prompt = f"{slide['picture']}. {PICTURE_STYLE}"
         try:
-            path = await asyncio.wait_for(together.generate_image(prompt, aspect_ratio="16:9", target="premium"),
+            path = await asyncio.wait_for(together.generate_with_models(prompt, picture_models(), stem="med3d_pic"),
                                           timeout)
         except Exception as exc:                  # noqa: BLE001
             log.warning("3D Anatomiya: rasm chizilmadi (%s): %s", slide["picture"][:60], exc)

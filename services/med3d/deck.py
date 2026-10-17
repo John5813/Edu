@@ -32,7 +32,7 @@ from pptx.util import Inches, Pt
 from services.pro3d.build import add_entrances, add_morph
 
 from . import ASSETS_DIR, design, load_scene
-from .camera import Camera, sides
+from .camera import Camera, IdBuffer, sides
 from .pptx3d import add_model3d
 
 log = logging.getLogger(__name__)
@@ -199,18 +199,25 @@ def _untangle(edges: List[float], anchors: List[Tuple[float, float]], ys: List[f
     return ys
 
 
-def _stop_before(start, target, outline: np.ndarray, gap: float = 0.2) -> Tuple[float, float]:
+def _stop_before(start, target, outline, gap: float = 0.2) -> Tuple[float, float]:
     """Yorliqdan `target` ga (yopilgan organ joyiga) boradigan chiziq qayerda to'xtaydi: model siluetiga `gap`
-    dyuym qolganda. Chiziq boshidanoq model ustida bo'lsa — yorliqdan qisqa strelka organ tomonga."""
+    dyuym qolganda. Chiziq boshidanoq model ustida bo'lsa — yorliqdan qisqa strelka organ tomonga.
+    outline — model piksel xaritasi (`IdBuffer`) yoki silueti nuqtalari (N×2, dyuym)."""
     (x0, y0), (x1, y1) = start, target
     length = math.hypot(x1 - x0, y1 - y0)
-    if length < 1e-6 or not len(outline):
+    if isinstance(outline, IdBuffer):
+        near = lambda px, py: outline.near_model(px, py, gap)                     # noqa: E731
+    else:
+        if not len(outline):
+            return x1, y1
+        near = lambda px, py: float(np.min((outline[:, 0] - px) ** 2 + (outline[:, 1] - py) ** 2)) < gap * gap  # noqa: E731
+    if length < 1e-6:
         return x1, y1
     steps = max(2, int(length / 0.03))
     for k in range(steps + 1):
         t = k / steps
         px, py = x0 + (x1 - x0) * t, y0 + (y1 - y0) * t
-        if float(np.min((outline[:, 0] - px) ** 2 + (outline[:, 1] - py) ** 2)) < gap * gap:
+        if near(px, py):
             t = max(t - 0.05 / length, min(0.6 / length, 1.0))     # kamida 0.6 dyuymli strelka
             return x0 + (x1 - x0) * t, y0 + (y1 - y0) * t
     return x1, y1
@@ -354,8 +361,19 @@ def _labels(cam: Camera, scene: dict, frame: Frame, keys: Sequence[str], visible
     items = []
     alerts = set()                               # zararlangan organ yorliqlari (qizil)
     hidden: set = set()                          # boshqa organ ortidagi organlar — strelka
-    outline: Dict[str, np.ndarray] = {}          # ular uchun model siluetining nuqtalari (slaydda, dyuym)
+    outline: Dict[str, object] = {}              # ular uchun model silueti (piksel xaritasi yoki nuqtalar)
     x_lo, x_hi = lay.labels_x
+    # Aniq yuza (avtomatik sahnalar): piksel xaritasi — har pikselda qaysi organ ko'rinadi.
+    buf = None
+    if all("surface" in scene["groups"][g] for g in visible if g in scene["groups"]):
+        layers = []
+        for g in visible:
+            gx, gy = offsets.get(g, (0.0, 0.0))
+            for organ, pts in scene["groups"][g]["surface"]:
+                uv, z = cam.project(pts, frame.rot)
+                layers.append(((g, organ), frame.cx + gx + uv[:, 0] * frame.size,
+                               frame.cy + gy + uv[:, 1] * frame.size, z))
+        buf = IdBuffer(layers, W, H)
     for key in keys:
         info = known.get(key)
         if not info or info["group"] not in visible:
@@ -365,7 +383,10 @@ def _labels(cam: Camera, scene: dict, frame: Frame, keys: Sequence[str], visible
         # Birlashgan modelda (bir nechta organ — bitta GLB) to'suvchilar yorliqning o'zida beriladi.
         others = info.get("occluders") or [p for g in visible if g != info["group"] for p in scene["groups"][g]["samples"]]
         radius = 0.12 / frame.size
-        covered = bool(others) and cam.visible_share(info["samples"], frame.rot, others, radius) < HIDDEN_SHARE
+        if buf is not None:
+            covered = False
+        else:
+            covered = bool(others) and cam.visible_share(info["samples"], frame.rot, others, radius) < HIDDEN_SHARE
         # Uzun organ (qizilo'ngach, aorta) qisman slayddan chiqib turishi mumkin: nuqta slayd ichidagi qismidan.
         pts = np.asarray(info["samples"], float)
         uv, _ = cam.project(pts, frame.rot)
@@ -373,7 +394,12 @@ def _labels(cam: Camera, scene: dict, frame: Frame, keys: Sequence[str], visible
         inside = (sx >= x_lo) & (sx <= x_hi) & (sy >= 0.15) & (sy <= H - 0.15)
         if inside.sum() >= 3:
             pts = pts[inside]
-        spot = None if covered else cam.anchor(pts, frame.rot, others, radius)
+        exact = None
+        if buf is not None:
+            exact = buf.anchor((info["group"], info.get("organ")))
+            spot = None if exact is None else (0.0, 0.0)
+        else:
+            spot = None if covered else cam.anchor(pts, frame.rot, others, radius)
         if spot is None:
             # Organ boshqasi ortida: chiziq sirtdagi nuqtaga emas (u boshqa organ ustiga tushardi), organ turgan
             # tomonga strelka bo'lib boradi va 3D modelga yetmasdan to'xtaydi (`_stop_before`).
@@ -381,6 +407,15 @@ def _labels(cam: Camera, scene: dict, frame: Frame, keys: Sequence[str], visible
             near = max(parts, key=lambda part: float(cam.project(part, frame.rot)[1].mean()))
             u, v = (float(c) for c in cam.project(near, frame.rot)[0].mean(axis=0))
             hidden.add(key)
+            if buf is not None:
+                outline[key] = buf
+                ax, ay = frame.cx + ox + u * frame.size, frame.cy + oy + v * frame.size
+                name = re.sub(r"\s*\([^)]*\)", "", info["uz"]).strip() or info["uz"]
+                if x_lo <= ax <= x_hi and 0.15 <= ay <= H - 0.15:
+                    items.append((key, name, ax, ay, info.get("la", "")))
+                    if info.get("alert"):
+                        alerts.add(key)
+                continue
             sil = []
             for g in visible:
                 gx, gy = offsets.get(g, (0.0, 0.0))
@@ -390,6 +425,8 @@ def _labels(cam: Camera, scene: dict, frame: Frame, keys: Sequence[str], visible
                 guv, _ = cam.project(info["occluders"], frame.rot)
                 sil.append(np.stack([frame.cx + ox + guv[:, 0] * frame.size, frame.cy + oy + guv[:, 1] * frame.size], 1))
             outline[key] = np.vstack(sil)
+        elif exact is not None:
+            u, v = (exact[0] - frame.cx - ox) / frame.size, (exact[1] - frame.cy - oy) / frame.size
         else:
             u, v = spot
         ax, ay = frame.cx + ox + u * frame.size, frame.cy + oy + v * frame.size
@@ -539,6 +576,10 @@ def _text_column(slide, data: dict, number: int, total: int, source: str, st, la
     bx, by, bw, bh = lay.body
     if _has_picture(data, lay):                          # rasm matn ostida — matn qisqaroq joyda
         bh = bh - PIC_H - 0.3
+    if data.get("latin"):                                # kasallikning lotincha nomi — matn ustida, kursivda
+        design.textbox(slide, "!!latin", bx, by - 0.05, bw, 0.36, data["latin"], size=lay.body_size + 1,
+                       smallest=10, color=st.accent, font=st.head_font, italic=True)
+        by, bh = by + 0.42, bh - 0.42
     if lay.panel:
         px, py, pw, ph = lay.panel
     else:                                     # boshqa kompozitsiyada panel slayd tashqarisida kutib turadi
@@ -549,7 +590,7 @@ def _text_column(slide, data: dict, number: int, total: int, source: str, st, la
     design.shape(slide, "!!accent", MSO_SHAPE.ROUNDED_RECTANGLE, ax, ay, 0.9, 0.07, st.accent, round_=0.5)
     if data.get("stage"):                                # kasallik taqdimoti: bo'lim nomi (anatomiya → davolash)
         names = STAGE_NAMES.get(lang, STAGE_NAMES["en"])
-        design.textbox(slide, "!!stage", ax + 1.05, ay - 0.1, 3.2, 0.26, names.get(data["stage"], ""), size=10,
+        design.textbox(slide, "!!stage", ax + 1.05, ay - 0.13, 3.2, 0.22, names.get(data["stage"], ""), size=10,
                        color=ALERT if data["stage"] in ("disease", "diagnosis") else st.accent, font=st.body_font,
                        bold=True, caps=True)
     title = design.textbox(slide, "!!title", tx, ty, tw, th, data.get("title", ""), size=lay.title_size,
