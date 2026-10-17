@@ -1344,6 +1344,33 @@ def med3d_note(lang: str) -> str:
     return MED3D_NOTE.get(lang) or MED3D_NOTE["uz"]
 
 
+# 3D taqdimot bilan birga yuboriladigan yo'riqnoma videosi: slayd-shou tugmasi, Morph qanday ko'rinishi va
+# telefonda 3D ko'rinmasligi. Birinchi yuborishdan keyin Telegram file_id si eslab qolinadi (qayta yuklanmaydi).
+MED3D_GUIDE_VIDEO = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                                 "assets", "med3d", "korish_yoriqnoma.mp4")
+_med3d_guide_id = None                           # Telegram file_id (str)
+
+
+async def _send_med3d_guide(message: Message, lang: str) -> None:
+    """Yo'riqnoma videosi (izohi — `med3d_note`); video bo'lmasa yoki yuborilmasa — faqat matn."""
+    global _med3d_guide_id
+    from aiogram.types import FSInputFile
+
+    caption = med3d_note(lang)
+    video = _med3d_guide_id or (FSInputFile(MED3D_GUIDE_VIDEO) if os.path.exists(MED3D_GUIDE_VIDEO) else None)
+    if video is not None:
+        try:
+            sent = await message.answer_video(video=video, caption=caption[:1024], width=1080, height=1920,
+                                              supports_streaming=True)
+            if sent and sent.video:
+                _med3d_guide_id = sent.video.file_id
+            return
+        except Exception as exc:                      # noqa: BLE001
+            logger.warning("3D yo'riqnoma videosi yuborilmadi: %s", exc)
+            _med3d_guide_id = None
+    await message.answer(caption)
+
+
 # Mavzu tana tuzilishiga oid bo'lmasa (AI tekshiruvi) — pul qaytariladi va shu aytiladi.
 MED3D_NOT_ANATOMY = {
     "uz": "🫀 Bu mavzu inson tanasi tuzilishiga oid emas, shuning uchun 3D Anatomiya taqdimoti qilinmadi.",
@@ -2192,9 +2219,9 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         if _kind_of(data) == KIND_PRO3D:
             with contextlib.suppress(Exception):
                 await callback.message.answer(pro3d_note(lang))
-        if _kind_of(data) == KIND_MED3D:     # telefonda 3D ko'rinmaydi — albatta aytiladi
+        if _kind_of(data) == KIND_MED3D:     # telefonda 3D ko'rinmaydi — yo'riqnoma videosi bilan aytiladi
             with contextlib.suppress(Exception):
-                await callback.message.answer(med3d_note(lang))
+                await _send_med3d_guide(callback.message, lang)
         logger.info("Premium taqdimot yuborildi: %s → %s", final_path, callback.from_user.id)
         if _kind_of(data) not in (KIND_PRO3D, KIND_MED3D):  # "Rahmat" animatsiyasi zamonaviy taqdimot uchun
             await _offer_thanks_anim(callback, db, final_path, topic=topic, data=data,
