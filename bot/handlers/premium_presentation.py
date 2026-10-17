@@ -466,14 +466,20 @@ MED3D_TOPIC_DISEASE = {
 }
 
 
-def _med3d_choice_keyboard(lang: str) -> InlineKeyboardMarkup:
-    texts = {"uz": ("📊 Oddiy taqdimot qilish", "✏️ Boshqa mavzu yozish"),
-             "ru": ("📊 Сделать обычную презентацию", "✏️ Написать другую тему"),
-             "en": ("📊 Make a regular presentation", "✏️ Enter another topic"),
-             "kk": ("📊 Қарапайым презентация жасау", "✏️ Басқа тақырып жазу")}
-    regular, other = texts.get(lang) or texts["uz"]
-    return _markup([[InlineKeyboardButton(text=regular, callback_data="prem_m3d_alt:ha")],
-                    [InlineKeyboardButton(text=other, callback_data="prem_m3d_alt:mavzu")]])
+ALT_KINDS = ("info", "modern", "classic")             # 3D bo'lmasa taklif qilinadigan turlar (KIND_*)
+
+
+def _med3d_choice_keyboard(lang: str, cancel: bool = False) -> InlineKeyboardMarkup:
+    """3D qilib bo'lmaydigan mavzu: boshqa turlar (Infografik, Zamonaviy, Klassik), boshqa mavzu, [bekor qilish]."""
+    other = {"uz": "✏️ Boshqa mavzu yozish", "ru": "✏️ Написать другую тему", "en": "✏️ Enter another topic",
+             "kk": "✏️ Басқа тақырып жазу"}
+    rows = [[InlineKeyboardButton(text=_KIND_BUTTONS[k].get(lang) or _KIND_BUTTONS[k]["uz"],
+                                  callback_data=f"prem_m3d_alt:kind:{k}")] for k in ALT_KINDS]
+    rows.append([InlineKeyboardButton(text=other.get(lang) or other["uz"], callback_data="prem_m3d_alt:mavzu")])
+    if cancel:
+        no = {"uz": "❌ Kerak emas", "ru": "❌ Не нужно", "en": "❌ No, thanks", "kk": "❌ Керек емес"}
+        rows.append([InlineKeyboardButton(text=no.get(lang) or no["uz"], callback_data="prem_m3d_alt:yoq")])
+    return _markup(rows)
 
 
 async def _med3d_topic_gate(message: Message, state: FSMContext, lang: str) -> bool:
@@ -916,6 +922,24 @@ async def _step_kind(message: Message, state: FSMContext, lang: str) -> None:
     await _prompt(message, state, text, keyboard, "kind", PremiumPresentationStates.waiting_for_kind)
 
 
+async def _set_kind(state: FSMContext, kind: str) -> None:
+    """Tur tanlanganda uning boshlang'ich sozlamalari (uslub, matn hajmi)."""
+    await state.update_data(kind=kind)
+    if kind == KIND_CLASSIC:
+        await state.update_data(style=SIMPLE_STYLE, volume="")
+    elif kind == KIND_PRO3D:
+        # Uslub ham, matn hajmi ham so'ralmaydi: rang va ko'rinishni AI mavzuga qarab tanlaydi.
+        await state.update_data(style="", volume="")
+        with contextlib.suppress(Exception):     # fon olib tashlash modeli oldindan tayyorlansin
+            from services.pro3d import cutout
+
+            cutout.warm()
+    elif kind == KIND_INFO:
+        await state.update_data(style=INFO_STYLE, volume="kam")
+    else:
+        await state.update_data(style="", volume="kop")
+
+
 @router.callback_query(F.data.startswith("prem_ppt_kind:"), PremiumPresentationStates.waiting_for_kind)
 async def premium_ppt_kind_selected(callback: CallbackQuery, state: FSMContext, db: Database):
     """Tur tanlandi (birinchi qadam) — keyin mavzu. Tur keyingi qadamlarni belgilaydi: zamonaviyda manbadan
@@ -941,20 +965,7 @@ async def premium_ppt_kind_selected(callback: CallbackQuery, state: FSMContext, 
     await callback.answer()
     if kind not in KINDS:
         kind = KIND_INFO
-    await state.update_data(kind=kind)
-    if kind == KIND_CLASSIC:
-        await state.update_data(style=SIMPLE_STYLE, volume="")
-    elif kind == KIND_PRO3D:
-        # Uslub ham, matn hajmi ham so'ralmaydi: rang va ko'rinishni AI mavzuga qarab tanlaydi.
-        await state.update_data(style="", volume="")
-        with contextlib.suppress(Exception):     # fon olib tashlash modeli oldindan tayyorlansin
-            from services.pro3d import cutout
-
-            cutout.warm()
-    elif kind == KIND_INFO:
-        await state.update_data(style=INFO_STYLE, volume="kam")
-    else:
-        await state.update_data(style="", volume="kop")
+    await _set_kind(state, kind)
     # Mavzu allaqachon yozilgan bo'lsa (orqaga qaytib turni almashtirgan) — u saqlanadi, so'rov qayta chiqadi.
     await _step_topic(callback.message, state, lang)
 
@@ -1480,37 +1491,33 @@ def med3d_filename(topic: str, language: str) -> str:
 
 # 3D qilib bo'lmaydigan mavzu: shu mavzuda oddiy (zamonaviy) taqdimot taklif qilinadi.
 MED3D_ALT_ASK = {
-    "uz": "Bu mavzuda oddiy zamonaviy taqdimot qilib beraylikmi?",
-    "ru": "Сделать по этой теме обычную современную презентацию?",
-    "en": "Shall we make a regular modern presentation on this topic?",
-    "kk": "Осы тақырыпта қарапайым заманауи презентация жасайық па?",
-}
-_MED3D_ALT_BUTTONS = {
-    "uz": ("📊 Ha, oddiy taqdimot qilish", "❌ Kerak emas"),
-    "ru": ("📊 Да, сделать обычную презентацию", "❌ Не нужно"),
-    "en": ("📊 Yes, make a regular presentation", "❌ No, thanks"),
-    "kk": ("📊 Иә, қарапайым презентация жасау", "❌ Керек емес"),
+    "uz": "Bu mavzuda boshqa turdagi taqdimot qilib beraylikmi? Turini tanlang:",
+    "ru": "Сделать по этой теме презентацию другого типа? Выберите тип:",
+    "en": "Shall we make another type of presentation on this topic? Choose the type:",
+    "kk": "Осы тақырыпта басқа түрдегі презентация жасайық па? Түрін таңдаңыз:",
 }
 
 
 def _med3d_alt_keyboard(lang: str) -> InlineKeyboardMarkup:
-    yes, no = _MED3D_ALT_BUTTONS.get(lang) or _MED3D_ALT_BUTTONS["uz"]
-    return _markup([[InlineKeyboardButton(text=yes, callback_data="prem_m3d_alt:ha")],
-                    [InlineKeyboardButton(text=no, callback_data="prem_m3d_alt:yoq")]])
+    return _med3d_choice_keyboard(lang, cancel=True)
 
 
 @router.callback_query(F.data.startswith("prem_m3d_alt:"))
 async def premium_med3d_alternative(callback: CallbackQuery, state: FSMContext, db: Database):
-    """3D qilib bo'lmagan mavzu: "Ha" — o'sha mavzuda zamonaviy taqdimot (uslub tanlashdan davom etadi)."""
+    """3D qilib bo'lmagan mavzu: tanlangan tur (Infografik / Zamonaviy / Klassik) o'z oqimi bilan BOSHIDAN
+    boshlanadi — faqat mavzu qayta so'ralmaydi (keyingi qadam — ism, keyin istaklar, uslub, slaydlar soni)."""
     await callback.answer()
     lang = await _lang_of(callback.from_user.id, db)
     data = await state.get_data()
-    if callback.data.endswith(":ha") and data.get("topic"):
+    choice = callback.data.split(":", 1)[1]
+    kind = choice.split(":", 1)[1] if choice.startswith("kind:") else (KIND_MODERN if choice == "ha" else "")
+    if kind in ALT_KINDS and data.get("topic"):
         with contextlib.suppress(Exception):
             await callback.message.edit_reply_markup(reply_markup=None)
-        await state.update_data(kind=KIND_MODERN, style="", volume="kop", m3d_style="", prompt_mid=None,
-                                payment_method=None)
-        await _step_style(callback.message, state, lang)
+        await state.update_data(m3d_style="", m3d_topic_kind=None, prompt_mid=None, payment_method=None,
+                                client_name="", preferences="")
+        await _set_kind(state, kind)
+        await _step_name(callback.message, state, lang)
         return
     if callback.data.endswith(":mavzu"):              # boshqa mavzu — 3D Anatomiya turida qoladi
         with contextlib.suppress(Exception):

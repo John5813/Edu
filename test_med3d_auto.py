@@ -390,7 +390,9 @@ async def bot_flow():
     await pp.premium_ppt_got_topic(chat.message("Inflyatsiya sabablari"), state, db)
     alt_cbs = [b.callback_data for b in buttons(chat.markups[-1])] if chat.markups and chat.markups[-1] else []
     check("mavzu yozilishi bilan tekshiriladi: 3D bo'lmasa darhol aytiladi va tugmalar chiqadi",
-          "ko'rsatib bo'lmaydi" in chat.edited[-1] and alt_cbs == ["prem_m3d_alt:ha", "prem_m3d_alt:mavzu"]
+          "ko'rsatib bo'lmaydi" in chat.edited[-1]
+          and alt_cbs == ["prem_m3d_alt:kind:info", "prem_m3d_alt:kind:modern", "prem_m3d_alt:kind:classic",
+                          "prem_m3d_alt:mavzu"]
           and await state.get_state() == PS.waiting_for_topic_text.state, (chat.edited[-1:], alt_cbs))
     await pp.premium_med3d_alternative(callback(chat, "prem_m3d_alt:mavzu"), state, db)
     check("«Boshqa mavzu» — 3D Anatomiyada qolib, mavzu qayta so'raladi",
@@ -465,11 +467,16 @@ async def bot_flow():
     pp._med3d_guide_id = None
     state4 = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=4, user_id=4))
     await state4.update_data(topic="Qon tahlili", kind="med3d", slide_count=10, m3d_style="kobalt")
-    await pp.premium_med3d_alternative(callback(Chat(), "prem_m3d_alt:ha", user=4), state4, db)
+    await pp.premium_med3d_alternative(callback(Chat(), "prem_m3d_alt:kind:info", user=4), state4, db)
     alt = await state4.get_data()
-    check("3D qilib bo'lmaydigan mavzu — «oddiy taqdimot» tugmasi zamonaviy turga o'tkazadi, mavzu saqlanadi",
-          alt.get("kind") == "modern" and alt.get("topic") == "Qon tahlili"
-          and await state4.get_state() == pp.PremiumPresentationStates.waiting_for_style.state, alt)
+    check("3D bo'lmasa «Infografik» — o'z oqimi boshidan (ism so'raladi), mavzu saqlanadi, uslub infografik",
+          alt.get("kind") == "info" and alt.get("topic") == "Qon tahlili" and alt.get("style") == pp.INFO_STYLE
+          and await state4.get_state() == pp.PremiumPresentationStates.waiting_for_client_name.state, alt)
+    await pp.premium_med3d_alternative(callback(Chat(), "prem_m3d_alt:kind:classic", user=4), state4, db)
+    alt = await state4.get_data()
+    check("«Klassik» — tayyor shablonlar oqimi boshidan", alt.get("kind") == "classic"
+          and alt.get("style") == pp.SIMPLE_STYLE
+          and await state4.get_state() == pp.PremiumPresentationStates.waiting_for_client_name.state, alt)
 
 
 asyncio.run(bot_flow())
