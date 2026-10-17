@@ -75,12 +75,16 @@ def _get_price(slide_count: int) -> int:
 
 
 def _price_of(data: dict, slide_count: int) -> int:
-    """Buyurtma narxi: 3D Pro — o'z narxi (rasmlar qimmat), qolgan turlar — zamonaviy taqdimot narxi."""
+    """Buyurtma narxi: 3D Pro va 3D Anatomiya — o'z narxi, qolgan turlar — zamonaviy taqdimot narxi."""
     if data.get("kind") == KIND_PRO3D:
         import services.pro3d as pro3d
 
         return pro3d.price_for(slide_count)
-    return _get_price(slide_count)          # 3D Anatomiya ham: rasm chizilmaydi, faqat bitta AI reja
+    if data.get("kind") == KIND_MED3D:      # 3D Anatomiya — haqiqiy 3D modellar: o'z narxi
+        from services.med3d import auto as med3d_auto
+
+        return med3d_auto.price_for(slide_count)
+    return _get_price(slide_count)
 
 
 def _back_text(lang: str) -> str:
@@ -963,7 +967,7 @@ def _count_options(style: str, kind: str = ""):
     if kind == KIND_MED3D:
         from services.med3d import auto as med3d_auto
 
-        return [(n, _get_price(n)) for n in med3d_auto.SLIDE_OPTIONS]
+        return [(n, med3d_auto.price_for(n)) for n in med3d_auto.SLIDE_OPTIONS]
     return [(n, _get_price(n)) for n in (5, 8, 10, 12, 15, 20, 25, 30)]
 
 
