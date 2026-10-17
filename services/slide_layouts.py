@@ -560,11 +560,17 @@ def r_image_top_columns(ctx, d):
         _hb(ctx, item, x + 0.2, y + 0.1, bw, bh, pt, anchor=MSO_ANCHOR.MIDDLE)
 
 
+HALF = 13.333 / 2          # rasmli varaqda rasm slaydning yarmini chetdan-chetga egallaydi
+SIDE_PAD = 0.45
+SIDE_IMAGE = {"image_left_bullets": "left", "image_right_cards": "right"}   # sarlavha matn tomonida
+
+
 def r_image_left_bullets(ctx, d):
     items = d["items"]
     n = len(items)
-    kit.picture(ctx, L, T + 0.05, 4.7, H - 0.1)
-    x0, w = L + 5.0, W - 5.0
+    kit.picture(ctx, 0, 0, HALF, 7.5, rounded=False)
+    x0 = HALF + SIDE_PAD
+    w = HALF - 2 * SIDE_PAD
     rh = (H - 0.1) / n
     bw, bh = w - 0.8, rh - 0.1
     pt = _hb_pt(ctx, [(i, bw, bh) for i in items], 19, 14)
@@ -577,12 +583,12 @@ def r_image_left_bullets(ctx, d):
 def r_image_right_cards(ctx, d):
     items = d["items"]
     gap = 0.2
-    cw, ch = 6.75, (H - 0.1 - 2 * gap) / 3
+    cw, ch = HALF - 2 * SIDE_PAD, (H - 0.1 - 2 * gap) / 3
     bw, bh = _row_card_box(cw, ch, 0.6)
     pt = _hb_pt(ctx, [(i, bw, bh) for i in items], 18, 14)
     for k, item in enumerate(items):
-        _row_card(ctx, item, k, L, T + 0.05 + k * (ch + gap), cw, ch, 0.6, pt)
-    kit.picture(ctx, L + 7.05, T + 0.05, W - 7.05, H - 0.1)
+        _row_card(ctx, item, k, SIDE_PAD, T + 0.05 + k * (ch + gap), cw, ch, 0.6, pt)
+    kit.picture(ctx, HALF, 0, HALF, 7.5, rounded=False)
 
 
 def r_image_overlay(ctx, d):

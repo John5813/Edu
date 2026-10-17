@@ -519,6 +519,8 @@ class DocumentService:
             layout = slide_data.get('layout', 'text')
             if layout == 'cover':
                 wanted.append((i, 'cover', topic))
+            elif layout == 'intro':                  # kirish varag'iga ham rasm (o'ng yarmida)
+                wanted.append((i, 'slide', slide_data.get('title', '') or topic))
             elif slide_layouts.image_kind(layout) in ('slide', 'panorama'):
                 wanted.append((i, slide_layouts.image_kind(layout), slide_data.get('title', '')))
 
@@ -789,7 +791,8 @@ class DocumentService:
         elif layout == 'plan':
             self._create_plan_slide(slide, slide_data)
         elif layout == 'intro':
-            self._create_intro_slide(slide, slide_data)
+            image = pre_fetched_image[0] if isinstance(pre_fetched_image, tuple) else pre_fetched_image
+            self._create_intro_slide(slide, slide_data, image)
         elif layout == 'two_column':
             self._create_two_column_slide(slide, slide_data, language, used_icons=used_icons)
         elif layout == 'right_image':
@@ -834,7 +837,12 @@ class DocumentService:
             return
 
         if not spec.own_title:
-            self._add_slide_title(slide, slide_data.get('title', ''))
+            side = slide_layouts.SIDE_IMAGE.get(layout)
+            if side:
+                left, width = self._side_text_box(side)
+                self._add_slide_title(slide, slide_data.get('title', ''), left=left, width=width)
+            else:
+                self._add_slide_title(slide, slide_data.get('title', ''))
         ctx = slide_kit.Ctx(
             slide=slide, pal=slide_kit.palette_for(template_service, template_id), language=language,
             used_icons=used_icons, use_icons=getattr(self, 'use_icons', True),
@@ -924,8 +932,18 @@ class DocumentService:
             p.alignment = PP_ALIGN.LEFT
             p.space_after = PptxPt(24)
 
-    def _create_intro_slide(self, slide, slide_data: Dict):
-        """3-varoq: Kirish - ~50 so'z"""
+    def _create_intro_slide(self, slide, slide_data: Dict, image_path: str | None = None):
+        """3-varoq: Kirish - ~50 so'z. Rasm bo'lsa — o'ng yarmida (chetdan-chetga), matn chapda."""
+        if image_path and os.path.isfile(str(image_path)):
+            self._add_cropped_picture(slide, image_path, self.HALF, 0, self.HALF, 7.5)
+            left, width = self._side_text_box('right')
+            self._add_slide_title(slide, slide_data.get('title', 'Kirish'), left=left, width=width)
+            text = slide_data.get('content', '')
+            if slide_data.get('_columns_text'):
+                text = " ".join(slide_data['_columns_text'])
+            self._add_justified_content(slide, text, PptxInches(left), PptxInches(1.6),
+                                        PptxInches(width), PptxInches(5.4), align_left=True)
+            return
         self._add_slide_title(slide, slide_data.get('title', 'Kirish'))
         self._add_body_text(slide, slide_data)
 
@@ -1066,36 +1084,41 @@ class DocumentService:
             logger.error(f"Error placing slide image: {e}")
             return False
 
-    async def _create_right_image_slide(self, slide, slide_data: Dict, topic: str, language: str, pre_fetched_image=None):
-        """Shablon 2: O'ng 50% rasm, chap matn"""
-        self._add_slide_title(slide, slide_data.get('title', ''))
+    # Rasmli varaq: rasm slaydning yarmini chetdan-chetga (tepadan pastgacha) egallaydi, sarlavha va matn —
+    # ikkinchi yarmida. Ilgari rasm chetlardan uzoqda, kichik ramkada turardi va ko'rimsiz edi.
+    HALF = 13.333 / 2
+    SIDE_PAD = 0.45
 
-        has_image = await self._place_slide_image(
-            slide, slide_data, topic, language, pre_fetched_image,
-            (6.8, 1.5, 6.2, 5.5))
+    def _side_text_box(self, side: str):
+        """Rasm `side` tomonda bo'lsa matn ustuni: (chap, eni)."""
+        left = self.HALF + self.SIDE_PAD if side == 'left' else self.SIDE_PAD
+        return left, self.HALF - 2 * self.SIDE_PAD
 
-        # Rasm chiqmagan bo'lsa matn butun kenglikni egallaydi — yarim
-        # bo'sh slayd qolmaydi.
-        width = 5.8 if has_image else 12.3
+    async def _side_image_slide(self, slide, slide_data: Dict, topic: str, language: str, pre_fetched_image,
+                                side: str):
+        rect = (0, 0, self.HALF, 7.5) if side == 'left' else (self.HALF, 0, self.HALF, 7.5)
+        has_image = await self._place_slide_image(slide, slide_data, topic, language, pre_fetched_image, rect)
+        if not has_image:
+            # Rasm chiqmagan bo'lsa matn butun kenglikni egallaydi — yarim bo'sh slayd qolmaydi.
+            self._add_slide_title(slide, slide_data.get('title', ''))
+            self._add_justified_content(slide, slide_data.get('content', ''),
+                                        PptxInches(0.5), PptxInches(2),
+                                        PptxInches(12.3), PptxInches(4.5), align_left=True)
+            return
+        left, width = self._side_text_box(side)
+        self._add_slide_title(slide, slide_data.get('title', ''), left=left, width=width)
         self._add_justified_content(slide, slide_data.get('content', ''),
-                                    PptxInches(0.5), PptxInches(2),
-                                    PptxInches(width), PptxInches(4.5),
+                                    PptxInches(left), PptxInches(1.6),
+                                    PptxInches(width), PptxInches(5.4),
                                     align_left=True)
+
+    async def _create_right_image_slide(self, slide, slide_data: Dict, topic: str, language: str, pre_fetched_image=None):
+        """Shablon 2: o'ng yarmi — rasm (chetdan-chetga), chapda sarlavha va matn"""
+        await self._side_image_slide(slide, slide_data, topic, language, pre_fetched_image, 'right')
 
     async def _create_left_image_slide(self, slide, slide_data: Dict, topic: str, language: str, pre_fetched_image=None):
-        """Shablon 3: Chap 50% rasm, o'ng matn"""
-        self._add_slide_title(slide, slide_data.get('title', ''))
-
-        has_image = await self._place_slide_image(
-            slide, slide_data, topic, language, pre_fetched_image,
-            (0.3, 1.5, 6.2, 5.5))
-
-        left = 6.8 if has_image else 0.5
-        width = 5.8 if has_image else 12.3
-        self._add_justified_content(slide, slide_data.get('content', ''),
-                                    PptxInches(left), PptxInches(2),
-                                    PptxInches(width), PptxInches(4.5),
-                                    align_left=True)
+        """Shablon 3: chap yarmi — rasm (chetdan-chetga), o'ngda sarlavha va matn"""
+        await self._side_image_slide(slide, slide_data, topic, language, pre_fetched_image, 'left')
 
     def _create_three_column_slide(self, slide, slide_data: Dict, language: str = 'uz', used_icons: set | None = None):
         """Shablon 4: 3 ustunli - har ustunda kalit so'z + tarif + ikonka"""
@@ -1383,11 +1406,13 @@ class DocumentService:
         self._add_slide_title(slide, slide_data.get('title', ''))
         self._add_body_text(slide, slide_data)
 
-    def _add_slide_title(self, slide, title: str):
-        """Add title to slide - qalin qora, auto-size 42→18pt Times New Roman"""
+    def _add_slide_title(self, slide, title: str, left: float = 0.3, width: float = 12.7):
+        """Add title to slide - qalin qora, auto-size 42→18pt Times New Roman.
+
+        left/width — rasm yarim slaydni egallagan varaqda sarlavha faqat matn tomonida turadi."""
         title_box = slide.shapes.add_textbox(
-            PptxInches(0.3), PptxInches(0.3),
-            PptxInches(12.7), PptxInches(1)
+            PptxInches(left), PptxInches(0.3),
+            PptxInches(width), PptxInches(1)
         )
         tf = title_box.text_frame
         tf.word_wrap = True
@@ -1396,7 +1421,7 @@ class DocumentService:
         p.text = title
         title_font_size = self._calculate_auto_font_size(
             title,
-            width_inches=12.7,
+            width_inches=width,
             height_inches=1.0,
             max_font_pt=42,
             min_font_pt=18
