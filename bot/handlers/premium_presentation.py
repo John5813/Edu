@@ -1353,6 +1353,18 @@ MED3D_NOT_ANATOMY = {
 }
 
 
+# Kasallik mavzusi, lekin rasm xizmati (Together) ishlamayapti — 3D boshlanmaydi.
+MED3D_PICTURES_LATER = {
+    "uz": "🩺 Bu kasallik mavzusi: taqdimotda kasallikning AI chizgan rasmlari bo'ladi, lekin rasm xizmati hozir "
+          "ishlamayapti. Iltimos, birozdan keyin qayta urinib ko'ring.",
+    "ru": "🩺 Это тема о заболевании: в презентации будут иллюстрации заболевания от ИИ, но сервис изображений "
+          "сейчас недоступен. Пожалуйста, попробуйте немного позже.",
+    "en": "🩺 This is a disease topic: the presentation includes AI illustrations of the disease, but the image "
+          "service is unavailable right now. Please try again a bit later.",
+    "kk": "🩺 Бұл ауру тақырыбы: презентацияда аурудың ЖИ салған суреттері болады, бірақ сурет қызметі қазір "
+          "жұмыс істемейді. Біраздан кейін қайталап көріңіз.",
+}
+
 # 3D Anatomiya bosqichlari holat xabarida.
 _MED3D_STAGES = {
     "uz": {"plan": "AI mavzuni tekshirib, organlar va slaydlar rejasini tuzmoqda...",
@@ -2035,7 +2047,18 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         from services.premium_presentation.llm_client import NoCredits
 
         if _kind_of(data) == KIND_MED3D:
-            from services.med3d.auto import NotAnatomy
+            from services.med3d.auto import NotAnatomy, PicturesUnavailable
+
+            if isinstance(e, PicturesUnavailable):   # kasallik rasmi xizmati ishlamayapti — keyinroq
+                text = MED3D_PICTURES_LATER.get(lang) or MED3D_PICTURES_LATER["uz"]
+                refund = {"uz": f"💰 {price:,} so'm hisobingizga qaytarildi.",
+                          "ru": f"💰 {price:,} сум возвращены на баланс.",
+                          "en": f"💰 {price:,} soʻm refunded to your balance."}.get(lang, f"💰 {price:,} so'm qaytarildi.")
+                with contextlib.suppress(Exception):
+                    await status.edit_text(f"{text}\n\n{refund}", parse_mode="HTML")
+                await _warn_admins_pictures(callback.bot, topic)
+                await state.clear()
+                return
 
             if isinstance(e, NotAnatomy):        # xato emas — mavzu tana tuzilishiga oid emas
                 reason = str(e).strip()
@@ -2199,6 +2222,28 @@ async def premium_ppt_thanks_anim_decline(callback: CallbackQuery):
 
 
 _last_credit_warning = 0.0
+
+
+_last_picture_warning = 0.0
+
+
+async def _warn_admins_pictures(bot, topic: str) -> None:
+    """Kasallik rasmlari chizilmadi (Together) — adminlarga (10 daqiqada bir marta)."""
+    import time
+    from config import ADMIN_IDS
+
+    global _last_picture_warning
+    if time.monotonic() - _last_picture_warning < 600:
+        return
+    _last_picture_warning = time.monotonic()
+    text = ("⚠️ 3D Anatomiya: kasallik rasmlari chizilmadi (Together rasm xizmati yoki kaliti). "
+            "Mijozga keyinroq urinib ko'rish aytildi, pul qaytarildi.\n"
+            f"Mavzu: {topic[:150]}")
+    for admin_id in ADMIN_IDS:
+        try:
+            await bot.send_message(admin_id, text)
+        except Exception as exc:
+            logger.warning("Adminga xabar yuborilmadi (%s): %s", admin_id, exc)
 
 
 async def _warn_admins_no_credits(bot, detail: str) -> None:

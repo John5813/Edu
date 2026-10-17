@@ -108,6 +108,25 @@ check("kasallik: bosqichlar va zararlangan organ (ko'rinishda bo'lmagani olinmay
       and ss[1]["lesion"] == ["qirra_usti_mushagi"] and "qirra_usti_mushagi" in ss[1]["labels"], ss)
 check("rasm faqat zararlangan organli slaydda", bool(ss[1]["picture"]) and not ss[2]["picture"])
 check("bitta tomon (o'ng yelka)", sick_plan["side"] == "right")
+_lat = auto.normalize({"anatomy": True, "kind": "disease", "slides": [
+    {"title": "a", "text": "b", "show": ["yurak"], "latin": "Infarctus myocardii"}] * 3}, 3, "uz")
+check("kasallikning lotincha nomi saqlanadi", _lat["slides"][0]["latin"] == "Infarctus myocardii")
+_pics = {"slides": [{"picture": "x"}, {"picture": ""}]}
+_saved = os.environ.pop("TOGETHER_API_KEY", None)
+check("rasm xizmati kalitsiz — tayyor emas (3D boshlanmaydi)", not auto.pictures_ready())
+if _saved:
+    os.environ["TOGETHER_API_KEY"] = _saved
+_orig_plan, _orig_ready = auto.plan, auto.pictures_ready
+auto.plan = lambda *a, **k: copy.deepcopy(sick_plan)
+auto.pictures_ready = lambda: False
+try:
+    asyncio.run(auto.build_deck("Rotator manjet", 3))
+    check("rasm xizmati ishlamasa — 3D boshlanmaydi (PicturesUnavailable)", False)
+except auto.PicturesUnavailable:
+    check("rasm xizmati ishlamasa — 3D boshlanmaydi (PicturesUnavailable)", True)
+finally:
+    auto.plan, auto.pictures_ready = _orig_plan, _orig_ready
+check("kasallik rasmlari uchun kuchli modellar zanjiri", auto.picture_models()[0].startswith("ByteDance-Seed/Seedream-4"))
 plain = auto.normalize({"anatomy": True, "slides": [{"title": "a", "text": "b", "show": ["yurak"],
                                                       "lesion": ["yurak"], "picture": "x"}] * 3}, 3, "uz")
 check("anatomiya mavzusida bosqich, qizil o'choq va rasm yo'q",
