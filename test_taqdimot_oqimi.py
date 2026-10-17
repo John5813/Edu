@@ -101,13 +101,12 @@ async def full_flow():
           await state.get_state())
     text, markup = chat.last()[1], chat.last()[2]
     kind_cbs = [b.callback_data for b in buttons(markup) if b.callback_data and b.callback_data.startswith("prem_ppt_kind:")]
-    check("besh tur: 3D Anatomiya, 3D Pro, infografik, zamonaviy, klassik",
-          kind_cbs == ["prem_ppt_kind:med3d", "prem_ppt_kind:pro3d", "prem_ppt_kind:info", "prem_ppt_kind:modern",
-                       "prem_ppt_kind:classic"],
+    check("to'rt tur: 3D Anatomiya, infografik, zamonaviy, klassik (3D Pro olib tashlangan)",
+          kind_cbs == ["prem_ppt_kind:med3d", "prem_ppt_kind:info", "prem_ppt_kind:modern", "prem_ppt_kind:classic"],
           kind_cbs)
     check("tur tugmalari nomlangan", any("Infografik" in b.text for b in buttons(markup))
           and any("Klassik" in b.text for b in buttons(markup)) and any("Zamonaviy" in b.text for b in buttons(markup))
-          and any("3D Pro" in b.text for b in buttons(markup)))
+          and not any("3D Pro" in b.text for b in buttons(markup)))
     check("tur so'rovi rasmsiz, faqat tugma", "Taqdimot turini tanlang" in text)
     back = [b.callback_data for b in buttons(markup) if not b.callback_data.startswith("prem_ppt_kind:")]
     check("tur so'rovida orqaga tugmasi", back == ["prem_ppt_prev"], back)
@@ -211,23 +210,6 @@ async def full_flow():
     check("infografik hajmidan orqaga: manba tanlovi", await state_i.get_state() == PS.waiting_for_source_kind.state,
           await state_i.get_state())
 
-    # 6c. 3D Pro -> uslub ham, matn hajmi ham so'ralmaydi; narx o'ziniki (rasmlar qimmat), 20 slaydgacha
-    chat_p, state_p, db_p = await to_count("pro3d")
-    data = await state_p.get_data()
-    check("3D Pro: manbadan keyin darhol slaydlar soni", await state_p.get_state() == PS.waiting_for_count.state,
-          await state_p.get_state())
-    check("3D Pro: tur saqlandi", data["kind"] == "pro3d", data)
-    counts = [b.callback_data for b in buttons(chat_p.last()[2]) if b.callback_data.startswith("prem_ppt_count:")]
-    check("3D Pro: slayd soni 5..20", counts == [f"prem_ppt_count:{n}" for n in (5, 8, 10, 12, 15, 20)], counts)
-    check("3D Pro: hajm oynasida tur nomi va o'z narxi", "3D Pro" in chat_p.last()[1] and "15,000" in str(chat_p.last()[2]),
-          (chat_p.last()[1], str(chat_p.last()[2])[:300]))
-    await pp.premium_ppt_got_count(callback(chat_p, "prem_ppt_count:10"), state_p, db_p)
-    summary = chat_p.last()[1]
-    data = await state_p.get_data()
-    check("3D Pro xulosa: tur, Morph izohi, narx 15 000", "3D Pro" in summary and "Morph" in summary
-          and "15,000" in summary and data["price"] == 15000, summary)
-    check("3D Pro: yozuv animatsiyasi taklif qilinmaydi", not data.get("text_anim_offer"), data)
-
     # 6d. Klassik -> hajm faqat 10/15/20, narxlar va balans bilan
     chat_c, state_c, db_c = await to_count("classic", topic="Falsafa: predmeti va muammolari")
     await state_c.update_data(client_name="Aliyev Jasur", presentation_language="en")
@@ -300,36 +282,24 @@ async def full_flow():
     await pp.premium_ppt_previous(callback(chat5, "prem_ppt_prev"), state5, db)
     check("fayl so'rovidan orqaga: manba tanlovi", await state5.get_state() == PS.waiting_for_source_kind.state)
 
-async def pro3d_admin_only():
-    """3D Pro faqat adminlar uchun: boshqalarga «tez orada», bosilsa ishlamaydi."""
-    print("\n3D Pro — faqat admin")
-    config.ADMIN_IDS = [999]
-    try:
+async def pro3d_removed():
+    """3D Pro menyudan olib tashlangan: tugma yo'q, eski xabardagi tugma bosilsa — turlar qayta ko'rsatiladi."""
+    print("\n3D Pro — menyuda yo'q")
+    for admins in ([999], [1]):
+        config.ADMIN_IDS = admins
         chat, db, state = Chat(), make_db(), await new_state()
         await pp.premium_presentation_start(chat.message("🌟 Taqdimot"), state, db)
         labels = [b.text for b in buttons(chat.last()[2]) if b.callback_data == "prem_ppt_kind:pro3d"]
-        check("oddiy foydalanuvchiga tugmada «tez orada»", labels == ["🧊 3D Pro — ⏳ tez orada"], labels)
-        cb = callback(chat, "prem_ppt_kind:pro3d")
-        await pp.premium_ppt_kind_selected(cb, state, db)
-        alert = cb.answer.await_args
-        check("bosilsa «tez orada» ogohlantirishi", alert and "tez orada" in alert.args[0]
-              and alert.kwargs.get("show_alert"), alert)
-        check("bosilsa ishlamaydi: tur saqlanmadi, mavzu so'ralmadi",
-              "kind" not in await state.get_data() and await state.get_state() == PS.waiting_for_kind.state,
+        check(f"3D Pro tugmasi yo'q ({'admin' if admins == [1] else 'oddiy foydalanuvchi'})", labels == [], labels)
+        await pp.premium_ppt_kind_selected(callback(chat, "prem_ppt_kind:pro3d"), state, db)
+        check("eski 3D Pro tugmasi ishlamaydi: tur saqlanmadi, turlar qayta so'raladi",
+              (await state.get_data()).get("kind") != "pro3d" and await state.get_state() == PS.waiting_for_kind.state,
               (await state.get_data(), await state.get_state()))
-        await pp.premium_ppt_kind_selected(callback(chat, "prem_ppt_kind:info"), state, db)
-        check("boshqa turlar ishlaydi", (await state.get_data()).get("kind") == "info")
-        config.ADMIN_IDS = [1]
-        chat2, state2 = Chat(), await new_state()
-        await pp.premium_presentation_start(chat2.message("🌟 Taqdimot"), state2, db)
-        labels = [b.text for b in buttons(chat2.last()[2]) if b.callback_data == "prem_ppt_kind:pro3d"]
-        check("adminga oddiy 3D Pro tugmasi", labels == ["🧊 3D Pro — animatsiyali, yangi"], labels)
-    finally:
-        config.ADMIN_IDS = [1]
+    config.ADMIN_IDS = [1]
 
 
 asyncio.run(full_flow())
-asyncio.run(pro3d_admin_only())
+asyncio.run(pro3d_removed())
 
 print("\n" + ("✅ hammasi o'tdi" if not FAILS else f"❌ {len(FAILS)} ta xato: {FAILS}"))
 sys.exit(1 if FAILS else 0)
