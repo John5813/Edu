@@ -688,6 +688,19 @@ BY_ID = {o["id"]: o for o in ORGANS}
 # Boylam va bo'g'im a'zolari: ular ikki suyakni bog'laydi — portlashda suyaklar ajralsa boylam "uziladi",
 # shuning uchun bunday slaydlarda portlash qilinmaydi (`director.direct`).
 JOINT_IDS = {o["id"] for o in ORGANS if any(r.startswith(_ZJ) for r in o.get("m", []))} | {"boylamlar", "umurtqa_disklari"}
+# Tayanch suyaklar: bo'g'im va boylam o'zi havoda "suzib" turmasligi uchun slaydga ular bog'laydigan suyaklar ham
+# qo'shiladi (`auto.normalize`); tishlar — jag'lar bilan. Tayanch suyak kadr o'lchamiga ta'sir qilmaydi.
+SUPPORT = {
+    "tizza_boylamlari": ["son_suyagi", "boldir_suyaklari"], "xochsimon_boylamlar": ["son_suyagi", "boldir_suyaklari"],
+    "menisklar": ["son_suyagi", "boldir_suyaklari"], "tizza_yon_boylamlari": ["son_suyagi", "boldir_suyaklari"],
+    "yelka_bogimi": ["kurak", "yelka_suyagi"], "yelka_kamari_boylamlari": ["umrov", "kurak", "tosh_suyagi"],
+    "tirsak_bogimi": ["yelka_suyagi", "bilak_suyaklari"], "bilak_kaft_bogimi": ["bilak_suyaklari", "qol_panja"],
+    "qol_panja_boylamlari": ["qol_panja"], "chanoq_son_bogimi": ["chanoq", "son_suyagi"],
+    "chanoq_boylamlari": ["chanoq"], "boldir_birikmalari": ["boldir_suyaklari"],
+    "boldir_panja_bogimi": ["boldir_suyaklari", "oyoq_panja"], "oyoq_panja_boylamlari": ["oyoq_panja"],
+    "umurtqa_boylamlari": ["umurtqa"], "umurtqa_disklari": ["umurtqa"], "qovurga_boylamlari": ["qovurgalar", "umurtqa"],
+    "chakka_jag_bogimi": ["bosh_suyagi"], "tishlar": ["bosh_suyagi"],
+}
 SOURCES = {
     "male": "BodyParts3D 4.0 (DBCLS), CC BY 4.0",
     "female": "Human Reference Atlas v1.10 (HuBMAP; NLM Visible Human), CC BY 4.0",

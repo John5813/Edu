@@ -21,7 +21,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-from .camera import Camera
+from .camera import Camera, rotation, sides
 from .lugat import JOINT_IDS
 
 CAMERA_MOVES = ("orbita", "aylanish", "yuqoridan", "pastdan", "yaqin", "uzoq", "tinch")
@@ -39,12 +39,40 @@ def _cam(body: dict, organs: Sequence[str]) -> Camera:
     return Camera(lo, hi)
 
 
+def _toward_camera(rot) -> np.ndarray:
+    """Model koordinatalarida kamera tomon yo'nalish (Camera.project: kamera +Z da)."""
+    return rotation(rot)[2, :]
+
+
+def facing(points, rot) -> float:
+    """Yassi organ (chaynov, chakka mushagi) yuzi bilan qaralyaptimi: 1 — to'g'ri yuzidan, 0 — qirrasidan.
+    Organ yassi bo'lmasa (yumaloq) — burchak farq qilmaydi, ta'sir kichik."""
+    total, weight = 0.0, 0.0
+    view = _toward_camera(rot)
+    for part in sides(points):
+        if len(part) < 6:
+            continue
+        vals, vecs = np.linalg.eigh(np.cov((part - part.mean(axis=0)).T))
+        flat = 1.0 - math.sqrt(max(vals[0], 0.0) / max(vals[1], 1e-12))
+        total += len(part) * flat * abs(float(vecs[:, 0] @ view))
+        weight += len(part)
+    return total / weight if weight else 0.0
+
+
 def view_score(body: dict, show: Sequence[str], focus: Sequence[str], rot) -> float:
-    """Burchak qanchalik yaxshi: fokus ko'rinishi (boshqa organlar ortida qolmasligi) va kadrda egallagan joyi."""
+    """Burchak qanchalik yaxshi: fokus ko'rinishi (boshqa organlar ortida qolmasligi), kadrda egallagan joyi va
+    yassi organ yuzi bilan ko'rinishi. Juft organda — yaxshiroq ko'rinayotgan tomoni hisoblanadi."""
     cam = _cam(body, show)
     pts = [p for o in focus for p in body[o]["samples"]]
     others = [p for o in show if o not in focus for p in body[o]["samples"]]
-    seen = cam.visible_share(pts, rot, others) if others else 1.0
+    if others:
+        shares = []
+        for o in focus:
+            shares.append(max(cam.visible_share(part, rot, others) for part in sides(body[o]["samples"])))
+        seen = float(np.mean(shares))
+    else:
+        seen = 1.0
+    face = float(np.mean([facing(body[o]["samples"], rot) for o in focus]))
     f0, g0, f1, g1 = cam.extent(pts, rot)
     a0, b0, a1, b1 = cam.extent([p for o in show for p in body[o]["samples"]], rot)
     share = ((f1 - f0) * (g1 - g0)) / max((a1 - a0) * (b1 - b0), 1e-6)
@@ -52,7 +80,7 @@ def view_score(body: dict, show: Sequence[str], focus: Sequence[str], rot) -> fl
     y = (float(rot[1]) + 180) % 360 - 180
     back = 0.45 if abs(y) > 110 else 0.0
     tilt = 0.006 * max(0.0, abs(float(rot[0])) - 40)
-    return 2.0 * seen + 0.6 * min(share, 1.0) - back - tilt
+    return 2.0 * seen + 0.6 * min(share, 1.0) + 0.9 * face - back - tilt
 
 
 def _angle_gap(a, b) -> float:

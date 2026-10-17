@@ -176,6 +176,20 @@ for i, slide in enumerate(prs2.slides, 1):
     if len(pills) != len(DIGESTIVE_PLAN["slides"][i - 1].get("labels") or []):
         check(f"hazm {i}-slayd: hamma yorliq bor", False, len(pills))
 
+print("Z-Anatomy: ko'zgu nusxalar ichi-tashi teskari emas")
+from services.med3d import manba as _manba
+_at = _manba.atlas("male")
+_bad = {"left": 0, "right": 0}
+for _pid, _info in _at.by_id.items():
+    _side = "left" if "-left-" in _pid else ("right" if "-right-" in _pid else "")
+    if not _pid.startswith("ZA-") or not _side or "muscle" not in _pid:
+        continue
+    _p, _n, _i = _at._one(_info)
+    _t = _i.reshape(-1, 3)
+    _vol = np.einsum("ij,ij->i", _p[_t[:, 0]], np.cross(_p[_t[:, 1]], _p[_t[:, 2]])).sum()
+    _bad[_side] += int(_vol < 0)
+check("chap va o'ng mushaklar bir xil yo'nalishda (chap tomoni teskari emas)", _bad["left"] <= _bad["right"] + 2, _bad)
+
 print()
 print("HAMMASI O'TDI" if not FAILS else f"XATOLAR: {len(FAILS)}")
 sys.exit(1 if FAILS else 0)

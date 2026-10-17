@@ -123,8 +123,12 @@ def keep_clear(cam: Camera, frame: Frame, focus_points, all_points, area=TEXT_ED
         f0, g0, f1, g1 = cam.extent(focus_points, frame.rot)
         fx0, fy0 = frame.to_slide(f0, g0)
         fx1, fy1 = frame.to_slide(f1, g1)
-        if fx0 + dx >= -0.1 and fx1 + dx <= W - 0.25 and fy0 + dy >= -0.2 and fy1 + dy <= H + 0.2:
-            return Frame(frame.cx + dx, frame.cy + dy, frame.size, frame.rot)
+        # Model joyga sig'adi (faqat bir chetidan chiqqan) — suriladi; ikkala chetidan chiqsa surish bir tomonni
+        # tuzatib, ikkinchisini battar qiladi — kichraytiriladi.
+        fits = x1 - x0 <= ax1 - ax0 + 1e-3 and y1 - y0 <= ay1 - ay0 + 1e-3
+        if fits and fx0 + dx >= -0.1 and fx1 + dx <= W - 0.25 and fy0 + dy >= -0.2 and fy1 + dy <= H + 0.2:
+            frame = Frame(frame.cx + dx, frame.cy + dy, frame.size, frame.rot)
+            continue
         fu, fv = (f0 + f1) / 2, (g0 + g1) / 2
         fx, fy = frame.cx + fu * frame.size, frame.cy + fv * frame.size
         size = frame.size * 0.85
@@ -470,9 +474,21 @@ def _overlap(a, b, pad: float = 0.0) -> bool:
     return a[0] < b[2] - pad and b[0] < a[2] - pad and a[1] < b[3] - pad and b[1] < a[3] - pad
 
 
-def quality(lay, model_box, labels: List[Tuple[str, dict]], text_boxes) -> List[str]:
-    """Sifat nazorati (slayd yig'ilgach): yorliqlar bir-biriga, matnga tegmasin, model matn ustiga chiqmasin."""
+def quality(lay, model_box, labels: List[Tuple[str, dict]], text_boxes, focus_box=None) -> List[str]:
+    """Sifat nazorati (slayd yig'ilgach): yorliqlar bir-biriga, matnga tegmasin, model matn ustiga chiqmasin;
+    fokusdagi organ slayddan chiqib ketmasin va juda kichik bo'lmasin, yorliq chizig'i model ustiga tushsin."""
     issues = []
+    if focus_box is not None:
+        fx0, fy0, fx1, fy1 = focus_box
+        if fx0 < -0.05 or fy0 < -0.05 or fx1 > W + 0.05 or fy1 > H + 0.05:
+            issues.append("fokus slayddan chiqib ketgan")
+        rx, ry, rw, rh = lay.region
+        if max(fx1 - fx0, fy1 - fy0) < 0.3 * min(rw, rh):
+            issues.append("fokus juda kichik")
+    mx0, my0, mx1, my1 = model_box
+    for k, it in labels:
+        if not (mx0 - 0.1 <= it["ax"] <= mx1 + 0.1 and my0 - 0.1 <= it["ay"] <= my1 + 0.1):
+            issues.append(f"yorliq chizig'i modeldan tashqarida: {k}")
     rects = [(k, (it["x"], it["y"] - it["h"] / 2, it["x"] + it["w"], it["y"] + it["h"] / 2)) for k, it in labels]
     for i in range(len(rects)):
         for j in range(i + 1, len(rects)):
@@ -585,7 +601,8 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
             everything = [p for g in show for p in groups[g]["samples"]]
             extra = [p for g in later.get(index, []) if g in groups and g not in show for p in groups[g]["samples"]]
             frame = fit_frame(cam, points, rot, region, lay.fill)
-            whole = fit_frame(cam, everything, rot, region, lay.fill)
+            # Tayanch suyaklar (bo'g'im slaydida) yaqinlashish chegarasini belgilamaydi: bo'g'imga yaqindan qaraladi.
+            whole = fit_frame(cam, data.get("whole_points") or everything, rot, region, lay.fill)
             if frame.size > whole.size * lay.zoom_limit:     # haddan tashqari yaqin: qo'shni organlar kesiladi
                 f0, g0, f1, g1 = cam.extent(points, rot)
                 fx, fy = frame.to_slide((f0 + f1) / 2, (g0 + g1) / 2)
@@ -681,8 +698,11 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
                 _draw_label(prev_slide, st, lkey, item, dx)
         bx, by, bw, bh = lay.body
         tx, ty, tw, th = lay.title
+        f0, g0, f1, g1 = cam.extent(data.get("focus_points") or vis_points, frame.rot)
+        focus_box = (*frame.to_slide(f0, g0), *frame.to_slide(f1, g1))
         issues = quality(lay, model_box, placed_labels, [("sarlavha", (tx, ty, tx + tw, ty + th)),
-                                                          ("matn", (bx, by, bx + bw, by + bh))])
+                                                          ("matn", (bx, by, bx + bw, by + bh))],
+                         None if data.get("explode") else focus_box)
         if issues and not data.get("auto"):
             log.info("med3d sifat (%d-slayd, %s): %s", index + 1, lay.key, "; ".join(issues))
         quality_log.append((index, issues))
