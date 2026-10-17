@@ -46,6 +46,17 @@ bk.report_failure("CCCC3333cccc", 403)
 bk.report_failure("ENVK0000envk", 403)
 check("hamma kalit yaroqsiz — bo'sh (qidiruv rasmni AI ga topshiradi)", bk.take() == "")
 
+bk.reset()
+bk.add("EEEE5555eeee")
+names = lambda: [x["mask"] for x in bk.status()]   # noqa: E731
+active = lambda: next(x["mask"] for x in bk.status() if x["active"])   # noqa: E731
+first = active()
+check("qo'lda o'tkazib yuborish: joriy kalit tugagan deb belgilanadi, keyingisi faol", bk.skip() >= 0 and active() != first)
+check("qo'lda tanlash: istalgan kalitga o'tish (tugagan bo'lsa ham qayta sinaladi)",
+      bk.activate(names().index(first)) and active() == first and bk.take() == "ENVK0000envk")
+bk.activate(names().index("EEEE…eeee"))
+check("tanlangan kalit so'rovlarda ishlatiladi", bk.take() == "EEEE5555eeee")
+
 os.environ.setdefault("BOT_TOKEN", "1:x")
 bk.reset()
 bk.add("DDDD4444dddd")
@@ -55,7 +66,8 @@ text, markup = admin._brave_keys_view()
 buttons = [b.text for row in markup.inline_keyboard for b in row]
 check("admin panel: kalitlar niqoblangan, to'liq kalit ko'rinmaydi, qo'shish/nollash/o'chirish tugmalari",
       "DDDD…dddd" in text and "DDDD4444dddd" not in text and "➕ Kalit qo'shish" in buttons
-      and any(t.startswith("🗑") for t in buttons), (text, buttons))
+      and any(t.startswith("🗑") for t in buttons) and "⏭ Keyingi kalitga o'tish" in buttons
+      and any(t.startswith("▶️") for t in buttons), (text, buttons))
 check(".env dagi kalitni paneldan o'chirib bo'lmaydi (u .env da turadi)",
       not any("1-kalit" in t for t in buttons), buttons)
 

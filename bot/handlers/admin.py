@@ -3989,7 +3989,8 @@ def _brave_keys_view():
     rows = brave_keys.status()
     lines = [f"🔑 <b>Brave kalitlari</b> — har kalit {brave_keys.LIMIT} so'rovdan keyin navbatdagisiga almashadi.",
              "Oy boshida hisoblagichlar o'zi nollanadi. Kalit rad etilsa (limit tugagan yoki yaroqsiz) — darhol "
-             "keyingisiga o'tiladi.", ""]
+             "keyingisiga o'tiladi, shuning uchun hisobi yuritilmagan eski kalit 900 ga yetmay tugasa ham ish "
+             "to'xtamaydi. Qo'lda ham almashtirish mumkin.", ""]
     if not rows:
         lines.append("Hozircha kalit yo'q — rasmlar faqat AI bilan chiziladi.")
     for r in rows:
@@ -3999,6 +4000,11 @@ def _brave_keys_view():
         lines.append(f"{mark} {r['n']}. <code>{r['mask']}</code> — {state}{src}")
     kb = InlineKeyboardBuilder()
     kb.button(text="➕ Kalit qo'shish", callback_data="brave_add")
+    if len(rows) > 1:
+        kb.button(text="⏭ Keyingi kalitga o'tish", callback_data="brave_skip")
+    for r in rows:
+        if not r["active"]:
+            kb.button(text=f"▶️ {r['n']}-kalitga o'tish", callback_data=f"brave_use:{r['n'] - 1}")
     kb.button(text="♻️ Hisoblagichlarni nollash", callback_data="brave_reset")
     for r in rows:
         if r["added"] != "env":
@@ -4065,3 +4071,27 @@ async def brave_delete(callback: CallbackQuery):
     text, markup = _brave_keys_view()
     await callback.message.edit_text(text, reply_markup=markup, parse_mode="HTML")
     await callback.answer("O'chirildi")
+
+
+@router.callback_query(F.data.startswith("brave_use:"))
+async def brave_use(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        return
+    from services import brave_keys
+
+    brave_keys.activate(int(callback.data.split(":", 1)[1]))
+    text, markup = _brave_keys_view()
+    await callback.message.edit_text(text, reply_markup=markup, parse_mode="HTML")
+    await callback.answer("Faol kalit almashtirildi")
+
+
+@router.callback_query(F.data == "brave_skip")
+async def brave_skip(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        return
+    from services import brave_keys
+
+    nxt = brave_keys.skip()
+    text, markup = _brave_keys_view()
+    await callback.message.edit_text(text, reply_markup=markup, parse_mode="HTML")
+    await callback.answer("Keyingi kalitga o'tildi" if nxt >= 0 else "Ishlaydigan kalit qolmadi")

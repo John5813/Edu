@@ -1,7 +1,8 @@
 """Brave Search API kalitlari: bir nechta kalit navbat bilan ishlaydi.
 
 Har kalit `LIMIT` (sukut — 900) so'rovdan keyin navbatdagisiga almashadi. Kalit rad etilsa (401/403 — noto'g'ri,
-429 — limit tugagan) darhol keyingisiga o'tiladi. Hamma kalit limitga yetsa — hisob boshidan boshlanadi (yangi
+429 — limit tugagan) darhol keyingisiga o'tiladi — shuning uchun hisobi yuritilmagan eski kalit 900 ga yetmay
+tugasa ham ish to'xtamaydi. Admin istalgan kalitga qo'lda o'tishi yoki joriysini o'tkazib yuborishi mumkin. Hamma kalit limitga yetsa — hisob boshidan boshlanadi (yangi
 davr), har oy boshida hisoblagichlar o'zi nollanadi. Kalitlar admin panel orqali qo'shiladi va
 `data/brave_keys.json` da saqlanadi; `.env` dagi `BRAVE_API_KEY` ham ro'yxatga birinchi bo'lib kiradi.
 """
@@ -129,6 +130,38 @@ def remove(index: int) -> bool:
         doc["current"] = 0
         _save(doc)
         return True
+
+
+def activate(index: int) -> bool:
+    """Admin tanlovi: shu kalitga qo'lda o'tish (yaroqsiz yoki limitda deb belgilangan bo'lsa ham — qayta sinaladi)."""
+    with _lock:
+        doc = _load()
+        if not 0 <= index < len(doc["keys"]):
+            return False
+        k = doc["keys"][index]
+        k["failed"] = False
+        if int(k.get("used", 0)) >= LIMIT:
+            k["used"] = 0
+        doc["current"] = index
+        _save(doc)
+        return True
+
+
+def skip() -> int:
+    """Hozirgi kalitni shu davrga "tugagan" deb belgilab, keyingisiga o'tish. Qaytaradi: yangi faol kalit raqami
+    (0 dan), kalit qolmasa -1."""
+    with _lock:
+        doc = _load()
+        i = _pick(doc)
+        if i is None:
+            return -1
+        doc["keys"][i]["used"] = LIMIT
+        doc["current"] = (i + 1) % len(doc["keys"])
+        j = _pick(doc)
+        if j is not None:
+            doc["current"] = j
+        _save(doc)
+        return -1 if j is None else j
 
 
 def reset() -> None:
