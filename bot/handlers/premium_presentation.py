@@ -712,7 +712,7 @@ def _pro3d_open(user_id: int) -> bool:
     return user_id in config.ADMIN_IDS
 
 
-# 3D Anatomiya: PowerPoint'da tekshirilguncha faqat adminlar uchun. Hammaga ochish — serverda MED3D_OCHIQ=1.
+# 3D Anatomiya: hammaga ochiq. Vaqtincha yopish (faqat adminlar) — serverda MED3D_OCHIQ=0.
 _MED3D_SOON_BUTTON = {"uz": "🫀 3D Anatomiya — ⏳ tez orada", "ru": "🫀 3D Анатомия — ⏳ скоро",
                       "en": "🫀 3D Anatomy — ⏳ coming soon", "kk": "🫀 3D Анатомия — ⏳ жақында"}
 
@@ -720,7 +720,7 @@ _MED3D_SOON_BUTTON = {"uz": "🫀 3D Anatomiya — ⏳ tez orada", "ru": "🫀 3
 def _med3d_open(user_id: int) -> bool:
     import config
 
-    return os.getenv("MED3D_OCHIQ", "") == "1" or user_id in config.ADMIN_IDS
+    return os.getenv("MED3D_OCHIQ", "1") != "0" or user_id in config.ADMIN_IDS
 
 
 # Tugma bosilganda BIRINCHI aytiladi: bu tur faqat tana tuzilishi uchun. Mijoz "Ha" bosmasa — davom etmaydi.
@@ -1351,6 +1351,45 @@ MED3D_NOT_ANATOMY = {
     "en": "🫀 This topic is not about the structure of the human body, so no 3D Anatomy presentation was made.",
     "kk": "🫀 Бұл тақырып адам денесінің құрылысына қатысты емес, сондықтан 3D Анатомия презентациясы жасалмады.",
 }
+
+
+# 3D qilib bo'lmaydigan mavzu: shu mavzuda oddiy (zamonaviy) taqdimot taklif qilinadi.
+MED3D_ALT_ASK = {
+    "uz": "Bu mavzuda oddiy zamonaviy taqdimot qilib beraylikmi?",
+    "ru": "Сделать по этой теме обычную современную презентацию?",
+    "en": "Shall we make a regular modern presentation on this topic?",
+    "kk": "Осы тақырыпта қарапайым заманауи презентация жасайық па?",
+}
+_MED3D_ALT_BUTTONS = {
+    "uz": ("📊 Ha, oddiy taqdimot qilish", "❌ Kerak emas"),
+    "ru": ("📊 Да, сделать обычную презентацию", "❌ Не нужно"),
+    "en": ("📊 Yes, make a regular presentation", "❌ No, thanks"),
+    "kk": ("📊 Иә, қарапайым презентация жасау", "❌ Керек емес"),
+}
+
+
+def _med3d_alt_keyboard(lang: str) -> InlineKeyboardMarkup:
+    yes, no = _MED3D_ALT_BUTTONS.get(lang) or _MED3D_ALT_BUTTONS["uz"]
+    return _markup([[InlineKeyboardButton(text=yes, callback_data="prem_m3d_alt:ha")],
+                    [InlineKeyboardButton(text=no, callback_data="prem_m3d_alt:yoq")]])
+
+
+@router.callback_query(F.data.startswith("prem_m3d_alt:"))
+async def premium_med3d_alternative(callback: CallbackQuery, state: FSMContext, db: Database):
+    """3D qilib bo'lmagan mavzu: "Ha" — o'sha mavzuda zamonaviy taqdimot (uslub tanlashdan davom etadi)."""
+    await callback.answer()
+    lang = await _lang_of(callback.from_user.id, db)
+    data = await state.get_data()
+    if callback.data.endswith(":ha") and data.get("topic"):
+        with contextlib.suppress(Exception):
+            await callback.message.edit_reply_markup(reply_markup=None)
+        await state.update_data(kind=KIND_MODERN, style="", volume="kop", m3d_style="", prompt_mid=None,
+                                payment_method=None)
+        await _step_style(callback.message, state, lang)
+        return
+    with contextlib.suppress(Exception):
+        await callback.message.edit_reply_markup(reply_markup=None)
+    await state.clear()
 
 
 # Kasallik mavzusi, lekin rasm xizmati (Together) ishlamayapti — 3D boshlanmaydi.
@@ -2066,9 +2105,12 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
                 refund = {"uz": f"💰 {price:,} so'm hisobingizga qaytarildi.",
                           "ru": f"💰 {price:,} сум возвращены на баланс.",
                           "en": f"💰 {price:,} soʻm refunded to your balance."}.get(lang, f"💰 {price:,} so'm qaytarildi.")
+                ask = MED3D_ALT_ASK.get(lang) or MED3D_ALT_ASK["uz"]
                 with contextlib.suppress(Exception):
-                    await status.edit_text(f"{text}\n\n{refund}", parse_mode="HTML")
-                await state.clear()
+                    await status.edit_text(f"{text}\n\n{refund}\n\n{ask}", parse_mode="HTML",
+                                           reply_markup=_med3d_alt_keyboard(lang))
+                # Mavzu va slaydlar soni saqlanadi: mijoz oddiy taqdimotni tanlasa — qayta yozmaydi.
+                await state.update_data(kind=KIND_MODERN, m3d_style="", prompt_mid=None)
                 return
         if isinstance(e, NoCredits):
             await _warn_admins_no_credits(callback.bot, str(e))

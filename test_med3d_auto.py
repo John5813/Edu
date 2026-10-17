@@ -107,6 +107,13 @@ check("kasallik: bosqichlar va zararlangan organ (ko'rinishda bo'lmagani olinmay
       sick_plan["kind"] == "disease" and [x["stage"] for x in ss] == ["anatomy", "disease", "treatment"]
       and ss[1]["lesion"] == ["qirra_usti_mushagi"] and "qirra_usti_mushagi" in ss[1]["labels"], ss)
 check("rasm faqat zararlangan organli slaydda", bool(ss[1]["picture"]) and not ss[2]["picture"])
+_sc = auto.normalize({"anatomy": True, "kind": "disease", "slides": [
+    {"title": "a", "text": "b", "stage": "treatment", "show": ["yurak"], "scene": "a patient with a doctor"},
+    {"title": "a", "text": "b", "stage": "disease", "show": ["yurak"], "scene": "x"},
+    {"title": "a", "text": "b", "stage": "treatment", "show": ["yurak"], "scene": "y"},
+    {"title": "a", "text": "b", "stage": "treatment", "show": ["yurak"], "scene": "z"}]}, 4, "uz")["slides"]
+check("davolash tasviri faqat davolash slaydlarida, ko'pi bilan 2 ta",
+      [bool(x["scene"]) for x in _sc] == [True, False, True, False], [x["scene"] for x in _sc])
 check("bitta tomon (o'ng yelka)", sick_plan["side"] == "right")
 _lat = auto.normalize({"anatomy": True, "kind": "disease", "slides": [
     {"title": "a", "text": "b", "show": ["yurak"], "latin": "Infarctus myocardii"}] * 3}, 3, "uz")
@@ -231,8 +238,8 @@ labels = [s.text_frame.text for s in prs.slides[0].shapes if s.name.startswith("
           and s.text_frame.text]
 joined = " ".join(labels).lower()
 check("yorliqlar: o'zbekcha nom + lotincha nom (uslubdan qat'i nazar)", all(w in joined for w in ("jigar", "hepar", "oshqozon", "gaster")), labels)
-source = [s.text_frame.text for s in prs.slides[0].shapes if s.has_text_frame and "BodyParts3D" in s.text_frame.text]
-check("manba (CC BY) ko'rsatilgan", bool(source))
+check("manba (CC BY) izohda va fayl xususiyatlarida", "BodyParts3D" in prs.slides[0].notes_slide.notes_text_frame.text
+      and "BodyParts3D" in (prs.core_properties.comments or ""))
 
 # Joyida almashish: fade — organlar uchib kelmaydi; auto — yordamchi slayd o'zi o'tadi va raqamga kirmaydi.
 from services.med3d import deck as med3d_deck
@@ -390,8 +397,22 @@ async def bot_flow():
     state2 = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=2, user_id=2))
     cb = callback(other, "prem_ppt_kind:med3d", user=2)
     await pp.premium_ppt_kind_selected(cb, state2, db)
-    check("admin bo'lmaganga hozircha «tez orada»", cb.answer.await_args is not None and not other.sent
-          and cb.answer.await_args.kwargs.get("show_alert"))
+    check("3D Anatomiya hammaga ochiq (admin bo'lmaganga ham ogohlantirish chiqadi)",
+          not (cb.answer.await_args and cb.answer.await_args.kwargs.get("show_alert")))
+    os.environ["MED3D_OCHIQ"] = "0"
+    state3 = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=3, user_id=3))
+    cb3 = callback(Chat(), "prem_ppt_kind:med3d", user=3)
+    await pp.premium_ppt_kind_selected(cb3, state3, db)
+    os.environ.pop("MED3D_OCHIQ", None)
+    check("MED3D_OCHIQ=0 — admin bo'lmaganga «tez orada»", cb3.answer.await_args is not None
+          and cb3.answer.await_args.kwargs.get("show_alert"))
+    state4 = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=4, user_id=4))
+    await state4.update_data(topic="Qon tahlili", kind="med3d", slide_count=10, m3d_style="kobalt")
+    await pp.premium_med3d_alternative(callback(Chat(), "prem_m3d_alt:ha", user=4), state4, db)
+    alt = await state4.get_data()
+    check("3D qilib bo'lmaydigan mavzu — «oddiy taqdimot» tugmasi zamonaviy turga o'tkazadi, mavzu saqlanadi",
+          alt.get("kind") == "modern" and alt.get("topic") == "Qon tahlili"
+          and await state4.get_state() == pp.PremiumPresentationStates.waiting_for_style.state, alt)
 
 
 asyncio.run(bot_flow())
