@@ -81,3 +81,7 @@ store_previews/
 
 # 3D anatomiya atlasi (~130 MB) — serverda birinchi so'rovda yuklanadi
 data/med3d_atlas/
+
+# Brave API kalitlari (admin panel orqali qo'shiladi) — maxfiy
+data/brave_keys.json
+data/brave_keys.json.tmp

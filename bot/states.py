@@ -90,6 +90,7 @@ class AdminStates(StatesGroup):
     waiting_for_client_message = State()
     waiting_for_client_add_amount = State()
     waiting_for_client_deduct_amount = State()
+    waiting_for_brave_key = State()
 
 class PaymentResubmitStates(StatesGroup):
     waiting_for_receipt = State()

@@ -828,6 +828,8 @@ def get_admin_keyboard() -> ReplyKeyboardMarkup:
     
     # AI model selection
     keyboard.add(KeyboardButton(text="🤖 AI modelni almashtirish"))
+    # Brave rasm qidiruvi kalitlari (bir nechta kalit navbat bilan)
+    keyboard.add(KeyboardButton(text="🔑 Brave kalitlari"))
 
     # Client management
     keyboard.add(KeyboardButton(text="👥 Mijoz bilan ishlash"))
