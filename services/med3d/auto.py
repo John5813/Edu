@@ -36,6 +36,15 @@ log = logging.getLogger(__name__)
 # Admin paneldagi "premium model" tanlovi bunga ta'sir qilmaydi (u arzon model bo'lishi mumkin).
 MODEL = os.getenv("MED3D_MODEL") or "anthropic/claude-sonnet-5"
 SLIDE_OPTIONS = (5, 8, 10, 12, 15)
+# Narx: zamonaviy taqdimot narxidan shuncha baravar (haqiqiy 3D modellar, Morph, lotincha nomli yorliqlar).
+# 10 slayd — 25 000 so'm (5 baravar). `MED3D_PRICE_FACTOR` bilan o'zgartiriladi.
+PRICE_FACTOR = float(os.getenv("MED3D_PRICE_FACTOR") or 5)
+
+
+def price_for(slide_count: int) -> int:
+    from services.premium_presentation import pipeline
+
+    return int(round(pipeline.price_for(slide_count) * PRICE_FACTOR / 500.0)) * 500
 MIN_SLIDES, MAX_SLIDES = 3, 15
 # Sifat — imkon qadar maksimal: atlasdagi asl model (100%). Kamaytirish faqat ikki sababdan:
 ORGAN_MAX_TRIS = 600000          # atlasdagi eng og'ir organdan ham katta — amalda hamma organ to'liq
