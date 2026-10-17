@@ -118,6 +118,8 @@ def _order_summary(data: dict, language: str) -> str:
         return _html.escape(str(value or "").strip(), quote=False)[:limit]
 
     lines = ["📊 <b>Taqdimot</b>"]
+    if data.get("kind") in KINDS:                 # to'lovdan keyin eslatmada turi ham ko'rinsin (3D Anatomiya va b.)
+        lines.append(f"🎨 Turi: {clean(_kind_name(data['kind'], 'uz'))}")
     topic = clean(data.get("topic"), 200)
     if topic:
         lines.append(f"📝 Mavzu: <b>{topic}</b>")
@@ -740,6 +742,8 @@ KIND_PRO3D = "pro3d"
 # 3D Anatomiya: inson tanasi tuzilishi — atlasdagi haqiqiy 3D organ modellari va Morph (`services.med3d`).
 KIND_MED3D = "med3d"
 KINDS = (KIND_MED3D, KIND_PRO3D, KIND_INFO, KIND_MODERN, KIND_CLASSIC)
+# Mijozga ko'rsatiladigan turlar. 3D Pro menyudan olib tashlangan (kod qoladi: eski buyurtmalar tugashi uchun).
+MENU_KINDS = (KIND_MED3D, KIND_INFO, KIND_MODERN, KIND_CLASSIC)
 # Infografik tur uchun uslub so'ralmaydi: vektor dizayner ko'rinishni o'zi tanlaydi.
 INFO_STYLE = "toza"
 _KIND_BUTTONS = {
@@ -902,7 +906,7 @@ def _m3d_style_label(data: dict, lang: str) -> str:
 
 def _kind_keyboard(lang: str, pro3d: bool = True, med3d: bool = True) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    for key in KINDS:
+    for key in MENU_KINDS:
         labels = _KIND_BUTTONS[key]
         if key == KIND_PRO3D and not pro3d:
             labels = _PRO3D_SOON_BUTTON
@@ -946,8 +950,9 @@ async def premium_ppt_kind_selected(callback: CallbackQuery, state: FSMContext, 
     keyin uslub so'raladi, infografik, 3D Pro va klassikda — darhol slaydlar soni."""
     lang = await _lang_of(callback.from_user.id, db)
     kind = callback.data.split(":", 1)[1]
-    if kind == KIND_PRO3D and not _pro3d_open(callback.from_user.id):
-        await callback.answer(_PRO3D_SOON_ALERT.get(lang) or _PRO3D_SOON_ALERT["uz"], show_alert=True)
+    if kind not in MENU_KINDS:                    # eski xabardagi 3D Pro tugmasi — tur endi taklif qilinmaydi
+        await callback.answer()
+        await _step_kind(callback.message, state, lang)
         return
     if kind == KIND_MED3D:
         if not _med3d_open(callback.from_user.id):
@@ -1861,10 +1866,11 @@ async def premium_ppt_pay_stars(callback: CallbackQuery, state: FSMContext, db: 
         return
     price = int(data.get("price", _get_price(MIN_SLIDES)))
     slide_count = int(data.get("slide_count", 10))
+    kind_name = _kind_name(_kind_of(data), "uz")          # hisob-faktura: buyurtma turi bilan (3D ham)
     sent = await pay.send_invoice(
         callback.message, CHECKOUT, lang, price,
-        title="Zamonaviy taqdimot",
-        description=f"{slide_count} ta slaydli zamonaviy taqdimot",
+        title=f"Taqdimot — {kind_name}",
+        description=f"{slide_count} ta slaydli taqdimot ({kind_name})",
     )
     if sent:
         try:
