@@ -53,7 +53,8 @@ FILE_LIMIT_MB = float(os.getenv("MED3D_MAX_MB") or 45)   # Telegram bot 50 MB da
 TURN_MAX = 45                    # qo'shni slaydlar orasida eng katta burilish (gradus) — Morph silliq bo'lsin
 MAX_SHOW, MAX_LABELS = 8, 6
 STAGES = ("anatomy", "disease", "diagnosis", "treatment", "summary")
-MAX_PICTURES = 3                 # kasallik slaydlaridagi AI rasmlar soni
+MAX_PICTURES = 2                 # kasallik slaydlaridagi AI rasmlar soni (kuchli model)
+MAX_SCENES = 2                   # davolash slaydlaridagi bemor tasviri (arzon model)
 LEXICON = os.path.join(ASSETS_DIR, "lugat.json")
 CONTACT = 0.015                  # metr: organlar shu masofadan yaqin bo'lsa — tegib turibdi, bir-biriga soya tushiradi
 HARD = (BONE, TOOTH, CARTILAGE)
@@ -110,12 +111,15 @@ Return ONLY a JSON object:
              "rot": [x, y, z], "labels": ["<organ_id>", ...], "exit": "up" | "down" | "left" | "right",
              "stage": "anatomy" | "disease" | "diagnosis" | "treatment" | "summary",
              "lesion": ["<organ_id>"], "picture": "<English image prompt or empty>",
-             "latin": "<Latin medical term of the disease/procedure in the title, or empty>"}]}
+             "latin": "<Latin medical term of the disease/procedure in the title, or empty>",
+             "scene": "<English photo prompt of a patient being treated, or empty>"}]}
 
 RULES
 1. "anatomy": false when the topic is NOT about the structure of the human body (history, economics, literature,
    physics, chemistry, technology, animals, plants, sport results...). Human organs, bones, muscles, body systems,
    their functions, and diseases/physiology of human organs ARE anatomy (show the organs involved).
+   Also "anatomy": false when the topic IS about the body but the ORGANS table has nothing that shows it (e.g.
+   cells, tissues under a microscope, blood tests, genetics, the retina in detail): the 3D atlas cannot show it.
    When false: "reason" = one polite sentence in the presentation language, "slides" = [].
 2. Use ONLY organ ids from the ORGANS table and ONLY ones available for the chosen body.
    body = "female" for female-only organs (uterus, ovaries, placenta, mammary gland) and when it has organs the
@@ -156,11 +160,15 @@ RULES
      surgery, rehabilitation, prevention and prognosis — keep showing the damaged region ("lesion" may stay);
    - the last slide "summary": the whole region again with the lesion.
    For "kind" = "anatomy" use "stage": "anatomy" (last slide "summary"), "lesion": [] and "picture": "".
-13. "picture" (disease topics only, on 1-3 of the "disease"/"treatment" slides, otherwise ""): an English prompt for
+13. "picture" (disease topics only, on 1-2 of the "disease"/"diagnosis" slides, otherwise ""): an English prompt for
    a medical illustration that shows what the 3D atlas cannot — the real shape of the pathology at the lesion,
    e.g. "close-up of a full-thickness tear of the supraspinatus tendon at the greater tubercle of the humerus,
    frayed tendon fibres, inflamed subacromial bursa". One structure, close-up, no people's faces, never genitals
    or nudity. A slide with a picture has a shorter "text" (at most 230 characters) and exactly one "lesion".
+16. "scene" (disease topics only, on exactly 2 "treatment" slides, otherwise ""): an English prompt for a calm,
+   realistic photo of a patient receiving that treatment, matching the slide, e.g. "a physiotherapist guiding a
+   middle-aged man through shoulder rotation exercises with a resistance band in a bright rehabilitation room".
+   No blood, no open wounds, no surgery close-ups, no nudity; people fully clothed.
 15. "latin" (disease topics): on every "disease", "diagnosis" and "treatment" slide whose title names a disease,
    its form or a procedure — its Latin (international medical) term, e.g. "Ruptura manicae rotatorum",
    "Tendinopathia musculi supraspinati", "Syndroma conflictus subacromialis", "Arthroscopia". Otherwise "".
@@ -270,20 +278,28 @@ def normalize(data: dict, count: int, language: str) -> dict:
         stage = (s.get("stage") if s.get("stage") in STAGES else "disease") if disease else ""
         picture = re.sub(r"\s+", " ", str(s.get("picture") or "")).strip()[:400] if disease and lesion else ""
         latin = re.sub(r"\s+", " ", str(s.get("latin") or "")).strip()[:80] if disease else ""
+        if stage == "treatment":                  # davolash slaydida — bemor tasviri (arzon model), patologiya emas
+            picture = ""
+        scene = re.sub(r"\s+", " ", str(s.get("scene") or "")).strip()[:400] \
+            if disease and stage == "treatment" else ""
         slides.append({
             "title": str(s.get("title") or "").strip()[:90],
             "text": re.sub(r"\s+\n", "\n", str(s.get("text") or "").strip())[:520],
             "show": show, "focus": focus or None, "labels": list(dict.fromkeys(labels)), "support": support,
             "rot": [_num(rot[0], -60, 60), _num(rot[1], -180, 180), _num(rot[2], -30, 30)],
             "exit": s.get("exit") if s.get("exit") in ("up", "down", "left", "right") else "up",
-            "stage": stage, "lesion": lesion, "picture": picture, "latin": latin,
+            "stage": stage, "lesion": lesion, "picture": picture, "latin": latin, "scene": scene,
         })
-    pictures = 0
+    pictures = scenes = 0
     for s in slides:                              # rasm — ko'pi bilan MAX_PICTURES ta (generatsiya vaqti va narxi)
         if s["picture"]:
             pictures += 1
             if pictures > MAX_PICTURES:
                 s["picture"] = ""
+        if s["scene"]:
+            scenes += 1
+            if scenes > MAX_SCENES:
+                s["scene"] = ""
     if len(slides) < max(MIN_SLIDES, count - 1):
         raise ValueError(f"reja {len(slides)} slayd, {count} kerak")
     smooth_turns(slides)
@@ -913,17 +929,20 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
         ready = await loop.run_in_executor(None, pictures_ready)
         if not ready or not await draw_pictures(plan_):
             raise PicturesUnavailable("kasallik rasmlari chizilmadi")
+    if any(s.get("scene") for s in plan_["slides"]):
+        await draw_scenes(plan_)                  # chizilmasa — slayd rasmsiz (bloklamaydi)
     stage("models", slides=len(plan_["slides"]))
     try:
         path = await asyncio.wait_for(loop.run_in_executor(None, lambda: make_deck(topic, plan_, style=style)),
                                       8 * 60)
     finally:
         for s in plan_["slides"]:
-            if s.get("picture_path"):
-                try:
-                    os.remove(s["picture_path"])
-                except OSError:
-                    pass
+            for key in ("picture_path", "scene_path"):
+                if s.get(key):
+                    try:
+                        os.remove(s[key])
+                    except OSError:
+                        pass
     return path, len(plan_["slides"])
 
 
@@ -984,4 +1003,39 @@ async def draw_pictures(plan_: dict, timeout: float = 150.0) -> int:
     await asyncio.gather(*(one(s) for s in wanted))
     done = sum(1 for s in wanted if s.get("picture_path"))
     log.info("3D Anatomiya: kasallik rasmlari %d/%d", done, len(wanted))
+    return done
+
+
+SCENE_STYLE = ("realistic photograph, natural soft light, modern clinic or home setting, people fully clothed, "
+               "calm and reassuring mood, no text, no letters, no logos, no watermark")
+
+
+async def draw_scenes(plan_: dict, timeout: float = 120.0) -> int:
+    """Davolash slaydlaridagi bemor tasvirlari — arzon model (admin tanlagan oddiy taqdimot modeli). Chizilmagani
+    rasmsiz qoladi, jarayon to'xtamaydi."""
+    from services.together_service import get_together_service
+
+    wanted = [s for s in plan_["slides"] if s.get("scene")]
+    if not wanted:
+        return 0
+    try:
+        together = get_together_service()
+    except Exception as exc:                      # noqa: BLE001
+        log.warning("3D Anatomiya: rasm xizmati yo'q: %s", exc)
+        return 0
+
+    async def one(slide: dict) -> None:
+        try:
+            path = await asyncio.wait_for(together.generate_image(f"{slide['scene']}. {SCENE_STYLE}",
+                                                                  aspect_ratio="16:9", target="presentation"),
+                                          timeout)
+        except Exception as exc:                  # noqa: BLE001
+            log.warning("3D Anatomiya: davolash rasmi chizilmadi: %s", exc)
+            return
+        if path and os.path.exists(path):
+            slide["scene_path"] = path
+
+    await asyncio.gather(*(one(s) for s in wanted))
+    done = sum(1 for s in wanted if s.get("scene_path"))
+    log.info("3D Anatomiya: davolash rasmlari %d/%d", done, len(wanted))
     return done

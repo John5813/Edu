@@ -147,8 +147,9 @@ for i, slide in enumerate(prs.slides, 1):
     overlap = any(a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
                   for k, a in enumerate(rects) for b in rects[k + 1:])
     check(f"{i}-slayd: yorliqlar ustma-ust tushmaydi", not overlap)
-    check(f"{i}-slayd: manba (CC BY) ko'rsatilgan", any("BodyParts3D" in (s.text_frame.text if s.has_text_frame else "")
-                                                       for s in slide.shapes))
+    check(f"{i}-slayd: manba (CC BY) izohda, slaydda ko'rinmaydi",
+          "BodyParts3D" in slide.notes_slide.notes_text_frame.text
+          and not any("BodyParts3D" in (s.text_frame.text if s.has_text_frame else "") for s in slide.shapes))
 
 print("5) Hazm organlari: 12 slayd, uchta sahna")
 from services.med3d.deck import MAX_FRAME

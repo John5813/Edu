@@ -506,8 +506,13 @@ STAGE_NAMES = {
 AI_CAPTION = {"uz": "AI tasvir", "ru": "ИИ-иллюстрация", "en": "AI illustration", "kk": "ЖИ-иллюстрация"}
 
 
+def _picture_of(data: dict) -> str:
+    """Slayd rasmi: kasallik ko'rinishi (zararlangan joydan strelka bilan) yoki davolash tasviri (strelkasiz)."""
+    return data.get("picture_path") or data.get("scene_path") or ""
+
+
 def _has_picture(data: dict, lay) -> bool:
-    path = data.get("picture_path")
+    path = _picture_of(data)
     return bool(path) and os.path.exists(path) and lay.key in PICTURE_LAYOUTS
 
 
@@ -600,8 +605,9 @@ def _text_column(slide, data: dict, number: int, total: int, source: str, st, la
     fx, fy = (W - 6.9, 0.22) if lay.key == "pastki" else (0.65, H - 0.62)
     design.textbox(slide, "!!page", fx, fy, 1.2, 0.3, f"{number + 1:02d} / {total:02d}", size=10, color=st.muted,
                    font=st.body_font)
-    design.textbox(slide, "!!source", fx + 1.3, fy, 5.4, 0.3, f"3D: {source}", size=8, color=st.muted,
-                   font=st.body_font)
+    # Manba (litsenziya talabi: BodyParts3D — CC BY 4.0, Z-Anatomy — CC BY-SA 4.0) slaydda emas, izohda va
+    # fayl xususiyatlarida — namoyishda mijozga ko'rinmaydi.
+    slide.notes_slide.notes_text_frame.text = f"3D: {source}"
     return [title, body]
 
 
@@ -904,7 +910,9 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
         if _has_picture(data, lay):                  # kasallik rasmi va zararlangan joydan unga strelka
             sick = [it for _, it in placed_labels if it.get("alert")]
             target = (sick[0].get("tip") or (sick[0]["ax"], sick[0]["ay"])) if sick else None
-            steps += [(s, "fade", 900) for s in _picture(slide, st, lay, data["picture_path"], target,
+            if not data.get("picture_path"):         # davolash tasviri — zararlangan joyga strelka yo'q
+                target = None
+            steps += [(s, "fade", 900) for s in _picture(slide, st, lay, _picture_of(data), target,
                                                           plan.get("language") or "uz")]
         if fly and built:
             prev_slide, prev_names = built[-1]
@@ -940,6 +948,8 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
                     node.set("advTm", "0")
         built.append((slide, {f"lbl_{k}" for k, _ in placed_labels}))
 
+    sources = sorted({p["scene"]["source"] for p in plans})
+    prs.core_properties.comments = "3D: " + "; ".join(sources)
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
     prs.save(out_path)
     LAST_QUALITY[:] = quality_log
