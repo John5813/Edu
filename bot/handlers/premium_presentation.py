@@ -432,7 +432,86 @@ async def premium_ppt_got_topic(message: Message, state: FSMContext, db: Databas
     if language == "uz" and uz_script.has_cyrillic(topic):
         await _step_script(message, state, lang)
         return
+    await _after_topic(message, state, lang)
+
+
+async def _after_topic(message: Message, state: FSMContext, lang: str) -> None:
+    """Mavzu yozildi. 3D Anatomiyada — darhol (to'lovdan oldin) tekshiriladi: mos bo'lmasa shu zahoti aytiladi."""
+    if _kind_of(await state.get_data()) == KIND_MED3D and not await _med3d_topic_gate(message, state, lang):
+        return
     await _step_name(message, state, lang)
+
+
+MED3D_CHECKING = {"uz": "⏳ Mavzu 3D atlas bo'yicha tekshirilmoqda...", "ru": "⏳ Проверяем тему по 3D-атласу...",
+                  "en": "⏳ Checking the topic against the 3D atlas...", "kk": "⏳ Тақырып 3D атлас бойынша тексерілуде..."}
+MED3D_TOPIC_NO = {
+    "uz": "🫀 Bu mavzuni 3D Anatomiya taqdimotida ko'rsatib bo'lmaydi.",
+    "ru": "🫀 Эту тему нельзя показать в презентации 3D Анатомия.",
+    "en": "🫀 This topic cannot be shown in a 3D Anatomy presentation.",
+    "kk": "🫀 Бұл тақырыпты 3D Анатомия презентациясында көрсету мүмкін емес.",
+}
+MED3D_TOPIC_OK = {
+    "uz": "✅ Mavzu 3D uchun mos.", "ru": "✅ Тема подходит для 3D.", "en": "✅ The topic fits 3D.",
+    "kk": "✅ Тақырып 3D үшін жарайды.",
+}
+MED3D_TOPIC_DISEASE = {
+    "uz": "🩺 Kasallik mavzusi: taqdimot «anatomiya → kasallik → tashxis → davolash» tartibida, zararlangan joy 3D "
+          "modelda qizil, kasallik ko'rinishi va davolash jarayoni AI rasmlarida bo'ladi.",
+    "ru": "🩺 Тема о заболевании: презентация в порядке «анатомия → заболевание → диагностика → лечение», "
+          "поражённое место на 3D-модели красное, вид болезни и лечение — на ИИ-иллюстрациях.",
+    "en": "🩺 Disease topic: the presentation goes anatomy → disease → diagnosis → treatment, the affected part is "
+          "red on the 3D model, the disease and the treatment are shown in AI illustrations.",
+    "kk": "🩺 Ауру тақырыбы: презентация «анатомия → ауру → диагностика → емдеу» ретімен, зақымданған жер 3D "
+          "модельде қызыл, ауру көрінісі мен емдеу ЖИ суреттерінде.",
+}
+
+
+def _med3d_choice_keyboard(lang: str) -> InlineKeyboardMarkup:
+    texts = {"uz": ("📊 Oddiy taqdimot qilish", "✏️ Boshqa mavzu yozish"),
+             "ru": ("📊 Сделать обычную презентацию", "✏️ Написать другую тему"),
+             "en": ("📊 Make a regular presentation", "✏️ Enter another topic"),
+             "kk": ("📊 Қарапайым презентация жасау", "✏️ Басқа тақырып жазу")}
+    regular, other = texts.get(lang) or texts["uz"]
+    return _markup([[InlineKeyboardButton(text=regular, callback_data="prem_m3d_alt:ha")],
+                    [InlineKeyboardButton(text=other, callback_data="prem_m3d_alt:mavzu")]])
+
+
+async def _med3d_topic_gate(message: Message, state: FSMContext, lang: str) -> bool:
+    """3D Anatomiya mavzusini darhol tekshiradi. False — davom etilmaydi (mijozga sababi va tugmalar chiqdi)."""
+    from services.med3d import auto as med3d_auto
+
+    data = await state.get_data()
+    note = await message.answer(MED3D_CHECKING.get(lang) or MED3D_CHECKING["uz"])
+    loop = asyncio.get_running_loop()
+    try:
+        verdict = await asyncio.wait_for(loop.run_in_executor(
+            None, med3d_auto.check_topic, data.get("topic", ""), data.get("presentation_language") or "uz"), 60)
+    except Exception as exc:                          # noqa: BLE001
+        logger.warning("3D mavzu tekshiruvi: %s", exc)
+        verdict = {"ok": True, "kind": "anatomy", "reason": ""}
+    await state.update_data(m3d_topic_kind=verdict.get("kind", "anatomy"))
+    if not verdict.get("ok"):
+        reason = verdict.get("reason") or ""
+        text = (MED3D_TOPIC_NO.get(lang) or MED3D_TOPIC_NO["uz"]) + (f"\n<i>{reason}</i>" if reason else "")
+        text += "\n\n" + (MED3D_ALT_ASK.get(lang) or MED3D_ALT_ASK["uz"])
+        with contextlib.suppress(Exception):
+            await note.edit_text(text, parse_mode="HTML", reply_markup=_med3d_choice_keyboard(lang))
+        return False
+    if verdict.get("kind") == "disease":
+        ready = await loop.run_in_executor(None, med3d_auto.pictures_ready)
+        if not ready:
+            text = (MED3D_PICTURES_LATER.get(lang) or MED3D_PICTURES_LATER["uz"]) + "\n\n" + \
+                (MED3D_ALT_ASK.get(lang) or MED3D_ALT_ASK["uz"])
+            with contextlib.suppress(Exception):
+                await note.edit_text(text, parse_mode="HTML", reply_markup=_med3d_choice_keyboard(lang))
+            return False
+        text = (MED3D_TOPIC_OK.get(lang) or MED3D_TOPIC_OK["uz"]) + "\n" + \
+            (MED3D_TOPIC_DISEASE.get(lang) or MED3D_TOPIC_DISEASE["uz"])
+    else:
+        text = MED3D_TOPIC_OK.get(lang) or MED3D_TOPIC_OK["uz"]
+    with contextlib.suppress(Exception):
+        await note.edit_text(text)
+    return True
 
 
 async def _step_script(message: Message, state: FSMContext, lang: str) -> None:
@@ -458,7 +537,7 @@ async def premium_ppt_got_script(callback: CallbackQuery, state: FSMContext, db:
         language = uz_script.UZ_CYRILLIC_LANG
     await _drop_prompt(callback.bot, callback.message.chat.id, state)
     await state.update_data(topic=topic, presentation_language=language, script_asked=True)
-    await _step_name(callback.message, state, lang)
+    await _after_topic(callback.message, state, lang)
 
 
 # ── 2. Ism
@@ -1432,6 +1511,12 @@ async def premium_med3d_alternative(callback: CallbackQuery, state: FSMContext, 
         await state.update_data(kind=KIND_MODERN, style="", volume="kop", m3d_style="", prompt_mid=None,
                                 payment_method=None)
         await _step_style(callback.message, state, lang)
+        return
+    if callback.data.endswith(":mavzu"):              # boshqa mavzu — 3D Anatomiya turida qoladi
+        with contextlib.suppress(Exception):
+            await callback.message.edit_reply_markup(reply_markup=None)
+        await state.update_data(kind=KIND_MED3D, topic="", prompt_mid=None, payment_method=None)
+        await _step_topic(callback.message, state, lang)
         return
     with contextlib.suppress(Exception):
         await callback.message.edit_reply_markup(reply_markup=None)

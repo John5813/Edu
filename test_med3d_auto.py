@@ -118,6 +118,19 @@ check("bitta tomon (o'ng yelka)", sick_plan["side"] == "right")
 _lat = auto.normalize({"anatomy": True, "kind": "disease", "slides": [
     {"title": "a", "text": "b", "show": ["yurak"], "latin": "Infarctus myocardii"}] * 3}, 3, "uz")
 check("kasallikning lotincha nomi saqlanadi", _lat["slides"][0]["latin"] == "Infarctus myocardii")
+_orig_call = auto._call_json
+auto._call_json = lambda s, u, answer_tokens: {"ok": False, "kind": "anatomy", "reason": "Hujayra darajasi.", "organs": []}
+_v = auto.check_topic("Hujayra mitozi", "uz")
+auto._call_json = lambda s, u, answer_tokens: {"ok": True, "kind": "disease", "organs": ["qirra_usti_mushagi", "yoq_organ"]}
+_v2 = auto.check_topic("Rotator manjet yirtilishi", "uz")
+def _boom(*a, **k):
+    raise RuntimeError("tarmoq yo'q")
+auto._call_json = _boom
+_v3 = auto.check_topic("Yurak", "uz")
+auto._call_json = _orig_call
+check("tezkor tekshiruv: rad etish sababi, kasallik turi, faqat bor organlar; AI javob bermasa — to'xtatmaydi",
+      not _v["ok"] and _v["reason"] == "Hujayra darajasi." and _v2["ok"] and _v2["kind"] == "disease"
+      and _v2["organs"] == ["qirra_usti_mushagi"] and _v3["ok"] and not _v3["checked"], (_v, _v2, _v3))
 _pics = {"slides": [{"picture": "x"}, {"picture": ""}]}
 _saved = os.environ.pop("TOGETHER_API_KEY", None)
 check("rasm xizmati kalitsiz — tayyor emas (3D boshlanmaydi)", not auto.pictures_ready())
@@ -296,7 +309,7 @@ from bot.states import PremiumPresentationStates as PS
 
 class Chat:
     def __init__(self):
-        self.next_id, self.sent, self.deleted, self.edited = 100, [], [], []
+        self.next_id, self.sent, self.deleted, self.edited, self.markups = 100, [], [], [], []
         self.bot = SimpleNamespace(delete_message=self.delete)
 
     async def delete(self, chat_id, message_id):
@@ -311,7 +324,11 @@ class Chat:
         async def answer(body, **kw):
             chat.next_id += 1
             chat.sent.append((chat.next_id, body, kw.get("reply_markup")))
-            return SimpleNamespace(message_id=chat.next_id)
+
+            async def edit_sent(text, **kw2):
+                chat.edited.append(text)
+                chat.markups.append(kw2.get("reply_markup"))
+            return SimpleNamespace(message_id=chat.next_id, edit_text=edit_sent)
 
         async def edit_text(body, **kw):
             chat.edited.append(body)
@@ -367,7 +384,29 @@ async def bot_flow():
     check("Ha → tur 3D Anatomiya, mavzu so'raladi", data.get("kind") == "med3d"
           and await state.get_state() in (PS.waiting_for_topic.state, PS.waiting_for_topic_text.state),
           (data.get("kind"), await state.get_state()))
+    from services.med3d import auto as _m3
+    _orig_check, _orig_ready = _m3.check_topic, _m3.pictures_ready
+    _m3.check_topic = lambda topic, language="uz": {"ok": False, "kind": "anatomy", "reason": "Bu iqtisodiyot mavzusi."}
+    await pp.premium_ppt_got_topic(chat.message("Inflyatsiya sabablari"), state, db)
+    alt_cbs = [b.callback_data for b in buttons(chat.markups[-1])] if chat.markups and chat.markups[-1] else []
+    check("mavzu yozilishi bilan tekshiriladi: 3D bo'lmasa darhol aytiladi va tugmalar chiqadi",
+          "ko'rsatib bo'lmaydi" in chat.edited[-1] and alt_cbs == ["prem_m3d_alt:ha", "prem_m3d_alt:mavzu"]
+          and await state.get_state() == PS.waiting_for_topic_text.state, (chat.edited[-1:], alt_cbs))
+    await pp.premium_med3d_alternative(callback(chat, "prem_m3d_alt:mavzu"), state, db)
+    check("«Boshqa mavzu» — 3D Anatomiyada qolib, mavzu qayta so'raladi",
+          (await state.get_data()).get("kind") == "med3d" and await state.get_state() == PS.waiting_for_topic_text.state)
+    _m3.check_topic = lambda topic, language="uz": {"ok": True, "kind": "disease", "reason": ""}
+    _m3.pictures_ready = lambda: False
+    await pp.premium_ppt_got_topic(chat.message("Rotator manjet yirtilishi"), state, db)
+    check("kasallik mavzusi, rasm xizmati ishlamasa — to'lovdan oldin aytiladi",
+          "rasm xizmati" in chat.edited[-1] and await state.get_state() == PS.waiting_for_topic_text.state, chat.edited[-1:])
+    _m3.pictures_ready = lambda: True
+    await pp.premium_ppt_got_topic(chat.message("Rotator manjet yirtilishi"), state, db)
+    check("kasallik mavzusi mos — tartib aytiladi va davom etadi", "Kasallik mavzusi" in chat.edited[-1]
+          and await state.get_state() == PS.waiting_for_client_name.state, chat.edited[-1:])
+    _m3.check_topic = lambda topic, language="uz": {"ok": True, "kind": "anatomy", "reason": ""}
     await pp.premium_ppt_got_topic(chat.message("Yurakning tuzilishi"), state, db)
+    _m3.check_topic, _m3.pictures_ready = _orig_check, _orig_ready
     await pp.premium_ppt_skip_name(callback(chat, "prem_ppt_skip_name"), state, db)
     await pp.premium_ppt_skip_preferences(callback(chat, "prem_ppt_skip_preferences"), state, db)
     check("istaklardan keyin manba so'ralmaydi — dizayn uslubi so'raladi",

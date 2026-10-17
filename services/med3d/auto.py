@@ -189,6 +189,43 @@ ORGANS (id | Uzbek name | English name | available in body):
 LEVELS = {1: "school pupils (simple words)", 2: "university students", 3: "academic / medical professionals"}
 
 
+CHECK_SYSTEM = """You decide, BEFORE the client pays, whether a 3D anatomy presentation can be made for a topic.
+The presentation can show ONLY the 3D organ models listed below (real human anatomy atlas, adult male and female).
+
+Return ONLY JSON: {"ok": true | false, "kind": "anatomy" | "disease", "reason": "", "organs": ["<id>", ...]}
+- "ok": false when the topic is not about the human body (history, economics, physics, animals, plants...), or it
+  is about the body but these models cannot show it (cells, tissues under a microscope, blood tests, genetics,
+  hormones as molecules, psychology, the retina in detail...). Otherwise true.
+- "kind": "disease" for a disease, injury or condition (rotator cuff tear, infarction, hernia, gastritis...),
+  otherwise "anatomy".
+- "reason" (only when ok is false): one short polite sentence in the client's language saying why 3D is not
+  possible for this topic.
+- "organs": up to 6 ids from the list that the presentation would show (empty when ok is false).
+"""
+
+
+def check_topic(topic: str, language: str = "uz") -> dict:
+    """Mavzu kiritilishi bilan (to'lovdan oldin) tezkor tekshiruv: 3D atlas bu mavzuni ko'rsata oladimi, mavzu
+    kasallikmi. Qaytaradi: {ok, kind, reason, organs}. AI javob bermasa — ok (mijoz to'xtatib qo'yilmaydi;
+    to'liq reja tuzilganda baribir tekshiriladi)."""
+    from services.premium_presentation import llm_client, prompts
+
+    table = "\n".join(f"{o['id']} | {o['en']}" for o in ORGANS)
+    user = (f"Topic: {topic}\nClient's language: {llm_client._language_instruction(language)}\n\n"
+            f"ORGANS (id | English name):\n{table}\n")
+    try:
+        with prompts.use(language), llm_client.text_model(MODEL):
+            raw = _call_json(CHECK_SYSTEM, user, answer_tokens=400)
+    except Exception as exc:                      # noqa: BLE001
+        log.warning("3D Anatomiya: mavzu tekshiruvi o'tmadi (%s) — davom etiladi", exc)
+        return {"ok": True, "kind": "anatomy", "reason": "", "organs": [], "checked": False}
+    ok = not (raw.get("ok") is False or str(raw.get("ok")).lower() == "false")
+    kind = "disease" if str(raw.get("kind") or "").lower() == "disease" else "anatomy"
+    organs = [o for o in (raw.get("organs") or []) if isinstance(o, str) and o in BY_ID][:6]
+    return {"ok": ok, "kind": kind, "reason": str(raw.get("reason") or "").strip()[:300] if not ok else "",
+            "organs": organs, "checked": True}
+
+
 def _plan_ai(topic: str, count: int, language: str, level: int, preferences: str) -> dict:
     from services.premium_presentation import llm_client, prompts
 
