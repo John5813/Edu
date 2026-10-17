@@ -15,7 +15,9 @@ Reja (keyinchalik AI tuzadi):
 - Bir slayddagi hamma guruh bir xil ramka va aylanishda — qismlar bir-biriga aniq yopishadi.
 """
 import logging
+import math
 import os
+import re
 from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -30,7 +32,7 @@ from pptx.util import Inches, Pt
 from services.pro3d.build import add_entrances, add_morph
 
 from . import ASSETS_DIR, design, load_scene
-from .camera import Camera
+from .camera import Camera, sides
 from .pptx3d import add_model3d
 
 log = logging.getLogger(__name__)
@@ -52,6 +54,7 @@ LABEL_H2, LABEL_GAP2 = 0.54, 0.66              # ikki qatorli yorliq: o'zbekcha 
 HIDDEN_SHARE = 0.08                            # organ yuzasining shundan kami ko'rinsa — yorliq qo'yilmaydi
 ZOOM_LIMIT = 1.6                               # fokusga yaqinlashish: butun ko'rinishdan ko'pi bilan shuncha katta
 LABEL_X_MIN, LABEL_X_MAX = 5.15, W - 0.2
+ALERT = "E5483F"                               # zararlangan organ yorlig'i, chizig'i va rasmga strelka
 EXITS = {"up": (0, -1), "down": (0, 1), "left": (-1, 0), "right": (1, 0)}
 # Chiqib ketishdagi qo'shimcha burilish (X, Y, Z gradus) va masshtab. Har burilish < 180° — Morph qaysi
 # yo'nalishda aylantirishidan qat'i nazar aylanish yaqqol ko'rinadi; Z (ekran tekisligida) — buralish (spiral).
@@ -196,6 +199,23 @@ def _untangle(edges: List[float], anchors: List[Tuple[float, float]], ys: List[f
     return ys
 
 
+def _stop_before(start, target, outline: np.ndarray, gap: float = 0.2) -> Tuple[float, float]:
+    """Yorliqdan `target` ga (yopilgan organ joyiga) boradigan chiziq qayerda to'xtaydi: model siluetiga `gap`
+    dyuym qolganda. Chiziq boshidanoq model ustida bo'lsa — yorliqdan qisqa strelka organ tomonga."""
+    (x0, y0), (x1, y1) = start, target
+    length = math.hypot(x1 - x0, y1 - y0)
+    if length < 1e-6 or not len(outline):
+        return x1, y1
+    steps = max(2, int(length / 0.03))
+    for k in range(steps + 1):
+        t = k / steps
+        px, py = x0 + (x1 - x0) * t, y0 + (y1 - y0) * t
+        if float(np.min((outline[:, 0] - px) ** 2 + (outline[:, 1] - py) ** 2)) < gap * gap:
+            t = max(t - 0.05 / length, min(0.6 / length, 1.0))     # kamida 0.6 dyuymli strelka
+            return x0 + (x1 - x0) * t, y0 + (y1 - y0) * t
+    return x1, y1
+
+
 def _rgb(hex_color: str) -> RGBColor:
     return RGBColor.from_string(hex_color)
 
@@ -246,7 +266,9 @@ def _draw_label(slide, st, key: str, item: dict, dx: float = 0.0) -> List:
     shapes = []
     if st.label == "pill":
         pill = design.shape(slide, f"lbl_{key}", MSO_SHAPE.ROUNDED_RECTANGLE, x, y - h / 2, w, h, st.pill,
-                            round_=st.pill_round if not latin else 0.35, line=st.pill_line, line_pt=0.75)
+                            round_=st.pill_round if not latin else 0.35,
+                            line=ALERT if item.get("alert") else st.pill_line,
+                            line_pt=1.75 if item.get("alert") else 0.75)
         frame = pill.text_frame
         frame.margin_left = frame.margin_right = Inches(0.1)
         frame.margin_top = frame.margin_bottom = 0
@@ -271,8 +293,8 @@ def _draw_label(slide, st, key: str, item: dict, dx: float = 0.0) -> List:
     if st.label == "tag":
         tw = min(w, len(value) * size * 0.6 / 72 + 0.4)
         tx = x + w - tw if item["side"] == "left" else x
-        tag = design.shape(slide, f"lbl_{key}", MSO_SHAPE.ROUNDED_RECTANGLE, tx, top, tw, 0.32, st.pill,
-                           round_=0.5)
+        tag = design.shape(slide, f"lbl_{key}", MSO_SHAPE.ROUNDED_RECTANGLE, tx, top, tw, 0.32,
+                           ALERT if item.get("alert") else st.pill, round_=0.5)
         frame = tag.text_frame
         frame.margin_left = frame.margin_right = Inches(0.08)
         frame.margin_top = frame.margin_bottom = 0
@@ -288,25 +310,36 @@ def _draw_label(slide, st, key: str, item: dict, dx: float = 0.0) -> List:
     else:                                    # plain: matn va ostida ingichka chiziq
         shapes.append(design.textbox(slide, f"lbl_{key}", x, top, w, 0.3, value, size=size + 1, color=st.ink,
                                      font=st.head_font, bold=True, align=align, anchor=MSO_ANCHOR.BOTTOM))
-        shapes.append(design.shape(slide, f"lbl_{key}_rule", MSO_SHAPE.RECTANGLE, x, top + 0.31, w, 0.012,
-                                   st.line))
+        shapes.append(design.shape(slide, f"lbl_{key}_rule", MSO_SHAPE.RECTANGLE, x, top + 0.31, w,
+                                   0.03 if item.get("alert") else 0.012, ALERT if item.get("alert") else st.line))
     if latin:
         shapes.append(design.textbox(slide, f"lbl_{key}_la", x, top + 0.34, w, 0.24, latin, size=small,
                                      color=st.latin, font=st.body_font, italic=True, align=align))
     return shapes
 
 
-def _connector(slide, st, key: str, start, end) -> List:
+def _connector(slide, st, key: str, start, end, alert: bool = False, hidden: bool = False) -> List:
+    """Yorliq chizig'i va organdagi nuqta. hidden — organ boshqasi ortida: nuqta o'rniga strelka uchi (chiziq
+    3D modelga yetmasdan to'xtaydi — "shu tomonda, orqada")."""
     kind = {"curve": MSO_CONNECTOR.CURVE, "elbow": MSO_CONNECTOR.ELBOW}.get(st.connector, MSO_CONNECTOR.STRAIGHT)
+    if hidden:
+        kind = MSO_CONNECTOR.STRAIGHT
     line = slide.shapes.add_connector(kind, Inches(start[0]), Inches(start[1]), Inches(end[0]), Inches(end[1]))
     line.name = f"lbl_{key}_line"
-    line.line.color.rgb = _rgb(st.line)
-    line.line.width = Pt(1.25)
+    line.line.color.rgb = _rgb(ALERT if alert else st.line)
+    line.line.width = Pt(1.75 if alert or hidden else 1.25)
+    if hidden:
+        line.line.dash_style = 4                 # MSO_LINE.DASH
+        tail = etree.SubElement(line.line._get_or_add_ln(), qn("a:tailEnd"))
+        tail.set("type", "triangle")
+        tail.set("w", "med")
+        tail.set("len", "med")
+        return [line]
     dot = slide.shapes.add_shape(MSO_SHAPE.OVAL, Inches(end[0] - 0.06), Inches(end[1] - 0.06), Inches(0.12),
                                  Inches(0.12))
     dot.name = f"lbl_{key}_dot"
     dot.fill.solid()
-    dot.fill.fore_color.rgb = _rgb(st.accent if not st.light else st.line)
+    dot.fill.fore_color.rgb = _rgb(ALERT if alert else (st.accent if not st.light else st.line))
     dot.line.color.rgb = _rgb(st.bg if st.light else "FFFFFF")
     dot.line.width = Pt(1)
     dot.shadow.inherit = False
@@ -319,6 +352,9 @@ def _labels(cam: Camera, scene: dict, frame: Frame, keys: Sequence[str], visible
     """Yorliqlar joyi: [(kalit, {x, y, w, h, side, ax, ay, ...})]. Chizilmaydi — chizish `_draw_label` da."""
     known = scene["labels"]
     items = []
+    alerts = set()                               # zararlangan organ yorliqlari (qizil)
+    hidden: set = set()                          # boshqa organ ortidagi organlar — strelka
+    outline: Dict[str, np.ndarray] = {}          # ular uchun model siluetining nuqtalari (slaydda, dyuym)
     x_lo, x_hi = lay.labels_x
     for key in keys:
         info = known.get(key)
@@ -329,9 +365,7 @@ def _labels(cam: Camera, scene: dict, frame: Frame, keys: Sequence[str], visible
         # Birlashgan modelda (bir nechta organ — bitta GLB) to'suvchilar yorliqning o'zida beriladi.
         others = info.get("occluders") or [p for g in visible if g != info["group"] for p in scene["groups"][g]["samples"]]
         radius = 0.12 / frame.size
-        if others and cam.visible_share(info["samples"], frame.rot, others, radius) < HIDDEN_SHARE:
-            log.info("med3d: organ boshqasi orqasida yopilgan, yorliq qo'yilmadi: %s", key)
-            continue
+        covered = bool(others) and cam.visible_share(info["samples"], frame.rot, others, radius) < HIDDEN_SHARE
         # Uzun organ (qizilo'ngach, aorta) qisman slayddan chiqib turishi mumkin: nuqta slayd ichidagi qismidan.
         pts = np.asarray(info["samples"], float)
         uv, _ = cam.project(pts, frame.rot)
@@ -339,12 +373,35 @@ def _labels(cam: Camera, scene: dict, frame: Frame, keys: Sequence[str], visible
         inside = (sx >= x_lo) & (sx <= x_hi) & (sy >= 0.15) & (sy <= H - 0.15)
         if inside.sum() >= 3:
             pts = pts[inside]
-        u, v = cam.anchor(pts, frame.rot, others, radius)
+        spot = None if covered else cam.anchor(pts, frame.rot, others, radius)
+        if spot is None:
+            # Organ boshqasi ortida: chiziq sirtdagi nuqtaga emas (u boshqa organ ustiga tushardi), organ turgan
+            # tomonga strelka bo'lib boradi va 3D modelga yetmasdan to'xtaydi (`_stop_before`).
+            parts = sides(pts)
+            near = max(parts, key=lambda part: float(cam.project(part, frame.rot)[1].mean()))
+            u, v = (float(c) for c in cam.project(near, frame.rot)[0].mean(axis=0))
+            hidden.add(key)
+            sil = []
+            for g in visible:
+                gx, gy = offsets.get(g, (0.0, 0.0))
+                guv, _ = cam.project(scene["groups"][g]["samples"], frame.rot)
+                sil.append(np.stack([frame.cx + gx + guv[:, 0] * frame.size, frame.cy + gy + guv[:, 1] * frame.size], 1))
+            if info.get("occluders"):
+                guv, _ = cam.project(info["occluders"], frame.rot)
+                sil.append(np.stack([frame.cx + ox + guv[:, 0] * frame.size, frame.cy + oy + guv[:, 1] * frame.size], 1))
+            outline[key] = np.vstack(sil)
+        else:
+            u, v = spot
         ax, ay = frame.cx + ox + u * frame.size, frame.cy + oy + v * frame.size
         if not (x_lo <= ax <= x_hi and 0.15 <= ay <= H - 0.15):
             log.info("med3d: yorliq nuqtasi slayddan tashqarida, qo'yilmadi: %s", key)
             continue
-        items.append((key, info["uz"], ax, ay, info.get("la", "")))
+        # Yorliqda qavs ichidagi izoh kerak emas: "Yelka bo'g'imi (kapsula va boylamlar)" → "Yelka bo'g'imi" —
+        # uzun yorliq tor ustunga sig'may, o'z nuqtasining ustiga chiqib qolardi.
+        name = re.sub(r"\s*\([^)]*\)", "", info["uz"]).strip() or info["uz"]
+        items.append((key, name, ax, ay, info.get("la", "")))
+        if info.get("alert"):
+            alerts.add(key)
     if not items:
         return []
     left, top, right, bottom = model_box
@@ -358,28 +415,130 @@ def _labels(cam: Camera, scene: dict, frame: Frame, keys: Sequence[str], visible
         sizes = [_label_size(st, it[1], it[4]) for it in col]
         tallest = max(h for _, h, _, _ in sizes)
         gap = tallest + 0.14
-        ys = _spread([it[3] for it in col], y_lo + tallest / 2, y_hi - tallest / 2, gap)   # yorliq to'liq chegarada
         widths = [w for w, _, _, _ in sizes]
         if side == "left":
             edges = [max(x_lo + wd, min(left - 0.3, it[2] - 0.5)) for it, wd in zip(col, widths)]
         else:
             edges = [min(x_hi - wd, max(right + 0.3, it[2] + 0.5)) for it, wd in zip(col, widths)]
+        # Yorliq yonida joy yetmasa (nuqta slayd chetiga yaqin) — yorliq nuqtaning ustiga chiqib uni yopardi:
+        # bunday yorliq nuqtadan yuqoriroqqa (sig'masa — pastroqqa) qo'yiladi, chiziq qiya tushadi.
+        targets = []
+        for it, edge, (w, h, _, _) in zip(col, edges, sizes):
+            ax, ay = it[2], it[3]
+            covers = edge > ax - 0.3 if side == "left" else edge < ax + 0.3
+            if covers:
+                lift = h / 2 + 0.4
+                ay = ay - lift if ay - lift - h / 2 >= y_lo else ay + lift
+            targets.append(ay)
+        order = sorted(range(len(col)), key=lambda k: targets[k])
+        col = [col[k] for k in order]
+        sizes = [sizes[k] for k in order]
+        widths = [widths[k] for k in order]
+        edges = [edges[k] for k in order]
+        targets = [targets[k] for k in order]
+        ys = _spread(targets, y_lo + tallest / 2, y_hi - tallest / 2, gap)   # yorliq to'liq chegarada
         ys = _untangle(edges, [(it[2], it[3]) for it in col], ys)
         for (key, uz, ax, ay, la), ly, edge, (w, h, size, small) in zip(col, ys, edges, sizes):
             x = edge - w if side == "left" else edge
             start = (edge, ly) if st.label != "plain" else (edge, ly - h / 2 + 0.32)
             if st.label == "tag":
                 start = (edge, ly - h / 2 + 0.16)
-            out.append((key, dict(uz=uz, la=la, x=x, y=ly, w=w, h=h, size=size, small=small, side=side,
-                                  start=start, ax=ax, ay=ay)))
+            item = dict(uz=uz, la=la, x=x, y=ly, w=w, h=h, size=size, small=small, side=side,
+                        start=start, ax=ax, ay=ay, alert=key in alerts)
+            if key in hidden:
+                item["hidden"] = True
+                item["tip"] = _stop_before(start, (ax, ay), outline[key])
+            out.append((key, item))
     return out
 
 
 # ───────────────────────────────────────────── matn ustuni
 
-def _text_column(slide, data: dict, number: int, total: int, source: str, st, lay) -> List:
+PICTURE_LAYOUTS = ("chap_matn", "ong_matn", "karta")    # matn ustunida rasmga joy bor kompozitsiyalar
+PIC_H = 2.05                                            # kasallik rasmi kartasi balandligi (16:9)
+STAGE_NAMES = {
+    "uz": {"anatomy": "Anatomiya", "disease": "Kasallik", "diagnosis": "Tashxis", "treatment": "Davolash",
+           "summary": "Xulosa"},
+    "ru": {"anatomy": "Анатомия", "disease": "Заболевание", "diagnosis": "Диагностика", "treatment": "Лечение",
+           "summary": "Итоги"},
+    "en": {"anatomy": "Anatomy", "disease": "Disease", "diagnosis": "Diagnosis", "treatment": "Treatment",
+           "summary": "Summary"},
+    "kk": {"anatomy": "Анатомия", "disease": "Ауру", "diagnosis": "Диагностика", "treatment": "Емдеу",
+           "summary": "Қорытынды"},
+}
+AI_CAPTION = {"uz": "AI tasvir", "ru": "ИИ-иллюстрация", "en": "AI illustration", "kk": "ЖИ-иллюстрация"}
+
+
+def _has_picture(data: dict, lay) -> bool:
+    path = data.get("picture_path")
+    return bool(path) and os.path.exists(path) and lay.key in PICTURE_LAYOUTS
+
+
+def _picture_box(lay) -> Tuple[float, float, float, float]:
+    bx, by, bw, bh = lay.body
+    w = min(bw, PIC_H * 16 / 9)
+    return bx, by + bh - PIC_H, w, PIC_H
+
+
+def _picture(slide, st, lay, path: str, target: Optional[Tuple[float, float]], lang: str) -> List:
+    """Kasallik rasmi (AI chizgan, 16:9 ga kesiladi) matn ostida va zararlangan joydan unga strelka.
+    Qaytaradi: o'tishdan keyin paydo bo'ladigan shakllar (strelka)."""
+    from PIL import Image
+
+    x, y, w, h = _picture_box(lay)
+    design.shape(slide, "!!pic_frame", MSO_SHAPE.ROUNDED_RECTANGLE, x - 0.05, y - 0.05, w + 0.1, h + 0.1, ALERT,
+                 round_=0.06)
+    pic = slide.shapes.add_picture(path, Inches(x), Inches(y), Inches(w), Inches(h))
+    pic.name = "!!pic"
+    with Image.open(path) as im:
+        iw, ih = im.size
+    want = w / h
+    if iw / ih > want:                                    # keng — yon tomonlari kesiladi
+        cut = (1 - want * ih / iw) / 2
+        pic.crop_left = pic.crop_right = cut
+    else:
+        cut = (1 - iw / ih / want) / 2
+        pic.crop_top = pic.crop_bottom = cut
+    tag = design.shape(slide, "!!pic_tag", MSO_SHAPE.ROUNDED_RECTANGLE, x + 0.1, y + 0.1, 1.25, 0.26, ALERT,
+                       round_=0.5)
+    frame = tag.text_frame
+    frame.margin_left = frame.margin_right = frame.margin_top = frame.margin_bottom = 0
+    frame.vertical_anchor = MSO_ANCHOR.MIDDLE
+    para = frame.paragraphs[0]
+    para.alignment = PP_ALIGN.CENTER
+    run = para.add_run()
+    run.text = AI_CAPTION.get(lang, AI_CAPTION["en"])
+    run.font.name, run.font.size, run.font.bold = st.body_font, Pt(9), True
+    run.font.color.rgb = _rgb("FFFFFF")
+    if target is None:
+        return []
+    tx, ty = target
+    ex = x + w + 0.05 if tx > x + w else x - 0.05         # rasmning zararlangan joyga qaragan cheti
+    ey = min(max(ty, y + 0.25), y + h - 0.25)
+    arrow = slide.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, Inches(tx), Inches(ty), Inches(ex), Inches(ey))
+    arrow.name = "!!pic_arrow"
+    arrow.line.color.rgb = _rgb(ALERT)
+    arrow.line.width = Pt(2.25)
+    arrow.line.dash_style = 4                            # MSO_LINE.DASH — rasm "kattalashtirilgan ko'rinish"
+    ln = arrow.line._get_or_add_ln()
+    tail = etree.SubElement(ln, qn("a:tailEnd"))
+    tail.set("type", "triangle")
+    tail.set("w", "med")
+    tail.set("len", "med")
+    ring = slide.shapes.add_shape(MSO_SHAPE.OVAL, Inches(tx - 0.17), Inches(ty - 0.17), Inches(0.34), Inches(0.34))
+    ring.name = "!!pic_ring"
+    ring.fill.background()
+    ring.line.color.rgb = _rgb(ALERT)
+    ring.line.width = Pt(2)
+    ring.shadow.inherit = False
+    return [ring, arrow]
+
+
+def _text_column(slide, data: dict, number: int, total: int, source: str, st, lay, lang: str = "uz") -> List:
     tx, ty, tw, th = lay.title
     bx, by, bw, bh = lay.body
+    if _has_picture(data, lay):                          # rasm matn ostida — matn qisqaroq joyda
+        bh = bh - PIC_H - 0.3
     if lay.panel:
         px, py, pw, ph = lay.panel
     else:                                     # boshqa kompozitsiyada panel slayd tashqarisida kutib turadi
@@ -388,6 +547,11 @@ def _text_column(slide, data: dict, number: int, total: int, source: str, st, la
                  round_=0.06)
     ax, ay = lay.accent
     design.shape(slide, "!!accent", MSO_SHAPE.ROUNDED_RECTANGLE, ax, ay, 0.9, 0.07, st.accent, round_=0.5)
+    if data.get("stage"):                                # kasallik taqdimoti: bo'lim nomi (anatomiya → davolash)
+        names = STAGE_NAMES.get(lang, STAGE_NAMES["en"])
+        design.textbox(slide, "!!stage", ax + 1.05, ay - 0.1, 3.2, 0.26, names.get(data["stage"], ""), size=10,
+                       color=ALERT if data["stage"] in ("disease", "diagnosis") else st.accent, font=st.body_font,
+                       bold=True, caps=True)
     title = design.textbox(slide, "!!title", tx, ty, tw, th, data.get("title", ""), size=lay.title_size,
                            smallest=20, color=st.ink, font=st.head_font, bold=True, line=1.04, caps=st.title_caps)
     body = design.textbox(slide, "!!body", bx, by, bw, bh, data.get("text", ""), size=lay.body_size,
@@ -487,6 +651,8 @@ def quality(lay, model_box, labels: List[Tuple[str, dict]], text_boxes, focus_bo
             issues.append("fokus juda kichik")
     mx0, my0, mx1, my1 = model_box
     for k, it in labels:
+        if it.get("hidden") or focus_box is None:       # portlashda bo'laklar ramkadan siljigan
+            continue
         if not (mx0 - 0.1 <= it["ax"] <= mx1 + 0.1 and my0 - 0.1 <= it["ay"] <= my1 + 0.1):
             issues.append(f"yorliq chizig'i modeldan tashqarida: {k}")
     rects = [(k, (it["x"], it["y"] - it["h"] / 2, it["x"] + it["w"], it["y"] + it["h"] / 2)) for k, it in labels]
@@ -498,6 +664,10 @@ def quality(lay, model_box, labels: List[Tuple[str, dict]], text_boxes, focus_bo
         for name, t in text_boxes:
             if _overlap(r, t, 0.05):
                 issues.append(f"yorliq matnga tegadi: {k} / {name}")
+    for k, (x0, y0, x1, y1) in rects:              # yorliq o'z nuqtasini (yoki boshqasinikini) yopmasin
+        for k2, it2 in labels:
+            if not it2.get("hidden") and x0 - 0.05 <= it2["ax"] <= x1 + 0.05 and y0 - 0.05 <= it2["ay"] <= y1 + 0.05:
+                issues.append(f"yorliq nuqtani yopadi: {k} / {k2}")
     for name, t in text_boxes:
         if _overlap(model_box, t, 0.35):
             issues.append(f"model matnga tegadi: {name}")
@@ -642,7 +812,7 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
         design.ground_shadow(slide, st, model_box)
         # Yordamchi (avtomatik o'tadigan) slaydlar raqamga kirmaydi: u keyingi slaydning raqamini ko'rsatadi.
         number = sum(1 for s in slides[:index] if not s.get("auto"))
-        _text_column(slide, data, number, total, scene["source"], st, lay)
+        _text_column(slide, data, number, total, scene["source"], st, lay, plan.get("language") or "uz")
 
         placed = set(cur["names"])
         # fade — bu slaydga o'tishda organlar uchib kelmaydi, o'z joyida asta almashadi (Morph o'zi so'ndiradi).
@@ -682,13 +852,19 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
         steps, fly = [], []
         for i, (lkey, item) in enumerate(placed_labels):
             drawn = _draw_label(slide, st, lkey, item)
-            extras = _connector(slide, st, lkey, item["start"], (item["ax"], item["ay"]))
+            extras = _connector(slide, st, lkey, item["start"], item.get("tip") or (item["ax"], item["ay"]),
+                                item.get("alert", False), item.get("hidden", False))
             delay = 250 + (i // 3) * 220
             if index:                                # kartochka Morph bilan yon tomondan suzib keladi
                 fly.append((lkey, item))
                 steps += [(s, "fade", delay + 500) for s in extras]
             else:
                 steps += [(s, "fade", delay) for s in drawn + extras]
+        if _has_picture(data, lay):                  # kasallik rasmi va zararlangan joydan unga strelka
+            sick = [it for _, it in placed_labels if it.get("alert")]
+            target = (sick[0].get("tip") or (sick[0]["ax"], sick[0]["ay"])) if sick else None
+            steps += [(s, "fade", 900) for s in _picture(slide, st, lay, data["picture_path"], target,
+                                                          plan.get("language") or "uz")]
         if fly and built:
             prev_slide, prev_names = built[-1]
             for lkey, item in fly:
@@ -700,8 +876,11 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
         tx, ty, tw, th = lay.title
         f0, g0, f1, g1 = cam.extent(data.get("focus_points") or vis_points, frame.rot)
         focus_box = (*frame.to_slide(f0, g0), *frame.to_slide(f1, g1))
-        issues = quality(lay, model_box, placed_labels, [("sarlavha", (tx, ty, tx + tw, ty + th)),
-                                                          ("matn", (bx, by, bx + bw, by + bh))],
+        boxes = [("sarlavha", (tx, ty, tx + tw, ty + th)), ("matn", (bx, by, bx + bw, by + bh))]
+        if _has_picture(data, lay):
+            px, py, pw, ph = _picture_box(lay)
+            boxes.append(("rasm", (px, py, px + pw, py + ph)))
+        issues = quality(lay, model_box, placed_labels, boxes,
                          None if data.get("explode") else focus_box)
         if issues and not data.get("auto"):
             log.info("med3d sifat (%d-slayd, %s): %s", index + 1, lay.key, "; ".join(issues))

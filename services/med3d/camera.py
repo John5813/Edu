@@ -10,7 +10,7 @@ o'rab turgan shar ramkaga to'liq sig'adi. Aylanish — o'ng qo'l qoidasi, X → 
 Bu taxmin PowerPoint'da tekshirilishi kerak; noto'g'ri chiqsa faqat shu fayldagi `SIGN` o'zgaradi.
 """
 import math
-from typing import List, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -106,26 +106,35 @@ class Camera:
             return 1.0
         return float(self.visible_mask(points, rot, occluders, grid).mean())
 
-    def anchor(self, points, rot, occluders=None, radius: float = 0.01) -> Tuple[float, float]:
-        """Qismning kameraga qaragan yuzasidagi, markaziga eng yaqin nuqta (yorliq chizig'i uchi).
+    def anchor(self, points, rot, occluders=None, radius: float = 0.01) -> Optional[Tuple[float, float]]:
+        """Qismning kameraga qaragan va KO'RINIB TURGAN yuzasidagi nuqta (yorliq chizig'i uchi).
 
-        occluders — slayddagi boshqa organlarning nuqtalari: ular ortida qolgan (yopilgan) nuqta tanlanmaydi
-        (`visible_mask`). radius — eski chaqiruvlar uchun qoldirilgan.
+        occluders — slayddagi boshqa organlarning nuqtalari: ular ortida qolgan nuqta tanlanmaydi. Juft organda —
+        ko'proq ko'rinib turgan tomoni. Nuqta ko'rinadigan joyning ichkarisidan olinadi (chetidan emas: chekka
+        nuqta boshqa organ chegarasida bo'lib, ko'pincha aslida uning ortida qoladi). Organ deyarli butunlay
+        yopilgan bo'lsa — None (yorliq qo'yilmaydi: kurak suyagi yorlig'i deltasimon mushak ustiga tushmasin).
+        radius — eski chaqiruvlar uchun qoldirilgan.
         """
-        parts = sides(points)
-        if len(parts) == 2:
-            # Juft organ: chiziq o'rta chiziqqa (ikki tomon orasidagi bo'shliqqa) emas, kameraga yaqin va ko'proq
-            # ko'rinib turgan tomoniga tushadi.
-            def rank(part):
-                share = self.visible_share(part, rot, occluders) if occluders is not None and len(occluders) else 1.0
-                return share + 0.5 * float(self.project(part, rot)[1].mean()) / max(self.distance, 1e-6)
-            points = max(parts, key=rank)
-        uv, z = self.project(points, rot)
-        if occluders is not None and len(occluders):
-            seen = self.visible_mask(points, rot, occluders)
-            if seen.sum() >= 3:                 # faqat ko'rinib turgan joyga (boshqa organ ortiga emas)
-                uv, z = uv[seen], z[seen]
-        front = uv[z >= np.quantile(z, 0.7)]
-        mid = front.mean(axis=0)
-        best = front[np.argmin(((front - mid) ** 2).sum(axis=1))]
-        return float(best[0]), float(best[1])
+        best = None
+        for part in sides(points):
+            uv, z = self.project(part, rot)
+            if occluders is not None and len(occluders):
+                seen = self.visible_mask(part, rot, occluders)
+            else:
+                seen = np.ones(len(uv), dtype=bool)
+            if best is None or seen.sum() > best[2].sum():
+                best = (uv, z, seen)
+        uv, z, seen = best
+        if seen.sum() < max(3, int(0.04 * len(uv))):
+            return None
+        uv, z = uv[seen], z[seen]
+        front = z >= np.quantile(z, 0.5) if len(z) >= 8 else np.ones(len(z), dtype=bool)
+        cand = uv[front]
+        # ko'rinadigan nuqtalar zich joylashgan joy — ko'rinadigan yuzaning ichkarisi
+        reach = 0.18 * float(max(np.ptp(uv[:, 0]), np.ptp(uv[:, 1]), 1e-6))
+        dist = np.sqrt(((cand[:, None, :] - uv[None, :, :]) ** 2).sum(axis=2))
+        crowd = (dist < reach).sum(axis=1).astype(float)
+        mid = uv.mean(axis=0)
+        score = crowd - 0.5 * np.sqrt(((cand - mid) ** 2).sum(axis=1)) / reach
+        pick = cand[int(np.argmax(score))]
+        return float(pick[0]), float(pick[1])

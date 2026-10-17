@@ -1356,12 +1356,16 @@ MED3D_NOT_ANATOMY = {
 # 3D Anatomiya bosqichlari holat xabarida.
 _MED3D_STAGES = {
     "uz": {"plan": "AI mavzuni tekshirib, organlar va slaydlar rejasini tuzmoqda...",
+           "pictures": "AI kasallik ko'rinishini chizmoqda...",
            "models": "3D organ modellari yig'ilmoqda va PowerPoint tayyorlanmoqda..."},
     "ru": {"plan": "AI проверяет тему и составляет план органов и слайдов...",
+           "pictures": "ИИ рисует, как выглядит заболевание...",
            "models": "Собираем 3D-модели органов и PowerPoint..."},
     "en": {"plan": "AI is checking the topic and planning the organs and slides...",
+           "pictures": "AI is drawing what the disease looks like...",
            "models": "Building the 3D organ models and the PowerPoint file..."},
     "kk": {"plan": "AI тақырыпты тексеріп, мүшелер мен слайдтар жоспарын құруда...",
+           "pictures": "ЖИ аурудың көрінісін салуда...",
            "models": "3D мүше модельдері мен PowerPoint дайындалуда..."},
 }
 

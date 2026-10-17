@@ -96,6 +96,27 @@ _view = _dir.best_view(_male, {"show": ["bosh_suyagi", "tishlar", "chaynov_musha
                                "rot": [0, 0, 0]})
 check("chaynov mushagi oldidan emas, yon tomondan ko'rsatiladi", abs(_view[1]) >= 30, _view)
 
+sick_plan = auto.normalize({"anatomy": True, "kind": "disease", "side": "right", "body": "male", "slides": [
+    {"title": "a", "text": "b", "stage": "anatomy", "show": ["kurak", "yelka_suyagi", "qirra_usti_mushagi"]},
+    {"title": "a", "text": "b", "stage": "disease", "show": ["kurak", "yelka_suyagi", "qirra_usti_mushagi"],
+     "lesion": ["qirra_usti_mushagi", "yurak"], "picture": "torn supraspinatus tendon"},
+    {"title": "a", "text": "b", "stage": "treatment", "show": ["kurak", "qirra_usti_mushagi"], "picture": "x"}]},
+    3, "uz")
+ss = sick_plan["slides"]
+check("kasallik: bosqichlar va zararlangan organ (ko'rinishda bo'lmagani olinmaydi)",
+      sick_plan["kind"] == "disease" and [x["stage"] for x in ss] == ["anatomy", "disease", "treatment"]
+      and ss[1]["lesion"] == ["qirra_usti_mushagi"] and "qirra_usti_mushagi" in ss[1]["labels"], ss)
+check("rasm faqat zararlangan organli slaydda", bool(ss[1]["picture"]) and not ss[2]["picture"])
+check("bitta tomon (o'ng yelka)", sick_plan["side"] == "right")
+plain = auto.normalize({"anatomy": True, "slides": [{"title": "a", "text": "b", "show": ["yurak"],
+                                                      "lesion": ["yurak"], "picture": "x"}] * 3}, 3, "uz")
+check("anatomiya mavzusida bosqich, qizil o'choq va rasm yo'q",
+      all(not x["stage"] and not x["lesion"] and not x["picture"] for x in plain["slides"]))
+from services.med3d import manba as _manba
+_one = auto.one_side(auto.lexicon()["bodies"]["male"], "right", _manba.atlas("male"))
+check("o'ng tomon: kurak suyagining faqat o'ng nusxasi (x < 0)", max(_one["kurak"]["max"][0], 0) == 0
+      and all(p[0] < 0 for p in _one["kurak"]["samples"]), _one["kurak"]["max"])
+
 print("3) Yashirin organ va sahnalar")
 slides = [{"title": "", "text": "", "show": ["yurak", "yurak_klapanlari"], "focus": ["yurak_klapanlari"],
            "labels": ["yurak", "yurak_klapanlari"], "rot": [0, 0, 0], "exit": "up"}]
