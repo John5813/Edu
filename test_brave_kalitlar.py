@@ -68,6 +68,10 @@ check("admin panel: kalitlar niqoblangan, to'liq kalit ko'rinmaydi, qo'shish/nol
       "DDDD…dddd" in text and "DDDD4444dddd" not in text and "➕ Kalit qo'shish" in buttons
       and any(t.startswith("🗑") for t in buttons) and "⏭ Keyingi kalitga o'tish" in buttons
       and any(t.startswith("▶️") for t in buttons), (text, buttons))
+check("panel ostida «Yopish» tugmasi, o'chirish avval tasdiq so'raydi",
+      buttons[-1] == "❌ Yopish" and all(b.callback_data.startswith("brave_ask:")
+                                        for row in markup.inline_keyboard for b in row if b.text.startswith("🗑")),
+      buttons)
 check(".env dagi kalitni paneldan o'chirib bo'lmaydi (u .env da turadi)",
       not any("1-kalit" in t for t in buttons), buttons)
 

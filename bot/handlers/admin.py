@@ -4008,7 +4008,8 @@ def _brave_keys_view():
     kb.button(text="♻️ Hisoblagichlarni nollash", callback_data="brave_reset")
     for r in rows:
         if r["added"] != "env":
-            kb.button(text=f"🗑 {r['n']}-kalitni o'chirish", callback_data=f"brave_del:{r['n'] - 1}")
+            kb.button(text=f"🗑 {r['n']}-kalitni o'chirish", callback_data=f"brave_ask:{r['n'] - 1}")
+    kb.button(text="❌ Yopish", callback_data="brave_close")
     kb.adjust(1)
     return "\n".join(lines), kb.as_markup()
 
@@ -4095,3 +4096,45 @@ async def brave_skip(callback: CallbackQuery):
     text, markup = _brave_keys_view()
     await callback.message.edit_text(text, reply_markup=markup, parse_mode="HTML")
     await callback.answer("Keyingi kalitga o'tildi" if nxt >= 0 else "Ishlaydigan kalit qolmadi")
+
+
+@router.callback_query(F.data.startswith("brave_ask:"))
+async def brave_delete_ask(callback: CallbackQuery):
+    """O'chirishdan oldin tasdiq — tugma tasodifan bosilsa kalit yo'qolmasin."""
+    if not is_admin(callback.from_user.id):
+        return
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    from services import brave_keys
+
+    index = int(callback.data.split(":", 1)[1])
+    rows = brave_keys.status()
+    if not 0 <= index < len(rows):
+        await callback.answer("Kalit topilmadi")
+        return
+    kb = InlineKeyboardBuilder()
+    kb.button(text="✅ Ha, o'chirilsin", callback_data=f"brave_del:{index}")
+    kb.button(text="↩️ Yo'q, qaytish", callback_data="brave_back")
+    kb.adjust(1)
+    await callback.message.edit_text(f"🗑 {index + 1}-kalit (<code>{rows[index]['mask']}</code>) rostdan o'chirilsinmi?",
+                                     reply_markup=kb.as_markup(), parse_mode="HTML")
+    await callback.answer()
+
+
+@router.callback_query(F.data == "brave_back")
+async def brave_back(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        return
+    text, markup = _brave_keys_view()
+    await callback.message.edit_text(text, reply_markup=markup, parse_mode="HTML")
+    await callback.answer()
+
+
+@router.callback_query(F.data == "brave_close")
+async def brave_close(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        return
+    try:
+        await callback.message.delete()
+    except Exception:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    await callback.answer()
