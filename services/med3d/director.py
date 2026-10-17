@@ -134,6 +134,8 @@ def direct(body: dict, slides: List[dict], topic: str = "") -> List[str]:
                 pool = [x for x in pool if x not in ("qahramon", "pastki")] or pool
             if labels == 0:
                 pool = [x for x in pool if x in ("qahramon", "pastki", "chap_matn", "ong_matn")] or pool
+            if s.get("picture"):                   # kasallik rasmi matn ustunida — ustunli kompozitsiya
+                pool = [x for x in pool if x in ("chap_matn", "ong_matn", "karta")] or ["chap_matn"]
             weights = [1.0 / (1 + used.get("lay:" + x, 0)) ** 2 for x in pool]
             lay = rng.choices(pool, weights)[0]
         used["lay:" + lay] = used.get("lay:" + lay, 0) + 1

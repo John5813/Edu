@@ -23,7 +23,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 import numpy as np
 
 from . import ASSETS_DIR, manba
-from .camera import Camera
+from .camera import Camera, sides
 from .catalog import srgb
 from .glb import Primitive, write_glb
 from .lugat import BONE, BY_ID, CARTILAGE, MUSCLE, ORGANS, SOURCES, SUPPORT, TOOTH
@@ -52,6 +52,8 @@ SLIDE_MAX_TRIS = 1500000         # bir slayddagi hamma organlar birga (eng og'ir
 FILE_LIMIT_MB = float(os.getenv("MED3D_MAX_MB") or 45)   # Telegram bot 50 MB dan kattasini yubormaydi
 TURN_MAX = 45                    # qo'shni slaydlar orasida eng katta burilish (gradus) — Morph silliq bo'lsin
 MAX_SHOW, MAX_LABELS = 8, 6
+STAGES = ("anatomy", "disease", "diagnosis", "treatment", "summary")
+MAX_PICTURES = 3                 # kasallik slaydlaridagi AI rasmlar soni
 LEXICON = os.path.join(ASSETS_DIR, "lugat.json")
 CONTACT = 0.015                  # metr: organlar shu masofadan yaqin bo'lsa — tegib turibdi, bir-biriga soya tushiradi
 HARD = (BONE, TOOTH, CARTILAGE)
@@ -96,10 +98,13 @@ next to a short text. Between slides PowerPoint Morph smoothly moves, turns and 
 shown on one slide and missing on the next flies off the slide; an organ that appears again flies back in.
 
 Return ONLY a JSON object:
-{"anatomy": true, "reason": "", "body": "male" | "female",
+{"anatomy": true, "reason": "", "body": "male" | "female", "kind": "anatomy" | "disease",
+ "side": null | "right" | "left",
  "names": {"<organ_id>": "<anatomical name in the presentation language>"},
  "slides": [{"title": "...", "text": "...", "show": ["<organ_id>", ...], "focus": ["<organ_id>"],
-             "rot": [x, y, z], "labels": ["<organ_id>", ...], "exit": "up" | "down" | "left" | "right"}]}
+             "rot": [x, y, z], "labels": ["<organ_id>", ...], "exit": "up" | "down" | "left" | "right",
+             "stage": "anatomy" | "disease" | "diagnosis" | "treatment" | "summary",
+             "lesion": ["<organ_id>"], "picture": "<English image prompt or empty>"}]}
 
 RULES
 1. "anatomy": false when the topic is NOT about the structure of the human body (history, economics, literature,
@@ -131,9 +136,28 @@ RULES
    the whole body. Valves ("yurak_klapanlari") lie INSIDE the heart: to show them, view the heart from above
    (x 40-60) or remove "yurak"/"yurak_qorinchalari" from that slide.
 10. "title": at most 6 words. "text": 2-4 sentences, at most 380 characters, accurate textbook facts, clear for the
-   requested level. No diagnosis or treatment advice, no invented statistics, never mention the current year
-   or dates.
+   requested level. No invented statistics, never mention the current year or dates. For anatomy topics no
+   treatment advice; for disease topics only standard textbook methods (no personal advice, no drug doses).
 11. "names": for EVERY organ id you use, its correct anatomical name in the presentation language.
+12. "kind" = "disease" when the topic is a disease, injury or condition (rotator cuff tear, myocardial infarction,
+   herniated disc, gastritis...). Then medicine is taught as STRUCTURE -> DISEASE -> TREATMENT, every slide has a
+   "stage", in this order:
+   - "anatomy" (about one third): slide 1 = overview of the region, then the structures that get damaged,
+     labelled, from the angle where they are best seen;
+   - "disease" (about one third): what goes wrong — definition, types/stages, causes and risk factors, symptoms;
+     "lesion" = ids of the damaged organs from "show" (the 3D model paints them red; label them too);
+   - "diagnosis" and "treatment" (about one third): examination and tests, conservative treatment,
+     surgery, rehabilitation, prevention and prognosis — keep showing the damaged region ("lesion" may stay);
+   - the last slide "summary": the whole region again with the lesion.
+   For "kind" = "anatomy" use "stage": "anatomy" (last slide "summary"), "lesion": [] and "picture": "".
+13. "picture" (disease topics only, on 1-3 of the "disease"/"treatment" slides, otherwise ""): an English prompt for
+   a medical illustration that shows what the 3D atlas cannot — the real shape of the pathology at the lesion,
+   e.g. "close-up of a full-thickness tear of the supraspinatus tendon at the greater tubercle of the humerus,
+   frayed tendon fibres, inflamed subacromial bursa". One structure, close-up, no people's faces, never genitals
+   or nudity. A slide with a picture has a shorter "text" (at most 230 characters) and exactly one "lesion".
+14. "side" = "right" for topics about one limb or joint (shoulder, elbow, wrist, hand, hip, knee, ankle, foot,
+   their muscles and diseases): only the right side is shown, so the camera can come close to one joint.
+   Otherwise null.
 """
 
 USER = """Topic: {topic}
@@ -210,6 +234,7 @@ def normalize(data: dict, count: int, language: str) -> dict:
         body = other                              # AI tanani adashtirgan — organlar qaysida ko'proq bo'lsa o'sha
     have = bodies[body]
     contains = _contains()
+    disease = str(data.get("kind") or "").lower() == "disease"
 
     slides = []
     for s in raw[:count]:
@@ -231,13 +256,24 @@ def normalize(data: dict, count: int, language: str) -> dict:
         focus = [o for o in (s.get("focus") or []) if o in show]
         labels = [o for o in (s.get("labels") or []) if o in show][:MAX_LABELS]
         rot = list(s.get("rot") or [0, 0, 0])[:3] + [0, 0, 0]
+        lesion = [o for o in (s.get("lesion") or []) if isinstance(o, str) and o in show][:3] if disease else []
+        labels = list(dict.fromkeys(lesion + labels))[:MAX_LABELS]
+        stage = (s.get("stage") if s.get("stage") in STAGES else "disease") if disease else ""
+        picture = re.sub(r"\s+", " ", str(s.get("picture") or "")).strip()[:400] if disease and lesion else ""
         slides.append({
             "title": str(s.get("title") or "").strip()[:90],
             "text": re.sub(r"\s+\n", "\n", str(s.get("text") or "").strip())[:520],
             "show": show, "focus": focus or None, "labels": list(dict.fromkeys(labels)), "support": support,
             "rot": [_num(rot[0], -60, 60), _num(rot[1], -180, 180), _num(rot[2], -30, 30)],
             "exit": s.get("exit") if s.get("exit") in ("up", "down", "left", "right") else "up",
+            "stage": stage, "lesion": lesion, "picture": picture,
         })
+    pictures = 0
+    for s in slides:                              # rasm — ko'pi bilan MAX_PICTURES ta (generatsiya vaqti va narxi)
+        if s["picture"]:
+            pictures += 1
+            if pictures > MAX_PICTURES:
+                s["picture"] = ""
     if len(slides) < max(MIN_SLIDES, count - 1):
         raise ValueError(f"reja {len(slides)} slayd, {count} kerak")
     smooth_turns(slides)
@@ -248,7 +284,9 @@ def normalize(data: dict, count: int, language: str) -> dict:
             names[organ] = BY_ID[organ]["uz"]       # o'zbekcha nomlar — tekshirilgan lug'atdan
         else:
             names[organ] = str(ai_names.get(organ) or BY_ID[organ]["en"]).strip()[:40]
-    return {"body": body, "slides": slides, "names": names, "language": language}
+    side = data.get("side") if data.get("side") in SIDE_SIGN else None
+    return {"body": body, "slides": slides, "names": names, "language": language, "side": side,
+            "kind": "disease" if disease else "anatomy"}
 
 
 def add_support(show: List[str], have: dict, contains: Dict[str, set]) -> List[str]:
@@ -314,6 +352,34 @@ def _bounds(body: dict, organs) -> Tuple[np.ndarray, np.ndarray]:
     lo = np.min([body[o]["min"] for o in organs], axis=0)
     hi = np.max([body[o]["max"] for o in organs], axis=0)
     return lo, hi
+
+
+SIDE_SIGN = {"right": -1.0, "left": 1.0}     # atlasda tananing o'ng tomoni — x manfiy
+
+
+def one_side(body: dict, side: Optional[str], atlas) -> dict:
+    """Bitta tomon: yelka, tizza kabi mavzuda juft organlarning faqat o'ng (yoki chap) nusxasi qoladi — kamera
+    ikki yelka orasidagi bo'sh joyga emas, bitta bo'g'imga yaqinlashadi. Toq organlar (umurtqa, bosh suyagi)
+    o'zgarmaydi. Chegara qutisi qolgan qismlarning aniq chegarasidan (GLB langarlari u bilan mos bo'lishi shart)."""
+    sign = SIDE_SIGN.get(side or "")
+    if not sign:
+        return body
+    out = {}
+    for organ, info in body.items():
+        pts = np.asarray(info["samples"], float)
+        meta = [atlas.by_id.get(p) for p in info["parts"]]
+        if len(sides(pts)) != 2 or any(m is None or "bounds" not in m for m in meta):
+            out[organ] = info
+            continue
+        keep = [m for m in meta if (m["bounds"][0][0] + m["bounds"][1][0]) * sign > 0]
+        mine = pts[pts[:, 0] * sign > 0]
+        if not keep or len(mine) < 3:
+            out[organ] = info
+            continue
+        bounds = np.asarray([m["bounds"] for m in keep], float)
+        out[organ] = dict(info, parts=[m["id"] for m in keep], samples=mine.tolist(),
+                          min=bounds[:, 0].min(axis=0).tolist(), max=bounds[:, 1].max(axis=0).tolist())
+    return out
 
 
 def reveal_hidden(body: dict, slides: List[dict]) -> None:
@@ -433,13 +499,27 @@ def texture_of(organ: str) -> str:
     return ""
 
 
+LESION = "#E3352B"                # kasallik slaydida zararlangan organ rangi (har uslubda bir xil — ajralib tursin)
+CALM = "#C8C2BA"                  # o'sha slayddagi boshqa yumshoq to'qimalar shu rangga yaqinlashadi
+
+
+def _blend(a: str, b: str, k: float) -> str:
+    a, b = a.lstrip("#"), b.lstrip("#")
+    mix = [round(int(a[i:i + 2], 16) * (1 - k) + int(b[i:i + 2], 16) * k) for i in (0, 2, 4)]
+    return "#%02X%02X%02X" % tuple(mix)
+
+
 def shaded_primitives(organ: str, meshes: List[tuple], neighbours: List[List[tuple]] = (),
-                      tone: str = "real") -> List[Primitive]:
+                      tone: str = "real", paint: Optional[str] = None) -> List[Primitive]:
     """Soya butun organ bo'yicha (bo'lmacha qorinchaga soya tushiradi) va unga tegib turgan qo'shni organlar
     bilan birga (yurak aorta ildiziga) — yig'ilgan organlar bitta jismdek, bir xil yorug'likda ko'rinadi.
 
-    tone — uslub ohangi (`design.tone`): real, pastel, ivory, xray, warm. Naqsh (tola, g'ovak) — organ turiga qarab."""
-    from .design import tone as recolor
+    tone — uslub ohangi (`design.tone`): real, pastel, ivory, xray, warm. Naqsh (tola, g'ovak) — organ turiga qarab.
+    paint — butun organ shu rangda (zararlangan organ: `LESION`), uslub ohangi qo'llanmaydi."""
+    from .design import tone as style_tone
+
+    def recolor(value: str, kind: str) -> str:
+        return paint if paint else style_tone(value, kind)
 
     allpos, allnrm, allidx, offsets = _joined(meshes)
     others = None
@@ -549,10 +629,10 @@ def build_scenes(body_key: str, plan_: dict, atlas=None, quality: float = 1.0) -
     """
     from .design import style as get_style
 
-    body = lexicon()["bodies"][body_key]
     slides = plan_["slides"]
-    reveal_hidden(body, slides)
     atlas = atlas or manba.atlas(body_key)
+    body = one_side(lexicon()["bodies"][body_key], plan_.get("side"), atlas)
+    reveal_hidden(body, slides)
     tone = get_style(plan_.get("style")).tone
     geometry: Dict[Tuple[str, int], list] = {}
     shaded: Dict[tuple, list] = {}
@@ -579,35 +659,66 @@ def build_scenes(body_key: str, plan_: dict, atlas=None, quality: float = 1.0) -
                                                       [geometry[(o, targets[o])] for o in near], tone=tone)
             prims[organ] = shaded[cache_key]
             dense[organ] = _dense(geometry[(organ, targets[organ])])
+            if any(slides[i].get("lesion") and organ not in slides[i]["lesion"] and organ in slides[i]["show"]
+                   for i in members) and BY_ID[organ]["color"] not in HARD:
+                # Zararlangan organ bor slaydda qolgan yumshoq to'qimalar xira (kulrang-pushti): qizil o'choq
+                # ko'zga darhol tashlansin — tibbiy illyustratsiyalardagidek.
+                calm_key = cache_key + ("calm",)
+                if calm_key not in shaded:
+                    from .design import tone as style_tone
+                    shaded[calm_key] = shaded_primitives(
+                        organ, geometry[(organ, targets[organ])], [geometry[(o, targets[o])] for o in near],
+                        tone=tone, paint=_blend(style_tone(BY_ID[organ]["color"], tone), CALM, 0.6))
+                prims[(organ, "calm")] = shaded[calm_key]
+            if any(organ in (slides[i].get("lesion") or ()) for i in members):
+                sick_key = cache_key + ("lesion",)
+                if sick_key not in shaded:
+                    shaded[sick_key] = shaded_primitives(organ, geometry[(organ, targets[organ])],
+                                                         [geometry[(o, targets[o])] for o in near], tone=tone,
+                                                         paint=LESION)
+                prims[(organ, "lesion")] = shaded[sick_key]
         reveal_focus(Camera(lo, hi), [slides[i] for i in members], dense)
         groups, labels = {}, {}
         for i in members:
             show = sorted(slides[i]["show"])
             focus = slides[i].get("focus") or slides[i]["show"]
             names = plan_["names"]
+            sick = set(slides[i].get("lesion") or ()) & set(show)
+
+            def model_of(o):                       # zararlangan organ — qizil, qolgan yumshoq to'qima — xira
+                if o in sick:
+                    return prims[(o, "lesion")]
+                if sick and (o, "calm") in prims:
+                    return prims[(o, "calm")]
+                return prims[o]
+
+            def part_of(o):                        # portlashdagi bo'lak nomi (rangi boshqa nusxa — boshqa nom)
+                if o in sick:
+                    return f"part_{o}_x"
+                return f"part_{o}_c" if sick and (o, "calm") in prims else f"part_{o}"
             if slides[i].get("explode") and len(show) >= 2:
                 # Portlash: har organ alohida model (bo'laklar bir-biridan ajraladi, keyin qayta yig'iladi).
                 parts = []
                 for o in show:
-                    pid = f"part_{o}"
+                    pid = part_of(o)
                     parts.append(pid)
                     if pid not in groups:
                         groups[pid] = {"samples": body[o]["samples"],
-                                       "glb": write_glb(prims[o], anchors=(lo, hi), name=pid)}
+                                       "glb": write_glb(model_of(o), anchors=(lo, hi), name=pid)}
                         labels[f"{pid}:{o}"] = {"uz": names.get(o, BY_ID[o]["uz"]), "la": BY_ID[o].get("la", ""),
-                                                "group": pid, "samples": body[o]["samples"]}
-                placed.append((i, key, ("parts", tuple(show)), dict(
+                                                "group": pid, "samples": body[o]["samples"], "alert": o in sick}
+                placed.append((i, key, ("parts", tuple(show), tuple(sorted(sick))), dict(
                     slides[i], scene=key, show=parts, focus=None,
                     focus_points=[p for o in show for p in body[o]["samples"]],
-                    labels=[f"part_{o}:{o}" for o in slides[i]["labels"] if o in show])))
+                    labels=[f"{part_of(o)}:{o}" for o in slides[i]["labels"] if o in show])))
                 continue
-            gid = set_id(show)
+            gid = set_id(show + [f"!{o}" for o in sorted(sick)] + (["~calm"] if sick else []))
             if gid not in groups:
                 groups[gid] = {"samples": [p for o in show for p in body[o]["samples"]],
-                               "glb": write_glb([p for o in show for p in prims[o]], anchors=(lo, hi), name=gid)}
+                               "glb": write_glb([p for o in show for p in model_of(o)], anchors=(lo, hi), name=gid)}
                 for o in show:
                     labels[f"{gid}:{o}"] = {"uz": names.get(o, BY_ID[o]["uz"]), "la": BY_ID[o].get("la", ""),
-                                            "group": gid, "samples": body[o]["samples"],
+                                            "group": gid, "samples": body[o]["samples"], "alert": o in sick,
                                             "occluders": [p for x in show if x != o for p in dense[x]]}
             support = set(slides[i].get("support") or ()) & set(show)
             placed.append((i, key, ("set", gid), dict(slides[i], scene=key, show=[gid], focus=None,
@@ -646,7 +757,8 @@ def build_scenes(body_key: str, plan_: dict, atlas=None, quality: float = 1.0) -
             else:
                 helper(data, data["show"], len(deck_slides) - 1)
         deck_slides.append(data)
-    return {"scene": "run0", "slides": deck_slides, "style": plan_.get("style")}, scenes
+    return {"scene": "run0", "slides": deck_slides, "style": plan_.get("style"),
+            "language": plan_.get("language")}, scenes
 
 
 def _safe(name: str) -> str:
@@ -714,7 +826,9 @@ def make_deck(topic: str, plan_: dict, out_dir: Optional[str] = None, atlas=None
     plan_["style"] = style or plan_.get("style") or pick_style(topic)
     if not plan_.get("directed"):
         add_quiz(plan_)
-        moves = direct(lexicon()["bodies"][plan_["body"]], plan_["slides"], topic)
+        body = one_side(lexicon()["bodies"][plan_["body"]], plan_.get("side"),
+                        (atlas or manba.atlas(plan_["body"])) if plan_.get("side") else None)
+        moves = direct(body, plan_["slides"], topic)
         plan_["directed"] = True
         log.info("3D Anatomiya: uslub %s, harakatlar: %s", plan_["style"], ", ".join(moves))
     limit = (limit_mb or FILE_LIMIT_MB) * 1e6
@@ -750,6 +864,55 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
         None, lambda: plan(topic, count, language, level, preferences)), 6 * 60)
     log.info("3D Anatomiya: %s tana, %d slayd, organlar: %s", plan_["body"], len(plan_["slides"]),
              sorted({o for s in plan_["slides"] for o in s["show"]}))
+    if any(s.get("picture") for s in plan_["slides"]):
+        stage("pictures")
+        await draw_pictures(plan_)
     stage("models", slides=len(plan_["slides"]))
-    path = await asyncio.wait_for(loop.run_in_executor(None, lambda: make_deck(topic, plan_, style=style)), 8 * 60)
+    try:
+        path = await asyncio.wait_for(loop.run_in_executor(None, lambda: make_deck(topic, plan_, style=style)),
+                                      8 * 60)
+    finally:
+        for s in plan_["slides"]:
+            if s.get("picture_path"):
+                try:
+                    os.remove(s["picture_path"])
+                except OSError:
+                    pass
     return path, len(plan_["slides"])
+
+
+PICTURE_STYLE = ("detailed medical textbook illustration, anatomically accurate, realistic 3D medical render, "
+                 "close-up of the affected structure, soft studio lighting, dark neutral background, "
+                 "no text, no letters, no labels, no arrows, no watermark, no people, no faces, no nudity, "
+                 "no genitals")
+
+
+async def draw_pictures(plan_: dict, timeout: float = 150.0) -> int:
+    """Kasallik slaydlaridagi rasmlar (AI): 3D atlasda yo'q narsa — patologiyaning haqiqiy shakli (yirtilgan pay,
+    churra, tromb). Parallel chiziladi; chizilmagani shunchaki rasmsiz qoladi. Qaytaradi: chizilganlar soni."""
+    from services.together_service import get_together_service
+
+    wanted = [s for s in plan_["slides"] if s.get("picture")]
+    if not wanted:
+        return 0
+    try:
+        together = get_together_service()
+    except Exception as exc:                      # noqa: BLE001
+        log.warning("3D Anatomiya: rasm xizmati yo'q: %s", exc)
+        return 0
+
+    async def one(slide: dict) -> None:
+        prompt = f"{slide['picture']}. {PICTURE_STYLE}"
+        try:
+            path = await asyncio.wait_for(together.generate_image(prompt, aspect_ratio="16:9", target="premium"),
+                                          timeout)
+        except Exception as exc:                  # noqa: BLE001
+            log.warning("3D Anatomiya: rasm chizilmadi (%s): %s", slide["picture"][:60], exc)
+            return
+        if path and os.path.exists(path):
+            slide["picture_path"] = path
+
+    await asyncio.gather(*(one(s) for s in wanted))
+    done = sum(1 for s in wanted if s.get("picture_path"))
+    log.info("3D Anatomiya: kasallik rasmlari %d/%d", done, len(wanted))
+    return done
