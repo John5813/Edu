@@ -76,6 +76,26 @@ try:
 except ValueError:
     check("slaydlar kam bo'lsa — xato (qayta urinish)", True)
 
+joint = auto.normalize({"anatomy": True, "body": "male", "slides": [
+    {"title": "a", "text": "b", "show": ["chakka_jag_bogimi", "tishlar"], "rot": [0, 0, 0]},
+    {"title": "a", "text": "b", "show": ["pastki_jag", "tishlar", "medial_qanotsimon"], "rot": [0, 0, 0]},
+    {"title": "a", "text": "b", "show": ["tizza_boylamlari"], "rot": [0, 0, 0]}]}, 3, "uz")
+js = joint["slides"]
+check("bo'g'im slaydiga suyagi qo'shiladi (havoda suzmaydi)", "bosh_suyagi" in js[0]["show"]
+      and js[0]["support"] == ["bosh_suyagi"], js[0]["show"])
+check("tishlar faqat pastki jag' bilan — olinadi (yuqori qatori havoda qolardi)", "tishlar" not in js[1]["show"],
+      js[1]["show"])
+check("tizza boylamlari — son va boldir suyaklari bilan", {"son_suyagi", "boldir_suyaklari"} <= set(js[2]["show"]),
+      js[2]["show"])
+from services.med3d import director as _dir
+from services.med3d.camera import sides as _sides
+_male = auto.lexicon()["bodies"]["male"]
+check("juft mushak ikki bo'lak (o'ng/chap), yurak — bitta", len(_sides(_male["chaynov_mushagi"]["samples"])) == 2
+      and len(_sides(_male["yurak"]["samples"])) == 1)
+_view = _dir.best_view(_male, {"show": ["bosh_suyagi", "tishlar", "chaynov_mushagi"], "focus": ["chaynov_mushagi"],
+                               "rot": [0, 0, 0]})
+check("chaynov mushagi oldidan emas, yon tomondan ko'rsatiladi", abs(_view[1]) >= 30, _view)
+
 print("3) Yashirin organ va sahnalar")
 slides = [{"title": "", "text": "", "show": ["yurak", "yurak_klapanlari"], "focus": ["yurak_klapanlari"],
            "labels": ["yurak", "yurak_klapanlari"], "rot": [0, 0, 0], "exit": "up"}]

@@ -157,7 +157,9 @@ def tone(hex_color: str, kind: str) -> str:
         hx = hex_color.lstrip("#")
         r, g, b = (int(hx[i:i + 2], 16) for i in (0, 2, 4))
         ir, ig, ib = 0xEC, 0xE2, 0xCF
-        k = 0.2
+        # suyak (oqish, rangsiz) — deyarli fil suyagi; mushak, tomir (to'yingan rang) — rangi ko'proq qoladi,
+        # aks holda suyak ustidagi mushak ajralmay, hammasi bir xil oq ko'rinadi
+        k = 0.2 + 0.32 * s
         return "#%02X%02X%02X" % (round(ir + (r - ir) * k), round(ig + (g - ig) * k), round(ib + (b - ib) * k))
     if kind == "xray":
         # bitta rang emas: arteriya (qizil) — oqish-zangori, vena (ko'k) — to'q ko'k, suyak — deyarli oq
@@ -203,9 +205,9 @@ LAYOUTS: Dict[str, Layout] = {lay.key: lay for lay in [
            labels_x=(0.25, W - 0.25), labels_y=(1.6, 4.2), title_size=30, body_size=13, accent=(0.65, 0.35)),
     # Katta model (chetidan chiqib turadi), sarlavha tepada, matn yarim shaffof kartada.
     Layout("qahramon", title=(0.65, 0.6, 4.45, 2.4), body=(0.85, 4.75, 4.1, 2.0),
-           region=(5.6, -0.2, 7.4, 7.9), wide=(4.6, -0.4, 8.6, 8.3), area=(5.2, -9, 99, 99),
-           labels_x=(5.2, W - 0.2), title_size=40, body_size=14, panel=(0.55, 4.5, 4.7, 2.5), fill=1.0,
-           zoom_limit=1.15),
+           region=(5.6, 0.1, 7.3, 7.3), wide=(4.8, 0.0, 8.3, 7.5), area=(5.2, 0.0, W - 0.05, H - 0.05),
+           labels_x=(5.2, W - 0.2), title_size=40, body_size=14, panel=(0.55, 4.5, 4.7, 2.5), fill=0.97,
+           zoom_limit=1.0),
     # Matn kartada (chap), model o'ngda.
     Layout("karta", title=(0.85, 1.0, 4.3, 1.7), body=(0.85, 2.85, 4.3, 3.6),
            region=(7.3, 0.6, 4.1, 6.3), wide=(5.9, 0.45, 7.1, 6.6), area=(5.75, -9, 99, 99),

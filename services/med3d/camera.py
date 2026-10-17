@@ -10,7 +10,7 @@ o'rab turgan shar ramkaga to'liq sig'adi. Aylanish — o'ng qo'l qoidasi, X → 
 Bu taxmin PowerPoint'da tekshirilishi kerak; noto'g'ri chiqsa faqat shu fayldagi `SIGN` o'zgaradi.
 """
 import math
-from typing import Sequence, Tuple
+from typing import List, Sequence, Tuple
 
 import numpy as np
 
@@ -25,6 +25,23 @@ def rotation(rot: Sequence[float]) -> np.ndarray:
     ry = np.array([[cy, 0, sy], [0, 1, 0], [-sy, 0, cy]])
     rz = np.array([[cz, -sz, 0], [sz, cz, 0], [0, 0, 1]])
     return rx @ ry @ rz
+
+
+def sides(points) -> List[np.ndarray]:
+    """Juft organ (o'ng va chap chaynov mushagi) — ikki bo'lak, toq organ — bitta. Juft organning bir tomoni
+    ko'rinsa yetarli: yon tomondan qaraganda narigi tomoni bosh suyagi ortida qolishi tabiiy."""
+    pts = np.asarray(points, float)
+    if len(pts) < 8:
+        return [pts]
+    x = pts[:, 0]
+    mid = float(x.max() + x.min()) / 2
+    left, right = pts[x < mid - 0.004], pts[x > mid + 0.004]
+    width = float(x.max() - x.min())
+    # ikki tomon orasida bo'shliq bor (o'rta chiziqda nuqta deyarli yo'q) — juft organ
+    centre = np.abs(x - mid) < width * 0.12
+    if min(len(left), len(right)) >= len(pts) * 0.3 and centre.mean() < 0.04:
+        return [left, right]
+    return [pts]
 
 
 class Camera:
@@ -95,6 +112,14 @@ class Camera:
         occluders — slayddagi boshqa organlarning nuqtalari: ular ortida qolgan (yopilgan) nuqta tanlanmaydi
         (`visible_mask`). radius — eski chaqiruvlar uchun qoldirilgan.
         """
+        parts = sides(points)
+        if len(parts) == 2:
+            # Juft organ: chiziq o'rta chiziqqa (ikki tomon orasidagi bo'shliqqa) emas, kameraga yaqin va ko'proq
+            # ko'rinib turgan tomoniga tushadi.
+            def rank(part):
+                share = self.visible_share(part, rot, occluders) if occluders is not None and len(occluders) else 1.0
+                return share + 0.5 * float(self.project(part, rot)[1].mean()) / max(self.distance, 1e-6)
+            points = max(parts, key=rank)
         uv, z = self.project(points, rot)
         if occluders is not None and len(occluders):
             seen = self.visible_mask(points, rot, occluders)

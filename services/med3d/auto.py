@@ -26,7 +26,7 @@ from . import ASSETS_DIR, manba
 from .camera import Camera
 from .catalog import srgb
 from .glb import Primitive, write_glb
-from .lugat import BONE, BY_ID, CARTILAGE, MUSCLE, ORGANS, SOURCES, TOOTH
+from .lugat import BONE, BY_ID, CARTILAGE, MUSCLE, ORGANS, SOURCES, SUPPORT, TOOTH
 from .simplify import simplify
 from . import ao
 
@@ -227,13 +227,14 @@ def normalize(data: dict, count: int, language: str) -> dict:
             show = list(slides[-1]["show"]) if slides else []
         if not show:
             continue
+        support = add_support(show, have, contains)
         focus = [o for o in (s.get("focus") or []) if o in show]
         labels = [o for o in (s.get("labels") or []) if o in show][:MAX_LABELS]
         rot = list(s.get("rot") or [0, 0, 0])[:3] + [0, 0, 0]
         slides.append({
             "title": str(s.get("title") or "").strip()[:90],
             "text": re.sub(r"\s+\n", "\n", str(s.get("text") or "").strip())[:520],
-            "show": show, "focus": focus or None, "labels": list(dict.fromkeys(labels)),
+            "show": show, "focus": focus or None, "labels": list(dict.fromkeys(labels)), "support": support,
             "rot": [_num(rot[0], -60, 60), _num(rot[1], -180, 180), _num(rot[2], -30, 30)],
             "exit": s.get("exit") if s.get("exit") in ("up", "down", "left", "right") else "up",
         })
@@ -248,6 +249,26 @@ def normalize(data: dict, count: int, language: str) -> dict:
         else:
             names[organ] = str(ai_names.get(organ) or BY_ID[organ]["en"]).strip()[:40]
     return {"body": body, "slides": slides, "names": names, "language": language}
+
+
+def add_support(show: List[str], have: dict, contains: Dict[str, set]) -> List[str]:
+    """Bo'g'im/boylam yoki tishlar ko'rsatilsa — ular bog'langan suyaklar ham qo'shiladi (`lugat.SUPPORT`): aks holda
+    kapsula va boylamlar havoda suzib, tishlar jag'siz turadi. `show` joyida o'zgaradi; qaytaradi: qo'shilgan suyaklar.
+
+    Suyak ko'rinishdagi organ ichida bo'lsa (skelet) — qo'shilmaydi. Tishlar faqat pastki jag' bilan bo'lsa (bosh
+    suyagi qo'shib bo'lmaydi — u pastki jag'ni o'z ichiga oladi) — tishlar olinadi: yuqori qatori havoda qolardi."""
+    added: List[str] = []
+    for organ in list(show):
+        for bone in SUPPORT.get(organ, ()):
+            if bone not in have or bone in show or any(bone in contains.get(o, ()) for o in show):
+                continue
+            if any(o in contains.get(bone, ()) for o in show):
+                if organ == "tishlar" and len(show) > 1:
+                    show.remove(organ)
+                continue
+            show.append(bone)
+            added.append(bone)
+    return added
 
 
 def smooth_turns(slides: List[dict]) -> None:
@@ -497,8 +518,8 @@ def reveal_focus(cam: Camera, slides: List[dict], dense: Dict[str, list]) -> Non
         target = [p for o in focus for p in dense[o]]
         drop = []
         for other in s["show"]:
-            if other in focus or other not in dense:
-                continue
+            if other in focus or other not in dense or other in (s.get("support") or ()):
+                continue                            # tayanch suyak qoladi — u holda bo'g'im havoda suzadi
             hidden = 1.0 - float(cam.visible_mask(target, s.get("rot") or (0, 0, 0), dense[other]).mean())
             if hidden > FOCUS_HIDDEN:
                 drop.append(other)
@@ -588,8 +609,11 @@ def build_scenes(body_key: str, plan_: dict, atlas=None, quality: float = 1.0) -
                     labels[f"{gid}:{o}"] = {"uz": names.get(o, BY_ID[o]["uz"]), "la": BY_ID[o].get("la", ""),
                                             "group": gid, "samples": body[o]["samples"],
                                             "occluders": [p for x in show if x != o for p in dense[x]]}
+            support = set(slides[i].get("support") or ()) & set(show)
             placed.append((i, key, ("set", gid), dict(slides[i], scene=key, show=[gid], focus=None,
                                                       focus_points=[p for o in focus for p in body[o]["samples"]],
+                                                      whole_points=[p for o in show if o not in support
+                                                                    for p in body[o]["samples"]] if support else None,
                                                       labels=[f"{gid}:{o}" for o in slides[i]["labels"] if o in show])))
         source = SOURCES[body_key]
         if any(pid.startswith("ZA-") for o in organs for pid in body[o]["parts"]):
@@ -603,8 +627,14 @@ def build_scenes(body_key: str, plan_: dict, atlas=None, quality: float = 1.0) -
         """Yordamchi slayd (o'zi o'tadi, raqamga kirmaydi): kamera `frame_of` slayddagidek."""
         deck_slides.append(dict(data, show=show, labels=[], fade=True, auto=True, explode=0, frame_of=frame_of))
 
+    def organs_of(item) -> set:
+        return set(slides[item[0]]["show"])
+
     for k, (_, key, form, data) in enumerate(placed):
-        if k and placed[k - 1][1] == key and placed[k - 1][2] != form:
+        # Joyida almashish faqat umumiy organ qolganda kerak (u qimirlamay turadi). Umumiy organ bo'lmasa (pastki
+        # jag' → bosh suyagi) — eskisi uchib chiqadi, yangisi uchib kiradi: yangi model eski kamerada ulkan bo'lib
+        # lip etib ko'rinmaydi.
+        if k and placed[k - 1][1] == key and placed[k - 1][2] != form and organs_of(placed[k - 1]) & organs_of(placed[k]):
             prev_form, prev = placed[k - 1][2], deck_slides[-1]
             if form[0] == "parts":
                 # yig'ilgan model → o'sha joyda alohida bo'laklar (so'nib almashadi) → bo'laklar ajraladi

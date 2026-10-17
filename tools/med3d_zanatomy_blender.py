@@ -54,6 +54,10 @@ with open(os.path.join(out_dir, f"za_raw_{which}.bin"), "wb") as fh:
         ev = o.evaluated_get(dg)
         me = ev.to_mesh()
         me.transform(o.matrix_world)
+        if o.matrix_world.determinant() < 0:
+            # Ko'zgu nusxa (chap tomon a'zolari — manfiy masshtab): transform uchburchak yo'nalishini o'zgartirmaydi,
+            # a'zo ichi-tashi teskari chiqadi (PowerPoint ichki devorini qorong'i chizadi) — yo'nalish tiklanadi.
+            me.flip_normals()
         me.calc_loop_triangles()
         n = len(me.vertices)
         co = array.array("f", [0.0]) * (n * 3)
