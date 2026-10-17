@@ -69,7 +69,10 @@ _TEXTY = re.compile(
 
 
 def api_key() -> str:
-    return (os.getenv("BRAVE_API_KEY") or os.getenv("BRAVE_SEARCH_API_KEY") or "").strip()
+    """Hozirgi Brave kaliti: bir nechta kalit navbat bilan (`services/brave_keys.py`, admin panelda qo'shiladi)."""
+    from services import brave_keys
+
+    return brave_keys.current()
 
 
 def enabled() -> bool:
@@ -157,15 +160,28 @@ def usable(results: Sequence[dict], formulas: bool = False) -> List[dict]:
 
 
 async def _brave(query: str) -> List[dict]:
+    """Brave so'rovi. Kalit rad etilsa (401/403/429) — navbatdagi kalit bilan yana urinadi."""
+    from services import brave_keys
+
     params = {"q": query, "count": str(RESULTS), "safesearch": "strict"}
-    headers = {"Accept": "application/json", "X-Subscription-Token": api_key()}
     timeout = aiohttp.ClientTimeout(total=20)
-    async with aiohttp.ClientSession(timeout=timeout, trust_env=True) as session:
-        async with session.get(BRAVE_URL, params=params, headers=headers) as resp:
-            if resp.status != 200:
-                raise RuntimeError(f"Brave HTTP {resp.status}: {(await resp.text())[:200]}")
-            data = await resp.json(content_type=None)
-    return list((data or {}).get("results") or [])
+    tried = set()
+    while True:
+        key = brave_keys.take()
+        if not key or key in tried:
+            raise RuntimeError("Brave: ishlaydigan kalit qolmadi")
+        tried.add(key)
+        headers = {"Accept": "application/json", "X-Subscription-Token": key}
+        async with aiohttp.ClientSession(timeout=timeout, trust_env=True) as session:
+            async with session.get(BRAVE_URL, params=params, headers=headers) as resp:
+                if resp.status in (401, 403, 429):
+                    brave_keys.report_failure(key, resp.status)
+                    log.warning("Brave kaliti %s rad etildi (HTTP %s) — keyingisi", brave_keys.mask(key), resp.status)
+                    continue
+                if resp.status != 200:
+                    raise RuntimeError(f"Brave HTTP {resp.status}: {(await resp.text())[:200]}")
+                data = await resp.json(content_type=None)
+        return list((data or {}).get("results") or [])
 
 
 # ─────────────────────────────────────────────────────── AI so'rovlari

@@ -3977,3 +3977,91 @@ async def _do_self_update(callback: CallbackQuery) -> None:
     # biroz kutamiz — aks holda bu bosish qayta yuborilishi mumkin edi.
     await asyncio.sleep(3)
     self_update.restart()
+
+
+
+# ── Brave rasm qidiruvi kalitlari: bir nechta kalit, har biri LIMIT so'rovdan keyin almashadi
+
+def _brave_keys_view():
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    from services import brave_keys
+
+    rows = brave_keys.status()
+    lines = [f"🔑 <b>Brave kalitlari</b> — har kalit {brave_keys.LIMIT} so'rovdan keyin navbatdagisiga almashadi.",
+             "Oy boshida hisoblagichlar o'zi nollanadi. Kalit rad etilsa (limit tugagan yoki yaroqsiz) — darhol "
+             "keyingisiga o'tiladi.", ""]
+    if not rows:
+        lines.append("Hozircha kalit yo'q — rasmlar faqat AI bilan chiziladi.")
+    for r in rows:
+        mark = "▶️" if r["active"] else ("⛔️" if r["failed"] else "▫️")
+        state = "yaroqsiz" if r["failed"] else f"{r['used']}/{brave_keys.LIMIT}"
+        src = " (.env)" if r["added"] == "env" else (f" — {r['added']}" if r["added"] else "")
+        lines.append(f"{mark} {r['n']}. <code>{r['mask']}</code> — {state}{src}")
+    kb = InlineKeyboardBuilder()
+    kb.button(text="➕ Kalit qo'shish", callback_data="brave_add")
+    kb.button(text="♻️ Hisoblagichlarni nollash", callback_data="brave_reset")
+    for r in rows:
+        if r["added"] != "env":
+            kb.button(text=f"🗑 {r['n']}-kalitni o'chirish", callback_data=f"brave_del:{r['n'] - 1}")
+    kb.adjust(1)
+    return "\n".join(lines), kb.as_markup()
+
+
+@router.message(F.text == "🔑 Brave kalitlari")
+async def handle_brave_keys(message: Message):
+    if not is_admin(message.from_user.id):
+        return
+    text, markup = _brave_keys_view()
+    await message.answer(text, reply_markup=markup, parse_mode="HTML")
+
+
+@router.callback_query(F.data == "brave_add")
+async def brave_add_start(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id):
+        return
+    await state.set_state(AdminStates.waiting_for_brave_key)
+    await callback.message.answer("Yangi Brave Search API kalitini yuboring (bir xabarda bir nechta bo'lsa — har biri "
+                                  "alohida qatorda). Xavfsizlik uchun xabaringiz o'chiriladi.")
+    await callback.answer()
+
+
+@router.message(AdminStates.waiting_for_brave_key, F.text)
+async def brave_add_finish(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        return
+    from services import brave_keys
+
+    added = [k for k in (line.strip() for line in message.text.splitlines())
+             if len(k) >= 16 and " " not in k and brave_keys.add(k)]
+    await state.clear()
+    try:
+        await message.delete()
+    except Exception:
+        pass
+    text, markup = _brave_keys_view()
+    head = f"✅ {len(added)} ta kalit qo'shildi.\n\n" if added else "⚠️ Yangi kalit qo'shilmadi (noto'g'ri yoki bor).\n\n"
+    await message.answer(head + text, reply_markup=markup, parse_mode="HTML")
+
+
+@router.callback_query(F.data == "brave_reset")
+async def brave_reset(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        return
+    from services import brave_keys
+
+    brave_keys.reset()
+    text, markup = _brave_keys_view()
+    await callback.message.edit_text(text, reply_markup=markup, parse_mode="HTML")
+    await callback.answer("Nollandi")
+
+
+@router.callback_query(F.data.startswith("brave_del:"))
+async def brave_delete(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        return
+    from services import brave_keys
+
+    brave_keys.remove(int(callback.data.split(":", 1)[1]))
+    text, markup = _brave_keys_view()
+    await callback.message.edit_text(text, reply_markup=markup, parse_mode="HTML")
+    await callback.answer("O'chirildi")

@@ -209,6 +209,8 @@ async def broken_check(paths):
 check("tekshiruv ishlamasa rasmlar tashlanadi (fail-closed: skrinshot o'tib ketmasin)",
       asyncio.run(photo_search.text_heavy(["a.jpg", "b.jpg"], broken_check)) == {0, 1})
 
+import tempfile as _tf
+os.environ["BRAVE_KEYS_FILE"] = os.path.join(_tf.mkdtemp(), "brave_keys.json")   # haqiqiy kalitlar fayliga tegmaydi
 os.environ.pop("BRAVE_API_KEY", None); os.environ.pop("BRAVE_SEARCH_API_KEY", None)
 check("kalit yo'q bo'lsa qidiruv o'chiq", not photo_search.enabled())
 os.environ["BRAVE_API_KEY"] = "k"; os.environ["PHOTO_SEARCH"] = "0"
