@@ -35,6 +35,13 @@ log = logging.getLogger(__name__)
 # Reja uchun model: tibbiy faktlar, o'zbekcha anatomik atamalar va qat'iy JSON — eng ishonchli model kerak.
 # Admin paneldagi "premium model" tanlovi bunga ta'sir qilmaydi (u arzon model bo'lishi mumkin).
 MODEL = os.getenv("MED3D_MODEL") or "anthropic/claude-sonnet-5"
+# Akademik (3-daraja) buyurtmalar uchun kuchliroq model; belgilanmasa — oddiy reja modeli.
+MODEL_ACADEMIC = os.getenv("MED3D_MODEL_ACADEMIC") or MODEL
+# Tibbiy faktlarni ikkinchi marta tekshiruvchi arzon model; belgilanmasa — umumiy matn zanjiri. MED3D_REVIEW=0 — o'chirish.
+REVIEW_MODEL = os.getenv("MED3D_REVIEW_MODEL") or ""
+REVIEW_ON = os.getenv("MED3D_REVIEW", "1") != "0"
+DISCLAIMERS = {"uz": "Ta'lim maqsadida; tibbiy maslahat emas.", "ru": "Для обучения; не медицинская рекомендация.",
+               "en": "For education only; not medical advice."}
 SLIDE_OPTIONS = (5, 8, 10, 12, 15)
 # Narx: zamonaviy taqdimot narxidan shuncha baravar (haqiqiy 3D modellar, Morph, lotincha nomli yorliqlar).
 # 10 slayd — 25 000 so'm (5 baravar). `MED3D_PRICE_FACTOR` bilan o'zgartiriladi.
@@ -232,8 +239,51 @@ def _plan_ai(topic: str, count: int, language: str, level: int, preferences: str
     extra = f"Client's wishes: {preferences[:500]}\n" if preferences else ""
     user = USER.format(topic=topic, count=count, level=LEVELS.get(level, LEVELS[2]),
                        language_rule=llm_client._language_instruction(language), extra=extra, table=organ_table())
-    with prompts.use(language), llm_client.text_model(MODEL):
+    with prompts.use(language), llm_client.text_model(MODEL_ACADEMIC if level >= 3 else MODEL):
         return _call_json(SYSTEM, user, answer_tokens=3000 + 800 * count)
+
+
+REVIEW_SYSTEM = """You are a medical fact-checker for a student anatomy presentation.
+You get slides as JSON [{"i": 0, "title": "...", "text": "..."}]. Fix ONLY factual medical errors and wrong
+anatomical terms in "text" (same language, same meaning, never longer than the original, no new claims, no drug
+doses, no personal advice). If a text is correct, return it unchanged.
+Return ONLY JSON: {"slides": [{"i": 0, "text": "..."}]}"""
+
+
+def review_plan(plan_: dict, language: str) -> int:
+    """Ikkinchi, arzon model bilan faktlarni tekshiradi; xato bo'lsa rejani buzmasdan o'tkazib yuboradi.
+    Qaytaradi: tuzatilgan slaydlar soni."""
+    from services.premium_presentation import llm_client, prompts
+
+    slides = plan_["slides"]
+    payload = json.dumps([{"i": i, "title": sl["title"], "text": sl["text"]} for i, sl in enumerate(slides)],
+                         ensure_ascii=False)
+    try:
+        with prompts.use(language), llm_client.text_model(REVIEW_MODEL):
+            data = _call_json(REVIEW_SYSTEM, payload, answer_tokens=400 * len(slides))
+    except Exception as exc:                      # noqa: BLE001 — tekshiruv ixtiyoriy
+        log.warning("3D Anatomiya: tibbiy tekshiruv o'tmadi (%s)", exc)
+        return 0
+    fixed = 0
+    for row in (data.get("slides") or []) if isinstance(data, dict) else []:
+        try:
+            slide = slides[int(row["i"])]
+        except (KeyError, TypeError, ValueError, IndexError):
+            continue
+        text = re.sub(r"\s+", " ", str(row.get("text") or "")).strip()
+        limit = 230 if slide.get("picture") else 380
+        if text and text != slide["text"] and len(text) <= min(limit, len(slide["text"]) + 20):
+            slide["text"] = text
+            fixed += 1
+    return fixed
+
+
+def add_disclaimer(plan_: dict, language: str) -> None:
+    """Oxirgi slayd matniga o'quv maqsadi haqida qisqa eslatma (matn chegarasidan oshmasa)."""
+    note = DISCLAIMERS.get(language) or DISCLAIMERS["en"]
+    last = plan_["slides"][-1]
+    if note not in last["text"] and len(last["text"]) + len(note) + 1 <= 420:
+        last["text"] = f"{last['text']} {note}".strip()
 
 
 THINK_TOKENS = 2000     # Claude Sonnet 5 o'ylashga cheklovsiz token sarflaydi va javob bo'sh qaytadi — chegaralanadi
@@ -400,7 +450,11 @@ def plan(topic: str, count: int, language: str = "uz", level: int = 2, preferenc
     last = None
     for attempt in range(2):
         try:
-            return normalize(_plan_ai(topic, count, language, level, preferences), count, language)
+            result = normalize(_plan_ai(topic, count, language, level, preferences), count, language)
+            if REVIEW_ON:
+                review_plan(result, language)
+            add_disclaimer(result, language)
+            return result
         except (NotAnatomy, llm_client.NoCredits):
             raise
         except Exception as exc:                  # noqa: BLE001 — keyingi urinish

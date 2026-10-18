@@ -486,6 +486,23 @@ check("3D Anatomiya narxi: 10 slayd — 25 000 so'm (zamonaviydan 5 baravar)", a
 check("3D Anatomiya narxi 3D Pro'dan baland va 500 ga yaxlit",
       all(auto.price_for(n) % 500 == 0 for n in auto.SLIDE_OPTIONS))
 
+_plan = {"slides": [{"title": "A", "text": "Yurak 5 kamerali.", "picture": ""},
+                    {"title": "B", "text": "Jigar chapda joylashgan.", "picture": ""},
+                    {"title": "C", "text": "Xulosa.", "picture": ""}]}
+_orig_call = auto._call_json
+auto._call_json = lambda s, u, answer_tokens: {"slides": [
+    {"i": 0, "text": "Yurak 4 kamerali."}, {"i": 1, "text": "x" * 500}, {"i": 9, "text": "yo'q"}]}
+check("tibbiy tekshiruv matnni tuzatadi, haddan uzunini rad qiladi",
+      auto.review_plan(_plan, "uz") == 1 and _plan["slides"][0]["text"] == "Yurak 4 kamerali."
+      and _plan["slides"][1]["text"] == "Jigar chapda joylashgan.", _plan)
+auto._call_json = lambda s, u, answer_tokens: (_ for _ in ()).throw(RuntimeError("tarmoq"))
+check("tibbiy tekshiruv xato bersa reja buzilmaydi", auto.review_plan(_plan, "uz") == 0)
+auto._call_json = _orig_call
+auto.add_disclaimer(_plan, "uz")
+auto.add_disclaimer(_plan, "uz")
+check("o'quv maqsadi eslatmasi oxirgi slaydga bir marta qo'shiladi",
+      _plan["slides"][-1]["text"].count("tibbiy maslahat emas") == 1, _plan["slides"][-1])
+
 print()
 print("HAMMASI O'TDI" if not FAILS else f"XATOLAR: {len(FAILS)} — {FAILS}")
 sys.exit(1 if FAILS else 0)
