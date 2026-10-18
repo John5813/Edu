@@ -529,7 +529,7 @@ class DocumentService:
         try:
             from services import photo_search
 
-            if wanted and photo_search.enabled():
+            if wanted and photo_search.enabled() and not photo_search.prefer_ai(topic):
                 slots = [f"Cover: the most iconic, wide photo of the whole topic «{topic}»" if kind == 'cover'
                          else title for _, kind, title in wanted]
                 paths = await photo_search.find_photos(topic, slots)
@@ -586,7 +586,7 @@ class DocumentService:
         """AI rasm bermagan slotlar uchun bitta Brave qidiruvi (takrorlanmaydi)."""
         try:
             from services import photo_search
-            if not photo_search.enabled():
+            if not photo_search.enabled() or photo_search.prefer_ai(topic):
                 return {}
             slots = [f"{topic}: {title}" if kind != 'cover' else f"Wide photo about «{topic}»"
                      for _, kind, title in missing]
@@ -1468,22 +1468,20 @@ class DocumentService:
         """Rasmni joyiga nisbatini saqlab qo'yadi: ortiqcha qismi qirqiladi.
 
         Ilgari rasm joy o'lchamiga cho'zilardi: 4:3 rasm 3.8:1 chiziqqa
-        siqilib, odamlar yassi ko'rinardi. `bias` — vertikal qirqishda
-        yuqoridan qancha saqlanadi (0.4: yuzlar odatda o'rtadan biroz tepada).
+        siqilib, odamlar yassi ko'rinardi. Yuz aniqlansa kesish yuzi saqlaydi;
+        aks holda `bias` eski vertikal fokusni saqlab qoladi.
         """
         from PIL import Image
+        from services import photo_search
+
         with Image.open(image_path) as img:
             iw, ih = img.size
         pic = slide.shapes.add_picture(image_path, PptxInches(left), PptxInches(top),
                                        PptxInches(width), PptxInches(height))
         if iw and ih:
-            target, actual = width / height, iw / ih
-            if actual > target:            # rasm kengroq: yon tomonlar qirqiladi
-                extra = 1 - target / actual
-                pic.crop_left = pic.crop_right = extra / 2
-            elif actual < target:          # rasm balandroq: yuqori-past qirqiladi
-                extra = 1 - actual / target
-                pic.crop_top, pic.crop_bottom = extra * bias, extra * (1 - bias)
+            focus_x, focus_y = photo_search.focal_point(image_path, default_y=bias)
+            pic.crop_left, pic.crop_right, pic.crop_top, pic.crop_bottom = photo_search.crop_margins(
+                iw, ih, width, height, focus_x, focus_y)
         return pic
 
     def _add_justified_content(self, slide, content, left: float, top: float, width: float, height: float, align_left: bool = False, max_font: int = 24, min_font: int = 14):

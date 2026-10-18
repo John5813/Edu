@@ -1,14 +1,15 @@
 """Slayd rasmlarini internetdan (Brave Image Search) topadi.
 
 Qoida: bitta mavzu uchun Brave'ga faqat BITTA so'rov yuboriladi (200 ta
-natija). Shu natijalardan har sarlavhaga mos rasmni AI tanlaydi:
+natija). Mavhum/futuristik mavzular AI bilan chizishga yo'naltiriladi;
+haqiqiy foto kerak bo'lgan mavzularda qidiruv tili mavzuga qarab tanlanadi:
 
-    1. Mavzu inglizcha qidiruv so'ziga aylantiriladi (AI, bitta qisqa so'rov).
+    1. Tarix va madaniyatda mahalliy til, global texnologiyada odatda inglizcha so'rov.
     2. Brave bitta so'rov bilan 200 tagacha rasm beradi; stok saytlar
        (suv belgili), do'konlar va kichik rasmlar olib tashlanadi.
     3. AI sarlavhalar va rasm nomlarini ko'rib, har slaydga mos rasmlarni
        tanlaydi (bir rasm — bitta slaydga).
-    4. Tanlangan rasm yuklab olinadi va tekshiriladi.
+    4. Tanlangan rasm yuklab olinadi, tekshiriladi va crop uchun fokus aniqlanadi.
 
 Topilmagan slaydga hech narsa qaytarilmaydi — uni chaqiruvchi AI bilan
 chizdiradi. Mavzu natijalari xotirada saqlanadi: o'sha mavzuga keyingi
@@ -17,6 +18,7 @@ so'rov yubormaydi va oldin ishlatilgan rasmlarni qayta bermaydi.
 """
 import asyncio
 import contextlib
+import functools
 import io
 import json
 import logging
@@ -25,7 +27,7 @@ import re
 import time
 import uuid
 from collections import OrderedDict
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence, Tuple
 from urllib.parse import urlparse
 
 import aiohttp
@@ -41,6 +43,23 @@ MAX_SIDE = 1600               # PPTX og'irlashmasin
 MAX_BYTES = 15 * 1024 * 1024
 MAX_CANDIDATES = 120          # AI ga ko'rsatiladigan nomzodlar
 CACHE_TOPICS = 300            # xotirada saqlanadigan mavzular soni
+_BRAVE_SEARCH_LANGS = frozenset({
+    "ar", "bg", "ca", "cs", "da", "de", "el", "en", "es", "et", "fi", "fr",
+    "he", "hr", "hu", "id", "it", "ja", "ko", "lt", "lv", "nb", "nl", "pl",
+    "pt-br", "pt-pt", "ro", "ru", "sk", "sl", "sr", "sv", "th", "tr", "uk",
+    "vi", "zh-hans", "zh-hant",
+})
+_AI_FIRST_TOPIC = re.compile(
+    r"\b(?:AI|artificial intelligence|machine learning|deep learning|neural network|"
+    r"sun['’]?iy intellekt\w*|mashinaviy o['’]?rganish\w*|neyron tarmoq\w*|"
+    r"искусственн\w+ интеллект\w*|нейросет\w*|машинн\w+ обучен\w*|"
+    r"internet\w*|internet of things|cyber ?security|cyberspace|cloud computing|"
+    r"virtual reality|augmented reality|metaverse|robotics|robototexnika|"
+    r"kelajak texnolog\w*|future technolog\w*|digital transformation|"
+    r"космос\w*|cosmos\w*|outer space|space exploration|space\w*|koinot\w*|kosmos\w*|"
+    r"futuristic|kelajak shah\w*|future cit\w*)\b",
+    re.IGNORECASE,
+)
 
 # Suv belgili stok saytlar, do'konlar va sifatsiz manbalar.
 _BLOCKED = (
@@ -102,6 +121,11 @@ def _topic_key(topic: str) -> str:
     return re.sub(r"\s+", " ", (topic or "").strip().lower())
 
 
+def prefer_ai(topic: str) -> bool:
+    """Mavhum/futuristik mavzuda, odatiy mix rejimida, AI tasvirini ustun ko'radi."""
+    return bool(_AI_FIRST_TOPIC.search(topic or ""))
+
+
 def reset() -> None:
     """Xotirani tozalaydi (testlar uchun)."""
     _pools.clear()
@@ -159,11 +183,13 @@ def usable(results: Sequence[dict], formulas: bool = False) -> List[dict]:
     return out
 
 
-async def _brave(query: str) -> List[dict]:
+async def _brave(query: str, search_lang: str = "") -> List[dict]:
     """Brave so'rovi. Kalit rad etilsa (401/403/429) — navbatdagi kalit bilan yana urinadi."""
     from services import brave_keys
 
     params = {"q": query, "count": str(RESULTS), "safesearch": "strict"}
+    if search_lang in _BRAVE_SEARCH_LANGS:
+        params["search_lang"] = search_lang
     timeout = aiohttp.ClientTimeout(total=20)
     tried = set()
     while True:
@@ -194,24 +220,120 @@ def _ask_json(system: str, user: str, max_tokens: int) -> dict:
 
 
 _QUERY_SYSTEM = (
-    "You turn a presentation topic (any language) into ONE short English image-search "
-    "query (2-6 words) that finds real photographs of its main subject. Keep proper "
-    "names of places and people (transliterated to English). No quotes, and never words that "
-    "bring images with text: presentation, slide, map, diagram, chart, infographic, scheme, "
-    "table, poster. Answer JSON: {\"query\": \"...\"}"
+    "Create ONE short image-search query (2-6 words) for REAL photographs relevant to a "
+    "presentation topic. Choose the query language based on where the best photographs are "
+    "likely to exist, not by blindly translating everything into English. For people, history, "
+    "culture, places, and regional topics, search in the language/script of that culture when "
+    "it is likely to find more authentic local photos (e.g. Amir Temur: Uzbek; Ottoman/Turkish "
+    "history: Turkish; Chinese history: Chinese; Mongolian history: Mongolian). Keep names in "
+    "their locally used form/script. For globally shared technology or science (AI, internet, "
+    "space), use English unless the topic is explicitly regional. For Uzbek or Mongolian, use "
+    "the actual local-language query even though Brave may not support a search_lang filter. "
+    "Set search_lang only to one of: ar, bg, ca, cs, da, de, el, en, es, et, fi, fr, he, hr, "
+    "hu, id, it, ja, ko, lt, lv, nb, nl, pl, pt-br, pt-pt, ro, ru, sk, sl, sr, sv, th, tr, "
+    "uk, vi, zh-hans, zh-hant; otherwise use an empty string. Avoid words that return text "
+    "artifacts: presentation, slide, map, diagram, chart, infographic, table, poster. "
+    "Answer JSON: {\"query\": \"...\", \"search_lang\": \"...\"}"
 )
 
 
-async def search_query(topic: str) -> str:
-    """Mavzudan inglizcha qidiruv so'zi. AI ishlamasa — mavzuning o'zi."""
+async def search_plan(topic: str) -> Tuple[str, str]:
+    """Mavzuga mos qidiruv iborasi va Brave qo'llaydigan til filtri."""
     try:
         data = await asyncio.to_thread(_ask_json, _QUERY_SYSTEM, f"Topic: {topic}", 200)
         query = re.sub(r"\s+", " ", str((data or {}).get("query") or "")).strip(" \"'.")
+        search_lang = str((data or {}).get("search_lang") or "").strip().lower()
         if 2 <= len(query) <= 80:
-            return query
+            return query, search_lang if search_lang in _BRAVE_SEARCH_LANGS else ""
     except Exception as exc:
-        log.warning("Qidiruv so'zi tuzilmadi: %s", exc)
-    return topic.strip()[:80]
+        log.warning("Rasm qidiruv rejasi tuzilmadi: %s", exc)
+    return topic.strip()[:80], ""
+
+
+async def search_query(topic: str) -> str:
+    """Mavzu uchun qidiruv iborasi (eski chaqiruvchilar bilan moslik)."""
+    query, _ = await search_plan(topic)
+    return query
+
+
+@functools.lru_cache(maxsize=512)
+def _face_focus(path: str) -> Optional[Tuple[float, float]]:
+    """Suratdagi yuz(lar) markazini qaytaradi; topilmasa None."""
+    try:
+        import cv2
+
+        image = cv2.imread(path)
+        if image is None:
+            return None
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        scale = min(1.0, 1200 / max(image.shape[:2]))
+        if scale < 1:
+            gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+        cascade_path = os.path.join(cv2.data.haarcascades, "haarcascade_frontalface_default.xml")
+        detector = cv2.CascadeClassifier(cascade_path)
+        if detector.empty():
+            log.warning("Yuz aniqlash modeli yuklanmadi: %s", cascade_path)
+            return None
+        faces = detector.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5,
+                                          minSize=(max(24, gray.shape[1] // 40),) * 2)
+        if len(faces):
+            weighted_x = weighted_y = total = 0.0
+            for x, y, width, height in faces:
+                weight = float(width * height)
+                weighted_x += (x + width / 2) * weight
+                weighted_y += (y + height / 2) * weight
+                total += weight
+            return (min(1.0, max(0.0, weighted_x / total / gray.shape[1])),
+                    min(1.0, max(0.0, weighted_y / total / gray.shape[0])))
+    except Exception as exc:
+        log.debug("Rasm fokusini aniqlab bo'lmadi (%s): %s", path, exc)
+    return None
+
+
+def focal_point(path: str, default_y: float = 0.4) -> Tuple[float, float]:
+    """Rasmning kesishda saqlanishi kerak bo'lgan nuqtasi (x, y), 0..1 oralig'ida."""
+    return _face_focus(os.path.abspath(path)) or (0.5, min(1.0, max(0.0, default_y)))
+
+
+def crop_margins(image_width: int, image_height: int, box_width: float, box_height: float,
+                 focus_x: float = 0.5, focus_y: float = 0.4) -> tuple:
+    """Rasmni cho'zmasdan box nisbatiga kesish uchun (left, right, top, bottom) ulushlari."""
+    if image_width <= 0 or image_height <= 0 or box_width <= 0 or box_height <= 0:
+        return 0.0, 0.0, 0.0, 0.0
+    focus_x = min(1.0, max(0.0, float(focus_x)))
+    focus_y = min(1.0, max(0.0, float(focus_y)))
+    image_ratio, box_ratio = image_width / image_height, box_width / box_height
+    if image_ratio > box_ratio:
+        keep = box_ratio / image_ratio
+        left = min(1.0 - keep, max(0.0, focus_x - keep / 2))
+        return left, 1.0 - keep - left, 0.0, 0.0
+    if image_ratio < box_ratio:
+        keep = image_ratio / box_ratio
+        top = min(1.0 - keep, max(0.0, focus_y - keep / 2))
+        return 0.0, 0.0, top, 1.0 - keep - top
+    return 0.0, 0.0, 0.0, 0.0
+
+
+def object_position(path: str, box_ratio: float) -> str:
+    """CSS object-position: fokusni qirqish oynasiga markazlaydi."""
+    from PIL import Image
+
+    with Image.open(path) as image:
+        width, height = image.size
+    focus_x, focus_y = focal_point(path)
+    margins = crop_margins(width, height, box_ratio, 1.0, focus_x, focus_y)
+    left, _, top, _ = margins
+    if width / height > box_ratio:
+        keep = box_ratio / (width / height)
+        x_pos = left / max(1e-9, 1.0 - keep)
+        y_pos = 0.5
+    elif width / height < box_ratio:
+        keep = (width / height) / box_ratio
+        x_pos = 0.5
+        y_pos = top / max(1e-9, 1.0 - keep)
+    else:
+        x_pos = y_pos = 0.5
+    return f"{x_pos * 100:.1f}% {y_pos * 100:.1f}%"
 
 
 _PICK_SYSTEM = (
@@ -424,8 +546,9 @@ async def _pool(topic: str, search=None, formulas: bool = False) -> _Pool:
             _pools.move_to_end(key)
             return pool
         try:
-            query = await search_query(topic)
-            results = await (search or _brave)(query)
+            query, search_lang = await search_plan(topic)
+            results = (await search(query) if search is not None
+                       else await _brave(query, search_lang))
             candidates = usable(results, formulas)
             log.info("Brave: «%s» → %d natija, %d tasi yaroqli", query, len(results), len(candidates))
         except Exception as exc:

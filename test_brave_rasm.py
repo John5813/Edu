@@ -12,6 +12,7 @@ import asyncio
 import os
 import sys
 import tempfile
+from unittest.mock import patch
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE); os.chdir(HERE)
@@ -75,6 +76,86 @@ picks = photo_search.parse_picks({"picks": [
 ]}, slots=3, candidates=10)
 check("har slotga eng ko'pi 3 ta, takrorsiz, chegaradan tashqarisi yo'q",
       picks == [[3, 7, 8], [2], []], picks)
+
+print("\n2b) Mavzuga mos qidiruv tili va fokusli qirqish")
+original_ask_json = photo_search._ask_json
+try:
+    photo_search._ask_json = lambda system, user, max_tokens: {
+        "query": "阿米尔·帖木儿 撒马尔罕", "search_lang": "zh-hans"}
+    query, search_lang = asyncio.run(photo_search.search_plan("Amir Temur"))
+    check("madaniy mavzu uchun mahalliy tildagi so'rov va Brave tili tanlanadi",
+          query == "阿米尔·帖木儿 撒马尔罕" and search_lang == "zh-hans", (query, search_lang))
+    photo_search._ask_json = lambda system, user, max_tokens: {
+        "query": "Amir Temur tarixiy suratlari", "search_lang": "uz"}
+    query, search_lang = asyncio.run(photo_search.search_plan("Amir Temur"))
+    check("Brave qo'llamaydigan o'zbek tili filtri yuborilmaydi, lekin mahalliy so'rov saqlanadi",
+          query == "Amir Temur tarixiy suratlari" and not search_lang, (query, search_lang))
+finally:
+    photo_search._ask_json = original_ask_json
+check("qidiruv yo'riqnomasi mavhum texnologiya va madaniy mavzularni farqlaydi",
+      "Amir Temur: Uzbek" in photo_search._QUERY_SYSTEM and "AI, internet" in photo_search._QUERY_SYSTEM)
+check("mavhum va futuristik mavzularda AI birinchi tanlanadi",
+      all(photo_search.prefer_ai(topic) for topic in (
+          "Sun'iy intellekt", "internet xavfsizligi", "Kosmos", "Virtual reality",
+          "Internetni o'rganish", "Kosmosni o'rganish"))
+      and not photo_search.prefer_ai("Amir Temur tarixi"))
+
+request_params = []
+
+
+class _Response:
+    status = 200
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        return False
+
+    async def json(self, content_type=None):
+        return {"results": []}
+
+
+class _Session:
+    def __init__(self, **kwargs):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        return False
+
+    def get(self, url, params, headers):
+        request_params.append(dict(params))
+        return _Response()
+
+
+with patch.object(photo_search.aiohttp, "ClientSession", _Session):
+    from services import brave_keys
+
+    with patch.object(brave_keys, "take", lambda: "test-key"):
+        asyncio.run(photo_search._brave("Amir Temur", "zh-hans"))
+        asyncio.run(photo_search._brave("Amir Temur", "uz"))
+check("Brave'ga qo'llanadigan til filtri yuboriladi, qo'llanmaydigani o'tkaziladi",
+      request_params[0].get("search_lang") == "zh-hans" and "search_lang" not in request_params[1],
+      request_params)
+
+left, right, top, bottom = photo_search.crop_margins(1600, 900, 0.78, 1.0, 0.25, 0.45)
+kept_width = 1 - left - right
+visible_face_x = (0.25 - left) / kept_width
+check("keng suratdagi chap yuz qirqilganda ham kadr markaziga yaqin qoladi",
+      left < right and abs(visible_face_x - 0.5) < 0.02, (left, right, visible_face_x))
+check("mos nisbatli rasm keraksiz qirqilmaydi",
+      photo_search.crop_margins(780, 1000, 0.78, 1.0) == (0.0, 0.0, 0.0, 0.0))
+focus_sample = _image(1600, 900)
+try:
+    with patch.object(photo_search, "focal_point", lambda path, default_y=0.4: (0.25, 0.45)):
+        focused_position = html_images._photo_position(focus_sample, 0.78)
+finally:
+    os.remove(focus_sample)
+check("HTML crop pozitsiyasi aniqlangan chap yuzni markazga olib keladi",
+      focused_position == "5.5% 50.0%", focused_position)
 
 print("\n3) Mavzuga bitta Brave so'rovi")
 photo_search.reset()
@@ -240,6 +321,35 @@ check("slot matni: sarlavha + rasm tavsifi",
 check("2 ta rasm qo'yildi, AI faqat topilmaganini chizdi",
       placed == 2 and len(drawn) == 1 and "doctor" in drawn[0], (placed, drawn))
 check("matn o'rnida rasm", done[0].count('class="photo"') == 2 and "rasm-matn" not in done[0])
+check("slayd rasmlarining kesish fokusi HTML ga uzatildi",
+      done[0].count("object-position:") == 2, done[0])
+
+ai_first_calls = {"find": 0, "drawn": 0}
+
+
+async def find_ai_first(topic, slots):
+    ai_first_calls["find"] += 1
+    return ["/web.jpg"] * len(slots)
+
+
+async def draw_ai_first(prompt):
+    ai_first_calls["drawn"] += 1
+    return "/ai.png"
+
+
+with patch.object(html_images, "_take_uri", lambda path: "data:image/png;base64,AA" if path else None), \
+        patch.object(html_images, "_photo_position", lambda path, ratio: "50% 50%"):
+    _, ai_first_placed = asyncio.run(html_images.fill_photos(
+        [page], topic="Sun'iy intellekt", source="mix",
+        find=find_ai_first, generate=draw_ai_first))
+check("mix AI-mavzuda Brave'ni o'tkazib, tasvirni AI ga beradi",
+      ai_first_calls == {"find": 0, "drawn": 2} and ai_first_placed == 2, ai_first_calls)
+ai_first_calls["find"] = 0
+with patch.object(html_images, "_take_uri", lambda path: "data:image/png;base64,AA" if path else None), \
+        patch.object(html_images, "_photo_position", lambda path, ratio: "50% 50%"):
+    asyncio.run(html_images.fill_photos(
+        [page], topic="Sun'iy intellekt", source="web", find=find_ai_first))
+check("web tanlovi AI-first mavzuda ham internetdan qidiradi", ai_first_calls["find"] == 1, ai_first_calls)
 
 cover = ('<html><head></head><body><section class="slide cover"><div class="body"><h1>Yurak</h1>'
          '</div></section><!-- end --></body></html>')
@@ -251,6 +361,8 @@ async def find_cover(topic, slots):
 
 pages, ok = asyncio.run(html_images.fill_cover([cover], "Inson yuragi", generate=draw, find=find_cover))
 check("muqova rasmi saytdan topilsa AI chizmaydi", ok and not drawn and "cover-photo" in pages[0], (ok, drawn))
+check("muqova rasmida ham fokusli kesish pozitsiyasi bor",
+      ok and "object-position:" in pages[0], pages[0])
 
 
 async def find_nothing(topic, slots):
@@ -258,6 +370,25 @@ async def find_nothing(topic, slots):
 
 pages, ok = asyncio.run(html_images.fill_cover([cover], "Inson yuragi", generate=draw, find=find_nothing))
 check("muqova rasmi topilmasa AI chizadi", ok and len(drawn) == 1, (ok, drawn))
+ai_cover_calls = {"find": 0, "drawn": 0}
+
+
+async def find_ai_cover(topic, slots):
+    ai_cover_calls["find"] += 1
+    return ["/web.jpg"]
+
+
+async def draw_ai_cover(subject):
+    ai_cover_calls["drawn"] += 1
+    return "/ai.png"
+
+
+with patch.object(html_images, "_take_uri", lambda path: "data:image/png;base64,AA" if path else None), \
+        patch.object(html_images, "_photo_position", lambda path, ratio: "50% 50%"):
+    _, ai_cover_done = asyncio.run(html_images.fill_cover(
+        [cover], "Kosmos", generate=draw_ai_cover, find=find_ai_cover, source="mix"))
+check("mix futuristik muqovada AI qidiruvdan oldin tanlanadi",
+      ai_cover_done and ai_cover_calls == {"find": 0, "drawn": 1}, ai_cover_calls)
 
 print("\n5) Oddiy taqdimot: topilgan slaydga AI chizilmaydi")
 from services import document_service as ds

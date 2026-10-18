@@ -347,6 +347,18 @@ def _take_uri(path: Optional[str]) -> Optional[str]:
     return uri
 
 
+def _photo_position(path: Optional[str], box_ratio: float) -> str:
+    if not path:
+        return "50% 50%"
+    try:
+        from services import photo_search
+
+        return photo_search.object_position(path, box_ratio)
+    except Exception as exc:
+        log.warning("Rasm fokus joyi aniqlanmadi: %s", exc)
+        return "50% 50%"
+
+
 _HEADING = re.compile(r"<h[1-3]\b[^>]*>(.*?)</h[1-3]\s*>", re.IGNORECASE | re.DOTALL)
 _TAG = re.compile(r"<[^>]+>")
 
@@ -423,7 +435,15 @@ async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
 
     source = _source(source)
     searched: List[Optional[str]] = [None] * len(wanted)
-    if topic and source != "ai" and (find is not None or generate is None):
+    ai_first = False
+    if source == "mix":
+        try:
+            from services import photo_search
+
+            ai_first = photo_search.prefer_ai(topic)
+        except Exception as exc:
+            log.warning("Mavzu uchun rasm strategiyasi aniqlanmadi: %s", exc)
+    if topic and source != "ai" and not ai_first and (find is not None or generate is None):
         slots = []
         for index, _, _, prompt in wanted:
             heading = slide_heading(pages[index])
@@ -441,22 +461,25 @@ async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
 
     async def one(prompt, found):
         if found:
-            return _take_uri(found)
+            position = _photo_position(found, 0.78)
+            return _take_uri(found), position
         if generate is None:
-            return None
+            return None, "50% 50%"
         async with gate:
             try:
                 path = await generate(photo_prompt(prompt))
             except Exception as exc:
                 log.warning("Rasm chizilmadi (%s): %s", prompt[:50], exc)
-                return None
-        return _take_uri(path)
+                return None, "50% 50%"
+        position = _photo_position(path, 0.78)
+        return _take_uri(path), position
 
-    uris = await asyncio.gather(*(one(item[3], found) for item, found in zip(wanted, searched)))
+    photos = await asyncio.gather(*(one(item[3], found) for item, found in zip(wanted, searched)))
     result, placed, tried = list(pages), 0, len(wanted)
     # Oxiridan boshlab almashtiriladi — oldingi o'rinlar siljimaydi.
     for (index, start, end, prompt), uri in sorted(
-            zip(wanted, uris), key=lambda pair: (pair[0][0], -pair[0][1])):
+            zip(wanted, photos), key=lambda pair: (pair[0][0], -pair[0][1])):
+        uri, position = uri
         if not uri:
             continue
         page = result[index]
@@ -464,7 +487,8 @@ async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
         # "rm of a Quadratic..." bo'lib qolardi — butunligicha sig'diriladi.
         fit = " fit" if formulas else ""
         result[index] = (page[:start] + '<div class="rasm photo-in"><img '
-                         f'class="photo{fit}" src="{uri}" alt=""></div>'
+                         f'class="photo{fit}" src="{uri}" alt="" '
+                         f'style="object-position:{position}">'
                          + page[end:])
         placed += 1
     log.info("Rasm bloklari: %d tasi sinaldi, %d tasiga rasm qo'yildi",
@@ -530,7 +554,7 @@ _COVER_END = re.compile(r"</div>\s*</section>\s*(?=<!--|</body>|$)", re.IGNORECA
 _HAS_COVER_PHOTO = re.compile(r'<section\b[^>]*\bclass\s*=\s*"[^"]*\bcover-photo\b', re.IGNORECASE)
 
 
-def with_cover_photo(page: str, uri: str) -> str:
+def with_cover_photo(page: str, uri: str, position: str = "50% 50%") -> str:
     """Muqova sahifasini rasmli qiladi: chapda rasm, o'ngda sarlavha va izoh.
 
     Oddiy taqdimot muqovasi ham shunday (chap yarmi rasm). Rasm bo'lmasa bu
@@ -544,7 +568,7 @@ def with_cover_photo(page: str, uri: str) -> str:
     if not opening or not body or end is None or end.start() < body.end():
         return page
     photo = ('<div class="rasm photo-in cover-img"><img class="photo" '
-             f'src="{uri}" alt=""></div><div class="cover-text">')
+             f'src="{uri}" alt="" style="object-position:{position}"></div><div class="cover-text">')
     result = (page[:opening.start()]
               + opening.group(1) + opening.group(2) + " cover-photo" + opening.group(3)
               + page[opening.end():body.start()]
@@ -568,9 +592,19 @@ async def fill_cover(pages: List[str], topic: str, generate=None,
     if source == "web":
         generate = None
     uri = None
-    if source != "ai" and (find is not None or generate is None):
+    position = "50% 50%"
+    ai_first = False
+    if source == "mix":
+        try:
+            from services import photo_search
+
+            ai_first = photo_search.prefer_ai(topic)
+        except Exception as exc:
+            log.warning("Muqova uchun rasm strategiyasi aniqlanmadi: %s", exc)
+    if source != "ai" and not ai_first and (find is not None or generate is None):
         found = await _search_photos(
             topic, [f"Cover: the most iconic, wide photo of the whole topic «{topic}»"], find)
+        position = _photo_position(found[0], 0.71)
         uri = _take_uri(found[0])
     if not uri and generate is None and source != "web" and photos_enabled():
         try:
@@ -587,13 +621,15 @@ async def fill_cover(pages: List[str], topic: str, generate=None,
             log.error("Together xizmati mavjud emas: %s", exc)
     if not uri and generate is not None:
         try:
-            uri = _take_uri(await generate(topic))
+            path = await generate(topic)
+            position = _photo_position(path, 0.71)
+            uri = _take_uri(path)
         except Exception as exc:
             log.warning("Muqova rasmi chizilmadi: %s", exc)
             return pages, False
     if not uri:
         return pages, False
-    updated = with_cover_photo(pages[0], uri)
+    updated = with_cover_photo(pages[0], uri, position)
     if updated == pages[0]:
         return pages, False
     return [updated] + list(pages[1:]), True
