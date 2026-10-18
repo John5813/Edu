@@ -204,6 +204,25 @@ async def main():
           allowed_response.status == 200 and today_response.status == 200 and denied_response.status == 403,
           (allowed_response.status, today_response.status, denied_response.status))
 
+    async with aiosqlite.connect(dbmod.DATABASE_FILE) as db:
+        await db.execute("CREATE TABLE IF NOT EXISTS free_trials (telegram_id INTEGER PRIMARY KEY, job_id TEXT, created_at REAL)")
+        await db.execute("CREATE TABLE IF NOT EXISTS gift_link_uses (code TEXT, telegram_id INTEGER, job_id TEXT, created_at REAL)")
+        earlier = time.time() - 7200
+        for tg, job in ((1, "abc123"), (2, "bot-sent-x"), (3, "bot-pending")):
+            await db.execute("INSERT INTO free_trials VALUES (?,?,?)", (tg, job, earlier))
+        await db.execute("INSERT INTO gift_link_uses VALUES ('g1',1,'bot-sent-y',?)", (earlier,))
+        await db.commit()
+    await admin_analytics.save_costs(7, {"free_trial": 400, "free_gift": 900}, {})
+    free_report = await admin_analytics.dashboard(7)
+    trial = next(row for row in free_report["free_offers"] if row["key"] == "free_trial")
+    gift = next(row for row in free_report["free_offers"] if row["key"] == "free_gift")
+    check("tekin sinov: yetkazilmagan bot buyurtmasi sanalmaydi", trial["users"] == 2, trial)
+    check("tekin sinov AI xarajati = foydalanuvchilar × narx", trial["cost"] == 800 and not trial["unpriced"], trial)
+    check("tekin sinovdan keyingi to‘lov va tushum", trial["payers"] == 1 and trial["revenue"] == 15000, trial)
+    check("havola taqdimoti alohida hisoblanadi", gift["users"] == 1 and gift["cost"] == 900, gift)
+    check("tekin xarajat umumiy xarajatga qo‘shiladi", free_report["summary"]["free_cost"] == 1700,
+          free_report["summary"])
+
     from bot.handlers import admin
     admin.is_admin = lambda user_id: user_id == 1
     sent = []

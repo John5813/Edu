@@ -304,6 +304,24 @@
     });
   }
 
+  function drawFree(items) {
+    const body = $("#free-table");
+    body.replaceChildren();
+    (items || []).forEach((item) => {
+      const tr = document.createElement("tr");
+      const unit = item.users ? money(Math.round(item.cost / item.users)) : "—";
+      const cost = item.unpriced ? `${money(item.cost)} (to‘liq emas)` : money(item.cost);
+      [item.name, number(item.users), cost, unit, number(item.payers), `${number(item.conversion)}%`,
+        money(item.revenue), money(item.net)].forEach((text, index) => {
+        const td = document.createElement("td");
+        td.textContent = text;
+        if (index) td.className = "num";
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+  }
+
   function renderCosts(data) {
     const serviceRoot = $("#service-costs");
     serviceRoot.replaceChildren();
@@ -311,6 +329,9 @@
       item.unit_cost, item.cost_configured, item.cost_configured
         ? `${number(item.count)} ta · tannarx ${money(item.estimated_cost)}`
         : `${number(item.count)} ta · tannarx kiritilmagan`));
+    (data.free_offers || []).forEach((item) => addCostInput(serviceRoot, "service", item.key,
+      `${item.name} — bitta taqdimot AI tannarxi`, item.unit_cost, item.cost_configured,
+      `${number(item.users)} kishi · xarajat ${money(item.cost)}`));
     const imageRoot = $("#image-costs");
     imageRoot.replaceChildren();
     addCostInput(imageRoot, "usd", "usd", "Dollar kursi (so‘m)", data.summary.usd_rate, true,
@@ -380,6 +401,7 @@
     drawRepeat(data.summary);
     drawAI(data.ai_usage);
     drawCampaigns(data.campaigns);
+    drawFree(data.free_offers);
     renderCosts(data);
   }
 

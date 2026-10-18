@@ -107,6 +107,70 @@ async def _forget_rate(db, category: str, key: str) -> None:
     await db.execute("DELETE FROM admin_cost_history WHERE category=? AND item_key=?", (category, key))
 
 
+FREE_OFFERS = {
+    "free_trial": "Bepul sinov (5 slayd)",
+    "free_gift": "Tekin havola taqdimoti (10 slayd)",
+}
+
+
+def _uzt_day(epoch: float) -> str:
+    return (datetime.fromtimestamp(float(epoch), timezone.utc) + timedelta(hours=5)).strftime("%Y-%m-%d")
+
+
+async def _free_offers(db, start_day, end_day, since_epoch, end_epoch, service_rate) -> dict:
+    """Bepul taqdimotlar: nechta odam oldi, AI xarajati, keyin to‘lov qilganlar va ulardan tushum.
+
+    Tugamagan (hali yetkazilmagan) bot buyurtmalari sanalmaydi. Xarajat — admin kiritgan bitta taqdimot
+    o‘rtacha narxi (sanaga bog‘liq tarix bilan). Tushum — bepul taqdimotdan keyin qilingan tasdiqlangan to‘lovlar.
+    """
+    sources = (
+        ("free_trial", "free_trials",
+         "SELECT ft.telegram_id,ft.job_id,ft.created_at FROM free_trials ft WHERE ft.created_at>=? "
+         "AND ft.created_at<? AND NOT (ft.job_id LIKE 'bot-%' AND ft.job_id NOT LIKE 'bot-sent-%')"),
+        ("free_gift", "gift_link_uses",
+         "SELECT ft.telegram_id,ft.job_id,ft.created_at FROM gift_link_uses ft WHERE ft.created_at>=? "
+         "AND ft.created_at<? AND NOT (ft.job_id LIKE 'bot-%' AND ft.job_id NOT LIKE 'bot-sent-%')"),
+    )
+    result = {"items": [], "site_trials_by_day": {}, "daily": {}}
+    for key, table, query in sources:
+        item = {"key": key, "name": FREE_OFFERS[key], "users": 0, "cost": 0, "unit_cost": None,
+                "cost_configured": False, "unpriced": False, "payers": 0, "revenue": 0,
+                "payments": 0, "net": 0}
+        if await _has_table(db, table):
+            async with db.execute(query, (since_epoch, end_epoch)) as cur:
+                uses = [dict(row) for row in await cur.fetchall()]
+            seen_payers = set()
+            for use in uses:
+                day = _uzt_day(use["created_at"])
+                item["users"] += 1
+                if key == "free_trial" and not str(use["job_id"]).startswith("bot-"):
+                    by_day = result["site_trials_by_day"]
+                    by_day[day] = by_day.get(day, 0) + 1
+                rate = service_rate(key, day)
+                if rate is None:
+                    item["unpriced"] = True
+                else:
+                    item["cost"] += rate
+                async with db.execute(
+                        "SELECT COUNT(p.id),COALESCE(SUM(p.amount),0) FROM users u JOIN payments p "
+                        "ON p.user_id=u.id WHERE u.telegram_id=? AND p.status='approved' "
+                        "AND p.created_at>=datetime(?,'unixepoch')",
+                        (use["telegram_id"], use["created_at"])) as cur:
+                    count, amount = await cur.fetchone()
+                if count and use["telegram_id"] not in seen_payers:
+                    seen_payers.add(use["telegram_id"])
+                    item["payers"] += 1
+                    item["payments"] += int(count)
+                    item["revenue"] += int(amount)
+                result["daily"][day] = result["daily"].get(day, 0) + 1
+        item["cost"] = round(item["cost"])
+        item["net"] = item["revenue"] - item["cost"]
+        item["conversion"] = round(item["payers"] * 100 / item["users"], 1) if item["users"] else 0
+        item["cost_per_payer"] = round(item["cost"] / item["payers"]) if item["payers"] else None
+        result["items"].append(item)
+    return result
+
+
 def _epoch(value) -> float:
     if value is None:
         return 0
@@ -181,7 +245,7 @@ async def save_costs(days: int, service_costs: dict, campaign_costs: dict,
                     await _forget_rate(db, "image_usd", model)
                 else:
                     await _record_rate(db, "image_usd", model, _usd_amount(raw_amount))
-        allowed_services = set(SERVICE_LABELS)
+        allowed_services = set(SERVICE_LABELS) | set(FREE_OFFERS)
         if await _has_table(db, "document_stats"):
             async with db.execute("SELECT DISTINCT document_type FROM document_stats") as cur:
                 allowed_services.update(str(row[0]) for row in await cur.fetchall() if row[0])
@@ -330,12 +394,18 @@ async def dashboard(days: int = 30) -> dict:
         def service_rate(key: str, day: str):
             return _rate_on(service_history.get(key), service_costs.get(key), day)
 
+        free_offers = await _free_offers(db, start_day, end_day, since_epoch, end_epoch, service_rate)
+        # Saytdagi bepul sinov document_stats'da oddiy taqdimot bo‘lib yoziladi; tannarxi ikki marta sanalmasin.
+        site_trials_by_day = free_offers["site_trials_by_day"]
+
         services: Dict[str, int] = {}
         service_spend: Dict[str, float] = {}
         unpriced_days: set = set()
 
         def add_service(key: str, day: str, count: int) -> None:
             services[key] = services.get(key, 0) + count
+            if key == "presentation":
+                count = max(count - site_trials_by_day.get(day, 0), 0)
             rate = service_rate(key, day)
             if rate is None:
                 unpriced_days.add(key)
@@ -492,9 +562,16 @@ async def dashboard(days: int = 30) -> dict:
     } for key, count in sorted(services.items(), key=lambda item: item[1], reverse=True)]
     missing_costs = [row["name"] for row in service_rows if row["unpriced"]]
     missing_costs += [f"Rasm: {name}" for name in missing_images]
+    free_rows = free_offers["items"]
+    for row in free_rows:
+        row["unit_cost"] = service_rate(row["key"], end_day)
+        row["cost_configured"] = row["key"] in service_history or row["key"] in service_costs
+        if row["unpriced"]:
+            missing_costs.append(row["name"])
+    free_cost_total = sum(row["cost"] for row in free_rows)
     service_cost_total = sum(row["estimated_cost"] for row in service_rows)
     campaign_cost_total = sum(row["cost"] for row in campaign_rows)
-    total_cost = service_cost_total + image_cost_total + campaign_cost_total
+    total_cost = service_cost_total + image_cost_total + campaign_cost_total + free_cost_total
     active_campaigns_missing_cost = any(row["sent"] and not row["cost_configured"] for row in campaign_rows)
     return {
         "period": {"days": days, "start": start_day, "end": end_day},
@@ -529,6 +606,9 @@ async def dashboard(days: int = 30) -> dict:
             "unconverted_users": unconverted,
             "created": sum(row["created"] for row in day_rows.values()),
             "service_cost": service_cost_total,
+            "free_cost": free_cost_total,
+            "free_users": sum(row["users"] for row in free_rows),
+            "free_payers": sum(row["payers"] for row in free_rows),
             "image_cost": image_cost_total,
             "usd_rate": usd_now,
             "campaign_cost": campaign_cost_total,
@@ -540,6 +620,7 @@ async def dashboard(days: int = 30) -> dict:
         "daily": list(day_rows.values()),
         "services": service_rows,
         "image_models": image_rows,
+        "free_offers": free_rows,
         "payment_sources": payment_sources,
         "acquisition": acquisition,
         "campaigns": campaign_rows,
