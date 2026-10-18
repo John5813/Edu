@@ -137,6 +137,42 @@ async def main():
           and report["summary"]["campaign_cost"] == 3000
           and report["summary"]["estimated_profit"] == 31500
           and report["summary"]["profit_complete"], report["summary"])
+
+    async with aiosqlite.connect(dbmod.DATABASE_FILE) as db:
+        await db.execute(
+            "INSERT INTO ai_usage (day,kind,name,count) VALUES (?, 'image','black-forest-labs/FLUX.1-schnell',4)",
+            (today_uzt(),))
+        await db.commit()
+    report = await admin_analytics.dashboard(7)
+    check("narxi kiritilmagan rasm modeli foydani 'to‘liq emas' qiladi",
+          not report["summary"]["profit_complete"] and report["summary"]["image_cost"] == 0
+          and any(m.startswith("Rasm:") for m in report["summary"]["missing_costs"]),
+          report["summary"])
+    await admin_analytics.save_costs(
+        7, {}, {}, {"black-forest-labs/FLUX.1-schnell": "0.0025"}, 12000)
+    report = await admin_analytics.dashboard(7)
+    check("rasm xarajati: soni × dollar narxi × kurs avtomatik hisoblanadi",
+          report["summary"]["image_cost"] == 120 and report["summary"]["usd_rate"] == 12000
+          and report["summary"]["profit_complete"]
+          and report["summary"]["estimated_profit"] == 31500 - 120, report["summary"])
+
+    # Narx o‘zgarishi faqat bugundan keyingi kunlarga ta’sir qiladi.
+
+    stamp = (now - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
+    async with aiosqlite.connect(dbmod.DATABASE_FILE) as db:
+        await db.execute("INSERT INTO document_stats (document_type,completed_at) VALUES ('presentation',?)", (stamp,))
+        await db.commit()
+    await admin_analytics.save_costs(7, {"presentation": 4000}, {})
+    report = await admin_analytics.dashboard(7)
+    presentation = next(row for row in report["services"] if row["key"] == "presentation")
+    check("xizmat narxi o‘zgarsa avvalgi kunlar hisobi o‘zgarmaydi",
+          presentation["unit_cost"] == 4000 and presentation["estimated_cost"] == 2500 + 4000, presentation)
+    try:
+        await admin_analytics.save_costs(7, {}, {}, {"unknown/model": "1"})
+        valid_image = False
+    except ValueError:
+        valid_image = True
+    check("noma’lum rasm modeli va noto‘g‘ri narx qabul qilinmaydi", valid_image)
     try:
         await admin_analytics.save_costs(7, {"unknown-service": 1}, {})
         valid_unknown = False

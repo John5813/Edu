@@ -311,6 +311,14 @@
       item.unit_cost, item.cost_configured, item.cost_configured
         ? `${number(item.count)} ta · tannarx ${money(item.estimated_cost)}`
         : `${number(item.count)} ta · tannarx kiritilmagan`));
+    const imageRoot = $("#image-costs");
+    imageRoot.replaceChildren();
+    addCostInput(imageRoot, "usd", "usd", "Dollar kursi (so‘m)", data.summary.usd_rate, true,
+      "Narx o‘zgarsa, faqat keyingi kunlarga amal qiladi", "1");
+    data.image_models.forEach((item) => addCostInput(imageRoot, "image", item.key, item.name,
+      item.usd_unit, item.cost_configured, item.cost_configured
+        ? `${number(item.count)} ta · xarajat ${money(item.estimated_cost)}`
+        : `${number(item.count)} ta · narx kiritilmagan`, "0.0001"));
     const campaignRoot = $("#campaign-costs");
     campaignRoot.replaceChildren();
     data.campaigns.forEach((item) => addCostInput(campaignRoot, "campaign", item.key, item.name,
@@ -328,7 +336,7 @@
     $("#cost-note").textContent = `${incomplete}${adWarning} Foyda tasdiqlangan tushumdan kiritilgan tannarx va kampaniya xarajatlarini ayirib taxmin qilinadi.`;
   }
 
-  function addCostInput(root, category, key, label, value, configured, hint) {
+  function addCostInput(root, category, key, label, value, configured, hint, step = "1") {
     const row = document.createElement("div");
     row.className = "cost-row";
     const wrapper = document.createElement("div");
@@ -342,9 +350,9 @@
     const input = document.createElement("input");
     input.type = "number";
     input.min = "0";
-    input.max = "1000000000";
-    input.step = "1";
-    input.inputMode = "numeric";
+    input.max = category === "image" ? "1000" : "1000000000";
+    input.step = step;
+    input.inputMode = step === "1" ? "numeric" : "decimal";
     input.value = configured ? String(value || 0) : "";
     input.placeholder = "kiritilmagan";
     input.dataset.category = category;
@@ -401,22 +409,41 @@
     try {
       const service_costs = {};
       const campaign_costs = {};
+      const image_costs = {};
+      let usd_rate = null;
       document.querySelectorAll(".cost-row input").forEach((input) => {
+        const category = input.dataset.category;
         const value = Number(input.value);
+        if (category === "usd") {
+          if (!Number.isInteger(value) || value < 1000 || value > 1_000_000) {
+            input.focus();
+            throw new Error("Dollar kursi 1 000 va 1 000 000 so‘m orasidagi butun son bo‘lishi kerak.");
+          }
+          usd_rate = value;
+          return;
+        }
+        if (category === "image") {
+          if (!input.value.trim()) image_costs[input.dataset.key] = null;
+          else if (!Number.isFinite(value) || value < 0 || value > 1000) {
+            input.focus();
+            throw new Error("Rasm narxi 0 va 1000 dollar orasida bo‘lishi kerak.");
+          } else image_costs[input.dataset.key] = input.value.trim();
+          return;
+        }
         if (!input.value.trim()) {
-          (input.dataset.category === "service" ? service_costs : campaign_costs)[input.dataset.key] = null;
+          (category === "service" ? service_costs : campaign_costs)[input.dataset.key] = null;
           return;
         }
         if (!Number.isSafeInteger(value) || value < 0 || value > 1_000_000_000) {
           input.focus();
           throw new Error("Xarajat 0 va 1 milliard so‘m oralig‘idagi butun son bo‘lishi kerak.");
         }
-        (input.dataset.category === "service" ? service_costs : campaign_costs)[input.dataset.key] = value;
+        (category === "service" ? service_costs : campaign_costs)[input.dataset.key] = value;
       });
       await api("/api/v1/admin/statistics/costs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ days: period, service_costs, campaign_costs }),
+        body: JSON.stringify({ days: period, service_costs, campaign_costs, image_costs, usd_rate }),
       });
       status.textContent = "Saqlandi";
       status.style.color = "#12805c";

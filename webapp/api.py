@@ -159,7 +159,9 @@ async def admin_statistics_costs(request: web.Request) -> web.Response:
             raise ValueError("Davr 1, 7, 30 yoki 90 kun bo‘lishi kerak")
         await save_costs(int(raw_days),
                          data.get("service_costs", {}),
-                         data.get("campaign_costs", {}))
+                         data.get("campaign_costs", {}),
+                         data.get("image_costs", {}),
+                         data.get("usd_rate"))
         return web.json_response({"ok": True}, headers={"Cache-Control": "no-store"})
     except web.HTTPException:
         raise

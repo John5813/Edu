@@ -1,7 +1,8 @@
 """Admin Mini App analytics from anonymized product, payment and campaign records."""
 
 from datetime import datetime, timedelta, timezone
-from typing import Dict
+from decimal import Decimal, InvalidOperation
+from typing import Dict, Optional
 
 import aiosqlite
 
@@ -42,6 +43,70 @@ CREATE TABLE IF NOT EXISTS admin_cost_settings (
 """
 
 
+_HISTORY_SCHEMA = """
+CREATE TABLE IF NOT EXISTS admin_cost_history (
+    category TEXT NOT NULL,
+    item_key TEXT NOT NULL,
+    effective_from TEXT NOT NULL,
+    amount REAL NOT NULL,
+    PRIMARY KEY (category, item_key, effective_from)
+)
+"""
+BASE_DAY = "0000-00-00"          # birinchi kiritilgan narx barcha o‘tgan kunlarga ham amal qiladi
+DEFAULT_USD_RATE = 12_500
+IMAGE_KIND = "image"
+
+
+async def _history(db, category: str) -> Dict[str, list]:
+    """{kalit: [(amal qila boshlagan sana, narx), ...]} — sana bo‘yicha o‘sish tartibida."""
+    await db.execute(_HISTORY_SCHEMA)
+    rows: Dict[str, list] = {}
+    async with db.execute(
+            "SELECT item_key,effective_from,amount FROM admin_cost_history WHERE category=? "
+            "ORDER BY effective_from", (category,)) as cur:
+        for key, since, amount in await cur.fetchall():
+            rows.setdefault(str(key), []).append((str(since), float(amount)))
+    return rows
+
+
+def _rate_on(rows, fallback, day: str):
+    """Shu kunga amal qilgan narx; tarix bo‘lmasa eski qo‘lda kiritilgan qiymat."""
+    if not rows:
+        return fallback
+    value = None
+    for since, amount in rows:
+        if since <= day:
+            value = amount
+    return value
+
+
+def _rate_now(rows, fallback):
+    return rows[-1][1] if rows else fallback
+
+
+async def _record_rate(db, category: str, key: str, amount: float, legacy=None) -> None:
+    """Narx o‘zgarsa yangi qator qo‘shadi — eski kunlar hisobi o‘zgarmaydi."""
+    await db.execute(_HISTORY_SCHEMA)
+    async with db.execute(
+            "SELECT amount FROM admin_cost_history WHERE category=? AND item_key=? "
+            "ORDER BY effective_from DESC LIMIT 1", (category, key)) as cur:
+        last = await cur.fetchone()
+    query = "INSERT OR REPLACE INTO admin_cost_history (category,item_key,effective_from,amount) VALUES (?,?,?,?)"
+    if last is None:
+        if legacy is not None and float(legacy) != float(amount):
+            await db.execute(query, (category, key, BASE_DAY, float(legacy)))
+            await db.execute(query, (category, key, today_uzt(), float(amount)))
+        else:
+            await db.execute(query, (category, key, BASE_DAY, float(amount)))
+    elif float(last[0]) != float(amount):
+        await db.execute(query, (category, key, today_uzt(), float(amount)))
+
+
+async def _forget_rate(db, category: str, key: str) -> None:
+    await db.execute(_HISTORY_SCHEMA)
+    await db.execute("DELETE FROM admin_cost_history WHERE category=? AND item_key=?", (category, key))
+
+
 def _epoch(value) -> float:
     if value is None:
         return 0
@@ -74,12 +139,48 @@ async def _costs(db, category: str, period_days: int = 0) -> Dict[str, int]:
         return {str(key): int(amount) for key, amount in await cur.fetchall()}
 
 
-async def save_costs(days: int, service_costs: dict, campaign_costs: dict) -> None:
-    """Save per-output service cost and period advertising spend."""
+def _usd_amount(raw) -> float:
+    if isinstance(raw, bool):
+        raise ValueError("Rasm narxi dollarda musbat son bo‘lishi kerak")
+    try:
+        amount = Decimal(str(raw).strip().replace(",", "."))
+    except InvalidOperation:
+        raise ValueError("Rasm narxi dollarda musbat son bo‘lishi kerak")
+    if not amount.is_finite() or amount < 0 or amount > 1000:
+        raise ValueError("Rasm narxi 0 va 1000 dollar orasida bo‘lishi kerak")
+    return float(round(amount, 6))
+
+
+async def save_costs(days: int, service_costs: dict, campaign_costs: dict,
+                     image_costs: Optional[dict] = None, usd_rate=None) -> None:
+    """Save service cost, period advertising spend, per-image USD cost and the USD rate.
+
+    Service, image and USD values keep dated history, so a price change affects only later days.
+    """
     if days not in (1, 7, 30, 90):
         raise ValueError("Davr 1, 7, 30 yoki 90 kun bo‘lishi kerak")
+    image_costs = {} if image_costs is None else image_costs
+    if not isinstance(image_costs, dict):
+        raise ValueError("Rasm narxlari ro‘yxati noto‘g‘ri")
     async with aiosqlite.connect(DATABASE_FILE) as db:
         await db.execute(_COST_SCHEMA)
+        if usd_rate not in (None, ""):
+            if isinstance(usd_rate, bool) or not str(usd_rate).isdecimal() \
+                    or not 1_000 <= int(usd_rate) <= 1_000_000:
+                raise ValueError("Dollar kursi 1 000 va 1 000 000 so‘m orasidagi butun son bo‘lishi kerak")
+            await _record_rate(db, "usd_rate", "usd", int(usd_rate))
+        if image_costs:
+            known_models = set()
+            if await _has_table(db, "ai_usage"):
+                async with db.execute("SELECT DISTINCT name FROM ai_usage WHERE kind=?", (IMAGE_KIND,)) as cur:
+                    known_models = {str(row[0]) for row in await cur.fetchall()}
+            for model, raw_amount in image_costs.items():
+                if model not in known_models:
+                    raise ValueError("Noma’lum rasm modeli")
+                if raw_amount is None or raw_amount == "":
+                    await _forget_rate(db, "image_usd", model)
+                else:
+                    await _record_rate(db, "image_usd", model, _usd_amount(raw_amount))
         allowed_services = set(SERVICE_LABELS)
         if await _has_table(db, "document_stats"):
             async with db.execute("SELECT DISTINCT document_type FROM document_stats") as cur:
@@ -97,6 +198,8 @@ async def save_costs(days: int, service_costs: dict, campaign_costs: dict) -> No
                     await db.execute(
                         "DELETE FROM admin_cost_settings WHERE category=? AND item_key=? AND period_days=?",
                         (category, key, period))
+                    if category == "service":
+                        await _forget_rate(db, "service", key)
                     continue
                 if isinstance(raw_amount, bool) or not str(raw_amount).isdecimal():
                     raise ValueError("Xarajat butun, manfiy bo‘lmagan son bo‘lishi kerak")
@@ -106,6 +209,12 @@ async def save_costs(days: int, service_costs: dict, campaign_costs: dict) -> No
                     raise ValueError("Xarajat butun son bo‘lishi kerak")
                 if amount < 0 or amount > 1_000_000_000:
                     raise ValueError("Xarajat 0 va 1 milliard so‘m orasida bo‘lishi kerak")
+                if category == "service":
+                    async with db.execute(
+                            "SELECT amount FROM admin_cost_settings WHERE category=? AND item_key=? "
+                            "AND period_days=0", (category, key)) as cur:
+                        previous = await cur.fetchone()
+                    await _record_rate(db, "service", key, amount, previous[0] if previous else None)
                 await db.execute(
                     "INSERT INTO admin_cost_settings (category,item_key,period_days,amount) "
                     "VALUES (?,?,?,?) ON CONFLICT(category,item_key,period_days) "
@@ -212,36 +321,77 @@ async def dashboard(days: int = 30) -> dict:
                 day_rows[row["day"]]["payments"] = int(row["n"])
                 day_rows[row["day"]]["revenue"] = int(row["amount"] or 0)
 
+        service_costs = await _costs(db, "service")
+        service_history = await _history(db, "service")
+        image_history = await _history(db, "image_usd")
+        usd_history = (await _history(db, "usd_rate")).get("usd")
+        usd_now = int(_rate_now(usd_history, DEFAULT_USD_RATE))
+
+        def service_rate(key: str, day: str):
+            return _rate_on(service_history.get(key), service_costs.get(key), day)
+
         services: Dict[str, int] = {}
+        service_spend: Dict[str, float] = {}
+        unpriced_days: set = set()
+
+        def add_service(key: str, day: str, count: int) -> None:
+            services[key] = services.get(key, 0) + count
+            rate = service_rate(key, day)
+            if rate is None:
+                unpriced_days.add(key)
+            else:
+                service_spend[key] = service_spend.get(key, 0) + count * rate
+
         service_keys = set(SERVICE_LABELS)
         if await _has_table(db, "document_stats"):
             async with db.execute("SELECT DISTINCT document_type FROM document_stats") as cur:
                 service_keys.update(str(row[0]) for row in await cur.fetchall() if row[0])
             async with db.execute(
-                    "SELECT document_type key,COUNT(*) count FROM document_stats "
-                    "WHERE date(completed_at,'+5 hours') BETWEEN ? AND ? GROUP BY document_type",
-                    (start_day, end_day)) as cur:
+                    "SELECT date(completed_at,'+5 hours') day,document_type key,COUNT(*) count "
+                    "FROM document_stats WHERE date(completed_at,'+5 hours') BETWEEN ? AND ? "
+                    "GROUP BY day,document_type", (start_day, end_day)) as cur:
                 for row in await cur.fetchall():
-                    services[str(row["key"])] = int(row["count"])
-            async with db.execute(
-                    "SELECT date(completed_at,'+5 hours') day,COUNT(*) count FROM document_stats "
-                    "WHERE date(completed_at,'+5 hours') BETWEEN ? AND ? GROUP BY day",
-                    (start_day, end_day)) as cur:
-                for row in await cur.fetchall():
+                    add_service(str(row["key"]), row["day"], int(row["count"]))
                     day_rows[row["day"]]["created"] += int(row["count"])
         if await _has_table(db, "store_orders"):
-            store_sales = await _scalar(
-                db, "SELECT COUNT(*) FROM store_orders WHERE status='paid' "
-                "AND date(COALESCE(paid_at,created_at),'+5 hours') BETWEEN ? AND ?", (start_day, end_day))
-            if store_sales:
-                services["store_sale"] = store_sales
             service_keys.add("store_sale")
             async with db.execute(
                     "SELECT date(COALESCE(paid_at,created_at),'+5 hours') day,COUNT(*) count "
                     "FROM store_orders WHERE status='paid' AND date(COALESCE(paid_at,created_at),'+5 hours') "
                     "BETWEEN ? AND ? GROUP BY day", (start_day, end_day)) as cur:
                 for row in await cur.fetchall():
+                    add_service("store_sale", row["day"], int(row["count"]))
                     day_rows[row["day"]]["created"] += int(row["count"])
+
+        image_models: Dict[str, dict] = {}
+        if await _has_table(db, "ai_usage"):
+            async with db.execute("SELECT DISTINCT name FROM ai_usage WHERE kind=?", (IMAGE_KIND,)) as cur:
+                for row in await cur.fetchall():
+                    image_models[str(row[0])] = {"count": 0, "cost": 0.0, "unpriced": False}
+            async with db.execute(
+                    "SELECT day,name,SUM(count) count FROM ai_usage WHERE kind=? AND day BETWEEN ? AND ? "
+                    "GROUP BY day,name", (IMAGE_KIND, start_day, end_day)) as cur:
+                for row in await cur.fetchall():
+                    item = image_models[str(row["name"])]
+                    count = int(row["count"] or 0)
+                    item["count"] += count
+                    usd = _rate_on(image_history.get(str(row["name"])), None, row["day"])
+                    rate = _rate_on(usd_history, DEFAULT_USD_RATE, row["day"])
+                    if usd is None:
+                        item["unpriced"] = item["unpriced"] or count > 0
+                    else:
+                        item["cost"] += count * usd * rate
+        image_rows = [{
+            "key": name,
+            "name": name.rsplit("/", 1)[-1],
+            "count": item["count"],
+            "usd_unit": _rate_now(image_history.get(name), None),
+            "cost_configured": name in image_history,
+            "estimated_cost": round(item["cost"]),
+            "unpriced": item["unpriced"],
+        } for name, item in sorted(image_models.items(), key=lambda pair: -pair[1]["count"])]
+        image_cost_total = sum(row["estimated_cost"] for row in image_rows)
+        missing_images = [row["name"] for row in image_rows if row["unpriced"]]
 
         payment_sources = []
         async with db.execute(
@@ -269,7 +419,6 @@ async def dashboard(days: int = 30) -> dict:
                     (start_day, end_day)) as cur:
                 ai_usage = [dict(row) for row in await cur.fetchall()]
 
-        service_costs = await _costs(db, "service")
         campaign_costs = await _costs(db, "campaign", days)
         campaign_rows = []
         if await _has_table(db, "nudges"):
@@ -336,13 +485,16 @@ async def dashboard(days: int = 30) -> dict:
         "key": key,
         "name": SERVICE_LABELS.get(key, key.replace("_", " ").capitalize()),
         "count": count,
-        "unit_cost": service_costs.get(key, 0),
-        "estimated_cost": count * service_costs.get(key, 0),
-        "cost_configured": key in service_costs,
+        "unit_cost": round(_rate_now(service_history.get(key), service_costs.get(key, 0)) or 0),
+        "estimated_cost": round(service_spend.get(key, 0)),
+        "cost_configured": key in service_history or key in service_costs,
+        "unpriced": key in unpriced_days,
     } for key, count in sorted(services.items(), key=lambda item: item[1], reverse=True)]
-    missing_costs = [row["name"] for row in service_rows if row["count"] and not row["cost_configured"]]
+    missing_costs = [row["name"] for row in service_rows if row["unpriced"]]
+    missing_costs += [f"Rasm: {name}" for name in missing_images]
     service_cost_total = sum(row["estimated_cost"] for row in service_rows)
     campaign_cost_total = sum(row["cost"] for row in campaign_rows)
+    total_cost = service_cost_total + image_cost_total + campaign_cost_total
     active_campaigns_missing_cost = any(row["sent"] and not row["cost_configured"] for row in campaign_rows)
     return {
         "period": {"days": days, "start": start_day, "end": end_day},
@@ -358,7 +510,7 @@ async def dashboard(days: int = 30) -> dict:
             "avg_lifetime_revenue": round(total_revenue / paying_users) if paying_users else 0,
             "avg_revenue_per_user": round(total_revenue / total_users) if total_users else 0,
             "estimated_profit_per_payer": round(
-                (period_revenue - service_cost_total - campaign_cost_total) / period_payers
+                (period_revenue - total_cost) / period_payers
             ) if period_payers else 0,
             "repeat_payers": repeat_payers,
             "repeat_payment_rate": round(repeat_payers * 100 / paying_users, 1) if paying_users else 0,
@@ -377,14 +529,17 @@ async def dashboard(days: int = 30) -> dict:
             "unconverted_users": unconverted,
             "created": sum(row["created"] for row in day_rows.values()),
             "service_cost": service_cost_total,
+            "image_cost": image_cost_total,
+            "usd_rate": usd_now,
             "campaign_cost": campaign_cost_total,
-            "estimated_profit": period_revenue - service_cost_total - campaign_cost_total,
+            "estimated_profit": period_revenue - total_cost,
             "missing_costs": missing_costs,
             "campaign_cost_missing": active_campaigns_missing_cost,
             "profit_complete": not missing_costs and not active_campaigns_missing_cost,
         },
         "daily": list(day_rows.values()),
         "services": service_rows,
+        "image_models": image_rows,
         "payment_sources": payment_sources,
         "acquisition": acquisition,
         "campaigns": campaign_rows,
