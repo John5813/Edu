@@ -165,11 +165,15 @@ async def cohorts():
           and "Umuman foydalanmaganlar: 1 ta" in text, text)
 
     from bot.handlers import admin
-    sent = []
-    msg = types.SimpleNamespace(from_user=types.SimpleNamespace(id=1), answer=lambda t, **k: sent.append(t) or asyncio.sleep(0))
-    await admin.handle_statistics(msg, None)
-    check("«📊 Statistika»: 7 va 30 kunlik bo'limlar", sent and "Oxirgi 7 kun" in sent[0] and "Oxirgi 30 kun" in sent[0]
-          and "Umuman foydalanmaganlar" in sent[0], sent[:1])
+    stat_sent = []
+    stat_msg = types.SimpleNamespace(
+        from_user=types.SimpleNamespace(id=1),
+        answer=lambda text, **kwargs: stat_sent.append((text, kwargs)) or asyncio.sleep(0))
+    await admin.handle_statistics(stat_msg, None)
+    markup = stat_sent[0][1]["reply_markup"] if stat_sent else None
+    check("«📊 Statistika» admin Mini App oynasini ochadi",
+          bool(markup and markup.inline_keyboard[0][0].web_app.url.endswith("/admin/statistics")),
+          stat_sent[:1])
 
 
 asyncio.run(main())

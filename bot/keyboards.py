@@ -1,4 +1,4 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 from typing import List, Optional
 from translations import get_text
@@ -846,6 +846,18 @@ def get_admin_keyboard() -> ReplyKeyboardMarkup:
 
     keyboard.adjust(2)
     return keyboard.as_markup(resize_keyboard=True)
+
+
+def get_admin_statistics_keyboard() -> InlineKeyboardMarkup:
+    """Admin-only entry point; the Mini App API verifies Telegram initData again."""
+    import webapp
+
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(
+        text="📈 Statistikani ochish",
+        web_app=WebAppInfo(url=webapp.public_url("/admin/statistics")),
+    ))
+    return keyboard.as_markup()
 
 def get_self_update_keyboard(token: str, has_updates: bool) -> InlineKeyboardMarkup:
     """Yangilash oynasidagi tugmalar.

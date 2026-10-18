@@ -15,6 +15,7 @@ from bot import ad_buttons
 from services import reengage
 from bot.keyboards import (
     get_admin_keyboard,
+    get_admin_statistics_keyboard,
     get_payment_review_keyboard,
     get_channel_management_keyboard,
     get_channels_list_keyboard,
@@ -1316,86 +1317,20 @@ async def handle_users_list(message: Message, db: Database):
 
 @router.message(F.text == "📊 Statistika")
 async def handle_statistics(message: Message, db: Database):
-    """Handle statistics request with detailed breakdown"""
+    """Open the admin-only analytics Mini App."""
     if not is_admin(message.from_user.id):
         return
 
     try:
-        from database.database import DATABASE_FILE
-        import aiosqlite
-
-        from services import daily_stats
-
-        # Bugungi kun O'zbekiston vaqti bilan (kunlik statistika bilan bir xil).
-        today_pay = await daily_stats.payment_breakdown()
-        joined_today, revenue_today = today_pay["started"], today_pay["revenue"]
-
-        async with aiosqlite.connect(DATABASE_FILE) as db_conn:
-            # Total users
-            async with db_conn.execute("SELECT COUNT(*) FROM users") as cursor:
-                total_users = (await cursor.fetchone())[0]
-
-            # Total users who made at least one payment
-            async with db_conn.execute(
-                "SELECT COUNT(DISTINCT user_id) FROM payments WHERE status = 'approved'"
-            ) as cursor:
-                total_paid_users = (await cursor.fetchone())[0]
-
-            async with db_conn.execute(
-                "SELECT COUNT(*) FROM document_stats"
-            ) as cursor:
-                total_documents = (await cursor.fetchone())[0]
-
-            doc_types = {
-                "presentation":    ("📊 Taqdimotlar", 0),
-                "independent_work":("📝 Mustaqil ishlar", 0),
-                "referat":         ("📄 Referatlar", 0),
-                "tezis":           ("🗒 Tezislar", 0),
-                "maqola":          ("📰 Maqolalar", 0),
-                "course_work":     ("📚 Kurs ishlari", 0),
-                "diploma_work":    ("🎓 Diplom ishlari", 0),
-                "bitiruv_ishi":    ("🏆 Bitiruv ishlari", 0),
-                "dissertatsiya":   ("🎓 Dissertatsiyalar", 0),
-            }
-            for dtype in doc_types:
-                async with db_conn.execute(
-                    "SELECT COUNT(*) FROM document_stats WHERE document_type = ?",
-                    (dtype,)
-                ) as cursor:
-                    count = (await cursor.fetchone())[0]
-                    label = doc_types[dtype][0]
-                    doc_types[dtype] = (label, count)
-
-            async with db_conn.execute(
-                "SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved'"
-            ) as cursor:
-                total_revenue = (await cursor.fetchone())[0]
-
-        doc_lines = "\n".join(f"  • {label}: {count} ta" for label, count in doc_types.values())
-        # Yangi foydalanuvchilar: 7 va 30 kunda kelganlardan kim to'lov qildi, kim foydalandi.
-        try:
-            cohorts = "\n".join([daily_stats.cohort_text(await daily_stats.cohort(7)),
-                                 daily_stats.cohort_text(await daily_stats.cohort(30))]) + "\n"
-        except Exception as exc:
-            logger.warning(f"Yangi foydalanuvchilar statistikasi olinmadi: {exc}")
-            cohorts = ""
-        text = (
-            f"📈 Bot statistikasi:\n\n"
-            f"👥 Jami foydalanuvchilar: {total_users} ta\n"
-            f"🆕 Bugun qo'shilganlar: {joined_today} ta\n"
-            f"💳 To'lov qilganlar: {total_paid_users} ta\n"
-            f"💰 Bugungi daromad: {revenue_today:,} so'm\n"
-            f"💵 Jami daromad: {total_revenue:,} so'm\n\n"
-            f"{cohorts}"
-            f"📄 Yaratilgan hujjatlar: {total_documents} ta\n"
-            f"{doc_lines}\n"
+        await message.answer(
+            "📊 <b>Edufayl marketing va biznes statistikasi</b>\n"
+            "Daromad, foydalanish, yaratilgan xizmatlar va qayta jalb kampaniyalari.",
+            reply_markup=get_admin_statistics_keyboard(),
+            parse_mode="HTML",
         )
-
-        await message.answer(text)
-
-    except Exception as e:
-        logger.error(f"Error in statistics: {e}")
-        await message.answer("❌ Statistikani olishda xatolik yuz berdi.")
+    except Exception as exc:
+        logger.exception("Admin statistikasi Mini App ochilmadi")
+        await message.answer(f"❌ Statistikani ochib bo‘lmadi: {_html.escape(str(exc))}")
 
 @router.message(F.text == "📈 Kunlik statistika")
 async def handle_daily_statistics(message: Message, db: Database):

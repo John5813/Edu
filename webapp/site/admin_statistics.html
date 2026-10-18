@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta name="theme-color" content="#f4f6fb">
+  <title>Admin statistikasi — Edufayl</title>
+  <link rel="stylesheet" href="/static/admin-statistics.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="top">
+      <div>
+        <p class="eyebrow">EDUFAYL · ADMIN</p>
+        <h1>Marketing analitikasi</h1>
+        <p class="sub">Tushum, mahsulotlar, foydalanuvchilar va qayta jalb kampaniyalari</p>
+      </div>
+      <button class="refresh" id="refresh" type="button" aria-label="Yangilash">↻</button>
+    </header>
+
+    <nav class="periods" aria-label="Hisobot davri">
+      <button type="button" data-days="7">7 kun</button>
+      <button type="button" data-days="30" class="selected">30 kun</button>
+      <button type="button" data-days="90">90 kun</button>
+      <span id="period-label"></span>
+    </nav>
+
+    <div class="notice" id="notice" role="status" hidden></div>
+    <section class="kpis" id="kpis" aria-label="Asosiy ko‘rsatkichlar"></section>
+
+    <section class="charts">
+      <article class="panel wide"><div class="panel-head"><h2>Tushum dinamikasi</h2><span>Tasdiqlangan to‘lovlar · so‘m</span></div><div class="chart" id="chart-revenue"></div></article>
+      <article class="panel"><div class="panel-head"><h2>Yangi foydalanuvchilar</h2><span>Kunlik ro‘yxatdan o‘tishlar</span></div><div class="chart" id="chart-users"></div></article>
+      <article class="panel"><div class="panel-head"><h2>Yaratilgan mahsulotlar</h2><span>Barcha yakunlangan ishlar</span></div><div class="chart" id="chart-created"></div></article>
+      <article class="panel"><div class="panel-head"><h2>Xizmatlar kesimida</h2><span>Yaratilish/sotuv soni</span></div><div class="chart" id="chart-services"></div></article>
+      <article class="panel"><div class="panel-head"><h2>To‘lov manbasi</h2><span>Tasdiqlangan to‘lov summasi</span></div><div class="chart" id="chart-payment-sources"></div></article>
+      <article class="panel"><div class="panel-head"><h2>Foydalanuvchi manbasi</h2><span>Yangi foydalanuvchi va tushum</span></div><div class="chart" id="chart-acquisition"></div></article>
+      <article class="panel"><div class="panel-head"><h2>To‘lov voronkasi</h2><span>Tanlangan davrda kelganlar</span></div><div class="chart" id="chart-funnel"></div></article>
+      <article class="panel"><div class="panel-head"><h2>Qayta foydalanish</h2><span>Kamida ikki marta foydalangan mijozlar</span></div><div class="chart" id="chart-repeat"></div></article>
+      <article class="panel"><div class="panel-head"><h2>AI faolligi</h2><span>Model turi va chaqiruvlar soni</span></div><div class="chart" id="chart-ai"></div></article>
+      <article class="panel wide"><div class="panel-head"><h2>Avtomatik qayta jalb kampaniyalari</h2><span>To‘lov bosilgan xabardan keyin 7 kun ichida bo‘lsa bog‘lanadi</span></div><div class="chart" id="chart-campaigns"></div></article>
+    </section>
+
+    <section class="panel campaign-panel">
+      <div class="panel-head"><div><h2>Kampaniya natijalari</h2><p>Yuborilgan, bosilgan, xaridor va bog‘langan tushum</p></div></div>
+      <div class="table-wrap"><table><thead><tr><th>Kampaniya</th><th>Yuborildi</th><th>Bosdi</th><th>Xaridor</th><th>Bog‘langan tushum</th><th>Xarajat</th><th>Sof natija</th><th>ROI</th></tr></thead><tbody id="campaign-table"></tbody></table></div>
+    </section>
+
+    <section class="panel costs-panel">
+      <div class="panel-head"><div><h2>Tannarx va reklama xarajati</h2><p>Bir mahsulot tannarxini va tanlangan davrdagi kampaniya xarajatini kiriting.</p></div></div>
+      <div class="cost-note" id="cost-note"></div>
+      <h3>Xizmatning bir dona tannarxi (so‘m)</h3>
+      <div class="cost-grid" id="service-costs"></div>
+      <h3>Qayta jalb kampaniyasi xarajati (so‘m)</h3>
+      <div class="cost-grid" id="campaign-costs"></div>
+      <button class="save" id="save-costs" type="button">Xarajatlarni saqlash</button>
+      <span class="save-status" id="save-status" aria-live="polite"></span>
+    </section>
+    <footer>Ma’lumotlar O‘zbekiston vaqti bilan · Tushum — tasdiqlangan to‘lovlar. Foyda taxminiy: provayder, bonus yoki boshqa xarajatlar kiritilmagan bo‘lishi mumkin.</footer>
+  </main>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="/static/admin-statistics.js"></script>
+</body>
+</html>

@@ -5,6 +5,8 @@ turadi. Parol yo'q: brauzer bir martalik token oladi, bot uni `/start weblogin_<
 tasdiqlaydi, brauzer so'rab turib sessiya cookie'sini oladi.
 """
 import json
+import hashlib
+import hmac
 import logging
 import os
 import re
@@ -12,7 +14,7 @@ import time
 from collections import defaultdict, deque
 from pathlib import Path
 from typing import Deque, Dict, Optional
-from urllib.parse import quote as url_quote
+from urllib.parse import parse_qsl, quote as url_quote
 
 from aiohttp import web
 
@@ -94,6 +96,78 @@ async def _require(request: web.Request) -> int:
         raise web.HTTPUnauthorized(text='{"ok": false, "error": "Kirish kerak", "code": "auth"}',
                                    content_type="application/json")
     return telegram_id
+
+
+def _admin_init_data(request: web.Request) -> Optional[int]:
+    """Validate Telegram Mini App initData and return its user ID only for admins."""
+    from config import ADMIN_IDS, BOT_TOKEN
+
+    raw = request.headers.get("X-Telegram-Init-Data", "")
+    if not raw or len(raw) > 16_384 or not BOT_TOKEN:
+        return None
+    try:
+        pairs = parse_qsl(raw, keep_blank_values=True, strict_parsing=True)
+        if len({key for key, _ in pairs}) != len(pairs):
+            return None
+        data = dict(pairs)
+        received_hash = data.pop("hash", "")
+        if not re.fullmatch(r"[0-9a-f]{64}", received_hash):
+            return None
+        check_string = "\n".join(f"{key}={data[key]}" for key in sorted(data))
+        secret = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
+        expected = hmac.new(secret, check_string.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, received_hash):
+            return None
+        auth_date = int(data.get("auth_date", "0"))
+        now = int(time.time())
+        if auth_date <= 0 or now - auth_date > 24 * 60 * 60 or auth_date > now + 60:
+            return None
+        user = json.loads(data.get("user", ""))
+        user_id = int(user["id"])
+        return user_id if user_id in ADMIN_IDS else None
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        return None
+
+
+async def admin_statistics(request: web.Request) -> web.Response:
+    if _admin_init_data(request) is None:
+        return _error("Faqat adminlar uchun", 403, "admin")
+    try:
+        days = int(request.query.get("days", "30"))
+    except (TypeError, ValueError):
+        return _error("Davr 7, 30 yoki 90 kun bo‘lishi kerak")
+    if days not in (7, 30, 90):
+        return _error("Davr 7, 30 yoki 90 kun bo‘lishi kerak")
+    try:
+        from services.admin_analytics import dashboard
+
+        return web.json_response(await dashboard(days), headers={"Cache-Control": "no-store"})
+    except Exception:
+        log.exception("Admin statistikasi tayyorlanmadi")
+        return _error("Statistikani yuklab bo‘lmadi", 500, "statistics")
+
+
+async def admin_statistics_costs(request: web.Request) -> web.Response:
+    if _admin_init_data(request) is None:
+        return _error("Faqat adminlar uchun", 403, "admin")
+    try:
+        data = await _json(request)
+        from services.admin_analytics import save_costs
+
+        raw_days = data.get("days", 30)
+        if isinstance(raw_days, bool) or str(raw_days) not in ("7", "30", "90"):
+            raise ValueError("Davr 7, 30 yoki 90 kun bo‘lishi kerak")
+        await save_costs(int(raw_days),
+                         data.get("service_costs", {}),
+                         data.get("campaign_costs", {}))
+        return web.json_response({"ok": True}, headers={"Cache-Control": "no-store"})
+    except web.HTTPException:
+        raise
+    except ValueError as exc:
+        return _error(str(exc))
+    except Exception:
+        log.exception("Admin xarajatlari saqlanmadi")
+        return _error("Xarajatlarni saqlab bo‘lmadi", 500, "costs")
 
 
 # ───────────────────────────────────────────────────────────────────────── kirish
@@ -647,4 +721,7 @@ def setup_api_routes(app: web.Application) -> None:
     add("GET", "/api/v1/wallet", wallet)
     add("POST", "/api/v1/wallet/receipt", wallet_receipt)
     add("GET", "/app", _page("app.html"))
+    add("GET", "/admin/statistics", _page("admin_statistics.html"))
+    add("GET", "/api/v1/admin/statistics", admin_statistics)
+    add("POST", "/api/v1/admin/statistics/costs", admin_statistics_costs)
     add("GET", "/static/{name}", static_file)
