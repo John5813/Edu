@@ -546,18 +546,31 @@ class DocumentService:
             async with sem:
                 return await coro
 
+        async def _retry(make):
+            # AI bir marta xato bersa, rasmsiz qoldirmaslik uchun yana bir urinadi.
+            result = None
+            for _ in range(2):
+                try:
+                    result = await make()
+                except Exception as exc:
+                    logger.warning(f"AI rasm urinishi bajarilmadi: {exc}")
+                    result = None
+                if result:
+                    return result
+            return result
+
         tasks = {}
         for i, kind, title in wanted:
             if i in found:
                 continue
             if kind == 'cover':
-                tasks[f'cover_{i}'] = (i, 'cover', _bounded(self.together.generate_cover_image(topic, language)))
+                tasks[f'cover_{i}'] = (i, 'cover', _bounded(_retry(lambda: self.together.generate_cover_image(topic, language))))
             elif kind == 'slide':
-                tasks[f'slide_{i}'] = (i, 'slide', _bounded(self.together.generate_slide_image(
-                    topic, title, language)))
+                tasks[f'slide_{i}'] = (i, 'slide', _bounded(_retry(lambda title=title: self.together.generate_slide_image(
+                    topic, title, language))))
             else:
-                tasks[f'horiz_{i}'] = (i, 'horiz', _bounded(self.together.generate_panoramic_image(
-                    topic, title, language)))
+                tasks[f'horiz_{i}'] = (i, 'horiz', _bounded(_retry(lambda title=title: self.together.generate_panoramic_image(
+                    topic, title, language))))
 
         keys = list(tasks.keys())
         coros = [tasks[k][2] for k in keys]
@@ -586,7 +599,7 @@ class DocumentService:
         """AI rasm bermagan slotlar uchun bitta Brave qidiruvi (takrorlanmaydi)."""
         try:
             from services import photo_search
-            if not photo_search.enabled() or photo_search.prefer_ai(topic):
+            if not photo_search.enabled():
                 return {}
             slots = [f"{topic}: {title}" if kind != 'cover' else f"Wide photo about «{topic}»"
                      for _, kind, title in missing]

@@ -450,10 +450,10 @@ async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
             slots.append(f"{heading} — {prompt}" if heading else prompt)
         searched = await _search_photos(topic, slots, find, formulas)
 
-    if source == "web":
-        generate = None
-    elif generate is None:
+    # Rasm albatta bo'lishi shart: internetdan topilmasa har qanday rejimda AI chizadi.
+    if generate is None:
         generate = _together_generate("4:3")
+    searched_web = bool(topic) and source != "ai" and not ai_first
 
     # Rasmlar bir vaqtda chizdiriladi: ketma-ket bo'lsa har biri
     # bir daqiqagacha kutadi va taqdimot juda sekinlashadi.
@@ -465,12 +465,21 @@ async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
             return _take_uri(found), position
         if generate is None:
             return None, "50% 50%"
+        path = None
         async with gate:
-            try:
-                path = await generate(photo_prompt(prompt))
-            except Exception as exc:
-                log.warning("Rasm chizilmadi (%s): %s", prompt[:50], exc)
-                return None, "50% 50%"
+            for attempt in (1, 2):
+                try:
+                    path = await generate(photo_prompt(prompt))
+                except Exception as exc:
+                    log.warning("Rasm chizilmadi (%s, %d-urinish): %s", prompt[:50], attempt, exc)
+                    path = None
+                if path:
+                    break
+        if not path and not searched_web and source != "ai":
+            # AI chiza olmadi va internetdan hali qidirilmagan — oxirgi chora sifatida Brave.
+            path = (await _search_photos(topic, [prompt], find, formulas))[0]
+        if not path:
+            return None, "50% 50%"
         position = _photo_position(path, 0.78)
         return _take_uri(path), position
 
@@ -589,8 +598,6 @@ async def fill_cover(pages: List[str], topic: str, generate=None,
     if not pages or _HAS_COVER_PHOTO.search(pages[0]) or not topic:
         return pages, False
     source = _source(source)
-    if source == "web":
-        generate = None
     uri = None
     position = "50% 50%"
     ai_first = False
@@ -606,7 +613,7 @@ async def fill_cover(pages: List[str], topic: str, generate=None,
             topic, [f"Cover: the most iconic, wide photo of the whole topic «{topic}»"], find)
         position = _photo_position(found[0], 0.71)
         uri = _take_uri(found[0])
-    if not uri and generate is None and source != "web" and photos_enabled():
+    if not uri and generate is None and photos_enabled():
         try:
             from services.together_service import get_together_service
 
@@ -620,13 +627,21 @@ async def fill_cover(pages: List[str], topic: str, generate=None,
         except Exception as exc:
             log.error("Together xizmati mavjud emas: %s", exc)
     if not uri and generate is not None:
-        try:
-            path = await generate(topic)
-            position = _photo_position(path, 0.71)
-            uri = _take_uri(path)
-        except Exception as exc:
-            log.warning("Muqova rasmi chizilmadi: %s", exc)
-            return pages, False
+        for attempt in (1, 2):
+            try:
+                path = await generate(topic)
+                position = _photo_position(path, 0.71)
+                uri = _take_uri(path)
+            except Exception as exc:
+                log.warning("Muqova rasmi chizilmadi (%d-urinish): %s", attempt, exc)
+                uri = None
+            if uri:
+                break
+    if not uri and source != "ai" and ai_first:
+        found = await _search_photos(
+            topic, [f"Cover: the most iconic, wide photo of the whole topic «{topic}»"], find)
+        position = _photo_position(found[0], 0.71)
+        uri = _take_uri(found[0])
     if not uri:
         return pages, False
     updated = with_cover_photo(pages[0], uri, position)
