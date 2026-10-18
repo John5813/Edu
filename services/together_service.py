@@ -167,6 +167,10 @@ class TogetherImageService:
                 if any(s in msg for s in ("content_policy", "moderation", "nsfw", "flagged")):
                     logger.warning(f"Together image model {model} rejected the prompt (moderation): {ex}")
                     return None
+                if _out_of_credits(msg):
+                    logger.error(f"Together limiti/balansi tugadi ({model}): {ex}")
+                    _alert_admins(model, ex)
+                    return None
                 transient = isinstance(ex, asyncio.TimeoutError) or any(
                     s in msg for s in ("429", "rate limit", "rate_limit", "too many", "timeout", "503", "502",
                                        "504", "temporar")
@@ -565,6 +569,27 @@ def _model_steps(model_id: str) -> Optional[int]:
     if "schnell" in (model_id or "").lower():
         return 4
     return None
+
+
+_NO_CREDITS = ("402", "payment required", "insufficient", "credit", "balance", "quota",
+               "billing", "spend limit", "out of funds")
+
+
+def _out_of_credits(message: str) -> bool:
+    return any(s in message for s in _NO_CREDITS)
+
+
+def _alert_admins(model: str, error) -> None:
+    try:
+        from services import admin_alerts
+
+        admin_alerts.alert(
+            "together_credits",
+            "⚠️ Together AI: limit yoki balans tugadi, rasmlar chizilmayapti.\n"
+            f"Model: {model}\nSabab: {str(error)[:300]}\n"
+            "Together hisobini to'ldiring. Shu orada rasmlar internetdan (Brave) olinadi.")
+    except Exception:
+        pass
 
 
 def _mark_unavailable(model_id: str, message: str) -> None:

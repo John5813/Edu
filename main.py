@@ -628,6 +628,8 @@ async def main():
         except NotImplementedError:
             pass
 
+    from services import admin_alerts
+    admin_alerts.set_bot(bot)
     bot_info = await bot.get_me()
     emoji_handler.set_bot_username(bot_info.username or "")
     webapp.BOT_USERNAME = bot_info.username or ""
