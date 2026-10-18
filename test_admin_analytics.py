@@ -10,7 +10,7 @@ import os
 import sys
 import tempfile
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from urllib.parse import urlencode
 
@@ -60,9 +60,13 @@ async def main():
             "INSERT INTO users (telegram_id,first_name,language,created_at) VALUES (1,'Test','uz',?)",
             (created,))
         await db.execute(
+            "INSERT INTO users (telegram_id,first_name,language,created_at) VALUES (3,'Cohort','uz',?)",
+            ((now - timedelta(days=2)).strftime("%Y-%m-%d %H:%M:%S"),))
+        await db.execute(
             "INSERT INTO users (telegram_id,first_name,language,created_at) VALUES (2,'NoPay','uz',?)",
             (created,))
         user_id = (await (await db.execute("SELECT id FROM users WHERE telegram_id=1")).fetchone())[0]
+        cohort_user_id = (await (await db.execute("SELECT id FROM users WHERE telegram_id=3")).fetchone())[0]
         await db.execute(
             "INSERT INTO payments (user_id,amount,status,source,created_at) VALUES (?,15000,'approved','bot',?)",
             (user_id, created))
@@ -73,6 +77,17 @@ async def main():
             "INSERT INTO document_stats (document_type,completed_at) VALUES ('presentation',?)", (created,))
         await db.execute(
             "INSERT INTO balance_spends (telegram_id,amount,created_at) VALUES (1,1000,?)", (created,))
+        await db.execute(
+            "INSERT INTO payments (user_id,amount,status,source,created_at) "
+            "VALUES (?,10000,'approved','bot',?)",
+            (cohort_user_id, (now - timedelta(days=2)).strftime("%Y-%m-%d %H:%M:%S")))
+        await db.execute(
+            "INSERT INTO balance_spends (telegram_id,amount,created_at) VALUES (3,1000,?)",
+            ((now - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S"),))
+        await db.execute(
+            "INSERT INTO payments (user_id,amount,status,source,created_at) "
+            "VALUES (?,12000,'approved','bot',?)",
+            (cohort_user_id, (now - timedelta(hours=12)).strftime("%Y-%m-%d %H:%M:%S")))
         await db.execute(
             "INSERT INTO balance_spends (telegram_id,amount,created_at) VALUES (1,1000,?)", (created,))
         await db.execute(
@@ -91,11 +106,22 @@ async def main():
     report = await admin_analytics.dashboard(7)
     summary = report["summary"]
     check("tasdiqlangan tushum; kutilayotgan to‘lov hisoblanmaydi",
-          summary["revenue"] == 15000 and summary["payments"] == 1, summary)
+          summary["revenue"] == 37000 and summary["payments"] == 3, summary)
     check("mijozning umrbo‘yi tushumi va to‘lov konversiyasi",
-          summary["avg_lifetime_revenue"] == 15000 and summary["new_payers"] == 1, summary)
+          summary["avg_lifetime_revenue"] == 18500 and summary["new_payers"] == 2, summary)
     check("takror foydalanish koeffitsienti",
-          summary["repeat_users"] == 1 and summary["repeat_use_rate"] == 100, summary)
+          summary["repeat_users"] == 1 and summary["spenders"] == 2
+          and summary["repeat_use_rate"] == 50, summary)
+    check("ilk to‘lov kohorti: ishlatish va ishlatgach qayta to‘lov to‘g‘ri ajratiladi",
+          summary["cohort_first_payers"] == 2
+          and summary["cohort_used_after_first_payment"] == 2
+          and summary["cohort_repaid_after_use"] == 1
+          and summary["cohort_repayment_after_use_rate"] == 50, summary)
+    today_report = await admin_analytics.dashboard(1)
+    check("bugungi davr va kundalik to‘lov kohorti ishlaydi",
+          today_report["period"]["days"] == 1
+          and today_report["period"]["start"] == today_uzt()
+          and today_report["summary"]["cohort_first_payers"] == 1, today_report["period"])
     check("yakunlangan hujjatlar va AI ishlatilishi",
           next(row["count"] for row in report["services"] if row["key"] == "presentation") == 1
           and report["ai_usage"][0]["count"] == 3, (report["services"], report["ai_usage"]))
@@ -103,12 +129,13 @@ async def main():
     check("7 kun ichida bosilgan qayta jalb xabaridan kelgan tushum bog‘lanadi",
           campaign["clicks"] == 1 and campaign["buyers"] == 1 and campaign["revenue"] == 15000, campaign)
 
+    await admin_analytics.save_costs(1, {"presentation": 2500}, {"new": 3000})
     await admin_analytics.save_costs(7, {"presentation": 2500}, {"new": 3000})
     report = await admin_analytics.dashboard(7)
     check("tannarx va reklama xarajati foydadan ayriladi",
           report["summary"]["service_cost"] == 2500
           and report["summary"]["campaign_cost"] == 3000
-          and report["summary"]["estimated_profit"] == 9500
+          and report["summary"]["estimated_profit"] == 31500
           and report["summary"]["profit_complete"], report["summary"])
     try:
         await admin_analytics.save_costs(7, {"unknown-service": 1}, {})
@@ -133,11 +160,13 @@ async def main():
     check("eskirgan initData rad qilinadi", api._admin_init_data(expired_request) is None)
     allowed_response = await api.admin_statistics(SimpleNamespace(
         headers=admin_request.headers, query={"days": "7"}))
+    today_response = await api.admin_statistics(SimpleNamespace(
+        headers=admin_request.headers, query={"days": "1"}))
     denied_response = await api.admin_statistics(SimpleNamespace(
         headers=non_admin_request.headers, query={"days": "7"}))
     check("statistika API admin uchun ishlaydi va admin bo‘lmaganlarga yopiq",
-          allowed_response.status == 200 and denied_response.status == 403,
-          (allowed_response.status, denied_response.status))
+          allowed_response.status == 200 and today_response.status == 200 and denied_response.status == 403,
+          (allowed_response.status, today_response.status, denied_response.status))
 
     from bot.handlers import admin
     admin.is_admin = lambda user_id: user_id == 1

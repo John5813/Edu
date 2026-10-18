@@ -135,9 +135,9 @@ async def admin_statistics(request: web.Request) -> web.Response:
     try:
         days = int(request.query.get("days", "30"))
     except (TypeError, ValueError):
-        return _error("Davr 7, 30 yoki 90 kun bo‘lishi kerak")
-    if days not in (7, 30, 90):
-        return _error("Davr 7, 30 yoki 90 kun bo‘lishi kerak")
+        return _error("Davr 1, 7, 30 yoki 90 kun bo‘lishi kerak")
+    if days not in (1, 7, 30, 90):
+        return _error("Davr 1, 7, 30 yoki 90 kun bo‘lishi kerak")
     try:
         from services.admin_analytics import dashboard
 
@@ -155,8 +155,8 @@ async def admin_statistics_costs(request: web.Request) -> web.Response:
         from services.admin_analytics import save_costs
 
         raw_days = data.get("days", 30)
-        if isinstance(raw_days, bool) or str(raw_days) not in ("7", "30", "90"):
-            raise ValueError("Davr 7, 30 yoki 90 kun bo‘lishi kerak")
+        if isinstance(raw_days, bool) or str(raw_days) not in ("1", "7", "30", "90"):
+            raise ValueError("Davr 1, 7, 30 yoki 90 kun bo‘lishi kerak")
         await save_costs(int(raw_days),
                          data.get("service_costs", {}),
                          data.get("campaign_costs", {}))

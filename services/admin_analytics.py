@@ -76,8 +76,8 @@ async def _costs(db, category: str, period_days: int = 0) -> Dict[str, int]:
 
 async def save_costs(days: int, service_costs: dict, campaign_costs: dict) -> None:
     """Save per-output service cost and period advertising spend."""
-    if days not in (7, 30, 90):
-        raise ValueError("Davr 7, 30 yoki 90 kun bo‘lishi kerak")
+    if days not in (1, 7, 30, 90):
+        raise ValueError("Davr 1, 7, 30 yoki 90 kun bo‘lishi kerak")
     async with aiosqlite.connect(DATABASE_FILE) as db:
         await db.execute(_COST_SCHEMA)
         allowed_services = set(SERVICE_LABELS)
@@ -115,8 +115,8 @@ async def save_costs(days: int, service_costs: dict, campaign_costs: dict) -> No
 
 
 async def dashboard(days: int = 30) -> dict:
-    """Return dashboard data for the selected UZT day window (7, 30 or 90)."""
-    days = days if days in (7, 30, 90) else 30
+    """Return dashboard data for the selected UZT day window (1, 7, 30 or 90)."""
+    days = days if days in (1, 7, 30, 90) else 30
     end_day = today_uzt()
     end_date = datetime.strptime(end_day, "%Y-%m-%d")
     first_date = end_date - timedelta(days=days - 1)
@@ -169,6 +169,35 @@ async def dashboard(days: int = 30) -> dict:
             "WHERE p.status='approved' AND date(p.created_at,'+5 hours') BETWEEN ? AND ? "
             "AND date(u.created_at,'+5 hours') BETWEEN ? AND ?",
             (start_day, end_day, start_day, end_day))
+        cohort = {"first_payers": 0, "used_after_first_payment": 0, "repaid_after_use": 0}
+        if await _has_table(db, "balance_spends"):
+            async with db.execute(
+                    "WITH first_payments AS ("
+                    " SELECT p.user_id,u.telegram_id,MIN(p.created_at) AS first_paid_at"
+                    " FROM payments p JOIN users u ON u.id=p.user_id"
+                    " WHERE p.status='approved' GROUP BY p.user_id"
+                    "), cohort AS ("
+                    " SELECT * FROM first_payments"
+                    " WHERE date(first_paid_at,'+5 hours') BETWEEN ? AND ?"
+                    ")"
+                    " SELECT COUNT(*) AS first_payers,"
+                    " SUM(CASE WHEN EXISTS ("
+                    "  SELECT 1 FROM balance_spends s"
+                    "  WHERE s.telegram_id=cohort.telegram_id"
+                    "   AND julianday(s.created_at)>=julianday(cohort.first_paid_at)"
+                    " ) THEN 1 ELSE 0 END) AS used_after_first_payment,"
+                    " SUM(CASE WHEN EXISTS ("
+                    "  SELECT 1 FROM balance_spends s"
+                    "  WHERE s.telegram_id=cohort.telegram_id"
+                    "   AND julianday(s.created_at)>=julianday(cohort.first_paid_at)"
+                    "   AND EXISTS (SELECT 1 FROM payments p2"
+                    "    WHERE p2.user_id=cohort.user_id AND p2.status='approved'"
+                    "     AND julianday(p2.created_at)>julianday(s.created_at))"
+                    " ) THEN 1 ELSE 0 END) AS repaid_after_use"
+                    " FROM cohort", (start_day, end_day)) as cur:
+                row = await cur.fetchone()
+                if row:
+                    cohort = {key: int(row[key] or 0) for key in cohort}
 
         async with db.execute(
                 "SELECT date(created_at,'+5 hours') day,COUNT(*) n FROM users "
@@ -336,6 +365,15 @@ async def dashboard(days: int = 30) -> dict:
             "repeat_users": repeat_users,
             "spenders": spenders,
             "repeat_use_rate": round(repeat_users * 100 / spenders, 1) if spenders else 0,
+            "cohort_first_payers": cohort["first_payers"],
+            "cohort_used_after_first_payment": cohort["used_after_first_payment"],
+            "cohort_repaid_after_use": cohort["repaid_after_use"],
+            "cohort_use_rate": round(
+                cohort["used_after_first_payment"] * 100 / cohort["first_payers"], 1
+            ) if cohort["first_payers"] else 0,
+            "cohort_repayment_after_use_rate": round(
+                cohort["repaid_after_use"] * 100 / cohort["used_after_first_payment"], 1
+            ) if cohort["used_after_first_payment"] else 0,
             "unconverted_users": unconverted,
             "created": sum(row["created"] for row in day_rows.values()),
             "service_cost": service_cost_total,

@@ -19,6 +19,7 @@
     </header>
 
     <nav class="periods" aria-label="Hisobot davri">
+      <button type="button" data-days="1">Bugun</button>
       <button type="button" data-days="7">7 kun</button>
       <button type="button" data-days="30" class="selected">30 kun</button>
       <button type="button" data-days="90">90 kun</button>
@@ -28,17 +29,27 @@
     <div class="notice" id="notice" role="status" hidden></div>
     <section class="kpis" id="kpis" aria-label="Asosiy ko‘rsatkichlar"></section>
 
+    <details class="definitions" open>
+      <summary>Ko‘rsatkichlar qanday hisoblangan?</summary>
+      <div class="definition-grid">
+        <p><strong>Qayta foydalanish:</strong> tarix davomida balansdan kamida 2 marta yechim qilingan mijozlar / balansdan kamida 1 marta foydalangan mijozlar. Har bir balans yechimi bitta foydalanish deb olinadi.</p>
+        <p><strong>Qayta to‘lov:</strong> tarix davomida kamida 2 ta tasdiqlangan to‘lovi bor mijozlar / kamida 1 ta tasdiqlangan to‘lovi bor mijozlar. Faqat muvaffaqiyatli to‘lovlar sanaladi.</p>
+        <p><strong>To‘lov → foydalanish → qayta to‘lov:</strong> tanlangan davrda ilk tasdiqlangan to‘lovini qilganlardan keyin balans ishlatgan va shu ishlatishdan keyin yana to‘laganlar ulushi. Bu hozirgacha kuzatilgan natija, kelajak ehtimoli emas.</p>
+        <p><strong>Mahsulot yaratish cheklovi:</strong> mahsulot yakunlari shaxsiy ma’lumotsiz saqlanadi, shuning uchun aynan qaysi to‘lovchi mahsulot yaratganini bog‘lab bo‘lmaydi. Yuqoridagi kohortda balans yechimi pullik foydalanish belgisi sifatida ishlatiladi.</p>
+      </div>
+    </details>
+
     <section class="charts">
-      <article class="panel wide"><div class="panel-head"><h2>Tushum dinamikasi</h2><span>Tasdiqlangan to‘lovlar · so‘m</span></div><div class="chart" id="chart-revenue"></div></article>
-      <article class="panel"><div class="panel-head"><h2>Yangi foydalanuvchilar</h2><span>Kunlik ro‘yxatdan o‘tishlar</span></div><div class="chart" id="chart-users"></div></article>
-      <article class="panel"><div class="panel-head"><h2>Yaratilgan mahsulotlar</h2><span>Barcha yakunlangan ishlar</span></div><div class="chart" id="chart-created"></div></article>
-      <article class="panel"><div class="panel-head"><h2>Xizmatlar kesimida</h2><span>Yaratilish/sotuv soni</span></div><div class="chart" id="chart-services"></div></article>
-      <article class="panel"><div class="panel-head"><h2>To‘lov manbasi</h2><span>Tasdiqlangan to‘lov summasi</span></div><div class="chart" id="chart-payment-sources"></div></article>
-      <article class="panel"><div class="panel-head"><h2>Foydalanuvchi manbasi</h2><span>Yangi foydalanuvchi va tushum</span></div><div class="chart" id="chart-acquisition"></div></article>
-      <article class="panel"><div class="panel-head"><h2>To‘lov voronkasi</h2><span>Tanlangan davrda kelganlar</span></div><div class="chart" id="chart-funnel"></div></article>
-      <article class="panel"><div class="panel-head"><h2>Qayta foydalanish</h2><span>Kamida ikki marta foydalangan mijozlar</span></div><div class="chart" id="chart-repeat"></div></article>
-      <article class="panel"><div class="panel-head"><h2>AI faolligi</h2><span>Model turi va chaqiruvlar soni</span></div><div class="chart" id="chart-ai"></div></article>
-      <article class="panel wide"><div class="panel-head"><h2>Avtomatik qayta jalb kampaniyalari</h2><span>To‘lov bosilgan xabardan keyin 7 kun ichida bo‘lsa bog‘lanadi</span></div><div class="chart" id="chart-campaigns"></div></article>
+      <article class="panel wide"><div class="panel-head"><h2>Tushum dinamikasi</h2><span id="revenue-label">Tasdiqlangan to‘lovlar yig‘indisi · so‘m · har nuqta bir kun</span></div><div class="chart" id="chart-revenue"></div></article>
+      <article class="panel"><div class="panel-head"><h2>Yangi foydalanuvchilar</h2><span>Ro‘yxatdan o‘tgan sana bo‘yicha foydalanuvchilar soni</span></div><div class="chart" id="chart-users"></div></article>
+      <article class="panel"><div class="panel-head"><h2>Yaratilgan mahsulotlar</h2><span>Yakunlangan hujjat va tayyor ishlar soni · foydalanuvchilar bilan bog‘lanmagan</span></div><div class="chart" id="chart-created"></div></article>
+      <article class="panel"><div class="panel-head"><h2>Xizmatlar kesimida</h2><span>Tanlangan davrda yakunlangan mahsulot / sotuvlar soni</span></div><div class="chart" id="chart-services"></div></article>
+      <article class="panel"><div class="panel-head"><h2>To‘lov manbasi</h2><span>Tasdiqlangan to‘lovlar summasi, to‘lov yozuvidagi manba bo‘yicha</span></div><div class="chart" id="chart-payment-sources"></div></article>
+      <article class="panel"><div class="panel-head"><h2>Foydalanuvchi manbasi</h2><span>Yangi foydalanuvchilar, to‘lovchilari va ularning davrdagi tushumi</span></div><div class="chart" id="chart-acquisition"></div></article>
+      <article class="panel"><div class="panel-head"><h2>Yangi foydalanuvchi voronkasi</h2><span>Davrda ro‘yxatdan o‘tganlar: to‘lov qilgan / qilmagan</span></div><div class="chart" id="chart-funnel"></div></article>
+      <article class="panel"><div class="panel-head"><h2>Qayta foydalanish va qayta to‘lov</h2><span>Tarix bo‘yicha alohida maxrajli ko‘rsatkichlar</span></div><div class="chart" id="chart-repeat"></div></article>
+      <article class="panel"><div class="panel-head"><h2>AI faolligi</h2><span>Davrda model bo‘yicha qayd qilingan chaqiruvlar soni</span></div><div class="chart" id="chart-ai"></div></article>
+      <article class="panel wide"><div class="panel-head"><h2>Avtomatik qayta jalb kampaniyalari</h2><span>Bosishdan keyingi 7 kun ichidagi tasdiqlangan to‘lov; bu muddat hisobot davridan alohida</span></div><div class="chart" id="chart-campaigns"></div></article>
     </section>
 
     <section class="panel campaign-panel">

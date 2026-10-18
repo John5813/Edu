@@ -5,6 +5,8 @@
   const initData = tg && tg.initData;
   const $ = (selector) => document.querySelector(selector);
   const colors = ["#315efb", "#10a37f", "#f29c38", "#8b5cf6", "#e24b5a", "#08a4bd"];
+  const weekdays = ["Yakshanba", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba"];
+  const months = ["yan", "fev", "mar", "apr", "may", "iyn", "iyl", "avg", "sen", "okt", "noy", "dek"];
   let period = 30;
   let loading = false;
 
@@ -75,14 +77,35 @@
     return number(n);
   }
 
+  function xAxisLabel(date) {
+    if (period === 1) return "Bugun";
+    const [year, month, day] = date.split("-").map(Number);
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    if (period === 7) return weekdays[parsed.getUTCDay()];
+    return `${day} ${months[month - 1]}`;
+  }
+
+  function xAxisRangeLabel(start, end) {
+    if (period !== 90 || start === end) return xAxisLabel(start);
+    const [startYear, startMonth, startDay] = start.split("-").map(Number);
+    const [endYear, endMonth, endDay] = end.split("-").map(Number);
+    if (startYear === endYear && startMonth === endMonth) {
+      return `${startDay}–${endDay} ${months[startMonth - 1]}`;
+    }
+    return `${xAxisLabel(start)}–${xAxisLabel(end)}`;
+  }
+
   function compact(rows, key, limit = 30) {
-    if (rows.length <= limit) return rows.map((row) => ({ date: row.date, value: Number(row[key] || 0) }));
+    if (rows.length <= limit) {
+      return rows.map((row) => ({ date: row.date, end_date: row.date, value: Number(row[key] || 0) }));
+    }
     const size = Math.ceil(rows.length / limit);
     const grouped = [];
     for (let i = 0; i < rows.length; i += size) {
       const group = rows.slice(i, i + size);
       grouped.push({
         date: group[0].date,
+        end_date: group[group.length - 1].date,
         value: group.reduce((sum, row) => sum + Number(row[key] || 0), 0),
       });
     }
@@ -120,13 +143,13 @@
     points.forEach((point) => {
       const circle = svgNode("circle", { cx: point.x, cy: point.y, r: 3.5, fill: "#315efb", stroke: "#fff", "stroke-width": 2 }, svg);
       const title = svgNode("title", {}, circle);
-      title.textContent = `${point.date}: ${isMoney ? money(point.value) : number(point.value)}`;
+      title.textContent = `${xAxisRangeLabel(point.date, point.end_date)}: ${isMoney ? money(point.value) : number(point.value)}`;
     });
     const step = Math.max(1, Math.floor(points.length / 5));
     points.forEach((point, i) => {
       if (i % step !== 0 && i !== points.length - 1) return;
       const label = svgNode("text", { x: point.x, y: height - 12, "text-anchor": "middle", fill: "#7c8799", "font-size": 10 }, svg);
-      label.textContent = point.date.slice(5);
+      label.textContent = xAxisRangeLabel(point.date, point.end_date);
     });
   }
 
@@ -189,8 +212,10 @@
       ["To‘lov qilganlar", number(summary.paying_users), `Davrda faol to‘lovchi: ${number(summary.period_payers)}`],
       ["Bir foydalanuvchiga tushum", money(summary.avg_revenue_per_user), "Umumiy tasdiqlangan tushum / barcha foydalanuvchi"],
       ["To‘lovchi mijoz LTV", money(summary.avg_lifetime_revenue), "Umumiy tushum / to‘lov qilgan mijoz"],
-      ["Qayta foydalanish", `${summary.repeat_use_rate}%`, `${number(summary.repeat_users)} / ${number(summary.spenders)} foydalanuvchi`],
-      ["Qayta to‘lov", `${summary.repeat_payment_rate}%`, `${number(summary.repeat_payers)} mijoz 2+ marta to‘lagan`],
+      ["Qayta foydalanish · tarix", `${summary.repeat_use_rate}%`, `${number(summary.repeat_users)} / ${number(summary.spenders)} balans ishlatgan: kamida 2 yechim / kamida 1 yechim`],
+      ["Qayta to‘lov · tarix", `${summary.repeat_payment_rate}%`, `${number(summary.repeat_payers)} / ${number(summary.paying_users)} to‘lovchi: 2+ / 1+ tasdiqlangan to‘lov`],
+      ["Ilk to‘lovdan keyin ishlatgan", `${summary.cohort_use_rate}%`, `${number(summary.cohort_used_after_first_payment)} / ${number(summary.cohort_first_payers)} ilk to‘lovchilar · tanlangan davr kohorti`],
+      ["Ishlatgach qayta to‘lagan", `${summary.cohort_repayment_after_use_rate}%`, `${number(summary.cohort_repaid_after_use)} / ${number(summary.cohort_used_after_first_payment)} ishlatganlar · hozirgacha kuzatilgan`],
       ["Taxminiy foyda / to‘lovchi", money(summary.estimated_profit_per_payer), "Tanlangan davr · xarajatlar taxminiy"],
     ];
     const root = $("#kpis");
@@ -238,10 +263,11 @@
 
   function drawRepeat(summary) {
     const items = [
-      { name: "Takror foydalangan", count: summary.repeat_users },
-      { name: "Bir marta foydalangan", count: Math.max(summary.spenders - summary.repeat_users, 0) },
+      { name: "Ilk to‘lov qilgan kohort", count: summary.cohort_first_payers },
+      { name: "To‘lovdan keyin balans ishlatgan", count: summary.cohort_used_after_first_payment },
+      { name: "Ishlatgach yana to‘lagan", count: summary.cohort_repaid_after_use },
     ];
-    donutChart("#chart-repeat", items, "count", false);
+    barChart("#chart-repeat", items);
   }
 
   function drawAI(items) {
@@ -330,6 +356,11 @@
 
   function render(data) {
     $("#period-label").textContent = `${data.period.start} — ${data.period.end}`;
+    $("#revenue-label").textContent = period === 90
+      ? "Tasdiqlangan to‘lovlar yig‘indisi · so‘m · har nuqta 3 kunlik yig‘indi"
+      : "Tasdiqlangan to‘lovlar yig‘indisi · so‘m · har nuqta bir kun";
+    document.querySelectorAll(".periods button").forEach((button) =>
+      button.classList.toggle("selected", Number(button.dataset.days) === period));
     drawKpis(data.summary);
     lineChart("#chart-revenue", data.daily, "revenue", true);
     lineChart("#chart-users", data.daily, "users");
@@ -399,8 +430,6 @@
   document.querySelectorAll(".periods button").forEach((button) => {
     button.addEventListener("click", () => {
       period = Number(button.dataset.days);
-      document.querySelectorAll(".periods button").forEach((node) =>
-        node.classList.toggle("selected", node === button));
       load();
     });
   });
