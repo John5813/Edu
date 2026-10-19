@@ -4,14 +4,49 @@ import os
 import aiohttp
 import asyncio
 import base64
+import email.utils
 import httpx
 import time
 import uuid
+import random
 from typing import Optional, Dict
 from together import Together
 from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
+
+
+def _retry_delay(error, attempt: int) -> float:
+    """Rate-limit kutish sarlavhasini hurmat qilib, jitterli backoff qaytaradi."""
+    delay = 2.0 * (2 ** attempt)
+    response = getattr(error, "response", None)
+    headers = getattr(response, "headers", {}) or {}
+    headers = {str(key).lower(): str(value).strip() for key, value in headers.items()}
+
+    retry_after = headers.get("retry-after")
+    if retry_after:
+        try:
+            delay = max(delay, float(retry_after))
+        except ValueError:
+            try:
+                reset_at = email.utils.parsedate_to_datetime(retry_after)
+                delay = max(delay, reset_at.timestamp() - time.time())
+            except (TypeError, ValueError, OverflowError):
+                pass
+
+    reset = headers.get("x-ratelimit-reset")
+    if reset:
+        try:
+            reset_at = float(reset)
+            if reset_at > 1_000_000_000_000:
+                reset_at /= 1000
+            reset_delay = reset_at - time.time() if reset_at > 1_000_000_000 else reset_at
+            if reset_delay > 0:
+                delay = max(delay, reset_delay)
+        except ValueError:
+            pass
+
+    return delay + random.uniform(0.2, 0.8)
 
 
 class TogetherImageService:
@@ -21,7 +56,11 @@ class TogetherImageService:
         self.api_key = os.getenv("TOGETHER_API_KEY")
         if not self.api_key:
             raise ValueError("TOGETHER_API_KEY environment variable is required")
-        self.client = Together(api_key=self.api_key)
+        # _call_model owns retries, so SDK-level retries would multiply requests and
+        # obscure the rate-limit headers needed to schedule the next attempt.
+        self.client = Together(api_key=self.api_key, max_retries=0)
+        self.image_semaphore = asyncio.Semaphore(
+            max(1, int(os.getenv("TOGETHER_IMAGE_CONCURRENCY", "2"))))
         # Rasm modeli har xizmat uchun alohida tanlanadi (admin panel) —
         # qarang: `chosen_image_model`.
         
@@ -158,7 +197,8 @@ class TogetherImageService:
 
         for attempt in range(3):
             try:
-                return await asyncio.wait_for(_call(), timeout=60)
+                async with self.image_semaphore:
+                    return await asyncio.wait_for(_call(), timeout=60)
             except (asyncio.TimeoutError, Exception) as ex:
                 msg = str(ex).lower()
                 # Moderatsiya rad etgani (FLUX: "content_policy_violation", "NSFW") — qayta urish foydasiz:
@@ -182,7 +222,7 @@ class TogetherImageService:
                 if attempt == 2:
                     logger.error(f"Together image model {model} kept failing: {ex}")
                     return None
-                backoff = 1.5 * (2 ** attempt)
+                backoff = _retry_delay(ex, attempt)
                 logger.warning(f"Together image transient error ({model}, attempt {attempt+1}): {ex}; retrying in {backoff}s")
                 await asyncio.sleep(backoff)
         return None

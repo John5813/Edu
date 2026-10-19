@@ -17,6 +17,7 @@ Qanday ishlaydi:
 """
 import logging
 import random
+import re
 from typing import Dict, List, Optional
 
 from . import families, kit, parse, styles
@@ -32,6 +33,39 @@ OLD = "html"
 # Infografik varaqlarning qancha qismi fonida taqdimotdagi rasmlardan biri xira turadi.
 BACKDROP_SHARE = 0.0       # 0 — fon uchun taqdimotdagi rasm qayta ishlatilmaydi (takror chiqmasin)
 BACKDROP_KINDS = ("group", "sequence", "numbers", "compare", "finale")
+
+
+def _expected_text(spec: Dict) -> List[str]:
+    """Vektor slaydda ko'rinishi shart bo'lgan matnlarni qaytaradi."""
+    expected = [spec.get("title", "")]
+    kind = spec.get("kind")
+    if kind == "cover":
+        expected.extend((spec.get("lead", ""), spec.get("credit", "")))
+    elif kind == "plan":
+        expected.extend(item.get("title", "") for item in spec.get("items", []))
+    elif kind == "photo":
+        expected.extend((spec.get("lead", ""), spec.get("text", ""), spec.get("quote", ""), spec.get("by", "")))
+    elif kind in ("group", "sequence", "numbers"):
+        expected.append(spec.get("lead", ""))
+        for item in spec.get("items", []):
+            expected.extend((item.get("title", ""), item.get("note", ""), item.get("value", "")))
+    elif kind == "compare":
+        for side in spec.get("sides", []):
+            expected.append(side.get("name", ""))
+            expected.extend(side.get("items", [])[:4])
+    elif kind == "finale":
+        expected.extend((spec.get("lead", ""), *(spec.get("points") or [])[:4]))
+    return [re.sub(r"\s+", " ", str(text or "")).strip() for text in expected if str(text or "").strip()]
+
+
+def _contains_expected_text(spec: Dict, slide) -> bool:
+    """Matn yo'qolgan vektor chizmasini HTML zaxirasiga o'tkazadi."""
+    expected = _expected_text(spec)
+    if len(expected) < 2:
+        return False
+    rendered = " ".join(shape.text_frame.text for shape in slide.shapes if shape.has_text_frame)
+    rendered = re.sub(r"\s+", " ", rendered).casefold()
+    return all(text.casefold() in rendered for text in expected)
 
 
 class Designer:
@@ -146,6 +180,10 @@ class Designer:
                 photo.cleanup()
             if backdrop is not None:
                 backdrop.cleanup()
+        if not _contains_expected_text(spec, slide):
+            log.warning("%d-sahifa %s uslubida matn to'liq chizilmadi — HTML dan chiziladi", index + 1, name)
+            _drop_last(presentation)
+            return False
         log.info("%d-sahifa: %s uslubi", index + 1, name)
         return True
 

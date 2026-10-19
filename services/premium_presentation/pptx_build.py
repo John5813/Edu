@@ -419,6 +419,7 @@ def add_slide(presentation, layout: Dict) -> None:
 
     blocks = _merge_flows(blocks)
     _measure_room(blocks)
+    failures = []
     for block in blocks:
         kind = block.get("kind")
         try:
@@ -432,6 +433,39 @@ def add_slide(presentation, layout: Dict) -> None:
                 _add_image(slide, block)
         except Exception as exc:
             log.warning("Element qo'yilmadi (%s): %s", kind, exc)
+            failures.append((kind, exc))
+
+    missing = _missing_text(blocks, slide)
+    if failures or missing:
+        _drop_last_slide(presentation)
+        details = [f"{kind}: {exc}" for kind, exc in failures]
+        if missing:
+            details.append(f"{len(missing)} ta matn bloki qo'yilmadi")
+        raise RuntimeError("; ".join(details))
+
+
+def _normal_text(value: str) -> str:
+    return " ".join(str(value or "").split()).casefold()
+
+
+def _missing_text(blocks: List[Dict], slide) -> List[str]:
+    """Chizilgan slaydda manba matn bloklari borligini tekshiradi."""
+    rendered = _normal_text(" ".join(
+        shape.text_frame.text for shape in slide.shapes if shape.has_text_frame))
+    expected = []
+    for block in blocks:
+        if block.get("kind") != "text":
+            continue
+        expected.extend(part.get("text", "") for part in block.get("parts") or [block])
+    return [str(text) for text in expected
+            if _normal_text(text) and _normal_text(text) not in rendered]
+
+
+def _drop_last_slide(presentation) -> None:
+    ids = presentation.slides._sldIdLst
+    last = ids[-1]
+    presentation.part.drop_rel(last.rId)
+    ids.remove(last)
 
 
 def add_picture_slide(presentation, image_path: str) -> None:

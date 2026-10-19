@@ -970,6 +970,29 @@ def read_layout(page) -> Dict:
     return page.evaluate(_SCRIPT)
 
 
+_KEY_TEXT_SCRIPT = r"""
+() => [...document.querySelectorAll('.slide .title, .slide .lead')]
+  .filter((el) => {
+    const style = getComputedStyle(el);
+    const rect = el.getBoundingClientRect();
+    return style.display !== 'none' && style.visibility !== 'hidden'
+      && parseFloat(style.opacity || '1') > 0.04 && rect.width > 0 && rect.height > 0;
+  })
+  .map((el) => (el.innerText || '').replace(/\s+/g, ' ').trim())
+  .filter(Boolean)
+"""
+
+
+def missing_key_text(page, layout: Dict) -> List[str]:
+    """Ko'rinadigan sarlavha va bosh gap PPTX matn bloklariga tushganini tekshiradi."""
+    expected = page.evaluate(_KEY_TEXT_SCRIPT) or []
+    rendered = " ".join(str(block.get("text") or "") for block in layout.get("blocks", [])
+                        if block.get("kind") == "text")
+    normalize = lambda text: " ".join(str(text or "").split()).casefold()
+    rendered = normalize(rendered)
+    return [text for text in expected if normalize(text) not in rendered]
+
+
 # Brauzerning element surati ELEMENTNI emas, sahifaning o'sha
 # joyini oladi: rasm ustida turgan matn ham suratga tushadi. Muqovada
 # butun slaydni egallagan fotosurat bo'lgani uchun sarlavha, ost

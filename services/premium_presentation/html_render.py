@@ -668,6 +668,10 @@ def render(html_slides: List[str], out_dir: str = "temp",
                         blocks = layout.get("blocks") or []
                         if not blocks:
                             raise RuntimeError("element topilmadi")
+                        missing_text = html_extract.missing_key_text(page, layout)
+                        if missing_text:
+                            raise RuntimeError("matn bloklariga tushmagan sarlavha/bosh gap: "
+                                               + "; ".join(missing_text))
                         html_extract.capture_images(
                             page, blocks, out_dir, index)
                         temporary.extend(

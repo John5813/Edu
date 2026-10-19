@@ -206,6 +206,36 @@ check("muqova vektor uslubda chizildi", drawn and len(prs.slides) == 1 and d.cho
 check("diagramma sahifasi HTML ga qoldi", d.draw(prs, P(chart), 5, 10) is False and len(prs.slides) == 1)
 d.close()
 
+print("5b) Rejadan keyingi birinchi slaydda matn yo'qolmaydi")
+first_content = P(
+    '<section class="slide k k-kartalar"><div class="k-text"><h2 class="title">Birinchi mavzu</h2>'
+    '<p class="lead">Bu sahifaning asosiy fikri aniq bayon qilinadi.</p><div class="k-row">'
+    '<div class="k-card"><p class="k-h">Birinchi omil</p><p class="k-d">Birinchi omilning izohi.</p></div>'
+    '<div class="k-card"><p class="k-h">Ikkinchi omil</p><p class="k-d">Ikkinchi omilning izohi.</p></div>'
+    '<div class="k-card"><p class="k-h">Uchinchi omil</p><p class="k-d">Uchinchi omilning izohi.</p></div>'
+    '</div></div></section>')
+prs = deck()
+d = Designer(theme, "Iqtisodiyot", seed=7)
+sequence = [cover, plan, first_content]
+drawn = [d.draw(prs, page, index, len(sequence)) for index, page in enumerate(sequence)]
+content_text = " ".join(shape.text_frame.text for shape in prs.slides[2].shapes if shape.has_text_frame)
+check("muqova, reja va undan keyingi birinchi slayd ketma-ket chizildi",
+      drawn == [True, True, True] and len(prs.slides) == 3, drawn)
+check("birinchi mavzu sarlavhasi va izohlar PPTX matnida bor",
+      all(text in content_text for text in ("Birinchi mavzu", "Bu sahifaning asosiy fikri",
+                                             "Birinchi omil", "Ikkinchi omil", "Uchinchi omil")))
+d.close()
+
+empty_photo = P('<section class="slide k k-rasm-chap"><div class="k-text">'
+                '<h2 class="title">Birinchi mavzu</h2></div></section>')
+prs = deck()
+d = Designer(theme, "Iqtisodiyot", seed=7)
+d.draw(prs, cover, 0, 8)
+d.draw(prs, plan, 1, 8)
+check("reja ortidagi matnsiz slayd bo'sh vektor varaq sifatida qabul qilinmaydi",
+      d.draw(prs, empty_photo, 2, 8) is False and len(prs.slides) == 2)
+d.close()
+
 print("6) Eski 'fon rasm + oq karta' modelga taklif qilinmaydi")
 check("rasm_fon katalogda yo'q", "[rasm_fon]" not in deck_compose.catalogue("uz"))
 check("rasmli kompozitsiyalar: chap, o'ng, tepa", deck_compose.PHOTO_LAYOUTS == ("rasm_chap", "rasm_ong", "rasm_tepa"))
