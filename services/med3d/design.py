@@ -187,7 +187,7 @@ class Layout:
     panel: Optional[Tuple[float, float, float, float]] = None   # matn ostidagi karta
     accent: Tuple[float, float] = (0.65, 0.75)                   # urg'u chizig'i joyi
     fill: float = 0.9
-    zoom_limit: float = 1.6          # fokusga yaqinlashish: butun ko'rinishdan ko'pi bilan shuncha katta
+    zoom_limit: float = 2.2          # fokusga yaqinlashish: butun ko'rinishdan ko'pi bilan shuncha katta
 
 
 LAYOUTS: Dict[str, Layout] = {lay.key: lay for lay in [

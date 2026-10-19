@@ -16,6 +16,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 ASSETS_DIR = os.path.join(ROOT, "assets", "med3d")
 # Z-Anatomy (CC BY-SA 4.0): erkak atlasida yo'q bosh mushaklari — `tools/med3d_zanatomy.py` tayyorlaydi.
 ZA_DIR = os.path.join(ASSETS_DIR, "zanatomy")
+# Hujayra, bakteriya, virus, DNK va h.k. — o'zimiz yasagan modellar (`tools/med3d_mikro.py`), ikkala tanaga qo'shiladi.
+MICRO_DIR = os.path.join(ASSETS_DIR, "mikro")
 
 
 @lru_cache(maxsize=16)

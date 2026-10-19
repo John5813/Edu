@@ -1,0 +1,999 @@
+{
+"version": "Edufayl mikro modellari (original)",
+"chunks": [
+{
+"url": "mikro.bin"
+}
+],
+"parts": [
+{
+"id": "MK-erythrocyte",
+"name": "Erythrocyte",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 5546,
+"indexCount": 33264,
+"bounds": [
+[
+-0.41999998688697815,
+-0.10211999714374542,
+-0.09211000055074692
+],
+[
+-0.18000000715255737,
+0.10211999714374542,
+0.09211000055074692
+]
+],
+"positions": 0,
+"normals": 66552,
+"indices": 99828
+},
+{
+"id": "MK-leukocyte-membrane",
+"name": "Leukocyte membrane",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 2322,
+"indexCount": 13272,
+"bounds": [
+[
+-0.12936000525951385,
+-0.1278499960899353,
+-0.1302500069141388
+],
+[
+0.1307400017976761,
+0.13197000324726105,
+0.09213999658823013
+]
+],
+"positions": 232884,
+"normals": 260748,
+"indices": 274680
+},
+{
+"id": "MK-leukocyte-cytoplasm",
+"name": "Leukocyte cytoplasm",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 2178,
+"indexCount": 12852,
+"bounds": [
+[
+-0.1174200028181076,
+-0.11604999750852585,
+-0.11823000013828278
+],
+[
+0.11868000030517578,
+0.11979000270366669,
+0.08363000303506851
+]
+],
+"positions": 327768,
+"normals": 353904,
+"indices": 366972
+},
+{
+"id": "MK-leukocyte-nucleus",
+"name": "Leukocyte nucleus",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 2844,
+"indexCount": 16980,
+"bounds": [
+[
+-0.026149999350309372,
+-0.09126999974250793,
+-0.07272999733686447
+],
+[
+0.07366999983787537,
+0.08541999757289886,
+0.10356999933719635
+]
+],
+"positions": 418380,
+"normals": 452508,
+"indices": 469572
+},
+{
+"id": "MK-leukocyte-granules",
+"name": "Leukocyte granules",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 2052,
+"indexCount": 12096,
+"bounds": [
+[
+-0.08805999904870987,
+-0.0828699991106987,
+-0.08299999684095383
+],
+[
+0.0847800001502037,
+0.06993000209331512,
+0.08425000309944153
+]
+],
+"positions": 537492,
+"normals": 562116,
+"indices": 574428
+},
+{
+"id": "MK-platelet",
+"name": "Platelet",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 962,
+"indexCount": 5760,
+"bounds": [
+[
+0.19683000445365906,
+-0.05211000144481659,
+-0.04650000110268593
+],
+[
+0.3445799946784973,
+0.05249999836087227,
+0.04721999913454056
+]
+],
+"positions": 622812,
+"normals": 634356,
+"indices": 640128
+},
+{
+"id": "MK-sperm-head",
+"name": "Sperm head",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 1120,
+"indexCount": 6468,
+"bounds": [
+[
+-0.4348999857902527,
+-0.03400000184774399,
+-0.04493999853730202
+],
+[
+-0.3263300061225891,
+0.03400000184774399,
+0.04493999853730202
+]
+],
+"positions": 663168,
+"normals": 676608,
+"indices": 683328
+},
+{
+"id": "MK-sperm-acrosome",
+"name": "Sperm acrosome",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 404,
+"indexCount": 2172,
+"bounds": [
+[
+-0.33730000257492065,
+-0.03123999945819378,
+-0.041519999504089355
+],
+[
+-0.2851000130176544,
+0.03123999945819378,
+0.041519999504089355
+]
+],
+"positions": 709200,
+"normals": 714048,
+"indices": 716472
+},
+{
+"id": "MK-sperm-midpiece",
+"name": "Sperm midpiece",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 422,
+"indexCount": 2520,
+"bounds": [
+[
+-0.503000020980835,
+-0.017550000920891762,
+-0.017999999225139618
+],
+[
+-0.42800000309944153,
+0.017550000920891762,
+0.017999999225139618
+]
+],
+"positions": 725160,
+"normals": 730224,
+"indices": 732756
+},
+{
+"id": "MK-sperm-tail",
+"name": "Sperm tail",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 1102,
+"indexCount": 6600,
+"bounds": [
+[
+-0.7875199913978577,
+-0.05285000056028366,
+-0.016270000487565994
+],
+[
+-0.500029981136322,
+0.04771000146865845,
+0.016119999811053276
+]
+],
+"positions": 742836,
+"normals": 756060,
+"indices": 762672
+},
+{
+"id": "MK-oocyte-zona-pellucida",
+"name": "Oocyte zona pellucida",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 2898,
+"indexCount": 16656,
+"bounds": [
+[
+-0.19982999563217163,
+-0.20000000298023224,
+-0.19972999393939972
+],
+[
+0.19982999563217163,
+0.20000000298023224,
+0.14131000638008118
+]
+],
+"positions": 789072,
+"normals": 823848,
+"indices": 841236
+},
+{
+"id": "MK-oocyte-zona-inner",
+"name": "Oocyte zona inner",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 2738,
+"indexCount": 16188,
+"bounds": [
+[
+-0.16485999524593353,
+-0.16500000655651093,
+-0.16478000581264496
+],
+[
+0.16485999524593353,
+0.16500000655651093,
+0.11658000200986862
+]
+],
+"positions": 907860,
+"normals": 940716,
+"indices": 957144
+},
+{
+"id": "MK-oocyte-cytoplasm",
+"name": "Oocyte cytoplasm",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 2322,
+"indexCount": 13272,
+"bounds": [
+[
+-0.1627199947834015,
+-0.16300000250339508,
+-0.1627199947834015
+],
+[
+0.1627199947834015,
+0.16300000250339508,
+0.11513999849557877
+]
+],
+"positions": 1021896,
+"normals": 1049760,
+"indices": 1063692
+},
+{
+"id": "MK-oocyte-cytoplasm-inner",
+"name": "Oocyte cytoplasm inner",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 2178,
+"indexCount": 12852,
+"bounds": [
+[
+-0.15873000025749207,
+-0.1589999943971634,
+-0.15873000025749207
+],
+[
+0.15873000025749207,
+0.1589999943971634,
+0.11231999844312668
+]
+],
+"positions": 1116780,
+"normals": 1142916,
+"indices": 1155984
+},
+{
+"id": "MK-oocyte-nucleus",
+"name": "Oocyte nucleus",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 978,
+"indexCount": 5424,
+"bounds": [
+[
+-0.049789998680353165,
+-0.05000000074505806,
+0.006779999937862158
+],
+[
+0.049789998680353165,
+0.05000000074505806,
+0.091839998960495
+]
+],
+"positions": 1207392,
+"normals": 1219128,
+"indices": 1224996
+},
+{
+"id": "MK-oocyte-nucleus-inner",
+"name": "Oocyte nucleus inner",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 882,
+"indexCount": 5148,
+"bounds": [
+[
+-0.04382000118494034,
+-0.04399999976158142,
+0.012749999761581421
+],
+[
+0.04382000118494034,
+0.04399999976158142,
+0.08760999888181686
+]
+],
+"positions": 1246692,
+"normals": 1257276,
+"indices": 1262568
+},
+{
+"id": "MK-oocyte-nucleolus",
+"name": "Oocyte nucleolus",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 182,
+"indexCount": 1080,
+"bounds": [
+[
+-0.014790000393986702,
+-0.010999999940395355,
+0.04177999868988991
+],
+[
+0.014790000393986702,
+0.01899999938905239,
+0.07135999947786331
+]
+],
+"positions": 1283160,
+"normals": 1285344,
+"indices": 1286436
+},
+{
+"id": "MK-oocyte-corona-cells",
+"name": "Oocyte corona cells",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 5200,
+"indexCount": 30720,
+"bounds": [
+[
+-0.22964000701904297,
+-0.21172000467777252,
+-0.22628000378608704
+],
+[
+0.22811999917030334,
+0.21195000410079956,
+0.14841000735759735
+]
+],
+"positions": 1290756,
+"normals": 1353156,
+"indices": 1384356
+},
+{
+"id": "MK-cell-membrane",
+"name": "Cell membrane",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 2898,
+"indexCount": 16656,
+"bounds": [
+[
+-0.20111000537872314,
+-0.19930000603199005,
+-0.20151999592781067
+],
+[
+0.2008800059556961,
+0.20162999629974365,
+0.14372000098228455
+]
+],
+"positions": 1507236,
+"normals": 1542012,
+"indices": 1559400
+},
+{
+"id": "MK-cell-cytoplasm",
+"name": "Cell cytoplasm",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 2738,
+"indexCount": 16188,
+"bounds": [
+[
+-0.18904000520706177,
+-0.18734000623226166,
+-0.18942999839782715
+],
+[
+0.18883000314235687,
+0.18953000009059906,
+0.13510000705718994
+]
+],
+"positions": 1626024,
+"normals": 1658880,
+"indices": 1675308
+},
+{
+"id": "MK-cell-nucleus-envelope",
+"name": "Cell nucleus envelope",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 1466,
+"indexCount": 8244,
+"bounds": [
+[
+-0.07487999647855759,
+-0.07500000298023224,
+-0.004089999943971634
+],
+[
+0.07487999647855759,
+0.07500000298023224,
+0.12366999685764313
+]
+],
+"positions": 1740060,
+"normals": 1757652,
+"indices": 1766448
+},
+{
+"id": "MK-cell-nucleoplasm",
+"name": "Cell nucleoplasm",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 1346,
+"indexCount": 7896,
+"bounds": [
+[
+-0.06689000129699707,
+-0.06700000166893005,
+0.0038900000508874655
+],
+[
+0.06689000129699707,
+0.06700000166893005,
+0.11801999807357788
+]
+],
+"positions": 1799424,
+"normals": 1815576,
+"indices": 1823652
+},
+{
+"id": "MK-cell-nucleolus",
+"name": "Cell nucleolus",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 266,
+"indexCount": 1584,
+"bounds": [
+[
+-0.021779999136924744,
+-0.017000000923871994,
+0.04893000051379204
+],
+[
+0.021779999136924744,
+0.027000000700354576,
+0.09249000251293182
+]
+],
+"positions": 1855236,
+"normals": 1858428,
+"indices": 1860024
+},
+{
+"id": "MK-cell-mitochondria",
+"name": "Cell mitochondria",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 1862,
+"indexCount": 11088,
+"bounds": [
+[
+-0.1163799986243248,
+-0.16574999690055847,
+-0.025930000469088554
+],
+[
+0.06151999905705452,
+0.17377999424934387,
+0.08540000021457672
+]
+],
+"positions": 1866360,
+"normals": 1888704,
+"indices": 1899876
+},
+{
+"id": "MK-cell-golgi",
+"name": "Cell Golgi",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 1450,
+"indexCount": 8640,
+"bounds": [
+[
+-0.02232999913394451,
+-0.10499999672174454,
+0.0342399999499321
+],
+[
+0.0647599995136261,
+-0.039000000804662704,
+0.12133000046014786
+]
+],
+"positions": 1944228,
+"normals": 1961628,
+"indices": 1970328
+},
+{
+"id": "MK-cell-lysosomes",
+"name": "Cell lysosomes",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 780,
+"indexCount": 4608,
+"bounds": [
+[
+-0.1231599971652031,
+-0.12791000306606293,
+-0.04259999841451645
+],
+[
+0.09141000360250473,
+0.04535000026226044,
+0.09395000338554382
+]
+],
+"positions": 2004888,
+"normals": 2014248,
+"indices": 2018928
+},
+{
+"id": "MK-neuron-soma",
+"name": "Neuron soma",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 1234,
+"indexCount": 7392,
+"bounds": [
+[
+-0.06825999915599823,
+-0.060270000249147415,
+-0.07006999850273132
+],
+[
+0.07068999856710434,
+0.058240000158548355,
+0.07006999850273132
+]
+],
+"positions": 2037360,
+"normals": 2052168,
+"indices": 2059572
+},
+{
+"id": "MK-neuron-dendrites",
+"name": "Neuron dendrites",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 6762,
+"indexCount": 39984,
+"bounds": [
+[
+-0.3345299959182739,
+-0.17451000213623047,
+-0.4037800133228302
+],
+[
+0.31641000509262085,
+0.40049999952316284,
+0.30105000734329224
+]
+],
+"positions": 2089140,
+"normals": 2170284,
+"indices": 2210856
+},
+{
+"id": "MK-neuron-axon",
+"name": "Neuron axon",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 1920,
+"indexCount": 11412,
+"bounds": [
+[
+-0.09149999916553497,
+-0.8379999995231628,
+-0.09149999916553497
+],
+[
+0.09149999916553497,
+-0.04842999950051308,
+0.09149999916553497
+]
+],
+"positions": 2370792,
+"normals": 2393832,
+"indices": 2405352
+},
+{
+"id": "MK-neuron-myelin",
+"name": "Neuron myelin",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 852,
+"indexCount": 5040,
+"bounds": [
+[
+-0.048089999705553055,
+-0.6476500034332275,
+-0.03970000147819519
+],
+[
+0.058649998158216476,
+-0.12364999949932098,
+0.049320001155138016
+]
+],
+"positions": 2451000,
+"normals": 2461224,
+"indices": 2466336
+},
+{
+"id": "MK-chromosome-chromatid",
+"name": "Chromosome chromatid",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 3892,
+"indexCount": 23328,
+"bounds": [
+[
+-0.07603999972343445,
+-0.30000001192092896,
+-0.03387000039219856
+],
+[
+0.07603999972343445,
+0.23999999463558197,
+0.03387000039219856
+]
+],
+"positions": 2486496,
+"normals": 2533200,
+"indices": 2556552
+},
+{
+"id": "MK-chromosome-centromere",
+"name": "Chromosome centromere",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 436,
+"indexCount": 2592,
+"bounds": [
+[
+-0.05356999859213829,
+0.014619999565184116,
+-0.03564000129699707
+],
+[
+0.05356999859213829,
+0.07163000106811523,
+0.03564000129699707
+]
+],
+"positions": 2649864,
+"normals": 2655096,
+"indices": 2657712
+},
+{
+"id": "MK-dna-backbone-1",
+"name": "DNA backbone 1",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 2642,
+"indexCount": 15840,
+"bounds": [
+[
+-0.07389000058174133,
+-0.22312000393867493,
+-0.0738999992609024
+],
+[
+0.07399000227451324,
+0.22269999980926514,
+0.07398000359535217
+]
+],
+"positions": 2668080,
+"normals": 2699784,
+"indices": 2715636
+},
+{
+"id": "MK-dna-backbone-2",
+"name": "DNA backbone 2",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 2642,
+"indexCount": 15840,
+"bounds": [
+[
+-0.07399000227451324,
+-0.22312000393867493,
+-0.07398000359535217
+],
+[
+0.07389000058174133,
+0.22269999980926514,
+0.0738999992609024
+]
+],
+"positions": 2778996,
+"normals": 2810700,
+"indices": 2826552
+},
+{
+"id": "MK-dna-base-a",
+"name": "DNA base A",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 324,
+"indexCount": 1728,
+"bounds": [
+[
+-0.05821999907493591,
+-0.1979299932718277,
+-0.05663000047206879
+],
+[
+0.05849999934434891,
+0.19192999601364136,
+0.05860000103712082
+]
+],
+"positions": 2889912,
+"normals": 2893800,
+"indices": 2895744
+},
+{
+"id": "MK-dna-base-t",
+"name": "DNA base T",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 324,
+"indexCount": 1728,
+"bounds": [
+[
+-0.05849999934434891,
+-0.1979299932718277,
+-0.05860000103712082
+],
+[
+0.05821999907493591,
+0.19192999601364136,
+0.05663000047206879
+]
+],
+"positions": 2902656,
+"normals": 2906544,
+"indices": 2908488
+},
+{
+"id": "MK-dna-base-g",
+"name": "DNA base G",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 216,
+"indexCount": 1152,
+"bounds": [
+[
+-0.05761000141501427,
+-0.2117300033569336,
+-0.058329999446868896
+],
+[
+0.05785999819636345,
+0.20573000609874725,
+0.0581899993121624
+]
+],
+"positions": 2915400,
+"normals": 2917992,
+"indices": 2919288
+},
+{
+"id": "MK-dna-base-c",
+"name": "DNA base C",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 216,
+"indexCount": 1152,
+"bounds": [
+[
+-0.05785999819636345,
+-0.2117300033569336,
+-0.0581899993121624
+],
+[
+0.05761000141501427,
+0.20573000609874725,
+0.058329999446868896
+]
+],
+"positions": 2923896,
+"normals": 2926488,
+"indices": 2927784
+},
+{
+"id": "MK-bacterium-rod",
+"name": "Bacterium rod",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 2114,
+"indexCount": 12672,
+"bounds": [
+[
+-0.17000000178813934,
+-0.05999999865889549,
+-0.05999999865889549
+],
+[
+0.17000000178813934,
+0.05999999865889549,
+0.05999999865889549
+]
+],
+"positions": 2932392,
+"normals": 2957760,
+"indices": 2970444
+},
+{
+"id": "MK-bacterium-flagella",
+"name": "Bacterium flagella",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 5136,
+"indexCount": 30720,
+"bounds": [
+[
+-0.5128999948501587,
+-0.167930006980896,
+-0.17071999609470367
+],
+[
+0.1039699986577034,
+0.16962000727653503,
+0.16798999905586243
+]
+],
+"positions": 3021132,
+"normals": 3082764,
+"indices": 3113580
+},
+{
+"id": "MK-coccus",
+"name": "Coccus",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 17976,
+"indexCount": 107520,
+"bounds": [
+[
+-0.158610001206398,
+-0.16118000447750092,
+-0.16076000034809113
+],
+[
+0.16124999523162842,
+0.241239994764328,
+0.16283999383449554
+]
+],
+"positions": 3236460,
+"normals": 3452172,
+"indices": 3560028
+},
+{
+"id": "MK-virus-envelope",
+"name": "Virus envelope",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 1562,
+"indexCount": 9360,
+"bounds": [
+[
+-0.0998699963092804,
+-0.10000000149011612,
+-0.0998699963092804
+],
+[
+0.0998699963092804,
+0.10000000149011612,
+0.0998699963092804
+]
+],
+"positions": 3990108,
+"normals": 4008852,
+"indices": 4018224
+},
+{
+"id": "MK-virus-spike",
+"name": "Virus spike",
+"system": "micro",
+"chunk": 0,
+"vertexCount": 7560,
+"indexCount": 44064,
+"bounds": [
+[
+-0.18366000056266785,
+-0.18091000616550446,
+-0.18153999745845795
+],
+[
+0.1804800033569336,
+0.18091000616550446,
+0.1827400028705597
+]
+],
+"positions": 4055664,
+"normals": 4146384,
+"indices": 4191744
+}
+]
+}

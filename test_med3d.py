@@ -24,7 +24,7 @@ from lxml import etree
 
 from services.med3d import available_scenes, load_scene
 from services.med3d import glb
-from services.med3d.camera import Camera
+from services.med3d.camera import Camera, IdBuffer
 from services.med3d.deck import DEMO_PLAN, W, H, build
 
 NS = {"p": "http://schemas.openxmlformats.org/presentationml/2006/main",
@@ -77,6 +77,17 @@ check("rotx=70: jag' yuqoridan — kesuv tishlar pastda, oziq tishlar tepada", f
 u0, v0, u1, v1 = cam.extent([p for g in scene["groups"].values() for p in g["samples"]], (0, 0, 0))
 check("butun model ramka ichida", -0.5 < u0 < u1 < 0.5 and -0.5 < v0 < v1 < 0.5, (u0, v0, u1, v1))
 
+print("4) Mayda yorliq koordinatasi")
+tiny_xy = np.array([(6.0 + x, 3.0 + y) for x in (0, 0.019, 0.038) for y in (0, 0.012, 0.024)])
+tiny_layers = [(('scene', 'tiny'), tiny_xy[:, 0], tiny_xy[:, 1], np.ones(len(tiny_xy)))]
+coarse_anchor = IdBuffer(tiny_layers, W, H, dpi=40).anchor(('scene', 'tiny'))
+precise_anchor = IdBuffer(tiny_layers, W, H, dpi=80).anchor(('scene', 'tiny'))
+check("yuqori aniqlikdagi z-buffer mayda organ yorlig'ini topadi",
+      coarse_anchor is None and precise_anchor is not None, (coarse_anchor, precise_anchor))
+check("mayda yorliq uchi aniq koordinataga yaqin",
+      precise_anchor is not None and abs(precise_anchor[0] - 6.019) < 1 / 80
+      and abs(precise_anchor[1] - 3.012) < 1 / 80, precise_anchor)
+
 print("4) PPTX")
 out = os.path.join(tempfile.mkdtemp(), "skull.pptx")
 build(DEMO_PLAN, out)
@@ -124,6 +135,10 @@ check("3-slayd: qismlar qayta birlashadi (yon ko'rinish)",
       f3["!!m3d_cranium"] == f3["!!m3d_mandible"] and f3["!!m3d_cranium"]["rot"][1] == 90)
 check("Morph 1-slaydda yo'q, 2- va 3-slaydda bor",
       not root1.findall(".//p159:morph", NS) and root2.findall(".//p159:morph", NS) and root3.findall(".//p159:morph", NS))
+connector_names = [{n for n in root.xpath(".//p:cNvPr/@name", namespaces=NS)
+                    if n.endswith(("_line", "_dot"))} for root in (root1, root2, root3)]
+check("Morph paytida ko'rsatkich chiziqlari organ ustida sirg'almaydi",
+      all(not connector_names[i] & connector_names[i + 1] for i in range(len(connector_names) - 1)))
 order = [(etree.QName(el).localname, (el.xpath("./*/p:cNvPr/@name|.//p:cNvPr/@name", namespaces=NS) or [""])[0])
          for el in root1.find(".//p:spTree", NS)]
 models_at = [i for i, (kind, _) in enumerate(order) if kind == "AlternateContent"]

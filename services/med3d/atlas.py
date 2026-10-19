@@ -10,7 +10,7 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 
-from . import ZA_DIR
+from . import MICRO_DIR, ZA_DIR
 
 
 class Atlas:
@@ -23,6 +23,7 @@ class Atlas:
             for name in sorted(os.listdir(ZA_DIR)):
                 if name.startswith("atlas-za") and name.endswith(".json"):
                     self._merge(os.path.join(ZA_DIR, name))
+        self._merge(os.path.join(MICRO_DIR, "atlas-mikro.json"))
         # BodyParts3D bitta a'zoni bir nechta bo'lakka bo'ladi (masalan "Proximal part of ileum" — o'nlab
         # bo'lak): nom bo'yicha hammasi olinadi. Aniq bitta bo'lak kerak bo'lsa — uning id si ("FJ2823").
         self.by_name: Dict[str, List[dict]] = {}

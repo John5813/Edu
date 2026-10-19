@@ -237,6 +237,11 @@ for i in range(1, slide_files + 1):
         sizes.append(int(gf.find("p:xfrm/a:ext", NS).get("cx")) / 914400)
         models.append(gf.find(".//p:cNvPr", NS).get("name"))
 check("3D ramkalar MAX_FRAME dan oshmaydi", max(sizes) <= MAX_FRAME + 1e-3, max(sizes))
+from services.med3d.deck import fit_frame
+small_focus = np.array([[-0.1, -0.1, 0], [0.1, -0.1, 0], [-0.1, 0.1, 0], [0.1, 0.1, 0]])
+closeup = fit_frame(Camera([-1, -1, -1], [1, 1, 1]), small_focus, (0, 0, 0),
+                    (7.05, 0.6, 4.2, 6.3))
+check("mayda fokus oldingi 26 dyuym limitidan kattaroq ko'rinadi", 26 < closeup.size <= MAX_FRAME, closeup.size)
 check("model nomlari Morph uchun (!!m3d_...)", all(m.startswith("!!m3d_") for m in models), models[:4])
 glbs = [n for n in names if n.endswith(".glb")]
 check("bir xil GLB bitta faylda (fayl soni < model soni)", 0 < len(glbs) < len(models), (len(glbs), len(models)))
@@ -296,6 +301,40 @@ check("uslub ochiq fonda: atlas (krem fon)", "F6F1E7" in xmls[0], xmls[0][:200])
 from services.med3d import deck as med3d_deck_q
 check("sifat nazorati: yorliq va model matnga tegmaydi, yorliqlar ustma-ust emas",
       not [x for _, x in med3d_deck_q.LAST_QUALITY if x], [x for _, x in med3d_deck_q.LAST_QUALITY if x][:2])
+
+print("4c) Mikro dunyo: hujayra, qon tanachalari, bakteriya, virus, DNK...")
+from services.med3d.lugat import MICRO
+micro_ids = list(MICRO)
+check("14 ta mikro organ, ikkala tanada ham bor", len(micro_ids) == 14
+      and all(o in MALE and o in FEMALE for o in micro_ids), [o for o in micro_ids if o not in MALE])
+sizes = {o: max(np.array(MALE[o]["max"]) - np.array(MALE[o]["min"])) for o in micro_ids}
+check("mikro modellar ko'rinadigan o'lchamda (0.1–1.5 m), mayda emas", all(0.1 < v < 1.5 for v in sizes.values()),
+      {o: round(float(v), 3) for o, v in sizes.items() if not 0.1 < v < 1.5})
+mixed = auto.normalize({"anatomy": True, "body": "male", "slides": [
+    {"title": "a", "text": "b", "show": ["qon_hujayralari", "yurak"], "labels": ["leykotsit", "yurak"]},
+    {"title": "a", "text": "b", "show": ["neyron", "dnk", "virus"], "labels": ["neyron", "dnk"]},
+    {"title": "a", "text": "b", "show": ["jinsiy_hujayralar", "bakteriya_kokk"]}]}, 3, "uz")["slides"]
+check("mikro model tana organi bilan aralashmaydi, guruh a'zolariga ochiladi",
+      mixed[0]["show"] == ["eritrotsit", "leykotsit", "trombotsit"] and mixed[0]["labels"] == ["leykotsit"], mixed[0])
+check("bir slaydda faqat bitta mikro tokcha (aks holda kadr kichrayadi)",
+      mixed[1]["show"] == ["neyron"] and mixed[2]["show"] == ["spermatozoid", "tuxum_hujayra"],
+      (mixed[1]["show"], mixed[2]["show"]))
+micro_plan = {"body": "male", "names": {}, "slides": [
+    {"title": "Qon", "text": "t", "show": ["eritrotsit", "leykotsit", "trombotsit"], "focus": None,
+     "labels": ["eritrotsit", "leykotsit"], "rot": [0, 0, 0], "exit": "up"},
+    {"title": "Eritrotsit", "text": "t", "show": ["eritrotsit"], "focus": ["eritrotsit"], "labels": ["eritrotsit"],
+     "rot": [0, 20, 0], "exit": "up"},
+    {"title": "Hujayra", "text": "t", "show": ["hayvon_hujayrasi"], "focus": None, "labels": ["hayvon_hujayrasi"],
+     "rot": [0, 40, 0], "exit": "up"}]}
+micro_path = auto.make_deck("Qon hujayralari", micro_plan, tempfile.mkdtemp(), atlas=FakeAtlas(MALE))
+micro_zip = zipfile.ZipFile(micro_path)
+micro_notes = Presentation(micro_path).slides[0].notes_slide.notes_text_frame.text
+check("mikro taqdimot yig'iladi, manba — o'zimiz yasagan modellar (BodyParts3D emas)",
+      "original" in micro_notes and "BodyParts3D" not in micro_notes, micro_notes)
+micro_frames = [int(g.find("p:xfrm/a:ext", NS).get("cx")) / 914400 for i in range(1, 4)
+                for g in etree.fromstring(micro_zip.read(f"ppt/slides/slide{i}.xml")).iterfind(".//p:graphicFrame", NS)]
+check("mikro slaydlarda 3D ramka MAX_FRAME dan oshmaydi", micro_frames and max(micro_frames) <= MAX_FRAME + 1e-3,
+      max(micro_frames or [0]))
 
 print("5) Bot: tugma → ogohlantirish → Ha / Yo'q")
 from aiogram.fsm.context import FSMContext

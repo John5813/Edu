@@ -46,9 +46,11 @@ TEXT_BOX = (0.65, 0.75, 4.35)                  # x, y, eni — chapdagi matn ust
 MODEL_REGION = (7.05, 0.6, 4.2, 6.3)           # yorliqlar bo'lsa: ikki yonida yorliq ustunlari
 MODEL_REGION_WIDE = (5.4, 0.45, 7.5, 6.6)      # yorliqsiz slayd: model kattaroq
 FILL = 0.9
-# 3D ramka tomoni (dyuym) — bundan katta ramkani PowerPoint juda katta tasvir sifatida chizadi
-# (sekin va xira bo'lishi mumkin). Mayda organ uchun alohida, kichikroq sahna ishlatiladi.
-MAX_FRAME = 26.0
+# 3D ramka tomoni (dyuym) — PowerPoint juda katta ramkani sekinroq chizishi mumkin.
+# Mayda organlarga yaqin plan berish uchun limit 40 dyuymgacha.
+MAX_FRAME = 40.0
+SCENE_FRAME_LIMIT = 26.0
+LABEL_DPI = 80
 LABEL_H, LABEL_GAP, LABEL_MAX_W = 0.36, 0.5, 3.0
 LABEL_H2, LABEL_GAP2 = 0.54, 0.66              # ikki qatorli yorliq: o'zbekcha nom + lotincha nom
 HIDDEN_SHARE = 0.08                            # organ yuzasining shundan kami ko'rinsa — yorliq qo'yilmaydi
@@ -373,7 +375,7 @@ def _labels(cam: Camera, scene: dict, frame: Frame, keys: Sequence[str], visible
                 uv, z = cam.project(pts, frame.rot)
                 layers.append(((g, organ), frame.cx + gx + uv[:, 0] * frame.size,
                                frame.cy + gy + uv[:, 1] * frame.size, z))
-        buf = IdBuffer(layers, W, H)
+        buf = IdBuffer(layers, W, H, dpi=LABEL_DPI)
     for key in keys:
         info = known.get(key)
         if not info or info["group"] not in visible:
@@ -851,7 +853,9 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
         slide = prs.slides.add_slide(blank)
         design.background(slide, st)
         groups = scene["groups"]
-        vis_points = [p for g in show for p in groups[g]["samples"]]
+        vis_points = [p for g in show for _, surface in groups[g].get("surface", ()) for p in surface]
+        if not vis_points:
+            vis_points = [p for g in show for p in groups[g]["samples"]]
         u0, v0, u1, v1 = cam.extent(vis_points, frame.rot)
         model_box = (*frame.to_slide(u0, v0), *frame.to_slide(u1, v1))
         variant = data.get("deco") if data.get("deco") is not None else seed * 31 + index
@@ -899,7 +903,8 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
         steps, fly = [], []
         for i, (lkey, item) in enumerate(placed_labels):
             drawn = _draw_label(slide, st, lkey, item)
-            extras = _connector(slide, st, lkey, item["start"], item.get("tip") or (item["ax"], item["ay"]),
+            extras = _connector(slide, st, f"{lkey}_slide{index + 1}", item["start"],
+                                item.get("tip") or (item["ax"], item["ay"]),
                                 item.get("alert", False), item.get("hidden", False))
             delay = 250 + (i // 3) * 220
             if index:                                # kartochka Morph bilan yon tomondan suzib keladi

@@ -26,7 +26,7 @@ from . import ASSETS_DIR, manba
 from .camera import Camera, sides
 from .catalog import srgb
 from .glb import Primitive, write_glb
-from .lugat import BONE, BY_ID, CARTILAGE, MUSCLE, ORGANS, SOURCES, SUPPORT, TOOTH
+from .lugat import BONE, BY_ID, CARTILAGE, MICRO, MUSCLE, ORGANS, SOURCES, SUPPORT, TOOTH
 from .simplify import simplify
 from . import ao
 
@@ -66,6 +66,8 @@ LEXICON = os.path.join(ASSETS_DIR, "lugat.json")
 CONTACT = 0.015                  # metr: organlar shu masofadan yaqin bo'lsa — tegib turibdi, bir-biriga soya tushiradi
 HARD = (BONE, TOOTH, CARTILAGE)
 WRAPPERS = {"skelet", "mushaklar", "teri", "arteriyalar", "venalar"}   # butun tana bo'ylab tizimlar
+# Mikro guruh organi (qon hujayralari) a'zolariga ochiladi: har hujayra alohida yorliq oladi.
+MICRO_UNION = {o: BY_ID[o]["union"] for o in MICRO if BY_ID[o].get("union")}
 
 
 class NotAnatomy(RuntimeError):
@@ -126,7 +128,9 @@ RULES
    physics, chemistry, technology, animals, plants, sport results...). Human organs, bones, muscles, body systems,
    their functions, and diseases/physiology of human organs ARE anatomy (show the organs involved).
    Also "anatomy": false when the topic IS about the body but the ORGANS table has nothing that shows it (e.g.
-   cells, tissues under a microscope, blood tests, genetics, the retina in detail): the 3D atlas cannot show it.
+   tissues under a microscope, blood tests, hormones as molecules, the retina in detail): the 3D atlas cannot show it.
+   The table also has MICROSCOPIC models (cell with organelles, blood cells, sperm and egg cells, neuron, chromosome,
+   DNA, bacteria, virus): topics about them (cell biology, blood, fertilisation, genetics, microbiology) ARE allowed.
    When false: "reason" = one polite sentence in the presentation language, "slides" = [].
 2. Use ONLY organ ids from the ORGANS table and ONLY ones available for the chosen body.
    body = "female" for female-only organs (uterus, ovaries, placenta, mammary gland) and when it has organs the
@@ -182,6 +186,12 @@ RULES
 14. "side" = "right" for topics about one limb or joint (shoulder, elbow, wrist, hand, hip, knee, ankle, foot,
    their muscles and diseases): only the right side is shown, so the camera can come close to one joint.
    Otherwise null.
+17. Microscopic models (eritrotsit, leykotsit, trombotsit, qon_hujayralari, spermatozoid, tuxum_hujayra,
+   jinsiy_hujayralar, hayvon_hujayrasi, neyron, xromosoma, dnk, bakteriya_tayoqcha, bakteriya_kokk, virus) are drawn
+   enlarged and stand on their own shelf, far from the body: NEVER mix them with body organs or with microscopic
+   models of another shelf on one slide. A shelf is: blood cells (eritrotsit, leykotsit, trombotsit, qon_hujayralari);
+   gametes (spermatozoid, tuxum_hujayra, jinsiy_hujayralar); every other microscopic model is alone. Slides that
+   zoom from the body to its cells should alternate: a body slide, then the cell slide of that organ's tissue.
 """
 
 USER = """Topic: {topic}
@@ -201,8 +211,9 @@ The presentation can show ONLY the 3D organ models listed below (real human anat
 
 Return ONLY JSON: {"ok": true | false, "kind": "anatomy" | "disease", "reason": "", "organs": ["<id>", ...]}
 - "ok": false when the topic is not about the human body (history, economics, physics, animals, plants...), or it
-  is about the body but these models cannot show it (cells, tissues under a microscope, blood tests, genetics,
-  hormones as molecules, psychology, the retina in detail...). Otherwise true.
+  is about the body but these models cannot show it (tissues under a microscope, blood tests, hormones as
+  molecules, psychology, the retina in detail...). Cells, blood cells, sperm and egg cells, neurons, chromosomes,
+  DNA, bacteria and viruses CAN be shown (listed below). Otherwise true.
 - "kind": "disease" for a disease, injury or condition (rotator cuff tear, infarction, hernia, gastritis...),
   otherwise "anatomy".
 - "reason" (only when ok is false): one short polite sentence in the client's language saying why 3D is not
@@ -343,7 +354,7 @@ def normalize(data: dict, count: int, language: str) -> dict:
     slides = []
     for s in raw[:count]:
         show: List[str] = []
-        for organ in s.get("show") or []:
+        for organ in [m for o in s.get("show") or [] for m in MICRO_UNION.get(o, [o])]:
             if organ not in have or organ in show:
                 continue
             if any(organ in contains.get(o, ()) or o in contains.get(organ, ()) for o in show):
@@ -351,6 +362,9 @@ def normalize(data: dict, count: int, language: str) -> dict:
             show.append(organ)
         if "teri" in show and len(show) > 1:
             show = [o for o in show if o != "teri"]
+        micro = [o for o in show if o in MICRO]
+        if micro:                                 # mikro model tokchasi tanadan uzoqda: faqat bitta tokcha
+            show = [o for o in show if MICRO.get(o) == MICRO[micro[0]]]
         show = show[:MAX_SHOW]
         if not show:
             show = list(slides[-1]["show"]) if slides else []
@@ -516,7 +530,7 @@ def reveal_hidden(body: dict, slides: List[dict]) -> None:
 
 def split_runs(body: dict, slides: List[dict]) -> List[Tuple[List[int], np.ndarray, np.ndarray]]:
     """Slaydlarni sahnalarga bo'ladi: sahna ichida hamma slaydning 3D ramkasi MAX_FRAME dan oshmasin."""
-    from .deck import MAX_FRAME, MODEL_REGION, MODEL_REGION_WIDE, fit_frame
+    from .deck import SCENE_FRAME_LIMIT, MODEL_REGION, MODEL_REGION_WIDE, fit_frame
 
     def fits(lo, hi, members) -> bool:
         cam = Camera(lo, hi)
@@ -527,7 +541,7 @@ def split_runs(body: dict, slides: List[dict]) -> List[Tuple[List[int], np.ndarr
             u0, v0, u1, v1 = cam.extent(points, s["rot"])
             rx, ry, rw, rh = region
             need = min(rw * 0.9 / max(u1 - u0, 1e-6), rh * 0.9 / max(v1 - v0, 1e-6))
-            if need > MAX_FRAME:
+            if need > SCENE_FRAME_LIMIT:
                 return False
         return True
 
@@ -876,7 +890,8 @@ def build_scenes(body_key: str, plan_: dict, atlas=None, quality: float = 1.0) -
                                                       whole_points=[p for o in show if o not in support
                                                                     for p in body[o]["samples"]] if support else None,
                                                       labels=[f"{gid}:{o}" for o in slides[i]["labels"] if o in show])))
-        source = SOURCES[body_key]
+        part_ids = [pid for o in organs for pid in body[o]["parts"]]
+        source = SOURCES["mikro"] if all(pid.startswith("MK-") for pid in part_ids) else SOURCES[body_key]
         if any(pid.startswith("ZA-") for o in organs for pid in body[o]["parts"]):
             source += "; " + SOURCES["zanatomy"]
         scenes[key] = {"bbox_min": lo.tolist(), "bbox_max": hi.tolist(), "source": source,

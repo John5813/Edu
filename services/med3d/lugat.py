@@ -33,6 +33,7 @@ _ZA = "za-muscular:" + _LR
 _ZO = "za-organ:"
 _ZN = "za-nervous:"
 _ZJ = "za-joint:"   # Z-Anatomy boylamlari: nomda [bo'g'im] — "Left anterior cruciate ligament [Knee joint]"
+_MK = "micro:"      # o'zimiz yasagan mikro modellar (`tools/med3d_mikro.py`)
 _SOFT = [(r"meniscus|disc|labrum|symphysis|fat pad", CARTILAGE)]
 
 ORGANS: List[Dict] = [
@@ -565,6 +566,49 @@ ORGANS: List[Dict] = [
     dict(id="qorin_devori_mushaklari", uz="Qorin devori mushaklari", en="Muscles of the abdominal wall", color=MUSCLE,
          union=["qorin_mushaklari", "qorin_togri_mushagi", "qorin_kondalang_mushagi", "piramidasimon_mushak",
                 "bel_kvadrat_mushagi"]),
+
+    # ── Mikro dunyo: o'zimiz yasagan modellar (`tools/med3d_mikro.py`), ikkala tanada bir xil. `micro` — guruh:
+    # bir slaydda faqat bir guruh (modellar tokchada yonma-yon; boshqa guruh ustma-ust tushadi, tana organlari uzoqda).
+    dict(id="eritrotsit", micro="qon", uz="Eritrotsit (qizil qon tanachasi)", en="Red blood cell (erythrocyte)",
+         color="#C62F39", m=[_MK + "^Erythrocyte$"], f=[_MK + "^Erythrocyte$"]),
+    dict(id="leykotsit", micro="qon", uz="Leykotsit (oq qon tanachasi)", en="White blood cell (neutrophil)",
+         color="#F0E3EA", m=[_MK + "^Leukocyte "], f=[_MK + "^Leukocyte "],
+         tones=[("cytoplasm", "#D9B8CC"), ("nucleus", "#5B3F9E"), ("granules", "#C46DA8")]),
+    dict(id="trombotsit", micro="qon", uz="Trombotsit (qon plastinkasi)", en="Platelet (thrombocyte)",
+         color="#D7A3CF", m=[_MK + "^Platelet$"], f=[_MK + "^Platelet$"]),
+    dict(id="qon_hujayralari", micro="qon", uz="Qon hujayralari", en="Blood cells (erythrocyte, leukocyte, platelet)",
+         color="#C62F39", union=["eritrotsit", "leykotsit", "trombotsit"]),
+    dict(id="spermatozoid", micro="jinsiy", uz="Spermatozoid (erkak urug' hujayrasi)", en="Sperm cell (spermatozoon)",
+         color="#E6E0D2", m=[_MK + "^Sperm "], f=[_MK + "^Sperm "],
+         tones=[("acrosome", "#7FAEE0"), ("midpiece", "#D9963C"), ("tail", "#ECE6D8")]),
+    dict(id="tuxum_hujayra", micro="jinsiy", uz="Tuxum hujayra (ootsit)", en="Egg cell (oocyte)",
+         color="#F2E3B8", m=[_MK + "^Oocyte "], f=[_MK + "^Oocyte "],
+         tones=[("nucleolus", "#3B2A78"), ("nucleus", "#6A55B0"), ("cytoplasm", "#F1B9A0"),
+                ("corona", "#E8A0B4")]),
+    dict(id="jinsiy_hujayralar", micro="jinsiy", uz="Jinsiy hujayralar (gametalar)",
+         en="Gametes (sperm cell and egg cell)", color="#E6E0D2", union=["spermatozoid", "tuxum_hujayra"]),
+    dict(id="hayvon_hujayrasi", micro="hayvon_hujayrasi", uz="Hujayra (organoidlari bilan)",
+         en="Animal cell with organelles (nucleus, mitochondria, Golgi apparatus)", color="#E8B7A5",
+         m=[_MK + "^Cell "], f=[_MK + "^Cell "],
+         tones=[("cytoplasm", "#F4D9C6"), ("nucleolus", "#3E2F73"), ("nucleus|nucleoplasm", "#6C5BA8"),
+                ("mitochondria", "#E0623B"), ("Golgi", "#E3B23C"), ("lysosomes", "#7BB661")]),
+    dict(id="neyron", micro="neyron", uz="Neyron (nerv hujayrasi)", en="Neuron (nerve cell)", color="#D69AB8",
+         m=[_MK + "^Neuron "], f=[_MK + "^Neuron "],
+         tones=[("dendrites", "#E6B8D0"), ("axon", "#E8C45B"), ("myelin", "#F4EAD0")]),
+    dict(id="xromosoma", micro="xromosoma", uz="Xromosoma", en="Chromosome (two chromatids)", color="#5C6BC0",
+         m=[_MK + "^Chromosome "], f=[_MK + "^Chromosome "], tones=[("centromere", "#F2A93B")]),
+    dict(id="dnk", micro="dnk", uz="DNK qo'sh spirali", en="DNA double helix", color="#3F7CD8",
+         m=[_MK + "^DNA "], f=[_MK + "^DNA "],
+         tones=[("backbone 2", "#D8493F"), ("base A", "#E8C53F"), ("base T", "#E8693F"),
+                ("base G", "#4FB36B"), ("base C", "#3FA9D8")]),
+    dict(id="bakteriya_tayoqcha", micro="bakteriya_tayoqcha", uz="Tayoqcha shaklidagi bakteriya (xivchinli)",
+         en="Rod-shaped bacterium (bacillus) with flagella", color="#7FB069",
+         m=[_MK + "^Bacterium "], f=[_MK + "^Bacterium "], tones=[("flagella", "#C9C08A")]),
+    dict(id="bakteriya_kokk", micro="bakteriya_kokk", uz="Kokk shaklidagi bakteriyalar (stafilokokk)",
+         en="Coccus bacteria (staphylococcus cluster)", color="#D9B64A",
+         m=[_MK + "^Coccus$"], f=[_MK + "^Coccus$"]),
+    dict(id="virus", micro="virus", uz="Virus (koronavirus)", en="Virus (coronavirus)", color="#9AA4B5",
+         m=[_MK + "^Virus "], f=[_MK + "^Virus "], tones=[("spike", "#D9534F")]),
 ]
 
 # Lotincha nom (Terminologia Anatomica): tibbiyotda a'zolar lotincha ataladi — yorliqda o'zbekcha nom ostida.
@@ -696,11 +740,18 @@ LATIN = {
     "tanglay_murtagi": "Tonsilla palatina", "qorin_togri_mushagi": "Musculus rectus abdominis",
     "qorin_kondalang_mushagi": "Musculus transversus abdominis", "piramidasimon_mushak": "Musculus pyramidalis",
     "bel_kvadrat_mushagi": "Musculus quadratus lumborum", "qorin_devori_mushaklari": "Musculi abdominis",
+    "eritrotsit": "Erythrocytus", "leykotsit": "Leucocytus neutrophilicus", "trombotsit": "Thrombocytus",
+    "qon_hujayralari": "Cellulae sanguinis", "spermatozoid": "Spermatozoon", "tuxum_hujayra": "Ovocytus",
+    "jinsiy_hujayralar": "Gametae", "hayvon_hujayrasi": "Cellula", "neyron": "Neuronum",
+    "xromosoma": "Chromosoma", "dnk": "Acidum deoxyribonucleicum", "bakteriya_tayoqcha": "Bacillus",
+    "bakteriya_kokk": "Staphylococcus", "virus": "Virus",
 }
 for _organ in ORGANS:
     _organ["la"] = LATIN[_organ["id"]]
 
 BY_ID = {o["id"]: o for o in ORGANS}
+# Mikro dunyo guruhi: bir slaydda faqat bitta guruh organlari bo'ladi (`auto.normalize`).
+MICRO = {o["id"]: o["micro"] for o in ORGANS if o.get("micro")}
 # Boylam va bo'g'im a'zolari: ular ikki suyakni bog'laydi — portlashda suyaklar ajralsa boylam "uziladi",
 # shuning uchun bunday slaydlarda portlash qilinmaydi (`director.direct`).
 JOINT_IDS = {o["id"] for o in ORGANS if any(r.startswith(_ZJ) for r in o.get("m", []))} | {"boylamlar", "umurtqa_disklari"}
@@ -721,4 +772,5 @@ SOURCES = {
     "male": "BodyParts3D 4.0 (DBCLS), CC BY 4.0",
     "female": "Human Reference Atlas v1.10 (HuBMAP; NLM Visible Human), CC BY 4.0",
     "zanatomy": "Z-Anatomy, CC BY-SA 4.0",
+    "mikro": "Edufayl mikro modellari (original, kodda yasalgan)",
 }
