@@ -1,4 +1,4 @@
-"""Bitta "Taqdimot" tugmasi: mavzu → ism → AI ga tushuntirish → manba → uslub → (matn hajmi) → hajm.
+"""Taqdimot va alohida 3D Anatomiya tugmalari hamda ularning buyurtma oqimi.
 Hajm bosqichida narxlar tanlangan uslubga qarab va mijoz balansi bilan ko'rsatiladi.
 
 Zamonaviy uslublarda keyin matn hajmi (ko'p yoki kam matnli), "Chiroyli orqa fonlar" tanlansa hozirgi
@@ -23,6 +23,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
 from aiogram.fsm.storage.memory import MemoryStorage
 from bot.handlers import premium_presentation as pp
+from bot.keyboards import get_main_keyboard
 import config
 config.ADMIN_IDS = [1]          # soxta suhbat foydalanuvchisi (id=1) — admin: 3D Pro ochiq
 from bot.states import DocumentStates, PremiumPresentationStates as PS
@@ -95,14 +96,17 @@ async def to_count(kind, topic="Ekologiya asoslari", db=None):
 async def full_flow():
     chat, db, state = Chat(), make_db(), await new_state()
 
-    # 1. Taqdimot turi — birinchi savol (mavzudan oldin), faqat tugmalar
+    # 1. Taqdimot katalogi — 3D Anatomiya alohida asosiy tugmaga ko'chirilgan
+    main_labels = [button.text for row in get_main_keyboard("uz").keyboard for button in row]
+    med3d_label = pp.MED3D_ENTRY_TEXTS[0]
+    check("asosiy menyuda alohida 3D Anatomiya tugmasi bor", med3d_label in main_labels, main_labels)
     await pp.premium_presentation_start(chat.message("🌟 Taqdimot"), state, db)
     check("1-qadam: tur so'raladi (mavzudan oldin)", await state.get_state() == PS.waiting_for_kind.state,
           await state.get_state())
     text, markup = chat.last()[1], chat.last()[2]
     kind_cbs = [b.callback_data for b in buttons(markup) if b.callback_data and b.callback_data.startswith("prem_ppt_kind:")]
-    check("to'rt tur: 3D Anatomiya, infografik, zamonaviy, klassik (3D Pro olib tashlangan)",
-          kind_cbs == ["prem_ppt_kind:med3d", "prem_ppt_kind:info", "prem_ppt_kind:modern", "prem_ppt_kind:classic"],
+    check("taqdimot ichida 3D Anatomiya yo'q, qolgan uch tur bor",
+          kind_cbs == ["prem_ppt_kind:info", "prem_ppt_kind:modern", "prem_ppt_kind:classic"],
           kind_cbs)
     check("tur tugmalari nomlangan", any("Infografik" in b.text for b in buttons(markup))
           and any("Klassik" in b.text for b in buttons(markup)) and any("Zamonaviy" in b.text for b in buttons(markup))
@@ -282,6 +286,27 @@ async def full_flow():
     await pp.premium_ppt_previous(callback(chat5, "prem_ppt_prev"), state5, db)
     check("fayl so'rovidan orqaga: manba tanlovi", await state5.get_state() == PS.waiting_for_source_kind.state)
 
+async def med3d_main_button():
+    """Asosiy menyudagi 3D tugmasi bevosita anatomiya oqimini boshlaydi."""
+    chat, db, state = Chat(), make_db(), await new_state()
+    main_labels = [button.text for row in get_main_keyboard("uz").keyboard for button in row]
+    med3d_label = pp.MED3D_ENTRY_TEXTS[0]
+    check("asosiy menyuda alohida 3D Anatomiya tugmasi bor", med3d_label in main_labels, main_labels)
+    await pp.premium_presentation_start(chat.message(med3d_label), state, db)
+    check("3D tugmasi bevosita tana tuzilishi ogohlantirishini ochadi",
+          await state.get_state() == PS.waiting_for_kind.state
+          and "3D Anatomiya" in chat.last()[1]
+          and [b.callback_data for b in buttons(chat.last()[2])] == ["prem_med3d:ha", "prem_med3d:yoq"])
+    await pp.premium_med3d_answer(callback(chat, "prem_med3d:ha"), state, db)
+    check("ogohlantirish tasdiqlansa 3D mavzusi so'raladi",
+          await state.get_state() == PS.waiting_for_topic_text.state
+          and (await state.get_data()).get("kind") == pp.KIND_MED3D)
+    await pp.premium_ppt_previous(callback(chat, "prem_ppt_prev"), state, db)
+    check("3D mavzusidan orqaga qaytganda 3D ogohlantirishi qayta ochiladi",
+          await state.get_state() == PS.waiting_for_kind.state
+          and "3D Anatomiya" in chat.last()[1]
+          and [b.callback_data for b in buttons(chat.last()[2])] == ["prem_med3d:ha", "prem_med3d:yoq"])
+
 async def pro3d_removed():
     """3D Pro menyudan olib tashlangan: tugma yo'q, eski xabardagi tugma bosilsa — turlar qayta ko'rsatiladi."""
     print("\n3D Pro — menyuda yo'q")
@@ -299,6 +324,7 @@ async def pro3d_removed():
 
 
 asyncio.run(full_flow())
+asyncio.run(med3d_main_button())
 asyncio.run(pro3d_removed())
 
 print("\n" + ("✅ hammasi o'tdi" if not FAILS else f"❌ {len(FAILS)} ta xato: {FAILS}"))

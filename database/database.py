@@ -166,6 +166,28 @@ async def init_db():
             )
         """)
 
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS med3d_promocodes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                code TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                discount_percent INTEGER NOT NULL CHECK (discount_percent BETWEEN 10 AND 100),
+                usage_limit INTEGER CHECK (usage_limit IS NULL OR usage_limit > 0),
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS med3d_promocode_uses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                promocode_id INTEGER NOT NULL,
+                user_telegram_id INTEGER NOT NULL,
+                reserved_at TIMESTAMP,
+                used_at TIMESTAMP,
+                UNIQUE (promocode_id, user_telegram_id),
+                FOREIGN KEY (promocode_id) REFERENCES med3d_promocodes (id)
+            )
+        """)
+
         # Sample files table
         await db.execute("""
             CREATE TABLE IF NOT EXISTS sample_files (
@@ -860,6 +882,204 @@ class Database:
             """) as cursor:
                 rows = await cursor.fetchall()
                 return [dict(row) for row in rows]
+
+    @staticmethod
+    async def create_med3d_promocodes(codes: List[str], discount_percent: int,
+                                      usage_limit: Optional[int]) -> None:
+        if not 10 <= discount_percent <= 100:
+            raise ValueError("discount_percent must be between 10 and 100")
+        if usage_limit is not None and usage_limit < 1:
+            raise ValueError("usage_limit must be positive or None")
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            await db.executemany(
+                "INSERT INTO med3d_promocodes (code, discount_percent, usage_limit) VALUES (?, ?, ?)",
+                [(code.upper(), discount_percent, usage_limit) for code in codes],
+            )
+            await db.commit()
+
+    @staticmethod
+    async def list_med3d_promocodes() -> List[Dict]:
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute("""
+                SELECT p.*,
+                    (SELECT COUNT(*) FROM med3d_promocode_uses u
+                     WHERE u.promocode_id = p.id AND u.used_at IS NOT NULL) AS usage_count,
+                    (SELECT COUNT(*) FROM med3d_promocode_uses u
+                     WHERE u.promocode_id = p.id AND u.used_at IS NULL
+                       AND u.reserved_at >= datetime('now', '-2 hours')) AS reserved_count
+                FROM med3d_promocodes p
+                ORDER BY p.created_at DESC, p.id DESC
+            """) as cursor:
+                return [dict(row) for row in await cursor.fetchall()]
+
+    @staticmethod
+    async def get_med3d_promocode(code: str, user_telegram_id: int) -> tuple[Optional[Dict], str]:
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM med3d_promocodes WHERE code = ? COLLATE NOCASE AND is_active = 1",
+                (code.strip().upper(),),
+            ) as cursor:
+                promo = await cursor.fetchone()
+            if not promo:
+                return None, "not_found"
+            async with db.execute("""
+                SELECT used_at, reserved_at FROM med3d_promocode_uses
+                WHERE promocode_id = ? AND user_telegram_id = ?
+            """, (promo["id"], user_telegram_id)) as cursor:
+                own_use = await cursor.fetchone()
+            if own_use and own_use["used_at"]:
+                return None, "already_used"
+            async with db.execute("""
+                SELECT COUNT(*) FROM med3d_promocode_uses
+                WHERE promocode_id = ? AND
+                    (used_at IS NOT NULL OR reserved_at >= datetime('now', '-2 hours'))
+            """, (promo["id"],)) as cursor:
+                count = (await cursor.fetchone())[0]
+            if promo["usage_limit"] is not None and count >= promo["usage_limit"] and not (
+                own_use and own_use["reserved_at"]
+            ):
+                return None, "limit_reached"
+            return dict(promo), "ok"
+
+    @staticmethod
+    async def reserve_med3d_promocode(code: str, user_telegram_id: int) -> tuple[Optional[Dict], str]:
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            await db.execute("BEGIN IMMEDIATE")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM med3d_promocodes WHERE code = ? COLLATE NOCASE AND is_active = 1",
+                (code.strip().upper(),),
+            ) as cursor:
+                promo = await cursor.fetchone()
+            if not promo:
+                await db.rollback()
+                return None, "not_found"
+            async with db.execute("""
+                SELECT used_at, reserved_at FROM med3d_promocode_uses
+                WHERE promocode_id = ? AND user_telegram_id = ?
+            """, (promo["id"], user_telegram_id)) as cursor:
+                own_use = await cursor.fetchone()
+            if own_use and own_use["used_at"]:
+                await db.rollback()
+                return None, "already_used"
+            if own_use and own_use["reserved_at"]:
+                async with db.execute("""
+                    SELECT datetime(?) >= datetime('now', '-2 hours')
+                """, (own_use["reserved_at"],)) as cursor:
+                    still_reserved = bool((await cursor.fetchone())[0])
+                if still_reserved:
+                    await db.commit()
+                    return dict(promo), "ok"
+            async with db.execute("""
+                SELECT COUNT(*) FROM med3d_promocode_uses
+                WHERE promocode_id = ? AND
+                    (used_at IS NOT NULL OR reserved_at >= datetime('now', '-2 hours'))
+            """, (promo["id"],)) as cursor:
+                count = (await cursor.fetchone())[0]
+            if promo["usage_limit"] is not None and count >= promo["usage_limit"]:
+                await db.rollback()
+                return None, "limit_reached"
+            await db.execute("""
+                INSERT INTO med3d_promocode_uses
+                    (promocode_id, user_telegram_id, reserved_at)
+                VALUES (?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT (promocode_id, user_telegram_id)
+                DO UPDATE SET reserved_at = CURRENT_TIMESTAMP
+            """, (promo["id"], user_telegram_id))
+            await db.commit()
+            return dict(promo), "ok"
+
+    @staticmethod
+    async def complete_med3d_promocode(code: str, user_telegram_id: int) -> bool:
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            await db.execute("BEGIN IMMEDIATE")
+            async with db.execute("""
+                SELECT id, usage_limit FROM med3d_promocodes
+                WHERE code = ? COLLATE NOCASE
+            """, (code.strip().upper(),)) as cursor:
+                promo = await cursor.fetchone()
+            if not promo:
+                await db.rollback()
+                return False
+            async with db.execute("""
+                SELECT used_at, reserved_at FROM med3d_promocode_uses
+                WHERE promocode_id = ? AND user_telegram_id = ?
+            """, (promo[0], user_telegram_id)) as cursor:
+                own_use = await cursor.fetchone()
+            if not own_use or own_use[0]:
+                await db.rollback()
+                return False
+            if own_use[1]:
+                async with db.execute(
+                    "SELECT datetime(?) >= datetime('now', '-2 hours')", (own_use[1],)
+                ) as cursor:
+                    reservation_active = bool((await cursor.fetchone())[0])
+            else:
+                reservation_active = False
+            if not reservation_active and promo[1] is not None:
+                async with db.execute("""
+                    SELECT COUNT(*) FROM med3d_promocode_uses
+                    WHERE promocode_id = ? AND
+                        (used_at IS NOT NULL OR reserved_at >= datetime('now', '-2 hours'))
+                """, (promo[0],)) as cursor:
+                    count = (await cursor.fetchone())[0]
+                if count >= promo[1]:
+                    await db.rollback()
+                    return False
+            async with db.execute("""
+                UPDATE med3d_promocode_uses
+                SET used_at = CURRENT_TIMESTAMP, reserved_at = NULL
+                WHERE promocode_id = ? AND user_telegram_id = ? AND used_at IS NULL
+            """, (promo[0], user_telegram_id)) as cursor:
+                updated = cursor.rowcount > 0
+            await db.commit()
+            return updated
+
+    @staticmethod
+    async def release_med3d_promocode(code: str, user_telegram_id: int) -> None:
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            await db.execute("""
+                DELETE FROM med3d_promocode_uses
+                WHERE user_telegram_id = ? AND used_at IS NULL
+                  AND promocode_id = (
+                    SELECT id FROM med3d_promocodes WHERE code = ? COLLATE NOCASE
+                  )
+            """, (user_telegram_id, code.strip().upper()))
+            await db.commit()
+
+    @staticmethod
+    async def deactivate_med3d_promocode(promocode_id: int) -> bool:
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            async with db.execute(
+                "UPDATE med3d_promocodes SET is_active = 0 WHERE id = ? AND is_active = 1",
+                (promocode_id,),
+            ) as cursor:
+                await db.commit()
+                return cursor.rowcount > 0
+
+    @staticmethod
+    async def update_med3d_promocode_limit(promocode_id: int, usage_limit: Optional[int]) -> bool:
+        if usage_limit is not None and usage_limit < 1:
+            raise ValueError("usage_limit must be positive or None")
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            await db.execute("BEGIN IMMEDIATE")
+            async with db.execute("""
+                SELECT COUNT(*) FROM med3d_promocode_uses
+                WHERE promocode_id = ? AND
+                    (used_at IS NOT NULL OR reserved_at >= datetime('now', '-2 hours'))
+            """, (promocode_id,)) as cursor:
+                count = (await cursor.fetchone())[0]
+            if usage_limit is not None and usage_limit < count:
+                await db.rollback()
+                return False
+            async with db.execute(
+                "UPDATE med3d_promocodes SET usage_limit = ? WHERE id = ?",
+                (usage_limit, promocode_id),
+            ) as cursor:
+                await db.commit()
+                return cursor.rowcount > 0
 
     @staticmethod
     async def create_document_order(user_id: int, document_type: str, topic: str, specifications: str) -> int:

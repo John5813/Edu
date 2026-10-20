@@ -77,9 +77,16 @@ async def main():
     await send(LABELS["uz"][1] if "Taqdimot" in LABELS["uz"][1] else "🌟 Taqdimot")
     check("taqdimot avval turini so'raydi", await state.get_state() == PS.waiting_for_kind.state, await state.get_state())
 
+    med3d_label = pp.MED3D_ENTRY_TEXTS[0]
+    await send(med3d_label)
+    check("alohida 3D tugmasi mavzu emas, anatomiya ogohlantirishini ochadi",
+          await state.get_state() == PS.waiting_for_kind.state
+          and "3D Anatomiya" in sent[-1], (await state.get_state(), sent[-1] if sent else None))
+
     for lang in ("uz", "ru", "en"):
         for label in LABELS[lang]:
-            if label in ("🌟 Taqdimot", "🌟 Presentation", "🌟 Презентация"):
+            if label in ("🌟 Taqdimot", "🌟 Presentation", "🌟 Презентация") \
+                    or label in pp.MED3D_ENTRY_TEXTS:
                 continue
             await state.set_state(PS.waiting_for_topic_text); await state.set_data({}); handled.clear()
             await send(label)

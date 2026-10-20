@@ -119,10 +119,9 @@ def get_main_keyboard(language: str, presentation_enabled: bool = True, independ
 
     keyboard.add(KeyboardButton(text=get_text(language, "main_menu.other_services")))
 
-    # "Zamonaviy taqdimot" alohida tugma emas: hammasi bitta "Taqdimot"
-    # tugmasida (uslub shu yerda tanlanadi).
     if presentation_enabled:
         keyboard.add(KeyboardButton(text=get_text(language, "main_menu.presentation")))
+        keyboard.add(KeyboardButton(text=get_text(language, "main_menu.presentation_3d")))
     if independent_work_enabled:
         keyboard.add(KeyboardButton(text=get_text(language, "main_menu.independent_work")))
     if referat_enabled:
@@ -1208,6 +1207,11 @@ def get_feature_management_keyboard(
     keyboard.add(InlineKeyboardButton(
         text="🔗 Tekin taqdimot havolalari",
         callback_data="giftlinks"
+    ))
+
+    keyboard.add(InlineKeyboardButton(
+        text="🫀 3D Anatomiya promokod",
+        callback_data="med3d_promo_manage"
     ))
 
     # Mass gift button

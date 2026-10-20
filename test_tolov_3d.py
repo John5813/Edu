@@ -64,11 +64,11 @@ async def main():
     db = DB()
     PS = pp.PremiumPresentationStates
 
-    print("1) 3D Pro menyuda yo'q")
+    print("1) 3D Anatomiya alohida menyuda, 3D Pro yo'q")
     keys = [b.callback_data for row in pp._kind_keyboard("uz").inline_keyboard for b in row]
-    check("tur tugmalari: 3D Anatomiya, Infografik, Zamonaviy, Klassik (3D Pro yo'q)",
+    check("taqdimot katalogida 3D Anatomiya va 3D Pro yo'q",
           [k for k in keys if k.startswith("prem_ppt_kind:")] ==
-          ["prem_ppt_kind:med3d", "prem_ppt_kind:info", "prem_ppt_kind:modern", "prem_ppt_kind:classic"], keys)
+          ["prem_ppt_kind:info", "prem_ppt_kind:modern", "prem_ppt_kind:classic"], keys)
     st0 = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=9, user_id=9))
     await st0.set_state(PS.waiting_for_kind)
     old = callback("prem_ppt_kind:pro3d")
