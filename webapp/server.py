@@ -1298,6 +1298,8 @@ def create_web_app() -> web.Application:
     setup_book_routes(app)
     from webapp.thanks_anim import setup_thanks_anim_routes
     setup_thanks_anim_routes(app)
+    from webapp.slide_player import setup_slide_player_routes
+    setup_slide_player_routes(app)
     from webapp.api import setup_api_routes
     setup_api_routes(app)
     return app

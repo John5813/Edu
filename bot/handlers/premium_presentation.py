@@ -2527,6 +2527,13 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         if _kind_of(data) == KIND_MED3D:     # telefonda 3D ko'rinmaydi — yo'riqnoma videosi bilan aytiladi
             with contextlib.suppress(Exception):
                 await _send_med3d_guide(callback.message, lang)
+            with contextlib.suppress(Exception):     # telefonda Morph bilan ko'rish: serverda videoga o'giriladi
+                from services import slide_player
+
+                player_kb = slide_player.offer(final_path, user_id=callback.from_user.id,
+                                               chat_id=callback.message.chat.id, user_lang=lang)
+                if player_kb:
+                    await callback.message.answer(slide_player.offer_text(lang), reply_markup=player_kb)
         logger.info("Premium taqdimot yuborildi: %s → %s", final_path, callback.from_user.id)
         if _kind_of(data) not in (KIND_PRO3D, KIND_MED3D):  # "Rahmat" animatsiyasi zamonaviy taqdimot uchun
             await _offer_thanks_anim(callback, db, final_path, topic=topic, data=data,

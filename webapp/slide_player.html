@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Taqdimot</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  html,body{margin:0;height:100%;background:#000;color:#fff;font-family:-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden;touch-action:pan-y;-webkit-user-select:none;user-select:none}
+  #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+  #box{position:relative;width:100%;max-height:100%;aspect-ratio:16/9}
+  #box img,#box video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+  #vid{opacity:0}
+  #bar{position:fixed;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:space-between;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(0,0,0,.7))}
+  #bar button{background:rgba(255,255,255,.16);color:#fff;border:0;border-radius:22px;padding:11px 22px;font-size:16px}
+  #bar button:disabled{opacity:.3}
+  #cnt{font-size:14px;opacity:.8}
+  #msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;font-size:17px;line-height:1.4;background:#000}
+  .hide{display:none!important}
+</style>
+</head>
+<body>
+<div id="msg"></div>
+<div id="stage" class="hide"><div id="box"><img id="img" alt=""><video id="vid" muted playsinline webkit-playsinline preload="auto" disablepictureinpicture></video></div></div>
+<div id="bar" class="hide"><button id="prev">‹</button><span id="cnt"></span><button id="next">›</button></div>
+<script>
+const tg = window.Telegram && Telegram.WebApp;
+if (tg) { tg.ready(); tg.expand(); try { tg.disableVerticalSwipes(); } catch (e) {} }
+const params = new URLSearchParams(location.search);
+const token = params.get('token') || '';
+const lang = (params.get('lang') || 'uz').slice(0, 2);
+const T = {
+  uz: { wait: 'Taqdimot tayyorlanmoqda…<br>Bir necha soniya kuting.', fail: 'Taqdimotni tayyorlab bo‘lmadi.', gone: 'Havola eskirgan.' },
+  ru: { wait: 'Презентация готовится…<br>Подождите несколько секунд.', fail: 'Не удалось подготовить презентацию.', gone: 'Ссылка устарела.' },
+  en: { wait: 'Preparing your presentation…<br>Just a few seconds.', fail: 'Could not prepare the presentation.', gone: 'The link has expired.' },
+  kk: { wait: 'Презентация дайындалуда…<br>Бірнеше секунд күтіңіз.', fail: 'Презентацияны дайындау мүмкін болмады.', gone: 'Сілтеме ескірген.' },
+};
+const S = T[lang] || T.uz;
+const $ = (id) => document.getElementById(id);
+const msg = $('msg'), img = $('img'), vid = $('vid');
+let slides = [], morphs = [], cur = 0, busy = false;
+const blobs = new Map();   // morph indeksi -> blob URL (oldindan yuklangan)
+
+function say(html) { msg.innerHTML = html; msg.classList.remove('hide'); }
+
+async function manifest() {
+  const h = {};
+  if (tg && tg.initData) h['X-Telegram-Init-Data'] = tg.initData;
+  const r = await fetch('/api/player/' + encodeURIComponent(token), { headers: h, cache: 'no-store' });
+  if (r.status === 404) throw new Error('gone');
+  if (!r.ok) throw new Error('fail');
+  return r.json();
+}
+
+async function preload(i) {          // i-slayddan i+1 ga o'tish videosi
+  if (i < 0 || i >= morphs.length || blobs.has(i)) return;
+  blobs.set(i, null);
+  try {
+    const r = await fetch(morphs[i]);
+    blobs.set(i, URL.createObjectURL(await r.blob()));
+  } catch (e) { blobs.delete(i); }
+}
+
+function preloadAhead() { preload(cur); preload(cur + 1); }
+function preloadRest() { (async () => { for (let i = 0; i < morphs.length; i++) await preload(i); })(); }
+
+function show(i) {
+  cur = i;
+  img.src = slides[i];
+  $('cnt').textContent = (i + 1) + ' / ' + slides.length;
+  $('prev').disabled = i === 0;
+  $('next').disabled = i === slides.length - 1;
+  preloadAhead();
+}
+
+function decoded(src) {
+  img.src = src;
+  return img.decode ? img.decode().catch(() => {}) : Promise.resolve();
+}
+
+async function next() {
+  if (busy || cur >= slides.length - 1) return;
+  busy = true;
+  const i = cur;
+  const url = blobs.get(i) || morphs[i];
+  vid.src = url;
+  try {
+    await new Promise((resolve, reject) => {
+      vid.onended = resolve; vid.onerror = reject;
+      vid.onplaying = () => { vid.style.opacity = 1; };
+      vid.currentTime = 0;
+      vid.play().catch(reject);
+    });
+  } catch (e) { /* video o'ynamasa — to'g'ridan-to'g'ri keyingi kadr */ }
+  await decoded(slides[i + 1]);
+  vid.style.opacity = 0;
+  vid.onended = vid.onerror = vid.onplaying = null;
+  vid.removeAttribute('src'); vid.load();
+  show(i + 1);
+  busy = false;
+}
+
+function prev() {
+  if (busy || cur === 0) return;
+  show(cur - 1);
+}
+
+function start() {
+  msg.classList.add('hide');
+  $('stage').classList.remove('hide');
+  $('bar').classList.remove('hide');
+  show(0);
+  preloadRest();
+  $('next').onclick = next; $('prev').onclick = prev;
+  let x0 = null, y0 = null;
+  document.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+  document.addEventListener('touchend', (e) => {
+    if (x0 === null) return;
+    const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+    x0 = null;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) (dx < 0 ? next : prev)();
+  }, { passive: true });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ') next();
+    if (e.key === 'ArrowLeft') prev();
+  });
+}
+
+(async function boot() {
+  say(S.wait);
+  for (let tries = 0; tries < 400; tries++) {
+    try {
+      const m = await manifest();
+      if (m.status === 'ready') { slides = m.slides; morphs = m.morphs; return start(); }
+      if (m.status === 'failed') return say(S.fail);
+    } catch (e) { return say(e.message === 'gone' ? S.gone : S.fail); }
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+  say(S.fail);
+})();
+</script>
+</body>
+</html>
