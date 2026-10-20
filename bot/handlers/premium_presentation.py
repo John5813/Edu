@@ -905,8 +905,8 @@ MENU_KINDS = (KIND_INFO, KIND_MODERN, KIND_CLASSIC)
 # Infografik tur uchun uslub so'ralmaydi: vektor dizayner ko'rinishni o'zi tanlaydi.
 INFO_STYLE = "toza"
 _KIND_BUTTONS = {
-    KIND_MED3D: {"uz": "🫀 3D Anatomiya — tana tuzilishi", "ru": "🫀 3D Анатомия — строение тела",
-                 "en": "🫀 3D Anatomy — human body", "kk": "🫀 3D Анатомия — дене құрылысы"},
+    KIND_MED3D: {"uz": "🫀 3D taqdimot — tana tuzilishi", "ru": "🫀 3D презентация — строение тела",
+                 "en": "🫀 3D presentation — human body", "kk": "🫀 3D презентация — дене құрылысы"},
     KIND_PRO3D: {"uz": "🧊 3D Pro — animatsiyali, yangi", "ru": "🧊 3D Pro — с анимацией, новинка",
                  "en": "🧊 3D Pro — animated, new", "kk": "🧊 3D Pro — анимациялы, жаңа"},
     KIND_INFO: {"uz": "🎨 Infografik — yangi", "ru": "🎨 Инфографика — новинка",

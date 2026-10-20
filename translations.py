@@ -37,7 +37,7 @@ TRANSLATIONS = {
         "main_menu": {
             "premium_presentation": "✨ Zamonaviy taqdimot",
             "presentation": "🌟 Taqdimot",
-            "presentation_3d": "🫀 3D Anatomiya — tana tuzilishi",
+            "presentation_3d": "🫀 3D taqdimot — tana tuzilishi",
             "independent_work": "💥 Mustaqil ish",
             "referat": "⚡ Referat",
             "course_work": "✨ Kurs ishi",
@@ -382,7 +382,7 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
         "main_menu": {
             "premium_presentation": "✨ Современная презентация",
             "presentation": "🌟 Презентация",
-            "presentation_3d": "🫀 3D Анатомия — строение тела",
+            "presentation_3d": "🫀 3D презентация — строение тела",
             "independent_work": "💥 Самостоятельная работа",
             "referat": "⚡ Реферат",
             "course_work": "✨ Курсовая работа",
@@ -724,7 +724,7 @@ Bu hujjat AI yordamida yaratilgan va sizning yordamchingiz hisoblanadi.
         "main_menu": {
             "premium_presentation": "✨ Modern presentation",
             "presentation": "🌟 Presentation",
-            "presentation_3d": "🫀 3D Anatomy — human body",
+            "presentation_3d": "🫀 3D presentation — human body",
             "independent_work": "💥 Independent work",
             "referat": "⚡ Research Paper",
             "course_work": "✨ Course Work",
