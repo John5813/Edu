@@ -1472,6 +1472,7 @@ IMAGE_TARGET_TITLES = {
     "docs": "Hujjatlar",
     "presentation": "Oddiy taqdimot",
     "premium": "Zamonaviy taqdimot",
+    "med3d": "3D taqdimot",
 }
 
 

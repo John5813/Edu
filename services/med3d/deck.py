@@ -329,11 +329,10 @@ def _draw_label(slide, st, key: str, item: dict, dx: float = 0.0) -> List:
 
 def _connector(slide, st, key: str, start, end, alert: bool = False, hidden: bool = False) -> List:
     """Yorliq chizig'i va organdagi nuqta. hidden — organ boshqasi ortida: nuqta o'rniga strelka uchi (chiziq
-    3D modelga yetmasdan to'xtaydi — "shu tomonda, orqada")."""
-    kind = {"curve": MSO_CONNECTOR.CURVE, "elbow": MSO_CONNECTOR.ELBOW}.get(st.connector, MSO_CONNECTOR.STRAIGHT)
-    if hidden:
-        kind = MSO_CONNECTOR.STRAIGHT
-    line = slide.shapes.add_connector(kind, Inches(start[0]), Inches(start[1]), Inches(end[0]), Inches(end[1]))
+    3D modelga yetmasdan to'xtaydi — "shu tomonda, orqada"). Ko'rsatkichning uchi hisoblangan anchor'ga aniq
+    borishi uchun PowerPoint avtomatik egadigan elbow/curve o'rniga to'g'ri chiziq ishlatiladi."""
+    line = slide.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, Inches(start[0]), Inches(start[1]),
+                                      Inches(end[0]), Inches(end[1]))
     line.name = f"lbl_{key}_line"
     line.line.color.rgb = _rgb(ALERT if alert else st.line)
     line.line.width = Pt(1.75 if alert or hidden else 1.25)

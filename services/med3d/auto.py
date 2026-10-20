@@ -60,7 +60,7 @@ FILE_LIMIT_MB = float(os.getenv("MED3D_MAX_MB") or 45)   # Telegram bot 50 MB da
 TURN_MAX = 45                    # qo'shni slaydlar orasida eng katta burilish (gradus) — Morph silliq bo'lsin
 MAX_SHOW, MAX_LABELS = 8, 6
 STAGES = ("anatomy", "disease", "diagnosis", "treatment", "summary")
-MAX_PICTURES = 2                 # kasallik slaydlaridagi AI rasmlar soni (kuchli model)
+MAX_PICTURES = 3                 # tushuntirishga sezilarli yordam beradigan AI rasmlari
 MAX_SCENES = 2                   # davolash slaydlaridagi bemor tasviri (arzon model)
 LEXICON = os.path.join(ASSETS_DIR, "lugat.json")
 CONTACT = 0.015                  # metr: organlar shu masofadan yaqin bo'lsa — tegib turibdi, bir-biriga soya tushiradi
@@ -72,11 +72,6 @@ MICRO_UNION = {o: BY_ID[o]["union"] for o in MICRO if BY_ID[o].get("union")}
 
 class NotAnatomy(RuntimeError):
     """Mavzu tana tuzilishiga oid emas — taqdimot qilinmaydi (pul qaytariladi)."""
-
-
-class PicturesUnavailable(RuntimeError):
-    """Kasallik mavzusi, lekin kasallik rasmini chizadigan xizmat ishlamayapti — 3D yig'ilmaydi, pul qaytariladi va
-    mijozga keyinroq urinib ko'rish aytiladi (rasmsiz kasallik taqdimoti to'lagan narxiga yarasha emas)."""
 
 
 @lru_cache(maxsize=1)
@@ -119,7 +114,7 @@ Return ONLY a JSON object:
  "slides": [{"title": "...", "text": "...", "show": ["<organ_id>", ...], "focus": ["<organ_id>"],
              "rot": [x, y, z], "labels": ["<organ_id>", ...], "exit": "up" | "down" | "left" | "right",
              "stage": "anatomy" | "disease" | "diagnosis" | "treatment" | "summary",
-             "lesion": ["<organ_id>"], "picture": "<English image prompt or empty>",
+             "lesion": ["<organ_id>"], "picture": "<English visual prompt or empty>",
              "latin": "<Latin medical term of the disease/procedure in the title, or empty>",
              "scene": "<English photo prompt of a patient being treated, or empty>"}]}
 
@@ -136,9 +131,9 @@ RULES
    body = "female" for female-only organs (uterus, ovaries, placenta, mammary gland) and when it has organs the
    topic needs (lungs, spinal cord, kidney internal structure exist only in the female body);
    body = "male" for male-only organs and for stomach or esophagus (they exist only in the male body).
-3. Exactly the requested number of slides. Slide 1 = overview of the topic's organ system (several organs
-   together, labelled). The last slide = summary that reassembles the overview from a different angle.
-   The first and the last slide have NO "focus" — the whole system must be visible.
+3. Exactly the requested number of slides. Choose the narrative for the topic and the client's wishes; do not force
+    a fixed sequence or equal stage proportions. Use an overview, recap, diagnosis, treatment or prevention only when
+    it helps this topic. The first and last slides have no "focus" unless a close-up is essential to the requested topic.
 4. Tell a story with motion: neighbouring slides share organs so Morph moves them. To study one organ, keep it
    in "show" and drop the others (they fly away in the "exit" direction), or keep them and put the organ in
    "focus" (the camera zooms to it). Bring organs back later to reassemble.
@@ -156,30 +151,27 @@ RULES
    "kovak_venalar" run through the whole trunk and make the heart look tiny — use them only for circulation of
    the whole body. Valves ("yurak_klapanlari") lie INSIDE the heart: to show them, view the heart from above
    (x 40-60) or remove "yurak"/"yurak_qorinchalari" from that slide.
-10. "title": at most 6 words. "text": 2-4 sentences, at most 380 characters, accurate textbook facts, clear for the
+10. "title": at most 6 words. "text": 3-5 sentences, at most 570 characters, accurate textbook facts, clear for the
    requested level. No invented statistics, never mention the current year or dates. For anatomy topics no
    treatment advice; for disease topics only standard textbook methods (no personal advice, no drug doses).
 11. "names": for EVERY organ id you use, its correct anatomical name in the presentation language.
-12. "kind" = "disease" when the topic is a disease, injury or condition (rotator cuff tear, myocardial infarction,
-   herniated disc, gastritis...). Then medicine is taught as STRUCTURE -> DISEASE -> TREATMENT, every slide has a
-   "stage", in this order:
-   - "anatomy" (about one third): slide 1 = overview of the region, then the structures that get damaged,
-     labelled, from the angle where they are best seen;
-   - "disease" (about one third): what goes wrong — definition, types/stages, causes and risk factors, symptoms;
-     "lesion" = ids of the damaged organs from "show" (the 3D model paints them red; label them too);
-   - "diagnosis" and "treatment" (about one third): examination and tests, conservative treatment,
-     surgery, rehabilitation, prevention and prognosis — keep showing the damaged region ("lesion" may stay);
-   - the last slide "summary": the whole region again with the lesion.
-   For "kind" = "anatomy" use "stage": "anatomy" (last slide "summary"), "lesion": [] and "picture": "".
-13. "picture" (disease topics only, on 1-2 of the "disease"/"diagnosis" slides, otherwise ""): an English prompt for
-   a medical illustration that shows what the 3D atlas cannot — the real shape of the pathology at the lesion,
-   e.g. "close-up of a full-thickness tear of the supraspinatus tendon at the greater tubercle of the humerus,
-   frayed tendon fibres, inflamed subacromial bursa". One structure, close-up, no people's faces, never genitals
-   or nudity. A slide with a picture has a shorter "text" (at most 230 characters) and exactly one "lesion".
-16. "scene" (disease topics only, on exactly 2 "treatment" slides, otherwise ""): an English prompt for a calm,
-   realistic photo of a patient receiving that treatment, matching the slide, e.g. "a physiotherapist guiding a
+12. "kind" = "disease" for a disease, injury or condition. Select only the useful teaching parts from structure,
+    disease mechanism, diagnosis, treatment, prevention and prognosis. Do not add irrelevant treatment or diagnosis
+    slides, and do not force a fixed order or a "stage" on every slide. Set "stage" only when it adds useful context.
+    When a damaged atlas organ is actually shown, set "lesion" to its id(s); the model highlights it red and labels it.
+    Use "kind" = "anatomy" for non-disease topics and leave "lesion" and "scene" empty.
+13. "picture" is optional, only when an AI illustration materially explains a structure, pathology or procedure that
+    the atlas cannot show. For a 10-slide presentation, add 2-3 visuals where they explain a process, comparison,
+    cross-section or clinical concept; do not repeat the 3D model or force a visual onto every slide. Provide a
+    specific English prompt for a clear medical textbook illustration or simple diagram, e.g. "clean cross-section
+    showing the three layers of the heart wall, distinct colors, no labels". Keep visual style consistent across the
+    deck. No text, labels, arrows, people's faces, genitals or nudity. If a disease lesion is shown, set the matching
+    visible atlas organ in "lesion"; for normal structures, do not set "lesion". Keep slide "text" at most 345
+    characters when a visual is requested.
+16. "scene" is optional, only if a treatment scene helps explain this topic; use 0-2 treatment slides. Give an
+    English prompt for a calm, realistic photo matching the slide, e.g. "a physiotherapist guiding a
    middle-aged man through shoulder rotation exercises with a resistance band in a bright rehabilitation room".
-   No blood, no open wounds, no surgery close-ups, no nudity; people fully clothed.
+    No blood, open wounds, surgery close-ups or nudity; people fully clothed.
 15. "latin" (disease topics): on every "disease", "diagnosis" and "treatment" slide whose title names a disease,
    its form or a procedure — its Latin (international medical) term, e.g. "Ruptura manicae rotatorum",
    "Tendinopathia musculi supraspinati", "Syndroma conflictus subacromialis", "Arthroscopia". Otherwise "".
@@ -192,6 +184,8 @@ RULES
    models of another shelf on one slide. A shelf is: blood cells (eritrotsit, leykotsit, trombotsit, qon_hujayralari);
    gametes (spermatozoid, tuxum_hujayra, jinsiy_hujayralar); every other microscopic model is alone. Slides that
    zoom from the body to its cells should alternate: a body slide, then the cell slide of that organ's tissue.
+18. Every slide must advance the previous slide's explanation instead of repeating it. Image prompts must fit the
+   full presentation sequence, use different visual ideas, and explain only the current slide's point.
 """
 
 USER = """Topic: {topic}
@@ -251,7 +245,7 @@ def _plan_ai(topic: str, count: int, language: str, level: int, preferences: str
     user = USER.format(topic=topic, count=count, level=LEVELS.get(level, LEVELS[2]),
                        language_rule=llm_client._language_instruction(language), extra=extra, table=organ_table())
     with prompts.use(language), llm_client.text_model(MODEL_ACADEMIC if level >= 3 else MODEL):
-        return _call_json(SYSTEM, user, answer_tokens=3000 + 800 * count)
+        return _call_json(SYSTEM, user, answer_tokens=4000 + 1100 * count)
 
 
 REVIEW_SYSTEM = """You are a medical fact-checker for a student anatomy presentation.
@@ -271,7 +265,7 @@ def review_plan(plan_: dict, language: str) -> int:
                          ensure_ascii=False)
     try:
         with prompts.use(language), llm_client.text_model(REVIEW_MODEL):
-            data = _call_json(REVIEW_SYSTEM, payload, answer_tokens=400 * len(slides))
+            data = _call_json(REVIEW_SYSTEM, payload, answer_tokens=600 * len(slides))
     except Exception as exc:                      # noqa: BLE001 — tekshiruv ixtiyoriy
         log.warning("3D Anatomiya: tibbiy tekshiruv o'tmadi (%s)", exc)
         return 0
@@ -282,7 +276,7 @@ def review_plan(plan_: dict, language: str) -> int:
         except (KeyError, TypeError, ValueError, IndexError):
             continue
         text = re.sub(r"\s+", " ", str(row.get("text") or "")).strip()
-        limit = 230 if slide.get("picture") else 380
+        limit = 345 if slide.get("picture") else 570
         if text and text != slide["text"] and len(text) <= min(limit, len(slide["text"]) + 20):
             slide["text"] = text
             fixed += 1
@@ -293,7 +287,8 @@ def add_disclaimer(plan_: dict, language: str) -> None:
     """Oxirgi slayd matniga o'quv maqsadi haqida qisqa eslatma (matn chegarasidan oshmasa)."""
     note = DISCLAIMERS.get(language) or DISCLAIMERS["en"]
     last = plan_["slides"][-1]
-    if note not in last["text"] and len(last["text"]) + len(note) + 1 <= 420:
+    text_limit = 345 if last.get("picture") else 570
+    if note not in last["text"] and len(last["text"]) + len(note) + 1 <= text_limit:
         last["text"] = f"{last['text']} {note}".strip()
 
 
@@ -332,6 +327,33 @@ def _num(value, low: float, high: float) -> float:
         return float(min(high, max(low, float(value))))
     except (TypeError, ValueError):
         return 0.0
+
+
+def _ensure_visual_prompts(slides: List[dict]) -> None:
+    """Uzun taqdimotlarda AI prompti rasm bermay qolsa ham muhim joylarga vizual rejalashtiradi."""
+    if len(slides) < 8:
+        return
+    wanted = min(MAX_PICTURES, max(1, len(slides) // 5))
+    missing = wanted - sum(bool(slide["picture"]) for slide in slides)
+    candidates = [i for i in range(1, len(slides) - 1)
+                  if not slides[i]["picture"] and not slides[i]["scene"]]
+    if missing <= 0 or not candidates:
+        return
+    targets = [round((step + 1) * (len(slides) - 1) / (missing + 1)) for step in range(missing)]
+    chosen = []
+    for target in targets:
+        index = min((i for i in candidates if i not in chosen), key=lambda i: abs(i - target), default=None)
+        if index is None:
+            break
+        chosen.append(index)
+    for index in chosen:
+        slide = slides[index]
+        organs = ", ".join(BY_ID[organ]["en"] for organ in slide["show"][:3])
+        slide["picture"] = (
+            f"Simple educational medical diagram of {organs}, focusing on the structure or process explained "
+            "on this slide; clear textbook composition, accurate proportions, no text or labels"
+        )
+        slide["text"] = slide["text"][:345]
 
 
 def normalize(data: dict, count: int, language: str) -> dict:
@@ -376,21 +398,21 @@ def normalize(data: dict, count: int, language: str) -> dict:
         rot = list(s.get("rot") or [0, 0, 0])[:3] + [0, 0, 0]
         lesion = [o for o in (s.get("lesion") or []) if isinstance(o, str) and o in show][:3] if disease else []
         labels = list(dict.fromkeys(lesion + labels))[:MAX_LABELS]
-        stage = (s.get("stage") if s.get("stage") in STAGES else "disease") if disease else ""
-        picture = re.sub(r"\s+", " ", str(s.get("picture") or "")).strip()[:400] if disease and lesion else ""
+        stage = (s.get("stage") if s.get("stage") in STAGES else "") if disease else ""
+        picture = re.sub(r"\s+", " ", str(s.get("picture") or "")).strip()[:400]
         latin = re.sub(r"\s+", " ", str(s.get("latin") or "")).strip()[:80] if disease else ""
-        if stage == "treatment":                  # davolash slaydida — bemor tasviri (arzon model), patologiya emas
-            picture = ""
         scene = re.sub(r"\s+", " ", str(s.get("scene") or "")).strip()[:400] \
             if disease and stage == "treatment" else ""
+        text_limit = 345 if picture else 570
         slides.append({
             "title": str(s.get("title") or "").strip()[:90],
-            "text": re.sub(r"\s+\n", "\n", str(s.get("text") or "").strip())[:520],
+            "text": re.sub(r"\s+\n", "\n", str(s.get("text") or "").strip())[:text_limit],
             "show": show, "focus": focus or None, "labels": list(dict.fromkeys(labels)), "support": support,
             "rot": [_num(rot[0], -60, 60), _num(rot[1], -180, 180), _num(rot[2], -30, 30)],
             "exit": s.get("exit") if s.get("exit") in ("up", "down", "left", "right") else "up",
             "stage": stage, "lesion": lesion, "picture": picture, "latin": latin, "scene": scene,
         })
+    _ensure_visual_prompts(slides)
     pictures = scenes = 0
     for s in slides:                              # rasm — ko'pi bilan MAX_PICTURES ta (generatsiya vaqti va narxi)
         if s["picture"]:
@@ -1027,14 +1049,12 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
     stage("plan")
     plan_ = await asyncio.wait_for(loop.run_in_executor(
         None, lambda: plan(topic, count, language, level, preferences)), 6 * 60)
+    plan_["topic"] = topic
     log.info("3D Anatomiya: %s tana, %d slayd, organlar: %s", plan_["body"], len(plan_["slides"]),
              sorted({o for s in plan_["slides"] for o in s["show"]}))
     if any(s.get("picture") for s in plan_["slides"]):
-        # Kasallik rasmlari 3D dan OLDIN: xizmat ishlamasa — mijozdan keyinroq urinib ko'rish so'raladi.
         stage("pictures")
-        ready = await loop.run_in_executor(None, pictures_ready)
-        if not ready or not await draw_pictures(plan_):
-            raise PicturesUnavailable("kasallik rasmlari chizilmadi")
+        await draw_pictures(plan_)
     if any(s.get("scene") for s in plan_["slides"]):
         await draw_scenes(plan_)                  # chizilmasa — slayd rasmsiz (bloklamaydi)
     stage("models", slides=len(plan_["slides"]))
@@ -1052,15 +1072,12 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
     return path, len(plan_["slides"])
 
 
-# Kasallik rasmi uchun kuchli modellar (navbat bilan): Seedream 4 — realistik va tibbiy mavzuni moderatsiyada
-# rad etmaydi, Nano Banana — mavzuni eng yaxshi tushunadi, FLUX — zaxira. `MED3D_IMAGE_MODELS` bilan almashtiriladi.
-PICTURE_MODELS = ("ByteDance-Seed/Seedream-4.0,google/flash-image-2.5,black-forest-labs/FLUX.2-pro,"
-                  "black-forest-labs/FLUX.1.1-pro")
-
-
 def picture_models() -> List[str]:
-    raw = os.getenv("MED3D_IMAGE_MODELS") or PICTURE_MODELS
-    return [m.strip() for m in raw.split(",") if m.strip()]
+    """3D uchun tanlanishi mumkin bo'lgan modellar va fallbacklar (hisob tekshiruvi uchun)."""
+    from config import IMAGE_MODELS, IMAGE_MODEL_FALLBACKS
+
+    configured = [info["id"] for info in IMAGE_MODELS.values()]
+    return list(dict.fromkeys([*configured, *IMAGE_MODEL_FALLBACKS]))
 
 
 def pictures_ready() -> bool:
@@ -1075,15 +1092,30 @@ def pictures_ready() -> bool:
     return any(m.lower() in have for m in picture_models())
 
 
-PICTURE_STYLE = ("detailed medical textbook illustration, anatomically accurate, realistic 3D medical render, "
-                 "close-up of the affected structure, soft studio lighting, dark neutral background, "
-                 "no text, no letters, no labels, no arrows, no watermark, no people, no faces, no nudity, "
-                 "no genitals")
+PICTURE_STYLE = ("clear medical textbook visual, anatomically accurate, uncluttered composition, "
+                 "consistent soft studio lighting and restrained colors, dark neutral background, "
+                 "no text, no letters, no labels, no arrows, no watermark, no nudity, no genitals")
+
+
+def _visual_prompt(plan_: dict, index: int, slide: dict, style: str = PICTURE_STYLE) -> str:
+    slides = plan_["slides"]
+    context = []
+    if index:
+        previous = slides[index - 1]
+        context.append(f"Previous: {previous['title'][:45]} — {previous['text'][:60]}")
+    if index + 1 < len(slides):
+        following = slides[index + 1]
+        context.append(f"Next: {following['title'][:45]} — {following['text'][:60]}")
+    neighbors = " ".join(context)
+    return (f"Deck: {(plan_.get('topic') or '')[:100]}. Slide: {slide['title'][:60]}. "
+            f"Explanation: {slide['text'][:140]}. {neighbors} "
+            f"Create only this slide's visual, relevant to its exact point and consistent with the sequence. "
+            f"Visual brief: {slide['picture'][:300]}. {style}")
 
 
 async def draw_pictures(plan_: dict, timeout: float = 150.0) -> int:
-    """Kasallik slaydlaridagi rasmlar (AI): 3D atlasda yo'q narsa — patologiyaning haqiqiy shakli (yirtilgan pay,
-    churra, tromb). Parallel chiziladi; chizilmagani shunchaki rasmsiz qoladi. Qaytaradi: chizilganlar soni."""
+    """Mavzuga mos tibbiy chizma/illyustratsiya. Tanlangan med3d modeli, zaxira modellar va limit siyosati
+    Together xizmatida qo'llanadi; rasm bo'lmasa slayd matn/3D bilan davom etadi."""
     from services.together_service import get_together_service
 
     wanted = [s for s in plan_["slides"] if s.get("picture")]
@@ -1094,19 +1126,23 @@ async def draw_pictures(plan_: dict, timeout: float = 150.0) -> int:
     except Exception as exc:                      # noqa: BLE001
         log.warning("3D Anatomiya: rasm xizmati yo'q: %s", exc)
         return 0
+    from services.together_service import image_model_chain
 
-    async def one(slide: dict) -> None:
-        prompt = f"{slide['picture']}. {PICTURE_STYLE}"
+    models = await image_model_chain("med3d")
+
+    async def one(index: int, slide: dict) -> None:
+        prompt = _visual_prompt(plan_, index, slide)
         try:
-            path = await asyncio.wait_for(together.generate_with_models(prompt, picture_models(), stem="med3d_pic"),
-                                          timeout)
+            path = await asyncio.wait_for(
+                together.generate_with_models(prompt, models, stem="med3d_visual"), timeout)
         except Exception as exc:                  # noqa: BLE001
             log.warning("3D Anatomiya: rasm chizilmadi (%s): %s", slide["picture"][:60], exc)
             return
         if path and os.path.exists(path):
             slide["picture_path"] = path
 
-    await asyncio.gather(*(one(s) for s in wanted))
+    indices = {id(slide): i for i, slide in enumerate(plan_["slides"])}
+    await asyncio.gather(*(one(indices[id(s)], s) for s in wanted))
     done = sum(1 for s in wanted if s.get("picture_path"))
     log.info("3D Anatomiya: kasallik rasmlari %d/%d", done, len(wanted))
     return done
@@ -1117,8 +1153,7 @@ SCENE_STYLE = ("realistic photograph, natural soft light, modern clinic or home 
 
 
 async def draw_scenes(plan_: dict, timeout: float = 120.0) -> int:
-    """Davolash slaydlaridagi bemor tasvirlari — arzon model (admin tanlagan oddiy taqdimot modeli). Chizilmagani
-    rasmsiz qoladi, jarayon to'xtamaydi."""
+    """Kontekstli davolash tasviri. Rasm bo'lmasa slayd matn/3D bilan davom etadi."""
     from services.together_service import get_together_service
 
     wanted = [s for s in plan_["slides"] if s.get("scene")]
@@ -1129,12 +1164,18 @@ async def draw_scenes(plan_: dict, timeout: float = 120.0) -> int:
     except Exception as exc:                      # noqa: BLE001
         log.warning("3D Anatomiya: rasm xizmati yo'q: %s", exc)
         return 0
+    from services.together_service import image_model_chain
+
+    models = await image_model_chain("med3d")
+
+    indices = {id(slide): i for i, slide in enumerate(plan_["slides"])}
 
     async def one(slide: dict) -> None:
         try:
-            path = await asyncio.wait_for(together.generate_image(f"{slide['scene']}. {SCENE_STYLE}",
-                                                                  aspect_ratio="16:9", target="presentation"),
-                                          timeout)
+            index = indices[id(slide)]
+            context = _visual_prompt(plan_, index, {**slide, "picture": slide["scene"]}, SCENE_STYLE)
+            path = await asyncio.wait_for(
+                together.generate_with_models(context, models, stem="med3d_scene"), timeout)
         except Exception as exc:                  # noqa: BLE001
             log.warning("3D Anatomiya: davolash rasmi chizilmadi: %s", exc)
             return

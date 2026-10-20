@@ -1647,7 +1647,7 @@ class Database:
 
     @staticmethod
     async def get_image_model(target: str) -> Optional[str]:
-        """Rasm modeli kaliti: "docs", "presentation" yoki "premium" uchun.
+        """Rasm modeli kaliti: docs, presentation, premium yoki med3d xizmatlari uchun.
 
         Tanlanmagan bo'lsa None — shunda muhit o'zgaruvchisidagi yoki
         sukut modeli ishlaydi.

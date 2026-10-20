@@ -2799,7 +2799,8 @@ def check_image_models():
     from database.database import Database
     from services import together_service as ts
 
-    choices = {"docs": "flux1_schnell", "presentation": "qwen_image", "premium": "imagen4_ultra"}
+    choices = {"docs": "flux1_schnell", "presentation": "qwen_image", "premium": "imagen4_ultra",
+               "med3d": "flux2_flex"}
     calls = []
     broken = {"google/imagen-4.0-ultra"}
 
@@ -2818,10 +2819,11 @@ def check_image_models():
     Database.get_image_model = staticmethod(fake_get)
     service = object.__new__(ts.TogetherImageService)
     service.client = types.SimpleNamespace(images=Images())
+    service.image_semaphore = asyncio.Semaphore(2)
     ts.forget_image_model_choice()
     made = []
     try:
-        for target in ("docs", "presentation", "premium"):
+        for target in ("docs", "presentation", "premium", "med3d"):
             calls.clear()
             path = asyncio.run(service.generate_image("a quiet library", target=target))
             made.append(path)
@@ -2879,7 +2881,8 @@ def check_image_models():
             os.environ.pop("PREMIUM_PHOTOS", None)
         else:
             os.environ["PREMIUM_PHOTOS"] = old_flag
-    check("zamonaviy taqdimot rasmlari o'z modelida", seen == ["premium"], str(seen))
+    check("zamonaviy taqdimot rasmlari o'z modelida",
+          bool(seen) and all(target == "premium" for target in seen), str(seen))
 
 
 def check_inline_math_in_pptx():

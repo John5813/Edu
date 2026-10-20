@@ -1407,7 +1407,7 @@ async def handle_daily_statistics(message: Message, db: Database):
         await message.answer("❌ Kunlik statistikani olishda xatolik yuz berdi.")
 
 @router.message(F.text == "🧠 AI nazorati")
-async def handle_ai_control(message: Message):
+async def handle_ai_control(message: Message, db: Database):
     """Bugun nechta rasm saytdan, nechtasi AI dan olindi va qaysi AI modellar ko'p ishladi (foizda)."""
     if not is_admin(message.from_user.id):
         return
@@ -1416,7 +1416,18 @@ async def handle_ai_control(message: Message):
 
         today = await ai_usage.day_counts()
         week = await ai_usage.photo_days(7)
-        await message.answer(ai_usage.report_text(today, week))
+        from config import IMAGE_MODELS
+
+        model_key, model_id = await _image_model_state(db, "med3d")
+        model_name = IMAGE_MODELS[model_key]["name"] if model_key else model_id
+        keyboard = InlineKeyboardBuilder()
+        keyboard.button(text="🖼 3D taqdimot rasm AI sini tanlash",
+                        callback_data="img_model_target_med3d")
+        await message.answer(
+            f"{ai_usage.report_text(today, week)}\n\n"
+            f"🧬 3D taqdimot rasmlari uchun model: {model_name}\n"
+            f"Quyidagi tugma orqali o'zgartirishingiz mumkin.",
+            reply_markup=keyboard.as_markup())
     except Exception as e:
         logger.error(f"AI nazorati xatosi: {e}")
         await message.answer("❌ AI nazorati ma'lumotini olishda xatolik yuz berdi.")

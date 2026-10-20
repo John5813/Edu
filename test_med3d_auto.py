@@ -106,7 +106,8 @@ ss = sick_plan["slides"]
 check("kasallik: bosqichlar va zararlangan organ (ko'rinishda bo'lmagani olinmaydi)",
       sick_plan["kind"] == "disease" and [x["stage"] for x in ss] == ["anatomy", "disease", "treatment"]
       and ss[1]["lesion"] == ["qirra_usti_mushagi"] and "qirra_usti_mushagi" in ss[1]["labels"], ss)
-check("rasm faqat zararlangan organli slaydda", bool(ss[1]["picture"]) and not ss[2]["picture"])
+check("kasallik va davolash uchun tanlangan vizual promptlar saqlanadi",
+      ss[1]["picture"] == "torn supraspinatus tendon" and ss[2]["picture"] == "x")
 _sc = auto.normalize({"anatomy": True, "kind": "disease", "slides": [
     {"title": "a", "text": "b", "stage": "treatment", "show": ["yurak"], "scene": "a patient with a doctor"},
     {"title": "a", "text": "b", "stage": "disease", "show": ["yurak"], "scene": "x"},
@@ -131,26 +132,79 @@ auto._call_json = _orig_call
 check("tezkor tekshiruv: rad etish sababi, kasallik turi, faqat bor organlar; AI javob bermasa — to'xtatmaydi",
       not _v["ok"] and _v["reason"] == "Hujayra darajasi." and _v2["ok"] and _v2["kind"] == "disease"
       and _v2["organs"] == ["qirra_usti_mushagi"] and _v3["ok"] and not _v3["checked"], (_v, _v2, _v3))
-_pics = {"slides": [{"picture": "x"}, {"picture": ""}]}
-_saved = os.environ.pop("TOGETHER_API_KEY", None)
-check("rasm xizmati kalitsiz — tayyor emas (3D boshlanmaydi)", not auto.pictures_ready())
-if _saved:
-    os.environ["TOGETHER_API_KEY"] = _saved
-_orig_plan, _orig_ready = auto.plan, auto.pictures_ready
-auto.plan = lambda *a, **k: copy.deepcopy(sick_plan)
-auto.pictures_ready = lambda: False
-try:
-    asyncio.run(auto.build_deck("Rotator manjet", 3))
-    check("rasm xizmati ishlamasa — 3D boshlanmaydi (PicturesUnavailable)", False)
-except auto.PicturesUnavailable:
-    check("rasm xizmati ishlamasa — 3D boshlanmaydi (PicturesUnavailable)", True)
-finally:
-    auto.plan, auto.pictures_ready = _orig_plan, _orig_ready
-check("kasallik rasmlari uchun kuchli modellar zanjiri", auto.picture_models()[0].startswith("ByteDance-Seed/Seedream-4"))
+check("3D rasm AI hisobida sozlangan model va fallbacklar mavjud",
+      "black-forest-labs/FLUX.2-pro" in auto.picture_models())
 plain = auto.normalize({"anatomy": True, "slides": [{"title": "a", "text": "b", "show": ["yurak"],
                                                       "lesion": ["yurak"], "picture": "x"}] * 3}, 3, "uz")
-check("anatomiya mavzusida bosqich, qizil o'choq va rasm yo'q",
-      all(not x["stage"] and not x["lesion"] and not x["picture"] for x in plain["slides"]))
+check("oddiy anatomiya rejasida bosqich va lesion yo'q, foydali rasm prompti qoladi",
+        all(not x["stage"] and not x["lesion"] and x["picture"] == "x" for x in plain["slides"]))
+disease_flexible = auto.normalize({"anatomy": True, "kind": "disease", "slides": [
+      {"title": "Tuzilishi", "text": "T", "show": ["qirra_usti_mushagi"], "picture": "close-up", "lesion": ["qirra_usti_mushagi"]},
+      {"title": "Mexanizm", "text": "T", "show": ["qirra_usti_mushagi"]},
+      {"title": "Xulosa", "text": "T", "show": ["qirra_usti_mushagi"]}]}, 3, "uz")
+check("kasallik rejasida stage majburiy emas va rasm faqat kerakli slaydda qoladi",
+        [s["stage"] for s in disease_flexible["slides"]] == ["", "", ""]
+        and [s["picture"] for s in disease_flexible["slides"]] == ["close-up", "", ""],
+        disease_flexible["slides"])
+long_text = "Yurakning tuzilishi va faoliyati haqida batafsil ta'limiy ma'lumot. " * 12
+long_plan = auto.normalize({"anatomy": True, "slides": [
+    {"title": "Yurak", "text": long_text, "show": ["yurak"]}] * 3}, 3, "uz")
+check("matn limiti 1.5x oshirildi (570 belgi)", len(long_plan["slides"][0]["text"]) == 570,
+      len(long_plan["slides"][0]["text"]))
+illustrated_plan = auto.normalize({"anatomy": True, "slides": [
+    {"title": "Yurak qavati", "text": long_text, "show": ["yurak"], "picture": "heart wall cross-section"}
+    for _ in range(3)]}, 3, "uz")
+check("rasmli slaydda matn limiti 1.5x (345 belgi)",
+      len(illustrated_plan["slides"][0]["text"]) == 345, len(illustrated_plan["slides"][0]["text"]))
+fallback_visuals = auto.normalize({"anatomy": True, "slides": [
+    {"title": f"Yurak {i}", "text": long_text, "show": ["yurak"], "rot": [0, i * 5, 0]}
+    for i in range(10)]}, 10, "uz")["slides"]
+check("AI prompti rasm bermasa 10 slaydli reja uchun 2 vizual prompt avtomatik qo'shiladi",
+      sum(bool(slide["picture"]) for slide in fallback_visuals) == 2
+      and all(len(slide["text"]) <= (345 if slide["picture"] else 570) for slide in fallback_visuals))
+visual_plan = {"topic": "Yurak", "slides": [
+    {"title": "Yurak", "text": "Yurak qonni haydaydi.", "picture": "heart overview"},
+    {"title": "Klapanlar", "text": "Klapanlar oqimni yo'naltiradi.", "picture": "valve diagram"},
+    {"title": "Qon aylanishi", "text": "Qon o'pkaga boradi.", "picture": "blood flow"},
+]}
+visual_prompt = auto._visual_prompt(visual_plan, 1, visual_plan["slides"][1])
+check("rasm prompti mavzu, joriy va qo'shni slaydlar kontekstini oladi",
+      all(value in visual_prompt for value in ("Yurak", "Klapanlar", "Yurak qonni haydaydi.",
+                                                "Qon aylanishi", "valve diagram")), visual_prompt)
+check("3D rasm AI uchun admin tanlovlari ishlatiladigan katalogdan olinadi",
+      bool(auto.picture_models()) and len(auto.picture_models()) == len(set(auto.picture_models())))
+from bot.keyboards import IMAGE_TARGET_TITLES, get_image_model_selection_keyboard
+med3d_keyboard = get_image_model_selection_keyboard("", "med3d")
+check("AI nazorati uchun 3D rasm modeli alohida tanlanadi",
+      IMAGE_TARGET_TITLES["med3d"] == "3D taqdimot"
+      and any("select_img_model_med3d_" in button.callback_data
+              for row in med3d_keyboard.inline_keyboard for button in row))
+import services.together_service as _together_module
+class _FakeImageService:
+    def __init__(self):
+        self.calls = []
+
+    async def generate_with_models(self, prompt, models, stem):
+        self.calls.append((prompt, models, stem))
+        return _image_path
+
+_fd, _image_path = tempfile.mkstemp(suffix=".png")
+os.close(_fd)
+_fake_image_service = _FakeImageService()
+_original_image_service = _together_module.get_together_service
+_original_image_chain = _together_module.image_model_chain
+_together_module.get_together_service = lambda: _fake_image_service
+_together_module.image_model_chain = lambda target: asyncio.sleep(0, result=["admin-selected-image-model"])
+try:
+    _generated = asyncio.run(auto.draw_pictures(visual_plan))
+finally:
+    _together_module.get_together_service = _original_image_service
+    _together_module.image_model_chain = _original_image_chain
+    os.remove(_image_path)
+check("3D rasmlari admin tanlagan modelda, kontekst bilan generatsiya qilinadi",
+      _generated == 3 and len(_fake_image_service.calls) == 3
+      and all("admin-selected-image-model" in call[1] and "Yurak" in call[0]
+              for call in _fake_image_service.calls))
 from services.med3d import manba as _manba
 _one = auto.one_side(auto.lexicon()["bodies"]["male"], "right", _manba.atlas("male"))
 check("o'ng tomon: kurak suyagining faqat o'ng nusxasi (x < 0)", max(_one["kurak"]["max"][0], 0) == 0
@@ -402,8 +456,13 @@ async def bot_flow():
     state = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=1, user_id=1))
     await pp.premium_presentation_start(chat.message("🌟 Taqdimot"), state, db)
     kinds = [b for b in buttons(chat.sent[-1][2]) if (b.callback_data or "").startswith("prem_ppt_kind:")]
-    check("3D Anatomiya tugmasi birinchi", kinds[0].callback_data == "prem_ppt_kind:med3d" and "3D Anatomiya" in kinds[0].text,
-          kinds[0].text)
+    from bot.keyboards import get_main_keyboard
+    main_labels = [b.text for row in get_main_keyboard("uz").keyboard for b in row]
+    check("3D Anatomiya alohida asosiy menyuga ko'chirilgan",
+          pp.MED3D_ENTRY_TEXTS[0] in main_labels
+          and [b.callback_data for b in kinds] == [
+              "prem_ppt_kind:info", "prem_ppt_kind:modern", "prem_ppt_kind:classic"
+          ], (main_labels, kinds))
 
     await pp.premium_ppt_kind_selected(callback(chat, "prem_ppt_kind:med3d"), state, db)
     text, markup = chat.sent[-1][1], chat.sent[-1][2]
@@ -439,11 +498,12 @@ async def bot_flow():
     _m3.check_topic = lambda topic, language="uz": {"ok": True, "kind": "disease", "reason": ""}
     _m3.pictures_ready = lambda: False
     await pp.premium_ppt_got_topic(chat.message("Rotator manjet yirtilishi"), state, db)
-    check("kasallik mavzusi, rasm xizmati ishlamasa — to'lovdan oldin aytiladi",
-          "rasm xizmati" in chat.edited[-1] and await state.get_state() == PS.waiting_for_topic_text.state, chat.edited[-1:])
+    check("rasm generatsiyasi ishlamasa ham kasallik taqdimoti davom etadi",
+          "rasm bo'lmasa" in chat.edited[-1] and await state.get_state() == PS.waiting_for_client_name.state,
+          chat.edited[-1:])
     _m3.pictures_ready = lambda: True
-    await pp.premium_ppt_got_topic(chat.message("Rotator manjet yirtilishi"), state, db)
-    check("kasallik mavzusi mos — tartib aytiladi va davom etadi", "Kasallik mavzusi" in chat.edited[-1]
+    check("kasallik mavzusi uchun foydali bo'limlar tushuntiriladi",
+          "Kasallik mavzusi" in chat.edited[-1]
           and await state.get_state() == PS.waiting_for_client_name.state, chat.edited[-1:])
     _m3.check_topic = lambda topic, language="uz": {"ok": True, "kind": "anatomy", "reason": ""}
     await pp.premium_ppt_got_topic(chat.message("Yurakning tuzilishi"), state, db)

@@ -25,7 +25,10 @@ from lxml import etree
 from services.med3d import available_scenes, load_scene
 from services.med3d import glb
 from services.med3d.camera import Camera, IdBuffer
-from services.med3d.deck import DEMO_PLAN, W, H, build
+from services.med3d.deck import DEMO_PLAN, W, H, _connector, build
+from services.med3d import design
+from pptx import Presentation
+from pptx.util import Inches
 
 NS = {"p": "http://schemas.openxmlformats.org/presentationml/2006/main",
       "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
@@ -33,6 +36,26 @@ NS = {"p": "http://schemas.openxmlformats.org/presentationml/2006/main",
       "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
       "p159": "http://schemas.microsoft.com/office/powerpoint/2015/09/main"}
 EMU = 914400
+
+print("1) Ko'rsatkich koordinatalari")
+pointer_prs = Presentation()
+pointer_slide = pointer_prs.slides.add_slide(pointer_prs.slide_layouts[6])
+pointer_start, pointer_end = (2.1, 3.4), (8.6, 5.2)
+pointer_shapes = _connector(pointer_slide, design.style("atlas"), "anchor_test",
+                             pointer_start, pointer_end)
+pointer_xml = etree.fromstring(pointer_shapes[-1]._element.xml.encode())
+off = pointer_xml.find(".//a:xfrm/a:off", NS)
+ext = pointer_xml.find(".//a:xfrm/a:ext", NS)
+line_start = (int(off.get("x")), int(off.get("y")))
+line_end = (line_start[0] + int(ext.get("cx")), line_start[1] + int(ext.get("cy")))
+dot = pointer_shapes[0]
+check("ko'rsatkich to'g'ri chiziq bo'lib anchor koordinatasida tugaydi",
+      pointer_shapes[-1].shape_type == 9
+      and np.allclose(line_start, [Inches(v) for v in pointer_start])
+      and np.allclose(line_end, [Inches(v) for v in pointer_end]),
+      (line_start, line_end, pointer_start, pointer_end))
+check("marker markazi ko'rsatkichning oxirgi nuqtasiga teng",
+      np.allclose([dot.left + dot.width / 2, dot.top + dot.height / 2], [Inches(v) for v in pointer_end]))
 
 print("1) GLB yozish va o'qish")
 tri = glb.Primitive(np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]], float), np.tile([0, 0, 1.0], (3, 1)),

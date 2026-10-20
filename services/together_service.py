@@ -252,7 +252,7 @@ class TogetherImageService:
             prompt: English description of the image (detailed, high quality)
             aspect_ratio: Image aspect ratio (16:9 for slides, 21:9 for panoramic)
             steps: kept for compatibility; each model's own step count is used
-            target: "docs", "presentation" or "premium" — whose model to use
+            target: "docs", "presentation", "premium" or "med3d" — whose model to use
 
         Returns:
             Path to downloaded image or None if failed
@@ -641,6 +641,8 @@ def _mark_unavailable(model_id: str, message: str) -> None:
 def _env_default(target: str) -> str:
     from config import IMAGE_MODELS, DEFAULT_IMAGE_MODEL
 
+    if target == "med3d" and os.getenv("MED3D_TOGETHER_IMAGE_MODEL"):
+        return os.environ["MED3D_TOGETHER_IMAGE_MODEL"]
     if target == "premium" and os.getenv("PREMIUM_TOGETHER_IMAGE_MODEL"):
         return os.environ["PREMIUM_TOGETHER_IMAGE_MODEL"]
     return os.getenv("TOGETHER_IMAGE_MODEL") or IMAGE_MODELS[DEFAULT_IMAGE_MODEL]["id"]

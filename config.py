@@ -358,8 +358,8 @@ PREVIOUS_DEFAULT_AI_MODEL = "gemini_25_flash"
 
 # ── Rasm modellari (Together AI)
 #
-# Uchta xizmat uchun alohida tanlanadi: hujjatlar (mustaqil ish, referat,
-# kurs ishi va h.k.), oddiy taqdimot va zamonaviy taqdimot. Narx — bitta
+# Xizmatlar uchun alohida tanlanadi: hujjatlar (mustaqil ish, referat,
+# kurs ishi va h.k.), oddiy taqdimot, zamonaviy taqdimot va 3D Anatomiya. Narx — bitta
 # ~1 megapikselli rasm uchun taxminiy qiymat (Together narxlari o'zgarib
 # turadi). Admin modelni tanlaganda u Together hisobidagi ro'yxatdan
 # tekshiriladi; ishlab chiqarishda tanlangani ishlamasa
