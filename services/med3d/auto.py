@@ -963,35 +963,6 @@ def models_size(scenes: Dict[str, dict]) -> int:
     return sum(unique.values())
 
 
-QUIZ_TEXT = {
-    "uz": ("O'zingizni tekshiring", "Raqamlar bilan belgilangan a'zolarni ayting. Javoblar — bosganda chiqadi."),
-    "uz-cyrl": ("Ўзингизни текширинг", "Рақамлар билан белгиланган аъзоларни айтинг. Жавоблар — босганда чиқади."),
-    "ru": ("Проверьте себя", "Назовите органы, отмеченные цифрами. Ответы появятся по щелчку."),
-    "en": ("Check yourself", "Name the organs marked with numbers. The answers appear on click."),
-    "kk": ("Өзіңізді тексеріңіз", "Сандармен белгіленген мүшелерді атаңыз. Жауаптар басқанда шығады."),
-}
-QUIZ_MIN_SLIDES = 8
-
-
-def add_quiz(plan_: dict) -> bool:
-    """Xulosadan oldin bonus savol slaydi: eng ko'p yorliqli umumiy ko'rinish, nomlar o'rnida raqamlar,
-    javoblar bosilganda chiqadi (o'qituvchi uchun tayyor mashq). 8 slayddan kam bo'lsa — qo'shilmaydi."""
-    slides = plan_["slides"]
-    if len(slides) < QUIZ_MIN_SLIDES or any(s.get("quiz") for s in slides):
-        return False
-    source = max(slides[:-1], key=lambda s: (len(s.get("labels") or []), len(s["show"])))
-    if len(source.get("labels") or []) < 3:
-        return False
-    from services import uz_script
-
-    lang = plan_.get("language") or "uz"
-    key = "uz-cyrl" if lang == getattr(uz_script, "UZ_CYRILLIC_LANG", "uz-cyrl") else lang
-    title, text = QUIZ_TEXT.get(key) or QUIZ_TEXT["en"]
-    quiz = dict(copy.deepcopy(source), title=title, text=text, quiz=True, focus=None)
-    slides.insert(len(slides) - 1, quiz)
-    return True
-
-
 def pick_style(topic: str) -> str:
     """Mijoz uslub tanlamagan bo'lsa: mavzuga qarab (har mavzu o'z uslubida, lekin bir xil mavzu — bir xil)."""
     from .design import STYLES
@@ -1012,7 +983,6 @@ def make_deck(topic: str, plan_: dict, out_dir: Optional[str] = None, atlas=None
 
     plan_["style"] = style or plan_.get("style") or pick_style(topic)
     if not plan_.get("directed"):
-        add_quiz(plan_)
         body = one_side(lexicon()["bodies"][plan_["body"]], plan_.get("side"),
                         (atlas or manba.atlas(plan_["body"])) if plan_.get("side") else None)
         moves = direct(body, plan_["slides"], topic)

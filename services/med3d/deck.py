@@ -123,11 +123,12 @@ def keep_clear(cam: Camera, frame: Frame, focus_points, all_points, area=TEXT_ED
         x1, y1 = frame.to_slide(u1, v1)
         dx = ax0 - x0 if x0 < ax0 - 1e-3 else (ax1 - x1 if x1 > ax1 + 1e-3 else 0.0)
         dy = ay0 - y0 if y0 < ay0 - 1e-3 else (ay1 - y1 if y1 > ay1 + 1e-3 else 0.0)
-        if not dx and not dy:
-            return frame
         f0, g0, f1, g1 = cam.extent(focus_points, frame.rot)
         fx0, fy0 = frame.to_slide(f0, g0)
         fx1, fy1 = frame.to_slide(f1, g1)
+        focus_inside = fx0 >= -0.05 and fy0 >= -0.05 and fx1 <= W + 0.05 and fy1 <= H + 0.05
+        if not dx and not dy and focus_inside:
+            return frame
         # Model joyga sig'adi (faqat bir chetidan chiqqan) — suriladi; ikkala chetidan chiqsa surish bir tomonni
         # tuzatib, ikkinchisini battar qiladi — kichraytiriladi.
         fits = x1 - x0 <= ax1 - ax0 + 1e-3 and y1 - y0 <= ay1 - ay0 + 1e-3
@@ -432,7 +433,7 @@ def _labels(cam: Camera, scene: dict, frame: Frame, keys: Sequence[str], visible
             u, v = spot
         ax, ay = frame.cx + ox + u * frame.size, frame.cy + oy + v * frame.size
         if not (x_lo <= ax <= x_hi and 0.15 <= ay <= H - 0.15):
-            log.info("med3d: yorliq nuqtasi slayddan tashqarida, qo'yilmadi: %s", key)
+            log.warning("med3d: yorliq nuqtasi slayddan tashqarida, qo'yilmadi: %s", key)
             continue
         # Yorliqda qavs ichidagi izoh kerak emas: "Yelka bo'g'imi (kapsula va boylamlar)" → "Yelka bo'g'imi" —
         # uzun yorliq tor ustunga sig'may, o'z nuqtasining ustiga chiqib qolardi.
@@ -895,10 +896,6 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
                         lights=st.lights)
 
         placed_labels = _labels(cam, scene, frame, cur["labels"], show, model_box, st, lay, offsets)
-        if data.get("quiz"):                          # savol slaydi: nomlar o'rniga raqamlar
-            for n, (_, item) in enumerate(sorted(placed_labels, key=lambda kv: (kv[1]["side"] != "left",
-                                                                                kv[1]["y"])), 1):
-                item["number"] = n
         steps, fly = [], []
         for i, (lkey, item) in enumerate(placed_labels):
             drawn = _draw_label(slide, st, lkey, item)
@@ -935,12 +932,10 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
             boxes.append(("rasm", (px, py, px + pw, py + ph)))
         issues = quality(lay, model_box, placed_labels, boxes,
                          None if data.get("explode") else focus_box)
-        if issues and not data.get("auto"):
-            log.info("med3d sifat (%d-slayd, %s): %s", index + 1, lay.key, "; ".join(issues))
+        if issues:
+            log.warning("med3d sifat (%d-slayd, %s): %s", index + 1, lay.key, "; ".join(issues))
         quality_log.append((index, issues))
-        if data.get("quiz") and placed_labels:
-            _answers_timing(slide, steps, [(_answer_card(slide, st, lay, placed_labels), "zoom", 0)])
-        elif steps:
+        if steps:
             add_entrances(slide, steps)
         _send_back(slide)
         if index:

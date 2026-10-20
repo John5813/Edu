@@ -330,22 +330,18 @@ check("fade slaydida slayd tashqarisidagi (uchib keladigan) 3D model nusxasi yo'
       offs and all(-914400 < x < 13.4 * 914400 for x in offs), offs)
 
 
-print("4b) Uslublar, rejissyor, savol slaydi")
+print("4b) Uslublar va rejissyor")
 from services.med3d import design, director
 check("12 ta dizayn uslubi", len(design.STYLES) >= 12, list(design.STYLES))
 big = {k: v for k, v in plan.items() if k not in ("directed", "style")}
 big["slides"] = [dict(s, title=f"{s['title']} {k}") for k in range(2) for s in plan["slides"]]
 big["slides"] = [copy.deepcopy(s) for s in big["slides"]]
-big["slides"][0]["labels"] = list(big["slides"][0]["show"])     # savol uchun kamida 3 ta yorliqli umumiy ko'rinish
 path_q = auto.make_deck("Hazm a'zolari katta", big, tempfile.mkdtemp(), atlas=FakeAtlas(MALE), style="atlas")
 zq = zipfile.ZipFile(path_q)
 nq = sum(1 for n in zq.namelist() if n.startswith("ppt/slides/slide") and n.endswith(".xml"))
 xmls = [zq.read(f"ppt/slides/slide{i}.xml").decode() for i in range(1, nq + 1)]
-quiz = [x for x in xmls if "!!answers" in x]
-check("8+ slaydda xulosadan oldin savol slaydi (javoblar kartasi)", len(quiz) == 1, nq)
-check("javoblar bosilganda chiqadi (clickEffect)", quiz and 'nodeType="clickEffect"' in quiz[0])
-digits = re.findall(r'name="lbl_[^"]+".*?<a:t>(\d+)</a:t>', quiz[0], re.S) if quiz else []
-check("savol slaydida nomlar o'rnida raqamlar", len(digits) >= 3, digits)
+check("8+ slaydda ham avtomatik savol slaydi qo'shilmaydi",
+      all("!!answers" not in x and "O'zingizni tekshiring" not in x for x in xmls), nq)
 moves = big.get("directed") and [s.get("layout") for s in big["slides"]]
 check("kompozitsiyalar ketma-ket takrorlanmaydi", all(a != b for a, b in zip(moves, moves[1:])), moves)
 seen_moves = director.direct(MALE, copy.deepcopy(big["slides"]), "boshqa mavzu")
