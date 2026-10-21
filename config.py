@@ -48,6 +48,16 @@ PAYMENT_CARD = os.getenv("PAYMENT_CARD", "9860160606136655")
 PAYMENT_CARD_2 = os.getenv("PAYMENT_CARD_2", "9860160104562378")
 PAYMENT_CARD_OWNER = os.getenv("PAYMENT_CARD_OWNER", "Moʻydinov Javlonbek")
 
+# Click (SHOP API, services/click_pay.py). Kalitlar Click kabinetidan (merchant.click.uz → Sozlamalar).
+# Uchalasi (SERVICE_ID, MERCHANT_ID, SECRET_KEY) bo'lsa — Click tugmasi botda ham, saytda ham chiqadi.
+# Kabinetdagi Prepare/Complete manzillari: https://<domen>/click/prepare va https://<domen>/click/complete.
+CLICK_SERVICE_ID = os.getenv("CLICK_SERVICE_ID", "").strip()
+CLICK_MERCHANT_ID = os.getenv("CLICK_MERCHANT_ID", "").strip()
+CLICK_SECRET_KEY = os.getenv("CLICK_SECRET_KEY", "").strip()
+CLICK_MERCHANT_USER_ID = os.getenv("CLICK_MERCHANT_USER_ID", "").strip()
+# To'lovdan keyin mijoz qaytadigan sahifa (bo'sh bo'lsa — Click o'z sahifasida qoladi).
+CLICK_RETURN_URL = os.getenv("CLICK_RETURN_URL", "").strip()
+
 # Chekni AI bilan avtomatik tekshirish (services/receipts).
 # Mijoz adminga shu manzil orqali murojaat qiladi (eski chek, takroriy chek).
 ADMIN_CONTACT = os.getenv("ADMIN_CONTACT", "@javlon58_02")
