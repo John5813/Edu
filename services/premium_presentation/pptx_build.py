@@ -20,6 +20,8 @@ from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.util import Emu, Pt
 
+from services import author_mark
+
 from .html_extract import (PX_TO_EMU, PX_TO_PT, SLIDE_H_IN, SLIDE_H_PX,
                            SLIDE_W_IN, SLIDE_W_PX, font_name)
 
@@ -150,7 +152,7 @@ def _merge_flows(blocks: List[Dict]) -> List[Dict]:
     groups: Dict[int, List[Dict]] = {}
     for block in blocks:
         flow = int(block.get("flow") or 0)
-        if (block.get("kind") == "text" and flow
+        if (block.get("kind") == "text" and flow and not block.get("author")
                 and str(block.get("text") or "").strip()):
             groups.setdefault(flow, []).append(block)
     merged: Dict[int, Dict] = {}
@@ -174,7 +176,7 @@ def _merge_flows(blocks: List[Dict]) -> List[Dict]:
     out, done = [], set()
     for block in blocks:
         flow = int(block.get("flow") or 0)
-        if flow in merged and block.get("kind") == "text":
+        if flow in merged and block.get("kind") == "text" and not block.get("author"):
             if flow not in done:
                 done.add(flow)
                 out.append(merged[flow])
@@ -225,6 +227,8 @@ def _add_text(slide, block: Dict) -> None:
     frame_box = slide.shapes.add_textbox(
         _emu(area["x"] - shift), _emu(area["y"]),
         _emu(area["w"] + slack), _emu(area["h"]))
+    if block.get("author"):
+        author_mark.mark(frame_box)
     frame = frame_box.text_frame
     frame.word_wrap = True
     frame.margin_left = frame.margin_right = 0

@@ -1507,7 +1507,7 @@ def _cover_credit(body: str, author: str = "", language: str = "uz") -> str:
     if not author:
         return body
     label = _CREDIT_LABEL.get(language, _CREDIT_LABEL["uz"])
-    note = f'<p class="note">{_escape(label)}: {_escape(author)}</p>'
+    note = f'<p class="note author">{_escape(label)}: {_escape(author)}</p>'
     # Muqova `.body` ichining oxiriga qo'yiladi.
     match = re.search(r"</div>\s*</section>\s*$", body, re.IGNORECASE)
     if match:
@@ -1940,7 +1940,7 @@ def _plain_slide(topic: str, brief: str, number: int, total: int,
     Muqovaga AI kerak emas: u mavzu va muallifdan yig'iladi.
     """
     if number == 1:
-        note = (f'<p class="note">{_escape(_CREDIT_LABEL.get(language, _CREDIT_LABEL["uz"]))}: '
+        note = (f'<p class="note author">{_escape(_CREDIT_LABEL.get(language, _CREDIT_LABEL["uz"]))}: '
                 f'{_escape(author)}</p>') if author else ""
         return ('<section class="slide dark"><div class="body">'
                 f'<h1 class="title big">{_escape(topic)}</h1>'

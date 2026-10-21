@@ -20,6 +20,7 @@ from PIL import Image
 from pptx import Presentation
 from pptx.oxml.ns import qn
 
+from services import author_mark
 from services.premium_presentation.designer.kit import MIDDLE, SANS, fill, grad, line, mix, nofill, oval, px, rect, text
 from services.premium_presentation.designer.styles import WHITE, Palette
 
@@ -188,7 +189,8 @@ def add_thanks_slide(pptx_in: str, pptx_out: str, anim: Animation, theme, langua
         t_title = text(s, 150, 360, 860, 330, [[(title, 84, WHITE, True, pal.head_font)]], anchor=MIDDLE,
                        line_spacing=1.05)
         t_sub = text(s, 150, 720, 820, 70, [[(sub, 34, pal.on_dark)]])
-        t_author = text(s, 150, 900, 820, 50, [[(f"{author_word}: {author}", 22, pal.glowing)]]) if author else None
+        t_author = (author_mark.mark(text(s, 150, 900, 820, 50, [[(f"{author_word}: {author}", 22, pal.glowing)]]))
+                    if author else None)
 
         with Image.open(gif) as im:
             gw, gh = im.size

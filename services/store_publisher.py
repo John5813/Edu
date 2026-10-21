@@ -138,15 +138,28 @@ def _cell_paragraphs(cell):
     return frame.paragraphs if frame is not None else cell.paragraphs
 
 
+_APOSTROPHE = "'`ʻʼ’‘"
+
+
 def _name_pattern(customer_name: str):
-    """Mijoz ismini topadigan naqsh. Ism qisqa bo'lsa None."""
+    """Mijoz ismini topadigan naqsh. Ism qisqa bo'lsa None.
+
+    Ism bo'lagi faqat ALOHIDA SO'Z sifatida topiladi. Ilgari so'z ichidagi
+    bo'lak ham topilardi: "Asim" ismi "Ponasimon" so'zida uchrab, mavzu nomi
+    bor hamma sarlavha va gap do'kon nusxasidan o'chib ketardi. Familiyaga
+    ayol qo'shimchasi "-a" (Karimov → Karimova) ruxsat.
+    """
     cleaned = (customer_name or "").strip()
     if len(cleaned) < 3:
         return None
     # Ism bo'laklari alohida ham qidiriladi: ishda faqat familiya yozilgan
     # bo'lishi mumkin.
-    parts = [re.escape(p) for p in cleaned.split() if len(p) >= 3]
-    return re.compile("|".join(parts), re.IGNORECASE) if parts else None
+    parts = [p.strip(".,;:()\"") for p in cleaned.split()]
+    parts = [re.escape(p) for p in parts if len(p) >= 3]
+    if not parts:
+        return None
+    edge = f"[^\\W\\d_{re.escape(_APOSTROPHE)}]"
+    return re.compile(rf"(?<!{edge})(?:{'|'.join(parts)})a?(?!{edge})", re.IGNORECASE)
 
 
 def _download_name(title: str, extension: str, fallback: str) -> str:
@@ -185,22 +198,56 @@ def anonymize(src_path: str, customer_name: str = "", out_path: str = "") -> str
     return anonymize_pptx(src_path, customer_name, out_path)
 
 
+def _is_name_line(text: str, customer_name: str) -> bool:
+    """Satrning O'ZI ism satri: "Asim Karimov", "Tayyorladi: Asim Karimov", "Tayyorladi:".
+
+    Gap ichidagi so'zga qaralmaydi — slayd mazmuni hech qachon o'chmaydi.
+    """
+    value = " ".join(text.split()).strip(" .")
+    if not value:
+        return False
+    name = " ".join((customer_name or "").split()).strip(" .")
+    if name and value.casefold() == name.casefold():
+        return True
+    if _LABEL_ONLY_RE.match(value):
+        return True
+    match = _LABEL_VALUE_RE.match(value)
+    if not match:
+        return False
+    first = re.split(r"[|;,/·]", match.group(1))[0].strip()
+    return (bool(name) and first.casefold() == name.casefold()) or _looks_like_person(first)
+
+
 def anonymize_pptx(src_path: str, customer_name: str = "", out_path: str = "") -> str:
-    """Nusxani tozalab, yangi fayl yo'lini qaytaradi. Asl fayl tegilmaydi."""
+    """Nusxani tozalab, yangi fayl yo'lini qaytaradi. Asl fayl tegilmaydi.
+
+    Ismni quruvchi o'zi qo'yadi va qutisini belgilaydi (`author_mark`) — shu
+    quti bo'shatiladi. Belgisiz (eski) faylda faqat butun satri ism yoki
+    "Tayyorladi: ..." bo'lgan paragraf bo'shatiladi; slayd matni ichidan ism
+    qidirilmaydi.
+    """
     from pptx import Presentation
 
+    from services.author_mark import is_author
+
     out_path = out_path or _staged_path(".pptx")
-    name_re = _name_pattern(customer_name)
     prs = Presentation(src_path)
 
     removed = 0
     for slide in prs.slides:
-        for shape in _iter_shapes(slide.shapes):
+        for shape in list(_iter_shapes(slide.shapes)):
+            if is_author(shape):
+                # Shakl o'chirilmaydi: animatsiya (`p:timing`) unga raqami bilan
+                # bog'langan, shaklsiz qolsa PowerPoint faylni "tiklash"ni so'raydi.
+                if getattr(shape, "has_text_frame", False):
+                    _blank_paragraph_all(shape.text_frame.paragraphs)
+                removed += 1
+                continue
             if getattr(shape, "has_text_frame", False):
-                removed += _scrub_paragraphs(shape.text_frame.paragraphs, name_re)
-            if getattr(shape, "has_table", False):
-                for row in shape.table.rows:
-                    removed += _scrub_table_row(list(row.cells), name_re)
+                for para in shape.text_frame.paragraphs:
+                    if _is_name_line(para.text, customer_name):
+                        _blank_paragraph(para)
+                        removed += 1
         # Slayd izohlari — ekranda ko'rinmaydi, shuning uchun eng oson
         # e'tibordan chetda qoladigan joy.
         if getattr(slide, "has_notes_slide", False):
