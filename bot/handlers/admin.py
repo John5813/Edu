@@ -2273,7 +2273,8 @@ async def _feature_keyboard(db):
                await db.get_feature_status(THANKS_ANIM, default=False),
                await db.get_feature_status(TEXT_ANIM, default=False),
                await db.get_feature_status(reengage.FEATURE_WEEKLY),
-               await db.get_feature_status("receipt_full_auto"))
+               await db.get_feature_status("receipt_full_auto"),
+               click_enabled=await db.get_feature_status("click_pay"))
 
 _FEATURES_TITLE = (
     "🎛 Funksiyalar boshqaruvi\n\n"
@@ -2363,6 +2364,29 @@ async def toggle_receipt_full(callback: CallbackQuery, db: Database):
     await callback.answer("🤖 To'liq avto to'lov yoqildi: AI o'zi tasdiqlaydi yoki sababini aytib rad etadi."
                           if new_status else "🤖 To'liq avto to'lov o'chirildi: cheklar admin tasdig'iga boradi.",
                           show_alert=True)
+    kb = await _feature_keyboard(db)
+    await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("toggle_click_pay_"))
+async def toggle_click_pay(callback: CallbackQuery, db: Database):
+    """Click orqali to'lovni yoqish/o'chirish (bot va sayt).
+
+    O'chiq: mijozlarga Click tugmasi ko'rsatilmaydi, darhol karta orqali to'lov ko'rsatmasi chiqadi.
+    Allaqachon boshlangan Click to'lovlari baribir yakunlanadi va balansga tushadi.
+    """
+    if not is_admin(callback.from_user.id):
+        return
+    from services import click_pay
+    new_status = callback.data.split("_")[-1] == "on"
+    await db.set_feature_status(click_pay.FEATURE, new_status)
+    if new_status and not click_pay.enabled():
+        text = "⚡ Click yoqildi, lekin .env da Click kalitlari yo'q — tugma baribir chiqmaydi."
+    elif new_status:
+        text = "⚡ Click orqali to'lov yoqildi!"
+    else:
+        text = "⚡ Click o'chirildi: mijozlar faqat karta orqali to'laydi."
+    await callback.answer(text, show_alert=True)
     kb = await _feature_keyboard(db)
     await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
 

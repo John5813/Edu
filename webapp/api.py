@@ -583,6 +583,7 @@ async def deck_edit(request: web.Request) -> web.Response:
 # ──────────────────────────────────────────────────────────────────────── hamyon
 
 async def wallet(request: web.Request) -> web.Response:
+    from services import click_pay
     from services.receipts import web as receipt_web
 
     telegram_id = await _require(request)
@@ -591,7 +592,7 @@ async def wallet(request: web.Request) -> web.Response:
         return _error("Avval botda /start bosing.", 409, "no_user")
     history = await Database.get_recent_payments(user.id, 10)
     return web.json_response({
-        "ok": True, "balance": int(user.balance or 0), "methods": receipt_web.methods(),
+        "ok": True, "balance": int(user.balance or 0), "methods": receipt_web.methods(click_on=await click_pay.available()),
         "presets": list(receipt_web.PRESETS), "min": receipt_web.MIN_AMOUNT, "max": receipt_web.MAX_AMOUNT,
         "history": [{"id": row["id"], "amount": int(row["amount"] or 0), "status": row["status"],
                      "created_at": str(row["created_at"])[:16]} for row in history]})
@@ -702,7 +703,7 @@ async def wallet_click(request: web.Request) -> web.Response:
     from services import click_pay
 
     telegram_id = await _require(request)
-    if not click_pay.enabled():
+    if not await click_pay.available():
         return _error("Click hozircha ulanmagan.", 409, "click_off")
     if _limited(f"click:{telegram_id}", 10, 60):
         return _error("Juda tez-tez yuborildi. Bir daqiqa kuting.", 429, "rate")
