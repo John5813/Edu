@@ -22,6 +22,33 @@ def _started_at() -> str:
     from services.receipts.rules import now_tashkent
     return now_tashkent().isoformat()
 
+_CLICK_TEXT = {
+    "uz": ("⚡ <b>Tezroq yo'l — Click:</b> to'lov o'tishi bilan {amount} so'm hisobingizga avtomatik tushadi, "
+           "chek yuborish shart emas.", "⚡ Click orqali to'lash"),
+    "ru": ("⚡ <b>Быстрее — через Click:</b> {amount} сум зачислятся автоматически сразу после оплаты, "
+           "чек отправлять не нужно.", "⚡ Оплатить через Click"),
+    "en": ("⚡ <b>Faster — pay with Click:</b> {amount} som is credited automatically right after payment, "
+           "no receipt needed.", "⚡ Pay with Click"),
+}
+
+
+async def _offer_click(message: Message, telegram_id: int, amount: int, user_lang: str) -> None:
+    """Click ulangan bo'lsa — to'lov havolasi tugmasi (chek yo'li ham ochiq qoladi)."""
+    from services import click_pay
+
+    if not click_pay.enabled():
+        return
+    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+    try:
+        url = await click_pay.new_payment(telegram_id, amount, "bot")
+    except Exception as exc:
+        logger.warning("Click havolasi yaratilmadi (%s): %s", telegram_id, exc)
+        return
+    text, button = _CLICK_TEXT.get(user_lang, _CLICK_TEXT["uz"])
+    await message.answer(text.format(amount=f"{amount:,}"), parse_mode="HTML",
+                         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=button, url=url)]]))
+
+
 # Payment menu items in different languages
 def _with_variants(texts, key):
     """Qo'lda yozilgan yozuvlarga barcha tillardagi (qozoqcha ham) tugma yozuvini qo'shadi."""
@@ -151,6 +178,7 @@ async def handle_payment_amount_selection(callback: CallbackQuery, state: FSMCon
 
         await state.update_data(payment_amount=amount)
         await state.set_state(PaymentStates.waiting_for_screenshot)
+        await _offer_click(callback.message, callback.from_user.id, amount, user_lang)
 
     except Exception as e:
         logger.error(f"handle_payment_amount_selection error: {e}", exc_info=True)
@@ -310,6 +338,7 @@ async def handle_custom_amount_input(callback_message: Message, state: FSMContex
 
     await callback_message.answer(instructions, parse_mode="HTML", reply_markup=keyboard)
     await state.set_state(PaymentStates.waiting_for_screenshot)
+    await _offer_click(callback_message, callback_message.from_user.id, amount, user_lang)
 
 
 @router.callback_query(F.data.regexp(r"^rcpt_resend:\d+:\d+$"))

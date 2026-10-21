@@ -510,6 +510,7 @@
     let w;
     try { w = await E.api('/wallet'); } catch (e) { view.innerHTML = `<div class="note bad">${E.esc(e.message)}</div>`; return; }
     const receipt = w.methods.find((m) => m.key === 'receipt');
+    const click = w.methods.find((m) => m.key === 'click' && m.enabled);
     let amount = 0, started = '';
     const stamp = () => new Date().toLocaleString('sv-SE', {timeZone: 'Asia/Tashkent'}).replace(' ', 'T');
 
@@ -518,18 +519,23 @@
         <div class="card panel">
           <div class="row" style="justify-content:space-between"><b style="font-size:18px">Balansni to‘ldirish</b><span class="bal">${E.fmt(w.balance)} so‘m</span></div>
           <div class="row" style="margin-top:16px">
-            ${w.methods.map((m) => `<span class="chip ${m.key === 'receipt' ? 'on' : 'soon'}">${E.esc(m.label)}${m.enabled ? '' : ' <small>tez orada</small>'}</span>`).join('')}
+            ${w.methods.map((m) => `<span class="chip ${m.enabled ? 'on' : 'soon'}">${E.esc(m.label)}${m.enabled ? '' : ' <small>tez orada</small>'}</span>`).join('')}
           </div>
 
           <div style="margin-top:22px"><div class="lab">1. Summani tanlang</div>
             <div class="row" id="presets">${w.presets.map((p) => `<button type="button" class="chip" data-v="${p}">${E.fmt(p)}</button>`).join('')}</div>
             <input class="fld" id="amount" inputmode="numeric" placeholder="Boshqa summa (so'm)" style="margin-top:10px;max-width:260px"></div>
 
-          <div style="margin-top:22px"><div class="lab">2. Pulni kartalardan biriga o‘tkazing</div>
+          ${click ? `<div style="margin-top:22px"><div class="lab">2. Click orqali to‘lang — summa darhol hisobga tushadi</div>
+            <button type="button" class="btn" id="click-pay">⚡ Click orqali to‘lash</button>
+            <div id="c-out" style="margin-top:10px"></div>
+            <div class="hint" style="margin-top:14px">yoki kartaga o‘tkazib, chek yuklang:</div></div>` : ''}
+
+          <div style="margin-top:22px"><div class="lab">${click ? '3' : '2'}. Pulni kartalardan biriga o‘tkazing</div>
             ${receipt.cards.map((c) => `<div class="cardno"><span>${E.esc(c)}</span><button type="button" class="link" data-copy="${E.esc(c.replace(/ /g, ''))}">Nusxalash</button></div>`).join('')}
             <div class="hint">Qabul qiluvchi: ${E.esc(receipt.owner)}</div></div>
 
-          <div style="margin-top:22px"><div class="lab">3. To‘lov chekini yuklang</div>
+          <div style="margin-top:22px"><div class="lab">${click ? '4' : '3'}. To‘lov chekini yuklang</div>
             <div class="drop" id="drop"><div style="font-weight:700">Chekni shu yerga tashlang yoki tanlang</div>
               <div class="hint">Rasm, PDF yoki DOCX · 12 MB gacha. Eng yaxshisi: to‘lov tarixidagi asl kvitansiya (sana, qabul qiluvchi karta va ID ko‘rinsin).</div>
               <input type="file" id="file" accept="image/*,.pdf,.docx" style="margin-top:12px"></div>
@@ -553,6 +559,12 @@
     $('presets').onclick = (e) => { const b = e.target.closest('.chip'); if (b) setAmount(parseInt(b.dataset.v, 10), true); };
     $('amount').oninput = (e) => setAmount(parseInt(e.target.value.replace(/\D/g, ''), 10) || 0, false);
     view.querySelectorAll('[data-copy]').forEach((b) => (b.onclick = () => E.copy(b.dataset.copy)));
+    if (click) $('click-pay').onclick = async () => {
+      if (!amount) { $('c-out').innerHTML = '<div class="note bad">Avval summani tanlang yoki kiriting.</div>'; return; }
+      $('c-out').innerHTML = '<span class="spin"></span>';
+      try { location.href = (await E.api('/wallet/click', {json: {amount}})).url; }
+      catch (e) { $('c-out').innerHTML = `<div class="note bad">${E.esc(e.message)}</div>`; }
+    };
 
     async function send(file) {
       if (!amount) { $('r-out').innerHTML = '<div class="note bad">Avval summani tanlang yoki kiriting.</div>'; return; }

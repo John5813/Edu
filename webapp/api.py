@@ -697,6 +697,48 @@ async def static_file(request: web.Request) -> web.StreamResponse:
     return web.FileResponse(path, headers={"Cache-Control": "public, max-age=300"})
 
 
+async def wallet_click(request: web.Request) -> web.Response:
+    """Click orqali to'ldirish: invoys yaratib, my.click.uz havolasini qaytaradi."""
+    from services import click_pay
+
+    telegram_id = await _require(request)
+    if not click_pay.enabled():
+        return _error("Click hozircha ulanmagan.", 409, "click_off")
+    if _limited(f"click:{telegram_id}", 10, 60):
+        return _error("Juda tez-tez yuborildi. Bir daqiqa kuting.", 429, "rate")
+    try:
+        body = await request.json()
+    except Exception:
+        return _error("Noto'g'ri so'rov.", 400, "bad_request")
+    try:
+        url = await click_pay.new_payment(telegram_id, (body or {}).get("amount"), "web",
+                                          return_url=webapp.public_url("/app#/wallet"))
+    except ValueError as exc:
+        return _error(str(exc), 400, "invalid")
+    return web.json_response({"ok": True, "url": url})
+
+
+def _click_endpoint(action: Optional[int]):
+    """Click serveri chaqiradigan manzil (Prepare / Complete). Javob — Click kutgan JSON, doim HTTP 200."""
+    async def handler(request: web.Request) -> web.Response:
+        from services import click_pay
+
+        try:
+            form = dict(await request.post())
+        except Exception:
+            form = {}
+        params = {key: str(value) for key, value in form.items()}
+        try:
+            answer = await click_pay.handle(params, action)
+        except Exception as exc:
+            log.exception("Click so'rovi bajarilmadi: %s", exc)
+            answer = click_pay._answer(params, click_pay.UPDATE_FAILED)
+        log.info("Click %s: invoys %s, click %s → %s", params.get("action"), params.get("merchant_trans_id"),
+                 params.get("click_trans_id"), answer.get("error"))
+        return web.json_response(answer)
+    return handler
+
+
 def setup_api_routes(app: web.Application) -> None:
     app.middlewares.append(guard)
     from webapp import account_api
@@ -722,6 +764,10 @@ def setup_api_routes(app: web.Application) -> None:
     add("POST", "/api/v1/jobs/{id}/edit", deck_edit)
     add("GET", "/api/v1/wallet", wallet)
     add("POST", "/api/v1/wallet/receipt", wallet_receipt)
+    add("POST", "/api/v1/wallet/click", wallet_click)
+    add("POST", "/click/prepare", _click_endpoint(0))
+    add("POST", "/click/complete", _click_endpoint(1))
+    add("POST", "/click", _click_endpoint(None))
     add("GET", "/app", _page("app.html"))
     add("GET", "/admin/statistics", _page("admin_statistics.html"))
     add("GET", "/api/v1/admin/statistics", admin_statistics)

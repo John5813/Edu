@@ -12,6 +12,7 @@ from typing import Dict, List, Optional
 
 import config
 from database.database import Database
+from services import click_pay
 from . import flow, rules, texts
 
 log = logging.getLogger(__name__)
@@ -28,13 +29,13 @@ def card_view(number: str) -> str:
 
 
 def methods() -> List[Dict]:
-    """Balansni to'ldirish usullari. `enabled=False` — tez orada (Click, Payme, Uzum)."""
+    """Balansni to'ldirish usullari. `enabled=False` — tez orada (Payme, Uzum; Click — kalitlari bo'lsa)."""
     cards = [card_view(c) for c in (config.PAYMENT_CARD, config.PAYMENT_CARD_2) if c]
     return [
         {"key": "receipt", "label": "Kartaga o'tkazma (chek yuklash)", "enabled": True,
          "cards": cards, "owner": config.PAYMENT_CARD_OWNER,
          "note": "Pulni kartalardan biriga o'tkazing, so'ng to'lov chekini yuklang."},
-        {"key": "click", "label": "Click", "enabled": False},
+        {"key": "click", "label": "Click", "enabled": click_pay.enabled()},
         {"key": "payme", "label": "Payme", "enabled": False},
         {"key": "uzum", "label": "Uzum", "enabled": False},
     ]
