@@ -31,6 +31,8 @@ class Prepared:
     text: str = ""
     meta_flags: List[str] = field(default_factory=list)
     kind: str = "image"
+    file_time: Optional[datetime] = None     # faylning o'z vaqti (nomi, EXIF yoki PDF), Toshkent
+    file_time_src: str = ""
 
 
 # ───────────────────────────────────────────────────────────── tayyorlash
@@ -63,6 +65,58 @@ def _raw_editor_flag(data: bytes) -> Optional[str]:
     return None
 
 
+# Telefon skrinshoti/rasmi nomidagi sana-vaqt: Screenshot_20261006_200412.jpg, IMG_20261006_200412.jpg,
+# Screenshot_2026-10-06-20-04-12.png, photo_2026-10-06_20-04-12.jpg (Telegram Desktop), «Снимок экрана
+# 2026-10-06 в 20.04.12». Pixel (PXL_) nomlari UTC'da — ular hisobga olinmaydi.
+_NAME_TIME = re.compile(
+    r"(?<!\d)(20\d{2})[-_.]?(\d{2})[-_.]?(\d{2})[-_ T.]{1,3}(?:в\s|at\s)?(\d{2})[-_.:]?(\d{2})(?:[-_.:]?(\d{2}))?(?!\d)",
+    re.IGNORECASE)
+
+
+def name_time(filename: str) -> Optional[datetime]:
+    """Fayl nomidagi raqamlardan yaratilgan vaqt (topilmasa None)."""
+    name = (filename or "").rsplit("/", 1)[-1]
+    if not name or name.lower().startswith("pxl_"):
+        return None
+    match = _NAME_TIME.search(name)
+    if not match:
+        return None
+    try:
+        year, month, day, hour, minute = (int(match.group(i)) for i in range(1, 6))
+        return datetime(year, month, day, hour, minute, int(match.group(6) or 0))
+    except ValueError:
+        return None
+
+
+def _exif_time(image) -> Optional[datetime]:
+    """Rasm EXIF'idagi yaratilgan vaqt (DateTimeOriginal, bo'lmasa DateTime)."""
+    try:
+        exif = image.getexif()
+        value = exif.get_ifd(0x8769).get(36867) or exif.get(306)
+        return datetime.strptime(str(value).strip()[:19], "%Y:%m:%d %H:%M:%S") if value else None
+    except Exception:
+        return None
+
+
+def _pdf_time(meta: dict) -> Optional[datetime]:
+    """PDF yaratilgan vaqt — faqat vaqt zonasi yozilgan bo'lsa (aks holda UTC/mahalliy ekani noma'lum)."""
+    match = re.match(r"D:(\d{14})([+-])(\d{2})'?(\d{2})", str((meta or {}).get("creationDate") or ""))
+    if not match:
+        return None
+    try:
+        moment = datetime.strptime(match.group(1), "%Y%m%d%H%M%S")
+    except ValueError:
+        return None
+    offset = timedelta(hours=int(match.group(3)), minutes=int(match.group(4)))
+    utc = moment - offset if match.group(2) == "+" else moment + offset
+    return utc + timedelta(hours=5)
+
+
+def _stamp(out: "Prepared", moment: Optional[datetime], source: str) -> None:
+    if moment and not out.file_time:
+        out.file_time, out.file_time_src = moment, source
+
+
 def prepare(data: bytes, filename: str = "", mime: str = "") -> Prepared:
     """Fayl baytlaridan AI ga beriladigan rasmlar va matn."""
     if not data or len(data) > MAX_BYTES:
@@ -70,6 +124,7 @@ def prepare(data: bytes, filename: str = "", mime: str = "") -> Prepared:
     name = (filename or "").lower()
     mime = (mime or "").lower()
     out = Prepared()
+    _stamp(out, name_time(filename), "name")
 
     if name.endswith(".pdf") or mime == "application/pdf" or data[:5] == b"%PDF-":
         import pymupdf
@@ -79,6 +134,7 @@ def prepare(data: bytes, filename: str = "", mime: str = "") -> Prepared:
             raise Unsupported("pdf") from exc
         out.kind = "pdf"
         meta = doc.metadata or {}
+        _stamp(out, _pdf_time(meta), "pdf")
         for key in ("producer", "creator", "title"):
             if editor_flag(meta.get(key, "")):
                 out.meta_flags.append(f"pdf:{meta.get(key)}")
@@ -125,6 +181,7 @@ def prepare(data: bytes, filename: str = "", mime: str = "") -> Prepared:
         software = str(image.getexif().get(305, "") or image.info.get("Software", ""))
     except Exception:
         pass
+    _stamp(out, _exif_time(image), "exif")
     if editor_flag(software):
         out.meta_flags.append(f"exif:{software}")
     else:
@@ -278,7 +335,10 @@ def read(data: bytes, filename: str = "", mime: str = "", now: Optional[datetime
     now = now or now_tashkent()
     prepared = prepare(data, filename, mime)
     raw = _call("receipt", prepared.images, prepared.text, now)
-    return parse(raw, prepared.meta_flags, now), prepared
+    receipt = parse(raw, prepared.meta_flags, now)
+    receipt.file_time = getattr(prepared, "file_time", None)
+    receipt.file_time_src = getattr(prepared, "file_time_src", "") or ""
+    return receipt, prepared
 
 
 def verify(prepared: Prepared, first: Receipt, now: Optional[datetime] = None) -> List[str]:

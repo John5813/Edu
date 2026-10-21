@@ -110,6 +110,153 @@ _USER: Dict[str, Dict[str, str]] = {
 }
 
 
+# ─────────────────────────────────────────── to'liq avto rejim: rad javobi
+
+# Mijozga ko'rinadigan kamchiliklar (sabab kodi → qisqa tushuntirish). Bir xil ma'noli kodlar bitta qator beradi.
+_FLAWS: Dict[str, Dict[str, str]] = {
+    "uz": {
+        "duplicate": "Bu chek avval ishlatilgan (takroriy chek)",
+        "tax_receipt": "Bu do'kon/soliq cheki — to'lov cheki emas",
+        "not_payment": "Yuborilgan fayl to'lov cheki emas",
+        "unreadable": "Chekni o'qib bo'lmadi (rasm xira, kichik yoki to'liq emas)",
+        "unsupported": "Bu fayl turini o'qib bo'lmadi (rasm, PDF yoki DOCX yuboring)",
+        "too_little": "Chekda faqat summa va ilova nomi ko'rinyapti — qabul qiluvchi, sana va ID yo'q",
+        "status_failed": "Chekda to'lov muvaffaqiyatsiz ko'rinmoqda",
+        "status_pending": "Chekda to'lov hali yakunlanmagan",
+        "wrong_receiver": "Pul bizning kartaga o'tkazilmagan (qabul qiluvchi karta boshqa)",
+        "no_receiver": "Chekda qabul qiluvchi karta raqami ko'rinmayapti",
+        "no_time": "Chekda to'lov sanasi va vaqti ko'rinmayapti",
+        "stale": "Chek eski — to'lov {age} oldin qilingan",
+        "future": "Chekdagi vaqt noto'g'ri (kelajakdagi vaqt)",
+        "screenshot_old": "Skrinshot eski — telefon soati hozirgi vaqtdan juda farq qiladi",
+        "clock_mismatch": "Skrinshotdagi telefon soati chekdagi vaqtga mos emas",
+        "file_old": "Fayl eski — ancha oldin olingan skrinshot",
+        "file_before_payment": "Fayl to'lovdan oldin yaratilgan — chekdagi sana o'zgartirilganga o'xshaydi",
+        "tamper": "Chek tahrirlanganga o'xshaydi",
+        "cropped": "Chek qirqilgan — muhim qismlari ko'rinmayapti",
+        "no_amount": "Chekdagi summa o'qilmadi",
+        "tiny_amount": "Summa juda kichik (kamida 1 000 so'm)",
+        "no_unique_key": "Chekda to'lov ID (tranzaksiya raqami) ko'rinmayapti",
+        "over_limit_noid": "Summa katta, lekin chekda to'lov ID (tranzaksiya raqami) ko'rinmayapti",
+        "unclear": "Chek aniq o'qilmadi — ma'lumotlar ikki o'qishda mos kelmadi",
+    },
+    "ru": {
+        "duplicate": "Этот чек уже использовался (повторный чек)",
+        "tax_receipt": "Это кассовый/налоговый чек, а не чек об оплате",
+        "not_payment": "Отправленный файл не является чеком об оплате",
+        "unreadable": "Не удалось прочитать чек (изображение размыто, мелкое или неполное)",
+        "unsupported": "Этот тип файла не читается (отправьте фото, PDF или DOCX)",
+        "too_little": "В чеке видны только сумма и приложение — нет получателя, даты и ID",
+        "status_failed": "В чеке платёж выглядит неуспешным",
+        "status_pending": "В чеке платёж ещё не завершён",
+        "wrong_receiver": "Деньги переведены не на нашу карту (другой получатель)",
+        "no_receiver": "В чеке не видно номера карты получателя",
+        "no_time": "В чеке не видно даты и времени платежа",
+        "stale": "Чек старый — платёж был {age} назад",
+        "future": "Время в чеке неверное (в будущем)",
+        "screenshot_old": "Скриншот старый — время телефона сильно отличается от текущего",
+        "clock_mismatch": "Время телефона на скриншоте не совпадает со временем в чеке",
+        "file_old": "Файл старый — скриншот сделан давно",
+        "file_before_payment": "Файл создан раньше платежа — похоже, дата в чеке изменена",
+        "tamper": "Чек выглядит изменённым",
+        "cropped": "Чек обрезан — важные части не видны",
+        "no_amount": "Не удалось прочитать сумму",
+        "tiny_amount": "Слишком маленькая сумма (минимум 1 000 сум)",
+        "no_unique_key": "В чеке не видно ID платежа (номера транзакции)",
+        "over_limit_noid": "Сумма большая, но в чеке не видно ID платежа (номера транзакции)",
+        "unclear": "Чек прочитан неуверенно — данные не совпали при двух проверках",
+    },
+    "en": {
+        "duplicate": "This receipt was already used (repeated receipt)",
+        "tax_receipt": "This is a store/tax receipt, not a payment receipt",
+        "not_payment": "The file is not a payment receipt",
+        "unreadable": "The receipt could not be read (blurry, small or incomplete)",
+        "unsupported": "This file type cannot be read (send a photo, PDF or DOCX)",
+        "too_little": "Only the amount and app name are visible — no receiver, date or ID",
+        "status_failed": "The payment looks unsuccessful in the receipt",
+        "status_pending": "The payment is not finished yet in the receipt",
+        "wrong_receiver": "The money was not sent to our card (different receiver)",
+        "no_receiver": "The receiver card number is not visible",
+        "no_time": "The payment date and time are not visible",
+        "stale": "The receipt is old — the payment was made {age} ago",
+        "future": "The time in the receipt is wrong (in the future)",
+        "screenshot_old": "The screenshot is old — the phone clock differs a lot from now",
+        "clock_mismatch": "The phone clock on the screenshot does not match the receipt time",
+        "file_old": "The file is old — the screenshot was taken long ago",
+        "file_before_payment": "The file was created before the payment — the date looks edited",
+        "tamper": "The receipt looks edited",
+        "cropped": "The receipt is cropped — important parts are not visible",
+        "no_amount": "The amount could not be read",
+        "tiny_amount": "The amount is too small (at least 1 000 som)",
+        "no_unique_key": "The payment ID (transaction number) is not visible",
+        "over_limit_noid": "The amount is large but the payment ID (transaction number) is not visible",
+        "unclear": "The receipt was read unclearly — two readings did not match",
+    },
+}
+
+# Sabab kodi → mijozga ko'rinadigan kamchilik kaliti (None — mijozga aytilmaydi).
+_FLAW_OF = {
+    "duplicate": "duplicate", "duplicate_id": "duplicate", "duplicate_cmp": "duplicate",
+    "duplicate_file": "duplicate", "duplicate_fuid": "duplicate", "duplicate_scr": "duplicate", "race": "duplicate",
+    "tamper_high": "tamper", "tamper_meta": "tamper",
+    "low_confidence": "unclear", "verify_mismatch": "unclear",
+}
+
+_REJECT: Dict[str, Dict[str, str]] = {
+    "uz": {"head": "❌ To'lov rad etildi.", "list": "Quyidagi kamchiliklar aniqlandi:",
+           "tail": ("🔄 Qaytadan urinib ko'ring: to'g'ri chekni yuboring yoki adminga murojaat qiling: " + ADMIN_CONTACT),
+           "hint": ("💡 To'g'ri chek — Click, Payme yoki bank ilovasidagi «To'lovlar tarixi»dan ochilgan asl "
+                    "kvitansiya: summa, sana va vaqt, qabul qiluvchi karta va to'lov ID ko'rinib tursin."),
+           "admin_btn": "💬 Adminga murojaat"},
+    "ru": {"head": "❌ Платёж отклонён.", "list": "Обнаружены следующие недостатки:",
+           "tail": ("🔄 Попробуйте снова: отправьте правильный чек или обратитесь к админу: " + ADMIN_CONTACT),
+           "hint": ("💡 Правильный чек — исходная квитанция из «Истории платежей» Click, Payme или банковского "
+                    "приложения: видны сумма, дата и время, карта получателя и ID платежа."),
+           "admin_btn": "💬 Написать админу"},
+    "en": {"head": "❌ Payment rejected.", "list": "The following problems were found:",
+           "tail": ("🔄 Please try again: send the correct receipt or contact the admin: " + ADMIN_CONTACT),
+           "hint": ("💡 A correct receipt is the original one from «Payment history» in Click, Payme or your bank "
+                    "app: amount, date and time, receiver card and payment ID must be visible."),
+           "admin_btn": "💬 Contact admin"},
+}
+
+
+def flaws(lang: str, reasons: List[str], age: str = "") -> List[str]:
+    """Sabab kodlaridan mijozga ko'rinadigan kamchiliklar ro'yxati (takrorsiz, tartib saqlanadi)."""
+    table = _FLAWS.get(lang) or _FLAWS["ru"]
+    out: List[str] = []
+    for code in reasons:
+        key = _FLAW_OF.get(code, code)
+        if key not in table:
+            continue
+        line = table[key].format(age=age or "—")
+        if line not in out:
+            out.append(line)
+    return out
+
+
+def rejection_text(lang: str, reasons: List[str], age: str = "") -> str:
+    """«To'lov rad etildi. Quyidagi kamchiliklar: ... Qaytadan urining yoki adminga murojaat qiling»."""
+    words = _REJECT.get(lang) or _REJECT["ru"]
+    items = flaws(lang, reasons, age) or flaws(lang, ["unreadable"])
+    return "\n".join([words["head"], "", words["list"], *[f"• {x}" for x in items], "",
+                      words["tail"], "", words["hint"]])
+
+
+def admin_button_text(lang: str) -> str:
+    return (_REJECT.get(lang) or _REJECT["ru"])["admin_btn"]
+
+
+def admin_url() -> Optional[str]:
+    """ADMIN_CONTACT «@login» bo'lsa — t.me havolasi (tugma uchun)."""
+    contact = str(ADMIN_CONTACT or "").strip()
+    if contact.startswith("https://t.me/"):
+        return contact
+    if contact.startswith("@") and len(contact) > 1:
+        return "https://t.me/" + contact[1:]
+    return None
+
+
 def user_text(lang: str, key: str, **kw) -> str:
     table = _USER.get(lang) or _USER["ru"]          # qozoq tili ham rus matnidan foydalanadi
     return table[key].format(**kw) if kw else table[key]
@@ -127,6 +274,9 @@ REASONS: Dict[str, str] = {
     "duplicate_id": "❗ ID avval ishlatilgan (takroriy chek)",
     "duplicate_cmp": "❗ Summa+vaqt+yuboruvchi+qabul qiluvchi avval ishlatilgan (ID o'zgartirilgan bo'lishi mumkin)",
     "duplicate_file": "❗ Aynan shu fayl avval yuborilgan",
+    "duplicate_fuid": "❗ Telegram fayl raqami (file_unique_id) avval ishlatilgan — aynan shu fayl qayta yuborilgan",
+    "file_old": "Fayl yaratilgan vaqt (nomi/EXIF) eski",
+    "file_before_payment": "❗ Fayl to'lovdan OLDIN yaratilgan (nomi/EXIF) — sana tahrirlangan bo'lishi mumkin",
     "duplicate_scr": "❗ Skrinshot belgisi (soat+batareya+ilova+summa) avval ishlatilgan — ID tahrirlangan bo'lishi mumkin",
     "possible_duplicate": "Shunga o'xshash chek avval bor (summa va vaqt mos) — tekshiring",
     "wrong_receiver": "Qabul qiluvchi karta bizniki emas",
@@ -164,6 +314,7 @@ VERDICT_LABEL = {
     "wrong_receiver": "🟠 QABUL QILUVCHI BOSHQA",
     "fake": "🔴 TAHRIRLANGAN CHEK",
     "not_receipt": "ℹ️ CHEK EMAS (qayta so'raldi)",
+    "rejected": "🚫 AI RAD ETDI (mijozga kamchiliklar aytildi)",
     "own_pending": "ℹ️ Qayta yuborilgan chek",
     "ai_error": "⚪ AI ishlamadi",
 }
@@ -175,7 +326,8 @@ def daily_stats_text(counts: dict) -> str:
     to_admin = c("review", "wrong_receiver")
     auto = c("auto")
     junk, dup, fake, own = c("not_receipt"), c("duplicate"), c("fake"), c("own_pending")
-    rejected = junk + dup + fake + own
+    flawed = c("rejected")
+    rejected = junk + dup + fake + own + flawed
     lines = ["🧾 Bugungi cheklar (AI tekshiruvi):",
              f"  • Adminga yuborilgan: {to_admin} ta"]
     if auto:
@@ -185,4 +337,6 @@ def daily_stats_text(counts: dict) -> str:
               f"      – takroriy: {dup} ta",
               f"      – tahrirlangan: {fake} ta",
               f"      – o'zi qayta yuborgan: {own} ta"]
+    if flawed:
+        lines.append(f"      – kamchiligi bor (AI rad etdi): {flawed} ta")
     return "\n".join(lines)

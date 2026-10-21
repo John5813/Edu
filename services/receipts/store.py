@@ -1,12 +1,12 @@
 """Cheklar va takrorlanmas kalitlar bazasi."""
 import json
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import aiosqlite
 
 import database.database as dbmod
-from .rules import Prior
+from .rules import STRONG_KINDS, Prior
 
 logger = logging.getLogger(__name__)
 
@@ -40,14 +40,19 @@ async def find_priors(keys: List[Tuple[str, str]]) -> Dict[Tuple[str, str], Prio
 
 async def save_receipt(user_tg: int, verdict: str, fraud: bool, amount: Optional[int],
                        claimed: int, reasons: List[str], data: dict,
-                       keys: List[Tuple[str, str]], payment_id: Optional[int] = None) -> Tuple[int, bool]:
+                       keys: List[Tuple[str, str]], payment_id: Optional[int] = None,
+                       takeover: Iterable[int] = ()) -> Tuple[int, bool]:
     """Chekni va kalitlarini bitta tranzaksiyada saqlaydi.
 
     Qaytaradi: (chek raqami, kalit bandmi). Kalit boshqa chekka tegishli bo'lsa (poyga: ikki chek
     bir vaqtda keldi) `INSERT OR IGNORE` uni o'zgartirmaydi — birinchi egasi qoladi; shunda pul
     ikki marta qo'shilmaydi.
+
+    `takeover` — shu mijozning AI rad etgan oldingi cheklari: mijoz o'sha to'lovning to'g'ri chekini qayta
+    yubordi, kalitlar yangi chekka o'tadi (aks holda tuzatilgan chek «takroriy» deb topilardi).
     """
     taken = False
+    takeover = [int(x) for x in takeover]
     async with aiosqlite.connect(_file()) as db:
         await db.execute("BEGIN IMMEDIATE")
         try:
@@ -58,12 +63,22 @@ async def save_receipt(user_tg: int, verdict: str, fraud: bool, amount: Optional
                  json.dumps(reasons), json.dumps(data, ensure_ascii=False, default=str)))
             receipt_id = cursor.lastrowid
             if verdict not in ("not_receipt", "own_pending"):
+                if takeover:
+                    marks = ",".join("?" * len(takeover))
+                    await db.execute(
+                        f"UPDATE receipt_keys SET receipt_id = ? WHERE receipt_id IN ({marks}) AND receipt_id IN "
+                        f"(SELECT id FROM payment_receipts WHERE user_tg = ? AND verdict = 'rejected')",
+                        (receipt_id, *takeover, user_tg))
                 for kind, value in keys:
+                    key = f"{kind}:{value}"
                     result = await db.execute(
                         "INSERT OR IGNORE INTO receipt_keys (key, receipt_id, kind) VALUES (?, ?, ?)",
-                        (f"{kind}:{value}", receipt_id, kind))
-                    if result.rowcount == 0 and kind in ("id", "cmp", "file", "scr"):
-                        taken = True
+                        (key, receipt_id, kind))
+                    if result.rowcount == 0 and kind in STRONG_KINDS:
+                        async with db.execute("SELECT receipt_id FROM receipt_keys WHERE key = ?", (key,)) as cur:
+                            owner = await cur.fetchone()
+                        if not owner or owner[0] != receipt_id:
+                            taken = True
             await db.commit()
         except Exception:
             await db.rollback()
@@ -98,6 +113,31 @@ async def mark(receipt_id: int, verdict: str, fraud: Optional[bool] = None) -> N
             await db.execute("UPDATE payment_receipts SET verdict = ?, fraud = ? WHERE id = ?",
                              (verdict, 1 if fraud else 0, receipt_id))
         await db.commit()
+
+
+async def reasons_of(receipt_id: int) -> List[str]:
+    """Saqlangan chekning sabablari (rad etilgan chek qayta yuborilganda AI'siz o'sha javob beriladi)."""
+    row = await get_receipt(receipt_id)
+    try:
+        return list(json.loads(row["reasons"])) if row else []
+    except (TypeError, ValueError):
+        return []
+
+
+async def reopen_rejected(payment_id: int) -> bool:
+    """AI rad etgan to'lovni admin «baribir tasdiqlash» uchun qayta ochadi (bir marta: ikki admin bosa olmaydi)."""
+    async with aiosqlite.connect(_file()) as db:
+        cursor = await db.execute(
+            "UPDATE payments SET status = 'pending' WHERE id = ? AND status = 'rejected' AND id IN "
+            "(SELECT payment_id FROM payment_receipts WHERE verdict = 'rejected' AND payment_id IS NOT NULL)",
+            (payment_id,))
+        reopened = cursor.rowcount == 1
+        if reopened:
+            # Endi bu chek admin qarori bilan yopilgan: mijoz uni qayta yuborsa yangi chek sifatida o'qilmaydi.
+            await db.execute("UPDATE payment_receipts SET verdict = 'review' WHERE payment_id = ? AND verdict = 'rejected'",
+                             (payment_id,))
+        await db.commit()
+        return reopened
 
 
 async def by_payment(payment_id: int) -> Optional[dict]:

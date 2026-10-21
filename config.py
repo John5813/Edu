@@ -53,6 +53,7 @@ PAYMENT_CARD_OWNER = os.getenv("PAYMENT_CARD_OWNER", "Moʻydinov Javlonbek")
 ADMIN_CONTACT = os.getenv("ADMIN_CONTACT", "@javlon58_02")
 RECEIPT_AI = os.getenv("RECEIPT_AI", "1").lower() in {"1", "true", "yes"}       # 0 — avvalgidek qo'lda
 RECEIPT_AUTO = os.getenv("RECEIPT_AUTO", "0").lower() in {"1", "true", "yes"}   # 0 — haqiqiy chek adminga tasdiqlash uchun (sukut); 1 — ishonchlilari avtomatik
+RECEIPT_FULL_AUTO = os.getenv("RECEIPT_FULL_AUTO", "1").lower() in {"1", "true", "yes"}  # 1 — AI o'zi tasdiqlaydi yoki sabablari bilan rad etadi (admin paneldan ham o'chiriladi)
 RECEIPT_MAX_AGE_MIN = int(os.getenv("RECEIPT_MAX_AGE_MIN", "45"))               # chek shuncha daqiqadan eski bo'lmasin
 RECEIPT_AUTO_MAX = int(os.getenv("RECEIPT_AUTO_MAX", "100000"))                 # shundan katta summa — admin tasdig'i
 RECEIPT_AUTO_MAX_NOID = int(os.getenv("RECEIPT_AUTO_MAX_NOID", "30000"))        # ID'siz chek uchun chegara

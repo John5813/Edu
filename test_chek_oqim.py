@@ -25,6 +25,7 @@ NOW = datetime(2026, 10, 6, 20, 10)
 rules.now_tashkent = lambda: NOW
 ADMIN = config.ADMIN_IDS[0]
 config.RECEIPT_AUTO = True          # ixtiyoriy avto-tasdiq rejimi shu qismda sinaladi (sukut — qo'lda tasdiqlash)
+config.RECEIPT_FULL_AUTO = False    # bu fayl avvalgi rejimlarni sinaydi; to'liq avto — test_chek_toliq_avto.py
 
 # ── soxta Telegram
 class Sent:

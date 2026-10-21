@@ -2243,7 +2243,8 @@ async def _feature_keyboard(db):
                await db.get_feature_status(reengage.FEATURE_OLD),
                await db.get_feature_status(THANKS_ANIM, default=False),
                await db.get_feature_status(TEXT_ANIM, default=False),
-               await db.get_feature_status(reengage.FEATURE_WEEKLY))
+               await db.get_feature_status(reengage.FEATURE_WEEKLY),
+               await db.get_feature_status("receipt_full_auto"))
 
 _FEATURES_TITLE = (
     "🎛 Funksiyalar boshqaruvi\n\n"
@@ -2317,6 +2318,63 @@ async def toggle_receipt_ai(callback: CallbackQuery, db: Database):
                           show_alert=not new_status)
     kb = await _feature_keyboard(db)
     await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("toggle_receipt_full_"))
+async def toggle_receipt_full(callback: CallbackQuery, db: Database):
+    """To'liq avtomatik to'lov: AI chekni o'zi tasdiqlaydi yoki kamchiliklarini aytib rad etadi.
+
+    O'chiq: AI chekni o'qiydi, lekin haqiqiy cheklar avvalgidek adminga tasdiqlash uchun boradi.
+    """
+    if not is_admin(callback.from_user.id):
+        return
+    from services.receipts.flow import FULL_FEATURE
+    new_status = callback.data.split("_")[-1] == "on"
+    await db.set_feature_status(FULL_FEATURE, new_status)
+    await callback.answer("🤖 To'liq avto to'lov yoqildi: AI o'zi tasdiqlaydi yoki sababini aytib rad etadi."
+                          if new_status else "🤖 To'liq avto to'lov o'chirildi: cheklar admin tasdig'iga boradi.",
+                          show_alert=True)
+    kb = await _feature_keyboard(db)
+    await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("rcpt_force_"))
+async def force_approve_rejected(callback: CallbackQuery, db: Database):
+    """AI rad etgan to'lovni admin baribir tasdiqlaydi (mijoz adminga murojaat qilganda).
+
+    To'lov faqat bir marta qayta ochiladi: ikki admin bir vaqtda bossa ham pul bir marta qo'shiladi.
+    """
+    if not is_admin(callback.from_user.id):
+        return
+    from services.receipts import store as receipt_store
+    payment_id = int(callback.data.rsplit("_", 1)[1])
+    try:
+        if not await receipt_store.reopen_rejected(payment_id):
+            payment = await db.get_payment_by_id(payment_id)
+            await callback.answer(f"❌ Bu to'lov allaqachon {payment.status if payment else 'topilmadi'} holatida.",
+                                  show_alert=True)
+            try:
+                await callback.message.edit_reply_markup(reply_markup=None)
+            except Exception:
+                pass
+            return
+        payment = await db.get_payment_by_id(payment_id)
+        user = await credit_approved_payment(callback.bot, db, payment)
+        admin_name = callback.from_user.username or callback.from_user.full_name
+        await callback.answer("✅ Tasdiqlandi, pul mijoz hisobiga qo'shildi.")
+        verdict = payment_verdict_line(True, admin_name, payment.amount)
+        try:
+            await callback.message.edit_text((callback.message.text or "") + "\n\n" + verdict, parse_mode=None)
+        except Exception:
+            pass
+        # Boshqa adminlardagi shu kartochka tugmasi ham yopiladi.
+        await close_payment_buttons(callback.bot, payment_id, verdict=verdict,
+                                    keep=(callback.message.chat.id, callback.message.message_id))
+        logger.info("AI rad etgan to'lov %s admin %s tomonidan tasdiqlandi (mijoz %s)",
+                    payment_id, admin_name, user.telegram_id if user else "?")
+    except Exception as e:
+        logger.error(f"Error force-approving payment {payment_id}: {e}", exc_info=True)
+        await callback.answer("❌ Xatolik yuz berdi.")
 
 
 @router.callback_query(F.data.startswith("toggle_thanks_anim_"))

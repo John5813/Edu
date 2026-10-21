@@ -25,8 +25,12 @@ WRONG_RECEIVER = "wrong_receiver"
 NOT_RECEIPT = "not_receipt"      # chek emas: qayta yuborish so'raladi
 FAKE = "fake"                    # tahrirlangan ko'rinadi: qabul qilinmaydi (adminga bormaydi)
 OWN_PENDING = "own_pending"      # o'zining tekshirilayotgan cheki qayta yuborildi
+REJECTED = "rejected"            # to'liq avto rejim: haqiqiy chek, lekin kamchiligi bor — mijozga sabablar aytiladi
 
-STRONG_KINDS = ("id", "cmp", "file", "scr")     # bularning mos kelishi — takroriy chek
+# Fayl kalitlari: "file" — fayl baytlarining SHA-256 izi, "fuid" — Telegram fayl raqami (file_unique_id).
+# Telegram bir faylga bitta doimiy raqam beradi: chek boshqa chatdan uzatilsa yoki qayta yuborilsa ham raqam
+# o'zgarmaydi, shuning uchun AI chaqirilmasdan (bepul) takroriy chek ushlanadi.
+STRONG_KINDS = ("id", "cmp", "file", "fuid", "scr")     # bularning mos kelishi — takroriy chek
 WEAK_KINDS = ("wk", "scr2")                     # mos kelishi — shubha, lekin jazo emas
 
 _PHOTO_EDITORS = re.compile(
@@ -57,6 +61,8 @@ class Receipt:
     tamper_reason: str = ""
     meta_flags: List[str] = field(default_factory=list)   # EXIF/PDF: tahrirlovchi dastur izi
     is_screenshot: bool = False
+    file_time: Optional[datetime] = None     # faylning o'z vaqti: nomidagi raqamlar (Screenshot_20261006_200412) yoki EXIF
+    file_time_src: str = ""                  # name | exif | pdf
     confidence: float = 1.0                  # AI o'qishga ishonchi (0..1)
     raw: Dict = field(default_factory=dict)
 
@@ -130,7 +136,17 @@ def _minute(dt: datetime, shift: int = 0) -> str:
     return (dt + timedelta(minutes=shift)).strftime("%Y%m%d%H%M")
 
 
-def build_keys(r: Receipt, file_sha: str = "") -> List[Tuple[str, str]]:
+def file_keys(file_sha: str = "", file_uid: str = "") -> List[Tuple[str, str]]:
+    """Faylning o'z izlari: baytlar hash'i va Telegram fayl raqami (AI'siz tekshiriladi)."""
+    keys: List[Tuple[str, str]] = []
+    if file_sha:
+        keys.append(("file", file_sha))
+    if file_uid:
+        keys.append(("fuid", str(file_uid)))
+    return keys
+
+
+def build_keys(r: Receipt, file_sha: str = "", file_uid: str = "") -> List[Tuple[str, str]]:
     """Bazaga yoziladigan kalitlar (bir chekning barcha 'barmoq izlari')."""
     keys: List[Tuple[str, str]] = []
     for raw in r.ids:
@@ -142,8 +158,7 @@ def build_keys(r: Receipt, file_sha: str = "") -> List[Tuple[str, str]]:
         keys.append(("cmp", f"{r.amount}|{_minute(r.dt)}|{sender}|{r.receiver_tail}"))
     if r.amount and r.dt and r.receiver_tail:
         keys.append(("wk", f"{r.amount}|{_minute(r.dt)}|{r.receiver_tail}"))
-    if file_sha:
-        keys.append(("file", file_sha))
+    keys += file_keys(file_sha, file_uid)
     if r.status_time and r.battery is not None and r.app and r.amount:
         keys.append(("scr", f"{r.status_time}|{r.battery}|{r.app}|{r.amount}"))
     if r.status_time and r.battery is not None and r.app and r.receiver_tail:
@@ -151,9 +166,9 @@ def build_keys(r: Receipt, file_sha: str = "") -> List[Tuple[str, str]]:
     return list(dict.fromkeys(keys))
 
 
-def lookup_keys(r: Receipt, file_sha: str = "") -> List[Tuple[str, str]]:
+def lookup_keys(r: Receipt, file_sha: str = "", file_uid: str = "") -> List[Tuple[str, str]]:
     """Bazadan qidiriladigan kalitlar: vaqt ±1 daqiqa (ilovalar soniyani turlicha yaxlitlaydi)."""
-    keys = build_keys(r, file_sha)
+    keys = build_keys(r, file_sha, file_uid)
     if r.amount and r.dt and r.receiver_tail:
         sender = r.sender_tail or norm_name(r.sender_name)
         for shift in (-1, 1):
@@ -212,14 +227,68 @@ def classify_priors(priors: List[Prior], user_tg: int) -> Tuple[str, str, bool]:
     return DUPLICATE, "duplicate", True
 
 
+FILE_TIME_SLACK_MIN = 3          # telefon soati va bank vaqti orasidagi odatiy farq
+
+
+def file_time_reasons(r: Receipt, ctx: Context) -> List[str]:
+    """Faylning o'z vaqti (nomidagi raqamlar yoki EXIF) bo'yicha belgilar.
+
+    - fayl to'lovdan OLDIN yaratilgan bo'lsa — bu mumkin emas: eski skrinshot ustiga yangi sana yozilgan;
+    - fayl ancha oldin yaratilgan bo'lsa — eski skrinshot qayta yuborilmoqda.
+    Fayl vaqti kelajakda bo'lsa (telefon soati noto'g'ri) hech narsa deyilmaydi.
+    """
+    if not r.file_time:
+        return []
+    out: List[str] = []
+    if r.dt and r.file_time < r.dt - timedelta(minutes=FILE_TIME_SLACK_MIN):
+        out.append("file_before_payment")
+    age = (ctx.now - r.file_time).total_seconds() / 60
+    if age > ctx.max_age_min + 15:
+        out.append("file_old")
+    return out
+
+
+# ───────────────────────────────────────────────── to'liq avtomatik rejim
+
+# Mijoz chekni qayta yuborib tuzata olmaydigan holatlar: bular rad etilmaydi, admin hal qiladi.
+ADMIN_ONLY = {
+    "over_limit",            # egasi belgilagan xavfsizlik chegarasi (RECEIPT_AUTO_MAX)
+    "verify_failed",         # ikkinchi o'qish tarmoq sabab bajarilmadi
+    "ai_error",
+    "possible_duplicate",    # boshqa odamning shu daqiqadagi shu summadagi to'lovi bo'lishi mumkin
+    "receiver_by_name",      # karta ko'rinmaydi, lekin qabul qiluvchi ismi bizniki
+    "currency",
+}
+INFO_ONLY = {"no_date", "amount_differs"}      # o'zi kamchilik emas
+
+
+def full_auto(d: Decision) -> Decision:
+    """To'liq avtomatik rejim: odam qarori kutiladigan chekni iloji boricha AI o'zi hal qiladi.
+
+    Kamchiligi bor har chek (eski, qirqilgan, ID yo'q, boshqa karta, tahrirlangan, takroriy ...) RAD ETILADI —
+    mijozga sabablari ro'yxati bilan. Adminga faqat mijoz tuzata olmaydigan holatlar boradi (`ADMIN_ONLY`).
+    Mijoz bloklanmaydi.
+    """
+    if d.verdict in (DUPLICATE, WRONG_RECEIVER, FAKE):
+        if d.verdict != DUPLICATE:
+            d.verdict = REJECTED
+        return d
+    if d.verdict != REVIEW:
+        return d
+    user_fixable = [code for code in d.reasons if code not in ADMIN_ONLY and code not in INFO_ONLY]
+    if user_fixable:
+        d.verdict = REJECTED
+    return d
+
+
 # ───────────────────────────────────────────────────────────────── qaror
 
 def evaluate(r: Receipt, ctx: Context, file_sha: str = "",
-             found: Optional[Dict[Tuple[str, str], Prior]] = None) -> Decision:
+             found: Optional[Dict[Tuple[str, str], Prior]] = None, file_uid: str = "") -> Decision:
     """Chek bo'yicha qaror. `found` — bazadan topilgan oldingi cheklar (kalit → Prior)."""
     found = found or {}
     d = Decision(verdict=AUTO)
-    d.keys = build_keys(r, file_sha)
+    d.keys = build_keys(r, file_sha, file_uid)
 
     # 1) Chek emas / o'qib bo'lmaydi / muvaffaqiyatsiz
     if r.doc_type == "tax_receipt":
@@ -246,7 +315,7 @@ def evaluate(r: Receipt, ctx: Context, file_sha: str = "",
     strong = [(k, found[k]) for k in d.keys if k[0] in STRONG_KINDS and k in found]
     # ±1 daqiqadagi mos kelish (ilovalar vaqtni turlicha yaxlitlaydi) — faqat shubha, jazo emas:
     # bir mijoz ketma-ket ikki real to'lov qilgan bo'lishi mumkin.
-    weak = [(k, found[k]) for k in lookup_keys(r, file_sha)
+    weak = [(k, found[k]) for k in lookup_keys(r, file_sha, file_uid)
             if k in found and (k[0] in WEAK_KINDS or (k[0] == "cmp" and k not in d.keys))]
     if strong:
         priors = list({p.receipt_id: p for _, p in strong}.values())
@@ -301,6 +370,7 @@ def evaluate(r: Receipt, ctx: Context, file_sha: str = "",
             gap = (shot - r.dt).total_seconds() / 60
             if gap < -5 or gap > ctx.max_age_min:
                 d.reasons.append("clock_mismatch")
+    d.reasons += file_time_reasons(r, ctx)
 
     # 5) Soxtalik belgilari
     if r.tamper == "high":

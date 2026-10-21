@@ -111,12 +111,15 @@ async def submit(bot, telegram_id: int, amount, started_iso: str, data: bytes, f
         return await _manual(web, bot, user, amount, lang)
 
     credited = None
+    pending = False
     if outcome.payment_id:
         payment = await Database.get_payment_by_id(outcome.payment_id)
-        if payment and str(getattr(payment, "status", "")) == "approved":
+        status = str(getattr(payment, "status", "")) if payment else ""
+        if status == "approved":
             credited = int(payment.amount)
+        pending = status == "pending"       # AI rad etgan to'lov («rejected») kutilmoqda deb ko'rsatilmaydi
     return {"verdict": outcome.verdict, "message": "\n\n".join(web.replies), "retry": not outcome.clear_state,
-            "credited": credited, "pending": outcome.payment_id is not None and credited is None}
+            "credited": credited, "pending": pending}
 
 
 async def _manual(web: WebMessage, bot, user, amount: int, lang: str) -> Dict:

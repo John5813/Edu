@@ -1152,6 +1152,7 @@ def get_feature_management_keyboard(
     thanks_anim_enabled: bool = False,
     text_anim_enabled: bool = False,
     reengage_weekly_enabled: bool = True,
+    receipt_full_auto_enabled: bool = True,
 ) -> InlineKeyboardMarkup:
     """Feature management keyboard for admin"""
     keyboard = InlineKeyboardBuilder()
@@ -1178,6 +1179,13 @@ def get_feature_management_keyboard(
     keyboard.add(InlineKeyboardButton(
         text=f"🧾 To'lovda AI tekshiruv: {ai_status}",
         callback_data=f"toggle_receipt_ai_{ai_action}"
+    ))
+
+    # To'liq avtomatik to'lov: AI o'zi tasdiqlaydi yoki kamchiliklarini aytib rad etadi (o'chiq — admin tasdiqlaydi)
+    full_status = "🟢 Yoqilgan" if receipt_full_auto_enabled else "🔴 O'chirilgan"
+    keyboard.add(InlineKeyboardButton(
+        text=f"🤖 To'liq avto to'lov: {full_status}",
+        callback_data=f"toggle_receipt_full_{'off' if receipt_full_auto_enabled else 'on'}"
     ))
 
     # Faol bo'lmagan mijozlarga qayta jalb xabarlari (services/reengage.py)

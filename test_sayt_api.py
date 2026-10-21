@@ -32,6 +32,7 @@ NOW = datetime(2026, 10, 6, 20, 10)
 rules.now_tashkent = lambda: NOW
 config.RECEIPT_AI = True
 config.RECEIPT_AUTO = False
+config.RECEIPT_FULL_AUTO = False      # sayt testlari qo'lda tasdiqlash rejimida
 ADMIN = config.ADMIN_IDS[0]
 
 
