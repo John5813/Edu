@@ -54,8 +54,9 @@ PAYMENT_CARD_OWNER = os.getenv("PAYMENT_CARD_OWNER", "Moʻydinov Javlonbek")
 CLICK_SERVICE_ID = os.getenv("CLICK_SERVICE_ID", "").strip()
 CLICK_MERCHANT_ID = os.getenv("CLICK_MERCHANT_ID", "").strip()
 CLICK_SECRET_KEY = os.getenv("CLICK_SECRET_KEY", "").strip()
+# Faqat Merchant API uchun; to'lov havolasiga qo'yilmaydi (havolada bo'lsa Click «Поставщик не найден» deydi).
 CLICK_MERCHANT_USER_ID = os.getenv("CLICK_MERCHANT_USER_ID", "").strip()
-# To'lovdan keyin mijoz qaytadigan sahifa (bo'sh bo'lsa — Click o'z sahifasida qoladi).
+# To'lovdan keyin mijoz qaytadigan sahifa (bo'sh bo'lsa — bot: https://t.me/<bot>).
 CLICK_RETURN_URL = os.getenv("CLICK_RETURN_URL", "").strip()
 # Botdagi «Click orqali» tugmasidagi Click ikonkasi — maxsus emoji ID si (adminda: /emojiid + emoji).
 # Telegram buni bot egasida Premium bo'lsa ko'rsatadi; rad etsa tugma ikonkasiz yuboriladi.
