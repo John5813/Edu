@@ -2788,6 +2788,28 @@ def check_cover_credit():
     check("do'konda o'ylab topilgan ism qatori ham o'chiriladi",
           "Abdug" not in " ".join(texts) and "Alisher Navoiy" in " ".join(texts), str(texts))
 
+    # Mijoz ismi so'z ichida uchrasa ("Asim" → "Ponasimon"), mavzu nomi bor hamma
+    # sarlavha va gap do'kon nusxasidan o'chib ketardi.
+    deck = Presentation()
+    slide = deck.slides.add_slide(deck.slide_layouts[6])
+    lines = ["Ponasimon suyak va chakka suyaklari", "Tayyorladi: Asim Karimov", "Asim Karimov",
+             "Amir Temur", "Ponasimon suyakning tanasi turk egarini hosil qiladi.",
+             "Asim Karimov ishida aytilganidek, ta'lim sifati oshdi.", "I.A. Karimov islohotlari"]
+    for row, line in enumerate(lines):
+        slide.shapes.add_textbox(Inches(1), Inches(0.5 + row), Inches(8), Inches(1)).text_frame.text = line
+    src = os.path.join(tempfile.mkdtemp(), "t.pptx")
+    deck.save(src)
+    clean = Presentation(store_publisher.anonymize(src, "Asim Karimov"))
+    texts = [sh.text_frame.text for sh in clean.slides[0].shapes if sh.has_text_frame]
+    check("ism so'z ichida bo'lsa matn o'chmaydi (Asim ≠ Ponasimon)",
+          texts[0] == lines[0] and texts[4] == lines[4], str(texts))
+    check("ism satrlari o'chadi, gapdan faqat ism olinadi",
+          texts[1] == "" and texts[2] == "" and "Karimov" not in texts[5] and "ta'lim sifati" in texts[5]
+          and texts[6] == lines[6], str(texts))
+    clean = Presentation(store_publisher.anonymize(src, "Amir Karimov"))
+    check("ism bilan boshlanadigan sarlavha saqlanadi (Amir Temur)",
+          "Amir Temur" in [sh.text_frame.text for sh in clean.slides[0].shapes if sh.has_text_frame])
+
 
 def check_image_models():
     print("\n37) Rasm modeli har xizmat uchun alohida tanlanadi")

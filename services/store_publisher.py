@@ -94,7 +94,12 @@ def _scrub_paragraphs(paragraphs, name_re) -> int:
         label_only = bool(_LABEL_ONLY_RE.match(text))
         hit = False
         if name_re is not None and name_re.search(text):
-            hit = True
+            # Ism satri ("Asim Karimov", "Tayyorladi: ...") butunlay o'chadi;
+            # oddiy gap esa qoladi — undan faqat ism olib tashlanadi.
+            if _LABEL_VALUE_RE.match(text) or _only_name(text, name_re):
+                hit = True
+            elif _drop_name(para, name_re):
+                removed += 1
         elif label_only:
             hit = True
         else:
@@ -138,15 +143,62 @@ def _cell_paragraphs(cell):
     return frame.paragraphs if frame is not None else cell.paragraphs
 
 
+_LETTER = r"[^\W\d_]"
+_APOSTROPHE = "'`ʻʼ’‘"
+
+
 def _name_pattern(customer_name: str):
-    """Mijoz ismini topadigan naqsh. Ism qisqa bo'lsa None."""
+    """Mijoz ismini topadigan naqsh. Ism qisqa bo'lsa None.
+
+    Ism bo'lagi faqat ALOHIDA SO'Z sifatida topiladi. Ilgari so'z ichidagi
+    bo'lak ham topilardi: "Asim" ismi "Ponasimon" so'zida uchrab, mavzu nomi
+    bor hamma sarlavha va gap do'kon nusxasidan o'chib ketardi. Familiyaga
+    ayol qo'shimchasi "-a" (Karimov → Karimova) ruxsat.
+    """
     cleaned = (customer_name or "").strip()
     if len(cleaned) < 3:
         return None
     # Ism bo'laklari alohida ham qidiriladi: ishda faqat familiya yozilgan
     # bo'lishi mumkin.
-    parts = [re.escape(p) for p in cleaned.split() if len(p) >= 3]
-    return re.compile("|".join(parts), re.IGNORECASE) if parts else None
+    parts = [p.strip(".,;:()\"") for p in cleaned.split()]
+    parts = [re.escape(p) for p in parts if len(p) >= 3]
+    if not parts:
+        return None
+    edge = f"[^\\W\\d_{re.escape(_APOSTROPHE)}]"
+    return re.compile(rf"(?<!{edge})(?:{'|'.join(parts)})a?(?!{edge})", re.IGNORECASE)
+
+
+def _only_name(text: str, name_re) -> bool:
+    """Satr faqat ism bo'laklari va bosh harflardan iborat: "Asim Karimov", "Karimova A.".
+
+    "Amir Temur" sarlavhasi "Amir" ismli mijozda o'chib ketmasin.
+    """
+    if not _looks_like_person(text):
+        return False
+    rest = name_re.sub(" ", text)
+    return all(len(word.strip(".,;")) <= 2 for word in rest.split())
+
+
+def _drop_name(para, name_re) -> bool:
+    """Gap ichidan TO'LIQ ismni ("Asim Karimov") olib tashlaydi, gapni saqlaydi.
+
+    Yolg'iz bo'lak tegilmaydi: "Amir Temur", "I.A. Karimov" — tarixiy shaxs,
+    mijoz emas.
+    """
+    changed = False
+    for run in para.runs:
+        spans, matches = [], list(name_re.finditer(run.text))
+        for first, second in zip(matches, matches[1:]):
+            if not run.text[first.end():second.start()].strip():
+                spans.append((first.start(), second.end()))
+        if not spans:
+            continue
+        text = run.text
+        for start, end in reversed(spans):
+            text = text[:start] + text[end:]
+        run.text = re.sub(r"\s{2,}", " ", text)
+        changed = True
+    return changed
 
 
 def _download_name(title: str, extension: str, fallback: str) -> str:
