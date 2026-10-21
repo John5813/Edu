@@ -40,7 +40,7 @@ def _expected_text(spec: Dict) -> List[str]:
     expected = [spec.get("title", "")]
     kind = spec.get("kind")
     if kind == "cover":
-        expected.extend((spec.get("lead", ""), spec.get("credit", "")))
+        expected.extend((spec.get("lead", ""), spec.get("credit", ""), spec.get("author", "")))
     elif kind == "plan":
         expected.extend(item.get("title", "") for item in spec.get("items", []))
     elif kind == "photo":

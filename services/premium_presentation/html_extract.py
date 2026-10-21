@@ -617,6 +617,8 @@ _SCRIPT = r"""
         letterSpacing: parseFloat(s.letterSpacing) || 0,
         lines: lineCount(el, tr),
         flow: turn ? 0 : flowOf(el),
+        // Mijoz ismi: PPTX da qutisi belgilanadi (do'kon nusxasida bo'shatiladi).
+        author: !!(el.closest && el.closest(".author")),
       });
     }
 

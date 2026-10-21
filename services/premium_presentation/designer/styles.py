@@ -8,6 +8,8 @@ import math
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional
 
+from services.author_mark import mark
+
 from .kit import (CENTER, LEFT, MIDDLE, RIGHT, SANS, SERIF, SHAPE, TOP, BOTTOM, Photo, arc_pts, box, fill,
                   glow, grad, icon, inner_shadow, line, luminance, mix, nofill, oval, photo, poly, rect,
                   ribbon, ring_sector, rotate, shadow, text)
@@ -172,8 +174,20 @@ def cover_x(c: Ctx, spec: Dict):
     shadow(t, blur=18, dist=8, alpha=55)
     if spec.get("lead"):
         text(s, 116, 630, 820, 170, [[(spec["lead"], 46, p.glowing, True, SERIF, 0, True)]], line_spacing=1.05)
+    _cover_credit(s, spec, 118, 820, p.on_dark)
+
+
+def _cover_credit(s, spec: Dict, x: float, w: float, color: str) -> None:
+    """Muqova pastidagi izoh va mijoz ismi — har biri o'z qutisida.
+
+    Ism qutisi belgilanadi (`author_mark`): do'kon nusxasida faqat u bo'shatiladi.
+    """
+    y = 900
+    if spec.get("author"):
+        mark(text(s, x, y, w, 60, [[(spec["author"], 24, color)]]))
+        y += 60
     if spec.get("credit"):
-        text(s, 118, 900, 820, 80, [[(spec["credit"], 24, p.on_dark)]])
+        text(s, x, y, w, 1060 - y, [[(spec["credit"], 24, color)]])
 
 
 def cover_hex(c: Ctx, spec: Dict):
@@ -208,8 +222,7 @@ def cover_hex(c: Ctx, spec: Dict):
     shadow(t, blur=20, dist=6, alpha=30, color=mix(p.accent, "000000", 0.6))
     if spec.get("lead"):
         text(s, 120, 590, 700, 200, [[(spec["lead"], 44, WHITE, True, SERIF, 0, True)]], line_spacing=1.05)
-    if spec.get("credit"):
-        text(s, 120, 900, 700, 80, [[(spec["credit"], 24, mix(p.accent, p.dark, 0.75))]])
+    _cover_credit(s, spec, 120, 700, mix(p.accent, p.dark, 0.75))
 
 
 # ═════════════════════════════════════════════ REJA

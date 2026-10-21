@@ -94,12 +94,7 @@ def _scrub_paragraphs(paragraphs, name_re) -> int:
         label_only = bool(_LABEL_ONLY_RE.match(text))
         hit = False
         if name_re is not None and name_re.search(text):
-            # Ism satri ("Asim Karimov", "Tayyorladi: ...") butunlay o'chadi;
-            # oddiy gap esa qoladi — undan faqat ism olib tashlanadi.
-            if _LABEL_VALUE_RE.match(text) or _only_name(text, name_re):
-                hit = True
-            elif _drop_name(para, name_re):
-                removed += 1
+            hit = True
         elif label_only:
             hit = True
         else:
@@ -143,7 +138,6 @@ def _cell_paragraphs(cell):
     return frame.paragraphs if frame is not None else cell.paragraphs
 
 
-_LETTER = r"[^\W\d_]"
 _APOSTROPHE = "'`ʻʼ’‘"
 
 
@@ -166,39 +160,6 @@ def _name_pattern(customer_name: str):
         return None
     edge = f"[^\\W\\d_{re.escape(_APOSTROPHE)}]"
     return re.compile(rf"(?<!{edge})(?:{'|'.join(parts)})a?(?!{edge})", re.IGNORECASE)
-
-
-def _only_name(text: str, name_re) -> bool:
-    """Satr faqat ism bo'laklari va bosh harflardan iborat: "Asim Karimov", "Karimova A.".
-
-    "Amir Temur" sarlavhasi "Amir" ismli mijozda o'chib ketmasin.
-    """
-    if not _looks_like_person(text):
-        return False
-    rest = name_re.sub(" ", text)
-    return all(len(word.strip(".,;")) <= 2 for word in rest.split())
-
-
-def _drop_name(para, name_re) -> bool:
-    """Gap ichidan TO'LIQ ismni ("Asim Karimov") olib tashlaydi, gapni saqlaydi.
-
-    Yolg'iz bo'lak tegilmaydi: "Amir Temur", "I.A. Karimov" — tarixiy shaxs,
-    mijoz emas.
-    """
-    changed = False
-    for run in para.runs:
-        spans, matches = [], list(name_re.finditer(run.text))
-        for first, second in zip(matches, matches[1:]):
-            if not run.text[first.end():second.start()].strip():
-                spans.append((first.start(), second.end()))
-        if not spans:
-            continue
-        text = run.text
-        for start, end in reversed(spans):
-            text = text[:start] + text[end:]
-        run.text = re.sub(r"\s{2,}", " ", text)
-        changed = True
-    return changed
 
 
 def _download_name(title: str, extension: str, fallback: str) -> str:
@@ -237,22 +198,56 @@ def anonymize(src_path: str, customer_name: str = "", out_path: str = "") -> str
     return anonymize_pptx(src_path, customer_name, out_path)
 
 
+def _is_name_line(text: str, customer_name: str) -> bool:
+    """Satrning O'ZI ism satri: "Asim Karimov", "Tayyorladi: Asim Karimov", "Tayyorladi:".
+
+    Gap ichidagi so'zga qaralmaydi — slayd mazmuni hech qachon o'chmaydi.
+    """
+    value = " ".join(text.split()).strip(" .")
+    if not value:
+        return False
+    name = " ".join((customer_name or "").split()).strip(" .")
+    if name and value.casefold() == name.casefold():
+        return True
+    if _LABEL_ONLY_RE.match(value):
+        return True
+    match = _LABEL_VALUE_RE.match(value)
+    if not match:
+        return False
+    first = re.split(r"[|;,/·]", match.group(1))[0].strip()
+    return (bool(name) and first.casefold() == name.casefold()) or _looks_like_person(first)
+
+
 def anonymize_pptx(src_path: str, customer_name: str = "", out_path: str = "") -> str:
-    """Nusxani tozalab, yangi fayl yo'lini qaytaradi. Asl fayl tegilmaydi."""
+    """Nusxani tozalab, yangi fayl yo'lini qaytaradi. Asl fayl tegilmaydi.
+
+    Ismni quruvchi o'zi qo'yadi va qutisini belgilaydi (`author_mark`) — shu
+    quti bo'shatiladi. Belgisiz (eski) faylda faqat butun satri ism yoki
+    "Tayyorladi: ..." bo'lgan paragraf bo'shatiladi; slayd matni ichidan ism
+    qidirilmaydi.
+    """
     from pptx import Presentation
 
+    from services.author_mark import is_author
+
     out_path = out_path or _staged_path(".pptx")
-    name_re = _name_pattern(customer_name)
     prs = Presentation(src_path)
 
     removed = 0
     for slide in prs.slides:
-        for shape in _iter_shapes(slide.shapes):
+        for shape in list(_iter_shapes(slide.shapes)):
+            if is_author(shape):
+                # Shakl o'chirilmaydi: animatsiya (`p:timing`) unga raqami bilan
+                # bog'langan, shaklsiz qolsa PowerPoint faylni "tiklash"ni so'raydi.
+                if getattr(shape, "has_text_frame", False):
+                    _blank_paragraph_all(shape.text_frame.paragraphs)
+                removed += 1
+                continue
             if getattr(shape, "has_text_frame", False):
-                removed += _scrub_paragraphs(shape.text_frame.paragraphs, name_re)
-            if getattr(shape, "has_table", False):
-                for row in shape.table.rows:
-                    removed += _scrub_table_row(list(row.cells), name_re)
+                for para in shape.text_frame.paragraphs:
+                    if _is_name_line(para.text, customer_name):
+                        _blank_paragraph(para)
+                        removed += 1
         # Slayd izohlari — ekranda ko'rinmaydi, shuning uchun eng oson
         # e'tibordan chetda qoladigan joy.
         if getattr(slide, "has_notes_slide", False):

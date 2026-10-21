@@ -24,6 +24,8 @@ from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.oxml.ns import qn
 from pptx.util import Emu, Inches, Pt
 
+from services import author_mark
+
 from .images import Picture, edge_points
 
 log = logging.getLogger(__name__)
@@ -262,8 +264,9 @@ def slide_cover(slide, s: Dict, ctx: Ctx, index: int) -> List:
     meta = " · ".join(p for p in (ctx.author, ctx.year) if p)
     steps = [(sub, "float", 200)]
     if meta:
-        steps.append((text(slide, "cover_meta", 6.95, 6.25, 5.7, 0.4, meta, size=13, color=pal["on_muted"]),
-                      "fade", 500))
+        # Ism qutisi belgilanadi: do'kon nusxasida faqat u bo'shatiladi.
+        meta_box = text(slide, "cover_meta", 6.95, 6.25, 5.7, 0.4, meta, size=13, color=pal["on_muted"])
+        steps.append((author_mark.mark(meta_box) if ctx.author else meta_box, "fade", 500))
     return steps
 
 

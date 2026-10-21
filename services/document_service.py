@@ -28,6 +28,7 @@ from services import course_work
 from utils.heading_guard import strip_leading_numbering
 from services.icon_service import find_icon_path_for_column
 from services import slide_fit
+from services import author_mark
 from services import slide_kit
 from services import slide_layouts
 
@@ -908,7 +909,17 @@ class DocumentService:
         p1.font.color.rgb = RGBColor(0, 0, 0)
         p1.alignment = PP_ALIGN.CENTER
         
-        p2 = tf.add_paragraph()
+        # Ism mavzudan alohida qutida: u belgilanadi va do'kon nusxasida faqat
+        # shu quti bo'shatiladi (`author_mark`), mavzu sarlavhasiga tegilmaydi.
+        author_box = slide.shapes.add_textbox(
+            PptxInches(box_left), PptxInches(5.6),
+            PptxInches(box_width), PptxInches(0.8)
+        )
+        if author_name:
+            author_mark.mark(author_box)
+        author_frame = author_box.text_frame
+        author_frame.word_wrap = True
+        p2 = author_frame.paragraphs[0]
         p2.text = author_name if author_name else "________________"
         p2.font.size = PptxPt(26)
         p2.font.bold = True

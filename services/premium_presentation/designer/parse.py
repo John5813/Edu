@@ -78,9 +78,12 @@ def spec_of(page: str, index: int, total: int) -> Optional[Dict]:
     title = _first(section, "title")
 
     if index == 0 and "dark" in cls:
+        # Mijoz ismi (`.author`) alohida: do'kon nusxasida faqat uning qutisi bo'shatiladi.
+        authors = _find(section, "author")
         return {"kind": "cover", "title": title, "lead": _first(section, "lead"),
                 "credit": " · ".join(_clean(e.text_content()) for e in _find(section, "note") + _find(section, "sub")
-                                     if _clean(e.text_content())),
+                                     if _clean(e.text_content()) and e not in authors),
+                "author": " · ".join(_clean(e.text_content()) for e in authors if _clean(e.text_content())),
                 "photo": _photo(section)}
 
     if "reja" in cls:
