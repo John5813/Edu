@@ -22,31 +22,122 @@ def _started_at() -> str:
     from services.receipts.rules import now_tashkent
     return now_tashkent().isoformat()
 
-_CLICK_TEXT = {
-    "uz": ("⚡ <b>Tezroq yo'l — Click:</b> to'lov o'tishi bilan {amount} so'm hisobingizga avtomatik tushadi, "
-           "chek yuborish shart emas.", "⚡ Click orqali to'lash"),
-    "ru": ("⚡ <b>Быстрее — через Click:</b> {amount} сум зачислятся автоматически сразу после оплаты, "
-           "чек отправлять не нужно.", "⚡ Оплатить через Click"),
-    "en": ("⚡ <b>Faster — pay with Click:</b> {amount} som is credited automatically right after payment, "
-           "no receipt needed.", "⚡ Pay with Click"),
+_METHOD_TEXT = {
+    "uz": ("💳 <b>{amount} so'm</b> — to'lov usulini tanlang:\n\n"
+           "⚡ <b>Click</b> — summa to'lov o'tishi bilan hisobingizga avtomatik tushadi.\n"
+           "🏦 <b>Karta orqali</b> — kartaga o'tkazib, chekni yuborasiz.",
+           "⚡ Click orqali", "🏦 Karta orqali"),
+    "ru": ("💳 <b>{amount} сум</b> — выберите способ оплаты:\n\n"
+           "⚡ <b>Click</b> — сумма зачислится автоматически сразу после оплаты.\n"
+           "🏦 <b>Картой</b> — переведите на карту и отправьте чек.",
+           "⚡ Через Click", "🏦 Картой"),
+    "en": ("💳 <b>{amount} som</b> — choose a payment method:\n\n"
+           "⚡ <b>Click</b> — credited automatically right after payment.\n"
+           "🏦 <b>Card transfer</b> — transfer to a card and send the receipt.",
+           "⚡ Pay with Click", "🏦 Card transfer"),
 }
 
 
-async def _offer_click(message: Message, telegram_id: int, amount: int, user_lang: str) -> None:
-    """Click ulangan bo'lsa — to'lov havolasi tugmasi (chek yo'li ham ochiq qoladi)."""
+async def _method_keyboard(telegram_id: int, amount: int, user_lang: str):
+    """Click ulangan bo'lsa — «Click / Karta» tugmalari, aks holda None (darhol karta yo'li)."""
     from services import click_pay
 
     if not click_pay.enabled():
-        return
+        return None
     from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
     try:
         url = await click_pay.new_payment(telegram_id, amount, "bot")
     except Exception as exc:
         logger.warning("Click havolasi yaratilmadi (%s): %s", telegram_id, exc)
+        return None
+    _, click_label, card_label = _METHOD_TEXT.get(user_lang, _METHOD_TEXT["uz"])
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=click_label, url=url)],
+        [InlineKeyboardButton(text=card_label, callback_data=f"pay_by_card:{amount}")],
+    ])
+
+
+async def _choose_method(message: Message, telegram_id: int, amount: int, state: FSMContext,
+                         user_lang: str, edit: bool = False) -> None:
+    """Summa tanlangach: Click va karta — ikki tugma. Click o'chiq bo'lsa darhol karta ko'rsatmasi."""
+    keyboard = await _method_keyboard(telegram_id, amount, user_lang)
+    if keyboard is None:
+        await _show_card(message, state, amount, user_lang, edit=edit)
         return
-    text, button = _CLICK_TEXT.get(user_lang, _CLICK_TEXT["uz"])
-    await message.answer(text.format(amount=f"{amount:,}"), parse_mode="HTML",
-                         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=button, url=url)]]))
+    await state.clear()
+    text = _METHOD_TEXT.get(user_lang, _METHOD_TEXT["uz"])[0].format(amount=f"{amount:,}")
+    if edit:
+        try:
+            await message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
+            return
+        except Exception:
+            pass
+    await message.answer(text, parse_mode="HTML", reply_markup=keyboard)
+
+
+def _card_text(amount: int, user_lang: str):
+    """Karta orqali to'lov ko'rsatmasi: (matn, «chek yuborish», «orqaga»)."""
+    card1_fmt = f"{PAYMENT_CARD[:4]} {PAYMENT_CARD[4:8]} {PAYMENT_CARD[8:12]} {PAYMENT_CARD[12:]}"
+    card2_fmt = f"{PAYMENT_CARD_2[:4]} {PAYMENT_CARD_2[4:8]} {PAYMENT_CARD_2[8:12]} {PAYMENT_CARD_2[12:]}"
+    if user_lang == "uz":
+        return (
+            f"💳 <b>To'lov qilish uchun:</b>\n\n"
+            f"1️⃣ Quyidagi kartalardan <b>biriga</b> pul o'tkazing:\n\n"
+            f"🏦 Karta 1:\n<code>{card1_fmt}</code>\n\n"
+            f"🏦 Karta 2:\n<code>{card2_fmt}</code>\n\n"
+            f"👤 Karta egasi: <b>{PAYMENT_CARD_OWNER}</b>\n\n"
+            f"2️⃣ <b>{amount:,} so'm</b> o'tkazing\n\n"
+            f"3️⃣ «📤 To'lov chekini yuborish» tugmasini bosib chekni yuboring\n\n"
+            f"⚠️ <b>DIQQAT:</b> Chekni faqat haqiqiy to'lovdan keyin yuboring. "
+            f"Soxta chek yuborish taqiqlanadi!"
+        ), "📤 To'lov chekini yuborish", "🔙 Orqaga qaytish"
+    if user_lang == "ru":
+        return (
+            f"💳 <b>Для оплаты:</b>\n\n"
+            f"1️⃣ Переведите деньги на <b>любую</b> из карт:\n\n"
+            f"🏦 Карта 1:\n<code>{card1_fmt}</code>\n\n"
+            f"🏦 Карта 2:\n<code>{card2_fmt}</code>\n\n"
+            f"👤 Владелец карты: <b>{PAYMENT_CARD_OWNER}</b>\n\n"
+            f"2️⃣ Переведите <b>{amount:,} сум</b>\n\n"
+            f"3️⃣ Нажмите «📤 Отправить чек» и отправьте чек\n\n"
+            f"⚠️ <b>ВНИМАНИЕ:</b> Отправляйте чек только после реального платежа. "
+            f"Поддельные чеки запрещены!"
+        ), "📤 Отправить чек", "🔙 Назад"
+    return (
+        f"💳 <b>To pay:</b>\n\n"
+        f"1️⃣ Transfer money to <b>any</b> of the cards:\n\n"
+        f"🏦 Card 1:\n<code>{card1_fmt}</code>\n\n"
+        f"🏦 Card 2:\n<code>{card2_fmt}</code>\n\n"
+        f"👤 Card owner: <b>{PAYMENT_CARD_OWNER}</b>\n\n"
+        f"2️⃣ Transfer <b>{amount:,} som</b>\n\n"
+        f"3️⃣ Click «📤 Upload receipt» and send the receipt\n\n"
+        f"⚠️ <b>WARNING:</b> Send receipt only after real payment. "
+        f"Fake receipts are prohibited!"
+    ), "📤 Upload receipt", "🔙 Back"
+
+
+async def _show_card(message: Message, state: FSMContext, amount: int, user_lang: str, edit: bool = False) -> None:
+    """Karta rekvizitlari va chek kutish holati (vaqt shu paytdan: chek undan oldin bo'lmasin)."""
+    from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+
+    instructions, upload_button_text, back_button_text = _card_text(amount, user_lang)
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=upload_button_text)],
+            [KeyboardButton(text=back_button_text)]
+        ],
+        resize_keyboard=True
+    )
+    await state.update_data(payment_amount=amount, payment_started_at=_started_at())
+    if edit:
+        try:
+            await message.edit_text(instructions, parse_mode="HTML")
+        except Exception:
+            await message.answer(instructions, parse_mode="HTML")
+        await message.answer("👇 Quyidagi tugmalardan birini tanlang:", reply_markup=keyboard)
+    else:
+        await message.answer(instructions, parse_mode="HTML", reply_markup=keyboard)
+    await state.set_state(PaymentStates.waiting_for_screenshot)
 
 
 # Payment menu items in different languages
@@ -100,9 +191,7 @@ async def handle_account_info(message: Message, state: FSMContext, db: Database,
 
 @router.callback_query(F.data.regexp(r"^pay_\d+$"))
 async def handle_payment_amount_selection(callback: CallbackQuery, state: FSMContext, user_lang: str):
-    """Handle payment amount selection"""
-    from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-
+    """Summa tanlandi: to'lov usuli (Click / karta)."""
     try:
         await callback.answer()
     except Exception:
@@ -110,78 +199,23 @@ async def handle_payment_amount_selection(callback: CallbackQuery, state: FSMCon
 
     try:
         amount = int(callback.data.split("_")[1])
-        await state.update_data(payment_amount=amount, payment_started_at=_started_at())
-
-        card1_fmt = f"{PAYMENT_CARD[:4]} {PAYMENT_CARD[4:8]} {PAYMENT_CARD[8:12]} {PAYMENT_CARD[12:]}"
-        card2_fmt = f"{PAYMENT_CARD_2[:4]} {PAYMENT_CARD_2[4:8]} {PAYMENT_CARD_2[8:12]} {PAYMENT_CARD_2[12:]}"
-
-        if user_lang == "uz":
-            instructions = (
-                f"💳 <b>To'lov qilish uchun:</b>\n\n"
-                f"1️⃣ Quyidagi kartalardan <b>biriga</b> pul o'tkazing:\n\n"
-                f"🏦 Karta 1:\n<code>{card1_fmt}</code>\n\n"
-                f"🏦 Karta 2:\n<code>{card2_fmt}</code>\n\n"
-                f"👤 Karta egasi: <b>{PAYMENT_CARD_OWNER}</b>\n\n"
-                f"2️⃣ <b>{amount:,} so'm</b> o'tkazing\n\n"
-                f"3️⃣ «📤 To'lov chekini yuborish» tugmasini bosib chekni yuboring\n\n"
-                f"⚠️ <b>DIQQAT:</b> Chekni faqat haqiqiy to'lovdan keyin yuboring. "
-                f"Soxta chek yuborish taqiqlanadi!"
-            )
-            upload_button_text = "📤 To'lov chekini yuborish"
-            back_button_text = "🔙 Orqaga qaytish"
-        elif user_lang == "ru":
-            instructions = (
-                f"💳 <b>Для оплаты:</b>\n\n"
-                f"1️⃣ Переведите деньги на <b>любую</b> из карт:\n\n"
-                f"🏦 Карта 1:\n<code>{card1_fmt}</code>\n\n"
-                f"🏦 Карта 2:\n<code>{card2_fmt}</code>\n\n"
-                f"👤 Владелец карты: <b>{PAYMENT_CARD_OWNER}</b>\n\n"
-                f"2️⃣ Переведите <b>{amount:,} сум</b>\n\n"
-                f"3️⃣ Нажмите «📤 Отправить чек» и отправьте чек\n\n"
-                f"⚠️ <b>ВНИМАНИЕ:</b> Отправляйте чек только после реального платежа. "
-                f"Поддельные чеки запрещены!"
-            )
-            upload_button_text = "📤 Отправить чек"
-            back_button_text = "🔙 Назад"
-        else:
-            instructions = (
-                f"💳 <b>To pay:</b>\n\n"
-                f"1️⃣ Transfer money to <b>any</b> of the cards:\n\n"
-                f"🏦 Card 1:\n<code>{card1_fmt}</code>\n\n"
-                f"🏦 Card 2:\n<code>{card2_fmt}</code>\n\n"
-                f"👤 Card owner: <b>{PAYMENT_CARD_OWNER}</b>\n\n"
-                f"2️⃣ Transfer <b>{amount:,} som</b>\n\n"
-                f"3️⃣ Click «📤 Upload receipt» and send the receipt\n\n"
-                f"⚠️ <b>WARNING:</b> Send receipt only after real payment. "
-                f"Fake receipts are prohibited!"
-            )
-            upload_button_text = "📤 Upload receipt"
-            back_button_text = "🔙 Back"
-
-        keyboard = ReplyKeyboardMarkup(
-            keyboard=[
-                [KeyboardButton(text=upload_button_text)],
-                [KeyboardButton(text=back_button_text)]
-            ],
-            resize_keyboard=True
-        )
-
-        try:
-            await callback.message.edit_text(instructions, parse_mode="HTML")
-        except Exception:
-            await callback.message.answer(instructions, parse_mode="HTML")
-
-        await callback.message.answer(
-            "👇 Quyidagi tugmalardan birini tanlang:",
-            reply_markup=keyboard
-        )
-
-        await state.update_data(payment_amount=amount)
-        await state.set_state(PaymentStates.waiting_for_screenshot)
-        await _offer_click(callback.message, callback.from_user.id, amount, user_lang)
-
+        await _choose_method(callback.message, callback.from_user.id, amount, state, user_lang, edit=True)
     except Exception as e:
         logger.error(f"handle_payment_amount_selection error: {e}", exc_info=True)
+
+
+@router.callback_query(F.data.regexp(r"^pay_by_card:\d+$"))
+async def handle_pay_by_card(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    """«Karta orqali» tanlandi: rekvizitlar va chek kutish."""
+    try:
+        await callback.answer()
+    except Exception:
+        pass
+    try:
+        amount = int(callback.data.split(":")[1])
+        await _show_card(callback.message, state, amount, user_lang, edit=True)
+    except Exception as e:
+        logger.error(f"handle_pay_by_card error: {e}", exc_info=True)
 
 
 @router.callback_query(F.data == "pay_custom")
@@ -257,9 +291,7 @@ async def handle_custom_amount_cancel(callback: CallbackQuery, state: FSMContext
 
 @router.message(PaymentStates.waiting_for_custom_amount, F.text)
 async def handle_custom_amount_input(callback_message: Message, state: FSMContext, user_lang: str):
-    """Validate custom amount and proceed to payment instructions"""
-    from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-
+    """Validate custom amount and proceed to payment method choice"""
     raw = (callback_message.text or "").strip().replace(" ", "").replace(",", "").replace(".", "")
     if not raw.isdigit():
         if user_lang == "uz":
@@ -280,65 +312,7 @@ async def handle_custom_amount_input(callback_message: Message, state: FSMContex
             await callback_message.answer("❌ Minimum payment amount is 1,000 som.")
         return
 
-    await state.update_data(payment_amount=amount, payment_started_at=_started_at())
-
-    card1_fmt = f"{PAYMENT_CARD[:4]} {PAYMENT_CARD[4:8]} {PAYMENT_CARD[8:12]} {PAYMENT_CARD[12:]}"
-    card2_fmt = f"{PAYMENT_CARD_2[:4]} {PAYMENT_CARD_2[4:8]} {PAYMENT_CARD_2[8:12]} {PAYMENT_CARD_2[12:]}"
-
-    if user_lang == "uz":
-        instructions = (
-            f"💳 <b>To'lov qilish uchun:</b>\n\n"
-            f"1️⃣ Quyidagi kartalardan <b>biriga</b> pul o'tkazing:\n\n"
-            f"🏦 Karta 1:\n<code>{card1_fmt}</code>\n\n"
-            f"🏦 Karta 2:\n<code>{card2_fmt}</code>\n\n"
-            f"👤 Karta egasi: <b>{PAYMENT_CARD_OWNER}</b>\n\n"
-            f"2️⃣ <b>{amount:,} so'm</b> o'tkazing\n\n"
-            f"3️⃣ «📤 To'lov chekini yuborish» tugmasini bosib chekni yuboring\n\n"
-            f"⚠️ <b>DIQQAT:</b> Chekni faqat haqiqiy to'lovdan keyin yuboring. "
-            f"Soxta chek yuborish taqiqlanadi!"
-        )
-        upload_button_text = "📤 To'lov chekini yuborish"
-        back_button_text = "🔙 Orqaga qaytish"
-    elif user_lang == "ru":
-        instructions = (
-            f"💳 <b>Для оплаты:</b>\n\n"
-            f"1️⃣ Переведите деньги на <b>любую</b> из карт:\n\n"
-            f"🏦 Карта 1:\n<code>{card1_fmt}</code>\n\n"
-            f"🏦 Карта 2:\n<code>{card2_fmt}</code>\n\n"
-            f"👤 Владелец карты: <b>{PAYMENT_CARD_OWNER}</b>\n\n"
-            f"2️⃣ Переведите <b>{amount:,} сум</b>\n\n"
-            f"3️⃣ Нажмите «📤 Отправить чек» и отправьте чек\n\n"
-            f"⚠️ <b>ВНИМАНИЕ:</b> Отправляйте чек только после реального платежа. "
-            f"Поддельные чеки запрещены!"
-        )
-        upload_button_text = "📤 Отправить чек"
-        back_button_text = "🔙 Назад"
-    else:
-        instructions = (
-            f"💳 <b>To pay:</b>\n\n"
-            f"1️⃣ Transfer money to <b>any</b> of the cards:\n\n"
-            f"🏦 Card 1:\n<code>{card1_fmt}</code>\n\n"
-            f"🏦 Card 2:\n<code>{card2_fmt}</code>\n\n"
-            f"👤 Card owner: <b>{PAYMENT_CARD_OWNER}</b>\n\n"
-            f"2️⃣ Transfer <b>{amount:,} som</b>\n\n"
-            f"3️⃣ Click «📤 Upload receipt» and send the receipt\n\n"
-            f"⚠️ <b>WARNING:</b> Send receipt only after real payment. "
-            f"Fake receipts are prohibited!"
-        )
-        upload_button_text = "📤 Upload receipt"
-        back_button_text = "🔙 Back"
-
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text=upload_button_text)],
-            [KeyboardButton(text=back_button_text)]
-        ],
-        resize_keyboard=True
-    )
-
-    await callback_message.answer(instructions, parse_mode="HTML", reply_markup=keyboard)
-    await state.set_state(PaymentStates.waiting_for_screenshot)
-    await _offer_click(callback_message, callback_message.from_user.id, amount, user_lang)
+    await _choose_method(callback_message, callback_message.from_user.id, amount, state, user_lang)
 
 
 @router.callback_query(F.data.regexp(r"^rcpt_resend:\d+:\d+$"))
