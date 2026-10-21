@@ -5,6 +5,7 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, ContentType, LabeledPrice, PreCheckoutQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
+from aiogram.exceptions import TelegramBadRequest
 
 from bot.states import PaymentStates
 from bot.keyboards import get_payment_amount_keyboard, get_main_keyboard
@@ -38,21 +39,31 @@ _METHOD_TEXT = {
 }
 
 
-async def _method_keyboard(telegram_id: int, amount: int, user_lang: str):
-    """Click ulangan bo'lsa — «Click / Karta» tugmalari, aks holda None (darhol karta yo'li)."""
+async def _click_url(telegram_id: int, amount: int):
+    """Click ulangan bo'lsa — to'lov havolasi, aks holda None (darhol karta yo'li)."""
     from services import click_pay
 
     if not click_pay.enabled():
         return None
-    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
     try:
-        url = await click_pay.new_payment(telegram_id, amount, "bot")
+        return await click_pay.new_payment(telegram_id, amount, "bot")
     except Exception as exc:
         logger.warning("Click havolasi yaratilmadi (%s): %s", telegram_id, exc)
         return None
+
+
+def _method_keyboard(url: str, amount: int, user_lang: str, icon: bool = True):
+    """«Click / Karta» tugmalari. `CLICK_EMOJI_ID` bo'lsa Click tugmasida ⚡ o'rniga Click ikonkasi."""
+    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
+    import config
+
     _, click_label, card_label = _METHOD_TEXT.get(user_lang, _METHOD_TEXT["uz"])
+    emoji = config.CLICK_EMOJI_ID if icon else ""
+    click = (InlineKeyboardButton(text=click_label.replace("⚡", "").strip(), url=url, icon_custom_emoji_id=emoji)
+             if emoji else InlineKeyboardButton(text=click_label, url=url))
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=click_label, url=url)],
+        [click],
         [InlineKeyboardButton(text=card_label, callback_data=f"pay_by_card:{amount}")],
     ])
 
@@ -60,19 +71,24 @@ async def _method_keyboard(telegram_id: int, amount: int, user_lang: str):
 async def _choose_method(message: Message, telegram_id: int, amount: int, state: FSMContext,
                          user_lang: str, edit: bool = False) -> None:
     """Summa tanlangach: Click va karta — ikki tugma. Click o'chiq bo'lsa darhol karta ko'rsatmasi."""
-    keyboard = await _method_keyboard(telegram_id, amount, user_lang)
-    if keyboard is None:
+    url = await _click_url(telegram_id, amount)
+    if url is None:
         await _show_card(message, state, amount, user_lang, edit=edit)
         return
     await state.clear()
     text = _METHOD_TEXT.get(user_lang, _METHOD_TEXT["uz"])[0].format(amount=f"{amount:,}")
     if edit:
         try:
-            await message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
+            await message.edit_text(text, parse_mode="HTML", reply_markup=_method_keyboard(url, amount, user_lang))
             return
         except Exception:
             pass
-    await message.answer(text, parse_mode="HTML", reply_markup=keyboard)
+    try:
+        await message.answer(text, parse_mode="HTML", reply_markup=_method_keyboard(url, amount, user_lang))
+    except TelegramBadRequest as exc:
+        # Telegram ikonkani rad etdi (bot egasida Premium yo'q yoki ID noto'g'ri) — tugma ikonkasiz.
+        logger.warning("Click ikonkasi rad etildi: %s", exc)
+        await message.answer(text, parse_mode="HTML", reply_markup=_method_keyboard(url, amount, user_lang, icon=False))
 
 
 def _card_text(amount: int, user_lang: str):

@@ -64,6 +64,35 @@ def is_admin(user_id: int) -> bool:
     """Check if user is admin"""
     return user_id in ADMIN_IDS
 
+def _custom_emoji_ids(message) -> list:
+    """Xabardagi maxsus emoji ID lari (tartib bilan, takrorsiz)."""
+    if message is None:
+        return []
+    ids = []
+    for entity in (message.entities or []) + (message.caption_entities or []):
+        if entity.type == "custom_emoji" and entity.custom_emoji_id and entity.custom_emoji_id not in ids:
+            ids.append(entity.custom_emoji_id)
+    return ids
+
+
+@router.message(Command("emojiid"))
+async def handle_emoji_id(message: Message):
+    """Maxsus emoji ID si: «/emojiid <emoji>» yoki emojili xabarga javob. Click tugmasi ikonkasi uchun."""
+    if not is_admin(message.from_user.id):
+        return
+    ids = _custom_emoji_ids(message) or _custom_emoji_ids(message.reply_to_message)
+    if not ids:
+        await message.answer(
+            "Maxsus (premium) emoji topilmadi.\n\n"
+            "Yuboring: <code>/emojiid</code> va yoniga Click emojisini qo'ying "
+            "(yoki emojili xabarga javob qilib <code>/emojiid</code> yozing).", parse_mode="HTML")
+        return
+    lines = [f"<code>{emoji_id}</code>" for emoji_id in ids]
+    await message.answer(
+        "Emoji ID:\n" + "\n".join(lines) + "\n\nServerda .env ga:\n"
+        f"<code>echo 'CLICK_EMOJI_ID={ids[0]}' &gt;&gt; .env</code>", parse_mode="HTML")
+
+
 async def notify_admins_about_payment(bot, user, amount, message_id, payment_id, source=""):
     """Notify admins about new payment"""
     from bot.keyboards import get_payment_review_keyboard
