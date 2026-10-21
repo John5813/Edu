@@ -74,6 +74,16 @@ async def main():
           url.startswith("https://my.click.uz/services/pay?") and q["service_id"] == ["111"]
           and q["merchant_id"] == ["222"] and q["amount"] == ["15000"] and q["transaction_param"][0].isdigit(), url)
     inv = int(q["transaction_param"][0])
+    import webapp
+    config.CLICK_MERCHANT_USER_ID = "93259"
+    webapp.BOT_USERNAME = "Edufayl_bot"
+    q = parse_qs(urlparse(await click_pay.new_payment(42, 1000, "bot")).query)
+    check("havolada merchant_user_id yo'q (Click «Поставщик не найден» derdi)", "merchant_user_id" not in q, q)
+    check("return_url — bot (sozlama bo'lmasa)", q.get("return_url") == ["https://t.me/Edufayl_bot"], q)
+    config.CLICK_RETURN_URL = "https://example.uz/ok"
+    q = parse_qs(urlparse(await click_pay.new_payment(42, 1000, "bot")).query)
+    check("CLICK_RETURN_URL bo'lsa o'sha", q.get("return_url") == ["https://example.uz/ok"], q)
+    config.CLICK_MERCHANT_USER_ID, config.CLICK_RETURN_URL, webapp.BOT_USERNAME = "", "", ""
     for bad in (500, "abc", 10_000_000):
         try:
             await click_pay.new_payment(42, bad, "bot")

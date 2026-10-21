@@ -78,11 +78,18 @@ def valid_amount(amount) -> int:
 
 
 def pay_url(invoice_id: int, amount: int, return_url: str = "") -> str:
+    """my.click.uz to'lov havolasi.
+
+    `merchant_user_id` havolaga qo'yilmaydi: u faqat Merchant API ga murojaat uchun. Havolada
+    bo'lsa Click ilovasi «Поставщик не найден» deb to'lovni ochmasdi (Click xodimi tasdiqlagan).
+    `return_url` berilmasa — sozlamadagi, u ham bo'lmasa botning o'zi (to'lovdan keyin qaytish).
+    """
+    import webapp
+
     params = {"service_id": config.CLICK_SERVICE_ID, "merchant_id": config.CLICK_MERCHANT_ID,
               "amount": int(amount), "transaction_param": invoice_id}
-    if config.CLICK_MERCHANT_USER_ID:
-        params["merchant_user_id"] = config.CLICK_MERCHANT_USER_ID
-    return_url = return_url or config.CLICK_RETURN_URL
+    return_url = return_url or config.CLICK_RETURN_URL or (
+        f"https://t.me/{webapp.BOT_USERNAME}" if webapp.BOT_USERNAME else "")
     if return_url:
         params["return_url"] = return_url
     return f"{PAY_URL}?{urlencode(params)}"
