@@ -174,8 +174,13 @@ async def main():
         resp = await client.post("/api/v1/wallet/click", json={"amount": 10000})
         check("sayt Click havolasi kirishsiz berilmaydi", resp.status == 401, resp.status)
 
-    print("\n7) Bot: summa tanlangach Click tugmasi")
+    print("\n7) Bot: summa tanlangach «Click» va «Karta» tugmalari")
+    from aiogram.fsm.context import FSMContext
+    from aiogram.fsm.storage.base import StorageKey
+    from aiogram.fsm.storage.memory import MemoryStorage
+    from aiogram.types import ReplyKeyboardMarkup
     from bot.handlers import payments
+    from bot.states import PaymentStates
 
     class Msg:
         def __init__(self):
@@ -184,20 +189,37 @@ async def main():
         async def answer(self, text, **kw):
             self.out.append((text, kw.get("reply_markup")))
 
+        async def edit_text(self, text, **kw):
+            self.out.append((text, kw.get("reply_markup")))
+
+    def fsm():
+        return FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=77, user_id=77))
+
+    msg, state = Msg(), fsm()
+    await payments._choose_method(msg, 77, 20000, state, "uz", edit=True)
+    rows = msg.out[0][1].inline_keyboard if msg.out else []
+    check("ikki tugma: Click havolasi va «Karta orqali»",
+          len(rows) == 2 and rows[0][0].url.startswith("https://my.click.uz/") and "amount=20000" in rows[0][0].url
+          and rows[1][0].callback_data == "pay_by_card:20000" and "20,000" in msg.out[0][0], msg.out)
+    check("usul tanlanmaguncha chek kutilmaydi", await state.get_state() is None, await state.get_state())
+
     msg = Msg()
-    await payments._offer_click(msg, 77, 20000, "uz")
-    button = msg.out[0][1].inline_keyboard[0][0] if msg.out else None
-    check("Click havola tugmasi chiqadi", button is not None and button.url.startswith("https://my.click.uz/")
-          and "amount=20000" in button.url and "20,000" in msg.out[0][0], msg.out)
+    await payments._show_card(msg, state, 20000, "uz", edit=True)
+    check("«Karta orqali» → rekvizitlar va chek kutish",
+          "Karta 1" in msg.out[0][0] and isinstance(msg.out[-1][1], ReplyKeyboardMarkup)
+          and await state.get_state() == PaymentStates.waiting_for_screenshot.state
+          and (await state.get_data())["payment_amount"] == 20000, msg.out)
 
     from services.receipts import web as receipt_web
     check("saytda Click usuli yoqiq", any(m["key"] == "click" and m["enabled"] for m in receipt_web.methods()))
     config.CLICK_SECRET_KEY = ""
     check("kalit bo'lmasa Click o'chiq", not click_pay.enabled()
           and not any(m["key"] == "click" and m["enabled"] for m in receipt_web.methods()))
-    msg = Msg()
-    await payments._offer_click(msg, 77, 20000, "uz")
-    check("kalit bo'lmasa botda Click tugmasi yo'q", msg.out == [], msg.out)
+    msg, state = Msg(), fsm()
+    await payments._choose_method(msg, 77, 20000, state, "uz")
+    check("kalit bo'lmasa usul so'ralmaydi — darhol karta ko'rsatmasi",
+          len(msg.out) == 1 and "Karta 1" in msg.out[0][0]
+          and await state.get_state() == PaymentStates.waiting_for_screenshot.state, msg.out)
 
 
 asyncio.run(main())
