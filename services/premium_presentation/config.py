@@ -99,6 +99,12 @@ OPENROUTER_PHOTO_MODELS = _no_claude(_chain(
     os.getenv("PHOTO_PICK_FALLBACKS", "google/gemini-2.5-flash-lite,openai/gpt-4.1-nano,openai/gpt-4o-mini"))) \
     or ["google/gemini-2.5-flash-lite", "openai/gpt-4.1-nano", "openai/gpt-4o-mini"]
 
+# Internetdan olingan rasmda matn bormi (slayd, hujjat beti, yozuvli banner) — ko'z bilan tekshiruv.
+# Ro'yxat ATAYIN qat'iy: muhit o'zgaruvchisi ham, admin panelda AI almashtirish ham unga ta'sir
+# qilmaydi. Eng arzon modellar (flash-lite, nano) bir nechta rasmni birga ko'rganda matnli varaqlarni
+# o'tkazib yuborardi; bu yerda ko'rish sifati tejamdan muhim.
+PHOTO_TEXT_CHECK_MODELS = ("google/gemini-2.5-flash", "openai/gpt-4.1-mini", "openai/gpt-4o-mini")
+
 # Eski nom bilan foydalanadigan joylar uchun — ro'yxatning birinchisi.
 OPENROUTER_TEXT_MODEL = OPENROUTER_TEXT_MODELS[0]
 OPENROUTER_VISION_MODEL = OPENROUTER_VISION_MODELS[0]
