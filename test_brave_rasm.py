@@ -27,6 +27,7 @@ import database.database as dbmod
 
 # Testlarda vizual tekshiruv (AI) o'tkazuvchi — maxsus `check=` bilan beriladiganlar bundan mustasno.
 from services import photo_search as _ps_default
+_REAL_TEXT_CHECK = _ps_default._ask_text_check
 _ps_default._ask_text_check = lambda paths, formulas=False: set()
 
 _db_dir = tempfile.mkdtemp()
@@ -290,6 +291,70 @@ async def broken_check(paths):
 check("tekshiruv ishlamasa rasmlar tashlanadi (fail-closed: skrinshot o'tib ketmasin)",
       asyncio.run(photo_search.text_heavy(["a.jpg", "b.jpg"], broken_check)) == {0, 1})
 
+print("\n5b) O'zbek slayd/referat saytlari va matnli varaqlar")
+uz_sites = photo_search.usable([
+    {"title": "Global ekologik muammolar", "source": "soff.uz", "url": "https://soff.uz/product/ekologiya-8",
+     "properties": {"url": "https://soff.uz/_next/image?url=https://cdn.net/a.jpg", "width": 961, "height": 540}},
+    {"title": "Naysimon suyaklar", "source": "arxiv.uz", "url": "https://arxiv.uz/ru/documents/x",
+     "properties": {"url": "https://arxiv.uz/b.jpg", "width": 1024, "height": 768}},
+    {"title": "Iqlim o'zgarishi", "source": "slaydchi.uz", "url": "https://slaydchi.uz/x",
+     "properties": {"url": "https://slaydchi.uz/c.jpg", "width": 1024, "height": 768}},
+    {"title": "Iqlim", "source": "cdn.example.com", "url": "https://example.com/x",
+     "properties": {"url": "https://cdn.example.com/file-46759_page-5_generate.jpg", "width": 1024, "height": 768}},
+    {"title": "Ekologiya referat", "source": "example.com", "url": "https://example.com/y",
+     "properties": {"url": "https://example.com/d.jpg", "width": 1024, "height": 768}},
+    {"title": "Mustaqillik bayrami", "source": "gazeta.uz", "url": "https://gazeta.uz/mustaqillik-bayrami",
+     "properties": {"url": "https://gazeta.uz/media/e.jpg", "width": 1024, "height": 768}},
+])
+check("soff.uz, arxiv.uz, slaydchi, «page-5» va «referat» tashlanadi; yangilik fotosi qoladi",
+      [c["url"].rsplit("/", 1)[1] for c in uz_sites] == ["e.jpg"], [c["url"] for c in uz_sites])
+
+from PIL import ImageDraw
+_tmp = tempfile.mkdtemp()
+page = Image.new("RGB", (1000, 1300), "white")
+_draw = ImageDraw.Draw(page)
+for row in range(26):
+    _draw.text((80, 80 + row * 44), "Ponasimon suyak bosh suyagining markaziy qismida joylashgan " * 2, fill="black")
+page_path = os.path.join(_tmp, "page.jpg"); page.save(page_path)
+photo_img = Image.radial_gradient("L").resize((1200, 800)).convert("RGB")
+photo_path = os.path.join(_tmp, "photo.jpg"); photo_img.save(photo_path)
+check("hujjat beti mahalliy tekshiruvda topiladi", photo_search.looks_like_text_page(page_path),
+      photo_search.text_lines(page_path))
+check("matnsiz rasm o'tadi", not photo_search.looks_like_text_page(photo_path), photo_search.text_lines(photo_path))
+seen_by_ai = []
+
+
+async def ai_accepts(paths):
+    seen_by_ai.append(list(paths))
+    return set()
+
+check("matnli varaq AI ga yuborilmay tashlanadi, qolgani AI ga boradi",
+      asyncio.run(photo_search.text_heavy([page_path, photo_path], ai_accepts)) == {0}
+      and seen_by_ai == [[photo_path]], seen_by_ai)
+
+check("har rasm hukmi o'qiladi; hukmsiz rasm rad etiladi",
+      photo_search.parse_rejects({"images": [{"n": 1, "verdict": "accept"}, {"n": 2, "verdict": "reject"}]}, 3)
+      == {1, 2})
+check("eski {reject: [...]} javobi ham tushuniladi", photo_search.parse_rejects({"reject": [2]}, 3) == {1})
+
+import json
+from services.premium_presentation import llm_client
+
+_sent = []
+
+
+def _fake_request(kind, payload, timeout=90):
+    _sent.append((kind, payload))
+    return {"choices": [{"message": {"content": json.dumps({"images": [
+        {"n": n, "verdict": "accept"} for n in range(1, 5)]})}}]}
+
+with patch.object(llm_client, "_request", _fake_request):
+    got = _REAL_TEXT_CHECK([photo_path] * 6)
+check("rasmlar 4 tadan guruhlab, «photocheck» zanjiri bilan tekshiriladi",
+      got == set() and [k for k, _ in _sent] == ["photocheck", "photocheck"]
+      and [sum(1 for c in p["messages"][0]["content"] if c["type"] == "image_url") for _, p in _sent] == [4, 2],
+      [(k, len(p["messages"][0]["content"])) for k, p in _sent])
+
 import tempfile as _tf
 os.environ["BRAVE_KEYS_FILE"] = os.path.join(_tf.mkdtemp(), "brave_keys.json")   # haqiqiy kalitlar fayliga tegmaydi
 os.environ.pop("BRAVE_API_KEY", None); os.environ.pop("BRAVE_SEARCH_API_KEY", None)
@@ -470,6 +535,12 @@ from services.premium_presentation import config as pconfig
 chain = llm_client._models("photo")
 check("birinchi model gemini-2.5-flash-lite", chain[0] == "google/gemini-2.5-flash-lite", chain)
 check("zanjirda Claude yo'q", not any(m.startswith("anthropic/") for m in chain), chain)
+llm_client.set_text_model("anthropic/claude-sonnet-4.5")
+llm_client._WORKING["photocheck"] = "openai/gpt-4o-mini"
+check("rasmdagi matn tekshiruvi modeli qat'iy: admin AI ni almashtirsa ham o'zgarmaydi",
+      llm_client._models("photocheck") == list(pconfig.PHOTO_TEXT_CHECK_MODELS)
+      and pconfig.PHOTO_TEXT_CHECK_MODELS[0] == "google/gemini-2.5-flash", llm_client._models("photocheck"))
+llm_client._WORKING.pop("photocheck", None)
 
 print("\n7) Admin panel")
 from bot.keyboards import get_admin_keyboard

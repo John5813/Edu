@@ -504,8 +504,12 @@ def _models(kind: str) -> list:
              "receipt": config.OPENROUTER_RECEIPT_MODELS,
              "ocr": config.OPENROUTER_OCR_MODELS,
              "receipt2": config.OPENROUTER_RECEIPT_VERIFY_MODELS,
-             "photo": config.OPENROUTER_PHOTO_MODELS}.get(kind, config.OPENROUTER_VISION_MODELS)
+             "photo": config.OPENROUTER_PHOTO_MODELS,
+             "photocheck": config.PHOTO_TEXT_CHECK_MODELS}.get(kind, config.OPENROUTER_VISION_MODELS)
     chain = list(chain)
+    if kind == "photocheck":
+        # Qat'iy zanjir: admin tanlovi va zaxiraga o'tish tartibi o'zgartirmaydi.
+        return chain
     for model in (_WORKING.get(kind), _preferred.get(kind)):
         if not model:
             continue
@@ -694,7 +698,7 @@ def _request(kind: str, payload: dict, timeout: int = 180,
         # boshlanadi (zaxira odatda qimmatroq).
         # Bitta buyurtmaga tanlangan model (bepul sinov) eslab qolinmaydi — boshqalarning taqdimotiga o'tmasin.
         if not rejected and _WORKING.get(kind) != model and not (kind == "text" and _TEXT_OVERRIDE.get()):
-            log.info("%s modeli: %s", {"text": "Matn", "receipt": "Chek", "ocr": "OCR", "receipt2": "Chek (tasdiq)", "photo": "Rasm tanlash"}.get(kind, "Vision"), model)
+            log.info("%s modeli: %s", {"text": "Matn", "receipt": "Chek", "ocr": "OCR", "receipt2": "Chek (tasdiq)", "photo": "Rasm tanlash", "photocheck": "Rasmdagi matn"}.get(kind, "Vision"), model)
             _WORKING[kind] = model
         _count_model(model)
         return data

@@ -73,6 +73,10 @@ _BLOCKED = (
     "studfile", "studylib", "studopedia", "myshared", "present5", "ppt-online", "coursehero", "quizlet",
     "vdocuments", "fliphtml5", "issuu", "yumpu", "dokumen.pub", "prezi.", "academia.edu", "researchgate",
     "semanticscholar", "infourok", "multiurok", "nsportal", "znanio", "videouroki", "showme.", "brainly",
+    # O'zbek taqdimot, referat va konspekt saytlari: o'zbekcha mavzuda Brave birinchi navbatda shularni
+    # beradi — rasmlari tayyor slaydlar va hujjat betlari (soff.uz «OFF» suv belgisi bilan).
+    "soff.uz", "arxiv.uz", "slaydchi", "slayd", "referat", "hozir.org", "fayllar.org", "kompy.info",
+    "denemetr", "ziyonet", "ziyouz", "kitobxon", "mustaqil-ish", "mustaqilish", "kurs-ishi", "kursishi",
     # Ilmiy jurnallar: rasmlari — grafik, jadval va sxemalar ("Figure 2").
     "ncbi.nlm.nih.gov", "europepmc", "sciencedirect", "elsevier", "springer", "wiley.com", "tandfonline",
     "frontiersin", "mdpi.com", "jacc.org", "ahajournals", "bmj.com", "thelancet", "nejm.org", "plos",
@@ -83,8 +87,12 @@ _BAD_EXT = (".svg", ".gif", ".ico")
 _TEXTY = re.compile(
     r"(?<![a-z])(?:slides?|figs?|figures?|ppt|pptx|powerpoint|presentation|lecture|chart|diagram|infographic|table|"
     r"graph|flowchart|worksheet|poster|quote|screenshot|text|template|slayd|taqdimot|jadval|sxema|"
-    r"слайд\w*|презентац\w*|лекци\w*|схем\w*|таблиц\w*|диаграмм\w*|инфографи\w*)(?![a-z])",
+    r"слайд\w*|презентац\w*|лекци\w*|схем\w*|таблиц\w*|диаграмм\w*|инфографи\w*|"
+    r"referat\w*|реферат\w*|konspekt\w*|конспект\w*|mustaqil ish\w*|kurs ishi|pdf|docx?|document\w*)(?![a-z])",
     re.IGNORECASE)
+# Rasm manzilidagi sahifa belgisi: ".../file-46759_page-5_generate.jpg", ".../slide12.png" — hujjat yoki
+# taqdimotning bitta beti.
+_PAGE_URL = re.compile(r"(?:^|[/_.-])(?:page|slide|sahifa|list)[-_]?\d+(?![a-z])", re.IGNORECASE)
 
 
 def api_key() -> str:
@@ -167,6 +175,8 @@ def usable(results: Sequence[dict], formulas: bool = False) -> List[dict]:
         if any(mark in where for mark in _BLOCKED):
             continue
         if urlparse(url).path.lower().endswith(_BAD_EXT):
+            continue
+        if _PAGE_URL.search(url):
             continue
         if (_TEXTY_SLIDES if formulas else _TEXTY).search(f"{item.get('title') or ''} {_slug(str(item.get('url') or ''))}"):
             continue
@@ -461,25 +471,32 @@ async def _download(session: aiohttp.ClientSession, url: str) -> Optional[str]:
 # ───────────────────────────────────────────── matnli rasmni ko'z bilan tekshirish
 
 _TEXT_CHECK = (
-    "You check photos for presentation slides. For EACH numbered image decide if it must be REJECTED because it "
-    "contains readable text: words, letters, captions, labels, titles, tables, charts, graphs, diagrams, "
-    "schemes, screenshots of slides/documents/websites, phone or computer screenshots of any kind, photos of "
-    "printed pages or book/document pages with paragraphs of text, posters, or text watermarks. Even if only "
-    "part of the page is visible, a page of printed or typed text is REJECTED. A real photo where text is absent "
-    "or only tiny and incidental (a distant sign) is OK. Answer JSON: "
-    "{\"reject\": [numbers of rejected images]}"
+    "You screen web images before they are placed on presentation slides as PHOTOS. Judge EACH numbered image "
+    "on its own. REJECT it if ANY of these is true: it is a presentation slide, a slide thumbnail or a grid of "
+    "slides (even with a nice picture on it); it is a document, book, textbook or scanned page, or a photo or "
+    "screenshot of one (even if only part of the page is visible); it has a heading, title, caption, label, "
+    "bullet list or sentence written ON it that a viewer can read, in any language; it is a poster, banner, "
+    "advert, product package, logo, certificate, infographic, chart, table, labelled map or diagram; it has a "
+    "website watermark or a site name stamped on it. ACCEPT only real photographs (or plain illustrations) with "
+    "no readable text, or where text is tiny and incidental (a distant street sign, a number plate). "
+    "For every image first say in a few words what you see, then give the verdict. Answer JSON: "
+    "{\"images\": [{\"n\": 1, \"see\": \"...\", \"verdict\": \"accept\" or \"reject\"}]}"
 )
 
 
 _TEXT_CHECK_FORMULAS = (
     "You check images for a math/physics/computer-science presentation. Formulas, equations, graphs, geometric "
-    "figures and labelled scientific diagrams are WELCOME. For EACH numbered image decide if it must be REJECTED "
-    "because it is a screenshot of a presentation slide, a document or book page, a website, a poster, a "
-    "worksheet, or mostly paragraphs of prose text, or has a text watermark, OR is a video thumbnail / ad / "
-    "banner with a big headline (e.g. \"How to Solve ...\"), a brand or school logo, or text cut off at the "
-    "image edge. Answer JSON: "
-    "{\"reject\": [numbers of rejected images]}"
+    "figures and labelled scientific diagrams are WELCOME. Judge EACH numbered image on its own: REJECT it if it "
+    "is a screenshot of a presentation slide, a document or book page, a website, a poster, a worksheet, or "
+    "mostly paragraphs of prose text, or has a text watermark, OR is a video thumbnail / ad / banner with a big "
+    "headline (e.g. \"How to Solve ...\"), a brand or school logo, or text cut off at the image edge. "
+    "For every image first say in a few words what you see, then give the verdict. Answer JSON: "
+    "{\"images\": [{\"n\": 1, \"see\": \"...\", \"verdict\": \"accept\" or \"reject\"}]}"
 )
+
+# Bitta so'rovdagi rasmlar soni: ko'p rasmni birga ko'rganda model raqamlarni adashtirib, matnli
+# varaqni o'tkazib yuborardi.
+CHECK_BATCH = 4
 
 
 def _thumb_b64(path: str) -> str:
@@ -489,49 +506,137 @@ def _thumb_b64(path: str) -> str:
 
     with Image.open(path) as image:
         image = image.convert("RGB")
-        image.thumbnail((640, 640))
+        # Hujjat betidagi mayda yozuv ham o'qilsin (640 da xira bo'lib, "foto" deb o'tib ketardi).
+        image.thumbnail((896, 896))
         buffer = io.BytesIO()
-        image.save(buffer, "JPEG", quality=80)
+        image.save(buffer, "JPEG", quality=82)
     return base64.b64encode(buffer.getvalue()).decode()
+
+
+def parse_rejects(data: dict, count: int) -> set:
+    """Model javobi → rad etilgan rasmlar (0 dan). `{"images": [{n, verdict}]}` va eski `{"reject": [...]}`.
+
+    Hukmi yo'q rasm ham rad etiladi: model uni ko'rmay qolgan bo'lsa, matnli varaq o'tib ketmasin.
+    """
+    out, judged = set(), set()
+    data = data or {}
+    for item in data.get("images") or []:
+        try:
+            number = int(item.get("n"))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        if not 1 <= number <= count:
+            continue
+        judged.add(number - 1)
+        if str(item.get("verdict") or "").strip().lower() != "accept":
+            out.add(number - 1)
+    if "images" in data:
+        return out | (set(range(count)) - judged)
+    for value in data.get("reject") or []:
+        try:
+            number = int(value)
+        except (TypeError, ValueError):
+            continue
+        if 1 <= number <= count:
+            out.add(number - 1)
+    return out
 
 
 def _ask_text_check(paths: Sequence[str], formulas: bool = False) -> set:
     from services.premium_presentation import llm_client
 
-    content = [{"type": "text", "text": _TEXT_CHECK_FORMULAS if formulas else _TEXT_CHECK}]
-    for number, path in enumerate(paths, 1):
-        content.append({"type": "text", "text": f"Image {number}:"})
-        content.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + _thumb_b64(path)}})
-    payload = {"temperature": 0.0, "max_tokens": 300, "response_format": {"type": "json_object"},
-               "messages": [{"role": "user", "content": content}]}
-    raw = llm_client._content(llm_client._request("photo", payload, timeout=90))
-    data = json.loads(llm_client._clean_json(raw))
     out = set()
-    for value in (data or {}).get("reject") or []:
-        try:
-            number = int(value)
-        except (TypeError, ValueError):
-            continue
-        if 1 <= number <= len(paths):
-            out.add(number - 1)
+    for start in range(0, len(paths), CHECK_BATCH):
+        batch = paths[start:start + CHECK_BATCH]
+        content = [{"type": "text", "text": _TEXT_CHECK_FORMULAS if formulas else _TEXT_CHECK}]
+        for number, path in enumerate(batch, 1):
+            content.append({"type": "text", "text": f"Image {number}:"})
+            content.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + _thumb_b64(path)}})
+        payload = {"temperature": 0.0, "max_tokens": 120 + 80 * len(batch),
+                   "response_format": {"type": "json_object"},
+                   "messages": [{"role": "user", "content": content}]}
+        # "photocheck" — qat'iy model zanjiri (config.PHOTO_TEXT_CHECK_MODELS), admin tanlovi ta'sir qilmaydi.
+        raw = llm_client._content(llm_client._request("photocheck", payload, timeout=90))
+        data = json.loads(llm_client._clean_json(raw))
+        out |= {start + index for index in parse_rejects(data, len(batch))}
     return out
 
 
-async def text_heavy(paths: Sequence[str], check=None, formulas: bool = False) -> set:
-    """Matnli (slayd, jadval, sxema, yozuvli) rasmlarning tartib raqamlari. Bitta arzon vision so'rovi.
+# ───────────────────────────── matnli varaqni bepul, mahalliy aniqlash (AI so'rovidan oldin)
 
-    Tekshiruv ishlamasa — HAMMASI rad etiladi (fail-closed): matnli skrinshot ko'z bilan tekshirilmay
-    slaydga tushib qolmasin. Slotlar AI rasmi bilan to'ldiriladi.
+def text_lines(path: str) -> Tuple[int, float]:
+    """Rasmdagi matn qatorlari: (soni, rasm yuzasidan ulushi). O'qib bo'lmasa — (0, 0).
+
+    Harflar chegarasi (morfologik gradient) gorizontal yopishtiriladi: matn qatori uzun, past va
+    "zich-siyrak" to'g'ri to'rtburchak bo'lib chiqadi. Fotoda bunday bir xil qatorlar deyarli bo'lmaydi.
+    """
+    try:
+        import cv2
+    except ImportError:
+        return 0, 0.0
+    image = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+    if image is None:
+        return 0, 0.0
+    height, width = image.shape
+    scale = 900 / max(height, width)
+    image = cv2.resize(image, (max(1, int(width * scale)), max(1, int(height * scale))),
+                       interpolation=cv2.INTER_AREA)
+    height, width = image.shape
+    grad = cv2.morphologyEx(image, cv2.MORPH_GRADIENT, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
+    _, edges = cv2.threshold(grad, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    joined = cv2.morphologyEx(edges, cv2.MORPH_CLOSE,
+                              cv2.getStructuringElement(cv2.MORPH_RECT, (max(9, width // 60), 1)))
+    count, _, stats, _ = cv2.connectedComponentsWithStats(joined, connectivity=8)
+    lines, area = 0, 0
+    for x, y, w, h, _ in stats[1:count]:
+        if not height * 0.008 <= h <= height * 0.06 or w < width * 0.06 or w < h * 3.5:
+            continue
+        fill = cv2.countNonZero(edges[y:y + h, x:x + w]) / float(w * h)
+        if 0.2 <= fill <= 0.75:
+            lines += 1
+            area += w * h
+    return lines, area / float(width * height)
+
+
+def looks_like_text_page(path: str, formulas: bool = False) -> bool:
+    """Slayd yoki hujjat beti: kamida 6 qator matn va u rasmning 5 % idan ko'pini egallaydi.
+
+    Chegaralar soff.uz / arxiv.uz slaydlari, hujjat betlari va yangilik fotolari ustida tanlangan:
+    fotolar (o'rmon, shahar, odamlar) chegaradan ancha past. Aniq fanlarda formulali rasm ruxsat —
+    u yerda faqat zich matnli bet (hujjat, konspekt) tashlanadi.
+    """
+    lines, share = text_lines(path)
+    if formulas:
+        return lines >= 10 and share >= 0.15
+    return lines >= 6 and share >= 0.05
+
+
+async def text_heavy(paths: Sequence[str], check=None, formulas: bool = False) -> set:
+    """Matnli (slayd, jadval, sxema, yozuvli) rasmlarning tartib raqamlari.
+
+    Avval bepul mahalliy tekshiruv (`looks_like_text_page`): yaqqol slayd va hujjat betlari AI ga
+    yuborilmay tashlanadi. Qolganini ko'rish modeli (qat'iy zanjir) ko'radi. Tekshiruv ishlamasa —
+    HAMMASI rad etiladi (fail-closed): matnli skrinshot ko'z bilan tekshirilmay slaydga tushib qolmasin.
+    Slotlar AI rasmi bilan to'ldiriladi.
     """
     if not paths:
         return set()
+    paths = list(paths)
+    local = await asyncio.to_thread(lambda: {i for i, p in enumerate(paths) if looks_like_text_page(p, formulas)})
+    rest = [i for i in range(len(paths)) if i not in local]
+    if local:
+        log.info("Matnli varaq (mahalliy tekshiruv): %d ta", len(local))
+    if not rest:
+        return local
     try:
         if check is not None:
-            return set(await check(list(paths)))
-        return await asyncio.to_thread(_ask_text_check, list(paths), formulas)
+            bad = set(await check([paths[i] for i in rest]))
+        else:
+            bad = await asyncio.to_thread(_ask_text_check, [paths[i] for i in rest], formulas)
     except Exception as exc:
         log.warning("Rasmdagi matn tekshirilmadi — hammasi tashlandi: %s", exc)
         return set(range(len(paths)))
+    return local | {rest[k] for k in bad if 0 <= k < len(rest)}
 
 
 # ─────────────────────────────────────────────────────────── asosiy kirish
