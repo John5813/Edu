@@ -1153,6 +1153,7 @@ def get_feature_management_keyboard(
     text_anim_enabled: bool = False,
     reengage_weekly_enabled: bool = True,
     receipt_full_auto_enabled: bool = True,
+    click_enabled: bool = True,
 ) -> InlineKeyboardMarkup:
     """Feature management keyboard for admin"""
     keyboard = InlineKeyboardBuilder()
@@ -1186,6 +1187,13 @@ def get_feature_management_keyboard(
     keyboard.add(InlineKeyboardButton(
         text=f"🤖 To'liq avto to'lov: {full_status}",
         callback_data=f"toggle_receipt_full_{'off' if receipt_full_auto_enabled else 'on'}"
+    ))
+
+    # Click orqali to'lov tugmasi (bot va sayt): o'chiq bo'lsa faqat karta orqali to'lov qoladi
+    keyboard.add(InlineKeyboardButton(
+        text=f"⚡ Click orqali to'lov: {'🟢 Yoqilgan' if click_enabled else '🔴 Ochirilgan'}".replace(
+            "Ochirilgan", "O'chirilgan"),
+        callback_data=f"toggle_click_pay_{'off' if click_enabled else 'on'}"
     ))
 
     # Faol bo'lmagan mijozlarga qayta jalb xabarlari (services/reengage.py)

@@ -256,6 +256,26 @@ async def main():
 
     from services.receipts import web as receipt_web
     check("saytda Click usuli yoqiq", any(m["key"] == "click" and m["enabled"] for m in receipt_web.methods()))
+
+    # Admin paneldagi «⚡ Click orqali to'lov» tugmasi
+    db = dbmod.Database()
+    check("sukut: admin tugmasi yoqiq", await click_pay.available())
+    await db.set_feature_status(click_pay.FEATURE, False)
+    check("admin o'chirsa Click mavjud emas", not await click_pay.available())
+    check("admin o'chirsa ham Prepare/Complete ishlaydi (kalitlar bor)", click_pay.enabled())
+    check("admin o'chirsa saytda Click o'chiq",
+          not any(m["key"] == "click" and m["enabled"] for m in receipt_web.methods(click_on=await click_pay.available())))
+    msg, state = Msg(), fsm()
+    await payments._choose_method(msg, 77, 20000, state, "uz")
+    check("admin o'chirsa botda darhol karta ko'rsatmasi",
+          len(msg.out) == 1 and "Karta 1" in msg.out[0][0]
+          and await state.get_state() == PaymentStates.waiting_for_screenshot.state, msg.out)
+    from bot.keyboards import get_feature_management_keyboard as fkb
+    btns = [b for row in fkb(True, click_enabled=False).inline_keyboard for b in row]
+    check("adminda Click tugmasi «o'chirilgan» va yoqish callback'i",
+          any(b.callback_data == "toggle_click_pay_on" and "O'chirilgan" in b.text for b in btns))
+    await db.set_feature_status(click_pay.FEATURE, True)
+    check("admin qayta yoqsa Click mavjud", await click_pay.available())
     config.CLICK_SECRET_KEY = ""
     check("kalit bo'lmasa Click o'chiq", not click_pay.enabled()
           and not any(m["key"] == "click" and m["enabled"] for m in receipt_web.methods()))

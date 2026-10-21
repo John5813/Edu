@@ -43,7 +43,7 @@ async def _click_url(telegram_id: int, amount: int):
     """Click ulangan bo'lsa — to'lov havolasi, aks holda None (darhol karta yo'li)."""
     from services import click_pay
 
-    if not click_pay.enabled():
+    if not await click_pay.available():
         return None
     try:
         return await click_pay.new_payment(telegram_id, amount, "bot")

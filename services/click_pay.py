@@ -61,7 +61,27 @@ _FIELDS = ("click_trans_id", "service_id", "click_paydoc_id", "merchant_trans_id
 
 
 def enabled() -> bool:
+    """Kalitlar sozlanganmi. Prepare/Complete manzillari shunga qaraydi — admin o'chirsa ham
+    boshlangan to'lovlar oxirigacha o'tadi."""
     return bool(config.CLICK_SERVICE_ID and config.CLICK_MERCHANT_ID and config.CLICK_SECRET_KEY)
+
+
+FEATURE = "click_pay"           # admin «Funksiyalar boshqaruvi»dagi kalit (sukut — yoqilgan)
+
+
+async def available() -> bool:
+    """Mijozga Click tugmasini ko'rsatish mumkinmi: kalitlar bor va admin paneldan o'chirilmagan.
+
+    Har so'rovda o'qiladi — admin o'chirgach qayta ishga tushirish shart emas.
+    """
+    if not enabled():
+        return False
+    try:
+        from database.database import Database
+        return bool(await Database().get_feature_status(FEATURE))
+    except Exception as exc:                      # holatni o'qib bo'lmasa — kalitlar bo'yicha
+        log.warning("Click tugmasi holati o'qilmadi: %s", exc)
+        return True
 
 
 def valid_amount(amount) -> int:

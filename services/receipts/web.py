@@ -28,14 +28,19 @@ def card_view(number: str) -> str:
     return " ".join(number[i:i + 4] for i in range(0, len(number), 4))
 
 
-def methods() -> List[Dict]:
-    """Balansni to'ldirish usullari. `enabled=False` — tez orada (Payme, Uzum; Click — kalitlari bo'lsa)."""
+def methods(click_on: Optional[bool] = None) -> List[Dict]:
+    """Balansni to'ldirish usullari. `enabled=False` — tez orada (Payme, Uzum).
+
+    `click_on` — `click_pay.available()` natijasi (admin tugmasi ham hisobga olingan); berilmasa kalitlarga qaraladi.
+    """
+    if click_on is None:
+        click_on = click_pay.enabled()
     cards = [card_view(c) for c in (config.PAYMENT_CARD, config.PAYMENT_CARD_2) if c]
     return [
         {"key": "receipt", "label": "Kartaga o'tkazma (chek yuklash)", "enabled": True,
          "cards": cards, "owner": config.PAYMENT_CARD_OWNER,
          "note": "Pulni kartalardan biriga o'tkazing, so'ng to'lov chekini yuklang."},
-        {"key": "click", "label": "Click", "enabled": click_pay.enabled()},
+        {"key": "click", "label": "Click", "enabled": bool(click_on)},
         {"key": "payme", "label": "Payme", "enabled": False},
         {"key": "uzum", "label": "Uzum", "enabled": False},
     ]
