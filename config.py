@@ -57,6 +57,9 @@ CLICK_SECRET_KEY = os.getenv("CLICK_SECRET_KEY", "").strip()
 CLICK_MERCHANT_USER_ID = os.getenv("CLICK_MERCHANT_USER_ID", "").strip()
 # To'lovdan keyin mijoz qaytadigan sahifa (bo'sh bo'lsa — Click o'z sahifasida qoladi).
 CLICK_RETURN_URL = os.getenv("CLICK_RETURN_URL", "").strip()
+# Botdagi «Click orqali» tugmasidagi Click ikonkasi — maxsus emoji ID si (adminda: /emojiid + emoji).
+# Telegram buni bot egasida Premium bo'lsa ko'rsatadi; rad etsa tugma ikonkasiz yuboriladi.
+CLICK_EMOJI_ID = os.getenv("CLICK_EMOJI_ID", "").strip()
 
 # Chekni AI bilan avtomatik tekshirish (services/receipts).
 # Mijoz adminga shu manzil orqali murojaat qiladi (eski chek, takroriy chek).

@@ -35,7 +35,7 @@ import database.database as dbmod
 TMP = tempfile.mkdtemp()
 dbmod.DATABASE_FILE = os.path.join(TMP, "test.db")
 config.CLICK_SERVICE_ID, config.CLICK_MERCHANT_ID, config.CLICK_SECRET_KEY = "111", "222", "sir"
-config.CLICK_MERCHANT_USER_ID, config.CLICK_RETURN_URL = "", ""
+config.CLICK_MERCHANT_USER_ID, config.CLICK_RETURN_URL, config.CLICK_EMOJI_ID = "", "", ""
 
 from database import click_invoices
 from database.database import Database, init_db
@@ -202,6 +202,40 @@ async def main():
           len(rows) == 2 and rows[0][0].url.startswith("https://my.click.uz/") and "amount=20000" in rows[0][0].url
           and rows[1][0].callback_data == "pay_by_card:20000" and "20,000" in msg.out[0][0], msg.out)
     check("usul tanlanmaguncha chek kutilmaydi", await state.get_state() is None, await state.get_state())
+
+    check("ikonka sozlanmagan bo'lsa ⚡ belgisi", rows and rows[0][0].text.startswith("⚡")
+          and not rows[0][0].icon_custom_emoji_id, rows)
+
+    config.CLICK_EMOJI_ID = "5368324170671202286"
+    msg = Msg()
+    await payments._choose_method(msg, 77, 20000, fsm(), "uz")
+    button = msg.out[0][1].inline_keyboard[0][0]
+    check("CLICK_EMOJI_ID bo'lsa tugmada Click ikonkasi, ⚡ yo'q",
+          button.icon_custom_emoji_id == "5368324170671202286" and "⚡" not in button.text, button)
+
+    from aiogram.exceptions import TelegramBadRequest
+    from aiogram.methods import SendMessage
+
+    class Strict(Msg):
+        async def answer(self, text, **kw):
+            markup = kw.get("reply_markup")
+            if markup and markup.inline_keyboard[0][0].icon_custom_emoji_id:
+                raise TelegramBadRequest(SendMessage(chat_id=77, text=text), "Bad Request: BUTTON_ICON_INVALID")
+            self.out.append((text, markup))
+
+    msg = Strict()
+    await payments._choose_method(msg, 77, 20000, fsm(), "uz")
+    button = msg.out[0][1].inline_keyboard[0][0] if msg.out else None
+    check("Telegram ikonkani rad etsa — tugma ikonkasiz yuboriladi",
+          button is not None and not button.icon_custom_emoji_id and button.url.startswith("https://my.click.uz/"),
+          msg.out)
+    config.CLICK_EMOJI_ID = ""
+
+    from types import SimpleNamespace
+    from bot.handlers import admin as admin_handlers
+    entity = SimpleNamespace(type="custom_emoji", custom_emoji_id="123456")
+    note = SimpleNamespace(entities=[entity], caption_entities=None)
+    check("/emojiid maxsus emoji ID sini topadi", admin_handlers._custom_emoji_ids(note) == ["123456"])
 
     msg = Msg()
     await payments._show_card(msg, state, 20000, "uz", edit=True)
