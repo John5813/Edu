@@ -252,19 +252,10 @@ async def cancel(params: Mapping) -> Dict:
             await orders.set_order_status(tx["order_id"], orders.CANCELLED)
             log.info("Payme tranzaksiya %s bekor qilindi (sabab %s)", tx_id, reason)
     elif tx["state"] == orders.PERFORMED:
-        # Yakunlangan to'lov qaytarilmoqda: pul balansdan yechiladi; mijoz sarflab bo'lgan bo'lsa — rad.
-        from database.database import Database
-
-        order = await orders.get_order(tx["order_id"])
-        if not await Database.charge_balance(order["telegram_id"], order["amount"]):
-            raise PaymeError(CANT_CANCEL, "id")
-        if not await orders.cancel_tx(tx_id, orders.PERFORMED, reason):
-            await Database.update_user_balance(order["telegram_id"], order["amount"])  # parallel bekor qilindi
-        else:
-            if tx["payment_id"]:
-                await Database.update_payment_status(tx["payment_id"], "rejected")
-            await orders.set_order_status(order["id"], orders.CANCELLED)
-            log.info("Payme to'lovi %s qaytarildi (sabab %s)", tx_id, reason)
+        # Yakunlangan to'lov qaytarilmoqda: Payme pulni mijozga baribir qaytaradi, shuning uchun rad etilmaydi.
+        # Summa balansdan yechiladi; mijoz sarflab bo'lgan bo'lsa balans manfiyga tushadi va adminga xabar boradi.
+        if await orders.cancel_tx(tx_id, orders.PERFORMED, reason):
+            await _refund(await orders.get_order(tx["order_id"]), tx, reason)
     tx = await orders.get_tx(tx_id)
     return {"transaction": str(tx["id"]), "cancel_time": tx["cancel_time"], "state": tx["state"]}
 
@@ -329,6 +320,28 @@ async def handle(body, auth_header: str) -> Dict:
     except Exception as exc:
         log.exception("Payme %s bajarilmadi: %s", body["method"], exc)
         return _error(request_id, SYSTEM_ERROR)
+
+
+async def _refund(order: Dict, tx: Dict, reason) -> None:
+    """Payme qaytargan to'lov: balansdan yechish (yetmasa — manfiyga), to'lov yozuvi rad etilgan."""
+    import webapp
+    from database.database import Database
+
+    if not await Database.charge_balance(order["telegram_id"], order["amount"]):
+        await Database.update_user_balance(order["telegram_id"], -order["amount"])
+        note = " · balans yetmadi, manfiyga tushdi"
+    else:
+        note = ""
+    if tx.get("payment_id"):
+        await Database.update_payment_status(tx["payment_id"], "rejected")
+    await orders.set_order_status(order["id"], orders.CANCELLED)
+    log.info("Payme to'lovi %s qaytarildi (sabab %s)%s", tx["payme_id"], reason, note)
+    for admin_id in config.ADMIN_IDS:
+        try:
+            await webapp.BOT.send_message(admin_id, f"↩️ Payme to'lovi qaytarildi: {order['amount']:,} so'm · "
+                                                    f"mijoz {order['telegram_id']}{note}", disable_notification=True)
+        except Exception as exc:
+            log.debug("Adminga Payme qaytarish xabari yuborilmadi: %s", exc)
 
 
 async def _credit(order: Dict) -> int:
