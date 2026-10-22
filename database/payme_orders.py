@@ -44,6 +44,14 @@ SCHEMA = (
     )""",
     "CREATE UNIQUE INDEX IF NOT EXISTS payme_one_active ON payme_transactions(order_id) WHERE state IN (1, 2)",
     "CREATE INDEX IF NOT EXISTS payme_tx_time ON payme_transactions(payme_time)",
+    # ChangePassword: Payme yuborgan yangi kalit. `env_key` — o'shanda .env da turgan kalit;
+    # .env qo'lda o'zgartirilsa, saqlangan kalit eskirgan hisoblanadi.
+    """CREATE TABLE IF NOT EXISTS payme_keys (
+        mode TEXT PRIMARY KEY,
+        env_key TEXT NOT NULL,
+        key TEXT NOT NULL,
+        updated_at REAL NOT NULL
+    )""",
 )
 
 
@@ -156,3 +164,15 @@ async def statement(start: int, end: int) -> List[Dict]:
             return [dict(row) for row in await cursor.fetchall()]
     finally:
         await conn.close()
+
+
+# ─────────────────────────────────────────────────────────────── kalit (ChangePassword)
+
+async def get_key(mode: str) -> Optional[Dict]:
+    return await _one("SELECT * FROM payme_keys WHERE mode = ?", (mode,))
+
+
+async def set_key(mode: str, env_key: str, key: str) -> None:
+    await _write("INSERT INTO payme_keys (mode, env_key, key, updated_at) VALUES (?, ?, ?, ?) "
+                 "ON CONFLICT(mode) DO UPDATE SET env_key = excluded.env_key, key = excluded.key, "
+                 "updated_at = excluded.updated_at", (mode, env_key, key, time.time()))

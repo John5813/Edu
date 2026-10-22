@@ -73,13 +73,31 @@ class PaymeError(Exception):
         self.code, self.data = code, data
 
 
-def _key() -> str:
+def _env_key() -> str:
     return config.PAYME_TEST_KEY if config.PAYME_TEST else config.PAYME_KEY
+
+
+def _mode() -> str:
+    return "test" if config.PAYME_TEST else "prod"
+
+
+async def _key() -> str:
+    """Amaldagi kalit: Payme ChangePassword bilan yuborgani, aks holda .env dagi.
+
+    Saqlangan kalit faqat .env o'sha paytdagidek tursa ishlaydi — .env qo'lda yangilansa, o'shanisi olinadi.
+    """
+    env_key = _env_key()
+    try:
+        saved = await orders.get_key(_mode())
+    except Exception as exc:
+        log.warning("Payme kaliti bazadan o'qilmadi: %s", exc)
+        saved = None
+    return saved["key"] if saved and saved["env_key"] == env_key else env_key
 
 
 def enabled() -> bool:
     """Kalitlar sozlanganmi. `/payme` manzili shunga qaraydi — admin o'chirsa ham boshlangan to'lovlar yakunlanadi."""
-    return bool(config.PAYME_MERCHANT_ID and _key())
+    return bool(config.PAYME_MERCHANT_ID and _env_key())
 
 
 async def available() -> bool:
@@ -129,9 +147,9 @@ async def new_payment(telegram_id: int, amount, source: str, return_url: str = "
     return pay_url(order_id, amount, return_url, lang)
 
 
-def authorized(header: str) -> bool:
+async def authorized(header: str) -> bool:
     """`Authorization: Basic base64("Paycom:<kalit>")`."""
-    key = _key()
+    key = await _key()
     if not key or not header or not header.startswith("Basic "):
         return False
     try:
@@ -280,6 +298,17 @@ async def get_statement(params: Mapping) -> Dict:
         for tx in await orders.statement(start, end)]}
 
 
+async def change_password(params: Mapping) -> Dict:
+    """Payme kabinetida kalit almashtirildi: yangisi saqlanadi, eskisi endi qabul qilinmaydi."""
+    password = params.get("password")
+    if not isinstance(password, str) or not password.strip():
+        raise PaymeError(BAD_REQUEST, "password")
+    await orders.set_key(_mode(), _env_key(), password.strip())
+    log.warning("Payme kaliti almashtirildi (%s rejim) — .env dagi %s ni ham yangilang",
+                _mode(), "PAYME_TEST_KEY" if config.PAYME_TEST else "PAYME_KEY")
+    return {"success": True}
+
+
 METHODS = {
     "CheckPerformTransaction": check_perform,
     "CreateTransaction": create,
@@ -287,6 +316,7 @@ METHODS = {
     "CancelTransaction": cancel,
     "CheckTransaction": check,
     "GetStatement": get_statement,
+    "ChangePassword": change_password,
 }
 
 
@@ -301,7 +331,7 @@ def _error(request_id, code: int, data: Optional[str] = None) -> Dict:
 async def handle(body, auth_header: str) -> Dict:
     """Bitta kirish: JSON-RPC so'rov (allaqachon o'qilgan `body`; None — JSON xato)."""
     request_id = body.get("id") if isinstance(body, dict) else None
-    if not authorized(auth_header):
+    if not await authorized(auth_header):
         return _error(request_id, AUTH_FAILED)
     if body is None:
         return _error(None, PARSE_ERROR)

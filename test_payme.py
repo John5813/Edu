@@ -1,7 +1,7 @@
 """Payme Merchant API orqali balansni to'ldirish (Payme «Песочница» ssenariylari).
 
 - havola: checkout.paycom.uz / test.paycom.uz, base64 ichida merchant, order_id, summa tiyinda;
-- avtorizatsiya: noto'g'ri kalit, test kaliti ishlab chiqarishda → -32504;
+- avtorizatsiya: noto'g'ri kalit, test kaliti ishlab chiqarishda → -32504; ChangePassword;
 - CheckPerformTransaction: summa (-31001), buyurtma yo'q (-31050), band (-31051), to'langan (-31052);
 - CreateTransaction / PerformTransaction / CancelTransaction / CheckTransaction / GetStatement;
 - takroriy so'rovlar balansni ikki marta qo'shmaydi; 12 soatlik muddat; yakunlangandan keyin bekor qilish;
@@ -95,9 +95,24 @@ async def main():
     check("JSON xato → -32700", code(r) == -32700, r)
     r = await rpc("Nimadir")
     check("noma'lum usul → -32601", code(r) == -32601, r)
-    r = await rpc("ChangePassword", password="x")
-    check("ChangePassword → -32601 (kalit .env da)", code(r) == -32601, r)
     check("xato xabari uch tilda", set(r["error"]["message"]) == {"ru", "uz", "en"}, r)
+    r = await rpc("ChangePassword", password="yangi1")
+    check("ChangePassword → success", r.get("result") == {"success": True}, r)
+    r = await rpc("CheckPerformTransaction", key="sinov", amount=1500000, account={"order_id": str(order)})
+    check("eski kalit endi → -32504", code(r) == -32504, r)
+    r = await rpc("ChangePassword", key="yangi1", password="yangi2")
+    check("yangi kalit bilan yana almashtirish → success", r.get("result") == {"success": True}, r)
+    r = await rpc("CheckPerformTransaction", key="yangi1", amount=1500000, account={"order_id": str(order)})
+    check("oldingi yangi kalit ham → -32504", code(r) == -32504, r)
+    r = await rpc("ChangePassword", key="yangi2", password="")
+    check("bo'sh parol → -32600", code(r) == -32600, r)
+    config.PAYME_TEST_KEY = "sinov-env"
+    r = await rpc("CheckPerformTransaction", key="sinov-env", amount=1500000, account={"order_id": str(order)})
+    check(".env qo'lda yangilansa — .env kaliti ishlaydi", code(r) != -32504, r)
+    r = await rpc("CheckPerformTransaction", key="yangi2", amount=1500000, account={"order_id": str(order)})
+    check(".env yangilangach saqlangan kalit eskirgan", code(r) == -32504, r)
+    config.PAYME_TEST_KEY = "sinov"
+    await orders.set_key("test", "sinov", "sinov")      # keyingi tekshiruvlar uchun asl kalit
 
     print("\n3) CheckPerformTransaction")
     r = await rpc("CheckPerformTransaction", amount=1400000, account={"order_id": str(order)})
