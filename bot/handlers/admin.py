@@ -2274,7 +2274,8 @@ async def _feature_keyboard(db):
                await db.get_feature_status(TEXT_ANIM, default=False),
                await db.get_feature_status(reengage.FEATURE_WEEKLY),
                await db.get_feature_status("receipt_full_auto"),
-               click_enabled=await db.get_feature_status("click_pay"))
+               click_enabled=await db.get_feature_status("click_pay"),
+               payme_enabled=await db.get_feature_status("payme_pay"))
 
 _FEATURES_TITLE = (
     "🎛 Funksiyalar boshqaruvi\n\n"
@@ -2386,6 +2387,25 @@ async def toggle_click_pay(callback: CallbackQuery, db: Database):
         text = "⚡ Click orqali to'lov yoqildi!"
     else:
         text = "⚡ Click o'chirildi: mijozlar faqat karta orqali to'laydi."
+    await callback.answer(text, show_alert=True)
+    kb = await _feature_keyboard(db)
+    await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("toggle_payme_pay_"))
+async def toggle_payme_pay(callback: CallbackQuery, db: Database):
+    """Payme orqali to'lovni yoqish/o'chirish (bot va sayt). Boshlangan to'lovlar baribir yakunlanadi."""
+    if not is_admin(callback.from_user.id):
+        return
+    from services import payme_pay
+    new_status = callback.data.split("_")[-1] == "on"
+    await db.set_feature_status(payme_pay.FEATURE, new_status)
+    if new_status and not payme_pay.enabled():
+        text = "💠 Payme yoqildi, lekin .env da Payme kalitlari yo'q — tugma baribir chiqmaydi."
+    elif new_status:
+        text = "💠 Payme orqali to'lov yoqildi!"
+    else:
+        text = "💠 Payme o'chirildi."
     await callback.answer(text, show_alert=True)
     kb = await _feature_keyboard(db)
     await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)

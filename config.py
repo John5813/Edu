@@ -62,6 +62,18 @@ CLICK_RETURN_URL = os.getenv("CLICK_RETURN_URL", "").strip()
 # Telegram buni bot egasida Premium bo'lsa ko'rsatadi; rad etsa tugma ikonkasiz yuboriladi.
 CLICK_EMOJI_ID = os.getenv("CLICK_EMOJI_ID", "").strip()
 
+# Payme (Merchant API, services/payme_pay.py). Kalitlar Payme biznes kabinetidan (merchant.paycom.uz).
+# Kabinetdagi «Адрес эндпоинта»: https://<domen>/payme ; hisob maydoni (account): order_id.
+# PAYME_TEST=1 — sinov rejimi: test kaliti va test.paycom.uz («Песочница»dan o'tkazish uchun).
+# Sinovdan o'tgach PAYME_TEST=0 qiling — shunda faqat haqiqiy kalit (PAYME_KEY) qabul qilinadi.
+PAYME_MERCHANT_ID = os.getenv("PAYME_MERCHANT_ID", "").strip()
+PAYME_KEY = os.getenv("PAYME_KEY", "").strip()
+PAYME_TEST_KEY = os.getenv("PAYME_TEST_KEY", "").strip()
+PAYME_TEST = os.getenv("PAYME_TEST", "0").lower() in {"1", "true", "yes"}
+PAYME_ACCOUNT = os.getenv("PAYME_ACCOUNT", "order_id").strip() or "order_id"
+# To'lovdan keyin mijoz qaytadigan sahifa (bo'sh bo'lsa — bot: https://t.me/<bot>).
+PAYME_RETURN_URL = os.getenv("PAYME_RETURN_URL", "").strip()
+
 # Chekni AI bilan avtomatik tekshirish (services/receipts).
 # Mijoz adminga shu manzil orqali murojaat qiladi (eski chek, takroriy chek).
 ADMIN_CONTACT = os.getenv("ADMIN_CONTACT", "@javlon58_02")

@@ -24,71 +24,79 @@ def _started_at() -> str:
     return now_tashkent().isoformat()
 
 _METHOD_TEXT = {
-    "uz": ("💳 <b>{amount} so'm</b> — to'lov usulini tanlang:\n\n"
-           "⚡ <b>Click</b> — summa to'lov o'tishi bilan hisobingizga avtomatik tushadi.\n"
-           "🏦 <b>Karta orqali</b> — kartaga o'tkazib, chekni yuborasiz.",
-           "⚡ Click orqali", "🏦 Karta orqali"),
-    "ru": ("💳 <b>{amount} сум</b> — выберите способ оплаты:\n\n"
-           "⚡ <b>Click</b> — сумма зачислится автоматически сразу после оплаты.\n"
-           "🏦 <b>Картой</b> — переведите на карту и отправьте чек.",
-           "⚡ Через Click", "🏦 Картой"),
-    "en": ("💳 <b>{amount} som</b> — choose a payment method:\n\n"
-           "⚡ <b>Click</b> — credited automatically right after payment.\n"
-           "🏦 <b>Card transfer</b> — transfer to a card and send the receipt.",
-           "⚡ Pay with Click", "🏦 Card transfer"),
+    "uz": ("💳 <b>{amount} so'm</b> — to'lov usulini tanlang:\n", {
+        "click": ("⚡ <b>Click</b> — summa to'lov o'tishi bilan hisobingizga avtomatik tushadi.", "⚡ Click orqali"),
+        "payme": ("💠 <b>Payme</b> — summa to'lov o'tishi bilan hisobingizga avtomatik tushadi.", "💠 Payme orqali"),
+        "card": ("🏦 <b>Karta orqali</b> — kartaga o'tkazib, chekni yuborasiz.", "🏦 Karta orqali")}),
+    "ru": ("💳 <b>{amount} сум</b> — выберите способ оплаты:\n", {
+        "click": ("⚡ <b>Click</b> — сумма зачислится автоматически сразу после оплаты.", "⚡ Через Click"),
+        "payme": ("💠 <b>Payme</b> — сумма зачислится автоматически сразу после оплаты.", "💠 Через Payme"),
+        "card": ("🏦 <b>Картой</b> — переведите на карту и отправьте чек.", "🏦 Картой")}),
+    "en": ("💳 <b>{amount} som</b> — choose a payment method:\n", {
+        "click": ("⚡ <b>Click</b> — credited automatically right after payment.", "⚡ Pay with Click"),
+        "payme": ("💠 <b>Payme</b> — credited automatically right after payment.", "💠 Pay with Payme"),
+        "card": ("🏦 <b>Card transfer</b> — transfer to a card and send the receipt.", "🏦 Card transfer")}),
 }
 
 
-async def _click_url(telegram_id: int, amount: int):
-    """Click ulangan bo'lsa — to'lov havolasi, aks holda None (darhol karta yo'li)."""
-    from services import click_pay
+async def _pay_urls(telegram_id: int, amount: int, user_lang: str) -> dict:
+    """Ulangan to'lov tizimlari havolalari: {"click": url, "payme": url}. Bo'sh — darhol karta yo'li."""
+    from services import click_pay, payme_pay
 
-    if not await click_pay.available():
-        return None
-    try:
-        return await click_pay.new_payment(telegram_id, amount, "bot")
-    except Exception as exc:
-        logger.warning("Click havolasi yaratilmadi (%s): %s", telegram_id, exc)
-        return None
+    urls = {}
+    for key, service, extra in (("click", click_pay, {}), ("payme", payme_pay, {"lang": user_lang})):
+        if not await service.available():
+            continue
+        try:
+            urls[key] = await service.new_payment(telegram_id, amount, "bot", **extra)
+        except Exception as exc:
+            logger.warning("%s havolasi yaratilmadi (%s): %s", key, telegram_id, exc)
+    return urls
 
 
-def _method_keyboard(url: str, amount: int, user_lang: str, icon: bool = True):
-    """«Click / Karta» tugmalari. `CLICK_EMOJI_ID` bo'lsa Click tugmasida ⚡ o'rniga Click ikonkasi."""
+def _method_text(urls: dict, amount: int, user_lang: str) -> str:
+    header, lines = _METHOD_TEXT.get(user_lang, _METHOD_TEXT["uz"])
+    return "\n".join([header.format(amount=f"{amount:,}")] + [lines[k][0] for k in (*urls, "card")])
+
+
+def _method_keyboard(urls: dict, amount: int, user_lang: str, icon: bool = True):
+    """«Click / Payme / Karta» tugmalari. `CLICK_EMOJI_ID` bo'lsa Click tugmasida ⚡ o'rniga Click ikonkasi."""
     from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
     import config
 
-    _, click_label, card_label = _METHOD_TEXT.get(user_lang, _METHOD_TEXT["uz"])
-    emoji = config.CLICK_EMOJI_ID if icon else ""
-    click = (InlineKeyboardButton(text=click_label.replace("⚡", "").strip(), url=url, icon_custom_emoji_id=emoji)
-             if emoji else InlineKeyboardButton(text=click_label, url=url))
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [click],
-        [InlineKeyboardButton(text=card_label, callback_data=f"pay_by_card:{amount}")],
-    ])
+    lines = _METHOD_TEXT.get(user_lang, _METHOD_TEXT["uz"])[1]
+    rows = []
+    for key, url in urls.items():
+        label = lines[key][1]
+        emoji = config.CLICK_EMOJI_ID if icon and key == "click" else ""
+        rows.append([InlineKeyboardButton(text=label.replace("⚡", "").strip(), url=url, icon_custom_emoji_id=emoji)
+                     if emoji else InlineKeyboardButton(text=label, url=url)])
+    rows.append([InlineKeyboardButton(text=lines["card"][1], callback_data=f"pay_by_card:{amount}")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 async def _choose_method(message: Message, telegram_id: int, amount: int, state: FSMContext,
                          user_lang: str, edit: bool = False) -> None:
-    """Summa tanlangach: Click va karta — ikki tugma. Click o'chiq bo'lsa darhol karta ko'rsatmasi."""
-    url = await _click_url(telegram_id, amount)
-    if url is None:
+    """Summa tanlangach: Click, Payme va karta tugmalari. Ikkalasi o'chiq bo'lsa darhol karta ko'rsatmasi."""
+    urls = await _pay_urls(telegram_id, amount, user_lang)
+    if not urls:
         await _show_card(message, state, amount, user_lang, edit=edit)
         return
     await state.clear()
-    text = _METHOD_TEXT.get(user_lang, _METHOD_TEXT["uz"])[0].format(amount=f"{amount:,}")
+    text = _method_text(urls, amount, user_lang)
     if edit:
         try:
-            await message.edit_text(text, parse_mode="HTML", reply_markup=_method_keyboard(url, amount, user_lang))
+            await message.edit_text(text, parse_mode="HTML", reply_markup=_method_keyboard(urls, amount, user_lang))
             return
         except Exception:
             pass
     try:
-        await message.answer(text, parse_mode="HTML", reply_markup=_method_keyboard(url, amount, user_lang))
+        await message.answer(text, parse_mode="HTML", reply_markup=_method_keyboard(urls, amount, user_lang))
     except TelegramBadRequest as exc:
         # Telegram ikonkani rad etdi (bot egasida Premium yo'q yoki ID noto'g'ri) — tugma ikonkasiz.
         logger.warning("Click ikonkasi rad etildi: %s", exc)
-        await message.answer(text, parse_mode="HTML", reply_markup=_method_keyboard(url, amount, user_lang, icon=False))
+        await message.answer(text, parse_mode="HTML", reply_markup=_method_keyboard(urls, amount, user_lang, icon=False))
 
 
 def _card_text(amount: int, user_lang: str):
@@ -207,7 +215,7 @@ async def handle_account_info(message: Message, state: FSMContext, db: Database,
 
 @router.callback_query(F.data.regexp(r"^pay_\d+$"))
 async def handle_payment_amount_selection(callback: CallbackQuery, state: FSMContext, user_lang: str):
-    """Summa tanlandi: to'lov usuli (Click / karta)."""
+    """Summa tanlandi: to'lov usuli (Click / Payme / karta)."""
     try:
         await callback.answer()
     except Exception:
