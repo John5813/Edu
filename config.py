@@ -73,6 +73,12 @@ PAYME_TEST = os.getenv("PAYME_TEST", "0").lower() in {"1", "true", "yes"}
 PAYME_ACCOUNT = os.getenv("PAYME_ACCOUNT", "order_id").strip() or "order_id"
 # To'lovdan keyin mijoz qaytadigan sahifa (bo'sh bo'lsa — bot: https://t.me/<bot>).
 PAYME_RETURN_URL = os.getenv("PAYME_RETURN_URL", "").strip()
+# Fiskalizatsiya (chekni Payme chiqaradi): IKPU (MXIK) va qadoq kodi tasnif.soliq.uz dan.
+# PAYME_IKPU bo'lsa — CheckPerformTransaction javobida chek ma'lumoti (`detail`) yuboriladi.
+PAYME_IKPU = os.getenv("PAYME_IKPU", "").strip()
+PAYME_PACKAGE_CODE = os.getenv("PAYME_PACKAGE_CODE", "").strip()
+PAYME_VAT_PERCENT = int(os.getenv("PAYME_VAT_PERCENT", "0") or 0)        # QQS to'lovchisi bo'lmasa — 0
+PAYME_ITEM_TITLE = os.getenv("PAYME_ITEM_TITLE", "").strip() or "Hisobni to'ldirish (xizmatlar uchun oldindan to'lov)"
 
 # Chekni AI bilan avtomatik tekshirish (services/receipts).
 # Mijoz adminga shu manzil orqali murojaat qiladi (eski chek, takroriy chek).
