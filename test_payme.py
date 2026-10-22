@@ -213,7 +213,14 @@ async def main():
     await rpc("PerformTransaction", id="tx-g")
     await Database.charge_balance(77, (await Database.get_user(77)).balance)       # mijoz hammasini sarfladi
     r = await rpc("CancelTransaction", id="tx-g", reason=5)
-    check("pul sarflangan bo'lsa → -31007", code(r) == -31007 and (await orders.get_tx("tx-g"))["state"] == 2, r)
+    check("pul sarflangan bo'lsa ham bekor → -2, balans manfiy", r.get("result", {}).get("state") == -2
+          and (await Database.get_user(77)).balance == -30000, r)
+    r = await rpc("CheckTransaction", id="tx-g")
+    check("CheckTransaction: -2, sabab 5, cancel_time", r["result"]["state"] == -2 and r["result"]["reason"] == 5
+          and r["result"]["cancel_time"] > 0, r)
+    r2 = await rpc("CancelTransaction", id="tx-g", reason=5)
+    check("takroriy Cancel balansni qayta yechmaydi", r2["result"]["state"] == -2
+          and (await Database.get_user(77)).balance == -30000, r2)
 
     print("\n9) GetStatement")
     r = await rpc("GetStatement", **{"from": T - 1000, "to": T + 1000})
