@@ -12,7 +12,8 @@ from config import TEMP_DIR
 
 logger = logging.getLogger(__name__)
 
-GEMINI_MODEL = "google/gemini-2.0-flash-001"
+# Gemini 2.0 Flash OpenRouter'dan olib tashlangan; 2.5 Flash Lite xuddi shu narxda.
+GEMINI_MODEL = "google/gemini-2.5-flash-lite"
 CHUNK_WORD_LIMIT = 4000
 SECTION_WORD_LIMIT = 750
 
