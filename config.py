@@ -309,10 +309,34 @@ AI_MODELS = {
         "price": "~$1.25/1M",
         "description": "Google'ning kuchli modeli, arzonroq"
     },
+    "gemini_3_flash": {
+        "id": "google/gemini-3-flash-preview",
+        "name": "Gemini 3 Flash",
+        "price": "~$0.50/$3 1M",
+        "description": "Google, 2.5 Flash'dan kuchliroq"
+    },
+    "kimi_k25": {
+        "id": "moonshotai/kimi-k2.5",
+        "name": "Kimi K2.5",
+        "price": "~$0.50/$2.50 1M",
+        "description": "Kuchli, uzun matnlarda yaxshi"
+    },
+    "gpt_5_mini": {
+        "id": "openai/gpt-5-mini",
+        "name": "GPT-5 Mini",
+        "price": "~$0.25/$2 1M",
+        "description": "OpenAI, Flash darajasida yoki kuchliroq"
+    },
+    "deepseek_v4_pro": {
+        "id": "deepseek/deepseek-v4-pro",
+        "name": "DeepSeek V4 Pro",
+        "price": "~$0.44/$0.89 1M",
+        "description": "Kuchli va arzon"
+    },
     "gemini_25_flash": {
         "id": "google/gemini-2.5-flash",
         "name": "Gemini 2.5 Flash",
-        "price": "$0.30/1M",
+        "price": "$0.30/$2.50 1M",
         "description": "Tez va yuqori sifatli"
     },
     "gemini_25_flash_lite": {
@@ -320,6 +344,36 @@ AI_MODELS = {
         "name": "Gemini 2.5 Flash Lite",
         "price": "$0.10/1M",
         "description": "Eng tez, arzon"
+    },
+    "gemini_31_flash_lite": {
+        "id": "google/gemini-3.1-flash-lite",
+        "name": "Gemini 3.1 Flash Lite",
+        "price": "~$0.25/$1.50 1M",
+        "description": "Google, arzon va tez"
+    },
+    "deepseek_v41_flash": {
+        "id": "deepseek/deepseek-v4.1-flash",
+        "name": "DeepSeek V4.1 Flash",
+        "price": "~$0.30/$1.20 1M",
+        "description": "Arzon, Flash darajasida"
+    },
+    "gpt_54_nano": {
+        "id": "openai/gpt-5.4-nano",
+        "name": "GPT-5.4 Nano",
+        "price": "~$0.20/$1.25 1M",
+        "description": "OpenAI, arzon va tez"
+    },
+    "qwen38_flash": {
+        "id": "qwen/qwen3.8-flash",
+        "name": "Qwen 3.8 Flash",
+        "price": "~$0.15/$0.47 1M",
+        "description": "Juda arzon"
+    },
+    "deepseek_v4_flash": {
+        "id": "deepseek/deepseek-v4-flash",
+        "name": "DeepSeek V4 Flash",
+        "price": "~$0.09/$0.18 1M",
+        "description": "Eng arzonlaridan, sifatini sinab ko'ring"
     },
     "gemini_20_flash": {
         "id": "google/gemini-2.0-flash-001",
