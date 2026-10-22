@@ -158,7 +158,6 @@ def book_ocr_price(pages: int) -> int:
 # 200 betlik kitob taxminan $0.5-1 turadi.
 BOOK_TRANSLATE_MODELS = [
     "google/gemini-2.5-flash",
-    "google/gemini-2.0-flash-001",
     "openai/gpt-4.1-mini",
 ]
 
@@ -375,23 +374,11 @@ AI_MODELS = {
         "price": "~$0.09/$0.18 1M",
         "description": "Eng arzonlaridan, sifatini sinab ko'ring"
     },
-    "gemini_20_flash": {
-        "id": "google/gemini-2.0-flash-001",
-        "name": "Gemini 2.0 Flash",
-        "price": "$0.10/1M",
-        "description": "Tez, ishonchli"
-    },
     "gpt_4o_mini": {
         "id": "openai/gpt-4o-mini",
         "name": "GPT-4o Mini",
         "price": "$0.15/1M",
         "description": "OpenAI, tez va aqlli"
-    },
-    "claude_haiku": {
-        "id": "anthropic/claude-3.5-haiku",
-        "name": "Claude 3.5 Haiku",
-        "price": "$0.80/1M",
-        "description": "Sifatli, aniq javoblar"
     },
     "qwen3_14b": {
         "id": "qwen/qwen3-14b",
