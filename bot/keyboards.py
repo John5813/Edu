@@ -1154,6 +1154,7 @@ def get_feature_management_keyboard(
     reengage_weekly_enabled: bool = True,
     receipt_full_auto_enabled: bool = True,
     click_enabled: bool = True,
+    payme_enabled: bool = True,
 ) -> InlineKeyboardMarkup:
     """Feature management keyboard for admin"""
     keyboard = InlineKeyboardBuilder()
@@ -1194,6 +1195,11 @@ def get_feature_management_keyboard(
         text=f"⚡ Click orqali to'lov: {'🟢 Yoqilgan' if click_enabled else '🔴 Ochirilgan'}".replace(
             "Ochirilgan", "O'chirilgan"),
         callback_data=f"toggle_click_pay_{'off' if click_enabled else 'on'}"
+    ))
+    keyboard.add(InlineKeyboardButton(
+        text=f"💠 Payme orqali to'lov: {'🟢 Yoqilgan' if payme_enabled else '🔴 Ochirilgan'}".replace(
+            "Ochirilgan", "O'chirilgan"),
+        callback_data=f"toggle_payme_pay_{'off' if payme_enabled else 'on'}"
     ))
 
     # Faol bo'lmagan mijozlarga qayta jalb xabarlari (services/reengage.py)

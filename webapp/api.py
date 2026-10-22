@@ -583,7 +583,7 @@ async def deck_edit(request: web.Request) -> web.Response:
 # ──────────────────────────────────────────────────────────────────────── hamyon
 
 async def wallet(request: web.Request) -> web.Response:
-    from services import click_pay
+    from services import click_pay, payme_pay
     from services.receipts import web as receipt_web
 
     telegram_id = await _require(request)
@@ -592,7 +592,8 @@ async def wallet(request: web.Request) -> web.Response:
         return _error("Avval botda /start bosing.", 409, "no_user")
     history = await Database.get_recent_payments(user.id, 10)
     return web.json_response({
-        "ok": True, "balance": int(user.balance or 0), "methods": receipt_web.methods(click_on=await click_pay.available()),
+        "ok": True, "balance": int(user.balance or 0), "methods": receipt_web.methods(
+            click_on=await click_pay.available(), payme_on=await payme_pay.available()),
         "presets": list(receipt_web.PRESETS), "min": receipt_web.MIN_AMOUNT, "max": receipt_web.MAX_AMOUNT,
         "history": [{"id": row["id"], "amount": int(row["amount"] or 0), "status": row["status"],
                      "created_at": str(row["created_at"])[:16]} for row in history]})
@@ -719,6 +720,41 @@ async def wallet_click(request: web.Request) -> web.Response:
     return web.json_response({"ok": True, "url": url})
 
 
+async def wallet_payme(request: web.Request) -> web.Response:
+    """Payme orqali to'ldirish: buyurtma yaratib, checkout.paycom.uz havolasini qaytaradi."""
+    from services import payme_pay
+
+    telegram_id = await _require(request)
+    if not await payme_pay.available():
+        return _error("Payme hozircha ulanmagan.", 409, "payme_off")
+    if _limited(f"payme:{telegram_id}", 10, 60):
+        return _error("Juda tez-tez yuborildi. Bir daqiqa kuting.", 429, "rate")
+    try:
+        body = await request.json()
+    except Exception:
+        return _error("Noto'g'ri so'rov.", 400, "bad_request")
+    try:
+        url = await payme_pay.new_payment(telegram_id, (body or {}).get("amount"), "web",
+                                          return_url=webapp.public_url("/app#/wallet"))
+    except ValueError as exc:
+        return _error(str(exc), 400, "invalid")
+    return web.json_response({"ok": True, "url": url})
+
+
+async def payme_endpoint(request: web.Request) -> web.Response:
+    """Payme serveri chaqiradigan manzil (JSON-RPC). Javob doim HTTP 200."""
+    from services import payme_pay
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    answer = await payme_pay.handle(body, request.headers.get("Authorization", ""))
+    log.info("Payme %s → %s", (body or {}).get("method") if isinstance(body, dict) else None,
+             answer.get("error", {}).get("code", "ok"))
+    return web.json_response(answer)
+
+
 def _click_endpoint(action: Optional[int]):
     """Click serveri chaqiradigan manzil (Prepare / Complete). Javob — Click kutgan JSON, doim HTTP 200."""
     async def handler(request: web.Request) -> web.Response:
@@ -769,6 +805,8 @@ def setup_api_routes(app: web.Application) -> None:
     add("POST", "/click/prepare", _click_endpoint(0))
     add("POST", "/click/complete", _click_endpoint(1))
     add("POST", "/click", _click_endpoint(None))
+    add("POST", "/api/v1/wallet/payme", wallet_payme)
+    add("POST", "/payme", payme_endpoint)
     add("GET", "/app", _page("app.html"))
     add("GET", "/admin/statistics", _page("admin_statistics.html"))
     add("GET", "/api/v1/admin/statistics", admin_statistics)
