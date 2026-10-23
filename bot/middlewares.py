@@ -143,9 +143,13 @@ class CommandResetMiddleware(BaseMiddleware):
             if text in self.menu_labels() and not str(data["raw_state"]).startswith("AdminStates"):
                 await state.clear()
                 data["raw_state"] = None
-            # Namuna fayllarini kutayotgan admin boshqa admin tugmasini bossa,
-            # kutish bekor bo'ladi (aks holda keyingi fayl namuna bo'lib qolardi).
-            elif str(data["raw_state"]).startswith("SampleStates") and text in self.admin_labels():
+            # Admin biror kiritishni kutayotgan holatda (namuna fayli, reklama matni,
+            # mijozga xabar, promokod ...) admin menyusi tugmasini bossa, kutish bekor
+            # bo'ladi va tugma o'z ishini qiladi. Ilgari faqat namuna holati bekor
+            # bo'lardi: qolganida "🔄 Botni yangilash" bosilsa promokod yaratilar,
+            # mijozga xabar bo'lib ketar yoki jimgina o'chirilardi.
+            elif (str(data["raw_state"]).startswith(("SampleStates", "AdminStates"))
+                  and text in self.admin_labels()):
                 await state.clear()
                 data["raw_state"] = None
             elif text.startswith("/"):
