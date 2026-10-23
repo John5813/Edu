@@ -1,4 +1,5 @@
 import logging
+import sqlite3
 from aiogram import Router, F
 from aiogram.filters import Command, StateFilter
 from aiogram.types import Message, CallbackQuery
@@ -138,6 +139,12 @@ async def start_command(message: Message, state: FSMContext, db: Database):
                             logger.error(f"Failed to notify referrer {referred_by_id}: {e}")
                 except Exception as e:
                     logger.error(f"Error processing referral: {e}")
+        except sqlite3.IntegrityError:
+            # /start ikki marta tez bosildi: parallel so'rov mijozni allaqachon yaratgan (bonuslarni ham u berdi).
+            user = await db.get_user(user_id)
+            if user is None:
+                raise
+            logger.info(f"User {user_id} parallel /start bilan yaratilgan — qayta yaratilmadi")
         except Exception as e:
             logger.error(f"❌ CRITICAL: Failed to create user on /start {user_id}: {e}", exc_info=True)
             await message.answer(
