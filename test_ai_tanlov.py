@@ -81,9 +81,11 @@ async def main():
     pconfig.OPENROUTER_API_KEY = "k"
     calls = []
     replies = [Resp("", "length"), Resp("tayyor")]
+    bodies = []
 
     def post(url, headers=None, json=None, timeout=None):
         calls.append((json["model"], json.get("max_tokens")))
+        bodies.append(json)
         return replies.pop(0)
 
     llm_client.requests.post = post
@@ -93,12 +95,25 @@ async def main():
           calls == [("openai/gpt-4o-mini", 4300), ("openai/gpt-4o-mini", 8600)]
           and llm_client._content(data) == "tayyor", calls)
 
+    check("bo'sh kesilgan javob: qayta so'rovda fikrlash kamaytiriladi (effort=low)",
+          "reasoning" not in bodies[0] and bodies[1].get("reasoning") == {"effort": "low", "exclude": True}, bodies)
+
     calls.clear()
+    bodies.clear()
+    replies[:] = [Resp("yarim matn", "length"), Resp("to'liq matn")]
+    payload = {"messages": [], "max_tokens": 4300}
+    data = llm_client._request("text", payload, 30, accept=lambda text: text.startswith("to'liq"))
+    check("matnli kesilgan javob: fikrlashga tegilmaydi, faqat chegara oshadi",
+          "reasoning" not in bodies[1] and calls[1][1] == 8600 and llm_client._content(data) == "to'liq matn", bodies)
+
+    calls.clear()
+    bodies.clear()
     replies[:] = [Resp("", "length"), Resp("", "length"), Resp("zaxira")]
     data = llm_client._request("text", payload, 30)
     check("ikkinchi marta ham kesilsa — keyingi modelga (qayta so'rash bir marta)",
           len(calls) == 3 and calls[1][0] == calls[0][0] and calls[2][0] != calls[0][0]
           and llm_client._content(data) == "zaxira", calls)
+    check("zaxira modelga fikrlash sozlamasi o'tmaydi", "reasoning" not in bodies[2], bodies[2])
 
 
 asyncio.run(main())
