@@ -138,7 +138,7 @@ class TogetherImageService:
             path = await self._save_response(response, stem)
             if path:
                 logger.info(f"Image generated with {model} ({target}): {path}")
-                _count_image(model)
+                _count_image(model, target)
                 return path
             logger.error(f"No image data from {model}")
         return None
@@ -169,7 +169,7 @@ class TogetherImageService:
             path = await self._save_response(response, stem)
             if path:
                 logger.info(f"Image generated with {model} ({stem}): {path}")
-                _count_image(model)
+                _count_image(model, stem)
                 return path
             logger.error(f"No image data from {model}")
         return None
@@ -581,12 +581,18 @@ _UNAVAILABLE_TTL = 600.0
 _unavailable: Dict[str, float] = {}
 
 
-def _count_image(model: str) -> None:
-    """AI nazorati: chizilgan rasm va uni chizgan model hisobi."""
+_IMAGE_SERVICE = {"docs": "Hujjatlar", "presentation": "Oddiy taqdimot", "premium": "Zamonaviy taqdimot",
+                  "med3d": "3D Anatomiya", "pro3d": "3D Pro"}
+
+
+def _count_image(model: str, source: str = "") -> None:
+    """AI nazorati: chizilgan rasm, uni chizgan model va xizmat (`source` — maqsad yoki fayl nomi boshi)."""
     try:
         from services import ai_usage
 
-        ai_usage.record("image", model)
+        key = source.split("_")[0] if source else ""
+        ai_usage.record("image", model, service=ai_usage.current() or _IMAGE_SERVICE.get(source)
+                        or _IMAGE_SERVICE.get(key) or "Boshqa")
         ai_usage.record("photo", ai_usage.PHOTO_AI)
     except Exception:
         pass

@@ -1,3 +1,4 @@
+import functools
 import json
 import logging
 import os
@@ -597,7 +598,7 @@ class AIService:
                 try:
                     from services import ai_usage
 
-                    ai_usage.record("text", model)  # AI nazorati
+                    ai_usage.record("text", model, service=ai_usage.current() or "Hujjatlar (boshqa)")  # AI nazorati
                 except Exception:
                     pass
                 if model != current_model:
@@ -5226,6 +5227,45 @@ In JSON format:
 
 # Qozoq tili ("kk"): metodlar ichkarida ruscha yo'l bilan ishlaydi (kazakh_doc.py).
 kazakh_doc.wrap_class(AIService, skip=("_make_request", "_get_current_model_id"))
+
+
+# AI nazorati: qaysi xizmat qaysi modelda ishlagani. Kirish metodi chaqirilganda xizmat nomi
+# o'rnatiladi; ichki chaqiruvlar (jadval, formula, sxema) va ular ochgan vazifalar shu nomni oladi.
+_SERVICE_OF = {
+    "generate_presentation_content": "Oddiy taqdimot",
+    "generate_presentation_in_batches": "Oddiy taqdimot",
+    "generate_presentation_with_manual_titles": "Oddiy taqdimot",
+    "generate_slide_titles": "Oddiy taqdimot",
+    "plan_independent_work": "Mustaqil ish",
+    "generate_independent_work_from_plan": "Mustaqil ish",
+    "generate_course_work_content": "Kurs ishi",
+    "generate_diploma_work_content": "Diplom ishi",
+    "generate_dissertation_content": "Dissertatsiya",
+    "generate_graduation_work_content": "Bitiruv ishi",
+    "generate_thesis_content": "Tezis",
+    "generate_article_content": "Maqola",
+    "generate_mahsus_ishlanma_content": "Maxsus ishlanma",
+    "translate_topic": "Mavzu tarjimasi",
+}
+_DOCUMENT_SERVICE = {"referat": "Referat", "independent_work": "Mustaqil ish"}
+
+
+def _track_service(func, service):
+    @functools.wraps(func)
+    async def wrapper(self, *args, **kwargs):
+        from services import ai_usage
+
+        name = service
+        if name is None:            # generate_document_content: hujjat turi 3-argument
+            kind = kwargs.get("document_type", args[2] if len(args) > 2 else "")
+            name = _DOCUMENT_SERVICE.get(kind) or str(kind or "Hujjat").replace("_", " ").capitalize()
+        with ai_usage.where(name):
+            return await func(self, *args, **kwargs)
+    return wrapper
+
+
+for _name, _service in {**_SERVICE_OF, "generate_document_content": None}.items():
+    setattr(AIService, _name, _track_service(getattr(AIService, _name), _service))
 
 
 _ai_service_instance: "AIService | None" = None

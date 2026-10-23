@@ -10,6 +10,17 @@ from docx.shared import Pt, Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from config import TEMP_DIR
 
+
+def _count(model: str, service: str = "Kitob tarjimasi") -> None:
+    """AI nazorati: kitob bilan ishlagan model (kitob tarjimasi yoki kitobdan mavzu uchun parcha)."""
+    try:
+        from services import ai_usage
+
+        ai_usage.record("text", model, service=ai_usage.current() or service)
+    except Exception:
+        pass
+
+
 logger = logging.getLogger(__name__)
 
 # Gemini 2.0 Flash OpenRouter'dan olib tashlangan; 2.5 Flash Lite xuddi shu narxda.
@@ -214,6 +225,7 @@ async def extract_toc_from_docx(file_path: str) -> list[dict]:
         max_tokens=2000,
         temperature=0.2,
     )
+    _count(GEMINI_MODEL)
     raw = response.choices[0].message.content.strip()
 
     chapters = []
@@ -429,6 +441,7 @@ async def _extract_glossary(client: AsyncOpenAI, doc, target_lang: str) -> str:
             max_tokens=800,
             temperature=0.1,
         )
+        _count(GEMINI_MODEL)
         result = response.choices[0].message.content.strip()
         if not result or result == "N/A" or len(result) < 10:
             return ""
@@ -504,6 +517,7 @@ async def _rewrite_section(
                 max_tokens=16000,
                 temperature=0.5,
             )
+            _count(GEMINI_MODEL)
             result = response.choices[0].message.content.strip()
             return result
         except Exception as e:
@@ -574,6 +588,7 @@ async def _translate_chunk(
                 max_tokens=16000,
                 temperature=0.5,
             )
+            _count(GEMINI_MODEL)
             raw = response.choices[0].message.content.strip()
             return _parse_numbered_response(raw, len(texts))
         except Exception as e:
@@ -1034,6 +1049,7 @@ async def extract_relevant_content_for_topic(book_content: str, topic: str, lang
             max_tokens=6000,
             temperature=0.1,
         )
+        _count(GEMINI_MODEL, "Kitobdan mavzu parchasi")
         extracted = response.choices[0].message.content.strip()
 
         min_words = max(500, len(book_content.split()) // 5)

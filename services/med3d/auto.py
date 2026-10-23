@@ -311,7 +311,10 @@ def _call_json(system: str, user: str, answer_tokens: int) -> dict:
         "messages": [{"role": "system", "content": llm_client._with_today(system)},
                      {"role": "user", "content": user}],
     }
-    raw = llm_client._request("text", payload)["choices"][0]["message"]["content"]
+    from services import ai_usage
+
+    with ai_usage.where("3D Anatomiya"):
+        raw = llm_client._request("text", payload)["choices"][0]["message"]["content"]
     cleaned = llm_client._clean_json(raw)
     try:
         return json.loads(cleaned)

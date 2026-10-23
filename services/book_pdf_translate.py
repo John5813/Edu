@@ -437,6 +437,12 @@ async def _ask(client, model: str, system: str, items: List[tuple]) -> tuple:
         max_tokens=min(32000, 1500 + chars),
         extra_body=_thinking_body(model) or None,
     )
+    try:
+        from services import ai_usage
+
+        ai_usage.record("text", model, service=ai_usage.current() or "Kitob tarjimasi")   # AI nazorati
+    except Exception:
+        pass
     choice = response.choices[0]
     return (choice.message.content or ""), choice.finish_reason == "length"
 
