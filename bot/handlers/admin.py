@@ -797,6 +797,18 @@ async def credit_approved_payment(bot, db, payment, user_message: str = None, re
     return user
 
 
+async def _edit_payment_card(message, text: str) -> None:
+    """To'lov kartochkasini yangilaydi: matnli xabar — matn, chek surati/fayli — izoh (caption).
+
+    Rasmli kartochkada `edit_text` "there is no text in the message to edit" bilan yiqilardi —
+    pul tushgan bo'lsa ham admin "Xatolik" ko'rardi, tugmalar qolardi, boshqa adminlarga xabar ketmasdi.
+    """
+    if message.text is None and (message.photo or message.document or message.caption is not None):
+        await message.edit_caption(caption=text[:1024], reply_markup=None, parse_mode=None)
+    else:
+        await message.edit_text(text, parse_mode=None)
+
+
 @router.callback_query(F.data.startswith("approve_payment_"))
 async def approve_payment(callback: CallbackQuery, db: Database):
     """Approve payment"""
@@ -827,13 +839,12 @@ async def approve_payment(callback: CallbackQuery, db: Database):
 
         # Keep the message with payment info
         user_link = await _web_accounts.admin_label(user)
-        await callback.message.edit_text(
+        await _edit_payment_card(
+            callback.message,
             f"✅ To'lov #{payment_id} tasdiqlandi.\n"
             f"👤 Foydalanuvchi: {user_link}\n"
             f"💵 {payment.amount:,} so'm foydalanuvchi hisobiga qo'shildi.\n"
-            f"📅 {datetime.now().strftime('%d.%m.%Y %H:%M')}",
-            parse_mode=None
-        )
+            f"📅 {datetime.now().strftime('%d.%m.%Y %H:%M')}")
 
         # Qolgan adminlarning kartochkasi ham yopiladi va qaror yoziladi.
         admin_name = callback.from_user.username or callback.from_user.full_name
@@ -899,16 +910,15 @@ async def reject_payment(callback: CallbackQuery, db: Database):
         # Keep the message with payment info
         user_link = await _web_accounts.admin_label(user)
         admin_name = callback.from_user.username or callback.from_user.full_name
-        await callback.message.edit_text(
+        await _edit_payment_card(
+            callback.message,
             await decided_card_text(
                 payment_id, callback.message, payment_verdict_line(False, admin_name, payment.amount),
                 f"❌ To'lov #{payment_id} rad etildi.\n"
                 f"👤 Foydalanuvchi: {user_link}\n"
                 f"💵 Summa: {payment.amount:,} so'm\n"
                 f"📅 {datetime.now().strftime('%d.%m.%Y %H:%M')}\n\n"
-                f"Foydalanuvchiga xabar yuborildi."),
-            parse_mode=None
-        )
+                f"Foydalanuvchiga xabar yuborildi."))
 
         # Qolgan adminlarning kartochkasi ham yopiladi va qaror yoziladi.
         updated = await close_payment_buttons(
