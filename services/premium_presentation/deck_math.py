@@ -48,6 +48,12 @@ _WORDS = {
     r"\xi": "ξ", r"\pi": "π", r"\rho": "ρ", r"\sigma": "σ",
     r"\tau": "τ", r"\phi": "φ", r"\varphi": "φ", r"\chi": "χ",
     r"\psi": "ψ", r"\omega": "ω",
+    # Fizika: ħ (keltirilgan Plank doimiysi) — ilgari noma'lum buyruq sifatida tashlanib,
+    # "iħ∂Ψ/∂t" "i∂Ψ/∂t", "Δx·Δp ≥ ħ/2" esa "≥ /2" bo'lib qolardi.
+    r"\hbar": "ħ", r"\hslash": "ħ", r"\ell": "ℓ",
+    r"\dagger": "†", r"\ast": "*", r"\star": "⋆",
+    r"\circ": "°",            # taqdimotda deyarli doim gradus: 90^\circ → 90° (ilgari "90^()")
+    r"\langle": "⟨", r"\rangle": "⟩", r"\mid": "|",
     r"\Gamma": "Γ", r"\Delta": "Δ", r"\Theta": "Θ", r"\Lambda": "Λ",
     r"\Sigma": "Σ", r"\Phi": "Φ", r"\Psi": "Ψ", r"\Omega": "Ω",
     r"\ldots": "…", r"\dots": "…", r"\cdots": "⋯",
@@ -68,6 +74,8 @@ _SUP = {
     "g": "ᵍ", "h": "ʰ", "j": "ʲ", "k": "ᵏ", "l": "ˡ", "m": "ᵐ",
     "o": "ᵒ", "p": "ᵖ", "r": "ʳ", "s": "ˢ", "t": "ᵗ", "u": "ᵘ",
     "v": "ᵛ", "w": "ʷ", "x": "ˣ", "y": "ʸ", "z": "ᶻ", " ": " ",
+    # Qo'shma (Ψ*, A†): ustki belgisi yo'q — oddiy yulduzcha/xanjar odatiy yozuv. Ilgari "Ψ^(*)" chiqardi.
+    "*": "*", "†": "†", "°": "°",
 }
 
 _SUB = {

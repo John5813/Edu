@@ -11,8 +11,10 @@ Joylashuv brauzer hisoblagan piksel o'rinlaridan olinadi, shuning uchun
 elementlar ustma-ust tushmaydi.
 """
 
+import functools
 import logging
 import os
+import re
 from typing import Dict, List
 
 from pptx.dml.color import RGBColor
@@ -185,12 +187,29 @@ def _merge_flows(blocks: List[Dict]) -> List[Dict]:
     return out
 
 
+# Katta harfga o'tkazishda saqlanadigan belgilar: alohida turgan bitta harf (fizik kattalik: h, n, m, e)
+# va yunon harflari/ħ. Ilgari bezak uchun katta harf "Plank doimiysi h" ni "PLANK DOIMIYSI H",
+# "ħ" ni "Ħ", "n = 1" ni "N = 1" qilardi — fizikada bular boshqa kattaliklar.
+_CASE_TOKENS = re.compile(r"([\w\u02bb\u02bc\u2018\u2019']+)")
+_SYMBOLS = re.compile(r"[\u0370-\u03ff\u0127\u2113]")
+_PLAIN_ONE_LETTER = {"u", "o"}          # o'zbekcha bir harfli so'zlar ("u") — odatdagidek katta harf
+
+
+def _upper(text: str) -> str:
+    def word(match):
+        token = match.group(1)
+        if len(token) == 1 and token.isalpha() and token.isascii() and token.lower() not in _PLAIN_ONE_LETTER:
+            return token
+        return "".join(ch if _SYMBOLS.match(ch) else ch.upper() for ch in token)
+    return _CASE_TOKENS.sub(word, text)
+
+
 def _add_text(slide, block: Dict) -> None:
     text = str(block.get("text") or "").strip()
     if not text:
         return
     if block.get("upper"):
-        text = text.upper()
+        text = _upper(text)
 
     area = _clip(block)
     # Bir qatorli matn qayta O'RALMASIN. Ilgari quti o'n piksel
@@ -262,7 +281,7 @@ def _add_text(slide, block: Dict) -> None:
         colour = _colour(part.get("color") or "000000")
         body = str(part.get("text") or "").strip()
         if part.get("upper"):
-            body = body.upper()
+            body = _upper(body)
 
         # <br> bilan ajratilgan satrlar alohida abzats bo'ladi — ular
         # bir-biriga yopishib qolmasin.
@@ -389,6 +408,99 @@ def _background(slide, colour: str, ramp=None) -> None:
     fill.fore_color.rgb = _colour(colour or "FFFFFF")
 
 
+# Matn balandligini o'lchash uchun shriftlar: Liberation — Arial/Times New Roman bilan bir xil o'lchamli.
+_FONT_FILES = {(False, False): "LiberationSans-Regular.ttf", (False, True): "LiberationSans-Bold.ttf",
+               (True, False): "LiberationSerif-Regular.ttf", (True, True): "LiberationSerif-Bold.ttf"}
+# PowerPoint brauzerdan biroz oldinroq o'raydi (shrift o'rni, kerning): o'lchashda qutini shuncha tor olamiz.
+_WRAP_SAFETY = 0.96
+
+
+@functools.lru_cache(maxsize=64)
+def _measure_font(serif: bool, bold: bool, size: int):
+    try:
+        from PIL import ImageFont
+        return ImageFont.truetype(_FONT_FILES[(serif, bold)], size)
+    except Exception:
+        return None
+
+
+def _text_height(block: Dict):
+    """Matn qutisi PowerPointda qancha balandlik egallaydi (px); o'lchab bo'lmasa — None."""
+    width = float(block.get("w") or 0) * _WRAP_SAFETY
+    if width <= 0:
+        return None
+    total = 0.0
+    for part in block.get("parts") or [block]:
+        size = float(part.get("size") or 16)
+        font = _measure_font(font_name(part.get("family")) == "Times New Roman",
+                             int(part.get("weight") or 400) >= 600, max(int(round(size)), 1))
+        if font is None:
+            return None
+        text = str(part.get("text") or "")
+        if part.get("upper"):
+            text = _upper(text)
+        spacing = float(part.get("letterSpacing") or 0)
+
+        def length(value: str) -> float:
+            return font.getlength(value) + spacing * len(value)
+
+        lines = 0
+        for paragraph in text.split("\n"):
+            words, line = paragraph.split(), ""
+            lines += 1
+            for word in words:
+                candidate = f"{line} {word}" if line else word
+                if line and length(candidate) > width:
+                    lines += 1
+                    line = word
+                else:
+                    line = candidate
+        line_height = float(part.get("lineHeight") or 0) or size * 1.2
+        total += float(part.get("gap") or 0) + lines * line_height
+    return total
+
+
+def _clear_overlaps(blocks: List[Dict]) -> None:
+    """Matn ostidagi rasm/diagramma matnga tegsa — matndan pastga suriladi (kerak bo'lsa kichraytiriladi).
+
+    Brauzerda matn qutisidan oshib ketgan yoki PowerPointda ko'proq qatorga o'ralgan abzats pastga cho'zilib,
+    ostidagi diagramma ustiga tushardi (mijoz uni qo'lda pastga surib chiqardi).
+    """
+    images = [b for b in blocks if b.get("kind") == "image"]
+    texts = sorted((b for b in blocks if b.get("kind") == "text" and str(b.get("text") or "").strip()
+                    and (int(b.get("lines") or 1) > 1 or b.get("parts"))),
+                   key=lambda b: float(b.get("y", 0)))
+    for image in images:
+        ix, iw = float(image.get("x", 0)), float(image.get("w", 0))
+        iy, ih = float(image.get("y", 0)), float(image.get("h", 0))
+        for text in texts:
+            tx, tw = float(text.get("x", 0)), float(text.get("w", 0))
+            ty, th = float(text.get("y", 0)), float(text.get("h", 0))
+            if min(ix + iw, tx + tw) - max(ix, tx) < 0.3 * min(iw, tw):
+                continue                  # boshqa ustunda
+            if ty + th > iy + 4:
+                continue                  # matn rasm ustida yoki yonida (fon rasmi va h.k.) — tegilmaydi
+            height = _text_height(text)
+            if height is None:
+                continue
+            bottom = ty + max(th, height)
+            if bottom + 8 <= iy:
+                continue
+            top = bottom + 12
+            limit = SLIDE_H_PX - 24
+            if top + ih > limit:
+                fitted = limit - top
+                if fitted < 0.6 * ih:
+                    log.warning("Rasm matn ostiga sig'madi — joyida qoldi")
+                    continue
+                scale = fitted / ih
+                ix += iw * (1 - scale) / 2
+                iw, ih = iw * scale, fitted
+            log.info("Rasm matn ustidan pastga surildi: %d → %d px", round(iy), round(top))
+            iy = top
+            image.update(x=ix, y=iy, w=iw, h=ih)
+
+
 def _measure_room(blocks: List[Dict]) -> None:
     """Har matn qutisining o'ng tomonidagi bo'sh joy (qo'shni matn qutisigacha)."""
     texts = [b for b in blocks if b.get("kind") == "text" and str(b.get("text") or "").strip()]
@@ -422,6 +534,7 @@ def add_slide(presentation, layout: Dict) -> None:
                     key=lambda item: order.get(item.get("kind"), 3))
 
     blocks = _merge_flows(blocks)
+    _clear_overlaps(blocks)
     _measure_room(blocks)
     failures = []
     for block in blocks:
