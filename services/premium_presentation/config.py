@@ -107,6 +107,10 @@ OPENROUTER_PHOTO_MODELS = _no_claude(_chain(
 # o'tkazib yuborardi; bu yerda ko'rish sifati tejamdan muhim.
 PHOTO_TEXT_CHECK_MODELS = ("google/gemini-2.5-flash", "openai/gpt-4.1-mini", "openai/gpt-4o-mini")
 
+# Matn modelining "o'ylash" ulushi: "18%" (javob chegarasining ustiga), yoki daraja: none/minimal/low/medium/high.
+# Bo'sh — modelning o'z sukuti (ba'zilarida "high": chegarani o'ylashga sarflab, bo'sh javob qaytaradi).
+PREMIUM_REASONING = os.getenv("PREMIUM_REASONING", "18%")
+
 # Eski nom bilan foydalanadigan joylar uchun — ro'yxatning birinchisi.
 OPENROUTER_TEXT_MODEL = OPENROUTER_TEXT_MODELS[0]
 OPENROUTER_VISION_MODEL = OPENROUTER_VISION_MODELS[0]

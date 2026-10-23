@@ -609,7 +609,36 @@ _THINKING = re.compile(r"^google/gemini-2\.5-(?:flash|pro)(?!-lite)")
 _THINKING_BUDGET = 1024
 
 
-def _body(payload: dict, model: str) -> dict:
+_EFFORTS = {"none", "minimal", "low", "medium", "high", "xhigh", "max"}
+
+
+def _text_reasoning(payload: dict, model: str) -> dict:
+    """Matn so'rovlarida o'ylash ulushi (`PREMIUM_REASONING`): "18%" yoki daraja ("none", "low", ...).
+
+    Foizda o'ylash byudjeti javob chegarasining USTIGA qo'shiladi — javobga joy kamaymaydi.
+    Faqat daraja qo'llaydigan modellarda (masalan DeepSeek) OpenRouter byudjetni eng yaqin darajaga aylantiradi.
+    """
+    setting = (config.PREMIUM_REASONING or "").strip().lower()
+    if not setting or "reasoning" in payload:
+        return payload
+    if setting in _EFFORTS:
+        return {**payload, "reasoning": {"effort": setting, "exclude": True}}
+    try:
+        share = float(setting.rstrip("%")) / 100
+    except ValueError:
+        return payload
+    answer = int(payload.get("max_tokens") or 0)
+    if not answer or share <= 0:
+        return payload
+    budget = int(answer * share)
+    if model.startswith("anthropic/"):
+        budget = max(budget, 1024)          # Claude'da o'ylash byudjeti kamida 1024
+    return {**payload, "max_tokens": answer + budget, "reasoning": {"max_tokens": budget, "exclude": True}}
+
+
+def _body(payload: dict, model: str, kind: str = "") -> dict:
+    if kind == "text":
+        payload = _text_reasoning(payload, model)
     body = {**payload, "model": model}
     if _THINKING.match(model) and "reasoning" not in body:
         body["reasoning"] = {"max_tokens": _THINKING_BUDGET, "exclude": True}
@@ -652,7 +681,7 @@ def _request(kind: str, payload: dict, timeout: int = 180,
         try:
             sent = {**payload, "reasoning": _LEAN_REASONING} if model == lean else payload
             resp = requests.post(config.OPENROUTER_URL, headers=headers,
-                                 json=_body(sent, model), timeout=timeout)
+                                 json=_body(sent, model, kind), timeout=timeout)
             afford = _affordable(resp, payload)
             if afford:
                 # Hisobdagi mablag' so'ralgan javob uzunligini qoplamaydi.

@@ -79,6 +79,7 @@ async def main():
 
     print("\n3) Kesilgan javob")
     pconfig.OPENROUTER_API_KEY = "k"
+    pconfig.PREMIUM_REASONING = ""          # bu bo'limda faqat qayta so'rash mantiqi tekshiriladi
     calls = []
     replies = [Resp("", "length"), Resp("tayyor")]
     bodies = []
@@ -114,6 +115,29 @@ async def main():
           len(calls) == 3 and calls[1][0] == calls[0][0] and calls[2][0] != calls[0][0]
           and llm_client._content(data) == "zaxira", calls)
     check("zaxira modelga fikrlash sozlamasi o'tmaydi", "reasoning" not in bodies[2], bodies[2])
+
+
+    print("\n4) O'ylash ulushi (PREMIUM_REASONING)")
+    import importlib
+    check("sukut: 18%", importlib.reload(pconfig).PREMIUM_REASONING == "18%", pconfig.PREMIUM_REASONING)
+    pconfig.PREMIUM_REASONING = "18%"
+    body = llm_client._body({"max_tokens": 1000}, "deepseek/deepseek-v4.1-flash", "text")
+    check("18%: o'ylash 180 token, javob chegarasi 1000 saqlanadi (jami 1180)",
+          body["reasoning"] == {"max_tokens": 180, "exclude": True} and body["max_tokens"] == 1180, body)
+    body = llm_client._body({"max_tokens": 1000}, "anthropic/claude-haiku-5.5", "text")
+    check("Claude: o'ylash kamida 1024", body["reasoning"]["max_tokens"] == 1024 and body["max_tokens"] == 2024, body)
+    body = llm_client._body({"max_tokens": 1000}, "google/gemini-2.5-flash", "vision")
+    check("matn bo'lmagan so'rovga (rasm, chek) tegilmaydi", body["reasoning"]["max_tokens"] == 1024, body)
+    pconfig.PREMIUM_REASONING = "none"
+    body = llm_client._body({"max_tokens": 1000}, "deepseek/deepseek-v4.1-flash", "text")
+    check("none: o'ylash o'chiriladi", body["reasoning"] == {"effort": "none", "exclude": True}
+          and body["max_tokens"] == 1000, body)
+    body = llm_client._body({"max_tokens": 1000, "reasoning": {"effort": "low", "exclude": True}},
+                            "deepseek/deepseek-v4.1-flash", "text")
+    check("bo'sh javobdan keyingi qayta so'rov sozlamasi ustun", body["reasoning"]["effort"] == "low", body)
+    pconfig.PREMIUM_REASONING = ""
+    body = llm_client._body({"max_tokens": 1000}, "deepseek/deepseek-v4.1-flash", "text")
+    check("bo'sh sozlama: modelning o'z sukuti", "reasoning" not in body and body["max_tokens"] == 1000, body)
 
 
 asyncio.run(main())
