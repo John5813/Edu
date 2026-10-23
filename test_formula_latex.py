@@ -44,5 +44,19 @@ except ValueError as exc:
 ok = r'{"latex": "\\frac{a}{b} \\times 2"}'
 check("to'g'ri ekranlangan JSON o'zgarmaydi", _escape_latex_in_json(ok) == ok)
 
+print("\n3) Rejadagi formula bloki (ilgari: no attribute '_VISUAL_LABELS')")
+from docx import Document
+from services import doc_visuals
+from services.document_service import DocumentService
+
+service = DocumentService.__new__(DocumentService)
+for lang, given in (("uz", "Berilgan"), ("ru", "Дано"), ("en", "Given")):
+    doc = Document()
+    service._add_planned_formula(doc, {"name": "Tenglama", "latex": r"a \implies b", "given": ["a=1"],
+                                       "result": "b=2"}, doc_visuals.Numbering(lang), "Izoh")
+    texts = [p.text for p in doc.paragraphs if p.text]
+    check(f"formula bloki ({lang}): sarlavha, berilgan, rasm",
+          any(t.startswith(given) for t in texts) and len(doc.inline_shapes) == 1, texts)
+
 print("\nNATIJA:", "HAMMASI O'TDI" if not FAILS else f"{len(FAILS)} ta xato: {FAILS}")
 sys.exit(1 if FAILS else 0)
