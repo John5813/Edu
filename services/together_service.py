@@ -49,6 +49,10 @@ def _retry_delay(error, attempt: int) -> float:
     return delay + random.uniform(0.2, 0.8)
 
 
+# 429 (cheklov) da bitta rasm uchun urinishlar soni; kutish 2→4→8→16 s (+ Reset sarlavhasi).
+_RATE_LIMIT_ATTEMPTS = int(os.getenv("TOGETHER_RATE_LIMIT_ATTEMPTS", "6"))
+
+
 class TogetherImageService:
     """Service for generating images using Together AI FLUX models"""
     
@@ -61,6 +65,9 @@ class TogetherImageService:
         self.client = Together(api_key=self.api_key, max_retries=0)
         self.image_semaphore = asyncio.Semaphore(
             max(1, int(os.getenv("TOGETHER_IMAGE_CONCURRENCY", "2"))))
+        # 429 kelganda HAMMA rasm so'rovlari shu vaqtgacha kutadi: aks holda parallel so'rov darhol yana
+        # urilib, o'zi ham 429 olardi (Together cheklovi oyna bo'yicha, so'rov bo'yicha emas).
+        self._cooldown_until = 0.0
         # Rasm modeli har xizmat uchun alohida tanlanadi (admin panel) —
         # qarang: `chosen_image_model`.
         
@@ -195,9 +202,14 @@ class TogetherImageService:
                 )
             )
 
-        for attempt in range(3):
+        attempt = 0
+        limited = 0
+        while True:
             try:
                 async with self.image_semaphore:
+                    wait = self._cooldown_until - time.monotonic()
+                    if wait > 0:
+                        await asyncio.sleep(wait)
                     return await asyncio.wait_for(_call(), timeout=60)
             except (asyncio.TimeoutError, Exception) as ex:
                 msg = str(ex).lower()
@@ -219,13 +231,21 @@ class TogetherImageService:
                     logger.error(f"Together image model {model} failed: {ex}")
                     _mark_unavailable(model, msg)
                     return None
-                if attempt == 2:
+                rate_limited = any(s in msg for s in ("429", "rate limit", "rate_limit", "too many"))
+                limited += rate_limited
+                # Cheklov (429) vaqtinchalik va oynasi qisqa: unga ko'proq urinish beriladi, boshqa xatolarga — 3 ta.
+                if attempt >= (_RATE_LIMIT_ATTEMPTS if rate_limited else 3) - 1:
                     logger.error(f"Together image model {model} kept failing: {ex}")
                     return None
-                backoff = _retry_delay(ex, attempt)
-                logger.warning(f"Together image transient error ({model}, attempt {attempt+1}): {ex}; retrying in {backoff}s")
-                await asyncio.sleep(backoff)
-        return None
+                backoff = _retry_delay(ex, min(limited - 1 if rate_limited else attempt, 3))
+                logger.warning(f"Together image transient error ({model}, attempt {attempt+1}): "
+                               f"{str(ex)[:120]}; retrying in {backoff:.1f}s")
+                attempt += 1
+                if rate_limited:
+                    # Kutish keyingi urinish boshida (umumiy cooldown) — parallel so'rovlar ham shuni kutadi.
+                    self._cooldown_until = max(self._cooldown_until, time.monotonic() + backoff)
+                else:
+                    await asyncio.sleep(backoff)
 
     async def _save_response(self, response, stem: str) -> Optional[str]:
         if not response.data:

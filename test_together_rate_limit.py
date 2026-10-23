@@ -98,7 +98,53 @@ with patch.object(together_service.asyncio, "sleep", record_sleep), \
         patch.object(together_service.random, "uniform", return_value=0.5):
     result = asyncio.run(service._call_model("prompt", "model"))
 check("request succeeds after one retry", result is not None and calls == 2, (result, calls))
-check("retry waits at least the server-provided interval", waits == [4.5], waits)
+# Kutish umumiy muddatdan (cooldown) hisoblanadi — bir necha mikrosoniya kamroq bo'lishi mumkin.
+check("retry waits the server-provided interval", len(waits) == 1 and 4.45 <= waits[0] <= 4.5, waits)
+
+
+print("4) A 429 pauses ALL parallel requests (shared cooldown)")
+service._cooldown_until = 0.0
+sent = []
+
+
+def generate_first_limited(**kwargs):
+    sent.append(time.monotonic())
+    if len(sent) == 1:
+        raise RateLimited("429 Too Many Requests")
+    return object()
+
+
+async def parallel():
+    service.client = SimpleNamespace(images=SimpleNamespace(generate=generate_first_limited))
+    first = asyncio.create_task(service._call_model("a", "model"))
+    await asyncio.sleep(0.01)
+    second = asyncio.create_task(service._call_model("b", "model"))
+    return await asyncio.gather(first, second)
+
+
+RateLimited.response = SimpleNamespace(headers={"Retry-After": "0.3"})
+with patch.object(together_service, "_retry_delay", return_value=0.3):
+    results = asyncio.run(parallel())
+check("both succeed", all(r is not None for r in results), results)
+check("parallel request waited for the cooldown instead of hitting 429 again",
+      len(sent) == 3 and sent[1] - sent[0] >= 0.25, [round(t - sent[0], 3) for t in sent])
+
+
+print("5) 429 gets more attempts than other transient errors")
+service._cooldown_until = 0.0
+tries = []
+
+
+def always_limited(**kwargs):
+    tries.append(1)
+    raise RateLimited("429 Too Many Requests")
+
+
+service.client = SimpleNamespace(images=SimpleNamespace(generate=always_limited))
+with patch.object(together_service, "_retry_delay", return_value=0.0):
+    result = asyncio.run(service._call_model("p", "model"))
+check(f"429: {together_service._RATE_LIMIT_ATTEMPTS} attempts, then gives up",
+      result is None and len(tries) == together_service._RATE_LIMIT_ATTEMPTS, len(tries))
 
 print("\nNATIJA:", "HAMMASI O'TDI" if not FAILS else f"{len(FAILS)} ta xato: {FAILS}")
 sys.exit(1 if FAILS else 0)
