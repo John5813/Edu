@@ -1695,6 +1695,14 @@ async def generate_article(callback: CallbackQuery, state: FSMContext, db: Datab
         await state.clear()
 
 
+_STALE_ORDER = {
+    "uz": "⌛ Bu buyurtma ma'lumotlari eskirgan. Iltimos, hujjat turini qaytadan tanlab boshlang.",
+    "ru": "⌛ Данные этого заказа устарели. Пожалуйста, выберите тип документа заново.",
+    "en": "⌛ This order has expired. Please choose the document type again.",
+    "kk": "⌛ Бұл тапсырыс деректері ескірген. Құжат түрін қайта таңдаңыз.",
+}
+
+
 @router.callback_query(F.data.startswith("pages_"), DocumentStates.waiting_for_page_count)
 async def handle_page_count(callback: CallbackQuery, state: FSMContext, db: Database, user_lang: str, user):
     """Handle page count selection"""
@@ -1707,6 +1715,16 @@ async def handle_page_count(callback: CallbackQuery, state: FSMContext, db: Data
         await state.clear()
         return
 
+    data = await state.get_data()
+    document_type = data.get('document_type')
+    if not document_type:
+        # Jarayon ma'lumoti yo'qolgan (eski xabardagi tugma yoki bot qayta ishga tushgan): boshidan boshlash.
+        await callback.answer()
+        await state.clear()
+        await callback.message.answer(_STALE_ORDER.get(user_lang, _STALE_ORDER["uz"]),
+                                      reply_markup=get_main_keyboard(user_lang))
+        return
+
     page_range = callback.data.split("_")[1:]
     min_pages = int(page_range[0])
     max_pages = int(page_range[1])
@@ -1714,8 +1732,6 @@ async def handle_page_count(callback: CallbackQuery, state: FSMContext, db: Data
     await state.update_data(min_pages=min_pages, max_pages=max_pages)
 
     # Calculate price based on page count
-    data = await state.get_data()
-    document_type = data['document_type']
     price = get_document_price(document_type, {"min_pages": min_pages, "max_pages": max_pages})
 
     await callback.answer()

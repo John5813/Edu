@@ -380,6 +380,33 @@ def _chart_is_grounded(item: dict) -> bool:
     return not any(_INVENTED_CHART.search(n) for n in names)
 
 
+
+# JSON escape bilan bir xil boshlanadigan LaTeX buyruqlari (\\f, \\b, \\n, \\r, \\t, \\u): model ularni bitta
+# teskari chiziq bilan yozsa, JSON xato bermaydi, lekin `\\forall` "form feed + orall"ga aylanib qoladi.
+_LATEX_ESCAPE_LIKE = {
+    "frac", "forall", "flat", "beta", "bar", "bot", "boldsymbol", "big", "bigg", "binom", "bullet", "bmod",
+    "neg", "nabla", "ne", "neq", "nu", "not", "notin", "nexists", "nequiv", "nmid", "newline",
+    "rho", "right", "rightarrow", "rangle", "rceil", "rfloor", "rm",
+    "times", "theta", "tau", "to", "text", "textbf", "tan", "tanh", "top", "therefore", "tilde", "tfrac",
+    "uparrow", "upsilon", "underline",
+}
+_LATEX_CMD_RE = re.compile(r'(?<!\\)\\([A-Za-z]+)')
+
+
+def _escape_latex_in_json(text: str) -> str:
+    """Model JSON ichida LaTeX'ni bitta teskari chiziq bilan yozsa (`"\\exists x"`), uni to'g'ri ekranlaydi.
+
+    `\\exists` JSON'da noto'g'ri escape ("Invalid \\escape" xatosi), `\\forall` esa jimgina buziladi.
+    Oddiy `\\n` (yangi qator) va to'g'ri yozilgan `\\\\frac` tegilmaydi.
+    """
+    def fix(m):
+        word = m.group(1)
+        if word[0] not in "bfnrtu" or word in _LATEX_ESCAPE_LIKE:
+            return "\\\\" + word
+        return m.group(0)
+    return _LATEX_CMD_RE.sub(fix, text)
+
+
 class AIService:
     """AI Service using OpenRouter with dynamic model selection"""
     
@@ -4770,7 +4797,7 @@ In JSON format:
                     content_str = content_str[len(prefix):]
             if content_str.endswith("```"):
                 content_str = content_str[:-3]
-            return json.loads(content_str.strip())
+            return json.loads(_escape_latex_in_json(content_str.strip()))
         except Exception as e:
             logger.error(f"Error generating formulas for '{section_title}': {e}")
             return {"formulas": [], "example": {"task": "", "solution": ""}}

@@ -117,10 +117,25 @@ def render_latex_png(latex_str: str):
     matplotlib tushunmaydi, shuning uchun birinchi urinish yiqilsa qo'sh
     teskari chiziq bittaga keltirilib qayta urinib ko'riladi.
     """
+    latex_str = mathtext_compat(latex_str)
     data = _render_latex_once(latex_str)
     if data is None and "\\\\" in latex_str:
         data = _render_latex_once(latex_str.replace("\\\\", "\\"))
     return data
+
+
+# matplotlib (mathtext) bilmaydigan, lekin teng ma'noli muqobili bor LaTeX buyruqlari (mantiq, to'plamlar).
+_MATHTEXT_ALIASES = {
+    "implies": r"\Rightarrow", "impliedby": r"\Leftarrow", "iff": r"\Leftrightarrow",
+    "land": r"\wedge", "lor": r"\vee", "lnot": r"\neg", "gets": r"\leftarrow",
+    "le": r"\leq", "ge": r"\geq", "tfrac": r"\frac",
+}
+_MATHTEXT_ALIAS_RE = re.compile(r"\\(" + "|".join(sorted(_MATHTEXT_ALIASES, key=len, reverse=True)) + r")(?![A-Za-z])")
+
+
+def mathtext_compat(latex_str: str) -> str:
+    """`\\implies`, `\\land`, `\\iff` kabilarni matplotlib tushunadigan muqobiliga almashtiradi."""
+    return _MATHTEXT_ALIAS_RE.sub(lambda m: _MATHTEXT_ALIASES[m.group(1)], latex_str or "")
 
 
 def _render_latex_once(latex_str: str):
