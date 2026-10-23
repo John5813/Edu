@@ -287,6 +287,71 @@ async def save_costs(days: int, service_costs: dict, campaign_costs: dict,
         await db.commit()
 
 
+def _model_name(model_id: str) -> str:
+    """Admin uchun o'qiladigan nom: katalogdagi nom bo'lsa — u, aks holda ID ning oxirgi qismi."""
+    from config import AI_MODELS, IMAGE_MODELS
+
+    for info in list(AI_MODELS.values()) + list(IMAGE_MODELS.values()):
+        if info.get("id") == model_id:
+            return info.get("name") or model_id
+    return model_id.split("/")[-1] if model_id else "—"
+
+
+async def ai_config() -> list:
+    """Hozir qaysi xizmatga qaysi AI sozlangan: [{service, kind, model, name, source}]."""
+    from config import AI_MODELS, BOOK_TRANSLATE_MODELS, DEFAULT_AI_MODEL, PREMIUM_DEFAULT_AI_MODEL
+    from database.database import Database
+    from services.premium_presentation import config as pconfig
+
+    rows = []
+
+    def add(service: str, kind: str, model: str, source: str) -> None:
+        rows.append({"service": service, "kind": kind, "model": model, "name": _model_name(model), "source": source})
+
+    async def admin_text(getter, default_key: str) -> str:
+        try:
+            key = await getter()
+        except Exception:
+            key = default_key
+        return AI_MODELS.get(key, AI_MODELS[default_key])["id"]
+
+    main = await admin_text(Database.get_current_ai_model, DEFAULT_AI_MODEL)
+    premium = await admin_text(Database.get_premium_ai_model, PREMIUM_DEFAULT_AI_MODEL)
+    add("Hujjatlar va oddiy taqdimot", "text", main, "Admin panel")
+    add("Zamonaviy taqdimot", "text", premium, "Admin panel")
+    add("3D Pro", "text", premium, "Zamonaviy taqdimot modeli")
+    try:
+        from services.med3d import auto as med3d
+
+        add("3D Anatomiya", "text", med3d.MODEL, "Doimiy (MED3D_MODEL)")
+    except Exception:
+        pass
+    for service, chain in (("To'lov cheki", pconfig.OPENROUTER_RECEIPT_MODELS),
+                           ("Kitob OCR", pconfig.OPENROUTER_OCR_MODELS),
+                           ("Rasm tanlash", pconfig.OPENROUTER_PHOTO_MODELS),
+                           ("Slayd tekshiruvi (ko'z)", pconfig.OPENROUTER_VISION_MODELS),
+                           ("Kitob tarjimasi", BOOK_TRANSLATE_MODELS)):
+        if chain:
+            add(service, "text", chain[0], "Doimiy")
+    try:
+        from services import together_service
+
+        for target, service in (("docs", "Hujjatlar"), ("presentation", "Oddiy taqdimot"),
+                                ("premium", "Zamonaviy taqdimot"), ("med3d", "3D Anatomiya")):
+            add(service, "image", await together_service.chosen_image_model(target), "Admin panel")
+    except Exception:
+        pass
+    try:
+        from services.pro3d import images as pro3d_images
+
+        chain = pro3d_images.models()
+        if chain:
+            add("3D Pro", "image", chain[0], "Doimiy (PRO3D_IMAGE_MODELS)")
+    except Exception:
+        pass
+    return rows
+
+
 async def dashboard(days: int = 30) -> dict:
     """Return dashboard data for the selected UZT day window (1, 7, 30 or 90)."""
     days = days if days in (1, 7, 30, 90) else 30
@@ -489,6 +554,15 @@ async def dashboard(days: int = 30) -> dict:
                     (start_day, end_day)) as cur:
                 ai_usage = [dict(row) for row in await cur.fetchall()]
 
+        from services import ai_usage as usage_log
+
+        try:
+            ai_where = await usage_log.where_counts(start_day, end_day)
+            for row in ai_where:
+                row["label"] = _model_name(row["name"])
+        except Exception:
+            ai_where = []
+
         campaign_costs = await _costs(db, "campaign", days)
         campaign_rows = []
         if await _has_table(db, "nudges"):
@@ -573,6 +647,11 @@ async def dashboard(days: int = 30) -> dict:
     campaign_cost_total = sum(row["cost"] for row in campaign_rows)
     total_cost = service_cost_total + image_cost_total + campaign_cost_total + free_cost_total
     active_campaigns_missing_cost = any(row["sent"] and not row["cost_configured"] for row in campaign_rows)
+    try:
+        config_rows = await ai_config()
+    except Exception:
+        config_rows = []
+
     return {
         "period": {"days": days, "start": start_day, "end": end_day},
         "summary": {
@@ -625,6 +704,8 @@ async def dashboard(days: int = 30) -> dict:
         "acquisition": acquisition,
         "campaigns": campaign_rows,
         "ai_usage": ai_usage,
+        "ai_where": ai_where,
+        "ai_config": config_rows,
         "costs": {
             "services": service_costs,
             "campaigns": campaign_costs,

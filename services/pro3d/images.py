@@ -231,6 +231,7 @@ def edge_points(picture: Picture, sides: List[str], rows: List[float]) -> List[T
 
 def locate(picture: Picture, obj: str, parts: List[str]) -> List[Optional[Tuple[float, float]]]:
     """Vision modeli bilan har qism nuqtasi (0..1). Javob bo'lmasa — None lar (zaxira chaqiruvchida)."""
+    from services import ai_usage
     from services.premium_presentation import llm_client
 
     if not parts:
@@ -246,7 +247,8 @@ def locate(picture: Picture, obj: str, parts: List[str]) -> List[Optional[Tuple[
         ]}],
     }
     try:
-        data = llm_client._request("vision", payload, timeout=90)
+        with ai_usage.where("3D Pro"):
+            data = llm_client._request("vision", payload, timeout=90)
         raw = llm_client._clean_json(llm_client._content(data))
         points = json.loads(raw).get("points") or []
     except Exception as exc:

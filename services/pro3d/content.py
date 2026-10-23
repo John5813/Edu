@@ -244,6 +244,7 @@ def normalize(data: Dict, topic: str, count: int) -> Dict:
 def plan(topic: str, count: int, language: str, level: int = 2, preferences: str = "",
          source_text: str = "") -> Dict:
     """AI dan reja so'raydi (sinxron — oqimda chaqiriladi)."""
+    from services import ai_usage
     from services.premium_presentation import llm_client, prompts
 
     extra = ""
@@ -256,7 +257,8 @@ def plan(topic: str, count: int, language: str, level: int = 2, preferences: str
     last_error = None
     for attempt in range(2):
         try:
-            data = llm_client._call_openrouter(SYSTEM, user, temperature=0.7, max_tokens=900 + 380 * count)
+            with ai_usage.where("3D Pro"):
+                data = llm_client._call_openrouter(SYSTEM, user, temperature=0.7, max_tokens=900 + 380 * count)
             result = normalize(data, topic, count)
             if len(result["slides"]) >= max(3, count - 1):
                 return result

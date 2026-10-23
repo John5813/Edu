@@ -543,12 +543,22 @@ def _count(data: dict) -> None:
     USAGE["output"] += int(usage.get("completion_tokens") or 0)
 
 
-def _count_model(model: str) -> None:
-    """AI nazorati: muvaffaqiyatli javob bergan matn modeli."""
+# AI nazorati: so'rov turi qaysi ish ekanini bildiradi. Matn so'rovi xizmat nomisiz kelsa —
+# bu modul asosan zamonaviy taqdimotniki.
+_KIND_SERVICE = {"text": "Zamonaviy taqdimot", "vision": "Slayd tekshiruvi (ko'z)", "ocr": "Kitob OCR",
+                 "receipt": "To'lov cheki", "receipt2": "To'lov cheki", "photo": "Rasm tanlash",
+                 "photocheck": "Rasmdagi matn tekshiruvi"}
+
+
+def _count_model(model: str, kind: str = "text") -> None:
+    """AI nazorati: muvaffaqiyatli javob bergan matn modeli va u ishlagan xizmat."""
     try:
         from services import ai_usage
 
-        ai_usage.record("text", model)
+        base = _KIND_SERVICE.get(kind, kind)
+        outer = ai_usage.current()
+        service = outer if kind == "text" and outer else (f"{outer} · {base}" if outer else base)
+        ai_usage.record("text", model, service=service)
     except Exception:
         pass
 
@@ -700,7 +710,7 @@ def _request(kind: str, payload: dict, timeout: int = 180,
         if not rejected and _WORKING.get(kind) != model and not (kind == "text" and _TEXT_OVERRIDE.get()):
             log.info("%s modeli: %s", {"text": "Matn", "receipt": "Chek", "ocr": "OCR", "receipt2": "Chek (tasdiq)", "photo": "Rasm tanlash", "photocheck": "Rasmdagi matn"}.get(kind, "Vision"), model)
             _WORKING[kind] = model
-        _count_model(model)
+        _count_model(model, kind)
         return data
     if partial is not None:
         log.warning("Hech bir model to'liq javob bermadi — qisman javob olindi")

@@ -280,6 +280,105 @@
     barChart("#chart-ai", rows.slice(0, 10));
   }
 
+  function drawAIWhere(items) {
+    const root = $("#ai-where");
+    root.replaceChildren();
+    const services = new Map();
+    (items || []).forEach((item) => {
+      if (!services.has(item.service)) services.set(item.service, { name: item.service, total: 0, text: [], image: [] });
+      const service = services.get(item.service);
+      service.total += item.count;
+      (item.kind === "image" ? service.image : service.text).push(item);
+    });
+    const ordered = [...services.values()].sort((a, b) => b.total - a.total);
+    if (!ordered.length) {
+      showEmpty("#ai-where", "Bu davrda xizmatlar bo‘yicha AI hisobi yo‘q (hisob yangilanishdan keyin yozila boshlaydi)");
+      return;
+    }
+    ordered.forEach((service) => {
+      const card = document.createElement("article");
+      card.className = "ai-service";
+      const head = document.createElement("div");
+      head.className = "ai-service-head";
+      const title = document.createElement("strong");
+      title.textContent = service.name;
+      const total = document.createElement("span");
+      total.textContent = `${number(service.total)} ta so‘rov`;
+      head.append(title, total);
+      card.appendChild(head);
+      [["text", "✍️ Matn"], ["image", "🎨 Rasm"]].forEach(([kind, label]) => {
+        const rows = service[kind];
+        if (!rows.length) return;
+        const sum = rows.reduce((acc, row) => acc + row.count, 0);
+        const group = document.createElement("div");
+        group.className = "ai-group";
+        const caption = document.createElement("div");
+        caption.className = "ai-kind";
+        caption.textContent = `${label} · ${number(sum)}`;
+        const bar = document.createElement("div");
+        bar.className = "ai-bar";
+        const list = document.createElement("ul");
+        rows.sort((a, b) => b.count - a.count).forEach((row, index) => {
+          const share = sum ? (row.count * 100) / sum : 0;
+          const color = colors[index % colors.length];
+          const piece = document.createElement("i");
+          piece.style.width = `${share}%`;
+          piece.style.background = color;
+          bar.appendChild(piece);
+          const li = document.createElement("li");
+          const dot = document.createElement("span");
+          dot.className = "dot";
+          dot.style.background = color;
+          const name = document.createElement("span");
+          name.className = "ai-model";
+          name.textContent = row.label || row.name;
+          name.title = row.name;
+          const value = document.createElement("b");
+          value.textContent = `${share >= 10 || share === 0 ? Math.round(share) : share.toFixed(1)}%`;
+          const count = document.createElement("small");
+          count.textContent = `(${number(row.count)})`;
+          li.append(dot, name, value, count);
+          list.appendChild(li);
+        });
+        group.append(caption, bar, list);
+        card.appendChild(group);
+      });
+      root.appendChild(card);
+    });
+  }
+
+  function drawAIConfig(items) {
+    const body = $("#ai-config");
+    body.replaceChildren();
+    const services = new Map();
+    (items || []).forEach((item) => {
+      if (!services.has(item.service)) services.set(item.service, {});
+      services.get(item.service)[item.kind] = item;
+    });
+    services.forEach((kinds, service) => {
+      const tr = document.createElement("tr");
+      const name = document.createElement("td");
+      name.textContent = service;
+      tr.appendChild(name);
+      ["text", "image"].forEach((kind) => {
+        const td = document.createElement("td");
+        const item = kinds[kind];
+        if (item) {
+          td.textContent = item.name;
+          const source = document.createElement("small");
+          source.className = "ai-source";
+          source.textContent = item.source;
+          td.title = item.model;
+          td.appendChild(source);
+        } else {
+          td.textContent = "—";
+        }
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+  }
+
   function drawCampaigns(items) {
     const rows = items || [];
     const chartRows = rows.filter((row) => row.revenue > 0).map((row) => ({ ...row, name: row.name }));
@@ -400,6 +499,8 @@
     drawFunnel(data);
     drawRepeat(data.summary);
     drawAI(data.ai_usage);
+    drawAIWhere(data.ai_where);
+    drawAIConfig(data.ai_config);
     drawCampaigns(data.campaigns);
     drawFree(data.free_offers);
     renderCosts(data);
