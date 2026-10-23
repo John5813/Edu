@@ -26,10 +26,30 @@ try:
 except Exception:  # pragma: no cover - matplotlib yo'q muhit
     DOC_CHART_TYPES = ("line", "bar", "column", "pie", "scatter", "area")
 
-def clean_text(text: str) -> str:
-    """Clean text from special characters, formatting issues, and technical JSON snippets"""
+# Formula bo'laklari (`$...$`, `$$...$$`, `\(...\)`, `\[...\]`) tozalashdan oldin chetga olinadi: ilgari
+# `\`, `|`, `_` va juft `*` o'chirilib, "1*5*9" → "159", "|A|" → "A", matritsa esa "a b c d" bo'lib qolardi.
+_MATH_SPAN = re.compile(r"\$\$.+?\$\$|\$[^$\n]+\$|\\\(.+?\\\)|\\\[.+?\\\]", re.DOTALL)
+# Markdown jadval qatori ("| a | b |") va ajratuvchi ("|---|---|") — boshqa joydagi `|` (|A|, |x|) qoladi.
+_TABLE_ROW = re.compile(r"^[ \t]*\|(.*)\|[ \t]*$", re.MULTILINE)
+_TABLE_RULE = re.compile(r"^[ \t]*\|?[ \t]*:?-{3,}:?[ \t]*(\|[ \t]*:?-{3,}:?[ \t]*)*\|?[ \t]*$", re.MULTILINE)
+
+
+def clean_text(text: str, keep_paragraphs: bool = False) -> str:
+    """Clean text from special characters, formatting issues, and technical JSON snippets.
+
+    `keep_paragraphs=True` — abzatslar orasidagi bo'sh qator ("\\n\\n") saqlanadi; aks holda butun matn
+    bitta qator bo'ladi. Formula bo'laklari tegilmaydi.
+    """
     if not text:
         return ""
+
+    formulas = []
+
+    def park(match):
+        formulas.append(re.sub(r"\s+", " ", match.group(0)))
+        return f"\x00{len(formulas) - 1}\x00"
+
+    text = _MATH_SPAN.sub(park, text)
 
     # Remove AI conversation artifacts that leak from model training data
     # Truncate at the first occurrence of role labels like "Human:", "Assistant:", "User:"
@@ -52,15 +72,59 @@ def clean_text(text: str) -> str:
     text = re.sub(r'\[[^\]]*"[^"]*"[^]]*\]', '', text)  # JSON arrays with quoted strings
     
     # Standard cleaning for other characters - but preserve brackets/braces for legitimate content
-    text = re.sub(r'[#@&<>\\|~`]', '', text)  # Removed *{}[]| from here to preserve brackets
-    text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
-    text = re.sub(r'\*([^*]+)\*', r'\1', text)
-    text = re.sub(r'__([^_]+)__', r'\1', text)
-    text = re.sub(r'_([^_]+)_', r'\1', text)
+    text = _TABLE_RULE.sub('', text)
+    text = _TABLE_ROW.sub(lambda m: m.group(1).replace('|', ' '), text)
+    text = re.sub(r'[#@&<>\\~`]', '', text)  # Removed *{}[]| from here to preserve brackets
+    # Faqat so'zni o'rab turgan markdown ajratish olib tashlanadi: "*so'z*", "**so'z**". Ko'paytma
+    # ("2*5", "2 * 5") va indeks ("a_11", "a_{ij}") tegilmaydi.
+    text = re.sub(r'(?<![\w*])\*\*(?=\S)([^*\n]+?)(?<=\S)\*\*(?![\w*])', r'\1', text)
+    text = re.sub(r'(?<![\w*])\*(?=\S)([^*\n]+?)(?<=\S)\*(?![\w*])', r'\1', text)
+    text = re.sub(r'(?<!\w)__(?=\S)([^_\n]+?)(?<=\S)__(?!\w)', r'\1', text)
+    text = re.sub(r'(?<!\w)_(?=\S)([^_\n]+?)(?<=\S)_(?!\w)', r'\1', text)
     text = re.sub(r'^\s*[-*+]\s+', '', text, flags=re.MULTILINE)
     text = re.sub(r'^\s*\d+\.\s+', '', text, flags=re.MULTILINE)
-    text = re.sub(r'\s+', ' ', text)
+    if keep_paragraphs:
+        paragraphs = [re.sub(r'\s+', ' ', part).strip() for part in re.split(r'\n[ \t]*\n', text)]
+        text = '\n\n'.join(part for part in paragraphs if part)
+    else:
+        text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r'\x00(\d+)\x00', lambda m: formulas[int(m.group(1))], text)
     return text.strip()
+
+_MATH_RULES = {
+    "uz": ("\n- ISTISNO (aniq fan mavzusi): formula, tenglama va hisob-kitobni LaTeX bilan `$...$` ichida "
+           "yozing, masalan $\\det(A) = a_{11}a_{22} - a_{12}a_{21}$. Ko'paytmani `\\cdot` bilan yozing. "
+           "Matritsa va determinantni alohida qatorda `$$...$$` ichida `\\begin{pmatrix}` yoki "
+           "`\\begin{vmatrix}` bilan yozing (ustunlar `&`, qatorlar `\\\\` bilan ajratiladi). Bu belgilar "
+           "faqat `$` ichida ishlatiladi; oddiy matnda maxsus belgi bo'lmasin."),
+    "ru": ("\n- ИСКЛЮЧЕНИЕ (точная наука): формулы, уравнения и вычисления пишите в LaTeX внутри `$...$`, "
+           "например $\\det(A) = a_{11}a_{22} - a_{12}a_{21}$. Умножение — `\\cdot`. Матрицы и определители "
+           "пишите отдельной строкой внутри `$$...$$` через `\\begin{pmatrix}` или `\\begin{vmatrix}` (столбцы "
+           "разделяются `&`, строки `\\\\`). Эти символы только внутри `$`; в обычном тексте спецсимволов нет."),
+    "en": ("\n- EXCEPTION (exact science topic): write formulas, equations and calculations in LaTeX inside "
+           "`$...$`, e.g. $\\det(A) = a_{11}a_{22} - a_{12}a_{21}$. Write multiplication as `\\cdot`. Put "
+           "matrices and determinants on their own line inside `$$...$$` using `\\begin{pmatrix}` or "
+           "`\\begin{vmatrix}` (columns separated by `&`, rows by `\\\\`). These symbols only inside `$`; "
+           "plain prose has no special characters."),
+}
+
+
+def math_rule(topic: str, language: str) -> str:
+    """Aniq fan mavzusida formulani LaTeX bilan yozish ko'rsatmasi (boshqa mavzuda — bo'sh).
+
+    Ilgari "maxsus belgi ishlatmang" qoidasi tufayli model determinantni "A = a b c d" deb yozardi:
+    hujjat yozuvchisi `$...$` ni belgilarga, matritsani esa jadvalga aylantiradi (`services.doc_math`).
+    """
+    try:
+        from services.premium_presentation import deck_shape
+
+        if not deck_shape.exact_topic(topic):
+            return ""
+    except Exception as exc:
+        logger.warning("Mavzu turi aniqlanmadi: %s", exc)
+        return ""
+    return _MATH_RULES.get(language, _MATH_RULES["en"])
+
 
 def _subsection_word_target(total_subsections: int, min_pages: int, max_pages: int,
                             fixed_pages: int = 9) -> str:
@@ -2715,7 +2779,8 @@ JSON formatda:
                 break
             written.append(text)
 
-        return " ".join(written)
+        # Bo'laklar alohida abzats bo'lib qoladi (hujjatda har biri o'z abzatsi).
+        return "\n\n".join(written)
 
     def _flow_rule(self, flow: dict, language: str) -> str:
         """Bo'limlar bir-biriga ulanishi uchun beriladigan ko'rsatma.
@@ -2833,7 +2898,7 @@ QOIDALAR:
 {century_uz_rule}
 {timeframe.year_rule("uz")}
 {heading_rule("uz")}
-- Matn ichiga "Foydalanilgan adabiyotlar:", "[1]", "[2]", "[3]" kabi ro'yxat yoki manba belgilarini KIRITMANG — manbalar avtomatik ravishda qo'shiladi{self._part_rule(part, written, "uz")}{self._flow_rule(flow, "uz")}"""
+- Matn ichiga "Foydalanilgan adabiyotlar:", "[1]", "[2]", "[3]" kabi ro'yxat yoki manba belgilarini KIRITMANG — manbalar avtomatik ravishda qo'shiladi{self._part_rule(part, written, "uz")}{self._flow_rule(flow, "uz")}{math_rule(topic, "uz")}"""
 
             common_rules_ru = f"""
 ПРАВИЛА:
@@ -2844,7 +2909,7 @@ QOIDALAR:
 {century_ru_rule}
 {timeframe.year_rule("ru")}
 {heading_rule("ru")}
-- НЕ ВКЛЮЧАЙТЕ в текст списки источников вида "Список литературы:", "[1]", "[2]", "[3]" — ссылки добавляются автоматически{self._part_rule(part, written, "ru")}{self._flow_rule(flow, "ru")}"""
+- НЕ ВКЛЮЧАЙТЕ в текст списки источников вида "Список литературы:", "[1]", "[2]", "[3]" — ссылки добавляются автоматически{self._part_rule(part, written, "ru")}{self._flow_rule(flow, "ru")}{math_rule(topic, "ru")}"""
 
             common_rules_en = f"""
 RULES:
@@ -2855,7 +2920,7 @@ RULES:
 {century_en_rule}
 {timeframe.year_rule("en")}
 {heading_rule("en")}
-- DO NOT include reference lists like "References:", "[1]", "[2]", "[3]" inside the text — citations are added automatically{self._part_rule(part, written, "en")}{self._flow_rule(flow, "en")}"""
+- DO NOT include reference lists like "References:", "[1]", "[2]", "[3]" inside the text — citations are added automatically{self._part_rule(part, written, "en")}{self._flow_rule(flow, "en")}{math_rule(topic, "en")}"""
 
             if language == "uz":
                 prompt = f"""Quyidagi kichik bo'lim uchun akademik mazmun yozing: "{subsection_title}" (umumiy mavzu: "{topic}", bob: "{chapter_title}").
@@ -2890,7 +2955,7 @@ Begin with content directly, do not repeat titles.
             # Runs before clean_text: clean_text collapses newlines, and a heading
             # sitting on its own line is the clearest evidence of an echo.
             matn = strip_echoed_heading(response, [subsection_title, chapter_title, topic])
-            matn = clean_text(matn)
+            matn = clean_text(matn, keep_paragraphs=True)
             # Javob token chegarasiga urilgan bo'lsa, chala gap hujjatga tushmasin.
             matn = trim_to_last_sentence(matn)
 

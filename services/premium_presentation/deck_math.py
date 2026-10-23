@@ -298,6 +298,14 @@ def formula(text: str) -> str:
     return re.sub(r"[ \t]{2,}", " ", out).strip()
 
 
+def plain(text: str) -> str:
+    """Formulani HTML siz, bir qatorli Unicode matnga o'giradi (Word hujjati uchun): kasr "a/b",
+    chegarali ∑ esa "∑ᵢ₌₁ⁿ" bo'ladi."""
+    out = _convert(_undouble(text), 1)
+    out = out.replace("^′", "′").replace("^'", "′").replace("^(′)", "′")
+    return re.sub(r"[ \t]{2,}", " ", out).strip()
+
+
 def render(html_body: str) -> str:
     """Slayd matnidagi LaTeX bo'laklarini almashtiradi.
 
