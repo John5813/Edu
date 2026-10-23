@@ -73,6 +73,12 @@ PAYME_TEST = os.getenv("PAYME_TEST", "0").lower() in {"1", "true", "yes"}
 PAYME_ACCOUNT = os.getenv("PAYME_ACCOUNT", "order_id").strip() or "order_id"
 # To'lovdan keyin mijoz qaytadigan sahifa (bo'sh bo'lsa — bot: https://t.me/<bot>).
 PAYME_RETURN_URL = os.getenv("PAYME_RETURN_URL", "").strip()
+# Fiskalizatsiya (chekni Payme chiqaradi): IKPU (MXIK) va qadoq kodi tasnif.soliq.uz dan.
+# PAYME_IKPU bo'lsa — CheckPerformTransaction javobida chek ma'lumoti (`detail`) yuboriladi.
+PAYME_IKPU = os.getenv("PAYME_IKPU", "").strip()
+PAYME_PACKAGE_CODE = os.getenv("PAYME_PACKAGE_CODE", "").strip()
+PAYME_VAT_PERCENT = int(os.getenv("PAYME_VAT_PERCENT", "0") or 0)        # QQS to'lovchisi bo'lmasa — 0
+PAYME_ITEM_TITLE = os.getenv("PAYME_ITEM_TITLE", "").strip() or "Hisobni to'ldirish (xizmatlar uchun oldindan to'lov)"
 
 # Chekni AI bilan avtomatik tekshirish (services/receipts).
 # Mijoz adminga shu manzil orqali murojaat qiladi (eski chek, takroriy chek).
@@ -399,30 +405,24 @@ AI_MODELS = {
 # Gemini Flash arzon, lekin u cheklovlarni ko'rganda eng kam ish qilishni
 # tanlaydi: yetkazilgan taqdimotlarda "kamida 80 so'z" talab qilingan
 # slaydlarda 34-38 so'z chiqqan va matnda markdown belgilar qolib ketgan.
-# Shuning uchun sukut bo'yicha model kuchlirog'iga almashtirildi.
-DEFAULT_AI_MODEL = "claude_sonnet_5"
+# Model admin panelda tanlanadi; bu faqat admin hech narsa tanlamagan holat uchun.
+# Claude modellari sukut ham, zaxira ham bo'lmaydi — faqat admin o'zi tanlasa ishlaydi.
+DEFAULT_AI_MODEL = "gpt_41"
 
-# Premium taqdimot uchun alohida sukut. Bu eng qimmat xizmat va undagi
-# matn sifati mijozga eng ko'p ko'rinadi, shuning uchun u boshqa
-# xizmatlardan mustaqil tanlanadi.
-PREMIUM_DEFAULT_AI_MODEL = "claude_sonnet_5"
+# Premium taqdimot uchun alohida tanlov. Admin uni tanlamagan bo'lsa — hujjatlar uchun
+# tanlangan model (`Database.get_premium_ai_model`), bu qiymat faqat ikkalasi ham bo'lmasa.
+PREMIUM_DEFAULT_AI_MODEL = DEFAULT_AI_MODEL
 
 # Tanlangan model ishlamasa (hisobda yo'q, nomi o'zgargan, provayder javob
 # bermayapti) shu ro'yxat bo'yicha keyingisiga o'tiladi. Oxirgisi — eski
 # arzon model, ya'ni eng yomon holatda xizmat avvalgidek ishlaydi.
 AI_MODEL_FALLBACKS = [
-    "anthropic/claude-sonnet-5",
-    "anthropic/claude-sonnet-4.5",
     "openai/gpt-4.1",
     "google/gemini-2.5-pro",
     "google/gemini-2.5-flash",
     "meta-llama/llama-3.3-70b-instruct",
 ]
 
-# Eski sukut modeli. Admin panelda hech narsa tanlanmagan bo'lsa,
-# ma'lumotlar bazasida shu qiymat turibdi va u yangi sukutni bosib
-# ketardi — `main.py` uni bir marta yangilaydi.
-PREVIOUS_DEFAULT_AI_MODEL = "gemini_25_flash"
 
 # ── Rasm modellari (Together AI)
 #

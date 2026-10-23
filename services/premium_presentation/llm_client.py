@@ -646,6 +646,7 @@ def _request(kind: str, payload: dict, timeout: int = 180,
     # javob qaytariladi — undan qisman foydalanish mumkin.
     partial = None
     rejected = False
+    boosted = False
     for index, model in enumerate(chain):
         try:
             resp = requests.post(config.OPENROUTER_URL, headers=headers,
@@ -691,9 +692,18 @@ def _request(kind: str, payload: dict, timeout: int = 180,
         if not reason and accept is not None and not accept(_content(data)):
             reason = "javobda kerakli qism yo'q"
         choice = ((data.get("choices") or [{}])[0] or {}) if isinstance(data, dict) else {}
-        if choice.get("finish_reason") == "length":
+        cut = choice.get("finish_reason") in ("length", "max_tokens")
+        if cut:
             log.warning("%s javobi token chegarasida kesildi (max_tokens=%s)",
                         model, payload.get("max_tokens"))
+        if reason and cut and not boosted and payload.get("max_tokens"):
+            # Javob sig'madi: boshqa modelga o'tish o'rniga o'sha model ikki barobar chegara bilan
+            # bir marta qayta so'raladi (zaxira model qimmatroq bo'lishi va admin tanlamagan bo'lishi mumkin).
+            boosted = True
+            payload = {**payload, "max_tokens": min(int(payload["max_tokens"]) * 2, _MAX_BOOST)}
+            chain.insert(index + 1, model)
+            log.warning("%s qayta so'raladi: max_tokens=%s", model, payload["max_tokens"])
+            continue
         if reason:
             rejected = True
             last_error = RuntimeError(f"{model}: {reason}")
@@ -717,6 +727,9 @@ def _request(kind: str, payload: dict, timeout: int = 180,
         return partial
     raise last_error if last_error else RuntimeError("Model ro'yxati bo'sh")
 
+
+# Kesilgan javobni qayta so'rashdagi eng katta chegara.
+_MAX_BOOST = 32000
 
 _AFFORD = re.compile(r"can only afford (\d+)", re.IGNORECASE)
 # Bundan qisqa javobga bitta slayd ham sig'maydi.

@@ -124,7 +124,15 @@ async def main():
     r = await rpc("CheckPerformTransaction", amount=1500000, account={"order_id": "abc"})
     check("buyurtma raqami noto'g'ri → -31050", code(r) == -31050, r)
     r = await rpc("CheckPerformTransaction", amount=1500000, account={"order_id": str(order)})
-    check("to'g'ri → allow", r.get("result") == {"allow": True} and r["id"] == 7, r)
+    check("to'g'ri → allow (IKPU yo'q — chek ma'lumotisiz)", r.get("result") == {"allow": True} and r["id"] == 7, r)
+    config.PAYME_IKPU, config.PAYME_PACKAGE_CODE, config.PAYME_VAT_PERCENT = "10399002001000000", "1500001", 0
+    r = await rpc("CheckPerformTransaction", amount=1500000, account={"order_id": str(order)})
+    item = ((r.get("result") or {}).get("detail") or {}).get("items", [{}])[0]
+    check("IKPU bo'lsa — chek ma'lumoti: kod, qadoq, narx tiyinda, QQS",
+          r["result"]["allow"] and r["result"]["detail"]["receipt_type"] == 0 and item.get("code") == "10399002001000000"
+          and item.get("package_code") == "1500001" and item.get("price") == 1500000 and item.get("count") == 1
+          and item.get("vat_percent") == 0 and item.get("title"), r)
+    config.PAYME_IKPU = config.PAYME_PACKAGE_CODE = ""
 
     print("\n4) CreateTransaction")
     r = await rpc("CreateTransaction", id="tx-a", time=T, amount=1500000, account={"order_id": str(order)})

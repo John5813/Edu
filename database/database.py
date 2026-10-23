@@ -1635,11 +1635,11 @@ class Database:
         matn sifati boshqa hujjatlardagidan ko'ra ko'proq ko'rinadi,
         shuning uchun unga kuchliroq (va qimmatroq) model qo'yish, qolgan
         xizmatlarni esa arzonroq modelda qoldirish mumkin.
-        """
-        from config import PREMIUM_DEFAULT_AI_MODEL
 
+        Admin premium uchun alohida tanlamagan bo'lsa — hujjatlar uchun tanlangan model.
+        """
         model = await Database.get_bot_setting("premium_ai_model")
-        return model if model else PREMIUM_DEFAULT_AI_MODEL
+        return model if model else await Database.get_current_ai_model()
 
     @staticmethod
     async def set_premium_ai_model(model_key: str) -> bool:

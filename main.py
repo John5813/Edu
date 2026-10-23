@@ -352,27 +352,22 @@ def check_lazy_imports() -> list[str]:
     return broken
 
 
-async def _upgrade_default_ai_model() -> None:
-    """Eski sukut modelini bir marta yangisiga ko'chiradi.
+async def _load_premium_ai_model() -> None:
+    """Admin tanlagan premium modelni ishga tushishda o'rnatadi.
 
-    Model tanlovi ma'lumotlar bazasida saqlanadi, shuning uchun `config.py`
-    dagi sukutni o'zgartirish ishlab turgan serverga ta'sir qilmasdi:
-    bazada eski qiymat turaveradi. Bu ko'chirish faqat admin hech qachon
-    model tanlamagan (ya'ni bazada aynan eski sukut turgan) holatda
-    ishlaydi — admin o'zi tanlagan model tegilmaydi.
+    Ilgari u faqat taqdimot buyurtmasi boshlanganda o'rnatilardi: undan oldin ishlagan xizmatlar
+    (3D anatomiya, slayd tahriri) zaxira zanjirining birinchi modelidan boshlardi.
     """
-    from config import DEFAULT_AI_MODEL, PREVIOUS_DEFAULT_AI_MODEL
+    from config import AI_MODELS
     from database.database import Database
+    from services.premium_presentation import llm_client
 
     try:
-        stored = await Database.get_bot_setting("current_ai_model")
-        if stored != PREVIOUS_DEFAULT_AI_MODEL or stored == DEFAULT_AI_MODEL:
-            return
-        if await Database.set_current_ai_model(DEFAULT_AI_MODEL):
-            logger.info("AI model eski sukutdan (%s) yangisiga ko'chirildi: %s",
-                        PREVIOUS_DEFAULT_AI_MODEL, DEFAULT_AI_MODEL)
+        key = await Database.get_premium_ai_model()
+        if key in AI_MODELS:
+            llm_client.set_text_model(AI_MODELS[key]["id"])
     except Exception as e:
-        logger.error("AI modelni ko'chirishda xato: %s", e)
+        logger.error("Premium AI modelni o'qib bo'lmadi: %s", e)
 
 
 def _prepare_browser() -> None:
@@ -444,7 +439,7 @@ async def main():
     # Initialize database
     await init_db()
 
-    await _upgrade_default_ai_model()
+    await _load_premium_ai_model()
 
     # Saytda ishning faqat boshlanishi ko'rsatiladi, shuning uchun eski
     # nashrlarning ortiqcha ko'rgazma rasmlari hostda qolib ketmasin.

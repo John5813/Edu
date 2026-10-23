@@ -186,7 +186,19 @@ async def check_perform(params: Mapping) -> Dict:
     order = await _order_for(params)
     if await orders.active_tx(order["id"]):
         raise PaymeError(ORDER_BUSY, config.PAYME_ACCOUNT)
-    return {"allow": True}
+    result = {"allow": True}
+    if config.PAYME_IKPU:
+        result["detail"] = receipt_detail(order)
+    return result
+
+
+def receipt_detail(order: Dict) -> Dict:
+    """Fiskal chek ma'lumoti (chekni Payme chiqaradi): bitta xizmat — hisobni to'ldirish."""
+    item = {"title": config.PAYME_ITEM_TITLE, "price": order["amount"] * 100, "count": 1,
+            "code": config.PAYME_IKPU, "vat_percent": config.PAYME_VAT_PERCENT}
+    if config.PAYME_PACKAGE_CODE:
+        item["package_code"] = config.PAYME_PACKAGE_CODE
+    return {"receipt_type": 0, "items": [item]}
 
 
 def _tx_id(params: Mapping) -> str:

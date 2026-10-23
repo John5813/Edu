@@ -1,6 +1,6 @@
 """3D Anatomiya: mavzu → AI reja → atlasdan 3D modellar → PowerPoint (Morph). To'liq avtomatik.
 
-1. AI (tibbiy aniqlik va o'zbekcha atama uchun kuchli model — `MED3D_MODEL`, sukut bo'yicha Claude Sonnet 5;
+1. AI (admin paneldagi premium model yoki `MED3D_MODEL`;
    ishlamasa premium zanjiridagi keyingi modellar) mavzu tana tuzilishiga oidligini tekshiradi, tanani
    (erkak/ayol) va organlarni FAQAT lug'atdan (`lugat.py`) tanlaydi, slaydlar rejasini yozadi.
 2. Reja tekshiriladi va tuzatiladi: noma'lum organ, bir-birini o'z ichiga olgan organlar, burchaklar, yorliqlar.
@@ -32,9 +32,9 @@ from . import ao
 
 log = logging.getLogger(__name__)
 
-# Reja uchun model: tibbiy faktlar, o'zbekcha anatomik atamalar va qat'iy JSON — eng ishonchli model kerak.
-# Admin paneldagi "premium model" tanlovi bunga ta'sir qilmaydi (u arzon model bo'lishi mumkin).
-MODEL = os.getenv("MED3D_MODEL") or "anthropic/claude-sonnet-5"
+# Reja uchun model: sukut bo'yicha admin paneldagi "premium model" tanlovi (bo'sh — o'sha zanjir).
+# `MED3D_MODEL` bilan alohida model qo'yish mumkin.
+MODEL = os.getenv("MED3D_MODEL") or ""
 # Akademik (3-daraja) buyurtmalar uchun kuchliroq model; belgilanmasa — oddiy reja modeli.
 MODEL_ACADEMIC = os.getenv("MED3D_MODEL_ACADEMIC") or MODEL
 # Tibbiy faktlarni ikkinchi marta tekshiruvchi arzon model; belgilanmasa — umumiy matn zanjiri. MED3D_REVIEW=0 — o'chirish.
