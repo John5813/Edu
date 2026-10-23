@@ -32,9 +32,9 @@ OPENROUTER_URL = os.getenv(
 #
 # Tartib sifat bo'yicha: avval kuchli modellar, oxirida — avvalgi arzon
 # model, ya'ni eng yomon holatda xizmat bugungidek ishlaydi.
+# Bu faqat zaxira: birinchi bo'lib admin tanlagan model sinaladi. Claude bu yerda yo'q —
+# u faqat admin o'zi tanlaganda ishlaydi.
 _DEFAULT_TEXT_CHAIN = (
-    "anthropic/claude-sonnet-5,"
-    "anthropic/claude-sonnet-4.5,"
     "openai/gpt-4.1,"
     "google/gemini-2.5-pro,"
     "google/gemini-2.5-flash"
