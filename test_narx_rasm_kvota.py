@@ -65,6 +65,41 @@ check("jarayon va qiyoslash rasm kvotasi uchun buzilmaydi",
       [x["category"] for x in res] == [x["category"] for x in shaped[:7]] + ["matn_rasm", "yakun"],
       [x["category"] for x in res])
 
+# Zamonaviy taqdimot: reja rasmli slaydlarni ketma-ket qo'ysa, ortiqchasi rasmsiz bo'ladi.
+clumped = outline(["muqova", "reja", "matn_rasm", "matn_rasm", "matn_rasm", "matn_rasm", "kartalar", "jarayon",
+                   "kartalar", "qiyoslash", "kartalar", "yakun"])
+res = html_slides.ensure_photos([dict(x) for x in clumped])
+photos = [i for i, x in enumerate(res) if x["category"] == "matn_rasm"]
+check("reja ketma-ket bergan rasmli slaydlar ajratiladi", all(b - a > 1 for a, b in zip(photos, photos[1:])), photos)
+check("ajratilgandan keyin ham kvota to'ladi", len(photos) == deck_logic.photo_quota(len(res)), photos)
+check("kam matnlida (infografik) rasm joylashuvi o'zgarmaydi",
+      [x["category"] for x in html_slides.ensure_photos([dict(x) for x in clumped], "kam")][:6] == [x["category"] for x in clumped][:6])
+
+def page(title, body):
+    return f'<section class="slide"><div class="head"><h2 class="title">{title}</h2></div><div class="body">{body}</div></section>'
+IMG = ('<div class="split"><div class="list"><div class="item">Birinchi fikr</div><div class="item">Ikkinchi fikr</div></div>'
+       '<div class="rasm" data-prompt="stomach"><p class="rasm-matn">Qo\'shimcha gap.</p></div></div>')
+CARD = '<div class="cols cols-2"><div class="card"><div class="card-title">A</div></div></div>'
+sides = [x.get("photo_side") for x in res if x["category"] == "matn_rasm"]
+check("rejadagi rasmli slaydlarga tomon navbat bilan beriladi (o'ng, chap, ...)",
+      sides == ["ong", "chap", "ong", "chap"][:len(sides)], sides)
+
+side_of = lambda b: "chap" if b.index('class="rasm"') < b.index('class="list"') else "ong"
+check("rasm chapga qo'yiladi", side_of(deck_logic.place_photo(page("a", IMG), "chap")) == "chap")
+check("rasm o'ngda qolsa slayd o'zgarmaydi", deck_logic.place_photo(page("a", IMG), "ong") == page("a", IMG))
+moved = deck_logic.place_photo(page("a", IMG), "chap")
+check("rasm tomoni o'zgarganda matn va rasm yo'qolmaydi",
+      "Ikkinchi fikr" in moved and 'data-prompt="stomach"' in moved and moved.count("<div") == page("a", IMG).count("<div"))
+plan = outline(["muqova", "reja", "matn_rasm", "kartalar", "kartalar", "matn_rasm", "yakun"])
+plan[2]["photo_side"], plan[5]["photo_side"] = "ong", "chap"
+deck = [page("M", ""), page("R", CARD), page("a", IMG), page("b", IMG), page("c", IMG), page("d", IMG), page("f", "")]
+out = html_slides.photo_sides(deck, plan)
+check("ketma-ket rasmli slaydlarda rasm tomoni almashadi (bir xil varaq chiqmaydi)",
+      [side_of(b) for b in out[2:6]] == ["ong", "chap", "ong", "chap"], [side_of(b) for b in out[2:6]])
+check("rasmli slaydlar soni o'zgarmaydi", [deck_logic.has_photo(b) for b in out] == [deck_logic.has_photo(b) for b in deck])
+check("zamonaviy taqdimot promptida: rasm faqat rejadagi rasmli slaydlarda",
+      "[matn_rasm]" in html_slides._user_prompt("M", 3, 3, 8, plan, [], 2, "", "", ""))
+
 print("\n3) Prompt va tekshiruv")
 import inspect
 from services.premium_presentation import prompts as _prompts

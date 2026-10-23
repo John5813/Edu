@@ -226,6 +226,8 @@ USER = {
                "unga qaytaverma. Ketma-ket ikki slayd bir xil shaklda bo'lmasin; "
                "lekin mazmun birinchi, "
                "shakl ikkinchi."),
+    "photo_only": ("Rasm (`rasm` bloki) faqat rejada [matn_rasm] deb belgilangan slaydlarda bo'ladi; boshqa "
+                   "slaydlarga rasm qo'ymang — ular o'z kategoriyasidagi blok bilan yoziladi."),
     "outline": ("Taqdimot rejasi (→ bilan belgilangani hozir "
                 "yoziladi). Slayd sarlavhasi rejadagi «sarlavha» bilan bir "
                 "xil bo'lsin; har slayd faqat o'z sarlavhasidagi masalani "

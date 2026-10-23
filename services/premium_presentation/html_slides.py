@@ -252,6 +252,8 @@ def _user_prompt(topic: str, start: int, count: int, total: int,
         parts.append(prompts.fill(U["plan_slide"], label=deck_logic.PLAN_LABEL.get(language, deck_logic.PLAN_LABEL["uz"])))
     if start + count - 1 >= total:
         parts.append(U["last"])
+    if not kam and outline:
+        parts.append(U["photo_only"])
     note = "" if kam else _shapes_note(shapes, start, count, language, total)
     if note:
         parts.append(note)
@@ -410,18 +412,39 @@ def ensure_charts(outline: List[Dict], language: str = "uz", family: str = "") -
 _PHOTO_CANDIDATES = ("kartalar", "ikki_ustun", "tuzilma")
 
 
+# Rasmli slayd matni yaxlit abzatslarga aylanadi (`deck_logic.flow_photo_text`), shuning uchun ketma-ket
+# rasmli slaydlar bir xil "sarlavha + abzats + rasm" varaqlar bo'lib ko'rinadi. Reja "ketma-ket kelmasin"
+# degan so'rovga amal qilmasa (ayniqsa arzon modellar), ortiqchasi rasmsiz ikki ustunli slaydga o'tadi.
+_PHOTO_SPARE = "ikki_ustun"
+
+
+def _spread_planned_photos(outline: List[Dict], want: int) -> None:
+    kept = []
+    for index, item in enumerate(outline):
+        if item["category"] != "matn_rasm":
+            continue
+        if (kept and index - kept[-1] <= 1) or len(kept) >= want:
+            item["category"] = _PHOTO_SPARE
+            log.info("%d-slayd: rasmli slayd ketma-ket yoki kvotadan ortiq — %s", index + 1, _PHOTO_SPARE)
+            continue
+        kept.append(index)
+
+
 def ensure_photos(outline: List[Dict], volume: str = "kop", language: str = "uz") -> List[Dict]:
     count = len(outline)
     want = deck_logic.photo_quota(count, volume)
+    # Kam matnlida rasm joyini kompozitsiya almashtiradi — u yerda ketma-ket rasmli slaydlar mumkin.
+    if volume != "kam":
+        _spread_planned_photos(outline, want)
     # Kam matnlida iqtibos kompozitsiyasi ham rasmli.
     photo_categories = ("matn_rasm", "iqtibos") if volume == "kam" else ("matn_rasm",)
     have = [i for i, item in enumerate(outline) if item["category"] in photo_categories]
     need = want - len(have)
-    if need <= 0:
-        return outline
     candidates = [i for i in range(2, count - 1)
                   if outline[i]["category"] in _PHOTO_CANDIDATES and i not in have]
-    if not candidates:
+    if need <= 0 or not candidates:
+        if volume != "kam":
+            _assign_photo_sides(outline)
         return outline
     # Rasmli slaydlar bir-biriga tegib turmasin: mavjudlardan uzoqroqlar afzal.
     chosen = []
@@ -429,6 +452,8 @@ def ensure_photos(outline: List[Dict], volume: str = "kop", language: str = "uz"
     while pool and len(chosen) < need:
         taken = have + chosen
         best = max(pool, key=lambda i: min([abs(i - t) for t in taken] or [99]))
+        if volume != "kam" and min([abs(best - t) for t in taken] or [99]) <= 1:
+            break       # qolgan nomzodlar rasmli slaydga tegib turadi
         chosen.append(best)
         pool.remove(best)
     P = prompts.get(language)
@@ -437,7 +462,19 @@ def ensure_photos(outline: List[Dict], volume: str = "kop", language: str = "uz"
         item["category"] = "matn_rasm"
         item["brief"] = item["brief"] + (P.KAM["photo_brief"] if volume == "kam" else P.PHOTO_BRIEF)
         log.info("%d-slayd rasmli qilib belgilandi", index + 1)
+    if volume != "kam":
+        _assign_photo_sides(outline)
     return outline
+
+
+def _assign_photo_sides(outline: List[Dict]) -> None:
+    """Rasmli slaydlarga rasm tomoni: navbat bilan o'ng va chap (ikki rasmli slayd bir xil ko'rinmasin)."""
+    sides = ("ong", "chap")
+    turn = 0
+    for item in outline:
+        if item["category"] == "matn_rasm":
+            item["photo_side"] = sides[turn % 2]
+            turn += 1
 
 
 # Aniq fanlarda (matematika, fizika, informatika) masala va mashq slaydi ishlangan misol bilan bo'lsin.
@@ -1103,7 +1140,26 @@ def _write_slides(topic, slide_count, theme, language, level, preferences, sourc
     slides = [chart_data.enforce_kpis(chart_data.enforce(b, outline[i] if i < len(outline) else None, language),
                                       outline[i] if i < len(outline) else None, language)
               for i, b in enumerate(slides)]
+    if not kam:     # kam matnlida rasm joyini kompozitsiya beradi
+        slides = photo_sides(slides, outline)
     return build_pages(slides, theme, language)
+
+
+def photo_sides(bodies: List[str], outline: List[Dict]) -> List[str]:
+    """Rasmli slaydlar dizayni: rasm reja tanlagan tomonda (chap/o'ng), keyingi rasmli slaydda — boshqa tomonda.
+
+    Model rasmni deyarli doim o'ngga qo'yadi va rasmli slayd matni abzatslarga aylanadi — barcha rasmli
+    slaydlar bir xil varaq bo'lib ko'rinardi. Rejada tomoni yo'q rasmli slayd oldingisining teskarisini oladi.
+    """
+    result, previous = list(bodies), ""
+    for index, body in enumerate(result):
+        if index == 0 or not deck_logic.has_photo(body):
+            continue
+        side = (outline[index].get("photo_side") if index < len(outline) else "") or (
+            "chap" if previous == "ong" else "ong")
+        result[index] = deck_logic.place_photo(body, side)
+        previous = side
+    return result
 
 
 # ───────────────────────────────────────────── mantiq va sifat tekshiruvi
