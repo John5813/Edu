@@ -430,6 +430,13 @@ def _extras_for_cycle(extras: list, section_num: int) -> list:
 
 
 class DocumentService:
+    # Rejadagi formula bloki yorliqlari (`_add_planned_formula`). Raqam formati `doc_visuals` bilan bir xil.
+    _VISUAL_LABELS = {
+        "uz": {"formula": "Formula {n}", "given": "Berilgan", "result": "Natija"},
+        "ru": {"formula": "Формула {n}", "given": "Дано", "result": "Результат"},
+        "en": {"formula": "Formula {n}", "given": "Given", "result": "Result"},
+    }
+
     def __init__(self):
         self.documents_dir = DOCUMENTS_DIR
         self.temp_dir = TEMP_DIR
