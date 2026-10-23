@@ -589,13 +589,21 @@ class AIService:
             }
             if response_format:
                 params["response_format"] = response_format
+            # O'ylash ulushi (admin paneldagi "🧠 AI o'ylashi"): premium taqdimot bilan bir xil sozlama.
+            from services.premium_presentation import llm_client as _premium_llm
+            reasoning, budgeted = _premium_llm.reasoning_for(max_tokens, model)
+            if reasoning is not None:
+                params["extra_body"] = {"reasoning": reasoning}
+                if max_tokens:
+                    params["max_tokens"] = budgeted
             resp = await self.client.chat.completions.create(**params)
             choice = resp.choices[0]
             answer = (choice.message.content or "").strip()
             if not answer and getattr(choice, "finish_reason", "") == "length":
                 # Fikrlovchi modellar tokenni "o'ylashga" sarflab, matn yozishga
-                # yetkazmaydi: bir marta kattaroq limit bilan qayta so'raymiz.
-                params["max_tokens"] = min(int(max_tokens) * 2 + 1500, 16000)
+                # yetkazmaydi: bir marta kattaroq limit va kamroq o'ylash bilan qayta so'raymiz.
+                params["max_tokens"] = min(int(params["max_tokens"] or 4000) * 2 + 1500, 16000)
+                params["extra_body"] = {"reasoning": _premium_llm.LEAN_REASONING}
                 resp = await self.client.chat.completions.create(**params)
                 answer = (resp.choices[0].message.content or "").strip()
             if not answer:

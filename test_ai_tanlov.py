@@ -11,6 +11,7 @@ import asyncio
 import os
 import sys
 import tempfile
+from types import SimpleNamespace
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -79,11 +80,14 @@ async def main():
 
     print("\n3) Kesilgan javob")
     pconfig.OPENROUTER_API_KEY = "k"
+    pconfig.PREMIUM_REASONING = ""          # bu bo'limda faqat qayta so'rash mantiqi tekshiriladi
     calls = []
     replies = [Resp("", "length"), Resp("tayyor")]
+    bodies = []
 
     def post(url, headers=None, json=None, timeout=None):
         calls.append((json["model"], json.get("max_tokens")))
+        bodies.append(json)
         return replies.pop(0)
 
     llm_client.requests.post = post
@@ -93,12 +97,97 @@ async def main():
           calls == [("openai/gpt-4o-mini", 4300), ("openai/gpt-4o-mini", 8600)]
           and llm_client._content(data) == "tayyor", calls)
 
+    check("bo'sh kesilgan javob: qayta so'rovda fikrlash kamaytiriladi (effort=low)",
+          "reasoning" not in bodies[0] and bodies[1].get("reasoning") == {"effort": "low", "exclude": True}, bodies)
+
     calls.clear()
+    bodies.clear()
+    replies[:] = [Resp("yarim matn", "length"), Resp("to'liq matn")]
+    payload = {"messages": [], "max_tokens": 4300}
+    data = llm_client._request("text", payload, 30, accept=lambda text: text.startswith("to'liq"))
+    check("matnli kesilgan javob: fikrlashga tegilmaydi, faqat chegara oshadi",
+          "reasoning" not in bodies[1] and calls[1][1] == 8600 and llm_client._content(data) == "to'liq matn", bodies)
+
+    calls.clear()
+    bodies.clear()
     replies[:] = [Resp("", "length"), Resp("", "length"), Resp("zaxira")]
     data = llm_client._request("text", payload, 30)
     check("ikkinchi marta ham kesilsa — keyingi modelga (qayta so'rash bir marta)",
           len(calls) == 3 and calls[1][0] == calls[0][0] and calls[2][0] != calls[0][0]
           and llm_client._content(data) == "zaxira", calls)
+    check("zaxira modelga fikrlash sozlamasi o'tmaydi", "reasoning" not in bodies[2], bodies[2])
+
+
+    print("\n4) O'ylash ulushi (PREMIUM_REASONING)")
+    import importlib
+    check("sukut: 18%", importlib.reload(pconfig).PREMIUM_REASONING == "18%", pconfig.PREMIUM_REASONING)
+    pconfig.PREMIUM_REASONING = "18%"
+    body = llm_client._body({"max_tokens": 1000}, "deepseek/deepseek-v4.1-flash", "text")
+    check("18%: o'ylash 180 token, javob chegarasi 1000 saqlanadi (jami 1180)",
+          body["reasoning"] == {"max_tokens": 180, "exclude": True} and body["max_tokens"] == 1180, body)
+    body = llm_client._body({"max_tokens": 1000}, "anthropic/claude-haiku-5.5", "text")
+    check("Claude: o'ylash kamida 1024", body["reasoning"]["max_tokens"] == 1024 and body["max_tokens"] == 2024, body)
+    body = llm_client._body({"max_tokens": 1000}, "google/gemini-2.5-flash", "vision")
+    check("matn bo'lmagan so'rovga (rasm, chek) tegilmaydi", body["reasoning"]["max_tokens"] == 1024, body)
+    pconfig.PREMIUM_REASONING = "none"
+    body = llm_client._body({"max_tokens": 1000}, "deepseek/deepseek-v4.1-flash", "text")
+    check("none: o'ylash o'chiriladi", body["reasoning"] == {"effort": "none", "exclude": True}
+          and body["max_tokens"] == 1000, body)
+    body = llm_client._body({"max_tokens": 1000, "reasoning": {"effort": "low", "exclude": True}},
+                            "deepseek/deepseek-v4.1-flash", "text")
+    check("bo'sh javobdan keyingi qayta so'rov sozlamasi ustun", body["reasoning"]["effort"] == "low", body)
+    pconfig.PREMIUM_REASONING = ""
+    body = llm_client._body({"max_tokens": 1000}, "deepseek/deepseek-v4.1-flash", "text")
+    check("bo'sh sozlama: modelning o'z sukuti", "reasoning" not in body and body["max_tokens"] == 1000, body)
+
+
+    print("\n5) Admin tugmasi va oddiy taqdimot/hujjatlar")
+    pconfig.REASONING_SHARE = "18%"
+    llm_client.set_reasoning(False)
+    check("o'chiq — o'ylamaydi (none)", llm_client.reasoning_for(1000, "x/y") == ({"effort": "none", "exclude": True}, 1000))
+    llm_client.set_reasoning(True)
+    check("yoqiq — 18%", llm_client.reasoning_for(1000, "x/y") == ({"max_tokens": 180, "exclude": True}, 1180))
+    db = Database()
+    await db.set_feature_status("ai_reasoning", False)
+    await mainmod._load_premium_ai_model()
+    check("ishga tushishda admin tanlovi (o'chiq) o'qiladi", pconfig.PREMIUM_REASONING == "none", pconfig.PREMIUM_REASONING)
+    await db.set_feature_status("ai_reasoning", True)
+    await mainmod._load_premium_ai_model()
+    check("sukut/yoqiq — 18%", pconfig.PREMIUM_REASONING == "18%", pconfig.PREMIUM_REASONING)
+    from bot.keyboards import get_feature_management_keyboard as fkb
+    btns = [b for row in fkb(True, reasoning_enabled=False).inline_keyboard for b in row]
+    check("adminda tugma: o'chiq va yoqish callback'i",
+          any(b.callback_data == "toggle_ai_reasoning_on" and "O'ylamaydi" in b.text for b in btns), [b.text for b in btns])
+
+    from services.ai_service import AIService
+    sent = []
+
+    class Choice:
+        def __init__(self, text, finish="stop"):
+            self.message = SimpleNamespace(content=text)
+            self.finish_reason = finish
+
+    class Completions:
+        def __init__(self, replies):
+            self.replies = replies
+
+        async def create(self, **params):
+            sent.append(params)
+            return SimpleNamespace(choices=[self.replies.pop(0)])
+
+    service = AIService.__new__(AIService)
+    service.client = SimpleNamespace(chat=SimpleNamespace(completions=Completions([Choice("matn")])))
+    out = await service._make_request([{"role": "user", "content": "x"}], max_tokens=1000,
+                                      model_id="deepseek/deepseek-v4.1-flash", fallback=False)
+    check("oddiy taqdimot/hujjat: 18% o'ylash yuboriladi",
+          out == "matn" and sent[0]["extra_body"] == {"reasoning": {"max_tokens": 180, "exclude": True}}
+          and sent[0]["max_tokens"] == 1180, sent)
+    sent.clear()
+    service.client.chat.completions = Completions([Choice("", "length"), Choice("matn")])
+    out = await service._make_request([{"role": "user", "content": "x"}], max_tokens=1000,
+                                      model_id="deepseek/deepseek-v4.1-flash", fallback=False)
+    check("bo'sh javobda qayta so'rov kamroq o'ylash bilan", out == "matn"
+          and sent[1]["extra_body"] == {"reasoning": {"effort": "low", "exclude": True}}, sent)
 
 
 asyncio.run(main())

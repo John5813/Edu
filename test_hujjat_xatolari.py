@@ -17,6 +17,10 @@ def check(name, cond, detail=""):
 
 from services import ai_service as ais
 from services.ai_service import AIService, _chart_is_grounded
+from services.premium_presentation import config as _premium_config
+
+# Bu yerda qayta so'rash mantiqi aniq token soni bilan tekshiriladi — o'ylash ulushi (18%) qo'shilmasin.
+_premium_config.PREMIUM_REASONING = ""
 
 def make_ai():
     ai = AIService.__new__(AIService)

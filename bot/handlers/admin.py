@@ -2285,7 +2285,8 @@ async def _feature_keyboard(db):
                await db.get_feature_status(reengage.FEATURE_WEEKLY),
                await db.get_feature_status("receipt_full_auto"),
                click_enabled=await db.get_feature_status("click_pay"),
-               payme_enabled=await db.get_feature_status("payme_pay"))
+               payme_enabled=await db.get_feature_status("payme_pay"),
+               reasoning_enabled=await db.get_feature_status("ai_reasoning"))
 
 _FEATURES_TITLE = (
     "🎛 Funksiyalar boshqaruvi\n\n"
@@ -2398,6 +2399,22 @@ async def toggle_click_pay(callback: CallbackQuery, db: Database):
     else:
         text = "⚡ Click o'chirildi: mijozlar faqat karta orqali to'laydi."
     await callback.answer(text, show_alert=True)
+    kb = await _feature_keyboard(db)
+    await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("toggle_ai_reasoning_"))
+async def toggle_ai_reasoning(callback: CallbackQuery, db: Database):
+    """Taqdimot va hujjatlardagi "o'ylaydigan" AI: 18% o'ylash yoki o'ylamaslik. Qayta ishga tushirish shart emas."""
+    if not is_admin(callback.from_user.id):
+        return
+    from services.premium_presentation import llm_client as premium_llm
+    new_status = callback.data.split("_")[-1] == "on"
+    await db.set_feature_status("ai_reasoning", new_status)
+    premium_llm.set_reasoning(new_status)
+    await callback.answer("🧠 AI o'ylashi yoqildi: javob chegarasining 18% i." if new_status
+                          else "🧠 AI o'ylamaydi: tezroq va arzonroq, murakkab hisoblarda sifat biroz pasayishi mumkin.",
+                          show_alert=True)
     kb = await _feature_keyboard(db)
     await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
 
