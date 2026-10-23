@@ -202,7 +202,7 @@ def is_calculation(topic: str) -> bool:
 # (ilgari "Kvadrat tenglamalar" umumiy deb olinib, formula va misol qoidalari ishlamasdi).
 _EXACT = re.compile(
     r"tenglam|tengsizlik|algebra|geometri|trigonometr|funksiya|integral|hosila|differensial|logarifm|"
-    r"matritsa|vektor|ehtimollar|kombinatorika|progressiya|ko'phad|ko‘phad|teorema|matematik|fizika|mexanika|"
+    r"matritsa|determinant|vektor|ehtimollar|kombinatorika|progressiya|ko'phad|ko‘phad|teorema|matematik|fizika|mexanika|"
     r"kinematika|dinamika|termodinamika|elektr|magnit|optika|kvant|algoritm|dasturlash|informatika|"
     r"nyuton|harakat qonun|tezlanish|impuls|gravitats|tortishish|to'lqin|to‘lqin|atom|yadro|"
     r"уравнен|неравенств|алгебр|геометр|тригонометр|функци|интеграл|производн|логарифм|матриц|вектор|"
@@ -210,6 +210,11 @@ _EXACT = re.compile(
     r"equation|algebra|geometry|trigonometr|calculus|integral|derivative|logarithm|matrix|vector|"
     r"probability|mathemat|physics|mechanics|algorithm|programming",
     re.IGNORECASE)
+
+
+def exact_topic(topic: str) -> bool:
+    """Mavzu nomidan: aniq fan yoki hisob-kitob (formulalar yoziladi)."""
+    return is_calculation(topic) or bool(_EXACT.search(topic or ""))
 
 
 def of(topic: str, hint: Optional[str] = None) -> str:

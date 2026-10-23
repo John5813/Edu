@@ -20,6 +20,7 @@ from config import DOCUMENTS_DIR, TEMP_DIR
 from services.together_service import get_together_service
 from services.ai_service import clean_text
 from services import doc_visuals
+from services import doc_math
 from services import timeframe
 from services.doc_toc import TocPlan
 from services import uzbekistan
@@ -46,6 +47,38 @@ CHARS_PER_PAGE = 2550
 def _footnote_slots(text: str) -> int:
     """Matn necha bet bo'lsa, shuncha snoska — kamida bitta."""
     return max(1, round(len(text or "") / CHARS_PER_PAGE))
+
+
+def _cell_side_borders(cell, sides) -> None:
+    """Jadval katagining ko'rsatilgan chetlariga ingichka chiziq (matritsa qavsi o'rnida)."""
+    tc_pr = cell._tc.get_or_add_tcPr()
+    borders = tc_pr.find(qn("w:tcBorders"))
+    if borders is None:
+        borders = OxmlElement("w:tcBorders")
+        tc_pr.append(borders)
+    for side in sides:
+        edge = OxmlElement(f"w:{side}")
+        edge.set(qn("w:val"), "single")
+        edge.set(qn("w:sz"), "8")
+        edge.set(qn("w:space"), "0")
+        edge.set(qn("w:color"), "000000")
+        borders.append(edge)
+
+
+def _fixed_table_widths(table, widths) -> None:
+    """Jadval ustunlari aynan berilgan enda (Word ham, LibreOffice ham sahifa eniga cho'zmaydi)."""
+    tbl_pr = table._tbl.tblPr
+    layout = OxmlElement("w:tblLayout")
+    layout.set(qn("w:type"), "fixed")
+    tbl_pr.append(layout)
+    total = OxmlElement("w:tblW")
+    total.set(qn("w:w"), str(int(sum(widths) * 1440)))
+    total.set(qn("w:type"), "dxa")
+    for old in tbl_pr.findall(qn("w:tblW")):
+        tbl_pr.remove(old)
+    tbl_pr.append(total)
+    for column, width in zip(table.columns, widths):
+        column.width = Inches(width)
 
 
 def _split_into_paragraphs(text: str, target_count: int = 2, min_sentences: int = 6) -> list:
@@ -2551,23 +2584,105 @@ class DocumentService:
             r for r in (references or [])
             if r and not str(r).startswith("__CATEGORY__")
         ]
-        for chunk in _split_into_paragraphs(text, target_count=_footnote_slots(text)):
-            if not chunk.strip():
+        slots = _footnote_slots(text)
+        # Model yozgan abzatslar (bo'sh qator bilan) saqlanadi; abzatssiz matn avvalgidek bo'linadi.
+        chunks = [c.strip() for c in re.split(r"\n[ \t]*\n", text or "") if c.strip()]
+        if len(chunks) <= 1:
+            chunks = _split_into_paragraphs(re.sub(r"\s+", " ", text or ""), target_count=slots)
+        # Formula alohida qator bo'lib chiziladi; matn abzatslari esa snoskalar uchun sanaladi.
+        pieces = [piece for chunk in chunks for piece in doc_math.blocks(chunk)]
+        prose = [i for i, (kind, _) in enumerate(pieces) if kind == "text"]
+        # Snoskalar avvalgidek har betga bittadan, matn bo'ylab teng taqsimlanadi.
+        cited = {prose[min(len(prose) - 1, (k + 1) * len(prose) // slots - 1)] for k in range(slots)} if prose else set()
+
+        previous = ""
+        for index, (kind, body) in enumerate(pieces):
+            if kind == "math":
+                self._add_formula_block(doc, body)
+                previous = kind
                 continue
             para = doc.add_paragraph()
-            para.paragraph_format.first_line_indent = Inches(0.5)
+            # Formuladan keyingi davom (".. bo'lsa, unda ...") yangi abzats emas — xatboshisiz.
+            para.paragraph_format.first_line_indent = Inches(0 if previous == "math" else 0.5)
             para.paragraph_format.line_spacing = 1.5
             para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-            run = para.add_run(chunk.strip())
+            run = para.add_run(body.strip())
             run.font.size = Pt(14)
             run.font.name = 'Times New Roman'
+            previous = kind
 
-            if citable:
+            if citable and index in cited:
                 self._add_footnote(
                     para, citable[(footnote_counter - 1) % len(citable)], footnote_counter
                 )
                 footnote_counter += 1
         return footnote_counter
+
+    def _add_formula_block(self, doc, latex: str) -> None:
+        """Alohida qatordagi formula: markazda; matritsa esa chegarasiz jadval (qator va ustunlari bilan),
+        determinantda ustunlar ikki chetidan chiziq bilan."""
+        parts = doc_math.segments(latex)
+        if not any(part[0] == "matrix" for part in parts):
+            para = doc.add_paragraph()
+            para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            para.paragraph_format.first_line_indent = Inches(0)
+            run = para.add_run(" ".join(part[1] for part in parts) or doc_math.plain(latex))
+            run.font.size = Pt(14)
+            run.font.name = 'Times New Roman'
+            return
+
+        height = max(len(part[2]) for part in parts if part[0] == "matrix")
+        columns = []          # (bo'lak, ustun raqami yoki None)
+        for part in parts:
+            if part[0] == "matrix":
+                columns.extend((part, c) for c in range(len(part[2][0])))
+            else:
+                columns.append((part, None))
+        table = doc.add_table(rows=height, cols=len(columns))
+        table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        table.autofit = False
+
+        widths = [0.12 * len(part[1]) + 0.35 if c is None
+                  else max(0.45, 0.13 * max(len(row[c]) for row in part[2]) + 0.3)
+                  for part, c in columns]
+        # Sahifa enidan (~6.2 dyuym) oshmasin: faqat uzun matn kataklari torayib, ichida qatorga
+        # bo'linadi ("det(B) =" kabi qisqasi bo'linmaydi).
+        long = [i for i, (part, c) in enumerate(columns) if c is None and len(part[1]) > 12]
+        spare = 6.2 - sum(w for i, w in enumerate(widths) if i not in long)
+        wanted = sum(widths[i] for i in long)
+        if wanted > spare > 0:
+            widths = [w * spare / wanted if i in long else w for i, w in enumerate(widths)]
+        _fixed_table_widths(table, widths)
+
+        for col, (part, c) in enumerate(columns):
+            width = widths[col]
+            if c is None or len(part[2]) < height:
+                # Matn (yoki kichikroq matritsa) jadval bo'yi bo'ylab bitta katak.
+                cell = table.cell(0, col).merge(table.cell(height - 1, col)) if height > 1 else table.cell(0, col)
+                cells = [cell]
+                values = [part[1] if c is None else "  ".join(row[c] for row in part[2])]
+            else:
+                cells = [table.cell(r, col) for r in range(height)]
+                values = [row[c] for row in part[2]]
+            for r, (cell, value) in enumerate(zip(cells, values)):
+                cell.width = Inches(width)
+                cell.vertical_alignment = 1  # WD_ALIGN_VERTICAL.CENTER
+                para = cell.paragraphs[0]
+                para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                para.paragraph_format.first_line_indent = Inches(0)
+                para.paragraph_format.line_spacing = 1.0
+                para.paragraph_format.space_after = Pt(0)
+                run = para.add_run(value)
+                run.font.size = Pt(14)
+                run.font.name = 'Times New Roman'
+                if c is not None and doc_math.BRACKETS[part[1]][0]:
+                    sides = []
+                    if c == 0:
+                        sides.append("left")
+                    if c == len(part[2][0]) - 1:
+                        sides.append("right")
+                    _cell_side_borders(cell, sides)
+        doc.add_paragraph().paragraph_format.space_after = Pt(0)
 
     def _add_footnote(self, paragraph, footnote_text: str, footnote_num: int = 1):
         """Add a real Word page-bottom footnote (snoska).
