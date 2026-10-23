@@ -129,8 +129,9 @@ def check_design_system():
 
     # Qutiga qat'iy balandlik berilmasa, matn undan chiqib keta
     # olmaydi. Slaydning o'zi va bezaklargina o'lchamli bo'ladi.
+    # San'at rahbari bezaklari (doira, halqa, tasma — `deck_art`) o'lchamli bo'ladi: ular matn qutisi emas.
     lines = [line for line in css.split("\n")
-             if "height:" in line and "line-height" not in line
+             if "height:" in line and "line-height" not in line and "art-" not in line
              and "min-height" not in line and "max-height" not in line]
     loose = [line for line in lines if "auto" not in line
              and "100%" not in line and "1080px" not in line
@@ -2155,7 +2156,8 @@ def check_no_sections_and_photo_text():
     finally:
         (html_slides.plan_outline, html_slides._write_chunk,
          html_slides._thicken) = saved
-    sources = [html_slides.source_of(page) for page in pages]
+    # Manbada sahna sinflari bor (`deck_art`) — mazmun solishtiriladi.
+    sources = [html_slides.deck_art.strip(html_slides.source_of(page)) for page in pages]
     check("muqova tegilmaydi", sources[0] == cover)
     check("2-slayd — yozilgan slaydlardan yig'ilgan reja", "Taqdimot rejasi" in pages[1])
     check("ajratkich o'rniga matn va rasm (matn tomoni yaxlit abzats)",
@@ -2247,7 +2249,7 @@ def check_conclusion_only():
         pages = html_slides.write_slides("Mavzu", 4, theme)
     finally:
         html_slides.plan_outline, html_slides._write_chunk = saved
-    sources = [html_slides.source_of(page) for page in pages]
+    sources = [html_slides.deck_art.strip(html_slides.source_of(page)) for page in pages]
     check("oxirgi varaq tozalanadi", "rahmat" not in sources[-1].lower())
     check("boshqa varaqlarga tegilmaydi", sources[2] == thanks)
 

@@ -527,6 +527,8 @@ USER = {
                "famous saying → a quote. Cards only for 3-4 equal elements — keep them for that. "
                "Two slides in a row take different shapes; "
                "but content first, form second."),
+    "photo_only": ("A photo (the `rasm` block) goes only on slides marked [matn_rasm] in the outline; do not put "
+                   "a photo on other slides — they are written with the block of their own category."),
     "outline": ("Presentation outline (the ones marked with → are written now). The slide title "
                 "matches the «title» in the outline; each slide covers only the question in its own "
                 "title:\n⟨lines⟩"),

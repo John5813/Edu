@@ -17,7 +17,7 @@ import shutil
 import tempfile
 from typing import Callable, Dict, List, Optional
 
-from . import chart_data, deck_compose, deck_logic, html_images, html_render, html_slides, llm_client, prompts, themes
+from . import chart_data, deck_art, deck_compose, deck_logic, html_images, html_render, html_slides, llm_client, prompts, themes
 
 log = logging.getLogger(__name__)
 
@@ -319,6 +319,12 @@ async def _rewrite(deck: dict, index: int, instruction: str, shots_dir: str,
         raise SlideEditError("AI so'ralgan ko'rinishdagi sahifani yarata olmadi. Iltimosni boshqacha yozib ko'ring.")
 
     body = await asyncio.to_thread(_finish, deck, index, body, item)
+    if getattr(theme, "layout", "") != "kam":
+        # Yangi sahifa ham sahna oladi: qo'shnilariga qarab (fon va ko'rinish ular bilan takrorlanmaydi).
+        sources = [_source(deck, i) for i in range(len(deck["pages"]))]
+        if index < len(sources):
+            sources[index] = body
+            body = deck_art.direct_one(sources, index, getattr(theme, "style", ""))
     page = (await asyncio.to_thread(html_slides.build_pages, [body], theme, language))[0]
 
     report("images", 55)

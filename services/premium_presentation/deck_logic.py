@@ -688,6 +688,29 @@ def flow_photo_text(body: str) -> str:
     return result
 
 
+def place_photo(body: str, side: str) -> str:
+    """Rasm blokini `split` ichida chapga (birinchi) yoki o'ngga (oxirgi) qo'yadi — rasmli slayd dizayni."""
+    if side not in ("chap", "ong") or not has_photo(body):
+        return body
+    for opening in _SPLIT_OPEN.finditer(body):
+        if "split" not in opening.group(1).split():
+            continue
+        close = _split_close(body, opening)
+        if close < 0:
+            continue
+        kids = _children(body, opening.end(), close)
+        photos = [k for k in kids if "rasm" in k[2].split()]
+        gaps = "".join(body[a[1]:b[0]] for a, b in zip(kids, kids[1:]))
+        if len(kids) < 2 or len(photos) != 1 or gaps.strip():
+            continue
+        photo = photos[0]
+        others = [body[k[0]:k[1]] for k in kids if k is not photo]
+        block = body[photo[0]:photo[1]]
+        pieces = [block] + others if side == "chap" else others + [block]
+        return body[:kids[0][0]] + "".join(pieces) + body[kids[-1][1]:]
+    return body
+
+
 def _split_close(body: str, opening) -> int:
     """`split` ochuvchi tegining yopuvchi `</div>` boshlanishi (-1 — yo'q)."""
     depth = 1

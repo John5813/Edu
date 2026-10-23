@@ -527,6 +527,10 @@ def stylesheet(theme) -> str:
         from . import deck_compose
 
         css += deck_compose.CSS
+    else:
+        from . import deck_art
+
+        css += deck_art.css(getattr(theme, "style", ""))
     # Uzun kalitlar avval almashtiriladi: "BACKGROUND" ichida "BAND"
     # yo'q, lekin "BANDCARD" ichida "BAND" bor.
     for key in sorted(swap, key=len, reverse=True):
