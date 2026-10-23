@@ -55,6 +55,9 @@ _RATE_LIMIT_ATTEMPTS = int(os.getenv("TOGETHER_RATE_LIMIT_ATTEMPTS", "6"))
 
 class TogetherImageService:
     """Service for generating images using Together AI FLUX models"""
+
+    # 429 kelganda HAMMA rasm so'rovlari shu vaqtgacha kutadi (monotonic); 429 da yangilanadi.
+    _cooldown_until = 0.0
     
     def __init__(self):
         self.api_key = os.getenv("TOGETHER_API_KEY")
@@ -65,8 +68,7 @@ class TogetherImageService:
         self.client = Together(api_key=self.api_key, max_retries=0)
         self.image_semaphore = asyncio.Semaphore(
             max(1, int(os.getenv("TOGETHER_IMAGE_CONCURRENCY", "2"))))
-        # 429 kelganda HAMMA rasm so'rovlari shu vaqtgacha kutadi: aks holda parallel so'rov darhol yana
-        # urilib, o'zi ham 429 olardi (Together cheklovi oyna bo'yicha, so'rov bo'yicha emas).
+        # Aks holda parallel so'rov darhol yana urilib, o'zi ham 429 olardi (Together cheklovi oyna bo'yicha).
         self._cooldown_until = 0.0
         # Rasm modeli har xizmat uchun alohida tanlanadi (admin panel) —
         # qarang: `chosen_image_model`.
