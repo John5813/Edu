@@ -20,7 +20,7 @@ import os
 import re
 from typing import Callable, Dict, List, Optional
 
-from . import (chart_data, deck_calc, deck_charts, deck_compose, deck_logic, deck_math, deck_memory, deck_shape, deck_style,
+from . import (chart_data, deck_art, deck_calc, deck_charts, deck_compose, deck_logic, deck_math, deck_memory, deck_shape, deck_style,
                deck_styles, llm_client, prompts)
 from services import uz_script
 
@@ -912,8 +912,8 @@ def build_pages(bodies: List[str], theme, language: str = "uz") -> List[str]:
     # aylanadi, so'ng diagramma chiziladi.
     drawn = [deck_charts.draw(
         _half_charts(_chart_beside_text(deck_math.render(deck_styles.decorate(
-            _whiten_icons(_auto_icons(_decorate(
-                guard_quote_sources(guard_source_years(deck_calc.apply(_fix_html_lists(body)), language))))), theme)))),
+            _whiten_icons(_auto_icons(_decorate(deck_art.dress(
+                guard_quote_sources(guard_source_years(deck_calc.apply(_fix_html_lists(body)), language)))))), theme)))),
         theme)
              for body in bodies]
     try:
@@ -1142,6 +1142,8 @@ def _write_slides(topic, slide_count, theme, language, level, preferences, sourc
               for i, b in enumerate(slides)]
     if not kam:     # kam matnlida rasm joyini kompozitsiya beradi
         slides = photo_sides(slides, outline)
+        # Har slaydga sahna (fon, sarlavha, blok varianti): taqdimot bo'yicha eng kam ishlatilgani.
+        slides = deck_art.direct(slides, getattr(theme, "style", ""))
     return build_pages(slides, theme, language)
 
 
@@ -1808,7 +1810,7 @@ def fix_slide(html: str, problems: List[str], theme, language: str = "uz") -> st
         log.warning("Tuzatish qabul qilinmadi — slayd qayta yozilgan: %s",
                     reason)
         return html
-    return build_pages(fixed[:1], theme, language)[0]
+    return build_pages([deck_art.carry(source, fixed[0])], theme, language)[0]
 
 
 # Slaydning tuzilishini belgilaydigan bloklar. Tuzatishda ularning
