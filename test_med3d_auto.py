@@ -36,6 +36,12 @@ check("ayolga xos organlar faqat ayolda", all(o in FEMALE and o not in MALE for 
 check("erkakka xos organlar faqat erkakda", all(o in MALE and o not in FEMALE for o in ("moyaklar", "prostata")))
 check("oshqozon faqat erkakda, o'pka faqat ayolda", "oshqozon" in MALE and "oshqozon" not in FEMALE
       and "opkalar" in FEMALE and "opkalar" not in MALE)
+check("qo'l panjasida barmoq falangalari bor (har qo'lda 27 suyak)",
+      all(len(b["qol_panja"]["parts"]) == 54 for b in (MALE, FEMALE)),
+      [len(b["qol_panja"]["parts"]) for b in (MALE, FEMALE)])
+check("oyoq panjasida barmoq falangalari bor",
+      all(len(b["oyoq_panja"]["parts"]) >= 48 for b in (MALE, FEMALE)),
+      [len(b["oyoq_panja"]["parts"]) for b in (MALE, FEMALE)])
 check("har organda qism, chegara va namuna", all(v["parts"] and len(v["samples"]) > 5 and v["tris"] > 0
                                                for b in (MALE, FEMALE) for v in b.values()))
 check("o'zbekcha nomlar bor", all(BY_ID[o]["uz"] for b in (MALE, FEMALE) for o in b))

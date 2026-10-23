@@ -25,9 +25,9 @@ FAT, SKIN = "#E7C47C", "#D9A98C"
 _SKULL = r"^(left |right )?(frontal bone|parietal bone|occipital bone|temporal bone|sphenoid bone|ethmoid|maxilla|" \
          r"zygomatic bone|nasal bone|palatine bone|vomer|mandible|lacrimal bone|inferior nasal concha)$"
 _HAND = r"(scaphoid|lunate|triquetral|pisiform|trapezium|trapezoid|capitate|hamate|metacarpal|" \
-        r"phalanx of (thumb|index finger|middle finger|ring finger|little finger))"
+        r"phalanx of (left |right )?(thumb|index finger|middle finger|ring finger|little finger))"
 _FOOT = r"(talus|calcaneus|navicular bone of foot|cuboid bone|cuneiform bone|metatarsal|" \
-        r"phalanx of (big|second|third|fourth|little) toe|sesamoid bone of foot)"
+        r"phalanx of (left |right )?(big|second|third|fourth|little) toe|sesamoid bone of foot)"
 _LR = r"^(left |right )?"
 _ZA = "za-muscular:" + _LR
 _ZO = "za-organ:"
