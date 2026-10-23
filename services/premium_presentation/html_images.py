@@ -497,7 +497,7 @@ async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
         fit = " fit" if formulas else ""
         result[index] = (page[:start] + '<div class="rasm photo-in"><img '
                          f'class="photo{fit}" src="{uri}" alt="" '
-                         f'style="object-position:{position}">'
+                         f'style="object-position:{position}"></div>'
                          + page[end:])
         placed += 1
     log.info("Rasm bloklari: %d tasi sinaldi, %d tasiga rasm qo'yildi",
