@@ -40,11 +40,13 @@ _DEFAULT_TEXT_CHAIN = (
     "google/gemini-2.5-flash"
 )
 # Slayd rasmini ko'z bilan tekshiradigan model. U har slayd uchun
-# chaqiriladi, shuning uchun o'rta darajali model yetarli.
+# chaqiriladi, shuning uchun o'rta darajali model yetarli. Gemini 3.1
+# Flash Lite Haiku'dan ~6 barobar arzon; GPT-4o Mini olib tashlandi —
+# u rasmni GPT-4o narxida hisoblaydi.
 _DEFAULT_VISION_CHAIN = (
+    "google/gemini-3.1-flash-lite,"
     "anthropic/claude-haiku-4.5,"
-    "openai/gpt-4.1-mini,"
-    "openai/gpt-4o-mini"
+    "openai/gpt-4.1-mini"
 )
 
 
