@@ -366,6 +366,7 @@ async def _load_premium_ai_model() -> None:
         key = await Database.get_premium_ai_model()
         if key in AI_MODELS:
             llm_client.set_text_model(AI_MODELS[key]["id"])
+        llm_client.set_reasoning(await Database().get_feature_status("ai_reasoning"))
     except Exception as e:
         logger.error("Premium AI modelni o'qib bo'lmadi: %s", e)
 

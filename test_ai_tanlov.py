@@ -11,6 +11,7 @@ import asyncio
 import os
 import sys
 import tempfile
+from types import SimpleNamespace
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -138,6 +139,55 @@ async def main():
     pconfig.PREMIUM_REASONING = ""
     body = llm_client._body({"max_tokens": 1000}, "deepseek/deepseek-v4.1-flash", "text")
     check("bo'sh sozlama: modelning o'z sukuti", "reasoning" not in body and body["max_tokens"] == 1000, body)
+
+
+    print("\n5) Admin tugmasi va oddiy taqdimot/hujjatlar")
+    pconfig.REASONING_SHARE = "18%"
+    llm_client.set_reasoning(False)
+    check("o'chiq — o'ylamaydi (none)", llm_client.reasoning_for(1000, "x/y") == ({"effort": "none", "exclude": True}, 1000))
+    llm_client.set_reasoning(True)
+    check("yoqiq — 18%", llm_client.reasoning_for(1000, "x/y") == ({"max_tokens": 180, "exclude": True}, 1180))
+    db = Database()
+    await db.set_feature_status("ai_reasoning", False)
+    await mainmod._load_premium_ai_model()
+    check("ishga tushishda admin tanlovi (o'chiq) o'qiladi", pconfig.PREMIUM_REASONING == "none", pconfig.PREMIUM_REASONING)
+    await db.set_feature_status("ai_reasoning", True)
+    await mainmod._load_premium_ai_model()
+    check("sukut/yoqiq — 18%", pconfig.PREMIUM_REASONING == "18%", pconfig.PREMIUM_REASONING)
+    from bot.keyboards import get_feature_management_keyboard as fkb
+    btns = [b for row in fkb(True, reasoning_enabled=False).inline_keyboard for b in row]
+    check("adminda tugma: o'chiq va yoqish callback'i",
+          any(b.callback_data == "toggle_ai_reasoning_on" and "O'ylamaydi" in b.text for b in btns), [b.text for b in btns])
+
+    from services.ai_service import AIService
+    sent = []
+
+    class Choice:
+        def __init__(self, text, finish="stop"):
+            self.message = SimpleNamespace(content=text)
+            self.finish_reason = finish
+
+    class Completions:
+        def __init__(self, replies):
+            self.replies = replies
+
+        async def create(self, **params):
+            sent.append(params)
+            return SimpleNamespace(choices=[self.replies.pop(0)])
+
+    service = AIService.__new__(AIService)
+    service.client = SimpleNamespace(chat=SimpleNamespace(completions=Completions([Choice("matn")])))
+    out = await service._make_request([{"role": "user", "content": "x"}], max_tokens=1000,
+                                      model_id="deepseek/deepseek-v4.1-flash", fallback=False)
+    check("oddiy taqdimot/hujjat: 18% o'ylash yuboriladi",
+          out == "matn" and sent[0]["extra_body"] == {"reasoning": {"max_tokens": 180, "exclude": True}}
+          and sent[0]["max_tokens"] == 1180, sent)
+    sent.clear()
+    service.client.chat.completions = Completions([Choice("", "length"), Choice("matn")])
+    out = await service._make_request([{"role": "user", "content": "x"}], max_tokens=1000,
+                                      model_id="deepseek/deepseek-v4.1-flash", fallback=False)
+    check("bo'sh javobda qayta so'rov kamroq o'ylash bilan", out == "matn"
+          and sent[1]["extra_body"] == {"reasoning": {"effort": "low", "exclude": True}}, sent)
 
 
 asyncio.run(main())

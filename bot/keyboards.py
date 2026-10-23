@@ -1155,6 +1155,7 @@ def get_feature_management_keyboard(
     receipt_full_auto_enabled: bool = True,
     click_enabled: bool = True,
     payme_enabled: bool = True,
+    reasoning_enabled: bool = True,
 ) -> InlineKeyboardMarkup:
     """Feature management keyboard for admin"""
     keyboard = InlineKeyboardBuilder()
@@ -1200,6 +1201,13 @@ def get_feature_management_keyboard(
         text=f"💠 Payme orqali to'lov: {'🟢 Yoqilgan' if payme_enabled else '🔴 Ochirilgan'}".replace(
             "Ochirilgan", "O'chirilgan"),
         callback_data=f"toggle_payme_pay_{'off' if payme_enabled else 'on'}"
+    ))
+
+    # Taqdimot va hujjatlardagi "o'ylaydigan" AI: yoqiq — 18% o'ylash, o'chiq — o'ylamaydi
+    reasoning_label = "🟢 18%" if reasoning_enabled else "🔴 O'ylamaydi"
+    keyboard.add(InlineKeyboardButton(
+        text=f"🧠 AI o'ylashi: {reasoning_label}",
+        callback_data=f"toggle_ai_reasoning_{'off' if reasoning_enabled else 'on'}"
     ))
 
     # Faol bo'lmagan mijozlarga qayta jalb xabarlari (services/reengage.py)

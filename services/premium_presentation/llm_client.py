@@ -612,28 +612,47 @@ _THINKING_BUDGET = 1024
 _EFFORTS = {"none", "minimal", "low", "medium", "high", "xhigh", "max"}
 
 
-def _text_reasoning(payload: dict, model: str) -> dict:
-    """Matn so'rovlarida o'ylash ulushi (`PREMIUM_REASONING`): "18%" yoki daraja ("none", "low", ...).
+def reasoning_for(max_tokens: int, model: str):
+    """Taqdimot matni uchun o'ylash sozlamasi: (reasoning lug'ati yoki None, yangi max_tokens).
 
-    Foizda o'ylash byudjeti javob chegarasining USTIGA qo'shiladi — javobga joy kamaymaydi.
+    `PREMIUM_REASONING`: "18%" — o'ylash byudjeti javob chegarasining 18% i, chegaraning USTIGA qo'shiladi
+    (javobga joy kamaymaydi); daraja ("none" — o'ylamaslik, "low", ...); bo'sh — modelning o'z sukuti.
     Faqat daraja qo'llaydigan modellarda (masalan DeepSeek) OpenRouter byudjetni eng yaqin darajaga aylantiradi.
     """
     setting = (config.PREMIUM_REASONING or "").strip().lower()
-    if not setting or "reasoning" in payload:
-        return payload
+    answer = int(max_tokens or 0)
+    if not setting:
+        return None, answer
     if setting in _EFFORTS:
-        return {**payload, "reasoning": {"effort": setting, "exclude": True}}
+        return {"effort": setting, "exclude": True}, answer
     try:
         share = float(setting.rstrip("%")) / 100
     except ValueError:
-        return payload
-    answer = int(payload.get("max_tokens") or 0)
+        return None, answer
     if not answer or share <= 0:
-        return payload
+        return None, answer
     budget = int(answer * share)
     if model.startswith("anthropic/"):
         budget = max(budget, 1024)          # Claude'da o'ylash byudjeti kamida 1024
-    return {**payload, "max_tokens": answer + budget, "reasoning": {"max_tokens": budget, "exclude": True}}
+    return {"max_tokens": budget, "exclude": True}, answer + budget
+
+
+def set_reasoning(enabled: bool) -> None:
+    """Admin paneldagi tugma: o'ylash yoqiq — `REASONING_SHARE` (sukut 18%), o'chiq — o'ylamaslik."""
+    config.PREMIUM_REASONING = config.REASONING_SHARE if enabled else "none"
+    log.info("AI o'ylashi: %s", config.PREMIUM_REASONING)
+
+
+def _text_reasoning(payload: dict, model: str) -> dict:
+    if "reasoning" in payload:
+        return payload
+    reasoning, max_tokens = reasoning_for(payload.get("max_tokens"), model)
+    if reasoning is None:
+        return payload
+    out = {**payload, "reasoning": reasoning}
+    if payload.get("max_tokens"):
+        out["max_tokens"] = max_tokens
+    return out
 
 
 def _body(payload: dict, model: str, kind: str = "") -> dict:
@@ -767,7 +786,8 @@ def _request(kind: str, payload: dict, timeout: int = 180,
 # Kesilgan javobni qayta so'rashdagi eng katta chegara.
 _MAX_BOOST = 32000
 # Fikrlash butun chegarani yeb, javob bo'sh kelganda qayta so'rov uchun: fikrlash ~20%, javob ko'rinmaydi.
-_LEAN_REASONING = {"effort": "low", "exclude": True}
+LEAN_REASONING = {"effort": "low", "exclude": True}
+_LEAN_REASONING = LEAN_REASONING
 
 _AFFORD = re.compile(r"can only afford (\d+)", re.IGNORECASE)
 # Bundan qisqa javobga bitta slayd ham sig'maydi.

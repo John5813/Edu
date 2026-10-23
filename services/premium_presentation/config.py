@@ -109,7 +109,9 @@ PHOTO_TEXT_CHECK_MODELS = ("google/gemini-2.5-flash", "openai/gpt-4.1-mini", "op
 
 # Matn modelining "o'ylash" ulushi: "18%" (javob chegarasining ustiga), yoki daraja: none/minimal/low/medium/high.
 # Bo'sh — modelning o'z sukuti (ba'zilarida "high": chegarani o'ylashga sarflab, bo'sh javob qaytaradi).
-PREMIUM_REASONING = os.getenv("PREMIUM_REASONING", "18%")
+# Admin paneldagi "🧠 AI o'ylashi" tugmasi: yoqiq — REASONING_SHARE, o'chiq — "none" (taqdimot va hujjatlar).
+REASONING_SHARE = os.getenv("PREMIUM_REASONING", "18%")
+PREMIUM_REASONING = REASONING_SHARE
 
 # Eski nom bilan foydalanadigan joylar uchun — ro'yxatning birinchisi.
 OPENROUTER_TEXT_MODEL = OPENROUTER_TEXT_MODELS[0]
