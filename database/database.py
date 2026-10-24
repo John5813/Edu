@@ -49,6 +49,9 @@ async def init_db():
             )
         ''')
 
+        # Admin statistikasidagi "to'lov qilganmi" tekshiruvlari har foydalanuvchi uchun shu indeksdan o'qiydi.
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_payments_user ON payments (user_id, status)")
+
         # Channels table
         await db.execute('''
             CREATE TABLE IF NOT EXISTS channels (
