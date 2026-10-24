@@ -39,7 +39,10 @@
         ...(options.headers || {}),
       },
     }).then(async (response) => {
-      const result = await response.json();
+      // Server qayta ishga tushayotganda yoki javob kechikkanda proksi JSON o'rniga HTML sahifa qaytaradi.
+      const result = await response.json().catch(() => {
+        throw new Error(`server javob bermadi (HTTP ${response.status}). Birozdan keyin ↻ tugmasini bosing`);
+      });
       if (!response.ok) throw new Error(result.error || "So‘rov bajarilmadi");
       return result;
     });
