@@ -1256,6 +1256,12 @@ def get_feature_management_keyboard(
         callback_data="mass_take_back_start"
     ))
 
+    # Minusga tushgan balanslarni 0 ga tenglash (database.fix_negative_balances)
+    keyboard.add(InlineKeyboardButton(
+        text="🔄 Minus balanslarni yangilash",
+        callback_data="fix_negative_balances"
+    ))
+
     keyboard.adjust(1)
     return keyboard.as_markup()
 

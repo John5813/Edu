@@ -3351,6 +3351,20 @@ async def med3d_promo_back(callback: CallbackQuery, state: FSMContext, db: Datab
         await callback.message.edit_text(_FEATURES_TITLE, reply_markup=await _feature_keyboard(db))
 
 
+@router.callback_query(F.data == "fix_negative_balances")
+async def fix_negative_balances(callback: CallbackQuery, db: Database):
+    """Minusga tushib qolgan barcha balanslarni 0 ga tenglaydi"""
+    if not is_admin(callback.from_user.id):
+        return
+    count, total = await db.fix_negative_balances()
+    if count:
+        await callback.answer(
+            f"✅ {count} ta foydalanuvchi balansi 0 ga tenglandi.\nJami minus: {total:,} so'm",
+            show_alert=True)
+    else:
+        await callback.answer("✅ Minus balansli foydalanuvchi yo'q.", show_alert=True)
+
+
 @router.callback_query(F.data == "mass_take_back_start")
 async def mass_take_back_start(callback: CallbackQuery, state: FSMContext):
     """Start mass take back process"""
@@ -3378,28 +3392,14 @@ async def process_take_back_amount(message: Message, state: FSMContext, db: Data
             await message.answer("❌ Summa 0 dan katta bo'lishi kerak!")
             return
 
-        # Get all users
-        all_users = await db.get_all_users()
-        
-        if not all_users:
-            await message.answer("❌ Foydalanuvchilar topilmadi!")
-            await state.clear()
-            return
-
-        # Update balances for all users (deduct amount)
-        success_count = 0
-        for user in all_users:
-            try:
-                # Deducting balance (passing negative amount)
-                await db.update_user_balance(user.telegram_id, -amount)
-                success_count += 1
-            except Exception as e:
-                logger.error(f"Failed to deduct money from user {user.telegram_id}: {e}")
+        # Hech kimni minusga tushirmaydi: balansi kam bo'lsa faqat bor pulini oladi
+        success_count, total = await db.take_back_from_all(amount)
 
         await message.answer(
             f"✅ Barchadan pul qaytib olindi!\n\n"
             f"💸 Summa: {amount:,} so'm\n"
-            f"👤 Foydalanuvchilar: {success_count} ta"
+            f"👤 Foydalanuvchilar: {success_count} ta\n"
+            f"💰 Jami yechildi: {total:,} so'm"
         )
         await state.clear()
 
