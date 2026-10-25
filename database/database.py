@@ -1206,6 +1206,40 @@ class Database:
             ) as cursor:
                 row = await cursor.fetchone()
                 return dict(row) if row else None
+
+    @staticmethod
+    async def take_back_from_all(amount: int) -> tuple:
+        """Hammadan `amount` so'mgacha yechadi, lekin hech kimni minusga tushirmaydi.
+
+        Balansi `amount` dan kam bo'lsa, faqat bor pulini oladi (balans 0 bo'ladi).
+        Qaytaradi: (pul yechilgan foydalanuvchilar soni, jami yechilgan summa).
+        """
+        amount = int(amount)
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            async with db.execute(
+                "SELECT COUNT(*), COALESCE(SUM(MIN(balance, ?)), 0) FROM users WHERE balance > 0", (amount,)
+            ) as cursor:
+                count, total = await cursor.fetchone()
+            await db.execute(
+                "UPDATE users SET balance = balance - MIN(balance, ?), updated_at = CURRENT_TIMESTAMP "
+                "WHERE balance > 0", (amount,))
+            await db.commit()
+            return count, total
+
+    @staticmethod
+    async def fix_negative_balances() -> tuple:
+        """Minusga tushib qolgan barcha balanslarni 0 ga tenglaydi.
+
+        Qaytaradi: (tuzatilgan foydalanuvchilar soni, jami minus summa).
+        """
+        async with aiosqlite.connect(DATABASE_FILE) as db:
+            async with db.execute("SELECT COUNT(*), COALESCE(SUM(balance), 0) FROM users WHERE balance < 0") as cursor:
+                count, total = await cursor.fetchone()
+            await db.execute(
+                "UPDATE users SET balance = 0, updated_at = CURRENT_TIMESTAMP WHERE balance < 0")
+            await db.commit()
+            return count, total
+
     @staticmethod
     async def get_all_users() -> List[User]:
         """Get all users"""
