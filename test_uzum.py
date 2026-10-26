@@ -91,8 +91,8 @@ async def main():
 
     print("\n2) /check")
     r = await call("check", params=acc)
-    check("mijoz topildi → OK, account va fio", r[0] == 200 and r[1]["status"] == "OK"
-          and r[1]["data"] == {"account": {"value": "77"}, "fio": {"value": "Ali"}} and r[1]["serviceId"] == 498611, r)
+    check("mijoz topildi → OK, faqat fio (account'siz)", r[0] == 200 and r[1]["status"] == "OK"
+          and r[1]["data"] == {"fio": {"value": "Ali"}} and r[1]["serviceId"] == 498611, r)
     r = await call("check", params={"user_id": {"value": 77}})
     check("{\"value\": ...} ko'rinishi ham", r[0] == 200, r)
     check("mijoz yo'q → 10007", err(await call("check", params={"user_id": "999"})) == "10007")
@@ -114,7 +114,7 @@ async def main():
     r = await call("status", transId="t1")
     check("/status: CREATED", r[0] == 200 and r[1]["status"] == "CREATED" and r[1]["confirmTime"] is None, r)
     check("/status data = /check data", r[1]["data"] == (await call("check", params=acc))[1]["data"]
-          == {"account": {"value": "77"}, "fio": {"value": "Ali"}}, r)
+          == {"fio": {"value": "Ali"}}, r)
     check("/status: yo'q → 10014", err(await call("status", transId="yoq")) == "10014")
 
     print("\n4) /confirm")

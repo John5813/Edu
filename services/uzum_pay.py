@@ -13,7 +13,7 @@ Oqim:
 Har so'rov `Authorization: Basic base64("<UZUM_LOGIN>:<UZUM_PASSWORD>")` bilan keladi, tanasida `serviceId`.
 Summalar tiyinda (so'm × 100). Muvaffaqiyat — HTTP 200, xato — HTTP 400 va `errorCode` (satr).
 Takroriy /create, /confirm, /reverse xato qaytaradi (10010, 10016, 10018) — Uzum hujjati shunday talab qiladi.
-`data` (hisob va mijoz ismi) faqat /check va /status'da, ikkalasida bir xil — Uzum xodimi talabi.
+`data` (mijoz ismi) faqat /check va /status'da, ikkalasida bir xil — Uzum xodimi talabi.
 """
 import base64
 import binascii
@@ -161,10 +161,13 @@ async def _user(params):
 
 
 async def _data(telegram_id) -> Dict:
-    """/check va /status uchun bir xil `data`: asosiy parametr (hisob) va mijoz ismi."""
+    """/check va /status uchun bir xil `data`: mijoz ismi.
+
+    Hisob (`account`) qaytarilmaydi — u asosiy parametr, Uzum xodimi shunday dedi.
+    """
     from database.database import Database
 
-    data = {"account": {"value": str(telegram_id)}}
+    data = {}
     user = await Database.get_user(int(telegram_id))
     if user is not None and user.first_name:
         data["fio"] = {"value": user.first_name}
