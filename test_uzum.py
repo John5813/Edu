@@ -106,12 +106,15 @@ async def main():
     check("mijoz yo'q → 10007",
           err(await call("create", transId="t0", params={"user_id": "999"}, amount=1500000)) == "10007")
     r = await call("create", transId="t1", params=acc, amount=1500000)
-    check("yangi → CREATED, transTime, summa", r[0] == 200 and r[1]["status"] == "CREATED" and r[1]["transTime"] > 0
+    check("yangi → CREATED, transTime, summa, data'siz", r[0] == 200 and r[1]["status"] == "CREATED" and r[1]["transTime"] > 0
+          and "data" not in r[1]
           and r[1]["amount"] == 1500000 and r[1]["transId"] == "t1", r)
     r = await call("create", transId="t1", params=acc, amount=1500000)
     check("takroriy transId → 10010", err(r) == "10010" and r[1].get("transId") == "t1", r)
     r = await call("status", transId="t1")
     check("/status: CREATED", r[0] == 200 and r[1]["status"] == "CREATED" and r[1]["confirmTime"] is None, r)
+    check("/status data = /check data", r[1]["data"] == (await call("check", params=acc))[1]["data"]
+          == {"account": {"value": "77"}, "fio": {"value": "Ali"}}, r)
     check("/status: yo'q → 10014", err(await call("status", transId="yoq")) == "10014")
 
     print("\n4) /confirm")
@@ -127,7 +130,8 @@ async def main():
     check("balans qo'shilmasa → 99999, CREATED holatda qoladi", err(r) == "99999" and tx["state"] == "CREATED", (r, tx))
     uzum_pay._credit = fake_credit
     r = await call("confirm", transId="t1", paymentSource="UZCARD", phone="998901234567")
-    check("→ CONFIRMED, balans bir marta", r[0] == 200 and r[1]["status"] == "CONFIRMED" and r[1]["confirmTime"] > 0
+    check("→ CONFIRMED, balans bir marta, data'siz", r[0] == 200 and r[1]["status"] == "CONFIRMED" and r[1]["confirmTime"] > 0
+          and "data" not in r[1]
           and credited == ["t1"], r)
     r = await call("confirm", transId="t1", paymentSource="UZCARD", phone="998901234567")
     check("takroriy → 10016, qayta qo'shilmaydi", err(r) == "10016" and credited == ["t1"], r)
@@ -140,7 +144,8 @@ async def main():
     print("\n5) /reverse va muddat")
     await call("create", transId="t2", params=acc, amount=2000000)
     r = await call("reverse", transId="t2")
-    check("CREATED → REVERSED", r[0] == 200 and r[1]["status"] == "REVERSED" and r[1]["reverseTime"] > 0, r)
+    check("CREATED → REVERSED, data'siz", r[0] == 200 and r[1]["status"] == "REVERSED" and r[1]["reverseTime"] > 0
+          and "data" not in r[1], r)
     check("takroriy → 10018", err(await call("reverse", transId="t2")) == "10018")
     check("bekor qilinganni confirm → 10015",
           err(await call("confirm", transId="t2", paymentSource="HUMO", phone="998")) == "10015")
