@@ -755,6 +755,21 @@ async def payme_endpoint(request: web.Request) -> web.Response:
     return web.json_response(answer)
 
 
+async def uzum_endpoint(request: web.Request) -> web.Response:
+    """Uzum serveri chaqiradigan manzillar: /uzum/webhook/{check,create,confirm,reverse,status}."""
+    from services import uzum_pay
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    action = request.match_info["action"]
+    code, answer = await uzum_pay.handle(action, body, request.headers.get("Authorization", ""))
+    log.info("Uzum /%s %s → %s", action, (body or {}).get("transId") if isinstance(body, dict) else None,
+             answer.get("errorCode", "ok"))
+    return web.json_response(answer, status=code)
+
+
 def _click_endpoint(action: Optional[int]):
     """Click serveri chaqiradigan manzil (Prepare / Complete). Javob — Click kutgan JSON, doim HTTP 200."""
     async def handler(request: web.Request) -> web.Response:
@@ -807,6 +822,7 @@ def setup_api_routes(app: web.Application) -> None:
     add("POST", "/click", _click_endpoint(None))
     add("POST", "/api/v1/wallet/payme", wallet_payme)
     add("POST", "/payme", payme_endpoint)
+    add("POST", "/uzum/webhook/{action}", uzum_endpoint)
     add("GET", "/app", _page("app.html"))
     add("GET", "/admin/statistics", _page("admin_statistics.html"))
     add("GET", "/api/v1/admin/statistics", admin_statistics)

@@ -1,0 +1,260 @@
+{
+  "info": {
+    "name": "Edufayl — Uzum Bank Merchant API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Balansni Uzum Bank orqali to'ldirish. Hisob maydoni: user_id — mijozning Telegram ID'si. Summa tiyinda (so'm × 100), min 1 000 so'm, max 5 000 000 so'm. Xato — HTTP 400 va errorCode."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://edufayl.org/uzum/webhook"
+    },
+    {
+      "key": "login",
+      "value": "LOGIN"
+    },
+    {
+      "key": "password",
+      "value": "PAROL"
+    },
+    {
+      "key": "serviceId",
+      "value": "SERVICE_ID"
+    },
+    {
+      "key": "userId",
+      "value": "TELEGRAM_ID"
+    },
+    {
+      "key": "transId",
+      "value": "a8b3f1c2-0000-4000-8000-000000000001"
+    }
+  ],
+  "item": [
+    {
+      "name": "check",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{login}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{password}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"serviceId\": {{serviceId}},\n  \"timestamp\": {{$timestamp}}000,\n  \"params\": {\n    \"user_id\": \"{{userId}}\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/check",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "check"
+          ]
+        }
+      }
+    },
+    {
+      "name": "create",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{login}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{password}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"serviceId\": {{serviceId}},\n  \"timestamp\": {{$timestamp}}000,\n  \"transId\": \"{{transId}}\",\n  \"params\": {\n    \"user_id\": \"{{userId}}\"\n  },\n  \"amount\": 1000000\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/create",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "create"
+          ]
+        }
+      }
+    },
+    {
+      "name": "confirm",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{login}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{password}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"serviceId\": {{serviceId}},\n  \"timestamp\": {{$timestamp}}000,\n  \"transId\": \"{{transId}}\",\n  \"paymentSource\": \"UZCARD\",\n  \"tariff\": null,\n  \"processingReferenceNumber\": null,\n  \"phone\": \"998901234567\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/confirm",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "confirm"
+          ]
+        }
+      }
+    },
+    {
+      "name": "reverse",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{login}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{password}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"serviceId\": {{serviceId}},\n  \"timestamp\": {{$timestamp}}000,\n  \"transId\": \"{{transId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/reverse",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "reverse"
+          ]
+        }
+      }
+    },
+    {
+      "name": "status",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{login}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{password}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"serviceId\": {{serviceId}},\n  \"timestamp\": {{$timestamp}}000,\n  \"transId\": \"{{transId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/status",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "status"
+          ]
+        }
+      }
+    }
+  ]
+}

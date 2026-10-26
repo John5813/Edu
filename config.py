@@ -80,6 +80,17 @@ PAYME_PACKAGE_CODE = os.getenv("PAYME_PACKAGE_CODE", "").strip()
 PAYME_VAT_PERCENT = int(os.getenv("PAYME_VAT_PERCENT", "0") or 0)        # QQS to'lovchisi bo'lmasa — 0
 PAYME_ITEM_TITLE = os.getenv("PAYME_ITEM_TITLE", "").strip() or "Hisobni to'ldirish (xizmatlar uchun oldindan to'lov)"
 
+# Uzum Bank Merchant API (services/uzum_pay.py). Uzum serveri <sayt>/uzum/webhook/{check,create,confirm,reverse,status}
+# manzillariga Basic Auth (UZUM_LOGIN:UZUM_PASSWORD) bilan so'rov yuboradi. Login, parol va ServiceId'ni
+# sinov uchun o'zimiz belgilaymiz; sinovdan keyin Uzum haqiqiy ServiceId beradi.
+# Mijoz Uzum ilovasida xizmatni topib, hisob maydoniga Telegram ID'sini (UZUM_ACCOUNT="user_id") yozadi.
+UZUM_SERVICE_ID = os.getenv("UZUM_SERVICE_ID", "").strip()
+UZUM_LOGIN = os.getenv("UZUM_LOGIN", "").strip()
+UZUM_PASSWORD = os.getenv("UZUM_PASSWORD", "").strip()
+UZUM_ACCOUNT = os.getenv("UZUM_ACCOUNT", "user_id").strip() or "user_id"
+# UZUM_TEST=1 — sinov rejimi: /confirm qabul qilinadi, lekin balansga pul qo'shilmaydi.
+UZUM_TEST = os.getenv("UZUM_TEST", "0").lower() in {"1", "true", "yes"}
+
 # Chekni AI bilan avtomatik tekshirish (services/receipts).
 # Mijoz adminga shu manzil orqali murojaat qiladi (eski chek, takroriy chek).
 ADMIN_CONTACT = os.getenv("ADMIN_CONTACT", "@javlon58_02")
