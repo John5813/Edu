@@ -2286,6 +2286,7 @@ async def _feature_keyboard(db):
                await db.get_feature_status("receipt_full_auto"),
                click_enabled=await db.get_feature_status("click_pay"),
                payme_enabled=await db.get_feature_status("payme_pay"),
+               uzum_enabled=await db.get_feature_status("uzum_pay"),
                reasoning_enabled=await db.get_feature_status("ai_reasoning"))
 
 _FEATURES_TITLE = (
@@ -2415,6 +2416,28 @@ async def toggle_ai_reasoning(callback: CallbackQuery, db: Database):
     await callback.answer("🧠 AI o'ylashi yoqildi: javob chegarasining 18% i." if new_status
                           else "🧠 AI o'ylamaydi: tezroq va arzonroq, murakkab hisoblarda sifat biroz pasayishi mumkin.",
                           show_alert=True)
+    kb = await _feature_keyboard(db)
+    await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("toggle_uzum_pay_"))
+async def toggle_uzum_pay(callback: CallbackQuery, db: Database):
+    """Uzum orqali to'lov tugmasini yoqish/o'chirish (bot va sayt). Uzum webhooklari baribir ishlaydi."""
+    if not is_admin(callback.from_user.id):
+        return
+    import config
+    from services import uzum_pay
+    new_status = callback.data.split("_")[-1] == "on"
+    await db.set_feature_status(uzum_pay.FEATURE, new_status)
+    if new_status and not uzum_pay.enabled():
+        text = "🟣 Uzum yoqildi, lekin .env da Uzum sozlamalari yo'q — tugma baribir chiqmaydi."
+    elif new_status and config.UZUM_TEST:
+        text = "🟣 Uzum yoqildi, lekin UZUM_TEST=1 — sinov tugaguncha tugma chiqmaydi."
+    elif new_status:
+        text = "🟣 Uzum orqali to'lov yoqildi!"
+    else:
+        text = "🟣 Uzum o'chirildi."
+    await callback.answer(text, show_alert=True)
     kb = await _feature_keyboard(db)
     await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
 

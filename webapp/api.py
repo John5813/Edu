@@ -583,7 +583,7 @@ async def deck_edit(request: web.Request) -> web.Response:
 # ──────────────────────────────────────────────────────────────────────── hamyon
 
 async def wallet(request: web.Request) -> web.Response:
-    from services import click_pay, payme_pay
+    from services import click_pay, payme_pay, uzum_pay
     from services.receipts import web as receipt_web
 
     telegram_id = await _require(request)
@@ -593,7 +593,8 @@ async def wallet(request: web.Request) -> web.Response:
     history = await Database.get_recent_payments(user.id, 10)
     return web.json_response({
         "ok": True, "balance": int(user.balance or 0), "methods": receipt_web.methods(
-            click_on=await click_pay.available(), payme_on=await payme_pay.available()),
+            click_on=await click_pay.available(), payme_on=await payme_pay.available(),
+            uzum_on=await uzum_pay.available()),
         "presets": list(receipt_web.PRESETS), "min": receipt_web.MIN_AMOUNT, "max": receipt_web.MAX_AMOUNT,
         "history": [{"id": row["id"], "amount": int(row["amount"] or 0), "status": row["status"],
                      "created_at": str(row["created_at"])[:16]} for row in history]})
@@ -755,6 +756,24 @@ async def payme_endpoint(request: web.Request) -> web.Response:
     return web.json_response(answer)
 
 
+async def wallet_uzum(request: web.Request) -> web.Response:
+    """Uzum Bank orqali to'ldirish: Uzum ilovasini ochadigan deeplink."""
+    from services import uzum_pay
+
+    telegram_id = await _require(request)
+    if not await uzum_pay.available():
+        return _error("Uzum hozircha ulanmagan.", 409, "uzum_off")
+    try:
+        body = await request.json()
+    except Exception:
+        return _error("Noto'g'ri so'rov.", 400, "bad_request")
+    try:
+        url = await uzum_pay.new_payment(telegram_id, (body or {}).get("amount"), "web")
+    except ValueError as exc:
+        return _error(str(exc), 400, "invalid")
+    return web.json_response({"ok": True, "url": url})
+
+
 async def uzum_endpoint(request: web.Request) -> web.Response:
     """Uzum serveri chaqiradigan manzillar: /uzum/webhook/{check,create,confirm,reverse,status}."""
     from services import uzum_pay
@@ -822,6 +841,7 @@ def setup_api_routes(app: web.Application) -> None:
     add("POST", "/click", _click_endpoint(None))
     add("POST", "/api/v1/wallet/payme", wallet_payme)
     add("POST", "/payme", payme_endpoint)
+    add("POST", "/api/v1/wallet/uzum", wallet_uzum)
     add("POST", "/uzum/webhook/{action}", uzum_endpoint)
     add("GET", "/app", _page("app.html"))
     add("GET", "/admin/statistics", _page("admin_statistics.html"))

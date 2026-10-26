@@ -512,7 +512,8 @@
     const receipt = w.methods.find((m) => m.key === 'receipt');
     const click = w.methods.find((m) => m.key === 'click' && m.enabled);
     const payme = w.methods.find((m) => m.key === 'payme' && m.enabled);
-    const online = click || payme;
+    const uzum = w.methods.find((m) => m.key === 'uzum' && m.enabled);
+    const online = click || payme || uzum;
     let amount = 0, started = '';
     const stamp = () => new Date().toLocaleString('sv-SE', {timeZone: 'Asia/Tashkent'}).replace(' ', 'T');
 
@@ -528,9 +529,10 @@
             <div class="row" id="presets">${w.presets.map((p) => `<button type="button" class="chip" data-v="${p}">${E.fmt(p)}</button>`).join('')}</div>
             <input class="fld" id="amount" inputmode="numeric" placeholder="Boshqa summa (so'm)" style="margin-top:10px;max-width:260px"></div>
 
-          ${online ? `<div style="margin-top:22px"><div class="lab">2. ${[click && 'Click', payme && 'Payme'].filter(Boolean).join(' yoki ')} orqali to‘lang — summa darhol hisobga tushadi</div>
+          ${online ? `<div style="margin-top:22px"><div class="lab">2. ${[click && 'Click', payme && 'Payme', uzum && 'Uzum Bank'].filter(Boolean).join(' yoki ')} orqali to‘lang — summa darhol hisobga tushadi</div>
             <div class="row">${click ? '<button type="button" class="btn" id="click-pay">⚡ Click orqali to‘lash</button>' : ''}
-            ${payme ? '<button type="button" class="btn" id="payme-pay">💠 Payme orqali to‘lash</button>' : ''}</div>
+            ${payme ? '<button type="button" class="btn" id="payme-pay">💠 Payme orqali to‘lash</button>' : ''}
+            ${uzum ? '<button type="button" class="btn" id="uzum-pay">🟣 Uzum Bank orqali to‘lash</button>' : ''}</div>
             <div id="c-out" style="margin-top:10px"></div>
             <div class="hint" style="margin-top:14px">yoki kartaga o‘tkazib, chek yuklang:</div></div>` : ''}
 
@@ -570,6 +572,7 @@
     };
     if (click) $('click-pay').onclick = payOnline('/wallet/click');
     if (payme) $('payme-pay').onclick = payOnline('/wallet/payme');
+    if (uzum) $('uzum-pay').onclick = payOnline('/wallet/uzum');
 
     async function send(file) {
       if (!amount) { $('r-out').innerHTML = '<div class="note bad">Avval summani tanlang yoki kiriting.</div>'; return; }
