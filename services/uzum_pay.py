@@ -12,6 +12,7 @@ Oqim (to'lov havolasi yo'q — mijoz Uzum ilovasida xizmatni topadi):
 Har so'rov `Authorization: Basic base64("<UZUM_LOGIN>:<UZUM_PASSWORD>")` bilan keladi, tanasida `serviceId`.
 Summalar tiyinda (so'm × 100). Muvaffaqiyat — HTTP 200, xato — HTTP 400 va `errorCode` (satr).
 Takroriy /create, /confirm, /reverse xato qaytaradi (10010, 10016, 10018) — Uzum hujjati shunday talab qiladi.
+`data` (hisob va mijoz ismi) faqat /check va /status'da, ikkalasida bir xil — Uzum xodimi talabi.
 """
 import base64
 import binascii
@@ -109,10 +110,14 @@ async def _user(params):
     return user
 
 
-def _data(telegram_id, first_name: str = "") -> Dict:
+async def _data(telegram_id) -> Dict:
+    """/check va /status uchun bir xil `data`: asosiy parametr (hisob) va mijoz ismi."""
+    from database.database import Database
+
     data = {"account": {"value": str(telegram_id)}}
-    if first_name:
-        data["fio"] = {"value": first_name}
+    user = await Database.get_user(int(telegram_id))
+    if user is not None and user.first_name:
+        data["fio"] = {"value": user.first_name}
     return data
 
 
@@ -157,7 +162,7 @@ async def _tx(body: Mapping) -> Dict:
 
 async def check(body: Mapping) -> Dict:
     user = await _user(_require(body, "params"))
-    return {**_base(body), "status": "OK", "data": _data(user.telegram_id, user.first_name or "")}
+    return {**_base(body), "status": "OK", "data": await _data(user.telegram_id)}
 
 
 async def create(body: Mapping) -> Dict:
@@ -172,7 +177,7 @@ async def create(body: Mapping) -> Dict:
         raise UzumError(TX_EXISTS)
     log.info("Uzum tranzaksiya %s: %s so'm → %s", trans_id, amount // 100, user.telegram_id)
     return {**_base(body), "transId": trans_id, "status": orders.CREATED, "transTime": tx["create_time"],
-            "data": _data(user.telegram_id, user.first_name or ""), "amount": amount}
+            "amount": amount}
 
 
 CreditFn = Callable[[Dict], Awaitable[Optional[int]]]
@@ -203,7 +208,7 @@ async def confirm(body: Mapping, credit: Optional[CreditFn] = None) -> Dict:
                  payment_id)
     tx = await orders.get_tx(trans_id)
     return {**_base(body), "transId": trans_id, "status": orders.CONFIRMED, "confirmTime": tx["confirm_time"],
-            "data": _data(tx["telegram_id"]), "amount": tx["amount"]}
+            "amount": tx["amount"]}
 
 
 async def reverse(body: Mapping) -> Dict:
@@ -218,7 +223,7 @@ async def reverse(body: Mapping) -> Dict:
     log.info("Uzum tranzaksiya %s bekor qilindi (%s edi)", trans_id, tx["state"])
     tx = await orders.get_tx(trans_id)
     return {**_base(body), "transId": trans_id, "status": orders.REVERSED, "reverseTime": tx["reverse_time"],
-            "data": _data(tx["telegram_id"]), "amount": tx["amount"]}
+            "amount": tx["amount"]}
 
 
 async def status(body: Mapping) -> Dict:
@@ -227,7 +232,7 @@ async def status(body: Mapping) -> Dict:
         tx = await orders.get_tx(tx["trans_id"])
     return {**_base(body), "transId": tx["trans_id"], "status": tx["state"], "transTime": tx["create_time"],
             "confirmTime": tx["confirm_time"] or None, "reverseTime": tx["reverse_time"] or None,
-            "data": _data(tx["telegram_id"]), "amount": tx["amount"]}
+            "data": await _data(tx["telegram_id"]), "amount": tx["amount"]}
 
 
 METHODS = {"check": check, "create": create, "confirm": confirm, "reverse": reverse, "status": status}
