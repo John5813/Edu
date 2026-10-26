@@ -1155,6 +1155,7 @@ def get_feature_management_keyboard(
     receipt_full_auto_enabled: bool = True,
     click_enabled: bool = True,
     payme_enabled: bool = True,
+    uzum_enabled: bool = True,
     reasoning_enabled: bool = True,
 ) -> InlineKeyboardMarkup:
     """Feature management keyboard for admin"""
@@ -1201,6 +1202,11 @@ def get_feature_management_keyboard(
         text=f"💠 Payme orqali to'lov: {'🟢 Yoqilgan' if payme_enabled else '🔴 Ochirilgan'}".replace(
             "Ochirilgan", "O'chirilgan"),
         callback_data=f"toggle_payme_pay_{'off' if payme_enabled else 'on'}"
+    ))
+    keyboard.add(InlineKeyboardButton(
+        text=f"🟣 Uzum orqali to'lov: {'🟢 Yoqilgan' if uzum_enabled else '🔴 Ochirilgan'}".replace(
+            "Ochirilgan", "O'chirilgan"),
+        callback_data=f"toggle_uzum_pay_{'off' if uzum_enabled else 'on'}"
     ))
 
     # Taqdimot va hujjatlardagi "o'ylaydigan" AI: yoqiq — 18% o'ylash, o'chiq — o'ylamaydi

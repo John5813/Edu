@@ -27,24 +27,29 @@ _METHOD_TEXT = {
     "uz": ("💳 <b>{amount} so'm</b> — to'lov usulini tanlang:\n", {
         "click": ("⚡ <b>Click</b> — summa to'lov o'tishi bilan hisobingizga avtomatik tushadi.", "⚡ Click orqali"),
         "payme": ("💠 <b>Payme</b> — summa to'lov o'tishi bilan hisobingizga avtomatik tushadi.", "💠 Payme orqali"),
+        "uzum": ("🟣 <b>Uzum Bank</b> — ilova ochiladi, summa to'lov o'tishi bilan hisobingizga avtomatik tushadi.",
+                 "🟣 Uzum Bank orqali"),
         "card": ("🏦 <b>Karta orqali</b> — kartaga o'tkazib, chekni yuborasiz.", "🏦 Karta orqali")}),
     "ru": ("💳 <b>{amount} сум</b> — выберите способ оплаты:\n", {
         "click": ("⚡ <b>Click</b> — сумма зачислится автоматически сразу после оплаты.", "⚡ Через Click"),
         "payme": ("💠 <b>Payme</b> — сумма зачислится автоматически сразу после оплаты.", "💠 Через Payme"),
+        "uzum": ("🟣 <b>Uzum Bank</b> — откроется приложение, сумма зачислится сразу после оплаты.", "🟣 Через Uzum Bank"),
         "card": ("🏦 <b>Картой</b> — переведите на карту и отправьте чек.", "🏦 Картой")}),
     "en": ("💳 <b>{amount} som</b> — choose a payment method:\n", {
         "click": ("⚡ <b>Click</b> — credited automatically right after payment.", "⚡ Pay with Click"),
         "payme": ("💠 <b>Payme</b> — credited automatically right after payment.", "💠 Pay with Payme"),
+        "uzum": ("🟣 <b>Uzum Bank</b> — opens the app, credited automatically right after payment.", "🟣 Pay with Uzum Bank"),
         "card": ("🏦 <b>Card transfer</b> — transfer to a card and send the receipt.", "🏦 Card transfer")}),
 }
 
 
 async def _pay_urls(telegram_id: int, amount: int, user_lang: str) -> dict:
-    """Ulangan to'lov tizimlari havolalari: {"click": url, "payme": url}. Bo'sh — darhol karta yo'li."""
-    from services import click_pay, payme_pay
+    """Ulangan to'lov tizimlari havolalari: {"click": url, "payme": url, "uzum": url}. Bo'sh — darhol karta yo'li."""
+    from services import click_pay, payme_pay, uzum_pay
 
     urls = {}
-    for key, service, extra in (("click", click_pay, {}), ("payme", payme_pay, {"lang": user_lang})):
+    for key, service, extra in (("click", click_pay, {}), ("payme", payme_pay, {"lang": user_lang}),
+                                ("uzum", uzum_pay, {})):
         if not await service.available():
             continue
         try:

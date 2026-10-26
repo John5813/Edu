@@ -12,7 +12,7 @@ from typing import Dict, List, Optional
 
 import config
 from database.database import Database
-from services import click_pay, payme_pay
+from services import click_pay, payme_pay, uzum_pay
 from . import flow, rules, texts
 
 log = logging.getLogger(__name__)
@@ -28,7 +28,8 @@ def card_view(number: str) -> str:
     return " ".join(number[i:i + 4] for i in range(0, len(number), 4))
 
 
-def methods(click_on: Optional[bool] = None, payme_on: Optional[bool] = None) -> List[Dict]:
+def methods(click_on: Optional[bool] = None, payme_on: Optional[bool] = None,
+            uzum_on: Optional[bool] = None) -> List[Dict]:
     """Balansni to'ldirish usullari. `enabled=False` — tez orada (Uzum) yoki o'chirilgan.
 
     `click_on`/`payme_on` — `available()` natijasi (admin tugmasi ham hisobga olingan); berilmasa kalitlarga qaraladi.
@@ -37,6 +38,8 @@ def methods(click_on: Optional[bool] = None, payme_on: Optional[bool] = None) ->
         click_on = click_pay.enabled()
     if payme_on is None:
         payme_on = payme_pay.enabled()
+    if uzum_on is None:
+        uzum_on = uzum_pay.enabled() and not config.UZUM_TEST
     cards = [card_view(c) for c in (config.PAYMENT_CARD, config.PAYMENT_CARD_2) if c]
     return [
         {"key": "receipt", "label": "Kartaga o'tkazma (chek yuklash)", "enabled": True,
@@ -44,7 +47,7 @@ def methods(click_on: Optional[bool] = None, payme_on: Optional[bool] = None) ->
          "note": "Pulni kartalardan biriga o'tkazing, so'ng to'lov chekini yuklang."},
         {"key": "click", "label": "Click", "enabled": bool(click_on)},
         {"key": "payme", "label": "Payme", "enabled": bool(payme_on)},
-        {"key": "uzum", "label": "Uzum", "enabled": False},
+        {"key": "uzum", "label": "Uzum", "enabled": bool(uzum_on)},
     ]
 
 

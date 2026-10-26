@@ -1,7 +1,8 @@
 """Uzum Bank Merchant API: balansni Uzum Bank ilovasi orqali to'ldirish.
 
-Oqim (to'lov havolasi yo'q — mijoz Uzum ilovasida xizmatni topadi):
-    1. Mijoz hisob maydoniga Telegram ID'sini (`params.user_id`) va summani yozadi.
+Oqim:
+    1. Mijoz botda/saytda summani tanlaydi → deeplink `uzumbank.uz/open-service?serviceId=..&user_id=<Telegram ID>
+       &amount=<tiyin>` Uzum ilovasini ochadi (yoki mijoz ilovada xizmatni topib, ID va summani o'zi yozadi).
     2. Uzum serveri `<sayt>/uzum/webhook/...` ga so'rov yuboradi:
        /check   — hisob bormi (mijoz topildimi);
        /create  — tranzaksiya ochildi (`CREATED`);
@@ -25,6 +26,8 @@ from database import uzum_orders as orders
 
 log = logging.getLogger(__name__)
 
+DEEPLINK_URL = "https://uzumbank.uz/open-service"
+FEATURE = "uzum_pay"                 # admin «Funksiyalar boshqaruvi»dagi kalit (sukut — yoqilgan)
 MIN_AMOUNT = 1000                    # so'm
 MAX_AMOUNT = 5_000_000
 TIMEOUT_MS = 30 * 60 * 1000          # tasdiqlanmagan tranzaksiya 30 daqiqadan keyin bekor
@@ -59,6 +62,53 @@ class UzumError(Exception):
 def enabled() -> bool:
     """ServiceId, login va parol sozlanganmi. Bo'lmasa har so'rovga 10001."""
     return bool(config.UZUM_SERVICE_ID and config.UZUM_LOGIN and config.UZUM_PASSWORD)
+
+
+async def available() -> bool:
+    """Mijozga Uzum tugmasini ko'rsatish mumkinmi: sozlangan, sinov rejimida emas va admin o'chirmagan.
+
+    Sinov ServiceId'si Uzum ilovasida yo'q — deeplink ishlamaydi, shuning uchun sinovda tugma chiqmaydi.
+    """
+    if not enabled() or config.UZUM_TEST:
+        return False
+    try:
+        from database.database import Database
+        return bool(await Database().get_feature_status(FEATURE))
+    except Exception as exc:                      # holatni o'qib bo'lmasa — sozlamalar bo'yicha
+        log.warning("Uzum tugmasi holati o'qilmadi: %s", exc)
+        return True
+
+
+def valid_amount(amount) -> int:
+    """Summa butun so'mda; noto'g'ri bo'lsa `ValueError` (xabari mijozga ko'rsatiladi)."""
+    try:
+        amount = int(amount)
+    except (TypeError, ValueError):
+        raise ValueError("Summani raqam bilan kiriting.")
+    if amount < MIN_AMOUNT:
+        raise ValueError(f"Minimal to'lov miqdori {MIN_AMOUNT:,} so'm.".replace(",", " "))
+    if amount > MAX_AMOUNT:
+        raise ValueError(f"Bir martalik to'lov {MAX_AMOUNT:,} so'mdan oshmasin.".replace(",", " "))
+    return amount
+
+
+def pay_url(telegram_id: int, amount: int) -> str:
+    """Uzum ilovasini ochadigan deeplink: hisob maydoni (`user_id`) — Telegram ID, summa tiyinda.
+
+    Namuna (Uzum xodimi bergan): `open-service?serviceId=973627&user_id=5304482470&amount=100000`.
+    """
+    from urllib.parse import urlencode
+
+    query = urlencode({"serviceId": config.UZUM_SERVICE_ID, config.UZUM_ACCOUNT: int(telegram_id),
+                       "amount": int(amount) * 100})
+    return f"{DEEPLINK_URL}?{query}"
+
+
+async def new_payment(telegram_id: int, amount, source: str = "", **_) -> str:
+    """Deeplink (buyurtma yaratilmaydi — tranzaksiyani Uzum /create bilan ochadi)."""
+    amount = valid_amount(amount)
+    log.info("Uzum havolasi: %s so'm → %s (%s)", amount, telegram_id, source)
+    return pay_url(telegram_id, amount)
 
 
 def authorized(header: str) -> bool:

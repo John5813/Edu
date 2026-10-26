@@ -185,7 +185,58 @@ async def main():
     check("sinovda reverse balansga tegmaydi", r[0] == 200 and (await Database.get_user(77)).balance == before, r)
     config.UZUM_TEST = False
 
-    print("\n8) HTTP manzil")
+    print("\n8) Deeplink va tugmalar")
+    from urllib.parse import parse_qs, urlparse
+    url = await uzum_pay.new_payment(77, 15000, "bot")
+    q = parse_qs(urlparse(url).query)
+    check("deeplink: uzumbank.uz/open-service, serviceId, user_id, summa tiyinda",
+          url.startswith("https://uzumbank.uz/open-service?") and q == {"serviceId": ["498611"], "user_id": ["77"],
+                                                                    "amount": ["1500000"]}, url)
+    for bad in (500, "abc", 10_000_000):
+        try:
+            await uzum_pay.new_payment(77, bad, "bot")
+            check(f"noto'g'ri summa rad etiladi ({bad})", False)
+        except ValueError:
+            check(f"noto'g'ri summa rad etiladi ({bad})", True)
+    check("ishlab chiqarish rejimida tugma mavjud", await uzum_pay.available())
+    config.UZUM_TEST = True
+    check("sinov rejimida tugma yo'q", not await uzum_pay.available())
+    config.UZUM_TEST = False
+    db = dbmod.Database()
+    await db.set_feature_status(uzum_pay.FEATURE, False)
+    check("admin o'chirsa tugma yo'q, webhook ishlaydi", not await uzum_pay.available() and uzum_pay.enabled())
+    await db.set_feature_status(uzum_pay.FEATURE, True)
+
+    from aiogram.fsm.context import FSMContext
+    from aiogram.fsm.storage.base import StorageKey
+    from aiogram.fsm.storage.memory import MemoryStorage
+    from bot.handlers import payments
+    from services.receipts import web as receipt_web
+
+    class Msg:
+        def __init__(self):
+            self.out = []
+
+        async def answer(self, text, **kw):
+            self.out.append((text, kw.get("reply_markup")))
+
+        async def edit_text(self, text, **kw):
+            self.out.append((text, kw.get("reply_markup")))
+
+    msg = Msg()
+    state = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=77, user_id=77))
+    await payments._choose_method(msg, 77, 20000, state, "uz")
+    rows = msg.out[0][1].inline_keyboard
+    check("botda: Uzum Bank tugmasi deeplink bilan va «Karta orqali»",
+          len(rows) == 2 and rows[0][0].url.startswith("https://uzumbank.uz/open-service?")
+          and "amount=2000000" in rows[0][0].url and "Uzum" in rows[0][0].text
+          and rows[1][0].callback_data == "pay_by_card:20000" and "Uzum Bank" in msg.out[0][0], msg.out)
+    check("saytda Uzum usuli yoqiq", any(m["key"] == "uzum" and m["enabled"] for m in receipt_web.methods()))
+    from bot.keyboards import get_feature_management_keyboard as fkb
+    btns = [b for row in fkb(True, uzum_enabled=False).inline_keyboard for b in row]
+    check("adminda Uzum tugmasi", any(b.callback_data == "toggle_uzum_pay_on" for b in btns))
+
+    print("\n9) HTTP manzil")
     from aiohttp.test_utils import TestClient, TestServer
     from webapp.server import create_web_app
 
@@ -200,6 +251,8 @@ async def main():
         resp = await client.post("/uzum/webhook/status", data="{buzuq", headers={"Authorization": auth()})
         data = await resp.json()
         check("buzuq JSON → HTTP 400, 10002", resp.status == 400 and data["errorCode"] == "10002", data)
+        resp = await client.post("/api/v1/wallet/uzum", json={"amount": 15000})
+        check("sayt: kirishsiz /wallet/uzum → 401", resp.status == 401, resp.status)
 
 
 asyncio.run(main())
