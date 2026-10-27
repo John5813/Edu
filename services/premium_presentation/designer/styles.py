@@ -744,6 +744,379 @@ def info_diamond(c: Ctx, spec: Dict):
         label(c, x, y, w, h, item, align=al, anchor=an, tsize=34, nsize=30)
 
 
+# ═════════════════════════════════════════════ YANGI INFOGRAFIKALAR (2-to'plam)
+
+def _polar(cx, cy, r, a):
+    """Burchak gradusda (0 — o'ngga, soat strelkasiga teskari; y pastga)."""
+    return cx + r * math.cos(math.radians(a)), cy - r * math.sin(math.radians(a))
+
+
+def _side_labels(c: Ctx, items, n: int, y0: float, y1: float, left_box, right_box, num_left, num_right,
+                 dark: bool, num_color: str, reverse_right: bool = True):
+    """Chap va o'ng ustunlardagi katta raqamli yozuvlar (chapda yuqoridan pastga, o'ngda pastdan yuqoriga)."""
+    left = math.ceil(n / 2)
+    for i, item in enumerate(items):
+        on_left = i < left
+        k = i if on_left else i - left
+        m = left if on_left else n - left
+        if not on_left and reverse_right:
+            k = m - 1 - k
+        y = spread(m, y0, y1)[k]
+        lx, lw = left_box if on_left else right_box
+        nx = num_left if on_left else num_right
+        text(c.slide, nx, y - 80, 120, 160, [[(str(i + 1), 120, num_color, False, SANS)]], align=CENTER,
+             anchor=MIDDLE, fit=False)
+        label(c, lx, y - 115, lw, 230, item, align=RIGHT if on_left else LEFT, dark=dark, tsize=32, nsize=28,
+              anchor=MIDDLE)
+
+
+def info_shutter(c: Ctx, spec: Dict):
+    """Fotoapparat diafragmasi: buralgan pallalar halqasi, har pallada ikonka; yozuvlar ikki yonda."""
+    s, p = c.slide, c.pal
+    items = spec["items"]
+    n = len(items)
+    bg_dark(c, focus=(50, 55))
+    heading(c, spec["title"], spec.get("lead", ""), dark=True)
+    cx, cy, r_in, R = 960, 650, 105, 330
+    seg = 360 / n
+    tw = seg * 0.9                                    # pallaning buralishi
+    ramp = p.ramp(n, 0.62, 0.15)
+    for i, item in enumerate(items):
+        a0 = 90 - i * seg - 1.6
+        a1 = a0 - seg + 3.2
+        pts = arc_pts(cx, cy, r_in, a0, a1, 10) + arc_pts(cx, cy, R, a1 + tw, a0 + tw, 24)
+        blade = poly(s, pts)
+        grad(blade, [(0, mix(ramp[i], WHITE, 0.18)), (100, mix(ramp[i], p.dark, 0.18))], angle=a0 + 120)
+        shadow(blade, blur=36, dist=12, angle=-a0, alpha=55)
+        mid = (a0 + a1) / 2 + tw * 0.55
+        ix, iy = _polar(cx, cy, (r_in + R) / 2 + 18, mid)
+        ink = WHITE if luminance(ramp[i]) < 0.62 else mix(p.dark, "000000", 0.2)
+        icon(s, c.icon_for(item.get("title", ""), item.get("note", "")), ix, iy, 58, ink)
+    hole = oval(s, cx, cy, r_in - 6)
+    fill(hole, p.deep)
+    inner_shadow(hole, blur=26, dist=8, alpha=70)
+    _side_labels(c, items, n, 360, 960, (40, 420), (1470, 420), 470, 1330, True, p.on_dark)
+
+
+def info_honeycomb(c: Ctx, spec: Dict):
+    """Asalari uyasi: olti burchaklar zigzag qatorda, yozuvlar navbat bilan tepada va pastda."""
+    s, p = c.slide, c.pal
+    items = spec["items"]
+    n = len(items)
+    bg_light(c)
+    top = heading(c, spec["title"], spec.get("lead", ""))
+    R = 150 if n <= 4 else 125 if n <= 5 else 108
+    hgt = math.sqrt(3) * R
+    step = 1.5 * R + 14
+    x0 = 960 - (n - 1) * step / 2
+    up_y = 600 if top <= 210 else 615
+    down_y = up_y + hgt / 2 + 8
+    ramp = p.ramp(n, 0.35, 0.35)
+    tw = min(2 * step - 30, 430)
+    for i, item in enumerate(items):
+        x = x0 + i * step
+        y = up_y if i % 2 == 0 else down_y
+        hx = box(s, x - R, y - hgt / 2, 2 * R, hgt, SHAPE.HEXAGON)
+        grad(hx, [(0, mix(ramp[i], WHITE, 0.22)), (100, mix(ramp[i], p.dark, 0.2))], angle=60)
+        line(hx, WHITE, 5)
+        shadow(hx, blur=26, dist=10, alpha=28)
+        icon(s, c.icon_for(item.get("title", ""), item.get("note", "")), x, y - 22, 64, WHITE)
+        text(s, x - 60, y + 22, 120, 50, [[(f"{i + 1:02d}", 30, WHITE, True, p.head_font)]], align=CENTER,
+             anchor=MIDDLE, fit=False)
+        bx = max(40, min(x - tw / 2, 1880 - tw))
+        if i % 2 == 0:
+            label(c, bx, top + 20, tw, y - hgt / 2 - 24 - (top + 20), item, align=CENTER, anchor=BOTTOM,
+                  tsize=31, nsize=27)
+        else:
+            ly = y + hgt / 2 + 24
+            label(c, bx, ly, tw, 1050 - ly, item, align=CENTER, anchor=TOP, tsize=31, nsize=27)
+
+
+def info_stairs(c: Ctx, spec: Dict):
+    """Zinapoya: o'ngga qarab ko'tariladigan hajmli pog'onalar, matn pog'onaning old yuzida."""
+    s, p = c.slide, c.pal
+    items = spec["items"]
+    n = len(items)
+    bg_light(c)
+    top = heading(c, spec["title"], spec.get("lead", ""))
+    base, depth = 1015, 46
+    x0, x1 = 110, 1790
+    w = (x1 - x0) / n
+    lo, hi = 340, 1015 - (top + 70)
+    ramp = p.ramp(n, 0.3, 0.45)
+    for i, item in enumerate(items):
+        h = lo + (hi - lo) * i / max(n - 1, 1)
+        x, y = x0 + i * w, base - h
+        side = poly(s, [(x + w, y), (x + w + depth, y - depth), (x + w + depth, base - depth), (x + w, base)])
+        fill(side, mix(ramp[i], p.dark, 0.45))
+        roof = poly(s, [(x, y), (x + depth, y - depth), (x + w + depth, y - depth), (x + w, y)])
+        fill(roof, mix(ramp[i], WHITE, 0.35))
+        face = rect(s, x, y, w, h)
+        grad(face, [(0, ramp[i]), (100, mix(ramp[i], p.dark, 0.25))], angle=90)
+        shadow(face, blur=24, dist=6, angle=0, alpha=22)
+        text(s, x + 22, y + 14, w - 44, 96, [[(f"{i + 1:02d}", 80, mix(ramp[i], WHITE, 0.55), True, p.head_font)]],
+             anchor=TOP, fit=False)
+        label(c, x + 22, y + 112, w - 44, h - 130, item, dark=True, tsize=29 if n >= 5 else 32,
+              nsize=25 if n >= 5 else 28)
+
+
+def info_funnel(c: Ctx, spec: Dict):
+    """Voronka: yuqoridan pastga torayadigan qatlamlar, yozuvlar o'ngda tutashtiruvchi chiziq bilan."""
+    s, p = c.slide, c.pal
+    items = spec["items"]
+    n = len(items)
+    bg_light(c)
+    top = heading(c, spec["title"], spec.get("lead", ""))
+    cx, y0, y1 = 520, top + 40, 1020
+    w_top, w_bot = 820, 230
+    gap = 12
+    hh = (y1 - y0 - gap * (n - 1)) / n
+    ramp = p.ramp(n, 0.45, 0.4)
+
+    def width_at(y):
+        return w_top + (w_bot - w_top) * (y - y0) / (y1 - y0)
+
+    for i, item in enumerate(items):
+        ya, yb = y0 + i * (hh + gap), y0 + i * (hh + gap) + hh
+        wa, wb = width_at(ya), width_at(yb)
+        layer = poly(s, [(cx - wa / 2, ya), (cx + wa / 2, ya), (cx + wb / 2, yb), (cx - wb / 2, yb)])
+        grad(layer, [(0, mix(ramp[i], WHITE, 0.15)), (100, mix(ramp[i], p.dark, 0.2))], angle=0)
+        shadow(layer, blur=22, dist=8, alpha=26)
+        ym = (ya + yb) / 2
+        icon(s, c.icon_for(item.get("title", ""), item.get("note", "")), cx - 50, ym, min(hh * 0.5, 64), WHITE)
+        text(s, cx, ym - 40, 120, 80, [[(f"{i + 1:02d}", 40, WHITE, True, p.head_font)]], anchor=MIDDLE, fit=False)
+        edge = cx + (wa + wb) / 4 + 14
+        ln_ = poly(s, [(edge, ym), (1010, ym)], close=False)
+        nofill(ln_); line(ln_, mix(ramp[i], WHITE, 0.2), 3, dash="dash")
+        dot = oval(s, 1022, ym, 12); fill(dot, ramp[i])
+        label(c, 1056, ya - 6, 780, hh + 12, item, anchor=MIDDLE, tsize=32 if n <= 4 else 29,
+              nsize=28 if n <= 4 else 25)
+
+
+def info_pyramid(c: Ctx, spec: Dict):
+    """Piramida: qatlamlarga bo'lingan uchburchak, yozuvlar navbat bilan o'ng va chapda."""
+    s, p = c.slide, c.pal
+    items = spec["items"]
+    n = len(items)
+    bg_light(c)
+    top = heading(c, spec["title"], spec.get("lead", ""), align=CENTER)
+    cx, apex, base, half = 960, top + 30, 1025, 470
+    gap = 10
+    hh = (base - apex - gap * (n - 1)) / n
+    ramp = p.ramp(n, 0.1, 0.55)[::-1]
+
+    def half_at(y):
+        return half * (y - apex) / (base - apex)
+
+    for i, item in enumerate(items):
+        ya, yb = apex + i * (hh + gap), apex + i * (hh + gap) + hh
+        ha, hb = half_at(ya), half_at(yb)
+        pts = [(cx, ya)] if ha < 1 else [(cx - ha, ya), (cx + ha, ya)]
+        layer = poly(s, pts + [(cx + hb, yb), (cx - hb, yb)])
+        grad(layer, [(0, mix(ramp[i], WHITE, 0.2)), (100, mix(ramp[i], p.dark, 0.2))], angle=90)
+        shadow(layer, blur=22, dist=8, alpha=24)
+        ym = ya + hh * (0.62 if i == 0 else 0.5)
+        text(s, cx - 80, ym - 36, 160, 72, [[(f"{i + 1:02d}", 40 if i else 34, WHITE, True, p.head_font)]],
+             align=CENTER, anchor=MIDDLE, fit=False)
+        right = i % 2 == 0
+        edge = cx + (ha + hb) / 2 + 16 if right else cx - (ha + hb) / 2 - 16
+        tx = max(1330, edge + 60) if right else min(590, edge - 60)
+        ln_ = poly(s, [(edge, ym), (tx, ym)], close=False)
+        nofill(ln_); line(ln_, ramp[i], 3)
+        dot = oval(s, tx, ym, 11); fill(dot, ramp[i])
+        bw = min(520, 1880 - tx - 26) if right else min(520, tx - 26 - 40)
+        label(c, tx + 26 if right else tx - 26 - bw, ym - 110, bw, 220, item, align=LEFT if right else RIGHT,
+              anchor=MIDDLE, tsize=31, nsize=27)
+
+
+def info_mindmap(c: Ctx, spec: Dict):
+    """Aqliy xarita: markazdagi katta doira, egri chiziqlar bilan bog'langan tugunlar va yozuvlar."""
+    s, p = c.slide, c.pal
+    items = spec["items"]
+    n = len(items)
+    bg_dark(c, focus=(50, 58))
+    heading(c, spec["title"], spec.get("lead", ""), dark=True, align=CENTER)
+    cx, cy, rx, ry, r = 960, 645, 520, 285, 54
+    start = 90 + 180 / n
+    nodes = []
+    for i in range(n):
+        a = start - i * 360 / n
+        nodes.append((a, *_polar(cx, cy, 1, a)))
+    ramp = p.ramp(n, 0.55, 0.15)
+    for i, (a, ux, uy) in enumerate(nodes):
+        x, y = cx + rx * (ux - cx), cy + ry * (uy - cy)
+        bend = _polar(cx, cy, 1, a + 18)
+        ctrl = (cx + rx * 0.55 * (bend[0] - cx), cy + ry * 0.55 * (bend[1] - cy))
+        curve = [((1 - t) ** 2 * cx + 2 * (1 - t) * t * ctrl[0] + t * t * x,
+                  (1 - t) ** 2 * cy + 2 * (1 - t) * t * ctrl[1] + t * t * y) for t in (k / 24 for k in range(25))]
+        wire = poly(s, curve, close=False)
+        nofill(wire); line(wire, mix(ramp[i], WHITE, 0.15), 5, 85)
+    hub = oval(s, cx, cy, 150)
+    grad(hub, [(0, mix(p.accent, WHITE, 0.25)), (100, mix(p.accent, p.dark, 0.35))], angle=90)
+    glow(hub, 30, p.accent, 35)
+    icon(s, c.topic_icon, cx, cy, 130, WHITE)
+    for i, ((a, ux, uy), item) in enumerate(zip(nodes, items)):
+        x, y = cx + rx * (ux - cx), cy + ry * (uy - cy)
+        node = oval(s, x, y, r)
+        grad(node, [(0, mix(ramp[i], WHITE, 0.2)), (100, ramp[i])], angle=90)
+        line(node, WHITE, 4, 80)
+        shadow(node, blur=22, dist=6, alpha=45)
+        icon(s, c.icon_for(item.get("title", ""), item.get("note", "")), x, y, 56, WHITE)
+        right = math.cos(math.radians(a)) > 0
+        lw = 1880 - (x + r + 22) if right else (x - r - 22) - 40
+        lw = min(lw, 470)
+        lx = x + r + 22 if right else x - r - 22 - lw
+        item_ = dict(item, title=f"{i + 1}. {item.get('title', '')}" if item.get("title") else item.get("title", ""))
+        label(c, lx, y - 100, lw, 200, item_, align=LEFT if right else RIGHT, dark=True, tsize=29, nsize=25,
+              anchor=MIDDLE)
+
+
+def info_pins(c: Ctx, spec: Dict):
+    """Yo'l xaritasi: to'lqinli yo'l va undagi raqamli belgi-ignalar; yozuvlar navbat bilan tepada va pastda."""
+    s, p = c.slide, c.pal
+    items = spec["items"]
+    n = len(items)
+    bg_light(c)
+    top = heading(c, spec["title"], spec.get("lead", ""))
+    mid_y, amp = 760, 60
+    pts = [(x, mid_y + amp * math.sin((x - 60) / 1800 * 2.2 * math.pi)) for x in range(-20, 1960, 40)]
+    road = poly(s, ribbon(pts, 70))
+    fill(road, mix(p.dark, WHITE, 0.15))
+    shadow(road, blur=20, dist=6, alpha=25)
+    dash = poly(s, pts, close=False)
+    nofill(dash); line(dash, WHITE, 4, 90, dash="dash")
+    xs = spread(n, 260, 1660)
+    step = (xs[1] - xs[0]) if n > 1 else 700
+    tw = min(2 * step - 40, 470)
+    ramp = p.ramp(n, 0.25, 0.35)
+    for i, (item, x) in enumerate(zip(items, xs)):
+        ground = mid_y + amp * math.sin((x - 60) / 1800 * 2.2 * math.pi)
+        r = 58
+        head_y = ground - 150
+        outline = arc_pts(x, head_y, r, -58, 238, 40) + [(x, ground - 8)]
+        pin = poly(s, outline)
+        grad(pin, [(0, mix(ramp[i], WHITE, 0.2)), (100, mix(ramp[i], p.dark, 0.25))], angle=90)
+        shadow(pin, blur=18, dist=10, alpha=35)
+        shade = oval(s, x, ground, 30, 9); fill(shade, "000000", 25)
+        inner = oval(s, x, head_y, r * 0.66); fill(inner, WHITE)
+        text(s, x - 40, head_y - 30, 80, 60, [[(f"{i + 1}", 34, ramp[i], True, p.head_font)]], align=CENTER,
+             anchor=MIDDLE, fit=False)
+        bx = max(40, min(x - tw / 2, 1880 - tw))
+        if i % 2 == 0:
+            label(c, bx, top + 20, tw, head_y - r - 24 - (top + 20), item, align=CENTER, anchor=BOTTOM,
+                  tsize=31, nsize=27)
+        else:
+            # Yozuv ostidagi yo'lning eng past nuqtasidan pastda boshlanadi (to'lqin yozuvga tegmasin).
+            lowest = max(mid_y + amp * math.sin((xx - 60) / 1800 * 2.2 * math.pi)
+                         for xx in range(int(bx), int(bx + tw) + 1, 20))
+            ly = lowest + 52
+            label(c, bx, ly, tw, 1060 - ly, item, align=CENTER, anchor=TOP, tsize=29, nsize=25)
+
+
+def info_pillars(c: Ctx, spec: Dict):
+    """Ustunlar: balandligi o'sib boradigan hajmli silindrlar, raqam silindrda, yozuv tepasida."""
+    s, p = c.slide, c.pal
+    items = spec["items"]
+    n = len(items)
+    bg_dark(c, focus=(50, 80))
+    top = heading(c, spec["title"], spec.get("lead", ""), dark=True)
+    base = 1005
+    slot = 1700 / n
+    cw = min(230, slot * 0.62)
+    ramp = p.ramp(n, 0.5, 0.1)
+    floor = oval(s, 960, base + 6, 900, 30)
+    grad(floor, [(0, p.accent, 30), (100, p.accent, 0)], radial=True)
+    for i, item in enumerate(items):
+        x = 110 + slot * (i + 0.5)
+        h = 230 + 230 * i / max(n - 1, 1)
+        topy = base - h
+        ry = cw * 0.16
+        body = rect(s, x - cw / 2, topy, cw, h)
+        grad(body, [(0, mix(ramp[i], p.dark, 0.35)), (45, mix(ramp[i], WHITE, 0.18)), (100, mix(ramp[i], p.dark, 0.4))],
+             angle=0)
+        bottom = oval(s, x, base, cw / 2, ry)
+        grad(bottom, [(0, mix(ramp[i], p.dark, 0.35)), (100, mix(ramp[i], p.dark, 0.4))], angle=0)
+        cap = oval(s, x, topy, cw / 2, ry)
+        grad(cap, [(0, mix(ramp[i], WHITE, 0.45)), (100, mix(ramp[i], WHITE, 0.1))], angle=90)
+        shadow(body, blur=30, dist=10, angle=0, alpha=40)
+        number = item.get("value") or f"{i + 1:02d}"
+        text(s, x - cw / 2 + 6, topy + ry + 20, cw - 12, 110, [[(number, 46 if item.get("value") else 64, WHITE, True,
+                                                                  p.head_font)]], align=CENTER, anchor=TOP)
+        sub = {k: v for k, v in item.items() if k != "value"}
+        lw = slot - 24
+        label(c, x - lw / 2, top + 20, lw, topy - ry - 24 - (top + 20), sub, align=CENTER, anchor=BOTTOM, dark=True,
+              tsize=27 if n >= 6 else 29 if n == 5 else 32, nsize=24 if n >= 6 else 25 if n == 5 else 28)
+
+
+def info_chevrons(c: Ctx, spec: Dict):
+    """O'qlar zanjiri: yuqorida raqamli strelkalar, har biri ostida o'z kartasi."""
+    s, p = c.slide, c.pal
+    items = spec["items"]
+    n = len(items)
+    bg_light(c)
+    top = heading(c, spec["title"], spec.get("lead", ""))
+    x0, x1 = 90, 1830
+    tip = 60
+    w = (x1 - x0 + tip * (n - 1)) / n
+    y, h = top + 40, 150
+    ramp = p.ramp(n, 0.4, 0.4)
+    for i, item in enumerate(items):
+        x = x0 + i * (w - tip)
+        notch = 0 if i == 0 else tip
+        arrow = poly(s, [(x, y), (x + w - tip, y), (x + w, y + h / 2), (x + w - tip, y + h), (x, y + h),
+                         (x + notch, y + h / 2)])
+        grad(arrow, [(0, mix(ramp[i], WHITE, 0.15)), (100, mix(ramp[i], p.dark, 0.15))], angle=90)
+        line(arrow, WHITE, 4)
+        shadow(arrow, blur=18, dist=6, alpha=22)
+        cxm = x + (w - tip) / 2 + notch / 2
+        icon(s, c.icon_for(item.get("title", ""), item.get("note", "")), cxm - 42, y + h / 2, 54, WHITE)
+        text(s, cxm - 6, y + h / 2 - 40, 110, 80, [[(f"{i + 1:02d}", 40, WHITE, True, p.head_font)]], anchor=MIDDLE,
+             fit=False)
+        cx0, cw = x + notch / 2 + 8, w - tip - 16
+        cy0 = y + h + 48
+        stem = rect(s, cxm - 2, y + h, 4, 48); fill(stem, ramp[i])
+        card = box(s, cx0, cy0, cw, 1030 - cy0, SHAPE.ROUNDED_RECTANGLE, adj=[0.05])
+        fill(card, WHITE)
+        line(card, mix(WHITE, p.accent, 0.16), 1.5)
+        shadow(card, blur=28, dist=8, alpha=14)
+        fill(rect(s, cx0 + 24, cy0, cw - 48, 7), ramp[i])
+        label(c, cx0 + 24, cy0 + 30, cw - 48, 1030 - cy0 - 60, item, align=CENTER, anchor=MIDDLE,
+              tsize=31 if n <= 4 else 27, nsize=27 if n <= 4 else 24)
+
+
+def info_target(c: Ctx, spec: Dict):
+    """Nishon: ichma-ich halqalar (tashqaridan markazga), har halqadan yozuvga ko'rsatkich chiziq."""
+    s, p = c.slide, c.pal
+    items = spec["items"]
+    n = len(items)
+    bg_light(c)
+    top = heading(c, spec["title"], spec.get("lead", ""))
+    cx, cy, R = 560, 655, 380
+    band = R / (n + 0.4)
+    ramp = p.ramp(n, 0.5, 0.35)
+    for i in range(n):
+        r = R - i * band
+        ring = oval(s, cx, cy, r)
+        grad(ring, [(0, mix(ramp[i], WHITE, 0.15)), (100, mix(ramp[i], p.dark, 0.15))], angle=90)
+        line(ring, WHITE, 4)
+        shadow(ring, blur=24, dist=8, alpha=26 if i == 0 else 14)
+    core = oval(s, cx, cy, R - n * band + 2)
+    fill(core, WHITE)
+    icon(s, c.topic_icon, cx, cy, (R - n * band) * 1.2, p.accent)
+    ys = spread(n, top + 90, 990)
+    for i, item in enumerate(items):
+        r_mid = R - i * band - band / 2
+        ax, ay = _polar(cx, cy, r_mid, 24)              # raqamlar bitta nur bo'ylab — ustma-ust tushmaydi
+        text(s, ax - 34, ay - 30, 68, 60, [[(f"{i + 1}", 30, WHITE, True, p.head_font)]], align=CENTER,
+             anchor=MIDDLE, fit=False)
+        ln_ = poly(s, [(ax + 30, ay), (1060, ys[i]), (1110, ys[i])], close=False)
+        nofill(ln_); line(ln_, mix(ramp[i], p.dark, 0.1), 3)
+        dot = oval(s, 1116, ys[i], 10); fill(dot, ramp[i])
+        hh = (990 - top - 90) / max(n - 1, 1) if n > 1 else 300
+        label(c, 1150, ys[i] - min(hh, 260) / 2, 700, min(hh, 260), item, anchor=MIDDLE,
+              tsize=32 if n <= 4 else 29, nsize=28 if n <= 4 else 25)
+
+
 # ═════════════════════════════════════════════ QIYOS
 
 def compare_gears(c: Ctx, spec: Dict):
@@ -834,11 +1207,22 @@ STYLES = [
     Style("pie", ("group", "numbers"), 3, 6, info_pie),
     Style("cross", ("group", "numbers"), 4, 4, info_cross),
     Style("diamond", ("group", "numbers"), 4, 4, info_diamond),
+    Style("shutter", ("group", "sequence", "numbers"), 4, 8, info_shutter),
+    Style("honeycomb", ("group", "numbers"), 3, 7, info_honeycomb),
+    Style("stairs", ("sequence", "group"), 3, 5, info_stairs),
+    Style("funnel", ("sequence", "group"), 3, 6, info_funnel),
+    Style("pyramid", ("group", "sequence"), 3, 5, info_pyramid),
+    Style("mindmap", ("group",), 4, 8, info_mindmap),
+    Style("pins", ("sequence", "group"), 3, 6, info_pins),
+    Style("pillars", ("numbers", "sequence", "group"), 3, 6, info_pillars),
+    Style("chevrons", ("sequence", "group"), 3, 5, info_chevrons),
+    Style("target", ("group", "numbers"), 3, 5, info_target),
     Style("gears", ("compare",), 0, 99, compare_gears),
     Style("finale", ("finale",), 0, 99, finale),
 ]
 BY_NAME = {s.name: s for s in STYLES}
 # Och fonli uslublar — faqat ularga xira fon rasmi qo'yiladi (to'q fonga kerak emas).
-LIGHT = frozenset({"cards", "timeline", "leaves", "arrows", "pie", "cross", "diamond"})
+LIGHT = frozenset({"cards", "timeline", "leaves", "arrows", "pie", "cross", "diamond", "honeycomb", "stairs",
+                   "funnel", "pyramid", "pins", "chevrons", "target"})
 # Ulardan matni oq kartalarda turadiganlari — fon rasmi aniqroq ko'rsatiladi.
-CLEAR = frozenset({"cards", "timeline"})
+CLEAR = frozenset({"cards", "timeline", "chevrons"})

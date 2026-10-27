@@ -217,9 +217,30 @@ _TUTUQ = re.compile(r"(?<=[A-Za-z" + _NEW_LETTERS + r"])[" + re.escape("'" + _AP
 _NEW_SH_CH = {"sh": "ş", "ch": "ç"}
 
 
+# sh/ch bor, lekin o'zbekcha bo'lmagan ko'p uchraydigan nom va so'zlar (o'zbek so'zlari bilan to'qnashmaydiganlari).
+_FOREIGN_WORDS = {
+    "charles", "chelsea", "chevrolet", "chanel", "manchester", "michigan", "richard", "chicago", "chopin",
+    "cherry", "check", "checklist", "chess", "change", "chain", "chair", "chance", "charge", "chart", "cheap",
+    "chief", "child", "china", "choice", "church", "cash", "shop", "shopping", "share", "sharp", "shell", "shift",
+    "ship", "shirt", "short", "fashion", "english", "british", "flash", "push", "fresh", "fish", "finish",
+    "teacher", "research", "much", "such", "each", "which", "rich", "match", "marshall", "sherlock", "shakespeare",
+    "bloomberg", "chemistry", "machine", "technical", "school", "cheese", "chocolate", "kitchen", "punch",
+}
+
+
 def _looks_foreign(word: str) -> bool:
-    """O'zbek lotinida bo'lmaydigan birikmalar (w, yolg'iz c, th, ee, oo, ck) — chet tilidagi so'z."""
-    return bool(re.search(r"w|c(?!h)|th|ee|oo|ck", word.lower()))
+    """Chet tilidagi so'z (o'girilmaydi): o'zbek lotinida bo'lmaydigan birikmalar (w, yolg'iz c, th, ee, oo, ck,
+    ae), so'z boshida "ch" + undosh (Chrome, Christ), ichida katta harf (ChatGPT, PowerShell) yoki ro'yxatdagi
+    nom (Chevrolet, Charles)."""
+    low = word.lower()
+    if re.search(r"w|c(?!h)|th|ee|oo|ck|ae", low):
+        return True
+    if re.match(r"ch[^aeiouy'ʻʼ‘’`]", low):
+        return True
+    if re.search(r"[a-z][A-Z]", word):
+        return True
+    plain = re.sub(r"['ʻʼ‘’`]s$|s$", "", low)
+    return low in _FOREIGN_WORDS or plain in _FOREIGN_WORDS
 
 
 def _latin_word_to_new(word: str) -> str:
@@ -459,6 +480,40 @@ def _series_names(value: str, script: str) -> str:
         name, sep, rest = row.partition(":")
         rows.append(convert(name, script) + sep + rest)
     return "|".join(rows)
+
+
+def convert_fragment(fragment: str, script: Optional[str]) -> str:
+    """HTML bo'lagidagi (teglar orasidagi) matnni yozuvga keltiradi; teglar va atributlar tegilmaydi."""
+    if script not in SCRIPTS or not fragment:
+        return fragment
+    return re.sub(r"(^|>)([^<>]+)(?=<|$)", lambda m: m.group(1) + convert(m.group(2), script), fragment)
+
+
+def file_text(path: str) -> str:
+    """DOCX/PPTX dagi butun matn (yozuvni aniqlash uchun)."""
+    ext = (path or "").lower().rsplit(".", 1)[-1]
+    if ext == "docx":
+        from docx import Document
+        from docx.oxml.ns import qn
+
+        return " ".join(node.text or "" for node in Document(path).element.iter(qn("w:t")))
+    if ext == "pptx":
+        from pptx import Presentation
+
+        parts = []
+        for slide in Presentation(path).slides:
+            for shape in slide.shapes:
+                if getattr(shape, "has_text_frame", False) and shape.has_text_frame:
+                    parts.append(shape.text_frame.text)
+        return " ".join(parts)
+    return ""
+
+
+def detect_new_alphabet(text: str) -> bool:
+    """Matn yangi o'zbek lotin alifbosida yozilganmi: ö, ğ, ş, ç ko'p va eski oʻ/gʻ/sh/ch dan kam emas."""
+    new = len(re.findall(r"[ÖöĞğŞşÇç]", text or ""))
+    old = len(re.findall(r"[OoGg][" + re.escape(_OKINA) + r"]|[Ss][Hh]|[Cc][Hh]", text or ""))
+    return new >= 5 and new >= old
 
 
 def normalize_html(html: str, script: Optional[str]) -> str:

@@ -226,5 +226,47 @@ async def site():
 
 asyncio.run(site())
 
+print("7) «ch» bilan chet nomlar va tahrirlash")
+brands = "Chrome, ChatGPT, Chevrolet, Christ, Charles, Michael, PowerShell"
+check("brend va chet nomlar o'girilmaydi", u.to_latin_new(brands) == brands, u.to_latin_new(brands))
+uzb = "chiroq, uchrashuv, ichki, kuchli, shtat, AQSh, Chilonzor, ishchi, xatcha"
+check("o'zbekcha ch/sh so'zlar o'giriladi", u.to_latin_new(uzb) == "çiroq, uçraşuv, içki, kuçli, ştat, AQŞ, Çilonzor, işçi, xatça",
+      u.to_latin_new(uzb))
+check("HTML bo'lagi: teg tegilmaydi", u.convert_fragment('<b class="sh">shahar</b> va choy', u.LATIN_NEW)
+      == '<b class="sh">şahar</b> va çoy', u.convert_fragment('<b class="sh">shahar</b> va choy', u.LATIN_NEW))
+check("yangi alifbodagi matn aniqlanadi", u.detect_new_alphabet("Özbekiston şahar çiroq toğ köça maʼno")
+      and not u.detect_new_alphabet("O'zbekiston shahar chiroq tog' ko'cha ma'no"))
+p_new = os.path.join(TMP, "n.docx")
+d = Document(); d.add_paragraph("Özbekiston şahar çiroq toğ köça"); d.save(p_new)
+check("fayl matni o'qiladi", u.detect_new_alphabet(u.file_text(p_new)))
+
+
+async def edits():
+    from services import web_decks
+    from services.premium_presentation import slide_edit
+    t = u.use(u.LATIN_NEW)
+    try:
+        check("sayt: taqdimot nusxasi yozuvni eslab qoladi", web_decks._script_now() == u.LATIN_NEW)
+    finally:
+        u.reset(t)
+    check("sayt: oddiy taqdimotda yozuv yo'q", web_decks._script_now() == "")
+    seen = []
+    original = slide_edit._rewrite
+
+    async def fake(deck, index, instruction, shots_dir, progress=None):
+        seen.append(u.script_of_language("uz"))
+        return {}
+    slide_edit._rewrite = fake
+    try:
+        await slide_edit.rewrite({"language": "uz", "script": u.LATIN_NEW}, 0, "x", TMP)
+        await slide_edit.rewrite({"language": "uz"}, 0, "x", TMP)
+    finally:
+        slide_edit._rewrite = original
+    check("AI bilan qayta yozish: yangi alifbodagi taqdimotda yangi yozuv, aks holda eski",
+          seen == [u.LATIN_NEW, u.LATIN], seen)
+    check("qayta yozishdan keyin kontekst tozalandi", u.current() == "")
+
+asyncio.run(edits())
+
 print("\nNATIJA:", "HAMMASI O'TDI" if not FAILS else f"{len(FAILS)} ta xato: {FAILS}")
 sys.exit(1 if FAILS else 0)

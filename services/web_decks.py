@@ -100,6 +100,12 @@ def titles_of(pages: List[str]) -> List[str]:
     return [deck_logic.title_of(html_slides.source_of(page) or page) for page in pages]
 
 
+def _script_now() -> str:
+    from services import uz_script
+
+    return uz_script.LATIN_NEW if uz_script.current() == uz_script.LATIN_NEW else ""
+
+
 def create(job_id: str, params: dict, data: dict) -> None:
     """Yangi yaratilgan taqdimotni saqlaydi (`data` — `pipeline.build_deck(deck_out=...)` natijasi)."""
     pages = list(data.get("pages") or [])
@@ -117,7 +123,9 @@ def create(job_id: str, params: dict, data: dict) -> None:
         "preferences": params.get("preferences", ""), "source_text": (params.get("source_text") or "")[:4000],
         "level": 2, "family": data.get("family", ""), "outline": data.get("outline") or [],
         "pages": pages, "titles": titles_of(pages), "version": 1, "history": [], "created": time.time(),
-        "design_seed": data.get("design_seed")}
+        "design_seed": data.get("design_seed"),
+        # Yangi o'zbek alifbosi: keyingi tahrirlar (AI va qo'lda) ham shu yozuvda bo'ladi.
+        "script": _script_now()}
     store_shots(job_id, shots)
     save(job_id, deck)
     if folder:

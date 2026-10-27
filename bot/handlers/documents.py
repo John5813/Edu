@@ -4300,6 +4300,9 @@ async def handle_web_app_data(message: Message, user_lang: str, db: Database, us
             new_path = await asyncio.get_event_loop().run_in_executor(
                 None, _create_edited_docx, content, topic
             )
+        # Fayl yangi o'zbek alifbosida bo'lsa, tahrirda eski yozuvda qo'shilgan so'zlar ham shu alifboga o'tadi.
+        if info.get("script") and new_path:
+            await asyncio.to_thread(uz_script.normalize_file, new_path, info["script"])
 
         await wait_msg.delete()
         await message.answer_document(
@@ -4468,6 +4471,13 @@ async def handle_edit_file_upload(message: Message, state: FSMContext, user_lang
         user_id=message.from_user.id,
         chat_id=chat_id,
     )
+    try:
+        text = await asyncio.to_thread(uz_script.file_text, local_path)
+        if uz_script.detect_new_alphabet(text):
+            webapp.DOC_TOKENS[token]["script"] = uz_script.LATIN_NEW
+            webapp.save_tokens_to_disk()
+    except Exception as e:
+        logger.warning(f"edit_file: yozuv aniqlanmadi: {e}")
 
     sent = await message.answer(
         get_text(user_lang, "edit_file_ready"),

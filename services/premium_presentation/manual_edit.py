@@ -22,6 +22,8 @@ import tempfile
 from html.parser import HTMLParser
 from typing import Dict, List, Optional, Tuple
 
+from services import uz_script
+
 from . import deck_calc, deck_charts, deck_logic, html_render, html_slides, themes
 
 log = logging.getLogger(__name__)
@@ -232,6 +234,8 @@ def apply_text(deck: dict, index: int, edits: List[Dict], expect: int) -> Dict:
         except (TypeError, ValueError, AttributeError):
             continue
         fragment = clean_html(edit.get("html", ""))
+        if deck.get("script"):        # yangi o'zbek alifbosi: mijoz eski yozuvda yozsa ham bir xil bo'lsin
+            fragment = uz_script.convert_fragment(fragment, deck["script"])
         if _plain_len(fragment) > MAX_TEXT:
             raise ManualEditError(f"Matn juda uzun: bitta blokda ko'pi bilan {MAX_TEXT} ta belgi.")
         if k >= 0:

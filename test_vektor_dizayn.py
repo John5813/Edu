@@ -86,8 +86,29 @@ for style in styles.STYLES:
             if pic:
                 pic.cleanup()
 check("hamma uslub xatosiz chizildi", not bad, bad)
-check("16 ta yangi uslub + xulosa ro'yxatda", len(styles.STYLES) == 19 and "finale" in styles.BY_NAME,
+check("26 ta yangi uslub + xulosa ro'yxatda", len(styles.STYLES) == 29 and "finale" in styles.BY_NAME,
       [s.name for s in styles.STYLES])
+
+print("1b) 2-to'plam infografikalari: hamma punktlar soni, matn to'liq chiqadi")
+from services.premium_presentation.designer import _contains_expected_text
+NEW = ("shutter", "honeycomb", "stairs", "funnel", "pyramid", "mindmap", "pins", "pillars", "chevrons", "target")
+lost = []
+for name in NEW:
+    style = styles.BY_NAME[name]
+    for n in range(style.min_items, style.max_items + 1):
+        prs = deck()
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        ctx = styles.Ctx(slide=slide, pal=styles.Palette.of(theme), rng=__import__("random").Random(n),
+                         topic_icon="globe")
+        spec = {"kind": "group", "title": "Sarlavha", "lead": "Bosh gap", "items": items(n, value=name == "pillars")}
+        try:
+            style.draw(ctx, spec)
+            if not _contains_expected_text(spec, slide):
+                lost.append((name, n))
+        except Exception as exc:
+            lost.append((name, n, repr(exc)))
+check("10 ta yangi infografika xatosiz, matni to'liq", not lost, lost)
+check("yangi infografikalar tanlovda", all(n in styles.BY_NAME for n in NEW))
 
 print("2) Ranglar temadan")
 blue, green = styles.Palette.of(themes.get("ko'k")), styles.Palette.of(themes.get("yashil"))
