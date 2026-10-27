@@ -66,7 +66,27 @@ async def main():
         check("oferta: aksept, narx, qaytarish, sana", all(w in text for w in ("aksept", "Xizmat narxi", "Qaytarish",
                                                                               config.LEGAL_DATE)))
 
-        print("\n2) Havolalar")
+        print("\n2) Ruscha")
+        for slug, page in legal.PAGES_RU.items():
+            resp = await client.get(f"/ru/{slug}")
+            text = await resp.text()
+            check(f"/ru/{slug} → 200, ruscha sarlavha, lang=ru", resp.status == 200 and '<html lang="ru">' in text
+                  and f"<h1>{legal._esc(page['h1'])}</h1>" in text, resp.status)
+            check(f"/ru/{slug}: bo'limlar soni o'zbekcha bilan bir xil",
+                  len(page["sections"]) == len(legal.PAGES[slug]["sections"])
+                  and all(legal._esc(h) in text for h, _ in page["sections"]))
+            check(f"/ru/{slug}: {{..}} qolmagan, rekvizitlar ruscha",
+                  not re.search(r"\{(min|max|contact|site|date)\}", text) and "ИНН" in text and "123456789" in text)
+            check(f"/ru/{slug}: tabs /ru/, o'zbekchaga qaytish", all(f'href="/ru/{s}"' in text for s in legal.PAGES)
+                  and f'href="/{slug}" hreflang="uz"' in text)
+            uz = await (await client.get(f"/{slug}")).text()
+            check(f"/{slug}: ruschaga havola va hreflang", f'href="/ru/{slug}" hreflang="ru"' in uz
+                  and 'hreflang="ru"' in uz)
+        text = await (await client.get("/ru/tolov-va-qaytarish")).text()
+        check("ru to'lov: 10 рабочих дней, 3 дней, суммы", "10 рабочих дней" in text and "3 дней" in text
+              and "1 000" in text and "5 000 000" in text)
+
+        print("\n3) Havolalar")
         for path in ("/", "/taqdimot", "/shop"):
             resp = await client.get(path)
             text = await resp.text()
@@ -75,7 +95,8 @@ async def main():
         app_js = open("webapp/site/static/app.js", encoding="utf-8").read()
         check("hamyonda havolalar", 'href="/tolov-va-qaytarish"' in app_js and 'href="/oferta"' in app_js)
         text = await (await client.get("/sitemap.xml")).text()
-        check("sitemap'da", all(f"/{s}</loc>" in text for s in legal.PAGES), text[:500])
+        check("sitemap'da (uz va ru)", all(f"/{s}</loc>" in text and f"/ru/{s}</loc>" in text for s in legal.PAGES),
+              text[:500])
 
 
 asyncio.run(main())
