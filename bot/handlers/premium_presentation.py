@@ -237,6 +237,7 @@ _STYLE_NAMES = {
                    "en": "Beautiful backgrounds"},
 }
 _LANG_BUTTONS = {"uz": "🇺🇿 O'zbek (lotin)", uz_script.UZ_CYRILLIC_LANG: "🇺🇿 Ўзбек (кирилл)",
+                 uz_script.UZ_NEW_LANG: "🇺🇿 Özbek (yangi alifbo)",
                  "ru": "🇷🇺 Русский", "en": "🇬🇧 English", "kk": "🇰🇿 Қазақша"}
 
 
@@ -244,6 +245,8 @@ def _language_label(code: str) -> str:
     """Buyurtma xulosasidagi til yozuvi."""
     if code == uz_script.UZ_CYRILLIC_LANG:
         return "UZ (кирилл)"
+    if code == uz_script.UZ_NEW_LANG:
+        return "UZ (yangi alifbo)"
     return "UZ (lotin)" if code == "uz" else str(code or "uz").upper()
 
 _TXT = {
@@ -260,6 +263,8 @@ _TXT = {
                "<i>All text, headings included, will use the chosen script without mixing.</i>")},
     "script_latin": {"uz": "🇺🇿 Lotin (O‘zbek)", "ru": "🇺🇿 Латиница (узб.)", "en": "🇺🇿 Latin (Uzbek)"},
     "script_cyrillic": {"uz": "🇺🇿 Кирилл (Ўзбек)", "ru": "🇺🇿 Кириллица (узб.)", "en": "🇺🇿 Cyrillic (Uzbek)"},
+    "script_latin_new": {"uz": "🇺🇿 Yangi alifbo (Özbek)", "ru": "🇺🇿 Новая латиница (узб.)",
+                         "en": "🇺🇿 New Latin (Uzbek)"},
     "topic_short": {
         "uz": "❌ Mavzu juda qisqa. Kamida 3 ta belgi kiriting.",
         "ru": "❌ Тема слишком короткая. Введите минимум 3 символа.",
@@ -658,7 +663,8 @@ async def _med3d_topic_gate(message: Message, state: FSMContext, lang: str) -> b
     loop = asyncio.get_running_loop()
     try:
         verdict = await asyncio.wait_for(loop.run_in_executor(
-            None, med3d_auto.check_topic, data.get("topic", ""), data.get("presentation_language") or "uz"), 60)
+            None, med3d_auto.check_topic, data.get("topic", ""),
+            uz_script.base_language(data.get("presentation_language") or "uz")), 60)
     except Exception as exc:                          # noqa: BLE001
         logger.warning("3D mavzu tekshiruvi: %s", exc)
         verdict = {"ok": True, "kind": "anatomy", "reason": ""}
@@ -683,6 +689,8 @@ async def _med3d_topic_gate(message: Message, state: FSMContext, lang: str) -> b
 async def _step_script(message: Message, state: FSMContext, lang: str) -> None:
     markup = _markup([[InlineKeyboardButton(text=_t(lang, "script_latin"), callback_data="prem_ppt_script:latin"),
                        InlineKeyboardButton(text=_t(lang, "script_cyrillic"), callback_data="prem_ppt_script:cyrillic")],
+                      [InlineKeyboardButton(text=_t(lang, "script_latin_new"),
+                                            callback_data=f"prem_ppt_script:{uz_script.LATIN_NEW}")],
                       _back_row(lang)])
     data = await state.get_data()
     await _prompt(message, state, _topic_line(data, lang) + _t(lang, "ask_script"), markup,
@@ -699,6 +707,9 @@ async def premium_ppt_got_script(callback: CallbackQuery, state: FSMContext, db:
     topic = data.get("topic", "")
     if choice == uz_script.LATIN:
         topic, language = uz_script.to_latin(topic), "uz"
+    elif choice == uz_script.LATIN_NEW:
+        # Mavzu modelga eski lotinda beriladi; tayyor fayl yangi alifboga o'giriladi.
+        topic, language = uz_script.to_latin(topic), uz_script.UZ_NEW_LANG
     else:
         language = uz_script.UZ_CYRILLIC_LANG
     await _drop_prompt(callback.bot, callback.message.chat.id, state)
@@ -1398,8 +1409,9 @@ async def _handoff_simple(callback: CallbackQuery, state: FSMContext, db: Databa
         "source_step_visited": True,
         "doc_language": "uz" if uz_script.script_of_language(language) else language,
         "uz_script": uz_script.script_of_language(language) or "",
-        "topic": uz_script.convert(data.get("topic", ""), uz_script.LATIN)
-        if language == "uz" else data.get("topic", ""),
+        "uz_new": language == uz_script.UZ_NEW_LANG,
+        "topic": uz_script.to_latin_old(data.get("topic", ""))
+        if language in ("uz", uz_script.UZ_NEW_LANG) else data.get("topic", ""),
         "author_name": name,
         # Fayl yoki sayt matni va mijoz istagi oddiy oqimda ham ishlatiladi.
         "book_content": data.get("source_text") or "",
@@ -1734,7 +1746,7 @@ def _confirm_keyboard(lang: str, current_language: str, color=None) -> InlineKey
     """Xulosa tugmalari: til, rang (None — taklif qilinmaydi), tasdiqlash va orqaga.
     Rasm manbasi va yozuv animatsiyasi o'z bosqichlarida tanlanadi — xulosada faqat yozuv bo'lib turadi."""
     builder = InlineKeyboardBuilder()
-    for code in ("uz", uz_script.UZ_CYRILLIC_LANG, "ru", "en", "kk"):
+    for code in ("uz", uz_script.UZ_CYRILLIC_LANG, uz_script.UZ_NEW_LANG, "ru", "en", "kk"):
         mark = "✓ " if code == current_language else ""
         builder.button(text=f"{mark}{_LANG_BUTTONS[code]}", callback_data=f"prem_ppt_lang:{code}")
     builder.adjust(2)
@@ -2342,6 +2354,16 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
     # deb ko'rinardi va qayta ishga tushirish uni uzib qo'yardi.
     work_id = workload.begin("zamonaviy taqdimot")
     html_pages: list = []
+    # Yangi o'zbek alifbosi: ichkarida oddiy "uz" (model eski lotinda yozadi), slayd HTML'i va
+    # tayyor PPTX esa yangi alifboga o'giriladi (uz_script.py).
+    build_language = uz_script.base_language(presentation_language)
+    new_alphabet = presentation_language == uz_script.UZ_NEW_LANG
+    script_token = uz_script.use(uz_script.LATIN_NEW) if new_alphabet else None
+
+    async def to_new_alphabet(path: str) -> None:
+        if new_alphabet and path:
+            await asyncio.to_thread(uz_script.normalize_pptx, path, uz_script.LATIN_NEW)
+
     try:
         # Premium taqdimot modeli admin panelda alohida tanlanadi.
         # Generatsiya sinxron oqimda ishlaydi va u yerdan bazaga murojaat
@@ -2399,8 +2421,9 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
                 asyncio.run_coroutine_threadsafe(_show(), loop)
 
             final_path, ready_slides, _photos = await pro3d.build_deck(
-                topic, slide_count, language=presentation_language, level=level,
+                topic, slide_count, language=build_language, level=level,
                 preferences=preferences, source_text=source_text, author=client_name, stage_cb=on_pro_stage)
+            await to_new_alphabet(final_path)
             html_pages = [None] * ready_slides
         elif _kind_of(data) == KIND_MED3D:
             from services.med3d import auto as med3d_auto
@@ -2419,24 +2442,27 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
                 asyncio.run_coroutine_threadsafe(_show(), loop)
 
             final_path, ready_slides = await med3d_auto.build_deck(
-                topic, slide_count, language=presentation_language, level=level, preferences=preferences,
+                topic, slide_count, language=build_language, level=level, preferences=preferences,
                 stage_cb=on_med_stage, style=data.get("m3d_style") or None)
+            await to_new_alphabet(final_path)
             html_pages = [None] * ready_slides
         else:
             # AI slaydlarni HTML/CSS/SVG qilib chizadi, brauzer 1920×1080 joylashtiradi va PPTX
             # ga yig'adi: brauzer nima ko'rsatsa, PowerPointda ham aynan o'sha turadi.
             final_path, ready_slides, _photos = await pipeline.build_deck(
-                topic, slide_count, language=presentation_language, level=level,
+                topic, slide_count, language=build_language, level=level,
                 preferences=preferences, source_text=source_text, author=client_name,
                 style=data.get("style", ""), volume=data.get("volume", "kop"),
                 photo_source=_photo_source(data) or "mix",
                 theme_key=data.get("theme_key", "") if _color(data) not in (None, "auto") else "",
                 progress_cb=progress_cb, stage_cb=on_stage)
             html_pages = [None] * ready_slides
+            await to_new_alphabet(final_path)
             if _text_anim_choice(data):
                 await _animate(final_path)
 
     except Exception as e:
+        uz_script.reset(script_token)
         logger.exception("Premium taqdimot generatsiyasida xato: %s", e)
         workload.end(work_id)
         if animation_task:
@@ -2493,6 +2519,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
             pass
         await state.clear()
         return
+    uz_script.reset(script_token)
 
     if animation_task:
         animation_task.cancel()
@@ -2513,7 +2540,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
 
     filename = f"Taqdimot_{topic[:30].replace(' ', '_')}.pptx"
     if _kind_of(data) == KIND_MED3D:         # ko'rish sharti fayl nomining o'zida — mijoz tanlagan tilda
-        filename = med3d_filename(topic, presentation_language)
+        filename = med3d_filename(topic, build_language)
     try:
         from aiogram.types import FSInputFile
         document = FSInputFile(final_path, filename=filename)

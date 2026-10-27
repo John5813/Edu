@@ -72,7 +72,8 @@ async def main():
     check("tez tanlash sonlari", cat["premium_range"]["popular"] == [5, 8, 10, 12, 15, 20, 25, 30]
           and cat["premium_range"]["min"] == 5 and cat["premium_range"]["max"] == 30, cat["premium_range"])
     check("uslublarda qisqa tavsif bor", all(st.get("note") for st in cat["styles"]) and len(cat["styles"]) == 5)
-    check("beshta til (lotin, kirill, rus, ingliz, qozoq)", [l["key"] for l in cat["languages"]] == ["uz", "uz-cyrl", "ru", "en", "kk"])
+    check("oltita til (lotin, kirill, yangi alifbo, rus, ingliz, qozoq)",
+          [l["key"] for l in cat["languages"]] == ["uz", "uz-cyrl", "uz-yangi", "ru", "en", "kk"])
     check("ranglar nomi va ranglari bilan", cat["themes"] and all(t["label"] and t["accent"].startswith("#") for t in cat["themes"]))
 
     print("2) Zamonaviy taqdimot parametrlari")

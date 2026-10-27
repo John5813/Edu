@@ -158,3 +158,43 @@ class CommandResetMiddleware(BaseMiddleware):
                     await state.clear()
                     data["raw_state"] = None
         return await handler(event, data)
+
+
+class UzScriptMiddleware(BaseMiddleware):
+    """Mijoz hujjatni yangi o'zbek lotin alifbosida tanlagan bo'lsa (FSM: `uz_new`), shu
+    so'rov ichidagi hamma ish (AI so'rovlari, fayl yaratish) shu yozuvda bo'ladi.
+
+    Yozuv `uz_script.use` orqali kontekstga qo'yiladi: handler ichida boshlangan fon
+    vazifalariga ham o'tadi, tayyor fayllar `uz_script.wrap_file_methods` orqali o'giriladi.
+    """
+
+    async def __call__(
+        self,
+        handler: Callable[[Message, Dict[str, Any]], Awaitable[Any]],
+        event: Message | CallbackQuery,
+        data: Dict[str, Any]
+    ) -> Any:
+        from services import uz_script
+
+        state = data.get("state")
+        new_alphabet = False
+        if state is not None:
+            try:
+                fsm = await state.get_data()
+                if fsm.get("topic") or "uz_new" in fsm:
+                    new_alphabet = bool(fsm.get("uz_new"))
+                else:
+                    # Balans to'ldirilgach buyurtma FSM dan emas, saqlangan nusxadan tiklanadi.
+                    from bot import checkout
+                    user = getattr(event, "from_user", None)
+                    saved = checkout.pending(user.id) if user else {}
+                    new_alphabet = bool((saved.get("data") or {}).get("uz_new"))
+            except Exception:
+                new_alphabet = False
+        if not new_alphabet:
+            return await handler(event, data)
+        token = uz_script.use(uz_script.LATIN_NEW)
+        try:
+            return await handler(event, data)
+        finally:
+            uz_script.reset(token)

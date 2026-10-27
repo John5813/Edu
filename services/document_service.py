@@ -5511,6 +5511,9 @@ class DocumentService:
 # Qozoq tili ("kk"): hujjat ruscha yo'l bilan yasaladi, tayyor fayldagi qat'iy
 # ruscha yorliqlar qozoqchaga o'giriladi (kazakh_doc.py).
 kazakh_doc.wrap_class(DocumentService, file_prefix="create_")
+# Yangi o'zbek lotin alifbosi tanlangan bo'lsa tayyor fayl o'giriladi (uz_script.py).
+from services import uz_script as _uz_script  # noqa: E402
+_uz_script.wrap_file_methods(DocumentService, prefix="create_")
 
 
 _document_service_instance: "DocumentService | None" = None

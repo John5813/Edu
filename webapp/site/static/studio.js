@@ -21,7 +21,7 @@
     course_work: 'Masalan: Korxonada xarajatlarni boshqarish', diploma_work: 'Masalan: Bank xizmatlarini raqamlashtirish',
     bitiruv_ishi: "Masalan: Kichik biznesni rivojlantirish yo'llari", dissertatsiya: 'Masalan: Innovatsion iqtisodiyotning nazariy asoslari',
   };
-  const DOC_LANG = {uz: "O'zbek (lotin)", ru: 'Русский', en: 'English'};
+  const DOC_LANG = {uz: "O'zbek (lotin)", 'uz-yangi': 'Özbek (yangi alifbo)', ru: 'Русский', en: 'English'};
   const SOURCES = [
     {key: 'ai', label: '✨ AI o‘zi yozadi', note: 'Faqat mavzu bo‘yicha'},
     {key: 'text', label: '📝 Matn yozaman', note: 'O‘z fikr yoki konspektingiz'},

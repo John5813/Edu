@@ -263,6 +263,7 @@ def _catalog() -> Dict:
         "kinds": [{"key": kind.key, "label": kind.label, "heavy": kind.heavy, "options": kind.options or {}}
                   for kind in (web_jobs.KINDS[key] for key in web_kinds.KINDS_ORDER if key in web_jobs.KINDS)],
         "languages": [{"key": "uz", "label": "O'zbek (lotin)"}, {"key": "uz-cyrl", "label": "Ўзбек (кирилл)"},
+                      {"key": "uz-yangi", "label": "Özbek (yangi alifbo)"},
                       {"key": "ru", "label": "Русский"}, {"key": "en", "label": "English"},
                       {"key": "kk", "label": "Қазақша"}],
         "styles": [{"key": key, "label": label, "note": STYLE_NOTES[key]} for key, label in

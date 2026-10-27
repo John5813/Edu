@@ -10,7 +10,7 @@ from services.web_jobs import JobError, Kind, Report, register
 
 log = logging.getLogger(__name__)
 
-LANGUAGES = ("uz", uz_script.UZ_CYRILLIC_LANG, "ru", "en", "kk")
+LANGUAGES = ("uz", uz_script.UZ_CYRILLIC_LANG, uz_script.UZ_NEW_LANG, "ru", "en", "kk")
 MODERN_STYLES = ("toza", "jurnal", "blok", "kontur", "qorongu")
 
 
@@ -140,7 +140,7 @@ register(Kind(key="premium_presentation", label="Zamonaviy taqdimot", normalize=
 # Word faylini yig'adi. Narxlar va hajmlar `config` dagi jadvallardan olinadi, shuning uchun bot
 # va sayt narxi hech qachon farq qilmaydi.
 
-DOC_LANGUAGES = ("uz", "ru", "en")
+DOC_LANGUAGES = ("uz", uz_script.UZ_NEW_LANG, "ru", "en")
 EXTRAS_LABELS = {"formulas": "Formulalar", "images": "Rasmlar", "scheme": "Sxemalar", "tables": "Jadvallar",
                  "glossary": "Glossariy", "statistics": "Statistika"}
 PLAN_STYLES = {"oddiy": "Oddiy (savollar bilan)", "murakkab": "Murakkab (boblar bilan)"}

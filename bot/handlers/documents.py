@@ -766,8 +766,8 @@ async def handle_doc_language_selection(callback: CallbackQuery, state: FSMConte
     except Exception:
         pass
 
-    doc_lang = callback.data.split("_")[-1]
-    await state.update_data(doc_language=doc_lang)
+    doc_lang, uz_new = uz_script.doc_language_choice(callback.data.split("_")[-1])
+    await state.update_data(doc_language=doc_lang, uz_new=uz_new)
 
     try:
         await callback.message.delete()
@@ -1447,11 +1447,17 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         # qo'llanadi — ikki yozuv aralashib ketmasin.
         script = None
         if doc_lang == "uz":
-            script = data.get("uz_script") or (uz_script.CYRILLIC if uz_script.has_cyrillic(topic) else uz_script.LATIN)
+            script = data.get("uz_script") or (
+                uz_script.LATIN_NEW if data.get("uz_new")
+                else uz_script.CYRILLIC if uz_script.has_cyrillic(topic) else uz_script.LATIN)
             _script_token = uz_script.use(script)
             if script == uz_script.LATIN:
                 topic = uz_script.to_latin(topic)
                 ai_topic = uz_script.to_latin(ai_topic)
+            elif script == uz_script.LATIN_NEW:
+                # Model eski lotinda yozadi; tayyor fayl yangi alifboga o'giriladi.
+                topic = uz_script.to_latin_old(topic)
+                ai_topic = uz_script.to_latin_old(ai_topic)
 
         # Create order record
         specifications = json.dumps({
@@ -4136,7 +4142,8 @@ def _doc_order_summary(data: dict, language: str) -> str:
     pages = data.get("page_count") or data.get("slide_count")
     if pages:
         lines.append(f"📑 Hajm: {clean(pages, 40)}")
-    lines.append(f"🌐 Til: {clean(data.get('doc_language', language), 10).upper()}")
+    lines.append(f"🌐 Til: {clean(data.get('doc_language', language), 10).upper()}"
+                 + (" (yangi alifbo)" if data.get("uz_new") else ""))
     return "\n".join(lines)
 
 

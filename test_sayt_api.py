@@ -139,7 +139,7 @@ async def main():
 
     print("3) Katalog va narx")
     cat = await (await client.get("/api/v1/catalog")).json()
-    check("katalog: xizmat, uslub, til, narxlar", cat["kinds"] and len(cat["styles"]) == 5 and len(cat["languages"]) == 5
+    check("katalog: xizmat, uslub, til, narxlar", cat["kinds"] and len(cat["styles"]) == 5 and len(cat["languages"]) == 6
           and cat["premium_prices"][0]["price"] >= 3000, cat["premium_prices"][:2])
     from services.premium_presentation import pipeline
     q = await (await client.post("/api/v1/quote", json={"kind": "premium_presentation",

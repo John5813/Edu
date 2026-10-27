@@ -14,7 +14,7 @@ import logging
 import random
 import time
 
-from services import workload
+from services import uz_script, workload
 from dataclasses import dataclass, field
 from typing import Any, Callable, Coroutine, Optional
 
@@ -195,6 +195,8 @@ class HeavyDocTask:
     bot: Any
     done_event: asyncio.Event = field(default_factory=asyncio.Event)
     created_at: float = field(default_factory=time.time)
+    # Navbatga qo'shilgan paytdagi o'zbek yozuvi (yangi alifbo): ishchi boshqa kontekstda ishlaydi.
+    script: str = field(default_factory=uz_script.current)
 
 
 # ── Queue ─────────────────────────────────────────────────────────────────────
@@ -268,8 +270,12 @@ class DocumentQueue:
                 logger.info(f"Queue: starting {task.doc_type} for user {task.user_telegram_id}")
                 # Admin paneldagi yangilash tugmasi shu ro'yxatga qaraydi:
                 # ishlab turgan generatsiyani uzib qo'ymasligi kerak.
-                with workload.track(task.doc_type):
-                    await task.coro_factory()
+                script_token = uz_script.use(task.script)
+                try:
+                    with workload.track(task.doc_type):
+                        await task.coro_factory()
+                finally:
+                    uz_script.reset(script_token)
             except asyncio.CancelledError:
                 # Worker is being shut down — mark task done so animation exits
                 task.done_event.set()
