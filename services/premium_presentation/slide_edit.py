@@ -260,8 +260,15 @@ async def rewrite(deck: dict, index: int, instruction: str, shots_dir: str,
 
     `deck` o'zgartirilmaydi; natijani chaqiruvchi saqlaydi. Promptlar taqdimot tilida (prompts/*.py).
     """
-    with prompts.use(deck.get("language", "uz")):
-        return await _rewrite(deck, index, instruction, shots_dir, progress)
+    from services import uz_script
+
+    # Yangi o'zbek alifbosidagi taqdimot: qayta yozilgan sahifa ham shu yozuvga o'giriladi (build_pages).
+    token = uz_script.use(deck.get("script") or "")
+    try:
+        with prompts.use(deck.get("language", "uz")):
+            return await _rewrite(deck, index, instruction, shots_dir, progress)
+    finally:
+        uz_script.reset(token)
 
 
 async def _rewrite(deck: dict, index: int, instruction: str, shots_dir: str,
