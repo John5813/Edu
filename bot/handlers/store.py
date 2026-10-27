@@ -640,8 +640,11 @@ async def store_status(message: Message):
     status = await message.answer("⏳ Tekshirilmoqda...")
     lines = ["🏪 <b>Do'kon holati</b>\n"]
 
-    auto = "yoqilgan" if STORE_AUTO_PUBLISH else "o'chirilgan"
-    lines.append(f"{'✅' if STORE_AUTO_PUBLISH else '⏸'} Avtomatik nashr: {auto}")
+    auto_on = STORE_AUTO_PUBLISH and await store_publisher.auto_publish_enabled()
+    auto = "yoqilgan" if auto_on else "o'chirilgan"
+    if STORE_AUTO_PUBLISH and not auto_on:
+        auto += " («🎛 Funksiyalar boshqaruvi»da)"
+    lines.append(f"{'✅' if auto_on else '⏸'} Avtomatik nashr: {auto}")
 
     if STORE_VAULT_CHAT_ID:
         try:

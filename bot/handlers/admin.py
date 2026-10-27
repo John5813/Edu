@@ -14,6 +14,7 @@ from aiogram.exceptions import TelegramForbiddenError, TelegramRetryAfter
 from bot.states import AdminStates
 from bot import ad_buttons
 from services import reengage
+from services.store_publisher import FEATURE as STORE_PUBLISH
 from bot.keyboards import (
     get_admin_keyboard,
     get_admin_statistics_keyboard,
@@ -2287,7 +2288,8 @@ async def _feature_keyboard(db):
                click_enabled=await db.get_feature_status("click_pay"),
                payme_enabled=await db.get_feature_status("payme_pay"),
                uzum_enabled=await db.get_feature_status("uzum_pay"),
-               reasoning_enabled=await db.get_feature_status("ai_reasoning"))
+               reasoning_enabled=await db.get_feature_status("ai_reasoning"),
+               store_publish_enabled=await db.get_feature_status(STORE_PUBLISH))
 
 _FEATURES_TITLE = (
     "🎛 Funksiyalar boshqaruvi\n\n"
@@ -2402,6 +2404,39 @@ async def toggle_click_pay(callback: CallbackQuery, db: Database):
     await callback.answer(text, show_alert=True)
     kb = await _feature_keyboard(db)
     await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("toggle_store_publish_"))
+async def toggle_store_publish(callback: CallbackQuery, db: Database):
+    """Tayyor fayllarni do'kon katalogiga avtomatik chiqarishni yoqish/o'chirish (bot va sayt).
+
+    O'chiq: mijozga yetkazilgan ishlar do'konga qo'yilmaydi va ko'rgazma rasmlari diskka
+    yozilmaydi (disk to'lib qolmasligi uchun). Katalogdagi eski ishlar va admin qo'lda
+    qo'shadiganlari o'zgarishsiz qoladi.
+    """
+    if not is_admin(callback.from_user.id):
+        return
+    new_status = callback.data.split("_")[-1] == "on"
+    await db.set_feature_status(STORE_PUBLISH, new_status)
+    await callback.answer("🏪 Tayyor fayllar do'konga chiqariladi." if new_status
+                          else "🏪 Tayyor fayllar do'konga chiqarilmaydi: rasmlari ham saqlanmaydi.",
+                          show_alert=True)
+    kb = await _feature_keyboard(db)
+    await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
+
+
+@router.callback_query(F.data == "features_close")
+async def close_feature_management(callback: CallbackQuery):
+    """«Funksiyalar boshqaruvi» panelini yopadi: xabar o'chadi, tugmalar chatda qolmaydi."""
+    await callback.answer()
+    try:
+        await callback.message.delete()
+    except Exception:
+        # 48 soatdan eski xabarni o'chirib bo'lmaydi — hech bo'lmasa tugmalarni olib tashlaymiz.
+        try:
+            await callback.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
 
 
 @router.callback_query(F.data.startswith("toggle_ai_reasoning_"))

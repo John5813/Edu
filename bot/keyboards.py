@@ -1157,6 +1157,7 @@ def get_feature_management_keyboard(
     payme_enabled: bool = True,
     uzum_enabled: bool = True,
     reasoning_enabled: bool = True,
+    store_publish_enabled: bool = True,
 ) -> InlineKeyboardMarkup:
     """Feature management keyboard for admin"""
     keyboard = InlineKeyboardBuilder()
@@ -1239,6 +1240,13 @@ def get_feature_management_keyboard(
         callback_data=f"toggle_text_anim_{'off' if text_anim_enabled else 'on'}"
     ))
 
+    # Tayyor fayllarni do'kon katalogiga avtomatik chiqarish (services/store_publisher.py)
+    keyboard.add(InlineKeyboardButton(
+        text=f"🏪 Tayyor fayllar do'konga: {'🟢 Yoqilgan' if store_publish_enabled else '🔴 Ochirilgan'}".replace(
+            "Ochirilgan", "O'chirilgan"),
+        callback_data=f"toggle_store_publish_{'off' if store_publish_enabled else 'on'}"
+    ))
+
     # Tekin taqdimot havolalari (Instagram avtojavobi uchun): database/gift_links.py
     keyboard.add(InlineKeyboardButton(
         text="🔗 Tekin taqdimot havolalari",
@@ -1267,6 +1275,9 @@ def get_feature_management_keyboard(
         text="🔄 Minus balanslarni yangilash",
         callback_data="fix_negative_balances"
     ))
+
+    # Panelni yopish: tugmalar chatda ochiq qolib ketmasin
+    keyboard.add(InlineKeyboardButton(text="❌ Yopish", callback_data="features_close"))
 
     keyboard.adjust(1)
     return keyboard.as_markup()
