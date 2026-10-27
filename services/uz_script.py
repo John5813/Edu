@@ -1,4 +1,4 @@
-"""O'zbekcha yozuv: lotin va kirill.
+"""O'zbekcha yozuv: lotin, kirill va yangi lotin alifbosi.
 
 Taqdimot mavzusi kirillda yozilsa, ilgari sarlavhalar, "Rahmat" va jadval
 nomlari lotinda, qolgan matn kirillda chiqib, bir slaydning o'zida ikki
@@ -7,6 +7,11 @@ shu yozuvda yozdirishga harakat qilamiz, tayyor faylda esa qolib ketgan
 boshqa yozuvdagi so'zlarni shu yozuvga o'giramiz.
 
 O'girish rus tilini emas, faqat o'zbek imlosini nazarda tutadi.
+
+Yangi lotin alifbosi (2027-yil 22-apreldan kuchga kiradi): oʻ → ö, gʻ → ğ,
+sh → ş, ch → ç, tutuq belgisi — ʼ. Modellar asosan eski lotinda o'qitilgan,
+shuning uchun matn eski lotinda yozdiriladi va tayyor matn/fayl kod bilan
+yangi alifboga o'giriladi (`to_latin_new`) — almashtirish qat'iy qoida.
 """
 import contextvars
 import re
@@ -14,10 +19,12 @@ from typing import Any, Optional
 
 LATIN = "latin"
 CYRILLIC = "cyrillic"
-SCRIPTS = (LATIN, CYRILLIC)
+LATIN_NEW = "latin_new"           # yangi lotin alifbosi (ö, ğ, ş, ç)
+SCRIPTS = (LATIN, CYRILLIC, LATIN_NEW)
 
 # Premium oqimda til kodi shu ko'rinishda ham keladi.
 UZ_CYRILLIC_LANG = "uz-cyrl"
+UZ_NEW_LANG = "uz-yangi"          # o'zbekcha, yangi lotin alifbosida
 
 _CYRILLIC_RE = re.compile(r"[Ѐ-ӿ]")
 _APOSTROPHES = "ʻʼ’‘`´"
@@ -87,11 +94,27 @@ def to_latin(text: str) -> str:
 
 # ───────────────────────────────────────────────────────── lotin → kirill
 
-_LATIN_WORD = re.compile(r"[A-Za-z](?:[A-Za-z]|['" + re.escape(_APOSTROPHES) + r"](?=[A-Za-z]))*")
+_NEW_LETTERS = "ÖöĞğŞşÇç"
+_LATIN_WORD = re.compile(r"[A-Za-z" + _NEW_LETTERS + r"](?:[A-Za-z" + _NEW_LETTERS + r"]|['"
+                         + re.escape(_APOSTROPHES) + r"](?=[A-Za-z" + _NEW_LETTERS + r"]))*")
+# Yangi alifbo harflari eski lotin ko'rinishida (kirillga o'girishdan oldin).
+_NEW_TO_OLD = {"ö": "o'", "Ö": "O'", "ğ": "g'", "Ğ": "G'", "ş": "sh", "Ş": "Sh", "ç": "ch", "Ç": "Ch"}
+
+
+def _new_to_old(word: str) -> str:
+    """Yangi alifbodagi so'z → eski lotin: "Şahar" → "Shahar", "ŞAHAR" → "SHAHAR"."""
+    if not any(char in _NEW_LETTERS for char in word):
+        return word.replace("ʼ", "'")
+    upper_all = sum(char.isupper() for char in word) > 1 and word.upper() == word
+    out = []
+    for char in word:
+        piece = _NEW_TO_OLD.get(char, char)
+        out.append(piece.upper() if upper_all else piece)
+    return "".join(out).replace("ʼ", "'")
 
 
 def _latin_word_to_cyrillic(word: str) -> str:
-    text = re.sub("[" + re.escape(_APOSTROPHES) + "]", "'", word)
+    text = re.sub("[" + re.escape(_APOSTROPHES) + "]", "'", _new_to_old(word))
     low = text.lower()
     out = []
     i, n = 0, len(text)
@@ -180,6 +203,100 @@ def to_cyrillic(text: str) -> str:
     return "".join(result)
 
 
+# ───────────────────────────────────────────────────────── eski lotin ↔ yangi lotin
+
+# Bitta so'z (lotin harflari, yangi harflar va so'z ichidagi tutuq/oʻ belgilari).
+_LATIN_NEW_WORD = re.compile(r"[A-Za-z" + _NEW_LETTERS + r"](?:[A-Za-z" + _NEW_LETTERS + r"]|["
+                             + re.escape("'" + _APOSTROPHES) + r"]{1,2}(?=[A-Za-z" + _NEW_LETTERS + r"]))*["
+                             + re.escape("'" + _APOSTROPHES) + r"]?")
+# "oʻ" va "gʻ" belgisi. ʼ (U+02BC) — tutuq belgisi, u "o" dan keyin ham tutuq bo'lib qoladi.
+_OKINA = "'ʻ‘’`´"
+_O_G = re.compile(r"([OoGg])[" + re.escape(_OKINA) + r"]")
+_TUTUQ = re.compile(r"(?<=[A-Za-z" + _NEW_LETTERS + r"])[" + re.escape("'" + _APOSTROPHES) + r"](?=[A-Za-z"
+                    + _NEW_LETTERS + r"])")
+_NEW_SH_CH = {"sh": "ş", "ch": "ç"}
+
+
+def _looks_foreign(word: str) -> bool:
+    """O'zbek lotinida bo'lmaydigan birikmalar (w, yolg'iz c, th, ee, oo, ck) — chet tilidagi so'z."""
+    return bool(re.search(r"w|c(?!h)|th|ee|oo|ck", word.lower()))
+
+
+def _latin_word_to_new(word: str) -> str:
+    """Eski lotindagi bitta so'z → yangi alifbo. "O'zbekiston" → "Özbekiston", "SHAHAR" → "ŞAHAR"."""
+    upper_all = sum(char.isupper() for char in word) > 1 and word.upper() == word
+
+    def o_g(match) -> str:
+        letter = match.group(1)
+        new = {"o": "ö", "g": "ğ"}[letter.lower()]
+        return new.upper() if letter.isupper() else new
+
+    text = _O_G.sub(o_g, word)
+    text = _TUTUQ.sub("ʼ", text)
+
+    def sh_ch(match) -> str:
+        pair = match.group(0)
+        new = _NEW_SH_CH[pair.lower()]
+        return new.upper() if pair[0].isupper() else new
+
+    text = re.sub(r"[Ss][Hh]|[Cc][Hh]", sh_ch, text)
+    return text.upper() if upper_all else text
+
+
+def to_latin_new(text: str) -> str:
+    """Matnni yangi o'zbek lotin alifbosiga o'giradi (kirill qismi ham).
+
+    Formulalar (`$...$`), havolalar, pochta, HTML belgilar, raqamga yopishgan bo'laklar
+    (CH4, H2O) va chet tilidagi so'zlar (w, c, th... bor) o'zgarmaydi.
+    Bir necha marta qo'llansa ham natija o'zgarmaydi.
+    """
+    source = to_latin(text)
+    result = []
+    for index, part in enumerate(re.split("(" + _PROTECTED + ")", source)):
+        if index % 2:                     # himoyalangan bo'lak
+            result.append(part)
+            continue
+        if _looks_english_phrase(part):
+            result.append(part)
+            continue
+
+        def word(match) -> str:
+            token = match.group(0)
+            before, after = part[:match.start()], part[match.end():]
+            if any(char.isdigit() for char in (before[-1:] + after[:1])):
+                return token              # CH4, B12
+            if _looks_foreign(token):
+                return token              # Chrome, Washington
+            return _latin_word_to_new(token)
+
+        result.append(_LATIN_NEW_WORD.sub(word, part))
+    return "".join(result)
+
+
+# Inglizcha jumla (ikki va undan ko'p inglizcha so'z, o'zbekchasi yo'q) butunlay tegilmaydi.
+_ENGLISH_WORDS = {
+    "the", "and", "of", "to", "in", "is", "for", "on", "with", "as", "by", "this", "that", "are", "be",
+    "from", "or", "an", "it", "at", "which", "was", "were", "has", "have", "not", "but", "can", "will",
+    "should", "children", "school", "teacher", "research", "change", "chapter", "show", "shop",
+}
+
+
+def _looks_english_phrase(text: str) -> bool:
+    words = re.findall(r"[A-Za-z]+", text)
+    if len(words) < 2 or any(mark in text for mark in "'ʻʼ‘’"):
+        return False
+    english = sum(1 for w in words if w.lower() in _ENGLISH_WORDS)
+    return english >= 2 and english * 3 >= len(words)
+
+
+def to_latin_old(text: str) -> str:
+    """Kirill va yangi alifbodagi so'zlarni eski (amaldagi) o'zbek lotiniga keltiradi."""
+    source = to_latin(text)
+    if not any(char in _NEW_LETTERS for char in source):
+        return source
+    return re.sub(r"[A-Za-z" + _NEW_LETTERS + r"ʼ']+", lambda m: _new_to_old(m.group(0)), source)
+
+
 # ───────────────────────────────────────────────────────── umumiy
 
 def convert(text: str, script: Optional[str]) -> str:
@@ -188,6 +305,8 @@ def convert(text: str, script: Optional[str]) -> str:
         return to_latin(text)
     if script == CYRILLIC:
         return to_cyrillic(text)
+    if script == LATIN_NEW:
+        return to_latin_new(text)
     return text
 
 
@@ -207,12 +326,32 @@ def convert_tree(value: Any, script: Optional[str], skip_keys=("layout", "image_
 
 
 def script_of_language(language: str) -> Optional[str]:
-    """Premium til kodidan yozuv: "uz" → lotin, "uz-cyrl" → kirill, boshqasi — yo'q."""
+    """Premium til kodidan yozuv: "uz" → lotin, "uz-cyrl" → kirill, "uz-yangi" → yangi lotin.
+
+    "uz" bilan ishlayotgan oqimda yangi alifbo tanlangan bo'lsa (`use(LATIN_NEW)`) — yangi lotin.
+    """
     if language == "uz":
-        return LATIN
+        return LATIN_NEW if current() == LATIN_NEW else LATIN
     if language == UZ_CYRILLIC_LANG:
         return CYRILLIC
+    if language == UZ_NEW_LANG:
+        return LATIN_NEW
     return None
+
+
+DOC_NEW_CODE = "uzn"              # hujjat tili tugmasi: "doc_lang_uzn"
+
+
+def doc_language_choice(code: str) -> tuple:
+    """Hujjat tili tugmasi → (til, yangi_alifbo). "uzn" → ("uz", True)."""
+    if code == DOC_NEW_CODE:
+        return "uz", True
+    return code, False
+
+
+def base_language(language: str) -> str:
+    """Ichki oqimlar uchun til kodi: yangi alifbo — oddiy "uz" (matn eski lotinda yoziladi)."""
+    return "uz" if language == UZ_NEW_LANG else language
 
 
 # ───────────────────────────────────────────────────────── modelga qoida
@@ -225,7 +364,8 @@ def prompt_rule(script: Optional[str]) -> str:
                 "letters for Uzbek words and never mix the two alphabets. JSON keys, layout "
                 "names and technical identifiers stay exactly as specified in the instructions; "
                 "internationally written abbreviations (AI, PDF) may stay.")
-    if script == LATIN:
+    if script in (LATIN, LATIN_NEW):
+        # Yangi alifbo ham: model eski lotinda yozadi, natija kod bilan o'giriladi.
         return ("SCRIPT RULE: write every Uzbek word in the UZBEK LATIN alphabet "
                 "(oʻ, gʻ written as o', g'). Never use Cyrillic letters, even if the topic was "
                 "given in Cyrillic: transliterate it into Latin.")
@@ -333,3 +473,80 @@ def normalize_html(html: str, script: Optional[str]) -> str:
     html = _ATTR_PLAIN.sub(lambda m: m.group(1) + convert(m.group(2), script) + m.group(3), html)
     html = _ATTR_SERIES.sub(lambda m: m.group(1) + _series_names(m.group(2), script) + m.group(3), html)
     return html
+
+
+def normalize_docx(path: str, script: Optional[str]) -> int:
+    """DOCX ichidagi hamma matnni (asosiy matn, jadval, yozuv maydoni, kolontitul, izoh) yozuvga keltiradi.
+
+    Formulalar (OMML) va maydon kodlari tegilmaydi — faqat `w:t` matn bo'laklari.
+    """
+    if script not in SCRIPTS:
+        return 0
+    from docx import Document
+    from docx.oxml.ns import qn
+
+    doc = Document(path)
+    changed = 0
+    parts = [doc.part] + [rel.target_part for rel in doc.part.rels.values()
+                          if not rel.is_external and hasattr(rel.target_part, "element")]
+    seen = set()
+    for part in parts:
+        root = getattr(part, "element", None)
+        if root is None or id(root) in seen:
+            continue
+        seen.add(id(root))
+        for node in root.iter(qn("w:t")):
+            if node.text:
+                new = convert(node.text, script)
+                if new != node.text:
+                    node.text = new
+                    changed += 1
+    if changed:
+        doc.save(path)
+    return changed
+
+
+def normalize_file(path: str, script: Optional[str]) -> int:
+    """Tayyor DOCX/PPTX faylni yozuvga keltiradi (boshqa turdagi fayl — tegilmaydi)."""
+    if not path or script not in SCRIPTS or not isinstance(path, str):
+        return 0
+    ext = path.lower().rsplit(".", 1)[-1]
+    if ext == "docx":
+        return normalize_docx(path, script)
+    if ext == "pptx":
+        return normalize_pptx(path, script)
+    return 0
+
+
+def wrap_file_methods(cls, names=(), prefix: str = "") -> None:
+    """Fayl yo'lini qaytaradigan metodlarni o'raydi: yangi alifbo tanlangan bo'lsa natija o'giriladi.
+
+    Yozuv `use(LATIN_NEW)` bilan shu jarayonga qo'yiladi (bot: `UzScriptMiddleware`, sayt: `web_jobs`).
+    """
+    import functools
+    import inspect
+
+    def wrap(func):
+        if inspect.iscoroutinefunction(func):
+            @functools.wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                result = await func(*args, **kwargs)
+                if current() == LATIN_NEW and isinstance(result, str):
+                    import asyncio
+                    await asyncio.to_thread(normalize_file, result, LATIN_NEW)
+                return result
+            return async_wrapper
+
+        @functools.wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            result = func(*args, **kwargs)
+            if current() == LATIN_NEW and isinstance(result, str):
+                normalize_file(result, LATIN_NEW)
+            return result
+        return sync_wrapper
+
+    for name, func in list(vars(cls).items()):
+        if name.startswith("__") or not inspect.isfunction(func):   # staticmethod va h.k. tegilmaydi
+            continue
+        if name in names or (prefix and name.startswith(prefix)):
+            setattr(cls, name, wrap(func))

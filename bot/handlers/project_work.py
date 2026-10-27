@@ -36,7 +36,7 @@ from services.project_work.specs import (
     GENERIC_FIELD_KEY,
     block_label,
 )
-from services import document_source, workload
+from services import document_source, uz_script, workload
 from services.project_work import source as source_module
 from translations import get_text, label_variants
 from services import kazakh_doc
@@ -105,7 +105,8 @@ async def start_project_work(message: Message, state: FSMContext, user_lang: str
 @router.callback_query(F.data.startswith("doc_lang_"), ProjectWorkStates.waiting_for_language)
 async def chose_language(callback: CallbackQuery, state: FSMContext, user_lang: str):
     await callback.answer()
-    await state.update_data(doc_language=callback.data.replace("doc_lang_", ""))
+    doc_language, uz_new = uz_script.doc_language_choice(callback.data.replace("doc_lang_", ""))
+    await state.update_data(doc_language=doc_language, uz_new=uz_new)
     await state.set_state(ProjectWorkStates.waiting_for_topic)
     await callback.message.edit_text(get_text(user_lang, "pw_ask_topic"))
 

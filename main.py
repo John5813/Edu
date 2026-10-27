@@ -562,6 +562,11 @@ async def main():
     from bot.middlewares import BlockedUserMiddleware
     dp.message.middleware(BlockedUserMiddleware())
     dp.callback_query.middleware(BlockedUserMiddleware())
+
+    # Yangi o'zbek lotin alifbosi tanlangan hujjatlar (uz_script.py).
+    from bot.middlewares import UzScriptMiddleware
+    dp.message.middleware(UzScriptMiddleware())
+    dp.callback_query.middleware(UzScriptMiddleware())
     
     # Register handlers - important order: specific handlers first, catch-all last!
     dp.include_router(admin.router)  # Admin commands first

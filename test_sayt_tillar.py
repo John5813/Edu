@@ -83,7 +83,7 @@ COLLECT = r"""() => {
 }"""
 
 # Mijoz kiritgan yoki o'zgarmas nomlar: tarjima qilinmaydi
-KEEP = {"O‘zbekcha", "O'zbekcha", "English", "Русский", "Қазақша", "Ўзбек (кирилл)", "O'zbek (lotin)", "UZ", "RU", "EN", "KK",
+KEEP = {"O‘zbekcha", "O'zbekcha", "English", "Русский", "Қазақша", "Ўзбек (кирилл)", "O'zbek (lotin)", "Özbek (yangi alifbo)", "UZ", "RU", "EN", "KK",
         "Raqamli iqtisodiyot", "Globallashuv va iqtisodiyot", "Korxonada xarajatlar", "Sun'iy intellekt", "Ali Valiyev",
         "ali@gmail.com", "@ali", "@javlon58_02", "@Edufayl_bot", "Moʻydinov Javlonbek", "ab", "Ali Valiyev"}
 DECK_TITLES = {"Raqamli iqtisodiyot", "Taqdimot rejasi", "Kirish", "Rivojlanish", "Natijalar", "Xulosa", "Ulush"}

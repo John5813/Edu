@@ -193,6 +193,23 @@ async def _refund(job_id: str, telegram_id: int, price: int) -> None:
         await free_trial.release(telegram_id, job_id)
 
 
+async def _run_kind(kind: Kind, params: Dict, report: Report) -> Tuple[str, str]:
+    """Xizmatni bajaradi. Yangi o'zbek alifbosi ("uz-yangi"): ichkarida oddiy "uz" ishlaydi
+    (model eski lotinda yozadi), tayyor matn va fayl yangi alifboga o'giriladi."""
+    from services import uz_script
+
+    if params.get("language") != uz_script.UZ_NEW_LANG:
+        return await kind.run(params, report)
+    token = uz_script.use(uz_script.LATIN_NEW)
+    try:
+        path, name = await kind.run({**params, "language": "uz",
+                                     "topic": uz_script.to_latin_old(params.get("topic", ""))}, report)
+        await asyncio.to_thread(uz_script.normalize_file, path, uz_script.LATIN_NEW)
+        return path, name
+    finally:
+        uz_script.reset(token)
+
+
 async def _execute(job_id: str, telegram_id: int, kind: Kind, params: Dict, price: int) -> None:
     from services import workload
 
@@ -209,7 +226,7 @@ async def _execute(job_id: str, telegram_id: int, kind: Kind, params: Dict, pric
         work_id = workload.begin(f"sayt: {kind.key}")
         try:
             await web_store.update_job(job_id, status="running", stage="writing", progress=3)
-            path, name = await kind.run({**params, "_job_id": job_id}, report)
+            path, name = await _run_kind(kind, {**params, "_job_id": job_id}, report)
             os.makedirs(RESULTS_DIR, exist_ok=True)
             stored = os.path.join(RESULTS_DIR, f"{job_id}{os.path.splitext(path)[1]}")
             shutil.move(path, stored)

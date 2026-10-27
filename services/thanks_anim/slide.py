@@ -47,6 +47,8 @@ def texts(language: str) -> Tuple[str, str, str, str]:
 
     if language == uz_script.UZ_CYRILLIC_LANG:
         return TEXTS["uz-cyrl"]
+    if language == uz_script.UZ_NEW_LANG:
+        return tuple(uz_script.to_latin_new(text) for text in TEXTS["uz"])
     return TEXTS.get(language) or TEXTS["en"]
 
 

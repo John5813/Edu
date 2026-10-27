@@ -178,7 +178,7 @@ async def main():
     # Xulosa: 4 ta til/yozuv tugmasi
     text, markup = pp._summary({"topic": "Mavzu", "presentation_language": "uz-cyrl", "slide_count": 10, "style": "toza"}, "uz")
     codes = [b.callback_data for row in markup.inline_keyboard for b in row if b.callback_data.startswith("prem_ppt_lang:")]
-    check("xulosada lotin/kirill/rus/ingliz/qozoq tugmalari", codes == ["prem_ppt_lang:uz", "prem_ppt_lang:uz-cyrl", "prem_ppt_lang:ru", "prem_ppt_lang:en", "prem_ppt_lang:kk"], codes)
+    check("xulosada lotin/kirill/yangi alifbo/rus/ingliz/qozoq tugmalari", codes == ["prem_ppt_lang:uz", "prem_ppt_lang:uz-cyrl", "prem_ppt_lang:uz-yangi", "prem_ppt_lang:ru", "prem_ppt_lang:en", "prem_ppt_lang:kk"], codes)
     check("tasdiq oynasida tanlangan til belgisi (✓) bor",
           any(b.text.startswith("✓") and b.callback_data == "prem_ppt_lang:uz-cyrl" for row in markup.inline_keyboard for b in row))
     summary = pp._order_summary({"topic": "Mavzu", "presentation_language": "uz-cyrl", "slide_count": 10}, "uz")

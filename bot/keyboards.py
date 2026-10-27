@@ -39,10 +39,20 @@ def get_source_selection_keyboard(lang: str = "uz") -> InlineKeyboardMarkup:
     keyboard.adjust(1)
     return keyboard.as_markup()
 
-def get_doc_language_keyboard(lang: str = "uz", back_callback: str = "back_to_main") -> InlineKeyboardMarkup:
-    """Document language selection keyboard"""
+# O'zbekcha, yangi lotin alifbosida (services/uz_script.py: LATIN_NEW).
+NEW_ALPHABET_BUTTON = "🇺🇿 Özbek (yangi alifbo)"
+
+
+def get_doc_language_keyboard(lang: str = "uz", back_callback: str = "back_to_main",
+                              new_alphabet: bool = True) -> InlineKeyboardMarkup:
+    """Document language selection keyboard.
+
+    `new_alphabet` — o'zbekcha yangi lotin alifbosi (ö, ğ, ş, ç) tugmasi: "doc_lang_uzn".
+    """
     keyboard = InlineKeyboardBuilder()
     keyboard.add(InlineKeyboardButton(text="🇺🇿 O'zbek", callback_data="doc_lang_uz"))
+    if new_alphabet:
+        keyboard.add(InlineKeyboardButton(text=NEW_ALPHABET_BUTTON, callback_data="doc_lang_uzn"))
     keyboard.add(InlineKeyboardButton(text="🇷🇺 Русский", callback_data="doc_lang_ru"))
     keyboard.add(InlineKeyboardButton(text="🇬🇧 English", callback_data="doc_lang_en"))
     keyboard.add(InlineKeyboardButton(text="🇰🇿 Қазақша", callback_data="doc_lang_kk"))

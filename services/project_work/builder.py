@@ -492,3 +492,7 @@ class ProjectWorkBuilder:
 from services import kazakh_doc  # noqa: E402
 
 kazakh_doc.wrap_class(ProjectWorkBuilder, file_methods=("build",))
+# Yangi o'zbek lotin alifbosi: tayyor fayl o'giriladi (uz_script.py).
+from services import uz_script  # noqa: E402
+
+uz_script.wrap_file_methods(ProjectWorkBuilder, names=("build",))
