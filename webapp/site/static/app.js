@@ -552,6 +552,7 @@
           ${w.history.length ? `<table class="hist" style="margin-top:8px"><tr><th>Sana</th><th>Summa</th><th>Holat</th></tr>${w.history.map((h) => `<tr><td>${E.esc(h.created_at)}</td><td>${E.fmt(h.amount)}</td><td>${statusPill(h.status)}</td></tr>`).join('')}</table>`
             : '<p class="hint" style="margin-top:10px">Hali to‘lov yo‘q.</p>'}
           <div class="note wait" style="margin-top:18px">Chek tekshirilgach summa hisobga qo‘shiladi. Admin tasdig‘i kerak bo‘lsa, natija Telegramga ham keladi.</div>
+          <p class="hint" style="margin-top:14px"><a href="/tolov-va-qaytarish" target="_blank">To‘lov va qaytarish tartibi</a> · <a href="/oferta" target="_blank">Ommaviy oferta</a> · <a href="/xavfsizlik" target="_blank">To‘lov xavfsizligi</a></p>
         </div>
       </div>`;
 

@@ -763,6 +763,8 @@ async def wallet_uzum(request: web.Request) -> web.Response:
     telegram_id = await _require(request)
     if not await uzum_pay.available():
         return _error("Uzum hozircha ulanmagan.", 409, "uzum_off")
+    if _limited(f"uzum:{telegram_id}", 10, 60):
+        return _error("Juda tez-tez yuborildi. Bir daqiqa kuting.", 429, "rate")
     try:
         body = await request.json()
     except Exception:
