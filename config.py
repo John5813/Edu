@@ -90,7 +90,8 @@ UZUM_PASSWORD = os.getenv("UZUM_PASSWORD", "").strip()
 UZUM_ACCOUNT = os.getenv("UZUM_ACCOUNT", "user_id").strip() or "user_id"
 # Saytdagi oferta va to'lov sahifalaridagi rekvizitlar (webapp/legal.py). Bo'sh qatori sahifada ko'rsatilmaydi.
 LEGAL_NAME = os.getenv("LEGAL_NAME", "YTT «MO‘YDINOV JAVLONBEK JUMANAZAR O‘G‘LI»").strip()
-LEGAL_STIR = os.getenv("LEGAL_STIR", "").strip()            # STIR (INN)
+LEGAL_STIR = os.getenv("LEGAL_STIR", "").strip()            # YTT uchun JShShIR (14 raqam), MChJ uchun STIR
+LEGAL_REG = os.getenv("LEGAL_REG", "").strip()              # davlat ro'yxatidan o'tganlik: sana va raqam
 LEGAL_ADDRESS = os.getenv("LEGAL_ADDRESS", "").strip()
 LEGAL_PHONE = os.getenv("LEGAL_PHONE", "").strip()
 LEGAL_EMAIL = os.getenv("LEGAL_EMAIL", "").strip()

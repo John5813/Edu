@@ -52,7 +52,8 @@ async def main():
             check(f"/{slug}: barcha bo'limlar", all(legal._esc(h) in text for h, _ in page["sections"]))
             check(f"/{slug}: {{..}} qolmagan", not re.search(r"\{(min|max|contact|site|date)\}", text))
             check(f"/{slug}: rekvizitlar, bo'shlari yo'q", "123456789" in text and "+998 90 000 00 00" in text
-                  and "Manzil" not in text and "E-pochta" not in text)
+                  and "JShShIR (STIR)" in text and "Manzil" not in text and "E-pochta" not in text
+                  and "Davlat ro" not in text)
             check(f"/{slug}: HTML qochirilgan", "Sinov &lt;b&gt;" in text and "Sinov <b>" not in text)
             check(f"/{slug}: uchala sahifaga havola", all(f'href="/{s}"' in text for s in legal.PAGES))
 
@@ -76,7 +77,7 @@ async def main():
                   len(page["sections"]) == len(legal.PAGES[slug]["sections"])
                   and all(legal._esc(h) in text for h, _ in page["sections"]))
             check(f"/ru/{slug}: {{..}} qolmagan, rekvizitlar ruscha",
-                  not re.search(r"\{(min|max|contact|site|date)\}", text) and "ИНН" in text and "123456789" in text)
+                  not re.search(r"\{(min|max|contact|site|date)\}", text) and "ПИНФЛ (ИНН)" in text and "123456789" in text)
             check(f"/ru/{slug}: tabs /ru/, o'zbekchaga qaytish", all(f'href="/ru/{s}"' in text for s in legal.PAGES)
                   and f'href="/{slug}" hreflang="uz"' in text)
             uz = await (await client.get(f"/{slug}")).text()
