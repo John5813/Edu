@@ -27,6 +27,18 @@ logger = logging.getLogger(__name__)
 # bo'lganini ko'ra olishi uchun oxirgisi shu yerda saqlanadi.
 LAST_ERROR: dict = {}
 
+FEATURE = "store_publish"    # admin «Funksiyalar boshqaruvi»dagi kalit (sukut — yoqilgan)
+
+
+async def auto_publish_enabled() -> bool:
+    """Admin tayyor fayllarni do'konga chiqarishni o'chirib qo'ymaganmi."""
+    try:
+        from database.database import Database
+        return bool(await Database().get_feature_status(FEATURE))
+    except Exception as exc:                      # holatni o'qib bo'lmasa — sozlamalar bo'yicha
+        logger.warning("Do'konga chiqarish holati o'qilmadi: %s", exc)
+        return True
+
 # "Tayyorladi:", "Автор —", "Prepared by" kabi satrlar. Mijoz ismi noma'lum
 # bo'lganda ham shu satrlar orqali topiladi.
 _LABEL = (
@@ -629,6 +641,8 @@ def schedule_publish(bot, file_path: str, title: str, work_type: str, *,
 
     async def run() -> None:
         try:
+            if not await auto_publish_enabled():
+                return
             await publish_work(
                 bot, staged, title.strip()[:300], store_price(work_type),
                 customer_name=customer_name, language=language,
