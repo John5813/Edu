@@ -385,10 +385,12 @@ LINKS_RU = (("oferta", "Публичная оферта"), ("tolov-va-qaytarish"
 LANGS = {
     "uz": {"pages": PAGES, "links": LINKS, "prefix": "", "home": "Bosh sahifa", "nav": "Huquqiy ma'lumotlar",
            "req_title": "Ijrochi rekvizitlari va aloqa", "switch": ("ru", "Русский"),
-           "req": ("Ijrochi", "STIR (INN)", "Manzil", "Bank rekvizitlari", "Telefon", "E-pochta", "Telegram", "Sayt")},
+           "req": ("Ijrochi", "JShShIR (STIR)", "Davlat ro'yxatidan o'tgan", "Manzil", "Bank rekvizitlari", "Telefon",
+                   "E-pochta", "Telegram", "Sayt")},
     "ru": {"pages": PAGES_RU, "links": LINKS_RU, "prefix": "/ru", "home": "Главная", "nav": "Правовая информация",
            "req_title": "Реквизиты исполнителя и контакты", "switch": ("uz", "O'zbekcha"),
-           "req": ("Исполнитель", "ИНН", "Адрес", "Банковские реквизиты", "Телефон", "E-mail", "Telegram", "Сайт")},
+           "req": ("Исполнитель", "ПИНФЛ (ИНН)", "Государственная регистрация", "Адрес", "Банковские реквизиты",
+                   "Телефон", "E-mail", "Telegram", "Сайт")},
 }
 
 TEMPLATE = """<!DOCTYPE html>
@@ -453,8 +455,8 @@ def _values(origin: str) -> dict:
 
 def requisites(lang: str = "uz") -> list:
     """(nomi, qiymati) — faqat to'ldirilganlari."""
-    values = (config.LEGAL_NAME, config.LEGAL_STIR, config.LEGAL_ADDRESS, config.LEGAL_BANK, config.LEGAL_PHONE,
-              config.LEGAL_EMAIL, config.ADMIN_CONTACT, "edufayl.org")
+    values = (config.LEGAL_NAME, config.LEGAL_STIR, config.LEGAL_REG, config.LEGAL_ADDRESS, config.LEGAL_BANK,
+              config.LEGAL_PHONE, config.LEGAL_EMAIL, config.ADMIN_CONTACT, "edufayl.org")
     return [(name, value) for name, value in zip(LANGS[lang]["req"], values) if value]
 
 
