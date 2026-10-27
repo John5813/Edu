@@ -1,4 +1,4 @@
-"""Huquqiy sahifalar: /oferta, /tolov-va-qaytarish, /xavfsizlik.
+"""Huquqiy sahifalar: /oferta, /tolov-va-qaytarish, /xavfsizlik (ruschasi — /ru/... da).
 
 To'lov tizimlari (Uzum Bank, Click, Payme) saytda ommaviy oferta, to'lov va qaytarish tartibi hamda
 firibgarlik xavfini cheklash choralari ochiq turishini talab qiladi. Matn shu yerda, rekvizitlar `.env`
@@ -194,12 +194,205 @@ XAVFSIZLIK = {
     ),
 }
 
+OFERTA_RU = {
+    "title": "Публичная оферта — Edufayl",
+    "h1": "Публичная оферта",
+    "lead": "Договор оказания услуг через сайт Edufayl ({site}) и Telegram-бот. "
+            "Пополнение счёта или оформление заказа означает полное согласие с настоящими условиями.",
+    "sections": (
+        ("1. Общие положения", (
+            "1.1. Настоящий документ в соответствии со статьями 367–370 Гражданского кодекса Республики Узбекистан "
+            "является публичной офертой. Он определяет отношения между Исполнителем (указан в реквизитах ниже) и "
+            "любым лицом, пользующимся услугами (Заказчиком).",
+            "1.2. Оферта считается принятой (акцептованной), а договор заключённым с момента пополнения "
+            "Заказчиком счёта или оформления заказа.",
+            "1.3. Исполнитель вправе изменять текст оферты. Новая редакция вступает в силу с момента размещения "
+            "на сайте и применяется к последующим платежам и заказам.",
+        )),
+        ("2. Предмет договора", (
+            "2.1. Исполнитель оказывает услуги по подготовке учебных и научных работ в электронном виде "
+            "с помощью искусственного интеллекта:",
+            ("презентации (PPTX), самостоятельные работы, рефераты, курсовые, статьи, тезисы, дипломные и "
+             "выпускные работы (DOCX);",
+             "перевод документов, оформление и другие вспомогательные услуги;",
+             "продажа готовых работ в магазине на сайте."),
+            "2.2. Услуги оказываются в цифровом виде — загрузкой файла на сайте или отправкой через Telegram-бот. "
+            "Материальные товары не поставляются.",
+            "2.3. Подготовленная работа является образцом и вспомогательным материалом для личного использования "
+            "Заказчиком. Адаптация её к требованиям учебного заведения и правомерное использование лежат на "
+            "Заказчике.",
+        )),
+        ("3. Стоимость услуг и счёт", (
+            "3.1. Стоимость каждой услуги указывается в сумах на сайте или в боте до оформления заказа.",
+            "3.2. Услуги оплачиваются со внутреннего счёта (баланса) Заказчика. Счёт привязан к Telegram ID "
+            "Заказчика.",
+            "3.3. Способы и порядок пополнения счёта описаны на странице «Оплата и возврат» "
+            "({site}/ru/tolov-va-qaytarish). Разовый платёж — от {min} до {max} сум.",
+            "3.4. Средства на счёте используются только для оплаты услуг Исполнителя, не передаются другим "
+            "пользователям, проценты на них не начисляются.",
+        )),
+        ("4. Права и обязанности сторон", (
+            "4.1. Исполнитель:",
+            ("выполняет заказ после поступления оплаты, как правило в течение нескольких минут;",
+             "возвращает средства на счёт, если услуга не оказана из-за технического сбоя;",
+             "сохраняет конфиденциальность персональных данных Заказчика;",
+             "вправе временно ограничить счёт и провести дополнительную проверку при подозрении на мошенничество."),
+            "4.2. Заказчик:",
+            ("корректно указывает условия заказа (тема, язык, объём);",
+             "оплачивает только с принадлежащей ему банковской карты;",
+             "не использует услуги в противоправных целях;",
+             "вправе обратиться в течение 3 дней при обнаружении недостатков."),
+        )),
+        ("5. Возврат", (
+            "5.1. Неиспользованные средства на счёте возвращаются по запросу Заказчика. Средства, списанные за "
+            "оказанную услугу, не возвращаются, за исключением случаев, указанных в п. 5.2.",
+            "5.2. Если услуга не оказана, выполнена с технической ошибкой или результат не соответствует условиям "
+            "заказа, Заказчик в течение 3 дней может обратиться и выбрать бесплатную повторную подготовку работы "
+            "либо возврат её стоимости на счёт.",
+            "5.3. Сроки и порядок возврата подробно описаны на странице «Оплата и возврат».",
+        )),
+        ("6. Ответственность", (
+            "6.1. Исполнитель не отвечает за сбои на стороне платёжных систем, банка, интернет-провайдера или "
+            "Telegram, но возвращает на счёт средства за не оказанную по этой причине услугу.",
+            "6.2. Ответственность Исполнителя ограничена суммой, уплаченной Заказчиком за соответствующую услугу.",
+            "6.3. Заказчик самостоятельно отвечает за сдачу готовой работы в учебное заведение и последствия её "
+            "использования.",
+        )),
+        ("7. Персональные данные", (
+            "7.1. Исполнитель обрабатывает данные, необходимые для оказания услуг: Telegram ID, имя, имя "
+            "пользователя, история заказов и платежей. Данные банковской карты Исполнителю не передаются и не "
+            "хранятся: оплата производится на странице банка и платёжной системы.",
+            "7.2. Данные передаются третьим лицам только в случаях, предусмотренных законом.",
+        )),
+        ("8. Разрешение споров", (
+            "8.1. Споры решаются прежде всего путём переговоров. Письменное обращение Заказчика рассматривается в "
+            "течение 10 рабочих дней.",
+            "8.2. При недостижении согласия спор рассматривается в суде в соответствии с законодательством "
+            "Республики Узбекистан.",
+        )),
+        ("9. Срок действия", (
+            "9.1. Оферта вступает в силу с {date} и действует бессрочно.",
+        )),
+    ),
+}
+
+TOLOV_RU = {
+    "title": "Порядок оплаты и возврата — Edufayl",
+    "h1": "Порядок оплаты и возврата",
+    "lead": "Как пополнить счёт, когда поступают деньги и в каких случаях они возвращаются.",
+    "sections": (
+        ("Как работает оплата", (
+            "В Edufayl услуги оплачиваются через внутренний счёт (баланс). Сначала вы пополняете счёт, затем "
+            "оформляете заказ — стоимость услуги списывается с баланса. Цена показывается до оформления заказа.",
+            "Счёт привязан к вашему Telegram ID. Его можно увидеть в боте или в разделе «Кошелёк» на сайте.",
+            "Разовый платёж: не менее {min} сум и не более {max} сум.",
+        )),
+        ("Способы оплаты", (
+            ("Uzum Bank — кнопка «Через Uzum Bank» в боте или на сайте открывает приложение Uzum, Telegram ID и "
+             "сумма заполняются автоматически. Вы подтверждаете платёж в приложении — сумма сразу зачисляется на "
+             "счёт. Можно также найти сервис в приложении Uzum и ввести Telegram ID вручную.",
+             "Click — кнопка «Через Click» открывает страницу оплаты my.click.uz. После оплаты сумма "
+             "автоматически зачисляется на счёт.",
+             "Payme — кнопка «Через Payme» открывает страницу оплаты Payme. После оплаты сумма автоматически "
+             "зачисляется на счёт.",
+             "Перевод на карту — вы переводите деньги на указанную карту и загружаете чек в бот или на сайт. "
+             "После проверки чека сумма зачисляется на счёт; если требуется подтверждение администратора, "
+             "результат придёт в Telegram."),
+            "Данные карты вводятся только на странице банка и платёжной системы. Edufayl не запрашивает и не "
+            "хранит номер карты, срок действия или SMS-код.",
+        )),
+        ("Когда поступают деньги", (
+            ("Uzum Bank, Click, Payme — сразу после подтверждения платежа (обычно за несколько секунд). Бот "
+             "пришлёт сообщение «оплата принята».",
+             "Перевод на карту — после проверки чека. Обычно за несколько минут, в нерабочее время немного дольше."),
+            "Если деньги списаны с карты, но не поступили на счёт в течение 30 минут, напишите {contact} и "
+            "приложите чек — мы проверим и зачислим сумму или вернём деньги.",
+        )),
+        ("Порядок возврата", (
+            ("Неиспользованные средства. Неиспользованную сумму на счёте можно вернуть в любое время. Деньги "
+             "возвращаются в течение 10 рабочих дней на карту, с которой была оплата, или через ту же платёжную "
+             "систему.",
+             "Использованные средства. Сумма, списанная за оказанную услугу (подготовленный и выданный файл), "
+             "не возвращается — за исключением случаев ниже.",
+             "Некачественный результат. Если файл не открывается, не соответствует условиям заказа (тема, язык, "
+             "объём) или подготовлен с технической ошибкой, обратитесь в течение 3 дней — работа будет бесплатно "
+             "подготовлена заново или её стоимость вернётся на счёт (на ваш выбор).",
+             "Услуга не оказана. Если заказ не выполнен из-за технического сбоя, сумма автоматически "
+             "возвращается на счёт.",
+             "Двойное списание или ошибочный платёж. Сумма возвращается полностью."),
+        )),
+        ("Как запросить возврат", (
+            ("напишите {contact} в Telegram или воспользуйтесь контактами ниже;",
+             "укажите Telegram ID, сумму, дату и способ оплаты, по возможности приложите чек;",
+             "запрос рассматривается 1–3 рабочих дня, деньги возвращаются в течение 10 рабочих дней."),
+            "Сроки возврата на стороне банка или платёжной системы могут зависеть от их правил.",
+        )),
+    ),
+}
+
+XAVFSIZLIK_RU = {
+    "title": "Безопасность платежей и меры против мошенничества — Edufayl",
+    "h1": "Безопасность платежей и меры против мошенничества",
+    "lead": "Меры, применяемые Edufayl и банками-партнёрами для ограничения и контроля рисков мошеннических "
+            "операций.",
+    "sections": (
+        ("Оплата проводится на стороне банка", (
+            "Все онлайн-платежи (Uzum Bank, Click, Payme) проводятся в приложении или на странице этих систем. "
+            "Данные карты не поступают на серверы Edufayl и не хранятся.",
+            "Платёж подтверждается средствами защиты банка и платёжной системы: SMS-код, подтверждение в "
+            "приложении и система мониторинга мошенничества банка. Банк может отклонить или приостановить "
+            "подозрительную операцию.",
+        )),
+        ("Ограничения на стороне Edufayl", (
+            ("Сумма разового платежа ограничена: не менее {min} сум и не более {max} сум.",
+             "Каждый платёж привязывается к конкретному счёту пользователя (Telegram ID); если счёт не найден, "
+             "платёж не принимается.",
+             "Каждый запрос платёжной системы проверяется логином и паролем или электронной подписью; запрос, "
+             "не прошедший проверку, отклоняется.",
+             "Один платёж не зачисляется дважды: повторные запросы распознаются, сумма повторно не начисляется.",
+             "Неподтверждённый платёж отменяется автоматически: в Uzum Bank через 30 минут, в Payme через 12 часов.",
+             "Если Uzum Bank или Payme отменяет (возвращает) платёж, сумма автоматически списывается со счёта.",
+             "На сайте ограничена частота нажатия кнопок оплаты (не более 10 раз в минуту).",
+             "Чеки переводов на карту проверяются: дата, сумма, карта получателя и номер операции. Старые, "
+             "повторные или отредактированные чеки не принимаются; крупные суммы подтверждаются администратором "
+             "вручную."),
+        )),
+        ("Контроль", (
+            ("О каждом онлайн-платеже администратору сразу приходит уведомление.",
+             "История платежей и возвратов хранится и регулярно проверяется.",
+             "При подозрении на мошенничество счёт временно ограничивается, платёж проверяется совместно с банком "
+             "и при необходимости информация передаётся банку. На запросы банка по подозрительным операциям "
+             "ответ даётся в сроки, установленные договором."),
+        )),
+        ("Советы пользователю", (
+            ("Edufayl никогда не запрашивает номер карты, срок действия, CVV или SMS-код. Если вас об этом "
+             "просят — это мошенники.",
+             "Оплачивайте только со своей карты.",
+             "Оплачивайте только через официальный бот (@Edufayl_bot) или кнопки на сайте {site}.",
+             "Если с вашей карты прошёл платёж, который вы не совершали, сразу сообщите в свой банк и {contact}."),
+        )),
+    ),
+}
+
 PAGES = {"oferta": OFERTA, "tolov-va-qaytarish": TOLOV, "xavfsizlik": XAVFSIZLIK}
+PAGES_RU = {"oferta": OFERTA_RU, "tolov-va-qaytarish": TOLOV_RU, "xavfsizlik": XAVFSIZLIK_RU}
 LINKS = (("oferta", "Ommaviy oferta"), ("tolov-va-qaytarish", "To'lov va qaytarish"),
          ("xavfsizlik", "To'lov xavfsizligi"))
+LINKS_RU = (("oferta", "Публичная оферта"), ("tolov-va-qaytarish", "Оплата и возврат"),
+            ("xavfsizlik", "Безопасность платежей"))
+
+# Til bo'yicha sahifa matnlari: sahifalar, havolalar, sahifa qolipidagi yozuvlar.
+LANGS = {
+    "uz": {"pages": PAGES, "links": LINKS, "prefix": "", "home": "Bosh sahifa", "nav": "Huquqiy ma'lumotlar",
+           "req_title": "Ijrochi rekvizitlari va aloqa", "switch": ("ru", "Русский"),
+           "req": ("Ijrochi", "STIR (INN)", "Manzil", "Bank rekvizitlari", "Telefon", "E-pochta", "Telegram", "Sayt")},
+    "ru": {"pages": PAGES_RU, "links": LINKS_RU, "prefix": "/ru", "home": "Главная", "nav": "Правовая информация",
+           "req_title": "Реквизиты исполнителя и контакты", "switch": ("uz", "O'zbekcha"),
+           "req": ("Исполнитель", "ИНН", "Адрес", "Банковские реквизиты", "Телефон", "E-mail", "Telegram", "Сайт")},
+}
 
 TEMPLATE = """<!DOCTYPE html>
-<html lang="uz">
+<html lang="{lang}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -207,6 +400,8 @@ TEMPLATE = """<!DOCTYPE html>
 <meta name="description" content="{desc}">
 <meta name="robots" content="index,follow">
 <link rel="canonical" href="{canonical}">
+<link rel="alternate" hreflang="uz" href="{href_uz}">
+<link rel="alternate" hreflang="ru" href="{href_ru}">
 <link rel="icon" href="/static/logo.jpg">
 <link rel="stylesheet" href="/shop/style.css">
 <script type="application/ld+json">{ld}</script>
@@ -221,21 +416,22 @@ TEMPLATE = """<!DOCTYPE html>
 .legal .tabs a{{padding:6px 12px;border:1px solid var(--line);border-radius:999px;text-decoration:none;
   color:var(--ink,inherit);font-size:14px}}
 .legal .tabs a[aria-current]{{border-color:var(--accent);color:var(--accent);font-weight:600}}
+.legal .tabs .lang{{margin-left:auto}}
 </style>
 </head>
 <body>
 <header>
   <div class="wrap head-in">
     <a class="logo" href="/" aria-label="Edufayl"><img src="/static/logo.jpg" alt="Edufayl" width="44" height="44"></a>
-    <a class="create" href="/">Bosh sahifa</a>
+    <a class="create" href="/">{home}</a>
   </div>
 </header>
 <main class="wrap landing legal">
   <nav class="crumbs"><a href="/">Edufayl</a> / {h1}</nav>
-  <nav class="tabs" aria-label="Huquqiy ma'lumotlar">{tabs}</nav>
+  <nav class="tabs" aria-label="{nav}">{tabs}</nav>
   <section class="hero-l"><h1>{h1}</h1><p class="lead">{lead}</p></section>
   {sections}
-  <section class="about"><h2>Ijrochi rekvizitlari va aloqa</h2><dl class="req">{requisites}</dl></section>
+  <section class="about"><h2>{req_title}</h2><dl class="req">{requisites}</dl></section>
 </main>
 <footer class="wrap">{footer}</footer>
 </body>
@@ -255,18 +451,17 @@ def _values(origin: str) -> dict:
             "contact": contact, "site": origin.split("://", 1)[-1] or "edufayl.org", "date": config.LEGAL_DATE}
 
 
-def requisites() -> list:
+def requisites(lang: str = "uz") -> list:
     """(nomi, qiymati) — faqat to'ldirilganlari."""
-    contact = config.ADMIN_CONTACT
-    rows = (("Ijrochi", config.LEGAL_NAME), ("STIR (INN)", config.LEGAL_STIR), ("Manzil", config.LEGAL_ADDRESS),
-            ("Bank rekvizitlari", config.LEGAL_BANK), ("Telefon", config.LEGAL_PHONE), ("E-pochta", config.LEGAL_EMAIL),
-            ("Telegram", contact), ("Sayt", "edufayl.org"))
-    return [(name, value) for name, value in rows if value]
+    values = (config.LEGAL_NAME, config.LEGAL_STIR, config.LEGAL_ADDRESS, config.LEGAL_BANK, config.LEGAL_PHONE,
+              config.LEGAL_EMAIL, config.ADMIN_CONTACT, "edufayl.org")
+    return [(name, value) for name, value in zip(LANGS[lang]["req"], values) if value]
 
 
-def footer_links() -> str:
+def footer_links(lang: str = "uz") -> str:
     """Boshqa sahifalar pastiga qo'yiladigan havolalar."""
-    return " · ".join(f'<a href="/{slug}">{_esc(name)}</a>' for slug, name in LINKS)
+    conf = LANGS[lang]
+    return " · ".join(f'<a href="{conf["prefix"]}/{slug}">{_esc(name)}</a>' for slug, name in conf["links"])
 
 
 def _block(block, values: dict) -> str:
@@ -275,34 +470,41 @@ def _block(block, values: dict) -> str:
     return f"<p>{_esc(block.format(**values))}</p>"
 
 
-def render(slug: str, origin: str) -> str:
-    page = PAGES[slug]
+def render(slug: str, origin: str, lang: str = "uz") -> str:
+    conf = LANGS[lang]
+    page = conf["pages"][slug]
     values = _values(origin)
-    canonical = f"{origin}/{slug}"
+    canonical = f"{origin}{conf['prefix']}/{slug}"
     lead = page["lead"].format(**values)
     sections = "".join(
         f'<section class="about"><h2>{_esc(heading)}</h2>{"".join(_block(b, values) for b in blocks)}</section>'
         for heading, blocks in page["sections"])
-    tabs = "".join(f'<a href="/{s}"{" aria-current=\"page\"" if s == slug else ""}>{_esc(name)}</a>'
-                   for s, name in LINKS)
-    reqs = "".join(f"<dt>{_esc(name)}</dt><dd>{_esc(value)}</dd>" for name, value in requisites())
+    other, other_name = conf["switch"]
+    tabs = "".join(f'<a href="{conf["prefix"]}/{s}"{" aria-current=\"page\"" if s == slug else ""}>{_esc(name)}</a>'
+                   for s, name in conf["links"])
+    tabs += f'<a class="lang" href="{LANGS[other]["prefix"]}/{slug}" hreflang="{other}">{_esc(other_name)}</a>'
+    reqs = "".join(f"<dt>{_esc(name)}</dt><dd>{_esc(value)}</dd>" for name, value in requisites(lang))
     ld = {"@context": "https://schema.org", "@type": "WebPage", "name": page["h1"], "url": canonical,
-          "description": lead, "publisher": {"@type": "Organization", "name": "Edufayl", "url": origin + "/"}}
+          "inLanguage": lang, "description": lead,
+          "publisher": {"@type": "Organization", "name": "Edufayl", "url": origin + "/"}}
     return TEMPLATE.format(
-        title=_esc(page["title"]), desc=_esc(lead[:300]), canonical=_esc(canonical),
-        ld=json.dumps(ld, ensure_ascii=False).replace("</", "<\\/"), h1=_esc(page["h1"]), lead=_esc(lead),
-        tabs=tabs, sections=sections, requisites=reqs, footer=f"Edufayl — edufayl.org · {footer_links()}")
+        lang=lang, title=_esc(page["title"]), desc=_esc(lead[:300]), canonical=_esc(canonical),
+        href_uz=_esc(f"{origin}/{slug}"), href_ru=_esc(f"{origin}/ru/{slug}"),
+        ld=json.dumps(ld, ensure_ascii=False).replace("</", "<\\/"), home=_esc(conf["home"]), nav=_esc(conf["nav"]),
+        h1=_esc(page["h1"]), lead=_esc(lead), tabs=tabs, sections=sections, req_title=_esc(conf["req_title"]),
+        requisites=reqs, footer=f"Edufayl — edufayl.org · {footer_links(lang)}")
 
 
-def _handler(slug: str):
+def _handler(slug: str, lang: str):
     async def handle(request: web.Request) -> web.Response:
         from webapp import store
 
-        text = render(slug, store._origin(request))
+        text = render(slug, store._origin(request), lang)
         return web.Response(text=store._with_style_version(text), content_type="text/html")
     return handle
 
 
 def setup_legal_routes(app: web.Application) -> None:
-    for slug in PAGES:
-        app.router.add_get(f"/{slug}", _handler(slug))
+    for lang, conf in LANGS.items():
+        for slug in conf["pages"]:
+            app.router.add_get(f"{conf['prefix']}/{slug}", _handler(slug, lang))
