@@ -88,6 +88,14 @@ UZUM_SERVICE_ID = os.getenv("UZUM_SERVICE_ID", "").strip()
 UZUM_LOGIN = os.getenv("UZUM_LOGIN", "").strip()
 UZUM_PASSWORD = os.getenv("UZUM_PASSWORD", "").strip()
 UZUM_ACCOUNT = os.getenv("UZUM_ACCOUNT", "user_id").strip() or "user_id"
+# Saytdagi oferta va to'lov sahifalaridagi rekvizitlar (webapp/legal.py). Bo'sh qatori sahifada ko'rsatilmaydi.
+LEGAL_NAME = os.getenv("LEGAL_NAME", "YTT «MO‘YDINOV JAVLONBEK JUMANAZAR O‘G‘LI»").strip()
+LEGAL_STIR = os.getenv("LEGAL_STIR", "").strip()            # STIR (INN)
+LEGAL_ADDRESS = os.getenv("LEGAL_ADDRESS", "").strip()
+LEGAL_PHONE = os.getenv("LEGAL_PHONE", "").strip()
+LEGAL_EMAIL = os.getenv("LEGAL_EMAIL", "").strip()
+LEGAL_BANK = os.getenv("LEGAL_BANK", "").strip()            # bank nomi, MFO va hisob raqami — bitta qatorda
+LEGAL_DATE = os.getenv("LEGAL_DATE", "27.10.2026").strip()  # oferta kuchga kirgan sana
 # UZUM_TEST=1 — sinov rejimi: /confirm qabul qilinadi, lekin balansga pul qo'shilmaydi.
 UZUM_TEST = os.getenv("UZUM_TEST", "0").lower() in {"1", "true", "yes"}
 
