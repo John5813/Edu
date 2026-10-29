@@ -82,7 +82,7 @@ store_previews/
 # 3D anatomiya atlasi (~130 MB) — serverda birinchi so'rovda yuklanadi
 data/med3d_atlas/
 
-# Umumiy 3D katalog modellari (~15 GB) — serverda tools/katalog3d/yukla.sh bilan yuklanadi
+# Umumiy 3D katalog modellari (~12,5 GB) — serverda tools/katalog3d/yukla.sh bilan yuklanadi
 data/katalog3d_modellar/
 
 # Brave API kalitlari (admin panel orqali qo'shiladi) — maxfiy

@@ -1,5 +1,28 @@
 # Umumiy 3D katalog (NASA'dan tashqari)
 
+**2070 ta model**, hammasi ~12,5 GB: Objaverse/Sketchfab — 1694, Smithsonian — 376.
+Litsenziya: CC BY 4.0 — 1548, CC0 — 522.
+
+| Fan | Soni |
+|---|---|
+| biologiya | 683 |
+| tarix | 391 |
+| san'at | 186 |
+| arxitektura | 177 |
+| transport | 173 |
+| texnika | 138 |
+| geografiya | 97 |
+| astronomiya | 47 |
+| oshxona | 38 |
+| fizika | 37 |
+| informatika | 36 |
+| musiqa | 32 |
+| tibbiyot | 19 |
+| sport | 10 |
+| kimyo | 3 |
+| adabiyot | 2 |
+| matematika | 1 |
+
 Taqdimotlarga tayyor 3D modellar: tarix, biologiya, san'at, arxitektura, transport, texnika,
 geografiya, astronomiya va boshqalar. Har model PowerPoint'ga mos `.glb` qilib tayyorlanadi.
 
@@ -19,8 +42,8 @@ nohup bash tools/katalog3d/yukla.sh > katalog3d.log 2>&1 &    # hammasi
 ```
 
 Kerak: `python3`, `node` 18+ va `npm`, `huggingface.co` hamda `3d-api.si.edu` ga internet. Kalit kerak emas.
-Modellar `data/katalog3d_modellar/` ga tushadi (`KATALOG3D_DIR` bilan boshqa joy). Hammasi ~15 GB,
-8 yadroli serverda ~1 soat. Uzilsa qayta ishga tushiring: tayyorlari o'tkazib yuboriladi. Oxirida
+Modellar `data/katalog3d_modellar/` ga tushadi (`KATALOG3D_DIR` bilan boshqa joy). Hammasi ~12,5 GB,
+4 yadroli serverda ~15–20 daqiqa (asosan konvertatsiya). Uzilsa qayta ishga tushiring: tayyorlari o'tkazib yuboriladi. Oxirida
 `tekshir.py` nechta model borligini aytadi.
 
 ## Manbalar va litsenziya
@@ -41,14 +64,18 @@ qo'shing. Har model papkasida `LICENSE.txt` ham bor.
    Rubik kubi, low-poly/stylized, AI modellar, qurol, sci-fi va fantasy so'zlar bo'yicha chiqarib tashlangan.
    Kategoriya kvotasi bor, bir muallifdan ko'pi bilan 20 ta.
 2. Qolgan ~3250 nomzod qo'lda ko'rib chiqilgan: ta'limga mosi qoldirilgan, har biriga o'zbekcha nom
-   va fan berilgan. Takrorlar olib tashlangan.
+   va fan berilgan. Takrorlar, haykalcha/suvenir/maskot, shaxmat va o'yin konsollari ham olib tashlangan.
 3. Smithsonian: CC0 paketlardan muzey buyumlari, qazilmalar, hayvon va o'simlik namunalari. Marjon va
    chig'anoqlardan har turkumdan bittadan olingan.
+4. Konvertatsiyadan keyin har model chizib ko'rilgan: rasmi bo'sh, juda mayda yoki tarqoq chiqqanlari
+   va 600 ming uchburchakdan pastga soddalashmaganlari katalogdan chiqarilgan.
 
 ## Konvertatsiya (`glb_tayyorla.mjs`)
 
 Draco va meshopt siqish yechiladi, WebP/KTX2 teksturalar JPEG/PNG ga o'tkaziladi (PowerPoint
-ularni o'qimaydi). Teksturalar ≤ 2048 px, to'r ≤ 200 ming uchburchak qilinadi. Node transformlari
+ularni o'qimaydi). Eski spec/gloss materiallar metal/rough ga o'tkaziladi (aks holda PowerPoint'da model oq chiqadi).
+Teksturalar ≤ 2048 px, to'r ~200 ming uchburchakka soddalashtiriladi. Asosiy massadan uzoqdagi mayda
+bo'laklar (ramkani buzadigan) olib tashlanadi. Node transformlari
 geometriyaga o'tkaziladi, shunda `services/med3d/glb.bounds()` haqiqiy chegara qutisini beradi va
 model ramkada markazda turadi. Skelet yoki animatsiyali modellarga bu bosqich tegmaydi
 (`pishirilgan: false`).

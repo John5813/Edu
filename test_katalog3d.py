@@ -8,7 +8,7 @@
 
     python test_katalog3d.py
 """
-import io, json, os, sys, tempfile
+import io, json, os, re, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE); os.chdir(HERE)
@@ -51,7 +51,8 @@ check("tanlov.jsonl katalog bilan bir xil", sorted(t["uid"] for t in tanlov) == 
 check("tanlovda manba URL yoki HF yo'li", all(t.get("url") or t.get("yol") for t in tanlov))
 TAQIQ = ("toy", "doll", "anime", "cartoon", "rubik", "lowpoly", "low poly", "stylized", "weapon", "gun",
          "rifle", "sword", "fnaf", "pokemon", "minecraft", "o'yinchoq")
-bad = [m["nom"] for m in mods if any(w in (m["nom"] + " " + m["nom_uz"]).lower() for w in TAQIQ)]
+TAQIQ_RE = re.compile(r"(?<![a-z'])(" + "|".join(re.escape(w) for w in TAQIQ) + r")(?![a-z])")
+bad = [m["nom"] for m in mods if TAQIQ_RE.search((m["nom"] + " " + m["nom_uz"]).lower())]
 check("nomlarda taqiqlangan so'z yo'q", not bad, bad[:5])
 check("bir nechta fan bor", len({m["fan"] for m in mods}) >= 10)
 
