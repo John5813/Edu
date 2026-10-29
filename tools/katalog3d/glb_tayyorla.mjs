@@ -6,11 +6,12 @@
 //
 // Ishga tushirish: NODE_PATH=<gltf-transform o'rnatilgan node_modules> node glb_tayyorla.mjs
 import { createRequire } from 'node:module';
+import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 
 console.log = console.info = console.warn = console.error;   // gltf-transform loglari stdout'ni buzmasin
-const require = createRequire(path.join(process.env.NODE_PATH || process.cwd(), 'x.js'));
+const require = createRequire(path.resolve(process.env.NODE_PATH || process.cwd(), 'x.js'));
 const { NodeIO } = require('@gltf-transform/core');
 const { ALL_EXTENSIONS } = require('@gltf-transform/extensions');
 const { dedup, prune, weld, simplify, getBounds, unpartition, flatten, clearNodeTransform } = require('@gltf-transform/functions');
@@ -96,8 +97,11 @@ async function handle(job) {
   if (tris < 500) throw new Error(`juda oz uchburchak: ${tris}`);
   const scene = doc.getRoot().getDefaultScene() || doc.getRoot().listScenes()[0];
   const b = getBounds(scene);
-  await io.write(job.out, doc);
-  const { size } = await import('node:fs').then((fs) => fs.promises.stat(job.out));
+  if (![...b.min, ...b.max].every(Number.isFinite)) throw new Error('chegara qutisi noto\'g\'ri (NaN/Infinity koordinata)');
+  // Kengaytmaga qaramay doim binar GLB (io.write ".tmp" ni JSON-glTF + alohida fayllar qilib yozadi).
+  const bin = await io.writeBinary(doc);
+  await fs.promises.writeFile(job.out, bin);
+  const size = bin.byteLength;
   return { ok: true, tris, tris_before: before, size, textures: ntex, baked,
     bbox: [b.min, b.max], animations: doc.getRoot().listAnimations().length };
 }
