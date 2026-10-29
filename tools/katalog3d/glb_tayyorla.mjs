@@ -141,7 +141,7 @@ async function handle(job) {
   if (baked) await doc.transform(join({ keepNamed: false }));
   if (before > maxTris && !job.bake_only) {
     // Avval sifatni saqlab (xato ≤ 0.1%), yetmasa — kattaroq xatoga ruxsat bilan qayta.
-    for (const error of [0.001, 0.01, 0.05]) {
+    for (const error of [0.001, 0.01, 0.05, 0.2]) {
       const now = triangles(doc);
       if (now <= maxTris * 1.2) break;
       await doc.transform(weld(), simplify({ simplifier: MeshoptSimplifier, ratio: maxTris / now, error }));
@@ -151,7 +151,7 @@ async function handle(job) {
   await doc.transform(dedup(), prune(), unpartition());
   const tris = triangles(doc);
   if (tris < 500) throw new Error(`juda oz uchburchak: ${tris}`);
-  if (!job.bake_only && tris > maxTris * 2) throw new Error(`soddalashmadi: ${tris} uchburchak`);
+  if (!job.bake_only && tris > maxTris * 3) throw new Error(`soddalashmadi: ${tris} uchburchak`);
   const scene = doc.getRoot().getDefaultScene() || doc.getRoot().listScenes()[0];
   const b = getBounds(scene);
   if (![...b.min, ...b.max].every(Number.isFinite)) throw new Error('chegara qutisi noto\'g\'ri (NaN/Infinity koordinata)');
