@@ -14,7 +14,7 @@ console.log = console.info = console.warn = console.error;   // gltf-transform l
 const require = createRequire(path.resolve(process.env.NODE_PATH || process.cwd(), 'x.js'));
 const { NodeIO } = require('@gltf-transform/core');
 const { ALL_EXTENSIONS } = require('@gltf-transform/extensions');
-const { dedup, prune, weld, simplify, getBounds, unpartition, flatten, clearNodeTransform } = require('@gltf-transform/functions');
+const { dedup, prune, weld, simplify, getBounds, unpartition, flatten, clearNodeTransform, metalRough, join } = require('@gltf-transform/functions');
 const draco3d = require('draco3dgltf');
 const { MeshoptDecoder, MeshoptSimplifier } = require('meshoptimizer');
 const sharp = require('sharp');
@@ -80,21 +80,78 @@ async function bake(doc) {
   return true;
 }
 
+// Asosiy massadan uzoqda yotgan mayda bo'laklarni (chiroq, yordamchi nuqta, adashgan uchburchak) olib tashlaydi —
+// ular chegara qutisini kattalashtirib, model ramkada nuqtadek kichrayib qolardi. Faqat pishirilgan modelda
+// (u yerda node transformi yo'q, accessor koordinatasi = dunyo koordinatasi).
+function chetlarni_olib_tashla(doc) {
+  const nodes = doc.getRoot().listNodes().filter((n) => n.getMesh());
+  const info = [];
+  const sample = [];
+  let total = 0;
+  for (const node of nodes) {
+    const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    let tris = 0;
+    for (const prim of node.getMesh().listPrimitives()) {
+      const pos = prim.getAttribute('POSITION');
+      if (!pos) continue;
+      const n = pos.getCount();
+      tris += (prim.getIndices() ? prim.getIndices().getCount() : n) / 3;
+      const step = Math.max(1, Math.floor(n / 2000));
+      const v = [0, 0, 0];
+      for (let i = 0; i < n; i++) {
+        pos.getElement(i, v);
+        for (let k = 0; k < 3; k++) { if (v[k] < lo[k]) lo[k] = v[k]; if (v[k] > hi[k]) hi[k] = v[k]; }
+        if (i % step === 0) sample.push([v[0], v[1], v[2]]);
+      }
+    }
+    total += tris;
+    info.push({ node, lo, hi, tris });
+  }
+  if (info.length < 2 || sample.length < 50) return 0;
+  const core_lo = [], core_hi = [];
+  for (let k = 0; k < 3; k++) {
+    const a = sample.map((p) => p[k]).sort((x, y) => x - y);
+    core_lo.push(a[Math.floor(a.length * 0.01)]);
+    core_hi.push(a[Math.ceil(a.length * 0.99) - 1]);
+  }
+  const ext = Math.max(...core_hi.map((h, k) => h - core_lo[k])) || 1;
+  let removed = 0;
+  for (const { node, lo, hi, tris } of info) {
+    const outside = [0, 1, 2].some((k) => lo[k] > core_hi[k] + 0.5 * ext || hi[k] < core_lo[k] - 0.5 * ext);
+    if (outside && tris < 0.02 * total) { node.dispose(); removed++; }
+  }
+  return removed;
+}
+
 async function handle(job) {
   const doc = await io.read(job.in);
   for (const ext of doc.getRoot().listExtensionsUsed()) {
     if (DROP.includes(ext.extensionName)) ext.dispose();
   }
+  // PowerPoint (va ko'p ko'ruvchilar) eski spec/gloss materialni o'qimaydi — model oq chiqadi.
+  if (doc.getRoot().listExtensionsUsed().some((e) => e.extensionName === 'KHR_materials_pbrSpecularGlossiness')) {
+    await doc.transform(metalRough());
+  }
   const maxTris = job.max_tris || 600000;
   const before = triangles(doc);
+  // Tartib: transformni pishirish → chetdagi bo'laklarni olib tashlash → bir xil materialli bo'laklarni
+  // birlashtirish (mayda bo'laklarga bo'lingan to'r aks holda soddalashmaydi) → soddalashtirish → teksturalar.
+  const baked = await bake(doc);
+  const chetlar = baked ? chetlarni_olib_tashla(doc) : 0;
+  if (baked) await doc.transform(join({ keepNamed: false }));
   if (before > maxTris && !job.bake_only) {
-    await doc.transform(weld(), simplify({ simplifier: MeshoptSimplifier, ratio: maxTris / before, error: 0.001 }));
+    // Avval sifatni saqlab (xato ≤ 0.1%), yetmasa — kattaroq xatoga ruxsat bilan qayta.
+    for (const error of [0.001, 0.01, 0.05]) {
+      const now = triangles(doc);
+      if (now <= maxTris * 1.2) break;
+      await doc.transform(weld(), simplify({ simplifier: MeshoptSimplifier, ratio: maxTris / now, error }));
+    }
   }
   const ntex = job.bake_only ? doc.getRoot().listTextures().length : await textures(doc, job.max_texture || 2048);
-  const baked = await bake(doc);
   await doc.transform(dedup(), prune(), unpartition());
   const tris = triangles(doc);
   if (tris < 500) throw new Error(`juda oz uchburchak: ${tris}`);
+  if (!job.bake_only && tris > maxTris * 2) throw new Error(`soddalashmadi: ${tris} uchburchak`);
   const scene = doc.getRoot().getDefaultScene() || doc.getRoot().listScenes()[0];
   const b = getBounds(scene);
   if (![...b.min, ...b.max].every(Number.isFinite)) throw new Error('chegara qutisi noto\'g\'ri (NaN/Infinity koordinata)');
@@ -102,7 +159,7 @@ async function handle(job) {
   const bin = await io.writeBinary(doc);
   await fs.promises.writeFile(job.out, bin);
   const size = bin.byteLength;
-  return { ok: true, tris, tris_before: before, size, textures: ntex, baked,
+  return { ok: true, tris, tris_before: before, size, textures: ntex, baked, chetlar,
     bbox: [b.min, b.max], animations: doc.getRoot().listAnimations().length };
 }
 
