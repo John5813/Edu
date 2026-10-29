@@ -1,21 +1,21 @@
 # Umumiy 3D katalog (NASA'dan tashqari)
 
-**2070 ta model**, hammasi ~12,5 GB: Objaverse/Sketchfab — 1694, Smithsonian — 376.
-Litsenziya: CC BY 4.0 — 1548, CC0 — 522.
+**2059 ta model**, hammasi ~12,4 GB: Objaverse/Sketchfab — 1683, Smithsonian — 376.
+Litsenziya: CC BY 4.0 — 1537, CC0 — 522.
 
 | Fan | Soni |
 |---|---|
 | biologiya | 683 |
-| tarix | 391 |
-| san'at | 186 |
-| arxitektura | 177 |
+| tarix | 387 |
+| san'at | 184 |
+| arxitektura | 174 |
 | transport | 173 |
 | texnika | 138 |
-| geografiya | 97 |
+| geografiya | 96 |
 | astronomiya | 47 |
 | oshxona | 38 |
 | fizika | 37 |
-| informatika | 36 |
+| informatika | 35 |
 | musiqa | 32 |
 | tibbiyot | 19 |
 | sport | 10 |

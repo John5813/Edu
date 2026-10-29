@@ -5,7 +5,7 @@
   "objaverse": "Objaverse 1.0 (allenai/objaverse, Sketchfab) — faqat CC0 1.0 va CC BY 4.0",
   "smithsonian": "Smithsonian Open Access 3D — CC0 1.0"
  },
- "soni": 2070,
+ "soni": 2059,
  "modellar": [
   {
    "id": "ee017b677e4949df8064c22971efe720",
@@ -2312,52 +2312,6 @@
    "sifat": 1
   },
   {
-   "id": "feb9ad17e042418c8e759b81e3b2e5d7",
-   "nom_uz": "Hallvil saroyi: katta mehmonxona",
-   "nom": "The Great Drawing Room",
-   "fan": "arxitektura",
-   "kalit": [
-    "room",
-    "arcitecture",
-    "furniture",
-    "museum",
-    "hallwyl",
-    "tapestry",
-    "rcforculture",
-    "realitycapture",
-    "home",
-    "building",
-    "interior",
-    "gold",
-    "lernestal"
-   ],
-   "manba": "objaverse",
-   "litsenziya": "CC BY 4.0",
-   "muallif": "The Hallwyl Museum (Hallwylska museet)",
-   "muallif_url": "https://sketchfab.com/TheHallwylMuseum",
-   "sahifa": "https://sketchfab.com/3d-models/feb9ad17e042418c8e759b81e3b2e5d7",
-   "attribution": "3D: The Hallwyl Museum (Hallwylska museet) · CC BY 4.0",
-   "attribution_full": "\"The Great Drawing Room\" by The Hallwyl Museum (Hallwylska museet) (https://sketchfab.com/3d-models/feb9ad17e042418c8e759b81e3b2e5d7), CC BY 4.0",
-   "fayl": "arxitektura/feb9ad17e042418c8e759b81e3b2e5d7/model.glb",
-   "uchburchak": 199998,
-   "hajm": 9293908,
-   "bbox": [
-    [
-     -8.0962,
-     0.1549,
-     -8.0109
-    ],
-    [
-     6.1956,
-     5.8646,
-     5.9832
-    ]
-   ],
-   "animatsiya": 0,
-   "pishirilgan": true,
-   "sifat": 5
-  },
-  {
    "id": "70ca2fbacde140339ab18effe7010084",
    "nom_uz": "Heddal yog'och cherkovi (Norvegiya)",
    "nom": "Heddal stavkirke",
@@ -2392,48 +2346,6 @@
    "animatsiya": 0,
    "pishirilgan": true,
    "sifat": 3
-  },
-  {
-   "id": "3603511f971e4379aa5ef9ec5b3b1052",
-   "nom_uz": "Hind ibodatxonasi ustuni",
-   "nom": "Hindu Temple Pillar",
-   "fan": "arxitektura",
-   "kalit": [
-    "ancient",
-    "indian",
-    "column",
-    "india",
-    "pillar",
-    "traditional",
-    "hindu",
-    "architecture",
-    "temple"
-   ],
-   "manba": "objaverse",
-   "litsenziya": "CC BY 4.0",
-   "muallif": "Rushat Saiyush J Narayan",
-   "muallif_url": "https://sketchfab.com/rushat_saiyush",
-   "sahifa": "https://sketchfab.com/3d-models/3603511f971e4379aa5ef9ec5b3b1052",
-   "attribution": "3D: Rushat Saiyush J Narayan · CC BY 4.0",
-   "attribution_full": "\"Hindu Temple Pillar\" by Rushat Saiyush J Narayan (https://sketchfab.com/3d-models/3603511f971e4379aa5ef9ec5b3b1052), CC BY 4.0",
-   "fayl": "arxitektura/3603511f971e4379aa5ef9ec5b3b1052/model.glb",
-   "uchburchak": 161812,
-   "hajm": 7351980,
-   "bbox": [
-    [
-     -1.5096,
-     -0.1578,
-     -5.3983
-    ],
-    [
-     4.7729,
-     2.506,
-     2.9879
-    ]
-   ],
-   "animatsiya": 0,
-   "pishirilgan": true,
-   "sifat": 1
   },
   {
    "id": "3a226a05260f4f4b97455826226ebe6c",
@@ -4667,49 +4579,6 @@
    "animatsiya": 0,
    "pishirilgan": true,
    "sifat": 3
-  },
-  {
-   "id": "d18155613363445b9b68c0c67196d98d",
-   "nom_uz": "Qirol zali (barokko saroyi)",
-   "nom": "The King´s Hall",
-   "fan": "arxitektura",
-   "kalit": [
-    "castle",
-    "museum",
-    "baroque",
-    "culturalheritage",
-    "slott",
-    "skokloster",
-    "realitycapture",
-    "photogrammetry",
-    "history",
-    "lernestal"
-   ],
-   "manba": "objaverse",
-   "litsenziya": "CC BY 4.0",
-   "muallif": "Skokloster Castle (Skoklosters slott)",
-   "muallif_url": "https://sketchfab.com/SkoklosterCastle",
-   "sahifa": "https://sketchfab.com/3d-models/d18155613363445b9b68c0c67196d98d",
-   "attribution": "3D: Skokloster Castle (Skoklosters slott) · CC BY 4.0",
-   "attribution_full": "\"The King´s Hall\" by Skokloster Castle (Skoklosters slott) (https://sketchfab.com/3d-models/d18155613363445b9b68c0c67196d98d), CC BY 4.0",
-   "fayl": "arxitektura/d18155613363445b9b68c0c67196d98d/model.glb",
-   "uchburchak": 207169,
-   "hajm": 9391472,
-   "bbox": [
-    [
-     -6.1265,
-     -1.5421,
-     0.6114
-    ],
-    [
-     5.3794,
-     2.9932,
-     16.0698
-    ]
-   ],
-   "animatsiya": 0,
-   "pishirilgan": true,
-   "sifat": 5
   },
   {
    "id": "9ecf85f8298b49aca24a02d673ded5a9",
@@ -35695,45 +35564,6 @@
    "sifat": 2
   },
   {
-   "id": "edb597f00e3e4a84855210219502d29a",
-   "nom_uz": "Kalamos g'ori (Gretsiya)",
-   "nom": "Kalamos Cave",
-   "fan": "geografiya",
-   "kalit": [
-    "greece",
-    "dslr",
-    "cave",
-    "realitycapture",
-    "photogrammetry",
-    "sea"
-   ],
-   "manba": "objaverse",
-   "litsenziya": "CC BY 4.0",
-   "muallif": "9of9",
-   "muallif_url": "https://sketchfab.com/9of9",
-   "sahifa": "https://sketchfab.com/3d-models/edb597f00e3e4a84855210219502d29a",
-   "attribution": "3D: 9of9 · CC BY 4.0",
-   "attribution_full": "\"Kalamos Cave\" by 9of9 (https://sketchfab.com/3d-models/edb597f00e3e4a84855210219502d29a), CC BY 4.0",
-   "fayl": "geografiya/edb597f00e3e4a84855210219502d29a/model.glb",
-   "uchburchak": 199998,
-   "hajm": 9740332,
-   "bbox": [
-    [
-     -23.3579,
-     -5.5116,
-     -18.8189
-    ],
-    [
-     76.8277,
-     25.3568,
-     7.3204
-    ]
-   ],
-   "animatsiya": 0,
-   "pishirilgan": true,
-   "sifat": 2
-  },
-  {
    "id": "b3a309b43e1d43258d94cf8ea69ed211",
    "nom_uz": "Kaliforniya daryosi (past suv sathi)",
    "nom": "California River, Historic Low Flow",
@@ -38848,49 +38678,6 @@
    "animatsiya": 0,
    "pishirilgan": true,
    "sifat": 2
-  },
-  {
-   "id": "608e0f6ce5e9487eb859f48248e1fac4",
-   "nom_uz": "Apple Macintosh kompyuteri",
-   "nom": "Apple Macintosh",
-   "fan": "informatika",
-   "kalit": [
-    "macintosh",
-    "computer",
-    "mac",
-    "apple",
-    "pc",
-    "vintage",
-    "retro",
-    "oldschool",
-    "powerpc",
-    "3dsmaxpublisher"
-   ],
-   "manba": "objaverse",
-   "litsenziya": "CC BY 4.0",
-   "muallif": "tzeshi",
-   "muallif_url": "https://sketchfab.com/timvizesi",
-   "sahifa": "https://sketchfab.com/3d-models/608e0f6ce5e9487eb859f48248e1fac4",
-   "attribution": "3D: tzeshi · CC BY 4.0",
-   "attribution_full": "\"Apple Macintosh\" by tzeshi (https://sketchfab.com/3d-models/608e0f6ce5e9487eb859f48248e1fac4), CC BY 4.0",
-   "fayl": "informatika/608e0f6ce5e9487eb859f48248e1fac4/model.glb",
-   "uchburchak": 22852,
-   "hajm": 528688,
-   "bbox": [
-    [
-     -904.5085,
-     -1000.0,
-     -951.0565
-    ],
-    [
-     904.5086,
-     1000.0,
-     951.0565
-    ]
-   ],
-   "animatsiya": 0,
-   "pishirilgan": true,
-   "sifat": 3
   },
   {
    "id": "b998596cfc4945a0bc7b016005c39321",
@@ -45886,97 +45673,6 @@
    "animatsiya": 0,
    "pishirilgan": true,
    "sifat": 2
-  },
-  {
-   "id": "407a75f63a624494a61da40f5cd07bd0",
-   "nom_uz": "Hallvil saroyi: chinni xonasi",
-   "nom": "The Porcelain Room",
-   "fan": "san'at",
-   "kalit": [
-    "porcelain",
-    "historical",
-    "china",
-    "cultural",
-    "heritage",
-    "museum",
-    "realitycapture",
-    "house",
-    "home",
-    "interior",
-    "lernestal"
-   ],
-   "manba": "objaverse",
-   "litsenziya": "CC BY 4.0",
-   "muallif": "The Hallwyl Museum (Hallwylska museet)",
-   "muallif_url": "https://sketchfab.com/TheHallwylMuseum",
-   "sahifa": "https://sketchfab.com/3d-models/407a75f63a624494a61da40f5cd07bd0",
-   "attribution": "3D: The Hallwyl Museum (Hallwylska museet) · CC BY 4.0",
-   "attribution_full": "\"The Porcelain Room\" by The Hallwyl Museum (Hallwylska museet) (https://sketchfab.com/3d-models/407a75f63a624494a61da40f5cd07bd0), CC BY 4.0",
-   "fayl": "sanat/407a75f63a624494a61da40f5cd07bd0/model.glb",
-   "uchburchak": 237732,
-   "hajm": 9860856,
-   "bbox": [
-    [
-     -3.4581,
-     0.1594,
-     -2.6577
-    ],
-    [
-     3.5161,
-     4.4763,
-     3.1228
-    ]
-   ],
-   "animatsiya": 0,
-   "pishirilgan": true,
-   "sifat": 3
-  },
-  {
-   "id": "231fdb3e9e354c6faaa3c250f8c9988f",
-   "nom_uz": "Hallvil saroyi: rasmlar galereyasi",
-   "nom": "The Picture Gallery",
-   "fan": "san'at",
-   "kalit": [
-    "dutch",
-    "painting",
-    "collection",
-    "gallery",
-    "culturalheritage",
-    "goldenage",
-    "hallwyl",
-    "artcollection",
-    "realitycapture",
-    "architecture",
-    "photogrammetry",
-    "art",
-    "interior",
-    "lernestal"
-   ],
-   "manba": "objaverse",
-   "litsenziya": "CC BY 4.0",
-   "muallif": "The Hallwyl Museum (Hallwylska museet)",
-   "muallif_url": "https://sketchfab.com/TheHallwylMuseum",
-   "sahifa": "https://sketchfab.com/3d-models/231fdb3e9e354c6faaa3c250f8c9988f",
-   "attribution": "3D: The Hallwyl Museum (Hallwylska museet) · CC BY 4.0",
-   "attribution_full": "\"The Picture Gallery\" by The Hallwyl Museum (Hallwylska museet) (https://sketchfab.com/3d-models/231fdb3e9e354c6faaa3c250f8c9988f), CC BY 4.0",
-   "fayl": "sanat/231fdb3e9e354c6faaa3c250f8c9988f/model.glb",
-   "uchburchak": 199984,
-   "hajm": 9812672,
-   "bbox": [
-    [
-     -0.223,
-     -3.0627,
-     3.6474
-    ],
-    [
-     0.1467,
-     -2.8433,
-     4.4366
-    ]
-   ],
-   "animatsiya": 0,
-   "pishirilgan": true,
-   "sifat": 4
   },
   {
    "id": "f8ae46d28f024647906c490540385cfe",
@@ -55720,90 +55416,6 @@
    "sifat": 2
   },
   {
-   "id": "79615d823a9149069dcd06c20bc9707f",
-   "nom_uz": "Hallvil saroyi: bilyard xonasi",
-   "nom": "The Billiards Room",
-   "fan": "tarix",
-   "kalit": [
-    "cultural",
-    "heritage",
-    "table",
-    "museum",
-    "billiards",
-    "pooltable",
-    "realitycapture",
-    "architecture",
-    "home",
-    "interior",
-    "lernestal"
-   ],
-   "manba": "objaverse",
-   "litsenziya": "CC BY 4.0",
-   "muallif": "The Hallwyl Museum (Hallwylska museet)",
-   "muallif_url": "https://sketchfab.com/TheHallwylMuseum",
-   "sahifa": "https://sketchfab.com/3d-models/79615d823a9149069dcd06c20bc9707f",
-   "attribution": "3D: The Hallwyl Museum (Hallwylska museet) · CC BY 4.0",
-   "attribution_full": "\"The Billiards Room\" by The Hallwyl Museum (Hallwylska museet) (https://sketchfab.com/3d-models/79615d823a9149069dcd06c20bc9707f), CC BY 4.0",
-   "fayl": "tarix/79615d823a9149069dcd06c20bc9707f/model.glb",
-   "uchburchak": 199961,
-   "hajm": 8059436,
-   "bbox": [
-    [
-     -12.9752,
-     0.358,
-     -11.5068
-    ],
-    [
-     9.487,
-     15.3472,
-     16.856
-    ]
-   ],
-   "animatsiya": 0,
-   "pishirilgan": true,
-   "sifat": 5
-  },
-  {
-   "id": "2247ed77976a40b6ae81271cd6b149c8",
-   "nom_uz": "Hallvil saroyi: chekish xonasi",
-   "nom": "The Smoking Room",
-   "fan": "tarix",
-   "kalit": [
-    "historical",
-    "cultural",
-    "museum",
-    "realitycapture",
-    "home",
-    "interior",
-    "lernestal"
-   ],
-   "manba": "objaverse",
-   "litsenziya": "CC BY 4.0",
-   "muallif": "The Hallwyl Museum (Hallwylska museet)",
-   "muallif_url": "https://sketchfab.com/TheHallwylMuseum",
-   "sahifa": "https://sketchfab.com/3d-models/2247ed77976a40b6ae81271cd6b149c8",
-   "attribution": "3D: The Hallwyl Museum (Hallwylska museet) · CC BY 4.0",
-   "attribution_full": "\"The Smoking Room\" by The Hallwyl Museum (Hallwylska museet) (https://sketchfab.com/3d-models/2247ed77976a40b6ae81271cd6b149c8), CC BY 4.0",
-   "fayl": "tarix/2247ed77976a40b6ae81271cd6b149c8/model.glb",
-   "uchburchak": 225424,
-   "hajm": 8954304,
-   "bbox": [
-    [
-     -3.8268,
-     0.1158,
-     -2.4278
-    ],
-    [
-     3.2647,
-     4.8245,
-     2.4637
-    ]
-   ],
-   "animatsiya": 0,
-   "pishirilgan": true,
-   "sifat": 5
-  },
-  {
    "id": "6ef2e32060e14a9dad92a508b638a310",
    "nom_uz": "Heymi-i-Husi (Farer orollari)",
    "nom": "Heimi í Húsi, Koltur, Faroe Islands",
@@ -57330,42 +56942,6 @@
    "sifat": 2
   },
   {
-   "id": "3b797abe16624ed5bd2cc2607430a76b",
-   "nom_uz": "Kichik bola atom bombasi (tarix)",
-   "nom": "\"Little Boy\" - Nuclear bomb",
-   "fan": "tarix",
-   "kalit": [
-    "nuclear",
-    "bomb",
-    "warkarma"
-   ],
-   "manba": "objaverse",
-   "litsenziya": "CC BY 4.0",
-   "muallif": "Warkarma",
-   "muallif_url": "https://sketchfab.com/warkarma",
-   "sahifa": "https://sketchfab.com/3d-models/3b797abe16624ed5bd2cc2607430a76b",
-   "attribution": "3D: Warkarma · CC BY 4.0",
-   "attribution_full": "\"\"Little Boy\" - Nuclear bomb\" by Warkarma (https://sketchfab.com/3d-models/3b797abe16624ed5bd2cc2607430a76b), CC BY 4.0",
-   "fayl": "tarix/3b797abe16624ed5bd2cc2607430a76b/model.glb",
-   "uchburchak": 3740,
-   "hajm": 531380,
-   "bbox": [
-    [
-     -135.277,
-     -113.6478,
-     -52.4874
-    ],
-    [
-     268.7933,
-     -2.958,
-     52.4871
-    ]
-   ],
-   "animatsiya": 0,
-   "pishirilgan": true,
-   "sifat": 2
-  },
-  {
    "id": "ac6e112bd6294288bf7544d5ebd93c8f",
    "nom_uz": "Kichik pechka",
    "nom": "Small Stove",
@@ -58122,40 +57698,6 @@
    "animatsiya": 0,
    "pishirilgan": true,
    "sifat": 2
-  },
-  {
-   "id": "2f0ad401c83041be9cc070316fdbc922",
-   "nom_uz": "Ladegorden saloni (XVIII asr)",
-   "nom": "Caspar Herman Storms salong - Ladegården",
-   "fan": "tarix",
-   "kalit": [
-    "realitycapture"
-   ],
-   "manba": "objaverse",
-   "litsenziya": "CC BY 4.0",
-   "muallif": "Tidvis",
-   "muallif_url": "https://sketchfab.com/Tidvis",
-   "sahifa": "https://sketchfab.com/3d-models/2f0ad401c83041be9cc070316fdbc922",
-   "attribution": "3D: Tidvis · CC BY 4.0",
-   "attribution_full": "\"Caspar Herman Storms salong - Ladegården\" by Tidvis (https://sketchfab.com/3d-models/2f0ad401c83041be9cc070316fdbc922), CC BY 4.0",
-   "fayl": "tarix/2f0ad401c83041be9cc070316fdbc922/model.glb",
-   "uchburchak": 199976,
-   "hajm": 7837844,
-   "bbox": [
-    [
-     -6.8765,
-     -0.3035,
-     -8.2261
-    ],
-    [
-     8.7169,
-     7.0439,
-     7.2917
-    ]
-   ],
-   "animatsiya": 0,
-   "pishirilgan": true,
-   "sifat": 4
   },
   {
    "id": "5c4ae9c4a3cb47a4b6273eb2839a7b8c",
