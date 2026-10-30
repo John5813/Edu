@@ -1,8 +1,9 @@
 """Umumiy 3D katalog (tarix, biologiya, texnika, san'at...) — taqdimot slaydiga tayyor `.glb` modellar.
 
 Ro'yxat `data/katalog3d/katalog.json` da (git'da): har yozuvda o'zbekcha nom, fan, kalit so'zlar,
-litsenziya va muallif. Modellarning o'zi (~12,5 GB) git'ga qo'shilmaydi: serverda bir marta
-`tools/katalog3d/yukla.sh` bilan `data/katalog3d_modellar/` ga yuklanadi (joyni `KATALOG3D_DIR` o'zgartiradi).
+litsenziya va muallif. Modellarning o'zi (~12,5 GB) git'ga qo'shilmaydi: serverga kerak bo'lganda o'zi
+yuklanadi (`services.kat3d.yukla`, 3D Anatomiya atlasi kabi) — `data/katalog3d_modellar/` ga (joyni
+`KATALOG3D_DIR` o'zgartiradi). Hammasini birdan yuklash: `tools/katalog3d/yukla.sh` yoki `KATALOG3D_OLDINDAN=1`.
 
 Manbalar: Objaverse/Sketchfab (faqat CC0 va CC BY 4.0) va Smithsonian Open Access (CC0).
 CC BY modellarda muallifni ko'rsatish majburiy — `joylash()` yozuvni model ostiga o'zi qo'yadi,

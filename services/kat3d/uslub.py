@@ -23,7 +23,8 @@ BY_FAN = {"tarix": "vitrina", "san'at": "shafaq", "arxitektura": "shafaq", "biol
           "geografiya": "okean", "astronomiya": "klinik", "fizika": "klinik", "kimyo": "oq", "texnika": "grafit",
           "informatika": "kobalt", "transport": "kobalt", "musiqa": "shafaq", "oshxona": "pastel",
           "sport": "kobalt", "tibbiyot": "oq", "adabiyot": "atlas", "matematika": "oq"}
-LAYOUTS = ("muqova", "chap", "ong", "qahramon", "raqamlar", "uchlik", "yakun")
+LAYOUTS = ("muqova", "matn", "chap", "ong", "xronologiya", "taqqoslash", "kartalar", "bosqichlar", "fikr", "savol",
+           "raqamlar", "qahramon", "uchlik", "yakun")
 
 
 def style_guide() -> str:

@@ -7,7 +7,9 @@ bilan yasaladi (`build_deck`). Topilmasa — 3D taklif qilinmaydi.
 
 - `qidiruv` — AI kalit so'zlar → katalogdan nomzodlar → AI mosini tanlaydi;
 - `reja` — AI slaydlar rejasi (kompozitsiya, matn, raqamlar, qaysi slaydda qaysi model);
-- `deck` — PowerPoint: uslub, fon bezaklari, 3D modellar, Morph (model slayddan slaydga aylanib suzadi).
+- `deck` — PowerPoint: uslub, fon bezaklari, 3D modellar, Morph (model slayddan slaydga aylanib suzadi);
+- `yukla` — modellar serverga o'zi yuklanadi (3D Anatomiya atlasi kabi): topilishi bilan fonda, kerak bo'lsa
+  taqdimotdan oldin kutib.
 """
 import asyncio
 import logging
@@ -36,9 +38,7 @@ async def build_deck(topic: str, slide_count: int, model_ids: List[str], *, lang
                      level: int = 2, preferences: str = "", style: Optional[str] = None,
                      stage_cb: Optional[Callable[[str, Dict], None]] = None) -> Tuple[str, int]:
     """Bot uchun: (PPTX yo'li, slaydlar soni). `model_ids` — mavzu tekshiruvida mijozga ko'rsatilgan modellar."""
-    from services import katalog3d
-
-    from . import deck, reja
+    from . import deck, reja, yukla
 
     def stage(name: str, **info) -> None:
         if stage_cb:
@@ -47,12 +47,12 @@ async def build_deck(topic: str, slide_count: int, model_ids: List[str], *, lang
             except Exception:                     # noqa: BLE001
                 log.debug("stage_cb xatosi", exc_info=True)
 
-    have = katalog3d.mavjud(ttl=0)
-    ids = [i for i in model_ids if i in have]
-    if not ids:
-        raise NoModels("3D modellar serverda topilmadi")
-    count = max(MIN_SLIDES, min(MAX_SLIDES, int(slide_count or 8)))
     loop = asyncio.get_running_loop()
+    stage("download", total=len(model_ids))
+    ids = await loop.run_in_executor(None, yukla.ensure, list(model_ids), 240.0)   # odatda to'lovgacha tayyor
+    if not ids:
+        raise NoModels("3D modellar serverga yuklanmadi")
+    count = max(MIN_SLIDES, min(MAX_SLIDES, int(slide_count or 8)))
     stage("plan")
     plan = await asyncio.wait_for(loop.run_in_executor(
         None, lambda: reja.plan(topic, count, ids, language, level, preferences, style)), 6 * 60)

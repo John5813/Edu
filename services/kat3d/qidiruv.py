@@ -1,7 +1,8 @@
 """Mavzu bo'yicha katalogdan mos 3D modellarni topish (to'lovdan oldin, mavzu yozilishi bilan).
 
 1. AI mavzuni kalit so'zlarga yoyadi (o'zbekcha va inglizcha: joy, davr, buyum, jonzot nomlari).
-2. Katalogdagi (faqat serverda yuklangan) modellar nomi va teglari bo'yicha ball oladi — eng yaxshi 80 tasi.
+2. Katalogdagi modellar (serverdagilari va avtomatik yuklab olinadiganlari) nomi va teglari bo'yicha ball
+   oladi — eng yaxshi 80 tasi.
 3. AI ulardan mavzuga haqiqatan mosini tanlaydi: «asosiy» (mavzuning o'zi) va «yordamchi» (shu mavzuni
    ko'rsatishga yaraydigan yaqin buyum). Kamida bitta asosiy yoki uchta yordamchi bo'lsa — 3D taqdimot bo'ladi.
 
@@ -92,7 +93,11 @@ def score(topic: str, words: Sequence[str], fan: Sequence[str] = (), limit: int 
                 keys.append(t)
     if not keys:
         return []
-    have = katalog3d.mavjud() if available is None else available
+    if available is None:
+        from . import yukla
+
+        available = yukla.mumkin()           # diskdagilar + avtomatik yuklab olinadiganlar
+    have = available
     out = []
     for mid, m in katalog3d.katalog().items():
         if mid not in have or m.get("hajm", 0) > MAX_MB * 1e6:

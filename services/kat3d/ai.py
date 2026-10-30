@@ -2,8 +2,9 @@
 import json
 import os
 
-# Reja uchun model: sukut bo'yicha admin paneldagi "premium model" zanjiri. `KAT3D_MODEL` bilan alohida.
-MODEL = os.getenv("KAT3D_MODEL") or os.getenv("MED3D_MODEL") or ""
+# Matnni admin panelda tanlangan premium model yozadi (bo'sh — o'sha zanjir). `KAT3D_MODEL` faqat majburan
+# boshqa model kerak bo'lsa; 3D Anatomiyaning `MED3D_MODEL` iga bog'liq emas.
+MODEL = os.getenv("KAT3D_MODEL") or ""
 # Qidiruv (kalit so'zlar, modellarni saralash) — tez va arzon bo'lsin; bo'sh — umumiy zanjir.
 SEARCH_MODEL = os.getenv("KAT3D_SEARCH_MODEL") or ""
 THINK_TOKENS = 1500

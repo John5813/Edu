@@ -778,6 +778,10 @@ async def _three_d_topic_gate(message: Message, state: FSMContext, lang: str) ->
 
         ids = list(kat["ids"])
         await state.update_data(kind=KIND_KAT3D, kat3d_ids=ids, m3d_style="", m3d_topic_kind=None)
+        with contextlib.suppress(Exception):          # serverda yo'qlari fonda yuklana boshlaydi — to'lovgacha tayyor
+            from services.kat3d import yukla
+
+            yukla.oldindan(ids)
         cat = katalog3d.katalog()
         names = [cat[i]["nom_uz"] if lang == "uz" else cat[i]["nom"] for i in ids[:8]]
         lines = "\n".join(f"• {html.escape(n)}" for n in names)
@@ -1833,13 +1837,17 @@ async def premium_med3d_alternative(callback: CallbackQuery, state: FSMContext, 
 
 # 3D taqdimot (katalog) bosqichlari holat xabarida.
 _KAT3D_STAGES = {
-    "uz": {"plan": "AI slaydlar rejasini yozmoqda va faktlarni tekshirmoqda...",
+    "uz": {"download": "3D modellar tayyorlanmoqda...",
+           "plan": "AI slaydlar rejasini yozmoqda va faktlarni tekshirmoqda...",
            "models": "3D modellar joylanmoqda, Morph harakatlari tayyorlanmoqda..."},
-    "ru": {"plan": "ИИ пишет план слайдов и проверяет факты...",
+    "ru": {"download": "Готовим 3D-модели...",
+           "plan": "ИИ пишет план слайдов и проверяет факты...",
            "models": "Размещаем 3D-модели и готовим Morph-движения..."},
-    "en": {"plan": "AI is writing the slide plan and checking the facts...",
+    "en": {"download": "Preparing the 3D models...",
+           "plan": "AI is writing the slide plan and checking the facts...",
            "models": "Placing the 3D models and preparing the Morph moves..."},
-    "kk": {"plan": "ЖИ слайдтар жоспарын жазып, фактілерді тексеруде...",
+    "kk": {"download": "3D модельдер дайындалуда...",
+           "plan": "ЖИ слайдтар жоспарын жазып, фактілерді тексеруде...",
            "models": "3D модельдер орналастырылып, Morph қозғалыстары дайындалуда..."},
 }
 

@@ -10,77 +10,16 @@ import argparse
 import json
 import os
 import queue
-import subprocess
+import sys
 import threading
 import time
-import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-HF = "https://huggingface.co/datasets/allenai/objaverse/resolve/main/"
+sys.path.insert(0, os.path.dirname(os.path.dirname(HERE)))
 
-
-def manba_url(r):
-    return r.get("url") or HF + r["yol"]
-
-
-def litsenziya_matni(r):
-    nom = r.get("nom") or r["uid"]
-    if r["manba"] == "smithsonian":
-        return (f"{nom}\nManba: Smithsonian Institution — {r.get('sahifa', '')}\n"
-                f"Litsenziya: CC0 1.0 (Public Domain Dedication) — https://creativecommons.org/publicdomain/zero/1.0/\n"
-                f"Muallifni ko'rsatish shart emas, lekin tavsiya etiladi: \"{r.get('attribution_full', '')}\"\n")
-    lic = r["litsenziya"]
-    url = ("https://creativecommons.org/licenses/by/4.0/" if lic == "CC BY 4.0"
-           else "https://creativecommons.org/publicdomain/zero/1.0/")
-    return (f"\"{nom}\" — {r.get('muallif', '')} ({r.get('muallif_url', '')})\n"
-            f"Asl sahifa: {r.get('sahifa', '')}\nLitsenziya: {lic} — {url}\n"
-            f"O'zgartirishlar: PowerPoint uchun qayta formatlangan (teksturalar kichraytirilgan, to'r soddalashtirilgan).\n"
-            + ("Muallifni ko'rsatish majburiy.\n" if lic == "CC BY 4.0" else ""))
-
-
-def attribution(r):
-    if r["manba"] == "smithsonian":
-        return r.get("attribution_full") or f"{r.get('nom', '')} — Smithsonian Institution, CC0"
-    return f"\"{r.get('nom', '')}\" by {r.get('muallif', '')} ({r.get('sahifa', '')}), {r['litsenziya']}"
-
-
-def attribution_qisqa(r):
-    if r["manba"] == "smithsonian":
-        return "3D: Smithsonian · CC0"
-    return f"3D: {r.get('muallif', '')} · {r['litsenziya']}"
-
-
-def yuklab_ol(url, path, tries=4):
-    for i in range(tries):
-        try:
-            with urllib.request.urlopen(url, timeout=180) as resp, open(path + ".part", "wb") as fh:
-                while True:
-                    b = resp.read(1 << 20)
-                    if not b:
-                        break
-                    fh.write(b)
-            os.replace(path + ".part", path)
-            return
-        except Exception:
-            if i == tries - 1:
-                raise
-            time.sleep(2 ** (i + 1))
-
-
-class Konvertor:
-    def __init__(self, node_path):
-        env = dict(os.environ, NODE_PATH=node_path)
-        self.p = subprocess.Popen(["node", os.path.join(HERE, "glb_tayyorla.mjs")], stdin=subprocess.PIPE,
-                                  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, env=env)
-
-    def __call__(self, job):
-        self.p.stdin.write(json.dumps(job) + "\n")
-        self.p.stdin.flush()
-        line = self.p.stdout.readline()
-        if not line:
-            raise RuntimeError("konvertor to'xtab qoldi")
-        return json.loads(line)
+# Yuklash, litsenziya va konvertor bot bilan umumiy: bot ham yetishmagan modelni shu yo'l bilan o'zi yuklaydi.
+from services.kat3d.yukla import Konvertor, manba_url, saqla, yuklab_ol  # noqa: E402
 
 
 def main():
@@ -155,14 +94,7 @@ def main():
                     os.remove(os.path.join(d, f))
                 os.rmdir(d)
                 continue
-            meta = dict(r, **{k: res[k] for k in ("tris", "tris_before", "size", "textures", "bbox", "animations", "baked")})
-            meta["attribution_full"] = attribution(r)
-            meta["attribution"] = attribution_qisqa(r)
-            meta["fayl"] = os.path.relpath(os.path.join(d, "model.glb"), a.katalog)
-            with open(os.path.join(d, "LICENSE.txt"), "w", encoding="utf-8") as fh:
-                fh.write(litsenziya_matni(meta))
-            with open(os.path.join(d, "meta.json"), "w", encoding="utf-8") as fh:
-                json.dump(meta, fh, ensure_ascii=False, indent=1)
+            meta = saqla(r, res, d, os.path.relpath(os.path.join(d, "model.glb"), a.katalog))
             with lock:
                 hisob["bayt"] += res["size"]
             yoz(dict(meta, ok=True))

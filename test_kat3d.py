@@ -3,7 +3,9 @@
 - qidiruv.score: nom va teg bo'yicha ball, qo'shimchaga chidamli, diskda yo'q va og'ir modellar olinmaydi;
 - qidiruv.top: AI tanlovi (asosiy/yordamchi), AI ishlamasa — nom bo'yicha aniq moslik;
 - reja.normalize: muqova/yakun, noto'g'ri kompozitsiya tuzatiladi, uchlikda 3 model, raqamlarda ≥2 raqam,
-  ketma-ket bir xil kompozitsiya yo'q, matn qisqartiriladi, umumiy hajm chegarasi;
+  ketma-ket bir xil kompozitsiya yo'q, ro'yxatli slaydlar ko'pi bilan 2 ta, yangi kompozitsiyalar (paragraf,
+  xronologiya, taqqoslash, kartalar, bosqichlar, fikr, savol) va ularning maydonlari, matn yo'qolmaydi;
+- yukla: serverda yo'q model kerak bo'lganda o'zi yuklanadi (bir marta), xato bo'lsa taklif qilinmaydi;
 - deck.build: har slaydda haqiqiy 3D ob'ekt (rasm emas), Morph, qismlarga yorliq-chiziq yo'q,
   sahnadan chiqib-kiruvchi nusxalar slayddan tashqarida, CC BY mualliflari izohda;
 - bot: 3D tugmasi → mavzu → katalogda topildi → promokod → … → slaydlar soni (3D taqdimot narxlari);
@@ -89,7 +91,7 @@ def codes_of(user, *mids):
                 out.append(line.split(" | ")[0])
     return out
 
-with mock.patch.object(katalog3d, "mavjud", return_value=have), \
+with mock.patch("services.kat3d.yukla.mumkin", return_value=have), \
      mock.patch.object(ai, "call_json", side_effect=fake_ai(
          {"en": ["Nefertiti", "scarab"], "uz": ["Misr"], "fan": ["tarix"]},
          lambda u: {"asosiy": codes_of(u, NEFERTITI), "yordamchi": codes_of(u, SKARABEY, SKARABEY2)})):
@@ -97,16 +99,16 @@ with mock.patch.object(katalog3d, "mavjud", return_value=have), \
 check("asosiy model bor — taqdimot bo'ladi", t["ok"] and t["checked"], t)
 check("asosiy birinchi, keyin yordamchilar", t["ids"][:1] == [NEFERTITI] and set(t["ids"]) == {NEFERTITI, SKARABEY, SKARABEY2},
       t["ids"])
-with mock.patch.object(katalog3d, "mavjud", return_value=have), \
+with mock.patch("services.kat3d.yukla.mumkin", return_value=have), \
      mock.patch.object(ai, "call_json", side_effect=fake_ai(
          {"en": ["scarab"], "uz": [], "fan": []}, lambda u: {"asosiy": [], "yordamchi": codes_of(u, SKARABEY)})):
     t = qidiruv.top("Qo'ng'izlar")
 check("faqat 1 yordamchi — yetarli emas", not t["ok"] and t["ids"] == [], t)
-with mock.patch.object(katalog3d, "mavjud", return_value=have), \
+with mock.patch("services.kat3d.yukla.mumkin", return_value=have), \
      mock.patch.object(ai, "call_json", side_effect=fake_ai(RuntimeError("402"), RuntimeError("402"))):
     t = qidiruv.top("Nefertiti")
 check("AI ishlamasa — nom bo'yicha aniq moslik", t["ok"] and t["ids"][:1] == [NEFERTITI] and not t["checked"], t)
-with mock.patch.object(katalog3d, "mavjud", return_value=have), \
+with mock.patch("services.kat3d.yukla.mumkin", return_value=have), \
      mock.patch.object(ai, "call_json", side_effect=fake_ai(RuntimeError("402"), RuntimeError("402"))):
     t = qidiruv.top("Kvant kompyuterlari")
 check("hech narsa topilmasa — ok emas", not t["ok"] and not t["ids"], t)
@@ -129,7 +131,12 @@ p = reja.normalize(raw, 7, IDS, codes)
 lays = [s["layout"] for s in p["slides"]]
 check("aniq 7 slayd (ortiqchasi tashlanadi)", len(lays) == 7, lays)
 check("1-slayd muqova, oxirgisi yakun", lays[0] == "muqova" and lays[-1] == "yakun", lays)
-check("noma'lum kompozitsiya — chap/ong", lays[5] in ("chap", "ong"), lays)
+check("noma'lum kompozitsiya — oddiy matnli", lays[5] in ("chap", "ong", "matn", "qahramon"), lays)
+check("ro'yxatli slaydlar ko'pi bilan 2 ta", sum(l in ("chap", "ong") for l in lays[1:-1]) <= 2, lays)
+nom = next(s for s in p["slides"] if s["title"] == "Noma'lum")
+check("ortiqcha ro'yxat boshqa dizaynga o'tdi, matni saqlandi",
+      nom["layout"] not in ("chap", "ong") and "y" in " ".join(nom["points"] + nom["paragraphs"] + [nom["subtitle"]]),
+      nom)
 check("ketma-ket bir xil kompozitsiya yo'q",
       all(a != b for a, b in zip(lays, lays[1:]) if a in ("chap", "ong", "qahramon")), lays)
 check("uchlikda aniq 3 xil model", lays[3] == "uchlik" and len(set(p["slides"][3]["models"])) == 3,
@@ -145,6 +152,39 @@ limit = (CAT[NEFERTITI]["hajm"] + CAT[SMILODON]["hajm"]) / 1e6 + 0.05     # skar
 check("umumiy hajm chegarasi: muhimlari qoladi", reja._fit_size(IDS, limit) == [NEFERTITI, SMILODON],
       reja._fit_size(IDS, limit))
 check("fan bo'yicha uslub: tarix — muzey vitrinasi", reja._style_for([NEFERTITI]) == "vitrina")
+
+print("3b) Har varoq har xil: yangi kompozitsiyalar")
+S = "Bu to'liq ma'lumotli gap bo'lib, mavzuning muhim jihatini tushuntiradi."
+raw = {"slides": [
+    {"layout": "muqova", "title": "Misr", "subtitle": "Kirish", "models": ["m0", "m1"]},
+    {"layout": "matn", "title": "Paragraf", "paragraphs": [S + " " + S, S], "models": ["m0"]},
+    {"layout": "xronologiya", "title": "Vaqt", "events": [{"date": "1912", "text": S}, {"date": "1922", "text": S},
+                                                         {"date": "1950", "text": S}], "models": ["m1"]},
+    {"layout": "xronologiya", "title": "Kam voqea", "events": [{"date": "1912", "text": "Birinchi voqea."},
+                                                              {"date": "", "text": "Sanasiz."}], "models": ["m1"]},
+    {"layout": "taqqoslash", "title": "Ikki tomon", "columns": [{"name": "A", "points": [S, S]},
+                                                                {"name": "B", "points": [S]}], "models": ["m2"]},
+    {"layout": "kartalar", "title": "Kartalar", "cards": [{"title": f"K{k}", "text": S} for k in range(4)], "models": ["m3"]},
+    {"layout": "bosqichlar", "title": "Bosqichlar", "steps": [{"title": f"B{k}", "text": S} for k in range(4)],
+     "models": ["m0"]},
+    {"layout": "fikr", "title": "Fikr", "quote": "Buyuk fikr.", "source": "", "text": S, "models": ["m1"]},
+    {"layout": "savol", "title": "Savol", "question": "Bilasizmi?", "answer": S, "models": ["m2"]},
+    {"layout": "kartalar", "title": "Yana kartalar", "cards": [{"title": "K", "text": S}] * 3, "models": ["m3"]},
+    {"layout": "yakun", "title": "Xulosa", "points": [S, S], "models": ["m0", "m1"]}]}
+p = reja.normalize(raw, 11, IDS, codes)
+lays = [s["layout"] for s in p["slides"]]
+check("yangi kompozitsiyalar saqlandi", lays[1:3] == ["matn", "xronologiya"] and
+      {"taqqoslash", "kartalar", "bosqichlar", "fikr", "savol"} <= set(lays), lays)
+check("2 ta voqeali xronologiya — oddiy matnga, voqealari yo'qolmadi",
+      lays[3] != "xronologiya" and "Birinchi voqea" in " ".join(p["slides"][3]["points"] + p["slides"][3]["paragraphs"]),
+      p["slides"][3])
+check("ketma-ket hech qachon bir xil dizayn yo'q", all(a != b for a, b in zip(lays, lays[1:])), lays)
+check("taqqoslashda aniq 2 ustun", len(p["slides"][4]["columns"]) == 2)
+check("har slaydda 1 model (uchlik/yakundan tashqari)", all(len(s["models"]) == 1 for s in p["slides"][1:-1]))
+long_par = "Juda uzun paragraf. " * 60
+p2 = reja.normalize({"slides": [{"layout": "muqova", "title": "M"}, {"layout": "matn", "paragraphs": [long_par]},
+                                {"layout": "yakun", "points": ["a"]}]}, 3, IDS, codes)
+check("paragraf chegarasi", len(p2["slides"][1]["paragraphs"][0]) <= reja.LIMITS["para"])
 
 print("4) Slaydlar — haqiqiy 3D va Morph")
 for mid in IDS:
@@ -217,6 +257,29 @@ check("oxirgi slayd izohida hamma CC BY mualliflari",
       all(CAT[m]["muallif"] in last_notes for m in IDS if CAT[m]["litsenziya"] == "CC BY 4.0"), last_notes[:300])
 check("fayl telefonda ham ochiladi: fallback rasm shaffof PNG", any(n.endswith(".png") for n in z.namelist()))
 
+print("4b) Yangi kompozitsiyalar chiziladi")
+p = reja.normalize(raw, 11, IDS, codes)
+p.update(style="atlas", topic="Misr", language="uz")
+over = dict(p["slides"][1], layout="chap", points=["Juda uzun punkt matni, u to'liq gap bo'lib davom etadi " * 8] * 5,
+            subtitle=S, notes="")
+p["slides"].insert(2, over)
+out2 = os.path.join(TMP, "xil.pptx")
+deck.build(p, out2)
+prs2 = Presentation(out2)
+shape_names = [{sh.name for sh in sl.shapes} for sl in prs2.slides]
+def has(prefix):
+    return any(any(n.startswith(prefix) for n in names) for names in shape_names)
+for prefix, what in (("para_", "paragraf"), ("dot_", "vaqt chizig'i"), ("col_", "taqqoslash ustunlari"),
+                     ("card_", "kartalar"), ("num_", "bosqich raqamlari"), ("qmark_", "iqtibos belgisi"),
+                     ("badge_", "savol nishoni")):
+    check(f"{what} chizildi", has(prefix), prefix)
+check("har slaydda sarlavha (Morph uchun)", all("!!title" in n for n in shape_names), [sorted(n)[:3] for n in shape_names])
+notes2 = prs2.slides[2].notes_slide.notes_text_frame.text if prs2.slides[2].has_notes_slide else ""
+body = [sh for sh in prs2.slides[2].shapes if sh.name.startswith("body_")]
+kept = len(body[0].text_frame.paragraphs) if body else 0
+check("sig'magan punktlar o'chmadi — ma'ruzachi izohiga ko'chdi", 0 < kept < 5 and notes2.count("•") == 5 - kept,
+      (kept, notes2[:120]))
+
 print("5) build_deck — diskda model yo'q bo'lsa")
 import services.kat3d as kat3d
 try:
@@ -224,6 +287,50 @@ try:
     check("modelsiz buyurtma — NoModels", False)
 except kat3d.NoModels:
     check("modelsiz buyurtma — NoModels", True)
+
+print("5b) Avtomatik yuklash (3D Anatomiya atlasi kabi)")
+from services.kat3d import yukla
+QUYOSH = "9ef1c68fbb944147bcfcc891d3912645"
+calls = []
+
+def fake_download(url, path, tries=4):
+    calls.append(url)
+    if "xato" in url:
+        raise OSError("tarmoq")
+    open(path, "wb").write(b"raw")
+
+class FakeKonv:
+    def __call__(self, job):
+        pos = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]], dtype=np.float32)
+        data = glb.write_glb([glb.Primitive(pos, np.array([[0, 0, 1]] * 3, dtype=np.float32), np.array([0, 1, 2]),
+                                            (1, 1, 1, 1))])
+        open(job["out"], "wb").write(data)
+        return {"ok": True, "size": len(data), "tris": 1}
+
+src = {QUYOSH: {"uid": QUYOSH, "manba": "objaverse", "url": "https://example/quyosh.glb", "nom": "Sun",
+                "muallif": "X", "sahifa": "https://example", "litsenziya": "CC BY 4.0"},
+       SMILODON: {"uid": SMILODON, "manba": "smithsonian", "url": "https://example/xato.glb", "nom": "Smilodon",
+                  "litsenziya": "CC0 1.0"}}
+os.remove(os.path.join(TMP, CAT[SMILODON]["fayl"]))
+with mock.patch.object(yukla, "ishlaydi", return_value=True), mock.patch.object(yukla, "manbalar", return_value=src), \
+     mock.patch.object(yukla, "yuklab_ol", side_effect=fake_download), \
+     mock.patch.object(yukla, "_konvertor", return_value=FakeKonv()):
+    check("serverda yo'q, lekin manbasi bor model taklif qilinadi", QUYOSH in yukla.mumkin())
+    yukla.oldindan([QUYOSH]); yukla.oldindan([QUYOSH])
+    got = yukla.ensure([QUYOSH, SMILODON, NEFERTITI], timeout=30)
+    check("kerak bo'lganda o'zi yuklandi (diskdagi bilan birga)", got == [QUYOSH, NEFERTITI], got)
+    check("bir model bir marta yuklanadi", calls.count("https://example/quyosh.glb") == 1, calls)
+    qdir = os.path.dirname(os.path.join(TMP, CAT[QUYOSH]["fayl"]))
+    check("model.glb, LICENSE.txt, meta.json", sorted(os.listdir(qdir)) == ["LICENSE.txt", "meta.json", "model.glb"],
+          os.listdir(qdir))
+    check("litsenziyada muallif", "CC BY 4.0" in open(os.path.join(qdir, "LICENSE.txt"), encoding="utf-8").read())
+    check("xom fayllar o'chirildi", os.listdir(os.path.join(TMP, "_xom")) == [], os.listdir(os.path.join(TMP, "_xom")))
+    check("yuklanmagan model endi taklif qilinmaydi", SMILODON not in yukla.mumkin())
+    check("diskdagilar ro'yxati yangilandi", QUYOSH in katalog3d.mavjud())
+with mock.patch.object(yukla, "ishlaydi", return_value=False):
+    check("node/paketlar yo'q — faqat diskdagilar", yukla.mumkin() == katalog3d.mavjud())
+put_model(SMILODON)
+katalog3d.mavjud(ttl=0)
 
 print("6) Bot oqimi")
 from aiogram.fsm.context import FSMContext
@@ -281,6 +388,9 @@ def buttons(markup):
     return [b for row in markup.inline_keyboard for b in row] if markup else []
 
 
+prefetched = []
+
+
 async def flow(found):
     chat, db = Chat(), make_db()
     state = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=1, user_id=1))
@@ -288,7 +398,8 @@ async def flow(found):
     kat = {"ok": True, "ids": [NEFERTITI, SKARABEY], "asosiy": [NEFERTITI], "checked": True} if found \
         else {"ok": False, "ids": [], "asosiy": [], "checked": True}
     with mock.patch.object(med3d_auto, "check_topic", return_value={"ok": False, "checked": True}), \
-         mock.patch.object(qidiruv, "top", return_value=kat):
+         mock.patch.object(qidiruv, "top", return_value=kat), \
+         mock.patch("services.kat3d.yukla.oldindan", side_effect=prefetched.extend):
         await pp.premium_ppt_got_topic(chat.message("Qadimgi Misr"), state, db)
     return chat, db, state
 
@@ -301,6 +412,7 @@ async def bot_flow():
     found_msg = [s[1] for s in chat.sent if CAT[NEFERTITI]["nom_uz"] in str(s[1])]
     check("mijozga topilgan modellar nomi ko'rsatildi", found_msg, [s[1] for s in chat.sent])
     check("va rasmi (kollaj) yuborildi", len(chat.photos) == 1)
+    check("topilgan modellar to'lovdan oldin fonda yuklana boshladi", prefetched == [NEFERTITI, SKARABEY], prefetched)
     check("keyin promokod so'raladi", await state.get_state() == PS.waiting_for_med3d_promocode.state,
           await state.get_state())
     await pp.premium_med3d_promocode_skip(callback(chat, "prem_m3d_promo:skip"), state, db)
