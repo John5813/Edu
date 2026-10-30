@@ -1,19 +1,22 @@
 # Umumiy 3D katalog (NASA'dan tashqari)
 
-**2059 ta model**, hammasi ~12,4 GB: Objaverse/Sketchfab — 1683, Smithsonian — 376.
-Litsenziya: CC BY 4.0 — 1537, CC0 — 522.
+**2074 ta model**, hammasi ~12,5 GB: Objaverse/Sketchfab — 1698, Smithsonian — 376.
+Litsenziya: CC BY 4.0 — 1552, CC0 — 522.
+
+O'zbekiston yodgorliklari (15 ta): Registon, Bibixonim, Go'ri Amir, Ulug'bek rasadxonasi sekstanti, Oqsaroy
+va Amir Temur dahmasi (Shahrisabz), Amir Temur haykallari, Buxoro madrasasi, oftoba, gilam, non, Teshiktosh.
 
 | Fan | Soni |
 |---|---|
 | biologiya | 683 |
-| tarix | 387 |
-| san'at | 184 |
-| arxitektura | 174 |
+| tarix | 390 |
+| san'at | 187 |
+| arxitektura | 181 |
 | transport | 173 |
 | texnika | 138 |
 | geografiya | 96 |
-| astronomiya | 47 |
-| oshxona | 38 |
+| astronomiya | 48 |
+| oshxona | 39 |
 | fizika | 37 |
 | informatika | 35 |
 | musiqa | 32 |
