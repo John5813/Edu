@@ -4,6 +4,8 @@
 //
 // <katalog_papka>/<fan>/<id>/model.glb yonida preview.jpg paydo bo'ladi; borlari o'tkazib yuboriladi.
 // --ulush i/n — ro'yxatning i-bo'lagi (bir nechta jarayonda parallel chizish uchun).
+// --maska — fonsiz va soyasiz (shaffof) chizadi va <id>/mask.png ga yozadi: xuddi shu burchak va kadr,
+//           preview.jpg ning shaffoflik niqobi (3D ko'rinmaydigan dasturlar uchun model rasmi).
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
@@ -17,23 +19,27 @@ const qayta = process.argv.includes('--qayta');
 const opt = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const [ulush, ulushlar] = opt('--ulush', '0/1').split('/').map(Number);
 const SIZE = Number(opt('--hajm', '512'));
+const MASK = process.argv.includes('--maska');
+const OUT_NAME = MASK ? 'mask.png' : 'preview.jpg';
 let models = [];
 for (const fan of fs.readdirSync(root)) {
   const d = path.join(root, fan);
   if (fan.startsWith('_') || !fs.statSync(d).isDirectory()) continue;
   for (const id of fs.readdirSync(d)) {
     const glb = path.join(d, id, 'model.glb');
-    const jpg = path.join(d, id, 'preview.jpg');
+    const jpg = path.join(d, id, OUT_NAME);
     if (fs.existsSync(glb) && (qayta || !fs.existsSync(jpg))) models.push([`${fan}/${id}/model.glb`, jpg]);
   }
 }
 models = models.filter((_, i) => i % ulushlar === ulush);
 console.error(`${models.length} ta rasm chiziladi`);
 
-const page_html = `<!doctype html><html><body style="margin:0;background:#f2f2f0">
+const BG = MASK ? 'transparent' : '#f2f2f0';
+const page_html = `<!doctype html><html><body style="margin:0;background:${BG}">
+<style>model-viewer::part(default-progress-bar){display:none}</style>
 <script type="module" src="/__mv.js"></script>
-<model-viewer id="m" style="width:${SIZE}px;height:${SIZE}px;background:#f2f2f0" camera-orbit="35deg 70deg auto"
-  shadow-intensity="0.6" exposure="1" environment-image="neutral" interaction-prompt="none"></model-viewer>
+<model-viewer id="m" style="width:${SIZE}px;height:${SIZE}px;background:${BG}" camera-orbit="35deg 70deg auto"
+  shadow-intensity="${MASK ? 0 : 0.6}" exposure="1" environment-image="neutral" interaction-prompt="none"></model-viewer>
 <script>
 window.show = (src) => new Promise((ok) => {
   const m = document.getElementById('m');
@@ -67,7 +73,8 @@ for (const [src, jpg] of models) {
       new Promise((ok) => setTimeout(() => ok('timeout'), 90000))]);
     if (r !== 'load') throw new Error(r);
     await page.waitForTimeout(400);
-    await page.locator('#m').screenshot({ path: jpg, type: 'jpeg', quality: 82 });
+    await page.locator('#m').screenshot(MASK ? { path: jpg, type: 'png', omitBackground: true }
+      : { path: jpg, type: 'jpeg', quality: 82 });
   } catch (e) {
     xato++;
     console.error('xato', src, String(e).slice(0, 120));

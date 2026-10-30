@@ -4,6 +4,7 @@ Mavjud hujjat xizmatlariga halaqit qilmaydi, to'liq mustaqil modul.
 """
 import asyncio
 import contextlib
+import html
 import logging
 import os
 import re
@@ -78,7 +79,7 @@ def _price_of(data: dict, slide_count: int) -> int:
     """Buyurtma narxi, shu jumladan 3D Anatomiya promokod chegirmasi."""
     price = _base_price_of(data, slide_count)
     percent = int(data.get("med3d_promo_percent") or 0)
-    if data.get("standalone_med3d") and data.get("kind") == KIND_MED3D and 10 <= percent <= 100:
+    if data.get("standalone_med3d") and data.get("kind") in (KIND_MED3D, KIND_KAT3D) and 10 <= percent <= 100:
         return price - (price * percent // 100)
     return price
 
@@ -92,6 +93,10 @@ def _base_price_of(data: dict, slide_count: int) -> int:
         from services.med3d import auto as med3d_auto
 
         return med3d_auto.price_for(slide_count)
+    if data.get("kind") == KIND_KAT3D:      # 3D taqdimot (katalog) — 3D Anatomiya bilan bir narx
+        import services.kat3d as kat3d
+
+        return kat3d.price_for(slide_count)
     return _get_price(slide_count)
 
 
@@ -205,7 +210,9 @@ ENTRY_TEXTS = [
 ]
 for _key in ("main_menu.presentation", "main_menu.premium_presentation"):
     ENTRY_TEXTS += [text for text in label_variants(_key) if text not in ENTRY_TEXTS]
-MED3D_ENTRY_TEXTS = label_variants("main_menu.presentation_3d")
+MED3D_ENTRY_TEXTS = label_variants("main_menu.presentation_3d") + [
+    "🫀 3D taqdimot — tana tuzilishi", "🫀 3D презентация — строение тела", "🫀 3D presentation — human body",
+    "🫀 3D Анатомия — дене құрылысы"]
 
 SIMPLE_STYLE = "fon"
 _STYLE_ORDER = ["toza", "jurnal", "blok", "kontur", "qorongu", SIMPLE_STYLE]
@@ -354,8 +361,12 @@ def _previous_step(data: dict):
     step = data.get("step") or ""
     if step == "name" and data.get("script_asked"):
         return "script"
+    if step == "topic" and data.get("standalone_med3d") and _kind_of(data) in (KIND_MED3D, KIND_KAT3D):
+        return None                               # 3D bo'limi mavzudan boshlanadi
     if step == "count":
         kind = _kind_of(data)
+        if kind == KIND_KAT3D:
+            return "prefs"
         return "style" if kind == KIND_MODERN else ("m3dstyle" if kind == KIND_MED3D else "source")
     # Slaydlar sonidan keyin: rasm manbasi → yozuv animatsiyasi → xulosa (taklif qilinmaganlari o'tkazib yuboriladi).
     photos = "photos" if _photo_source(data) is not None else "count"
@@ -424,9 +435,33 @@ def _detect_language(topic: str) -> str:
 
 # ── 1. Mavzu
 
+THREE_D_INTRO = {
+    "uz": ("🧊 <b>3D taqdimot</b> — har slaydda haqiqiy 3D model: Morph bilan aylanadi, suzib o'tadi, "
+           "uchib kiradi.\n\nMavzu yozing: <b>tana tuzilishi</b> (organlar, suyaklar) yoki <b>tarix, tabiat, "
+           "hayvonlar, texnika, transport, koinot, san'at</b>... Katalogdan mos 3D modellarni topib, "
+           "to'lovdan oldin ko'rsatamiz.\n<i>Taqdimot kompyuterdagi PowerPoint (2019, 2021, 365) uchun.</i>"),
+    "ru": ("🧊 <b>3D-презентация</b> — на каждом слайде настоящая 3D-модель: вращается, перелетает и "
+           "появляется с эффектом Morph.\n\nНапишите тему: <b>строение тела</b> (органы, кости) или <b>история, "
+           "природа, животные, техника, транспорт, космос, искусство</b>... Подберём 3D-модели из каталога и "
+           "покажем их до оплаты.\n<i>Презентация для PowerPoint на компьютере (2019, 2021, 365).</i>"),
+    "en": ("🧊 <b>3D presentation</b> — a real 3D model on every slide: it turns, flies and enters with Morph."
+           "\n\nWrite a topic: <b>the human body</b> (organs, bones) or <b>history, nature, animals, machines, "
+           "transport, space, art</b>... We find matching 3D models in our catalog and show them before you "
+           "pay.\n<i>The deck is for PowerPoint on a computer (2019, 2021, 365).</i>"),
+    "kk": ("🧊 <b>3D презентация</b> — әр слайдта нақты 3D модель: Morph арқылы айналады, ұшып өтеді."
+           "\n\nТақырып жазыңыз: <b>дене құрылысы</b> немесе <b>тарих, табиғат, жануарлар, техника, ғарыш, "
+           "өнер</b>... Каталогтан сай 3D модельдерді тауып, төлемге дейін көрсетеміз.\n"
+           "<i>Презентация компьютердегі PowerPoint үшін (2019, 2021, 365).</i>"),
+}
+
+
 async def _step_topic(message: Message, state: FSMContext, lang: str) -> None:
     # Mavzudan oldin tur tanlangan: so'rov ustida tur nomi, "Orqaga" — tur tanloviga.
     data = await state.get_data()
+    if data.get("standalone_med3d") and _kind_of(data) in (KIND_MED3D, KIND_KAT3D):   # 3D bo'limi: tur mavzudan
+        await _prompt(message, state, (THREE_D_INTRO.get(lang) or THREE_D_INTRO["uz"]),
+                      _markup([_back_row(lang)]), "topic", PremiumPresentationStates.waiting_for_topic_text)
+        return
     head = ""
     if data.get("kind") in KINDS:
         label = {"uz": "Turi", "ru": "Тип", "en": "Type", "kk": "Түрі"}.get(lang, "Turi")
@@ -464,8 +499,8 @@ async def premium_presentation_start(message: Message, state: FSMContext, db: Da
             await message.answer(_MED3D_SOON_BUTTON.get(lang) or _MED3D_SOON_BUTTON["uz"])
             await state.clear()
             return
-        await state.update_data(standalone_med3d=True)
-        await _step_med3d_confirmation(message, state, lang)
+        await state.update_data(standalone_med3d=True, kind=KIND_MED3D, style="", volume="")
+        await _step_topic(message, state, lang)
     else:
         await _step_kind(message, state, lang)
 
@@ -491,20 +526,22 @@ async def premium_ppt_got_topic(message: Message, state: FSMContext, db: Databas
 async def _after_topic(message: Message, state: FSMContext, lang: str) -> None:
     """Mavzu yozildi. 3D Anatomiyada — darhol (to'lovdan oldin) tekshiriladi: mos bo'lmasa shu zahoti aytiladi."""
     data = await state.get_data()
-    if _kind_of(data) == KIND_MED3D:
-        if not await _med3d_topic_gate(message, state, lang):
-            return
+    if _kind_of(data) in (KIND_MED3D, KIND_KAT3D):
         if data.get("standalone_med3d"):
+            if not await _three_d_topic_gate(message, state, lang):
+                return
             await _step_med3d_promocode(message, state, lang)
+            return
+        if not await _med3d_topic_gate(message, state, lang):
             return
     await _step_name(message, state, lang)
 
 
 _MED3D_PROMO_TEXT = {
-    "uz": "🎟 3D Anatomiya promokodingiz bo'lsa, kiriting:",
-    "ru": "🎟 Если у вас есть промокод 3D Анатомия, введите его:",
-    "en": "🎟 Enter your 3D Anatomy promo code, if you have one:",
-    "kk": "🎟 3D Анатомия промокоды болса, енгізіңіз:",
+    "uz": "🎟 3D taqdimot promokodingiz bo'lsa, kiriting:",
+    "ru": "🎟 Если у вас есть промокод на 3D-презентацию, введите его:",
+    "en": "🎟 Enter your 3D presentation promo code, if you have one:",
+    "kk": "🎟 3D презентация промокоды болса, енгізіңіз:",
 }
 _MED3D_PROMO_BUTTONS = {
     "uz": ("⏭ O'tkazib yuborish", "🔙 Orqaga"),
@@ -686,6 +723,85 @@ async def _med3d_topic_gate(message: Message, state: FSMContext, lang: str) -> b
     return True
 
 
+THREE_D_CHECKING = {"uz": "⏳ Mavzuga mos 3D modellar qidirilmoqda...", "ru": "⏳ Ищем 3D-модели по теме...",
+                    "en": "⏳ Looking for 3D models for the topic...", "kk": "⏳ Тақырыпқа сай 3D модельдер ізделуде..."}
+THREE_D_FOUND = {
+    "uz": "✅ Mavzuga mos <b>{n} ta 3D model</b> topildi — taqdimot shular bilan yasaladi:",
+    "ru": "✅ Найдено <b>{n} 3D-моделей</b> по теме — презентация будет сделана с ними:",
+    "en": "✅ Found <b>{n} 3D models</b> for the topic — the deck will be built with them:",
+    "kk": "✅ Тақырыпқа сай <b>{n} 3D модель</b> табылды — презентация солармен жасалады:",
+}
+THREE_D_NONE = {
+    "uz": "😔 Bu mavzu bo'yicha katalogimizda mos 3D model topilmadi.",
+    "ru": "😔 По этой теме в нашем каталоге нет подходящих 3D-моделей.",
+    "en": "😔 Our catalog has no matching 3D models for this topic.",
+    "kk": "😔 Бұл тақырып бойынша каталогымызда сай 3D модель табылмады.",
+}
+
+
+async def _three_d_topic_gate(message: Message, state: FSMContext, lang: str) -> bool:
+    """3D bo'limi: mavzu yozilishi bilan (to'lovdan oldin) — tana tuzilishimi (3D Anatomiya) yoki katalogda
+    mos 3D modellar bormi (3D taqdimot). Topilgan modellar mijozga ko'rsatiladi va buyurtmada saqlanadi —
+    taqdimot aynan shular bilan yasaladi. Hech narsa topilmasa — False (boshqa tur taklif qilinadi)."""
+    from services.kat3d import qidiruv
+    from services.med3d import auto as med3d_auto
+
+    data = await state.get_data()
+    topic = data.get("topic", "")
+    language = uz_script.base_language(data.get("presentation_language") or "uz")
+    note = await message.answer(THREE_D_CHECKING.get(lang) or THREE_D_CHECKING["uz"])
+    loop = asyncio.get_running_loop()
+    med_job = loop.run_in_executor(None, med3d_auto.check_topic, topic, language)
+    kat_job = loop.run_in_executor(None, qidiruv.top, topic, language)
+    try:
+        med = await asyncio.wait_for(med_job, 60)
+    except Exception as exc:                          # noqa: BLE001
+        logger.warning("3D anatomiya tekshiruvi: %s", exc)
+        med = {"ok": False, "checked": False}
+    try:
+        kat = await asyncio.wait_for(kat_job, 90)
+    except Exception as exc:                          # noqa: BLE001
+        logger.warning("3D katalog qidiruvi: %s", exc)
+        kat = {"ok": False, "ids": []}
+
+    anatomy = med.get("ok") and med.get("checked", True)
+    if anatomy or (med.get("ok") and not kat.get("ok")):      # AI javob bermasa — avvalgidek 3D Anatomiya
+        await state.update_data(kind=KIND_MED3D, kat3d_ids=[], m3d_topic_kind=med.get("kind", "anatomy"))
+        text = MED3D_TOPIC_OK.get(lang) or MED3D_TOPIC_OK["uz"]
+        if med.get("kind") == "disease":
+            text += "\n" + (MED3D_TOPIC_DISEASE.get(lang) or MED3D_TOPIC_DISEASE["uz"])
+        with contextlib.suppress(Exception):
+            await note.edit_text(text)
+        return True
+    if kat.get("ok") and kat.get("ids"):
+        from services import katalog3d
+
+        ids = list(kat["ids"])
+        await state.update_data(kind=KIND_KAT3D, kat3d_ids=ids, m3d_style="", m3d_topic_kind=None)
+        with contextlib.suppress(Exception):          # serverda yo'qlari fonda yuklana boshlaydi — to'lovgacha tayyor
+            from services.kat3d import yukla
+
+            yukla.oldindan(ids)
+        cat = katalog3d.katalog()
+        names = [cat[i]["nom_uz"] if lang == "uz" else cat[i]["nom"] for i in ids[:8]]
+        lines = "\n".join(f"• {html.escape(n)}" for n in names)
+        more = f"\n• … +{len(ids) - 8}" if len(ids) > 8 else ""
+        text = (THREE_D_FOUND.get(lang) or THREE_D_FOUND["uz"]).format(n=len(ids)) + f"\n{lines}{more}"
+        with contextlib.suppress(Exception):
+            await note.edit_text(text, parse_mode="HTML")
+        with contextlib.suppress(Exception):
+            from aiogram.types import BufferedInputFile
+
+            picture = await loop.run_in_executor(None, qidiruv.collage, ids, lang)
+            if picture:
+                await message.answer_photo(BufferedInputFile(picture, filename="3d.jpg"))
+        return True
+    text = (THREE_D_NONE.get(lang) or THREE_D_NONE["uz"]) + "\n\n" + (MED3D_ALT_ASK.get(lang) or MED3D_ALT_ASK["uz"])
+    with contextlib.suppress(Exception):
+        await note.edit_text(text, parse_mode="HTML", reply_markup=_med3d_choice_keyboard(lang))
+    return False
+
+
 async def _step_script(message: Message, state: FSMContext, lang: str) -> None:
     markup = _markup([[InlineKeyboardButton(text=_t(lang, "script_latin"), callback_data="prem_ppt_script:latin"),
                        InlineKeyboardButton(text=_t(lang, "script_cyrillic"), callback_data="prem_ppt_script:cyrillic")],
@@ -777,9 +893,13 @@ async def premium_ppt_skip_preferences(callback: CallbackQuery, state: FSMContex
 
 async def _after_prefs(message: Message, state: FSMContext, lang: str, db: Database) -> None:
     """Istaklardan keyin — manba; 3D Anatomiyada manba kerak emas (organlar atlasdan) — darhol slaydlar soni."""
-    if _kind_of(await state.get_data()) == KIND_MED3D:
+    kind = _kind_of(await state.get_data())
+    if kind == KIND_MED3D:
         await state.update_data(source_text="", source_label="")
         await _step_m3d_style(message, state, lang)
+    elif kind == KIND_KAT3D:                      # modellar topilgan, uslubni AI mavzuga qarab tanlaydi
+        await state.update_data(source_text="", source_label="")
+        await _step_count(message, state, lang, db)
     else:
         await _step_source(message, state, lang)
 
@@ -910,7 +1030,10 @@ KIND_INFO, KIND_MODERN, KIND_CLASSIC = "info", "modern", "classic"
 KIND_PRO3D = "pro3d"
 # 3D Anatomiya: inson tanasi tuzilishi — atlasdagi haqiqiy 3D organ modellari va Morph (`services.med3d`).
 KIND_MED3D = "med3d"
-KINDS = (KIND_MED3D, KIND_PRO3D, KIND_INFO, KIND_MODERN, KIND_CLASSIC)
+# 3D taqdimot (katalog): tarix, tabiat, texnika... — katalogdagi haqiqiy 3D modellar va Morph (`services.kat3d`).
+# Alohida tugmasi yo'q: 3D bo'limida mavzu tana tuzilishiga oid bo'lmasa va katalogda mos model topilsa.
+KIND_KAT3D = "kat3d"
+KINDS = (KIND_MED3D, KIND_KAT3D, KIND_PRO3D, KIND_INFO, KIND_MODERN, KIND_CLASSIC)
 # 3D Anatomiya alohida asosiy menyu tugmasi; 3D Pro eski buyurtmalar uchun saqlanadi.
 MENU_KINDS = (KIND_INFO, KIND_MODERN, KIND_CLASSIC)
 # Infografik tur uchun uslub so'ralmaydi: vektor dizayner ko'rinishni o'zi tanlaydi.
@@ -930,6 +1053,7 @@ _KIND_BUTTONS = {
 _KIND_NAMES = {
     KIND_MED3D: {"uz": "3D Anatomiya", "ru": "3D Анатомия", "en": "3D Anatomy", "kk": "3D Анатомия"},
     KIND_PRO3D: {"uz": "3D Pro", "ru": "3D Pro", "en": "3D Pro", "kk": "3D Pro"},
+    KIND_KAT3D: {"uz": "3D taqdimot", "ru": "3D-презентация", "en": "3D presentation", "kk": "3D презентация"},
     KIND_INFO: {"uz": "Infografik", "ru": "Инфографика", "en": "Infographic", "kk": "Инфографика"},
     KIND_MODERN: {"uz": "Zamonaviy", "ru": "Современная", "en": "Modern", "kk": "Заманауи"},
     KIND_CLASSIC: {"uz": "Klassik", "ru": "Классическая", "en": "Classic", "kk": "Классикалық"},
@@ -1085,8 +1209,8 @@ def _kind_keyboard(lang: str) -> InlineKeyboardMarkup:
 
 async def _step_kind(message: Message, state: FSMContext, lang: str) -> None:
     data = await state.get_data()
-    if data.get("standalone_med3d"):
-        await _step_med3d_confirmation(message, state, lang)
+    if data.get("standalone_med3d"):              # 3D bo'limi turdan emas, mavzudan boshlanadi
+        await _step_topic(message, state, lang)
         return
     text = _topic_line(data, lang) + (_KIND_PROMPT.get(lang) or _KIND_PROMPT["uz"])
     # Shaxsiy chatda chat id = foydalanuvchi id (orqaga qaytishda xabar botniki bo'ladi).
@@ -1234,6 +1358,10 @@ def _count_options(style: str, kind: str = ""):
         from services.med3d import auto as med3d_auto
 
         return [(n, med3d_auto.price_for(n)) for n in med3d_auto.SLIDE_OPTIONS]
+    if kind == KIND_KAT3D:
+        import services.kat3d as kat3d
+
+        return [(n, kat3d.price_for(n)) for n in kat3d.SLIDE_OPTIONS]
     return [(n, _get_price(n)) for n in (5, 8, 10, 12, 15, 20, 25, 30)]
 
 
@@ -1327,7 +1455,7 @@ async def _anim_offer(data: dict) -> bool:
     """Yozuv animatsiyasi taklif qilinadimi: admin «🎛 Funksiyalar boshqaruvi» dan yoqqan va 3D Pro emas."""
     from services.premium_presentation import slide_anim
 
-    if _kind_of(data) in (KIND_PRO3D, KIND_MED3D):   # o'z animatsiyasi bor (Morph va yorliqlar)
+    if _kind_of(data) in (KIND_PRO3D, KIND_MED3D, KIND_KAT3D):   # o'z animatsiyasi bor (Morph)
         return False
     try:
         return bool(await Database().get_feature_status(slide_anim.FEATURE, default=False))
@@ -1540,7 +1668,7 @@ def _color_name(key: str, lang: str) -> str:
 
 def _photo_source(data: dict):
     """Rasm manbasi: None — tanlov yo'q (3D Pro o'z obyektlarini chizadi); aks holda mijoz tanlovi."""
-    if _kind_of(data) in (KIND_PRO3D, KIND_MED3D):
+    if _kind_of(data) in (KIND_PRO3D, KIND_MED3D, KIND_KAT3D):
         return None
     value = data.get("photo_source") or "mix"
     return value if value in PHOTO_SOURCES else "mix"
@@ -1692,7 +1820,7 @@ async def premium_med3d_alternative(callback: CallbackQuery, state: FSMContext, 
         with contextlib.suppress(Exception):
             await callback.message.edit_reply_markup(reply_markup=None)
         await state.update_data(m3d_style="", m3d_topic_kind=None, prompt_mid=None, payment_method=None,
-                                client_name="", preferences="")
+                                client_name="", preferences="", kat3d_ids=[], standalone_med3d=False)
         await _set_kind(state, kind)
         await _step_name(callback.message, state, lang)
         return
@@ -1706,6 +1834,22 @@ async def premium_med3d_alternative(callback: CallbackQuery, state: FSMContext, 
         await callback.message.edit_reply_markup(reply_markup=None)
     await state.clear()
 
+
+# 3D taqdimot (katalog) bosqichlari holat xabarida.
+_KAT3D_STAGES = {
+    "uz": {"download": "3D modellar tayyorlanmoqda...",
+           "plan": "AI slaydlar rejasini yozmoqda va faktlarni tekshirmoqda...",
+           "models": "3D modellar joylanmoqda, Morph harakatlari tayyorlanmoqda..."},
+    "ru": {"download": "Готовим 3D-модели...",
+           "plan": "ИИ пишет план слайдов и проверяет факты...",
+           "models": "Размещаем 3D-модели и готовим Morph-движения..."},
+    "en": {"download": "Preparing the 3D models...",
+           "plan": "AI is writing the slide plan and checking the facts...",
+           "models": "Placing the 3D models and preparing the Morph moves..."},
+    "kk": {"download": "3D модельдер дайындалуда...",
+           "plan": "ЖИ слайдтар жоспарын жазып, фактілерді тексеруде...",
+           "models": "3D модельдер орналастырылып, Morph қозғалыстары дайындалуда..."},
+}
 
 # 3D Anatomiya bosqichlari holat xabarida.
 _MED3D_STAGES = {
@@ -1806,6 +1950,10 @@ def _summary(data: dict, lang: str):
         lines.append(f"<i>{esc(pro3d_note(lang), 400)}</i>")
     if kind == KIND_MED3D:
         lines.append(f"🖌 {style_l}: <b>{esc(_m3d_style_label(data, lang))}</b>")
+        lines.append(f"<i>{esc(med3d_note(lang), 400)}</i>")
+    if kind == KIND_KAT3D:
+        models_l = {"uz": "3D modellar", "ru": "3D-модели", "en": "3D models", "kk": "3D модельдер"}.get(lang, "3D modellar")
+        lines.append(f"🧊 {models_l}: <b>{len(data.get('kat3d_ids') or [])}</b>")
         lines.append(f"<i>{esc(med3d_note(lang), 400)}</i>")
     color = _color(data)
     if color is not None:
@@ -2425,6 +2573,27 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
                 preferences=preferences, source_text=source_text, author=client_name, stage_cb=on_pro_stage)
             await to_new_alphabet(final_path)
             html_pages = [None] * ready_slides
+        elif _kind_of(data) == KIND_KAT3D:
+            import services.kat3d as kat3d
+
+            kat_labels = _KAT3D_STAGES.get(lang) or _KAT3D_STAGES["uz"]
+
+            def on_kat_stage(name: str, info: dict) -> None:
+                if name not in kat_labels:
+                    return
+                stage_line["text"] = kat_labels[name]
+
+                async def _show():
+                    with contextlib.suppress(Exception):
+                        await status.edit_text(f"⚙️ <b>{topic}</b>\n📄 {slide_count}\n\n⏳ <b>{stage_line['text']}</b>",
+                                               parse_mode="HTML")
+                asyncio.run_coroutine_threadsafe(_show(), loop)
+
+            final_path, ready_slides = await kat3d.build_deck(
+                topic, slide_count, list(data.get("kat3d_ids") or []), language=build_language, level=level,
+                preferences=preferences, stage_cb=on_kat_stage)
+            await to_new_alphabet(final_path)
+            html_pages = [None] * ready_slides
         elif _kind_of(data) == KIND_MED3D:
             from services.med3d import auto as med3d_auto
 
@@ -2539,7 +2708,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         pass
 
     filename = f"Taqdimot_{topic[:30].replace(' ', '_')}.pptx"
-    if _kind_of(data) == KIND_MED3D:         # ko'rish sharti fayl nomining o'zida — mijoz tanlagan tilda
+    if _kind_of(data) in (KIND_MED3D, KIND_KAT3D):   # ko'rish sharti fayl nomining o'zida — mijoz tanlagan tilda
         filename = med3d_filename(topic, build_language)
     try:
         from aiogram.types import FSInputFile
@@ -2551,7 +2720,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         if _kind_of(data) == KIND_PRO3D:
             with contextlib.suppress(Exception):
                 await callback.message.answer(pro3d_note(lang))
-        if _kind_of(data) == KIND_MED3D:     # telefonda 3D ko'rinmaydi — yo'riqnoma videosi bilan aytiladi
+        if _kind_of(data) in (KIND_MED3D, KIND_KAT3D):   # telefonda 3D ko'rinmaydi — yo'riqnoma videosi bilan
             with contextlib.suppress(Exception):
                 await _send_med3d_guide(callback.message, lang)
             with contextlib.suppress(Exception):     # telefonda Morph bilan ko'rish: serverda videoga o'giriladi
@@ -2562,7 +2731,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
                 if player_kb:
                     await callback.message.answer(slide_player.offer_text(lang), reply_markup=player_kb)
         logger.info("Premium taqdimot yuborildi: %s → %s", final_path, callback.from_user.id)
-        if _kind_of(data) not in (KIND_PRO3D, KIND_MED3D):  # "Rahmat" animatsiyasi zamonaviy taqdimot uchun
+        if _kind_of(data) not in (KIND_PRO3D, KIND_MED3D, KIND_KAT3D):  # "Rahmat" animatsiyasi zamonaviyda
             await _offer_thanks_anim(callback, db, final_path, topic=topic, data=data,
                                      language=presentation_language, author=client_name, filename=filename,
                                      lang=lang)

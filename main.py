@@ -397,6 +397,17 @@ def _prepare_browser() -> None:
     threading.Thread(target=run, name="browser-prepare", daemon=True).start()
 
 
+def _prepare_katalog3d() -> None:
+    """3D taqdimot: katalog modellari serverga o'zi yuklanadi (3D Anatomiya atlasi kabi). Bu yerda faqat
+    konvertor paketlari tayyorlanadi (birinchi ishga tushishda `npm install`), alohida oqimda."""
+    try:
+        from services.kat3d import yukla
+
+        yukla.start_background()
+    except Exception as exc:
+        logger.error("3D katalog yuklashini tayyorlab bo'lmadi: %s", exc)
+
+
 def _bot_session_kwargs() -> dict:
     """Mahalliy Bot API server sozlangan bo'lsa — unga ulanadi.
 
@@ -436,6 +447,7 @@ async def main():
             logger.error("   %s", line)
 
     _prepare_browser()
+    _prepare_katalog3d()
 
     # Initialize database
     await init_db()

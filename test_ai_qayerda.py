@@ -115,6 +115,7 @@ async def main():
     check("sozlamada hujjatlar va zamonaviy taqdimot matn modeli",
           {("Hujjatlar va oddiy taqdimot", "text"), ("Zamonaviy taqdimot", "text")} <= services, services)
     check("sozlamada 3D Anatomiya modeli", ("3D Anatomiya", "text") in services, services)
+    check("sozlamada 3D taqdimot (katalog) modeli", ("3D taqdimot (katalog)", "text") in services, services)
     check("sozlamada chek modeli Claude emas",
           all(not r["model"].startswith("anthropic/") for r in config_rows if r["service"] == "To'lov cheki"))
     check("o'qiladigan nom: Claude Sonnet 5",

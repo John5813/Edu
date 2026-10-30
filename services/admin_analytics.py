@@ -326,6 +326,15 @@ async def ai_config() -> list:
         add("3D Anatomiya", "text", med3d.MODEL, "Doimiy (MED3D_MODEL)")
     except Exception:
         pass
+    try:
+        from services.kat3d import ai as kat3d_ai
+
+        if kat3d_ai.MODEL:
+            add("3D taqdimot (katalog)", "text", kat3d_ai.MODEL, "Doimiy (KAT3D_MODEL)")
+        else:
+            add("3D taqdimot (katalog)", "text", premium, "Zamonaviy taqdimot modeli")
+    except Exception:
+        pass
     for service, chain in (("To'lov cheki", pconfig.OPENROUTER_RECEIPT_MODELS),
                            ("Kitob OCR", pconfig.OPENROUTER_OCR_MODELS),
                            ("Rasm tanlash", pconfig.OPENROUTER_PHOTO_MODELS),

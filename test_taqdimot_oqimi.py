@@ -287,25 +287,21 @@ async def full_flow():
     check("fayl so'rovidan orqaga: manba tanlovi", await state5.get_state() == PS.waiting_for_source_kind.state)
 
 async def med3d_main_button():
-    """Asosiy menyudagi 3D tugmasi bevosita anatomiya oqimini boshlaydi."""
+    """Asosiy menyudagi 3D tugmasi darhol mavzu so'raydi (anatomiya ham, boshqa mavzular ham — katalog bo'yicha)."""
     chat, db, state = Chat(), make_db(), await new_state()
     main_labels = [button.text for row in get_main_keyboard("uz").keyboard for button in row]
     med3d_label = pp.MED3D_ENTRY_TEXTS[0]
-    check("asosiy menyuda alohida 3D Anatomiya tugmasi bor", med3d_label in main_labels, main_labels)
+    check("asosiy menyuda alohida 3D taqdimot tugmasi bor", med3d_label in main_labels, main_labels)
     await pp.premium_presentation_start(chat.message(med3d_label), state, db)
-    check("3D tugmasi bevosita tana tuzilishi ogohlantirishini ochadi",
-          await state.get_state() == PS.waiting_for_kind.state
-          and "3D Anatomiya" in chat.last()[1]
-          and [b.callback_data for b in buttons(chat.last()[2])] == ["prem_med3d:ha", "prem_med3d:yoq"])
-    await pp.premium_med3d_answer(callback(chat, "prem_med3d:ha"), state, db)
-    check("ogohlantirish tasdiqlansa 3D mavzusi so'raladi",
+    data = await state.get_data()
+    check("3D tugmasi bevosita mavzu so'raydi",
           await state.get_state() == PS.waiting_for_topic_text.state
-          and (await state.get_data()).get("kind") == pp.KIND_MED3D)
+          and "3D taqdimot" in chat.last()[1]
+          and data.get("kind") == pp.KIND_MED3D and data.get("standalone_med3d"),
+          (await state.get_state(), chat.last()[1][:80], data))
     await pp.premium_ppt_previous(callback(chat, "prem_ppt_prev"), state, db)
-    check("3D mavzusidan orqaga qaytganda 3D ogohlantirishi qayta ochiladi",
-          await state.get_state() == PS.waiting_for_kind.state
-          and "3D Anatomiya" in chat.last()[1]
-          and [b.callback_data for b in buttons(chat.last()[2])] == ["prem_med3d:ha", "prem_med3d:yoq"])
+    check("3D mavzusidan orqaga qaytganda asosiy menyuga chiqiladi",
+          await state.get_state() is None, await state.get_state())
 
 async def pro3d_removed():
     """3D Pro menyudan olib tashlangan: tugma yo'q, eski xabardagi tugma bosilsa — turlar qayta ko'rsatiladi."""

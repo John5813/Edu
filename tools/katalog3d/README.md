@@ -31,20 +31,35 @@ geografiya, astronomiya va boshqalar. Har model PowerPoint'ga mos `.glb` qilib t
 | `data/katalog3d/katalog.json` | Yakuniy ro'yxat: o'zbekcha nom, fan, litsenziya, muallif, `attribution`, fayl yo'li, uchburchak, hajm |
 | `data/katalog3d/tanlov.jsonl` | Yuklash ro'yxati: har model qayerdan olinadi (manba URL) |
 | `data/katalog3d/preview/<id>.jpg` | Har model rasmi (384×384) — botda tanlash uchun |
+| `data/katalog3d/mask/<id>.png` | Rasmning shaffoflik niqobi — 3D ob'ekt ichidagi zaxira rasm fonsiz bo'lishi uchun |
 | `services/katalog3d.py` | `qidir()`, `model_yoli()`, `joylash()` — slaydga qo'yish |
-| `tools/katalog3d/yukla.sh` | Serverga yuklash (bitta buyruq) |
+| `services/kat3d/yukla.py` | Serverga avtomatik yuklash (kerak bo'lganda o'zi) |
+| `tools/katalog3d/yukla.sh` | Hammasini birdan yuklash (ixtiyoriy) |
 
-## Serverga yuklash
+## Serverga yuklash — avtomatik
+
+Qo'lda hech narsa qilish shart emas (3D Anatomiya atlasi kabi). `services/kat3d/yukla.py`:
+
+1. Bot ishga tushganda konvertor paketlari o'zi o'rnatiladi (`npm install`, bir marta, bir necha soniya).
+2. Mijoz mavzusiga mos modellar topilishi bilan serverda yo'qlari fonda yuklana boshlaydi: manbadan
+   olinib, PowerPoint'ga mos qilib o'giriladi (bitta model ~2–7 soniya, natija katalogdagi bilan bir xil).
+   Mijoz to'lov qilguncha odatda tayyor bo'ladi; bo'lmasa taqdimot yig'ish ularni kutadi.
+3. Katalog yangilansa (yangi model yoki yangi `data/katalog3d/*.json` katalog) — yangi modellar ham birinchi
+   kerak bo'lganda o'zi yuklanadi. Manbasi: `data/katalog3d/*.jsonl` dagi yozuv yoki katalog yozuvidagi
+   `manba_url` (to'g'ridan-to'g'ri GLB havola).
+
+Kerak: `node` 18+ va `npm`, `huggingface.co` hamda `3d-api.si.edu` ga internet. Node bo'lmasa bot faqat
+diskdagi modellarni taklif qiladi (logda ogohlantirish chiqadi).
+
+Doimiy diskli serverda hammasini oldindan yuklab qo'yish (keyin hech bir buyurtma kutmaydi):
 
 ```bash
-bash tools/katalog3d/yukla.sh --max 30     # avval sinov
-nohup bash tools/katalog3d/yukla.sh > katalog3d.log 2>&1 &    # hammasi
+KATALOG3D_OLDINDAN=1          # bot ishga tushganda fonda, bittadan (buyurtmalar navbati ustun)
+bash tools/katalog3d/yukla.sh # yoki qo'lda, hammasi birdan (~12,5 GB, 4 yadroda ~15–20 daqiqa)
 ```
 
-Kerak: `python3`, `node` 18+ va `npm`, `huggingface.co` hamda `3d-api.si.edu` ga internet. Kalit kerak emas.
-Modellar `data/katalog3d_modellar/` ga tushadi (`KATALOG3D_DIR` bilan boshqa joy). Hammasi ~12,5 GB,
-4 yadroli serverda ~15–20 daqiqa (asosan konvertatsiya). Uzilsa qayta ishga tushiring: tayyorlari o'tkazib yuboriladi. Oxirida
-`tekshir.py` nechta model borligini aytadi.
+Modellar `data/katalog3d_modellar/` ga tushadi (`KATALOG3D_DIR` bilan boshqa joy). `KATALOG3D_YUKLOVCHI` —
+bir vaqtda nechta model yuklanadi (sukut 3).
 
 ## Manbalar va litsenziya
 
@@ -82,3 +97,35 @@ model ramkada markazda turadi. Skelet yoki animatsiyali modellarga bu bosqich te
 
 Preview rasmlar: `node tools/katalog3d/rasm.mjs <katalog> <model-viewer.min.js> --hajm 384`
 (Playwright va `@google/model-viewer` kerak; serverda shart emas, rasmlar git'da bor).
+
+Niqoblar (`data/katalog3d/mask/<id>.png`): xuddi shu buyruq `--maska` bilan fonsiz chizadi, keyin
+`python tools/katalog3d/maska.py <katalog>` shaffoflik kanalini yig'adi. 3D taqdimotda har 3D ob'ekt
+ichidagi zaxira rasm (3D ko'rinmaydigan dasturlar uchun majburiy) shu niqob bilan fonsiz qilinadi.
+
+## 3D taqdimot (`services/kat3d/`)
+
+Botdagi «🧊 3D taqdimot» tugmasi mavzu so'raydi va to'lovdan oldin tekshiradi: tana tuzilishi bo'lsa —
+3D Anatomiya, aks holda shu katalog (va `data/katalog3d/` dagi boshqa `*.json` kataloglar) bo'yicha qidiradi.
+Mos modellar topilsa, mijozga nomi va rasmi ko'rsatiladi va taqdimot aynan shular bilan yasaladi.
+
+| Fayl | Nima |
+|---|---|
+| `qidiruv.py` | AI mavzuni kalit so'zlarga yoyadi → nom/teg bo'yicha 80 nomzod → AI «asosiy» va «yordamchi»ni tanlaydi |
+| `reja.py` | AI slaydlar rejasi (kompozitsiya, matn, raqamlar, modellar), tuzatish va fakt tekshiruvi |
+| `uslub.py` | 10 ta dizayn uslubi (3D Anatomiya dizayn tizimidan) va fan bo'yicha tanlov |
+| `deck.py` | Slaydlar: 14 kompozitsiya, haqiqiy 3D ob'ektlar, Morph bilan uchib-aylanib o'tish, sahnaga kirish/chiqish |
+| `yukla.py` | Modellar serverga kerak bo'lganda o'zi yuklanadi (pastda) |
+
+Har varoq boshqacha: AI har slayd uchun mazmuniga mos kompozitsiya tanlaydi — paragraflar, vaqt chizig'i,
+ikki ustunli taqqoslash, kartalar, raqamlangan bosqichlar, asosiy fikr/iqtibos, «Bilasizmi?» savoli,
+raqamlar, katta model, uchta model, ro'yxat. Ketma-ket bir xil dizayn bo'lmaydi, nuqtali ro'yxat ko'pi bilan
+ikki slaydda; matn hajmi ham slayddan slaydga farq qiladi. Shrift joyga moslanadi, sig'magan matn
+o'chmaydi — ma'ruzachi izohiga ko'chadi.
+
+Modellar hech qachon oddiy rasmga aylantirilmaydi — har slaydda PowerPoint 3D ob'ekti. Tibbiyotdan
+boshqa mavzularda modelning qismlari yorliq-chiziq bilan nomlanmaydi. CC BY mualliflari model ostida
+va oxirgi slayd izohida yoziladi.
+
+Matnni admin panelda tanlangan premium AI yozadi. Sozlash: `KAT3D_MODEL` / `KAT3D_SEARCH_MODEL` (faqat
+majburan boshqa model kerak bo'lsa), `KAT3D_MAX_MB=42`
+(bitta taqdimotdagi modellar hajmi — Telegram 50 MB), `KAT3D_REVIEW=0` (fakt tekshiruvisiz).
