@@ -700,7 +700,7 @@ def _fikr(ctx: Ctx, slide, s: dict, i: int) -> List:
     box = _model(ctx, slide, s["models"][0], 3.5, 3.85, 5.9)
     design.ground_shadow(slide, st, box)
     x, w = 6.95, 5.75
-    qsize = _fit(s["quote"], w, 2.7, 30, 18, HEAD_EM * 0.95)
+    qsize = _fit(s["quote"], w, 2.1 if s["text"] else 2.7, 28, 18, HEAD_EM * 0.95)   # izohga ham joy qolsin
     qh = _lines(s["quote"], w, qsize, HEAD_EM * 0.95) * qsize * 1.12 * 1.2 / 72
     src_h = 0.5 if s["source"] else 0.0
     text = s["text"]
