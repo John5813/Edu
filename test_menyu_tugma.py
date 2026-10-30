@@ -79,9 +79,10 @@ async def main():
 
     med3d_label = pp.MED3D_ENTRY_TEXTS[0]
     await send(med3d_label)
-    check("alohida 3D tugmasi mavzu emas, anatomiya ogohlantirishini ochadi",
-          await state.get_state() == PS.waiting_for_kind.state
-          and "3D Anatomiya" in sent[-1], (await state.get_state(), sent[-1] if sent else None))
+    check("alohida 3D tugmasi mavzu bo'lib qolmaydi, 3D mavzusini so'raydi",
+          await state.get_state() == PS.waiting_for_topic_text.state
+          and "3D taqdimot" in sent[-1] and "topic" not in await state.get_data(),
+          (await state.get_state(), sent[-1] if sent else None))
 
     for lang in ("uz", "ru", "en"):
         for label in LABELS[lang]:

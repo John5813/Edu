@@ -31,6 +31,7 @@ geografiya, astronomiya va boshqalar. Har model PowerPoint'ga mos `.glb` qilib t
 | `data/katalog3d/katalog.json` | Yakuniy ro'yxat: o'zbekcha nom, fan, litsenziya, muallif, `attribution`, fayl yo'li, uchburchak, hajm |
 | `data/katalog3d/tanlov.jsonl` | Yuklash ro'yxati: har model qayerdan olinadi (manba URL) |
 | `data/katalog3d/preview/<id>.jpg` | Har model rasmi (384×384) — botda tanlash uchun |
+| `data/katalog3d/mask/<id>.png` | Rasmning shaffoflik niqobi — 3D ob'ekt ichidagi zaxira rasm fonsiz bo'lishi uchun |
 | `services/katalog3d.py` | `qidir()`, `model_yoli()`, `joylash()` — slaydga qo'yish |
 | `tools/katalog3d/yukla.sh` | Serverga yuklash (bitta buyruq) |
 
@@ -82,3 +83,27 @@ model ramkada markazda turadi. Skelet yoki animatsiyali modellarga bu bosqich te
 
 Preview rasmlar: `node tools/katalog3d/rasm.mjs <katalog> <model-viewer.min.js> --hajm 384`
 (Playwright va `@google/model-viewer` kerak; serverda shart emas, rasmlar git'da bor).
+
+Niqoblar (`data/katalog3d/mask/<id>.png`): xuddi shu buyruq `--maska` bilan fonsiz chizadi, keyin
+`python tools/katalog3d/maska.py <katalog>` shaffoflik kanalini yig'adi. 3D taqdimotda har 3D ob'ekt
+ichidagi zaxira rasm (3D ko'rinmaydigan dasturlar uchun majburiy) shu niqob bilan fonsiz qilinadi.
+
+## 3D taqdimot (`services/kat3d/`)
+
+Botdagi «🧊 3D taqdimot» tugmasi mavzu so'raydi va to'lovdan oldin tekshiradi: tana tuzilishi bo'lsa —
+3D Anatomiya, aks holda shu katalog (va `data/katalog3d/` dagi boshqa `*.json` kataloglar) bo'yicha qidiradi.
+Mos modellar topilsa, mijozga nomi va rasmi ko'rsatiladi va taqdimot aynan shular bilan yasaladi.
+
+| Fayl | Nima |
+|---|---|
+| `qidiruv.py` | AI mavzuni kalit so'zlarga yoyadi → nom/teg bo'yicha 80 nomzod → AI «asosiy» va «yordamchi»ni tanlaydi |
+| `reja.py` | AI slaydlar rejasi (kompozitsiya, matn, raqamlar, modellar), tuzatish va fakt tekshiruvi |
+| `uslub.py` | 10 ta dizayn uslubi (3D Anatomiya dizayn tizimidan) va fan bo'yicha tanlov |
+| `deck.py` | Slaydlar: haqiqiy 3D ob'ektlar, Morph bilan uchib-aylanib o'tish, sahnaga kirish/chiqish |
+
+Modellar hech qachon oddiy rasmga aylantirilmaydi — har slaydda PowerPoint 3D ob'ekti. Tibbiyotdan
+boshqa mavzularda modelning qismlari yorliq-chiziq bilan nomlanmaydi. CC BY mualliflari model ostida
+va oxirgi slayd izohida yoziladi.
+
+Sozlash: `KAT3D_MODEL` / `KAT3D_SEARCH_MODEL` (AI modeli, bo'sh bo'lsa umumiy), `KAT3D_MAX_MB=42`
+(bitta taqdimotdagi modellar hajmi — Telegram 50 MB), `KAT3D_REVIEW=0` (fakt tekshiruvisiz).

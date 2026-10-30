@@ -43,7 +43,7 @@ KK = {
     "main_menu": {
         "premium_presentation": "✨ Заманауи презентация",
         "presentation": "🌟 Презентация",
-        "presentation_3d": "🫀 3D Анатомия — дене құрылысы",
+        "presentation_3d": "🧊 3D презентация",
         "independent_work": "💥 Өзіндік жұмыс",
         "referat": "⚡ Реферат",
         "course_work": "✨ Курстық жұмыс",
