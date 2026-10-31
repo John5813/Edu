@@ -28,6 +28,7 @@ from pptx.util import Inches, Pt
 from services import katalog3d
 from services.med3d import design, glb
 from services.med3d.pptx3d import CT_GLB, RT_MODEL3D, _PNG, _model_xml, _next_id
+from services.premium_presentation.slide_anim import P_NS
 from services.pro3d.build import add_entrances, add_morph, fit_size
 
 from .uslub import STYLES
@@ -36,6 +37,7 @@ log = logging.getLogger(__name__)
 
 W, H = design.W, design.H
 MORPH_MS = 1700
+TURN_MS = int(os.getenv("KAT3D_TURN_SECONDS") or 40) * 1000   # slaydda turgan model o'z joyida shuncha vaqtda 1 marta aylanadi
 BASE_ROT = (14.0, -30.0, 0.0)              # preview rasmidagi burchakka yaqin: biroz yuqoridan, yon tomondan
 SWING = (0.0, 28.0, -22.0, 16.0, -32.0, 10.0, 34.0, -14.0)   # har keyingi ko'rinishda Y bo'yicha burilish
 NOTES_HEAD = {"uz": "3D modellar mualliflari", "ru": "Авторы 3D-моделей", "en": "3D model credits",
@@ -54,6 +56,7 @@ class Ctx:
         self.cur = 0
         self.placed: Dict[int, Dict[str, tuple]] = {}      # slayd → {model: (cx, cy, size, rot)}
         self.ghosts: Dict[int, set] = {}
+        self.spins: Dict[int, List[int]] = {}               # slayd → o'z joyida aylanadigan 3D ob'ektlar id si
         self.credits: List[str] = []
         self.total = len(plan["slides"])
 
@@ -115,8 +118,8 @@ def _cutout(path: Optional[str], mask: Optional[str] = None) -> bytes:
 
 # ───────────────────────────────────────────── chizish
 
-def _place(ctx: Ctx, slide, mid: str, cx: float, cy: float, size: float, rot) -> None:
-    """3D ob'ekt (am3d:model3d) — GLB taqdimotda bir marta, hamma slaydlar unga havola qiladi."""
+def _place(ctx: Ctx, slide, mid: str, cx: float, cy: float, size: float, rot) -> int:
+    """3D ob'ekt (am3d:model3d) — GLB taqdimotda bir marta, hamma slaydlar unga havola qiladi. Ob'ekt id si."""
     raw, lo, hi = ctx.glb(mid)
     pkg = slide.part.package
     part = ctx.parts.get(mid)
@@ -127,13 +130,15 @@ def _place(ctx: Ctx, slide, mid: str, cx: float, cy: float, size: float, rot) ->
     _, rid_png = slide.part.get_or_add_image_part(io.BytesIO(ctx.picture(mid)))
     x, y = cx - size / 2, cy - size / 2
     tree = slide.shapes._spTree
-    node = etree.fromstring(_model_xml(_next_id(tree), "!!m_" + mid[:24], int(Inches(x)), int(Inches(y)),
+    sid = _next_id(tree)
+    node = etree.fromstring(_model_xml(sid, "!!m_" + mid[:24], int(Inches(x)), int(Inches(y)),
                                        int(Inches(size)), int(Inches(size)), rid_model, rid_png, lo, hi, rot,
                                        ctx.st.lights))
     for sppr in node.iter(qn("p:spPr")):          # zaxira ko'rinish ramkasiz
         ln = etree.SubElement(sppr, qn("a:ln"))
         etree.SubElement(ln, qn("a:noFill"))
     tree.append(node)
+    return sid
 
 
 def _model(ctx: Ctx, slide, mid: str, cx: float, cy: float, size: float, turn: float = 0.0) -> Tuple:
@@ -142,7 +147,7 @@ def _model(ctx: Ctx, slide, mid: str, cx: float, cy: float, size: float, turn: f
     k = ctx.seen.get(mid, 0)
     ctx.seen[mid] = k + 1
     rot = (BASE_ROT[0], BASE_ROT[1] + SWING[k % len(SWING)] + turn, BASE_ROT[2])
-    _place(ctx, slide, mid, cx, cy, size, rot)
+    ctx.spins.setdefault(ctx.cur, []).append(_place(ctx, slide, mid, cx, cy, size, rot))
     ctx.placed.setdefault(ctx.cur, {})[mid] = (cx, cy, size, rot)
     m = katalog3d.katalog()[mid]
     if m["attribution_full"] not in ctx.credits:
@@ -812,6 +817,32 @@ def _savol(ctx: Ctx, slide, s: dict, i: int) -> List:
             (answer, "float", 650)]
 
 
+def _turntable(slide, spids: Sequence[int], delay: int = 400) -> None:
+    """PowerPoint'ning 3D «Turntable» effekti: slayddagi har 3D model o'z joyida juda sekin, slayd turguncha
+    aylanadi (emph, presetID 37, `3d.view.rotation.y`). Kirish effektlari bilan bir guruhda, o'tishdan keyin."""
+    from services.premium_presentation import slide_anim
+
+    if not spids or TURN_MS <= 0:
+        return
+    timing = slide._element.find(qn("p:timing"))
+    if timing is None:
+        timing = etree.fromstring(slide_anim._timing([], []))
+        ext = slide._element.find(qn("p:extLst"))
+        ext.addprevious(timing) if ext is not None else slide._element.append(timing)
+    group = next(c for c in timing.iter(qn("p:cTn")) if c.get("id") == "4").find(qn("p:childTnLst"))
+    nid = max(int(c.get("id")) for c in timing.iter(qn("p:cTn"))) + 1
+    for k, spid in enumerate(spids):
+        turn = 21600000 if k % 2 == 0 else -21600000           # qo'shni modellar qarama-qarshi tomonga
+        group.append(etree.fromstring(
+            f'<p:par {P_NS}><p:cTn id="{nid}" presetID="37" presetClass="emph" presetSubtype="128" '
+            f'repeatCount="indefinite" fill="hold" grpId="0" nodeType="withEffect"><p:stCondLst>'
+            f'<p:cond delay="{delay}"/></p:stCondLst><p:childTnLst><p:animRot by="{turn}"><p:cBhvr>'
+            f'<p:cTn id="{nid + 1}" dur="{TURN_MS}" fill="hold"/><p:tgtEl><p:spTgt spid="{spid}"/></p:tgtEl>'
+            f'<p:attrNameLst><p:attrName>3d.view.rotation.y</p:attrName></p:attrNameLst></p:cBhvr>'
+            f'</p:animRot></p:childTnLst></p:cTn></p:par>'))
+        nid += 2
+
+
 LAYOUT_FN = {"muqova": _muqova, "chap": lambda c, sl, s, i: _side(c, sl, s, i, True),
              "ong": lambda c, sl, s, i: _side(c, sl, s, i, False), "qahramon": _qahramon,
              "raqamlar": _raqamlar, "uchlik": _uchlik, "yakun": _yakun, "matn": _matn,
@@ -834,6 +865,7 @@ def build(plan: dict, out_path: str) -> str:
         add_morph(slide, MORPH_MS)
         if steps:
             add_entrances(slide, steps)
+        _turntable(slide, ctx.spins.get(i, []))
         notes = s.get("notes") or ""
         if i == len(plan["slides"]) - 1 and ctx.credits:
             head = NOTES_HEAD.get((plan.get("language") or "uz")[:2]) or NOTES_HEAD["en"]
