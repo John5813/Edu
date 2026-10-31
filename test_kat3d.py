@@ -13,7 +13,7 @@
 
     python test_kat3d.py
 """
-import asyncio, io, os, sys, tempfile, zipfile
+import asyncio, io, os, sys, tempfile, time, zipfile
 from types import SimpleNamespace
 from unittest import mock
 from unittest.mock import AsyncMock, MagicMock
@@ -379,6 +379,12 @@ def fake_download(url, path, tries=4):
     open(path, "wb").write(b"raw")
 
 class FakeKonv:
+    p = None                                          # haqiqiy node jarayoni yo'q — qorovul kuzatmaydi
+    closed = 0
+
+    def close(self):
+        FakeKonv.closed += 1
+
     def __call__(self, job):
         pos = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]], dtype=np.float32)
         data = glb.write_glb([glb.Primitive(pos, np.array([[0, 0, 1]] * 3, dtype=np.float32), np.array([0, 1, 2]),
@@ -406,6 +412,55 @@ with mock.patch.object(yukla, "ishlaydi", return_value=True), mock.patch.object(
     check("xom fayllar o'chirildi", os.listdir(os.path.join(TMP, "_xom")) == [], os.listdir(os.path.join(TMP, "_xom")))
     check("yuklanmagan model endi taklif qilinmaydi", SMILODON not in yukla.mumkin())
     check("diskdagilar ro'yxati yangilandi", QUYOSH in katalog3d.mavjud())
+check("har model alohida jarayonda — ish tugashi bilan yopiladi (xotira qaytadi)", FakeKonv.closed >= 1, FakeKonv.closed)
+
+print("5c) Xotira: 2 GB li server qotib qolmasin")
+OGIR = dict(src[QUYOSH], uchburchak=6938773, hajm=251_000_000, tekstura_max=8192)
+YENGIL = dict(src[QUYOSH], uchburchak=500_000, hajm=80_000_000, tekstura_max=8192)
+check("og'ir model ~1,6 GB, oddiy ~350 MB deb baholanadi",
+      1500 <= yukla.ehtiyoj_mb(OGIR) <= 2100 and 300 <= yukla.ehtiyoj_mb(YENGIL) <= 450,
+      (yukla.ehtiyoj_mb(OGIR), yukla.ehtiyoj_mb(YENGIL)))
+os.remove(os.path.join(TMP, CAT[QUYOSH]["fayl"])); katalog3d.mavjud(ttl=0)
+with mock.patch.object(yukla, "ishlaydi", return_value=True), mock.patch.object(yukla, "byudjet_mb", return_value=880), \
+     mock.patch.object(yukla, "manbalar", return_value={QUYOSH: OGIR}), \
+     mock.patch.object(yukla, "yuklab_ol", side_effect=fake_download) as dl:
+    check("2 GB serverda sig'maydigan og'ir model taklif qilinmaydi", QUYOSH not in yukla.mumkin())
+    check("... va yuklanmaydi ham", yukla.oldindan([QUYOSH]) == 0 and yukla.ensure([QUYOSH], timeout=5) == []
+          and not dl.called)
+with mock.patch.object(yukla, "ishlaydi", return_value=True), mock.patch.object(yukla, "byudjet_mb", return_value=880), \
+     mock.patch.object(yukla, "manbalar", return_value={QUYOSH: YENGIL}):
+    check("oddiy model 2 GB serverda ham taklif qilinadi", QUYOSH in yukla.mumkin())
+with mock.patch.object(yukla, "ishlaydi", return_value=True), \
+     mock.patch.object(yukla, "_start", side_effect=lambda mid, pool: mid) as start:
+    yukla.oldindan([f"m{i}" for i in range(20)])
+    check("mavzu yozilganda fonda ko'pi bilan 8 ta model", start.call_count == yukla.OLDINDAN_MAX == 8, start.call_count)
+
+import subprocess as _sp
+class SlowKonv:
+    def __init__(self):
+        self.p = _sp.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    def __call__(self, job):
+        self.p.wait()                                 # node o'ldirilsa readline bo'sh qaytadi
+        raise RuntimeError("konvertor to'xtab qoldi")
+    def close(self):
+        self.p.kill()
+slow = []
+with mock.patch.object(yukla, "_konvertor", side_effect=lambda: slow.append(SlowKonv()) or slow[-1]), \
+     mock.patch.object(yukla, "_meminfo", return_value={"MemAvailable": 120, "MemTotal": 1970}):
+    t0 = time.time()
+    try:
+        yukla._aylantir("x.glb", "y.glb", 400)
+        check("bo'sh xotira tugasa qorovul o'girishni to'xtatadi", False)
+    except yukla.XotiraBand as exc:
+        check("bo'sh xotira tugasa qorovul o'girishni to'xtatadi", time.time() - t0 < 5 and slow[0].p.poll() is not None,
+              str(exc))
+with mock.patch.object(yukla, "_meminfo", return_value={"MemAvailable": 300}):
+    t0 = time.time()
+    check("xotira bo'shamasa o'girish boshlanmaydi (kutadi, keyin voz kechadi)",
+          yukla._kut_xotira(400, timeout=0.1) is False and time.time() - t0 < 5)
+with mock.patch.object(yukla, "_meminfo", return_value={"MemTotal": 1970}):
+    check("ruxsat — server xotirasining 45% i (2 GB da ~880 MB)", 850 <= yukla.byudjet_mb() <= 900, yukla.byudjet_mb())
+put_model(QUYOSH); katalog3d.mavjud(ttl=0)
 with mock.patch.object(yukla, "ishlaydi", return_value=False):
     check("node/paketlar yo'q — faqat diskdagilar", yukla.mumkin() == katalog3d.mavjud())
 put_model(SMILODON)

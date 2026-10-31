@@ -13,7 +13,17 @@ Yangi katalogda manba `data/katalog3d/*.jsonl` dagi yozuv (uid, manba, url/yol, 
 yozuvining o'zidagi `manba_url` (to'g'ridan-to'g'ri GLB havolasi) bo'ladi.
 
 `KATALOG3D_OLDINDAN=1` — bot ishga tushganda hamma yetishmagan modellarni fonda, bittadan yuklaydi
-(doimiy diskli serverda: keyin hech bir buyurtma kutmaydi). `KATALOG3D_YUKLOVCHI` — bir vaqtda nechta model.
+(doimiy diskli serverda: keyin hech bir buyurtma kutmaydi). `KATALOG3D_YUKLOVCHI` — bir vaqtda nechta model
+yuklanadi (sukut 2); o'girish (node) esa doim bittadan.
+
+Xotira (2 GB li serverda bot qotib qolgan edi): bitta konvertatsiya o'rtacha ~350 MB, eng og'ir modellar
+(7 mln uchburchak) ~1,6 GB oladi va node jarayoni ishdan keyin ham xotirani qo'yib yubormaydi. Shuning uchun:
+- har model alohida node jarayonida o'giriladi va jarayon darhol yopiladi, past ustuvorlikda (`nice`);
+- model kerak qiladigan xotira oldindan baholanadi (`ehtiyoj_mb`): serverga sig'maydigani taklif qilinmaydi,
+  bo'sh xotira yetmasa o'girish kutadi;
+- qorovul: o'girish paytida bo'sh xotira `KATALOG3D_MIN_FREE_MB` (200) dan kamaysa yoki jarayon baholangandan
+  ancha ko'p yesa — u to'xtatiladi (bot va boshqa buyurtmalar ustun).
+`KATALOG3D_RAM_MB` — bitta o'girishga ruxsat (sukut: serverning 45% xotirasi).
 """
 import glob
 import json
@@ -36,6 +46,9 @@ NODE_MODULES = os.path.join(TOOLS, "node_modules")
 HF = "https://huggingface.co/datasets/allenai/objaverse/resolve/main/"
 MAX_TEXTURE, MAX_TRIS = 2048, 200000
 RETRY_AFTER = 3600.0                  # yuklanmagan model qayta qachon sinaladi (soniya)
+RETRY_BUSY = 300.0                    # xotira band bo'lgani uchun o'girilmagan model — 5 daqiqadan keyin
+MIN_FREE_MB = int(os.getenv("KATALOG3D_MIN_FREE_MB") or 200)
+OLDINDAN_MAX = int(os.getenv("KATALOG3D_OLDINDAN_MAX") or 8)     # mavzu yozilganda fonda nechta model
 
 
 # ───────────────────────────────────────────── manba va litsenziya (tools/katalog3d/yukla.py ham ishlatadi)
@@ -89,12 +102,18 @@ def yuklab_ol(url: str, path: str, tries: int = 4) -> None:
 
 
 class Konvertor:
-    """`glb_tayyorla.mjs` jarayoni: har qatorda bitta vazifa (JSON) oladi, bitta natija qaytaradi."""
+    """`glb_tayyorla.mjs` jarayoni: har qatorda bitta vazifa (JSON) oladi, bitta natija qaytaradi.
+    `past=True` — past ustuvorlikda (bot serverida: CPU va disk avval botga)."""
 
-    def __init__(self, node_path: str = NODE_MODULES):
+    def __init__(self, node_path: str = NODE_MODULES, past: bool = False):
         env = dict(os.environ, NODE_PATH=node_path or NODE_MODULES)
-        self.p = subprocess.Popen(["node", os.path.join(TOOLS, "glb_tayyorla.mjs")], stdin=subprocess.PIPE,
-                                  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, env=env)
+        cmd = ["node", os.path.join(TOOLS, "glb_tayyorla.mjs")]
+        if past and shutil.which("ionice"):
+            cmd = ["ionice", "-c", "2", "-n", "7"] + cmd
+        if past and shutil.which("nice"):
+            cmd = ["nice", "-n", "15"] + cmd
+        self.p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                  text=True, env=env)
 
     def __call__(self, job: dict) -> dict:
         self.p.stdin.write(json.dumps(job) + "\n")
@@ -107,6 +126,7 @@ class Konvertor:
     def close(self) -> None:
         try:
             self.p.kill()
+            self.p.wait(timeout=10)                   # jarayon to'liq tozalansin (zombie qolmasin)
         except Exception:                             # noqa: BLE001
             pass
 
@@ -123,6 +143,107 @@ def saqla(r: dict, res: dict, model_dir: str, fayl: str) -> dict:
     with open(os.path.join(model_dir, "meta.json"), "w", encoding="utf-8") as fh:
         json.dump(meta, fh, ensure_ascii=False, indent=1)
     return meta
+
+
+# ───────────────────────────────────────────── xotira
+
+def _meminfo() -> Dict[str, int]:
+    """/proc/meminfo (MB). Linux bo'lmasa — bo'sh."""
+    out: Dict[str, int] = {}
+    try:
+        with open("/proc/meminfo", encoding="ascii") as fh:
+            for line in fh:
+                key, value = line.split(":", 1)
+                out[key] = int(value.split()[0]) // 1024
+    except (OSError, ValueError, IndexError):
+        pass
+    return out
+
+
+def _rss_mb(pid: int) -> int:
+    try:
+        with open(f"/proc/{pid}/status", encoding="ascii") as fh:
+            for line in fh:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) // 1024
+    except (OSError, ValueError, IndexError):
+        pass
+    return 0
+
+
+def ehtiyoj_mb(r: dict) -> int:
+    """O'girishning taxminiy eng katta xotirasi (MB) — manba hajmi, uchburchak va tekstura bo'yicha.
+    O'lchangan: 0,5-0,75 mln uchburchak ~350 MB, 1 mln + 16K tekstura ~500 MB, 6,9 mln ~1,6 GB."""
+    if not r.get("uchburchak"):
+        return 600                                    # manba ma'lumoti yo'q (to'g'ridan-to'g'ri havola)
+    est = (220 + 200 * r["uchburchak"] / 1e6 + 0.3 * (r.get("hajm") or 0) / 1e6
+           + (100 if (r.get("tekstura_max") or 0) >= 16384 else 0))
+    return int(est * 1.15)
+
+
+def byudjet_mb() -> int:
+    """Bitta o'girishga ruxsat etilgan xotira: `KATALOG3D_RAM_MB` yoki serverning 45% i (2 GB da ~880 MB)."""
+    if os.getenv("KATALOG3D_RAM_MB"):
+        return int(os.getenv("KATALOG3D_RAM_MB"))
+    total = _meminfo().get("MemTotal", 0)
+    return int(total * 0.45) if total else 4000
+
+
+def sigadi(mid: str) -> bool:
+    """Bu serverda o'girsa bo'ladimi (juda og'ir model kichik serverni swap'ga tushirib qotirardi)."""
+    r = manbalar().get(mid)
+    return bool(r) and ehtiyoj_mb(r) <= byudjet_mb()
+
+
+def _kut_xotira(need: int, timeout: float) -> bool:
+    """Bo'sh xotira o'girishga yetguncha kutadi (boshqa ish — taqdimot yig'ish, brauzer — tugashini)."""
+    deadline = time.time() + timeout
+    while True:
+        avail = _meminfo().get("MemAvailable")
+        if avail is None or avail >= need + MIN_FREE_MB:
+            return True
+        if time.time() >= deadline:
+            return False
+        time.sleep(2.0)
+
+
+class XotiraBand(RuntimeError):
+    """Xotira yetmagani uchun o'girilmadi — model og'ir emas, keyinroq qayta urinsa bo'ladi."""
+
+
+def _aylantir(raw: str, out: str, need: int) -> dict:
+    """Modelni alohida node jarayonida o'giradi; jarayon ish tugashi bilan yopiladi (xotira qaytadi).
+    Qorovul: bo'sh xotira juda kamaysa yoki jarayon baholangandan ancha ko'p yesa — to'xtatadi."""
+    konv = _konvertor()
+    stop, why = threading.Event(), []
+    limit = max(int(need * 1.6), need + 400)
+
+    def qorovul():
+        proc = getattr(konv, "p", None)
+        while proc is not None and not stop.wait(0.5):
+            if proc.poll() is not None:
+                return
+            avail = _meminfo().get("MemAvailable")
+            rss = _rss_mb(proc.pid)
+            if avail is not None and avail < MIN_FREE_MB:
+                why.append(f"serverda bo'sh xotira {avail} MB qoldi")
+            elif rss > limit:
+                why.append(f"jarayon {rss} MB yedi (chegara {limit} MB)")
+            if why:
+                proc.kill()
+                return
+
+    watch = threading.Thread(target=qorovul, name="katalog3d-qorovul", daemon=True)
+    watch.start()
+    try:
+        return konv({"in": raw, "out": out, "max_texture": MAX_TEXTURE, "max_tris": MAX_TRIS})
+    except Exception as exc:
+        if why:
+            raise (XotiraBand if "bo'sh xotira" in why[0] else RuntimeError)(why[0]) from exc
+        raise
+    finally:
+        stop.set()
+        konv.close()
 
 
 # ───────────────────────────────────────────── serverda avtomatik
@@ -197,24 +318,21 @@ def mumkin() -> frozenset:
     have = katalog3d.mavjud()
     if not ishlaydi():
         return have
-    now = time.time()
-    return have | frozenset(i for i in manbalar() if i in katalog3d.katalog()
-                            and now - _failed.get(i, 0.0) > RETRY_AFTER)
+    now, budget = time.time(), byudjet_mb()
+    return have | frozenset(i for i, r in manbalar().items() if i in katalog3d.katalog()
+                            and now - _failed.get(i, 0.0) > RETRY_AFTER and ehtiyoj_mb(r) <= budget)
 
 
 _jobs: Dict[str, Future] = {}
 _failed: Dict[str, float] = {}
 _jobs_lock = threading.Lock()
-_local = threading.local()
-_pool = ThreadPoolExecutor(max_workers=int(os.getenv("KATALOG3D_YUKLOVCHI") or 3), thread_name_prefix="katalog3d")
+_pool = ThreadPoolExecutor(max_workers=int(os.getenv("KATALOG3D_YUKLOVCHI") or 2), thread_name_prefix="katalog3d")
 _bulk = ThreadPoolExecutor(max_workers=1, thread_name_prefix="katalog3d-fon")
+_slot = threading.Lock()              # o'girish (node) doim bittadan: yuklab olish parallel, xotira esa bitta ishga
 
 
 def _konvertor() -> Konvertor:
-    konv = getattr(_local, "konv", None)
-    if konv is None or konv.p.poll() is not None:
-        konv = _local.konv = Konvertor()
-    return konv
+    return Konvertor(past=True)
 
 
 def _bitta(mid: str) -> bool:
@@ -233,15 +351,17 @@ def _bitta(mid: str) -> bool:
     os.makedirs(model_dir, exist_ok=True)
     raw = os.path.join(raw_dir, mid + ".glb")
     tmp = os.path.join(model_dir, "model.tmp.glb")
+    need = ehtiyoj_mb(r)
     t0 = time.time()
     try:
+        if need > byudjet_mb():
+            raise RuntimeError(f"bu server uchun juda og'ir (~{need} MB kerak, ruxsat {byudjet_mb()} MB)")
         if not os.path.isfile(raw):
             yuklab_ol(manba_url(r), raw)
-        try:
-            res = _konvertor()({"in": raw, "out": tmp, "max_texture": MAX_TEXTURE, "max_tris": MAX_TRIS})
-        except Exception:
-            _local.konv = None                            # jarayon yiqildi — keyingisi yangisini ochadi
-            raise
+        with _slot:
+            if not _kut_xotira(need, timeout=120.0):
+                raise XotiraBand(f"bo'sh xotira yetmadi (~{need} MB kerak)")
+            res = _aylantir(raw, tmp, need)
         if not res.get("ok"):
             raise RuntimeError(res.get("error") or "konvertatsiya o'tmadi")
         saqla(r, res, model_dir, m["fayl"])
@@ -250,7 +370,8 @@ def _bitta(mid: str) -> bool:
                  os.path.getsize(target) / 1e6, time.time() - t0)
         return True
     except Exception as exc:                              # noqa: BLE001
-        _failed[mid] = time.time()
+        # Xotira band bo'lgani uchun — 5 daqiqadan keyin yana; boshqa xatoda — bir soatdan keyin.
+        _failed[mid] = time.time() - (RETRY_AFTER - RETRY_BUSY if isinstance(exc, XotiraBand) else 0.0)
         log.warning("3D katalog: model yuklanmadi — %s: %s", mid, str(exc)[:300])
         return False
     finally:
@@ -266,7 +387,8 @@ def _start(mid: str, pool: ThreadPoolExecutor) -> Optional[Future]:
         job = _jobs.get(mid)
         if job is not None and not job.done():
             return job
-        if katalog3d.model_yoli(mid) or mid not in manbalar() or time.time() - _failed.get(mid, 0.0) < RETRY_AFTER:
+        if (katalog3d.model_yoli(mid) or not sigadi(mid)
+                or time.time() - _failed.get(mid, 0.0) < RETRY_AFTER):
             return None
         job = _jobs[mid] = pool.submit(_bitta, mid)
         job.add_done_callback(lambda _f: katalog3d.mavjud(ttl=0))
@@ -274,10 +396,11 @@ def _start(mid: str, pool: ThreadPoolExecutor) -> Optional[Future]:
 
 
 def oldindan(ids: Iterable[str]) -> int:
-    """Yetishmagan modellarni fonda yuklay boshlaydi (kutmaydi). Nechta navbatga qo'yilganini qaytaradi."""
+    """Yetishmagan modellarni fonda yuklay boshlaydi (kutmaydi). Nechta navbatga qo'yilganini qaytaradi.
+    Ko'pi bilan `OLDINDAN_MAX` ta — qolgani kerak bo'lganda (`ensure`) yuklanadi."""
     if not ishlaydi():
         return 0
-    return sum(1 for mid in ids if _start(mid, _pool) is not None)
+    return sum(1 for mid in list(ids)[:OLDINDAN_MAX] if _start(mid, _pool) is not None)
 
 
 def ensure(ids: Iterable[str], timeout: float = 240.0) -> List[str]:
@@ -301,7 +424,7 @@ def hammasini_fonda() -> int:
     if not ishlaydi():
         return 0
     have = katalog3d.mavjud(ttl=0)
-    missing = [mid for mid in katalog3d.katalog() if mid not in have and mid in manbalar()]
+    missing = [mid for mid in katalog3d.katalog() if mid not in have and sigadi(mid)]
     for mid in missing:
         _start(mid, _bulk)
     log.info("3D katalog: %d ta model fonda yuklanadi", len(missing))
