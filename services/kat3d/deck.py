@@ -38,6 +38,7 @@ log = logging.getLogger(__name__)
 
 W, H = design.W, design.H
 MORPH_MS = 1700
+MODEL_SCALE = float(os.getenv("KAT3D_MODEL_SCALE") or 1.2)     # 3D model ramkasi kompozitsiyadagidan shuncha katta
 TURN_MS = int(os.getenv("KAT3D_TURN_SECONDS") or 40) * 1000   # slaydda turgan model o'z joyida shuncha vaqtda 1 marta aylanadi
 BASE_ROT = (14.0, -30.0, 0.0)              # preview rasmidagi burchakka yaqin: biroz yuqoridan, yon tomondan
 SWING = (0.0, 28.0, -22.0, 16.0, -32.0, 10.0, 34.0, -14.0)   # har keyingi ko'rinishda Y bo'yicha burilish
@@ -148,6 +149,9 @@ def _model(ctx: Ctx, slide, mid: str, cx: float, cy: float, size: float, turn: f
     k = ctx.seen.get(mid, 0)
     ctx.seen[mid] = k + 1
     rot = (BASE_ROT[0], BASE_ROT[1] + SWING[k % len(SWING)] + turn, BASE_ROT[2])
+    size = min(size * MODEL_SCALE, H - 0.1)                       # kattaroq, lekin slayddan chiqmaydi
+    cx = min(max(cx, size / 2), W - size / 2)
+    cy = min(max(cy, size / 2), H - size / 2)
     sid = _place(ctx, slide, mid, cx, cy, size, rot)
     spin = ctx.plan.get("spin")                                    # rejada ko'rsatilsa — faqat o'shalar
     if (mid in spin) if spin is not None else is_planet(mid):
@@ -313,7 +317,7 @@ def _decorate(ctx: Ctx, slide, index: int, box) -> None:
 def _muqova(ctx: Ctx, slide, s: dict, i: int) -> List:
     mids = s["models"]
     _decorate(ctx, slide, i, (6.6, 0.6, 12.4, 6.8))
-    box = _model(ctx, slide, mids[0], 9.55, 3.7, 6.3)
+    box = _model(ctx, slide, mids[0], 9.9, 3.7, 5.6)
     design.ground_shadow(slide, ctx.st, box)
     if len(mids) > 1:
         _model(ctx, slide, mids[1], 11.75, 5.85, 2.0, turn=20)        # ramkali uslublarda ham ichkarida
@@ -424,7 +428,7 @@ def _qahramon(ctx: Ctx, slide, s: dict, i: int) -> List:
     if not s["models"]:
         return _side(ctx, slide, s, i, True)
     _decorate(ctx, slide, i, (6.2, 0.4, 12.9, 7.1))
-    box = _model(ctx, slide, s["models"][0], 9.6, 3.75, 6.8)
+    box = _model(ctx, slide, s["models"][0], 9.7, 3.75, 6.0)
     design.ground_shadow(slide, ctx.st, box)
     steps = _stack(ctx, slide, s, i, 0.75, 5.3, (42, 26), (17, 11.5), s["points"][:3], panel=True)
     _caption(ctx, slide, s["models"][:1], 6.6, H - 0.45, 6.2, align=PP_ALIGN.RIGHT)
@@ -507,7 +511,7 @@ def _jadval(ctx: Ctx, slide, s: dict, i: int) -> List:
     _decorate(ctx, slide, i, (9.7, 2.0, 12.9, 6.2))
     bottom = _head(ctx, slide, s, 0.75, 11.8, (34, 24), 1.2)
     if has:
-        box = _model(ctx, slide, s["models"][0], 11.35, 4.4, 3.4)
+        box = _model(ctx, slide, s["models"][0], 11.45, 4.4, 3.0)
         design.ground_shadow(slide, st, box)
     tab = s["table"]
     head, rows = tab["head"], tab["rows"]
@@ -788,7 +792,7 @@ def _xronologiya(ctx: Ctx, slide, s: dict, i: int) -> List:
     has = bool(s["models"])
     _decorate(ctx, slide, i, (9.1, 0.5, 12.8, 3.9))
     if has:
-        box = _model(ctx, slide, s["models"][0], 10.9, 2.15, 3.1)
+        box = _model(ctx, slide, s["models"][0], 10.9, 2.05, 2.8)
         design.ground_shadow(slide, st, box)
     _head(ctx, slide, s, 0.75, 8.6 if has else 11.8, (36, 24), 1.9)
     events = s["events"][:5]
@@ -822,7 +826,7 @@ def _taqqoslash(ctx: Ctx, slide, s: dict, i: int) -> List:
     has = bool(s["models"])
     bottom = _head(ctx, slide, s, 0.75, 11.8, (34, 24), 1.2)
     if has:
-        box = _model(ctx, slide, s["models"][0], W / 2, 4.55, 3.1)
+        box = _model(ctx, slide, s["models"][0], W / 2, 4.55, 2.7)
         design.ground_shadow(slide, st, box)
     top = max(2.3, bottom + 0.35)
     w, pad, name_h = (4.55 if has else 5.85), 0.3, 0.55
@@ -923,7 +927,7 @@ def _fikr(ctx: Ctx, slide, s: dict, i: int) -> List:
     has = bool(s["models"])
     _decorate(ctx, slide, i, (0.8, 0.9, 6.3, 6.8))
     if has:
-        box = _model(ctx, slide, s["models"][0], 3.5, 3.85, 5.9)
+        box = _model(ctx, slide, s["models"][0], 3.4, 3.85, 5.6)
         design.ground_shadow(slide, st, box)
     x, w = (6.95, 5.75) if has else (1.6, 10.1)
     qsize = _fit(s["quote"], w, 2.1 if s["text"] else 2.7, 28, 18, HEAD_EM * 0.95)   # izohga ham joy qolsin
@@ -966,7 +970,7 @@ def _savol(ctx: Ctx, slide, s: dict, i: int) -> List:
     has = bool(s["models"])
     _decorate(ctx, slide, i, (7.2, 1.0, 12.7, 6.7))
     if has:
-        box = _model(ctx, slide, s["models"][0], 9.95, 3.9, 5.5)
+        box = _model(ctx, slide, s["models"][0], 10.05, 3.9, 5.1)
         design.ground_shadow(slide, st, box)
     x, w, pad = (0.75, 6.2, 0.32) if has else (1.6, 10.1, 0.36)
     hem = HEAD_EM * (1.12 if st.title_caps else 1.0)
