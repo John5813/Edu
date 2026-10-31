@@ -363,6 +363,15 @@ async def init_db():
         # 'generating' rows are also purged: after a process restart the
         # in-flight asyncio task is gone, so these rows are zombies and
         # cannot be resumed — keeping them would leak PII indefinitely.
+        # Before that, recent ones are handed to `bot_orders`: the customer is
+        # told the order was interrupted (nothing is charged for documents yet).
+        try:
+            from database import bot_orders
+            adopted = await bot_orders.adopt_documents(db)
+            if adopted:
+                logger.info("Uzilib qolgan %d ta hujjat buyurtmasi mijozga xabar uchun olindi", adopted)
+        except Exception as adopt_err:
+            logger.warning("Uzilgan hujjatlar olinmadi: %s", adopt_err)
         try:
             async with db.execute(
                 "SELECT document_type, completed_at FROM document_orders WHERE status = 'completed'"

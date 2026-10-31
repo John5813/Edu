@@ -4,9 +4,12 @@ Ilgari bu ketma-ketlik faqat bot handleri ichida edi. Sayt qo'shilgach nusxa ko'
 shu modulga ajratildi: slaydlarni yozish → rasmlar → muqova → PPTX.
 """
 import asyncio
+import contextlib
 import contextvars
 import logging
 from typing import Callable, Optional, Tuple
+
+from services import heavy_gate
 
 log = logging.getLogger(__name__)
 
@@ -52,13 +55,20 @@ def price_for(slide_count: int) -> int:
 async def run_step(loop, func, *, step: str, label: str):
     """Og'ir bosqichni chegaralangan vaqt ichida bajaradi."""
     timeout = STEP_TIMEOUTS[step]
-    # Oqimga joriy kontekst (masalan, bepul sinovning matn modeli) ham o'tadi — `run_in_executor` uni o'zi o'tkazmaydi.
-    context = contextvars.copy_context()
-    try:
-        return await asyncio.wait_for(loop.run_in_executor(None, context.run, func), timeout)
-    except (asyncio.TimeoutError, TimeoutError):
-        raise RuntimeError(f"{label} {int(timeout // 60)} daqiqada tugamadi — "
-                           f"tashqi xizmat javob bermadi") from None
+    # Brauzer bosqichi: avval og'ir ishlar darvozasidan ruxsat (server xotirasi bo'shashini kutish vaqt
+    # chegarasiga kirmaydi — navbatdagi buyurtma "tugamadi" deb bekor bo'lmasin). Ruxsat kontekst orqali
+    # oqimga o'tadi, ichidagi `html_render.render` qayta kutmaydi.
+    gate = (heavy_gate.aslot("brauzer (taqdimot)", heavy_gate.BROWSER_MB) if step == "render"
+            else contextlib.nullcontext())
+    async with gate:
+        # Oqimga joriy kontekst (masalan, bepul sinovning matn modeli) ham o'tadi — `run_in_executor` uni o'zi
+        # o'tkazmaydi.
+        context = contextvars.copy_context()
+        try:
+            return await asyncio.wait_for(loop.run_in_executor(None, context.run, func), timeout)
+        except (asyncio.TimeoutError, TimeoutError):
+            raise RuntimeError(f"{label} {int(timeout // 60)} daqiqada tugamadi — "
+                               f"tashqi xizmat javob bermadi") from None
 
 
 async def build_deck(topic: str, slide_count: int, *, language: str = "uz", level: int = 2,

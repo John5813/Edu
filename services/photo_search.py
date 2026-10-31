@@ -15,6 +15,12 @@ Topilmagan slaydga hech narsa qaytarilmaydi — uni chaqiruvchi AI bilan
 chizdiradi. Mavzu natijalari xotirada saqlanadi: o'sha mavzuga keyingi
 murojaat (muqova, slaydni qayta yaratish, boshqa mijoz) Brave'ga yangi
 so'rov yubormaydi va oldin ishlatilgan rasmlarni qayta bermaydi.
+
+Bir xil rasm ikki marta qo'yilmaydi — hatto boshqa saytdan, boshqa manzil
+va o'lcham bilan kelsa ham (Amir Temur taqdimotida ketma-ket ikki slaydda
+bitta surat chiqqan edi): yuklangan har rasmning "barmoq izi" (dHash,
+butun va chetlari kesilgan holda) olinadi va mavzuda ishlatilganlari bilan
+solishtiriladi; o'xshashi tashlanib, slotga navbatdagi nomzod olinadi.
 """
 import asyncio
 import contextlib
@@ -113,11 +119,12 @@ def enabled() -> bool:
 # ───────────────────────────────────────────── mavzu natijalari (xotira)
 
 class _Pool:
-    __slots__ = ("candidates", "used", "created")
+    __slots__ = ("candidates", "used", "hashes", "created")
 
     def __init__(self, candidates: List[dict]):
         self.candidates = candidates
         self.used: set = set()
+        self.hashes: list = []          # ishlatilgan rasmlarning barmoq izlari (bir xil surat qayta chiqmasin)
         self.created = time.time()
 
 
@@ -468,6 +475,45 @@ async def _download(session: aiohttp.ClientSession, url: str) -> Optional[str]:
     return await asyncio.to_thread(_save_image, bytes(raw))
 
 
+# ───────────────────────────────────────────── bir xil rasm (boshqa manzildan) qayta qo'yilmasin
+
+DUP_DISTANCE = 10             # 64 bitdan nechtasi farq qilsa ham "o'sha rasm" (o'lcham, siqish, yengil rang farqi)
+
+
+def _dhash(gray) -> int:
+    from PIL import Image
+
+    small = gray.resize((9, 8), Image.LANCZOS)
+    px = list(small.getdata())
+    bits = 0
+    for row in range(8):
+        for col in range(8):
+            bits = (bits << 1) | (1 if px[row * 9 + col] > px[row * 9 + col + 1] else 0)
+    return bits
+
+
+def image_hashes(path: str) -> Optional[Tuple[int, int]]:
+    """Rasmning barmoq izi: (butun rasm, chetlari 10% kesilgan) — kichik kesish va ramkaga ham chidamli."""
+    from PIL import Image
+
+    try:
+        with Image.open(path) as image:
+            gray = image.convert("L")
+            w, h = gray.size
+            dx, dy = int(w * 0.1), int(h * 0.1)
+            return _dhash(gray), _dhash(gray.crop((dx, dy, w - dx, h - dy)))
+    except Exception:
+        return None
+
+
+def same_picture(a: Tuple[int, int], b: Tuple[int, int], limit: int = DUP_DISTANCE) -> bool:
+    return any(bin(x ^ y).count("1") <= limit for x in a for y in b)
+
+
+def is_duplicate(hashes: Tuple[int, int], seen: Sequence[Tuple[int, int]]) -> bool:
+    return any(same_picture(hashes, other) for other in seen)
+
+
 # ───────────────────────────────────────────── matnli rasmni ko'z bilan tekshirish
 
 _TEXT_CHECK = (
@@ -713,26 +759,47 @@ async def find_photos(topic: str, slots: Sequence[str], *, search=None,
                 return path
         return None
 
-    # Yuklangan rasmlar ko'z bilan tekshiriladi: ichida matn, jadval, sxema yoki slayd bo'lsa tashlanadi va
-    # slotga navbatdagi nomzod olinadi (3 davragacha). Qolgan bo'sh slotni AI chizadi.
+    # Yuklangan rasmlar avval bir-biri va mavzuda ishlatilganlari bilan solishtiriladi (bir xil surat boshqa
+    # saytdan kelgan bo'lsa — tashlanadi), keyin ko'z bilan tekshiriladi: ichida matn, jadval, sxema yoki slayd
+    # bo'lsa tashlanadi va slotga navbatdagi nomzod olinadi (4 davragacha). Qolgan bo'sh slotni AI chizadi.
+    seen: list = []                  # shu chaqiruvda ko'rilgan rasmlar (rad etilganlari ham — qayta tekshirilmaydi)
+    duplicates = 0
     async with aiohttp.ClientSession(timeout=timeout, headers=_DOWNLOAD_HEADERS, trust_env=True) as session:
-        for _ in range(3):
+        for _ in range(4):
             empty = [slot for slot in range(len(slots)) if result[slot] is None and (queues[slot] or spare)]
             if not empty:
                 break
             got = await asyncio.gather(*(next_photo(session, slot) for slot in empty))
-            fresh = [(slot, path) for slot, path in zip(empty, got) if path]
+            fresh = []
+            for slot, path in zip(empty, got):
+                if not path:
+                    continue
+                marks = await asyncio.to_thread(image_hashes, path)
+                if marks is not None and is_duplicate(marks, list(pool.hashes) + seen):
+                    duplicates += 1
+                    with contextlib.suppress(OSError):
+                        os.remove(path)
+                    continue
+                if marks is not None:
+                    seen.append(marks)
+                fresh.append((slot, path, marks))
             if not fresh:
+                if any(path for path in got):
+                    continue                 # hammasi takror chiqdi — keyingi nomzodlar bilan yana
                 break
-            bad = await text_heavy([path for _, path in fresh], check, formulas)
-            for k, (slot, path) in enumerate(fresh):
+            bad = await text_heavy([path for _, path, _ in fresh], check, formulas)
+            for k, (slot, path, marks) in enumerate(fresh):
                 if k in bad:
                     with contextlib.suppress(OSError):
                         os.remove(path)
                 else:
                     result[slot] = path
+                    if marks is not None:
+                        pool.hashes.append(marks)
             if bad:
                 log.info("Matnli %d ta rasm tashlandi", len(bad))
+    if duplicates:
+        log.info("Takroriy %d ta rasm tashlandi (boshqa manzildan kelgan bir xil surat)", duplicates)
 
     found = sum(1 for path in result if path)
     if found:

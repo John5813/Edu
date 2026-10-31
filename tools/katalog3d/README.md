@@ -62,7 +62,8 @@ bash tools/katalog3d/yukla.sh # yoki qo'lda, hammasi birdan (~12,5 GB, 4 yadroda
 ```
 
 Modellar `data/katalog3d_modellar/` ga tushadi (`KATALOG3D_DIR` bilan boshqa joy). `KATALOG3D_YUKLOVCHI` —
-bir vaqtda nechta model yuklab olinadi (sukut 2); o'girish esa doim bittadan.
+bir vaqtda nechta model yuklab olinadi (sukut 2); o'girish esa og'ir ishlar darvozasi orqali (`services/heavy_gate.py`:
+brauzer va LibreOffice bilan bitta navbatda, 2 GB serverda doim bittadan).
 
 ### Xotira (kichik server)
 
@@ -73,8 +74,12 @@ qotib qolardi. Endi:
 - har model alohida node jarayonida, past ustuvorlikda (`nice`) o'giriladi va jarayon darhol yopiladi;
 - har model uchun kerakli xotira oldindan baholanadi: serverga sig'maydigani (2 GB da ~1% og'ir model) taklif
   qilinmaydi va yuklanmaydi; bo'sh xotira yetmasa o'girish kutadi;
-- qorovul: o'girish paytida serverda bo'sh xotira `KATALOG3D_MIN_FREE_MB` (200 MB) dan kamaysa yoki jarayon
-  baholangandan ancha ko'p yesa — o'girish to'xtatiladi, model 5 daqiqadan keyin qayta sinaladi;
+- qorovul: o'girish paytida serverda bo'sh xotira `KATALOG3D_MIN_FREE_MB` (200 MB) dan kamaysa, jarayon
+  baholangandan ancha ko'p yesa yoki `KATALOG3D_TIMEOUT` (180 s) dan uzoq ishlasa — o'girish to'xtatiladi;
+  fondagi model 5 daqiqadan keyin qayta sinaladi, to'langan buyurtma esa uni darhol qayta sinaydi (mijozga
+  to'lovdan oldin ko'rsatilgan model taqdimotdan tushib qolmaydi);
+- fonda hammasini yuklash (`KATALOG3D_OLDINDAN=1`) mijoz ishlaridan keyin turadi; to'langan buyurtmaga kerakli
+  model fon navbatida bo'lsa, navbatdan oldinga olinadi. 2 GB serverda `KATALOG3D_OLDINDAN=0` tavsiya etiladi;
 - mavzu yozilganda fonda ko'pi bilan `KATALOG3D_OLDINDAN_MAX` (8) ta model yuklanadi, aralash 3D da — faqat mijoz
   tanlaganlari.
 

@@ -195,11 +195,14 @@ def _page_lines(docx_path: str, include_system: bool = True) -> list:
         config = _fontconfig(work_dir, include_system)
         if config:
             env["FONTCONFIG_FILE"] = config
-        subprocess.run(
-            ["soffice", f"-env:UserInstallation=file://{work_dir}/profile",
-             "--headless", "--convert-to", "pdf", "--outdir", work_dir, docx_path],
-            check=True, timeout=_CONVERT_TIMEOUT, capture_output=True, env=env,
-        )
+        from services import heavy_gate
+
+        with heavy_gate.slot("LibreOffice (reja)", heavy_gate.OFFICE_MB):
+            subprocess.run(
+                ["soffice", f"-env:UserInstallation=file://{work_dir}/profile",
+                 "--headless", "--convert-to", "pdf", "--outdir", work_dir, docx_path],
+                check=True, timeout=_CONVERT_TIMEOUT, capture_output=True, env=env,
+            )
         produced = glob.glob(os.path.join(work_dir, "*.pdf"))
         if not produced:
             logger.warning("Reja uchun PDF yaratilmadi: %s", docx_path)

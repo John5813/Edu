@@ -14,15 +14,19 @@ yozuvining o'zidagi `manba_url` (to'g'ridan-to'g'ri GLB havolasi) bo'ladi.
 
 `KATALOG3D_OLDINDAN=1` — bot ishga tushganda hamma yetishmagan modellarni fonda, bittadan yuklaydi
 (doimiy diskli serverda: keyin hech bir buyurtma kutmaydi). `KATALOG3D_YUKLOVCHI` — bir vaqtda nechta model
-yuklanadi (sukut 2); o'girish (node) esa doim bittadan.
+yuklanadi (sukut 2); o'girish (node) esa og'ir ishlar darvozasi orqali (2 GB serverda — doim bittadan).
 
 Xotira (2 GB li serverda bot qotib qolgan edi): bitta konvertatsiya o'rtacha ~350 MB, eng og'ir modellar
 (7 mln uchburchak) ~1,6 GB oladi va node jarayoni ishdan keyin ham xotirani qo'yib yubormaydi. Shuning uchun:
 - har model alohida node jarayonida o'giriladi va jarayon darhol yopiladi, past ustuvorlikda (`nice`);
-- model kerak qiladigan xotira oldindan baholanadi (`ehtiyoj_mb`): serverga sig'maydigani taklif qilinmaydi,
-  bo'sh xotira yetmasa o'girish kutadi;
-- qorovul: o'girish paytida bo'sh xotira `KATALOG3D_MIN_FREE_MB` (200) dan kamaysa yoki jarayon baholangandan
-  ancha ko'p yesa — u to'xtatiladi (bot va boshqa buyurtmalar ustun).
+- model kerak qiladigan xotira oldindan baholanadi (`ehtiyoj_mb`): serverga sig'maydigani taklif qilinmaydi;
+- o'girish umumiy og'ir ishlar darvozasidan (`services.heavy_gate`) o'tadi: brauzer, LibreOffice bilan bir
+  navbatda, bo'sh xotira yetgandagina boshlanadi; fonda hammasini yuklash (`FON`) mijoz ishlaridan keyin;
+- qorovul: o'girish paytida bo'sh xotira `KATALOG3D_MIN_FREE_MB` (200) dan kamaysa, jarayon baholangandan
+  ancha ko'p yesa yoki `KATALOG3D_TIMEOUT` (180 s) dan uzoq ishlasa — u to'xtatiladi (osilib qolgan node
+  keyingi buyurtmalarni to'sib qo'ymaydi);
+- to'langan buyurtma (`ensure`) modelni tashlab ketmaydi: xotira band bo'lgani uchun o'girilmagan model qayta
+  sinaladi, fon navbatida turgan model navbatdan oldinga olinadi.
 `KATALOG3D_RAM_MB` — bitta o'girishga ruxsat (sukut: serverning 45% xotirasi).
 """
 import glob
@@ -47,7 +51,9 @@ HF = "https://huggingface.co/datasets/allenai/objaverse/resolve/main/"
 MAX_TEXTURE, MAX_TRIS = 2048, 200000
 RETRY_AFTER = 3600.0                  # yuklanmagan model qayta qachon sinaladi (soniya)
 RETRY_BUSY = 300.0                    # xotira band bo'lgani uchun o'girilmagan model — 5 daqiqadan keyin
+RETRY_PAID = 120.0                    # to'langan buyurtma boshqa xato bilan tushgan modelni shundan keyin qayta sinaydi
 MIN_FREE_MB = int(os.getenv("KATALOG3D_MIN_FREE_MB") or 200)
+TIMEOUT = float(os.getenv("KATALOG3D_TIMEOUT") or 180)          # bitta model o'girishining eng uzoq vaqti
 OLDINDAN_MAX = int(os.getenv("KATALOG3D_OLDINDAN_MAX") or 8)     # mavzu yozilganda fonda nechta model
 
 
@@ -114,6 +120,10 @@ class Konvertor:
             cmd = ["nice", "-n", "15"] + cmd
         self.p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                   text=True, env=env)
+        if past:                                      # xotira tugasa kernel botni emas, avval shu jarayonni o'chirsin
+            from services import heavy_gate
+
+            heavy_gate.set_oom_score(self.p.pid)
 
     def __call__(self, job: dict) -> dict:
         self.p.stdin.write(json.dumps(job) + "\n")
@@ -149,15 +159,9 @@ def saqla(r: dict, res: dict, model_dir: str, fayl: str) -> dict:
 
 def _meminfo() -> Dict[str, int]:
     """/proc/meminfo (MB). Linux bo'lmasa — bo'sh."""
-    out: Dict[str, int] = {}
-    try:
-        with open("/proc/meminfo", encoding="ascii") as fh:
-            for line in fh:
-                key, value = line.split(":", 1)
-                out[key] = int(value.split()[0]) // 1024
-    except (OSError, ValueError, IndexError):
-        pass
-    return out
+    from services import heavy_gate
+
+    return heavy_gate.meminfo()
 
 
 def _rss_mb(pid: int) -> int:
@@ -195,18 +199,6 @@ def sigadi(mid: str) -> bool:
     return bool(r) and ehtiyoj_mb(r) <= byudjet_mb()
 
 
-def _kut_xotira(need: int, timeout: float) -> bool:
-    """Bo'sh xotira o'girishga yetguncha kutadi (boshqa ish — taqdimot yig'ish, brauzer — tugashini)."""
-    deadline = time.time() + timeout
-    while True:
-        avail = _meminfo().get("MemAvailable")
-        if avail is None or avail >= need + MIN_FREE_MB:
-            return True
-        if time.time() >= deadline:
-            return False
-        time.sleep(2.0)
-
-
 class XotiraBand(RuntimeError):
     """Xotira yetmagani uchun o'girilmadi — model og'ir emas, keyinroq qayta urinsa bo'ladi."""
 
@@ -217,6 +209,7 @@ def _aylantir(raw: str, out: str, need: int) -> dict:
     konv = _konvertor()
     stop, why = threading.Event(), []
     limit = max(int(need * 1.6), need + 400)
+    t0 = time.time()
 
     def qorovul():
         proc = getattr(konv, "p", None)
@@ -229,6 +222,8 @@ def _aylantir(raw: str, out: str, need: int) -> dict:
                 why.append(f"serverda bo'sh xotira {avail} MB qoldi")
             elif rss > limit:
                 why.append(f"jarayon {rss} MB yedi (chegara {limit} MB)")
+            elif time.time() - t0 > TIMEOUT:
+                why.append(f"o'girish {TIMEOUT:.0f} s da tugamadi (osilib qoldi)")
             if why:
                 proc.kill()
                 return
@@ -324,18 +319,19 @@ def mumkin() -> frozenset:
 
 
 _jobs: Dict[str, Future] = {}
+_job_pool: Dict[str, ThreadPoolExecutor] = {}
 _failed: Dict[str, float] = {}
+_busy: set = set()                    # oxirgi urinish xotira band bo'lgani uchun o'tmagan modellar
 _jobs_lock = threading.Lock()
 _pool = ThreadPoolExecutor(max_workers=int(os.getenv("KATALOG3D_YUKLOVCHI") or 2), thread_name_prefix="katalog3d")
 _bulk = ThreadPoolExecutor(max_workers=1, thread_name_prefix="katalog3d-fon")
-_slot = threading.Lock()              # o'girish (node) doim bittadan: yuklab olish parallel, xotira esa bitta ishga
 
 
 def _konvertor() -> Konvertor:
     return Konvertor(past=True)
 
 
-def _bitta(mid: str) -> bool:
+def _bitta(mid: str, priority: Optional[int] = None) -> bool:
     """Bitta modelni yuklab, o'giradi va katalogdagi joyiga qo'yadi. True — tayyor."""
     from services import katalog3d
 
@@ -358,20 +354,26 @@ def _bitta(mid: str) -> bool:
             raise RuntimeError(f"bu server uchun juda og'ir (~{need} MB kerak, ruxsat {byudjet_mb()} MB)")
         if not os.path.isfile(raw):
             yuklab_ol(manba_url(r), raw)
-        with _slot:
-            if not _kut_xotira(need, timeout=120.0):
-                raise XotiraBand(f"bo'sh xotira yetmadi (~{need} MB kerak)")
+        from services import heavy_gate
+
+        # Brauzer va LibreOffice bilan bitta navbat: bo'sh xotira yetgandagina boshlanadi (kutish — pik emas).
+        prio = heavy_gate.ODDIY if priority is None else priority
+        with heavy_gate.slot(f"3D model ({m.get('nom_uz') or mid})", need, prio):
             res = _aylantir(raw, tmp, need)
         if not res.get("ok"):
             raise RuntimeError(res.get("error") or "konvertatsiya o'tmadi")
         saqla(r, res, model_dir, m["fayl"])
         os.replace(tmp, target)                           # model.glb faqat to'liq tayyor bo'lganda paydo bo'ladi
+        _busy.discard(mid)
+        _failed.pop(mid, None)
         log.info("3D katalog: model yuklandi — %s (%.1f MB, %.0f s)", m.get("nom_uz") or mid,
                  os.path.getsize(target) / 1e6, time.time() - t0)
         return True
     except Exception as exc:                              # noqa: BLE001
         # Xotira band bo'lgani uchun — 5 daqiqadan keyin yana; boshqa xatoda — bir soatdan keyin.
-        _failed[mid] = time.time() - (RETRY_AFTER - RETRY_BUSY if isinstance(exc, XotiraBand) else 0.0)
+        busy = isinstance(exc, XotiraBand)
+        _failed[mid] = time.time() - (RETRY_AFTER - RETRY_BUSY if busy else 0.0)
+        (_busy.add if busy else _busy.discard)(mid)
         log.warning("3D katalog: model yuklanmadi — %s: %s", mid, str(exc)[:300])
         return False
     finally:
@@ -380,17 +382,29 @@ def _bitta(mid: str) -> bool:
                 os.remove(path)
 
 
-def _start(mid: str, pool: ThreadPoolExecutor) -> Optional[Future]:
+def _start(mid: str, pool: ThreadPoolExecutor, priority: Optional[int] = None,
+           paid: bool = False) -> Optional[Future]:
+    """Model yuklanishini boshlaydi (yoki boshlanganini qaytaradi). `paid=True` — to'langan buyurtma kutyapti:
+    xotira band bo'lgani uchun o'tmagan model sovushni kutmasdan qayta sinaladi, fon navbatida (`_bulk`) hali
+    boshlanmay turgan model navbatdan olinib oldinga qo'yiladi."""
     from services import katalog3d
 
     with _jobs_lock:
         job = _jobs.get(mid)
         if job is not None and not job.done():
-            return job
-        if (katalog3d.model_yoli(mid) or not sigadi(mid)
-                or time.time() - _failed.get(mid, 0.0) < RETRY_AFTER):
+            if not (pool is _pool and _job_pool.get(mid) is _bulk and job.cancel()):
+                return job
+        if katalog3d.model_yoli(mid) or not sigadi(mid):
             return None
-        job = _jobs[mid] = pool.submit(_bitta, mid)
+        since = time.time() - _failed.get(mid, 0.0)
+        if since < RETRY_AFTER and not (paid and (mid in _busy or since >= RETRY_PAID)):
+            return None
+        if priority is None:
+            from services import heavy_gate
+
+            priority = heavy_gate.FON if pool is _bulk else heavy_gate.ODDIY
+        job = _jobs[mid] = pool.submit(_bitta, mid, priority)
+        _job_pool[mid] = pool
         job.add_done_callback(lambda _f: katalog3d.mavjud(ttl=0))
         return job
 
@@ -403,16 +417,30 @@ def oldindan(ids: Iterable[str]) -> int:
     return sum(1 for mid in list(ids)[:OLDINDAN_MAX] if _start(mid, _pool) is not None)
 
 
-def ensure(ids: Iterable[str], timeout: float = 240.0) -> List[str]:
-    """Modellar diskda bo'lishini kutadi (yo'qlari yuklanadi). Tayyorlarini tartibi bilan qaytaradi."""
+def ensure(ids: Iterable[str], timeout: float = 600.0) -> List[str]:
+    """To'langan buyurtma uchun: modellar diskda bo'lishini kutadi (yo'qlari yuklanadi). Tayyorlarini tartibi
+    bilan qaytaradi. Xotira band bo'lgani uchun o'girilmagan model vaqt tugaguncha qayta sinaladi — mijozga
+    to'lovdan oldin ko'rsatilgan model taqdimotdan tushib qolmasin."""
     from services import katalog3d
 
     ids = list(dict.fromkeys(ids))
-    jobs = [j for j in (_start(mid, _pool) for mid in ids) if j is not None] if ishlaydi() else []
-    if jobs:
-        done, pending = wait(jobs, timeout=timeout)
+    deadline = time.time() + timeout
+    todo = [mid for mid in ids if not katalog3d.model_yoli(mid)] if ishlaydi() else []
+    while todo:
+        jobs = {mid: job for mid in todo for job in [_start(mid, _pool, paid=True)] if job is not None}
+        if not jobs:
+            break
+        _done, pending = wait(list(jobs.values()), timeout=max(0.0, deadline - time.time()))
         if pending:
             log.warning("3D katalog: %d ta model %.0f s da yuklanib ulgurmadi", len(pending), timeout)
+            break
+        katalog3d.mavjud(ttl=0)
+        todo = [mid for mid in jobs if mid in _busy and not katalog3d.model_yoli(mid)]
+        if todo:
+            if time.time() + 5 >= deadline:
+                break
+            log.info("3D katalog: %d ta model xotira bo'shagach qayta o'giriladi", len(todo))
+            time.sleep(3.0)
     katalog3d.mavjud(ttl=0)
     return [mid for mid in ids if katalog3d.model_yoli(mid)]
 

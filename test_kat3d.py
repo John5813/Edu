@@ -454,10 +454,78 @@ with mock.patch.object(yukla, "_konvertor", side_effect=lambda: slow.append(Slow
     except yukla.XotiraBand as exc:
         check("bo'sh xotira tugasa qorovul o'girishni to'xtatadi", time.time() - t0 < 5 and slow[0].p.poll() is not None,
               str(exc))
-with mock.patch.object(yukla, "_meminfo", return_value={"MemAvailable": 300}):
+class HangKonv(SlowKonv):                          # node osilib qoldi: xotira o'smaydi, javob ham yo'q
+    pass
+hang = []
+with mock.patch.object(yukla, "_konvertor", side_effect=lambda: hang.append(HangKonv()) or hang[-1]), \
+     mock.patch.object(yukla, "_meminfo", return_value={"MemAvailable": 1500, "MemTotal": 1970}), \
+     mock.patch.object(yukla, "TIMEOUT", 1.0):
     t0 = time.time()
-    check("xotira bo'shamasa o'girish boshlanmaydi (kutadi, keyin voz kechadi)",
-          yukla._kut_xotira(400, timeout=0.1) is False and time.time() - t0 < 5)
+    try:
+        yukla._aylantir("x.glb", "y.glb", 400)
+        check("osilib qolgan o'girish vaqt chegarasida to'xtatiladi", False)
+    except yukla.XotiraBand:
+        check("osilib qolgan o'girish vaqt chegarasida to'xtatiladi", False, "XotiraBand emas, oddiy xato bo'lishi kerak")
+    except RuntimeError as exc:
+        check("osilib qolgan o'girish vaqt chegarasida to'xtatiladi",
+              time.time() - t0 < 6 and hang[0].p.poll() is not None and "tugamadi" in str(exc), str(exc))
+
+from services import heavy_gate
+os.remove(os.path.join(TMP, CAT[QUYOSH]["fayl"])) if os.path.exists(os.path.join(TMP, CAT[QUYOSH]["fayl"])) else None
+katalog3d.mavjud(ttl=0)
+yukla._failed.clear(); yukla._busy.clear()
+gate_calls, attempts = [], []
+real_slot = heavy_gate.slot
+
+def spy_slot(label, need, priority=None):
+    gate_calls.append((label, need, priority))
+    return real_slot(label, need, priority)
+
+def flaky_aylantir(raw, out, need):                   # 1-urinish: boshqa ish xotirani to'ldirdi, 2-si: o'tadi
+    attempts.append(need)
+    if len(attempts) == 1:
+        raise yukla.XotiraBand("serverda bo'sh xotira 150 MB qoldi")
+    return FakeKonv()({"in": raw, "out": out})
+
+with mock.patch.object(yukla, "ishlaydi", return_value=True), mock.patch.object(yukla, "byudjet_mb", return_value=880), \
+     mock.patch.object(yukla, "manbalar", return_value={QUYOSH: YENGIL}), \
+     mock.patch.object(yukla, "yuklab_ol", side_effect=fake_download), \
+     mock.patch.object(yukla, "_aylantir", side_effect=flaky_aylantir), \
+     mock.patch.object(heavy_gate, "slot", side_effect=spy_slot), mock.patch.object(yukla.time, "sleep"):
+    yukla.oldindan([QUYOSH])                          # to'lovgacha: xotira band — o'tmadi
+    deadline = time.time() + 10
+    while QUYOSH in yukla._jobs and not yukla._jobs[QUYOSH].done() and time.time() < deadline:
+        time.sleep(0.05)
+    check("xotira band — model sovushga tushadi", QUYOSH in yukla._busy and QUYOSH not in yukla.mumkin())
+    got = yukla.ensure([QUYOSH], timeout=30)          # to'lovdan keyin: sovushni kutmay qayta sinaladi
+    check("to'langan buyurtma modelni tashlab ketmaydi (xotira bo'shagach qayta o'girildi)",
+          got == [QUYOSH] and len(attempts) == 2, (got, attempts))
+    check("o'girish umumiy og'ir ishlar darvozasidan o'tadi (ehtiyoji bilan)",
+          gate_calls and all(c[1] == yukla.ehtiyoj_mb(YENGIL) and c[0].startswith("3D model") for c in gate_calls),
+          gate_calls)
+
+# Fonda hammasini yuklash navbatida turgan model to'langan buyurtmani kuttirmaydi.
+os.remove(os.path.join(TMP, CAT[QUYOSH]["fayl"])); katalog3d.mavjud(ttl=0)
+yukla._failed.clear(); yukla._busy.clear(); yukla._jobs.clear()
+import threading as _th
+block = _th.Event()
+yukla._bulk.submit(block.wait, 20)                   # fon navbati band (oldingi minglab modellar)
+prios = []
+
+def quick_bitta(mid, priority=None):
+    prios.append(priority)
+    put_model(mid)
+    return True
+
+with mock.patch.object(yukla, "ishlaydi", return_value=True), mock.patch.object(yukla, "byudjet_mb", return_value=880), \
+     mock.patch.object(yukla, "manbalar", return_value={QUYOSH: YENGIL}), mock.patch.object(yukla, "_bitta", quick_bitta):
+    bulk_job = yukla._start(QUYOSH, yukla._bulk)
+    t0 = time.time()
+    got = yukla.ensure([QUYOSH], timeout=10)
+    check("fon navbatidagi model to'langan buyurtma uchun oldinga olinadi",
+          got == [QUYOSH] and time.time() - t0 < 5 and bulk_job.cancelled(), (got, time.time() - t0))
+    check("to'langan buyurtma — oddiy ustuvorlik, fon — past", prios == [heavy_gate.ODDIY], prios)
+block.set()
 with mock.patch.object(yukla, "_meminfo", return_value={"MemTotal": 1970}):
     check("ruxsat — server xotirasining 45% i (2 GB da ~880 MB)", 850 <= yukla.byudjet_mb() <= 900, yukla.byudjet_mb())
 put_model(QUYOSH); katalog3d.mavjud(ttl=0)

@@ -22,7 +22,7 @@ import tempfile
 from html.parser import HTMLParser
 from typing import Dict, List, Optional, Tuple
 
-from services import uz_script
+from services import heavy_gate, uz_script
 
 from . import deck_calc, deck_charts, deck_logic, html_render, html_slides, themes
 
@@ -147,6 +147,7 @@ def theme_of(deck: dict):
                            deck.get("theme_key", ""))
 
 
+@heavy_gate.guard("brauzer (tahrir)", heavy_gate.BROWSER_MB)
 def _browser_eval(steps: List[Tuple[str, str, object]]) -> List[object]:
     """[(html, js, arg)] — har birini brauzerda ochib, JS natijasini qaytaradi."""
     from playwright.sync_api import sync_playwright

@@ -138,7 +138,7 @@
         <div class="st-go"><div class="st-total"><span>Narx</span><b id="s-price"></b></div>
           <button class="btn block" id="go" type="submit">${trialOn() ? 'Bepul yaratish' : 'Yaratish'}</button></div>
         <div id="s-note"></div>
-        <p class="hint st-eta">${(o.eta_minutes && k && k.heavy) ? `Taxminan ${o.eta_minutes} daqiqa (katta hujjatlar navbat bilan tayyorlanadi). Tayyor fayl Telegramga ham yuboriladi.` : `Taxminan ${o.eta_minutes || 3} daqiqa. Tayyor fayl Telegramga ham yuboriladi.`}</p>
+        <p class="hint st-eta">${`Taxminan ${o.eta_minutes || 3} daqiqa. Tayyor fayl Telegramga ham yuboriladi.`}</p>
       </aside>`;
     bind();
     if (premium()) { srcPanel(); autoNotes(); preview(); }

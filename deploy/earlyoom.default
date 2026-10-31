@@ -1,0 +1,9 @@
+# /etc/default/earlyoom — server qotib qolishidan OLDIN xotira yeyayotgan jarayonni o'chiradi.
+#
+# -m 5 -s 100 : bo'sh xotira 5% (2 GB serverda ~100 MB) dan kamaysa harakat qiladi, swap holatidan qat'i nazar
+#               (aks holda swap bor serverda u juda kech ishlaydi va server baribir diskni "titratadi").
+# --prefer    : avval brauzer (Chromium), node (3D o'girish, Playwright), LibreOffice, ffmpeg o'chiriladi.
+# --avoid     : bot (python), ssh va tizim jarayonlari — oxirgi navbatda.
+# -r 3600     : jurnalga holat soatda bir yoziladi.
+# Muntazam ifodalarda bo'sh joy va qo'shtirnoq yo'q: systemd ularni so'zlarga bo'lganda buzilmasin.
+EARLYOOM_ARGS="-m 5 -s 100 -r 3600 --prefer (^|/)(chrome|chromium|headless|node|soffice|oosplash|ffmpeg) --avoid (^|/)(python|sshd|systemd|journald|do-agent|earlyoom)"

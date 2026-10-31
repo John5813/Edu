@@ -13,7 +13,9 @@ bo'sh slayd chiqmaydi.
 
 Brauzer bitta marta ishga tushiriladi va slaydlar navbat bilan
 ochiladi: server kichik (1 vCPU / 2 GB), bir vaqtda ikkita Chromium
-oynasi ochilsa xotira yetmaydi.
+oynasi ochilsa xotira yetmaydi. Shuning uchun brauzer ochadigan har
+funksiya `heavy_gate` dan ruxsat oladi: boshqa mijozning brauzeri yoki
+boshqa og'ir ish xotirani band qilgan bo'lsa — kutadi, xotirani to'ldirmaydi.
 """
 
 import glob
@@ -25,6 +27,8 @@ import sys
 import tempfile
 import threading
 from typing import List, Optional
+
+from services import heavy_gate
 
 log = logging.getLogger("html_render")
 
@@ -261,6 +265,7 @@ def prepare(install: bool = True) -> str:
     return _launch_check(install)
 
 
+@heavy_gate.guard("brauzer (tekshiruv)", heavy_gate.BROWSER_MB, heavy_gate.FON)
 def _launch_check(install: bool) -> str:
     """Brauzerni haqiqatan ishga tushirib ko'radi."""
     from playwright.sync_api import sync_playwright
@@ -277,6 +282,17 @@ def _launch_check(install: bool) -> str:
 
 
 def _launch(playwright):
+    """Brauzerni ishga tushiradi va uni (Playwright drayveri bilan) xotira tugaganda Linux birinchi
+    o'chiradigan jarayon qilib belgilaydi — bot emas, brauzer qurbon bo'lsin."""
+    browser = _launch_any(playwright)
+    try:
+        heavy_gate.mark_children()
+    except Exception:                       # noqa: BLE001 — belgilash ixtiyoriy
+        pass
+    return browser
+
+
+def _launch_any(playwright):
     """Brauzerni ishga tushiradi — uch usulni ketma-ket sinab.
 
     1. Playwright o'zi bilgan brauzer (odatdagi holat).
@@ -477,6 +493,7 @@ def fit(page) -> int:
         return 0
 
 
+@heavy_gate.guard("brauzer (surat)", heavy_gate.BROWSER_MB)
 def shoot(html_slides: List[str], out_dir: str = "temp") -> List[str]:
     """Har HTML hujjatni to'liq PNG qilib saqlaydi.
 
@@ -555,6 +572,7 @@ def _severity(problems: List[str]) -> int:
     return total
 
 
+@heavy_gate.guard("brauzer (taqdimot)", heavy_gate.BROWSER_MB)
 def render(html_slides: List[str], out_dir: str = "temp",
            name: str = "taqdimot", repair=None, explain=None,
            collect: Optional[List[str]] = None,

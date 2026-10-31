@@ -292,9 +292,12 @@ def pptx_previews(pptx_path: str, out_dir: str) -> List[str]:
 
     import pymupdf
 
+    from services import heavy_gate
+
     os.makedirs(out_dir, exist_ok=True)
-    subprocess.run(["soffice", f"-env:UserInstallation=file://{out_dir}/profile", "--headless", "--convert-to", "pdf",
-                    "--outdir", out_dir, pptx_path], check=True, capture_output=True, timeout=240)
+    with heavy_gate.slot("LibreOffice (sahifalar)", heavy_gate.OFFICE_MB):
+        subprocess.run(["soffice", f"-env:UserInstallation=file://{out_dir}/profile", "--headless", "--convert-to",
+                        "pdf", "--outdir", out_dir, pptx_path], check=True, capture_output=True, timeout=240)
     pdf = os.path.join(out_dir, os.path.splitext(os.path.basename(pptx_path))[0] + ".pdf")
     paths = []
     with pymupdf.open(pdf) as doc:

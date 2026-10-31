@@ -39,10 +39,27 @@ from services import ai_usage, photo_search
 from services.premium_presentation import html_images
 
 
-def _image(width=900, height=600):
+_IMAGE_SEED = [0]
+
+
+def _image(width=900, height=600, seed=None):
+    """Har chaqiruvda boshqa surat (haqiqiy fotolar kabi bir-biridan farq qiladi); `seed` — aynan o'sha surat."""
+    import random as _random
+    from PIL import ImageDraw as _Draw
+
+    if seed is None:
+        _IMAGE_SEED[0] += 1
+        seed = _IMAGE_SEED[0]
+    rng = _random.Random(seed)
     handle, path = tempfile.mkstemp(suffix=".jpg")
     os.close(handle)
-    Image.new("RGB", (width, height), (90, 140, 60)).save(path)
+    picture = Image.new("RGB", (900, 600), (90, 140, 60))
+    draw = _Draw.Draw(picture)
+    for _ in range(14):
+        x, y = rng.randrange(0, 820), rng.randrange(0, 520)
+        draw.rectangle((x, y, x + rng.randrange(60, 300), y + rng.randrange(60, 260)),
+                       fill=tuple(rng.randrange(0, 256) for _ in range(3)))
+    picture.resize((width, height)).save(path)
     return path
 
 
@@ -238,6 +255,47 @@ finally:
 check("1-slot rasmi yuklanmadi → zaxira, 2-slot bo'sh → keyingi zaxira",
       all(got) and [d.rsplit("/", 1)[1] for d in downloads] == ["img0.jpg", "img5.jpg", "img6.jpg"], downloads)
 for path in got:
+    if path:
+        os.remove(path)
+
+print("\n3b) Bir xil rasm (boshqa saytdan, boshqa manzil bilan) ikki slaydga qo'yilmaydi")
+photo_search.reset(); downloads.clear()
+_twin = {"img1.jpg": (900, 600), "img2.jpg": (1200, 800)}       # bitta surat, ikki sayt, ikki o'lcham
+
+
+async def twin_download(session, url):
+    downloads.append(url)
+    name = url.rsplit("/", 1)[1]
+    if name in _twin:
+        return _image(*_twin[name], seed=4242)
+    return _image()
+
+
+async def choose_twins(system, user):
+    return {"picks": [{"slot": 1, "ids": [1]}, {"slot": 2, "ids": [2]}], "spare": [3, 4]}
+
+
+async def no_text(paths):
+    return set()
+
+photo_search._download = twin_download
+try:
+    got = asyncio.run(photo_search.find_photos("Amir Temur saltanati", ["Saltanat", "Yurishlar"],
+                                               search=search, choose=choose_twins, check=no_text))
+    again = asyncio.run(photo_search.find_photos("Amir Temur saltanati", ["Muqova"],
+                                                 search=search, choose=choose_twins, check=no_text))
+finally:
+    photo_search._download = real_download
+marks = [photo_search.image_hashes(p) for p in got if p]
+check("ikkala slaydda rasm bor, lekin ular har xil",
+      all(got) and len(marks) == 2 and not photo_search.same_picture(marks[0], marks[1]), (got, downloads))
+check("takror tashlanib, slotga zaxira nomzod olindi", [d.rsplit("/", 1)[1] for d in downloads][:3] == ["img1.jpg", "img2.jpg", "img3.jpg"],
+      downloads)
+check("o'sha mavzuning keyingi chaqiruvi (muqova) ham oldingi rasmlarni takrorlamaydi",
+      not again[0] or not any(photo_search.same_picture(photo_search.image_hashes(again[0]), m) for m in marks))
+check("o'xshash, lekin boshqa suratlar takror hisoblanmaydi",
+      not photo_search.same_picture(photo_search.image_hashes(_image(seed=1)), photo_search.image_hashes(_image(seed=2))))
+for path in got + again:
     if path:
         os.remove(path)
 

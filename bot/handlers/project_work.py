@@ -636,6 +636,11 @@ async def _generate(message: Message, state: FSMContext, user_lang: str, db: Dat
     # Loyiha ishi ham navbatdan tashqarida yaratiladi — admin paneldagi
     # yangilash tugmasi buni ko'rib turishi kerak.
     work_id = workload.begin("loyiha ishi")
+    # Bot shu orada qayta ishga tushsa mijozga aytiladi (Stars bilan to'langan bo'lsa pul ham qaytadi).
+    from database import bot_orders
+
+    order_id = await bot_orders.start(user.telegram_id, message.chat.id, "loyiha_ishi", topic,
+                                      price if pay.paid_with_stars(data) else 0, user_lang)
     try:
         content = await get_content_builder().build(
             topic=topic,
@@ -685,6 +690,7 @@ async def _generate(message: Message, state: FSMContext, user_lang: str, db: Dat
         )
     finally:
         workload.end(work_id)
+        await bot_orders.finish(order_id)
         if file_path and os.path.exists(file_path):
             try:
                 os.remove(file_path)

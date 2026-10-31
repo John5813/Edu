@@ -437,6 +437,12 @@ def _bot_session_kwargs() -> dict:
 
 async def main():
     """Main function to start the bot"""
+    # Og'ir ishlar (brauzer, LibreOffice, 3D) endi xotira bo'shashini oqimlarda kutadi (services/heavy_gate.py).
+    # Standart pul 1 yadroli serverda atigi 5 oqim — kutayotganlar uni egallab, chek o'qish kabi yengil ishlarni
+    # to'sib qo'ymasin. Kutayotgan oqim xotira va CPU yemaydi.
+    from concurrent.futures import ThreadPoolExecutor
+    asyncio.get_running_loop().set_default_executor(
+        ThreadPoolExecutor(max_workers=int(os.getenv("BOT_THREADS") or 32), thread_name_prefix="bot"))
     broken = check_lazy_imports()
     if broken:
         logger.error(
@@ -665,6 +671,12 @@ async def main():
             logger.info("Uzilib qolgan %d ta sovg'a taqdimoti mijozlarga qaytarildi", restored)
     except Exception as exc:
         logger.warning("Uzilgan sovg'alar qaytarilmadi: %s", exc)
+    # Bot o'chib qolganda tayyorlanayotgan buyurtmalar: pul qaytariladi, mijozga uzr aytiladi.
+    try:
+        from database import bot_orders
+        await bot_orders.recover(bot)
+    except Exception as exc:
+        logger.error("Uzilgan buyurtmalarni tiklab bo'lmadi: %s", exc)
     polling_task = asyncio.create_task(dp.start_polling(bot))
     web_task     = asyncio.create_task(start_web_server(port=5000))
     from services import web_jobs
@@ -674,15 +686,18 @@ async def main():
     # Faol bo'lmagan mijozlarga qayta jalb xabarlari (har 10 daqiqada; admin «Funksiyalar boshqaruvi»da o'chiradi).
     from services import reengage
     reengage_task = asyncio.create_task(reengage.run(bot))
+    # Xotira/disk tugashidan OLDIN adminga xabar; brauzer va node jarayonlari Linux uchun "birinchi qurbon".
+    from services import memory_watch
+    memory_task = asyncio.create_task(memory_watch.run())
 
     try:
         await stop_event.wait()
     finally:
         logger.info("Cancelling tasks...")
-        for task in (polling_task, web_task, cleanup_task, report_task, web_jobs_task, reengage_task):
+        for task in (polling_task, web_task, cleanup_task, report_task, web_jobs_task, reengage_task, memory_task):
             task.cancel()
         await asyncio.gather(polling_task, web_task, cleanup_task, report_task, web_jobs_task, reengage_task,
-                             return_exceptions=True)
+                             memory_task, return_exceptions=True)
 
         await bot.session.close()
         from services.ai_service import close_ai_service

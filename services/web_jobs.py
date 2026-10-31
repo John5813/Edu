@@ -115,7 +115,7 @@ async def _require_subscription(telegram_id: int) -> None:
 
 # ─────────────────────────────────────────────────────────────── ommaviy ko'rinish
 
-_STAGE_TEXT = {"queued": "Navbatda", "writing": "Matn yozilmoqda", "images": "Rasmlar tanlanmoqda",
+_STAGE_TEXT = {"queued": "Tayyorlanmoqda", "writing": "Matn yozilmoqda", "images": "Rasmlar tanlanmoqda",
                "render": "Fayl yig'ilmoqda", "done": "Tayyor", "failed": "Xato"}
 
 

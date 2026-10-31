@@ -5,6 +5,10 @@ Heavy document types (kurs ishi, diplom ishi, dissertatsiya, bitiruv ishi)
 are serialised through a single asyncio queue so that only ONE heavy document
 is generated at a time, preventing OOM spikes on the production server.
 
+The customer never sees the queue (no position, no "your turn has come"):
+the status message always says the document is being prepared and keeps a
+spinner, elapsed time and rotating fun facts going.
+
 Light documents (presentation, referat, tezis, maqola, mustaqil ish, …)
 bypass the queue entirely and are generated immediately.
 """
@@ -32,31 +36,6 @@ _EST_SECONDS: dict[str, int] = {
 
 # ── Localisable strings ───────────────────────────────────────────────────────
 _L: dict[str, dict[str, str]] = {
-    "queue_added": {
-        "uz": "📂 Hujjat navbatga qo'shildi",
-        "ru": "📂 Документ добавлен в очередь",
-        "en": "📂 Document added to queue",
-    },
-    "queue_pos": {
-        "uz": "📋 Navbatdagi o'rningiz",
-        "ru": "📋 Ваша позиция в очереди",
-        "en": "📋 Your queue position",
-    },
-    "ahead": {
-        "uz": "🔄 Oldingizda",
-        "ru": "🔄 Перед вами",
-        "en": "🔄 Before you",
-    },
-    "docs_word": {
-        "uz": "ta hujjat",
-        "ru": "документ(ов)",
-        "en": "document(s)",
-    },
-    "waited": {
-        "uz": "⏳ Kutdingiz",
-        "ru": "⏳ Ожидаете",
-        "en": "⏳ Waited",
-    },
     "generating": {
         "uz": "⚡ Hujjatingiz tayyorlanmoqda!",
         "ru": "⚡ Ваш документ готовится!",
@@ -66,11 +45,6 @@ _L: dict[str, dict[str, str]] = {
         "uz": "⏱ O'tgan vaqt",
         "ru": "⏱ Прошло",
         "en": "⏱ Elapsed",
-    },
-    "starting_now": {
-        "uz": "✨ Sizning navbatingiz keldi! Generatsiya boshlanmoqda...",
-        "ru": "✨ Ваша очередь подошла! Генерация начинается...",
-        "en": "✨ It's your turn! Generation starting...",
     },
 }
 
@@ -308,29 +282,34 @@ def get_doc_queue() -> DocumentQueue:
 
 
 # ── Initial status text (sent before animation loop starts) ───────────────────
-def build_initial_status_text(lang: str, doc_type: str, topic: str, position: int) -> str:
-    L = lang if lang in ("uz", "ru", "en") else "uz"
+#
+# Mijoz navbatni ko'rmaydi: bir vaqtda ko'p odam buyurtma bersa ham xabarda "navbatdagi o'rningiz",
+# "oldingizda N ta" yoki "navbatingiz keldi" yozilmaydi. Har doim "tayyorlanmoqda", aylanuvchi belgi,
+# o'tgan vaqt, sekin to'layotgan chiziq va har 14 soniyada almashadigan qiziqarli ma'lumot — jarayon
+# to'xtamagani bilinib turadi. Navbatdagi kutish vaqti ham chiziqqa qo'shiladi (oldindagilar soniga qarab).
+
+def _expected_seconds(doc_type: str, ahead: int) -> float:
+    """Chiziq uchun taxminiy umumiy vaqt: oldindagi ishlar + o'zi."""
+    return _EST_SECONDS.get(doc_type, 480) * (1 + max(0, ahead))
+
+
+def _status_text(L: str, doc_type: str, topic: str, elapsed: float, expected: float, fact: str,
+                 spin: str = "◐") -> str:
     topic_short = topic[:45] + ("…" if len(topic) > 45 else "")
     doc_name = _DOC_NAMES.get(doc_type, {}).get(L, doc_type)
-    fact = random.choice(_FACTS.get(L, _FACTS["uz"]))
-    if position <= 1:
-        bar = _progress_bar(0, _EST_SECONDS.get(doc_type, 480))
-        return (
-            f"{_t('generating', L)}\n"
-            f"📄 <b>{doc_name}:</b> {topic_short}\n\n"
-            f"{bar}\n"
-            f"{_t('elapsed', L)}: <b>0 sek</b>\n\n"
-            f"{fact}"
-        )
-    ahead = position - 1
     return (
-        f"{_t('queue_added', L)}\n"
-        f"📄 <b>{topic_short}</b>\n\n"
-        f"◐ {_t('queue_pos', L)}: <b>{position}</b>\n"
-        f"{_t('ahead', L)}: <b>{ahead}</b> {_t('docs_word', L)}\n"
-        f"{_t('waited', L)}: <b>0 sek</b>\n\n"
+        f"{_t('generating', L)}\n"
+        f"📄 <b>{doc_name}:</b> {topic_short}\n\n"
+        f"{spin} {_progress_bar(elapsed, expected)}\n"
+        f"{_t('elapsed', L)}: <b>{_fmt_time(elapsed)}</b>\n\n"
         f"{fact}"
     )
+
+
+def build_initial_status_text(lang: str, doc_type: str, topic: str, position: int) -> str:
+    L = lang if lang in ("uz", "ru", "en") else "uz"
+    fact = random.choice(_FACTS.get(L, _FACTS["uz"]))
+    return _status_text(L, doc_type, topic, 0, _expected_seconds(doc_type, position - 1), fact)
 
 
 # ── Animated status loop ──────────────────────────────────────────────────────
@@ -346,19 +325,17 @@ async def run_animated_status(
     done_event: asyncio.Event,
 ) -> None:
     """
-    Background task: edits the waiting message every ~14 s with animated
-    progress, queue position, elapsed time and a rotating fun fact.
+    Background task: edits the waiting message every ~14 s with a spinner, progress bar, elapsed time and a
+    rotating fun fact. The queue itself is never shown to the customer.
     Exits when done_event is set (generation finished or failed).
     """
     L = lang if lang in ("uz", "ru", "en") else "uz"
     facts = list(_FACTS.get(L, _FACTS["uz"]))
     random.shuffle(facts)
-    estimated = _EST_SECONDS.get(doc_type, 480)
     start = time.time()
+    expected = _expected_seconds(doc_type, max(0, queue.position_of(task_id) - 1))
     fact_idx = 0
     spin_idx = 0
-    was_in_queue = queue.position_of(task_id) > 0
-    transition_announced = not was_in_queue
 
     try:
         while not done_event.is_set():
@@ -376,49 +353,10 @@ async def run_animated_status(
             fact_idx += 1
             spin = _SPINNERS[spin_idx % len(_SPINNERS)]
             spin_idx += 1
-
-            topic_short = topic[:45] + ("…" if len(topic) > 45 else "")
-            doc_name = _DOC_NAMES.get(doc_type, {}).get(L, doc_type)
-
-            is_active = queue.active_task_id == task_id
-            pos = queue.position_of(task_id)
-
-            # First time we transition from queue → active, send a one-shot ping
-            if is_active and not transition_announced:
-                transition_announced = True
-                try:
-                    await bot.send_message(chat_id=chat_id, text=_t("starting_now", L))
-                except Exception:
-                    pass
-
-            if is_active:
-                bar = _progress_bar(elapsed, estimated)
-                text = (
-                    f"{_t('generating', L)}\n"
-                    f"📄 <b>{doc_name}:</b> {topic_short}\n\n"
-                    f"{bar}\n"
-                    f"{_t('elapsed', L)}: <b>{_fmt_time(elapsed)}</b>\n\n"
-                    f"{fact}"
-                )
-            elif pos > 0:
-                ahead = pos - 1
-                text = (
-                    f"{_t('queue_added', L)}\n"
-                    f"📄 <b>{topic_short}</b>\n\n"
-                    f"{spin} {_t('queue_pos', L)}: <b>{pos}</b>\n"
-                    f"{_t('ahead', L)}: <b>{ahead}</b> {_t('docs_word', L)}\n"
-                    f"{_t('waited', L)}: <b>{_fmt_time(elapsed)}</b>\n\n"
-                    f"{fact}"
-                )
-            else:
-                bar = _progress_bar(elapsed, estimated)
-                text = (
-                    f"{_t('generating', L)}\n"
-                    f"📄 <b>{topic_short}</b>\n\n"
-                    f"{bar}\n"
-                    f"{_t('elapsed', L)}: <b>{_fmt_time(elapsed)}</b>\n\n"
-                    f"{fact}"
-                )
+            # Kutilganidan uzoq ketsa, chiziq 92% da qotib qolmasin: kamida chorak ish "qolgan" deb hisoblanadi.
+            ahead = max(0, queue.position_of(task_id) - 1)
+            expected = max(expected, elapsed + _EST_SECONDS.get(doc_type, 480) * (ahead + 0.25))
+            text = _status_text(L, doc_type, topic, elapsed, expected, fact, spin)
 
             try:
                 await bot.edit_message_text(

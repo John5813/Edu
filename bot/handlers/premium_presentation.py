@@ -2406,6 +2406,12 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
 
     if payment_method == "balance":
         await db.update_user_balance(callback.from_user.id, -price)
+    # Pul olindi (balans yoki Stars). Bot shu orada qayta ishga tushsa (xotira, yangilanish) — keyingi
+    # ishga tushishda pul qaytariladi va mijozga uzr aytiladi (database/bot_orders.py).
+    from database import bot_orders
+
+    order_id = await bot_orders.start(callback.from_user.id, callback.message.chat.id, _kind_of(data) or "taqdimot",
+                                      topic, price, lang)
     await state.set_state(PremiumPresentationStates.generating)
 
     # Create a status message before the AI content and PPTX generation starts.
@@ -2460,32 +2466,9 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
     await status.edit_text(status_msgs.get(lang, status_msgs["uz"]), parse_mode="HTML")
 
     loop = asyncio.get_running_loop()
-    rotating_facts = {
-        "uz": [
-            "Quyosh nuri Yerga taxminan 8 daqiqa 20 soniyada yetib keladi.",
-            "Ahtapotning uchta yuragi bor, qoni esa ko‘kimtir rangda bo‘ladi.",
-            "Asalarilar raqs orqali oziq manzilini bir-biriga bildiradi.",
-            "Odam miyasi tanadagi energiyaning taxminan 20 foizini sarflaydi.",
-            "Venerada bir kun bir yildan uzunroq davom etadi.",
-            "AI endi o‘rgangan ma’lumotlar asosida slaydlarni tekshirmoqda.",
-        ],
-        "ru": [
-            "Солнечный свет достигает Земли примерно за 8 минут 20 секунд.",
-            "У осьминога три сердца, а его кровь имеет голубоватый цвет.",
-            "Пчёлы сообщают друг другу о местоположении пищи с помощью танца.",
-            "Мозг человека расходует около 20 процентов энергии организма.",
-            "На Венере один день длится дольше, чем один год.",
-            "AI проверяет слайды на основе изученных материалов.",
-        ],
-        "en": [
-            "Sunlight takes about 8 minutes and 20 seconds to reach Earth.",
-            "An octopus has three hearts, and its blood is bluish.",
-            "Bees use a dance to tell each other where food can be found.",
-            "The human brain uses about 20 percent of the body's energy.",
-            "A day on Venus lasts longer than one Venusian year.",
-            "AI is checking the slides against the material it has learned.",
-        ],
-    }
+    from bot import waiting
+
+    rotating_facts = waiting.FACTS
     preparing_labels = {
         "uz": ("Tayyorlash jarayonida...", "Tayyorlanmoqda..."),
         "ru": ("Подготовка...", "Готовим презентацию..."),
@@ -2497,8 +2480,10 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
     stage_line = {"text": ""}
 
     async def rotate_status():
+        # Server band bo'lsa (boshqa mijozlar) ish og'ir ishlar darvozasida kutadi — mijoz buni bilmaydi,
+        # xabar esa har 6,5 soniyada yangi fakt bilan yangilanib, jarayon to'xtamagani bilinib turadi.
         nonlocal fact_index
-        facts = rotating_facts.get(lang, rotating_facts["uz"])
+        facts = waiting.facts(lang)
         while True:
             await asyncio.sleep(6.5)
             fact_index = (fact_index + 1) % len(facts)
@@ -2689,6 +2674,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
                 await animation_task
         # Balansni qaytarish
         await db.update_user_balance(callback.from_user.id, price)
+        await bot_orders.finish(order_id)
         from services.premium_presentation.llm_client import NoCredits
 
         if _kind_of(data) == KIND_MED3D:
@@ -2821,6 +2807,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
             pass
     finally:
         workload.end(work_id)
+        await bot_orders.finish(order_id)
         # Temp faylni o'chirish
         try:
             os.remove(final_path)

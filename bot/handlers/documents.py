@@ -2568,9 +2568,9 @@ _HEAVY_USERS: set[int] = set()
 _HEAVY_USERS_LOCK = asyncio.Lock()
 
 _HEAVY_BUSY_MSG = {
-    "uz": "⏳ Sizning oldingi katta hujjatingiz hali navbatda yoki tayyorlanmoqda. Iltimos, u tugagunicha kuting.",
-    "ru": "⏳ Ваш предыдущий большой документ ещё в очереди или готовится. Пожалуйста, дождитесь его завершения.",
-    "en": "⏳ Your previous large document is still queued or being generated. Please wait for it to finish.",
+    "uz": "⏳ Sizning oldingi katta hujjatingiz hali tayyorlanmoqda. Iltimos, u tugagunicha kuting.",
+    "ru": "⏳ Ваш предыдущий большой документ ещё готовится. Пожалуйста, дождитесь его завершения.",
+    "en": "⏳ Your previous large document is still being prepared. Please wait for it to finish.",
 }
 
 # Configuration per heavy doc type: AI method, doc method, caption emoji

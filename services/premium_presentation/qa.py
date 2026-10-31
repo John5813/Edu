@@ -9,13 +9,16 @@ import uuid
 
 import requests
 
+from services import heavy_gate
+
 from . import config
 
 log = logging.getLogger("qa")
 
 
+@heavy_gate.guard("LibreOffice (ko'rgazma)", heavy_gate.OFFICE_MB)
 def pptx_to_images(pptx_path: str) -> list[str]:
-    """LibreOffice + pdftoppm orqali har slaydni JPG'ga aylantiradi."""
+    """LibreOffice + pdftoppm orqali har slaydni JPG'ga aylantiradi (og'ir ishlar darvozasi orqali)."""
     work_dir = os.path.join(config.WORK_DIR, f"qa_{uuid.uuid4().hex[:8]}")
     os.makedirs(work_dir, exist_ok=True)
 

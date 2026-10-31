@@ -22,11 +22,17 @@ def _get_pdf_page_count(file_path: str) -> int:
 
 
 def _convert_pdf_sync(input_path: str, output_path: str) -> None:
-    """Blocking PDF → DOCX conversion using pdf2docx."""
+    """Blocking PDF → DOCX conversion using pdf2docx (og'ir ishlar darvozasi orqali — xotira to'lmasin)."""
     from pdf2docx import Converter
-    cv = Converter(input_path)
-    cv.convert(output_path, start=0, end=None)
-    cv.close()
+
+    from services import heavy_gate
+
+    with heavy_gate.slot("PDF → Word", heavy_gate.PDF_MB):
+        cv = Converter(input_path)
+        try:
+            cv.convert(output_path, start=0, end=None)
+        finally:
+            cv.close()
 
 
 async def convert_pdf_to_docx(file_path: str) -> str:
