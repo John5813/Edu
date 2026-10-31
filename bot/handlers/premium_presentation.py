@@ -24,7 +24,7 @@ from bot.states import PremiumPresentationStates
 from database.database import Database
 from translations import get_text, label_variants
 from config import som_to_stars, STARS_RATE
-from bot import uploads
+from bot import previews, uploads
 from bot.keyboards import get_project_source_keyboard
 from services import workload
 from services import uz_script
@@ -76,12 +76,8 @@ def _get_price(slide_count: int) -> int:
 
 
 def _price_of(data: dict, slide_count: int) -> int:
-    """Buyurtma narxi, shu jumladan 3D Anatomiya promokod chegirmasi."""
-    price = _base_price_of(data, slide_count)
-    percent = int(data.get("med3d_promo_percent") or 0)
-    if data.get("standalone_med3d") and data.get("kind") in (KIND_MED3D, KIND_KAT3D) and 10 <= percent <= 100:
-        return price - (price * percent // 100)
-    return price
+    """Buyurtma narxi."""
+    return _base_price_of(data, slide_count)
 
 
 def _base_price_of(data: dict, slide_count: int) -> int:
@@ -138,11 +134,6 @@ def _order_summary(data: dict, language: str) -> str:
         lines.append(f"📝 Mavzu: <b>{topic}</b>")
     if data.get("slide_count"):
         lines.append(f"📄 Slaydlar: {int(data['slide_count'])} ta")
-    if data.get("med3d_promo_code") and data.get("med3d_promo_percent"):
-        lines.append(
-            f"🎟 3D promokod: {clean(data.get('med3d_promo_code'), 32)} "
-            f"(-{int(data['med3d_promo_percent'])}%)"
-        )
     name = clean(data.get("client_name"))
     lines.append(f"👤 Ism: {name}" if name else "👤 Ism: ko'rsatilmagan")
     lines.append(f"🌐 Til: {clean(_language_label(data.get('presentation_language', 'uz')))}")
@@ -156,29 +147,6 @@ def _order_summary(data: dict, language: str) -> str:
 
 def _payment_keyboard(lang: str, price: int) -> InlineKeyboardMarkup:
     return pay.payment_keyboard(CHECKOUT, lang, price)
-
-
-async def _reserve_med3d_promo(db: Database, data: dict, user_id: int) -> bool:
-    code = data.get("med3d_promo_code")
-    if not code:
-        return True
-    promo, reason = await db.reserve_med3d_promocode(code, user_id)
-    return bool(promo and reason == "ok")
-
-
-async def _coupon_unavailable(callback: CallbackQuery, state: FSMContext, lang: str) -> None:
-    texts = {
-        "uz": "⚠️ Promokod endi faol emas yoki foydalanish limiti tugagan. Buyurtma chegirmasiz qayta hisoblandi.",
-        "ru": "⚠️ Промокод больше не действует или лимит исчерпан. Заказ пересчитан без скидки.",
-        "en": "⚠️ The promo code is no longer active or its limit was reached. The order was repriced without it.",
-        "kk": "⚠️ Промокод енді белсенді емес немесе лимиті аяқталды. Тапсырыс жеңілдіксіз қайта есептелді.",
-    }
-    await state.update_data(
-        med3d_promo_code="", med3d_promo_percent=0, med3d_promo_id=None,
-        coupon_redeemed=False, payment_method=None,
-    )
-    await callback.message.answer(texts.get(lang) or texts["uz"])
-    await _step_summary(callback.message, state, lang)
 
 
 class _MessageCallbackAdapter:
@@ -211,14 +179,14 @@ ENTRY_TEXTS = [
 for _key in ("main_menu.presentation", "main_menu.premium_presentation"):
     ENTRY_TEXTS += [text for text in label_variants(_key) if text not in ENTRY_TEXTS]
 MED3D_ENTRY_TEXTS = label_variants("main_menu.presentation_3d") + [
+    "🧊 3D taqdimot", "🧊 3D-презентация", "🧊 3D presentation", "🧊 3D презентация",      # «Pro» dan oldingi
     "🫀 3D taqdimot — tana tuzilishi", "🫀 3D презентация — строение тела", "🫀 3D presentation — human body",
     "🫀 3D Анатомия — дене құрылысы"]
 
 SIMPLE_STYLE = "fon"
 _STYLE_ORDER = ["toza", "jurnal", "blok", "kontur", "qorongu", SIMPLE_STYLE]
 
-# Tugma: nom + qisqa tavsif. Tavsif tugmaning o'zida, shuning uchun alohida
-# rasm yoki ro'yxat kerak emas.
+# Tugma: nom + qisqa tavsif. Uslublar namunasi tugmalar ustidagi rasmda (`assets/taqdimot/uslublar.jpg`).
 _STYLE_BUTTONS = {
     "toza": {"uz": "🤍 Toza — yengil va ixcham", "ru": "🤍 Чистый — лёгкий и компактный",
              "en": "🤍 Clean — light and compact"},
@@ -353,7 +321,7 @@ def _topic_line(data: dict, lang: str) -> str:
 # Tartib: tur → mavzu → (yozuv) → ism → istaklar → manba → (zamonaviyda uslub) → slaydlar soni → xulosa.
 _PREVIOUS = {"topic": "kind", "script": "topic", "name": "topic", "prefs": "name", "source": "prefs",
              "source_input": "source", "style": "source", "volume": "style", "summary": "count",
-             "photos": "count", "m3dstyle": "prefs", "med3d_promo": "topic"}  # 3D promo orqaga — mavzuga
+             "photos": "count", "m3dstyle": "prefs"}
 
 
 def _previous_step(data: dict):
@@ -400,12 +368,17 @@ async def _drop_prompt(bot, chat_id: int, state: FSMContext) -> None:
 
 
 async def _prompt(message: Message, state: FSMContext, text: str, markup,
-                  step: str, fsm_state=None) -> None:
-    """Yangi so'rovni yuboradi; oldingisi o'chiriladi."""
+                  step: str, fsm_state=None, photo: str = "") -> None:
+    """Yangi so'rovni yuboradi; oldingisi o'chiriladi. `photo` — namuna rasmi (`bot.previews`) bilan, rasm
+    ostida savol va tugmalar; rasm bo'lmasa yoki ketmasa — oddiy matn."""
     await _drop_prompt(message.bot, message.chat.id, state)
     if fsm_state is not None:
         await state.set_state(fsm_state)
-    sent = await message.answer(text, parse_mode="HTML", reply_markup=markup)
+    sent = None
+    if photo:
+        sent = await previews.send(message, photo, text, parse_mode="HTML", reply_markup=markup)
+    if sent is None:
+        sent = await message.answer(text, parse_mode="HTML", reply_markup=markup)
     await state.update_data(prompt_mid=sent.message_id, step=step)
 
 
@@ -534,123 +507,11 @@ async def _after_topic(message: Message, state: FSMContext, lang: str) -> None:
         if data.get("standalone_med3d"):
             if not await _three_d_topic_gate(message, state, lang):
                 return
-            await _step_med3d_promocode(message, state, lang)
+            await _step_name(message, state, lang)
             return
         if not await _med3d_topic_gate(message, state, lang):
             return
     await _step_name(message, state, lang)
-
-
-_MED3D_PROMO_TEXT = {
-    "uz": "🎟 3D taqdimot promokodingiz bo'lsa, kiriting:",
-    "ru": "🎟 Если у вас есть промокод на 3D-презентацию, введите его:",
-    "en": "🎟 Enter your 3D presentation promo code, if you have one:",
-    "kk": "🎟 3D презентация промокоды болса, енгізіңіз:",
-}
-_MED3D_PROMO_BUTTONS = {
-    "uz": ("⏭ O'tkazib yuborish", "🔙 Orqaga"),
-    "ru": ("⏭ Пропустить", "🔙 Назад"),
-    "en": ("⏭ Skip", "🔙 Back"),
-    "kk": ("⏭ Өткізіп жіберу", "🔙 Артқа"),
-}
-_MED3D_PROMO_ERRORS = {
-    "not_found": {
-        "uz": "❌ Promokod topilmadi yoki o'chirilgan.",
-        "ru": "❌ Промокод не найден или отключён.",
-        "en": "❌ Promo code not found or deactivated.",
-        "kk": "❌ Промокод табылмады немесе өшірілген.",
-    },
-    "already_used": {
-        "uz": "❌ Bu promokoddan avval foydalangansiz.",
-        "ru": "❌ Вы уже использовали этот промокод.",
-        "en": "❌ You have already used this promo code.",
-        "kk": "❌ Бұл промокодты бұрын пайдаланғансыз.",
-    },
-    "limit_reached": {
-        "uz": "❌ Bu promokodning foydalanish limiti tugagan.",
-        "ru": "❌ Лимит использований этого промокода исчерпан.",
-        "en": "❌ This promo code has reached its usage limit.",
-        "kk": "❌ Бұл промокодтың пайдалану шегі аяқталды.",
-    },
-}
-
-
-async def _step_med3d_promocode(message: Message, state: FSMContext, lang: str) -> None:
-    skip, back = _MED3D_PROMO_BUTTONS.get(lang) or _MED3D_PROMO_BUTTONS["uz"]
-    markup = _markup([
-        [InlineKeyboardButton(text=skip, callback_data="prem_m3d_promo:skip")],
-        [InlineKeyboardButton(text=back, callback_data="prem_m3d_promo:back")],
-    ])
-    data = await state.get_data()
-    await _prompt(message, state, _topic_line(data, lang) + (
-        _MED3D_PROMO_TEXT.get(lang) or _MED3D_PROMO_TEXT["uz"]
-    ), markup, "med3d_promo", PremiumPresentationStates.waiting_for_med3d_promocode)
-
-
-@router.message(PremiumPresentationStates.waiting_for_med3d_promocode, F.text)
-async def premium_med3d_promocode_input(message: Message, state: FSMContext, db: Database):
-    lang = await _lang_of(message.from_user.id, db)
-    try:
-        promo, reason = await db.get_med3d_promocode(message.text.strip(), message.from_user.id)
-    except Exception:
-        logger.exception("3D Anatomiya promokodi tekshirilmadi")
-        await message.answer(
-            "❌ Promokodni tekshirib bo'lmadi. Iltimos, qayta urinib ko'ring:",
-            reply_markup=_med3d_promo_keyboard(lang),
-        )
-        return
-    if not promo:
-        error = _MED3D_PROMO_ERRORS.get(reason, _MED3D_PROMO_ERRORS["not_found"])
-        await message.answer(
-            (error.get(lang) or error["uz"]) + "\n\n" +
-            (_MED3D_PROMO_TEXT.get(lang) or _MED3D_PROMO_TEXT["uz"]),
-            reply_markup=_med3d_promo_keyboard(lang),
-        )
-        return
-    await _drop_prompt(message.bot, message.chat.id, state)
-    await state.update_data(
-        med3d_promo_code=promo["code"],
-        med3d_promo_percent=promo["discount_percent"],
-        med3d_promo_id=promo["id"],
-    )
-    accepted = {
-        "uz": f"✅ Promokod qabul qilindi: {promo['discount_percent']}% chegirma.",
-        "ru": f"✅ Промокод принят: скидка {promo['discount_percent']}%.",
-        "en": f"✅ Promo code accepted: {promo['discount_percent']}% discount.",
-        "kk": f"✅ Промокод қабылданды: {promo['discount_percent']}% жеңілдік.",
-    }
-    await message.answer(accepted.get(lang) or accepted["uz"])
-    await _step_name(message, state, lang)
-
-
-def _med3d_promo_keyboard(lang: str) -> InlineKeyboardMarkup:
-    skip, back = _MED3D_PROMO_BUTTONS.get(lang) or _MED3D_PROMO_BUTTONS["uz"]
-    return _markup([
-        [InlineKeyboardButton(text=skip, callback_data="prem_m3d_promo:skip")],
-        [InlineKeyboardButton(text=back, callback_data="prem_m3d_promo:back")],
-    ])
-
-
-@router.callback_query(
-    F.data == "prem_m3d_promo:skip",
-    PremiumPresentationStates.waiting_for_med3d_promocode,
-)
-async def premium_med3d_promocode_skip(callback: CallbackQuery, state: FSMContext, db: Database):
-    await callback.answer()
-    lang = await _lang_of(callback.from_user.id, db)
-    await _drop_prompt(callback.bot, callback.message.chat.id, state)
-    await _step_name(callback.message, state, lang)
-
-
-@router.callback_query(
-    F.data == "prem_m3d_promo:back",
-    PremiumPresentationStates.waiting_for_med3d_promocode,
-)
-async def premium_med3d_promocode_back(callback: CallbackQuery, state: FSMContext, db: Database):
-    await callback.answer()
-    lang = await _lang_of(callback.from_user.id, db)
-    await _drop_prompt(callback.bot, callback.message.chat.id, state)
-    await _step_topic(callback.message, state, lang)
 
 
 MED3D_CHECKING = {"uz": "⏳ Mavzu 3D atlas bo'yicha tekshirilmoqda...", "ru": "⏳ Проверяем тему по 3D-атласу...",
@@ -858,7 +719,7 @@ async def premium_kat3d_mode(callback: CallbackQuery, state: FSMContext, db: Dat
         from services.kat3d import yukla
 
         yukla.oldindan(ids or choices)
-    await _step_med3d_promocode(callback.message, state, lang)
+    await _step_name(callback.message, state, lang)
 
 
 def _k3_pick_view(data: dict, lang: str):
@@ -1242,7 +1103,7 @@ async def _after_source(message: Message, state: FSMContext, lang: str, db: Data
 # Ilgari uch xil mahsulot bitta uslub ro'yxatida aralashgan edi: eng yangi infografik dizayn uslub va
 # "matn hajmi" qadamlari ortida yashirinardi. Endi mijoz turini birinchi tanlaydi; tur keraksiz
 # qadamlarni o'zi belgilaydi (infografik — uslub va hajm so'ralmaydi, klassik — shablonlarga o'tadi).
-# Faqat tugmalar — namuna rasm yuborilmaydi.
+# Tugmalar namuna rasmi ostida (`assets/taqdimot/turlar.jpg`): mijoz har tur qanday ko'rinishini ko'rib tanlaydi.
 
 KIND_INFO, KIND_MODERN, KIND_CLASSIC = "info", "modern", "classic"
 # 3D Pro: har slaydda fonsiz 3D obyekt, yorliq-chiziqlar va PowerPoint Morph o'tishlari (`services.pro3d`).
@@ -1282,6 +1143,19 @@ _KIND_PROMPT = {
     "ru": "🖼 <b>Выберите тип презентации</b>",
     "en": "🖼 <b>Choose the presentation type</b>",
     "kk": "🖼 <b>Презентация түрін таңдаңыз</b>",
+}
+# Namuna rasmi chiqqanda savol ostida qo'shiladi.
+_KIND_PICTURE = {
+    "uz": "Rasmda har turdan namuna: muqova va ichki slayd.",
+    "ru": "На картинке — образец каждого типа: обложка и слайд.",
+    "en": "The picture shows a sample of each type: cover and inner slide.",
+    "kk": "Суретте әр түрдің үлгісі: мұқаба және ішкі слайд.",
+}
+_STYLE_PICTURE = {
+    "uz": "Rasmda 5 uslubning namunasi — raqamlar tugmalar tartibida.",
+    "ru": "На картинке — 5 стилей, номера в порядке кнопок.",
+    "en": "The picture shows all 5 styles, numbered in button order.",
+    "kk": "Суретте 5 стиль үлгісі — нөмірлері батырмалар ретімен.",
 }
 
 
@@ -1432,9 +1306,12 @@ async def _step_kind(message: Message, state: FSMContext, lang: str) -> None:
         await _step_topic(message, state, lang)
         return
     text = _topic_line(data, lang) + (_KIND_PROMPT.get(lang) or _KIND_PROMPT["uz"])
+    if previews.exists("turlar"):
+        text += "\n" + (_KIND_PICTURE.get(lang) or _KIND_PICTURE["uz"])
     # Shaxsiy chatda chat id = foydalanuvchi id (orqaga qaytishda xabar botniki bo'ladi).
     keyboard = _kind_keyboard(lang)
-    await _prompt(message, state, text, keyboard, "kind", PremiumPresentationStates.waiting_for_kind)
+    await _prompt(message, state, text, keyboard, "kind", PremiumPresentationStates.waiting_for_kind,
+                  photo="turlar")
 
 
 async def _step_med3d_confirmation(message: Message, state: FSMContext, lang: str) -> None:
@@ -1537,8 +1414,10 @@ def _style_keyboard(lang: str) -> InlineKeyboardMarkup:
 async def _step_style(message: Message, state: FSMContext, lang: str) -> None:
     data = await state.get_data()
     text = _topic_line(data, lang) + _t(lang, "ask_style")
+    if previews.exists("uslublar"):
+        text += "\n" + (_STYLE_PICTURE.get(lang) or _STYLE_PICTURE["uz"])
     await _prompt(message, state, text, _style_keyboard(lang), "style",
-                  PremiumPresentationStates.waiting_for_style)
+                  PremiumPresentationStates.waiting_for_style, photo="uslublar")
 
 
 @router.callback_query(F.data.startswith("ppt_style:"),
@@ -2138,8 +2017,6 @@ def _summary(data: dict, lang: str):
 
     slide_count = int(data.get("slide_count") or MIN_SLIDES)
     price = _price_of(data, slide_count)
-    base_price = _base_price_of(data, slide_count)
-    promo_percent = int(data.get("med3d_promo_percent") or 0)
     kind = _kind_of(data)
     volume = ""
     # Infografikda uslub so'ralmaydi — xulosada uslub o'rniga tur yoziladi.
@@ -2198,11 +2075,6 @@ def _summary(data: dict, lang: str):
         if text_anim:
             lines.append(f"<i>{esc(anim_note(lang), 400)}</i>")
     lines += [f"📊 {slides_l}: <b>{slide_count}</b>"]
-    if promo_percent:
-        lines += [
-            f"🎟 <code>{esc(data.get('med3d_promo_code'), 32)}</code> — {promo_percent}% chegirma",
-            f"💸 Chegirma: <b>{base_price - price:,} {cur}</b>",
-        ]
     lines += [f"💰 {price_l}: <b>{price:,} {cur}</b>", "", ask]
     return "\n".join(lines), _confirm_keyboard(lang, language, color)
 
@@ -2411,9 +2283,6 @@ async def premium_ppt_pay_stars(callback: CallbackQuery, state: FSMContext, db: 
         await _report_expired(callback.message, state, lang)
         return
     price = int(data.get("price", _get_price(MIN_SLIDES)))
-    if not await _reserve_med3d_promo(db, data, callback.from_user.id):
-        await _coupon_unavailable(callback, state, lang)
-        return
     slide_count = int(data.get("slide_count", 10))
     kind_name = _kind_name(_kind_of(data), "uz")          # hisob-faktura: buyurtma turi bilan (3D ham)
     try:
@@ -2430,8 +2299,6 @@ async def premium_ppt_pay_stars(callback: CallbackQuery, state: FSMContext, db: 
             await callback.message.edit_reply_markup(reply_markup=None)
         except Exception:
             pass
-    elif data.get("med3d_promo_code"):
-        await db.release_med3d_promocode(data["med3d_promo_code"], callback.from_user.id)
 
 
 @router.message(
@@ -2449,32 +2316,6 @@ async def premium_ppt_successful_stars(
     if not data:
         await _report_expired(message, state, "uz")
         return
-    if data.get("med3d_promo_code"):
-        try:
-            completed = await db.complete_med3d_promocode(
-                data["med3d_promo_code"], message.from_user.id
-            )
-        except Exception:
-            logger.exception("3D Anatomiya promokodidan foydalanish qayd etilmadi")
-            completed = False
-        if not completed:
-            refunded = False
-            try:
-                refunded = await message.bot.refund_star_payment(
-                    user_id=message.from_user.id,
-                    telegram_payment_charge_id=payment.telegram_payment_charge_id,
-                )
-            except Exception:
-                logger.exception("Stars to'lovi qaytarilmadi: foydalanuvchi=%s", message.from_user.id)
-            await message.answer(
-                "❌ Promokod limiti tasdiqlanmadi. " + (
-                    "Stars to'lovi qaytarildi."
-                    if refunded else
-                    "Stars to'lovini avtomatik qaytarib bo'lmadi; iltimos, adminga murojaat qiling."
-                )
-            )
-            return
-        await state.update_data(coupon_redeemed=True)
     pay.forget(message.chat.id)
     await state.update_data(payment_method="stars")
     await state.set_state(PremiumPresentationStates.waiting_for_slide_count)
@@ -2507,38 +2348,34 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
     # Tasdiqlash va to'lov tanlovi alohida ekranda bo'ladi.
     if not data.get("payment_method"):
         price = data.get("price", _get_price(MIN_SLIDES))
-        if int(price) <= 0 and data.get("med3d_promo_code"):
-            await state.update_data(payment_method="promo")
-            data = await state.get_data()
-        else:
-            await state.set_state(PremiumPresentationStates.waiting_for_payment)
-            payment_texts = {
-                "uz": (
-                    "✅ <b>Buyurtma tasdiqlandi</b>\n\n"
-                    f"💰 Narx: <b>{price:,} so'm</b>\n"
-                    "To‘lov usulini tanlang:"
-                ),
-                "ru": (
-                    "✅ <b>Заказ подтверждён</b>\n\n"
-                    f"💰 Цена: <b>{price:,} сум</b>\n"
-                    "Выберите способ оплаты:"
-                ),
-                "en": (
-                    "✅ <b>Order confirmed</b>\n\n"
-                    f"💰 Price: <b>{price:,} soʻm</b>\n"
-                    "Choose a payment method:"
-                ),
-            }
-            # Buyurtma shu yerdayoq saqlanadi: mijoz to'lov usulini tanlashdan
-            # oldin balansni to'ldirishga ketishi mumkin, u oqim esa FSM ni
-            # tozalaydi.
-            pay.remember(callback.from_user.id, CHECKOUT.service, await state.get_data())
-            await callback.message.edit_text(
-                payment_texts.get(lang, payment_texts["uz"]),
-                parse_mode="HTML",
-                reply_markup=_payment_keyboard(lang, price),
-            )
-            return
+        await state.set_state(PremiumPresentationStates.waiting_for_payment)
+        payment_texts = {
+            "uz": (
+                "✅ <b>Buyurtma tasdiqlandi</b>\n\n"
+                f"💰 Narx: <b>{price:,} so'm</b>\n"
+                "To‘lov usulini tanlang:"
+            ),
+            "ru": (
+                "✅ <b>Заказ подтверждён</b>\n\n"
+                f"💰 Цена: <b>{price:,} сум</b>\n"
+                "Выберите способ оплаты:"
+            ),
+            "en": (
+                "✅ <b>Order confirmed</b>\n\n"
+                f"💰 Price: <b>{price:,} soʻm</b>\n"
+                "Choose a payment method:"
+            ),
+        }
+        # Buyurtma shu yerdayoq saqlanadi: mijoz to'lov usulini tanlashdan
+        # oldin balansni to'ldirishga ketishi mumkin, u oqim esa FSM ni
+        # tozalaydi.
+        pay.remember(callback.from_user.id, CHECKOUT.service, await state.get_data())
+        await callback.message.edit_text(
+            payment_texts.get(lang, payment_texts["uz"]),
+            parse_mode="HTML",
+            reply_markup=_payment_keyboard(lang, price),
+        )
+        return
 
     topic = data.get("topic", "")
     preferences = data.get("preferences", "")
@@ -2562,32 +2399,8 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
         await pay.send_shortfall(callback.message, CHECKOUT, lang, price, user.balance)
         return
 
-    if data.get("med3d_promo_code") and not data.get("coupon_redeemed"):
-        try:
-            reserved = await _reserve_med3d_promo(db, data, callback.from_user.id)
-        except Exception:
-            logger.exception("3D Anatomiya promokodini band qilishda xatolik")
-            reserved = False
-        if not reserved:
-            await _coupon_unavailable(callback, state, lang)
-            return
-
     if payment_method == "balance":
         await db.update_user_balance(callback.from_user.id, -price)
-    if data.get("med3d_promo_code") and not data.get("coupon_redeemed"):
-        try:
-            completed = await db.complete_med3d_promocode(
-                data["med3d_promo_code"], callback.from_user.id
-            )
-        except Exception:
-            logger.exception("3D Anatomiya promokodidan foydalanish qayd etilmadi")
-            completed = False
-        if not completed:
-            if payment_method == "balance":
-                await db.update_user_balance(callback.from_user.id, price)
-            await _coupon_unavailable(callback, state, lang)
-            return
-        await state.update_data(coupon_redeemed=True)
     await state.set_state(PremiumPresentationStates.generating)
 
     # Create a status message before the AI content and PPTX generation starts.
