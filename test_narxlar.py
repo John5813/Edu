@@ -83,6 +83,11 @@ for name, value in need.items():
 for word in ("Toza", "Jurnal", "Qorong'u", "Tungi ko'k", "Rentgen", "Klassik", "Infografik", "Tezis", "Test yaratish"):
     check(f"narxlarda bor: {word}", word in text)
 
+check("3D taqdimot Pro: varog'i 2 000 so'm, aralash 40% arzon",
+      [kat3d.price_for(n) for n in (5, 10, 15)] == [10000, 20000, 30000] and kat3d.price_for(10, "mix") == 12000
+      and "To'liq 3D: 5 slayd — 10 000 · 8 — 16 000 · 10 — 20 000" in text
+      and "· 10 — 12 000 ·" in text.split("Aralash 3D")[1].split("\n")[0], text.split("\n")[6:9])
+
 print("4) Narxlar tugmasi: matn va dizayn namunalari albomi")
 for key in prices.ALBUM:
     check(f"namuna rasmi bor: {key}", previews.exists(key), previews.PATHS[key])

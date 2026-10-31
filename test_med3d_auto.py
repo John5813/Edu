@@ -524,9 +524,9 @@ async def bot_flow():
     check("uslub tanlandi → slaydlar soni", await state.get_state() == PS.waiting_for_count.state
           and (await state.get_data()).get("m3d_style") == "kobalt", await state.get_state())
     counts = [b.text for b in buttons(chat.sent[-1][2]) if (b.callback_data or "").startswith("prem_ppt_count:")]
-    check("slaydlar soni 5–15, narx 3D Anatomiyaniki (10 slayd — 25 000)",
+    check("slaydlar soni 5–15, narx 3D Anatomiyaniki (10 slayd — 20 000)",
           len(counts) == len(auto.SLIDE_OPTIONS) and counts[0].startswith("5 ta slayd")
-          and any("10 ta slayd" in c and "25" in c for c in counts), counts)
+          and any("10 ta slayd" in c and "20,000" in c for c in counts), counts)
     check("rasm manbasi va yozuv animatsiyasi taklif qilinmaydi",
           pp._photo_source({"kind": "med3d"}) is None and not await pp._anim_offer({"kind": "med3d"}))
     check("orqaga: slaydlar sonidan — uslubga, uslubdan — istaklarga",
@@ -582,8 +582,8 @@ async def bot_flow():
 
 asyncio.run(bot_flow())
 
-check("3D Anatomiya narxi: 10 slayd — 25 000 so'm (zamonaviydan 5 baravar)", auto.price_for(10) == 25000,
-      auto.price_for(10))
+check("3D Anatomiya narxi: varog'i 2 000 so'm (10 slayd — 20 000)",
+      [auto.price_for(n) for n in (5, 10, 15)] == [10000, 20000, 30000], [auto.price_for(n) for n in (5, 10, 15)])
 check("3D Anatomiya narxi 3D Pro'dan baland va 500 ga yaxlit",
       all(auto.price_for(n) % 500 == 0 for n in auto.SLIDE_OPTIONS))
 
