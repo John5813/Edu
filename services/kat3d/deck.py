@@ -38,6 +38,7 @@ log = logging.getLogger(__name__)
 
 W, H = design.W, design.H
 MORPH_MS = 1700
+MODEL_SCALE = float(os.getenv("KAT3D_MODEL_SCALE") or 1.2)     # 3D model ramkasi kompozitsiyadagidan shuncha katta
 TURN_MS = int(os.getenv("KAT3D_TURN_SECONDS") or 40) * 1000   # slaydda turgan model o'z joyida shuncha vaqtda 1 marta aylanadi
 BASE_ROT = (14.0, -30.0, 0.0)              # preview rasmidagi burchakka yaqin: biroz yuqoridan, yon tomondan
 SWING = (0.0, 28.0, -22.0, 16.0, -32.0, 10.0, 34.0, -14.0)   # har keyingi ko'rinishda Y bo'yicha burilish
@@ -148,6 +149,9 @@ def _model(ctx: Ctx, slide, mid: str, cx: float, cy: float, size: float, turn: f
     k = ctx.seen.get(mid, 0)
     ctx.seen[mid] = k + 1
     rot = (BASE_ROT[0], BASE_ROT[1] + SWING[k % len(SWING)] + turn, BASE_ROT[2])
+    size = min(size * MODEL_SCALE, H - 0.1)                       # kattaroq, lekin slayddan chiqmaydi
+    cx = min(max(cx, size / 2), W - size / 2)
+    cy = min(max(cy, size / 2), H - size / 2)
     sid = _place(ctx, slide, mid, cx, cy, size, rot)
     spin = ctx.plan.get("spin")                                    # rejada ko'rsatilsa — faqat o'shalar
     if (mid in spin) if spin is not None else is_planet(mid):
@@ -313,7 +317,7 @@ def _decorate(ctx: Ctx, slide, index: int, box) -> None:
 def _muqova(ctx: Ctx, slide, s: dict, i: int) -> List:
     mids = s["models"]
     _decorate(ctx, slide, i, (6.6, 0.6, 12.4, 6.8))
-    box = _model(ctx, slide, mids[0], 9.55, 3.7, 6.3)
+    box = _model(ctx, slide, mids[0], 9.9, 3.7, 5.6)
     design.ground_shadow(slide, ctx.st, box)
     if len(mids) > 1:
         _model(ctx, slide, mids[1], 11.75, 5.85, 2.0, turn=20)        # ramkali uslublarda ham ichkarida
@@ -404,6 +408,11 @@ def _stack(ctx: Ctx, slide, s: dict, i: int, x: float, w: float, head: Tuple[flo
 
 
 def _side(ctx: Ctx, slide, s: dict, i: int, left_text: bool) -> List:
+    if not s["models"]:                               # 3D'siz (aralash taqdimot): matn markazda, kengroq
+        _decorate(ctx, slide, i, (8.6, 1.0, 12.6, 6.4) if left_text else (0.6, 1.0, 4.6, 6.4))
+        steps = _stack(ctx, slide, s, i, 1.6, 10.1, (38, 26), (19, 13), s["points"][:5])
+        _number(ctx, slide, i)
+        return steps
     tx, tw = (0.7, 6.2) if left_text else (6.4, 6.25)
     mx = 10.25 if left_text else 3.1
     _decorate(ctx, slide, i, (mx - 2.5, 1.1, mx + 2.5, 6.5))
@@ -416,8 +425,10 @@ def _side(ctx: Ctx, slide, s: dict, i: int, left_text: bool) -> List:
 
 
 def _qahramon(ctx: Ctx, slide, s: dict, i: int) -> List:
+    if not s["models"]:
+        return _side(ctx, slide, s, i, True)
     _decorate(ctx, slide, i, (6.2, 0.4, 12.9, 7.1))
-    box = _model(ctx, slide, s["models"][0], 9.6, 3.75, 6.8)
+    box = _model(ctx, slide, s["models"][0], 9.7, 3.75, 6.0)
     design.ground_shadow(slide, ctx.st, box)
     steps = _stack(ctx, slide, s, i, 0.75, 5.3, (42, 26), (17, 11.5), s["points"][:3], panel=True)
     _caption(ctx, slide, s["models"][:1], 6.6, H - 0.45, 6.2, align=PP_ALIGN.RIGHT)
@@ -427,19 +438,21 @@ def _qahramon(ctx: Ctx, slide, s: dict, i: int) -> List:
 
 def _raqamlar(ctx: Ctx, slide, s: dict, i: int) -> List:
     st = ctx.st
-    _decorate(ctx, slide, i, (0.6, 2.2, 5.4, 6.9))
-    box = _model(ctx, slide, s["models"][0], 3.0, 4.6, 4.5)
-    design.ground_shadow(slide, st, box)
+    has = bool(s["models"])
+    _decorate(ctx, slide, i, (0.6, 2.2, 5.4, 6.9) if has else (3.5, 2.0, 9.8, 6.0))
+    if has:
+        box = _model(ctx, slide, s["models"][0], 3.0, 4.6, 4.5)
+        design.ground_shadow(slide, st, box)
     _kicker(ctx, slide, s["kicker"], 0.75, 0.75, 7.5)
     bottom = _title(ctx, slide, s["title"], 0.75, 1.15, 11.8, 1.2, 34, 24)
     stats = s["stats"][:4]
     n = len(stats)
-    cols, gap = 2, 0.25
-    rows = 1 if n <= 2 else 2
-    x0, cw_all = 5.85, 6.95
+    cols, gap = (2, 0.25) if has else (max(1, n), 0.3)       # 3D'siz: hamma raqam bir qatorda, butun kenglikda
+    rows = 1 if (n <= 2 or not has) else 2
+    x0, cw_all = (5.85, 6.95) if has else (0.75, 11.83)
     cw = (cw_all - gap) / cols
     if s["points"]:                                  # ostida izoh punktlari — kartalar ixchamroq
-        ch = 1.25 if rows == 2 else 1.5
+        ch = 1.25 if rows == 2 else (1.5 if has else 1.8)
     else:
         ch = 2.3 if rows == 1 else 1.9
     top = max(2.15, bottom + 0.3)
@@ -447,7 +460,7 @@ def _raqamlar(ctx: Ctx, slide, s: dict, i: int) -> List:
     for k, item in enumerate(stats):
         r, c = divmod(k, cols)
         x, y = x0 + c * (cw + gap), top + r * (ch + gap)
-        w = cw_all if (n == 3 and k == 2) else cw      # uchta raqamda oxirgisi butun qatorga
+        w = cw_all if (has and n == 3 and k == 2) else cw      # uchta raqamda oxirgisi butun qatorga
         card = _panel(ctx, slide, f"card_{i}_{k}", x, y, w, ch)
         one_line = (w - 0.5) * 72 / (max(1, len(item["value"])) * VALUE_EM)
         val = design.textbox(slide, f"val_{i}_{k}", x + 0.25, y + 0.14, w - 0.5, ch * 0.5, item["value"],
@@ -461,7 +474,8 @@ def _raqamlar(ctx: Ctx, slide, s: dict, i: int) -> List:
         size, points = _fit_points(s, s["points"][:3], cw_all, 6.95 - y, (16, 11), em=_em(st.body_font))
         steps.append((_bullets(ctx, slide, f"body_{i}", points, x0, y, cw_all, 6.95 - y, size, 11, fit=False),
                       "float", 300 + 180 * n))
-    _caption(ctx, slide, s["models"][:1], 0.75, H - 0.45, 4.6, align=PP_ALIGN.CENTER)
+    if has:
+        _caption(ctx, slide, s["models"][:1], 0.75, H - 0.45, 4.6, align=PP_ALIGN.CENTER)
     _number(ctx, slide, i)
     return steps
 
@@ -493,14 +507,16 @@ def _jadval(ctx: Ctx, slide, s: dict, i: int) -> List:
     """Taqqoslash jadvali: sarlavha qatori urg'u rangida, qatorlar alohida kartalar (navbat bilan chiqadi);
     «belgilangan» qator (`table.mark`, odatda O'zbekiston) ramka bilan ajratiladi. Model o'ngda."""
     st = ctx.st
+    has = bool(s["models"])
     _decorate(ctx, slide, i, (9.7, 2.0, 12.9, 6.2))
     bottom = _head(ctx, slide, s, 0.75, 11.8, (34, 24), 1.2)
-    box = _model(ctx, slide, s["models"][0], 11.35, 4.4, 3.4)
-    design.ground_shadow(slide, st, box)
+    if has:
+        box = _model(ctx, slide, s["models"][0], 11.45, 4.4, 3.0)
+        design.ground_shadow(slide, st, box)
     tab = s["table"]
     head, rows = tab["head"], tab["rows"]
     mark = tab.get("mark", -1)
-    x0, wall = 0.6, 9.15
+    x0, wall = (0.6, 9.15) if has else (0.75, 11.83)
     top = max(2.25, bottom + 0.35)
     n = len(rows)
     rh = min(0.95, (6.95 - top - 0.62) / max(n, 1) - 0.1)
@@ -528,7 +544,150 @@ def _jadval(ctx: Ctx, slide, s: dict, i: int) -> List:
                                 smallest=10.5)
             steps.append((tb, "fade", 330 + 160 * r))
             x += w
-    _caption(ctx, slide, s["models"][:1], 9.75, H - 0.45, 3.3, align=PP_ALIGN.CENTER)
+    if has:
+        _caption(ctx, slide, s["models"][:1], 9.75, H - 0.45, 3.3, align=PP_ALIGN.CENTER)
+    _number(ctx, slide, i)
+    return steps
+
+
+_CHART_KIND = {"column": "COLUMN_CLUSTERED", "bar": "BAR_CLUSTERED", "line": "LINE_MARKERS", "pie": "DOUGHNUT"}
+
+
+def _chart_palette(st) -> List[str]:
+    out = []
+    for c in (st.accent, st.deco_color, "4ADE80", "F472B6", "A78BFA", "FB923C", "38BDF8", "FACC15"):
+        if c.upper() not in out:
+            out.append(c.upper())
+    return out
+
+
+def _add_chart(ctx: Ctx, slide, c: dict, x: float, y: float, w: float, h: float):
+    """PowerPoint'ning o'z grafigi (mijoz keyin tahrirlay oladi): uslub ranglarida, fonsiz, qiymatlar ustida."""
+    from pptx.chart.data import CategoryChartData
+    from pptx.dml.color import RGBColor
+    from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION
+
+    st = ctx.st
+    data = CategoryChartData()
+    data.categories = c["labels"]
+    data.add_series(c.get("title") or " ", c["values"])
+    kind = c.get("type") or "column"
+    frame = slide.shapes.add_chart(getattr(XL_CHART_TYPE, _CHART_KIND.get(kind, "COLUMN_CLUSTERED")),
+                                   Inches(x), Inches(y), Inches(w), Inches(h), data)
+    frame.name = f"chart_{id(frame) % 10000}"
+    chart = frame.chart
+    space = chart._chartSpace
+    sppr = etree.SubElement(space, qn("c:spPr"))                       # fon va ramka yo'q — slayd foni ko'rinadi
+    etree.SubElement(sppr, qn("a:noFill"))
+    etree.SubElement(etree.SubElement(sppr, qn("a:ln")), qn("a:noFill"))
+    space.find(qn("c:chart")).addnext(sppr)
+    chart.font.size = Pt(13)
+    chart.font.name = st.body_font
+    chart.font.color.rgb = RGBColor.from_string(st.body)
+    chart.has_title = bool(c.get("title"))
+    if chart.has_title:
+        tf = chart.chart_title.text_frame
+        tf.text = c["title"]
+        run = tf.paragraphs[0].runs[0]
+        run.font.size, run.font.bold = Pt(15), True
+        run.font.color.rgb = RGBColor.from_string(st.ink)
+    plot = chart.plots[0]
+    plot.has_data_labels = True
+    labels = plot.data_labels
+    labels.font.size, labels.font.bold = Pt(13), True
+    labels.font.color.rgb = RGBColor.from_string(st.ink)
+    unit = (c.get("unit") or "").replace('"', "")
+    labels.number_format = '#,##0.##' + (f'"{unit}"' if unit else "")
+    labels.number_format_is_linked = False
+    palette = _chart_palette(st)
+    if kind == "pie":
+        chart.has_legend = True
+        chart.legend.position = XL_LEGEND_POSITION.RIGHT
+        chart.legend.include_in_layout = False
+        chart.legend.font.color.rgb = RGBColor.from_string(st.body)
+        for k, point in enumerate(plot.series[0].points):
+            point.format.fill.solid()
+            point.format.fill.fore_color.rgb = RGBColor.from_string(palette[k % len(palette)])
+        return frame
+    chart.has_legend = False
+    series = plot.series[0]
+    if kind == "line":
+        series.format.line.color.rgb = RGBColor.from_string(st.accent)
+        series.format.line.width = Pt(3.5)
+        series.smooth = True
+    else:
+        plot.gap_width = 70
+        series.format.fill.solid()
+        series.format.fill.fore_color.rgb = RGBColor.from_string(st.accent)
+    value_axis = chart.value_axis
+    value_axis.visible = False
+    value_axis.has_major_gridlines = False
+    cat = chart.category_axis
+    cat.format.line.color.rgb = RGBColor.from_string(st.muted)
+    cat.tick_labels.font.color.rgb = RGBColor.from_string(st.body)
+    cat.tick_labels.font.size = Pt(12)
+    return frame
+
+
+def _diagramma(ctx: Ctx, slide, s: dict, i: int) -> List:
+    """Grafik (chapda, yarim shaffof kartada) + kirish matni va 2-3 punkt (o'ngda). 3D modelsiz."""
+    st = ctx.st
+    if not s.get("chart"):
+        return _side(ctx, slide, dict(s, models=[]), i, True)
+    _decorate(ctx, slide, i, (0.8, 2.0, 7.6, 6.9))
+    bottom = _head(ctx, slide, s, 0.75, 11.8, (34, 24), 1.2)
+    top = max(2.2, bottom + 0.3)
+    panel = _panel(ctx, slide, f"chartbg_{i}", 0.6, top, 7.4, 6.95 - top)
+    frame = _add_chart(ctx, slide, s["chart"], 0.8, top + 0.15, 7.0, 6.95 - top - 0.3)
+    em = _em(st.body_font)
+    x, w = 8.35, 4.4
+    lead = s.get("subtitle") or ""
+    size, points = _fit_points(s, s["points"][:3], w, 6.95 - top, (17, 11.5), lead, w, em)
+    y = top
+    steps = [(panel, "fade", 150), (frame, "fade", 350)]
+    if lead:
+        box, lh = _lead(ctx, slide, i, lead, x, y, w, size * 1.06)
+        steps.append((box, "fade", 600))
+        y += lh + 0.25
+    if points:
+        bh = _body_h(points, w, size, em)
+        steps.append((_bullets(ctx, slide, f"body_{i}", points, x, y, w, bh + 0.1, size, 11.5, fit=False), "float", 750))
+    _number(ctx, slide, i)
+    return steps
+
+
+def _rasm(ctx: Ctx, slide, s: dict, i: int) -> List:
+    """Haqiqiy foto (yumaloq burchakli ramkada, kadrga moslab kesilgan) + matn. Rasm topilmasa — matnli slayd."""
+    from PIL import Image
+
+    st = ctx.st
+    path = s.get("photo_path")
+    if not path or not os.path.isfile(path):
+        return _side(ctx, slide, dict(s, models=[]), i, True)
+    left_text = i % 2 == 1
+    px, py, pw, ph = (6.75, 0.85, 5.95, 5.8) if left_text else (0.6, 0.85, 5.95, 5.8)
+    tx = 0.75 if left_text else 6.95
+    _decorate(ctx, slide, i, (px, py, px + pw, py + ph))
+    with Image.open(path) as im:
+        iw, ih = im.size
+    pic = slide.shapes.add_picture(path, Inches(px), Inches(py), Inches(pw), Inches(ph))
+    pic.name = f"photo_{i}"
+    box_ratio, img_ratio = pw / ph, iw / max(ih, 1)
+    if img_ratio > box_ratio:                          # keng rasm — yonlari kesiladi
+        cut = (1 - box_ratio / img_ratio) / 2
+        pic.crop_left = pic.crop_right = cut
+    else:
+        cut = (1 - img_ratio / box_ratio) / 2
+        pic.crop_top, pic.crop_bottom = cut * 0.6, cut * 1.4      # yuzlar odatda yuqorida
+    geom = pic._element.spPr.find(qn("a:prstGeom"))
+    geom.set("prst", "roundRect")
+    av = geom.find(qn("a:avLst"))
+    if av is None:
+        av = etree.SubElement(geom, qn("a:avLst"))
+    etree.SubElement(av, qn("a:gd"), name="adj", fmla="val 7000")
+    pic.line.color.rgb = design.rgb(st.accent)
+    pic.line.width = Pt(1.5)
+    steps = [(pic, "fade", 150)] + _stack(ctx, slide, s, i, tx, 5.7, (34, 24), (18, 12), s["points"][:4])
     _number(ctx, slide, i)
     return steps
 
@@ -584,12 +743,14 @@ def _matn(ctx: Ctx, slide, s: dict, i: int) -> List:
     """Ro'yxatsiz matn: 1-2 paragraf, chetida urg'u chizig'i; birinchisi yorqinroq."""
     st = ctx.st
     em = _em(st.body_font)
+    has = bool(s["models"])
     left_text = i % 2 == 1
-    tx, tw = (0.75, 6.3) if left_text else (6.3, 6.3)
+    tx, tw = ((0.75, 6.3) if left_text else (6.3, 6.3)) if has else (1.6, 10.1)
     mx = 10.25 if left_text else 3.05
     _decorate(ctx, slide, i, (mx - 2.5, 1.1, mx + 2.5, 6.5))
-    box = _model(ctx, slide, s["models"][0], mx, 3.8, 5.0)
-    design.ground_shadow(slide, st, box)
+    if has:
+        box = _model(ctx, slide, s["models"][0], mx, 3.8, 5.0)
+        design.ground_shadow(slide, st, box)
     title = s["title"].upper() if st.title_caps else s["title"]
     hem = HEAD_EM * (1.12 if st.title_caps else 1.0)
     tsize = _fit(title, tw, 2.2, 36, 24, hem)
@@ -619,7 +780,8 @@ def _matn(ctx: Ctx, slide, s: dict, i: int) -> List:
                             color=st.ink if k == 0 else st.body, font=st.body_font, line=1.15)
         steps.append((tb, "float", 250 + 250 * k))
         y += h + 0.2
-    _caption(ctx, slide, s["models"][:1], mx - 2.6, H - 0.5, 5.2, align=PP_ALIGN.CENTER)
+    if has:
+        _caption(ctx, slide, s["models"][:1], mx - 2.6, H - 0.5, 5.2, align=PP_ALIGN.CENTER)
     _number(ctx, slide, i)
     return steps
 
@@ -627,10 +789,12 @@ def _matn(ctx: Ctx, slide, s: dict, i: int) -> List:
 def _xronologiya(ctx: Ctx, slide, s: dict, i: int) -> List:
     """Vaqt chizig'i: sanalar chiziq ustida, voqealar ostida; model tepada o'ngda."""
     st = ctx.st
+    has = bool(s["models"])
     _decorate(ctx, slide, i, (9.1, 0.5, 12.8, 3.9))
-    box = _model(ctx, slide, s["models"][0], 10.9, 2.15, 3.1)
-    design.ground_shadow(slide, st, box)
-    _head(ctx, slide, s, 0.75, 8.6, (36, 24), 1.9)
+    if has:
+        box = _model(ctx, slide, s["models"][0], 10.9, 2.05, 2.8)
+        design.ground_shadow(slide, st, box)
+    _head(ctx, slide, s, 0.75, 8.6 if has else 11.8, (36, 24), 1.9)
     events = s["events"][:5]
     n = max(1, len(events))
     x0, x1, ly = 0.85, 12.5, 4.45
@@ -648,7 +812,8 @@ def _xronologiya(ctx: Ctx, slide, s: dict, i: int) -> List:
                              ev["text"], size=16, color=st.body, font=st.body_font, align=PP_ALIGN.CENTER,
                              smallest=10.5)
         steps += [(dot, "zoom", 300 + 300 * k), (date, "fade", 340 + 300 * k), (txt, "fade", 380 + 300 * k)]
-    _caption(ctx, slide, s["models"][:1], 6.6, H - 0.42, 5.9, align=PP_ALIGN.RIGHT)
+    if has:
+        _caption(ctx, slide, s["models"][:1], 6.6, H - 0.42, 5.9, align=PP_ALIGN.RIGHT)
     _number(ctx, slide, i)
     return steps
 
@@ -658,11 +823,13 @@ def _taqqoslash(ctx: Ctx, slide, s: dict, i: int) -> List:
     st = ctx.st
     em = _em(st.body_font)
     _decorate(ctx, slide, i, (4.9, 2.2, 8.4, 6.7))
+    has = bool(s["models"])
     bottom = _head(ctx, slide, s, 0.75, 11.8, (34, 24), 1.2)
-    box = _model(ctx, slide, s["models"][0], W / 2, 4.55, 3.1)
-    design.ground_shadow(slide, st, box)
+    if has:
+        box = _model(ctx, slide, s["models"][0], W / 2, 4.55, 2.7)
+        design.ground_shadow(slide, st, box)
     top = max(2.3, bottom + 0.35)
-    w, pad, name_h = 4.55, 0.3, 0.55
+    w, pad, name_h = (4.55 if has else 5.85), 0.3, 0.55
     cols = s["columns"][:2]
     fits = [_fit_points(s, c["points"], w - 2 * pad, 6.9 - top - 2 * pad - name_h, (17, 11), em=em) for c in cols]
     size = min(f[0] for f in fits)
@@ -676,7 +843,8 @@ def _taqqoslash(ctx: Ctx, slide, s: dict, i: int) -> List:
         body = _bullets(ctx, slide, f"colbody_{i}_{k}", pts, x + pad, top + pad + name_h, w - 2 * pad,
                         ph - 2 * pad - name_h + 0.1, size, 11, fit=False)
         steps += [(panel, "fade", 200 + 450 * k), (name, "fade", 260 + 450 * k), (body, "float", 320 + 450 * k)]
-    _caption(ctx, slide, s["models"][:1], W / 2 - 1.6, H - 0.45, 3.2, align=PP_ALIGN.CENTER)
+    if has:
+        _caption(ctx, slide, s["models"][:1], W / 2 - 1.6, H - 0.45, 3.2, align=PP_ALIGN.CENTER)
     _number(ctx, slide, i)
     return steps
 
@@ -684,15 +852,17 @@ def _taqqoslash(ctx: Ctx, slide, s: dict, i: int) -> List:
 def _kartalar(ctx: Ctx, slide, s: dict, i: int) -> List:
     """3-4 karta (sarlavha + matn), model chapda."""
     st = ctx.st
+    has = bool(s["models"])
     _decorate(ctx, slide, i, (0.6, 2.2, 5.3, 6.8))
     bottom = _head(ctx, slide, s, 0.75, 11.8, (34, 24), 1.2)
-    box = _model(ctx, slide, s["models"][0], 2.95, 4.5, 4.3)
-    design.ground_shadow(slide, st, box)
+    if has:
+        box = _model(ctx, slide, s["models"][0], 2.95, 4.5, 4.3)
+        design.ground_shadow(slide, st, box)
     cards = s["cards"][:4]
     n = len(cards)
     cols = 2 if n == 4 else 1
     rows = (n + cols - 1) // cols
-    x0, wall, gap = 5.55, 7.2, 0.22
+    x0, wall, gap = (5.55, 7.2, 0.22) if has else (0.75, 11.83, 0.25)
     top = max(2.3, bottom + 0.32)
     cw = (wall - gap * (cols - 1)) / cols
     chh = (6.92 - top - gap * (rows - 1)) / rows
@@ -708,7 +878,8 @@ def _kartalar(ctx: Ctx, slide, s: dict, i: int) -> List:
                              size=15, color=st.body, font=st.body_font, smallest=10.5)
         steps += [(panel, "zoom", 200 + 220 * k), (mark, "fade", 240 + 220 * k), (head, "fade", 260 + 220 * k),
                   (txt, "fade", 300 + 220 * k)]
-    _caption(ctx, slide, s["models"][:1], 0.75, H - 0.45, 4.4, align=PP_ALIGN.CENTER)
+    if has:
+        _caption(ctx, slide, s["models"][:1], 0.75, H - 0.45, 4.4, align=PP_ALIGN.CENTER)
     _number(ctx, slide, i)
     return steps
 
@@ -716,10 +887,13 @@ def _kartalar(ctx: Ctx, slide, s: dict, i: int) -> List:
 def _bosqichlar(ctx: Ctx, slide, s: dict, i: int) -> List:
     """Raqamlangan bosqichlar (jarayon), ular orasida tutashtiruvchi chiziq; model o'ngda."""
     st = ctx.st
+    has = bool(s["models"])
     _decorate(ctx, slide, i, (7.9, 1.2, 12.8, 6.6))
-    box = _model(ctx, slide, s["models"][0], 10.35, 4.0, 4.9)
-    design.ground_shadow(slide, st, box)
-    bottom = _head(ctx, slide, s, 0.75, 6.9, (34, 24), 1.25)
+    if has:
+        box = _model(ctx, slide, s["models"][0], 10.35, 4.0, 4.9)
+        design.ground_shadow(slide, st, box)
+    bottom = _head(ctx, slide, s, 0.75, 6.9 if has else 11.8, (34, 24), 1.25)
+    tw = 5.9 if has else 10.8
     items = s["steps"][:5]
     n = max(1, len(items))
     top = max(2.25, bottom + 0.3)
@@ -734,13 +908,14 @@ def _bosqichlar(ctx: Ctx, slide, s: dict, i: int) -> List:
                            st.accent, round_=0.25)
         digit = design.textbox(slide, f"digit_{i}_{k}", 0.78, y + 0.05, 0.58, 0.58, str(k + 1), size=20, color=st.bg,
                                font=st.head_font, bold=True, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
-        head = design.textbox(slide, f"stitle_{i}_{k}", 1.62, y, 5.9, 0.42, item["title"], size=18, color=st.ink,
+        head = design.textbox(slide, f"stitle_{i}_{k}", 1.62, y, tw, 0.42, item["title"], size=18, color=st.ink,
                               font=st.head_font, bold=True, smallest=12)
-        txt = design.textbox(slide, f"stext_{i}_{k}", 1.62, y + 0.43, 5.9, max(0.35, row - 0.5), item["text"],
+        txt = design.textbox(slide, f"stext_{i}_{k}", 1.62, y + 0.43, tw, max(0.35, row - 0.5), item["text"],
                              size=15, color=st.body, font=st.body_font, smallest=10.5)
         steps += [(num, "zoom", 250 + 260 * k), (digit, "fade", 270 + 260 * k), (head, "fade", 300 + 260 * k),
                   (txt, "fade", 340 + 260 * k)]
-    _caption(ctx, slide, s["models"][:1], 7.75, H - 0.5, 5.2, align=PP_ALIGN.CENTER)
+    if has:
+        _caption(ctx, slide, s["models"][:1], 7.75, H - 0.5, 5.2, align=PP_ALIGN.CENTER)
     _number(ctx, slide, i)
     return steps
 
@@ -749,10 +924,12 @@ def _fikr(ctx: Ctx, slide, s: dict, i: int) -> List:
     """Asosiy fikr yoki iqtibos: katta qo'shtirnoq, yirik kursiv matn, muallif va izoh; model chapda katta."""
     st = ctx.st
     em = _em(st.body_font)
+    has = bool(s["models"])
     _decorate(ctx, slide, i, (0.8, 0.9, 6.3, 6.8))
-    box = _model(ctx, slide, s["models"][0], 3.5, 3.85, 5.9)
-    design.ground_shadow(slide, st, box)
-    x, w = 6.95, 5.75
+    if has:
+        box = _model(ctx, slide, s["models"][0], 3.4, 3.85, 5.6)
+        design.ground_shadow(slide, st, box)
+    x, w = (6.95, 5.75) if has else (1.6, 10.1)
     qsize = _fit(s["quote"], w, 2.1 if s["text"] else 2.7, 28, 18, HEAD_EM * 0.95)   # izohga ham joy qolsin
     qh = _lines(s["quote"], w, qsize, HEAD_EM * 0.95) * qsize * 1.12 * 1.2 / 72
     src_h = 0.5 if s["source"] else 0.0
@@ -780,7 +957,8 @@ def _fikr(ctx: Ctx, slide, s: dict, i: int) -> List:
                       "fade", 650))
         steps.append((design.textbox(slide, f"qtext_{i}", x, y + 0.35, w, th + 0.05, text, size=tsize, color=st.body,
                                      font=st.body_font, line=1.15), "float", 750))
-    _caption(ctx, slide, s["models"][:1], 0.9, H - 0.5, 5.2, align=PP_ALIGN.CENTER)
+    if has:
+        _caption(ctx, slide, s["models"][:1], 0.9, H - 0.5, 5.2, align=PP_ALIGN.CENTER)
     _number(ctx, slide, i)
     return steps
 
@@ -789,10 +967,12 @@ def _savol(ctx: Ctx, slide, s: dict, i: int) -> List:
     """«Bilasizmi?»: savol belgisi nishoni, yirik savol, javob kartada; model o'ngda."""
     st = ctx.st
     em = _em(st.body_font)
+    has = bool(s["models"])
     _decorate(ctx, slide, i, (7.2, 1.0, 12.7, 6.7))
-    box = _model(ctx, slide, s["models"][0], 9.95, 3.9, 5.5)
-    design.ground_shadow(slide, st, box)
-    x, w, pad = 0.75, 6.2, 0.32
+    if has:
+        box = _model(ctx, slide, s["models"][0], 10.05, 3.9, 5.1)
+        design.ground_shadow(slide, st, box)
+    x, w, pad = (0.75, 6.2, 0.32) if has else (1.6, 10.1, 0.36)
     hem = HEAD_EM * (1.12 if st.title_caps else 1.0)
     qtext = s["question"].upper() if st.title_caps else s["question"]
     qsize = _fit(qtext, w, 2.1, 32, 22, hem)
@@ -815,7 +995,8 @@ def _savol(ctx: Ctx, slide, s: dict, i: int) -> List:
     panel = _panel(ctx, slide, f"panel_{i}", x - 0.1, y, w + 0.2, ah + 2 * pad)
     answer = design.textbox(slide, f"answer_{i}", x + pad - 0.1, y + pad, w - 2 * pad + 0.2, ah + 0.05, s["answer"],
                             size=asize, color=st.body, font=st.body_font, line=1.15)
-    _caption(ctx, slide, s["models"][:1], 7.35, H - 0.5, 5.2, align=PP_ALIGN.CENTER)
+    if has:
+        _caption(ctx, slide, s["models"][:1], 7.35, H - 0.5, 5.2, align=PP_ALIGN.CENTER)
     _number(ctx, slide, i)
     return [(badge, "zoom", 150), (mark, "fade", 200), (question, "fade", 300), (panel, "fade", 550),
             (answer, "float", 650)]
@@ -867,7 +1048,8 @@ LAYOUT_FN = {"muqova": _muqova, "chap": lambda c, sl, s, i: _side(c, sl, s, i, T
              "ong": lambda c, sl, s, i: _side(c, sl, s, i, False), "qahramon": _qahramon,
              "raqamlar": _raqamlar, "uchlik": _uchlik, "yakun": _yakun, "matn": _matn,
              "xronologiya": _xronologiya, "taqqoslash": _taqqoslash, "kartalar": _kartalar,
-             "bosqichlar": _bosqichlar, "fikr": _fikr, "savol": _savol, "jadval": _jadval}
+             "bosqichlar": _bosqichlar, "fikr": _fikr, "savol": _savol, "jadval": _jadval,
+             "diagramma": _diagramma, "rasm": _rasm}
 
 
 def build(plan: dict, out_path: str) -> str:

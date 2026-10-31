@@ -96,7 +96,7 @@ def _base_price_of(data: dict, slide_count: int) -> int:
     if data.get("kind") == KIND_KAT3D:      # 3D taqdimot (katalog) — 3D Anatomiya bilan bir narx
         import services.kat3d as kat3d
 
-        return kat3d.price_for(slide_count)
+        return kat3d.price_for(slide_count, data.get("kat3d_mode") or "full")
     return _get_price(slide_count)
 
 
@@ -363,6 +363,10 @@ def _previous_step(data: dict):
         return "script"
     if step == "topic" and data.get("standalone_med3d") and _kind_of(data) in (KIND_MED3D, KIND_KAT3D):
         return None                               # 3D bo'limi mavzudan boshlanadi
+    if step == "k3pick":
+        return "count"
+    if step == "summary" and _kind_of(data) == KIND_KAT3D and data.get("kat3d_mode") == "mix":
+        return "k3pick"
     if step == "count":
         kind = _kind_of(data)
         if kind == KIND_KAT3D:
@@ -739,6 +743,207 @@ THREE_D_NONE = {
 }
 
 
+K3_PARTIAL = {
+    "uz": ("🧩 <b>Bu mavzu 3D ga qisman mos.</b>\nMavzuni ko'rsatishga yaraydigan {n} ta 3D model topildi "
+           "(ramziy modellar ham):\n{lines}\n\n<b>Qanday taqdimot yasaylik?</b>\n"
+           "🧊 <b>To'liq 3D</b> — har slaydda 3D, modellarni AI mavzu va istaklaringizga qarab o'zi tanlaydi.\n"
+           "🧩 <b>Aralash 3D</b> — 3D modellarni o'zingiz tanlaysiz, qolgan slaydlarga diagramma va rasmlar. "
+           "<b>40% arzon.</b>\n🖼 <b>3D'siz</b> — oddiy taqdimot: infografik yoki zamonaviy."),
+    "ru": ("🧩 <b>Тема подходит для 3D частично.</b>\nНайдено {n} 3D-моделей, которыми можно показать тему "
+           "(в том числе символические):\n{lines}\n\n<b>Какую презентацию сделать?</b>\n"
+           "🧊 <b>Полностью 3D</b> — 3D на каждом слайде, модели ИИ подберёт сам по теме и вашим пожеланиям.\n"
+           "🧩 <b>Смешанная 3D</b> — вы сами выбираете 3D-модели, на остальных слайдах диаграммы и фото. "
+           "<b>На 40% дешевле.</b>\n🖼 <b>Без 3D</b> — обычная презентация: инфографика или современная."),
+    "en": ("🧩 <b>This topic fits 3D partly.</b>\nFound {n} 3D models that can show the topic (symbolic ones "
+           "too):\n{lines}\n\n<b>Which deck shall we make?</b>\n"
+           "🧊 <b>Full 3D</b> — 3D on every slide; AI picks the models by the topic and your wishes.\n"
+           "🧩 <b>Mixed 3D</b> — you pick the 3D models; the other slides get charts and photos. "
+           "<b>40% cheaper.</b>\n🖼 <b>No 3D</b> — a regular deck: infographic or modern."),
+    "kk": ("🧩 <b>Бұл тақырып 3D-ге ішінара сай.</b>\nТақырыпты көрсетуге жарайтын {n} 3D модель табылды "
+           "(символдық модельдер де):\n{lines}\n\n<b>Қандай презентация жасайық?</b>\n"
+           "🧊 <b>Толық 3D</b> — әр слайдта 3D, модельдерді ЖИ өзі таңдайды.\n"
+           "🧩 <b>Аралас 3D</b> — 3D модельдерді өзіңіз таңдайсыз, қалған слайдтарда диаграмма мен суреттер. "
+           "<b>40% арзан.</b>\n🖼 <b>3D-сіз</b> — қарапайым презентация: инфографика немесе заманауи."),
+}
+K3_MODE_BUTTONS = {
+    "uz": ("🧊 To'liq 3D", "🧩 Aralash 3D (−40%)", "🖼 3D'siz oddiy taqdimot"),
+    "ru": ("🧊 Полностью 3D", "🧩 Смешанная 3D (−40%)", "🖼 Обычная без 3D"),
+    "en": ("🧊 Full 3D", "🧩 Mixed 3D (−40%)", "🖼 Regular, no 3D"),
+    "kk": ("🧊 Толық 3D", "🧩 Аралас 3D (−40%)", "🖼 3D-сіз қарапайым"),
+}
+K3_PLAIN_ASK = {"uz": "🖼 <b>Qaysi turdagi taqdimot kerak?</b>", "ru": "🖼 <b>Какой тип презентации нужен?</b>",
+                "en": "🖼 <b>Which kind of presentation?</b>", "kk": "🖼 <b>Қандай презентация керек?</b>"}
+K3_PICK = {
+    "uz": ("🧩 <b>Aralash 3D: modellarni tanlang</b>\nRasmdagi 3D modellardan ko'pi bilan <b>{limit} ta</b> tanlang "
+           "({count} slayd). Tanlanganlari mos slaydlarga qo'yiladi, qolgan slaydlarga diagramma va rasmlar.\n\n"
+           "Tanlandi: <b>{k}/{limit}</b>"),
+    "ru": ("🧩 <b>Смешанная 3D: выберите модели</b>\nВыберите до <b>{limit}</b> 3D-моделей с картинки "
+           "({count} слайдов). Они встанут на подходящие слайды, на остальных — диаграммы и фото.\n\n"
+           "Выбрано: <b>{k}/{limit}</b>"),
+    "en": ("🧩 <b>Mixed 3D: pick the models</b>\nPick up to <b>{limit}</b> 3D models from the picture "
+           "({count} slides). They go on the slides they fit; the rest get charts and photos.\n\n"
+           "Selected: <b>{k}/{limit}</b>"),
+    "kk": ("🧩 <b>Аралас 3D: модельдерді таңдаңыз</b>\nСуреттегі 3D модельдерден ең көбі <b>{limit}</b> таңдаңыз "
+           "({count} слайд). Олар сай слайдтарға қойылады, қалғандарында диаграмма мен суреттер.\n\n"
+           "Таңдалды: <b>{k}/{limit}</b>"),
+}
+K3_PICK_DONE = {"uz": "✅ Tayyor", "ru": "✅ Готово", "en": "✅ Done", "kk": "✅ Дайын"}
+K3_PICK_MAX = {"uz": "Ko'pi bilan {limit} ta tanlash mumkin — slaydlar soniga teng.",
+               "ru": "Можно выбрать не больше {limit} — по числу слайдов.",
+               "en": "You can pick at most {limit} — the number of slides.",
+               "kk": "Ең көбі {limit} таңдауға болады — слайдтар санына тең."}
+K3_PICK_MIN = {"uz": "Kamida bitta 3D model tanlang.", "ru": "Выберите хотя бы одну 3D-модель.",
+               "en": "Pick at least one 3D model.", "kk": "Кемінде бір 3D модель таңдаңыз."}
+K3_MIX_SUMMARY = {"uz": "🧩 Aralash 3D: qolgan slaydlarda diagramma va rasmlar (−40%)",
+                  "ru": "🧩 Смешанная 3D: на остальных слайдах диаграммы и фото (−40%)",
+                  "en": "🧩 Mixed 3D: charts and photos on the other slides (−40%)",
+                  "kk": "🧩 Аралас 3D: қалған слайдтарда диаграмма мен суреттер (−40%)"}
+
+
+def _k3_name(mid: str, lang: str) -> str:
+    from services import katalog3d
+
+    m = katalog3d.katalog().get(mid) or {}
+    return m.get("nom_uz", mid) if lang in ("uz", "kk") else m.get("nom", mid)
+
+
+def _k3_partial_text(choices, lang: str) -> str:
+    names = [_k3_name(i, lang) for i in choices[:8]]
+    lines = "\n".join(f"• {html.escape(n)}" for n in names)
+    more = f"\n• … +{len(choices) - 8}" if len(choices) > 8 else ""
+    return (K3_PARTIAL.get(lang) or K3_PARTIAL["uz"]).format(n=len(choices), lines=lines + more)
+
+
+def _k3_mode_keyboard(lang: str) -> InlineKeyboardMarkup:
+    full, mix, plain = K3_MODE_BUTTONS.get(lang) or K3_MODE_BUTTONS["uz"]
+    return _markup([[InlineKeyboardButton(text=full, callback_data="prem_k3m:full")],
+                    [InlineKeyboardButton(text=mix, callback_data="prem_k3m:mix")],
+                    [InlineKeyboardButton(text=plain, callback_data="prem_k3m:plain")]])
+
+
+def _k3_plain_keyboard(lang: str) -> InlineKeyboardMarkup:
+    """3D'siz: faqat infografik va zamonaviy taqdimot (mavzu saqlanadi)."""
+    rows = [[InlineKeyboardButton(text=_KIND_BUTTONS[k].get(lang) or _KIND_BUTTONS[k]["uz"],
+                                  callback_data=f"prem_m3d_alt:kind:{k}")] for k in (KIND_INFO, KIND_MODERN)]
+    return _markup(rows + [_back_row(lang, "prem_k3m:back")])
+
+
+@router.callback_query(F.data.startswith("prem_k3m:"))
+async def premium_kat3d_mode(callback: CallbackQuery, state: FSMContext, db: Database):
+    """Qisman mos mavzu: to'liq 3D (modellarni AI tanlaydi) / aralash 3D (40% arzon, mijoz tanlaydi) / 3D'siz."""
+    await callback.answer()
+    lang = await _lang_of(callback.from_user.id, db)
+    data = await state.get_data()
+    choice = callback.data.split(":", 1)[1]
+    choices = list(data.get("kat3d_choices") or [])
+    if not choices or not data.get("topic"):
+        return
+    if choice == "plain":
+        with contextlib.suppress(Exception):
+            await callback.message.edit_text(K3_PLAIN_ASK.get(lang) or K3_PLAIN_ASK["uz"], parse_mode="HTML",
+                                             reply_markup=_k3_plain_keyboard(lang))
+        return
+    if choice == "back":
+        with contextlib.suppress(Exception):
+            await callback.message.edit_text(_k3_partial_text(choices, lang), parse_mode="HTML",
+                                             reply_markup=_k3_mode_keyboard(lang))
+        return
+    if choice not in ("full", "mix"):
+        return
+    ids = list(data.get("kat3d_auto") or choices) if choice == "full" else []
+    await state.update_data(kind=KIND_KAT3D, kat3d_mode=choice, kat3d_ids=ids)
+    with contextlib.suppress(Exception):
+        await callback.message.edit_reply_markup(reply_markup=None)
+    with contextlib.suppress(Exception):              # serverda yo'qlari fonda yuklana boshlaydi
+        from services.kat3d import yukla
+
+        yukla.oldindan(ids or choices)
+    await _step_med3d_promocode(callback.message, state, lang)
+
+
+def _k3_pick_view(data: dict, lang: str):
+    choices = list(data.get("kat3d_choices") or [])
+    picked = [m for m in (data.get("kat3d_ids") or []) if m in choices]
+    count = int(data.get("slide_count") or 10)
+    limit = max(1, min(count, len(choices)))
+    text = (K3_PICK.get(lang) or K3_PICK["uz"]).format(limit=limit, count=count, k=len(picked))
+    rows, row = [], []
+    for k, mid in enumerate(choices[:20]):          # 2 ustun × 10 qator
+        name = _k3_name(mid, lang)
+        name = name if len(name) <= 22 else name[:21] + "…"
+        row.append(InlineKeyboardButton(text=f"{'✅' if mid in picked else '▫️'} {k + 1}. {name}",
+                                        callback_data=f"prem_k3p:{k}"))
+        if len(row) == 2:
+            rows.append(row)
+            row = []
+    if row:
+        rows.append(row)
+    done = K3_PICK_DONE.get(lang) or K3_PICK_DONE["uz"]
+    rows.append([InlineKeyboardButton(text=f"{done} ({len(picked)}/{limit})", callback_data="prem_k3p:done")])
+    rows.append(_back_row(lang))
+    return text, _markup(rows), picked, limit
+
+
+async def _step_kat3d_pick(message: Message, state: FSMContext, lang: str) -> None:
+    """Aralash 3D: mos modellar raqamlangan rasmda va 2 ustunli tugmalarda; slaydlar sonigacha tanlanadi."""
+    from services.kat3d import qidiruv
+
+    data = await state.get_data()
+    _, _, picked, limit = _k3_pick_view(data, lang)
+    if len(picked) > limit:                         # slaydlar soni kamaytirilgan bo'lsa
+        await state.update_data(kat3d_ids=picked[:limit])
+        data = await state.get_data()
+    old = data.get("kat3d_pick_photo")
+    if old:
+        with contextlib.suppress(Exception):
+            await message.bot.delete_message(message.chat.id, old)
+    with contextlib.suppress(Exception):
+        from aiogram.types import BufferedInputFile
+
+        loop = asyncio.get_running_loop()
+        picture = await loop.run_in_executor(None, lambda: qidiruv.collage(data.get("kat3d_choices") or [], lang,
+                                                                           20, True))
+        if picture:
+            sent = await message.answer_photo(BufferedInputFile(picture, filename="3d.jpg"))
+            await state.update_data(kat3d_pick_photo=sent.message_id)
+    text, markup, _, _ = _k3_pick_view(await state.get_data(), lang)
+    await _prompt(message, state, _topic_line(data, lang) + text, markup, "k3pick",
+                  PremiumPresentationStates.waiting_for_kat3d_pick)
+
+
+@router.callback_query(F.data.startswith("prem_k3p:"), PremiumPresentationStates.waiting_for_kat3d_pick)
+async def premium_kat3d_pick(callback: CallbackQuery, state: FSMContext, db: Database):
+    lang = await _lang_of(callback.from_user.id, db)
+    data = await state.get_data()
+    value = callback.data.split(":", 1)[1]
+    _, _, picked, limit = _k3_pick_view(data, lang)
+    if value == "done":
+        if not picked:
+            await callback.answer(K3_PICK_MIN.get(lang) or K3_PICK_MIN["uz"], show_alert=True)
+            return
+        await callback.answer()
+        await _after_photos(callback.message, state, lang)
+        return
+    choices = list(data.get("kat3d_choices") or [])
+    try:
+        mid = choices[int(value)]
+    except (ValueError, IndexError):
+        await callback.answer()
+        return
+    if mid in picked:
+        picked.remove(mid)
+    elif len(picked) >= limit:
+        await callback.answer((K3_PICK_MAX.get(lang) or K3_PICK_MAX["uz"]).format(limit=limit), show_alert=True)
+        return
+    else:
+        picked.append(mid)
+    await callback.answer()
+    await state.update_data(kat3d_ids=picked)
+    text, markup, _, _ = _k3_pick_view(await state.get_data(), lang)
+    with contextlib.suppress(Exception):
+        await callback.message.edit_text(_topic_line(data, lang) + text, parse_mode="HTML", reply_markup=markup)
+
+
 async def _three_d_topic_gate(message: Message, state: FSMContext, lang: str) -> bool:
     """3D bo'limi: mavzu yozilishi bilan (to'lovdan oldin) — tana tuzilishimi (3D Anatomiya) yoki katalogda
     mos 3D modellar bormi (3D taqdimot). Topilgan modellar mijozga ko'rsatiladi va buyurtmada saqlanadi —
@@ -773,11 +978,25 @@ async def _three_d_topic_gate(message: Message, state: FSMContext, lang: str) ->
         with contextlib.suppress(Exception):
             await note.edit_text(text)
         return True
-    if kat.get("ok") and kat.get("ids"):
+    level = kat.get("level") or ("full" if kat.get("ok") else "none")
+    if level == "partial" and kat.get("choices"):
+        await state.update_data(kind=KIND_KAT3D, kat3d_mode="", kat3d_ids=[], kat3d_auto=list(kat.get("ids") or []),
+                                kat3d_choices=list(kat["choices"]), m3d_style="", m3d_topic_kind=None)
+        with contextlib.suppress(Exception):
+            await note.edit_text(_k3_partial_text(kat["choices"], lang), parse_mode="HTML",
+                                 reply_markup=_k3_mode_keyboard(lang))
+        with contextlib.suppress(Exception):
+            from aiogram.types import BufferedInputFile
+
+            picture = await loop.run_in_executor(None, qidiruv.collage, kat["choices"], lang)
+            if picture:
+                await message.answer_photo(BufferedInputFile(picture, filename="3d.jpg"))
+        return False                                  # mijoz tanlaydi: to'liq 3D / aralash / 3D'siz
+    if level == "full" and kat.get("ids"):
         from services import katalog3d
 
         ids = list(kat["ids"])
-        await state.update_data(kind=KIND_KAT3D, kat3d_ids=ids, m3d_style="", m3d_topic_kind=None)
+        await state.update_data(kind=KIND_KAT3D, kat3d_ids=ids, kat3d_mode="full", m3d_style="", m3d_topic_kind=None)
         with contextlib.suppress(Exception):          # serverda yo'qlari fonda yuklana boshlaydi — to'lovgacha tayyor
             from services.kat3d import yukla
 
@@ -1345,7 +1564,7 @@ async def premium_ppt_style_selected(callback: CallbackQuery, state: FSMContext,
 
 # ── 6. Hajm — narxlar tanlangan uslubga qarab ko'rsatiladi
 
-def _count_options(style: str, kind: str = ""):
+def _count_options(style: str, kind: str = "", mode: str = ""):
     """[(slaydlar soni, narx)] — orqa fonlarda faqat 10/15/20, 3D Pro da 20 tagacha."""
     if style == SIMPLE_STYLE:
         from config import PRESENTATION_PRICES
@@ -1361,16 +1580,16 @@ def _count_options(style: str, kind: str = ""):
     if kind == KIND_KAT3D:
         import services.kat3d as kat3d
 
-        return [(n, kat3d.price_for(n)) for n in kat3d.SLIDE_OPTIONS]
+        return [(n, kat3d.price_for(n, mode or "full")) for n in kat3d.SLIDE_OPTIONS]
     return [(n, _get_price(n)) for n in (5, 8, 10, 12, 15, 20, 25, 30)]
 
 
-def _count_keyboard(lang: str, style: str = "", kind: str = "") -> InlineKeyboardMarkup:
+def _count_keyboard(lang: str, style: str = "", kind: str = "", mode: str = "") -> InlineKeyboardMarkup:
     word = {"uz": "ta slayd", "ru": "слайдов", "en": "slides"}.get(lang, "ta slayd")
     som = {"uz": "so'm", "ru": "сум", "en": "soʻm"}.get(lang, "so'm")
     prefix = "ppt_fon" if style == SIMPLE_STYLE else "prem_ppt_count"
     builder = InlineKeyboardBuilder()
-    for count, price in _count_options(style, kind):
+    for count, price in _count_options(style, kind, mode):
         builder.button(text=f"{count} {word} | {price:,} {som}",
                        callback_data=f"{prefix}:{count}")
     builder.adjust(2 if style != SIMPLE_STYLE else 1)
@@ -1395,7 +1614,7 @@ async def _step_count(message: Message, state: FSMContext, lang: str, db: Databa
              _t(lang, "count_balance", balance=f"{balance:,}"), "",
              _t(lang, "count_hint_fon" if style == SIMPLE_STYLE else "count_hint")]
     await _prompt(message, state, _topic_line(data, lang) + "\n".join(lines),
-                  _count_keyboard(lang, style, kind), "count",
+                  _count_keyboard(lang, style, kind, data.get("kat3d_mode") or ""), "count",
                   PremiumPresentationStates.waiting_for_count)
 
 
@@ -1410,8 +1629,13 @@ async def premium_ppt_got_count(callback: CallbackQuery, state: FSMContext, db: 
 
 
 async def _after_count(message: Message, state: FSMContext, lang: str) -> None:
-    """Slaydlar sonidan keyin: rasm manbasi (zamonaviy, infografika), so'ng yozuv animatsiyasi, so'ng xulosa."""
-    if _photo_source(await state.get_data()) is not None:
+    """Slaydlar sonidan keyin: rasm manbasi (zamonaviy, infografika), so'ng yozuv animatsiyasi, so'ng xulosa.
+    Aralash 3D taqdimotda — avval mijoz 3D modellarni tanlaydi."""
+    data = await state.get_data()
+    if _kind_of(data) == KIND_KAT3D and data.get("kat3d_mode") == "mix":
+        await _step_kat3d_pick(message, state, lang)
+        return
+    if _photo_source(data) is not None:
         await _step_photos(message, state, lang)
     else:
         await _after_photos(message, state, lang)
@@ -1820,7 +2044,7 @@ async def premium_med3d_alternative(callback: CallbackQuery, state: FSMContext, 
         with contextlib.suppress(Exception):
             await callback.message.edit_reply_markup(reply_markup=None)
         await state.update_data(m3d_style="", m3d_topic_kind=None, prompt_mid=None, payment_method=None,
-                                client_name="", preferences="", kat3d_ids=[], standalone_med3d=False)
+                                client_name="", preferences="", kat3d_ids=[], kat3d_mode="", standalone_med3d=False)
         await _set_kind(state, kind)
         await _step_name(callback.message, state, lang)
         return
@@ -1839,16 +2063,20 @@ async def premium_med3d_alternative(callback: CallbackQuery, state: FSMContext, 
 _KAT3D_STAGES = {
     "uz": {"download": "3D modellar tayyorlanmoqda...",
            "plan": "AI slaydlar rejasini yozmoqda va faktlarni tekshirmoqda...",
-           "models": "3D modellar joylanmoqda, Morph harakatlari tayyorlanmoqda..."},
+           "models": "3D modellar joylanmoqda, Morph harakatlari tayyorlanmoqda...",
+           "photos": "Rasmlar va diagrammalar tayyorlanmoqda..."},
     "ru": {"download": "Готовим 3D-модели...",
            "plan": "ИИ пишет план слайдов и проверяет факты...",
-           "models": "Размещаем 3D-модели и готовим Morph-движения..."},
+           "models": "Размещаем 3D-модели и готовим Morph-движения...",
+           "photos": "Готовим фотографии и диаграммы..."},
     "en": {"download": "Preparing the 3D models...",
            "plan": "AI is writing the slide plan and checking the facts...",
-           "models": "Placing the 3D models and preparing the Morph moves..."},
+           "models": "Placing the 3D models and preparing the Morph moves...",
+           "photos": "Preparing the photos and charts..."},
     "kk": {"download": "3D модельдер дайындалуда...",
            "plan": "ЖИ слайдтар жоспарын жазып, фактілерді тексеруде...",
-           "models": "3D модельдер орналастырылып, Morph қозғалыстары дайындалуда..."},
+           "models": "3D модельдер орналастырылып, Morph қозғалыстары дайындалуда...",
+           "photos": "Суреттер мен диаграммалар дайындалуда..."},
 }
 
 # 3D Anatomiya bosqichlari holat xabarida.
@@ -1954,6 +2182,8 @@ def _summary(data: dict, lang: str):
     if kind == KIND_KAT3D:
         models_l = {"uz": "3D modellar", "ru": "3D-модели", "en": "3D models", "kk": "3D модельдер"}.get(lang, "3D modellar")
         lines.append(f"🧊 {models_l}: <b>{len(data.get('kat3d_ids') or [])}</b>")
+        if data.get("kat3d_mode") == "mix":
+            lines.append(K3_MIX_SUMMARY.get(lang) or K3_MIX_SUMMARY["uz"])
         lines.append(f"<i>{esc(med3d_note(lang), 400)}</i>")
     color = _color(data)
     if color is not None:
@@ -2062,6 +2292,7 @@ async def premium_ppt_previous(callback: CallbackQuery, state: FSMContext, db: D
     steps = {"topic": _step_topic, "script": _step_script, "name": _step_name, "prefs": _step_prefs,
              "source": _step_source, "count": _step_count, "style": _step_style,
              "volume": _step_volume, "kind": _step_kind, "photos": _step_photos, "anim": _step_anim,
+             "k3pick": _step_kat3d_pick,
              "m3dstyle": _step_m3d_style}
     if previous == "count":
         await _step_count(callback.message, state, lang, db)
@@ -2591,7 +2822,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
 
             final_path, ready_slides = await kat3d.build_deck(
                 topic, slide_count, list(data.get("kat3d_ids") or []), language=build_language, level=level,
-                preferences=preferences, stage_cb=on_kat_stage)
+                preferences=preferences, stage_cb=on_kat_stage, mode=data.get("kat3d_mode") or "full")
             await to_new_alphabet(final_path)
             html_pages = [None] * ready_slides
         elif _kind_of(data) == KIND_MED3D:
