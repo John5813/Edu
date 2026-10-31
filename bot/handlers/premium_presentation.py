@@ -1527,19 +1527,19 @@ async def _after_count(message: Message, state: FSMContext, lang: str) -> None:
 
 _PHOTO_STEP = {
     "uz": ("🖼 <b>Taqdimotdagi rasmlar qayerdan olinsin?</b>",
-           {"web": "internetdagi haqiqiy fotosuratlar (topilmagan joyda rasm o'rniga matn)",
+           {"web": "internetdagi haqiqiy fotosuratlar (topilmagan joyga AI chizadi — rasmsiz slayd qolmaydi)",
             "ai": "rasmlarni sun'iy intellekt chizadi — har slaydga mos",
             "mix": "avval internetdan, topilmaganini AI chizadi (tavsiya)"}),
     "ru": ("🖼 <b>Откуда брать изображения?</b>",
-           {"web": "настоящие фото из интернета (где не найдено — текст)",
+           {"web": "настоящие фото из интернета (где не найдено — рисует ИИ, слайдов без картинки не будет)",
             "ai": "изображения рисует ИИ — под каждый слайд",
             "mix": "сначала из интернета, недостающие рисует ИИ (рекомендуем)"}),
     "en": ("🖼 <b>Where should the images come from?</b>",
-           {"web": "real photos from the web (text where none is found)",
+           {"web": "real photos from the web (AI draws where none is found — no slide is left without a picture)",
             "ai": "AI draws the images to fit each slide",
             "mix": "web first, AI draws the rest (recommended)"}),
     "kk": ("🖼 <b>Суреттер қайдан алынсын?</b>",
-           {"web": "интернеттегі нақты фотолар (табылмаса — мәтін)",
+           {"web": "интернеттегі нақты фотолар (табылмаса — ЖИ салады, суретсіз слайд қалмайды)",
             "ai": "суреттерді ЖИ салады — әр слайдқа сай",
             "mix": "алдымен интернеттен, қалғанын ЖИ салады (ұсынамыз)"}),
 }

@@ -195,7 +195,10 @@ async def main():
     # ── To'lov → fonda qismma-qism tarjima → bitta DOCX
     from services import book_jobs
     import database.database as dbm
+    import tempfile as _tempfile
     from docx import Document as Docx
+    # Ishlar alohida papkada: boshqa testlar umumiy temp/ ni tozalasa ham bu sinov buzilmasin.
+    book_jobs.JOB_ROOT = _tempfile.mkdtemp(prefix="kitob_jobs_")
     async def fake_texts(texts, source, target, progress=None, translator=None):
         return [f"Tarjima {i}: oʻzbekcha matn" for i, _ in enumerate(texts)]
     bpt_real = bpt.translate_texts

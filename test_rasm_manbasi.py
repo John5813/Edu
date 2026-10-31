@@ -1,9 +1,9 @@
 """Rasm manbasi — mijoz tanlovi: internetdan / AI chizadi / aralash.
 
-- "web": faqat internet qidiruvi, AI chizmaydi (topilmagan joyda matn qoladi);
+- "web": avval internet qidiruvi; topilmagan joyni AI chizadi (rasm bloki bo'sh qolmaydi — mijozga shunday aytiladi);
 - "ai": internetga qaralmaydi, hammasini AI chizadi;
 - "mix" (sukut): avval internet, topilmaganini AI chizadi;
-- xulosa ekranida uchta tugma, tanlangani ✓; 3D Pro'da tanlov yo'q;
+- rasm manbasi alohida qadamda tanlanadi (uchta tugma), xulosada yoziladi; 3D Pro'da tanlov yo'q;
 - rang: «🎨 Rang» tugmasi ranglar ro'yxatini ochadi (faqat to'q ranglar va «Avto»).
 
     python test_rasm_manbasi.py
@@ -49,8 +49,8 @@ def run(source, found):
 
 print("1) Slayd rasmlari")
 placed, calls = run("web", ["/web1.jpg", None])
-check("internetdan: qidiriladi, AI chizmaydi, topilmagani bo'sh", calls["find"] == 1 and not calls["drawn"]
-      and placed == 1, (placed, calls))
+check("internetdan: qidiriladi, topilmaganini AI chizadi (bo'sh qolmaydi)", calls["find"] == 1
+      and len(calls["drawn"]) == 1 and placed == 2, (placed, calls))
 placed, calls = run("ai", ["/web1.jpg", "/web2.jpg"])
 check("AI: internetga qaralmaydi, ikkalasini chizadi", calls["find"] == 0 and len(calls["drawn"]) == 2
       and placed == 2, (placed, calls))
@@ -73,23 +73,40 @@ async def cover(source, found):
         _, done = await html_images.fill_cover([COVER], "Mavzu", generate=generate, find=find, source=source)
     return done, calls
 done, calls = asyncio.run(cover("web", None))
-check("internetdan: muqova topilmasa AI chizmaydi", not done and calls["find"] == 1 and "drawn" not in calls, calls)
+check("internetdan: muqova topilmasa AI chizadi", done and calls["find"] == 1 and calls.get("drawn"), calls)
 done, calls = asyncio.run(cover("ai", "/web.jpg"))
 check("AI: muqova internetdan qidirilmaydi, chiziladi", done and calls["find"] == 0 and calls.get("drawn"), calls)
 done, calls = asyncio.run(cover("mix", None))
 check("aralash: muqova topilmasa AI chizadi", done and calls["find"] == 1 and calls.get("drawn"), calls)
 
-print("\n3) Bot: xulosa ekrani")
+print("\n3) Bot: rasm manbasi qadami va xulosa")
 from bot.handlers import premium_presentation as h
 data = {"topic": "Plombalar", "slide_count": 10, "presentation_language": "ru"}
+
+
+async def photo_step():
+    shown = {}
+
+    async def prompt(message, state, text, markup, key, new_state):
+        shown.update(text=text, markup=markup)
+    with patch.object(h, "_prompt", prompt):
+        from aiogram.fsm.context import FSMContext
+        from aiogram.fsm.storage.base import StorageKey
+        from aiogram.fsm.storage.memory import MemoryStorage
+        state = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=4, user_id=4))
+        await state.update_data(**data)
+        await h._step_photos(SimpleNamespace(), state, "uz")
+    return shown
+shown = asyncio.run(photo_step())
+buttons = [b for row in shown["markup"].inline_keyboard for b in row if b.callback_data.startswith("prem_ppt_img:")]
+check("alohida qadamda uchta tugma (aralash birinchi — tavsiya)", [b.callback_data for b in buttons] ==
+      ["prem_ppt_img:mix", "prem_ppt_img:web", "prem_ppt_img:ai"], buttons)
+check("internet rejimida AI to'ldirishi mijozga aytilgan (va'da xatti-harakatga mos)",
+      "AI chizadi" in shown["text"] and "o'rniga matn" not in shown["text"], shown["text"])
 text, markup = h._summary(data, "uz")
-buttons = [b for row in markup.inline_keyboard for b in row if b.callback_data.startswith("prem_ppt_img:")]
-check("uchta tugma, sukut — aralash ✓", [b.callback_data for b in buttons] == ["prem_ppt_img:web", "prem_ppt_img:ai",
-      "prem_ppt_img:mix"] and buttons[2].text.startswith("✓") and not buttons[0].text.startswith("✓"), buttons)
 check("xulosada rasm manbasi yozilgan", "🖼 Rasmlar" in text and "avval internetdan" in text, text)
 text, markup = h._summary({**data, "photo_source": "web"}, "uz")
-buttons = [b for row in markup.inline_keyboard for b in row if b.callback_data.startswith("prem_ppt_img:")]
-check("internet tanlangan ✓", buttons[0].text.startswith("✓") and "haqiqiy fotosuratlar" in text)
+check("internet tanlangani xulosada", "haqiqiy fotosuratlar" in text, text)
 pro = {**data, "kind": h.KIND_PRO3D}
 text, markup = h._summary(pro, "uz")
 check("3D Pro'da tanlov yo'q", h._photo_source(pro) is None and "prem_ppt_img:" not in str(markup)
@@ -102,17 +119,22 @@ async def tap(value):
     from aiogram.fsm.storage.memory import MemoryStorage
     state = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=5, user_id=5))
     await state.update_data(**data)
-    edit = AsyncMock()
+    shown = []
+
+    async def prompt(message, state, text, markup, key, new_state=None, photo=""):
+        shown.append(key)
     cb = SimpleNamespace(data=f"prem_ppt_img:{value}", answer=AsyncMock(), from_user=SimpleNamespace(id=5),
-                         message=SimpleNamespace(edit_text=edit))
-    with patch.object(h, "_lang_of", AsyncMock(return_value="uz")):
+                         message=SimpleNamespace())
+    with patch.object(h, "_lang_of", AsyncMock(return_value="uz")), patch.object(h, "_prompt", prompt), \
+            patch.object(h, "_anim_offer", AsyncMock(return_value=False)):
         await h.premium_ppt_photo_source(cb, state, None)
     stored.update(await state.get_data())
-    return edit
-edit = asyncio.run(tap("ai"))
-check("tugma bosilsa tanlov saqlanadi va xulosa yangilanadi", stored.get("photo_source") == "ai" and edit.await_count == 1)
-edit = asyncio.run(tap("xyz"))
-check("noto'g'ri qiymat e'tiborsiz", edit.await_count == 0)
+    return shown
+shown = asyncio.run(tap("ai"))
+check("tugma bosilsa tanlov saqlanadi va keyingi qadam (xulosa) ko'rsatiladi", stored.get("photo_source") == "ai"
+      and shown == ["summary"], (stored.get("photo_source"), shown))
+shown = asyncio.run(tap("xyz"))
+check("noto'g'ri qiymat e'tiborsiz", shown == [], shown)
 
 print("\n4) Rang tanlash")
 info = {**data, "kind": h.KIND_INFO}
@@ -161,12 +183,16 @@ formula = photo.replace('class="photo"', 'class="photo fit"').replace("QQ", "Rg"
 text = '<div class="body"><p class="lead">Matn</p><div class="list"></div></div>'
 icon = '<div class="body"><img class="ikon" src="data:image/png;base64,SQ"></div>'
 pages = [pg(""), pg(photo), pg(text), pg(text), pg(text, dark=True), pg(icon), pg(text), pg(text), pg(text)]
-out = html_images.add_backdrops(pages)
+check("sukut: xira fon o'chirilgan — taqdimotdagi rasm boshqa varaqda takrorlanmaydi",
+      html_images.add_backdrops(pages) == pages)
+with patch.object(html_images, "BACKDROP_LIMIT", 3):     # yoqilsa — qoidalar avvalgidek
+    out = html_images.add_backdrops(pages)
+    only_formula = html_images.add_backdrops([pg(""), pg(formula), pg(text), pg(text), pg(text)])
 marked = [i for i, p in enumerate(out) if 'class="backdrop"' in p]
-check("rasmsiz och matnli varaqlarning bir qismiga xira fon", marked and all(i in (2, 3, 6, 7, 8) for i in marked), marked)
-check("to'q, ikonkali va rasmli varaqqa qo'yilmaydi", not any(i in marked for i in (0, 1, 4, 5)), marked)
-check("CSS ichidagi «photo-in» so'zi varaqni rad etmaydi", bool(marked))
-only_formula = html_images.add_backdrops([pg(""), pg(formula), pg(text), pg(text), pg(text)])
+check("(yoqilsa) rasmsiz och matnli varaqlarning bir qismiga xira fon", marked and all(i in (2, 3, 6, 7, 8) for i in marked),
+      marked)
+check("(yoqilsa) to'q, ikonkali va rasmli varaqqa qo'yilmaydi", not any(i in marked for i in (0, 1, 4, 5)), marked)
+check("(yoqilsa) CSS ichidagi «photo-in» so'zi varaqni rad etmaydi", bool(marked))
 check("formulali rasm fon bo'lmaydi", not any('class="backdrop"' in p for p in only_formula))
 from services.premium_presentation import deck_style, html_render
 css = deck_style.stylesheet(themes.get("ko'k"))

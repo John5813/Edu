@@ -299,6 +299,8 @@ class Refusing:
                                "flagged and rejected by Black Forest Labs's content moderation system.', "
                                "'code': 'content_policy_violation'}")
 svc.client = Refusing
+svc.image_semaphore = asyncio.Semaphore(2)          # __init__ chaqirilmagan: xizmat holati qo'lda
+svc._cooldown_until = 0.0
 import time as _time
 t0 = _time.monotonic()
 result = asyncio.run(svc._call_model("a skull", "black-forest-labs/FLUX.2-pro"))

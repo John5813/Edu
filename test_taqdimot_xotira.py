@@ -83,7 +83,10 @@ check("2-bo'lak: 1-3 slaydlar tarixda (foydalanuvchi → assistent)",
       [m["role"] for m in second] == ["user", "assistant"] and "FAKT-3" in second[1]["content"]
       and "Hozir 1-slayddan boshlab 3 ta slayd kerak." == second[0]["content"], second)
 told = "\n".join(m["content"] for m in fourth)
-check("4-bo'lak: 1-9 slaydlarning hammasi tarixda", all(f"FAKT-{n}:" in told for n in range(1, 10)), told[:300])
+# 1-slayd — muqova: model muqova yozmasa kod uni o'zi yig'adi, tarixda esa taqdimotdagi YAKUNIY muqova turadi.
+COVER_TITLE = "Mustaqillik g'oyalarining tarixiy asoslari"
+check("4-bo'lak: 1-9 slaydlarning hammasi tarixda (1-slayd — yakuniy muqova)",
+      COVER_TITLE in told and all(f"FAKT-{n}:" in told for n in range(2, 10)), told[:300])
 check("tarixda 10-12 slaydlar yo'q (hali yozilmagan)", "FAKT-10:" not in told)
 check("so'rovda «davomi qilib yozing» yo'riqnomasi (tarix bo'lsa)",
       prompts.get("uz").USER["memory"] in chunks[1]["user"] and prompts.get("uz").USER["memory"] not in chunks[0]["user"])
@@ -92,7 +95,8 @@ print("2) Qayta yozish butun taqdimotni ko'radi va tarixni yangilaydi")
 longs = [c for c in CALLS if "JUDA UZUN" in c["user"]]
 check("uzun 5-slayd qisqartirish uchun qayta so'raldi", longs, len(CALLS))
 whole = "\n".join(m["content"] for m in longs[0]["history"]) if longs else ""
-check("qisqartirishda butun taqdimot (1-12) tarixda", all(f"FAKT-{n}:" in whole for n in range(1, 13)), whole[:200])
+check("qisqartirishda butun taqdimot (1-12) tarixda",
+      COVER_TITLE in whole and all(f"FAKT-{n}:" in whole for n in range(2, 13)), whole[:200])
 after = CALLS[CALLS.index(longs[0]) + 1:] if longs else []
 later = "\n".join(m["content"] for c in after for m in c["history"])
 check("keyingi so'rovlarda 5-slaydning yangi (qisqa) varianti, eskisi yo'q",
