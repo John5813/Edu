@@ -3,8 +3,11 @@
 1. AI mavzuni kalit so'zlarga yoyadi (o'zbekcha va inglizcha: joy, davr, buyum, jonzot nomlari).
 2. Katalogdagi modellar (serverdagilari va avtomatik yuklab olinadiganlari) nomi va teglari bo'yicha ball
    oladi — eng yaxshi 80 tasi.
-3. AI ulardan mavzuga haqiqatan mosini tanlaydi: «asosiy» (mavzuning o'zi) va «yordamchi» (shu mavzuni
-   ko'rsatishga yaraydigan yaqin buyum). Kamida bitta asosiy yoki uchta yordamchi bo'lsa — 3D taqdimot bo'ladi.
+3. AI ulardan mavzuga haqiqatan mosini tanlaydi: «asosiy» (mavzuning o'zi), «yordamchi» (shu mavzuni
+   ko'rsatishga yaraydigan yaqin buyum) va «ramziy» (mavhum g'oyaning ramzi: iqtisodiyotga Yer shari, tarozi,
+   kema) — va mavzuning necha foizini 3D bilan ko'rsatish mumkinligini baholaydi.
+4. Daraja: «full» — mavzu 3D ga to'liq mos (to'g'ridan-to'g'ri 3D taqdimot); «partial» — qisman yoki ramziy
+   mos (mijozga uch yo'l: to'liq 3D, aralash 3D, 3D'siz); «none» — mos model yo'q.
 
 AI ishlamasa — faqat model nomida mavzuning aniq so'zi borlari olinadi (umumiy «qadimgi», «davri» yetmaydi).
 """
@@ -19,6 +22,8 @@ log = logging.getLogger(__name__)
 
 CANDIDATES = 80
 MAX_PICK = 12
+MAX_CHOICES = 20              # aralash rejimda mijoz tanlaydigan modellar (2 ustun × 10)
+FULL_COVERAGE = 70            # mavzuning shuncha foizi 3D bilan ko'rsatilsa — to'liq mos
 MAX_MB = 15.0                 # bitta modeldan og'iri taqdimotga olinmaydi (Telegram 50 MB chegarasi)
 _STOP = {"va", "bilan", "uchun", "haqida", "hamda", "ham", "the", "of", "and", "in", "a", "an", "to", "for",
          "on", "de", "la", "le", "и", "в", "на", "о", "об", "по", "для", "с", "из", "mavzu", "taqdimot",
@@ -55,6 +60,9 @@ EXPAND_SYSTEM = """You help find 3D models for a school/university presentation.
 Given a topic (any language), list search keywords that a museum/3D-model catalog would use for objects
 that SHOW this topic: concrete places, buildings, artefacts, organisms, machines, instruments, people,
 foods — and the general field. Include synonyms and singular nouns. No weapons.
+For abstract topics (economics, law, chemistry, mathematics, literature, psychology...) also list concrete
+SYMBOLIC objects that can stand for their ideas (economy: globe, scales, coins, bank building, container ship,
+truck; law: scales, books, courthouse; literature: old book, typewriter, writer's house, statue).
 Return ONLY JSON: {"en": ["15-30 English keywords"], "uz": ["10-20 Uzbek (Latin) keywords"],
 "fan": ["1-3 of: tarix, biologiya, geografiya, fizika, kimyo, astronomiya, texnika, informatika, san'at,
 arxitektura, musiqa, oshxona, transport, sport, tibbiyot, adabiyot, matematika"]}"""
@@ -65,9 +73,14 @@ Candidates are lines "code | Uzbek name | original name | subject".
   object the topic is about, or a clear part of it).
 - "yordamchi": not the subject itself but a clearly related item a teacher would gladly show in THIS
   presentation (same culture, era, field or process).
+- "ramziy": not about the topic, but a clear symbol or metaphor for one of its ideas that a teacher could use
+  (globe for the world economy, scales for balance or justice, ship and containers for trade, old book for
+  literature).
 Never include unrelated models that only share a word, toys, or weapons. Order each list by usefulness.
-At most 8 asosiy and 8 yordamchi.
-Return ONLY JSON: {"asosiy": ["c3", ...], "yordamchi": ["c9", ...]}"""
+At most 8 asosiy, 8 yordamchi and 8 ramziy.
+Also estimate "coverage": what percent (0-100) of a presentation on this topic can be honestly illustrated
+by the asosiy and yordamchi models alone (an abstract topic like inflation is low even with good symbols).
+Return ONLY JSON: {"asosiy": ["c3", ...], "yordamchi": ["c9", ...], "ramziy": ["c5", ...], "coverage": 40}"""
 
 
 def expand(topic: str, language: str = "uz") -> dict:
@@ -125,17 +138,21 @@ def select(topic: str, ids: Sequence[str], language: str = "uz") -> Dict[str, Li
     cat = katalog3d.katalog()
     codes = {f"c{i}": mid for i, mid in enumerate(ids)}
     lines = "\n".join(f"{c} | {cat[m]['nom_uz']} | {cat[m]['nom'][:70]} | {cat[m]['fan']}" for c, m in codes.items())
-    data = ai.call_json(SELECT_SYSTEM, f"Topic: {topic}\n\nCandidates:\n{lines}\n", 400, language=language,
+    data = ai.call_json(SELECT_SYSTEM, f"Topic: {topic}\n\nCandidates:\n{lines}\n", 500, language=language,
                         model=ai.SEARCH_MODEL, where="3D katalog qidiruv", temperature=0.1)
-    out: Dict[str, List[str]] = {}
+    out: Dict[str, object] = {}
     seen = set()
-    for key in ("asosiy", "yordamchi"):
+    for key in ("asosiy", "yordamchi", "ramziy"):
         out[key] = []
         for c in data.get(key) or []:
             mid = codes.get(str(c).strip())
             if mid and mid not in seen:
                 seen.add(mid)
                 out[key].append(mid)
+    try:
+        out["coverage"] = max(0, min(100, int(float(data.get("coverage")))))
+    except (TypeError, ValueError):
+        out["coverage"] = None
     return out
 
 
@@ -158,9 +175,10 @@ def by_name(topic: str, ids: Sequence[str], limit: int = 6) -> List[str]:
 
 
 def top(topic: str, language: str = "uz") -> dict:
-    """Mavzu tekshiruvi: {ok, ids (taqdimot uchun, muhimi birinchi), asosiy, checked}.
+    """Mavzu tekshiruvi: {level, ok, ids, choices, asosiy, coverage, checked}.
 
-    ok — taqdimot qilish mumkin (kamida 1 asosiy yoki 3 yordamchi model)."""
+    level — "full" (to'g'ridan-to'g'ri 3D), "partial" (mijozga uch yo'l), "none". ids — avtomatik tanlov
+    (muhimi birinchi), choices — aralash rejimda mijoz tanlaydigan modellar (≤ 20)."""
     try:
         exp = expand(topic, language)
     except Exception as exc:                          # noqa: BLE001
@@ -168,30 +186,44 @@ def top(topic: str, language: str = "uz") -> dict:
         exp = {"words": [], "fan": []}
     ranked = score(topic, exp["words"], exp["fan"])
     if not ranked:
-        return {"ok": False, "ids": [], "asosiy": [], "checked": True}
+        return _result("none", [], [], [], None, True)
     try:
         picked = select(topic, [mid for _, mid in ranked], language)
     except Exception as exc:                          # noqa: BLE001
         log.warning("3D katalog: AI tanlovi o'tmadi (%s) — nom bo'yicha", exc)
         strong = by_name(topic, [mid for _, mid in ranked])
-        return {"ok": bool(strong), "ids": strong, "asosiy": strong, "checked": False}
-    asosiy, yordamchi = picked["asosiy"], picked["yordamchi"]
-    ok = len(asosiy) >= 1 or len(yordamchi) >= 3
-    ids = (asosiy + yordamchi)[:MAX_PICK]
-    log.info("3D katalog: «%s» — %d nomzod, %d asosiy, %d yordamchi", topic, len(ranked), len(asosiy),
-             len(yordamchi))
-    return {"ok": ok, "ids": ids if ok else [], "asosiy": asosiy if ok else [], "checked": True}
+        level = "full" if len(strong) >= 3 else "partial" if strong else "none"
+        return _result(level, strong, strong, strong, None, False)
+    asosiy, yordamchi, ramziy = picked["asosiy"], picked["yordamchi"], picked["ramziy"]
+    coverage = picked.get("coverage")
+    direct = asosiy + yordamchi
+    if coverage is None:                              # eski javob shakli — avvalgi qoida
+        full = len(asosiy) >= 1 or len(yordamchi) >= 3
+    else:
+        full = coverage >= FULL_COVERAGE and len(asosiy) >= 1 and len(direct) >= 3
+    choices = (direct + ramziy)[:MAX_CHOICES]
+    level = "full" if full else "partial" if len(choices) >= 2 else "none"
+    log.info("3D katalog: «%s» — %d nomzod, %d asosiy, %d yordamchi, %d ramziy, qamrov %s%% → %s", topic,
+             len(ranked), len(asosiy), len(yordamchi), len(ramziy), coverage, level)
+    return _result(level, (direct + ramziy)[:MAX_PICK], choices, asosiy, coverage, True)
 
 
-def collage(ids: Sequence[str], language: str = "uz", limit: int = 8) -> Optional[bytes]:
-    """Topilgan modellar rasmi (mijozga to'lovdan oldin ko'rsatiladi): 4 ustunli to'r, ostida nomi."""
+def _result(level: str, ids, choices, asosiy, coverage, checked: bool) -> dict:
+    ok = level != "none"
+    return {"level": level, "ok": ok, "ids": list(ids) if ok else [], "choices": list(choices) if ok else [],
+            "asosiy": list(asosiy) if ok else [], "coverage": coverage, "checked": checked}
+
+
+def collage(ids: Sequence[str], language: str = "uz", limit: int = 8, numbered: bool = False) -> Optional[bytes]:
+    """Topilgan modellar rasmi (mijozga to'lovdan oldin ko'rsatiladi): 4 ustunli to'r, ostida nomi
+    (`numbered` — tanlash tugmalaridagi raqam bilan)."""
     from PIL import Image, ImageDraw, ImageFont
 
     from services import katalog3d
 
     cat = katalog3d.katalog()
-    items = [(i, katalog3d.preview_yoli(i)) for i in ids[:limit]]
-    items = [(i, p) for i, p in items if p]
+    items = [(k, i, katalog3d.preview_yoli(i)) for k, i in enumerate(ids[:limit])]
+    items = [(k, i, p) for k, i, p in items if p]
     if not items:
         return None
     cols = min(4, len(items))
@@ -207,11 +239,13 @@ def collage(ids: Sequence[str], language: str = "uz", limit: int = 8) -> Optiona
         except OSError:
             continue
     font = font or ImageFont.load_default()
-    for k, (mid, path) in enumerate(items):
-        x, y = (k % cols) * cell, (k // cols) * (cell + label)
+    for pos, (k, mid, path) in enumerate(items):
+        x, y = (pos % cols) * cell, (pos // cols) * (cell + label)
         with Image.open(path) as im:
             sheet.paste(im.convert("RGB").resize((cell, cell)), (x, y))
         name = cat[mid]["nom_uz"] if language in ("uz", "uz_cyrl", "kk") else cat[mid]["nom"]
+        if numbered:
+            name = f"{k + 1}. {name}"
         name = name if len(name) <= 30 else name[:29] + "…"
         draw.text((x + 10, y + cell + 12), name, fill=(40, 40, 46), font=font)
     buf = io.BytesIO()

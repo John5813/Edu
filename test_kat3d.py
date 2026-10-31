@@ -36,6 +36,7 @@ from pptx.util import Emu
 
 from services import katalog3d
 from services.kat3d import ai, deck, qidiruv, reja
+import services.kat3d as kat3d
 from services.med3d import glb
 
 CAT = katalog3d.katalog()
@@ -112,8 +113,30 @@ with mock.patch("services.kat3d.yukla.mumkin", return_value=have), \
      mock.patch.object(ai, "call_json", side_effect=fake_ai(RuntimeError("402"), RuntimeError("402"))):
     t = qidiruv.top("Kvant kompyuterlari")
 check("hech narsa topilmasa — ok emas", not t["ok"] and not t["ids"], t)
+GLOBE = next(i for i in CAT if i.startswith("8a3f6e66955e"))           # Yer globusi (ramziy)
+have2 = have | {GLOBE}
+with mock.patch("services.kat3d.yukla.mumkin", return_value=have2), \
+     mock.patch.object(ai, "call_json", side_effect=fake_ai(
+         {"en": ["Nefertiti", "scarab", "globe"], "uz": [], "fan": []},
+         lambda u: {"asosiy": codes_of(u, NEFERTITI), "yordamchi": codes_of(u, SKARABEY, SKARABEY2),
+                    "ramziy": codes_of(u, GLOBE), "coverage": 90})):
+    t = qidiruv.top("Qadimgi Misr")
+check("qamrov yuqori — to'liq 3D (tugmalarsiz)", t["level"] == "full" and t["ids"][0] == NEFERTITI, t)
+with mock.patch("services.kat3d.yukla.mumkin", return_value=have2), \
+     mock.patch.object(ai, "call_json", side_effect=fake_ai(
+         {"en": ["globe", "scarab"], "uz": [], "fan": []},
+         lambda u: {"asosiy": [], "yordamchi": codes_of(u, SKARABEY), "ramziy": codes_of(u, GLOBE), "coverage": 30})):
+    t = qidiruv.top("Jahon iqtisodiyoti va Misr")
+check("qisman mos — uch yo'l, ramziy modellar ham tanlovda", t["level"] == "partial" and t["ok"]
+      and set(t["choices"]) == {SKARABEY, GLOBE}, t)
+with mock.patch("services.kat3d.yukla.mumkin", return_value=have2), \
+     mock.patch.object(ai, "call_json", side_effect=fake_ai(
+         {"en": ["globe"], "uz": [], "fan": []}, lambda u: {"asosiy": [], "yordamchi": [], "ramziy": [], "coverage": 5})):
+    t = qidiruv.top("Kvant maydon nazariyasi")
+check("hech narsa mos emas — none", t["level"] == "none" and not t["ok"] and not t["choices"], t)
 pic = qidiruv.collage([NEFERTITI, SKARABEY])
 check("topilgan modellar kollaji (JPEG)", pic and pic[:2] == b"\xff\xd8")
+check("tanlash uchun raqamlangan kollaj", (qidiruv.collage([NEFERTITI, SKARABEY], numbered=True) or b"")[:2] == b"\xff\xd8")
 
 print("3) Reja — normalize")
 codes = {f"m{i}": m for i, m in enumerate(IDS)}
@@ -294,8 +317,50 @@ kept = len(body[0].text_frame.paragraphs) if body else 0
 check("sig'magan punktlar o'chmadi — ma'ruzachi izohiga ko'chdi", 0 < kept < 5 and notes2.count("•") == 5 - kept,
       (kept, notes2[:120]))
 
+print("4c) Aralash taqdimot: tanlangan 3D + diagramma + rasm")
+mix_raw = {"slides": [
+    {"layout": "muqova", "title": "Inflyatsiya", "models": []},
+    {"layout": "matn", "title": "Nima?", "paragraphs": [S + " " + S], "models": []},
+    {"layout": "diagramma", "title": "Turlari", "chart": {"type": "column", "labels": ["A", "B", "C"], "values": ["3%", 25, "200"], "unit": "%"},
+     "subtitle": S, "points": [S], "models": []},
+    {"layout": "diagramma", "title": "Buzuq grafik", "chart": {"labels": ["A"], "values": [1]}, "points": [S, S], "models": []},
+    {"layout": "rasm", "title": "Hayotda", "photo": "supermarket prices", "points": [S, S], "models": []},
+    {"layout": "fikr", "title": "Muvozanat", "quote": "Narx — tarozi.", "text": S, "models": ["m1"]},
+    {"layout": "qahramon", "title": "Modelsiz qahramon", "subtitle": S, "points": [S], "models": []},
+    {"layout": "yakun", "title": "Xulosa", "points": [S, S], "models": []}]}
+mix_ids = [NEFERTITI, SKARABEY, SMILODON]
+mix_codes = {f"m{i}": m for i, m in enumerate(mix_ids)}
+p = reja.normalize(mix_raw, 8, mix_ids, mix_codes, mix=True)
+lays = [s["layout"] for s in p["slides"]]
+used_models = {m for s in p["slides"] for m in s["models"]}
+check("aralash: har tanlangan model kamida bir slaydda", used_models == set(mix_ids), used_models)
+check("aralash: ko'p slayd 3D'siz", sum(1 for s in p["slides"] if not s["models"]) >= 3, [len(s["models"]) for s in p["slides"]])
+check("diagramma: qiymatlar songa aylandi", p["slides"][2]["layout"] == "diagramma" and p["slides"][2]["chart"]["values"] == [3.0, 25.0, 200.0],
+      p["slides"][2])
+check("bitta qiymatli grafik — matnli slaydga", lays[3] != "diagramma", lays)
+check("rasm slaydida qidiruv so'rovi", p["slides"][4]["layout"] == "rasm" and p["slides"][4]["photo"] == "supermarket prices")
+check("modelsiz «qahramon» — oddiy matnli slayd", p["slides"][6]["layout"] != "qahramon" or p["slides"][6]["models"], p["slides"][6])
+full_p = reja.normalize(mix_raw, 8, mix_ids, mix_codes)
+check("to'liq rejimda diagramma/rasm yo'q, har slaydda model",
+      not {"diagramma", "rasm"} & {s["layout"] for s in full_p["slides"]} and all(s["models"] for s in full_p["slides"]))
+from PIL import Image as _Img
+photo_path = os.path.join(TMP, "foto.jpg")
+_Img.new("RGB", (1200, 700), (180, 120, 60)).save(photo_path)
+for s_ in p["slides"]:
+    if s_["layout"] == "rasm":
+        s_["photo_path"] = photo_path
+p.update(style="tungi", topic="Inflyatsiya", language="uz")
+out3 = os.path.join(TMP, "mix.pptx")
+deck.build(p, out3)
+prs3 = Presentation(out3)
+z3 = zipfile.ZipFile(out3)
+check("diagramma — PowerPoint'ning o'z grafigi (tahrirlanadi)", any(n.startswith("ppt/charts/chart") for n in z3.namelist()))
+check("rasm slaydida foto", any(sh.name.startswith("photo_") for sl in prs3.slides for sh in sl.shapes))
+model_slides = sum(1 for sl in prs3.slides if any(inside(x, y) for _, x, y in models_on(sl)))   # arvohlar ekrandan tashqarida
+check("3D faqat tanlangan joylarda", model_slides == sum(1 for s_ in p["slides"] if s_["models"]), model_slides)
+check("aralash narx 40% arzon", kat3d.price_for(10, "mix") == round(kat3d.price_for(10) * 0.6 / 100) * 100 < kat3d.price_for(10))
+
 print("5) build_deck — diskda model yo'q bo'lsa")
-import services.kat3d as kat3d
 try:
     asyncio.run(kat3d.build_deck("Mavzu", 5, ["yoq_model"]))
     check("modelsiz buyurtma — NoModels", False)
@@ -405,12 +470,12 @@ def buttons(markup):
 prefetched = []
 
 
-async def flow(found):
+async def flow(found, kat=None):
     chat, db = Chat(), make_db()
     state = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=1, user_id=1))
     await pp.premium_presentation_start(chat.message(pp.MED3D_ENTRY_TEXTS[0]), state, db)
-    kat = {"ok": True, "ids": [NEFERTITI, SKARABEY], "asosiy": [NEFERTITI], "checked": True} if found \
-        else {"ok": False, "ids": [], "asosiy": [], "checked": True}
+    kat = kat or ({"ok": True, "ids": [NEFERTITI, SKARABEY], "asosiy": [NEFERTITI], "checked": True} if found
+                  else {"ok": False, "ids": [], "asosiy": [], "checked": True})
     with mock.patch.object(med3d_auto, "check_topic", return_value={"ok": False, "checked": True}), \
          mock.patch.object(qidiruv, "top", return_value=kat), \
          mock.patch("services.kat3d.yukla.oldindan", side_effect=prefetched.extend):
@@ -456,7 +521,63 @@ async def bot_flow():
           await state.get_state() == PS.waiting_for_topic_text.state and "3D taqdimot" not in chat.sent[-1][1],
           (await state.get_state(), chat.sent[-1][1][:80]))
 
+async def partial_flow():
+    choices = [NEFERTITI, SKARABEY, SKARABEY2, SMILODON, GLOBE, QUYOSH]
+    part = {"level": "partial", "ok": True, "ids": choices[:4], "choices": choices, "asosiy": [], "checked": True}
+    chat, db, state = await flow(True, part)
+    last = chat.sent[-1]
+    cbs = [b.callback_data for b in buttons(last[2])]
+    check("qisman mos — uch tugma: to'liq / aralash / 3D'siz", cbs == ["prem_k3m:full", "prem_k3m:mix", "prem_k3m:plain"], cbs)
+    check("aralash 40% arzon ekani aytildi", "40%" in last[1], last[1][:120])
+    check("promokodga o'tilmadi — mijoz tanlaydi", await state.get_state() != PS.waiting_for_med3d_promocode.state)
+    cb = callback(chat, "prem_k3m:plain")
+    await pp.premium_kat3d_mode(cb, state, db)
+    plain = [b.callback_data for b in buttons(cb.message.edit_text.call_args.kwargs["reply_markup"])]
+    check("3D'siz — infografik va zamonaviy tugmalari", plain[:2] == ["prem_m3d_alt:kind:info", "prem_m3d_alt:kind:modern"], plain)
+    await pp.premium_kat3d_mode(callback(chat, "prem_k3m:full"), state, db)
+    data = await state.get_data()
+    check("to'liq 3D — modellar avtomatik tanlandi", data["kat3d_mode"] == "full" and data["kat3d_ids"] == choices[:4]
+          and await state.get_state() == PS.waiting_for_med3d_promocode.state, data)
+
+    chat, db, state = await flow(True, part)
+    await pp.premium_kat3d_mode(callback(chat, "prem_k3m:mix"), state, db)
+    check("aralash — promokod so'raladi", await state.get_state() == PS.waiting_for_med3d_promocode.state)
+    await pp.premium_med3d_promocode_skip(callback(chat, "prem_m3d_promo:skip"), state, db)
+    await pp.premium_ppt_skip_name(callback(chat, "prem_ppt_skip_name"), state, db)
+    await pp.premium_ppt_skip_preferences(callback(chat, "prem_ppt_skip_preferences"), state, db)
+    labels = [b.text for b in buttons(chat.sent[-1][2]) if b.callback_data.startswith("prem_ppt_count:")]
+    check("slaydlar soni narxlari 40% arzon", f"{kat3d.price_for(5, 'mix'):,}" in labels[0], labels[:2])
+    photos = len(chat.photos)
+    await pp.premium_ppt_got_count(callback(chat, "prem_ppt_count:5"), state, db)
+    text, markup = chat.sent[-1][1], chat.sent[-1][2]
+    picks = [b for b in buttons(markup) if b.callback_data.startswith("prem_k3p:") and b.callback_data != "prem_k3p:done"]
+    check("model tanlash: rasm va 2 ustunli tugmalar", len(chat.photos) == photos + 1 and len(picks) == len(choices)
+          and all(len(r) <= 2 for r in markup.inline_keyboard[:-2]) and await state.get_state() == PS.waiting_for_kat3d_pick.state,
+          (len(picks), [len(r) for r in markup.inline_keyboard]))
+    cb = callback(chat, "prem_k3p:done")
+    await pp.premium_kat3d_pick(cb, state, db)
+    check("hech narsa tanlanmasa — davom etmaydi", cb.answer.call_args.kwargs.get("show_alert")
+          and await state.get_state() == PS.waiting_for_kat3d_pick.state)
+    for k in range(5):
+        await pp.premium_kat3d_pick(callback(chat, f"prem_k3p:{k}"), state, db)
+    cb = callback(chat, "prem_k3p:5")
+    await pp.premium_kat3d_pick(cb, state, db)
+    data = await state.get_data()
+    check("slaydlar sonidan (5) ko'p tanlab bo'lmaydi", len(data["kat3d_ids"]) == 5 and cb.answer.call_args.kwargs.get("show_alert"),
+          data["kat3d_ids"])
+    await pp.premium_kat3d_pick(callback(chat, "prem_k3p:0"), state, db)
+    check("bosilsa tanlov bekor bo'ladi", NEFERTITI not in (await state.get_data())["kat3d_ids"])
+    await pp.premium_kat3d_pick(callback(chat, "prem_k3p:done"), state, db)
+    summary = chat.sent[-1][1]
+    check("xulosa: aralash 3D va 40% arzon narx", "Aralash 3D" in summary
+          and pp._price_of(await state.get_data(), 5) == kat3d.price_for(5, "mix"), summary)
+    await pp.premium_ppt_previous(callback(chat, "prem_ppt_prev"), state, db)
+    check("xulosadan orqaga — model tanlashga", await state.get_state() == PS.waiting_for_kat3d_pick.state)
+    await pp.premium_ppt_previous(callback(chat, "prem_ppt_prev"), state, db)
+    check("tanlashdan orqaga — slaydlar soniga", await state.get_state() == PS.waiting_for_count.state)
+
 asyncio.run(bot_flow())
+asyncio.run(partial_flow())
 
 print()
 print("HAMMASI OK" if not FAILS else f"{len(FAILS)} ta XATO: {FAILS}")

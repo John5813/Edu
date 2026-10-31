@@ -19,7 +19,8 @@ LEVELS = {1: "school pupils (simple words)", 2: "university students", 3: "acade
 LIMITS = dict(title=70, kicker=28, subtitle=190, point=165, value=14, label=60, name=30, text=150, notes=900,
               para=440, date=18, event=125, col=30, col_point=115, quote=200, source=60, card=34, card_text=150,
               question=120, answer=430, step=44, step_text=140, table_cell=40)
-MAX_POINTS = {"chap": 5, "ong": 5, "qahramon": 3, "raqamlar": 2, "yakun": 4}
+MAX_POINTS = {"chap": 5, "ong": 5, "qahramon": 3, "raqamlar": 2, "yakun": 4, "diagramma": 3, "rasm": 4}
+MIX_ONLY = ("diagramma", "rasm")                        # faqat aralash taqdimotda, 3D modelsiz
 BULLET_LAYOUTS = ("chap", "ong")
 
 SYSTEM = """You write a rich, factual educational presentation in which every slide shows REAL 3D models
@@ -57,12 +58,26 @@ most relevant model on the cover, and sometimes keep a model on 2 neighbouring s
 between them. Every model must match its slide's content.
 Lengths: title ≤ 65 chars, kicker (short section name) ≤ 26, cover "subtitle" ≤ 150. "notes": 4-6
 sentences for the presenter (what to say, extra facts). Fill only the fields the layout uses.
-Also choose one design "style" for the whole deck:
+{mix}Also choose one design "style" for the whole deck:
 {styles}
 Return ONLY JSON: {{"style": "key", "slides": [{{"layout": "...", "kicker": "...", "title": "...",
 "subtitle": "...", "points": [], "paragraphs": [], "events": [], "columns": [], "cards": [], "steps": [],
 "quote": "", "source": "", "text": "", "question": "", "answer": "", "stats": [], "items": [], "table": {{}},
+"chart": {{}}, "photo": "",
 "models": ["m0"], "notes": "..."}}]}}"""
+
+MIX_RULES = """MIXED DECK (the client chose it) — this replaces the rule that every slide shows a model. The client
+picked the 3D models listed below: put EVERY one of them on the slide where it fits best (one or two slides
+each; the cover may show one). Slides that show a model list it in "models"; ALL other slides have
+"models": [] and use one of:
+- "diagramma": a native chart with well-known, real data only — "chart": {{"type": "column"|"bar"|"line"|"pie",
+  "title": "...", "labels": [3-7 short labels], "values": [numbers], "unit": "%"}} + "subtitle" + 2-3 "points".
+- "rasm": a real photo — "photo": "short English image-search query (what the photo shows)" + "subtitle" +
+  2-4 "points".
+- any text layout without a model: "kartalar", "bosqichlar", "jadval", "xronologiya", "raqamlar", "matn",
+  "taqqoslash", "savol", "fikr", "chap", "ong".
+Use "diagramma" and "rasm" at least once each when the topic allows. "qahramon" and "uchlik" need models.
+"""
 
 USER = """Topic: {topic}
 Audience: {level}
@@ -88,7 +103,8 @@ def _clip(value, limit: int) -> str:
     return cut + "…"
 
 
-def _plan_ai(topic: str, count: int, codes: Dict[str, str], language: str, level: int, preferences: str) -> dict:
+def _plan_ai(topic: str, count: int, codes: Dict[str, str], language: str, level: int, preferences: str,
+             mix: bool = False) -> dict:
     from services import katalog3d
 
     cat = katalog3d.katalog()
@@ -96,7 +112,7 @@ def _plan_ai(topic: str, count: int, codes: Dict[str, str], language: str, level
     extra = f"Client's wishes: {preferences[:500]}\n" if preferences else ""
     user = USER.format(topic=topic, level=LEVELS.get(level, LEVELS[2]), language_rule=ai.language_rule(language),
                        extra=extra, models=models)
-    system = SYSTEM.format(count=count, styles=style_guide())
+    system = SYSTEM.format(count=count, styles=style_guide(), mix=MIX_RULES.format() if mix else "")
     return ai.call_json(system, user, 1500 + 750 * count, language=language, model=ai.MODEL)
 
 
@@ -146,6 +162,31 @@ def _table(raw) -> dict:
     return {"head": head, "rows": rows, "mark": mark}
 
 
+def _number(value) -> Optional[float]:
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = re.sub(r"[^\d,.\-]", "", str(value or "")).replace(",", ".")
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def _chart(raw) -> dict:
+    """{"type", "title", "labels", "values", "unit"} — kamida 2 ta to'liq juftlik; aks holda {}."""
+    if not isinstance(raw, dict):
+        return {}
+    kind = str(raw.get("type") or "column").strip().lower()
+    kind = kind if kind in ("column", "bar", "line", "pie") else "column"
+    labels = [_clip(x, 24) for x in (raw.get("labels") or []) if str(x or "").strip()][:8]
+    values = [_number(v) for v in (raw.get("values") or [])][:8]
+    pairs = [(lb, v) for lb, v in zip(labels, values) if v is not None]
+    if len(pairs) < 2:
+        return {}
+    return {"type": kind, "title": _clip(raw.get("title"), 60), "labels": [p[0] for p in pairs],
+            "values": [p[1] for p in pairs], "unit": _clip(raw.get("unit"), 12)}
+
+
 def _texts(s: dict) -> List[str]:
     """Slaydning hamma matni oddiy gaplar ro'yxati bo'lib — kompozitsiya almashganda matn yo'qolmasin."""
     out = list(s["points"]) + [t for p in s["paragraphs"] for t in _SENT.split(p)]
@@ -160,6 +201,9 @@ def _texts(s: dict) -> List[str]:
     if s["text"]:
         out += _SENT.split(s["text"])
     out += [f"{st['value']} — {st['label']}" for st in s["stats"]]
+    if s.get("chart"):
+        c = s["chart"]
+        out += [f"{lb}: {v:g}{c['unit']}" for lb, v in zip(c["labels"], c["values"])]
     if s.get("table"):
         head = s["table"]["head"]
         out += ["; ".join(f"{h}: {c}" for h, c in zip(head, r)) for r in s["table"]["rows"]]
@@ -195,12 +239,17 @@ def _valid(s: dict) -> bool:
             "savol": bool(s["question"] and s["answer"]),
             "raqamlar": len(s["stats"]) >= 2,
             "uchlik": len(s["items"]) == 3,
-            "jadval": bool(s.get("table"))}.get(lay, True)
+            "jadval": bool(s.get("table")),
+            "diagramma": bool(s.get("chart")),
+            "rasm": bool(s.get("photo"))}.get(lay, True)
 
 
-def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str]) -> dict:
+def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str], mix: bool = False) -> dict:
     """AI rejasini tekshiradi va tuzatadi: kompozitsiya va uning maydonlari, xilma-xillik (ketma-ket bir xil
-    dizayn yo'q, ro'yxatli slaydlar ko'pi bilan ikkita), matn uzunligi, modellar soni va hajmi."""
+    dizayn yo'q, ro'yxatli slaydlar ko'pi bilan ikkita), matn uzunligi, modellar soni va hajmi.
+
+    `mix` — aralash taqdimot: modellar faqat AI qo'ygan slaydlarda (har tanlangan model kamida bir marta),
+    qolganlari 3D'siz — diagramma, rasm yoki matnli dizayn."""
     from services import katalog3d
 
     ids = _fit_size(list(ids))
@@ -228,6 +277,8 @@ def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str])
             lay = "yakun"
         elif lay not in LAYOUTS or lay in ("muqova", "yakun"):
             lay = "matn" if s.get("paragraphs") else "chap"
+        elif lay in MIX_ONLY and not mix:
+            lay = "chap"
         want = [codes.get(str(c).strip()) for c in (s.get("models") or [])]
         want = [m for m in want if m in allowed]
         out = {"layout": lay, "kicker": _clip(s.get("kicker"), LIMITS["kicker"]),
@@ -241,6 +292,8 @@ def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str])
                "cards": _pairs(s.get("cards"), "title", "text", LIMITS["card"], LIMITS["card_text"], 4),
                "steps": _pairs(s.get("steps"), "title", "text", LIMITS["step"], LIMITS["step_text"], 5),
                "columns": [], "stats": [], "items": [], "table": _table(s.get("table")),
+               "chart": _chart(s.get("chart")) if mix else {},
+               "photo": _clip(s.get("photo"), 90) if mix else "",
                "quote": _clip(s.get("quote"), LIMITS["quote"]), "source": _clip(s.get("source"), LIMITS["source"]),
                "text": _clip(s.get("text"), LIMITS["answer"]),
                "question": _clip(s.get("question"), LIMITS["question"]),
@@ -254,7 +307,7 @@ def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str])
             if isinstance(st, dict) and str(st.get("value") or "").strip() and str(st.get("label") or "").strip():
                 out["stats"].append({"value": _clip(st["value"], LIMITS["value"]),
                                      "label": _clip(st["label"], LIMITS["label"])})
-        if lay == "uchlik":
+        if lay == "uchlik" and (not mix or len(want) >= 3):
             items = []
             for it in (s.get("items") or []):
                 if not isinstance(it, dict):
@@ -274,7 +327,16 @@ def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str])
         if not _valid(out):                           # maydonlari to'lmagan kompozitsiya — oddiy matnliga
             _as_text(out, "matn" if out["paragraphs"] or len(_texts(out)) <= 2 else "chap")
         lay = out["layout"]
-        if lay != "uchlik":
+        if mix and lay != "uchlik":                     # aralash: model faqat AI qo'ygan joyda
+            if lay == "muqova":
+                out["models"] = (want or ids)[:2 if len(want) > 1 else 1]
+            elif lay == "yakun":
+                out["models"] = (want or ids)[:4]
+            else:
+                out["models"] = [] if lay in MIX_ONLY else want[:1]
+            if lay == "qahramon" and not out["models"]:
+                out["layout"] = "chap"
+        elif lay != "uchlik":
             n = {"muqova": 2 if len(ids) > 1 and len(want) > 1 else 1,
                  "yakun": min(4, max(2, len(want))) if len(ids) > 1 else 1}.get(lay, 1)
             out["models"] = pick(min(n, len(ids)), want)
@@ -283,6 +345,16 @@ def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str])
         for m in out["models"]:
             used[m] += 1
         slides.append(out)
+    if mix:                                             # har tanlangan model kamida bir slaydda
+        for mid in ids:
+            if used[mid]:
+                continue
+            spot = next((s for s in slides[1:-1] if not s["models"] and s["layout"] not in MIX_ONLY), None)
+            if spot is not None:
+                spot["models"] = [mid]
+            elif len(slides[-1]["models"]) < 4:
+                slides[-1]["models"].append(mid)
+            used[mid] += 1
     _vary(slides)
     for s in slides:                                    # kompozitsiya sig'diradigan punktlar soni
         limit = MAX_POINTS.get(s["layout"], 5)
@@ -410,11 +482,11 @@ def review(plan: dict, language: str) -> int:
 
 
 def plan(topic: str, count: int, ids: Sequence[str], language: str = "uz", level: int = 2,
-         preferences: str = "", style: Optional[str] = None) -> dict:
+         preferences: str = "", style: Optional[str] = None, mix: bool = False) -> dict:
     ids = list(dict.fromkeys(ids))
     codes = {f"m{i}": mid for i, mid in enumerate(ids)}
-    data = _plan_ai(topic, count, codes, language, level, preferences)
-    out = normalize(data, count, ids, codes)
+    data = _plan_ai(topic, count, codes, language, level, preferences, mix)
+    out = normalize(data, count, ids, codes, mix)
     if REVIEW_ON:
         n = review(out, language)
         if n:

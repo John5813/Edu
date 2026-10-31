@@ -153,6 +153,8 @@ class PremiumPresentationStates(StatesGroup):
     # Taqdimot turi: infografik / zamonaviy / klassik (manbadan keyin, uslubdan oldin).
     waiting_for_kind = State()
     waiting_for_med3d_promocode = State()
+    # Aralash 3D taqdimot: mijoz mos 3D modellardan slaydlar sonigacha tanlaydi.
+    waiting_for_kat3d_pick = State()
     waiting_for_payment = State()
     generating = State()
 

@@ -125,6 +125,16 @@ raqamlar, katta model, uchta model, ro'yxat. Ketma-ket bir xil dizayn bo'lmaydi,
 ikki slaydda; matn hajmi ham slayddan slaydga farq qiladi. Shrift joyga moslanadi, sig'magan matn
 o'chmaydi — ma'ruzachi izohiga ko'chadi.
 
+Mavzu 3D ga qanchalik mos (AI qamrov foizini baholaydi):
+
+- **to'liq mos** — darhol 3D taqdimot (tugmasiz);
+- **qisman mos** (mavhum fanlar: iqtisodiyot, huquq, adabiyot...) — mijozga uch yo'l:
+  🧊 *To'liq 3D* (modellarni AI mavzu va istaklarga qarab tanlaydi), 🧩 *Aralash 3D* — 40% arzon: mijoz
+  ramziy modellar bilan birga 20 tagacha moslar orasidan slaydlar sonigacha o'zi tanlaydi (2 ustunli tugmalar,
+  raqamlangan rasm), qolgan slaydlar 3D'siz — PowerPoint grafigi, internetdan foto yoki matnli dizayn;
+  🖼 *3D'siz* — infografik yoki zamonaviy taqdimot;
+- **mos emas** — boshqa turlar taklif qilinadi.
+
 Harakat: model qo'shni slaydlarda Morph bilan uchib, aylanib o'tadi; sayyora va globuslar slaydda o'z joyida
 juda sekin aylanadi (PowerPoint «Turntable», 40 soniyada bir marta, `KAT3D_TURN_SECONDS`), boshqa modellar
 o'tishlar orasida harakatsiz turadi. «Tungi ko'k» uslubida fondagi nur chiziqlari ham Morph bilan suriladi.

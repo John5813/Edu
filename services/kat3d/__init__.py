@@ -23,11 +23,34 @@ SLIDE_OPTIONS = (5, 8, 10, 12, 15)
 MIN_SLIDES, MAX_SLIDES = 4, 15
 
 
-def price_for(slide_count: int) -> int:
-    """Narx — 3D Anatomiya bilan bir xil (ikkalasi ham haqiqiy 3D modellar va Morph)."""
+MIX_DISCOUNT = 0.40                     # aralash taqdimot (3D + diagramma + rasm) — 40% arzon
+
+
+def price_for(slide_count: int, mode: str = "full") -> int:
+    """Narx — 3D Anatomiya bilan bir xil (ikkalasi ham haqiqiy 3D modellar va Morph); aralash — 40% arzon."""
     from services.med3d import auto as med3d_auto
 
-    return med3d_auto.price_for(slide_count)
+    price = med3d_auto.price_for(slide_count)
+    if mode == "mix":
+        price = int(round(price * (1 - MIX_DISCOUNT) / 100.0)) * 100
+    return price
+
+
+async def _photos(topic: str, plan: dict, stage) -> None:
+    """Aralash taqdimotdagi «rasm» slaydlariga internetdan haqiqiy foto. Topilmasa slayd matnli bo'lib qoladi."""
+    slides = [s for s in plan["slides"] if s["layout"] == "rasm"]
+    if not slides:
+        return
+    stage("photos", total=len(slides))
+    try:
+        from services import photo_search
+
+        paths = await asyncio.wait_for(photo_search.find_photos(topic, [s["photo"] or s["title"] for s in slides]), 150)
+    except Exception as exc:                  # noqa: BLE001
+        log.warning("3D katalog: rasmlar topilmadi (%s) — matnli slaydlar", exc)
+        return
+    for s, path in zip(slides, paths):
+        s["photo_path"] = path
 
 
 class NoModels(RuntimeError):
@@ -36,8 +59,9 @@ class NoModels(RuntimeError):
 
 async def build_deck(topic: str, slide_count: int, model_ids: List[str], *, language: str = "uz",
                      level: int = 2, preferences: str = "", style: Optional[str] = None,
-                     stage_cb: Optional[Callable[[str, Dict], None]] = None) -> Tuple[str, int]:
-    """Bot uchun: (PPTX yo'li, slaydlar soni). `model_ids` — mavzu tekshiruvida mijozga ko'rsatilgan modellar."""
+                     stage_cb: Optional[Callable[[str, Dict], None]] = None, mode: str = "full") -> Tuple[str, int]:
+    """Bot uchun: (PPTX yo'li, slaydlar soni). `model_ids` — mavzu tekshiruvida mijozga ko'rsatilgan (aralash
+    rejimda — mijoz o'zi tanlagan) modellar. `mode="mix"` — qolgan slaydlar 3D'siz: diagramma, rasm, matn."""
     from . import deck, reja, yukla
 
     def stage(name: str, **info) -> None:
@@ -54,8 +78,11 @@ async def build_deck(topic: str, slide_count: int, model_ids: List[str], *, lang
         raise NoModels("3D modellar serverga yuklanmadi")
     count = max(MIN_SLIDES, min(MAX_SLIDES, int(slide_count or 8)))
     stage("plan")
+    mix = mode == "mix"
     plan = await asyncio.wait_for(loop.run_in_executor(
-        None, lambda: reja.plan(topic, count, ids, language, level, preferences, style)), 6 * 60)
+        None, lambda: reja.plan(topic, count, ids, language, level, preferences, style, mix)), 6 * 60)
+    if mix:
+        await _photos(topic, plan, stage)
     stage("models", slides=len(plan["slides"]))
     out_dir = tempfile.mkdtemp(prefix="kat3d_")
     path = await asyncio.wait_for(loop.run_in_executor(
