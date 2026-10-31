@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 
 CANDIDATES = 80
 MAX_PICK = 12
-MAX_MB = 14.0                 # bitta modeldan og'iri taqdimotga olinmaydi (Telegram 50 MB chegarasi)
+MAX_MB = 15.0                 # bitta modeldan og'iri taqdimotga olinmaydi (Telegram 50 MB chegarasi)
 _STOP = {"va", "bilan", "uchun", "haqida", "hamda", "ham", "the", "of", "and", "in", "a", "an", "to", "for",
          "on", "de", "la", "le", "и", "в", "на", "о", "об", "по", "для", "с", "из", "mavzu", "taqdimot",
          "presentation", "тема", "презентация"}

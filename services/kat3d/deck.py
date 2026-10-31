@@ -14,6 +14,7 @@ Telefon va 3D ni bilmaydigan dasturlar uchun har modelning o'rnida uning rasmi (
 import io
 import logging
 import os
+import re
 from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -28,6 +29,7 @@ from pptx.util import Inches, Pt
 from services import katalog3d
 from services.med3d import design, glb
 from services.med3d.pptx3d import CT_GLB, RT_MODEL3D, _PNG, _model_xml, _next_id
+from services.premium_presentation.slide_anim import P_NS
 from services.pro3d.build import add_entrances, add_morph, fit_size
 
 from .uslub import STYLES
@@ -36,6 +38,7 @@ log = logging.getLogger(__name__)
 
 W, H = design.W, design.H
 MORPH_MS = 1700
+TURN_MS = int(os.getenv("KAT3D_TURN_SECONDS") or 40) * 1000   # slaydda turgan model o'z joyida shuncha vaqtda 1 marta aylanadi
 BASE_ROT = (14.0, -30.0, 0.0)              # preview rasmidagi burchakka yaqin: biroz yuqoridan, yon tomondan
 SWING = (0.0, 28.0, -22.0, 16.0, -32.0, 10.0, 34.0, -14.0)   # har keyingi ko'rinishda Y bo'yicha burilish
 NOTES_HEAD = {"uz": "3D modellar mualliflari", "ru": "Авторы 3D-моделей", "en": "3D model credits",
@@ -54,6 +57,7 @@ class Ctx:
         self.cur = 0
         self.placed: Dict[int, Dict[str, tuple]] = {}      # slayd → {model: (cx, cy, size, rot)}
         self.ghosts: Dict[int, set] = {}
+        self.spins: Dict[int, List[int]] = {}               # slayd → o'z joyida aylanadigan 3D ob'ektlar id si
         self.credits: List[str] = []
         self.total = len(plan["slides"])
 
@@ -115,8 +119,8 @@ def _cutout(path: Optional[str], mask: Optional[str] = None) -> bytes:
 
 # ───────────────────────────────────────────── chizish
 
-def _place(ctx: Ctx, slide, mid: str, cx: float, cy: float, size: float, rot) -> None:
-    """3D ob'ekt (am3d:model3d) — GLB taqdimotda bir marta, hamma slaydlar unga havola qiladi."""
+def _place(ctx: Ctx, slide, mid: str, cx: float, cy: float, size: float, rot) -> int:
+    """3D ob'ekt (am3d:model3d) — GLB taqdimotda bir marta, hamma slaydlar unga havola qiladi. Ob'ekt id si."""
     raw, lo, hi = ctx.glb(mid)
     pkg = slide.part.package
     part = ctx.parts.get(mid)
@@ -127,13 +131,15 @@ def _place(ctx: Ctx, slide, mid: str, cx: float, cy: float, size: float, rot) ->
     _, rid_png = slide.part.get_or_add_image_part(io.BytesIO(ctx.picture(mid)))
     x, y = cx - size / 2, cy - size / 2
     tree = slide.shapes._spTree
-    node = etree.fromstring(_model_xml(_next_id(tree), "!!m_" + mid[:24], int(Inches(x)), int(Inches(y)),
+    sid = _next_id(tree)
+    node = etree.fromstring(_model_xml(sid, "!!m_" + mid[:24], int(Inches(x)), int(Inches(y)),
                                        int(Inches(size)), int(Inches(size)), rid_model, rid_png, lo, hi, rot,
                                        ctx.st.lights))
     for sppr in node.iter(qn("p:spPr")):          # zaxira ko'rinish ramkasiz
         ln = etree.SubElement(sppr, qn("a:ln"))
         etree.SubElement(ln, qn("a:noFill"))
     tree.append(node)
+    return sid
 
 
 def _model(ctx: Ctx, slide, mid: str, cx: float, cy: float, size: float, turn: float = 0.0) -> Tuple:
@@ -142,7 +148,10 @@ def _model(ctx: Ctx, slide, mid: str, cx: float, cy: float, size: float, turn: f
     k = ctx.seen.get(mid, 0)
     ctx.seen[mid] = k + 1
     rot = (BASE_ROT[0], BASE_ROT[1] + SWING[k % len(SWING)] + turn, BASE_ROT[2])
-    _place(ctx, slide, mid, cx, cy, size, rot)
+    sid = _place(ctx, slide, mid, cx, cy, size, rot)
+    spin = ctx.plan.get("spin")                                    # rejada ko'rsatilsa — faqat o'shalar
+    if (mid in spin) if spin is not None else is_planet(mid):
+        ctx.spins.setdefault(ctx.cur, []).append(sid)
     ctx.placed.setdefault(ctx.cur, {})[mid] = (cx, cy, size, rot)
     m = katalog3d.katalog()[mid]
     if m["attribution_full"] not in ctx.credits:
@@ -480,6 +489,50 @@ def _uchlik(ctx: Ctx, slide, s: dict, i: int) -> List:
     return steps
 
 
+def _jadval(ctx: Ctx, slide, s: dict, i: int) -> List:
+    """Taqqoslash jadvali: sarlavha qatori urg'u rangida, qatorlar alohida kartalar (navbat bilan chiqadi);
+    «belgilangan» qator (`table.mark`, odatda O'zbekiston) ramka bilan ajratiladi. Model o'ngda."""
+    st = ctx.st
+    _decorate(ctx, slide, i, (9.7, 2.0, 12.9, 6.2))
+    bottom = _head(ctx, slide, s, 0.75, 11.8, (34, 24), 1.2)
+    box = _model(ctx, slide, s["models"][0], 11.35, 4.4, 3.4)
+    design.ground_shadow(slide, st, box)
+    tab = s["table"]
+    head, rows = tab["head"], tab["rows"]
+    mark = tab.get("mark", -1)
+    x0, wall = 0.6, 9.15
+    top = max(2.25, bottom + 0.35)
+    n = len(rows)
+    rh = min(0.95, (6.95 - top - 0.62) / max(n, 1) - 0.1)
+    first = 0.3 if len(head) > 3 else 0.34                   # birinchi ustun ulushi (nomlar)
+    widths = [wall * first] + [wall * (1 - first) / (len(head) - 1)] * (len(head) - 1)
+    steps = []
+    hb = design.shape(slide, f"thead_{i}", MSO_SHAPE.ROUNDED_RECTANGLE, x0, top, wall, 0.52, st.accent, round_=0.25)
+    steps.append((hb, "fade", 150))
+    x = x0
+    for k, (h, w) in enumerate(zip(head, widths)):
+        steps.append((design.textbox(slide, f"th_{i}_{k}", x + 0.18, top + 0.06, w - 0.3, 0.4, h, size=15, color=st.bg,
+                                     font=st.head_font, bold=True, anchor=MSO_ANCHOR.MIDDLE, smallest=11), "fade", 180))
+        x += w
+    for r, row in enumerate(rows):
+        y = top + 0.62 + r * (rh + 0.1)
+        hi = r == mark
+        card = design.shape(slide, f"trow_{i}_{r}", MSO_SHAPE.ROUNDED_RECTANGLE, x0, y, wall, rh, st.panel,
+                            alpha=st.panel_alpha, round_=0.18, line=st.accent if hi else None, line_pt=2.0 if hi else 0)
+        steps.append((card, "fade", 300 + 160 * r))
+        x = x0
+        for k, (cell, w) in enumerate(zip(row, widths)):
+            tb = design.textbox(slide, f"td_{i}_{r}_{k}", x + 0.18, y + 0.05, w - 0.3, rh - 0.1, cell,
+                                size=17 if k == 0 else 15, color=st.accent if (k == 0 and hi) else (st.ink if k == 0 else st.body),
+                                font=st.head_font if k == 0 else st.body_font, bold=k == 0, anchor=MSO_ANCHOR.MIDDLE,
+                                smallest=10.5)
+            steps.append((tb, "fade", 330 + 160 * r))
+            x += w
+    _caption(ctx, slide, s["models"][:1], 9.75, H - 0.45, 3.3, align=PP_ALIGN.CENTER)
+    _number(ctx, slide, i)
+    return steps
+
+
 # Xulosada modellar chapda (to'r), punktlar o'ngda katta panelda — oldingi slaydlardagi modellar shu yerga
 # Morph bilan uchib yig'iladi.
 _YAKUN_GRID = {1: ((3.05, 4.45, 4.3),),
@@ -700,7 +753,7 @@ def _fikr(ctx: Ctx, slide, s: dict, i: int) -> List:
     box = _model(ctx, slide, s["models"][0], 3.5, 3.85, 5.9)
     design.ground_shadow(slide, st, box)
     x, w = 6.95, 5.75
-    qsize = _fit(s["quote"], w, 2.7, 30, 18, HEAD_EM * 0.95)
+    qsize = _fit(s["quote"], w, 2.1 if s["text"] else 2.7, 28, 18, HEAD_EM * 0.95)   # izohga ham joy qolsin
     qh = _lines(s["quote"], w, qsize, HEAD_EM * 0.95) * qsize * 1.12 * 1.2 / 72
     src_h = 0.5 if s["source"] else 0.0
     text = s["text"]
@@ -768,11 +821,53 @@ def _savol(ctx: Ctx, slide, s: dict, i: int) -> List:
             (answer, "float", 650)]
 
 
+_PLANET = re.compile(r"sayyora|globus|planet|\bglobe\b|^(oy|quyosh|mars|yupiter|merkuriy|venera|saturn)\b", re.I)
+_NOT_PLANET = re.compile(r"landshaft|qumtepa|yuzasi|krater|marsoxod|rover|manzara|\bva\b", re.I)
+
+
+def is_planet(mid: str) -> bool:
+    """Sayyora yoki globus: astronomiya/geografiya, nomida sayyora va shakli shar (bbox deyarli kub).
+    Faqat ular slaydda o'z joyida aylanadi — mashina, bino, haykal aylansa g'alati ko'rinadi."""
+    m = katalog3d.katalog().get(mid) or {}
+    name = m.get("nom_uz", "")
+    if m.get("fan") not in ("astronomiya", "geografiya") or not _PLANET.search(name) or _NOT_PLANET.search(name):
+        return False
+    lo, hi = (m.get("bbox") or [[0, 0, 0], [1, 1, 1]])
+    ext = [abs(b - a) for a, b in zip(lo, hi)]
+    return max(ext) <= 1.25 * max(min(ext), 1e-9)
+
+
+def _turntable(slide, spids: Sequence[int], delay: int = 400) -> None:
+    """PowerPoint'ning 3D «Turntable» effekti: slayddagi har 3D model o'z joyida juda sekin, slayd turguncha
+    aylanadi (emph, presetID 37, `3d.view.rotation.y`). Kirish effektlari bilan bir guruhda, o'tishdan keyin."""
+    from services.premium_presentation import slide_anim
+
+    if not spids or TURN_MS <= 0:
+        return
+    timing = slide._element.find(qn("p:timing"))
+    if timing is None:
+        timing = etree.fromstring(slide_anim._timing([], []))
+        ext = slide._element.find(qn("p:extLst"))
+        ext.addprevious(timing) if ext is not None else slide._element.append(timing)
+    group = next(c for c in timing.iter(qn("p:cTn")) if c.get("id") == "4").find(qn("p:childTnLst"))
+    nid = max(int(c.get("id")) for c in timing.iter(qn("p:cTn"))) + 1
+    for k, spid in enumerate(spids):
+        turn = 21600000 if k % 2 == 0 else -21600000           # qo'shni modellar qarama-qarshi tomonga
+        group.append(etree.fromstring(
+            f'<p:par {P_NS}><p:cTn id="{nid}" presetID="37" presetClass="emph" presetSubtype="128" '
+            f'repeatCount="indefinite" fill="hold" grpId="0" nodeType="withEffect"><p:stCondLst>'
+            f'<p:cond delay="{delay}"/></p:stCondLst><p:childTnLst><p:animRot by="{turn}"><p:cBhvr>'
+            f'<p:cTn id="{nid + 1}" dur="{TURN_MS}" fill="hold"/><p:tgtEl><p:spTgt spid="{spid}"/></p:tgtEl>'
+            f'<p:attrNameLst><p:attrName>3d.view.rotation.y</p:attrName></p:attrNameLst></p:cBhvr>'
+            f'</p:animRot></p:childTnLst></p:cTn></p:par>'))
+        nid += 2
+
+
 LAYOUT_FN = {"muqova": _muqova, "chap": lambda c, sl, s, i: _side(c, sl, s, i, True),
              "ong": lambda c, sl, s, i: _side(c, sl, s, i, False), "qahramon": _qahramon,
              "raqamlar": _raqamlar, "uchlik": _uchlik, "yakun": _yakun, "matn": _matn,
              "xronologiya": _xronologiya, "taqqoslash": _taqqoslash, "kartalar": _kartalar,
-             "bosqichlar": _bosqichlar, "fikr": _fikr, "savol": _savol}
+             "bosqichlar": _bosqichlar, "fikr": _fikr, "savol": _savol, "jadval": _jadval}
 
 
 def build(plan: dict, out_path: str) -> str:
@@ -790,6 +885,7 @@ def build(plan: dict, out_path: str) -> str:
         add_morph(slide, MORPH_MS)
         if steps:
             add_entrances(slide, steps)
+        _turntable(slide, ctx.spins.get(i, []))
         notes = s.get("notes") or ""
         if i == len(plan["slides"]) - 1 and ctx.credits:
             head = NOTES_HEAD.get((plan.get("language") or "uz")[:2]) or NOTES_HEAD["en"]

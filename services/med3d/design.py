@@ -379,6 +379,23 @@ def deco_specs(st: Style, lay: Layout, variant: int, model_box: Tuple[float, flo
         for k in range(3):
             out.append(dict(kind=MSO_SHAPE.RECTANGLE, x=x0 + k * 0.55, y=-2.0, w=0.12, h=H + 4, color=c,
                             alpha=a * (1.6 - 0.4 * k), rotation=angle))
+    elif st.deco == "lines":         # tungi ko'k: qiya nur chiziqlari, yorug' izlar va nuqtalar — Morph ularni suradi
+        angle = r.uniform(-30, -14)
+        for k in range(4):
+            out.append(dict(kind=MSO_SHAPE.RECTANGLE, x=r.uniform(-2.0, W - 1.0), y=-4.0, w=(0.035, 0.018, 0.05, 0.012)[k],
+                            h=H + 8, color=c, alpha=a * (1.0, 0.7, 0.45, 0.9)[k], rotation=angle + r.uniform(-4, 4)))
+        for k in range(2):
+            w = r.uniform(3.5, 7.5)
+            out.append(dict(kind=MSO_SHAPE.RECTANGLE, x=r.uniform(-1.0, W - w + 1.0), y=r.uniform(0.4, H - 0.4), w=w,
+                            h=0.018, color=c, alpha=a * 1.3))
+        d = max(model_box[2] - model_box[0], model_box[3] - model_box[1]) * 1.1 + 1.0
+        out.append(dict(kind=MSO_SHAPE.OVAL, x=cx - d / 2 + r.uniform(-0.6, 0.6), y=cy - d / 2 + r.uniform(-0.4, 0.4),
+                        w=d, h=d, color=c, alpha=a * 0.45, soft=d * 0.3))
+        for k in range(4):                # nuqtalar faqat chetlarda — matn ustiga tushmaydi
+            s = r.uniform(0.06, 0.12)
+            x, y = (r.uniform(0.2, W - 0.2), r.choice((r.uniform(0.15, 0.45), r.uniform(H - 0.4, H - 0.15)))) if k % 2 \
+                else (r.choice((r.uniform(0.15, 0.45), r.uniform(W - 0.45, W - 0.15))), r.uniform(0.3, H - 0.3))
+            out.append(dict(kind=MSO_SHAPE.OVAL, x=x, y=y, w=s, h=s, color=st.accent, alpha=r.uniform(0.55, 0.95)))
     for k, spec in enumerate(out):
         spec["name"] = f"!!deco_{k}"
     return out

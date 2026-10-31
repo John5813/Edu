@@ -1,19 +1,22 @@
 # Umumiy 3D katalog (NASA'dan tashqari)
 
-**2059 ta model**, hammasi ~12,4 GB: Objaverse/Sketchfab — 1683, Smithsonian — 376.
-Litsenziya: CC BY 4.0 — 1537, CC0 — 522.
+**2074 ta model**, hammasi ~12,5 GB: Objaverse/Sketchfab — 1698, Smithsonian — 376.
+Litsenziya: CC BY 4.0 — 1552, CC0 — 522.
+
+O'zbekiston yodgorliklari (15 ta): Registon, Bibixonim, Go'ri Amir, Ulug'bek rasadxonasi sekstanti, Oqsaroy
+va Amir Temur dahmasi (Shahrisabz), Amir Temur haykallari, Buxoro madrasasi, oftoba, gilam, non, Teshiktosh.
 
 | Fan | Soni |
 |---|---|
 | biologiya | 683 |
-| tarix | 387 |
-| san'at | 184 |
-| arxitektura | 174 |
+| tarix | 390 |
+| san'at | 187 |
+| arxitektura | 181 |
 | transport | 173 |
 | texnika | 138 |
 | geografiya | 96 |
-| astronomiya | 47 |
-| oshxona | 38 |
+| astronomiya | 48 |
+| oshxona | 39 |
 | fizika | 37 |
 | informatika | 35 |
 | musiqa | 32 |
@@ -121,6 +124,11 @@ ikki ustunli taqqoslash, kartalar, raqamlangan bosqichlar, asosiy fikr/iqtibos, 
 raqamlar, katta model, uchta model, ro'yxat. Ketma-ket bir xil dizayn bo'lmaydi, nuqtali ro'yxat ko'pi bilan
 ikki slaydda; matn hajmi ham slayddan slaydga farq qiladi. Shrift joyga moslanadi, sig'magan matn
 o'chmaydi — ma'ruzachi izohiga ko'chadi.
+
+Harakat: model qo'shni slaydlarda Morph bilan uchib, aylanib o'tadi; sayyora va globuslar slaydda o'z joyida
+juda sekin aylanadi (PowerPoint «Turntable», 40 soniyada bir marta, `KAT3D_TURN_SECONDS`), boshqa modellar
+o'tishlar orasida harakatsiz turadi. «Tungi ko'k» uslubida fondagi nur chiziqlari ham Morph bilan suriladi.
+Taqqoslash uchun jadval kompozitsiyasi bor (O'zbekiston qatori ajratib ko'rsatiladi).
 
 Modellar hech qachon oddiy rasmga aylantirilmaydi — har slaydda PowerPoint 3D ob'ekti. Tibbiyotdan
 boshqa mavzularda modelning qismlari yorliq-chiziq bilan nomlanmaydi. CC BY mualliflari model ostida

@@ -5,7 +5,7 @@
   "objaverse": "Objaverse 1.0 (allenai/objaverse, Sketchfab) — faqat CC0 1.0 va CC BY 4.0",
   "smithsonian": "Smithsonian Open Access 3D — CC0 1.0"
  },
- "soni": 2059,
+ "soni": 2090,
  "modellar": [
   {
    "id": "ee017b677e4949df8064c22971efe720",
@@ -78526,6 +78526,1366 @@
    "animatsiya": 0,
    "pishirilgan": true,
    "sifat": 5
+  },
+  {
+   "id": "af54f5280eb249beb6501eab4769c351",
+   "nom_uz": "Registon maydoni (Samarqand)",
+   "nom": "Registan Complex, Samarkand, Uzbekistan",
+   "fan": "arxitektura",
+   "kalit": [
+    "registon",
+    "samarqand",
+    "madrasa",
+    "o'zbekiston",
+    "temuriylar",
+    "maydon",
+    "islamic",
+    "timur",
+    "uzbekistan",
+    "samarkand",
+    "gdh",
+    "realitycapture"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Global Digital Heritage",
+   "muallif_url": "https://sketchfab.com/GlobalDigitalHeritage",
+   "sahifa": "https://sketchfab.com/3d-models/af54f5280eb249beb6501eab4769c351",
+   "attribution": "3D: Global Digital Heritage · CC BY 4.0",
+   "attribution_full": "\"Registan Complex, Samarkand, Uzbekistan\" by Global Digital Heritage (https://sketchfab.com/3d-models/af54f5280eb249beb6501eab4769c351), CC BY 4.0",
+   "fayl": "arxitektura/af54f5280eb249beb6501eab4769c351/model.glb",
+   "uchburchak": 237709,
+   "hajm": 11967592,
+   "bbox": [
+    [
+     -121.23627471923828,
+     -5.04336404800415,
+     -145.8875732421875
+    ],
+    [
+     159.96490478515625,
+     37.38799285888672,
+     130.6057891845703
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 3
+  },
+  {
+   "id": "6a828d5314994cc28e8e14e4b0ede08e",
+   "nom_uz": "Registon maydoni — yuqoridan (Samarqand)",
+   "nom": "Registan Complex, Samarkand, Uzbekistan- Drone",
+   "fan": "arxitektura",
+   "kalit": [
+    "registon",
+    "samarqand",
+    "madrasa",
+    "o'zbekiston",
+    "maydon",
+    "drone",
+    "uzbekistan",
+    "samarkand",
+    "registan",
+    "gdh",
+    "realitycapture",
+    "photogrammetry"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Global Digital Heritage",
+   "muallif_url": "https://sketchfab.com/GlobalDigitalHeritage",
+   "sahifa": "https://sketchfab.com/3d-models/6a828d5314994cc28e8e14e4b0ede08e",
+   "attribution": "3D: Global Digital Heritage · CC BY 4.0",
+   "attribution_full": "\"Registan Complex, Samarkand, Uzbekistan- Drone\" by Global Digital Heritage (https://sketchfab.com/3d-models/6a828d5314994cc28e8e14e4b0ede08e), CC BY 4.0",
+   "fayl": "arxitektura/6a828d5314994cc28e8e14e4b0ede08e/model.glb",
+   "uchburchak": 199900,
+   "hajm": 9277240,
+   "bbox": [
+    [
+     -21.634307861328125,
+     -0.44030043482780457,
+     -24.681039810180664
+    ],
+    [
+     22.4014835357666,
+     5.460214138031006,
+     14.71812915802002
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 3
+  },
+  {
+   "id": "dc8ec865fd0d480c8ae06196fd18d296",
+   "nom_uz": "Bibixonim masjidi (Samarqand)",
+   "nom": "Bibi-Khanym Mosque, Samarkand, Uzbekistan",
+   "fan": "arxitektura",
+   "kalit": [
+    "bibixonim",
+    "masjid",
+    "samarqand",
+    "temur",
+    "o'zbekiston",
+    "gumbaz",
+    "laserscanning",
+    "uzbekistan",
+    "samarkand",
+    "islamic-architecture",
+    "gdh",
+    "realitycapture",
+    "photogrammetry"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Global Digital Heritage",
+   "muallif_url": "https://sketchfab.com/GlobalDigitalHeritage",
+   "sahifa": "https://sketchfab.com/3d-models/dc8ec865fd0d480c8ae06196fd18d296",
+   "attribution": "3D: Global Digital Heritage · CC BY 4.0",
+   "attribution_full": "\"Bibi-Khanym Mosque, Samarkand, Uzbekistan\" by Global Digital Heritage (https://sketchfab.com/3d-models/dc8ec865fd0d480c8ae06196fd18d296), CC BY 4.0",
+   "fayl": "arxitektura/dc8ec865fd0d480c8ae06196fd18d296/model.glb",
+   "uchburchak": 199915,
+   "hajm": 14463888,
+   "bbox": [
+    [
+     -63.18727493286133,
+     -13.89077091217041,
+     -71.62825775146484
+    ],
+    [
+     56.890647888183594,
+     34.754234313964844,
+     92.490478515625
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 3
+  },
+  {
+   "id": "fd795227e0bc4f61bc1e4e453d29a74b",
+   "nom_uz": "Go'ri Amir maqbarasi (Samarqand)",
+   "nom": "Gūr-i Amīr, Samarkand, Uzbekistan",
+   "fan": "arxitektura",
+   "kalit": [
+    "go'ri amir",
+    "maqbara",
+    "amir temur",
+    "samarqand",
+    "o'zbekiston",
+    "gumbaz",
+    "timur",
+    "uzbekistan",
+    "samarkand",
+    "islamic-architecture",
+    "gdh",
+    "realitycapture"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Global Digital Heritage",
+   "muallif_url": "https://sketchfab.com/GlobalDigitalHeritage",
+   "sahifa": "https://sketchfab.com/3d-models/fd795227e0bc4f61bc1e4e453d29a74b",
+   "attribution": "3D: Global Digital Heritage · CC BY 4.0",
+   "attribution_full": "\"Gūr-i Amīr, Samarkand, Uzbekistan\" by Global Digital Heritage (https://sketchfab.com/3d-models/fd795227e0bc4f61bc1e4e453d29a74b), CC BY 4.0",
+   "fayl": "arxitektura/fd795227e0bc4f61bc1e4e453d29a74b/model.glb",
+   "uchburchak": 202151,
+   "hajm": 11882828,
+   "bbox": [
+    [
+     -60.1844367980957,
+     -1.8662936687469482,
+     -51.03424835205078
+    ],
+    [
+     65.47390747070312,
+     35.811912536621094,
+     78.90657043457031
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 3
+  },
+  {
+   "id": "72e06d47f29c4166b394d4066c764823",
+   "nom_uz": "Go'ri Amir maqbarasi gumbazi (ichki skan)",
+   "nom": "Mausoleum Interior, Gūr-i Amīr, Samarkand",
+   "fan": "arxitektura",
+   "kalit": [
+    "go'ri amir",
+    "maqbara",
+    "samarqand",
+    "gumbaz",
+    "o'zbekiston",
+    "uzbekistan",
+    "samarkand",
+    "islamic-architecture",
+    "gdh",
+    "realitycapture",
+    "photogrammetry"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Global Digital Heritage",
+   "muallif_url": "https://sketchfab.com/GlobalDigitalHeritage",
+   "sahifa": "https://sketchfab.com/3d-models/72e06d47f29c4166b394d4066c764823",
+   "attribution": "3D: Global Digital Heritage · CC BY 4.0",
+   "attribution_full": "\"Mausoleum Interior, Gūr-i Amīr, Samarkand\" by Global Digital Heritage (https://sketchfab.com/3d-models/72e06d47f29c4166b394d4066c764823), CC BY 4.0",
+   "fayl": "arxitektura/72e06d47f29c4166b394d4066c764823/model.glb",
+   "uchburchak": 213769,
+   "hajm": 7864528,
+   "bbox": [
+    [
+     -13.652181625366211,
+     0.2678855061531067,
+     -10.248457908630371
+    ],
+    [
+     13.053241729736328,
+     35.47739791870117,
+     18.148019790649414
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 3
+  },
+  {
+   "id": "e2e7f83a5c4d40869dc19f21b3d17b59",
+   "nom_uz": "Oqsaroy qoldiqlari (Shahrisabz)",
+   "nom": "Ak-Saray Palace, Shahrisabz, Uzbekistan",
+   "fan": "arxitektura",
+   "kalit": [
+    "oqsaroy",
+    "shahrisabz",
+    "amir temur",
+    "saroy",
+    "o'zbekiston",
+    "worldheritage",
+    "timur",
+    "uzbekistan",
+    "gdh",
+    "realitycapture"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Global Digital Heritage",
+   "muallif_url": "https://sketchfab.com/GlobalDigitalHeritage",
+   "sahifa": "https://sketchfab.com/3d-models/e2e7f83a5c4d40869dc19f21b3d17b59",
+   "attribution": "3D: Global Digital Heritage · CC BY 4.0",
+   "attribution_full": "\"Ak-Saray Palace, Shahrisabz, Uzbekistan\" by Global Digital Heritage (https://sketchfab.com/3d-models/e2e7f83a5c4d40869dc19f21b3d17b59), CC BY 4.0",
+   "fayl": "arxitektura/e2e7f83a5c4d40869dc19f21b3d17b59/model.glb",
+   "uchburchak": 220580,
+   "hajm": 9515712,
+   "bbox": [
+    [
+     -22.09483528137207,
+     0.12388570606708527,
+     -12.481661796569824
+    ],
+    [
+     7.071156024932861,
+     11.249038696289062,
+     17.64862060546875
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 3
+  },
+  {
+   "id": "e8385a6945fa49b7a094ade95f77a7d8",
+   "nom_uz": "Amir Temur dahmasi (Shahrisabz)",
+   "nom": "Tomb of Timur, Shahrisabz, Uzbekistan",
+   "fan": "tarix",
+   "kalit": [
+    "amir temur",
+    "shahrisabz",
+    "dahma",
+    "maqbara",
+    "o'zbekiston",
+    "timur",
+    "uzbekistan",
+    "islamic-architecture",
+    "gdh",
+    "realitycapture"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Global Digital Heritage",
+   "muallif_url": "https://sketchfab.com/GlobalDigitalHeritage",
+   "sahifa": "https://sketchfab.com/3d-models/e8385a6945fa49b7a094ade95f77a7d8",
+   "attribution": "3D: Global Digital Heritage · CC BY 4.0",
+   "attribution_full": "\"Tomb of Timur, Shahrisabz, Uzbekistan\" by Global Digital Heritage (https://sketchfab.com/3d-models/e8385a6945fa49b7a094ade95f77a7d8), CC BY 4.0",
+   "fayl": "tarix/e8385a6945fa49b7a094ade95f77a7d8/model.glb",
+   "uchburchak": 236734,
+   "hajm": 9962880,
+   "bbox": [
+    [
+     -4.065286159515381,
+     0.110907644033432,
+     -3.3177709579467773
+    ],
+    [
+     6.216771125793457,
+     4.968011379241943,
+     3.3055059909820557
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 3
+  },
+  {
+   "id": "20775c69c259465eb15c1463cd20564a",
+   "nom_uz": "Ulug'bek rasadxonasi sekstanti (Samarqand)",
+   "nom": "Ulugh Beg Observatory Sextant, Samarkand",
+   "fan": "astronomiya",
+   "kalit": [
+    "ulug'bek",
+    "rasadxona",
+    "sekstant",
+    "astronomiya",
+    "samarqand",
+    "o'zbekiston",
+    "farofocus3d",
+    "sextant",
+    "3dlaserscanning",
+    "uzbekistan",
+    "dronephotogrammetry",
+    "archaeology",
+    "history"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Global Digital Heritage",
+   "muallif_url": "https://sketchfab.com/GlobalDigitalHeritage",
+   "sahifa": "https://sketchfab.com/3d-models/20775c69c259465eb15c1463cd20564a",
+   "attribution": "3D: Global Digital Heritage · CC BY 4.0",
+   "attribution_full": "\"Ulugh Beg Observatory Sextant, Samarkand\" by Global Digital Heritage (https://sketchfab.com/3d-models/20775c69c259465eb15c1463cd20564a), CC BY 4.0",
+   "fayl": "astronomiya/20775c69c259465eb15c1463cd20564a/model.glb",
+   "uchburchak": 213407,
+   "hajm": 6936792,
+   "bbox": [
+    [
+     -25.704126358032227,
+     -0.8048478960990906,
+     -29.638614654541016
+    ],
+    [
+     26.271589279174805,
+     16.67724609375,
+     22.77253532409668
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 3
+  },
+  {
+   "id": "48e9814f0c9e48ad8355135712becda9",
+   "nom_uz": "Abdulazizxon madrasasi peshtoqi (Buxoro)",
+   "nom": "BUXORO. ABDULAZIZKHAN MADRASA. FACADE DETAIL",
+   "fan": "arxitektura",
+   "kalit": [
+    "buxoro",
+    "madrasa",
+    "peshtoq",
+    "o'zbekiston",
+    "me'morchilik",
+    "muslim",
+    "hd",
+    "heritage",
+    "mosque",
+    "uzbekistan",
+    "photoscan",
+    "photogrammetry",
+    "scan"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "WIBEHOUSE",
+   "muallif_url": "https://sketchfab.com/WIBE",
+   "sahifa": "https://sketchfab.com/3d-models/48e9814f0c9e48ad8355135712becda9",
+   "attribution": "3D: WIBEHOUSE · CC BY 4.0",
+   "attribution_full": "\"BUXORO. ABDULAZIZKHAN MADRASA. FACADE DETAIL\" by WIBEHOUSE (https://sketchfab.com/3d-models/48e9814f0c9e48ad8355135712becda9), CC BY 4.0",
+   "fayl": "arxitektura/48e9814f0c9e48ad8355135712becda9/model.glb",
+   "uchburchak": 200000,
+   "hajm": 7001516,
+   "bbox": [
+    [
+     -4.642878532409668,
+     -1.6512396335601807,
+     4.795112609863281
+    ],
+    [
+     7.1432952880859375,
+     13.148102760314941,
+     13.023165702819824
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 3
+  },
+  {
+   "id": "7bed064cd1a946d5aaac1a5cb5adceaa",
+   "nom_uz": "Amir Temur haykali — taxtda (Samarqand)",
+   "nom": "Samarkand Timor Throne Statue",
+   "fan": "san'at",
+   "kalit": [
+    "amir temur",
+    "haykal",
+    "samarqand",
+    "o'zbekiston",
+    "yodgorlik",
+    "timur",
+    "samarkand",
+    "gdh",
+    "realitycapture"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Global Digital Heritage",
+   "muallif_url": "https://sketchfab.com/GlobalDigitalHeritage",
+   "sahifa": "https://sketchfab.com/3d-models/7bed064cd1a946d5aaac1a5cb5adceaa",
+   "attribution": "3D: Global Digital Heritage · CC BY 4.0",
+   "attribution_full": "\"Samarkand Timor Throne Statue\" by Global Digital Heritage (https://sketchfab.com/3d-models/7bed064cd1a946d5aaac1a5cb5adceaa), CC BY 4.0",
+   "fayl": "sanat/7bed064cd1a946d5aaac1a5cb5adceaa/model.glb",
+   "uchburchak": 200000,
+   "hajm": 7321176,
+   "bbox": [
+    [
+     -5.6029839515686035,
+     2.5450022220611572,
+     -7.032483100891113
+    ],
+    [
+     6.568296432495117,
+     10.487520217895508,
+     6.010226249694824
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 3
+  },
+  {
+   "id": "d93945d5f86046f19e44d3980b26e0f8",
+   "nom_uz": "Amir Temur haykali (Shahrisabz)",
+   "nom": "Shakhrisabz Timor Statue",
+   "fan": "san'at",
+   "kalit": [
+    "amir temur",
+    "haykal",
+    "shahrisabz",
+    "o'zbekiston",
+    "yodgorlik",
+    "time",
+    "uzbekistan",
+    "gdh",
+    "realitycapture"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Global Digital Heritage",
+   "muallif_url": "https://sketchfab.com/GlobalDigitalHeritage",
+   "sahifa": "https://sketchfab.com/3d-models/d93945d5f86046f19e44d3980b26e0f8",
+   "attribution": "3D: Global Digital Heritage · CC BY 4.0",
+   "attribution_full": "\"Shakhrisabz Timor Statue\" by Global Digital Heritage (https://sketchfab.com/3d-models/d93945d5f86046f19e44d3980b26e0f8), CC BY 4.0",
+   "fayl": "sanat/d93945d5f86046f19e44d3980b26e0f8/model.glb",
+   "uchburchak": 199997,
+   "hajm": 13657164,
+   "bbox": [
+    [
+     -4.670604705810547,
+     2.035914421081543,
+     -5.505201816558838
+    ],
+    [
+     2.6188418865203857,
+     17.544340133666992,
+     0.9853805899620056
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 3
+  },
+  {
+   "id": "52a0caa15174485292cd6c1c8225dea7",
+   "nom_uz": "Oftoba (Buxoro muzeyi)",
+   "nom": "Офтоба / Офтоба / Oftoba",
+   "fan": "tarix",
+   "kalit": [
+    "oftoba",
+    "buxoro",
+    "hunarmandchilik",
+    "mis",
+    "o'zbekiston",
+    "muzey",
+    "silver",
+    "bukhara"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Bukhara_museum",
+   "muallif_url": "https://sketchfab.com/Bukhara_museum",
+   "sahifa": "https://sketchfab.com/3d-models/52a0caa15174485292cd6c1c8225dea7",
+   "attribution": "3D: Bukhara_museum · CC BY 4.0",
+   "attribution_full": "\"Офтоба / Офтоба / Oftoba\" by Bukhara_museum (https://sketchfab.com/3d-models/52a0caa15174485292cd6c1c8225dea7), CC BY 4.0",
+   "fayl": "tarix/52a0caa15174485292cd6c1c8225dea7/model.glb",
+   "uchburchak": 238742,
+   "hajm": 9471348,
+   "bbox": [
+    [
+     -6.293155193328857,
+     -8.75607681274414,
+     -7.873476505279541
+    ],
+    [
+     3.757052421569824,
+     16.873292922973633,
+     7.519688129425049
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 3
+  },
+  {
+   "id": "4dcb9fcf35764e4f96ed74450e0fcc36",
+   "nom_uz": "O'zbek noni",
+   "nom": "Uzbek Flatbread",
+   "fan": "oshxona",
+   "kalit": [
+    "non",
+    "o'zbek",
+    "taom",
+    "tandir",
+    "o'zbekiston",
+    "food",
+    "cake",
+    "flat",
+    "bread",
+    "dough",
+    "slice",
+    "khleb",
+    "lepioshka"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "yanix",
+   "muallif_url": "https://sketchfab.com/yanix",
+   "sahifa": "https://sketchfab.com/3d-models/4dcb9fcf35764e4f96ed74450e0fcc36",
+   "attribution": "3D: yanix · CC BY 4.0",
+   "attribution_full": "\"Uzbek Flatbread\" by yanix (https://sketchfab.com/3d-models/4dcb9fcf35764e4f96ed74450e0fcc36), CC BY 4.0",
+   "fayl": "oshxona/4dcb9fcf35764e4f96ed74450e0fcc36/model.glb",
+   "uchburchak": 7226,
+   "hajm": 657908,
+   "bbox": [
+    [
+     -0.09875231981277466,
+     0.00036641661426983774,
+     -0.09852121025323868
+    ],
+    [
+     0.09967752546072006,
+     0.04563115909695625,
+     0.10014137625694275
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 3
+  },
+  {
+   "id": "ef1d1b09eee740b6914aaf67cfd0d327",
+   "nom_uz": "Buxoro gilami (tekke naqshli)",
+   "nom": "Tekeh Bukhara Carpet",
+   "fan": "san'at",
+   "kalit": [
+    "gilam",
+    "buxoro",
+    "naqsh",
+    "hunarmandchilik",
+    "o'rta osiyo",
+    "persian",
+    "rug",
+    "carpet"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "mfb64",
+   "muallif_url": "https://sketchfab.com/mfb64",
+   "sahifa": "https://sketchfab.com/3d-models/ef1d1b09eee740b6914aaf67cfd0d327",
+   "attribution": "3D: mfb64 · CC BY 4.0",
+   "attribution_full": "\"Tekeh Bukhara Carpet\" by mfb64 (https://sketchfab.com/3d-models/ef1d1b09eee740b6914aaf67cfd0d327), CC BY 4.0",
+   "fayl": "sanat/ef1d1b09eee740b6914aaf67cfd0d327/model.glb",
+   "uchburchak": 200713,
+   "hajm": 5907936,
+   "bbox": [
+    [
+     -1.2097896337509155,
+     -0.00405518664047122,
+     -0.6873251795768738
+    ],
+    [
+     1.2141650915145874,
+     0.0065114786848425865,
+     0.6821970343589783
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 3
+  },
+  {
+   "id": "80d3195e886d4afc8c5827d2f34511bb",
+   "nom_uz": "Teshiktosh neandertal bolasi bosh suyagi",
+   "nom": "Homo neanderthalensis (niña de Teshik-Tash)",
+   "fan": "tarix",
+   "kalit": [
+    "teshiktosh",
+    "neandertal",
+    "boysun",
+    "o'zbekiston",
+    "arxeologiya",
+    "odam",
+    "homo",
+    "fossil",
+    "paleontology",
+    "neanderthal",
+    "fosil",
+    "neanderthalensis",
+    "neanderthals",
+    "skull",
+    "teshik-task",
+    "evolucion_humana",
+    "teshik-tash"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Museo [UV] Historia Natural",
+   "muallif_url": "https://sketchfab.com/MUVHN",
+   "sahifa": "https://sketchfab.com/3d-models/80d3195e886d4afc8c5827d2f34511bb",
+   "attribution": "3D: Museo [UV] Historia Natural · CC BY 4.0",
+   "attribution_full": "\"Homo neanderthalensis (niña de Teshik-Tash)\" by Museo [UV] Historia Natural (https://sketchfab.com/3d-models/80d3195e886d4afc8c5827d2f34511bb), CC BY 4.0",
+   "fayl": "tarix/80d3195e886d4afc8c5827d2f34511bb/model.glb",
+   "uchburchak": 200000,
+   "hajm": 5472808,
+   "bbox": [
+    [
+     -13.558374404907227,
+     -9.549737930297852,
+     -57.16948699951172
+    ],
+    [
+     23.05645751953125,
+     22.77859115600586,
+     -12.661798477172852
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 3
+  },
+  {
+   "id": "314f957331344efcb574b35da7bba99f",
+   "nom_uz": "Volvo FH 750 tyagachi (fura)",
+   "nom": "Caminhão Volvo FH 750",
+   "fan": "transport",
+   "kalit": [
+    "fura",
+    "tyagach",
+    "yuk mashinasi",
+    "volvo",
+    "logistika",
+    "yuk tashish",
+    "molina",
+    "matheus",
+    "fh750"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Matheus.Molina",
+   "muallif_url": "https://sketchfab.com/Matheus.Molina",
+   "sahifa": "https://sketchfab.com/3d-models/314f957331344efcb574b35da7bba99f",
+   "attribution": "3D: Matheus.Molina · CC BY 4.0",
+   "attribution_full": "\"Caminhão Volvo FH 750\" by Matheus.Molina (https://sketchfab.com/3d-models/314f957331344efcb574b35da7bba99f), CC BY 4.0",
+   "fayl": "transport/314f957331344efcb574b35da7bba99f/model.glb",
+   "uchburchak": 200031,
+   "hajm": 7154644,
+   "bbox": [
+    [
+     -1.5152721405029297,
+     -0.0011544310254976153,
+     -3.1248254776000977
+    ],
+    [
+     1.5152721405029297,
+     3.268825054168701,
+     2.6159720420837402
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 2
+  },
+  {
+   "id": "f507a422e9344e76934c5fbf06eb81d7",
+   "nom_uz": "Polupritsep (muzlatgichli tirkama)",
+   "nom": "Semi Trailer",
+   "fan": "transport",
+   "kalit": [
+    "polupritsep",
+    "tirkama",
+    "refrijerator",
+    "fura",
+    "yuk tashish",
+    "logistika"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "NoblecatSoft",
+   "muallif_url": "https://sketchfab.com/NoblecatSoft",
+   "sahifa": "https://sketchfab.com/3d-models/f507a422e9344e76934c5fbf06eb81d7",
+   "attribution": "3D: NoblecatSoft · CC BY 4.0",
+   "attribution_full": "\"Semi Trailer\" by NoblecatSoft (https://sketchfab.com/3d-models/f507a422e9344e76934c5fbf06eb81d7), CC BY 4.0",
+   "fayl": "transport/f507a422e9344e76934c5fbf06eb81d7/model.glb",
+   "uchburchak": 184236,
+   "hajm": 5018936,
+   "bbox": [
+    [
+     -0.26806551218032837,
+     0.00935268308967352,
+     -1.0421736240386963
+    ],
+    [
+     0.2711332142353058,
+     0.8567691445350647,
+     1.8932603597640991
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 2
+  },
+  {
+   "id": "6362d3e9b11e4396aaafa854c3aa6f06",
+   "nom_uz": "Konteyner tashuvchi kema",
+   "nom": "Small Cargo Ship",
+   "fan": "transport",
+   "kalit": [
+    "konteyner kemasi",
+    "yuk kemasi",
+    "dengiz transporti",
+    "port",
+    "logistika",
+    "shippingcontainer",
+    "college-project",
+    "maya2017",
+    "4ktexture",
+    "substancepainter",
+    "substance",
+    "maya",
+    "modeling",
+    "3d",
+    "model",
+    "maya2018",
+    "ship",
+    "student"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Styx",
+   "muallif_url": "https://sketchfab.com/588276",
+   "sahifa": "https://sketchfab.com/3d-models/6362d3e9b11e4396aaafa854c3aa6f06",
+   "attribution": "3D: Styx · CC BY 4.0",
+   "attribution_full": "\"Small Cargo Ship\" by Styx (https://sketchfab.com/3d-models/6362d3e9b11e4396aaafa854c3aa6f06), CC BY 4.0",
+   "fayl": "transport/6362d3e9b11e4396aaafa854c3aa6f06/model.glb",
+   "uchburchak": 48018,
+   "hajm": 3526152,
+   "bbox": [
+    [
+     -1,
+     -0.3701860010623932,
+     -0.16386400163173676
+    ],
+    [
+     1,
+     0.3701860010623932,
+     0.16386400163173676
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 2
+  },
+  {
+   "id": "76119b46c26f436ba78f4b53c98fc935",
+   "nom_uz": "Port konteyner krani",
+   "nom": "Gantry Crane",
+   "fan": "texnika",
+   "kalit": [
+    "port",
+    "kran",
+    "konteyner",
+    "terminal",
+    "logistika",
+    "cranes"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "alanUscanga",
+   "muallif_url": "https://sketchfab.com/alanUscanga",
+   "sahifa": "https://sketchfab.com/3d-models/76119b46c26f436ba78f4b53c98fc935",
+   "attribution": "3D: alanUscanga · CC BY 4.0",
+   "attribution_full": "\"Gantry Crane\" by alanUscanga (https://sketchfab.com/3d-models/76119b46c26f436ba78f4b53c98fc935), CC BY 4.0",
+   "fayl": "texnika/76119b46c26f436ba78f4b53c98fc935/model.glb",
+   "uchburchak": 213410,
+   "hajm": 7640736,
+   "bbox": [
+    [
+     -10795.5751953125,
+     0.0012512319954112172,
+     -7125.70263671875
+    ],
+    [
+     10736.294921875,
+     24852,
+     5345.1865234375
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 2
+  },
+  {
+   "id": "ab71a5f790f940798cc755246a7a8a7f",
+   "nom_uz": "Il-76 yuk samolyoti",
+   "nom": "Ilyushin Il-76",
+   "fan": "transport",
+   "kalit": [
+    "yuk samolyoti",
+    "aviatsiya",
+    "il-76",
+    "havo transporti",
+    "logistika",
+    "historical",
+    "flightgear",
+    "aircrafts",
+    "blender"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "helijah",
+   "muallif_url": "https://sketchfab.com/helijah",
+   "sahifa": "https://sketchfab.com/3d-models/ab71a5f790f940798cc755246a7a8a7f",
+   "attribution": "3D: helijah · CC BY 4.0",
+   "attribution_full": "\"Ilyushin Il-76\" by helijah (https://sketchfab.com/3d-models/ab71a5f790f940798cc755246a7a8a7f), CC BY 4.0",
+   "fayl": "transport/ab71a5f790f940798cc755246a7a8a7f/model.glb",
+   "uchburchak": 101982,
+   "hajm": 2928564,
+   "bbox": [
+    [
+     0,
+     4.666296036094468e-15,
+     -50.492679595947266
+    ],
+    [
+     46.43915557861328,
+     14.699169158935547,
+     1.122527131096091e-15
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 2
+  },
+  {
+   "id": "133b0810d90d4d3992e1f8d67f439e03",
+   "nom_uz": "Yuk konteyneri (to'q sariq)",
+   "nom": "Freight shipping container - Orange",
+   "fan": "transport",
+   "kalit": [
+    "konteyner",
+    "yuk",
+    "dengiz",
+    "logistika",
+    "shipping",
+    "cargo",
+    "freight",
+    "container"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Sousinho",
+   "muallif_url": "https://sketchfab.com/sousinho",
+   "sahifa": "https://sketchfab.com/3d-models/133b0810d90d4d3992e1f8d67f439e03",
+   "attribution": "3D: Sousinho · CC BY 4.0",
+   "attribution_full": "\"Freight shipping container - Orange\" by Sousinho (https://sketchfab.com/3d-models/133b0810d90d4d3992e1f8d67f439e03), CC BY 4.0",
+   "fayl": "transport/133b0810d90d4d3992e1f8d67f439e03/model.glb",
+   "uchburchak": 11098,
+   "hajm": 1776072,
+   "bbox": [
+    [
+     -6.330780029296875,
+     -0.9999995231628418,
+     -3.454404592514038
+    ],
+    [
+     6.518082141876221,
+     4.928122520446777,
+     3.2417547702789307
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 2
+  },
+  {
+   "id": "4f38d1e992e94966b6ceb2754cc16a22",
+   "nom_uz": "Yevropalet (Euro-palet)",
+   "nom": "Euro-pallet",
+   "fan": "texnika",
+   "kalit": [
+    "palet",
+    "yevropalet",
+    "ombor",
+    "logistika",
+    "qadoqlash",
+    "pallet",
+    "wooden",
+    "european",
+    "transport",
+    "euro",
+    "forklift",
+    "europallet",
+    "industry",
+    "epal",
+    "freight",
+    "downloadable",
+    "asset",
+    "blender",
+    "blender3d",
+    "wood"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Wittybacon",
+   "muallif_url": "https://sketchfab.com/wittybacon",
+   "sahifa": "https://sketchfab.com/3d-models/4f38d1e992e94966b6ceb2754cc16a22",
+   "attribution": "3D: Wittybacon · CC BY 4.0",
+   "attribution_full": "\"Euro-pallet\" by Wittybacon (https://sketchfab.com/3d-models/4f38d1e992e94966b6ceb2754cc16a22), CC BY 4.0",
+   "fayl": "texnika/4f38d1e992e94966b6ceb2754cc16a22/model.glb",
+   "uchburchak": 15736,
+   "hajm": 1294152,
+   "bbox": [
+    [
+     -60.000003814697266,
+     -0.029765453189611435,
+     -40
+    ],
+    [
+     60.000003814697266,
+     14.434136390686035,
+     40
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 2
+  },
+  {
+   "id": "3e679f329a314583ab0cbb7caf33c163",
+   "nom_uz": "Karton qutilar",
+   "nom": "Cardboard boxes",
+   "fan": "texnika",
+   "kalit": [
+    "quti",
+    "qadoqlash",
+    "pochta",
+    "ombor",
+    "yuk",
+    "carton",
+    "card",
+    "boxes",
+    "cardboard",
+    "realistic",
+    "box",
+    "cardboardboxes",
+    "downloadable",
+    "cardbox",
+    "boite",
+    "free-download",
+    "cardboard-box",
+    "fedex",
+    "boxs",
+    "3dsmax"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Alex_Zup",
+   "muallif_url": "https://sketchfab.com/Alex_Zup",
+   "sahifa": "https://sketchfab.com/3d-models/3e679f329a314583ab0cbb7caf33c163",
+   "attribution": "3D: Alex_Zup · CC BY 4.0",
+   "attribution_full": "\"Cardboard boxes\" by Alex_Zup (https://sketchfab.com/3d-models/3e679f329a314583ab0cbb7caf33c163), CC BY 4.0",
+   "fayl": "texnika/3e679f329a314583ab0cbb7caf33c163/model.glb",
+   "uchburchak": 20096,
+   "hajm": 591952,
+   "bbox": [
+    [
+     -0.32341888546943665,
+     0.0006665657856501639,
+     -0.40534451603889465
+    ],
+    [
+     0.190347820520401,
+     0.46892085671424866,
+     0.4628376066684723
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 2
+  },
+  {
+   "id": "ca2084ce43a64a809be5ba0a0ec6cfa8",
+   "nom_uz": "Yopiq yuk vagoni",
+   "nom": "Freight train car",
+   "fan": "transport",
+   "kalit": [
+    "vagon",
+    "temir yo'l",
+    "yuk tashish",
+    "logistika",
+    "train",
+    "wagon",
+    "freight-train"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Вячеслав",
+   "muallif_url": "https://sketchfab.com/fleshherbal",
+   "sahifa": "https://sketchfab.com/3d-models/ca2084ce43a64a809be5ba0a0ec6cfa8",
+   "attribution": "3D: Вячеслав · CC BY 4.0",
+   "attribution_full": "\"Freight train car\" by Вячеслав (https://sketchfab.com/3d-models/ca2084ce43a64a809be5ba0a0ec6cfa8), CC BY 4.0",
+   "fayl": "transport/ca2084ce43a64a809be5ba0a0ec6cfa8/model.glb",
+   "uchburchak": 26304,
+   "hajm": 3941416,
+   "bbox": [
+    [
+     -1.5872023105621338,
+     -0.02080555632710457,
+     -3.979437828063965
+    ],
+    [
+     1.5201799869537354,
+     4.224201202392578,
+     4.569843292236328
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 2
+  },
+  {
+   "id": "59889032d0ad457c81d7e058c79eedf8",
+   "nom_uz": "Scania tyagachi",
+   "nom": "Scania truck",
+   "fan": "transport",
+   "kalit": [
+    "fura",
+    "tyagach",
+    "scania",
+    "yuk tashish",
+    "automobile",
+    "wheel",
+    "truck",
+    "camion",
+    "traffic",
+    "transport",
+    "goods",
+    "auto",
+    "vehicle",
+    "car"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "PAndras",
+   "muallif_url": "https://sketchfab.com/PusztaiAndras",
+   "sahifa": "https://sketchfab.com/3d-models/59889032d0ad457c81d7e058c79eedf8",
+   "attribution": "3D: PAndras · CC BY 4.0",
+   "attribution_full": "\"Scania truck\" by PAndras (https://sketchfab.com/3d-models/59889032d0ad457c81d7e058c79eedf8), CC BY 4.0",
+   "fayl": "transport/59889032d0ad457c81d7e058c79eedf8/model.glb",
+   "uchburchak": 200071,
+   "hajm": 10934792,
+   "bbox": [
+    [
+     -7.498910903930664,
+     0.026589665561914444,
+     -31.530786514282227
+    ],
+    [
+     27.749614715576172,
+     22.03192901611328,
+     0.9855144619941711
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 2
+  },
+  {
+   "id": "280b6d7e983149a1aea0b500f8713a07",
+   "nom_uz": "Freightliner Cascadia tyagachi",
+   "nom": "FREIGHTLINER CASCADIA",
+   "fan": "transport",
+   "kalit": [
+    "fura",
+    "tyagach",
+    "freightliner",
+    "yuk tashish",
+    "wheel",
+    "truck",
+    "mechanical",
+    "heavy",
+    "engine",
+    "gear"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "liebherr996litronic",
+   "muallif_url": "https://sketchfab.com/liebherr996litronic",
+   "sahifa": "https://sketchfab.com/3d-models/280b6d7e983149a1aea0b500f8713a07",
+   "attribution": "3D: liebherr996litronic · CC BY 4.0",
+   "attribution_full": "\"FREIGHTLINER CASCADIA\" by liebherr996litronic (https://sketchfab.com/3d-models/280b6d7e983149a1aea0b500f8713a07), CC BY 4.0",
+   "fayl": "transport/280b6d7e983149a1aea0b500f8713a07/model.glb",
+   "uchburchak": 199985,
+   "hajm": 4961580,
+   "bbox": [
+    [
+     -368.9130859375,
+     -0.17720000445842743,
+     -401.3467102050781
+    ],
+    [
+     -266.4104919433594,
+     168.1595001220703,
+     -40.076499938964844
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 2
+  },
+  {
+   "id": "707e22f6edc64871b8c02f556be03075",
+   "nom_uz": "An-12 yuk samolyoti",
+   "nom": "Antonov An 12",
+   "fan": "transport",
+   "kalit": [
+    "yuk samolyoti",
+    "antonov",
+    "aviatsiya",
+    "havo transporti"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "helijah",
+   "muallif_url": "https://sketchfab.com/helijah",
+   "sahifa": "https://sketchfab.com/3d-models/707e22f6edc64871b8c02f556be03075",
+   "attribution": "3D: helijah · CC BY 4.0",
+   "attribution_full": "\"Antonov An 12\" by helijah (https://sketchfab.com/3d-models/707e22f6edc64871b8c02f556be03075), CC BY 4.0",
+   "fayl": "transport/707e22f6edc64871b8c02f556be03075/model.glb",
+   "uchburchak": 189962,
+   "hajm": 6987928,
+   "bbox": [
+    [
+     -16.54576301574707,
+     -5.261505126953125,
+     -18.89128303527832
+    ],
+    [
+     16.369911193847656,
+     5.167603969573975,
+     18.89128303527832
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 2
+  },
+  {
+   "id": "291cbafe52314c159d0c80a17aa48eef",
+   "nom_uz": "An-22 «Antey» yuk samolyoti",
+   "nom": "Antonov AN 22 \"Antei\"",
+   "fan": "transport",
+   "kalit": [
+    "yuk samolyoti",
+    "antonov",
+    "aviatsiya",
+    "havo transporti"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "helijah",
+   "muallif_url": "https://sketchfab.com/helijah",
+   "sahifa": "https://sketchfab.com/3d-models/291cbafe52314c159d0c80a17aa48eef",
+   "attribution": "3D: helijah · CC BY 4.0",
+   "attribution_full": "\"Antonov AN 22 \"Antei\"\" by helijah (https://sketchfab.com/3d-models/291cbafe52314c159d0c80a17aa48eef), CC BY 4.0",
+   "fayl": "transport/291cbafe52314c159d0c80a17aa48eef/model.glb",
+   "uchburchak": 86988,
+   "hajm": 2825240,
+   "bbox": [
+    [
+     -28.941604614257812,
+     -5.247766017913818,
+     -32.2234992980957
+    ],
+    [
+     28.654399871826172,
+     6.265442848205566,
+     32.2234992980957
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 2
+  },
+  {
+   "id": "39ffc7c746184e0c9ebd5bbcd0b405dd",
+   "nom_uz": "Tesla Semi elektr tyagachi",
+   "nom": "Tesla Semi",
+   "fan": "transport",
+   "kalit": [
+    "fura",
+    "elektromobil",
+    "tesla",
+    "yuk tashish",
+    "truck",
+    "drive",
+    "transport",
+    "electrical",
+    "semi",
+    "electrocar",
+    "blender",
+    "vehicle",
+    "model",
+    "racing",
+    "car"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Aleksei Rozumnyi",
+   "muallif_url": "https://sketchfab.com/Aleksei.Rozumnyi",
+   "sahifa": "https://sketchfab.com/3d-models/39ffc7c746184e0c9ebd5bbcd0b405dd",
+   "attribution": "3D: Aleksei Rozumnyi · CC BY 4.0",
+   "attribution_full": "\"Tesla Semi\" by Aleksei Rozumnyi (https://sketchfab.com/3d-models/39ffc7c746184e0c9ebd5bbcd0b405dd), CC BY 4.0",
+   "fayl": "transport/39ffc7c746184e0c9ebd5bbcd0b405dd/model.glb",
+   "uchburchak": 80374,
+   "hajm": 1868748,
+   "bbox": [
+    [
+     -1.2483700513839722,
+     -0.890500009059906,
+     -5.403830051422119
+    ],
+    [
+     1.2483700513839722,
+     2.636229991912842,
+     0.09734000265598297
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 2
+  },
+  {
+   "id": "4f7cf10593824061bfe2e36ffd823cde",
+   "nom_uz": "Yuk kemasi (bo'sh)",
+   "nom": "Container Ship",
+   "fan": "transport",
+   "kalit": [
+    "yuk kemasi",
+    "dengiz transporti",
+    "port",
+    "barge",
+    "vessel",
+    "sailing",
+    "cargo",
+    "nautical",
+    "ship",
+    "container",
+    "sea",
+    "boat"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "LavaWave",
+   "muallif_url": "https://sketchfab.com/lavawave",
+   "sahifa": "https://sketchfab.com/3d-models/4f7cf10593824061bfe2e36ffd823cde",
+   "attribution": "3D: LavaWave · CC BY 4.0",
+   "attribution_full": "\"Container Ship\" by LavaWave (https://sketchfab.com/3d-models/4f7cf10593824061bfe2e36ffd823cde), CC BY 4.0",
+   "fayl": "transport/4f7cf10593824061bfe2e36ffd823cde/model.glb",
+   "uchburchak": 20424,
+   "hajm": 1347156,
+   "bbox": [
+    [
+     -18.197526931762695,
+     -23.1201171875,
+     -123.5313720703125
+    ],
+    [
+     18.197526931762695,
+     23.1201171875,
+     123.5313720703125
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 2
+  },
+  {
+   "id": "1e61dfadf7114ad38076f1a6a871ccf1",
+   "nom_uz": "DAF XF 95 tyagachi",
+   "nom": "DAF XF 95",
+   "fan": "transport",
+   "kalit": [
+    "fura",
+    "tyagach",
+    "daf",
+    "yuk tashish",
+    "truck"
+   ],
+   "manba": "objaverse",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Kabourek Roman",
+   "muallif_url": "https://sketchfab.com/Krakatit",
+   "sahifa": "https://sketchfab.com/3d-models/1e61dfadf7114ad38076f1a6a871ccf1",
+   "attribution": "3D: Kabourek Roman · CC BY 4.0",
+   "attribution_full": "\"DAF XF 95\" by Kabourek Roman (https://sketchfab.com/3d-models/1e61dfadf7114ad38076f1a6a871ccf1), CC BY 4.0",
+   "fayl": "transport/1e61dfadf7114ad38076f1a6a871ccf1/model.glb",
+   "uchburchak": 171317,
+   "hajm": 13730984,
+   "bbox": [
+    [
+     -3.9571449756622314,
+     -1.3031821250915527,
+     -15.616827011108398
+    ],
+    [
+     3.9571449756622314,
+     7.800081729888916,
+     3.5740485191345215
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 2
   }
  ]
 }
