@@ -247,13 +247,14 @@ async def _build(topic: str, slides: int = 0, photos: bool = False) -> str:
     """
     from bot.handlers.premium_presentation import _detect_language
     from database import free_trial
-    from services import workload
+    from services import heavy_gate, workload
     from services.premium_presentation import llm_client, pipeline
 
     async with _SLOTS:
         work_id = workload.begin("sovg'a taqdimot")
         try:
-            with llm_client.text_model(free_trial.MODEL):
+            # Bepul sovg'a: server band bo'lsa pullik buyurtmalardan keyin chiziladi (og'ir ishlar navbatida — FON).
+            with llm_client.text_model(free_trial.MODEL), heavy_gate.fon():
                 path, _slides, _photos = await pipeline.build_deck(
                     topic, slides or free_trial.SLIDES, language=_detect_language(topic), style="toza",
                     volume="kop", photos=photos)

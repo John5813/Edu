@@ -73,7 +73,7 @@ async def build_deck(topic: str, slide_count: int, model_ids: List[str], *, lang
 
     loop = asyncio.get_running_loop()
     stage("download", total=len(model_ids))
-    ids = await loop.run_in_executor(None, yukla.ensure, list(model_ids), 240.0)   # odatda to'lovgacha tayyor
+    ids = await loop.run_in_executor(None, yukla.ensure, list(model_ids), 600.0)   # odatda to'lovgacha tayyor
     if not ids:
         raise NoModels("3D modellar serverga yuklanmadi")
     count = max(MIN_SLIDES, min(MAX_SLIDES, int(slide_count or 8)))
@@ -85,6 +85,10 @@ async def build_deck(topic: str, slide_count: int, model_ids: List[str], *, lang
         await _photos(topic, plan, stage)
     stage("models", slides=len(plan["slides"]))
     out_dir = tempfile.mkdtemp(prefix="kat3d_")
-    path = await asyncio.wait_for(loop.run_in_executor(
-        None, lambda: deck.build(plan, os.path.join(out_dir, "3D.pptx"))), 5 * 60)
+    from services import heavy_gate
+
+    # Modellarni PowerPoint'ga yig'ish — og'ir ishlar navbatida (kutish vaqt chegarasiga kirmaydi).
+    async with heavy_gate.aslot("3D taqdimot yig'ish", heavy_gate.DECK3D_MB):
+        path = await asyncio.wait_for(loop.run_in_executor(
+            None, lambda: deck.build(plan, os.path.join(out_dir, "3D.pptx"))), 5 * 60)
     return path, len(plan["slides"])

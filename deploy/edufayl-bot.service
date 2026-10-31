@@ -1,0 +1,34 @@
+# Edufayl boti — systemd xizmati. O'rnatish: sudo bash deploy/sozlash.sh (u __...__ joylarni o'zi to'ldiradi).
+[Unit]
+Description=Edufayl Telegram bot va sayt
+After=network-online.target
+Wants=network-online.target
+# Bot ketma-ket juda tez yiqilsa ham to'xtab qolmasin — har safar qayta ko'tariladi.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__DIR__
+ExecStart=__PYTHON__ main.py
+# Bot qaysi sabab bilan bo'lmasin o'chsa (xotira, xato, server qayta yuklanishi) — 5 soniyada qaytadan ishga tushadi.
+# Yarim qolgan buyurtmalar uchun bot o'zi pulni qaytaradi va mijozga xabar beradi (database/bot_orders.py).
+Restart=always
+RestartSec=5
+# Xotira tugaganda Linux botning o'zini emas, birinchi navbatda uning bola jarayonlarini (brauzer, node,
+# LibreOffice) o'chirsin: bot ularni oom_score_adj=1000 bilan belgilaydi (services/heavy_gate.py).
+OOMScoreAdjust=-500
+# Butun xizmat (bot + brauzer + node) server xotirasining 90% idan oshmasin. Oshsa, kernel server butunlay
+# qotib qolishini kutmasdan, shu guruh ichida belgilangan jarayonni o'chiradi.
+MemoryMax=90%
+# Swap'ga ko'p tushish — diskni 1 GB/s bilan "titratish" (grafikdagi holat). Xizmatga swap ozgina beriladi.
+MemorySwapMax=512M
+# To'xtatishda avval bot (SIGTERM — toza yopiladi), 30 soniyadan keyin qolganlari.
+KillMode=mixed
+TimeoutStopSec=30
+# Jurnal: journalctl -u edufayl-bot -f
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

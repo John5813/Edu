@@ -85,6 +85,8 @@ def _model():
         try:
             options = ort.SessionOptions()
             options.intra_op_num_threads = max(1, min(4, os.cpu_count() or 1))
+            # Xotira "arenasi" ish tugagach ham xotirani ushlab turadi — kichik serverda kerak emas.
+            options.enable_cpu_mem_arena = False
             _session = ort.InferenceSession(MODEL_PATH, options, providers=["CPUExecutionProvider"])
         except Exception as exc:
             log.warning("Fon olib tashlash modeli ochilmadi: %s", exc)
@@ -97,20 +99,48 @@ def warm() -> None:
     threading.Thread(target=_model, name="pro3d-cutout-warm", daemon=True).start()
 
 
+IDLE_RELEASE = float(os.getenv("PRO3D_CUTOUT_IDLE_SEC") or 600)
+_release_timer: Optional[threading.Timer] = None
+
+
+def _release_later() -> None:
+    """Model `IDLE_RELEASE` soniya ishlatilmasa xotiradan chiqariladi (kerak bo'lsa yana ochiladi):
+    kichik serverda ~200-400 MB doim band turmasin."""
+    global _release_timer
+
+    def release():
+        global _session
+        with _session_lock:
+            _session = None
+        log.info("Fon olib tashlash modeli xotiradan chiqarildi (ishlatilmayapti)")
+
+    with _session_lock:
+        if _release_timer is not None:
+            _release_timer.cancel()
+        _release_timer = threading.Timer(IDLE_RELEASE, release)
+        _release_timer.daemon = True
+        _release_timer.start()
+
+
 def _model_mask(image: Image.Image) -> Optional[np.ndarray]:
-    """ISNet niqobi (0..1, rasm o'lchamida) yoki None."""
-    session = _model()
-    if session is None:
-        return None
-    small = image.convert("RGB").resize((MODEL_SIZE, MODEL_SIZE), Image.LANCZOS)
-    arr = np.asarray(small, dtype=np.float32)
-    arr = arr / max(float(arr.max()), 1e-6) - 0.5            # rembg: mean 0.5, std 1.0
-    tensor = arr.transpose(2, 0, 1)[None].astype(np.float32)
-    try:
-        out = session.run(None, {session.get_inputs()[0].name: tensor})[0][0, 0]
-    except Exception as exc:
-        log.warning("Fon olib tashlash modeli ishlamadi: %s", exc)
-        return None
+    """ISNet niqobi (0..1, rasm o'lchamida) yoki None. Og'ir ishlar darvozasi orqali — xotira to'lmasin."""
+    from services import heavy_gate
+
+    with heavy_gate.slot("fon olib tashlash (ONNX)", heavy_gate.ONNX_MB):
+        session = _model()
+        if session is None:
+            return None
+        small = image.convert("RGB").resize((MODEL_SIZE, MODEL_SIZE), Image.LANCZOS)
+        arr = np.asarray(small, dtype=np.float32)
+        arr = arr / max(float(arr.max()), 1e-6) - 0.5            # rembg: mean 0.5, std 1.0
+        tensor = arr.transpose(2, 0, 1)[None].astype(np.float32)
+        try:
+            out = session.run(None, {session.get_inputs()[0].name: tensor})[0][0, 0]
+        except Exception as exc:
+            log.warning("Fon olib tashlash modeli ishlamadi: %s", exc)
+            return None
+        finally:
+            _release_later()
     low, high = float(out.min()), float(out.max())
     if high - low < 1e-6:
         return None

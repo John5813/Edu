@@ -1034,8 +1034,12 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
         await draw_scenes(plan_)                  # chizilmasa — slayd rasmsiz (bloklamaydi)
     stage("models", slides=len(plan_["slides"]))
     try:
-        path = await asyncio.wait_for(loop.run_in_executor(None, lambda: make_deck(topic, plan_, style=style)),
-                                      8 * 60)
+        from services import heavy_gate
+
+        # Organ modellarini yig'ish va soddalashtirish og'ir — server bo'shaguncha kutish vaqt chegarasiga kirmaydi.
+        async with heavy_gate.aslot("3D Anatomiya yig'ish", heavy_gate.DECK3D_MB):
+            path = await asyncio.wait_for(loop.run_in_executor(None, lambda: make_deck(topic, plan_, style=style)),
+                                          8 * 60)
     finally:
         for s in plan_["slides"]:
             for key in ("picture_path", "scene_path"):

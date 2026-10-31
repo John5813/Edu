@@ -320,9 +320,19 @@ async def _do_conversion(
     docx_path = None
 
     processing_msg = await message.answer(get_text(user_lang, "pdf_convert_processing"))
+    # Bot shu orada qayta ishga tushsa mijozga aytiladi (Stars bilan to'langan bo'lsa pul ham qaytadi).
+    from database import bot_orders
+
+    order_id = await bot_orders.start(user.telegram_id, message.chat.id, "pdf_word", pdf_filename,
+                                      0 if deduct_balance else price, user_lang)
 
     try:
-        docx_path = await convert_pdf_to_docx(pdf_file_path)
+        from bot import waiting
+
+        base = get_text(user_lang, "pdf_convert_processing")
+        # Server band bo'lsa konvertatsiya navbatda kutishi mumkin — mijoz navbatni emas, tirik xabarni ko'radi.
+        async with waiting.keep_alive(processing_msg, lambda spin, fact: f"{spin} {base}\n\n💡 {fact}", user_lang):
+            docx_path = await convert_pdf_to_docx(pdf_file_path)
 
         if deduct_balance:
             await db.update_user_balance(user.telegram_id, -price)
@@ -348,6 +358,7 @@ async def _do_conversion(
             reply_markup=get_main_keyboard(user_lang),
         )
     finally:
+        await bot_orders.finish(order_id)
         await state.clear()
         for tmp in (pdf_file_path, docx_path):
             if tmp and os.path.exists(tmp):

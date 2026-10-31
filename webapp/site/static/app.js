@@ -496,7 +496,7 @@
     } else if (j.status === 'failed') {
       status = `<span class="pill bad">Bajarilmadi</span><div class="hint" style="margin-top:6px">${E.esc(j.error)}</div>`;
     } else {
-      status = `<span class="pill wait">${E.esc(j.stage_text || 'Navbatda')}</span><div class="bar"><i style="width:${Math.max(4, j.progress)}%"></i></div>`;
+      status = `<span class="pill wait">${E.esc(j.stage_text || 'Tayyorlanmoqda')}</span><div class="bar"><i style="width:${Math.max(4, j.progress)}%"></i></div>`;
     }
     const open = ((j.kind === 'premium_presentation' || j.kind === 'simple_presentation') && j.status !== 'failed') ? `<a class="btn sm out" href="#/job/${E.esc(j.id)}">${j.status === 'done' ? 'Ko‘rish' : 'Ochish'}</a> ` : '';
     return `<div class="job"><div><div class="t">${E.esc(j.title)}</div><div class="hint" style="margin:2px 0 0">${E.esc(kindLabel(j.kind))} · ${E.fmt(j.price)} so‘m</div></div><div>${status}</div><div>${open}${action}</div></div>`;

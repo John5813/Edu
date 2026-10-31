@@ -165,10 +165,13 @@ def ppt_to_pptx(src: str, dst: str, timeout: int = 120) -> None:
     work = tempfile.mkdtemp(prefix="abs_ppt_")
     try:
         shutil.copy(src, os.path.join(work, "in.ppt"))
-        subprocess.run(
-            ["soffice", f"-env:UserInstallation=file://{work}/profile", "--headless",
-             "--convert-to", "pptx", "--outdir", work, os.path.join(work, "in.ppt")],
-            check=True, timeout=timeout, capture_output=True)
+        from services import heavy_gate
+
+        with heavy_gate.slot("LibreOffice (ppt)", heavy_gate.OFFICE_MB):
+            subprocess.run(
+                ["soffice", f"-env:UserInstallation=file://{work}/profile", "--headless",
+                 "--convert-to", "pptx", "--outdir", work, os.path.join(work, "in.ppt")],
+                check=True, timeout=timeout, capture_output=True)
         produced = os.path.join(work, "in.pptx")
         if not os.path.exists(produced):
             raise AbsError("bad_file")

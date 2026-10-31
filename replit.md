@@ -74,6 +74,13 @@ Users select a language, work type, topic, length, and optional extras in Telegr
 
 - Premium presentation output should be a ready-to-use `.pptx` file, not source code.
 
+## Server memory (2 GB droplet)
+
+- Every memory-heavy step (Chromium render, LibreOffice, 3D model conversion, ONNX cutout, pdf2docx, 3D deck assembly) goes through `services/heavy_gate.py`: at most `HEAVY_PARALLEL` at once (1 on 2 GB) and only when `MemAvailable` covers the step plus a reserve. Extra load waits instead of filling RAM; the wait is not counted in step timeouts. Customers never see the queue — status messages keep rotating facts (`bot/waiting.py`, `bot/queue_service.py`).
+- Paid bot orders are recorded in `bot_orders` (`database/bot_orders.py`); after a crash/restart the money is refunded and the customer gets an apology (documents: only the message, nothing was charged yet).
+- `services/memory_watch.py` alerts admins when free memory < 300 MB or disk < 2 GB, and marks browser/node/LibreOffice children `oom_score_adj=1000`.
+- Server setup (systemd with auto-restart, earlyoom, swap): `deploy/README.md`, `sudo bash deploy/sozlash.sh`.
+
 ## Gotchas
 
 - Do not put API keys in source files or chat; use project Secrets.

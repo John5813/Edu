@@ -137,7 +137,7 @@
       <div class="fg-in">
         <div class="fg-head">
           <div class="fg-core"><span class="fg-orb" aria-hidden="true"></span><span class="fg-topic">${esc(opts.topic || '')}</span></div>
-          <div class="fg-stage"><i></i><span class="fg-st">Navbatda</span></div>
+          <div class="fg-stage"><i></i><span class="fg-st">Tayyorlanmoqda</span></div>
         </div>
         <div class="fg-grid"></div>
         <div class="fg-foot"><div class="fg-bar"><i></i></div>
@@ -189,7 +189,7 @@
       bar.style.width = Math.max(3, pct) + '%';
     }
 
-    const LABEL = {queued: 'Navbatda', plan: 'Reja tuzilmoqda', writing: pages ? 'Sahifalar yozilmoqda' : 'Slaydlar yozilmoqda',
+    const LABEL = {queued: 'Tayyorlanmoqda', plan: 'Reja tuzilmoqda', writing: pages ? 'Sahifalar yozilmoqda' : 'Slaydlar yozilmoqda',
       images: 'Rasmlar qo‘yilmoqda', render: 'Fayl yig‘ilmoqda', done: 'Tayyor!'};
 
     function update(job) {

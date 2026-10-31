@@ -403,7 +403,10 @@ def render_previews(source_path: str, public_code: str,
     out_dir = os.path.join(STORE_PREVIEW_DIR, public_code)
     os.makedirs(out_dir, exist_ok=True)
 
-    images = pptx_to_images(source_path)
+    from services import heavy_gate
+
+    with heavy_gate.fon():                       # do'kon ko'rgazmasi — mijoz buyurtmalaridan keyin
+        images = pptx_to_images(source_path)
     if not images:
         logger.error("Ko'rgazma rasmlari yaratilmadi: %s", source_path)
         return 0, 0
