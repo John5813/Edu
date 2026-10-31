@@ -147,7 +147,9 @@ def _model(ctx: Ctx, slide, mid: str, cx: float, cy: float, size: float, turn: f
     k = ctx.seen.get(mid, 0)
     ctx.seen[mid] = k + 1
     rot = (BASE_ROT[0], BASE_ROT[1] + SWING[k % len(SWING)] + turn, BASE_ROT[2])
-    ctx.spins.setdefault(ctx.cur, []).append(_place(ctx, slide, mid, cx, cy, size, rot))
+    sid = _place(ctx, slide, mid, cx, cy, size, rot)
+    if ctx.plan.get("spin") is None or mid in ctx.plan["spin"]:      # `spin` — faqat shu modellar aylanadi
+        ctx.spins.setdefault(ctx.cur, []).append(sid)
     ctx.placed.setdefault(ctx.cur, {})[mid] = (cx, cy, size, rot)
     m = katalog3d.katalog()[mid]
     if m["attribution_full"] not in ctx.credits:
