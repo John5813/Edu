@@ -9,6 +9,7 @@
     python test_yozuv_animatsiya.py
 """
 import asyncio
+from types import SimpleNamespace
 import os
 import random
 import re
@@ -142,16 +143,34 @@ print("2) Mijoz tanlovi va admin")
 from bot.handlers import premium_presentation as pp
 
 base = {"topic": "Turizm", "slide_count": 10, "presentation_language": "uz", "volume": "kam", "style": "toza"}
-_, kb_off = pp._summary({**base, "text_anim_offer": False}, "uz")
-check("admin o'chirgan — tanlov yo'q", not any(b.callback_data == "prem_ppt_anim" for r in kb_off.inline_keyboard for b in r))
-text_on, kb_on = pp._summary({**base, "text_anim_offer": True}, "uz")
-btn = [b for r in kb_on.inline_keyboard for b in r if b.callback_data == "prem_ppt_anim"]
-check("yoqilgan — tanlov bor, sukut 'Bor'", btn and btn[0].text == "✨ Yozuv animatsiyasi: ✅ Bor" and "✅ Bor" in text_on,
-      btn and btn[0].text)
+# Tanlov alohida qadamda (rasm manbasidan keyin): «✅ Bor» / «❌ Yo'q»; xulosada natija yoziladi.
+text_off, _ = pp._summary({**base, "text_anim_offer": False}, "uz")
+check("admin o'chirgan — tanlov yo'q (xulosada ham yozilmaydi)", "Yozuv animatsiyasi" not in text_off, text_off)
+
+
+async def anim_step():
+    shown = {}
+
+    async def prompt(message, state, text, markup, key, new_state=None, photo=""):
+        shown.update(text=text, markup=markup, key=key)
+    from unittest import mock as _mock
+    from aiogram.fsm.context import FSMContext
+    from aiogram.fsm.storage.base import StorageKey
+    from aiogram.fsm.storage.memory import MemoryStorage
+    state = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=7, user_id=7))
+    await state.update_data(**base, text_anim_offer=True)
+    with _mock.patch.object(pp, "_prompt", prompt):
+        await pp._step_anim(SimpleNamespace(), state, "uz")
+    return shown
+step = asyncio.run(anim_step())
+btns = [b for r in step["markup"].inline_keyboard for b in r if b.callback_data.startswith("prem_ppt_anim:")]
+check("yoqilgan — alohida qadamda «Bor» / «Yo'q» tanlovi", [(b.text, b.callback_data) for b in btns] ==
+      [("✅ Bor", "prem_ppt_anim:1"), ("❌ Yo'q", "prem_ppt_anim:0")], btns)
+text_on, _ = pp._summary({**base, "text_anim_offer": True}, "uz")
+check("xulosada sukut — «Bor»", "Yozuv animatsiyasi" in text_on and "✅ Bor" in text_on, text_on)
 check("tanlansa — PowerPoint slayd-shou haqida aytiladi", "Slayd-shou" in text_on)
-text_no, kb_no = pp._summary({**base, "text_anim_offer": True, "text_anim": False}, "uz")
-btn = [b for r in kb_no.inline_keyboard for b in r if b.callback_data == "prem_ppt_anim"]
-check("mijoz o'chirsa — 'Yo'q'", btn and btn[0].text.endswith("❌ Yo'q"))
+text_no, _ = pp._summary({**base, "text_anim_offer": True, "text_anim": False}, "uz")
+check("mijoz o'chirsa — 'Yo'q'", "❌ Yo'q" in text_no, text_no)
 check("o'chirsa — eslatma yo'q", "Slayd-shou" not in text_no)
 check("generatsiyada: tanlov hisobga olinadi",
       pp._text_anim_choice({"text_anim_offer": True}) is True

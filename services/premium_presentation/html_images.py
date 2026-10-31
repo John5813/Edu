@@ -409,8 +409,9 @@ def _together_generate(aspect: str = "4:3"):
     return generate
 
 
-# Rasm manbasi (mijoz tanlaydi): "web" — faqat internetdagi haqiqiy foto (topilmasa o'rnida matn qoladi),
-# "ai" — hammasini AI chizadi (internetga qaralmaydi), "mix" — avval internet, topilmasa AI (sukut).
+# Rasm manbasi (mijoz tanlaydi): "web" — doim avval internetdagi haqiqiy foto (topilmaganini AI chizadi:
+# rasm bloki bo'sh qolmaydi), "ai" — hammasini AI chizadi (internetga qaralmaydi), "mix" — avval internet,
+# topilmasa AI (sukut); mavhum/futuristik mavzuda esa AI birinchi (`photo_search.prefer_ai`).
 PHOTO_SOURCES = ("mix", "web", "ai")
 
 

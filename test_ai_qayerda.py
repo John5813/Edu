@@ -118,8 +118,16 @@ async def main():
     check("sozlamada 3D taqdimot (katalog) modeli", ("3D taqdimot (katalog)", "text") in services, services)
     check("sozlamada chek modeli Claude emas",
           all(not r["model"].startswith("anthropic/") for r in config_rows if r["service"] == "To'lov cheki"))
-    check("o'qiladigan nom: Claude Sonnet 5",
-          any(r["name"] == "Claude Sonnet 5" for r in config_rows if r["service"] == "Zamonaviy taqdimot"), config_rows)
+    # Claude sukut emas (config.DEFAULT_AI_MODEL) — faqat admin tanlasa; tanlanganda nomi o'qiladigan bo'ladi.
+    from unittest import mock as _mock
+    from database.database import Database as _Db
+
+    with _mock.patch.object(_Db, "get_premium_ai_model", _mock.AsyncMock(return_value="claude_sonnet_5")):
+        chosen = await admin_analytics.ai_config()
+    check("o'qiladigan nom: admin tanlagan Claude Sonnet 5",
+          any(r["name"] == "Claude Sonnet 5" for r in chosen if r["service"] == "Zamonaviy taqdimot"), chosen)
+    check("sukut model ham o'qiladigan nom bilan (ID emas)",
+          all("/" not in r["name"] for r in config_rows if r["service"] == "Zamonaviy taqdimot"), config_rows)
 
     print("6) Sahifa")
     html = open("webapp/site/admin_statistics.html", encoding="utf-8").read()
