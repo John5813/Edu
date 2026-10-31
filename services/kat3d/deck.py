@@ -14,6 +14,7 @@ Telefon va 3D ni bilmaydigan dasturlar uchun har modelning o'rnida uning rasmi (
 import io
 import logging
 import os
+import re
 from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -148,7 +149,8 @@ def _model(ctx: Ctx, slide, mid: str, cx: float, cy: float, size: float, turn: f
     ctx.seen[mid] = k + 1
     rot = (BASE_ROT[0], BASE_ROT[1] + SWING[k % len(SWING)] + turn, BASE_ROT[2])
     sid = _place(ctx, slide, mid, cx, cy, size, rot)
-    if ctx.plan.get("spin") is None or mid in ctx.plan["spin"]:      # `spin` — faqat shu modellar aylanadi
+    spin = ctx.plan.get("spin")                                    # rejada ko'rsatilsa — faqat o'shalar
+    if (mid in spin) if spin is not None else is_planet(mid):
         ctx.spins.setdefault(ctx.cur, []).append(sid)
     ctx.placed.setdefault(ctx.cur, {})[mid] = (cx, cy, size, rot)
     m = katalog3d.katalog()[mid]
@@ -817,6 +819,22 @@ def _savol(ctx: Ctx, slide, s: dict, i: int) -> List:
     _number(ctx, slide, i)
     return [(badge, "zoom", 150), (mark, "fade", 200), (question, "fade", 300), (panel, "fade", 550),
             (answer, "float", 650)]
+
+
+_PLANET = re.compile(r"sayyora|globus|planet|\bglobe\b|^(oy|quyosh|mars|yupiter|merkuriy|venera|saturn)\b", re.I)
+_NOT_PLANET = re.compile(r"landshaft|qumtepa|yuzasi|krater|marsoxod|rover|manzara|\bva\b", re.I)
+
+
+def is_planet(mid: str) -> bool:
+    """Sayyora yoki globus: astronomiya/geografiya, nomida sayyora va shakli shar (bbox deyarli kub).
+    Faqat ular slaydda o'z joyida aylanadi — mashina, bino, haykal aylansa g'alati ko'rinadi."""
+    m = katalog3d.katalog().get(mid) or {}
+    name = m.get("nom_uz", "")
+    if m.get("fan") not in ("astronomiya", "geografiya") or not _PLANET.search(name) or _NOT_PLANET.search(name):
+        return False
+    lo, hi = (m.get("bbox") or [[0, 0, 0], [1, 1, 1]])
+    ext = [abs(b - a) for a, b in zip(lo, hi)]
+    return max(ext) <= 1.25 * max(min(ext), 1e-9)
 
 
 def _turntable(slide, spids: Sequence[int], delay: int = 400) -> None:

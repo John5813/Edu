@@ -247,9 +247,19 @@ check("chiqayotgan model keyingi slaydda sahna tashqarisida kutadi",
 check("kirayotgan model oldingi slaydda sahna tashqarisidan uchib keladi",
       "!!m_" + SKARABEY2[:24] in ghosts[2], ghosts[2])
 turns = [x.count('presetID="37"') for x in xmls]
-check("har slayddagi 3D model o'z joyida sekin aylanadi (Turntable)", turns == [len(n) for n in names], (turns, [len(n) for n in names]))
+check("sayyora bo'lmagan modellar o'z joyida aylanmaydi", turns == [0] * 6, turns)
+plan_spin = dict(plan, spin=[NEFERTITI])
+deck.build(plan_spin, os.path.join(TMP, "spin.pptx"))
+zs = zipfile.ZipFile(os.path.join(TMP, "spin.pptx"))
+turns = [zs.read(f"ppt/slides/slide{i}.xml").decode().count('presetID="37"') for i in range(1, 7)]
+nef = ["!!m_" + NEFERTITI[:24] in n for n in names]
+check("rejadagi «spin» modeli o'z joyida sekin aylanadi (Turntable)", turns == [int(x) for x in nef], (turns, nef))
+x_spin = zs.read("ppt/slides/slide2.xml").decode()
 check("aylanish 3D ko'rinish burchagi bo'yicha, cheksiz takrorlanadi",
-      all('3d.view.rotation.y' in x and 'repeatCount="indefinite"' in x for x in xmls))
+      '3d.view.rotation.y' in x_spin and 'repeatCount="indefinite"' in x_spin)
+EARTH = "5f9c35be31a047928eace8b415a8ee3a"
+check("sayyoralar aylanadi, haykal va mashinalar yo'q",
+      deck.is_planet(EARTH) and not deck.is_planet(NEFERTITI) and not deck.is_planet("28c2d309449848aea6b8b35e25d4acb6"))
 lines = [sh for s in prs.slides for sh in s.shapes if sh.shape_type is not None and "CONNECTOR" in str(sh.shape_type)]
 check("qismlarga yorliq-chiziq yo'q (anatomiya emas)", not lines, len(lines))
 texts = [sh.text_frame.text for sh in prs.slides[0].shapes if sh.has_text_frame]
