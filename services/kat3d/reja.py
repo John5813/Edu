@@ -18,7 +18,7 @@ REVIEW_ON = os.getenv("KAT3D_REVIEW", "1") != "0"
 LEVELS = {1: "school pupils (simple words)", 2: "university students", 3: "academic audience (precise terms)"}
 LIMITS = dict(title=70, kicker=28, subtitle=190, point=165, value=14, label=60, name=30, text=150, notes=900,
               para=440, date=18, event=125, col=30, col_point=115, quote=200, source=60, card=34, card_text=150,
-              question=120, answer=430, step=44, step_text=140)
+              question=120, answer=430, step=44, step_text=140, table_cell=40)
 MAX_POINTS = {"chap": 5, "ong": 5, "qahramon": 3, "raqamlar": 2, "yakun": 4}
 BULLET_LAYOUTS = ("chap", "ong")
 
@@ -48,6 +48,8 @@ layout (repeat only when there are more slides than layouts; never twice in a ro
 - "savol": an intriguing "question" (≤ 110 chars, "Did you know...?" style) + "answer" (3-4 sentences, ≤ 420).
 - "raqamlar": 2-4 "stats" {{"value" (≤ 12), "label" (≤ 55)}} (well-known values) + 1-2 "points" explaining them.
 - "qahramon": the model shown very large — "subtitle" (1 sentence) + 2-3 "points".
+- "jadval": a comparison table (countries, types, periods) — "table": {{"head": [3-4 column names],
+  "rows": [3-5 rows of short cells, ≤ 30 chars each]}}.
 - "uchlik": 3 models side by side — "items": 3 × {{"model", "name" (≤ 28), "text" (1-2 sentences, ≤ 150)}}.
 - "yakun": 3-4 takeaway "points"; 2-4 models shown together.
 Every slide except "uchlik" and "yakun" shows 1 model. Use each model at least once when possible, put the
@@ -59,7 +61,7 @@ Also choose one design "style" for the whole deck:
 {styles}
 Return ONLY JSON: {{"style": "key", "slides": [{{"layout": "...", "kicker": "...", "title": "...",
 "subtitle": "...", "points": [], "paragraphs": [], "events": [], "columns": [], "cards": [], "steps": [],
-"quote": "", "source": "", "text": "", "question": "", "answer": "", "stats": [], "items": [],
+"quote": "", "source": "", "text": "", "question": "", "answer": "", "stats": [], "items": [], "table": {{}},
 "models": ["m0"], "notes": "..."}}]}}"""
 
 USER = """Topic: {topic}
@@ -130,6 +132,20 @@ def _pairs(raw, a: str, b: str, la: int, lb: int, limit: int) -> List[dict]:
 _SENT = re.compile(r"(?<=[.!?…])\s+")
 
 
+def _table(raw) -> dict:
+    """{"head": [...], "rows": [[...]]} — 2-4 ustun, ko'pi bilan 6 qator, kataklar qisqartiriladi."""
+    if not isinstance(raw, dict):
+        return {}
+    head = [_clip(h, 28) for h in (raw.get("head") or [])][:4]
+    rows = [[_clip(c, LIMITS["table_cell"]) for c in r][:len(head)] for r in (raw.get("rows") or [])
+            if isinstance(r, list) and len(r) >= len(head) >= 2][:6]
+    if len(head) < 2 or len(rows) < 2:
+        return {}
+    # O'zbekiston (yoki AI ko'rsatgan qator) jadvalda ramka bilan ajratiladi
+    mark = next((k for k, r in enumerate(rows) if re.search(r"o.?zbek|узбек|uzbek", r[0], re.I)), -1)
+    return {"head": head, "rows": rows, "mark": mark}
+
+
 def _texts(s: dict) -> List[str]:
     """Slaydning hamma matni oddiy gaplar ro'yxati bo'lib — kompozitsiya almashganda matn yo'qolmasin."""
     out = list(s["points"]) + [t for p in s["paragraphs"] for t in _SENT.split(p)]
@@ -144,6 +160,9 @@ def _texts(s: dict) -> List[str]:
     if s["text"]:
         out += _SENT.split(s["text"])
     out += [f"{st['value']} — {st['label']}" for st in s["stats"]]
+    if s.get("table"):
+        head = s["table"]["head"]
+        out += ["; ".join(f"{h}: {c}" for h, c in zip(head, r)) for r in s["table"]["rows"]]
     return [t for t in out if t.strip()]
 
 
@@ -175,7 +194,8 @@ def _valid(s: dict) -> bool:
             "fikr": bool(s["quote"]),
             "savol": bool(s["question"] and s["answer"]),
             "raqamlar": len(s["stats"]) >= 2,
-            "uchlik": len(s["items"]) == 3}.get(lay, True)
+            "uchlik": len(s["items"]) == 3,
+            "jadval": bool(s.get("table"))}.get(lay, True)
 
 
 def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str]) -> dict:
@@ -220,7 +240,7 @@ def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str])
                "events": _pairs(s.get("events"), "date", "text", LIMITS["date"], LIMITS["event"], 5),
                "cards": _pairs(s.get("cards"), "title", "text", LIMITS["card"], LIMITS["card_text"], 4),
                "steps": _pairs(s.get("steps"), "title", "text", LIMITS["step"], LIMITS["step_text"], 5),
-               "columns": [], "stats": [], "items": [],
+               "columns": [], "stats": [], "items": [], "table": _table(s.get("table")),
                "quote": _clip(s.get("quote"), LIMITS["quote"]), "source": _clip(s.get("source"), LIMITS["source"]),
                "text": _clip(s.get("text"), LIMITS["answer"]),
                "question": _clip(s.get("question"), LIMITS["question"]),
@@ -300,6 +320,8 @@ def _vary(slides: List[dict]) -> None:
 def _slots(s: dict) -> List[tuple]:
     """Fakt tekshiruvi uchun slayddagi har matn joyi: (maydon, indeks, kalit)."""
     out = [("points", i, None) for i in range(len(s["points"]))]
+    if s.get("table"):
+        out += [("table", i, j) for i in range(len(s["table"]["rows"])) for j in range(len(s["table"]["head"]))]
     out += [("paragraphs", i, None) for i in range(len(s["paragraphs"]))]
     for key, sub in (("events", "date"), ("events", "text"), ("cards", "text"), ("steps", "text"),
                      ("items", "text")):
@@ -315,6 +337,8 @@ def _get(s: dict, slot: tuple) -> str:
         return s[key]
     if key == "columns":
         return s[key][i]["points"][sub]
+    if key == "table":
+        return s[key]["rows"][i][sub]
     return s[key][i] if sub is None else s[key][i][sub]
 
 
@@ -324,6 +348,8 @@ def _put(s: dict, slot: tuple, value: str) -> None:
         s[key] = value
     elif key == "columns":
         s[key][i]["points"][sub] = value
+    elif key == "table":
+        s[key]["rows"][i][sub] = value
     elif sub is None:
         s[key][i] = value
     else:
@@ -363,7 +389,8 @@ def review(plan: dict, language: str) -> int:
         if isinstance(texts, list) and len(texts) == len(slots[i]):
             for slot, value in zip(slots[i], texts):
                 key, _, sub = slot
-                limit = LIMITS[_SUB_LIMIT.get((key, sub)) or _SLOT_LIMIT.get(key) or "col_point"]
+                limit = LIMITS["table_cell" if key == "table" else _SUB_LIMIT.get((key, sub)) or _SLOT_LIMIT.get(key)
+                               or "col_point"]
                 value = _clip(value, limit)
                 if value and value != _get(s, slot):
                     _put(s, slot, value)

@@ -480,6 +480,50 @@ def _uchlik(ctx: Ctx, slide, s: dict, i: int) -> List:
     return steps
 
 
+def _jadval(ctx: Ctx, slide, s: dict, i: int) -> List:
+    """Taqqoslash jadvali: sarlavha qatori urg'u rangida, qatorlar alohida kartalar (navbat bilan chiqadi);
+    «belgilangan» qator (`table.mark`, odatda O'zbekiston) ramka bilan ajratiladi. Model o'ngda."""
+    st = ctx.st
+    _decorate(ctx, slide, i, (9.7, 2.0, 12.9, 6.2))
+    bottom = _head(ctx, slide, s, 0.75, 11.8, (34, 24), 1.2)
+    box = _model(ctx, slide, s["models"][0], 11.35, 4.4, 3.4)
+    design.ground_shadow(slide, st, box)
+    tab = s["table"]
+    head, rows = tab["head"], tab["rows"]
+    mark = tab.get("mark", -1)
+    x0, wall = 0.6, 9.15
+    top = max(2.25, bottom + 0.35)
+    n = len(rows)
+    rh = min(0.95, (6.95 - top - 0.62) / max(n, 1) - 0.1)
+    first = 0.3 if len(head) > 3 else 0.34                   # birinchi ustun ulushi (nomlar)
+    widths = [wall * first] + [wall * (1 - first) / (len(head) - 1)] * (len(head) - 1)
+    steps = []
+    hb = design.shape(slide, f"thead_{i}", MSO_SHAPE.ROUNDED_RECTANGLE, x0, top, wall, 0.52, st.accent, round_=0.25)
+    steps.append((hb, "fade", 150))
+    x = x0
+    for k, (h, w) in enumerate(zip(head, widths)):
+        steps.append((design.textbox(slide, f"th_{i}_{k}", x + 0.18, top + 0.06, w - 0.3, 0.4, h, size=15, color=st.bg,
+                                     font=st.head_font, bold=True, anchor=MSO_ANCHOR.MIDDLE, smallest=11), "fade", 180))
+        x += w
+    for r, row in enumerate(rows):
+        y = top + 0.62 + r * (rh + 0.1)
+        hi = r == mark
+        card = design.shape(slide, f"trow_{i}_{r}", MSO_SHAPE.ROUNDED_RECTANGLE, x0, y, wall, rh, st.panel,
+                            alpha=st.panel_alpha, round_=0.18, line=st.accent if hi else None, line_pt=2.0 if hi else 0)
+        steps.append((card, "fade", 300 + 160 * r))
+        x = x0
+        for k, (cell, w) in enumerate(zip(row, widths)):
+            tb = design.textbox(slide, f"td_{i}_{r}_{k}", x + 0.18, y + 0.05, w - 0.3, rh - 0.1, cell,
+                                size=17 if k == 0 else 15, color=st.accent if (k == 0 and hi) else (st.ink if k == 0 else st.body),
+                                font=st.head_font if k == 0 else st.body_font, bold=k == 0, anchor=MSO_ANCHOR.MIDDLE,
+                                smallest=10.5)
+            steps.append((tb, "fade", 330 + 160 * r))
+            x += w
+    _caption(ctx, slide, s["models"][:1], 9.75, H - 0.45, 3.3, align=PP_ALIGN.CENTER)
+    _number(ctx, slide, i)
+    return steps
+
+
 # Xulosada modellar chapda (to'r), punktlar o'ngda katta panelda — oldingi slaydlardagi modellar shu yerga
 # Morph bilan uchib yig'iladi.
 _YAKUN_GRID = {1: ((3.05, 4.45, 4.3),),
@@ -772,7 +816,7 @@ LAYOUT_FN = {"muqova": _muqova, "chap": lambda c, sl, s, i: _side(c, sl, s, i, T
              "ong": lambda c, sl, s, i: _side(c, sl, s, i, False), "qahramon": _qahramon,
              "raqamlar": _raqamlar, "uchlik": _uchlik, "yakun": _yakun, "matn": _matn,
              "xronologiya": _xronologiya, "taqqoslash": _taqqoslash, "kartalar": _kartalar,
-             "bosqichlar": _bosqichlar, "fikr": _fikr, "savol": _savol}
+             "bosqichlar": _bosqichlar, "fikr": _fikr, "savol": _savol, "jadval": _jadval}
 
 
 def build(plan: dict, out_path: str) -> str:

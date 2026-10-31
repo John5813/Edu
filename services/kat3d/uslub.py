@@ -4,7 +4,7 @@ Uslublar 3D Anatomiya dizayn tizimidan (`services.med3d.design`) olinadi — fon
 Morph bilan suriladigan fon bezaklari, 3D yorug'ligi. Tibbiyotga xoslari (rentgen, laboratoriya) olinmaydi.
 Uslubni AI mavzuga qarab tanlaydi (tarix — muzey vitrinasi, tabiat — zumrad, koinot — tungi va h.k.).
 """
-from services.med3d.design import STYLES as _ALL
+from services.med3d.design import STYLES as _ALL, Style
 
 STYLE_GUIDE = {
     "vitrina": "museum showcase: black with gold — history, archaeology, artefacts, sculpture",
@@ -17,14 +17,19 @@ STYLE_GUIDE = {
     "shafaq": "sunset purple and gold — art, music, architecture, culture",
     "pastel": "soft pastel — food, flowers, everyday life, gentle topics",
     "oq": "clean white minimal — any subject, modern and calm",
+    "tungi": "dark navy with flowing light lines — logistics, transport, economics, business, law, technology",
 }
-STYLES = {k: _ALL[k] for k in STYLE_GUIDE if k in _ALL}
+# Faqat 3D taqdimotga: to'q ko'k fon, qiya nur chiziqlari Morph bilan slayddan slaydga suriladi.
+_OWN = {"tungi": Style("tungi", "Tungi ko'k", bg="051230", bg2="0B2B66", bg_angle=135, ink="FFFFFF", body="C9D8F2",
+                       muted="7F95BF", accent="FFC94D", panel="0E2752", panel_alpha=0.82, deco="lines",
+                       deco_color="5AA9FF", deco_alpha=0.32, lights="studio")}
+STYLES = {k: _ALL.get(k) or _OWN[k] for k in STYLE_GUIDE if k in _ALL or k in _OWN}
 BY_FAN = {"tarix": "vitrina", "san'at": "shafaq", "arxitektura": "shafaq", "biologiya": "zumrad",
           "geografiya": "okean", "astronomiya": "klinik", "fizika": "klinik", "kimyo": "oq", "texnika": "grafit",
-          "informatika": "kobalt", "transport": "kobalt", "musiqa": "shafaq", "oshxona": "pastel",
+          "informatika": "kobalt", "transport": "tungi", "musiqa": "shafaq", "oshxona": "pastel",
           "sport": "kobalt", "tibbiyot": "oq", "adabiyot": "atlas", "matematika": "oq"}
 LAYOUTS = ("muqova", "matn", "chap", "ong", "xronologiya", "taqqoslash", "kartalar", "bosqichlar", "fikr", "savol",
-           "raqamlar", "qahramon", "uchlik", "yakun")
+           "raqamlar", "qahramon", "uchlik", "jadval", "yakun")
 
 
 def style_guide() -> str:
