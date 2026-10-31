@@ -17,6 +17,7 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from bot.handlers import start, documents, payments, admin, settings, samples, media
+from bot.handlers import prices as prices_handler
 from bot.handlers import converter
 from bot.handlers import pptx_converter
 from bot.handlers import abs_converter
@@ -600,6 +601,7 @@ async def main():
     dp.include_router(emoji_handler.router)  # Handle emoji mosaic conversion
     dp.include_router(payments.router)  # Handle payment buttons
     dp.include_router(samples.router)  # Handle samples view and admin management
+    dp.include_router(prices_handler.router)  # «💵 Narxlar»: hamma xizmatlar narxi va dizayn uslublari
     dp.include_router(media.router)   # Legacy media router (empty)
     dp.include_router(book_translate.router)  # Handle book translation service
     dp.include_router(test_handler.router)  # Handle test generation service

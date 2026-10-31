@@ -43,15 +43,17 @@ REVIEW_ON = os.getenv("MED3D_REVIEW", "1") != "0"
 DISCLAIMERS = {"uz": "Ta'lim maqsadida; tibbiy maslahat emas.", "ru": "Для обучения; не медицинская рекомендация.",
                "en": "For education only; not medical advice."}
 SLIDE_OPTIONS = (5, 8, 10, 12, 15)
-# Narx: zamonaviy taqdimot narxidan shuncha baravar (haqiqiy 3D modellar, Morph, lotincha nomli yorliqlar).
-# 10 slayd — 25 000 so'm (5 baravar). `MED3D_PRICE_FACTOR` bilan o'zgartiriladi.
-PRICE_FACTOR = float(os.getenv("MED3D_PRICE_FACTOR") or 5)
+# Narx: har varog'i 2 000 so'm (10 slayd — 20 000). 3D taqdimot Pro (katalog) ham shu narxda.
+# `MED3D_SLIDE_PRICE` bilan o'zgartiriladi.
+SLIDE_PRICE = int(os.getenv("MED3D_SLIDE_PRICE") or 2000)
 
 
 def price_for(slide_count: int) -> int:
-    from services.premium_presentation import pipeline
-
-    return int(round(pipeline.price_for(slide_count) * PRICE_FACTOR / 500.0)) * 500
+    try:
+        count = int(slide_count or 0)
+    except (TypeError, ValueError):
+        count = 0
+    return max(count, 1) * SLIDE_PRICE
 MIN_SLIDES, MAX_SLIDES = 3, 15
 # Sifat — imkon qadar maksimal: atlasdagi asl model (100%). Kamaytirish faqat ikki sababdan:
 ORGAN_MAX_TRIS = 600000          # atlasdagi eng og'ir organdan ham katta — amalda hamma organ to'liq

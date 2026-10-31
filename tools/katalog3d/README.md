@@ -107,7 +107,7 @@ ichidagi zaxira rasm (3D ko'rinmaydigan dasturlar uchun majburiy) shu niqob bila
 
 ## 3D taqdimot (`services/kat3d/`)
 
-Botdagi «🧊 3D taqdimot» tugmasi mavzu so'raydi va to'lovdan oldin tekshiradi: tana tuzilishi bo'lsa —
+Botdagi «🧊 3D taqdimot Pro» tugmasi mavzu so'raydi va to'lovdan oldin tekshiradi: tana tuzilishi bo'lsa —
 3D Anatomiya, aks holda shu katalog (va `data/katalog3d/` dagi boshqa `*.json` kataloglar) bo'yicha qidiradi.
 Mos modellar topilsa, mijozga nomi va rasmi ko'rsatiladi va taqdimot aynan shular bilan yasaladi.
 

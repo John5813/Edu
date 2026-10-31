@@ -19,7 +19,7 @@ from aiogram.client.session.base import BaseSession
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.methods import DeleteMessage, GetMe, SendMessage
+from aiogram.methods import DeleteMessage, GetMe, SendMessage, SendPhoto
 from aiogram.types import Message, Update, User
 from bot.handlers import premium_presentation as pp
 from bot.keyboards import get_main_keyboard
@@ -29,10 +29,11 @@ from bot.states import PremiumPresentationStates as PS
 sent = []
 class FakeSession(BaseSession):
     async def make_request(self, bot, method, timeout=None):
-        if isinstance(method, SendMessage):
-            sent.append(method.text)
+        if isinstance(method, (SendMessage, SendPhoto)):     # tur tanlash — namuna rasmi ostida savol
+            text = method.text if isinstance(method, SendMessage) else method.caption
+            sent.append(text)
             return Message.model_validate({"message_id": 50 + len(sent), "date": 0,
-                                           "chat": {"id": 5, "type": "private"}, "text": method.text})
+                                           "chat": {"id": 5, "type": "private"}, "text": text})
         if isinstance(method, GetMe):
             return User(id=123, is_bot=True, first_name="B", username="edufaylbot")
         return True

@@ -144,13 +144,15 @@ def get_main_keyboard(language: str, presentation_enabled: bool = True, independ
     # if mahsus_ishlanma_enabled:
     #     keyboard.add(KeyboardButton(text=get_text(language, "main_menu.mahsus_ishlanma")))
 
-    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.my_account")))
-    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.payment")))
-    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.samples")))
-    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.help")))
-    keyboard.add(KeyboardButton(text=get_text(language, "main_menu.settings")))
-
     keyboard.adjust(1, 2)
+
+    # Pastki qatorlar doim juft: xizmatlardan biri o'chirilsa ham «Namunalar» va «Narxlar» yonma-yon turadi.
+    def button(key: str) -> KeyboardButton:
+        return KeyboardButton(text=get_text(language, "main_menu." + key))
+
+    keyboard.row(button("my_account"), button("payment"))
+    keyboard.row(button("samples"), button("prices"))
+    keyboard.row(button("help"), button("settings"))
 
     return keyboard.as_markup(resize_keyboard=True)
 
@@ -1261,11 +1263,6 @@ def get_feature_management_keyboard(
     keyboard.add(InlineKeyboardButton(
         text="🔗 Tekin taqdimot havolalari",
         callback_data="giftlinks"
-    ))
-
-    keyboard.add(InlineKeyboardButton(
-        text="🫀 3D Anatomiya promokod",
-        callback_data="med3d_promo_manage"
     ))
 
     # Mass gift button

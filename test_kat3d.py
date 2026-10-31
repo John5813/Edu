@@ -8,7 +8,7 @@
 - yukla: serverda yo'q model kerak bo'lganda o'zi yuklanadi (bir marta), xato bo'lsa taklif qilinmaydi;
 - deck.build: har slaydda haqiqiy 3D ob'ekt (rasm emas), Morph, qismlarga yorliq-chiziq yo'q,
   sahnadan chiqib-kiruvchi nusxalar slayddan tashqarida, CC BY mualliflari izohda;
-- bot: 3D tugmasi → mavzu → katalogda topildi → promokod → … → slaydlar soni (3D taqdimot narxlari);
+- bot: 3D tugmasi → mavzu → katalogda topildi → ism → … → slaydlar soni (3D taqdimot narxlari);
   hech narsa topilmasa — boshqa turlar taklif qilinadi.
 
     python test_kat3d.py
@@ -492,9 +492,8 @@ async def bot_flow():
     check("mijozga topilgan modellar nomi ko'rsatildi", found_msg, [s[1] for s in chat.sent])
     check("va rasmi (kollaj) yuborildi", len(chat.photos) == 1)
     check("topilgan modellar to'lovdan oldin fonda yuklana boshladi", prefetched == [NEFERTITI, SKARABEY], prefetched)
-    check("keyin promokod so'raladi", await state.get_state() == PS.waiting_for_med3d_promocode.state,
+    check("keyin darhol ism so'raladi (promokodsiz)", await state.get_state() == PS.waiting_for_client_name.state,
           await state.get_state())
-    await pp.premium_med3d_promocode_skip(callback(chat, "prem_m3d_promo:skip"), state, db)
     await pp.premium_ppt_skip_name(callback(chat, "prem_ppt_skip_name"), state, db)
     await pp.premium_ppt_skip_preferences(callback(chat, "prem_ppt_skip_preferences"), state, db)
     check("manba va uslub so'ralmaydi — darhol slaydlar soni", await state.get_state() == PS.waiting_for_count.state,
@@ -510,7 +509,7 @@ async def bot_flow():
     last = chat.sent[-1]
     check("mos 3D topilmadi — boshqa turlar taklif qilinadi",
           "prem_m3d_alt:kind:modern" in [b.callback_data for b in buttons(last[2])]
-          and await state.get_state() != PS.waiting_for_med3d_promocode.state, last[1])
+          and await state.get_state() != PS.waiting_for_client_name.state, last[1])
     await pp.premium_med3d_alternative(callback(chat, "prem_m3d_alt:kind:modern"), state, db)
     data = await state.get_data()
     check("boshqa tur tanlandi — 3D belgisi tozalandi, mavzu saqlandi",
@@ -529,7 +528,7 @@ async def partial_flow():
     cbs = [b.callback_data for b in buttons(last[2])]
     check("qisman mos — uch tugma: to'liq / aralash / 3D'siz", cbs == ["prem_k3m:full", "prem_k3m:mix", "prem_k3m:plain"], cbs)
     check("aralash 40% arzon ekani aytildi", "40%" in last[1], last[1][:120])
-    check("promokodga o'tilmadi — mijoz tanlaydi", await state.get_state() != PS.waiting_for_med3d_promocode.state)
+    check("keyingi qadamga o'tilmadi — mijoz tanlaydi", await state.get_state() != PS.waiting_for_client_name.state)
     cb = callback(chat, "prem_k3m:plain")
     await pp.premium_kat3d_mode(cb, state, db)
     plain = [b.callback_data for b in buttons(cb.message.edit_text.call_args.kwargs["reply_markup"])]
@@ -537,12 +536,11 @@ async def partial_flow():
     await pp.premium_kat3d_mode(callback(chat, "prem_k3m:full"), state, db)
     data = await state.get_data()
     check("to'liq 3D — modellar avtomatik tanlandi", data["kat3d_mode"] == "full" and data["kat3d_ids"] == choices[:4]
-          and await state.get_state() == PS.waiting_for_med3d_promocode.state, data)
+          and await state.get_state() == PS.waiting_for_client_name.state, data)
 
     chat, db, state = await flow(True, part)
     await pp.premium_kat3d_mode(callback(chat, "prem_k3m:mix"), state, db)
-    check("aralash — promokod so'raladi", await state.get_state() == PS.waiting_for_med3d_promocode.state)
-    await pp.premium_med3d_promocode_skip(callback(chat, "prem_m3d_promo:skip"), state, db)
+    check("aralash — ism so'raladi", await state.get_state() == PS.waiting_for_client_name.state)
     await pp.premium_ppt_skip_name(callback(chat, "prem_ppt_skip_name"), state, db)
     await pp.premium_ppt_skip_preferences(callback(chat, "prem_ppt_skip_preferences"), state, db)
     labels = [b.text for b in buttons(chat.sent[-1][2]) if b.callback_data.startswith("prem_ppt_count:")]

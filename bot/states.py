@@ -69,10 +69,6 @@ class AdminStates(StatesGroup):
     waiting_for_channel_title = State()
     waiting_for_promocode = State()
     waiting_for_deactivate_promocode = State()
-    waiting_for_med3d_promo_codes = State()
-    waiting_for_med3d_promo_percent = State()
-    waiting_for_med3d_promo_limit = State()
-    waiting_for_med3d_promo_limit_edit = State()
     waiting_for_broadcast_message = State()
     waiting_for_broadcast_target = State()
     waiting_for_broadcast_buttons = State()
@@ -152,7 +148,6 @@ class PremiumPresentationStates(StatesGroup):
     waiting_for_volume = State()
     # Taqdimot turi: infografik / zamonaviy / klassik (manbadan keyin, uslubdan oldin).
     waiting_for_kind = State()
-    waiting_for_med3d_promocode = State()
     # Aralash 3D taqdimot: mijoz mos 3D modellardan slaydlar sonigacha tanlaydi.
     waiting_for_kat3d_pick = State()
     waiting_for_payment = State()
