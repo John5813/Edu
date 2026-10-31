@@ -715,10 +715,11 @@ async def premium_kat3d_mode(callback: CallbackQuery, state: FSMContext, db: Dat
     await state.update_data(kind=KIND_KAT3D, kat3d_mode=choice, kat3d_ids=ids)
     with contextlib.suppress(Exception):
         await callback.message.edit_reply_markup(reply_markup=None)
-    with contextlib.suppress(Exception):              # serverda yo'qlari fonda yuklana boshlaydi
-        from services.kat3d import yukla
+    if ids:                                           # to'liq 3D: serverda yo'qlari fonda yuklana boshlaydi
+        with contextlib.suppress(Exception):          # (aralashda — mijoz tanlagani, tanlov tugagach)
+            from services.kat3d import yukla
 
-        yukla.oldindan(ids or choices)
+            yukla.oldindan(ids)
     await _step_name(callback.message, state, lang)
 
 
@@ -783,6 +784,10 @@ async def premium_kat3d_pick(callback: CallbackQuery, state: FSMContext, db: Dat
             await callback.answer(K3_PICK_MIN.get(lang) or K3_PICK_MIN["uz"], show_alert=True)
             return
         await callback.answer()
+        with contextlib.suppress(Exception):          # tanlangan modellar fonda yuklana boshlaydi
+            from services.kat3d import yukla
+
+            yukla.oldindan(picked)
         await _after_photos(callback.message, state, lang)
         return
     choices = list(data.get("kat3d_choices") or [])

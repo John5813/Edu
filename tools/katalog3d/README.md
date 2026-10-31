@@ -62,7 +62,23 @@ bash tools/katalog3d/yukla.sh # yoki qo'lda, hammasi birdan (~12,5 GB, 4 yadroda
 ```
 
 Modellar `data/katalog3d_modellar/` ga tushadi (`KATALOG3D_DIR` bilan boshqa joy). `KATALOG3D_YUKLOVCHI` —
-bir vaqtda nechta model yuklanadi (sukut 3).
+bir vaqtda nechta model yuklab olinadi (sukut 2); o'girish esa doim bittadan.
+
+### Xotira (kichik server)
+
+Bitta model o'girilganda o'rtacha ~350 MB, eng og'irlari (7 mln uchburchak) ~1,6 GB xotira oladi. Ilgari node
+jarayonlari ishdan keyin ham yopilmay, bir vaqtda uchtagacha ishlardi — 2 GB li serverda xotira to'lib, bot swap'da
+qotib qolardi. Endi:
+
+- har model alohida node jarayonida, past ustuvorlikda (`nice`) o'giriladi va jarayon darhol yopiladi;
+- har model uchun kerakli xotira oldindan baholanadi: serverga sig'maydigani (2 GB da ~1% og'ir model) taklif
+  qilinmaydi va yuklanmaydi; bo'sh xotira yetmasa o'girish kutadi;
+- qorovul: o'girish paytida serverda bo'sh xotira `KATALOG3D_MIN_FREE_MB` (200 MB) dan kamaysa yoki jarayon
+  baholangandan ancha ko'p yesa — o'girish to'xtatiladi, model 5 daqiqadan keyin qayta sinaladi;
+- mavzu yozilganda fonda ko'pi bilan `KATALOG3D_OLDINDAN_MAX` (8) ta model yuklanadi, aralash 3D da — faqat mijoz
+  tanlaganlari.
+
+`KATALOG3D_RAM_MB` — bitta o'girishga ruxsat etilgan xotira (sukut: server xotirasining 45%).
 
 ## Manbalar va litsenziya
 
