@@ -1,14 +1,14 @@
 """Reklama videosi: "Slaydni shunday yakunlang".
 
-  0,0–2,5   Paxmoq «Rahmat» sahifasida raqsga tushadi, tepada kulgan smayl va «Slaydni shunday yakunlang!»
+  0,0–2,5   hind kiyimidagi kapibara «Rahmat» sahifasida raqsga tushadi, tepada kulgan smayl va «Slaydni shunday yakunlang!»
   2,5–3,5   kamera uzoqlashadi — barcha personajlar (har biri o'z sahifasida) ko'rinadi
   3,5–4,5   umumiy ko'rinish
   4,5–10,0  ketma-ket 4 ta shablon zoom bilan kattalashadi (har biri 1 soniya, o'tishda kamera "sakraydi")
-  10,0–12,5 edufayl logotipi
+  10,0–13,2 edufayl logotipi (diktor: «Bu mutlaqo tekin!», «Edufayl bot»)
 
 Vaqtlar `promo_music.py` dagi zarblar bilan bir xil. Ishga tushirish:
 
-    python tools/thanks_anim/promo.py <ish_papkasi> <chiqish.mp4>
+    python tools/thanks_anim/promo.py <ish_papkasi> <chiqish.mp4> [diktor.mp3]
 
 `ish_papkasi` ga oraliq fayllar (sahifa rasmlari, katta klip) yoziladi.
 """
@@ -33,8 +33,8 @@ TOTAL = M.TOTAL
 GAP = 150
 COLS, ROWS = 6, 4
 LQ_W, LQ_H = 480, 270
-HERO = "paxmoq"                                    # "Momiq": oldingi personaj
-TEMPLATES = ["balerina", "tillarang_mushuk", "kapibara_raqs", "pingvin"]
+HERO = "kapibara_raqs"                             # hind kiyimidagi kapibara — birinchi chiqadi (oldin Paxmoq edi)
+TEMPLATES = ["balerina", "tillarang_mushuk", "ayiqcha", "pingvin"]
 ARRIVE = list(M.ARRIVALS)                          # 4.5, 6.0, 7.5, 9.0
 CELL = {HERO: (2, 1), TEMPLATES[0]: (1, 2), TEMPLATES[1]: (4, 1), TEMPLATES[2]: (3, 3), TEMPLATES[3]: (5, 2)}
 INTER = "/usr/share/fonts/opentype/inter/Inter-%s.otf"
@@ -151,7 +151,7 @@ def emoji(size):
     return _emoji_cache["base"].resize((size, size), Image.LANCZOS)
 
 
-def bubble(text, scale=1.0):
+def bubble(text, scale=1.0, tail="down"):
     f = ImageFont.truetype(INTER % "ExtraBold", 46)
     l, t, r, b = f.getbbox(text)
     pad_x, pad_y = 44, 26
@@ -162,7 +162,11 @@ def bubble(text, scale=1.0):
     ImageDraw.Draw(shadow).rounded_rectangle((40, 38, 40 + w, 38 + h), h // 2, fill=(0, 0, 0, 90))
     img.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(10)))
     d.rounded_rectangle((40, 30, 40 + w, 30 + h), h // 2, fill=(255, 255, 255, 255))
-    d.polygon([(40 + 70, 30 + h - 2), (40 + 130, 30 + h - 2), (40 + 60, 30 + h + 30)], fill=(255, 255, 255, 255))
+    if tail == "left":                                  # dumaloq smayl tomonga
+        d.polygon([(40 + 4, 30 + h * 0.5 - 22), (40 + 4, 30 + h * 0.5 + 20), (40 - 36, 30 + h * 0.5 + 12)],
+                  fill=(255, 255, 255, 255))
+    else:
+        d.polygon([(40 + 70, 30 + h - 2), (40 + 130, 30 + h - 2), (40 + 60, 30 + h + 30)], fill=(255, 255, 255, 255))
     d.text((40 + pad_x - l, 30 + pad_y - t), text, font=f, fill=(24, 42, 90, 255))
     if scale != 1.0:
         img = img.resize((max(1, int(img.width * scale)), max(1, int(img.height * scale))), Image.LANCZOS)
@@ -170,7 +174,7 @@ def bubble(text, scale=1.0):
 
 
 def hero_overlay(frame, t, geo):
-    """Paxmoq sahifasi ustiga smayl va yozuv (sahifa koordinatasida — kamera bilan birga uzoqlashadi)."""
+    """Boshlovchi personaj sahifasi ustiga smayl va yozuv (sahifa koordinatasida — kamera bilan birga uzoqlashadi)."""
     cx, cy = geo["smiley"]
     if 0.5 <= t < 3.6:
         # smayl chiqishi: sakrab chiqadi, so'ng kuladi (tebranish + urg'uda "pulse")
@@ -183,9 +187,9 @@ def hero_overlay(frame, t, geo):
         frame.alpha_composite(img, (int(cx - img.width / 2), int(cy - img.height / 2)))
     if 0.8 <= t < 3.6:
         u = back((t - 0.8) / 0.4, 1.4)
-        bub = bubble("Slaydni shunday yakunlang!", max(0.05, u))
-        bx, by = geo["bubble"]
-        frame.alpha_composite(bub, (int(bx - bub.width / 2), int(by - bub.height / 2)))
+        bub = bubble("Slaydni shunday yakunlang!", max(0.05, u), tail="left")
+        bx, by = geo["bubble"]                          # pilyulaning chap cheti va o'rta chizig'i
+        frame.alpha_composite(bub, (int(bx - 40 * max(0.05, u)), int(by - bub.height / 2)))
     return frame
 
 
@@ -279,11 +283,11 @@ def main(work, out):
                 (W / 2 - 480, H / 2 + 260, 26, 0.75), (W / 2, H / 2 - 420, 30, 0.9), (W / 2 - 250, H / 2 + 430, 22, 1.0),
                 (W / 2 + 160, H / 2 + 440, 24, 1.1)]
     bg = background()
-    geo = {"smiley": (1490, 108), "bubble": (1490, 240)}
+    geo = {"smiley": (185, 128), "bubble": (310, 128)}
 
     enc = subprocess.Popen(
         ["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
-         "-i", os.path.join(work, "music.wav"), "-c:v", "libx264", "-crf", "18", "-preset", "medium", "-pix_fmt",
+         "-i", os.path.join(work, "audio.wav"), "-c:v", "libx264", "-crf", "18", "-preset", "medium", "-pix_fmt",
          "yuv420p", "-c:a", "aac", "-b:a", "192k", "-t", f"{TOTAL}", "-movflags", "+faststart", out],
         stdin=subprocess.PIPE)
     n = int(TOTAL * FPS)
@@ -344,7 +348,10 @@ def main(work, out):
 
 if __name__ == "__main__":
     work, out = sys.argv[1], sys.argv[2]
+    os.makedirs(work, exist_ok=True)
     if not os.path.exists(os.path.join(work, "music.wav")):
-        os.makedirs(work, exist_ok=True)
         M.write_wav(os.path.join(work, "music.wav"), M.render())
+    if not os.path.exists(os.path.join(work, "audio.wav")):          # musiqa + diktor ovozi + personaj ovozi
+        import promo_mix
+        promo_mix.mix(work, sys.argv[3] if len(sys.argv) > 3 else "")
     main(work, out)

@@ -6,7 +6,7 @@ Voqealar tasvir bilan aynan zarbga tushadi (`promo.py` shu vaqtlardan foydalanad
   2,0–3,5  ko'tarilish (riser) — kamera uzoqlashadi
   3,5  zarba (impact): barcha personajlar ko'rinadi, to'liq ritm boshlanadi
   4,5 / 6,0 / 7,5 / 9,0  shablonlar — har biridan oldin "vush" va yoqimli urg'u
-  10,0 yakuniy akkord + qo'ng'iroqcha — logotip; 12,5 gacha so'nadi
+  10,0 yakuniy akkord + qo'ng'iroqcha — logotip; 13,2 gacha so'nadi
 
     python tools/thanks_anim/promo_music.py out.wav
 """
@@ -18,7 +18,7 @@ import numpy as np
 SR = 44100
 BPM = 120
 BEAT = 60 / BPM
-TOTAL = 12.5
+TOTAL = 13.2
 IMPACT = 3.5
 ARRIVALS = (4.5, 6.0, 7.5, 9.0)
 END = 10.0
