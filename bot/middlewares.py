@@ -98,6 +98,9 @@ class CommandResetMiddleware(BaseMiddleware):
 
     # Shu buyruqlar aynan holat ichida ishlaydi (do'kon: nashrni bekor qilish).
     KEEP = {"bekor"}
+    # `/start <parametr>` — mini ilovadan qaytish: buyurtma holati saqlanadi. «Rahmat» personajini mini ilovada
+    # tanlash `/start thx_<kalit>` bilan qaytadi; holat tozalansa, buyurtma sozlamalari yo'qolardi.
+    KEEP_START_PREFIXES = ("thx_",)
 
     _menu_labels = None
 
@@ -153,8 +156,11 @@ class CommandResetMiddleware(BaseMiddleware):
                 await state.clear()
                 data["raw_state"] = None
             elif text.startswith("/"):
-                command = text[1:].split(maxsplit=1)[0].split("@", 1)[0].lower() if len(text) > 1 else ""
-                if command and command not in self.KEEP:
+                parts = text[1:].split(maxsplit=1) if len(text) > 1 else []
+                command = parts[0].split("@", 1)[0].lower() if parts else ""
+                argument = parts[1].strip() if len(parts) > 1 else ""
+                keep_start = command == "start" and argument.startswith(self.KEEP_START_PREFIXES)
+                if command and command not in self.KEEP and not keep_start:
                     await state.clear()
                     data["raw_state"] = None
         return await handler(event, data)

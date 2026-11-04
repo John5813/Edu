@@ -181,6 +181,36 @@ async def flow():
 
 asyncio.run(flow())
 
+print("7b) «/start thx_…» buyurtma holatini tozalamaydi (mini ilovadan qaytish)")
+from bot.middlewares import CommandResetMiddleware
+
+
+async def middleware_part():
+    out = {}
+    for text in ("/start thx_pingvin", "/start", "/start gift_abc", "/help", "/start@edufayl_bot thx_pingvin"):
+        st = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=3, user_id=3))
+        await st.set_state(PS.waiting_for_thanks)
+        await st.update_data(**BASE, thanks_offer=True)
+        seen = {}
+
+        async def handler(event, data):
+            seen["state"] = await st.get_state()
+            seen["data"] = await st.get_data()
+
+        event = SimpleNamespace(text=text)
+        await CommandResetMiddleware()(handler, event, {"state": st, "raw_state": PS.waiting_for_thanks.state})
+        out[text] = seen
+    return out
+
+
+mw = asyncio.run(middleware_part())
+check("/start thx_<kalit> — holat va ma'lumot saqlandi", mw["/start thx_pingvin"]["state"] == PS.waiting_for_thanks.state
+      and mw["/start thx_pingvin"]["data"].get("topic") == BASE["topic"], mw["/start thx_pingvin"])
+check("bot nomi bilan yozilganda ham saqlanadi", mw["/start@edufayl_bot thx_pingvin"]["state"] == PS.waiting_for_thanks.state)
+check("oddiy /start hamon tozalaydi", mw["/start"]["state"] is None)
+check("boshqa /start parametrlari (sovg'a) va buyruqlar hamon tozalaydi",
+      mw["/start gift_abc"]["state"] is None and mw["/help"]["state"] is None)
+
 print("8) Tayyor taqdimotga qo'shiladi")
 TMP = tempfile.mkdtemp()
 prs = Presentation()
