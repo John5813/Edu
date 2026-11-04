@@ -156,6 +156,10 @@ from database.database import Database, init_db
 dbmod.DATABASE_FILE = os.path.join(TMP, "t.db")
 from services import thanks_anim
 from services.thanks_anim import picker
+import webapp
+
+webapp.WEBAPP_DOMAIN = "edufayl.uz"            # mini ilova domensiz ochilmaydi — taklif ham chiqmaydi
+webapp.BOT_USERNAME = "edufayl_bot"
 
 
 async def db_part():
@@ -182,26 +186,27 @@ check("admin panelida tugma: yoqilgan", row and "Yoqilgan" in row[0].text and ro
 check("admin o'chirsa — taklif chiqmaydi", offered_off is False and row2 and "O'chirilgan" in row2[0].text
       and row2[0].callback_data == "toggle_thanks_anim_on")
 
-print("5) Tanlash oynasi (picker)")
+print("5) Tanlash: mini ilova tugmasi (picker)")
 lst = picker.items()
 check("galereyada barcha 24 personaj", len(lst) == len(catalog.ANIMATIONS) == 24, len(lst))
-pm = picker.pager_markup(0, "uz")
-cbs = [b.callback_data for r in pm.inline_keyboard for b in r]
-check("◀ birinchidan oxirgisiga o'tadi, ▶ keyingisiga", f"prem_thx:go:{len(lst) - 1}" in cbs and "prem_thx:go:1" in cbs, cbs)
-check("tanlash tugmasi personaj kalitini beradi", f"prem_thx:pick:{lst[0].key}" in cbs and "prem_thx:skip" in cbs
-      and "prem_thx:close" in cbs)
-check("callback_data 64 baytdan oshmaydi", all(len(c.encode()) <= 64 for k in range(len(lst))
-                                              for r in picker.pager_markup(k, "ru").inline_keyboard
-                                              for c in [b.callback_data for b in r]))
-check("ro'yxat oxirida aylanadi", f"prem_thx:go:0" in [b.callback_data for r in picker.pager_markup(len(lst) - 1, "en").inline_keyboard for b in r])
 q = picker.question_markup("uz", "", [])
-qc = [b.callback_data for r in q.inline_keyboard for b in r]
-check("savolda «tanlash» va «kerak emas» bor (tanlash majburiy emas)", qc[:2] == ["prem_thx:open", "prem_thx:skip"], qc)
+first, second = q.inline_keyboard[0][0], q.inline_keyboard[1][0]
+check("«Personaj tanlash» mini ilovani ochadi", first.web_app and first.web_app.url == "https://edufayl.uz/anim?lang=uz&sel=",
+      first.web_app)
+check("«Kerak emas» bor (tanlash majburiy emas)", second.callback_data == "prem_thx:skip")
+q2 = picker.question_markup("ru", "pingvin", [])
+check("tanlangan bo'lsa «almashtirish» va u personajdan ochiladi", "Сменить" in q2.inline_keyboard[0][0].text
+      and q2.inline_keyboard[0][0].web_app.url.endswith("lang=ru&sel=pingvin"))
+check("qozoqcha — mini ilova ruscha nomlar bilan", "lang=ru" in picker.question_markup("kk", "", []).inline_keyboard[0][0].web_app.url)
 check("«mutlaqo tekin» deyilgan", "mutlaqo tekin" in picker.question_text("uz") and "бесплатно" in picker.question_text("ru"))
 check("tanlangan personaj savolda ko'rinadi", "Paxmoq" in picker.question_text("uz", "paxmoq"))
 check("nom tilga qarab, qozoqcha — ruscha", picker.name_of("paxmoq", "ru") == "Пушистик" and picker.name_of("paxmoq", "kk") == "Пушистик")
-check("start indeks: tanlangan personajdan", lst[picker.start_index("pingvin")].key == "pingvin"
-      and picker.start_index("") == 0 and picker.start_index("yoq") == 0)
+sb = picker.summary_button("uz", "pingvin")
+check("xulosadagi tugma ham mini ilova, nomi bilan", sb.web_app and "Pingvin" in sb.text and sb.web_app.url.endswith("sel=pingvin"))
+webapp.WEBAPP_DOMAIN = ""
+check("domen yo'q — taklif qilinmaydi (mini ilova ochilmaydi)", asyncio.run(picker.offered(Database())) is False)
+webapp.WEBAPP_DOMAIN = "edufayl.uz"
+check("savol rasmi (kollaj) bor", os.path.exists(os.path.join(HERE, "assets", "thanks_anim", "menu.jpg")))
 
 # taqdimotga qo'shish: tanlangan personaj oxirgi sahifaga tushadi, boshqa sahifalar o'zgarmaydi
 deck_path = os.path.join(TMP, "apply.pptx")
@@ -217,11 +222,43 @@ check("apply: noma'lum personaj — o'zgarishsiz (None)", picker.apply(deck_path
                                                                       theme_key="", language="uz", author="") is None
       and len(Presentation(deck_path).slides) == 3)
 
+print("5b) Mini ilova serveri: ro'yxat, namuna videolar, havolaga qaytish")
+
+
+async def web_part():
+    from aiohttp.test_utils import TestClient, TestServer
+
+    from webapp.server import create_web_app
+
+    client = TestClient(TestServer(create_web_app()))
+    await client.start_server()
+    try:
+        page = await client.get("/anim?lang=uz&sel=pingvin")
+        html_text = await page.text()
+        lst = await (await client.get("/api/anim/list?lang=ru")).json()
+        lst_kk = await (await client.get("/api/anim/list?lang=kk")).json()
+        media = await client.get("/anim-media/pingvin/preview.mp4")
+        poster = await client.get("/anim-media/pingvin/poster.jpg")
+        bad = await client.get("/anim-media/pingvin/packed.mp4")
+        trav = await client.get("/anim-media/..%2F..%2Fconfig/preview.mp4")
+        return page.status, html_text, lst, lst_kk, media.status, poster.status, bad.status, trav.status
+    finally:
+        await client.close()
+
+
+status, html_text, lst_, lst_kk, media, poster, bad, trav = asyncio.run(web_part())
+check("sahifa ochiladi", status == 200 and "start=thx_" in html_text and "openTelegramLink" in html_text)
+check("ro'yxatda hamma personaj, tilda, bot nomi bilan", len(lst_["items"]) == 24 and lst_["bot"] == "edufayl_bot"
+      and any(i["name"] == "Пингвин" for i in lst_["items"]), len(lst_["items"]))
+check("qozoqcha so'ralsa — ruscha nomlar", any(i["name"] == "Пингвин" for i in lst_kk["items"]))
+check("namuna video va muqova beriladi", media == 200 and poster == 200)
+check("manba va boshqa fayllar berilmaydi", bad == 404 and trav == 404, (bad, trav))
+
 print("6) Admin/xulosa: eski «tugagandan keyin» taklifi yo'q")
 
 pp_src = open(os.path.join(HERE, "bot", "handlers", "premium_presentation.py"), encoding="utf-8").read()
 check("tugagandan keyingi taklif olib tashlangan", "_offer_thanks_anim" not in pp_src and "tanim_no" not in pp_src)
-check("mini oyna yo'li yo'q", not os.path.exists(os.path.join(HERE, "webapp", "thanks_anim.py")))
+check("sozlamalardagi galereya o'rniga mini ilova (tugma web_app)", "prem_thx:go" not in pp_src and "prem_thx:pick" not in pp_src)
 
 shutil.rmtree(TMP, ignore_errors=True)
 print("\nNATIJA:", "HAMMASI O'TDI" if not FAILS else f"{len(FAILS)} ta xato: {FAILS}")

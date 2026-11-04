@@ -1,8 +1,9 @@
 """Taqdimot sozlamalarida «Rahmat» personajini tanlash (ixtiyoriy) va tayyor taqdimotga sahifani qo'shish.
 
-Oqim (`bot/handlers/premium_presentation.py`): slaydlar soni va rasm/yozuv sozlamalaridan keyin — «🎬 Personaj
-tanlash» yoki «❌ Kerak emas». Tanlangan personaj buyurtma xulosasida ko'rinadi (u yerdan almashtirish mumkin),
-taqdimot tayyor bo'lganda oxiriga «Rahmat» sahifasi qo'shiladi. Narxga ta'sir qilmaydi — bepul.
+Oqim (`bot/handlers/premium_presentation.py`): slaydlar soni va rasm/yozuv sozlamalaridan keyin — personajlar
+kollaji rasmi ostida «🎬 Personaj tanlash» (mini ilova, `webapp/thanks_anim.py`) yoki «❌ Kerak emas». Mini ilova
+tanlovni `t.me/<bot>?start=thx_<kalit>` havolasi bilan qaytaradi. Tanlangan personaj buyurtma xulosasida ko'rinadi
+(u yerdan almashtirish mumkin), taqdimot tayyor bo'lganda oxiriga «Rahmat» sahifasi qo'shiladi. Bepul.
 Tanlov `thanks_key` bilan FSM ma'lumotida turadi ("" — personajsiz).
 """
 import logging
@@ -11,14 +12,15 @@ import shutil
 import tempfile
 from typing import List, Optional
 
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 from . import FEATURE
 from .catalog import Animation, available, get
 
 log = logging.getLogger(__name__)
 
-CB = "prem_thx"          # callback_data oldi: open | skip | close | go:<i> | pick:<kalit>
+CB = "prem_thx"          # callback_data: prem_thx:skip
+START_PREFIX = "thx_"    # mini ilova qaytaradigan /start parametri: thx_<personaj kaliti>
 
 TXT = {
     "uz": {
@@ -26,9 +28,7 @@ TXT = {
                 "ovoz chiqaradigan personajli «Rahmat» sahifasi qo'shiladi. Bu <b>mutlaqo tekin</b>.\n"
                 "Xohlasangiz — personaj tanlang, xohlamasangiz — o'tkazib yuboring."),
         "pick": "🎬 Personaj tanlash", "change": "🎬 Personajni almashtirish", "no": "❌ Kerak emas",
-        "choose": "✅ Tanlash", "back": "⬅️ Orqaga", "line": "🎬 Rahmat sahifasi", "none": "yo'q",
-        "caption": "🎬 <b>{name}</b> ({i}/{n})\n\n<i>Shu personaj oxirgi «Rahmat» sahifasida harakatlanadi va ovoz "
-                   "chiqaradi.</i>",
+        "line": "🎬 Rahmat sahifasi", "none": "yo'q",
         "chosen": "✓ Tanlangan: <b>{name}</b>",
         "note": ("ℹ️ Oxirgi sahifadagi personaj, ovoz va yozuvlar PowerPoint'da «Slayd-shou» rejimida harakatlanadi. "
                  "Telefon ilovalari va PDF'da sahifa harakatsiz ko'rinishi mumkin."),
@@ -38,9 +38,7 @@ TXT = {
                 "страница «Спасибо» с движущимся персонажем и звуком. Это <b>совершенно бесплатно</b>.\n"
                 "Хотите — выберите персонажа, не хотите — пропустите."),
         "pick": "🎬 Выбрать персонажа", "change": "🎬 Сменить персонажа", "no": "❌ Не нужно",
-        "choose": "✅ Выбрать", "back": "⬅️ Назад", "line": "🎬 Страница «Спасибо»", "none": "нет",
-        "caption": "🎬 <b>{name}</b> ({i}/{n})\n\n<i>Этот персонаж будет двигаться и звучать на последней странице "
-                   "«Спасибо».</i>",
+        "line": "🎬 Страница «Спасибо»", "none": "нет",
         "chosen": "✓ Выбран: <b>{name}</b>",
         "note": ("ℹ️ Персонаж, звук и надписи на последней странице оживают в PowerPoint в режиме «Показ слайдов». "
                  "В мобильных приложениях и PDF страница может быть статичной."),
@@ -50,9 +48,7 @@ TXT = {
                 "sounding character is added to the end of your deck. It is <b>completely free</b>.\n"
                 "Pick a character if you like, or skip it."),
         "pick": "🎬 Choose a character", "change": "🎬 Change the character", "no": "❌ No, thanks",
-        "choose": "✅ Choose", "back": "⬅️ Back", "line": "🎬 Thank-you page", "none": "none",
-        "caption": "🎬 <b>{name}</b> ({i}/{n})\n\n<i>This character moves and makes sound on the final “Thank you” "
-                   "page.</i>",
+        "line": "🎬 Thank-you page", "none": "none",
         "chosen": "✓ Selected: <b>{name}</b>",
         "note": ("ℹ️ The character, sound and text on the last page come alive in PowerPoint Slide Show mode. "
                  "Phone apps and PDF may show the page static."),
@@ -79,7 +75,9 @@ def items() -> List[Animation]:
 
 async def offered(db) -> bool:
     """Taklif qilinadimi: funksiya admin tomonidan o'chirilmagan (sukut — yoqilgan) va personajlar bor."""
-    if not items():
+    import webapp
+
+    if not items() or not webapp.WEBAPP_DOMAIN:         # mini ilova domensiz ochilmaydi
         return False
     try:
         return bool(await db.get_feature_status(FEATURE, default=True))
@@ -95,40 +93,18 @@ def question_text(lang: str, chosen: str = "") -> str:
     return text
 
 
+def app_url(lang: str, chosen: str = "") -> str:
+    import webapp
+
+    return webapp.public_url(f"/anim?lang={lang if lang in ('uz', 'ru', 'en') else 'ru'}&sel={chosen or ''}")
+
+
 def question_markup(lang: str, chosen: str, back_row) -> InlineKeyboardMarkup:
     t = _t(lang)
     rows = [[InlineKeyboardButton(text=t["change"] if chosen and get(chosen) else t["pick"],
-                                  callback_data=f"{CB}:open")],
+                                  web_app=WebAppInfo(url=app_url(lang, chosen)))],
             [InlineKeyboardButton(text=t["no"], callback_data=f"{CB}:skip")], back_row]
     return InlineKeyboardMarkup(inline_keyboard=rows)
-
-
-def start_index(chosen: str) -> int:
-    for i, anim in enumerate(items()):
-        if anim.key == chosen:
-            return i
-    return 0
-
-
-def pager_caption(index: int, lang: str) -> str:
-    lst = items()
-    anim = lst[index % len(lst)]
-    return _t(lang)["caption"].format(name=anim.name(_name_lang(lang)), i=index % len(lst) + 1, n=len(lst))
-
-
-def pager_markup(index: int, lang: str) -> InlineKeyboardMarkup:
-    lst = items()
-    n = len(lst)
-    index %= n
-    t = _t(lang)
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="◀️", callback_data=f"{CB}:go:{(index - 1) % n}"),
-         InlineKeyboardButton(text=f"{index + 1}/{n}", callback_data=f"{CB}:go:{index}"),
-         InlineKeyboardButton(text="▶️", callback_data=f"{CB}:go:{(index + 1) % n}")],
-        [InlineKeyboardButton(text=t["choose"], callback_data=f"{CB}:pick:{lst[index].key}")],
-        [InlineKeyboardButton(text=t["no"], callback_data=f"{CB}:skip"),
-         InlineKeyboardButton(text=t["back"], callback_data=f"{CB}:close")],
-    ])
 
 
 def summary_line(lang: str, chosen: str) -> str:
@@ -140,7 +116,7 @@ def summary_line(lang: str, chosen: str) -> str:
 def summary_button(lang: str, chosen: str) -> InlineKeyboardButton:
     t = _t(lang)
     name = name_of(chosen, lang)
-    return InlineKeyboardButton(text=f"{t['line']}: {name or t['none']}", callback_data=f"{CB}:open")
+    return InlineKeyboardButton(text=f"{t['line']}: {name or t['none']}", web_app=WebAppInfo(url=app_url(lang, chosen)))
 
 
 def note(lang: str) -> str:

@@ -36,12 +36,16 @@ from pptx import Presentation
 
 from bot.handlers import premium_presentation as pp
 from bot.states import PremiumPresentationStates as PS
+from aiogram.filters import CommandObject
+import webapp
 from services.thanks_anim import picker
+
+webapp.WEBAPP_DOMAIN = "edufayl.uz"
 
 
 class Chat:
     def __init__(self):
-        self.next_id, self.sent, self.deleted, self.videos, self.edited = 100, [], [], [], []
+        self.next_id, self.sent, self.deleted, self.photos, self.edited = 100, [], [], [], []
         self.bot = SimpleNamespace(delete_message=self.delete, edit_message_text=self.edit_text)
 
     async def delete(self, chat_id, message_id):
@@ -62,13 +66,14 @@ class Chat:
             chat.sent.append((chat.next_id, body, kw.get("reply_markup")))
             return SimpleNamespace(message_id=chat.next_id)
 
-        async def answer_video(video, **kw):
+        async def answer_photo(photo, **kw):
             chat.next_id += 1
-            chat.videos.append((chat.next_id, kw.get("caption"), kw.get("reply_markup")))
-            return SimpleNamespace(message_id=chat.next_id, video=SimpleNamespace(file_id=f"F{chat.next_id}"))
+            chat.photos.append((chat.next_id, kw.get("caption"), kw.get("reply_markup")))
+            chat.sent.append((chat.next_id, kw.get("caption"), kw.get("reply_markup")))
+            return SimpleNamespace(message_id=chat.next_id, photo=[SimpleNamespace(file_id="P1")])
         msg.answer = answer
-        msg.answer_video = answer_video
-        msg.edit_media = AsyncMock(return_value=SimpleNamespace(video=SimpleNamespace(file_id="FX")))
+        msg.answer_photo = answer_photo
+        msg.from_user = SimpleNamespace(id=1)
         msg.delete = AsyncMock()
         return msg
 
@@ -103,58 +108,47 @@ async def flow():
     state = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=1, user_id=1))
     await state.update_data(**BASE, text_anim_offer=False)
 
-    print("1) Yozuv animatsiyasidan keyin savol")
+    print("1) Yozuv animatsiyasidan keyin savol (rasm bilan)")
     pp._thanks_offer, real_offer = AsyncMock(return_value=True), pp._thanks_offer
     await pp._after_anim(chat.message(), state, "uz")
     check("savol chiqdi, holat — waiting_for_thanks", await state.get_state() == PS.waiting_for_thanks.state,
           await state.get_state())
+    check("tugma ustida personajlar kollaji rasmi bor", len(chat.photos) == 1, chat.photos)
     text, markup = chat.last()[1], chat.last()[2]
-    cbs = [b.callback_data for b in buttons(markup)]
+    first = buttons(markup)[0]
     check("savolda mutlaqo tekin deyilgan", "mutlaqo tekin" in text, text)
-    check("tanlash, kerak emas va orqaga tugmalari", cbs == ["prem_thx:open", "prem_thx:skip", "prem_ppt_prev"], cbs)
+    check("«Personaj tanlash» mini ilovani ochadi", first.web_app and "/anim?lang=uz" in first.web_app.url, first)
+    check("«Kerak emas» va orqaga tugmalari", [b.callback_data for b in buttons(markup)[1:]] == ["prem_thx:skip",
+                                                                                              "prem_ppt_prev"])
     check("thanks_offer saqlandi", (await state.get_data()).get("thanks_offer") is True)
 
-    print("2) Galereya")
-    await pp.premium_ppt_thanks_open(callback(chat, "prem_thx:open"), state, db)
-    check("video namuna yuborildi (1/24)", len(chat.videos) == 1 and "(1/24)" in chat.videos[0][1], chat.videos)
-    pager_mid = (await state.get_data())["thx_mid"]
-    check("galereya xabari eslab qolindi", pager_mid == chat.videos[0][0])
-    pager_cbs = [b.callback_data for b in buttons(chat.videos[0][2])]
-    check("◀ ▶ tanlash, kerak emas, orqaga", "prem_thx:go:1" in pager_cbs and "prem_thx:go:23" in pager_cbs
-          and any(c.startswith("prem_thx:pick:") for c in pager_cbs) and "prem_thx:skip" in pager_cbs
-          and "prem_thx:close" in pager_cbs, pager_cbs)
-    nav = callback(chat, "prem_thx:go:4", pager_mid)
-    await pp.premium_ppt_thanks_go(nav, state, db)
-    check("▶ — xabar joyida yangilandi (edit_media)", nav.message.edit_media.await_count == 1)
-    media = nav.message.edit_media.await_args.args[0]
-    check("yangi kadr: 5/24 sarlavha", "(5/24)" in media.caption, media.caption)
-
-    print("3) Tanlash → xulosa")
-    pick = picker.items()[4].key
-    cb = callback(chat, f"prem_thx:pick:{pick}", pager_mid)
-    await pp.premium_ppt_thanks_pick(cb, state, db)
+    print("2) Mini ilova tanlovni /start thx_<kalit> bilan qaytaradi")
+    msg = chat.message()
+    await pp.premium_ppt_thanks_chosen(msg, CommandObject(command="start", args="thx_pingvin"), state, db)
     data = await state.get_data()
-    check("tanlov saqlandi", data.get("thanks_key") == pick, data.get("thanks_key"))
-    check("galereya xabari o'chdi", cb.message.delete.await_count == 1)
+    check("tanlov saqlandi", data.get("thanks_key") == "pingvin", data.get("thanks_key"))
+    check("«/start …» xabari o'chirildi", msg.delete.await_count == 1)
     check("xulosaga o'tdi", await state.get_state() == PS.waiting_for_slide_count.state, await state.get_state())
     stext, smarkup = chat.last()[1], chat.last()[2]
-    check("xulosada personaj nomi ko'rinadi", picker.name_of(pick, "uz") in stext, stext)
-    sb = [b for b in buttons(smarkup) if b.callback_data == "prem_thx:open"]
-    check("xulosada «almashtirish» tugmasi, nomi bilan", sb and picker.name_of(pick, "uz") in sb[0].text,
-          [b.text for b in buttons(smarkup)])
+    check("xulosada personaj nomi ko'rinadi", picker.name_of("pingvin", "uz") in stext, stext)
+    sb = [b for b in buttons(smarkup) if b.web_app]
+    check("xulosada mini ilova tugmasi (almashtirish), nomi bilan", sb and "Pingvin" in sb[0].text
+          and sb[0].web_app.url.endswith("sel=pingvin"), [b.text for b in buttons(smarkup)])
 
-    print("4) Xulosadan almashtirish va olib tashlash")
-    await pp.premium_ppt_thanks_open(callback(chat, "prem_thx:open"), state, db)
-    check("galereya tanlangan personajdan ochiladi", f"({picker.start_index(pick) + 1}/24)" in chat.videos[-1][1],
-          chat.videos[-1][1])
-    skip = callback(chat, "prem_thx:skip", chat.videos[-1][0])
-    await pp.premium_ppt_thanks_skip(skip, state, db)
-    data = await state.get_data()
-    check("«Kerak emas» — personajsiz", data.get("thanks_key") == "")
-    check("xulosa joyida yangilandi: «yo'q»", chat.edited and "yo'q" in chat.edited[-1][1], chat.edited[-1:] )
+    print("3) Xulosadan almashtirish va olib tashlash")
+    before = len(chat.sent)
+    await pp.premium_ppt_thanks_chosen(chat.message(), CommandObject(command="start", args="thx_ayiqcha"), state, db)
+    check("almashtirildi", (await state.get_data()).get("thanks_key") == "ayiqcha")
+    check("xulosa joyida yangilandi (yangi xabar emas)", len(chat.sent) == before and chat.edited
+          and "Ayiqcha" in chat.edited[-1][1], chat.edited[-1:])
+    await pp.premium_ppt_thanks_chosen(chat.message(), CommandObject(command="start", args="thx_yoq"), state, db)
+    check("noma'lum kalit — hech narsa o'zgarmaydi", (await state.get_data()).get("thanks_key") == "ayiqcha")
+    await pp.premium_ppt_thanks_skip(callback(chat, "prem_thx:skip"), state, db)
+    check("«Kerak emas» — personajsiz, xulosa yangilandi", (await state.get_data()).get("thanks_key") == ""
+          and "yo'q" in chat.edited[-1][1])
     check("holat xulosada qoldi", await state.get_state() == PS.waiting_for_slide_count.state)
 
-    print("5) Savoldan «Kerak emas» — tanlash majburiy emas")
+    print("4) Savoldan «Kerak emas» — tanlash majburiy emas")
     chat2 = Chat()
     state2 = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=2, user_id=2))
     await state2.update_data(**BASE, text_anim_offer=False)
@@ -163,6 +157,12 @@ async def flow():
     data2 = await state2.get_data()
     check("personajsiz xulosaga o'tdi", await state2.get_state() == PS.waiting_for_slide_count.state
           and not data2.get("thanks_key") and "yo'q" in chat2.last()[1])
+
+    print("5) Muddati tugagan sozlamalar")
+    chat3 = Chat()
+    m3 = chat3.message()
+    await pp.premium_ppt_thanks_stale(m3, db)
+    check("holat yo'q bo'lsa — tushuntirish xabari", "muddati tugagan" in chat3.last()[1])
 
     print("6) Orqaga tartibi")
     d = {**BASE, "thanks_offer": True, "text_anim_offer": True, "step": "summary"}
