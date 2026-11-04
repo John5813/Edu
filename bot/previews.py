@@ -20,6 +20,7 @@ PATHS = {
     "klassik": os.path.join(ROOT, "attached_assets", "shablonlar_raqamli.png"),
     "kat3d": os.path.join(ROOT, "assets", "taqdimot", "uslublar_3d.jpg"),    # 3D taqdimot Pro: 11 uslub
     "med3d": os.path.join(ROOT, "assets", "med3d", "uslublar.jpg"),          # 3D Anatomiya: 12 uslub
+    "rahmat": os.path.join(ROOT, "assets", "thanks_anim", "menu.jpg"),       # «Rahmat» personajlari kollaji
 }
 
 _FILE_IDS: Dict[str, str] = {}

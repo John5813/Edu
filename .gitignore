@@ -88,3 +88,6 @@ data/katalog3d_modellar/
 # Brave API kalitlari (admin panel orqali qo'shiladi) — maxfiy
 data/brave_keys.json
 data/brave_keys.json.tmp
+
+# Reklama videolari (faqat reklama uchun, repoga kiritilmaydi)
+assets/promo/

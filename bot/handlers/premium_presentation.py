@@ -10,7 +10,7 @@ import os
 import re
 
 from aiogram import Router, F
-from aiogram.filters import StateFilter
+from aiogram.filters import CommandObject, CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import (
     Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton,
@@ -1154,10 +1154,10 @@ _KIND_PROMPT = {
 }
 # Namuna rasmi chiqqanda savol ostida qo'shiladi.
 _KIND_PICTURE = {
-    "uz": "Rasmda har turdan namuna: muqova va ichki slayd.",
-    "ru": "На картинке — образец каждого типа: обложка и слайд.",
-    "en": "The picture shows a sample of each type: cover and inner slide.",
-    "kk": "Суретте әр түрдің үлгісі: мұқаба және ішкі слайд.",
+    "uz": "Rasmda har turdan 10 tadan namuna: muqova va ichki slaydlar.",
+    "ru": "На картинке — по 10 образцов каждого типа: обложка и слайды.",
+    "en": "The picture shows 10 samples of each type: cover and inner slides.",
+    "kk": "Суретте әр түрдің 10 үлгісі: мұқаба және ішкі слайдтар.",
 }
 _STYLE_PICTURE = {
     "uz": "Rasmda 5 uslubning namunasi — raqamlar tugmalar tartibida.",
@@ -1610,7 +1610,7 @@ async def _step_thanks(message: Message, state: FSMContext, lang: str) -> None:
     chosen = data.get("thanks_key") or ""
     await _prompt(message, state, _topic_line(data, lang) + picker.question_text(lang, chosen),
                   picker.question_markup(lang, chosen, _back_row(lang)), "thanks",
-                  PremiumPresentationStates.waiting_for_thanks)
+                  PremiumPresentationStates.waiting_for_thanks, photo="rahmat")
 
 
 async def _step_anim(message: Message, state: FSMContext, lang: str) -> None:
@@ -1643,122 +1643,58 @@ async def premium_ppt_text_anim(callback: CallbackQuery, state: FSMContext, db: 
     await _after_anim(callback.message, state, lang)
 
 
-# ── «Rahmat» personaji: galereya (video namuna, ◀ ▶), tanlash yoki o'tkazib yuborish.
-# Savoldan (waiting_for_thanks) ham, xulosadan (waiting_for_slide_count) ham ochiladi; galereya alohida xabar.
+# ── «Rahmat» personaji: tanlash mini ilovada (Reels uslubida), tanlov `/start thx_<kalit>` bilan qaytadi.
+# Savoldan (waiting_for_thanks) ham, xulosadan (waiting_for_slide_count) ham ochiladi.
 
 _THX_STATES = StateFilter(PremiumPresentationStates.waiting_for_thanks,
                           PremiumPresentationStates.waiting_for_slide_count)
-_thx_video_ids: dict = {}          # personaj kaliti → Telegram file_id (namuna qayta yuklanmasin)
+_THX_EXPIRED = {"uz": "Bu buyurtma sozlamalari muddati tugagan. Taqdimotni qaytadan boshlang.",
+                "ru": "Настройки этого заказа устарели. Начните презентацию заново.",
+                "en": "These order settings have expired. Please start the presentation again."}
 
 
-async def _thx_media(anim, caption: str):
-    from aiogram.types import FSInputFile, InputMediaVideo
-
-    return InputMediaVideo(media=_thx_video_ids.get(anim.key) or FSInputFile(anim.path("preview.mp4")),
-                           caption=caption, parse_mode="HTML", supports_streaming=True, width=960, height=540)
-
-
-def _thx_remember(anim, sent) -> None:
-    video = getattr(sent, "video", None)
-    if video is not None and getattr(video, "file_id", None):
-        _thx_video_ids[anim.key] = video.file_id
-
-
-async def _thx_close_pager(callback: CallbackQuery, state: FSMContext) -> None:
-    """Galereya xabari o'chadi."""
-    with contextlib.suppress(Exception):
-        await callback.message.delete()
-    await state.update_data(thx_mid=None)
-
-
-async def _thx_finish(callback: CallbackQuery, state: FSMContext, lang: str) -> None:
+async def _thx_finish(message: Message, state: FSMContext, lang: str) -> None:
     """Tanlov qilindi: savoldan kelgan bo'lsa — xulosaga o'tadi; xulosadan kelgan bo'lsa — xulosa yangilanadi."""
     current = await state.get_state()
     if current == PremiumPresentationStates.waiting_for_thanks.state:
-        await _step_summary(callback.message, state, lang)
+        await _step_summary(message, state, lang)
         return
     data = await state.get_data()
     text, markup = _summary(data, lang)
     if data.get("prompt_mid"):
         with contextlib.suppress(Exception):
-            await callback.bot.edit_message_text(text, chat_id=callback.message.chat.id,
-                                                 message_id=data["prompt_mid"], parse_mode="HTML",
-                                                 reply_markup=markup)
+            await message.bot.edit_message_text(text, chat_id=message.chat.id, message_id=data["prompt_mid"],
+                                                parse_mode="HTML", reply_markup=markup)
 
 
-@router.callback_query(F.data == "prem_thx:open", _THX_STATES)
-async def premium_ppt_thanks_open(callback: CallbackQuery, state: FSMContext, db: Database):
-    from services.thanks_anim import picker
+@router.message(CommandStart(deep_link=True, magic=F.args.startswith("thx_")), _THX_STATES)
+async def premium_ppt_thanks_chosen(message: Message, command: CommandObject, state: FSMContext, db: Database):
+    """Mini ilova personajni tanladi: `/start thx_<kalit>` — tanlov saqlanadi, xulosaga o'tiladi."""
+    from services.thanks_anim import catalog, picker
 
-    await callback.answer()
-    lang = await _lang_of(callback.from_user.id, db)
-    items = picker.items()
-    if not items:
-        return
-    data = await state.get_data()
-    if data.get("thx_mid"):                                      # ikki marta bosilsa — eskisi o'chadi
-        with contextlib.suppress(Exception):
-            await callback.bot.delete_message(callback.message.chat.id, data["thx_mid"])
-    index = picker.start_index(data.get("thanks_key") or "")
-    anim = items[index]
-    from aiogram.types import FSInputFile
-
-    sent = await callback.message.answer_video(
-        _thx_video_ids.get(anim.key) or FSInputFile(anim.path("preview.mp4")),
-        caption=picker.pager_caption(index, lang), parse_mode="HTML", reply_markup=picker.pager_markup(index, lang),
-        supports_streaming=True, width=960, height=540)
-    _thx_remember(anim, sent)
-    await state.update_data(thx_mid=sent.message_id)
-
-
-@router.callback_query(F.data.startswith("prem_thx:go:"), _THX_STATES)
-async def premium_ppt_thanks_go(callback: CallbackQuery, state: FSMContext, db: Database):
-    from services.thanks_anim import picker
-
-    await callback.answer()
-    items = picker.items()
-    try:
-        index = int(callback.data.rsplit(":", 1)[1]) % len(items)
-    except (ValueError, ZeroDivisionError):
-        return
-    lang = await _lang_of(callback.from_user.id, db)
-    anim = items[index]
-    try:
-        sent = await callback.message.edit_media(await _thx_media(anim, picker.pager_caption(index, lang)),
-                                                 reply_markup=picker.pager_markup(index, lang))
-        _thx_remember(anim, sent)
-    except Exception as exc:                                    # bir xil kadr, tarmoq xatosi va h.k. — jim
-        logger.debug("Personaj galereyasi: %s", exc)
-
-
-@router.callback_query(F.data.startswith("prem_thx:pick:"), _THX_STATES)
-async def premium_ppt_thanks_pick(callback: CallbackQuery, state: FSMContext, db: Database):
-    from services.thanks_anim import catalog
-
-    await callback.answer()
-    key = callback.data.split(":", 2)[2]
-    if catalog.get(key) is None:
+    lang = await _lang_of(message.from_user.id, db)
+    key = (command.args or "")[len(picker.START_PREFIX):]
+    with contextlib.suppress(Exception):                    # «/start …» xabari suhbatda qolmasin
+        await message.delete()
+    if catalog.get(key) is None or not (await state.get_data()).get("thanks_offer"):
         return
     await state.update_data(thanks_key=key)
-    await _thx_close_pager(callback, state)
-    await _thx_finish(callback, state, await _lang_of(callback.from_user.id, db))
+    await _thx_finish(message, state, lang)
+
+
+@router.message(CommandStart(deep_link=True, magic=F.args.startswith("thx_")))
+async def premium_ppt_thanks_stale(message: Message, db: Database):
+    """Buyurtma sozlamalari tugagan bo'lsa (bot qayta ishga tushgan, bekor qilingan) — jim emas, tushuntiriladi."""
+    lang = await _lang_of(message.from_user.id, db)
+    await message.answer(_THX_EXPIRED.get(lang) or _THX_EXPIRED["uz"])
 
 
 @router.callback_query(F.data == "prem_thx:skip", _THX_STATES)
 async def premium_ppt_thanks_skip(callback: CallbackQuery, state: FSMContext, db: Database):
-    """«❌ Kerak emas»: personajsiz (oddiy yakun) — savoldan ham, galereyadan ham."""
+    """«❌ Kerak emas»: personajsiz (oddiy yakun)."""
     await callback.answer()
     await state.update_data(thanks_key="")
-    data = await state.get_data()
-    if data.get("thx_mid") and data["thx_mid"] == callback.message.message_id:
-        await _thx_close_pager(callback, state)
-    await _thx_finish(callback, state, await _lang_of(callback.from_user.id, db))
-
-
-@router.callback_query(F.data == "prem_thx:close", _THX_STATES)
-async def premium_ppt_thanks_close(callback: CallbackQuery, state: FSMContext):
-    await callback.answer()
-    await _thx_close_pager(callback, state)
+    await _thx_finish(callback.message, state, await _lang_of(callback.from_user.id, db))
 
 
 @router.callback_query(F.data.startswith("ppt_fon:"),
