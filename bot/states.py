@@ -142,6 +142,8 @@ class PremiumPresentationStates(StatesGroup):
     # Rasm manbasi (internet / AI / aralash) va yozuv animatsiyasi — slaydlar sonidan keyin, alohida bosqichlar.
     waiting_for_photo_source = State()
     waiting_for_text_anim = State()
+    # Oxirgi «Rahmat» sahifasi: animatsiyali personaj tanlash (ixtiyoriy) — yozuv animatsiyasidan keyin.
+    waiting_for_thanks = State()
     # Buyurtma xulosasi va tasdiqlash (to'lovdan oldin).
     waiting_for_slide_count = State()
     # Mijoz matn hajmini tanlaydi (ko'p / kam matnli).

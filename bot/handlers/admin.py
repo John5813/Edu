@@ -2281,7 +2281,7 @@ async def _feature_keyboard(db):
     from services.thanks_anim import FEATURE as THANKS_ANIM
     return _kb(startup, mahsus, receipt_ai, await db.get_feature_status(reengage.FEATURE),
                await db.get_feature_status(reengage.FEATURE_OLD),
-               await db.get_feature_status(THANKS_ANIM, default=False),
+               await db.get_feature_status(THANKS_ANIM, default=True),
                await db.get_feature_status(TEXT_ANIM, default=False),
                await db.get_feature_status(reengage.FEATURE_WEEKLY),
                await db.get_feature_status("receipt_full_auto"),
@@ -2537,7 +2537,7 @@ async def force_approve_rejected(callback: CallbackQuery, db: Database):
 
 @router.callback_query(F.data.startswith("toggle_thanks_anim_"))
 async def toggle_thanks_anim(callback: CallbackQuery, db: Database):
-    """Taqdimot yuborilgach "🎬 Oxiriga animatsiya qo'shish" tugmasini ko'rsatish (sukut bo'yicha o'chiq)."""
+    """Taqdimot sozlamalarida «🎬 Rahmat» personajini tanlash qadamini ko'rsatish (sukut bo'yicha yoqilgan)."""
     if not is_admin(callback.from_user.id):
         return
     from services.thanks_anim import FEATURE as THANKS_ANIM
@@ -2545,7 +2545,7 @@ async def toggle_thanks_anim(callback: CallbackQuery, db: Database):
     new_status = callback.data.split("_")[-1] == "on"
     await db.set_feature_status(THANKS_ANIM, new_status)
     await callback.answer("🎬 Rahmat animatsiyasi yoqildi!" if new_status
-                          else "🎬 Rahmat animatsiyasi o'chirildi: tugma mijozlarga ko'rinmaydi.")
+                          else "🎬 Rahmat animatsiyasi o'chirildi: sozlamalarda personaj tanlash chiqmaydi.")
     kb = await _feature_keyboard(db)
     await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
 

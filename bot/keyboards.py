@@ -1161,7 +1161,7 @@ def get_feature_management_keyboard(
     receipt_ai_enabled: bool = True,
     reengage_enabled: bool = True,
     reengage_old_enabled: bool = True,
-    thanks_anim_enabled: bool = False,
+    thanks_anim_enabled: bool = True,
     text_anim_enabled: bool = False,
     reengage_weekly_enabled: bool = True,
     receipt_full_auto_enabled: bool = True,
@@ -1238,7 +1238,7 @@ def get_feature_management_keyboard(
             callback_data=f"toggle_{name}_{'off' if enabled else 'on'}"
         ))
 
-    # Taqdimot yuborilgach "🎬 Oxiriga animatsiya qo'shish" tugmasi (services/thanks_anim)
+    # Taqdimot sozlamalarida «🎬 Rahmat» personajini tanlash qadami (services/thanks_anim)
     keyboard.add(InlineKeyboardButton(
         text=f"🎬 Rahmat animatsiyasi: {'🟢 Yoqilgan' if thanks_anim_enabled else '🔴 Ochirilgan'}".replace(
             "Ochirilgan", "O'chirilgan"),
