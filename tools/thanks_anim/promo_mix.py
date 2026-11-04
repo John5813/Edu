@@ -2,7 +2,7 @@
 
 - Diktor matni jimlik bo'yicha jumlalarga bo'linadi, har biri 1,1 marta tezlashtiriladi (balandligi o'zgarmaydi) va
   o'z sahnasiga qo'yiladi: shunda gap rasm bilan bir vaqtda bo'ladi.
-- Personajning o'z ovozi (kapibara) boshidan OXIRIGACHA to'xtamaydi — uzoqlashganda ham; 10 soniyalik ovoz
+- Personajning o'z ovozi (mushukcha) — videoning musiqasi, boshidan OXIRIGACHA to'xtamaydi — uzoqlashganda ham; 10 soniyalik ovoz
   qisqa kesishma bilan qaytariladi. U diktordan keyingi ikkinchi qatlam: diktor gapirganda sal pasayadi.
 - Musiqa ham diktor gapirganda pasayadi. Yakuniy ovoz −14 LUFS, cho'qqi ≤ −1,5 dBFS.
 
@@ -23,7 +23,7 @@ SPEED = 1.1
 # Jumlalar tartibi: 1 «Slaydni shunday yakunlang!»  2 «Yigirma to'rtta personaj.»  3 «Yigirma to'rtta dizayn.»
 # 4 «Har biri o'z ovozi bilan.»  5 «Siz faqat tanlang,»  6 «qolganini bot qiladi!»  7 «Bu mutlaqo tekin!»  8 «Edufayl bot.»
 STARTS = [0.5, 2.55, 3.95, 5.3, 6.95, 8.1, 10.1, 11.5]      # sekund: sahnaga mos (smayl, uzoqlashish, shablonlar, logo)
-HERO_KEY = "kapibara_raqs"
+HERO_KEY = "tillarang_mushuk"                    # shu personajning ovozi — videoning MUSIQASI
 
 
 def _sh(cmd):
@@ -100,9 +100,9 @@ def mix(work: str, voice: str, out: str = "") -> str:
     graph = (
         voice_graph + ";[vo]asplit=3[vo1][vo2][vkey];"
         # personajning o'z ovozi: boshdan oxirigacha (qaytariladi), oxirida so'nadi
-        f"[1:a]aformat=channel_layouts=stereo,volume=0.85,afade=t=in:d=0.05,afade=t=out:st={total - 0.9}:d=0.9[cap];"
+        f"[1:a]aformat=channel_layouts=stereo,volume=1.0,afade=t=in:d=0.05,afade=t=out:st={total - 0.9}:d=0.9[cap];"
         "[cap][vkey]sidechaincompress=threshold=0.03:ratio=3.5:attack=10:release=300[capd];"
-        "[2:a]volume=0.55[mu];[mu][vo1]sidechaincompress=threshold=0.03:ratio=4:attack=10:release=350[mud];"
+        "[2:a]volume=0.6[mu];[mu][vo1]sidechaincompress=threshold=0.03:ratio=4:attack=10:release=350[mud];"
         f"[mud][capd][vo2]amix=inputs=3:normalize=0:duration=longest,apad=whole_dur={total},atrim=0:{total},loudnorm=I=-14:TP=-1.5:LRA=7[o]"
     )
     _sh(["ffmpeg", "-v", "error", "-y"] + (["-i", voice] if voice else ["-f", "lavfi", "-i", "anullsrc"]) +

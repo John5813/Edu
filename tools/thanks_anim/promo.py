@@ -33,8 +33,8 @@ TOTAL = M.TOTAL
 GAP = 150
 COLS, ROWS = 6, 4
 LQ_W, LQ_H = 480, 270
-HERO = "kapibara_raqs"                             # hind kiyimidagi kapibara — birinchi chiqadi (oldin Paxmoq edi)
-TEMPLATES = ["balerina", "tillarang_mushuk", "ayiqcha", "pingvin"]
+HERO = "tillarang_mushuk"                          # qo'ng'iroqchali mushukcha — birinchi chiqadi, musiqasi ham o'ziniki
+TEMPLATES = ["balerina", "kapibara_raqs", "ayiqcha", "pingvin"]
 ARRIVE = list(M.ARRIVALS)                          # 4.5, 6.0, 7.5, 9.0
 CELL = {HERO: (2, 1), TEMPLATES[0]: (1, 2), TEMPLATES[1]: (4, 1), TEMPLATES[2]: (3, 3), TEMPLATES[3]: (5, 2)}
 INTER = "/usr/share/fonts/opentype/inter/Inter-%s.otf"
@@ -283,7 +283,7 @@ def main(work, out):
                 (W / 2 - 480, H / 2 + 260, 26, 0.75), (W / 2, H / 2 - 420, 30, 0.9), (W / 2 - 250, H / 2 + 430, 22, 1.0),
                 (W / 2 + 160, H / 2 + 440, 24, 1.1)]
     bg = background()
-    geo = {"smiley": (185, 128), "bubble": (310, 128)}
+    geo = {"smiley": (790, 118), "bubble": (915, 118)}
 
     enc = subprocess.Popen(
         ["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
@@ -350,7 +350,7 @@ if __name__ == "__main__":
     work, out = sys.argv[1], sys.argv[2]
     os.makedirs(work, exist_ok=True)
     if not os.path.exists(os.path.join(work, "music.wav")):
-        M.write_wav(os.path.join(work, "music.wav"), M.render())
+        M.write_wav(os.path.join(work, "music.wav"), M.render(sfx_only=True))   # musiqa — personajning o'zi
     if not os.path.exists(os.path.join(work, "audio.wav")):          # musiqa + diktor ovozi + personaj ovozi
         import promo_mix
         promo_mix.mix(work, sys.argv[3] if len(sys.argv) > 3 else "")

@@ -160,14 +160,15 @@ CHORDS = {                       # ildiz (MIDI), uchtovush
 PROG = ["C", "G", "Am", "F", "C"]                # har bir takt (2 soniya): 0–10 s
 
 
-def render() -> np.ndarray:
+def render(sfx_only: bool = False) -> np.ndarray:
+    """sfx_only — faqat effektlar (smayl, ko'tarilish, zarba, 'vush'): musiqa o'rniga personajning o'z musiqasi qo'yiladi."""
     mix = np.zeros((int(TOTAL * SR), 2))
     full = lambda t: t >= IMPACT                  # to'liq ritm
     duck = np.ones(mix.shape[0])
     k = kick()
 
     # zarb: butun 0–10 s davomida har zarbda; intro (0–2) da yumshoqroq
-    for b in range(int(END / BEAT)):
+    for b in range(0 if sfx_only else int(END / BEAT)):
         at = b * BEAT
         if 2.5 <= at < IMPACT:                    # ko'tarilishda zarb yo'q — bo'shliq
             continue
@@ -175,20 +176,20 @@ def render() -> np.ndarray:
         i = int(at * SR)
         duck[i:i + int(0.22 * SR)] *= np.linspace(0.45, 1, int(0.22 * SR))[: len(duck[i:i + int(0.22 * SR)])]
     # hat — sakkizlikning ikkinchi yarmida; ochiq — har ikkinchi zarbda
-    for e in range(int(END / (BEAT / 2))):
+    for e in range(0 if sfx_only else int(END / (BEAT / 2))):
         at = e * BEAT / 2
         if 2.0 <= at < IMPACT:
             continue
         if e % 2 == 1:
             _place(mix, hat(open_=(e % 4 == 3)), at, 0.7 if full(at) else 0.4, pan=0.25)
     # klap: 2 va 4 zarblarda (kirishdan keyin)
-    for b in range(int(END / BEAT)):
+    for b in range(0 if sfx_only else int(END / BEAT)):
         at = b * BEAT
         if b % 2 == 1 and at >= 1.0 and not (2.0 <= at < IMPACT):
             _place(mix, clap(), at, 0.8 if full(at) else 0.55)
 
     # bas va arpedjio — akkord bo'yicha
-    for bar, name in enumerate(PROG):
+    for bar, name in enumerate([] if sfx_only else PROG):
         root, tri = CHORDS[name]
         t0 = bar * 2.0
         for e in range(8):                       # sakkizliklar
@@ -207,14 +208,14 @@ def render() -> np.ndarray:
         3: [(0, 77), (1, 74), (2, 77), (4, 81), (5, 79), (6, 77)],
         4: [(0, 79), (1, 76), (2, 74), (3, 76), (4, 79), (6, 83)],
     }
-    for bar, notes in motif.items():
+    for bar, notes in ({} if sfx_only else motif).items():
         for e, n in notes:
             at = bar * 2.0 + e * BEAT / 2
             if at < IMPACT or at >= END:
                 continue
             _place(mix, pluck(midi(n), 0.5, bright=1.6), at, 0.32, pan=0.1)
     # pad (to'liq qism)
-    for bar, name in enumerate(PROG):
+    for bar, name in enumerate([] if sfx_only else PROG):
         at = bar * 2.0
         if at + 2.0 <= IMPACT or at >= END:
             continue
@@ -241,9 +242,10 @@ def render() -> np.ndarray:
     _place(mix, boom(1.0), END, 0.7)
     _place(mix, crash(1.6), END, 0.5)
     _place(mix, k, END, 0.9)
-    for n, d in ((60, 0), (64, 0), (67, 0), (72, 0), (76, 0.09), (79, 0.18), (84, 0.27), (88, 0.36)):
+    for n, d in (() if sfx_only else ((60, 0), (64, 0), (67, 0), (72, 0), (76, 0.09), (79, 0.18), (84, 0.27), (88, 0.36))):
         _place(mix, pluck(midi(n), 0.9, bright=1.2), END + d, 0.30, pan=(n % 5 - 2) / 4)
-    _place(mix, pad([midi(60), midi(64), midi(67), midi(72)], 2.4, 0.04), END, 0.9)
+    if not sfx_only:
+        _place(mix, pad([midi(60), midi(64), midi(67), midi(72)], 2.4, 0.04), END, 0.9)
     _place(mix, bell(midi(84), 2.4), END + 0.45, 0.25, pan=-0.2)
     _place(mix, bell(midi(91), 2.2), END + 0.6, 0.2, pan=0.25)
 
@@ -271,5 +273,5 @@ def write_wav(path, mix):
 
 
 if __name__ == "__main__":
-    write_wav(sys.argv[1], render())
+    write_wav(sys.argv[1], render(sfx_only="--sfx" in sys.argv))
     print("tayyor:", sys.argv[1])
