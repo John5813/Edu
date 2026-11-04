@@ -3,22 +3,17 @@
 - katalogdagi har animatsiyaning fayllari bor (manba, namuna video, muqova);
 - sahifa qo'shiladi: GIF personaj panel rangida (chegara ko'rinmaydi), ovoz — "audio" aloqasi bilan,
   slayd ochilganda o'zi boshlanadi, yozuvlar navbat bilan paydo bo'ladi;
-- funksiya sukut bo'yicha O'CHIQ, admin "🎛 Funksiyalar boshqaruvi" dan yoqadi;
-- tugma faqat yoqilganda chiqadi; mini oyna: ro'yxat, fayllar, egasi bo'lmagan so'rov rad etiladi,
-  tanlov taqdimotni bot orqali yuboradi, har tanlov ASL taqdimotdan yig'iladi.
+- funksiya sukut bo'yicha YOQILGAN, admin "🎛 Funksiyalar boshqaruvi" dan o'chira oladi;
+- personaj taqdimot SOZLAMALARIDA tanlanadi (galereya: ◀ ▶, tanlash yoki «Kerak emas»), tayyor taqdimotga
+  `picker.apply` sahifani qo'shadi.
 
     python test_rahmat_animatsiya.py
 """
 import asyncio
-import hashlib
-import hmac
-import json
 import os
 import shutil
 import sys
 import tempfile
-import time
-from urllib.parse import urlencode
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -108,135 +103,125 @@ out_ru = thanks_slide.add_thanks_slide(base, os.path.join(TMP, "ru.pptx"), catal
 ru_texts = " ".join(sh.text_frame.text for sh in Presentation(out_ru).slides[-1].shapes if sh.has_text_frame)
 check("muallifsiz ham chiziladi", "Спасибо" in ru_texts and "Автор" not in ru_texts, ru_texts)
 
-print("4) Funksiya sukut bo'yicha o'chiq, admin yoqadi")
+print("3b) Fonli personajlar: har birining o'z dizayni, fon chegarasi ko'rinmaydi")
+import io
+
+import numpy as np
+
+from services.thanks_anim import solid_slide
+
+solid = [a for a in catalog.ANIMATIONS if a.solid]
+check("9 ta fonli personaj qo'shilgan", len(solid) == 9, len(solid))
+check("har birining dizayni boshqa", len({a.design for a in solid}) == len(solid))
+check("dizaynlar chizuvchisi bor", all(a.design in solid_slide.DESIGNS for a in solid))
+check("nomlar uch tilda", all(a.name("ru") != a.name("uz") or a.key == "ayiqcha" for a in solid))
+for i, a in enumerate(solid):
+    lang = ("uz", "ru", "en")[i % 3]
+    deck_path = thanks_slide.add_thanks_slide(base, os.path.join(TMP, f"s_{a.key}.pptx"), a, theme, lang, "Javlonbek")
+    deck = Presentation(deck_path)
+    last = deck.slides[-1]
+    W_, H_ = deck.slide_width, deck.slide_height
+    pics = [sh for sh in last.shapes if sh.shape_type == 13]
+    gifs = [p for p in pics if p.image.content_type == "image/gif"]
+    bgs = [p for p in pics if p.image.content_type == "image/png" and p.width == W_ and p.left == 0]
+    ok = len(deck.slides) == 4 and len(gifs) == 1 and len(bgs) == 1
+    check(f"{a.key}: sahifa, GIF va fon bor", ok)
+    if not ok:
+        continue
+    g = gifs[0]
+    check(f"{a.key}: personaj sahifa balandligicha, ichkarida",
+          g.top == 0 and abs(g.height - H_) < 2000 and g.left >= 0 and g.left + g.width <= W_ + 2000)
+    texts_ = [sh for sh in last.shapes if sh.has_text_frame and sh.text_frame.text.strip()]
+    inside = all(sh.left >= 0 and sh.top >= 0 and sh.left + sh.width <= W_ and sh.top + sh.height <= H_ for sh in texts_)
+    clear = all(sh.left + sh.width <= g.left or sh.left >= g.left + g.width for sh in texts_)
+    check(f"{a.key}: yozuvlar sahifada va personajga tegmaydi", inside and clear and len(texts_) >= 3)
+    with Image.open(io.BytesIO(g.image.blob)) as im:
+        check(f"{a.key}: GIF harakatlanadi", im.n_frames > 40, im.n_frames)
+        gcol = np.asarray(im.convert("RGB")).astype(int)
+    edge = np.concatenate([gcol[:, :2], gcol[:, -2:]], 1).mean(1)                     # (balandlik, 3)
+    with Image.open(io.BytesIO(bgs[0].image.blob)) as im:
+        bgcol = np.asarray(im.convert("RGB")).astype(int)[:, 5]                      # qator ranglari (1080, 3)
+    ys = np.linspace(0, len(bgcol) - 1, len(edge))
+    bg_rows = np.stack([np.interp(ys, np.arange(len(bgcol)), bgcol[:, c]) for c in range(3)], 1)
+    diff = np.abs(edge - bg_rows).max(1)
+    check(f"{a.key}: GIF cheti = sahifa foni (tikuv ko'rinmaydi)", diff.mean() < 2.5 and np.percentile(diff, 95) < 8,
+          (round(float(diff.mean()), 2), round(float(np.percentile(diff, 95)), 1)))
+    t_xml = last._element.find(qn("p:timing"))
+    check(f"{a.key}: ovoz va yozuv animatsiyasi", t_xml is not None and b"playFrom" in __import__("lxml.etree", fromlist=["x"]).tostring(t_xml))
+
+print("4) Funksiya sukut bo'yicha YOQILGAN, admin o'chira oladi")
 import database.database as dbmod
 from database.database import Database, init_db
 
 dbmod.DATABASE_FILE = os.path.join(TMP, "t.db")
 from services import thanks_anim
+from services.thanks_anim import picker
 
 
 async def db_part():
     await init_db()
     db = Database()
-    off = await db.get_feature_status(thanks_anim.FEATURE, default=False)
-    other = await db.get_feature_status("boshqa_funksiya")
+    default_on = await db.get_feature_status(thanks_anim.FEATURE, default=True)
+    offered_default = await picker.offered(db)
     from bot.handlers.admin import _feature_keyboard
 
     kb = await _feature_keyboard(db)
     row = [b for r in kb.inline_keyboard for b in r if "Rahmat animatsiyasi" in b.text]
-    await db.set_feature_status(thanks_anim.FEATURE, True)
-    on = await db.get_feature_status(thanks_anim.FEATURE, default=False)
+    await db.set_feature_status(thanks_anim.FEATURE, False)
+    offered_off = await picker.offered(db)
     kb2 = await _feature_keyboard(db)
     row2 = [b for r in kb2.inline_keyboard for b in r if "Rahmat animatsiyasi" in b.text]
-    return off, other, row, on, row2
+    await db.set_feature_status(thanks_anim.FEATURE, True)
+    return default_on, offered_default, row, offered_off, row2
 
 
-off, other, row, on, row2 = asyncio.run(db_part())
-check("sukut — o'chiq", off is False)
-check("boshqa funksiyalar sukuti o'zgarmadi (yoqilgan)", other is True)
-check("admin panelida tugma bor", row and "O'chirilgan" in row[0].text and row[0].callback_data == "toggle_thanks_anim_on",
+default_on, offered_default, row, offered_off, row2 = asyncio.run(db_part())
+check("sukut — yoqilgan, taklif chiqadi", default_on is True and offered_default is True)
+check("admin panelida tugma: yoqilgan", row and "Yoqilgan" in row[0].text and row[0].callback_data == "toggle_thanks_anim_off",
       row and row[0].text)
-check("yoqilgandan keyin", on is True and row2 and "Yoqilgan" in row2[0].text
-      and row2[0].callback_data == "toggle_thanks_anim_off")
+check("admin o'chirsa — taklif chiqmaydi", offered_off is False and row2 and "O'chirilgan" in row2[0].text
+      and row2[0].callback_data == "toggle_thanks_anim_on")
 
-print("5) Tugma va mini oyna")
-import webapp
+print("5) Tanlash oynasi (picker)")
+lst = picker.items()
+check("galereyada barcha 24 personaj", len(lst) == len(catalog.ANIMATIONS) == 24, len(lst))
+pm = picker.pager_markup(0, "uz")
+cbs = [b.callback_data for r in pm.inline_keyboard for b in r]
+check("◀ birinchidan oxirgisiga o'tadi, ▶ keyingisiga", f"prem_thx:go:{len(lst) - 1}" in cbs and "prem_thx:go:1" in cbs, cbs)
+check("tanlash tugmasi personaj kalitini beradi", f"prem_thx:pick:{lst[0].key}" in cbs and "prem_thx:skip" in cbs
+      and "prem_thx:close" in cbs)
+check("callback_data 64 baytdan oshmaydi", all(len(c.encode()) <= 64 for k in range(len(lst))
+                                              for r in picker.pager_markup(k, "ru").inline_keyboard
+                                              for c in [b.callback_data for b in r]))
+check("ro'yxat oxirida aylanadi", f"prem_thx:go:0" in [b.callback_data for r in picker.pager_markup(len(lst) - 1, "en").inline_keyboard for b in r])
+q = picker.question_markup("uz", "", [])
+qc = [b.callback_data for r in q.inline_keyboard for b in r]
+check("savolda «tanlash» va «kerak emas» bor (tanlash majburiy emas)", qc[:2] == ["prem_thx:open", "prem_thx:skip"], qc)
+check("«mutlaqo tekin» deyilgan", "mutlaqo tekin" in picker.question_text("uz") and "бесплатно" in picker.question_text("ru"))
+check("tanlangan personaj savolda ko'rinadi", "Paxmoq" in picker.question_text("uz", "paxmoq"))
+check("nom tilga qarab, qozoqcha — ruscha", picker.name_of("paxmoq", "ru") == "Пушистик" and picker.name_of("paxmoq", "kk") == "Пушистик")
+check("start indeks: tanlangan personajdan", lst[picker.start_index("pingvin")].key == "pingvin"
+      and picker.start_index("") == 0 and picker.start_index("yoq") == 0)
 
-webapp.WEBAPP_DOMAIN = "edufayl.uz"
-thanks_anim.STORE = os.path.join(TMP, "store")
-kb = thanks_anim.offer(base, topic="Moliyaviy savodxonlik", style="toza", volume="kam", language="uz",
-                       author="Javlonbek", filename="Taqdimot_Moliya.pptx", user_id=42, chat_id=42, user_lang="uz")
-btn = kb.inline_keyboard[0][0] if kb else None
-check("tugma mini oynani ochadi", btn and btn.web_app and btn.web_app.url.startswith("https://edufayl.uz/anim?token="),
-      btn and btn.web_app)
-token = btn.web_app.url.split("token=")[1].split("&")[0]
-no = kb.inline_keyboard[1][0] if kb and len(kb.inline_keyboard) > 1 else None
-check("ostida \"Kerak emas\" tugmasi", no and no.text == "❌ Kerak emas" and no.callback_data == f"tanim_no:{token}",
-      no and no.text)
-info = webapp.DOC_TOKENS.get(token, {})
-check("asl taqdimot nusxasi saqlandi", info.get("kind") == "thanks_anim" and os.path.exists(info.get("file_path", "")))
+# taqdimotga qo'shish: tanlangan personaj oxirgi sahifaga tushadi, boshqa sahifalar o'zgarmaydi
+deck_path = os.path.join(TMP, "apply.pptx")
+shutil.copy(base, deck_path)
+res = picker.apply(deck_path, "pingvin", topic="Moliya", style="toza", volume="kam", theme_key="", language="ru",
+                   author="Ali")
+applied = Presentation(deck_path)
+check("apply: sahifa qo'shildi (joyida)", res == deck_path and len(applied.slides) == 4)
+t_ = " ".join(sh.text_frame.text for sh in applied.slides[-1].shapes if sh.has_text_frame)
+check("apply: tanlangan tilda va muallif bilan", "Спасибо" in t_ and "Ali" in t_, t_)
+shutil.copy(base, deck_path)
+check("apply: noma'lum personaj — o'zgarishsiz (None)", picker.apply(deck_path, "yoq", topic="T", style="", volume="",
+                                                                      theme_key="", language="uz", author="") is None
+      and len(Presentation(deck_path).slides) == 3)
 
+print("6) Admin/xulosa: eski «tugagandan keyin» taklifi yo'q")
 
-def init_data(user_id):
-    fields = {"auth_date": str(int(time.time())), "user": json.dumps({"id": user_id}), "query_id": "q"}
-    check_str = "\n".join(f"{k}={fields[k]}" for k in sorted(fields))
-    secret = hmac.new(b"WebAppData", os.environ["BOT_TOKEN"].encode(), hashlib.sha256).digest()
-    fields["hash"] = hmac.new(secret, check_str.encode(), hashlib.sha256).hexdigest()
-    return urlencode(fields)
-
-
-class FakeBot:
-    def __init__(self):
-        self.sent = []
-        self.messages = []
-
-    async def send_message(self, chat_id, text, **kw):
-        self.messages.append((chat_id, text))
-
-    async def send_document(self, chat_id, document, caption=None, **kw):
-        self.sent.append((chat_id, document.path, document.filename, caption,
-                          len(Presentation(document.path).slides)))
-
-
-async def web_part():
-    from aiohttp.test_utils import TestClient, TestServer
-
-    from webapp.server import create_web_app
-
-    webapp.BOT = FakeBot()
-    client = TestClient(TestServer(create_web_app()))
-    await client.start_server()
-    try:
-        page = await client.get(f"/anim?token={token}")
-        lst = await (await client.get("/api/anim/list?lang=ru")).json()
-        media = await client.get("/anim-media/anime_qiz/preview.mp4")
-        bad = await client.get("/anim-media/anime_qiz/packed.mp4")
-        trav = await client.get("/anim-media/..%2F..%2Fconfig/preview.mp4")
-        noauth = await client.post(f"/api/anim/{token}", json={"key": "anime_qiz"})
-        stranger = await client.post(f"/api/anim/{token}", json={"key": "anime_qiz"},
-                                     headers={"X-Telegram-Init-Data": init_data(7)})
-        unknown = await client.post(f"/api/anim/{token}", json={"key": "yoq"},
-                                    headers={"X-Telegram-Init-Data": init_data(42)})
-        ok1 = await client.post(f"/api/anim/{token}", json={"key": "anime_qiz"},
-                                headers={"X-Telegram-Init-Data": init_data(42)})
-        ok2 = await client.post(f"/api/anim/{token}", json={"key": "pul_mushuk"},
-                                headers={"X-Telegram-Init-Data": init_data(42)})
-        return (page.status, lst, media.status, bad.status, trav.status, noauth.status, stranger.status,
-                unknown.status, ok1.status, ok2.status)
-    finally:
-        await client.close()
-
-
-page, lst, media, bad, trav, noauth, stranger, unknown, ok1, ok2 = asyncio.run(web_part())
-check("sahifa ochiladi", page == 200)
-items = lst.get("items", [])
-check("ro'yxatda hamma animatsiya, tilda", len(items) == len(catalog.ANIMATIONS)
-      and any(i["name"] == "Кот считает деньги" for i in items), len(items))
-check("namuna video beriladi", media == 200)
-check("manba va boshqa fayllar berilmaydi", bad == 404 and trav == 404, (bad, trav))
-check("initData siz — rad", noauth == 401)
-check("boshqa odam — rad", stranger == 403)
-check("noma'lum animatsiya — rad", unknown == 400)
-check("tanlov ishlaydi", ok1 == 200 and ok2 == 200, (ok1, ok2))
-sent = webapp.BOT.sent
-check("bot ikki marta yubordi, asl nomi bilan", len(sent) == 2 and all(s[2] == "Taqdimot_Moliya.pptx" for s in sent), sent)
-check("fayl izohida faqat nomi", all("Slayd-shou" not in (x[3] or "") for x in sent))
-check("ogohlantirish alohida xabar", len(webapp.BOT.messages) == 2
-      and all("Slayd-shou" in t for _, t in webapp.BOT.messages), webapp.BOT.messages)
-check("har tanlov asl taqdimotdan (ustma-ust emas)", [s[4] for s in sent] == [4, 4], [s[4] for s in sent])
-check("vaqtinchalik fayllar o'chirildi", not [f for f in os.listdir(thanks_anim.STORE) if "_" in f],
-      os.listdir(thanks_anim.STORE))
-
-print("6) \"Kerak emas\"")
-kb2 = thanks_anim.offer(base, topic="T", style="", volume="kam", language="uz", author="", filename="T.pptx",
-                        user_id=42, chat_id=42)
-tok2 = kb2.inline_keyboard[1][0].callback_data.split(":", 1)[1]
-kept2 = webapp.DOC_TOKENS[tok2]["file_path"]
-thanks_anim.decline(tok2, 7)
-check("boshqa odam o'chira olmaydi", tok2 in webapp.DOC_TOKENS and os.path.exists(kept2))
-thanks_anim.decline(tok2, 42)
-check("egasi bosdi — token va nusxa o'chdi", tok2 not in webapp.DOC_TOKENS and not os.path.exists(kept2))
+pp_src = open(os.path.join(HERE, "bot", "handlers", "premium_presentation.py"), encoding="utf-8").read()
+check("tugagandan keyingi taklif olib tashlangan", "_offer_thanks_anim" not in pp_src and "tanim_no" not in pp_src)
+check("mini oyna yo'li yo'q", not os.path.exists(os.path.join(HERE, "webapp", "thanks_anim.py")))
 
 shutil.rmtree(TMP, ignore_errors=True)
 print("\nNATIJA:", "HAMMASI O'TDI" if not FAILS else f"{len(FAILS)} ta xato: {FAILS}")

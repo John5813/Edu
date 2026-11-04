@@ -160,9 +160,52 @@ def _fix_audio_rels(path: str, rels_name: str) -> None:
     shutil.move(tmp, path)
 
 
+def _finish(prs, s, pptx_out: str, steps, audio: Optional[str], work: str) -> str:
+    """Ovoz (ko'rinmas audio), yozuvlar animatsiyasi va saqlash — ikkala sahifa turi uchun umumiy."""
+    audio_id = None
+    if audio:
+        poster = os.path.join(work, "thanks_icon.png")
+        Image.new("RGBA", (8, 8), (0, 0, 0, 0)).save(poster)
+        # Slayddan tashqarida: belgisi ko'rinmaydi, ovoz esa slayd ochilganda o'zi boshlanadi.
+        mov = s.shapes.add_movie(audio, px(-300), px(40), px(120), px(120), poster_frame_image=poster,
+                                 mime_type="audio/mp4")
+        node = mov._element.nvPicPr.nvPr.find(qn("a:videoFile"))
+        node.tag = qn("a:audioFile")
+        audio_id = mov.shape_id
+    old = s._element.find(qn("p:timing"))
+    new = etree.fromstring(_timing(steps, audio_id, _duration_ms(audio) if audio else 0))
+    if old is not None:
+        old.addprevious(new)
+        old.getparent().remove(old)
+    else:
+        s._element.append(new)
+    prs.save(pptx_out)
+    if audio:
+        part = s.part.partname                 # /ppt/slides/slideN.xml
+        _fix_audio_rels(pptx_out, f"ppt/slides/_rels/{os.path.basename(part)}.rels")
+    return pptx_out
+
+
+def _add_solid_slide(pptx_in: str, pptx_out: str, anim: Animation, language: str, author: str) -> str:
+    """Fonli personaj: sahifa foni videoning o'z fonidan, dizayn — personajning o'ziniki (solid_slide.py)."""
+    from . import solid_slide
+
+    work = tempfile.mkdtemp(prefix="thanks_")
+    try:
+        prs = Presentation(pptx_in)
+        s = prs.slides.add_slide(prs.slide_layouts[6])
+        steps = solid_slide.build_slide(s, anim, work, language, author)
+        audio = make_audio(anim, os.path.join(work, "thanks_audio.m4a"))
+        return _finish(prs, s, pptx_out, steps, audio, work)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
 def add_thanks_slide(pptx_in: str, pptx_out: str, anim: Animation, theme, language: str = "uz",
                      author: str = "") -> str:
     """`pptx_in` oxiriga "Rahmat" sahifasini qo'shib `pptx_out` ga yozadi."""
+    if anim.solid:
+        return _add_solid_slide(pptx_in, pptx_out, anim, language, author)
     pal = Palette.of(theme)
     panel = mix(WHITE, pal.accent, 0.1)
     work = tempfile.mkdtemp(prefix="thanks_")
@@ -202,33 +245,11 @@ def add_thanks_slide(pptx_in: str, pptx_out: str, anim: Animation, theme, langua
         ch = int(gh * cw / gw)
         s.shapes.add_picture(gif, px(PANEL_X + (PANEL_W - cw) / 2), px(1080 - ch - 30), px(cw), px(ch))
 
-        audio_id = None
-        if audio:
-            poster = os.path.join(work, "thanks_icon.png")
-            Image.new("RGBA", (8, 8), (0, 0, 0, 0)).save(poster)
-            # Slayddan tashqarida: belgisi ko'rinmaydi, ovoz esa slayd ochilganda o'zi boshlanadi.
-            mov = s.shapes.add_movie(audio, px(-300), px(40), px(120), px(120), poster_frame_image=poster,
-                                     mime_type="audio/mp4")
-            node = mov._element.nvPicPr.nvPr.find(qn("a:videoFile"))
-            node.tag = qn("a:audioFile")
-            audio_id = mov.shape_id
-
         delay = 200
         for shape, gap in ((t_label, 300), (bar, 300), (t_title, 900), (t_sub, 500), (t_author, 0)):
             if shape is not None:
                 steps.append((shape.shape_id, delay))
                 delay += gap
-        old = s._element.find(qn("p:timing"))
-        new = etree.fromstring(_timing(steps, audio_id, _duration_ms(audio) if audio else 0))
-        if old is not None:
-            old.addprevious(new)
-            old.getparent().remove(old)
-        else:
-            s._element.append(new)
-        prs.save(pptx_out)
-        if audio:
-            part = s.part.partname                 # /ppt/slides/slideN.xml
-            _fix_audio_rels(pptx_out, f"ppt/slides/_rels/{os.path.basename(part)}.rels")
-        return pptx_out
+        return _finish(prs, s, pptx_out, steps, audio, work)
     finally:
         shutil.rmtree(work, ignore_errors=True)

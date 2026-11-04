@@ -342,10 +342,13 @@ def _previous_step(data: dict):
         return "style" if kind == KIND_MODERN else ("m3dstyle" if kind == KIND_MED3D else "source")
     # Slaydlar sonidan keyin: rasm manbasi → yozuv animatsiyasi → xulosa (taklif qilinmaganlari o'tkazib yuboriladi).
     photos = "photos" if _photo_source(data) is not None else "count"
+    before_thanks = "anim" if data.get("text_anim_offer") else photos
     if step == "anim":
         return photos
+    if step == "thanks":
+        return before_thanks
     if step == "summary":
-        return "anim" if data.get("text_anim_offer") else photos
+        return "thanks" if data.get("thanks_offer") else before_thanks
     return _PREVIOUS.get(step)
 
 
@@ -1578,7 +1581,36 @@ async def _after_photos(message: Message, state: FSMContext, lang: str) -> None:
     if offer:
         await _step_anim(message, state, lang)
     else:
+        await _after_anim(message, state, lang)
+
+
+async def _thanks_offer(data: dict) -> bool:
+    """«Rahmat» personajini tanlash taklif qilinadimi: 3D turlarda yo'q (o'z animatsiyasi bor); admin o'chirmagan bo'lsa — ha."""
+    from services.thanks_anim import picker
+
+    if _kind_of(data) in (KIND_PRO3D, KIND_MED3D, KIND_KAT3D):
+        return False
+    return await picker.offered(Database())
+
+
+async def _after_anim(message: Message, state: FSMContext, lang: str) -> None:
+    """Yozuv animatsiyasidan keyin: «Rahmat» personaji (ixtiyoriy), so'ng xulosa."""
+    offer = await _thanks_offer(await state.get_data())
+    await state.update_data(thanks_offer=offer)
+    if offer:
+        await _step_thanks(message, state, lang)
+    else:
         await _step_summary(message, state, lang)
+
+
+async def _step_thanks(message: Message, state: FSMContext, lang: str) -> None:
+    from services.thanks_anim import picker
+
+    data = await state.get_data()
+    chosen = data.get("thanks_key") or ""
+    await _prompt(message, state, _topic_line(data, lang) + picker.question_text(lang, chosen),
+                  picker.question_markup(lang, chosen, _back_row(lang)), "thanks",
+                  PremiumPresentationStates.waiting_for_thanks)
 
 
 async def _step_anim(message: Message, state: FSMContext, lang: str) -> None:
@@ -1608,7 +1640,125 @@ async def premium_ppt_text_anim(callback: CallbackQuery, state: FSMContext, db: 
     await callback.answer()
     await state.update_data(text_anim=callback.data.endswith(":1"))
     lang = await _lang_of(callback.from_user.id, db)
-    await _step_summary(callback.message, state, lang)
+    await _after_anim(callback.message, state, lang)
+
+
+# ── «Rahmat» personaji: galereya (video namuna, ◀ ▶), tanlash yoki o'tkazib yuborish.
+# Savoldan (waiting_for_thanks) ham, xulosadan (waiting_for_slide_count) ham ochiladi; galereya alohida xabar.
+
+_THX_STATES = StateFilter(PremiumPresentationStates.waiting_for_thanks,
+                          PremiumPresentationStates.waiting_for_slide_count)
+_thx_video_ids: dict = {}          # personaj kaliti → Telegram file_id (namuna qayta yuklanmasin)
+
+
+async def _thx_media(anim, caption: str):
+    from aiogram.types import FSInputFile, InputMediaVideo
+
+    return InputMediaVideo(media=_thx_video_ids.get(anim.key) or FSInputFile(anim.path("preview.mp4")),
+                           caption=caption, parse_mode="HTML", supports_streaming=True, width=960, height=540)
+
+
+def _thx_remember(anim, sent) -> None:
+    video = getattr(sent, "video", None)
+    if video is not None and getattr(video, "file_id", None):
+        _thx_video_ids[anim.key] = video.file_id
+
+
+async def _thx_close_pager(callback: CallbackQuery, state: FSMContext) -> None:
+    """Galereya xabari o'chadi."""
+    with contextlib.suppress(Exception):
+        await callback.message.delete()
+    await state.update_data(thx_mid=None)
+
+
+async def _thx_finish(callback: CallbackQuery, state: FSMContext, lang: str) -> None:
+    """Tanlov qilindi: savoldan kelgan bo'lsa — xulosaga o'tadi; xulosadan kelgan bo'lsa — xulosa yangilanadi."""
+    current = await state.get_state()
+    if current == PremiumPresentationStates.waiting_for_thanks.state:
+        await _step_summary(callback.message, state, lang)
+        return
+    data = await state.get_data()
+    text, markup = _summary(data, lang)
+    if data.get("prompt_mid"):
+        with contextlib.suppress(Exception):
+            await callback.bot.edit_message_text(text, chat_id=callback.message.chat.id,
+                                                 message_id=data["prompt_mid"], parse_mode="HTML",
+                                                 reply_markup=markup)
+
+
+@router.callback_query(F.data == "prem_thx:open", _THX_STATES)
+async def premium_ppt_thanks_open(callback: CallbackQuery, state: FSMContext, db: Database):
+    from services.thanks_anim import picker
+
+    await callback.answer()
+    lang = await _lang_of(callback.from_user.id, db)
+    items = picker.items()
+    if not items:
+        return
+    data = await state.get_data()
+    if data.get("thx_mid"):                                      # ikki marta bosilsa — eskisi o'chadi
+        with contextlib.suppress(Exception):
+            await callback.bot.delete_message(callback.message.chat.id, data["thx_mid"])
+    index = picker.start_index(data.get("thanks_key") or "")
+    anim = items[index]
+    from aiogram.types import FSInputFile
+
+    sent = await callback.message.answer_video(
+        _thx_video_ids.get(anim.key) or FSInputFile(anim.path("preview.mp4")),
+        caption=picker.pager_caption(index, lang), parse_mode="HTML", reply_markup=picker.pager_markup(index, lang),
+        supports_streaming=True, width=960, height=540)
+    _thx_remember(anim, sent)
+    await state.update_data(thx_mid=sent.message_id)
+
+
+@router.callback_query(F.data.startswith("prem_thx:go:"), _THX_STATES)
+async def premium_ppt_thanks_go(callback: CallbackQuery, state: FSMContext, db: Database):
+    from services.thanks_anim import picker
+
+    await callback.answer()
+    items = picker.items()
+    try:
+        index = int(callback.data.rsplit(":", 1)[1]) % len(items)
+    except (ValueError, ZeroDivisionError):
+        return
+    lang = await _lang_of(callback.from_user.id, db)
+    anim = items[index]
+    try:
+        sent = await callback.message.edit_media(await _thx_media(anim, picker.pager_caption(index, lang)),
+                                                 reply_markup=picker.pager_markup(index, lang))
+        _thx_remember(anim, sent)
+    except Exception as exc:                                    # bir xil kadr, tarmoq xatosi va h.k. — jim
+        logger.debug("Personaj galereyasi: %s", exc)
+
+
+@router.callback_query(F.data.startswith("prem_thx:pick:"), _THX_STATES)
+async def premium_ppt_thanks_pick(callback: CallbackQuery, state: FSMContext, db: Database):
+    from services.thanks_anim import catalog
+
+    await callback.answer()
+    key = callback.data.split(":", 2)[2]
+    if catalog.get(key) is None:
+        return
+    await state.update_data(thanks_key=key)
+    await _thx_close_pager(callback, state)
+    await _thx_finish(callback, state, await _lang_of(callback.from_user.id, db))
+
+
+@router.callback_query(F.data == "prem_thx:skip", _THX_STATES)
+async def premium_ppt_thanks_skip(callback: CallbackQuery, state: FSMContext, db: Database):
+    """«❌ Kerak emas»: personajsiz (oddiy yakun) — savoldan ham, galereyadan ham."""
+    await callback.answer()
+    await state.update_data(thanks_key="")
+    data = await state.get_data()
+    if data.get("thx_mid") and data["thx_mid"] == callback.message.message_id:
+        await _thx_close_pager(callback, state)
+    await _thx_finish(callback, state, await _lang_of(callback.from_user.id, db))
+
+
+@router.callback_query(F.data == "prem_thx:close", _THX_STATES)
+async def premium_ppt_thanks_close(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await _thx_close_pager(callback, state)
 
 
 @router.callback_query(F.data.startswith("ppt_fon:"),
@@ -1998,7 +2148,7 @@ def _text_anim_label(lang: str, on: bool) -> str:
     return f"{name}: {yes if on else no}"
 
 
-def _confirm_keyboard(lang: str, current_language: str, color=None) -> InlineKeyboardMarkup:
+def _confirm_keyboard(lang: str, current_language: str, color=None, thanks=None) -> InlineKeyboardMarkup:
     """Xulosa tugmalari: til, rang (None — taklif qilinmaydi), tasdiqlash va orqaga.
     Rasm manbasi va yozuv animatsiyasi o'z bosqichlarida tanlanadi — xulosada faqat yozuv bo'lib turadi."""
     builder = InlineKeyboardBuilder()
@@ -2009,6 +2159,10 @@ def _confirm_keyboard(lang: str, current_language: str, color=None) -> InlineKey
     if color is not None:
         label = (_COLOR_LABEL.get(lang) or _COLOR_LABEL["uz"])[0]
         builder.row(InlineKeyboardButton(text=f"{label}: {_color_name(color, lang)}", callback_data="prem_ppt_color"))
+    if thanks is not None:                       # «Rahmat» personaji: xulosadan almashtirish/olib tashlash mumkin
+        from services.thanks_anim import picker
+
+        builder.row(picker.summary_button(lang, thanks))
     builder.row(InlineKeyboardButton(text=_t(lang, "confirm"), callback_data="prem_ppt_confirm"))
     builder.row(*_back_row(lang))
     return builder.as_markup()
@@ -2079,9 +2233,14 @@ def _summary(data: dict, lang: str):
         lines.append(_text_anim_label(lang, text_anim))
         if text_anim:
             lines.append(f"<i>{esc(anim_note(lang), 400)}</i>")
+    thanks = (data.get("thanks_key") or "") if data.get("thanks_offer") else None
+    if thanks is not None:
+        from services.thanks_anim import picker
+
+        lines.append(picker.summary_line(lang, thanks))
     lines += [f"📊 {slides_l}: <b>{slide_count}</b>"]
     lines += [f"💰 {price_l}: <b>{price:,} {cur}</b>", "", ask]
-    return "\n".join(lines), _confirm_keyboard(lang, language, color)
+    return "\n".join(lines), _confirm_keyboard(lang, language, color, thanks)
 
 
 def _text_anim_choice(data: dict):
@@ -2096,7 +2255,8 @@ async def _step_summary(message: Message, state: FSMContext, lang: str) -> None:
     price = _price_of(data, int(data.get("slide_count") or MIN_SLIDES))
     # Yozuv animatsiyasi taklifi o'z bosqichida aniqlangan (`_after_photos`); xulosaga to'g'ridan kelinsa — shu yerda.
     offer = data["text_anim_offer"] if "text_anim_offer" in data else await _anim_offer(data)
-    await state.update_data(price=price, text_anim_offer=offer)
+    thanks = data["thanks_offer"] if "thanks_offer" in data else await _thanks_offer(data)
+    await state.update_data(price=price, text_anim_offer=offer, thanks_offer=thanks)
     data = await state.get_data()
     text, markup = _summary({**data, "price": price}, lang)
     await _prompt(message, state, text, markup, "summary",
@@ -2169,6 +2329,7 @@ async def premium_ppt_previous(callback: CallbackQuery, state: FSMContext, db: D
     steps = {"topic": _step_topic, "script": _step_script, "name": _step_name, "prefs": _step_prefs,
              "source": _step_source, "count": _step_count, "style": _step_style,
              "volume": _step_volume, "kind": _step_kind, "photos": _step_photos, "anim": _step_anim,
+             "thanks": _step_thanks,
              "k3pick": _step_kat3d_pick,
              "m3dstyle": _step_m3d_style}
     if previous == "count":
@@ -2663,6 +2824,8 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
             await to_new_alphabet(final_path)
             if _text_anim_choice(data):
                 await _animate(final_path)
+            if data.get("thanks_offer") and data.get("thanks_key"):      # sozlamalarda tanlangan «Rahmat» personaji
+                await _add_thanks_page(final_path, data, presentation_language, client_name)
 
     except Exception as e:
         uz_script.reset(script_token)
@@ -2766,10 +2929,11 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
                 if player_kb:
                     await callback.message.answer(slide_player.offer_text(lang), reply_markup=player_kb)
         logger.info("Premium taqdimot yuborildi: %s → %s", final_path, callback.from_user.id)
-        if _kind_of(data) not in (KIND_PRO3D, KIND_MED3D, KIND_KAT3D):  # "Rahmat" animatsiyasi zamonaviyda
-            await _offer_thanks_anim(callback, db, final_path, topic=topic, data=data,
-                                     language=presentation_language, author=client_name, filename=filename,
-                                     lang=lang)
+        if data.get("thanks_offer") and data.get("thanks_key"):         # personaj sahifasi haqida ogohlantirish
+            with contextlib.suppress(Exception):
+                from services.thanks_anim import picker
+
+                await callback.message.answer(picker.note(lang))
         try:
             from services.store_publisher import schedule_publish
 
@@ -2827,32 +2991,17 @@ async def _animate(path: str) -> None:
         logger.warning("Yozuv animatsiyasi qo'shilmadi: %s", exc)
 
 
-async def _offer_thanks_anim(callback: CallbackQuery, db: Database, final_path: str, *, topic: str, data: dict,
-                             language: str, author: str, filename: str, lang: str) -> None:
-    """Admin yoqqan bo'lsa: taqdimot oxiriga "Rahmat" animatsiyasini qo'shish tugmasi (yaratish oqimidan tashqarida)."""
-    from services import thanks_anim
+async def _add_thanks_page(final_path: str, data: dict, language: str, author: str) -> None:
+    """Tanlangan personajli «Rahmat» sahifasini tayyor taqdimot oxiriga qo'shadi. Xato — sahifasiz davom etadi."""
+    from services.thanks_anim import picker
 
-    try:
-        if not await db.get_feature_status(thanks_anim.FEATURE, default=False):
-            return
-        kb = thanks_anim.offer(final_path, topic=topic, style=data.get("style", ""), volume=data.get("volume", "kop"),
-                               language=language, author=author, filename=filename,
-                               user_id=callback.from_user.id, chat_id=callback.message.chat.id, user_lang=lang)
-        if kb:
-            await callback.message.answer(thanks_anim.offer_text(lang), reply_markup=kb)
-    except Exception as exc:  # taklif chiqmasa ham taqdimot allaqachon yuborilgan
-        logger.warning("Rahmat animatsiyasi tugmasi chiqmadi: %s", exc)
-
-
-@router.callback_query(F.data.startswith("tanim_no:"))
-async def premium_ppt_thanks_anim_decline(callback: CallbackQuery):
-    """"❌ Kerak emas": taklif xabari o'chadi, saqlangan nusxa ham o'chiriladi."""
-    from services import thanks_anim
-
-    await callback.answer()
-    thanks_anim.decline(callback.data.split(":", 1)[1], callback.from_user.id)
-    with contextlib.suppress(Exception):
-        await callback.message.delete()
+    done = await asyncio.to_thread(
+        picker.apply, final_path, data.get("thanks_key") or "", topic=data.get("topic", ""),
+        style=data.get("style", ""), volume=data.get("volume", "kop"),
+        theme_key=data.get("theme_key", "") if _color(data) not in (None, "auto") else "",
+        language=language, author=author)
+    if done is None:
+        logger.warning("«Rahmat» sahifasi qo'shilmadi, taqdimot sahifasiz yuboriladi (%s)", data.get("thanks_key"))
 
 
 _last_credit_warning = 0.0

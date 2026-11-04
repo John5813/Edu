@@ -19,6 +19,12 @@ class Animation:
     start: float = 0.0
     seconds: float = 0.0        # 0 — butun video (10 soniyagacha)
     similarity: float = 0.2     # yashil fonni ajratish chegarasi
+    # Fonli (shaffofsiz) personaj: videoning o'z foni saqlanadi, sahifa foni undan 1:1 olinadi (chegara
+    # bilinmaydi). `crop` — (x0, x1) kesib tashlanadigan qora chetlar; `design` — yakuniy sahifa dizayni.
+    solid: bool = False
+    crop: tuple = ()
+    design: str = ""
+    bg: str = ""                # fon bir xil rang bo'lsa — shu rang (personaj chetga tegsa ham fon buzilmasin)
 
     def name(self, lang: str) -> str:
         return self.names.get(lang) or self.names["uz"]
@@ -52,6 +58,24 @@ ANIMATIONS: List[Animation] = [
     _a("kok_bolakay", "Ko'k bolakay", "Малыш в синем", "Kid in blue", "m02.mp4"),
     _a("oshpaz", "Oshpaz", "Повар", "Chef", "m07.mp4"),
     _a("qahramon", "Qahramon", "Герой", "Hero", "m08.mp4"),
+]
+
+# Fonli personajlar (`tools/thanks_anim/prepare_solid.py`): har birining yakuniy sahifasi o'z dizaynida.
+ANIMATIONS += [
+    _a("balerina", "Balerina kapibara", "Капибара-балерина", "Ballerina capybara", "n01.mp4", solid=True, design="balet"),
+    _a("tillarang_mushuk", "Qarsak chalayotgan mushuk", "Рыжий кот хлопает", "Clapping ginger cat", "n02.mp4",
+       solid=True, design="quyosh"),
+    _a("kapibara_raqs", "Raqqosa kapibara", "Капибара-танцовщица", "Dancing capybara", "n03.mp4", solid=True,
+       design="gul"),
+    _a("kapibara_tutu", "Tutudagi kapibara", "Капибара в пачке", "Capybara in a tutu", "n04.mp4", solid=True,
+       design="konfetti"),
+    _a("quyoncha_kofta", "Ko'k koftali quyoncha", "Зайчик в синем свитере", "Bunny in a blue sweater", "n05.mp4",
+       solid=True, design="gazeta", bg="FFFFFF"),
+    _a("ayiqcha", "Ayiqcha", "Мишка", "Teddy bear", "n06.mp4", solid=True, design="shokolad"),
+    _a("pingvin", "Pingvin", "Пингвин", "Penguin", "n07.mp4", solid=True, design="muz"),
+    _a("momiq_quyon", "Momiq quyoncha", "Пушистый зайчик", "Fluffy bunny", "n08.mp4", solid=True, crop=(14, 706),
+       design="bulut"),
+    _a("pushti_momiq", "Pushti momiq", "Розовый пушистик", "Pink fluff", "n09.mp4", solid=True, design="minimal"),
 ]
 BY_KEY = {a.key: a for a in ANIMATIONS}
 
