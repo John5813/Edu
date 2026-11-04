@@ -18,7 +18,7 @@ from PIL import Image
 
 from services import author_mark
 from services.premium_presentation.designer import kit
-from services.premium_presentation.designer.kit import (CENTER, LEFT, MIDDLE, SANS, SERIF, box, fill, line, nofill,
+from services.premium_presentation.designer.kit import (CENTER, LEFT, MIDDLE, SANS, SERIF, box, fill, line, mix, nofill,
                                                         oval, poly, px, rect, text)
 
 from .catalog import Animation
@@ -39,11 +39,30 @@ def _run(cmd) -> None:
         raise RuntimeError("ffmpeg: " + res.stderr[-400:])
 
 
-def _gif_size(anim: Animation) -> Tuple[int, int]:
+def _packed_size(anim: Animation) -> Tuple[int, int]:
     probe = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
                             "stream=width,height", "-of", "csv=p=0", anim.path("packed.mp4")],
                            capture_output=True, text=True).stdout
     pw, ph = (int(v) for v in probe.strip().split(",")[:2])
+    return (pw // 2 if anim.alpha else pw), ph
+
+
+CHAR_MAX_H, CHAR_MAX_W, CHAR_BOTTOM, CHAR_SIDE = 907, 940, 70, 60     # shaffof personaj: sahifadagi o'lcham (px)
+
+
+def alpha_box(anim: Animation) -> Tuple[int, int]:
+    """Shaffof personajning sahifadagi (kenglik, balandlik): nisbati saqlanadi, ustun juda keng bo'lib ketmaydi."""
+    pw, ph = _packed_size(anim)
+    aspect = pw / ph
+    cw = min(CHAR_MAX_H * aspect, CHAR_MAX_W)
+    return int(round(cw)), int(round(cw / aspect))
+
+
+def _gif_size(anim: Animation) -> Tuple[int, int]:
+    if anim.alpha:                                   # ustun = personaj + yon bo'sh joy; balandligi sahifaga teng
+        cw, _ = alpha_box(anim)
+        return int(round((cw + 2 * CHAR_SIDE) * GIF_HEIGHT / H)) // 2 * 2, GIF_HEIGHT
+    pw, ph = _packed_size(anim)
     return int(pw * GIF_HEIGHT / ph) // 2 * 2, GIF_HEIGHT
 
 
@@ -55,14 +74,44 @@ def strip_geometry(anim: Animation) -> Tuple[int, int]:
     return {"r": W - sw, "l": 0, "c": (W - sw) // 2}[where], sw
 
 
+def character_rect(anim: Animation) -> Tuple[int, int, int, int]:
+    """Shaffof personajning sahifadagi (x, y, kenglik, balandlik) — namuna videolar shu joyga qo'yiladi."""
+    sx, sw = strip_geometry(anim)
+    cw, ch = alpha_box(anim)
+    return sx + (sw - cw) // 2, H - CHAR_BOTTOM - ch, cw, ch
+
+
+def _gradient_png(top: str, bottom: str, size: Tuple[int, int], out: str) -> str:
+    t = np.linspace(0, 1, size[1])[:, None]
+    a, b = np.array([int(top[i:i + 2], 16) for i in (0, 2, 4)]), np.array([int(bottom[i:i + 2], 16) for i in (0, 2, 4)])
+    img = np.repeat((a + (b - a) * t)[:, None, :], size[0], 1)
+    Image.fromarray(np.clip(img + 0.5, 0, 255).astype(np.uint8)).save(out)
+    return out
+
+
 def make_gif(anim: Animation, out: str) -> Tuple[int, int]:
-    """Butun kadrli GIF (fon saqlangan). Qaytaradi: (kenglik, balandlik)."""
+    """Harakatlanuvchi GIF. Fonli personaj — butun kadr; shaffof personaj — temaning gradient foni ustida."""
     packed = anim.path("packed.mp4")
-    w, _ = _gif_size(anim)
-    graph = (f"[0:v]fps={GIF_FPS},scale={w}:{GIF_HEIGHT}:flags=lanczos,split[a][b];"
-             "[a]palettegen=max_colors=192:stats_mode=full[p];[b][p]paletteuse=dither=none:diff_mode=rectangle")
-    _run(["ffmpeg", "-v", "error", "-y", "-i", packed, "-filter_complex", graph, "-loop", "0", out])
-    return w, GIF_HEIGHT
+    w, h = _gif_size(anim)
+    tail = ("split[a][b];[a]palettegen=max_colors=192:stats_mode=full[p];"
+            "[b][p]paletteuse=dither=none:diff_mode=rectangle")
+    if not anim.alpha:
+        graph = f"[0:v]fps={GIF_FPS},scale={w}:{h}:flags=lanczos," + tail
+        _run(["ffmpeg", "-v", "error", "-y", "-i", packed, "-filter_complex", graph, "-loop", "0", out])
+        return w, h
+    top, bottom = THEMES[anim.design]["bg"]
+    bg = _gradient_png(top, bottom, (w, h), out + ".bg.png")
+    k = h / H
+    x, y, cw, ch = character_rect(anim)
+    sx, _ = strip_geometry(anim)
+    cwg, chg = int(round(cw * k)) // 2 * 2, int(round(ch * k)) // 2 * 2
+    xg, yg = int(round((x - sx) * k)), int(round(y * k))
+    graph = (f"[1:v]fps={GIF_FPS},split[l][r];[l]crop=iw/2:ih:0:0[c];[r]crop=iw/2:ih:iw/2:0,format=gray[m];"
+             f"[c][m]alphamerge,scale={cwg}:{chg}:flags=lanczos[ca];[0:v][ca]overlay={xg}:{yg}:shortest=1," + tail)
+    _run(["ffmpeg", "-v", "error", "-y", "-loop", "1", "-framerate", str(GIF_FPS), "-i", bg, "-i", packed,
+          "-filter_complex", graph, "-loop", "0", out])
+    os.remove(bg)
+    return w, h
 
 
 def gif_row_colours(gif: str) -> np.ndarray:
@@ -367,6 +416,177 @@ def d_minimal(c: Ctx):
     c.author_box(left, 870, width, pink, size=24)
 
 
+# ───────────────────────────────────────────── shaffof (eski) personajlar: tema + umumiy chizuvchi
+# Har bir temaning o'z gradient foni (personaj shu fon ustida), joylashuvi, kartasi, bezagi va shrifti bor.
+
+THEMES: Dict[str, dict] = {
+    "t_paxmoq": dict(bg=("FBEBD7", "F3C9A0"), side="r", card="white", ink="5B3A1E", acc="E58E4D", sub="8A6444",
+                     decor="clouds", font="serif", italic=True, label="pill"),
+    "t_qizcha": dict(bg=("F6D9F2", "D7B8F5"), side="l", card="white", ink="5B2A86", acc="B76BE8", sub="7E4FB0",
+                     decor="sparkles", font="sans", label="pill"),
+    "t_anime_qiz": dict(bg=("FFB3D1", "C2438F"), side="r", card="glass", ink="FFFFFF", acc="FFE3F0", sub="FFE9F4",
+                        decor="flowers", font="serif", label="plain"),
+    "t_pul_mushuk": dict(bg=("12351F", "07130C"), side="l", card="dark", ink="F5E7B2", acc="E4B83B", sub="CDBE86",
+                         decor="coins", font="sans", label="pill", pill_ink="1A1405"),
+    "t_hamster": dict(bg=("FFE27A", "F6A21E"), side="r", card="white", ink="5A3410", acc="D9730D", sub="8A5A22",
+                      decor="stripes", font="sans", label="pill"),
+    "t_parik_hamster": dict(bg=("3A1A6E", "14083A"), side="l", card="glass", ink="FFFFFF", acc="FF5CC8", sub="E5D7FF",
+                            decor="confetti", font="sans", label="pill", pill_ink="FFFFFF"),
+    "t_raqs_mushuk": dict(bg=("0E6B7A", "0A1F3F"), side="c", card="none", ink="FFFFFF", acc="7CF3E0", sub="D3F7F1",
+                          decor="waves", font="sans", label="line"),
+    "t_mushukchalar": dict(bg=("CFE6FF", "F4F9FF"), side="r", card="white", ink="1F4E8C", acc="5AA9F5", sub="4C79B3",
+                           decor="bubbles", font="sans", label="pill", border="9CC8F5"),
+    "t_kuchukcha": dict(bg=("C9F2D8", "8BD9A9"), side="l", card="none", ink="0F4D2C", acc="1FA463", sub="2A7A4D",
+                        decor="dots", font="sans", label="plain"),
+    "t_timsoh": dict(bg=("2E7D32", "0B2E13"), side="r", card="dark", ink="E8F8D0", acc="B6E34A", sub="BFD9A0",
+                     decor="leaves", font="serif", label="pill", pill_ink="14240A"),
+    "t_robot": dict(bg=("1B2433", "070B12"), side="l", card="none", ink="EAF6FF", acc="35D6FF", sub="9FB6C9",
+                    decor="grid", font="sans", label="line"),
+    "t_pul_yomgiri": dict(bg=("0F6B3A", "063B20"), side="c", card="none", ink="FFF6CC", acc="FFD24A", sub="E6F2C4",
+                          decor="coins", font="sans", label="pill", pill_ink="2A2000"),
+    "t_kok_bolakay": dict(bg=("3E7BFA", "A6D0FF"), side="r", card="white", ink="123A8F", acc="FFC83D", sub="3D63B8",
+                          decor="stars", font="sans", label="pill", pill_ink="3A2A00"),
+    "t_oshpaz": dict(bg=("7A1230", "3B0716"), side="l", card="cream", ink="5A1020", acc="C8892B", sub="86485A",
+                     decor="diamonds", font="serif", label="pill", pill_ink="FFF3DD"),
+    "t_qahramon": dict(bg=("20232B", "6A0F16"), side="r", card="dark", ink="FFFFFF", acc="FF3B3B", sub="E0C9CB",
+                       decor="slashes", font="sans", label="line"),
+}
+
+
+def _decor(c: Ctx, kind: str, zones, acc: str, bg_top: str) -> None:
+    """Bezak: faqat matn tomonidagi bo'sh joyda (personaj ustuniga tegmaydi)."""
+    s = c.s
+    for (x0, x1) in zones:
+        w = x1 - x0
+        if w < 200:
+            continue
+        pts = [(x0 + w * fx, H * fy) for fx, fy in ((0.12, 0.10), (0.78, 0.08), (0.9, 0.55), (0.18, 0.92),
+                                                    (0.62, 0.94), (0.05, 0.5), (0.5, 0.05))]
+        if len(zones) == 2:                           # ustun o'rtada: matn ikki chetda — bezak faqat tepa va pastda
+            pts = [p_ for p_ in pts if p_[1] < H * 0.18 or p_[1] > H * 0.88]
+        if kind == "clouds":
+            for (px_, py_), size, a in zip(pts, (110, 80, 90, 100, 70, 60, 75), (85, 70, 70, 80, 60, 60, 60)):
+                cloud(s, px_, py_, size, WHITE, a)
+        elif kind == "sparkles":
+            for i, (px_, py_) in enumerate(pts):
+                sparkle(s, px_, py_, 18 + (i % 3) * 9, acc, 85)
+            dot(s, x0 + w * 0.88, H * 0.9, 150, WHITE, 25)
+        elif kind == "flowers":
+            flower(s, x1 - 40, 90, 190, WHITE, 22, 8, None)
+            flower(s, x0 + 40, H - 60, 150, WHITE, 18, 7, None)
+            for (px_, py_) in pts[:4]:
+                flower(s, px_, py_, 34, WHITE, 50, 6, "FFE08A")
+        elif kind == "coins":
+            for i, (px_, py_) in enumerate(pts):
+                r = 38 + (i % 3) * 14
+                dot(s, px_, py_, r, "F2C64A", 95)
+                ring(s, px_, py_, r * 0.68, "B8860B", 4, 90)
+        elif kind == "stripes":
+            for i in range(5):
+                bar(s, x0 + w * (0.05 + i * 0.22), -100, 90, H + 300, WHITE, 16, rot=18)
+        elif kind == "confetti":
+            confetti(s, [(px_, py_, i % 3, 26 + (i % 2) * 8, i * 37 % 90) for i, (px_, py_) in enumerate(pts)] +
+                     [(x0 + w * 0.3, H * 0.96, 1, 24, 0), (x0 + w * 0.95, H * 0.3, 2, 18, 0)],
+                     ["FF5CC8", "7CF3E0", "FFE066", "A78BFA"])
+        elif kind == "waves":
+            for i in range(4):
+                bar(s, x0 - 40, H * (0.62 + i * 0.1), w + 80, 46, WHITE, 10 + i * 3, rounded=True)
+        elif kind == "bubbles":
+            for i, (px_, py_) in enumerate(pts):
+                ring(s, px_, py_, 34 + (i % 4) * 20, acc, 4, 70)
+                dot(s, px_ + 8, py_ - 8, 8, acc, 55)
+        elif kind == "dots":
+            for gx in range(7):                          # nuqtalar faqat tepa va pastki qatorlarda — yozuv ustiga tushmaydi
+                for gy in (60, 150, H - 150, H - 60):
+                    dot(s, x0 + 50 + gx * (w - 100) / 6, gy, 7, acc, 55)
+        elif kind == "leaves":
+            for i, (px_, py_) in enumerate(pts):
+                fill(box(s, px_ - 90, py_ - 36, 180, 72, kit.SHAPE.OVAL, rot=(i * 47) % 160 - 40), acc, 28)
+        elif kind == "grid":
+            for gx in range(0, int(w), 90):
+                bar(s, x0 + gx, 0, 2, H, acc, 10)
+            for gy in range(0, H, 90):
+                bar(s, x0, gy, w, 2, acc, 10)
+            for (px_, py_) in pts[:4]:
+                dot(s, px_, py_, 9, acc, 90)
+        elif kind == "stars":
+            for i, (px_, py_) in enumerate(pts):
+                sparkle(s, px_, py_, 24 + (i % 3) * 10, "FFE066", 95)
+            for i in range(3):
+                dot(s, x0 + w * (0.2 + i * 0.3), H * 0.97, 50 + i * 18, WHITE, 28)
+        elif kind == "diamonds":
+            for i, (px_, py_) in enumerate(pts):
+                diamond(s, px_, py_, 28 + (i % 3) * 16, acc, 55)
+        elif kind == "slashes":
+            for i in range(4):
+                bar(s, x0 + w * (0.1 + i * 0.25), -120, 26 + i * 14, H + 300, acc, 30, rot=22)
+
+
+def _title_runs(sp: dict, c: Ctx, size: int):
+    font = SERIF if sp["font"] == "serif" else SANS
+    return [[(c.title, size, sp["ink"], True, font, 0, bool(sp.get("italic")))]]
+
+
+def _label(c: Ctx, sp: dict, x: float, y: float, w: float = 520) -> None:
+    """Yorliq («SO'NGGI SO'Z»): pill / chiziqli / oddiy."""
+    kind, acc = sp["label"], sp["acc"]
+    if kind == "pill":
+        pill = card(c.s, x, y, 360, 60, acc, 100, 0.5)
+        c.note(pill)
+        c.t(x, y, 360, 60, [[(c.label, 25, sp.get("pill_ink", "FFFFFF"), True, SANS, 300)]], align=CENTER,
+            anchor=MIDDLE)
+    elif kind == "line":
+        bar(c.s, x, y + 14, 90, 6, acc)
+        c.t(x + 110, y, max(w - 110, 200), 40, [[(c.label, 26, acc, True, SANS, 400)]], anchor=MIDDLE)
+    else:
+        c.t(x, y, w, 44, [[(c.label, 26, acc, True, SANS, 400)]])
+
+
+def d_theme(c: Ctx, sp: dict) -> None:
+    s = c.s
+    left, right = (0, c.sx), (c.sx + c.sw, W)
+    side = sp["side"]
+    zones = [left, right] if side == "c" else [right if side == "l" else left]
+    _decor(c, sp["decor"], zones, sp["acc"], sp["bg"][0])
+    ink, acc, subc = sp["ink"], sp["acc"], sp["sub"]
+    style = sp["card"]
+
+    def panel(x, y, w, h):
+        if style == "white":
+            card(s, x, y, w, h, WHITE, 82, 0.07, sp.get("border", WHITE), 90)
+        elif style == "cream":
+            card(s, x, y, w, h, "FFF3DD", 93, 0.07, acc, 100)
+        elif style == "dark":
+            card(s, x, y, w, h, mix(sp["bg"][1], "000000", 0.55), 90, 0.07, acc, 70)
+        elif style == "glass":
+            card(s, x, y, w, h, WHITE, 16, 0.07, WHITE, 70)
+
+    if side == "c":                                      # ustun o'rtada: chapda sarlavha, o'ngda izoh kartasi
+        lx0, lx1 = left
+        _label(c, sp, 70, 230, lx1 - 110)
+        bar(s, 70, 305, 130, 8, acc)
+        c.t(70, 335, lx1 - 110, 470, _title_runs(sp, c, 84), anchor=MIDDLE, line_spacing=1.04)
+        rx0, rx1 = right
+        panel(rx0 + 40, 390, rx1 - rx0 - 90, 280) if style != "none" else card(s, rx0 + 40, 390, rx1 - rx0 - 90, 280,
+                                                                                WHITE, 14, 0.12, WHITE, 60)
+        c.t(rx0 + 80, 415, rx1 - rx0 - 170, 170, [[(c.sub, 38, ink, True, SANS)]], anchor=MIDDLE)
+        c.author_box(rx0 + 80, 595, rx1 - rx0 - 170, acc, size=24)
+        return
+    x0, x1 = zones[0]
+    zw = x1 - x0
+    inner = 70
+    if style != "none":
+        panel(x0 + 60, 190, zw - 120, 700)
+        inner = 120
+    tx, tw = x0 + inner, zw - 2 * inner
+    _label(c, sp, tx, 245, tw)
+    c.t(tx, 340, tw, 330, _title_runs(sp, c, 92), anchor=MIDDLE, line_spacing=1.02)
+    bar(s, tx, 700, 170, 8, acc)
+    font = SERIF if sp["font"] == "serif" else SANS
+    c.t(tx, 730, tw, 70, [[(c.sub, 36, subc, False, font, 0, bool(sp.get("italic")))]])
+    c.author_box(tx, 815, tw, acc, size=24)
+
+
 DESIGNS: Dict[str, Tuple[Callable[[Ctx], None], str]] = {
     # nom: (chizuvchi, personaj ustuni joyi: "r" — o'ngda, "l" — chapda, "c" — o'rtada)
     "balet": (d_balet, "r"),
@@ -379,6 +599,8 @@ DESIGNS: Dict[str, Tuple[Callable[[Ctx], None], str]] = {
     "bulut": (d_bulut, "c"),
     "minimal": (d_minimal, "r"),
 }
+for _key, _spec in THEMES.items():                     # shaffof personajlar: umumiy chizuvchi, har biriga o'z temasi
+    DESIGNS[_key] = ((lambda c, sp=_spec: d_theme(c, sp)), _spec["side"])
 
 
 # ───────────────────────────────────────────── yig'ish

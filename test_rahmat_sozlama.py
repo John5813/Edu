@@ -143,6 +143,10 @@ async def flow():
           and "Ayiqcha" in chat.edited[-1][1], chat.edited[-1:])
     await pp.premium_ppt_thanks_chosen(chat.message(), CommandObject(command="start", args="thx_yoq"), state, db)
     check("noma'lum kalit — hech narsa o'zgarmaydi", (await state.get_data()).get("thanks_key") == "ayiqcha")
+    await pp.premium_ppt_thanks_chosen(chat.message(), CommandObject(command="start", args="thx_none"), state, db)
+    check("mini ilovadagi «Kerak emas» (thx_none) — personajsiz", (await state.get_data()).get("thanks_key") == ""
+          and "yo'q" in chat.edited[-1][1], chat.edited[-1:])
+    await pp.premium_ppt_thanks_chosen(chat.message(), CommandObject(command="start", args="thx_ayiqcha"), state, db)
     await pp.premium_ppt_thanks_skip(callback(chat, "prem_thx:skip"), state, db)
     check("«Kerak emas» — personajsiz, xulosa yangilandi", (await state.get_data()).get("thanks_key") == ""
           and "yo'q" in chat.edited[-1][1])

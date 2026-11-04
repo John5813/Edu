@@ -10,6 +10,7 @@
     python test_rahmat_animatsiya.py
 """
 import asyncio
+import io
 import os
 import shutil
 import sys
@@ -71,23 +72,17 @@ check("ovoz bor va slayddan tashqarida", len(audio) == 1 and audio[0].left < 0)
 check("GIF slayd ichida", gif and gif[0].left > 0 and gif[0].top >= 0
       and gif[0].left + gif[0].width <= deck.slide_width and gif[0].top + gif[0].height <= deck.slide_height)
 
-# GIF foni panel rangi bilan aynan bir xil — chegara ko'rinmaydi
-import io
 with Image.open(io.BytesIO(gif[0].image.blob)) as im:
     frames = im.n_frames
-    bg = max(im.convert("RGB").getcolors(1 << 16))[1]
-panels = [sh for sh in last.shapes if sh.shape_type == 1 and sh.fill.type == 1
-          and abs(sh.width - deck.slide_width * 860 / 1920) < 20000]
-panel_rgb = tuple(panels[0].fill.fore_color.rgb) if panels else None
 check("GIF harakatlanadi (ko'p kadr)", frames > 20, frames)
-check("GIF foni = panel rangi", panel_rgb == bg, (panel_rgb, bg))
+check("anime_qiz: shaffof personaj o'z temasida (gradient fon, panel emas)", anim.alpha and anim.design == "t_anime_qiz")
 
 timing = last._element.find(qn("p:timing"))
 xml = timing is not None and __import__("lxml.etree", fromlist=["x"]).tostring(timing).decode()
 check("slayd ochilganda o'zi boshlanadi", xml and 'evt="onBegin"' in xml and 'nodeType="clickEffect"' not in xml)
 check("ovoz o'zi boshlanadi", xml and 'cmd="playFrom(0.0)"' in xml and "<p:audio>" in xml)
-check("yozuvlar navbat bilan paydo bo'ladi", xml and xml.count('presetClass="entr"') == 5 and xml.count("<p:bldP") == 5,
-      xml and xml.count('presetClass="entr"'))
+check("yozuvlar navbat bilan paydo bo'ladi", xml and xml.count('presetClass="entr"') >= 4
+      and xml.count("<p:bldP") == xml.count('presetClass="entr"'), xml and xml.count('presetClass="entr"'))
 import zipfile
 with zipfile.ZipFile(out) as z:
     rels = z.read("ppt/slides/_rels/slide4.xml.rels").decode()
@@ -110,11 +105,14 @@ import numpy as np
 
 from services.thanks_anim import solid_slide
 
-solid = [a for a in catalog.ANIMATIONS if a.solid]
-check("9 ta fonli personaj qo'shilgan", len(solid) == 9, len(solid))
+solid = [a for a in catalog.ANIMATIONS if a.design]
+check("24 ta personajning hammasida o'z dizayni", len(solid) == len(catalog.ANIMATIONS) == 24, len(solid))
+check("9 ta fonli, 15 ta shaffof", sum(a.alpha for a in solid) == 15 and sum(a.solid for a in solid) == 9)
 check("har birining dizayni boshqa", len({a.design for a in solid}) == len(solid))
 check("dizaynlar chizuvchisi bor", all(a.design in solid_slide.DESIGNS for a in solid))
-check("nomlar uch tilda", all(a.name("ru") != a.name("uz") or a.key == "ayiqcha" for a in solid))
+check("shaffoflarning temalari har xil (fon, joylashuv, bezak)", len({str(solid_slide.THEMES[a.design]) for a in solid if a.alpha}) == 15
+      and len({solid_slide.THEMES[a.design]["decor"] for a in solid if a.alpha}) >= 9)
+check("nomlar uch tilda", all(a.name("ru") != a.name("uz") or a.key in ("ayiqcha", "robot") for a in solid))
 for i, a in enumerate(solid):
     lang = ("uz", "ru", "en")[i % 3]
     deck_path = thanks_slide.add_thanks_slide(base, os.path.join(TMP, f"s_{a.key}.pptx"), a, theme, lang, "Javlonbek")
@@ -248,6 +246,9 @@ async def web_part():
 
 status, html_text, lst_, lst_kk, media, poster, bad, trav = asyncio.run(web_part())
 check("sahifa ochiladi", status == 200 and "start=thx_" in html_text and "openTelegramLink" in html_text)
+check("galereya: to'r, belgilash, pastdagi tasdiqlash tugmasi, «Kerak emas»",
+      'id="grid"' in html_text and 'id="ok"' in html_text and "send('none')" in html_text and "class=\"play\"" in html_text
+      and "scroll-snap" not in html_text, "galereya elementlari")
 check("ro'yxatda hamma personaj, tilda, bot nomi bilan", len(lst_["items"]) == 24 and lst_["bot"] == "edufayl_bot"
       and any(i["name"] == "Пингвин" for i in lst_["items"]), len(lst_["items"]))
 check("qozoqcha so'ralsa — ruscha nomlar", any(i["name"] == "Пингвин" for i in lst_kk["items"]))
