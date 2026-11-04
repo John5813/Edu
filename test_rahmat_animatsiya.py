@@ -108,6 +108,52 @@ out_ru = thanks_slide.add_thanks_slide(base, os.path.join(TMP, "ru.pptx"), catal
 ru_texts = " ".join(sh.text_frame.text for sh in Presentation(out_ru).slides[-1].shapes if sh.has_text_frame)
 check("muallifsiz ham chiziladi", "Спасибо" in ru_texts and "Автор" not in ru_texts, ru_texts)
 
+print("3b) Fonli personajlar: har birining o'z dizayni, fon chegarasi ko'rinmaydi")
+import io
+
+import numpy as np
+
+from services.thanks_anim import solid_slide
+
+solid = [a for a in catalog.ANIMATIONS if a.solid]
+check("9 ta fonli personaj qo'shilgan", len(solid) == 9, len(solid))
+check("har birining dizayni boshqa", len({a.design for a in solid}) == len(solid))
+check("dizaynlar chizuvchisi bor", all(a.design in solid_slide.DESIGNS for a in solid))
+check("nomlar uch tilda", all(a.name("ru") != a.name("uz") or a.key == "ayiqcha" for a in solid))
+for i, a in enumerate(solid):
+    lang = ("uz", "ru", "en")[i % 3]
+    deck_path = thanks_slide.add_thanks_slide(base, os.path.join(TMP, f"s_{a.key}.pptx"), a, theme, lang, "Javlonbek")
+    deck = Presentation(deck_path)
+    last = deck.slides[-1]
+    W_, H_ = deck.slide_width, deck.slide_height
+    pics = [sh for sh in last.shapes if sh.shape_type == 13]
+    gifs = [p for p in pics if p.image.content_type == "image/gif"]
+    bgs = [p for p in pics if p.image.content_type == "image/png" and p.width == W_ and p.left == 0]
+    ok = len(deck.slides) == 4 and len(gifs) == 1 and len(bgs) == 1
+    check(f"{a.key}: sahifa, GIF va fon bor", ok)
+    if not ok:
+        continue
+    g = gifs[0]
+    check(f"{a.key}: personaj sahifa balandligicha, ichkarida",
+          g.top == 0 and abs(g.height - H_) < 2000 and g.left >= 0 and g.left + g.width <= W_ + 2000)
+    texts_ = [sh for sh in last.shapes if sh.has_text_frame and sh.text_frame.text.strip()]
+    inside = all(sh.left >= 0 and sh.top >= 0 and sh.left + sh.width <= W_ and sh.top + sh.height <= H_ for sh in texts_)
+    clear = all(sh.left + sh.width <= g.left or sh.left >= g.left + g.width for sh in texts_)
+    check(f"{a.key}: yozuvlar sahifada va personajga tegmaydi", inside and clear and len(texts_) >= 3)
+    with Image.open(io.BytesIO(g.image.blob)) as im:
+        check(f"{a.key}: GIF harakatlanadi", im.n_frames > 40, im.n_frames)
+        gcol = np.asarray(im.convert("RGB")).astype(int)
+    edge = np.concatenate([gcol[:, :2], gcol[:, -2:]], 1).mean(1)                     # (balandlik, 3)
+    with Image.open(io.BytesIO(bgs[0].image.blob)) as im:
+        bgcol = np.asarray(im.convert("RGB")).astype(int)[:, 5]                      # qator ranglari (1080, 3)
+    ys = np.linspace(0, len(bgcol) - 1, len(edge))
+    bg_rows = np.stack([np.interp(ys, np.arange(len(bgcol)), bgcol[:, c]) for c in range(3)], 1)
+    diff = np.abs(edge - bg_rows).max(1)
+    check(f"{a.key}: GIF cheti = sahifa foni (tikuv ko'rinmaydi)", diff.mean() < 2.5 and np.percentile(diff, 95) < 8,
+          (round(float(diff.mean()), 2), round(float(np.percentile(diff, 95)), 1)))
+    t_xml = last._element.find(qn("p:timing"))
+    check(f"{a.key}: ovoz va yozuv animatsiyasi", t_xml is not None and b"playFrom" in __import__("lxml.etree", fromlist=["x"]).tostring(t_xml))
+
 print("4) Funksiya sukut bo'yicha o'chiq, admin yoqadi")
 import database.database as dbmod
 from database.database import Database, init_db
