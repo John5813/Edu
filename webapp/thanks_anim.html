@@ -6,128 +6,133 @@
 <title>Personaj tanlang</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-  :root { --bg: #0c101c; --muted: #96a0b9; --green: #2ea05a; --chip: #283046; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; background: var(--bg); color: #fff; font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; overflow: hidden; }
-  header { position: fixed; top: 0; left: 0; right: 0; z-index: 5; padding: 18px 16px 12px;
-           background: linear-gradient(var(--bg) 70%, transparent); display: flex; align-items: flex-start; gap: 12px; }
-  header h1 { font-size: 20px; }
-  header p { color: var(--muted); font-size: 13px; margin-top: 3px; }
-  header .count { margin-left: auto; background: var(--chip); border-radius: 20px; padding: 5px 12px; font-weight: 700; font-size: 14px; white-space: nowrap; }
-  #feed { height: 100%; overflow-y: scroll; scroll-snap-type: y mandatory; -webkit-overflow-scrolling: touch; }
-  .reel { height: 100%; scroll-snap-align: start; scroll-snap-stop: always; display: flex; flex-direction: column;
-          justify-content: center; padding: 90px 0 24px; position: relative; }
+  :root { --bg: #0c101c; --card: #161c2e; --muted: #96a0b9; --green: #2ea05a; --chip: #283046; --line: #2a3350; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { background: var(--bg); color: #fff; font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; padding: 14px 14px 10px; background: var(--bg); border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 19px; }
+  header p { color: var(--muted); font-size: 13px; margin-top: 3px; line-height: 1.35; }
+  #grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 12px 12px 140px; }
+  @media (min-width: 640px) { #grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); } }
+  .card { position: relative; background: var(--card); border: 2px solid transparent; border-radius: 14px; overflow: hidden;
+          cursor: pointer; transition: border-color .12s, transform .12s; }
+  .card:active { transform: scale(.98); }
+  .card.on { border-color: var(--green); box-shadow: 0 0 0 2px rgba(46,160,90,.25); }
   .frame { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; }
-  .frame video, .frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .sound { position: absolute; right: 10px; bottom: 10px; background: rgba(0,0,0,.55); border-radius: 18px;
-           padding: 6px 12px; font-size: 13px; pointer-events: none; }
-  .info { padding: 18px 16px 0; }
-  .info h2 { font-size: 20px; }
-  .info p { color: var(--muted); font-size: 14px; margin-top: 4px; }
-  .pick { margin: 26px 16px 0; padding: 16px; border: 0; border-radius: 40px; background: var(--green); color: #fff;
-          font-size: 18px; font-weight: 700; width: calc(100% - 32px); cursor: pointer; }
-  .pick:disabled { opacity: .6; }
-  .hint { text-align: center; color: var(--muted); font-size: 13px; margin-top: 16px; }
-  #toast { position: fixed; left: 16px; right: 16px; bottom: 24px; z-index: 9; background: #1f2740; border-radius: 14px;
-           padding: 14px 16px; font-size: 15px; display: none; text-align: center; }
-  .empty { padding: 140px 24px; text-align: center; color: var(--muted); }
+  .frame img, .frame video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .name { padding: 9px 10px 11px; font-size: 14px; font-weight: 600; line-height: 1.25; min-height: 42px; }
+  .play { position: absolute; right: 7px; bottom: 7px; width: 34px; height: 34px; border-radius: 50%; border: 0; color: #fff;
+          background: rgba(0,0,0,.6); font-size: 14px; display: flex; align-items: center; justify-content: center; }
+  .tick { position: absolute; left: 7px; top: 7px; width: 26px; height: 26px; border-radius: 50%; background: var(--green);
+          font-size: 16px; font-weight: 800; display: none; align-items: center; justify-content: center; }
+  .card.on .tick { display: flex; }
+  #bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; padding: 10px 14px calc(12px + env(safe-area-inset-bottom));
+         background: linear-gradient(transparent, var(--bg) 22%); }
+  #bar .box { background: #1a2136; border: 1px solid var(--line); border-radius: 18px; padding: 10px 10px 10px 14px;
+              display: flex; align-items: center; gap: 10px; }
+  #cur { flex: 1; min-width: 0; font-size: 14px; color: var(--muted); line-height: 1.3; }
+  #cur b { display: block; color: #fff; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #ok { border: 0; border-radius: 14px; background: var(--green); color: #fff; font-size: 16px; font-weight: 700; padding: 13px 18px; cursor: pointer; }
+  #ok:disabled { background: #3a435e; color: #8a94b0; }
+  #none { display: block; margin: 9px auto 0; border: 0; background: none; color: var(--muted); font-size: 14px; padding: 4px 10px; text-decoration: underline; }
+  #toast { position: fixed; left: 16px; right: 16px; bottom: 96px; z-index: 9; background: #1f2740; border-radius: 14px;
+           padding: 12px 14px; font-size: 14px; display: none; text-align: center; }
+  .empty { grid-column: 1 / -1; padding: 120px 24px; text-align: center; color: var(--muted); }
 </style>
 </head>
 <body>
-<header>
-  <div><h1 id="t-title"></h1><p id="t-sub"></p></div>
-  <div class="count" id="count">–</div>
-</header>
-<main id="feed"></main>
+<header><h1 id="t-title"></h1><p id="t-sub"></p></header>
+<main id="grid"></main>
+<div id="bar">
+  <div class="box"><div id="cur"></div><button id="ok" disabled></button></div>
+  <button id="none"></button>
+</div>
 <div id="toast"></div>
 <script>
 const tg = window.Telegram && window.Telegram.WebApp;
-if (tg) { tg.ready(); tg.expand(); try { tg.disableVerticalSwipes && tg.disableVerticalSwipes(); } catch (e) {} }
+if (tg) { tg.ready(); tg.expand(); }
 const params = new URLSearchParams(location.search);
-const selected = params.get('sel') || '';
 const lang = (params.get('lang') || (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.language_code) || 'uz').slice(0, 2);
 const TEXTS = {
-  uz: { title: 'Personaj tanlang', sub: "Taqdimotingizning oxirgi «Rahmat» sahifasida harakatlanadi", desc: 'Personaj ovoz bilan harakatlanadi, yozuvlar navbat bilan chiqadi',
-        pick: '✓ Shuni tanlash', picked: '✓ Tanlangan', hint: '▲ Keyingisi uchun yuqoriga suring', tap: '🔇 Ovoz uchun bosing',
+  uz: { title: 'Personaj tanlang', sub: "Rasmni bosib belgilang, pastdagi tugma bilan tasdiqlang. ▶ — video namuna (ovoz bilan).",
+        ok: '✓ Shuni tanlash', none: 'Tanlanmagan', pickOne: 'Personajni belgilang', skip: '❌ Kerak emas — personajsiz',
         busy: 'Botga qaytilmoqda…', fail: "❌ Xatolik. Qayta urinib ko'ring.", empty: "Hozircha personajlar yo'q." },
-  ru: { title: 'Выберите персонажа', sub: 'Будет двигаться на последней странице «Спасибо»', desc: 'Персонаж двигается со звуком, надписи появляются по очереди',
-        pick: '✓ Выбрать', picked: '✓ Выбран', hint: '▲ Листайте вверх', tap: '🔇 Нажмите для звука',
+  ru: { title: 'Выберите персонажа', sub: 'Нажмите на картинку, чтобы отметить, и подтвердите кнопкой внизу. ▶ — видео-образец (со звуком).',
+        ok: '✓ Выбрать', none: 'Не выбран', pickOne: 'Отметьте персонажа', skip: '❌ Не нужно — без персонажа',
         busy: 'Возвращаемся в бот…', fail: '❌ Ошибка. Попробуйте ещё раз.', empty: 'Пока нет персонажей.' },
-  en: { title: 'Choose a character', sub: 'It will move on the final “Thank you” page', desc: 'The character moves with sound, the text appears in turn',
-        pick: '✓ Choose this one', picked: '✓ Selected', hint: '▲ Swipe up for the next one', tap: '🔇 Tap for sound',
+  en: { title: 'Choose a character', sub: 'Tap a picture to mark it, then confirm with the button below. ▶ — video preview (with sound).',
+        ok: '✓ Choose', none: 'Not selected', pickOne: 'Mark a character', skip: '❌ No, thanks — no character',
         busy: 'Going back to the bot…', fail: '❌ Something went wrong. Try again.', empty: 'No characters yet.' },
 };
 const S = TEXTS[lang] || TEXTS.uz;
 document.getElementById('t-title').textContent = S.title;
 document.getElementById('t-sub').textContent = S.sub;
+document.getElementById('none').textContent = S.skip;
 
-let soundOn = false;
-const feed = document.getElementById('feed');
+const grid = document.getElementById('grid'), ok = document.getElementById('ok'), cur = document.getElementById('cur');
 const toast = document.getElementById('toast');
+let botName = '', chosen = params.get('sel') || '', items = [], playing = null;
 function say(text, ms) {
   toast.textContent = text; toast.style.display = 'block';
   clearTimeout(say.t); if (ms) say.t = setTimeout(() => (toast.style.display = 'none'), ms);
 }
 
-let botName = '';
-function choose(key, btn) {
-  document.querySelectorAll('.pick').forEach((b) => (b.disabled = true));
-  btn.textContent = S.busy; say(S.busy);
+function refresh() {
+  document.querySelectorAll('.card').forEach((c) => c.classList.toggle('on', c.dataset.key === chosen));
+  const it = items.find((x) => x.key === chosen);
+  cur.innerHTML = it ? '<b></b>' : '<span>' + S.pickOne + '</span>';
+  if (it) cur.querySelector('b').textContent = it.name;
+  ok.textContent = S.ok; ok.disabled = !it;
+}
+
+function stopVideo() {
+  if (!playing) return;
+  playing.video.pause(); playing.video.remove(); playing.img.style.display = ''; playing.btn.textContent = '▶'; playing = null;
+}
+function toggleVideo(card, it) {
+  const img = card.querySelector('img'), btn = card.querySelector('.play');
+  if (playing && playing.card === card) { stopVideo(); return; }
+  stopVideo();
+  const v = document.createElement('video');
+  v.playsInline = true; v.loop = true; v.src = it.preview; v.poster = it.poster;
+  card.querySelector('.frame').insertBefore(v, btn);
+  v.play().then(() => { img.style.display = 'none'; }).catch(() => {});
+  btn.textContent = '❚❚';
+  playing = { card, video: v, img, btn };
+}
+
+function send(key) {
+  ok.disabled = true; say(S.busy);
   if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
   // Tanlov botga havola orqali qaytadi: bot buyurtma holatini yangilaydi, mini ilova yopiladi.
   const url = 'https://t.me/' + botName + '?start=thx_' + encodeURIComponent(key);
   try {
     if (tg && tg.openTelegramLink && botName) { tg.openTelegramLink(url); setTimeout(() => tg.close(), 400); return; }
   } catch (e) {}
-  say(S.fail, 4000);
-  document.querySelectorAll('.pick').forEach((b) => { b.disabled = false; b.textContent = S.pick; });
+  say(S.fail, 4000); refresh();
 }
+ok.onclick = () => chosen && send(chosen);
+document.getElementById('none').onclick = () => send('none');
 
-function build(items) {
-  if (!items.length) { feed.innerHTML = '<div class="empty">' + S.empty + '</div>'; return; }
-  items.forEach((it, i) => {
-    const reel = document.createElement('section');
-    reel.className = 'reel'; reel.dataset.index = i;
-    reel.innerHTML =
-      '<div class="frame"><img alt=""><video playsinline loop muted preload="none"></video><div class="sound"></div></div>' +
-      '<div class="info"><h2></h2><p></p></div><button class="pick"></button>' +
-      (i < items.length - 1 ? '<div class="hint"></div>' : '');
-    reel.querySelector('img').src = it.poster;
-    const v = reel.querySelector('video');
-    v.dataset.src = it.preview; v.poster = it.poster;
-    reel.querySelector('h2').textContent = it.name;
-    reel.querySelector('.info p').textContent = S.desc;
-    reel.querySelector('.sound').textContent = S.tap;
-    const b = reel.querySelector('.pick'); b.textContent = it.key === selected ? S.picked : S.pick; b.onclick = () => choose(it.key, b);
-    const h = reel.querySelector('.hint'); if (h) h.textContent = S.hint;
-    reel.querySelector('.frame').onclick = () => {
-      soundOn = true; document.querySelectorAll('video').forEach((x) => (x.muted = !soundOn));
-      document.querySelectorAll('.sound').forEach((x) => (x.style.display = 'none'));
-      v.play().catch(() => {});
-    };
-    feed.appendChild(reel);
+function build() {
+  if (!items.length) { grid.innerHTML = '<div class="empty">' + S.empty + '</div>'; return; }
+  items.forEach((it) => {
+    const card = document.createElement('div');
+    card.className = 'card'; card.dataset.key = it.key;
+    card.innerHTML = '<div class="frame"><img alt="" loading="lazy"><div class="tick">✓</div><button class="play">▶</button></div><div class="name"></div>';
+    card.querySelector('img').src = it.poster;
+    card.querySelector('.name').textContent = it.name;
+    card.onclick = () => { chosen = it.key; refresh(); if (tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged(); };
+    card.querySelector('.play').onclick = (e) => { e.stopPropagation(); toggleVideo(card, it); };
+    grid.appendChild(card);
   });
-  const count = document.getElementById('count');
-  const io = new IntersectionObserver((entries) => {
-    entries.forEach((e) => {
-      const v = e.target.querySelector('video');
-      if (e.isIntersecting && e.intersectionRatio > 0.6) {
-        count.textContent = (+e.target.dataset.index + 1) + ' / ' + items.length;
-        // shu va keyingi videoni yuklaymiz
-        [e.target, e.target.nextElementSibling].forEach((r) => {
-          const x = r && r.querySelector('video'); if (x && !x.src) { x.src = x.dataset.src; x.load(); }
-        });
-        v.muted = !soundOn; v.currentTime = 0;
-        v.play().then(() => (e.target.querySelector('img').style.display = 'none')).catch(() => {});
-      } else { v.pause(); }
-    });
-  }, { threshold: [0, 0.6, 1] });
-  document.querySelectorAll('.reel').forEach((r) => io.observe(r));
-  const at = items.findIndex((x) => x.key === selected);                 // tanlangan personajdan boshlanadi
-  if (at > 0) feed.scrollTop = feed.clientHeight * at;
+  refresh();
+  const at = document.querySelector('.card.on');                          // tanlangan personaj ko'rinadigan joyda turadi
+  if (at) at.scrollIntoView({ block: 'center' });
 }
 
-fetch('/api/anim/list?lang=' + lang).then((r) => r.json()).then((j) => { botName = j.bot || ''; build(j.items || []); }).catch(() => say(S.fail));
+fetch('/api/anim/list?lang=' + lang).then((r) => r.json()).then((j) => { botName = j.bot || ''; items = j.items || []; build(); })
+  .catch(() => say(S.fail));
 </script>
 </body>
 </html>

@@ -4,7 +4,8 @@ Har animatsiya uchun `assets/thanks_anim/<nom>/` ga ikki fayl yoziladi:
 - `packed.mp4` — chap yarmi rangli kadr, o'ng yarmi shaffoflik niqobi (oq — personaj), ovozi bilan.
   Taqdimot yig'ilayotganda shu fayldan istalgan rangdagi panel ustiga GIF yasaladi: fonni qayta
   ajratish shart emas, oddiy H.264 hamma joyda o'qiladi.
-- `preview.mp4` — mini oynada ko'rsatiladigan tayyor sahifa (matn animatsiyasi + personaj + ovoz).
+- `preview.mp4` va `poster.jpg` — mini ilovadagi namuna: personajning yakuniy sahifasi (dizayni `solid_slide.THEMES`da);
+  ularni `tools/thanks_anim/preview_solid.py` yasaydi (bu skriptdan keyin ishga tushiring).
 
     python tools/thanks_anim/prepare.py <xom_videolar_papkasi>
 
@@ -20,8 +21,6 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, ROOT)
 from services.thanks_anim.catalog import ANIMATIONS  # noqa: E402
-sys.path.insert(0, HERE)
-import preview  # noqa: E402
 
 OUT = os.path.join(ROOT, "assets", "thanks_anim")
 HEIGHT = 600          # GIF balandligi (sahifada 900 px gacha cho'ziladi)
@@ -82,9 +81,6 @@ def prepare(anim, raw_dir):
                     "-filter_complex", graph, "-map", "[v]", "-map", "0:a?", "-r", "15", "-c:v", "libx264",
                     "-crf", "23", "-preset", "slow", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "80k",
                     "-movflags", "+faststart", packed], check=True)
-    preview.render(packed, os.path.join(folder, "preview.mp4"))
-    subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{min(4.0, dur * 0.6):.1f}", "-i", os.path.join(folder, "preview.mp4"),
-                    "-frames:v", "1", "-q:v", "4", os.path.join(folder, "poster.jpg")], check=True)
     print(f"{anim.key}: kalit {colour}, {dur:.1f} s, {ow}x{HEIGHT}")
 
 

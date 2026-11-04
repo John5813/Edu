@@ -3,7 +3,7 @@
 Haqiqiy sahifa (PPTX) LibreOffice orqali rasmga aylantiriladi, personaj videosi ustiga qo'yiladi — namuna
 foydalanuvchi oladigan sahifaning aynan o'zi bo'ladi.
 
-    python tools/thanks_anim/preview_solid.py [kalit ...]          # katalogdagi barcha fonli personajlar
+    python tools/thanks_anim/preview_solid.py [kalit ...]          # katalogdagi barcha personajlar (fonli va shaffof)
 """
 import os
 import shutil
@@ -65,13 +65,10 @@ def build_stills(anims, work):
 
 def _overlay_graph(anim):
     """ffmpeg filtri: personaj videosi sahifa rasmi ustiga (fonli — to'liq ustun, shaffof — niqob bilan)."""
-    if anim.solid:
+    if not anim.alpha:
         sx, sw = solid_slide.strip_geometry(anim)
         return f"[1:v]fps=30,scale={sw}:1080:flags=lanczos[v];[0:v][v]overlay={sx}:0:shortest=1"
-    cw = int(488 * slide.CHAR_H / 600)
-    cw = min(cw, slide.PANEL_W - 40)
-    ch = int(600 * cw / 488)
-    x, y = slide.PANEL_X + (slide.PANEL_W - cw) // 2, 1080 - ch - 30
+    x, y, cw, ch = solid_slide.character_rect(anim)
     return (f"[1:v]fps=30,split[l][r];[l]crop=iw/2:ih:0:0[c];[r]crop=iw/2:ih:iw/2:0,format=gray[m];"
             f"[c][m]alphamerge,scale={cw}:{ch}:flags=lanczos[ca];[0:v][ca]overlay={x}:{y}:shortest=1:format=auto")
 
@@ -91,13 +88,21 @@ def make_preview(anim, still, folder):
           "-map", "[o]", "-map", "1:a?", "-c:v", "libx264", "-crf", "24", "-preset", "slow", "-c:a", "aac",
           "-b:a", "80k", "-t", "10", "-shortest", "-movflags", "+faststart",
           os.path.join(folder, "preview.mp4")], timeout=300)
-    _run(["ffmpeg", "-v", "error", "-y", "-ss", "4", "-i", os.path.join(folder, "preview.mp4"), "-frames:v", "1",
-          "-q:v", "4", os.path.join(folder, "poster.jpg")])
+    out = os.path.join(folder, "preview.mp4")
+    dur = float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of",
+                                         "csv=p=0", out]).decode())
+    poster = os.path.join(folder, "poster.jpg")
+    if os.path.exists(poster):
+        os.remove(poster)
+    _run(["ffmpeg", "-v", "error", "-y", "-ss", f"{min(4.0, dur * 0.6):.2f}", "-i", out, "-frames:v", "1", "-q:v", "4",
+          poster])
+    if not os.path.exists(poster):
+        raise RuntimeError("muqova (poster.jpg) yasalmadi: " + folder)
 
 
 if __name__ == "__main__":
     only = set(sys.argv[1:])
-    anims = [a for a in catalog.ANIMATIONS if a.solid and (not only or a.key in only)]
+    anims = [a for a in catalog.ANIMATIONS if a.design and (not only or a.key in only)]
     work = tempfile.mkdtemp(prefix="preview_solid_")
     try:
         stills = build_stills(anims, work)

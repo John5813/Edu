@@ -3,6 +3,7 @@
 Fayllar `assets/thanks_anim/<key>/` da (`tools/thanks_anim/prepare.py` yasaydi): `packed.mp4` — taqdimot
 uchun manba, `preview.mp4` va `poster.jpg` — mini oyna uchun.
 """
+import dataclasses
 import os
 from dataclasses import dataclass
 from typing import Dict, List, Optional
@@ -24,6 +25,7 @@ class Animation:
     solid: bool = False
     crop: tuple = ()
     design: str = ""
+    alpha: bool = False         # shaffof personaj (packed.mp4: chap yarmi rangli, o'ng yarmi niqob) — gradient fonga qo'yiladi
     bg: str = ""                # fon bir xil rang bo'lsa — shu rang (personaj chetga tegsa ham fon buzilmasin)
 
     def name(self, lang: str) -> str:
@@ -77,6 +79,8 @@ ANIMATIONS += [
        design="bulut"),
     _a("pushti_momiq", "Pushti momiq", "Розовый пушистик", "Pink fluff", "n09.mp4", solid=True, design="minimal"),
 ]
+# Shaffof (eski) personajlar: har biri o'z temasi (`solid_slide.THEMES`) — gradient fon, joylashuv, bezak.
+ANIMATIONS = [a if a.design else dataclasses.replace(a, alpha=True, design="t_" + a.key) for a in ANIMATIONS]
 BY_KEY = {a.key: a for a in ANIMATIONS}
 
 

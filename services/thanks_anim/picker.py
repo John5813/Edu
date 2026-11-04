@@ -21,6 +21,7 @@ log = logging.getLogger(__name__)
 
 CB = "prem_thx"          # callback_data: prem_thx:skip
 START_PREFIX = "thx_"    # mini ilova qaytaradigan /start parametri: thx_<personaj kaliti>
+NO_KEY = "none"          # thx_none — mini ilovadagi «Kerak emas» (personajsiz)
 
 TXT = {
     "uz": {

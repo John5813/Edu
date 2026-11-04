@@ -1676,9 +1676,11 @@ async def premium_ppt_thanks_chosen(message: Message, command: CommandObject, st
     key = (command.args or "")[len(picker.START_PREFIX):]
     with contextlib.suppress(Exception):                    # «/start …» xabari suhbatda qolmasin
         await message.delete()
-    if catalog.get(key) is None or not (await state.get_data()).get("thanks_offer"):
+    if key != picker.NO_KEY and catalog.get(key) is None:
         return
-    await state.update_data(thanks_key=key)
+    if not (await state.get_data()).get("thanks_offer"):
+        return
+    await state.update_data(thanks_key="" if key == picker.NO_KEY else key)
     await _thx_finish(message, state, lang)
 
 
