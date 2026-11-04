@@ -28,8 +28,13 @@ async def handle_page(request: web.Request) -> web.Response:
 async def handle_list(request: web.Request) -> web.Response:
     lang = request.query.get("lang", "uz")
     lang = lang if lang in ("uz", "ru", "en") else "ru"            # qozoqcha nomlar yo'q — ruscha o'qiladi
-    items = [{"key": a.key, "name": a.name(lang), "preview": f"/anim-media/{a.key}/preview.mp4",
-              "poster": f"/anim-media/{a.key}/poster.jpg"} for a in catalog.available()]
+    # Havolaga fayl o'zgargan vaqti qo'shiladi (`?v=`): namuna yangilanganda (deploy) Telegram brauzeri eski rasmni
+    # keshdan ko'rsatib qolmaydi — media bir kun keshlanadi, shuning uchun havola o'zi yangilanishi kerak.
+    def versioned(anim, name: str) -> str:
+        return f"/anim-media/{anim.key}/{name}?v={int(os.path.getmtime(anim.path(name)))}"
+
+    items = [{"key": a.key, "name": a.name(lang), "preview": versioned(a, "preview.mp4"),
+              "poster": versioned(a, "poster.jpg")} for a in catalog.available()]
     return web.json_response({"items": items, "bot": webapp.BOT_USERNAME})
 
 

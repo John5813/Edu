@@ -235,7 +235,7 @@ async def web_part():
         html_text = await page.text()
         lst = await (await client.get("/api/anim/list?lang=ru")).json()
         lst_kk = await (await client.get("/api/anim/list?lang=kk")).json()
-        media = await client.get("/anim-media/pingvin/preview.mp4")
+        media = await client.get(lst["items"][0]["preview"])           # versiyali havola ham beriladi
         poster = await client.get("/anim-media/pingvin/poster.jpg")
         bad = await client.get("/anim-media/pingvin/packed.mp4")
         trav = await client.get("/anim-media/..%2F..%2Fconfig/preview.mp4")
@@ -251,6 +251,8 @@ check("galereya: to'r, belgilash, pastdagi tasdiqlash tugmasi, «Kerak emas»",
       and "scroll-snap" not in html_text, "galereya elementlari")
 check("ro'yxatda hamma personaj, tilda, bot nomi bilan", len(lst_["items"]) == 24 and lst_["bot"] == "edufayl_bot"
       and any(i["name"] == "Пингвин" for i in lst_["items"]), len(lst_["items"]))
+check("namuna havolalari versiyali (?v=): yangilangan rasm keshdan eski bo'lib chiqmaydi",
+      all("?v=" in i["poster"] and "?v=" in i["preview"] for i in lst_["items"]), lst_["items"][0])
 check("qozoqcha so'ralsa — ruscha nomlar", any(i["name"] == "Пингвин" for i in lst_kk["items"]))
 check("namuna video va muqova beriladi", media == 200 and poster == 200)
 check("manba va boshqa fayllar berilmaydi", bad == 404 and trav == 404, (bad, trav))
