@@ -18,18 +18,21 @@ log = logging.getLogger(__name__)
 
 SAT_LIMIT = 0.10            # shundan past to'yinganlik — rangsiz
 # (kalit so'zlar, rang): birinchi mos kelgani tanlanadi; so'zlar nom, kalit so'zlar va fan bo'yicha qidiriladi.
+# Ranglar ataylab to'yingan: oqish (fil suyagi) rang oppoq modeldan deyarli farq qilmasdi.
+BRAIN, BONE, MUSCLE, ORGAN, SKIN, DEFAULT = "E39A9A", "D9B98A", "C4705F", "BB4A4A", "E0A98A", "CDAA7D"
 PALETTE: List[Tuple[Tuple[str, ...], str]] = [
-    (("brain", "miya"), "E6A9A4"),
-    (("skull", "bone", "skelet", "skeleton", "suyak", "jaw", "tooth", "teeth"), "EADFC9"),
-    (("muscle", "anatom", "mushak", "écorché", "ecorche"), "C0645A"),
-    (("heart", "lung", "liver", "kidney", "stomach", "organ", "yurak", "o'pka", "jigar"), "BB4A4A"),
+    (("brain", "miya"), BRAIN),
+    (("muscle", "muscles", "mushak", "mushaklar", "ecorche", "écorché"), MUSCLE),
+    (("skull", "bone", "skelet", "skeleton", "suyak", "jaw", "tooth", "teeth"), BONE),
+    (("heart", "lung", "liver", "kidney", "stomach", "organ", "yurak", "o'pka", "jigar"), ORGAN),
     (("head", "face", "bust", "portrait", "man", "woman", "human", "person", "torso", "body", "hand", "foot", "baby",
-      "child", "bosh", "yuz", "odam", "inson"), "E3B08F"),
+      "child", "bosh", "yuz", "odam", "inson"), SKIN),
     (("tree", "leaf", "plant", "flower", "daraxt", "o'simlik"), "6FA35B"),
     (("gold", "oltin", "crown", "coin", "tanga"), "D8B24A"),
     (("water", "ocean", "sea", "dengiz"), "5B9BD5"),
 ]
-DEFAULT = "D6BE9A"          # issiq qum / tosh rangi
+_HUMAN = ("head", "face", "human", "body", "torso", "bosh", "yuz", "odam", "inson")
+_SKELETON = ("skeleton", "bone", "bones", "skelet", "suyak")
 
 
 def _saturation(rgb: Sequence[float]) -> float:
@@ -82,6 +85,13 @@ def colour_for(info: Dict, fallback: str = DEFAULT) -> str:
     text = " ".join([str(info.get("nom", "")), str(info.get("nom_uz", "")), " ".join(info.get("kalit") or []),
                      str(info.get("fan", ""))]).lower()
     tokens = re.findall(r"[\w'’ʻ‘]+", text)             # so'zlar bo'yicha: «anatomiya» ichidagi «miya» miya emas
+
+    def has(words) -> bool:
+        return any(t == w or (len(w) >= 4 and t.startswith(w)) for t in tokens for w in words)
+
+    # «Anatomiya» (bosh, tana) — mushakli anatomik model; skelet/suyak bo'lsa suyak rangi
+    if has(("anatom",)) and has(_HUMAN) and not has(_SKELETON) and not has(("brain", "miya")):
+        return MUSCLE
     for words, colour in PALETTE:
         # qisqa so'z (≤3) — aynan; uzunroq — so'z boshi (bones, anatomiyasi) mos
         if any(t == w or (len(w) >= 4 and t.startswith(w)) for t in tokens for w in words):
@@ -163,10 +173,10 @@ def tint_png(png: bytes, colour: str) -> bytes:
         lum = (rgba[..., 0] * 0.3 + rgba[..., 1] * 0.59 + rgba[..., 2] * 0.11)
         lo, hi = np.percentile(lum[solid], (2, 98))
         norm = np.clip((lum - lo) / max(hi - lo, 8.0), 0.0, 1.0)
-        shade = 0.42 + 0.58 * norm                                     # soya qorayib ketmasin
+        shade = 0.36 + 0.64 * norm                                     # soya qorayib ketmasin
         tint = np.array([int(colour[i:i + 2], 16) for i in (0, 2, 4)], np.float32)
         out = rgba.copy()
-        out[..., :3] = np.clip(tint[None, None, :] * shade[..., None] * 1.05, 0, 255)
+        out[..., :3] = np.clip(tint[None, None, :] * shade[..., None] * 1.08, 0, 255)
         buf = io.BytesIO()
         Image.fromarray(out.astype(np.uint8), "RGBA").save(buf, "PNG", optimize=True)
         return buf.getvalue()

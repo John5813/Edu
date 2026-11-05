@@ -857,15 +857,25 @@ head = {"nom": "Human head anatomy", "nom_uz": "Odam boshi anatomiyasi", "kalit"
 painted, colour = boyash.paint(white_glb, head)
 doc_p, _ = _glb.read_glb(painted)
 fac = doc_p["materials"][0]["pbrMetallicRoughness"]["baseColorFactor"]
-check("oq model boyaldi (anatomiya → mushak rangi)", colour == "C0645A" and fac[0] > fac[2] + 0.2 and fac[3] == 1.0, (colour, fac))
+check("oq model boyaldi (anatomiya → mushak rangi)", colour == boyash.MUSCLE and fac[0] > fac[2] + 0.2 and fac[3] == 1.0, (colour, fac))
 check("boyalgan GLB yaroqli: chegara qutisi o'zgarmadi", _np.allclose(_glb.bounds(painted)[1], _glb.bounds(white_glb)[1]))
 painted_g, colour_g = boyash.paint(grey_glb, {"nom": "Gold crown", "kalit": ["crown"], "fan": "tarix"})
 check("kulrang ham rangsiz: nomiga qarab rang (tojga oltin)", colour_g == "D8B24A", colour_g)
+real_head = {"nom": "Human Head Anatomy", "nom_uz": "Odam boshi anatomiyasi", "kalit": ["anatomy", "skull", "human"],
+             "fan": "tibbiyot"}
+check("haqiqiy katalogdagi «Human Head Anatomy» (kalitida skull bor) — mushak rangi, oppoq-fil suyagi emas",
+      boyash.colour_for(real_head) == boyash.MUSCLE, boyash.colour_for(real_head))
+check("skelet modeli — suyak rangi (anatomiya bo'lsa ham)", boyash.colour_for(
+    {"nom": "Human skeleton anatomy", "kalit": ["skeleton"]}) == boyash.BONE)
+check("hamma ranglar oppoqdan aniq farq qiladi (to'yinganlik ≥ 0.2)", all(
+    (max(int(c[i:i + 2], 16) for i in (0, 2, 4)) - min(int(c[i:i + 2], 16) for i in (0, 2, 4))) / 255 >= 0.2
+    for _, c in boyash.PALETTE if c not in ("5B9BD5",)) and boyash._saturation([int(boyash.DEFAULT[i:i + 2], 16) / 255
+                                                                                for i in (0, 2, 4)]) >= 0.2)
 same, none_colour = boyash.paint(red_glb, head)
 check("rangli model o'zgarishsiz qaytadi", same == red_glb and none_colour is None)
 check("rang tanlash: miya / suyak / teri / noma'lum", [boyash.colour_for(i) for i in (
     {"nom": "Human brain model"}, {"nom": "Skull"}, {"nom": "Bust of a woman"}, {"nom": "Old chair", "fan": "mebel"})]
-      == ["E6A9A4", "EADFC9", "E3B08F", boyash.DEFAULT])
+      == [boyash.BRAIN, boyash.BONE, boyash.SKIN, boyash.DEFAULT])
 junk, junk_colour = boyash.paint(b"bu glb emas", head)
 check("buzilgan fayl — asl holicha (xato bermaydi)", junk == b"bu glb emas" and junk_colour is None)
 with_colors = _glb.write_glb([_glb.Primitive(color=(1.0, 1.0, 1.0), colors=_np.array([[200, 30, 30, 255]] * 3, _np.uint8),
@@ -888,7 +898,7 @@ _red = _Img.new("RGBA", (200, 200), (200, 30, 30, 255))
 _b2 = _io2.BytesIO()
 _red.save(_b2, "PNG")
 check("rangli rasm rangsiz emas", not boyash.png_is_colourless(_b2.getvalue()))
-tinted = _Img.open(_io2.BytesIO(boyash.tint_png(white_png, "E3B08F"))).convert("RGBA")
+tinted = _Img.open(_io2.BytesIO(boyash.tint_png(white_png, "E0A98A"))).convert("RGBA")
 left, right, outside = tinted.getpixel((60, 100)), tinted.getpixel((150, 100)), tinted.getpixel((10, 10))
 check("rasm teri rangiga bo'yaldi (issiq: R > B)", left[0] > left[2] + 25 and right[0] > right[2] + 15, (left, right))
 check("soya-yorug'lik saqlandi (chap yorug', o'ng qorong'i)", sum(left[:3]) > sum(right[:3]) + 30, (left, right))
