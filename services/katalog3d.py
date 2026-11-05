@@ -65,14 +65,19 @@ def _norm(s: str) -> str:
     return re.sub(r"[ʻʼ'`‘’]", "", s.lower())
 
 
-def qidir(soz: str, fan: Optional[str] = None, limit: int = 10) -> List[dict]:
-    """O'zbekcha (yoki inglizcha) so'z bo'yicha qidirish; nomdagi moslik kalit so'zdagidan ustun."""
+def qidir(soz: str, fan: Optional[str] = None, limit: int = 10, bolalar: bool = False) -> List[dict]:
+    """O'zbekcha (yoki inglizcha) so'z bo'yicha qidirish; nomdagi moslik kalit so'zdagidan ustun.
+
+    Bolalar modellari (`tur` = "bolalar": o'yinchoq, chaqaloq buyumlari...) faqat `bolalar=True` bo'lganda chiqadi —
+    ular jiddiy modellarga aralashib ketmasligi uchun."""
     words = [w for w in _norm(soz).split() if len(w) > 1]
     if not words:
         return []
     found = []
     for m in katalog().values():
         if fan and m["fan"] != fan:
+            continue
+        if m.get("tur") == "bolalar" and not bolalar:
             continue
         nom = _norm(m["nom_uz"] + " " + m["nom"])
         kalit = _norm(" ".join(m.get("kalit", [])))
