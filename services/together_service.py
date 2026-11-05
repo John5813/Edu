@@ -140,16 +140,23 @@ class TogetherImageService:
             prompt = strip_text_requests(cleaned)
         except Exception as _ex:
             logger.warning(f"Image prompt sanitizer unavailable: {_ex}")
+        no_credit = []
         for model in await image_model_chain(target):
-            response = await self._call_model(prompt, model)
+            try:
+                response = await self._call_model(prompt, model)
+            except _NoCredits as err:
+                no_credit.append(err)
+                continue
             if response is None:
                 continue
             path = await self._save_response(response, stem)
             if path:
                 logger.info(f"Image generated with {model} ({target}): {path}")
                 _count_image(model, target)
+                _report_credit_errors(no_credit, drawn=True)
                 return path
             logger.error(f"No image data from {model}")
+        _report_credit_errors(no_credit, drawn=False)
         return None
 
     async def generate_with_models(self, prompt: str, models: list, stem: str = "together_image",
@@ -171,16 +178,23 @@ class TogetherImageService:
                 logger.warning(f"Image prompt sanitizer unavailable: {_ex}")
         now = time.monotonic()
         chain = [m for m in models if m and _unavailable.get(m, 0) <= now] or [m for m in models if m]
+        no_credit = []
         for model in chain:
-            response = await self._call_model(prompt, model)
+            try:
+                response = await self._call_model(prompt, model)
+            except _NoCredits as err:
+                no_credit.append(err)
+                continue
             if response is None:
                 continue
             path = await self._save_response(response, stem)
             if path:
                 logger.info(f"Image generated with {model} ({stem}): {path}")
                 _count_image(model, stem)
+                _report_credit_errors(no_credit, drawn=True)
                 return path
             logger.error(f"No image data from {model}")
+        _report_credit_errors(no_credit, drawn=False)
         return None
 
     async def _call_model(self, prompt: str, model: str):
@@ -222,9 +236,9 @@ class TogetherImageService:
                     logger.warning(f"Together image model {model} rejected the prompt (moderation): {ex}")
                     return None
                 if _out_of_credits(msg):
-                    logger.error(f"Together limiti/balansi tugadi ({model}): {ex}")
-                    _alert_admins(model, ex)
-                    return None
+                    logger.error(f"Together: {model} balans/limit xatosi berdi: {ex}")
+                    _unavailable[model] = time.monotonic() + _CREDIT_TTL
+                    raise _NoCredits(model, ex)
                 transient = isinstance(ex, asyncio.TimeoutError) or any(
                     s in msg for s in ("429", "rate limit", "rate_limit", "too many", "timeout", "503", "502",
                                        "504", "temporar")
@@ -641,21 +655,51 @@ def _model_steps(model_id: str) -> Optional[int]:
 
 _NO_CREDITS = ("402", "payment required", "insufficient", "credit", "balance", "quota",
                "billing", "spend limit", "out of funds")
+# Bitta modelga 402 («shu model uchun ijobiy balans kerak») butun hisob tugaganini bildirmaydi: boshqa modellar
+# ishlayveradi. Shu model bir muddat chetlab o'tiladi (har rasmda qayta sinalib vaqt va xabar ketmasin).
+_CREDIT_TTL = 1800.0
+
+
+class _NoCredits(Exception):
+    """Model 402 qaytardi (balans/limit)."""
+
+    def __init__(self, model: str, error):
+        super().__init__(str(error))
+        self.model, self.error = model, error
 
 
 def _out_of_credits(message: str) -> bool:
     return any(s in message for s in _NO_CREDITS)
 
 
-def _alert_admins(model: str, error) -> None:
+def _report_credit_errors(errors: list, drawn: bool) -> None:
+    """Adminga xabar — faqat rost bo'lganda.
+
+    Rasm zaxira model bilan chizilgan bo'lsa (`drawn`) — faqat shu model(lar) hisobda yopiq ekani haqida, kamdan-kam
+    (6 soatda bir marta) va tinch matn bilan. Hech bir model chizolmagan bo'lsa — hisob/limit haqiqatan tugagan
+    (30 daqiqada bir marta, shoshilinch).
+    """
+    if not errors:
+        return
     try:
         from services import admin_alerts
 
-        admin_alerts.alert(
-            "together_credits",
-            "⚠️ Together AI: limit yoki balans tugadi, rasmlar chizilmayapti.\n"
-            f"Model: {model}\nSabab: {str(error)[:300]}\n"
-            "Together hisobini to'ldiring. Shu orada rasmlar internetdan (Brave) olinadi.")
+        models = ", ".join(sorted({e.model for e in errors}))
+        reason = str(errors[0].error)[:300]
+        if drawn:
+            admin_alerts.alert(
+                "together_model_402",
+                "ℹ️ Together AI: ba'zi rasm modellari 402 (balans/ruxsat) qaytarmoqda, rasmlar zaxira model bilan "
+                f"chizilyapti — ish to'xtamagan.\nModellar: {models}\nSabab: {reason}\n"
+                "Bu model hisobingizda ochiq emas (yoki shu model uchun ijobiy balans kerak). Admin paneldan "
+                "boshqa modelni tanlang yoki Together hisobini (kalit shu hisobnikimi) tekshiring.",
+                cooldown=6 * 3600.0)
+        else:
+            admin_alerts.alert(
+                "together_credits",
+                "⚠️ Together AI: hech bir model rasm chiza olmadi — balans/limit tugagan ko'rinadi.\n"
+                f"Modellar: {models}\nSabab: {reason}\n"
+                "Together hisobini to'ldiring. Shu orada rasmlar internetdan (Brave) olinadi.")
     except Exception:
         pass
 
