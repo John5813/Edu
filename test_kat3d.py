@@ -842,6 +842,36 @@ check("keng rasm 300x150 bo'lib joylashdi: tepa va past chetlari fon rangida", s
       and sheet.getpixel((150, 5))[1] > 200 and sheet.getpixel((150, 150))[0] > 150 and sheet.getpixel((150, 150))[1] < 90,
       (sheet.getpixel((150, 5)), sheet.getpixel((150, 150))))
 
+
+print("12) Rangsiz (oq) modellar mavzuga mos rangga boyaladi, rangli modellarga tegilmaydi")
+import numpy as _np
+from services.kat3d import boyash
+from services.med3d import glb as _glb
+
+_tri = dict(positions=_np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]], _np.float32),
+            normals=_np.array([[0, 0, 1]] * 3, _np.float32), indices=_np.array([0, 1, 2]))
+white_glb = _glb.write_glb([_glb.Primitive(color=(1.0, 1.0, 1.0), **_tri)])
+grey_glb = _glb.write_glb([_glb.Primitive(color=(0.8, 0.8, 0.82), **_tri)])
+red_glb = _glb.write_glb([_glb.Primitive(color=(0.8, 0.1, 0.1), **_tri)])
+head = {"nom": "Human head anatomy", "nom_uz": "Odam boshi anatomiyasi", "kalit": ["head", "face"], "fan": "biologiya"}
+painted, colour = boyash.paint(white_glb, head)
+doc_p, _ = _glb.read_glb(painted)
+fac = doc_p["materials"][0]["pbrMetallicRoughness"]["baseColorFactor"]
+check("oq model boyaldi (anatomiya → mushak rangi)", colour == "C0645A" and fac[0] > fac[2] + 0.2 and fac[3] == 1.0, (colour, fac))
+check("boyalgan GLB yaroqli: chegara qutisi o'zgarmadi", _np.allclose(_glb.bounds(painted)[1], _glb.bounds(white_glb)[1]))
+painted_g, colour_g = boyash.paint(grey_glb, {"nom": "Gold crown", "kalit": ["crown"], "fan": "tarix"})
+check("kulrang ham rangsiz: nomiga qarab rang (tojga oltin)", colour_g == "D8B24A", colour_g)
+same, none_colour = boyash.paint(red_glb, head)
+check("rangli model o'zgarishsiz qaytadi", same == red_glb and none_colour is None)
+check("rang tanlash: miya / suyak / teri / noma'lum", [boyash.colour_for(i) for i in (
+    {"nom": "Human brain model"}, {"nom": "Skull"}, {"nom": "Bust of a woman"}, {"nom": "Old chair", "fan": "mebel"})]
+      == ["E6A9A4", "EADFC9", "E3B08F", boyash.DEFAULT])
+junk, junk_colour = boyash.paint(b"bu glb emas", head)
+check("buzilgan fayl — asl holicha (xato bermaydi)", junk == b"bu glb emas" and junk_colour is None)
+with_colors = _glb.write_glb([_glb.Primitive(color=(1.0, 1.0, 1.0), colors=_np.array([[200, 30, 30, 255]] * 3, _np.uint8),
+                                             **_tri)])
+check("nuqta ranglari bor model — rangli deb hisoblanadi", boyash.paint(with_colors, head)[1] is None)
+
 print()
 print("HAMMASI OK" if not FAILS else f"{len(FAILS)} ta XATO: {FAILS}")
 sys.exit(1 if FAILS else 0)

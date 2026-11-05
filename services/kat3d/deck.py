@@ -69,6 +69,11 @@ class Ctx:
                 raise FileNotFoundError(f"3D model yo'q: {mid}")
             with open(path, "rb") as fh:
                 raw = fh.read()
+            from . import boyash
+
+            raw, colour = boyash.paint(raw, katalog3d.katalog().get(mid) or {})   # rangsiz (oq) model — boyaladi
+            if colour:
+                log.info("3D katalog: rangsiz model boyaldi (%s → #%s)", mid, colour)
             lo, hi = glb.bounds(raw)
             self.data[mid] = (raw, lo, hi)
         return self.data[mid]
