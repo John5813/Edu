@@ -744,6 +744,93 @@ with mock.patch.object(reja, "_plan_ai", return_value=short3), mock.patch.object
         failed = "to'liq emas" in str(exc)
 check("hamma urinish qisqa bo'lsa — 3 slaydli fayl emas, xato (pul qaytariladi)", failed)
 
+
+print("10) Aralash taqdimot: 3D ko'p takrorlanmaydi, AI rasmlar 3D soniga teng")
+check("rasmli slaydlar soni: 10 slaydda 3 model → 3", reja.pictures_target(10, 3) == 3
+      and reja.pictures_target(10, 1) == 2 and reja.pictures_target(5, 3) == 1 and reja.pictures_target(15, 9) == 6,
+      [reja.pictures_target(10, 3), reja.pictures_target(10, 1), reja.pictures_target(5, 3)])
+# AI qoidaga rioya qilmadi: har slaydga model qo'ydi va rasmli slayd bermadi — «to'liq 3D» ko'rinishi
+greedy = {"style": "vitrina", "slides": [
+    {"layout": "muqova", "title": "Misr", "models": ["m0"]}] + [
+    {"layout": ("chap", "ong", "matn")[i % 3], "title": f"Bo'lim {i}", "points": [S, S], "paragraphs": [S],
+     "models": [f"m{i % 3}"]} for i in range(8)] + [
+    {"layout": "yakun", "title": "Xulosa", "points": [S, S], "models": ["m0", "m1", "m2"]}]}
+g = reja.normalize(greedy, 10, mix_ids, mix_codes, mix=True)
+appear = {m: sum(m in s["models"] for s in g["slides"]) for m in mix_ids}
+check("har model ko'pi bilan 2 slaydda (to'liq 3D emas)", max(appear.values()) <= 2 and min(appear.values()) >= 1, appear)
+check("3D ko'rsatadigan slaydlar kam, ko'pi 3D'siz", sum(1 for s in g["slides"] if s["models"]) <= 6
+      and sum(1 for s in g["slides"] if not s["models"]) >= 4, [len(s["models"]) for s in g["slides"]])
+pics = [s for s in g["slides"] if s["layout"] == "rasm"]
+check("rasmli slaydlar aynan 3 ta (3D soniga teng)", len(pics) == 3, [s["layout"] for s in g["slides"]])
+check("rasmli slaydda tavsif va punktlar bor, ketma-ket emas",
+      all(s["photo"] for s in pics) and not any(a["layout"] == b["layout"] == "rasm"
+                                                for a, b in zip(g["slides"], g["slides"][1:])))
+check("modelsiz «qahramon» va «uchlik» yo'q", not any(s["layout"] in ("qahramon", "uchlik") and not s["models"]
+                                                      for s in g["slides"]))
+only_full = reja.normalize(greedy, 10, mix_ids, mix_codes)
+check("to'liq rejimda esa hammasi 3D (o'zgarmagan)", all(s["models"] for s in only_full["slides"])
+      and not any(s["layout"] == "rasm" for s in only_full["slides"]))
+
+import asyncio as _asyncio
+import services.kat3d as _kat3d
+from unittest import mock as _mock
+
+_plan_pics = {"slides": [{"layout": "rasm", "title": f"R{i}", "photo": f"scene {i}", "points": [S]} for i in range(3)]}
+_calls = []
+
+
+class _FakeTogether:
+    async def generate_with_models(self, prompt, models, stem="x", clean=True):
+        _calls.append((prompt, tuple(models)))
+        path = os.path.join(TMP, f"ai_{len(_calls)}.png")
+        _Img.new("RGB", (800, 800), (90, 120, 200)).save(path)
+        return path
+
+
+async def _web_never(*a, **k):
+    raise AssertionError("AI chizgan bo'lsa internetga borilmaydi")
+
+with _mock.patch("services.premium_presentation.html_images.photos_enabled", return_value=True), \
+     _mock.patch("services.together_service.get_together_service", return_value=_FakeTogether()), \
+     _mock.patch("services.photo_search.find_photos", _web_never):
+    _asyncio.run(_kat3d._photos("Misr", _plan_pics, lambda *a, **k: None))
+check("rasmlarni sifatli AI modeli chizdi (FLUX.2-pro birinchi)", len(_calls) == 3
+      and _calls[0][1][0] == "black-forest-labs/FLUX.2-pro" and "scene 0" in _calls[0][0], _calls[:1])
+check("AI so'rovida yozuv va diagramma taqiqlangan", "no text" in _calls[0][0])
+check("har rasmli slaydga AI rasm yo'li qo'yildi", all(os.path.isfile(x.get("photo_path", "")) for x in _plan_pics["slides"]))
+
+_plan_fb = {"slides": [{"layout": "rasm", "title": "R", "photo": "scene", "points": [S]}]}
+_web = []
+
+
+async def _web_ok(topic, slots, **k):
+    _web.append(slots)
+    path = os.path.join(TMP, "web.jpg")
+    _Img.new("RGB", (800, 600), (200, 150, 90)).save(path)
+    return [path]
+
+
+class _BrokenTogether:
+    async def generate_with_models(self, *a, **k):
+        return None
+
+with _mock.patch("services.premium_presentation.html_images.photos_enabled", return_value=True), \
+     _mock.patch("services.together_service.get_together_service", return_value=_BrokenTogether()), \
+     _mock.patch("services.photo_search.find_photos", _web_ok):
+    _asyncio.run(_kat3d._photos("Misr", _plan_fb, lambda *a, **k: None))
+check("AI chizolmasa — internetdagi foto zaxira", _web and os.path.isfile(_plan_fb["slides"][0].get("photo_path", "")))
+
+
+print("11) Kollaj: keng rasm cho'zilmaydi (nisbati saqlanadi)")
+import io as _io
+wide = os.path.join(TMP, "wide.png")
+_Img.new("RGB", (600, 300), (200, 30, 30)).save(wide)
+with _mock.patch.object(katalog3d, "preview_yoli", return_value=wide):
+    sheet = _Img.open(_io.BytesIO(qidiruv.collage([NEFERTITI], "uz")))
+check("keng rasm 300x150 bo'lib joylashdi: tepa va past chetlari fon rangida", sheet.getpixel((150, 5))[0] > 200
+      and sheet.getpixel((150, 5))[1] > 200 and sheet.getpixel((150, 150))[0] > 150 and sheet.getpixel((150, 150))[1] < 90,
+      (sheet.getpixel((150, 5)), sheet.getpixel((150, 150))))
+
 print()
 print("HAMMASI OK" if not FAILS else f"{len(FAILS)} ta XATO: {FAILS}")
 sys.exit(1 if FAILS else 0)

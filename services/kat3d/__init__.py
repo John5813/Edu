@@ -36,21 +36,68 @@ def price_for(slide_count: int, mode: str = "full") -> int:
     return price
 
 
+# Aralash taqdimotdagi rasmlarni sifatli (pullik) AI modeli chizadi — internet fotosidan ko'ra mavzuga aniq mos keladi.
+# Admin tanlagan arzon model emas, shu ro'yxat ishlatiladi (`KAT3D_IMAGE_MODELS` bilan almashtiriladi).
+AI_IMAGE_MODELS = tuple(m.strip() for m in (os.getenv("KAT3D_IMAGE_MODELS") or
+                                            "black-forest-labs/FLUX.2-pro,black-forest-labs/FLUX.1.1-pro").split(",")
+                        if m.strip())
+
+
+def _ai_prompt(topic: str, slide: dict) -> str:
+    scene = (slide.get("photo") or slide.get("title") or topic).strip()
+    return (f"{scene}. Related to: {topic}. Realistic high-quality editorial photograph, natural light, "
+            "detailed, sharp focus, no text, no letters, no captions, no diagrams")
+
+
+async def _ai_pictures(topic: str, slides: list) -> list:
+    """Har rasmli slayd uchun AI chizgan rasm yo'li yoki None (chizilmasa — internet fotosiga o'tiladi)."""
+    from services.premium_presentation import html_images
+
+    if not html_images.photos_enabled():
+        return [None] * len(slides)
+    try:
+        from services.together_service import get_together_service
+
+        together = get_together_service()
+    except Exception as exc:                  # noqa: BLE001
+        log.warning("3D katalog: AI rasm xizmati yo'q (%s)", exc)
+        return [None] * len(slides)
+    gate = asyncio.Semaphore(3)
+
+    async def one(slide):
+        async with gate:
+            try:
+                return await together.generate_with_models(_ai_prompt(topic, slide), list(AI_IMAGE_MODELS),
+                                                           stem="kat3d_ai")
+            except Exception as exc:          # noqa: BLE001
+                log.warning("3D katalog: AI rasm chizilmadi (%s): %s", slide.get("title", "")[:40], exc)
+                return None
+
+    return list(await asyncio.gather(*(one(s) for s in slides)))
+
+
 async def _photos(topic: str, plan: dict, stage) -> None:
-    """Aralash taqdimotdagi «rasm» slaydlariga internetdan haqiqiy foto. Topilmasa slayd matnli bo'lib qoladi."""
+    """Aralash taqdimotdagi «rasm» slaydlari: avval sifatli AI rasm; chizilmaganiga internetdan haqiqiy foto.
+    Ikkalasi ham bo'lmasa slayd matnli bo'lib qoladi."""
     slides = [s for s in plan["slides"] if s["layout"] == "rasm"]
     if not slides:
         return
     stage("photos", total=len(slides))
-    try:
-        from services import photo_search
+    paths = await _ai_pictures(topic, slides)
+    missing = [(s, k) for k, (s, p) in enumerate(zip(slides, paths)) if not p]
+    if missing:
+        try:
+            from services import photo_search
 
-        paths = await asyncio.wait_for(photo_search.find_photos(topic, [s["photo"] or s["title"] for s in slides]), 150)
-    except Exception as exc:                  # noqa: BLE001
-        log.warning("3D katalog: rasmlar topilmadi (%s) — matnli slaydlar", exc)
-        return
+            found = await asyncio.wait_for(
+                photo_search.find_photos(topic, [s["photo"] or s["title"] for s, _ in missing]), 150)
+            for (s, k), path in zip(missing, found):
+                paths[k] = path
+        except Exception as exc:              # noqa: BLE001
+            log.warning("3D katalog: internetdan rasm topilmadi (%s)", exc)
     for s, path in zip(slides, paths):
-        s["photo_path"] = path
+        if path:
+            s["photo_path"] = path
 
 
 class NoModels(RuntimeError):

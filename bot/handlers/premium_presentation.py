@@ -611,22 +611,22 @@ K3_PARTIAL = {
     "uz": ("🧩 <b>Bu mavzu 3D ga qisman mos.</b>\nMavzuni ko'rsatishga yaraydigan {n} ta 3D model topildi "
            "(ramziy modellar ham):\n{lines}\n\n<b>Qanday taqdimot yasaylik?</b>\n"
            "🧊 <b>To'liq 3D</b> — har slaydda 3D, modellarni AI mavzu va istaklaringizga qarab o'zi tanlaydi.\n"
-           "🧩 <b>Aralash 3D</b> — 3D modellarni o'zingiz tanlaysiz, qolgan slaydlarga diagramma va rasmlar. "
+           "🧩 <b>Aralash 3D</b> — 3D modellarni o'zingiz tanlaysiz, qolgan slaydlarga diagramma va AI chizgan rasmlar (3D modellar soniga teng). "
            "<b>40% arzon.</b>\n🖼 <b>3D'siz</b> — oddiy taqdimot: infografik yoki zamonaviy."),
     "ru": ("🧩 <b>Тема подходит для 3D частично.</b>\nНайдено {n} 3D-моделей, которыми можно показать тему "
            "(в том числе символические):\n{lines}\n\n<b>Какую презентацию сделать?</b>\n"
            "🧊 <b>Полностью 3D</b> — 3D на каждом слайде, модели ИИ подберёт сам по теме и вашим пожеланиям.\n"
-           "🧩 <b>Смешанная 3D</b> — вы сами выбираете 3D-модели, на остальных слайдах диаграммы и фото. "
+           "🧩 <b>Смешанная 3D</b> — вы сами выбираете 3D-модели, на остальных слайдах диаграммы и картинки, нарисованные ИИ (по числу 3D-моделей). "
            "<b>На 40% дешевле.</b>\n🖼 <b>Без 3D</b> — обычная презентация: инфографика или современная."),
     "en": ("🧩 <b>This topic fits 3D partly.</b>\nFound {n} 3D models that can show the topic (symbolic ones "
            "too):\n{lines}\n\n<b>Which deck shall we make?</b>\n"
            "🧊 <b>Full 3D</b> — 3D on every slide; AI picks the models by the topic and your wishes.\n"
-           "🧩 <b>Mixed 3D</b> — you pick the 3D models; the other slides get charts and photos. "
+           "🧩 <b>Mixed 3D</b> — you pick the 3D models; the other slides get charts and AI-drawn pictures (as many as 3D models). "
            "<b>40% cheaper.</b>\n🖼 <b>No 3D</b> — a regular deck: infographic or modern."),
     "kk": ("🧩 <b>Бұл тақырып 3D-ге ішінара сай.</b>\nТақырыпты көрсетуге жарайтын {n} 3D модель табылды "
            "(символдық модельдер де):\n{lines}\n\n<b>Қандай презентация жасайық?</b>\n"
            "🧊 <b>Толық 3D</b> — әр слайдта 3D, модельдерді ЖИ өзі таңдайды.\n"
-           "🧩 <b>Аралас 3D</b> — 3D модельдерді өзіңіз таңдайсыз, қалған слайдтарда диаграмма мен суреттер. "
+           "🧩 <b>Аралас 3D</b> — 3D модельдерді өзіңіз таңдайсыз, қалған слайдтарда диаграмма мен ЖИ салған суреттер (3D модель санындай). "
            "<b>40% арзан.</b>\n🖼 <b>3D-сіз</b> — қарапайым презентация: инфографика немесе заманауи."),
 }
 K3_MODE_BUTTONS = {
@@ -639,16 +639,16 @@ K3_PLAIN_ASK = {"uz": "🖼 <b>Qaysi turdagi taqdimot kerak?</b>", "ru": "🖼 <
                 "en": "🖼 <b>Which kind of presentation?</b>", "kk": "🖼 <b>Қандай презентация керек?</b>"}
 K3_PICK = {
     "uz": ("🧩 <b>Aralash 3D: modellarni tanlang</b>\nRasmdagi 3D modellardan ko'pi bilan <b>{limit} ta</b> tanlang "
-           "({count} slayd). Tanlanganlari mos slaydlarga qo'yiladi, qolgan slaydlarga diagramma va rasmlar.\n\n"
+           "({count} slayd). Tanlanganlari mos slaydlarga qo'yiladi, qolgan slaydlarga diagramma va AI rasmlar.\n\n"
            "Tanlandi: <b>{k}/{limit}</b>"),
     "ru": ("🧩 <b>Смешанная 3D: выберите модели</b>\nВыберите до <b>{limit}</b> 3D-моделей с картинки "
-           "({count} слайдов). Они встанут на подходящие слайды, на остальных — диаграммы и фото.\n\n"
+           "({count} слайдов). Они встанут на подходящие слайды, на остальных — диаграммы и картинки ИИ.\n\n"
            "Выбрано: <b>{k}/{limit}</b>"),
     "en": ("🧩 <b>Mixed 3D: pick the models</b>\nPick up to <b>{limit}</b> 3D models from the picture "
-           "({count} slides). They go on the slides they fit; the rest get charts and photos.\n\n"
+           "({count} slides). They go on the slides they fit; the rest get charts and AI pictures.\n\n"
            "Selected: <b>{k}/{limit}</b>"),
     "kk": ("🧩 <b>Аралас 3D: модельдерді таңдаңыз</b>\nСуреттегі 3D модельдерден ең көбі <b>{limit}</b> таңдаңыз "
-           "({count} слайд). Олар сай слайдтарға қойылады, қалғандарында диаграмма мен суреттер.\n\n"
+           "({count} слайд). Олар сай слайдтарға қойылады, қалғандарында диаграмма мен ЖИ суреттері.\n\n"
            "Таңдалды: <b>{k}/{limit}</b>"),
 }
 K3_PICK_DONE = {"uz": "✅ Tayyor", "ru": "✅ Готово", "en": "✅ Done", "kk": "✅ Дайын"}
@@ -658,10 +658,10 @@ K3_PICK_MAX = {"uz": "Ko'pi bilan {limit} ta tanlash mumkin — slaydlar soniga 
                "kk": "Ең көбі {limit} таңдауға болады — слайдтар санына тең."}
 K3_PICK_MIN = {"uz": "Kamida bitta 3D model tanlang.", "ru": "Выберите хотя бы одну 3D-модель.",
                "en": "Pick at least one 3D model.", "kk": "Кемінде бір 3D модель таңдаңыз."}
-K3_MIX_SUMMARY = {"uz": "🧩 Aralash 3D: qolgan slaydlarda diagramma va rasmlar (−40%)",
-                  "ru": "🧩 Смешанная 3D: на остальных слайдах диаграммы и фото (−40%)",
-                  "en": "🧩 Mixed 3D: charts and photos on the other slides (−40%)",
-                  "kk": "🧩 Аралас 3D: қалған слайдтарда диаграмма мен суреттер (−40%)"}
+K3_MIX_SUMMARY = {"uz": "🧩 Aralash 3D: qolgan slaydlarda diagramma va AI rasmlar (−40%)",
+                  "ru": "🧩 Смешанная 3D: на остальных слайдах диаграммы и картинки ИИ (−40%)",
+                  "en": "🧩 Mixed 3D: charts and AI pictures on the other slides (−40%)",
+                  "kk": "🧩 Аралас 3D: қалған слайдтарда диаграмма мен ЖИ суреттері (−40%)"}
 
 
 def _k3_name(mid: str, lang: str) -> str:

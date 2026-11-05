@@ -241,8 +241,10 @@ def collage(ids: Sequence[str], language: str = "uz", limit: int = 8, numbered: 
     font = font or ImageFont.load_default()
     for pos, (k, mid, path) in enumerate(items):
         x, y = (pos % cols) * cell, (pos // cols) * (cell + label)
-        with Image.open(path) as im:
-            sheet.paste(im.convert("RGB").resize((cell, cell)), (x, y))
+        with Image.open(path) as im:                      # nisbati saqlanadi: model cho'zilmaydi va kesilmaydi
+            im = im.convert("RGB")
+            im.thumbnail((cell, cell), Image.LANCZOS)
+            sheet.paste(im, (x + (cell - im.width) // 2, y + (cell - im.height) // 2))
         name = cat[mid]["nom_uz"] if language in ("uz", "uz_cyrl", "kk") else cat[mid]["nom"]
         if numbered:
             name = f"{k + 1}. {name}"
