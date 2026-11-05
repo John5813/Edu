@@ -582,6 +582,18 @@ IMAGE_MODELS = {
 
 DEFAULT_IMAGE_MODEL = "flux2_pro"
 
+# Tibbiy mavzu (shifokor, bemor, anatomiya...) da arzon modellar tana tuzilishini buzadi (masalan, bemorning oyog'i
+# shifokorning qo'liga ulanib qoladi). Shunda admin tanlagan model arzon bo'lsa, rasm shu kuchliroq model bilan chiziladi;
+# qolgan mavzularda admin tanlovi o'zgarmaydi. `MEDICAL_IMAGE_MODEL` muhit o'zgaruvchisi bilan almashtiriladi.
+MEDICAL_IMAGE_MODEL = os.getenv("MEDICAL_IMAGE_MODEL") or "black-forest-labs/FLUX.2-pro"
+MEDICAL_WEAK_IMAGE_MODELS = {
+    "RunDiffusion/Juggernaut-pro-flux",
+    "black-forest-labs/FLUX.1-schnell",
+    "HiDream-ai/HiDream-I1-Dev",
+    "HiDream-ai/HiDream-I1-Full",
+    "Qwen/Qwen-Image",
+}
+
 # Tanlangan model ishlamasa shu tartibda keyingisi sinaladi.
 IMAGE_MODEL_FALLBACKS = [
     "black-forest-labs/FLUX.2-pro",

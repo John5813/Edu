@@ -1,6 +1,7 @@
 import functools
 import logging
 import os
+import re
 import aiohttp
 import asyncio
 import base64
@@ -53,6 +54,46 @@ def _retry_delay(error, attempt: int) -> float:
 _RATE_LIMIT_ATTEMPTS = int(os.getenv("TOGETHER_RATE_LIMIT_ATTEMPTS", "6"))
 
 
+# Tibbiy mavzu belgisi: prompt inglizcha, mavzu esa uz/ru/en bo'lishi mumkin.
+_MEDICAL_RE = re.compile(
+    r"(doctor|physician|surgeon|surgery|surgical|nurse|patient|hospital|clinic|medical|medicine|anatom|"
+    r"x-ray|stethoscope|diagnos|dentist|dental|ultrasound|\bmri\b|health ?care|pharmac|syringe|physiotherap|"
+    r"rehabilitat|skeleton|cardiolog|orthop|"
+    r"tibbiy|shifokor|bemor|kasallik|davolash|jarroh|hamshira|salomatlik|kasalxona|"
+    r"медицин|врач|пациент|больн|болезн|хирург|лечени|анатоми|здоровь)",
+    re.IGNORECASE,
+)
+
+# Tibbiy rasmlarda model tanani buzmasligi uchun promptga qo'shiladi.
+_ANATOMY_GUARD = (
+    ", anatomically correct human bodies, natural proportions, each person has exactly two arms, two legs "
+    "and two hands with five fingers, every body clearly separate with no merged, fused, extra or "
+    "disconnected limbs"
+)
+
+
+_MEDICAL_PROMPT_RULE = (
+    "7. Medical topic: AI image models fuse bodies together, so NEVER show a doctor touching, holding or "
+    "examining a patient's limb. Prefer: one doctor alone, medical equipment, a hospital room, a doctor "
+    "pointing at a monitor, or a doctor and patient sitting apart across a desk. At most two people, "
+    "each with clearly separate body, hands visible and natural.\n"
+)
+
+
+def is_medical(*texts: str) -> bool:
+    """Berilgan matnlardan (prompt, mavzu, slayd sarlavhasi) birortasi tibbiyotga oidmi."""
+    return any(t and _MEDICAL_RE.search(t) for t in texts)
+
+
+def medical_chain(chain: list) -> list:
+    """Tibbiy rasm uchun model zanjiri: boshida arzon (tanani buzadigan) model tursa, uning o'rniga kuchlisi qo'yiladi."""
+    from config import MEDICAL_IMAGE_MODEL, MEDICAL_WEAK_IMAGE_MODELS
+
+    if not chain or chain[0] not in MEDICAL_WEAK_IMAGE_MODELS:
+        return chain
+    return [MEDICAL_IMAGE_MODEL] + [m for m in chain if m != MEDICAL_IMAGE_MODEL]
+
+
 class TogetherImageService:
     """Service for generating images using Together AI FLUX models"""
 
@@ -82,6 +123,7 @@ class TogetherImageService:
     
     async def _generate_image_prompt(self, topic: str, slide_title: str) -> str:
         """Generate a context-aware English image prompt using topic + slide title."""
+        medical_rule = _MEDICAL_PROMPT_RULE if is_medical(topic, slide_title) else ""
         try:
             prompt_request = (
                 f"Generate a short, specific English image prompt for a presentation slide.\n\n"
@@ -96,7 +138,8 @@ class TogetherImageService:
                 f"5. Do NOT include objects that normally carry writing: books or book covers, posters, "
                 f"signs, banners, whiteboards or blackboards with writing, screens, papers, documents, "
                 f"labels, logos, packaging.\n"
-                f"6. Professional photography or realistic illustration style.\n\n"
+                f"6. Professional photography or realistic illustration style.\n"
+                f"{medical_rule}\n"
                 f"Output ONLY the prompt, nothing else."
             )
 
@@ -119,7 +162,7 @@ class TogetherImageService:
             return ("Professional realistic photograph of people engaged in thoughtful work, "
                     "natural light, calm modern interior, shallow depth of field")
     
-    async def _render(self, prompt: str, target: str, stem: str) -> Optional[str]:
+    async def _render(self, prompt: str, target: str, stem: str, topic: str = "") -> Optional[str]:
         """Promptni rasmga aylantiradi va fayl yo'lini qaytaradi.
 
         Avval `target` xizmati uchun tanlangan model, u ishlamasa zaxira
@@ -140,8 +183,13 @@ class TogetherImageService:
             prompt = strip_text_requests(cleaned)
         except Exception as _ex:
             logger.warning(f"Image prompt sanitizer unavailable: {_ex}")
+        chain = await image_model_chain(target)
+        if is_medical(prompt, topic):
+            # Arzon model tibbiy rasmda tanani buzadi (oyoq qo'lga ulanadi) — kuchliroq model + anatomiya cheklovi.
+            prompt += _ANATOMY_GUARD
+            chain = medical_chain(chain)
         no_credit = []
-        for model in await image_model_chain(target):
+        for model in chain:
             try:
                 response = await self._call_model(prompt, model)
             except _NoCredits as err:
@@ -281,7 +329,7 @@ class TogetherImageService:
         return None
 
     async def generate_image(self, prompt: str, aspect_ratio: str = "16:9", steps: int = 4,
-                             target: str = "docs") -> Optional[str]:
+                             target: str = "docs", topic: str = "") -> Optional[str]:
         """Generate image using the Together AI model chosen for `target`.
 
         Args:
@@ -295,7 +343,7 @@ class TogetherImageService:
         """
         try:
             logger.info(f"Generating image ({target}) with prompt: {prompt[:100]}...")
-            return await self._render(prompt, target, "together_image")
+            return await self._render(prompt, target, "together_image", topic=topic)
 
         except Exception as e:
             logger.error(f"Error generating image: {e}")
@@ -304,7 +352,7 @@ class TogetherImageService:
     async def generate_slide_image(self, topic: str, slide_title: str, language: str, text_overlay: str = None) -> Optional[str]:
         """Oddiy taqdimot slaydi uchun rasm (rasmda matn bo'lmaydi)."""
         prompt = await self._generate_image_prompt(topic, slide_title)
-        return await self.generate_image(prompt, aspect_ratio="16:9", target="presentation")
+        return await self.generate_image(prompt, aspect_ratio="16:9", target="presentation", topic=topic)
     
     async def generate_cover_image(self, topic: str, language: str) -> Optional[str]:
         """Oddiy taqdimot muqovasi uchun mavzuga mos rasm (rasmda matn yo'q).
@@ -315,12 +363,12 @@ class TogetherImageService:
         """
         prompt = await self._generate_image_prompt(topic, topic)
         prompt += ", wide cinematic composition, soft natural light, high quality photograph"
-        return await self.generate_image(prompt, aspect_ratio="16:9", target="presentation")
+        return await self.generate_image(prompt, aspect_ratio="16:9", target="presentation", topic=topic)
     
     async def generate_panoramic_image(self, topic: str, slide_title: str, language: str) -> Optional[str]:
         """Oddiy taqdimotning keng (panorama) slaydi uchun rasm."""
         prompt = await self._generate_image_prompt(topic, slide_title)
-        return await self.generate_image(prompt, aspect_ratio="16:9", target="presentation")
+        return await self.generate_image(prompt, aspect_ratio="16:9", target="presentation", topic=topic)
     
     async def _download_image(self, image_url: str, filename: str) -> Optional[str]:
         """Download image from URL with timeout + small retry loop."""
@@ -373,7 +421,7 @@ class TogetherImageService:
             )
 
             logger.info(f"Generating {image_type} image for a document...")
-            image_path = await self._render(image_prompt, "docs", f"course_work_{image_type}")
+            image_path = await self._render(image_prompt, "docs", f"course_work_{image_type}", topic=topic)
             if image_path:
                 return image_path, image_prompt
 
