@@ -146,5 +146,61 @@ with patch.object(together_service, "_retry_delay", return_value=0.0):
 check(f"429: {together_service._RATE_LIMIT_ATTEMPTS} attempts, then gives up",
       result is None and len(tries) == together_service._RATE_LIMIT_ATTEMPTS, len(tries))
 
+
+print("6) Bitta modelga 402 — butun hisob tugagan emas: zaxira model chizadi, xabar tinch, model chetlab o'tiladi")
+from services import admin_alerts
+
+CREDIT_402 = ("Error code: 402 - {'error': {'message': 'A positive credit balance is required to use this model. "
+              "Please navigate to https://api.together.ai/settings/billing to add additional credits.', "
+              "'type': 'credit_limit'}}")
+sent = []
+admin_alerts._bot = object()
+admin_alerts._sent.clear()
+admin_alerts.alert = lambda key, text, cooldown=admin_alerts.COOLDOWN: sent.append((key, text, cooldown))
+together_service._unavailable.clear()
+calls = []
+
+
+def generate_402_first(**kwargs):
+    calls.append(kwargs["model"])
+    if kwargs["model"] == "RunDiffusion/Juggernaut-pro-flux":
+        raise Exception(CREDIT_402)
+    return SimpleNamespace(data=[SimpleNamespace(url=None, b64_json="aGVsbG8=")])
+
+
+service.client = SimpleNamespace(images=SimpleNamespace(generate=generate_402_first))
+models = ["RunDiffusion/Juggernaut-pro-flux", "black-forest-labs/FLUX.2-pro"]
+
+
+async def two_images():
+    return [await service.generate_with_models("a mosque", models, stem="t_402") for _ in range(2)]
+
+
+paths = asyncio.run(two_images())
+check("ikkala rasm zaxira model bilan chizildi", all(paths), paths)
+check("402 bergan model ikkinchi rasmda qayta sinalmadi", calls.count("RunDiffusion/Juggernaut-pro-flux") == 1, calls)
+check("«limit tugadi» deb shoshilinch xabar YO'Q", not [k for k, _, _ in sent if k == "together_credits"], sent)
+info = [x for x in sent if x[0] == "together_model_402"]
+check("tinch ma'lumot xabari bor, 6 soatda bir marta", len(info) >= 1 and all(c == 6 * 3600.0 for _, _, c in info)
+      and "ish to'xtamagan" in info[0][1] and "Juggernaut" in info[0][1], info)
+for path in paths:
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+
+sent.clear()
+together_service._unavailable.clear()
+
+
+def generate_all_402(**kwargs):
+    raise Exception(CREDIT_402)
+
+
+service.client = SimpleNamespace(images=SimpleNamespace(generate=generate_all_402))
+none = asyncio.run(service.generate_with_models("a mosque", models, stem="t_402"))
+check("hamma model 402 bersa — rasm yo'q va shoshilinch xabar bor", none is None
+      and [k for k, _, _ in sent] == ["together_credits"], sent)
+
 print("\nNATIJA:", "HAMMASI O'TDI" if not FAILS else f"{len(FAILS)} ta xato: {FAILS}")
 sys.exit(1 if FAILS else 0)

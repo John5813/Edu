@@ -578,7 +578,8 @@ def _picture(slide, st, lay, path: str, target: Optional[Tuple[float, float]], l
     return [ring, arrow]
 
 
-def _text_column(slide, data: dict, number: int, total: int, source: str, st, lay, lang: str = "uz") -> List:
+def _text_column(slide, data: dict, number: int, total: int, source: str, st, lay, lang: str = "uz",
+                 author: str = "") -> List:
     tx, ty, tw, th = lay.title
     bx, by, bw, bh = lay.body
     if _has_picture(data, lay):                          # rasm matn ostida — matn qisqaroq joyda
@@ -607,6 +608,18 @@ def _text_column(slide, data: dict, number: int, total: int, source: str, st, la
     fx, fy = (W - 6.9, 0.22) if lay.key == "pastki" else (0.65, H - 0.62)
     design.textbox(slide, "!!page", fx, fy, 1.2, 0.3, f"{number + 1:02d} / {total:02d}", size=10, color=st.muted,
                    font=st.body_font)
+    if number == 0 and author:                           # mijoz ismi: birinchi slaydda, sarlavha ostida (joy bo'lmasa — pastda)
+        from services import author_mark
+        from services.premium_presentation.html_slides import _CREDIT_LABEL
+
+        line = f"{_CREDIT_LABEL.get(lang, _CREDIT_LABEL['uz'])}: {author}"
+        if by - (ty + th) >= 0.32:
+            box = design.textbox(slide, "!!author", tx, ty + th + 0.02, tw, 0.3, line, size=13, smallest=9,
+                                 color=st.accent, font=st.body_font, bold=True)
+        else:
+            box = design.textbox(slide, "!!author", fx + 1.3, fy, 4.5, 0.3, line, size=11, smallest=8,
+                                 color=st.muted, font=st.body_font)
+        author_mark.mark(box)
     # Manba (litsenziya talabi: BodyParts3D — CC BY 4.0, Z-Anatomy — CC BY-SA 4.0) slaydda emas, izohda va
     # fayl xususiyatlarida — namoyishda mijozga ko'rinmaydi.
     slide.notes_slide.notes_text_frame.text = f"3D: {source}"
@@ -863,7 +876,8 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
         design.ground_shadow(slide, st, model_box)
         # Yordamchi (avtomatik o'tadigan) slaydlar raqamga kirmaydi: u keyingi slaydning raqamini ko'rsatadi.
         number = sum(1 for s in slides[:index] if not s.get("auto"))
-        _text_column(slide, data, number, total, scene["source"], st, lay, plan.get("language") or "uz")
+        _text_column(slide, data, number, total, scene["source"], st, lay, plan.get("language") or "uz",
+                     plan.get("author") or "")
 
         placed = set(cur["names"])
         # fade — bu slaydga o'tishda organlar uchib kelmaydi, o'z joyida asta almashadi (Morph o'zi so'ndiradi).

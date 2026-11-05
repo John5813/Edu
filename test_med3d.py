@@ -229,6 +229,20 @@ for _pid, _info in _at.by_id.items():
     _bad[_side] += int(_vol < 0)
 check("chap va o'ng mushaklar bir xil yo'nalishda (chap tomoni teskari emas)", _bad["left"] <= _bad["right"] + 2, _bad)
 
+
+print("5) 3D Anatomiya: mijoz ismi birinchi slaydda (kiritilgan bo'lsa)")
+from pptx import Presentation as _Prs
+
+out_named = os.path.join(tempfile.mkdtemp(), "named.pptx")
+build({**DEMO_PLAN, "author": "Ali Valiyev"}, out_named)
+_slides = list(_Prs(out_named).slides)
+_hits = [(i, sh) for i, sl in enumerate(_slides) for sh in sl.shapes if sh.has_text_frame and "Ali Valiyev" in sh.text_frame.text]
+check("ism faqat birinchi slaydda, bir marta", len(_hits) == 1 and _hits[0][0] == 0, [i for i, _ in _hits])
+check("«Tayyorladi: Ali Valiyev», mijoz ismi deb belgilangan", _hits and _hits[0][1].text_frame.text.startswith("Tayyorladi")
+      and _hits[0][1].name == "Mijoz ismi", _hits and _hits[0][1].text_frame.text)
+check("ism kiritilmasa — ism yo'q", not any(sh.has_text_frame and "Tayyorladi" in sh.text_frame.text
+                                            for sl in _Prs(out).slides for sh in sl.shapes))
+
 print()
 print("HAMMASI O'TDI" if not FAILS else f"XATOLAR: {len(FAILS)}")
 sys.exit(1 if FAILS else 0)

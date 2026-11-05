@@ -31,12 +31,12 @@ async def _send(text: str) -> None:
             log.debug("Adminga xabar yuborilmadi (%s): %s", admin, exc)
 
 
-def alert(key: str, text: str) -> None:
-    """Xabarni fonda yuboradi; `key` bo'yicha takrorlanmaydi."""
+def alert(key: str, text: str, cooldown: float = COOLDOWN) -> None:
+    """Xabarni fonda yuboradi; `key` bo'yicha `cooldown` soniya ichida takrorlanmaydi."""
     if _bot is None:
         return
     now = time.monotonic()
-    if now - _sent.get(key, -COOLDOWN) < COOLDOWN:
+    if now - _sent.get(key, -cooldown) < cooldown:
         return
     try:
         loop = asyncio.get_running_loop()

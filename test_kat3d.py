@@ -679,12 +679,12 @@ async def partial_flow():
     await pp.premium_kat3d_pick(cb, state, db)
     check("hech narsa tanlanmasa — davom etmaydi", cb.answer.call_args.kwargs.get("show_alert")
           and await state.get_state() == PS.waiting_for_kat3d_pick.state)
-    for k in range(5):
+    for k in range(2):
         await pp.premium_kat3d_pick(callback(chat, f"prem_k3p:{k}"), state, db)
-    cb = callback(chat, "prem_k3p:5")
+    cb = callback(chat, "prem_k3p:2")
     await pp.premium_kat3d_pick(cb, state, db)
     data = await state.get_data()
-    check("slaydlar sonidan (5) ko'p tanlab bo'lmaydi", len(data["kat3d_ids"]) == 5 and cb.answer.call_args.kwargs.get("show_alert"),
+    check("3D soni slaydlarning ~30% idan oshmaydi (5 slaydda 2 ta)", len(data["kat3d_ids"]) == 2 and cb.answer.call_args.kwargs.get("show_alert"),
           data["kat3d_ids"])
     await pp.premium_kat3d_pick(callback(chat, "prem_k3p:0"), state, db)
     check("bosilsa tanlov bekor bo'ladi", NEFERTITI not in (await state.get_data())["kat3d_ids"])
@@ -699,6 +699,178 @@ async def partial_flow():
 
 asyncio.run(bot_flow())
 asyncio.run(partial_flow())
+
+
+print("9) Muqovada mijoz ismi (mavzu ostida) va tanlangan slaydlar soni to'liq")
+plan_named = {**plan, "author": "Ali Valiyev"}
+out_named = os.path.join(TMP, "kat3d_named.pptx")
+deck.build(plan_named, out_named)
+first = Presentation(out_named).slides[0]
+texts_ = {sh.name: sh for sh in first.shapes if sh.has_text_frame}
+named = [sh for sh in first.shapes if sh.has_text_frame and "Ali Valiyev" in sh.text_frame.text]
+title_box = next((sh for sh in first.shapes if sh.has_text_frame and sh.text_frame.text.strip() == "Qadimgi Misr"
+                  or (sh.has_text_frame and "QADIMGI MISR" in sh.text_frame.text.upper())), None)
+check("muqovada «Tayyorladi: Ali Valiyev» bor", len(named) == 1 and named[0].text_frame.text.startswith("Tayyorladi"),
+      [sh.text_frame.text for sh in first.shapes if sh.has_text_frame])
+check("ism qutisi mijoz ismi deb belgilangan (do'kon nusxasida olib tashlanadi)", named and named[0].name == "Mijoz ismi")
+check("ism mavzu (sarlavha) ostida: sarlavhadan pastroqda, chap chekkasi bir xil",
+      title_box is not None and named[0].top > title_box.top + 300000 and named[0].left == title_box.left,
+      (named[0].top, named[0].left, title_box and (title_box.top, title_box.left)))
+no_name = Presentation(out).slides[0]
+check("ism kiritilmasa — ism qatori yo'q", not any(sh.has_text_frame and "Tayyorladi" in sh.text_frame.text
+                                                  for sh in no_name.shapes))
+
+full8 = {"style": "vitrina", "slides": [{"layout": "chap", "title": f"S{i}", "points": ["a"], "models": ["m0"]}
+                                          for i in range(8)]}
+short3 = {"style": "vitrina", "slides": full8["slides"][:3]}            # javob token chegarasida kesilgan
+calls = []
+
+
+def fake_plan_ai(topic, count, codes_, language, level, preferences, mix=False, boost=1.0):
+    calls.append(boost)
+    return short3 if len(calls) < 3 else full8
+
+
+with mock.patch.object(reja, "_plan_ai", side_effect=fake_plan_ai), mock.patch.object(reja, "REVIEW_ON", False):
+    got = reja.plan("Misr", 8, IDS, "uz", 2, "", None, False)
+check("qisqa reja (3 ta) qabul qilinmadi — qayta so'rab 8 ta oldi", len(got["slides"]) == 8, len(got["slides"]))
+check("qayta so'rashda javob hajmi oshiriladi", calls == [1.0, 1.5, 2.0], calls)
+calls.clear()
+with mock.patch.object(reja, "_plan_ai", return_value=short3), mock.patch.object(reja, "REVIEW_ON", False):
+    try:
+        reja.plan("Misr", 8, IDS, "uz", 2, "", None, False)
+        failed = False
+    except RuntimeError as exc:
+        failed = "to'liq emas" in str(exc)
+check("hamma urinish qisqa bo'lsa — 3 slaydli fayl emas, xato (pul qaytariladi)", failed)
+
+
+print("10) Aralash taqdimot: 3D ko'p takrorlanmaydi, AI rasmlar 3D soniga teng")
+check("aralash: 3D va rasmli slaydlar ~30% — 10 slaydda 3, 20 slaydda 6, 15 da 5, 5 da 2/1",
+      [reja.mix_target(n) for n in (10, 20, 15, 8, 5)] == [3, 6, 5, 2, 2]
+      and [reja.pictures_target(n) for n in (10, 20, 15, 8, 5)] == [3, 6, 5, 2, 1],
+      ([reja.mix_target(n) for n in (10, 20, 15, 8, 5)], [reja.pictures_target(n) for n in (10, 20, 15, 8, 5)]))
+# AI qoidaga rioya qilmadi: har slaydga model qo'ydi va rasmli slayd bermadi — «to'liq 3D» ko'rinishi
+greedy = {"style": "vitrina", "slides": [
+    {"layout": "muqova", "title": "Misr", "models": ["m0"]}] + [
+    {"layout": ("chap", "ong", "matn")[i % 3], "title": f"Bo'lim {i}", "points": [S, S], "paragraphs": [S],
+     "models": [f"m{i % 3}"]} for i in range(8)] + [
+    {"layout": "yakun", "title": "Xulosa", "points": [S, S], "models": ["m0", "m1", "m2"]}]}
+g = reja.normalize(greedy, 10, mix_ids, mix_codes, mix=True)
+appear = {m: sum(m in s["models"] for s in g["slides"][:-1]) for m in mix_ids}
+check("har model muqova+ichki slaydlarda aynan bir marta (to'liq 3D emas)", set(appear.values()) == {1}, appear)
+check("3D'li slaydlar 3 ta (10 slaydda), qolgan ko'pi 3D'siz", sum(1 for s in g["slides"][:-1] if s["models"]) == 3
+      and sum(1 for s in g["slides"] if not s["models"]) >= 6, [len(s["models"]) for s in g["slides"]])
+pics = [s for s in g["slides"] if s["layout"] == "rasm"]
+check("rasmli slaydlar aynan 3 ta (3D soniga teng)", len(pics) == 3, [s["layout"] for s in g["slides"]])
+check("rasmli slaydda tavsif va punktlar bor, ketma-ket emas",
+      all(s["photo"] for s in pics) and not any(a["layout"] == b["layout"] == "rasm"
+                                                for a, b in zip(g["slides"], g["slides"][1:])))
+check("modelsiz «qahramon» va «uchlik» yo'q", not any(s["layout"] in ("qahramon", "uchlik") and not s["models"]
+                                                      for s in g["slides"]))
+greedy20 = {"style": "vitrina", "slides": [{"layout": "muqova", "title": "Misr", "models": ["m0"]}] + [
+    {"layout": ("chap", "ong", "matn")[i % 3], "title": f"Bo'lim {i}", "points": [S, S], "paragraphs": [S],
+     "models": [f"m{i % 3}"]} for i in range(18)] + [{"layout": "yakun", "title": "Xulosa", "points": [S, S],
+                                                      "models": ["m0", "m1", "m2"]}]}
+mix6 = [NEFERTITI, SKARABEY, SMILODON, SKARABEY2, GLOBE_ID] if False else mix_ids
+g20 = reja.normalize(greedy20, 20, mix_ids, mix_codes, mix=True)
+check("20 slaydda 6 ta AI rasm", sum(1 for s in g20["slides"] if s["layout"] == "rasm") == 6,
+      [s["layout"] for s in g20["slides"]])
+check("20 slaydda ham har model bir marta", {m: sum(m in s["models"] for s in g20["slides"][:-1]) for m in mix_ids}
+      == {m: 1 for m in mix_ids})
+only_full = reja.normalize(greedy, 10, mix_ids, mix_codes)
+check("to'liq rejimda esa hammasi 3D (o'zgarmagan)", all(s["models"] for s in only_full["slides"])
+      and not any(s["layout"] == "rasm" for s in only_full["slides"]))
+
+import asyncio as _asyncio
+import services.kat3d as _kat3d
+from unittest import mock as _mock
+
+_plan_pics = {"slides": [{"layout": "rasm", "title": f"R{i}", "photo": f"scene {i}", "points": [S]} for i in range(3)]}
+_calls = []
+
+
+class _FakeTogether:
+    async def generate_with_models(self, prompt, models, stem="x", clean=True):
+        _calls.append((prompt, tuple(models)))
+        path = os.path.join(TMP, f"ai_{len(_calls)}.png")
+        _Img.new("RGB", (800, 800), (90, 120, 200)).save(path)
+        return path
+
+
+async def _web_never(*a, **k):
+    raise AssertionError("AI chizgan bo'lsa internetga borilmaydi")
+
+with _mock.patch("services.premium_presentation.html_images.photos_enabled", return_value=True), \
+     _mock.patch("services.together_service.get_together_service", return_value=_FakeTogether()), \
+     _mock.patch("services.photo_search.find_photos", _web_never):
+    _asyncio.run(_kat3d._photos("Misr", _plan_pics, lambda *a, **k: None))
+check("rasmlarni sifatli AI modeli chizdi (FLUX.2-pro birinchi)", len(_calls) == 3
+      and _calls[0][1][0] == "black-forest-labs/FLUX.2-pro" and "scene 0" in _calls[0][0], _calls[:1])
+check("AI so'rovida yozuv va diagramma taqiqlangan", "no text" in _calls[0][0])
+check("har rasmli slaydga AI rasm yo'li qo'yildi", all(os.path.isfile(x.get("photo_path", "")) for x in _plan_pics["slides"]))
+
+_plan_fb = {"slides": [{"layout": "rasm", "title": "R", "photo": "scene", "points": [S]}]}
+_web = []
+
+
+async def _web_ok(topic, slots, **k):
+    _web.append(slots)
+    path = os.path.join(TMP, "web.jpg")
+    _Img.new("RGB", (800, 600), (200, 150, 90)).save(path)
+    return [path]
+
+
+class _BrokenTogether:
+    async def generate_with_models(self, *a, **k):
+        return None
+
+with _mock.patch("services.premium_presentation.html_images.photos_enabled", return_value=True), \
+     _mock.patch("services.together_service.get_together_service", return_value=_BrokenTogether()), \
+     _mock.patch("services.photo_search.find_photos", _web_ok):
+    _asyncio.run(_kat3d._photos("Misr", _plan_fb, lambda *a, **k: None))
+check("AI chizolmasa — internetdagi foto zaxira", _web and os.path.isfile(_plan_fb["slides"][0].get("photo_path", "")))
+
+
+print("11) Kollaj: keng rasm cho'zilmaydi (nisbati saqlanadi)")
+import io as _io
+wide = os.path.join(TMP, "wide.png")
+_Img.new("RGB", (600, 300), (200, 30, 30)).save(wide)
+with _mock.patch.object(katalog3d, "preview_yoli", return_value=wide):
+    sheet = _Img.open(_io.BytesIO(qidiruv.collage([NEFERTITI], "uz")))
+check("keng rasm 300x150 bo'lib joylashdi: tepa va past chetlari fon rangida", sheet.getpixel((150, 5))[0] > 200
+      and sheet.getpixel((150, 5))[1] > 200 and sheet.getpixel((150, 150))[0] > 150 and sheet.getpixel((150, 150))[1] < 90,
+      (sheet.getpixel((150, 5)), sheet.getpixel((150, 150))))
+
+
+print("12) Rangsiz (oq) modellar mavzuga mos rangga boyaladi, rangli modellarga tegilmaydi")
+import numpy as _np
+from services.kat3d import boyash
+from services.med3d import glb as _glb
+
+_tri = dict(positions=_np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]], _np.float32),
+            normals=_np.array([[0, 0, 1]] * 3, _np.float32), indices=_np.array([0, 1, 2]))
+white_glb = _glb.write_glb([_glb.Primitive(color=(1.0, 1.0, 1.0), **_tri)])
+grey_glb = _glb.write_glb([_glb.Primitive(color=(0.8, 0.8, 0.82), **_tri)])
+red_glb = _glb.write_glb([_glb.Primitive(color=(0.8, 0.1, 0.1), **_tri)])
+head = {"nom": "Human head anatomy", "nom_uz": "Odam boshi anatomiyasi", "kalit": ["head", "face"], "fan": "biologiya"}
+painted, colour = boyash.paint(white_glb, head)
+doc_p, _ = _glb.read_glb(painted)
+fac = doc_p["materials"][0]["pbrMetallicRoughness"]["baseColorFactor"]
+check("oq model boyaldi (anatomiya → mushak rangi)", colour == "C0645A" and fac[0] > fac[2] + 0.2 and fac[3] == 1.0, (colour, fac))
+check("boyalgan GLB yaroqli: chegara qutisi o'zgarmadi", _np.allclose(_glb.bounds(painted)[1], _glb.bounds(white_glb)[1]))
+painted_g, colour_g = boyash.paint(grey_glb, {"nom": "Gold crown", "kalit": ["crown"], "fan": "tarix"})
+check("kulrang ham rangsiz: nomiga qarab rang (tojga oltin)", colour_g == "D8B24A", colour_g)
+same, none_colour = boyash.paint(red_glb, head)
+check("rangli model o'zgarishsiz qaytadi", same == red_glb and none_colour is None)
+check("rang tanlash: miya / suyak / teri / noma'lum", [boyash.colour_for(i) for i in (
+    {"nom": "Human brain model"}, {"nom": "Skull"}, {"nom": "Bust of a woman"}, {"nom": "Old chair", "fan": "mebel"})]
+      == ["E6A9A4", "EADFC9", "E3B08F", boyash.DEFAULT])
+junk, junk_colour = boyash.paint(b"bu glb emas", head)
+check("buzilgan fayl — asl holicha (xato bermaydi)", junk == b"bu glb emas" and junk_colour is None)
+with_colors = _glb.write_glb([_glb.Primitive(color=(1.0, 1.0, 1.0), colors=_np.array([[200, 30, 30, 255]] * 3, _np.uint8),
+                                             **_tri)])
+check("nuqta ranglari bor model — rangli deb hisoblanadi", boyash.paint(with_colors, head)[1] is None)
 
 print()
 print("HAMMASI OK" if not FAILS else f"{len(FAILS)} ta XATO: {FAILS}")

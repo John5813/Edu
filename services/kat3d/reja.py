@@ -67,16 +67,18 @@ Return ONLY JSON: {{"style": "key", "slides": [{{"layout": "...", "kicker": "...
 "models": ["m0"], "notes": "..."}}]}}"""
 
 MIX_RULES = """MIXED DECK (the client chose it) — this replaces the rule that every slide shows a model. The client
-picked the 3D models listed below: put EVERY one of them on the slide where it fits best (one or two slides
-each; the cover may show one). Slides that show a model list it in "models"; ALL other slides have
-"models": [] and use one of:
+picked the 3D models listed below: put EVERY one of them on the slide where it fits best — ONE slide each
+(at most two; the cover may show one). Only these few slides show a model and list it in "models"; ALL OTHER
+slides (most of the deck) have "models": [] and use one of:
 - "diagramma": a native chart with well-known, real data only — "chart": {{"type": "column"|"bar"|"line"|"pie",
   "title": "...", "labels": [3-7 short labels], "values": [numbers], "unit": "%"}} + "subtitle" + 2-3 "points".
 - "rasm": a real photo — "photo": "short English image-search query (what the photo shows)" + "subtitle" +
   2-4 "points".
 - any text layout without a model: "kartalar", "bosqichlar", "jadval", "xronologiya", "raqamlar", "matn",
   "taqqoslash", "savol", "fikr", "chap", "ong".
-Use "diagramma" and "rasm" at least once each when the topic allows. "qahramon" and "uchlik" need models.
+Use "rasm" on EXACTLY {pictures} slides (the picture is drawn by an AI image model: write a vivid, concrete
+English scene description in "photo" — subject, setting, light; never text, diagrams or labels) and "diagramma"
+at least once when the topic allows. "qahramon" and "uchlik" need models.
 """
 
 USER = """Topic: {topic}
@@ -103,8 +105,61 @@ def _clip(value, limit: int) -> str:
     return cut + "…"
 
 
+def mix_target(count: int) -> int:
+    """Aralash taqdimotda 3D'li va AI rasmli slaydlarning har birining soni — slaydlarning ~30%: 10 slaydda 3 ta,
+    20 slaydda 6 ta. Qolgani diagramma va matn."""
+    return max(1, int(count * 0.3 + 0.5))
+
+
+def pictures_target(count: int, models: int = 0) -> int:
+    """AI chizadigan rasmli slaydlar soni (`mix_target`, lekin 3D'siz slaydlarning yarmidan oshmaydi):
+    10 slaydda 3 ta, 20 slaydda 6 ta. `models` — eski imzo uchun, hisobga olinmaydi."""
+    return max(1, min(mix_target(count), (count - 2) // 2))
+
+
+def _mix_balance(slides: List[dict], ids: Sequence[str], count: int) -> None:
+    """Aralash taqdimot: AI qoidaga rioya qilmasa ham 3D ko'p slaydda takrorlanmasin va rasmli slaydlar aniq bo'lsin.
+
+    - har model muqova va ichki slaydlar orasida faqat BIR slaydda (xulosa slaydi — modellar yig'iladigan joy, alohida);
+      ortiqchasi olib tashlanadi, slayd modelsiz matnli bo'lib qoladi;
+    - rasmli ("rasm") slaydlar aynan `pictures_target` ta: kam bo'lsa — modelsiz oddiy matnli slaydlar rasmliga
+      aylanadi, ortiqchasi matnli bo'ladi.
+    """
+    seen = set()
+    for s in slides[:-1]:
+        keep = []
+        for m in s["models"]:
+            if m not in seen:
+                seen.add(m)
+                keep.append(m)
+        s["models"] = keep
+        if not keep and s["layout"] in ("qahramon", "uchlik"):
+            _as_text(s, "chap")
+    want = pictures_target(count, len(ids))
+    have = 0
+    for s in slides[1:-1]:
+        if s["layout"] != "rasm":
+            continue
+        have += 1
+        if have > want:                                 # ortiqcha rasmli slayd — oddiy matnli
+            _as_text(s, "chap")
+            s["photo"] = ""
+            have -= 1
+    for k, s in enumerate(slides[1:-1], 1):
+        if have >= want:
+            break
+        if s["models"] or s["layout"] in ("rasm", "diagramma", "raqamlar", "fikr", "savol", "jadval"):
+            continue
+        if "rasm" in (slides[k - 1]["layout"], slides[k + 1]["layout"]):
+            continue                                    # ketma-ket ikki rasmli slayd bo'lmasin
+        _as_text(s, "chap")
+        s["layout"], s["photo"] = "rasm", s.get("photo") or s["title"]
+        s["points"] = s["points"][:MAX_POINTS["rasm"]] or ([s["subtitle"]] if s["subtitle"] else [])
+        have += 1
+
+
 def _plan_ai(topic: str, count: int, codes: Dict[str, str], language: str, level: int, preferences: str,
-             mix: bool = False) -> dict:
+             mix: bool = False, boost: float = 1.0) -> dict:
     from services import katalog3d
 
     cat = katalog3d.katalog()
@@ -112,8 +167,9 @@ def _plan_ai(topic: str, count: int, codes: Dict[str, str], language: str, level
     extra = f"Client's wishes: {preferences[:500]}\n" if preferences else ""
     user = USER.format(topic=topic, level=LEVELS.get(level, LEVELS[2]), language_rule=ai.language_rule(language),
                        extra=extra, models=models)
-    system = SYSTEM.format(count=count, styles=style_guide(), mix=MIX_RULES.format() if mix else "")
-    return ai.call_json(system, user, 1500 + 750 * count, language=language, model=ai.MODEL)
+    system = SYSTEM.format(count=count, styles=style_guide(),
+                           mix=MIX_RULES.format(pictures=pictures_target(count, len(codes))) if mix else "")
+    return ai.call_json(system, user, int((1500 + 750 * count) * boost), language=language, model=ai.MODEL)
 
 
 def _fit_size(ids: List[str], limit_mb: float = LIMIT_MB) -> List[str]:
@@ -355,7 +411,13 @@ def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str],
             elif len(slides[-1]["models"]) < 4:
                 slides[-1]["models"].append(mid)
             used[mid] += 1
+    if mix:
+        _mix_balance(slides, ids, count)
     _vary(slides)
+    if mix:                                             # `_vary` modelsiz slaydni «qahramon»ga aylantirgan bo'lishi mumkin
+        for s in slides:
+            if s["layout"] == "qahramon" and not s["models"]:
+                s["layout"] = "chap"
     for s in slides:                                    # kompozitsiya sig'diradigan punktlar soni
         limit = MAX_POINTS.get(s["layout"], 5)
         if len(s["points"]) > limit:
@@ -481,12 +543,31 @@ def review(plan: dict, language: str) -> int:
     return fixed
 
 
+MAX_ATTEMPTS = 3
+
+
 def plan(topic: str, count: int, ids: Sequence[str], language: str = "uz", level: int = 2,
          preferences: str = "", style: Optional[str] = None, mix: bool = False) -> dict:
     ids = list(dict.fromkeys(ids))
     codes = {f"m{i}": mid for i, mid in enumerate(ids)}
-    data = _plan_ai(topic, count, codes, language, level, preferences, mix)
-    out = normalize(data, count, ids, codes, mix)
+    # Mijoz tanlagan slaydlar soni to'liq bo'lsin: AI javobi token chegarasida kesilsa, qisman saqlangan reja
+    # (3 ta slayd) jimgina yetkazilardi. Qisqa chiqsa — javob hajmi oshirilib qayta so'raladi.
+    out, last = None, ""
+    for attempt in range(MAX_ATTEMPTS):
+        try:
+            data = _plan_ai(topic, count, codes, language, level, preferences, mix, boost=1 + 0.5 * attempt)
+            out = normalize(data, count, ids, codes, mix)
+        except RuntimeError as exc:                 # reja juda qisqa — keyingi urinish
+            out, last = None, str(exc)
+            log.warning("3D katalog reja (%d-urinish): %s", attempt + 1, exc)
+            continue
+        if len(out["slides"]) >= count or (attempt == MAX_ATTEMPTS - 1 and len(out["slides"]) >= count - 1):
+            break                                   # oxirgi urinishda bitta kam ham o'tadi (3 slaydli fayldan yaxshi)
+        last = f"{len(out['slides'])} slayd, kerak {count}"
+        log.warning("3D katalog reja qisqa (%d-urinish): %s", attempt + 1, last)
+        out = None
+    if out is None:
+        raise RuntimeError(f"AI reja to'liq emas: {last}")
     if REVIEW_ON:
         n = review(out, language)
         if n:
