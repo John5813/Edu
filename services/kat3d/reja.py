@@ -105,34 +105,46 @@ def _clip(value, limit: int) -> str:
     return cut + "…"
 
 
-def pictures_target(count: int, models: int) -> int:
-    """Aralash taqdimotda AI chizadigan rasmli slaydlar soni: 3D modellar soniga teng (kamida 2, ko'pi bilan 6) —
-    masalan 10 slaydda 3 ta model → 3 ta AI rasm; qolgani diagramma va matn."""
-    return max(1, min(max(2, models), 6, (count - 2) // 2))
+def mix_target(count: int) -> int:
+    """Aralash taqdimotda 3D'li va AI rasmli slaydlarning har birining soni — slaydlarning ~30%: 10 slaydda 3 ta,
+    20 slaydda 6 ta. Qolgani diagramma va matn."""
+    return max(1, int(count * 0.3 + 0.5))
+
+
+def pictures_target(count: int, models: int = 0) -> int:
+    """AI chizadigan rasmli slaydlar soni (`mix_target`, lekin 3D'siz slaydlarning yarmidan oshmaydi):
+    10 slaydda 3 ta, 20 slaydda 6 ta. `models` — eski imzo uchun, hisobga olinmaydi."""
+    return max(1, min(mix_target(count), (count - 2) // 2))
 
 
 def _mix_balance(slides: List[dict], ids: Sequence[str], count: int) -> None:
-    """Aralash taqdimot: AI qoidaga rioya qilmasa ham 3D ko'p slaydda takrorlanmasin va rasmli slaydlar yetarli bo'lsin.
+    """Aralash taqdimot: AI qoidaga rioya qilmasa ham 3D ko'p slaydda takrorlanmasin va rasmli slaydlar aniq bo'lsin.
 
-    - har model ko'pi bilan 2 slaydda (muqova va xulosa ham sanaladi) — ortiqchasi olib tashlanadi, slayd
-      modelsiz matnli bo'lib qoladi;
-    - rasmli ("rasm") slaydlar `pictures_target` ga yetmasa, modelsiz oddiy matnli slaydlar rasmliga aylanadi.
+    - har model muqova va ichki slaydlar orasida faqat BIR slaydda (xulosa slaydi — modellar yig'iladigan joy, alohida);
+      ortiqchasi olib tashlanadi, slayd modelsiz matnli bo'lib qoladi;
+    - rasmli ("rasm") slaydlar aynan `pictures_target` ta: kam bo'lsa — modelsiz oddiy matnli slaydlar rasmliga
+      aylanadi, ortiqchasi matnli bo'ladi.
     """
-    used = {m: 0 for m in ids}
-    for s in (slides[0], slides[-1]):
-        for m in s["models"]:
-            used[m] += 1
-    for s in slides[1:-1]:
+    seen = set()
+    for s in slides[:-1]:
         keep = []
         for m in s["models"]:
-            if used[m] < 2:
+            if m not in seen:
+                seen.add(m)
                 keep.append(m)
-                used[m] += 1
         s["models"] = keep
         if not keep and s["layout"] in ("qahramon", "uchlik"):
             _as_text(s, "chap")
     want = pictures_target(count, len(ids))
-    have = sum(1 for s in slides if s["layout"] == "rasm")
+    have = 0
+    for s in slides[1:-1]:
+        if s["layout"] != "rasm":
+            continue
+        have += 1
+        if have > want:                                 # ortiqcha rasmli slayd — oddiy matnli
+            _as_text(s, "chap")
+            s["photo"] = ""
+            have -= 1
     for k, s in enumerate(slides[1:-1], 1):
         if have >= want:
             break

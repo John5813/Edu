@@ -652,10 +652,10 @@ K3_PICK = {
            "Таңдалды: <b>{k}/{limit}</b>"),
 }
 K3_PICK_DONE = {"uz": "✅ Tayyor", "ru": "✅ Готово", "en": "✅ Done", "kk": "✅ Дайын"}
-K3_PICK_MAX = {"uz": "Ko'pi bilan {limit} ta tanlash mumkin — slaydlar soniga teng.",
-               "ru": "Можно выбрать не больше {limit} — по числу слайдов.",
-               "en": "You can pick at most {limit} — the number of slides.",
-               "kk": "Ең көбі {limit} таңдауға болады — слайдтар санына тең."}
+K3_PICK_MAX = {"uz": "Ko'pi bilan {limit} ta tanlash mumkin: aralash taqdimotda 3D slaydlar ~30%, shuncha AI rasm ham bo'ladi.",
+               "ru": "Можно выбрать не больше {limit}: в смешанной презентации 3D-слайдов ~30%, столько же картинок ИИ.",
+               "en": "You can pick at most {limit}: in a mixed deck ~30% of slides are 3D and as many are AI pictures.",
+               "kk": "Ең көбі {limit} таңдауға болады: аралас презентацияда 3D слайдтар ~30%, сонша ЖИ суреті бар."}
 K3_PICK_MIN = {"uz": "Kamida bitta 3D model tanlang.", "ru": "Выберите хотя бы одну 3D-модель.",
                "en": "Pick at least one 3D model.", "kk": "Кемінде бір 3D модель таңдаңыз."}
 K3_MIX_SUMMARY = {"uz": "🧩 Aralash 3D: qolgan slaydlarda diagramma va AI rasmlar (−40%)",
@@ -730,7 +730,9 @@ def _k3_pick_view(data: dict, lang: str):
     choices = list(data.get("kat3d_choices") or [])
     picked = [m for m in (data.get("kat3d_ids") or []) if m in choices]
     count = int(data.get("slide_count") or 10)
-    limit = max(1, min(count, len(choices)))
+    from services.kat3d import reja as _reja
+
+    limit = max(1, min(_reja.mix_target(count), len(choices)))      # aralash: 3D slaydlar ~30% (10 ta → 3, 20 ta → 6)
     text = (K3_PICK.get(lang) or K3_PICK["uz"]).format(limit=limit, count=count, k=len(picked))
     rows, row = [], []
     for k, mid in enumerate(choices[:20]):          # 2 ustun × 10 qator

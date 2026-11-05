@@ -679,12 +679,12 @@ async def partial_flow():
     await pp.premium_kat3d_pick(cb, state, db)
     check("hech narsa tanlanmasa — davom etmaydi", cb.answer.call_args.kwargs.get("show_alert")
           and await state.get_state() == PS.waiting_for_kat3d_pick.state)
-    for k in range(5):
+    for k in range(2):
         await pp.premium_kat3d_pick(callback(chat, f"prem_k3p:{k}"), state, db)
-    cb = callback(chat, "prem_k3p:5")
+    cb = callback(chat, "prem_k3p:2")
     await pp.premium_kat3d_pick(cb, state, db)
     data = await state.get_data()
-    check("slaydlar sonidan (5) ko'p tanlab bo'lmaydi", len(data["kat3d_ids"]) == 5 and cb.answer.call_args.kwargs.get("show_alert"),
+    check("3D soni slaydlarning ~30% idan oshmaydi (5 slaydda 2 ta)", len(data["kat3d_ids"]) == 2 and cb.answer.call_args.kwargs.get("show_alert"),
           data["kat3d_ids"])
     await pp.premium_kat3d_pick(callback(chat, "prem_k3p:0"), state, db)
     check("bosilsa tanlov bekor bo'ladi", NEFERTITI not in (await state.get_data())["kat3d_ids"])
@@ -746,9 +746,10 @@ check("hamma urinish qisqa bo'lsa — 3 slaydli fayl emas, xato (pul qaytariladi
 
 
 print("10) Aralash taqdimot: 3D ko'p takrorlanmaydi, AI rasmlar 3D soniga teng")
-check("rasmli slaydlar soni: 10 slaydda 3 model → 3", reja.pictures_target(10, 3) == 3
-      and reja.pictures_target(10, 1) == 2 and reja.pictures_target(5, 3) == 1 and reja.pictures_target(15, 9) == 6,
-      [reja.pictures_target(10, 3), reja.pictures_target(10, 1), reja.pictures_target(5, 3)])
+check("aralash: 3D va rasmli slaydlar ~30% — 10 slaydda 3, 20 slaydda 6, 15 da 5, 5 da 2/1",
+      [reja.mix_target(n) for n in (10, 20, 15, 8, 5)] == [3, 6, 5, 2, 2]
+      and [reja.pictures_target(n) for n in (10, 20, 15, 8, 5)] == [3, 6, 5, 2, 1],
+      ([reja.mix_target(n) for n in (10, 20, 15, 8, 5)], [reja.pictures_target(n) for n in (10, 20, 15, 8, 5)]))
 # AI qoidaga rioya qilmadi: har slaydga model qo'ydi va rasmli slayd bermadi — «to'liq 3D» ko'rinishi
 greedy = {"style": "vitrina", "slides": [
     {"layout": "muqova", "title": "Misr", "models": ["m0"]}] + [
@@ -756,10 +757,10 @@ greedy = {"style": "vitrina", "slides": [
      "models": [f"m{i % 3}"]} for i in range(8)] + [
     {"layout": "yakun", "title": "Xulosa", "points": [S, S], "models": ["m0", "m1", "m2"]}]}
 g = reja.normalize(greedy, 10, mix_ids, mix_codes, mix=True)
-appear = {m: sum(m in s["models"] for s in g["slides"]) for m in mix_ids}
-check("har model ko'pi bilan 2 slaydda (to'liq 3D emas)", max(appear.values()) <= 2 and min(appear.values()) >= 1, appear)
-check("3D ko'rsatadigan slaydlar kam, ko'pi 3D'siz", sum(1 for s in g["slides"] if s["models"]) <= 6
-      and sum(1 for s in g["slides"] if not s["models"]) >= 4, [len(s["models"]) for s in g["slides"]])
+appear = {m: sum(m in s["models"] for s in g["slides"][:-1]) for m in mix_ids}
+check("har model muqova+ichki slaydlarda aynan bir marta (to'liq 3D emas)", set(appear.values()) == {1}, appear)
+check("3D'li slaydlar 3 ta (10 slaydda), qolgan ko'pi 3D'siz", sum(1 for s in g["slides"][:-1] if s["models"]) == 3
+      and sum(1 for s in g["slides"] if not s["models"]) >= 6, [len(s["models"]) for s in g["slides"]])
 pics = [s for s in g["slides"] if s["layout"] == "rasm"]
 check("rasmli slaydlar aynan 3 ta (3D soniga teng)", len(pics) == 3, [s["layout"] for s in g["slides"]])
 check("rasmli slaydda tavsif va punktlar bor, ketma-ket emas",
@@ -767,6 +768,16 @@ check("rasmli slaydda tavsif va punktlar bor, ketma-ket emas",
                                                 for a, b in zip(g["slides"], g["slides"][1:])))
 check("modelsiz «qahramon» va «uchlik» yo'q", not any(s["layout"] in ("qahramon", "uchlik") and not s["models"]
                                                       for s in g["slides"]))
+greedy20 = {"style": "vitrina", "slides": [{"layout": "muqova", "title": "Misr", "models": ["m0"]}] + [
+    {"layout": ("chap", "ong", "matn")[i % 3], "title": f"Bo'lim {i}", "points": [S, S], "paragraphs": [S],
+     "models": [f"m{i % 3}"]} for i in range(18)] + [{"layout": "yakun", "title": "Xulosa", "points": [S, S],
+                                                      "models": ["m0", "m1", "m2"]}]}
+mix6 = [NEFERTITI, SKARABEY, SMILODON, SKARABEY2, GLOBE_ID] if False else mix_ids
+g20 = reja.normalize(greedy20, 20, mix_ids, mix_codes, mix=True)
+check("20 slaydda 6 ta AI rasm", sum(1 for s in g20["slides"] if s["layout"] == "rasm") == 6,
+      [s["layout"] for s in g20["slides"]])
+check("20 slaydda ham har model bir marta", {m: sum(m in s["models"] for s in g20["slides"][:-1]) for m in mix_ids}
+      == {m: 1 for m in mix_ids})
 only_full = reja.normalize(greedy, 10, mix_ids, mix_codes)
 check("to'liq rejimda esa hammasi 3D (o'zgarmagan)", all(s["models"] for s in only_full["slides"])
       and not any(s["layout"] == "rasm" for s in only_full["slides"]))
