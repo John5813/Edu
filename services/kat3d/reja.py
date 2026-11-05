@@ -104,7 +104,7 @@ def _clip(value, limit: int) -> str:
 
 
 def _plan_ai(topic: str, count: int, codes: Dict[str, str], language: str, level: int, preferences: str,
-             mix: bool = False) -> dict:
+             mix: bool = False, boost: float = 1.0) -> dict:
     from services import katalog3d
 
     cat = katalog3d.katalog()
@@ -113,7 +113,7 @@ def _plan_ai(topic: str, count: int, codes: Dict[str, str], language: str, level
     user = USER.format(topic=topic, level=LEVELS.get(level, LEVELS[2]), language_rule=ai.language_rule(language),
                        extra=extra, models=models)
     system = SYSTEM.format(count=count, styles=style_guide(), mix=MIX_RULES.format() if mix else "")
-    return ai.call_json(system, user, 1500 + 750 * count, language=language, model=ai.MODEL)
+    return ai.call_json(system, user, int((1500 + 750 * count) * boost), language=language, model=ai.MODEL)
 
 
 def _fit_size(ids: List[str], limit_mb: float = LIMIT_MB) -> List[str]:
@@ -481,12 +481,31 @@ def review(plan: dict, language: str) -> int:
     return fixed
 
 
+MAX_ATTEMPTS = 3
+
+
 def plan(topic: str, count: int, ids: Sequence[str], language: str = "uz", level: int = 2,
          preferences: str = "", style: Optional[str] = None, mix: bool = False) -> dict:
     ids = list(dict.fromkeys(ids))
     codes = {f"m{i}": mid for i, mid in enumerate(ids)}
-    data = _plan_ai(topic, count, codes, language, level, preferences, mix)
-    out = normalize(data, count, ids, codes, mix)
+    # Mijoz tanlagan slaydlar soni to'liq bo'lsin: AI javobi token chegarasida kesilsa, qisman saqlangan reja
+    # (3 ta slayd) jimgina yetkazilardi. Qisqa chiqsa — javob hajmi oshirilib qayta so'raladi.
+    out, last = None, ""
+    for attempt in range(MAX_ATTEMPTS):
+        try:
+            data = _plan_ai(topic, count, codes, language, level, preferences, mix, boost=1 + 0.5 * attempt)
+            out = normalize(data, count, ids, codes, mix)
+        except RuntimeError as exc:                 # reja juda qisqa — keyingi urinish
+            out, last = None, str(exc)
+            log.warning("3D katalog reja (%d-urinish): %s", attempt + 1, exc)
+            continue
+        if len(out["slides"]) >= count or (attempt == MAX_ATTEMPTS - 1 and len(out["slides"]) >= count - 1):
+            break                                   # oxirgi urinishda bitta kam ham o'tadi (3 slaydli fayldan yaxshi)
+        last = f"{len(out['slides'])} slayd, kerak {count}"
+        log.warning("3D katalog reja qisqa (%d-urinish): %s", attempt + 1, last)
+        out = None
+    if out is None:
+        raise RuntimeError(f"AI reja to'liq emas: {last}")
     if REVIEW_ON:
         n = review(out, language)
         if n:

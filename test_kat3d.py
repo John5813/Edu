@@ -700,6 +700,50 @@ async def partial_flow():
 asyncio.run(bot_flow())
 asyncio.run(partial_flow())
 
+
+print("9) Muqovada mijoz ismi (mavzu ostida) va tanlangan slaydlar soni to'liq")
+plan_named = {**plan, "author": "Ali Valiyev"}
+out_named = os.path.join(TMP, "kat3d_named.pptx")
+deck.build(plan_named, out_named)
+first = Presentation(out_named).slides[0]
+texts_ = {sh.name: sh for sh in first.shapes if sh.has_text_frame}
+named = [sh for sh in first.shapes if sh.has_text_frame and "Ali Valiyev" in sh.text_frame.text]
+title_box = next((sh for sh in first.shapes if sh.has_text_frame and sh.text_frame.text.strip() == "Qadimgi Misr"
+                  or (sh.has_text_frame and "QADIMGI MISR" in sh.text_frame.text.upper())), None)
+check("muqovada «Tayyorladi: Ali Valiyev» bor", len(named) == 1 and named[0].text_frame.text.startswith("Tayyorladi"),
+      [sh.text_frame.text for sh in first.shapes if sh.has_text_frame])
+check("ism qutisi mijoz ismi deb belgilangan (do'kon nusxasida olib tashlanadi)", named and named[0].name == "Mijoz ismi")
+check("ism mavzu (sarlavha) ostida: sarlavhadan pastroqda, chap chekkasi bir xil",
+      title_box is not None and named[0].top > title_box.top + 300000 and named[0].left == title_box.left,
+      (named[0].top, named[0].left, title_box and (title_box.top, title_box.left)))
+no_name = Presentation(out).slides[0]
+check("ism kiritilmasa — ism qatori yo'q", not any(sh.has_text_frame and "Tayyorladi" in sh.text_frame.text
+                                                  for sh in no_name.shapes))
+
+full8 = {"style": "vitrina", "slides": [{"layout": "chap", "title": f"S{i}", "points": ["a"], "models": ["m0"]}
+                                          for i in range(8)]}
+short3 = {"style": "vitrina", "slides": full8["slides"][:3]}            # javob token chegarasida kesilgan
+calls = []
+
+
+def fake_plan_ai(topic, count, codes_, language, level, preferences, mix=False, boost=1.0):
+    calls.append(boost)
+    return short3 if len(calls) < 3 else full8
+
+
+with mock.patch.object(reja, "_plan_ai", side_effect=fake_plan_ai), mock.patch.object(reja, "REVIEW_ON", False):
+    got = reja.plan("Misr", 8, IDS, "uz", 2, "", None, False)
+check("qisqa reja (3 ta) qabul qilinmadi — qayta so'rab 8 ta oldi", len(got["slides"]) == 8, len(got["slides"]))
+check("qayta so'rashda javob hajmi oshiriladi", calls == [1.0, 1.5, 2.0], calls)
+calls.clear()
+with mock.patch.object(reja, "_plan_ai", return_value=short3), mock.patch.object(reja, "REVIEW_ON", False):
+    try:
+        reja.plan("Misr", 8, IDS, "uz", 2, "", None, False)
+        failed = False
+    except RuntimeError as exc:
+        failed = "to'liq emas" in str(exc)
+check("hamma urinish qisqa bo'lsa — 3 slaydli fayl emas, xato (pul qaytariladi)", failed)
+
 print()
 print("HAMMASI OK" if not FAILS else f"{len(FAILS)} ta XATO: {FAILS}")
 sys.exit(1 if FAILS else 0)

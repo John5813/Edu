@@ -323,6 +323,15 @@ def _muqova(ctx: Ctx, slide, s: dict, i: int) -> List:
         _model(ctx, slide, mids[1], 11.75, 5.85, 2.0, turn=20)        # ramkali uslublarda ham ichkarida
     _kicker(ctx, slide, s["kicker"] or ctx.plan.get("topic", ""), 0.8, 1.85, 6.0)
     bottom = _title(ctx, slide, s["title"] or ctx.plan.get("topic", ""), 0.8, 2.3, 6.2, 2.75, 54, 30)
+    author = (ctx.plan.get("author") or "").strip()
+    if author:                                       # mijoz ism kiritgan bo'lsa — mavzu ostida, har doim
+        from services import author_mark
+        from services.premium_presentation.html_slides import _CREDIT_LABEL
+
+        label = _CREDIT_LABEL.get((ctx.plan.get("language") or "uz"), _CREDIT_LABEL["uz"])
+        author_mark.mark(design.textbox(slide, "author", 0.8, bottom + 0.12, 5.9, 0.36, f"{label}: {author}", size=17,
+                                        smallest=11, color=ctx.st.accent, font=ctx.st.body_font, bold=True))
+        bottom += 0.5
     if s["subtitle"]:
         top = max(4.6, bottom + 0.35)
         design.textbox(slide, "sub", 0.8, top, 5.9, 6.75 - top, s["subtitle"], size=19, color=ctx.st.body,

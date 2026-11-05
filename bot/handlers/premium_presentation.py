@@ -2724,7 +2724,8 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
 
             final_path, ready_slides = await kat3d.build_deck(
                 topic, slide_count, list(data.get("kat3d_ids") or []), language=build_language, level=level,
-                preferences=preferences, stage_cb=on_kat_stage, mode=data.get("kat3d_mode") or "full")
+                preferences=preferences, stage_cb=on_kat_stage, mode=data.get("kat3d_mode") or "full",
+                author=client_name)
             await to_new_alphabet(final_path)
             html_pages = [None] * ready_slides
         elif _kind_of(data) == KIND_MED3D:
@@ -2745,7 +2746,7 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
 
             final_path, ready_slides = await med3d_auto.build_deck(
                 topic, slide_count, language=build_language, level=level, preferences=preferences,
-                stage_cb=on_med_stage, style=data.get("m3d_style") or None)
+                stage_cb=on_med_stage, style=data.get("m3d_style") or None, author=client_name)
             await to_new_alphabet(final_path)
             html_pages = [None] * ready_slides
         else:

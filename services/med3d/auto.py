@@ -240,14 +240,14 @@ def check_topic(topic: str, language: str = "uz") -> dict:
             "organs": organs, "checked": True}
 
 
-def _plan_ai(topic: str, count: int, language: str, level: int, preferences: str) -> dict:
+def _plan_ai(topic: str, count: int, language: str, level: int, preferences: str, boost: float = 1.0) -> dict:
     from services.premium_presentation import llm_client, prompts
 
     extra = f"Client's wishes: {preferences[:500]}\n" if preferences else ""
     user = USER.format(topic=topic, count=count, level=LEVELS.get(level, LEVELS[2]),
                        language_rule=llm_client._language_instruction(language), extra=extra, table=organ_table())
     with prompts.use(language), llm_client.text_model(MODEL_ACADEMIC if level >= 3 else MODEL):
-        return _call_json(SYSTEM, user, answer_tokens=4000 + 1100 * count)
+        return _call_json(SYSTEM, user, answer_tokens=int((4000 + 1100 * count) * boost))
 
 
 REVIEW_SYSTEM = """You are a medical fact-checker for a student anatomy presentation.
@@ -489,9 +489,12 @@ def plan(topic: str, count: int, language: str = "uz", level: int = 2, preferenc
     from services.premium_presentation import llm_client
 
     last = None
-    for attempt in range(2):
+    for attempt in range(3):
         try:
-            result = normalize(_plan_ai(topic, count, language, level, preferences), count, language)
+            result = normalize(_plan_ai(topic, count, language, level, preferences, boost=1 + 0.5 * attempt),
+                               count, language)
+            if len(result["slides"]) < count and attempt < 2:   # javob kesilgan: tanlangan slaydlar soni to'liq bo'lsin
+                raise ValueError(f"reja qisqa: {len(result['slides'])} slayd, kerak {count}")
             if REVIEW_ON:
                 review_plan(result, language)
             add_disclaimer(result, language)
@@ -1010,7 +1013,7 @@ def make_deck(topic: str, plan_: dict, out_dir: Optional[str] = None, atlas=None
 
 async def build_deck(topic: str, slide_count: int, *, language: str = "uz", level: int = 2,
                      preferences: str = "", stage_cb: Optional[Callable[[str, Dict], None]] = None,
-                     style: Optional[str] = None) -> Tuple[str, int]:
+                     style: Optional[str] = None, author: str = "") -> Tuple[str, int]:
     """Bot uchun: (PPTX yo'li, slaydlar soni). Mavzu anatomiya bo'lmasa NotAnatomy, boshqa xatoda istisno."""
     def stage(name: str, **info) -> None:
         if stage_cb:
@@ -1025,6 +1028,7 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
     plan_ = await asyncio.wait_for(loop.run_in_executor(
         None, lambda: plan(topic, count, language, level, preferences)), 6 * 60)
     plan_["topic"] = topic
+    plan_["author"] = (author or "").strip()
     log.info("3D Anatomiya: %s tana, %d slayd, organlar: %s", plan_["body"], len(plan_["slides"]),
              sorted({o for s in plan_["slides"] for o in s["show"]}))
     if any(s.get("picture") for s in plan_["slides"]):

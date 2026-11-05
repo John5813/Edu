@@ -59,7 +59,8 @@ class NoModels(RuntimeError):
 
 async def build_deck(topic: str, slide_count: int, model_ids: List[str], *, language: str = "uz",
                      level: int = 2, preferences: str = "", style: Optional[str] = None,
-                     stage_cb: Optional[Callable[[str, Dict], None]] = None, mode: str = "full") -> Tuple[str, int]:
+                     stage_cb: Optional[Callable[[str, Dict], None]] = None, mode: str = "full",
+                     author: str = "") -> Tuple[str, int]:
     """Bot uchun: (PPTX yo'li, slaydlar soni). `model_ids` — mavzu tekshiruvida mijozga ko'rsatilgan (aralash
     rejimda — mijoz o'zi tanlagan) modellar. `mode="mix"` — qolgan slaydlar 3D'siz: diagramma, rasm, matn."""
     from . import deck, reja, yukla
@@ -81,6 +82,7 @@ async def build_deck(topic: str, slide_count: int, model_ids: List[str], *, lang
     mix = mode == "mix"
     plan = await asyncio.wait_for(loop.run_in_executor(
         None, lambda: reja.plan(topic, count, ids, language, level, preferences, style, mix)), 6 * 60)
+    plan["author"] = (author or "").strip()
     if mix:
         await _photos(topic, plan, stage)
     stage("models", slides=len(plan["slides"]))

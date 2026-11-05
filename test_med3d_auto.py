@@ -9,6 +9,7 @@
 
     python test_med3d_auto.py
 """
+from unittest import mock
 import asyncio, copy, re, os, sys, tempfile, zipfile
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
@@ -603,6 +604,33 @@ auto.add_disclaimer(_plan, "uz")
 auto.add_disclaimer(_plan, "uz")
 check("o'quv maqsadi eslatmasi oxirgi slaydga bir marta qo'shiladi",
       _plan["slides"][-1]["text"].count("tibbiy maslahat emas") == 1, _plan["slides"][-1])
+
+
+print("Reja hajmi: qisqa javob qayta so'raladi")
+_slide = {"title": "a", "text": "b", "show": ["yurak"], "rot": [0, 0, 0]}
+_short = {"anatomy": True, "body": "male", "slides": [_slide] * 3}
+_full = {"anatomy": True, "body": "male", "slides": [_slide] * 8}
+_boosts = []
+
+
+def _fake_plan_ai(topic, count, language, level, preferences, boost=1.0):
+    _boosts.append(boost)
+    return _short if len(_boosts) < 3 else _full
+
+
+with mock.patch.object(auto, "_plan_ai", side_effect=_fake_plan_ai), mock.patch.object(auto, "REVIEW_ON", False):
+    _got = auto.plan("Yurak", 8, "uz", 2, "")
+check("kesilgan reja (3 ta) qabul qilinmadi — qayta so'rab to'liq oldi", len([s for s in _got["slides"] if not s.get("auto")]) >= 8
+      or len(_got["slides"]) >= 8, len(_got["slides"]))
+check("javob hajmi oshirib so'raldi", _boosts == [1.0, 1.5, 2.0], _boosts)
+_boosts.clear()
+with mock.patch.object(auto, "_plan_ai", return_value=_short), mock.patch.object(auto, "REVIEW_ON", False):
+    try:
+        auto.plan("Yurak", 8, "uz", 2, "")
+        _failed = False
+    except RuntimeError as exc:
+        _failed = "tuzilmadi" in str(exc)
+check("hamma urinish qisqa — xato (3 slaydli fayl emas)", _failed)
 
 print()
 print("HAMMASI O'TDI" if not FAILS else f"XATOLAR: {len(FAILS)} — {FAILS}")
