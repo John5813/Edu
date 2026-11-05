@@ -102,11 +102,31 @@ def _pack(doc: Dict, binary: bytes) -> bytes:
     return struct.pack("<III", 0x46546C67, 2, 12 + len(out)) + out
 
 
-def paint(raw: bytes, info: Dict) -> Tuple[bytes, Optional[str]]:
-    """Rangsiz modelni boyaydi: (yangi GLB baytlari, rang) yoki (asl baytlar, None) — rangli/o'qib bo'lmasa."""
+def png_is_colourless(png: bytes) -> bool:
+    """Model rasmi (shaffof PNG) deyarli rangsizmi (oq/kulrang gips) — GLB tekstura formatini o'qib bo'lmaganda
+    ham modelni boyash kerakligini ko'rsatadi."""
+    try:
+        import numpy as np
+        from PIL import Image
+
+        with Image.open(io.BytesIO(png)) as im:
+            rgba = np.asarray(im.convert("RGBA")).astype(np.float32)
+        solid = rgba[..., 3] > 200
+        if solid.sum() < 200:
+            return False
+        rgb = rgba[..., :3][solid]
+        hi, lo = rgb.max(axis=1), rgb.min(axis=1)
+        return float(np.mean((hi - lo) / np.maximum(hi, 1.0))) < 0.08
+    except Exception:                         # noqa: BLE001
+        return False
+
+
+def paint(raw: bytes, info: Dict, force: bool = False) -> Tuple[bytes, Optional[str]]:
+    """Rangsiz modelni boyaydi: (yangi GLB baytlari, rang) yoki (asl baytlar, None) — rangli/o'qib bo'lmasa.
+    `force` — rangsizligi boshqa yo'l bilan (rasmidan) aniqlangan: GLB tekshiruvi o'tkazib yuboriladi."""
     try:
         doc, binary = read_glb(raw)
-        if not is_colourless(doc, binary):
+        if not force and not is_colourless(doc, binary):
             return raw, None
         colour = colour_for(info)
         factor = [*_linear(colour), 1.0]
@@ -126,3 +146,30 @@ def paint(raw: bytes, info: Dict) -> Tuple[bytes, Optional[str]]:
     except Exception as exc:                      # noqa: BLE001 — boyalmasa model asl holicha qoladi
         log.warning("Rangsiz model boyalmadi: %s", exc)
         return raw, None
+
+
+def tint_png(png: bytes, colour: str) -> bytes:
+    """Rangsiz model rasmini (shaffof PNG, 3D ko'rinmaydigan telefon va WPS'da model o'rnida turadi) ham boyaydi:
+    yorug'lik-soya saqlanadi (kontrast cho'ziladi), rang `colour` ga o'tadi, shaffoflik o'zgarmaydi."""
+    import numpy as np
+    from PIL import Image
+
+    try:
+        with Image.open(io.BytesIO(png)) as im:
+            rgba = np.asarray(im.convert("RGBA")).astype(np.float32)
+        solid = rgba[..., 3] > 16
+        if solid.sum() < 50:
+            return png
+        lum = (rgba[..., 0] * 0.3 + rgba[..., 1] * 0.59 + rgba[..., 2] * 0.11)
+        lo, hi = np.percentile(lum[solid], (2, 98))
+        norm = np.clip((lum - lo) / max(hi - lo, 8.0), 0.0, 1.0)
+        shade = 0.42 + 0.58 * norm                                     # soya qorayib ketmasin
+        tint = np.array([int(colour[i:i + 2], 16) for i in (0, 2, 4)], np.float32)
+        out = rgba.copy()
+        out[..., :3] = np.clip(tint[None, None, :] * shade[..., None] * 1.05, 0, 255)
+        buf = io.BytesIO()
+        Image.fromarray(out.astype(np.uint8), "RGBA").save(buf, "PNG", optimize=True)
+        return buf.getvalue()
+    except Exception as exc:                  # noqa: BLE001 — boyalmasa asl rasm qoladi
+        log.warning("Model rasmi boyalmadi: %s", exc)
+        return png
