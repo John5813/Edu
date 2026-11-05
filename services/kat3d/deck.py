@@ -60,6 +60,8 @@ class Ctx:
         self.ghosts: Dict[int, set] = {}
         self.spins: Dict[int, List[int]] = {}               # slayd → o'z joyida aylanadigan 3D ob'ektlar id si
         self.credits: List[str] = []
+        self.cutouts: Dict[str, bytes] = {}                  # model rasmi (shaffof PNG) keshi
+        self.painted: Dict[str, str] = {}                   # boyalgan (rangsiz) modellar: id → rang
         self.total = len(plan["slides"])
 
     def glb(self, mid: str):
@@ -71,16 +73,35 @@ class Ctx:
                 raw = fh.read()
             from . import boyash
 
-            raw, colour = boyash.paint(raw, katalog3d.katalog().get(mid) or {})   # rangsiz (oq) model — boyaladi
+            info = katalog3d.katalog().get(mid) or {}
+            painted_raw, colour = boyash.paint(raw, info)                   # rangsiz (oq) model — boyaladi
+            if not colour and boyash.png_is_colourless(self._cutout_of(mid)):
+                painted_raw, colour = boyash.paint(raw, info, force=True)   # tekstura o'qilmadi, lekin rasmi rangsiz
+            raw = painted_raw
             if colour:
+                self.painted[mid] = colour
                 log.info("3D katalog: rangsiz model boyaldi (%s → #%s)", mid, colour)
             lo, hi = glb.bounds(raw)
             self.data[mid] = (raw, lo, hi)
         return self.data[mid]
 
+    def _cutout_of(self, mid: str) -> bytes:
+        if mid not in self.cutouts:
+            self.cutouts[mid] = _cutout(katalog3d.preview_yoli(mid), katalog3d.maska_yoli(mid))
+        return self.cutouts[mid]
+
     def picture(self, mid: str) -> bytes:
         if mid not in self.fallback:
-            self.fallback[mid] = _cutout(katalog3d.preview_yoli(mid), katalog3d.maska_yoli(mid))
+            png = self._cutout_of(mid)
+            try:
+                self.glb(mid)                              # rangsizligi shu yerda aniqlanadi
+            except FileNotFoundError:
+                pass
+            if mid in self.painted:                        # telefon va WPS'da 3D o'rnida turadigan rasm ham boyaladi
+                from . import boyash
+
+                png = boyash.tint_png(png, self.painted[mid])
+            self.fallback[mid] = png
         return self.fallback[mid]
 
 

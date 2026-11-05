@@ -872,6 +872,30 @@ with_colors = _glb.write_glb([_glb.Primitive(color=(1.0, 1.0, 1.0), colors=_np.a
                                              **_tri)])
 check("nuqta ranglari bor model — rangli deb hisoblanadi", boyash.paint(with_colors, head)[1] is None)
 
+
+print("13) Telefon/WPS'da 3D o'rnida turadigan rasm ham boyaladi")
+import io as _io2
+_sil = _Img.new("RGBA", (200, 200), (0, 0, 0, 0))
+for _x in range(40, 160):
+    for _y in range(30, 170):
+        _g = 235 - (_x - 40) // 2                              # chapdan o'ngga soyalanuvchi oq gips
+        _sil.putpixel((_x, _y), (_g, _g, _g, 255))
+_b = _io2.BytesIO()
+_sil.save(_b, "PNG")
+white_png = _b.getvalue()
+check("oq gips rasmi rangsiz deb aniqlanadi", boyash.png_is_colourless(white_png))
+_red = _Img.new("RGBA", (200, 200), (200, 30, 30, 255))
+_b2 = _io2.BytesIO()
+_red.save(_b2, "PNG")
+check("rangli rasm rangsiz emas", not boyash.png_is_colourless(_b2.getvalue()))
+tinted = _Img.open(_io2.BytesIO(boyash.tint_png(white_png, "E3B08F"))).convert("RGBA")
+left, right, outside = tinted.getpixel((60, 100)), tinted.getpixel((150, 100)), tinted.getpixel((10, 10))
+check("rasm teri rangiga bo'yaldi (issiq: R > B)", left[0] > left[2] + 25 and right[0] > right[2] + 15, (left, right))
+check("soya-yorug'lik saqlandi (chap yorug', o'ng qorong'i)", sum(left[:3]) > sum(right[:3]) + 30, (left, right))
+check("shaffoflik o'zgarmadi", outside[3] == 0 and left[3] == 255, (outside, left))
+check("rangsiz rasm boyaladi → boyalgan rasm endi rangsiz emas", not boyash.png_is_colourless(boyash.tint_png(white_png, "E3B08F")))
+check("buzuq PNG — asl holicha", boyash.tint_png(b"x", "E3B08F") == b"x")
+
 print()
 print("HAMMASI OK" if not FAILS else f"{len(FAILS)} ta XATO: {FAILS}")
 sys.exit(1 if FAILS else 0)
