@@ -75,6 +75,7 @@ class AdminStates(StatesGroup):
     waiting_for_broadcast_text = State()
     waiting_for_broadcast_confirm = State()
     waiting_for_ad_button_url = State()
+    waiting_for_adlink_title = State()
     waiting_for_ad_button_label = State()
     waiting_for_new_price = State()
     waiting_for_sample_file = State()
