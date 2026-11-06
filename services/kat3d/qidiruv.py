@@ -65,10 +65,18 @@ SYMBOLIC objects that can stand for their ideas (economy: globe, scales, coins, 
 truck; law: scales, books, courthouse; literature: old book, typewriter, writer's house, statue).
 Return ONLY JSON: {"en": ["15-30 English keywords"], "uz": ["10-20 Uzbek (Latin) keywords"],
 "fan": ["1-3 of: tarix, biologiya, geografiya, fizika, kimyo, astronomiya, texnika, informatika, san'at,
-arxitektura, musiqa, oshxona, transport, sport, tibbiyot, adabiyot, matematika"]}"""
+arxitektura, musiqa, oshxona, transport, sport, tibbiyot, adabiyot, matematika"],
+"kategoriya": ["1-4 names copied EXACTLY from the CATEGORIES list given below that hold models for this topic"],
+"bolalar": true or false}
+"bolalar" is true ONLY when the topic itself is about children: childhood, parenting, upbringing, babies,
+kindergarten, school-age children, toys, games and play, fairy tales for kids. Children's toys and baby items are
+kept apart from serious real-world models, so for any other topic (history, medicine, economics...) it is false."""
 
 SELECT_SYSTEM = """You choose real 3D models for a presentation on the given topic.
-Candidates are lines "code | Uzbek name | original name | subject".
+Candidates are lines "code | Uzbek name | original name | category".
+Categories "o'yinchoqlar", "o'yin maydonchasi", "chaqaloq buyumlari", "maktab va sinf", "bolalar xonasi" and
+"hayvonchalar" are children's items (toys, baby things, school things): choose them only when the topic itself
+is about children; never for a serious real-world topic.
 - "asosiy": the model directly shows the topic's subject (the place, artefact, organism, machine, person or
   object the topic is about, or a clear part of it).
 - "yordamchi": not the subject itself but a clearly related item a teacher would gladly show in THIS
@@ -83,20 +91,43 @@ by the asosiy and yordamchi models alone (an abstract topic like inflation is lo
 Return ONLY JSON: {"asosiy": ["c3", ...], "yordamchi": ["c9", ...], "ramziy": ["c5", ...], "coverage": 40}"""
 
 
+# Mavzu bolalar haqidami — AI javobi bo'lmasa shu so'zlar bo'yicha (bolalar modellari faqat shunda taklif qilinadi).
+_KIDS = re.compile(r"\b(bola|bolalar|bolalik|bolaning|bolalarni|tarbiya|bog'?cha|chaqaloq|go'dak|o'yinchoq|o'yin|ertak|"
+                   r"maktabgacha|boshlang'ich|child|children|kid|kids|baby|babies|toy|toys|kindergarten|parenting|"
+                   r"ребен|дет|малыш|игруш|детск|воспитан|школьник)", re.IGNORECASE)
+
+
+def kids_topic(topic: str) -> bool:
+    return bool(_KIDS.search(_APOS.sub("'", str(topic or ""))))
+
+
+def categories() -> List[str]:
+    """Katalogdagi toifalar (kategoriya) — AI shu ro'yxatdan tanlaydi."""
+    from services import katalog3d
+
+    return sorted({m["kategoriya"] for m in katalog3d.katalog().values() if m.get("kategoriya")})
+
+
 def expand(topic: str, language: str = "uz") -> dict:
-    user = f"Topic: {topic}\n"
-    data = ai.call_json(EXPAND_SYSTEM, user, 500, language=language, model=ai.SEARCH_MODEL,
+    user = f"Topic: {topic}\n\nCATEGORIES: {'; '.join(categories())}\n"
+    data = ai.call_json(EXPAND_SYSTEM, user, 600, language=language, model=ai.SEARCH_MODEL,
                         where="3D katalog qidiruv", temperature=0.2)
     words = []
     for key in ("en", "uz"):
         words += [str(w) for w in (data.get(key) or []) if isinstance(w, (str, int))]
     fan = [str(f) for f in (data.get("fan") or []) if isinstance(f, str)]
-    return {"words": words, "fan": fan}
+    known = set(categories())
+    kategoriya = [str(k) for k in (data.get("kategoriya") or []) if isinstance(k, str) and k in known]
+    return {"words": words, "fan": fan, "kategoriya": kategoriya,
+            "bolalar": bool(data.get("bolalar")) or kids_topic(topic)}
 
 
 def score(topic: str, words: Sequence[str], fan: Sequence[str] = (), limit: int = CANDIDATES,
-          available: Optional[frozenset] = None) -> List[tuple]:
-    """[(ball, id)] — katalog modellarining kalit so'zlarga mosligi (eng yuqorisi birinchi)."""
+          available: Optional[frozenset] = None, kategoriya: Sequence[str] = (), kids: bool = False) -> List[tuple]:
+    """[(ball, id)] — katalog modellarining kalit so'zlarga mosligi (eng yuqorisi birinchi).
+
+    `kids` — mavzu bolalar haqida: bolalar modellari (o'yinchoq, chaqaloq buyumlari...) faqat shunda hisobga olinadi, aks
+    holda ular jiddiy (tarix, tibbiyot...) mavzularga aralashib ketadi. `kategoriya` — AI mavzuga mos deb topgan toifalar."""
     from services import katalog3d
 
     keys = []
@@ -115,6 +146,8 @@ def score(topic: str, words: Sequence[str], fan: Sequence[str] = (), limit: int 
     for mid, m in katalog3d.katalog().items():
         if mid not in have or m.get("hajm", 0) > MAX_MB * 1e6:
             continue
+        if m.get("tur") == "bolalar" and not kids:
+            continue
         name = _tokens(m.get("nom_uz", "") + " " + m.get("nom", ""))
         tags = _tokens(" ".join(m.get("kalit", [])))
         total = 0.0
@@ -126,6 +159,8 @@ def score(topic: str, words: Sequence[str], fan: Sequence[str] = (), limit: int 
                 total += weight
         if total and m.get("fan") in fan:
             total += 0.5
+        if total and m.get("kategoriya") in kategoriya:
+            total += 0.7
         if total:
             out.append((total + m.get("sifat", 0) * 0.05, mid))
     out.sort(reverse=True)
@@ -137,7 +172,8 @@ def select(topic: str, ids: Sequence[str], language: str = "uz") -> Dict[str, Li
 
     cat = katalog3d.katalog()
     codes = {f"c{i}": mid for i, mid in enumerate(ids)}
-    lines = "\n".join(f"{c} | {cat[m]['nom_uz']} | {cat[m]['nom'][:70]} | {cat[m]['fan']}" for c, m in codes.items())
+    lines = "\n".join(f"{c} | {cat[m]['nom_uz']} | {cat[m]['nom'][:70]} | {cat[m].get('kategoriya') or cat[m]['fan']}"
+                      for c, m in codes.items())
     data = ai.call_json(SELECT_SYSTEM, f"Topic: {topic}\n\nCandidates:\n{lines}\n", 500, language=language,
                         model=ai.SEARCH_MODEL, where="3D katalog qidiruv", temperature=0.1)
     out: Dict[str, object] = {}
@@ -183,8 +219,9 @@ def top(topic: str, language: str = "uz") -> dict:
         exp = expand(topic, language)
     except Exception as exc:                          # noqa: BLE001
         log.warning("3D katalog: kalit so'zlar olinmadi (%s) — faqat mavzu so'zlari", exc)
-        exp = {"words": [], "fan": []}
-    ranked = score(topic, exp["words"], exp["fan"])
+        exp = {"words": [], "fan": [], "kategoriya": [], "bolalar": kids_topic(topic)}
+    ranked = score(topic, exp["words"], exp["fan"], kategoriya=exp.get("kategoriya", ()),
+                   kids=bool(exp.get("bolalar")) or kids_topic(topic))
     if not ranked:
         return _result("none", [], [], [], None, True)
     try:

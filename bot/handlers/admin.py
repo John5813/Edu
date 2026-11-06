@@ -3124,6 +3124,195 @@ async def gift_link_off(callback: CallbackQuery):
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML", disable_web_page_preview=True)
 
 
+# ─────────────────────────────────────────── 📈 Reklama havolalari (Instagram reklamasini kuzatish)
+
+def _ad_link_urls(bot_username: str, code: str):
+    """(Instagram reklamasiga qo'yiladigan manzil, zaxira: botga to'g'ridan-to'g'ri havola).
+
+    Sayt manzili orqali bosganlar ham hisoblanadi; to'g'ridan-to'g'ri bot havolasida faqat Start bosganlar sanaladi.
+    """
+    import webapp
+    from database import ad_links
+
+    direct = ad_links.bot_url(bot_username, code)
+    if not webapp.WEBAPP_DOMAIN:
+        return direct, direct
+    return webapp.public_url(f"/go/{code}"), direct
+
+
+def _ad_report_text(s: dict, bot_username: str) -> str:
+    from database import ad_links
+
+    def pct(part, whole):
+        return f"{round(100 * part / whole)}%" if whole else "0%"
+
+    clicks, starts = s["unique"], s["starts"]
+    stray = max(clicks - starts, 0)
+    site, direct = _ad_link_urls(bot_username, s["code"])
+    created = datetime.fromtimestamp(s["created_at"]).strftime("%d.%m.%Y")
+    state = "🟢 faol" if s["active"] else "⏸ to'xtatilgan (yangi bosishlar hisoblanmaydi)"
+    lines = [f"📈 <b>{_html.escape(s['title'] or 'Nomsiz reklama')}</b>",
+             f"📅 {created} · {state}",
+             "",
+             f"👆 <b>Havolani bosganlar:</b> {clicks} (jami bosish: {s['hits']})",
+             f"🤖 <b>Botga kirganlar (Start):</b> {starts} ({pct(starts, clicks)})",
+             f"   🆕 Yangi mijozlar: <b>{s['new']}</b> ({pct(s['new'], starts)}) — xizmatdan foydalangan: {s['new_used']}",
+             f"   🔄 Eski mijozlar: <b>{s['old']}</b> ({pct(s['old'], starts)}) — xizmatdan foydalangan: {s['old_used']}",
+             f"🙈 <b>Start bosmaganlar (adashib bosgan yoki Telegram ochilmagan):</b> {stray} ({pct(stray, clicks)})",
+             "",
+             "<b>Xulosa</b>",
+             ad_links.verdict(s),
+             "",
+             "Instagram reklamasi manzili:",
+             f"<code>{site}</code>"]
+    if site != direct:
+        lines += ["Zaxira (to'g'ridan botga, bosganlar hisoblanmaydi):", f"<code>{direct}</code>"]
+    return "\n".join(lines)
+
+
+async def _ad_links_view(bot):
+    from database import ad_links
+
+    items = await ad_links.links()
+    lines = ["📈 <b>Reklama havolalari</b>",
+             "",
+             "Har Instagram reklamasi uchun alohida havola yarating va uni reklamaning «Veb-sayt» manziliga qo'ying. "
+             "Havola ko'rsatadi: reklamani kim bosdi, nechtasi botga kirdi, ulardan nechtasi <b>yangi</b> va nechtasi "
+             "<b>eski</b> mijoz (retarget) va nechtasi <b>adashib bosgan</b>."]
+    kb = InlineKeyboardBuilder()
+    if not items:
+        lines += ["", "Hozircha havola yo'q."]
+    for item in items:
+        s = await ad_links.stats(item["code"])
+        mark = "🟢" if item["active"] else "⏸"
+        title = item["title"] or "Nomsiz"
+        kb.row(InlineKeyboardButton(
+            text=f"{mark} {title} · 👆{s['unique']} 🤖{s['starts']} 🆕{s['new']} 🔄{s['old']}",
+            callback_data=f"adlink_view:{item['code']}"))
+    kb.row(InlineKeyboardButton(text="➕ Yangi havola yaratish", callback_data="adlink_new"))
+    kb.row(InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_features"))
+    return "\n".join(lines), kb.as_markup()
+
+
+def _ad_link_keyboard(code: str, active: bool) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.row(InlineKeyboardButton(text="🔄 Yangilash", callback_data=f"adlink_view:{code}"))
+    kb.row(InlineKeyboardButton(text="⏸ To'xtatish" if active else "▶️ Yoqish",
+                                callback_data=f"adlink_toggle:{code}"),
+           InlineKeyboardButton(text="🗑 O'chirish", callback_data=f"adlink_del:{code}"))
+    kb.row(InlineKeyboardButton(text="🔙 Havolalar", callback_data="adlinks"))
+    return kb.as_markup()
+
+
+@router.callback_query(F.data == "adlinks")
+async def ad_links_menu(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id):
+        return
+    await state.clear()
+    await callback.answer()
+    text, kb = await _ad_links_view(callback.bot)
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML", disable_web_page_preview=True)
+
+
+@router.callback_query(F.data == "adlink_new")
+async def ad_link_new(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id):
+        return
+    await callback.answer()
+    await state.set_state(AdminStates.waiting_for_adlink_title)
+    kb = InlineKeyboardBuilder()
+    kb.row(InlineKeyboardButton(text="🔙 Bekor qilish", callback_data="adlinks"))
+    await callback.message.edit_text(
+        "📈 Yangi reklama havolasi\n\nReklamaga nom bering, keyin hisobotda ajratib olasiz.\n"
+        "Masalan: <i>Noyabr — retarget, video</i>", reply_markup=kb.as_markup(), parse_mode="HTML")
+
+
+@router.message(AdminStates.waiting_for_adlink_title)
+async def ad_link_title(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        return
+    from database import ad_links
+
+    title = (message.text or "").strip()
+    if not title:
+        await message.answer("Reklama nomini matn bilan yozing.")
+        return
+    await state.clear()
+    code = await ad_links.create(title)
+    stats = await ad_links.stats(code)
+    username = (await message.bot.get_me()).username
+    await message.answer(_ad_report_text(stats, username), parse_mode="HTML", disable_web_page_preview=True,
+                         reply_markup=_ad_link_keyboard(code, True))
+    site, _ = _ad_link_urls(username, code)
+    # Nusxa olish oson bo'lsin: Instagramga qo'yiladigan manzil alohida xabarda ham yuboriladi.
+    await message.answer(site, disable_web_page_preview=True)
+
+
+@router.callback_query(F.data.startswith("adlink_view:"))
+async def ad_link_view(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        return
+    from database import ad_links
+
+    code = callback.data.split(":", 1)[1]
+    stats = await ad_links.stats(code)
+    if not stats:
+        await callback.answer("Havola topilmadi", show_alert=True)
+        return
+    await callback.answer()
+    username = (await callback.bot.get_me()).username
+    try:
+        await callback.message.edit_text(_ad_report_text(stats, username), parse_mode="HTML",
+                                         disable_web_page_preview=True,
+                                         reply_markup=_ad_link_keyboard(code, stats["active"]))
+    except Exception:
+        pass                                              # «Yangilash» — o'zgarish bo'lmasa Telegram xato beradi
+
+
+@router.callback_query(F.data.startswith("adlink_toggle:"))
+async def ad_link_toggle(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        return
+    from database import ad_links
+
+    code = callback.data.split(":", 1)[1]
+    now_active = not await ad_links.is_active(code)
+    await ad_links.set_active(code, now_active)
+    await callback.answer("▶️ Havola yoqildi" if now_active else "⏸ Havola to'xtatildi")
+    stats = await ad_links.stats(code)
+    if stats:
+        username = (await callback.bot.get_me()).username
+        await callback.message.edit_text(_ad_report_text(stats, username), parse_mode="HTML",
+                                         disable_web_page_preview=True,
+                                         reply_markup=_ad_link_keyboard(code, stats["active"]))
+
+
+@router.callback_query(F.data.startswith("adlink_del:"))
+async def ad_link_delete(callback: CallbackQuery):
+    """O'chirish ikki bosqichli: hisob qaytmaydi."""
+    if not is_admin(callback.from_user.id):
+        return
+    code = callback.data.split(":", 1)[1]
+    kb = InlineKeyboardBuilder()
+    kb.row(InlineKeyboardButton(text="🗑 Ha, o'chirish", callback_data=f"adlink_del_yes:{code}"),
+           InlineKeyboardButton(text="🔙 Yo'q", callback_data=f"adlink_view:{code}"))
+    await callback.answer()
+    await callback.message.edit_text("Havola va uning butun hisobi o'chiriladi. Davom etasizmi?",
+                                     reply_markup=kb.as_markup())
+
+
+@router.callback_query(F.data.startswith("adlink_del_yes:"))
+async def ad_link_delete_yes(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        return
+    from database import ad_links
+
+    await ad_links.delete(callback.data.split(":", 1)[1])
+    await callback.answer("🗑 Havola o'chirildi")
+    text, kb = await _ad_links_view(callback.bot)
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML", disable_web_page_preview=True)
+
+
 @router.callback_query(F.data == "back_to_features")
 async def back_to_features_handler(callback: CallbackQuery, db: Database):
     """Go back to feature management menu"""

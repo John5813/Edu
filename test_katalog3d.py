@@ -47,7 +47,10 @@ check("o'zbekcha nom bo'sh emas", all(m["nom_uz"].strip() for m in mods))
 check("har modelning preview rasmi bor", all(katalog3d.preview_yoli(i) for i in ids),
       [i for i in ids if not katalog3d.preview_yoli(i)][:5])
 tanlov = [json.loads(l) for l in open(os.path.join(HERE, "data", "katalog3d", "tanlov.jsonl"), encoding="utf-8")]
-check("tanlov.jsonl katalog bilan bir xil", sorted(t["uid"] for t in tanlov) == sorted(ids))
+kids_data = json.load(open(os.path.join(HERE, "data", "katalog3d", "bolalar.json"), encoding="utf-8"))
+kids = kids_data["modellar"]
+check("tanlov.jsonl katalog (asosiy + bolalar) bilan bir xil",
+      sorted(t["uid"] for t in tanlov) == sorted(ids + [m["id"] for m in kids]))
 check("tanlovda manba URL yoki HF yo'li", all(t.get("url") or t.get("yol") for t in tanlov))
 TAQIQ = ("toy", "doll", "anime", "cartoon", "rubik", "lowpoly", "low poly", "stylized", "weapon", "gun",
          "rifle", "sword", "fnaf", "pokemon", "minecraft", "o'yinchoq")
@@ -55,6 +58,24 @@ TAQIQ_RE = re.compile(r"(?<![a-z'])(" + "|".join(re.escape(w) for w in TAQIQ) + 
 bad = [m["nom"] for m in mods if TAQIQ_RE.search((m["nom"] + " " + m["nom_uz"]).lower())]
 check("nomlarda taqiqlangan so'z yo'q", not bad, bad[:5])
 check("bir nechta fan bor", len({m["fan"] for m in mods}) >= 10)
+check("har modelda toifa (kategoriya) va tur", all(m.get("kategoriya") and m.get("tur") == "real" for m in mods),
+      [m["id"] for m in mods if not m.get("kategoriya")][:5])
+check("toifalar 30 dan ko'p, 60 dan kam", 30 <= len({m["kategoriya"] for m in mods}) <= 60,
+      len({m["kategoriya"] for m in mods}))
+
+print("1b) Bolalar katalogi")
+check("bolalar: 50 dan ko'p model", len(kids) >= 50, len(kids))
+check("bolalar: soni maydoni to'g'ri", kids_data["soni"] == len(kids))
+check("bolalar: hammasi tur=bolalar, fan=bolalar", all(m["tur"] == "bolalar" and m["fan"] == "bolalar" for m in kids))
+check("bolalar: id asosiy katalog bilan kesishmaydi", not set(ids) & {m["id"] for m in kids})
+check("bolalar: faqat CC0 / CC BY 4.0", {m["litsenziya"] for m in kids} <= {"CC0 1.0", "CC BY 4.0"})
+check("bolalar: CC BY da muallif bor", all(m["muallif"] and m["muallif"] in m["attribution"] for m in kids
+                                           if m["litsenziya"] == "CC BY 4.0"))
+check("bolalar: preview va niqob bor", all(katalog3d.preview_yoli(m["id"]) and katalog3d.maska_yoli(m["id"]) for m in kids),
+      [m["id"] for m in kids if not katalog3d.preview_yoli(m["id"])][:5])
+check("bolalar: fayl yo'li bolalar/<id>/model.glb", all(m["fayl"] == f"bolalar/{m['id']}/model.glb" for m in kids))
+check("bolalar: toifalari", {m["kategoriya"] for m in kids} == {"o'yinchoqlar", "o'yin maydonchasi",
+      "chaqaloq buyumlari", "maktab va sinf", "bolalar xonasi", "hayvonchalar"}, {m["kategoriya"] for m in kids})
 
 print("2) Qidiruv")
 r = katalog3d.qidir("bosh suyagi")
@@ -62,6 +83,10 @@ check("'bosh suyagi' topiladi", r and all("bosh suyag" in m["nom_uz"].lower() fo
 r = katalog3d.qidir("sher", fan="san'at")
 check("fan filtri", r and all(m["fan"] == "san'at" for m in r))
 check("bo'sh so'rov — bo'sh ro'yxat", katalog3d.qidir("  ") == [])
+check("bolalar modeli oddiy qidiruvda chiqmaydi", all(m.get("tur") != "bolalar" for m in katalog3d.qidir("rezina o'rdakcha", limit=50)))
+r = katalog3d.qidir("rezina o'rdakcha", bolalar=True)
+check("bolalar=True bo'lsa topiladi", r and all(m["tur"] == "bolalar" for m in r[:2]), [m["nom_uz"] for m in r[:3]])
+check("jiddiy qidiruvda bolalar modeli yo'q", all(m.get("tur") != "bolalar" for m in katalog3d.qidir("maktab", limit=50)))
 check("apostrofsiz ham topadi", katalog3d.qidir("qal'a") and katalog3d.qidir("qala"))
 
 print("3) Slaydga joylash")
@@ -87,5 +112,30 @@ check("ostida attribution yozuvi", any(s.has_text_frame and s.text_frame.text ==
 check("GLB taqdimotga qo'shilgan", any(p.partname.endswith(".glb") for p in prs.part.package.iter_parts()))
 
 print()
+print("4) Qidiruv tizimi: bolalar filtri va toifa")
+try:
+    from services.kat3d import qidiruv
+except Exception as exc:                                   # noqa: BLE001  (AI kutubxonalari yo'q muhit)
+    print("  o'tkazildi — qidiruv moduli import qilinmadi:", str(exc)[:80])
+else:
+    allv = frozenset(katalog3d.katalog())
+    kid_ids = {m["id"] for m in kids}
+    plain = qidiruv.score("maktab", ["school", "desk", "backpack", "teddy", "toy"], available=allv, limit=80)
+    check("oddiy mavzuda bolalar modeli ball olmaydi", not ({i for _, i in plain} & kid_ids))
+    kidr = qidiruv.score("bolalar tarbiyasi", ["school", "desk", "backpack", "teddy", "toy"], available=allv, limit=80,
+                         kids=True)
+    check("bolalar mavzusida bolalar modellari chiqadi", {i for _, i in kidr} & kid_ids)
+    cats = qidiruv.categories()
+    check("toifalar ro'yxatida bolalar toifalari bor", "o'yinchoqlar" in cats and "maktab va sinf" in cats, cats)
+    boosted = dict((i, b) for b, i in qidiruv.score("x", ["skull"], available=allv, kategoriya=["Skeletlar va bosh suyaklari"],
+                                                     limit=500))
+    base = dict((i, b) for b, i in qidiruv.score("x", ["skull"], available=allv, limit=500))
+    check("mos toifa qo'shimcha ball beradi", all(boosted[i] > base[i] for i in boosted
+                                                   if katalog3d.katalog()[i]["kategoriya"] == "Skeletlar va bosh suyaklari"))
+    check("kids_topic: bolalar", all(qidiruv.kids_topic(t) for t in ("Bola tarbiyasida atrof muhit", "Kids toys",
+                                                                     "Детский сад", "Bog'cha o'yinlari")))
+    check("kids_topic: jiddiy mavzular emas", not any(qidiruv.kids_topic(t) for t in ("Amir Temur", "Yurak anatomiyasi",
+                                                                                      "Quyosh tizimi", "Iqtisodiyot")))
+
 print("HAMMASI OK" if not FAILS else f"{len(FAILS)} ta XATO: {FAILS}")
 sys.exit(1 if FAILS else 0)

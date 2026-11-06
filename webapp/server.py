@@ -1304,6 +1304,8 @@ def create_web_app() -> web.Application:
     setup_slide_player_routes(app)
     from webapp.api import setup_api_routes
     setup_api_routes(app)
+    from webapp.ad_track import setup_ad_track_routes
+    setup_ad_track_routes(app)
     return app
 
 

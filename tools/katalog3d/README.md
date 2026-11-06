@@ -1,6 +1,6 @@
 # Umumiy 3D katalog (NASA'dan tashqari)
 
-**2074 ta model**, hammasi ~12,5 GB: Objaverse/Sketchfab — 1698, Smithsonian — 376.
+**2150 ta model** (2090 ta asosiy + 60 ta bolalar), hammasi ~12,6 GB: Objaverse/Sketchfab — 1774, Smithsonian — 376.
 Litsenziya: CC BY 4.0 — 1552, CC0 — 522.
 
 O'zbekiston yodgorliklari (15 ta): Registon, Bibixonim, Go'ri Amir, Ulug'bek rasadxonasi sekstanti, Oqsaroy
@@ -38,6 +38,21 @@ geografiya, astronomiya va boshqalar. Har model PowerPoint'ga mos `.glb` qilib t
 | `services/katalog3d.py` | `qidir()`, `model_yoli()`, `joylash()` — slaydga qo'yish |
 | `services/kat3d/yukla.py` | Serverga avtomatik yuklash (kerak bo'lganda o'zi) |
 | `tools/katalog3d/yukla.sh` | Hammasini birdan yuklash (ixtiyoriy) |
+
+## Toifalar va bolalar katalogi
+
+- **Nomlar.** `nom_uz` — asl nomning aniq tarjimasi. Asl nomi chet tilida bo'lgan yoki xato tarjima qilinganlari qayta
+  ko'rib chiqilgan (masalan «Bär mit Jungem» — «Ayiq va uning bolasi haykali», «Bola bilan ayiq» emas); o'zgarishlar
+  `docs/katalog3d_nom_tuzatish.json` da (eski → yangi).
+- **Toifa.** Har modelda `kategoriya` (~40 ta: «Sutemizuvchilar», «Dengiz umurtqasizlari», «Ibodatxonalar va cherkovlar»,
+  «Avtomobillar»...) va `tur` ("real" yoki "bolalar"). `python tools/katalog3d/toifalash.py` qoidalar bo'yicha qayta
+  hisoblaydi; yangi model qo'shilganda shuni ishga tushiring.
+- **Bolalar katalogi** — `data/katalog3d/bolalar.json` (60 ta: o'yinchoqlar, o'yin maydonchasi, chaqaloq buyumlari, maktab va
+  sinf, bolalar xonasi). Asosiy katalog o'yinchoqni ataylab olmaydi (jiddiy mavzularga aralashmasin), shuning uchun bular
+  alohida: `tur = "bolalar"` modellar faqat mavzu bolalar haqida bo'lganda (`qidiruv.kids_topic` yoki AI `bolalar: true`)
+  qidiruvga kiradi, `katalog3d.qidir(..., bolalar=True)` esa so'rab olinadi.
+- **Qidiruv.** AI mavzuga mos toifalarni ham tanlaydi (`kategoriya`): mos toifadagi modellar qo'shimcha ball oladi, AI tanlov
+  ro'yxatida har modelning toifasi ko'rinadi.
 
 ## Serverga yuklash — avtomatik
 

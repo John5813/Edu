@@ -55,6 +55,18 @@ async def start_command(message: Message, state: FSMContext, db: Database):
 
         gift_code = gift_links.code_of(message.text.split()[1])
 
+    # Reklama havolasi (Instagram reklamasi, `/go/<kod>` orqali): /start ad_<kod>. Kim kirdi — yangi yoki eski mijoz —
+    # shu yerda, mijoz bazaga yozilishidan OLDIN aniqlanadi. Hisob xatosi mijozning kirishini to'smaydi.
+    if message.text and len(message.text.split()) > 1:
+        from database import ad_links
+
+        ad_code = ad_links.code_of(message.text.split()[1])
+        if ad_code:
+            try:
+                await ad_links.record_start(ad_code, user_id, was_new=user is None)
+            except Exception as ad_err:
+                logger.warning("Reklama havolasi hisobi yozilmadi (%s): %s", ad_code, ad_err)
+
     # Saytdagi Google akkauntni shu Telegramga ulash: /start weblink_<token> (avval aniq tasdiq so'raladi)
     if message.text and len(message.text.split()) > 1 and message.text.split()[1].startswith("weblink_"):
         await _offer_web_link(message, message.text.split()[1][len("weblink_"):], user)

@@ -1265,6 +1265,12 @@ def get_feature_management_keyboard(
         callback_data="giftlinks"
     ))
 
+    # Reklama havolalari: Instagram reklamasi natijasini kuzatish (database/ad_links.py)
+    keyboard.add(InlineKeyboardButton(
+        text="📈 Reklama havolalari (kuzatuv)",
+        callback_data="adlinks"
+    ))
+
     # Mass gift button
     keyboard.add(InlineKeyboardButton(
         text="🎁 Barchaga sovg'a yuborish",
