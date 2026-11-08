@@ -108,9 +108,12 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
 async def _build_deck(topic, slide_count, *, language, level, preferences, source_text, author, theme_key,
                       style, volume, photos, progress_cb, stage_cb, deck_out,
                       photo_source="mix") -> Tuple[str, int, int]:
-    from services.premium_presentation import html_images, html_render, html_slides, themes
+    from services.premium_presentation import html_images, html_render, html_slides, themes, topic_language
 
     loop = asyncio.get_running_loop()
+    # Mavzu taqdimot tilida bo'lsin: o'zbekcha mavzu + «English» tanlansa reja sarlavhalari (slaydlar ularni
+    # aynan ishlatadi) va muqova o'zbekcha chiqardi.
+    topic = await asyncio.to_thread(topic_language.localize, topic, language)
 
     def stage(name: str, **info) -> None:
         if stage_cb:

@@ -141,6 +141,9 @@ async def build_deck(topic: str, slide_count: int, model_ids: List[str], *, lang
     if not ids:
         raise NoModels("3D modellar serverga yuklanmadi")
     count = max(MIN_SLIDES, min(MAX_SLIDES, int(slide_count or 8)))
+    from services.premium_presentation import topic_language
+
+    topic = await asyncio.to_thread(topic_language.localize, topic, language)   # mavzu taqdimot tilida
     research = None
     if tadqiqot.enabled():                     # internetdan yangi faktlar — ishlamasa AI bilimidan yoziladi
         stage("research")

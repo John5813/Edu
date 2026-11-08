@@ -390,27 +390,17 @@ async def _lang_of(user_id: int, db: Database) -> str:
     return user.language if user else "uz"
 
 
-_ENGLISH_WORDS = {"the", "of", "and", "in", "for", "to", "on", "with", "is", "are", "how",
-                  "what", "why", "impact", "analysis", "theory", "history", "development",
-                  "introduction", "role", "its", "an", "a", "by", "from", "as", "or"}
-
-
 def _detect_language(topic: str) -> str:
     """Mavzuning tilidan taqdimot tili: ruscha, inglizcha yoki o'zbekcha.
 
     Til alohida so'ralmaydi (qadam kamaysin); noto'g'ri chiqsa, buyurtma
     xulosasida o'zgartiriladi.
     """
-    from bot.handlers import documents as _documents
+    from services.premium_presentation import topic_language
 
-    written = _documents._topic_language(topic)
-    if written:
-        return written
-    words = re.findall(r"[a-z']+", (topic or "").lower())
-    if words and all(ord(ch) < 128 for ch in topic) and \
-            sum(1 for word in words if word in _ENGLISH_WORDS) >= 1:
-        return "en"
-    return "uz"
+    # Inglizcha mavzu ilgari faqat «the/of/and...» kabi so'zlar bilan tanilardi: «Climate change effects»
+    # o'zbekcha deb aniqlanib, taqdimot o'zbekcha yozilardi. Endi harf birikmalari va qo'shimchalar ham.
+    return topic_language.detect(topic) or "uz"
 
 
 # ── 1. Mavzu
