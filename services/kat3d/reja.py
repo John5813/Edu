@@ -81,19 +81,36 @@ English scene description in "photo" — subject, setting, light; never text, di
 at least once when the topic allows. "qahramon" and "uchlik" need models.
 """
 
+RESEARCH_RULES = """FRESH RESEARCH (web search with sources) is given below the models. Use it like a careful
+author who has just done the research:
+1. Cover EVERY section from the research, in that order — at least one slide each (the first sections are the
+   client's own questions: answer each of them directly and concretely).
+2. Numbers, dates and names come from the FACTS (quote them exactly, with the year). Do not add other statistics
+   from memory; if a needed number is not there, explain in words. Never contradict the facts.
+3. Turn the DATA SERIES into "diagramma" slides (up to {charts}): "chart": {{"type": "column"|"bar"|"line",
+   "title": "...", "labels": [...], "values": [...], "unit": "%"}} with exactly the series' labels and values,
+   + "subtitle" (what it shows) + 2-3 "points" (what it means). These slides have "models": [] (no 3D).
+   Use "jadval" to compare countries, regions or periods from the facts, "raqamlar" for key figures,
+   "taqqoslash" for year-vs-month or before/after comparisons.
+4. If the facts have data for Uzbekistan, show it and compare it with the world or neighbours.
+5. In every slide's "notes" name the source (organisation/site and year) of its numbers.
+"""
+
 USER = """Topic: {topic}
 Audience: {level}
 Language: {language_rule}
 {extra}
 3D MODELS (code | Uzbek name | original name | subject):
 {models}
-"""
+{research}"""
 
 REVIEW_SYSTEM = """You are a fact-checker for an educational presentation. You get slides as JSON
 [{"i": 0, "title": "...", "texts": ["..."], "stats": [{"value": "...", "label": "..."}]}].
 Fix ONLY factual errors (wrong dates, numbers, names, misattributed quotes) in the same language; keep length,
 meaning and the number and order of "texts". If a stat is doubtful and you cannot fix it reliably, set its
 value to "". Return everything else unchanged.
+If REFERENCE FACTS are given after the slides, they come from a fresh web search with sources and are newer than
+your memory: never change numbers or dates that match them, and use them to fix anything that contradicts them.
 Return ONLY JSON: {"slides": [{"i": 0, "title": "...", "texts": [...], "stats": [...]}]}"""
 
 
@@ -158,17 +175,29 @@ def _mix_balance(slides: List[dict], ids: Sequence[str], count: int) -> None:
         have += 1
 
 
+def charts_limit(count: int) -> int:
+    """To'liq 3D taqdimotda tadqiqotdagi grafiklar uchun 3D'siz «diagramma» slaydlari: 10 ta slaydda 2 ta, 20 da 4 ta."""
+    return max(1, count // 5)
+
+
 def _plan_ai(topic: str, count: int, codes: Dict[str, str], language: str, level: int, preferences: str,
-             mix: bool = False, boost: float = 1.0) -> dict:
+             mix: bool = False, boost: float = 1.0, research: Optional[dict] = None) -> dict:
     from services import katalog3d
 
     cat = katalog3d.katalog()
     models = "\n".join(f"{c} | {cat[m]['nom_uz']} | {cat[m]['nom'][:70]} | {cat[m]['fan']}" for c, m in codes.items())
-    extra = f"Client's wishes: {preferences[:500]}\n" if preferences else ""
+    extra = f"Client's wishes: {preferences[:1500]}\n" if preferences else ""
+    found = ""
+    if research:
+        from . import tadqiqot
+
+        found = "\n" + tadqiqot.matn(research) + "\n"
     user = USER.format(topic=topic, level=LEVELS.get(level, LEVELS[2]), language_rule=ai.language_rule(language),
-                       extra=extra, models=models)
-    system = SYSTEM.format(count=count, styles=style_guide(),
-                           mix=MIX_RULES.format(pictures=pictures_target(count, len(codes))) if mix else "")
+                       extra=extra, models=models, research=found)
+    rules = MIX_RULES.format(pictures=pictures_target(count, len(codes))) if mix else ""
+    if research:
+        rules += RESEARCH_RULES.format(charts=charts_limit(count) if not mix else count)
+    system = SYSTEM.format(count=count, styles=style_guide(), mix=rules)
     return ai.call_json(system, user, int((1500 + 750 * count) * boost), language=language, model=ai.MODEL)
 
 
@@ -234,8 +263,8 @@ def _chart(raw) -> dict:
         return {}
     kind = str(raw.get("type") or "column").strip().lower()
     kind = kind if kind in ("column", "bar", "line", "pie") else "column"
-    labels = [_clip(x, 24) for x in (raw.get("labels") or []) if str(x or "").strip()][:8]
-    values = [_number(v) for v in (raw.get("values") or [])][:8]
+    labels = [_clip(x, 24) for x in (raw.get("labels") or []) if str(x or "").strip()][:12]   # 12 — oylar
+    values = [_number(v) for v in (raw.get("values") or [])][:12]
     pairs = [(lb, v) for lb, v in zip(labels, values) if v is not None]
     if len(pairs) < 2:
         return {}
@@ -300,12 +329,14 @@ def _valid(s: dict) -> bool:
             "rasm": bool(s.get("photo"))}.get(lay, True)
 
 
-def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str], mix: bool = False) -> dict:
+def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str], mix: bool = False,
+              charts: bool = False) -> dict:
     """AI rejasini tekshiradi va tuzatadi: kompozitsiya va uning maydonlari, xilma-xillik (ketma-ket bir xil
     dizayn yo'q, ro'yxatli slaydlar ko'pi bilan ikkita), matn uzunligi, modellar soni va hajmi.
 
     `mix` — aralash taqdimot: modellar faqat AI qo'ygan slaydlarda (har tanlangan model kamida bir marta),
-    qolganlari 3D'siz — diagramma, rasm yoki matnli dizayn."""
+    qolganlari 3D'siz — diagramma, rasm yoki matnli dizayn.
+    `charts` — to'liq 3D taqdimotda ham tadqiqotdagi raqamlar bilan 3D'siz «diagramma» slaydlari (`charts_limit` ta)."""
     from services import katalog3d
 
     ids = _fit_size(list(ids))
@@ -333,7 +364,7 @@ def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str],
             lay = "yakun"
         elif lay not in LAYOUTS or lay in ("muqova", "yakun"):
             lay = "matn" if s.get("paragraphs") else "chap"
-        elif lay in MIX_ONLY and not mix:
+        elif lay in MIX_ONLY and not mix and not (lay == "diagramma" and charts and s.get("chart")):
             lay = "chap"
         want = [codes.get(str(c).strip()) for c in (s.get("models") or [])]
         want = [m for m in want if m in allowed]
@@ -348,7 +379,7 @@ def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str],
                "cards": _pairs(s.get("cards"), "title", "text", LIMITS["card"], LIMITS["card_text"], 4),
                "steps": _pairs(s.get("steps"), "title", "text", LIMITS["step"], LIMITS["step_text"], 5),
                "columns": [], "stats": [], "items": [], "table": _table(s.get("table")),
-               "chart": _chart(s.get("chart")) if mix else {},
+               "chart": _chart(s.get("chart")) if mix or charts else {},
                "photo": _clip(s.get("photo"), 90) if mix else "",
                "quote": _clip(s.get("quote"), LIMITS["quote"]), "source": _clip(s.get("source"), LIMITS["source"]),
                "text": _clip(s.get("text"), LIMITS["answer"]),
@@ -392,6 +423,8 @@ def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str],
                 out["models"] = [] if lay in MIX_ONLY else want[:1]
             if lay == "qahramon" and not out["models"]:
                 out["layout"] = "chap"
+        elif lay == "diagramma":                       # to'liq 3D, tadqiqot grafigi — 3D'siz
+            out["models"] = []
         elif lay != "uchlik":
             n = {"muqova": 2 if len(ids) > 1 and len(want) > 1 else 1,
                  "yakun": min(4, max(2, len(want))) if len(ids) > 1 else 1}.get(lay, 1)
@@ -413,6 +446,11 @@ def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str],
             used[mid] += 1
     if mix:
         _mix_balance(slides, ids, count)
+    elif charts:                                        # grafiklar ko'p bo'lib 3D yo'qolib ketmasin
+        for s in [s for s in slides if s["layout"] == "diagramma"][charts_limit(count):]:
+            _as_text(s, "chap")
+            s["chart"] = {}
+            s["models"] = pick(1)
     _vary(slides)
     if mix:                                             # `_vary` modelsiz slaydni «qahramon»ga aylantirgan bo'lishi mumkin
         for s in slides:
@@ -496,13 +534,16 @@ _SUB_LIMIT = {("events", "date"): "date", ("events", "text"): "event", ("cards",
               ("steps", "text"): "step_text", ("items", "text"): "text"}
 
 
-def review(plan: dict, language: str) -> int:
-    """Ikkinchi o'qish: faktlardagi xatolar (sana, raqam, nom, iqtibos muallifi). Ishlamasa — reja o'zgarmaydi."""
+def review(plan: dict, language: str, research: Optional[dict] = None) -> int:
+    """Ikkinchi o'qish: faktlardagi xatolar (sana, raqam, nom, iqtibos muallifi). Ishlamasa — reja o'zgarmaydi.
+    `research` — internetdan topilgan yangi faktlar: tekshiruvchi ularni eski xotirasi bilan «tuzatib» yubormaydi."""
     import json
 
     slots = [_slots(s) for s in plan["slides"]]
     payload = json.dumps([{"i": i, "title": s["title"], "texts": [_get(s, t) for t in slots[i]], "stats": s["stats"]}
                           for i, s in enumerate(plan["slides"])], ensure_ascii=False)
+    if research and research.get("facts"):
+        payload += "\n\nREFERENCE FACTS:\n" + "\n".join(f"- {f['text']} ({f['source']})" for f in research["facts"])
     try:
         data = ai.call_json(REVIEW_SYSTEM, payload, 450 * len(plan["slides"]), language=language,
                             where="3D katalog tekshiruv", temperature=0.1)
@@ -547,7 +588,9 @@ MAX_ATTEMPTS = 3
 
 
 def plan(topic: str, count: int, ids: Sequence[str], language: str = "uz", level: int = 2,
-         preferences: str = "", style: Optional[str] = None, mix: bool = False) -> dict:
+         preferences: str = "", style: Optional[str] = None, mix: bool = False,
+         research: Optional[dict] = None) -> dict:
+    """`research` — `tadqiqot.tayyorla()` natijasi (bo'limlar, faktlar, grafik qatorlari, manbalar) yoki None."""
     ids = list(dict.fromkeys(ids))
     codes = {f"m{i}": mid for i, mid in enumerate(ids)}
     # Mijoz tanlagan slaydlar soni to'liq bo'lsin: AI javobi token chegarasida kesilsa, qisman saqlangan reja
@@ -555,8 +598,9 @@ def plan(topic: str, count: int, ids: Sequence[str], language: str = "uz", level
     out, last = None, ""
     for attempt in range(MAX_ATTEMPTS):
         try:
-            data = _plan_ai(topic, count, codes, language, level, preferences, mix, boost=1 + 0.5 * attempt)
-            out = normalize(data, count, ids, codes, mix)
+            data = _plan_ai(topic, count, codes, language, level, preferences, mix, boost=1 + 0.5 * attempt,
+                            research=research)
+            out = normalize(data, count, ids, codes, mix, charts=bool(research and research.get("series")))
         except RuntimeError as exc:                 # reja juda qisqa — keyingi urinish
             out, last = None, str(exc)
             log.warning("3D katalog reja (%d-urinish): %s", attempt + 1, exc)
@@ -569,7 +613,7 @@ def plan(topic: str, count: int, ids: Sequence[str], language: str = "uz", level
     if out is None:
         raise RuntimeError(f"AI reja to'liq emas: {last}")
     if REVIEW_ON:
-        n = review(out, language)
+        n = review(out, language, research)
         if n:
             log.info("3D katalog: fakt tekshiruvi %d joyni tuzatdi", n)
     out["style"] = style if style in STYLES else (out["style"] or _style_for(ids))

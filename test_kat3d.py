@@ -549,6 +549,138 @@ with mock.patch.object(yukla, "ishlaydi", return_value=False):
 put_model(SMILODON)
 katalog3d.mavjud(ttl=0)
 
+print("5d) Chuqur tadqiqot: internetdan yangi faktlar, mijoz savollari, manbalar")
+from services.kat3d import tadqiqot
+check("raqamlar bir xil ko'rinishda (minglik vergul, o'nlik vergul)",
+      tadqiqot._norm_numbers("87,461 tons; 3,4%; 98 000") == ["87461", "3.4", "98000"],
+      tadqiqot._norm_numbers("87,461 tons; 3,4%; 98 000"))
+_corp = tadqiqot._scaled(set(tadqiqot._norm_numbers("98,000 tonnes in 2025, demand rose 3.4%")))
+check("«98 ming tonna» manbadagi «98,000» bilan mos", tadqiqot._grounded(["2025-yilda 98 ming tonna"], _corp, 0.5))
+check("manbada yo'q raqam — to'qilgan deb olinadi", not tadqiqot._grounded(["yuklanish 45,7%"], _corp, 0.5))
+
+SNIPPETS = {
+    "air cargo goods": [{"title": "What goods fly", "url": "https://ex.org/goods", "age": "",
+                         "text": "Air cargo carries about 33% of world trade by value, over USD 8 trillion a year."}],
+    "IATA 2025": [{"title": "IATA 2025", "url": "https://iata.org/2025", "age": "January 29, 2026",
+                   "text": "Full-year demand for 2025 increased 3.4% compared to 2024. Monthly growth: January 3.2%, "
+                           "February -0.1%, March 4.4%, April 5.8%."}],
+    "Uzbekistan": [{"title": "Uzbekistan cargo", "url": "https://uz.uz/cargo", "age": "October 1, 2026",
+                    "text": "98,000 tonnes of cargo were handled through Uzbekistan's airports in 2025."}],
+}
+SECTIONS_AI = {"sections": [{"title": "Qanday yuklar tashiladi", "queries": ["air cargo goods"]},
+                            {"title": "Yillik ko'rsatkichlar", "queries": ["IATA 2025"]},
+                            {"title": "O'zbekiston", "queries": ["Uzbekistan"]}]}
+FACTS_AI = {"facts": [
+    {"section": 0, "text": "Havo yuki jahon savdosining qiymat bo'yicha 33% ini tashiydi.", "source": "ex.org",
+     "url": "https://ex.org/goods"},
+    {"section": 1, "text": "2025-yilda talab 3,4% oshdi.", "source": "IATA", "url": "https://iata.org/2025"},
+    {"section": 1, "text": "Yuklanish koeffitsienti 47,9% bo'ldi.", "source": "IATA", "url": "https://iata.org/2025"},
+    {"section": 2, "text": "2025-yilda O'zbekiston aeroportlari 98 ming tonna yuk qabul qildi.", "source": "UzDaily",
+     "url": "https://uz.uz/cargo"}],
+    "series": [{"section": 1, "title": "2025-yil oylik o'sish", "labels": ["Yan", "Fev", "Mar", "Apr"],
+                "values": [3.2, -0.1, 4.4, 5.8], "unit": "%", "source": "IATA"},
+               {"section": 1, "title": "To'qilgan qator", "labels": ["A", "B", "C"], "values": [11, 22, 33],
+                "unit": "%", "source": "?"}]}
+_ai_calls = []
+
+def fake_ai(system, user, tokens, **kw):
+    _ai_calls.append((system, user))
+    return SECTIONS_AI if "plan the research" in system else FACTS_AI
+
+with mock.patch.object(tadqiqot, "enabled", return_value=True), \
+     mock.patch.object(tadqiqot, "_brave_web", side_effect=lambda q: SNIPPETS.get(q, [])), \
+     mock.patch.object(tadqiqot.ai, "call_json", side_effect=fake_ai):
+    found = tadqiqot.tayyorla("Havo transporti", "Qanday yuklar tashiladi? Yillik ko'rsatkichlar", "uz")
+check("mijoz istaklari bo'limlarga aylandi (tartibi saqlandi)",
+      found and found["sections"] == ["Qanday yuklar tashiladi", "Yillik ko'rsatkichlar", "O'zbekiston"],
+      found and found["sections"])
+check("istaklar AI ga to'liq berildi", "Yillik ko'rsatkichlar" in _ai_calls[0][1])
+texts = [f["text"] for f in found["facts"]]
+check("manbadagi raqamli faktlar qoldi, manbada yo'q raqam (47,9%) tashlandi",
+      len(texts) == 3 and not any("47,9" in t for t in texts), texts)
+check("grafik qatori faqat manbadagi raqamlardan (to'qilgani tashlandi)",
+      [s["title"] for s in found["series"]] == ["2025-yil oylik o'sish"], found["series"])
+check("manbalar ro'yxati (nomi va manzili)", any(s["url"] == "https://uz.uz/cargo" for s in found["sources"]),
+      found["sources"])
+with mock.patch.object(tadqiqot, "enabled", return_value=True), \
+     mock.patch.object(tadqiqot, "_brave_web", return_value=[]), \
+     mock.patch.object(tadqiqot.ai, "call_json", side_effect=fake_ai):
+    check("internetdan hech narsa topilmasa — None (reja avvalgidek AI bilimidan)",
+          tadqiqot.tayyorla("Mavzu", "", "uz") is None)
+with mock.patch.object(tadqiqot.ai, "call_json", side_effect=RuntimeError("402")):
+    secs = tadqiqot.savollar("Havo transporti", "Qanday yuklar tashiladi?\nYillik ko'rsatkichlar", "uz")
+check("AI ishlamasa — bo'limlar mijoz istaklaridan", [s["title"] for s in secs][:2] ==
+      ["Qanday yuklar tashiladi", "Yillik ko'rsatkichlar"], secs)
+
+# reja: tadqiqot promptga kiradi, to'liq 3D da ham grafik (3D'siz), 12 oy sig'adi, ortiqcha grafik — matnga
+MONTHS = ["Yan", "Fev", "Mar", "Apr", "May", "Iyun", "Iyul", "Avg", "Sen", "Okt", "Noy", "Dek"]
+chart_raw = {"slides": [{"layout": "muqova", "title": "Havo transporti", "subtitle": "Kirish", "models": ["m0"]}]
+             + [{"layout": "diagramma", "title": f"Grafik {k}", "subtitle": "Nima ko'rsatadi.", "points": [S, S],
+                 "chart": {"type": "column", "labels": MONTHS, "values": list(range(1, 13)), "unit": "%"},
+                 "models": ["m1"]} for k in range(3)]
+             + [{"layout": "matn", "title": "Matn", "paragraphs": [S], "models": ["m1"]},
+                {"layout": "yakun", "title": "Xulosa", "points": [S, S, S], "models": ["m0", "m1"]}]}
+codes2 = {"m0": NEFERTITI, "m1": SKARABEY}
+pc = reja.normalize(chart_raw, 6, [NEFERTITI, SKARABEY], codes2, charts=True)
+charts_ = [s_ for s_ in pc["slides"] if s_["layout"] == "diagramma"]
+check("to'liq 3D + tadqiqot: grafik slayd 3D'siz, 12 oy to'liq",
+      len(charts_) == reja.charts_limit(6) == 1 and not charts_[0]["models"] and len(charts_[0]["chart"]["labels"]) == 12,
+      [(s_["layout"], s_["models"]) for s_ in pc["slides"]])
+check("ortiqcha grafiklar — matnli slayd va 3D bilan", all(s_["models"] for s_ in pc["slides"]
+                                                         if s_["layout"] != "diagramma"))
+pn = reja.normalize(chart_raw, 6, [NEFERTITI, SKARABEY], codes2)
+check("tadqiqotsiz to'liq 3D da grafik yo'q (avvalgidek)", not any(s_["layout"] == "diagramma" for s_ in pn["slides"]))
+_plan_calls = []
+
+def fake_plan_ai(system, user, tokens, **kw):
+    _plan_calls.append((system, user))
+    if "fact-checker" in system:
+        return {"slides": []}
+    return chart_raw
+
+with mock.patch.object(reja.ai, "call_json", side_effect=fake_plan_ai), mock.patch.object(reja, "REVIEW_ON", True):
+    rp = reja.plan("Havo transporti", 6, [NEFERTITI, SKARABEY], "uz", preferences="Yillik ko'rsatkichlar",
+                   research=found)
+check("reja so'rovida bo'limlar, faktlar va grafik qatorlari", "SECTIONS (cover each" in _plan_calls[0][1]
+      and "98 ming tonna" in _plan_calls[0][1] and "DATA SERIES" in _plan_calls[0][1]
+      and "FRESH RESEARCH" in _plan_calls[0][0])
+check("fakt tekshiruvchiga yangi faktlar beriladi (eski xotira bilan buzmasin)",
+      any("REFERENCE FACTS" in u and "fact-checker" in s_ for s_, u in _plan_calls))
+check("reja: tadqiqot grafigi saqlandi", any(s_["layout"] == "diagramma" for s_ in rp["slides"]))
+
+# build_deck: tadqiqot bosqichi, manbalar oxirgi slayd izohida, 20 slayd varianti
+stages, got = [], {}
+
+def fake_reja_plan(*a, **kw):
+    got["research"] = a[8] if len(a) > 8 else kw.get("research")
+    return {"slides": [dict(rp["slides"][0]), dict(rp["slides"][-1], notes="Rahmat.")], "style": "tungi"}
+
+def fake_deck_build(plan_, path):
+    got["notes"] = plan_["slides"][-1]["notes"]
+    open(path, "wb").write(b"pptx")
+    return path
+
+with mock.patch.object(yukla, "ensure", return_value=[NEFERTITI, SKARABEY]), \
+     mock.patch.object(tadqiqot, "enabled", return_value=True), \
+     mock.patch.object(tadqiqot, "tayyorla", return_value=found), \
+     mock.patch.object(reja, "plan", side_effect=fake_reja_plan), \
+     mock.patch.object(deck, "build", side_effect=fake_deck_build):
+    asyncio.run(kat3d.build_deck("Havo transporti", 20, [NEFERTITI, SKARABEY], preferences="Savollar",
+                                 stage_cb=lambda name, info: stages.append(name)))
+check("bosqichlar: modellar → tadqiqot → reja", stages[:3] == ["download", "research", "plan"], stages)
+check("tadqiqot rejaga uzatildi", got.get("research") is found)
+check("manbalar oxirgi slayd izohida", "Manbalar:" in got["notes"] and "https://uz.uz/cargo" in got["notes"]
+      and got["notes"].startswith("Rahmat."), got.get("notes"))
+check("20 slaydli variant (narxi varog'iga 2 000)", 20 in kat3d.SLIDE_OPTIONS and kat3d.price_for(20) == 40000)
+
+from services.kat3d import boyash
+check("samolyot, mashina, konteyner boyalmaydi (asl oq rangida)",
+      boyash.keeps_colour({"nom_uz": "Il-76 yuk samolyoti", "fan": "transport"})
+      and boyash.keeps_colour({"nom": "Cargo truck", "fan": "texnika"})
+      and boyash.paint(b"glb", {"nom": "Boeing 757", "fan": "transport"}) == (b"glb", None))
+check("haykal va organlar avvalgidek boyaladi", not boyash.keeps_colour({"nom": "Marble bust", "fan": "san'at"})
+      and not boyash.keeps_colour({"nom": "Human heart", "fan": "tibbiyot"}))
+
 print("6) Bot oqimi")
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
@@ -741,7 +873,7 @@ short3 = {"style": "vitrina", "slides": full8["slides"][:3]}            # javob 
 calls = []
 
 
-def fake_plan_ai(topic, count, codes_, language, level, preferences, mix=False, boost=1.0):
+def fake_plan_ai(topic, count, codes_, language, level, preferences, mix=False, boost=1.0, research=None):
     calls.append(boost)
     return short3 if len(calls) < 3 else full8
 
