@@ -356,6 +356,21 @@ prs3 = Presentation(out3)
 z3 = zipfile.ZipFile(out3)
 check("diagramma — PowerPoint'ning o'z grafigi (tahrirlanadi)", any(n.startswith("ppt/charts/chart") for n in z3.namelist()))
 check("rasm slaydida foto", any(sh.name.startswith("photo_") for sl in prs3.slides for sh in sl.shapes))
+from pptx import Presentation as _Prs
+from pptx.enum.chart import XL_TICK_LABEL_POSITION as _TLP
+_prs = _Prs()
+_sl = _prs.slides.add_slide(_prs.slide_layouts[6])
+_ctx = SimpleNamespace(st=deck.STYLES["tungi"])
+_neg = deck._add_chart(_ctx, _sl, {"type": "column", "labels": ["2022", "2023", "2024"], "values": [-8.0, -1.9, 11.3],
+                                   "unit": "%", "title": "T"}, 0.5, 0.5, 6, 4).chart
+_pos = deck._add_chart(_ctx, _sl, {"type": "column", "labels": ["A", "B"], "values": [3, 5], "unit": "", "title": ""},
+                       0.5, 0.5, 6, 4).chart
+_bar = deck._add_chart(_ctx, _sl, {"type": "bar", "labels": ["Birinchi", "Ikkinchi"], "values": [10.3, -3.4],
+                                   "unit": "%", "title": ""}, 0.5, 0.5, 6, 4).chart
+check("manfiy qiymatli grafik: yil/nom yozuvlari ustun ustiga tushmaydi (o'q chetida)",
+      _neg.category_axis.tick_label_position == _TLP.LOW and _pos.category_axis.tick_label_position != _TLP.LOW)
+check("gorizontal grafik: birinchi qiymat tepada, manfiy ustun ham rangli",
+      _bar.category_axis.reverse_order and not _bar.plots[0].series[0].invert_if_negative)
 model_slides = sum(1 for sl in prs3.slides if any(inside(x, y) for _, x, y in models_on(sl)))   # arvohlar ekrandan tashqarida
 check("3D faqat tanlangan joylarda", model_slides == sum(1 for s_ in p["slides"] if s_["models"]), model_slides)
 check("aralash narx 40% arzon", kat3d.price_for(10, "mix") == round(kat3d.price_for(10) * 0.6 / 100) * 100 < kat3d.price_for(10))

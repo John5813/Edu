@@ -600,7 +600,7 @@ def _add_chart(ctx: Ctx, slide, c: dict, x: float, y: float, w: float, h: float)
     """PowerPoint'ning o'z grafigi (mijoz keyin tahrirlay oladi): uslub ranglarida, fonsiz, qiymatlar ustida."""
     from pptx.chart.data import CategoryChartData
     from pptx.dml.color import RGBColor
-    from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION
+    from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION, XL_TICK_LABEL_POSITION
 
     st = ctx.st
     data = CategoryChartData()
@@ -652,6 +652,7 @@ def _add_chart(ctx: Ctx, slide, c: dict, x: float, y: float, w: float, h: float)
         series.smooth = True
     else:
         plot.gap_width = 70
+        series.invert_if_negative = False                # manfiy ustun ham shu rangda (oq bo'lib qolmasin)
         series.format.fill.solid()
         series.format.fill.fore_color.rgb = RGBColor.from_string(st.accent)
     value_axis = chart.value_axis
@@ -661,6 +662,10 @@ def _add_chart(ctx: Ctx, slide, c: dict, x: float, y: float, w: float, h: float)
     cat.format.line.color.rgb = RGBColor.from_string(st.muted)
     cat.tick_labels.font.color.rgb = RGBColor.from_string(st.body)
     cat.tick_labels.font.size = Pt(12)
+    if any(v < 0 for v in c["values"]):                  # manfiy ustun yil/nom yozuvi ustiga tushmasin — yozuvlar chetda
+        cat.tick_label_position = XL_TICK_LABEL_POSITION.LOW
+    if kind == "bar":                                    # gorizontal: PowerPoint pastdan chizadi — birinchisi tepada tursin
+        cat.reverse_order = True
     return frame
 
 
