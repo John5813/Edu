@@ -6,6 +6,8 @@ ham) mos modellarni topadi; topilsa — mijozga to'lovdan OLDIN ko'rsatiladi va 
 bilan yasaladi (`build_deck`). Topilmasa — 3D taklif qilinmaydi.
 
 - `qidiruv` — AI kalit so'zlar → katalogdan nomzodlar → AI mosini tanlaydi;
+- `tadqiqot` — rejadan oldin: mijoz savollari va mavzu bo'yicha internetdan yangi, manbali faktlar va grafik
+  raqamlari (Brave Search) — har savol alohida yoritiladi, raqamlar to'qilmaydi, izohda manba;
 - `reja` — AI slaydlar rejasi (kompozitsiya, matn, raqamlar, qaysi slaydda qaysi model);
 - `deck` — PowerPoint: uslub, fon bezaklari, 3D modellar, Morph (model slayddan slaydga aylanib suzadi);
 - `yukla` — modellar serverga o'zi yuklanadi (3D Anatomiya atlasi kabi): topilishi bilan fonda, kerak bo'lsa
@@ -19,8 +21,8 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 log = logging.getLogger(__name__)
 
-SLIDE_OPTIONS = (5, 8, 10, 12, 15)
-MIN_SLIDES, MAX_SLIDES = 4, 15
+SLIDE_OPTIONS = (5, 8, 10, 12, 15, 20)
+MIN_SLIDES, MAX_SLIDES = 4, 20
 
 
 MIX_DISCOUNT = 0.40                     # aralash taqdimot (3D + diagramma + rasm) — 40% arzon
@@ -100,6 +102,20 @@ async def _photos(topic: str, plan: dict, stage) -> None:
             s["photo_path"] = path
 
 
+_SOURCES_HEAD = {"uz": "Manbalar", "ru": "Источники", "en": "Sources", "kk": "Дереккөздер"}
+
+
+def _add_sources(plan: dict, research: dict, language: str) -> None:
+    """Tadqiqot manbalari — oxirgi slayd izohida (ma'ruzachi ko'radi, o'qituvchi so'rasa ko'rsatadi)."""
+    rows = [f"- {s['name']}" + (f" — {s['url']}" if s.get("url") else "") for s in research.get("sources") or []
+            if s.get("name") or s.get("url")]
+    if not rows or not plan.get("slides"):
+        return
+    head = _SOURCES_HEAD.get((language or "uz")[:2], _SOURCES_HEAD["uz"])
+    last = plan["slides"][-1]
+    last["notes"] = ((last.get("notes") or "").rstrip() + f"\n\n{head}:\n" + "\n".join(rows)).strip()
+
+
 class NoModels(RuntimeError):
     """Mavzuga mos 3D model qolmadi (masalan serverdan o'chirilgan) — pul qaytariladi."""
 
@@ -110,7 +126,7 @@ async def build_deck(topic: str, slide_count: int, model_ids: List[str], *, lang
                      author: str = "") -> Tuple[str, int]:
     """Bot uchun: (PPTX yo'li, slaydlar soni). `model_ids` — mavzu tekshiruvida mijozga ko'rsatilgan (aralash
     rejimda — mijoz o'zi tanlagan) modellar. `mode="mix"` — qolgan slaydlar 3D'siz: diagramma, rasm, matn."""
-    from . import deck, reja, yukla
+    from . import deck, reja, tadqiqot, yukla
 
     def stage(name: str, **info) -> None:
         if stage_cb:
@@ -125,10 +141,20 @@ async def build_deck(topic: str, slide_count: int, model_ids: List[str], *, lang
     if not ids:
         raise NoModels("3D modellar serverga yuklanmadi")
     count = max(MIN_SLIDES, min(MAX_SLIDES, int(slide_count or 8)))
+    research = None
+    if tadqiqot.enabled():                     # internetdan yangi faktlar — ishlamasa AI bilimidan yoziladi
+        stage("research")
+        try:
+            research = await asyncio.wait_for(loop.run_in_executor(
+                None, lambda: tadqiqot.tayyorla(topic, preferences, language)), 3 * 60)
+        except Exception as exc:              # noqa: BLE001
+            log.warning("3D katalog: tadqiqot o'tmadi (%s) — reja AI bilimidan", exc)
     stage("plan")
     mix = mode == "mix"
     plan = await asyncio.wait_for(loop.run_in_executor(
-        None, lambda: reja.plan(topic, count, ids, language, level, preferences, style, mix)), 6 * 60)
+        None, lambda: reja.plan(topic, count, ids, language, level, preferences, style, mix, research)), 6 * 60)
+    if research:
+        _add_sources(plan, research, language)
     plan["author"] = (author or "").strip()
     if mix:
         await _photos(topic, plan, stage)

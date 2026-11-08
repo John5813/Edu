@@ -150,6 +150,7 @@ Mos modellar topilsa, mijozga nomi va rasmi ko'rsatiladi va taqdimot aynan shula
 | Fayl | Nima |
 |---|---|
 | `qidiruv.py` | AI mavzuni kalit so'zlarga yoyadi → nom/teg bo'yicha 80 nomzod → AI «asosiy» va «yordamchi»ni tanlaydi |
+| `tadqiqot.py` | Rejadan oldin internetdan yangi, manbali faktlar va grafik raqamlari (pastda) |
 | `reja.py` | AI slaydlar rejasi (kompozitsiya, matn, raqamlar, modellar), tuzatish va fakt tekshiruvi |
 | `uslub.py` | 10 ta dizayn uslubi (3D Anatomiya dizayn tizimidan) va fan bo'yicha tanlov |
 | `deck.py` | Slaydlar: 14 kompozitsiya, haqiqiy 3D ob'ektlar, Morph bilan uchib-aylanib o'tish, sahnaga kirish/chiqish |
@@ -175,6 +176,24 @@ Harakat: model qo'shni slaydlarda Morph bilan uchib, aylanib o'tadi; sayyora va 
 juda sekin aylanadi (PowerPoint «Turntable», 40 soniyada bir marta, `KAT3D_TURN_SECONDS`), boshqa modellar
 o'tishlar orasida harakatsiz turadi. «Tungi ko'k» uslubida fondagi nur chiziqlari ham Morph bilan suriladi.
 Taqqoslash uchun jadval kompozitsiyasi bor (O'zbekiston qatori ajratib ko'rsatiladi).
+
+### Chuqur tadqiqot (qo'lda puxta tayyorlangan taqdimot darajasi)
+
+Reja yozilishidan oldin `tadqiqot.py` mavzu bo'yicha internetdan yangi ma'lumot yig'adi:
+
+1. AI mavzu va mijoz istaklaridan bo'limlar tuzadi — mijoz yozgan **har savol alohida bo'lim** (o'sha tartibda),
+   keyin mavzuning asosiy qismlari va (statistikali mavzuda) O'zbekiston ma'lumoti; har bo'limga qidiruv so'rovlari.
+2. Brave Search (rasm qidiruvidagi kalitlar) — har so'rovga 6 ta natija: sarlavha, matn parchalari, sana, manzil.
+3. AI parchalardan fakt varaqasi va grafik qatorlarini oladi (manbasi bilan). Kod har raqamni parchalarda bormi deb
+   tekshiradi («98 ming» = «98,000»): parchada yo'q raqamli fakt yoki qator tashlanadi — AI raqam to'qiy olmaydi.
+
+Reja shu faktlar bilan yoziladi: har bo'lim kamida bitta slayd, raqamlar faktlardan, grafik qatorlari — to'liq 3D
+taqdimotda ham 3D'siz «diagramma» slaydlari (10 slaydda 2 ta, 20 da 4 ta; 12 tagacha ustun — oylar), jadval va
+taqqoslash; har slayd izohida manba, oxirgi slayd izohida manbalar ro'yxati. Fakt tekshiruvchi AI yangi raqamlarni
+eski xotirasi bilan «tuzatib» yubormaydi. Brave kaliti yoki AI ishlamasa taqdimot avvalgidek yoziladi;
+`KAT3D_TADQIQOT=0` — o'chirish. Slaydlar soni: 5–20.
+
+Rangsiz modellarni boyash (`boyash.py`) samolyot, mashina, kema va konteynerlarga tegmaydi — ular asl rangida.
 
 Modellar hech qachon oddiy rasmga aylantirilmaydi — har slaydda PowerPoint 3D ob'ekti. Tibbiyotdan
 boshqa mavzularda modelning qismlari yorliq-chiziq bilan nomlanmaydi. CC BY mualliflari model ostida

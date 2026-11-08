@@ -121,9 +121,27 @@ def png_is_colourless(png: bytes) -> bool:
         return False
 
 
+# Samolyot, mashina, kema kabi texnika haqiqatda ham oq/kulrang — boyalsa (qum rangi) g'ayritabiiy ko'rinardi.
+_VEHICLES = ("samolyot", "aircraft", "airplane", "airliner", "plane", "jet", "boeing", "airbus", "antonov",
+             "vertolyot", "helicopter", "truck", "car", "mashina", "avtomobil", "kema", "ship", "poyezd", "train",
+             "lokomotiv", "locomotive", "raketa", "rocket", "sputnik", "satellite", "konteyner", "container")
+
+
+def keeps_colour(info: Dict) -> bool:
+    """Transport va texnika — asl rangida qoladi (boyalmaydi)."""
+    if str(info.get("fan", "")).lower() == "transport":
+        return True
+    text = " ".join([str(info.get("nom", "")), str(info.get("nom_uz", "")), " ".join(info.get("kalit") or [])]).lower()
+    tokens = re.findall(r"[\w'’ʻ‘]+", text)
+    return any(t == w or (len(w) >= 4 and t.startswith(w)) for t in tokens for w in _VEHICLES)
+
+
 def paint(raw: bytes, info: Dict, force: bool = False) -> Tuple[bytes, Optional[str]]:
     """Rangsiz modelni boyaydi: (yangi GLB baytlari, rang) yoki (asl baytlar, None) — rangli/o'qib bo'lmasa.
-    `force` — rangsizligi boshqa yo'l bilan (rasmidan) aniqlangan: GLB tekshiruvi o'tkazib yuboriladi."""
+    `force` — rangsizligi boshqa yo'l bilan (rasmidan) aniqlangan: GLB tekshiruvi o'tkazib yuboriladi.
+    Transport va texnika (`keeps_colour`) boyalmaydi."""
+    if keeps_colour(info):
+        return raw, None
     try:
         doc, binary = read_glb(raw)
         if not force and not is_colourless(doc, binary):

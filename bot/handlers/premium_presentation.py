@@ -954,13 +954,30 @@ async def premium_ppt_skip_name(callback: CallbackQuery, state: FSMContext, db: 
 
 # ── 3. AI ga tushuntirish
 
+# 3D taqdimot Pro: mijoz yozgan har savol — alohida bo'lim, raqamlar internetdagi yangi manbalardan (`kat3d.tadqiqot`).
+_K3_PREFS_HINT = {
+    "uz": ("\n\n🔎 <b>3D taqdimot Pro:</b> yoritilishi kerak bo'lgan savollaringizni yozing — har biri alohida "
+           "slaydda javob topadi. Raqamlar internetdagi yangi manbalardan olinadi, diagramma va jadvallar bo'ladi.\n"
+           "<i>Masalan: qanday yuklar tashiladi; yillik ko'rsatkichlar; qanday hujjatlar kerak; kechikishda nizo qanday "
+           "hal etiladi.</i>"),
+    "ru": ("\n\n🔎 <b>3D-презентация Pro:</b> напишите вопросы, которые нужно раскрыть, — на каждый будет отдельный "
+           "слайд. Цифры берутся из свежих источников в интернете, будут диаграммы и таблицы."),
+    "en": ("\n\n🔎 <b>3D presentation Pro:</b> list the questions to cover — each gets its own slide. Numbers come from "
+           "fresh web sources, with charts and tables."),
+    "kk": ("\n\n🔎 <b>3D презентация Pro:</b> ашылуы керек сұрақтарыңызды жазыңыз — әрқайсысы бөлек слайдта болады. "
+           "Сандар интернеттегі жаңа дереккөздерден алынады."),
+}
+
+
 async def _step_prefs(message: Message, state: FSMContext, lang: str) -> None:
     data = await state.get_data()
     markup = _markup([[InlineKeyboardButton(text=_t(lang, "skip"),
                                             callback_data="prem_ppt_skip_preferences")],
                       _back_row(lang)])
-    await _prompt(message, state, _topic_line(data, lang) + _t(lang, "ask_prefs"), markup,
-                  "prefs", PremiumPresentationStates.waiting_for_preferences)
+    text = _topic_line(data, lang) + _t(lang, "ask_prefs")
+    if _kind_of(data) == KIND_KAT3D:
+        text += _K3_PREFS_HINT.get(lang) or _K3_PREFS_HINT["uz"]
+    await _prompt(message, state, text, markup, "prefs", PremiumPresentationStates.waiting_for_preferences)
 
 
 @router.message(PremiumPresentationStates.waiting_for_preferences)
@@ -2036,18 +2053,22 @@ async def premium_med3d_alternative(callback: CallbackQuery, state: FSMContext, 
 # 3D taqdimot (katalog) bosqichlari holat xabarida.
 _KAT3D_STAGES = {
     "uz": {"download": "3D modellar tayyorlanmoqda...",
+           "research": "Savollaringiz bo'yicha internetdan yangi ma'lumot va manbalar yig'ilmoqda...",
            "plan": "AI slaydlar rejasini yozmoqda va faktlarni tekshirmoqda...",
            "models": "3D modellar joylanmoqda, Morph harakatlari tayyorlanmoqda...",
            "photos": "Rasmlar va diagrammalar tayyorlanmoqda..."},
     "ru": {"download": "Готовим 3D-модели...",
+           "research": "Собираем свежие данные и источники в интернете по вашим вопросам...",
            "plan": "ИИ пишет план слайдов и проверяет факты...",
            "models": "Размещаем 3D-модели и готовим Morph-движения...",
            "photos": "Готовим фотографии и диаграммы..."},
     "en": {"download": "Preparing the 3D models...",
+           "research": "Gathering fresh data and sources from the web for your questions...",
            "plan": "AI is writing the slide plan and checking the facts...",
            "models": "Placing the 3D models and preparing the Morph moves...",
            "photos": "Preparing the photos and charts..."},
     "kk": {"download": "3D модельдер дайындалуда...",
+           "research": "Сұрақтарыңыз бойынша интернеттен жаңа деректер мен дереккөздер жиналуда...",
            "plan": "ЖИ слайдтар жоспарын жазып, фактілерді тексеруде...",
            "models": "3D модельдер орналастырылып, Morph қозғалыстары дайындалуда...",
            "photos": "Суреттер мен диаграммалар дайындалуда..."},
