@@ -369,7 +369,7 @@ def plan_outline(topic: str, count: int, language: str,
 
     outline = ensure_charts(outline, language, guess if guess in deck_logic.NARRATIVE else family)
     outline = ensure_photos(outline, volume, language)
-    outline = exact_rules(outline, family, topic)
+    outline = exact_rules(outline, family, topic, language)
     for item in outline:
         item.pop("padded", None)
     # Kod darajasida kategoriya almashtirilmaydi (ilgari shunday edi va
@@ -485,6 +485,29 @@ _EXERCISE_WORDS = re.compile(r"masala|mashq|misol|amaliy|test|exercise|problem|e
 
 
 _EXERCISE_BRIEF = "Shu mavzuda bitta masala: shart, qadamma-qadam yechim va javob (misol bloki)."
+# Aniq fanda kod qo'shadigan slaydlar sarlavhasi va tavsifi — taqdimot tilida (ilgari ingliz taqdimotida ham
+# «Masala 1», «Amaliy masala 1» deb o'zbekcha chiqardi).
+_EXACT_TEXT = {
+    "uz": ("Masala", "Amaliy masala", _EXERCISE_BRIEF,
+           "«{topic}» bo'yicha yana bir masala (oldingilardan farqli). ",
+           "«{topic}» ning hayotda qo'llanishiga oid amaliy masala (fizika, geometriya yoki iqtisoddan). "
+           "Foiz va statistika O'YLAB TOPILMASIN. "),
+    "ru": ("Задача", "Прикладная задача",
+           "Одна задача по теме: условие, пошаговое решение и ответ (блок misol).",
+           "Ещё одна задача по теме «{topic}» (не похожая на предыдущие). ",
+           "Прикладная задача о применении темы «{topic}» в жизни (физика, геометрия или экономика). "
+           "НЕ придумывать проценты и статистику. "),
+    "en": ("Problem", "Applied problem",
+           "One problem on this topic: statement, step-by-step solution and answer (misol block).",
+           "One more problem on «{topic}» (different from the previous ones). ",
+           "An applied problem on how «{topic}» is used in real life (physics, geometry or economics). "
+           "Do NOT invent percentages or statistics. "),
+    "kk": ("Есеп", "Қолданбалы есеп",
+           "Тақырып бойынша бір есеп: шарты, қадамдық шешімі және жауабы (misol блогы).",
+           "«{topic}» бойынша тағы бір есеп (алдыңғылардан өзгеше). ",
+           "«{topic}» тақырыбының өмірде қолданылуына арналған қолданбалы есеп (физика, геометрия немесе "
+           "экономика). Пайыз бен статистиканы ОЙДАН ШЫҒАРМАҢЫЗ. "),
+}
 # "Mashhur matematiklar fikri" — model Chebishev va Dekart nomidan gap to'qirdi.
 _FAKE_STATS_TITLE = re.compile(r"\b20\d\d\b|prognoz|kelajak|fikr|iqtibos|so'zlari|прогноз|будущ|цитат|высказыван|"
                                r"forecast|future|quote", re.IGNORECASE)
@@ -496,17 +519,19 @@ def _retitle(body: str, title: str) -> str:
     return _TITLE_TAG.sub(lambda m: m.group(1) + _escape(title) + m.group(3), body, count=1)
 
 
-def exact_rules(outline: List[Dict], family: str, topic: str = "") -> List[Dict]:
+def exact_rules(outline: List[Dict], family: str, topic: str = "", language: str = "uz") -> List[Dict]:
     if family != "aniq":
         return outline
+    problem, applied_title, exercise, more, applied_brief = _EXACT_TEXT.get(
+        "uz" if (language or "uz").startswith("uz") else language, _EXACT_TEXT["uz"])
     # Reja qisqa kelib to'ldirilgan o'rinlar (sarlavhasi mavzu nomining takrori) — aniq fanda qo'shimcha masala.
     extra = 0
     for index, item in enumerate(outline):
         if item.get("padded") and 1 < index < len(outline) - 1:
             extra += 1
             item["category"] = "misol"
-            item["title"] = f"Masala {extra}"
-            item["brief"] = f"«{topic}» bo'yicha yana bir masala (oldingilardan farqli). " + _EXERCISE_BRIEF
+            item["title"] = f"{problem} {extra}"
+            item["brief"] = more.format(topic=topic) + exercise
             log.info("%d-slayd (aniq fan): to'ldiruvchi slayd — qo'shimcha masala", index + 1)
     # Iqtibos: model "Fransua Viet" nomidan o'ylab topilgan gap yozardi ("Har bir narsaning o'z vaqti bor").
     # Aniq fanda iqtibos o'rniga teorema/qonun — formula, boshqasi — kartochkalar.
@@ -522,16 +547,15 @@ def exact_rules(outline: List[Dict], family: str, topic: str = "") -> List[Dict]
                 item["category"] == "korsatkichlar" or _FAKE_STATS_TITLE.search(str(item.get("title") or ""))):
             applied += 1
             item["category"] = "misol"
-            item["title"] = f"Amaliy masala {applied}"
-            item["brief"] = (f"«{topic}» ning hayotda qo'llanishiga oid amaliy masala (fizika, geometriya yoki "
-                             "iqtisoddan). Foiz va statistika O'YLAB TOPILMASIN. " + _EXERCISE_BRIEF)
+            item["title"] = f"{applied_title} {applied}"
+            item["brief"] = applied_brief.format(topic=topic) + exercise
             log.info("%d-slayd (aniq fan): ko'rsatkich/prognoz o'rniga amaliy masala", index + 1)
     # Masala/mashq slaydi — ishlangan misol bilan (ilgari "Testlar va mashqlar" kartalarda masalasiz qolardi).
     for index, item in enumerate(outline):
         if 1 < index < len(outline) - 1 and item["category"] not in ("misol", "diagramma") \
                 and _EXERCISE_WORDS.search(str(item.get("title") or "")):
             item["category"] = "misol"
-            item["brief"] = item["brief"].rstrip(". ") + ". " + _EXERCISE_BRIEF
+            item["brief"] = item["brief"].rstrip(". ") + ". " + exercise
             log.info("%d-slayd (aniq fan): masala slaydi — misol", index + 1)
     return outline
 

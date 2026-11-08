@@ -1025,6 +1025,9 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
     loop = asyncio.get_running_loop()
     count = max(MIN_SLIDES, min(MAX_SLIDES, int(slide_count or 8)))
     stage("plan")
+    from services.premium_presentation import topic_language
+
+    topic = await asyncio.to_thread(topic_language.localize, topic, language)   # mavzu taqdimot tilida
     plan_ = await asyncio.wait_for(loop.run_in_executor(
         None, lambda: plan(topic, count, language, level, preferences)), 6 * 60)
     plan_["topic"] = topic
