@@ -583,9 +583,19 @@ IMAGE_MODELS = {
 DEFAULT_IMAGE_MODEL = "flux2_pro"
 
 # Tibbiy mavzu (shifokor, bemor, anatomiya...) da arzon modellar tana tuzilishini buzadi (masalan, bemorning oyog'i
-# shifokorning qo'liga ulanib qoladi). Shunda admin tanlagan model arzon bo'lsa, rasm shu kuchliroq model bilan chiziladi;
-# qolgan mavzularda admin tanlovi o'zgarmaydi. `MEDICAL_IMAGE_MODEL` muhit o'zgaruvchisi bilan almashtiriladi.
-MEDICAL_IMAGE_MODEL = os.getenv("MEDICAL_IMAGE_MODEL") or "black-forest-labs/FLUX.2-pro"
+# shifokorning qo'liga ulanib qoladi). Shunda admin tanlagan model arzon bo'lsa, rasm undan BIR POG'ONA yuqori, o'rta
+# darajadagi model bilan chiziladi (`MEDICAL_IMAGE_LADDER` — arzondan qimmatga): Juggernaut ($0.005) → FLUX.2 Dev
+# ($0.015). FLUX.2 Pro ($0.03) va undan qimmatiga o'z-o'zidan o'tilmaydi — ilgari hamma tibbiy rasm FLUX.2 Pro'da
+# chizilib, kuniga $15 dan ortiq ketardi. Qolgan mavzularda va 3D taqdimotlarda (o'z modellari) hech narsa o'zgarmaydi.
+# `MEDICAL_IMAGE_MODEL` — zinapoya o'rniga aniq bitta model (bo'sh — zinapoyadan).
+MEDICAL_IMAGE_MODEL = os.getenv("MEDICAL_IMAGE_MODEL") or ""
+MEDICAL_IMAGE_LADDER = [
+    "black-forest-labs/FLUX.2-dev",
+    "ByteDance-Seed/Seedream-3.0",
+    "google/imagen-4.0-fast",
+    "black-forest-labs/FLUX.1-krea-dev",
+]
+MEDICAL_PRICE_CAP = float(os.getenv("MEDICAL_PRICE_CAP") or 0.03)   # $/rasm: shundan arzon modellargagina o'tiladi
 MEDICAL_WEAK_IMAGE_MODELS = {
     "RunDiffusion/Juggernaut-pro-flux",
     "black-forest-labs/FLUX.1-schnell",
