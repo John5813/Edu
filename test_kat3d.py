@@ -952,8 +952,9 @@ with _mock.patch("services.premium_presentation.html_images.photos_enabled", ret
      _mock.patch("services.together_service.get_together_service", return_value=_FakeTogether()), \
      _mock.patch("services.photo_search.find_photos", _web_never):
     _asyncio.run(_kat3d._photos("Misr", _plan_pics, lambda *a, **k: None))
-check("rasmlarni sifatli AI modeli chizdi (FLUX.2-pro birinchi)", len(_calls) == 3
-      and _calls[0][1][0] == "black-forest-labs/FLUX.2-pro" and "scene 0" in _calls[0][0], _calls[:1])
+check("rasmlarni o'rta narxli AI chizdi (FLUX.2 Dev, keyin Seedream 3.0; FLUX.2 Pro yo'q)", len(_calls) == 3
+      and _calls[0][1] == ("black-forest-labs/FLUX.2-dev", "ByteDance-Seed/Seedream-3.0")
+      and "scene 0" in _calls[0][0], _calls[:1])
 check("AI so'rovida yozuv va diagramma taqiqlangan", "no text" in _calls[0][0])
 check("har rasmli slaydga AI rasm yo'li qo'yildi", all(os.path.isfile(x.get("photo_path", "")) for x in _plan_pics["slides"]))
 

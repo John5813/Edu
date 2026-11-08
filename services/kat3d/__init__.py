@@ -38,10 +38,13 @@ def price_for(slide_count: int, mode: str = "full") -> int:
     return price
 
 
-# Aralash taqdimotdagi rasmlarni sifatli (pullik) AI modeli chizadi — internet fotosidan ko'ra mavzuga aniq mos keladi.
+# Aralash taqdimotdagi rasmlarni sifatli AI modeli chizadi — internet fotosidan ko'ra mavzuga aniq mos keladi.
 # Admin tanlagan arzon model emas, shu ro'yxat ishlatiladi (`KAT3D_IMAGE_MODELS` bilan almashtiriladi).
+# O'rta narxli modellar: FLUX.2 Dev ($0.0154 — FLUX.2 Pro'ning o'sha avlodi, yarim narxda), u chiza olmasa Seedream
+# 3.0 ($0.018). Ilgari FLUX.2 Pro ($0.03) va FLUX 1.1 Pro ($0.04) edi. Ikkalasi ham chiza olmasa — internetdan
+# haqiqiy foto (bepul), shuning uchun qimmat modellarga o'tilmaydi.
 AI_IMAGE_MODELS = tuple(m.strip() for m in (os.getenv("KAT3D_IMAGE_MODELS") or
-                                            "black-forest-labs/FLUX.2-pro,black-forest-labs/FLUX.1.1-pro").split(",")
+                                            "black-forest-labs/FLUX.2-dev,ByteDance-Seed/Seedream-3.0").split(",")
                         if m.strip())
 
 
