@@ -43,9 +43,9 @@ REVIEW_ON = os.getenv("MED3D_REVIEW", "1") != "0"
 DISCLAIMERS = {"uz": "Ta'lim maqsadida; tibbiy maslahat emas.", "ru": "Для обучения; не медицинская рекомендация.",
                "en": "For education only; not medical advice."}
 SLIDE_OPTIONS = (5, 8, 10, 12, 15)
-# Narx: har varog'i 2 000 so'm (10 slayd — 20 000). 3D taqdimot Pro (katalog) ham shu narxda.
+# Narx: har varog'i 1 500 so'm (10 slayd — 15 000). 3D taqdimot Pro (katalog) ham shu narxda.
 # `MED3D_SLIDE_PRICE` bilan o'zgartiriladi.
-SLIDE_PRICE = int(os.getenv("MED3D_SLIDE_PRICE") or 2000)
+SLIDE_PRICE = int(os.getenv("MED3D_SLIDE_PRICE") or 1500)
 
 
 def price_for(slide_count: int) -> int:

@@ -671,7 +671,7 @@ check("bosqichlar: modellar → tadqiqot → reja", stages[:3] == ["download", "
 check("tadqiqot rejaga uzatildi", got.get("research") is found)
 check("manbalar oxirgi slayd izohida", "Manbalar:" in got["notes"] and "https://uz.uz/cargo" in got["notes"]
       and got["notes"].startswith("Rahmat."), got.get("notes"))
-check("20 slaydli variant (narxi varog'iga 2 000)", 20 in kat3d.SLIDE_OPTIONS and kat3d.price_for(20) == 40000)
+check("20 slaydli variant (narxi varog'iga 1 500)", 20 in kat3d.SLIDE_OPTIONS and kat3d.price_for(20) == 30000)
 
 from services.kat3d import boyash
 check("samolyot, mashina, konteyner boyalmaydi (asl oq rangida)",
