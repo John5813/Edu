@@ -75,7 +75,9 @@ check("tibbiy bo'lmagan mavzu — admin modeli (o'zgarmagan)", calls == [JUG], c
 
 print("3) 3D taqdimotlar o'z modellarida qoladi")
 import services.kat3d as kat3d
-check("aralash 3D rasmlari — avvalgidek", kat3d.AI_IMAGE_MODELS[0] == F2PRO, kat3d.AI_IMAGE_MODELS)
+check("aralash 3D rasmlari — o'rta narxli FLUX.2 Dev, qimmat modellar yo'q",
+      kat3d.AI_IMAGE_MODELS[0] == F2DEV and not EXPENSIVE & set(kat3d.AI_IMAGE_MODELS)
+      and all(ts.image_price(m) is not None for m in kat3d.AI_IMAGE_MODELS), kat3d.AI_IMAGE_MODELS)
 import inspect
 from services.med3d import auto as med3d_auto
 check("3D Anatomiya tibbiy zanjirga o'tkazilmaydi", "medical_chain" not in inspect.getsource(med3d_auto))
