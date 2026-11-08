@@ -85,13 +85,45 @@ def is_medical(*texts: str) -> bool:
     return any(t and _MEDICAL_RE.search(t) for t in texts)
 
 
-def medical_chain(chain: list) -> list:
-    """Tibbiy rasm uchun model zanjiri: boshida arzon (tanani buzadigan) model tursa, uning o'rniga kuchlisi qo'yiladi."""
-    from config import MEDICAL_IMAGE_MODEL, MEDICAL_WEAK_IMAGE_MODELS
+def image_price(model_id: str) -> Optional[float]:
+    """Bitta rasm narxi ($) — `config.IMAGE_MODELS` dagi «~$0.03» yozuvidan; ro'yxatda yo'q model — None."""
+    from config import IMAGE_MODELS
 
-    if not chain or chain[0] not in MEDICAL_WEAK_IMAGE_MODELS:
+    for info in IMAGE_MODELS.values():
+        if info["id"] == model_id:
+            found = re.search(r"\d+(?:\.\d+)?", info.get("price", ""))
+            return float(found.group()) if found else None
+    return None
+
+
+def medical_step(chosen: str) -> str:
+    """Admin modelidan bir pog'ona yuqori o'rta model: zinapoyada undan qimmat, lekin chegaradan arzon birinchisi."""
+    from config import MEDICAL_IMAGE_LADDER, MEDICAL_IMAGE_MODEL, MEDICAL_PRICE_CAP
+
+    if MEDICAL_IMAGE_MODEL:
+        return MEDICAL_IMAGE_MODEL
+    base = image_price(chosen) or 0.0
+    for model in MEDICAL_IMAGE_LADDER:
+        price = image_price(model)
+        if price is not None and base < price < MEDICAL_PRICE_CAP:
+            return model
+    return ""
+
+
+def medical_chain(chain: list, chosen: str = "") -> list:
+    """Tibbiy rasm uchun model zanjiri. Admin tanlagan model arzon (tanani buzadigan) bo'lsa: avval undan bir pog'ona
+    yuqori o'rta model, u chiza olmasa — admin modelining o'zi, keyin faqat arzon zaxiralar. FLUX.2 Pro va undan
+    qimmat zaxiralar tibbiy rasmda ishlatilmaydi. Admin kuchli modelni o'zi tanlagan bo'lsa — zanjir o'zgarmaydi.
+
+    `chosen` — admin tanlovi (bo'sh — zanjir boshi; ishlamay qolgan model zanjir oxiriga surilgan bo'lishi mumkin)."""
+    from config import MEDICAL_PRICE_CAP, MEDICAL_WEAK_IMAGE_MODELS
+
+    chosen = chosen or (chain[0] if chain else "")
+    if not chain or chosen not in MEDICAL_WEAK_IMAGE_MODELS:
         return chain
-    return [MEDICAL_IMAGE_MODEL] + [m for m in chain if m != MEDICAL_IMAGE_MODEL]
+    step = medical_step(chosen)
+    cheap = [m for m in chain if m not in (step, chosen) and (image_price(m) or MEDICAL_PRICE_CAP) < MEDICAL_PRICE_CAP]
+    return list(dict.fromkeys(m for m in [step, chosen, *cheap] if m))
 
 
 class TogetherImageService:
@@ -185,9 +217,9 @@ class TogetherImageService:
             logger.warning(f"Image prompt sanitizer unavailable: {_ex}")
         chain = await image_model_chain(target)
         if is_medical(prompt, topic):
-            # Arzon model tibbiy rasmda tanani buzadi (oyoq qo'lga ulanadi) — kuchliroq model + anatomiya cheklovi.
+            # Arzon model tibbiy rasmda tanani buzadi (oyoq qo'lga ulanadi) — bir pog'ona yuqori model + anatomiya cheklovi.
             prompt += _ANATOMY_GUARD
-            chain = medical_chain(chain)
+            chain = medical_chain(chain, await chosen_image_model(target))
         no_credit = []
         for model in chain:
             try:
