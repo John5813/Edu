@@ -1022,6 +1022,8 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
             except Exception:                     # noqa: BLE001
                 log.debug("stage_cb xatosi", exc_info=True)
 
+    if not str(topic or "").strip():          # mavzusiz AI o'zi mavzu o'ylab topadi — mijozga boshqa narsa ketadi
+        raise ValueError("Mavzu bo'sh — taqdimot yasalmadi")
     loop = asyncio.get_running_loop()
     count = max(MIN_SLIDES, min(MAX_SLIDES, int(slide_count or 8)))
     stage("plan")
