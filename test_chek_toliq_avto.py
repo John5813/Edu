@@ -116,6 +116,13 @@ async def main():
     async def balance(tg):
         return (await Database.get_user(tg)).balance
 
+    async def approved_count(tg):
+        import aiosqlite
+        async with aiosqlite.connect(dbmod.DATABASE_FILE) as c:
+            async with c.execute("SELECT COUNT(*) FROM payments p JOIN users u ON u.id = p.user_id "
+                                 "WHERE u.telegram_id = ? AND p.status = 'approved'", (tg,)) as cur:
+                return (await cur.fetchone())[0]
+
     def admin_msgs():
         return [m for m in bot.sent if m.chat.id == ADMIN]
 
@@ -238,6 +245,16 @@ async def main():
     out, _ = await send(200, b"B-again", [raw(rid="7000000001", date=(10, 6, 12, 0), clock="12:01", battery=40)])
     check("admin tasdiqlagan chekni mijoz qayta yuborsa — yangidan baholanmaydi, pul qayta qo'shilmaydi",
           out.verdict in (rules.OWN_PENDING, rules.DUPLICATE) and await balance(200) == b0 + 10_000, out.verdict)
+
+    print("11b) Rad etilgan chek tuzatilib qayta yuborilib tasdiqlangan — eski kartadagi «Baribir tasdiqlash» ishlamaydi")
+    b4 = await balance(400)
+    approved0 = await approved_count(400)
+    late = CB(f"rcpt_force_{out_bad.payment_id}")
+    await admin_handlers.force_approve_rejected(late, Database)
+    check("pul ikkinchi marta qo'shilmadi, to'lov ikki marta hisoblanmadi",
+          await balance(400) == b4 and await approved_count(400) == approved0
+          and (await Database.get_payment_by_id(out_bad.payment_id)).status == "rejected"
+          and "allaqachon" in late.answers[-1], (await balance(400) - b4, late.answers))
 
     print("12) Rus tilida")
     out, msg = await send(500, b"J", [raw(rid="7600000001", date=(10, 6, 11, 0), clock="11:00", battery=11)])

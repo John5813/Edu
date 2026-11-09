@@ -1565,7 +1565,8 @@ async def handle_database_management(message: Message, db: Database):
                 total_revenue = (await cursor.fetchone())[0]
 
             async with db_conn.execute(
-                "SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved' AND date(created_at) = date('now')"
+                "SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved' "
+                "AND date(datetime(created_at, '+5 hours')) = date(datetime('now', '+5 hours'))"
             ) as cursor:
                 revenue_today = (await cursor.fetchone())[0]
 

@@ -1089,7 +1089,8 @@ class Database:
 
             # Revenue today
             async with db.execute(
-                "SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved' AND date(created_at) = date('now')"
+                "SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved' "
+                "AND date(datetime(created_at, '+5 hours')) = date(datetime('now', '+5 hours'))"
             ) as cursor:
                 revenue_today = (await cursor.fetchone())[0]
 
