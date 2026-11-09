@@ -60,12 +60,12 @@ async def setup():
         payments = [
             (ids[1], 10000, "approved", at(2), "bot"),
             (ids[1], 5000, "approved", at(3), "web"),
-            (ids[2], 20000, "approved", at(11), "bot"),
+            (ids[2], 20000, "approved", at(11), "click"),
             (ids[2], 7000, "pending", at(11.5), "bot"),     # hisobga kirmaydi
             (ids[3], 9000, "rejected", at(13), "bot"),      # hisobga kirmaydi
-            (ids[4], 30000, "approved", at(9), "bot"),
+            (ids[4], 30000, "approved", at(9), "payme"),
             (ids[5], 15000, "approved", at(14), "web"),
-            (ids[5], 15000, "approved", at(15), "bot"),
+            (ids[5], 15000, "approved", at(15), "uzum"),
             (ids[6], 50000, "approved", at(-0.2), "bot"),   # kecha 23:48 UZT — bugungi emas
         ]
         for uid, amount, status, created, source in payments:
@@ -95,6 +95,13 @@ async def main():
           text.index("Bugungi daromad: 95,000") < text.index("yangi mijozlardan") < text.index("eski mijozlardan")
           and text.count("35,000") == 1 and text.count("60,000") == 1 and text.count("95,000") == 1, text)
 
+    m = await daily_stats.by_method(DAY)
+    check("to'lov usullari: Payme 30 000, Click 20 000, Uzum 15 000, kartaga 3 ta — 30 000",
+          m == {"payme": (1, 30000), "click": (1, 20000), "uzum": (1, 15000), "card": (3, 30000)}, m)
+    check("usullar yig'indisi — bugungi daromad", sum(v[1] for v in m.values()) == s["revenue"], m)
+    mt = daily_stats.methods_text(m)
+    check("usullar matni", "Payme: 1 ta — 30,000 so'm" in mt and "Kartaga (chek): 3 ta — 30,000 so'm" in mt, mt)
+
     print("2) Admin «📈 Kunlik statistika»")
     from bot.handlers import admin
     sent = []
@@ -102,7 +109,8 @@ async def main():
     admin.is_admin = lambda uid: True
     await admin.handle_daily_statistics(msg, None)
     check("xabar yuborildi va yangi/eski to'lovlar bor", sent and "Shulardan to'lov qilganlar: 2 ta" in sent[0]
-          and "eski mijozlardan: 3 ta" in sent[0] and "Bugungi daromad: 95,000 so'm" in sent[0],
+          and "eski mijozlardan: 3 ta" in sent[0] and "Bugungi daromad: 95,000 so'm" in sent[0]
+          and "Click: 1 ta — 20,000 so'm" in sent[0] and "Bugungi cheklar" not in sent[0],
           sent[:1])
 
     print("3) Kunlik Excel")

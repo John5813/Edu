@@ -1423,18 +1423,17 @@ async def handle_daily_statistics(message: Message, db: Database):
                     doc_types_today[dtype] = (label, count)
 
         doc_lines = "\n".join(f"  • {label}: {count} ta" for label, count in doc_types_today.values())
-        # Cheklar: adminga yetgan va yetmagan (rad etilgan) cheklar hisobi
+        # To'lov usullari: Payme, Click, Uzum va kartaga (chek) — nechta va qancha.
         try:
-            from services.receipts import store as receipt_store, texts as receipt_texts
-            receipts_block = receipt_texts.daily_stats_text(await receipt_store.today_counts()) + "\n\n"
+            methods_block = daily_stats.methods_text(await daily_stats.by_method(day)) + "\n"
         except Exception as exc:
-            logger.warning(f"Cheklar statistikasi olinmadi: {exc}")
-            receipts_block = ""
+            logger.warning(f"To'lov usullari statistikasi olinmadi: {exc}")
+            methods_block = ""
         text = (
             f"📈 Kunlik statistika ({today.strftime('%d.%m.%Y')})\n\n"
             f"👥 Jami foydalanuvchilar: {total_users} ta\n\n"
             f"{daily_stats.summary_text(pay)}\n"
-            f"{receipts_block}"
+            f"{methods_block}"
             f"📄 Bugun yaratilgan hujjatlar: {documents_today} ta\n"
             f"{doc_lines}\n\n"
             f"⏰ Yangilandi: {today.strftime('%d.%m.%Y %H:%M')}"

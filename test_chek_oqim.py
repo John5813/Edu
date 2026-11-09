@@ -317,15 +317,16 @@ async def main():
     check("avto-tasdiq qatori faqat bo'lsa chiqadi", "Avtomatik tasdiqlangan: 2 ta" in stats and "Avtomatik" not in receipt_texts.daily_stats_text({"review": 1}))
     check("bo'sh kun nol ko'rsatadi", "rad etilgan): 0 ta" in receipt_texts.daily_stats_text({}))
 
-    print("20) Admin «Kunlik statistika» tugmasi cheklar blokini ko'rsatadi")
+    print("20) Admin «Kunlik statistika» tugmasi to'lov usullarini ko'rsatadi")
     from bot.handlers.admin import handle_daily_statistics
     stat_out = []
     class StatMsg:
         from_user = types.SimpleNamespace(id=ADMIN)
         async def answer(self, text, **kw): stat_out.append(text)
     await handle_daily_statistics(StatMsg(), Database)
-    check("kunlik statistikada cheklar bloki bor", stat_out and "Bugungi cheklar (AI tekshiruvi)" in stat_out[0]
-          and "Adminga yetmagan (rad etilgan)" in stat_out[0] and "Bugungi daromad" in stat_out[0], stat_out[:1])
+    check("kunlik statistikada cheklar bloki yo'q, to'lov usullari bor", stat_out and "Bugungi cheklar" not in stat_out[0]
+          and "To'lov usullari bo'yicha" in stat_out[0] and "Payme:" in stat_out[0] and "Click:" in stat_out[0]
+          and "Uzum:" in stat_out[0] and "Kartaga (chek):" in stat_out[0] and "Bugungi daromad" in stat_out[0], stat_out[:1])
 
     print("17) Reply-tugmalar («To'lov chekini yuborish», «Orqaga»)")
     up_state = FSMContext(storage=MemoryStorage(), key=StorageKey(bot_id=1, chat_id=300, user_id=300))
