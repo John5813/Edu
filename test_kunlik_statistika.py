@@ -88,8 +88,12 @@ async def main():
     check("konversiya foizi", daily_stats.conversion(s) == "66.7%", daily_stats.conversion(s))
     text = daily_stats.summary_text(s)
     check("xabar matnida yangi va eski ajratilgan",
-          "Shulardan to'lov qilganlar: 2 ta (66.7%) — 35,000 so'm" in text
-          and "Eski mijozlardan to'lovlar: 3 ta (2 kishi) — 60,000 so'm" in text, text)
+          "Shulardan to'lov qilganlar: 2 ta (66.7%)" in text
+          and f"yangi mijozlardan: {s['new_payments']} ta — 35,000 so'm" in text
+          and "eski mijozlardan: 3 ta (2 kishi) — 60,000 so'm" in text, text)
+    check("jami birinchi, yangi va eski — uning bo'laklari (summa bir marta yoziladi)",
+          text.index("Bugungi daromad: 95,000") < text.index("yangi mijozlardan") < text.index("eski mijozlardan")
+          and text.count("35,000") == 1 and text.count("60,000") == 1 and text.count("95,000") == 1, text)
 
     print("2) Admin «📈 Kunlik statistika»")
     from bot.handlers import admin
@@ -98,7 +102,7 @@ async def main():
     admin.is_admin = lambda uid: True
     await admin.handle_daily_statistics(msg, None)
     check("xabar yuborildi va yangi/eski to'lovlar bor", sent and "Shulardan to'lov qilganlar: 2 ta" in sent[0]
-          and "Eski mijozlardan to'lovlar: 3 ta" in sent[0] and "Bugungi daromad: 95,000 so'm" in sent[0],
+          and "eski mijozlardan: 3 ta" in sent[0] and "Bugungi daromad: 95,000 so'm" in sent[0],
           sent[:1])
 
     print("3) Kunlik Excel")

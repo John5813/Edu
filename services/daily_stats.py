@@ -65,16 +65,20 @@ def conversion(stats: Dict[str, int]) -> str:
 
 
 def summary_text(stats: Dict[str, int]) -> str:
-    """Admin xabari uchun bo'lak (bugungi kelganlar va to'lovlar)."""
+    """Admin xabari uchun bo'lak (bugungi to'lovlar va kelganlar).
+
+    Jami avval, keyin uning ikki bo'lagi (yangi + eski = jami). Ilgari yangi mijozlar summasi, eski mijozlar summasi
+    va jami alohida qatorlarda bir xil ko'rinishda turardi — uchala qator qo'shib o'qilsa, daromad ikki baravar
+    bo'lib ko'rinardi.
+    """
     return (
-        f"🆕 Bugun /start bosganlar: {stats['started']} ta\n"
-        f"   💳 Shulardan to'lov qilganlar: {stats['new_paid_users']} ta ({conversion(stats)}) — "
-        f"{stats['new_sum']:,} so'm\n\n"
-        f"👤 Eski mijozlardan to'lovlar: {stats['old_payments']} ta ({stats['old_paid_users']} kishi) — "
-        f"{stats['old_sum']:,} so'm\n\n"
-        f"💳 Bugun to'lov qilganlar (jami): {stats['paid_users']} ta\n"
-        f"📊 Bugun to'lovlar soni: {stats['payments']} ta\n"
         f"💰 Bugungi daromad: {stats['revenue']:,} so'm\n"
+        f"   📊 {stats['payments']} ta to'lov, {stats['paid_users']} kishi. Shundan:\n"
+        f"   ├ 🆕 yangi mijozlardan: {stats['new_payments']} ta — {stats['new_sum']:,} so'm\n"
+        f"   └ 👤 eski mijozlardan: {stats['old_payments']} ta ({stats['old_paid_users']} kishi) — "
+        f"{stats['old_sum']:,} so'm\n\n"
+        f"🆕 Bugun /start bosganlar: {stats['started']} ta\n"
+        f"   💳 Shulardan to'lov qilganlar: {stats['new_paid_users']} ta ({conversion(stats)})\n"
     )
 
 

@@ -69,6 +69,12 @@ async def save_receipt(user_tg: int, verdict: str, fraud: bool, amount: Optional
                         f"UPDATE receipt_keys SET receipt_id = ? WHERE receipt_id IN ({marks}) AND receipt_id IN "
                         f"(SELECT id FROM payment_receipts WHERE user_tg = ? AND verdict = 'rejected')",
                         (receipt_id, *takeover, user_tg))
+                    # Eski rad etilgan chek endi yangisi bilan almashdi: uning kartasidagi «Baribir tasdiqlash»
+                    # ishlamasin. Aks holda mijoz tuzatilgan chekni qayta yuborib pul olgach, admin eski kartani
+                    # bossa — o'sha pul ikkinchi marta qo'shilib, statistikada ham ikki marta chiqardi.
+                    await db.execute(
+                        f"UPDATE payment_receipts SET verdict = 'replaced' WHERE id IN ({marks}) AND user_tg = ? "
+                        f"AND verdict = 'rejected'", (*takeover, user_tg))
                 for kind, value in keys:
                     key = f"{kind}:{value}"
                     result = await db.execute(
@@ -151,9 +157,10 @@ async def by_payment(payment_id: int) -> Optional[dict]:
 
 
 async def today_counts() -> dict:
-    """Bugungi cheklar soni verdict bo'yicha (kunlik statistika uchun; sana boshqa statistikalardagidek)."""
+    """Bugungi cheklar soni verdict bo'yicha (kunlik statistika uchun; kun O'zbekiston vaqti bilan, to'lovlardagidek)."""
     async with aiosqlite.connect(_file()) as db:
         async with db.execute(
-            "SELECT verdict, COUNT(*) FROM payment_receipts WHERE date(created_at) = date('now') GROUP BY verdict"
+            "SELECT verdict, COUNT(*) FROM payment_receipts "
+            "WHERE date(datetime(created_at, '+5 hours')) = date(datetime('now', '+5 hours')) GROUP BY verdict"
         ) as cursor:
             return {row[0]: row[1] for row in await cursor.fetchall()}
