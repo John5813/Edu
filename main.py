@@ -261,6 +261,7 @@ async def daily_user_report(bot: Bot):
         try:
             from services import daily_stats
             summary = daily_stats.summary_text(await daily_stats.payment_breakdown(report_date))
+            summary += "\n" + daily_stats.methods_text(await daily_stats.by_method(report_date))
         except Exception as exc:
             logger.warning(f"Kunlik to'lov statistikasi olinmadi: {exc}")
             summary = ""

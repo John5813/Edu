@@ -82,6 +82,33 @@ def summary_text(stats: Dict[str, int]) -> str:
     )
 
 
+METHODS = (("payme", "Payme"), ("click", "Click"), ("uzum", "Uzum"), ("card", "Kartaga (chek)"))
+
+
+async def by_method(day: str = "") -> Dict[str, tuple]:
+    """Shu kungi tasdiqlangan to'lovlar usul bo'yicha: {payme|click|uzum|card: (soni, summasi)}.
+    Payme, Click va Uzum o'z manbasi bilan yoziladi; qolgan hammasi (botda yoki saytda chek yuborilgan) — kartaga."""
+    from database.database import DATABASE_FILE
+
+    day = day or today_uzt()
+    query = ("SELECT CASE WHEN source IN ('payme', 'click', 'uzum') THEN source ELSE 'card' END AS method, "
+             "COUNT(*), COALESCE(SUM(amount), 0) FROM payments "
+             "WHERE status = 'approved' AND " + _day("created_at") + " = ? GROUP BY method")
+    async with aiosqlite.connect(DATABASE_FILE) as db:
+        async with db.execute(query, (day,)) as cur:
+            rows = {row[0]: (row[1], row[2]) for row in await cur.fetchall()}
+    return {key: rows.get(key, (0, 0)) for key, _ in METHODS}
+
+
+def methods_text(methods: Dict[str, tuple]) -> str:
+    """Admin xabari uchun bo'lak: to'lov usullari (yig'indisi — bugungi daromad)."""
+    lines = ["💳 To'lov usullari bo'yicha:"]
+    for key, name in METHODS:
+        count, amount = methods.get(key, (0, 0))
+        lines.append(f"  • {name}: {count} ta — {amount:,} so'm")
+    return "\n".join(lines) + "\n"
+
+
 async def new_users(day: str = "") -> List[Dict]:
     """Shu kuni ro'yxatdan o'tganlar, har birining tasdiqlangan to'lovlari bilan (soni va summasi)."""
     from database.database import DATABASE_FILE
