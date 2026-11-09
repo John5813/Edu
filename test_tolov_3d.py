@@ -138,6 +138,30 @@ async def main():
     check("fayl 3D nomi bilan yuborildi (ko'rish sharti fayl nomida)", "PowerPoint 2019+" in name, name)
     check("saqlangan buyurtma o'chirildi (ikkinchi marta yechilmaydi)", not pay.recall(7, pp.CHECKOUT.service))
 
+    print("5) Mavzusiz buyurtma — pul yechilmaydi, AI mavzu o'ylab topmaydi, mavzu qayta so'raladi")
+    st5 = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=7, user_id=7))
+    await st5.set_data({"kind": "med3d", "topic": "", "slide_count": 10, "price": price, "payment_method": "balance",
+                        "presentation_language": "uz", "standalone_med3d": True})
+    await st5.set_state(PS.waiting_for_slide_count)
+    balance["v"] = price * 2
+    built.clear()
+    med3d_auto.build_deck = fake_build
+    try:
+        empty = callback("prem_ppt_confirm")
+        await pp.premium_ppt_confirm(empty, st5, db)
+    finally:
+        med3d_auto.build_deck = orig_build
+    check("pul yechilmadi va taqdimot yasalmadi", balance["v"] == price * 2 and not built, (balance["v"], built))
+    check("mijozga «mavzu topilmadi» deyildi va mavzu so'raldi",
+          "mavzu topilmadi" in texts(empty.message.answer)
+          and await st5.get_state() == PS.waiting_for_topic_text.state, (texts(empty.message.answer)[:200], await st5.get_state()))
+    try:
+        await med3d_auto.build_deck("  ", 8)
+        guarded = False
+    except ValueError:
+        guarded = True
+    check("3D Anatomiya yig'uvchisi bo'sh mavzuni qabul qilmaydi", guarded)
+
     print()
     print("HAMMASI O'TDI" if not FAILS else f"XATOLAR: {len(FAILS)} — {FAILS}")
     return not FAILS

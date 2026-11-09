@@ -2291,6 +2291,14 @@ async def premium_ppt_previous(callback: CallbackQuery, state: FSMContext, db: D
 
 # ──────────────────────────────────────────────────────────────── CONFIRM & GENERATE
 
+_NO_TOPIC = {
+    "uz": "⚠️ Buyurtmada mavzu topilmadi, pul yechilmadi. Iltimos, mavzuni qaytadan yozing.",
+    "ru": "⚠️ В заказе нет темы, деньги не списаны. Пожалуйста, напишите тему ещё раз.",
+    "en": "⚠️ The order has no topic, nothing was charged. Please type the topic again.",
+    "kk": "⚠️ Тапсырыста тақырып жоқ, ақша алынбады. Тақырыпты қайта жазыңыз.",
+}
+
+
 async def _order(user_id: int, state: FSMContext) -> dict:
     """Buyurtmani FSM dan, u yo'q bo'lsa saqlangan nusxadan oladi."""
     data = await state.get_data()
@@ -2504,6 +2512,18 @@ async def premium_ppt_confirm(callback: CallbackQuery, state: FSMContext, db: Da
     client_name = data.get("client_name", "")
 
     payment_method = data.get("payment_method", "balance")
+
+    # Mavzusiz buyurtma yasalmaydi: ilgari bo'sh mavzu bilan ham pul yechilib, AI mavzuni o'zi o'ylab topardi
+    # (3D Anatomiyada «Tayanch-harakat tizimi» o'rniga yurak haqida taqdimot chiqdi, fayl nomi «3D (...)»).
+    if not topic.strip():
+        logger.warning("Taqdimot: mavzusiz buyurtma to'xtatildi (mijoz %s, tur %s, to'lov %s)",
+                       callback.from_user.id, _kind_of(data), payment_method)
+        if payment_method == "stars":             # Stars allaqachon olingan — summa balansga qaytariladi
+            await db.update_user_balance(callback.from_user.id, price)
+        await state.update_data(payment_method=None)
+        await callback.message.answer(_NO_TOPIC.get(lang) or _NO_TOPIC["uz"])
+        await _step_topic(callback.message, state, lang)
+        return
 
     # Faqat balans orqali to'lovda balansni tekshiramiz va yechamiz.
     if payment_method == "balance" and user.balance < price:
