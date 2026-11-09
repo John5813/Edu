@@ -277,6 +277,35 @@ def shape(slide, name: str, kind, x, y, w, h, color: str, *, alpha: float = 1.0,
     return sp
 
 
+def _wrapped_lines(text: str, per_line: int) -> int:
+    """So'zlar bo'yicha o'ralganda qatorlar soni (so'z bo'linmaydi)."""
+    lines = 0
+    for para in str(text or "").split("\n") or [""]:
+        used, count = 0, 1
+        for word in para.split():
+            need = len(word) + (1 if used else 0)
+            if used and used + need > per_line:
+                count, used = count + 1, len(word)
+            else:
+                used += need
+        lines += count
+    return lines
+
+
+def fit_title(text: str, w: float, h: float, start: float, smallest: float, line: float, wide: bool) -> float:
+    """Sarlavha o'lchami: qutiga sig'sin VA eng uzun so'z bir qatorga sig'sin. Ilgari faqat harflar soni
+    hisoblanardi: «TAYANCH-HARAKATLANISH» kabi uzun so'z qator oxirida bo'linib, «…HARAKATLANIS / H» chiqardi."""
+    em = 0.66 if wide else 0.56                   # bosh harfli qalin sarlavha kengroq
+    longest = max((len(word) for word in str(text or "").split()), default=1)
+    size = start
+    while size > smallest:
+        per_line = max(1, int(w * 72 / (size * em)))
+        if longest <= per_line and _wrapped_lines(text, per_line) * size * line / 72 <= h:
+            return size
+        size -= 1
+    return smallest
+
+
 def textbox(slide, name: str, x, y, w, h, value: str, *, size: float, color: str, font: str,
             bold: bool = False, italic: bool = False, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.TOP,
             smallest: Optional[float] = None, line: float = 1.15, caps: bool = False):
@@ -285,7 +314,9 @@ def textbox(slide, name: str, x, y, w, h, value: str, *, size: float, color: str
     value = str(value or "")
     if caps:
         value = value.upper()
-    if smallest:
+    if smallest and bold:                         # sarlavha: so'z bo'linmasin
+        size = fit_title(value, w, h, size, smallest, line + 0.06, caps)
+    elif smallest:
         size = fit_size(value, w, h, size, smallest, line + 0.06)
     tb = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(h))
     tb.name = name

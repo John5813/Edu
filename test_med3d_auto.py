@@ -613,24 +613,84 @@ _full = {"anatomy": True, "body": "male", "slides": [_slide] * 8}
 _boosts = []
 
 
-def _fake_plan_ai(topic, count, language, level, preferences, boost=1.0):
+def _fake_plan_ai(topic, count, language, level, preferences, boost=1.0, feedback=""):
     _boosts.append(boost)
     return _short if len(_boosts) < 3 else _full
 
 
-with mock.patch.object(auto, "_plan_ai", side_effect=_fake_plan_ai), mock.patch.object(auto, "REVIEW_ON", False):
+with mock.patch.object(auto, "_plan_ai", side_effect=_fake_plan_ai), mock.patch.object(auto, "REVIEW_ON", False), \
+     mock.patch.object(auto, "RELEVANCE_ON", False):
     _got = auto.plan("Yurak", 8, "uz", 2, "")
 check("kesilgan reja (3 ta) qabul qilinmadi — qayta so'rab to'liq oldi", len([s for s in _got["slides"] if not s.get("auto")]) >= 8
       or len(_got["slides"]) >= 8, len(_got["slides"]))
 check("javob hajmi oshirib so'raldi", _boosts == [1.0, 1.5, 2.0], _boosts)
 _boosts.clear()
-with mock.patch.object(auto, "_plan_ai", return_value=_short), mock.patch.object(auto, "REVIEW_ON", False):
+with mock.patch.object(auto, "_plan_ai", return_value=_short), mock.patch.object(auto, "REVIEW_ON", False), \
+     mock.patch.object(auto, "RELEVANCE_ON", False):
     try:
         auto.plan("Yurak", 8, "uz", 2, "")
         _failed = False
     except RuntimeError as exc:
         _failed = "tuzilmadi" in str(exc)
 check("hamma urinish qisqa — xato (3 slaydli fayl emas)", _failed)
+
+print("Mavzuga moslik: mijoz bir mavzuni so'rab, boshqasini olmaydi")
+TOPIC = "Tayanch harakatlanish tizimining yoshga bog'liq rivojlanishini atlasi va multimedia texnologiyalari orqali o'rganish"
+_heart = {"anatomy": True, "body": "male", "cover": "Yurak", "slides": [
+    {"title": "Yurak: tanamiz motori", "text": "Yurak nasos.", "show": ["yurak"], "rot": [0, 0, 0]}] * 8}
+_bones = {"anatomy": True, "body": "male", "cover": "Tayanch-harakat tizimining yoshga bog'liq rivojlanishi", "slides": [
+    {"title": "Skelet", "text": "Suyaklar yosh bilan o'zgaradi.", "show": ["skelet"], "rot": [0, 0, 0]}] * 8}
+_asked, _judged = [], []
+
+
+def _plans(topic, count, language, level, preferences, boost=1.0, feedback=""):
+    _asked.append(feedback)
+    return _heart if len(_asked) == 1 else _bones
+
+
+def _judge(system, user, answer_tokens):
+    _judged.append(user)
+    return {"ok": False, "reason": "slides are about the heart, not the musculoskeletal system"} \
+        if "Yurak nasos" in user else {"ok": True}
+
+
+with mock.patch.object(auto, "_plan_ai", side_effect=_plans), mock.patch.object(auto, "_call_json", side_effect=_judge), \
+     mock.patch.object(auto, "REVIEW_ON", False):
+    _got = auto.plan(TOPIC, 8, "uz", 2, "")
+check("yurak haqidagi reja rad etildi, sababi bilan qayta so'raldi — skelet haqidagisi olindi",
+      len(_asked) == 2 and "heart" in _asked[1] and _got["slides"][1]["show"] == ["skelet"], _asked)
+check("tekshiruvchiga mavzu va organ nomlari boradi", TOPIC in _judged[0] and "Heart" in _judged[0], _judged[0][:200])
+check("birinchi slayd sarlavhasi — mavzu (uzun mavzu: AI qisqartirgani)",
+      _got["slides"][0]["title"] == "Tayanch-harakat tizimining yoshga bog'liq rivojlanishi", _got["slides"][0]["title"])
+_asked.clear()
+with mock.patch.object(auto, "_plan_ai", return_value=_heart), mock.patch.object(auto, "REVIEW_ON", False), \
+     mock.patch.object(auto, "_call_json", return_value={"ok": False, "reason": "heart"}):
+    try:
+        auto.plan(TOPIC, 8, "uz", 2, "")
+        _failed = False
+    except RuntimeError as exc:
+        _failed = "mavzuga mos emas" in str(exc)
+check("uch urinishda ham mavzudan tashqari — xato (noto'g'ri taqdimot yuborilmaydi, pul qaytadi)", _failed)
+with mock.patch.object(auto, "_plan_ai", return_value=_bones), mock.patch.object(auto, "REVIEW_ON", False), \
+     mock.patch.object(auto, "_call_json", side_effect=RuntimeError("tarmoq")):
+    _got = auto.plan("Skelet", 8, "uz", 2, "")
+check("tekshiruv ishlamasa reja to'xtamaydi; qisqa mavzu — sarlavhada aynan o'zi",
+      len(_got["slides"]) == 8 and _got["slides"][0]["title"] == "Skelet", _got["slides"][0]["title"])
+check("uzun mavzu, AI sarlavhasi yo'q — so'z chegarasida kesiladi",
+      auto.cover_title(TOPIC).endswith("…") and len(auto.cover_title(TOPIC)) <= auto.COVER_MAX + 1
+      and TOPIC.startswith(auto.cover_title(TOPIC)[:-1]), auto.cover_title(TOPIC))
+check("prompt: mavzuda qolish qoidasi va usul so'zlari (atlas, multimedia) mavzu emas",
+      "STAY ON THE TOPIC" in auto.SYSTEM and "multimedia" in auto.SYSTEM and '"cover"' in auto.SYSTEM)
+
+print("Sarlavha: uzun so'z bo'linmaydi; «AI tasvir» yorlig'i yo'q")
+from services.med3d import design as _design, deck as _deck
+_size = _design.fit_title("TAYANCH-HARAKATLANISH TIZIMI", 4.45, 2.4, 40, 20, 1.1, True)
+check("eng uzun so'z bir qatorga sig'adigan o'lcham tanlanadi",
+      len("TAYANCH-HARAKATLANISH") <= int(4.45 * 72 / (_size * 0.66)) and _size < 40, _size)
+check("qisqa sarlavha kichraytirilmaydi", _design.fit_title("Yurak", 4.45, 2.4, 40, 20, 1.1, True) == 40)
+import inspect as _inspect
+check("slayd rasmida «AI tasvir» yozuvi chizilmaydi", "pic_tag" not in _inspect.getsource(_deck)
+      and not hasattr(_deck, "AI_CAPTION"))
 
 print()
 print("HAMMASI O'TDI" if not FAILS else f"XATOLAR: {len(FAILS)} — {FAILS}")

@@ -505,7 +505,6 @@ STAGE_NAMES = {
     "kk": {"anatomy": "Анатомия", "disease": "Ауру", "diagnosis": "Диагностика", "treatment": "Емдеу",
            "summary": "Қорытынды"},
 }
-AI_CAPTION = {"uz": "AI tasvir", "ru": "ИИ-иллюстрация", "en": "AI illustration", "kk": "ЖИ-иллюстрация"}
 
 
 def _picture_of(data: dict) -> str:
@@ -543,17 +542,6 @@ def _picture(slide, st, lay, path: str, target: Optional[Tuple[float, float]], l
     else:
         cut = (1 - iw / ih / want) / 2
         pic.crop_top = pic.crop_bottom = cut
-    tag = design.shape(slide, "!!pic_tag", MSO_SHAPE.ROUNDED_RECTANGLE, x + 0.1, y + 0.1, 1.25, 0.26, ALERT,
-                       round_=0.5)
-    frame = tag.text_frame
-    frame.margin_left = frame.margin_right = frame.margin_top = frame.margin_bottom = 0
-    frame.vertical_anchor = MSO_ANCHOR.MIDDLE
-    para = frame.paragraphs[0]
-    para.alignment = PP_ALIGN.CENTER
-    run = para.add_run()
-    run.text = AI_CAPTION.get(lang, AI_CAPTION["en"])
-    run.font.name, run.font.size, run.font.bold = st.body_font, Pt(9), True
-    run.font.color.rgb = _rgb("FFFFFF")
     if target is None:
         return []
     tx, ty = target
