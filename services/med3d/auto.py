@@ -110,7 +110,7 @@ next to a short text. Between slides PowerPoint Morph smoothly moves, turns and 
 shown on one slide and missing on the next flies off the slide; an organ that appears again flies back in.
 
 Return ONLY a JSON object:
-{"anatomy": true, "reason": "", "body": "male" | "female", "kind": "anatomy" | "disease",
+{"anatomy": true, "reason": "", "cover": "<cover title>", "body": "male" | "female", "kind": "anatomy" | "disease",
  "side": null | "right" | "left",
  "names": {"<organ_id>": "<anatomical name in the presentation language>"},
  "slides": [{"title": "...", "text": "...", "show": ["<organ_id>", ...], "focus": ["<organ_id>"],
@@ -188,6 +188,16 @@ RULES
    zoom from the body to its cells should alternate: a body slide, then the cell slide of that organ's tissue.
 18. Every slide must advance the previous slide's explanation instead of repeating it. Image prompts must fit the
    full presentation sequence, use different visual ideas, and explain only the current slide's point.
+19. STAY ON THE TOPIC. The presentation is about EXACTLY the given Topic — never about another organ system and
+   never a generic anatomy lecture. First find the SUBJECT of the topic (which body system / organ / disease) and
+   its ANGLE (e.g. age-related development, comparison, function, a disease stage). Words about the way of
+   studying or presenting ("atlas", "multimedia", "3D", "technologies", "through ...", "using ...") are NOT the
+   subject: keep the subject and its angle, and mention the method in at most one slide. EVERY slide must show
+   organs of the subject and its text must serve the angle (for "age-related development": how the structure
+   changes from newborn to childhood, puberty, adulthood and old age, with textbook ages). The first slide
+   introduces the topic itself.
+20. "cover": the topic as a cover title in the presentation language — the same subject and angle, at most 60
+   characters (shorten long wording, never change the meaning).
 """
 
 USER = """Topic: {topic}
@@ -240,10 +250,14 @@ def check_topic(topic: str, language: str = "uz") -> dict:
             "organs": organs, "checked": True}
 
 
-def _plan_ai(topic: str, count: int, language: str, level: int, preferences: str, boost: float = 1.0) -> dict:
+def _plan_ai(topic: str, count: int, language: str, level: int, preferences: str, boost: float = 1.0,
+             feedback: str = "") -> dict:
     from services.premium_presentation import llm_client, prompts
 
     extra = f"Client's wishes: {preferences[:500]}\n" if preferences else ""
+    if feedback:                                  # oldingi reja mavzudan chetga chiqqan — sababi bilan qayta
+        extra += (f"Your previous plan was REJECTED as off-topic: {feedback[:300]}\n"
+                  "Make every slide about the Topic above.\n")
     user = USER.format(topic=topic, count=count, level=LEVELS.get(level, LEVELS[2]),
                        language_rule=llm_client._language_instruction(language), extra=extra, table=organ_table())
     with prompts.use(language), llm_client.text_model(MODEL_ACADEMIC if level >= 3 else MODEL):
@@ -283,6 +297,54 @@ def review_plan(plan_: dict, language: str) -> int:
             slide["text"] = text
             fixed += 1
     return fixed
+
+
+RELEVANCE_SYSTEM = """You check whether a 3D anatomy presentation matches the topic the client paid for.
+You get the topic and the slides (title, text, English names of the 3D organs shown).
+"ok": false ONLY when the presentation is about a different subject than the topic (another organ system or
+disease), or when most slides ignore the topic's subject or its angle (e.g. the topic asks for age-related
+development but the slides only describe adult structure of something else). Wording about the study method
+("atlas", "multimedia", "3D technologies") is not the subject — do not require it. If the subject and angle are
+covered, answer true even when the plan is imperfect.
+Return ONLY JSON: {"ok": true | false, "reason": "<one short English sentence when false>"}"""
+RELEVANCE_ON = os.getenv("MED3D_RELEVANCE", "1") != "0"
+COVER_MAX = 70                   # muqova sarlavhasi: shundan uzun mavzu qisqartiriladi (eng tor qolipga ham sig'sin)
+
+
+class OffTopic(ValueError):
+    """Reja mavzuga mos emas (AI boshqa narsa haqida yozgan) — qayta tuziladi."""
+
+
+def check_relevance(topic: str, plan_: dict, language: str) -> Tuple[bool, str]:
+    """Reja mijoz yozgan mavzu haqidami. Tekshiruv ishlamasa — (True, "") (reja to'xtatilmaydi)."""
+    from services.premium_presentation import llm_client, prompts
+
+    payload = json.dumps({"topic": topic, "slides": [
+        {"title": sl["title"], "text": sl["text"][:300], "organs": [BY_ID[o]["en"] for o in sl["show"]]}
+        for sl in plan_["slides"]]}, ensure_ascii=False)
+    try:
+        with prompts.use(language), llm_client.text_model(REVIEW_MODEL):
+            data = _call_json(RELEVANCE_SYSTEM, payload, answer_tokens=300)
+    except Exception as exc:                      # noqa: BLE001 — tekshiruv ixtiyoriy
+        log.warning("3D Anatomiya: mavzuga moslik tekshiruvi o'tmadi (%s)", exc)
+        return True, ""
+    if not isinstance(data, dict):
+        return True, ""
+    ok = not (data.get("ok") is False or str(data.get("ok")).lower() == "false")
+    return ok, "" if ok else str(data.get("reason") or "").strip()[:300]
+
+
+def cover_title(topic: str, suggested: str = "") -> str:
+    """Birinchi slayd sarlavhasi — mijoz yozgan mavzuning o'zi (uzun bo'lsa AI qisqartirgani yoki so'z chegarasida
+    kesilgani). Ilgari AI birinchi slaydga o'z sarlavhasini qo'yardi va taqdimotda mavzu nomi umuman bo'lmasdi."""
+    topic = re.sub(r"\s+", " ", str(topic or "")).strip().rstrip(".")
+    if len(topic) <= COVER_MAX:
+        return topic
+    suggested = re.sub(r"\s+", " ", str(suggested or "")).strip().rstrip(".")
+    if 8 <= len(suggested) <= COVER_MAX:
+        return suggested
+    cut = topic[:COVER_MAX].rsplit(" ", 1)[0].rstrip(" ,;:-—")
+    return (cut or topic[:COVER_MAX]) + "…"
 
 
 def add_disclaimer(plan_: dict, language: str) -> None:
@@ -485,16 +547,25 @@ def smooth_turns(slides: List[dict]) -> None:
 
 
 def plan(topic: str, count: int, language: str = "uz", level: int = 2, preferences: str = "") -> dict:
-    """AI reja (sinxron). Ikki marta urinadi; mavzu anatomiya bo'lmasa — darhol NotAnatomy."""
+    """AI reja (sinxron). Uch marta urinadi; mavzu anatomiya bo'lmasa — darhol NotAnatomy. Reja mavzuga mos
+    kelmasa (AI boshqa narsa haqida yozsa) sababi bilan qayta tuziladi; uch urinishda ham mos chiqmasa — xato
+    (mijozga pul qaytadi, noto'g'ri taqdimot yuborilmaydi)."""
     from services.premium_presentation import llm_client
 
     last = None
+    feedback = ""
     for attempt in range(3):
         try:
-            result = normalize(_plan_ai(topic, count, language, level, preferences, boost=1 + 0.5 * attempt),
-                               count, language)
+            raw = _plan_ai(topic, count, language, level, preferences, boost=1 + 0.5 * attempt, feedback=feedback)
+            result = normalize(raw, count, language)
             if len(result["slides"]) < count and attempt < 2:   # javob kesilgan: tanlangan slaydlar soni to'liq bo'lsin
                 raise ValueError(f"reja qisqa: {len(result['slides'])} slayd, kerak {count}")
+            if RELEVANCE_ON:                      # mijoz bir mavzuni so'rab, boshqasini olmasin
+                ok, reason = check_relevance(topic, result, language)
+                if not ok:
+                    feedback = reason or "the slides are about a different subject"
+                    raise OffTopic(f"reja mavzuga mos emas: {feedback}")
+            result["slides"][0]["title"] = cover_title(topic, raw.get("cover") if isinstance(raw, dict) else "")
             if REVIEW_ON:
                 review_plan(result, language)
             add_disclaimer(result, language)
