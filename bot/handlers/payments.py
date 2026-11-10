@@ -680,6 +680,8 @@ async def successful_payment_handler(message: Message, db: Database, user_lang: 
         # Xizmat uchun qilingan to'lovni o'z handleri qabul qiladi; bu yerda
         # balansga yozib yuborilsa, mijoz to'lagan xizmatni olmay qolardi.
         if checkout.is_service_payload(payment.invoice_payload):
+            # Xizmat ishlovchisi to'lovni olmadi (ilgari shu yerda jim qaytilib, Stars yo'qolardi) — balansga.
+            await checkout.stars_to_balance(message, db, user_lang)
             return
         stars = payment.total_amount
         som_amount = stars * STARS_RATE

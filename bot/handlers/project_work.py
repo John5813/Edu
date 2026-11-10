@@ -507,16 +507,15 @@ async def pay_with_stars(callback: CallbackQuery, state: FSMContext, user_lang: 
     )
 
 
-@router.message(F.successful_payment)
+# Filtr belgisi bo'yicha: ilgari filtrsiz edi va boshqa xizmatlarning Stars to'lovlarini ham ushlab, «o'ziniki emas»
+# deb jim qaytardi — to'lov keyingi routerlarga yetmasdi (mustaqil ish, test, do'kon: Stars yechilib, hech narsa yo'q).
+@router.message(F.successful_payment, pay.payload_filter(CHECKOUT))
 async def stars_paid(message: Message, state: FSMContext, user_lang: str, db: Database, user):
     """Stars to'landi — balans tekshirilmaydi, xizmat darhol yaratiladi."""
-    payment = message.successful_payment
-    if not payment or not CHECKOUT.owns_payload(payment.invoice_payload):
-        return
-
     data = await _order(message.from_user.id, state)
     if not data:
-        await _report_expired(message, state, user_lang)
+        await pay.stars_to_balance(message, db, user_lang)
+        await state.clear()
         return
 
     await state.set_data(pay.mark_paid_with_stars(data))

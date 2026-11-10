@@ -318,7 +318,8 @@ async def store_successful_stars(message: Message, state: FSMContext, db: Databa
     lang = user.language if user else "uz"
     item = await _pending(state, message.chat.id)
     if not item:
-        await _expired(message, state, lang)
+        await pay.stars_to_balance(message, db, lang)
+        await state.clear()
         return
     # Stars to'lovi Telegram tomonida yechilgan — balansdan olinmaydi.
     await _sell(message, item, lang, message.chat.id, state, db, charge=False)

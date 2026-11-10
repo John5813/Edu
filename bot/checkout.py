@@ -319,6 +319,41 @@ async def send_shortfall(
     )
 
 
+def paid_som(payment) -> int:
+    """Stars to'lovining so'mdagi qiymati: hisob-faktura belgisidagi narx (`xizmat:id:narx`), bo'lmasa Stars × kurs."""
+    from config import STARS_RATE
+
+    try:
+        price = int(str(payment.invoice_payload).rsplit(":", 1)[-1])
+        if price > 0:
+            return price
+    except (TypeError, ValueError):
+        pass
+    return int(payment.total_amount or 0) * STARS_RATE
+
+
+async def stars_to_balance(message: Message, db, language: str, price: int = 0) -> int:
+    """Stars to'langan, lekin xizmatni bajarib bo'lmaydi (buyurtma eskirgan yoki topilmadi): pul yo'qolmasin —
+    summa mijoz balansiga yoziladi va bu haqda aytiladi. Qaytaradi: qo'shilgan summa."""
+    amount = int(price or paid_som(message.successful_payment))
+    if amount <= 0:
+        return 0
+    await db.update_user_balance(message.chat.id, amount)
+    logger.warning("Stars to'lovi xizmatga yetmadi — balansga yozildi: mijoz %s, %s so'm, belgi %s",
+                   message.chat.id, amount, message.successful_payment.invoice_payload)
+    try:
+        await message.answer(get_text(language, "stars_to_balance", amount=amount))
+    except Exception as exc:                      # noqa: BLE001
+        logger.warning("Stars qaytarilgani haqida xabar yuborilmadi: %s", exc)
+    return amount
+
+
+def payload_filter(checkout: "Checkout"):
+    """`successful_payment` ishlovchisi uchun filtr: faqat shu xizmatning to'lovi. Filtrsiz ishlovchi to'lov
+    o'ziniki bo'lmasa ham hodisani «qayta ishlangan» qilib qo'yadi va keyingi routerlarga yetkazmaydi."""
+    return lambda m: bool(m.successful_payment) and checkout.owns_payload(m.successful_payment.invoice_payload)
+
+
 async def send_topup_invoice(message: Message, language: str, price: int) -> bool:
     """Buyurtma narxicha Stars bilan balansni to'ldirish hisob-fakturasi.
 

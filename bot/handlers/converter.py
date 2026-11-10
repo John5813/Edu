@@ -282,7 +282,7 @@ async def back_from_pdf_payment(callback: CallbackQuery, state: FSMContext, user
     await callback.message.answer(get_text(user_lang, "pdf_convert_send_file"))
 
 
-@router.message(ConverterStates.waiting_for_payment, F.successful_payment)
+@router.message(ConverterStates.waiting_for_payment, F.successful_payment.invoice_payload.startswith("pdf_convert_"))
 async def successful_payment_pdf_handler(message: Message, state: FSMContext, db: Database, user_lang: str, user):
     """Handle successful Stars payment while in PDF conversion payment state."""
     payment = message.successful_payment
