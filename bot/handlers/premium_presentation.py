@@ -2426,20 +2426,16 @@ async def premium_ppt_pay_stars(callback: CallbackQuery, state: FSMContext, db: 
             pass
 
 
-@router.message(
-    PremiumPresentationStates.waiting_for_payment,
-    F.successful_payment,
-)
+# Holatga (FSM) emas, to'lov belgisiga bog'liq: mijoz hisob-fakturani ochib turganda boshqa tugma bossa yoki bot qayta
+# ishga tushsa, holat o'zgaradi — ilgari bunday to'lov boshqa routerda yo'qolardi (Stars yechilib, taqdimot yo'q).
+@router.message(F.successful_payment, pay.payload_filter(CHECKOUT))
 async def premium_ppt_successful_stars(
     message: Message, state: FSMContext, db: Database
 ):
-    payment = message.successful_payment
-    if not payment or not CHECKOUT.owns_payload(payment.invoice_payload):
-        return
-
     data = await _order(message.chat.id, state)
     if not data:
-        await _report_expired(message, state, "uz")
+        await pay.stars_to_balance(message, db, await _lang_of(message.chat.id, db))
+        await state.clear()
         return
     pay.forget(message.chat.id)
     await state.update_data(payment_method="stars")
