@@ -202,5 +202,48 @@ none = asyncio.run(service.generate_with_models("a mosque", models, stem="t_402"
 check("hamma model 402 bersa — rasm yo'q va shoshilinch xabar bor", none is None
       and [k for k, _, _ in sent] == ["together_credits"], sent)
 
+print("6) Javob bermagan model qayta-qayta kutilmaydi (taqdimot «aylanib qolmasin»)")
+together_service._unavailable.clear()
+calls = []
+
+
+def slow_then_ok(**kwargs):
+    calls.append(kwargs["model"])
+    if kwargs["model"] == "slow/model":
+        time.sleep(0.5)
+    return SimpleNamespace(data=[SimpleNamespace(url=None, b64_json="aGk=")])
+
+
+service.client = SimpleNamespace(images=SimpleNamespace(generate=slow_then_ok))
+with patch.object(together_service, "IMAGE_TIMEOUT", 0.1), patch.object(together_service, "_count_image"):
+    path = asyncio.run(service.generate_with_models("a bridge", ["slow/model", "fast/model"], stem="t_slow"))
+check("vaqt tugagan modelga qayta urinilmaydi — darhol keyingisi", calls == ["slow/model", "fast/model"] and path, calls)
+calls.clear()
+with patch.object(together_service, "IMAGE_TIMEOUT", 0.1), patch.object(together_service, "_count_image"):
+    asyncio.run(service.generate_with_models("a river", ["slow/model", "fast/model"], stem="t_slow2"))
+check("sekin model keyingi rasmlarda bir necha daqiqa chetlab o'tiladi", calls == ["fast/model"], calls)
+
+together_service._unavailable.clear()
+calls.clear()
+
+
+def always_slow(**kwargs):
+    calls.append(kwargs["model"])
+    time.sleep(0.3)
+    return object()
+
+
+service.client = SimpleNamespace(images=SimpleNamespace(generate=always_slow))
+with patch.object(together_service, "IMAGE_TIMEOUT", 0.2), patch.object(together_service, "IMAGE_BUDGET", 0.3):
+    t0 = time.monotonic()
+    none = asyncio.run(service.generate_with_models("x", ["a/1", "b/2", "c/3", "d/4"], stem="t_budget"))
+    spent = time.monotonic() - t0
+check("bitta rasmga ajratilgan vaqt tugasa — qolgan modellar sinalmaydi, rasmsiz davom etiladi",
+      none is None and len(calls) == 2 and spent < 0.7, (calls, spent))
+
+import config
+check("Together'da yopilgan FLUX.1-schnell zaxira ro'yxatida yo'q",
+      not any("schnell" in m.lower() for m in config.IMAGE_MODEL_FALLBACKS), config.IMAGE_MODEL_FALLBACKS)
+
 print("\nNATIJA:", "HAMMASI O'TDI" if not FAILS else f"{len(FAILS)} ta xato: {FAILS}")
 sys.exit(1 if FAILS else 0)

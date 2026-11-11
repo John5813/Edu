@@ -139,9 +139,7 @@ TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY", "")
 # o'tiladi — mijoz pul to'lagan ishda rasmsiz qolmaslik muhimroq.
 _DEFAULT_IMAGE_CHAIN = (
     "black-forest-labs/FLUX.2-pro,"
-    "black-forest-labs/FLUX.1.1-pro,"
-    "black-forest-labs/FLUX.1-schnell-Free,"
-    "black-forest-labs/FLUX.1-schnell"
+    "black-forest-labs/FLUX.1.1-pro"
 )
 TOGETHER_IMAGE_MODELS = _chain(
     os.getenv("PREMIUM_TOGETHER_IMAGE_MODEL", "") + "," +
