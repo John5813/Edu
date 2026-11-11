@@ -86,7 +86,8 @@ for style in styles.STYLES:
             if pic:
                 pic.cleanup()
 check("hamma uslub xatosiz chizildi", not bad, bad)
-check("26 ta yangi uslub + xulosa ro'yxatda", len(styles.STYLES) == 29 and "finale" in styles.BY_NAME,
+check("uslublar ro'yxati: «arcs» o'rniga 5 ta yangi (jami 33)", len(styles.STYLES) == 33 and "finale" in styles.BY_NAME
+      and "arcs" not in styles.BY_NAME,
       [s.name for s in styles.STYLES])
 
 print("1b) 2-to'plam infografikalari: hamma punktlar soni, matn to'liq chiqadi")
@@ -108,6 +109,31 @@ for name in NEW:
         except Exception as exc:
             lost.append((name, n, repr(exc)))
 check("10 ta yangi infografika xatosiz, matni to'liq", not lost, lost)
+
+print("1c) «arcs» o'rniga 5 ta yangi infografika: hamma punktlar soni, qiymat bilan ham, matn to'liq")
+from services.premium_presentation.designer import families
+FIVE = ("orbit", "zigzag", "bubbles", "banners", "wave")
+lost = []
+for name in FIVE:
+    style = styles.BY_NAME[name]
+    for n in range(style.min_items, style.max_items + 1):
+        for value in (False, True):
+            prs = deck()
+            slide = prs.slides.add_slide(prs.slide_layouts[6])
+            ctx = styles.Ctx(slide=slide, pal=styles.Palette.of(theme), rng=__import__("random").Random(n),
+                             topic_icon="globe")
+            spec = {"kind": "group", "title": "Sarlavha", "lead": "Bosh gap" if value else "", "items": items(n, value)}
+            try:
+                style.draw(ctx, spec)
+                if not _contains_expected_text(spec, slide) or len(slide.shapes) < 3 * n:
+                    lost.append((name, n, value))
+            except Exception as exc:
+                lost.append((name, n, value, repr(exc)))
+check("5 ta yangi uslub xatosiz, matni to'liq", not lost, lost)
+check("«arcs» hech bir mavzu oilasida/obrazida qolmadi", all("arcs" not in w for w in families.FAMILY.values())
+      and all("arcs" not in m for _, _, m in families.MOODS))
+check("yangi uslublar tanlovga kiradi (oila/obraz og'irliklarida bor)",
+      all(any(name in w for w in list(families.FAMILY.values()) + [m for _, _, m in families.MOODS]) for name in FIVE))
 check("yangi infografikalar tanlovda", all(n in styles.BY_NAME for n in NEW))
 
 print("2) Ranglar temadan")
@@ -275,8 +301,8 @@ again = Designer(theme, "Turizm", seed=7, pages=[photo_page])
 check("qaror urug' va sahifa raqamiga bog'liq (qayta yig'ilganda o'zgarmaydi)",
       [g is not None for g in got[:10]] == [again._backdrop("group", i) is not None for i in range(10)])
 check("to'q fonli uslubda fon rasmi yo'q", all(d._backdrop("group", i, light=False) is None for i in range(20)))
-check("och fonli uslublar ro'yxati to'g'ri", styles.LIGHT <= set(styles.BY_NAME) and "arcs" not in styles.LIGHT
-      and "swirl" not in styles.LIGHT)
+check("och fonli uslublar ro'yxati to'g'ri", styles.LIGHT <= set(styles.BY_NAME) and "orbit" not in styles.LIGHT
+      and "swirl" not in styles.LIGHT and {"zigzag", "banners"} <= styles.LIGHT)
 check("rasmsiz taqdimotda fon yo'q", Designer(theme, "Turizm", seed=7, pages=["<html></html>"])._backdrop("group", 0) is None)
 for g in got:
     if g is not None:

@@ -11,19 +11,19 @@ ko'paytiriladi. Agar hamma mos uslub taqiqlanib qolsa, tanlovchi ko'paytuvchilar
 from typing import Dict, List
 
 FAMILY: Dict[str, Dict[str, float]] = {
-    "tarix": {"timeline": 2.5, "arcs": 2, "fan": 2, "swirl": 1.5, "cards": 1.5, "gears": 0, "leaves": 0.3, "cross": 0.6,
+    "tarix": {"timeline": 2.5, "banners": 2, "wave": 1.5, "fan": 2, "swirl": 1.5, "cards": 1.5, "gears": 0, "leaves": 0.3, "cross": 0.6,
               "cover_x": 1.5, "pins": 1.8, "stairs": 1.3},
     "aniq": {"gears": 2.5, "arrows": 2, "cross": 1.5, "diamond": 1.5, "timeline": 1.5, "leaves": 0, "cards": 1,
              "cover_hex": 1.5, "honeycomb": 2, "shutter": 1.8, "chevrons": 1.5},
     "tabiiy": {"leaves": 2.5, "cards": 1.3, "swirl": 1.5, "fan": 1.3, "gears": 0.4, "cross": 0.6, "honeycomb": 1.8,
                "target": 1.5},
-    "ijtimoiy": {"pie": 2, "arcs": 2, "diamond": 1.5, "arrows": 1.5, "leaves": 0.3, "cards": 1, "pyramid": 1.8,
+    "ijtimoiy": {"pie": 2, "orbit": 2, "bubbles": 1.5, "diamond": 1.5, "arrows": 1.5, "leaves": 0.3, "cards": 1, "pyramid": 1.8,
                  "mindmap": 1.8, "target": 1.5},
-    "gumanitar": {"timeline": 2, "fan": 2, "swirl": 1.5, "cards": 1.3, "gears": 0, "cross": 0.6, "mindmap": 2,
+    "gumanitar": {"timeline": 2, "zigzag": 1.5, "fan": 2, "swirl": 1.5, "cards": 1.3, "gears": 0, "cross": 0.6, "mindmap": 2,
                   "pyramid": 1.5},
-    "amaliy": {"cards": 1.5, "timeline": 1.5, "cross": 1.5, "arrows": 1.5, "plan_wave": 1.5, "stairs": 2,
+    "amaliy": {"cards": 1.5, "timeline": 1.5, "zigzag": 2, "cross": 1.5, "arrows": 1.5, "plan_wave": 1.5, "stairs": 2,
                "chevrons": 2, "funnel": 1.5},
-    "hisob": {"pie": 2, "arcs": 2, "arrows": 1.5, "diamond": 1.5, "leaves": 0, "cards": 1, "cover_hex": 1.5,
+    "hisob": {"pie": 2, "bubbles": 2, "arrows": 1.5, "diamond": 1.5, "leaves": 0, "cards": 1, "cover_hex": 1.5,
               "pillars": 2.5, "funnel": 2},
     "umumiy": {},
 }
@@ -42,12 +42,12 @@ MOODS: List[tuple] = [
     ("biznes", ("iqtisod", "moliya", "biznes", "marketing", "bank", "investitsiya", "savdo", "tadbirkor", "soliq",
                 "budjet", "byudjet", "menejment", "эконом", "финанс", "бизнес", "маркетинг", "банк", "инвест",
                 "econom", "financ", "business", "marketing", "invest", "бизнес", "қаржы"),
-     {"pie": 2.5, "arcs": 2, "diamond": 2, "arrows": 2, "gears": 1.5, "leaves": 0, "cards": 1, "timeline": 0.6,
+     {"pie": 2.5, "bubbles": 2, "orbit": 1.5, "diamond": 2, "arrows": 2, "gears": 1.5, "leaves": 0, "cards": 1, "timeline": 0.6,
       "funnel": 2.5, "pillars": 2.5, "pyramid": 2, "stairs": 1.5}),
     ("talim", ("ta'lim", "ta’lim", "pedagog", "maktab", "o'qitish", "o‘qitish", "talaba", "o'quvchi", "dars",
                "metodika", "tarbiya", "образован", "педагог", "школ", "обучен", "education", "teaching", "school",
                "pedagog", "білім", "мектеп"),
-     {"timeline": 3, "cards": 1.5, "plan_wave": 2, "arrows": 1.3, "leaves": 0.5, "gears": 0.6, "stairs": 2.5,
+     {"timeline": 3, "zigzag": 2, "cards": 1.5, "plan_wave": 2, "arrows": 1.3, "leaves": 0.5, "gears": 0.6, "stairs": 2.5,
       "mindmap": 2, "chevrons": 1.5}),
     ("tibbiyot", ("tibbiyot", "sog'liq", "sog‘liq", "kasallik", "shifo", "salomatlik", "psixolog", "gigiyena",
                   "медицин", "здоров", "болезн", "психолог", "medic", "health", "disease", "psycholog", "денсаулық"),
@@ -56,9 +56,9 @@ MOODS: List[tuple] = [
     ("madaniyat", ("tarix", "madaniyat", "meros", "adabiyot", "san'at", "san’at", "she'r", "falsafa", "musiqa", " din ",
                    "истори", "культур", "литератур", "искусств", "философ", "history", "culture", "literature", "artist",
                    "philosoph", "тарих", "мәдениет", "әдебиет"),
-     {"arcs": 2, "swirl": 2, "fan": 2, "cards": 1.5, "timeline": 2, "gears": 0, "cross": 0.5, "cover_x": 1.5}),
+     {"banners": 2, "swirl": 2, "fan": 2, "cards": 1.5, "timeline": 2, "gears": 0, "cross": 0.5, "cover_x": 1.5}),
     ("sayohat", ("turizm", "sayohat", "sayyoh", "mehmonxona", "туризм", "путешеств", "tourism", "travel", "саяхат"),
-     {"fan": 2, "swirl": 2, "arcs": 2, "arrows": 1.5, "gears": 0.3, "cover_x": 1.5, "pins": 3}),
+     {"fan": 2, "swirl": 2, "wave": 2, "arrows": 1.5, "gears": 0.3, "cover_x": 1.5, "pins": 3}),
 ]
 
 
