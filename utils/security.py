@@ -25,8 +25,9 @@ def sanitize_user_input(text: str, max_length: int = 200) -> str:
     
     # 2. Limit length
     if len(text) > max_length:
+        original = len(text)
         text = text[:max_length]
-        logger.warning(f"Input truncated from {len(text)} to {max_length} characters")
+        logger.warning(f"Input truncated from {original} to {max_length} characters")
     
     # 3. Remove newlines and tabs - replace with spaces
     text = text.replace('\n', ' ').replace('\t', ' ').replace('\r', ' ')
