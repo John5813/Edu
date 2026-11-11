@@ -68,6 +68,15 @@ def callback(chat, data):
     cb.from_user = SimpleNamespace(id=1)
     return cb
 
+
+async def topic_step(chat, text, state, db, pick=None):
+    """Mavzu yoziladi, keyin til qadami: taklif qilingan (yoki `pick`) til tanlanadi."""
+    await pp.premium_ppt_got_topic(chat.message(text), state, db)
+    if await state.get_state() == pp.PremiumPresentationStates.waiting_for_script.state:
+        code = pick or (await state.get_data())["presentation_language"]
+        await pp.premium_ppt_got_script(callback(chat, f"prem_ppt_script:{code}"), state, db)
+
+
 def make_db(balance=100000):
     db = MagicMock()
     user = SimpleNamespace(language="uz", first_name="Ali", balance=balance, id=1)
@@ -86,7 +95,7 @@ async def to_count(kind, topic="Ekologiya asoslari", db=None):
     db = db or make_db()
     await pp.premium_presentation_start(chat.message("🌟 Taqdimot"), state, db)
     await pp.premium_ppt_kind_selected(callback(chat, f"prem_ppt_kind:{kind}"), state, db)
-    await pp.premium_ppt_got_topic(chat.message(topic), state, db)
+    await topic_step(chat, topic, state, db)
     await pp.premium_ppt_skip_name(callback(chat, "prem_ppt_skip_name"), state, db)
     await pp.premium_ppt_skip_preferences(callback(chat, "prem_ppt_skip_preferences"), state, db)
     await pp.premium_ppt_chose_source(callback(chat, "prem_ppt_source:ai"), state, db)
@@ -128,6 +137,13 @@ async def full_flow():
     topic_prompt = (await state.get_data())["prompt_mid"]
 
     await pp.premium_ppt_got_topic(chat.message("Falsafa: predmeti va muammolari"), state, db)
+    codes = [b.callback_data for b in buttons(chat.last()[2])]
+    check("mavzudan keyin TIL qadami: 6 til, lotin mavzuda ham",
+          await state.get_state() == PS.waiting_for_script.state
+          and codes[:6] == [f"prem_ppt_script:{c}" for c in ("uz", "uz-cyrl", "uz-yangi", "ru", "en", "kk")], codes)
+    check("mavzuga qarab taxmin ✅ bilan belgilangan",
+          [b.text for b in buttons(chat.last()[2]) if b.text.startswith("✅")] == ["✅ " + pp._LANG_BUTTONS["uz"]])
+    await pp.premium_ppt_got_script(callback(chat, "prem_ppt_script:uz"), state, db)
     data = await state.get_data()
     check("mavzu saqlandi, til mavzudan aniqlandi", data["topic"].startswith("Falsafa") and data["presentation_language"] == "uz", data)
     check("mavzu so'rovi javobdan keyin o'chdi", topic_prompt in chat.deleted, chat.deleted)
@@ -186,13 +202,12 @@ async def full_flow():
     check("xulosada mavzu, ism, tur, uslub, slayd soni",
           all(w in summary for w in ("Falsafa", "Aliyev Jasur", "Zamonaviy", "Jurnal", "12")), summary)
     langs = [b.callback_data for b in buttons(chat.last()[2]) if b.callback_data.startswith("prem_ppt_lang:")]
-    check("xulosada tilni o'zgartirish tugmalari (o'zbek lotin va kirill alohida)", langs == ["prem_ppt_lang:uz", "prem_ppt_lang:uz-cyrl", "prem_ppt_lang:uz-yangi", "prem_ppt_lang:ru", "prem_ppt_lang:en", "prem_ppt_lang:kk"], langs)
-    await pp.premium_ppt_change_language(callback(chat, "prem_ppt_lang:en"), state, db)
-    check("til almashtirildi", (await state.get_data())["presentation_language"] == "en")
+    check("xulosada til qayta so'ralmaydi (tugmalar yo'q), tanlangan til matnda ko'rinadi",
+          langs == [] and "Til" in summary and "O'zbek (lotin)" in summary, (langs, summary[:300]))
 
-    # Orqaga: xulosa -> rasm manbasi -> hajm -> uslub -> manba -> istaklar -> ism -> mavzu -> tur
+    # Orqaga: xulosa -> rasm manbasi -> hajm -> uslub -> manba -> istaklar -> ism -> til -> mavzu -> tur
     for expect in (PS.waiting_for_photo_source, PS.waiting_for_count, PS.waiting_for_style, PS.waiting_for_source_kind, PS.waiting_for_preferences,
-                   PS.waiting_for_client_name, PS.waiting_for_topic_text, PS.waiting_for_kind):
+                   PS.waiting_for_client_name, PS.waiting_for_script, PS.waiting_for_topic_text, PS.waiting_for_kind):
         await pp.premium_ppt_previous(callback(chat, "prem_ppt_prev"), state, db)
         check(f"orqaga: {expect.state.split(':')[1]}", await state.get_state() == expect.state, await state.get_state())
     await pp.premium_ppt_previous(callback(chat, "prem_ppt_prev"), state, db)
@@ -244,7 +259,7 @@ async def full_flow():
     low_db = make_db(balance=1500)
     await pp.premium_presentation_start(chat2.message("🌟 Taqdimot"), state2, low_db)
     await pp.premium_ppt_kind_selected(callback(chat2, "prem_ppt_kind:classic"), state2, low_db)
-    await pp.premium_ppt_got_topic(chat2.message("Сельское хозяйство России"), state2, low_db)
+    await topic_step(chat2, "Сельское хозяйство России", state2, low_db)
     check("ruscha mavzu: til aniqlandi", (await state2.get_data())["presentation_language"] == "ru")
     await pp.premium_ppt_skip_name(callback(chat2, "prem_ppt_skip_name"), state2, low_db)
     await pp.premium_ppt_got_preferences(chat2.message("Qisqa va vizual"), state2, low_db)
@@ -262,7 +277,7 @@ async def full_flow():
     chat3, state3 = Chat(), await new_state()
     await pp.premium_presentation_start(chat3.message("🌟 Taqdimot"), state3, db)
     await pp.premium_ppt_kind_selected(callback(chat3, "prem_ppt_kind:info"), state3, db)
-    await pp.premium_ppt_got_topic(chat3.message("The impact of climate change on agriculture"), state3, db)
+    await topic_step(chat3, "The impact of climate change on agriculture", state3, db)
     check("inglizcha mavzu: til aniqlandi", (await state3.get_data())["presentation_language"] == "en")
 
     # Qisqa mavzu rad etiladi, so'rov o'chmaydi
@@ -270,7 +285,7 @@ async def full_flow():
     await pp.premium_presentation_start(chat4.message("🌟 Taqdimot"), state4, db)
     await pp.premium_ppt_kind_selected(callback(chat4, "prem_ppt_kind:info"), state4, db)
     before = list(chat4.deleted)
-    await pp.premium_ppt_got_topic(chat4.message("ab"), state4, db)
+    await topic_step(chat4, "ab", state4, db)
     check("qisqa mavzu: so'rov qoladi va xato aytiladi",
           chat4.deleted == before and "juda qisqa" in chat4.last()[1] and await state4.get_state() == PS.waiting_for_topic_text.state)
 
@@ -278,7 +293,7 @@ async def full_flow():
     chat5, state5 = Chat(), await new_state()
     await pp.premium_presentation_start(chat5.message("🌟 Taqdimot"), state5, db)
     await pp.premium_ppt_kind_selected(callback(chat5, "prem_ppt_kind:info"), state5, db)
-    await pp.premium_ppt_got_topic(chat5.message("Ekologiya asoslari"), state5, db)
+    await topic_step(chat5, "Ekologiya asoslari", state5, db)
     await pp.premium_ppt_skip_name(callback(chat5, "prem_ppt_skip_name"), state5, db)
     await pp.premium_ppt_skip_preferences(callback(chat5, "prem_ppt_skip_preferences"), state5, db)
     await pp.premium_ppt_chose_source(callback(chat5, "prem_ppt_source:file"), state5, db)

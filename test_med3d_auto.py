@@ -445,6 +445,15 @@ def callback(chat, data, user=1):
     return cb
 
 
+async def topic_step(chat, text, state, db, pick=None):
+    """Mavzu yoziladi, keyin til qadami: taklif qilingan (yoki `pick`) til tanlanadi."""
+    await pp.premium_ppt_got_topic(chat.message(text), state, db)
+    if await state.get_state() == pp.PremiumPresentationStates.waiting_for_script.state:
+        code = pick or (await state.get_data())["presentation_language"]
+        await pp.premium_ppt_got_script(callback(chat, f"prem_ppt_script:{code}"), state, db)
+
+
+
 def make_db():
     db = MagicMock()
     user = SimpleNamespace(language="uz", first_name="Ali", balance=100000, id=1)
@@ -488,7 +497,7 @@ async def bot_flow():
     from services.med3d import auto as _m3
     _orig_check, _orig_ready = _m3.check_topic, _m3.pictures_ready
     _m3.check_topic = lambda topic, language="uz": {"ok": False, "kind": "anatomy", "reason": "Bu iqtisodiyot mavzusi."}
-    await pp.premium_ppt_got_topic(chat.message("Inflyatsiya sabablari"), state, db)
+    await topic_step(chat, "Inflyatsiya sabablari", state, db)
     alt_cbs = [b.callback_data for b in buttons(chat.markups[-1])] if chat.markups and chat.markups[-1] else []
     check("mavzu yozilishi bilan tekshiriladi: 3D bo'lmasa darhol aytiladi va tugmalar chiqadi",
           "ko'rsatib bo'lmaydi" in chat.edited[-1]
@@ -500,7 +509,7 @@ async def bot_flow():
           (await state.get_data()).get("kind") == "med3d" and await state.get_state() == PS.waiting_for_topic_text.state)
     _m3.check_topic = lambda topic, language="uz": {"ok": True, "kind": "disease", "reason": ""}
     _m3.pictures_ready = lambda: False
-    await pp.premium_ppt_got_topic(chat.message("Rotator manjet yirtilishi"), state, db)
+    await topic_step(chat, "Rotator manjet yirtilishi", state, db)
     check("rasm generatsiyasi ishlamasa ham kasallik taqdimoti davom etadi",
           "rasm bo'lmasa" in chat.edited[-1] and await state.get_state() == PS.waiting_for_client_name.state,
           chat.edited[-1:])
@@ -509,7 +518,7 @@ async def bot_flow():
           "Kasallik mavzusi" in chat.edited[-1]
           and await state.get_state() == PS.waiting_for_client_name.state, chat.edited[-1:])
     _m3.check_topic = lambda topic, language="uz": {"ok": True, "kind": "anatomy", "reason": ""}
-    await pp.premium_ppt_got_topic(chat.message("Yurakning tuzilishi"), state, db)
+    await topic_step(chat, "Yurakning tuzilishi", state, db)
     _m3.check_topic, _m3.pictures_ready = _orig_check, _orig_ready
     await pp.premium_ppt_skip_name(callback(chat, "prem_ppt_skip_name"), state, db)
     await pp.premium_ppt_skip_preferences(callback(chat, "prem_ppt_skip_preferences"), state, db)

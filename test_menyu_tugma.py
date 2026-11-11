@@ -107,7 +107,7 @@ async def main():
     await send("Kvadrat tenglama va funksiyalar")
     data = await state.get_data()
     check("oddiy matn mavzu sifatida qabul qilinadi", data.get("topic") == "Kvadrat tenglama va funksiyalar" and not handled, (data, handled))
-    check("... va keyingi bosqichga o'tildi", await state.get_state() == PS.waiting_for_client_name.state, await state.get_state())
+    check("... va keyingi bosqich — til tanlash", await state.get_state() == PS.waiting_for_script.state, await state.get_state())
     await bot.session.close()
 
 asyncio.run(main())

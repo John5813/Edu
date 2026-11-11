@@ -230,12 +230,15 @@ _TXT = {
         "ru": "📝 <b>Введите тему презентации:</b>",
         "en": "📝 <b>Enter the presentation topic:</b>"},
     "ask_script": {
-        "uz": ("🔤 <b>Taqdimot qaysi yozuvda bo‘lsin?</b>\n"
-               "<i>Matnning hammasi (sarlavhalar ham) tanlangan yozuvda chiqadi, ikki yozuv aralashmaydi.</i>"),
-        "ru": ("🔤 <b>Каким алфавитом написать презентацию?</b>\n"
-               "<i>Весь текст (включая заголовки) будет в выбранном алфавите, без смешения.</i>"),
-        "en": ("🔤 <b>Which script should the presentation use?</b>\n"
-               "<i>All text, headings included, will use the chosen script without mixing.</i>")},
+        "uz": ("🌐 <b>Taqdimot qaysi tilda bo‘lsin?</b>\n"
+               "<i>Butun matn (sarlavhalar ham) tanlangan til va yozuvda chiqadi. Mavzu boshqa tilda yozilgan "
+               "bo‘lsa — o‘zimiz tarjima qilamiz.</i>"),
+        "ru": ("🌐 <b>На каком языке сделать презентацию?</b>\n"
+               "<i>Весь текст (включая заголовки) будет на выбранном языке и алфавите. Если тема написана на "
+               "другом языке — переведём сами.</i>"),
+        "en": ("🌐 <b>Which language should the presentation be in?</b>\n"
+               "<i>All text, headings included, will be in the chosen language and script. A topic written in "
+               "another language is translated automatically.</i>")},
     "script_latin": {"uz": "🇺🇿 Lotin (O‘zbek)", "ru": "🇺🇿 Латиница (узб.)", "en": "🇺🇿 Latin (Uzbek)"},
     "script_cyrillic": {"uz": "🇺🇿 Кирилл (Ўзбек)", "ru": "🇺🇿 Кириллица (узб.)", "en": "🇺🇿 Cyrillic (Uzbek)"},
     "script_latin_new": {"uz": "🇺🇿 Yangi alifbo (Özbek)", "ru": "🇺🇿 Новая латиница (узб.)",
@@ -483,20 +486,19 @@ async def premium_ppt_got_topic(message: Message, state: FSMContext, db: Databas
         await message.answer(_t(lang, "topic_short"))
         return
     await _drop_prompt(message.bot, message.chat.id, state)
-    language = _detect_language(topic)
-    await state.update_data(topic=topic, presentation_language=language, script_asked=False)
-    # O'zbekcha mavzu kirillda yozilgan bo'lsa yozuv mijozdan so'raladi:
-    # ilgari sarlavhalar lotinda, qolgani kirillda chiqib aralashib ketardi.
-    if language == "uz" and uz_script.has_cyrillic(topic):
-        await _step_script(message, state, lang)
-        return
-    await _after_topic(message, state, lang)
+    # Til va yozuv — mavzudan keyingi BITTA qadamda, hamma tillar bilan (lotinda yozilsa ham, kirillda ham).
+    # Ilgari kirillcha mavzuda bu yerda faqat o'zbek yozuvi so'ralar, til esa eng oxirida (xulosada) tanlanardi.
+    await state.update_data(topic=topic, topic_raw=topic, presentation_language=_guess_language(topic),
+                            script_asked=True)
+    await _step_script(message, state, lang)
 
 
 async def _after_topic(message: Message, state: FSMContext, lang: str) -> None:
     """Mavzu yozildi. 3D Anatomiyada — darhol (to'lovdan oldin) tekshiriladi: mos bo'lmasa shu zahoti aytiladi."""
     data = await state.get_data()
     if _kind_of(data) in (KIND_MED3D, KIND_KAT3D):
+        # Mavzu 3D ga mos kelmasa mijoz shu yerning o'zida boshqa mavzu yoza olsin (til qadami holatida qolmasin).
+        await state.set_state(PremiumPresentationStates.waiting_for_topic_text)
         if data.get("standalone_med3d"):
             if not await _three_d_topic_gate(message, state, lang):
                 return
@@ -882,15 +884,41 @@ async def _three_d_topic_gate(message: Message, state: FSMContext, lang: str) ->
     return False
 
 
+LANG_CODES = ("uz", uz_script.UZ_CYRILLIC_LANG, uz_script.UZ_NEW_LANG, "ru", "en", "kk")
+# Eski xabarlardagi tugmalar (faqat yozuv so'ralgan paytdan qolgan) ham ishlayversin.
+_OLD_SCRIPT_CHOICES = {uz_script.LATIN: "uz", uz_script.CYRILLIC: uz_script.UZ_CYRILLIC_LANG,
+                       uz_script.LATIN_NEW: uz_script.UZ_NEW_LANG}
+
+
+def _guess_language(topic: str) -> str:
+    """Mavzuga qarab taxmin (til qadamida ✅ bilan belgilanadi; mijoz baribir o'zi tanlaydi)."""
+    language = _detect_language(topic)
+    if language == "uz" and uz_script.has_cyrillic(topic):
+        return uz_script.UZ_CYRILLIC_LANG
+    return language if language in LANG_CODES else "uz"
+
+
+def _language_keyboard(lang: str, suggested: str) -> InlineKeyboardMarkup:
+    rows, row = [], []
+    for code in LANG_CODES:
+        mark = "✅ " if code == suggested else ""
+        row.append(InlineKeyboardButton(text=f"{mark}{_LANG_BUTTONS[code]}", callback_data=f"prem_ppt_script:{code}"))
+        if len(row) == 2:
+            rows.append(row)
+            row = []
+    return _markup(rows + [_back_row(lang)])
+
+
 async def _step_script(message: Message, state: FSMContext, lang: str) -> None:
-    markup = _markup([[InlineKeyboardButton(text=_t(lang, "script_latin"), callback_data="prem_ppt_script:latin"),
-                       InlineKeyboardButton(text=_t(lang, "script_cyrillic"), callback_data="prem_ppt_script:cyrillic")],
-                      [InlineKeyboardButton(text=_t(lang, "script_latin_new"),
-                                            callback_data=f"prem_ppt_script:{uz_script.LATIN_NEW}")],
-                      _back_row(lang)])
+    """Til qadami: mavzudan keyin, hamma taqdimot turlarida. Tanlangach til boshqa so'ralmaydi."""
     data = await state.get_data()
-    await _prompt(message, state, _topic_line(data, lang) + _t(lang, "ask_script"), markup,
-                  "script", PremiumPresentationStates.waiting_for_script)
+    topic = data.get("topic_raw") or data.get("topic", "")
+    if topic != data.get("topic"):                       # orqaga qaytilgan: mavzu mijoz yozgan holiga qaytadi
+        await state.update_data(topic=topic)
+        data = {**data, "topic": topic}
+    suggested = data.get("presentation_language") or _guess_language(topic)
+    await _prompt(message, state, _topic_line(data, lang) + _t(lang, "ask_script"),
+                  _language_keyboard(lang, suggested), "script", PremiumPresentationStates.waiting_for_script)
 
 
 @router.callback_query(F.data.startswith("prem_ppt_script:"),
@@ -899,15 +927,15 @@ async def premium_ppt_got_script(callback: CallbackQuery, state: FSMContext, db:
     await callback.answer()
     lang = await _lang_of(callback.from_user.id, db)
     choice = callback.data.split(":", 1)[1]
+    language = _OLD_SCRIPT_CHOICES.get(choice, choice)
+    if language not in LANG_CODES:
+        return
     data = await state.get_data()
-    topic = data.get("topic", "")
-    if choice == uz_script.LATIN:
-        topic, language = uz_script.to_latin(topic), "uz"
-    elif choice == uz_script.LATIN_NEW:
-        # Mavzu modelga eski lotinda beriladi; tayyor fayl yangi alifboga o'giriladi.
-        topic, language = uz_script.to_latin(topic), uz_script.UZ_NEW_LANG
-    else:
-        language = uz_script.UZ_CYRILLIC_LANG
+    topic = data.get("topic_raw") or data.get("topic", "")
+    # O'zbekcha kirill mavzu + lotin (yoki yangi alifbo): mavzu modelga lotinda beriladi (yangi alifboda tayyor
+    # fayl o'giriladi). Boshqa tildagi mavzu tegilmaydi — generator uni tanlangan tilga o'zi tarjima qiladi.
+    if language in ("uz", uz_script.UZ_NEW_LANG) and _detect_language(topic) == "uz":
+        topic = uz_script.to_latin(topic)
     await _drop_prompt(callback.bot, callback.message.chat.id, state)
     await state.update_data(topic=topic, presentation_language=language, script_asked=True)
     await _after_topic(callback.message, state, lang)
@@ -2100,13 +2128,9 @@ def _text_anim_label(lang: str, on: bool) -> str:
 
 
 def _confirm_keyboard(lang: str, current_language: str, color=None, thanks=None) -> InlineKeyboardMarkup:
-    """Xulosa tugmalari: til, rang (None — taklif qilinmaydi), tasdiqlash va orqaga.
+    """Xulosa tugmalari: rang (None — taklif qilinmaydi), tasdiqlash va orqaga (til faqat matnda ko'rsatiladi).
     Rasm manbasi va yozuv animatsiyasi o'z bosqichlarida tanlanadi — xulosada faqat yozuv bo'lib turadi."""
-    builder = InlineKeyboardBuilder()
-    for code in ("uz", uz_script.UZ_CYRILLIC_LANG, uz_script.UZ_NEW_LANG, "ru", "en", "kk"):
-        mark = "✓ " if code == current_language else ""
-        builder.button(text=f"{mark}{_LANG_BUTTONS[code]}", callback_data=f"prem_ppt_lang:{code}")
-    builder.adjust(2)
+    builder = InlineKeyboardBuilder()                # til mavzudan keyin tanlangan — bu yerda qayta so'ralmaydi
     if color is not None:
         label = (_COLOR_LABEL.get(lang) or _COLOR_LABEL["uz"])[0]
         builder.row(InlineKeyboardButton(text=f"{label}: {_color_name(color, lang)}", callback_data="prem_ppt_color"))
@@ -2155,6 +2179,8 @@ def _summary(data: dict, lang: str):
         lines.append(f"✍️ {pref_l}: <i>{esc(data.get('preferences'), 150)}</i>")
     if source:
         lines.append(f"📎 {src_l}: {esc(source, 80)}")
+    lang_l = {"uz": "Til", "ru": "Язык", "en": "Language", "kk": "Тіл"}.get(lang, "Til")
+    lines.append(f"🌐 {lang_l}: <b>{esc(_LANG_BUTTONS.get(language) or _language_label(language))}</b>")
     kind_l = {"uz": "Turi", "ru": "Тип", "en": "Type", "kk": "Түрі"}.get(lang, "Turi")
     lines.append(f"🎨 {kind_l}: <b>{esc(_kind_name(kind, lang))}</b>")
     if style:
@@ -2217,14 +2243,9 @@ async def _step_summary(message: Message, state: FSMContext, lang: str) -> None:
 @router.callback_query(F.data.startswith("prem_ppt_lang:"),
                        PremiumPresentationStates.waiting_for_slide_count)
 async def premium_ppt_change_language(callback: CallbackQuery, state: FSMContext, db: Database):
-    """Til avtomatik aniqlanadi; noto'g'ri bo'lsa shu yerda almashtiriladi."""
-    code = callback.data.split(":", 1)[1]
-    if code not in _LANG_BUTTONS:
-        await callback.answer()
-        return
+    """Eski xabardagi til tugmasi: til endi mavzudan keyin tanlanadi — xulosa tugmalarsiz yangilanadi."""
     await callback.answer()
     lang = await _lang_of(callback.from_user.id, db)
-    await state.update_data(presentation_language=code)
     text, markup = _summary(await state.get_data(), lang)
     with contextlib.suppress(Exception):
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=markup)
