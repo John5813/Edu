@@ -14,6 +14,7 @@ bilan yasaladi (`build_deck`). Topilmasa — 3D taklif qilinmaydi.
   taqdimotdan oldin kutib.
 """
 import asyncio
+import time
 import logging
 import os
 import tempfile
@@ -26,6 +27,10 @@ MIN_SLIDES, MAX_SLIDES = 4, 20
 
 
 MIX_DISCOUNT = 0.40                     # aralash taqdimot (3D + diagramma + rasm) — 40% arzon
+
+
+RESEARCH_WAIT = 150                      # internet tadqiqoti shundan oshsa — reja AI bilimidan yoziladi
+REVIEW_UNTIL = 6 * 60                    # buyurtma shundan ko'p cho'zilgan bo'lsa fakt tekshiruvi o'tkaziladi
 
 
 def price_for(slide_count: int, mode: str = "full") -> int:
@@ -139,37 +144,72 @@ async def build_deck(topic: str, slide_count: int, model_ids: List[str], *, lang
                 log.debug("stage_cb xatosi", exc_info=True)
 
     loop = asyncio.get_running_loop()
-    stage("download", total=len(model_ids))
-    ids = await loop.run_in_executor(None, yukla.ensure, list(model_ids), 600.0)   # odatda to'lovgacha tayyor
-    if not ids:
-        raise NoModels("3D modellar serverga yuklanmadi")
+    t0 = time.monotonic()
+    took: Dict[str, float] = {}
+
+    def lap(name: str, since: float) -> float:
+        now = time.monotonic()
+        took[name] = round(now - since)
+        return now
+
     count = max(MIN_SLIDES, min(MAX_SLIDES, int(slide_count or 8)))
     from services.premium_presentation import topic_language
 
+    mark = time.monotonic()
     topic = await asyncio.to_thread(topic_language.localize, topic, language)   # mavzu taqdimot tilida
-    research = None
+    mark = lap("mavzu", mark)
+    # Modellarni yuklash va internet tadqiqoti bir-biriga bog'liq emas — bir vaqtda. Ilgari ketma-ket edi:
+    # yuklash (xotira band bo'lsa bir necha daqiqa) tugagach yana ~2-3 daqiqa tadqiqot kutilardi.
+    stage("download", total=len(model_ids))
+    download = loop.run_in_executor(None, yukla.ensure, list(model_ids), 600.0)   # odatda to'lovgacha tayyor
+    research_job = None
     if tadqiqot.enabled():                     # internetdan yangi faktlar — ishlamasa AI bilimidan yoziladi
-        stage("research")
+        research_job = asyncio.ensure_future(asyncio.wait_for(loop.run_in_executor(
+            None, lambda: tadqiqot.tayyorla(topic, preferences, language)), RESEARCH_WAIT))
+    try:
+        ids = await download
+    except BaseException:
+        if research_job:
+            research_job.cancel()
+        raise
+    mark = lap("yuklash", mark)
+    if not ids:
+        if research_job:
+            research_job.cancel()
+        raise NoModels("3D modellar serverga yuklanmadi")
+    research = None
+    if research_job:
+        if not research_job.done():
+            stage("research")
         try:
-            research = await asyncio.wait_for(loop.run_in_executor(
-                None, lambda: tadqiqot.tayyorla(topic, preferences, language)), 3 * 60)
+            research = await research_job
         except Exception as exc:              # noqa: BLE001
             log.warning("3D katalog: tadqiqot o'tmadi (%s) — reja AI bilimidan", exc)
+        mark = lap("tadqiqot", mark)
     stage("plan")
     mix = mode == "mix"
+    # Fakt tekshiruvi (ikkinchi AI o'qishi) — vaqt bo'lsa: buyurtma shu paytgacha juda cho'zilgan bo'lsa o'tkaziladi.
+    review = (time.monotonic() - t0) < REVIEW_UNTIL
     plan = await asyncio.wait_for(loop.run_in_executor(
-        None, lambda: reja.plan(topic, count, ids, language, level, preferences, style, mix, research)), 6 * 60)
+        None, lambda: reja.plan(topic, count, ids, language, level, preferences, style, mix, research,
+                                review_ok=review)), 6 * 60)
+    mark = lap("reja", mark)
     if research:
         _add_sources(plan, research, language)
     plan["author"] = (author or "").strip()
     if mix:
         await _photos(topic, plan, stage)
+        mark = lap("rasmlar", mark)
     stage("models", slides=len(plan["slides"]))
     out_dir = tempfile.mkdtemp(prefix="kat3d_")
     from services import heavy_gate
 
     # Modellarni PowerPoint'ga yig'ish — og'ir ishlar navbatida (kutish vaqt chegarasiga kirmaydi).
     async with heavy_gate.aslot("3D taqdimot yig'ish", heavy_gate.DECK3D_MB):
+        mark = lap("navbat", mark)
         path = await asyncio.wait_for(loop.run_in_executor(
             None, lambda: deck.build(plan, os.path.join(out_dir, "3D.pptx"))), 5 * 60)
+    lap("yig'ish", mark)
+    log.info("3D taqdimot vaqti: jami %.0f s — %s (%d slayd, %s)", time.monotonic() - t0,
+             ", ".join(f"{k} {v:.0f} s" for k, v in took.items()), len(plan["slides"]), mode)
     return path, len(plan["slides"])
