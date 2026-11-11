@@ -269,7 +269,8 @@ async def full_flow():
     data2 = await state2.get_data()
     check("10 slayd: oddiy oqimga o'tadi",
           await state2.get_state() == DocumentStates.waiting_for_payment.state and data2.get("price") == 5000, data2)
-    check("o'tkazib yuborilgan ism o'rniga foydalanuvchi ismi", data2.get("author_name") == "Ali", data2.get("author_name"))
+    check("ism o'tkazib yuborilsa — Telegram profilidagi ism QO'YILMAYDI (muqovada chiziq qoladi)",
+          data2.get("author_name") == "", data2.get("author_name"))
     check("AI ga tushuntirish oddiy oqimga o'tdi", data2.get("book_context") == "Qisqa va vizual", data2.get("book_context"))
     check("hamma so'rovlar o'chdi (suhbat toza)", len(chat2.deleted) >= 6, chat2.deleted)
 

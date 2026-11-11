@@ -143,7 +143,9 @@ async def submit(telegram_id: int, kind_key: str, raw: Dict) -> Dict:
         raise JobError("Avval botda /start bosing, so'ng saytga qayta kiring.", "no_user")
     await _require_subscription(telegram_id)
     raw = dict(raw or {})
-    raw["_default_author"] = (user.first_name or "")[:80]
+    # Muallif — faqat mijoz formada yozgan ism (Telegram profilidagi ism qo'yilmaydi: hujjat muqovasida
+    # buyurtmachining profil ismi chiqib qolardi).
+    raw["_default_author"] = ""
     raw["_telegram_id"] = int(telegram_id)
     params = kind.normalize(raw)
     price = int(kind.price(params))

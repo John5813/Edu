@@ -1761,7 +1761,9 @@ async def _handoff_simple(callback: CallbackQuery, state: FSMContext, db: Databa
     user = await db.get_user(callback.from_user.id)
     await _drop_prompt(callback.bot, callback.message.chat.id, state)
 
-    name = (data.get("client_name") or "").strip() or (getattr(user, "first_name", "") or "")
+    # Faqat mijoz o'zi yozgan ism. Ilgari ism o'tkazib yuborilsa Telegram profilidagi ism qo'yilardi — muqovada
+    # buyurtmachining (ba'zan umuman boshqa odamning) ismi chiqib qolardi. Bo'sh bo'lsa muqovada chiziq qoladi.
+    name = (data.get("client_name") or "").strip()
     preferences = (data.get("preferences") or "").strip()
     language = data.get("presentation_language") or "uz"
     await state.clear()
