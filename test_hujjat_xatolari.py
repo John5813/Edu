@@ -82,6 +82,15 @@ async def sections():
     except ValueError as exc:
         ok = "yozilmadi" in str(exc)
     check("3 marta ham bo'sh bo'lsa hujjat xato bilan to'xtaydi (bo'sh bo'lim qolmaydi)", ok and len(prompts) == 3, len(prompts))
+    near = ("So'z " * 100).strip() + "."          # me'yorga yaqin (yarmidan ko'p), lekin yetmaydi
+    replies[:] = ["Qisqa.", near, "Yana qisqa."]; kept = list(prompts); prompts.clear()
+    try:
+        out = await ai._generate_section_content("Mavzu", "2. Sarlavha bo'limi", 2, 6, "independent_work", "uz")
+    except ValueError:
+        out = ""
+    check("3 urinishda me'yorga yetmasa — me'yorga yaqin eng uzun matn qabul qilinadi (hujjat bekor bo'lmaydi)",
+          out.startswith("So'z") and len(prompts) == 3, (len(out.split()), len(prompts)))
+    prompts[:] = kept
     check("matn bo'limlari promptida o'ylab topilgan yillarga qarshi qoida bor",
           "kelgusi yillarda" in prompts[0] and "2026-2028" not in prompts[0] and "Prognoz" not in prompts[0] and "Forecast" not in prompts[0], prompts[0][-400:])
 

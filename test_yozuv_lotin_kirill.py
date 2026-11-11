@@ -155,37 +155,55 @@ async def main():
     await start("Мутафаккирлар таълимоти ва ўзбек адабиёти")
     check("kirillcha o'zbek mavzu: yozuv so'raladi", await state.get_state() == PS.waiting_for_script.state, await state.get_state())
     buttons = [b.callback_data for row in sent_texts[-1][1].inline_keyboard for b in row]
-    check("... lotin va kirill tugmalari bor", "prem_ppt_script:latin" in buttons and "prem_ppt_script:cyrillic" in buttons, buttons)
+    check("... hamma tillar bitta qadamda (o'zbek lotin, kirill, yangi alifbo, rus, ingliz, qozoq)",
+          buttons[:6] == [f"prem_ppt_script:{c}" for c in ("uz", "uz-cyrl", "uz-yangi", "ru", "en", "kk")], buttons)
+    marked = [b.text for row in sent_texts[-1][1].inline_keyboard for b in row if b.text.startswith("✅")]
+    check("... kirillcha o'zbek mavzuda «Ўзбек (кирилл)» belgilangan", marked == ["✅ " + pp._LANG_BUTTONS["uz-cyrl"]], marked)
 
-    await press("prem_ppt_script:cyrillic")
+    await press("prem_ppt_script:uz-cyrl")
     data = await state.get_data()
     check("kirill tanlandi: til uz-cyrl, mavzu o'zgarmadi",
           data.get("presentation_language") == "uz-cyrl" and data["topic"].startswith("Мутафаккирлар"), data)
     check("... keyingi savol — ism", await state.get_state() == PS.waiting_for_client_name.state, await state.get_state())
 
     await start("Мутафаккирлар таълимоти ва ўзбек адабиёти")
-    await press("prem_ppt_script:latin")
+    await press("prem_ppt_script:uz")
     data = await state.get_data()
     check("lotin tanlandi: mavzu lotinga o'tdi, til uz",
           data.get("presentation_language") == "uz" and data["topic"] == "Mutafakkirlar ta'limoti va o'zbek adabiyoti", data)
 
+    await start("Мутафаккирлар таълимоти ва ўзбек адабиёти")
+    await press("prem_ppt_script:uz-yangi")
+    data = await state.get_data()
+    check("yangi alifbo tanlandi: mavzu lotinda, til uz-yangi",
+          data.get("presentation_language") == "uz-yangi" and data["topic"].startswith("Mutafakkirlar"), data)
+
     await start("Mutafakkirlar ta'limoti va o'zbek adabiyoti")
-    check("lotin mavzu: yozuv so'ralmaydi", await state.get_state() == PS.waiting_for_client_name.state, await state.get_state())
+    check("lotin mavzu: til qadami baribir chiqadi (hamma tillar bilan)", await state.get_state() == PS.waiting_for_script.state,
+          await state.get_state())
+    await press("prem_ppt_script:en")
+    data = await state.get_data()
+    check("lotin mavzu + English: til en, mavzu tegilmadi (generator tarjima qiladi), keyin ism",
+          data.get("presentation_language") == "en" and data["topic"].startswith("Mutafakkirlar")
+          and await state.get_state() == PS.waiting_for_client_name.state, data)
     await start("История развития русской литературы")
-    check("ruscha mavzu: yozuv so'ralmaydi", await state.get_state() == PS.waiting_for_client_name.state
-          and (await state.get_data()).get("presentation_language") == "ru")
+    marked = [b.text for row in sent_texts[-1][1].inline_keyboard for b in row if b.text.startswith("✅")]
+    check("ruscha mavzu: «Русский» belgilangan", marked == ["✅ " + pp._LANG_BUTTONS["ru"]], marked)
+    await press("prem_ppt_script:uz")
+    data = await state.get_data()
+    check("ruscha mavzu + o'zbek lotin: mavzu transliteratsiya QILINMAYDI (tarjima generatorda)",
+          data.get("presentation_language") == "uz" and data["topic"] == "История развития русской литературы", data)
 
     # Xulosa: 4 ta til/yozuv tugmasi
     text, markup = pp._summary({"topic": "Mavzu", "presentation_language": "uz-cyrl", "slide_count": 10, "style": "toza"}, "uz")
     codes = [b.callback_data for row in markup.inline_keyboard for b in row if b.callback_data.startswith("prem_ppt_lang:")]
-    check("xulosada lotin/kirill/yangi alifbo/rus/ingliz/qozoq tugmalari", codes == ["prem_ppt_lang:uz", "prem_ppt_lang:uz-cyrl", "prem_ppt_lang:uz-yangi", "prem_ppt_lang:ru", "prem_ppt_lang:en", "prem_ppt_lang:kk"], codes)
-    check("tasdiq oynasida tanlangan til belgisi (✓) bor",
-          any(b.text.startswith("✓") and b.callback_data == "prem_ppt_lang:uz-cyrl" for row in markup.inline_keyboard for b in row))
+    check("xulosada til qayta tanlanmaydi (til tugmalari yo'q)", codes == [], codes)
+    check("xulosa matnida tanlangan til ko'rsatilgan", "Ўзбек (кирилл)" in text, text[:300])
     summary = pp._order_summary({"topic": "Mavzu", "presentation_language": "uz-cyrl", "slide_count": 10}, "uz")
     check("buyurtma tafsilotida yozuv ko'rsatilgan", "UZ (кирилл)" in summary, summary)
 
     # Orqaga: ism → yozuv → mavzu
-    await start("Мутафаккирлар таълимоти ва ўзбек адабиёти"); await press("prem_ppt_script:cyrillic")
+    await start("Мутафаккирлар таълимоти ва ўзбек адабиёти"); await press("prem_ppt_script:uz-cyrl")
     await press("prem_ppt_prev")
     check("ismdan orqaga — yozuv tanlovi", await state.get_state() == PS.waiting_for_script.state, await state.get_state())
     await press("prem_ppt_prev")

@@ -1648,6 +1648,7 @@ EXACTLY {body_words} words — no more. Fully cover the topic with examples and 
             minimum_words = max(40, int(int(target.split("-")[0]) * 0.5))
             budget = token_budget(target, language)
             result = ""
+            best = ""
             # Bo'lim matni bo'sh yoki juda qisqa chiqsa — qayta so'raladi (2 marta).
             # Ilgari bunday bo'lim bo'sh qolib, hujjatda sarlavhadan keyin darhol
             # rasm turardi; endi hujjat xato bilan to'xtaydi va to'lov olinmaydi.
@@ -1668,9 +1669,17 @@ EXACTLY {body_words} words — no more. Fully cover the topic with examples and 
                 result = trim_to_last_sentence(matn)
                 if len(result.split()) >= minimum_words:
                     return result
+                if len(result.split()) > len(best.split()):
+                    best = result
                 logger.warning(
                     "Bo'lim matni qisqa (%d so'z, kamida %d): %s — qayta so'raladi (%d/3)",
                     len(result.split()), minimum_words, section_title[:50], attempt + 1)
+            # Uch urinishda ham me'yorga yetmadi, lekin eng uzuni me'yorga yaqin (kamida 60%) — shu qabul qilinadi.
+            # Ilgari 245 o'rniga 213 so'z kelsa ham butun referat xato bilan to'xtardi.
+            if len(best.split()) >= max(40, int(minimum_words * 0.6)):
+                logger.warning("Bo'lim me'yordan qisqaroq qabul qilindi (%d so'z, me'yor %d): %s",
+                               len(best.split()), minimum_words, section_title[:50])
+                return best
             raise ValueError(f"«{section_title[:60]}» bo'limi matni yozilmadi (model bo'sh yoki juda qisqa javob qaytardi)")
 
         except Exception as e:

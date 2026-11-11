@@ -743,6 +743,15 @@ def callback(chat, data):
     return cb
 
 
+async def topic_step(chat, text, state, db, pick=None):
+    """Mavzu yoziladi, keyin til qadami: taklif qilingan (yoki `pick`) til tanlanadi."""
+    await pp.premium_ppt_got_topic(chat.message(text), state, db)
+    if await state.get_state() == pp.PremiumPresentationStates.waiting_for_script.state:
+        code = pick or (await state.get_data())["presentation_language"]
+        await pp.premium_ppt_got_script(callback(chat, f"prem_ppt_script:{code}"), state, db)
+
+
+
 def make_db():
     db = MagicMock()
     db.get_user = AsyncMock(return_value=SimpleNamespace(language="uz", first_name="Ali", balance=10**6, id=1))
@@ -767,7 +776,7 @@ async def flow(found, kat=None):
     with mock.patch.object(med3d_auto, "check_topic", return_value={"ok": False, "checked": True}), \
          mock.patch.object(qidiruv, "top", return_value=kat), \
          mock.patch("services.kat3d.yukla.oldindan", side_effect=prefetched.extend):
-        await pp.premium_ppt_got_topic(chat.message("Qadimgi Misr"), state, db)
+        await topic_step(chat, "Qadimgi Misr", state, db)
     return chat, db, state
 
 
@@ -803,6 +812,8 @@ async def bot_flow():
     check("boshqa tur tanlandi — 3D belgisi tozalandi, mavzu saqlandi",
           data.get("kind") == "modern" and not data.get("standalone_med3d") and data.get("topic") == "Qadimgi Misr",
           data)
+    await pp.premium_ppt_previous(callback(chat, "prem_ppt_prev"), state, db)
+    check("orqaga — til qadami", await state.get_state() == PS.waiting_for_script.state, await state.get_state())
     await pp.premium_ppt_previous(callback(chat, "prem_ppt_prev"), state, db)
     check("orqaga — oddiy mavzu so'rovi (3D matni emas)",
           await state.get_state() == PS.waiting_for_topic_text.state and "3D taqdimot" not in chat.sent[-1][1],

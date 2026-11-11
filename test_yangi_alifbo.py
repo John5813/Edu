@@ -193,9 +193,9 @@ print("5) Premium va «Rahmat» slaydi")
 from bot.handlers import premium_presentation as pp
 check("premium til tugmasi", u.UZ_NEW_LANG in pp._LANG_BUTTONS)
 check("xulosadagi yozuv", pp._language_label(u.UZ_NEW_LANG) == "UZ (yangi alifbo)")
-kb = pp._confirm_keyboard("uz", u.UZ_NEW_LANG)
-check("xulosada tanlangan ✓", any(b.text.startswith("✓ ") and b.callback_data == f"prem_ppt_lang:{u.UZ_NEW_LANG}"
-                                  for r in kb.inline_keyboard for b in r))
+kb = pp._language_keyboard("uz", u.UZ_NEW_LANG)
+check("til qadamida yangi alifbo bor va belgilanadi", any(b.text.startswith("✅ ") and b.callback_data == f"prem_ppt_script:{u.UZ_NEW_LANG}"
+                                                         for r in kb.inline_keyboard for b in r))
 from services.thanks_anim.slide import texts
 check("rahmat slaydi yangi alifboda", texts(u.UZ_NEW_LANG)[:2] == ("SÖNGGI SÖZ", "Eʼtiboringiz uçun rahmat!"),
       texts(u.UZ_NEW_LANG))
