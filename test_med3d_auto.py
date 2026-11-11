@@ -659,18 +659,25 @@ with mock.patch.object(auto, "_plan_ai", side_effect=_plans), mock.patch.object(
     _got = auto.plan(TOPIC, 8, "uz", 2, "")
 check("yurak haqidagi reja rad etildi, sababi bilan qayta so'raldi — skelet haqidagisi olindi",
       len(_asked) == 2 and "heart" in _asked[1] and _got["slides"][1]["show"] == ["skelet"], _asked)
-check("tekshiruvchiga mavzu va organ nomlari boradi", TOPIC in _judged[0] and "Heart" in _judged[0], _judged[0][:200])
+check("tekshiruvchiga mavzu va organ nomlari boradi", any(TOPIC in j and "Heart" in j for j in _judged), _judged[:1])
 check("birinchi slayd sarlavhasi — mavzu (uzun mavzu: AI qisqartirgani)",
       _got["slides"][0]["title"] == "Tayanch-harakat tizimining yoshga bog'liq rivojlanishi", _got["slides"][0]["title"])
 _asked.clear()
-with mock.patch.object(auto, "_plan_ai", return_value=_heart), mock.patch.object(auto, "REVIEW_ON", False), \
+def _heart_always(*a, **k):
+    _asked.append(k.get("feedback", ""))
+    return _heart
+
+
+with mock.patch.object(auto, "_plan_ai", side_effect=_heart_always), mock.patch.object(auto, "REVIEW_ON", False), \
      mock.patch.object(auto, "_call_json", return_value={"ok": False, "reason": "heart"}):
     try:
         auto.plan(TOPIC, 8, "uz", 2, "")
         _failed = False
     except RuntimeError as exc:
         _failed = "mavzuga mos emas" in str(exc)
-check("uch urinishda ham mavzudan tashqari — xato (noto'g'ri taqdimot yuborilmaydi, pul qaytadi)", _failed)
+check("ikkinchi reja ham mavzudan tashqari — xato (noto'g'ri taqdimot yuborilmaydi, pul qaytadi)", _failed)
+check("mavzudan tashqari reja faqat BIR marta qayta tuziladi (ilgari 3 marta — buyurtma cho'zilardi)",
+      len(_asked) == 2, _asked)
 with mock.patch.object(auto, "_plan_ai", return_value=_bones), mock.patch.object(auto, "REVIEW_ON", False), \
      mock.patch.object(auto, "_call_json", side_effect=RuntimeError("tarmoq")):
     _got = auto.plan("Skelet", 8, "uz", 2, "")
@@ -681,6 +688,20 @@ check("uzun mavzu, AI sarlavhasi yo'q — so'z chegarasida kesiladi",
       and TOPIC.startswith(auto.cover_title(TOPIC)[:-1]), auto.cover_title(TOPIC))
 check("prompt: mavzuda qolish qoidasi va usul so'zlari (atlas, multimedia) mavzu emas",
       "STAY ON THE TOPIC" in auto.SYSTEM and "multimedia" in auto.SYSTEM and '"cover"' in auto.SYSTEM)
+
+print("Tekshiruvlar bir vaqtda: mavzuga moslik va tibbiy fakt tekshiruvi")
+import threading as _threading, time as _time
+_seen = []
+def _slow(system, user, answer_tokens):
+    _seen.append((_time.monotonic(), system[:20]))
+    _time.sleep(0.6)
+    return {"ok": True, "slides": []}
+with mock.patch.object(auto, "_plan_ai", return_value=_bones), mock.patch.object(auto, "_call_json", side_effect=_slow), \
+     mock.patch.object(auto, "REVIEW_ON", True):
+    _t = _time.monotonic()
+    auto.plan("Skelet", 8, "uz", 2, "")
+    _spent = _time.monotonic() - _t
+check("ikkala tekshiruv parallel (0.6 + 0.6 emas, ~0.6 s)", len(_seen) == 2 and _spent < 1.1, (_spent, _seen))
 
 print("Sarlavha: uzun so'z bo'linmaydi; «AI tasvir» yorlig'i yo'q")
 from services.med3d import design as _design, deck as _deck

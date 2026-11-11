@@ -589,8 +589,9 @@ MAX_ATTEMPTS = 3
 
 def plan(topic: str, count: int, ids: Sequence[str], language: str = "uz", level: int = 2,
          preferences: str = "", style: Optional[str] = None, mix: bool = False,
-         research: Optional[dict] = None) -> dict:
-    """`research` — `tadqiqot.tayyorla()` natijasi (bo'limlar, faktlar, grafik qatorlari, manbalar) yoki None."""
+         research: Optional[dict] = None, review_ok: bool = True) -> dict:
+    """`research` — `tadqiqot.tayyorla()` natijasi (bo'limlar, faktlar, grafik qatorlari, manbalar) yoki None.
+    `review_ok=False` — fakt tekshiruvi o'tkaziladi (buyurtma juda cho'zilgan)."""
     ids = list(dict.fromkeys(ids))
     codes = {f"m{i}": mid for i, mid in enumerate(ids)}
     # Mijoz tanlagan slaydlar soni to'liq bo'lsin: AI javobi token chegarasida kesilsa, qisman saqlangan reja
@@ -612,7 +613,7 @@ def plan(topic: str, count: int, ids: Sequence[str], language: str = "uz", level
         out = None
     if out is None:
         raise RuntimeError(f"AI reja to'liq emas: {last}")
-    if REVIEW_ON:
+    if REVIEW_ON and review_ok:
         n = review(out, language, research)
         if n:
             log.info("3D katalog: fakt tekshiruvi %d joyni tuzatdi", n)

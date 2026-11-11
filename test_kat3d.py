@@ -667,10 +667,28 @@ with mock.patch.object(yukla, "ensure", return_value=[NEFERTITI, SKARABEY]), \
      mock.patch.object(deck, "build", side_effect=fake_deck_build):
     asyncio.run(kat3d.build_deck("Havo transporti", 20, [NEFERTITI, SKARABEY], preferences="Savollar",
                                  stage_cb=lambda name, info: stages.append(name)))
-check("bosqichlar: modellar → tadqiqot → reja", stages[:3] == ["download", "research", "plan"], stages)
+check("bosqichlar: modellar → (tadqiqot) → reja", stages[0] == "download" and "plan" in stages
+      and stages.index("plan") > 0, stages)
 check("tadqiqot rejaga uzatildi", got.get("research") is found)
 check("manbalar oxirgi slayd izohida", "Manbalar:" in got["notes"] and "https://uz.uz/cargo" in got["notes"]
       and got["notes"].startswith("Rahmat."), got.get("notes"))
+import time as _time
+def _slow_ensure(ids, timeout=600.0):
+    _time.sleep(1.0); return [NEFERTITI, SKARABEY]
+def _slow_research(topic, preferences="", language="uz"):
+    _time.sleep(1.0); return found
+stages.clear()
+with mock.patch.object(yukla, "ensure", side_effect=_slow_ensure), \
+     mock.patch.object(tadqiqot, "enabled", return_value=True), \
+     mock.patch.object(tadqiqot, "tayyorla", side_effect=_slow_research), \
+     mock.patch.object(reja, "plan", side_effect=fake_reja_plan), \
+     mock.patch.object(deck, "build", side_effect=fake_deck_build):
+    _t = _time.monotonic()
+    asyncio.run(kat3d.build_deck("Havo transporti", 8, [NEFERTITI, SKARABEY],
+                                 stage_cb=lambda name, info: stages.append(name)))
+    _spent = _time.monotonic() - _t
+check("modellar yuklanishi va internet tadqiqoti bir vaqtda (1 + 1 s emas, ~1 s)", _spent < 1.8 and got.get("research") is found,
+      _spent)
 check("20 slaydli variant (narxi varog'iga 1 500)", 20 in kat3d.SLIDE_OPTIONS and kat3d.price_for(20) == 30000)
 
 from services.kat3d import boyash

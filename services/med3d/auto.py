@@ -9,6 +9,7 @@
 4. Organ modellari so'rov paytida atlasdan yig'iladi (katta organlar soddalashtiriladi) va `deck.build` ga beriladi.
 """
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import copy
 import hashlib
 import json
@@ -16,6 +17,7 @@ import logging
 import os
 import re
 import tempfile
+import time
 import zlib
 from functools import lru_cache
 from typing import Callable, Dict, List, Optional, Tuple
@@ -546,32 +548,59 @@ def smooth_turns(slides: List[dict]) -> None:
         prev = (x, y)
 
 
+OFF_TOPIC_RETRIES = 1            # mavzudan chetga chiqqan reja necha marta qayta tuziladi (har biri ~1-3 daqiqa)
+
+
+def _check_and_review(topic: str, result: dict, language: str) -> Tuple[bool, str]:
+    """Mavzuga moslik tekshiruvi va tibbiy fakt tekshiruvi — bir vaqtda (ikkalasi ham AI chaqiruvi; ketma-ket
+    bo'lsa buyurtma yana bir AI javobi kutilgancha cho'zilardi). Tekshiruvchi rejaning nusxasini o'qiydi."""
+    if not RELEVANCE_ON:
+        if REVIEW_ON:
+            review_plan(result, language)
+        return True, ""
+    snapshot = copy.deepcopy(result)
+    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="med3d-tekshiruv") as pool:
+        relevance = pool.submit(check_relevance, topic, snapshot, language)
+        if REVIEW_ON:
+            pool.submit(review_plan, result, language).result()
+        return relevance.result()
+
+
 def plan(topic: str, count: int, language: str = "uz", level: int = 2, preferences: str = "") -> dict:
-    """AI reja (sinxron). Uch marta urinadi; mavzu anatomiya bo'lmasa — darhol NotAnatomy. Reja mavzuga mos
-    kelmasa (AI boshqa narsa haqida yozsa) sababi bilan qayta tuziladi; uch urinishda ham mos chiqmasa — xato
-    (mijozga pul qaytadi, noto'g'ri taqdimot yuborilmaydi)."""
+    """AI reja (sinxron). Kesilgan javob — 3 martagacha qayta so'raladi; mavzu anatomiya bo'lmasa — darhol
+    NotAnatomy. Reja mavzuga mos kelmasa sababi bilan BIR marta qayta tuziladi; u ham mos chiqmasa — xato (pul
+    qaytadi, noto'g'ri taqdimot yuborilmaydi). Ilgari mos kelmagan reja 3 martagacha qayta tuzilardi va buyurtma
+    juda cho'zilardi."""
     from services.premium_presentation import llm_client
 
     last = None
     feedback = ""
+    off_topic = 0
+    t0 = time.monotonic()
     for attempt in range(3):
         try:
             raw = _plan_ai(topic, count, language, level, preferences, boost=1 + 0.5 * attempt, feedback=feedback)
             result = normalize(raw, count, language)
             if len(result["slides"]) < count and attempt < 2:   # javob kesilgan: tanlangan slaydlar soni to'liq bo'lsin
                 raise ValueError(f"reja qisqa: {len(result['slides'])} slayd, kerak {count}")
-            if RELEVANCE_ON:                      # mijoz bir mavzuni so'rab, boshqasini olmasin
-                ok, reason = check_relevance(topic, result, language)
-                if not ok:
-                    feedback = reason or "the slides are about a different subject"
-                    raise OffTopic(f"reja mavzuga mos emas: {feedback}")
             result["slides"][0]["title"] = cover_title(topic, raw.get("cover") if isinstance(raw, dict) else "")
-            if REVIEW_ON:
-                review_plan(result, language)
+            ok, reason = _check_and_review(topic, result, language)   # mijoz bir mavzuni so'rab, boshqasini olmasin
+            if not ok:
+                off_topic += 1
+                feedback = reason or "the slides are about a different subject"
+                if off_topic > OFF_TOPIC_RETRIES:
+                    raise RuntimeError(f"Taqdimot rejasi tuzilmadi: reja mavzuga mos emas: {feedback}")
+                raise OffTopic(f"reja mavzuga mos emas: {feedback}")
             add_disclaimer(result, language)
+            log.info("3D Anatomiya reja: %.0f s, %d urinish", time.monotonic() - t0, attempt + 1)
             return result
         except (NotAnatomy, llm_client.NoCredits):
             raise
+        except RuntimeError as exc:
+            if "mavzuga mos emas" in str(exc) and not isinstance(exc, OffTopic):
+                raise
+            last = exc
+            log.warning("3D Anatomiya reja (%d-urinish) yaroqsiz: %s", attempt + 1, exc)
         except Exception as exc:                  # noqa: BLE001 — keyingi urinish
             last = exc
             log.warning("3D Anatomiya reja (%d-urinish) yaroqsiz: %s", attempt + 1, exc)
@@ -1101,25 +1130,37 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
     from services.premium_presentation import topic_language
 
     topic = await asyncio.to_thread(topic_language.localize, topic, language)   # mavzu taqdimot tilida
+    t0 = time.monotonic()
+    took: Dict[str, float] = {}
     plan_ = await asyncio.wait_for(loop.run_in_executor(
         None, lambda: plan(topic, count, language, level, preferences)), 6 * 60)
+    took["reja"] = time.monotonic() - t0
     plan_["topic"] = topic
     plan_["author"] = (author or "").strip()
     log.info("3D Anatomiya: %s tana, %d slayd, organlar: %s", plan_["body"], len(plan_["slides"]),
              sorted({o for s in plan_["slides"] for o in s["show"]}))
-    if any(s.get("picture") for s in plan_["slides"]):
+    mark = time.monotonic()
+    pictures = any(s.get("picture") for s in plan_["slides"])
+    scenes = any(s.get("scene") for s in plan_["slides"])
+    if pictures:
         stage("pictures")
-        await draw_pictures(plan_)
-    if any(s.get("scene") for s in plan_["slides"]):
-        await draw_scenes(plan_)                  # chizilmasa — slayd rasmsiz (bloklamaydi)
+    # Tibbiy chizmalar va davolash sahnalari bir-biriga bog'liq emas — bir vaqtda (ilgari ketma-ket edi).
+    await asyncio.gather(*([draw_pictures(plan_)] if pictures else []), *([draw_scenes(plan_)] if scenes else []))
+    took["rasmlar"] = time.monotonic() - mark
     stage("models", slides=len(plan_["slides"]))
     try:
         from services import heavy_gate
 
         # Organ modellarini yig'ish va soddalashtirish og'ir — server bo'shaguncha kutish vaqt chegarasiga kirmaydi.
+        mark = time.monotonic()
         async with heavy_gate.aslot("3D Anatomiya yig'ish", heavy_gate.DECK3D_MB):
+            took["navbat"] = time.monotonic() - mark
+            mark = time.monotonic()
             path = await asyncio.wait_for(loop.run_in_executor(None, lambda: make_deck(topic, plan_, style=style)),
                                           8 * 60)
+            took["yig'ish"] = time.monotonic() - mark
+        log.info("3D Anatomiya vaqti: jami %.0f s — %s (%d slayd)", time.monotonic() - t0,
+                 ", ".join(f"{k} {v:.0f} s" for k, v in took.items()), len(plan_["slides"]))
     finally:
         for s in plan_["slides"]:
             for key in ("picture_path", "scene_path"):
