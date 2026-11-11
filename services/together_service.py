@@ -50,6 +50,14 @@ def _retry_delay(error, attempt: int) -> float:
     return delay + random.uniform(0.2, 0.8)
 
 
+# Bitta rasm so'rovi shundan oshsa — model javob bermadi deb keyingisiga o'tiladi (qayta urinilmaydi).
+IMAGE_TIMEOUT = float(os.getenv("TOGETHER_IMAGE_TIMEOUT") or 75)
+# Javob bermagan / ketma-ket yiqilgan model shuncha vaqt boshqa rasmlarda sinalmaydi.
+_SLOW_TTL = 300.0
+# Bitta rasmga (hamma modellar bilan birga) ajratilgan vaqt: oshsa rasm chizilmaydi — slayd internet fotosi yoki
+# rasmsiz davom etadi, taqdimot kutib qolmaydi.
+IMAGE_BUDGET = float(os.getenv("TOGETHER_IMAGE_BUDGET") or 180)
+
 # 429 (cheklov) da bitta rasm uchun urinishlar soni; kutish 2→4→8→16 s (+ Reset sarlavhasi).
 _RATE_LIMIT_ATTEMPTS = int(os.getenv("TOGETHER_RATE_LIMIT_ATTEMPTS", "6"))
 
@@ -221,7 +229,13 @@ class TogetherImageService:
             prompt += _ANATOMY_GUARD
             chain = medical_chain(chain, await chosen_image_model(target))
         no_credit = []
+        deadline = time.monotonic() + IMAGE_BUDGET
+        now = time.monotonic()
+        chain = [m for m in chain if _unavailable.get(m, 0) <= now] or chain   # sekin/yopiq modellar oxirida emas — chetda
         for model in chain:
+            if time.monotonic() > deadline:
+                logger.warning(f"Rasm {IMAGE_BUDGET:.0f} s ichida chizilmadi ({target}) — rasmsiz davom etiladi")
+                break
             try:
                 response = await self._call_model(prompt, model)
             except _NoCredits as err:
@@ -259,7 +273,11 @@ class TogetherImageService:
         now = time.monotonic()
         chain = [m for m in models if m and _unavailable.get(m, 0) <= now] or [m for m in models if m]
         no_credit = []
+        deadline = time.monotonic() + IMAGE_BUDGET
         for model in chain:
+            if time.monotonic() > deadline:
+                logger.warning(f"Rasm {IMAGE_BUDGET:.0f} s ichida chizilmadi ({stem}) — rasmsiz davom etiladi")
+                break
             try:
                 response = await self._call_model(prompt, model)
             except _NoCredits as err:
@@ -306,9 +324,18 @@ class TogetherImageService:
                     wait = self._cooldown_until - time.monotonic()
                     if wait > 0:
                         await asyncio.sleep(wait)
-                    return await asyncio.wait_for(_call(), timeout=60)
+                    return await asyncio.wait_for(_call(), timeout=IMAGE_TIMEOUT)
             except (asyncio.TimeoutError, Exception) as ex:
-                msg = str(ex).lower()
+                if isinstance(ex, asyncio.TimeoutError):
+                    # Model javob bermadi. Ilgari xuddi shu modelga yana 2 marta (har biri 60 s) urinilardi va bu
+                    # har rasmda takrorlanardi: bitta rasm 3-6 daqiqa, taqdimot «aylanib qolardi». Endi darhol
+                    # keyingi modelga o'tiladi, sekin model bir necha daqiqa chetlab o'tiladi.
+                    logger.warning(f"Together image model {model}: {IMAGE_TIMEOUT:.0f} s da javob bermadi — "
+                                   f"keyingi modelga o'tildi ({_SLOW_TTL / 60:.0f} daqiqa chetlab o'tiladi)")
+                    _unavailable[model] = time.monotonic() + _SLOW_TTL
+                    return None
+                # Bo'sh xabarli xato (ilgari jurnalda «transient error (...): ;» bo'lib, sababi ko'rinmasdi).
+                msg = (str(ex) or type(ex).__name__).lower()
                 # Moderatsiya rad etgani (FLUX: "content_policy_violation", "NSFW") — qayta urish foydasiz:
                 # xuddi shu prompt yana rad etiladi. Ilgari "moderation" so'zidagi "rate" uni "vaqtinchalik"
                 # deb ko'rsatib, har rasmda ~70 soniya behuda kutilardi.
@@ -319,7 +346,7 @@ class TogetherImageService:
                     logger.error(f"Together: {model} balans/limit xatosi berdi: {ex}")
                     _unavailable[model] = time.monotonic() + _CREDIT_TTL
                     raise _NoCredits(model, ex)
-                transient = isinstance(ex, asyncio.TimeoutError) or any(
+                transient = any(
                     s in msg for s in ("429", "rate limit", "rate_limit", "too many", "timeout", "503", "502",
                                        "504", "temporar")
                 )
@@ -330,12 +357,13 @@ class TogetherImageService:
                 rate_limited = any(s in msg for s in ("429", "rate limit", "rate_limit", "too many"))
                 limited += rate_limited
                 # Cheklov (429) vaqtinchalik va oynasi qisqa: unga ko'proq urinish beriladi, boshqa xatolarga — 3 ta.
-                if attempt >= (_RATE_LIMIT_ATTEMPTS if rate_limited else 3) - 1:
-                    logger.error(f"Together image model {model} kept failing: {ex}")
+                if attempt >= (_RATE_LIMIT_ATTEMPTS if rate_limited else 2) - 1:
+                    logger.error(f"Together image model {model} kept failing: {type(ex).__name__}: {ex}")
+                    _unavailable[model] = time.monotonic() + _SLOW_TTL
                     return None
                 backoff = _retry_delay(ex, min(limited - 1 if rate_limited else attempt, 3))
                 logger.warning(f"Together image transient error ({model}, attempt {attempt+1}): "
-                               f"{str(ex)[:120]}; retrying in {backoff:.1f}s")
+                               f"{type(ex).__name__}: {str(ex)[:120]}; retrying in {backoff:.1f}s")
                 attempt += 1
                 if rate_limited:
                     # Kutish keyingi urinish boshida (umumiy cooldown) — parallel so'rovlar ham shuni kutadi.

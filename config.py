@@ -605,10 +605,11 @@ MEDICAL_WEAK_IMAGE_MODELS = {
 }
 
 # Tanlangan model ishlamasa shu tartibda keyingisi sinaladi.
+# FLUX.1-schnell olib tashlandi: Together uni serverless'dan olib qo'ygan («Unable to access non-serverless model»,
+# HTTP 400) — har rasmda behuda so'rov edi.
 IMAGE_MODEL_FALLBACKS = [
     "black-forest-labs/FLUX.2-pro",
     "black-forest-labs/FLUX.1.1-pro",
-    "black-forest-labs/FLUX.1-schnell",
 ]
 
 # File paths
