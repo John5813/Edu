@@ -324,14 +324,25 @@ _FALLBACK_SCENE = "people working together in a bright modern space"
 _PHOTO_STYLE = "realistic natural photograph, natural light"
 
 
-def photo_prompt(prompt: str) -> str:
-    """Rasm tavsifini oddiy realistik fotosuratga yo'naltiradi (yumshoq)."""
+def _unphotographable(text: str) -> bool:
+    """Tavsifning fotosi bo'lmaydi (diagramma, sxema so'ralgan) yoki deyarli bo'sh."""
+    return bool(_DIAGRAM_WORDS.search(text)) or len(re.findall(r"[A-Za-z]{3,}", text)) < 3
+
+
+def photo_prompt(prompt: str, spare: str = "") -> str:
+    """Rasm tavsifini oddiy realistik fotosuratga yo'naltiradi (yumshoq).
+
+    `spare` — shu taqdimotning boshqa slaydidagi yaroqli tavsif: fotosi bo'lmaydigan tavsif o'rniga shu mavzudagi
+    sahna chiziladi. Ilgari har qanday mavzuda umumiy «zamonaviy ofisdagi odamlar» chizilardi — XIX asr
+    iqtisodchilari haqidagi taqdimotga ham."""
     text = re.sub(r"\s{2,}", " ", prompt or "").strip(" ,;.")
     # Diagramma so'ralgan tavsifning bir qismini olib tashlash uni
     # buzadi ("an of a pyramid"); fotosi bo'lmaydigan narsa o'rniga
-    # umumiy sahna chiziladi.
-    if _DIAGRAM_WORDS.search(text) or len(re.findall(r"[A-Za-z]{3,}", text)) < 3:
-        text = _FALLBACK_SCENE
+    # mavzudagi boshqa sahna (bo'lmasa — umumiy sahna) chiziladi.
+    if _unphotographable(text):
+        spare = re.sub(r"\s{2,}", " ", spare or "").strip(" ,;.")
+        text = f"{spare}, another angle, different composition" if spare and not _unphotographable(spare) \
+            else _FALLBACK_SCENE
     return f"{text}, {_PHOTO_STYLE}"
 
 
@@ -459,8 +470,10 @@ async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
     # Rasmlar bir vaqtda chizdiriladi: ketma-ket bo'lsa har biri
     # bir daqiqagacha kutadi va taqdimot juda sekinlashadi.
     gate = asyncio.Semaphore(3)
+    usable = [item[3] for item in wanted if not _unphotographable(item[3] or "")]
+    spares = {id(item): usable[k % len(usable)] for k, item in enumerate(wanted)} if usable else {}
 
-    async def one(prompt, found):
+    async def one(prompt, found, spare=""):
         if found:
             position = _photo_position(found, 0.78)
             return _take_uri(found), position
@@ -470,7 +483,7 @@ async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
         async with gate:
             for attempt in (1, 2):
                 try:
-                    path = await generate(photo_prompt(prompt))
+                    path = await generate(photo_prompt(prompt, spare))
                 except Exception as exc:
                     log.warning("Rasm chizilmadi (%s, %d-urinish): %s", prompt[:50], attempt, exc)
                     path = None
@@ -484,7 +497,7 @@ async def fill_photos(pages: List[str], limit: int = MAX_PHOTOS,
         position = _photo_position(path, 0.78)
         return _take_uri(path), position
 
-    photos = await asyncio.gather(*(one(item[3], found) for item, found in zip(wanted, searched)))
+    photos = await asyncio.gather(*(one(item[3], found, spares.get(id(item), "")) for item, found in zip(wanted, searched)))
     result, placed, tried = list(pages), 0, len(wanted)
     # Oxiridan boshlab almashtiriladi — oldingi o'rinlar siljimaydi.
     for (index, start, end, prompt), uri in sorted(

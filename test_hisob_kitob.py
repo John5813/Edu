@@ -164,6 +164,12 @@ check("prompt: iqtibos haqiqiy va muallifi aniq", "IQTIBOS" in rules_uz and "haq
 # ── Rasm: oddiy realistik foto, diagramma va yozuvsiz
 pp = html_images.photo_prompt("an infographic diagram of a population pyramid with labels, wide shot")
 check("diagramma so'ralsa — umumiy realistik sahna", "infographic" not in pp and "diagram" not in pp and pp.startswith(html_images._FALLBACK_SCENE), pp)
+pp = html_images.photo_prompt("a labeled diagram of supply and demand", "documentary photo of 19th century economists with books")
+check("diagramma so'ralsa va taqdimotda boshqa sahna bor — shu mavzudagi sahna (umumiy ofis emas)",
+      pp.startswith("documentary photo of 19th century economists with books, another angle")
+      and "diagram" not in pp and html_images._FALLBACK_SCENE not in pp, pp)
+pp = html_images.photo_prompt("a chart", "an infographic of growth")
+check("zaxira tavsif ham yaroqsiz bo'lsa — umumiy sahna", pp.startswith(html_images._FALLBACK_SCENE), pp)
 pp = html_images.photo_prompt("documentary photograph of a crowded street in Tashkent")
 check("oddiy tavsif o'zgarmaydi, yumshoq foto uslubi qo'shiladi", pp.startswith("documentary photograph of a crowded street in Tashkent") and "realistic natural photograph" in pp, pp)
 check("rasm tavsifida taqiqlar ro'yxati yo'q (uni _render qo'shadi)", " no " not in pp, pp)
