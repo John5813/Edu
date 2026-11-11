@@ -155,6 +155,24 @@ def _enqueue(label: str, need_mb: int, priority: Optional[int]) -> int:
     return ticket
 
 
+def promote(label: str, priority: int = None) -> int:
+    """Navbatda kutayotgan shu nomli ishlarni oldinga suradi (masalan, mijoz to'lagach — fonda boshlangan 3D model
+    endi to'langan buyurtmaniki). Qaytaradi: nechta chipta ko'tarildi."""
+    priority = TEZ if priority is None else priority
+    moved = 0
+    with _cond:
+        for i, (prio, ticket) in enumerate(_queue):
+            info = _waiting.get(ticket)
+            if info and info["label"] == label and prio > priority:
+                _queue[i] = (priority, ticket)
+                info["priority"] = priority
+                moved += 1
+        if moved:
+            heapq.heapify(_queue)
+            _cond.notify_all()
+    return moved
+
+
 def _drop(ticket: int) -> None:
     """Kutish bekor bo'ldi (xato yoki vazifa bekor qilindi)."""
     with _cond:

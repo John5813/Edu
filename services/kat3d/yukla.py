@@ -358,7 +358,7 @@ def _bitta(mid: str, priority: Optional[int] = None) -> bool:
 
         # Brauzer va LibreOffice bilan bitta navbat: bo'sh xotira yetgandagina boshlanadi (kutish — pik emas).
         prio = heavy_gate.ODDIY if priority is None else priority
-        with heavy_gate.slot(f"3D model ({m.get('nom_uz') or mid})", need, prio):
+        with heavy_gate.slot(_label(mid, m), need, prio):
             res = _aylantir(raw, tmp, need)
         if not res.get("ok"):
             raise RuntimeError(res.get("error") or "konvertatsiya o'tmadi")
@@ -380,6 +380,11 @@ def _bitta(mid: str, priority: Optional[int] = None) -> bool:
         for path in (raw, tmp):
             if os.path.isfile(path):
                 os.remove(path)
+
+
+def _label(mid: str, m: Optional[dict]) -> str:
+    """Og'ir ishlar navbatidagi nom (ustuvorlikni ko'tarishda shu bo'yicha topiladi)."""
+    return f"3D model ({(m or {}).get('nom_uz') or mid})"
 
 
 def _start(mid: str, pool: ThreadPoolExecutor, priority: Optional[int] = None,
@@ -414,7 +419,12 @@ def oldindan(ids: Iterable[str]) -> int:
     Ko'pi bilan `OLDINDAN_MAX` ta — qolgani kerak bo'lganda (`ensure`) yuklanadi."""
     if not ishlaydi():
         return 0
-    return sum(1 for mid in list(ids)[:OLDINDAN_MAX] if _start(mid, _pool) is not None)
+    from services import heavy_gate
+
+    # Fon ustuvorligida: mijoz hali to'lamagan, bu — oldindan tayyorlash. 2 GB serverda og'ir ishlar bittadan
+    # o'tadi; ilgari bu o'girishlar to'langan buyurtmalar (infografik, zamonaviy taqdimot brauzeri, 3D yig'ish)
+    # bilan bir xil ustuvorlikda navbatni egallab, ularni daqiqalab kuttirib qo'yardi.
+    return sum(1 for mid in list(ids)[:OLDINDAN_MAX] if _start(mid, _pool, heavy_gate.FON) is not None)
 
 
 def ensure(ids: Iterable[str], timeout: float = 600.0) -> List[str]:
@@ -426,8 +436,14 @@ def ensure(ids: Iterable[str], timeout: float = 600.0) -> List[str]:
     ids = list(dict.fromkeys(ids))
     deadline = time.time() + timeout
     todo = [mid for mid in ids if not katalog3d.model_yoli(mid)] if ishlaydi() else []
+    from services import heavy_gate
+
+    cat = katalog3d.katalog()
+    for mid in todo:                          # fonda (oldindan) navbatga qo'yilgani endi to'langan buyurtmaniki
+        heavy_gate.promote(_label(mid, cat.get(mid)), heavy_gate.ODDIY)
     while todo:
-        jobs = {mid: job for mid in todo for job in [_start(mid, _pool, paid=True)] if job is not None}
+        jobs = {mid: job for mid in todo for job in [_start(mid, _pool, heavy_gate.ODDIY, paid=True)]
+                if job is not None}
         if not jobs:
             break
         _done, pending = wait(list(jobs.values()), timeout=max(0.0, deadline - time.time()))

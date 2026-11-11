@@ -228,6 +228,49 @@ finally:
 top = hg.top_processes(3)
 check("eng ko'p yeydigan jarayonlar ro'yxati", top and all(mb > 0 for _n, _p, mb in top), top)
 
+print("1b) 3D modelni oldindan tayyorlash (to'lovgacha) to'langan buyurtmani kuttirmaydi")
+order2 = []
+with mock.patch.object(hg, "parallel", return_value=1), mock.patch.object(hg, "available_mb", return_value=1500):
+    hold = threading.Event()
+
+    def busy():
+        with hg.slot("ishlab turgan", 100):
+            hold.wait(5)
+
+    def job(label, prio):
+        with hg.slot(label, 100, prio):
+            order2.append(label)
+
+    tb = threading.Thread(target=busy); tb.start(); time.sleep(0.2)
+    pre = threading.Thread(target=job, args=("3D model (Quyosh)", hg.FON)); pre.start(); time.sleep(0.2)
+    paid = threading.Thread(target=job, args=("brauzer (taqdimot)", hg.ODDIY)); paid.start(); time.sleep(0.2)
+    hold.set()
+    for t in (tb, pre, paid):
+        t.join(5)
+    check("navbatda: to'langan infografik (brauzer) oldindan yuklanayotgan 3D modeldan oldin o'tadi",
+          order2 == ["brauzer (taqdimot)", "3D model (Quyosh)"], order2)
+
+    order2.clear()
+    hold2 = threading.Event()
+    def busy2():
+        with hg.slot("ishlab turgan", 100):
+            hold2.wait(5)
+    tb = threading.Thread(target=busy2); tb.start(); time.sleep(0.2)
+    pre = threading.Thread(target=job, args=("3D model (Quyosh)", hg.FON)); pre.start(); time.sleep(0.2)
+    other = threading.Thread(target=job, args=("fon ishi", hg.FON)); other.start(); time.sleep(0.2)
+    moved = hg.promote("3D model (Quyosh)", hg.ODDIY)   # mijoz to'ladi — endi bu model to'langan buyurtmaniki
+    hold2.set()
+    for t in (tb, pre, other):
+        t.join(5)
+    check("to'lovdan keyin fondagi model ko'tariladi", moved == 1 and order2[0] == "3D model (Quyosh)", (moved, order2))
+
+from services.kat3d import yukla as _yukla
+_seen = []
+with mock.patch.object(_yukla, "ishlaydi", return_value=True), \
+        mock.patch.object(_yukla, "_start", side_effect=lambda mid, pool, prio=None, paid=False: _seen.append(prio) or object()):
+    _yukla.oldindan(["a", "b"])
+check("mavzu yozilganda (to'lovgacha) modellar FON ustuvorligida yuklanadi", _seen == [hg.FON, hg.FON], _seen)
+
 print("2) Bot o'chib qolsa — buyurtma unutilmaydi")
 import aiosqlite  # noqa: E402
 
