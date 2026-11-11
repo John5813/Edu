@@ -446,7 +446,7 @@ with mock.patch.object(yukla, "ishlaydi", return_value=True), mock.patch.object(
      mock.patch.object(yukla, "manbalar", return_value={QUYOSH: YENGIL}):
     check("oddiy model 2 GB serverda ham taklif qilinadi", QUYOSH in yukla.mumkin())
 with mock.patch.object(yukla, "ishlaydi", return_value=True), \
-     mock.patch.object(yukla, "_start", side_effect=lambda mid, pool: mid) as start:
+     mock.patch.object(yukla, "_start", side_effect=lambda mid, pool, *a, **k: mid) as start:
     yukla.oldindan([f"m{i}" for i in range(20)])
     check("mavzu yozilganda fonda ko'pi bilan 8 ta model", start.call_count == yukla.OLDINDAN_MAX == 8, start.call_count)
 
