@@ -99,5 +99,15 @@ async def confirm(free):
 check("mustaqil ish: 3 ta qo'shimcha tanlansa ham narx 5 000 (bepul)", asyncio.run(confirm(True)) == 5000)
 check("referat: qo'shimchalar narxga qo'shiladi", asyncio.run(confirm(False)) == 5000 + EXTRAS_PRICES["images"] + EXTRAS_PRICES["tables"] + EXTRAS_PRICES["scheme"])
 
+import inspect as _inspect, re as _re
+from bot.handlers import documents as _docs
+from services import web_jobs as _web_jobs
+_src = _inspect.getsource(_docs)
+check("muqova ismi: Telegram profilidagi ism zaxira sifatida ishlatilmaydi (faqat mijoz yozgani)",
+      not _re.search(r"author_name['\"],\s*user\.first_name", _src)
+      and "create_new_presentation_system(topic, content, user.first_name" not in _src)
+check("sayt buyurtmasi: muallif bo'sh bo'lsa profil ismi qo'yilmaydi",
+      'raw["_default_author"] = ""' in _inspect.getsource(_web_jobs))
+
 print("\n" + ("✅ hammasi o'tdi" if not FAILS else f"❌ {len(FAILS)} ta xato: {FAILS}"))
 sys.exit(1 if FAILS else 0)

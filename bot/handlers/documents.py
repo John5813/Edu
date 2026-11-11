@@ -1441,7 +1441,7 @@ async def generate_presentation_with_template(callback: CallbackQuery, state: FS
         add_references = False
         add_plan_slide = data.get('add_plan_slide', False)
         add_icons = data.get('add_icons', True)
-        author_name = data.get('author_name', user.first_name or "")
+        author_name = (data.get('author_name') or "")
         doc_lang = data.get('doc_language', user_lang)
         # O'zbekcha taqdimotda yozuv (lotin/kirill): modelga ham, tayyor faylga ham
         # qo'llanadi — ikki yozuv aralashib ketmasin.
@@ -1650,7 +1650,7 @@ async def generate_article(callback: CallbackQuery, state: FSMContext, db: Datab
             ai_topic = f"{topic}\n\n{data['book_context']}"
         min_pages = data['min_pages']
         max_pages = data['max_pages']
-        author_name = data.get('author_name', user.first_name or "")
+        author_name = (data.get('author_name') or "")
         doc_lang = data.get('doc_language', user_lang)
         price = data.get('price', 0)
 
@@ -2798,7 +2798,7 @@ async def _enqueue_heavy_doc(
         min_pages = data['min_pages']
         max_pages = data['max_pages']
         chapters = data['chapters']
-        author_name = data.get('author_name', user.first_name or "")
+        author_name = (data.get('author_name') or "")
         doc_lang = data.get('doc_language', user_lang)
         price = data.get('price', 0)
         doc_extras = data.get('doc_extras') or []
@@ -2993,7 +2993,7 @@ async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: 
 
         # Create presentation file with NEW SYSTEM (DALL-E + 3 layouts)
         doc_service = get_document_service()
-        file_path = await doc_service.create_new_presentation_system(topic, content, user.first_name or "", user_lang)
+        file_path = await doc_service.create_new_presentation_system(topic, content, (data.get('author_name') or ""), user_lang)
 
         # Verify file was created
         if not file_path or not os.path.exists(file_path):
@@ -3007,7 +3007,7 @@ async def generate_presentation(callback: CallbackQuery, state: FSMContext, db: 
             caption=f"📊 {topic}",
         )
         # Bu oqimda muallif sifatida foydalanuvchining ismi yoziladi.
-        _to_store(callback.bot, file_path, topic, "taqdimot", user.first_name or "")
+        _to_store(callback.bot, file_path, topic, "taqdimot", (data.get('author_name') or ""))
 
         # File sent successfully - NOW update database and balance
         await db.update_document_order(order_id, "completed", file_path)
@@ -3050,7 +3050,7 @@ async def generate_independent_work_manual(callback: CallbackQuery, state: FSMCo
         min_pages = data['min_pages']
         max_pages = data['max_pages']
         manual_outline = data.get('manual_outline', [])
-        author_name = data.get('author_name', user.first_name or "")
+        author_name = (data.get('author_name') or "")
         doc_lang = data.get('doc_language', user_lang)
         doc_extras = data.get('doc_extras') or []
 
@@ -3129,7 +3129,7 @@ async def generate_referat_manual(callback: CallbackQuery, state: FSMContext, db
         min_pages = data['min_pages']
         max_pages = data['max_pages']
         manual_outline = data.get('manual_outline', [])
-        author_name = data.get('author_name', user.first_name or "")
+        author_name = (data.get('author_name') or "")
         doc_lang = data.get('doc_language', user_lang)
         doc_extras = data.get('doc_extras') or []
 
@@ -3231,7 +3231,7 @@ async def generate_independent_work(callback: CallbackQuery, state: FSMContext, 
             ai_topic = f"{topic}\n\n{data['book_context']}"
         min_pages = data['min_pages']
         max_pages = data['max_pages']
-        author_name = data.get('author_name', user.first_name or "")
+        author_name = (data.get('author_name') or "")
         doc_lang = data.get('doc_language', user_lang)
         doc_extras = data.get('doc_extras') or []
 
@@ -3324,7 +3324,7 @@ async def generate_referat(callback: CallbackQuery, state: FSMContext, db: Datab
             ai_topic = f"{topic}\n\n{data['book_context']}"
         min_pages = data['min_pages']
         max_pages = data['max_pages']
-        author_name = data.get('author_name', user.first_name or "")
+        author_name = (data.get('author_name') or "")
         doc_lang = data.get('doc_language', user_lang)
         doc_extras = data.get('doc_extras') or []
 
@@ -4493,7 +4493,7 @@ async def generate_mahsus_ishlanma(callback: CallbackQuery, state: FSMContext, d
         data = await state.get_data()
         topic = data['topic']
         max_pages = data.get('max_pages', 15)
-        author_name = data.get('author_name', user.first_name or "")
+        author_name = (data.get('author_name') or "")
         doc_lang = data.get('doc_language', user_lang)
         doc_extras = data.get('doc_extras') or []
 
