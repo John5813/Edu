@@ -4,6 +4,7 @@ Mijoz ma'lumotlari bot bilan bir xil: kirish Telegram ID bilan bo'ladi, balans e
 turadi. Parol yo'q: brauzer bir martalik token oladi, bot uni `/start weblogin_<token>` bilan
 tasdiqlaydi, brauzer so'rab turib sessiya cookie'sini oladi.
 """
+import asyncio
 import json
 import hashlib
 import hmac
@@ -746,6 +747,46 @@ async def deck_rewrite(request: web.Request) -> web.Response:
     return web.json_response({"ok": True, "job": row, "balance": int(getattr(user, "balance", 0) or 0)})
 
 
+async def deck_texts(request: web.Request) -> web.Response:
+    """3D / Klassik taqdimot: sahifadagi tahrirlanadigan matnlar (PPTX ning o'zidan)."""
+    from services import pptx_text_edit
+
+    _, job, deck = await _own_deck(request)
+    path = job.get("result_path") or ""
+    if not deck or not deck.get("pptx_text") or not path or not os.path.exists(path):
+        return _error("Bu taqdimotni tahrirlab bo'lmaydi.", 404, "no_deck")
+    try:
+        items = await asyncio.to_thread(pptx_text_edit.slide_texts, path, int(request.match_info["n"]))
+    except (ValueError, pptx_text_edit.TextEditError) as exc:
+        return _error(str(exc) or "Bunday sahifa yo'q.", 404, "not_found")
+    return web.json_response({"ok": True, "version": int(deck.get("version") or 1), "items": items},
+                             headers={"Cache-Control": "private, no-store"})
+
+
+async def deck_texts_save(request: web.Request) -> web.Response:
+    """3D / Klassik taqdimot: matnni saqlash (bepul) — PPTX yangilanadi, sahifa rasmlari qayta chiziladi."""
+    from services import pptx_text_edit, web_decks
+
+    telegram_id, job, deck = await _own_deck(request)
+    path = job.get("result_path") or ""
+    if not deck or not deck.get("pptx_text") or not path or not os.path.exists(path):
+        return _error("Bu taqdimotni tahrirlab bo'lmaydi.", 404, "no_deck")
+    if _limited(f"pptxtext:{telegram_id}", 20, 60):
+        return _error("Juda tez-tez saqlandi. Bir daqiqa kuting.", 429, "rate")
+    data = await _json(request)
+    items = data.get("items")
+    if not isinstance(items, list) or len(items) > 60:
+        return _error("O'zgarish yo'q.", 400, "bad_request")
+    try:
+        deck = await web_decks.pptx_text(job["id"], path, int(request.match_info["n"]), int(data.get("version") or 0), items)
+    except (ValueError, pptx_text_edit.TextEditError) as exc:
+        return _error(str(exc) or "Saqlab bo'lmadi.", 409, "edit")
+    except Exception:
+        log.exception("3D/Klassik taqdimot matni saqlanmadi (%s)", job["id"])
+        return _error("Saqlab bo'lmadi. Birozdan keyin qayta urinib ko'ring.", 500, "edit")
+    return web.json_response({"ok": True, "deck": web_decks.public(job["id"], deck)})
+
+
 async def deck_page(request: web.Request) -> web.Response:
     """Qo'lda tahrirlash uchun sahifaning o'zi (HTML), tahrirlanadigan bloklar qoidasi va diagrammalari."""
     from services.premium_presentation import manual_edit
@@ -1071,6 +1112,8 @@ def setup_api_routes(app: web.Application) -> None:
     add("GET", "/api/v1/jobs/{id}/slide/{n}", deck_slide)
     add("POST", "/api/v1/jobs/{id}/rewrite", deck_rewrite)
     add("GET", "/api/v1/jobs/{id}/page/{n}", deck_page)
+    add("GET", "/api/v1/jobs/{id}/texts/{n}", deck_texts)
+    add("POST", "/api/v1/jobs/{id}/texts/{n}", deck_texts_save)
     add("POST", "/api/v1/jobs/{id}/edit", deck_edit)
     add("POST", "/api/v1/pending", pending_create)
     add("GET", "/api/v1/pending", pending_get)

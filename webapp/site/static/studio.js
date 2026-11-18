@@ -164,7 +164,7 @@
     } else if (threeD()) {
       const langs = (o.languages || ['uz', 'ru', 'en', 'kk']).map((l) => ({key: l, label: ({uz: "O'zbek", ru: 'Русский', en: 'English', kk: 'Қазақша'})[l] || l}));
       if (!S.lang || !langs.some((l) => l.key === S.lang)) S.lang = langs[0].key;
-      html += `<div class="note" style="margin:4px 0 6px">🧊 Har slaydda haqiqiy 3D model: aylanadi va harakatlanadi. Mavzu tana tuzilishiga oid bo‘lsa — 3D Anatomiya, boshqa mavzularda — katalogdagi 3D modellar. Taqdimot <b>kompyuterdagi PowerPoint</b> (2019, 2021, 365) uchun — telefonda 3D ko‘rinmaydi. Mos 3D topilmasa, pul hisobingizga qaytadi.</div>`;
+      html += `<div class="note" style="margin:4px 0 6px">🧊 Har slaydda haqiqiy 3D model: aylanadi va harakatlanadi. Mavzu tana tuzilishiga oid bo‘lsa — 3D Anatomiya, boshqa mavzularda — katalogdagi 3D modellar. Taqdimot <b>kompyuterdagi PowerPoint</b> (2019, 2021, 365) uchun — telefonda 3D ko‘rinmaydi. Mos 3D topilmasa, pul hisobingizga qaytadi.<br><span>Saytda varaqlash va tahrirlash bu xizmat uchun hozircha ishlamaydi: fayl botga va «Hujjatlarim» ga keladi.</span></div>`;
       html += section('Slaydlar soni', '', chipRow('st-size', o.sizes.map((z) => ({key: z.key, label: z.label, small: E.fmt(z.price)})), S.size));
       html += section('Til', '', chipRow('st-lang', langs, S.lang));
       html += section('Ism-familiya', '(taqdimotning muqovasiga yoziladi)', `<input class="fld" id="author" maxlength="80" placeholder="Ism Familiya" value="${E.esc(S.author)}">`);
@@ -551,7 +551,7 @@
 
   // ───────────────────────────────────────────── tayyorlanish: animatsiya va natija
   function watch(job, kind, count) {
-    const isDeck = kind === 'premium_presentation' || kind === 'simple_presentation';
+    const isDeck = E.isDeck(kind);
     const slidesOut = isDeck || kind === 'presentation_3d';      // 3D ham PPTX, lekin saytda varaqlanmaydi
     hero().classList.add('studio-on', 'forging');
     const box = $('forge-box');
@@ -562,7 +562,12 @@
     forge = E.forge($('forge-anim'), {topic: job.title, mode: slidesOut ? 'slides' : 'pages', count, kind,
       label: (kindOf(kind) || {}).label || '', startedAt: job.created_at});
     forge.update(job);
-    $('forge-out').innerHTML = '<p class="hint" style="text-align:center">Bu sahifani yopib ketishingiz mumkin: tayyor bo‘lgach «Hujjatlarim» da ko‘rinadi va Telegramga ham keladi.</p>';
+    $('forge-out').innerHTML = '<p class="hint" style="text-align:center">Bu sahifani yopib ketishingiz mumkin: tayyor bo‘lgach «Hujjatlarim» da ko‘rinadi va Telegramga ham keladi. Qaytib kirsangiz, shu yerning o‘zi ochiladi.</p>' +
+      '<div class="forge-act"><button type="button" class="btn ghost" id="f-other">+ Boshqa buyurtma berish</button></div>';
+    $('f-other').onclick = () => {      // bu buyurtma fonda davom etadi; shu oynada yangisini boshlash
+      try { sessionStorage.setItem('edu_skip_live', job.id); sessionStorage.removeItem(LIVE); } catch (e) { /* ixtiyoriy */ }
+      S.topic = ''; $('topic').value = ''; reset();
+    };
     const poll = async () => {
       let d;
       try { d = await E.api('/jobs/' + encodeURIComponent(job.id)); } catch (e) { pollTimer = setTimeout(poll, 4000); return; }
@@ -583,6 +588,7 @@
           ${isDeck ? `<a class="btn" href="/app#/job/${E.esc(j.id)}">Ko‘rish va tahrirlash</a>` : ''}
           <a class="btn ${isDeck ? 'out' : ''}" href="/api/v1/jobs/${E.esc(j.id)}/file">Yuklab olish</a>
           <button type="button" class="btn ghost" id="f-new">Yangi mavzu</button></div>
+        ${kind === 'presentation_3d' ? `<div class="note" style="margin-top:12px">${E.esc(E.NOTE3D)}</div>` : ''}
         <p class="hint" style="text-align:center" id="f-tg"></p>`;
       if (me && me.telegram) E.watchTg(j, $('f-tg'), catalog && catalog.bot); else $('f-tg').remove();
       $('f-new').onclick = () => { S.topic = ''; $('topic').value = ''; reset(); };
@@ -626,6 +632,17 @@
     if (restored) { topic.value = S.topic; open(); if (premium()) suggest(); if (me) E.toast('Tanlovlaringiz saqlangan. «Yaratish» ni bosing.'); }
     let live = null;
     try { live = JSON.parse(sessionStorage.getItem(LIVE) || 'null'); } catch (e) { live = null; }
+    if (!live && me) {
+      // Mijoz saytdan chiqib, qayta kirdi (yangi oyna, botdan havola): hali tayyorlanayotgan buyurtmasi bo'lsa —
+      // sahifa yangidan boshlanmaydi, o'sha jarayonning o'ziga qaytadi.
+      let skip = '';
+      try { skip = sessionStorage.getItem('edu_skip_live') || ''; } catch (e) { skip = ''; }
+      try {
+        const d = await E.api('/jobs');
+        const j = (d.jobs || []).find((x) => (x.status === 'queued' || x.status === 'running') && x.kind !== 'slide_rewrite' && x.id !== skip);
+        if (j) live = {id: j.id, kind: j.kind, count: (j.live && j.live.total) || 10};
+      } catch (e) { live = null; }
+    }
     if (live && me) {
       try {
         const d = await E.api('/jobs/' + encodeURIComponent(live.id));

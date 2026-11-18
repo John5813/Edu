@@ -656,8 +656,9 @@ async def _three_d_run(params: Dict, report: Report) -> Tuple[str, str]:
     else:
         raise JobError("Bu mavzu uchun mos 3D model topilmadi. Infografik yoki Zamonaviy turini tanlang.",
                        "no_3d")
-    stem = re.sub(r"[^\w-]+", "_", topic)[:30].strip("_") or "fayl"
-    return path, f"3D_Taqdimot_{stem}.pptx"
+    # Saytda varaqlanmaydi (3D faqat kompyuterdagi PowerPoint'da ko'rinadi). Fayl nomi botdagi kabi: ko'rish sharti bilan.
+    from bot.handlers.premium_presentation import med3d_filename
+    return path, med3d_filename(topic, language)
 
 
 def _three_d_options() -> Dict:

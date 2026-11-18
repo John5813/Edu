@@ -343,6 +343,8 @@ async def _after_done(job_id: str, telegram_id: int, kind: Kind, params: Dict, p
             return          # Telegramsiz akkaunt: fayl faqat saytdan yuklab olinadi
         status = await deliver_to_telegram(bot, telegram_id, kind.title(params) or name, path, name)
         await web_store.update_job(job_id, tg_sent=status)
+        if kind.key == "presentation_3d" and status > 0:      # botdagi kabi: 3D qanday ochilishi — yo'riqnoma videosi
+            await _send_3d_guide(bot, telegram_id)
         if kind.publish_as and not params.get("trial"):     # bepul sinov katalogga qo'yilmaydi
             from services.store_publisher import schedule_publish
             schedule_publish(bot, path, kind.title(params), kind.publish_as,
@@ -415,6 +417,26 @@ async def deliver_to_telegram(bot, telegram_id: int, title: str, path: str, name
             log.warning("Telegram faylni qabul qilmadi (%s): %s", telegram_id, exc)
             return -1
     return -1
+
+
+async def _send_3d_guide(bot, telegram_id: int) -> None:
+    """3D taqdimot bilan birga botdagi yo'riqnoma videosi (PowerPoint'da qanday ochish); bo'lmasa — matn."""
+    from aiogram.types import FSInputFile
+    from bot.handlers import premium_presentation as ppt
+
+    lang = await _bot_language(telegram_id)
+    caption = ppt.med3d_note(lang)[:1024]
+    video = ppt._med3d_guide_id or (FSInputFile(ppt.MED3D_GUIDE_VIDEO) if os.path.exists(ppt.MED3D_GUIDE_VIDEO) else None)
+    try:
+        if video is not None:
+            sent = await bot.send_video(telegram_id, video=video, caption=caption, width=1080, height=1920,
+                                        supports_streaming=True)
+            if getattr(sent, "video", None):
+                ppt._med3d_guide_id = sent.video.file_id
+            return
+        await bot.send_message(telegram_id, caption)
+    except Exception as exc:
+        log.info("3D yo'riqnoma videosi yuborilmadi (%s): %s", telegram_id, exc)
 
 
 async def _tell_failed(telegram_id: int, kind: Kind, params: Dict) -> None:
