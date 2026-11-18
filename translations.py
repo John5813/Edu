@@ -1113,10 +1113,10 @@ This document was created with AI assistance and serves as your helper.
     },
     # «Sayt rejimi» (services/site_mode.py): xizmat saytda ochiladi. Matnlarda narx va to'lov so'zi yo'q.
     "site_mode_open": {
-        "uz": "🌐 <b>{label}</b> saytda ochiladi.\n\nTugmani bosing — sayt sizni Telegram orqali o'zi taniydi, ro'yxatdan o'tish va parol kerak emas. Tayyor fayl shu chatga ham keladi.",
-        "ru": "🌐 <b>{label}</b> открывается на сайте.\n\nНажмите кнопку — сайт сам узнает вас через Telegram, регистрация и пароль не нужны. Готовый файл придёт и в этот чат.",
-        "en": "🌐 <b>{label}</b> opens on the website.\n\nTap the button — the site recognises you through Telegram, no sign-up or password needed. The finished file will also arrive in this chat.",
-        "kk": "🌐 <b>{label}</b> сайтта ашылады.\n\nБатырманы басыңыз — сайт сізді Telegram арқылы өзі таниды, тіркелу мен құпиясөз қажет емес. Дайын файл осы чатқа да келеді."
+        "uz": "🌐 <b>{label}</b> saytda ochiladi.\n\nTugmani bosing — sayt sizni Telegram orqali o'zi taniydi, ro'yxatdan o'tish va parol kerak emas. Tayyor fayl shu chatga ham keladi.\n\n<i>Sahifa ochilmasa yoki xato chiqsa — «Qayta yuklash» (↻) tugmasini bosing.</i>",
+        "ru": "🌐 <b>{label}</b> открывается на сайте.\n\nНажмите кнопку — сайт сам узнает вас через Telegram, регистрация и пароль не нужны. Готовый файл придёт и в этот чат.\n\n<i>Если страница не открылась или показала ошибку — нажмите «Обновить» (↻).</i>",
+        "en": "🌐 <b>{label}</b> opens on the website.\n\nTap the button — the site recognises you through Telegram, no sign-up or password needed. The finished file will also arrive in this chat.\n\n<i>If the page doesn't open or shows an error, tap “Reload” (↻).</i>",
+        "kk": "🌐 <b>{label}</b> сайтта ашылады.\n\nБатырманы басыңыз — сайт сізді Telegram арқылы өзі таниды, тіркелу мен құпиясөз қажет емес. Дайын файл осы чатқа да келеді.\n\n<i>Бет ашылмаса немесе қате шықса — «Қайта жүктеу» (↻) батырмасын басыңыз.</i>"
     },
     "site_mode_open_btn": {"uz": "🌐 Ochish", "ru": "🌐 Открыть", "en": "🌐 Open", "kk": "🌐 Ашу"},
     "site_mode_soon": {
@@ -1126,10 +1126,10 @@ This document was created with AI assistance and serves as your helper.
         "kk": "⏳ <b>{label}</b> жақында сайтта іске қосылады. Әзірге басқа қызметтерді пайдалана тұрыңыз."
     },
     "site_mode_cabinet": {
-        "uz": "🌐 Kabinetingiz saytda: hujjatlaringiz, profil va sozlamalar bitta joyda.",
-        "ru": "🌐 Ваш кабинет на сайте: документы, профиль и настройки в одном месте.",
-        "en": "🌐 Your cabinet is on the website: documents, profile and settings in one place.",
-        "kk": "🌐 Кабинетіңіз сайтта: құжаттар, профиль және баптаулар бір жерде."
+        "uz": "🌐 Kabinetingiz saytda: hujjatlaringiz, profil va sozlamalar bitta joyda.\n\nSahifa ochilmasa yoki xato chiqsa — «Qayta yuklash» (↻) tugmasini bosing.",
+        "ru": "🌐 Ваш кабинет на сайте: документы, профиль и настройки в одном месте.\n\nЕсли страница не открылась или показала ошибку — нажмите «Обновить» (↻).",
+        "en": "🌐 Your cabinet is on the website: documents, profile and settings in one place.\n\nIf the page doesn't open or shows an error, tap “Reload” (↻).",
+        "kk": "🌐 Кабинетіңіз сайтта: құжаттар, профиль және баптаулар бір жерде.\n\nБет ашылмаса немесе қате шықса — «Қайта жүктеу» (↻) батырмасын басыңыз."
     },
     "site_mode_prices": {
         "uz": "🌐 Xizmatlar saytda: har bir xizmatni tanlaganingizda uning shartlari o'sha yerda ko'rinadi.",
