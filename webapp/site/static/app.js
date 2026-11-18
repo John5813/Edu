@@ -131,9 +131,12 @@
     if (!info.available) {
       view.innerHTML = `<div class="card panel" style="max-width:640px;margin:10px auto;text-align:center"><span class="pill ok">Tayyor</span>
         <h2 style="margin:12px 0 6px">${E.esc(job.title)}</h2>
-        <p style="color:#4A5272">Fayl Telegramga ham yuborilgan.${(job.kind === 'premium_presentation' || job.kind === 'simple_presentation') ? ' Bu taqdimot ko‘rib chiqish uchun saqlanmagan.' : ''}</p>
+        ${(job.kind === 'premium_presentation' || job.kind === 'simple_presentation') ? '<p style="color:#4A5272">Bu taqdimot ko‘rib chiqish uchun saqlanmagan.</p>' : ''}
+        <p style="color:#4A5272" id="j-tg"></p>
         <a class="btn" href="/api/v1/jobs/${E.esc(job.id)}/file">Yuklab olish</a>
         <p><a class="link" href="#/docs">← Hujjatlarim</a></p></div>`;
+      const meNow = await E.me();
+      if (meNow && meNow.telegram) E.watchTg(job, document.getElementById('j-tg'), catalog.bot); else document.getElementById('j-tg').remove();
       return;
     }
     return deckViewer(job, info);
@@ -491,7 +494,8 @@
     const left = Math.max(0, Math.round((j.expires_at * 1000 - Date.now()) / 3600000));
     let status = '', action = '';
     if (j.status === 'done') {
-      status = `<span class="pill ok">Tayyor</span> <span class="hint">${left} soat qoldi</span>`;
+      status = `<span class="pill ok">Tayyor</span> <span class="hint">${left} soat qoldi</span>` +
+        (j.telegram ? `<div class="hint" style="margin-top:6px">${E.tgNote(j, catalog.bot)}</div>` : '');
       action = j.ready ? `<a class="btn sm" href="/api/v1/jobs/${E.esc(j.id)}/file">Yuklab olish</a>` : '';
     } else if (j.status === 'failed') {
       status = `<span class="pill bad">Bajarilmadi</span><div class="hint" style="margin-top:6px">${E.esc(j.error)}</div>`;

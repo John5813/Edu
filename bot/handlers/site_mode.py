@@ -100,3 +100,22 @@ async def other_service(callback: CallbackQuery, state: FSMContext, user_lang: s
     key = callback.data[3:]
     label = get_text(user_lang, f"main_menu.{key}")
     await send_site_link(callback.message, callback.from_user.id, user_lang, label, site_mode.OTHER[key])
+
+
+@router.callback_query(F.data.startswith("golink:"))
+async def fresh_link(callback: CallbackQuery, user_lang: str):
+    """Eski xabardagi «Saytda ochish»: har bosishda yangi bir martalik kirish havolasi (rejimdan qat'i nazar)."""
+    to = callback.data.split(":", 1)[1]
+    if to not in ("docs", "profile", "home"):
+        to = "docs"
+    try:
+        await callback.answer()
+    except Exception:
+        pass
+    try:
+        keyboard = await site_keyboard(callback.from_user.id, to, get_text(user_lang, "site_mode_open_btn"))
+    except Exception as exc:
+        log.warning("Sayt havolasi yaratilmadi (%s): %s", callback.from_user.id, exc)
+        await callback.message.answer(get_text(user_lang, "site_mode_link_failed"))
+        return
+    await callback.message.answer(get_text(user_lang, "site_mode_cabinet"), reply_markup=keyboard)

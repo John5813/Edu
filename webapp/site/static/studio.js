@@ -420,7 +420,8 @@
           ${isDeck ? `<a class="btn" href="/app#/job/${E.esc(j.id)}">Ko‘rish va tahrirlash</a>` : ''}
           <a class="btn ${isDeck ? 'out' : ''}" href="/api/v1/jobs/${E.esc(j.id)}/file">Yuklab olish</a>
           <button type="button" class="btn ghost" id="f-new">Yangi mavzu</button></div>
-        <p class="hint" style="text-align:center">Fayl Telegramga ham yuborilgan.</p>`;
+        <p class="hint" style="text-align:center" id="f-tg"></p>`;
+      if (me && me.telegram) E.watchTg(j, $('f-tg'), catalog && catalog.bot); else $('f-tg').remove();
       $('f-new').onclick = () => { S.topic = ''; $('topic').value = ''; reset(); };
     };
     pollTimer = setTimeout(poll, 1500);

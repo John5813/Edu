@@ -62,9 +62,20 @@ def new_token() -> str:
     return secrets.token_urlsafe(24)
 
 
+_MIGRATED = set()
+
+
 async def create_tables(conn) -> None:
     for statement in _SCHEMA:
         await conn.execute(statement)
+    db_file = _db.DATABASE_FILE
+    if db_file not in _MIGRATED:
+        # tg_sent: tayyor fayl Telegramga yetdimi (0 — hali/kerak emas, 1 — fayl, 2 — havola, -1 — yetmadi).
+        async with conn.execute("PRAGMA table_info(web_jobs)") as cursor:
+            columns = {row[1] for row in await cursor.fetchall()}
+        if "tg_sent" not in columns:
+            await conn.execute("ALTER TABLE web_jobs ADD COLUMN tg_sent INTEGER NOT NULL DEFAULT 0")
+        _MIGRATED.add(db_file)
 
 
 async def ensure_tables() -> None:
@@ -157,7 +168,7 @@ async def end_session(session: str) -> None:
 # ──────────────────────────────────────────────────────────────────────── ishlar
 
 _JOB_FIELDS = ("status", "stage", "progress", "charged", "result_path", "result_name", "error", "finished_at",
-               "params", "title")
+               "params", "title", "tg_sent")
 
 
 async def create_job(job_id: str, telegram_id: int, kind: str, title: str, params: Dict, price: int,

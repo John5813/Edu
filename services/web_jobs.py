@@ -129,6 +129,7 @@ def public(job: Dict) -> Dict:
             "price": int(job["price"] or 0), "ready": status == "done" and bool(job.get("result_path")),
             "file_name": job.get("result_name") or "", "error": job.get("error") or "",
             "created_at": job["created_at"], "expires_at": job["created_at"] + web_store.JOB_TTL_HOURS * 3600,
+            "telegram": int(job.get("tg_sent") or 0),
             "live": LIVE.get(job["id"], {}) if status in ("queued", "running") else {}}
 
 
@@ -248,6 +249,8 @@ async def _execute(job_id: str, telegram_id: int, kind: Kind, params: Dict, pric
                     else "Bepul sinov imkoniyati sizda qoldi — qayta urinib ko'ring.")
             await web_store.update_job(job_id, status="failed", stage="failed", error=f"{message} {back}",
                                        finished_at=time.time(), params={})
+            if not kind.quiet:
+                await _tell_failed(telegram_id, kind, params)
         finally:
             workload.end(work_id)
             LIVE.pop(job_id, None)
@@ -303,16 +306,96 @@ async def _after_done(job_id: str, telegram_id: int, kind: Kind, params: Dict, p
         bot = webapp.BOT
         if bot is None or web_accounts.is_web_only(telegram_id):
             return          # Telegramsiz akkaunt: fayl faqat saytdan yuklab olinadi
-        from aiogram.types import FSInputFile
-
-        await bot.send_document(telegram_id, FSInputFile(path, filename=name),
-                                caption="✅ Saytda buyurtma qilingan fayl tayyor.")
+        status = await deliver_to_telegram(bot, telegram_id, kind.title(params) or name, path, name)
+        await web_store.update_job(job_id, tg_sent=status)
         if kind.publish_as and not params.get("trial"):     # bepul sinov katalogga qo'yilmaydi
             from services.store_publisher import schedule_publish
             schedule_publish(bot, path, kind.title(params), kind.publish_as,
                              customer_name=params.get("author", ""), language=params.get("language", "uz"))
     except Exception as exc:
         log.warning("Tayyor faylni Telegramga yuborib bo'lmadi (%s): %s", job_id, exc)
+
+
+TG_FILE_LIMIT = 49 * 1024 * 1024     # bot Telegramga 50 MB gacha fayl yubora oladi
+DELIVERY_TRIES = 3
+_pause = asyncio.sleep          # testlarda kutishsiz almashtiriladi
+
+
+async def _bot_language(telegram_id: int) -> str:
+    try:
+        user = await Database.get_user(telegram_id)
+    except Exception:
+        user = None
+    if user and getattr(user, "kazakh", False):
+        return "kk"
+    return (getattr(user, "language", "") or "uz") if user else "uz"
+
+
+def _docs_button(lang: str):
+    """«Saytda ochish»: bosilganda bot yangi bir martalik kirish havolasini beradi (eski xabarda ham ishlaydi)."""
+    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+    from translations import get_text
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
+        text=get_text(lang, "web_open_docs_btn"), callback_data="golink:docs")]])
+
+
+async def deliver_to_telegram(bot, telegram_id: int, title: str, path: str, name: str) -> int:
+    """Faylni mijozning botiga yuboradi. Qaytaradi: 1 — fayl, 2 — katta fayl uchun havola, -1 — yetmadi.
+
+    Tarmoq xatosi yoki Telegram cheklovida bir necha marta qayta uriniladi; mijoz botni bloklagan bo'lsa
+    darhol to'xtaydi (sayt buni ko'rsatadi).
+    """
+    from aiogram.exceptions import (TelegramBadRequest, TelegramEntityTooLarge, TelegramForbiddenError,
+                                    TelegramNetworkError, TelegramRetryAfter, TelegramServerError)
+    from aiogram.types import FSInputFile
+    from translations import get_text
+
+    lang = await _bot_language(telegram_id)
+    title = (title or name or "")[:180]
+    big = os.path.getsize(path) > TG_FILE_LIMIT
+    for attempt in range(DELIVERY_TRIES):
+        try:
+            if big:
+                size = round(os.path.getsize(path) / 1024 / 1024)
+                await bot.send_message(telegram_id, get_text(lang, "web_file_big", title=title, size=size),
+                                       reply_markup=_docs_button(lang))
+                return 2
+            await bot.send_document(telegram_id, FSInputFile(path, filename=name),
+                                    caption=get_text(lang, "web_file_ready", title=title))
+            return 1
+        except TelegramEntityTooLarge:
+            big = True
+        except TelegramForbiddenError as exc:          # botni bloklagan yoki o'chirgan
+            log.info("Fayl Telegramga yetmadi (bot bloklangan) %s: %s", telegram_id, exc)
+            return -1
+        except TelegramRetryAfter as exc:
+            await _pause(min(float(exc.retry_after) + 1, 60))
+        except (TelegramNetworkError, TelegramServerError) as exc:
+            log.warning("Telegramga yuborishda tarmoq xatosi (%s), urinish %d: %s", telegram_id, attempt + 1, exc)
+            await _pause(2 * (attempt + 1))
+        except TelegramBadRequest as exc:
+            if "too big" in str(exc).lower() or "too large" in str(exc).lower():
+                big = True
+                continue
+            log.warning("Telegram faylni qabul qilmadi (%s): %s", telegram_id, exc)
+            return -1
+    return -1
+
+
+async def _tell_failed(telegram_id: int, kind: Kind, params: Dict) -> None:
+    """Buyurtma bajarilmadi: mijoz saytni yopib qo'ygan bo'lsa ham bilsin (tafsilot va qaytgan pul saytda)."""
+    try:
+        import webapp
+        from database import web_accounts
+        from translations import get_text
+        if webapp.BOT is None or web_accounts.is_web_only(telegram_id):
+            return
+        lang = await _bot_language(telegram_id)
+        title = (kind.title(params) or "")[:180]
+        await webapp.BOT.send_message(telegram_id, get_text(lang, "web_job_failed", title=title),
+                                      reply_markup=_docs_button(lang))
+    except Exception as exc:
+        log.info("Bajarilmagan buyurtma haqida Telegramga yozilmadi (%s): %s", telegram_id, exc)
 
 
 # ───────────────────────────────────────────────────────── ishga tushish va tozalash

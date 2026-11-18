@@ -1132,6 +1132,26 @@ This document was created with AI assistance and serves as your helper.
         "kk": "🌐 Кабинетіңіз сайтта: құжаттар, профиль және баптаулар бір жерде."
     },
     "site_mode_cabinet_btn": {"uz": "🌐 Kabinetim", "ru": "🌐 Мой кабинет", "en": "🌐 My cabinet", "kk": "🌐 Менің кабинетім"},
+    # Saytda buyurtma qilingan fayl botga yetkaziladi (services/web_jobs.deliver_to_telegram).
+    "web_file_ready": {
+        "uz": "✅ «{title}» tayyor. Fayl saytdagi kabinetingizda ham 72 soat turadi.",
+        "ru": "✅ «{title}» готово. Файл также 72 часа хранится в вашем кабинете на сайте.",
+        "en": "✅ “{title}” is ready. The file also stays in your cabinet on the website for 72 hours.",
+        "kk": "✅ «{title}» дайын. Файл сайттағы кабинетіңізде де 72 сағат сақталады."
+    },
+    "web_file_big": {
+        "uz": "✅ «{title}» tayyor.\n\nFayl katta ({size} MB), Telegram uni qabul qilmaydi — saytdagi kabinetingizdan yuklab oling (72 soat turadi).",
+        "ru": "✅ «{title}» готово.\n\nФайл большой ({size} МБ), Telegram его не принимает — скачайте его в кабинете на сайте (хранится 72 часа).",
+        "en": "✅ “{title}” is ready.\n\nThe file is large ({size} MB) and Telegram won't accept it — download it from your cabinet on the website (kept for 72 hours).",
+        "kk": "✅ «{title}» дайын.\n\nФайл үлкен ({size} МБ), Telegram оны қабылдамайды — сайттағы кабинетіңізден жүктеп алыңыз (72 сағат сақталады)."
+    },
+    "web_job_failed": {
+        "uz": "⚠️ «{title}» bajarilmadi. Sababi va keyingi qadam saytdagi kabinetingizda.",
+        "ru": "⚠️ «{title}» не выполнено. Причина и что делать дальше — в вашем кабинете на сайте.",
+        "en": "⚠️ “{title}” could not be completed. The reason and next steps are in your cabinet on the website.",
+        "kk": "⚠️ «{title}» орындалмады. Себебі мен келесі қадам сайттағы кабинетіңізде."
+    },
+    "web_open_docs_btn": {"uz": "🌐 Saytda ochish", "ru": "🌐 Открыть на сайте", "en": "🌐 Open on the website", "kk": "🌐 Сайтта ашу"},
     "site_mode_link_failed": {
         "uz": "⚠️ Havolani tayyorlab bo'lmadi. Bir daqiqadan keyin qayta bosing.",
         "ru": "⚠️ Не удалось подготовить ссылку. Нажмите ещё раз через минуту.",

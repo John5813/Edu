@@ -181,6 +181,28 @@
     }
   };
 
+  // Tayyor fayl Telegramga yetdimi (job.telegram: 1 — fayl, 2 — havola, -1 — yetmadi, 0 — hali yoki kerak emas).
+  Edu.tgNote = function (job, bot) {
+    const t = Number(job && job.telegram || 0);
+    if (t === 1) return '<span>📩 Fayl Telegramga ham yuborilgan.</span>';
+    if (t === 2) return '<span>📩 Fayl Telegram uchun katta: botga havola yuborildi, faylni shu yerdan yuklab oling.</span>';
+    if (t === -1) return '<span>⚠️ Telegramga yuborib bo‘lmadi — botni ochib, Start bosing.</span> <a class="link" target="_blank" rel="noopener" href="https://t.me/' +
+      Edu.esc(bot || 'Edufayl_bot') + '">Botni ochish</a>';
+    return '<span>📩 Fayl Telegramga ham yuboriladi.</span>';
+  };
+  // Fayl tayyor bo'lgach Telegramga yuborish bir necha soniya oladi: belgini shu vaqt ichida yangilab turadi.
+  Edu.watchTg = function (job, el, bot) {
+    if (!el) return;
+    el.innerHTML = Edu.tgNote(job, bot);
+    let left = 6;
+    const tick = async () => {
+      if (!document.body.contains(el) || Number(job.telegram || 0) !== 0 || left-- <= 0) return;
+      try { job = (await Edu.api('/jobs/' + encodeURIComponent(job.id))).job; el.innerHTML = Edu.tgNote(job, bot); } catch (e) { /* keyingi urinish */ }
+      setTimeout(tick, 3000);
+    };
+    setTimeout(tick, 2500);
+  };
+
   Edu.copy = async function (text) {
     try { await navigator.clipboard.writeText(text); Edu.toast('Nusxalandi'); }
     catch (e) { Edu.toast(text); }

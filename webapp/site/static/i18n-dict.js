@@ -1,6 +1,11 @@
 /* Edufayl sayti: tarjima lug'ati (o'zbekcha matn → ru, en, kk). Mexanizm: i18n.js */
 window.EDU_DICT = {
 "ru": {
+"📩 Fayl Telegramga ham yuborilgan.": "📩 Файл также отправлен в Telegram.",
+"📩 Fayl Telegramga ham yuboriladi.": "📩 Файл также будет отправлен в Telegram.",
+"📩 Fayl Telegram uchun katta: botga havola yuborildi, faylni shu yerdan yuklab oling.": "📩 Файл слишком большой для Telegram: в бот отправлена ссылка, скачайте файл здесь.",
+"⚠️ Telegramga yuborib bo‘lmadi — botni ochib, Start bosing.": "⚠️ Не удалось отправить в Telegram — откройте бот и нажмите «Старт».",
+"Bu taqdimot ko‘rib chiqish uchun saqlanmagan.": "Эта презентация не сохранена для просмотра.",
 "Kirilmoqda…": "Вход…",
 "Akkauntlarni birlashtiramizmi?": "Объединить аккаунты?",
 "Bu brauzerda avval Google akkaunti bilan kirgansiz:": "В этом браузере вы раньше входили через Google:",
@@ -590,6 +595,11 @@ window.EDU_DICT = {
 ]
 },
 "en": {
+"📩 Fayl Telegramga ham yuborilgan.": "📩 The file was also sent to Telegram.",
+"📩 Fayl Telegramga ham yuboriladi.": "📩 The file will also be sent to Telegram.",
+"📩 Fayl Telegram uchun katta: botga havola yuborildi, faylni shu yerdan yuklab oling.": "📩 The file is too large for Telegram: a link was sent to the bot, download the file here.",
+"⚠️ Telegramga yuborib bo‘lmadi — botni ochib, Start bosing.": "⚠️ Couldn't send to Telegram — open the bot and press Start.",
+"Bu taqdimot ko‘rib chiqish uchun saqlanmagan.": "This presentation was not saved for viewing.",
 "Kirilmoqda…": "Signing in…",
 "Akkauntlarni birlashtiramizmi?": "Merge your accounts?",
 "Bu brauzerda avval Google akkaunti bilan kirgansiz:": "In this browser you previously signed in with Google:",
@@ -1179,6 +1189,11 @@ window.EDU_DICT = {
 ]
 },
 "kk": {
+"📩 Fayl Telegramga ham yuborilgan.": "📩 Файл Telegram-ға да жіберілді.",
+"📩 Fayl Telegramga ham yuboriladi.": "📩 Файл Telegram-ға да жіберіледі.",
+"📩 Fayl Telegram uchun katta: botga havola yuborildi, faylni shu yerdan yuklab oling.": "📩 Файл Telegram үшін үлкен: ботқа сілтеме жіберілді, файлды осы жерден жүктеп алыңыз.",
+"⚠️ Telegramga yuborib bo‘lmadi — botni ochib, Start bosing.": "⚠️ Telegram-ға жіберу мүмкін болмады — ботты ашып, «Старт» басыңыз.",
+"Bu taqdimot ko‘rib chiqish uchun saqlanmagan.": "Бұл презентация қарау үшін сақталмаған.",
 "Kirilmoqda…": "Кіру…",
 "Akkauntlarni birlashtiramizmi?": "Аккаунттарды біріктіреміз бе?",
 "Bu brauzerda avval Google akkaunti bilan kirgansiz:": "Бұл браузерде бұрын Google арқылы кірген едіңіз:",
