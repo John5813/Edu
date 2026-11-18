@@ -99,6 +99,57 @@ class Frame:
         return Frame(cx, cy, size, rot)
 
 
+def _text_boxes(lay) -> List[Tuple[float, float, float, float]]:
+    """Kompozitsiyadagi matn joylari (x0, y0, x1, y1): sarlavha, matn va matn kartasi."""
+    out = []
+    for box in (lay.title, lay.body, lay.panel):
+        if box:
+            x, y, w, h = box
+            out.append((x, y, x + w, y + h))
+    return out
+
+
+def _path_hits(cam: Camera, points, start: Frame, end: Frame, fading_out, fading_in, steps: int = 9) -> float:
+    """Morph `start` → `end` yo'lida model matn ustidan qanchalik o'tadi (0 — umuman tegmaydi).
+
+    Ketayotgan slayd matni so'nib boradi (og'irligi 1-t), kelayotganniki paydo bo'ladi (t)."""
+    total = 0.0
+    for k in range(1, steps):
+        t = k / steps
+        rot = tuple(a + (b - a) * t for a, b in zip(start.rot, end.rot))
+        size = start.size + (end.size - start.size) * t
+        cx, cy = start.cx + (end.cx - start.cx) * t, start.cy + (end.cy - start.cy) * t
+        u0, v0, u1, v1 = cam.extent(points, rot)
+        x0, y0, x1, y1 = cx + u0 * size, cy + v0 * size, cx + u1 * size, cy + v1 * size
+        area = max((x1 - x0) * (y1 - y0), 1e-6)
+        for boxes, weight in ((fading_out, 1 - t), (fading_in, t)):
+            for bx0, by0, bx1, by1 in boxes:
+                ox, oy = min(x1, bx1) - max(x0, bx0), min(y1, by1) - max(y0, by0)
+                if ox > 0 and oy > 0:
+                    total = max(total, weight * ox * oy / min(area, (bx1 - bx0) * (by1 - by0)))
+    return total
+
+
+def clear_way(cam: Camera, points, frame: Frame, prefer: Optional[str], fading_out, fading_in,
+              arriving: bool = False) -> str:
+    """Uchib chiqish/kirish yo'nalishi: model matn ustidan o'tmaydigani (rejissyor tanlagani — birinchi navbatda).
+
+    Ilgari yo'nalish tasodifiy edi: o'ngdagi model chapga ketsa (yoki chapdan kirsa), slayd bo'ylab chapdagi
+    matn ustunining ustidan uchib o'tardi — Morph paytida «chegaradan chiqib ketgandek» ko'rinardi."""
+    order = [prefer] if prefer in EXITS else []
+    order += [w for w in ("up", "down", "right", "left") if w not in order]
+    best, score = order[0], None
+    for way in order:
+        out = frame.moved_out(way)
+        hit = _path_hits(cam, points, out, frame, fading_out, fading_in) if arriving else \
+            _path_hits(cam, points, frame, out, fading_out, fading_in)
+        if hit <= 0.02:
+            return way
+        if score is None or hit < score:
+            best, score = way, hit
+    return best
+
+
 def fit_frame(cam: Camera, points, rot, region, fill: float = FILL) -> Frame:
     u0, v0, u1, v1 = cam.extent(points, rot)
     rx, ry, rw, rh = region
@@ -862,16 +913,27 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
         variant = data.get("deco") if data.get("deco") is not None else seed * 31 + index
         design.draw_deco(slide, design.deco_specs(st, lay, int(variant), model_box))
         design.ground_shadow(slide, st, model_box)
-        # Yordamchi (avtomatik o'tadigan) slaydlar raqamga kirmaydi: u keyingi slaydning raqamini ko'rsatadi.
+        # Yordamchi (avtomatik o'tadigan) slaydlar raqamga kirmaydi va MATNSIZ: ular faqat modelni yangi joyga
+        # olib o'tadi. Matn qo'yilsa, telefon ilovalari, WPS va oddiy ko'rishda (avtomatik o'tish ishlamaydi)
+        # mijoz keyingi slayd matnini ketma-ket 2-3 marta ko'radi — mantiq uzilgandek. Slayd-shouda esa eski matn
+        # so'nadi, model joyini almashtiradi va yangi matn paydo bo'ladi.
         number = sum(1 for s in slides[:index] if not s.get("auto"))
-        _text_column(slide, data, number, total, scene["source"], st, lay, plan.get("language") or "uz",
-                     plan.get("author") or "")
+        if data.get("auto"):
+            slide.notes_slide.notes_text_frame.text = f"3D: {scene['source']}"
+        else:
+            _text_column(slide, data, number, total, scene["source"], st, lay, plan.get("language") or "uz",
+                         plan.get("author") or "")
 
         placed = set(cur["names"])
         # fade — bu slaydga o'tishda organlar uchib kelmaydi, o'z joyida asta almashadi (Morph o'zi so'ndiradi).
         if index and not data.get("fade"):           # oldingi slayddan ketayotganlar
             before = plans[index - 1]
+            leaving = [p for name, (k, g) in before["names"].items() if name not in placed
+                       for p in before["scene"]["groups"][g]["samples"]]
             way = (data.get("exit") or "up") if before["key"] == key else (data.get("exit") or "left")
+            if leaving:
+                way = clear_way(before["cam"], leaving, before["frame"], way,
+                                _text_boxes(before["layout"]), _text_boxes(lay))
             out = before["frame"].moved_out(way)
             for name, (k, g) in before["names"].items():
                 if name not in placed:
@@ -880,7 +942,12 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
                     placed.add(name)
         if index + 1 < len(plans) and not slides[index + 1].get("fade"):   # keyingilari — hozircha tashqarida
             after = plans[index + 1]
+            arriving = [p for name, (k, g) in after["names"].items() if name not in placed
+                        for p in after["scene"]["groups"][g]["samples"]]
             way = slides[index + 1].get("enter") or ("down" if after["key"] == key else "right")
+            if arriving:
+                way = clear_way(after["cam"], arriving, after["frame"], way, _text_boxes(lay),
+                                _text_boxes(after["layout"]), arriving=True)
             incoming = after["frame"].moved_out(way)
             for name, (k, g) in after["names"].items():
                 if name not in placed:
@@ -910,7 +977,7 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
                 steps += [(s, "fade", delay + 500) for s in extras]
             else:
                 steps += [(s, "fade", delay) for s in drawn + extras]
-        if _has_picture(data, lay):                  # kasallik rasmi va zararlangan joydan unga strelka
+        if _has_picture(data, lay) and not data.get("auto"):   # kasallik rasmi (yordamchi slaydda — yo'q)
             sick = [it for _, it in placed_labels if it.get("alert")]
             target = (sick[0].get("tip") or (sick[0]["ax"], sick[0]["ay"])) if sick else None
             if not data.get("picture_path"):         # davolash tasviri — zararlangan joyga strelka yo'q

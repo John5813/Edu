@@ -10,6 +10,7 @@ GLB alohida qo'yilishi kerak (slaydni nusxalash modelni buzadi).
 """
 import hashlib
 import io
+import logging
 import math
 from typing import Dict, Optional, Sequence
 
@@ -20,7 +21,11 @@ from pptx.opc.package import Part
 from pptx.oxml.ns import qn
 from pptx.util import Inches
 
-from . import glb
+from . import glb, preview
+
+log = logging.getLogger(__name__)
+# Telefon va WPS uchun model rasmi (preview.py). Testlarda tezlik uchun o'chirilishi mumkin.
+FALLBACK_PICTURES = True
 
 AM3D_NS = "http://schemas.microsoft.com/office/drawing/2017/model3d"
 RT_MODEL3D = "http://schemas.microsoft.com/office/2017/06/relationships/model3d"
@@ -135,7 +140,17 @@ def add_model3d(slide, data: bytes, name: str, x: float, y: float, size: float,
         if parts is not None:
             parts[key] = part
     rid_model = slide.part.relate_to(part, RT_MODEL3D)
-    _, rid_png = slide.part.get_or_add_image_part(io.BytesIO(_PNG))
+    # Zaxira rasm: 3D ko'rsatmaydigan dasturlarda (telefon, WPS) model o'rnida uning shu burchakdagi rasmi.
+    # Slayd tashqarisida kutib turgan nusxa (uchib kiradi/chiqadi) — shaffof, rasm chizilmaydi.
+    png = _PNG
+    presentation = slide.part.package.presentation_part.presentation
+    if FALLBACK_PICTURES and preview.on_slide(x, y, size, (presentation.slide_width / 914400,
+                                                           presentation.slide_height / 914400)):
+        try:
+            png = preview.fallback_png(data, rot, size)
+        except Exception:                      # rasm chiqmasa ham taqdimot buzilmaydi (PowerPoint'da 3D baribir bor)
+            log.warning("3D model zaxira rasmi chizilmadi", exc_info=True)
+    _, rid_png = slide.part.get_or_add_image_part(io.BytesIO(png))
     tree = slide.shapes._spTree
     side = int(Inches(size))
     node = etree.fromstring(_model_xml(_next_id(tree), name, int(Inches(x)), int(Inches(y)), side, side,

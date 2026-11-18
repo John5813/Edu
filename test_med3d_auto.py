@@ -10,7 +10,7 @@
     python test_med3d_auto.py
 """
 from unittest import mock
-import asyncio, copy, re, os, sys, tempfile, zipfile
+import asyncio, copy, io, re, os, sys, tempfile, zipfile
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -328,13 +328,53 @@ two[1].update(fade=True, auto=True, frame_of=0, labels=[])
 p2 = med3d_deck.build({"scene": deck_plan["scene"], "slides": two}, os.path.join(out_dir, "fade.pptx"), scenes=scenes)
 z2 = zipfile.ZipFile(p2)
 xml = [z2.read(f"ppt/slides/slide{i}.xml").decode() for i in (1, 2, 3)]
-pages = [[sh.text_frame.text for sh in s.shapes if sh.name == "!!page"][0] for s in Presentation(p2).slides]
+pages = [([sh.text_frame.text for sh in s.shapes if sh.name == "!!page"] or [""])[0] for s in Presentation(p2).slides]
+texts = [[sh.name for sh in s.shapes if sh.has_text_frame and sh.text_frame.text.strip()
+          and not sh.name.startswith("lbl_")] for s in Presentation(p2).slides]
 check("yordamchi slayd avtomatik o'tadi (advTm), boshqalari yo'q", 'advTm="0"' in xml[1]
       and "advTm" not in xml[2], [("advTm" in x) for x in xml])
-check("yordamchi raqamga kirmaydi", pages == ["01 / 02", "02 / 02", "02 / 02"], pages)
+check("yordamchi raqamga kirmaydi", pages == ["01 / 02", "", "02 / 02"], pages)
+# Telefon, WPS va oddiy ko'rishda yordamchi o'z-o'zidan o'tmaydi: unda keyingi slayd matni bo'lsa, mijoz bir xil
+# matnni ketma-ket 2-3 marta ko'rardi («mantiq uzilishi»). Yordamchi — faqat model harakati, matnsiz.
+check("yordamchi slaydda matn yo'q (sarlavha, matn, raqam takrorlanmaydi)", not texts[1] and texts[2], texts)
 offs = [int(m) for m in re.findall(r'<p:graphicFrame.*?<a:off x="(-?\d+)"', xml[1], re.S)]
 check("fade slaydida slayd tashqarisidagi (uchib keladigan) 3D model nusxasi yo'q",
       offs and all(-914400 < x < 13.4 * 914400 for x in offs), offs)
+
+
+# Telefon va WPS (3D ko'rsatmaydi): slayddagi modelning zaxira rasmi — haqiqiy rasm, tashqaridagisi — shaffof 1×1.
+from PIL import Image as _Img  # noqa: E402
+_sizes = []
+for _s in Presentation(p2).slides:
+    for _alt in _s._element.iter("{http://schemas.openxmlformats.org/markup-compatibility/2006}AlternateContent"):
+        _gf = _alt.find(".//{http://schemas.openxmlformats.org/presentationml/2006/main}graphicFrame")
+        if _gf is None:                        # Morph o'tishi ham AlternateContent ichida — 3D emas
+            continue
+        _off = _gf.find(".//{http://schemas.openxmlformats.org/drawingml/2006/main}off")
+        _blip = _alt.find(".//{http://schemas.openxmlformats.org/markup-compatibility/2006}Fallback//"
+                          "{http://schemas.openxmlformats.org/drawingml/2006/main}blip")
+        _im = _Img.open(io.BytesIO(_s.part.related_part(_blip.get(
+            "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed")).blob))
+        _x = int(_off.get("x")) / 914400
+        _sizes.append((_x > -1 and _x < 13.3, _im.size[0], _im.getbbox() is not None))
+check("slayddagi 3D modelning telefon uchun rasmi bor (shaffof emas)",
+      any(on for on, *_ in _sizes) and all(px >= 160 and drawn for on, px, drawn in _sizes if on), _sizes)
+check("slayd tashqarisidagi nusxaga rasm chizilmaydi (1×1)", all(px == 1 for on, px, _ in _sizes if not on), _sizes)
+
+# Uchib chiqish/kirish yo'li matn ustidan o'tmasin: o'ngdagi model chapga (matn ustuni tomon) ketmaydi.
+from services.med3d.camera import Camera as _Cam  # noqa: E402
+_cam = _Cam((0, 0, 0), (1, 1, 1))
+_pts = [(x, y, z) for x in (0, 1) for y in (0, 1) for z in (0, 1)]
+_frame = med3d_deck.Frame(9.6, 3.75, 4.0, (0, 0, 0))
+from services.med3d import design as _design  # noqa: E402
+_text = med3d_deck._text_boxes(_design.layout("chap_matn"))
+_way = med3d_deck.clear_way(_cam, _pts, _frame, "left", _text, _text)
+check("chapda matn bo'lsa, model chapga uchib ketmaydi (matn ustidan o'tmaydi)", _way != "left", _way)
+check("matn ustidan o'tmaydigan yo'l tanlanadi",
+      med3d_deck._path_hits(_cam, _pts, _frame, _frame.moved_out(_way), _text, _text) <= 0.02
+      and med3d_deck._path_hits(_cam, _pts, _frame, _frame.moved_out("left"), _text, _text) > 0.1, _way)
+_inc = med3d_deck.clear_way(_cam, _pts, _frame, "left", _text, _text, arriving=True)
+check("kirayotgan model ham chapdan (matn ustidan) kirmaydi", _inc != "left", _inc)
 
 
 print("4b) Uslublar va rejissyor")
