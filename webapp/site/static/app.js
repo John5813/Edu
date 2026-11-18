@@ -170,9 +170,10 @@
 
   async function deckViewer(job, info) {
     const id = job.id, deck = info.deck, price = info.price;
-    // Tayyor ko'rsatmalar taqdimot tilida (ruscha taqdimotga — ruscha), sayt tili ularni o'zgartirmaydi.
+    // Tayyor ko'rsatmalar sayt tilida ko'rinadi; bosilganda AI ga taqdimot (fayl) tilidagi varianti ketadi.
     const rw = catalog.rewrite || {};
-    const prompts = ((rw.by_language || {})[deck.language] || rw.prompts) || [];
+    const prompts = rw.prompts || [];
+    const promptsForAi = (rw.by_language || {})[deck.language] || prompts;
     const st = {n: 1, version: deck.version, slides: deck.slides, busy: info.busy, panel: false, history: deck.history || []};
     view.innerHTML = `
       <div class="vtop"><a class="link" href="#/docs">← Hujjatlarim</a>
@@ -202,7 +203,7 @@
         ${deck.editable ? `<aside class="vside card" id="vside" hidden>
           <div class="chathead"><b>AI bilan sahifani o‘zgartirish</b><button type="button" class="link" id="vclose" aria-label="Yopish">✕</button></div>
           <div class="chat" id="chat"></div>
-          <div class="chips-row" id="vprompts" translate="no">${prompts.map((p) => `<button type="button" class="chip sm" data-t="${E.esc(p.text)}">${p.icon} ${E.esc(p.text)}</button>`).join('')}</div>
+          <div class="chips-row" id="vprompts">${prompts.map((p, i) => `<button type="button" class="chip sm" data-i="${i}" data-t="${E.esc(p.text)}">${p.icon} ${E.esc(p.text)}</button>`).join('')}</div>
           <form id="vform" class="chatform"><textarea class="fld" id="vtext" rows="2" maxlength="500" placeholder="Sahifa qanday bo‘lishini yozing…"></textarea>
             <button class="btn" id="vsend" type="submit">Yuborish</button></form>
           <div class="hint" id="vnote" style="margin:8px 0 0">Har bir o‘zgartirish ${E.fmt(price)} so‘m. Natija chiqmasa, pul qaytariladi.</div>
@@ -317,7 +318,11 @@
     $('t-chart').onclick = () => manual('chart');
     $('t-order').onclick = () => manual('order');
     $('vclose').onclick = () => open(false);
-    $('vprompts').onclick = (e) => { const b = e.target.closest('[data-t]'); if (!b) return; $('vtext').value = b.dataset.t; send(); };
+    $('vprompts').onclick = (e) => {
+      const b = e.target.closest('[data-t]'); if (!b) return;
+      const ai = promptsForAi[+b.dataset.i];
+      send({show: E.tr(b.dataset.t), instruction: ai ? ai.text : b.dataset.t});
+    };
     $('vform').onsubmit = (e) => { e.preventDefault(); send(); };
     $('vtext').onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } };
 
@@ -328,8 +333,9 @@
       if (!on) show(st.n);
     }
 
-    async function send() {
-      const text = $('vtext').value.trim();
+    async function send(chip) {
+      const text = chip ? chip.show : $('vtext').value.trim();
+      const instruction = chip ? chip.instruction : text;
       if (st.busy) return;
       if (text.length < 3) { $('vnote').innerHTML = '<span style="color:var(--bad)">Sahifa qanday bo‘lishini yozing.</span>'; return; }
       if (st.n === 2 && total > 3) return;
@@ -341,7 +347,7 @@
       bubble('me', `<small>${n}-sahifa</small><br>${E.esc(text)}`);
       const wait = bubble('ai', '<span class="aiw-dots"><i></i><i></i><i></i></span> AI ishlamoqda…');
       let res;
-      try { res = await E.api('/jobs/' + encodeURIComponent(id) + '/rewrite', {json: {index: n, instruction: text}}); }
+      try { res = await E.api('/jobs/' + encodeURIComponent(id) + '/rewrite', {json: {index: n, instruction}}); }
       catch (err) {
         wait.innerHTML = '⚠️ ' + E.esc(err.message) + (err.code === 'no_balance' ? ' <a class="link" href="#/wallet">Hamyonni to‘ldirish</a>' : '');
         lock(false); if (err.code === 'auth') E.login(); return;
