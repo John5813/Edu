@@ -862,10 +862,16 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
         variant = data.get("deco") if data.get("deco") is not None else seed * 31 + index
         design.draw_deco(slide, design.deco_specs(st, lay, int(variant), model_box))
         design.ground_shadow(slide, st, model_box)
-        # Yordamchi (avtomatik o'tadigan) slaydlar raqamga kirmaydi: u keyingi slaydning raqamini ko'rsatadi.
+        # Yordamchi (avtomatik o'tadigan) slaydlar raqamga kirmaydi va MATNSIZ: ular faqat modelni yangi joyga
+        # olib o'tadi. Matn qo'yilsa, telefon ilovalari, WPS va oddiy ko'rishda (avtomatik o'tish ishlamaydi)
+        # mijoz keyingi slayd matnini ketma-ket 2-3 marta ko'radi — mantiq uzilgandek. Slayd-shouda esa eski matn
+        # so'nadi, model joyini almashtiradi va yangi matn paydo bo'ladi.
         number = sum(1 for s in slides[:index] if not s.get("auto"))
-        _text_column(slide, data, number, total, scene["source"], st, lay, plan.get("language") or "uz",
-                     plan.get("author") or "")
+        if data.get("auto"):
+            slide.notes_slide.notes_text_frame.text = f"3D: {scene['source']}"
+        else:
+            _text_column(slide, data, number, total, scene["source"], st, lay, plan.get("language") or "uz",
+                         plan.get("author") or "")
 
         placed = set(cur["names"])
         # fade — bu slaydga o'tishda organlar uchib kelmaydi, o'z joyida asta almashadi (Morph o'zi so'ndiradi).
@@ -910,7 +916,7 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
                 steps += [(s, "fade", delay + 500) for s in extras]
             else:
                 steps += [(s, "fade", delay) for s in drawn + extras]
-        if _has_picture(data, lay):                  # kasallik rasmi va zararlangan joydan unga strelka
+        if _has_picture(data, lay) and not data.get("auto"):   # kasallik rasmi (yordamchi slaydda — yo'q)
             sick = [it for _, it in placed_labels if it.get("alert")]
             target = (sick[0].get("tip") or (sick[0]["ax"], sick[0]["ay"])) if sick else None
             if not data.get("picture_path"):         # davolash tasviri — zararlangan joyga strelka yo'q

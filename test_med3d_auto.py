@@ -328,10 +328,15 @@ two[1].update(fade=True, auto=True, frame_of=0, labels=[])
 p2 = med3d_deck.build({"scene": deck_plan["scene"], "slides": two}, os.path.join(out_dir, "fade.pptx"), scenes=scenes)
 z2 = zipfile.ZipFile(p2)
 xml = [z2.read(f"ppt/slides/slide{i}.xml").decode() for i in (1, 2, 3)]
-pages = [[sh.text_frame.text for sh in s.shapes if sh.name == "!!page"][0] for s in Presentation(p2).slides]
+pages = [([sh.text_frame.text for sh in s.shapes if sh.name == "!!page"] or [""])[0] for s in Presentation(p2).slides]
+texts = [[sh.name for sh in s.shapes if sh.has_text_frame and sh.text_frame.text.strip()
+          and not sh.name.startswith("lbl_")] for s in Presentation(p2).slides]
 check("yordamchi slayd avtomatik o'tadi (advTm), boshqalari yo'q", 'advTm="0"' in xml[1]
       and "advTm" not in xml[2], [("advTm" in x) for x in xml])
-check("yordamchi raqamga kirmaydi", pages == ["01 / 02", "02 / 02", "02 / 02"], pages)
+check("yordamchi raqamga kirmaydi", pages == ["01 / 02", "", "02 / 02"], pages)
+# Telefon, WPS va oddiy ko'rishda yordamchi o'z-o'zidan o'tmaydi: unda keyingi slayd matni bo'lsa, mijoz bir xil
+# matnni ketma-ket 2-3 marta ko'rardi («mantiq uzilishi»). Yordamchi — faqat model harakati, matnsiz.
+check("yordamchi slaydda matn yo'q (sarlavha, matn, raqam takrorlanmaydi)", not texts[1] and texts[2], texts)
 offs = [int(m) for m in re.findall(r'<p:graphicFrame.*?<a:off x="(-?\d+)"', xml[1], re.S)]
 check("fade slaydida slayd tashqarisidagi (uchib keladigan) 3D model nusxasi yo'q",
       offs and all(-914400 < x < 13.4 * 914400 for x in offs), offs)
