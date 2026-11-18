@@ -76,18 +76,57 @@ async def seed_shop():
                                          category="", work_type=wt, language="uz", slide_count=n, preview_count=3)
 
 
+async def demo_bot(request):
+    return web.FileResponse(os.path.join(HERE, "botchat.html"))
+
+
+async def demo_go(request):
+    """Botdagi «🌐 Ochish» tugmasi: haqiqiy bir martalik kirish havolasi (bot ham xuddi shunday beradi)."""
+    from database import web_store
+    return web.json_response({"token": await web_store.start_go(100)})
+
+
+async def demo_pay(request):
+    """Click to'lovi o'rnida: yetishmagan summa hisobga tushadi va kutib turgan buyurtma o'zi boshlanadi."""
+    from database import web_store
+    add = int(request.query.get("add") or 0)
+    if add:
+        await Database.update_user_balance(100, add)
+        return web.json_response({"ok": True, "paid": add})
+    row = await web_store.get_pending(100)
+    user = await Database.get_user(100)
+    missing = max(0, int(row["price"]) - int(user.balance or 0)) if row else 0
+    if missing:
+        await Database.update_user_balance(100, missing)
+    await web_jobs.start_pending(100)
+    return web.json_response({"ok": True, "paid": missing})
+
+
 async def main():
     from webapp.server import create_web_app
     from bot.queue_service import get_doc_queue
     from database import web_accounts
+    from services import site_mode, click_pay, payme_pay, uzum_pay
+    import config
+    site_mode.ON = True                      # videoda sayt rejimi: xarid va to'lov saytning o'zida
+    async def _on():
+        return True
+    click_pay.available = payme_pay.available = uzum_pay.available = _on
+    from services.receipts import web as receipt_web
+    receipt_web.card_view = lambda number: number         # haqiqiy karta raqami videoga tushmasin
+    config.PAYMENT_CARD, config.PAYMENT_CARD_2, config.PAYMENT_CARD_OWNER = "8600 •••• •••• ••••", "", "Edufayl"
     await init_db()
     await _NS["patch_ai"](); get_doc_queue().start()
     await Database.create_user(100, "ali", "Ali Valiyev", "uz")
-    await Database.update_user_balance(100, 120_000)
+    await Database.update_user_balance(100, int(os.getenv("BALANCE", "0")))
     await seed_shop()
     tok = await web_accounts.create_session(100)
     open(os.path.join(HERE, "session.txt"), "w").write(tok)
-    runner = web.AppRunner(create_web_app()); await runner.setup()
+    app = create_web_app()
+    app.router.add_get("/demo/bot", demo_bot)
+    app.router.add_post("/demo/go", demo_go)
+    app.router.add_post("/demo/pay", demo_pay)
+    runner = web.AppRunner(app); await runner.setup()
     await web.TCPSite(runner, "127.0.0.1", 8798).start()
     print("ready", flush=True)
     while True:

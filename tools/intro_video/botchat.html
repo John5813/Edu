@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Edufayl bot</title>
+<!-- Faqat tanishtiruv videosi uchun: Edufayl botidagi suhbatning soddalashtirilgan ko'rinishi (videoserver.py beradi). -->
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font:15px/1.4 "Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",sans-serif;color:#0C1226}
+  body{background:#D9E4EE;display:flex;justify-content:center}
+  .app{width:100%;max-width:620px;height:100%;display:flex;flex-direction:column;background:#C9DCC4;
+    background-image:radial-gradient(circle at 20% 30%,rgba(255,255,255,.28) 0 2px,transparent 3px),radial-gradient(circle at 70% 60%,rgba(255,255,255,.22) 0 2px,transparent 3px);
+    background-size:46px 46px,58px 58px;box-shadow:0 0 40px rgba(12,18,38,.12)}
+  .top{display:flex;align-items:center;gap:12px;padding:10px 16px;background:#fff;border-bottom:1px solid #E3E7EF}
+  .top img{width:40px;height:40px;border-radius:50%}
+  .top b{display:block;font-size:16px}.top small{color:#7A8299}
+  .chat{flex:1;overflow:auto;padding:14px 12px 8px;display:flex;flex-direction:column;gap:8px}
+  .msg{max-width:82%;padding:8px 12px 6px;border-radius:14px;background:#fff;box-shadow:0 1px 1px rgba(0,0,0,.08);
+    animation:pop .28s ease-out;white-space:pre-line}
+  .msg.me{align-self:flex-end;background:#E2F6CF;border-bottom-right-radius:4px}
+  .msg.bot{align-self:flex-start;border-bottom-left-radius:4px}
+  .msg time{display:block;text-align:right;font-size:11px;color:#8C95A8;margin-top:2px}
+  .msg i{color:#4A5272}
+  .ik{display:flex;gap:6px;margin-top:8px}
+  .ik button{flex:1;border:0;border-radius:10px;background:#EEF3FB;color:#2A6FDB;font:600 15px/1 inherit;padding:11px 8px;cursor:pointer}
+  .doc{display:flex;gap:12px;align-items:center;min-width:280px}
+  .doc .ic{width:46px;height:46px;border-radius:12px;background:#C8462B;color:#fff;display:flex;align-items:center;justify-content:center;font:700 12px/1 inherit}
+  .doc b{display:block}.doc small{color:#7A8299}
+  .kb{background:#F1F3F7;padding:8px;display:grid;grid-template-columns:1fr 1fr;gap:6px;border-top:1px solid #E3E7EF}
+  .kb button{border:0;border-radius:10px;background:#fff;box-shadow:0 1px 1px rgba(0,0,0,.08);font:600 14px/1.2 inherit;padding:11px 6px;cursor:pointer;color:#0C1226}
+  .kb .w{grid-column:1/3}
+  @keyframes pop{from{transform:translateY(8px) scale(.97);opacity:0}to{transform:none;opacity:1}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top"><img src="/static/logo-sm.webp" alt=""><div><b>Edufayl</b><small>bot</small></div></div>
+  <div class="chat" id="chat"></div>
+  <div class="kb" id="kb">
+    <button class="w">🟩 Boshqa professional xizmatlar</button>
+    <button id="k-pres">🌟 Taqdimot</button><button>🧊 3D taqdimot Pro</button>
+    <button>💥 Mustaqil ish</button><button>⚡ Referat</button>
+    <button>✨ Kurs ishi</button><button>📐 Loyiha ishi</button>
+    <button>🌐 Kabinetim</button><button>📁 Namunalar</button>
+    <button>📞 Yordam</button><button>⚙️ Sozlamalar</button>
+  </div>
+</div>
+<script>
+(function () {
+  var chat = document.getElementById('chat'), q = new URLSearchParams(location.search);
+  var now = new Date(), hm = ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);
+  function add(cls, html) {
+    var m = document.createElement('div'); m.className = 'msg ' + cls; m.innerHTML = html + '<time>' + hm + '</time>';
+    chat.appendChild(m); chat.scrollTop = chat.scrollHeight; return m;
+  }
+  add('bot', 'Assalomu alaykum! Kerakli xizmatni tanlang 👇');
+  var title = q.get('file');
+  if (title) {
+    add('me', '🌟 Taqdimot');
+    add('bot', '🌐 <b>Taqdimot</b> saytda ochiladi.\n\nTugmani bosing — sayt sizni Telegram orqali o‘zi taniydi.');
+    setTimeout(function () {
+      add('bot', '<div class="doc"><span class="ic">PPTX</span><div><b>' + title.replace(/[<>&]/g, '') + '.pptx</b><small>2.4 MB</small></div></div>');
+      setTimeout(function () { add('bot', '✅ «' + title.replace(/[<>&]/g, '') + '» tayyor. Fayl saytdagi kabinetingizda ham 72 soat turadi.'); }, 700);
+    }, 500);
+    return;
+  }
+  document.getElementById('k-pres').onclick = function () {
+    add('me', '🌟 Taqdimot');
+    setTimeout(function () {
+      var m = add('bot', '🌐 <b>Taqdimot</b> saytda ochiladi.\n\nTugmani bosing — sayt sizni Telegram orqali o‘zi taniydi, ro‘yxatdan o‘tish va parol kerak emas. Tayyor fayl shu chatga ham keladi.' +
+        '<div class="ik"><button type="button" id="open">🌐 Ochish</button></div>');
+      m.querySelector('#open').onclick = function () {
+        fetch('/demo/go', {method: 'POST'}).then(function (r) { return r.json(); })
+          .then(function (d) { location.href = '/go?t=' + encodeURIComponent(d.token) + '&to=premium_presentation'; });
+      };
+    }, 650);
+  };
+})();
+</script>
+</body>
+</html>
