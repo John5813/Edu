@@ -47,14 +47,49 @@ def fake_write(topic, count, theme, language="uz", level=2, preferences="", sour
             body = deck_logic.plan_slide([(t, "") for _, t, _ in deck[2:-1]], language)
         if i == 0 and author:
             body = body.replace("</div></section>", f'<p class="note">Tayyorladi: {author}</p></div></section>', 1)
-        bodies.append(body)
+        bodies.append(fill_photos(body))
     for done in range(0, n, 3):
         if progress_cb:
             progress_cb(done, n)
         time.sleep(SLOW / max(1, n / 3))
     if outline_out is not None:
         outline_out.update(family="umumiy", outline=[{"title": t, "brief": t, "category": c} for c, t, _ in deck])
-    return html_slides.build_pages(bodies, theme, language)
+    return with_cover(html_slides.build_pages(bodies, theme, language))
+
+
+PHOTO_DIR = os.getenv("PHOTO_DIR") or os.path.join(HERE, "photos")
+_SLOT = __import__("re").compile(r'<div class="rasm"><img class="photo" data-demo="(\w+)" alt=""></div>')
+
+
+def photo_uri(name):
+    """photos/<name>.(jpg|jpeg|png|webp) → siqilgan JPEG data URI (bo'lmasa — None)."""
+    import base64, io
+    from PIL import Image
+    for ext in (".jpg", ".jpeg", ".png", ".webp"):
+        path = os.path.join(PHOTO_DIR, name + ext)
+        if os.path.exists(path):
+            im = Image.open(path).convert("RGB")
+            im.thumbnail((1600, 1600))
+            buf = io.BytesIO(); im.save(buf, "JPEG", quality=84)
+            return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
+    return None
+
+
+def fill_photos(body):
+    """Namoyish slaydlariga haqiqiy rasmlar (mahsulotda ular internetdan topiladi yoki AI chizadi)."""
+    def fill(m):
+        uri = photo_uri(m.group(1))
+        return (f'<div class="rasm photo-in"><img class="photo" src="{uri}" alt="" style="object-position:50% 50%"></div>'
+                if uri else "")
+    return _SLOT.sub(fill, body)
+
+
+def with_cover(pages):
+    from services.premium_presentation import html_images
+    cover = photo_uri("cover")
+    if cover and pages:
+        pages[0] = html_images.with_cover_photo(pages[0], cover)
+    return pages
 
 
 html_slides.write_slides = fake_write
@@ -76,18 +111,57 @@ async def seed_shop():
                                          category="", work_type=wt, language="uz", slide_count=n, preview_count=3)
 
 
+async def demo_bot(request):
+    return web.FileResponse(os.path.join(HERE, "botchat.html"))
+
+
+async def demo_go(request):
+    """Botdagi «🌐 Ochish» tugmasi: haqiqiy bir martalik kirish havolasi (bot ham xuddi shunday beradi)."""
+    from database import web_store
+    return web.json_response({"token": await web_store.start_go(100)})
+
+
+async def demo_pay(request):
+    """Click to'lovi o'rnida: yetishmagan summa hisobga tushadi va kutib turgan buyurtma o'zi boshlanadi."""
+    from database import web_store
+    add = int(request.query.get("add") or 0)
+    if add:
+        await Database.update_user_balance(100, add)
+        return web.json_response({"ok": True, "paid": add})
+    row = await web_store.get_pending(100)
+    user = await Database.get_user(100)
+    missing = max(0, int(row["price"]) - int(user.balance or 0)) if row else 0
+    if missing:
+        await Database.update_user_balance(100, missing)
+    await web_jobs.start_pending(100)
+    return web.json_response({"ok": True, "paid": missing})
+
+
 async def main():
     from webapp.server import create_web_app
     from bot.queue_service import get_doc_queue
     from database import web_accounts
+    from services import site_mode, click_pay, payme_pay, uzum_pay
+    import config
+    site_mode.ON = True                      # videoda sayt rejimi: xarid va to'lov saytning o'zida
+    async def _on():
+        return True
+    click_pay.available = payme_pay.available = uzum_pay.available = _on
+    from services.receipts import web as receipt_web
+    receipt_web.card_view = lambda number: number         # haqiqiy karta raqami videoga tushmasin
+    config.PAYMENT_CARD, config.PAYMENT_CARD_2, config.PAYMENT_CARD_OWNER = "8600 •••• •••• ••••", "", "Edufayl"
     await init_db()
     await _NS["patch_ai"](); get_doc_queue().start()
     await Database.create_user(100, "ali", "Ali Valiyev", "uz")
-    await Database.update_user_balance(100, 120_000)
+    await Database.update_user_balance(100, int(os.getenv("BALANCE", "0")))
     await seed_shop()
     tok = await web_accounts.create_session(100)
     open(os.path.join(HERE, "session.txt"), "w").write(tok)
-    runner = web.AppRunner(create_web_app()); await runner.setup()
+    app = create_web_app()
+    app.router.add_get("/demo/bot", demo_bot)
+    app.router.add_post("/demo/go", demo_go)
+    app.router.add_post("/demo/pay", demo_pay)
+    runner = web.AppRunner(app); await runner.setup()
     await web.TCPSite(runner, "127.0.0.1", 8798).start()
     print("ready", flush=True)
     while True:

@@ -1,9 +1,9 @@
 // HTML sahifalarni 960x540 JPEG qiladi: shot_dir.js <html ildizi> <jpg ildizi>
-const { chromium } = require(process.env.PW_CORE || 'playwright-core');
+const { chromium } = require(process.env.PW_CORE || 'playwright');
 const fs = require('fs'), path = require('path');
 const [src, dst] = process.argv.slice(2);
 (async () => {
-  const b = await chromium.launch({ executablePath: process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const b = await chromium.launch({ ...(process.env.CHROME ? { executablePath: process.env.CHROME } : {}) });
   const ctx = await b.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 0.5 });
   for (const code of fs.readdirSync(src)) {
     fs.mkdirSync(path.join(dst, code), { recursive: true });

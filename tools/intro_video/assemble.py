@@ -14,7 +14,10 @@ FPS = 30
 PAD = 0.45            # ovozdan keyin qoladigan sukut (soniya)
 MAX_SPEED = 1.35
 # Kutish yoki yozish ko'p bo'lgan sahnalar ko'proq tezlashtirilishi mumkin (animatsiya baribir ravon qoladi).
-SPEED_CAP = {"05": 2.4, "12": 1.9, "07": 2.0, "08": 2.1, "09": 1.6, "03": 1.5}
+SPEED_CAP = {"07": 2.4, "08": 2.0, "09": 2.1, "12": 1.9, "03": 1.6, "13": 1.5, "11": 1.4}
+# Ovoz sahnadan uzun bo'lsa — video to'xtatib turilmaydi, ovozning o'zi tezlashtiriladi (ohang o'zgarmaydi).
+# Shundan ham uzun bo'lsa, qolgani uchun oxirgi kadr ushlab turiladi.
+VOICE_MAX = 1.3
 
 
 def run(cmd):
@@ -86,8 +89,12 @@ def main():
             inside = [{"t": start, "file": before[-1]["file"]}] + inside
         natural = end - start
         voice = audio_of(audio_dir, sid)
+        tempo = 1.0
         if voice:
-            target = duration(voice) + PAD
+            spoken = duration(voice)
+            if spoken + PAD > natural:
+                tempo = min(VOICE_MAX, spoken / max(0.5, natural - PAD))
+            target = spoken / tempo + PAD
         else:
             words = len(scenes[sid]["text"].split())
             target = words / 2.3 + 0.8
@@ -112,9 +119,10 @@ def main():
              "-c:v", "libx264", "-preset", "medium", "-crf", "18", clip])
         real = duration(clip)
         clips.append(clip)
-        timeline.append((sid, t0, real, voice))
+        timeline.append((sid, t0, real, voice, tempo))
         report.append(f"{sid} {scenes[sid]['name']:<22} ekranda {natural:5.1f}s → video {real:5.1f}s"
-                      + (f"  (ovoz {duration(voice):.1f}s" + (f", tezlik ×{speed:.2f}" if speed > 1 else "") + ")" if voice else "  (taxminiy)"))
+                      + (f"  (ovoz {duration(voice):.1f}s" + (f", video ×{speed:.2f}" if speed > 1 else "")
+                         + (f", ovoz ×{tempo:.2f}" if tempo > 1 else "") + ")" if voice else "  (taxminiy)"))
         t0 += real
 
     joined = os.path.join(work, "joined.mp4")
@@ -134,11 +142,12 @@ def main():
     cues_all = {}
     if audio_dir and os.path.exists(os.path.join(audio_dir, "cues.json")):
         cues_all = json.load(open(os.path.join(audio_dir, "cues.json"), encoding="utf-8"))
-    for sid, start, length, voice in timeline:
+    for sid, start, length, voice, tempo in timeline:
         if voice and sid in cues_all:
             # Ovozdagi haqiqiy pauzalar bo'yicha: bo'laklar gap oxirigacha (yoki satr to'lguncha) qo'shiladi.
             lines, cur = [], None
             for c in cues_all[sid]:
+                c = {**c, "start": c["start"] / tempo, "end": c["end"] / tempo}
                 if cur and len(cur["text"]) + 1 + len(c["text"]) > limit * 2:
                     lines.append(cur); cur = None
                 cur = dict(c) if not cur else {**cur, "text": cur["text"] + " " + c["text"], "end": c["end"]}
@@ -155,7 +164,7 @@ def main():
             continue
         parts = chunks(scenes[sid]["text"], limit * 2)
         total = sum(len(p) for p in parts) or 1
-        speak = (duration(voice) if voice else length - 0.3)
+        speak = (duration(voice) / tempo if voice else length - 0.3)
         at = start + 0.15
         for p in parts:
             d = speak * len(p) / total
@@ -170,13 +179,14 @@ def main():
 
     vf = [f"ass={ass_path}"] if subs else []
     cmd = ["ffmpeg", "-y", "-v", "error", "-i", joined]
-    if audio_dir and any(v for *_, v in timeline):
+    if audio_dir and any(t[3] for t in timeline):
         filt, labels = [], []
-        for k, (sid, start, length, voice) in enumerate(timeline):
+        for k, (sid, start, length, voice, tempo) in enumerate(timeline):
             if voice:
                 cmd += ["-i", voice]
-                idx = len([1 for *_, vv in timeline[:k + 1] if vv])
-                filt.append(f"[{idx}:a]aresample=48000,apad,atrim=0:{length:.3f}[a{k}]")
+                idx = len([1 for t in timeline[:k + 1] if t[3]])
+                fast = f"atempo={tempo:.4f}," if tempo > 1 else ""
+                filt.append(f"[{idx}:a]aresample=48000,{fast}apad,atrim=0:{length:.3f}[a{k}]")
             else:
                 filt.append(f"anullsrc=r=48000:cl=stereo,atrim=0:{length:.3f}[a{k}]")
             labels.append(f"[a{k}]")
