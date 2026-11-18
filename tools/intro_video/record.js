@@ -159,6 +159,7 @@ const CURSOR = `(() => {
   await wait(900);
   await scrollTo('#author', 'center');
   await click('#author', { after: 200, scroll: false });
+  await loc('#author').fill('');          // ism profildan oldindan yozilgan bo'lishi mumkin
   await typeIn('#author', 'Ali Valiyev', 60);
   await wait(600);
   await click('#go', { after: 0, block: 'center' });
