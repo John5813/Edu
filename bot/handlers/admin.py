@@ -2289,7 +2289,8 @@ async def _feature_keyboard(db):
                payme_enabled=await db.get_feature_status("payme_pay"),
                uzum_enabled=await db.get_feature_status("uzum_pay"),
                reasoning_enabled=await db.get_feature_status("ai_reasoning"),
-               store_publish_enabled=await db.get_feature_status(STORE_PUBLISH))
+               store_publish_enabled=await db.get_feature_status(STORE_PUBLISH),
+               site_mode_enabled=await db.get_feature_status("bot_site_mode", default=False))
 
 _FEATURES_TITLE = (
     "🎛 Funksiyalar boshqaruvi\n\n"
@@ -2451,6 +2452,24 @@ async def toggle_ai_reasoning(callback: CallbackQuery, db: Database):
     await callback.answer("🧠 AI o'ylashi yoqildi: javob chegarasining 18% i." if new_status
                           else "🧠 AI o'ylamaydi: tezroq va arzonroq, murakkab hisoblarda sifat biroz pasayishi mumkin.",
                           show_alert=True)
+    kb = await _feature_keyboard(db)
+    await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("toggle_site_mode_"))
+async def toggle_site_mode(callback: CallbackQuery, db: Database):
+    """Sayt rejimi: yoqilsa xizmat tugmalari saytda ochiladi (botda to'lov yo'q); o'chirilsa hammasi botda, avvalgidek."""
+    if not is_admin(callback.from_user.id):
+        return
+    from services import site_mode
+    new_status = callback.data.split("_")[-1] == "on"
+    await site_mode.set(db, new_status)
+    if new_status:
+        text = ("🌐 Sayt rejimi yoqildi.\n\nXizmat tugmalari endi saytda ochiladi, botda to'lov ko'rinmaydi. "
+                "Mijozlar menyusi keyingi xabarda yangilanadi. Qaytarish — shu tugmani yana bosing.")
+    else:
+        text = "🤖 Sayt rejimi o'chirildi: hammasi yana botning o'zida, to'lovlar bilan (avvalgidek)."
+    await callback.answer(text, show_alert=True)
     kb = await _feature_keyboard(db)
     await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
 

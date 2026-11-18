@@ -19,6 +19,7 @@ log = logging.getLogger(__name__)
 
 LOGIN_TTL = 10 * 60            # bot orqali kirish havolasi 10 daqiqa yashaydi
 SESSION_TTL = 30 * 24 * 3600   # sessiya 30 kun
+GO_TTL = 15 * 60               # botdagi «saytda ochish» tugmasi 15 daqiqa amal qiladi (bir marta)
 JOB_TTL_HOURS = 72             # tayyor fayl 3 kun saqlanadi
 
 _SCHEMA = (
@@ -82,6 +83,22 @@ async def start_login() -> str:
         await conn.execute("DELETE FROM web_login WHERE expires_at < ?", (time.time(),))
         await conn.execute("INSERT INTO web_login (token_hash, telegram_id, expires_at) VALUES (?, NULL, ?)",
                            (hash_token(token), time.time() + LOGIN_TTL))
+        await conn.commit()
+    return token
+
+
+async def start_go(telegram_id: int) -> str:
+    """Botdan saytga bir bosishda kirish: tasdiqlangan bir martalik token (bot tugmasiga qo'yiladi).
+
+    Token `web_login` ga oldindan tasdiqlangan holda yoziladi, shuning uchun uni `poll_login` bir marta
+    sessiyaga almashtiradi. Ochiq ko'rinishda faqat bot tugmasida turadi.
+    """
+    token = new_token()
+    async with aiosqlite.connect(_db.DATABASE_FILE) as conn:
+        await create_tables(conn)
+        await conn.execute("DELETE FROM web_login WHERE expires_at < ?", (time.time(),))
+        await conn.execute("INSERT INTO web_login (token_hash, telegram_id, expires_at) VALUES (?, ?, ?)",
+                           (hash_token(token), int(telegram_id), time.time() + GO_TTL))
         await conn.commit()
     return token
 

@@ -459,6 +459,10 @@ async def main():
 
     # Initialize database
     await init_db()
+    from database.database import Database as _SiteModeDb
+    from services import site_mode as _site_mode
+    if await _site_mode.load(_SiteModeDb()):
+        logger.info("Sayt rejimi yoqilgan: xizmat tugmalari saytda ochiladi")
 
     await _load_premium_ai_model()
 
@@ -590,6 +594,9 @@ async def main():
     
     # Register handlers - important order: specific handlers first, catch-all last!
     dp.include_router(admin.router)  # Admin commands first
+    # «Sayt rejimi» (admin tugmasi): yoqilsa xizmat tugmalari saytda ochiladi; o'chiq bo'lsa hech narsani ushlamaydi.
+    from bot.handlers import site_mode as site_mode_handler
+    dp.include_router(site_mode_handler.router)
     dp.include_router(reengage_handler.router)  # Qayta jalb xabarlari tugmalari va sovg'a (bepul taqdimot)
     dp.include_router(settings.router)  # Handle settings buttons
     dp.include_router(converter.router)  # Handle PDF → DOCX conversion (before payments to keep state-specific callbacks)

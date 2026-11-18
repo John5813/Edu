@@ -200,10 +200,152 @@ async def auth_poll(request: web.Request) -> web.Response:
     return response
 
 
+# ─────────────────────────────────────────── botdan saytga bir bosishda kirish (/go)
+#
+# Bot tugmasi: /go?t=<token>&to=<joy>. GET sahifaning o'zi hech narsani o'zgartirmaydi — tokenni sahifadagi
+# skript POST bilan almashtiradi. Shunda havolani oldindan ochib ko'radigan robotlar (havola ko'rinishi,
+# antiviruslar) bir martalik tokenni "yeb qo'ymaydi". Eski sessiya har doim yangisiga almashadi (telefonda
+# boshqa Telegram akkaunt bilan kirilgan bo'lsa ham to'g'ri odam ko'rinadi); eski sessiya Telegramsiz
+# Google akkaunti bo'lsa, u 10 daqiqa `edu_prev` da saqlanadi va mijozdan birlashtirish so'raladi.
+
+PREV_COOKIE = "edu_prev"
+PREV_TTL = 10 * 60
+GO_PLACES = {"home": "/", "docs": "/app#/docs", "profile": "/app#/profile"}
+
+
+def go_target(to: str) -> str:
+    """Saytdagi ichki manzil (ochiq yo'naltirish yo'q: faqat ma'lum joylar)."""
+    to = str(to or "")
+    kind = web_jobs.KINDS.get(to)
+    if kind and to != "slide_rewrite":
+        return f"/#yaratish?kind={to}"
+    return GO_PLACES.get(to, "/")
+
+
+async def _switch_session(request: web.Request, response: web.StreamResponse, session: str) -> int:
+    """Yangi sessiyani cookie ga yozadi, eskisini yopadi (Telegramsiz Google akkaunti bo'lsa — vaqtincha saqlaydi)."""
+    from database import web_accounts
+
+    new_tid = await web_store.session_user(session)
+    old = request.cookies.get(COOKIE, "")
+    old_tid = await web_store.session_user(old) if old else None
+    if old and old != session:
+        if old_tid is not None and old_tid != new_tid and web_accounts.is_web_only(old_tid):
+            response.set_cookie(PREV_COOKIE, old, max_age=PREV_TTL, httponly=True, samesite="Lax",
+                                secure=_secure(request), path="/")
+        else:
+            await web_store.end_session(old)
+    response.set_cookie(COOKIE, session, max_age=web_store.SESSION_TTL, httponly=True, samesite="Lax",
+                        secure=_secure(request), path="/")
+    return int(new_tid or 0)
+
+
+async def auth_go(request: web.Request) -> web.Response:
+    if _limited("go:" + _ip(request), 30, 60):
+        return _error("Juda ko'p urinish. Bir daqiqadan keyin qayta urining.", 429, "rate")
+    data = await _json(request)
+    token = str(data.get("token") or "")
+    target = go_target(str(data.get("to") or ""))
+    if not token or len(token) > 80:
+        return _error("Havola noto'g'ri.", 400, "bad_token")
+    session = await web_store.poll_login(token)
+    if not session:
+        return web.json_response({"ok": False, "code": "expired", "to": target,
+                                  "error": "Havola eskirgan yoki ishlatilgan."}, status=410)
+    response = web.json_response({"ok": True, "to": target})
+    await _switch_session(request, response, session)
+    return response
+
+
+_SEEN_TG_LOGINS: Dict[str, float] = {}
+TG_LOGIN_TTL = 10 * 60
+
+
+def telegram_login_user(query) -> Optional[int]:
+    """Telegram «Login URL» tugmasi ma'lumotini tekshiradi (core.telegram.org/widgets/login#checking-authorization).
+
+    Qaytaradi: Telegram ID yoki None (imzo noto'g'ri, eskirgan yoki qayta ishlatilgan).
+    """
+    from config import BOT_TOKEN
+
+    fields = {k: str(v) for k, v in query.items() if k not in ("to",)}
+    received = fields.pop("hash", "")
+    if not BOT_TOKEN or not re.fullmatch(r"[0-9a-f]{64}", received) or "id" not in fields:
+        return None
+    check_string = "\n".join(f"{key}={fields[key]}" for key in sorted(fields))
+    expected = hmac.new(hashlib.sha256(BOT_TOKEN.encode()).digest(), check_string.encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, received):
+        return None
+    try:
+        auth_date, user_id = int(fields.get("auth_date", "0")), int(fields["id"])
+    except ValueError:
+        return None
+    now = time.time()
+    if auth_date <= 0 or now - auth_date > TG_LOGIN_TTL or auth_date > now + 60:
+        return None
+    for stale in [h for h, t in _SEEN_TG_LOGINS.items() if now - t > TG_LOGIN_TTL]:
+        _SEEN_TG_LOGINS.pop(stale, None)
+    if received in _SEEN_TG_LOGINS:        # bir xil havola ikkinchi marta ishlamaydi
+        return None
+    _SEEN_TG_LOGINS[received] = now
+    return user_id
+
+
+async def go_telegram(request: web.Request) -> web.StreamResponse:
+    """Telegram «Login URL» tugmasi orqali kelgan mijoz: imzo tekshiriladi, sessiya ochiladi, kerakli joyga."""
+    target = go_target(request.query.get("to", ""))
+    telegram_id = telegram_login_user(request.query)
+    if telegram_id is None or await Database.get_user(telegram_id) is None:
+        raise web.HTTPFound(f"/go?to={url_quote(request.query.get('to', ''))}&bad=1")
+    from database import web_accounts
+
+    session = await web_accounts.create_session(telegram_id)
+    response = web.HTTPFound(f"/go?to={url_quote(request.query.get('to', ''))}&done=1")
+    await _switch_session(request, response, session)
+    raise response
+
+
+async def merge_offer(request: web.Request) -> web.Response:
+    """Shu brauzerda avval Google akkaunti bilan kirilgan bo'lsa — uni birlashtirish taklifi."""
+    from database import web_accounts
+
+    telegram_id = await _require(request)
+    prev_tid = await web_store.session_user(request.cookies.get(PREV_COOKIE, ""))
+    if prev_tid is None or not web_accounts.is_web_only(prev_tid) or web_accounts.is_web_only(telegram_id):
+        return web.json_response({"ok": True, "offer": None})
+    identity = await web_accounts.identity_of(prev_tid) or {}
+    user = await Database.get_user(prev_tid)
+    return web.json_response({"ok": True, "offer": {"email": identity.get("email", ""),
+                                                    "balance": int(getattr(user, "balance", 0) or 0)}})
+
+
+async def merge_answer(request: web.Request) -> web.Response:
+    """Mijoz javobi: «Ha» — Google akkaunti shu Telegram akkauntiga qo'shiladi; «Yo'q» — eski sessiya yopiladi."""
+    from database import web_accounts
+
+    telegram_id = await _require(request)
+    data = await _json(request)
+    prev = request.cookies.get(PREV_COOKIE, "")
+    prev_tid = await web_store.session_user(prev)
+    moved = 0
+    if data.get("accept") and prev_tid is not None:
+        try:
+            moved = await web_accounts.merge(prev_tid, telegram_id)
+        except web_accounts.MergeError as exc:
+            return _error(str(exc), 409, "merge")
+    if prev:
+        await web_store.end_session(prev)
+    response = web.json_response({"ok": True, "moved": moved})
+    response.del_cookie(PREV_COOKIE, path="/")
+    return response
+
+
 async def auth_logout(request: web.Request) -> web.Response:
     await web_store.end_session(request.cookies.get(COOKIE, ""))
+    await web_store.end_session(request.cookies.get(PREV_COOKIE, ""))
     response = web.json_response({"ok": True})
     response.del_cookie(COOKIE, path="/")
+    response.del_cookie(PREV_COOKIE, path="/")
     return response
 
 
@@ -821,6 +963,11 @@ def setup_api_routes(app: web.Application) -> None:
     add("POST", "/api/v1/auth/start", auth_start)
     add("GET", "/api/v1/auth/poll", auth_poll)
     add("POST", "/api/v1/auth/logout", auth_logout)
+    add("POST", "/api/v1/auth/go", auth_go)
+    add("GET", "/api/v1/auth/merge", merge_offer)
+    add("POST", "/api/v1/auth/merge", merge_answer)
+    add("GET", "/go", _page("go.html"))
+    add("GET", "/go/tg", go_telegram)
     add("GET", "/api/v1/me", me)
     add("GET", "/api/v1/version", version)
     add("GET", "/api/v1/catalog", catalog)

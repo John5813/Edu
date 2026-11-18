@@ -1110,6 +1110,33 @@ This document was created with AI assistance and serves as your helper.
         "uz": "📎 Qo'shimchalar bilan hujjat yaratilmoqda (biroz ko'proq vaqt ketadi)...",
         "ru": "📎 Документ с дополнениями создаётся (займёт немного больше времени)...",
         "en": "📎 Creating document with extras (may take a bit longer)..."
+    },
+    # «Sayt rejimi» (services/site_mode.py): xizmat saytda ochiladi. Matnlarda narx va to'lov so'zi yo'q.
+    "site_mode_open": {
+        "uz": "🌐 <b>{label}</b> saytda ochiladi.\n\nTugmani bosing — sayt sizni Telegram orqali o'zi taniydi, ro'yxatdan o'tish va parol kerak emas. Tayyor fayl shu chatga ham keladi.",
+        "ru": "🌐 <b>{label}</b> открывается на сайте.\n\nНажмите кнопку — сайт сам узнает вас через Telegram, регистрация и пароль не нужны. Готовый файл придёт и в этот чат.",
+        "en": "🌐 <b>{label}</b> opens on the website.\n\nTap the button — the site recognises you through Telegram, no sign-up or password needed. The finished file will also arrive in this chat.",
+        "kk": "🌐 <b>{label}</b> сайтта ашылады.\n\nБатырманы басыңыз — сайт сізді Telegram арқылы өзі таниды, тіркелу мен құпиясөз қажет емес. Дайын файл осы чатқа да келеді."
+    },
+    "site_mode_open_btn": {"uz": "🌐 Ochish", "ru": "🌐 Открыть", "en": "🌐 Open", "kk": "🌐 Ашу"},
+    "site_mode_soon": {
+        "uz": "⏳ <b>{label}</b> tez orada saytda ishlaydi. Hozircha boshqa xizmatlardan foydalanib turing.",
+        "ru": "⏳ <b>{label}</b> скоро заработает на сайте. Пока можно воспользоваться другими услугами.",
+        "en": "⏳ <b>{label}</b> is coming to the website soon. Meanwhile, you can use our other services.",
+        "kk": "⏳ <b>{label}</b> жақында сайтта іске қосылады. Әзірге басқа қызметтерді пайдалана тұрыңыз."
+    },
+    "site_mode_cabinet": {
+        "uz": "🌐 Kabinetingiz saytda: hujjatlaringiz, profil va sozlamalar bitta joyda.",
+        "ru": "🌐 Ваш кабинет на сайте: документы, профиль и настройки в одном месте.",
+        "en": "🌐 Your cabinet is on the website: documents, profile and settings in one place.",
+        "kk": "🌐 Кабинетіңіз сайтта: құжаттар, профиль және баптаулар бір жерде."
+    },
+    "site_mode_cabinet_btn": {"uz": "🌐 Kabinetim", "ru": "🌐 Мой кабинет", "en": "🌐 My cabinet", "kk": "🌐 Менің кабинетім"},
+    "site_mode_link_failed": {
+        "uz": "⚠️ Havolani tayyorlab bo'lmadi. Bir daqiqadan keyin qayta bosing.",
+        "ru": "⚠️ Не удалось подготовить ссылку. Нажмите ещё раз через минуту.",
+        "en": "⚠️ Couldn't prepare the link. Please tap again in a minute.",
+        "kk": "⚠️ Сілтемені дайындау мүмкін болмады. Бір минуттан кейін қайта басыңыз."
     }
 }
 
