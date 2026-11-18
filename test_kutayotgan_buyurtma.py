@@ -171,7 +171,6 @@ async def browser_flow():
         await page.fill("#topic", "Raqamli iqtisodiyot asoslari")
         await page.wait_for_selector("#s-note .note.wait")
         check("oldindan aytiladi: buyurtma saqlanadi va o'zi boshlanadi", "o‘zi boshlanadi" in await page.inner_text("#s-note"))
-        await page.wait_for_timeout(1800)       # qoralama serverga yozilsin
         await page.click("#go")
         await page.wait_for_url("**/app#/wallet", timeout=15000)
         await page.wait_for_selector("#pend .note.wait")

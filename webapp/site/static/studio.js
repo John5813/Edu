@@ -326,11 +326,13 @@
 
   // ───────────────────────────────────────────── qoralama (kirishdan keyin tanlovlar qaytadi)
   let draftTimer = null;
-  function save() {
+  function save(toServer) {
     const data = {...S, src: {...S.src}, suggest: undefined, t: Date.now()};
     try { sessionStorage.setItem(DRAFT, JSON.stringify(data)); } catch (e) { /* maxfiy rejim */ }
     // Kirgan mijozning qoralamasi serverda ham saqlanadi: botdan qayta kelganda (yangi oyna) tanlovlar qaytadi.
-    if (!me) return;
+    // Buyurtma yuborilayotganda yozilmaydi: server qoralamani o'zi o'chiradi (aks holda kechikkan yozuv qaytarardi).
+    clearTimeout(draftTimer);
+    if (!me || toServer === false) return;
     clearTimeout(draftTimer);
     draftTimer = setTimeout(() => { E.api('/draft', {method: 'PUT', json: {draft: data}}).catch(() => {}); }, 1500);
   }
@@ -380,7 +382,7 @@
       if ((S.src.kind === 'file' || S.src.kind === 'url') && !S.src.text) return fail(S.src.kind === 'file' ? 'Avval faylni yuklang yoki «AI o‘zi yozadi» ni tanlang.' : 'Avval havoladan matnni oling yoki «AI o‘zi yozadi» ni tanlang.');
     }
     if (opt().form === 'thesis' && !S.univ.trim()) return fail('Universitet nomini kiriting.');
-    save();
+    save(false);
     if (!me) { E.login(); return; }
     btn.disabled = true; btn.innerHTML = spin + '&nbsp; Yuborilmoqda…';
     if (!trialOn() && me.balance < price()) {
@@ -388,7 +390,11 @@
       // to'lov tushishi bilan buyurtma o'zi boshlanadi (mijoz saytga qaytmasa ham).
       try {
         const res = await E.api('/pending', {json: {kind: S.kind, params: params()}});
-        if (!res.enough) { location.href = '/app#/wallet'; return; }
+        if (!res.enough) {
+          // Qoralama darhol serverga: hamyondan (yoki botdan) qaytganda tanlovlar shu yerda tursin.
+          await E.api('/draft', {method: 'PUT', json: {draft: {...S, src: {...S.src}, suggest: undefined, t: Date.now()}}}).catch(() => {});
+          location.href = '/app#/wallet'; return;
+        }
         me.balance = res.balance;
       } catch (e) {
         btn.disabled = false; btn.textContent = 'Yaratish';
