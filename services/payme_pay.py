@@ -411,8 +411,10 @@ async def _credit(order: Dict) -> int:
         log.exception("Payme to'lovi buyurtma %s: balans qo'shildi, keyingi qadamda xato", order["id"])
     for admin_id in config.ADMIN_IDS:
         try:
+            from services.payment_origin import note
             await bot.send_message(admin_id, f"💠 Payme to'lovi: {order['amount']:,} so'm · "
-                                             f"mijoz {order['telegram_id']} · to'lov ID {payment_id}",
+                                             f"mijoz {order['telegram_id']} · to'lov ID {payment_id}"
+                                             f"{note(order.get('source', ''))}",
                                    disable_notification=True)
         except Exception as exc:
             log.debug("Adminga Payme xabari yuborilmadi: %s", exc)

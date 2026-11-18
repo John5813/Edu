@@ -39,6 +39,9 @@ OTHER = {
     "book_translate": None,
     "test": None,
 }
+# «💵 Narxlar» — sayt rejimida botda so'mdagi narxlar ko'rsatilmaydi: tugma menyudan olinadi, eski menyudan
+# bosilsa — xizmatlar sahifasi (narxlar har xizmatni tanlaganda saytda ko'rinadi).
+PRICES_KEY = "main_menu.prices"
 # «💳 To'lov qilish» va «💎 Mening hisobim» o'rniga — saytdagi kabinet.
 ACCOUNT_KEYS = ("main_menu.payment", "main_menu.my_account")
 

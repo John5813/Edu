@@ -153,10 +153,10 @@ def get_main_keyboard(language: str, presentation_enabled: bool = True, independ
     from services import site_mode
     if site_mode.ON:
         # Sayt rejimi: botda to'lov yo'q — «Mening hisobim»/«To'lov qilish» o'rnida saytdagi kabinet.
-        keyboard.row(KeyboardButton(text=get_text(language, "site_mode_cabinet_btn")))
+        keyboard.row(KeyboardButton(text=get_text(language, "site_mode_cabinet_btn")), button("samples"))
     else:
         keyboard.row(button("my_account"), button("payment"))
-    keyboard.row(button("samples"), button("prices"))
+        keyboard.row(button("samples"), button("prices"))
     keyboard.row(button("help"), button("settings"))
 
     return keyboard.as_markup(resize_keyboard=True)

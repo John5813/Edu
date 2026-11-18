@@ -251,8 +251,10 @@ async def auth_go(request: web.Request) -> web.Response:
         return _error("Havola noto'g'ri.", 400, "bad_token")
     session = await web_store.poll_login(token)
     if not session:
+        await web_store.go_seen(token, used=False)
         return web.json_response({"ok": False, "code": "expired", "to": target,
                                   "error": "Havola eskirgan yoki ishlatilgan."}, status=410)
+    await web_store.go_seen(token, used=True)
     response = web.json_response({"ok": True, "to": target})
     await _switch_session(request, response, session)
     return response
@@ -301,6 +303,7 @@ async def go_telegram(request: web.Request) -> web.StreamResponse:
     from database import web_accounts
 
     session = await web_accounts.create_session(telegram_id)
+    await web_store.go_login_seen(telegram_id, request.query.get("hash", ""))
     response = web.HTTPFound(f"/go?to={url_quote(request.query.get('to', ''))}&done=1")
     await _switch_session(request, response, session)
     raise response
