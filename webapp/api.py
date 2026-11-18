@@ -413,6 +413,9 @@ def _catalog() -> Dict:
                     ("qorongu", "Qorong'u"))],
         "themes": [{"key": t.key, "label": t.name, "background": "#" + t.background, "accent": "#" + t.accent,
                     "heading": "#" + t.heading} for t in themes.choices()],
+        # Taqdimot rangi (botdagi «🎨 Rang» bilan bir xil ro'yxat; tanlanmasa — mavzuga qarab).
+        "colors": [{"key": t.key, "label": t.name, "accent": "#" + t.accent, "background": "#" + t.background}
+                   for t in themes.choices() if t.key in web_kinds.COLOR_KEYS],
         "templates": [{"id": tid, "name": t["name"].get("uz", tid), "url": f"/api/template-image/{tid}"}
                       for tid, t in web_kinds._simple_templates().items()],
         # Slayd sonini mijoz o'zi belgilaydi (5–30): har son uchun narx.

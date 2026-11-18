@@ -201,10 +201,10 @@ norm = web_kinds._premium_normalize
 check("sayt: kam matnli tanlansa — kam", norm({"topic": "Iqtisodiyot", "volume": "kam"})["volume"] == "kam")
 check("sayt: noma'lum qiymat — ko'p matnli", norm({"topic": "Iqtisodiyot", "volume": "x"})["volume"] == "kop")
 check("sayt: bepul sinov — ko'p matnli", norm({"topic": "Iqtisodiyot", "volume": "kam", "trial": True})["volume"] == "kop")
-check("sayt: eski `theme` parametri e'tiborsiz", "theme" not in norm({"topic": "Iqtisodiyot", "theme": "qizil"}))
+check("sayt: ro'yxatda yo'q rang e'tiborsiz (avto)", norm({"topic": "Iqtisodiyot", "theme": "qizil"})["theme"] == "")
 js = open("webapp/site/static/studio.js", encoding="utf-8").read()
-check("sayt: rang sxemasi tanlovi yo'q, taqdimot turi bor", "Rang sxemasi" not in js and "Taqdimot turi" in js
-      and "volume:" in js and "theme: S.theme" not in js)
+check("sayt: taqdimot turi va rang (botdagi kabi) bor", "Taqdimot turini tanlang" in js and "volume:" in js
+      and "theme: S.theme" in js)
 from bot.handlers import premium_presentation as bot
 text, _ = bot._summary({"topic": "Iqtisodiyot", "style": "jurnal", "volume": "kam", "slide_count": 10}, "uz")
 # Rangni endi mijoz o'zi tanlay oladi (xulosadagi «🎨 Rang» tugmasi; sukut — mavzuga qarab «Avto»).

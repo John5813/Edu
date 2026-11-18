@@ -44,6 +44,11 @@ def _pick_language(raw: Dict, topic: str) -> str:
 
 # ───────────────────────────────────────────────────────── zamonaviy (premium) taqdimot
 
+# Saytdagi rang tanlovi — botdagi bilan bir xil (bot/handlers/premium_presentation.COLOR_KEYS, "auto"siz).
+COLOR_KEYS = ("ko'k", "to'q ko'k", "yashil", "zumrad", "binafsha", "kulrang")
+PHOTO_SOURCES = ("mix", "web", "ai")
+
+
 def _premium_normalize(raw: Dict) -> Dict:
     from services.premium_presentation import pipeline
 
@@ -62,8 +67,13 @@ def _premium_normalize(raw: Dict) -> Dict:
     if trial:
         from database import free_trial
         count = free_trial.SLIDES
+    # Rang (botdagi «🎨 Rang» bilan bir xil ro'yxat; bo'sh — mavzuga qarab) va rasm manbasi (bepul sinovda — internet).
+    theme = str(raw.get("theme") or "")
+    if theme not in COLOR_KEYS or trial:
+        theme = ""
+    photos = "web" if trial else (raw.get("photos") if raw.get("photos") in PHOTO_SOURCES else "mix")
     return {"topic": topic, "slide_count": max(pipeline.MIN_SLIDES, min(count, pipeline.MAX_SLIDES)), "trial": trial,
-            "language": _pick_language(raw, topic), "style": style,
+            "language": _pick_language(raw, topic), "style": style, "theme": theme, "photos": photos,
             "volume": "kop" if trial else (volume if volume in pipeline.VOLUMES else "kop"),
             "author": _text(raw, "author", 80), "preferences": _text(raw, "preferences", 1000),
             "source_text": _long_text(raw, "source_text", SOURCE_LIMIT),
@@ -116,7 +126,8 @@ async def _premium_run(params: Dict, report: Report) -> Tuple[str, str]:
         path, _slides, _photos = await pipeline.build_deck(
             topic, params["slide_count"], language=params["language"], preferences=params["preferences"],
             author=params["author"], style=params["style"], volume=params.get("volume") or "kop",
-            photo_source="web" if trial else "mix",
+            theme_key=params.get("theme") or "",
+            photo_source="web" if trial else (params.get("photos") or "mix"),
             source_text=params.get("source_text", ""), progress_cb=on_progress, stage_cb=on_stage,
             deck_out=deck_out if job_id else None)
     if job_id and deck_out.get("pages"):
@@ -334,7 +345,7 @@ register(Kind(key="thesis", label="Tezis", normalize=_thesis_normalize, price=_t
               title=lambda p: p["topic"], run=_thesis_run, publish_as="tezis",
               options={"form": "thesis", "languages": list(DOC_LANGUAGES), "price": _thesis_price({}),
                        "eta_minutes": 1}))
-KINDS_ORDER = ("premium_presentation", "independent_work", "referat", "article", "thesis", "course_work",
+KINDS_ORDER = ("premium_presentation", "simple_presentation", "independent_work", "referat", "article", "thesis", "course_work",
                "diploma_work", "bitiruv_ishi", "dissertatsiya")
 
 

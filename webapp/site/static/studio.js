@@ -12,7 +12,7 @@
   const DRAFT = 'edu_draft', LIVE = 'edu_live_job';
 
   // Bosh sahifadagi qisqa nomlar (katalogdagi to'liq nom o'rniga)
-  const SHORT = {premium_presentation: 'Taqdimot', independent_work: 'Mustaqil ish', referat: 'Referat', article: 'Maqola',
+  const SHORT = {premium_presentation: 'Taqdimot', simple_presentation: 'Taqdimot', independent_work: 'Mustaqil ish', referat: 'Referat', article: 'Maqola',
     thesis: 'Tezis', course_work: 'Kurs ishi', diploma_work: 'Diplom ishi', bitiruv_ishi: 'Bitiruv ishi', dissertatsiya: 'Dissertatsiya'};
   const TOPIC_HINT = {
     premium_presentation: "Masalan: Kiberxavfsizlik va shaxsiy ma'lumotlar himoyasi",
@@ -33,16 +33,33 @@
     {key: 'kam', label: '🎨 Infografik — yangi', short: 'Infografik', note: 'Rasm, diagramma va infografikaga boy, har slayd o‘z dizaynida'},
     {key: 'kop', label: '📝 Zamonaviy', short: 'Zamonaviy', note: 'Fikr batafsil ochiladi, 5 xil uslubdan tanlaysiz'},
   ];
+  // Taqdimot turi (botdagi bilan bir xil): Infografik va Zamonaviy — zamonaviy taqdimot (matn hajmi bilan),
+  // Klassik — tayyor shablonlar (simple_presentation), 3D — hali saytda yo'q.
+  const PTYPES = [
+    {key: 'info', label: '🎨 Infografik', note: 'Rasm, diagramma va infografikaga boy, har slayd o‘z dizaynida', img: '/static/type-info.jpg'},
+    {key: 'modern', label: '📝 Zamonaviy', note: 'Fikr batafsil ochiladi, 5 xil uslubdan tanlaysiz', img: '/static/type-modern.jpg'},
+    {key: 'classic', label: '📄 Klassik', note: 'Tayyor chiroyli shablonlar, ikonka va reja slaydi', img: '/static/type-classic.jpg'},
+    {key: '3d', label: '🧊 3D taqdimot', note: 'Haqiqiy 3D modellar va harakat', img: '/static/type-3d.jpg', soon: true},
+  ];
+  const PHOTO_SRC = [
+    {key: 'mix', label: '✨ Aralash', note: 'Avval internetdan, topilmaganini AI chizadi (tavsiya)'},
+    {key: 'web', label: '🌐 Internetdan', note: 'Haqiqiy fotosuratlar'},
+    {key: 'ai', label: '🎨 AI chizadi', note: 'Har slaydga mos rasm'},
+  ];
   const PREF_EXAMPLES = ['Investorlar uchun ishonchli', 'Ko‘proq vizual', 'Qisqa va ta’sirli', 'Talabalar uchun sodda tilda', 'Raqam va faktlar ko‘proq'];
 
   let catalog = null, me = null, timer = null, seq = 0, pollTimer = null, forge = null;
   const S = {kind: 'premium_presentation', topic: '', lang: '', src: {kind: 'ai', text: '', label: '', words: 0},
     style: 'toza', volume: 'kam', count: 10, author: '', prefs: '', size: '', extras: [], pstyle: 'murakkab', trial: false,
-    univ: '', fac: '', grp: '', suggest: {language: '', theme: null}};
+    univ: '', fac: '', grp: '', theme: '', photos: 'mix', template: '', plan: false, icons: true,
+    suggest: {language: '', theme: null}};
 
   const kindOf = (k) => catalog && catalog.kinds.find((x) => x.key === k);
   const opt = () => (kindOf(S.kind) || {}).options || {};
   const premium = () => opt().form === 'presentation';
+  const classic = () => S.kind === 'simple_presentation';
+  const deckKind = () => premium() || classic();
+  const ptype = () => (classic() ? 'classic' : S.volume === 'kam' ? 'info' : 'modern');
   // Bepul sinov taqdimoti: har akkauntga bir marta (kirmagan mehmonga ham taklif qilinadi — kirgach tekshiriladi).
   const canTrial = () => premium() && !!(catalog && catalog.free_trial) && (!me || me.free_trial);
   const trialOn = () => S.trial && canTrial();
@@ -53,9 +70,31 @@
   // ───────────────────────────────────────────── ish turlari
   function chips() {
     const bot = (catalog && catalog.bot) || 'Edufayl_bot';
-    $('kind-chips').innerHTML = catalog.kinds.map((k) =>
-      `<button type="button" class="chip${k.key === S.kind ? ' on' : ''}" data-kind="${E.esc(k.key)}">${E.esc(SHORT[k.key] || k.label)}</button>`).join('') +
+    $('kind-chips').innerHTML = catalog.kinds.filter((k) => k.key !== 'simple_presentation').map((k) =>
+      `<button type="button" class="chip${chipOn(k.key) ? ' on' : ''}" data-kind="${E.esc(k.key)}">${E.esc(SHORT[k.key] || k.label)}</button>`).join('') +
       ['Loyiha ishi', 'Kitob tarjimasi'].map((t) => `<a class="chip soon" data-bot target="_blank" rel="noopener" href="https://t.me/${E.esc(bot)}">${t} <small>botda</small></a>`).join('');
+  }
+  // Klassik ham «Taqdimot» chipi ostida turadi.
+  const chipOn = (k) => k === S.kind || (k === 'premium_presentation' && S.kind === 'simple_presentation');
+  function types() {
+    const box = $('ptypes'); if (!box) return;
+    if (!deckKind()) { box.innerHTML = ''; return; }
+    const on = ptype();
+    box.innerHTML = `<div class="pt-lab">Taqdimot turini tanlang</div><div class="pt-grid">${PTYPES.map((t) =>
+      `<button type="button" class="ptype${t.key === on ? ' on' : ''}${t.soon ? ' soon' : ''}" data-t="${t.key}"${t.soon ? ' aria-disabled="true"' : ''}>
+        <img src="${t.img}" alt="" loading="lazy" width="640" height="363"><b>${E.esc(t.label)}</b><small>${E.esc(t.note)}</small>${t.soon ? '<span class="pt-soon">Tez orada</span>' : ''}</button>`).join('')}</div>`;
+  }
+  function pickType(t) {
+    if (t === '3d') { E.toast('🧊 3D taqdimot tez orada saytda ham bo‘ladi.'); return; }
+    if (t === 'classic') pickKind('simple_presentation');
+    else {
+      if (classic()) pickKind('premium_presentation');
+      S.volume = t === 'info' ? 'kam' : 'kop';
+      if (t === 'info') S.trial = false;
+    }
+    types();
+    if (isOpen()) render();
+    save();
   }
   function pickKind(key, keep) {
     if (!kindOf(key)) return;
@@ -67,8 +106,9 @@
       if (changed || !keep) S.extras = [];
     }
     if (o.languages && !premium() && S.lang && !o.languages.some((l) => (l.key || l) === S.lang)) S.lang = '';
-    document.querySelectorAll('#kind-chips [data-kind]').forEach((b) => b.classList.toggle('on', b.dataset.kind === key));
-    $('topic').placeholder = TOPIC_HINT[key] || '';   // tarjimani i18n.js o'zi qo'yadi
+    document.querySelectorAll('#kind-chips [data-kind]').forEach((b) => b.classList.toggle('on', chipOn(b.dataset.kind)));
+    $('topic').placeholder = TOPIC_HINT[key] || TOPIC_HINT.premium_presentation;   // tarjimani i18n.js o'zi qo'yadi
+    types();
     if (isOpen()) render();
   }
 
@@ -99,10 +139,14 @@
       html += section('Taqdimot tili', '', chipRow('st-lang', [{key: '', label: 'Avto'}].concat(catalog.languages), S.lang) + '<div class="hint" id="auto-note"></div>');
       html += section('Manba', 'AI nimaga tayanadi', `<div class="srcs" id="srcs">${SOURCES.map((x) =>
         `<button type="button" class="src${x.key === S.src.kind ? ' on' : ''}" data-k="${x.key}"><b>${x.label}</b><small>${x.note}</small></button>`).join('')}</div><div id="src-panel"></div>`);
-      if (!trialOn()) html += section('Taqdimot turi', '(rang mavzuga qarab avtomatik tanlanadi)', `<div class="srcs" id="volumes">${VOLUMES.map((x) =>
-        `<button type="button" class="src${x.key === S.volume ? ' on' : ''}" data-k="${x.key}"><b>${x.label}</b><small>${x.note}</small></button>`).join('')}</div>`);
       if (!infoOn()) html += section('Ko‘rinish uslubi', '', `<div class="st-styles" id="styles">${catalog.styles.map((st) =>
         `<button type="button" class="st-sty${st.key === S.style ? ' on' : ''}" data-k="${E.esc(st.key)}"><img src="/static/home-style-${E.esc(st.key)}.jpg" alt="" loading="lazy" width="960" height="540"><b>${E.esc(st.label)}</b></button>`).join('')}</div>`);
+      if (!trialOn()) {
+        html += section('Rang', '(tanlanmasa — mavzuga qarab)', `<div class="st-sw" id="colors"><button type="button" class="chip${S.theme ? '' : ' on'}" data-c="">✨ Avto</button>${(catalog.colors || []).map((c) =>
+          `<button type="button" class="sw-b${c.key === S.theme ? ' on' : ''}" data-c="${E.esc(c.key)}" title="${E.esc(c.label)}" aria-label="${E.esc(c.label)}"><i style="background:${E.esc(c.accent)}"></i></button>`).join('')}<span class="sw-name" id="c-name">${E.esc(S.theme ? ((catalog.colors || []).find((c) => c.key === S.theme) || {}).label || '' : '')}</span></div>`);
+        html += section('Rasmlar qayerdan olinsin', '', `<div class="srcs" id="photos">${PHOTO_SRC.map((x) =>
+          `<button type="button" class="src${x.key === S.photos ? ' on' : ''}" data-k="${x.key}"><b>${x.label}</b><small>${x.note}</small></button>`).join('')}</div>`);
+      }
       html += trialOn() ? section('Slaydlar soni', '', `<div class="st-count locked"><div class="cval"><b id="c-num">${trialSlides()}</b><span>slayd</span></div></div>
         <div class="hint">Bepul sinovda slaydlar soni o‘zgarmaydi. Boshqa son kerak bo‘lsa, imtiyozni bekor qiling.</div>`) : section('Slaydlar soni', '', `<div class="st-count"><button type="button" class="cbtn" id="c-minus" aria-label="Kamaytirish">−</button>
           <div class="cval"><b id="c-num">${S.count}</b><span>slayd</span></div><button type="button" class="cbtn" id="c-plus" aria-label="Ko‘paytirish">+</button>
@@ -112,6 +156,19 @@
       html += section('Ism-familiya', '(taqdimotning muqovasiga yoziladi)', `<input class="fld" id="author" maxlength="80" placeholder="Ism Familiya" value="${E.esc(S.author)}">`);
       html += section('AI ga taqdimot qanday bo‘lishini tushuntiring', '(ixtiyoriy)', `<textarea class="fld" id="prefs" rows="2" maxlength="1000" placeholder="Auditoriya, maqsad, ohang, misollar yoki alohida talablarni erkin yozing.">${E.esc(S.prefs)}</textarea>
         <div class="st-chips" id="pref-ex">${PREF_EXAMPLES.map((t) => `<button type="button" class="chip sm" data-t="${E.esc(t)}">+ ${E.esc(t)}</button>`).join('')}</div>`);
+    } else if (classic()) {
+      const langs = (o.languages || ['uz', 'ru', 'en']).map((l) => ({key: l.key || l, label: l.label || DOC_LANG[l] || l}));
+      if (!S.lang || !langs.some((l) => l.key === S.lang)) S.lang = langs[0].key;
+      const tpls = catalog.templates || [];
+      if (!tpls.some((t) => t.id === S.template)) S.template = (tpls[0] || {}).id || '';
+      html += section('Shablon', '(orqa fon va bezak)', `<div class="st-tpls" id="tpls">${tpls.map((t) =>
+        `<button type="button" class="st-tpl${t.id === S.template ? ' on' : ''}" data-k="${E.esc(t.id)}" title="${E.esc(t.name)}"><img src="${E.esc(t.url)}" alt="" loading="lazy"></button>`).join('')}</div>`);
+      html += section('Slaydlar soni', '', chipRow('st-size', o.sizes.map((z) => ({key: z.key, label: z.label, small: E.fmt(z.price)})), S.size));
+      html += section('Til', '', chipRow('st-lang', langs, S.lang));
+      html += `<div class="st-two">${section('Reja slaydi', '(2-slaydda reja)', chipRow('st-plan', [{key: '1', label: 'Ha'}, {key: '0', label: 'Yo‘q'}], S.plan ? '1' : '0'))}${
+        section('Ikonkalar', '(slaydlarga mos belgi)', chipRow('st-icons', [{key: '1', label: 'Ha'}, {key: '0', label: 'Yo‘q'}], S.icons ? '1' : '0'))}</div>`;
+      html += section('Ism-familiya', '(taqdimotning muqovasiga yoziladi)', `<input class="fld" id="author" maxlength="80" placeholder="Ism Familiya" value="${E.esc(S.author)}">`);
+      html += section('AI ga taqdimot qanday bo‘lishini tushuntiring', '(ixtiyoriy)', `<textarea class="fld" id="prefs" rows="2" maxlength="1000" placeholder="Auditoriya, maqsad, ohang, misollar yoki alohida talablarni erkin yozing.">${E.esc(S.prefs)}</textarea>`);
     } else {
       const langs = (o.languages || ['uz', 'ru', 'en']).map((l) => ({key: l.key || l, label: l.label || DOC_LANG[l] || l}));
       if (!S.lang || !langs.some((l) => l.key === S.lang)) S.lang = langs[0].key;
@@ -134,6 +191,7 @@
     $('studio').innerHTML = `<div class="st-main">${html}</div>
       <aside class="st-side">
         ${premium() ? '<div class="pv" id="pv"></div><div class="hint" id="pv-note"></div>' : ''}
+        ${classic() ? '<div class="pv tplv" id="tplv"></div><div class="hint">Klassik · tayyor shablon</div>' : ''}
         <div class="st-sum" id="sum"></div>
         <div class="st-go"><div class="st-total"><span>Narx</span><b id="s-price"></b></div>
           <button class="btn block" id="go" type="submit">${trialOn() ? 'Bepul yaratish' : 'Yaratish'}</button></div>
@@ -142,7 +200,12 @@
       </aside>`;
     bind();
     if (premium()) { srcPanel(); autoNotes(); preview(); }
+    if (classic()) tplPreview();
     summary();
+  }
+  function tplPreview() {
+    const box = $('tplv'), t = (catalog.templates || []).find((x) => x.id === S.template);
+    if (box) box.innerHTML = t ? `<img src="${E.esc(t.url)}" alt="">` : '';
   }
 
   // ───────────────────────────────────────────── hodisalar
@@ -158,7 +221,7 @@
     const inp = (id, key, after) => { if ($(id)) $(id).oninput = (e) => { S[key] = e.target.value; if (after) after(); save(); }; };
     inp('author', 'author', () => { if (premium()) preview(); summary(); });
     inp('prefs', 'prefs'); inp('univ', 'univ'); inp('fac', 'fac'); inp('grp', 'grp');
-    if ($('trial-on')) $('trial-on').onclick = () => { S.trial = true; render(); save(); };
+    if ($('trial-on')) $('trial-on').onclick = () => { S.trial = true; S.volume = 'kop'; types(); render(); save(); };
     if ($('trial-off')) $('trial-off').onclick = () => { S.trial = false; render(); save(); };
     oneOf('st-lang', (v) => { S.lang = v; autoNotes(); save(); });
     oneOf('st-size', (v) => { S.size = v; save(); });
@@ -179,10 +242,23 @@
       const b = e.target.closest('.st-sty'); if (!b) return; S.style = b.dataset.k;
       document.querySelectorAll('#styles .st-sty').forEach((x) => x.classList.toggle('on', x === b)); preview(); summary(); save();
     };
-    if ($('volumes')) $('volumes').onclick = (e) => {
-      const b = e.target.closest('.src'); if (!b) return; S.volume = b.dataset.k;
-      save(); render();
+    if ($('colors')) $('colors').onclick = (e) => {
+      const b = e.target.closest('[data-c]'); if (!b) return; S.theme = b.dataset.c;
+      document.querySelectorAll('#colors [data-c]').forEach((x) => x.classList.toggle('on', x === b));
+      const c = (catalog.colors || []).find((x) => x.key === S.theme);
+      $('c-name').textContent = c ? E.tr(c.label) : '';
+      preview(); summary(); save();
     };
+    if ($('photos')) $('photos').onclick = (e) => {
+      const b = e.target.closest('.src'); if (!b) return; S.photos = b.dataset.k;
+      document.querySelectorAll('#photos .src').forEach((x) => x.classList.toggle('on', x === b)); summary(); save();
+    };
+    if ($('tpls')) $('tpls').onclick = (e) => {
+      const b = e.target.closest('.st-tpl'); if (!b) return; S.template = b.dataset.k;
+      document.querySelectorAll('#tpls .st-tpl').forEach((x) => x.classList.toggle('on', x === b)); tplPreview(); summary(); save();
+    };
+    oneOf('st-plan', (v) => { S.plan = v === '1'; save(); });
+    oneOf('st-icons', (v) => { S.icons = v === '1'; save(); });
     if ($('c-minus')) {
       $('c-minus').onclick = () => setCount(S.count - 1);
       $('c-plus').onclick = () => setCount(S.count + 1);
@@ -207,7 +283,7 @@
   // ───────────────────────────────────────────── taqdimot: tavsiya, ko'rinish, manba
   const langLabel = (k) => ((catalog.languages.find((l) => l.key === k)) || {}).label || k;
   const themeOf = (k) => catalog.themes.find((t) => t.key === k);
-  const activeTheme = () => themeOf((S.suggest.theme || {}).key) || catalog.themes[0];
+  const activeTheme = () => themeOf(S.theme) || themeOf((S.suggest.theme || {}).key) || catalog.themes[0];
   const volumeOf = (k) => VOLUMES.find((x) => x.key === k) || VOLUMES[1];
   // Infografik tur: uslub so'ralmaydi (dizayner o'zi tanlaydi), so'rovga "toza" yuboriladi.
   const infoOn = () => !trialOn() && S.volume === 'kam';
@@ -314,6 +390,14 @@
         .concat(infoOn() ? [] : [['Uslub', ((catalog.styles.find((x) => x.key === S.style) || {}).label) || '']]).concat([
         ['Slaydlar', (trialOn() ? trialSlides() : S.count) + ' ta']]);
       if (trialOn()) rows.push(['Rasmlar', 'Yo‘q (bepul sinov)']);
+      else {
+        const c = (catalog.colors || []).find((x) => x.key === S.theme);
+        rows.push(['Rang', c ? c.label.split(' — ')[0] : 'Avto'], ['Rasmlar', ((PHOTO_SRC.find((x) => x.key === S.photos) || PHOTO_SRC[0]).label).replace(/^\S+\s/, '')]);
+      }
+    } else if (classic()) {
+      const t = (catalog.templates || []).find((x) => x.id === S.template);
+      rows = [['Turi', 'Klassik'], ['Shablon', t ? t.name : '—'], ['Slaydlar', ((o.sizes || []).find((x) => x.key === S.size) || {}).label || ''],
+        ['Reja slaydi', S.plan ? 'Ha' : 'Yo‘q'], ['Ikonkalar', S.icons ? 'Ha' : 'Yo‘q']];
     } else if (o.form !== 'thesis') {
       rows = [['Hajmi', ((o.sizes || []).find((x) => x.key === S.size) || {}).label || '']];
     }
@@ -361,6 +445,10 @@
       Object.assign(p, {preferences: S.prefs.trim(), slide_count: trialOn() ? trialSlides() : S.count, style: infoOn() ? 'toza' : S.style, volume: trialOn() ? 'kop' : S.volume,
         source_text: S.src.kind === 'ai' ? '' : S.src.text, source_label: S.src.kind === 'ai' ? '' : S.src.label});
       if (trialOn()) p.trial = true;
+      else Object.assign(p, {theme: S.theme, photos: S.photos});
+    } else if (classic()) {
+      Object.assign(p, {slide_count: parseInt(S.size, 10) || 10, template: S.template, plan_slide: !!S.plan,
+        icons: !!S.icons, preferences: S.prefs.trim()});
     } else if (o.form === 'thesis') {
       Object.assign(p, {university: S.univ.trim(), faculty: S.fac.trim(), group: S.grp.trim()});
     } else {
@@ -482,6 +570,7 @@
       save();
     });
     $('kind-chips').addEventListener('click', (e) => { const b = e.target.closest('[data-kind]'); if (b) { pickKind(b.dataset.kind); save(); } });
+    $('ptypes').addEventListener('click', (e) => { const b = e.target.closest('[data-t]'); if (b) pickType(b.dataset.t); });
     try { catalog = await E.api('/catalog'); } catch (e) { return; }
     me = await E.me();
     if (!S.author && me && me.name) S.author = me.name;
