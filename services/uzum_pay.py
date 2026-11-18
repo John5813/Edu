@@ -108,6 +108,11 @@ async def new_payment(telegram_id: int, amount, source: str = "", **_) -> str:
     """Deeplink (buyurtma yaratilmaydi — tranzaksiyani Uzum /create bilan ochadi)."""
     amount = valid_amount(amount)
     log.info("Uzum havolasi: %s so'm → %s (%s)", amount, telegram_id, source)
+    try:
+        from services import payment_origin
+        await payment_origin.remember_uzum(telegram_id, source)
+    except Exception as exc:                 # manba eslab qolinmasa ham to'lov havolasi beriladi
+        log.debug("Uzum havolasi manbasi yozilmadi: %s", exc)
     return pay_url(telegram_id, amount)
 
 
@@ -369,5 +374,10 @@ async def _credit(tx: Dict) -> int:
             await Database.update_payment_status(payment_id, "rejected")
             raise
         log.exception("Uzum to'lovi %s: balans qo'shildi, keyingi qadamda xato", tx["trans_id"])
-    await _notify_admins(f"🟣 Uzum to'lovi: {amount:,} so'm · mijoz {tx['telegram_id']} · to'lov ID {payment_id}")
+    from services import payment_origin
+    try:
+        origin = payment_origin.note(await payment_origin.uzum_source(tx["telegram_id"]))
+    except Exception:
+        origin = ""
+    await _notify_admins(f"🟣 Uzum to'lovi: {amount:,} so'm · mijoz {tx['telegram_id']} · to'lov ID {payment_id}{origin}")
     return payment_id

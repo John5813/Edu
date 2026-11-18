@@ -1435,11 +1435,18 @@ async def handle_daily_statistics(message: Message, db: Database):
         except Exception as exc:
             logger.warning(f"To'lov usullari statistikasi olinmadi: {exc}")
             methods_block = ""
+        try:
+            go_block = daily_stats.go_text(await daily_stats.go_stats(day))
+            go_block = go_block + "\n" if go_block else ""
+        except Exception as exc:
+            logger.warning(f"Saytga o'tish statistikasi olinmadi: {exc}")
+            go_block = ""
         text = (
             f"📈 Kunlik statistika ({today.strftime('%d.%m.%Y')})\n\n"
             f"👥 Jami foydalanuvchilar: {total_users} ta\n\n"
             f"{daily_stats.summary_text(pay)}\n"
             f"{methods_block}"
+            f"{go_block}"
             f"📄 Bugun yaratilgan hujjatlar: {documents_today} ta\n"
             f"{doc_lines}\n\n"
             f"⏰ Yangilandi: {today.strftime('%d.%m.%Y %H:%M')}"

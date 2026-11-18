@@ -206,3 +206,37 @@ def cohort_text(stats: Dict[str, int]) -> str:
         f"   🎁 To'lovsiz foydalanganlar (bonus/bepul): {stats['free_used']} ta\n"
         f"   💤 Umuman foydalanmaganlar: {stats['unused']} ta ({_share(stats['unused'], n)})\n"
     )
+
+
+async def go_stats(day: str = "") -> Dict[str, int]:
+    """Botdan saytga havolalar (sayt rejimi): shu kuni havola olgan mijozlar va ulardan saytga kirganlar.
+
+    Telegram tugma bosilganini bildirmaydi: «kirmadi» ichida havolani bosmaganlar ham, bosib saytni ocha
+    olmaganlar (masalan, mobil internetda aloqa xatosi) ham bor.
+    """
+    from database.database import DATABASE_FILE
+
+    day = day or today_uzt()
+    when = "date(issued_at, 'unixepoch', '+5 hours')"
+    async with aiosqlite.connect(DATABASE_FILE) as db:
+        if not await _has_table(db, "web_go_log"):
+            return {"links": 0, "users": 0, "reached": 0, "late": 0}
+        async with db.execute(
+                f"SELECT COUNT(*), COUNT(DISTINCT telegram_id), "
+                f"COUNT(DISTINCT CASE WHEN used_at IS NOT NULL OR late_at IS NOT NULL THEN telegram_id END), "
+                f"COUNT(DISTINCT CASE WHEN late_at IS NOT NULL AND used_at IS NULL THEN telegram_id END) "
+                f"FROM web_go_log WHERE {when} = ?", (day,)) as cur:
+            links, users, reached, late = await cur.fetchone()
+    return {"links": int(links or 0), "users": int(users or 0), "reached": int(reached or 0), "late": int(late or 0)}
+
+
+def go_text(stats: Dict[str, int]) -> str:
+    """Admin xabari uchun bo'lak; havola berilmagan kunda (sayt rejimi o'chiq) — bo'sh."""
+    if not stats.get("users"):
+        return ""
+    missed = max(stats["users"] - stats["reached"], 0)
+    return (f"🌐 Botdan saytga o'tish:\n"
+            f"  • Havola olgan mijozlar: {stats['users']} ta ({stats['links']} ta havola)\n"
+            f"  • Saytga kirdi: {stats['reached']} ta" + (f" (shundan havolasi eskirgan holda: {stats['late']})" if stats["late"] else "") + "\n"
+            f"  • Saytga kirmadi yoki kira olmadi: {missed} ta ({_share(missed, stats['users'])})\n"
+            f"  ⓘ Telegram tugma bosilganini bildirmaydi: bu son bosmaganlarni ham o'z ichiga oladi.\n")

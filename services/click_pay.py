@@ -268,8 +268,10 @@ async def _credit(invoice: Dict) -> int:
         log.exception("Click to'lovi %s: balans qo'shildi, keyingi qadamda xato", invoice["id"])
     for admin_id in config.ADMIN_IDS:
         try:
+            from services.payment_origin import note
             await bot.send_message(admin_id, f"⚡ Click to'lovi: {invoice['amount']:,} so'm · "
-                                             f"mijoz {invoice['telegram_id']} · to'lov ID {payment_id}",
+                                             f"mijoz {invoice['telegram_id']} · to'lov ID {payment_id}"
+                                             f"{note(invoice.get('source', ''))}",
                                    disable_notification=True)
         except Exception as exc:
             log.debug("Adminga Click xabari yuborilmadi: %s", exc)

@@ -1131,6 +1131,12 @@ This document was created with AI assistance and serves as your helper.
         "en": "🌐 Your cabinet is on the website: documents, profile and settings in one place.",
         "kk": "🌐 Кабинетіңіз сайтта: құжаттар, профиль және баптаулар бір жерде."
     },
+    "site_mode_prices": {
+        "uz": "🌐 Xizmatlar saytda: har bir xizmatni tanlaganingizda uning shartlari o'sha yerda ko'rinadi.",
+        "ru": "🌐 Услуги на сайте: условия каждой услуги видны, когда вы её выбираете.",
+        "en": "🌐 Services are on the website: each service shows its terms when you choose it.",
+        "kk": "🌐 Қызметтер сайтта: әр қызметті таңдағанда оның шарттары сол жерде көрінеді."
+    },
     "site_mode_cabinet_btn": {"uz": "🌐 Kabinetim", "ru": "🌐 Мой кабинет", "en": "🌐 My cabinet", "kk": "🌐 Менің кабинетім"},
     # Saytda buyurtma qilingan fayl botga yetkaziladi (services/web_jobs.deliver_to_telegram).
     "web_file_ready": {

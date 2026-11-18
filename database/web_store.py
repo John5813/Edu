@@ -64,6 +64,15 @@ _SCHEMA = (
         created_at REAL NOT NULL,
         job_id TEXT
     )""",
+    # Botdan saytga havolalar: berilgan, ishlatilgan (saytga kirdi), eskirgan holda ochilgan (kunlik statistika uchun).
+    """CREATE TABLE IF NOT EXISTS web_go_log (
+        token_hash TEXT PRIMARY KEY,
+        telegram_id INTEGER NOT NULL,
+        issued_at REAL NOT NULL,
+        used_at REAL,
+        late_at REAL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_web_go_log_issued ON web_go_log (issued_at)",
     # Chala buyurtma qoralamasi (har akkauntga bitta): botdan qayta kelganda tanlovlar qaytadi.
     """CREATE TABLE IF NOT EXISTS web_drafts (
         telegram_id INTEGER PRIMARY KEY,
@@ -129,8 +138,31 @@ async def start_go(telegram_id: int) -> str:
         await conn.execute("DELETE FROM web_login WHERE expires_at < ?", (time.time(),))
         await conn.execute("INSERT INTO web_login (token_hash, telegram_id, expires_at) VALUES (?, ?, ?)",
                            (hash_token(token), int(telegram_id), time.time() + GO_TTL))
+        await conn.execute("INSERT OR IGNORE INTO web_go_log (token_hash, telegram_id, issued_at) VALUES (?, ?, ?)",
+                           (hash_token(token), int(telegram_id), time.time()))
+        await conn.execute("DELETE FROM web_go_log WHERE issued_at < ?", (time.time() - 60 * 24 * 3600,))
         await conn.commit()
     return token
+
+
+async def go_seen(token: str, used: bool) -> None:
+    """Botdagi havola orqali sayt ochildi: `used` — kirdi; aks holda havola eskirgan/ishlatilgan holda ochildi."""
+    column = "used_at" if used else "late_at"
+    async with aiosqlite.connect(_db.DATABASE_FILE) as conn:
+        await create_tables(conn)
+        await conn.execute(f"UPDATE web_go_log SET {column} = ? WHERE token_hash = ? AND {column} IS NULL",
+                           (time.time(), hash_token(token)))
+        await conn.commit()
+
+
+async def go_login_seen(telegram_id: int, key: str) -> None:
+    """Telegram «Login URL» tugmasi orqali kirdi (havola oldindan berilmaydi — berilgan va ishlatilgan birga)."""
+    now = time.time()
+    async with aiosqlite.connect(_db.DATABASE_FILE) as conn:
+        await create_tables(conn)
+        await conn.execute("INSERT OR IGNORE INTO web_go_log (token_hash, telegram_id, issued_at, used_at) "
+                           "VALUES (?, ?, ?, ?)", ("tg:" + key, int(telegram_id), now, now))
+        await conn.commit()
 
 
 async def confirm_login(token: str, telegram_id: int) -> bool:

@@ -77,6 +77,24 @@ async def menu_service(message: Message, state: FSMContext, user_lang: str):
     await send_site_link(message, message.from_user.id, user_lang, message.text.strip(), kind)
 
 
+PRICE_LABELS = set(label_variants(site_mode.PRICES_KEY))
+
+
+@router.message(_on, F.text.in_(PRICE_LABELS))
+async def menu_prices(message: Message, state: FSMContext, user_lang: str):
+    """Sayt rejimi: botda so'mdagi narxlar ro'yxati ko'rsatilmaydi — xizmatlar saytda (eski menyudan bosilganda)."""
+    await state.clear()
+    try:
+        keyboard = await site_keyboard(message.from_user.id, "home", get_text(user_lang, "site_mode_open_btn"))
+    except Exception as exc:
+        log.warning("Sayt havolasi yaratilmadi (%s): %s", message.from_user.id, exc)
+        await message.answer(get_text(user_lang, "site_mode_link_failed"))
+        return
+    from bot.keyboards import get_main_keyboard
+    await message.answer(get_text(user_lang, "site_mode_prices"), reply_markup=keyboard)
+    await message.answer("↩️", reply_markup=get_main_keyboard(user_lang))
+
+
 @router.message(_on, F.text.in_(set(ACCOUNT_LABELS)))
 async def menu_cabinet(message: Message, state: FSMContext, user_lang: str):
     await state.clear()
