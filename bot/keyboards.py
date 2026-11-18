@@ -150,7 +150,12 @@ def get_main_keyboard(language: str, presentation_enabled: bool = True, independ
     def button(key: str) -> KeyboardButton:
         return KeyboardButton(text=get_text(language, "main_menu." + key))
 
-    keyboard.row(button("my_account"), button("payment"))
+    from services import site_mode
+    if site_mode.ON:
+        # Sayt rejimi: botda to'lov yo'q — «Mening hisobim»/«To'lov qilish» o'rnida saytdagi kabinet.
+        keyboard.row(KeyboardButton(text=get_text(language, "site_mode_cabinet_btn")))
+    else:
+        keyboard.row(button("my_account"), button("payment"))
     keyboard.row(button("samples"), button("prices"))
     keyboard.row(button("help"), button("settings"))
 
@@ -1170,9 +1175,17 @@ def get_feature_management_keyboard(
     uzum_enabled: bool = True,
     reasoning_enabled: bool = True,
     store_publish_enabled: bool = True,
+    site_mode_enabled: bool = False,
 ) -> InlineKeyboardMarkup:
     """Feature management keyboard for admin"""
     keyboard = InlineKeyboardBuilder()
+
+    # Sayt rejimi (services/site_mode.py): o'chiq — hammasi botda (to'lov bilan); yoqiq — xizmatlar saytda ochiladi
+    keyboard.add(InlineKeyboardButton(
+        text=f"🌐 Sayt rejimi: {'🟢 Yoqilgan (xizmatlar saytda)' if site_mode_enabled else '🔴 Ochirilgan (hammasi botda)'}".replace(
+            "Ochirilgan", "O'chirilgan"),
+        callback_data=f"toggle_site_mode_{'off' if site_mode_enabled else 'on'}"
+    ))
 
     # Startup bonus toggle (5000 for new users)
     bonus_status = "🟢 Yoqilgan" if startup_bonus_enabled else "🔴 O'chirilgan"

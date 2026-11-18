@@ -740,6 +740,9 @@ async def credit_approved_payment(bot, db, payment, user_message: str = None, re
     # Bepul taqdimotdan keyin berilgan +20% bonus (birinchi to'lov, muddat ichida).
     await reengage.on_payment_approved(bot, db, user, payment.amount)
     await _nudge_pending_order(bot, db, user.telegram_id)
+    # Saytda to'lovni kutayotgan buyurtma bo'lsa — o'zi boshlanadi (mijoz saytga qaytmasa ham).
+    from services import site_mode, web_jobs
+    await web_jobs.start_pending(user.telegram_id)
 
     # Check if this is user's first payment and if they were referred
     # If yes, give payment bonus to referrer
@@ -775,10 +778,11 @@ async def credit_approved_payment(bot, db, payment, user_message: str = None, re
                             'en': f"💰 Your referral made their first payment!\n💵 +{PAYMENT_BONUS:,} som added to your balance."
                         }
                         try:
-                            await bot.send_message(
-                                user.referred_by,
-                                bonus_text.get(referrer.language, bonus_text['uz'])
-                            )
+                            if not site_mode.ON:     # sayt rejimida bot pul haqida yozmaydi (bonus baribir qo'shildi)
+                                await bot.send_message(
+                                    user.referred_by,
+                                    bonus_text.get(referrer.language, bonus_text['uz'])
+                                )
                         except Exception as e:
                             logger.error(f"Failed to notify referrer {user.referred_by}: {e}")
 
@@ -786,8 +790,10 @@ async def credit_approved_payment(bot, db, payment, user_message: str = None, re
         except Exception as e:
             logger.error(f"Error processing payment referral bonus: {e}")
 
-    # Notify user
+    # Notify user (sayt rejimida bot to'lov haqida yozmaydi: natija saytdagi hamyonda ko'rinadi)
     try:
+        if site_mode.ON:
+            return user
         await bot.send_message(
             user.telegram_id,
             user_message or f"✅ To'lovingiz tasdiqlandi! {payment.amount:,} so'm hisobingizga qo'shildi.",
@@ -2289,7 +2295,8 @@ async def _feature_keyboard(db):
                payme_enabled=await db.get_feature_status("payme_pay"),
                uzum_enabled=await db.get_feature_status("uzum_pay"),
                reasoning_enabled=await db.get_feature_status("ai_reasoning"),
-               store_publish_enabled=await db.get_feature_status(STORE_PUBLISH))
+               store_publish_enabled=await db.get_feature_status(STORE_PUBLISH),
+               site_mode_enabled=await db.get_feature_status("bot_site_mode", default=False))
 
 _FEATURES_TITLE = (
     "🎛 Funksiyalar boshqaruvi\n\n"
@@ -2451,6 +2458,24 @@ async def toggle_ai_reasoning(callback: CallbackQuery, db: Database):
     await callback.answer("🧠 AI o'ylashi yoqildi: javob chegarasining 18% i." if new_status
                           else "🧠 AI o'ylamaydi: tezroq va arzonroq, murakkab hisoblarda sifat biroz pasayishi mumkin.",
                           show_alert=True)
+    kb = await _feature_keyboard(db)
+    await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("toggle_site_mode_"))
+async def toggle_site_mode(callback: CallbackQuery, db: Database):
+    """Sayt rejimi: yoqilsa xizmat tugmalari saytda ochiladi (botda to'lov yo'q); o'chirilsa hammasi botda, avvalgidek."""
+    if not is_admin(callback.from_user.id):
+        return
+    from services import site_mode
+    new_status = callback.data.split("_")[-1] == "on"
+    await site_mode.set(db, new_status)
+    if new_status:
+        text = ("🌐 Sayt rejimi yoqildi.\n\nXizmat tugmalari endi saytda ochiladi, botda to'lov ko'rinmaydi. "
+                "Mijozlar menyusi keyingi xabarda yangilanadi. Qaytarish — shu tugmani yana bosing.")
+    else:
+        text = "🤖 Sayt rejimi o'chirildi: hammasi yana botning o'zida, to'lovlar bilan (avvalgidek)."
+    await callback.answer(text, show_alert=True)
     kb = await _feature_keyboard(db)
     await callback.message.edit_text(_FEATURES_TITLE, reply_markup=kb)
 

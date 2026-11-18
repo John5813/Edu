@@ -153,6 +153,18 @@
   }
   Edu.offerLogin = offerLogin;
 
+  // «Botga qaytish»: har sahifada pastki burchakda (botdan kelgan mijoz chatga bir bosishda qaytsin).
+  Edu.botButton = async function () {
+    if (document.getElementById('tg-back')) return;
+    const cfg = await Edu.authConfig();
+    const bot = (cfg && cfg.bot) || 'Edufayl_bot';
+    const a = document.createElement('a');
+    a.id = 'tg-back'; a.className = 'tg-back'; a.href = 'https://t.me/' + encodeURIComponent(bot);
+    a.setAttribute('aria-label', 'Botga qaytish');
+    a.innerHTML = TG + '<span>Botga qaytish</span>';
+    document.body.appendChild(a);
+  };
+
   // Sarlavhadagi tugmalar: til tanlagich, kirgan bo'lsa balans va kabinet, aks holda "Kirish".
   Edu.header = async function (active) {
     const box = document.getElementById('actions');
@@ -162,11 +174,16 @@
     box.innerHTML = '<div class="langsw" id="langsw"><button type="button" class="chip sm" id="langbtn" aria-haspopup="true">' +
       '<span class="gl">🌐</span> ' + Edu.langs().find((l) => l.key === Edu.lang()).short + '</button>' +
       '<div class="langmenu" id="langmenu" hidden>' + langChips('menu') + '</div></div>' +
-      '<a class="btn sm out" href="/shop">Tayyor mavzular</a>' + (me
-        ? '<a class="bal" href="/app#/wallet" title="Hamyon">' + Edu.fmt(me.balance) + ' so‘m</a><a class="btn sm" href="/app#/profile">Kabinet</a>'
+      '<a class="btn sm out" href="/shop">Tayyor mavzular</a>' +
+      // «To'lov» — har sahifada, kirgan-kirmaganidan qat'i nazar (sarlavha yuqorida yopishib turadi).
+      '<a class="btn sm pay" id="hd-pay" href="/app#/wallet"><span class="pl">💳 To‘lov</span>' +
+        (me ? '<span class="pb">' + Edu.fmt(me.balance) + ' so‘m</span>' : '') + '</a>' + (me
+        ? '<a class="btn sm" href="/app#/profile">Kabinet</a>'
         : '<button class="btn sm" id="hd-login"><span class="full">Kirish / Ro‘yxatdan o‘tish</span><span class="short">Kirish</span></button>');
+    Edu.botButton();
     const b = document.getElementById('hd-login');
     if (b) b.onclick = () => Edu.login(active === 'home' ? '/app' : null);
+    if (!me) document.getElementById('hd-pay').onclick = (e) => { e.preventDefault(); Edu.login('/app#/wallet'); };
     if (!me && active === 'home') offerLogin();
     const menu = document.getElementById('langmenu');
     document.getElementById('langbtn').onclick = (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; };
@@ -179,6 +196,28 @@
       document.addEventListener('click', () => { const m = document.getElementById('langmenu'); if (m) m.hidden = true; });
       document.addEventListener('edu:lang', () => { const l = document.getElementById('langbtn'); if (l) l.innerHTML = '<span class="gl">🌐</span> ' + Edu.langs().find((x) => x.key === Edu.lang()).short; document.querySelectorAll('#langmenu [data-lang]').forEach((x) => x.classList.toggle('on', x.dataset.lang === Edu.lang())); });
     }
+  };
+
+  // Tayyor fayl Telegramga yetdimi (job.telegram: 1 — fayl, 2 — havola, -1 — yetmadi, 0 — hali yoki kerak emas).
+  Edu.tgNote = function (job, bot) {
+    const t = Number(job && job.telegram || 0);
+    if (t === 1) return '<span>📩 Fayl Telegramga ham yuborilgan.</span>';
+    if (t === 2) return '<span>📩 Fayl Telegram uchun katta: botga havola yuborildi, faylni shu yerdan yuklab oling.</span>';
+    if (t === -1) return '<span>⚠️ Telegramga yuborib bo‘lmadi — botni ochib, Start bosing.</span> <a class="link" target="_blank" rel="noopener" href="https://t.me/' +
+      Edu.esc(bot || 'Edufayl_bot') + '">Botni ochish</a>';
+    return '<span>📩 Fayl Telegramga ham yuboriladi.</span>';
+  };
+  // Fayl tayyor bo'lgach Telegramga yuborish bir necha soniya oladi: belgini shu vaqt ichida yangilab turadi.
+  Edu.watchTg = function (job, el, bot) {
+    if (!el) return;
+    el.innerHTML = Edu.tgNote(job, bot);
+    let left = 6;
+    const tick = async () => {
+      if (!document.body.contains(el) || Number(job.telegram || 0) !== 0 || left-- <= 0) return;
+      try { job = (await Edu.api('/jobs/' + encodeURIComponent(job.id))).job; el.innerHTML = Edu.tgNote(job, bot); } catch (e) { /* keyingi urinish */ }
+      setTimeout(tick, 3000);
+    };
+    setTimeout(tick, 2500);
   };
 
   Edu.copy = async function (text) {

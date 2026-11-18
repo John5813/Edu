@@ -636,7 +636,10 @@ async def deliver(bot, due: Due, now: float) -> str:
 
 async def _enabled(name: str) -> bool:
     from database.database import Database
+    from services import site_mode
 
+    if site_mode.ON:        # sayt rejimida botdan «bonus bilan to'ldiring» xabarlari ketmaydi
+        return False
     try:
         return bool(await Database().get_feature_status(name))
     except Exception:

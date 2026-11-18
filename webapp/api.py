@@ -77,7 +77,7 @@ async def _json(request: web.Request, limit: int = _MAX_JSON) -> Dict:
 @web.middleware
 async def guard(request: web.Request, handler):
     """POST so'rovlar faqat shu saytdan kelsin (Origin tekshiruvi) — begona sahifa nomidan buyurtma bo'lmasin."""
-    if request.method == "POST" and request.path.startswith("/api/v1/"):
+    if request.method in ("POST", "PUT", "DELETE") and request.path.startswith("/api/v1/"):
         origin = request.headers.get("Origin")
         if origin:
             host = request.headers.get("X-Forwarded-Host") or request.host
@@ -200,10 +200,152 @@ async def auth_poll(request: web.Request) -> web.Response:
     return response
 
 
+# ─────────────────────────────────────────── botdan saytga bir bosishda kirish (/go)
+#
+# Bot tugmasi: /go?t=<token>&to=<joy>. GET sahifaning o'zi hech narsani o'zgartirmaydi — tokenni sahifadagi
+# skript POST bilan almashtiradi. Shunda havolani oldindan ochib ko'radigan robotlar (havola ko'rinishi,
+# antiviruslar) bir martalik tokenni "yeb qo'ymaydi". Eski sessiya har doim yangisiga almashadi (telefonda
+# boshqa Telegram akkaunt bilan kirilgan bo'lsa ham to'g'ri odam ko'rinadi); eski sessiya Telegramsiz
+# Google akkaunti bo'lsa, u 10 daqiqa `edu_prev` da saqlanadi va mijozdan birlashtirish so'raladi.
+
+PREV_COOKIE = "edu_prev"
+PREV_TTL = 10 * 60
+GO_PLACES = {"home": "/", "docs": "/app#/docs", "profile": "/app#/profile"}
+
+
+def go_target(to: str) -> str:
+    """Saytdagi ichki manzil (ochiq yo'naltirish yo'q: faqat ma'lum joylar)."""
+    to = str(to or "")
+    kind = web_jobs.KINDS.get(to)
+    if kind and to != "slide_rewrite":
+        return f"/#yaratish?kind={to}"
+    return GO_PLACES.get(to, "/")
+
+
+async def _switch_session(request: web.Request, response: web.StreamResponse, session: str) -> int:
+    """Yangi sessiyani cookie ga yozadi, eskisini yopadi (Telegramsiz Google akkaunti bo'lsa — vaqtincha saqlaydi)."""
+    from database import web_accounts
+
+    new_tid = await web_store.session_user(session)
+    old = request.cookies.get(COOKIE, "")
+    old_tid = await web_store.session_user(old) if old else None
+    if old and old != session:
+        if old_tid is not None and old_tid != new_tid and web_accounts.is_web_only(old_tid):
+            response.set_cookie(PREV_COOKIE, old, max_age=PREV_TTL, httponly=True, samesite="Lax",
+                                secure=_secure(request), path="/")
+        else:
+            await web_store.end_session(old)
+    response.set_cookie(COOKIE, session, max_age=web_store.SESSION_TTL, httponly=True, samesite="Lax",
+                        secure=_secure(request), path="/")
+    return int(new_tid or 0)
+
+
+async def auth_go(request: web.Request) -> web.Response:
+    if _limited("go:" + _ip(request), 30, 60):
+        return _error("Juda ko'p urinish. Bir daqiqadan keyin qayta urining.", 429, "rate")
+    data = await _json(request)
+    token = str(data.get("token") or "")
+    target = go_target(str(data.get("to") or ""))
+    if not token or len(token) > 80:
+        return _error("Havola noto'g'ri.", 400, "bad_token")
+    session = await web_store.poll_login(token)
+    if not session:
+        return web.json_response({"ok": False, "code": "expired", "to": target,
+                                  "error": "Havola eskirgan yoki ishlatilgan."}, status=410)
+    response = web.json_response({"ok": True, "to": target})
+    await _switch_session(request, response, session)
+    return response
+
+
+_SEEN_TG_LOGINS: Dict[str, float] = {}
+TG_LOGIN_TTL = 10 * 60
+
+
+def telegram_login_user(query) -> Optional[int]:
+    """Telegram «Login URL» tugmasi ma'lumotini tekshiradi (core.telegram.org/widgets/login#checking-authorization).
+
+    Qaytaradi: Telegram ID yoki None (imzo noto'g'ri, eskirgan yoki qayta ishlatilgan).
+    """
+    from config import BOT_TOKEN
+
+    fields = {k: str(v) for k, v in query.items() if k not in ("to",)}
+    received = fields.pop("hash", "")
+    if not BOT_TOKEN or not re.fullmatch(r"[0-9a-f]{64}", received) or "id" not in fields:
+        return None
+    check_string = "\n".join(f"{key}={fields[key]}" for key in sorted(fields))
+    expected = hmac.new(hashlib.sha256(BOT_TOKEN.encode()).digest(), check_string.encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, received):
+        return None
+    try:
+        auth_date, user_id = int(fields.get("auth_date", "0")), int(fields["id"])
+    except ValueError:
+        return None
+    now = time.time()
+    if auth_date <= 0 or now - auth_date > TG_LOGIN_TTL or auth_date > now + 60:
+        return None
+    for stale in [h for h, t in _SEEN_TG_LOGINS.items() if now - t > TG_LOGIN_TTL]:
+        _SEEN_TG_LOGINS.pop(stale, None)
+    if received in _SEEN_TG_LOGINS:        # bir xil havola ikkinchi marta ishlamaydi
+        return None
+    _SEEN_TG_LOGINS[received] = now
+    return user_id
+
+
+async def go_telegram(request: web.Request) -> web.StreamResponse:
+    """Telegram «Login URL» tugmasi orqali kelgan mijoz: imzo tekshiriladi, sessiya ochiladi, kerakli joyga."""
+    target = go_target(request.query.get("to", ""))
+    telegram_id = telegram_login_user(request.query)
+    if telegram_id is None or await Database.get_user(telegram_id) is None:
+        raise web.HTTPFound(f"/go?to={url_quote(request.query.get('to', ''))}&bad=1")
+    from database import web_accounts
+
+    session = await web_accounts.create_session(telegram_id)
+    response = web.HTTPFound(f"/go?to={url_quote(request.query.get('to', ''))}&done=1")
+    await _switch_session(request, response, session)
+    raise response
+
+
+async def merge_offer(request: web.Request) -> web.Response:
+    """Shu brauzerda avval Google akkaunti bilan kirilgan bo'lsa — uni birlashtirish taklifi."""
+    from database import web_accounts
+
+    telegram_id = await _require(request)
+    prev_tid = await web_store.session_user(request.cookies.get(PREV_COOKIE, ""))
+    if prev_tid is None or not web_accounts.is_web_only(prev_tid) or web_accounts.is_web_only(telegram_id):
+        return web.json_response({"ok": True, "offer": None})
+    identity = await web_accounts.identity_of(prev_tid) or {}
+    user = await Database.get_user(prev_tid)
+    return web.json_response({"ok": True, "offer": {"email": identity.get("email", ""),
+                                                    "balance": int(getattr(user, "balance", 0) or 0)}})
+
+
+async def merge_answer(request: web.Request) -> web.Response:
+    """Mijoz javobi: «Ha» — Google akkaunti shu Telegram akkauntiga qo'shiladi; «Yo'q» — eski sessiya yopiladi."""
+    from database import web_accounts
+
+    telegram_id = await _require(request)
+    data = await _json(request)
+    prev = request.cookies.get(PREV_COOKIE, "")
+    prev_tid = await web_store.session_user(prev)
+    moved = 0
+    if data.get("accept") and prev_tid is not None:
+        try:
+            moved = await web_accounts.merge(prev_tid, telegram_id)
+        except web_accounts.MergeError as exc:
+            return _error(str(exc), 409, "merge")
+    if prev:
+        await web_store.end_session(prev)
+    response = web.json_response({"ok": True, "moved": moved})
+    response.del_cookie(PREV_COOKIE, path="/")
+    return response
+
+
 async def auth_logout(request: web.Request) -> web.Response:
     await web_store.end_session(request.cookies.get(COOKIE, ""))
+    await web_store.end_session(request.cookies.get(PREV_COOKIE, ""))
     response = web.json_response({"ok": True})
     response.del_cookie(COOKIE, path="/")
+    response.del_cookie(PREV_COOKIE, path="/")
     return response
 
 
@@ -271,6 +413,9 @@ def _catalog() -> Dict:
                     ("qorongu", "Qorong'u"))],
         "themes": [{"key": t.key, "label": t.name, "background": "#" + t.background, "accent": "#" + t.accent,
                     "heading": "#" + t.heading} for t in themes.choices()],
+        # Taqdimot rangi (botdagi «🎨 Rang» bilan bir xil ro'yxat; tanlanmasa — mavzuga qarab).
+        "colors": [{"key": t.key, "label": t.name, "accent": "#" + t.accent, "background": "#" + t.background}
+                   for t in themes.choices() if t.key in web_kinds.COLOR_KEYS],
         "templates": [{"id": tid, "name": t["name"].get("uz", tid), "url": f"/api/template-image/{tid}"}
                       for tid, t in web_kinds._simple_templates().items()],
         # Slayd sonini mijoz o'zi belgilaydi (5–30): har son uchun narx.
@@ -284,7 +429,13 @@ def _catalog() -> Dict:
 
 
 async def catalog(request: web.Request) -> web.Response:
-    return web.json_response({"ok": True, **_catalog()})
+    # Botdagi kabi: yozuvlar animatsiyasi admin yoqqanda, «Rahmat» personaji admin o'chirmagan bo'lsa taklif qilinadi.
+    from services.premium_presentation import slide_anim
+    from services.thanks_anim import FEATURE as THANKS_FEATURE, catalog as thanks_catalog
+    db = Database()
+    extras = {"text_anim": bool(await db.get_feature_status(slide_anim.FEATURE, default=False)),
+              "thanks": bool(thanks_catalog.available()) and bool(await db.get_feature_status(THANKS_FEATURE, default=True))}
+    return web.json_response({"ok": True, **_catalog(), **extras})
 
 
 async def quote(request: web.Request) -> web.Response:
@@ -386,8 +537,88 @@ async def jobs_create(request: web.Request) -> web.Response:
     except web_jobs.JobError as exc:
         status = 402 if exc.code == "no_balance" else 409 if exc.code in ("busy", "trial_used") else 400
         return _error(str(exc), status, exc.code)
+    if str(data.get("kind")) != "slide_rewrite":     # mijoz o'zi buyurtma berdi — kutayotgani va qoralamasi kerak emas
+        await web_store.clear_pending(telegram_id)
+        await web_store.clear_draft(telegram_id)
     user = await Database.get_user(telegram_id)
     return web.json_response({"ok": True, "job": job, "balance": int(getattr(user, "balance", 0) or 0)})
+
+
+# ───────────────────────────────────── to'lovni kutayotgan buyurtma va chala buyurtma qoralamasi
+
+async def pending_create(request: web.Request) -> web.Response:
+    """Balans yetmaydi: buyurtma saqlanadi va to'lov tushishi bilan o'zi boshlanadi (web_jobs.start_pending)."""
+    telegram_id = await _require(request)
+    if _limited(f"pending:{telegram_id}", 10, 60):
+        return _error("Juda tez-tez yuborildi. Bir daqiqa kuting.", 429, "rate")
+    data = await _json(request, _MAX_JOB_JSON)
+    kind = web_jobs.KINDS.get(str(data.get("kind")))
+    if not kind or kind.key == "slide_rewrite":
+        return _error("Bunday xizmat yo'q", 404, "unknown_kind")
+    raw = dict(data.get("params") or {})
+    if raw.get("trial"):
+        return _error("Bepul sinov to'lov talab qilmaydi.", 400, "trial")
+    try:
+        params = kind.normalize(dict(raw))
+    except web_jobs.JobError as exc:
+        return _error(str(exc), 400, exc.code)
+    price = int(kind.price(params))
+    user = await Database.get_user(telegram_id)
+    balance = int(getattr(user, "balance", 0) or 0)
+    if balance >= price:
+        return web.json_response({"ok": True, "enough": True, "price": price, "balance": balance})
+    await web_store.set_pending(telegram_id, kind.key, kind.title(params)[:200], raw, price)
+    from services.receipts import web as receipt_web
+    missing = max(price - balance, receipt_web.MIN_AMOUNT)
+    return web.json_response({"ok": True, "enough": False, "price": price, "balance": balance, "missing": missing})
+
+
+async def pending_get(request: web.Request) -> web.Response:
+    telegram_id = await _require(request)
+    row = await web_store.get_pending(telegram_id)
+    if not row:
+        return web.json_response({"ok": True, "pending": None})
+    job_id = row.get("job_id")
+    if job_id and job_id != "starting":
+        job = await web_store.get_job(job_id, telegram_id)
+        await web_store.clear_pending(telegram_id)        # mijozga bir marta ko'rsatiladi
+        return web.json_response({"ok": True, "pending": None, "started": web_jobs.public(job) if job else None})
+    user = await Database.get_user(telegram_id)
+    balance = int(getattr(user, "balance", 0) or 0)
+    from services.receipts import web as receipt_web
+    return web.json_response({"ok": True, "pending": {
+        "kind": row["kind"], "title": row["title"], "price": int(row["price"]), "starting": job_id == "starting",
+        "missing": max(int(row["price"]) - balance, receipt_web.MIN_AMOUNT) if balance < int(row["price"]) else 0}})
+
+
+async def pending_delete(request: web.Request) -> web.Response:
+    telegram_id = await _require(request)
+    await web_store.clear_pending(telegram_id)
+    return web.json_response({"ok": True})
+
+
+_MAX_DRAFT_JSON = 200 * 1024
+
+
+async def draft_get(request: web.Request) -> web.Response:
+    telegram_id = await _require(request)
+    draft = await web_store.get_draft(telegram_id)
+    return web.json_response({"ok": True, "draft": draft})
+
+
+async def draft_put(request: web.Request) -> web.Response:
+    telegram_id = await _require(request)
+    if _limited(f"draft:{telegram_id}", 40, 60):
+        return _error("Juda tez-tez", 429, "rate")
+    data = await _json(request, _MAX_DRAFT_JSON)
+    draft = data.get("draft")
+    if not isinstance(draft, dict):
+        return _error("Qoralama kerak", 400, "bad_draft")
+    if not str(draft.get("topic") or "").strip():
+        await web_store.clear_draft(telegram_id)
+    else:
+        await web_store.save_draft(telegram_id, draft)
+    return web.json_response({"ok": True})
 
 
 async def jobs_list(request: web.Request) -> web.Response:
@@ -821,6 +1052,11 @@ def setup_api_routes(app: web.Application) -> None:
     add("POST", "/api/v1/auth/start", auth_start)
     add("GET", "/api/v1/auth/poll", auth_poll)
     add("POST", "/api/v1/auth/logout", auth_logout)
+    add("POST", "/api/v1/auth/go", auth_go)
+    add("GET", "/api/v1/auth/merge", merge_offer)
+    add("POST", "/api/v1/auth/merge", merge_answer)
+    add("GET", "/go", _page("go.html"))
+    add("GET", "/go/tg", go_telegram)
     add("GET", "/api/v1/me", me)
     add("GET", "/api/v1/version", version)
     add("GET", "/api/v1/catalog", catalog)
@@ -836,6 +1072,11 @@ def setup_api_routes(app: web.Application) -> None:
     add("POST", "/api/v1/jobs/{id}/rewrite", deck_rewrite)
     add("GET", "/api/v1/jobs/{id}/page/{n}", deck_page)
     add("POST", "/api/v1/jobs/{id}/edit", deck_edit)
+    add("POST", "/api/v1/pending", pending_create)
+    add("GET", "/api/v1/pending", pending_get)
+    add("DELETE", "/api/v1/pending", pending_delete)
+    add("GET", "/api/v1/draft", draft_get)
+    add("PUT", "/api/v1/draft", draft_put)
     add("GET", "/api/v1/wallet", wallet)
     add("POST", "/api/v1/wallet/receipt", wallet_receipt)
     add("POST", "/api/v1/wallet/click", wallet_click)

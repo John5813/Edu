@@ -44,6 +44,11 @@ def _pick_language(raw: Dict, topic: str) -> str:
 
 # ───────────────────────────────────────────────────────── zamonaviy (premium) taqdimot
 
+# Saytdagi rang tanlovi — botdagi bilan bir xil (bot/handlers/premium_presentation.COLOR_KEYS, "auto"siz).
+COLOR_KEYS = ("ko'k", "to'q ko'k", "yashil", "zumrad", "binafsha", "kulrang")
+PHOTO_SOURCES = ("mix", "web", "ai")
+
+
 def _premium_normalize(raw: Dict) -> Dict:
     from services.premium_presentation import pipeline
 
@@ -62,8 +67,20 @@ def _premium_normalize(raw: Dict) -> Dict:
     if trial:
         from database import free_trial
         count = free_trial.SLIDES
+    # Rang (botdagi «🎨 Rang» bilan bir xil ro'yxat; bo'sh — mavzuga qarab) va rasm manbasi (bepul sinovda — internet).
+    theme = str(raw.get("theme") or "")
+    if theme not in COLOR_KEYS or trial:
+        theme = ""
+    photos = "web" if trial else (raw.get("photos") if raw.get("photos") in PHOTO_SOURCES else "mix")
+    # «Rahmat» personaji (oxirgi sahifa, tekin) va yozuvlar animatsiyasi — botdagi kabi; bepul sinovda yo'q.
+    from services.thanks_anim import catalog as thanks_catalog
+    thanks = str(raw.get("thanks") or "")
+    if trial or thanks_catalog.get(thanks) not in thanks_catalog.available():
+        thanks = ""
+    text_anim = bool(raw.get("text_anim") is True and not trial)
     return {"topic": topic, "slide_count": max(pipeline.MIN_SLIDES, min(count, pipeline.MAX_SLIDES)), "trial": trial,
-            "language": _pick_language(raw, topic), "style": style,
+            "language": _pick_language(raw, topic), "style": style, "theme": theme, "photos": photos,
+            "thanks": thanks, "text_anim": text_anim,
             "volume": "kop" if trial else (volume if volume in pipeline.VOLUMES else "kop"),
             "author": _text(raw, "author", 80), "preferences": _text(raw, "preferences", 1000),
             "source_text": _long_text(raw, "source_text", SOURCE_LIMIT),
@@ -116,7 +133,8 @@ async def _premium_run(params: Dict, report: Report) -> Tuple[str, str]:
         path, _slides, _photos = await pipeline.build_deck(
             topic, params["slide_count"], language=params["language"], preferences=params["preferences"],
             author=params["author"], style=params["style"], volume=params.get("volume") or "kop",
-            photo_source="web" if trial else "mix",
+            theme_key=params.get("theme") or "",
+            photo_source="web" if trial else (params.get("photos") or "mix"),
             source_text=params.get("source_text", ""), progress_cb=on_progress, stage_cb=on_stage,
             deck_out=deck_out if job_id else None)
     if job_id and deck_out.get("pages"):
@@ -125,8 +143,41 @@ async def _premium_run(params: Dict, report: Report) -> Tuple[str, str]:
             await asyncio.to_thread(web_decks.create, job_id, params, deck_out)
         except Exception as exc:        # ko'rib chiqish ishlamasa ham fayl mijozga yetadi
             log.warning("Taqdimot nusxasi saqlanmadi (%s): %s", job_id, exc)
+    await _finish_touches(path, params)
     stem = re.sub(r"[^\w-]+", "_", topic)[:30].strip("_") or "fayl"
     return path, f"Taqdimot_{stem}.pptx"
+
+
+async def _feature(name: str, default: bool) -> bool:
+    try:
+        from database.database import Database
+        return bool(await Database().get_feature_status(name, default=default))
+    except Exception:
+        return False
+
+
+async def _finish_touches(path: str, params: Dict) -> None:
+    """Botdagi kabi: yozuvlar animatsiyasi va «Rahmat» sahifasi (admin o'chirgan bo'lsa — qo'shilmaydi). Xato —
+    taqdimot ularsiz beriladi."""
+    from services.premium_presentation import slide_anim
+    from services.thanks_anim import FEATURE as THANKS_FEATURE
+
+    if params.get("text_anim") and await _feature(slide_anim.FEATURE, False):
+        try:
+            await asyncio.to_thread(slide_anim.apply, path)
+        except Exception as exc:
+            log.warning("Yozuv animatsiyasi qo'shilmadi (sayt): %s", exc)
+    if params.get("thanks") and await _feature(THANKS_FEATURE, True):
+        from services.thanks_anim import picker
+        try:
+            done = await asyncio.to_thread(picker.apply, path, params["thanks"], topic=params["topic"],
+                                           style=params.get("style", ""), volume=params.get("volume") or "kop",
+                                           theme_key=params.get("theme") or "", language=params["language"],
+                                           author=params.get("author", ""))
+            if done is None:
+                log.warning("«Rahmat» sahifasi qo'shilmadi (sayt): %s", params["thanks"])
+        except Exception as exc:
+            log.warning("«Rahmat» sahifasi qo'shilmadi (sayt): %s", exc)
 
 
 register(Kind(key="premium_presentation", label="Zamonaviy taqdimot", normalize=_premium_normalize,
@@ -334,7 +385,7 @@ register(Kind(key="thesis", label="Tezis", normalize=_thesis_normalize, price=_t
               title=lambda p: p["topic"], run=_thesis_run, publish_as="tezis",
               options={"form": "thesis", "languages": list(DOC_LANGUAGES), "price": _thesis_price({}),
                        "eta_minutes": 1}))
-KINDS_ORDER = ("premium_presentation", "independent_work", "referat", "article", "thesis", "course_work",
+KINDS_ORDER = ("premium_presentation", "simple_presentation", "presentation_3d", "independent_work", "referat", "article", "thesis", "course_work",
                "diploma_work", "bitiruv_ishi", "dissertatsiya")
 
 
@@ -534,3 +585,87 @@ async def _rewrite_run(params: Dict, report: Report) -> Tuple[str, str]:
 register(Kind(key="slide_rewrite", label="Sahifani o'zgartirish", normalize=_rewrite_normalize,
               price=_rewrite_price, title=lambda p: f"{p['index'] + 1}-sahifa: {p['instruction'][:40]}",
               run=_rewrite_run, quiet=True))
+
+
+# ─────────────────────────────────────────── 3D taqdimot (botdagi «🧊 3D taqdimot Pro» bilan bir xil)
+#
+# Mavzu tana tuzilishiga oid bo'lsa — 3D Anatomiya (services.med3d), aks holda katalogdagi haqiqiy 3D modellar
+# (services.kat3d, to'liq 3D, modellarni AI tanlaydi). Mos 3D topilmasa — buyurtma bajarilmaydi va pul qaytadi
+# (mijozga Infografik yoki Zamonaviy turi taklif qilinadi). Fayl kompyuterdagi PowerPoint uchun.
+
+THREE_D_MIN, THREE_D_MAX = 4, 15
+THREE_D_LANGUAGES = ("uz", "ru", "en", "kk")
+
+
+def _three_d_normalize(raw: Dict) -> Dict:
+    topic = _text(raw, "topic", 300)
+    if len(topic) < 3:
+        raise JobError("Mavzu kamida 3 ta belgidan iborat bo'lsin.")
+    try:
+        count = int(raw.get("slide_count") or 8)
+    except (TypeError, ValueError):
+        count = 8
+    language = raw.get("language") if raw.get("language") in THREE_D_LANGUAGES else uz_script.base_language(
+        detect_language(topic))
+    if language not in THREE_D_LANGUAGES:
+        language = "uz"
+    return {"topic": topic, "slide_count": max(THREE_D_MIN, min(count, THREE_D_MAX)), "language": language,
+            "author": _text(raw, "author", 80), "preferences": _text(raw, "preferences", 1000)}
+
+
+def _three_d_price(params: Dict) -> int:
+    from services.med3d import auto as med3d_auto
+    return int(med3d_auto.price_for(params["slide_count"]))
+
+
+async def _three_d_run(params: Dict, report: Report) -> Tuple[str, str]:
+    import asyncio
+
+    from services.kat3d import qidiruv
+    from services.med3d import auto as med3d_auto
+
+    topic, language, count = params["topic"], params["language"], params["slide_count"]
+    report("writing", 4)
+    loop = asyncio.get_running_loop()
+    med_job = loop.run_in_executor(None, med3d_auto.check_topic, topic, language)
+    kat_job = loop.run_in_executor(None, qidiruv.top, topic, language)
+    try:
+        med = await asyncio.wait_for(med_job, 60)
+    except Exception as exc:                          # noqa: BLE001
+        log.warning("3D anatomiya tekshiruvi (sayt): %s", exc)
+        med = {"ok": False, "checked": False}
+    try:
+        kat = await asyncio.wait_for(kat_job, 90)
+    except Exception as exc:                          # noqa: BLE001
+        log.warning("3D katalog qidiruvi (sayt): %s", exc)
+        kat = {"ok": False, "ids": []}
+
+    def stage(name: str, info: dict) -> None:
+        report(name if name in ("images", "render") else "writing",
+               {"images": 60, "render": 85}.get(name, 20))
+
+    anatomy = med.get("ok") and med.get("checked", True)
+    if anatomy or (med.get("ok") and not kat.get("ok")):
+        path, _slides = await med3d_auto.build_deck(topic, count, language=language, preferences=params["preferences"],
+                                                    stage_cb=stage, author=params["author"])
+    elif kat.get("ids") and (kat.get("level") or ("full" if kat.get("ok") else "none")) in ("full", "partial"):
+        import services.kat3d as kat3d
+        path, _slides = await kat3d.build_deck(topic, count, list(kat["ids"]), language=language,
+                                               preferences=params["preferences"], stage_cb=stage, mode="full",
+                                               author=params["author"])
+    else:
+        raise JobError("Bu mavzu uchun mos 3D model topilmadi. Infografik yoki Zamonaviy turini tanlang.",
+                       "no_3d")
+    stem = re.sub(r"[^\w-]+", "_", topic)[:30].strip("_") or "fayl"
+    return path, f"3D_Taqdimot_{stem}.pptx"
+
+
+def _three_d_options() -> Dict:
+    from services.med3d import auto as med3d_auto
+    return {"form": "3d", "languages": list(THREE_D_LANGUAGES), "eta_minutes": 10,
+            "sizes": [{"key": str(n), "label": f"{n} slayd", "price": int(med3d_auto.price_for(n))}
+                      for n in (4, 5, 6, 8, 10, 12, 15)]}
+
+
+register(Kind(key="presentation_3d", label="3D taqdimot", normalize=_three_d_normalize, price=_three_d_price,
+              title=lambda p: p["topic"], run=_three_d_run, heavy=True, options=_three_d_options()))

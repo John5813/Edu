@@ -267,7 +267,7 @@ table.hist th{color:var(--mute);font-size:12px;font-weight:700;border-top:0}
 @media (max-width:620px){
   .styles{grid-template-columns:repeat(3,minmax(0,1fr))}
   .job{grid-template-columns:minmax(0,1fr)}
-  #actions.in .btn.out{display:none}
+  #actions .btn.out{display:none}
   .btn.hide-s{display:none}.full{display:none}.short{display:inline}
   .top .wrap{height:64px}.logo img{width:46px;height:46px}.actions .btn.sm{padding:9px 11px;font-size:13px}
 }
@@ -693,3 +693,50 @@ input[type=range]{accent-color:var(--brand)}
 .trial .tx span{font-size:13.5px;color:#4A5272}
 .trial.on{border-style:solid;background:rgba(22,163,74,.08);border-color:#16a34a}
 .st-count.locked .cval b{color:#16a34a}
+
+/* «Botga qaytish» — har sahifada pastki o'ng burchakda */
+.tg-back{position:fixed;right:16px;bottom:16px;z-index:40;display:flex;align-items:center;gap:8px;padding:11px 16px;border-radius:999px;
+  background:#229ED9;color:#fff;font-weight:700;font-size:14px;text-decoration:none;box-shadow:0 8px 24px rgba(34,158,217,.35)}
+.tg-back svg{width:18px;height:18px}
+.tg-back:hover{background:#1B8CC2}
+@media (max-width:520px){.tg-back{padding:9px 13px;right:12px;bottom:12px;font-size:13px}}
+body:has(.modal) .tg-back{display:none}
+.btn.out-bad{background:transparent;color:var(--bad);border:1.5px solid var(--bad)}
+
+/* «💳 To'lov» — sarlavhada doim ko'rinadi */
+.btn.pay{background:#0F9D6B;color:#fff;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.btn.pay:hover{background:#0B8459}
+.btn.pay .pb{background:rgba(255,255,255,.2);padding:2px 8px;border-radius:8px;font-size:13px}
+@media (max-width:620px){.btn.pay{flex-direction:column;gap:0;line-height:1.15;padding:6px 10px}.btn.pay .pb{background:none;padding:0;font-size:11px;font-weight:600;opacity:.9}}
+
+/* Taqdimot turi: 4 ta kartochka (Infografik, Zamonaviy, Klassik, 3D) — «Taqdimot» tanlanishi bilan ko'rinadi */
+.ptypes:empty{display:none}
+.ptypes{margin:4px 0 14px}
+.pt-lab{font-weight:800;font-size:14.5px;margin-bottom:10px;color:var(--ink)}
+.pt-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.ptype{position:relative;display:flex;flex-direction:column;gap:4px;padding:6px 6px 10px;border:1.5px solid var(--line);border-radius:14px;background:#fff;text-align:left;cursor:pointer;transition:border-color .2s,box-shadow .2s,transform .2s}
+.ptype img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;border-radius:9px}
+.ptype b{font-size:14.5px;padding:2px 4px 0}
+.ptype small{font-size:12px;color:var(--mute);padding:0 4px;line-height:1.35}
+.ptype:hover{transform:translateY(-2px)}
+.ptype.on{border-color:var(--ink);box-shadow:0 0 0 3px var(--marker)}
+.ptype.soon{cursor:default;opacity:.72}.ptype.soon:hover{transform:none}
+.ptype.soon img{filter:grayscale(.5)}
+.pt-soon{position:absolute;top:12px;left:12px;background:var(--ink);color:#fff;font-size:11.5px;font-weight:700;padding:4px 8px;border-radius:8px}
+@media (max-width:760px){.pt-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ptype small{display:none}}
+.st-tpls{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.st-tpl{padding:3px;border:1.5px solid var(--line);border-radius:10px;background:#fff;cursor:pointer}
+.st-tpl img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:7px}
+.st-tpl.on{border-color:var(--ink);box-shadow:0 0 0 3px var(--marker)}
+@media (max-width:620px){.st-tpls{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.pv.tplv{padding:0;overflow:hidden;aspect-ratio:16/9}.pv.tplv img{display:block;width:100%;height:100%;object-fit:cover}
+#photos.srcs{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:620px){#photos.srcs{grid-template-columns:minmax(0,1fr)}}
+
+/* «Rahmat» personaji tanlovi */
+.st-thx{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.thx{display:flex;flex-direction:column;gap:4px;padding:4px 4px 6px;border:1.5px solid var(--line);border-radius:12px;background:#fff;text-align:center;font-size:12px;cursor:pointer}
+.thx img,.thx video{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;background:#F2F3F7}
+.thx.none{justify-content:center;min-height:90px}
+.thx.on{border-color:var(--ink);box-shadow:0 0 0 3px var(--marker)}
+@media (max-width:620px){.st-thx{grid-template-columns:repeat(3,minmax(0,1fr))}}
