@@ -33,6 +33,7 @@ from services.pro3d.build import add_entrances, add_morph
 
 from . import ASSETS_DIR, design, load_scene
 from .camera import Camera, IdBuffer, sides
+from .glb import bounds as glb_bounds
 from .pptx3d import add_model3d
 
 log = logging.getLogger(__name__)
@@ -99,6 +100,20 @@ class Frame:
         return Frame(cx, cy, size, rot)
 
 
+def _pivot_frame(cam: Camera, frame: Frame, pivot) -> Tuple[float, float, float]:
+    """Organ markazida aylanadigan model (`auto.centred_box`) uchun ramka: (chap, tepa, tomon) dyuymda.
+
+    Sahna kamerasida organ markazi slaydning qayeriga tushsa, ramka markazi o'sha yerga qo'yiladi; perspektiva
+    uchun tomoni organ chuqurligiga qarab tuzatiladi (kameraga yaqin organ — biroz katta). Natijada model
+    slaydda avvalgidek turadi, lekin Morph uni organning o'z o'qi atrofida aylantiradi."""
+    if pivot is None:
+        return frame.left, frame.top, frame.size
+    uv, depth = cam.project([pivot], frame.rot)
+    size = frame.size * cam.distance / max(cam.distance - float(depth[0]), 1e-6)
+    cx, cy = frame.to_slide(float(uv[0, 0]), float(uv[0, 1]))
+    return cx - size / 2, cy - size / 2, size
+
+
 def _text_boxes(lay) -> List[Tuple[float, float, float, float]]:
     """Kompozitsiyadagi matn joylari (x0, y0, x1, y1): sarlavha, matn va matn kartasi."""
     out = []
@@ -130,19 +145,21 @@ def _path_hits(cam: Camera, points, start: Frame, end: Frame, fading_out, fading
     return total
 
 
-def clear_way(cam: Camera, points, frame: Frame, prefer: Optional[str], fading_out, fading_in,
-              arriving: bool = False) -> str:
+def clear_way(items, prefer: Optional[str], fading_out, fading_in, arriving: bool = False) -> str:
     """Uchib chiqish/kirish yo'nalishi: model matn ustidan o'tmaydigani (rejissyor tanlagani — birinchi navbatda).
 
-    Ilgari yo'nalish tasodifiy edi: o'ngdagi model chapga ketsa (yoki chapdan kirsa), slayd bo'ylab chapdagi
-    matn ustunining ustidan uchib o'tardi — Morph paytida «chegaradan chiqib ketgandek» ko'rinardi."""
+    items — [(kamera, nuqtalar, ramka)]: har ketayotgan (kelayotgan) model o'z ramkasi bilan. Ilgari yo'nalish
+    tasodifiy edi: o'ngdagi model chapga ketsa (yoki chapdan kirsa), slayd bo'ylab chapdagi matn ustunining
+    ustidan uchib o'tardi — Morph paytida «chegaradan chiqib ketgandek» ko'rinardi."""
     order = [prefer] if prefer in EXITS else []
     order += [w for w in ("up", "down", "right", "left") if w not in order]
     best, score = order[0], None
     for way in order:
-        out = frame.moved_out(way)
-        hit = _path_hits(cam, points, out, frame, fading_out, fading_in) if arriving else \
-            _path_hits(cam, points, frame, out, fading_out, fading_in)
+        hit = 0.0
+        for cam, points, frame in items:
+            out = frame.moved_out(way)
+            hit = max(hit, _path_hits(cam, points, out, frame, fading_out, fading_in) if arriving else
+                      _path_hits(cam, points, frame, out, fading_out, fading_in))
         if hit <= 0.02:
             return way
         if score is None or hit < score:
@@ -842,6 +859,19 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
                         glbs[(key, g)] = fh.read()
         return scenes[key]
 
+    organ_cams: Dict[Tuple[str, str], Camera] = {}
+
+    def organ_cam(k: str, g: str) -> Camera:
+        """Modelning o'z kamerasi (GLB chegarasi bo'yicha — PowerPoint ham shunday ko'radi)."""
+        if (k, g) not in organ_cams:
+            organ_cams[(k, g)] = Camera(*glb_bounds(glbs[(k, g)]))
+        return organ_cams[(k, g)]
+
+    def organ_frame(k: str, g: str, frame: Frame) -> Frame:
+        """Sahna ramkasidagi model — o'z markazidagi ramkada (uchib chiqish/kirish shu ramkadan hisoblanadi)."""
+        left, top, side = _pivot_frame(cams[k], frame, scenes[k]["groups"][g].get("pivot"))
+        return Frame(left + side / 2, top + side / 2, side, frame.rot)
+
     # 1-bosqich: har slaydning sahnasi, ramkasi va ko'rinadigan organlari.
     slides = plan["slides"]
     plans = []
@@ -928,32 +958,30 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
         # fade — bu slaydga o'tishda organlar uchib kelmaydi, o'z joyida asta almashadi (Morph o'zi so'ndiradi).
         if index and not data.get("fade"):           # oldingi slayddan ketayotganlar
             before = plans[index - 1]
-            leaving = [p for name, (k, g) in before["names"].items() if name not in placed
-                       for p in before["scene"]["groups"][g]["samples"]]
+            leaving = [(name, k, g) for name, (k, g) in before["names"].items() if name not in placed]
+            items = [(organ_cam(k, g), before["scene"]["groups"][g]["samples"], organ_frame(k, g, before["frame"]))
+                     for name, k, g in leaving]
             way = (data.get("exit") or "up") if before["key"] == key else (data.get("exit") or "left")
-            if leaving:
-                way = clear_way(before["cam"], leaving, before["frame"], way,
-                                _text_boxes(before["layout"]), _text_boxes(lay))
-            out = before["frame"].moved_out(way)
-            for name, (k, g) in before["names"].items():
-                if name not in placed:
-                    add_model3d(slide, glbs[(k, g)], name, out.left, out.top, out.size, out.rot, parts,
-                                lights=st.lights)
-                    placed.add(name)
+            if items:
+                way = clear_way(items, way, _text_boxes(before["layout"]), _text_boxes(lay))
+            for (name, k, g), (_, _, own) in zip(leaving, items):
+                out = own.moved_out(way)               # organning o'z ramkasi — slayddan to'liq chiqadi
+                add_model3d(slide, glbs[(k, g)], name, out.left, out.top, out.size, out.rot, parts,
+                            lights=st.lights)
+                placed.add(name)
         if index + 1 < len(plans) and not slides[index + 1].get("fade"):   # keyingilari — hozircha tashqarida
             after = plans[index + 1]
-            arriving = [p for name, (k, g) in after["names"].items() if name not in placed
-                        for p in after["scene"]["groups"][g]["samples"]]
+            arriving = [(name, k, g) for name, (k, g) in after["names"].items() if name not in placed]
+            items = [(organ_cam(k, g), after["scene"]["groups"][g]["samples"], organ_frame(k, g, after["frame"]))
+                     for name, k, g in arriving]
             way = slides[index + 1].get("enter") or ("down" if after["key"] == key else "right")
-            if arriving:
-                way = clear_way(after["cam"], arriving, after["frame"], way, _text_boxes(lay),
-                                _text_boxes(after["layout"]), arriving=True)
-            incoming = after["frame"].moved_out(way)
-            for name, (k, g) in after["names"].items():
-                if name not in placed:
-                    add_model3d(slide, glbs[(k, g)], name, incoming.left, incoming.top, incoming.size,
-                                incoming.rot, parts, lights=st.lights)
-                    placed.add(name)
+            if items:
+                way = clear_way(items, way, _text_boxes(lay), _text_boxes(after["layout"]), arriving=True)
+            for (name, k, g), (_, _, own) in zip(arriving, items):
+                incoming = own.moved_out(way)
+                add_model3d(slide, glbs[(k, g)], name, incoming.left, incoming.top, incoming.size,
+                            incoming.rot, parts, lights=st.lights)
+                placed.add(name)
         # Har model alohida qatlam: PowerPoint ular orasida chuqurlikni solishtirmaydi. Uzoqdagisi avval
         # (orqaga), yaqinidagisi keyin qo'yiladi.
         def depth(item):
@@ -961,7 +989,8 @@ def build(plan: dict, out_path: str, *, assets_dir: str = ASSETS_DIR, scenes: Op
             return float(np.median(cams[k].project(scenes[k]["groups"][g]["samples"], frame.rot)[1]))
         for name, (k, g) in sorted(cur["names"].items(), key=depth):
             ox, oy = offsets.get(g, (0.0, 0.0))
-            add_model3d(slide, glbs[(k, g)], name, frame.left + ox, frame.top + oy, frame.size, frame.rot, parts,
+            left, top, side = _pivot_frame(cams[k], frame, scenes[k]["groups"][g].get("pivot"))
+            add_model3d(slide, glbs[(k, g)], name, left + ox, top + oy, side, frame.rot, parts,
                         lights=st.lights)
 
         placed_labels = _labels(cam, scene, frame, cur["labels"], show, model_box, st, lay, offsets)

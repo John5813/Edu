@@ -658,6 +658,22 @@ def reveal_hidden(body: dict, slides: List[dict]) -> None:
             log.info("3D Anatomiya: %s ko'rinishi uchun olib tashlandi: %s", s["focus"], drop)
 
 
+def centred_box(prims, lo, hi) -> Tuple[Tuple[np.ndarray, np.ndarray], np.ndarray]:
+    """Model chegarasi: sahna qutisi bilan bir xil o'lcham (masshtab va kamera o'zgarmaydi), lekin markazi —
+    organning o'z markazida.
+
+    Ilgari har model butun sahna qutisiga bog'lanardi: kichik organ katta ramkaning bir chetida turar, PowerPoint
+    esa modelni ramka (sahna) markazi atrofida aylantiradi. Morph burilishida (uchib chiqish, «aylanish») organ
+    katta aylana bo'ylab yurib, slayd chegarasidan chiqib ko'rinmay qolardi. Endi aylanish o'qi — organning
+    o'zi; ramka slaydda organ turgan joyga qo'yiladi (`deck._pivot_frame`).
+    Qaytaradi: ((min, max) — GLB ga yoziladigan majburiy quti, organ markazi — sahna koordinatalarida)."""
+    pts = np.vstack([np.asarray(p.positions, float) for p in prims])
+    centre = (pts.min(axis=0) + pts.max(axis=0)) / 2
+    half = (np.asarray(hi, float) - np.asarray(lo, float)) / 2
+    half = np.maximum(half, (pts.max(axis=0) - pts.min(axis=0)) / 2)     # organ qutidan chiqib ketmasin
+    return (centre - half, centre + half), centre
+
+
 def split_runs(body: dict, slides: List[dict]) -> List[Tuple[List[int], np.ndarray, np.ndarray]]:
     """Slaydlarni sahnalarga bo'ladi: sahna ichida hamma slaydning 3D ramkasi MAX_FRAME dan oshmasin."""
     from .deck import SCENE_FRAME_LIMIT, MODEL_REGION, MODEL_REGION_WIDE, fit_frame
@@ -994,8 +1010,10 @@ def build_scenes(body_key: str, plan_: dict, atlas=None, quality: float = 1.0) -
                     pid = part_of(o)
                     parts.append(pid)
                     if pid not in groups:
+                        meshes = model_of(o)
+                        box, pivot = centred_box(meshes, lo, hi)
                         groups[pid] = {"samples": body[o]["samples"], "surface": [(o, surface[o])],
-                                       "glb": write_glb(model_of(o), anchors=(lo, hi), name=pid)}
+                                       "glb": write_glb(meshes, anchors=box, name=pid), "pivot": pivot}
                         labels[f"{pid}:{o}"] = {"uz": names.get(o, BY_ID[o]["uz"]), "la": BY_ID[o].get("la", ""),
                                                 "group": pid, "samples": body[o]["samples"], "alert": o in sick,
                                                 "organ": o}
@@ -1006,9 +1024,11 @@ def build_scenes(body_key: str, plan_: dict, atlas=None, quality: float = 1.0) -
                 continue
             gid = set_id(show + [f"!{o}" for o in sorted(sick)] + (["~calm"] if sick else []))
             if gid not in groups:
+                meshes = [p for o in show for p in model_of(o)]
+                box, pivot = centred_box(meshes, lo, hi)
                 groups[gid] = {"samples": [p for o in show for p in body[o]["samples"]],
                                "surface": [(o, surface[o]) for o in show],
-                               "glb": write_glb([p for o in show for p in model_of(o)], anchors=(lo, hi), name=gid)}
+                               "glb": write_glb(meshes, anchors=box, name=gid), "pivot": pivot}
                 for o in show:
                     labels[f"{gid}:{o}"] = {"uz": names.get(o, BY_ID[o]["uz"]), "la": BY_ID[o].get("la", ""),
                                             "group": gid, "samples": body[o]["samples"], "alert": o in sick,
