@@ -1137,6 +1137,36 @@ This document was created with AI assistance and serves as your helper.
         "en": "🌐 Services are on the website: each service shows its terms when you choose it.",
         "kk": "🌐 Қызметтер сайтта: әр қызметті таңдағанда оның шарттары сол жерде көрінеді."
     },
+    "site_mode_stale": {
+        "uz": "🌐 Bu tugma eskirgan: xizmatlar endi saytda ochiladi. Kerakli xizmatni menyudan tanlang yoki saytni oching.",
+        "ru": "🌐 Эта кнопка устарела: услуги теперь открываются на сайте. Выберите услугу в меню или откройте сайт.",
+        "en": "🌐 This button is outdated: services now open on the website. Choose a service in the menu or open the site.",
+        "kk": "🌐 Бұл батырма ескірген: қызметтер енді сайтта ашылады. Мәзірден қызметті таңдаңыз немесе сайтты ашыңыз."
+    },
+    "site_mode_store": {
+        "uz": "🛒 <b>{title}</b>\n\nTayyor ish saytda ochiladi. Tugmani bosing — sayt sizni Telegram orqali o'zi taniydi.",
+        "ru": "🛒 <b>{title}</b>\n\nГотовая работа открывается на сайте. Нажмите кнопку — сайт сам узнает вас через Telegram.",
+        "en": "🛒 <b>{title}</b>\n\nThe ready-made work opens on the website. Tap the button — the site recognises you through Telegram.",
+        "kk": "🛒 <b>{title}</b>\n\nДайын жұмыс сайтта ашылады. Батырманы басыңыз — сайт сізді Telegram арқылы өзі таниды."
+    },
+    "site_mode_help": {
+        "uz": "📞 *Yordam bo'limi*\n\n💡 Edufayl qanday ishlaydi:\n1️⃣ Menyudan kerakli xizmatni tanlang\n2️⃣ Xizmat saytda ochiladi — Telegram orqali o'zi kirasiz\n3️⃣ Mavzu va sozlamalarni tanlang\n4️⃣ Tayyor fayl shu chatga keladi\n\n⚡️ Hujjat 2-5 daqiqada tayyor bo'ladi.\n\n🌐 «Kabinetim» — hujjatlaringiz va profilingiz saytda.\n⚙️ Sozlamalar — tilni o'zgartirish.\n\n📞 Muammo va shikoyatlar uchun:\nhttps://t.me/Edufail ga murojaat qiling",
+        "ru": "📞 *Помощь*\n\n💡 Как работает Edufayl:\n1️⃣ Выберите услугу в меню\n2️⃣ Услуга откроется на сайте — вход через Telegram автоматически\n3️⃣ Выберите тему и настройки\n4️⃣ Готовый файл придёт в этот чат\n\n⚡️ Документ готов за 2-5 минут.\n\n🌐 «Мой кабинет» — ваши документы и профиль на сайте.\n⚙️ Настройки — смена языка.\n\n📞 По вопросам и жалобам:\nhttps://t.me/Edufail",
+        "en": "📞 *Help*\n\n💡 How Edufayl works:\n1️⃣ Choose a service in the menu\n2️⃣ It opens on the website — you sign in through Telegram automatically\n3️⃣ Choose the topic and settings\n4️⃣ The finished file arrives in this chat\n\n⚡️ A document is ready in 2-5 minutes.\n\n🌐 “My cabinet” — your documents and profile on the website.\n⚙️ Settings — change the language.\n\n📞 For problems and complaints:\nhttps://t.me/Edufail",
+        "kk": "📞 *Көмек*\n\n💡 Edufayl қалай жұмыс істейді:\n1️⃣ Мәзірден қызметті таңдаңыз\n2️⃣ Қызмет сайтта ашылады — Telegram арқылы өзі кіресіз\n3️⃣ Тақырып пен баптауларды таңдаңыз\n4️⃣ Дайын файл осы чатқа келеді\n\n⚡️ Құжат 2-5 минутта дайын болады.\n\n🌐 «Менің кабинетім» — құжаттарыңыз бен профиліңіз сайтта.\n⚙️ Баптаулар — тілді өзгерту.\n\n📞 Мәселелер мен шағымдар бойынша:\nhttps://t.me/Edufail"
+    },
+    "site_mode_referral": {
+        "uz": "👥 *Do'stlaringizni taklif qiling*\n\n🔗 *Sizning havolangiz:*\n`{referral_link}`\n\nHavola orqali qo'shilgan har bir do'stingiz uchun sizga bonus beriladi. Havolani do'stlaringizga yuboring!",
+        "ru": "👥 *Приглашайте друзей*\n\n🔗 *Ваша ссылка:*\n`{referral_link}`\n\nЗа каждого друга, пришедшего по ссылке, вы получаете бонус. Отправьте ссылку друзьям!",
+        "en": "👥 *Invite your friends*\n\n🔗 *Your link:*\n`{referral_link}`\n\nYou get a bonus for every friend who joins through the link. Send it to your friends!",
+        "kk": "👥 *Достарыңызды шақырыңыз*\n\n🔗 *Сіздің сілтемеңіз:*\n`{referral_link}`\n\nСілтеме арқылы қосылған әр досыңыз үшін сізге бонус беріледі. Сілтемені достарыңызға жіберіңіз!"
+    },
+    "site_mode_referral_joined": {
+        "uz": "🎉 Yangi foydalanuvchi sizning havolangiz orqali qo'shildi! Bonus kabinetingizga qo'shildi.",
+        "ru": "🎉 Новый пользователь присоединился по вашей ссылке! Бонус добавлен в ваш кабинет.",
+        "en": "🎉 A new user joined through your link! The bonus has been added to your cabinet.",
+        "kk": "🎉 Жаңа пайдаланушы сіздің сілтемеңіз арқылы қосылды! Бонус кабинетіңізге қосылды."
+    },
     "site_mode_cabinet_btn": {"uz": "🌐 Kabinetim", "ru": "🌐 Мой кабинет", "en": "🌐 My cabinet", "kk": "🌐 Менің кабинетім"},
     # Saytda buyurtma qilingan fayl botga yetkaziladi (services/web_jobs.deliver_to_telegram).
     "web_file_ready": {

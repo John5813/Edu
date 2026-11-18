@@ -554,8 +554,10 @@ async def on_payment_approved(bot, db, user, amount: int) -> int:
         await db.update_user_balance(user.telegram_id, bonus)
         language = "kk" if getattr(user, "kazakh", False) else language_of(user.language)
         try:
-            await bot.send_message(user.telegram_id, T.BONUS_PAID[language].replace(
-                "{amount}", f"{bonus:,}".replace(",", " ")))
+            from services import site_mode
+            if not site_mode.ON:      # sayt rejimida botda to'lov/bonus summasi yozilmaydi
+                await bot.send_message(user.telegram_id, T.BONUS_PAID[language].replace(
+                    "{amount}", f"{bonus:,}".replace(",", " ")))
         except Exception as exc:
             log.warning("Bonus xabari yuborilmadi (%s): %s", user.telegram_id, exc)
         log.info("Qayta jalb bonusi: %s ga +%s so'm", user.telegram_id, bonus)

@@ -6,7 +6,10 @@ ulanadi: asosiy menyu tugmasi va «Boshqa xizmatlar» bosilganda xizmat saytda o
 """
 import logging
 
+import re
+
 from aiogram import F, Router
+from aiogram.filters import Command, CommandObject, CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, LoginUrl, Message
 
@@ -149,3 +152,110 @@ async def fresh_link(callback: CallbackQuery, user_lang: str):
         await callback.message.answer(get_text(user_lang, "site_mode_link_failed"))
         return
     await callback.message.answer(get_text(user_lang, "site_mode_cabinet"), reply_markup=keyboard)
+
+
+# ── Sayt rejimi: botda qolgan pullik kirish yo'llari ham saytga ──────────────────────────────────────────────
+
+def _old_payment_button(data: str) -> bool:
+    """Rejim yoqilishidan oldingi xabarlardagi to'lov tugmalari (to'ldirish, karta, Stars, balansdan to'lash)."""
+    from bot import checkout
+    data = data or ""
+    if data in ("pay_card_start", "pay_custom", "pay_custom_cancel", "show_referral") or re.fullmatch(r"pay_\d+", data):
+        return True
+    if data.startswith(("pay_by_card:", "pay_stars_", "rcpt_resend:")):
+        return True
+    return any(data == f"{s}_{x}" for s in checkout._SERVICE_PREFIXES for x in ("pay", "stars", "recheck", "other", "payback"))
+
+
+async def _send_home(message: Message, telegram_id: int, user_lang: str, key: str, to: str = "home", **fmt) -> None:
+    try:
+        keyboard = await site_keyboard(telegram_id, to, get_text(user_lang, "site_mode_open_btn"))
+    except Exception as exc:
+        log.warning("Sayt havolasi yaratilmadi (%s): %s", telegram_id, exc)
+        await message.answer(get_text(user_lang, "site_mode_link_failed"))
+        return
+    await message.answer(get_text(user_lang, key, **fmt), parse_mode="HTML", reply_markup=keyboard)
+
+
+@router.callback_query(_on, F.data.func(_old_payment_button))
+async def old_payment_button(callback: CallbackQuery, state: FSMContext, user_lang: str):
+    try:
+        await callback.answer()
+    except Exception:
+        pass
+    await state.clear()
+    from bot import checkout
+    checkout.forget(callback.from_user.id)
+    await _send_home(callback.message, callback.from_user.id, user_lang, "site_mode_stale")
+
+
+@router.message(_on, StateFilter("PaymentStates:waiting_for_screenshot", "PaymentStates:waiting_for_custom_amount"))
+async def old_payment_state(message: Message, state: FSMContext, user_lang: str):
+    """Rejim yoqilganda chek yoki summa kutib turgan mijoz: endi bot chek qabul qilmaydi."""
+    await state.clear()
+    from bot.keyboards import get_main_keyboard
+    await _send_home(message, message.from_user.id, user_lang, "site_mode_stale")
+    await message.answer("↩️", reply_markup=get_main_keyboard(user_lang))
+
+
+@router.message(_on, CommandStart(deep_link=True, magic=F.args.startswith("buy_")))
+async def store_link(message: Message, command: CommandObject, state: FSMContext, user_lang: str):
+    """Saytdagi eski «Botda sotib olish» havolasi: xarid saytning o'zida (balansdan)."""
+    from database.database import Database
+    await state.clear()
+    code = (command.args or "")[4:].strip().upper()
+    item = await Database.get_store_item(code) if re.fullmatch(r"[A-Z0-9]{8}", code) else None
+    if not item:
+        await _send_home(message, message.from_user.id, user_lang, "site_mode_stale")
+        return
+    import html as _html
+    await _send_home(message, message.from_user.id, user_lang, "site_mode_store", to=f"buy_{code}",
+                     title=_html.escape(item["title"][:150], quote=False))
+
+
+_EXTRA_PAID = set(label_variants("main_menu.book_translate") + label_variants("main_menu.pdf_convert")
+                  + label_variants("main_menu.media") + label_variants("main_menu.test")
+                  + ["📄 PDF → DOCX", "📚 Kitob tarjimasi", "📚 Перевод книги", "📚 Book Translation"])
+
+
+@router.message(_on, F.text.in_(_EXTRA_PAID))
+async def extra_paid_text(message: Message, state: FSMContext, user_lang: str):
+    """Eski menyudagi pullik tugmalar (kitob tarjimasi, PDF → DOCX, media, test) — hali saytda yo'q."""
+    await state.clear()
+    await message.answer(get_text(user_lang, "site_mode_soon", label=message.text.strip()), parse_mode="HTML")
+
+
+@router.message(_on, Command("book"))
+async def book_command(message: Message, state: FSMContext, user_lang: str):
+    await state.clear()
+    await message.answer(get_text(user_lang, "site_mode_soon", label=get_text(user_lang, "main_menu.book_translate")),
+                         parse_mode="HTML")
+
+
+HELP_LABELS = set(label_variants("main_menu.help")) | {"💬 Yordam", "💬 Помощь", "💬 Help"}
+
+
+@router.message(_on, F.text.in_(HELP_LABELS))
+async def help_site(message: Message, state: FSMContext, user_lang: str):
+    """Yordam: to'lov va narx haqidagi qatorlarsiz (xizmatlar saytda)."""
+    await state.clear()
+    from bot.keyboards import get_help_keyboard
+    await message.answer(get_text(user_lang, "site_mode_help"), reply_markup=get_help_keyboard(user_lang),
+                         parse_mode="Markdown")
+
+
+def _referral_labels() -> set:
+    from bot.handlers.payments import REFERRAL_TEXTS
+    return set(REFERRAL_TEXTS)
+
+
+@router.message(_on, F.text.func(lambda t: t in _referral_labels()))
+async def referral_site(message: Message, state: FSMContext, user_lang: str, user):
+    """Do'stlarni taklif qilish: havola qoladi, summa va «pul ishlab topish» so'zlari yo'q."""
+    await state.clear()
+    if not user or not user.referral_code:
+        await message.answer(get_text(user_lang, "site_mode_link_failed"))
+        return
+    me = await message.bot.get_me()
+    link = f"https://t.me/{me.username}?start=ref_{user.referral_code}"
+    await message.answer(get_text(user_lang, "site_mode_referral", referral_link=link), parse_mode="Markdown")

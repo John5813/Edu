@@ -134,12 +134,12 @@ async def main():
         await conn.execute("UPDATE web_pending SET created_at = ?", (time.time() - web_store.PENDING_TTL - 5,)); await conn.commit()
     check("6 soatdan keyin yo'q", await web_store.get_pending(555) is None)
 
-    print("7) Sayt rejimida bot to'lov haqida yozmaydi")
+    print("7) Sayt rejimida ham to'lov tasdig'i mijozga botda boradi")
     BOT.msgs.clear()
     site_mode.ON = True
     await credit(777, 5000)
     site_mode.ON = False
-    check("balans qo'shildi, botga xabar yo'q", (await Database.get_user(777)).balance == 5000 and not [m for m in BOT.msgs if m[0] == 777], BOT.msgs)
+    check("balans qo'shildi, mijozga tasdiq xabari", (await Database.get_user(777)).balance == 5000 and [m for m in BOT.msgs if m[0] == 777], BOT.msgs)
     await credit(777, 1000)
     check("rejim o'chiq — avvalgidek xabar boradi", any(m[0] == 777 for m in BOT.msgs))
 
