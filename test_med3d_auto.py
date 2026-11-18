@@ -368,13 +368,34 @@ _pts = [(x, y, z) for x in (0, 1) for y in (0, 1) for z in (0, 1)]
 _frame = med3d_deck.Frame(9.6, 3.75, 4.0, (0, 0, 0))
 from services.med3d import design as _design  # noqa: E402
 _text = med3d_deck._text_boxes(_design.layout("chap_matn"))
-_way = med3d_deck.clear_way(_cam, _pts, _frame, "left", _text, _text)
+_way = med3d_deck.clear_way([(_cam, _pts, _frame)], "left", _text, _text)
 check("chapda matn bo'lsa, model chapga uchib ketmaydi (matn ustidan o'tmaydi)", _way != "left", _way)
 check("matn ustidan o'tmaydigan yo'l tanlanadi",
       med3d_deck._path_hits(_cam, _pts, _frame, _frame.moved_out(_way), _text, _text) <= 0.02
       and med3d_deck._path_hits(_cam, _pts, _frame, _frame.moved_out("left"), _text, _text) > 0.1, _way)
-_inc = med3d_deck.clear_way(_cam, _pts, _frame, "left", _text, _text, arriving=True)
+_inc = med3d_deck.clear_way([(_cam, _pts, _frame)], "left", _text, _text, arriving=True)
 check("kirayotgan model ham chapdan (matn ustidan) kirmaydi", _inc != "left", _inc)
+
+
+# Model chegarasi organning o'z markazida (Morph uni o'z o'qi atrofida aylantiradi), slaydda esa joyi o'zgarmaydi.
+_rng = np.random.default_rng(3)
+_organ = _rng.normal(size=(400, 3)) * 0.03 + np.array([0.31, -0.22, 0.12])     # sahna chetidagi kichik organ
+_slo, _shi = np.array([-0.4, -0.5, -0.3]), np.array([0.4, 0.5, 0.3])
+(_blo, _bhi), _pivot = auto.centred_box([SimpleNamespace(positions=_organ)], _slo, _shi)
+check("model chegarasi markazi — organ markazi", np.allclose((_blo + _bhi) / 2, _pivot, atol=1e-9)
+      and np.allclose(_bhi - _blo, _shi - _slo), (_blo, _bhi))
+_scam, _ocam = _Cam(_slo, _shi), _Cam(_blo, _bhi)
+_errs = []
+for _rot in ((0, 0, 0), (20, 60, 0), (-30, 150, 0)):
+    _fr = med3d_deck.Frame(8.0, 3.6, 30.0, _rot)                 # katta (yaqinlashgan) sahna ramkasi
+    _l, _t, _side = med3d_deck._pivot_frame(_scam, _fr, _pivot)
+    _uv, _ = _scam.project(_organ, _rot)
+    _old = np.stack([_fr.cx + _uv[:, 0] * _fr.size, _fr.cy + _uv[:, 1] * _fr.size], 1)
+    _uv2, _ = _ocam.project(_organ, _rot)
+    _new = np.stack([_l + _side / 2 + _uv2[:, 0] * _side, _t + _side / 2 + _uv2[:, 1] * _side], 1)
+    _errs.append(float(np.abs(_old - _new).max()) / _fr.size)
+# Qolgan farq — perspektiva (chetdagi organga biroz boshqa burchakdan qaraladi): ramkaning ~1 foizi.
+check("organ markazidagi ramka — slaydda o'sha joy (yorliqlar ham to'g'ri tushadi)", max(_errs) < 0.02, _errs)
 
 
 print("4b) Uslublar va rejissyor")
