@@ -693,3 +693,12 @@ input[type=range]{accent-color:var(--brand)}
 .trial .tx span{font-size:13.5px;color:#4A5272}
 .trial.on{border-style:solid;background:rgba(22,163,74,.08);border-color:#16a34a}
 .st-count.locked .cval b{color:#16a34a}
+
+/* «Botga qaytish» — har sahifada pastki o'ng burchakda */
+.tg-back{position:fixed;right:16px;bottom:16px;z-index:40;display:flex;align-items:center;gap:8px;padding:11px 16px;border-radius:999px;
+  background:#229ED9;color:#fff;font-weight:700;font-size:14px;text-decoration:none;box-shadow:0 8px 24px rgba(34,158,217,.35)}
+.tg-back svg{width:18px;height:18px}
+.tg-back:hover{background:#1B8CC2}
+@media (max-width:520px){.tg-back{padding:9px 13px;right:12px;bottom:12px;font-size:13px}}
+body:has(.modal) .tg-back{display:none}
+.btn.out-bad{background:transparent;color:var(--bad);border:1.5px solid var(--bad)}

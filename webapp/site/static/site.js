@@ -153,6 +153,18 @@
   }
   Edu.offerLogin = offerLogin;
 
+  // «Botga qaytish»: har sahifada pastki burchakda (botdan kelgan mijoz chatga bir bosishda qaytsin).
+  Edu.botButton = async function () {
+    if (document.getElementById('tg-back')) return;
+    const cfg = await Edu.authConfig();
+    const bot = (cfg && cfg.bot) || 'Edufayl_bot';
+    const a = document.createElement('a');
+    a.id = 'tg-back'; a.className = 'tg-back'; a.href = 'https://t.me/' + encodeURIComponent(bot);
+    a.setAttribute('aria-label', 'Botga qaytish');
+    a.innerHTML = TG + '<span>Botga qaytish</span>';
+    document.body.appendChild(a);
+  };
+
   // Sarlavhadagi tugmalar: til tanlagich, kirgan bo'lsa balans va kabinet, aks holda "Kirish".
   Edu.header = async function (active) {
     const box = document.getElementById('actions');
@@ -165,6 +177,7 @@
       '<a class="btn sm out" href="/shop">Tayyor mavzular</a>' + (me
         ? '<a class="bal" href="/app#/wallet" title="Hamyon">' + Edu.fmt(me.balance) + ' so‘m</a><a class="btn sm" href="/app#/profile">Kabinet</a>'
         : '<button class="btn sm" id="hd-login"><span class="full">Kirish / Ro‘yxatdan o‘tish</span><span class="short">Kirish</span></button>');
+    Edu.botButton();
     const b = document.getElementById('hd-login');
     if (b) b.onclick = () => Edu.login(active === 'home' ? '/app' : null);
     if (!me && active === 'home') offerLogin();

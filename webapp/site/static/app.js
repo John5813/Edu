@@ -426,7 +426,8 @@
       <div class="card panel"><b style="font-size:18px">Ulangan akkauntlar</b>
         <div style="margin-top:6px">${gRow}${tgRow}</div>
         <div id="p-note" style="margin-top:10px"></div>
-        <button class="btn ghost block" id="p-out" type="button" style="margin-top:16px">Chiqish</button>
+        <button class="btn out-bad block" id="p-out" type="button" style="margin-top:16px">Chiqish</button>
+        <div class="hint" style="margin-top:8px">Telefon boshqalar bilan umumiy bo‘lsa, ishni tugatgach chiqib qo‘ying.</div>
       </div></div>`;
     const $ = (x) => document.getElementById(x);
     $('p-save').onclick = async () => {

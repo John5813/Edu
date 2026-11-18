@@ -1,6 +1,7 @@
 /* Edufayl sayti: tarjima lug'ati (o'zbekcha matn → ru, en, kk). Mexanizm: i18n.js */
 window.EDU_DICT = {
 "ru": {
+"Telefon boshqalar bilan umumiy bo‘lsa, ishni tugatgach chiqib qo‘ying.": "Если телефоном пользуются и другие, выйдите после работы.",
 "📩 Fayl Telegramga ham yuborilgan.": "📩 Файл также отправлен в Telegram.",
 "📩 Fayl Telegramga ham yuboriladi.": "📩 Файл также будет отправлен в Telegram.",
 "📩 Fayl Telegram uchun katta: botga havola yuborildi, faylni shu yerdan yuklab oling.": "📩 Файл слишком большой для Telegram: в бот отправлена ссылка, скачайте файл здесь.",
@@ -595,6 +596,7 @@ window.EDU_DICT = {
 ]
 },
 "en": {
+"Telefon boshqalar bilan umumiy bo‘lsa, ishni tugatgach chiqib qo‘ying.": "If others use this phone, sign out when you're done.",
 "📩 Fayl Telegramga ham yuborilgan.": "📩 The file was also sent to Telegram.",
 "📩 Fayl Telegramga ham yuboriladi.": "📩 The file will also be sent to Telegram.",
 "📩 Fayl Telegram uchun katta: botga havola yuborildi, faylni shu yerdan yuklab oling.": "📩 The file is too large for Telegram: a link was sent to the bot, download the file here.",
@@ -1189,6 +1191,7 @@ window.EDU_DICT = {
 ]
 },
 "kk": {
+"Telefon boshqalar bilan umumiy bo‘lsa, ishni tugatgach chiqib qo‘ying.": "Телефонды басқалар да қолданса, жұмыс біткен соң шығып қойыңыз.",
 "📩 Fayl Telegramga ham yuborilgan.": "📩 Файл Telegram-ға да жіберілді.",
 "📩 Fayl Telegramga ham yuboriladi.": "📩 Файл Telegram-ға да жіберіледі.",
 "📩 Fayl Telegram uchun katta: botga havola yuborildi, faylni shu yerdan yuklab oling.": "📩 Файл Telegram үшін үлкен: ботқа сілтеме жіберілді, файлды осы жерден жүктеп алыңыз.",
