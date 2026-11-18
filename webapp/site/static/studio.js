@@ -562,7 +562,12 @@
     forge = E.forge($('forge-anim'), {topic: job.title, mode: slidesOut ? 'slides' : 'pages', count, kind,
       label: (kindOf(kind) || {}).label || '', startedAt: job.created_at});
     forge.update(job);
-    $('forge-out').innerHTML = '<p class="hint" style="text-align:center">Bu sahifani yopib ketishingiz mumkin: tayyor bo‘lgach «Hujjatlarim» da ko‘rinadi va Telegramga ham keladi.</p>';
+    $('forge-out').innerHTML = '<p class="hint" style="text-align:center">Bu sahifani yopib ketishingiz mumkin: tayyor bo‘lgach «Hujjatlarim» da ko‘rinadi va Telegramga ham keladi. Qaytib kirsangiz, shu yerning o‘zi ochiladi.</p>' +
+      '<div class="forge-act"><button type="button" class="btn ghost" id="f-other">+ Boshqa buyurtma berish</button></div>';
+    $('f-other').onclick = () => {      // bu buyurtma fonda davom etadi; shu oynada yangisini boshlash
+      try { sessionStorage.setItem('edu_skip_live', job.id); sessionStorage.removeItem(LIVE); } catch (e) { /* ixtiyoriy */ }
+      S.topic = ''; $('topic').value = ''; reset();
+    };
     const poll = async () => {
       let d;
       try { d = await E.api('/jobs/' + encodeURIComponent(job.id)); } catch (e) { pollTimer = setTimeout(poll, 4000); return; }
@@ -627,6 +632,17 @@
     if (restored) { topic.value = S.topic; open(); if (premium()) suggest(); if (me) E.toast('Tanlovlaringiz saqlangan. «Yaratish» ni bosing.'); }
     let live = null;
     try { live = JSON.parse(sessionStorage.getItem(LIVE) || 'null'); } catch (e) { live = null; }
+    if (!live && me) {
+      // Mijoz saytdan chiqib, qayta kirdi (yangi oyna, botdan havola): hali tayyorlanayotgan buyurtmasi bo'lsa —
+      // sahifa yangidan boshlanmaydi, o'sha jarayonning o'ziga qaytadi.
+      let skip = '';
+      try { skip = sessionStorage.getItem('edu_skip_live') || ''; } catch (e) { skip = ''; }
+      try {
+        const d = await E.api('/jobs');
+        const j = (d.jobs || []).find((x) => (x.status === 'queued' || x.status === 'running') && x.kind !== 'slide_rewrite' && x.id !== skip);
+        if (j) live = {id: j.id, kind: j.kind, count: (j.live && j.live.total) || 10};
+      } catch (e) { live = null; }
+    }
     if (live && me) {
       try {
         const d = await E.api('/jobs/' + encodeURIComponent(live.id));
