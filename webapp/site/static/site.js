@@ -174,12 +174,16 @@
     box.innerHTML = '<div class="langsw" id="langsw"><button type="button" class="chip sm" id="langbtn" aria-haspopup="true">' +
       '<span class="gl">🌐</span> ' + Edu.langs().find((l) => l.key === Edu.lang()).short + '</button>' +
       '<div class="langmenu" id="langmenu" hidden>' + langChips('menu') + '</div></div>' +
-      '<a class="btn sm out" href="/shop">Tayyor mavzular</a>' + (me
-        ? '<a class="bal" href="/app#/wallet" title="Hamyon">' + Edu.fmt(me.balance) + ' so‘m</a><a class="btn sm" href="/app#/profile">Kabinet</a>'
+      '<a class="btn sm out" href="/shop">Tayyor mavzular</a>' +
+      // «To'lov» — har sahifada, kirgan-kirmaganidan qat'i nazar (sarlavha yuqorida yopishib turadi).
+      '<a class="btn sm pay" id="hd-pay" href="/app#/wallet"><span class="pl">💳 To‘lov</span>' +
+        (me ? '<span class="pb">' + Edu.fmt(me.balance) + ' so‘m</span>' : '') + '</a>' + (me
+        ? '<a class="btn sm" href="/app#/profile">Kabinet</a>'
         : '<button class="btn sm" id="hd-login"><span class="full">Kirish / Ro‘yxatdan o‘tish</span><span class="short">Kirish</span></button>');
     Edu.botButton();
     const b = document.getElementById('hd-login');
     if (b) b.onclick = () => Edu.login(active === 'home' ? '/app' : null);
+    if (!me) document.getElementById('hd-pay').onclick = (e) => { e.preventDefault(); Edu.login('/app#/wallet'); };
     if (!me && active === 'home') offerLogin();
     const menu = document.getElementById('langmenu');
     document.getElementById('langbtn').onclick = (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; };

@@ -1,6 +1,7 @@
 /* Edufayl sayti: tarjima lug'ati (o'zbekcha matn → ru, en, kk). Mexanizm: i18n.js */
 window.EDU_DICT = {
 "ru": {
+"💳 To‘lov": "💳 Оплата",
 "kerak. «Yaratish» ni bosing — buyurtma saqlanadi, to‘lov tushishi bilan o‘zi boshlanadi.": "нужно. Нажмите «Создать» — заказ сохранится и начнётся сам, как только поступит оплата.",
 "buyurtmangiz saqlandi ({n} so‘m).": "— заказ сохранён ({n} сум).",
 "Yana": "Оплатите ещё",
@@ -602,6 +603,7 @@ window.EDU_DICT = {
 ]
 },
 "en": {
+"💳 To‘lov": "💳 Payment",
 "kerak. «Yaratish» ni bosing — buyurtma saqlanadi, to‘lov tushishi bilan o‘zi boshlanadi.": "needed. Press “Create” — the order is saved and starts by itself as soon as the payment arrives.",
 "buyurtmangiz saqlandi ({n} so‘m).": "— your order is saved ({n} som).",
 "Yana": "Pay another",
@@ -1203,6 +1205,7 @@ window.EDU_DICT = {
 ]
 },
 "kk": {
+"💳 To‘lov": "💳 Төлем",
 "kerak. «Yaratish» ni bosing — buyurtma saqlanadi, to‘lov tushishi bilan o‘zi boshlanadi.": "керек. «Жасау» батырмасын басыңыз — тапсырыс сақталады, төлем түскен бойда өзі басталады.",
 "buyurtmangiz saqlandi ({n} so‘m).": "— тапсырысыңыз сақталды ({n} сум).",
 "Yana": "Тағы",
