@@ -148,7 +148,7 @@ def public(job_id: str, deck: dict) -> dict:
         charts = [manual_edit.count_charts(deck, n) for n in range(count_)]
     plan = editable and bool(deck.get("has_plan", count_ > 3))
     return {"count": count_, "version": int(deck.get("version") or 1), "editable": editable, "has_plan": plan,
-            "text_edit": bool(deck.get("pptx_text")),
+            "text_edit": bool(deck.get("pptx_text")), "language": deck.get("language") or "uz",
             "slides": [{"n": n + 1, "title": titles[n] if n < len(titles) else "", "image": shown[n],
                         "charts": charts[n]} for n in range(count_)],
             "history": [h for h in list(deck.get("history") or []) if not h.get("manual")][-30:]}

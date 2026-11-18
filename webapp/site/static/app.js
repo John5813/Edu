@@ -170,7 +170,9 @@
 
   async function deckViewer(job, info) {
     const id = job.id, deck = info.deck, price = info.price;
-    const prompts = (catalog.rewrite && catalog.rewrite.prompts) || [];
+    // Tayyor ko'rsatmalar taqdimot tilida (ruscha taqdimotga — ruscha), sayt tili ularni o'zgartirmaydi.
+    const rw = catalog.rewrite || {};
+    const prompts = ((rw.by_language || {})[deck.language] || rw.prompts) || [];
     const st = {n: 1, version: deck.version, slides: deck.slides, busy: info.busy, panel: false, history: deck.history || []};
     view.innerHTML = `
       <div class="vtop"><a class="link" href="#/docs">← Hujjatlarim</a>
@@ -200,7 +202,7 @@
         ${deck.editable ? `<aside class="vside card" id="vside" hidden>
           <div class="chathead"><b>AI bilan sahifani o‘zgartirish</b><button type="button" class="link" id="vclose" aria-label="Yopish">✕</button></div>
           <div class="chat" id="chat"></div>
-          <div class="chips-row" id="vprompts">${prompts.map((p) => `<button type="button" class="chip sm" data-t="${E.esc(p.text)}">${p.icon} ${E.esc(p.text)}</button>`).join('')}</div>
+          <div class="chips-row" id="vprompts" translate="no">${prompts.map((p) => `<button type="button" class="chip sm" data-t="${E.esc(p.text)}">${p.icon} ${E.esc(p.text)}</button>`).join('')}</div>
           <form id="vform" class="chatform"><textarea class="fld" id="vtext" rows="2" maxlength="500" placeholder="Sahifa qanday bo‘lishini yozing…"></textarea>
             <button class="btn" id="vsend" type="submit">Yuborish</button></form>
           <div class="hint" id="vnote" style="margin:8px 0 0">Har bir o‘zgartirish ${E.fmt(price)} so‘m. Natija chiqmasa, pul qaytariladi.</div>

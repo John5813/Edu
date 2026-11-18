@@ -52,7 +52,7 @@
       <!-- Kirgan foydalanuvchiga «Haqiqiy natija» o'rnida tanishtiruv videosi (telefonda — tik varianti, butun ekranda) -->
       <div class="intro" id="intro" hidden>
         <div class="intro-frame">
-          <video id="intro-video" preload="none" playsinline poster="/static/intro-wide.webp?v=2"></video>
+          <video id="intro-video" preload="none" playsinline poster="/static/intro-wide.webp"></video>
           <button class="intro-play" id="intro-play" type="button" aria-label="Videoni ko‘rish">
             <span class="ip-ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg></span>
             <span class="ip-t"><b>Edufayl qanday ishlaydi</b><small>2 daqiqalik video · o‘zbekcha ovoz bilan</small></span>
@@ -253,7 +253,7 @@ async function intro() {
     if (tall()) {
       modal = document.createElement('div');
       modal.className = 'intro-modal';
-      modal.innerHTML = '<video src="/static/intro-tall.mp4?v=2" poster="/static/intro-tall.webp?v=2" playsinline controls autoplay></video>' +
+      modal.innerHTML = '<video src="/static/intro-tall.mp4" poster="/static/intro-tall.webp" playsinline controls autoplay></video>' +
         '<button type="button" class="intro-x" aria-label="Yopish">×</button>';
       modal.addEventListener('click', (e) => { if (e.target === modal || e.target.closest('.intro-x')) close(); });
       document.addEventListener('keydown', onKey);
@@ -261,7 +261,7 @@ async function intro() {
       modal.querySelector('video').addEventListener('ended', close);
       return;
     }
-    if (!video.src) video.src = '/static/intro-wide.mp4?v=2';
+    if (!video.src) video.src = '/static/intro-wide.mp4';
     video.controls = true;
     box.classList.add('playing');
     video.play().catch(() => {});

@@ -76,7 +76,7 @@
   function node(n) {
     if (n.nodeType === 3) {
       const parent = n.parentNode;
-      if (!parent || SKIP[parent.nodeName]) return;
+      if (!parent || SKIP[parent.nodeName] || (parent.closest && parent.closest('[translate="no"]'))) return;
       if (shown.has(n) && shown.get(n) === n.data) return;          // o'zimiz qo'ygan matn
       orig.set(n, n.data);
       const out = tr(n.data);
@@ -84,6 +84,7 @@
       return;
     }
     if (n.nodeType !== 1) return;
+    if (n.getAttribute('translate') === 'no') return;            // taqdimot tilidagi matn (AI ko'rsatmalari)
     if (SKIP[n.nodeName]) { if (n.nodeName === 'TEXTAREA') attrs(n); return; }   // mavzu oynasining namunasi (placeholder) ham tarjima qilinadi
     attrs(n);
     for (let c = n.firstChild; c; c = c.nextSibling) node(c);
