@@ -12,7 +12,7 @@
   const DRAFT = 'edu_draft', LIVE = 'edu_live_job';
 
   // Bosh sahifadagi qisqa nomlar (katalogdagi to'liq nom o'rniga)
-  const SHORT = {premium_presentation: 'Taqdimot', simple_presentation: 'Taqdimot', independent_work: 'Mustaqil ish', referat: 'Referat', article: 'Maqola',
+  const SHORT = {premium_presentation: 'Taqdimot', simple_presentation: 'Taqdimot', presentation_3d: 'Taqdimot', independent_work: 'Mustaqil ish', referat: 'Referat', article: 'Maqola',
     thesis: 'Tezis', course_work: 'Kurs ishi', diploma_work: 'Diplom ishi', bitiruv_ishi: 'Bitiruv ishi', dissertatsiya: 'Dissertatsiya'};
   const TOPIC_HINT = {
     premium_presentation: "Masalan: Kiberxavfsizlik va shaxsiy ma'lumotlar himoyasi",
@@ -39,7 +39,7 @@
     {key: 'info', label: '🎨 Infografik', note: 'Rasm, diagramma va infografikaga boy, har slayd o‘z dizaynida', img: '/static/type-info.jpg'},
     {key: 'modern', label: '📝 Zamonaviy', note: 'Fikr batafsil ochiladi, 5 xil uslubdan tanlaysiz', img: '/static/type-modern.jpg'},
     {key: 'classic', label: '📄 Klassik', note: 'Tayyor chiroyli shablonlar, ikonka va reja slaydi', img: '/static/type-classic.jpg'},
-    {key: '3d', label: '🧊 3D taqdimot', note: 'Haqiqiy 3D modellar va harakat', img: '/static/type-3d.jpg', soon: true},
+    {key: '3d', label: '🧊 3D taqdimot', note: 'Haqiqiy 3D modellar va harakat', img: '/static/type-3d.jpg'},
   ];
   const PHOTO_SRC = [
     {key: 'mix', label: '✨ Aralash', note: 'Avval internetdan, topilmaganini AI chizadi (tavsiya)'},
@@ -51,15 +51,16 @@
   let catalog = null, me = null, timer = null, seq = 0, pollTimer = null, forge = null;
   const S = {kind: 'premium_presentation', topic: '', lang: '', src: {kind: 'ai', text: '', label: '', words: 0},
     style: 'toza', volume: 'kam', count: 10, author: '', prefs: '', size: '', extras: [], pstyle: 'murakkab', trial: false,
-    univ: '', fac: '', grp: '', theme: '', photos: 'mix', template: '', plan: false, icons: true,
+    univ: '', fac: '', grp: '', theme: '', photos: 'mix', template: '', plan: false, icons: true, anim: false, thanks: '',
     suggest: {language: '', theme: null}};
 
   const kindOf = (k) => catalog && catalog.kinds.find((x) => x.key === k);
   const opt = () => (kindOf(S.kind) || {}).options || {};
   const premium = () => opt().form === 'presentation';
   const classic = () => S.kind === 'simple_presentation';
-  const deckKind = () => premium() || classic();
-  const ptype = () => (classic() ? 'classic' : S.volume === 'kam' ? 'info' : 'modern');
+  const threeD = () => S.kind === 'presentation_3d';
+  const deckKind = () => premium() || classic() || threeD();
+  const ptype = () => (classic() ? 'classic' : threeD() ? '3d' : S.volume === 'kam' ? 'info' : 'modern');
   // Bepul sinov taqdimoti: har akkauntga bir marta (kirmagan mehmonga ham taklif qilinadi — kirgach tekshiriladi).
   const canTrial = () => premium() && !!(catalog && catalog.free_trial) && (!me || me.free_trial);
   const trialOn = () => S.trial && canTrial();
@@ -70,12 +71,12 @@
   // ───────────────────────────────────────────── ish turlari
   function chips() {
     const bot = (catalog && catalog.bot) || 'Edufayl_bot';
-    $('kind-chips').innerHTML = catalog.kinds.filter((k) => k.key !== 'simple_presentation').map((k) =>
+    $('kind-chips').innerHTML = catalog.kinds.filter((k) => k.key !== 'simple_presentation' && k.key !== 'presentation_3d').map((k) =>
       `<button type="button" class="chip${chipOn(k.key) ? ' on' : ''}" data-kind="${E.esc(k.key)}">${E.esc(SHORT[k.key] || k.label)}</button>`).join('') +
       ['Loyiha ishi', 'Kitob tarjimasi'].map((t) => `<a class="chip soon" data-bot target="_blank" rel="noopener" href="https://t.me/${E.esc(bot)}">${t} <small>botda</small></a>`).join('');
   }
   // Klassik ham «Taqdimot» chipi ostida turadi.
-  const chipOn = (k) => k === S.kind || (k === 'premium_presentation' && S.kind === 'simple_presentation');
+  const chipOn = (k) => k === S.kind || (k === 'premium_presentation' && (S.kind === 'simple_presentation' || S.kind === 'presentation_3d'));
   function types() {
     const box = $('ptypes'); if (!box) return;
     if (!deckKind()) { box.innerHTML = ''; return; }
@@ -85,10 +86,10 @@
         <img src="${t.img}" alt="" loading="lazy" width="640" height="363"><b>${E.esc(t.label)}</b><small>${E.esc(t.note)}</small>${t.soon ? '<span class="pt-soon">Tez orada</span>' : ''}</button>`).join('')}</div>`;
   }
   function pickType(t) {
-    if (t === '3d') { E.toast('🧊 3D taqdimot tez orada saytda ham bo‘ladi.'); return; }
-    if (t === 'classic') pickKind('simple_presentation');
+    if (t === '3d') { if (!kindOf('presentation_3d')) return; pickKind('presentation_3d'); }
+    else if (t === 'classic') pickKind('simple_presentation');
     else {
-      if (classic()) pickKind('premium_presentation');
+      if (classic() || threeD()) pickKind('premium_presentation');
       S.volume = t === 'info' ? 'kam' : 'kop';
       if (t === 'info') S.trial = false;
     }
@@ -146,6 +147,10 @@
           `<button type="button" class="sw-b${c.key === S.theme ? ' on' : ''}" data-c="${E.esc(c.key)}" title="${E.esc(c.label)}" aria-label="${E.esc(c.label)}"><i style="background:${E.esc(c.accent)}"></i></button>`).join('')}<span class="sw-name" id="c-name">${E.esc(S.theme ? ((catalog.colors || []).find((c) => c.key === S.theme) || {}).label || '' : '')}</span></div>`);
         html += section('Rasmlar qayerdan olinsin', '', `<div class="srcs" id="photos">${PHOTO_SRC.map((x) =>
           `<button type="button" class="src${x.key === S.photos ? ' on' : ''}" data-k="${x.key}"><b>${x.label}</b><small>${x.note}</small></button>`).join('')}</div>`);
+        if (catalog.text_anim) html += section('Yozuvlar animatsiyasi', '', chipRow('st-anim', [{key: '1', label: '✅ Bor'}, {key: '0', label: '❌ Yo‘q'}], S.anim ? '1' : '0') +
+          '<div class="hint">ℹ️ Animatsiya PowerPoint’da «Slayd-shou» rejimida ko‘rinadi. Telefon ilovalari va PDF’da sahifalar animatsiyasiz, to‘liq holida chiqadi.</div>');
+        if (catalog.thanks) html += section('🎬 «Rahmat» sahifasi', '(oxirgi slayd, tekin)', '<div class="st-thx" id="thx"><span class="spin"></span></div>' +
+          '<div class="hint">Taqdimot oxiriga harakatlanadigan va ovoz chiqaradigan personajli «Rahmat» sahifasi qo‘shiladi. U PowerPoint’da «Slayd-shou» rejimida harakatlanadi.</div>');
       }
       html += trialOn() ? section('Slaydlar soni', '', `<div class="st-count locked"><div class="cval"><b id="c-num">${trialSlides()}</b><span>slayd</span></div></div>
         <div class="hint">Bepul sinovda slaydlar soni o‘zgarmaydi. Boshqa son kerak bo‘lsa, imtiyozni bekor qiling.</div>`) : section('Slaydlar soni', '', `<div class="st-count"><button type="button" class="cbtn" id="c-minus" aria-label="Kamaytirish">−</button>
@@ -156,6 +161,14 @@
       html += section('Ism-familiya', '(taqdimotning muqovasiga yoziladi)', `<input class="fld" id="author" maxlength="80" placeholder="Ism Familiya" value="${E.esc(S.author)}">`);
       html += section('AI ga taqdimot qanday bo‘lishini tushuntiring', '(ixtiyoriy)', `<textarea class="fld" id="prefs" rows="2" maxlength="1000" placeholder="Auditoriya, maqsad, ohang, misollar yoki alohida talablarni erkin yozing.">${E.esc(S.prefs)}</textarea>
         <div class="st-chips" id="pref-ex">${PREF_EXAMPLES.map((t) => `<button type="button" class="chip sm" data-t="${E.esc(t)}">+ ${E.esc(t)}</button>`).join('')}</div>`);
+    } else if (threeD()) {
+      const langs = (o.languages || ['uz', 'ru', 'en', 'kk']).map((l) => ({key: l, label: ({uz: "O'zbek", ru: 'Русский', en: 'English', kk: 'Қазақша'})[l] || l}));
+      if (!S.lang || !langs.some((l) => l.key === S.lang)) S.lang = langs[0].key;
+      html += `<div class="note" style="margin:4px 0 6px">🧊 Har slaydda haqiqiy 3D model: aylanadi va harakatlanadi. Mavzu tana tuzilishiga oid bo‘lsa — 3D Anatomiya, boshqa mavzularda — katalogdagi 3D modellar. Taqdimot <b>kompyuterdagi PowerPoint</b> (2019, 2021, 365) uchun — telefonda 3D ko‘rinmaydi. Mos 3D topilmasa, pul hisobingizga qaytadi.</div>`;
+      html += section('Slaydlar soni', '', chipRow('st-size', o.sizes.map((z) => ({key: z.key, label: z.label, small: E.fmt(z.price)})), S.size));
+      html += section('Til', '', chipRow('st-lang', langs, S.lang));
+      html += section('Ism-familiya', '(taqdimotning muqovasiga yoziladi)', `<input class="fld" id="author" maxlength="80" placeholder="Ism Familiya" value="${E.esc(S.author)}">`);
+      html += section('AI ga taqdimot qanday bo‘lishini tushuntiring', '(ixtiyoriy)', `<textarea class="fld" id="prefs" rows="2" maxlength="1000" placeholder="Auditoriya, maqsad, ohang, misollar yoki alohida talablarni erkin yozing.">${E.esc(S.prefs)}</textarea>`);
     } else if (classic()) {
       const langs = (o.languages || ['uz', 'ru', 'en']).map((l) => ({key: l.key || l, label: l.label || DOC_LANG[l] || l}));
       if (!S.lang || !langs.some((l) => l.key === S.lang)) S.lang = langs[0].key;
@@ -192,6 +205,7 @@
       <aside class="st-side">
         ${premium() ? '<div class="pv" id="pv"></div><div class="hint" id="pv-note"></div>' : ''}
         ${classic() ? '<div class="pv tplv" id="tplv"></div><div class="hint">Klassik · tayyor shablon</div>' : ''}
+        ${threeD() ? '<div class="pv tplv"><img src="/static/type-3d.jpg" alt=""></div><div class="hint">3D taqdimot · kompyuterdagi PowerPoint uchun</div>' : ''}
         <div class="st-sum" id="sum"></div>
         <div class="st-go"><div class="st-total"><span>Narx</span><b id="s-price"></b></div>
           <button class="btn block" id="go" type="submit">${trialOn() ? 'Bepul yaratish' : 'Yaratish'}</button></div>
@@ -201,7 +215,25 @@
     bind();
     if (premium()) { srcPanel(); autoNotes(); preview(); }
     if (classic()) tplPreview();
+    if ($('thx')) loadThanks();
     summary();
+  }
+  let thanksList = null;
+  async function loadThanks() {
+    const box = $('thx'); if (!box) return;
+    if (!thanksList) {
+      try { thanksList = (await (await fetch('/api/anim/list?lang=' + (E.lang() === 'kk' ? 'ru' : E.lang()))).json()).items || []; }
+      catch (e) { thanksList = []; }
+    }
+    if (!$('thx')) return;
+    if (S.thanks && !thanksList.some((a) => a.key === S.thanks)) S.thanks = '';
+    $('thx').innerHTML = `<button type="button" class="thx none${S.thanks ? '' : ' on'}" data-k=""><b>❌ Kerak emas</b></button>` +
+      thanksList.map((a) => `<button type="button" class="thx${a.key === S.thanks ? ' on' : ''}" data-k="${E.esc(a.key)}">${a.key === S.thanks
+        ? `<video src="${E.esc(a.preview)}" poster="${E.esc(a.poster)}" autoplay muted loop playsinline></video>` : `<img src="${E.esc(a.poster)}" alt="" loading="lazy">`}<b>${E.esc(a.name)}</b></button>`).join('');
+    $('thx').onclick = (e) => {
+      const b = e.target.closest('.thx'); if (!b) return;
+      S.thanks = b.dataset.k; loadThanks(); summary(); save();
+    };
   }
   function tplPreview() {
     const box = $('tplv'), t = (catalog.templates || []).find((x) => x.id === S.template);
@@ -258,6 +290,7 @@
       document.querySelectorAll('#tpls .st-tpl').forEach((x) => x.classList.toggle('on', x === b)); tplPreview(); summary(); save();
     };
     oneOf('st-plan', (v) => { S.plan = v === '1'; save(); });
+    oneOf('st-anim', (v) => { S.anim = v === '1'; save(); });
     oneOf('st-icons', (v) => { S.icons = v === '1'; save(); });
     if ($('c-minus')) {
       $('c-minus').onclick = () => setCount(S.count - 1);
@@ -393,7 +426,11 @@
       else {
         const c = (catalog.colors || []).find((x) => x.key === S.theme);
         rows.push(['Rang', c ? c.label.split(' — ')[0] : 'Avto'], ['Rasmlar', ((PHOTO_SRC.find((x) => x.key === S.photos) || PHOTO_SRC[0]).label).replace(/^\S+\s/, '')]);
+        if (catalog.text_anim) rows.push(['Animatsiya', S.anim ? 'Bor' : 'Yo‘q']);
+        if (catalog.thanks) rows.push(['Rahmat sahifasi', S.thanks ? (((thanksList || []).find((a) => a.key === S.thanks) || {}).name || '✓') : 'Yo‘q']);
       }
+    } else if (threeD()) {
+      rows = [['Turi', '3D taqdimot'], ['Slaydlar', ((o.sizes || []).find((x) => x.key === S.size) || {}).label || '']];
     } else if (classic()) {
       const t = (catalog.templates || []).find((x) => x.id === S.template);
       rows = [['Turi', 'Klassik'], ['Shablon', t ? t.name : '—'], ['Slaydlar', ((o.sizes || []).find((x) => x.key === S.size) || {}).label || ''],
@@ -445,7 +482,10 @@
       Object.assign(p, {preferences: S.prefs.trim(), slide_count: trialOn() ? trialSlides() : S.count, style: infoOn() ? 'toza' : S.style, volume: trialOn() ? 'kop' : S.volume,
         source_text: S.src.kind === 'ai' ? '' : S.src.text, source_label: S.src.kind === 'ai' ? '' : S.src.label});
       if (trialOn()) p.trial = true;
-      else Object.assign(p, {theme: S.theme, photos: S.photos});
+      else Object.assign(p, {theme: S.theme, photos: S.photos, text_anim: !!(catalog.text_anim && S.anim),
+        thanks: catalog.thanks ? S.thanks : ''});
+    } else if (threeD()) {
+      Object.assign(p, {slide_count: parseInt(S.size, 10) || 8, preferences: S.prefs.trim()});
     } else if (classic()) {
       Object.assign(p, {slide_count: parseInt(S.size, 10) || 10, template: S.template, plan_slide: !!S.plan,
         icons: !!S.icons, preferences: S.prefs.trim()});
@@ -512,13 +552,14 @@
   // ───────────────────────────────────────────── tayyorlanish: animatsiya va natija
   function watch(job, kind, count) {
     const isDeck = kind === 'premium_presentation' || kind === 'simple_presentation';
+    const slidesOut = isDeck || kind === 'presentation_3d';      // 3D ham PPTX, lekin saytda varaqlanmaydi
     hero().classList.add('studio-on', 'forging');
     const box = $('forge-box');
     box.hidden = false;
     $('prompt-form').hidden = true;
     box.innerHTML = '<div id="forge-anim"></div><div id="forge-out" class="forge-out"></div>';
     box.scrollIntoView({behavior: 'smooth', block: 'start'});
-    forge = E.forge($('forge-anim'), {topic: job.title, mode: isDeck ? 'slides' : 'pages', count, kind,
+    forge = E.forge($('forge-anim'), {topic: job.title, mode: slidesOut ? 'slides' : 'pages', count, kind,
       label: (kindOf(kind) || {}).label || '', startedAt: job.created_at});
     forge.update(job);
     $('forge-out').innerHTML = '<p class="hint" style="text-align:center">Bu sahifani yopib ketishingiz mumkin: tayyor bo‘lgach «Hujjatlarim» da ko‘rinadi va Telegramga ham keladi.</p>';
@@ -537,7 +578,7 @@
         $('f-again').onclick = reset;
         return;
       }
-      await forge.finish(isDeck ? 'PPTX' : 'DOCX');
+      await forge.finish(slidesOut ? 'PPTX' : 'DOCX');
       $('forge-out').innerHTML = `<div class="forge-act">
           ${isDeck ? `<a class="btn" href="/app#/job/${E.esc(j.id)}">Ko‘rish va tahrirlash</a>` : ''}
           <a class="btn ${isDeck ? 'out' : ''}" href="/api/v1/jobs/${E.esc(j.id)}/file">Yuklab olish</a>

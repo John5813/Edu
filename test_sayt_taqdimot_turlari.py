@@ -102,8 +102,13 @@ async def main():
         check("4 ta tur namunasi bilan", names == ["🎨 Infografik", "📝 Zamonaviy", "📄 Klassik", "🧊 3D taqdimot"]
               and await page.locator("#ptypes .ptype img").count() == 4, names)
         check("studiya hali yopiq (mavzu yozilmagan)", not await page.locator("#studio #go").count())
-        await page.click("#ptypes [data-t='3d']", force=True)
-        check("3D — «tez orada», tanlanmaydi", "on" not in (await page.get_attribute("#ptypes [data-t='3d']", "class")).split())
+        await page.click("#ptypes [data-t='3d']")
+        await page.fill("#topic", "Yurak tuzilishi"); await page.wait_for_selector("#studio #st-size")
+        check("3D tanlanadi: slaydlar soni, PowerPoint eslatmasi, narx 4 slayd — 6 000",
+              "on" in (await page.get_attribute("#ptypes [data-t='3d']", "class")).split()
+              and "PowerPoint" in await page.inner_text("#studio")
+              and "6 000" in (await page.inner_text("#s-price")).replace("\u202f", " ").replace("\xa0", " "))
+        await page.fill("#topic", "")
         await page.click("#kind-chips [data-kind=referat]")
         check("boshqa xizmatda turlar yo'qoladi", await page.locator("#ptypes .ptype").count() == 0)
         await page.click("#kind-chips [data-kind=premium_presentation]")
@@ -173,7 +178,7 @@ async def main():
         await page.wait_for_selector("#photos .src")
         text = await page.inner_text("#prompt-form")
         check("turlar, rang va rasm manbasi ruscha", all(w in text for w in ("Выберите тип презентации", "Инфографика",
-              "Классическая", "Скоро", "Откуда брать изображения", "Из интернета")), text[:400])
+              "Классическая", "3D-презентация", "Откуда брать изображения", "Из интернета")), text[:400])
         await page.click("#ptypes [data-t='classic']")
         await page.wait_for_selector("#tpls .st-tpl")
         text = await page.inner_text("#prompt-form")

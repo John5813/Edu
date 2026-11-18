@@ -429,7 +429,13 @@ def _catalog() -> Dict:
 
 
 async def catalog(request: web.Request) -> web.Response:
-    return web.json_response({"ok": True, **_catalog()})
+    # Botdagi kabi: yozuvlar animatsiyasi admin yoqqanda, «Rahmat» personaji admin o'chirmagan bo'lsa taklif qilinadi.
+    from services.premium_presentation import slide_anim
+    from services.thanks_anim import FEATURE as THANKS_FEATURE, catalog as thanks_catalog
+    db = Database()
+    extras = {"text_anim": bool(await db.get_feature_status(slide_anim.FEATURE, default=False)),
+              "thanks": bool(thanks_catalog.available()) and bool(await db.get_feature_status(THANKS_FEATURE, default=True))}
+    return web.json_response({"ok": True, **_catalog(), **extras})
 
 
 async def quote(request: web.Request) -> web.Response:

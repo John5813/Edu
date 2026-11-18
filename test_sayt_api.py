@@ -323,7 +323,7 @@ async def main():
     cat = await (await client.get("/api/v1/catalog")).json()
     keys = [k["key"] for k in cat["kinds"]]
     check("katalogda barcha xizmatlar tartib bilan", keys[0] == "premium_presentation" and "course_work" in keys
-          and "thesis" in keys and len(keys) == 10, keys)
+          and "thesis" in keys and len(keys) == 11, keys)
     # Klassik (shablonli) taqdimot «Taqdimot» turlaridan biri sifatida katalogda (alohida chip emas)
     check("klassik taqdimot katalogda, zamonaviydan keyin", keys[1] == "simple_presentation", keys)
     cw = next(k for k in cat["kinds"] if k["key"] == "course_work")

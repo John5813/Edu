@@ -23,7 +23,7 @@ MENU = {
     "main_menu.independent_work": "independent_work",
     "main_menu.referat": "referat",
     "main_menu.course_work": "course_work",
-    "main_menu.presentation_3d": None,
+    "main_menu.presentation_3d": "presentation_3d",
     "main_menu.project_work": None,
     "main_menu.mahsus_ishlanma": None,
 }

@@ -311,6 +311,8 @@ async def start_pending(telegram_id: int) -> Optional[Dict]:
 
 
 async def _friendly(exc: Exception) -> str:
+    if isinstance(exc, JobError):       # xizmatning o'zi aytgan tushunarli sabab (masalan: mos 3D topilmadi)
+        return str(exc)
     try:
         from services.premium_presentation.llm_client import NoCredits
         if isinstance(exc, NoCredits):
