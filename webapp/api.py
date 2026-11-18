@@ -395,6 +395,49 @@ REWRITE_PROMPTS = [
     {"icon": "💬", "text": "Mashhur iqtibos bilan boshla"},
 ]
 
+# Tayyor ko'rsatmalar TAQDIMOT tilida: ruscha taqdimotga ruscha ko'rsatma ketadi (sayt tili boshqa bo'lsa ham).
+_REWRITE_TEXTS = {
+    "ru": ["Сделай слайд с круговой диаграммой", "Покажи столбчатой диаграммой", "Добавь изображение и текст",
+           "Сделай в виде карточек", "Опиши как пошаговый процесс", "Сделай сравнение в две колонки",
+           "Опиши в виде временной шкалы (хронологии)", "Покажи ключевые цифры крупно",
+           "Сделай короче и выразительнее", "Добавь больше деталей и примеров", "Начни с известной цитаты"],
+    "en": ["Turn the slide into a pie chart", "Show it with a bar chart", "Add an image and text",
+           "Make it into cards", "Write it as a step-by-step process", "Make a two-column comparison",
+           "Write it as a timeline (chronology)", "Show the key numbers large", "Make it shorter and more impactful",
+           "Add more detail and examples", "Start with a famous quote"],
+    "kk": ["Слайдты дөңгелек диаграммамен жаса", "Бағанды диаграммамен көрсет", "Сурет пен мәтін қос",
+           "Карточкалар түрінде жаса", "Қадамдық процесс түрінде жаз", "Екі бағанды салыстыру жаса",
+           "Уақыт осі (хронология) түрінде жаз", "Негізгі сандарды ірі көрсет", "Қысқарақ әрі әсерлірек жаса",
+           "Көбірек мәлімет пен мысал қос", "Әйгілі дәйексөзбен баста"],
+}
+# Taqdimot yaratishdagi «AI ga taqdimot qanday bo'lishini tushuntiring» namunalari — ular ham taqdimot tilida.
+_PREF_EXAMPLES = {
+    "uz": ["Investorlar uchun ishonchli", "Ko'proq vizual", "Qisqa va ta'sirli", "Talabalar uchun sodda tilda",
+           "Raqam va faktlar ko'proq"],
+    "ru": ["Убедительно для инвесторов", "Больше визуала", "Кратко и ярко", "Простым языком для студентов",
+           "Больше цифр и фактов"],
+    "en": ["Convincing for investors", "More visual", "Short and impactful", "Simple language for students",
+           "More numbers and facts"],
+    "kk": ["Инвесторлар үшін сенімді", "Көбірек көрнекі", "Қысқа әрі әсерлі", "Студенттер үшін қарапайым тілде",
+           "Көбірек сандар мен фактілер"],
+}
+
+
+def _by_language(uz: list, others: dict, wrap=None) -> dict:
+    """{til: ro'yxat}: o'zbekchaning kirill va yangi alifbodagi shakli o'zbekchadan o'giriladi."""
+    from services import uz_script
+    wrap = wrap or (lambda items: items)
+    out = {"uz": wrap(uz), "uz-cyrl": wrap([uz_script.to_cyrillic(t) for t in uz]),
+           "uz-yangi": wrap([uz_script.to_latin_new(t) for t in uz])}
+    out.update({lang: wrap(items) for lang, items in others.items()})
+    return out
+
+
+REWRITE_PROMPTS_BY_LANG = _by_language(
+    [p["text"] for p in REWRITE_PROMPTS], _REWRITE_TEXTS,
+    lambda texts: [{"icon": p["icon"], "text": t} for p, t in zip(REWRITE_PROMPTS, texts)])
+PREF_EXAMPLES_BY_LANG = _by_language(_PREF_EXAMPLES["uz"], {k: v for k, v in _PREF_EXAMPLES.items() if k != "uz"})
+
 
 def _rewrite_price() -> int:
     from config import SLIDE_REWRITE_PRICE
@@ -430,7 +473,8 @@ def _catalog() -> Dict:
         # Slayd sonini mijoz o'zi belgilaydi (5–30): har son uchun narx.
         "premium_prices": [{"slides": n, "price": pipeline.price_for(n)}
                            for n in range(pipeline.MIN_SLIDES, pipeline.MAX_SLIDES + 1)],
-        "rewrite": {"price": _rewrite_price(), "prompts": REWRITE_PROMPTS},
+        "rewrite": {"price": _rewrite_price(), "prompts": REWRITE_PROMPTS, "by_language": REWRITE_PROMPTS_BY_LANG},
+        "pref_examples": PREF_EXAMPLES_BY_LANG,
         "premium_range": {"min": pipeline.MIN_SLIDES, "max": pipeline.MAX_SLIDES, "popular": [5, 8, 10, 12, 15, 20, 25, 30]},
         # Bepul sinov: har akkauntga bir marta, varaq soni qat'iy, rasmlar internetdan (kimda borligi — /me da `free_trial`).
         "free_trial": {"slides": free_trial.SLIDES, "photos": False},

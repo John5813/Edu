@@ -47,6 +47,12 @@
     {key: 'ai', label: '🎨 AI chizadi', note: 'Har slaydga mos rasm'},
   ];
   const PREF_EXAMPLES = ['Investorlar uchun ishonchli', 'Ko‘proq vizual', 'Qisqa va ta’sirli', 'Talabalar uchun sodda tilda', 'Raqam va faktlar ko‘proq'];
+  // AI ga yoziladigan namunalar TAQDIMOT tilida (tanlangan yoki mavzudan aniqlangan): ruscha taqdimotga — ruscha.
+  // translate="no": sayt tili boshqa bo'lsa ham ular o'girilmaydi — AI ga aynan ko'ringan matn ketadi.
+  const deckLang = () => S.lang || S.suggest.language || 'uz';
+  const prefExamples = () => ((catalog && catalog.pref_examples) || {})[deckLang()] || PREF_EXAMPLES;
+  const prefChips = () => prefExamples().map((t) => `<button type="button" class="chip sm" translate="no" data-t="${E.esc(t)}">+ ${E.esc(t)}</button>`).join('');
+  function refreshPrefs() { const box = $('pref-ex'); if (box) box.innerHTML = prefChips(); }
 
   let catalog = null, me = null, timer = null, seq = 0, pollTimer = null, forge = null;
   const S = {kind: 'premium_presentation', topic: '', lang: '', src: {kind: 'ai', text: '', label: '', words: 0},
@@ -160,7 +166,7 @@
         <div class="hint">${range.min} dan ${range.max} gacha istalgan son. Muqova va reja slaydi bu songa kirmaydi (kirish va xulosa kiradi).</div>`);
       html += section('Ism-familiya', '(taqdimotning muqovasiga yoziladi)', `<input class="fld" id="author" maxlength="80" placeholder="Ism Familiya" value="${E.esc(S.author)}">`);
       html += section('AI ga taqdimot qanday bo‘lishini tushuntiring', '(ixtiyoriy)', `<textarea class="fld" id="prefs" rows="2" maxlength="1000" placeholder="Auditoriya, maqsad, ohang, misollar yoki alohida talablarni erkin yozing.">${E.esc(S.prefs)}</textarea>
-        <div class="st-chips" id="pref-ex">${PREF_EXAMPLES.map((t) => `<button type="button" class="chip sm" data-t="${E.esc(t)}">+ ${E.esc(t)}</button>`).join('')}</div>`);
+        <div class="st-chips" id="pref-ex">${prefChips()}</div>`);
     } else if (threeD()) {
       const langs = (o.languages || ['uz', 'ru', 'en', 'kk']).map((l) => ({key: l, label: ({uz: "O'zbek", ru: 'Русский', en: 'English', kk: 'Қазақша'})[l] || l}));
       if (!S.lang || !langs.some((l) => l.key === S.lang)) S.lang = langs[0].key;
@@ -255,7 +261,7 @@
     inp('prefs', 'prefs'); inp('univ', 'univ'); inp('fac', 'fac'); inp('grp', 'grp');
     if ($('trial-on')) $('trial-on').onclick = () => { S.trial = true; S.volume = 'kop'; types(); render(); save(); };
     if ($('trial-off')) $('trial-off').onclick = () => { S.trial = false; render(); save(); };
-    oneOf('st-lang', (v) => { S.lang = v; autoNotes(); save(); });
+    oneOf('st-lang', (v) => { S.lang = v; autoNotes(); refreshPrefs(); save(); });
     oneOf('st-size', (v) => { S.size = v; save(); });
     oneOf('st-pstyle', (v) => { S.pstyle = v; save(); });
     if ($('extras')) $('extras').onclick = (e) => {
@@ -301,7 +307,7 @@
     if ($('pref-ex')) $('pref-ex').onclick = (e) => {
       const b = e.target.closest('[data-t]'); if (!b) return;
       const area = $('prefs');
-      area.value = (area.value.trim() ? area.value.trim().replace(/[.;,]?$/, '; ') : '') + E.tr(b.dataset.t);
+      area.value = (area.value.trim() ? area.value.trim().replace(/[.;,]?$/, '; ') : '') + b.dataset.t;
       S.prefs = area.value; save();
     };
   }
@@ -324,7 +330,7 @@
   function suggest() {
     clearTimeout(timer);
     const topic = S.topic.trim();
-    if (topic.length < 3) { S.suggest = {language: '', theme: null}; autoNotes(); return; }
+    if (topic.length < 3) { S.suggest = {language: '', theme: null}; autoNotes(); refreshPrefs(); return; }
     timer = setTimeout(async () => {
       const my = ++seq;
       try {
@@ -332,7 +338,7 @@
         if (my !== seq) return;
         S.suggest = {language: r.language, theme: r.theme};
       } catch (e) { return; }
-      autoNotes(); preview(); summary();
+      autoNotes(); refreshPrefs(); preview(); summary();
     }, 450);
   }
   function autoNotes() {
