@@ -236,6 +236,7 @@ async def _switch_session(request: web.Request, response: web.StreamResponse, se
         if old_tid is not None and old_tid != new_tid and web_accounts.is_web_only(old_tid):
             response.set_cookie(PREV_COOKIE, old, max_age=PREV_TTL, httponly=True, samesite="Lax",
                                 secure=_secure(request), path="/")
+            request["merge_offer"] = True
         else:
             await web_store.end_session(old)
     response.set_cookie(COOKIE, session, max_age=web_store.SESSION_TTL, httponly=True, samesite="Lax",
@@ -259,6 +260,8 @@ async def auth_go(request: web.Request) -> web.Response:
     await web_store.go_seen(token, used=True)
     response = web.json_response({"ok": True, "to": target})
     await _switch_session(request, response, session)
+    if request.get("merge_offer"):          # Google akkauntini birlashtirish so'raladi — sahifa skripti ochiladi
+        response.text = json.dumps({"ok": True, "to": target, "merge": True})
     return response
 
 
@@ -434,14 +437,26 @@ def _catalog() -> Dict:
     }
 
 
+_CATALOG_CACHE: Dict[str, object] = {"at": 0.0, "data": None}
+CATALOG_TTL = 30          # katalog hamma uchun bir xil: 30 soniya xotirada (har sahifa ochilishida qayta yig'ilmaydi)
+
+
 async def catalog(request: web.Request) -> web.Response:
+    if _CATALOG_CACHE["data"] is not None and time.monotonic() - float(_CATALOG_CACHE["at"]) < CATALOG_TTL:
+        return web.json_response(_CATALOG_CACHE["data"], headers={"Cache-Control": "public, max-age=30"})
+    data = await _catalog_full()
+    _CATALOG_CACHE.update(at=time.monotonic(), data=data)
+    return web.json_response(data, headers={"Cache-Control": "public, max-age=30"})
+
+
+async def _catalog_full() -> Dict:
     # Botdagi kabi: yozuvlar animatsiyasi admin yoqqanda, «Rahmat» personaji admin o'chirmagan bo'lsa taklif qilinadi.
     from services.premium_presentation import slide_anim
     from services.thanks_anim import FEATURE as THANKS_FEATURE, catalog as thanks_catalog
     db = Database()
     extras = {"text_anim": bool(await db.get_feature_status(slide_anim.FEATURE, default=False)),
               "thanks": bool(thanks_catalog.available()) and bool(await db.get_feature_status(THANKS_FEATURE, default=True))}
-    return web.json_response({"ok": True, **_catalog(), **extras})
+    return {"ok": True, **_catalog(), **extras}
 
 
 async def quote(request: web.Request) -> web.Response:
@@ -1009,7 +1024,7 @@ async def wallet_receipt(request: web.Request) -> web.Response:
 
 # ──────────────────────────────────────────────────────────────────────── sahifalar
 
-_ASSET = re.compile(r'(/static/[\w.-]+\.(?:js|css|jpg|png))(?=["\'])')
+_ASSET = re.compile(r'(/static/[\w.-]+\.(?:js|css|jpg|png|webp|mp4))(?=["\'])')
 
 
 def _asset_tag(name: str) -> str:
@@ -1058,12 +1073,21 @@ async def version(request: web.Request) -> web.Response:
                               "site_css": _asset_tag("site.css")}, headers={"Cache-Control": "no-store"})
 
 
+_STATIC_TYPES = {".woff2": "font/woff2", ".webp": "image/webp", ".mp4": "video/mp4"}
+
+
 async def static_file(request: web.Request) -> web.StreamResponse:
     base = SITE_DIR.resolve()
     path = (SITE_DIR / "static" / request.match_info["name"]).resolve()
     if base not in path.parents or not path.is_file():
         return web.Response(status=404)
-    return web.FileResponse(path, headers={"Cache-Control": "public, max-age=300"})
+    # Versiyali havola (?v=<fayl belgisi>) o'zgarmaydi: brauzer va Cloudflare bir yil saqlaydi — qayta kirishda
+    # fayllar umuman yuklanmaydi. Shriftlar ham o'zgarmaydi. Qolganlari — 5 daqiqa.
+    lasting = request.query.get("v") or path.suffix == ".woff2"
+    headers = {"Cache-Control": "public, max-age=31536000, immutable" if lasting else "public, max-age=300"}
+    if path.suffix in _STATIC_TYPES:
+        headers["Content-Type"] = _STATIC_TYPES[path.suffix]
+    return web.FileResponse(path, headers=headers)
 
 
 async def wallet_click(request: web.Request) -> web.Response:
@@ -1229,4 +1253,4 @@ def setup_api_routes(app: web.Application) -> None:
     add("GET", "/admin/statistics", _page("admin_statistics.html"))
     add("GET", "/api/v1/admin/statistics", admin_statistics)
     add("POST", "/api/v1/admin/statistics/costs", admin_statistics_costs)
-    add("GET", "/static/{name}", static_file)
+    add("GET", "/static/{name:.+}", static_file)

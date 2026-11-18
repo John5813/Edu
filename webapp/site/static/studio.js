@@ -36,10 +36,10 @@
   // Taqdimot turi (botdagi bilan bir xil): Infografik va Zamonaviy — zamonaviy taqdimot (matn hajmi bilan),
   // Klassik — tayyor shablonlar (simple_presentation), 3D — hali saytda yo'q.
   const PTYPES = [
-    {key: 'info', label: '🎨 Infografik', note: 'Rasm, diagramma va infografikaga boy, har slayd o‘z dizaynida', img: '/static/type-info.jpg'},
-    {key: 'modern', label: '📝 Zamonaviy', note: 'Fikr batafsil ochiladi, 5 xil uslubdan tanlaysiz', img: '/static/type-modern.jpg'},
-    {key: 'classic', label: '📄 Klassik', note: 'Tayyor chiroyli shablonlar, ikonka va reja slaydi', img: '/static/type-classic.jpg'},
-    {key: '3d', label: '🧊 3D taqdimot', note: 'Haqiqiy 3D modellar va harakat', img: '/static/type-3d.jpg'},
+    {key: 'info', label: '🎨 Infografik', note: 'Rasm, diagramma va infografikaga boy, har slayd o‘z dizaynida', img: '/static/type-info.webp'},
+    {key: 'modern', label: '📝 Zamonaviy', note: 'Fikr batafsil ochiladi, 5 xil uslubdan tanlaysiz', img: '/static/type-modern.webp'},
+    {key: 'classic', label: '📄 Klassik', note: 'Tayyor chiroyli shablonlar, ikonka va reja slaydi', img: '/static/type-classic.webp'},
+    {key: '3d', label: '🧊 3D taqdimot', note: 'Haqiqiy 3D modellar va harakat', img: '/static/type-3d.webp'},
   ];
   const PHOTO_SRC = [
     {key: 'mix', label: '✨ Aralash', note: 'Avval internetdan, topilmaganini AI chizadi (tavsiya)'},
@@ -141,7 +141,7 @@
       html += section('Manba', 'AI nimaga tayanadi', `<div class="srcs" id="srcs">${SOURCES.map((x) =>
         `<button type="button" class="src${x.key === S.src.kind ? ' on' : ''}" data-k="${x.key}"><b>${x.label}</b><small>${x.note}</small></button>`).join('')}</div><div id="src-panel"></div>`);
       if (!infoOn()) html += section('Ko‘rinish uslubi', '', `<div class="st-styles" id="styles">${catalog.styles.map((st) =>
-        `<button type="button" class="st-sty${st.key === S.style ? ' on' : ''}" data-k="${E.esc(st.key)}"><img src="/static/home-style-${E.esc(st.key)}.jpg" alt="" loading="lazy" width="960" height="540"><b>${E.esc(st.label)}</b></button>`).join('')}</div>`);
+        `<button type="button" class="st-sty${st.key === S.style ? ' on' : ''}" data-k="${E.esc(st.key)}"><img src="/static/home-style-${E.esc(st.key)}.webp" alt="" loading="lazy" width="960" height="540"><b>${E.esc(st.label)}</b></button>`).join('')}</div>`);
       if (!trialOn()) {
         html += section('Rang', '(tanlanmasa — mavzuga qarab)', `<div class="st-sw" id="colors"><button type="button" class="chip${S.theme ? '' : ' on'}" data-c="">✨ Avto</button>${(catalog.colors || []).map((c) =>
           `<button type="button" class="sw-b${c.key === S.theme ? ' on' : ''}" data-c="${E.esc(c.key)}" title="${E.esc(c.label)}" aria-label="${E.esc(c.label)}"><i style="background:${E.esc(c.accent)}"></i></button>`).join('')}<span class="sw-name" id="c-name">${E.esc(S.theme ? ((catalog.colors || []).find((c) => c.key === S.theme) || {}).label || '' : '')}</span></div>`);
@@ -205,7 +205,7 @@
       <aside class="st-side">
         ${premium() ? '<div class="pv" id="pv"></div><div class="hint" id="pv-note"></div>' : ''}
         ${classic() ? '<div class="pv tplv" id="tplv"></div><div class="hint">Klassik · tayyor shablon</div>' : ''}
-        ${threeD() ? '<div class="pv tplv"><img src="/static/type-3d.jpg" alt=""></div><div class="hint">3D taqdimot · kompyuterdagi PowerPoint uchun</div>' : ''}
+        ${threeD() ? '<div class="pv tplv"><img src="/static/type-3d.webp" alt=""></div><div class="hint">3D taqdimot · kompyuterdagi PowerPoint uchun</div>' : ''}
         <div class="st-sum" id="sum"></div>
         <div class="st-go"><div class="st-total"><span>Narx</span><b id="s-price"></b></div>
           <button class="btn block" id="go" type="submit">${trialOn() ? 'Bepul yaratish' : 'Yaratish'}</button></div>
@@ -651,6 +651,7 @@
       } catch (e) { try { sessionStorage.removeItem(LIVE); } catch (x) { /* ixtiyoriy */ } }
     }
     if (want || restored) document.getElementById('yaratish').scrollIntoView({block: 'start'});
+    window.__studioReady = true;        // ishga tushish tugadi (qoralama va davom etayotgan buyurtma tiklandi)
     // Sahifadagi xizmat kartochkalari (#yaratish?kind=...): sahifa qayta yuklanmaydi, oyna o'sha xizmat bilan ochiladi.
     window.addEventListener('hashchange', () => {
       const k = (location.hash.split('kind=')[1] || '').split('&')[0];

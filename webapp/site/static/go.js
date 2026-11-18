@@ -26,7 +26,7 @@
   }
 
   function show(title, text, buttons) {
-    box.innerHTML = '<img src="/static/logo.jpg" alt="Edufayl" width="54" height="54"><h2>' + E.esc(title) + '</h2>' +
+    box.innerHTML = '<img src="/static/logo-sm.webp" alt="Edufayl" width="54" height="54"><h2>' + E.esc(title) + '</h2>' +
       '<p>' + text + '</p>' + buttons;
   }
 
@@ -64,6 +64,14 @@
     const token = q.get('t') || '';
     try { history.replaceState(null, '', '/go' + (to ? '?to=' + to : '')); } catch (e) { /* token manzil satrida qolmasin */ }
     if (q.get('done')) { await mergeThenGo(); return; }
+    if (window.__go) {                 // go.html dagi tezkor yo'l tokenni allaqachon yuborgan
+      const x = await window.__go;
+      if (x.leaving) return;           // kerakli sahifa ochilmoqda
+      if (x.network) { show('Internet yo‘q', 'Aloqa uzildi. Internetni tekshirib, sahifani yangilang.', ''); return; }
+      if (x.d && x.d.ok) { await mergeThenGo(); return; }
+      await expired();
+      return;
+    }
     if (!token || q.get('bad')) { await expired(); return; }
     try {
       await E.api('/auth/go', {json: {token, to}});

@@ -404,7 +404,7 @@ TEMPLATE = """<!DOCTYPE html>
 <link rel="canonical" href="{canonical}">
 <link rel="alternate" hreflang="uz" href="{href_uz}">
 <link rel="alternate" hreflang="ru" href="{href_ru}">
-<link rel="icon" href="/static/logo.jpg">
+<link rel="icon" href="/static/icon-64.png">
 <link rel="stylesheet" href="/shop/style.css">
 <script type="application/ld+json">{ld}</script>
 <style>
@@ -424,7 +424,7 @@ TEMPLATE = """<!DOCTYPE html>
 <body>
 <header>
   <div class="wrap head-in">
-    <a class="logo" href="/" aria-label="Edufayl"><img src="/static/logo.jpg" alt="Edufayl" width="44" height="44"></a>
+    <a class="logo" href="/" aria-label="Edufayl"><img src="/static/logo-sm.webp" alt="Edufayl" width="44" height="44"></a>
     <a class="create" href="/">{home}</a>
   </div>
 </header>
