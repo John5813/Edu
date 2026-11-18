@@ -668,7 +668,7 @@ async def _own_deck(request: web.Request):
     telegram_id = await _require(request)
     job_id = request.match_info["id"]
     job = await web_store.get_job(job_id, telegram_id)
-    if not job or job["kind"] not in ("premium_presentation", "simple_presentation", "presentation_3d"):
+    if not job or job["kind"] not in ("premium_presentation", "simple_presentation"):
         raise web.HTTPNotFound(text='{"ok": false, "error": "Topilmadi", "code": "not_found"}',
                                content_type="application/json")
     deck = web_decks.load(job_id) if job["status"] == "done" else None

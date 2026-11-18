@@ -1,6 +1,8 @@
 /* Edufayl sayti: tarjima lug'ati (o'zbekcha matn → ru, en, kk). Mexanizm: i18n.js */
 window.EDU_DICT = {
 "ru": {
+"Saytda varaqlash va tahrirlash bu xizmat uchun hozircha ishlamaydi: fayl botga va «Hujjatlarim» ga keladi.": "Просмотр и редактирование на сайте для этой услуги пока не работают: файл придёт в бот и в «Мои документы».",
+"🧊 3D taqdimotni kompyuterdagi Microsoft PowerPoint (2019, 2021, 365) da «Slayd-shou» (F5) rejimida oching — telefonda 3D ko‘rinmaydi. Saytda varaqlash va tahrirlash bu xizmat uchun hozircha ishlamaydi.": "🧊 Откройте 3D-презентацию в Microsoft PowerPoint (2019, 2021, 365) на компьютере в режиме «Показ слайдов» (F5) — на телефоне 3D не видно. Просмотр и редактирование на сайте для этой услуги пока не работают.",
 "✍️ Matnni tahrirlash": "✍️ Редактировать текст",
 "Ko‘rinish taxminiy: 3D modellar PowerPoint’da (kompyuterda) aylanadi va harakatlanadi.": "Вид приблизительный: 3D-модели вращаются и движутся в PowerPoint (на компьютере).",
 "Ko‘rinish taxminiy.": "Вид приблизительный.",
@@ -666,6 +668,8 @@ window.EDU_DICT = {
 ]
 },
 "en": {
+"Saytda varaqlash va tahrirlash bu xizmat uchun hozircha ishlamaydi: fayl botga va «Hujjatlarim» ga keladi.": "Viewing and editing on the website are not available for this service yet: the file arrives in the bot and in “My documents”.",
+"🧊 3D taqdimotni kompyuterdagi Microsoft PowerPoint (2019, 2021, 365) da «Slayd-shou» (F5) rejimida oching — telefonda 3D ko‘rinmaydi. Saytda varaqlash va tahrirlash bu xizmat uchun hozircha ishlamaydi.": "🧊 Open the 3D presentation in Microsoft PowerPoint (2019, 2021, 365) on a computer in Slide Show mode (F5) — 3D is not visible on phones. Viewing and editing on the website are not available for this service yet.",
 "✍️ Matnni tahrirlash": "✍️ Edit text",
 "Ko‘rinish taxminiy: 3D modellar PowerPoint’da (kompyuterda) aylanadi va harakatlanadi.": "Preview is approximate: the 3D models turn and move in PowerPoint (on a computer).",
 "Ko‘rinish taxminiy.": "Preview is approximate.",
@@ -1331,6 +1335,8 @@ window.EDU_DICT = {
 ]
 },
 "kk": {
+"Saytda varaqlash va tahrirlash bu xizmat uchun hozircha ishlamaydi: fayl botga va «Hujjatlarim» ga keladi.": "Сайтта қарау және өңдеу бұл қызмет үшін әзірге жұмыс істемейді: файл ботқа және «Құжаттарым» бөліміне келеді.",
+"🧊 3D taqdimotni kompyuterdagi Microsoft PowerPoint (2019, 2021, 365) da «Slayd-shou» (F5) rejimida oching — telefonda 3D ko‘rinmaydi. Saytda varaqlash va tahrirlash bu xizmat uchun hozircha ishlamaydi.": "🧊 3D презентацияны компьютердегі Microsoft PowerPoint (2019, 2021, 365) бағдарламасында «Слайд-шоу» (F5) режимінде ашыңыз — телефонда 3D көрінбейді. Сайтта қарау және өңдеу бұл қызмет үшін әзірге жұмыс істемейді.",
 "✍️ Matnni tahrirlash": "✍️ Мәтінді өңдеу",
 "Ko‘rinish taxminiy: 3D modellar PowerPoint’da (kompyuterda) aylanadi va harakatlanadi.": "Көрініс шамамен: 3D модельдер PowerPoint-та (компьютерде) айналады және қозғалады.",
 "Ko‘rinish taxminiy.": "Көрініс шамамен.",

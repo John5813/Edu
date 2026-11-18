@@ -164,7 +164,7 @@
     } else if (threeD()) {
       const langs = (o.languages || ['uz', 'ru', 'en', 'kk']).map((l) => ({key: l, label: ({uz: "O'zbek", ru: 'Русский', en: 'English', kk: 'Қазақша'})[l] || l}));
       if (!S.lang || !langs.some((l) => l.key === S.lang)) S.lang = langs[0].key;
-      html += `<div class="note" style="margin:4px 0 6px">🧊 Har slaydda haqiqiy 3D model: aylanadi va harakatlanadi. Mavzu tana tuzilishiga oid bo‘lsa — 3D Anatomiya, boshqa mavzularda — katalogdagi 3D modellar. Taqdimot <b>kompyuterdagi PowerPoint</b> (2019, 2021, 365) uchun — telefonda 3D ko‘rinmaydi. Mos 3D topilmasa, pul hisobingizga qaytadi.</div>`;
+      html += `<div class="note" style="margin:4px 0 6px">🧊 Har slaydda haqiqiy 3D model: aylanadi va harakatlanadi. Mavzu tana tuzilishiga oid bo‘lsa — 3D Anatomiya, boshqa mavzularda — katalogdagi 3D modellar. Taqdimot <b>kompyuterdagi PowerPoint</b> (2019, 2021, 365) uchun — telefonda 3D ko‘rinmaydi. Mos 3D topilmasa, pul hisobingizga qaytadi.<br><span>Saytda varaqlash va tahrirlash bu xizmat uchun hozircha ishlamaydi: fayl botga va «Hujjatlarim» ga keladi.</span></div>`;
       html += section('Slaydlar soni', '', chipRow('st-size', o.sizes.map((z) => ({key: z.key, label: z.label, small: E.fmt(z.price)})), S.size));
       html += section('Til', '', chipRow('st-lang', langs, S.lang));
       html += section('Ism-familiya', '(taqdimotning muqovasiga yoziladi)', `<input class="fld" id="author" maxlength="80" placeholder="Ism Familiya" value="${E.esc(S.author)}">`);
@@ -583,6 +583,7 @@
           ${isDeck ? `<a class="btn" href="/app#/job/${E.esc(j.id)}">Ko‘rish va tahrirlash</a>` : ''}
           <a class="btn ${isDeck ? 'out' : ''}" href="/api/v1/jobs/${E.esc(j.id)}/file">Yuklab olish</a>
           <button type="button" class="btn ghost" id="f-new">Yangi mavzu</button></div>
+        ${kind === 'presentation_3d' ? `<div class="note" style="margin-top:12px">${E.esc(E.NOTE3D)}</div>` : ''}
         <p class="hint" style="text-align:center" id="f-tg"></p>`;
       if (me && me.telegram) E.watchTg(j, $('f-tg'), catalog && catalog.bot); else $('f-tg').remove();
       $('f-new').onclick = () => { S.topic = ''; $('topic').value = ''; reset(); };

@@ -132,6 +132,7 @@
       view.innerHTML = `<div class="card panel" style="max-width:640px;margin:10px auto;text-align:center"><span class="pill ok">Tayyor</span>
         <h2 style="margin:12px 0 6px">${E.esc(job.title)}</h2>
         ${E.isDeck(job.kind) ? '<p style="color:#4A5272">Bu taqdimot ko‘rib chiqish uchun saqlanmagan.</p>' : ''}
+        ${job.kind === 'presentation_3d' ? `<div class="note" style="text-align:left">${E.esc(E.NOTE3D)}</div>` : ''}
         <p style="color:#4A5272" id="j-tg"></p>
         <a class="btn" href="/api/v1/jobs/${E.esc(job.id)}/file">Yuklab olish</a>
         <p><a class="link" href="#/docs">← Hujjatlarim</a></p></div>`;
@@ -191,7 +192,7 @@
             <div class="card panel ed-panel" id="edpanel" hidden></div>`
             : deck.text_edit ? `<div class="vtools" id="vtools"><button type="button" class="btn out sm" id="t-ptext">✍️ Matnni tahrirlash <small>bepul</small></button></div>
             <div class="card panel ed-panel" id="edpanel" hidden></div>
-            <p class="hint" style="margin:10px 0 0">Ko‘rinish taxminiy${job.kind === 'presentation_3d' ? ': 3D modellar PowerPoint’da (kompyuterda) aylanadi va harakatlanadi' : ''}.</p>`
+            <p class="hint" style="margin:10px 0 0">Ko‘rinish taxminiy.</p>`
             : '<p class="hint" style="margin:14px 0 0">Ko‘rinish taxminiy: PowerPoint da biroz farq qilishi mumkin.</p>'}
           <p class="hint" style="margin:10px 0 0">Fayl ${Math.max(0, Math.round((info.expires_at * 1000 - Date.now()) / 3600000))} soat saqlanadi.</p>
         </div>
