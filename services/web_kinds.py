@@ -656,6 +656,14 @@ async def _three_d_run(params: Dict, report: Report) -> Tuple[str, str]:
     else:
         raise JobError("Bu mavzu uchun mos 3D model topilmadi. Infografik yoki Zamonaviy turini tanlang.",
                        "no_3d")
+    job_id = params.get("_job_id") or ""
+    if job_id:                  # saytda varaqlash va matnni tahrirlash (sahifalarni LibreOffice chizadi)
+        try:
+            from services import web_decks
+            report("render", 92)
+            await asyncio.to_thread(web_decks.create_view, job_id, params, path)
+        except Exception as exc:
+            log.warning("3D taqdimot ko'rinishi tayyorlanmadi (%s): %s", job_id, exc)
     stem = re.sub(r"[^\w-]+", "_", topic)[:30].strip("_") or "fayl"
     return path, f"3D_Taqdimot_{stem}.pptx"
 

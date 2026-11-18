@@ -1,6 +1,17 @@
 /* Edufayl sayti: tarjima lug'ati (o'zbekcha matn → ru, en, kk). Mexanizm: i18n.js */
 window.EDU_DICT = {
 "ru": {
+"✍️ Matnni tahrirlash": "✍️ Редактировать текст",
+"Ko‘rinish taxminiy: 3D modellar PowerPoint’da (kompyuterda) aylanadi va harakatlanadi.": "Вид приблизительный: 3D-модели вращаются и движутся в PowerPoint (на компьютере).",
+"Ko‘rinish taxminiy.": "Вид приблизительный.",
+"Ko‘rinish taxminiy: PowerPoint da biroz farq qilishi mumkin.": "Вид приблизительный: в PowerPoint может немного отличаться.",
+"{n}-sahifa matni": "Текст слайда {n}",
+"Sarlavha": "Заголовок",
+"Matn": "Текст",
+"Yozuv": "Подпись",
+"Shrift, rang va joylashuv o‘zgarmaydi. Saqlangach sahifa qayta chiziladi.": "Шрифт, цвет и расположение не меняются. После сохранения слайд перерисуется.",
+"Saqlanmoqda, sahifa qayta chizilmoqda…": "Сохраняем, слайд перерисовывается…",
+"Bu sahifada tahrirlanadigan matn yo‘q.": "На этом слайде нет текста для правки.",
 "Yozuvlar animatsiyasi": "Анимация текста",
 "✅ Bor": "✅ Есть",
 "❌ Yo‘q": "❌ Нет",
@@ -655,6 +666,17 @@ window.EDU_DICT = {
 ]
 },
 "en": {
+"✍️ Matnni tahrirlash": "✍️ Edit text",
+"Ko‘rinish taxminiy: 3D modellar PowerPoint’da (kompyuterda) aylanadi va harakatlanadi.": "Preview is approximate: the 3D models turn and move in PowerPoint (on a computer).",
+"Ko‘rinish taxminiy.": "Preview is approximate.",
+"Ko‘rinish taxminiy: PowerPoint da biroz farq qilishi mumkin.": "Preview is approximate: it may look slightly different in PowerPoint.",
+"{n}-sahifa matni": "Slide {n} text",
+"Sarlavha": "Title",
+"Matn": "Text",
+"Yozuv": "Label",
+"Shrift, rang va joylashuv o‘zgarmaydi. Saqlangach sahifa qayta chiziladi.": "Font, colour and layout stay the same. The slide is redrawn after saving.",
+"Saqlanmoqda, sahifa qayta chizilmoqda…": "Saving, redrawing the slide…",
+"Bu sahifada tahrirlanadigan matn yo‘q.": "This slide has no editable text.",
 "Yozuvlar animatsiyasi": "Text animation",
 "✅ Bor": "✅ On",
 "❌ Yo‘q": "❌ Off",
@@ -1309,6 +1331,17 @@ window.EDU_DICT = {
 ]
 },
 "kk": {
+"✍️ Matnni tahrirlash": "✍️ Мәтінді өңдеу",
+"Ko‘rinish taxminiy: 3D modellar PowerPoint’da (kompyuterda) aylanadi va harakatlanadi.": "Көрініс шамамен: 3D модельдер PowerPoint-та (компьютерде) айналады және қозғалады.",
+"Ko‘rinish taxminiy.": "Көрініс шамамен.",
+"Ko‘rinish taxminiy: PowerPoint da biroz farq qilishi mumkin.": "Көрініс шамамен: PowerPoint-та сәл өзгеше болуы мүмкін.",
+"{n}-sahifa matni": "{n}-бет мәтіні",
+"Sarlavha": "Тақырып",
+"Matn": "Мәтін",
+"Yozuv": "Жазу",
+"Shrift, rang va joylashuv o‘zgarmaydi. Saqlangach sahifa qayta chiziladi.": "Қаріп, түс және орналасу өзгермейді. Сақталған соң бет қайта сызылады.",
+"Saqlanmoqda, sahifa qayta chizilmoqda…": "Сақталуда, бет қайта сызылуда…",
+"Bu sahifada tahrirlanadigan matn yo‘q.": "Бұл бетте өңделетін мәтін жоқ.",
 "Yozuvlar animatsiyasi": "Мәтін анимациясы",
 "✅ Bor": "✅ Бар",
 "❌ Yo‘q": "❌ Жоқ",

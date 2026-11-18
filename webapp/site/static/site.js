@@ -4,6 +4,8 @@
   const Edu = (window.Edu = window.Edu || {});
 
   Edu.esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+  // Saytda varaqlanadigan taqdimotlar (Zamonaviy, Klassik, 3D).
+  Edu.isDeck = (k) => k === 'premium_presentation' || k === 'simple_presentation' || k === 'presentation_3d';
   Edu.fmt = (n) => Number(n || 0).toLocaleString('ru-RU').replace(/ /g, ' ');
   Edu.$ = (sel, root) => (root || document).querySelector(sel);
 

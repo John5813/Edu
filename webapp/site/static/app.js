@@ -125,13 +125,13 @@
       return;
     }
     let info = {available: false};
-    if (job.kind === 'premium_presentation' || job.kind === 'simple_presentation') {
+    if (E.isDeck(job.kind)) {
       try { info = await E.api('/jobs/' + encodeURIComponent(id) + '/deck'); } catch (e) { info = {available: false}; }
     }
     if (!info.available) {
       view.innerHTML = `<div class="card panel" style="max-width:640px;margin:10px auto;text-align:center"><span class="pill ok">Tayyor</span>
         <h2 style="margin:12px 0 6px">${E.esc(job.title)}</h2>
-        ${(job.kind === 'premium_presentation' || job.kind === 'simple_presentation') ? '<p style="color:#4A5272">Bu taqdimot ko‘rib chiqish uchun saqlanmagan.</p>' : ''}
+        ${E.isDeck(job.kind) ? '<p style="color:#4A5272">Bu taqdimot ko‘rib chiqish uchun saqlanmagan.</p>' : ''}
         <p style="color:#4A5272" id="j-tg"></p>
         <a class="btn" href="/api/v1/jobs/${E.esc(job.id)}/file">Yuklab olish</a>
         <p><a class="link" href="#/docs">← Hujjatlarim</a></p></div>`;
@@ -143,7 +143,7 @@
   }
 
   function jobWaiting(job) {
-    const isDeck = job.kind === 'premium_presentation' || job.kind === 'simple_presentation';
+    const isDeck = E.isDeck(job.kind);
     view.innerHTML = `<div style="max-width:980px;margin:6px auto">
       <div id="forge-anim"></div>
       <p class="hint" style="text-align:center;margin-top:12px">Bu sahifani yopib ketishingiz mumkin: tayyor bo‘lgach «Hujjatlarim» da ko‘rinadi va Telegramga ham keladi.</p></div>`;
@@ -189,7 +189,10 @@
               <button type="button" class="btn sm" id="edit">✨ AI bilan o‘zgartirish <small>· ${E.fmt(price)} so‘m</small></button></div>
             <div class="vtools edbar" id="edbar" hidden></div>
             <div class="card panel ed-panel" id="edpanel" hidden></div>`
-            : '<p class="hint" style="margin:14px 0 0">Ko‘rinish taxminiy: PowerPoint da biroz farq qilishi mumkin. Sahifani AI ga qayta yozdirish «Zamonaviy taqdimot» da mavjud.</p>'}
+            : deck.text_edit ? `<div class="vtools" id="vtools"><button type="button" class="btn out sm" id="t-ptext">✍️ Matnni tahrirlash <small>bepul</small></button></div>
+            <div class="card panel ed-panel" id="edpanel" hidden></div>
+            <p class="hint" style="margin:10px 0 0">Ko‘rinish taxminiy${job.kind === 'presentation_3d' ? ': 3D modellar PowerPoint’da (kompyuterda) aylanadi va harakatlanadi' : ''}.</p>`
+            : '<p class="hint" style="margin:14px 0 0">Ko‘rinish taxminiy: PowerPoint da biroz farq qilishi mumkin.</p>'}
           <p class="hint" style="margin:10px 0 0">Fayl ${Math.max(0, Math.round((info.expires_at * 1000 - Date.now()) / 3600000))} soat saqlanadi.</p>
         </div>
         ${deck.editable ? `<aside class="vside card" id="vside" hidden>
@@ -232,6 +235,33 @@
       document.querySelectorAll('#thumbs .th').forEach((t) => t.classList.toggle('busy', !!st.busy && parseInt(t.dataset.n, 10) === rewritingN));
     }
     $('thumbs').onclick = (e) => { const b = e.target.closest('.th'); if (b) show(parseInt(b.dataset.n, 10)); };
+    // 3D / Klassik: matn PPTX ning o'zida tahrirlanadi (sahifa rasmlari qayta chiziladi).
+    const KIND_LABEL = {title: 'Sarlavha', text: 'Matn', label: 'Yozuv'};
+    async function ptextOpen() {
+      const panel = $('edpanel'), n = st.n;
+      panel.hidden = false; panel.innerHTML = '<span class="spin"></span>';
+      let d;
+      try { d = await E.api('/jobs/' + encodeURIComponent(id) + '/texts/' + n); }
+      catch (e) { panel.innerHTML = `<div class="note bad">${E.esc(e.message)}</div>`; return; }
+      if (!d.items.length) { panel.innerHTML = '<div class="note">Bu sahifada tahrirlanadigan matn yo‘q.</div>'; return; }
+      panel.innerHTML = `<div class="row" style="justify-content:space-between"><b>${n}-sahifa matni</b><button type="button" class="link" id="pt-x">✕</button></div>` +
+        d.items.map((it) => `<label class="lab" style="margin-top:12px">${KIND_LABEL[it.kind] || 'Matn'}</label>
+          <textarea class="fld" data-id="${it.id}" rows="${Math.min(8, Math.max(1, Math.ceil(it.text.length / 60) + (it.text.split('\n').length - 1)))}" maxlength="2000">${E.esc(it.text)}</textarea>`).join('') +
+        `<div class="row" style="margin-top:14px;gap:8px"><button type="button" class="btn" id="pt-save">Saqlash</button>
+          <span class="hint" style="margin:0">Shrift, rang va joylashuv o‘zgarmaydi. Saqlangach sahifa qayta chiziladi.</span></div><div id="pt-note"></div>`;
+      $('pt-x').onclick = () => { panel.hidden = true; panel.innerHTML = ''; };
+      $('pt-save').onclick = async () => {
+        const items = [...panel.querySelectorAll('textarea[data-id]')].map((t) => ({id: parseInt(t.dataset.id, 10), text: t.value}));
+        $('pt-save').disabled = true; $('pt-note').innerHTML = '<p class="hint"><span class="spin" style="width:16px;height:16px;border-width:2px"></span> &nbsp;Saqlanmoqda, sahifa qayta chizilmoqda…</p>';
+        try {
+          const r = await E.api('/jobs/' + encodeURIComponent(id) + '/texts/' + n, {json: {version: st.version, items}});
+          st.version = r.deck.version; st.slides = r.deck.slides;
+          document.querySelectorAll('#thumbs .th').forEach((t) => { const k = parseInt(t.dataset.n, 10); t.querySelector('img').src = img(k); t.title = (st.slides[k - 1] || {}).title || ''; });
+          show(n); panel.hidden = true; panel.innerHTML = ''; E.toast('Saqlandi');
+        } catch (e) { $('pt-save').disabled = false; $('pt-note').innerHTML = `<div class="note bad" style="margin-top:10px">${E.esc(e.message)}</div>`; }
+      };
+    }
+    if ($('t-ptext')) $('t-ptext').onclick = ptextOpen;
     $('prev').onclick = () => show(st.n - 1); $('next').onclick = () => show(st.n + 1);
     $('sfull').onclick = () => { const el = $('stage'); (el.requestFullscreen || el.webkitRequestFullscreen || (() => {})).call(el); };
     const onKey = (e) => {
@@ -504,7 +534,7 @@
     } else {
       status = `<span class="pill wait">${E.esc(j.stage_text || 'Tayyorlanmoqda')}</span><div class="bar"><i style="width:${Math.max(4, j.progress)}%"></i></div>`;
     }
-    const open = ((j.kind === 'premium_presentation' || j.kind === 'simple_presentation') && j.status !== 'failed') ? `<a class="btn sm out" href="#/job/${E.esc(j.id)}">${j.status === 'done' ? 'Ko‘rish' : 'Ochish'}</a> ` : '';
+    const open = (E.isDeck(j.kind) && j.status !== 'failed') ? `<a class="btn sm out" href="#/job/${E.esc(j.id)}">${j.status === 'done' ? 'Ko‘rish' : 'Ochish'}</a> ` : '';
     return `<div class="job"><div><div class="t">${E.esc(j.title)}</div><div class="hint" style="margin:2px 0 0">${E.esc(kindLabel(j.kind))} · ${E.fmt(j.price)} so‘m</div></div><div>${status}</div><div>${open}${action}</div></div>`;
   }
   // Oddiy taqdimot endi katalogda yo'q, lekin eski buyurtmalar ro'yxatda nom bilan ko'rinsin.
@@ -513,7 +543,7 @@
   // ───────────────────────────────────────────────────────────────── Hamyon
   // To'lovni kutayotgan buyurtma: hamyon va «Hujjatlarim» tepasida eslatma; to'lov tushib, buyurtma o'zi
   // boshlanganda — o'sha buyurtmaga o'tadi.
-  const jobHref = (j) => (j.kind === 'premium_presentation' || j.kind === 'simple_presentation') ? '#/job/' + j.id : '#/docs';
+  const jobHref = (j) => E.isDeck(j.kind) ? '#/job/' + j.id : '#/docs';
   async function pendingBanner(box, onMissing) {
     let d;
     try { d = await E.api('/pending'); } catch (e) { return null; }

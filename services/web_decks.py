@@ -148,6 +148,7 @@ def public(job_id: str, deck: dict) -> dict:
         charts = [manual_edit.count_charts(deck, n) for n in range(count_)]
     plan = editable and bool(deck.get("has_plan", count_ > 3))
     return {"count": count_, "version": int(deck.get("version") or 1), "editable": editable, "has_plan": plan,
+            "text_edit": bool(deck.get("pptx_text")),
             "slides": [{"n": n + 1, "title": titles[n] if n < len(titles) else "", "image": shown[n],
                         "charts": charts[n]} for n in range(count_)],
             "history": [h for h in list(deck.get("history") or []) if not h.get("manual")][-30:]}
@@ -324,12 +325,43 @@ def create_view(job_id: str, params: dict, pptx_path: str) -> int:
             titles = _pptx_titles(pptx_path)
         except Exception as exc:
             log.debug("Slayd sarlavhalari olinmadi: %s", exc)
-        save(job_id, {"view_only": True, "topic": params.get("topic", ""), "count": len(paths), "pages": [],
+        # pptx_text: matnni PPTX ning o'zida tahrirlash mumkin (3D va Klassik — services/pptx_text_edit.py).
+        save(job_id, {"view_only": True, "pptx_text": True, "topic": params.get("topic", ""), "count": len(paths), "pages": [],
                       "titles": (titles + [""] * len(paths))[:len(paths)], "version": 1, "history": [],
                       "created": time.time()})
         return done
     finally:
         shutil.rmtree(work, ignore_errors=True)
+
+
+async def pptx_text(job_id: str, pptx_path: str, number: int, version: int, edits: list) -> dict:
+    """3D / Klassik taqdimot: sahifa matnini PPTX ning o'zida almashtiradi va sahifa rasmlarini qayta chizadi."""
+    import tempfile
+
+    from services import pptx_text_edit
+
+    async with lock(job_id):
+        deck = load(job_id)
+        if not deck or not deck.get("pptx_text"):
+            raise pptx_text_edit.TextEditError("Bu taqdimotni tahrirlab bo'lmaydi.")
+        if int(version or 0) != int(deck.get("version") or 1):
+            raise pptx_text_edit.TextEditError("Taqdimot boshqa joyda o'zgargan. Sahifani yangilab, qaytadan urinib ko'ring.")
+        changed, title = await asyncio.to_thread(pptx_text_edit.apply, pptx_path, number, edits)
+        if not changed:
+            return deck
+        work = tempfile.mkdtemp(prefix="deckview_")
+        try:
+            paths = await asyncio.to_thread(pptx_previews, pptx_path, work)
+            await asyncio.to_thread(store_shots, job_id, {index: path for index, path in enumerate(paths)})
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
+        titles = list(deck.get("titles") or [])
+        if title is not None and 0 < number <= len(titles):
+            titles[number - 1] = title.strip()
+        deck.update(titles=titles, version=int(deck.get("version") or 1) + 1)
+        deck.setdefault("history", []).append({"index": number, "instruction": "text", "manual": True, "at": time.time()})
+        save(job_id, deck)
+        return deck
 
 
 def drop(job_id: str) -> None:

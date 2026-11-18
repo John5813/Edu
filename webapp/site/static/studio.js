@@ -551,7 +551,7 @@
 
   // ───────────────────────────────────────────── tayyorlanish: animatsiya va natija
   function watch(job, kind, count) {
-    const isDeck = kind === 'premium_presentation' || kind === 'simple_presentation';
+    const isDeck = E.isDeck(kind);
     const slidesOut = isDeck || kind === 'presentation_3d';      // 3D ham PPTX, lekin saytda varaqlanmaydi
     hero().classList.add('studio-on', 'forging');
     const box = $('forge-box');
