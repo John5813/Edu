@@ -502,6 +502,11 @@ async def main():
 
     dp = Dispatcher(storage=MemoryStorage())
     webapp.DISPATCHER = dp
+    # Alohida admin-bot (ixtiyoriy, ADMIN_BOT_TOKEN): sayt rejimida to'lov/chek xabarlari adminlarga shu bot orqali.
+    from services import admin_bot as _admin_bot
+    admin_bot = _admin_bot.make(**_bot_session_kwargs())
+    if admin_bot is not None:
+        dp.update.outer_middleware(_admin_bot.gate)
 
     # ── Global error handler ───────────────────────────────────────────────────
     # Catches TelegramBadRequest (expired/invalid callback query IDs) and other
@@ -685,7 +690,7 @@ async def main():
         await bot_orders.recover(bot)
     except Exception as exc:
         logger.error("Uzilgan buyurtmalarni tiklab bo'lmadi: %s", exc)
-    polling_task = asyncio.create_task(dp.start_polling(bot))
+    polling_task = asyncio.create_task(dp.start_polling(bot, *([admin_bot] if admin_bot is not None else [])))
     web_task     = asyncio.create_task(start_web_server(port=5000))
     from services import web_jobs
     web_jobs_task = asyncio.create_task(web_jobs.housekeeping())

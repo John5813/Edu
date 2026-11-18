@@ -1,6 +1,17 @@
 /* Edufayl sayti: tarjima lug'ati (o'zbekcha matn → ru, en, kk). Mexanizm: i18n.js */
 window.EDU_DICT = {
 "ru": {
+"Sotib olish": "Купить",
+"Tayyor ish": "Готовая работа",
+"Narxi": "Цена",
+"Sotib olingan": "Куплено",
+"Qayta yuklab olish": "Скачать снова",
+"Balansdan sotib olish": "Купить с баланса",
+"💳 Balansni to‘ldirish": "💳 Пополнить баланс",
+"Fayl «Hujjatlarim» da 72 soat turadi va Telegramga ham yuboriladi.": "Файл хранится 72 часа в «Моих документах» и отправляется в Telegram.",
+"← Tayyor mavzular": "← Готовые темы",
+"Tayyor: fayl «Hujjatlarim» da": "Готово: файл в «Моих документах»",
+"🛒 Tayyor ish": "🛒 Готовая работа",
 "Bu sahifani yopib ketishingiz mumkin: tayyor bo‘lgach «Hujjatlarim» da ko‘rinadi va Telegramga ham keladi. Qaytib kirsangiz, shu yerning o‘zi ochiladi.": "Эту страницу можно закрыть: когда всё будет готово, файл появится в «Моих документах» и придёт в Telegram. Если вернётесь, откроется это же место.",
 "+ Boshqa buyurtma berish": "+ Сделать другой заказ",
 "Saytda varaqlash va tahrirlash bu xizmat uchun hozircha ishlamaydi: fayl botga va «Hujjatlarim» ga keladi.": "Просмотр и редактирование на сайте для этой услуги пока не работают: файл придёт в бот и в «Мои документы».",
@@ -670,6 +681,17 @@ window.EDU_DICT = {
 ]
 },
 "en": {
+"Sotib olish": "Buy",
+"Tayyor ish": "Ready-made work",
+"Narxi": "Price",
+"Sotib olingan": "Purchased",
+"Qayta yuklab olish": "Download again",
+"Balansdan sotib olish": "Buy from balance",
+"💳 Balansni to‘ldirish": "💳 Top up balance",
+"Fayl «Hujjatlarim» da 72 soat turadi va Telegramga ham yuboriladi.": "The file stays in “My documents” for 72 hours and is also sent to Telegram.",
+"← Tayyor mavzular": "← Ready topics",
+"Tayyor: fayl «Hujjatlarim» da": "Done: the file is in “My documents”",
+"🛒 Tayyor ish": "🛒 Ready-made work",
 "Bu sahifani yopib ketishingiz mumkin: tayyor bo‘lgach «Hujjatlarim» da ko‘rinadi va Telegramga ham keladi. Qaytib kirsangiz, shu yerning o‘zi ochiladi.": "You can close this page: when it’s ready it will appear in “My documents” and arrive in Telegram. If you come back, this same place opens.",
 "+ Boshqa buyurtma berish": "+ Place another order",
 "Saytda varaqlash va tahrirlash bu xizmat uchun hozircha ishlamaydi: fayl botga va «Hujjatlarim» ga keladi.": "Viewing and editing on the website are not available for this service yet: the file arrives in the bot and in “My documents”.",
@@ -1339,6 +1361,17 @@ window.EDU_DICT = {
 ]
 },
 "kk": {
+"Sotib olish": "Сатып алу",
+"Tayyor ish": "Дайын жұмыс",
+"Narxi": "Бағасы",
+"Sotib olingan": "Сатып алынған",
+"Qayta yuklab olish": "Қайта жүктеу",
+"Balansdan sotib olish": "Баланстан сатып алу",
+"💳 Balansni to‘ldirish": "💳 Балансты толтыру",
+"Fayl «Hujjatlarim» da 72 soat turadi va Telegramga ham yuboriladi.": "Файл «Құжаттарым» бөлімінде 72 сағат сақталады және Telegram-ға да жіберіледі.",
+"← Tayyor mavzular": "← Дайын тақырыптар",
+"Tayyor: fayl «Hujjatlarim» da": "Дайын: файл «Құжаттарым» бөлімінде",
+"🛒 Tayyor ish": "🛒 Дайын жұмыс",
 "Bu sahifani yopib ketishingiz mumkin: tayyor bo‘lgach «Hujjatlarim» da ko‘rinadi va Telegramga ham keladi. Qaytib kirsangiz, shu yerning o‘zi ochiladi.": "Бұл бетті жабуға болады: дайын болғанда «Құжаттарым» бөлімінде көрінеді және Telegram-ға келеді. Қайта кірсеңіз, осы жердің өзі ашылады.",
 "+ Boshqa buyurtma berish": "+ Басқа тапсырыс беру",
 "Saytda varaqlash va tahrirlash bu xizmat uchun hozircha ishlamaydi: fayl botga va «Hujjatlarim» ga keladi.": "Сайтта қарау және өңдеу бұл қызмет үшін әзірге жұмыс істемейді: файл ботқа және «Құжаттарым» бөліміне келеді.",

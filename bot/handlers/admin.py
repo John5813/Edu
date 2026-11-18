@@ -61,6 +61,18 @@ async def _nudge_pending_order(bot, db, telegram_id: int) -> None:
     except Exception as exc:
         logger.warning(f"Buyurtma eslatmasi yuborilmadi ({telegram_id}): {exc}")
 
+def _site_quiet() -> bool:
+    """Sayt rejimi: mijozga botda to'lov, summa va bonus haqida yozilmaydi (natija saytda ko'rinadi)."""
+    from services import site_mode
+    return site_mode.ON
+
+
+def _user_bot(bot):
+    """Mijozga yoziladigan bot: tugma alohida admin-botdan bosilgan bo'lsa ham — asosiy bot."""
+    from services import admin_bot
+    return admin_bot.user_bot(bot)
+
+
 def is_admin(user_id: int) -> bool:
     """Check if user is admin"""
     return user_id in ADMIN_IDS
@@ -451,14 +463,14 @@ async def payment_amount_entered(message: Message, state: FSMContext, db: Databa
         # 2. Add balance
         user = await db.get_user_by_id(payment.user_id)
         await db.update_user_balance(user.telegram_id, new_amount)
-        await reengage.on_payment_approved(message.bot, db, user, new_amount)
+        await reengage.on_payment_approved(_user_bot(message.bot), db, user, new_amount)
         # Bu MATN ishlovchisi — bu yerda `callback` yo'q. Ilgari shu satrda
         # `callback.bot` turardi: summani o'zgartirib tasdiqlagan admin
         # har safar "❌ Xatolik yuz berdi" xabarini olardi. Balans allaqachon
         # qo'shilgani uchun jarayon to'g'ri ko'rinar, lekin undan keyingi
         # qadamlar — referal bonusi, mijozga xabar, tugmalarni olib tashlash
         # va adminlarga bildirish — umuman bajarilmasdi.
-        await _nudge_pending_order(message.bot, db, user.telegram_id)
+        await _nudge_pending_order(_user_bot(message.bot), db, user.telegram_id)
 
         # 3. Referral bonus (same logic as approve_payment)
         PAYMENT_BONUS = 1000
@@ -486,7 +498,7 @@ async def payment_amount_entered(message: Message, state: FSMContext, db: Databa
                                 'en': f"💰 Your referral made their first payment!\n💵 +{PAYMENT_BONUS:,} som added to your balance.",
                             }
                             try:
-                                await message.bot.send_message(
+                                if not _site_quiet(): await _user_bot(message.bot).send_message(
                                     user.referred_by,
                                     bonus_text.get(referrer.language, bonus_text['uz'])
                                 )
@@ -497,7 +509,7 @@ async def payment_amount_entered(message: Message, state: FSMContext, db: Databa
 
         # 4. Notify user
         try:
-            await message.bot.send_message(
+            await _user_bot(message.bot).send_message(
                 user.telegram_id,
                 f"✅ To'lovingiz tasdiqlandi! {new_amount:,} so'm hisobingizga qo'shildi."
             )
@@ -628,8 +640,8 @@ async def confirm_adjusted_payment(callback: CallbackQuery, db: Database):
         # Add balance to user with the adjusted amount
         user = await db.get_user_by_id(payment.user_id)
         await db.update_user_balance(user.telegram_id, payment.amount)
-        await reengage.on_payment_approved(callback.bot, db, user, payment.amount)
-        await _nudge_pending_order(callback.bot, db, user.telegram_id)
+        await reengage.on_payment_approved(_user_bot(callback.bot), db, user, payment.amount)
+        await _nudge_pending_order(_user_bot(callback.bot), db, user.telegram_id)
 
         # Check referral bonus (same as original approve logic)
         PAYMENT_BONUS = 1000
@@ -659,7 +671,7 @@ async def confirm_adjusted_payment(callback: CallbackQuery, db: Database):
                                 'en': f"💰 Your referral made their first payment!\n💵 +{PAYMENT_BONUS:,} som added to your balance."
                             }
                             try:
-                                await callback.bot.send_message(
+                                if not _site_quiet(): await _user_bot(callback.bot).send_message(
                                     user.referred_by,
                                     bonus_text.get(referrer.language, bonus_text['uz'])
                                 )
@@ -672,7 +684,7 @@ async def confirm_adjusted_payment(callback: CallbackQuery, db: Database):
 
         # Notify user
         try:
-            await callback.bot.send_message(
+            await _user_bot(callback.bot).send_message(
                 user.telegram_id,
                 f"✅ To'lovingiz tasdiqlandi! {payment.amount:,} so'm hisobingizga qo'shildi."
             )
@@ -738,8 +750,8 @@ async def credit_approved_payment(bot, db, payment, user_message: str = None, re
     user = await db.get_user_by_id(payment.user_id)
     await db.update_user_balance(user.telegram_id, payment.amount)
     # Bepul taqdimotdan keyin berilgan +20% bonus (birinchi to'lov, muddat ichida).
-    await reengage.on_payment_approved(bot, db, user, payment.amount)
-    await _nudge_pending_order(bot, db, user.telegram_id)
+    await reengage.on_payment_approved(_user_bot(bot), db, user, payment.amount)
+    await _nudge_pending_order(_user_bot(bot), db, user.telegram_id)
     # Saytda to'lovni kutayotgan buyurtma bo'lsa — o'zi boshlanadi (mijoz saytga qaytmasa ham).
     from services import site_mode, web_jobs
     await web_jobs.start_pending(user.telegram_id)
@@ -779,7 +791,7 @@ async def credit_approved_payment(bot, db, payment, user_message: str = None, re
                         }
                         try:
                             if not site_mode.ON:     # sayt rejimida bot pul haqida yozmaydi (bonus baribir qo'shildi)
-                                await bot.send_message(
+                                await _user_bot(bot).send_message(
                                     user.referred_by,
                                     bonus_text.get(referrer.language, bonus_text['uz'])
                                 )
@@ -790,11 +802,9 @@ async def credit_approved_payment(bot, db, payment, user_message: str = None, re
         except Exception as e:
             logger.error(f"Error processing payment referral bonus: {e}")
 
-    # Notify user (sayt rejimida bot to'lov haqida yozmaydi: natija saytdagi hamyonda ko'rinadi)
+    # Notify user — sayt rejimida ham (egasining qarori): tasdiq xabari doim asosiy bot orqali boradi.
     try:
-        if site_mode.ON:
-            return user
-        await bot.send_message(
+        await _user_bot(bot).send_message(
             user.telegram_id,
             user_message or f"✅ To'lovingiz tasdiqlandi! {payment.amount:,} so'm hisobingizga qo'shildi.",
             reply_markup=reply_markup
@@ -906,7 +916,7 @@ async def reject_payment(callback: CallbackQuery, db: Database):
             rejected_text = get_text(user.language, "payment_rejected")
         if not _web_accounts.is_web_only(user.telegram_id):     # Telegramsiz sayt akkauntiga xabar yuborib bo'lmaydi
             try:
-                await callback.bot.send_message(
+                if not _site_quiet(): await _user_bot(callback.bot).send_message(
                     user.telegram_id,
                     rejected_text,
                     parse_mode="Markdown"

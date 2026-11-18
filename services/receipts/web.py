@@ -138,6 +138,8 @@ async def _manual(web: WebMessage, bot, user, amount: int, lang: str) -> Dict:
     from bot.keyboards import get_payment_review_keyboard
 
     payment_id = await Database.create_payment(user.id, amount, "", "web")
+    from services import admin_bot
+    bot = admin_bot.for_admins(bot)
     link = await _web_accounts.admin_label(user)
     text = (f"🧾 Yangi to'lov (sayt):\n👤 Foydalanuvchi: {link}\n💵 Summasi: {amount:,} so'm\n"
             f"📅 To'lov ID: {payment_id}\n\n⬆️ Yuqoridagi chekni tekshiring va to'lovni tasdiqlang:")

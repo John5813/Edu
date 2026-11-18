@@ -10,12 +10,13 @@
   const E = window.Edu;
   const box = document.getElementById('go');
   const q = new URLSearchParams(location.search);
-  const to = (q.get('to') || '').replace(/[^a-z_]/g, '');
+  const to = (q.get('to') || '').replace(/[^a-zA-Z0-9_]/g, '');
   const PLACES = {home: '/', docs: '/app#/docs', profile: '/app#/profile'};
   let bot = 'Edufayl_bot';
 
   async function target() {
     if (PLACES[to]) return PLACES[to];
+    if (/^buy_[A-Z0-9]{8}$/.test(to)) return '/app#/buy/' + to.slice(4);
     try {
       const c = await E.api('/catalog');
       bot = c.bot || bot;

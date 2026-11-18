@@ -330,7 +330,8 @@ async def _notify_admins(text: str) -> None:
 
     for admin_id in config.ADMIN_IDS:
         try:
-            await webapp.BOT.send_message(admin_id, text, disable_notification=True)
+            from services import admin_bot
+            await admin_bot.for_admins(webapp.BOT).send_message(admin_id, text, disable_notification=True)
         except Exception as exc:
             log.debug("Adminga Uzum xabari yuborilmadi: %s", exc)
 

@@ -170,8 +170,16 @@ async def handle_item(request: web.Request) -> web.Response:
     data["previews"] = [_image_path(row, n) for n in range(1, count + 1)]
     # Ko'rgazmada faqat boshlanishi bor; qolgani son bo'lib beriladi.
     data["hidden_pages"] = max((row.get("slide_count") or count) - count, 0)
-    data["buy_url"] = _bot_url(f"buy_{code}")
+    data["buy_url"] = _buy_url(code)
     return web.json_response(data)
+
+
+def _buy_url(code: str) -> str:
+    """Sotib olish: sayt rejimida — saytning o'zida (kabinet), aks holda — botda (avvalgidek)."""
+    from services import site_mode
+    if site_mode.ON:
+        return f"/app#/buy/{code}"
+    return _bot_url(f"buy_{code}")
 
 
 def _money(value: int) -> str:
@@ -365,9 +373,9 @@ async def handle_item_page(request: web.Request) -> web.Response:
         trail.append((category, _catalog_path(work_type, category) if work_type else _catalog_path(category=category)))
     crumbs = " / ".join(f'<a href="{_esc(p)}">{_esc(n)}</a>' for n, p in trail) + " / " + _esc(title)
 
-    buy_url = _bot_url(f"buy_{code}")
-    buy = (f'<a class="buy" href="{_esc(buy_url)}" target="_blank" rel="noopener">'
-           f'Botda sotib olish</a>') if buy_url else \
+    buy_url = _buy_url(code)
+    buy = (f'<a class="buy" href="{_esc(buy_url)}">Sotib olish</a>' if buy_url.startswith("/")
+           else f'<a class="buy" href="{_esc(buy_url)}" target="_blank" rel="noopener">Botda sotib olish</a>') if buy_url else \
           '<div class="note">Sotib olish vaqtincha ishlamayapti.</div>'
     create_url = _bot_url()
     create_top = (f'<a class="create" href="{_esc(create_url)}" target="_blank" '

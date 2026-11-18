@@ -125,6 +125,9 @@ def card_text(user, verdict: str, receipt: rules.Receipt, decision: rules.Decisi
 async def _to_admins(bot, user, message, text: str, payment_id: Optional[int] = None,
                      buttons: bool = False, silent: bool = False, copy: bool = True, markup=None) -> None:
     from bot.keyboards import get_payment_review_keyboard
+    from services import admin_bot
+    if hasattr(message, "send_copy"):          # saytdagi chek: sayt rejimida — alohida admin-bot orqali
+        bot = admin_bot.for_admins(bot)
     for admin_id in config.ADMIN_IDS:
         try:
             if copy and hasattr(message, "send_copy"):

@@ -412,7 +412,8 @@ async def _credit(order: Dict) -> int:
     for admin_id in config.ADMIN_IDS:
         try:
             from services.payment_origin import note
-            await bot.send_message(admin_id, f"💠 Payme to'lovi: {order['amount']:,} so'm · "
+            from services import admin_bot
+            await admin_bot.for_admins(bot).send_message(admin_id, f"💠 Payme to'lovi: {order['amount']:,} so'm · "
                                              f"mijoz {order['telegram_id']} · to'lov ID {payment_id}"
                                              f"{note(order.get('source', ''))}",
                                    disable_notification=True)

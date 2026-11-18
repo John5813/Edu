@@ -19,6 +19,7 @@
     const name = (location.hash.replace(/^#\/?/, '').split('?')[0]) || 'create';
     setTab(name.startsWith('job/') ? 'docs' : name);
     if (name.startsWith('job/')) return jobPage(name.slice(4));
+    if (name.startsWith('buy/')) return buyPage(name.slice(4));
     if (name === 'docs') return docs();
     if (name === 'wallet') return wallet();
     if (name === 'profile') return profile();
@@ -539,7 +540,7 @@
     return `<div class="job"><div><div class="t">${E.esc(j.title)}</div><div class="hint" style="margin:2px 0 0">${E.esc(kindLabel(j.kind))} · ${E.fmt(j.price)} so‘m</div></div><div>${status}</div><div>${open}${action}</div></div>`;
   }
   // Oddiy taqdimot endi katalogda yo'q, lekin eski buyurtmalar ro'yxatda nom bilan ko'rinsin.
-  function kindLabel(k) { const f = (catalog.kinds || []).find((x) => x.key === k); return f ? f.label : k === 'simple_presentation' ? 'Taqdimot (chiroyli orqa fonlar)' : k; }
+  function kindLabel(k) { const f = (catalog.kinds || []).find((x) => x.key === k); return f ? f.label : k === 'simple_presentation' ? 'Taqdimot (chiroyli orqa fonlar)' : k === 'store_item' ? 'Tayyor ish' : k; }
 
   // ───────────────────────────────────────────────────────────────── Hamyon
   // To'lovni kutayotgan buyurtma: hamyon va «Hujjatlarim» tepasida eslatma; to'lov tushib, buyurtma o'zi
@@ -572,6 +573,43 @@
       if (n.pending) pollTimer = setTimeout(check, 4000);
     }, 4000);
     return d;
+  }
+
+  // Do'kondagi tayyor ishni balansdan sotib olish (sayt rejimi): fayl «Hujjatlarim» ga va botga keladi.
+  async function buyPage(code) {
+    setTab('docs');
+    view.innerHTML = '<span class="spin"></span>';
+    let d;
+    try { d = await E.api('/store/' + encodeURIComponent(code)); }
+    catch (e) {
+      if (e.code === 'auth' || e.status === 401) { view.innerHTML = ''; return loginCard(); }
+      view.innerHTML = `<div class="note bad">${E.esc(e.message)}</div><p><a class="link" href="/shop">← Tayyor mavzular</a></p>`; return;
+    }
+    const it = d.item, enough = d.owned || d.balance >= it.price;
+    view.innerHTML = `<div class="card panel" style="max-width:560px;margin:10px auto">
+        <div class="hint" style="margin:0 0 6px">🛒 Tayyor ish${it.kind ? ' · ' + E.esc(it.kind) : ''}</div>
+        <h2 style="margin:0 0 10px">${E.esc(it.title)}</h2>
+        ${it.pages ? `<p class="hint" style="margin:0 0 8px">${it.pages} ${it.file_type === 'docx' ? 'varaq' : 'slayd'}</p>` : ''}
+        <div class="row" style="justify-content:space-between;margin:14px 0"><span>Narxi</span><b>${d.owned ? 'Sotib olingan' : E.fmt(it.price) + ' so‘m'}</b></div>
+        ${d.owned ? '' : `<div class="row" style="justify-content:space-between;margin:0 0 14px"><span>Balansingiz</span><b>${E.fmt(d.balance)} so‘m</b></div>`}
+        <div id="b-out"></div>
+        ${enough ? `<button type="button" class="btn block" id="b-go">${d.owned ? 'Qayta yuklab olish' : 'Balansdan sotib olish'}</button>`
+          : `<div class="note wait">Yetmaydi: yana <b>${E.fmt(it.price - d.balance)} so‘m</b> kerak.</div>
+             <a class="btn block" href="#/wallet" style="margin-top:10px">💳 Balansni to‘ldirish</a>`}
+        <p class="hint" style="margin-top:12px">Fayl «Hujjatlarim» da 72 soat turadi va Telegramga ham yuboriladi.</p>
+        <p><a class="link" href="/shop">← Tayyor mavzular</a></p></div>`;
+    const go = document.getElementById('b-go');
+    if (go) go.onclick = async () => {
+      go.disabled = true; document.getElementById('b-out').innerHTML = '<span class="spin"></span>';
+      try {
+        await E.api('/store/' + encodeURIComponent(code) + '/buy', {method: 'POST'});
+        await refreshBalance(); E.toast('Tayyor: fayl «Hujjatlarim» da'); location.hash = '#/docs';
+      } catch (e) {
+        go.disabled = false;
+        document.getElementById('b-out').innerHTML = `<div class="note bad">${E.esc(e.message)}</div>`;
+        if (e.code === 'no_balance') { location.hash = '#/wallet'; }
+      }
+    };
   }
 
   async function wallet() {

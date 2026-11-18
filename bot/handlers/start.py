@@ -142,6 +142,10 @@ async def start_command(message: Message, state: FSMContext, db: Database):
                             'ru': f"🎉 Новый пользователь присоединился к боту по вашей ссылке!\n💰 +{SIGNUP_BONUS:,} сум добавлено на ваш счет.",
                             'en': f"🎉 New user joined the bot via your referral link!\n💰 +{SIGNUP_BONUS:,} som added to your balance."
                         }
+                        from services import site_mode
+                        if site_mode.ON:          # sayt rejimida botda pul summasi yozilmaydi
+                            from translations import get_text as _gt
+                            bonus_text = {code: _gt(code, "site_mode_referral_joined") for code in ("uz", "ru", "en")}
                         try:
                             await message.bot.send_message(
                                 referred_by_id,

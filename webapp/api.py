@@ -217,6 +217,8 @@ GO_PLACES = {"home": "/", "docs": "/app#/docs", "profile": "/app#/profile"}
 def go_target(to: str) -> str:
     """Saytdagi ichki manzil (ochiq yo'naltirish yo'q: faqat ma'lum joylar)."""
     to = str(to or "")
+    if to.startswith("buy_") and _STORE_CODE.match(to[4:]):
+        return f"/app#/buy/{to[4:]}"
     kind = web_jobs.KINDS.get(to)
     if kind and to != "slide_rewrite":
         return f"/#yaratish?kind={to}"
@@ -623,6 +625,94 @@ async def draft_put(request: web.Request) -> web.Response:
     else:
         await web_store.save_draft(telegram_id, draft)
     return web.json_response({"ok": True})
+
+
+# ─────────────────────────────────────────── do'kon: tayyor ishni saytda sotib olish (sayt rejimi)
+
+_STORE_CODE = re.compile(r"^[A-Z0-9]{8}$")
+
+
+async def _store_item(request: web.Request):
+    code = str(request.match_info.get("code") or "").upper()
+    item = await Database.get_store_item(code) if _STORE_CODE.match(code) else None
+    if not item:
+        raise web.HTTPNotFound(text='{"ok": false, "error": "Bu ish topilmadi — katalogdan olib tashlangan bo\'lishi mumkin.", '
+                                    '"code": "not_found"}', content_type="application/json")
+    return item
+
+
+async def store_info(request: web.Request) -> web.Response:
+    telegram_id = await _require(request)
+    item = await _store_item(request)
+    user = await Database.get_user(telegram_id)
+    from config import work_label
+    return web.json_response({"ok": True, "item": {
+        "code": item["public_code"], "title": item["title"], "price": int(item["price"] or 0),
+        "kind": work_label(item.get("work_type") or ""), "pages": int(item.get("slide_count") or 0),
+        "file_type": item.get("file_type") or "pptx"},
+        "owned": await Database.has_bought_store_item(telegram_id, item["id"]),
+        "balance": int(getattr(user, "balance", 0) or 0)})
+
+
+async def _store_file(item: dict) -> Optional[str]:
+    """Faylni Telegram omboridan serverga yuklab oladi (saytdan yuklab olish uchun). 20 MB dan katta — None."""
+    bot = webapp.BOT
+    if bot is None:
+        return None
+    os.makedirs(web_jobs.RESULTS_DIR, exist_ok=True)
+    ext = "." + (item.get("file_type") or "pptx").lower().strip(".")
+    path = os.path.join(web_jobs.RESULTS_DIR, f"store_{item['public_code']}_{int(time.time())}{ext}")
+    try:
+        file = await bot.get_file(item["file_id"])
+        await bot.download_file(file.file_path, destination=path)
+        return path
+    except Exception as exc:
+        log.warning("Do'kon fayli serverga olinmadi (%s): %s", item["public_code"], exc)
+        return None
+
+
+async def store_buy(request: web.Request) -> web.Response:
+    """Balansdan sotib olish: fayl «Hujjatlarim» ga tushadi va mijozning botiga yuboriladi."""
+    import uuid
+    from database import web_accounts
+
+    telegram_id = await _require(request)
+    if _limited(f"storebuy:{telegram_id}", 10, 60):
+        return _error("Juda tez-tez. Bir daqiqa kuting.", 429, "rate")
+    item = await _store_item(request)
+    price = int(item["price"] or 0)
+    owned = await Database.has_bought_store_item(telegram_id, item["id"])
+    if not owned and not await Database.charge_balance(telegram_id, price):
+        user = await Database.get_user(telegram_id)
+        balance = int(getattr(user, "balance", 0) or 0)
+        from services.receipts import web as receipt_web
+        return web.json_response({"ok": False, "code": "no_balance", "error": "Balans yetmaydi.",
+                                  "missing": max(price - balance, receipt_web.MIN_AMOUNT)}, status=402)
+    path = await _store_file(item)
+    sent = False
+    if not web_accounts.is_web_only(telegram_id) and webapp.BOT is not None:
+        try:
+            await webapp.BOT.send_document(telegram_id, item["file_id"], caption=f"📊 {item['title']}"[:1000])
+            sent = True
+        except Exception as exc:
+            log.info("Do'kon fayli botga yuborilmadi (%s): %s", telegram_id, exc)
+    if not path and not sent:
+        if not owned:
+            await Database.update_user_balance(telegram_id, price)       # yetkazilmadi — pul qaytadi
+        return _error("Faylni berib bo'lmadi, pul hisobingizga qaytarildi. Birozdan keyin qayta urinib ko'ring.",
+                      500, "deliver")
+    if not owned:
+        await Database.record_store_sale(item["id"], telegram_id, price)
+    job_id = uuid.uuid4().hex
+    ext = os.path.splitext(path or "")[1] or "." + (item.get("file_type") or "pptx")
+    name = re.sub(r"[^\w-]+", "_", item["title"])[:40].strip("_") + ext
+    await web_store.create_job(job_id, telegram_id, "store_item", item["title"][:200], {}, 0 if owned else price,
+                               charged=False)
+    await web_store.update_job(job_id, status="done", stage="done", progress=100, result_path=path,
+                               result_name=name, finished_at=time.time(), tg_sent=1 if sent else -1)
+    user = await Database.get_user(telegram_id)
+    return web.json_response({"ok": True, "job_id": job_id, "file": bool(path), "telegram": sent,
+                              "balance": int(getattr(user, "balance", 0) or 0)})
 
 
 async def jobs_list(request: web.Request) -> web.Response:
@@ -1123,6 +1213,8 @@ def setup_api_routes(app: web.Application) -> None:
     add("DELETE", "/api/v1/pending", pending_delete)
     add("GET", "/api/v1/draft", draft_get)
     add("PUT", "/api/v1/draft", draft_put)
+    add("GET", "/api/v1/store/{code}", store_info)
+    add("POST", "/api/v1/store/{code}/buy", store_buy)
     add("GET", "/api/v1/wallet", wallet)
     add("POST", "/api/v1/wallet/receipt", wallet_receipt)
     add("POST", "/api/v1/wallet/click", wallet_click)
