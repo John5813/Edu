@@ -1,6 +1,12 @@
 /* Edufayl sayti: tarjima lug'ati (o'zbekcha matn → ru, en, kk). Mexanizm: i18n.js */
 window.EDU_DICT = {
 "ru": {
+"kerak. «Yaratish» ni bosing — buyurtma saqlanadi, to‘lov tushishi bilan o‘zi boshlanadi.": "нужно. Нажмите «Создать» — заказ сохранится и начнётся сам, как только поступит оплата.",
+"buyurtmangiz saqlandi ({n} so‘m).": "— заказ сохранён ({n} сум).",
+"Yana": "Оплатите ещё",
+"to‘lang — to‘lov tushishi bilan buyurtma o‘zi boshlanadi.": "— как только оплата поступит, заказ начнётся сам.",
+"Buyurtma boshlanmoqda…": "Заказ запускается…",
+"✅ To‘lov tushdi — «{t}» tayyorlanmoqda.": "✅ Оплата поступила — «{t}» готовится.",
 "Telefon boshqalar bilan umumiy bo‘lsa, ishni tugatgach chiqib qo‘ying.": "Если телефоном пользуются и другие, выйдите после работы.",
 "📩 Fayl Telegramga ham yuborilgan.": "📩 Файл также отправлен в Telegram.",
 "📩 Fayl Telegramga ham yuboriladi.": "📩 Файл также будет отправлен в Telegram.",
@@ -596,6 +602,12 @@ window.EDU_DICT = {
 ]
 },
 "en": {
+"kerak. «Yaratish» ni bosing — buyurtma saqlanadi, to‘lov tushishi bilan o‘zi boshlanadi.": "needed. Press “Create” — the order is saved and starts by itself as soon as the payment arrives.",
+"buyurtmangiz saqlandi ({n} so‘m).": "— your order is saved ({n} som).",
+"Yana": "Pay another",
+"to‘lang — to‘lov tushishi bilan buyurtma o‘zi boshlanadi.": "— as soon as the payment arrives, the order starts by itself.",
+"Buyurtma boshlanmoqda…": "The order is starting…",
+"✅ To‘lov tushdi — «{t}» tayyorlanmoqda.": "✅ Payment received — “{t}” is being prepared.",
 "Telefon boshqalar bilan umumiy bo‘lsa, ishni tugatgach chiqib qo‘ying.": "If others use this phone, sign out when you're done.",
 "📩 Fayl Telegramga ham yuborilgan.": "📩 The file was also sent to Telegram.",
 "📩 Fayl Telegramga ham yuboriladi.": "📩 The file will also be sent to Telegram.",
@@ -1191,6 +1203,12 @@ window.EDU_DICT = {
 ]
 },
 "kk": {
+"kerak. «Yaratish» ni bosing — buyurtma saqlanadi, to‘lov tushishi bilan o‘zi boshlanadi.": "керек. «Жасау» батырмасын басыңыз — тапсырыс сақталады, төлем түскен бойда өзі басталады.",
+"buyurtmangiz saqlandi ({n} so‘m).": "— тапсырысыңыз сақталды ({n} сум).",
+"Yana": "Тағы",
+"to‘lang — to‘lov tushishi bilan buyurtma o‘zi boshlanadi.": "төлеңіз — төлем түскен бойда тапсырыс өзі басталады.",
+"Buyurtma boshlanmoqda…": "Тапсырыс басталып жатыр…",
+"✅ To‘lov tushdi — «{t}» tayyorlanmoqda.": "✅ Төлем түсті — «{t}» дайындалып жатыр.",
 "Telefon boshqalar bilan umumiy bo‘lsa, ishni tugatgach chiqib qo‘ying.": "Телефонды басқалар да қолданса, жұмыс біткен соң шығып қойыңыз.",
 "📩 Fayl Telegramga ham yuborilgan.": "📩 Файл Telegram-ға да жіберілді.",
 "📩 Fayl Telegramga ham yuboriladi.": "📩 Файл Telegram-ға да жіберіледі.",

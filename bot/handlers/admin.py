@@ -740,6 +740,9 @@ async def credit_approved_payment(bot, db, payment, user_message: str = None, re
     # Bepul taqdimotdan keyin berilgan +20% bonus (birinchi to'lov, muddat ichida).
     await reengage.on_payment_approved(bot, db, user, payment.amount)
     await _nudge_pending_order(bot, db, user.telegram_id)
+    # Saytda to'lovni kutayotgan buyurtma bo'lsa — o'zi boshlanadi (mijoz saytga qaytmasa ham).
+    from services import site_mode, web_jobs
+    await web_jobs.start_pending(user.telegram_id)
 
     # Check if this is user's first payment and if they were referred
     # If yes, give payment bonus to referrer
@@ -775,10 +778,11 @@ async def credit_approved_payment(bot, db, payment, user_message: str = None, re
                             'en': f"💰 Your referral made their first payment!\n💵 +{PAYMENT_BONUS:,} som added to your balance."
                         }
                         try:
-                            await bot.send_message(
-                                user.referred_by,
-                                bonus_text.get(referrer.language, bonus_text['uz'])
-                            )
+                            if not site_mode.ON:     # sayt rejimida bot pul haqida yozmaydi (bonus baribir qo'shildi)
+                                await bot.send_message(
+                                    user.referred_by,
+                                    bonus_text.get(referrer.language, bonus_text['uz'])
+                                )
                         except Exception as e:
                             logger.error(f"Failed to notify referrer {user.referred_by}: {e}")
 
@@ -786,8 +790,10 @@ async def credit_approved_payment(bot, db, payment, user_message: str = None, re
         except Exception as e:
             logger.error(f"Error processing payment referral bonus: {e}")
 
-    # Notify user
+    # Notify user (sayt rejimida bot to'lov haqida yozmaydi: natija saytdagi hamyonda ko'rinadi)
     try:
+        if site_mode.ON:
+            return user
         await bot.send_message(
             user.telegram_id,
             user_message or f"✅ To'lovingiz tasdiqlandi! {payment.amount:,} so'm hisobingizga qo'shildi.",

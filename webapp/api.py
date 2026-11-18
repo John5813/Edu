@@ -77,7 +77,7 @@ async def _json(request: web.Request, limit: int = _MAX_JSON) -> Dict:
 @web.middleware
 async def guard(request: web.Request, handler):
     """POST so'rovlar faqat shu saytdan kelsin (Origin tekshiruvi) — begona sahifa nomidan buyurtma bo'lmasin."""
-    if request.method == "POST" and request.path.startswith("/api/v1/"):
+    if request.method in ("POST", "PUT", "DELETE") and request.path.startswith("/api/v1/"):
         origin = request.headers.get("Origin")
         if origin:
             host = request.headers.get("X-Forwarded-Host") or request.host
@@ -528,8 +528,88 @@ async def jobs_create(request: web.Request) -> web.Response:
     except web_jobs.JobError as exc:
         status = 402 if exc.code == "no_balance" else 409 if exc.code in ("busy", "trial_used") else 400
         return _error(str(exc), status, exc.code)
+    if str(data.get("kind")) != "slide_rewrite":     # mijoz o'zi buyurtma berdi — kutayotgani va qoralamasi kerak emas
+        await web_store.clear_pending(telegram_id)
+        await web_store.clear_draft(telegram_id)
     user = await Database.get_user(telegram_id)
     return web.json_response({"ok": True, "job": job, "balance": int(getattr(user, "balance", 0) or 0)})
+
+
+# ───────────────────────────────────── to'lovni kutayotgan buyurtma va chala buyurtma qoralamasi
+
+async def pending_create(request: web.Request) -> web.Response:
+    """Balans yetmaydi: buyurtma saqlanadi va to'lov tushishi bilan o'zi boshlanadi (web_jobs.start_pending)."""
+    telegram_id = await _require(request)
+    if _limited(f"pending:{telegram_id}", 10, 60):
+        return _error("Juda tez-tez yuborildi. Bir daqiqa kuting.", 429, "rate")
+    data = await _json(request, _MAX_JOB_JSON)
+    kind = web_jobs.KINDS.get(str(data.get("kind")))
+    if not kind or kind.key == "slide_rewrite":
+        return _error("Bunday xizmat yo'q", 404, "unknown_kind")
+    raw = dict(data.get("params") or {})
+    if raw.get("trial"):
+        return _error("Bepul sinov to'lov talab qilmaydi.", 400, "trial")
+    try:
+        params = kind.normalize(dict(raw))
+    except web_jobs.JobError as exc:
+        return _error(str(exc), 400, exc.code)
+    price = int(kind.price(params))
+    user = await Database.get_user(telegram_id)
+    balance = int(getattr(user, "balance", 0) or 0)
+    if balance >= price:
+        return web.json_response({"ok": True, "enough": True, "price": price, "balance": balance})
+    await web_store.set_pending(telegram_id, kind.key, kind.title(params)[:200], raw, price)
+    from services.receipts import web as receipt_web
+    missing = max(price - balance, receipt_web.MIN_AMOUNT)
+    return web.json_response({"ok": True, "enough": False, "price": price, "balance": balance, "missing": missing})
+
+
+async def pending_get(request: web.Request) -> web.Response:
+    telegram_id = await _require(request)
+    row = await web_store.get_pending(telegram_id)
+    if not row:
+        return web.json_response({"ok": True, "pending": None})
+    job_id = row.get("job_id")
+    if job_id and job_id != "starting":
+        job = await web_store.get_job(job_id, telegram_id)
+        await web_store.clear_pending(telegram_id)        # mijozga bir marta ko'rsatiladi
+        return web.json_response({"ok": True, "pending": None, "started": web_jobs.public(job) if job else None})
+    user = await Database.get_user(telegram_id)
+    balance = int(getattr(user, "balance", 0) or 0)
+    from services.receipts import web as receipt_web
+    return web.json_response({"ok": True, "pending": {
+        "kind": row["kind"], "title": row["title"], "price": int(row["price"]), "starting": job_id == "starting",
+        "missing": max(int(row["price"]) - balance, receipt_web.MIN_AMOUNT) if balance < int(row["price"]) else 0}})
+
+
+async def pending_delete(request: web.Request) -> web.Response:
+    telegram_id = await _require(request)
+    await web_store.clear_pending(telegram_id)
+    return web.json_response({"ok": True})
+
+
+_MAX_DRAFT_JSON = 200 * 1024
+
+
+async def draft_get(request: web.Request) -> web.Response:
+    telegram_id = await _require(request)
+    draft = await web_store.get_draft(telegram_id)
+    return web.json_response({"ok": True, "draft": draft})
+
+
+async def draft_put(request: web.Request) -> web.Response:
+    telegram_id = await _require(request)
+    if _limited(f"draft:{telegram_id}", 40, 60):
+        return _error("Juda tez-tez", 429, "rate")
+    data = await _json(request, _MAX_DRAFT_JSON)
+    draft = data.get("draft")
+    if not isinstance(draft, dict):
+        return _error("Qoralama kerak", 400, "bad_draft")
+    if not str(draft.get("topic") or "").strip():
+        await web_store.clear_draft(telegram_id)
+    else:
+        await web_store.save_draft(telegram_id, draft)
+    return web.json_response({"ok": True})
 
 
 async def jobs_list(request: web.Request) -> web.Response:
@@ -983,6 +1063,11 @@ def setup_api_routes(app: web.Application) -> None:
     add("POST", "/api/v1/jobs/{id}/rewrite", deck_rewrite)
     add("GET", "/api/v1/jobs/{id}/page/{n}", deck_page)
     add("POST", "/api/v1/jobs/{id}/edit", deck_edit)
+    add("POST", "/api/v1/pending", pending_create)
+    add("GET", "/api/v1/pending", pending_get)
+    add("DELETE", "/api/v1/pending", pending_delete)
+    add("GET", "/api/v1/draft", draft_get)
+    add("PUT", "/api/v1/draft", draft_put)
     add("GET", "/api/v1/wallet", wallet)
     add("POST", "/api/v1/wallet/receipt", wallet_receipt)
     add("POST", "/api/v1/wallet/click", wallet_click)

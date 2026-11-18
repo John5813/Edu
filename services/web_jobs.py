@@ -277,6 +277,39 @@ async def _execute(job_id: str, telegram_id: int, kind: Kind, params: Dict, pric
         await _after_done(job_id, telegram_id, kind, params, outcome["path"], outcome["name"])
 
 
+async def start_pending(telegram_id: int) -> Optional[Dict]:
+    """Balans to'lgach: to'lovni kutayotgan sayt buyurtmasini o'zi boshlaydi (mijoz saytga qaytmasa ham).
+
+    Har qanday balans qo'shilishidan keyin chaqiriladi (Click, Payme, Uzum, chek). Xato ko'tarmaydi.
+    """
+    try:
+        row = await web_store.get_pending(telegram_id)
+        if not row or row.get("job_id"):
+            return None
+        kind = KINDS.get(row["kind"])
+        user = await Database.get_user(telegram_id)
+        if not kind or not user:
+            await web_store.clear_pending(telegram_id)
+            return None
+        if int(user.balance or 0) < int(kind.price(kind.normalize(dict(row["params"])))):
+            return None
+        if not await web_store.claim_pending(telegram_id):
+            return None
+        try:
+            job = await submit(telegram_id, row["kind"], dict(row["params"]))
+        except JobError as exc:
+            log.warning("Kutayotgan sayt buyurtmasi boshlanmadi (%s): %s", telegram_id, exc)
+            await web_store.clear_pending(telegram_id)
+            return None
+        await web_store.mark_pending(telegram_id, job["id"])
+        await web_store.clear_draft(telegram_id)
+        log.info("To'lov tushdi — sayt buyurtmasi o'zi boshlandi: %s (%s)", job["id"], row["kind"])
+        return job
+    except Exception as exc:
+        log.warning("Kutayotgan sayt buyurtmasini tekshirib bo'lmadi (%s): %s", telegram_id, exc)
+        return None
+
+
 async def _friendly(exc: Exception) -> str:
     try:
         from services.premium_presentation.llm_client import NoCredits

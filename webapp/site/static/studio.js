@@ -321,12 +321,26 @@
       (me ? `<div class="sum"><span>Balansingiz</span><b>${E.fmt(me.balance)} so‘m</b></div>` : '');
     $('s-price').textContent = trialOn() ? 'Bepul' : E.fmt(p) + ' so‘m';
     $('s-note').innerHTML = !me ? '<div class="note">Yaratish uchun kiring: hisob birinchi kirishda o‘zi ochiladi. Tanlovlaringiz saqlanib qoladi.</div>'
-      : me.balance >= p ? '' : `<div class="note wait">Yetmaydi: yana <b>${E.fmt(p - me.balance)} so‘m</b> kerak. <a class="link" href="/app#/wallet">Hamyonni to‘ldirish</a></div>`;
+      : me.balance >= p ? '' : `<div class="note wait">Yetmaydi: yana <b>${E.fmt(p - me.balance)} so‘m</b> kerak. «Yaratish» ni bosing — buyurtma saqlanadi, to‘lov tushishi bilan o‘zi boshlanadi.</div>`;
   }
 
   // ───────────────────────────────────────────── qoralama (kirishdan keyin tanlovlar qaytadi)
+  let draftTimer = null;
   function save() {
-    try { sessionStorage.setItem(DRAFT, JSON.stringify({...S, src: {...S.src}, suggest: undefined, t: Date.now()})); } catch (e) { /* maxfiy rejim */ }
+    const data = {...S, src: {...S.src}, suggest: undefined, t: Date.now()};
+    try { sessionStorage.setItem(DRAFT, JSON.stringify(data)); } catch (e) { /* maxfiy rejim */ }
+    // Kirgan mijozning qoralamasi serverda ham saqlanadi: botdan qayta kelganda (yangi oyna) tanlovlar qaytadi.
+    if (!me) return;
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(() => { E.api('/draft', {method: 'PUT', json: {draft: data}}).catch(() => {}); }, 1500);
+  }
+  async function restoreServer(want) {
+    let d = null;
+    try { d = ((await E.api('/draft')).draft || {}).data; } catch (e) { d = null; }
+    if (!d || !d.topic || (want && d.kind !== want)) return false;
+    Object.keys(S).forEach((k) => { if (k !== 'suggest' && d[k] !== undefined) S[k] = d[k]; });
+    if (!VOLUMES.some((x) => x.key === S.volume)) S.volume = 'kop';
+    return true;
   }
   function restore() {
     let d = null;
@@ -369,6 +383,20 @@
     save();
     if (!me) { E.login(); return; }
     btn.disabled = true; btn.innerHTML = spin + '&nbsp; Yuborilmoqda…';
+    if (!trialOn() && me.balance < price()) {
+      // Balans yetmaydi: buyurtma serverda saqlanadi, hamyonda faqat yetishmagan summa to'lanadi —
+      // to'lov tushishi bilan buyurtma o'zi boshlanadi (mijoz saytga qaytmasa ham).
+      try {
+        const res = await E.api('/pending', {json: {kind: S.kind, params: params()}});
+        if (!res.enough) { location.href = '/app#/wallet'; return; }
+        me.balance = res.balance;
+      } catch (e) {
+        btn.disabled = false; btn.textContent = 'Yaratish';
+        $('s-note').innerHTML = `<div class="note bad">${E.esc(e.message)}</div>`;
+        if (e.code === 'auth') E.login();
+        return;
+      }
+    }
     try {
       const sent = params();
       const res = await E.api('/jobs', {json: {kind: S.kind, params: sent}});
@@ -453,7 +481,8 @@
     if (!S.author && me && me.name) S.author = me.name;
     // Eski havolalar: /#yaratish?kind=course_work yoki /app#/create?kind=...
     const want = (location.hash.split('kind=')[1] || '').split('&')[0];
-    const restored = restore();
+    let restored = restore();
+    if (!restored && me) restored = await restoreServer(kindOf(want) ? want : '');
     if (want && kindOf(want)) S.kind = want;
     if (!kindOf(S.kind)) S.kind = 'premium_presentation';
     chips();

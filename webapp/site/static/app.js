@@ -478,7 +478,7 @@
       try { data = await E.api('/jobs'); } catch (e) { view.innerHTML = `<div class="note bad">${E.esc(e.message)}</div>`; return; }
       const jobs = data.jobs;
       const active = jobs.some((j) => j.status === 'queued' || j.status === 'running');
-      view.innerHTML = `
+      view.innerHTML = `<div id="pend"></div>
         <div class="card" style="overflow:hidden">
           <div style="padding:18px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
             <b style="font-size:18px">Hujjatlarim</b>
@@ -487,6 +487,7 @@
           ${jobs.length ? jobs.map(jobRow).join('') : `<div style="padding:34px 20px;text-align:center;color:var(--mute)">Hali buyurtma yo‘q. <a class="link" href="/#yaratish">Birinchi taqdimotni yarating</a></div>`}
         </div>`;
       if (active) pollTimer = setTimeout(async () => { await refreshBalance(); load(); }, 3000);
+      else pendingBanner(document.getElementById('pend'), null);
     }
     load();
   }
@@ -510,6 +511,38 @@
   function kindLabel(k) { const f = (catalog.kinds || []).find((x) => x.key === k); return f ? f.label : k === 'simple_presentation' ? 'Taqdimot (chiroyli orqa fonlar)' : k; }
 
   // ───────────────────────────────────────────────────────────────── Hamyon
+  // To'lovni kutayotgan buyurtma: hamyon va «Hujjatlarim» tepasida eslatma; to'lov tushib, buyurtma o'zi
+  // boshlanganda — o'sha buyurtmaga o'tadi.
+  const jobHref = (j) => (j.kind === 'premium_presentation' || j.kind === 'simple_presentation') ? '#/job/' + j.id : '#/docs';
+  async function pendingBanner(box, onMissing) {
+    let d;
+    try { d = await E.api('/pending'); } catch (e) { return null; }
+    if (d.started) {
+      box.innerHTML = `<div class="note ok" style="margin-bottom:14px"><span>✅ To‘lov tushdi — «${E.esc(d.started.title)}» tayyorlanmoqda.</span> <a class="link" href="${jobHref(d.started)}">Ko‘rish</a></div>`;
+      return d;
+    }
+    if (!d.pending) { box.innerHTML = ''; return d; }
+    const p = d.pending;
+    box.innerHTML = `<div class="note wait" style="margin-bottom:14px">🧾 <b>«${E.esc(p.title)}»</b> buyurtmangiz saqlandi (${E.fmt(p.price)} so‘m). ` +
+      (p.missing ? `<span>Yana <b>${E.fmt(p.missing)} so‘m</b> to‘lang — to‘lov tushishi bilan buyurtma o‘zi boshlanadi.</span>` : '<span>Buyurtma boshlanmoqda…</span>') +
+      ` <button type="button" class="link" id="pend-x">Bekor qilish</button></div>`;
+    document.getElementById('pend-x').onclick = async () => {
+      try { await E.api('/pending', {method: 'DELETE'}); } catch (e) { /* baribir yashiramiz */ }
+      box.innerHTML = '';
+    };
+    if (p.missing && onMissing) onMissing(p.missing);
+    // To'lov boshqa joyda (Click ilovasi, chek) tushsa ham sahifa o'zi yangilansin.
+    clearTimeout(pollTimer);
+    pollTimer = setTimeout(async function check() {
+      if (!document.body.contains(box)) return;
+      let n;
+      try { n = await E.api('/pending'); } catch (e) { pollTimer = setTimeout(check, 5000); return; }
+      if (n.started) { await refreshBalance(); location.hash = jobHref(n.started); return; }
+      if (n.pending) pollTimer = setTimeout(check, 4000);
+    }, 4000);
+    return d;
+  }
+
   async function wallet() {
     view.innerHTML = '<span class="spin"></span>';
     let w;
@@ -522,7 +555,7 @@
     let amount = 0, started = '';
     const stamp = () => new Date().toLocaleString('sv-SE', {timeZone: 'Asia/Tashkent'}).replace(' ', 'T');
 
-    view.innerHTML = `
+    view.innerHTML = `<div id="pend"></div>
       <div class="cols">
         <div class="card panel">
           <div class="row" style="justify-content:space-between"><b style="font-size:18px">Balansni to‘ldirish</b><span class="bal">${E.fmt(w.balance)} so‘m</span></div>
@@ -568,6 +601,7 @@
       document.querySelectorAll('#presets .chip').forEach((c) => c.classList.toggle('on', parseInt(c.dataset.v, 10) === v));
     }
     $('presets').onclick = (e) => { const b = e.target.closest('.chip'); if (b) setAmount(parseInt(b.dataset.v, 10), true); };
+    pendingBanner($('pend'), (missing) => { setAmount(missing, false); $('amount').value = String(missing); });
     $('amount').oninput = (e) => setAmount(parseInt(e.target.value.replace(/\D/g, ''), 10) || 0, false);
     view.querySelectorAll('[data-copy]').forEach((b) => (b.onclick = () => E.copy(b.dataset.copy)));
     const payOnline = (path) => async () => {

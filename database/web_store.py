@@ -21,6 +21,8 @@ LOGIN_TTL = 10 * 60            # bot orqali kirish havolasi 10 daqiqa yashaydi
 SESSION_TTL = 30 * 24 * 3600   # sessiya 30 kun
 GO_TTL = 15 * 60               # botdagi «saytda ochish» tugmasi 15 daqiqa amal qiladi (bir marta)
 JOB_TTL_HOURS = 72             # tayyor fayl 3 kun saqlanadi
+PENDING_TTL = 6 * 3600         # to'lovni kutayotgan buyurtma 6 soat eslab turiladi
+DRAFT_TTL = 7 * 24 * 3600      # chala buyurtma qoralamasi 7 kun
 
 _SCHEMA = (
     """CREATE TABLE IF NOT EXISTS web_login (
@@ -51,6 +53,23 @@ _SCHEMA = (
         finished_at REAL
     )""",
     "CREATE INDEX IF NOT EXISTS idx_web_jobs_user ON web_jobs (telegram_id, created_at DESC)",
+    # To'lovni kutayotgan buyurtma (har akkauntga bitta): balans to'lishi bilan o'zi boshlanadi.
+    # job_id: NULL — kutmoqda, 'starting' — boshlanmoqda, aks holda boshlangan ish.
+    """CREATE TABLE IF NOT EXISTS web_pending (
+        telegram_id INTEGER PRIMARY KEY,
+        kind TEXT NOT NULL,
+        title TEXT NOT NULL DEFAULT '',
+        params TEXT NOT NULL DEFAULT '{}',
+        price INTEGER NOT NULL DEFAULT 0,
+        created_at REAL NOT NULL,
+        job_id TEXT
+    )""",
+    # Chala buyurtma qoralamasi (har akkauntga bitta): botdan qayta kelganda tanlovlar qaytadi.
+    """CREATE TABLE IF NOT EXISTS web_drafts (
+        telegram_id INTEGER PRIMARY KEY,
+        data TEXT NOT NULL,
+        updated_at REAL NOT NULL
+    )""",
 )
 
 
@@ -233,3 +252,78 @@ async def purge_expired(hours: int = JOB_TTL_HOURS) -> List[str]:
             await conn.execute("DELETE FROM web_sessions WHERE expires_at < ?", (time.time(),))
             await conn.commit()
     return [row["result_path"] for row in rows if row.get("result_path")]
+
+
+# ─────────────────────────────────────────── to'lovni kutayotgan buyurtma va qoralama
+
+async def set_pending(telegram_id: int, kind: str, title: str, params: Dict, price: int) -> None:
+    async with aiosqlite.connect(_db.DATABASE_FILE) as conn:
+        await create_tables(conn)
+        await conn.execute(
+            "INSERT OR REPLACE INTO web_pending (telegram_id, kind, title, params, price, created_at, job_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, NULL)",
+            (int(telegram_id), kind, title, json.dumps(params, ensure_ascii=False), int(price), time.time()))
+        await conn.commit()
+
+
+async def get_pending(telegram_id: int) -> Optional[Dict]:
+    rows = await _rows("SELECT * FROM web_pending WHERE telegram_id = ?", (int(telegram_id),))
+    if not rows:
+        return None
+    row = rows[0]
+    if time.time() - row["created_at"] > PENDING_TTL and not row.get("job_id"):
+        await clear_pending(telegram_id)
+        return None
+    row["params"] = json.loads(row.get("params") or "{}")
+    return row
+
+
+async def claim_pending(telegram_id: int) -> bool:
+    """Bir marta boshlash: ikki to'lov bir vaqtda kelsa ham buyurtma bitta bo'ladi."""
+    async with aiosqlite.connect(_db.DATABASE_FILE) as conn:
+        await create_tables(conn)
+        cursor = await conn.execute("UPDATE web_pending SET job_id = 'starting' WHERE telegram_id = ? AND job_id IS NULL",
+                                    (int(telegram_id),))
+        await conn.commit()
+        return cursor.rowcount == 1
+
+
+async def mark_pending(telegram_id: int, job_id: Optional[str]) -> None:
+    async with aiosqlite.connect(_db.DATABASE_FILE) as conn:
+        await create_tables(conn)
+        await conn.execute("UPDATE web_pending SET job_id = ? WHERE telegram_id = ?", (job_id, int(telegram_id)))
+        await conn.commit()
+
+
+async def clear_pending(telegram_id: int) -> None:
+    async with aiosqlite.connect(_db.DATABASE_FILE) as conn:
+        await create_tables(conn)
+        await conn.execute("DELETE FROM web_pending WHERE telegram_id = ?", (int(telegram_id),))
+        await conn.commit()
+
+
+async def save_draft(telegram_id: int, data: Dict) -> None:
+    async with aiosqlite.connect(_db.DATABASE_FILE) as conn:
+        await create_tables(conn)
+        await conn.execute("INSERT OR REPLACE INTO web_drafts (telegram_id, data, updated_at) VALUES (?, ?, ?)",
+                           (int(telegram_id), json.dumps(data, ensure_ascii=False), time.time()))
+        await conn.execute("DELETE FROM web_drafts WHERE updated_at < ?", (time.time() - DRAFT_TTL,))
+        await conn.commit()
+
+
+async def get_draft(telegram_id: int) -> Optional[Dict]:
+    rows = await _rows("SELECT data, updated_at FROM web_drafts WHERE telegram_id = ? AND updated_at >= ?",
+                       (int(telegram_id), time.time() - DRAFT_TTL))
+    if not rows:
+        return None
+    try:
+        return {"data": json.loads(rows[0]["data"]), "updated_at": rows[0]["updated_at"]}
+    except ValueError:
+        return None
+
+
+async def clear_draft(telegram_id: int) -> None:
+    async with aiosqlite.connect(_db.DATABASE_FILE) as conn:
+        await create_tables(conn)
+        await conn.execute("DELETE FROM web_drafts WHERE telegram_id = ?", (int(telegram_id),))
+        await conn.commit()
