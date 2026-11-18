@@ -88,7 +88,8 @@ KEEP = {"O‘zbekcha", "O'zbekcha", "English", "Русский", "Қазақша
         "ali@gmail.com", "@ali", "@javlon58_02", "@Edufayl_bot", "Moʻydinov Javlonbek", "ab", "Ali Valiyev"}
 DECK_TITLES = {"Raqamli iqtisodiyot", "Taqdimot rejasi", "Kirish", "Rivojlanish", "Natijalar", "Xulosa", "Ulush"}
 LATIN_OK = {"edufayl.org", "click", "payme", "uzum", "javlonbek", "moʻydinov", "edufayl_bot", "javlon58_02", "telegram", "google", "pptx", "docx", "pdf", "imrad", "ai", "edufayl", "start", "mb", "kpi", "ru", "uz", "en", "kk",
-            "ok", "powerpoint", "word", "id", "svg", "png", "jpg", "jpeg", "ic", "html", "url", "http", "https", "t.me", "bot"}
+            "ok", "powerpoint", "word", "id", "svg", "png", "jpg", "jpeg", "ic", "html", "url", "http", "https", "t.me", "bot",
+            "hamster", "robot"}       # «Rahmat» personajlari: inglizcha nomi o'zbekchasi bilan bir xil
 UZ_MARK = re.compile(r"[ʻ‘]|\b(?:so'm|so‘m|uchun|bilan|kerak|mavzu|taqdimot|yaratish|hujjat|sahifa|tayyor|bo'lsa|ham|yoki|"
                      r"va)\b", re.IGNORECASE)
 
@@ -114,6 +115,13 @@ def leftovers(texts, lang, deck=False, uzset=frozenset()):
             if UZ_MARK.search(t) or re.search(r"[А-Яа-яЁё]", t) or same_as_uz:
                 bad.append(t)
     return bad
+
+
+async def new_order(page):
+    """Akkauntda tayyorlanayotgan buyurtma bo'lsa, bosh sahifa o'sha jarayonni ochadi — «Boshqa buyurtma berish»."""
+    await page.wait_for_function("window.__studioReady === true", timeout=15000)
+    if await page.locator("#f-other").count():
+        await page.click("#f-other")
 
 
 async def main():
@@ -158,7 +166,7 @@ async def main():
 
             if not tid:
                 await page.goto(BASE + "/"); await page.wait_for_selector("#kind-chips [data-kind=thesis]"); await snap("bosh sahifa")
-                await page.fill("#topic", "Raqamli iqtisodiyot"); await page.wait_for_selector("#studio .st-main"); await page.wait_for_timeout(700)
+                await new_order(page); await page.fill("#topic", "Raqamli iqtisodiyot"); await page.wait_for_selector("#studio .st-main"); await page.wait_for_timeout(700)
                 await snap("yaratish oynasi (mehmon)")
                 await page.goto(BASE + "/app"); await page.wait_for_selector("#lg"); await snap("kirish kartasi")
                 await page.click("#lg"); await page.wait_for_selector(".modal .box"); await page.wait_for_selector("#lg-gbtn"); await snap("kirish oynasi")
@@ -167,7 +175,7 @@ async def main():
                 await page.goto(BASE + "/app#/welcome"); await page.wait_for_selector("#w-go"); await snap("xush kelibsiz")
                 # Yaratish bosh sahifada: mavzu yozilgach oyna kattalashib, tanlangan xizmatning sozlamalari ochiladi
                 await page.goto(BASE + "/app#/create"); await page.wait_for_url("**/#yaratish"); await page.wait_for_selector("#kind-chips [data-kind=thesis]")
-                await page.fill("#topic", "Raqamli iqtisodiyot"); await page.wait_for_selector("#studio .st-main"); await page.wait_for_timeout(700)
+                await new_order(page); await page.fill("#topic", "Raqamli iqtisodiyot"); await page.wait_for_selector("#studio .st-main"); await page.wait_for_timeout(700)
                 await snap("taqdimot: mavzu yozilgan")
                 await page.click("#srcs [data-k=text]"); await snap("manba: matn")
                 await page.click("#srcs [data-k=file]"); await snap("manba: fayl")
@@ -176,7 +184,7 @@ async def main():
                 await page.click("#ptypes [data-t='modern']"); await page.click("#styles [data-k=jurnal]"); await page.click("#ptypes [data-t='info']"); await snap("taqdimot: tur va uslub")
                 await page.click("#ptypes [data-t='classic']"); await page.wait_for_selector("#tpls .st-tpl"); await snap("taqdimot: klassik"); await page.click("#ptypes [data-t='info']")
                 await page.fill("#topic", "ab"); await page.click("#go"); await snap("taqdimot: xato")
-                await page.fill("#topic", "Raqamli iqtisodiyot")
+                await new_order(page); await page.fill("#topic", "Raqamli iqtisodiyot")
                 for kind in ("independent_work", "referat", "article", "thesis", "course_work", "diploma_work", "bitiruv_ishi", "dissertatsiya"):
                     await page.click(f"#kind-chips [data-kind={kind}]"); await page.wait_for_selector("#studio .st-main"); await snap("forma: " + kind)
                 if tid == wid:      # tayyorlanayotgan buyurtmalar: «Slaydlar ustaxonasi» animatsiyasi

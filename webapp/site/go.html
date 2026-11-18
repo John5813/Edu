@@ -5,7 +5,22 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Kirish — Edufayl</title>
-<link rel="icon" href="/static/logo.jpg">
+<link rel="icon" href="/static/icon-64.png">
+<script>
+/* Tezkor yo'l: token darhol (boshqa skriptlarni kutmasdan) sessiyaga almashadi va kerakli sahifa ochiladi.
+   Xato, eskirgan havola yoki akkauntlarni birlashtirish kerak bo'lsa — go.js davom ettiradi. */
+(function () {
+  var q = new URLSearchParams(location.search), t = q.get('t') || '';
+  var to = (q.get('to') || '').replace(/[^a-zA-Z0-9_]/g, '');
+  if (!t || q.get('done') || q.get('bad')) return;
+  try { history.replaceState(null, '', '/go' + (to ? '?to=' + to : '')); } catch (e) {}
+  window.__go = fetch('/api/v1/auth/go', {method: 'POST', credentials: 'same-origin',
+      headers: {'Content-Type': 'application/json'}, body: JSON.stringify({token: t, to: to})})
+    .then(function (r) { return r.json().then(function (d) { return {status: r.status, d: d}; }); })
+    .then(function (x) { if (x.d && x.d.ok && !x.d.merge) { location.replace(x.d.to); x.leaving = true; } return x; })
+    .catch(function () { return {network: true}; });
+})();
+</script>
 <link rel="stylesheet" href="/static/site.css">
 <style>
   .go-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;box-sizing:border-box}
@@ -18,14 +33,14 @@
 <body>
 <main class="go-wrap">
   <div class="card go-card" id="go">
-    <img src="/static/logo.jpg" alt="Edufayl" width="54" height="54">
+    <img src="/static/logo-sm.webp" alt="Edufayl" width="54" height="54">
     <h2>Kirilmoqda…</h2>
     <p><span class="spin"></span></p>
   </div>
 </main>
-<script src="/static/i18n-dict.js"></script>
-<script src="/static/i18n.js"></script>
-<script src="/static/site.js"></script>
-<script src="/static/go.js"></script>
+<script src="/static/i18n-dict.js" defer></script>
+<script src="/static/i18n.js" defer></script>
+<script src="/static/site.js" defer></script>
+<script src="/static/go.js" defer></script>
 </body>
 </html>

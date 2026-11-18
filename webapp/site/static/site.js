@@ -40,12 +40,18 @@
     setTimeout(() => el.remove(), 3600);
   };
 
-  let meCache, cfgCache;
+  let meCache, cfgCache, chosenLang = '';
   Edu.me = async function (force) {
     if (meCache === undefined || force) {
       try { meCache = (await Edu.api('/me')).user || null; } catch (e) { meCache = null; }
-      // Kirgan odamning tili akkauntida saqlangan (bot bilan bir xil): sayt ham shunda ochiladi.
-      if (meCache && meCache.language && meCache.language !== Edu.lang()) Edu.setLang(meCache.language);
+      // Kirgan odamning tili akkauntida saqlangan (bot bilan bir xil): sayt ham shunda ochiladi. Mijoz shu sahifada
+      // tilni o'zi tanlagan bo'lsa (javob kelguncha) — uning tanlovi qoladi va akkauntga yoziladi.
+      if (meCache && meCache.language && meCache.language !== Edu.lang()) {
+        if (chosenLang) {
+          meCache.language = chosenLang;
+          Edu.api('/profile', {json: {language: chosenLang}}).catch(() => {});
+        } else Edu.setLang(meCache.language);
+      }
     }
     return meCache;
   };
@@ -57,6 +63,7 @@
 
   // Tilni almashtiradi; kirgan bo'lsa profilga ham yozadi (bot tili ham shu bo'ladi).
   Edu.chooseLang = async function (lang) {
+    chosenLang = lang;
     Edu.setLang(lang);
     if (meCache) {
       meCache.language = lang;
