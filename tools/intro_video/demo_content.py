@@ -3,6 +3,20 @@
 TOPIC = "Raqamli iqtisodiyot: O‘zbekiston tajribasi"
 
 
+def photo(n):
+    """Rasm o'rni: videoserver uni `photos/<n>.jpg` bilan to'ldiradi (fayl bo'lmasa, blok olib tashlanadi)."""
+    return f'<div class="rasm"><img class="photo" data-demo="{n}" alt=""></div>'
+
+
+# Rasmlar: photos/cover.jpg (muqova) va shu nomlar. Har biri — mavzuga mos haqiqiy fotosurat.
+PHOTOS = {
+    "cover": "Toshkent: zamonaviy shahar yoki raqamli texnologiyalar",
+    "1": "Smartfon orqali onlayn to'lov qilayotgan qo'l",
+    "2": "Kompyuter oldida ishlayotgan dasturchilar (IT ofis)",
+    "3": "Noutbuk bilan o'qiyotgan yoshlar yoki talabalar",
+}
+
+
 def head(title):
     return f'<section class="slide"><div class="head"><h2 class="title">{title}</h2><div class="rule"></div></div>'
 
@@ -13,11 +27,11 @@ DECK = [
      '<div class="rule"></div><p class="lead">Elektron xizmatlar, IT-park va onlayn to‘lovlarning iqtisodiy o‘sishga ta’siri</p></div></section>'),
     ("reja", "Taqdimot rejasi", None),
     ("ikki_ustun", "Raqamli iqtisodiyot nima?",
-     head("Raqamli iqtisodiyot nima?") + '<div class="body"><p class="lead">Iqtisodiy faoliyatning raqamli texnologiyalar asosida yuritilishi.</p><div class="list">'
+     head("Raqamli iqtisodiyot nima?") + '<div class="body"><div class="split"><div><p class="lead">Iqtisodiy faoliyatning raqamli texnologiyalar asosida yuritilishi.</p><div class="list">'
      '<div class="item"><span class="item-dot"></span><div class="item-text"><b>Elektron xizmatlar.</b> Davlat va bank xizmatlari onlayn ko‘rsatiladi.</div></div>'
      '<div class="item"><span class="item-dot"></span><div class="item-text"><b>Onlayn savdo.</b> Xarid va to‘lovlar smartfon orqali amalga oshadi.</div></div>'
      '<div class="item"><span class="item-dot"></span><div class="item-text"><b>Ma’lumotlar.</b> Qarorlar raqamlar tahlili asosida qabul qilinadi.</div></div>'
-     '</div></div></section>'),
+     '</div></div>' + photo(1) + '</div></div></section>'),
     ("korsatkichlar", "Raqamlarda: so‘nggi besh yil",
      head("Raqamlarda: so‘nggi besh yil") + '<div class="body"><p class="lead">Raqamli xizmatlar iqtisodiyotning eng tez o‘sayotgan qismiga aylandi.</p><div class="cols cols-3">'
      '<div class="kpi"><div class="kpi-value">3,2×</div><div class="kpi-label">IT xizmatlar eksporti</div><div class="kpi-note">2019-yilga nisbatan o‘sish.</div></div>'
@@ -52,20 +66,20 @@ DECK = [
      '<div class="stop"><span class="bead"></span><div class="when">2024</div><div class="what">400 dan ortiq onlayn xizmat.</div></div>'
      '</div></div></section>'),
     ("qiyoslash", "Imkoniyat va xavflar",
-     head("Imkoniyat va xavflar") + '<div class="body"><div class="cols cols-2">'
+     head("Imkoniyat va xavflar") + '<div class="body"><div class="split">' + photo(2) + '<div class="cols cols-2">'
      '<div class="card"><div class="card-title">Imkoniyatlar</div><div class="list">'
      '<div class="item"><span class="item-dot"></span><div class="item-text">Yangi ish o‘rinlari</div></div>'
      '<div class="item"><span class="item-dot"></span><div class="item-text">Eksport hajmi o‘sishi</div></div></div></div>'
      '<div class="card solid"><div class="card-title">Xavflar</div><div class="list">'
      '<div class="item"><span class="item-dot"></span><div class="item-text">Kiberxavfsizlik tahdidlari</div></div>'
      '<div class="item"><span class="item-dot"></span><div class="item-text">Raqamli tengsizlik</div></div></div></div>'
-     '</div></div></section>'),
+     '</div></div></div></section>'),
     ("yakun", "Xulosa",
-     head("Xulosa") + '<div class="body"><p class="lead">Raqamli iqtisodiyot O‘zbekiston taraqqiyotining asosiy drayveriga aylanmoqda.</p><div class="list">'
+     head("Xulosa") + '<div class="body"><div class="split"><div><p class="lead">Raqamli iqtisodiyot O‘zbekiston taraqqiyotining asosiy drayveriga aylanmoqda.</p><div class="list">'
      '<div class="item"><span class="item-dot"></span><div class="item-text">Infratuzilmani qishloqlarga yanada kengaytirish.</div></div>'
      '<div class="item"><span class="item-dot"></span><div class="item-text">Raqamli savodxonlikni oshirish.</div></div>'
      '<div class="item"><span class="item-dot"></span><div class="item-text">Kiberxavfsizlikka alohida e’tibor.</div></div>'
-     '</div></div></section>'),
+     '</div></div>' + photo(3) + '</div></div></section>'),
 ]
 
 # Do'kondagi namunaviy ishlar: (kod, sarlavha, ish turi, narx, uslub, rang, sahifalar soni)

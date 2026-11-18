@@ -100,22 +100,22 @@ const CURSOR = `(() => {
   await nav('/demo/bot');
   await wait(400);
   mark('01');
-  await wait(1300);
-  await click('#k-pres', { after: 1400, scroll: false });
+  await wait(2000);
+  await click('#k-pres', { after: 1500, scroll: false });
   await moveTo('.msg:last-child', 700);
-  await wait(1500);
+  await wait(2600);
   await click('#open', { after: 0, scroll: false });
   await page.waitForURL(/#yaratish|\/$/, { timeout: 20000 });
   await page.waitForFunction(() => window.__studioReady, null, { timeout: 20000 });
   await cast();
-  await wait(1200);
+  await wait(1500);
   await moveTo('#actions', 900);
-  await wait(900);
+  await wait(1300);
 
   // ── 02 Taqdimot turi
   mark('02');
   await scrollTo('#ptypes', 'center');
-  for (const t of ['info', 'modern', 'classic', '3d']) { await moveTo(`#ptypes [data-t="${t}"]`, 650); await wait(700); }
+  for (const t of ['info', 'modern', 'classic', '3d']) { await moveTo(`#ptypes [data-t="${t}"]`, 700); await wait(1500); }
   await click('#ptypes [data-t=modern]', { after: 700 });
 
   // ── 03 Mavzu va manba

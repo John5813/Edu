@@ -47,14 +47,49 @@ def fake_write(topic, count, theme, language="uz", level=2, preferences="", sour
             body = deck_logic.plan_slide([(t, "") for _, t, _ in deck[2:-1]], language)
         if i == 0 and author:
             body = body.replace("</div></section>", f'<p class="note">Tayyorladi: {author}</p></div></section>', 1)
-        bodies.append(body)
+        bodies.append(fill_photos(body))
     for done in range(0, n, 3):
         if progress_cb:
             progress_cb(done, n)
         time.sleep(SLOW / max(1, n / 3))
     if outline_out is not None:
         outline_out.update(family="umumiy", outline=[{"title": t, "brief": t, "category": c} for c, t, _ in deck])
-    return html_slides.build_pages(bodies, theme, language)
+    return with_cover(html_slides.build_pages(bodies, theme, language))
+
+
+PHOTO_DIR = os.getenv("PHOTO_DIR") or os.path.join(HERE, "photos")
+_SLOT = __import__("re").compile(r'<div class="rasm"><img class="photo" data-demo="(\w+)" alt=""></div>')
+
+
+def photo_uri(name):
+    """photos/<name>.(jpg|jpeg|png|webp) → siqilgan JPEG data URI (bo'lmasa — None)."""
+    import base64, io
+    from PIL import Image
+    for ext in (".jpg", ".jpeg", ".png", ".webp"):
+        path = os.path.join(PHOTO_DIR, name + ext)
+        if os.path.exists(path):
+            im = Image.open(path).convert("RGB")
+            im.thumbnail((1600, 1600))
+            buf = io.BytesIO(); im.save(buf, "JPEG", quality=84)
+            return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
+    return None
+
+
+def fill_photos(body):
+    """Namoyish slaydlariga haqiqiy rasmlar (mahsulotda ular internetdan topiladi yoki AI chizadi)."""
+    def fill(m):
+        uri = photo_uri(m.group(1))
+        return (f'<div class="rasm photo-in"><img class="photo" src="{uri}" alt="" style="object-position:50% 50%"></div>'
+                if uri else "")
+    return _SLOT.sub(fill, body)
+
+
+def with_cover(pages):
+    from services.premium_presentation import html_images
+    cover = photo_uri("cover")
+    if cover and pages:
+        pages[0] = html_images.with_cover_photo(pages[0], cover)
+    return pages
 
 
 html_slides.write_slides = fake_write
