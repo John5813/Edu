@@ -1,8 +1,8 @@
-"""Saytdagi tayyor AI ko'rsatmalari FAYL tilida (mijoz taqdimot uchun tanlagan tilda), sayt tilida emas.
+"""Tayyor AI ko'rsatmalari: tugma SAYT tilida ko'rinadi, AI ga esa FAYL (taqdimot) tilidagi varianti ketadi.
 
-«AI ga taqdimot qanday bo'lishini tushuntiring» namunalari va «AI bilan o'zgartirish» tugmalari har bir
-taqdimot tili uchun bor, ruscha/inglizcha/qozoqcha ro'yxatda o'zbekcha so'z yo'q, taqdimot ko'rinishi
-(`web_decks.public`) tilni brauzerga beradi.
+«AI ga taqdimot qanday bo'lishini tushuntiring» namunalari va «AI bilan o'zgartirish» tugmalarining har bir
+taqdimot tilidagi varianti bor, ruscha/inglizcha/qozoqcha ro'yxatda o'zbekcha so'z yo'q, taqdimot ko'rinishi
+(`web_decks.public`) tilni brauzerga beradi (u bosilgan tugmaning fayl tilidagi matnini yuboradi).
 
     python test_prompt_fayl_tili.py
 """
@@ -42,7 +42,7 @@ check("kirill o'zbekchada lotin harfi yo'q", not [t for t in cyr if re.search(r"
 
 import inspect  # noqa: E402
 from services import web_decks  # noqa: E402
-check("taqdimot ko'rinishi tilni beradi (tugmalar shu tilda chiqadi)", '"language"' in inspect.getsource(web_decks.public))
+check("taqdimot ko'rinishi tilni beradi (AI ga shu tildagi matn ketadi)", '"language"' in inspect.getsource(web_decks.public))
 
 print("\n✅ hammasi o'tdi" if not FAILS else f"\n❌ {len(FAILS)} ta xato: {FAILS}")
 sys.exit(1 if FAILS else 0)

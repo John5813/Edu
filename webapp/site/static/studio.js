@@ -47,12 +47,18 @@
     {key: 'ai', label: '🎨 AI chizadi', note: 'Har slaydga mos rasm'},
   ];
   const PREF_EXAMPLES = ['Investorlar uchun ishonchli', 'Ko‘proq vizual', 'Qisqa va ta’sirli', 'Talabalar uchun sodda tilda', 'Raqam va faktlar ko‘proq'];
-  // AI ga yoziladigan namunalar TAQDIMOT tilida (tanlangan yoki mavzudan aniqlangan): ruscha taqdimotga — ruscha.
-  // translate="no": sayt tili boshqa bo'lsa ham ular o'girilmaydi — AI ga aynan ko'ringan matn ketadi.
+  // Namunalar sayt tilida ko'rinadi; AI ga esa fayl (taqdimot) tilidagi varianti ketadi — arzon modellar ham
+  // taqdimotni to'g'ri tilda yozsin. Mijozning o'z yozgani o'zgarmaydi, faqat namuna iboralari almashtiriladi.
   const deckLang = () => S.lang || S.suggest.language || 'uz';
-  const prefExamples = () => ((catalog && catalog.pref_examples) || {})[deckLang()] || PREF_EXAMPLES;
-  const prefChips = () => prefExamples().map((t) => `<button type="button" class="chip sm" translate="no" data-t="${E.esc(t)}">+ ${E.esc(t)}</button>`).join('');
-  function refreshPrefs() { const box = $('pref-ex'); if (box) box.innerHTML = prefChips(); }
+  function prefsForAi(text) {
+    const target = ((catalog && catalog.pref_examples) || {})[deckLang()];
+    if (!target) return text;
+    PREF_EXAMPLES.forEach((uz, i) => {
+      if (!target[i]) return;
+      [E.tr(uz), uz].forEach((shown) => { if (shown && shown !== target[i]) text = text.split(shown).join(target[i]); });
+    });
+    return text;
+  }
 
   let catalog = null, me = null, timer = null, seq = 0, pollTimer = null, forge = null;
   const S = {kind: 'premium_presentation', topic: '', lang: '', src: {kind: 'ai', text: '', label: '', words: 0},
@@ -166,7 +172,7 @@
         <div class="hint">${range.min} dan ${range.max} gacha istalgan son. Muqova va reja slaydi bu songa kirmaydi (kirish va xulosa kiradi).</div>`);
       html += section('Ism-familiya', '(taqdimotning muqovasiga yoziladi)', `<input class="fld" id="author" maxlength="80" placeholder="Ism Familiya" value="${E.esc(S.author)}">`);
       html += section('AI ga taqdimot qanday bo‘lishini tushuntiring', '(ixtiyoriy)', `<textarea class="fld" id="prefs" rows="2" maxlength="1000" placeholder="Auditoriya, maqsad, ohang, misollar yoki alohida talablarni erkin yozing.">${E.esc(S.prefs)}</textarea>
-        <div class="st-chips" id="pref-ex">${prefChips()}</div>`);
+        <div class="st-chips" id="pref-ex">${PREF_EXAMPLES.map((t) => `<button type="button" class="chip sm" data-t="${E.esc(t)}">+ ${E.esc(t)}</button>`).join('')}</div>`);
     } else if (threeD()) {
       const langs = (o.languages || ['uz', 'ru', 'en', 'kk']).map((l) => ({key: l, label: ({uz: "O'zbek", ru: 'Русский', en: 'English', kk: 'Қазақша'})[l] || l}));
       if (!S.lang || !langs.some((l) => l.key === S.lang)) S.lang = langs[0].key;
@@ -261,7 +267,7 @@
     inp('prefs', 'prefs'); inp('univ', 'univ'); inp('fac', 'fac'); inp('grp', 'grp');
     if ($('trial-on')) $('trial-on').onclick = () => { S.trial = true; S.volume = 'kop'; types(); render(); save(); };
     if ($('trial-off')) $('trial-off').onclick = () => { S.trial = false; render(); save(); };
-    oneOf('st-lang', (v) => { S.lang = v; autoNotes(); refreshPrefs(); save(); });
+    oneOf('st-lang', (v) => { S.lang = v; autoNotes(); save(); });
     oneOf('st-size', (v) => { S.size = v; save(); });
     oneOf('st-pstyle', (v) => { S.pstyle = v; save(); });
     if ($('extras')) $('extras').onclick = (e) => {
@@ -307,7 +313,7 @@
     if ($('pref-ex')) $('pref-ex').onclick = (e) => {
       const b = e.target.closest('[data-t]'); if (!b) return;
       const area = $('prefs');
-      area.value = (area.value.trim() ? area.value.trim().replace(/[.;,]?$/, '; ') : '') + b.dataset.t;
+      area.value = (area.value.trim() ? area.value.trim().replace(/[.;,]?$/, '; ') : '') + E.tr(b.dataset.t);
       S.prefs = area.value; save();
     };
   }
@@ -330,7 +336,7 @@
   function suggest() {
     clearTimeout(timer);
     const topic = S.topic.trim();
-    if (topic.length < 3) { S.suggest = {language: '', theme: null}; autoNotes(); refreshPrefs(); return; }
+    if (topic.length < 3) { S.suggest = {language: '', theme: null}; autoNotes(); return; }
     timer = setTimeout(async () => {
       const my = ++seq;
       try {
@@ -338,7 +344,7 @@
         if (my !== seq) return;
         S.suggest = {language: r.language, theme: r.theme};
       } catch (e) { return; }
-      autoNotes(); refreshPrefs(); preview(); summary();
+      autoNotes(); preview(); summary();
     }, 450);
   }
   function autoNotes() {
@@ -485,16 +491,16 @@
     const o = opt();
     const p = {topic: S.topic.trim(), language: S.lang, author: S.author.trim()};
     if (premium()) {
-      Object.assign(p, {preferences: S.prefs.trim(), slide_count: trialOn() ? trialSlides() : S.count, style: infoOn() ? 'toza' : S.style, volume: trialOn() ? 'kop' : S.volume,
+      Object.assign(p, {preferences: prefsForAi(S.prefs.trim()), slide_count: trialOn() ? trialSlides() : S.count, style: infoOn() ? 'toza' : S.style, volume: trialOn() ? 'kop' : S.volume,
         source_text: S.src.kind === 'ai' ? '' : S.src.text, source_label: S.src.kind === 'ai' ? '' : S.src.label});
       if (trialOn()) p.trial = true;
       else Object.assign(p, {theme: S.theme, photos: S.photos, text_anim: !!(catalog.text_anim && S.anim),
         thanks: catalog.thanks ? S.thanks : ''});
     } else if (threeD()) {
-      Object.assign(p, {slide_count: parseInt(S.size, 10) || 8, preferences: S.prefs.trim()});
+      Object.assign(p, {slide_count: parseInt(S.size, 10) || 8, preferences: prefsForAi(S.prefs.trim())});
     } else if (classic()) {
       Object.assign(p, {slide_count: parseInt(S.size, 10) || 10, template: S.template, plan_slide: !!S.plan,
-        icons: !!S.icons, preferences: S.prefs.trim()});
+        icons: !!S.icons, preferences: prefsForAi(S.prefs.trim())});
     } else if (o.form === 'thesis') {
       Object.assign(p, {university: S.univ.trim(), faculty: S.fac.trim(), group: S.grp.trim()});
     } else {

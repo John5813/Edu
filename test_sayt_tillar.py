@@ -75,7 +75,6 @@ COLLECT = r"""() => {
   const walk = (n) => {
     if (n.nodeType === 3) { const t = n.data.replace(/\s+/g, ' ').trim(); if (t) out.add(t); return; }
     if (n.nodeType !== 1 || skip.has(n.nodeName)) return;
-    if (n.getAttribute('translate') === 'no') return;   // AI ga ketadigan tayyor ko'rsatmalar — sayt tilida emas, fayl tilida
     for (const a of ['placeholder', 'title', 'aria-label', 'alt']) { const v = n.getAttribute(a); if (v && v.trim()) out.add(v.trim()); }
     n.childNodes.forEach(walk);
   };
