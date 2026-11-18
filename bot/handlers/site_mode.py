@@ -90,6 +90,18 @@ async def menu_cabinet(message: Message, state: FSMContext, user_lang: str):
     await message.answer(get_text(user_lang, "site_mode_cabinet"), reply_markup=keyboard)
 
 
+def _off(_event=None) -> bool:
+    return not site_mode.ON
+
+
+@router.message(_off, F.text.in_(set(_flat("site_mode_cabinet_btn"))))
+async def cabinet_after_off(message: Message, state, db, user_lang: str, user):
+    """Rejim o'chirilgach, eski menyusida «🌐 Kabinetim» qolgan mijoz: «Mening hisobim» javobi va hozirgi to'liq
+    menyu («To'lov qilish» bilan) qayta yuboriladi — bot avvalgi holiga to'liq qaytadi."""
+    from bot.handlers.payments import handle_account_info
+    await handle_account_info(message, state, db, user_lang, user)
+
+
 @router.callback_query(_on, F.data.func(lambda d: (d or "").startswith("os:") and d[3:] in site_mode.OTHER))
 async def other_service(callback: CallbackQuery, state: FSMContext, user_lang: str):
     try:
