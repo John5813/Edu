@@ -76,6 +76,8 @@ Users select a language, work type, topic, length, and optional extras in Telegr
 
 - AI prompts follow the FILE language the client chose for the deck; the site UI (buttons, chips) stays in the site language. Backend prompts are per language (`services/premium_presentation/prompts/{uz,ru,en,kk}.py`, classic `ai_service` uz/ru/en, 3D English + language rule). Site prompt chips are shown in the UI language, but what goes to the AI is the file-language variant: studio examples are swapped in `prefsForAi()` (`catalog.pref_examples`), viewer «AI bilan o'zgartirish» chips send `catalog.rewrite.by_language[deck.language]` (deck language from `web_decks.public`). The client's own typed text is sent as is. Test: `test_prompt_fayl_tili.py`. Intro video tooling: `tools/intro_video/README.md` (voice script `docs/video/`).
 
+- 3D Anatomiya (`services/med3d`): helper slides (`auto`, advance by themselves for smooth Morph) carry NO text — phone/WPS/normal view don't auto-advance, so copied text showed the same slide 2-3 times. Fly-in/out direction is chosen by `deck.clear_way()` so the organ's Morph path doesn't cross the text column (it used to be random and swept across the text). Every on-slide model gets a fallback picture (`preview.py`: software render with the same camera as `camera.Camera`) — phones/WPS/Google Slides show the organ image instead of nothing (`pptx3d.FALLBACK_PICTURES`). Tests: `test_med3d_auto.py`.
+
 ## User preferences
 
 - Premium presentation output should be a ready-to-use `.pptx` file, not source code.
