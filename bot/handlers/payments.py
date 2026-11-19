@@ -484,6 +484,18 @@ async def handle_payment_screenshot(message: Message, state: FSMContext, db: Dat
                         seen["payment_id"], seen["status"])
             return
 
+        # Click/Payme/Uzum orqali shu summa yaqinda avtomatik qabul qilingan bo'lsa — bu o'sha to'lovning cheki:
+        # adminga bormaydi (pul ikki marta qo'shilmasin). Mijoz holatda qoladi: alohida karta o'tkazmasi bo'lsa,
+        # chekni yana yuboradi va u ogohlantirish bilan adminga boradi.
+        from services.receipts import auto_paid
+        paid = await auto_paid.match(user.telegram_id, amount)
+        if paid:
+            skip_state_clear = True
+            await message.answer(auto_paid.user_reply(receipt_flow._lang(user_lang), paid))
+            logger.info("Chek adminga yuborilmadi: mijoz %s, summa %s %s orqali avtomatik qabul qilingan (to'lov %s)",
+                        user.telegram_id, amount, paid["source"], paid["payment_id"])
+            return
+
         # AI chekni o'qiydi va tekshiradi: ishonchli cheklar avtomatik tasdiqlanadi, qolganlari
         # (eski, takroriy, shubhali) o'qilgan ma'lumoti bilan adminga boradi. AI ishlamasa —
         # quyidagi avvalgi qo'lda tekshiruvga o'tiladi.
@@ -570,6 +582,9 @@ async def notify_admins_about_payment(bot, user, amount, message_id, payment_id,
     user_link = await _web_accounts.admin_label(user)
 
     # Add source info if present
+    from services.receipts import auto_paid
+    auto_note = await auto_paid.admin_note(user.telegram_id)
+
     source_text = ""
     if source == "help":
         source_text = "\n📍 Manba: 📞 Yordam bo'limi orqali"
@@ -589,7 +604,8 @@ async def notify_admins_about_payment(bot, user, amount, message_id, payment_id,
                 f"👤 Foydalanuvchi: {user_link}\n"
                 f"💵 Summasi: {amount:,} so'm\n"
                 f"📅 To'lov ID: {payment_id}{source_text}\n\n"
-                f"⬆️ Yuqoridagi chekni tekshiring va to'lovni tasdiqlang:"
+                + (f"{auto_note}\n\n" if auto_note else "")
+                + f"⬆️ Yuqoridagi chekni tekshiring va to'lovni tasdiqlang:"
             )
 
             sent = await bot.send_message(

@@ -129,6 +129,13 @@ async def submit(bot, telegram_id: int, amount, started_iso: str, data: bytes, f
         return {"verdict": "own_pending", "retry": False, "credited": None, "pending": seen["status"] == "pending",
                 "message": texts.user_text(lang, once.reply_key(seen["status"])).replace("*", "")}
 
+    # Click/Payme/Uzum orqali shu summa yaqinda avtomatik qabul qilingan — bu o'sha to'lovning cheki, adminga bormaydi.
+    from . import auto_paid
+    paid = await auto_paid.match(telegram_id, amount)
+    if paid:
+        return {"verdict": "auto_paid", "retry": True, "credited": None, "pending": False,
+                "message": auto_paid.user_reply(lang, paid).replace("*", "")}
+
     web = WebMessage(bot, telegram_id, data, filename, mime)
     state = {"payment_amount": amount, "payment_started_at": started_iso}
     outcome = await flow.process_web(web, state, Database, user, lang)
@@ -160,7 +167,10 @@ async def _manual(web: WebMessage, bot, user, amount: int, lang: str) -> Dict:
     bot = admin_bot.for_admins(bot)
     link = await _web_accounts.admin_label(user)
     text = (f"🧾 Yangi to'lov (sayt):\n👤 Foydalanuvchi: {link}\n💵 Summasi: {amount:,} so'm\n"
-            f"📅 To'lov ID: {payment_id}\n\n⬆️ Yuqoridagi chekni tekshiring va to'lovni tasdiqlang:")
+            f"📅 To'lov ID: {payment_id}\n\n")
+    from . import auto_paid
+    note = await auto_paid.admin_note(user.telegram_id)
+    text += (f"{note}\n\n" if note else "") + "⬆️ Yuqoridagi chekni tekshiring va to'lovni tasdiqlang:"
     sent_any = False
     for admin_id in config.ADMIN_IDS:
         try:

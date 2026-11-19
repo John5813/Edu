@@ -703,7 +703,7 @@
       form.append('amount', String(amount)); form.append('started', started); form.append('file', file, file.name);
       try {
         const r = await E.api('/wallet/receipt', {form});
-        const cls = r.credited ? 'ok' : (r.pending ? 'wait' : 'bad');
+        const cls = (r.credited || r.verdict === 'auto_paid') ? 'ok' : (r.pending ? 'wait' : 'bad');
         $('r-out').innerHTML = `<div class="note ${cls}" style="white-space:pre-line">${E.esc(r.message || 'Qabul qilindi')}</div>`;
         if (r.credited) { await refreshBalance(); wallet(); }
         else me.balance = r.balance;

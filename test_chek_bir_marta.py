@@ -60,7 +60,7 @@ def jpg(im, q=85, scale=1.0):
 
 
 class FakeBot:
-    def __init__(self): self.sent = []
+    def __init__(self): self.sent, self.texts = [], []
     async def send_photo(self, chat_id, photo, **k):
         self.sent.append(("photo", chat_id))
         return types.SimpleNamespace(photo=[types.SimpleNamespace(file_id="F")])
@@ -68,7 +68,7 @@ class FakeBot:
         self.sent.append(("doc", chat_id))
         return types.SimpleNamespace(document=types.SimpleNamespace(file_id="F"))
     async def send_message(self, chat_id, text, **k):
-        self.sent.append(("msg", chat_id))
+        self.sent.append(("msg", chat_id)); self.texts.append(text)
         return types.SimpleNamespace(chat=types.SimpleNamespace(id=chat_id), message_id=len(self.sent))
 
 
@@ -154,6 +154,38 @@ async def main():
     except ValueError as exc:
         ok = "5 MB" in str(exc)
     check("sayt: 6 MB rasm — «5 MB dan katta»", ok)
+
+    print("5) Click/Payme/Uzum orqali to'langan pulning cheki «karta» orqali yana yuborilsa")
+    from services.receipts import auto_paid
+    await Database.create_user(503, "gani", "G'ani", "uz")
+    gani = await Database.get_user(503)
+    pay_id = await Database.create_payment(gani.id, 50000, "", "payme")
+    await Database.update_payment_status(pay_id, "approved")
+    bot5 = FakeBot()
+    before = len(bot5.sent)
+    r = await receipt_web.submit(bot5, 503, 50000, "", jpg(receipt(amount="50 000", rid="5501"), 90), "payme.jpg", "image/jpeg")
+    check("o'sha summa (Payme'da qabul qilingan) — adminga BORMADI", len(bot5.sent) == before, bot5.sent)
+    check("mijozga «Payme orqali allaqachon qabul qilingan»", "Payme orqali allaqachon qabul qilingan" in r["message"]
+          and "50 000" in r["message"] and r["verdict"] == "auto_paid" and not r["pending"], r)
+    r = await receipt_web.submit(bot5, 503, 50000, "", jpg(receipt(amount="50 000", rid="5502"), 90), "karta.jpg", "image/jpeg")
+    check("yana yuborildi (alohida karta o'tkazmasi) — adminga boradi", len(bot5.sent) > before and r["pending"], r)
+    admin_texts = [t for t in bot5.texts if "Payme orqali 50 000" in t]
+    check("admin kartochkasida ogohlantirish: «Payme orqali 50 000 so'm … tasdiqlamang»",
+          admin_texts and "tasdiqlamang" in admin_texts[0], bot5.texts)
+    n = len(bot5.sent)
+    r = await receipt_web.submit(bot5, 503, 30000, "", jpg(receipt(amount="30 000", rid="5503"), 90), "c.jpg", "image/jpeg")
+    check("boshqa summa — adminga boradi (ogohlantirish bilan)", len(bot5.sent) > n and "Payme orqali" in bot5.texts[-1], r)
+    click_id = await Database.create_payment(gani.id, 20000, "", "click")
+    await Database.update_payment_status(click_id, "rejected")
+    check("rad etilgan Click to'lovi — hisobga olinmaydi", not await auto_paid.match(503, 20000))
+    old_id = await Database.create_payment(gani.id, 40000, "", "uzum")
+    await Database.update_payment_status(old_id, "approved")
+    async with aiosqlite.connect(dbmod.DATABASE_FILE) as conn:
+        await conn.execute("UPDATE payments SET created_at = datetime('now', '-7 hours') WHERE id = ?", (old_id,))
+        await conn.commit()
+    check("7 soat oldingi Uzum to'lovi — chek to'xtatilmaydi (faqat 6 soat)", not await auto_paid.match(503, 40000))
+    check("boshqa mijozning Payme to'lovi — bu mijoz chekiga ta'sir qilmaydi", not await auto_paid.match(501, 50000))
+    check("Payme'siz mijoz — admin kartochkasida ogohlantirish yo'q", await auto_paid.admin_note(502) == "")
 
     print("\n✅ hammasi o'tdi" if not FAILS else f"\n❌ {len(FAILS)} ta xato: {FAILS}")
     sys.exit(1 if FAILS else 0)

@@ -32,6 +32,9 @@ _USER: Dict[str, Dict[str, str]] = {
                      "PPTX, APK, video va boshqa fayllar qabul qilinmaydi. Chekni qayta yuboring."),
         "too_big": "📎 Fayl juda katta ({size} MB). Chek {limit} MB gacha bo'lsin — skrinshot yoki PDF yuboring.",
         "album": "📎 Bir nechta rasm birdan tanlangan. Faqat bitta chekni yuboring — eng aniq skrinshotni.",
+        "auto_paid": ("✅ Bu to'lov {time} da {method} orqali allaqachon qabul qilingan: {amount} so'm balansingizga "
+                      "qo'shilgan. Chek yuborish shart emas.\n\nAgar bu alohida, kartaga qilingan boshqa o'tkazma bo'lsa — "
+                      "chekni yana bir marta yuboring, u adminga tekshiruvga boradi."),
         "once_pending": "ℹ️ Bu chekni allaqachon yuborgansiz — u adminga yetib borgan. Tasdiqlanishini kuting, qayta yuborish shart emas.",
         "once_rejected": ("ℹ️ Bu chek avval ko'rib chiqilgan va tasdiqlanmagan. Uni qayta yuborish natijani o'zgartirmaydi.\n"
                           "Savol bo'lsa: " + ADMIN_CONTACT),
@@ -73,6 +76,9 @@ _USER: Dict[str, Dict[str, str]] = {
                      "PPTX, APK, видео и другие файлы не принимаются. Отправьте чек ещё раз."),
         "too_big": "📎 Файл слишком большой ({size} МБ). Чек должен быть до {limit} МБ — отправьте скриншот или PDF.",
         "album": "📎 Выбрано сразу несколько фото. Отправьте только один чек — самый чёткий скриншот.",
+        "auto_paid": ("✅ Этот платёж уже принят через {method} в {time}: {amount} сум зачислено на ваш баланс. "
+                      "Отправлять чек не нужно.\n\nЕсли это другой, отдельный перевод на карту — отправьте чек ещё раз, "
+                      "он уйдёт админу на проверку."),
         "once_pending": "ℹ️ Вы уже отправили этот чек — он у админа. Дождитесь подтверждения, повторно отправлять не нужно.",
         "once_rejected": ("ℹ️ Этот чек уже рассмотрен и не подтверждён. Повторная отправка не изменит решение.\n"
                           "Вопросы: " + ADMIN_CONTACT),
@@ -114,6 +120,9 @@ _USER: Dict[str, Dict[str, str]] = {
                      "PPTX, APK, videos and other files are not accepted. Please send the receipt again."),
         "too_big": "📎 The file is too large ({size} MB). The receipt must be up to {limit} MB — send a screenshot or PDF.",
         "album": "📎 Several photos were selected at once. Send only one receipt — the clearest screenshot.",
+        "auto_paid": ("✅ This payment was already accepted via {method} at {time}: {amount} som is on your balance. "
+                      "No need to send a receipt.\n\nIf this is a separate card transfer, send the receipt once more — "
+                      "it will go to the admin for review."),
         "once_pending": "ℹ️ You have already sent this receipt — the admin has it. Please wait for approval, no need to resend.",
         "once_rejected": ("ℹ️ This receipt was already reviewed and not approved. Sending it again won't change the decision.\n"
                           "Questions: " + ADMIN_CONTACT),
