@@ -564,6 +564,12 @@ class DocumentService:
             slide['content'] = text
 
     async def _prefetch_slide_images(self, slides_data: list, topic: str, language: str) -> dict:
+        """Bitta taqdimot doirasida (`photo_search.deck`): internet rasmlari slaydlar orasida takrorlanmaydi."""
+        from services import photo_search
+        with photo_search.deck():
+            return await self._prefetch_slide_images_in_deck(slides_data, topic, language)
+
+    async def _prefetch_slide_images_in_deck(self, slides_data: list, topic: str, language: str) -> dict:
         """Pre-generate slide images with bounded parallelism (max 4 concurrent).
 
         Unbounded `asyncio.gather` over 10–20 slides used to spike memory and

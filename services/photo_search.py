@@ -12,18 +12,24 @@ haqiqiy foto kerak bo'lgan mavzularda qidiruv tili mavzuga qarab tanlanadi:
     4. Tanlangan rasm yuklab olinadi, tekshiriladi va crop uchun fokus aniqlanadi.
 
 Topilmagan slaydga hech narsa qaytarilmaydi — uni chaqiruvchi AI bilan
-chizdiradi. Mavzu natijalari xotirada saqlanadi: o'sha mavzuga keyingi
-murojaat (muqova, slaydni qayta yaratish, boshqa mijoz) Brave'ga yangi
-so'rov yubormaydi va oldin ishlatilgan rasmlarni qayta bermaydi.
+chizdiradi. Mavzu natijalari (Brave javobi) xotirada saqlanadi: o'sha mavzuga
+keyingi murojaat (muqova, slaydni qayta yaratish, boshqa mijoz) Brave'ga yangi
+so'rov yubormaydi.
 
-Bir xil rasm ikki marta qo'yilmaydi — hatto boshqa saytdan, boshqa manzil
-va o'lcham bilan kelsa ham (Amir Temur taqdimotida ketma-ket ikki slaydda
-bitta surat chiqqan edi): yuklangan har rasmning "barmoq izi" (dHash,
-butun va chetlari kesilgan holda) olinadi va mavzuda ishlatilganlari bilan
-solishtiriladi; o'xshashi tashlanib, slotga navbatdagi nomzod olinadi.
+Bitta TAQDIMOT ichida bir xil rasm ikki marta qo'yilmaydi — hatto boshqa
+saytdan, boshqa manzil va o'lcham bilan kelsa ham (Amir Temur taqdimotida
+ketma-ket bir necha slaydda bitta portret chiqqan edi): yuklangan har rasmning
+"barmoq izi" (dHash, butun va chetlari kesilgan holda) olinadi va shu
+taqdimotda ishlatilganlari bilan solishtiriladi; o'xshashi tashlanib, slotga
+navbatdagi nomzod olinadi. Taqdimot doirasi — `deck()`: yaratish boshidan
+oxirigacha (slaydlar, muqova, qayta urinish). Boshqa taqdimot (boshqa mijoz)
+o'sha mavzuning eng yaxshi rasmlarini bemalol oladi — ilgari ishlatilgan rasm
+hamma mijozga yopilib, ommabop mavzularda rasm tugab qolardi.
 """
 import asyncio
+import base64
 import contextlib
+import contextvars
 import functools
 import io
 import json
@@ -119,13 +125,54 @@ def enabled() -> bool:
 # ───────────────────────────────────────────── mavzu natijalari (xotira)
 
 class _Pool:
-    __slots__ = ("candidates", "used", "hashes", "created")
+    """Mavzuning Brave natijalari (hamma mijozga umumiy — Brave'ga qayta so'rov yuborilmaydi)."""
+    __slots__ = ("candidates", "created")
 
     def __init__(self, candidates: List[dict]):
         self.candidates = candidates
-        self.used: set = set()
-        self.hashes: list = []          # ishlatilgan rasmlarning barmoq izlari (bir xil surat qayta chiqmasin)
         self.created = time.time()
+
+
+class _Deck:
+    """Bitta taqdimot: unda sinalgan manzillar va qo'yilgan rasmlarning barmoq izlari."""
+    __slots__ = ("used", "hashes")
+
+    def __init__(self):
+        self.used: set = set()
+        self.hashes: list = []
+
+
+_DECK: contextvars.ContextVar = contextvars.ContextVar("photo_deck", default=None)
+_DATA_PHOTO = re.compile(r'<img\b[^>]*\bclass="photo[^"]*"[^>]*\bsrc="data:image/[\w.+-]+;base64,([A-Za-z0-9+/=]+)"')
+
+
+@contextlib.contextmanager
+def deck(pages: Sequence[str] = ()):
+    """Bitta taqdimot doirasi: ichidagi hamma `find_photos` chaqiruvlari bir-birining rasmini takrorlamaydi.
+
+    `pages` — taqdimotning mavjud sahifalari (slaydni qayta yozishda): ulardagi rasmlar ham band hisoblanadi."""
+    scope = _Deck()
+    for raw in (m.group(1) for page in pages or () for m in _DATA_PHOTO.finditer(page or "")):
+        path = None
+        try:
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix=".img", delete=False) as fh:
+                fh.write(base64.b64decode(raw))
+                path = fh.name
+            marks = image_hashes(path)
+            if marks is not None:
+                scope.hashes.append(marks)
+        except Exception:
+            pass
+        finally:
+            if path:
+                with contextlib.suppress(OSError):
+                    os.remove(path)
+    token = _DECK.set(scope)
+    try:
+        yield scope
+    finally:
+        _DECK.reset(token)
 
 
 _pools: "OrderedDict[str, _Pool]" = OrderedDict()
@@ -725,7 +772,8 @@ async def find_photos(topic: str, slots: Sequence[str], *, search=None,
     if not slots or not (topic or "").strip() or (search is None and not enabled()):
         return result
     pool = await _pool(topic, search, formulas)
-    candidates = [c for c in pool.candidates if c["url"] not in pool.used][:MAX_CANDIDATES]
+    scope = _DECK.get() or _Deck()          # taqdimot doirasi bo'lmasa — shu chaqiruvning o'zi
+    candidates = [c for c in pool.candidates if c["url"] not in scope.used][:MAX_CANDIDATES]
     if not candidates:
         return result
 
@@ -750,9 +798,9 @@ async def find_photos(topic: str, slots: Sequence[str], *, search=None,
         while queues[slot] or spare:
             ident = queues[slot].pop(0) if queues[slot] else spare.pop(0)
             url = candidates[ident]["url"]
-            if url in pool.used:
+            if url in scope.used:
                 continue
-            pool.used.add(url)
+            scope.used.add(url)
             async with gate:
                 path = await _download(session, url)
             if path:
@@ -775,7 +823,7 @@ async def find_photos(topic: str, slots: Sequence[str], *, search=None,
                 if not path:
                     continue
                 marks = await asyncio.to_thread(image_hashes, path)
-                if marks is not None and is_duplicate(marks, list(pool.hashes) + seen):
+                if marks is not None and is_duplicate(marks, list(scope.hashes) + seen):
                     duplicates += 1
                     with contextlib.suppress(OSError):
                         os.remove(path)
@@ -795,7 +843,7 @@ async def find_photos(topic: str, slots: Sequence[str], *, search=None,
                 else:
                     result[slot] = path
                     if marks is not None:
-                        pool.hashes.append(marks)
+                        scope.hashes.append(marks)
             if bad:
                 log.info("Matnli %d ta rasm tashlandi", len(bad))
     if duplicates:

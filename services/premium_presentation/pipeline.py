@@ -98,7 +98,9 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
 
     # Hamma so'rovlardagi umumiy qoidalar (bugungi sana va h.k.) ham taqdimot tilida — oqimlarga ham o'tadi.
     # Taqdimot xotirasi (AI oldin yozgan slaydlar) taqdimot tayyor bo'lguncha turadi, keyin o'chadi.
-    with prompts.use(language), deck_memory.session():
+    from services import photo_search
+    # deck(): shu taqdimotning slaydlari va muqovasi bir-birining rasmini takrorlamaydi (boshqa taqdimotga ta'sir qilmaydi).
+    with prompts.use(language), deck_memory.session(), photo_search.deck():
         return await _build_deck(topic, slide_count, language=language, level=level, preferences=preferences,
                                  source_text=source_text, author=author, theme_key=theme_key, style=style,
                                  volume=volume if volume in VOLUMES else "kop", photos=photos, photo_source=photo_source,

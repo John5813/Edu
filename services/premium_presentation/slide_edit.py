@@ -336,11 +336,15 @@ async def _rewrite(deck: dict, index: int, instruction: str, shots_dir: str,
 
     report("images", 55)
     try:
-        pages, _ = await html_images.fill_photos([page], limit=2, topic=deck.get("topic", ""))
-        page = pages[0]
-        if index == 0:
-            pages, _ = await html_images.fill_cover([page], deck.get("topic", ""))
+        from services import photo_search
+        # Taqdimotdagi boshqa sahifalarning rasmlari band: qayta yozilgan sahifaga ular takror qo'yilmaydi.
+        others = [p for i, p in enumerate(deck.get("pages") or []) if i != index]
+        with photo_search.deck(others):
+            pages, _ = await html_images.fill_photos([page], limit=2, topic=deck.get("topic", ""))
             page = pages[0]
+            if index == 0:
+                pages, _ = await html_images.fill_cover([page], deck.get("topic", ""))
+                page = pages[0]
     except Exception as exc:
         log.warning("Sahifa rasmlari qo'yilmadi: %s", exc)
 
