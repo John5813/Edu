@@ -115,11 +115,24 @@ async def submit(bot, telegram_id: int, amount, started_iso: str, data: bytes, f
     except (TypeError, ValueError):
         started_iso = rules.now_tashkent().isoformat()
 
+    # Bir chek — bir marta: shu mijoz adminga yetib borgan chekini qayta yuklasa, u adminga bormaydi.
+    from . import once
+    try:
+        seen = await once.find(telegram_id, data)
+    except Exception as exc:
+        log.warning("Sayt cheki takrorini tekshirib bo'lmadi (%s): %s", telegram_id, exc)
+        seen = None
+    if seen:
+        return {"verdict": "own_pending", "retry": False, "credited": None, "pending": seen["status"] == "pending",
+                "message": texts.user_text(lang, once.reply_key(seen["status"])).replace("*", "")}
+
     web = WebMessage(bot, telegram_id, data, filename, mime)
     state = {"payment_amount": amount, "payment_started_at": started_iso}
     outcome = await flow.process_web(web, state, Database, user, lang)
     if outcome is None:
         return await _manual(web, bot, user, amount, lang)
+    if outcome.payment_id:
+        await once.remember(telegram_id, data, "", outcome.payment_id)
 
     credited = None
     pending = False
@@ -138,6 +151,8 @@ async def _manual(web: WebMessage, bot, user, amount: int, lang: str) -> Dict:
     from bot.keyboards import get_payment_review_keyboard
 
     payment_id = await Database.create_payment(user.id, amount, "", "web")
+    from . import once
+    await once.remember(user.telegram_id, web.web_data, "", payment_id)
     from services import admin_bot
     bot = admin_bot.for_admins(bot)
     link = await _web_accounts.admin_label(user)

@@ -198,6 +198,19 @@ async def main():
     text, urls = await send(msg(None, photo=[PhotoSize(file_id="p2", file_unique_id="pu2", width=90, height=160)]))
     check("rejim o'chiq: skrinshot → botdagi «To'lov qilish» tugmasi orqali yuborilsin",
           "to'lov cheki" in text and get_text("uz", "main_menu.payment") in text and not urls, text)
+    # Bir chek — bir marta (AI'siz): botga o'sha skrinshot ikkinchi marta yuborilsa, adminga bormaydi.
+    config.RECEIPT_AI = False
+    async def screenshot(fid):
+        await ctx.set_state("PaymentStates:waiting_for_screenshot")
+        await ctx.update_data(payment_amount=20000)
+        before = len(session.calls)
+        text, _ = await send(msg(None, photo=[PhotoSize(file_id=fid, file_unique_id=fid + "u", width=90, height=160)]))
+        return text, [type(m).__name__ for m in session.calls[before:]]
+    text1, calls1 = await screenshot("chek1")
+    check("bot: birinchi chek — adminga yuborildi", "CopyMessage" in calls1, (text1, calls1))
+    text2, calls2 = await screenshot("chek1b")           # o'sha fayl (baytlari bir xil), qayta yuborildi
+    check("bot: o'sha chek qayta yuborildi — adminga BORMADI, «tasdiqlanishini kuting»",
+          "CopyMessage" not in calls2 and "yuborgansiz" in text2 and "kuting" in text2, (text2, calls2))
 
     print("3) Do'kon: saytda sotib olish (sayt rejimi)")
     await site_mode.set(db, True)
