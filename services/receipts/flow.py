@@ -128,6 +128,10 @@ async def _to_admins(bot, user, message, text: str, payment_id: Optional[int] = 
     from services import admin_bot
     if hasattr(message, "send_copy"):          # saytdagi chek: sayt rejimida — alohida admin-bot orqali
         bot = admin_bot.for_admins(bot)
+    from . import auto_paid                    # Click/Payme/Uzum orqali yaqinda to'lagan bo'lsa — ogohlantirish
+    note = await auto_paid.admin_note(user.telegram_id) if getattr(user, "telegram_id", None) else ""
+    if note:
+        text = f"{text}\n\n{note}"
     for admin_id in config.ADMIN_IDS:
         try:
             if copy and hasattr(message, "send_copy"):

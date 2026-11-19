@@ -302,6 +302,14 @@ async def main():
     check("handler: AI ishlamasa avvalgidek qo'lda tekshiruv (to'lov yaratildi, admin xabardor)",
           len(await Database.get_pending_payments()) == n_before + 1 and await st.get_state() is None
           and any("Yangi to'lov" in x.text for x in bot.sent if x.chat.id == ADMIN))
+    # Payme orqali shu summa (state'dagi 10 000) avtomatik qabul qilingan — bot ham chekni adminga yubormaydi.
+    pay_id = await Database.create_payment(users[300].id, int(state["payment_amount"]), "", "payme")
+    await Database.update_payment_status(pay_id, "approved")
+    b, n_admin = await balance(300), len(bot.sent)
+    st, m = await run_handler(300, b"Z4", [raw(rid="9400000077")] * 2)
+    check("handler: Payme'da qabul qilingan summa cheki — adminga bormadi, balans o'zgarmadi, holat saqlandi",
+          len(bot.sent) == n_admin and await balance(300) == b and "Payme orqali allaqachon" in m.answers[-1][0]
+          and await st.get_state() == PaymentStates.waiting_for_screenshot.state, (m.answers[-1:], bot.sent[n_admin:]))
 
     print("19) Kunlik statistika: adminga yetmagan (rad etilgan) cheklar hisobi")
     from services.receipts import texts as receipt_texts
