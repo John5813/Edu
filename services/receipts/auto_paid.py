@@ -6,9 +6,7 @@ o'tkazmasi deb tasdiqlab, pulni ikki marta qo'shib yuborish mumkin. AI'siz, faqa
 - mijozning so'nggi BLOCK_HOURS soat ichidagi avtomatik (Click/Payme/Uzum) to'lovi aynan shu summada bo'lsa —
   chek adminga BORMAYDI, mijozga «bu to'lov Payme orqali allaqachon qabul qilingan» deyiladi. Bitta avtomatik
   to'lov faqat bitta chekni to'xtatadi: mijoz haqiqatan alohida karta o'tkazmasi qilgan bo'lsa, chekni yana
-  yuboradi va u adminga boradi (ogohlantirish bilan);
-- adminga boradigan har bir chek kartochkasiga NOTE_HOURS soat ichidagi avtomatik to'lovlari yoziladi:
-  «⚠️ Mijoz 14:32 da Payme orqali 50 000 so'm to'lagan (avtomatik qabul qilingan)».
+  yuboradi va u adminga odatdagidek boradi.
 """
 import logging
 import time
@@ -24,7 +22,7 @@ log = logging.getLogger(__name__)
 AUTO = ("click", "payme", "uzum")
 NAMES = {"click": "Click", "payme": "Payme", "uzum": "Uzum"}
 BLOCK_HOURS = 6        # shu vaqt ichidagi bir xil summadagi avtomatik to'lov — chek adminga bormaydi
-NOTE_HOURS = 48        # adminga boradigan chek kartochkasida shu vaqt ichidagi avtomatik to'lovlar ko'rsatiladi
+KEEP_HOURS = 48        # «ishlatilgan» belgisi shuncha saqlanadi
 TASHKENT = timedelta(hours=5)
 
 
@@ -73,7 +71,7 @@ async def match(user_tg: int, amount) -> Optional[dict]:
                     await db.execute("INSERT OR IGNORE INTO receipt_auto_match (payment_id, user_tg, created_at) "
                                      "VALUES (?, ?, ?)", (row["payment_id"], int(user_tg), time.time()))
                     await db.execute("DELETE FROM receipt_auto_match WHERE created_at < ?",
-                                     (time.time() - NOTE_HOURS * 3600,))
+                                     (time.time() - KEEP_HOURS * 3600,))
                     await db.commit()
                 return row
     except Exception as exc:
@@ -98,19 +96,3 @@ def user_reply(lang: str, row: dict) -> str:
                            method=NAMES.get(row["source"], row["source"]), amount=_money(row["amount"]),
                            time=_when(row["at"]))
 
-
-async def admin_note(user_tg: int) -> str:
-    """Admin chek kartochkasi uchun ogohlantirish (avtomatik to'lov bo'lmasa — bo'sh)."""
-    try:
-        rows = await recent(user_tg, NOTE_HOURS)
-    except Exception as exc:
-        log.warning("Avtomatik to'lovlar o'qilmadi (%s): %s", user_tg, exc)
-        return ""
-    if not rows:
-        return ""
-    lines = ["⚠️ Diqqat: bu mijoz yaqinda avtomatik to'lov qilgan (balansiga allaqachon qo'shilgan):"]
-    for row in rows[:3]:
-        lines.append(f" • {_when(row['at'])} — {NAMES.get(row['source'], row['source'])} orqali "
-                     f"{_money(row['amount'])} so'm (to'lov ID {row['payment_id']})")
-    lines.append("Bu chek o'sha to'lovning cheki bo'lsa — tasdiqlamang, aks holda pul ikki marta qo'shiladi.")
-    return "\n".join(lines)

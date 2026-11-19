@@ -169,12 +169,10 @@ async def main():
           and "50 000" in r["message"] and r["verdict"] == "auto_paid" and not r["pending"], r)
     r = await receipt_web.submit(bot5, 503, 50000, "", jpg(receipt(amount="50 000", rid="5502"), 90), "karta.jpg", "image/jpeg")
     check("yana yuborildi (alohida karta o'tkazmasi) — adminga boradi", len(bot5.sent) > before and r["pending"], r)
-    admin_texts = [t for t in bot5.texts if "Payme orqali 50 000" in t]
-    check("admin kartochkasida ogohlantirish: «Payme orqali 50 000 so'm … tasdiqlamang»",
-          admin_texts and "tasdiqlamang" in admin_texts[0], bot5.texts)
+    check("admin kartochkasida ogohlantirish matni yo'q", not [t for t in bot5.texts if "Diqqat" in t or "Payme orqali" in t], bot5.texts)
     n = len(bot5.sent)
     r = await receipt_web.submit(bot5, 503, 30000, "", jpg(receipt(amount="30 000", rid="5503"), 90), "c.jpg", "image/jpeg")
-    check("boshqa summa — adminga boradi (ogohlantirish bilan)", len(bot5.sent) > n and "Payme orqali" in bot5.texts[-1], r)
+    check("boshqa summa — adminga boradi", len(bot5.sent) > n and r["pending"], r)
     click_id = await Database.create_payment(gani.id, 20000, "", "click")
     await Database.update_payment_status(click_id, "rejected")
     check("rad etilgan Click to'lovi — hisobga olinmaydi", not await auto_paid.match(503, 20000))
@@ -185,7 +183,6 @@ async def main():
         await conn.commit()
     check("7 soat oldingi Uzum to'lovi — chek to'xtatilmaydi (faqat 6 soat)", not await auto_paid.match(503, 40000))
     check("boshqa mijozning Payme to'lovi — bu mijoz chekiga ta'sir qilmaydi", not await auto_paid.match(501, 50000))
-    check("Payme'siz mijoz — admin kartochkasida ogohlantirish yo'q", await auto_paid.admin_note(502) == "")
 
     print("\n✅ hammasi o'tdi" if not FAILS else f"\n❌ {len(FAILS)} ta xato: {FAILS}")
     sys.exit(1 if FAILS else 0)
