@@ -131,11 +131,11 @@ async def _build_deck(topic, slide_count, *, language, level, preferences, sourc
     # raqam to'qimasin. Topilmasa — avvalgidek.
     from services.premium_presentation import fresh_facts
     fresh = await fresh_facts.gather(topic, preferences, language)
-    if fresh:
-        fresh_facts.remember(fresh, language)  # diagramma va «yirik raqamlar» so'rovlari ham ko'radi
-        # Mijozning o'z materiali birinchi: slayd so'roviga manbaning boshi (4000 belgi) boradi — faktlar uni
-        # siqib chiqarmasin (faktlar diagramma va raqamlar so'rovlarida baribir to'liq turadi).
-        source_text = (source_text + "\n\n" + fresh) if source_text else fresh
+    # Faktlar mijoz materialidan alohida turadi (reja, har slayd, diagramma va raqamlar so'rovlari ko'radi).
+    # Qattiq rejim — statistika/shaxs/tarix mavzusi yoki mijoz materiali: diagramma va «yirik raqamlar»
+    # faqat material yoki faktlardagi raqamlar bilan.
+    fresh_facts.remember(fresh, language)
+    fresh_facts.set_material(source_text, strict=bool(source_text) or fresh_facts.needs(topic, preferences))
 
     stage("writing")
     outline_out: dict = {}

@@ -126,6 +126,13 @@ def research(topic: str, title: str, brief: str, kind: str, language: str = "uz"
     if data is None:
         log.info("«%s» uchun ishonchli diagramma ma'lumoti yo'q: %s", title,
                  (raw or {}).get("reason") if isinstance(raw, dict) else "yaroqsiz javob")
+        return None
+    from . import fresh_facts
+    if fresh_facts.strict() and not fresh_facts.grounded([v for _, values in data["series"] for v in values]):
+        # Statistika/shaxs/tarix mavzusi yoki mijoz materiali bor: raqamlar na faktlarda, na materialda —
+        # model xotirasidan (arzon model to'qiydi). Diagramma qo'yilmaydi, slayd oddiy slaydga qaytadi.
+        log.info("«%s» diagrammasi raqamlari faktlar va materialda yo'q — qo'yilmadi", title)
+        return None
     return data
 
 
@@ -405,6 +412,14 @@ def research_kpis(topic: str, title: str, brief: str, language: str = "uz") -> O
     if data is None:
         log.info("«%s» uchun ishonchli raqamlar yo'q: %s", title,
                  (raw or {}).get("reason") if isinstance(raw, dict) else "yaroqsiz javob")
+        return None
+    from . import fresh_facts
+    if fresh_facts.strict():
+        kept = [item for item in data["items"] if fresh_facts.grounded([item["value"]], 1.0)]
+        if len(kept) < 2:
+            log.info("«%s» yirik raqamlari faktlar va materialda yo'q — qo'yilmadi", title)
+            return None
+        data = dict(data, items=kept)
     return data
 
 

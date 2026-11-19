@@ -98,6 +98,9 @@ def _text(language: str) -> dict:
 # Shu taqdimotning faktlari: diagramma va «yirik raqamlar» so'rovlari ham ko'radi (`chart_data`).
 _CURRENT: contextvars.ContextVar = contextvars.ContextVar("fresh_facts", default="")
 _LANG: contextvars.ContextVar = contextvars.ContextVar("fresh_facts_lang", default="uz")
+# Mijozning o'z materiali (fayl, matn, havola) va «qattiq» rejim: raqam faqat material yoki faktlardan.
+_MATERIAL: contextvars.ContextVar = contextvars.ContextVar("fresh_material", default="")
+_STRICT: contextvars.ContextVar = contextvars.ContextVar("fresh_strict", default=False)
 
 
 def current() -> str:
@@ -108,16 +111,39 @@ def current() -> str:
 @contextlib.contextmanager
 def scope():
     """Bitta taqdimot doirasi: ichida `remember()` qilingan faktlar boshqa buyurtmaga o'tmaydi."""
-    token = _CURRENT.set("")
+    tokens = (_CURRENT.set(""), _MATERIAL.set(""), _STRICT.set(False))
     try:
         yield
     finally:
-        _CURRENT.reset(token)
+        for var, token in zip((_CURRENT, _MATERIAL, _STRICT), tokens):
+            var.reset(token)
 
 
 def remember(block_text: str, language: str = "uz") -> None:
     _CURRENT.set(block_text or "")
     _LANG.set(language or "uz")
+
+
+def set_material(text: str, strict: bool) -> None:
+    """Mijoz materiali va qattiq rejim (statistika/shaxs/tarix mavzusi yoki mijoz materiali bor)."""
+    _MATERIAL.set(text or "")
+    _STRICT.set(bool(strict))
+
+
+def strict() -> bool:
+    """Diagramma va «yirik raqamlar» raqamlari faqat material yoki faktlardan bo'lishi shartmi."""
+    return _STRICT.get()
+
+
+def grounded(values, share: float = 0.6) -> bool:
+    """Raqamlarning kamida `share` qismi mijoz materialida yoki internet faktlarida bormi (yillar hisobga olinmaydi)."""
+    from services.kat3d import tadqiqot
+
+    corpus = f"{_CURRENT.get()}\n{_MATERIAL.get()}"
+    if not corpus.strip():
+        return False
+    numbers = tadqiqot._scaled(tadqiqot._norm_numbers(corpus))
+    return tadqiqot._grounded(list(values), numbers, share)
 
 
 def for_chart() -> str:
@@ -142,7 +168,8 @@ def block(research: dict, language: str = "uz") -> str:
     if series:
         lines += ["", T["series"]]
         for k, s in enumerate(series, 1):
-            pairs = ", ".join(f"{lb}: {v:g}" for lb, v in zip(s["labels"], s["values"]))
+            # «;» bilan: «6, 2024» kabi vergul raqam tekshiruvida bitta raqam bo'lib o'qilmasin.
+            pairs = "; ".join(f"{lb}: {v:g}" for lb, v in zip(s["labels"], s["values"]))
             lines.append(f"S{k}. {s['title']} ({s['unit']}) — {pairs} — {s.get('source') or 'web'}")
     text = "\n".join(lines)
     return text if len(text) <= MAX_CHARS else text[:MAX_CHARS].rsplit("\n", 1)[0]
