@@ -202,20 +202,27 @@ async def fake_download(session, url):
 real_download = photo_search._download
 photo_search._download = fake_download
 try:
-    first = asyncio.run(photo_search.find_photos("Inson yuragi", ["Yurak tuzilishi", "Qon aylanishi"],
-                                                 search=search, choose=choose_first))
-    first_downloads = list(downloads)
-    second = asyncio.run(photo_search.find_photos("  inson YURAGI ", ["Muqova"],
-                                                  search=search, choose=choose_first))
+    with photo_search.deck():                       # bitta taqdimot: slaydlar, keyin muqova
+        first = asyncio.run(photo_search.find_photos("Inson yuragi", ["Yurak tuzilishi", "Qon aylanishi"],
+                                                     search=search, choose=choose_first))
+        first_downloads = list(downloads)
+        second = asyncio.run(photo_search.find_photos("  inson YURAGI ", ["Muqova"],
+                                                      search=search, choose=choose_first))
+    other_from = len(downloads)
+    with photo_search.deck():                       # boshqa mijozning taqdimoti — o'sha mavzu
+        other = asyncio.run(photo_search.find_photos("Inson yuragi", ["Yurak tuzilishi"],
+                                                     search=search, choose=choose_first))
 finally:
     photo_search._download = real_download
-check("ikkala murojaatga Brave'ga bitta so'rov", len(calls) == 1, calls)
+check("uchala murojaatga (ikki taqdimot) Brave'ga bitta so'rov", len(calls) == 1, calls)
 check("1-slot: birinchi rasm yuklanmasa keyingisi olinadi", bool(first[0]) and downloads[0].endswith("img0.jpg")
       and downloads[1].endswith("img1.jpg"), downloads)
 check("ikkala slotga rasm topildi", all(first), first)
-check("keyingi murojaat oldin sinalgan rasmni qayta bermaydi",
-      bool(second[0]) and not set(downloads[len(first_downloads):]) & set(first_downloads), downloads)
-for path in first + second:
+check("bitta taqdimot ichida keyingi murojaat oldin sinalgan rasmni qayta bermaydi",
+      bool(second[0]) and not set(downloads[len(first_downloads):other_from]) & set(first_downloads), downloads)
+check("boshqa taqdimot (boshqa mijoz) o'sha mavzuning eng yaxshi rasmlarini oladi — yopilib qolmaydi",
+      bool(other[0]) and set(downloads[other_from:]) & set(first_downloads), downloads[other_from:])
+for path in first + second + other:
     if path:
         os.remove(path)
 
@@ -280,10 +287,17 @@ async def no_text(paths):
 
 photo_search._download = twin_download
 try:
-    got = asyncio.run(photo_search.find_photos("Amir Temur saltanati", ["Saltanat", "Yurishlar"],
-                                               search=search, choose=choose_twins, check=no_text))
-    again = asyncio.run(photo_search.find_photos("Amir Temur saltanati", ["Muqova"],
-                                                 search=search, choose=choose_twins, check=no_text))
+    with photo_search.deck():
+        got = asyncio.run(photo_search.find_photos("Amir Temur saltanati", ["Saltanat", "Yurishlar"],
+                                                   search=search, choose=choose_twins, check=no_text))
+        again = asyncio.run(photo_search.find_photos("Amir Temur saltanati", ["Muqova"],
+                                                     search=search, choose=choose_twins, check=no_text))
+    # Slaydni qayta yozish: taqdimotdagi mavjud rasm (sahifaga joylangan) band — o'sha surat qayta qo'yilmaydi.
+    import base64 as _b64
+    with open(got[0], "rb") as _fh:
+        _page = '<img class="photo" src="data:image/jpeg;base64,' + _b64.b64encode(_fh.read()).decode() + '">'
+    with photo_search.deck([_page]) as _scope:
+        seeded = len(_scope.hashes)
 finally:
     photo_search._download = real_download
 marks = [photo_search.image_hashes(p) for p in got if p]
@@ -293,6 +307,7 @@ check("takror tashlanib, slotga zaxira nomzod olindi", [d.rsplit("/", 1)[1] for 
       downloads)
 check("o'sha mavzuning keyingi chaqiruvi (muqova) ham oldingi rasmlarni takrorlamaydi",
       not again[0] or not any(photo_search.same_picture(photo_search.image_hashes(again[0]), m) for m in marks))
+check("qayta yoziladigan sahifa uchun taqdimotdagi mavjud rasmlar band hisoblanadi", seeded == 1, seeded)
 check("o'xshash, lekin boshqa suratlar takror hisoblanmaydi",
       not photo_search.same_picture(photo_search.image_hashes(_image(seed=1)), photo_search.image_hashes(_image(seed=2))))
 for path in got + again:
