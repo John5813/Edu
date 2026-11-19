@@ -147,9 +147,14 @@ def _brave_web(query: str) -> List[dict]:
         return out
 
 
-def qidir(sections: List[dict]) -> List[dict]:
-    """Har bo'lim so'rovlari parallel; natija: [{"section", "title", "url", "age", "text"}] (takror manzilsiz)."""
-    jobs = [(k, q) for k, sec in enumerate(sections) for q in sec["queries"]][:MAX_QUERIES]
+def qidir(sections: List[dict], limit: int = MAX_QUERIES) -> List[dict]:
+    """Har bo'lim so'rovlari parallel; natija: [{"section", "title", "url", "age", "text"}] (takror manzilsiz).
+
+    `limit` — Brave so'rovlari soni (har so'rov pullik). Avval har bo'limning birinchi so'rovi, keyin ikkinchilari —
+    so'rov kam bo'lsa ham hamma bo'lim qamraladi."""
+    rounds = max((len(sec["queries"]) for sec in sections), default=0)
+    jobs = [(k, sec["queries"][r]) for r in range(rounds) for k, sec in enumerate(sections)
+            if r < len(sec["queries"])][:limit]
     with ThreadPoolExecutor(max_workers=4) as pool:
         found = list(pool.map(lambda job: _safe(job[1]), jobs))
     seen, out = set(), []
@@ -290,13 +295,14 @@ def _sources(facts: List[dict], series: List[dict], results: List[dict]) -> List
     return out[:10]
 
 
-def tayyorla(topic: str, preferences: str = "", language: str = "uz", budget: float = 150.0) -> Optional[dict]:
+def tayyorla(topic: str, preferences: str = "", language: str = "uz", budget: float = 150.0,
+             max_queries: int = MAX_QUERIES) -> Optional[dict]:
     """Bo'limlar → qidiruv → faktlar. Natija: {"sections", "facts", "series", "sources"} yoki None."""
     if not enabled():
         return None
     t0 = time.time()
     sections = savollar(topic, preferences, language)
-    results = qidir(sections)
+    results = qidir(sections, max_queries)
     if not results:
         log.warning("3D tadqiqot: internetdan hech narsa topilmadi")
         return None

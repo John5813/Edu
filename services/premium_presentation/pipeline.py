@@ -133,7 +133,9 @@ async def _build_deck(topic, slide_count, *, language, level, preferences, sourc
     fresh = await fresh_facts.gather(topic, preferences, language)
     if fresh:
         fresh_facts.remember(fresh, language)  # diagramma va «yirik raqamlar» so'rovlari ham ko'radi
-        source_text = fresh + ("\n\n" + source_text if source_text else "")
+        # Mijozning o'z materiali birinchi: slayd so'roviga manbaning boshi (4000 belgi) boradi — faktlar uni
+        # siqib chiqarmasin (faktlar diagramma va raqamlar so'rovlarida baribir to'liq turadi).
+        source_text = (source_text + "\n\n" + fresh) if source_text else fresh
 
     stage("writing")
     outline_out: dict = {}
