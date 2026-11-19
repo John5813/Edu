@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 
 MIN_AMOUNT = 1000
 MAX_AMOUNT = 5_000_000
-MAX_FILE = 12 * 1024 * 1024
+from .accept import MAX_BYTES as MAX_FILE, MAX_MB  # noqa: E402  (faqat rasm yoki PDF, 5 MB gacha)
 PRESETS = (10_000, 15_000, 20_000, 25_000, 30_000, 50_000)
 
 
@@ -97,13 +97,16 @@ def _validate(amount, size: int) -> int:
     if size <= 0:
         raise ValueError("Chek fayli bo'sh.")
     if size > MAX_FILE:
-        raise ValueError("Fayl 12 MB dan katta.")
+        raise ValueError(f"Fayl {MAX_MB} MB dan katta.")
     return amount
 
 
 async def submit(bot, telegram_id: int, amount, started_iso: str, data: bytes, filename: str, mime: str) -> Dict:
     """Chekni tekshiradi. Qaytadi: {verdict, message, retry, credited}. `ValueError` — noto'g'ri kiritish."""
     amount = _validate(amount, len(data))
+    from . import accept
+    if accept.problem(filename, mime, len(data)):
+        raise ValueError("Chek sifatida faqat rasm (JPG, PNG) yoki PDF qabul qilinadi.")
     user = await Database.get_user(telegram_id)
     if not user:
         raise ValueError("Avval botda /start bosing.")

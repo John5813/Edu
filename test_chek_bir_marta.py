@@ -2,7 +2,7 @@
 
 AI'siz, faqat faylning o'zi bo'yicha (raqamli iz, Telegram fayl raqami, rasm ko'rinishi) va faqat o'sha mijozning
 o'z cheklari orasida. Galereyadan qayta tanlangan (qayta siqilgan) skrinshot ham taniladi; boshqa summa, vaqt yoki
-ID yozilgan chek — yangi chek.
+ID yozilgan chek — yangi chek. Izlar faqat 2 kun saqlanadi. Chek sifatida faqat bitta rasm yoki PDF (5 MB gacha).
 
     python test_chek_bir_marta.py
 """
@@ -118,6 +118,42 @@ async def main():
           and r2["pending"] and not r2["retry"], r2)
     r3 = await receipt_web.submit(bot, 502, 70000, "", jpg(receipt(amount="70 000", rid="9912"), 90), "c.jpg", "image/jpeg")
     check("yangi (boshqa) chek — adminga boradi", len(bot.sent) > to_admin and r3["pending"], r3)
+
+    print("3) Faqat 2 kun saqlanadi")
+    import aiosqlite, time as _time
+    async with aiosqlite.connect(dbmod.DATABASE_FILE) as conn:
+        await conn.execute("UPDATE receipt_once SET created_at = ? WHERE user_tg = 501", (_time.time() - 3 * 86400,))
+        await conn.commit()
+    check("3 kun oldingi chek izi — hisobga olinmaydi", not await once.find(501, first))
+    async with aiosqlite.connect(dbmod.DATABASE_FILE) as conn:
+        async with conn.execute("SELECT COUNT(*) FROM receipt_once WHERE user_tg = 501") as cur:
+            left = (await cur.fetchone())[0]
+    check("eski izlar bazadan o'chirildi (baza to'lmaydi)", left == 0, left)
+
+    print("4) Faqat bitta rasm yoki PDF, 5 MB gacha")
+    from services.receipts import accept
+    cases = [("chek.jpg", "image/jpeg", 300_000, None), ("chek.PNG", "", 200_000, None), ("chek.pdf", "application/pdf", 90_000, None),
+             ("", "image/webp", 50_000, None), ("taqdimot.pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation", 900_000, "bad_file"),
+             ("app.apk", "application/vnd.android.package-archive", 4_000_000, "bad_file"), ("video.mp4", "video/mp4", 2_000_000, "bad_file"),
+             ("chek.docx", "", 50_000, "bad_file"), ("arxiv.zip", "", 10_000, "bad_file"), ("katta.jpg", "image/jpeg", 9 * 1024 * 1024, "too_big")]
+    for name, mime, size, want in cases:
+        check(f"{name or mime}: {'qabul' if want is None else want}", accept.problem(name, mime, size) == want,
+              accept.problem(name, mime, size))
+    sent = len(bot.sent)
+    for name, mime, blob in (("taqdimot.pptx", "application/octet-stream", b"PK\x03\x04" + b"x" * 500),
+                             ("app.apk", "application/vnd.android.package-archive", b"PK" + b"y" * 500)):
+        try:
+            await receipt_web.submit(bot, 502, 70000, "", blob, name, mime)
+            ok = False
+        except ValueError as exc:
+            ok = "rasm" in str(exc) and "PDF" in str(exc)
+        check(f"sayt: {name} — qabul qilinmaydi, adminga bormaydi", ok and len(bot.sent) == sent)
+    try:
+        await receipt_web.submit(bot, 502, 70000, "", b"x" * (6 * 1024 * 1024), "katta.jpg", "image/jpeg")
+        ok = False
+    except ValueError as exc:
+        ok = "5 MB" in str(exc)
+    check("sayt: 6 MB rasm — «5 MB dan katta»", ok)
 
     print("\n✅ hammasi o'tdi" if not FAILS else f"\n❌ {len(FAILS)} ta xato: {FAILS}")
     sys.exit(1 if FAILS else 0)

@@ -1039,6 +1039,8 @@ async def wallet_receipt(request: web.Request) -> web.Response:
         reader = await request.multipart()
         async for part in reader:
             if part.name == "file":
+                if data:
+                    return _error("Faqat bitta chek faylini yuboring.", 400, "many_files")
                 filename, mime = part.filename or "", part.headers.get("Content-Type", "")
                 chunks, size = [], 0
                 while True:
@@ -1047,7 +1049,7 @@ async def wallet_receipt(request: web.Request) -> web.Response:
                         break
                     size += len(chunk)
                     if size > receipt_web.MAX_FILE:
-                        return _error("Fayl 12 MB dan katta.", 413, "too_big")
+                        return _error(f"Fayl {receipt_web.MAX_MB} MB dan katta.", 413, "too_big")
                     chunks.append(chunk)
                 data = b"".join(chunks)
             elif part.name in ("amount", "started"):

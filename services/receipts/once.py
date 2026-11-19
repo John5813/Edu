@@ -8,6 +8,8 @@ AI'siz, avtomatik tekshiruv — faqat chek faylining o'zi bo'yicha va faqat O'SH
   olinmaydi. Boshqa summa yoki vaqt yozilgan boshqa chekda raqamlar o'rnida piksellar keskin farq qiladi —
   u yangi chek hisoblanadi.
 
+Izlar faqat KEEP_DAYS (2 kun) saqlanadi, keyin o'chiriladi — baza to'lib ketmasin (rasm izi har chekka ~10–20 KB).
+
 Mijozga holatiga qarab javob beriladi: kutilmoqda — «tasdiqlanishini kuting», tasdiqlangan — «allaqachon qabul
 qilingan», rad etilgan — «ko'rib chiqilgan». Bot ham, sayt ham, AI tekshiruvi yoqilgan-o'chiqligidan qat'i nazar.
 """
@@ -30,7 +32,7 @@ TOP_CUT = 0.07                # tepadagi holat qatori (soat, batareya) — har s
 # Qayta siqilgan o'sha rasm: o'rtacha va eng katta piksel farqi shundan oshmaydi (sinovda: o'sha chek — eng
 # ko'pi 12; summa, vaqt yoki ID'dagi bitta raqami boshqa chek — kamida 130).
 MEAN_DIFF, MAX_DIFF = 3.5, 48
-LOOKBACK_DAYS = 120
+KEEP_DAYS = 2                  # chek izi shuncha kun saqlanadi, keyin o'chiriladi
 LIMIT = 200
 
 
@@ -75,9 +77,11 @@ async def find(user_tg: int, data: bytes, uid: str = "") -> Optional[dict]:
     Qaytaradi: {"payment_id", "status"} (pending / approved / rejected) yoki None — yangi chek."""
     sha = hashlib.sha256(data).hexdigest()
     sig = signature(data)
-    since = time.time() - LOOKBACK_DAYS * 86400
+    since = time.time() - KEEP_DAYS * 86400
     async with aiosqlite.connect(_file()) as db:
         await _ensure(db)
+        await db.execute("DELETE FROM receipt_once WHERE created_at < ?", (since,))    # eskilari o'chadi
+        await db.commit()
         async with db.execute(
             "SELECT o.sha, o.uid, o.sig, o.ratio, o.payment_id, COALESCE(p.status, '') FROM receipt_once o "
             "LEFT JOIN payments p ON p.id = o.payment_id WHERE o.user_tg = ? AND o.created_at >= ? "
@@ -105,6 +109,7 @@ async def remember(user_tg: int, data: bytes, uid: str, payment_id: Optional[int
         sig = signature(data)
         async with aiosqlite.connect(_file()) as db:
             await _ensure(db)
+            await db.execute("DELETE FROM receipt_once WHERE created_at < ?", (time.time() - KEEP_DAYS * 86400,))
             await db.execute(
                 "INSERT INTO receipt_once (user_tg, sha, uid, sig, ratio, payment_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (int(user_tg), hashlib.sha256(data).hexdigest(), uid or "", zlib.compress(sig[0], 6) if sig else None,

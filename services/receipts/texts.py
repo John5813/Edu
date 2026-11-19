@@ -28,6 +28,10 @@ _USER: Dict[str, Dict[str, str]] = {
                         "ko'rinishida yuboring."),
         "own_pending": "ℹ️ Bu chek allaqachon yuborilgan va tekshirilmoqda. Qayta yuborish shart emas.",
         "own_done": "ℹ️ Bu chek allaqachon qabul qilingan va summa hisobingizga qo'shilgan.",
+        "bad_file": ("📎 Chek sifatida faqat bitta rasm (skrinshot) yoki PDF fayl qabul qilinadi — {limit} MB gacha.\n"
+                     "PPTX, APK, video va boshqa fayllar qabul qilinmaydi. Chekni qayta yuboring."),
+        "too_big": "📎 Fayl juda katta ({size} MB). Chek {limit} MB gacha bo'lsin — skrinshot yoki PDF yuboring.",
+        "album": "📎 Bir nechta rasm birdan tanlangan. Faqat bitta chekni yuboring — eng aniq skrinshotni.",
         "once_pending": "ℹ️ Bu chekni allaqachon yuborgansiz — u adminga yetib borgan. Tasdiqlanishini kuting, qayta yuborish shart emas.",
         "once_rejected": ("ℹ️ Bu chek avval ko'rib chiqilgan va tasdiqlanmagan. Uni qayta yuborish natijani o'zgartirmaydi.\n"
                           "Savol bo'lsa: " + ADMIN_CONTACT),
@@ -65,6 +69,10 @@ _USER: Dict[str, Dict[str, str]] = {
         "unsupported": "❌ Не удалось прочитать этот тип файла. Отправьте чек как фото (скриншот), PDF или DOCX.",
         "own_pending": "ℹ️ Этот чек уже отправлен и проверяется. Повторно отправлять не нужно.",
         "own_done": "ℹ️ Этот чек уже принят, сумма зачислена на ваш счёт.",
+        "bad_file": ("📎 В качестве чека принимается только одно изображение (скриншот) или PDF — до {limit} МБ.\n"
+                     "PPTX, APK, видео и другие файлы не принимаются. Отправьте чек ещё раз."),
+        "too_big": "📎 Файл слишком большой ({size} МБ). Чек должен быть до {limit} МБ — отправьте скриншот или PDF.",
+        "album": "📎 Выбрано сразу несколько фото. Отправьте только один чек — самый чёткий скриншот.",
         "once_pending": "ℹ️ Вы уже отправили этот чек — он у админа. Дождитесь подтверждения, повторно отправлять не нужно.",
         "once_rejected": ("ℹ️ Этот чек уже рассмотрен и не подтверждён. Повторная отправка не изменит решение.\n"
                           "Вопросы: " + ADMIN_CONTACT),
@@ -102,6 +110,10 @@ _USER: Dict[str, Dict[str, str]] = {
         "unsupported": "❌ This file type cannot be read. Please send the receipt as a photo (screenshot), PDF or DOCX.",
         "own_pending": "ℹ️ This receipt has already been sent and is being checked. No need to resend.",
         "own_done": "ℹ️ This receipt was already accepted and the amount is on your balance.",
+        "bad_file": ("📎 Only one image (screenshot) or PDF file up to {limit} MB is accepted as a receipt.\n"
+                     "PPTX, APK, videos and other files are not accepted. Please send the receipt again."),
+        "too_big": "📎 The file is too large ({size} MB). The receipt must be up to {limit} MB — send a screenshot or PDF.",
+        "album": "📎 Several photos were selected at once. Send only one receipt — the clearest screenshot.",
         "once_pending": "ℹ️ You have already sent this receipt — the admin has it. Please wait for approval, no need to resend.",
         "once_rejected": ("ℹ️ This receipt was already reviewed and not approved. Sending it again won't change the decision.\n"
                           "Questions: " + ADMIN_CONTACT),
