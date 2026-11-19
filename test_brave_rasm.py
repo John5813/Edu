@@ -321,6 +321,29 @@ for path in got:
     if path:
         os.remove(path)
 
+print("\n3c) Nomli varaq («Anqara jangi»): faqat o'ziga tanlangan rasm, umumiy zaxira portret qo'yilmaydi")
+check("qidiruv tanlovi yo'riqnomasida nomli slot qoidasi bor", "NAMED slots" in photo_search._PICK_SYSTEM)
+check("nomli slotlar ajratiladi", photo_search.parse_named(
+    {"picks": [{"slot": 1, "ids": [1], "named": True}, {"slot": 2, "ids": [], "named": False}, {"slot": 9, "named": True}]}, 2) == {0})
+photo_search.reset(); downloads.clear()
+
+
+async def choose_named(system, user):
+    return {"picks": [{"slot": 1, "ids": [0], "named": True}, {"slot": 2, "ids": [], "named": False}], "spare": [5, 6]}
+
+photo_search._download = fake_download
+try:
+    got = asyncio.run(photo_search.find_photos("Amir Temur janglari", ["Anqara jangi", "Yurishlar"],
+                                               search=search, choose=choose_named))
+finally:
+    photo_search._download = real_download
+check("nomli slot rasmi yuklanmadi → bo'sh qoladi (AI chizadi), umumiy varaq zaxirani oladi",
+      got[0] is None and bool(got[1]) and [d.rsplit("/", 1)[1] for d in downloads] == ["img0.jpg", "img5.jpg"], (got, downloads))
+for path in got:
+    if path:
+        os.remove(path)
+
+
 print("\n3b) Bir xil rasm (boshqa saytdan, boshqa manzil bilan) ikki slaydga qo'yilmaydi")
 photo_search.reset(); downloads.clear()
 _twin = {"img1.jpg": (900, 600), "img2.jpg": (1200, 800)}       # bitta surat, ikki sayt, ikki o'lcham

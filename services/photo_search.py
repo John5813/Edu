@@ -463,8 +463,13 @@ _PICK_SYSTEM = (
     "results (each has a title or page words, and a source site). Goal: fill AS MANY "
     "slots as possible — ideally every slot.\n"
     "- An image fits a slot when it is about the presentation topic and relates to the "
-    "slot (same person, place, building, object, era, activity or idea). An exact match "
-    "is not required: a relevant photo of the topic is much better than no photo.\n"
+    "slot (same person, place, building, object, era, activity or idea). For a general slot an exact "
+    "match is not required: a relevant photo of the topic is much better than no photo.\n"
+    "- NAMED slots: when a slot names a specific person, place, building, battle or event, artwork, "
+    "book or organisation, pick ONLY results whose title or page words mention that name (any "
+    "spelling, script or language). Never put a general photo of the topic (e.g. a portrait of the "
+    "ruler) on a slot about a specific battle or building; leave such a slot empty instead — it will "
+    "be drawn. Mark these slots with \"named\": true. Results without a title are never used for them.\n"
     "- For every slot give up to 3 ids, best first.\n"
     "- Also give \"spare\": up to 15 other ids that are good general photos of the topic "
     "(used when a slot's photo fails to download).\n"
@@ -474,7 +479,7 @@ _PICK_SYSTEM = (
     "memes and other topics. Pick real photographs only.\n"
     "- Every id may be used only once in the whole answer.\n"
     "- Leave a slot empty only when no remaining result is about the topic at all.\n"
-    "Answer JSON: {\"picks\": [{\"slot\": 1, \"ids\": [12, 40]}, ...], \"spare\": [3, 7]}"
+    "Answer JSON: {\"picks\": [{\"slot\": 1, \"ids\": [12, 40], \"named\": false}, ...], \"spare\": [3, 7]}"
 )
 
 
@@ -512,6 +517,19 @@ def parse_picks(data: dict, slots: int, candidates: int) -> List[List[int]]:
                 taken.add(ident)
                 picks[slot].append(ident)
     return picks
+
+
+def parse_named(data: dict, slots: int) -> set:
+    """Nomli slotlar (aniq shaxs, joy, voqea): ularga zaxiradagi umumiy rasm qo'yilmaydi."""
+    named = set()
+    for item in (data or {}).get("picks") or []:
+        try:
+            slot = int(item.get("slot")) - 1
+        except (TypeError, ValueError, AttributeError):
+            continue
+        if 0 <= slot < slots and item.get("named") in (True, "true", 1):
+            named.add(slot)
+    return named
 
 
 def parse_spare(data: dict, picks: List[List[int]], candidates: int) -> List[int]:
@@ -875,10 +893,17 @@ async def find_photos(topic: str, slots: Sequence[str], *, search=None,
     gate = asyncio.Semaphore(4)
     queues = [list(picks[slot]) for slot in range(len(slots))]
     spare = parse_spare(data, picks, len(candidates))
+    # Nomli slot («Anqara jangi», «Oqsaroy») — faqat o'ziga tanlanganlar; umumiy zaxira (hukmdor portreti) qo'yilmaydi.
+    named = parse_named(data, len(slots))
+    for slot in named:                      # nomi yo'q natija nomli slotga to'g'ri kelishini tekshirib bo'lmaydi
+        queues[slot] = [i for i in queues[slot] if candidates[i]["title"] or candidates[i].get("hint")]
+
+    def has_next(slot: int) -> bool:
+        return bool(queues[slot] or (spare and slot not in named))
 
     async def next_photo(session, slot: int) -> Optional[str]:
         """Slotning navbatdagi nomzodi (avval o'z tanlovi, keyin zaxira) — yuklangan fayl yoki None."""
-        while queues[slot] or spare:
+        while has_next(slot):
             ident = queues[slot].pop(0) if queues[slot] else spare.pop(0)
             url = candidates[ident]["url"]
             if url in scope.used:
@@ -897,7 +922,7 @@ async def find_photos(topic: str, slots: Sequence[str], *, search=None,
     duplicates = 0
     async with aiohttp.ClientSession(timeout=timeout, headers=_DOWNLOAD_HEADERS, trust_env=True) as session:
         for _ in range(4):
-            empty = [slot for slot in range(len(slots)) if result[slot] is None and (queues[slot] or spare)]
+            empty = [slot for slot in range(len(slots)) if result[slot] is None and has_next(slot)]
             if not empty:
                 break
             got = await asyncio.gather(*(next_photo(session, slot) for slot in empty))
