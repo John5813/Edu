@@ -90,5 +90,13 @@ from services.kat3d import tadqiqot
 check("rasm qidiruvi 402 da keyingi kalitga o'tadi", "(401, 402, 403, 429)" in inspect.getsource(photo_search._brave))
 check("web tadqiqot 402 da keyingi kalitga o'tadi", "(401, 402, 403, 429)" in inspect.getsource(tadqiqot._brave_web))
 
+print("5) Model JSON'dan keyin yana JSON yoki matn yozsa")
+from services.premium_presentation import llm_client
+check("ikki obyekt birlashtiriladi (rasm tanlash yiqilmaydi)",
+      llm_client._joined_objects('{"picks": [{"slot": 1, "ids": [3]}]}\n{"spare": [5, 6]}')
+      == {"picks": [{"slot": 1, "ids": [3]}], "spare": [5, 6]})
+check("obyektdan keyingi izoh tashlanadi", llm_client._joined_objects('{"query": "Amir Temur"} Izoh: ...') == {"query": "Amir Temur"})
+check("buzilgan matn — None", llm_client._joined_objects("javob yo'q") is None)
+
 print("\n✅ hammasi o'tdi" if not FAILS else f"\n❌ {len(FAILS)} ta xato: {FAILS}")
 sys.exit(1 if FAILS else 0)
