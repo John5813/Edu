@@ -100,7 +100,8 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
     # Taqdimot xotirasi (AI oldin yozgan slaydlar) taqdimot tayyor bo'lguncha turadi, keyin o'chadi.
     from services import photo_search
     # deck(): shu taqdimotning slaydlari va muqovasi bir-birining rasmini takrorlamaydi (boshqa taqdimotga ta'sir qilmaydi).
-    with prompts.use(language), deck_memory.session(), photo_search.deck():
+    from services.premium_presentation import fresh_facts
+    with prompts.use(language), deck_memory.session(), photo_search.deck(), fresh_facts.scope():
         return await _build_deck(topic, slide_count, language=language, level=level, preferences=preferences,
                                  source_text=source_text, author=author, theme_key=theme_key, style=style,
                                  volume=volume if volume in VOLUMES else "kop", photos=photos, photo_source=photo_source,
@@ -125,6 +126,14 @@ async def _build_deck(topic, slide_count, *, language, level, preferences, sourc
                 log.debug("stage_cb xatosi", exc_info=True)
 
     theme = themes.for_deck(topic, style, volume, theme_key)
+
+    # Statistika, iqtisod, siyosat: avval internetdan yangi faktlar (yili va manbasi bilan) — model yangi yillarga
+    # raqam to'qimasin. Topilmasa — avvalgidek.
+    from services.premium_presentation import fresh_facts
+    fresh = await fresh_facts.gather(topic, preferences, language)
+    if fresh:
+        fresh_facts.remember(fresh, language)  # diagramma va «yirik raqamlar» so'rovlari ham ko'radi
+        source_text = fresh + ("\n\n" + source_text if source_text else "")
 
     stage("writing")
     outline_out: dict = {}

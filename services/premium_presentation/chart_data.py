@@ -55,9 +55,10 @@ _YEAR = re.compile(r"^\D*((?:19|20)\d{2})\D*$")
 
 def _prompt(topic: str, title: str, brief: str, kind: str, language: str) -> str:
     C = prompts.get(language).CHART
+    from . import fresh_facts
     return prompts.fill(C["prompt"], topic=topic, title=title, brief=brief, kind=C["kind_hint"].get(kind, kind),
                         year_rule=prompts.year_rule(language),
-                        language_rule=llm_client._language_instruction(language))
+                        language_rule=llm_client._language_instruction(language)) + fresh_facts.for_chart()
 
 
 def _number(value) -> Optional[float]:
@@ -392,7 +393,8 @@ def research_kpis(topic: str, title: str, brief: str, language: str = "uz") -> O
     try:
         raw = llm_client._call_openrouter(
             _KPI_SYSTEM, _KPI_PROMPT.format(topic=topic, title=title, brief=brief,
-                                            language_rule=llm_client._language_instruction(language)),
+                                            language_rule=llm_client._language_instruction(language))
+            + __import__("services.premium_presentation.fresh_facts", fromlist=["x"]).for_chart(),
             temperature=0.2, max_tokens=900, kind="text")
     except llm_client.NoCredits:
         raise

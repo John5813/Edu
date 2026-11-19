@@ -28,11 +28,12 @@ def current_year() -> int:
 def last_full_year() -> int:
     """Statistika to'liq bo'lgan oxirgi yil.
 
-    Yil boshida joriy yil bo'yicha hali ma'lumot yo'q, shuning uchun
-    mart oyigacha bir yil orqaga suriladi.
+    Joriy yil hali tugamagan — uning yakuniy statistikasi yo'q. O'tgan yil natijalari esa odatda fevral–mart
+    oylarida e'lon qilinadi: martgacha ikki yil orqaga suriladi. (Ilgari martdan keyin joriy yil olinardi va
+    model 2026-yil noyabrida «2026-yil yakunlari» raqamlarini to'qirdi.)
     """
     now = today()
-    return now.year - 1 if now.month < 3 else now.year
+    return now.year - 2 if now.month < 3 else now.year - 1
 
 
 def history_years(count: int = HISTORY_SPAN) -> list:
@@ -79,33 +80,37 @@ def year_rule(language: str = "uz") -> str:
     span = f"{history[0]}-{history[-1]}"
     ahead = f"{forecast[0]}-{forecast[-1]}"
 
-    stale = f"{last - 4}-{last - 3}"
-
     if language == "ru":
         return (
-            f"СЕГОДНЯ {today_text('ru')}. Текущий год — {now}.\n"
-            f"- Ряд данных должен заканчиваться {last} годом (например {span}), "
-            f"допустимо «по состоянию на {now} год».\n"
-            f"- Прогноз — на {ahead} годы.\n"
-            f"- Ряд не должен обрываться на {stale} годах, и старые цифры "
-            f"нельзя подавать как «нынешнее состояние»."
+            f"СЕГОДНЯ {today_text('ru')}. Текущий год — {now}, он ещё не закончился: его итоговых цифр нет.\n"
+            f"- Каждое число — только то, что ты точно знаешь или что дано в разделе ФАКТЫ; рядом всегда год "
+            f"(«по данным за 2023 год»). Старые цифры не выдавай за «нынешнее состояние».\n"
+            f"- Не выдумывай цифры за годы, данных о которых у тебя нет: ряд заканчивается последним годом, за "
+            f"который данные есть (лучше всего {last}, например {span}, если он есть в ФАКТАХ).\n"
+            f"- Прогноз — на {ahead} годы и всегда помечен словом «прогноз».\n"
+            f"- Не выдумывай названия произведений, даты рождения и смерти, награды и цитаты: если не уверен — "
+            f"не пиши. Никогда не давай «примерную цитату»."
         )
     if language == "en":
         return (
-            f"TODAY IS {today_text('en')}. The current year is {now}.\n"
-            f"- The data series must end at {last} (for example {span}); "
-            f"\"as of {now}\" is fine.\n"
-            f"- Forecast for {ahead}.\n"
-            f"- The series must not stop at {stale}, and old figures must not "
-            f"be presented as the \"current state\"."
+            f"TODAY IS {today_text('en')}. The current year is {now} and it is not over: it has no final figures.\n"
+            f"- Every number is only what you know for sure or what the FACTS section gives; always write its year "
+            f"(\"according to 2023 data\"). Never present old figures as the \"current state\".\n"
+            f"- Do not invent figures for years you have no data for: a series ends at the latest year with real "
+            f"data (ideally {last}, e.g. {span}, if FACTS give it).\n"
+            f"- Forecast for {ahead}, always labelled \"forecast\".\n"
+            f"- Never invent titles of works, birth and death dates, awards or quotes: if unsure, leave them out. "
+            f"Never give an \"approximate quote\"."
         )
     return (
-        f"BUGUN {today_text('uz')}. Joriy yil — {now}.\n"
-        f"- Ma'lumot qatori {last}-yil bilan tugasin (masalan {span}); "
-        f"\"{now}-yil holatiga\" deb yozish mumkin.\n"
-        f"- Prognoz {ahead}-yillarga qilinadi.\n"
-        f"- Qator {stale}-yillarda tugab qolmasin va eski raqamlar "
-        f"\"hozirgi holat\" sifatida berilmasin."
+        f"BUGUN {today_text('uz')}. Joriy yil — {now}, u hali tugamagan: uning yakuniy raqamlari yo'q.\n"
+        f"- Har raqam — faqat sen aniq bilgan yoki FAKTLAR bo'limida berilgan qiymat; yonida doim yili "
+        f"tursin («2023-yil ma'lumotiga ko'ra»). Eski raqamni «hozirgi holat» deb berma.\n"
+        f"- Ma'lumoti yo'q yillarga raqam to'qima: qator ma'lumot bor oxirgi yil bilan tugasin (eng yaxshisi "
+        f"{last}-yil, masalan {span}, agar FAKTLARda bo'lsa).\n"
+        f"- Prognoz {ahead}-yillarga qilinadi va doim «prognoz» deb belgilanadi.\n"
+        f"- Asar nomlari, tug'ilgan va vafot sanalari, mukofotlar va iqtiboslarni to'qima: aniq bilmasang — "
+        f"yozma. Hech qachon «taxminiy iqtibos» berma."
     )
 
 

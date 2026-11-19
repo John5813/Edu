@@ -41,11 +41,14 @@ CORPUS_LIMIT = 24000              # AI ga beriladigan parchalar (belgi)
 
 SECTIONS_SYSTEM = """You plan the research for an educational presentation. Split the work into sections:
 first EVERY question or wish the client wrote (one section each, in the client's order, keep their meaning),
-then the core parts of the topic that are still missing (definition and types, current statistics for the last
-2-3 years, how it works, problems and solutions). If the topic has statistics, add a section with data for
+then the core parts of the topic that are still missing. For a PERSON (writer, poet, scientist, ruler, artist):
+exact birth and death dates and places, education and career, main works or achievements WITH their years,
+awards. For HISTORY or a place: key dates, names, events. For statistics, economy or politics: definition and
+types, current statistics for the last 2-3 years, how it works, problems and solutions. If the topic has statistics, add a section with data for
 Uzbekistan (compared with the world or neighbours). 4-8 sections in total.
 For each section write 1-2 web search queries: precise, factual, in English (more sources); for Uzbekistan data
-also one query in Russian or Uzbek. Ask for the latest data ("2025", "latest", "annual report").
+also one query in Russian or Uzbek. For statistics ask for the latest data ("2025", "latest", "annual report"); for a person or history ask for
+biography facts (Wikipedia, encyclopedias, official sites) in the person's own language and in English.
 Return ONLY JSON: {"sections": [{"title": "short section name in the client's language",
 "queries": ["...", "..."]}]}"""
 
@@ -111,7 +114,7 @@ def _lang_of(query: str) -> str:
 
 
 def _brave_web(query: str) -> List[dict]:
-    """Brave web qidiruvi. Kalit rad etilsa (401/403/429) — navbatdagi kalit."""
+    """Brave web qidiruvi. Kalit rad etilsa (401/402/403/429) — navbatdagi kalit."""
     from services import brave_keys
 
     params = {"q": query, "count": str(PER_QUERY), "extra_snippets": "true", "safesearch": "strict",
@@ -128,7 +131,7 @@ def _brave_web(query: str) -> List[dict]:
             with urllib.request.urlopen(req, timeout=20) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
-            if exc.code in (401, 403, 429):
+            if exc.code in (401, 402, 403, 429):
                 brave_keys.report_failure(key, exc.code)
                 continue
             raise
