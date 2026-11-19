@@ -33,6 +33,9 @@ def call_json(system: str, user: str, answer_tokens: int, *, language: str = "uz
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError:
+        joined = llm_client._joined_objects(cleaned)
+        if joined:
+            return joined
         salvaged = llm_client._salvage_partial_json(cleaned)
         if salvaged:
             return salvaged

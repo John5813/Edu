@@ -406,6 +406,27 @@ def _clean_json(raw: str) -> str:
     return cleaned
 
 
+def _joined_objects(text: str) -> dict | None:
+    """Javobda bir nechta JSON obyekt ketma-ket kelsa (yoki obyektdan keyin matn) — ularni birlashtiradi.
+
+    Arzon modellar (DeepSeek V4 Flash, o'ylashsiz) ba'zan `{"picks": ...}` dan keyin yana `{"spare": ...}` yoki
+    izoh yozadi: `json.loads` «Extra data» bilan yiqilardi va masalan rasm tanlash butunlay o'tkazib yuborilardi.
+    Birinchi obyektdagi kalitlar ustun; keyingilaridan faqat yangi kalitlar qo'shiladi."""
+    decoder = json.JSONDecoder()
+    merged: dict = {}
+    pos = text.find("{")
+    while pos != -1:
+        try:
+            obj, end = decoder.raw_decode(text, pos)
+        except json.JSONDecodeError:
+            break
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                merged.setdefault(key, value)
+        pos = text.find("{", end)
+    return merged or None
+
+
 def _salvage_partial_json(text: str) -> dict | None:
     try:
         slides_start = text.find('"slides"')
@@ -837,6 +858,10 @@ def _call_openrouter(system_prompt: str, user_prompt: str, temperature: float = 
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError:
+        joined = _joined_objects(cleaned)
+        if joined:
+            log.info("JSON: bir nechta obyekt yoki ortiqcha matn — birlashtirildi (%s)", ", ".join(list(joined)[:6]))
+            return joined
         log.error("JSON parse xato. Xom javob (2000 belgi): %s", raw[:2000])
         salvaged = _salvage_partial_json(cleaned)
         if salvaged:
