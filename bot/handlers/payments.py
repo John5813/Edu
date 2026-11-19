@@ -432,19 +432,40 @@ async def handle_payment_screenshot(message: Message, state: FSMContext, db: Dat
         else:
             file_id = message.document.file_id
 
+        # Bir chek — bir marta (AI'siz, faqat faylning o'zi bo'yicha, shu mijozning o'z cheklari orasida): adminga
+        # yetib borgan chekni qayta yuborsa, adminga bormaydi — mijozga «tasdiqlanishini kuting» deyiladi.
+        from services.receipts import flow as receipt_flow, once as receipt_once, texts as receipt_texts
+        file_bytes, file_uid = b"", receipt_flow._uid_of(message)
+        try:
+            file_bytes = await receipt_flow._download(message.bot, file_id)
+            seen = await receipt_once.find(user.telegram_id, file_bytes, file_uid)
+        except Exception as exc:
+            logger.warning("Chek takrorini tekshirib bo'lmadi (%s): %s", user.telegram_id, exc)
+            seen = None
+        if seen:
+            await message.answer(receipt_texts.user_text(receipt_flow._lang(user_lang),
+                                                         receipt_once.reply_key(seen["status"])),
+                                 reply_markup=get_main_keyboard(user_lang))
+            logger.info("Takror chek adminga yuborilmadi: mijoz %s, to'lov %s (%s)", user.telegram_id,
+                        seen["payment_id"], seen["status"])
+            return
+
         # AI chekni o'qiydi va tekshiradi: ishonchli cheklar avtomatik tasdiqlanadi, qolganlari
         # (eski, takroriy, shubhali) o'qilgan ma'lumoti bilan adminga boradi. AI ishlamasa —
         # quyidagi avvalgi qo'lda tekshiruvga o'tiladi.
-        from services.receipts import flow as receipt_flow
         outcome = await receipt_flow.process(message, data, db, user, user_lang, source,
                                              keyboard=get_main_keyboard(user_lang))
         if outcome is not None:
+            if file_bytes and outcome.payment_id:
+                await receipt_once.remember(user.telegram_id, file_bytes, file_uid, outcome.payment_id)
             if not outcome.clear_state:
                 skip_state_clear = True
             return
 
         # Create payment record with source
         payment_id = await db.create_payment(user.id, amount, file_id, source)
+        if payment_id and file_bytes:
+            await receipt_once.remember(user.telegram_id, file_bytes, file_uid, payment_id)
 
         if not payment_id:
             if user_lang == "uz":

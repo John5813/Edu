@@ -28,6 +28,9 @@ _USER: Dict[str, Dict[str, str]] = {
                         "ko'rinishida yuboring."),
         "own_pending": "ℹ️ Bu chek allaqachon yuborilgan va tekshirilmoqda. Qayta yuborish shart emas.",
         "own_done": "ℹ️ Bu chek allaqachon qabul qilingan va summa hisobingizga qo'shilgan.",
+        "once_pending": "ℹ️ Bu chekni allaqachon yuborgansiz — u adminga yetib borgan. Tasdiqlanishini kuting, qayta yuborish shart emas.",
+        "once_rejected": ("ℹ️ Bu chek avval ko'rib chiqilgan va tasdiqlanmagan. Uni qayta yuborish natijani o'zgartirmaydi.\n"
+                          "Savol bo'lsa: " + ADMIN_CONTACT),
         "duplicate": ("⚠️ Bu chek avval ishlatilgan. Takroriy chek bilan to'lov qabul qilinmaydi.\n\n"
                       "Agar xato bo'lgan deb o'ylasangiz, adminga murojaat qiling: " + ADMIN_CONTACT),
         "stale": ("⏳ Chek eski ko'rinadi ({age} oldin). Agar bu hozirgi to'lovingiz bo'lsa, adminga murojaat "
@@ -62,6 +65,9 @@ _USER: Dict[str, Dict[str, str]] = {
         "unsupported": "❌ Не удалось прочитать этот тип файла. Отправьте чек как фото (скриншот), PDF или DOCX.",
         "own_pending": "ℹ️ Этот чек уже отправлен и проверяется. Повторно отправлять не нужно.",
         "own_done": "ℹ️ Этот чек уже принят, сумма зачислена на ваш счёт.",
+        "once_pending": "ℹ️ Вы уже отправили этот чек — он у админа. Дождитесь подтверждения, повторно отправлять не нужно.",
+        "once_rejected": ("ℹ️ Этот чек уже рассмотрен и не подтверждён. Повторная отправка не изменит решение.\n"
+                          "Вопросы: " + ADMIN_CONTACT),
         "duplicate": ("⚠️ Этот чек уже использовался. Повторный чек не принимается.\n\n"
                       "Если считаете, что это ошибка, обратитесь к админу: " + ADMIN_CONTACT),
         "stale": ("⏳ Чек выглядит старым ({age} назад). Если это ваш текущий платёж, обратитесь к админу: "
@@ -96,6 +102,9 @@ _USER: Dict[str, Dict[str, str]] = {
         "unsupported": "❌ This file type cannot be read. Please send the receipt as a photo (screenshot), PDF or DOCX.",
         "own_pending": "ℹ️ This receipt has already been sent and is being checked. No need to resend.",
         "own_done": "ℹ️ This receipt was already accepted and the amount is on your balance.",
+        "once_pending": "ℹ️ You have already sent this receipt — the admin has it. Please wait for approval, no need to resend.",
+        "once_rejected": ("ℹ️ This receipt was already reviewed and not approved. Sending it again won't change the decision.\n"
+                          "Questions: " + ADMIN_CONTACT),
         "duplicate": ("⚠️ This receipt was already used. Repeated receipts are not accepted.\n\n"
                       "If you think this is a mistake, contact the admin: " + ADMIN_CONTACT),
         "stale": ("⏳ The receipt looks old ({age} ago). If this is your current payment, contact the admin: "
