@@ -582,9 +582,6 @@ async def notify_admins_about_payment(bot, user, amount, message_id, payment_id,
     user_link = await _web_accounts.admin_label(user)
 
     # Add source info if present
-    from services.receipts import auto_paid
-    auto_note = await auto_paid.admin_note(user.telegram_id)
-
     source_text = ""
     if source == "help":
         source_text = "\n📍 Manba: 📞 Yordam bo'limi orqali"
@@ -604,8 +601,7 @@ async def notify_admins_about_payment(bot, user, amount, message_id, payment_id,
                 f"👤 Foydalanuvchi: {user_link}\n"
                 f"💵 Summasi: {amount:,} so'm\n"
                 f"📅 To'lov ID: {payment_id}{source_text}\n\n"
-                + (f"{auto_note}\n\n" if auto_note else "")
-                + f"⬆️ Yuqoridagi chekni tekshiring va to'lovni tasdiqlang:"
+                f"⬆️ Yuqoridagi chekni tekshiring va to'lovni tasdiqlang:"
             )
 
             sent = await bot.send_message(

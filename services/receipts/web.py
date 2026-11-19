@@ -167,10 +167,7 @@ async def _manual(web: WebMessage, bot, user, amount: int, lang: str) -> Dict:
     bot = admin_bot.for_admins(bot)
     link = await _web_accounts.admin_label(user)
     text = (f"🧾 Yangi to'lov (sayt):\n👤 Foydalanuvchi: {link}\n💵 Summasi: {amount:,} so'm\n"
-            f"📅 To'lov ID: {payment_id}\n\n")
-    from . import auto_paid
-    note = await auto_paid.admin_note(user.telegram_id)
-    text += (f"{note}\n\n" if note else "") + "⬆️ Yuqoridagi chekni tekshiring va to'lovni tasdiqlang:"
+            f"📅 To'lov ID: {payment_id}\n\n⬆️ Yuqoridagi chekni tekshiring va to'lovni tasdiqlang:")
     sent_any = False
     for admin_id in config.ADMIN_IDS:
         try:
