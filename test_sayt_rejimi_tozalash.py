@@ -211,6 +211,27 @@ async def main():
     text2, calls2 = await screenshot("chek1b")           # o'sha fayl (baytlari bir xil), qayta yuborildi
     check("bot: o'sha chek qayta yuborildi — adminga BORMADI, «tasdiqlanishini kuting»",
           "CopyMessage" not in calls2 and "yuborgansiz" in text2 and "kuting" in text2, (text2, calls2))
+    # Faqat bitta rasm yoki PDF (5 MB gacha): albom, APK, PPTX, video, og'ir fayl — qabul qilinmaydi, holat qoladi.
+    await ctx.set_state("PaymentStates:waiting_for_screenshot"); await ctx.update_data(payment_amount=20000)
+    before = len(session.calls)
+    t_a1, _ = await send(msg(None, photo=[PhotoSize(file_id="a1", file_unique_id="a1u", width=90, height=160)], media_group_id="G1"))
+    t_a2, _ = await send(msg(None, photo=[PhotoSize(file_id="a2", file_unique_id="a2u", width=90, height=160)], media_group_id="G1"))
+    names = [type(m).__name__ for m in session.calls[before:]]
+    check("bot: bir nechta rasm (albom) — bitta ogohlantirish, adminga bormaydi", "Bir nechta rasm" in t_a1 and not t_a2
+          and "CopyMessage" not in names and await ctx.get_state() == "PaymentStates:waiting_for_screenshot", (t_a1, t_a2, names))
+    for doc in (Document(file_id="k1", file_unique_id="k1u", file_name="ilova.apk", mime_type="application/vnd.android.package-archive", file_size=3_000_000),
+                Document(file_id="k2", file_unique_id="k2u", file_name="taqdimot.pptx", file_size=800_000),
+                Document(file_id="k3", file_unique_id="k3u", file_name="chek.jpg", mime_type="image/jpeg", file_size=9_000_000)):
+        before = len(session.calls)
+        text, _ = await send(msg(None, document=doc))
+        names = [type(m).__name__ for m in session.calls[before:]]
+        check(f"bot: {doc.file_name} — qabul qilinmaydi, holat qoladi", ("faqat bitta rasm" in text or "juda katta" in text)
+              and "CopyMessage" not in names and "GetFile" not in names
+              and await ctx.get_state() == "PaymentStates:waiting_for_screenshot", (text, names))
+    from aiogram.types import Video
+    text, _ = await send(msg(None, video=Video(file_id="v1", file_unique_id="v1u", width=10, height=10, duration=3)))
+    check("bot: chek o'rnida video — qabul qilinmaydi", "faqat bitta rasm" in text, text)
+    await ctx.clear()
 
     print("3) Do'kon: saytda sotib olish (sayt rejimi)")
     await site_mode.set(db, True)

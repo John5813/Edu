@@ -389,6 +389,21 @@ async def handle_back_button(message: Message, state: FSMContext, user_lang: str
     await message.answer(text, reply_markup=get_payment_amount_keyboard(user_lang))
 
 
+_ALBUMS: dict = {}
+
+
+def _first_of_album(group_id: str) -> bool:
+    """Albomning birinchi rasmimi (mijozga bir marta javob beriladi, qolgan rasmlar jim o'tkaziladi)."""
+    import time
+    now = time.time()
+    for key in [k for k, t in _ALBUMS.items() if now - t > 600]:
+        _ALBUMS.pop(key, None)
+    if group_id in _ALBUMS:
+        return False
+    _ALBUMS[group_id] = now
+    return True
+
+
 @router.message(PaymentStates.waiting_for_screenshot, F.content_type.in_([ContentType.PHOTO, ContentType.DOCUMENT]))
 async def handle_payment_screenshot(message: Message, state: FSMContext, db: Database, user_lang: str, user=None):
     """Handle payment screenshot"""
@@ -426,11 +441,30 @@ async def handle_payment_screenshot(message: Message, state: FSMContext, db: Dat
             await state.clear()
             return
 
-        # Get file ID
+        # Faqat BITTA rasm yoki PDF, 5 MB gacha: albom (bir nechta rasm), PPTX, APK, og'ir fayl qabul qilinmaydi.
+        # Mijoz shu holatda qoladi — to'g'ri chekni darhol qayta yuborishi mumkin.
+        from services.receipts import accept as receipt_accept, texts as receipt_texts
+        from services.receipts.flow import _lang as receipt_lang
+        album = getattr(message, "media_group_id", None)
+        if album:
+            skip_state_clear = True
+            if _first_of_album(album):
+                await message.answer(receipt_texts.user_text(receipt_lang(user_lang), "album"))
+            return
         if message.photo:
             file_id = message.photo[-1].file_id
+            name, mime, size = "photo.jpg", "image/jpeg", getattr(message.photo[-1], "file_size", None)
         else:
             file_id = message.document.file_id
+            doc = message.document
+            name, mime, size = (getattr(doc, "file_name", "") or "", getattr(doc, "mime_type", "") or "",
+                                getattr(doc, "file_size", None))
+        problem = receipt_accept.problem(name, mime, size)
+        if problem:
+            skip_state_clear = True
+            await message.answer(receipt_texts.user_text(receipt_lang(user_lang), problem, limit=receipt_accept.MAX_MB,
+                                                         size=round((size or 0) / 1048576, 1)))
+            return
 
         # Bir chek — bir marta (AI'siz, faqat faylning o'zi bo'yicha, shu mijozning o'z cheklari orasida): adminga
         # yetib borgan chekni qayta yuborsa, adminga bormaydi — mijozga «tasdiqlanishini kuting» deyiladi.
@@ -518,6 +552,16 @@ async def handle_payment_screenshot(message: Message, state: FSMContext, db: Dat
     finally:
         if not skip_state_clear:
             await state.clear()
+
+@router.message(PaymentStates.waiting_for_screenshot, ~F.text)
+async def payment_wrong_content(message: Message, user_lang: str):
+    """Chek kutilmoqda, lekin video, ovozli xabar, stiker, GIF va h.k. keldi — qabul qilinmaydi, holat saqlanadi."""
+    from services.receipts import accept as receipt_accept, texts as receipt_texts
+    from services.receipts.flow import _lang as receipt_lang
+    if message.media_group_id and not _first_of_album(message.media_group_id):
+        return
+    await message.answer(receipt_texts.user_text(receipt_lang(user_lang), "bad_file", limit=receipt_accept.MAX_MB))
+
 
 async def notify_admins_about_payment(bot, user, amount, message_id, payment_id, source=""):
     """Notify admins about new payment"""

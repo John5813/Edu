@@ -657,8 +657,8 @@
 
           <div style="margin-top:22px"><div class="lab">${online ? '4' : '3'}. To‘lov chekini yuklang</div>
             <div class="drop" id="drop"><div style="font-weight:700">Chekni shu yerga tashlang yoki tanlang</div>
-              <div class="hint">Rasm, PDF yoki DOCX · 12 MB gacha. Eng yaxshisi: to‘lov tarixidagi asl kvitansiya (sana, qabul qiluvchi karta va ID ko‘rinsin).</div>
-              <input type="file" id="file" accept="image/*,.pdf,.docx" style="margin-top:12px"></div>
+              <div class="hint">Rasm yoki PDF · 5 MB gacha. Eng yaxshisi: to‘lov tarixidagi asl kvitansiya (sana, qabul qiluvchi karta va ID ko‘rinsin).</div>
+              <input type="file" id="file" accept="image/jpeg,image/png,image/webp,image/heic,.pdf" style="margin-top:12px"></div>
             <div id="r-out" style="margin-top:14px"></div></div>
         </div>
 
@@ -693,6 +693,11 @@
 
     async function send(file) {
       if (!amount) { $('r-out').innerHTML = '<div class="note bad">Avval summani tanlang yoki kiriting.</div>'; return; }
+      // Faqat rasm yoki PDF, 5 MB gacha — og'ir yoki boshqa turdagi fayl serverga yuklanmaydi.
+      if (file.size > 5 * 1024 * 1024) { $('r-out').innerHTML = '<div class="note bad">Fayl 5 MB dan katta.</div>'; $('file').value = ''; return; }
+      if (!/\.(jpe?g|png|webp|heic|heif|pdf)$/i.test(file.name || '') && !/^image\/(jpeg|png|webp|heic|heif)$|^application\/pdf$/.test(file.type || '')) {
+        $('r-out').innerHTML = '<div class="note bad">Chek sifatida faqat rasm (JPG, PNG) yoki PDF qabul qilinadi.</div>'; $('file').value = ''; return;
+      }
       $('r-out').innerHTML = '<span class="spin"></span> &nbsp;Chek tekshirilmoqda…';
       const form = new FormData();
       form.append('amount', String(amount)); form.append('started', started); form.append('file', file, file.name);
@@ -709,7 +714,11 @@
     const drop = $('drop');
     ['dragenter', 'dragover'].forEach((n) => drop.addEventListener(n, (e) => { e.preventDefault(); drop.classList.add('over'); }));
     ['dragleave', 'drop'].forEach((n) => drop.addEventListener(n, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
-    drop.addEventListener('drop', (e) => { const f = e.dataTransfer.files[0]; if (f) send(f); });
+    drop.addEventListener('drop', (e) => {
+      const fs = e.dataTransfer.files;
+      if (fs.length > 1) { $('r-out').innerHTML = '<div class="note bad">Faqat bitta chek faylini yuboring.</div>'; return; }
+      if (fs[0]) send(fs[0]);
+    });
   }
   function statusPill(s) {
     return s === 'approved' ? '<span class="pill ok">Tasdiqlandi</span>' : s === 'rejected' ? '<span class="pill bad">Rad etildi</span>' : '<span class="pill wait">Kutilmoqda</span>';
