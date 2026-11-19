@@ -20,6 +20,8 @@ log = logging.getLogger(__name__)
 
 ON = os.getenv("PREMIUM_FRESH_FACTS", "1") != "0"
 BUDGET_SEC = 90
+# Brave web so'rovlari (har biri pullik, ~0,5 sent): 3D katalogdagi 10 ta o'rniga — 5 ta (har bo'limga bittadan).
+MAX_QUERIES = int(os.getenv("PREMIUM_FRESH_QUERIES") or 5)
 MAX_CHARS = 3600              # manba matni (slayd so'rovida 4000 belgigacha) ichida faktlarga ajratiladigan joy
 
 # Yangi raqam kerak bo'ladigan mavzular: statistika, iqtisod, siyosat, aholi, bozor, reyting (uz, ru, en, kk).
@@ -156,7 +158,8 @@ async def gather(topic: str, preferences: str = "", language: str = "uz") -> str
         if not tadqiqot.enabled():
             return ""
         research = await asyncio.wait_for(
-            asyncio.to_thread(tadqiqot.tayyorla, topic, preferences, language, BUDGET_SEC), BUDGET_SEC + 30)
+            asyncio.to_thread(tadqiqot.tayyorla, topic, preferences, language, BUDGET_SEC, MAX_QUERIES),
+            BUDGET_SEC + 30)
     except Exception as exc:                  # noqa: BLE001 — faktsiz ham taqdimot yoziladi
         log.warning("Yangi faktlar olinmadi (%s): %s", topic[:60], exc)
         return ""
