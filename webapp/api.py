@@ -211,7 +211,7 @@ async def auth_poll(request: web.Request) -> web.Response:
 
 PREV_COOKIE = "edu_prev"
 PREV_TTL = 10 * 60
-GO_PLACES = {"home": "/", "docs": "/app#/docs", "profile": "/app#/profile"}
+GO_PLACES = {"home": "/", "docs": "/app#/docs", "profile": "/app#/profile", "wallet": "/app#/wallet"}
 
 
 def go_target(to: str) -> str:

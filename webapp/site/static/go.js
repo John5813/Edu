@@ -11,7 +11,7 @@
   const box = document.getElementById('go');
   const q = new URLSearchParams(location.search);
   const to = (q.get('to') || '').replace(/[^a-zA-Z0-9_]/g, '');
-  const PLACES = {home: '/', docs: '/app#/docs', profile: '/app#/profile'};
+  const PLACES = {home: '/', docs: '/app#/docs', profile: '/app#/profile', wallet: '/app#/wallet'};
   let bot = 'Edufayl_bot';
 
   async function target() {

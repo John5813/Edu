@@ -1168,6 +1168,33 @@ This document was created with AI assistance and serves as your helper.
         "kk": "🎉 Жаңа пайдаланушы сіздің сілтемеңіз арқылы қосылды! Бонус кабинетіңізге қосылды."
     },
     "site_mode_cabinet_btn": {"uz": "🌐 Kabinetim", "ru": "🌐 Мой кабинет", "en": "🌐 My cabinet", "kk": "🌐 Менің кабинетім"},
+    # Jarayondan tashqari tashlangan rasm/fayl (bot/handlers/stray_files.py): ko'pincha adashib yuborilgan to'lov cheki.
+    "stray_file_site": {
+        "uz": "📎 Bot rasm va fayllarni qabul qilmaydi.\n\n💳 <b>Agar bu to'lov cheki bo'lsa</b> — uni saytdagi «To'lov» "
+              "bo'limi orqali yuboring: pastdagi tugmani bosing, sayt sizni o'zi taniydi. Chek o'sha yerda tekshiriladi va "
+              "summa hisobingizga tushadi.\n\n<i>Sahifa ochilmasa — «Qayta yuklash» (↻) tugmasini bosing.</i>",
+        "ru": "📎 Бот не принимает фото и файлы.\n\n💳 <b>Если это чек об оплате</b> — отправьте его через раздел "
+              "«Оплата» на сайте: нажмите кнопку ниже, сайт узнает вас сам. Чек проверят там, и сумма поступит на ваш "
+              "счёт.\n\n<i>Если страница не открывается — нажмите «Обновить» (↻).</i>",
+        "en": "📎 The bot doesn't accept photos or files.\n\n💳 <b>If this is a payment receipt</b>, send it through the "
+              "“Payment” section on the website: tap the button below, the website will recognise you. The receipt is "
+              "checked there and the amount goes to your balance.\n\n<i>If the page doesn't open, tap “Reload” (↻).</i>",
+        "kk": "📎 Бот сурет пен файлдарды қабылдамайды.\n\n💳 <b>Егер бұл төлем чегі болса</b> — оны сайттағы «Төлем» "
+              "бөлімі арқылы жіберіңіз: төмендегі түймені басыңыз, сайт сізді өзі таниды. Чек сол жерде тексеріліп, "
+              "сома шотыңызға түседі.\n\n<i>Бет ашылмаса — «Қайта жүктеу» (↻) түймесін басыңыз.</i>",
+    },
+    "stray_file_btn": {"uz": "💳 Sayt orqali yuborish", "ru": "💳 Отправить через сайт",
+                       "en": "💳 Send via the website", "kk": "💳 Сайт арқылы жіберу"},
+    "stray_file_bot": {
+        "uz": "📎 Bot bu yerda rasm va fayllarni qabul qilmaydi.\n\n💳 <b>Agar bu to'lov cheki bo'lsa</b> — menyudagi "
+              "«{button}» tugmasini bosing, summani tanlang va chekni o'sha yerda yuboring.",
+        "ru": "📎 Здесь бот не принимает фото и файлы.\n\n💳 <b>Если это чек об оплате</b> — нажмите в меню кнопку "
+              "«{button}», выберите сумму и отправьте чек там.",
+        "en": "📎 The bot doesn't accept photos or files here.\n\n💳 <b>If this is a payment receipt</b>, tap "
+              "“{button}” in the menu, choose the amount and send the receipt there.",
+        "kk": "📎 Мұнда бот сурет пен файлдарды қабылдамайды.\n\n💳 <b>Егер бұл төлем чегі болса</b> — мәзірдегі "
+              "«{button}» түймесін басып, соманы таңдаңыз және чекті сол жерде жіберіңіз.",
+    },
     # Saytda buyurtma qilingan fayl botga yetkaziladi (services/web_jobs.deliver_to_telegram).
     "web_file_ready": {
         "uz": "✅ «{title}» tayyor. Fayl saytdagi kabinetingizda ham 72 soat turadi.",

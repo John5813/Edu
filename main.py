@@ -26,7 +26,7 @@ from bot.handlers import test as test_handler
 from bot.handlers import premium_presentation as premium_presentation_handler
 from bot.handlers import project_work
 from bot.handlers import store
-from bot.handlers import emoji as emoji_handler
+from bot.handlers import stray_files as stray_files_handler
 from bot.handlers import reengage as reengage_handler
 from bot.middlewares import LanguageMiddleware, DatabaseMiddleware
 from database.database import init_db
@@ -617,7 +617,8 @@ async def main():
     # umumiy successful_payment handleridan oldin turadi; /start buy_... ni
     # ushlash uchun esa start.router dan oldin.
     dp.include_router(store.router)  # Saytdagi tayyor ishni sotib olish
-    dp.include_router(emoji_handler.router)  # Handle emoji mosaic conversion
+    # Jarayondan tashqari tashlangan rasm/fayl: «to'lov cheki bo'lsa — sayt orqali yuboring» (eski stiker xizmati o'rnida)
+    dp.include_router(stray_files_handler.router)
     dp.include_router(payments.router)  # Handle payment buttons
     dp.include_router(samples.router)  # Handle samples view and admin management
     dp.include_router(prices_handler.router)  # «💵 Narxlar»: hamma xizmatlar narxi va dizayn uslublari
@@ -665,7 +666,6 @@ async def main():
     from services import admin_alerts
     admin_alerts.set_bot(bot)
     bot_info = await bot.get_me()
-    emoji_handler.set_bot_username(bot_info.username or "")
     webapp.BOT_USERNAME = bot_info.username or ""
     # Bot qayta ishga tushganda to'xtab qolgan kitob tarjimalari davom etadi.
     from services import book_jobs

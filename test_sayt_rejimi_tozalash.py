@@ -5,6 +5,8 @@ Bot main.py dagi tartibda (middleware va routerlar) yig'iladi, Telegram serveri 
   PDF → DOCX, Yordam, referal, Narxlar — hammasi saytga yoki «tez orada»ga, summa va «to'lov»siz;
 - rejim o'chiq: «To'lov qilish», Yordam, eski tugmalar — avvalgi bot javoblari;
 - do'kon: saytda balansdan sotib olish, fayl «Hujjatlarim» va botga, pul yetmasa — yechilmaydi;
+- adashib tashlangan rasm/fayl (to'lov cheki): sayt rejimida — saytdagi «To'lov» sahifasi tugmasi, aks holda —
+  botdagi «To'lov qilish»; mijoz tilida; eski «rasm → stiker» xizmati yo'q;
 - admin-bot: faqat adminlar; to'lov xabarlari sayt rejimida admin-bot orqali; to'lov tasdig'i mijozga — asosiy bot orqali.
 
     python test_sayt_rejimi_tozalash.py
@@ -73,7 +75,7 @@ def build():
     from bot.handlers import (start, documents, payments, admin, settings, samples, media, converter, pptx_converter,
                               abs_converter, book_translate, project_work, store)
     from bot.handlers import prices as prices_handler, test as test_handler
-    from bot.handlers import premium_presentation as premium, emoji as emoji_handler, reengage as reengage_handler
+    from bot.handlers import premium_presentation as premium, stray_files as stray_files_handler, reengage as reengage_handler
     from bot.handlers import site_mode as site_mode_handler
     from bot.middlewares import (BlockedUserMiddleware, CommandResetMiddleware, DatabaseMiddleware,
                                  LanguageMiddleware, UzScriptMiddleware)
@@ -87,7 +89,7 @@ def build():
     dp.update.outer_middleware(admin_bot.gate)
     for r in (admin.router, site_mode_handler.router, reengage_handler.router, settings.router, converter.router,
               pptx_converter.router, abs_converter.router, premium.router, project_work.router, store.router,
-              emoji_handler.router, payments.router, samples.router, prices_handler.router, media.router,
+              stray_files_handler.router, payments.router, samples.router, prices_handler.router, media.router,
               book_translate.router, test_handler.router, documents.router, start.router):
         dp.include_router(r)
     return dp
@@ -165,6 +167,21 @@ async def main():
     check("referal: havola bor, summa yo'q", "ref_" in text and "so'm" not in text and "Pul" not in text, text)
     text, urls = await send(msg(get_text("uz", "main_menu.referat")))
     check("xizmat tugmasi → sayt", urls and "to=referat" in urls[0], (text, urls))
+    from aiogram.types import Document, PhotoSize
+    photo = [PhotoSize(file_id="p1", file_unique_id="pu1", width=90, height=160)]
+    text, urls = await send(msg(None, photo=photo))
+    check("adashib tashlangan skrinshot → «sayt orqali yuboring» + to'lov sahifasi tugmasi",
+          "to'lov cheki" in text and urls and "to=wallet" in urls[0], (text, urls))
+    check("stiker yasalmaydi (eski xizmat o'chirilgan)", not any(type(m).__name__ in ("CreateNewStickerSet", "SendSticker",
+                                                                                   "AddStickerToSet") for m in session.calls))
+    text, urls = await send(msg(None, document=Document(file_id="d1", file_unique_id="du1", file_name="chek.pdf")))
+    check("adashib tashlangan fayl (PDF chek) → o'sha xabar", "to'lov cheki" in text and urls and "to=wallet" in urls[0],
+          (text, urls))
+    await Database.create_user(USER + 1, "ivan", "Ivan", "ru")
+    text, urls = await send(msg(None, uid=USER + 1, photo=photo))
+    check("xabar mijoz tilida (ruscha)", "чек об оплате" in text and urls and "to=wallet" in urls[0], text)
+    from webapp import api as _api
+    check("to'lov sahifasi manzili: /app#/wallet", _api.go_target("wallet") == "/app#/wallet")
 
     print("2) Sayt rejimi O'CHIQ: hammasi avvalgidek")
     await site_mode.set(db, False)
@@ -178,6 +195,9 @@ async def main():
     check("do'kon havolasi → botdagi xarid (narx bilan)", "Samarqand tarixi" in text and "so'm" in text, text[:120])
     text, _ = await send(msg(get_text("uz", "site_mode_cabinet_btn")))
     check("eski «Kabinetim» → hisob va to'liq menyu", "hisob" in text.lower(), text[:80])
+    text, urls = await send(msg(None, photo=[PhotoSize(file_id="p2", file_unique_id="pu2", width=90, height=160)]))
+    check("rejim o'chiq: skrinshot → botdagi «To'lov qilish» tugmasi orqali yuborilsin",
+          "to'lov cheki" in text and get_text("uz", "main_menu.payment") in text and not urls, text)
 
     print("3) Do'kon: saytda sotib olish (sayt rejimi)")
     await site_mode.set(db, True)
