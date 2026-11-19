@@ -295,7 +295,7 @@ def stock_share(results: Sequence[dict]) -> float:
 
 
 async def _brave(query: str, search_lang: str = "") -> List[dict]:
-    """Brave so'rovi. Kalit rad etilsa (401/403/429) — navbatdagi kalit bilan yana urinadi."""
+    """Brave so'rovi. Kalit rad etilsa (401/402/403/429) — navbatdagi kalit bilan yana urinadi."""
     from services import brave_keys
 
     params = {"q": query, "count": str(RESULTS), "safesearch": "strict"}
@@ -311,7 +311,7 @@ async def _brave(query: str, search_lang: str = "") -> List[dict]:
         headers = {"Accept": "application/json", "X-Subscription-Token": key}
         async with aiohttp.ClientSession(timeout=timeout, trust_env=True) as session:
             async with session.get(BRAVE_URL, params=params, headers=headers) as resp:
-                if resp.status in (401, 403, 429):
+                if resp.status in (401, 402, 403, 429):
                     brave_keys.report_failure(key, resp.status)
                     log.warning("Brave kaliti %s rad etildi (HTTP %s) — keyingisi", brave_keys.mask(key), resp.status)
                     continue

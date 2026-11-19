@@ -15,10 +15,14 @@ def call_json(system: str, user: str, answer_tokens: int, *, language: str = "uz
     from services import ai_usage
     from services.premium_presentation import llm_client, prompts
 
+    from services.premium_presentation import config as premium_config
+
+    # Admin panelda o'ylash o'chirilgan bo'lsa (arzon model, masalan DeepSeek Flash) — bu yerda ham o'ylamaydi.
+    think = (premium_config.PREMIUM_REASONING or "").strip().lower() != "none"
     payload = {
         "temperature": temperature,
-        "max_tokens": answer_tokens + THINK_TOKENS,
-        "reasoning": {"max_tokens": THINK_TOKENS, "exclude": True},
+        "max_tokens": answer_tokens + (THINK_TOKENS if think else 0),
+        "reasoning": {"max_tokens": THINK_TOKENS, "exclude": True} if think else {"effort": "none", "exclude": True},
         "response_format": {"type": "json_object"},
         "messages": [{"role": "system", "content": llm_client._with_today(system)},
                      {"role": "user", "content": user}],

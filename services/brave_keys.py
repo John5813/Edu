@@ -98,12 +98,12 @@ def take() -> str:
 
 
 def report_failure(key: str, status: int) -> None:
-    """Brave kalitni rad etdi: 429 — shu oy limiti tugagan, 401/403 — kalit yaroqsiz."""
+    """Brave kalitni rad etdi: 429 yoki 402 (kredit tugagan) — shu oy limiti tugagan, 401/403 — kalit yaroqsiz."""
     with _lock:
         doc = _load()
         for k in doc["keys"]:
             if k["key"] == key:
-                if status == 429:
+                if status in (429, 402):
                     k["used"] = LIMIT
                 else:
                     k["failed"] = True
