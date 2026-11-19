@@ -22,9 +22,15 @@
     let res, data;
     try {
       res = await fetch('/api/v1' + path, init);
-      data = await res.json();
     } catch (e) {
       throw Object.assign(new Error('Aloqa yo‘q. Internetni tekshirib, qayta urining.'), {code: 'network'});
+    }
+    try {
+      data = await res.json();
+    } catch (e) {
+      // Javob keldi, lekin JSON emas: sayt oldidagi Cloudflare'ning xato sahifasi (502/504/524) — internet emas, server.
+      throw Object.assign(new Error('Server hozir javob bermadi. Birozdan keyin qayta urining.'),
+        {code: 'bad_reply', status: res.status});
     }
     if (!res.ok || data.ok === false) {
       throw Object.assign(new Error(data.error || 'Xatolik yuz berdi'), {code: data.code || String(res.status), status: res.status, data});

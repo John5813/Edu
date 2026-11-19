@@ -271,6 +271,44 @@ async def main():
           res["verdict"] == "review" and res["pending"] and len(await Database.get_pending_payments()) == pend_before + 1, res)
     await Database().set_feature_status("receipt_ai", True)
 
+    print("9b) Uzoq tekshiruv: ulanish uzilmaydi (Cloudflare 100 s), qayta yuborilgan forma ikkinchi tekshiruv boshlamaydi")
+    from services.receipts import web as _rweb
+    calls, real_submit, wait0 = [], _rweb.submit, _wa.RECEIPT_WAIT
+    gate = asyncio.Event()
+
+    async def slow_submit(*a, **k):
+        calls.append(1)
+        await gate.wait()
+        return {"verdict": "review", "message": "Adminga yuborildi", "retry": False, "credited": None, "pending": True}
+    _rweb.submit, _wa.RECEIPT_WAIT = slow_submit, 0.2
+    _wa._hits.clear()
+
+    def nform(nonce):
+        f = form(10_000, b"CHEK-SLOW"); f.add_field("nonce", nonce); return f
+    r = await client.post("/api/v1/wallet/receipt", data=nform("abc123"), headers=origin)
+    res = await r.json()
+    check("tekshiruv cho'zilsa — tez javob «tekshirilmoqda» va so'rash raqami", r.status == 200 and res.get("checking")
+          and res.get("check"), res)
+    r2 = await (await client.post("/api/v1/wallet/receipt", data=nform("abc123"), headers=origin)).json()
+    check("uzilgandan keyin o'sha forma qayta yuborildi — yangi tekshiruv boshlanmadi", len(calls) == 1
+          and r2.get("check") == res.get("check"), (calls, r2))
+    poll = await (await client.get("/api/v1/wallet/receipt/" + res["check"])).json()
+    check("natija hali yo'q — yana «tekshirilmoqda»", poll.get("checking"), poll)
+    gate.set()
+    await asyncio.sleep(0)
+    poll = await (await client.get("/api/v1/wallet/receipt/" + res["check"])).json()
+    check("natija tayyor — so'rov orqali olinadi", poll.get("ok") and poll.get("verdict") == "review" and poll.get("pending")
+          and "balance" in poll, poll)
+    r = await client.get("/api/v1/wallet/receipt/" + "999-" + res["check"].split("-", 1)[1])
+    check("boshqa mijozning tekshiruvi ko'rinmaydi", r.status == 404, r.status)
+    _rweb.submit, _wa.RECEIPT_WAIT = real_submit, wait0
+    js = open("webapp/site/static/site.js", encoding="utf8").read()
+    check("sayt: JSON bo'lmagan javob (Cloudflare 524) «aloqa yo'q» emas, «server javob bermadi» deb ko'rsatiladi",
+          "bad_reply" in js and "Server hozir javob bermadi" in js)
+    app_js = open("webapp/site/static/app.js", encoding="utf8").read()
+    check("sayt: chek fayli avval o'qiladi, nonce bilan yuboriladi, uzilsa qayta yuboriladi va natija so'raladi",
+          "arrayBuffer" in app_js and "'nonce'" in app_js and "/wallet/receipt/" in app_js)
+
     print("10) Botdagi /start weblogin tugmasi")
     src = open("bot/handlers/start.py", encoding="utf8").read()
     check("start handler weblogin_ ni tasdiqlaydi", "weblogin_" in src and "confirm_login" in src)
