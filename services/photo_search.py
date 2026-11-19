@@ -78,7 +78,7 @@ _BLOCKED = (
     "gettyimages", "istockphoto", "shutterstock", "alamy", "dreamstime", "123rf",
     "depositphotos", "stock.adobe", "adobestock", "vecteezy", "freepik", "canstockphoto",
     "bigstockphoto", "agefotostock", "superstock", "pond5", "colourbox", "stockfresh",
-    "shootplanet", "amazon.", "ebay.", "aliexpress", "etsy.", "walmart.", "temu.",
+    "shootplanet", "vista.com", "yayimages", "amazon.", "ebay.", "aliexpress", "etsy.", "walmart.", "temu.",
     "pinimg.com", "pinterest.", "lookaside.fbsbx", "fbcdn", "instagram",
     # Slayd, hujjat va konspekt saytlari: rasmlari — birovning taqdimoti yoki matnli bet.
     "slideplayer", "slideshare", "slideserve", "slidetodoc", "slidesgo", "pdfslide", "scribd", "docplayer",
@@ -247,6 +247,53 @@ def usable(results: Sequence[dict], formulas: bool = False) -> List[dict]:
     return out
 
 
+# Brave rasm qidiruvi ko'p mavzuda stok saytlarni birinchi beradi: «Amir Temur» so'roviga 200 natijadan 160 tasi
+# Getty, Dreamstime, Adobe Stock, iStock va Shutterstock'dan (suv belgili — baribir tashlanadi), yaroqlisi 24 ta.
+# Shunday bo'lsa, o'sha so'rov stok saytlarsiz (`-site:`, sahifa domeni bo'yicha) yana bir marta yuboriladi va
+# natijalar birlashtiriladi (haqiqiy sinov: Amir Temur 24 → 95). Har doim emas: o'zbekcha natijasi kam mavzuda
+# Brave istisnoli so'rovga kamroq natija beradi («raqamli iqtisodiyot»: 30 → 15) — oddiy so'rov ham kerak.
+# Tartib — ta'siri bo'yicha: so'rov Brave chegarasidan (400 belgi) oshsa, oxirgilari qo'shilmaydi.
+STOCK_SITES = (
+    "gettyimages.com", "istockphoto.com", "dreamstime.com", "shutterstock.com", "adobe.com", "alamy.com",
+    "vecteezy.com", "123rf.com", "gettyimages.in", "gettyimages.fr", "gettyimages.co.uk", "freepik.com",
+    "pinterest.com", "depositphotos.com", "vista.com", "yayimages.com", "gettyimages.nl", "gettyimages.de",
+)
+QUERY_LIMIT = 390
+STOCK_HEAVY = 0.5            # natijaning shuncha ulushi stok saytlardan bo'lsa ...
+ENOUGH = 60                  # ... va yaroqlisi bundan kam bo'lsa — stoksiz so'rov ham yuboriladi
+FEW = 25                     # shundan keyin ham yaroqli rasm bundan kam — inglizcha zaxira so'rov
+
+
+def with_exclusions(query: str) -> str:
+    """So'rov + stok saytlarni chiqarib tashlash (`-site:`), Brave'ning 400 belgilik chegarasiga sig'adiganicha."""
+    out = (query or "").strip()
+    for site in STOCK_SITES:
+        part = f" -site:{site}"
+        if len(out) + len(part) > QUERY_LIMIT:
+            break
+        out += part
+    return out
+
+
+# Stok (suv belgili) va rasm do'konlari — stoksiz so'rov faqat shular ko'p bo'lganda foyda beradi. Referat va slayd
+# saytlari (arxiv.uz, slideshare ...) ko'p bo'lsa, stoksiz so'rov yordam bermaydi — inglizcha zaxira so'rov ishlaydi.
+_STOCK_MARKS = ("gettyimages", "istockphoto", "shutterstock", "alamy", "dreamstime", "123rf", "depositphotos",
+                "stock.adobe", "adobestock", "ftcdn", "vecteezy", "freepik", "pinimg", "pinterest", "vista.com",
+                "yayimages", "canstockphoto", "bigstockphoto")
+
+
+def stock_share(results: Sequence[dict]) -> float:
+    """Natijalarning qancha qismi stok saytlar va rasm do'konlaridan."""
+    if not results:
+        return 0.0
+    bad = 0
+    for item in results:
+        url = str((item.get("properties") or {}).get("url") or "")
+        where = f"{item.get('source') or ''} {_host(url)} {item.get('url') or ''}".lower()
+        bad += any(mark in where for mark in _STOCK_MARKS)
+    return bad / len(results)
+
+
 async def _brave(query: str, search_lang: str = "") -> List[dict]:
     """Brave so'rovi. Kalit rad etilsa (401/403/429) — navbatdagi kalit bilan yana urinadi."""
     from services import brave_keys
@@ -297,21 +344,32 @@ _QUERY_SYSTEM = (
     "hu, id, it, ja, ko, lt, lv, nb, nl, pl, pt-br, pt-pt, ro, ru, sk, sl, sr, sv, th, tr, "
     "uk, vi, zh-hans, zh-hant; otherwise use an empty string. Avoid words that return text "
     "artifacts: presentation, slide, map, diagram, chart, infographic, table, poster. "
-    "Answer JSON: {\"query\": \"...\", \"search_lang\": \"...\"}"
+    "Also give \"english\": the same idea as a short English image-search query (2-6 words) — it is used when "
+    "the main query finds too few photos (Uzbek academic topics mostly return ready-made slides). If the main "
+    "query is already English, repeat it. "
+    "Answer JSON: {\"query\": \"...\", \"search_lang\": \"...\", \"english\": \"...\"}"
 )
+
+
+async def search_plan_full(topic: str) -> Tuple[str, str, str]:
+    """Mavzuga mos qidiruv iborasi, Brave qo'llaydigan til filtri va inglizcha zaxira so'rov (bitta AI chaqiruvi)."""
+    try:
+        data = await asyncio.to_thread(_ask_json, _QUERY_SYSTEM, f"Topic: {topic}", 240)
+        clean = lambda key: re.sub(r"\s+", " ", str((data or {}).get(key) or "")).strip(" \"'.")
+        query, english = clean("query"), clean("english")
+        search_lang = str((data or {}).get("search_lang") or "").strip().lower()
+        if 2 <= len(query) <= 80:
+            return (query, search_lang if search_lang in _BRAVE_SEARCH_LANGS else "",
+                    english if 2 <= len(english) <= 80 else "")
+    except Exception as exc:
+        log.warning("Rasm qidiruv rejasi tuzilmadi: %s", exc)
+    return topic.strip()[:80], "", ""
 
 
 async def search_plan(topic: str) -> Tuple[str, str]:
     """Mavzuga mos qidiruv iborasi va Brave qo'llaydigan til filtri."""
-    try:
-        data = await asyncio.to_thread(_ask_json, _QUERY_SYSTEM, f"Topic: {topic}", 200)
-        query = re.sub(r"\s+", " ", str((data or {}).get("query") or "")).strip(" \"'.")
-        search_lang = str((data or {}).get("search_lang") or "").strip().lower()
-        if 2 <= len(query) <= 80:
-            return query, search_lang if search_lang in _BRAVE_SEARCH_LANGS else ""
-    except Exception as exc:
-        log.warning("Rasm qidiruv rejasi tuzilmadi: %s", exc)
-    return topic.strip()[:80], ""
+    query, search_lang, _ = await search_plan_full(topic)
+    return query, search_lang
 
 
 async def search_query(topic: str) -> str:
@@ -744,11 +802,36 @@ async def _pool(topic: str, search=None, formulas: bool = False) -> _Pool:
             _pools.move_to_end(key)
             return pool
         try:
-            query, search_lang = await search_plan(topic)
-            results = (await search(query) if search is not None
-                       else await _brave(query, search_lang))
+            query, search_lang, english = await search_plan_full(topic)
+            fetch = (lambda q, lang=search_lang: search(q)) if search is not None else \
+                (lambda q, lang=search_lang: _brave(q, lang))
+            results = await fetch(query)
             candidates = usable(results, formulas)
-            log.info("Brave: «%s» → %d natija, %d tasi yaroqli", query, len(results), len(candidates))
+            share = stock_share(results)
+            log.info("Brave: «%s» → %d natija, %d tasi yaroqli (stok saytlar %d%%)",
+                     query, len(results), len(candidates), round(share * 100))
+            if share >= STOCK_HEAVY and len(candidates) < ENOUGH:
+                try:
+                    extra = usable(await fetch(with_exclusions(query)), formulas)
+                except Exception as exc:
+                    log.warning("Stoksiz qo'shimcha qidiruv ishlamadi: %s", exc)
+                    extra = []
+                known = {c["url"] for c in candidates}
+                added = [c for c in extra if c["url"] not in known]
+                candidates += added
+                log.info("Brave (stok saytlarsiz): +%d yangi yaroqli rasm, jami %d", len(added), len(candidates))
+            # Kam chiqdi (o'zbekcha ilmiy mavzuda Brave asosan referat va slayd saytlarini beradi: «Nyuton qonunlari» —
+            # 6 ta, «Newton's laws of motion» — 34 ta): o'sha mavzu inglizcha ham qidiriladi.
+            if len(candidates) < FEW and english and english.lower() != query.lower():
+                try:
+                    extra = usable(await fetch(english, "en"), formulas)
+                except Exception as exc:
+                    log.warning("Inglizcha zaxira qidiruv ishlamadi: %s", exc)
+                    extra = []
+                known = {c["url"] for c in candidates}
+                added = [c for c in extra if c["url"] not in known]
+                candidates += added
+                log.info("Brave (inglizcha «%s»): +%d yangi yaroqli rasm, jami %d", english, len(added), len(candidates))
         except Exception as exc:
             # Xato ham eslab qolinadi: mavzuga ikkinchi so'rov yuborilmaydi.
             log.warning("Brave qidiruvi ishlamadi (%s): %s", topic[:60], exc)

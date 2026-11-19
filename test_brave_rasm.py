@@ -176,6 +176,62 @@ check("HTML crop pozitsiyasi aniqlangan chap yuzni markazga olib keladi",
       focused_position == "5.5% 50.0%", focused_position)
 
 print("\n3) Mavzuga bitta Brave so'rovi")
+# Natija stok saytlarga to'lsa — o'sha so'rov stok saytlarsiz yana bir marta, natijalar birlashtiriladi.
+_q = photo_search.with_exclusions("Amir Temur")
+check("stoksiz so'rov: stok saytlar istisnosi qo'shiladi", _q.startswith("Amir Temur -site:gettyimages.com")
+      and "-site:dreamstime.com" in _q and "-site:shutterstock.com" in _q, _q)
+check("uzun so'rovda ham Brave chegarasidan (400 belgi) oshmaydi",
+      len(photo_search.with_exclusions("x" * 80)) <= 400 and len(photo_search.with_exclusions("y" * 395)) <= 400)
+check("create.vista.com va yayimages (suv belgili) natijalari tashlanadi",
+      not photo_search.usable([_result(1, source="create.vista.com"), _result(2, source="yayimages.com")]))
+photo_search.reset()
+_asked = []
+
+
+async def _stocky(query):
+    _asked.append(query)
+    if "-site:" in query:
+        return [_result(100 + i, source="uzbekistan.travel") for i in range(30)]
+    return [_result(i, source="gettyimages.com") for i in range(80)] + [_result(200 + i, source="gazeta.uz") for i in range(10)]
+
+_pool = asyncio.run(photo_search._pool("Amir Temur", _stocky))
+check("stokka to'la natija → stoksiz qo'shimcha so'rov, natijalar birlashtirildi",
+      len(_asked) == 2 and "-site:gettyimages.com" in _asked[1] and len(_pool.candidates) == 40, (_asked, len(_pool.candidates)))
+photo_search.reset(); _asked.clear()
+
+
+async def _clean(query):
+    _asked.append(query)
+    return [_result(i, source="gazeta.uz") for i in range(50)]
+
+asyncio.run(photo_search._pool("Navoiy", _clean))
+check("stok kam bo'lsa — bitta so'rov (qo'shimcha xarajat yo'q)", len(_asked) == 1, _asked)
+photo_search.reset(); _asked.clear()
+
+
+async def _slides_only(query):
+    _asked.append(query)
+    if query == "Newton's laws of motion":
+        return [_result(300 + i, source="physics.org") for i in range(30)]
+    return [_result(i, source="arxiv.uz") for i in range(90)] + [_result(400 + i, source="fizika.uz") for i in range(5)]
+
+_orig_ask = photo_search._ask_json
+photo_search._ask_json = lambda system, user, max_tokens: {"query": "Nyuton qonunlari", "search_lang": "",
+                                                           "english": "Newton's laws of motion"}
+try:
+    _pool2 = asyncio.run(photo_search._pool("Nyuton qonunlari", _slides_only, formulas=True))
+finally:
+    photo_search._ask_json = _orig_ask
+check("o'zbekcha so'rovda rasm kam (referat saytlari) → inglizcha zaxira so'rov, natijalar birlashtirildi",
+      _asked[-1] == "Newton's laws of motion" and len(_pool2.candidates) == 35, (_asked, len(_pool2.candidates)))
+photo_search.reset(); _asked.clear()
+photo_search._ask_json = lambda system, user, max_tokens: {"query": "Amir Temur", "search_lang": "", "english": "Tamerlane"}
+try:
+    asyncio.run(photo_search._pool("Amir Temur", _clean))
+finally:
+    photo_search._ask_json = _orig_ask
+check("rasm yetarli bo'lsa — inglizcha so'rov yuborilmaydi", _asked == ["Amir Temur"], _asked)
+
 photo_search.reset()
 calls = []
 
