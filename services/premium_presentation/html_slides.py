@@ -260,7 +260,15 @@ def _user_prompt(topic: str, start: int, count: int, total: int,
     if preferences:
         parts.append(prompts.fill(U["prefs"], text=preferences))
     if source:
-        parts.append(prompts.fill(U["source"], text=source[:4000]))
+        # Materialning boshi emas — shu slaydlarga mos qismi (uzun fayl ham to'liq ishlaydi).
+        from . import source_pick
+        focus = " ".join(f"{item.get('title') or ''} {item.get('brief') or ''}"
+                         for index, item in enumerate(outline or [], 1) if start <= index < start + count)
+        parts.append(prompts.fill(U["source"], text=source_pick.excerpt(source, f"{topic} {focus}", 4000)))
+    from . import fresh_facts
+    facts = fresh_facts.current()
+    if facts:                                    # internet faktlari — mijoz materialidan alohida, o'z joyi bilan
+        parts.append(facts)
 
     return "\n\n".join(parts)
 
@@ -279,7 +287,7 @@ _CONCLUSION_BRIEF = {code: _conclusion_brief(code) for code in ("uz", "uz-cyrl",
 
 
 def plan_outline(topic: str, count: int, language: str,
-                 level: int = 2, volume: str = "kop") -> Dict:
+                 level: int = 2, volume: str = "kop", context: str = "") -> Dict:
     """Har slayd uchun sarlavha, bir qatorli mazmun va joylashuv kategoriyasi.
 
     Slaydlar bo'laklab yoziladi va har bo'lak avvalgisining HTML'ini
@@ -310,6 +318,8 @@ def plan_outline(topic: str, count: int, language: str,
         + (T["calc"] if deck_shape.is_calculation(topic) else "")
         + prompts.fill(T["family"], names=deck_shape.names())
         + prompts.fill(T["language"], target=prompts.target(language))
+        # Mijoz istagi, materiali va internet faktlari: reja (sarlavhalar, slayd turlari) shularga qarab tuziladi.
+        + (("\n\n" + context.strip() + "\n\n") if context.strip() else "")
         + T["json"]
     )
     raw, hint = [], ""
@@ -1021,6 +1031,22 @@ def _missing_block(body: str, item: Optional[Dict]) -> str:
     return need[1]
 
 
+def _plan_context(topic: str, language: str, preferences: str, source_text: str) -> str:
+    """Reja uchun: mijoz istagi, materialining mavzuga eng mos qismi va internet faktlari (taqdimot tilida)."""
+    from . import fresh_facts, source_pick
+
+    U = prompts.get(language).USER
+    parts = []
+    if preferences:
+        parts.append(prompts.fill(U["prefs"], text=preferences))
+    if source_text:
+        parts.append(prompts.fill(U["source"], text=source_pick.excerpt(source_text, topic, 2500)))
+    facts = fresh_facts.current()
+    if facts:
+        parts.append(facts[:2500])
+    return "\n\n".join(parts)
+
+
 def _write_slides(topic, slide_count, theme, language, level, preferences, source_text, author,
                   progress_cb, outline_out, plan_cb) -> List[str]:
     # Mijoz tanlagan son — muqova va rejadan KEYINGI slaydlar (xulosa shu songa
@@ -1030,7 +1056,8 @@ def _write_slides(topic, slide_count, theme, language, level, preferences, sourc
     # Matn hajmi rang sxemasida turadi: "kam" — kompozitsiyalar (deck_compose), aks holda ko'p matnli bloklar.
     volume = "kam" if getattr(theme, "layout", "") == "kam" else "kop"
     kam = volume == "kam"
-    plan = plan_outline(topic, slide_count, language, level, volume)
+    plan = plan_outline(topic, slide_count, language, level, volume,
+                        context=_plan_context(topic, language, preferences, source_text))
     outline = chart_data.ground(plan["slides"], topic, language, level, sentences="1-2" if kam else "2-3")
     outline = chart_data.ground_kpis(outline, topic, language)
     if kam:

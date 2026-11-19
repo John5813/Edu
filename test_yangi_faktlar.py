@@ -98,5 +98,48 @@ check("ikki obyekt birlashtiriladi (rasm tanlash yiqilmaydi)",
 check("obyektdan keyingi izoh tashlanadi", llm_client._joined_objects('{"query": "Amir Temur"} Izoh: ...') == {"query": "Amir Temur"})
 check("buzilgan matn — None", llm_client._joined_objects("javob yo'q") is None)
 
+print("6) Mijoz materiali: slaydga mos qism, reja istak va materialni ko'radi")
+from services.premium_presentation import source_pick, html_slides
+long_text = ("Kirish. Bu ma'ruza matni. " * 30 + "\n\n" + "Paxta yetishtirish va sug'orish tizimi haqida. " * 40
+             + "\n\n" + "Bank tizimi va kredit siyosati. Markaziy bank foiz stavkasi 14 foiz. " * 40)
+pick = source_pick.excerpt(long_text, "Bank tizimi va foiz stavkasi", 1500)
+check("uzun materialdan slayd mavzusiga mos qism olinadi (boshi emas)", "Markaziy bank" in pick and "Paxta" not in pick
+      and len(pick) <= 1500, pick[:120])
+check("qisqa material butunligicha", source_pick.excerpt("Qisqa matn.", "x", 4000) == "Qisqa matn.")
+check("mos so'z yo'q bo'lsa — boshidan", source_pick.excerpt(long_text, "zzzz qqqq", 300).startswith("Kirish"))
+with fresh_facts.scope():
+    fresh_facts.remember(block, "uz")
+    ctx = html_slides._plan_context("Iqtisod", "uz", "Talabalar uchun sodda tilda", long_text)
+    check("reja so'rovida mijoz istagi, materiali va faktlar bor", "Talabalar uchun sodda tilda" in ctx
+          and "Mijoz bergan material" in ctx and "6,5%" in ctx, ctx[:200])
+    outline = [{"title": "Bank tizimi", "brief": "foiz stavkasi", "category": "matn"}] * 3
+    up = html_slides._user_prompt("Iqtisod", 1, 2, 3, outline, [], 2, long_text, "", "", language="uz")
+    check("slayd so'rovida materialning mos qismi va faktlar alohida", "Markaziy bank" in up and "6,5%" in up
+          and "FAKTLAR:" in up, up[-300:])
+
+print("7) Diagramma va «yirik raqamlar» — faqat material yoki faktlardagi raqam (qattiq rejim)")
+raw_ok = {"ok": True, "kind": "bar", "labels": ["2023", "2024"], "series": [{"name": "YaIM", "values": [6.0, 6.5]}],
+          "source": "stat.uz", "unit": "%"}
+raw_bad = dict(raw_ok, series=[{"name": "YaIM", "values": [5.6, 5.5]}])
+with fresh_facts.scope():
+    fresh_facts.remember(block, "uz")
+    fresh_facts.set_material("", strict=True)
+    with mock.patch.object(chart_data.llm_client, "_call_openrouter", lambda *a, **k: raw_bad):
+        check("faktlarda yo'q raqamli diagramma qo'yilmaydi", chart_data.research("Iqtisod", "YaIM", "o'sish", "bar") is None)
+    with mock.patch.object(chart_data.llm_client, "_call_openrouter", lambda *a, **k: raw_ok):
+        check("faktlardagi raqamli diagramma qoladi", chart_data.research("Iqtisod", "YaIM", "o'sish", "bar") is not None)
+    kpis = {"items": [{"value": "6,5", "unit": "%", "label": "YaIM o'sishi", "year": "2024"},
+                      {"value": "6,0", "unit": "%", "label": "YaIM 2023", "year": "2023"},
+                      {"value": "9,2", "unit": "%", "label": "Inflyatsiya", "year": "2026"}], "source": "stat.uz"}
+    with mock.patch.object(chart_data, "validate_kpis", lambda raw: dict(kpis)), \
+            mock.patch.object(chart_data.llm_client, "_call_openrouter", lambda *a, **k: {}):
+        got = chart_data.research_kpis("Iqtisod", "Ko'rsatkichlar", "")
+    check("«yirik raqamlar»dan faktlarda yo'q raqam olib tashlanadi", got and [i["value"] for i in got["items"]] == ["6,5"]
+          if got and len(got["items"]) == 1 else got is None or "9,2" not in [i["value"] for i in got["items"]], got)
+with fresh_facts.scope():
+    fresh_facts.set_material("", strict=False)
+    with mock.patch.object(chart_data.llm_client, "_call_openrouter", lambda *a, **k: raw_bad):
+        check("oddiy fan mavzusi (qattiq emas) — avvalgidek", chart_data.research("Fizika", "Tezlik", "", "bar") is not None)
+
 print("\n✅ hammasi o'tdi" if not FAILS else f"\n❌ {len(FAILS)} ta xato: {FAILS}")
 sys.exit(1 if FAILS else 0)
