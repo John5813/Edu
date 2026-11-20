@@ -31,6 +31,14 @@
     me = await E.me(true);
     E.header('app');
   }
+  // Balans fonda o'zgardi (admin tasdiqladi, Click/Payme/Uzum tushdi): hamyon sahifasi yangi summani ko'rsatsin.
+  document.addEventListener('edu:balance', (e) => {
+    if (me) me.balance = e.detail.balance;
+    const bal = document.querySelector('#view .bal');
+    if (bal) bal.textContent = E.fmt(e.detail.balance) + ' so‘m';
+    const pend = document.getElementById('pend');
+    if (pend && location.hash.startsWith('#/wallet')) pendingBanner(pend, null);
+  });
 
   // ───────────────────────────────────────────────────────────── Yaratish
   // Yaratish bosh sahifaning o'zida (studio.js): eski havolalar (#/create?kind=...) o'sha yerga olib boradi.
@@ -661,7 +669,7 @@
           <div style="margin-top:22px"><div class="lab">${online ? '4' : '3'}. To‘lov chekini yuklang</div>
             <div class="drop" id="drop"><div style="font-weight:700">Chekni shu yerga tashlang yoki tanlang</div>
               <div class="hint">Rasm yoki PDF · 5 MB gacha. Eng yaxshisi: to‘lov tarixidagi asl kvitansiya (sana, qabul qiluvchi karta va ID ko‘rinsin).</div>
-              <input type="file" id="file" accept="image/jpeg,image/png,image/webp,image/heic,.pdf" style="margin-top:12px"></div>
+              <input type="file" id="file" accept="image/jpeg,image/png,image/webp,.pdf" style="margin-top:12px"></div>
             <div id="r-out" style="margin-top:14px"></div></div>
         </div>
 
@@ -696,25 +704,40 @@
 
     async function send(file) {
       if (!amount) { $('r-out').innerHTML = '<div class="note bad">Avval summani tanlang yoki kiriting.</div>'; return; }
-      // Faqat rasm yoki PDF, 5 MB gacha — og'ir yoki boshqa turdagi fayl serverga yuklanmaydi.
-      if (file.size > 5 * 1024 * 1024) { $('r-out').innerHTML = '<div class="note bad">Fayl 5 MB dan katta.</div>'; $('file').value = ''; return; }
+      // Faqat rasm yoki PDF, 5 MB gacha — og'ir yoki boshqa turdagi fayl serverga yuklanmaydi. Kamerada olingan katta
+      // rasm (25 MB gacha) yuborishdan oldin telefonning o'zida kichraytiriladi.
+      const shrinkable = /^image\/(jpeg|png|webp)$/.test(file.type || '');
+      if (file.size > (shrinkable ? 25 : 5) * 1024 * 1024) { $('r-out').innerHTML = '<div class="note bad">Fayl 5 MB dan katta.</div>'; $('file').value = ''; return; }
       if (!/\.(jpe?g|png|webp|heic|heif|pdf)$/i.test(file.name || '') && !/^image\/(jpeg|png|webp|heic|heif)$|^application\/pdf$/.test(file.type || '')) {
         $('r-out').innerHTML = '<div class="note bad">Chek sifatida faqat rasm (JPG, PNG) yoki PDF qabul qilinadi.</div>'; $('file').value = ''; return;
       }
       $('r-out').innerHTML = '<span class="spin"></span> &nbsp;Chek tekshirilmoqda…';
       // Fayl avval xotiraga o'qiladi: Android'da galereya/bulutdan tanlangan rasm yuborish paytida o'qilmay qolsa,
       // brauzer buni «aloqa yo'q» deb ko'rsatardi. Endi o'qib bo'lmasa — aniq sabab aytiladi.
-      let blob;
+      let blob, fname = file.name || 'chek.jpg';
       try { blob = new Blob([await file.arrayBuffer()], {type: file.type || ''}); }
       catch (e) {
         $('r-out').innerHTML = '<div class="note bad">Faylni o‘qib bo‘lmadi. Chekni qayta tanlang: skrinshot yoki telefon xotirasidagi rasm bo‘lsin.</div>';
         $('file').value = ''; return;
       }
+      // 2 MB dan katta rasm — eng uzun tomoni 2400 px gacha JPEG (yozuvlar o'qiladi, yuklash sekin internetda ham tez).
+      if (shrinkable && blob.size > 2 * 1024 * 1024) {
+        try {
+          const bmp = await createImageBitmap(blob);
+          const k = Math.min(1, 2400 / Math.max(bmp.width, bmp.height));
+          const cv = document.createElement('canvas');
+          cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k);
+          cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
+          const small = await new Promise((ok) => cv.toBlob(ok, 'image/jpeg', 0.9));
+          if (small && small.size < blob.size) { blob = small; fname = fname.replace(/\.\w+$/, '') + '.jpg'; }
+        } catch (e) { /* kichraytirib bo'lmadi — asl fayl yuboriladi */ }
+      }
+      if (blob.size > 5 * 1024 * 1024) { $('r-out').innerHTML = '<div class="note bad">Fayl 5 MB dan katta.</div>'; $('file').value = ''; return; }
       const nonce = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
       const post = () => {
         const form = new FormData();
         form.append('amount', String(amount)); form.append('started', started); form.append('nonce', nonce);
-        form.append('file', blob, file.name || 'chek.jpg');
+        form.append('file', blob, fname);
         return E.api('/wallet/receipt', {form});
       };
       // Ulanish uzilsa (mijoz boshqa ilovaga o'tdi, tarmoq almashdi) — sahifa o'zi qayta yuboradi. O'sha `nonce`

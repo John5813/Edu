@@ -124,6 +124,9 @@ def create(job_id: str, params: dict, data: dict) -> None:
         "level": 2, "family": data.get("family", ""), "outline": data.get("outline") or [],
         "pages": pages, "titles": titles_of(pages), "version": 1, "history": [], "created": time.time(),
         "design_seed": data.get("design_seed"),
+        # Yig'ilgandan keyingi qo'shimchalar: tahrirdan keyin PPTX qayta yig'ilganda ham qo'shilsin (avval yo'qolardi).
+        "touches": {"thanks": params.get("thanks") or "", "text_anim": bool(params.get("text_anim")),
+                    "theme": params.get("theme") or ""},
         # Yangi o'zbek alifbosi: keyingi tahrirlar (AI va qo'lda) ham shu yozuvda bo'ladi.
         "script": _script_now()}
     store_shots(job_id, shots)
@@ -250,6 +253,18 @@ def schedule_pptx(job_id: str, target: str, delay: float = 5.0) -> None:
     asyncio.get_running_loop().create_task(later())
 
 
+async def finish_touches(path: str, deck: dict) -> None:
+    """Qayta yig'ilgan PPTX ga buyurtmadagi «Rahmat» personaji va yozuvlar animatsiyasini qaytaradi."""
+    touches = deck.get("touches") or {}
+    if not touches.get("thanks") and not touches.get("text_anim"):
+        return
+    from services.web_kinds import _finish_touches
+    await _finish_touches(path, {"thanks": touches.get("thanks") or "", "text_anim": bool(touches.get("text_anim")),
+                                 "theme": touches.get("theme") or "", "topic": deck.get("topic", ""),
+                                 "style": deck.get("style", ""), "volume": deck.get("volume") or "kop",
+                                 "language": deck.get("language", "uz"), "author": deck.get("author", "")})
+
+
 async def ensure_pptx(job_id: str, target: str) -> None:
     """Qo'lda tahrirdan keyin PPTX hali yig'ilmagan bo'lsa — hozir yig'adi (yuklab olishdan oldin ham)."""
     from services.premium_presentation import slide_edit
@@ -261,6 +276,7 @@ async def ensure_pptx(job_id: str, target: str) -> None:
         work = tempfile.mkdtemp(prefix="manualpptx_")
         try:
             path = await asyncio.to_thread(slide_edit.build_pptx, deck["pages"], work, deck)
+            await finish_touches(path, deck)
             tmp = target + ".new"
             shutil.copyfile(path, tmp)
             os.replace(tmp, target)

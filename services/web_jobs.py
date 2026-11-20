@@ -343,7 +343,7 @@ async def _after_done(job_id: str, telegram_id: int, kind: Kind, params: Dict, p
         if bot is None or web_accounts.is_web_only(telegram_id):
             return          # Telegramsiz akkaunt: fayl faqat saytdan yuklab olinadi
         status = await deliver_to_telegram(bot, telegram_id, kind.title(params) or name, path, name)
-        await web_store.update_job(job_id, tg_sent=status)
+        await web_store.update_job(job_id, tg_sent=status, tg_version=file_version(path) if status > 0 else "")
         if kind.key == "presentation_3d" and status > 0:      # botdagi kabi: 3D qanday ochilishi — yo'riqnoma videosi
             await _send_3d_guide(bot, telegram_id)
         if kind.publish_as and not params.get("trial"):     # bepul sinov katalogga qo'yilmaydi
@@ -352,6 +352,44 @@ async def _after_done(job_id: str, telegram_id: int, kind: Kind, params: Dict, p
                              customer_name=params.get("author", ""), language=params.get("language", "uz"))
     except Exception as exc:
         log.warning("Tayyor faylni Telegramga yuborib bo'lmadi (%s): %s", job_id, exc)
+
+
+def file_version(path: str) -> str:
+    """Fayl nusxasi belgisi: tahrirdan keyin (PPTX qayta yig'ilgach) o'zgaradi."""
+    try:
+        st = os.stat(path)
+        return f"{st.st_size}-{st.st_mtime_ns}"
+    except OSError:
+        return ""
+
+
+_sending: set = set()
+
+
+async def send_current(job: Dict, telegram_id: int, force: bool = False) -> int:
+    """Tayyor faylning hozirgi nusxasini mijoz botiga yuboradi (Telegram orqali kirgan bo'lsa).
+
+    «Yuklab olish» bosilganda chaqiriladi: fayl telefonga ham, Telegramga ham boradi. Shu nusxa allaqachon
+    yuborilgan bo'lsa (`force` bo'lmasa) qayta yuborilmaydi — tahrirdan keyin esa yangisi yuboriladi.
+    Qaytaradi: deliver_to_telegram holati, 0 — yuborish kerak emas edi."""
+    import webapp
+    from database import web_accounts
+    path = job.get("result_path") or ""
+    if webapp.BOT is None or web_accounts.is_web_only(telegram_id) or not path or not os.path.exists(path):
+        return 0
+    version = file_version(path)
+    if not force and int(job.get("tg_sent") or 0) > 0 and (job.get("tg_version") or "") == version:
+        return 0
+    if job["id"] in _sending:            # ikki marta tez bosildi — bitta yuboriladi
+        return 0
+    _sending.add(job["id"])
+    try:
+        name = job.get("result_name") or os.path.basename(path)
+        status = await deliver_to_telegram(webapp.BOT, telegram_id, job.get("title") or name, path, name)
+        await web_store.update_job(job["id"], tg_sent=status, tg_version=version if status > 0 else "")
+        return status
+    finally:
+        _sending.discard(job["id"])
 
 
 TG_FILE_LIMIT = 49 * 1024 * 1024     # bot Telegramga 50 MB gacha fayl yubora oladi

@@ -169,6 +169,17 @@ async def main():
     tg = await r.json()
     check("«📩 Telegramga yuborish» — fayl botga qayta yuborildi, holat 1", r.status == 200 and tg["job"]["telegram"] == 1
           and len(BOT.docs) == n_docs + 1 and BOT.docs[-1][0] == 100, (r.status, tg))
+    n_docs = len(BOT.docs)
+    await (await client.get(f"/api/v1/jobs/{created['job']['id']}/file")).read(); await asyncio.sleep(0.3)
+    check("«Yuklab olish»: shu nusxa allaqachon Telegramda — qayta yuborilmaydi", len(BOT.docs) == n_docs, BOT.docs[n_docs:])
+    job_path = (await web_store.get_job(created["job"]["id"]))["result_path"]
+    with open(job_path, "ab") as fh:
+        fh.write(b" tahrir")                      # tahrirdan keyin fayl yangilandi
+    await (await client.get(f"/api/v1/jobs/{created['job']['id']}/file")).read(); await asyncio.sleep(0.3)
+    check("«Yuklab olish» tahrirlangan fayl bilan — telefonga ham, Telegramga ham (yangi nusxa)",
+          len(BOT.docs) == n_docs + 1 and BOT.docs[-1][0] == 100, BOT.docs[n_docs:])
+    await (await client.get(f"/api/v1/jobs/{created['job']['id']}/file")).read(); await asyncio.sleep(0.3)
+    check("yana bosildi — o'sha nusxa qayta yuborilmaydi", len(BOT.docs) == n_docs + 1)
     lst = await (await client.get("/api/v1/jobs")).json()
     check("ro'yxatda ko'rinadi, saqlash muddati aytiladi", len(lst["jobs"]) == 1 and lst["ttl_hours"] == web_store.JOB_TTL_HOURS)
     other = await Database.create_user(200, "vali", "Vali", "uz")
@@ -311,6 +322,10 @@ async def main():
     check("sayt: JSON bo'lmagan javob (Cloudflare 524) «aloqa yo'q» emas, «server javob bermadi» deb ko'rsatiladi",
           "bad_reply" in js and "Server hozir javob bermadi" in js)
     app_js = open("webapp/site/static/app.js", encoding="utf8").read()
+    check("sayt: balans o'zi yangilanadi (admin tasdig'i / Click-Payme-Uzum) — sahifani yangilash shart emas",
+          "Edu.checkBalance" in js and "edu:balance" in js and "visibilitychange" in js)
+    check("sayt: katta rasm telefonda kichraytiriladi; HEIC so'ralmaydi (iPhone o'zi JPEG beradi)",
+          "createImageBitmap" in app_js and "image/heic" not in app_js.split('id="file"')[1][:120])
     check("sayt: chek fayli avval o'qiladi, nonce bilan yuboriladi, uzilsa qayta yuboriladi va natija so'raladi",
           "arrayBuffer" in app_js and "'nonce'" in app_js and "/wallet/receipt/" in app_js)
 

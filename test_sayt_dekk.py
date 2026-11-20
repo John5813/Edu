@@ -158,6 +158,11 @@ async def main():
     balance0 = (await Database.get_user(100)).balance
 
     print("4) Sahifani doirasimon diagrammali qilib berish")
+    from services import web_kinds as _wk
+    touched, real_touch = [], _wk._finish_touches
+    async def fake_touch(p, prm): touched.append(prm)
+    _wk._finish_touches = fake_touch
+    _d = web_decks.load(job_id); _d["touches"] = {"thanks": "cat_wave", "text_anim": False, "theme": ""}; web_decks.save(job_id, _d)
     STATE["calls"].clear()
     r = await client.post(f"/api/v1/jobs/{job_id}/rewrite",
                           json={"index": 4, "instruction": "Sahifani doirasimon diagrammali qilib ber"}, headers=origin)
@@ -168,6 +173,8 @@ async def main():
     check("bir vaqtda ikkinchi o'zgartirish rad etildi", r2.status == 409, r2.status)
     done = await wait_job(client, rid)
     check("qayta yozish tugadi", done["job"]["status"] == "done", done)
+    _wk._finish_touches = real_touch
+    check("AI qayta yozgan PPTX ga tanlangan «Rahmat» personaji qaytadi", touched and touched[0]["thanks"] == "cat_wave", touched)
     info2 = await (await client.get(f"/api/v1/jobs/{job_id}/deck")).json()
     deck = info2["deck"]
     check("versiya oshdi, tarixga yozildi", deck["version"] == 2 and deck["history"] and deck["history"][-1]["index"] == 4

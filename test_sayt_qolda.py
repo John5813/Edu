@@ -144,8 +144,20 @@ async def main():
     check("bepul: balans o'zgarmadi, AI chaqirilmadi", (await Database.get_user(100)).balance == balance0 and AI["calls"] == 0, AI)
     path = (await web_store.get_job(job_id))["result_path"]
     check("PPTX keyinroq yig'iladi (belgi qo'yildi)", stored.get("pptx_stale") is True)
+    check("buyurtmadagi qo'shimchalar taqdimot nusxasida saqlangan", isinstance(stored.get("touches"), dict), stored.get("touches"))
+    # Buyurtmada «Rahmat» personaji tanlangan bo'lsa — qayta yig'ilgan PPTX ga ham qo'shiladi (avval yo'qolardi).
+    from services import web_kinds
+    touched, real_touch = [], web_kinds._finish_touches
+    async def fake_touch(p, prm): touched.append((p, prm))
+    web_kinds._finish_touches = fake_touch
+    stored["touches"] = {"thanks": "cat_wave", "text_anim": True, "theme": ""}
+    web_decks.save(job_id, stored)
     r = await client.get(f"/api/v1/jobs/{job_id}/file")
     body = await r.read()
+    web_kinds._finish_touches = real_touch
+    check("qo'lda tahrirdan keyin yig'ilgan PPTX ga «Rahmat» personaji va animatsiya qaytadi",
+          len(touched) == 1 and touched[0][1]["thanks"] == "cat_wave" and touched[0][1]["text_anim"]
+          and touched[0][1]["topic"] == "Raqamli iqtisodiyot", touched)
     check("yuklab olishda PPTX yangi matn bilan", r.status == 200 and "Kirish: yangi sarlavha" in pptx_text(path), pptx_text(path)[:200])
     check("belgi olib tashlandi", web_decks.load(job_id).get("pptx_stale") is False)
 

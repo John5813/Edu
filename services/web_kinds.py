@@ -554,6 +554,7 @@ async def _rewrite_run(params: Dict, report: Report) -> Tuple[str, str]:
                 pages[number] = html
             report("render", 84)
             pptx = await asyncio.to_thread(slide_edit.build_pptx, pages, work, deck)
+            await web_decks.finish_touches(pptx, deck)       # «Rahmat» personaji va animatsiya yo'qolmasin
 
             outline = list(deck.get("outline") or [])
             while len(outline) < len(pages):

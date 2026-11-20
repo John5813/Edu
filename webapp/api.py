@@ -791,6 +791,19 @@ async def jobs_get(request: web.Request) -> web.Response:
                               "balance": int(getattr(user, "balance", 0) or 0)})
 
 
+async def _fresh_pptx(job: Dict, path: str) -> None:
+    """Qo'lda tahrirdan keyin PPTX hali yig'ilmagan bo'lsa — hozir yig'adi."""
+    if job["kind"] != "premium_presentation":
+        return
+    from services import web_decks
+    deck = web_decks.load(job["id"])
+    if deck and deck.get("pptx_stale"):
+        try:
+            await web_decks.ensure_pptx(job["id"], path)
+        except Exception as exc:
+            log.warning("PPTX yuklashdan oldin yig'ilmadi (%s): %s", job["id"], exc)
+
+
 async def jobs_telegram(request: web.Request) -> web.Response:
     """«📩 Telegramga yuborish»: tayyor faylni mijozning botiga (qayta) yuboradi — avtomatik yuborish yetmagan
     bo'lsa (bot bloklangan edi, Telegram keyin ulandi, xato) mijoz o'zi qayta oladi."""
@@ -806,10 +819,8 @@ async def jobs_telegram(request: web.Request) -> web.Response:
         return _error("Bot hali ishga tushmoqda, birozdan keyin urining.", 503, "bot")
     if _limited(f"tgsend:{telegram_id}", 3, 60):
         return _error("Juda tez-tez bosildi. Bir daqiqa kuting.", 429, "rate")
-    title = job.get("title") or ""
-    name = job.get("result_name") or os.path.basename(path)
-    status = await web_jobs.deliver_to_telegram(webapp.BOT, telegram_id, title, path, name)
-    await web_store.update_job(job["id"], tg_sent=status)
+    await _fresh_pptx(job, path)
+    status = await web_jobs.send_current(job, telegram_id, force=True)
     job = await web_store.get_job(job["id"], telegram_id)
     if status < 0:
         return _error("Telegramga yuborib bo'lmadi. Botni ochib, «Start» bosing, keyin qayta urining.", 502, "tg_failed")
@@ -823,14 +834,11 @@ async def jobs_file(request: web.Request) -> web.StreamResponse:
     if not job or job["status"] != "done" or not path or not os.path.exists(path):
         return _error("Fayl topilmadi yoki muddati o'tgan", 404, "not_found")
     name = job.get("result_name") or os.path.basename(path)
-    if job["kind"] == "premium_presentation":
-        from services import web_decks
-        deck = web_decks.load(job["id"])
-        if deck and deck.get("pptx_stale"):      # qo'lda tahrirdan keyin PPTX hali yig'ilmagan bo'lsa
-            try:
-                await web_decks.ensure_pptx(job["id"], path)
-            except Exception as exc:
-                log.warning("PPTX yuklashdan oldin yig'ilmadi (%s): %s", job["id"], exc)
+    await _fresh_pptx(job, path)
+    # Telegram orqali kirgan mijozga fayl botga ham boradi (shu nusxa hali yuborilmagan bo'lsa — tahrirdan keyin
+    # yangisi). Fonda: yuklab olish kutib qolmaydi.
+    task = asyncio.ensure_future(web_jobs.send_current(job, telegram_id))
+    task.add_done_callback(lambda t: t.cancelled() or t.exception())
     return web.FileResponse(path, headers={
         "Content-Disposition": f"attachment; filename*=UTF-8''{url_quote(name)}",
         "Cache-Control": "private, no-store"})
