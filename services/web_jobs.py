@@ -364,29 +364,36 @@ def file_version(path: str) -> str:
 
 
 _sending: set = set()
+_sent_at: Dict[str, float] = {}
+DOWNLOAD_GAP = 60.0      # shu soniya ichidagi takror «Yuklab olish» — bitta yuborish (iPhone faylni bir necha so'rovda oladi)
 
 
 async def send_current(job: Dict, telegram_id: int, force: bool = False) -> int:
-    """Tayyor faylning hozirgi nusxasini mijoz botiga yuboradi (Telegram orqali kirgan bo'lsa).
+    """Tayyor faylni mijoz botiga yuboradi (Telegram orqali kirgan bo'lsa).
 
-    «Yuklab olish» bosilganda chaqiriladi: fayl telefonga ham, Telegramga ham boradi. Shu nusxa allaqachon
-    yuborilgan bo'lsa (`force` bo'lmasa) qayta yuborilmaydi — tahrirdan keyin esa yangisi yuboriladi.
-    Qaytaradi: deliver_to_telegram holati, 0 — yuborish kerak emas edi."""
+    «Yuklab olish» HAR bosilganda chaqiriladi: fayl telefonga ham, Telegramga ham boradi — taqdimot tayyor bo'lganda
+    avtomatik yuborilgan bo'lsa ham (mijoz uni topa olmagan yoki yana olmoqchi). Faqat bir daqiqa ichidagi takror
+    so'rovlar (iPhone brauzeri faylni ochishda bir necha marta so'raydi, ikki marta bosish) bitta hisoblanadi.
+    `force` («📩 Telegramga yuborish» tugmasi) bu oraliqqa qaramaydi. Qaytaradi: deliver_to_telegram holati,
+    0 — yuborilmadi (Telegramsiz akkaunt yoki takror so'rov)."""
     import webapp
     from database import web_accounts
     path = job.get("result_path") or ""
     if webapp.BOT is None or web_accounts.is_web_only(telegram_id) or not path or not os.path.exists(path):
         return 0
-    version = file_version(path)
-    if not force and int(job.get("tg_sent") or 0) > 0 and (job.get("tg_version") or "") == version:
+    now = time.monotonic()
+    if not force and now - _sent_at.get(job["id"], -DOWNLOAD_GAP) < DOWNLOAD_GAP:
         return 0
-    if job["id"] in _sending:            # ikki marta tez bosildi — bitta yuboriladi
+    if job["id"] in _sending:            # hozir yuborilmoqda — ikkinchisi kerak emas
         return 0
     _sending.add(job["id"])
+    _sent_at[job["id"]] = now
     try:
         name = job.get("result_name") or os.path.basename(path)
         status = await deliver_to_telegram(webapp.BOT, telegram_id, job.get("title") or name, path, name)
-        await web_store.update_job(job["id"], tg_sent=status, tg_version=version if status > 0 else "")
+        await web_store.update_job(job["id"], tg_sent=status, tg_version=file_version(path) if status > 0 else "")
+        if status < 0:
+            _sent_at.pop(job["id"], None)        # yetmadi — keyingi bosishda yana urinadi
         return status
     finally:
         _sending.discard(job["id"])

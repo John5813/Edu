@@ -791,6 +791,9 @@ async def jobs_get(request: web.Request) -> web.Response:
                               "balance": int(getattr(user, "balance", 0) or 0)})
 
 
+_bg: set = set()
+
+
 async def _fresh_pptx(job: Dict, path: str) -> None:
     """Qo'lda tahrirdan keyin PPTX hali yig'ilmagan bo'lsa — hozir yig'adi."""
     if job["kind"] != "premium_presentation":
@@ -835,10 +838,11 @@ async def jobs_file(request: web.Request) -> web.StreamResponse:
         return _error("Fayl topilmadi yoki muddati o'tgan", 404, "not_found")
     name = job.get("result_name") or os.path.basename(path)
     await _fresh_pptx(job, path)
-    # Telegram orqali kirgan mijozga fayl botga ham boradi (shu nusxa hali yuborilmagan bo'lsa — tahrirdan keyin
-    # yangisi). Fonda: yuklab olish kutib qolmaydi.
+    # Telegram orqali kirgan mijozga fayl har safar botga ham boradi. Fonda: yuklab olish kutib qolmaydi. Vazifa
+    # `_bg` da saqlanadi — havolasiz vazifani Python yarim yo'lda o'chirib yuborishi mumkin.
     task = asyncio.ensure_future(web_jobs.send_current(job, telegram_id))
-    task.add_done_callback(lambda t: t.cancelled() or t.exception())
+    _bg.add(task)
+    task.add_done_callback(lambda t: (_bg.discard(t), t.cancelled() or t.exception()))
     return web.FileResponse(path, headers={
         "Content-Disposition": f"attachment; filename*=UTF-8''{url_quote(name)}",
         "Cache-Control": "private, no-store"})

@@ -164,22 +164,40 @@ async def main():
     check("fayl yuklab olinadi (nomi UTF-8)", r.status == 200 and body.startswith(b"PPTX:Kiberxavfsizlik")
           and "Taqdimot_test.pptx" in r.headers["Content-Disposition"], r.headers.get("Content-Disposition"))
     check("fayl Telegramga ham yuborildi", any(chat == 100 for chat, kw in BOT.docs), BOT.docs)
+    # Videodagi yo'l: taqdimot tayyor → bot avtomatik yuborgan («Файл также отправлен в Telegram»), tahrir yo'q →
+    # mijoz keyinroq «Скачать» bosadi. Fayl telefonga ham, Telegramga ham borishi SHART (avval «allaqachon
+    # yuborilgan» deb Telegramga yubormasdi).
+    jid = created["job"]["id"]
+    async def download():
+        r = await client.get(f"/api/v1/jobs/{jid}/file")
+        body = await r.read()
+        await asyncio.sleep(0.3)
+        return r.status, body
+    job_now = await web_store.get_job(jid)
+    check("holat: avtomatik yuborilgan, tahrir yo'q", int(job_now["tg_sent"]) == 1, job_now["tg_sent"])
+    web_jobs._sent_at.clear()                         # mijoz keyinroq qaytdi (oldingi yuklab olishdan bir daqiqa o'tgan)
     n_docs = len(BOT.docs)
-    r = await client.post(f"/api/v1/jobs/{created['job']['id']}/telegram", headers=origin)
-    tg = await r.json()
-    check("«📩 Telegramga yuborish» — fayl botga qayta yuborildi, holat 1", r.status == 200 and tg["job"]["telegram"] == 1
-          and len(BOT.docs) == n_docs + 1 and BOT.docs[-1][0] == 100, (r.status, tg))
-    n_docs = len(BOT.docs)
-    await (await client.get(f"/api/v1/jobs/{created['job']['id']}/file")).read(); await asyncio.sleep(0.3)
-    check("«Yuklab olish»: shu nusxa allaqachon Telegramda — qayta yuborilmaydi", len(BOT.docs) == n_docs, BOT.docs[n_docs:])
-    job_path = (await web_store.get_job(created["job"]["id"]))["result_path"]
-    with open(job_path, "ab") as fh:
-        fh.write(b" tahrir")                      # tahrirdan keyin fayl yangilandi
-    await (await client.get(f"/api/v1/jobs/{created['job']['id']}/file")).read(); await asyncio.sleep(0.3)
-    check("«Yuklab olish» tahrirlangan fayl bilan — telefonga ham, Telegramga ham (yangi nusxa)",
+    status_, body = await download()
+    check("«Скачать» (avtomatik yuborilgan, tahrirlanmagan) — fayl telefonga ham keldi", status_ == 200 and body.startswith(b"PPTX"))
+    check("«Скачать» — fayl Telegramga HAM yuborildi (mijoz chatiga, o'z nomi bilan)",
           len(BOT.docs) == n_docs + 1 and BOT.docs[-1][0] == 100, BOT.docs[n_docs:])
-    await (await client.get(f"/api/v1/jobs/{created['job']['id']}/file")).read(); await asyncio.sleep(0.3)
-    check("yana bosildi — o'sha nusxa qayta yuborilmaydi", len(BOT.docs) == n_docs + 1)
+    await download(); await download()
+    check("iPhone faylni ochishda bir necha marta so'raydi / ikki marta bosildi — Telegramga bitta fayl",
+          len(BOT.docs) == n_docs + 1, BOT.docs[n_docs:])
+    web_jobs._sent_at[jid] -= web_jobs.DOWNLOAD_GAP + 1     # bir daqiqadan keyin yana bosdi
+    await download()
+    check("bir daqiqadan keyin yana «Скачать» — yana Telegramga ham", len(BOT.docs) == n_docs + 2, BOT.docs[n_docs:])
+    job_path = (await web_store.get_job(jid))["result_path"]
+    with open(job_path, "ab") as fh:
+        fh.write(b" tahrir")                          # tahrirdan keyin fayl yangilandi
+    web_jobs._sent_at[jid] -= web_jobs.DOWNLOAD_GAP + 1
+    await download()
+    check("tahrirlangan fayl — «Скачать» bilan Telegramga ham", len(BOT.docs) == n_docs + 3, BOT.docs[n_docs:])
+    n_docs = len(BOT.docs)
+    r = await client.post(f"/api/v1/jobs/{jid}/telegram", headers=origin)
+    tg = await r.json()
+    check("«📩 Telegramga yuborish» — darhol (bir daqiqa kutmasdan) yuboriladi, holat 1", r.status == 200
+          and tg["job"]["telegram"] == 1 and len(BOT.docs) == n_docs + 1 and BOT.docs[-1][0] == 100, (r.status, tg))
     lst = await (await client.get("/api/v1/jobs")).json()
     check("ro'yxatda ko'rinadi, saqlash muddati aytiladi", len(lst["jobs"]) == 1 and lst["ttl_hours"] == web_store.JOB_TTL_HOURS)
     other = await Database.create_user(200, "vali", "Vali", "uz")
