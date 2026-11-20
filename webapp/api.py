@@ -791,6 +791,31 @@ async def jobs_get(request: web.Request) -> web.Response:
                               "balance": int(getattr(user, "balance", 0) or 0)})
 
 
+async def jobs_telegram(request: web.Request) -> web.Response:
+    """«📩 Telegramga yuborish»: tayyor faylni mijozning botiga (qayta) yuboradi — avtomatik yuborish yetmagan
+    bo'lsa (bot bloklangan edi, Telegram keyin ulandi, xato) mijoz o'zi qayta oladi."""
+    from database import web_accounts
+    telegram_id = await _require(request)
+    job = await web_store.get_job(request.match_info["id"], telegram_id)
+    path = (job or {}).get("result_path")
+    if not job or job["status"] != "done" or not path or not os.path.exists(path):
+        return _error("Fayl topilmadi yoki muddati o'tgan", 404, "not_found")
+    if web_accounts.is_web_only(telegram_id):
+        return _error("Telegram ulanmagan. «Profil» bo'limida «Telegramni ulash» tugmasini bosing.", 400, "no_telegram")
+    if webapp.BOT is None:
+        return _error("Bot hali ishga tushmoqda, birozdan keyin urining.", 503, "bot")
+    if _limited(f"tgsend:{telegram_id}", 3, 60):
+        return _error("Juda tez-tez bosildi. Bir daqiqa kuting.", 429, "rate")
+    title = job.get("title") or ""
+    name = job.get("result_name") or os.path.basename(path)
+    status = await web_jobs.deliver_to_telegram(webapp.BOT, telegram_id, title, path, name)
+    await web_store.update_job(job["id"], tg_sent=status)
+    job = await web_store.get_job(job["id"], telegram_id)
+    if status < 0:
+        return _error("Telegramga yuborib bo'lmadi. Botni ochib, «Start» bosing, keyin qayta urining.", 502, "tg_failed")
+    return web.json_response({"ok": True, "job": web_jobs.public(job)})
+
+
 async def jobs_file(request: web.Request) -> web.StreamResponse:
     telegram_id = await _require(request)
     job = await web_store.get_job(request.match_info["id"], telegram_id)
@@ -1317,6 +1342,7 @@ def setup_api_routes(app: web.Application) -> None:
     add("GET", "/api/v1/jobs", jobs_list)
     add("GET", "/api/v1/jobs/{id}", jobs_get)
     add("GET", "/api/v1/jobs/{id}/file", jobs_file)
+    add("POST", "/api/v1/jobs/{id}/telegram", jobs_telegram)
     add("GET", "/api/v1/jobs/{id}/deck", deck_info)
     add("GET", "/api/v1/jobs/{id}/slide/{n}", deck_slide)
     add("POST", "/api/v1/jobs/{id}/rewrite", deck_rewrite)

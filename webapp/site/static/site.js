@@ -223,13 +223,25 @@
       Edu.esc(bot || 'Edufayl_bot') + '">Botni ochish</a>';
     return '<span>📩 Fayl Telegramga ham yuboriladi.</span>';
   };
+  // «📩 Telegramga yuborish» tugmasi: fayl botga yetmagan bo'lsa (yoki mijoz yana olmoqchi bo'lsa) qayta yuboradi.
+  Edu.tgBox = function (job, el, bot) {
+    el.innerHTML = Edu.tgNote(job, bot) + ' <button type="button" class="link tg-send">📩 Telegramga yuborish</button>';
+    el.querySelector('.tg-send').onclick = async (e) => {
+      const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'Yuborilmoqda…';
+      try {
+        const d = await Edu.api('/jobs/' + encodeURIComponent(job.id) + '/telegram', {method: 'POST'});
+        Object.assign(job, d.job); Edu.tgBox(job, el, bot); Edu.toast('Fayl Telegramga yuborildi');
+      } catch (err) { Edu.tgBox(job, el, bot); Edu.toast(err.message); }
+    };
+  };
   // Fayl tayyor bo'lgach Telegramga yuborish bir necha soniya oladi: belgini shu vaqt ichida yangilab turadi.
   Edu.watchTg = function (job, el, bot) {
     if (!el) return;
     el.innerHTML = Edu.tgNote(job, bot);
     let left = 6;
     const tick = async () => {
-      if (!document.body.contains(el) || Number(job.telegram || 0) !== 0 || left-- <= 0) return;
+      if (!document.body.contains(el)) return;
+      if (Number(job.telegram || 0) !== 0 || left-- <= 0) { Edu.tgBox(job, el, bot); return; }
       try { job = (await Edu.api('/jobs/' + encodeURIComponent(job.id))).job; el.innerHTML = Edu.tgNote(job, bot); } catch (e) { /* keyingi urinish */ }
       setTimeout(tick, 3000);
     };

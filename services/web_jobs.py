@@ -7,6 +7,7 @@ Bot va sayt bir xil xizmatlarni chaqiradi; bu modul faqat sayt tomonidagi "buyur
 - tayyor fayl `JOB_TTL_HOURS` soatdan keyin o'chadi (maxfiylik: hujjatlar saqlanmaydi).
 """
 import asyncio
+import html
 import logging
 import os
 import shutil
@@ -388,17 +389,20 @@ async def deliver_to_telegram(bot, telegram_id: int, title: str, path: str, name
     from translations import get_text
 
     lang = await _bot_language(telegram_id)
-    title = (title or name or "")[:180]
+    # Bot xabarlari HTML rejimida: nomdagi «<», «>», «&» (masalan «C++ & Java», «x < 5») Telegram'da «can't parse
+    # entities» xatosini berib, fayl umuman yetmasdi. Nom HTML uchun tozalanadi; baribir rad etilsa — formatsiz.
+    title = html.escape((title or name or "")[:180], quote=False)
     big = os.path.getsize(path) > TG_FILE_LIMIT
+    plain = {}
     for attempt in range(DELIVERY_TRIES):
         try:
             if big:
                 size = round(os.path.getsize(path) / 1024 / 1024)
                 await bot.send_message(telegram_id, get_text(lang, "web_file_big", title=title, size=size),
-                                       reply_markup=_docs_button(lang))
+                                       reply_markup=_docs_button(lang), **plain)
                 return 2
             await bot.send_document(telegram_id, FSInputFile(path, filename=name),
-                                    caption=get_text(lang, "web_file_ready", title=title))
+                                    caption=get_text(lang, "web_file_ready", title=title), **plain)
             return 1
         except TelegramEntityTooLarge:
             big = True
@@ -413,6 +417,10 @@ async def deliver_to_telegram(bot, telegram_id: int, title: str, path: str, name
         except TelegramBadRequest as exc:
             if "too big" in str(exc).lower() or "too large" in str(exc).lower():
                 big = True
+                continue
+            if "parse entities" in str(exc).lower() and not plain:
+                log.warning("Telegram xabar formatini qabul qilmadi (%s), formatsiz yuboriladi: %s", telegram_id, exc)
+                title, plain = html.unescape(title), {"parse_mode": None}
                 continue
             log.warning("Telegram faylni qabul qilmadi (%s): %s", telegram_id, exc)
             return -1
@@ -448,7 +456,7 @@ async def _tell_failed(telegram_id: int, kind: Kind, params: Dict) -> None:
         if webapp.BOT is None or web_accounts.is_web_only(telegram_id):
             return
         lang = await _bot_language(telegram_id)
-        title = (kind.title(params) or "")[:180]
+        title = html.escape((kind.title(params) or "")[:180], quote=False)
         await webapp.BOT.send_message(telegram_id, get_text(lang, "web_job_failed", title=title),
                                       reply_markup=_docs_button(lang))
     except Exception as exc:

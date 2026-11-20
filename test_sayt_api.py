@@ -164,6 +164,11 @@ async def main():
     check("fayl yuklab olinadi (nomi UTF-8)", r.status == 200 and body.startswith(b"PPTX:Kiberxavfsizlik")
           and "Taqdimot_test.pptx" in r.headers["Content-Disposition"], r.headers.get("Content-Disposition"))
     check("fayl Telegramga ham yuborildi", any(chat == 100 for chat, kw in BOT.docs), BOT.docs)
+    n_docs = len(BOT.docs)
+    r = await client.post(f"/api/v1/jobs/{created['job']['id']}/telegram", headers=origin)
+    tg = await r.json()
+    check("«📩 Telegramga yuborish» — fayl botga qayta yuborildi, holat 1", r.status == 200 and tg["job"]["telegram"] == 1
+          and len(BOT.docs) == n_docs + 1 and BOT.docs[-1][0] == 100, (r.status, tg))
     lst = await (await client.get("/api/v1/jobs")).json()
     check("ro'yxatda ko'rinadi, saqlash muddati aytiladi", len(lst["jobs"]) == 1 and lst["ttl_hours"] == web_store.JOB_TTL_HOURS)
     other = await Database.create_user(200, "vali", "Vali", "uz")

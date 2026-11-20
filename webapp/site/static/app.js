@@ -526,6 +526,9 @@
           </div>
           ${jobs.length ? jobs.map(jobRow).join('') : `<div style="padding:34px 20px;text-align:center;color:var(--mute)">Hali buyurtma yo‘q. <a class="link" href="/#yaratish">Birinchi taqdimotni yarating</a></div>`}
         </div>`;
+      view.querySelectorAll('[data-tg]').forEach((el) => {
+        const j = jobs.find((x) => x.id === el.dataset.tg); if (j) E.tgBox(j, el, catalog.bot);
+      });
       if (active) pollTimer = setTimeout(async () => { await refreshBalance(); load(); }, 3000);
       else pendingBanner(document.getElementById('pend'), null);
     }
@@ -537,7 +540,7 @@
     let status = '', action = '';
     if (j.status === 'done') {
       status = `<span class="pill ok">Tayyor</span> <span class="hint">${left} soat qoldi</span>` +
-        (j.telegram ? `<div class="hint" style="margin-top:6px">${E.tgNote(j, catalog.bot)}</div>` : '');
+        (j.ready && me && me.telegram ? `<div class="hint" style="margin-top:6px" data-tg="${E.esc(j.id)}"></div>` : '');
       action = j.ready ? `<a class="btn sm" href="/api/v1/jobs/${E.esc(j.id)}/file">Yuklab olish</a>` : '';
     } else if (j.status === 'failed') {
       status = `<span class="pill bad">Bajarilmadi</span><div class="hint" style="margin-top:6px">${E.esc(j.error)}</div>`;
