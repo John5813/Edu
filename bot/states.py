@@ -187,3 +187,8 @@ class GiftStates(StatesGroup):
     """Faol bo'lmagan mijozga sovg'a: 5 slaydli bepul taqdimot (qayta jalb xabarlaridan)."""
     waiting_for_topic = State()
     generating = State()
+
+
+class ThanksAddStates(StatesGroup):
+    """«🎬 Personaj qo'shish»: personaj tanlangan, mijozning tayyor taqdimoti (.pptx) kutilmoqda."""
+    waiting_for_file = State()

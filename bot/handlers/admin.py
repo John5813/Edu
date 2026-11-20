@@ -4389,10 +4389,16 @@ def _brave_keys_view():
     if not rows:
         lines.append("Hozircha kalit yo'q — rasmlar faqat AI bilan chiziladi.")
     for r in rows:
-        mark = "▶️" if r["active"] else ("⛔️" if r["failed"] else "▫️")
-        state = "yaroqsiz" if r["failed"] else f"{r['used']}/{brave_keys.LIMIT}"
+        mark = "▶️" if r["active"] else ("⛔️" if r["failed"] else ("🔴" if r["spent"] else "▫️"))
+        state = "yaroqsiz" if r["failed"] else ("limit tugagan" if r["spent"] and r["error"] else f"{r['used']}/{brave_keys.LIMIT}")
+        if r.get("quota"):
+            state += f" · Brave: {r['left']}/{r['quota']} qoldi"
         src = " (.env)" if r["added"] == "env" else (f" — {r['added']}" if r["added"] else "")
-        lines.append(f"{mark} {r['n']}. <code>{r['mask']}</code> — {state}{src}")
+        err = f"\n    oxirgi rad: {r['error']}" if r["error"] else ""
+        lines.append(f"{mark} {r['n']}. <code>{r['mask']}</code> — {state}{src}{err}")
+    if rows and all(r["failed"] or r["spent"] for r in rows):
+        lines += ["", "🚨 Hamma kalit tugagan yoki yaroqsiz: kredit to'ldiring yoki yangi kalit qo'shing."]
+    lines += ["", "Kalit limiti tugasa yoki rad etilsa, adminlarga darhol xabar keladi."]
     kb = InlineKeyboardBuilder()
     kb.button(text="➕ Kalit qo'shish", callback_data="brave_add")
     if len(rows) > 1:

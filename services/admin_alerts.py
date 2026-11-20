@@ -12,13 +12,18 @@ log = logging.getLogger(__name__)
 
 COOLDOWN = 1800.0
 _bot = None
+_loop = None                     # botning asosiy tsikli: boshqa oqimdan (thread) chaqirilganda xabar shu yerga beriladi
 _sent: Dict[str, float] = {}
 _tasks: set = set()
 
 
 def set_bot(bot) -> None:
-    global _bot
+    global _bot, _loop
     _bot = bot
+    try:
+        _loop = asyncio.get_running_loop()
+    except RuntimeError:
+        pass
 
 
 async def _send(text: str) -> None:
@@ -41,6 +46,13 @@ def alert(key: str, text: str, cooldown: float = COOLDOWN) -> None:
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
+        loop = None
+    if loop is None:
+        # Boshqa oqimdan (masalan, `asyncio.to_thread` ichidagi Brave so'rovi): asosiy tsiklga topshiriladi.
+        if _loop is None or _loop.is_closed():
+            return
+        _sent[key] = now
+        asyncio.run_coroutine_threadsafe(_send(text), _loop)
         return
     _sent[key] = now
     task = loop.create_task(_send(text))

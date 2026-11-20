@@ -606,6 +606,8 @@ async def main():
     dp.include_router(settings.router)  # Handle settings buttons
     dp.include_router(converter.router)  # Handle PDF → DOCX conversion (before payments to keep state-specific callbacks)
     dp.include_router(pptx_converter.router)  # Handle PPTX → PDF conversion
+    from bot.handlers import thanks_service
+    dp.include_router(thanks_service.router)  # «🎬 Personaj qo'shish» (bepul): /start thxadd_… va .pptx fayl
     dp.include_router(abs_converter.router)  # Yashirin /abs — PPTX lotin ↔ kirill
     # Premium presentation must precede the generic successful_payment handler,
     # otherwise Stars payments are credited as balance instead of starting the deck.

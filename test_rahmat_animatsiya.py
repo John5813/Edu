@@ -245,7 +245,8 @@ async def web_part():
 
 
 status, html_text, lst_, lst_kk, media, poster, bad, trav = asyncio.run(web_part())
-check("sahifa ochiladi", status == 200 and "start=thx_" in html_text and "openTelegramLink" in html_text)
+check("sahifa ochiladi", status == 200 and "?start=' + prefix" in html_text and "'thx_'" in html_text
+      and "'thxadd_'" in html_text and "openTelegramLink" in html_text)
 check("galereya: to'r, belgilash, pastdagi tasdiqlash tugmasi, «Kerak emas»",
       'id="grid"' in html_text and 'id="ok"' in html_text and "send('none')" in html_text and "class=\"play\"" in html_text
       and "scroll-snap" not in html_text, "galereya elementlari")

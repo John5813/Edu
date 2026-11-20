@@ -42,6 +42,7 @@ def _load() -> dict:
         doc["month"] = _month()
         for k in doc["keys"]:
             k["used"], k["failed"] = 0, False
+            k.pop("error", None)
     return doc
 
 
@@ -97,17 +98,110 @@ def take() -> str:
         return doc["keys"][i]["key"]
 
 
-def report_failure(key: str, status: int) -> None:
-    """Brave kalitni rad etdi: 429 yoki 402 (kredit tugagan) — shu oy limiti tugagan, 401/403 — kalit yaroqsiz."""
+ALERT_EVERY = 6 * 3600          # bir kalit haqidagi bir xil ogohlantirish shundan tez takrorlanmaydi
+ALL_DOWN_EVERY = 3 * 3600       # «hamma kalit tugadi» — har 3 soatda eslatiladi (muammo hal bo'lmaguncha)
+LOW_LEFT = 0.1                  # oylik limitli kalitda shuncha ulush (10%) qolganda ogohlantiriladi
+
+
+def _windows(headers, name: str) -> List[int]:
+    """`X-RateLimit-Remaining: 49, 0` → [49, 0] (soniyalik, oylik). Yo'q bo'lsa — []."""
+    raw = ""
+    try:
+        raw = headers.get(name) or headers.get(name.lower()) or ""
+    except Exception:
+        pass
+    out = []
+    for part in str(raw).split(","):
+        try:
+            out.append(int(part.strip()))
+        except ValueError:
+            pass
+    return out
+
+
+def _alert(key: str, text: str, cooldown: float = ALERT_EVERY) -> None:
+    try:
+        from services import admin_alerts
+        admin_alerts.alert(key, text, cooldown)
+    except Exception:
+        pass
+
+
+def _where(doc: dict, key: str) -> str:
+    for i, k in enumerate(doc["keys"]):
+        if k["key"] == key:
+            return f"№{i + 1} ({mask(key)})"
+    return mask(key)
+
+
+def _after_change(doc: dict) -> None:
+    """Ishlaydigan kalit qolmagan bo'lsa — adminga qattiq ogohlantirish."""
+    alive = [k for k in doc["keys"] if _usable(k)]
+    if doc["keys"] and not alive:
+        _alert("brave_all_down",
+               "🚨 Brave: HAMMA kalitlarning limiti tugadi yoki yaroqsiz.\n"
+               "Taqdimotlarda internetdan rasm va yangi faktlar topilmayapti (rasmlar faqat AI bilan chiziladi, "
+               "statistik mavzularda raqamlar eskirishi mumkin).\n"
+               "Yechim: search.brave.com/api da kredit to'ldiring yoki admin panel → 🔑 Brave kalitlari → "
+               "«➕ Kalit qo'shish». To'ldirgandan keyin «▶️ ...-kalitga o'tish» ni bosing.", ALL_DOWN_EVERY)
+
+
+def note_response(key: str, headers) -> None:
+    """Muvaffaqiyatli javob sarlavhalaridan oylik qoldiqni yozadi (oylik limitli tariflarda) va kam qolsa ogohlantiradi.
+
+    Kredit bo'yicha (oylik limit «0») tariflarda Brave qoldiqni bermaydi — u holda kredit tugaganini 402 bildiradi."""
+    limits, left = _windows(headers, "X-RateLimit-Limit"), _windows(headers, "X-RateLimit-Remaining")
+    with _lock:
+        doc = _load()
+        k = next((k for k in doc["keys"] if k["key"] == key), None)
+        if k is not None and k.get("error"):          # kredit to'ldirildi — kalit yana ishlayapti
+            k.pop("error", None)
+            _save(doc)
+    if len(limits) < 2 or len(left) < 2 or limits[1] <= 0:
+        return
+    quota, remaining = limits[1], left[1]
     with _lock:
         doc = _load()
         for k in doc["keys"]:
             if k["key"] == key:
+                k["quota"], k["left"] = quota, remaining
+        where = _where(doc, key)
+        _save(doc)
+    if remaining <= max(1, int(quota * LOW_LEFT)):
+        _alert(f"brave_low:{key[-6:]}", f"⚠️ Brave kaliti {where}: shu oyga {remaining} ta so'rov qoldi "
+                                         f"({quota} tadan). Tugasa keyingi kalitga o'tiladi — zaxira kalit qo'shib qo'ying.")
+
+
+def report_failure(key: str, status: int, headers=None) -> None:
+    """Brave kalitni rad etdi: 402 (kredit tugagan) yoki oylik 429 — shu oy limiti tugagan, 401/403 — kalit yaroqsiz.
+
+    Soniyalik cheklov (429, oylik qoldiq hali bor) kalitni «tugagan» qilmaydi. Har holatda adminga xabar boriladi."""
+    if status == 429 and headers is not None:
+        limits, left = _windows(headers, "X-RateLimit-Limit"), _windows(headers, "X-RateLimit-Remaining")
+        if len(left) >= 2 and (len(limits) < 2 or limits[1] <= 0 or left[1] > 0):
+            return                       # faqat soniyalik chegara — kalit ishlayveradi
+    with _lock:
+        doc = _load()
+        for k in doc["keys"]:
+            if k["key"] == key:
+                k["error"] = f"HTTP {status} · {time.strftime('%d.%m %H:%M')}"
                 if status in (429, 402):
                     k["used"] = LIMIT
                 else:
                     k["failed"] = True
+        where = _where(doc, key)
+        alive = sum(1 for k in doc["keys"] if _usable(k))
         _save(doc)
+        if status == 402:
+            why = "krediti tugadi (HTTP 402)"
+        elif status == 429:
+            why = "oylik limiti tugadi (HTTP 429)"
+        else:
+            why = f"rad etildi — kalit yaroqsiz yoki o'chirilgan (HTTP {status})"
+        _alert(f"brave_fail:{key[-6:]}:{status}",
+               f"⚠️ Brave kaliti {where} {why}.\n"
+               + (f"Keyingi kalitga o'tildi, ishlaydigan kalitlar: {alive} ta." if alive else "Boshqa ishlaydigan kalit yo'q."))
+        _after_change(doc)
 
 
 def add(key: str) -> bool:
@@ -140,6 +234,7 @@ def activate(index: int) -> bool:
             return False
         k = doc["keys"][index]
         k["failed"] = False
+        k.pop("error", None)
         if int(k.get("used", 0)) >= LIMIT:
             k["used"] = 0
         doc["current"] = index
@@ -170,6 +265,7 @@ def reset() -> None:
         doc = _load()
         for k in doc["keys"]:
             k["used"], k["failed"] = 0, False
+            k.pop("error", None)
         doc["current"] = 0
         _save(doc)
 
@@ -184,4 +280,6 @@ def status() -> List[dict]:
         doc = _load()
         active = _pick(doc)
         return [{"n": i + 1, "mask": mask(k["key"]), "used": int(k.get("used", 0)), "failed": bool(k.get("failed")),
-                 "active": i == active, "added": k.get("added", "")} for i, k in enumerate(doc["keys"])]
+                 "active": i == active, "added": k.get("added", ""), "error": k.get("error", ""),
+                 "left": k.get("left"), "quota": k.get("quota"), "spent": int(k.get("used", 0)) >= LIMIT}
+                for i, k in enumerate(doc["keys"])]

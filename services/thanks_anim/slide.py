@@ -155,6 +155,72 @@ def _finish(prs, s, pptx_out: str, steps, audio: Optional[str], work: str) -> st
     return pptx_out
 
 
+BASE_W, BASE_H = px(1920), px(1080)          # sahifa 16:9 (13,33 × 7,5 dyuym) uchun chiziladi
+
+
+def _blank_layout(prs):
+    """Bo'sh maket: bizning taqdimotlarda 7-maket; mijozning istalgan faylida — eng kam joy egallagichli maket."""
+    layouts = list(prs.slide_layouts)
+    if len(layouts) > 6 and not len(layouts[6].placeholders):
+        return layouts[6]
+    return min(layouts, key=lambda layout: len(layout.placeholders))
+
+
+def _fit(slide, prs) -> None:
+    """Sahifa o'lchami 16:9 dan boshqa (4:3, A4, boshqa 16:9) bo'lsa: fon butun sahifani qoplaydi, qolgan hamma narsa
+    nisbati saqlangan holda kichrayib (kattalashib) markazga joylashadi, yozuvlar ham shu nisbatda."""
+    width, height = int(prs.slide_width or BASE_W), int(prs.slide_height or BASE_H)
+    if (width, height) == (BASE_W, BASE_H):
+        return
+    k = min(width / BASE_W, height / BASE_H)
+    ox, oy = (width - BASE_W * k) / 2, (height - BASE_H * k) / 2
+    shapes = list(slide.shapes)
+    for i, shape in enumerate(shapes):
+        try:
+            if i == 0:
+                # Fon — yuqoridan pastga gradient (personaj GIF i qatorlari bilan bir xil rang): eni bo'yicha butun
+                # sahifaga cho'ziladi, bo'yi esa personaj bilan birga; yuqori/pastki bo'sh joy fonning chekka rangida.
+                shape.left, shape.width = 0, width
+                shape.top, shape.height = int(oy), int(BASE_H * k)
+                _bands(slide, shape, width, height, int(oy))
+                continue
+            shape.left, shape.top = int(ox + shape.left * k), int(oy + shape.top * k)
+            shape.width, shape.height = int(shape.width * k), int(shape.height * k)
+        except Exception:
+            continue
+        if getattr(shape, "has_text_frame", False) and shape.has_text_frame:
+            for para in shape.text_frame.paragraphs:
+                for run in para.runs:
+                    if run.font.size:
+                        run.font.size = int(run.font.size * k)
+
+
+def _bands(slide, bg, width: int, height: int, band: int) -> None:
+    """Fon ustida va ostidagi bo'sh joyni fon rasmining eng yuqori/eng pastki rangi bilan to'ldiradi."""
+    if band <= 0:
+        return
+    import io
+    from pptx.dml.color import RGBColor
+    from pptx.enum.shapes import MSO_SHAPE
+
+    with Image.open(io.BytesIO(bg.image.blob)) as im:
+        im = im.convert("RGB")
+        top, bottom = im.getpixel((im.width // 2, 2)), im.getpixel((im.width // 2, im.height - 3))
+    anchor = bg._element
+    seam = px(6)                                        # fonga ozgina kirib turadi — chegarada tirqish ko'rinmasin
+    for y, colour in ((0, top), (height - band - seam, bottom)):
+        rect = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, y, width, band + seam)
+        rect.fill.solid()
+        rect.fill.fore_color.rgb = RGBColor(*colour)
+        rect.line.fill.background()
+        rect.shadow.inherit = False
+        style = rect._element.find(qn("p:style"))       # temadan keladigan chiziq/soya — LibreOffice ko'rsatardi
+        if style is not None:
+            rect._element.remove(style)
+        anchor.addnext(rect._element)                  # fon bilan bir qatlamda, hamma narsaning ostida
+        anchor = rect._element
+
+
 def _add_solid_slide(pptx_in: str, pptx_out: str, anim: Animation, language: str, author: str) -> str:
     """Fonli personaj: sahifa foni videoning o'z fonidan, dizayn — personajning o'ziniki (solid_slide.py)."""
     from . import solid_slide
@@ -162,8 +228,11 @@ def _add_solid_slide(pptx_in: str, pptx_out: str, anim: Animation, language: str
     work = tempfile.mkdtemp(prefix="thanks_")
     try:
         prs = Presentation(pptx_in)
-        s = prs.slides.add_slide(prs.slide_layouts[6])
+        s = prs.slides.add_slide(_blank_layout(prs))
+        for ph in list(s.placeholders):              # maketdan kelgan bo'sh «Sarlavha» kabi joylar kerak emas
+            ph._element.getparent().remove(ph._element)
         steps = solid_slide.build_slide(s, anim, work, language, author)
+        _fit(s, prs)
         audio = make_audio(anim, os.path.join(work, "thanks_audio.m4a"))
         return _finish(prs, s, pptx_out, steps, audio, work)
     finally:

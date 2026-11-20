@@ -162,7 +162,7 @@ def get_main_keyboard(language: str, presentation_enabled: bool = True, independ
     return keyboard.as_markup(resize_keyboard=True)
 
 
-def get_other_services_keyboard(language: str, media_enabled: bool = True, pdf_convert_enabled: bool = True, book_translate_enabled: bool = True, diploma_work_enabled: bool = True, tezis_enabled: bool = True, maqola_enabled: bool = True, bitiruv_ishi_enabled: bool = True, dissertatsiya_enabled: bool = True) -> InlineKeyboardMarkup:
+def get_other_services_keyboard(language: str, media_enabled: bool = True, pdf_convert_enabled: bool = True, book_translate_enabled: bool = True, diploma_work_enabled: bool = True, tezis_enabled: bool = True, maqola_enabled: bool = True, bitiruv_ishi_enabled: bool = True, dissertatsiya_enabled: bool = True, thanks_url: str = "") -> InlineKeyboardMarkup:
     """Other services submenu inline keyboard"""
     keyboard = InlineKeyboardBuilder()
 
@@ -181,6 +181,8 @@ def get_other_services_keyboard(language: str, media_enabled: bool = True, pdf_c
     keyboard.add(InlineKeyboardButton(text=get_text(language, "main_menu.pptx_to_pdf"), callback_data="os:pptx_to_pdf"))
     keyboard.add(InlineKeyboardButton(text=get_text(language, "main_menu.edit_file"), callback_data="os:edit_file"))
     keyboard.add(InlineKeyboardButton(text=get_text(language, "main_menu.test"), callback_data="os:test"))
+    if thanks_url:      # «🎬 Personaj qo'shish» — bepul: mini ilova darhol ochiladi
+        keyboard.add(InlineKeyboardButton(text=get_text(language, "main_menu.add_thanks"), web_app=WebAppInfo(url=thanks_url)))
 
     keyboard.add(InlineKeyboardButton(text=_back_text(language), callback_data="os:back"))
 

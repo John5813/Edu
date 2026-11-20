@@ -312,12 +312,13 @@ async def _brave(query: str, search_lang: str = "") -> List[dict]:
         async with aiohttp.ClientSession(timeout=timeout, trust_env=True) as session:
             async with session.get(BRAVE_URL, params=params, headers=headers) as resp:
                 if resp.status in (401, 402, 403, 429):
-                    brave_keys.report_failure(key, resp.status)
+                    brave_keys.report_failure(key, resp.status, getattr(resp, "headers", None))
                     log.warning("Brave kaliti %s rad etildi (HTTP %s) — keyingisi", brave_keys.mask(key), resp.status)
                     continue
                 if resp.status != 200:
                     raise RuntimeError(f"Brave HTTP {resp.status}: {(await resp.text())[:200]}")
                 data = await resp.json(content_type=None)
+                brave_keys.note_response(key, getattr(resp, "headers", None) or {})
         return list((data or {}).get("results") or [])
 
 
