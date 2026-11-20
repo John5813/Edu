@@ -130,9 +130,10 @@ def _brave_web(query: str) -> List[dict]:
         try:
             with urllib.request.urlopen(req, timeout=20) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
+                brave_keys.note_response(key, getattr(resp, "headers", None) or {})
         except urllib.error.HTTPError as exc:
             if exc.code in (401, 402, 403, 429):
-                brave_keys.report_failure(key, exc.code)
+                brave_keys.report_failure(key, exc.code, getattr(exc, "headers", None))
                 continue
             raise
         out = []

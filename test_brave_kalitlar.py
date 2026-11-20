@@ -75,6 +75,59 @@ check("panel ostida «Yopish» tugmasi, o'chirish avval tasdiq so'raydi",
 check(".env dagi kalitni paneldan o'chirib bo'lmaydi (u .env da turadi)",
       not any("1-kalit" in t for t in buttons), buttons)
 
+print("Limit tugashi haqida adminga xabar")
+from services import admin_alerts  # noqa: E402
+ALERTS = []
+admin_alerts.alert = lambda key, text, cooldown=0: ALERTS.append((key, text))
+bk.reset()
+for k in [r for r in bk.status()]:
+    pass
+bk.report_failure("BBBB2222bbbb", 402)
+check("402 (kredit tugadi) — adminga xabar: qaysi kalit, nima bo'ldi, nechta kalit qoldi",
+      ALERTS and "BBBB…bbbb" in ALERTS[-1][1] and "krediti tugadi" in ALERTS[-1][1] and "ishlaydigan kalitlar" in ALERTS[-1][1], ALERTS)
+n = len(ALERTS)
+bk.report_failure("CCCC3333cccc", 429, {"X-RateLimit-Limit": "1, 15000", "X-RateLimit-Remaining": "0, 9000"})
+check("429 faqat soniyalik chegara (oylik qoldiq bor) — kalit tugagan deb belgilanmaydi, xabar yo'q",
+      len(ALERTS) == n and not next(r for r in bk.status() if r["mask"] == "CCCC…cccc")["spent"], ALERTS[n:])
+bk.report_failure("CCCC3333cccc", 429, {"X-RateLimit-Limit": "1, 15000", "X-RateLimit-Remaining": "0, 0"})
+check("429 oylik limit tugadi — xabar", "oylik limiti tugadi" in ALERTS[-1][1], ALERTS[-1])
+for row in bk.status():                     # qolgan hamma kalit krediti ham tugadi
+    pass
+for key in [k["key"] for k in bk._load()["keys"]]:
+    bk.report_failure(key, 402)
+all_down = [t for k, t in ALERTS if k == "brave_all_down"]
+check("hamma kalit tugaganda — alohida 🚨 xabar va yechim (kredit / yangi kalit)",
+      all_down and "HAMMA" in all_down[-1] and "Kalit qo'shish" in all_down[-1], ALERTS[-3:])
+text, _ = admin._brave_keys_view()
+check("admin panel: tugagan kalit belgisi va oxirgi rad sababi ko'rinadi", "oxirgi rad: HTTP 402" in text
+      and "darhol xabar keladi" in text, text)
+bk.reset(); ALERTS.clear()
+bk.note_response("AAAA1111aaaa", {"X-RateLimit-Limit": "1, 2000", "X-RateLimit-Remaining": "0, 150"})
+check("oylik limitli kalitda 10% dan kam qoldi — ogohlantirish", ALERTS and "150 ta so'rov qoldi" in ALERTS[-1][1], ALERTS)
+ALERTS.clear()
+bk.note_response("AAAA1111aaaa", {"X-RateLimit-Limit": "50, 0", "X-RateLimit-Remaining": "49, 0"})
+check("kredit bo'yicha tarif (oylik limit 0) — bekorga ogohlantirmaydi", not ALERTS, ALERTS)
+bk.report_failure("AAAA1111aaaa", 402)
+bk.note_response("AAAA1111aaaa", {"X-RateLimit-Limit": "50, 0", "X-RateLimit-Remaining": "49, 0"})
+check("kredit to'ldirilib kalit yana ishlasa — rad belgisi o'chadi", not bk.status()[0]["error"], bk.status()[0])
+
+import asyncio, threading  # noqa: E401,E402
+import importlib  # noqa: E402
+importlib.reload(admin_alerts)
+SENT = []
+class _Bot:
+    async def send_message(self, chat, text, **kw): SENT.append((chat, text))
+async def _thread_case():
+    import config
+    if not config.ADMIN_IDS:
+        config.ADMIN_IDS.append(7001)
+    admin_alerts.set_bot(_Bot())
+    th = threading.Thread(target=admin_alerts.alert, args=("t", "oqimdan xabar"))
+    th.start(); th.join()
+    await asyncio.sleep(0.05)
+asyncio.run(_thread_case())
+check("boshqa oqimdan (Brave so'rovi thread'da) ham adminga xabar yetadi", any(t == "oqimdan xabar" for _, t in SENT), SENT)
+
 print()
 print("HAMMASI O'TDI" if not FAILS else f"XATOLAR: {len(FAILS)} — {FAILS}")
 sys.exit(1 if FAILS else 0)
