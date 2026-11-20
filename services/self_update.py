@@ -24,19 +24,40 @@ o'sha `screen` oynasida yangi kod bilan almashadi. Shuning uchun systemd
 yoki boshqa nazoratchi shart emas.
 """
 
+import asyncio
 import hashlib
 import logging
 import os
 import re
+import signal
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 # Buyruqlar uchun vaqt chegaralari (soniya).
 _GIT_TIMEOUT = 120
+_FETCH_TIMEOUT = 60
 _PIP_TIMEOUT = 600
+STATUS_TIMEOUT = 150             # «GitHub tekshirilmoqda» bundan uzoq osilib qolmaydi
+
+# Yangilash o'z oqimida ishlaydi: bot band bo'lsa (taqdimotlar umumiy oqimlarni egallagan) navbatda qolib ketmaydi.
+_POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix="self-update")
+
+# Git hech qachon parol/token yoki SSH tasdig'ini so'rab kutib qolmasin (bot `screen` terminalida ishlaganda git
+# terminaldan so'rab, cheksiz kutardi): so'rov o'rniga darhol xato beradi.
+_GIT_ENV = {"GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "echo", "SSH_ASKPASS": "echo", "GCM_INTERACTIVE": "never"}
+# Fetch: sekin/osilgan ulanish 30 soniyada uziladi; fetch'dan keyingi avtomatik «git gc» (2 GB serverda daqiqalab
+# ishlashi mumkin) o'chiq.
+_FETCH_OPTS = ["-c", "http.lowSpeedLimit=1000", "-c", "http.lowSpeedTime=30", "-c", "gc.auto=0",
+               "-c", "maintenance.auto=false"]
+
+
+async def in_background(fn, *args):
+    """`status` / `update` ni alohida oqimda bajaradi (umumiy oqimlar band bo'lsa ham darhol boshlanadi)."""
+    return await asyncio.get_running_loop().run_in_executor(_POOL, fn, *args)
 
 # Manzil ichidagi login/parol yoki token. `https://user:token@github.com/...`
 _CREDENTIALS = re.compile(r"(https?://)[^/\s:@]+(?::[^/\s@]+)?@")
@@ -61,18 +82,32 @@ def repo_root() -> Path:
 
 def _run(args: list, timeout: int = _GIT_TIMEOUT) -> tuple:
     """Buyruqni bajaradi va (muvaffaqiyat, tozalangan chiqish) qaytaradi."""
+    env = dict(os.environ, **_GIT_ENV)
+    if "GIT_SSH_COMMAND" not in env:
+        env["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes -o ConnectTimeout=20"
     try:
-        result = subprocess.run(
-            args, cwd=str(repo_root()), capture_output=True, text=True,
-            timeout=timeout,
-        )
-    except subprocess.TimeoutExpired:
-        return False, f"⏱ Buyruq {timeout} soniyada tugamadi: {args[0]}"
+        # Alohida jarayon guruhi va terminalsiz: vaqt tugasa git'ning bola jarayonlari (git-remote-https, ssh) ham
+        # o'ldiriladi. `subprocess.run(timeout=...)` faqat git'ni o'ldirardi, bolalari esa chiqish quvurini ochiq
+        # ushlab turgani uchun bot cheksiz kutib qolardi («GitHub tekshirilmoqda...» da qotish).
+        proc = subprocess.Popen(args, cwd=str(repo_root()), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, text=True, env=env, start_new_session=True)
     except OSError as e:
         return False, f"Buyruq ishga tushmadi: {e}"
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except OSError:
+            proc.kill()
+        try:
+            proc.communicate(timeout=5)
+        except Exception:
+            pass
+        return False, f"⏱ Buyruq {timeout} soniyada tugamadi: {' '.join(args[:2])}"
 
-    output = (result.stdout or "") + (result.stderr or "")
-    return result.returncode == 0, _redact(output.strip())
+    output = (stdout or "") + (stderr or "")
+    return proc.returncode == 0, _redact(output.strip())
 
 
 def is_git_repo() -> bool:
@@ -107,7 +142,7 @@ def status() -> dict:
     if not branch or branch == "HEAD":
         return {"ok": False, "error": "Shoxcha aniqlanmadi (detached HEAD)."}
 
-    fetched, fetch_out = _run(["git", "fetch", "origin", branch])
+    fetched, fetch_out = _run(["git", *_FETCH_OPTS, "fetch", "origin", branch], timeout=_FETCH_TIMEOUT)
     if not fetched:
         return {"ok": False, "error": f"GitHub'ga ulanib bo'lmadi:\n{fetch_out}"}
 

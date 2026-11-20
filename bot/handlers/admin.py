@@ -4194,24 +4194,30 @@ def _busy_documents() -> tuple:
 
 
 def _format_update_status(state: dict) -> tuple:
-    """Holatni admin ko'radigan matnga aylantiradi."""
+    """Holatni admin ko'radigan matnga aylantiradi.
+
+    Commit nomlari, fayl nomlari va git xabarlari HTML uchun tozalanadi: nomida «<», «>», «&» bo'lgan commit
+    (masalan «nomida <, >, & bo'lsa ham») Telegram'da «can't parse entities» berib, xabar «GitHub tekshirilmoqda...»
+    holatida qotib qolardi."""
+    def esc(value) -> str:
+        return _html.escape(str(value), quote=False)
     if not state.get("ok"):
-        return f"🔄 <b>Botni yangilash</b>\n\n❌ {state.get('error', '')}", False
+        return f"🔄 <b>Botni yangilash</b>\n\n❌ {esc(str(state.get('error', '')))}", False
 
     lines = [
         "🔄 <b>Botni yangilash</b>\n",
-        f"🌿 Shoxcha: <code>{state['branch']}</code>",
-        f"📍 Hozirgi: <code>{state['current']}</code>",
+        f"🌿 Shoxcha: <code>{esc(state['branch'])}</code>",
+        f"📍 Hozirgi: <code>{esc(state['current'])}</code>",
     ]
 
     if state["dirty"]:
-        listed = "\n".join(f"• {name}" for name in state["dirty"][:8])
+        listed = "\n".join(f"• {esc(name)}" for name in state["dirty"][:8])
         lines.append(f"\n⚠️ <b>Saqlanmagan o'zgarishlar:</b>\n{listed}")
         lines.append("\nYangilash to'xtatiladi — ular yo'qolmasligi kerak.")
         return "\n".join(lines), False
 
     if state["local_only"]:
-        listed = "\n".join(f"• {line}" for line in state["local_only"][:8])
+        listed = "\n".join(f"• {esc(line)}" for line in state["local_only"][:8])
         lines.append(f"\n⚠️ <b>GitHub'ga yuborilmagan commitlar:</b>\n{listed}")
         lines.append("\nAvval ularni push qiling.")
         return "\n".join(lines), False
@@ -4220,13 +4226,40 @@ def _format_update_status(state: dict) -> tuple:
         lines.append("\n✅ Bot eng yangi kodda ishlayapti.")
         return "\n".join(lines), False
 
-    listed = "\n".join(f"• {line}" for line in state["incoming"][:12])
+    listed = "\n".join(f"• {esc(line)}" for line in state["incoming"][:12])
     more = len(state["incoming"]) - 12
     if more > 0:
         listed += f"\n• … va yana {more} ta"
     lines.append(f"\n📥 <b>{len(state['incoming'])} ta yangilanish:</b>\n{listed}")
     lines.append("\nYangilangach bot qayta ishga tushadi (10-20 soniya).")
     return "\n".join(lines), True
+
+
+async def _safe_edit(msg, text: str, markup=None) -> None:
+    """Xabarni yangilaydi; HTML baribir rad etilsa — belgilarsiz oddiy matn (xabar «tekshirilmoqda» da qolmasin)."""
+    try:
+        await msg.edit_text(text, parse_mode="HTML", reply_markup=markup)
+    except Exception as exc:                       # noqa: BLE001
+        if "not modified" in str(exc):
+            return
+        logger.warning("Yangilash oynasi HTML bilan yangilanmadi: %s", exc)
+        plain = re.sub(r"<[^>]+>", "", text)
+        try:
+            await msg.edit_text(_html.unescape(plain), parse_mode=None, reply_markup=markup)
+        except Exception as exc2:                  # noqa: BLE001
+            logger.warning("Yangilash oynasi umuman yangilanmadi: %s", exc2)
+
+
+async def _update_status() -> dict:
+    """GitHub holati — alohida oqimda va vaqt chegarasi bilan: hech qachon «tekshirilmoqda» da qotib qolmaydi."""
+    from services import self_update
+    try:
+        return await asyncio.wait_for(self_update.in_background(self_update.status), self_update.STATUS_TIMEOUT)
+    except asyncio.TimeoutError:
+        return {"ok": False, "error": f"GitHub {self_update.STATUS_TIMEOUT} soniyada javob bermadi (server interneti "
+                                      "yoki GitHub sekin). Birozdan keyin «🔁 Qayta tekshirish» ni bosing."}
+    except Exception as exc:                       # noqa: BLE001
+        return {"ok": False, "error": f"Tekshirib bo'lmadi: {exc}"}
 
 
 @router.message(F.text == "🔄 Botni yangilash")
@@ -4239,11 +4272,10 @@ async def handle_self_update(message: Message):
     from services import self_update
 
     status = await message.answer("⏳ GitHub tekshirilmoqda...")
-    state = await asyncio.to_thread(self_update.status)
+    state = await _update_status()
     token = _new_update_token(message.from_user.id)
     text, has_updates = _format_update_status(state)
-    await status.edit_text(text, parse_mode="HTML",
-                           reply_markup=get_self_update_keyboard(token, has_updates))
+    await _safe_edit(status, text, get_self_update_keyboard(token, has_updates))
 
 
 @router.callback_query(F.data == "selfupd:check")
@@ -4256,15 +4288,10 @@ async def handle_self_update_check(callback: CallbackQuery):
     from services import self_update
 
     await callback.answer("Tekshirilmoqda...")
-    state = await asyncio.to_thread(self_update.status)
+    state = await _update_status()
     token = _new_update_token(callback.from_user.id)
     text, has_updates = _format_update_status(state)
-    try:
-        await callback.message.edit_text(
-            text, parse_mode="HTML",
-            reply_markup=get_self_update_keyboard(token, has_updates))
-    except Exception:
-        pass
+    await _safe_edit(callback.message, text, get_self_update_keyboard(token, has_updates))
 
 
 @router.callback_query(F.data == "selfupd:close")
@@ -4347,26 +4374,23 @@ async def _do_self_update(callback: CallbackQuery) -> None:
     except Exception:
         pass
 
-    result = await asyncio.to_thread(self_update.update)
+    result = await self_update.in_background(self_update.update)
     if not result.get("ok"):
-        await callback.message.edit_text(
-            f"🔄 <b>Yangilash bajarilmadi</b>\n\n❌ {result.get('error', '')}",
-            parse_mode="HTML")
+        await _safe_edit(callback.message,
+                         f"🔄 <b>Yangilash bajarilmadi</b>\n\n❌ {_html.escape(str(result.get('error', '')), quote=False)}")
         return
 
     if not result.get("changed"):
-        await callback.message.edit_text(
-            "✅ Bot allaqachon eng yangi kodda — qayta ishga tushirish shart emas.",
-            parse_mode="HTML")
+        await _safe_edit(callback.message, "✅ Bot allaqachon eng yangi kodda — qayta ishga tushirish shart emas.")
         return
 
     steps = "\n".join(f"• {step}" for step in result.get("steps") or [])
-    await callback.message.edit_text(
-        "✅ <b>Kod yangilandi</b>\n\n"
-        f"📍 Yangi holat: <code>{result['current']}</code>\n"
-        f"{steps}\n\n"
-        "♻️ Bot qayta ishga tushmoqda. 10-20 soniyadan keyin /start bosing.",
-        parse_mode="HTML")
+    # Xabar yangilanmasa ham bot qayta ishga tushadi (avval xabar xatosi qayta ishga tushirishni to'xtatib qo'yardi).
+    await _safe_edit(callback.message,
+                     "✅ <b>Kod yangilandi</b>\n\n"
+                     f"📍 Yangi holat: <code>{_html.escape(result['current'], quote=False)}</code>\n"
+                     f"{_html.escape(steps, quote=False)}\n\n"
+                     "♻️ Bot qayta ishga tushmoqda. 10-20 soniyadan keyin /start bosing.")
 
     # Xabar yetib borishi va Telegram yangilanish raqamini tasdiqlashi uchun
     # biroz kutamiz — aks holda bu bosish qayta yuborilishi mumkin edi.
