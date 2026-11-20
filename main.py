@@ -83,6 +83,8 @@ def _prune_temp(now: float) -> int:
             continue  # kesh alohida qoidalar bilan boshqariladi
         if os.path.abspath(root).startswith(os.path.abspath(os.path.join(temp_dir, "book_jobs"))):
             continue  # kitob tarjimasi soatlab davom etishi mumkin — o'zi tozalaydi
+        if os.path.abspath(root).startswith(os.path.abspath(os.path.join(temp_dir, "web_jobs"))):
+            continue  # saytdagi tayyor fayllar (eski joy) — bir soatda o'chib ketmasin; ular o'z muddati bilan tozalanadi
         for name in files:
             if name in _TEMP_KEEP:
                 continue
@@ -632,6 +634,14 @@ async def main():
     
     # Share bot instance with web server for sending files
     webapp.BOT = bot
+
+    # Saytdagi tayyor fayllar endi doimiy papkada (data/web_jobs): eski joydagilar temp tozalanishidan OLDIN ko'chiriladi.
+    try:
+        from services import web_jobs as _web_jobs
+        _web_jobs.migrate_legacy()
+        await _web_jobs.fix_legacy_paths()
+    except Exception as exc:
+        logger.warning("Sayt fayllari ko'chirilmadi: %s", exc)
 
     # Clean up old temp files left from previous runs
     cleanup_temp_files()

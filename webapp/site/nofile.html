@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Fayl — Edufayl</title>
+<link rel="icon" href="/static/icon-64.png">
+<link rel="stylesheet" href="/static/site.css">
+<style>
+  .nf-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;box-sizing:border-box}
+  .nf-card{max-width:440px;width:100%;text-align:center;padding:28px 22px 24px;box-sizing:border-box}
+  .nf-card .nf-ic{font-size:44px;line-height:1;margin:6px 0 4px}
+  .nf-card h2{margin:10px 0 8px;font-size:21px}
+  .nf-card p{margin:0 0 14px;color:#4A5272;font-size:15px;line-height:1.5}
+  .nf-card .btn{width:100%;margin-top:8px;box-sizing:border-box}
+  .nf-card .nf-out{margin-top:12px}
+</style>
+</head>
+<body>
+<main class="nf-wrap">
+  <div class="card nf-card">
+    <img src="/static/logo-sm.webp" alt="Edufayl" width="54" height="54">
+    <!--BODY-->
+  </div>
+</main>
+<script src="/static/i18n-dict.js" defer></script>
+<script src="/static/i18n.js" defer></script>
+<script src="/static/site.js" defer></script>
+<script>
+document.addEventListener('click', function (e) {
+  var b = e.target.closest && e.target.closest('[data-tg-send]');
+  if (!b) return;
+  var out = document.getElementById('nf-out');
+  b.disabled = true;
+  out.innerHTML = '<span class="spin"></span>';
+  fetch('/api/v1/jobs/' + encodeURIComponent(b.getAttribute('data-tg-send')) + '/telegram',
+        {method: 'POST', credentials: 'same-origin'})
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      out.innerHTML = d.ok ? '<div class="note ok">✅ Fayl Telegramga yuborildi</div>'
+                           : '<div class="note bad"></div>';
+      if (!d.ok) out.firstChild.textContent = d.error || 'Xatolik yuz berdi';
+      b.disabled = false;
+    })
+    .catch(function () { out.innerHTML = '<div class="note bad">Aloqa yo‘q. Internetni tekshirib, qayta urining.</div>'; b.disabled = false; });
+});
+</script>
+</body>
+</html>

@@ -312,6 +312,12 @@
     }
   });
 
+  // Saqlash muddati: 2 kundan ko'p bo'lsa — kunda («29 kun qoldi»), aks holda soatda.
+  Edu.leftText = function (expiresAt) {
+    const hours = Math.max(0, Math.round((expiresAt * 1000 - Date.now()) / 3600000));
+    return hours >= 48 ? Math.floor(hours / 24) + ' kun qoldi' : hours + ' soat qoldi';
+  };
+
   Edu.copy = async function (text) {
     try { await navigator.clipboard.writeText(text); Edu.toast('Nusxalandi'); }
     catch (e) { Edu.toast(text); }

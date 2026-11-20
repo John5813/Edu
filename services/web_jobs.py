@@ -4,7 +4,9 @@ Bot va sayt bir xil xizmatlarni chaqiradi; bu modul faqat sayt tomonidagi "buyur
 - har xizmat `Kind` sifatida ro'yxatga olinadi (qiymatlarni tekshirish, narx, bajarish);
 - narx balansdan atomik yechiladi, xatoda to'liq qaytariladi;
 - bir vaqtda ishlaydigan og'ir ishlar soni cheklangan (brauzer bilan chizish og'ir);
-- tayyor fayl `JOB_TTL_HOURS` soatdan keyin o'chadi (maxfiylik: hujjatlar saqlanmaydi).
+- tayyor fayl yopiq Telegram guruhiga (ombor, `web_archive`) yuklanadi va «Hujjatlarim» da 30 kun turadi;
+  serverdagi nusxa `data/web_jobs` da (vaqtinchalik `temp/` emas — u har 30 daqiqada va qayta ishga tushganda
+  tozalanadi) 3 kun turadi, keyin kerak bo'lsa ombordan qaytariladi.
 """
 import asyncio
 import html
@@ -21,7 +23,12 @@ from database.database import Database
 
 log = logging.getLogger(__name__)
 
-RESULTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "temp", "web_jobs")
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Doimiy papka: `temp/` dagi hamma narsa bir soatdan keyin (har 30 daqiqada va bot qayta ishga tushganda) o'chirilardi —
+# saytdagi tayyor fayllar va taqdimot nusxalari ham. Shuning uchun yangilashdan keyin «Fayl topilmadi» chiqardi.
+RESULTS_DIR = os.getenv("WEB_JOBS_DIR") or os.path.join(_ROOT, "data", "web_jobs")
+LEGACY_RESULTS_DIR = os.path.join(_ROOT, "temp", "web_jobs")
+LOCAL_CACHE_HOURS = 6        # ombordan qayta olingan nusxa serverda shuncha turadi
 CONCURRENCY = max(1, int(os.getenv("WEB_JOBS_CONCURRENCY", "2")))
 MAX_ACTIVE_PER_USER = 2
 
@@ -127,9 +134,10 @@ def public(job: Dict) -> Dict:
             "stage": job["stage"] or ("done" if status == "done" else "queued"),
             "stage_text": _STAGE_TEXT.get(job["stage"] or status, ""),
             "progress": 100 if status == "done" else int(job["progress"] or 0),
-            "price": int(job["price"] or 0), "ready": status == "done" and bool(job.get("result_path")),
+            "price": int(job["price"] or 0), "ready": status == "done" and bool(job.get("result_path") or job.get("vault_file_id")),
             "file_name": job.get("result_name") or "", "error": job.get("error") or "",
-            "created_at": job["created_at"], "expires_at": job["created_at"] + web_store.JOB_TTL_HOURS * 3600,
+            "created_at": job["created_at"], "expires_at": web_store.expires_at(job),
+            "archived": bool(job.get("vault_file_id")),
             "telegram": int(job.get("tg_sent") or 0),
             "live": LIVE.get(job["id"], {}) if status in ("queued", "running") else {}}
 
@@ -335,14 +343,19 @@ async def _warn_admins(detail: str) -> None:
 
 
 async def _after_done(job_id: str, telegram_id: int, kind: Kind, params: Dict, path: str, name: str) -> None:
-    """Tayyor faylni Telegramga ham yuboradi va katalogga qo'yadi (ikkalasi ham ixtiyoriy)."""
+    """Tayyor faylni omborga (yopiq guruh) qo'yadi, Telegramga ham yuboradi va katalogga qo'yadi (hammasi ixtiyoriy)."""
     try:
         import webapp
         from database import web_accounts
+        from services import web_archive
         bot = webapp.BOT
+        file_id = ""
+        job = await web_store.get_job(job_id)
+        if job and web_archive.enabled():          # 30 kun saqlanadi; serverdan o'chsa ham shundan qaytadi
+            file_id = await web_archive.store(job, path, name)
         if bot is None or web_accounts.is_web_only(telegram_id):
             return          # Telegramsiz akkaunt: fayl faqat saytdan yuklab olinadi
-        status = await deliver_to_telegram(bot, telegram_id, kind.title(params) or name, path, name)
+        status = await deliver_to_telegram(bot, telegram_id, kind.title(params) or name, path, name, file_id=file_id)
         await web_store.update_job(job_id, tg_sent=status, tg_version=file_version(path) if status > 0 else "")
         if kind.key == "presentation_3d" and status > 0:      # botdagi kabi: 3D qanday ochilishi — yo'riqnoma videosi
             await _send_3d_guide(bot, telegram_id)
@@ -378,8 +391,10 @@ async def send_current(job: Dict, telegram_id: int, force: bool = False) -> int:
     0 — yuborilmadi (Telegramsiz akkaunt yoki takror so'rov)."""
     import webapp
     from database import web_accounts
+    from services import web_archive
     path = job.get("result_path") or ""
-    if webapp.BOT is None or web_accounts.is_web_only(telegram_id) or not path or not os.path.exists(path):
+    local = bool(path) and os.path.exists(path)
+    if webapp.BOT is None or web_accounts.is_web_only(telegram_id) or not (local or job.get("vault_file_id")):
         return 0
     now = time.monotonic()
     if not force and now - _sent_at.get(job["id"], -DOWNLOAD_GAP) < DOWNLOAD_GAP:
@@ -390,8 +405,11 @@ async def send_current(job: Dict, telegram_id: int, force: bool = False) -> int:
     _sent_at[job["id"]] = now
     try:
         name = job.get("result_name") or os.path.basename(path)
-        status = await deliver_to_telegram(webapp.BOT, telegram_id, job.get("title") or name, path, name)
-        await web_store.update_job(job["id"], tg_sent=status, tg_version=file_version(path) if status > 0 else "")
+        # Ombordagi nusxa (tahrirdan keyin — yangisi yuklanadi): Telegramga serverdan qayta yuklanmaydi.
+        file_id = await web_archive.ensure(job, path, name) if local else (job.get("vault_file_id") or "")
+        status = await deliver_to_telegram(webapp.BOT, telegram_id, job.get("title") or name, path if local else "",
+                                           name, file_id=file_id)
+        await web_store.update_job(job["id"], tg_sent=status, tg_version=file_version(path) if status > 0 and local else "")
         if status < 0:
             _sent_at.pop(job["id"], None)        # yetmadi — keyingi bosishda yana urinadi
         return status
@@ -422,7 +440,7 @@ def _docs_button(lang: str):
         text=get_text(lang, "web_open_docs_btn"), callback_data="golink:docs")]])
 
 
-async def deliver_to_telegram(bot, telegram_id: int, title: str, path: str, name: str) -> int:
+async def deliver_to_telegram(bot, telegram_id: int, title: str, path: str, name: str, file_id: str = "") -> int:
     """Faylni mijozning botiga yuboradi. Qaytaradi: 1 — fayl, 2 — katta fayl uchun havola, -1 — yetmadi.
 
     Tarmoq xatosi yoki Telegram cheklovida bir necha marta qayta uriniladi; mijoz botni bloklagan bo'lsa
@@ -437,7 +455,11 @@ async def deliver_to_telegram(bot, telegram_id: int, title: str, path: str, name
     # Bot xabarlari HTML rejimida: nomdagi «<», «>», «&» (masalan «C++ & Java», «x < 5») Telegram'da «can't parse
     # entities» xatosini berib, fayl umuman yetmasdi. Nom HTML uchun tozalanadi; baribir rad etilsa — formatsiz.
     title = html.escape((title or name or "")[:180], quote=False)
-    big = os.path.getsize(path) > TG_FILE_LIMIT
+    local = bool(path) and os.path.exists(path)
+    # Ombordagi nusxa (`file_id`) bo'lsa — u yuboriladi: serverdan qayta yuklanmaydi va hajm cheklovi yo'q.
+    big = not file_id and local and os.path.getsize(path) > TG_FILE_LIMIT
+    if not file_id and not local:
+        return -1
     plain = {}
     for attempt in range(DELIVERY_TRIES):
         try:
@@ -446,7 +468,8 @@ async def deliver_to_telegram(bot, telegram_id: int, title: str, path: str, name
                 await bot.send_message(telegram_id, get_text(lang, "web_file_big", title=title, size=size),
                                        reply_markup=_docs_button(lang), **plain)
                 return 2
-            await bot.send_document(telegram_id, FSInputFile(path, filename=name),
+            document = file_id or FSInputFile(path, filename=name)
+            await bot.send_document(telegram_id, document,
                                     caption=get_text(lang, "web_file_ready", title=title), **plain)
             return 1
         except TelegramEntityTooLarge:
@@ -460,6 +483,11 @@ async def deliver_to_telegram(bot, telegram_id: int, title: str, path: str, name
             log.warning("Telegramga yuborishda tarmoq xatosi (%s), urinish %d: %s", telegram_id, attempt + 1, exc)
             await _pause(2 * (attempt + 1))
         except TelegramBadRequest as exc:
+            if file_id and local and "parse entities" not in str(exc).lower():
+                log.warning("Ombordagi nusxa yuborilmadi (%s), fayl serverdan yuboriladi: %s", telegram_id, exc)
+                file_id = ""                            # yaroqsiz file_id — serverdagi nusxa bilan qayta urinish
+                big = os.path.getsize(path) > TG_FILE_LIMIT
+                continue
             if "too big" in str(exc).lower() or "too large" in str(exc).lower():
                 big = True
                 continue
@@ -522,7 +550,62 @@ async def recover() -> int:
     return len(stuck)
 
 
+def migrate_legacy() -> int:
+    """Eski joydagi (`temp/web_jobs`) fayllarni doimiy papkaga ko'chiradi — bot ishga tushganda, temp tozalanishidan
+    OLDIN. Bazadagi yo'llar ham yangilanadi (`fix_legacy_paths`)."""
+    if not os.path.isdir(LEGACY_RESULTS_DIR) or os.path.abspath(LEGACY_RESULTS_DIR) == os.path.abspath(RESULTS_DIR):
+        return 0
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+    moved = 0
+    for name in os.listdir(LEGACY_RESULTS_DIR):
+        src, dst = os.path.join(LEGACY_RESULTS_DIR, name), os.path.join(RESULTS_DIR, name)
+        if os.path.exists(dst):
+            continue
+        try:
+            shutil.move(src, dst)
+            moved += 1
+        except OSError as exc:
+            log.warning("Sayt fayli ko'chirilmadi (%s): %s", name, exc)
+    shutil.rmtree(LEGACY_RESULTS_DIR, ignore_errors=True)
+    if moved:
+        log.info("Sayt fayllari doimiy papkaga ko'chirildi: %d ta", moved)
+    return moved
+
+
+async def fix_legacy_paths() -> None:
+    """Bazadagi `temp/web_jobs/...` yo'llarini yangi papkaga almashtiradi."""
+    import aiosqlite
+    from database import database as _db
+    old, new = os.path.abspath(LEGACY_RESULTS_DIR), os.path.abspath(RESULTS_DIR)
+    if old == new:
+        return
+    async with aiosqlite.connect(_db.DATABASE_FILE) as conn:
+        await web_store.create_tables(conn)
+        await conn.execute("UPDATE web_jobs SET result_path = ? || substr(result_path, ?) WHERE result_path LIKE ?",
+                           (new, len(old) + 1, old + "%"))
+        await conn.commit()
+
+
+async def backfill_archive(limit: int = 15) -> int:
+    """Serverda turgan, lekin omborda yo'q tayyor fayllarni yopiq guruhga yuklaydi (bir martada `limit` tadan)."""
+    from services import web_archive
+    if not web_archive.enabled():
+        return 0
+    rows = await web_store._rows("SELECT * FROM web_jobs WHERE status = 'done' AND COALESCE(vault_file_id, '') = '' "
+                                 "AND COALESCE(result_path, '') != '' ORDER BY created_at DESC LIMIT ?", (limit * 3,))
+    done = 0
+    for job in rows:
+        path = job.get("result_path") or ""
+        if done >= limit or not os.path.exists(path):
+            continue
+        if await web_archive.store(job, path):
+            done += 1
+            await asyncio.sleep(1.5)                   # Telegram chegarasiga urilmasin
+    return done
+
+
 async def purge() -> int:
+    """Muddati o'tgan buyurtmalarni (omborsiz — 3 kun, omborda — 30 kun) va serverdagi eskirgan nusxalarni o'chiradi."""
     paths = await web_store.purge_expired()
     try:
         from services import web_decks
@@ -536,11 +619,45 @@ async def purge() -> int:
             removed += 1
         except OSError:
             pass
+    # Omborda turgan, 3 kundan eski ish: serverdagi nusxa (va ko'rish/tahrirlash nusxasi) o'chadi — fayl kerak bo'lsa
+    # ombordan qaytariladi. Ombordan qaytarilgan nusxa yana LOCAL_CACHE_HOURS turadi.
+    now = time.time()
+    for row in await web_store.archived_old():
+        path = row.get("result_path") or ""
+        try:
+            if path and os.path.exists(path) and now - os.path.getmtime(path) > LOCAL_CACHE_HOURS * 3600:
+                os.remove(path)
+                removed += 1
+        except OSError:
+            pass
+        try:
+            from services import web_decks
+            web_decks.drop(row["id"])
+        except Exception:
+            pass
+    # Ombor yoqilishidan oldin tayyorlangan (hali omborda yo'q) fayllar — har soatda bir nechtadan yuklanadi.
+    try:
+        await backfill_archive()
+    except Exception as exc:
+        log.warning("Eski fayllar omborga yuklanmadi: %s", exc)
+    # Do'kon xaridi uchun ombordan olingan vaqtinchalik fayllar.
+    try:
+        for name in os.listdir(RESULTS_DIR):
+            path = os.path.join(RESULTS_DIR, name)
+            if name.startswith("store_") and os.path.isfile(path) and now - os.path.getmtime(path) > 3600:
+                os.remove(path)
+                removed += 1
+    except OSError:
+        pass
     return removed
 
 
 async def housekeeping(interval: int = 3600) -> None:
     """Soatiga bir marta muddati o'tgan fayllarni tozalaydi."""
+    try:
+        await fix_legacy_paths()
+    except Exception as exc:
+        log.warning("Sayt fayllari yo'llari yangilanmadi: %s", exc)
     await recover()
     while True:
         try:

@@ -206,7 +206,7 @@
             <div class="card panel ed-panel" id="edpanel" hidden></div>
             <p class="hint" style="margin:10px 0 0">Ko‘rinish taxminiy.</p>`
             : '<p class="hint" style="margin:14px 0 0">Ko‘rinish taxminiy: PowerPoint da biroz farq qilishi mumkin.</p>'}
-          <p class="hint" style="margin:10px 0 0">Fayl ${Math.max(0, Math.round((info.expires_at * 1000 - Date.now()) / 3600000))} soat saqlanadi.</p>
+          <p class="hint" style="margin:10px 0 0">${E.leftText(info.expires_at)}</p>
         </div>
         ${deck.editable ? `<aside class="vside card" id="vside" hidden>
           <div class="chathead"><b>AI bilan sahifani o‘zgartirish</b><button type="button" class="link" id="vclose" aria-label="Yopish">✕</button></div>
@@ -530,7 +530,7 @@
         <div class="card" style="overflow:hidden">
           <div style="padding:18px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
             <b style="font-size:18px">Hujjatlarim</b>
-            <span class="hint" style="margin:0">Fayllar ${data.ttl_hours} soat saqlanadi, keyin o‘chiriladi.</span>
+            <span class="hint" style="margin:0">Fayllar ${data.ttl_days || 3} kun saqlanadi, keyin o‘chiriladi.</span>
           </div>
           ${jobs.length ? jobs.map(jobRow).join('') : `<div style="padding:34px 20px;text-align:center;color:var(--mute)">Hali buyurtma yo‘q. <a class="link" href="/#yaratish">Birinchi taqdimotni yarating</a></div>`}
         </div>`;
@@ -544,10 +544,9 @@
   }
 
   function jobRow(j) {
-    const left = Math.max(0, Math.round((j.expires_at * 1000 - Date.now()) / 3600000));
     let status = '', action = '';
     if (j.status === 'done') {
-      status = `<span class="pill ok">Tayyor</span> <span class="hint">${left} soat qoldi</span>` +
+      status = `<span class="pill ok">Tayyor</span> <span class="hint">${E.leftText(j.expires_at)}</span>` +
         (j.ready && me && me.telegram ? `<div class="hint" style="margin-top:6px" data-tg="${E.esc(j.id)}"></div>` : '');
       action = j.ready ? `<a class="btn sm" href="/api/v1/jobs/${E.esc(j.id)}/file">Yuklab olish</a>` : '';
     } else if (j.status === 'failed') {

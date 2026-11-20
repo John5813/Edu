@@ -777,8 +777,11 @@ async def store_buy(request: web.Request) -> web.Response:
 async def jobs_list(request: web.Request) -> web.Response:
     telegram_id = await _require(request)
     jobs = [job for job in await web_store.list_jobs(telegram_id, 40) if job["kind"] != "slide_rewrite"][:30]
+    from services import web_archive
     return web.json_response({"ok": True, "jobs": [web_jobs.public(job) for job in jobs],
-                              "ttl_hours": web_store.JOB_TTL_HOURS})
+                              "ttl_hours": web_store.JOB_TTL_HOURS,
+                              "ttl_days": (web_store.ARCHIVE_TTL_HOURS if web_archive.enabled()
+                                           else web_store.JOB_TTL_HOURS) // 24})
 
 
 async def jobs_get(request: web.Request) -> web.Response:
@@ -813,8 +816,8 @@ async def jobs_telegram(request: web.Request) -> web.Response:
     from database import web_accounts
     telegram_id = await _require(request)
     job = await web_store.get_job(request.match_info["id"], telegram_id)
-    path = (job or {}).get("result_path")
-    if not job or job["status"] != "done" or not path or not os.path.exists(path):
+    path = (job or {}).get("result_path") or ""
+    if not job or job["status"] != "done" or not (os.path.exists(path) or job.get("vault_file_id")):
         return _error("Fayl topilmadi yoki muddati o'tgan", 404, "not_found")
     if web_accounts.is_web_only(telegram_id):
         return _error("Telegram ulanmagan. «Profil» bo'limida «Telegramni ulash» tugmasini bosing.", 400, "no_telegram")
@@ -830,12 +833,65 @@ async def jobs_telegram(request: web.Request) -> web.Response:
     return web.json_response({"ok": True, "job": web_jobs.public(job)})
 
 
+_NOFILE = {
+    "login": ("🔐", "Avval kiring", "Faylni yuklab olish uchun akkauntingizga kiring — fayl «Hujjatlarim» bo‘limida turadi."),
+    "gone": ("📁", "Bu fayl endi mavjud emas",
+             "Saqlash muddati tugagan yoki buyurtma o‘chirilgan. Tayyor fayllar «Hujjatlarim» da 30 kun turadi."),
+    "not_ready": ("⏳", "Fayl hali tayyor emas", "Tayyor bo‘lgach «Hujjatlarim» da ko‘rinadi va Telegramga ham keladi."),
+    "telegram": ("📩", "Fayl Telegram orqali beriladi",
+                 "Fayl katta — uni saytdan ochib bo‘lmaydi. Tugmani bosing, fayl Telegram chatingizga keladi."),
+    "sent": ("📩", "Fayl Telegram chatingizda",
+             "Bu fayl serverda saqlanmagan, lekin avval Telegram chatingizga yuborilgan — o‘sha yerdan oching."),
+    "lost": ("😔", "Fayl saqlanmay qolgan", "Kechirasiz, bu fayl serverda topilmadi. Yordam kerak bo‘lsa, adminga yozing:"),
+}
+
+
+def _nofile_page(request: web.Request, reason: str, job: Optional[dict] = None) -> web.StreamResponse:
+    """Fayl yo'q: brauzerda — tushunarli sahifa (xom JSON emas), API so'rovida — avvalgidek JSON."""
+    status = 401 if reason == "login" else 404
+    if "text/html" not in (request.headers.get("Accept") or ""):
+        return _error("Fayl topilmadi yoki muddati o'tgan", status, "auth" if reason == "login" else "not_found")
+    import html as _h
+    from config import ADMIN_CONTACT
+    icon, title, text = _NOFILE.get(reason, _NOFILE["gone"])
+    parts = [f'<div class="nf-ic">{icon}</div><h2>{_h.escape(title)}</h2><p>{_h.escape(text)}</p>']
+    if reason == "lost":
+        parts.append(f'<p><b>{_h.escape(ADMIN_CONTACT)}</b></p>')
+    if reason == "telegram" and job:
+        parts.append(f'<button type="button" class="btn" data-tg-send="{_h.escape(job["id"])}">📩 Telegramga yuborish</button>'
+                     '<div class="nf-out" id="nf-out"></div>')
+    if reason == "sent":
+        parts.append(f'<a class="btn" href="https://t.me/{_h.escape(webapp.BOT_USERNAME or "Edufayl_bot")}">Botni ochish</a>')
+    if reason == "login":
+        parts.append('<a class="btn" href="/app#/docs">Kirish</a>')
+    else:
+        parts.append('<a class="btn out" href="/app#/docs">Hujjatlarim</a>')
+    if reason in ("gone", "lost"):
+        parts.append('<a class="btn ghost" href="/#yaratish">Yangi taqdimot yaratish</a>')
+    page = versioned_html("nofile.html").replace("<!--BODY-->", "".join(parts))
+    return web.Response(text=page, status=status, content_type="text/html", charset="utf-8",
+                        headers={"Cache-Control": "no-store"})
+
+
 async def jobs_file(request: web.Request) -> web.StreamResponse:
-    telegram_id = await _require(request)
+    from services import web_archive
+    telegram_id = await _user_id(request)
+    if telegram_id is None:
+        return _nofile_page(request, "login")
     job = await web_store.get_job(request.match_info["id"], telegram_id)
-    path = (job or {}).get("result_path")
-    if not job or job["status"] != "done" or not path or not os.path.exists(path):
-        return _error("Fayl topilmadi yoki muddati o'tgan", 404, "not_found")
+    if not job:
+        return _nofile_page(request, "gone")
+    if job["status"] != "done":
+        return _nofile_page(request, "not_ready" if job["status"] in ("queued", "running") else "gone", job)
+    path = job.get("result_path") or os.path.join(web_jobs.RESULTS_DIR, f"{job['id']}.pptx")
+    if not os.path.exists(path) and job.get("vault_file_id"):
+        # Serverdagi nusxa o'chgan (3 kundan eski yoki server tozalangan) — yopiq guruhdagi ombordan qaytariladi.
+        if not await web_archive.fetch(job, path):
+            return _nofile_page(request, "telegram", job)
+        if not job.get("result_path"):
+            await web_store.update_job(job["id"], result_path=path)
+    if not os.path.exists(path):
+        return _nofile_page(request, "sent" if int(job.get("tg_sent") or 0) > 0 else "lost", job)
     name = job.get("result_name") or os.path.basename(path)
     await _fresh_pptx(job, path)
     # Telegram orqali kirgan mijozga fayl har safar botga ham boradi. Fonda: yuklab olish kutib qolmaydi. Vazifa
@@ -887,7 +943,7 @@ async def deck_info(request: web.Request) -> web.Response:
                               "deck": web_decks.public(job["id"], deck), "price": _rewrite_price(),
                               "busy": busy["id"] if busy else None,
                               "file_name": job.get("result_name") or "",
-                              "expires_at": job["created_at"] + web_store.JOB_TTL_HOURS * 3600})
+                              "expires_at": web_store.expires_at(job)})
 
 
 async def deck_slide(request: web.Request) -> web.StreamResponse:
