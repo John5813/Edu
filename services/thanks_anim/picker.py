@@ -108,6 +108,14 @@ def question_markup(lang: str, chosen: str, back_row) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+ADD_PREFIX = "thxadd_"   # «🎬 Personaj qo'shish» xizmati: mini ilova `/start thxadd_<kalit>` qaytaradi
+
+
+def add_service_url(lang: str) -> str:
+    """«Boshqa professional xizmatlar» → «🎬 Personaj qo'shish»: o'sha mini ilova, tanlov xizmatga qaytadi."""
+    return app_url(lang) + "&mode=add"
+
+
 def summary_line(lang: str, chosen: str) -> str:
     t = _t(lang)
     name = name_of(chosen, lang)

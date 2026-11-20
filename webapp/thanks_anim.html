@@ -105,7 +105,9 @@ function send(key) {
   ok.disabled = true; say(S.busy);
   if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
   // Tanlov botga havola orqali qaytadi: bot buyurtma holatini yangilaydi, mini ilova yopiladi.
-  const url = 'https://t.me/' + botName + '?start=thx_' + encodeURIComponent(key);
+  // «🎬 Personaj qo'shish» xizmatidan ochilgan bo'lsa (mode=add) — alohida belgi: bot tayyor taqdimot faylini so'raydi.
+  const prefix = params.get('mode') === 'add' ? 'thxadd_' : 'thx_';
+  const url = 'https://t.me/' + botName + '?start=' + prefix + encodeURIComponent(key);
   try {
     if (tg && tg.openTelegramLink && botName) { tg.openTelegramLink(url); setTimeout(() => tg.close(), 400); return; }
   } catch (e) {}

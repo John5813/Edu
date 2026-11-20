@@ -4356,12 +4356,15 @@ async def other_services_handler(message: Message, state: FSMContext, user_lang:
     await state.clear()
     media_enabled = await db.get_feature_status("media")
     book_translate_enabled = await db.get_feature_status("book_translate")
+    from services.thanks_anim import picker
+    thanks_url = picker.add_service_url(user_lang) if await picker.offered(db) else ""
     await message.answer(
         get_text(user_lang, "other_services_title"),
         reply_markup=get_other_services_keyboard(
             user_lang,
             media_enabled=media_enabled,
             book_translate_enabled=book_translate_enabled,
+            thanks_url=thanks_url,
         )
     )
 

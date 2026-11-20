@@ -62,6 +62,7 @@ KK = {
         "pptx_to_pdf": "📑 PPTX → PDF",
         "book_translate": "📚 Кітап аудармасы",
         "edit_file": "✏️ Файлды өңдеу",
+        "add_thanks": "🎬 Кейіпкер қосу",
         "other_services": "🟩 Басқа кәсіби қызметтер",
         "mahsus_ishlanma": "🔬 Арнайы әзірлеме",
         "project_work": "📐 Жоба жұмысы",
