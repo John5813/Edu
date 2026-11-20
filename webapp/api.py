@@ -791,6 +791,31 @@ async def jobs_get(request: web.Request) -> web.Response:
                               "balance": int(getattr(user, "balance", 0) or 0)})
 
 
+async def jobs_telegram(request: web.Request) -> web.Response:
+    """«📩 Telegramga yuborish»: tayyor faylni mijozning botiga (qayta) yuboradi — avtomatik yuborish yetmagan
+    bo'lsa (bot bloklangan edi, Telegram keyin ulandi, xato) mijoz o'zi qayta oladi."""
+    from database import web_accounts
+    telegram_id = await _require(request)
+    job = await web_store.get_job(request.match_info["id"], telegram_id)
+    path = (job or {}).get("result_path")
+    if not job or job["status"] != "done" or not path or not os.path.exists(path):
+        return _error("Fayl topilmadi yoki muddati o'tgan", 404, "not_found")
+    if web_accounts.is_web_only(telegram_id):
+        return _error("Telegram ulanmagan. «Profil» bo'limida «Telegramni ulash» tugmasini bosing.", 400, "no_telegram")
+    if webapp.BOT is None:
+        return _error("Bot hali ishga tushmoqda, birozdan keyin urining.", 503, "bot")
+    if _limited(f"tgsend:{telegram_id}", 3, 60):
+        return _error("Juda tez-tez bosildi. Bir daqiqa kuting.", 429, "rate")
+    title = job.get("title") or ""
+    name = job.get("result_name") or os.path.basename(path)
+    status = await web_jobs.deliver_to_telegram(webapp.BOT, telegram_id, title, path, name)
+    await web_store.update_job(job["id"], tg_sent=status)
+    job = await web_store.get_job(job["id"], telegram_id)
+    if status < 0:
+        return _error("Telegramga yuborib bo'lmadi. Botni ochib, «Start» bosing, keyin qayta urining.", 502, "tg_failed")
+    return web.json_response({"ok": True, "job": web_jobs.public(job)})
+
+
 async def jobs_file(request: web.Request) -> web.StreamResponse:
     telegram_id = await _require(request)
     job = await web_store.get_job(request.match_info["id"], telegram_id)
@@ -1025,8 +1050,50 @@ async def wallet(request: web.Request) -> web.Response:
                      "created_at": str(row["created_at"])[:16]} for row in history]})
 
 
+# Chek tekshiruvi (AI o'qishi, adminga yuborish) ba'zan 30–100+ soniya oladi. Sayt Cloudflare orqasida: 100 soniyadan
+# uzun so'rov 524 (HTML sahifa) bilan uziladi, telefonda esa mijoz boshqa ilovaga o'tsa ulanish uziladi — ikkalasida
+# ham mijoz «Aloqa yo'q» ko'rardi, chek esa serverda tekshirilishda davom etardi. Endi tekshiruv alohida vazifada
+# ishlaydi: javob RECEIPT_WAIT soniyada tayyor bo'lsa — darhol, bo'lmasa {checking, check} qaytadi va sahifa
+# `GET /wallet/receipt/{check}` bilan natijani so'raydi. Bir xil `nonce` bilan qayta yuborilgan forma (uzilgan
+# ulanishdan keyin sahifa o'zi qayta yuboradi) yangi tekshiruv boshlamaydi — o'sha vazifaga ulanadi.
+RECEIPT_WAIT = 20
+_RECEIPT_KEEP = 30 * 60
+_receipt_checks: Dict[str, dict] = {}
+
+
+def _receipt_gc() -> None:
+    old = time.monotonic() - _RECEIPT_KEEP
+    for key in [k for k, v in _receipt_checks.items() if v["at"] < old and v["task"].done()]:
+        _receipt_checks.pop(key, None)
+
+
+async def _receipt_answer(telegram_id: int, key: str) -> web.Response:
+    item = _receipt_checks.get(key)
+    if not item or item["tg"] != telegram_id:
+        return _error("Chek tekshiruvi topilmadi. Chekni qayta yuboring.", 404, "gone")
+    task = item["task"]
+    if not task.done():
+        await asyncio.wait({task}, timeout=RECEIPT_WAIT)        # vazifa bekor qilinmaydi
+    if not task.done():
+        return web.json_response({"ok": True, "checking": True, "check": key})
+    try:
+        result = task.result()
+    except ValueError as exc:
+        return _error(str(exc), 400, "invalid")
+    except Exception as exc:
+        log.error("Sayt chekini tekshirishda xato (%s): %s", telegram_id, exc, exc_info=exc)
+        return _error("Chekni tekshirib bo'lmadi. Birozdan keyin qayta urining.", 500, "error")
+    user = await Database.get_user(telegram_id)
+    return web.json_response({"ok": True, **result, "balance": int(getattr(user, "balance", 0) or 0)})
+
+
+async def wallet_receipt_status(request: web.Request) -> web.Response:
+    telegram_id = await _require(request)
+    return await _receipt_answer(telegram_id, str(request.match_info.get("check", ""))[:80])
+
+
 async def wallet_receipt(request: web.Request) -> web.Response:
-    """Chek yuklash: multipart (amount, file). Bot bilan bir xil tekshiruv, natija darhol qaytadi."""
+    """Chek yuklash: multipart (amount, file, nonce). Bot bilan bir xil tekshiruv (yuqoridagi izohga qarang)."""
     from services.receipts import web as receipt_web
 
     telegram_id = await _require(request)
@@ -1034,7 +1101,7 @@ async def wallet_receipt(request: web.Request) -> web.Response:
         return _error("Juda tez-tez yuborildi. Bir daqiqa kuting.", 429, "rate")
     if webapp.BOT is None:
         return _error("Bot hali ishga tushmoqda, birozdan keyin urining.", 503, "bot")
-    amount, started, data, filename, mime = None, "", b"", "", ""
+    amount, started, data, filename, mime, nonce = None, "", b"", "", "", ""
     try:
         reader = await request.multipart()
         async for part in reader:
@@ -1052,20 +1119,24 @@ async def wallet_receipt(request: web.Request) -> web.Response:
                         return _error(f"Fayl {receipt_web.MAX_MB} MB dan katta.", 413, "too_big")
                     chunks.append(chunk)
                 data = b"".join(chunks)
-            elif part.name in ("amount", "started"):
+            elif part.name in ("amount", "started", "nonce"):
                 value = (await part.text())[:40]
                 if part.name == "amount":
                     amount = value
+                elif part.name == "nonce":
+                    nonce = re.sub(r"[^\w-]", "", value)
                 else:
                     started = value
     except Exception:
         return _error("Forma noto'g'ri yuborildi.", 400, "bad_form")
-    try:
-        result = await receipt_web.submit(webapp.BOT, telegram_id, amount, started, data, filename, mime)
-    except ValueError as exc:
-        return _error(str(exc), 400, "invalid")
-    user = await Database.get_user(telegram_id)
-    return web.json_response({"ok": True, **result, "balance": int(getattr(user, "balance", 0) or 0)})
+    _receipt_gc()
+    key = f"{telegram_id}-{nonce or os.urandom(8).hex()}"
+    if key not in _receipt_checks:
+        task = asyncio.ensure_future(
+            receipt_web.submit(webapp.BOT, telegram_id, amount, started, data, filename, mime))
+        task.add_done_callback(lambda t: t.cancelled() or t.exception())   # «exception never retrieved» bo'lmasin
+        _receipt_checks[key] = {"tg": telegram_id, "task": task, "at": time.monotonic()}
+    return await _receipt_answer(telegram_id, key)
 
 
 # ──────────────────────────────────────────────────────────────────────── sahifalar
@@ -1271,6 +1342,7 @@ def setup_api_routes(app: web.Application) -> None:
     add("GET", "/api/v1/jobs", jobs_list)
     add("GET", "/api/v1/jobs/{id}", jobs_get)
     add("GET", "/api/v1/jobs/{id}/file", jobs_file)
+    add("POST", "/api/v1/jobs/{id}/telegram", jobs_telegram)
     add("GET", "/api/v1/jobs/{id}/deck", deck_info)
     add("GET", "/api/v1/jobs/{id}/slide/{n}", deck_slide)
     add("POST", "/api/v1/jobs/{id}/rewrite", deck_rewrite)
@@ -1287,6 +1359,7 @@ def setup_api_routes(app: web.Application) -> None:
     add("POST", "/api/v1/store/{code}/buy", store_buy)
     add("GET", "/api/v1/wallet", wallet)
     add("POST", "/api/v1/wallet/receipt", wallet_receipt)
+    add("GET", "/api/v1/wallet/receipt/{check}", wallet_receipt_status)
     add("POST", "/api/v1/wallet/click", wallet_click)
     add("POST", "/click/prepare", _click_endpoint(0))
     add("POST", "/click/complete", _click_endpoint(1))

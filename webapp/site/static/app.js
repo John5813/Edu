@@ -526,6 +526,9 @@
           </div>
           ${jobs.length ? jobs.map(jobRow).join('') : `<div style="padding:34px 20px;text-align:center;color:var(--mute)">Hali buyurtma yo‘q. <a class="link" href="/#yaratish">Birinchi taqdimotni yarating</a></div>`}
         </div>`;
+      view.querySelectorAll('[data-tg]').forEach((el) => {
+        const j = jobs.find((x) => x.id === el.dataset.tg); if (j) E.tgBox(j, el, catalog.bot);
+      });
       if (active) pollTimer = setTimeout(async () => { await refreshBalance(); load(); }, 3000);
       else pendingBanner(document.getElementById('pend'), null);
     }
@@ -537,7 +540,7 @@
     let status = '', action = '';
     if (j.status === 'done') {
       status = `<span class="pill ok">Tayyor</span> <span class="hint">${left} soat qoldi</span>` +
-        (j.telegram ? `<div class="hint" style="margin-top:6px">${E.tgNote(j, catalog.bot)}</div>` : '');
+        (j.ready && me && me.telegram ? `<div class="hint" style="margin-top:6px" data-tg="${E.esc(j.id)}"></div>` : '');
       action = j.ready ? `<a class="btn sm" href="/api/v1/jobs/${E.esc(j.id)}/file">Yuklab olish</a>` : '';
     } else if (j.status === 'failed') {
       status = `<span class="pill bad">Bajarilmadi</span><div class="hint" style="margin-top:6px">${E.esc(j.error)}</div>`;
@@ -699,10 +702,37 @@
         $('r-out').innerHTML = '<div class="note bad">Chek sifatida faqat rasm (JPG, PNG) yoki PDF qabul qilinadi.</div>'; $('file').value = ''; return;
       }
       $('r-out').innerHTML = '<span class="spin"></span> &nbsp;Chek tekshirilmoqda…';
-      const form = new FormData();
-      form.append('amount', String(amount)); form.append('started', started); form.append('file', file, file.name);
+      // Fayl avval xotiraga o'qiladi: Android'da galereya/bulutdan tanlangan rasm yuborish paytida o'qilmay qolsa,
+      // brauzer buni «aloqa yo'q» deb ko'rsatardi. Endi o'qib bo'lmasa — aniq sabab aytiladi.
+      let blob;
+      try { blob = new Blob([await file.arrayBuffer()], {type: file.type || ''}); }
+      catch (e) {
+        $('r-out').innerHTML = '<div class="note bad">Faylni o‘qib bo‘lmadi. Chekni qayta tanlang: skrinshot yoki telefon xotirasidagi rasm bo‘lsin.</div>';
+        $('file').value = ''; return;
+      }
+      const nonce = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+      const post = () => {
+        const form = new FormData();
+        form.append('amount', String(amount)); form.append('started', started); form.append('nonce', nonce);
+        form.append('file', blob, file.name || 'chek.jpg');
+        return E.api('/wallet/receipt', {form});
+      };
+      // Ulanish uzilsa (mijoz boshqa ilovaga o'tdi, tarmoq almashdi) — sahifa o'zi qayta yuboradi. O'sha `nonce`
+      // bilan server yangi tekshiruv boshlamaydi, chek adminga ikki marta bormaydi.
+      const again = async (fn) => {
+        for (let i = 0; ; i++) {
+          try { return await fn(); }
+          catch (e) {
+            if (!['network', 'bad_reply'].includes(e.code) || i >= 4) throw e;
+            await new Promise((ok) => setTimeout(ok, [2000, 4000, 8000, 12000][i]));
+          }
+        }
+      };
       try {
-        const r = await E.api('/wallet/receipt', {form});
+        let r = await again(post);
+        // Tekshiruv uzoq davom etsa — natija alohida so'raladi (Cloudflare 100 soniyada ulanishni uzadi).
+        for (let n = 0; r.checking && n < 20; n++) r = await again(() => E.api('/wallet/receipt/' + encodeURIComponent(r.check)));
+        if (r.checking) throw new Error('Chek hali tekshirilmoqda. Bir necha daqiqadan keyin balansingizni tekshiring.');
         const cls = (r.credited || r.verdict === 'auto_paid') ? 'ok' : (r.pending ? 'wait' : 'bad');
         $('r-out').innerHTML = `<div class="note ${cls}" style="white-space:pre-line">${E.esc(r.message || 'Qabul qilindi')}</div>`;
         if (r.credited) { await refreshBalance(); wallet(); }

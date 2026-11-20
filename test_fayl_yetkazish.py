@@ -123,6 +123,37 @@ async def main():
           and "so'm" not in bot.msgs[-1][1] and bot.msgs[-1][2].inline_keyboard[0][0].callback_data == "golink:docs", bot.msgs)
     kind.run = kind_run
 
+    print("4b) Nomida «<», «>», «&» bor taqdimot (bot HTML rejimida — avval fayl umuman yetmasdi)")
+    import re as _re
+    from aiogram.exceptions import TelegramBadRequest
+
+    class HtmlBot(FakeBot):
+        """Telegram kabi: HTML rejimida noto'g'ri belgili matnni rad etadi."""
+        def _check(self, text, kw):
+            if kw.get("parse_mode", "HTML") is None:
+                return
+            rest = _re.sub(r"</?(?:b|i|u|s|code|pre|a(?: [^>]*)?)>", "", text or "")
+            if "<" in rest or ">" in rest or _re.search(r"&(?!(?:amp|lt|gt|quot|#\d+);)", rest):
+                raise TelegramBadRequest(method=None, message="Bad Request: can't parse entities: unsupported start tag")
+        async def send_document(self, chat_id, document, caption=None, **kw):
+            self._check(caption, kw); return await super().send_document(chat_id, document, caption=caption, **kw)
+        async def send_message(self, chat_id, text, reply_markup=None, **kw):
+            self._check(text, kw); return await super().send_message(chat_id, text, reply_markup=reply_markup, **kw)
+    for topic in ("C++ & Java dasturlash", "x < 5 tengsizliklar", "<Kimyo> H2O & CO2", "R&D va Q&A"):
+        hb = FakeBot.__new__(HtmlBot); FakeBot.__init__(hb)
+        r = await web_jobs.deliver_to_telegram(hb, 555, topic, make_file(), "t.pptx")
+        check(f"«{topic}» — fayl yetdi, nom to'g'ri ko'rinadi", r == 1 and hb.docs and topic.replace("&", "&amp;")
+              .replace("<", "&lt;").replace(">", "&gt;") in hb.docs[0][2], (r, hb.docs))
+
+    class StrictBot(FakeBot):
+        async def send_document(self, chat_id, document, caption=None, **kw):
+            if kw.get("parse_mode", "HTML") is not None:
+                raise TelegramBadRequest(method=None, message="Bad Request: can't parse entities")
+            return await super().send_document(chat_id, document, caption=caption, **kw)
+    sb = StrictBot()
+    r = await web_jobs.deliver_to_telegram(sb, 555, "A & B", make_file(), "t.pptx")
+    check("Telegram formatni baribir rad etsa — formatsiz yuboriladi (fayl yetadi)", r == 1 and "«A & B»" in sb.docs[0][2], (r, sb.docs))
+
     print("5) «Saytda ochish» — yangi bir martalik havola")
     from bot.handlers import site_mode as handler
     sent = []
