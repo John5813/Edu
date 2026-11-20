@@ -1,8 +1,9 @@
 """Sayt (edufayl.org) uchun jadvallar: kirish tokenlari, sessiyalar va ishlar.
 
 Maxfiylik: bot hujjat mavzulari va fayl yo'llarini saqlamaydi (`document_orders` tozalanadi).
-Saytdagi ishlar ham shu tamoyilga bo'ysunadi: tayyor fayl va uning qatori `JOB_TTL_HOURS`
-dan keyin o'chiriladi (`purge_expired`), kirish tokenlari esa faqat xesh ko'rinishida turadi.
+Saytdagi ishlar: tayyor fayl yopiq Telegram guruhiga (ombor, `services/web_archive.py`) yuklanadi va «Hujjatlarim»
+da `ARCHIVE_TTL_HOURS` (30 kun) turadi; serverdagi nusxasi esa `JOB_TTL_HOURS` (3 kun) dan keyin o'chadi (kerak
+bo'lsa ombordan qayta olinadi). Omborga yetmagan fayl — 3 kun. Kirish tokenlari faqat xesh ko'rinishida turadi.
 """
 import hashlib
 import json
@@ -20,7 +21,8 @@ log = logging.getLogger(__name__)
 LOGIN_TTL = 10 * 60            # bot orqali kirish havolasi 10 daqiqa yashaydi
 SESSION_TTL = 30 * 24 * 3600   # sessiya 30 kun
 GO_TTL = 15 * 60               # botdagi «saytda ochish» tugmasi 15 daqiqa amal qiladi (bir marta)
-JOB_TTL_HOURS = 72             # tayyor fayl 3 kun saqlanadi
+JOB_TTL_HOURS = 72             # serverdagi nusxa 3 kun (omborga yetmagan fayl — buyurtmasi bilan birga)
+ARCHIVE_TTL_HOURS = 30 * 24    # omborga (yopiq guruh) yetgan fayl «Hujjatlarim» da 30 kun turadi
 PENDING_TTL = 6 * 3600         # to'lovni kutayotgan buyurtma 6 soat eslab turiladi
 DRAFT_TTL = 7 * 24 * 3600      # chala buyurtma qoralamasi 7 kun
 
@@ -103,6 +105,11 @@ async def create_tables(conn) -> None:
             columns = {row[1] for row in await cursor.fetchall()}
         if "tg_sent" not in columns:
             await conn.execute("ALTER TABLE web_jobs ADD COLUMN tg_sent INTEGER NOT NULL DEFAULT 0")
+        # vault_file_id: yopiq guruhdagi (ombordagi) nusxa — server qayta ishga tushsa yoki nusxa o'chsa ham fayl
+        # shundan olinadi; vault_version — o'sha nusxa qaysi fayl holatidan (tahrirdan keyin yangisi yuklanadi).
+        for column in ("vault_file_id", "vault_version"):
+            if column not in columns:
+                await conn.execute(f"ALTER TABLE web_jobs ADD COLUMN {column} TEXT NOT NULL DEFAULT ''")
         # tg_version: Telegramga yuborilgan fayl nusxasi (hajm-vaqt) — tahrirdan keyin yangisi qayta yuboriladi.
         if "tg_version" not in columns:
             await conn.execute("ALTER TABLE web_jobs ADD COLUMN tg_version TEXT NOT NULL DEFAULT ''")
@@ -222,7 +229,7 @@ async def end_session(session: str) -> None:
 # ──────────────────────────────────────────────────────────────────────── ishlar
 
 _JOB_FIELDS = ("status", "stage", "progress", "charged", "result_path", "result_name", "error", "finished_at",
-               "params", "title", "tg_sent", "tg_version")
+               "params", "title", "tg_sent", "tg_version", "vault_file_id", "vault_version")
 
 
 async def create_job(job_id: str, telegram_id: int, kind: str, title: str, params: Dict, price: int,
@@ -258,6 +265,12 @@ async def _rows(query: str, args: tuple) -> List[Dict]:
             return [dict(row) for row in await cursor.fetchall()]
 
 
+async def archived_old(hours: int = JOB_TTL_HOURS) -> List[Dict]:
+    """Omborda turgan, serverdagi nusxasi `hours` dan eski ishlar (nusxani o'chirsa bo'ladi — ombordan qaytadi)."""
+    return await _rows("SELECT id, result_path FROM web_jobs WHERE status = 'done' AND COALESCE(vault_file_id, '') != '' "
+                       "AND created_at < ?", (time.time() - hours * 3600,))
+
+
 async def get_job(job_id: str, telegram_id: Optional[int] = None) -> Optional[Dict]:
     query, args = "SELECT * FROM web_jobs WHERE id = ?", (job_id,)
     if telegram_id is not None:
@@ -276,11 +289,20 @@ async def unfinished_jobs() -> List[Dict]:
     return await _rows("SELECT * FROM web_jobs WHERE status IN ('queued', 'running')", ())
 
 
-async def purge_expired(hours: int = JOB_TTL_HOURS) -> List[str]:
-    """Muddati o'tgan ishlar va ularning fayllari ro'yxatini qaytaradi, qatorlarni o'chiradi."""
-    cutoff = time.time() - hours * 3600
-    rows = await _rows("SELECT id, result_path FROM web_jobs WHERE created_at < ? "
-                       "AND status IN ('done', 'failed')", (cutoff,))
+def expires_at(job: Dict) -> float:
+    """Ish «Hujjatlarim» dan qachon o'chadi: omborga yetgan — 30 kun, aks holda — 3 kun."""
+    hours = ARCHIVE_TTL_HOURS if (job.get("vault_file_id") or "") else JOB_TTL_HOURS
+    return float(job["created_at"]) + hours * 3600
+
+
+async def purge_expired(hours: int = JOB_TTL_HOURS, archive_hours: int = ARCHIVE_TTL_HOURS) -> List[str]:
+    """Muddati o'tgan ishlar va ularning fayllari ro'yxatini qaytaradi, qatorlarni o'chiradi.
+
+    Omborga yetgan tayyor ish — `archive_hours` (30 kun), qolganlari (omborsiz, bajarilmagan) — `hours` (3 kun)."""
+    now = time.time()
+    rows = await _rows("SELECT id, result_path FROM web_jobs WHERE status IN ('done', 'failed') AND ("
+                       "created_at < ? OR (created_at < ? AND (COALESCE(vault_file_id, '') = '' OR status = 'failed')))",
+                       (now - archive_hours * 3600, now - hours * 3600))
     if rows:
         async with aiosqlite.connect(_db.DATABASE_FILE) as conn:
             await conn.executemany("DELETE FROM web_jobs WHERE id = ?", [(row["id"],) for row in rows])

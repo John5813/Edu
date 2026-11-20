@@ -277,6 +277,47 @@
     setTimeout(tick, 2500);
   };
 
+  // iPhone/iPad: Telegram (va boshqa ilovalar) ichidagi brauzer faylni telefonga saqlay olmaydi — faqat ko'rsatadi.
+  // Shuning uchun u yerda «Yuklab olish» faylni Telegram chatiga yuboradi va buni aniq aytadi (bot chatidan fayl
+  // saqlanadi yoki ulashiladi). Android va kompyuterda — odatdagidek yuklab olish (server baribir botga ham yuboradi).
+  Edu.isIOS = () => /iP(hone|ad|od)/.test(navigator.userAgent || '') ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  function dlSheet(html) {
+    let m = document.getElementById('dl-sheet');
+    if (!m) {
+      m = document.createElement('div'); m.className = 'modal'; m.id = 'dl-sheet';
+      m.addEventListener('click', (e) => { if (e.target === m || e.target.closest('[data-x]')) m.remove(); });
+      document.body.appendChild(m);
+    }
+    m.innerHTML = '<div class="box">' + html + '</div>';
+  }
+  document.addEventListener('click', async (e) => {
+    const a = e.target.closest && e.target.closest('a[href^="/api/v1/jobs/"]');
+    if (!a || e.defaultPrevented || a.hasAttribute('data-plain') || !/\/file$/.test(a.getAttribute('href') || '')) return;
+    if (!Edu.isIOS() || !(meCache && meCache.telegram)) return;
+    e.preventDefault();
+    const href = a.getAttribute('href'), id = href.split('/')[4];
+    const view = '<a class="link" data-plain href="' + Edu.esc(href) + '">Faylni shu yerda ko‘rish</a>';
+    dlSheet('<p style="margin:0"><span class="spin"></span></p><p>Yuborilmoqda…</p>');
+    const bot = ((await Edu.authConfig()) || {}).bot || 'Edufayl_bot';
+    try {
+      await Edu.api('/jobs/' + encodeURIComponent(id) + '/telegram', {method: 'POST'});
+      dlSheet('<h3 style="margin:0 0 8px">✅ Fayl Telegramga yuborildi</h3>' +
+        '<p style="color:#4A5272;margin:0 0 16px">Bot chatida faylni oching — u yerdan telefonga saqlash yoki ulashish mumkin.</p>' +
+        '<a class="btn" style="width:100%" href="https://t.me/' + Edu.esc(bot) + '">Botni ochish</a>' +
+        '<p style="margin:14px 0 0">' + view + ' · <button type="button" class="link" data-x>Yopish</button></p>');
+    } catch (err) {
+      dlSheet('<p class="note bad" style="text-align:left">' + Edu.esc(err.message) + '</p>' +
+        '<p style="margin:14px 0 0">' + view + ' · <button type="button" class="link" data-x>Yopish</button></p>');
+    }
+  });
+
+  // Saqlash muddati: 2 kundan ko'p bo'lsa — kunda («29 kun qoldi»), aks holda soatda.
+  Edu.leftText = function (expiresAt) {
+    const hours = Math.max(0, Math.round((expiresAt * 1000 - Date.now()) / 3600000));
+    return hours >= 48 ? Math.floor(hours / 24) + ' kun qoldi' : hours + ' soat qoldi';
+  };
+
   Edu.copy = async function (text) {
     try { await navigator.clipboard.writeText(text); Edu.toast('Nusxalandi'); }
     catch (e) { Edu.toast(text); }

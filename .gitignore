@@ -91,3 +91,6 @@ data/brave_keys.json.tmp
 
 # Reklama videolari (faqat reklama uchun, repoga kiritilmaydi)
 assets/promo/
+
+# Saytdagi tayyor fayllar va taqdimot nusxalari (doimiy, temp emas)
+data/web_jobs/
