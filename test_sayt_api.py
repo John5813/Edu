@@ -340,6 +340,8 @@ async def main():
     check("sayt: JSON bo'lmagan javob (Cloudflare 524) «aloqa yo'q» emas, «server javob bermadi» deb ko'rsatiladi",
           "bad_reply" in js and "Server hozir javob bermadi" in js)
     app_js = open("webapp/site/static/app.js", encoding="utf8").read()
+    check("sayt: iPhone'da «Yuklab olish» faylni Telegram chatiga yuboradi va buni aytadi (brauzer faylni saqlay olmaydi)",
+          "Edu.isIOS" in js and "/telegram'" in js and "Fayl Telegramga yuborildi" in js and "data-plain" in js)
     check("sayt: balans o'zi yangilanadi (admin tasdig'i / Click-Payme-Uzum) — sahifani yangilash shart emas",
           "Edu.checkBalance" in js and "edu:balance" in js and "visibilitychange" in js)
     check("sayt: katta rasm telefonda kichraytiriladi; HEIC so'ralmaydi (iPhone o'zi JPEG beradi)",
