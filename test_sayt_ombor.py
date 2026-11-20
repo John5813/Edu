@@ -47,7 +47,7 @@ web_jobs.LEGACY_RESULTS_DIR = os.path.join(TMP, "temp", "web_jobs")
 
 class Bot:
     def __init__(self):
-        self.vault, self.user_docs, self.fetches, self.n = [], [], 0, 0
+        self.vault, self.user_docs, self.fetches, self.n, self.msgs = [], [], 0, 0, []
         self.big = set()
         self.files = {}
     async def send_document(self, chat_id, document, caption=None, **kw):
@@ -58,8 +58,10 @@ class Bot:
             self.vault.append((fid, caption))
             return types.SimpleNamespace(document=types.SimpleNamespace(file_id=fid))
         self.user_docs.append((chat_id, document if isinstance(document, str) else "UPLOAD:" + document.filename))
+        self.captions = getattr(self, "captions", []) + [caption]
         return types.SimpleNamespace(document=types.SimpleNamespace(file_id=f"U{self.n}"))
     async def send_message(self, chat_id, text, **kw):
+        self.msgs.append((chat_id, text))
         return types.SimpleNamespace(message_id=1, chat=types.SimpleNamespace(id=chat_id))
     async def get_file(self, file_id):
         self.fetches += 1
@@ -144,6 +146,9 @@ async def main():
           and BOT.vault[-1][0] == job["vault_file_id"] and "Soliq hisobi" in BOT.vault[-1][1], (job["vault_file_id"], BOT.vault))
     check("mijozga Telegramda ombordagi nusxa (file_id) yuborildi — serverdan qayta yuklanmadi",
           BOT.user_docs and BOT.user_docs[-1] == (100, job["vault_file_id"]), BOT.user_docs)
+    reminders = [m for m in BOT.msgs if "AI yordamida yaratilgan" in m[1]]
+    check("fayl ostida faqat mavzu, keyin bitta «💡 Muhim eslatma» xabari", BOT.captions[-1] == "Soliq hisobi"
+          and len(reminders) == 1 and reminders[0][0] == 100, (BOT.captions, BOT.msgs))
     pub = (await (await client.get("/api/v1/jobs")).json())
     j = next(x for x in pub["jobs"] if x["id"] == job["id"])
     days = (j["expires_at"] - time.time()) / 86400
@@ -165,6 +170,8 @@ async def main():
     check("«📩 Telegramga yuborish» serverda nusxa bo'lmasa ham ishlaydi (file_id bilan)", r.status == 200
           and BOT.user_docs[-1] == (100, job["vault_file_id"]) and len(BOT.user_docs) == n + 1, (r.status, BOT.user_docs[n:]))
 
+    check("«Yuklab olish» / qayta yuborishda eslatma takrorlanmaydi",
+          len([m for m in BOT.msgs if "AI yordamida yaratilgan" in m[1]]) == 1, BOT.msgs)
     print("4) Fayl yo'q — chiroyli sahifa")
     BOT.big.add(job["vault_file_id"])
     r = await client.get(f"/api/v1/jobs/{job['id']}/file", headers=HTML)

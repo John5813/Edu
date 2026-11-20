@@ -554,7 +554,7 @@
       watch(res.job, S.kind, count);
     } catch (e) {
       btn.disabled = false; btn.textContent = trialOn() ? 'Bepul yaratish' : 'Yaratish';
-      if (e.code === 'trial_used') { me.free_trial = false; S.trial = false; render(); }
+      if (e.code === 'trial_used' || e.code === 'trial_off') { me.free_trial = false; S.trial = false; render(); }
       note = $('s-note');
       note.innerHTML = `<div class="note bad">${E.esc(e.message)}${e.code === 'no_balance' ? ' <a class="link" href="/app#/wallet">Hamyonni to‘ldirish</a>' : ''}</div>`;
       if (e.code === 'auth') E.login();
