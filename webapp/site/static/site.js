@@ -182,10 +182,39 @@
   };
 
   // Sarlavhadagi tugmalar: til tanlagich, kirgan bo'lsa balans va kabinet, aks holda "Kirish".
+  // Balans o'zi yangilanadi: admin chekni tasdiqlasa yoki Click/Payme/Uzum to'lovi tushsa — sahifani yangilash shart
+  // emas. Sahifa ochiq (ko'rinib) turganda har BAL_EVERY ms da va sahifaga qaytilganda balans so'raladi; o'zgarsa
+  // sarlavhadagi summa yangilanadi, ko'paygan bo'lsa xabar chiqadi va `edu:balance` hodisasi yuboriladi.
+  const BAL_EVERY = 12000;
+  let balTimer = null, balBusy = false;
+  Edu.checkBalance = async function () {
+    if (balBusy || !meCache || document.hidden) return;
+    balBusy = true;
+    try {
+      const old = Number(meCache.balance || 0);
+      const fresh = (await Edu.api('/me')).user;
+      if (!fresh) return;
+      const now = Number(fresh.balance || 0);
+      meCache = Object.assign(meCache, fresh);
+      if (now === old) return;
+      const pb = document.querySelector('#hd-pay .pb');
+      if (pb) pb.textContent = Edu.fmt(now) + ' so‘m';
+      if (now > old) Edu.toast('✅ Balans to‘ldirildi');
+      document.dispatchEvent(new CustomEvent('edu:balance', {detail: {old, balance: now}}));
+    } catch (e) { /* keyingi safar */ } finally { balBusy = false; }
+  };
+  function watchBalance() {
+    if (balTimer) return;
+    balTimer = setInterval(Edu.checkBalance, BAL_EVERY);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) Edu.checkBalance(); });
+    window.addEventListener('focus', () => Edu.checkBalance());
+  }
+
   Edu.header = async function (active) {
     const box = document.getElementById('actions');
     if (!box) return;
     const me = await Edu.me();
+    if (me) watchBalance();
     box.classList.toggle('in', !!me);
     box.innerHTML = '<div class="langsw" id="langsw"><button type="button" class="chip sm" id="langbtn" aria-haspopup="true">' +
       '<span class="gl">🌐</span> ' + Edu.langs().find((l) => l.key === Edu.lang()).short + '</button>' +

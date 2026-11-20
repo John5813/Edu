@@ -103,6 +103,9 @@ async def create_tables(conn) -> None:
             columns = {row[1] for row in await cursor.fetchall()}
         if "tg_sent" not in columns:
             await conn.execute("ALTER TABLE web_jobs ADD COLUMN tg_sent INTEGER NOT NULL DEFAULT 0")
+        # tg_version: Telegramga yuborilgan fayl nusxasi (hajm-vaqt) — tahrirdan keyin yangisi qayta yuboriladi.
+        if "tg_version" not in columns:
+            await conn.execute("ALTER TABLE web_jobs ADD COLUMN tg_version TEXT NOT NULL DEFAULT ''")
         _MIGRATED.add(db_file)
 
 
@@ -219,7 +222,7 @@ async def end_session(session: str) -> None:
 # ──────────────────────────────────────────────────────────────────────── ishlar
 
 _JOB_FIELDS = ("status", "stage", "progress", "charged", "result_path", "result_name", "error", "finished_at",
-               "params", "title", "tg_sent")
+               "params", "title", "tg_sent", "tg_version")
 
 
 async def create_job(job_id: str, telegram_id: int, kind: str, title: str, params: Dict, price: int,
