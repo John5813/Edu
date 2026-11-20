@@ -203,7 +203,30 @@ async def browser_checks():
     await runner.cleanup()
 
 
+async def disabled_checks():
+    print("0) Sukut bo'yicha saytda o'chirilgan (egasining qarori)")
+    check("SITE_FREE_TRIAL berilmagan — o'chiq", free_trial.SITE_ENABLED is False)
+    await init_db()
+    await Database.create_user(709, "off", "Off", "uz")
+    await Database.update_user_balance(709, 10_000)
+    try:
+        await web_jobs.submit(709, "premium_presentation", {"topic": "Suv resurslari", "trial": True})
+        check("eski sahifadan bepul buyurtma kelsa — rad etiladi", False)
+    except web_jobs.JobError as exc:
+        check("eski sahifadan bepul buyurtma kelsa — rad etiladi (trial_off), tushuntiriladi", exc.code == "trial_off"
+              and "endi mavjud emas" in str(exc), exc.code)
+    check("pul yechilmadi, imkoniyat band qilinmadi", int((await Database.get_user(709)).balance) == 10_000
+          and await free_trial.available(709))
+    import inspect
+    from webapp import api
+    src = inspect.getsource(api)
+    check("sayt: katalogda va /me da taklif yo'q (o'chiq bo'lsa)", 'if free_trial.SITE_ENABLED else None' in src
+          and 'free_trial.SITE_ENABLED and await free_trial.available' in src)
+    free_trial.SITE_ENABLED = True               # qolgan sinovlar — yoqilgan holat (sozlama bilan qaytarilsa)
+
+
 async def main():
+    await disabled_checks()
     await server_checks()
     print("6) Saytda")
     await browser_checks()

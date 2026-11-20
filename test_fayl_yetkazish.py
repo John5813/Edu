@@ -71,11 +71,15 @@ async def main():
     bot = FakeBot()
     r = await web_jobs.deliver_to_telegram(bot, 555, "Iqtisodiyot asoslari", make_file(), "Iqtisodiyot.pptx")
     check("yuborildi (1)", r == 1 and len(bot.docs) == 1, (r, bot.docs))
-    check("o'zbekcha matn, mavzu nomi", "«Iqtisodiyot asoslari» tayyor" in bot.docs[0][2] and "72 soat" in bot.docs[0][2], bot.docs)
-    await web_jobs.deliver_to_telegram(bot, 777, "Экономика", make_file(), "x.pptx")
-    check("ruscha mijozga ruscha", "готово" in bot.docs[-1][2], bot.docs[-1])
-    await web_jobs.deliver_to_telegram(bot, 888, "Экономика", make_file(), "x.pptx")
-    check("qozoq mijozga qozoqcha", "дайын" in bot.docs[-1][2], bot.docs[-1])
+    check("fayl ostida faqat mavzu (ortiqcha «72 soat turadi» yo'q)", bot.docs[0][2] == "Iqtisodiyot asoslari", bot.docs)
+    check("qayta yuborishda eslatma takrorlanmaydi", not bot.msgs, bot.msgs)
+    r = await web_jobs.deliver_to_telegram(bot, 555, "Iqtisodiyot asoslari", make_file(), "Iqtisodiyot.pptx", remind=True)
+    check("birinchi yetkazishda fayldan keyin «💡 Muhim eslatma: AI yordamida yaratilgan…» (eski tizimdagi kabi)",
+          r == 1 and bot.msgs and "AI yordamida yaratilgan" in bot.msgs[-1][1] and "tekshiring" in bot.msgs[-1][1], bot.msgs)
+    await web_jobs.deliver_to_telegram(bot, 777, "Экономика", make_file(), "x.pptx", remind=True)
+    check("ruscha mijozga eslatma ruscha", "создан с помощью ИИ" in bot.msgs[-1][1] and bot.docs[-1][2] == "Экономика", bot.msgs[-1])
+    await web_jobs.deliver_to_telegram(bot, 888, "Экономика", make_file(), "x.pptx", remind=True)
+    check("qozoq mijozga eslatma qozoqcha", "жасанды интеллект" in bot.msgs[-1][1], bot.msgs[-1])
 
     print("2) Katta fayl — havola")
     old_limit = web_jobs.TG_FILE_LIMIT
@@ -152,7 +156,7 @@ async def main():
             return await super().send_document(chat_id, document, caption=caption, **kw)
     sb = StrictBot()
     r = await web_jobs.deliver_to_telegram(sb, 555, "A & B", make_file(), "t.pptx")
-    check("Telegram formatni baribir rad etsa — formatsiz yuboriladi (fayl yetadi)", r == 1 and "«A & B»" in sb.docs[0][2], (r, sb.docs))
+    check("Telegram formatni baribir rad etsa — formatsiz yuboriladi (fayl yetadi)", r == 1 and sb.docs[0][2] == "A & B", (r, sb.docs))
 
     print("5) «Saytda ochish» — yangi bir martalik havola")
     from bot.handlers import site_mode as handler

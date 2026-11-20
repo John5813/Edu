@@ -169,6 +169,8 @@ async def submit(telegram_id: int, kind_key: str, raw: Dict) -> Dict:
     if trial:
         # Bepul sinov — har akkauntga bir marta. Band qilish atomar: ikki marta bosilsa ham bittasi o'tadi.
         from database import free_trial
+        if not free_trial.SITE_ENABLED:     # saytda o'chirilgan: eski sahifadan kelsa ham pul yechilmaydi, tushuntiriladi
+            raise JobError("Bepul sinov taqdimoti endi mavjud emas. Oddiy buyurtma bering.", "trial_off")
         if not await free_trial.claim(telegram_id, job_id):
             raise JobError("Bepul sinov taqdimotidan avval foydalangansiz. Endi oddiy buyurtma bering.", "trial_used")
     elif not await Database.charge_balance(telegram_id, price):
@@ -355,7 +357,8 @@ async def _after_done(job_id: str, telegram_id: int, kind: Kind, params: Dict, p
             file_id = await web_archive.store(job, path, name)
         if bot is None or web_accounts.is_web_only(telegram_id):
             return          # Telegramsiz akkaunt: fayl faqat saytdan yuklab olinadi
-        status = await deliver_to_telegram(bot, telegram_id, kind.title(params) or name, path, name, file_id=file_id)
+        status = await deliver_to_telegram(bot, telegram_id, kind.title(params) or name, path, name, file_id=file_id,
+                                           remind=True)
         await web_store.update_job(job_id, tg_sent=status, tg_version=file_version(path) if status > 0 else "")
         if kind.key == "presentation_3d" and status > 0:      # botdagi kabi: 3D qanday ochilishi — yo'riqnoma videosi
             await _send_3d_guide(bot, telegram_id)
@@ -408,7 +411,7 @@ async def send_current(job: Dict, telegram_id: int, force: bool = False) -> int:
         # Ombordagi nusxa (tahrirdan keyin — yangisi yuklanadi): Telegramga serverdan qayta yuklanmaydi.
         file_id = await web_archive.ensure(job, path, name) if local else (job.get("vault_file_id") or "")
         status = await deliver_to_telegram(webapp.BOT, telegram_id, job.get("title") or name, path if local else "",
-                                           name, file_id=file_id)
+                                           name, file_id=file_id, remind=int(job.get("tg_sent") or 0) <= 0)
         await web_store.update_job(job["id"], tg_sent=status, tg_version=file_version(path) if status > 0 and local else "")
         if status < 0:
             _sent_at.pop(job["id"], None)        # yetmadi — keyingi bosishda yana urinadi
@@ -440,8 +443,12 @@ def _docs_button(lang: str):
         text=get_text(lang, "web_open_docs_btn"), callback_data="golink:docs")]])
 
 
-async def deliver_to_telegram(bot, telegram_id: int, title: str, path: str, name: str, file_id: str = "") -> int:
+async def deliver_to_telegram(bot, telegram_id: int, title: str, path: str, name: str, file_id: str = "",
+                              remind: bool = False) -> int:
     """Faylni mijozning botiga yuboradi. Qaytaradi: 1 — fayl, 2 — katta fayl uchun havola, -1 — yetmadi.
+
+    Fayl ostida faqat mavzu yoziladi. `remind` — birinchi yetkazishda fayldan keyin botdagi eski tizimdagi kabi
+    «💡 Muhim eslatma: hujjat AI yordamida yaratilgan, o'qib chiqing va tekshiring» xabari ham boradi.
 
     Tarmoq xatosi yoki Telegram cheklovida bir necha marta qayta uriniladi; mijoz botni bloklagan bo'lsa
     darhol to'xtaydi (sayt buni ko'rsatadi).
@@ -469,8 +476,12 @@ async def deliver_to_telegram(bot, telegram_id: int, title: str, path: str, name
                                        reply_markup=_docs_button(lang), **plain)
                 return 2
             document = file_id or FSInputFile(path, filename=name)
-            await bot.send_document(telegram_id, document,
-                                    caption=get_text(lang, "web_file_ready", title=title), **plain)
+            await bot.send_document(telegram_id, document, caption=title or None, **plain)
+            if remind:
+                try:
+                    await bot.send_message(telegram_id, get_text(lang, "document_reminder"), parse_mode="Markdown")
+                except Exception as exc:                 # eslatma yetmasa ham fayl yetgan
+                    log.info("Eslatma yuborilmadi (%s): %s", telegram_id, exc)
             return 1
         except TelegramEntityTooLarge:
             big = True

@@ -371,7 +371,7 @@ async def me(request: web.Request) -> web.Response:
 
     identity = await web_accounts.identity_of(telegram_id)
     return web.json_response({"ok": True, "user": {
-        "free_trial": await free_trial.available(telegram_id),
+        "free_trial": free_trial.SITE_ENABLED and await free_trial.available(telegram_id),
         "id": telegram_id, "name": user.first_name or user.username or "Foydalanuvchi",
         "username": user.username or "", "balance": int(user.balance or 0),
         "language": web_accounts.user_language(user), "telegram": not web_accounts.is_web_only(telegram_id),
@@ -477,7 +477,7 @@ def _catalog() -> Dict:
         "pref_examples": PREF_EXAMPLES_BY_LANG,
         "premium_range": {"min": pipeline.MIN_SLIDES, "max": pipeline.MAX_SLIDES, "popular": [5, 8, 10, 12, 15, 20, 25, 30]},
         # Bepul sinov: har akkauntga bir marta, varaq soni qat'iy, rasmlar internetdan (kimda borligi — /me da `free_trial`).
-        "free_trial": {"slides": free_trial.SLIDES, "photos": False},
+        "free_trial": {"slides": free_trial.SLIDES, "photos": False} if free_trial.SITE_ENABLED else None,
     }
 
 

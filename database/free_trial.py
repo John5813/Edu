@@ -4,6 +4,7 @@ Imkoniyat buyurtma berilganda «band qilinadi» (`claim`) — bir vaqtda ikki ma
 o'tadi (jadvalda telegram_id — asosiy kalit). Taqdimot tayyorlanmay qolsa (xato, bekor qilish, server qayta
 ishga tushishi), imkoniyat qaytariladi (`release`) — xuddi pul qaytarilgandek.
 """
+import os
 import time
 from typing import Optional
 
@@ -13,6 +14,9 @@ from database import database as _db
 
 SLIDES = 5
 MODEL = "google/gemini-2.5-flash-lite"
+# Saytdagi «🎁 Bepul sinov taqdimoti» (Imtiyozdan foydalanish) — egasining qarori bilan o'chirilgan. Kerak bo'lsa,
+# serverda `SITE_FREE_TRIAL=1` bilan qaytariladi. Botdagi sovg'a xabarlari va tekin havolalar bunga bog'liq emas.
+SITE_ENABLED = os.getenv("SITE_FREE_TRIAL", "0").strip().lower() in ("1", "true", "yes")
 
 SCHEMA = (
     """CREATE TABLE IF NOT EXISTS free_trials (
