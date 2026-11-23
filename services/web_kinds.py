@@ -649,7 +649,10 @@ async def _three_d_run(params: Dict, report: Report) -> Tuple[str, str]:
     if anatomy or (med.get("ok") and not kat.get("ok")):
         path, _slides = await med3d_auto.build_deck(topic, count, language=language, preferences=params["preferences"],
                                                     stage_cb=stage, author=params["author"])
-    elif kat.get("ids") and (kat.get("level") or ("full" if kat.get("ok") else "none")) in ("full", "partial"):
+    elif kat.get("ids") and (kat.get("level") or ("full" if kat.get("ok") else "none")) == "full":
+        # Faqat to'liq mos mavzu. «Qisman» (masalan «Plural Noun» — faqat ramziy kitob modeli) botda mijozga
+        # tanlov bilan ko'rsatiladi; saytda bunday tanlov yo'q — ilgari jimgina qabul qilinib, bitta kitob
+        # animatsiyali taqdimot chiqardi. Endi rad etiladi, pul qaytadi.
         import services.kat3d as kat3d
         path, _slides = await kat3d.build_deck(topic, count, list(kat["ids"]), language=language,
                                                preferences=params["preferences"], stage_cb=stage, mode="full",
@@ -664,7 +667,9 @@ async def _three_d_run(params: Dict, report: Report) -> Tuple[str, str]:
 
 def _three_d_options() -> Dict:
     from services.med3d import auto as med3d_auto
-    return {"form": "3d", "languages": list(THREE_D_LANGUAGES), "eta_minutes": 10,
+    # Oldindan 8 slayd tanlangan (botdagi kabi): ilgari ro'yxat boshidagi 4 tasi tanlanib turardi — mijoz
+    # o'zgartirmasa 4 slaydli taqdimot chiqardi.
+    return {"form": "3d", "languages": list(THREE_D_LANGUAGES), "eta_minutes": 10, "default_size": "8",
             "sizes": [{"key": str(n), "label": f"{n} slayd", "price": int(med3d_auto.price_for(n))}
                       for n in (4, 5, 6, 8, 10, 12, 15)]}
 

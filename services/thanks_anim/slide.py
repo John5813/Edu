@@ -129,10 +129,26 @@ def _fix_audio_rels(path: str, rels_name: str) -> None:
     shutil.move(tmp, path)
 
 
+def _media_hashes(prs) -> None:
+    """Taqdimotda ovoz/video allaqachon bo'lsa (oldingi «Rahmat» sahifasi, mijozning musiqasi): python-pptx ularni
+    oddiy `Part` qilib ochadi va yangi ovoz qo'shishda `sha1` topolmay yiqiladi — o'sha qismlarga xesh beriladi."""
+    import hashlib
+
+    from pptx.opc.constants import RELATIONSHIP_TYPE as RT
+
+    for rel in prs.part.package.iter_rels():
+        if rel.is_external or rel.reltype not in (RT.MEDIA, RT.VIDEO):
+            continue
+        part = rel.target_part
+        if not hasattr(part, "sha1"):
+            part.sha1 = hashlib.sha1(part.blob).hexdigest()
+
+
 def _finish(prs, s, pptx_out: str, steps, audio: Optional[str], work: str) -> str:
     """Ovoz (ko'rinmas audio), yozuvlar animatsiyasi va saqlash — ikkala sahifa turi uchun umumiy."""
     audio_id = None
     if audio:
+        _media_hashes(prs)
         poster = os.path.join(work, "thanks_icon.png")
         Image.new("RGBA", (8, 8), (0, 0, 0, 0)).save(poster)
         # Slayddan tashqarida: belgisi ko'rinmaydi, ovoz esa slayd ochilganda o'zi boshlanadi.
@@ -221,6 +237,44 @@ def _bands(slide, bg, width: int, height: int, band: int) -> None:
         anchor = rect._element
 
 
+THANKS_MARK = "edufayl-rahmat"                 # «Rahmat» sahifasi nomi (p:cSld name) — keyin topib almashtirish uchun
+
+
+def _all_titles() -> set:
+    from services import uz_script
+    out = {group[1] for group in TEXTS.values()}
+    out.add(uz_script.to_latin_new(TEXTS["uz"][1]))
+    return out
+
+
+def _is_thanks(slide) -> bool:
+    """Bizning «Rahmat» sahifamizmi: belgisi bor, yoki (eski fayllar) GIF personaj + «…rahmat!» sarlavhasi."""
+    if slide._element.cSld.get("name") == THANKS_MARK:
+        return True
+    gif = any(getattr(sh, "shape_type", None) == 13 and getattr(sh, "image", None) is not None
+              and sh.image.content_type == "image/gif" for sh in slide.shapes)
+    if not gif:
+        return False
+    titles = _all_titles()
+    return any(sh.has_text_frame and sh.text_frame.text.strip() in titles for sh in slide.shapes)
+
+
+def _drop_old_thanks(prs) -> int:
+    """Taqdimotda oldin qo'shilgan «Rahmat» sahifasi bo'lsa — olib tashlanadi (yangi personaj bilan almashadi)."""
+    removed = 0
+    sld_ids = prs.slides._sldIdLst
+    for sld_id, slide in list(zip(list(sld_ids), list(prs.slides))):
+        try:
+            if not _is_thanks(slide):
+                continue
+        except Exception:
+            continue
+        prs.part.drop_rel(sld_id.rId)
+        sld_ids.remove(sld_id)
+        removed += 1
+    return removed
+
+
 def _add_solid_slide(pptx_in: str, pptx_out: str, anim: Animation, language: str, author: str) -> str:
     """Fonli personaj: sahifa foni videoning o'z fonidan, dizayn — personajning o'ziniki (solid_slide.py)."""
     from . import solid_slide
@@ -228,7 +282,10 @@ def _add_solid_slide(pptx_in: str, pptx_out: str, anim: Animation, language: str
     work = tempfile.mkdtemp(prefix="thanks_")
     try:
         prs = Presentation(pptx_in)
+        if _drop_old_thanks(prs):
+            log.info("Eski «Rahmat» sahifasi yangi personaj bilan almashtirildi")
         s = prs.slides.add_slide(_blank_layout(prs))
+        s._element.cSld.set("name", THANKS_MARK)
         for ph in list(s.placeholders):              # maketdan kelgan bo'sh «Sarlavha» kabi joylar kerak emas
             ph._element.getparent().remove(ph._element)
         steps = solid_slide.build_slide(s, anim, work, language, author)
