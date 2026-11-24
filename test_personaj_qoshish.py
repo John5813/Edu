@@ -131,6 +131,25 @@ async def main():
                   pics and pics[0].width == W and not [n for n in out if not n.startswith(("Media", "Rectangle"))], out[:5])
             check(f"{label}: tayyor xabari, holat tozalandi", "Tayyor" in (m3.docs[0][1] or "")
                   and await st3.get_state() is None, m3.docs[0][1])
+    # Ichida «Rahmat» sahifasi (ovozli) bor taqdimot — ilgari «ochib bo'lmadi» bo'lardi; endi eski sahifa
+    # yangi personaj bilan almashtiriladi (ikkinchi sahifa qo'shilmaydi). Eski fayllarda belgi yo'q — matndan topiladi.
+    from services.thanks_anim import slide as thx_slide
+    others = [KEY] + [a.key for a in catalog.available() if a.key != KEY][:1]
+    for i, (other, legacy) in enumerate([(k, lg) for k in others for lg in (False, True)]):
+        st5 = state(); await st5.set_state(ThanksAddStates.waiting_for_file); await st5.update_data(thanks_key=other)
+        src = deck(os.path.join(TMP, f"ovozli_{i}.pptx"), 13.333, 7.5)
+        picker.apply(src, KEY, topic="x", style="", volume="kop", theme_key="", language="ru", author="")
+        if legacy:                                  # belgisiz (oldingi versiyada yaratilgan) fayl
+            p0 = Presentation(src); p0.slides[-1]._element.cSld.attrib.pop("name", None); p0.save(src)
+        m5 = Msg(Bot(src), doc=types.SimpleNamespace(file_name=f"Ovozli {i}.pptx", file_size=os.path.getsize(src)))
+        await ts.thanks_file(m5, st5, "uz")
+        got = Presentation(m5.docs[0][0]) if m5.docs else None
+        marks = [sl for sl in got.slides if thx_slide._is_thanks(sl)] if got else []
+        check(f"«Rahmat» bor taqdimot: almashtirildi ({'o\'sha' if other == KEY else 'boshqa'} personaj"
+              f"{', eski fayl' if legacy else ''})",
+              got is not None and len(got.slides) == 3 and len(marks) == 1 and thx_slide._is_thanks(got.slides[-1])
+              and "rahmat" in " ".join(sh.text_frame.text for sh in got.slides[-1].shapes if sh.has_text_frame).lower(),
+              m5.answers)
     st4 = state(); await st4.set_state(ThanksAddStates.waiting_for_file); await st4.update_data(thanks_key=KEY)
     broken = os.path.join(TMP, "buzuq.pptx"); open(broken, "wb").write(b"PK\x03\x04 buzuq")
     m4 = Msg(Bot(broken), doc=types.SimpleNamespace(file_name="buzuq.pptx", file_size=20))

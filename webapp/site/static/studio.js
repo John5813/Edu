@@ -115,7 +115,9 @@
     S.kind = key;
     const o = opt();
     if (changed || !keep || !(o.sizes || []).some((z) => z.key === S.size)) {
-      S.size = (o.sizes && o.sizes[0] && o.sizes[0].key) || '';
+      // Oldindan tanlangan hajm: tur o'zi belgilagan («default_size», masalan 3D — 8 slayd), aks holda birinchisi.
+      const def = (o.sizes || []).find((z) => z.key === o.default_size);
+      S.size = (def && def.key) || (o.sizes && o.sizes[0] && o.sizes[0].key) || '';
       if (changed || !keep) S.extras = [];
     }
     if (o.languages && !premium() && S.lang && !o.languages.some((l) => (l.key || l) === S.lang)) S.lang = '';

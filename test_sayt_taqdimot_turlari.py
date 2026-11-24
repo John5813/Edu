@@ -104,10 +104,10 @@ async def main():
         check("studiya hali yopiq (mavzu yozilmagan)", not await page.locator("#studio #go").count())
         await page.click("#ptypes [data-t='3d']")
         await page.fill("#topic", "Yurak tuzilishi"); await page.wait_for_selector("#studio #st-size")
-        check("3D tanlanadi: slaydlar soni, PowerPoint eslatmasi, narx 4 slayd — 6 000",
+        check("3D tanlanadi: slaydlar soni, PowerPoint eslatmasi, oldindan 8 slayd — 12 000",
               "on" in (await page.get_attribute("#ptypes [data-t='3d']", "class")).split()
               and "PowerPoint" in await page.inner_text("#studio")
-              and "6 000" in (await page.inner_text("#s-price")).replace("\u202f", " ").replace("\xa0", " "))
+              and "12 000" in (await page.inner_text("#s-price")).replace("\u202f", " ").replace("\xa0", " "))
         await page.fill("#topic", "")
         await page.click("#kind-chips [data-kind=referat]")
         check("boshqa xizmatda turlar yo'qoladi", await page.locator("#ptypes .ptype").count() == 0)
