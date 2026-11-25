@@ -619,57 +619,64 @@ def _three_d_price(params: Dict) -> int:
     return int(med3d_auto.price_for(params["slide_count"]))
 
 
+def three_d_filename(topic: str) -> str:
+    """Saytdagi 3D fayl nomi: qisqa va toza — «Inson_yuragining_tuzilishi_3D.pptx». Ilgari nomda ogohlantirish bor edi
+    («... (3D Morph - PowerPoint 2019+ kerak, ...).pptx»): mavzu o'rtasida kesilardi, qavs va apostrof telefon/Windows
+    da muammo qilardi. Ogohlantirish endi saytda (sariq blok) va Telegram'dagi yo'riqnomada."""
+    words = re.findall(r"\w+", re.sub(r"[ʻʼ'`‘’]", "", topic or ""))
+    stem = ""
+    for word in words:
+        if len(stem) + len(word) + 1 > 40:
+            break
+        stem = f"{stem}_{word}" if stem else word
+    return f"{stem or (words[0][:40] if words else 'Taqdimot')}_3D.pptx"
+
+
 async def _three_d_run(params: Dict, report: Report) -> Tuple[str, str]:
     import asyncio
 
-    from services.kat3d import qidiruv
+    from services import three_d_gate
     from services.med3d import auto as med3d_auto
 
     topic, language, count = params["topic"], params["language"], params["slide_count"]
+    job_id = params.get("_job_id") or ""
     report("writing", 4)
-    loop = asyncio.get_running_loop()
-    med_job = loop.run_in_executor(None, med3d_auto.check_topic, topic, language)
-    kat_job = loop.run_in_executor(None, qidiruv.top, topic, language)
-    try:
-        med = await asyncio.wait_for(med_job, 60)
-    except Exception as exc:                          # noqa: BLE001
-        log.warning("3D anatomiya tekshiruvi (sayt): %s", exc)
-        med = {"ok": False, "checked": False}
-    try:
-        kat = await asyncio.wait_for(kat_job, 90)
-    except Exception as exc:                          # noqa: BLE001
-        log.warning("3D katalog qidiruvi (sayt): %s", exc)
-        kat = {"ok": False, "ids": []}
+    web_jobs.note(job_id, slides=count)        # sayt animatsiyasi aynan shuncha slayd ko'rsatsin (muqova shu songa kiradi)
+    # Mijoz mavzuni yozganda (to'lovdan oldin) tekshirilgan qaror qayta ishlatiladi — tekshiruv va buyurtma bir xil.
+    decision = await three_d_gate.check(topic, language)
 
     def stage(name: str, info: dict) -> None:
         report(name if name in ("images", "render") else "writing",
                {"images": 60, "render": 85}.get(name, 20))
 
-    anatomy = med.get("ok") and med.get("checked", True)
-    if anatomy or (med.get("ok") and not kat.get("ok")):
+    if decision["mode"] == "anatomy":
         path, _slides = await med3d_auto.build_deck(topic, count, language=language, preferences=params["preferences"],
                                                     stage_cb=stage, author=params["author"])
-    elif kat.get("ids") and (kat.get("level") or ("full" if kat.get("ok") else "none")) == "full":
-        # Faqat to'liq mos mavzu. «Qisman» (masalan «Plural Noun» — faqat ramziy kitob modeli) botda mijozga
-        # tanlov bilan ko'rsatiladi; saytda bunday tanlov yo'q — ilgari jimgina qabul qilinib, bitta kitob
-        # animatsiyali taqdimot chiqardi. Endi rad etiladi, pul qaytadi.
+    elif decision["mode"] == "catalog":
         import services.kat3d as kat3d
-        path, _slides = await kat3d.build_deck(topic, count, list(kat["ids"]), language=language,
+        path, _slides = await kat3d.build_deck(topic, count, list(decision["ids"]), language=language,
                                                preferences=params["preferences"], stage_cb=stage, mode="full",
                                                author=params["author"])
     else:
-        raise JobError("Bu mavzu uchun mos 3D model topilmadi. Infografik yoki Zamonaviy turini tanlang.",
-                       "no_3d")
-    # Saytda varaqlanmaydi (3D faqat kompyuterdagi PowerPoint'da ko'rinadi). Fayl nomi botdagi kabi: ko'rish sharti bilan.
-    from bot.handlers.premium_presentation import med3d_filename
-    return path, med3d_filename(topic, language)
+        raise JobError(three_d_gate.NO_3D, "no_3d")
+    if job_id:
+        # Saytda ko'rib chiqish: sahifalarni LibreOffice chizadi — 3D model o'rnida uning zaxira rasmi (PowerPoint
+        # faylga o'zi saqlaydigan fallback PNG). Ko'rinish ostida sariq ogohlantirish turadi.
+        try:
+            from services import web_decks
+            await asyncio.to_thread(web_decks.create_view, job_id, params, path, three_d=True)
+        except Exception as exc:
+            log.warning("3D taqdimot ko'rinishi tayyorlanmadi (%s): %s", job_id, exc)
+    return path, three_d_filename(topic)
 
 
 def _three_d_options() -> Dict:
     from services.med3d import auto as med3d_auto
     # Oldindan 8 slayd tanlangan (botdagi kabi): ilgari ro'yxat boshidagi 4 tasi tanlanib turardi — mijoz
     # o'zgartirmasa 4 slaydli taqdimot chiqardi.
+    from services import three_d_gate
     return {"form": "3d", "languages": list(THREE_D_LANGUAGES), "eta_minutes": 10, "default_size": "8",
+            "examples": list(three_d_gate.EXAMPLES),
             "sizes": [{"key": str(n), "label": f"{n} slayd", "price": int(med3d_auto.price_for(n))}
                       for n in (4, 5, 6, 8, 10, 12, 15)]}
 

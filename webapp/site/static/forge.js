@@ -130,7 +130,8 @@
     const pages = opts.mode === 'pages';
     // Taqdimotda muqova va reja slaydi tanlangan songa qo'shimcha yoziladi (generator ham shunday hisoblaydi).
     const parts = PAGE_PARTS[opts.kind] || BOB;
-    let count = pages ? parts.length : Math.max(4, Math.min(40, (parseInt(opts.count, 10) || 10) + 2));
+    // Zamonaviy taqdimotga muqova va reja qo'shiladi (+2); 3D da muqova tanlangan songa kiradi (`exact`).
+    let count = pages ? parts.length : Math.max(opts.exact ? 1 : 4, Math.min(40, (parseInt(opts.count, 10) || 10) + (opts.exact ? 0 : 2)));
     const unit = pages ? 'sahifa' : 'slayd';
     root.innerHTML = `<div class="forge${pages ? ' pages' : ''}">
       <canvas class="fg-sky" aria-hidden="true"></canvas>

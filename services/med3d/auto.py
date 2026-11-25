@@ -155,8 +155,9 @@ RULES
    "kovak_venalar" run through the whole trunk and make the heart look tiny — use them only for circulation of
    the whole body. Valves ("yurak_klapanlari") lie INSIDE the heart: to show them, view the heart from above
    (x 40-60) or remove "yurak"/"yurak_qorinchalari" from that slide.
-10. "title": at most 6 words. "text": 3-5 sentences, at most 570 characters, accurate textbook facts, clear for the
-   requested level. No invented statistics, never mention the current year or dates. For anatomy topics no
+10. "title": at most 6 words. "text": 3-5 SHORT sentences (one fact each, at most 110 characters each, at most 570
+   characters in total) — every sentence is shown as a separate bullet point; accurate textbook facts, clear for the
+   requested level. The FIRST slide is the cover: its "text" is ONE short sentence (at most 100 characters). No invented statistics, never mention the current year or dates. For anatomy topics no
    treatment advice; for disease topics only standard textbook methods (no personal advice, no drug doses).
 11. "names": for EVERY organ id you use, its correct anatomical name in the presentation language.
 12. "kind" = "disease" for a disease, injury or condition. Select only the useful teaching parts from structure,
@@ -347,6 +348,32 @@ def cover_title(topic: str, suggested: str = "") -> str:
         return suggested
     cut = topic[:COVER_MAX].rsplit(" ", 1)[0].rstrip(" ,;:-—")
     return (cut or topic[:COVER_MAX]) + "…"
+
+
+# Gap chegarasi: nuqta/so'roq/undov va keyin bosh harf, raqam yoki qo'shtirnoq bilan boshlanadigan gap.
+# Bitta harfli qisqartma («U. Garvey», «A. Navoiy») gap oxiri hisoblanmaydi.
+_SENTENCE = re.compile(r"(?<=[.!?…])(?<!\b\w\.)\s+(?=[\"«(0-9A-ZÀ-ÞА-ЯЁЎҚҒҲӘӨҮҰІ])")
+MAX_POINTS = 5
+
+
+def as_points(plan_: dict) -> None:
+    """Slayd matni ekranda o'qiladigan bo'lsin: yaxlit paragraf o'rniga har gap alohida punkt («• ...», 3-5 ta).
+    Birinchi slayd — muqova: sarlavha (mavzu), muallif va bitta qisqa jumla. Ilgari har slaydda ~60 so'zli yaxlit
+    paragraf turardi, birinchi slaydning o'zi sarlavha + uzun matn edi."""
+    for index, slide in enumerate(plan_.get("slides") or []):
+        text = re.sub(r"\s+", " ", str(slide.get("text") or "")).strip()
+        if not text:
+            continue
+        parts = [p.strip() for p in _SENTENCE.split(text) if p.strip()]
+        if index == 0:
+            slide["text"] = parts[0]
+            continue
+        if len(parts) < 2:
+            slide["text"] = text
+            continue
+        if len(parts) > MAX_POINTS:                       # ortiqchasi oxirgi punktga qo'shiladi (matn yo'qolmaydi)
+            parts = parts[:MAX_POINTS - 1] + [" ".join(parts[MAX_POINTS - 1:])]
+        slide["text"] = "\n".join("• " + p for p in parts)
 
 
 def add_disclaimer(plan_: dict, language: str) -> None:
@@ -1155,6 +1182,7 @@ async def build_deck(topic: str, slide_count: int, *, language: str = "uz", leve
     plan_ = await asyncio.wait_for(loop.run_in_executor(
         None, lambda: plan(topic, count, language, level, preferences)), 6 * 60)
     took["reja"] = time.monotonic() - t0
+    as_points(plan_)                          # tekshiruvlardan keyin: punktlar va muqova (matn o'zgarmaydi)
     plan_["topic"] = topic
     plan_["author"] = (author or "").strip()
     log.info("3D Anatomiya: %s tana, %d slayd, organlar: %s", plan_["body"], len(plan_["slides"]),

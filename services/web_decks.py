@@ -151,7 +151,8 @@ def public(job_id: str, deck: dict) -> dict:
         charts = [manual_edit.count_charts(deck, n) for n in range(count_)]
     plan = editable and bool(deck.get("has_plan", count_ > 3))
     return {"count": count_, "version": int(deck.get("version") or 1), "editable": editable, "has_plan": plan,
-            "text_edit": bool(deck.get("pptx_text")), "language": deck.get("language") or "uz",
+            "text_edit": bool(deck.get("pptx_text")), "three_d": bool(deck.get("three_d")),
+            "language": deck.get("language") or "uz",
             "slides": [{"n": n + 1, "title": titles[n] if n < len(titles) else "", "image": shown[n],
                         "charts": charts[n]} for n in range(count_)],
             "history": [h for h in list(deck.get("history") or []) if not h.get("manual")][-30:]}
@@ -326,8 +327,12 @@ def pptx_previews(pptx_path: str, out_dir: str) -> List[str]:
     return paths
 
 
-def create_view(job_id: str, params: dict, pptx_path: str) -> int:
-    """Oddiy (orqa fonli) taqdimot: faqat ko'rish. Sahifalarni LibreOffice chizadi; qayta yozish yo'q."""
+def create_view(job_id: str, params: dict, pptx_path: str, three_d: bool = False) -> int:
+    """Oddiy (orqa fonli) taqdimot: faqat ko'rish. Sahifalarni LibreOffice chizadi; qayta yozish yo'q.
+
+    `three_d` — 3D taqdimot: 3D model o'rnida uning zaxira rasmi chiziladi (LibreOffice 3D ni ko'rsatmaydi), sayt
+    ko'rinish yonida sariq ogohlantirish chiqaradi. Matnni tahrirlash 3D da ham bor (`pptx_text_edit`): matn PPTX ning
+    o'zida almashadi, 3D modellar, Morph o'tishlari va zaxira rasmlariga tegilmaydi."""
     import tempfile
 
     work = tempfile.mkdtemp(prefix="deckview_")
@@ -342,7 +347,8 @@ def create_view(job_id: str, params: dict, pptx_path: str) -> int:
         except Exception as exc:
             log.debug("Slayd sarlavhalari olinmadi: %s", exc)
         # pptx_text: matnni PPTX ning o'zida tahrirlash mumkin (3D va Klassik — services/pptx_text_edit.py).
-        save(job_id, {"view_only": True, "pptx_text": True, "topic": params.get("topic", ""), "count": len(paths), "pages": [],
+        save(job_id, {"view_only": True, "pptx_text": True, "three_d": bool(three_d),
+                      "topic": params.get("topic", ""), "count": len(paths), "pages": [],
                       "titles": (titles + [""] * len(paths))[:len(paths)], "version": 1, "history": [],
                       "created": time.time()})
         return done

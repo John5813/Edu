@@ -751,3 +751,23 @@ body:has(.modal) .tg-back{display:none}
 .thx.none{justify-content:center;min-height:90px}
 .thx.on{border-color:var(--ink);box-shadow:0 0 0 3px var(--marker)}
 @media (max-width:620px){.st-thx{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* 3D taqdimot: sariq ogohlantirish (3D va Morph faqat kompyuterdagi PowerPoint'da) — kichik kulrang matn emas */
+.warn3d{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border-radius:14px;background:#FFF6D6;
+  border:1.5px solid #F2C94C;color:#5C4400;font-size:13.5px;line-height:1.45;text-align:left;margin:0 0 12px}
+.warn3d b{font-size:14.5px;color:#4A3600}
+.st-side .warn3d{margin:0}
+/* 3D: mavzu mosligi (to'lovdan oldin, bepul) */
+.c3d:empty{display:none}
+.c3d{margin:2px 0 8px}
+.c3d-st{display:flex;flex-direction:column;gap:6px;padding:11px 13px;border-radius:12px;background:#F1EEE4;font-size:13.5px;color:var(--ink2)}
+.c3d-st.busy{flex-direction:row;align-items:center;gap:10px}
+.c3d-st.busy .spin{width:16px;height:16px;border-width:2px;flex:0 0 auto}
+.c3d-st.ok{background:rgba(22,163,74,.09);border:1px solid rgba(22,163,74,.35)}
+.c3d-st.ok b{color:#15803D}
+.c3d-st.no{background:var(--warn-soft);border:1px solid #F2C94C}
+.c3d-st.no b{color:var(--warn)}
+.c3d-pv{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+.c3d-pv img{width:64px;height:64px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:10px}
+.c3d-act{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+@media (max-width:620px){.ex3d{flex-wrap:wrap!important;overflow-x:visible!important}.c3d-act .btn{flex:1 1 auto}}
