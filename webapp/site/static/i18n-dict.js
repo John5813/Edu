@@ -685,6 +685,7 @@ window.EDU_DICT = {
 "Qadimgi Misr yodgorliklari": "Памятники Древнего Египта",
 "O'zbekiston me'moriy yodgorliklari": "Архитектурные памятники Узбекистана",
 "Musiqa asboblari": "Музыкальные инструменты",
+"Bu yerda 3D modellar o‘rnida ularning rasmi. Matnni o‘zgartirsangiz, 3D modellar va harakat (Morph) faylda o‘zgarishsiz qoladi.": "Здесь вместо 3D-моделей показаны их изображения. Если вы измените текст, 3D-модели и движение (Morph) в файле останутся без изменений.",
 "$words": [
 [
 "so[‘'ʻ’]m hisobingizga qaytarildi",
@@ -1425,6 +1426,7 @@ window.EDU_DICT = {
 "Qadimgi Misr yodgorliklari": "Monuments of Ancient Egypt",
 "O'zbekiston me'moriy yodgorliklari": "Architectural monuments of Uzbekistan",
 "Musiqa asboblari": "Musical instruments",
+"Bu yerda 3D modellar o‘rnida ularning rasmi. Matnni o‘zgartirsangiz, 3D modellar va harakat (Morph) faylda o‘zgarishsiz qoladi.": "3D models are shown here as pictures. If you change the text, the 3D models and motion (Morph) in the file stay unchanged.",
 "$words": [
 [
 "so[‘'ʻ’]m hisobingizga qaytarildi",
@@ -2165,6 +2167,7 @@ window.EDU_DICT = {
 "Qadimgi Misr yodgorliklari": "Ежелгі Мысыр ескерткіштері",
 "O'zbekiston me'moriy yodgorliklari": "Өзбекстанның сәулет ескерткіштері",
 "Musiqa asboblari": "Музыкалық аспаптар",
+"Bu yerda 3D modellar o‘rnida ularning rasmi. Matnni o‘zgartirsangiz, 3D modellar va harakat (Morph) faylda o‘zgarishsiz qoladi.": "Мұнда 3D модельдердің орнына олардың суреті. Мәтінді өзгертсеңіз, файлдағы 3D модельдер мен қозғалыс (Morph) өзгеріссіз қалады.",
 "$words": [
 [
 "so[‘'ʻ’]m hisobingizga qaytarildi",

@@ -211,7 +211,7 @@
             <div class="card panel ed-panel" id="edpanel" hidden></div>`
             : deck.text_edit ? `<div class="vtools" id="vtools"><button type="button" class="btn out sm" id="t-ptext">✍️ Matnni tahrirlash <small>bepul</small></button></div>
             <div class="card panel ed-panel" id="edpanel" hidden></div>
-            <p class="hint" style="margin:10px 0 0">Ko‘rinish taxminiy.</p>`
+            <p class="hint" style="margin:10px 0 0">${deck.three_d ? 'Bu yerda 3D modellar o‘rnida ularning rasmi. Matnni o‘zgartirsangiz, 3D modellar va harakat (Morph) faylda o‘zgarishsiz qoladi.' : 'Ko‘rinish taxminiy.'}</p>`
             : (deck.three_d ? '<p class="hint" style="margin:14px 0 0">Bu yerda 3D modellar o‘rnida ularning rasmi. Matn va joylashuv — fayldagidek.</p>'
               : '<p class="hint" style="margin:14px 0 0">Ko‘rinish taxminiy: PowerPoint da biroz farq qilishi mumkin.</p>')}
           <p class="hint" style="margin:10px 0 0">${E.leftText(info.expires_at)}</p>

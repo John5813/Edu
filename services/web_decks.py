@@ -331,7 +331,8 @@ def create_view(job_id: str, params: dict, pptx_path: str, three_d: bool = False
     """Oddiy (orqa fonli) taqdimot: faqat ko'rish. Sahifalarni LibreOffice chizadi; qayta yozish yo'q.
 
     `three_d` — 3D taqdimot: 3D model o'rnida uning zaxira rasmi chiziladi (LibreOffice 3D ni ko'rsatmaydi), sayt
-    ko'rinish yonida sariq ogohlantirish chiqaradi. Matnni saytda tahrirlash 3D da yoqilmaydi (faqat ko'rish)."""
+    ko'rinish yonida sariq ogohlantirish chiqaradi. Matnni tahrirlash 3D da ham bor (`pptx_text_edit`): matn PPTX ning
+    o'zida almashadi, 3D modellar, Morph o'tishlari va zaxira rasmlariga tegilmaydi."""
     import tempfile
 
     work = tempfile.mkdtemp(prefix="deckview_")
@@ -346,7 +347,7 @@ def create_view(job_id: str, params: dict, pptx_path: str, three_d: bool = False
         except Exception as exc:
             log.debug("Slayd sarlavhalari olinmadi: %s", exc)
         # pptx_text: matnni PPTX ning o'zida tahrirlash mumkin (3D va Klassik — services/pptx_text_edit.py).
-        save(job_id, {"view_only": True, "pptx_text": not three_d, "three_d": bool(three_d),
+        save(job_id, {"view_only": True, "pptx_text": True, "three_d": bool(three_d),
                       "topic": params.get("topic", ""), "count": len(paths), "pages": [],
                       "titles": (titles + [""] * len(paths))[:len(paths)], "version": 1, "history": [],
                       "created": time.time()})

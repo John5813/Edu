@@ -164,8 +164,33 @@ async def main():
         await page.wait_for_function("document.querySelector('#simg') && document.querySelector('#simg').naturalWidth > 0")
         check("«Ko'rish»: sahifalar zaxira rasmlari bilan (3 sahifa) va tepada sariq ogohlantirish",
               await page.locator("#thumbs .th").count() == 3 and await page.locator("#view .warn3d").count() == 1)
-        check("3D ko'rinishda tahrirlash tugmalari yo'q (faqat ko'rish)", await page.locator("#t-ptext, #edit").count() == 0)
+        check("3D ko'rinishda «✍️ Matnni tahrirlash» bor (AI bilan pullik o'zgartirish yo'q)",
+              await page.locator("#t-ptext").count() == 1 and await page.locator("#edit").count() == 0)
         await page.screenshot(path=os.path.join(TMP, "phone_view.png"))
+        # Saytdan matn saqlanadi: faqat ko'rinadigan matnlar ro'yxatda, 3D modellar va Morph faylda o'zgarmaydi
+        import re
+        import zipfile
+
+        def parts(path):
+            z = zipfile.ZipFile(path)
+            xml = "".join(z.read(n).decode("utf8", "ignore") for n in z.namelist() if re.match(r"ppt/slides/slide\d+\.xml$", n))
+            return (sorted((n, z.getinfo(n).file_size) for n in z.namelist() if n.endswith(".glb")),
+                    xml.count("model3d"), xml.count("morph"), xml.count("mc:Fallback"))
+        fresh = await web_store.get_job(job["id"], 555)
+        before = parts(fresh["result_path"])
+        got = await page.evaluate("""async (id) => (await (await fetch('/api/v1/jobs/' + id + '/texts/2')).json())""", job["id"])
+        texts = [i["text"] for i in got.get("items", [])]
+        check("tahrirlash ro'yxatida slaydda ko'rinmaydigan (Morph uchun chetda turgan) yorliqlar yo'q",
+              "Tepa suyagi" not in texts and "Pastki jag' suyagi" in texts, texts)
+        title = next(i for i in got["items"] if i["kind"] == "title")
+        res = await page.evaluate("""async ([id, item, version]) => (await (await fetch('/api/v1/jobs/' + id + '/texts/2', {method: 'POST',
+            headers: {'Content-Type': 'application/json'}, body: JSON.stringify({version, items: [{id: item, text: 'Yangi sarlavha'}]})})).json())""",
+            [job["id"], title["id"], got["version"]])
+        from pptx import Presentation
+        check("saqlandi: faylda yangi sarlavha", res.get("ok") and any(sh.has_text_frame and sh.text_frame.text == "Yangi sarlavha"
+              for sh in Presentation(fresh["result_path"]).slides[1].shapes), res)
+        check("3D modellar, Morph o'tishlari va zaxira rasmlari o'zgarmadi", parts(fresh["result_path"]) == before,
+              (before, parts(fresh["result_path"])))
         await page.goto(base + "/app#/docs"); await page.wait_for_selector("#view .job")
         check("«Hujjatlarim»: 3D buyurtmada «Ko'rish»", await page.locator(f"#view a[href='#/job/{job['id']}']").count() >= 1)
         check("xatolar yo'q", not errors, errors)

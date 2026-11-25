@@ -45,10 +45,26 @@ def _kind(shape, index: int, slide) -> str:
     return "text" if len(shape.text_frame.text) > 40 or size >= 14 else "label"
 
 
+def _off_slide(shape, width: int, height: int) -> bool:
+    """Blok butunlay slayd tashqarisida: 3D taqdimotda Morph uchun kutib turgan yorliqlar (keyingi slaydda uchib
+    kiradi). Ular sahifada ko'rinmaydi — tahrirlash ro'yxatida turib mijozni chalg'itmasin."""
+    try:
+        left, top = int(shape.left or 0), int(shape.top or 0)
+        right, bottom = left + int(shape.width or 0), top + int(shape.height or 0)
+    except (TypeError, ValueError):
+        return False
+    return bool(width and height) and (right <= 0 or bottom <= 0 or left >= width or top >= height)
+
+
 def _editable(slide) -> List:
     found = []
+    prs = slide.part.package.presentation_part.presentation
+    width, height = int(prs.slide_width or 0), int(prs.slide_height or 0)
     for shape in _shapes(slide.shapes):
         if not getattr(shape, "has_text_frame", False) or not shape.has_text_frame:
+            continue
+        top_level = shape._element.getparent().tag.endswith("}spTree")    # guruh ichidagilar guruhga nisbatan
+        if top_level and _off_slide(shape, width, height):
             continue
         text = shape.text_frame.text.strip()
         if not text or text.isdigit() or len(text) <= 1:      # bo'sh bloklar va sahifa raqamlari
