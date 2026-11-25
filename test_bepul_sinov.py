@@ -176,6 +176,7 @@ async def browser_checks():
               and await page.locator("#c-range").count() == 0)
         check("narx «Bepul», tugma «Bepul yaratish»", await page.locator("#s-price").inner_text() == "Bepul"
               and await page.locator("#go").inner_text() == "Bepul yaratish")
+        check("slaydlar soni yonida ham «Bepul» yozuvi", await page.locator("#c-price").inner_text() == "Bepul")
         sent = {}
 
         async def grab(route, request):

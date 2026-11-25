@@ -77,6 +77,9 @@
   const canTrial = () => premium() && !!(catalog && catalog.free_trial) && (!me || me.free_trial);
   const trialOn = () => S.trial && canTrial();
   const trialSlides = () => ((catalog && catalog.free_trial) || {}).slides || 5;
+  // Taqdimot: shu slaydlar soni uchun narx (katalogdagi premium_prices).
+  const slidePrice = (n) => (((catalog && catalog.premium_prices) || []).find((p) => p.slides === n) || {}).price || 0;
+  const countPrice = () => (trialOn() ? 'Bepul' : E.fmt(slidePrice(S.count)) + ' so‘m');
   const trunc = (t, n) => (t.length > n ? t.slice(0, n - 1) + '…' : t);
   const spin = '<span class="spin" style="width:16px;height:16px;border-width:2px;border-top-color:#fff;border-color:rgba(255,255,255,.4)"></span>';
 
@@ -166,11 +169,12 @@
         if (catalog.thanks) html += section('🎬 «Rahmat» sahifasi', '(oxirgi slayd, tekin)', '<div class="st-thx" id="thx"><span class="spin"></span></div>' +
           '<div class="hint">Taqdimot oxiriga harakatlanadigan va ovoz chiqaradigan personajli «Rahmat» sahifasi qo‘shiladi. U PowerPoint’da «Slayd-shou» rejimida harakatlanadi.</div>');
       }
-      html += trialOn() ? section('Slaydlar soni', '', `<div class="st-count locked"><div class="cval"><b id="c-num">${trialSlides()}</b><span>slayd</span></div></div>
+      html += trialOn() ? section('Slaydlar soni', '', `<div class="st-count locked"><div class="cval"><b id="c-num">${trialSlides()}</b><span>slayd</span></div><b class="cprice free" id="c-price">Bepul</b></div>
         <div class="hint">Bepul sinovda slaydlar soni o‘zgarmaydi. Boshqa son kerak bo‘lsa, imtiyozni bekor qiling.</div>`) : section('Slaydlar soni', '', `<div class="st-count"><button type="button" class="cbtn" id="c-minus" aria-label="Kamaytirish">−</button>
           <div class="cval"><b id="c-num">${S.count}</b><span>slayd</span></div><button type="button" class="cbtn" id="c-plus" aria-label="Ko‘paytirish">+</button>
+          <b class="cprice" id="c-price">${countPrice()}</b>
           <input type="range" id="c-range" min="${range.min}" max="${range.max}" value="${S.count}"></div>
-        <div class="st-chips" id="c-pop">${(range.popular || []).map((n) => `<button type="button" class="chip sm${n === S.count ? ' on' : ''}" data-n="${n}">${n}</button>`).join('')}</div>
+        <div class="st-chips" id="c-pop">${(range.popular || []).map((n) => `<button type="button" class="chip sm${n === S.count ? ' on' : ''}" data-n="${n}">${n}${slidePrice(n) ? ` <small>${E.fmt(slidePrice(n))}</small>` : ''}</button>`).join('')}</div>
         <div class="hint">${range.min} dan ${range.max} gacha istalgan son. Muqova va reja slaydi bu songa kirmaydi (kirish va xulosa kiradi).</div>`);
       html += section('Ism-familiya', '(taqdimotning muqovasiga yoziladi)', `<input class="fld" id="author" maxlength="80" placeholder="Ism Familiya" value="${E.esc(S.author)}">`);
       html += section('AI ga taqdimot qanday bo‘lishini tushuntiring', '(ixtiyoriy)', `<textarea class="fld" id="prefs" rows="2" maxlength="1000" placeholder="Auditoriya, maqsad, ohang, misollar yoki alohida talablarni erkin yozing.">${E.esc(S.prefs)}</textarea>
@@ -231,6 +235,26 @@
     if (classic()) tplPreview();
     if ($('thx')) loadThanks();
     summary();
+    bar();
+  }
+
+  // Telefonda (bir ustunli ko'rinish) «Narx + Yaratish» ekranning pastiga yopishgan panel: tanlov qayerda bo'lsa ham
+  // narx ko'rinib turadi. Panel balandligi «Botga qaytish» tugmasi va sahifa pastki bo'shlig'i uchun o'lchanadi.
+  const phoneBar = () => window.matchMedia('(max-width: 980px)').matches;
+  let barObs = null;
+  function bar() {
+    const on = isOpen() && !hero().classList.contains('forging') && !!$('s-price');
+    document.body.classList.toggle('st-bar', on);
+    const go = document.querySelector('#studio .st-go');
+    if (!on || !go) return;
+    const set = () => document.body.style.setProperty('--stbar-h', go.offsetHeight + 'px');
+    set();
+    if (window.ResizeObserver) { if (barObs) barObs.disconnect(); barObs = new ResizeObserver(set); barObs.observe(go); }
+  }
+  // Xato yoki eslatma pastki panel ortida qolib ketmasin: telefonda unga aylantiriladi.
+  function showNote() {
+    const n = $('s-note');
+    if (n && n.textContent.trim() && phoneBar()) n.scrollIntoView({behavior: 'smooth', block: 'center'});
   }
   let thanksList = null;
   async function loadThanks() {
@@ -322,7 +346,7 @@
   function setCount(n) {
     const range = catalog.premium_range || {min: 5, max: 30};
     S.count = Math.max(range.min, Math.min(range.max, n || range.min));
-    $('c-num').textContent = S.count; $('c-range').value = S.count;
+    $('c-num').textContent = S.count; $('c-range').value = S.count; $('c-price').textContent = countPrice();
     document.querySelectorAll('#c-pop .chip').forEach((c) => c.classList.toggle('on', parseInt(c.dataset.n, 10) === S.count));
     summary(); save();
   }
@@ -518,7 +542,7 @@
     if (S.topic.trim().length < 3) { E.toast('Mavzu kamida 3 ta belgidan iborat bo‘lsin'); $('topic').focus(); return; }
     if (!isOpen()) { open(); return; }
     let note = $('s-note'), btn = $('go');
-    const fail = (msg) => { note.innerHTML = `<div class="note bad">${E.esc(msg)}</div>`; };
+    const fail = (msg) => { note.innerHTML = `<div class="note bad">${E.esc(msg)}</div>`; showNote(); };
     if (premium()) {
       if (S.src.kind === 'text' && S.src.text.trim().length < 20) return fail('Matn juda qisqa. Ko‘proq yozing yoki «AI o‘zi yozadi» ni tanlang.');
       if ((S.src.kind === 'file' || S.src.kind === 'url') && !S.src.text) return fail(S.src.kind === 'file' ? 'Avval faylni yuklang yoki «AI o‘zi yozadi» ni tanlang.' : 'Avval havoladan matnni oling yoki «AI o‘zi yozadi» ni tanlang.');
@@ -541,6 +565,7 @@
       } catch (e) {
         btn.disabled = false; btn.textContent = 'Yaratish';
         $('s-note').innerHTML = `<div class="note bad">${E.esc(e.message)}</div>`;
+        showNote();
         if (e.code === 'auth') E.login();
         return;
       }
@@ -559,6 +584,7 @@
       if (e.code === 'trial_used' || e.code === 'trial_off') { me.free_trial = false; S.trial = false; render(); }
       note = $('s-note');
       note.innerHTML = `<div class="note bad">${E.esc(e.message)}${e.code === 'no_balance' ? ' <a class="link" href="/app#/wallet">Hamyonni to‘ldirish</a>' : ''}</div>`;
+      showNote();
       if (e.code === 'auth') E.login();
     }
   }
@@ -568,6 +594,7 @@
     const isDeck = E.isDeck(kind);
     const slidesOut = isDeck || kind === 'presentation_3d';      // 3D ham PPTX, lekin saytda varaqlanmaydi
     hero().classList.add('studio-on', 'forging');
+    bar();
     const box = $('forge-box');
     box.hidden = false;
     $('prompt-form').hidden = true;
@@ -616,6 +643,7 @@
     $('prompt-form').hidden = false;
     hero().classList.remove('forging');
     if (S.topic.trim()) render(); else hero().classList.remove('studio-on');
+    bar();
     $('topic').focus();
   }
 
@@ -630,6 +658,9 @@
       if (isOpen()) { if (premium()) { preview(); suggest(); } summary(); }
       save();
     });
+    const typing = (e) => e.target.matches && e.target.matches('textarea, input:not([type=range]):not([type=file]):not([type=checkbox]):not([type=radio])');
+    document.addEventListener('focusin', (e) => { if (typing(e)) document.body.classList.add('st-kb'); });
+    document.addEventListener('focusout', (e) => { if (typing(e)) document.body.classList.remove('st-kb'); });
     $('kind-chips').addEventListener('click', (e) => { const b = e.target.closest('[data-kind]'); if (b) { pickKind(b.dataset.kind); save(); } });
     $('ptypes').addEventListener('click', (e) => { const b = e.target.closest('[data-t]'); if (b) pickType(b.dataset.t); });
     try { catalog = await E.api('/catalog'); } catch (e) { return; }
