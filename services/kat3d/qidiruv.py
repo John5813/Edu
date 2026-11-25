@@ -34,7 +34,9 @@ _FRAME = {"qadimgi", "qadimiy", "qadim", "davr", "davri", "davrida", "davrlar", 
           "tarix", "tarixi", "tarixiy", "zamon", "zamonaviy", "tur", "turi", "turlari", "tuzilishi", "ahamiyati",
           "rivojlanish", "rivojlanishi", "xususiyatlari", "umumiy", "asosiy", "asoslari", "dunyo", "dunyosi", "olam",
           "olami", "hayot", "hayoti", "madaniyat", "madaniyati", "sivilizatsiya", "sivilizatsiyasi", "yangi", "buyuk",
-          "mashhur", "ancient", "old", "history", "historical", "era", "age", "ages", "period", "modern", "type",
+          "mashhur", "ishlash", "ishlashi", "prinsip", "prinsipi", "prinsiplari", "tamoyili", "ichki", "tashqi",
+          "ularning", "uning", "qanday", "nima", "roli", "orni", "tasiri", "oqibatlari", "usullari", "vazifalari",
+          "ancient", "old", "history", "historical", "era", "age", "ages", "period", "modern", "type",
           "types", "world", "life", "culture", "civilization", "great", "famous", "new", "introduction", "basics",
           "древний", "древние", "древнего", "история", "истории", "эпоха", "эпохи", "век", "века", "мир",
           "мира", "жизнь", "культура", "цивилизация", "современный", "виды"}
@@ -175,7 +177,7 @@ def select(topic: str, ids: Sequence[str], language: str = "uz") -> Dict[str, Li
     lines = "\n".join(f"{c} | {cat[m]['nom_uz']} | {cat[m]['nom'][:70]} | {cat[m].get('kategoriya') or cat[m]['fan']}"
                       for c, m in codes.items())
     data = ai.call_json(SELECT_SYSTEM, f"Topic: {topic}\n\nCandidates:\n{lines}\n", 500, language=language,
-                        model=ai.SEARCH_MODEL, where="3D katalog qidiruv", temperature=0.1)
+                        model=ai.SELECT_MODEL, where="3D katalog qidiruv", temperature=0.1)
     out: Dict[str, object] = {}
     seen = set()
     for key in ("asosiy", "yordamchi", "ramziy"):
@@ -230,7 +232,7 @@ def top(topic: str, language: str = "uz") -> dict:
         log.warning("3D katalog: AI tanlovi o'tmadi (%s) — nom bo'yicha", exc)
         strong = by_name(topic, [mid for _, mid in ranked])
         level = "full" if len(strong) >= 3 else "partial" if strong else "none"
-        return _result(level, strong, strong, strong, None, False)
+        return _result(level, strong, strong, strong, None, False, direct=strong)
     asosiy, yordamchi, ramziy = picked["asosiy"], picked["yordamchi"], picked["ramziy"]
     coverage = picked.get("coverage")
     direct = asosiy + yordamchi
@@ -242,13 +244,15 @@ def top(topic: str, language: str = "uz") -> dict:
     level = "full" if full else "partial" if len(choices) >= 2 else "none"
     log.info("3D katalog: «%s» — %d nomzod, %d asosiy, %d yordamchi, %d ramziy, qamrov %s%% → %s", topic,
              len(ranked), len(asosiy), len(yordamchi), len(ramziy), coverage, level)
-    return _result(level, (direct + ramziy)[:MAX_PICK], choices, asosiy, coverage, True)
+    return _result(level, (direct + ramziy)[:MAX_PICK], choices, asosiy, coverage, True, direct=direct)
 
 
-def _result(level: str, ids, choices, asosiy, coverage, checked: bool) -> dict:
+def _result(level: str, ids, choices, asosiy, coverage, checked: bool, direct=()) -> dict:
+    """`direct` — mavzuni bevosita ko'rsatadigan modellar (asosiy + yordamchi, ramziysiz): sayt qarori uchun."""
     ok = level != "none"
     return {"level": level, "ok": ok, "ids": list(ids) if ok else [], "choices": list(choices) if ok else [],
-            "asosiy": list(asosiy) if ok else [], "coverage": coverage, "checked": checked}
+            "asosiy": list(asosiy) if ok else [], "direct": list(direct) if ok else [], "coverage": coverage,
+            "checked": checked}
 
 
 def collage(ids: Sequence[str], language: str = "uz", limit: int = 8, numbered: bool = False) -> Optional[bytes]:

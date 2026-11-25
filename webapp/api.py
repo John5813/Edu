@@ -532,6 +532,45 @@ async def suggest(request: web.Request) -> web.Response:
                               "theme": {"key": theme.key, "label": theme.name}})
 
 
+async def three_d_check(request: web.Request) -> web.Response:
+    """«🧊 3D taqdimot»: mavzu 3D ga mosmi — to'lovdan OLDIN, bepul (pul yechilmaydi). Natija bir soat eslab qolinadi
+    va buyurtmada aynan shu qaror ishlatiladi. Kirmagan mehmon ham tekshira oladi (tezlik chegarasi IP bo'yicha)."""
+    from services import three_d_gate, uz_script
+
+    data = await _json(request)
+    topic = " ".join(str(data.get("topic") or "").split())[:300]
+    if len(topic) < 3:
+        return _error("Mavzu kamida 3 ta belgidan iborat bo'lsin.", 400, "bad_request")
+    language = str(data.get("language") or "")
+    if language not in web_kinds.THREE_D_LANGUAGES:
+        language = uz_script.base_language(web_kinds.detect_language(topic))
+        if language not in web_kinds.THREE_D_LANGUAGES:
+            language = "uz"
+    hit = three_d_gate.cached(topic, language)
+    if hit is None and (_limited(f"3dcheck:{_ip(request)}", 8, 60) or _limited(f"3dcheck-h:{_ip(request)}", 60, 3600)):
+        return _error("Juda tez-tez tekshirildi. Bir daqiqa kuting.", 429, "rate")
+    try:
+        result = hit if hit is not None else await three_d_gate.check(topic, language)
+    except Exception:
+        log.exception("3D tekshiruv ishlamadi")
+        return _error("Tekshirib bo'lmadi. Birozdan keyin qayta urinib ko'ring.", 503, "check_failed")
+    return web.json_response({"ok": True, "topic": topic, "language": language, "result": three_d_gate.public(result)},
+                             headers={"Cache-Control": "no-store"})
+
+
+async def three_d_model_preview(request: web.Request) -> web.StreamResponse:
+    """Katalogdagi 3D modelning rasmi (tekshiruv natijasida mijozga «shu modellar bo'ladi» deb ko'rsatiladi)."""
+    from services import katalog3d
+
+    model_id = request.match_info["id"]
+    if not re.fullmatch(r"[A-Za-z0-9_-]{4,80}", model_id) or model_id not in katalog3d.katalog():
+        return web.Response(status=404)
+    path = katalog3d.preview_yoli(model_id)
+    if not path:
+        return web.Response(status=404)
+    return web.FileResponse(path, headers={"Cache-Control": "public, max-age=86400", "Content-Type": "image/jpeg"})
+
+
 SOURCE_EXTS = (".pdf", ".docx", ".pptx")
 SOURCE_MAX_BYTES = 10 * 1024 * 1024
 
@@ -913,7 +952,7 @@ async def _own_deck(request: web.Request):
     telegram_id = await _require(request)
     job_id = request.match_info["id"]
     job = await web_store.get_job(job_id, telegram_id)
-    if not job or job["kind"] not in ("premium_presentation", "simple_presentation"):
+    if not job or job["kind"] not in ("premium_presentation", "simple_presentation", "presentation_3d"):
         raise web.HTTPNotFound(text='{"ok": false, "error": "Topilmadi", "code": "not_found"}',
                                content_type="application/json")
     deck = web_decks.load(job_id) if job["status"] == "done" else None
@@ -1405,6 +1444,8 @@ def setup_api_routes(app: web.Application) -> None:
     add("GET", "/api/v1/catalog", catalog)
     add("POST", "/api/v1/quote", quote)
     add("POST", "/api/v1/suggest", suggest)
+    add("POST", "/api/v1/3d/check", three_d_check)
+    add("GET", "/api/v1/3d/model/{id}.jpg", three_d_model_preview)
     add("POST", "/api/v1/source", source)
     add("POST", "/api/v1/jobs", jobs_create)
     add("GET", "/api/v1/jobs", jobs_list)

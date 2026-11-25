@@ -6,7 +6,11 @@
   Edu.esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
   // Saytda varaqlanadigan taqdimotlar (Zamonaviy, Klassik). 3D — faqat yuklab olinadi (PowerPoint'da ochiladi).
   Edu.isDeck = (k) => k === 'premium_presentation' || k === 'simple_presentation';
-  Edu.NOTE3D = '🧊 3D taqdimotni kompyuterdagi Microsoft PowerPoint (2019, 2021, 365) da «Slayd-shou» (F5) rejimida oching — telefonda 3D ko‘rinmaydi. Saytda varaqlash va tahrirlash bu xizmat uchun hozircha ishlamaydi.';
+  // Saytda sahifalarini ko'rib chiqsa bo'ladigan buyurtmalar: 3D ham (model o'rnida uning zaxira rasmi).
+  Edu.hasView = (k) => Edu.isDeck(k) || k === 'presentation_3d';
+  Edu.NOTE3D = '⚠️ 3D model va harakat (Morph) saytda va telefonda ko‘rinmaydi — bu yerda faqat uning rasmi. To‘liq 3D ni ko‘rish uchun faylni kompyuterdagi PowerPoint 2019/2021/365 da oching va Slayd-shou (F5) rejimini yoqing.';
+  // Sariq ogohlantirish bloki (studiya, natija, ko'rib chiqish sahifasi) — kichik kulrang matn ichida yo'qolib ketmasin.
+  Edu.warn3d = (extra) => '<div class="warn3d" role="note"><b>⚠️ 3D faqat kompyuterdagi PowerPoint’da</b><span>3D model va harakat (Morph) saytda va telefonda ko‘rinmaydi — bu yerda faqat uning rasmi. To‘liq 3D ni ko‘rish uchun faylni kompyuterdagi PowerPoint 2019/2021/365 da oching va Slayd-shou (F5) rejimini yoqing.</span>' + (extra || '') + '</div>';
   Edu.fmt = (n) => Number(n || 0).toLocaleString('ru-RU').replace(/ /g, ' ');
   Edu.$ = (sel, root) => (root || document).querySelector(sel);
 

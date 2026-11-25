@@ -9,7 +9,7 @@
   'use strict';
   const E = window.Edu;
   const $ = (id) => document.getElementById(id);
-  const DRAFT = 'edu_draft', LIVE = 'edu_live_job';
+  const DRAFT = 'edu_draft', LIVE = 'edu_live_job', LAST = 'edu_last_type';
 
   // Bosh sahifadagi qisqa nomlar (katalogdagi to'liq nom o'rniga)
   const SHORT = {premium_presentation: 'Taqdimot', simple_presentation: 'Taqdimot', presentation_3d: 'Taqdimot', independent_work: 'Mustaqil ish', referat: 'Referat', article: 'Maqola',
@@ -178,7 +178,10 @@
     } else if (threeD()) {
       const langs = (o.languages || ['uz', 'ru', 'en', 'kk']).map((l) => ({key: l, label: ({uz: "O'zbek", ru: 'Русский', en: 'English', kk: 'Қазақша'})[l] || l}));
       if (!S.lang || !langs.some((l) => l.key === S.lang)) S.lang = langs[0].key;
-      html += `<div class="note" style="margin:4px 0 6px">🧊 Har slaydda haqiqiy 3D model: aylanadi va harakatlanadi. Mavzu tana tuzilishiga oid bo‘lsa — 3D Anatomiya, boshqa mavzularda — katalogdagi 3D modellar. Taqdimot <b>kompyuterdagi PowerPoint</b> (2019, 2021, 365) uchun — telefonda 3D ko‘rinmaydi. Mos 3D topilmasa, pul hisobingizga qaytadi.<br><span>Saytda varaqlash va tahrirlash bu xizmat uchun hozircha ishlamaydi: fayl botga va «Hujjatlarim» ga keladi.</span></div>`;
+      html += `<div class="note" style="margin:4px 0 6px">🧊 Har slaydda haqiqiy 3D model: aylanadi va harakatlanadi. Mavzu tana tuzilishiga oid bo‘lsa — 3D Anatomiya, boshqa mavzularda — katalogdagi 3D modellar. Mavzu yozilishi bilan 3D ga mosligi bepul tekshiriladi — pul faqat mos mavzuda yechiladi.</div>`;
+      html += '<div class="c3d" id="c3d" aria-live="polite"></div>';
+      if ((o.examples || []).length) html += section('3D bilan yaxshi chiqadigan mavzular', '(bosing — mavzu maydoniga tushadi)',
+        `<div class="st-chips ex3d" id="ex3d">${o.examples.map((t) => `<button type="button" class="chip sm" data-t="${E.esc(t)}">${E.esc(t)}</button>`).join('')}</div>`);
       html += section('Slaydlar soni', '', chipRow('st-size', o.sizes.map((z) => ({key: z.key, label: z.label, small: E.fmt(z.price)})), S.size));
       html += section('Til', '', chipRow('st-lang', langs, S.lang));
       html += section('Ism-familiya', '(taqdimotning muqovasiga yoziladi)', `<input class="fld" id="author" maxlength="80" placeholder="Ism Familiya" value="${E.esc(S.author)}">`);
@@ -219,8 +222,9 @@
       <aside class="st-side">
         ${premium() ? '<div class="pv" id="pv"></div><div class="hint" id="pv-note"></div>' : ''}
         ${classic() ? '<div class="pv tplv" id="tplv"></div><div class="hint">Klassik · tayyor shablon</div>' : ''}
-        ${threeD() ? '<div class="pv tplv"><img src="/static/type-3d.webp" alt=""></div><div class="hint">3D taqdimot · kompyuterdagi PowerPoint uchun</div>' : ''}
+        ${threeD() ? '<div class="pv tplv"><img src="/static/type-3d.webp" alt=""></div>' : ''}
         <div class="st-sum" id="sum"></div>
+        ${threeD() ? E.warn3d() : ''}
         <div class="st-go"><div class="st-total"><span>Narx</span><b id="s-price"></b></div>
           <button class="btn block" id="go" type="submit">${trialOn() ? 'Bepul yaratish' : 'Yaratish'}</button></div>
         <div id="s-note"></div>
@@ -231,6 +235,67 @@
     if (classic()) tplPreview();
     if ($('thx')) loadThanks();
     summary();
+    if (threeD()) check3d();
+  }
+
+  // ───────────────────────────────────────────── 3D: mavzu mosligi — to'lovdan OLDIN, bepul
+  // Mavzu yozilganda (biroz kutib) server tekshiradi; natija serverda bir soat turadi va buyurtma aynan shu qaror
+  // bilan bajariladi. Mos bo'lmasa — mijoz pul to'lamasdan biladi va bir bosishda boshqa turga o'tadi.
+  const C3 = {key: '', state: '', res: null, seq: 0, promise: null, err: ''};
+  let c3timer = null;
+  const c3key = () => S.topic.trim().toLowerCase().replace(/\s+/g, ' ') + '|' + (S.lang || '');
+  function check3d(now) {
+    clearTimeout(c3timer);
+    if (!threeD()) return Promise.resolve(null);
+    const topic = S.topic.trim();
+    if (topic.length < 3) { C3.key = ''; C3.state = ''; paint3d(); return Promise.resolve(null); }
+    const key = c3key();
+    if (C3.key === key && C3.state && C3.state !== 'err') {
+      paint3d();
+      return C3.state === 'busy' ? C3.promise : Promise.resolve(C3.res);
+    }
+    const run = () => {
+      const my = ++C3.seq;
+      C3.key = key; C3.state = 'busy'; paint3d();
+      C3.promise = E.api('/3d/check', {json: {topic, language: S.lang}}).then((r) => {
+        if (my !== C3.seq) return null;
+        C3.res = r.result; C3.state = !r.result.ok ? 'no' : r.result.sure ? 'ok' : 'unsure';
+        paint3d(); return C3.res;
+      }).catch((e) => {
+        if (my !== C3.seq) return null;
+        C3.state = 'err'; C3.err = e.message || ''; paint3d(); return null;
+      });
+      return C3.promise;
+    };
+    if (now) return run();
+    if (C3.key !== key) { C3.key = ''; C3.state = ''; paint3d(); }     // eski natija yangi mavzuga tegishli emas
+    c3timer = setTimeout(run, 900);
+    return Promise.resolve(null);
+  }
+  function paint3d() {
+    const box = $('c3d'); if (!box) return;
+    const r = C3.res || {};
+    if (C3.state === 'busy') box.innerHTML = '<div class="c3d-st busy"><span class="spin"></span><span>Mavzu 3D ga mosligi tekshirilmoqda… (bepul, pul yechilmaydi)</span></div>';
+    else if (C3.state === 'ok') {
+      const what = r.mode === 'anatomy' ? 'Mavzu 3D Anatomiya bilan yaratiladi' : 'Bu mavzu uchun 3D modellar bor';
+      box.innerHTML = `<div class="c3d-st ok"><b>✅ ${what}</b>${(r.names || []).length ? `<span>Masalan: ${E.esc(r.names.join(', '))}</span>` : ''}
+        ${(r.previews || []).length ? `<div class="c3d-pv">${r.previews.map((id) => `<img src="/api/v1/3d/model/${encodeURIComponent(id)}.jpg" alt="" loading="lazy">`).join('')}</div>` : ''}</div>`;
+    } else if (C3.state === 'no') {
+      box.innerHTML = `<div class="c3d-st no"><b>⚠️ Bu mavzu uchun mos 3D topilmadi</b><span>Pul yechilmaydi. Shu mavzuni boshqa turda yarating yoki 3D ga mos mavzu yozing.</span>
+        <div class="c3d-act"><button type="button" class="btn sm" data-a="modern">📝 Zamonaviy bilan yaratish</button><button type="button" class="btn sm out" data-a="info">🎨 Infografik bilan</button><button type="button" class="btn sm ghost" data-a="topic">Boshqa mavzu yozish</button></div></div>`;
+    } else if (C3.state === 'unsure') box.innerHTML = `<div class="c3d-st"><span>ℹ️ ${E.esc(r.message || '')}</span></div>`;
+    else box.innerHTML = '';
+    box.onclick = (e) => { const b = e.target.closest('[data-a]'); if (b) switch3d(b.dataset.a); };
+  }
+  // 3D mos kelmadi: bir bosishda shu mavzu bilan boshqa tur yoki yangi mavzu.
+  function switch3d(a) {
+    if (a === 'topic') {
+      S.topic = ''; $('topic').value = ''; C3.key = ''; C3.state = '';
+      if (isOpen()) render();
+      save(); $('topic').focus(); return;
+    }
+    pickType(a === 'info' ? 'info' : 'modern');
+    document.getElementById('yaratish').scrollIntoView({behavior: 'smooth', block: 'start'});
   }
   let thanksList = null;
   async function loadThanks() {
@@ -269,7 +334,12 @@
     inp('prefs', 'prefs'); inp('univ', 'univ'); inp('fac', 'fac'); inp('grp', 'grp');
     if ($('trial-on')) $('trial-on').onclick = () => { S.trial = true; S.volume = 'kop'; types(); render(); save(); };
     if ($('trial-off')) $('trial-off').onclick = () => { S.trial = false; render(); save(); };
-    oneOf('st-lang', (v) => { S.lang = v; autoNotes(); save(); });
+    oneOf('st-lang', (v) => { S.lang = v; autoNotes(); save(); if (threeD()) check3d(); });
+    if ($('ex3d')) $('ex3d').onclick = (e) => {
+      const b = e.target.closest('[data-t]'); if (!b) return;
+      S.topic = b.textContent.trim() || b.dataset.t; $('topic').value = S.topic; save(); check3d(true);   // sayt tilida
+      document.getElementById('yaratish').scrollIntoView({behavior: 'smooth', block: 'start'});
+    };
     oneOf('st-size', (v) => { S.size = v; save(); });
     oneOf('st-pstyle', (v) => { S.pstyle = v; save(); });
     if ($('extras')) $('extras').onclick = (e) => {
@@ -524,6 +594,16 @@
       if ((S.src.kind === 'file' || S.src.kind === 'url') && !S.src.text) return fail(S.src.kind === 'file' ? 'Avval faylni yuklang yoki «AI o‘zi yozadi» ni tanlang.' : 'Avval havoladan matnni oling yoki «AI o‘zi yozadi» ni tanlang.');
     }
     if (opt().form === 'thesis' && !S.univ.trim()) return fail('Universitet nomini kiriting.');
+    if (threeD()) {
+      btn.disabled = true; btn.innerHTML = spin + '&nbsp; Tekshirilmoqda…';
+      await check3d(true);
+      btn.disabled = false; btn.textContent = 'Yaratish';
+      if (C3.state === 'no') {
+        const box = $('c3d');
+        if (box) box.scrollIntoView({behavior: 'smooth', block: 'center'});
+        return;
+      }
+    }
     save(false);
     if (!me) { E.login(); return; }
     btn.disabled = true; btn.innerHTML = spin + '&nbsp; Yuborilmoqda…';
@@ -550,6 +630,7 @@
       const res = await E.api('/jobs', {json: {kind: S.kind, params: sent}});
       me.balance = res.balance;
       if (sent.trial) { me.free_trial = false; S.trial = false; }
+      try { localStorage.setItem(LAST, JSON.stringify({kind: S.kind, volume: S.volume})); } catch (e) { /* ixtiyoriy */ }
       const count = sent.slide_count || S.count;
       E.header('home');
       try { sessionStorage.removeItem(DRAFT); sessionStorage.setItem(LIVE, JSON.stringify({id: res.job.id, kind: S.kind, count})); } catch (e) { /* ixtiyoriy */ }
@@ -573,7 +654,7 @@
     $('prompt-form').hidden = true;
     box.innerHTML = '<div id="forge-anim"></div><div id="forge-out" class="forge-out"></div>';
     box.scrollIntoView({behavior: 'smooth', block: 'start'});
-    forge = E.forge($('forge-anim'), {topic: job.title, mode: slidesOut ? 'slides' : 'pages', count, kind,
+    forge = E.forge($('forge-anim'), {topic: job.title, mode: slidesOut ? 'slides' : 'pages', count, kind, exact: kind === 'presentation_3d',
       label: (kindOf(kind) || {}).label || '', startedAt: job.created_at});
     forge.update(job);
     $('forge-out').innerHTML = '<p class="hint" style="text-align:center">Bu sahifani yopib ketishingiz mumkin: tayyor bo‘lgach «Hujjatlarim» da ko‘rinadi va Telegramga ham keladi. Qaytib kirsangiz, shu yerning o‘zi ochiladi.</p>' +
@@ -592,17 +673,27 @@
       E.me(true).then(() => E.header('home'));
       if (j.status === 'failed') {
         forge.fail();
+        // 3D: «Qayta urinish» o'sha mavzu va o'sha tur bilan yana xato berardi — o'rniga shu mavzuni boshqa turda
+        // yaratish yoki boshqa mavzu yozish (mos 3D topilmagan bo'lsa «Qayta urinish» umuman ko'rsatilmaydi).
+        const no3d = kind === 'presentation_3d' && /3D model topilmadi/.test(j.error || '');
         $('forge-out').innerHTML = `<div class="note bad">${E.esc(j.error || 'Xatolik yuz berdi')}</div>
-          <div class="forge-act"><button type="button" class="btn" id="f-again">Qayta urinish</button></div>`;
-        $('f-again').onclick = reset;
+          <div class="forge-act">${kind === 'presentation_3d'
+            ? `<button type="button" class="btn" id="f-modern">📝 Zamonaviy bilan yaratish</button><button type="button" class="btn out" id="f-topic">Boshqa mavzu yozish</button>${no3d ? '' : '<button type="button" class="btn ghost" id="f-again">Qayta urinish</button>'}`
+            : '<button type="button" class="btn" id="f-again">Qayta urinish</button>'}</div>`;
+        if ($('f-again')) $('f-again').onclick = reset;
+        if ($('f-modern')) $('f-modern').onclick = () => {
+          S.topic = job.title; $('topic').value = job.title; reset(); pickType('modern'); save();
+          document.getElementById('yaratish').scrollIntoView({behavior: 'smooth', block: 'start'});
+        };
+        if ($('f-topic')) $('f-topic').onclick = () => { S.topic = ''; $('topic').value = ''; reset(); save(); };
         return;
       }
       await forge.finish(slidesOut ? 'PPTX' : 'DOCX');
-      $('forge-out').innerHTML = `<div class="forge-act">
-          ${isDeck ? `<a class="btn" href="/app#/job/${E.esc(j.id)}">Ko‘rish va tahrirlash</a>` : ''}
-          <a class="btn ${isDeck ? 'out' : ''}" href="/api/v1/jobs/${E.esc(j.id)}/file">Yuklab olish</a>
+      const view = E.hasView(kind);
+      $('forge-out').innerHTML = `${kind === 'presentation_3d' ? E.warn3d() : ''}<div class="forge-act">
+          ${view ? `<a class="btn" href="/app#/job/${E.esc(j.id)}">${isDeck ? 'Ko‘rish va tahrirlash' : 'Ko‘rish'}</a>` : ''}
+          <a class="btn ${view ? 'out' : ''}" href="/api/v1/jobs/${E.esc(j.id)}/file">Yuklab olish</a>
           <button type="button" class="btn ghost" id="f-new">Yangi mavzu</button></div>
-        ${kind === 'presentation_3d' ? `<div class="note" style="margin-top:12px">${E.esc(E.NOTE3D)}</div>` : ''}
         <p class="hint" style="text-align:center" id="f-tg"></p>`;
       if (me && me.telegram) E.watchTg(j, $('f-tg'), catalog && catalog.bot); else $('f-tg').remove();
       $('f-new').onclick = () => { S.topic = ''; $('topic').value = ''; reset(); };
@@ -627,7 +718,7 @@
     topic.addEventListener('input', () => {
       S.topic = topic.value;
       if (S.topic.trim().length >= 3) open();
-      if (isOpen()) { if (premium()) { preview(); suggest(); } summary(); }
+      if (isOpen()) { if (premium()) { preview(); suggest(); } summary(); if (threeD()) check3d(); }
       save();
     });
     $('kind-chips').addEventListener('click', (e) => { const b = e.target.closest('[data-kind]'); if (b) { pickKind(b.dataset.kind); save(); } });
@@ -639,10 +730,19 @@
     const want = (location.hash.split('kind=')[1] || '').split('&')[0];
     let restored = restore();
     if (!restored && me) restored = await restoreServer(kindOf(want) ? want : '');
+    if (!restored && !want) {          // «+ Boshqa buyurtma» / qayta kirish: oxirgi tanlangan tur (masalan 3D) ochiladi
+      try {
+        const last = JSON.parse(localStorage.getItem(LAST) || 'null');
+        if (last && kindOf(last.kind)) { S.kind = last.kind; if (VOLUMES.some((x) => x.key === last.volume)) S.volume = last.volume; }
+      } catch (e) { /* ixtiyoriy */ }
+    }
     if (want && kindOf(want)) S.kind = want;
+    const fromLink = linkParams();
+    if (fromLink.topic) { S.topic = fromLink.topic; restored = true; }
     if (!kindOf(S.kind)) S.kind = 'premium_presentation';
     chips();
     pickKind(S.kind, true);
+    if (fromLink.type) pickType(fromLink.type);
     if (restored) { topic.value = S.topic; open(); if (premium()) suggest(); if (me) E.toast('Tanlovlaringiz saqlangan. «Yaratish» ni bosing.'); }
     let live = null;
     try { live = JSON.parse(sessionStorage.getItem(LIVE) || 'null'); } catch (e) { live = null; }
@@ -654,7 +754,7 @@
       try {
         const d = await E.api('/jobs');
         const j = (d.jobs || []).find((x) => (x.status === 'queued' || x.status === 'running') && x.kind !== 'slide_rewrite' && x.id !== skip);
-        if (j) live = {id: j.id, kind: j.kind, count: (j.live && j.live.total) || 10};
+        if (j) live = {id: j.id, kind: j.kind, count: (j.live && (j.live.slides || j.live.total)) || 10};
       } catch (e) { live = null; }
     }
     if (live && me) {
@@ -675,6 +775,13 @@
       document.getElementById('yaratish').scrollIntoView({behavior: 'smooth', block: 'start'});
       setTimeout(() => topic.focus({preventScroll: true}), 350);
     });
+  }
+  // Havoladan tur va mavzu: /#yaratish?kind=premium_presentation&type=modern&topic=... (masalan 3D xato sahifasidan
+  // «Zamonaviy bilan yaratish» — shu mavzu bilan forma ochiladi).
+  function linkParams() {
+    const q = new URLSearchParams((location.hash.split('?')[1] || ''));
+    const type = q.get('type') || '';
+    return {topic: (q.get('topic') || '').slice(0, 300), type: PTYPES.some((t) => t.key === type) ? type : ''};
   }
   E.studio = {init};
 })();

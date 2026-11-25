@@ -7,6 +7,13 @@ import os
 MODEL = os.getenv("KAT3D_MODEL") or ""
 # Qidiruv (kalit so'zlar, modellarni saralash) — tez va arzon bo'lsin; bo'sh — umumiy zanjir.
 SEARCH_MODEL = os.getenv("KAT3D_SEARCH_MODEL") or ""
+# Modellarni saralash va mavzuning necha foizini 3D bilan ko'rsatish mumkinligini baholash (qamrov) — admin
+# tanlagan (arzon bo'lishi mumkin) modelga emas, nisbatan kuchli modelga mahkamlangan: shu baho mijozdan pul
+# olinadimi-yo'qmi hal qiladi. 28 mavzuli quruq sinovda (tools/katalog3d/tekshiruv_sinov.py) GPT-4.1 25/28 to'g'ri
+# qaror berdi (~6-10 s). Claude Sonnet 5 ham sinaldi: qamrovni haddan tashqari qattiq baholadi (Misr piramidalari
+# 35%, vulqonlar 15%), to'g'ri qarorlar 18-19/28 ga tushdi, tekshiruv 15-27 s gacha cho'zildi. Ishlamasa —
+# umumiy zanjir. `KAT3D_SELECT_MODEL` bilan almashtirish mumkin.
+SELECT_MODEL = os.getenv("KAT3D_SELECT_MODEL") or "openai/gpt-4.1"
 THINK_TOKENS = 1500
 
 

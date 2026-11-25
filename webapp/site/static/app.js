@@ -128,20 +128,25 @@
     const job = data.job;
     if (job.status === 'queued' || job.status === 'running') return jobWaiting(job);
     if (job.status === 'failed') {
+      const modern = '/#yaratish?kind=premium_presentation&type=modern&topic=' + encodeURIComponent(job.title || '');
+      const acts = job.kind === 'presentation_3d'
+        ? `<div class="forge-act" style="justify-content:flex-start"><a class="btn" href="${E.esc(modern)}">📝 Zamonaviy bilan yaratish</a>
+            <a class="btn out" href="/#yaratish?kind=presentation_3d">Boshqa mavzu yozish</a></div>`
+        : '<a class="btn out" href="/#yaratish">Qayta urinish</a>';
       view.innerHTML = `<div class="card panel" style="max-width:640px;margin:10px auto"><span class="pill bad">Bajarilmadi</span>
         <h2 style="margin:12px 0 6px">${E.esc(job.title)}</h2><p style="color:#4A5272">${E.esc(job.error)}</p>
-        <a class="btn out" href="/#yaratish">Qayta urinish</a></div>`;
+        ${acts}</div>`;
       return;
     }
     let info = {available: false};
-    if (E.isDeck(job.kind)) {
+    if (E.hasView(job.kind)) {
       try { info = await E.api('/jobs/' + encodeURIComponent(id) + '/deck'); } catch (e) { info = {available: false}; }
     }
     if (!info.available) {
       view.innerHTML = `<div class="card panel" style="max-width:640px;margin:10px auto;text-align:center"><span class="pill ok">Tayyor</span>
         <h2 style="margin:12px 0 6px">${E.esc(job.title)}</h2>
         ${E.isDeck(job.kind) ? '<p style="color:#4A5272">Bu taqdimot ko‘rib chiqish uchun saqlanmagan.</p>' : ''}
-        ${job.kind === 'presentation_3d' ? `<div class="note" style="text-align:left">${E.esc(E.NOTE3D)}</div>` : ''}
+        ${job.kind === 'presentation_3d' ? `<div style="text-align:left">${E.warn3d()}</div>` : ''}
         <p style="color:#4A5272" id="j-tg"></p>
         <a class="btn" href="/api/v1/jobs/${E.esc(job.id)}/file">Yuklab olish</a>
         <p><a class="link" href="#/docs">← Hujjatlarim</a></p></div>`;
@@ -153,13 +158,15 @@
   }
 
   function jobWaiting(job) {
-    const isDeck = E.isDeck(job.kind);
+    const isDeck = E.isDeck(job.kind) || job.kind === 'presentation_3d';
+    const three = job.kind === 'presentation_3d';
     view.innerHTML = `<div style="max-width:980px;margin:6px auto">
       <div id="forge-anim"></div>
       <p class="hint" style="text-align:center;margin-top:12px">Bu sahifani yopib ketishingiz mumkin: tayyor bo‘lgach «Hujjatlarim» da ko‘rinadi va Telegramga ham keladi.</p></div>`;
     const f = E.forge(document.getElementById('forge-anim'), {topic: job.title, mode: isDeck ? 'slides' : 'pages',
-      kind: job.kind, label: kindLabel(job.kind),
-      count: (job.live && job.live.plan && job.live.plan.length - 2) || 10, startedAt: job.created_at});
+      kind: job.kind, label: kindLabel(job.kind), exact: three,
+      count: three ? ((job.live && job.live.slides) || 8) : (job.live && job.live.plan && job.live.plan.length - 2) || 10,
+      startedAt: job.created_at});
     f.update(job);
     teardown = () => f.stop();
     const poll = async () => {
@@ -183,7 +190,7 @@
     const prompts = rw.prompts || [];
     const promptsForAi = (rw.by_language || {})[deck.language] || prompts;
     const st = {n: 1, version: deck.version, slides: deck.slides, busy: info.busy, panel: false, history: deck.history || []};
-    view.innerHTML = `
+    view.innerHTML = `${deck.three_d ? E.warn3d() : ''}
       <div class="vtop"><a class="link" href="#/docs">← Hujjatlarim</a>
         <div class="vname"><b>${E.esc(job.title)}</b> <span class="hint" id="v-count"></span></div>
         <a class="btn sm" href="/api/v1/jobs/${E.esc(id)}/file">Yuklab olish</a></div>
@@ -205,7 +212,8 @@
             : deck.text_edit ? `<div class="vtools" id="vtools"><button type="button" class="btn out sm" id="t-ptext">✍️ Matnni tahrirlash <small>bepul</small></button></div>
             <div class="card panel ed-panel" id="edpanel" hidden></div>
             <p class="hint" style="margin:10px 0 0">Ko‘rinish taxminiy.</p>`
-            : '<p class="hint" style="margin:14px 0 0">Ko‘rinish taxminiy: PowerPoint da biroz farq qilishi mumkin.</p>'}
+            : (deck.three_d ? '<p class="hint" style="margin:14px 0 0">Bu yerda 3D modellar o‘rnida ularning rasmi. Matn va joylashuv — fayldagidek.</p>'
+              : '<p class="hint" style="margin:14px 0 0">Ko‘rinish taxminiy: PowerPoint da biroz farq qilishi mumkin.</p>')}
           <p class="hint" style="margin:10px 0 0">${E.leftText(info.expires_at)}</p>
         </div>
         ${deck.editable ? `<aside class="vside card" id="vside" hidden>
@@ -554,7 +562,7 @@
     } else {
       status = `<span class="pill wait">${E.esc(j.stage_text || 'Tayyorlanmoqda')}</span><div class="bar"><i style="width:${Math.max(4, j.progress)}%"></i></div>`;
     }
-    const open = (E.isDeck(j.kind) && j.status !== 'failed') ? `<a class="btn sm out" href="#/job/${E.esc(j.id)}">${j.status === 'done' ? 'Ko‘rish' : 'Ochish'}</a> ` : '';
+    const open = (E.hasView(j.kind) && j.status !== 'failed') ? `<a class="btn sm out" href="#/job/${E.esc(j.id)}">${j.status === 'done' ? 'Ko‘rish' : 'Ochish'}</a> ` : '';
     return `<div class="job"><div><div class="t">${E.esc(j.title)}</div><div class="hint" style="margin:2px 0 0">${E.esc(kindLabel(j.kind))} · ${E.fmt(j.price)} so‘m</div></div><div>${status}</div><div>${open}${action}</div></div>`;
   }
   // Oddiy taqdimot endi katalogda yo'q, lekin eski buyurtmalar ro'yxatda nom bilan ko'rinsin.
@@ -563,7 +571,7 @@
   // ───────────────────────────────────────────────────────────────── Hamyon
   // To'lovni kutayotgan buyurtma: hamyon va «Hujjatlarim» tepasida eslatma; to'lov tushib, buyurtma o'zi
   // boshlanganda — o'sha buyurtmaga o'tadi.
-  const jobHref = (j) => E.isDeck(j.kind) ? '#/job/' + j.id : '#/docs';
+  const jobHref = (j) => E.hasView(j.kind) ? '#/job/' + j.id : '#/docs';
   async function pendingBanner(box, onMissing) {
     let d;
     try { d = await E.api('/pending'); } catch (e) { return null; }
