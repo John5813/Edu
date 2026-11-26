@@ -907,7 +907,7 @@ short3 = {"style": "vitrina", "slides": full8["slides"][:3]}            # javob 
 calls = []
 
 
-def fake_plan_ai(topic, count, codes_, language, level, preferences, mix=False, boost=1.0, research=None):
+def fake_plan_ai(topic, count, codes_, language, level, preferences, mix=False, boost=1.0, research=None, chosen=False):
     calls.append(boost)
     return short3 if len(calls) < 3 else full8
 

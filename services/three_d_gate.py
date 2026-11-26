@@ -159,14 +159,20 @@ def names(result: dict, med: Optional[dict] = None, limit: int = 6) -> List[str]
 
 
 def public(result: dict) -> dict:
-    """Brauzerga: {ok, mode, names, previews, message}."""
+    """Brauzerga: {ok, mode, names, previews, message, fans, pick} — fans/pick: «modellarni o'zim tanlayman» uchun."""
     previews = []
     if result.get("mode") == "catalog":
         from services import katalog3d
 
         previews = [i for i in result["ids"][:6] if katalog3d.preview_yoli(i)]
     sure = bool(result.get("sure", True))
-    return {"ok": bool(result.get("ok")), "sure": sure, "mode": result.get("mode") or "",
+    fans, pick = [], []
+    if result.get("mode") == "catalog":
+        from services.kat3d import tanlov
+
+        fans = [{"key": f, "label": tanlov.FANLAR.get(f, f.capitalize())} for f in tanlov.mavzu_fanlari(result["ids"])[:2]]
+        pick = list(result["ids"][:tanlov.MAX_MODELS])
+    return {"ok": bool(result.get("ok")), "sure": sure, "mode": result.get("mode") or "", "fans": fans, "pick": pick,
             "partial": bool(result.get("partial")), "names": list(result.get("names") or []) if sure else [],
             "previews": previews if sure else [],
             "message": NO_3D if not result.get("ok") else ("" if sure else UNSURE)}

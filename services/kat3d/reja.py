@@ -81,6 +81,20 @@ English scene description in "photo" — subject, setting, light; never text, di
 at least once when the topic allows. "qahramon" and "uchlik" need models.
 """
 
+CHOSEN_RULES = """THE CLIENT HAND-PICKED THE 3D MODELS (listed below) for this topic — this replaces the general model rules.
+Build the deck AROUND these models, so that what the viewer sees and what the slide says are the same thing:
+1. First decide a logical teaching order for the models (general → specific, cause → effect, old → new...).
+2. Each model gets ITS OWN slide (or 2 neighbouring slides). That slide is ABOUT the object the model shows,
+   explained in the context of the topic: its title names that object, its text explains what it is, how it
+   works or why it matters for the topic. Never put a model on a slide about something else.
+3. Use "qahramon", "chap"/"ong", "matn", "kartalar", "bosqichlar", "raqamlar", "savol", "fikr" for model slides.
+   "uchlik" only when 3 chosen models are naturally compared; its items describe exactly those 3 models.
+4. If there are more slides than models, the extra slides develop the topic with "models": [] (text only) or
+   keep the previous slide's model when the text is still about that same object.
+5. If there are more models than slides, group closely related models in "uchlik" and show the rest on "yakun".
+6. The cover shows the model that best represents the whole topic.
+"""
+
 RESEARCH_RULES = """FRESH RESEARCH (web search with sources) is given below the models. Use it like a careful
 author who has just done the research:
 1. Cover EVERY section from the research, in that order — at least one slide each (the first sections are the
@@ -181,11 +195,19 @@ def charts_limit(count: int) -> int:
 
 
 def _plan_ai(topic: str, count: int, codes: Dict[str, str], language: str, level: int, preferences: str,
-             mix: bool = False, boost: float = 1.0, research: Optional[dict] = None) -> dict:
+             mix: bool = False, boost: float = 1.0, research: Optional[dict] = None, chosen: bool = False) -> dict:
     from services import katalog3d
 
     cat = katalog3d.katalog()
-    models = "\n".join(f"{c} | {cat[m]['nom_uz']} | {cat[m]['nom'][:70]} | {cat[m]['fan']}" for c, m in codes.items())
+
+    def row(c: str, m: str) -> str:
+        line = f"{c} | {cat[m]['nom_uz']} | {cat[m]['nom'][:70]} | {cat[m]['fan']}"
+        if chosen:                                    # AI model aslida nimani ko'rsatishini aniq bilsin
+            tags = ", ".join((cat[m].get("kalit") or [])[:6])
+            line += f" | {cat[m].get('kategoriya', '')}" + (f" | {tags}" if tags else "")
+        return line
+
+    models = "\n".join(row(c, m) for c, m in codes.items())
     extra = f"Client's wishes: {preferences[:1500]}\n" if preferences else ""
     found = ""
     if research:
@@ -194,7 +216,7 @@ def _plan_ai(topic: str, count: int, codes: Dict[str, str], language: str, level
         found = "\n" + tadqiqot.matn(research) + "\n"
     user = USER.format(topic=topic, level=LEVELS.get(level, LEVELS[2]), language_rule=ai.language_rule(language),
                        extra=extra, models=models, research=found)
-    rules = MIX_RULES.format(pictures=pictures_target(count, len(codes))) if mix else ""
+    rules = MIX_RULES.format(pictures=pictures_target(count, len(codes))) if mix else CHOSEN_RULES if chosen else ""
     if research:
         rules += RESEARCH_RULES.format(charts=charts_limit(count) if not mix else count)
     system = SYSTEM.format(count=count, styles=style_guide(), mix=rules)
@@ -334,13 +356,14 @@ def _valid(s: dict) -> bool:
 
 
 def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str], mix: bool = False,
-              charts: bool = False) -> dict:
+              charts: bool = False, strict: bool = False) -> dict:
     """AI rejasini tekshiradi va tuzatadi: kompozitsiya va uning maydonlari, xilma-xillik (ketma-ket bir xil
     dizayn yo'q, ro'yxatli slaydlar ko'pi bilan ikkita), matn uzunligi, modellar soni va hajmi.
 
     `mix` — aralash taqdimot: modellar faqat AI qo'ygan slaydlarda (har tanlangan model kamida bir marta),
     qolganlari 3D'siz — diagramma, rasm yoki matnli dizayn.
-    `charts` — to'liq 3D taqdimotda ham tadqiqotdagi raqamlar bilan 3D'siz «diagramma» slaydlari (`charts_limit` ta)."""
+    `charts` — to'liq 3D taqdimotda ham tadqiqotdagi raqamlar bilan 3D'siz «diagramma» slaydlari (`charts_limit` ta).
+    `strict` — modellarni mijoz tanlagan: «uchlik» ga AI yozmagan model qo'shilmaydi (matni boshqa narsa haqida bo'lardi)."""
     from services import katalog3d
 
     ids = _fit_size(list(ids))
@@ -409,7 +432,7 @@ def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str],
                 if mid in allowed and mid not in [i["model"] for i in items]:
                     items.append({"model": mid, "name": _clip(it.get("name"), LIMITS["name"]),
                                   "text": _clip(it.get("text"), LIMITS["text"])})
-            if len(items) < 3 and len(ids) >= 3:
+            if len(items) < 3 and len(ids) >= 3 and not strict:
                 for mid in pick(3, [i["model"] for i in items]):
                     if mid not in [i["model"] for i in items]:
                         items.append({"model": mid, "name": _clip(katalog3d.katalog()[mid]["nom_uz"], LIMITS["name"]),
@@ -417,6 +440,9 @@ def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str],
             if len(items) >= 3:
                 out["items"] = items[:3]
                 out["models"] = [i["model"] for i in out["items"]]
+            elif items:                               # to'liq uchlik emas — matni va modeli oddiy slaydga o'tadi
+                out["items"], out["models"] = items, [i["model"] for i in items]
+                want = [i["model"] for i in items] + [m for m in want if m not in out["models"]]
         if not _valid(out):                           # maydonlari to'lmagan kompozitsiya — oddiy matnliga
             _as_text(out, "matn" if out["paragraphs"] or len(_texts(out)) <= 2 else "chap")
         lay = out["layout"]
@@ -605,9 +631,10 @@ MAX_ATTEMPTS = 3
 
 def plan(topic: str, count: int, ids: Sequence[str], language: str = "uz", level: int = 2,
          preferences: str = "", style: Optional[str] = None, mix: bool = False,
-         research: Optional[dict] = None, review_ok: bool = True) -> dict:
+         research: Optional[dict] = None, review_ok: bool = True, chosen: bool = False) -> dict:
     """`research` — `tadqiqot.tayyorla()` natijasi (bo'limlar, faktlar, grafik qatorlari, manbalar) yoki None.
-    `review_ok=False` — fakt tekshiruvi o'tkaziladi (buyurtma juda cho'zilgan)."""
+    `review_ok=False` — fakt tekshiruvi o'tkaziladi (buyurtma juda cho'zilgan).
+    `chosen` — modellarni mijoz o'zi tanlagan: reja shu modellar atrofida, har varaq o'z modeli haqida."""
     ids = list(dict.fromkeys(ids))
     codes = {f"m{i}": mid for i, mid in enumerate(ids)}
     # Mijoz tanlagan slaydlar soni to'liq bo'lsin: AI javobi token chegarasida kesilsa, qisman saqlangan reja
@@ -616,8 +643,9 @@ def plan(topic: str, count: int, ids: Sequence[str], language: str = "uz", level
     for attempt in range(MAX_ATTEMPTS):
         try:
             data = _plan_ai(topic, count, codes, language, level, preferences, mix, boost=1 + 0.5 * attempt,
-                            research=research)
-            out = normalize(data, count, ids, codes, mix, charts=bool(research and research.get("series")))
+                            research=research, chosen=chosen)
+            out = normalize(data, count, ids, codes, mix, charts=bool(research and research.get("series")),
+                            strict=chosen)
         except RuntimeError as exc:                 # reja juda qisqa — keyingi urinish
             out, last = None, str(exc)
             log.warning("3D katalog reja (%d-urinish): %s", attempt + 1, exc)

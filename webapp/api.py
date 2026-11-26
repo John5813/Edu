@@ -558,6 +558,39 @@ async def three_d_check(request: web.Request) -> web.Response:
                              headers={"Cache-Control": "no-store"})
 
 
+async def three_d_models(request: web.Request) -> web.Response:
+    """«🧩 Modellarni o'zim tanlayman»: katalogdan sahifalab (fan, bo'lim, qidiruv). Bepul, AI chaqirilmaydi —
+    mavzuga mos modellar (tekshiruv natijasi, bir soat eslab qolingan) boshida turadi."""
+    from services import three_d_gate
+    from services.kat3d import tanlov
+
+    if _limited(f"3dmodels:{_ip(request)}", 90, 60):
+        return _error("Juda tez-tez so'raldi. Bir daqiqa kuting.", 429, "rate")
+    q = request.query
+    topic = " ".join(str(q.get("topic") or "").split())[:300]
+    language = str(q.get("language") or "")
+    suggested: list = []
+    if len(topic) >= 3:
+        if language not in web_kinds.THREE_D_LANGUAGES:
+            language = "uz"
+        hit = three_d_gate.cached(topic, language)
+        if hit and hit.get("mode") == "catalog":
+            suggested = list(hit.get("ids") or [])
+    try:
+        offset = int(q.get("offset") or 0)
+    except ValueError:
+        offset = 0
+    page = await asyncio.to_thread(tanlov.royxat, str(q.get("fan") or "")[:40], str(q.get("kat") or "")[:120],
+                                   str(q.get("q") or "")[:80], offset, suggested, tanlov.PAGE, topic)
+    page["topic_fans"] = tanlov.mavzu_fanlari(suggested)
+    page["suggested"] = suggested[:tanlov.MAX_MODELS]
+    page["max"], page["min"] = tanlov.MAX_MODELS, tanlov.MIN_MODELS
+    ids = [i for i in str(q.get("ids") or "").split(",") if i][:tanlov.MAX_MODELS]
+    if ids:
+        page["chosen"] = tanlov.kartalar(ids)
+    return web.json_response({"ok": True, **page}, headers={"Cache-Control": "no-store"})
+
+
 async def three_d_model_preview(request: web.Request) -> web.StreamResponse:
     """Katalogdagi 3D modelning rasmi (tekshiruv natijasida mijozga «shu modellar bo'ladi» deb ko'rsatiladi)."""
     from services import katalog3d
@@ -1446,6 +1479,7 @@ def setup_api_routes(app: web.Application) -> None:
     add("POST", "/api/v1/suggest", suggest)
     add("POST", "/api/v1/3d/check", three_d_check)
     add("GET", "/api/v1/3d/model/{id}.jpg", three_d_model_preview)
+    add("GET", "/api/v1/3d/models", three_d_models)
     add("POST", "/api/v1/source", source)
     add("POST", "/api/v1/jobs", jobs_create)
     add("GET", "/api/v1/jobs", jobs_list)
