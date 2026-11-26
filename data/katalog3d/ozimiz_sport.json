@@ -1,0 +1,201 @@
+{
+ "modellar": [
+  {
+   "id": "sp_futbol_maydoni",
+   "nom_uz": "Futbol maydoni (105×68 m)",
+   "nom": "Football pitch",
+   "fan": "sport",
+   "kalit": [
+    "futbol maydoni",
+    "футбольное поле",
+    "futbol",
+    "darvoza",
+    "jarima maydoni"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Football pitch\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/sp_futbol_maydoni/model.glb",
+   "uchburchak": 1776,
+   "hajm": 47640,
+   "bbox": [
+    [
+     -1.7200000286102295,
+     -0.009999999776482582,
+     -1.1109999418258667
+    ],
+    [
+     1.7200000286102295,
+     0.14640000462532043,
+     1.1130000352859497
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Sport: maydonlar",
+   "tur": "real"
+  },
+  {
+   "id": "sp_basketbol_maydoni",
+   "nom_uz": "Basketbol maydoni (28×15 m)",
+   "nom": "Basketball court",
+   "fan": "sport",
+   "kalit": [
+    "basketbol",
+    "баскетбол",
+    "maydon",
+    "halqa",
+    "uch ochkolik chiziq"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Basketball court\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/sp_basketbol_maydoni/model.glb",
+   "uchburchak": 4396,
+   "hajm": 86672,
+   "bbox": [
+    [
+     -1.850000023841858,
+     -0.019999999552965164,
+     -1.010699987411499
+    ],
+    [
+     1.850000023841858,
+     0.6638000011444092,
+     1.010699987411499
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Sport: maydonlar",
+   "tur": "real"
+  },
+  {
+   "id": "sp_voleybol_maydoni",
+   "nom_uz": "Voleybol maydoni (18×9 m)",
+   "nom": "Volleyball court",
+   "fan": "sport",
+   "kalit": [
+    "voleybol",
+    "волейбол",
+    "to'r",
+    "maydon"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Volleyball court\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/sp_voleybol_maydoni/model.glb",
+   "uchburchak": 428,
+   "hajm": 17408,
+   "bbox": [
+    [
+     -1.75,
+     -0.019999999552965164,
+     -1.0
+    ],
+    [
+     1.75,
+     0.536899983882904,
+     1.0
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Sport: maydonlar",
+   "tur": "real"
+  },
+  {
+   "id": "sp_futbol_topi",
+   "nom_uz": "Futbol to'pi (kesik ikosaedr)",
+   "nom": "Football",
+   "fan": "sport",
+   "kalit": [
+    "futbol to'pi",
+    "мяч",
+    "kesik ikosaedr",
+    "futbol"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Football\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/sp_futbol_topi/model.glb",
+   "uchburchak": 12100,
+   "hajm": 248632,
+   "bbox": [
+    [
+     -1.1153000593185425,
+     0.034699998795986176,
+     -1.114300012588501
+    ],
+    [
+     1.1153000593185425,
+     2.2653000354766846,
+     1.114300012588501
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Sport: anjomlar",
+   "tur": "real"
+  },
+  {
+   "id": "sp_shtanga",
+   "nom_uz": "Shtanga",
+   "nom": "Barbell",
+   "fan": "sport",
+   "kalit": [
+    "shtanga",
+    "штанга",
+    "og'ir atletika",
+    "disk"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Barbell\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/sp_shtanga/model.glb",
+   "uchburchak": 1440,
+   "hajm": 50068,
+   "bbox": [
+    [
+     -1.7000000476837158,
+     0.0,
+     -0.550000011920929
+    ],
+    [
+     1.7000000476837158,
+     1.100000023841858,
+     0.550000011920929
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Sport: anjomlar",
+   "tur": "real"
+  }
+ ]
+}

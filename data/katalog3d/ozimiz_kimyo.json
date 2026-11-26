@@ -1,0 +1,2132 @@
+{
+ "modellar": [
+  {
+   "id": "kim_suv",
+   "nom_uz": "Suv molekulasi (H₂O)",
+   "nom": "Water H2O",
+   "fan": "kimyo",
+   "kalit": [
+    "suv",
+    "h2o",
+    "вода",
+    "water",
+    "molekula",
+    "kislorod",
+    "vodorod"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Water H2O\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_suv/model.glb",
+   "uchburchak": 2416,
+   "hajm": 49776,
+   "bbox": [
+    [
+     -1.0134999752044678,
+     0.05999999865889549,
+     -0.3400000035762787
+    ],
+    [
+     1.0134999752044678,
+     1.2467000484466553,
+     0.3400000035762787
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_co2",
+   "nom_uz": "Karbonat angidrid (CO₂)",
+   "nom": "Carbon dioxide CO2",
+   "fan": "kimyo",
+   "kalit": [
+    "karbonat angidrid",
+    "co2",
+    "углекислый газ",
+    "molekula"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Carbon dioxide CO2\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_co2/model.glb",
+   "uchburchak": 2448,
+   "hajm": 50792,
+   "bbox": [
+    [
+     -1.7450000047683716,
+     0.03999999910593033,
+     -0.36000001430511475
+    ],
+    [
+     1.7450000047683716,
+     0.7599999904632568,
+     0.36000001430511475
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_metan",
+   "nom_uz": "Metan (CH₄)",
+   "nom": "Methane CH4",
+   "fan": "kimyo",
+   "kalit": [
+    "metan",
+    "ch4",
+    "метан",
+    "uglevodorod",
+    "alkan"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Methane CH4\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_metan/model.glb",
+   "uchburchak": 4048,
+   "hajm": 82028,
+   "bbox": [
+    [
+     -0.9217000007629395,
+     0.15000000596046448,
+     -1.0816999673843384
+    ],
+    [
+     1.2620999813079834,
+     2.253499984741211,
+     1.1440000534057617
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_ammiak",
+   "nom_uz": "Ammiak (NH₃)",
+   "nom": "Ammonia NH3",
+   "fan": "kimyo",
+   "kalit": [
+    "ammiak",
+    "nh3",
+    "аммиак",
+    "azot"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Ammonia NH3\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_ammiak/model.glb",
+   "uchburchak": 3232,
+   "hajm": 65932,
+   "bbox": [
+    [
+     -0.9952999949455261,
+     0.15000000596046448,
+     -0.34850001335144043
+    ],
+    [
+     1.118299961090088,
+     2.1540000438690186,
+     0.6456000208854675
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_kislorod",
+   "nom_uz": "Kislorod molekulasi (O₂)",
+   "nom": "Oxygen O2",
+   "fan": "kimyo",
+   "kalit": [
+    "kislorod",
+    "o2",
+    "кислород",
+    "oddiy modda"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Oxygen O2\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_kislorod/model.glb",
+   "uchburchak": 1616,
+   "hajm": 33468,
+   "bbox": [
+    [
+     -0.9104999899864197,
+     0.05999999865889549,
+     -0.3400000035762787
+    ],
+    [
+     0.9104999899864197,
+     0.7400000095367432,
+     0.3400000035762787
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_azot",
+   "nom_uz": "Azot molekulasi (N₂)",
+   "nom": "Nitrogen N2",
+   "fan": "kimyo",
+   "kalit": [
+    "azot",
+    "n2",
+    "азот",
+    "uch bog'"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Nitrogen N2\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_azot/model.glb",
+   "uchburchak": 1640,
+   "hajm": 34172,
+   "bbox": [
+    [
+     -1.0800000429153442,
+     0.05000000074505806,
+     -0.3499999940395355
+    ],
+    [
+     1.0800000429153442,
+     0.75,
+     0.3499999940395355
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_vodorod",
+   "nom_uz": "Vodorod molekulasi (H₂)",
+   "nom": "Hydrogen H2",
+   "fan": "kimyo",
+   "kalit": [
+    "vodorod",
+    "h2",
+    "водород"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Hydrogen H2\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_vodorod/model.glb",
+   "uchburchak": 1600,
+   "hajm": 32964,
+   "bbox": [
+    [
+     -0.5989999771118164,
+     0.15000000596046448,
+     -0.25
+    ],
+    [
+     0.5989999771118164,
+     0.6499999761581421,
+     0.25
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_hcl",
+   "nom_uz": "Vodorod xlorid (HCl)",
+   "nom": "Hydrogen chloride HCl",
+   "fan": "kimyo",
+   "kalit": [
+    "vodorod xlorid",
+    "hcl",
+    "хлороводород",
+    "kislota"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Hydrogen chloride HCl\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_hcl/model.glb",
+   "uchburchak": 1600,
+   "hajm": 33700,
+   "bbox": [
+    [
+     -1.1028000116348267,
+     -0.019999999552965164,
+     -0.41999998688697815
+    ],
+    [
+     0.9327999949455261,
+     0.8199999928474426,
+     0.41999998688697815
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_etan",
+   "nom_uz": "Etan (C₂H₆)",
+   "nom": "Ethane C2H6",
+   "fan": "kimyo",
+   "kalit": [
+    "etan",
+    "c2h6",
+    "этан",
+    "alkan"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Ethane C2H6\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_etan/model.glb",
+   "uchburchak": 6496,
+   "hajm": 130344,
+   "bbox": [
+    [
+     -1.3904000520706177,
+     0.15000000596046448,
+     -1.2254999876022339
+    ],
+    [
+     1.3904000520706177,
+     2.6521999835968018,
+     1.2254999876022339
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_eten",
+   "nom_uz": "Eten (etilen, C₂H₄)",
+   "nom": "Ethene C2H4",
+   "fan": "kimyo",
+   "kalit": [
+    "eten",
+    "etilen",
+    "этилен",
+    "alken",
+    "qo'sh bog'"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Ethene C2H4\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_eten/model.glb",
+   "uchburchak": 4880,
+   "hajm": 98616,
+   "bbox": [
+    [
+     -1.4778000116348267,
+     0.15000000596046448,
+     -0.36000001430511475
+    ],
+    [
+     1.4778000116348267,
+     2.5099000930786133,
+     0.36000001430511475
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_etin",
+   "nom_uz": "Etin (atsetilen, C₂H₂)",
+   "nom": "Ethyne C2H2",
+   "fan": "kimyo",
+   "kalit": [
+    "etin",
+    "atsetilen",
+    "ацетилен",
+    "alkin",
+    "uch bog'"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Ethyne C2H2\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_etin/model.glb",
+   "uchburchak": 3272,
+   "hajm": 67100,
+   "bbox": [
+    [
+     -1.9160000085830688,
+     0.03999999910593033,
+     -0.36000001430511475
+    ],
+    [
+     1.9160000085830688,
+     0.7599999904632568,
+     0.36000001430511475
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_propan",
+   "nom_uz": "Propan (C₃H₈)",
+   "nom": "Propane C3H8",
+   "fan": "kimyo",
+   "kalit": [
+    "propan",
+    "c3h8",
+    "пропан",
+    "alkan"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Propane C3H8\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_propan/model.glb",
+   "uchburchak": 8944,
+   "hajm": 178668,
+   "bbox": [
+    [
+     -2.3975000381469727,
+     0.15000000596046448,
+     -1.1371999979019165
+    ],
+    [
+     2.3975000381469727,
+     2.792799949645996,
+     1.1371999979019165
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_butan",
+   "nom_uz": "Butan (C₄H₁₀)",
+   "nom": "Butane C4H10",
+   "fan": "kimyo",
+   "kalit": [
+    "butan",
+    "бутан",
+    "alkan"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Butane C4H10\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_butan/model.glb",
+   "uchburchak": 11392,
+   "hajm": 226980,
+   "bbox": [
+    [
+     -2.9519999027252197,
+     0.15000000596046448,
+     -1.1374000310897827
+    ],
+    [
+     2.9519999027252197,
+     2.99780011177063,
+     1.1374000310897827
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_metanol",
+   "nom_uz": "Metanol (CH₃OH)",
+   "nom": "Methanol",
+   "fan": "kimyo",
+   "kalit": [
+    "metanol",
+    "spirt",
+    "метанол"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Methanol\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_metanol/model.glb",
+   "uchburchak": 4864,
+   "hajm": 98868,
+   "bbox": [
+    [
+     -1.3650000095367432,
+     0.15000000596046448,
+     -1.1454999446868896
+    ],
+    [
+     1.8109999895095825,
+     2.0632998943328857,
+     1.1454999446868896
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_etanol",
+   "nom_uz": "Etanol (C₂H₅OH)",
+   "nom": "Ethanol",
+   "fan": "kimyo",
+   "kalit": [
+    "etanol",
+    "etil spirti",
+    "этанол",
+    "spirt"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Ethanol\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_etanol/model.glb",
+   "uchburchak": 7312,
+   "hajm": 147176,
+   "bbox": [
+    [
+     -1.917799949645996,
+     0.15000000596046448,
+     -1.2661999464035034
+    ],
+    [
+     1.799299955368042,
+     3.19950008392334,
+     1.2652000188827515
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_sirka",
+   "nom_uz": "Sirka kislota (CH₃COOH)",
+   "nom": "Acetic acid",
+   "fan": "kimyo",
+   "kalit": [
+    "sirka kislota",
+    "уксусная кислота",
+    "karbon kislota"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Acetic acid\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_sirka/model.glb",
+   "uchburchak": 6512,
+   "hajm": 131560,
+   "bbox": [
+    [
+     -1.8244999647140503,
+     0.05999999865889549,
+     -1.1484999656677246
+    ],
+    [
+     2.4491000175476074,
+     2.943000078201294,
+     1.1484999656677246
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_benzol",
+   "nom_uz": "Benzol (C₆H₆)",
+   "nom": "Benzene",
+   "fan": "kimyo",
+   "kalit": [
+    "benzol",
+    "бензол",
+    "aromatik",
+    "arenlar"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Benzene\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_benzol/model.glb",
+   "uchburchak": 9840,
+   "hajm": 197164,
+   "bbox": [
+    [
+     -2.537899971008301,
+     0.15000000596046448,
+     -0.36000001430511475
+    ],
+    [
+     2.537899971008301,
+     5.573800086975098,
+     0.36000001430511475
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_glyukoza",
+   "nom_uz": "Glyukoza (C₆H₁₂O₆)",
+   "nom": "Glucose",
+   "fan": "kimyo",
+   "kalit": [
+    "glyukoza",
+    "глюкоза",
+    "uglevod",
+    "shakar"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Glucose\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_glyukoza/model.glb",
+   "uchburchak": 19584,
+   "hajm": 389708,
+   "bbox": [
+    [
+     -4.438300132751465,
+     0.15000000596046448,
+     -1.6691999435424805
+    ],
+    [
+     3.520699977874756,
+     6.199100017547607,
+     1.8775999546051025
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_siklogeksan",
+   "nom_uz": "Siklogeksan (C₆H₁₂)",
+   "nom": "Cyclohexane",
+   "fan": "kimyo",
+   "kalit": [
+    "siklogeksan",
+    "циклогексан",
+    "sikloalkan"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Cyclohexane\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_siklogeksan/model.glb",
+   "uchburchak": 14688,
+   "hajm": 292368,
+   "bbox": [
+    [
+     -2.631700038909912,
+     0.15000000596046448,
+     -1.5694999694824219
+    ],
+    [
+     2.631700038909912,
+     5.460100173950195,
+     1.5694999694824219
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_sulfat",
+   "nom_uz": "Sulfat kislota (H₂SO₄)",
+   "nom": "Sulfuric acid",
+   "fan": "kimyo",
+   "kalit": [
+    "sulfat kislota",
+    "h2so4",
+    "серная кислота"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Sulfuric acid\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_sulfat/model.glb",
+   "uchburchak": 5712,
+   "hajm": 115940,
+   "bbox": [
+    [
+     -1.9502999782562256,
+     0.15000000596046448,
+     -1.372499942779541
+    ],
+    [
+     1.9502999782562256,
+     2.670099973678589,
+     1.372499942779541
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_glitsin",
+   "nom_uz": "Glitsin (aminokislota)",
+   "nom": "Glycine",
+   "fan": "kimyo",
+   "kalit": [
+    "glitsin",
+    "aminokislota",
+    "глицин",
+    "oqsil"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Glycine\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_glitsin/model.glb",
+   "uchburchak": 8144,
+   "hajm": 164500,
+   "bbox": [
+    [
+     -2.504199981689453,
+     0.15000000596046448,
+     -1.3767999410629272
+    ],
+    [
+     2.543100118637085,
+     3.5318000316619873,
+     0.7789000272750854
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_karbamid",
+   "nom_uz": "Karbamid (mochevina)",
+   "nom": "Urea",
+   "fan": "kimyo",
+   "kalit": [
+    "karbamid",
+    "mochevina",
+    "мочевина",
+    "o'g'it"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Urea\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_karbamid/model.glb",
+   "uchburchak": 6512,
+   "hajm": 132292,
+   "bbox": [
+    [
+     -2.211899995803833,
+     0.15000000596046448,
+     -0.6491000056266785
+    ],
+    [
+     2.211899995803833,
+     3.5445001125335693,
+     0.6489999890327454
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_suv_tola",
+   "nom_uz": "Suv molekulasi (to'ldirilgan model)",
+   "nom": "Water space-filling",
+   "fan": "kimyo",
+   "kalit": [
+    "suv",
+    "h2o",
+    "molekula",
+    "hajmiy model"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Water space-filling\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_suv_tola/model.glb",
+   "uchburchak": 4800,
+   "hajm": 92548,
+   "bbox": [
+    [
+     -1.368499994277954,
+     -0.4359999895095825,
+     -0.8360000252723694
+    ],
+    [
+     1.368499994277954,
+     1.601699948310852,
+     0.8360000252723694
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_metan_tola",
+   "nom_uz": "Metan (to'ldirilgan model)",
+   "nom": "Methane space-filling",
+   "fan": "kimyo",
+   "kalit": [
+    "metan",
+    "molekula",
+    "hajmiy model"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Methane space-filling\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_metan_tola/model.glb",
+   "uchburchak": 8000,
+   "hajm": 153092,
+   "bbox": [
+    [
+     -1.2767000198364258,
+     -0.20499999821186066,
+     -1.4366999864578247
+    ],
+    [
+     1.6171000003814697,
+     2.6085000038146973,
+     1.4989999532699585
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_etanol_tola",
+   "nom_uz": "Etanol (to'ldirilgan model)",
+   "nom": "Ethanol space-filling",
+   "fan": "kimyo",
+   "kalit": [
+    "etanol",
+    "spirt",
+    "hajmiy model"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Ethanol space-filling\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_etanol_tola/model.glb",
+   "uchburchak": 14400,
+   "hajm": 274872,
+   "bbox": [
+    [
+     -2.2727999687194824,
+     -0.20499999821186066,
+     -1.6211999654769897
+    ],
+    [
+     2.295300006866455,
+     3.554500102996826,
+     1.6202000379562378
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_nacl",
+   "nom_uz": "Osh tuzi (NaCl) kristall panjarasi",
+   "nom": "Sodium chloride lattice",
+   "fan": "kimyo",
+   "kalit": [
+    "osh tuzi",
+    "nacl",
+    "kristall panjara",
+    "ion",
+    "хлорид натрия",
+    "кристаллическая решётка"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Sodium chloride lattice\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_nacl/model.glb",
+   "uchburchak": 19320,
+   "hajm": 420196,
+   "bbox": [
+    [
+     -0.3400000035762787,
+     -0.3400000035762787,
+     -2.740000009536743
+    ],
+    [
+     2.740000009536743,
+     2.740000009536743,
+     0.3400000035762787
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: kristall panjaralar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_olmos",
+   "nom_uz": "Olmos kristall panjarasi",
+   "nom": "Diamond lattice",
+   "fan": "kimyo",
+   "kalit": [
+    "olmos",
+    "алмаз",
+    "uglerod",
+    "atom panjara"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Diamond lattice\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_olmos/model.glb",
+   "uchburchak": 13376,
+   "hajm": 295336,
+   "bbox": [
+    [
+     -0.17000000178813934,
+     -0.17000000178813934,
+     -2.569999933242798
+    ],
+    [
+     2.569999933242798,
+     2.569999933242798,
+     0.17000000178813934
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: kristall panjaralar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_grafit",
+   "nom_uz": "Grafit qatlamli tuzilishi",
+   "nom": "Graphite layers",
+   "fan": "kimyo",
+   "kalit": [
+    "grafit",
+    "графит",
+    "uglerod",
+    "allotropiya"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Graphite layers\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_grafit/model.glb",
+   "uchburchak": 26360,
+   "hajm": 555296,
+   "bbox": [
+    [
+     -1.5570000410079956,
+     -0.12999999523162842,
+     -1.501099944114685
+    ],
+    [
+     1.5570000410079956,
+     1.9299999475479126,
+     1.226099967956543
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: kristall panjaralar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_metall_oddiy",
+   "nom_uz": "Oddiy kub panjara",
+   "nom": "Simple cubic lattice",
+   "fan": "kimyo",
+   "kalit": [
+    "kub panjara",
+    "metall",
+    "кубическая решётка"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Simple cubic lattice\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_metall_oddiy/model.glb",
+   "uchburchak": 7104,
+   "hajm": 166708,
+   "bbox": [
+    [
+     -0.2800000011920929,
+     -0.2800000011920929,
+     -2.4800000190734863
+    ],
+    [
+     2.4800000190734863,
+     2.4800000190734863,
+     0.2800000011920929
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: kristall panjaralar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_metall_hajm",
+   "nom_uz": "Hajmi markazlashgan kub panjara",
+   "nom": "Body-centred cubic",
+   "fan": "kimyo",
+   "kalit": [
+    "hajmi markazlashgan",
+    "metall",
+    "оцк",
+    "bcc"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Body-centred cubic\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_metall_hajm/model.glb",
+   "uchburchak": 7680,
+   "hajm": 178692,
+   "bbox": [
+    [
+     -0.2800000011920929,
+     -0.2800000011920929,
+     -2.4800000190734863
+    ],
+    [
+     2.4800000190734863,
+     2.4800000190734863,
+     0.2800000011920929
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: kristall panjaralar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_metall_yoq",
+   "nom_uz": "Yoqlari markazlashgan kub panjara",
+   "nom": "Face-centred cubic",
+   "fan": "kimyo",
+   "kalit": [
+    "yoqlari markazlashgan",
+    "metall",
+    "гцк",
+    "fcc"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Face-centred cubic\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_metall_yoq/model.glb",
+   "uchburchak": 10560,
+   "hajm": 234976,
+   "bbox": [
+    [
+     -0.2800000011920929,
+     -0.2800000011920929,
+     -2.4800000190734863
+    ],
+    [
+     2.4800000190734863,
+     2.4800000190734863,
+     0.2800000011920929
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: kristall panjaralar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_atom_h",
+   "nom_uz": "Vodorod atomi (Bor modeli)",
+   "nom": "Hydrogen atom (Bohr)",
+   "fan": "kimyo",
+   "kalit": [
+    "atom tuzilishi",
+    "vodorod",
+    "bor modeli",
+    "elektron"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Hydrogen atom (Bohr)\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_atom_h/model.glb",
+   "uchburchak": 2372,
+   "hajm": 46504,
+   "bbox": [
+    [
+     -0.7692000269889832,
+     0.48080000281333923,
+     -0.31679999828338623
+    ],
+    [
+     0.8475000262260437,
+     2.019200086593628,
+     0.0949999988079071
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: atom tuzilishi",
+   "tur": "real"
+  },
+  {
+   "id": "kim_atom_c",
+   "nom_uz": "Uglerod atomi (Bor modeli)",
+   "nom": "Carbon atom (Bohr)",
+   "fan": "kimyo",
+   "kalit": [
+    "atom tuzilishi",
+    "uglerod",
+    "elektron qobiq",
+    "строение атома"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Carbon atom (Bohr)\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_atom_c/model.glb",
+   "uchburchak": 8088,
+   "hajm": 159572,
+   "bbox": [
+    [
+     -1.232200026512146,
+     0.5012000203132629,
+     -0.49559998512268066
+    ],
+    [
+     1.233199954032898,
+     3.000200033187866,
+     0.45559999346733093
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: atom tuzilishi",
+   "tur": "real"
+  },
+  {
+   "id": "kim_atom_o",
+   "nom_uz": "Kislorod atomi (Bor modeli)",
+   "nom": "Oxygen atom (Bohr)",
+   "fan": "kimyo",
+   "kalit": [
+    "atom tuzilishi",
+    "kislorod",
+    "elektron"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Oxygen atom (Bohr)\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_atom_o/model.glb",
+   "uchburchak": 9504,
+   "hajm": 188524,
+   "bbox": [
+    [
+     -1.232200026512146,
+     0.4284000098705292,
+     -0.45559999346733093
+    ],
+    [
+     1.233199954032898,
+     3.0715999603271484,
+     0.483599990606308
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: atom tuzilishi",
+   "tur": "real"
+  },
+  {
+   "id": "kim_atom_na",
+   "nom_uz": "Natriy atomi (Bor modeli)",
+   "nom": "Sodium atom (Bohr)",
+   "fan": "kimyo",
+   "kalit": [
+    "atom tuzilishi",
+    "natriy",
+    "elektron qobiq"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Sodium atom (Bohr)\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_atom_na/model.glb",
+   "uchburchak": 13804,
+   "hajm": 271908,
+   "bbox": [
+    [
+     -1.7170000076293945,
+     0.49900001287460327,
+     -0.5102999806404114
+    ],
+    [
+     1.718000054359436,
+     4.002099990844727,
+     0.6053000092506409
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: atom tuzilishi",
+   "tur": "real"
+  },
+  {
+   "id": "kim_orbital_s",
+   "nom_uz": "s-orbital",
+   "nom": "s orbital",
+   "fan": "kimyo",
+   "kalit": [
+    "s orbital",
+    "orbital",
+    "орбиталь",
+    "elektron bulut"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"s orbital\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_orbital_s/model.glb",
+   "uchburchak": 36912,
+   "hajm": 673656,
+   "bbox": [
+    [
+     -1.899999976158142,
+     0.04500000178813934,
+     -1.899999976158142
+    ],
+    [
+     1.899999976158142,
+     2.8949999809265137,
+     1.899999976158142
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: orbitallar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_orbital_p",
+   "nom_uz": "p-orbitallar (pₓ, p_y, p_z)",
+   "nom": "p orbitals",
+   "fan": "kimyo",
+   "kalit": [
+    "p orbital",
+    "orbital",
+    "p-орбитали"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"p orbitals\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_orbital_p/model.glb",
+   "uchburchak": 49152,
+   "hajm": 1507096,
+   "bbox": [
+    [
+     -1.399999976158142,
+     0.07000000029802322,
+     -1.399999976158142
+    ],
+    [
+     1.399999976158142,
+     2.869999885559082,
+     1.399999976158142
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: orbitallar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_orbital_pz",
+   "nom_uz": "pz-orbital (ikki faza)",
+   "nom": "pz orbital",
+   "fan": "kimyo",
+   "kalit": [
+    "p orbital",
+    "orbital",
+    "faza"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"pz orbital\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_orbital_pz/model.glb",
+   "uchburchak": 36912,
+   "hajm": 1123712,
+   "bbox": [
+    [
+     -1.899999976158142,
+     -0.07000000029802322,
+     -1.899999976158142
+    ],
+    [
+     1.899999976158142,
+     3.009999990463257,
+     1.899999976158142
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: orbitallar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_orbital_dz2",
+   "nom_uz": "d_z²-orbital",
+   "nom": "dz2 orbital",
+   "fan": "kimyo",
+   "kalit": [
+    "d orbital",
+    "orbital",
+    "d-орбиталь"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"dz2 orbital\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_orbital_dz2/model.glb",
+   "uchburchak": 36912,
+   "hajm": 1123716,
+   "bbox": [
+    [
+     -1.899999976158142,
+     -0.20999999344348907,
+     -1.899999976158142
+    ],
+    [
+     1.899999976158142,
+     3.1500000953674316,
+     1.899999976158142
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: orbitallar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_orbital_dxy",
+   "nom_uz": "d_xy-orbital",
+   "nom": "dxy orbital",
+   "fan": "kimyo",
+   "kalit": [
+    "d orbital",
+    "orbital"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"dxy orbital\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_orbital_dxy/model.glb",
+   "uchburchak": 36912,
+   "hajm": 1123704,
+   "bbox": [
+    [
+     -1.899999976158142,
+     0.04500000178813934,
+     -1.899999976158142
+    ],
+    [
+     1.899999976158142,
+     2.8949999809265137,
+     1.899999976158142
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: orbitallar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_sp3",
+   "nom_uz": "sp³-gibridlanish",
+   "nom": "sp3 hybridization",
+   "fan": "kimyo",
+   "kalit": [
+    "gibridlanish",
+    "sp3",
+    "гибридизация",
+    "uglerod"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"sp3 hybridization\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_sp3/model.glb",
+   "uchburchak": 50432,
+   "hajm": 928552,
+   "bbox": [
+    [
+     -1.5092999935150146,
+     -0.35499998927116394,
+     -1.5092999935150146
+    ],
+    [
+     1.5092999935150146,
+     2.6649999618530273,
+     1.5092999935150146
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: orbitallar",
+   "tur": "real"
+  },
+  {
+   "id": "kim_vsepr_chiziqli",
+   "nom_uz": "Chiziqli molekula (180°)",
+   "nom": "Linear (VSEPR)",
+   "fan": "kimyo",
+   "kalit": [
+    "molekula shakli",
+    "chiziqli",
+    "vsepr",
+    "линейная"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Linear (VSEPR)\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_vsepr_chiziqli/model.glb",
+   "uchburchak": 1992,
+   "hajm": 41784,
+   "bbox": [
+    [
+     -1.4700000286102295,
+     1.0800000429153442,
+     -0.3199999928474426
+    ],
+    [
+     1.4700000286102295,
+     1.7200000286102295,
+     0.3199999928474426
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekula shakllari",
+   "tur": "real"
+  },
+  {
+   "id": "kim_vsepr_uchburchak",
+   "nom_uz": "Yassi uchburchak (120°)",
+   "nom": "Trigonal planar",
+   "fan": "kimyo",
+   "kalit": [
+    "molekula shakli",
+    "uchburchak",
+    "vsepr"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Trigonal planar\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_vsepr_uchburchak/model.glb",
+   "uchburchak": 3316,
+   "hajm": 76240,
+   "bbox": [
+    [
+     -1.3025000095367432,
+     1.0800000429153442,
+     -1.4700000286102295
+    ],
+    [
+     1.3025000095367432,
+     1.7200000286102295,
+     0.8450000286102295
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekula shakllari",
+   "tur": "real"
+  },
+  {
+   "id": "kim_vsepr_tetraedr",
+   "nom_uz": "Tetraedrik molekula (109,5°)",
+   "nom": "Tetrahedral",
+   "fan": "kimyo",
+   "kalit": [
+    "molekula shakli",
+    "tetraedr",
+    "vsepr",
+    "тетраэдр"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Tetrahedral\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_vsepr_tetraedr/model.glb",
+   "uchburchak": 4544,
+   "hajm": 107060,
+   "bbox": [
+    [
+     -0.8087000250816345,
+     0.7638000249862671,
+     -1.2400000095367432
+    ],
+    [
+     1.3986999988555908,
+     2.869999885559082,
+     1.2400000095367432
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekula shakllari",
+   "tur": "real"
+  },
+  {
+   "id": "kim_vsepr_piramida",
+   "nom_uz": "Piramidal molekula (NH₃, 107°)",
+   "nom": "Trigonal pyramidal",
+   "fan": "kimyo",
+   "kalit": [
+    "molekula shakli",
+    "piramida",
+    "ammiak"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Trigonal pyramidal\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_vsepr_piramida/model.glb",
+   "uchburchak": 9668,
+   "hajm": 193668,
+   "bbox": [
+    [
+     -0.8087000250816345,
+     0.7638000249862671,
+     -1.2400000095367432
+    ],
+    [
+     1.3986999988555908,
+     2.1500000953674316,
+     1.2400000095367432
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekula shakllari",
+   "tur": "real"
+  },
+  {
+   "id": "kim_vsepr_burchakli",
+   "nom_uz": "Burchakli molekula (H₂O, 104,5°)",
+   "nom": "Bent",
+   "fan": "kimyo",
+   "kalit": [
+    "molekula shakli",
+    "burchakli",
+    "suv"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Bent\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_vsepr_burchakli/model.glb",
+   "uchburchak": 14792,
+   "hajm": 278748,
+   "bbox": [
+    [
+     -0.8087000250816345,
+     0.7638000249862671,
+     -1.2400000095367432
+    ],
+    [
+     0.7177000045776367,
+     2.1500000953674316,
+     1.2400000095367432
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekula shakllari",
+   "tur": "real"
+  },
+  {
+   "id": "kim_vsepr_bipiramida",
+   "nom_uz": "Trigonal bipiramida (PCl₅)",
+   "nom": "Trigonal bipyramidal",
+   "fan": "kimyo",
+   "kalit": [
+    "molekula shakli",
+    "bipiramida",
+    "vsepr"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Trigonal bipyramidal\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_vsepr_bipiramida/model.glb",
+   "uchburchak": 4956,
+   "hajm": 113412,
+   "bbox": [
+    [
+     -0.8450000286102295,
+     -0.07000000029802322,
+     -1.3025000095367432
+    ],
+    [
+     1.4700000286102295,
+     2.869999885559082,
+     1.3025000095367432
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekula shakllari",
+   "tur": "real"
+  },
+  {
+   "id": "kim_vsepr_oktaedr",
+   "nom_uz": "Oktaedrik molekula (SF₆)",
+   "nom": "Octahedral",
+   "fan": "kimyo",
+   "kalit": [
+    "molekula shakli",
+    "oktaedr",
+    "sf6",
+    "vsepr"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Octahedral\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_vsepr_oktaedr/model.glb",
+   "uchburchak": 6712,
+   "hajm": 160016,
+   "bbox": [
+    [
+     -1.4700000286102295,
+     -0.07000000029802322,
+     -1.4700000286102295
+    ],
+    [
+     1.4700000286102295,
+     2.869999885559082,
+     1.4700000286102295
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: molekula shakllari",
+   "tur": "real"
+  },
+  {
+   "id": "kim_kolba",
+   "nom_uz": "Yumaloq tubli kolba",
+   "nom": "Round-bottom flask",
+   "fan": "kimyo",
+   "kalit": [
+    "kolba",
+    "laboratoriya",
+    "колба",
+    "idish"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Round-bottom flask\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_kolba/model.glb",
+   "uchburchak": 8328,
+   "hajm": 158072,
+   "bbox": [
+    [
+     -0.9997000098228455,
+     0.0,
+     -0.9997000098228455
+    ],
+    [
+     0.9997000098228455,
+     3.0732998847961426,
+     0.9997000098228455
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: laboratoriya idishlari",
+   "tur": "real"
+  },
+  {
+   "id": "kim_konus_kolba",
+   "nom_uz": "Konussimon kolba",
+   "nom": "Erlenmeyer flask",
+   "fan": "kimyo",
+   "kalit": [
+    "kolba",
+    "konussimon",
+    "коническая колба",
+    "laboratoriya"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Erlenmeyer flask\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_konus_kolba/model.glb",
+   "uchburchak": 3252,
+   "hajm": 66220,
+   "bbox": [
+    [
+     -1.0499999523162842,
+     0.0,
+     -1.0499999523162842
+    ],
+    [
+     1.0499999523162842,
+     2.7732999324798584,
+     1.0499999523162842
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: laboratoriya idishlari",
+   "tur": "real"
+  },
+  {
+   "id": "kim_probirka",
+   "nom_uz": "Probirka",
+   "nom": "Test tube",
+   "fan": "kimyo",
+   "kalit": [
+    "probirka",
+    "пробирка",
+    "laboratoriya"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Test tube\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_probirka/model.glb",
+   "uchburchak": 4152,
+   "hajm": 82196,
+   "bbox": [
+    [
+     -0.3544999957084656,
+     0.0,
+     -0.3544999957084656
+    ],
+    [
+     0.3544999957084656,
+     2.873300075531006,
+     0.3544999957084656
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: laboratoriya idishlari",
+   "tur": "real"
+  },
+  {
+   "id": "kim_stakan",
+   "nom_uz": "Kimyoviy stakan",
+   "nom": "Beaker",
+   "fan": "kimyo",
+   "kalit": [
+    "kimyoviy stakan",
+    "стакан",
+    "laboratoriya"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Beaker\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_stakan/model.glb",
+   "uchburchak": 3372,
+   "hajm": 68616,
+   "bbox": [
+    [
+     -0.9944999814033508,
+     0.0,
+     -0.9944999814033508
+    ],
+    [
+     0.9944999814033508,
+     1.9732999801635742,
+     0.9944999814033508
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: laboratoriya idishlari",
+   "tur": "real"
+  },
+  {
+   "id": "kim_menzurka",
+   "nom_uz": "Menzurka (o'lchov silindri)",
+   "nom": "Graduated cylinder",
+   "fan": "kimyo",
+   "kalit": [
+    "menzurka",
+    "мензурка",
+    "hajm o'lchash"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Graduated cylinder\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_menzurka/model.glb",
+   "uchburchak": 4176,
+   "hajm": 83848,
+   "bbox": [
+    [
+     -0.699999988079071,
+     0.0,
+     -0.699999988079071
+    ],
+    [
+     0.699999988079071,
+     3.0732998847961426,
+     0.699999988079071
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: laboratoriya idishlari",
+   "tur": "real"
+  },
+  {
+   "id": "kim_voronka",
+   "nom_uz": "Voronka",
+   "nom": "Funnel",
+   "fan": "kimyo",
+   "kalit": [
+    "voronka",
+    "воронка",
+    "filtrlash"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Funnel\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_voronka/model.glb",
+   "uchburchak": 2352,
+   "hajm": 46104,
+   "bbox": [
+    [
+     -0.9815000295639038,
+     0.0,
+     -0.9815000295639038
+    ],
+    [
+     0.9815000295639038,
+     2.0799999237060547,
+     0.9815000295639038
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: laboratoriya idishlari",
+   "tur": "real"
+  },
+  {
+   "id": "kim_spirt_lampa",
+   "nom_uz": "Spirt lampasi",
+   "nom": "Spirit lamp",
+   "fan": "kimyo",
+   "kalit": [
+    "spirt lampasi",
+    "спиртовка",
+    "qizdirish"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Spirit lamp\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/kim_spirt_lampa/model.glb",
+   "uchburchak": 1872,
+   "hajm": 44188,
+   "bbox": [
+    [
+     -0.8500000238418579,
+     0.0,
+     -0.8500000238418579
+    ],
+    [
+     0.8500000238418579,
+     2.700000047683716,
+     0.8500000238418579
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Kimyo: laboratoriya idishlari",
+   "tur": "real"
+  }
+ ]
+}

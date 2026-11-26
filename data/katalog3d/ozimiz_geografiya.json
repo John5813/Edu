@@ -1,0 +1,408 @@
+{
+ "modellar": [
+  {
+   "id": "gg_yer_tuzilishi",
+   "nom_uz": "Yerning ichki tuzilishi",
+   "nom": "Earth's interior",
+   "fan": "geografiya",
+   "kalit": [
+    "yer tuzilishi",
+    "yadro",
+    "mantiya",
+    "yer qobig'i",
+    "строение земли",
+    "litosfera"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Earth's interior\" — Edufayl (dasturda yasalgan o'quv modeli, Yer tasviri: NASA Blue Marble (jamoat mulki); relyef: AWS Terrain Tiles / NASA SRTM), CC0",
+   "fayl": "ozimiz/gg_yer_tuzilishi/model.glb",
+   "uchburchak": 70156,
+   "hajm": 1646620,
+   "bbox": [
+    [
+     -1.2999999523162842,
+     0.0,
+     -1.2999999523162842
+    ],
+    [
+     1.2999999523162842,
+     2.5999999046325684,
+     1.2999999523162842
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geografiya: Yer va jarayonlar",
+   "tur": "real"
+  },
+  {
+   "id": "gg_globus",
+   "nom_uz": "Globus: koordinata to'ri, ekvator, tropiklar",
+   "nom": "Globe with graticule",
+   "fan": "geografiya",
+   "kalit": [
+    "globus",
+    "kenglik",
+    "uzoqlik",
+    "ekvator",
+    "tropik",
+    "глобус",
+    "koordinata"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Globe with graticule\" — Edufayl (dasturda yasalgan o'quv modeli, Yer tasviri: NASA Blue Marble (jamoat mulki); relyef: AWS Terrain Tiles / NASA SRTM), CC0",
+   "fayl": "ozimiz/gg_globus/model.glb",
+   "uchburchak": 86160,
+   "hajm": 1723016,
+   "bbox": [
+    [
+     -1.3913999795913696,
+     0.0,
+     -1.2281999588012695
+    ],
+    [
+     1.2211999893188477,
+     2.9916000366210938,
+     1.2281999588012695
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geografiya: Yer va jarayonlar",
+   "tur": "real"
+  },
+  {
+   "id": "gg_fasllar",
+   "nom_uz": "Yer o'qi og'ishi va fasllar",
+   "nom": "Seasons",
+   "fan": "geografiya",
+   "kalit": [
+    "fasllar",
+    "yer o'qi",
+    "orbita",
+    "времена года",
+    "kun va tun",
+    "quyosh"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Seasons\" — Edufayl (dasturda yasalgan o'quv modeli, Yer tasviri: NASA Blue Marble (jamoat mulki); relyef: AWS Terrain Tiles / NASA SRTM), CC0",
+   "fayl": "ozimiz/gg_fasllar/model.glb",
+   "uchburchak": 41536,
+   "hajm": 846364,
+   "bbox": [
+    [
+     -2.559999942779541,
+     0.550000011920929,
+     -1.9600000381469727
+    ],
+    [
+     2.559999942779541,
+     1.4500000476837158,
+     1.9600000381469727
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geografiya: Yer va jarayonlar",
+   "tur": "real"
+  },
+  {
+   "id": "gg_vulqon",
+   "nom_uz": "Vulqon tuzilishi (kesim)",
+   "nom": "Volcano cross-section",
+   "fan": "geografiya",
+   "kalit": [
+    "vulqon",
+    "magma",
+    "вулкан",
+    "krater",
+    "lava",
+    "otilish"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Volcano cross-section\" — Edufayl (dasturda yasalgan o'quv modeli, Yer tasviri: NASA Blue Marble (jamoat mulki); relyef: AWS Terrain Tiles / NASA SRTM), CC0",
+   "fayl": "ozimiz/gg_vulqon/model.glb",
+   "uchburchak": 2005,
+   "hajm": 51308,
+   "bbox": [
+    [
+     -1.899999976158142,
+     0.0,
+     -1.899999976158142
+    ],
+    [
+     1.899999976158142,
+     2.6600000858306885,
+     0.23999999463558197
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geografiya: Yer va jarayonlar",
+   "tur": "real"
+  },
+  {
+   "id": "gg_qatlamlar",
+   "nom_uz": "Tog' jinslari qatlamlari",
+   "nom": "Rock strata",
+   "fan": "geografiya",
+   "kalit": [
+    "qatlamlar",
+    "cho'kindi jinslar",
+    "геологические слои",
+    "tog' jinslari"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Rock strata\" — Edufayl (dasturda yasalgan o'quv modeli, Yer tasviri: NASA Blue Marble (jamoat mulki); relyef: AWS Terrain Tiles / NASA SRTM), CC0",
+   "fayl": "ozimiz/gg_qatlamlar/model.glb",
+   "uchburchak": 60,
+   "hajm": 6916,
+   "bbox": [
+    [
+     -1.5,
+     0.0,
+     -0.800000011920929
+    ],
+    [
+     1.5,
+     1.600000023841858,
+     0.800000011920929
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geografiya: Yer va jarayonlar",
+   "tur": "real"
+  },
+  {
+   "id": "gg_uzilma",
+   "nom_uz": "Uzilma (yer qobig'ining siljishi)",
+   "nom": "Fault",
+   "fan": "geografiya",
+   "kalit": [
+    "uzilma",
+    "siljish",
+    "zilzila",
+    "разлом",
+    "tektonika"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Fault\" — Edufayl (dasturda yasalgan o'quv modeli, Yer tasviri: NASA Blue Marble (jamoat mulki); relyef: AWS Terrain Tiles / NASA SRTM), CC0",
+   "fayl": "ozimiz/gg_uzilma/model.glb",
+   "uchburchak": 320,
+   "hajm": 17100,
+   "bbox": [
+    [
+     -1.5,
+     -0.41999998688697815,
+     -0.800000011920929
+    ],
+    [
+     1.5199999809265137,
+     1.600000023841858,
+     0.965499997138977
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geografiya: Yer va jarayonlar",
+   "tur": "real"
+  },
+  {
+   "id": "gg_burmalar",
+   "nom_uz": "Burmalar (antiklinal va sinklinal)",
+   "nom": "Folds",
+   "fan": "geografiya",
+   "kalit": [
+    "burma",
+    "antiklinal",
+    "sinklinal",
+    "складки",
+    "tog' hosil bo'lishi"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Folds\" — Edufayl (dasturda yasalgan o'quv modeli, Yer tasviri: NASA Blue Marble (jamoat mulki); relyef: AWS Terrain Tiles / NASA SRTM), CC0",
+   "fayl": "ozimiz/gg_burmalar/model.glb",
+   "uchburchak": 3160,
+   "hajm": 61216,
+   "bbox": [
+    [
+     -1.600000023841858,
+     0.0,
+     -0.699999988079071
+    ],
+    [
+     1.600000023841858,
+     2.049999952316284,
+     0.699999988079071
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geografiya: Yer va jarayonlar",
+   "tur": "real"
+  },
+  {
+   "id": "gg_relyef_uzbekiston",
+   "nom_uz": "O'zbekiston va qo'shni hududlar relyefi",
+   "nom": "Relief of Uzbekistan region",
+   "fan": "geografiya",
+   "kalit": [
+    "o'zbekiston relyefi",
+    "relyef",
+    "tog'lar",
+    "tekislik",
+    "рельеф узбекистана",
+    "turon pasttekisligi"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Relief of Uzbekistan region\" — Edufayl (dasturda yasalgan o'quv modeli, Yer tasviri: NASA Blue Marble (jamoat mulki); relyef: AWS Terrain Tiles / NASA SRTM), CC0",
+   "fayl": "ozimiz/gg_relyef_uzbekiston/model.glb",
+   "uchburchak": 72666,
+   "hajm": 1496500,
+   "bbox": [
+    [
+     -1.600000023841858,
+     0.0,
+     -1.0471999645233154
+    ],
+    [
+     1.600000023841858,
+     0.7300000190734863,
+     1.0471999645233154
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geografiya: relyef (haqiqiy)",
+   "tur": "real"
+  },
+  {
+   "id": "gg_relyef_samarqand",
+   "nom_uz": "Samarqand viloyati relyefi",
+   "nom": "Relief of Samarkand region",
+   "fan": "geografiya",
+   "kalit": [
+    "samarqand",
+    "relyef",
+    "zarafshon",
+    "nurota",
+    "рельеф самарканда"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Relief of Samarkand region\" — Edufayl (dasturda yasalgan o'quv modeli, Yer tasviri: NASA Blue Marble (jamoat mulki); relyef: AWS Terrain Tiles / NASA SRTM), CC0",
+   "fayl": "ozimiz/gg_relyef_samarqand/model.glb",
+   "uchburchak": 72666,
+   "hajm": 1496496,
+   "bbox": [
+    [
+     -1.600000023841858,
+     0.0,
+     -1.002500057220459
+    ],
+    [
+     1.600000023841858,
+     0.7300000190734863,
+     1.002500057220459
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geografiya: relyef (haqiqiy)",
+   "tur": "real"
+  },
+  {
+   "id": "gg_relyef_fargona",
+   "nom_uz": "Farg'ona vodiysi relyefi",
+   "nom": "Relief of the Fergana Valley",
+   "fan": "geografiya",
+   "kalit": [
+    "farg'ona vodiysi",
+    "relyef",
+    "ферганская долина",
+    "tog'lar bilan o'ralgan"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Relief of the Fergana Valley\" — Edufayl (dasturda yasalgan o'quv modeli, Yer tasviri: NASA Blue Marble (jamoat mulki); relyef: AWS Terrain Tiles / NASA SRTM), CC0",
+   "fayl": "ozimiz/gg_relyef_fargona/model.glb",
+   "uchburchak": 72666,
+   "hajm": 1496496,
+   "bbox": [
+    [
+     -1.600000023841858,
+     0.0,
+     -1.055999994277954
+    ],
+    [
+     1.600000023841858,
+     0.7799999713897705,
+     1.055999994277954
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geografiya: relyef (haqiqiy)",
+   "tur": "real"
+  }
+ ]
+}

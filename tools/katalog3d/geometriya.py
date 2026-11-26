@@ -37,7 +37,12 @@ from services import katalog3d  # noqa: E402
 from services.med3d.glb import Primitive, write_glb  # noqa: E402
 
 # ───────────────────────────────────────────── uslub
-EDGE = (0.10, 0.13, 0.22, 1.0)          # qirralar — to'q ko'k-kulrang
+EDGE = (0.30, 0.45, 0.80, 1.0)          # karkas chiziqlari — o'rta yorqinlik: oq va to'q fonda ham ko'rinadi
+
+
+def shade(color, k=0.42):
+    """Yoq rangining to'q tusi — yaxlit jism qirralari uchun (har qanday fonda yoq ustida ko'rinadi)."""
+    return (color[0] * k, color[1] * k, color[2] * k, 1.0)
 HEIGHT = (0.90, 0.20, 0.20, 1.0)        # balandlik — qizil
 SLANT = (0.96, 0.55, 0.10, 1.0)         # apofema, yasovchi, diagonal — to'q sariq
 RADIUS = (0.12, 0.30, 0.70, 1.0)        # radius — to'q ko'k
@@ -302,7 +307,7 @@ def dodecahedron(scale):
 
 
 def polyhedron(name, color, v, faces):
-    return [prim(flat(v, faces), color, name, 0.55), prim(wire(v, edges_of(faces)), EDGE, name + "_qirralar", 0.4)]
+    return [prim(flat(v, faces), color, name, 0.55), prim(wire(v, edges_of(faces)), shade(color), name + "_qirralar", 0.4)]
 
 
 # ───────────────────────────────────────────── aylanish jismlari

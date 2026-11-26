@@ -1,0 +1,644 @@
+{
+ "modellar": [
+  {
+   "id": "ast_merkuriy",
+   "nom_uz": "Merkuriy",
+   "nom": "Mercury",
+   "fan": "astronomiya",
+   "kalit": [
+    "merkuriy",
+    "merkuriy",
+    "меркурий",
+    "mercury",
+    "sayyora",
+    "quyosh tizimi"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · teksturalar: Solar System Scope · CC BY 4.0",
+   "attribution_full": "\"Mercury\" — Edufayl (dasturda yasalgan o'quv modeli; sayyora teksturalari: Solar System Scope (solarsystemscope.com), NASA ma'lumotlari asosida), CC BY 4.0",
+   "fayl": "ozimiz/ast_merkuriy/model.glb",
+   "uchburchak": 36864,
+   "hajm": 746540,
+   "bbox": [
+    [
+     -1.149999976158142,
+     0.10000000149011612,
+     -1.149999976158142
+    ],
+    [
+     1.149999976158142,
+     2.4000000953674316,
+     1.149999976158142
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Astronomiya: osmon jismlari",
+   "tur": "real"
+  },
+  {
+   "id": "ast_venera",
+   "nom_uz": "Venera",
+   "nom": "Venus",
+   "fan": "astronomiya",
+   "kalit": [
+    "venera",
+    "venera",
+    "венера",
+    "venus",
+    "sayyora",
+    "quyosh tizimi"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · teksturalar: Solar System Scope · CC BY 4.0",
+   "attribution_full": "\"Venus\" — Edufayl (dasturda yasalgan o'quv modeli; sayyora teksturalari: Solar System Scope (solarsystemscope.com), NASA ma'lumotlari asosida), CC BY 4.0",
+   "fayl": "ozimiz/ast_venera/model.glb",
+   "uchburchak": 36864,
+   "hajm": 746536,
+   "bbox": [
+    [
+     -1.149899959564209,
+     0.10010000318288803,
+     -1.149999976158142
+    ],
+    [
+     1.149899959564209,
+     2.399899959564209,
+     1.149999976158142
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Astronomiya: osmon jismlari",
+   "tur": "real"
+  },
+  {
+   "id": "ast_yer",
+   "nom_uz": "Yer sayyorasi",
+   "nom": "Earth",
+   "fan": "astronomiya",
+   "kalit": [
+    "yer",
+    "yer",
+    "земля",
+    "earth",
+    "sayyora",
+    "quyosh tizimi"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Earth\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/ast_yer/model.glb",
+   "uchburchak": 36864,
+   "hajm": 746532,
+   "bbox": [
+    [
+     -1.149899959564209,
+     0.10010000318288803,
+     -1.149999976158142
+    ],
+    [
+     1.149899959564209,
+     2.399899959564209,
+     1.149999976158142
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Astronomiya: osmon jismlari",
+   "tur": "real"
+  },
+  {
+   "id": "ast_mars",
+   "nom_uz": "Mars",
+   "nom": "Mars",
+   "fan": "astronomiya",
+   "kalit": [
+    "mars",
+    "mars",
+    "марс",
+    "mars",
+    "sayyora",
+    "quyosh tizimi"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · teksturalar: Solar System Scope · CC BY 4.0",
+   "attribution_full": "\"Mars\" — Edufayl (dasturda yasalgan o'quv modeli; sayyora teksturalari: Solar System Scope (solarsystemscope.com), NASA ma'lumotlari asosida), CC BY 4.0",
+   "fayl": "ozimiz/ast_mars/model.glb",
+   "uchburchak": 36864,
+   "hajm": 746528,
+   "bbox": [
+    [
+     -1.149899959564209,
+     0.10010000318288803,
+     -1.149999976158142
+    ],
+    [
+     1.149899959564209,
+     2.399899959564209,
+     1.149999976158142
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Astronomiya: osmon jismlari",
+   "tur": "real"
+  },
+  {
+   "id": "ast_yupiter",
+   "nom_uz": "Yupiter",
+   "nom": "Jupiter",
+   "fan": "astronomiya",
+   "kalit": [
+    "yupiter",
+    "yupiter",
+    "юпитер",
+    "jupiter",
+    "sayyora",
+    "quyosh tizimi"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · teksturalar: Solar System Scope · CC BY 4.0",
+   "attribution_full": "\"Jupiter\" — Edufayl (dasturda yasalgan o'quv modeli; sayyora teksturalari: Solar System Scope (solarsystemscope.com), NASA ma'lumotlari asosida), CC BY 4.0",
+   "fayl": "ozimiz/ast_yupiter/model.glb",
+   "uchburchak": 36864,
+   "hajm": 746536,
+   "bbox": [
+    [
+     -1.149899959564209,
+     0.10010000318288803,
+     -1.149999976158142
+    ],
+    [
+     1.149899959564209,
+     2.399899959564209,
+     1.149999976158142
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Astronomiya: osmon jismlari",
+   "tur": "real"
+  },
+  {
+   "id": "ast_saturn",
+   "nom_uz": "Saturn halqalari bilan",
+   "nom": "Saturn",
+   "fan": "astronomiya",
+   "kalit": [
+    "saturn",
+    "saturn",
+    "сатурн",
+    "saturn",
+    "sayyora",
+    "quyosh tizimi"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · teksturalar: Solar System Scope · CC BY 4.0",
+   "attribution_full": "\"Saturn\" — Edufayl (dasturda yasalgan o'quv modeli; sayyora teksturalari: Solar System Scope (solarsystemscope.com), NASA ma'lumotlari asosida), CC BY 4.0",
+   "fayl": "ozimiz/ast_saturn/model.glb",
+   "uchburchak": 84672,
+   "hajm": 1821940,
+   "bbox": [
+    [
+     -1.7237999439239502,
+     0.382999986410141,
+     -1.9294999837875366
+    ],
+    [
+     1.7237999439239502,
+     2.117000102996826,
+     1.9294999837875366
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Astronomiya: osmon jismlari",
+   "tur": "real"
+  },
+  {
+   "id": "ast_uran",
+   "nom_uz": "Uran",
+   "nom": "Uranus",
+   "fan": "astronomiya",
+   "kalit": [
+    "uran",
+    "uran",
+    "уран",
+    "uranus",
+    "sayyora",
+    "quyosh tizimi"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · teksturalar: Solar System Scope · CC BY 4.0",
+   "attribution_full": "\"Uranus\" — Edufayl (dasturda yasalgan o'quv modeli; sayyora teksturalari: Solar System Scope (solarsystemscope.com), NASA ma'lumotlari asosida), CC BY 4.0",
+   "fayl": "ozimiz/ast_uran/model.glb",
+   "uchburchak": 36864,
+   "hajm": 746536,
+   "bbox": [
+    [
+     -1.149999976158142,
+     0.10000000149011612,
+     -1.149999976158142
+    ],
+    [
+     1.149999976158142,
+     2.4000000953674316,
+     1.149999976158142
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Astronomiya: osmon jismlari",
+   "tur": "real"
+  },
+  {
+   "id": "ast_neptun",
+   "nom_uz": "Neptun",
+   "nom": "Neptune",
+   "fan": "astronomiya",
+   "kalit": [
+    "neptun",
+    "neptun",
+    "нептун",
+    "neptune",
+    "sayyora",
+    "quyosh tizimi"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · teksturalar: Solar System Scope · CC BY 4.0",
+   "attribution_full": "\"Neptune\" — Edufayl (dasturda yasalgan o'quv modeli; sayyora teksturalari: Solar System Scope (solarsystemscope.com), NASA ma'lumotlari asosida), CC BY 4.0",
+   "fayl": "ozimiz/ast_neptun/model.glb",
+   "uchburchak": 36864,
+   "hajm": 746540,
+   "bbox": [
+    [
+     -1.149999976158142,
+     0.10000000149011612,
+     -1.149999976158142
+    ],
+    [
+     1.149999976158142,
+     2.4000000953674316,
+     1.149999976158142
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Astronomiya: osmon jismlari",
+   "tur": "real"
+  },
+  {
+   "id": "ast_quyosh",
+   "nom_uz": "Quyosh",
+   "nom": "Sun",
+   "fan": "astronomiya",
+   "kalit": [
+    "quyosh",
+    "солнце",
+    "sun",
+    "yulduz"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · teksturalar: Solar System Scope · CC BY 4.0",
+   "attribution_full": "\"Sun\" — Edufayl (dasturda yasalgan o'quv modeli; sayyora teksturalari: Solar System Scope (solarsystemscope.com), NASA ma'lumotlari asosida), CC BY 4.0",
+   "fayl": "ozimiz/ast_quyosh/model.glb",
+   "uchburchak": 36864,
+   "hajm": 746476,
+   "bbox": [
+    [
+     -1.25,
+     0.05000000074505806,
+     -1.25
+    ],
+    [
+     1.25,
+     2.549999952316284,
+     1.25
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Astronomiya: osmon jismlari",
+   "tur": "real"
+  },
+  {
+   "id": "ast_oy",
+   "nom_uz": "Oy (Yerning yo'ldoshi)",
+   "nom": "Moon",
+   "fan": "astronomiya",
+   "kalit": [
+    "oy",
+    "луна",
+    "moon",
+    "yo'ldosh",
+    "kraterlar"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · teksturalar: Solar System Scope · CC BY 4.0",
+   "attribution_full": "\"Moon\" — Edufayl (dasturda yasalgan o'quv modeli; sayyora teksturalari: Solar System Scope (solarsystemscope.com), NASA ma'lumotlari asosida), CC BY 4.0",
+   "fayl": "ozimiz/ast_oy/model.glb",
+   "uchburchak": 36864,
+   "hajm": 746528,
+   "bbox": [
+    [
+     -1.149999976158142,
+     0.05000000074505806,
+     -1.149999976158142
+    ],
+    [
+     1.149999976158142,
+     2.3499999046325684,
+     1.149999976158142
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Astronomiya: osmon jismlari",
+   "tur": "real"
+  },
+  {
+   "id": "ast_quyosh_tizimi",
+   "nom_uz": "Quyosh tizimi (sayyoralar orbitalarda)",
+   "nom": "Solar System",
+   "fan": "astronomiya",
+   "kalit": [
+    "quyosh tizimi",
+    "sayyoralar",
+    "солнечная система",
+    "orbita"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · teksturalar: Solar System Scope · CC BY 4.0",
+   "attribution_full": "\"Solar System\" — Edufayl (dasturda yasalgan o'quv modeli; sayyora teksturalari: Solar System Scope (solarsystemscope.com), NASA ma'lumotlari asosida), CC BY 4.0",
+   "fayl": "ozimiz/ast_quyosh_tizimi/model.glb",
+   "uchburchak": 91872,
+   "hajm": 1904380,
+   "bbox": [
+    [
+     -6.315800189971924,
+     0.07999999821186066,
+     -6.315700054168701
+    ],
+    [
+     6.315800189971924,
+     1.5199999809265137,
+     6.315800189971924
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Astronomiya: hodisalar va qonunlar",
+   "tur": "real"
+  },
+  {
+   "id": "ast_oy_fazalari",
+   "nom_uz": "Oy fazalari",
+   "nom": "Phases of the Moon",
+   "fan": "astronomiya",
+   "kalit": [
+    "oy fazalari",
+    "фазы луны",
+    "yangi oy",
+    "to'lin oy"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · teksturalar: Solar System Scope · CC BY 4.0",
+   "attribution_full": "\"Phases of the Moon\" — Edufayl (dasturda yasalgan o'quv modeli; sayyora teksturalari: Solar System Scope (solarsystemscope.com), NASA ma'lumotlari asosida), CC BY 4.0",
+   "fayl": "ozimiz/ast_oy_fazalari/model.glb",
+   "uchburchak": 44012,
+   "hajm": 915732,
+   "bbox": [
+    [
+     -3.0,
+     0.5055000185966492,
+     -1.7200000286102295
+    ],
+    [
+     1.7200000286102295,
+     1.4945000410079956,
+     1.7200000286102295
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Astronomiya: hodisalar va qonunlar",
+   "tur": "real"
+  },
+  {
+   "id": "ast_quyosh_tutilishi",
+   "nom_uz": "Quyosh tutilishi",
+   "nom": "Solar eclipse",
+   "fan": "astronomiya",
+   "kalit": [
+    "quyosh tutilishi",
+    "солнечное затмение",
+    "soya"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · teksturalar: Solar System Scope · CC BY 4.0",
+   "attribution_full": "\"Solar eclipse\" — Edufayl (dasturda yasalgan o'quv modeli; sayyora teksturalari: Solar System Scope (solarsystemscope.com), NASA ma'lumotlari asosida), CC BY 4.0",
+   "fayl": "ozimiz/ast_quyosh_tutilishi/model.glb",
+   "uchburchak": 29840,
+   "hajm": 614784,
+   "bbox": [
+    [
+     -4.199999809265137,
+     -0.011900000274181366,
+     -1.0
+    ],
+    [
+     3.099900007247925,
+     2.011899948120117,
+     1.0
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Astronomiya: hodisalar va qonunlar",
+   "tur": "real"
+  },
+  {
+   "id": "ast_oy_tutilishi",
+   "nom_uz": "Oy tutilishi",
+   "nom": "Lunar eclipse",
+   "fan": "astronomiya",
+   "kalit": [
+    "oy tutilishi",
+    "лунное затмение",
+    "yer soyasi"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · teksturalar: Solar System Scope · CC BY 4.0",
+   "attribution_full": "\"Lunar eclipse\" — Edufayl (dasturda yasalgan o'quv modeli; sayyora teksturalari: Solar System Scope (solarsystemscope.com), NASA ma'lumotlari asosida), CC BY 4.0",
+   "fayl": "ozimiz/ast_oy_tutilishi/model.glb",
+   "uchburchak": 32408,
+   "hajm": 691808,
+   "bbox": [
+    [
+     -4.199999809265137,
+     -0.012000000104308128,
+     -1.0
+    ],
+    [
+     3.802299976348877,
+     2.01200008392334,
+     1.0
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Astronomiya: hodisalar va qonunlar",
+   "tur": "real"
+  },
+  {
+   "id": "ast_kepler",
+   "nom_uz": "Keplerning 2-qonuni (teng yuzalar)",
+   "nom": "Kepler's second law",
+   "fan": "astronomiya",
+   "kalit": [
+    "kepler qonunlari",
+    "законы кеплера",
+    "orbita",
+    "ellips",
+    "perigeliy"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · teksturalar: Solar System Scope · CC BY 4.0",
+   "attribution_full": "\"Kepler's second law\" — Edufayl (dasturda yasalgan o'quv modeli; sayyora teksturalari: Solar System Scope (solarsystemscope.com), NASA ma'lumotlari asosida), CC BY 4.0",
+   "fayl": "ozimiz/ast_kepler/model.glb",
+   "uchburchak": 10724,
+   "hajm": 227164,
+   "bbox": [
+    [
+     -3.5824999809265137,
+     0.699999988079071,
+     -2.025899887084961
+    ],
+    [
+     1.0525000095367432,
+     1.2999999523162842,
+     1.9384000301361084
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Astronomiya: hodisalar va qonunlar",
+   "tur": "real"
+  },
+  {
+   "id": "ast_osmon_sferasi",
+   "nom_uz": "Osmon sferasi, ekliptika va osmon ekvatori",
+   "nom": "Celestial sphere",
+   "fan": "astronomiya",
+   "kalit": [
+    "osmon sferasi",
+    "ekliptika",
+    "небесная сфера",
+    "osmon ekvatori"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC BY 4.0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · teksturalar: Solar System Scope · CC BY 4.0",
+   "attribution_full": "\"Celestial sphere\" — Edufayl (dasturda yasalgan o'quv modeli; sayyora teksturalari: Solar System Scope (solarsystemscope.com), NASA ma'lumotlari asosida), CC BY 4.0",
+   "fayl": "ozimiz/ast_osmon_sferasi/model.glb",
+   "uchburchak": 27676,
+   "hajm": 534196,
+   "bbox": [
+    [
+     -1.527999997138977,
+     -0.20000000298023224,
+     -1.527999997138977
+    ],
+    [
+     1.527999997138977,
+     3.4000000953674316,
+     1.527999997138977
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Astronomiya: hodisalar va qonunlar",
+   "tur": "real"
+  }
+ ]
+}

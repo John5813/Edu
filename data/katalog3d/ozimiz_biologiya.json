@@ -1,0 +1,484 @@
+{
+ "modellar": [
+  {
+   "id": "bio_dnk_atomlar",
+   "nom_uz": "DNK — haqiqiy atomlar (PDB 1BNA)",
+   "nom": "DNA, real atoms (PDB 1BNA)",
+   "fan": "biologiya",
+   "kalit": [
+    "dnk",
+    "dna",
+    "днк",
+    "nukleotid",
+    "genetika",
+    "irsiyat"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · ma'lumot: PDB 1BNA",
+   "attribution_full": "\"DNA, real atoms (PDB 1BNA)\" — Edufayl (dasturda yasalgan o'quv modeli; atom koordinatalari: Protein Data Bank 1BNA (wwPDB, CC0)), CC0",
+   "fayl": "ozimiz/bio_dnk_atomlar/model.glb",
+   "uchburchak": 76512,
+   "hajm": 1681168,
+   "bbox": [
+    [
+     -0.8482000231742859,
+     0.043699998408555984,
+     -0.7365999817848206
+    ],
+    [
+     0.7656999826431274,
+     2.9563000202178955,
+     0.7444000244140625
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Biologiya: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "bio_dnk_spiral",
+   "nom_uz": "DNK qo'sh spirali (A-T, G-C juftlari)",
+   "nom": "DNA double helix",
+   "fan": "biologiya",
+   "kalit": [
+    "dnk",
+    "qo'sh spiral",
+    "двойная спираль",
+    "komplementarlik",
+    "azotli asoslar"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"DNA double helix\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/bio_dnk_spiral/model.glb",
+   "uchburchak": 24096,
+   "hajm": 485040,
+   "bbox": [
+    [
+     -1.0460000038146973,
+     0.03999999910593033,
+     -1.0226000547409058
+    ],
+    [
+     1.0460000038146973,
+     9.18179988861084,
+     1.0226000547409058
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Biologiya: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "bio_gemoglobin",
+   "nom_uz": "Gemoglobin (PDB 2HHB, 4 zanjir va gem)",
+   "nom": "Hemoglobin (PDB 2HHB)",
+   "fan": "biologiya",
+   "kalit": [
+    "gemoglobin",
+    "гемоглобин",
+    "oqsil",
+    "qon",
+    "eritrotsit",
+    "kislorod tashish"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · ma'lumot: PDB 2HHB",
+   "attribution_full": "\"Hemoglobin (PDB 2HHB)\" — Edufayl (dasturda yasalgan o'quv modeli; atom koordinatalari: Protein Data Bank 2HHB (wwPDB, CC0)), CC0",
+   "fayl": "ozimiz/bio_gemoglobin/model.glb",
+   "uchburchak": 72616,
+   "hajm": 1369864,
+   "bbox": [
+    [
+     -1.5819000005722046,
+     0.36309999227523804,
+     -1.3823000192642212
+    ],
+    [
+     1.5657999515533447,
+     3.0566000938415527,
+     1.3860000371932983
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Biologiya: molekulalar",
+   "tur": "real"
+  },
+  {
+   "id": "bio_virus",
+   "nom_uz": "Virus (ikosaedrik kapsid)",
+   "nom": "Icosahedral virus",
+   "fan": "biologiya",
+   "kalit": [
+    "virus",
+    "вирус",
+    "kapsid",
+    "adenovirus"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Icosahedral virus\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/bio_virus/model.glb",
+   "uchburchak": 16340,
+   "hajm": 354520,
+   "bbox": [
+    [
+     -1.4140000343322754,
+     0.1860000044107437,
+     -1.4140000343322754
+    ],
+    [
+     1.4140000343322754,
+     3.0139999389648438,
+     1.4140000343322754
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Biologiya: hujayra va mikroorganizmlar",
+   "tur": "real"
+  },
+  {
+   "id": "bio_koronavirus",
+   "nom_uz": "Koronavirus",
+   "nom": "Coronavirus",
+   "fan": "biologiya",
+   "kalit": [
+    "koronavirus",
+    "коронавирус",
+    "covid",
+    "virus"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Coronavirus\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/bio_koronavirus/model.glb",
+   "uchburchak": 25696,
+   "hajm": 535688,
+   "bbox": [
+    [
+     -1.4772000312805176,
+     0.12970000505447388,
+     -1.4637999534606934
+    ],
+    [
+     1.4851000308990479,
+     3.0703001022338867,
+     1.4859999418258667
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Biologiya: hujayra va mikroorganizmlar",
+   "tur": "real"
+  },
+  {
+   "id": "bio_bakteriofag",
+   "nom_uz": "Bakteriofag",
+   "nom": "Bacteriophage",
+   "fan": "biologiya",
+   "kalit": [
+    "bakteriofag",
+    "бактериофаг",
+    "virus",
+    "bakteriya"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Bacteriophage\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/bio_bakteriofag/model.glb",
+   "uchburchak": 2908,
+   "hajm": 89544,
+   "bbox": [
+    [
+     -1.0781999826431274,
+     -0.010300000198185444,
+     -0.9379000067710876
+    ],
+    [
+     1.0781999826431274,
+     3.1242001056671143,
+     0.9379000067710876
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Biologiya: hujayra va mikroorganizmlar",
+   "tur": "real"
+  },
+  {
+   "id": "bio_hayvon_hujayrasi",
+   "nom_uz": "Hayvon hujayrasi (kesim)",
+   "nom": "Animal cell",
+   "fan": "biologiya",
+   "kalit": [
+    "hujayra",
+    "hayvon hujayrasi",
+    "клетка",
+    "organoidlar",
+    "yadro",
+    "mitoxondriya"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Animal cell\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/bio_hayvon_hujayrasi/model.glb",
+   "uchburchak": 26008,
+   "hajm": 551020,
+   "bbox": [
+    [
+     -1.399999976158142,
+     0.05000000074505806,
+     -1.399999976158142
+    ],
+    [
+     1.399999976158142,
+     2.8499999046325684,
+     1.399999976158142
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Biologiya: hujayra va mikroorganizmlar",
+   "tur": "real"
+  },
+  {
+   "id": "bio_osimlik_hujayrasi",
+   "nom_uz": "O'simlik hujayrasi (kesim)",
+   "nom": "Plant cell",
+   "fan": "biologiya",
+   "kalit": [
+    "o'simlik hujayrasi",
+    "растительная клетка",
+    "xloroplast",
+    "vakuola",
+    "hujayra devori"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Plant cell\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/bio_osimlik_hujayrasi/model.glb",
+   "uchburchak": 5812,
+   "hajm": 118192,
+   "bbox": [
+    [
+     -1.2999999523162842,
+     0.0,
+     -0.800000011920929
+    ],
+    [
+     1.2999999523162842,
+     1.600000023841858,
+     0.800000011920929
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Biologiya: hujayra va mikroorganizmlar",
+   "tur": "real"
+  },
+  {
+   "id": "bio_mitoxondriya",
+   "nom_uz": "Mitoxondriya (kesim)",
+   "nom": "Mitochondrion",
+   "fan": "biologiya",
+   "kalit": [
+    "mitoxondriya",
+    "митохондрия",
+    "kristalar",
+    "energiya"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Mitochondrion\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/bio_mitoxondriya/model.glb",
+   "uchburchak": 9088,
+   "hajm": 248316,
+   "bbox": [
+    [
+     -1.3200000524520874,
+     0.4000000059604645,
+     -0.6000000238418579
+    ],
+    [
+     1.3200000524520874,
+     1.600000023841858,
+     0.6000000238418579
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Biologiya: hujayra va mikroorganizmlar",
+   "tur": "real"
+  },
+  {
+   "id": "bio_xromosoma",
+   "nom_uz": "Xromosoma",
+   "nom": "Chromosome",
+   "fan": "biologiya",
+   "kalit": [
+    "xromosoma",
+    "хромосома",
+    "xromatida",
+    "sentromera"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Chromosome\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/bio_xromosoma/model.glb",
+   "uchburchak": 3264,
+   "hajm": 84212,
+   "bbox": [
+    [
+     -0.6700000166893005,
+     0.029999999329447746,
+     -0.17499999701976776
+    ],
+    [
+     0.6700000166893005,
+     2.4700000286102295,
+     0.17499999701976776
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Biologiya: hujayra va mikroorganizmlar",
+   "tur": "real"
+  },
+  {
+   "id": "bio_mitoz",
+   "nom_uz": "Mitoz bosqichlari",
+   "nom": "Mitosis phases",
+   "fan": "biologiya",
+   "kalit": [
+    "mitoz",
+    "митоз",
+    "profaza",
+    "metafaza",
+    "anafaza",
+    "telofaza",
+    "hujayra bo'linishi"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Mitosis phases\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/bio_mitoz/model.glb",
+   "uchburchak": 9248,
+   "hajm": 188296,
+   "bbox": [
+    [
+     -2.944999933242798,
+     0.029999999329447746,
+     -0.21699999272823334
+    ],
+    [
+     2.875,
+     1.4700000286102295,
+     0.2800000011920929
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Biologiya: hujayra va mikroorganizmlar",
+   "tur": "real"
+  },
+  {
+   "id": "bio_membrana",
+   "nom_uz": "Hujayra membranasi (fosfolipid qo'sh qavati)",
+   "nom": "Cell membrane",
+   "fan": "biologiya",
+   "kalit": [
+    "membrana",
+    "мембрана",
+    "fosfolipid",
+    "qo'sh qavat",
+    "kanal oqsil"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Cell membrane\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/bio_membrana/model.glb",
+   "uchburchak": 26336,
+   "hajm": 597784,
+   "bbox": [
+    [
+     -1.6399999856948853,
+     0.25,
+     -0.535099983215332
+    ],
+    [
+     1.4199999570846558,
+     1.75,
+     0.7551000118255615
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Biologiya: hujayra va mikroorganizmlar",
+   "tur": "real"
+  }
+ ]
+}

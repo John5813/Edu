@@ -23,7 +23,7 @@
    "attribution_full": "\"Cube\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_kub/model.glb",
    "uchburchak": 2396,
-   "hajm": 54008,
+   "hajm": 54012,
    "bbox": [
     [
      -1.0471999645233154,
@@ -64,7 +64,7 @@
    "attribution_full": "\"Rectangular cuboid\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_parallelepiped/model.glb",
    "uchburchak": 2396,
-   "hajm": 54056,
+   "hajm": 54076,
    "bbox": [
     [
      -1.5471999645233154,
@@ -105,7 +105,7 @@
    "attribution_full": "\"Oblique parallelepiped\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_ogma_parallelepiped/model.glb",
    "uchburchak": 2396,
-   "hajm": 54144,
+   "hajm": 54164,
    "bbox": [
     [
      -1.1473000049591064,
@@ -145,7 +145,7 @@
    "attribution_full": "\"Triangular prism\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_prizma/model.glb",
    "uchburchak": 1796,
-   "hajm": 41008,
+   "hajm": 41024,
    "bbox": [
     [
      -1.1473000049591064,
@@ -186,7 +186,7 @@
    "attribution_full": "\"Hexagonal prism\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_prizma6/model.glb",
    "uchburchak": 3596,
-   "hajm": 80312,
+   "hajm": 80332,
    "bbox": [
     [
      -1.1473000049591064,
@@ -225,7 +225,7 @@
    "attribution_full": "\"Square pyramid\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_piramida/model.glb",
    "uchburchak": 1510,
-   "hajm": 34892,
+   "hajm": 34924,
    "bbox": [
     [
      -1.1473000049591064,
@@ -266,7 +266,7 @@
    "attribution_full": "\"Tetrahedron\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_tetraedr/model.glb",
    "uchburchak": 1196,
-   "hajm": 27892,
+   "hajm": 27924,
    "bbox": [
     [
      -1.2472000122070312,
@@ -306,7 +306,7 @@
    "attribution_full": "\"Hexagonal pyramid\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_piramida6/model.glb",
    "uchburchak": 2138,
-   "hajm": 48896,
+   "hajm": 48928,
    "bbox": [
     [
      -1.2472000122070312,
@@ -346,7 +346,7 @@
    "attribution_full": "\"Frustum of a pyramid\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_kesik_piramida/model.glb",
    "uchburchak": 2396,
-   "hajm": 54132,
+   "hajm": 54164,
    "bbox": [
     [
      -1.2472000122070312,
@@ -386,7 +386,7 @@
    "attribution_full": "\"Octahedron\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_oktaedr/model.glb",
    "uchburchak": 1880,
-   "hajm": 43664,
+   "hajm": 43680,
    "bbox": [
     [
      -1.4615000486373901,
@@ -426,7 +426,7 @@
    "attribution_full": "\"Dodecahedron\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_dodekaedr/model.glb",
    "uchburchak": 5996,
-   "hajm": 132740,
+   "hajm": 132748,
    "bbox": [
     [
      -1.179900050163269,
@@ -466,7 +466,7 @@
    "attribution_full": "\"Icosahedron\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_ikosaedr/model.glb",
    "uchburchak": 3932,
-   "hajm": 90972,
+   "hajm": 90976,
    "bbox": [
     [
      -1.179900050163269,
@@ -626,7 +626,7 @@
    "attribution_full": "\"Frustum of a cone\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_kesik_konus/model.glb",
    "uchburchak": 2108,
-   "hajm": 62588,
+   "hajm": 62584,
    "bbox": [
     [
      -1.2314000129699707,
@@ -744,7 +744,7 @@
    "attribution_full": "\"Spherical cap\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_shar_segmenti/model.glb",
    "uchburchak": 5012,
-   "hajm": 151692,
+   "hajm": 151688,
    "bbox": [
     [
      -1.3188999891281128,
@@ -903,7 +903,7 @@
    "attribution_full": "\"Cuboid space diagonal\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_parallelepiped_diagonal/model.glb",
    "uchburchak": 2444,
-   "hajm": 56804,
+   "hajm": 56800,
    "bbox": [
     [
      -1.5471999645233154,
@@ -1106,7 +1106,7 @@
    "attribution_full": "\"Cube inscribed in a sphere\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_sharga_ichki_kub/model.glb",
    "uchburchak": 12764,
-   "hajm": 365944,
+   "hajm": 365948,
    "bbox": [
     [
      -1.3209999799728394,
@@ -1228,7 +1228,7 @@
    "attribution_full": "\"3D coordinate system\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_koordinatalar/model.glb",
    "uchburchak": 1748,
-   "hajm": 52288,
+   "hajm": 52284,
    "bbox": [
     [
      -0.4000000059604645,
@@ -1585,7 +1585,7 @@
    "attribution_full": "\"Square\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_kvadrat/model.glb",
    "uchburchak": 92,
-   "hajm": 4760,
+   "hajm": 4756,
    "bbox": [
     [
      -0.9265999794006348,
@@ -1704,7 +1704,7 @@
    "attribution_full": "\"Rhombus\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_romb/model.glb",
    "uchburchak": 396,
-   "hajm": 13852,
+   "hajm": 13848,
    "bbox": [
     [
      -0.7720000147819519,
