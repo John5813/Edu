@@ -1,0 +1,122 @@
+{
+ "modellar": [
+  {
+   "id": "st_ustunli",
+   "nom_uz": "3D ustunli diagramma",
+   "nom": "3D bar chart",
+   "fan": "statistika",
+   "kalit": [
+    "diagramma",
+    "ustunli",
+    "statistika",
+    "диаграмма",
+    "grafik"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"3D bar chart\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/st_ustunli/model.glb",
+   "uchburchak": 156,
+   "hajm": 11692,
+   "bbox": [
+    [
+     -1.6152000427246094,
+     0.0,
+     -0.6175000071525574
+    ],
+    [
+     1.600000023841858,
+     2.0606000423431396,
+     0.6000000238418579
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Statistika: diagrammalar",
+   "tur": "real"
+  },
+  {
+   "id": "st_doiraviy",
+   "nom_uz": "3D doiraviy diagramma (ulushlar)",
+   "nom": "3D pie chart",
+   "fan": "statistika",
+   "kalit": [
+    "doiraviy diagramma",
+    "ulush",
+    "foiz",
+    "круговая диаграмма"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"3D pie chart\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/st_doiraviy/model.glb",
+   "uchburchak": 380,
+   "hajm": 26496,
+   "bbox": [
+    [
+     -1.3004000186920166,
+     0.30000001192092896,
+     -1.4677000045776367
+    ],
+    [
+     1.3667999505996704,
+     0.6504999995231628,
+     1.2984000444412231
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Statistika: diagrammalar",
+   "tur": "real"
+  },
+  {
+   "id": "st_chiziqli",
+   "nom_uz": "3D chiziqli grafik (o'sish)",
+   "nom": "3D line chart",
+   "fan": "statistika",
+   "kalit": [
+    "grafik",
+    "dinamika",
+    "o'sish",
+    "линейный график"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"3D line chart\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/st_chiziqli/model.glb",
+   "uchburchak": 2060,
+   "hajm": 46404,
+   "bbox": [
+    [
+     -1.7151999473571777,
+     0.0,
+     -0.3174999952316284
+    ],
+    [
+     1.7000000476837158,
+     2.0606000423431396,
+     0.30000001192092896
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Statistika: diagrammalar",
+   "tur": "real"
+  }
+ ]
+}

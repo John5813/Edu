@@ -137,5 +137,60 @@ else:
     check("kids_topic: jiddiy mavzular emas", not any(qidiruv.kids_topic(t) for t in ("Amir Temur", "Yurak anatomiyasi",
                                                                                       "Quyosh tizimi", "Iqtisodiyot")))
 
+print("5) O'zimizning modellar: serverda GLB yasash (RDKit va tarmoqsiz), katalog, reja tuzatishlari")
+if True:
+    import builtins
+    import subprocess
+
+    code = r"""
+import builtins, json, os, sys
+real = builtins.__import__
+def imp(n, *a, **k):
+    if n.startswith("rdkit"):
+        raise ImportError("rdkit yo'q")
+    return real(n, *a, **k)
+builtins.__import__ = imp
+from tools.katalog3d.ozimiz import yasash
+from services import katalog3d
+made = yasash.yetishmaganlar()
+again = yasash.yetishmaganlar()
+ours = [i for i, m in katalog3d.katalog().items() if m.get("manba") == "edufayl"]
+have = katalog3d.mavjud(ttl=0)
+print(json.dumps({"made": made, "again": again, "ours": len(ours), "missing": [i for i in ours if i not in have]}))
+"""
+    env = dict(os.environ, KATALOG3D_DIR=os.path.join(TMP, "ozimiz_glb"))
+    res = subprocess.run([sys.executable, "-c", code], cwd=os.path.dirname(os.path.abspath(__file__)), env=env,
+                         capture_output=True, text=True, timeout=900)
+    try:
+        r = json.loads(res.stdout.strip().splitlines()[-1])
+    except Exception:
+        r = {"made": 0, "again": -1, "ours": 0, "missing": ["?"], "err": res.stderr[-800:]}
+    check("bo'sh serverda hamma o'zimizning GLB yasaldi (RDKit'siz)", r["made"] == r["ours"] >= 150 and not r["missing"], r)
+    check("ikkinchi marta hech narsa qayta yasalmaydi", r["again"] == 0, r)
+    ours = [m for m in katalog3d.katalog().values() if m.get("manba") == "edufayl"]
+    check("har o'zimizning modelda preview va niqob bor", all(
+        os.path.isfile(os.path.join(katalog3d.PREVIEW_DIR, m["id"] + ".jpg"))
+        and os.path.isfile(os.path.join(katalog3d.MASK_DIR, m["id"] + ".png")) for m in ours))
+    check("begona teksturali modellarda CC BY muallifi yozilgan",
+          all("Solar System Scope" in m["attribution"] for m in ours if m["id"].startswith("ast_") and m["id"] != "ast_yer"))
+
+    from services.kat3d import reja
+    S = "Bu jumla yetarlicha uzun bo'lgan sinov gapidir."
+    ids = [m["id"] for m in ours[:4]]
+    codes = {f"m{i}": m for i, m in enumerate(ids)}
+    item = lambda c, n: {"model": c, "name": n, "text": f"{n} haqida {S}"}
+    raw = {"slides": [{"layout": "muqova", "title": "T", "models": ["m0"]},
+                      {"layout": "uchlik", "title": "U1", "items": [item("m0", "Alfa"), item("m1", "Beta"), item("m2", "Gamma")]},
+                      {"layout": "uchlik", "title": "U2", "items": [item("m1", "Delta"), item("m2", "Epsilon"), item("m3", "Zeta")]},
+                      {"layout": "matn", "title": "Modelsiz", "paragraphs": [S]},
+                      {"layout": "yakun", "title": "Y", "points": [S]}]}
+    p = reja.normalize(raw, 5, ids, codes)
+    u2 = p["slides"][2]
+    alltext = " ".join(u2["points"] + u2["paragraphs"] + [u2["subtitle"]])
+    check("ketma-ket uchlik matnga o'tganda nomlar va matnlar yo'qolmadi",
+          u2["layout"] != "uchlik" and all(w in alltext for w in ("Delta", "Epsilon", "Zeta")), u2)
+    check("uchlikdan o'tgan slaydda bitta model qoladi", len(u2["models"]) <= 1 and not u2["items"], u2)
+    check("AI model qo'ymagan slaydga tasodifiy model qo'yilmadi", not p["slides"][3]["models"], p["slides"][3])
+
 print("HAMMASI OK" if not FAILS else f"{len(FAILS)} ta XATO: {FAILS}")
 sys.exit(1 if FAILS else 0)

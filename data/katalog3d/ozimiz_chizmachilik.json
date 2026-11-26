@@ -1,0 +1,164 @@
+{
+ "modellar": [
+  {
+   "id": "cz_detal",
+   "nom_uz": "Detal (L-simon, teshikli)",
+   "nom": "Machine part",
+   "fan": "chizmachilik",
+   "kalit": [
+    "detal",
+    "деталь",
+    "chizma",
+    "chizmachilik"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Machine part\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/cz_detal/model.glb",
+   "uchburchak": 4840,
+   "hajm": 110096,
+   "bbox": [
+    [
+     -0.047200001776218414,
+     -0.047200001776218414,
+     -1.2472000122070312
+    ],
+    [
+     2.0471999645233154,
+     1.6471999883651733,
+     0.047200001776218414
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Chizmachilik",
+   "tur": "real"
+  },
+  {
+   "id": "cz_proyeksiyalar",
+   "nom_uz": "Uch proyeksiya tekisligi va detal proyeksiyalari",
+   "nom": "Three projection planes",
+   "fan": "chizmachilik",
+   "kalit": [
+    "proyeksiya",
+    "ortogonal proyeksiya",
+    "frontal",
+    "gorizontal",
+    "profil",
+    "проекции",
+    "chizmachilik"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Three projection planes\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/cz_proyeksiyalar/model.glb",
+   "uchburchak": 6500,
+   "hajm": 153540,
+   "bbox": [
+    [
+     -0.017500000074505806,
+     -0.015200000256299973,
+     -2.4175000190734863
+    ],
+    [
+     3.0109000205993652,
+     2.411799907684326,
+     0.017500000074505806
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Chizmachilik",
+   "tur": "real"
+  },
+  {
+   "id": "cz_kesim",
+   "nom_uz": "Kesim (shtrixlangan)",
+   "nom": "Section with hatching",
+   "fan": "chizmachilik",
+   "kalit": [
+    "kesim",
+    "qirqim",
+    "shtrix",
+    "разрез",
+    "сечение"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Section with hatching\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/cz_kesim/model.glb",
+   "uchburchak": 9844,
+   "hajm": 203692,
+   "bbox": [
+    [
+     -0.047200001776218414,
+     -0.047200001776218414,
+     -1.2472000122070312
+    ],
+    [
+     2.0471999645233154,
+     1.6471999883651733,
+     -0.5527999997138977
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Chizmachilik",
+   "tur": "real"
+  },
+  {
+   "id": "cz_izometriya",
+   "nom_uz": "Izometrik aksonometriya o'qlari",
+   "nom": "Isometric axes",
+   "fan": "chizmachilik",
+   "kalit": [
+    "izometriya",
+    "aksonometriya",
+    "аксонометрия",
+    "o'qlar"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Isometric axes\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/cz_izometriya/model.glb",
+   "uchburchak": 2696,
+   "hajm": 65420,
+   "bbox": [
+    [
+     -0.10499999672174454,
+     -0.10499999672174454,
+     -2.5999999046325684
+    ],
+    [
+     2.5999999046325684,
+     2.5999999046325684,
+     0.10499999672174454
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Chizmachilik",
+   "tur": "real"
+  }
+ ]
+}

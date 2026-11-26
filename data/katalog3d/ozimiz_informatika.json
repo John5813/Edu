@@ -1,0 +1,358 @@
+{
+ "modellar": [
+  {
+   "id": "inf_massiv",
+   "nom_uz": "Massiv (indeksli elementlar)",
+   "nom": "Array",
+   "fan": "informatika",
+   "kalit": [
+    "massiv",
+    "массив",
+    "array",
+    "indeks"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Array\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/inf_massiv/model.glb",
+   "uchburchak": 580,
+   "hajm": 23696,
+   "bbox": [
+    [
+     -1.8899999856948853,
+     0.25,
+     -0.20999999344348907
+    ],
+    [
+     1.8899999856948853,
+     1.600000023841858,
+     0.2800000011920929
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Informatika: ma'lumot tuzilmalari",
+   "tur": "real"
+  },
+  {
+   "id": "inf_stek",
+   "nom_uz": "Stek (LIFO)",
+   "nom": "Stack",
+   "fan": "informatika",
+   "kalit": [
+    "stek",
+    "стек",
+    "lifo",
+    "push",
+    "pop"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Stack\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/inf_stek/model.glb",
+   "uchburchak": 260,
+   "hajm": 12516,
+   "bbox": [
+    [
+     -0.6000000238418579,
+     0.03999999910593033,
+     -0.4000000059604645
+    ],
+    [
+     0.6000000238418579,
+     2.5999999046325684,
+     0.4000000059604645
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Informatika: ma'lumot tuzilmalari",
+   "tur": "real"
+  },
+  {
+   "id": "inf_navbat",
+   "nom_uz": "Navbat (FIFO)",
+   "nom": "Queue",
+   "fan": "informatika",
+   "kalit": [
+    "navbat",
+    "очередь",
+    "fifo",
+    "queue"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Queue\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/inf_navbat/model.glb",
+   "uchburchak": 260,
+   "hajm": 12524,
+   "bbox": [
+    [
+     -2.4000000953674316,
+     0.05000000074505806,
+     -0.4000000059604645
+    ],
+    [
+     2.4000000953674316,
+     0.8500000238418579,
+     0.4000000059604645
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Informatika: ma'lumot tuzilmalari",
+   "tur": "real"
+  },
+  {
+   "id": "inf_daraxt",
+   "nom_uz": "Ikkilik daraxt",
+   "nom": "Binary tree",
+   "fan": "informatika",
+   "kalit": [
+    "daraxt",
+    "ikkilik daraxt",
+    "дерево",
+    "binary tree"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Binary tree\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/inf_daraxt/model.glb",
+   "uchburchak": 6224,
+   "hajm": 129792,
+   "bbox": [
+    [
+     -1.559999942779541,
+     0.1899999976158142,
+     -0.1599999964237213
+    ],
+    [
+     1.559999942779541,
+     2.759999990463257,
+     0.1599999964237213
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Informatika: ma'lumot tuzilmalari",
+   "tur": "real"
+  },
+  {
+   "id": "inf_graf",
+   "nom_uz": "Graf (uchlar va qirralar)",
+   "nom": "Graph",
+   "fan": "informatika",
+   "kalit": [
+    "graf",
+    "граф",
+    "uchlar",
+    "qirralar"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Graph\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/inf_graf/model.glb",
+   "uchburchak": 2976,
+   "hajm": 62600,
+   "bbox": [
+    [
+     -1.4700000286102295,
+     0.33000001311302185,
+     -0.7699999809265137
+    ],
+    [
+     1.5700000524520874,
+     2.7699999809265137,
+     0.7699999809265137
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Informatika: ma'lumot tuzilmalari",
+   "tur": "real"
+  },
+  {
+   "id": "inf_ikkilik",
+   "nom_uz": "Ikkilik son (bitlar: 10110010)",
+   "nom": "Binary number",
+   "fan": "informatika",
+   "kalit": [
+    "ikkilik",
+    "bit",
+    "bayt",
+    "двоичная",
+    "sanoq sistemasi"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Binary number\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/inf_ikkilik/model.glb",
+   "uchburchak": 96,
+   "hajm": 6848,
+   "bbox": [
+    [
+     -1.7649999856948853,
+     0.0,
+     -0.1899999976158142
+    ],
+    [
+     1.7649999856948853,
+     0.8999999761581421,
+     0.1899999976158142
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Informatika: ma'lumot tuzilmalari",
+   "tur": "real"
+  },
+  {
+   "id": "inf_tarmoq_yulduz",
+   "nom_uz": "«Yulduz» tarmoq topologiyasi",
+   "nom": "Star topology",
+   "fan": "informatika",
+   "kalit": [
+    "tarmoq",
+    "topologiya",
+    "yulduz",
+    "сеть",
+    "kommutator"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Star topology\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/inf_tarmoq_yulduz/model.glb",
+   "uchburchak": 396,
+   "hajm": 21520,
+   "bbox": [
+    [
+     -1.9500000476837158,
+     0.0,
+     -1.5721999406814575
+    ],
+    [
+     1.9500000476837158,
+     0.49000000953674316,
+     1.5721999406814575
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Informatika: tarmoqlar",
+   "tur": "real"
+  },
+  {
+   "id": "inf_tarmoq_halqa",
+   "nom_uz": "«Halqa» tarmoq topologiyasi",
+   "nom": "Ring topology",
+   "fan": "informatika",
+   "kalit": [
+    "tarmoq",
+    "topologiya",
+    "halqa",
+    "сеть"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Ring topology\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/inf_tarmoq_halqa/model.glb",
+   "uchburchak": 384,
+   "hajm": 20872,
+   "bbox": [
+    [
+     -1.850000023841858,
+     0.0,
+     -1.4855999946594238
+    ],
+    [
+     1.850000023841858,
+     0.49000000953674316,
+     1.4855999946594238
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Informatika: tarmoqlar",
+   "tur": "real"
+  },
+  {
+   "id": "inf_tarmoq_shina",
+   "nom_uz": "«Shina» tarmoq topologiyasi",
+   "nom": "Bus topology",
+   "fan": "informatika",
+   "kalit": [
+    "tarmoq",
+    "topologiya",
+    "shina",
+    "сеть"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Bus topology\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
+   "fayl": "ozimiz/inf_tarmoq_shina/model.glb",
+   "uchburchak": 340,
+   "hajm": 18368,
+   "bbox": [
+    [
+     -2.0999999046325684,
+     0.0,
+     -0.6000000238418579
+    ],
+    [
+     2.0999999046325684,
+     0.49000000953674316,
+     0.6000000238418579
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Informatika: tarmoqlar",
+   "tur": "real"
+  }
+ ]
+}
