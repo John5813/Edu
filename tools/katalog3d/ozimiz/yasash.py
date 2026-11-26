@@ -26,5 +26,20 @@ def main(names):
     print("Jami:", total)
 
 
+def yetishmaganlar() -> int:
+    """Serverda: git'da faqat katalog (JSON, preview), GLB'lar esa yo'q bo'lsa shu yerda yasaladi (~1-2 daqiqa).
+    Tarmoq va RDKit kerak emas: teksturalar, relyef, PDB va molekula geometriyasi `data/katalog3d/` da."""
+    import importlib
+
+    from tools.katalog3d import geometriya
+    from tools.katalog3d.ozimiz import asos
+
+    made = len(geometriya.build_all(glb_only=True))
+    for name in MODULES:
+        mod = importlib.import_module(f"tools.katalog3d.ozimiz.{name}")
+        made += len(asos.build(mod.entries(), "ozimiz_" + name, glb_only=True))
+    return made
+
+
 if __name__ == "__main__":
     main(sys.argv[1:])

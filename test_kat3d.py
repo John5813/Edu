@@ -168,7 +168,10 @@ check("bitta raqamli «raqamlar» — oddiy slaydga aylandi", lays[4] != "raqaml
 check("sarlavha qisqartirildi", len(p["slides"][0]["title"]) <= reja.LIMITS["title"] and p["slides"][0]["title"].endswith("…"))
 check("bo'sh va belgili punktlar tozalandi", p["slides"][1]["points"] == ["birinchi fikr", "ikkinchi"], p["slides"][1]["points"])
 check("katalogda yo'q kod (m9) olinmadi", all(m in IDS for s in p["slides"] for m in s["models"]))
-check("har slaydda kamida bitta model", all(s["models"] for s in p["slides"]))
+check("AI modelsiz qoldirgan (yoki yo'q kod bergan) slaydga tasodifiy model qo'yilmadi",
+      not nom["models"], nom)
+check("modelli slaydlarda AI qo'ygan model", p["slides"][2]["models"] == [codes["m1"]], p["slides"][2])
+check("har tanlangan model taqdimotda bor", set(IDS) <= {m for s in p["slides"] for m in s["models"]}, p["slides"])
 check("yakunda bir nechta model", len(p["slides"][-1]["models"]) >= 2, p["slides"][-1]["models"])
 check("noma'lum uslub — bo'sh (keyin fan bo'yicha)", p["style"] == "")
 limit = (CAT[NEFERTITI]["hajm"] + CAT[SMILODON]["hajm"]) / 1e6 + 0.05     # skarabeylar sig'maydi
@@ -341,8 +344,10 @@ check("bitta qiymatli grafik — matnli slaydga", lays[3] != "diagramma", lays)
 check("rasm slaydida qidiruv so'rovi", p["slides"][4]["layout"] == "rasm" and p["slides"][4]["photo"] == "supermarket prices")
 check("modelsiz «qahramon» — oddiy matnli slayd", p["slides"][6]["layout"] != "qahramon" or p["slides"][6]["models"], p["slides"][6])
 full_p = reja.normalize(mix_raw, 8, mix_ids, mix_codes)
-check("to'liq rejimda diagramma/rasm yo'q, har slaydda model",
-      not {"diagramma", "rasm"} & {s["layout"] for s in full_p["slides"]} and all(s["models"] for s in full_p["slides"]))
+check("to'liq rejimda diagramma/rasm yo'q; model faqat AI qo'ygan slaydda (va muqova/yakunda)",
+      not {"diagramma", "rasm"} & {s["layout"] for s in full_p["slides"]}
+      and [bool(s["models"]) for s in full_p["slides"]] == [True, False, False, False, False, True, False, True],
+      [(s["layout"], s["models"]) for s in full_p["slides"]])
 from PIL import Image as _Img
 photo_path = os.path.join(TMP, "foto.jpg")
 _Img.new("RGB", (1200, 700), (180, 120, 60)).save(photo_path)

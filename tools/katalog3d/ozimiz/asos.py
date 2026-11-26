@@ -482,9 +482,12 @@ def y_up(prims: List[Primitive]) -> List[Primitive]:
 Entry = Tuple[str, str, str, str, str, List[str], Callable[[], List[Primitive]], Tuple[float, float, float]]
 
 
-def build(entries: Iterable[Entry], json_name: str, only: Sequence[str] = (), source: str = "", licenses=None) -> list:
-    """licenses — {id: (litsenziya, qisqa muallif yozuvi, to'liq manba)}: begona teksturali modellar uchun (CC BY)."""
-    """Modellarni yasaydi: GLB (KATALOG3D_DIR/ozimiz/<id>/model.glb), preview + niqob, katalog JSON."""
+def build(entries: Iterable[Entry], json_name: str, only: Sequence[str] = (), source: str = "", licenses=None,
+          glb_only: bool = False) -> list:
+    """Modellarni yasaydi: GLB (KATALOG3D_DIR/ozimiz/<id>/model.glb), preview + niqob, katalog JSON.
+
+    licenses — {id: (litsenziya, qisqa muallif yozuvi, to'liq manba)}: begona teksturali modellar uchun (CC BY).
+    glb_only — serverda: faqat diskda yo'q GLB'lar yasaladi (preview, niqob va JSON git'da tayyor)."""
     from PIL import Image
 
     from services.med3d import preview
@@ -494,11 +497,21 @@ def build(entries: Iterable[Entry], json_name: str, only: Sequence[str] = (), so
     os.makedirs(katalog3d.MASK_DIR, exist_ok=True)
     folder = "geometriya" if json_name == "geometriya" else "ozimiz"
     for mid, nom_uz, nom, fan, kat, kalit, make, rot in entries:
+        rel = f"{folder}/{mid}/model.glb"
+        if glb_only:
+            path = os.path.join(katalog3d.MODELS_DIR, rel)
+            if not os.path.isfile(path):
+                data = write_glb(y_up(make()), name=nom)
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path + ".tmp", "wb") as fh:
+                    fh.write(data)
+                os.replace(path + ".tmp", path)
+                out.append(mid)
+            continue
         prims = y_up(make())
         allpos = np.vstack([p.positions for p in prims])
         lo, hi = allpos.min(0), allpos.max(0)
         data = write_glb(prims, name=nom)
-        rel = f"{folder}/{mid}/model.glb"
         path = os.path.join(katalog3d.MODELS_DIR, rel)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "wb") as fh:
@@ -521,6 +534,7 @@ def build(entries: Iterable[Entry], json_name: str, only: Sequence[str] = (), so
                     "bbox": [lo.round(4).tolist(), hi.round(4).tolist()], "animatsiya": 0, "pishirilgan": True,
                     "sifat": 4, "kategoriya": kat, "tur": "real"})
         print(f"{mid:34} {len(data) / 1024:7.0f} KB  {tris:6} uchb.  {kat}")
-    with open(os.path.join(katalog3d.KATALOG_DIR, json_name + ".json"), "w", encoding="utf-8") as fh:
-        json.dump({"modellar": out}, fh, ensure_ascii=False, indent=1)
+    if not glb_only:
+        with open(os.path.join(katalog3d.KATALOG_DIR, json_name + ".json"), "w", encoding="utf-8") as fh:
+            json.dump({"modellar": out}, fh, ensure_ascii=False, indent=1)
     return out

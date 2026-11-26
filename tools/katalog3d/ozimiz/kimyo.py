@@ -4,6 +4,9 @@ orbitallar (formuladan), molekula shakllari (VSEPR), laboratoriya idishlari.
 Atom ranglari — xalqaro CPK an'anasi, lekin har qanday fonda ko'rinadigan qilib moslangan: vodorod sof oq emas
 (kumushrang), uglerod sof qora emas (to'q kulrang).
 """
+import json
+import os
+
 import numpy as np
 
 from .asos import (C, RADIUS, TUBE, WIRE, ball, body, cylinder, dashed, disc, lathe, lathe_smooth, merge, moved, prim,
@@ -17,7 +20,13 @@ VDW = {"H": 1.10, "C": 1.70, "O": 1.52, "N": 1.55, "Cl": 1.75, "S": 1.80, "Na": 
 BOND = (0.62, 0.65, 0.72, 1)                 # bog' tayoqchasi — o'rta kulrang (har qanday fonda ko'rinadi)
 
 
-def _embed(smiles, seed=7):
+MOL_CACHE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
+                         "data", "katalog3d", "molekulalar.json")
+
+
+def _embed_rdkit(smiles, seed=7):
+    """RDKit: ETKDG + MMFF — haqiqiy bog' uzunligi va burchaklari. Natija `molekulalar.json` da saqlanadi,
+    shuning uchun serverga RDKit kerak emas."""
     from rdkit import Chem
     from rdkit.Chem import AllChem
 
@@ -36,52 +45,73 @@ def _embed(smiles, seed=7):
     pos = pos @ vt.T
     pos = pos[:, [0, 2, 1]]
     pos[:, 2] -= pos[:, 2].min() - 0.4
-    return mol, pos
+    syms = [a.GetSymbol() for a in mol.GetAtoms()]
+
+    def orders(kek):
+        m = Chem.Mol(mol)
+        if kek:
+            Chem.Kekulize(m, clearAromaticFlags=True)
+        out = []
+        for b in m.GetBonds():
+            t = b.GetBondType()
+            o = 1 if b.GetIsAromatic() else 2 if t == Chem.BondType.DOUBLE else 3 if t == Chem.BondType.TRIPLE else 1
+            out.append([b.GetBeginAtomIdx(), b.GetEndAtomIdx(), o])
+        return out
+
+    return {"atoms": syms, "pos": np.round(pos, 4).tolist(), "bonds": orders(False), "bonds_kekule": orders(True)}
+
+
+def _mol(smiles):
+    cache = {}
+    if os.path.isfile(MOL_CACHE):
+        with open(MOL_CACHE, encoding="utf-8") as fh:
+            cache = json.load(fh)
+    if smiles not in cache:
+        cache[smiles] = _embed_rdkit(smiles)
+        with open(MOL_CACHE, "w", encoding="utf-8") as fh:
+            json.dump(cache, fh, ensure_ascii=False, sort_keys=True)
+    d = cache[smiles]
+    return d, np.asarray(d["pos"], float)
 
 
 def molecule(name, smiles, kekule=False):
-    from rdkit import Chem
-
-    mol, pos = _embed(smiles)
-    if kekule:
-        Chem.Kekulize(mol, clearAromaticFlags=True)
+    d, pos = _mol(smiles)
+    bonds_ = d["bonds_kekule" if kekule else "bonds"]
+    nbrs = {i: [] for i in range(len(d["atoms"]))}
+    for i, j, _ in bonds_:
+        nbrs[i].append(j)
+        nbrs[j].append(i)
     out, bonds = [], []
     by_el = {}
-    for atom in mol.GetAtoms():
-        el = atom.GetSymbol()
-        by_el.setdefault(el, []).append(ball(pos[atom.GetIdx()], ATOM.get(el, ATOM["C"])[1], 28))
+    for idx, el in enumerate(d["atoms"]):
+        by_el.setdefault(el, []).append(ball(pos[idx], ATOM.get(el, ATOM["C"])[1], 28))
     for el, parts in by_el.items():
         out.append(prim(parts, ATOM.get(el, ATOM["C"])[0], f"{name}_{el}", 0.35))
-    for b in mol.GetBonds():
-        i, j = b.GetBeginAtomIdx(), b.GetEndAtomIdx()
+    for i, j, order in bonds_:
         a, c = pos[i], pos[j]
-        order = 2 if b.GetBondType() == Chem.BondType.DOUBLE else 3 if b.GetBondType() == Chem.BondType.TRIPLE else 1
-        if b.GetIsAromatic():
-            order = 1
         if order == 1:
             bonds.append(tube(a, c, 0.09, 16))
             continue
-        d = (c - a) / np.linalg.norm(c - a)
+        dd = (c - a) / np.linalg.norm(c - a)
         # qo'sh bog' tekisligi: qo'shni atom bo'yicha
-        nb = [n.GetIdx() for n in mol.GetAtomWithIdx(i).GetNeighbors() if n.GetIdx() != j]
+        nb = [n for n in nbrs[i] if n != j]
         ref = (pos[nb[0]] - a) if nb else np.array([0, 0, 1.0])
-        off = ref - np.dot(ref, d) * d
-        off = off / (np.linalg.norm(off) or 1) if np.linalg.norm(off) > 1e-6 else np.cross(d, [0, 0, 1])
+        off = ref - np.dot(ref, dd) * dd
+        off = off / (np.linalg.norm(off) or 1) if np.linalg.norm(off) > 1e-6 else np.cross(dd, [0, 0, 1])
         gap = 0.12
         shifts = [-gap, gap] if order == 2 else [-1.6 * gap, 0, 1.6 * gap]
-        for s in shifts:
-            bonds.append(tube(a + off * s, c + off * s, 0.06, 12))
+        for sh in shifts:
+            bonds.append(tube(a + off * sh, c + off * sh, 0.06, 12))
     if bonds:
         out.append(prim(bonds, BOND, name + "_boglar", 0.4))
     return out
 
 
 def spacefill(name, smiles):
-    mol, pos = _embed(smiles)
+    d, pos = _mol(smiles)
     out, by_el = [], {}
-    for atom in mol.GetAtoms():
-        el = atom.GetSymbol()
-        by_el.setdefault(el, []).append(sphere(VDW.get(el, 1.6) * 0.55, 40, 20, centre=pos[atom.GetIdx()]))
+    for idx, el in enumerate(d["atoms"]):
+        by_el.setdefault(el, []).append(sphere(VDW.get(el, 1.6) * 0.55, 40, 20, centre=pos[idx]))
     for el, parts in by_el.items():
         out.append(prim(parts, ATOM.get(el, ATOM["C"])[0], f"{name}_{el}", 0.35))
     return out

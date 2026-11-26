@@ -102,7 +102,7 @@
    "attribution_full": "\"Methane CH4\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
    "fayl": "ozimiz/kim_metan/model.glb",
    "uchburchak": 4048,
-   "hajm": 82028,
+   "hajm": 82032,
    "bbox": [
     [
      -0.9217000007629395,
@@ -141,7 +141,7 @@
    "attribution_full": "\"Ammonia NH3\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
    "fayl": "ozimiz/kim_ammiak/model.glb",
    "uchburchak": 3232,
-   "hajm": 65932,
+   "hajm": 65928,
    "bbox": [
     [
      -0.9952999949455261,
@@ -257,7 +257,7 @@
    "attribution_full": "\"Hydrogen H2\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
    "fayl": "ozimiz/kim_vodorod/model.glb",
    "uchburchak": 1600,
-   "hajm": 32964,
+   "hajm": 32960,
    "bbox": [
     [
      -0.5989999771118164,
@@ -375,7 +375,7 @@
    "attribution_full": "\"Ethene C2H4\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
    "fayl": "ozimiz/kim_eten/model.glb",
    "uchburchak": 4880,
-   "hajm": 98616,
+   "hajm": 98584,
    "bbox": [
     [
      -1.4778000116348267,
@@ -646,7 +646,7 @@
    "attribution_full": "\"Benzene\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
    "fayl": "ozimiz/kim_benzol/model.glb",
    "uchburchak": 9840,
-   "hajm": 197164,
+   "hajm": 197140,
    "bbox": [
     [
      -2.537899971008301,
@@ -685,7 +685,7 @@
    "attribution_full": "\"Glucose\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
    "fayl": "ozimiz/kim_glyukoza/model.glb",
    "uchburchak": 19584,
-   "hajm": 389708,
+   "hajm": 389720,
    "bbox": [
     [
      -4.438300132751465,
@@ -761,7 +761,7 @@
    "attribution_full": "\"Sulfuric acid\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
    "fayl": "ozimiz/kim_sulfat/model.glb",
    "uchburchak": 5712,
-   "hajm": 115940,
+   "hajm": 115944,
    "bbox": [
     [
      -1.9502999782562256,
@@ -800,7 +800,7 @@
    "attribution_full": "\"Glycine\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
    "fayl": "ozimiz/kim_glitsin/model.glb",
    "uchburchak": 8144,
-   "hajm": 164500,
+   "hajm": 164504,
    "bbox": [
     [
      -2.504199981689453,
@@ -878,7 +878,7 @@
    "attribution_full": "\"Water space-filling\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
    "fayl": "ozimiz/kim_suv_tola/model.glb",
    "uchburchak": 4800,
-   "hajm": 92548,
+   "hajm": 92544,
    "bbox": [
     [
      -1.368499994277954,
@@ -954,7 +954,7 @@
    "attribution_full": "\"Ethanol space-filling\" — Edufayl (dasturda yasalgan o'quv modeli), CC0",
    "fayl": "ozimiz/kim_etanol_tola/model.glb",
    "uchburchak": 14400,
-   "hajm": 274872,
+   "hajm": 274876,
    "bbox": [
     [
      -2.2727999687194824,

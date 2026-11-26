@@ -782,7 +782,20 @@ def y_up(prims: List[Primitive]) -> List[Primitive]:
             for p in prims]
 
 
-def build_all(only: Sequence[str] = ()) -> list:
+def build_all(only: Sequence[str] = (), glb_only: bool = False) -> list:
+    """glb_only — serverda: faqat diskda yo'q GLB'lar (preview, niqob va JSON git'da tayyor)."""
+    if glb_only:
+        made = []
+        for mid, nom_uz, nom, kat, kalit, make, rot in entries():
+            path = os.path.join(katalog3d.MODELS_DIR, f"geometriya/{mid}/model.glb")
+            if not os.path.isfile(path):
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path + ".tmp", "wb") as fh:
+                    fh.write(write_glb(y_up(make()), name=nom))
+                os.replace(path + ".tmp", path)
+                made.append(mid)
+        return made
+
     from PIL import Image
 
     from services.med3d import preview

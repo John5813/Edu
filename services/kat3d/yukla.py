@@ -478,6 +478,21 @@ def hammasini_fonda() -> int:
 def start_background() -> None:
     """Bot ishga tushganda: paketlarni tayyorlash (va so'ralgan bo'lsa hamma modellarni yuklash) alohida oqimda."""
 
+    def ozimiz():
+        """Edufayl o'zi yasagan modellar (geometriya, kimyo, fizika...): GLB git'da yo'q — yo'q bo'lsa shu yerda yasaladi."""
+        try:
+            from services import katalog3d
+            from tools.katalog3d.ozimiz import yasash
+
+            made = yasash.yetishmaganlar()
+            if made:
+                katalog3d.mavjud(ttl=0)
+                log.info("3D katalog: o'zimizning %d ta model yasaldi", made)
+        except Exception as exc:                          # noqa: BLE001
+            log.error("3D katalog: o'zimizning modellarni yasashda xato: %s", exc)
+
+    threading.Thread(target=ozimiz, name="katalog3d-ozimiz", daemon=True).start()
+
     def run():
         try:
             if tayyorla() is None and os.getenv("KATALOG3D_OLDINDAN", "0") == "1":

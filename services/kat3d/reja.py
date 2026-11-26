@@ -279,6 +279,7 @@ def _texts(s: dict) -> List[str]:
     out += [f"{c['name']}: {p}" for c in s["columns"] for p in c["points"]]
     out += [f"{c['title']} — {c['text']}" for c in s["cards"]]
     out += [f"{c['title']} — {c['text']}" for c in s["steps"]]
+    out += [f"{i['name']} — {i['text']}" if i["text"] else i["name"] for i in s.get("items") or [] if i.get("name")]
     if s["question"] and s["answer"]:
         out += [s["question"]] + _SENT.split(s["answer"])
     if s["quote"]:
@@ -298,6 +299,9 @@ def _texts(s: dict) -> List[str]:
 def _as_text(s: dict, layout: str) -> None:
     """Kompozitsiyani oddiy matnliga almashtiradi: "matn" — paragraflar, "chap"/"ong" — punktlar."""
     texts = _texts(s)
+    if s["layout"] == "uchlik" and layout != "uchlik":   # uch model yonma-yon emas — bittasi qoladi, matni punktlarga
+        s["items"] = []
+        s["models"] = (s.get("models") or [])[:1]
     s["layout"] = layout
     if layout == "matn":
         if not s["paragraphs"]:
@@ -345,6 +349,7 @@ def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str],
     if len(raw) < 3:
         raise RuntimeError("AI reja juda qisqa")
     used: Dict[str, int] = {m: 0 for m in ids}
+    wants: List[List[str]] = []                         # AI har slaydga qo'ygan modellar
 
     def pick(n: int, prefer: Sequence[str] = ()) -> List[str]:
         out = [m for m in prefer if m in allowed][:n]
@@ -368,6 +373,7 @@ def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str],
             lay = "chap"
         want = [codes.get(str(c).strip()) for c in (s.get("models") or [])]
         want = [m for m in want if m in allowed]
+        wants.append(want)
         out = {"layout": lay, "kicker": _clip(s.get("kicker"), LIMITS["kicker"]),
                "title": _clip(s.get("title"), LIMITS["title"]),
                "subtitle": _clip(s.get("subtitle"), LIMITS["subtitle"]),
@@ -425,15 +431,24 @@ def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str],
                 out["layout"] = "chap"
         elif lay == "diagramma":                       # to'liq 3D, tadqiqot grafigi — 3D'siz
             out["models"] = []
-        elif lay != "uchlik":
+        elif lay in ("muqova", "yakun"):
             n = {"muqova": 2 if len(ids) > 1 and len(want) > 1 else 1,
-                 "yakun": min(4, max(2, len(want))) if len(ids) > 1 else 1}.get(lay, 1)
+                 "yakun": min(4, max(2, len(want))) if len(ids) > 1 else 1}[lay]
             out["models"] = pick(min(n, len(ids)), want)
+        elif lay != "uchlik":                          # model faqat AI shu slaydga qo'ygan bo'lsa — tasodifiy to'ldiruvchi yo'q
+            out["models"] = want[:1]
+            if lay == "qahramon" and not out["models"]:
+                out["layout"] = "chap"
         if lay in ("chap", "ong", "qahramon") and not out["points"] and out["subtitle"]:
             out["points"], out["subtitle"] = [out["subtitle"]], ""
         for m in out["models"]:
             used[m] += 1
         slides.append(out)
+    if not mix:                                         # AI hech qayerga qo'ymagan model — yakuniy slaydda
+        for mid in ids:
+            if not used[mid] and len(slides[-1]["models"]) < 4:
+                slides[-1]["models"].append(mid)
+                used[mid] += 1
     if mix:                                             # har tanlangan model kamida bir slaydda
         for mid in ids:
             if used[mid]:
@@ -447,15 +462,16 @@ def normalize(data: dict, count: int, ids: Sequence[str], codes: Dict[str, str],
     if mix:
         _mix_balance(slides, ids, count)
     elif charts:                                        # grafiklar ko'p bo'lib 3D yo'qolib ketmasin
-        for s in [s for s in slides if s["layout"] == "diagramma"][charts_limit(count):]:
+        for k, s in enumerate(slides):
+            if s["layout"] != "diagramma" or sum(x["layout"] == "diagramma" for x in slides[:k]) < charts_limit(count):
+                continue
             _as_text(s, "chap")
             s["chart"] = {}
-            s["models"] = pick(1)
+            s["models"] = wants[k][:1]
     _vary(slides)
-    if mix:                                             # `_vary` modelsiz slaydni «qahramon»ga aylantirgan bo'lishi mumkin
-        for s in slides:
-            if s["layout"] == "qahramon" and not s["models"]:
-                s["layout"] = "chap"
+    for s in slides:                                    # `_vary` modelsiz slaydni «qahramon»ga aylantirgan bo'lishi mumkin
+        if s["layout"] == "qahramon" and not s["models"]:
+            s["layout"] = "chap"
     for s in slides:                                    # kompozitsiya sig'diradigan punktlar soni
         limit = MAX_POINTS.get(s["layout"], 5)
         if len(s["points"]) > limit:
@@ -482,7 +498,7 @@ def _vary(slides: List[dict]) -> None:
             _as_text(cur, "matn")
         elif sum(s["layout"] in BULLET_LAYOUTS for s in inner) < allowed:
             _as_text(cur, "ong" if k % 2 else "chap")
-        elif "qahramon" not in (prev["layout"], nxt["layout"]):
+        elif cur["models"] and "qahramon" not in (prev["layout"], nxt["layout"]):
             _as_text(cur, "chap")
             cur["layout"] = "qahramon"                 # katta model + qisqa kirish va punktlar kartada
             if not cur["subtitle"] and len(cur["points"]) > 1:
