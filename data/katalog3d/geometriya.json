@@ -1,0 +1,294 @@
+{
+ "modellar": [
+  {
+   "id": "geo_kub",
+   "nom_uz": "Kub",
+   "nom": "Cube",
+   "fan": "matematika",
+   "kalit": [
+    "kub",
+    "cube",
+    "hajm",
+    "volume",
+    "geometriya",
+    "ko'pyoq",
+    "qirra"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Cube\" — Edufayl (dasturda yasalgan geometrik jism), CC0",
+   "fayl": "geometriya/geo_kub/model.glb",
+   "uchburchak": 2396,
+   "hajm": 54008,
+   "bbox": [
+    [
+     -1.0471999645233154,
+     -0.047200001776218414,
+     -1.0471999645233154
+    ],
+    [
+     1.0471999645233154,
+     2.0471999645233154,
+     1.0471999645233154
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometrik jismlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_parallelepiped",
+   "nom_uz": "To'g'ri burchakli parallelepiped",
+   "nom": "Rectangular cuboid",
+   "fan": "matematika",
+   "kalit": [
+    "parallelepiped",
+    "cuboid",
+    "box",
+    "hajm",
+    "volume",
+    "geometriya",
+    "ko'pyoq",
+    "prizma"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Rectangular cuboid\" — Edufayl (dasturda yasalgan geometrik jism), CC0",
+   "fayl": "geometriya/geo_parallelepiped/model.glb",
+   "uchburchak": 2396,
+   "hajm": 54056,
+   "bbox": [
+    [
+     -1.5471999645233154,
+     -0.047200001776218414,
+     -1.0471999645233154
+    ],
+    [
+     1.5471999645233154,
+     1.5471999645233154,
+     1.0471999645233154
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometrik jismlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_prizma",
+   "nom_uz": "Uchburchakli prizma",
+   "nom": "Triangular prism",
+   "fan": "matematika",
+   "kalit": [
+    "prizma",
+    "prism",
+    "hajm",
+    "volume",
+    "geometriya",
+    "ko'pyoq"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Triangular prism\" — Edufayl (dasturda yasalgan geometrik jism), CC0",
+   "fayl": "geometriya/geo_prizma/model.glb",
+   "uchburchak": 1796,
+   "hajm": 41008,
+   "bbox": [
+    [
+     -1.1473000049591064,
+     -0.047200001776218414,
+     -1.3173999786376953
+    ],
+    [
+     1.1473000049591064,
+     2.447200059890747,
+     0.6822999715805054
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometrik jismlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_piramida",
+   "nom_uz": "To'rtburchakli piramida",
+   "nom": "Square pyramid",
+   "fan": "matematika",
+   "kalit": [
+    "piramida",
+    "pyramid",
+    "hajm",
+    "volume",
+    "geometriya",
+    "ko'pyoq"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Square pyramid\" — Edufayl (dasturda yasalgan geometrik jism), CC0",
+   "fayl": "geometriya/geo_piramida/model.glb",
+   "uchburchak": 1510,
+   "hajm": 34892,
+   "bbox": [
+    [
+     -1.1473000049591064,
+     -0.047200001776218414,
+     -1.1473000049591064
+    ],
+    [
+     1.1473000049591064,
+     2.2472000122070312,
+     1.1473000049591064
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometrik jismlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_silindr",
+   "nom_uz": "Silindr",
+   "nom": "Cylinder",
+   "fan": "matematika",
+   "kalit": [
+    "silindr",
+    "cylinder",
+    "hajm",
+    "volume",
+    "geometriya",
+    "aylanish jismi"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Cylinder\" — Edufayl (dasturda yasalgan geometrik jism), CC0",
+   "fayl": "geometriya/geo_silindr/model.glb",
+   "uchburchak": 2108,
+   "hajm": 62520,
+   "bbox": [
+    [
+     -1.0313999652862549,
+     -0.03150000050663948,
+     -1.0313999652862549
+    ],
+    [
+     1.0313999652862549,
+     2.4600000381469727,
+     1.0313999652862549
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometrik jismlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_konus",
+   "nom_uz": "Konus",
+   "nom": "Cone",
+   "fan": "matematika",
+   "kalit": [
+    "konus",
+    "cone",
+    "hajm",
+    "volume",
+    "geometriya",
+    "aylanish jismi"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Cone\" — Edufayl (dasturda yasalgan geometrik jism), CC0",
+   "fayl": "geometriya/geo_konus/model.glb",
+   "uchburchak": 984,
+   "hajm": 31288,
+   "bbox": [
+    [
+     -1.1313999891281128,
+     -0.03150000050663948,
+     -1.1313999891281128
+    ],
+    [
+     1.1313999891281128,
+     2.4000000953674316,
+     1.1313999891281128
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometrik jismlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_shar",
+   "nom_uz": "Shar",
+   "nom": "Sphere",
+   "fan": "matematika",
+   "kalit": [
+    "shar",
+    "sphere",
+    "hajm",
+    "volume",
+    "geometriya",
+    "aylanish jismi"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Sphere\" — Edufayl (dasturda yasalgan geometrik jism), CC0",
+   "fayl": "geometriya/geo_shar/model.glb",
+   "uchburchak": 7168,
+   "hajm": 169936,
+   "bbox": [
+    [
+     -1.236299991607666,
+     -0.03629999980330467,
+     -1.236299991607666
+    ],
+    [
+     1.236299991607666,
+     2.436300039291382,
+     1.236299991607666
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometrik jismlar",
+   "tur": "real"
+  }
+ ]
+}
