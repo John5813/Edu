@@ -8,11 +8,11 @@
    "kalit": [
     "kub",
     "cube",
+    "куб",
     "hajm",
-    "volume",
-    "geometriya",
     "ko'pyoq",
-    "qirra"
+    "qirra",
+    "yoq"
    ],
    "manba": "edufayl",
    "litsenziya": "CC0",
@@ -20,7 +20,7 @@
    "muallif_url": "",
    "sahifa": "",
    "attribution": "3D: Edufayl · CC0",
-   "attribution_full": "\"Cube\" — Edufayl (dasturda yasalgan geometrik jism), CC0",
+   "attribution_full": "\"Cube\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_kub/model.glb",
    "uchburchak": 2396,
    "hajm": 54008,
@@ -50,10 +50,8 @@
    "kalit": [
     "parallelepiped",
     "cuboid",
-    "box",
+    "параллелепипед",
     "hajm",
-    "volume",
-    "geometriya",
     "ko'pyoq",
     "prizma"
    ],
@@ -63,7 +61,7 @@
    "muallif_url": "",
    "sahifa": "",
    "attribution": "3D: Edufayl · CC0",
-   "attribution_full": "\"Rectangular cuboid\" — Edufayl (dasturda yasalgan geometrik jism), CC0",
+   "attribution_full": "\"Rectangular cuboid\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_parallelepiped/model.glb",
    "uchburchak": 2396,
    "hajm": 54056,
@@ -86,17 +84,17 @@
    "tur": "real"
   },
   {
-   "id": "geo_prizma",
-   "nom_uz": "Uchburchakli prizma",
-   "nom": "Triangular prism",
+   "id": "geo_ogma_parallelepiped",
+   "nom_uz": "Og'ma parallelepiped",
+   "nom": "Oblique parallelepiped",
    "fan": "matematika",
    "kalit": [
+    "og'ma",
+    "parallelepiped",
+    "oblique",
+    "наклонный параллелепипед",
     "prizma",
-    "prism",
-    "hajm",
-    "volume",
-    "geometriya",
-    "ko'pyoq"
+    "hajm"
    ],
    "manba": "edufayl",
    "litsenziya": "CC0",
@@ -104,7 +102,47 @@
    "muallif_url": "",
    "sahifa": "",
    "attribution": "3D: Edufayl · CC0",
-   "attribution_full": "\"Triangular prism\" — Edufayl (dasturda yasalgan geometrik jism), CC0",
+   "attribution_full": "\"Oblique parallelepiped\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_ogma_parallelepiped/model.glb",
+   "uchburchak": 2396,
+   "hajm": 54144,
+   "bbox": [
+    [
+     -1.1473000049591064,
+     -0.047200001776218414,
+     -0.8471999764442444
+    ],
+    [
+     1.9471999406814575,
+     1.8472000360488892,
+     0.8471999764442444
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometrik jismlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_prizma",
+   "nom_uz": "Uchburchakli prizma",
+   "nom": "Triangular prism",
+   "fan": "matematika",
+   "kalit": [
+    "prizma",
+    "prism",
+    "призма",
+    "uchburchakli",
+    "hajm"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Triangular prism\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_prizma/model.glb",
    "uchburchak": 1796,
    "hajm": 41008,
@@ -127,17 +165,17 @@
    "tur": "real"
   },
   {
-   "id": "geo_piramida",
-   "nom_uz": "To'rtburchakli piramida",
-   "nom": "Square pyramid",
+   "id": "geo_prizma6",
+   "nom_uz": "Muntazam oltiburchakli prizma",
+   "nom": "Hexagonal prism",
    "fan": "matematika",
    "kalit": [
-    "piramida",
-    "pyramid",
-    "hajm",
-    "volume",
-    "geometriya",
-    "ko'pyoq"
+    "prizma",
+    "oltiburchakli",
+    "hexagonal prism",
+    "шестиугольная призма",
+    "muntazam",
+    "hajm"
    ],
    "manba": "edufayl",
    "litsenziya": "CC0",
@@ -145,7 +183,46 @@
    "muallif_url": "",
    "sahifa": "",
    "attribution": "3D: Edufayl · CC0",
-   "attribution_full": "\"Square pyramid\" — Edufayl (dasturda yasalgan geometrik jism), CC0",
+   "attribution_full": "\"Hexagonal prism\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_prizma6/model.glb",
+   "uchburchak": 3596,
+   "hajm": 80312,
+   "bbox": [
+    [
+     -1.1473000049591064,
+     -0.047200001776218414,
+     -0.9998999834060669
+    ],
+    [
+     1.1473000049591064,
+     2.2472000122070312,
+     0.9998999834060669
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometrik jismlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_piramida",
+   "nom_uz": "To'rtburchakli piramida",
+   "nom": "Square pyramid",
+   "fan": "matematika",
+   "kalit": [
+    "piramida",
+    "pyramid",
+    "пирамида",
+    "hajm"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Square pyramid\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_piramida/model.glb",
    "uchburchak": 1510,
    "hajm": 34892,
@@ -168,6 +245,288 @@
    "tur": "real"
   },
   {
+   "id": "geo_tetraedr",
+   "nom_uz": "Uchburchakli piramida (tetraedr)",
+   "nom": "Tetrahedron",
+   "fan": "matematika",
+   "kalit": [
+    "tetraedr",
+    "uchburchakli piramida",
+    "tetrahedron",
+    "тетраэдр",
+    "muntazam ko'pyoq",
+    "platon"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Tetrahedron\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_tetraedr/model.glb",
+   "uchburchak": 1196,
+   "hajm": 27892,
+   "bbox": [
+    [
+     -1.2472000122070312,
+     -0.047200001776218414,
+     -1.4328999519348145
+    ],
+    [
+     1.2472000122070312,
+     2.0067999362945557,
+     0.7401000261306763
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometrik jismlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_piramida6",
+   "nom_uz": "Muntazam oltiburchakli piramida",
+   "nom": "Hexagonal pyramid",
+   "fan": "matematika",
+   "kalit": [
+    "piramida",
+    "oltiburchakli",
+    "hexagonal pyramid",
+    "шестиугольная пирамида",
+    "muntazam"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Hexagonal pyramid\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_piramida6/model.glb",
+   "uchburchak": 2138,
+   "hajm": 48896,
+   "bbox": [
+    [
+     -1.2472000122070312,
+     -0.047200001776218414,
+     -1.0865000486373901
+    ],
+    [
+     1.2472000122070312,
+     2.2472000122070312,
+     1.0865000486373901
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometrik jismlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_kesik_piramida",
+   "nom_uz": "Kesik piramida",
+   "nom": "Frustum of a pyramid",
+   "fan": "matematika",
+   "kalit": [
+    "kesik piramida",
+    "frustum",
+    "усечённая пирамида",
+    "hajm",
+    "piramida"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Frustum of a pyramid\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_kesik_piramida/model.glb",
+   "uchburchak": 2396,
+   "hajm": 54132,
+   "bbox": [
+    [
+     -1.2472000122070312,
+     -0.047200001776218414,
+     -1.2472000122070312
+    ],
+    [
+     1.2472000122070312,
+     1.8472000360488892,
+     1.2472000122070312
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometrik jismlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_oktaedr",
+   "nom_uz": "Oktaedr",
+   "nom": "Octahedron",
+   "fan": "matematika",
+   "kalit": [
+    "oktaedr",
+    "octahedron",
+    "октаэдр",
+    "muntazam ko'pyoq",
+    "platon"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Octahedron\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_oktaedr/model.glb",
+   "uchburchak": 1880,
+   "hajm": 43664,
+   "bbox": [
+    [
+     -1.4615000486373901,
+     -0.047200001776218414,
+     -1.4615000486373901
+    ],
+    [
+     1.4615000486373901,
+     2.875699996948242,
+     1.4615000486373901
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometrik jismlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_dodekaedr",
+   "nom_uz": "Dodekaedr",
+   "nom": "Dodecahedron",
+   "fan": "matematika",
+   "kalit": [
+    "dodekaedr",
+    "dodecahedron",
+    "додекаэдр",
+    "muntazam ko'pyoq",
+    "platon"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Dodecahedron\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_dodekaedr/model.glb",
+   "uchburchak": 5996,
+   "hajm": 132740,
+   "bbox": [
+    [
+     -1.179900050163269,
+     -0.047200001776218414,
+     -1.179900050163269
+    ],
+    [
+     1.179900050163269,
+     2.3125,
+     1.179900050163269
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometrik jismlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_ikosaedr",
+   "nom_uz": "Ikosaedr",
+   "nom": "Icosahedron",
+   "fan": "matematika",
+   "kalit": [
+    "ikosaedr",
+    "icosahedron",
+    "икосаэдр",
+    "muntazam ko'pyoq",
+    "platon"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Icosahedron\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_ikosaedr/model.glb",
+   "uchburchak": 3932,
+   "hajm": 90972,
+   "bbox": [
+    [
+     -1.179900050163269,
+     -0.047200001776218414,
+     -1.179900050163269
+    ],
+    [
+     1.179900050163269,
+     2.3125,
+     1.179900050163269
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometrik jismlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_kubchalar",
+   "nom_uz": "Birlik kubchalardan parallelepiped",
+   "nom": "Unit cubes (4×3×2)",
+   "fan": "matematika",
+   "kalit": [
+    "kubcha",
+    "birlik kub",
+    "unit cube",
+    "единичный куб",
+    "hajm",
+    "sm³"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Unit cubes (4×3×2)\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_kubchalar/model.glb",
+   "uchburchak": 8352,
+   "hajm": 259936,
+   "bbox": [
+    [
+     -1.0958000421524048,
+     -0.015399999916553497,
+     -0.7857000231742859
+    ],
+    [
+     1.055799961090088,
+     1.055400013923645,
+     0.8258000016212463
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometrik jismlar",
+   "tur": "real"
+  },
+  {
    "id": "geo_silindr",
    "nom_uz": "Silindr",
    "nom": "Cylinder",
@@ -175,9 +534,8 @@
    "kalit": [
     "silindr",
     "cylinder",
+    "цилиндр",
     "hajm",
-    "volume",
-    "geometriya",
     "aylanish jismi"
    ],
    "manba": "edufayl",
@@ -186,7 +544,7 @@
    "muallif_url": "",
    "sahifa": "",
    "attribution": "3D: Edufayl · CC0",
-   "attribution_full": "\"Cylinder\" — Edufayl (dasturda yasalgan geometrik jism), CC0",
+   "attribution_full": "\"Cylinder\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_silindr/model.glb",
    "uchburchak": 2108,
    "hajm": 62520,
@@ -198,7 +556,7 @@
     ],
     [
      1.0313999652862549,
-     2.4600000381469727,
+     2.4619998931884766,
      1.0313999652862549
     ]
    ],
@@ -216,9 +574,8 @@
    "kalit": [
     "konus",
     "cone",
+    "конус",
     "hajm",
-    "volume",
-    "geometriya",
     "aylanish jismi"
    ],
    "manba": "edufayl",
@@ -227,7 +584,7 @@
    "muallif_url": "",
    "sahifa": "",
    "attribution": "3D: Edufayl · CC0",
-   "attribution_full": "\"Cone\" — Edufayl (dasturda yasalgan geometrik jism), CC0",
+   "attribution_full": "\"Cone\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_konus/model.glb",
    "uchburchak": 984,
    "hajm": 31288,
@@ -250,6 +607,45 @@
    "tur": "real"
   },
   {
+   "id": "geo_kesik_konus",
+   "nom_uz": "Kesik konus",
+   "nom": "Frustum of a cone",
+   "fan": "matematika",
+   "kalit": [
+    "kesik konus",
+    "frustum",
+    "усечённый конус",
+    "hajm"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Frustum of a cone\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_kesik_konus/model.glb",
+   "uchburchak": 2108,
+   "hajm": 62588,
+   "bbox": [
+    [
+     -1.2314000129699707,
+     -0.03150000050663948,
+     -1.2314000129699707
+    ],
+    [
+     1.2314000129699707,
+     2.062000036239624,
+     1.2314000129699707
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometrik jismlar",
+   "tur": "real"
+  },
+  {
    "id": "geo_shar",
    "nom_uz": "Shar",
    "nom": "Sphere",
@@ -257,9 +653,8 @@
    "kalit": [
     "shar",
     "sphere",
+    "шар",
     "hajm",
-    "volume",
-    "geometriya",
     "aylanish jismi"
    ],
    "manba": "edufayl",
@@ -268,7 +663,7 @@
    "muallif_url": "",
    "sahifa": "",
    "attribution": "3D: Edufayl · CC0",
-   "attribution_full": "\"Sphere\" — Edufayl (dasturda yasalgan geometrik jism), CC0",
+   "attribution_full": "\"Sphere\" — Edufayl (dasturda yasalgan geometrik model), CC0",
    "fayl": "geometriya/geo_shar/model.glb",
    "uchburchak": 7168,
    "hajm": 169936,
@@ -288,6 +683,1163 @@
    "pishirilgan": true,
    "sifat": 4,
    "kategoriya": "Geometrik jismlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_yarim_shar",
+   "nom_uz": "Yarim shar",
+   "nom": "Hemisphere",
+   "fan": "matematika",
+   "kalit": [
+    "yarim shar",
+    "hemisphere",
+    "полушар",
+    "shar"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Hemisphere\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_yarim_shar/model.glb",
+   "uchburchak": 4728,
+   "hajm": 144892,
+   "bbox": [
+    [
+     -1.2314000129699707,
+     -0.03150000050663948,
+     -1.2314000129699707
+    ],
+    [
+     1.2314000129699707,
+     1.2000000476837158,
+     1.2314000129699707
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometrik jismlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_shar_segmenti",
+   "nom_uz": "Shar segmenti",
+   "nom": "Spherical cap",
+   "fan": "matematika",
+   "kalit": [
+    "shar segmenti",
+    "spherical cap",
+    "шаровой сегмент",
+    "shar"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Spherical cap\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_shar_segmenti/model.glb",
+   "uchburchak": 5012,
+   "hajm": 151692,
+   "bbox": [
+    [
+     -1.3188999891281128,
+     -0.0560000017285347,
+     -1.3188999891281128
+    ],
+    [
+     1.3188999891281128,
+     0.8500000238418579,
+     1.3188999891281128
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometrik jismlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_shar_qatlami",
+   "nom_uz": "Shar qatlami",
+   "nom": "Spherical zone",
+   "fan": "matematika",
+   "kalit": [
+    "shar qatlami",
+    "spherical zone",
+    "шаровой слой",
+    "shar"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Spherical zone\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_shar_qatlami/model.glb",
+   "uchburchak": 5880,
+   "hajm": 177736,
+   "bbox": [
+    [
+     -1.2998000383377075,
+     -0.03150000050663948,
+     -1.2998000383377075
+    ],
+    [
+     1.2998000383377075,
+     1.3619999885559082,
+     1.2998000383377075
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometrik jismlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_shar_sektori",
+   "nom_uz": "Shar sektori",
+   "nom": "Spherical sector",
+   "fan": "matematika",
+   "kalit": [
+    "shar sektori",
+    "spherical sector",
+    "шаровой сектор",
+    "shar"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Spherical sector\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_shar_sektori/model.glb",
+   "uchburchak": 5112,
+   "hajm": 155420,
+   "bbox": [
+    [
+     -1.1922999620437622,
+     -0.06300000101327896,
+     -1.1922999620437622
+    ],
+    [
+     1.1922999620437622,
+     1.5,
+     1.1922999620437622
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometrik jismlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_kub_diagonal",
+   "nom_uz": "Kub: diagonali va diagonal kesimi",
+   "nom": "Cube diagonal and diagonal section",
+   "fan": "matematika",
+   "kalit": [
+    "kub diagonali",
+    "diagonal kesim",
+    "диагональ куба",
+    "диагональное сечение",
+    "kesim",
+    "stereometriya"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Cube diagonal and diagonal section\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_kub_diagonal/model.glb",
+   "uchburchak": 2444,
+   "hajm": 56832,
+   "bbox": [
+    [
+     -1.0471999645233154,
+     -0.047200001776218414,
+     -1.0471999645233154
+    ],
+    [
+     1.0471999645233154,
+     2.0471999645233154,
+     1.0471999645233154
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: kesimlar va elementlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_parallelepiped_diagonal",
+   "nom_uz": "Parallelepiped diagonali",
+   "nom": "Cuboid space diagonal",
+   "fan": "matematika",
+   "kalit": [
+    "parallelepiped diagonali",
+    "diagonal",
+    "диагональ параллелепипеда",
+    "kesim",
+    "stereometriya"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Cuboid space diagonal\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_parallelepiped_diagonal/model.glb",
+   "uchburchak": 2444,
+   "hajm": 56804,
+   "bbox": [
+    [
+     -1.5471999645233154,
+     -0.047200001776218414,
+     -1.0471999645233154
+    ],
+    [
+     1.5471999645233154,
+     1.5471999645233154,
+     1.0471999645233154
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: kesimlar va elementlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_piramida_elementlar",
+   "nom_uz": "Piramida: balandlik va apofema",
+   "nom": "Pyramid height and apothem",
+   "fan": "matematika",
+   "kalit": [
+    "balandlik",
+    "apofema",
+    "piramida",
+    "высота пирамиды",
+    "апофема",
+    "stereometriya"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Pyramid height and apothem\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_piramida_elementlar/model.glb",
+   "uchburchak": 2170,
+   "hajm": 51836,
+   "bbox": [
+    [
+     -1.2472000122070312,
+     -0.05950000137090683,
+     -1.252500057220459
+    ],
+    [
+     1.2472000122070312,
+     2.2472000122070312,
+     1.2472000122070312
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: kesimlar va elementlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_konus_kesim",
+   "nom_uz": "Konus: o'q kesimi, yasovchi, radius",
+   "nom": "Cone axial section",
+   "fan": "matematika",
+   "kalit": [
+    "o'q kesimi",
+    "yasovchi",
+    "konus",
+    "осевое сечение конуса",
+    "образующая",
+    "radius"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Cone axial section\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_konus_kesim/model.glb",
+   "uchburchak": 1450,
+   "hajm": 42532,
+   "bbox": [
+    [
+     -1.1313999891281128,
+     -0.0560000017285347,
+     -1.1318000555038452
+    ],
+    [
+     1.1346999406814575,
+     2.4489998817443848,
+     1.1318000555038452
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: kesimlar va elementlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_silindr_kesim",
+   "nom_uz": "Silindr: o'q kesimi",
+   "nom": "Cylinder axial section",
+   "fan": "matematika",
+   "kalit": [
+    "o'q kesimi",
+    "silindr",
+    "осевое сечение цилиндра",
+    "yasovchi",
+    "radius"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Cylinder axial section\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_silindr_kesim/model.glb",
+   "uchburchak": 1964,
+   "hajm": 60372,
+   "bbox": [
+    [
+     -1.0382000207901,
+     -0.03150000050663948,
+     -1.034999966621399
+    ],
+    [
+     1.0382000207901,
+     2.4560000896453857,
+     1.034999966621399
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: kesimlar va elementlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_shar_ichi",
+   "nom_uz": "Shar: markazi va radiuslari (kesib ochilgan)",
+   "nom": "Sphere cut-away",
+   "fan": "matematika",
+   "kalit": [
+    "shar markazi",
+    "radius",
+    "shar",
+    "центр шара",
+    "радиус",
+    "kesim"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Sphere cut-away\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_shar_ichi/model.glb",
+   "uchburchak": 3993,
+   "hajm": 86076,
+   "bbox": [
+    [
+     -1.2000000476837158,
+     0.0,
+     -1.2000000476837158
+    ],
+    [
+     1.2000000476837158,
+     2.4000000953674316,
+     1.2000000476837158
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: kesimlar va elementlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_sharga_ichki_kub",
+   "nom_uz": "Sharga ichki chizilgan kub",
+   "nom": "Cube inscribed in a sphere",
+   "fan": "matematika",
+   "kalit": [
+    "ichki chizilgan",
+    "shar",
+    "kub",
+    "вписанный куб",
+    "kombinatsiya"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Cube inscribed in a sphere\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_sharga_ichki_kub/model.glb",
+   "uchburchak": 12764,
+   "hajm": 365944,
+   "bbox": [
+    [
+     -1.3209999799728394,
+     -0.020999999716877937,
+     -1.3209999799728394
+    ],
+    [
+     1.3209999799728394,
+     2.621000051498413,
+     1.3209999799728394
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: kesimlar va elementlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_silindrga_ichki_konus",
+   "nom_uz": "Silindrga ichki chizilgan konus",
+   "nom": "Cone inscribed in a cylinder",
+   "fan": "matematika",
+   "kalit": [
+    "ichki chizilgan",
+    "silindr",
+    "konus",
+    "вписанный конус",
+    "kombinatsiya",
+    "hajm nisbati"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Cone inscribed in a cylinder\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_silindrga_ichki_konus/model.glb",
+   "uchburchak": 1976,
+   "hajm": 61128,
+   "bbox": [
+    [
+     -1.0313999652862549,
+     -0.03150000050663948,
+     -1.0313999652862549
+    ],
+    [
+     1.0313999652862549,
+     2.43149995803833,
+     1.0313999652862549
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: kesimlar va elementlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_arximed",
+   "nom_uz": "Arximed jismlari: konus, shar, silindr",
+   "nom": "Archimedes: cone, sphere, cylinder",
+   "fan": "matematika",
+   "kalit": [
+    "arximed",
+    "konus shar silindr",
+    "archimedes",
+    "архимед",
+    "hajm nisbati"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Archimedes: cone, sphere, cylinder\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_arximed/model.glb",
+   "uchburchak": 5880,
+   "hajm": 155324,
+   "bbox": [
+    [
+     -3.031399965286255,
+     -0.03150000050663948,
+     -0.8345999717712402
+    ],
+    [
+     3.031399965286255,
+     1.631500005722046,
+     0.8345999717712402
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: kesimlar va elementlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_koordinatalar",
+   "nom_uz": "Fazoviy koordinatalar sistemasi",
+   "nom": "3D coordinate system",
+   "fan": "matematika",
+   "kalit": [
+    "koordinata",
+    "koordinatalar sistemasi",
+    "x y z",
+    "система координат",
+    "vektor",
+    "nuqta"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"3D coordinate system\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_koordinatalar/model.glb",
+   "uchburchak": 1748,
+   "hajm": 52288,
+   "bbox": [
+    [
+     -0.4000000059604645,
+     -0.4000000059604645,
+     -2.4000000953674316
+    ],
+    [
+     2.4000000953674316,
+     2.4000000953674316,
+     0.4000000059604645
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: kesimlar va elementlar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_kub_yoyilma",
+   "nom_uz": "Kub yoyilmasi",
+   "nom": "Net of a cube",
+   "fan": "matematika",
+   "kalit": [
+    "yoyilma",
+    "kub yoyilmasi",
+    "развёртка куба",
+    "sirt yuzi"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Net of a cube\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_kub_yoyilma/model.glb",
+   "uchburchak": 552,
+   "hajm": 20732,
+   "bbox": [
+    [
+     -1.3766000270843506,
+     -0.4765999913215637,
+     -0.029999999329447746
+    ],
+    [
+     2.276599884033203,
+     2.276599884033203,
+     0.029999999329447746
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: yoyilmalar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_parallelepiped_yoyilma",
+   "nom_uz": "Parallelepiped yoyilmasi",
+   "nom": "Net of a cuboid",
+   "fan": "matematika",
+   "kalit": [
+    "yoyilma",
+    "parallelepiped yoyilmasi",
+    "развёртка параллелепипеда",
+    "sirt yuzi"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Net of a cuboid\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_parallelepiped_yoyilma/model.glb",
+   "uchburchak": 552,
+   "hajm": 20768,
+   "bbox": [
+    [
+     -1.2266000509262085,
+     -1.0266000032424927,
+     -0.029999999329447746
+    ],
+    [
+     1.2266000509262085,
+     1.8265999555587769,
+     0.029999999329447746
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: yoyilmalar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_prizma_yoyilma",
+   "nom_uz": "Uchburchakli prizma yoyilmasi",
+   "nom": "Net of a triangular prism",
+   "fan": "matematika",
+   "kalit": [
+    "yoyilma",
+    "prizma yoyilmasi",
+    "развёртка призмы",
+    "sirt yuzi"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Net of a triangular prism\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_prizma_yoyilma/model.glb",
+   "uchburchak": 412,
+   "hajm": 16940,
+   "bbox": [
+    [
+     -1.3766000270843506,
+     -1.4926999807357788,
+     -0.029999999329447746
+    ],
+    [
+     1.3766000270843506,
+     1.4926999807357788,
+     0.029999999329447746
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: yoyilmalar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_piramida_yoyilma",
+   "nom_uz": "Piramida yoyilmasi",
+   "nom": "Net of a square pyramid",
+   "fan": "matematika",
+   "kalit": [
+    "yoyilma",
+    "piramida yoyilmasi",
+    "развёртка пирамиды",
+    "sirt yuzi"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Net of a square pyramid\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_piramida_yoyilma/model.glb",
+   "uchburchak": 364,
+   "hajm": 14608,
+   "bbox": [
+    [
+     -1.6109999418258667,
+     -1.6109999418258667,
+     -0.029999999329447746
+    ],
+    [
+     1.6109999418258667,
+     1.6109999418258667,
+     0.029999999329447746
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: yoyilmalar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_silindr_yoyilma",
+   "nom_uz": "Silindr yoyilmasi",
+   "nom": "Net of a cylinder",
+   "fan": "matematika",
+   "kalit": [
+    "yoyilma",
+    "silindr yoyilmasi",
+    "развёртка цилиндра",
+    "yon sirt",
+    "sirt yuzi"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Net of a cylinder\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_silindr_yoyilma/model.glb",
+   "uchburchak": 2388,
+   "hajm": 79228,
+   "bbox": [
+    [
+     -1.3460999727249146,
+     -1.466599941253662,
+     -0.029999999329447746
+    ],
+    [
+     1.3460999727249146,
+     1.466599941253662,
+     0.029999999329447746
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: yoyilmalar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_konus_yoyilma",
+   "nom_uz": "Konus yoyilmasi",
+   "nom": "Net of a cone",
+   "fan": "matematika",
+   "kalit": [
+    "yoyilma",
+    "konus yoyilmasi",
+    "развёртка конуса",
+    "yon sirt",
+    "sektor"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Net of a cone\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_konus_yoyilma/model.glb",
+   "uchburchak": 2320,
+   "hajm": 76920,
+   "bbox": [
+    [
+     -1.285099983215332,
+     -1.7266000509262085,
+     -0.029999999329447746
+    ],
+    [
+     1.285099983215332,
+     0.7261999845504761,
+     0.029999999329447746
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: yoyilmalar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_uchburchak",
+   "nom_uz": "Teng tomonli uchburchak",
+   "nom": "Equilateral triangle",
+   "fan": "matematika",
+   "kalit": [
+    "uchburchak",
+    "teng tomonli",
+    "triangle",
+    "треугольник",
+    "yuza"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Equilateral triangle\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_uchburchak/model.glb",
+   "uchburchak": 68,
+   "hajm": 4024,
+   "bbox": [
+    [
+     -1.1231000423431396,
+     -0.6765999794006348,
+     -0.029999999329447746
+    ],
+    [
+     1.1231000423431396,
+     1.2683000564575195,
+     0.029999999329447746
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: tekis shakllar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_togri_uchburchak",
+   "nom_uz": "To'g'ri burchakli uchburchak",
+   "nom": "Right triangle",
+   "fan": "matematika",
+   "kalit": [
+    "to'g'ri burchakli uchburchak",
+    "pifagor",
+    "right triangle",
+    "прямоугольный треугольник",
+    "katet",
+    "gipotenuza"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Right triangle\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_togri_uchburchak/model.glb",
+   "uchburchak": 100,
+   "hajm": 4972,
+   "bbox": [
+    [
+     -1.0266000032424927,
+     -0.7265999913215637,
+     -0.029999999329447746
+    ],
+    [
+     1.0160000324249268,
+     0.8213000297546387,
+     0.08150000125169754
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: tekis shakllar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_kvadrat",
+   "nom_uz": "Kvadrat",
+   "nom": "Square",
+   "fan": "matematika",
+   "kalit": [
+    "kvadrat",
+    "square",
+    "квадрат",
+    "yuza",
+    "perimetr"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Square\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_kvadrat/model.glb",
+   "uchburchak": 92,
+   "hajm": 4760,
+   "bbox": [
+    [
+     -0.9265999794006348,
+     -0.9265999794006348,
+     -0.029999999329447746
+    ],
+    [
+     0.9265999794006348,
+     0.9265999794006348,
+     0.029999999329447746
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: tekis shakllar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_togri_tortburchak",
+   "nom_uz": "To'g'ri to'rtburchak",
+   "nom": "Rectangle",
+   "fan": "matematika",
+   "kalit": [
+    "to'g'ri to'rtburchak",
+    "rectangle",
+    "прямоугольник",
+    "yuza",
+    "perimetr"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Rectangle\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_togri_tortburchak/model.glb",
+   "uchburchak": 92,
+   "hajm": 4780,
+   "bbox": [
+    [
+     -1.2266000509262085,
+     -0.7265999913215637,
+     -0.029999999329447746
+    ],
+    [
+     1.2266000509262085,
+     0.7265999913215637,
+     0.029999999329447746
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: tekis shakllar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_parallelogramm",
+   "nom_uz": "Parallelogramm",
+   "nom": "Parallelogram",
+   "fan": "matematika",
+   "kalit": [
+    "parallelogramm",
+    "parallelogram",
+    "параллелограмм",
+    "yuza"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Parallelogram\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_parallelogramm/model.glb",
+   "uchburchak": 188,
+   "hajm": 7672,
+   "bbox": [
+    [
+     -1.2237999439239502,
+     -0.6266000270843506,
+     -0.029999999329447746
+    ],
+    [
+     1.2237999439239502,
+     0.6266000270843506,
+     0.06920000165700912
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: tekis shakllar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_romb",
+   "nom_uz": "Romb",
+   "nom": "Rhombus",
+   "fan": "matematika",
+   "kalit": [
+    "romb",
+    "rhombus",
+    "ромб",
+    "diagonal",
+    "yuza"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Rhombus\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_romb/model.glb",
+   "uchburchak": 396,
+   "hajm": 13852,
+   "bbox": [
+    [
+     -0.7720000147819519,
+     -1.1150000095367432,
+     -0.029999999329447746
+    ],
+    [
+     0.7720000147819519,
+     1.1150000095367432,
+     0.06920000165700912
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: tekis shakllar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_trapetsiya",
+   "nom_uz": "Trapetsiya",
+   "nom": "Trapezoid",
+   "fan": "matematika",
+   "kalit": [
+    "trapetsiya",
+    "trapezoid",
+    "трапеция",
+    "yuza"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Trapezoid\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_trapetsiya/model.glb",
+   "uchburchak": 188,
+   "hajm": 7656,
+   "bbox": [
+    [
+     -1.2237999439239502,
+     -0.6266000270843506,
+     -0.029999999329447746
+    ],
+    [
+     1.2237999439239502,
+     0.6266000270843506,
+     0.06920000165700912
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: tekis shakllar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_doira",
+   "nom_uz": "Doira va aylana",
+   "nom": "Circle",
+   "fan": "matematika",
+   "kalit": [
+    "doira",
+    "aylana",
+    "circle",
+    "круг",
+    "окружность",
+    "radius"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Circle\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_doira/model.glb",
+   "uchburchak": 2008,
+   "hajm": 62992,
+   "bbox": [
+    [
+     -1.0266000032424927,
+     -1.0266000032424927,
+     -0.029999999329447746
+    ],
+    [
+     1.0266000032424927,
+     1.0266000032424927,
+     0.10599999874830246
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: tekis shakllar",
+   "tur": "real"
+  },
+  {
+   "id": "geo_oltiburchak",
+   "nom_uz": "Muntazam oltiburchak",
+   "nom": "Regular hexagon",
+   "fan": "matematika",
+   "kalit": [
+    "oltiburchak",
+    "muntazam ko'pburchak",
+    "hexagon",
+    "шестиугольник"
+   ],
+   "manba": "edufayl",
+   "litsenziya": "CC0",
+   "muallif": "Edufayl",
+   "muallif_url": "",
+   "sahifa": "",
+   "attribution": "3D: Edufayl · CC0",
+   "attribution_full": "\"Regular hexagon\" — Edufayl (dasturda yasalgan geometrik model), CC0",
+   "fayl": "geometriya/geo_oltiburchak/model.glb",
+   "uchburchak": 140,
+   "hajm": 6296,
+   "bbox": [
+    [
+     -1.0231000185012817,
+     -0.8927000164985657,
+     -0.029999999329447746
+    ],
+    [
+     1.0231000185012817,
+     0.8927000164985657,
+     0.029999999329447746
+    ]
+   ],
+   "animatsiya": 0,
+   "pishirilgan": true,
+   "sifat": 4,
+   "kategoriya": "Geometriya: tekis shakllar",
    "tur": "real"
   }
  ]
