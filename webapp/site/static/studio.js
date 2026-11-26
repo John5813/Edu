@@ -64,6 +64,7 @@
   const S = {kind: 'premium_presentation', topic: '', lang: '', src: {kind: 'ai', text: '', label: '', words: 0},
     style: 'toza', volume: 'kam', count: 10, author: '', prefs: '', size: '', extras: [], pstyle: 'murakkab', trial: false,
     univ: '', fac: '', grp: '', theme: '', photos: 'mix', template: '', plan: false, icons: true, anim: false, thanks: '',
+    models: [],                       // 3D: mijoz o'zi tanlagan modellar [{id, name}] — reja shular atrofida tuziladi
     suggest: {language: '', theme: null}};
 
   const kindOf = (k) => catalog && catalog.kinds.find((x) => x.key === k);
@@ -285,7 +286,130 @@
         <div class="c3d-act"><button type="button" class="btn sm" data-a="modern">📝 Zamonaviy bilan yaratish</button><button type="button" class="btn sm out" data-a="info">🎨 Infografik bilan</button><button type="button" class="btn sm ghost" data-a="topic">Boshqa mavzu yozish</button></div></div>`;
     } else if (C3.state === 'unsure') box.innerHTML = `<div class="c3d-st"><span>ℹ️ ${E.esc(r.message || '')}</span></div>`;
     else box.innerHTML = '';
-    box.onclick = (e) => { const b = e.target.closest('[data-a]'); if (b) switch3d(b.dataset.a); };
+    if (C3.state && C3.state !== 'busy' && r.mode !== 'anatomy') box.insertAdjacentHTML('beforeend', pickBlock());
+    box.onclick = (e) => {
+      const b = e.target.closest('[data-a]'); if (!b) return;
+      if (b.dataset.a === 'pick') return openPicker(b.dataset.fan || '');
+      if (b.dataset.a === 'auto') { S.models = []; paint3d(); summary(); save(); return; }
+      switch3d(b.dataset.a);
+    };
+  }
+  // «🧩 Modellarni o'zim tanlayman»: tanlangan bo'lsa — kichik rasmlar qatori, bo'lmasa — fan bo'yicha tugma.
+  function pickBlock() {
+    const r = C3.res || {}, fan = (r.fans || [])[0];
+    if (S.models.length) {
+      return `<div class="c3d-pick on"><b>🧩 Siz tanlagan ${S.models.length} ta model</b>
+        <span>Reja aynan shu modellar atrofida tuziladi: har varaq o‘z modeli haqida.</span>
+        <div class="c3d-pv">${S.models.map((m) => `<img src="/api/v1/3d/model/${encodeURIComponent(m.id)}.jpg" alt="${E.esc(m.name)}" title="${E.esc(m.name)}" loading="lazy">`).join('')}</div>
+        <div class="c3d-act"><button type="button" class="btn sm" data-a="pick">✏️ O‘zgartirish</button><button type="button" class="btn sm ghost" data-a="auto">↺ Avtomatik tanlovga qaytish</button></div></div>`;
+    }
+    const label = fan ? `${E.esc(fan.label)} modellarini o‘zim tanlayman` : '3D modellarni o‘zim tanlayman';
+    const hint = C3.state === 'no' ? 'Katalogdan mavzuga mos modellarni o‘zingiz topsangiz, taqdimot shular bilan yaratiladi.'
+      : 'Mos modellarni hammasini ko‘rib, o‘zingiz tanlang — reja tanlovingizga qarab tuziladi.';
+    return `<div class="c3d-pick"><button type="button" class="btn sm out" data-a="pick" data-fan="${E.esc(fan ? fan.key : '')}">🧩 ${label}</button><span>${hint}</span></div>`;
+  }
+
+  // ───────────────────────────────────────────── 3D modellarni qo'lda tanlash oynasi
+  function openPicker(fan) {
+    const r = C3.res || {};
+    const P = {fan, kat: '', q: '', items: [], next: 0, busy: false, seq: 0, fans: [], topicFans: [], max: 12, min: 2,
+      all: false, sel: new Map(S.models.map((m) => [m.id, m]))};
+    const modal = document.createElement('div');
+    modal.className = 'modal mp';
+    modal.innerHTML = `<div class="mp-box" role="dialog" aria-modal="true" aria-label="3D modellarni tanlash">
+      <div class="mp-head"><div><b>3D modellarni tanlang</b><span>${E.esc(S.topic.trim())}</span></div><button type="button" class="mp-x" data-m="x" aria-label="Yopish">✕</button></div>
+      <input class="fld mp-q" type="search" placeholder="Model qidirish: masalan, yurak, molekula, piramida" maxlength="80">
+      <div class="mp-fans"></div><div class="mp-kats"></div>
+      <div class="mp-scroll"><div class="mp-grid"></div><div class="mp-more"></div></div>
+      <div class="mp-foot"><div class="mp-cnt"></div><div class="mp-btns"><button type="button" class="btn sm ghost" data-m="clear">Tozalash</button><button type="button" class="btn sm" data-m="done">Tayyor</button></div></div>
+    </div>`;
+    document.body.appendChild(modal);
+    document.body.classList.add('noscroll');
+    const q = (sel) => modal.querySelector(sel);
+    const grid = q('.mp-grid'), more = q('.mp-more'), scroller = q('.mp-scroll');
+    const close = () => { obs.disconnect(); modal.remove(); document.body.classList.remove('noscroll'); document.removeEventListener('keydown', onKey); };
+    const onKey = (e) => { if (e.key === 'Escape') { if (q('.mp-lb')) q('.mp-lb').remove(); else close(); } };
+    document.addEventListener('keydown', onKey);
+    const count = () => {
+      q('.mp-cnt').innerHTML = `<b>Tanlandi: ${P.sel.size}</b> / ${P.max}${P.sel.size && P.sel.size < P.min ? ` <span>· kamida ${P.min} ta</span>` : ''}`;
+    };
+    const fanChips = () => {
+      const top = P.topicFans.map((k) => P.fans.find((f) => f.key === k)).filter(Boolean);
+      const shown = P.all || !top.length ? P.fans : top;
+      q('.mp-fans').innerHTML = (P.all || !top.length ? `<button type="button" class="chip sm${P.fan ? '' : ' on'}" data-fan="">Hammasi</button>` : '') +
+        shown.map((f) => `<button type="button" class="chip sm${f.key === P.fan ? ' on' : ''}" data-fan="${E.esc(f.key)}">${E.esc(f.label)} <small>${f.count}</small></button>`).join('') +
+        (top.length && !P.all ? '<button type="button" class="chip sm mp-other" data-m="all">🔎 Boshqa fanlar modellarini ko‘rish</button>' : '');
+    };
+    const katChips = (kats) => {
+      q('.mp-kats').innerHTML = kats.length > 1 ? `<button type="button" class="chip sm${P.kat ? '' : ' on'}" data-kat="">Barcha bo‘limlar</button>` +
+        kats.map((k) => `<button type="button" class="chip sm${k.key === P.kat ? ' on' : ''}" data-kat="${E.esc(k.key)}">${E.esc(k.key)} <small>${k.count}</small></button>`).join('') : '';
+    };
+    const cardHtml = (m) => `<button type="button" class="mp-card${P.sel.has(m.id) ? ' on' : ''}" data-id="${E.esc(m.id)}" data-name="${E.esc(m.name)}">
+        <img src="/api/v1/3d/model/${encodeURIComponent(m.id)}.jpg" alt="" loading="lazy"><i class="mp-ck">✓</i>${m.mos ? '<i class="mp-mos">Mavzuga mos</i>' : ''}
+        <span class="mp-zoom" data-z="1" title="Kattalashtirish">🔍</span><b>${E.esc(m.name)}</b></button>`;
+    async function load(reset) {
+      if (P.busy && !reset) return;
+      if (!reset && P.next === null) return;
+      const my = ++P.seq;
+      if (reset) { P.next = 0; grid.innerHTML = ''; scroller.scrollTop = 0; }
+      P.busy = true; more.innerHTML = '<span class="spin"></span>';
+      const qs = new URLSearchParams({topic: S.topic.trim(), language: S.lang || '', fan: P.fan, kat: P.kat, q: P.q, offset: String(P.next || 0)});
+      if (P.first === undefined) qs.set('ids', (S.models.length ? S.models.map((m) => m.id) : (r.pick || [])).join(','));
+      let d;
+      try { d = await E.api('/3d/models?' + qs.toString()); } catch (e) {
+        if (my === P.seq) { P.busy = false; more.innerHTML = `<div class="note bad">${E.esc(e.message)}</div>`; }
+        return;
+      }
+      if (my !== P.seq) return;
+      P.busy = false;
+      if (P.first === undefined) {
+        P.first = true; P.fans = d.fans || []; P.topicFans = d.topic_fans || []; P.max = d.max || 12; P.min = d.min || 2;
+        if (!S.models.length) (d.chosen || []).forEach((m) => P.sel.set(m.id, {id: m.id, name: m.name}));
+        if (P.fan && !P.fans.some((f) => f.key === P.fan)) P.fan = '';
+        if (!P.fan && P.topicFans.length) { P.fan = P.topicFans[0]; fanChips(); count(); return load(true); }
+        fanChips(); count();
+      }
+      if (reset || !P.next) katChips(d.kats || []);
+      grid.insertAdjacentHTML('beforeend', (d.items || []).map(cardHtml).join(''));
+      P.next = d.next;
+      more.innerHTML = !d.total ? `<div class="mp-empty">Hech narsa topilmadi.${P.fan || P.kat ? ' <button type="button" class="btn sm out" data-m="everywhere">Barcha fanlardan qidirish</button>' : ''}</div>`
+        : d.next === null ? `<div class="mp-end">Hammasi ko‘rsatildi: ${d.total} ta model</div>` : '';
+    }
+    const obs = new IntersectionObserver((en) => { if (en.some((x) => x.isIntersecting)) load(false); }, {root: scroller, rootMargin: '600px'});
+    obs.observe(more);
+    let qt = null;
+    q('.mp-q').oninput = (e) => { clearTimeout(qt); qt = setTimeout(() => { P.q = e.target.value.trim(); P.kat = ''; load(true); }, 350); };
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) return close();
+      const lb = e.target.closest('.mp-lb'); if (lb) { lb.remove(); return; }
+      const f = e.target.closest('[data-fan]');
+      if (f) { P.fan = f.dataset.fan; P.kat = ''; fanChips(); return load(true); }
+      const k = e.target.closest('[data-kat]');
+      if (k) { P.kat = k.dataset.kat; q('.mp-kats').querySelectorAll('[data-kat]').forEach((x) => x.classList.toggle('on', x === k)); return load(true); }
+      const c = e.target.closest('.mp-card');
+      if (c && e.target.closest('[data-z]')) {
+        modal.querySelector('.mp-box').insertAdjacentHTML('beforeend', `<div class="mp-lb"><img src="/api/v1/3d/model/${encodeURIComponent(c.dataset.id)}.jpg" alt=""><b>${E.esc(c.dataset.name)}</b><span>Bosing — yopiladi</span></div>`);
+        return;
+      }
+      if (c) {
+        const id = c.dataset.id;
+        if (P.sel.has(id)) P.sel.delete(id);
+        else if (P.sel.size >= P.max) { E.toast(`Ko‘pi bilan ${P.max} ta model tanlash mumkin`); return; }
+        else P.sel.set(id, {id, name: c.dataset.name});
+        c.classList.toggle('on', P.sel.has(id)); count(); return;
+      }
+      const m = e.target.closest('[data-m]'); if (!m) return;
+      if (m.dataset.m === 'x') close();
+      else if (m.dataset.m === 'all') { P.all = true; fanChips(); }
+      else if (m.dataset.m === 'everywhere') { P.all = true; P.fan = ''; P.kat = ''; fanChips(); load(true); }
+      else if (m.dataset.m === 'clear') { P.sel.clear(); grid.querySelectorAll('.mp-card.on').forEach((x) => x.classList.remove('on')); count(); }
+      else if (m.dataset.m === 'done') {
+        if (P.sel.size === 1) { E.toast(`Kamida ${P.min} ta model tanlang (yoki «Tozalash» — avtomatik tanlov)`); return; }
+        S.models = [...P.sel.values()];
+        close(); paint3d(); summary(); save();
+      }
+    });
+    load(true);
   }
   // 3D mos kelmadi: bir bosishda shu mavzu bilan boshqa tur yoki yangi mavzu.
   function switch3d(a) {
@@ -514,7 +638,8 @@
         if (catalog.thanks) rows.push(['Rahmat sahifasi', S.thanks ? (((thanksList || []).find((a) => a.key === S.thanks) || {}).name || '✓') : 'Yo‘q']);
       }
     } else if (threeD()) {
-      rows = [['Turi', '3D taqdimot'], ['Slaydlar', ((o.sizes || []).find((x) => x.key === S.size) || {}).label || '']];
+      rows = [['Turi', '3D taqdimot'], ['Slaydlar', ((o.sizes || []).find((x) => x.key === S.size) || {}).label || ''],
+        ['3D modellar', S.models.length ? `Siz tanlagan: ${S.models.length} ta` : 'Avtomatik']];
     } else if (classic()) {
       const t = (catalog.templates || []).find((x) => x.id === S.template);
       rows = [['Turi', 'Klassik'], ['Shablon', t ? t.name : '—'], ['Slaydlar', ((o.sizes || []).find((x) => x.key === S.size) || {}).label || ''],
@@ -570,6 +695,7 @@
         thanks: catalog.thanks ? S.thanks : ''});
     } else if (threeD()) {
       Object.assign(p, {slide_count: parseInt(S.size, 10) || 8, preferences: prefsForAi(S.prefs.trim())});
+      if (S.models.length >= 2) p.models = S.models.map((m) => m.id);
     } else if (classic()) {
       Object.assign(p, {slide_count: parseInt(S.size, 10) || 10, template: S.template, plan_slide: !!S.plan,
         icons: !!S.icons, preferences: prefsForAi(S.prefs.trim())});
@@ -598,7 +724,7 @@
       btn.disabled = true; btn.innerHTML = spin + '&nbsp; Tekshirilmoqda…';
       await check3d(true);
       btn.disabled = false; btn.textContent = 'Yaratish';
-      if (C3.state === 'no') {
+      if (C3.state === 'no' && S.models.length < 2) {
         const box = $('c3d');
         if (box) box.scrollIntoView({behavior: 'smooth', block: 'center'});
         return;

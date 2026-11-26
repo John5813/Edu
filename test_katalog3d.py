@@ -192,5 +192,28 @@ print(json.dumps({"made": made, "again": again, "ours": len(ours), "missing": [i
     check("uchlikdan o'tgan slaydda bitta model qoladi", len(u2["models"]) <= 1 and not u2["items"], u2)
     check("AI model qo'ymagan slaydga tasodifiy model qo'yilmadi", not p["slides"][3]["models"], p["slides"][3])
 
+    # mijoz modellarni o'zi tanlagan («chosen»): reja AI'ga model nima ekanini aniq aytadi, uchlik begona model bilan to'lmaydi
+    from services.kat3d import ai as kai
+    seen = {}
+    def fake_call(system, user, *a, **k):
+        seen["system"], seen["user"] = system, user
+        return raw
+    old_call = kai.call_json
+    kai.call_json = fake_call
+    try:
+        reja.plan("Hujayra", 5, ids, "uz", chosen=True, review_ok=False)
+    finally:
+        kai.call_json = old_call
+    check("chosen: AI ga «modellar atrofida, har varaq o'z modeli haqida» qoidasi", "HAND-PICKED" in seen.get("system", "")
+          and "MIXED DECK" not in seen.get("system", ""))
+    check("chosen: model qatorida bo'lim va kalit so'zlar", katalog3d.katalog()[ids[0]].get("kategoriya", "") in seen.get("user", ""))
+    one = {"slides": [{"layout": "muqova", "title": "T", "models": ["m0"]},
+                      {"layout": "uchlik", "title": "U", "items": [item("m1", "Faqat bitta")]},
+                      {"layout": "matn", "title": "M", "paragraphs": [S]},
+                      {"layout": "yakun", "title": "Y", "points": [S]}]}
+    st = reja.normalize(one, 4, ids, codes, strict=True)["slides"][1]
+    check("chosen: uchlikka AI yozmagan model qo'shilmadi (matnli slaydga o'tdi)", st["layout"] != "uchlik"
+          and "Faqat bitta" in " ".join(st["points"] + st["paragraphs"] + [st["subtitle"]]), st)
+
 print("HAMMASI OK" if not FAILS else f"{len(FAILS)} ta XATO: {FAILS}")
 sys.exit(1 if FAILS else 0)

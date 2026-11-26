@@ -610,8 +610,14 @@ def _three_d_normalize(raw: Dict) -> Dict:
         detect_language(topic))
     if language not in THREE_D_LANGUAGES:
         language = "uz"
-    return {"topic": topic, "slide_count": max(THREE_D_MIN, min(count, THREE_D_MAX)), "language": language,
-            "author": _text(raw, "author", 80), "preferences": _text(raw, "preferences", 1000)}
+    from services.kat3d import tanlov
+
+    out = {"topic": topic, "slide_count": max(THREE_D_MIN, min(count, THREE_D_MAX)), "language": language,
+           "author": _text(raw, "author", 80), "preferences": _text(raw, "preferences", 1000)}
+    models = tanlov.toza(raw.get("models"))       # mijoz saytda qo'li bilan tanlagan modellar (2-12 ta)
+    if models:
+        out["models"] = models
+    return out
 
 
 def _three_d_price(params: Dict) -> int:
@@ -643,7 +649,9 @@ async def _three_d_run(params: Dict, report: Report) -> Tuple[str, str]:
     report("writing", 4)
     web_jobs.note(job_id, slides=count)        # sayt animatsiyasi aynan shuncha slayd ko'rsatsin (muqova shu songa kiradi)
     # Mijoz mavzuni yozganda (to'lovdan oldin) tekshirilgan qaror qayta ishlatiladi — tekshiruv va buyurtma bir xil.
-    decision = await three_d_gate.check(topic, language)
+    chosen = list(params.get("models") or [])
+    # Mijoz modellarni o'zi tanlagan bo'lsa — mavzu tekshiruvi kerak emas: reja aynan shu modellar atrofida tuziladi.
+    decision = {"mode": "catalog", "ids": chosen} if chosen else await three_d_gate.check(topic, language)
 
     def stage(name: str, info: dict) -> None:
         report(name if name in ("images", "render") else "writing",
@@ -656,7 +664,7 @@ async def _three_d_run(params: Dict, report: Report) -> Tuple[str, str]:
         import services.kat3d as kat3d
         path, _slides = await kat3d.build_deck(topic, count, list(decision["ids"]), language=language,
                                                preferences=params["preferences"], stage_cb=stage, mode="full",
-                                               author=params["author"])
+                                               author=params["author"], chosen=bool(chosen))
     else:
         raise JobError(three_d_gate.NO_3D, "no_3d")
     if job_id:

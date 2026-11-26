@@ -131,9 +131,10 @@ class NoModels(RuntimeError):
 async def build_deck(topic: str, slide_count: int, model_ids: List[str], *, language: str = "uz",
                      level: int = 2, preferences: str = "", style: Optional[str] = None,
                      stage_cb: Optional[Callable[[str, Dict], None]] = None, mode: str = "full",
-                     author: str = "") -> Tuple[str, int]:
+                     author: str = "", chosen: bool = False) -> Tuple[str, int]:
     """Bot uchun: (PPTX yo'li, slaydlar soni). `model_ids` — mavzu tekshiruvida mijozga ko'rsatilgan (aralash
-    rejimda — mijoz o'zi tanlagan) modellar. `mode="mix"` — qolgan slaydlar 3D'siz: diagramma, rasm, matn."""
+    rejimda — mijoz o'zi tanlagan) modellar. `mode="mix"` — qolgan slaydlar 3D'siz: diagramma, rasm, matn.
+    `chosen` — modellarni mijoz saytda qo'li bilan tanlagan: reja shu modellar atrofida tuziladi."""
     from . import deck, reja, tadqiqot, yukla
 
     def stage(name: str, **info) -> None:
@@ -192,7 +193,7 @@ async def build_deck(topic: str, slide_count: int, model_ids: List[str], *, lang
     review = (time.monotonic() - t0) < REVIEW_UNTIL
     plan = await asyncio.wait_for(loop.run_in_executor(
         None, lambda: reja.plan(topic, count, ids, language, level, preferences, style, mix, research,
-                                review_ok=review)), 6 * 60)
+                                review_ok=review, chosen=chosen and not mix)), 6 * 60)
     mark = lap("reja", mark)
     if research:
         _add_sources(plan, research, language)
